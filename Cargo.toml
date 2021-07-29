@@ -1,0 +1,8 @@
+[package]
+name = "mithril"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+blst = "0.3.4"
+neptune = "2.7.0"
