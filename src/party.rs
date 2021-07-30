@@ -1,14 +1,32 @@
-use super::{Unknown, Stake, PartyId, scaling_function};
+use super::{Stake, PartyId, Index, Path, scaling_function};
 use crate::key_reg::KeyReg;
-use crate::msp::{MSP, SK};
+use crate::msp::{self, MSP};
 use crate::merkle_tree::MerkleTree;
+use crate::proof::{ConcatProof, Witness};
 
 pub struct Party {
     party_id: PartyId,
     stake: Stake,
     rs: crate::ref_str::ReferenceString,
     avk: Option<MerkleTree>,
-    sk: Option<SK>,
+    sk: Option<msp::SK>,
+    pk: Option<msp::PK>,
+}
+
+#[derive(Clone,Copy)]
+pub struct Sig {
+    sigma: msp::Sig,
+    pk: msp::PK,
+    party: PartyId,
+    stake: Stake,
+    path: Path,
+}
+
+#[derive(Clone)]
+pub struct MultiSig {
+    ivk: msp::MVK,
+    mu: msp::Sig,
+    proof: ConcatProof,
 }
 
 impl Party {
@@ -22,6 +40,7 @@ impl Party {
             rs: crate::ref_str::get_reference_string(),
             avk: None,
             sk: None,
+            pk: None,
         }
     }
 
@@ -31,6 +50,7 @@ impl Party {
         // send (Register, sid, vk_i) to F_KR
         let (sk, pk) = MSP::gen();
         self.sk = Some(sk);
+        self.pk = Some(pk.clone());
         kr.register(self.party_id, self.stake, pk);
     }
 
@@ -46,20 +66,18 @@ impl Party {
     /////////////////////
     // Operation phase //
     /////////////////////
-    pub fn eligibility_check(&self, msg: &[u8], index: Unknown) -> bool {
+    pub fn eligibility_check(&self, msg: &[u8], index: Index) -> bool {
         // let msg' <- AVK || msg
         // sigma <- MSP.Sig(msk, msg')
         // ev <- MSP.Eval(msg', index, sigma)
         // return 1 if ev < phi(stake) else return 0
-        let mut msgp = msg.to_vec();
-        let mut avk_bytes = self.avk.as_ref().unwrap().to_bytes();
-        msgp.append(&mut avk_bytes);
+        let msgp = self.avk.as_ref().unwrap().concat_with_msg(msg);
         let sigma = MSP::sig(self.sk.as_ref().unwrap(), &msgp);
         let ev = MSP::eval(&msgp, index, &sigma);
         ev < scaling_function(self.stake)
     }
 
-    pub fn create_sig(&self, msg: &[u8], index: Unknown) -> Option<Unknown> {
+    pub fn create_sig(&self, msg: &[u8], index: Index) -> Option<Sig> {
         if self.eligibility_check(msg, index) {
             // msg' <- AVK||msg
             // sigma <- MSP.Sig(msk,msg')
@@ -67,14 +85,71 @@ impl Party {
             //      p_i is the users path inside the merkle tree AVK
             //      reg_i is (mvk_i, stake_i)
             // return pi
-            Some(0)
+            let msgp = self.avk.as_ref().unwrap().concat_with_msg(msg);
+            let sigma = MSP::sig(self.sk.as_ref().unwrap(), &msgp);
+            let path = self.avk.as_ref().unwrap().get_path(self.party_id);
+            let pk = self.pk.as_ref().unwrap().clone();
+            Some(Sig {
+                sigma,
+                pk,
+                party: self.party_id,
+                stake: self.stake,
+                path,
+            })
         } else {
             None
         }
     }
 
-    // TODO
-    pub fn verify() {}
-    pub fn aggregate() {}
-    pub fn verify_aggregate() {}
+    pub fn verify(&self, sig: Sig, index: Index, msg: &[u8]) -> bool {
+        let avk = self.avk.as_ref().unwrap();
+        let msgp = avk.concat_with_msg(msg);
+        let ev = MSP::eval(&msgp, index, &sig.sigma);
+        if !(ev < scaling_function(sig.stake)) ||
+            !avk.check((sig.pk.clone(), sig.stake), index, sig.path)
+        {
+            return false;
+        }
+        MSP::ver(&msgp, &sig.pk.mvk, &sig.sigma)
+    }
+
+    pub fn aggregate(&self, sigs: &[Sig], indices: &[Index], msg: &[u8]) -> Option<MultiSig> {
+        let avk = self.avk.as_ref().unwrap();
+        let msgp = avk.concat_with_msg(msg);
+        let mut seen_parties = std::collections::HashSet::new();
+        let mut evals = Vec::new();
+        for (sig, ix) in sigs.iter().zip(indices.iter()) {
+            if !self.verify(*sig, *ix, msg) ||
+                seen_parties.contains(&sig.party)
+            {
+                return None;
+            }
+            seen_parties.insert(sig.party);
+            evals.push(MSP::eval(&msgp, *ix, &sig.sigma));
+        }
+        let mvks = sigs.iter().map(|sig| sig.pk.mvk).collect::<Vec<_>>();
+        let sigmas = sigs.iter().map(|sig| sig.sigma).collect::<Vec<_>>();
+        let ivk = MSP::aggregate_keys(&mvks);
+        let mu = MSP::aggregate_sigs(msg, &sigmas);
+        let witness = Witness {
+            sigs: sigs.to_vec(),
+            indices: indices.to_vec(),
+            evals,
+        };
+        let proof = ConcatProof::prove(avk, &ivk, msg, &witness);
+        Some(MultiSig {
+            ivk,
+            mu,
+            proof,
+        })
+    }
+
+    pub fn verify_aggregate(&self, msig: &MultiSig, msg: &[u8]) -> bool {
+        let avk = self.avk.as_ref().unwrap();
+        if !msig.proof.verify(avk, &msig.ivk, msg) {
+            return false;
+        }
+        let msgp = avk.concat_with_msg(msg);
+        MSP::aggregate_ver(&msgp, &msig.ivk, &msig.mu)
+    }
 }

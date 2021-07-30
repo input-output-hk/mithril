@@ -1,23 +1,23 @@
 //! Multisignature scheme API
 
-use super::Unknown;
+use super::{Unknown, Index};
 
 pub struct MSP { }
 
-#[derive(Clone)]
+#[derive(Clone,Copy)]
 pub struct SK(Unknown);
 
-#[derive(Clone)]
+#[derive(Clone,Copy)]
 pub struct MVK(Unknown);
 
-#[derive(Clone)]
+#[derive(Clone,Copy)]
 pub struct PK {
-    mvk: MVK,
-    k1: Unknown,
-    k2: Unknown,
+    pub mvk: MVK,
+    pub k1: Unknown,
+    pub k2: Unknown,
 }
 
-#[derive(Clone)]
+#[derive(Clone,Copy)]
 pub struct Sig(Unknown);
 
 impl MSP {
@@ -66,9 +66,15 @@ impl MSP {
         Self::ver(msg, ivk, mu)
     }
 
-    pub fn eval(msg: &[u8], index: Unknown, sigma: &Sig) -> Unknown {
+    pub fn eval(msg: &[u8], index: Index, sigma: &Sig) -> Unknown {
         // XXX: See section 6 to implement M from Elligator Squared
         // return ev <- M_msg,index(sigma)
+        unimplemented!()
+    }
+}
+
+impl MVK {
+    pub fn to_bytes(&self) -> Vec<u8> {
         unimplemented!()
     }
 }
