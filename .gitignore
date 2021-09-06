@@ -1,0 +1,4 @@
+mithril.cabal
+.stack-work/
+.direnv/
+*~
