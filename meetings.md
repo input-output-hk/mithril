@@ -2,6 +2,26 @@
 
 Meeting minutes are sorted by date, most recent first.
 
+## 2021-09-07 - Roman/Dmytrov
+
+Introductions:
+* Arnaud is tech architect for Hydra
+* Roman worked for IOG for years, reasearch on consensus/ouroboros, work on midnight
+* Dmytro involved in the stablecoin project
+
+Current situation:
+* Charles asked RO to find a team in Ukraine to implement Mithril node -> IdyllicVision, used to work w/ several types of ledger
+* Idyllic vision will implement network/storage, waiting for SoW
+* NDA is signed
+* AB produced some docs from the paper and discussions
+
+Information needed:
+* API to get access to cardano ledger, to get the full chain, interface to cryptographic functions
+* Scorex and Mantis frameworks in Scala
+* Links to Haskell libraries, entrypoint to read the blockchain?
+* Impossible to build the UTXO Set outside of Haskell => need DB Sync to read the UTXO set from PG
+* Initially, Mithril node does not need to post TXs to the Cardano node => just read only access so no need to have an API to post txs
+
 ## 2021-09-07 - Mithril Protocol Details
 
 ### Setup
