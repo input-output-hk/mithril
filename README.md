@@ -5,3 +5,4 @@ Mithril is an research project to provide [Stake-based Threshold Multisignatures
 This repository aims at hosting the various artefacts produced as part of the _prototyping phase_: Documentation, PoCs and prototype code...
 
 * [Documentation](./docs)
+* [Meeting minutes](./meetings.md)
