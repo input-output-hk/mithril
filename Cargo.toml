@@ -5,4 +5,5 @@ edition = "2018"
 
 [dependencies]
 blst = "0.3.4"
-neptune = "2.7.0"
+neptune = "4.0.0"
+typenum = "1.14.0"

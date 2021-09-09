@@ -1,7 +1,11 @@
 use super::{Stake, Index, Path, PartyId};
 use crate::msp::PK;
+use neptune::poseidon::SimplePoseidonBatchHasher;
+use typenum::U2;
 
-pub struct MerkleTree { }
+pub struct MerkleTree {
+    h: SimplePoseidonBatchHasher<U2>,
+}
 
 impl MerkleTree {
     pub fn create(items: &[Option<(PK, Stake)>]) -> Self {

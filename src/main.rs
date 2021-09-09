@@ -9,8 +9,8 @@ mod proof;
 
 pub type Unknown = usize;
 
-#[derive(Clone, PartialEq, Eq, Hash, Copy)]
-pub struct Stake(Unknown);
+#[derive(Clone, PartialEq, Copy)]
+pub struct Stake(f32);
 
 pub type PartyId = usize;
 
@@ -23,7 +23,7 @@ pub struct Path(Unknown);
 // Writen as phi in the paper
 // XXX: What should it be implemented as?
 pub fn scaling_function(stake: Stake) -> Unknown {
-    stake.0
+    unimplemented!()
 }
 
 fn main() {
