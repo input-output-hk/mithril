@@ -1,14 +1,13 @@
 use super::{Stake, Index, Path, PartyId};
-use crate::msp::PK;
-use neptune::poseidon::SimplePoseidonBatchHasher;
-use typenum::U2;
+use crate::msp::{self, PK};
+// use neptune::poseidon::SimplePoseidonBatchHasher;
+// use typenum::U2;
+// use bellperson::bls::Fr;
 
-pub struct MerkleTree {
-    h: SimplePoseidonBatchHasher<U2>,
-}
+pub struct MerkleTree { }
 
 impl MerkleTree {
-    pub fn create(items: &[Option<(PK, Stake)>]) -> Self {
+    pub fn create(items: &[Option<(msp::PK, Stake)>]) -> Self {
         unimplemented!()
     }
 

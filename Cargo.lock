@@ -29,6 +29,7 @@ dependencies = [
  "bincode",
  "bit-vec",
  "blake2s_simd",
+ "blstrs",
  "byteorder",
  "crossbeam-channel",
  "digest",
@@ -39,7 +40,6 @@ dependencies = [
  "log",
  "memmap",
  "num_cpus",
- "paired",
  "rand",
  "rand_core",
  "rayon",
@@ -66,17 +66,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "349f9b6a179ed607305526ca489b34ad0a41aed5f7980fa90eb03160b69598fb"
 
 [[package]]
-name = "blake2b_simd"
-version = "0.5.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "afa748e348ad3be8263be728124b24a24f268266f6f5d58af9d75f6a40b5c587"
-dependencies = [
- "arrayref",
- "arrayvec",
- "constant_time_eq",
-]
-
-[[package]]
 name = "blake2s_simd"
 version = "0.5.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -98,14 +87,27 @@ dependencies = [
 
 [[package]]
 name = "blst"
-version = "0.3.4"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04dcd2da2e8ff774aaa0c6ac76d0fecd9d98cb5767682c101895c4858e05b833"
+checksum = "dd7cb1b48c09ac759808ad27811ca44e27c037d309f837651fc80506bc19819f"
 dependencies = [
  "cc",
  "glob",
  "threadpool",
  "zeroize",
+]
+
+[[package]]
+name = "blstrs"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a45b29ff562196f5b24ae9cc681a0ffc7b8ceaf42169ee8df2082d12babb2554"
+dependencies = [
+ "blst",
+ "fff",
+ "groupy",
+ "rand_core",
+ "serde",
 ]
 
 [[package]]
@@ -186,16 +188,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "crypto-mac"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bff07008ec701e8028e2ceb8f83f0e4274ee62bd2dbdc4fefff2e9a91824081a"
-dependencies = [
- "generic-array",
- "subtle",
-]
-
-[[package]]
 name = "digest"
 version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -229,24 +221,9 @@ checksum = "7edbba9b259baf4dea8d2167240013ca63a75f7719fc75145a906e9f2c6b3f7b"
 dependencies = [
  "byteorder",
  "cc",
- "fff_derive",
  "lazy_static",
  "rand_core",
  "serde",
-]
-
-[[package]]
-name = "fff_derive"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "78dcbbfd77fe2bb6535a6ab35f643bf94d4c3ad30590dcbd0574fcc638747535"
-dependencies = [
- "num-bigint",
- "num-integer",
- "num-traits",
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
@@ -305,26 +282,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62b467343b94ba476dcb2500d242dadbb39557df889310ac77c5d99100aaac33"
 dependencies = [
  "libc",
-]
-
-[[package]]
-name = "hkdf"
-version = "0.10.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "51ab2f639c231793c5f6114bdb9bbe50a7dbbfcd7c7c6bd8475dec2d991e964f"
-dependencies = [
- "digest",
- "hmac",
-]
-
-[[package]]
-name = "hmac"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1441c6b1e930e2817404b5046f1f989899143a12bf92de603b69f4e0aee1e15"
-dependencies = [
- "crypto-mac",
- "digest",
 ]
 
 [[package]]
@@ -398,7 +355,7 @@ dependencies = [
 name = "mithril"
 version = "0.1.0"
 dependencies = [
- "blst",
+ "bellperson",
  "neptune",
  "typenum",
 ]
@@ -465,22 +422,6 @@ name = "opaque-debug"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "624a8340c38c1b80fd549087862da4ba43e08858af025b236e509b6649fc13d5"
-
-[[package]]
-name = "paired"
-version = "0.22.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45c020887ea8ffb42b44be82835ed60de0653c1e39b2aedd9bee3ccfa046569e"
-dependencies = [
- "blake2b_simd",
- "byteorder",
- "digest",
- "fff",
- "groupy",
- "hkdf",
- "rand_core",
- "serde",
-]
 
 [[package]]
 name = "ppv-lite86"
@@ -634,12 +575,6 @@ checksum = "511254be0c5bcf062b019a6c89c01a664aa359ded62f78aa72c6fc137c0590e5"
 dependencies = [
  "lock_api",
 ]
-
-[[package]]
-name = "subtle"
-version = "2.4.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6bdef32e8150c2a081110b42772ffe7d7c9032b606bc226c8260fd97e0976601"
 
 [[package]]
 name = "syn"
