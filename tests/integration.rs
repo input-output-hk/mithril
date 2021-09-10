@@ -47,4 +47,6 @@ fn sign() {
     }
 
     // Aggregate sig
+    let msig = ps[0].aggregate(&sigs, &[index], &msg).expect("Aggregation failed");
+    assert!(ps[0].verify_aggregate(&msig, &msg), "Aggregate verification failed");
 }
