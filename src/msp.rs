@@ -2,10 +2,14 @@
 
 use super::{Unknown, Index};
 
+use bellperson::bls::{Fr, G1Projective};
+use fff::Field;
+use rand_core::{RngCore, OsRng};
+
 pub struct MSP { }
 
 #[derive(Clone,Copy)]
-pub struct SK(Unknown);
+pub struct SK(Fr);
 
 #[derive(Clone,Copy)]
 pub struct MVK(Unknown);
@@ -21,9 +25,11 @@ pub struct PK {
 pub struct Sig(Unknown);
 
 impl MSP {
-    // XXX: where does the x come from?
+    // XXX: where does the x come from? I think it's a typo
     pub fn gen() -> (SK, PK) {
-        // sk <- Zq
+        // sk=x <- Zq
+        let mut rng = OsRng::default();
+        let x = Fr::random(&mut rng);
         // mvk <- g2^x
         // k1 <- H_G1("PoP"||mvk)^x
         // k2 <- g1^x
@@ -69,6 +75,7 @@ impl MSP {
     pub fn eval(msg: &[u8], index: Index, sigma: &Sig) -> Unknown {
         // XXX: See section 6 to implement M from Elligator Squared
         // return ev <- M_msg,index(sigma)
+        // H("map"||msg||index||sigma)
         unimplemented!()
     }
 }
@@ -76,5 +83,47 @@ impl MSP {
 impl MVK {
     pub fn to_bytes(&self) -> Vec<u8> {
         unimplemented!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_gen() {
+        for _ in 0..128 {
+            let (_sk, pk) = MSP::gen();
+            assert!(MSP::check(&pk));
+        }
+    }
+
+    #[test]
+    fn test_sig() {
+        for _ in 0..128 {
+            let (sk, pk) = MSP::gen();
+            let msg = rand::random::<[u8;16]>();
+            let sig = MSP::sig(&sk, &msg);
+            assert!(MSP::ver(&msg, &pk.mvk, &sig));
+        }
+    }
+
+    #[test]
+    fn test_aggregate_sig() {
+        for _ in 0..128 {
+            let msg = rand::random::<[u8;16]>();
+            let mut mvks = Vec::new();
+            let mut sigs = Vec::new();
+            for _ in 0..16 {
+                let (sk, pk) = MSP::gen();
+                let sig = MSP::sig(&sk, &msg);
+                assert!(MSP::ver(&msg, &pk.mvk, &sig));
+                sigs.push(sig);
+                mvks.push(pk.mvk);
+            }
+            let ivk = MSP::aggregate_keys(&mvks);
+            let mu = MSP::aggregate_sigs(&msg, &sigs);
+            assert!(MSP::aggregate_ver(&msg, &ivk, &mu));
+        }
     }
 }

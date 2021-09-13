@@ -367,8 +367,10 @@ name = "mithril"
 version = "0.1.0"
 dependencies = [
  "bellperson",
+ "fff",
  "neptune",
  "rand 0.8.4",
+ "rand_core 0.5.1",
  "typenum",
 ]
 

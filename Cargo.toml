@@ -9,3 +9,5 @@ bellperson = { version = "0.16.2", default-features = false, features=["blst"] }
 typenum    = "1.14.0"
 rand       = "0.8.4"
 proptest   = "1.0.0"
+fff        = "0.3.1"
+rand_core  = "^0.5" # important to match fff's version
