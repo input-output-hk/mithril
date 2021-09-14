@@ -140,7 +140,7 @@ mod tests {
 
     #[test]
     fn test_sig() {
-        for _ in 0..1 {
+        for _ in 0..128 {
             let (sk, pk) = MSP::gen();
             let msg = rand::random::<[u8;16]>();
             let sig = MSP::sig(&sk, &msg);
