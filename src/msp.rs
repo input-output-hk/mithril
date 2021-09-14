@@ -2,39 +2,50 @@
 
 use super::{Unknown, Index};
 
-use bellperson::bls::{Fr, G1Projective};
-use fff::Field;
-use rand_core::{RngCore, OsRng};
+use blstrs::{Scalar, Field, G1Affine, G1Projective, G2Projective, G2Affine};
+use rand_core::OsRng;
+use blake2::{Blake2b, Digest};
+use std::convert::TryInto;
+use groupy::CurveAffine;
 
 pub struct MSP { }
 
 #[derive(Clone,Copy)]
-pub struct SK(Fr);
+pub struct SK(Scalar);
 
 #[derive(Clone,Copy)]
-pub struct MVK(Unknown);
+pub struct MVK(G2Projective);
 
 #[derive(Clone,Copy)]
 pub struct PK {
     pub mvk: MVK,
-    pub k1: Unknown,
-    pub k2: Unknown,
+    pub k1: G1Projective,
+    pub k2: G1Projective,
 }
 
 #[derive(Clone,Copy)]
 pub struct Sig(Unknown);
 
 impl MSP {
-    // XXX: where does the x come from? I think it's a typo
     pub fn gen() -> (SK, PK) {
         // sk=x <- Zq
         let mut rng = OsRng::default();
-        let x = Fr::random(&mut rng);
+        let x = Scalar::random(&mut rng);
         // mvk <- g2^x
+        let mvk = G2Affine::one() * x;
         // k1 <- H_G1("PoP"||mvk)^x
+        let mut hasher = Blake2b::new();
+        hasher.update(b"PoP");
+        let mvk_bytes = mvk.to_uncompressed();
+        hasher.update(&mvk_bytes);
+        let h = hasher.finalize();
+        let bs: [u8;32] = h.as_slice()[..32].try_into().unwrap();
+        let h = Scalar::from_bytes_le(&bs).unwrap();
+        let k1 = G1Affine::one() * h * x;
         // k2 <- g1^x
+        let k2 = G1Affine::one() * x;
         // return sk,mvk,k=(k1,k2)
-        unimplemented!()
+        (SK(x), PK { mvk: MVK(mvk), k1, k2 })
     }
 
     pub fn check(pk: &PK) -> bool {
