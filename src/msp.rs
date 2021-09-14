@@ -22,7 +22,7 @@ pub struct PK {
 }
 
 #[derive(Clone,Copy)]
-pub struct Sig(Unknown);
+pub struct Sig(G1Projective);
 
 impl MVK {
     fn hash_to_g1(&self, string: &str) -> G1Affine {
