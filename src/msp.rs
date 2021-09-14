@@ -24,9 +24,9 @@ pub struct PK {
 #[derive(Clone,Copy)]
 pub struct Sig(G1Projective);
 
-fn hash_to_g1(bytes: &[u8]) -> G1Affine {
+fn hash_to_g1(tag: &[u8], bytes: &[u8]) -> G1Affine {
     // k1 <- H_G1("PoP"||mvk)^x
-    G1Affine::from(G1Projective::hash_to_curve(bytes, "mithril".as_bytes(), &[]))
+    G1Affine::from(G1Projective::hash_to_curve(bytes, "mithril".as_bytes(), tag))
 }
 
 static POP: &[u8] = "PoP".as_bytes();
@@ -40,7 +40,7 @@ impl MSP {
         // mvk <- g2^x
         let mvk = MVK(G2Affine::one() * x);
         // k1 <- H_G1("PoP"||mvk)^x
-        let k1 = hash_to_g1(&[POP, &mvk.to_bytes()].concat()) * x;
+        let k1 = hash_to_g1(POP, &mvk.to_bytes()) * x;
         // k2 <- g1^x
         let k2 = G1Affine::one() * x;
         // return sk,mvk,k=(k1,k2)
@@ -54,7 +54,7 @@ impl MSP {
         //      are both true, return 1
         let mvk_g2 = G2Affine::from(pk.mvk.0);
         let e_k1_g2   = pairing(pk.k1.into(), G2Affine::one());
-        let h_pop_mvk = hash_to_g1(&[POP, &pk.mvk.to_bytes()].concat());
+        let h_pop_mvk = hash_to_g1(POP, &pk.mvk.to_bytes());
         let e_hg1_mvk = pairing(h_pop_mvk, mvk_g2);
 
         let e_g1_mvk = pairing(G1Affine::one(), mvk_g2);
@@ -65,14 +65,14 @@ impl MSP {
 
     pub fn sig(sk: &SK, msg: &[u8]) -> Sig {
         // return sigma <- H_G1("M"||msg)^x
-        let g1 = hash_to_g1(&[M, msg].concat());
-        Sig(G1Affine::one() * sk.0)
+        let g1 = hash_to_g1(M, msg);
+        Sig(g1 * sk.0)
     }
 
     pub fn ver(msg: &[u8], mvk: &MVK, sigma: &Sig) -> bool {
         // return 1 if e(sigma,g2) = e(H_G1("M"||msg),mvk)
         let e_sigma_g2 = pairing(G1Affine::from(sigma.0), G2Affine::one());
-        let e_hg1_mvk  = pairing(hash_to_g1(&[M, msg].concat()), G2Affine::from(mvk.0));
+        let e_hg1_mvk  = pairing(hash_to_g1(M, msg), G2Affine::from(mvk.0));
 
         e_sigma_g2 == e_hg1_mvk
     }
