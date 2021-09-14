@@ -2,10 +2,8 @@
 
 use super::{Unknown, Index};
 
-use blstrs::{Scalar, Field, G1Affine, G1Projective, G2Projective, G2Affine};
+use blstrs::{pairing, Scalar, Field, G1Affine, G1Projective, G2Projective, G2Affine};
 use rand_core::OsRng;
-use blake2::{Blake2b, Digest};
-use std::convert::TryInto;
 use groupy::CurveAffine;
 
 pub struct MSP { }
@@ -26,32 +24,34 @@ pub struct PK {
 #[derive(Clone,Copy)]
 pub struct Sig(Unknown);
 
+impl MVK {
+    fn hash_to_g1(&self, string: &str) -> G1Affine {
+        // k1 <- H_G1("PoP"||mvk)^x
+        unimplemented!()
+    }
+}
+
 impl MSP {
     pub fn gen() -> (SK, PK) {
         // sk=x <- Zq
         let mut rng = OsRng::default();
         let x = Scalar::random(&mut rng);
         // mvk <- g2^x
-        let mvk = G2Affine::one() * x;
+        let mvk = MVK(G2Affine::one() * x);
         // k1 <- H_G1("PoP"||mvk)^x
-        let mut hasher = Blake2b::new();
-        hasher.update(b"PoP");
-        let mvk_bytes = mvk.to_uncompressed();
-        hasher.update(&mvk_bytes);
-        let h = hasher.finalize();
-        let bs: [u8;32] = h.as_slice()[..32].try_into().unwrap();
-        let h = Scalar::from_bytes_le(&bs).unwrap();
-        let k1 = G1Affine::one() * h * x;
+        let h = mvk.hash_to_g1("PoP");
+        let k1 = h * x;
         // k2 <- g1^x
         let k2 = G1Affine::one() * x;
         // return sk,mvk,k=(k1,k2)
-        (SK(x), PK { mvk: MVK(mvk), k1, k2 })
+        (SK(x), PK { mvk, k1, k2 })
     }
 
     pub fn check(pk: &PK) -> bool {
         // if e(k1,g2) = e(H_G1("PoP"||mvk),mvk)
         //      and e(g1,mvk) = e(k2,g2)
         //      are both true, return 1
+        pairing(pk.k1.into(), G2Affine::one());
         unimplemented!()
     }
 
