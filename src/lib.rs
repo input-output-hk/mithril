@@ -7,6 +7,9 @@ pub mod msp;
 pub mod merkle_tree;
 pub mod proof;
 
+use neptune::poseidon::Arity;
+use merkle_tree::{MerkleHasher, Value, Hash};
+
 pub type Unknown = usize;
 
 #[derive(Clone, PartialEq, Copy)]
@@ -18,10 +21,31 @@ pub type PartyId = usize;
 pub struct Index(pub Unknown);
 
 #[derive(Clone, PartialEq, Eq)]
-pub struct Path(Vec<merkle_tree::Hash>);
+pub struct Path(Vec<Hash>);
 
 // Writen as phi in the paper
 // XXX: What should it be implemented as?
 pub fn scaling_function(stake: Stake) -> Unknown {
     unimplemented!()
+}
+
+
+impl<A> Value<A> for Stake
+where
+    A: Arity<Hash> + typenum::IsGreaterOrEqual<typenum::U2>
+{
+    fn as_scalar<'a>(&self, hasher: &'a mut MerkleHasher<A>) -> Hash {
+        let Stake(s) = self;
+        let bits = s.to_bits() as u64;
+        bits.as_scalar(hasher)
+    }
+}
+
+impl<A> Value<A> for msp::PK
+where
+    A: Arity<Hash> + typenum::IsGreaterOrEqual<typenum::U2>
+{
+    fn as_scalar<'a>(&self, hasher: &'a mut MerkleHasher<A>) -> Hash {
+        unimplemented!()
+    }
 }

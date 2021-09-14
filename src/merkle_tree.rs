@@ -1,17 +1,24 @@
+use crate::Path;
 use bellperson::bls::Bls12;
 use neptune::poseidon::{Poseidon, PoseidonConstants};
-use neptune::{scalar_from_u64, Scalar};
+use neptune::{scalar_from_u64, Scalar, Arity};
 use proptest::prelude::*;
 
-type PoseidonHasher<'a> = Poseidon<'a, Bls12>;
-type T = neptune::Scalar;
+pub type Hash                   = neptune::Scalar;
+pub type MerkleHasher<'a,A>     = Poseidon<'a, Bls12, A>;
+pub type MerkleHashConstants<A> = PoseidonConstants<Bls12,A>;
 
-pub struct MerkleTree<'a> {
+// This is parameterized by arity: it may be better to use something other
+// than U2 for injecting values into `Scalar`.
+pub struct MerkleTree<'a, A = typenum::U2>
+where
+    A: Arity<Scalar> + typenum::IsGreaterOrEqual<typenum::U2>
+{
     // The nodes are stored in an array heap:
     // nodes[0] is the root,
     // the parent of nodes[i] is nodes[(i-1)/2]
     // the children of nodes[i] are {nodes[2i + 1], nodes[2i + 2]}
-    nodes: Vec<T>,
+    nodes: Vec<Hash>,
 
     // The leaves begin at nodes[leaf_off]
     leaf_off: usize,
@@ -20,17 +27,34 @@ pub struct MerkleTree<'a> {
     n: usize,
 
     // The Poseidon hash state
-    hasher: PoseidonHasher<'a>,
+    hasher: Poseidon<'a, Bls12, A>,
 }
 
-pub trait Value {
-    fn as_scalar<'a>(&self, hasher: &mut Poseidon<'a, Bls12>) -> Scalar;
+
+pub fn new_constants<A:Arity<Scalar>>() -> MerkleHashConstants<A> {
+    PoseidonConstants::new()
 }
 
-impl <'a> MerkleTree<'a> {
-    pub fn new<V:Value>(constants: &'a PoseidonConstants<Bls12, typenum::U2>,
-                        leaves: &'a [V]) -> Self {
-        let mut hasher = Poseidon::new(&constants);
+
+// This is parameterized by arity: it may be better to use something other
+// than U2 for injecting values into `Scalar`.
+pub trait Value<A>
+where A:Arity<Scalar>
+{
+    fn as_scalar<'a>(&self, hasher: &mut Poseidon<'a, Bls12, A>) -> Hash;
+}
+
+impl<'a, A> MerkleTree<'a, A>
+where
+    A: Arity<Scalar> + typenum::IsGreaterOrEqual<typenum::U2>,
+{
+    pub fn create<V:Value<A>>(constants: &'a PoseidonConstants<Bls12, A>,
+                              leaves: &[V]) -> MerkleTree<'a, A>
+    where
+        V: Value<A>
+    {
+
+        let mut hasher: Poseidon<'a, Bls12, A> = Poseidon::new(&constants);
         let n = leaves.len();
         let num_nodes = 2*n - 1;
 
@@ -47,20 +71,16 @@ impl <'a> MerkleTree<'a> {
         }
 
         Self {
-            nodes,
-            hasher,
-            n,
+            nodes: nodes,
+            hasher: hasher,
+            n: n,
             leaf_off: num_nodes-n,
         }
     }
 
-    fn idx_of_leaf(&self, i: usize) -> usize {
-        self.leaf_off + i
-    }
-
-    pub fn check<V:Value>(&mut self, val: &V, id: usize, proof: &[T]) -> bool {
+    pub fn check<V:Value<A>>(&mut self, val: &V, id: usize, proof: &[Hash]) -> bool {
         assert!(id < self.n,
-                format!("check index out of bounds: asked for {} out of {}", id, self.n));
+                "check index out of bounds: asked for {} out of {}", id, self.n);
         let mut i = id;
         let height = (self.n as f64).log2().ceil() as usize;
 
@@ -89,9 +109,9 @@ impl <'a> MerkleTree<'a> {
         msgp
     }
 
-    pub fn get_path(&self, i: usize) -> Vec<T> {
+    pub fn get_path(&self, i: usize) -> Path {
         assert!(i < self.n,
-                format!("Proof index out of bounds: asked for {} out of {}", i, self.n));
+                "Proof index out of bounds: asked for {} out of {}", i, self.n);
         let mut idx = self.idx_of_leaf(i);
         let mut proof = Vec::new();
 
@@ -100,20 +120,42 @@ impl <'a> MerkleTree<'a> {
             idx = parent(idx);
         }
 
-        proof
+        Path(proof)
+    }
+
+    fn idx_of_leaf(&self, i: usize) -> usize {
+        self.leaf_off + i
     }
 }
 
-fn hash_leaf<'a, V:Value>(hasher: &mut PoseidonHasher<'a>, leaf: &V) -> T {
+fn hash_leaf<'a, A, V>(hasher: &mut Poseidon<'a, Bls12, A>, leaf: &V) -> Hash
+where
+    A: Arity<Scalar>,
+    V: Value<A>
+{
     leaf.as_scalar(hasher)
 }
 
-fn hash_nodes<'a>(hasher: &mut PoseidonHasher<'a>, left: T, right: T) -> T {
+fn hash_nodes<'a, A>(hasher: &mut Poseidon<'a, Bls12, A>, left: Hash, right: Hash) -> Hash
+where
+    A: Arity<Scalar>,
+{
     hasher.reset();
     hasher.input(left).unwrap();
     hasher.input(right).unwrap();
     hasher.hash()
 }
+
+fn hash_binary<'a, A>(hasher: &mut Poseidon<'a, Bls12, A>, left: Hash, right: Hash) -> Hash
+where
+    A: Arity<Scalar> + typenum::IsGreaterOrEqual<typenum::U2>,
+{
+    hasher.reset();
+    hasher.input(left).unwrap();
+    hasher.input(right).unwrap();
+    hasher.hash()
+}
+
 
 fn parent(i: usize) -> usize {
     assert!(i > 0, "The root node does not have a parent");
@@ -137,24 +179,50 @@ fn sibling(i: usize) -> usize {
 }
 
 
-impl Value for u64 {
-    fn as_scalar<'a>(&self, hasher: &mut Poseidon<'a, Bls12>) -> Scalar {
+impl<A> Value<A> for u64
+where
+    A: Arity<Scalar>,
+{
+    fn as_scalar<'a>(&self, hasher: &mut Poseidon<'a, Bls12, A>) -> Scalar {
         hasher.reset();
         hasher.input(scalar_from_u64(*self)).unwrap();
         hasher.hash()
     }
 }
 
-impl Value for [u64; 4] {
-    fn as_scalar<'a>(&self, hasher: &mut Poseidon<'a, Bls12>) -> Scalar {
-        hasher.reset();
-        hasher.input(scalar_from_u64(self[0])).unwrap();
-        hasher.input(scalar_from_u64(self[1])).unwrap();
-        let h1 = hasher.hash();
-        hasher.reset();
-        hasher.input(scalar_from_u64(self[2])).unwrap();
-        hasher.input(scalar_from_u64(self[3])).unwrap();
-        let h2 = hasher.hash();
+impl<A> Value<A> for Scalar
+where
+    A: Arity<Scalar>,
+{
+    fn as_scalar<'a>(&self, hasher: &mut Poseidon<'a, Bls12, A>) -> Scalar {
+        *self
+    }
+}
+
+impl<A> Value<A> for Vec<u64>
+where
+    A: Arity<Scalar> + typenum::IsGreaterOrEqual<typenum::U2>,
+{
+    fn as_scalar<'a>(&self, hasher: &'a mut MerkleHasher<A>) -> Hash {
+        assert!(self.len() > 0, "Can not convert empty slice to Hash");
+        let mut h = self[0].as_scalar(hasher);
+        for val in self {
+            h = (h, val.as_scalar(hasher)).as_scalar(hasher);
+        }
+
+        h
+    }
+}
+
+impl<A,V1,V2> Value<A> for (V1, V2)
+where
+    A: Arity<Scalar> + typenum::IsGreaterOrEqual<typenum::U2>,
+    V1: Value<A>,
+    V2: Value<A>
+{
+    fn as_scalar<'a>(&self, hasher: &'a mut MerkleHasher<A>) -> Hash {
+        let h1 = self.0.as_scalar(hasher);
+        let h2 = self.1.as_scalar(hasher);
         hasher.reset();
         hasher.input(h1).unwrap();
         hasher.input(h2).unwrap();
@@ -162,23 +230,47 @@ impl Value for [u64; 4] {
     }
 }
 
+impl<V,A> Value<A> for Option<V>
+where
+    A: Arity<Scalar> + typenum::IsGreaterOrEqual<typenum::U2>,
+    V: Value<A>
+{
+    fn as_scalar<'a>(&self, hasher: &'a mut MerkleHasher<A>) -> Hash {
+        if let Some(inner) = self {
+            inner.as_scalar(hasher)
+        } else {
+            0u64.as_scalar(hasher)
+        }
+    }
+}
+
+impl<A> Value<A> for bellperson::bls::G1Affine
+where
+    A: Arity<Scalar> + typenum::IsGreaterOrEqual<typenum::U2>,
+{
+    fn as_scalar<'a>(&self, hasher: &'a mut MerkleHasher<A>) -> Hash {
+        let x = bellperson::bls::FqRepr::from(self.x()).0.to_vec();
+        let y = bellperson::bls::FqRepr::from(self.y()).0.to_vec();
+
+        (x,y).as_scalar(hasher)
+    }
+}
+
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(100))]
+    #![proptest_config(ProptestConfig::with_cases(1))]
     #[test]
     fn test_create_proof(
-        values in (1..10)
+        values in (15..16)
             .prop_flat_map(|height| {
                 prop::collection::vec(
                     any::<u64>(),
                     (2 as usize).pow(height as u32))
             })
     ) {
-        println!("Input generated");
-        let constants: PoseidonConstants<Bls12, typenum::U2> = PoseidonConstants::new();
-        let mut t = MerkleTree::new(&constants, &values);
-        println!("Values : {:?}", values.len());
+        let constants : PoseidonConstants<Bls12, typenum::U2> = PoseidonConstants::new();
+        let mut t = MerkleTree::create(&constants, &values);
         for i in 0..values.len() {
-            let pf = t.get_path(i as usize);
+            let Path(pf) = t.get_path(i as usize);
             assert!(t.check(&values[i], i as usize, &pf));
         }
     }

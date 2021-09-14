@@ -1,19 +1,20 @@
 use super::{Stake, PartyId, Index, Path, scaling_function};
 use crate::key_reg::KeyReg;
 use crate::msp::{self, MSP};
-use crate::merkle_tree::MerkleTree;
+use crate::merkle_tree::{MerkleTree, MerkleHashConstants};
 use crate::proof::{ConcatProof, Witness};
 
-pub struct Party {
+pub struct Party<'l> {
     party_id: PartyId,
     stake: Stake,
     rs: crate::ref_str::ReferenceString,
-    avk: Option<MerkleTree>,
+    avk: Option<MerkleTree<'l, typenum::U2>>,
     sk: Option<msp::SK>,
     pk: Option<msp::PK>,
+    consts: &'l MerkleHashConstants<typenum::U2>,
 }
 
-#[derive(Clone,Copy)]
+#[derive(Clone)]
 pub struct Sig {
     sigma: msp::Sig,
     pk: msp::PK,
@@ -29,11 +30,11 @@ pub struct MultiSig {
     proof: ConcatProof,
 }
 
-impl Party {
+impl<'l> Party<'l> {
     //////////////////////////
     // Initialization phase //
     //////////////////////////
-    pub fn setup(party_id: PartyId, stake: Stake) -> Self {
+    pub fn setup(party_id: PartyId, stake: Stake, consts: &'l MerkleHashConstants<typenum::U2>) -> Self {
         Self {
             party_id,
             stake,
@@ -41,6 +42,7 @@ impl Party {
             avk: None,
             sk: None,
             pk: None,
+            consts: consts,
         }
     }
 
@@ -59,7 +61,7 @@ impl Party {
         // Reg is padded to length N using null entries of stake 0
         // AVK <- MT.Create(Reg)
         let reg = kr.retrieve_all();
-        let avk = MerkleTree::create(&reg);
+        let avk: MerkleTree<'l,typenum::U2> = MerkleTree::create(self.consts, &reg);
         self.avk = Some(avk);
     }
 
@@ -106,7 +108,7 @@ impl Party {
         let msgp = avk.concat_with_msg(msg);
         let ev = MSP::eval(&msgp, index, &sig.sigma);
         if !(ev < scaling_function(sig.stake)) ||
-            !avk.check((sig.pk.clone(), sig.stake), index, sig.path)
+            todo!() // !avk.check((sig.pk.clone(), sig.stake), index, sig.path)
         {
             return false;
         }
@@ -119,7 +121,7 @@ impl Party {
         let mut seen_parties = std::collections::HashSet::new();
         let mut evals = Vec::new();
         for (sig, ix) in sigs.iter().zip(indices.iter()) {
-            if !self.verify(*sig, *ix, msg) ||
+            if !self.verify(sig.clone(), *ix, msg) ||
                 seen_parties.contains(&sig.party)
             {
                 return None;
