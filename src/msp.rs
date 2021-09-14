@@ -102,6 +102,18 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_pairing() {
+        // Sanity check that the library is correct and we are using it correctly.
+        let mut rng = OsRng::default();
+        for _ in 0..128 {
+            let x = Scalar::random(&mut rng);
+            let y = Scalar::random(&mut rng);
+            let gt = pairing((G1Affine::one() * x).into(), (G2Affine::one() * y).into());
+            let should_be = pairing((G1Affine::one() * (x * y)).into(), G2Affine::one());
+        }
+    }
+
+    #[test]
     fn test_gen() {
         for _ in 0..128 {
             let (_sk, pk) = MSP::gen();
