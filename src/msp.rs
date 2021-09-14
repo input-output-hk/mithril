@@ -24,12 +24,13 @@ pub struct PK {
 #[derive(Clone,Copy)]
 pub struct Sig(G1Projective);
 
-impl MVK {
-    fn hash_to_g1(&self, string: &str) -> G1Affine {
-        // k1 <- H_G1("PoP"||mvk)^x
-        unimplemented!()
-    }
+fn hash_to_g1(bytes: &[u8]) -> G1Affine {
+    // k1 <- H_G1("PoP"||mvk)^x
+    G1Affine::from(G1Projective::hash_to_curve(bytes, "mithril".as_bytes(), &[]))
 }
+
+static POP: &[u8] = "PoP".as_bytes();
+static M: &[u8]   = "M".as_bytes();
 
 impl MSP {
     pub fn gen() -> (SK, PK) {
@@ -39,43 +40,58 @@ impl MSP {
         // mvk <- g2^x
         let mvk = MVK(G2Affine::one() * x);
         // k1 <- H_G1("PoP"||mvk)^x
-        let h = mvk.hash_to_g1("PoP");
-        let k1 = h * x;
+        let k1 = hash_to_g1(&[POP, &mvk.to_bytes()].concat()) * x;
         // k2 <- g1^x
         let k2 = G1Affine::one() * x;
         // return sk,mvk,k=(k1,k2)
         (SK(x), PK { mvk, k1, k2 })
+
     }
 
     pub fn check(pk: &PK) -> bool {
         // if e(k1,g2) = e(H_G1("PoP"||mvk),mvk)
         //      and e(g1,mvk) = e(k2,g2)
         //      are both true, return 1
-        pairing(pk.k1.into(), G2Affine::one());
-        unimplemented!()
+        let mvk_g2 = G2Affine::from(pk.mvk.0);
+        let e_k1_g2   = pairing(pk.k1.into(), G2Affine::one());
+        let h_pop_mvk = hash_to_g1(&[POP, &pk.mvk.to_bytes()].concat());
+        let e_hg1_mvk = pairing(h_pop_mvk, mvk_g2);
+
+        let e_g1_mvk = pairing(G1Affine::one(), mvk_g2);
+        let e_k2_g2  = pairing(pk.k2.into(), G2Affine::one());
+
+        (e_k1_g2 == e_hg1_mvk) && (e_g1_mvk == e_k2_g2)
     }
 
     pub fn sig(sk: &SK, msg: &[u8]) -> Sig {
         // return sigma <- H_G1("M"||msg)^x
-        unimplemented!()
+        let g1 = hash_to_g1(&[M, msg].concat());
+        Sig(G1Affine::one() * sk.0)
     }
 
     pub fn ver(msg: &[u8], mvk: &MVK, sigma: &Sig) -> bool {
         // return 1 if e(sigma,g2) = e(H_G1("M"||msg),mvk)
-        unimplemented!()
+        let e_sigma_g2 = pairing(G1Affine::from(sigma.0), G2Affine::one());
+        let e_hg1_mvk  = pairing(hash_to_g1(&[M, msg].concat()), G2Affine::from(mvk.0));
+
+        e_sigma_g2 == e_hg1_mvk
     }
 
     // MSP.AKey
     pub fn aggregate_keys(mvks: &[MVK]) -> MVK {
-        // ivk = product(mvk_i)
-        unimplemented!()
+        MVK(mvks
+            .iter()
+            .fold(G2Projective::from(G2Affine::zero()),
+                  |acc, x| acc + x.0))
     }
 
     // MSP.Aggr
     pub fn aggregate_sigs(msg: &[u8], sigmas: &[Sig]) -> Sig {
         // XXX: what is d?
-        // mu <- product_1^d(sigmas)
-        unimplemented!()
+        Sig(sigmas
+            .iter()
+            .fold(G1Projective::from(G1Affine::zero()),
+                  |acc, s| acc + s.0))
     }
 
     // MSP.AVer
@@ -92,8 +108,9 @@ impl MSP {
 }
 
 impl MVK {
-    pub fn to_bytes(&self) -> Vec<u8> {
-        unimplemented!()
+    pub fn to_bytes(&self) -> [u8; 96] {
+        // Notes: to_vec() here causes a segfault later, why?
+        self.0.to_uncompressed()
     }
 }
 
@@ -123,7 +140,7 @@ mod tests {
 
     #[test]
     fn test_sig() {
-        for _ in 0..128 {
+        for _ in 0..1 {
             let (sk, pk) = MSP::gen();
             let msg = rand::random::<[u8;16]>();
             let sig = MSP::sig(&sk, &msg);
