@@ -1,6 +1,6 @@
 use bellperson::bls::Bls12;
 use neptune::poseidon::{Poseidon, PoseidonConstants};
-use neptune::{scalar_from_u64, scalar_from_u64s, Scalar};
+use neptune::{scalar_from_u64, Scalar};
 use proptest::prelude::*;
 
 type PoseidonHasher<'a> = Poseidon<'a, Bls12>;
@@ -34,7 +34,7 @@ impl <'a> MerkleTree<'a> {
         let n = leaves.len();
         let num_nodes = 2*n - 1;
 
-        let mut nodes = vec![scalar_from_u64s([0,0,0,0]); num_nodes];
+        let mut nodes = vec![scalar_from_u64(0); num_nodes];
 
         for i in 0..n {
             nodes[num_nodes-n+i] = hash_leaf(&mut hasher, &leaves[i]);
