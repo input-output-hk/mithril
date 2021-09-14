@@ -78,20 +78,22 @@ where
         }
     }
 
-    pub fn check<V:Value<A>>(&mut self, val: &V, id: usize, proof: &[Hash]) -> bool {
-        assert!(id < self.n,
-                "check index out of bounds: asked for {} out of {}", id, self.n);
-        let mut i = id;
+    /// Check an inclusion proof that `val` is the `i`th leaf stored in the tree.
+    /// Requires i < self.n
+    pub fn check<V:Value<A>>(&mut self, val: &V, i: usize, proof: &[Hash]) -> bool {
+        assert!(i < self.n,
+                "check index out of bounds: asked for {} out of {}", i, self.n);
+        let mut idx = i;
         let height = (self.n as f64).log2().ceil() as usize;
 
         let mut h = hash_leaf(&mut self.hasher, val);
         for k in 1..=height {
-            if (i & 0b1) == 0 {
+            if (idx & 0b1) == 0 {
                 h = hash_nodes(&mut self.hasher, h, proof[k-1]);
             } else {
                 h = hash_nodes(&mut self.hasher, proof[k-1], h);
             }
-            i = i >> 1;
+            idx = idx >> 1;
         }
 
         h == self.nodes[0]
@@ -101,6 +103,7 @@ where
         self.nodes[0].to_bytes_le().to_vec()
     }
 
+    // TODO: Does this belong in this module?
     pub fn concat_with_msg(&self, msg: &[u8]) -> Vec<u8> {
         let mut msgp = msg.to_vec();
         let mut bytes = self.to_bytes();
@@ -109,6 +112,9 @@ where
         msgp
     }
 
+    /// Get a path (hashes of siblings of the path to the root node
+    /// for the `i`th value stored in the tree.
+    /// Requires `i < self.n`
     pub fn get_path(&self, i: usize) -> Path {
         assert!(i < self.n,
                 "Proof index out of bounds: asked for {} out of {}", i, self.n);
@@ -127,6 +133,10 @@ where
         self.leaf_off + i
     }
 }
+
+//////////////////
+// Hash Helpers //
+//////////////////
 
 fn hash_leaf<'a, A, V>(hasher: &mut Poseidon<'a, Bls12, A>, leaf: &V) -> Hash
 where
@@ -156,6 +166,9 @@ where
     hasher.hash()
 }
 
+//////////////////
+// Heap Helpers //
+//////////////////
 
 fn parent(i: usize) -> usize {
     assert!(i > 0, "The root node does not have a parent");
@@ -178,6 +191,9 @@ fn sibling(i: usize) -> usize {
     if i % 2 == 1 { i + 1 } else { i - 1 }
 }
 
+/////////////////////
+// Value Instances //
+/////////////////////
 
 impl<A> Value<A> for u64
 where
@@ -256,11 +272,17 @@ where
     }
 }
 
+/////////////////////
+// Testing         //
+/////////////////////
+
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(1))]
+    // Test the relation that t.get_path(i) is a valid
+    // proof for i
+    #![proptest_config(ProptestConfig::with_cases(100))]
     #[test]
     fn test_create_proof(
-        values in (15..16)
+        values in (1..10)
             .prop_flat_map(|height| {
                 prop::collection::vec(
                     any::<u64>(),
