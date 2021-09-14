@@ -15,11 +15,17 @@ pub struct Witness {
 pub struct ConcatProof(Witness);
 
 impl ConcatProof {
-    pub fn prove(_avk: &MerkleTree, _ivk: &msp::MVK, _msg: &[u8], w: &Witness) -> Self {
+    pub fn prove<'l, A>(_avk: &MerkleTree<'l, A>, _ivk: &msp::MVK, _msg: &[u8], w: &Witness) -> Self
+    where
+        A: neptune::Arity<neptune::Scalar> + typenum::IsGreaterOrEqual<typenum::U2>
+    {
         Self(w.clone())
     }
 
-    pub fn verify(&self, avk: &MerkleTree, ivk: &msp::MVK, msg: &[u8]) -> bool {
+    pub fn verify<'l, A>(&self, avk: &MerkleTree<'l, A>, ivk: &msp::MVK, msg: &[u8]) -> bool
+    where
+        A: neptune::Arity<neptune::Scalar> + typenum::IsGreaterOrEqual<typenum::U2>
+    {
         unimplemented!()
     }
 }

@@ -1,3 +1,4 @@
+use mithril::merkle_tree::new_constants;
 use mithril::key_reg::KeyReg;
 use mithril::party::Party;
 use mithril::{Stake, Index};
@@ -6,6 +7,7 @@ use mithril::{Stake, Index};
 fn sign() {
     let nparties = 1000;
     let msg = rand::random::<[u8;16]>();
+    let constants = new_constants();
 
     //////////////////////////
     // initialization phase //
@@ -17,7 +19,7 @@ fn sign() {
 
     for pid in 0..nparties {
         let stake = Stake(0.1); // XXX: How to set stake?
-        let mut p = Party::setup(pid, stake);
+        let mut p = Party::setup(pid, stake, &constants);
         p.register(&mut key_reg);
         ps.push(p);
     }
@@ -42,7 +44,7 @@ fn sign() {
     // Check all parties can verify every sig
     for s in &sigs {
         for p in &ps {
-            assert!(p.verify(*s, index, &msg), "Verification failed");
+            assert!(p.verify(s.clone(), index, &msg), "Verification failed");
         }
     }
 
