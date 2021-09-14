@@ -17,8 +17,8 @@ pub type PartyId = usize;
 #[derive(Clone, PartialEq, Eq, Hash, Copy)]
 pub struct Index(pub Unknown);
 
-#[derive(Clone, PartialEq, Eq, Hash, Copy)]
-pub struct Path(pub Unknown);
+#[derive(Clone, PartialEq, Eq)]
+pub struct Path(Vec<merkle_tree::Hash>);
 
 // Writen as phi in the paper
 // XXX: What should it be implemented as?
