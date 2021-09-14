@@ -117,44 +117,34 @@ impl MVK {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use proptest::prelude::*;
 
-    #[test]
-    fn test_pairing() {
-        // Sanity check that the library is correct and we are using it correctly.
-        let mut rng = OsRng::default();
-        for _ in 0..128 {
-            let x = Scalar::random(&mut rng);
-            let y = Scalar::random(&mut rng);
-            let gt = pairing((G1Affine::one() * x).into(), (G2Affine::one() * y).into());
-            let should_be = pairing((G1Affine::one() * (x * y)).into(), G2Affine::one());
+    proptest! {
+        #[test]
+        fn test_pair_prop(x in any::<u64>(),
+                          y in any::<u64>()) {
+            // Sanity check that the library behaves as expected
+            let sx = blstrs::Scalar::from(x);
+            let sy = blstrs::Scalar::from(y);
+            let gt = pairing((G1Affine::one() * sx).into(),
+                             (G2Affine::one() * sy).into());
+            let should_be = pairing((G1Affine::one() * (sx * sy)).into(), G2Affine::one());
+            assert!(gt == should_be);
         }
-    }
 
-    #[test]
-    fn test_gen() {
-        for _ in 0..128 {
-            let (_sk, pk) = MSP::gen();
-            assert!(MSP::check(&pk));
-        }
-    }
-
-    #[test]
-    fn test_sig() {
-        for _ in 0..128 {
+        #[test]
+        fn test_sig(msg in prop::collection::vec(any::<u8>(), 1..128)) {
             let (sk, pk) = MSP::gen();
-            let msg = rand::random::<[u8;16]>();
             let sig = MSP::sig(&sk, &msg);
             assert!(MSP::ver(&msg, &pk.mvk, &sig));
         }
-    }
 
-    #[test]
-    fn test_aggregate_sig() {
-        for _ in 0..128 {
-            let msg = rand::random::<[u8;16]>();
+        #[test]
+        fn test_aggregate_sig(msg in prop::collection::vec(any::<u8>(), 1..128),
+                              num_sigs in 1..16) {
             let mut mvks = Vec::new();
             let mut sigs = Vec::new();
-            for _ in 0..16 {
+            for _ in 0..num_sigs {
                 let (sk, pk) = MSP::gen();
                 let sig = MSP::sig(&sk, &msg);
                 assert!(MSP::ver(&msg, &pk.mvk, &sig));
@@ -164,6 +154,14 @@ mod tests {
             let ivk = MSP::aggregate_keys(&mvks);
             let mu = MSP::aggregate_sigs(&msg, &sigs);
             assert!(MSP::aggregate_ver(&msg, &ivk, &mu));
+        }
+    }
+
+    #[test]
+    fn test_gen() {
+        for _ in 0..128 {
+            let (_sk, pk) = MSP::gen();
+            assert!(MSP::check(&pk));
         }
     }
 }
