@@ -5,7 +5,6 @@ edition = "2018"
 
 [dependencies]
 neptune    = { version = "4.0.0",  default-features = false, features=["blst"] }
-# bellperson = { version = "0.16.2", default-features = false, features=["blst"] }
 typenum    = "1.14.0"
 rand       = "0.8.4"
 proptest   = "1.0.0"
