@@ -29,8 +29,8 @@ fn hash_to_g1(tag: &[u8], bytes: &[u8]) -> G1Affine {
     G1Affine::from(G1Projective::hash_to_curve(bytes, "mithril".as_bytes(), tag))
 }
 
-static POP: &[u8] = "PoP".as_bytes();
-static M: &[u8]   = "M".as_bytes();
+static POP: &[u8] = b"PoP";
+static M: &[u8]   = b"M";
 
 impl MSP {
     pub fn gen() -> (SK, PK) {
