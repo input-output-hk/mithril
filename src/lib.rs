@@ -30,7 +30,7 @@ impl Index {
 pub struct Path(Vec<Hash>);
 
 // Writen as phi in the paper
-pub fn ev_lt_phi(ev: usize, stake: Stake, total_stake: Stake) -> bool {
+pub fn ev_lt_phi(ev: u64, stake: Stake, total_stake: Stake) -> bool {
     unimplemented!()
 }
 

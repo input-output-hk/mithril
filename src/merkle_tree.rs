@@ -1,5 +1,5 @@
 use crate::Path;
-use bellperson::bls::Bls12;
+use blstrs::Bls12;
 use neptune::poseidon::{Poseidon, PoseidonConstants};
 use neptune::{scalar_from_u64, Scalar, Arity};
 use proptest::prelude::*;
@@ -260,13 +260,13 @@ where
     }
 }
 
-impl<A> Value<A> for bellperson::bls::G1Affine
+impl<A> Value<A> for blstrs::G1Affine
 where
     A: Arity<Scalar> + typenum::IsGreaterOrEqual<typenum::U2>,
 {
     fn as_scalar<'a>(&self, hasher: &'a mut MerkleHasher<A>) -> Hash {
-        let x = bellperson::bls::FqRepr::from(self.x()).0.to_vec();
-        let y = bellperson::bls::FqRepr::from(self.y()).0.to_vec();
+        let x = blstrs::FpRepr::from(self.x()).0.to_vec();
+        let y = blstrs::FpRepr::from(self.y()).0.to_vec();
 
         (x,y).as_scalar(hasher)
     }
