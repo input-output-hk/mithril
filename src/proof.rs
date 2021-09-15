@@ -38,7 +38,7 @@ impl ConcatProof {
                                      .sum();
 
         // \forall i. index[i] <= m (what the hell is m)
-        let index_bound_check = self.0.indices.iter().fold(true, |r, Index(i)| r && i <= &m);
+        let index_bound_check = self.0.indices.iter().fold(true, |r, i| r && i <= &m);
 
         // \forall i. \forall j. (i == j || index[i] != index[j])
         let index_uniq_check =

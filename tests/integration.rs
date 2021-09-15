@@ -1,6 +1,5 @@
 use mithril::key_reg::KeyReg;
 use mithril::stm::StmParty;
-use mithril::Index;
 use rand;
 use rayon::prelude::*;
 
@@ -37,11 +36,12 @@ fn test_full_protocol() {
 
     let mut sigs = Vec::new();
     let mut ixs  = Vec::new();
+    let mut ix = 0;
     for p in &ps {
-        let ix = Index::random();
         if let Some(sig) = p.create_sig(&msg, ix) {
             sigs.push(sig);
             ixs.push(ix);
+            ix += 1;
         }
     }
 

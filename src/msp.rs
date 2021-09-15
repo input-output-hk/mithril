@@ -101,7 +101,7 @@ impl Msp {
         // H("map"||msg||index||sigma)
         hasher.update(&["map".as_bytes(),
                         msg,
-                        &index.0.to_le_bytes(),
+                        &index.to_le_bytes(),
                         &sigma.0.to_uncompressed()].concat());
         let mut dest = [0 as u8; 8];
         hasher.finalize_variable(|out| {
@@ -172,7 +172,7 @@ mod tests {
                                   idx in any::<u64>(),
                                   s in any::<u64>()) {
             let sigma = MspSig(G1Affine::one() * blstrs::Scalar::from(s));
-            Msp::eval(&msg, Index(idx), &sigma);
+            Msp::eval(&msg, idx, &sigma);
         }
     }
 

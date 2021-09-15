@@ -190,10 +190,11 @@ mod tests {
         let mut ps = setup_parties(nparties);
         let p = &mut ps[rand::random::<usize>() % nparties];
         p.create_avk();
+        let mut index = 0;
         for _ in 0..ntries {
-            let index = Index::random();
             if let Some(sig) = p.create_sig(&msg, index) {
                 assert!(p.verify(sig, index, &msg));
+                index += 1;
             }
         }
     }
@@ -207,11 +208,12 @@ mod tests {
             ps.iter_mut().for_each(StmParty::create_avk);
             let mut sigs = Vec::new();
             let mut ixs = Vec::new();
+            let mut ix = 0;
             for p in &ps {
-                let ix = Index::random();
                 if let Some(sig) = p.create_sig(&msg, ix) {
                     sigs.push(sig);
                     ixs.push(ix);
+                    ix += 1;
                 }
             }
             if sigs.len() > 0 {

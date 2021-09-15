@@ -10,15 +10,7 @@ pub type Stake = u64;
 
 pub type PartyId = usize;
 
-#[derive(Clone, PartialEq, Eq, Hash, Copy)]
-pub struct Index(u64);
-
-impl Index {
-    pub fn random() -> Self {
-        use rand::{Rng, rngs::OsRng};
-        Self(OsRng::default().gen())
-    }
-}
+pub type Index = u64;
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Path(Vec<merkle_tree::Hash>);
