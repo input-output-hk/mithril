@@ -39,14 +39,60 @@ pub fn ev_lt_phi(phi: Phi, ev: f64, stake: Stake, total_stake: Stake) -> bool {
 
     ev < 1.0 - (1.0 - phi.0).powf(w)
 }
-}
 
-
-impl<A> Value<A> for msp::PK
+impl<A> Value<A> for blstrs::G1Affine
 where
-    A: Arity<Hash> + typenum::IsGreaterOrEqual<typenum::U2>
+    A: Arity<Hash> + typenum::IsGreaterOrEqual<typenum::U2>,
 {
     fn as_scalar<'a>(&self, hasher: &'a mut MerkleHasher<A>) -> Hash {
-        unimplemented!()
+        let x = blstrs::FpRepr::from(self.x()).0.to_vec();
+        let y = blstrs::FpRepr::from(self.y()).0.to_vec();
+
+        (x,y).as_scalar(hasher)
+    }
+}
+
+impl<A> Value<A> for blstrs::FpRepr
+where
+    A: Arity<Hash> + typenum::IsGreaterOrEqual<typenum::U2>,
+{
+    fn as_scalar<'a>(&self, hasher: &'a mut MerkleHasher<A>) -> Hash {
+        self.0.to_vec().as_scalar(hasher)
+    }
+}
+
+impl<A> Value<A> for blstrs::Fp
+where
+    A: Arity<Hash> + typenum::IsGreaterOrEqual<typenum::U2>,
+{
+    fn as_scalar<'a>(&self, hasher: &'a mut MerkleHasher<A>) -> Hash {
+        blstrs::FpRepr::from(*self).as_scalar(hasher)
+    }
+}
+
+impl<A> Value<A> for blstrs::Fp2
+where
+    A: Arity<Hash> + typenum::IsGreaterOrEqual<typenum::U2>,
+{
+    fn as_scalar<'a>(&self, hasher: &'a mut MerkleHasher<A>) -> Hash {
+        vec![self.c0(), self.c1()].as_scalar(hasher)
+    }
+}
+
+impl<A> Value<A> for blstrs::G1Projective
+where
+    A: Arity<Hash> + typenum::IsGreaterOrEqual<typenum::U2>,
+{
+    fn as_scalar<'a>(&self, hasher: &'a mut MerkleHasher<A>) -> Hash {
+        vec![self.x(), self.y(), self.z()].as_scalar(hasher)
+    }
+}
+
+impl<A> Value<A> for blstrs::G2Projective
+where
+    A: Arity<Hash> + typenum::IsGreaterOrEqual<typenum::U2>,
+{
+    fn as_scalar<'a>(&self, hasher: &'a mut MerkleHasher<A>) -> Hash {
+        vec![self.x(), self.y(), self.z()].as_scalar(hasher)
     }
 }

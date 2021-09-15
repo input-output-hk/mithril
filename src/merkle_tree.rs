@@ -215,8 +215,9 @@ where
     }
 }
 
-impl<A> Value<A> for Vec<u64>
+impl<A,V> Value<A> for Vec<V>
 where
+    V: Value<A>,
     A: Arity<Scalar> + typenum::IsGreaterOrEqual<typenum::U2>,
 {
     fn as_scalar<'a>(&self, hasher: &'a mut MerkleHasher<A>) -> Hash {
@@ -259,19 +260,6 @@ where
         }
     }
 }
-
-impl<A> Value<A> for blstrs::G1Affine
-where
-    A: Arity<Scalar> + typenum::IsGreaterOrEqual<typenum::U2>,
-{
-    fn as_scalar<'a>(&self, hasher: &'a mut MerkleHasher<A>) -> Hash {
-        let x = blstrs::FpRepr::from(self.x()).0.to_vec();
-        let y = blstrs::FpRepr::from(self.y()).0.to_vec();
-
-        (x,y).as_scalar(hasher)
-    }
-}
-
 /////////////////////
 // Testing         //
 /////////////////////

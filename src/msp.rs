@@ -2,6 +2,9 @@
 
 use super::Index;
 
+use crate::merkle_tree::{Hash, Value, MerkleHasher}; // TODO: Refactor to get rid of this dep
+
+use neptune::poseidon::Arity; // TODO: Refactor to get rid of this dep
 use blstrs::{pairing, Scalar, Field, G1Affine, G1Projective, G2Projective, G2Affine};
 use rand_core::OsRng;
 use groupy::CurveAffine;
@@ -124,6 +127,26 @@ impl MVK {
 fn hash_to_g1(tag: &[u8], bytes: &[u8]) -> G1Affine {
     // k1 <- H_G1("PoP"||mvk)^x
     G1Affine::from(G1Projective::hash_to_curve(bytes, b"mithril", tag))
+}
+
+impl<A> Value<A> for PK
+where
+    A: Arity<Hash> + typenum::IsGreaterOrEqual<typenum::U2>
+{
+    fn as_scalar<'a>(&self, hasher: &'a mut MerkleHasher<A>) -> Hash {
+        vec![self.mvk.as_scalar(hasher),
+             self.k1.as_scalar(hasher),
+             self.k2.as_scalar(hasher)].as_scalar(hasher)
+    }
+}
+
+impl<A> Value<A> for MVK
+where
+    A: Arity<Hash> + typenum::IsGreaterOrEqual<typenum::U2>
+{
+    fn as_scalar<'a>(&self, hasher: &'a mut MerkleHasher<A>) -> Hash {
+        self.0.as_scalar(hasher)
+    }
 }
 
 #[cfg(test)]
