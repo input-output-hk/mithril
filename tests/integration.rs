@@ -6,7 +6,7 @@ use rayon::prelude::*;
 
 #[test]
 fn test_full_protocol() {
-    let nparties = 100;
+    let nparties = 128;
     let msg = rand::random::<[u8;16]>();
 
     //////////////////////////
