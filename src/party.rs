@@ -1,8 +1,10 @@
-use super::{Stake, PartyId, Index, Path, ev_lt_phi};
+use super::{Stake, PartyId, Index, Path, ev_lt_phi, Phi};
 use crate::key_reg::KeyReg;
 use crate::msp::{self, MSP};
 use crate::merkle_tree::{MerkleTree, MerkleHashConstants};
 use crate::proof::{ConcatProof, Witness};
+
+static PHI: Phi = Phi(0.5); // TODO: Figure out how/when this gets configued
 
 pub struct Party<'l> {
     party_id: PartyId,
@@ -80,7 +82,7 @@ impl<'l> Party<'l> {
         let msgp = self.avk.as_ref().unwrap().concat_with_msg(msg);
         let sigma = MSP::sig(self.sk.as_ref().unwrap(), &msgp);
         let ev = MSP::eval(&msgp, index, &sigma);
-        ev_lt_phi(ev, self.stake, self.total_stake.unwrap())
+        ev_lt_phi(PHI, ev, self.stake, self.total_stake.unwrap())
     }
 
     pub fn create_sig(&self, msg: &[u8], index: Index) -> Option<Sig> {
@@ -111,7 +113,7 @@ impl<'l> Party<'l> {
         let avk = self.avk.as_ref().unwrap();
         let msgp = avk.concat_with_msg(msg);
         let ev = MSP::eval(&msgp, index, &sig.sigma);
-        if !ev_lt_phi(ev, sig.stake, self.total_stake.unwrap()) ||
+        if !ev_lt_phi(PHI, ev, sig.stake, self.total_stake.unwrap()) ||
             todo!() // !avk.check((sig.pk.clone(), sig.stake), index, sig.path)
         {
             return false;

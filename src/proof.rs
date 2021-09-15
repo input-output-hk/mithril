@@ -7,7 +7,7 @@ use super::Index;
 pub struct Witness {
     pub sigs: Vec<Sig>,
     pub indices: Vec<Index>,
-    pub evals: Vec<u64>,
+    pub evals: Vec<f64>,
 }
 
 // Proof system that simply concatenates the witness

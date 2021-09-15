@@ -96,19 +96,19 @@ impl MSP {
         Self::ver(msg, ivk, mu)
     }
 
-    pub fn eval(msg: &[u8], index: Index, sigma: &Sig) -> u64 {
-        let mut hasher : VarBlake2b = VariableOutput::new(8).unwrap();
+    pub fn eval(msg: &[u8], index: Index, sigma: &Sig) -> f64 {
+        let mut hasher : VarBlake2b = VariableOutput::new(4).unwrap();
         // H("map"||msg||index||sigma)
         hasher.update(&["map".as_bytes(),
                         msg,
                         &index.0.to_le_bytes(),
                         &sigma.0.to_uncompressed()].concat());
-        let mut dest = [0 as u8; 8];
+        let mut dest = [0 as u8; 4];
         hasher.finalize_variable(|out| {
             dest.copy_from_slice(out);
         });
 
-        u64::from_le_bytes(dest)
+        f64::from(u32::from_le_bytes(dest))
         // XXX: See section 6 to implement M from Elligator Squared
         // return ev <- M_msg,index(sigma)
     }

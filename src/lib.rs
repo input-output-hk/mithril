@@ -29,9 +29,16 @@ impl Index {
 #[derive(Clone, PartialEq, Eq)]
 pub struct Path(Vec<Hash>);
 
+#[derive(Clone, PartialEq, Copy)]
+pub struct Phi(f64);
+
 // Writen as phi in the paper
-pub fn ev_lt_phi(ev: u64, stake: Stake, total_stake: Stake) -> bool {
-    unimplemented!()
+pub fn ev_lt_phi(phi: Phi, ev: f64, stake: Stake, total_stake: Stake) -> bool {
+    //TODO: Fix this, casting to f64 isn't safe
+    let w = (stake as f64) / (total_stake as f64);
+
+    ev < 1.0 - (1.0 - phi.0).powf(w)
+}
 }
 
 
