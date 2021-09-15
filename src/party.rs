@@ -110,7 +110,7 @@ impl Party {
         let msgp = avk.concat_with_msg(msg);
         let ev = MSP::eval(&msgp, index, &sig.sigma);
         if !ev_lt_phi(PHI, ev, sig.stake, self.total_stake.unwrap()) ||
-            !avk.check(&(sig.pk.clone(), sig.stake), todo!(), &sig.path)
+            !avk.check(&(sig.pk.clone(), sig.stake), sig.party, &sig.path)
         {
             return false;
         }
