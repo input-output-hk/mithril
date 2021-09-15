@@ -1,39 +1,39 @@
 use super::{Stake, PartyId, Index, Path, ev_lt_phi, Phi};
 use crate::key_reg::KeyReg;
-use crate::msp::{self, MSP};
+use crate::msp::{Msp, MspMvk, MspSig, MspPk, MspSk};
 use crate::merkle_tree::MerkleTree;
 use crate::proof::{ConcatProof, Witness};
 
 static PHI: Phi = Phi(0.5); // TODO: Figure out how/when this gets configued
 static M: u64 = 10; // TODO: ????
 
-pub struct Party {
+pub struct StmParty {
     party_id: PartyId,
     stake: Stake,
     avk: Option<MerkleTree>,
-    sk: Option<msp::SK>,
-    pk: Option<msp::PK>,
-    reg: Option<Vec<Option<(msp::PK, Stake)>>>, // map from PID -> (PK,Stake)
+    sk: Option<MspSk>,
+    pk: Option<MspPk>,
+    reg: Option<Vec<Option<(MspPk, Stake)>>>, // map from PID -> (PK,Stake)
     total_stake: Option<Stake>,
 }
 
 #[derive(Clone)]
-pub struct Sig {
-    pub sigma: msp::Sig,
-    pub pk: msp::PK,
+pub struct StmSig {
+    pub sigma: MspSig,
+    pub pk: MspPk,
     pub party: PartyId,
     pub stake: Stake,
     pub path: Path,
 }
 
 #[derive(Clone)]
-pub struct MultiSig {
-    ivk: msp::MVK,
-    mu: msp::Sig,
+pub struct StmMultiSig {
+    ivk: MspMvk,
+    mu: MspSig,
     proof: ConcatProof,
 }
 
-impl Party {
+impl StmParty {
     //////////////////////////
     // Initialization phase //
     //////////////////////////
@@ -53,7 +53,7 @@ impl Party {
         // (msk_i, mvk_i, k_i) <- MSP.Gen(Param)
         // (vk_i, sk_i) := ((mvk_i, k_i), msk_i)
         // send (Register, sid, vk_i) to F_KR
-        let (sk, pk) = MSP::gen();
+        let (sk, pk) = Msp::gen();
         self.sk = Some(sk);
         self.pk = Some(pk.clone());
         kr.register(self.party_id, self.stake, pk);
@@ -83,12 +83,12 @@ impl Party {
         // ev <- MSP.Eval(msg', index, sigma)
         // return 1 if ev < phi(stake) else return 0
         let msgp = self.avk.as_ref().unwrap().concat_with_msg(msg);
-        let sigma = MSP::sig(self.sk.as_ref().unwrap(), &msgp);
-        let ev = MSP::eval(&msgp, index, &sigma);
+        let sigma = Msp::sig(self.sk.as_ref().unwrap(), &msgp);
+        let ev = Msp::eval(&msgp, index, &sigma);
         ev_lt_phi(PHI, ev, self.stake, self.total_stake.unwrap())
     }
 
-    pub fn create_sig(&self, msg: &[u8], index: Index) -> Option<Sig> {
+    pub fn create_sig(&self, msg: &[u8], index: Index) -> Option<StmSig> {
         if self.eligibility_check(msg, index) {
             // msg' <- AVK||msg
             // sigma <- MSP.Sig(msk,msg')
@@ -97,10 +97,10 @@ impl Party {
             //      reg_i is (mvk_i, stake_i)
             // return pi
             let msgp = self.avk.as_ref().unwrap().concat_with_msg(msg);
-            let sigma = MSP::sig(self.sk.as_ref().unwrap(), &msgp);
+            let sigma = Msp::sig(self.sk.as_ref().unwrap(), &msgp);
             let path = self.avk.as_ref().unwrap().get_path(self.party_id);
             let pk = self.pk.as_ref().unwrap().clone();
-            Some(Sig {
+            Some(StmSig {
                 sigma,
                 pk,
                 party: self.party_id,
@@ -112,19 +112,19 @@ impl Party {
         }
     }
 
-    pub fn verify(&self, sig: Sig, index: Index, msg: &[u8]) -> bool {
+    pub fn verify(&self, sig: StmSig, index: Index, msg: &[u8]) -> bool {
         let avk = self.avk.as_ref().unwrap();
         let msgp = avk.concat_with_msg(msg);
-        let ev = MSP::eval(&msgp, index, &sig.sigma);
+        let ev = Msp::eval(&msgp, index, &sig.sigma);
         if !ev_lt_phi(PHI, ev, sig.stake, self.total_stake.unwrap()) ||
             !avk.check(&(sig.pk.clone(), sig.stake), sig.party, &sig.path)
         {
             return false;
         }
-        MSP::ver(&msgp, &sig.pk.mvk, &sig.sigma)
+        Msp::ver(&msgp, &sig.pk.mvk, &sig.sigma)
     }
 
-    pub fn aggregate(&self, sigs: &[Sig], indices: &[Index], msg: &[u8]) -> Option<MultiSig> {
+    pub fn aggregate(&self, sigs: &[StmSig], indices: &[Index], msg: &[u8]) -> Option<StmMultiSig> {
         let avk = self.avk.as_ref().unwrap();
         let msgp = avk.concat_with_msg(msg);
         let mut seen_parties = std::collections::HashSet::new();
@@ -136,32 +136,32 @@ impl Party {
                 return None;
             }
             seen_parties.insert(sig.party);
-            evals.push(MSP::eval(&msgp, *ix, &sig.sigma));
+            evals.push(Msp::eval(&msgp, *ix, &sig.sigma));
         }
         let mvks = sigs.iter().map(|sig| sig.pk.mvk).collect::<Vec<_>>();
         let sigmas = sigs.iter().map(|sig| sig.sigma).collect::<Vec<_>>();
-        let ivk = MSP::aggregate_keys(&mvks);
-        let mu = MSP::aggregate_sigs(msg, &sigmas);
+        let ivk = Msp::aggregate_keys(&mvks);
+        let mu = Msp::aggregate_sigs(msg, &sigmas);
         let witness = Witness {
             sigs: sigs.to_vec(),
             indices: indices.to_vec(),
             evals,
         };
         let proof = ConcatProof::prove(avk, &ivk, msg, &witness);
-        Some(MultiSig {
+        Some(StmMultiSig {
             ivk,
             mu,
             proof,
         })
     }
 
-    pub fn verify_aggregate(&self, msig: &MultiSig, msg: &[u8]) -> bool {
+    pub fn verify_aggregate(&self, msig: &StmMultiSig, msg: &[u8]) -> bool {
         let avk = self.avk.as_ref().unwrap();
         if !msig.proof.verify(PHI, self.total_stake.unwrap(), M, avk, &msig.ivk, msg) {
             return false;
         }
         let msgp = avk.concat_with_msg(msg);
-        MSP::aggregate_ver(&msgp, &msig.ivk, &msig.mu)
+        Msp::aggregate_ver(&msgp, &msig.ivk, &msig.mu)
     }
 }
 
@@ -169,13 +169,13 @@ impl Party {
 mod tests {
     use super::*;
 
-    fn setup_parties(nparties: usize) -> Vec<Party> {
+    fn setup_parties(nparties: usize) -> Vec<StmParty> {
         let mut kr = KeyReg::new();
         let mut ps = (0..nparties).map(|pid| {
-            let mut p = Party::setup(pid, 1);
+            let mut p = StmParty::setup(pid, 1);
             p.register(&mut kr);
             p
-        }).collect::<Vec<Party>>();
+        }).collect::<Vec<StmParty>>();
         for p in ps.iter_mut() {
             p.retrieve_all(&kr);
         }
@@ -204,7 +204,7 @@ mod tests {
             let nparties = 16;
             let msg = rand::random::<[u8;16]>();
             let mut ps = setup_parties(nparties);
-            ps.iter_mut().for_each(Party::create_avk);
+            ps.iter_mut().for_each(StmParty::create_avk);
             let mut sigs = Vec::new();
             let mut ixs = Vec::new();
             for p in &ps {

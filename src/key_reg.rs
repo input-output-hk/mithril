@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
 use super::{PartyId, Stake};
-use super::msp::{self, MSP};
+use super::msp::{Msp, MspPk};
 
 pub struct KeyReg {
     allow: bool,
-    store: HashMap<PartyId, (msp::PK, Stake)>,
+    store: HashMap<PartyId, (MspPk, Stake)>,
 }
 
 impl KeyReg {
@@ -16,20 +16,20 @@ impl KeyReg {
         }
     }
 
-    pub fn register(&mut self, party_id: PartyId, stake: Stake, pk: msp::PK) {
+    pub fn register(&mut self, party_id: PartyId, stake: Stake, pk: MspPk) {
         if !self.allow || self.store.contains_key(&party_id) {
             return;
         }
-        if MSP::check(&pk) {
+        if Msp::check(&pk) {
             self.store.insert(party_id, (pk, stake));
         }
     }
 
-    pub fn retrieve(&self, party_id: PartyId) -> Option<(msp::PK, Stake)> {
+    pub fn retrieve(&self, party_id: PartyId) -> Option<(MspPk, Stake)> {
         self.store.get(&party_id).cloned()
     }
 
-    pub fn retrieve_all(&self) -> Vec<Option<(msp::PK, Stake)>> {
+    pub fn retrieve_all(&self) -> Vec<Option<(MspPk, Stake)>> {
         let max_party_id = *self.store.keys().max().unwrap();
         (0..=max_party_id).map(|p|self.store.get(&p).cloned()).collect()
     }

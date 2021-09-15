@@ -8,44 +8,44 @@ use groupy::CurveAffine;
 use blake2::VarBlake2b;
 use digest::{VariableOutput,Update};
 
-pub struct MSP { }
+pub struct Msp { }
 
 #[derive(Clone,Copy)]
-pub struct SK(Scalar);
+pub struct MspSk(Scalar);
 
 #[derive(Clone,Copy)]
-pub struct MVK(pub G2Projective);
+pub struct MspMvk(pub G2Projective);
 
 #[derive(Clone,Copy)]
-pub struct PK {
-    pub mvk: MVK,
+pub struct MspPk {
+    pub mvk: MspMvk,
     pub k1: G1Projective,
     pub k2: G1Projective,
 }
 
 #[derive(Clone,Copy)]
-pub struct Sig(G1Projective);
+pub struct MspSig(G1Projective);
 
 static POP: &[u8] = b"PoP";
 static M: &[u8]   = b"M";
 
-impl MSP {
-    pub fn gen() -> (SK, PK) {
+impl Msp {
+    pub fn gen() -> (MspSk, MspPk) {
         // sk=x <- Zq
         let mut rng = OsRng::default();
         let x = Scalar::random(&mut rng);
         // mvk <- g2^x
-        let mvk = MVK(G2Affine::one() * x);
+        let mvk = MspMvk(G2Affine::one() * x);
         // k1 <- H_G1("PoP"||mvk)^x
         let k1 = hash_to_g1(POP, &mvk.to_bytes()) * x;
         // k2 <- g1^x
         let k2 = G1Affine::one() * x;
         // return sk,mvk,k=(k1,k2)
-        (SK(x), PK { mvk, k1, k2 })
+        (MspSk(x), MspPk { mvk, k1, k2 })
 
     }
 
-    pub fn check(pk: &PK) -> bool {
+    pub fn check(pk: &MspPk) -> bool {
         // if e(k1,g2) = e(H_G1("PoP"||mvk),mvk)
         //      and e(g1,mvk) = e(k2,g2)
         //      are both true, return 1
@@ -60,13 +60,13 @@ impl MSP {
         (e_k1_g2 == e_hg1_mvk) && (e_g1_mvk == e_k2_g2)
     }
 
-    pub fn sig(sk: &SK, msg: &[u8]) -> Sig {
+    pub fn sig(sk: &MspSk, msg: &[u8]) -> MspSig {
         // return sigma <- H_G1("M"||msg)^x
         let g1 = hash_to_g1(M, msg);
-        Sig(g1 * sk.0)
+        MspSig(g1 * sk.0)
     }
 
-    pub fn ver(msg: &[u8], mvk: &MVK, sigma: &Sig) -> bool {
+    pub fn ver(msg: &[u8], mvk: &MspMvk, sigma: &MspSig) -> bool {
         // return 1 if e(sigma,g2) = e(H_G1("M"||msg),mvk)
         let e_sigma_g2 = pairing(G1Affine::from(sigma.0), G2Affine::one());
         let e_hg1_mvk  = pairing(hash_to_g1(M, msg), G2Affine::from(mvk.0));
@@ -75,28 +75,28 @@ impl MSP {
     }
 
     // MSP.AKey
-    pub fn aggregate_keys(mvks: &[MVK]) -> MVK {
-        MVK(mvks
+    pub fn aggregate_keys(mvks: &[MspMvk]) -> MspMvk {
+        MspMvk(mvks
             .iter()
             .fold(G2Projective::from(G2Affine::zero()),
                   |acc, x| acc + x.0))
     }
 
     // MSP.Aggr
-    pub fn aggregate_sigs(msg: &[u8], sigmas: &[Sig]) -> Sig {
+    pub fn aggregate_sigs(msg: &[u8], sigmas: &[MspSig]) -> MspSig {
         // XXX: what is d?
-        Sig(sigmas
+        MspSig(sigmas
             .iter()
             .fold(G1Projective::from(G1Affine::zero()),
                   |acc, s| acc + s.0))
     }
 
     // MSP.AVer
-    pub fn aggregate_ver(msg: &[u8], ivk: &MVK, mu: &Sig) -> bool {
+    pub fn aggregate_ver(msg: &[u8], ivk: &MspMvk, mu: &MspSig) -> bool {
         Self::ver(msg, ivk, mu)
     }
 
-    pub fn eval(msg: &[u8], index: Index, sigma: &Sig) -> u64 {
+    pub fn eval(msg: &[u8], index: Index, sigma: &MspSig) -> u64 {
         let mut hasher : VarBlake2b = VariableOutput::new(8).unwrap();
         // H("map"||msg||index||sigma)
         hasher.update(&["map".as_bytes(),
@@ -113,7 +113,7 @@ impl MSP {
     }
 }
 
-impl MVK {
+impl MspMvk {
     pub fn to_bytes(&self) -> [u8; 96] {
         // Notes: to_vec() here causes a segfault later, why?
         self.0.to_uncompressed()
@@ -145,9 +145,9 @@ mod tests {
 
         #[test]
         fn test_sig(msg in prop::collection::vec(any::<u8>(), 1..128)) {
-            let (sk, pk) = MSP::gen();
-            let sig = MSP::sig(&sk, &msg);
-            assert!(MSP::ver(&msg, &pk.mvk, &sig));
+            let (sk, pk) = Msp::gen();
+            let sig = Msp::sig(&sk, &msg);
+            assert!(Msp::ver(&msg, &pk.mvk, &sig));
         }
 
         #[test]
@@ -156,31 +156,31 @@ mod tests {
             let mut mvks = Vec::new();
             let mut sigs = Vec::new();
             for _ in 0..num_sigs {
-                let (sk, pk) = MSP::gen();
-                let sig = MSP::sig(&sk, &msg);
-                assert!(MSP::ver(&msg, &pk.mvk, &sig));
+                let (sk, pk) = Msp::gen();
+                let sig = Msp::sig(&sk, &msg);
+                assert!(Msp::ver(&msg, &pk.mvk, &sig));
                 sigs.push(sig);
                 mvks.push(pk.mvk);
             }
-            let ivk = MSP::aggregate_keys(&mvks);
-            let mu = MSP::aggregate_sigs(&msg, &sigs);
-            assert!(MSP::aggregate_ver(&msg, &ivk, &mu));
+            let ivk = Msp::aggregate_keys(&mvks);
+            let mu = Msp::aggregate_sigs(&msg, &sigs);
+            assert!(Msp::aggregate_ver(&msg, &ivk, &mu));
         }
 
         #[test]
         fn test_eval_sanity_check(msg in prop::collection::vec(any::<u8>(), 1..128),
                                   idx in any::<u64>(),
                                   s in any::<u64>()) {
-            let sigma = Sig(G1Affine::one() * blstrs::Scalar::from(s));
-            MSP::eval(&msg, Index(idx), &sigma);
+            let sigma = MspSig(G1Affine::one() * blstrs::Scalar::from(s));
+            Msp::eval(&msg, Index(idx), &sigma);
         }
     }
 
     #[test]
     fn test_gen() {
         for _ in 0..128 {
-            let (_sk, pk) = MSP::gen();
-            assert!(MSP::check(&pk));
+            let (_sk, pk) = Msp::gen();
+            assert!(Msp::check(&pk));
         }
     }
 }

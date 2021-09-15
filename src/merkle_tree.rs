@@ -252,7 +252,7 @@ impl IntoHash for blstrs::G2Projective {
     }
 }
 
-impl IntoHash for crate::msp::PK {
+impl IntoHash for crate::msp::MspPk {
     fn into_hash<'a>(&self, hasher: &mut MerkleHasher<'a>) -> Hash {
         vec![self.mvk.into_hash(hasher),
              self.k1.into_hash(hasher),
@@ -260,7 +260,7 @@ impl IntoHash for crate::msp::PK {
     }
 }
 
-impl IntoHash for crate::msp::MVK {
+impl IntoHash for crate::msp::MspMvk {
     fn into_hash<'a>(&self, hasher: &mut MerkleHasher<'a>) -> Hash {
         self.0.into_hash(hasher)
     }

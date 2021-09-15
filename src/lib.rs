@@ -1,12 +1,10 @@
 #![allow(dead_code, unused_variables)]
 
-pub mod party;
+pub mod stm;
 pub mod key_reg;
 pub mod msp;
 pub mod merkle_tree;
 pub mod proof;
-
-pub type Unknown = usize;
 
 pub type Stake = u64;
 

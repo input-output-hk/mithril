@@ -1,7 +1,7 @@
 use crate::ev_lt_phi;
-use crate::msp;
+use crate::msp::{Msp, MspMvk};
 use crate::merkle_tree::MerkleTree;
-use crate::party::Sig;
+use crate::stm::StmSig;
 use super::{Index, Phi};
 
 use std::collections::HashSet;
@@ -9,7 +9,7 @@ use std::iter::FromIterator;
 
 #[derive(Clone)]
 pub struct Witness {
-    pub sigs: Vec<Sig>,
+    pub sigs: Vec<StmSig>,
     pub indices: Vec<Index>,
     pub evals: Vec<u64>,
 }
@@ -19,7 +19,7 @@ pub struct Witness {
 pub struct ConcatProof(Witness);
 
 impl ConcatProof {
-    pub fn prove(_avk: &MerkleTree, _ivk: &msp::MVK, _msg: &[u8], w: &Witness) -> Self {
+    pub fn prove(_avk: &MerkleTree, _ivk: &MspMvk, _msg: &[u8], w: &Witness) -> Self {
         Self(w.clone())
     }
 
@@ -28,7 +28,7 @@ impl ConcatProof {
     //   m ???
     //   k (length of witness?)
     //   phi ???
-    pub fn verify(&self, phi: Phi, total_stake: u64, m: u64, avk: &MerkleTree, ivk: &msp::MVK, msg: &[u8]) -> bool
+    pub fn verify(&self, phi: Phi, total_stake: u64, m: u64, avk: &MerkleTree, ivk: &MspMvk, msg: &[u8]) -> bool
     {
         // ivk = Prod(1..k, mvk[i])
         let ivk_check = ivk.0 == self.0
@@ -54,7 +54,7 @@ impl ConcatProof {
         // \forall i : [1..k]. ev[i] = MSP.Eval(msg, index[i], sig[i])
         let msp_evals =
             Iterator::zip(self.0.indices.iter(), self.0.sigs.iter())
-            .map(|(idx, sig)| msp::MSP::eval(msg, *idx, &sig.sigma) );
+            .map(|(idx, sig)| Msp::eval(msg, *idx, &sig.sigma) );
         let eval_check =
             Iterator::zip(self.0.evals.iter(), msp_evals)
             .fold(true, |r, (ev, msp_e)| r && *ev == msp_e );
