@@ -31,7 +31,7 @@ impl KeyReg {
 
     pub fn retrieve_all(&self) -> Vec<Option<(msp::PK, Stake)>> {
         let max_party_id = *self.store.keys().max().unwrap();
-        (0..max_party_id).map(|p|self.store.get(&p).cloned()).collect()
+        (0..=max_party_id).map(|p|self.store.get(&p).cloned()).collect()
     }
 
     pub fn close(&mut self) {
