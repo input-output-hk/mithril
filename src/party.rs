@@ -1,19 +1,17 @@
 use super::{Stake, PartyId, Index, Path, ev_lt_phi, Phi};
 use crate::key_reg::KeyReg;
 use crate::msp::{self, MSP};
-use crate::merkle_tree::{MerkleTree, MerkleHashConstants};
+use crate::merkle_tree::MerkleTree;
 use crate::proof::{ConcatProof, Witness};
 
 static PHI: Phi = Phi(0.5); // TODO: Figure out how/when this gets configued
 
-pub struct Party<'l> {
+pub struct Party {
     party_id: PartyId,
     stake: Stake,
-    rs: crate::ref_str::ReferenceString,
-    avk: Option<MerkleTree<'l, typenum::U2>>,
+    avk: Option<MerkleTree>,
     sk: Option<msp::SK>,
     pk: Option<msp::PK>,
-    consts: &'l MerkleHashConstants<typenum::U2>,
     total_stake: Option<Stake>,
 }
 
@@ -33,19 +31,17 @@ pub struct MultiSig {
     proof: ConcatProof,
 }
 
-impl<'l> Party<'l> {
+impl Party {
     //////////////////////////
     // Initialization phase //
     //////////////////////////
-    pub fn setup(party_id: PartyId, stake: Stake, consts: &'l MerkleHashConstants<typenum::U2>) -> Self {
+    pub fn setup(party_id: PartyId, stake: Stake) -> Self {
         Self {
             party_id,
             stake,
-            rs: crate::ref_str::get_reference_string(),
             avk: None,
             sk: None,
             pk: None,
-            consts: consts,
             total_stake: None,
         }
     }
@@ -67,7 +63,7 @@ impl<'l> Party<'l> {
         let reg = kr.retrieve_all();
         // get total stake
         self.total_stake = Some(reg.iter().filter_map(|p| p.map(|(_,s)|s)).sum());
-        let avk: MerkleTree<'l,typenum::U2> = MerkleTree::create(self.consts, &reg);
+        let avk: MerkleTree = MerkleTree::create(&reg);
         self.avk = Some(avk);
     }
 
@@ -114,7 +110,7 @@ impl<'l> Party<'l> {
         let msgp = avk.concat_with_msg(msg);
         let ev = MSP::eval(&msgp, index, &sig.sigma);
         if !ev_lt_phi(PHI, ev, sig.stake, self.total_stake.unwrap()) ||
-            todo!() // !avk.check((sig.pk.clone(), sig.stake), index, sig.path)
+            !avk.check(&(sig.pk.clone(), sig.stake), todo!(), &sig.path)
         {
             return false;
         }
@@ -171,10 +167,9 @@ mod tests {
         let nparties = 4;
         let ntries = 10000;
         let msg = rand::random::<[u8;16]>();
-        let cs = crate::merkle_tree::new_constants();
         let mut kr = KeyReg::new();
         let mut ps = (0..nparties).map(|pid| {
-            let mut p = Party::setup(pid, 1, &cs);
+            let mut p = Party::setup(pid, 1);
             p.register(&mut kr);
             p
         }).collect::<Vec<_>>();

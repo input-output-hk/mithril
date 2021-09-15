@@ -1,4 +1,3 @@
-use mithril::merkle_tree::new_constants;
 use mithril::key_reg::KeyReg;
 use mithril::party::Party;
 use mithril::Index;
@@ -9,7 +8,6 @@ use rayon::prelude::*;
 fn test_full_protocol() {
     let nparties = 100;
     let msg = rand::random::<[u8;16]>();
-    let constants = new_constants();
 
     //////////////////////////
     // initialization phase //
@@ -22,7 +20,7 @@ fn test_full_protocol() {
 
     for pid in 0..nparties {
         let stake = 1 + (rand::random::<u64>() % 9999);
-        let mut p = Party::setup(pid, stake, &constants);
+        let mut p = Party::setup(pid, stake);
         p.register(&mut key_reg);
         ps.push(p);
     }

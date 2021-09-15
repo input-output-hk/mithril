@@ -2,7 +2,6 @@
 
 pub mod party;
 pub mod key_reg;
-pub mod ref_str;
 pub mod msp;
 pub mod merkle_tree;
 pub mod proof;
