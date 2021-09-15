@@ -161,3 +161,23 @@ impl<'l> Party<'l> {
         MSP::aggregate_ver(&msgp, &msig.ivk, &msig.mu)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sig() {
+        let nparties = 4;
+        let msg = rand::random::<[u8;16]>();
+        let cs = crate::merkle_tree::new_constants();
+        let mut kr = KeyReg::new();
+        let mut ps = (0..nparties).map(|pid| {
+            let mut p = Party::setup(0, pid, &cs);
+            p.register(&mut kr);
+            p
+        }).collect::<Vec<_>>();
+        let p = &mut ps[0];
+        p.retrieve_all(&kr);
+    }
+}
