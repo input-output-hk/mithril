@@ -1,4 +1,4 @@
-use super::{Stake, PartyId, Index, Path, scaling_function};
+use super::{Stake, PartyId, Index, Path, ev_lt_phi};
 use crate::key_reg::KeyReg;
 use crate::msp::{self, MSP};
 use crate::merkle_tree::{MerkleTree, MerkleHashConstants};
@@ -12,6 +12,7 @@ pub struct Party<'l> {
     sk: Option<msp::SK>,
     pk: Option<msp::PK>,
     consts: &'l MerkleHashConstants<typenum::U2>,
+    total_stake: Option<Stake>,
 }
 
 #[derive(Clone)]
@@ -43,6 +44,7 @@ impl<'l> Party<'l> {
             sk: None,
             pk: None,
             consts: consts,
+            total_stake: None,
         }
     }
 
@@ -61,6 +63,8 @@ impl<'l> Party<'l> {
         // Reg is padded to length N using null entries of stake 0
         // AVK <- MT.Create(Reg)
         let reg = kr.retrieve_all();
+        // get total stake
+        self.total_stake = Some(reg.iter().filter_map(|p| p.map(|(_,s)|s)).sum());
         let avk: MerkleTree<'l,typenum::U2> = MerkleTree::create(self.consts, &reg);
         self.avk = Some(avk);
     }
@@ -76,7 +80,7 @@ impl<'l> Party<'l> {
         let msgp = self.avk.as_ref().unwrap().concat_with_msg(msg);
         let sigma = MSP::sig(self.sk.as_ref().unwrap(), &msgp);
         let ev = MSP::eval(&msgp, index, &sigma);
-        ev < scaling_function(self.stake)
+        ev_lt_phi(ev, self.stake, self.total_stake.unwrap())
     }
 
     pub fn create_sig(&self, msg: &[u8], index: Index) -> Option<Sig> {
@@ -107,7 +111,7 @@ impl<'l> Party<'l> {
         let avk = self.avk.as_ref().unwrap();
         let msgp = avk.concat_with_msg(msg);
         let ev = MSP::eval(&msgp, index, &sig.sigma);
-        if !(ev < scaling_function(sig.stake)) ||
+        if !ev_lt_phi(ev, sig.stake, self.total_stake.unwrap()) ||
             todo!() // !avk.check((sig.pk.clone(), sig.stake), index, sig.path)
         {
             return false;
