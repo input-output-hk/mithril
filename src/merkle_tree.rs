@@ -30,6 +30,9 @@ pub trait IntoHash {
 impl MerkleTree {
     pub fn create<V: IntoHash>(leaves: &[V]) -> MerkleTree {
         let n = leaves.len();
+        assert!(n > 1, "MerkleTree::create() called with fewer than 2 leaves");
+        assert!((n & (n - 1) == 0), "MerkleTree::create() called with non-power of 2 leaves {}", n);
+
         let num_nodes = 2*n - 1;
 
         let mut nodes = vec![scalar_from_u64(0); num_nodes];
