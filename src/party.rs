@@ -17,11 +17,11 @@ pub struct Party {
 
 #[derive(Clone)]
 pub struct Sig {
-    sigma: msp::Sig,
-    pk: msp::PK,
-    party: PartyId,
-    stake: Stake,
-    path: Path,
+    pub sigma: msp::Sig,
+    pub pk: msp::PK,
+    pub party: PartyId,
+    pub stake: Stake,
+    pub path: Path,
 }
 
 #[derive(Clone)]
@@ -138,6 +138,7 @@ impl Party {
         let witness = Witness {
             sigs: sigs.to_vec(),
             indices: indices.to_vec(),
+            paths: indices.iter().map(|Index(i)| avk.get_path(*i)).collect(),
             evals,
         };
         let proof = ConcatProof::prove(avk, &ivk, msg, &witness);
