@@ -64,6 +64,13 @@ impl ConcatProof {
             .fold(true, |r, (ev, sig)|
                   ev_lt_phi(phi, *ev, sig.stake, total_stake));
 
+        println!("ivk_check = {}", ivk_check);
+        println!("index_bound_check = {}", index_bound_check);
+        println!("index_uniq_check = {}", index_uniq_check);
+        println!("path_check = {}", path_check);
+        println!("eval_check = {}", eval_check);
+        println!("eval_stake_check = {}", eval_stake_check);
+
         ivk_check &&
         index_bound_check &&
         index_uniq_check &&
