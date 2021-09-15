@@ -1,10 +1,12 @@
 //! Multisignature scheme API
 
-use super::{Unknown, Index};
+use super::Index;
 
 use blstrs::{pairing, Scalar, Field, G1Affine, G1Projective, G2Projective, G2Affine};
 use rand_core::OsRng;
 use groupy::CurveAffine;
+use blake2::VarBlake2b;
+use digest::{VariableOutput,Update};
 
 pub struct MSP { }
 
@@ -23,11 +25,6 @@ pub struct PK {
 
 #[derive(Clone,Copy)]
 pub struct Sig(G1Projective);
-
-fn hash_to_g1(tag: &[u8], bytes: &[u8]) -> G1Affine {
-    // k1 <- H_G1("PoP"||mvk)^x
-    G1Affine::from(G1Projective::hash_to_curve(bytes, "mithril".as_bytes(), tag))
-}
 
 static POP: &[u8] = b"PoP";
 static M: &[u8]   = b"M";
@@ -99,11 +96,21 @@ impl MSP {
         Self::ver(msg, ivk, mu)
     }
 
-    pub fn eval(msg: &[u8], index: Index, sigma: &Sig) -> Unknown {
+    pub fn eval(msg: &[u8], index: Index, sigma: &Sig) -> u64 {
+        let mut hasher : VarBlake2b = VariableOutput::new(8).unwrap();
+        // H("map"||msg||index||sigma)
+        hasher.update(&["map".as_bytes(),
+                        msg,
+                        &index.0.to_le_bytes(),
+                        &sigma.0.to_uncompressed()].concat());
+        let mut dest = [0 as u8; 8];
+        hasher.finalize_variable(|out| {
+            dest.copy_from_slice(out);
+        });
+
+        u64::from_le_bytes(dest)
         // XXX: See section 6 to implement M from Elligator Squared
         // return ev <- M_msg,index(sigma)
-        // H("map"||msg||index||sigma)
-        unimplemented!()
     }
 }
 
@@ -112,6 +119,11 @@ impl MVK {
         // Notes: to_vec() here causes a segfault later, why?
         self.0.to_uncompressed()
     }
+}
+
+fn hash_to_g1(tag: &[u8], bytes: &[u8]) -> G1Affine {
+    // k1 <- H_G1("PoP"||mvk)^x
+    G1Affine::from(G1Projective::hash_to_curve(bytes, b"mithril", tag))
 }
 
 #[cfg(test)]
@@ -154,6 +166,14 @@ mod tests {
             let ivk = MSP::aggregate_keys(&mvks);
             let mu = MSP::aggregate_sigs(&msg, &sigs);
             assert!(MSP::aggregate_ver(&msg, &ivk, &mu));
+        }
+
+        #[test]
+        fn test_eval_sanity_check(msg in prop::collection::vec(any::<u8>(), 1..128),
+                                  idx in any::<u64>(),
+                                  s in any::<u64>()) {
+            let sigma = Sig(G1Affine::one() * blstrs::Scalar::from(s));
+            MSP::eval(&msg, Index(idx), &sigma);
         }
     }
 

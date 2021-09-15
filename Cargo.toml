@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2018"
 
 [dependencies]
+digest     = "0.9.0"
 neptune    = { version = "4.0.0",  default-features = false, features=["blst"] }
 typenum    = "1.14.0"
 rand       = "0.8.4"

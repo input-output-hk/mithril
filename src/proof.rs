@@ -1,13 +1,13 @@
 use crate::msp;
 use crate::merkle_tree::MerkleTree;
 use crate::party::Sig;
-use super::{Index, Unknown};
+use super::Index;
 
 #[derive(Clone)]
 pub struct Witness {
     pub sigs: Vec<Sig>,
     pub indices: Vec<Index>,
-    pub evals: Vec<Unknown>,
+    pub evals: Vec<u64>,
 }
 
 // Proof system that simply concatenates the witness

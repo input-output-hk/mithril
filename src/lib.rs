@@ -18,14 +18,14 @@ pub struct Stake(pub f32);
 pub type PartyId = usize;
 
 #[derive(Clone, PartialEq, Eq, Hash, Copy)]
-pub struct Index(pub Unknown);
+pub struct Index(pub u64);
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Path(Vec<Hash>);
 
 // Writen as phi in the paper
 // XXX: What should it be implemented as?
-pub fn scaling_function(stake: Stake) -> Unknown {
+pub fn scaling_function(stake: Stake) -> u64 {
     unimplemented!()
 }
 
