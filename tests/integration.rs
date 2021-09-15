@@ -3,6 +3,7 @@ use mithril::key_reg::KeyReg;
 use mithril::party::Party;
 use mithril::Index;
 use rand;
+use rayon::prelude::*;
 
 #[test]
 fn test_full_protocol() {
@@ -13,6 +14,7 @@ fn test_full_protocol() {
     //////////////////////////
     // initialization phase //
     //////////////////////////
+    println!("* Initialization phase");
 
     let mut key_reg = KeyReg::new();
 
@@ -25,13 +27,14 @@ fn test_full_protocol() {
         ps.push(p);
     }
 
-    for p in ps.iter_mut() {
+    ps.par_iter_mut().for_each(|p| {
         p.retrieve_all(&key_reg);
-    }
+    });
 
     /////////////////////
     // operation phase //
     /////////////////////
+    println!("* Operation phase");
 
     let mut sigs = Vec::new();
     let mut ixs  = Vec::new();
