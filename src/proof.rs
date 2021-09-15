@@ -28,9 +28,7 @@ impl ConcatProof {
     //   m ???
     //   k (length of witness?)
     //   phi ???
-    pub fn verify<'l, A>(&self, phi: &Phi, total_stake: u64, m: u64, avk: &MerkleTree<'l, A>, ivk: &msp::MVK, msg: &[u8]) -> bool
-    where
-        A: neptune::Arity<neptune::Scalar> + typenum::IsGreaterOrEqual<typenum::U2>
+    pub fn verify(&self, phi: Phi, total_stake: u64, m: u64, avk: &MerkleTree, ivk: &msp::MVK, msg: &[u8]) -> bool
     {
         // ivk = Prod(1..k, mvk[i])
         let ivk_check = ivk.0 == self.0
@@ -50,8 +48,7 @@ impl ConcatProof {
         // \forall i : [1..k]. path[i] is a witness for (mvk[i]), stake[i] in avk
         let path_check =
             self.0.sigs.iter().fold(true, |r, sig| {
-                let Path(path) = sig.path;
-                r && avk.check(&(sig.pk.mvk, sig.stake), sig.party, &path)
+                r && avk.check(&(sig.pk.mvk, sig.stake), sig.party, &sig.path)
             });
 
         // \forall i : [1..k]. ev[i] = MSP.Eval(msg, index[i], sig[i])

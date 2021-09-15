@@ -5,6 +5,7 @@ use crate::merkle_tree::MerkleTree;
 use crate::proof::{ConcatProof, Witness};
 
 static PHI: Phi = Phi(0.5); // TODO: Figure out how/when this gets configued
+static M: u64 = 10; // TODO: ????
 
 pub struct Party {
     party_id: PartyId,
@@ -138,7 +139,6 @@ impl Party {
         let witness = Witness {
             sigs: sigs.to_vec(),
             indices: indices.to_vec(),
-            paths: indices.iter().map(|Index(i)| avk.get_path(*i)).collect(),
             evals,
         };
         let proof = ConcatProof::prove(avk, &ivk, msg, &witness);
@@ -151,7 +151,7 @@ impl Party {
 
     pub fn verify_aggregate(&self, msig: &MultiSig, msg: &[u8]) -> bool {
         let avk = self.avk.as_ref().unwrap();
-        if !msig.proof.verify(avk, &msig.ivk, msg) {
+        if !msig.proof.verify(PHI, self.total_stake.unwrap(), M, avk, &msig.ivk, msg) {
             return false;
         }
         let msgp = avk.concat_with_msg(msg);
@@ -165,8 +165,8 @@ mod tests {
 
     #[test]
     fn test_sig() {
-        let nparties = 4;
-        let ntries = 10000;
+        let nparties = 1024;
+        let ntries = 100;
         let msg = rand::random::<[u8;16]>();
         let mut kr = KeyReg::new();
         let mut ps = (0..nparties).map(|pid| {
@@ -174,7 +174,7 @@ mod tests {
             p.register(&mut kr);
             p
         }).collect::<Vec<_>>();
-        let p = &mut ps[0];
+        let p = &mut ps[rand::random::<usize>() % nparties];
         p.retrieve_all(&kr);
         let mut won_one = false;
         for _ in 0..ntries {
