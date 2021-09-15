@@ -169,15 +169,25 @@ mod tests {
     #[test]
     fn test_sig() {
         let nparties = 4;
+        let ntries = 10000;
         let msg = rand::random::<[u8;16]>();
         let cs = crate::merkle_tree::new_constants();
         let mut kr = KeyReg::new();
         let mut ps = (0..nparties).map(|pid| {
-            let mut p = Party::setup(0, pid, &cs);
+            let mut p = Party::setup(pid, 1, &cs);
             p.register(&mut kr);
             p
         }).collect::<Vec<_>>();
         let p = &mut ps[0];
         p.retrieve_all(&kr);
+        let mut won_one = false;
+        for _ in 0..ntries {
+            let index = Index::random();
+            if let Some(sig) = p.create_sig(&msg, index) {
+                won_one = true;
+                assert!(p.verify(sig, index, &msg));
+            }
+        }
+        assert!(won_one, "never won eligibility check out of {} tries", ntries);
     }
 }
