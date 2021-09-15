@@ -13,6 +13,7 @@ pub struct Party {
     avk: Option<MerkleTree>,
     sk: Option<msp::SK>,
     pk: Option<msp::PK>,
+    reg: Option<Vec<Option<(msp::PK, Stake)>>>, // map from PID -> (PK,Stake)
     total_stake: Option<Stake>,
 }
 
@@ -43,6 +44,7 @@ impl Party {
             avk: None,
             sk: None,
             pk: None,
+            reg: None,
             total_stake: None,
         }
     }
@@ -61,10 +63,14 @@ impl Party {
         // Reg := (K(P_i), stake_i)
         // Reg is padded to length N using null entries of stake 0
         // AVK <- MT.Create(Reg)
-        let reg = kr.retrieve_all();
+        self.reg = Some(kr.retrieve_all());
         // get total stake
-        self.total_stake = Some(reg.iter().filter_map(|p| p.map(|(_,s)|s)).sum());
-        let avk: MerkleTree = MerkleTree::create(&reg);
+        self.total_stake = Some(self.reg.as_ref().unwrap().iter().filter_map(|p| p.map(|(_,s)|s)).sum());
+    }
+
+    // Creating a MerkleTree is expensive. Only do it if you have to.
+    pub fn create_avk(&mut self) {
+        let avk: MerkleTree = MerkleTree::create(self.reg.as_ref().unwrap());
         self.avk = Some(avk);
     }
 
@@ -163,27 +169,55 @@ impl Party {
 mod tests {
     use super::*;
 
-    #[test]
-    fn test_sig() {
-        let nparties = 1024;
-        let ntries = 100;
-        let msg = rand::random::<[u8;16]>();
+    fn setup_parties(nparties: usize) -> Vec<Party> {
         let mut kr = KeyReg::new();
         let mut ps = (0..nparties).map(|pid| {
             let mut p = Party::setup(pid, 1);
             p.register(&mut kr);
             p
-        }).collect::<Vec<_>>();
+        }).collect::<Vec<Party>>();
+        for p in ps.iter_mut() {
+            p.retrieve_all(&kr);
+        }
+        ps
+    }
+
+    #[test]
+    fn test_sig() {
+        let nparties = 128;
+        let ntries = 100;
+        let msg = rand::random::<[u8;16]>();
+        let mut ps = setup_parties(nparties);
         let p = &mut ps[rand::random::<usize>() % nparties];
-        p.retrieve_all(&kr);
-        let mut won_one = false;
+        p.create_avk();
         for _ in 0..ntries {
             let index = Index::random();
             if let Some(sig) = p.create_sig(&msg, index) {
-                won_one = true;
                 assert!(p.verify(sig, index, &msg));
             }
         }
-        assert!(won_one, "never won eligibility check out of {} tries", ntries);
+    }
+
+    #[test]
+    fn test_aggregate_sig() {
+        for _ in 0..128 {
+            let nparties = 16;
+            let msg = rand::random::<[u8;16]>();
+            let mut ps = setup_parties(nparties);
+            ps.iter_mut().for_each(Party::create_avk);
+            let mut sigs = Vec::new();
+            let mut ixs = Vec::new();
+            for p in &ps {
+                let ix = Index::random();
+                if let Some(sig) = p.create_sig(&msg, ix) {
+                    sigs.push(sig);
+                    ixs.push(ix);
+                }
+            }
+            if sigs.len() > 0 {
+                let msig = ps[0].aggregate(&sigs, &ixs, &msg).unwrap();
+                assert!(ps[1].verify_aggregate(&msig, &msg));
+            }
+        }
     }
 }

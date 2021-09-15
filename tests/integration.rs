@@ -27,6 +27,7 @@ fn test_full_protocol() {
 
     ps.par_iter_mut().for_each(|p| {
         p.retrieve_all(&key_reg);
+        p.create_avk();
     });
 
     /////////////////////

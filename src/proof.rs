@@ -2,7 +2,7 @@ use crate::ev_lt_phi;
 use crate::msp;
 use crate::merkle_tree::MerkleTree;
 use crate::party::Sig;
-use super::{Index, Phi, Path};
+use super::{Index, Phi};
 
 use std::collections::HashSet;
 use std::iter::FromIterator;
