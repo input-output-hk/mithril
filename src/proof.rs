@@ -54,7 +54,10 @@ impl ConcatProof {
         // \forall i : [1..k]. ev[i] = MSP.Eval(msg, index[i], sig[i])
         let msp_evals =
             Iterator::zip(self.0.indices.iter(), self.0.sigs.iter())
-            .map(|(idx, sig)| Msp::eval(msg, *idx, &sig.sigma) );
+            .map(|(idx, sig)| {
+                let msgp = avk.concat_with_msg(msg);
+                Msp::eval(&msgp, *idx, &sig.sigma)
+            });
         let eval_check =
             Iterator::zip(self.0.evals.iter(), msp_evals)
             .fold(true, |r, (ev, msp_e)| r && *ev == msp_e );
