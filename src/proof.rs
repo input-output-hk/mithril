@@ -48,7 +48,7 @@ impl ConcatProof {
         // \forall i : [1..k]. path[i] is a witness for (mvk[i]), stake[i] in avk
         let path_check =
             self.0.sigs.iter().fold(true, |r, sig| {
-                r && avk.check(&(sig.pk.mvk, sig.stake), sig.party, &sig.path)
+                r && avk.check(&(sig.pk, sig.stake), sig.party, &sig.path)
             });
 
         // \forall i : [1..k]. ev[i] = MSP.Eval(msg, index[i], sig[i])
