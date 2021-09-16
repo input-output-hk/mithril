@@ -201,7 +201,7 @@ mod tests {
 
     #[test]
     fn test_aggregate_sig() {
-        for _ in 0..128 {
+        for _ in 0..16 {
             let nparties = 16;
             let msg = rand::random::<[u8;16]>();
             let mut ps = setup_parties(nparties);
