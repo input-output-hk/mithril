@@ -294,4 +294,26 @@ mod tests {
             }
         }
     }
+
+    proptest! {
+        #[test]
+        fn test_create_invalid_proof(
+            i in any::<usize>(),
+            (values, pf) in (1..10)
+                .prop_flat_map(|height| {
+                    (prop::collection::vec(
+                        any::<u64>(), (2 as usize).pow(height as u32)),
+                        proptest::collection::vec(any::<u64>(), height as usize))
+                })
+        ) {
+            let t = MerkleTree::create(&values);
+            let constants = PoseidonConstants::new();
+            let mut hasher = Poseidon::new(&constants);
+
+            let idx = i % values.len();
+
+            let path = Path(pf.iter().map(|x| x.into_hash(&mut hasher)).collect());
+            assert!(!t.check(&values[idx], idx, &path));
+        }
+    }
 }
