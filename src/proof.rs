@@ -46,6 +46,10 @@ impl ConcatProof {
             params.k as usize <= self.0.evals.len()  &&
             params.k as usize <= self.0.indices.len();
 
+        if !quorum_check {
+            return false;
+        }
+
         // \forall i : [0..k]. path[i] is a witness for (mvk[i]), stake[i] in avk
         let path_check =
             self.0.sigs[0..params.k as usize].iter().fold(true, |r, sig| {
@@ -78,7 +82,6 @@ impl ConcatProof {
         index_bound_check &&
         index_uniq_check &&
         path_check &&
-        quorum_check &&
         eval_check &&
         eval_stake_check
     }
