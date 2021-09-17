@@ -2,7 +2,6 @@ use crate::Path;
 use blstrs::Bls12;
 use neptune::poseidon::{Poseidon, PoseidonConstants};
 use neptune::{scalar_from_u64, Scalar};
-use proptest::prelude::*;
 
 pub type Hash = neptune::Scalar;
 
@@ -270,23 +269,29 @@ impl IntoHash for crate::msp::MspMvk {
 // Testing         //
 /////////////////////
 
-proptest! {
-    // Test the relation that t.get_path(i) is a valid
-    // proof for i
-    #![proptest_config(ProptestConfig::with_cases(10))]
-    #[test]
-    fn test_create_proof(
-        values in (1..10)
-            .prop_flat_map(|height| {
-                prop::collection::vec(
-                    any::<u64>(),
-                    (2 as usize).pow(height as u32))
-            })
-    ) {
-        let t = MerkleTree::create(&values);
-        for i in 0..values.len() {
-            let pf = t.get_path(i as usize);
-            assert!(t.check(&values[i], i as usize, &pf));
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        // Test the relation that t.get_path(i) is a valid
+        // proof for i
+        #![proptest_config(ProptestConfig::with_cases(10))]
+        #[test]
+        fn test_create_proof(
+            values in (1..10)
+                .prop_flat_map(|height| {
+                    prop::collection::vec(
+                        any::<u64>(),
+                        (2 as usize).pow(height as u32))
+                })
+        ) {
+            let t = MerkleTree::create(&values);
+            for i in 0..values.len() {
+                let pf = t.get_path(i as usize);
+                assert!(t.check(&values[i], i as usize, &pf));
+            }
         }
     }
 }
