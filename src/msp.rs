@@ -77,18 +77,18 @@ impl Msp {
     // MSP.AKey
     pub fn aggregate_keys(mvks: &[MspMvk]) -> MspMvk {
         MspMvk(mvks
-            .iter()
-            .fold(G2Projective::from(G2Affine::zero()),
-                  |acc, x| acc + x.0))
+               .iter()
+               .map(|s| s.0)
+               .sum())
     }
 
     // MSP.Aggr
     pub fn aggregate_sigs(msg: &[u8], sigmas: &[MspSig]) -> MspSig {
         // XXX: what is d?
         MspSig(sigmas
-            .iter()
-            .fold(G1Projective::from(G1Affine::zero()),
-                  |acc, s| acc + s.0))
+               .iter()
+               .map(|s| s.0)
+               .sum())
     }
 
     // MSP.AVer
