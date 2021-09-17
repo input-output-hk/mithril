@@ -27,7 +27,7 @@ pub struct StmParty {
     params: StmParameters
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct StmSig {
     pub sigma: MspSig,
     pub pk: MspPk,
@@ -179,58 +179,177 @@ impl StmParty {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::{HashSet, HashMap};
+    use proptest::prelude::*;
 
-    fn setup_parties(nparties: usize) -> Vec<StmParty> {
+    fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmParty> {
+        let stake = (0..nparties).map(|_| 1).collect();
+        setup_parties(params, stake)
+    }
+
+    fn setup_parties(params: StmParameters,
+                     stake: Vec<Stake>) -> Vec<StmParty> {
         let mut kr = KeyReg::new();
-        let mut ps = (0..nparties).map(|pid| {
-            let mut p = StmParty::setup(pid, 1);
-            p.register(&mut kr);
-            p
-        }).collect::<Vec<StmParty>>();
+        let mut ps = stake.iter()
+                          .enumerate()
+                          .map(|(pid, stake)| {
+                              let mut p = StmParty::setup(params, pid, *stake);
+                              p.register(&mut kr);
+                              p
+                          }).collect::<Vec<StmParty>>();
         for p in ps.iter_mut() {
             p.retrieve_all(&kr);
         }
         ps
     }
 
-    #[test]
-    fn test_sig() {
-        let nparties = 128;
-        let ntries = 100;
-        let msg = rand::random::<[u8;16]>();
-        let mut ps = setup_parties(nparties);
-        let p = &mut ps[rand::random::<usize>() % nparties];
-        p.create_avk();
-        let mut index = 0;
-        for _ in 0..ntries {
-            if let Some(sig) = p.create_sig(&msg, index) {
-                assert!(p.verify(sig, index, &msg));
-                index += 1;
+    fn arb_num_parties(min: u32, max: u32) -> impl Strategy<Value = usize> {
+        let min_height = (min as f64).log2().ceil() as u32;
+        let max_height = (max as f64).log2().ceil() as u32;
+        (min_height..max_height)
+            .prop_map(|h| (2 as usize).pow(h))
+    }
+
+    fn arb_honest_for_adversaries(num_parties: usize,
+                                  honest_stake: Stake,
+                                  adversaries: HashMap<usize, Stake>) -> impl Strategy<Value = Vec<Stake>> {
+        // let honest = (0..num_parties).filter(|i| !adversaries.contains_key(i));
+        proptest::collection::vec(1..honest_stake, num_parties).prop_map(move |parties| {
+            let honest_sum = parties
+                .iter()
+                .enumerate()
+                .fold(0, |acc, (i, s)| if !adversaries.contains_key(&i) { acc + s } else { acc });
+
+            parties.iter().enumerate().map(|(i, s)| {
+                if let Some(a) = adversaries.get(&i) {
+                    *a
+                } else {
+                    (*s * honest_stake)/honest_sum
+                }
+            }).collect()
+        })
+    }
+
+    fn arb_parties_with_adversaries(num_parties: usize,
+                                    num_adversaries: usize,
+                                    total_stake: Stake,
+                                    adversary_stake: Stake,
+    ) -> impl Strategy<Value = (HashSet<usize>, Vec<Stake>)> {
+        proptest::collection::hash_map(0..num_parties,
+                                       1..total_stake,
+                                       num_adversaries)
+            .prop_flat_map(move |adversaries| {
+                let adversary_sum: Stake = adversaries
+                                           .values()
+                                           .sum();
+                let adversaries_normed = adversaries.iter().map(|(a, stake)| {
+                    (*a, (stake*adversary_stake)/adversary_sum)
+                }).collect();
+
+                let adversaries = adversaries.into_keys().collect();
+                (Just(adversaries), arb_honest_for_adversaries(num_parties, total_stake-adversary_stake, adversaries_normed))
+            })
+    }
+
+    fn arb_num_parties_and_index(min:u32, max: u32) -> impl Strategy <Value = (usize, usize)> {
+        arb_num_parties(min, max)
+            .prop_flat_map(|n| {
+                (Just(n), 0..n)
+            })
+    }
+
+    proptest! {
+        #[test]
+        /// Test that when a party creates a signature it can be verified
+        fn test_sig((nparties, p_i) in arb_num_parties_and_index(2, 32),
+                    msg in any::<[u8;16]>()) {
+            let params = StmParameters { m: (nparties as u64), k: 1, phi_f: 0.2 };
+            let mut ps = setup_equal_parties(params, nparties);
+            let p = &mut ps[p_i];
+            p.create_avk();
+
+            for index in 1..nparties {
+                if let Some(sig) = p.create_sig(&msg, index as u64) {
+                    assert!(p.verify(sig, index as u64, &msg));
+                }
             }
         }
     }
 
-    #[test]
-    fn test_aggregate_sig() {
-        for _ in 0..128 {
-            let nparties = 16;
-            let msg = rand::random::<[u8;16]>();
-            let mut ps = setup_parties(nparties);
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(50))]
+
+        #[test]
+        /// Test that when a quorum is found, the aggregate signature can be verified
+        fn test_aggregate_sig(nparties in arb_num_parties(2, 16),
+                              (m, k) in (10_u64..20).prop_flat_map(|mm| (Just(mm), 1_u64..5)),
+                              msg in any::<[u8;16]>()) {
+            let params = StmParameters { m: m, k: k, phi_f: 0.2 };
+            let mut ps = setup_equal_parties(params, nparties);
             ps.iter_mut().for_each(StmParty::create_avk);
+
             let mut sigs = Vec::new();
             let mut ixs = Vec::new();
-            let mut ix = 0;
-            for p in &ps {
-                if let Some(sig) = p.create_sig(&msg, ix) {
-                    sigs.push(sig);
-                    ixs.push(ix);
-                    ix += 1;
+            for ix in 1..params.m {
+                for p in &ps {
+                    if let Some(sig) = p.create_sig(&msg, ix) {
+                        sigs.push(sig);
+                        ixs.push(ix);
+                        break;
+                    }
                 }
+                if ixs.len() >= params.k as usize { break; }
             }
-            if sigs.len() > 0 {
-                let msig = ps[0].aggregate(&sigs, &ixs, &msg).unwrap();
+            if sigs.len() >= params.k as usize {
+                let msig = ps[0].aggregate(&sigs[0..k as usize], &ixs[0..k as usize], &msg).unwrap();
                 assert!(ps[1].verify_aggregate(&msig, &msg));
             }
+        }
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(10))]
+
+        #[test]
+        /// Test that when the adversaries do not hold sufficient stake, they can not form a quorum
+        fn test_adversary_quorum(
+            (adversaries, parties) in
+                arb_num_parties(8,64)
+                .prop_flat_map(|n| (Just (n), 1..=n/2, Just(16*n as Stake), Just(4*n as Stake)))
+                .prop_flat_map(|(n, nadv, tstake, astake)|
+                               arb_parties_with_adversaries(n, nadv, tstake, astake)),
+            msg in any::<[u8;16]>()
+        ) {
+            // Test sanity check:
+            // Check that the adversarial party has less than 40% of the total stake.
+            let (good, bad) = parties.iter().enumerate().fold((0,0), |(acc1, acc2), (i, st)| {
+                if adversaries.contains(&i) {
+                    (acc1, acc2 + *st)
+                } else {
+                    (acc1 + *st, acc2)
+                }
+            });
+            assert!(bad as f64 / ((good + bad) as f64) < 0.4);
+
+            let params = StmParameters { m: 2642, k: 357, phi_f: 0.2 }; // From Table 1
+            let mut ps = setup_parties(params, parties);
+
+            for a in &adversaries {
+                ps[*a].create_avk();
+            }
+
+            let mut signed = 0;
+            for ix in 1..params.m {
+                for a in &adversaries {
+                    if let Some(_) = ps[*a].create_sig(&msg, ix) {
+                        signed += 1;
+                    }
+                }
+            }
+
+            assert!(signed < params.k);
+
         }
     }
 }
