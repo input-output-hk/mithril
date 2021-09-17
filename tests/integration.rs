@@ -2,6 +2,7 @@ use mithril::key_reg::KeyReg;
 use mithril::stm::{StmParty, StmParameters};
 use rand;
 use rayon::prelude::*;
+use mithril::proof::ConcatProof;
 
 #[test]
 fn test_full_protocol() {
@@ -54,6 +55,6 @@ fn test_full_protocol() {
     }
 
     // Aggregate sig
-    let msig = ps[0].aggregate(&sigs, &ixs, &msg).expect("Aggregation failed");
+    let msig = ps[0].aggregate::<ConcatProof>(&sigs, &ixs, &msg).expect("Aggregation failed");
     assert!(ps[0].verify_aggregate(&msig, &msg), "Aggregate verification failed");
 }

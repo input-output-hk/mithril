@@ -2,7 +2,7 @@ use super::{Stake, PartyId, Index, Path, ev_lt_phi};
 use crate::key_reg::KeyReg;
 use crate::msp::{Msp, MspMvk, MspSig, MspPk, MspSk};
 use crate::merkle_tree::MerkleTree;
-use crate::proof::{ConcatProof, Witness};
+use crate::proof::Proof;
 
 #[derive(Clone, Debug, Copy)]
 pub struct StmParameters {
@@ -37,10 +37,10 @@ pub struct StmSig {
 }
 
 #[derive(Clone)]
-pub struct StmMultiSig {
+pub struct StmMultiSig<P> {
     ivk: MspMvk,
     mu: MspSig,
-    proof: ConcatProof,
+    proof: P,
 }
 
 impl StmParty {
@@ -135,7 +135,7 @@ impl StmParty {
         Msp::ver(&msgp, &sig.pk.mvk, &sig.sigma)
     }
 
-    pub fn aggregate(&self, sigs: &[StmSig], indices: &[Index], msg: &[u8]) -> Option<StmMultiSig> {
+    pub fn aggregate<P:Proof>(&self, sigs: &[StmSig], indices: &[Index], msg: &[u8]) -> Option<StmMultiSig<P>> {
         let avk = self.avk.as_ref().unwrap();
         let msgp = avk.concat_with_msg(msg);
         let mut seen_indices = std::collections::HashSet::new();
@@ -153,12 +153,7 @@ impl StmParty {
         let sigmas = sigs.iter().map(|sig| sig.sigma).collect::<Vec<_>>();
         let ivk = Msp::aggregate_keys(&mvks);
         let mu = Msp::aggregate_sigs(msg, &sigmas);
-        let witness = Witness {
-            sigs: sigs.to_vec(),
-            indices: indices.to_vec(),
-            evals,
-        };
-        let proof = ConcatProof::prove(avk, &ivk, msg, &witness);
+        let proof = P::prove(avk, &ivk, msg, &sigs, &indices, &evals);
         Some(StmMultiSig {
             ivk,
             mu,
@@ -166,7 +161,7 @@ impl StmParty {
         })
     }
 
-    pub fn verify_aggregate(&self, msig: &StmMultiSig, msg: &[u8]) -> bool {
+    pub fn verify_aggregate<P:Proof>(&self, msig: &StmMultiSig<P>, msg: &[u8]) -> bool {
         let avk = self.avk.as_ref().unwrap();
         if !msig.proof.verify(&self.params, self.total_stake.unwrap(), avk, &msig.ivk, msg) {
             return false;
@@ -181,6 +176,7 @@ mod tests {
     use super::*;
     use std::collections::{HashSet, HashMap};
     use proptest::prelude::*;
+    use crate::proof::ConcatProof;
 
     fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmParty> {
         let stake = (0..nparties).map(|_| 1).collect();
@@ -301,7 +297,7 @@ mod tests {
                 if ixs.len() >= params.k as usize { break; }
             }
             if sigs.len() >= params.k as usize {
-                let msig = ps[0].aggregate(&sigs[0..k as usize], &ixs[0..k as usize], &msg).unwrap();
+                let msig = ps[0].aggregate::<ConcatProof>(&sigs[0..k as usize], &ixs[0..k as usize], &msg).unwrap();
                 assert!(ps[1].verify_aggregate(&msig, &msg));
             }
         }
