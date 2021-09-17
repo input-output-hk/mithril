@@ -151,6 +151,21 @@ mod tests {
         }
 
         #[test]
+        fn test_invalid_sig(msg in prop::collection::vec(any::<u8>(), 1..128),
+                            r in prop::collection::vec(any::<u64>(), 100)) {
+            let (sk, pk) = Msp::gen();
+
+            // Low probability is still greater than zero :)
+            let mut success = 0;
+            for i in 1..100 {
+                let x = MspSig(G1Affine::one() * Scalar::from(r[i]));
+                if Msp::ver(&msg, &pk.mvk, &x) { success += 1; }
+            }
+
+            assert!(success <= 5);
+        }
+
+        #[test]
         fn test_aggregate_sig(msg in prop::collection::vec(any::<u8>(), 1..128),
                               num_sigs in 1..16) {
             let mut mvks = Vec::new();
