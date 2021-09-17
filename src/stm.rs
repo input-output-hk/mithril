@@ -43,6 +43,12 @@ pub struct StmMultiSig {
     proof: ConcatProof,
 }
 
+#[derive(Debug)]
+pub enum AggregationFailure {
+    VerifyFailed,
+    DuplicateIndex,
+}
+
 impl StmParty {
     //////////////////////////
     // Initialization phase //
@@ -135,16 +141,17 @@ impl StmParty {
         Msp::ver(&msgp, &sig.pk.mvk, &sig.sigma)
     }
 
-    pub fn aggregate(&self, sigs: &[StmSig], indices: &[Index], msg: &[u8]) -> Option<StmMultiSig> {
+    pub fn aggregate(&self, sigs: &[StmSig], indices: &[Index], msg: &[u8]) -> Result<StmMultiSig, AggregationFailure> {
         let avk = self.avk.as_ref().unwrap();
         let msgp = avk.concat_with_msg(msg);
         let mut seen_indices = std::collections::HashSet::new();
         let mut evals = Vec::new();
         for (sig, ix) in sigs.iter().zip(indices.iter()) {
-            if !self.verify(sig.clone(), *ix, msg) ||
-                seen_indices.contains(ix)
+            if !self.verify(sig.clone(), *ix, msg) {
+                return Err(AggregationFailure::VerifyFailed);
+            } else if seen_indices.contains(ix)
             {
-                return None;
+                return Err(AggregationFailure::DuplicateIndex);
             }
             seen_indices.insert(*ix);
             evals.push(Msp::eval(&msgp, *ix, &sig.sigma));
@@ -159,7 +166,7 @@ impl StmParty {
             evals,
         };
         let proof = ConcatProof::prove(avk, &ivk, msg, &witness);
-        Some(StmMultiSig {
+        Ok(StmMultiSig {
             ivk,
             mu,
             proof,
