@@ -33,7 +33,7 @@ impl ConcatProof {
                                      .sum();
 
         // \forall i. index[i] <= m
-        let index_bound_check = self.0.indices.iter().fold(true, |r, i| r && i <= &params.m);
+        let index_bound_check = self.0.indices.iter().all(|i| i <= &params.m);
 
         // \forall i. \forall j. (i == j || index[i] != index[j])
         let index_uniq_check =
@@ -52,8 +52,8 @@ impl ConcatProof {
 
         // \forall i : [0..k]. path[i] is a witness for (mvk[i]), stake[i] in avk
         let path_check =
-            self.0.sigs[0..params.k as usize].iter().fold(true, |r, sig| {
-                r && avk.check(&(sig.pk, sig.stake), sig.party, &sig.path)
+            self.0.sigs[0..params.k as usize].iter().all(|sig| {
+                avk.check(&(sig.pk, sig.stake), sig.party, &sig.path)
             });
 
         // \forall i : [1..k]. ev[i] = MSP.Eval(msg, index[i], sig[i])
@@ -69,14 +69,14 @@ impl ConcatProof {
             self.0.evals[0..params.k as usize]
                   .iter()
                   .zip(msp_evals)
-                  .fold(true, |r, (ev, msp_e)| r && *ev == msp_e);
+                  .all(|(ev, msp_e)| *ev == msp_e);
 
         // \forall i : [1..k]. ev[i] <= phi(stake_i)
         let eval_stake_check =
             self.0.evals[0..params.k as usize]
                   .iter()
                   .zip(&self.0.sigs[0..params.k as usize])
-                  .fold(true, |r, (ev, sig)| r && ev_lt_phi(params.phi_f, *ev, sig.stake, total_stake));
+                  .all(|(ev, sig)| ev_lt_phi(params.phi_f, *ev, sig.stake, total_stake));
 
         ivk_check &&
         index_bound_check &&

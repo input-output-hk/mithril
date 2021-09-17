@@ -190,7 +190,7 @@ mod tests {
     use proptest::prelude::*;
 
     fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmParty> {
-        let stake = (0..nparties).map(|_| 1).collect();
+        let stake = vec![1; nparties];
         setup_parties(params, stake)
     }
 
