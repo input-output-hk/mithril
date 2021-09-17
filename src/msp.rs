@@ -13,17 +13,17 @@ pub struct Msp { }
 #[derive(Clone,Copy)]
 pub struct MspSk(Scalar);
 
-#[derive(Clone,Copy)]
+#[derive(Debug,Clone,Copy)]
 pub struct MspMvk(pub G2Projective);
 
-#[derive(Clone,Copy)]
+#[derive(Debug,Clone,Copy)]
 pub struct MspPk {
     pub mvk: MspMvk,
     pub k1: G1Projective,
     pub k2: G1Projective,
 }
 
-#[derive(Clone,Copy)]
+#[derive(Debug,Clone,Copy)]
 pub struct MspSig(G1Projective);
 
 static POP: &[u8] = b"PoP";

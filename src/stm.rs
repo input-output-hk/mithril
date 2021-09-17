@@ -1,11 +1,20 @@
-use super::{Stake, PartyId, Index, Path, ev_lt_phi, Phi};
+use super::{Stake, PartyId, Index, Path, ev_lt_phi};
 use crate::key_reg::KeyReg;
 use crate::msp::{Msp, MspMvk, MspSig, MspPk, MspSk};
 use crate::merkle_tree::MerkleTree;
 use crate::proof::{ConcatProof, Witness};
 
-static PHI: Phi = Phi(0.5); // TODO: Figure out how/when this gets configued
-static M: u64 = 10; // TODO: ????
+#[derive(Clone, Debug, Copy)]
+pub struct StmParameters {
+    /// Security parameter, upper bound on indices
+    pub m: u64,
+
+    /// Quorum parameter
+    pub k: u64,
+
+    /// `f` in phi(w) = 1 - (1 - f)^w
+    pub phi_f: f64,
+}
 
 pub struct StmParty {
     party_id: PartyId,
@@ -15,6 +24,7 @@ pub struct StmParty {
     pk: Option<MspPk>,
     reg: Option<Vec<Option<(MspPk, Stake)>>>, // map from PID -> (PK,Stake)
     total_stake: Option<Stake>,
+    params: StmParameters
 }
 
 #[derive(Clone)]
@@ -37,7 +47,7 @@ impl StmParty {
     //////////////////////////
     // Initialization phase //
     //////////////////////////
-    pub fn setup(party_id: PartyId, stake: Stake) -> Self {
+    pub fn setup(params: StmParameters, party_id: PartyId, stake: Stake) -> Self {
         Self {
             party_id,
             stake,
@@ -46,6 +56,7 @@ impl StmParty {
             pk: None,
             reg: None,
             total_stake: None,
+            params,
         }
     }
 
@@ -85,7 +96,7 @@ impl StmParty {
         let msgp = self.avk.as_ref().unwrap().concat_with_msg(msg);
         let sigma = Msp::sig(self.sk.as_ref().unwrap(), &msgp);
         let ev = Msp::eval(&msgp, index, &sigma);
-        ev_lt_phi(PHI, ev, self.stake, self.total_stake.unwrap())
+        ev_lt_phi(self.params.phi_f, ev, self.stake, self.total_stake.unwrap())
     }
 
     pub fn create_sig(&self, msg: &[u8], index: Index) -> Option<StmSig> {
@@ -116,7 +127,7 @@ impl StmParty {
         let avk = self.avk.as_ref().unwrap();
         let msgp = avk.concat_with_msg(msg);
         let ev = Msp::eval(&msgp, index, &sig.sigma);
-        if !ev_lt_phi(PHI, ev, sig.stake, self.total_stake.unwrap()) ||
+        if !ev_lt_phi(self.params.phi_f, ev, sig.stake, self.total_stake.unwrap()) ||
             !avk.check(&(sig.pk.clone(), sig.stake), sig.party, &sig.path)
         {
             return false;
@@ -127,15 +138,15 @@ impl StmParty {
     pub fn aggregate(&self, sigs: &[StmSig], indices: &[Index], msg: &[u8]) -> Option<StmMultiSig> {
         let avk = self.avk.as_ref().unwrap();
         let msgp = avk.concat_with_msg(msg);
-        let mut seen_parties = std::collections::HashSet::new();
+        let mut seen_indices = std::collections::HashSet::new();
         let mut evals = Vec::new();
         for (sig, ix) in sigs.iter().zip(indices.iter()) {
             if !self.verify(sig.clone(), *ix, msg) ||
-                seen_parties.contains(&sig.party)
+                seen_indices.contains(ix)
             {
                 return None;
             }
-            seen_parties.insert(sig.party);
+            seen_indices.insert(*ix);
             evals.push(Msp::eval(&msgp, *ix, &sig.sigma));
         }
         let mvks = sigs.iter().map(|sig| sig.pk.mvk).collect::<Vec<_>>();
@@ -157,7 +168,7 @@ impl StmParty {
 
     pub fn verify_aggregate(&self, msig: &StmMultiSig, msg: &[u8]) -> bool {
         let avk = self.avk.as_ref().unwrap();
-        if !msig.proof.verify(PHI, self.total_stake.unwrap(), M, avk, &msig.ivk, msg) {
+        if !msig.proof.verify(&self.params, self.total_stake.unwrap(), avk, &msig.ivk, msg) {
             return false;
         }
         let msgp = avk.concat_with_msg(msg);

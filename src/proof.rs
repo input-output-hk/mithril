@@ -1,8 +1,8 @@
 use crate::ev_lt_phi;
 use crate::msp::{Msp, MspMvk};
 use crate::merkle_tree::MerkleTree;
-use crate::stm::StmSig;
-use super::{Index, Phi};
+use crate::stm::{StmSig, StmParameters};
+use super::Index;
 
 use std::collections::HashSet;
 use std::iter::FromIterator;
@@ -23,12 +23,7 @@ impl ConcatProof {
         Self(w.clone())
     }
 
-    // Parameterized by:
-    //   N (leaves in avk?)
-    //   m ???
-    //   k (length of witness?)
-    //   phi ???
-    pub fn verify(&self, phi: Phi, total_stake: u64, m: u64, avk: &MerkleTree, ivk: &MspMvk, msg: &[u8]) -> bool
+    pub fn verify(&self, params: &StmParameters, total_stake: u64, avk: &MerkleTree, ivk: &MspMvk, msg: &[u8]) -> bool
     {
         // ivk = Prod(1..k, mvk[i])
         let ivk_check = ivk.0 == self.0
@@ -37,47 +32,53 @@ impl ConcatProof {
                                      .map(|s| s.pk.mvk.0)
                                      .sum();
 
-        // \forall i. index[i] <= m (what the hell is m)
-        let index_bound_check = self.0.indices.iter().fold(true, |r, i| r && i <= &m);
+        // \forall i. index[i] <= m
+        let index_bound_check = self.0.indices.iter().fold(true, |r, i| r && i <= &params.m);
 
         // \forall i. \forall j. (i == j || index[i] != index[j])
         let index_uniq_check =
                HashSet::<Index>::from_iter(self.0.indices.iter().cloned()).len()
             == self.0.indices.len();
 
-        // \forall i : [1..k]. path[i] is a witness for (mvk[i]), stake[i] in avk
+        // k-sized quorum
+        let quorum_check =
+            params.k as usize <= self.0.sigs.len()   &&
+            params.k as usize <= self.0.evals.len()  &&
+            params.k as usize <= self.0.indices.len();
+
+        // \forall i : [0..k]. path[i] is a witness for (mvk[i]), stake[i] in avk
         let path_check =
-            self.0.sigs.iter().fold(true, |r, sig| {
+            self.0.sigs[0..params.k as usize].iter().fold(true, |r, sig| {
                 r && avk.check(&(sig.pk, sig.stake), sig.party, &sig.path)
             });
 
         // \forall i : [1..k]. ev[i] = MSP.Eval(msg, index[i], sig[i])
         let msp_evals =
-            Iterator::zip(self.0.indices.iter(), self.0.sigs.iter())
+            self.0.indices[0..params.k as usize]
+            .iter()
+            .zip(self.0.sigs[0..params.k as usize].iter())
             .map(|(idx, sig)| {
                 let msgp = avk.concat_with_msg(msg);
                 Msp::eval(&msgp, *idx, &sig.sigma)
             });
         let eval_check =
-            Iterator::zip(self.0.evals.iter(), msp_evals)
-            .fold(true, |r, (ev, msp_e)| r && *ev == msp_e );
+            self.0.evals[0..params.k as usize]
+                  .iter()
+                  .zip(msp_evals)
+                  .fold(true, |r, (ev, msp_e)| r && *ev == msp_e);
+
         // \forall i : [1..k]. ev[i] <= phi(stake_i)
         let eval_stake_check =
-            Iterator::zip(self.0.evals.iter(), self.0.sigs.iter())
-            .fold(true, |r, (ev, sig)|
-                  ev_lt_phi(phi, *ev, sig.stake, total_stake));
-
-        println!("ivk_check = {}", ivk_check);
-        println!("index_bound_check = {}", index_bound_check);
-        println!("index_uniq_check = {}", index_uniq_check);
-        println!("path_check = {}", path_check);
-        println!("eval_check = {}", eval_check);
-        println!("eval_stake_check = {}", eval_stake_check);
+            self.0.evals[0..params.k as usize]
+                  .iter()
+                  .zip(&self.0.sigs[0..params.k as usize])
+                  .fold(true, |r, (ev, sig)| r && ev_lt_phi(params.phi_f, *ev, sig.stake, total_stake));
 
         ivk_check &&
         index_bound_check &&
         index_uniq_check &&
         path_check &&
+        quorum_check &&
         eval_check &&
         eval_stake_check
     }

@@ -1,5 +1,5 @@
 use mithril::key_reg::KeyReg;
-use mithril::stm::StmParty;
+use mithril::stm::{StmParty, StmParameters};
 use rand;
 use rayon::prelude::*;
 
@@ -16,10 +16,11 @@ fn test_full_protocol() {
     let mut key_reg = KeyReg::new();
 
     let mut ps = Vec::with_capacity(nparties);
+    let params = StmParameters { m: 100, k: 20, phi_f: 0.2 };
 
     for pid in 0..nparties {
         let stake = 1 + (rand::random::<u64>() % 9999);
-        let mut p = StmParty::setup(pid, stake);
+        let mut p = StmParty::setup(params, pid, stake);
         p.register(&mut key_reg);
         ps.push(p);
     }
