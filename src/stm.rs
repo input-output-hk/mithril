@@ -276,7 +276,6 @@ mod tests {
         }
     }
 
-
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(50))]
 
