@@ -3,6 +3,22 @@ use blstrs::Bls12;
 use neptune::poseidon::{Poseidon, PoseidonConstants};
 use neptune::{scalar_from_u64, Scalar};
 
+use lazy_static::lazy_static;
+use std::thread_local;
+use std::cell::RefCell;
+
+lazy_static! {
+    /// Poseidon needs a reference to the Constants to create a new instance.
+    static ref CONSTS: PoseidonConstants<Bls12, typenum::U2> = PoseidonConstants::new();
+}
+
+thread_local! {
+    /// Creates a new hasher only once per thread.
+    static HASHER: RefCell<Poseidon<'static, Bls12, typenum::U2>> = {
+        RefCell::new(Poseidon::new(&CONSTS))
+    };
+}
+
 pub type Hash = neptune::Scalar;
 
 pub type MerkleHasher<'a> = Poseidon<'a, Bls12, typenum::U2>;
@@ -36,18 +52,18 @@ impl MerkleTree {
 
         let mut nodes = vec![scalar_from_u64(0); num_nodes];
 
-        let constants = PoseidonConstants::new();
-        let mut hasher = Poseidon::new(&constants);
+        // Get the hasher, potentially creating it for this thread.
+        HASHER.with(|hasher| {
+            for i in 0..n {
+                nodes[num_nodes-n+i] = hash_leaf(&mut hasher.borrow_mut(), &leaves[i]);
+            }
 
-        for i in 0..n {
-            nodes[num_nodes-n+i] = hash_leaf(&mut hasher, &leaves[i]);
-        }
-
-        for i in (0..num_nodes-n).rev() {
-            nodes[i] = hash_nodes(&mut hasher,
-                                  nodes[left_child(i)],
-                                  nodes[right_child(i)]);
-        }
+            for i in (0..num_nodes-n).rev() {
+                nodes[i] = hash_nodes(&mut hasher.borrow_mut(),
+                                    nodes[left_child(i)],
+                                    nodes[right_child(i)]);
+            }
+        });
 
         Self {
             nodes: nodes,
@@ -64,18 +80,19 @@ impl MerkleTree {
         let mut idx = i;
         let height = (self.n as f64).log2().ceil() as usize;
 
-        let constants = PoseidonConstants::new();
-        let mut hasher = MerkleHasher::new(&constants);
-
-        let mut h = hash_leaf(&mut hasher, val);
-        for k in 1..=height {
-            if (idx & 0b1) == 0 {
-                h = hash_nodes(&mut hasher, h, proof.0[k-1]);
-            } else {
-                h = hash_nodes(&mut hasher, proof.0[k-1], h);
+        // Get the hasher, potentially creating it for this thread.
+        let h = HASHER.with(|hasher| {
+            let mut h = hash_leaf(&mut hasher.borrow_mut(), val);
+            for k in 1..=height {
+                if (idx & 0b1) == 0 {
+                    h = hash_nodes(&mut hasher.borrow_mut(), h, proof.0[k-1]);
+                } else {
+                    h = hash_nodes(&mut hasher.borrow_mut(), proof.0[k-1], h);
+                }
+                idx = idx >> 1;
             }
-            idx = idx >> 1;
-        }
+            h
+        });
 
         h == self.nodes[0]
     }
