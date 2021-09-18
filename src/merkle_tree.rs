@@ -290,21 +290,22 @@ impl IntoHash for crate::msp::MspMvk {
 mod tests {
     use super::*;
     use proptest::prelude::*;
+    use proptest::collection::{hash_set, vec};
+
+    prop_compose! {
+        fn arb_tree(max_height: u32)
+                   (height in 1..10)
+                   (v in vec(any::<u64>(), (2 as usize).pow(height as u32))) -> (MerkleTree, Vec<u64>) {
+             (MerkleTree::create(&v), v)
+        }
+    }
 
     proptest! {
         // Test the relation that t.get_path(i) is a valid
         // proof for i
         #![proptest_config(ProptestConfig::with_cases(10))]
         #[test]
-        fn test_create_proof(
-            values in (1..10)
-                .prop_flat_map(|height| {
-                    prop::collection::vec(
-                        any::<u64>(),
-                        (2 as usize).pow(height as u32))
-                })
-        ) {
-            let t = MerkleTree::create(&values);
+        fn test_create_proof((t, values) in arb_tree(10)) {
             for i in 0..values.len() {
                 let pf = t.get_path(i as usize);
                 assert!(t.check(&values[i], i as usize, &pf));
@@ -312,25 +313,35 @@ mod tests {
         }
     }
 
+    fn pow2_plus1(h: usize) -> usize {
+        1 + (2 as usize).pow(h as u32)
+    }
+
+    prop_compose! {
+        // Returns values with a randomly generated path
+        fn values_with_invalid_proof(max_height: usize)
+                                    (h in 1..max_height)
+                                    (vals in hash_set(any::<u64>(), pow2_plus1(h)),
+                                     proof in vec(any::<u64>(), h)) -> (Vec<u64>, Vec<u64>) {
+            (vals.into_iter().collect(), proof)
+        }
+    }
+
+
     proptest! {
         #[test]
         fn test_create_invalid_proof(
             i in any::<usize>(),
-            (values, pf) in (1..10)
-                .prop_flat_map(|height| {
-                    (prop::collection::vec(
-                        any::<u64>(), (2 as usize).pow(height as u32)),
-                        proptest::collection::vec(any::<u64>(), height as usize))
-                })
+            (values, proof) in values_with_invalid_proof(10)
         ) {
-            let t = MerkleTree::create(&values);
+            let t = MerkleTree::create(&values[1..]);
             let constants = PoseidonConstants::new();
             let mut hasher = Poseidon::new(&constants);
 
-            let idx = i % values.len();
+            let idx = i % (values.len() - 1);
 
-            let path = Path(pf.iter().map(|x| x.into_hash(&mut hasher)).collect());
-            assert!(!t.check(&values[idx], idx, &path));
+            let path = Path(proof.iter().map(|x| x.into_hash(&mut hasher)).collect());
+            assert!(!t.check(&values[0], idx, &path));
         }
     }
 }
