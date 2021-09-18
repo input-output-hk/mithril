@@ -1,11 +1,20 @@
-use super::{Stake, PartyId, Index, Path, ev_lt_phi, Phi};
+use super::{Stake, PartyId, Index, Path, ev_lt_phi};
 use crate::key_reg::KeyReg;
 use crate::msp::{Msp, MspMvk, MspSig, MspPk, MspSk};
 use crate::merkle_tree::MerkleTree;
 use crate::proof::{ConcatProof, Witness};
 
-static PHI: Phi = Phi(0.5); // TODO: Figure out how/when this gets configued
-static M: u64 = 10; // TODO: ????
+#[derive(Clone, Debug, Copy)]
+pub struct StmParameters {
+    /// Security parameter, upper bound on indices
+    pub m: u64,
+
+    /// Quorum parameter
+    pub k: u64,
+
+    /// `f` in phi(w) = 1 - (1 - f)^w
+    pub phi_f: f64,
+}
 
 pub struct StmParty {
     party_id: PartyId,
@@ -15,9 +24,10 @@ pub struct StmParty {
     pk: Option<MspPk>,
     reg: Option<Vec<Option<(MspPk, Stake)>>>, // map from PID -> (PK,Stake)
     total_stake: Option<Stake>,
+    params: StmParameters
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct StmSig {
     pub sigma: MspSig,
     pub pk: MspPk,
@@ -33,11 +43,17 @@ pub struct StmMultiSig {
     proof: ConcatProof,
 }
 
+#[derive(Debug)]
+pub enum AggregationFailure {
+    VerifyFailed,
+    DuplicateIndex,
+}
+
 impl StmParty {
     //////////////////////////
     // Initialization phase //
     //////////////////////////
-    pub fn setup(party_id: PartyId, stake: Stake) -> Self {
+    pub fn setup(params: StmParameters, party_id: PartyId, stake: Stake) -> Self {
         Self {
             party_id,
             stake,
@@ -46,6 +62,7 @@ impl StmParty {
             pk: None,
             reg: None,
             total_stake: None,
+            params,
         }
     }
 
@@ -85,7 +102,7 @@ impl StmParty {
         let msgp = self.avk.as_ref().unwrap().concat_with_msg(msg);
         let sigma = Msp::sig(self.sk.as_ref().unwrap(), &msgp);
         let ev = Msp::eval(&msgp, index, &sigma);
-        ev_lt_phi(PHI, ev, self.stake, self.total_stake.unwrap())
+        ev_lt_phi(self.params.phi_f, ev, self.stake, self.total_stake.unwrap())
     }
 
     pub fn create_sig(&self, msg: &[u8], index: Index) -> Option<StmSig> {
@@ -116,7 +133,7 @@ impl StmParty {
         let avk = self.avk.as_ref().unwrap();
         let msgp = avk.concat_with_msg(msg);
         let ev = Msp::eval(&msgp, index, &sig.sigma);
-        if !ev_lt_phi(PHI, ev, sig.stake, self.total_stake.unwrap()) ||
+        if !ev_lt_phi(self.params.phi_f, ev, sig.stake, self.total_stake.unwrap()) ||
             !avk.check(&(sig.pk.clone(), sig.stake), sig.party, &sig.path)
         {
             return false;
@@ -124,18 +141,19 @@ impl StmParty {
         Msp::ver(&msgp, &sig.pk.mvk, &sig.sigma)
     }
 
-    pub fn aggregate(&self, sigs: &[StmSig], indices: &[Index], msg: &[u8]) -> Option<StmMultiSig> {
+    pub fn aggregate(&self, sigs: &[StmSig], indices: &[Index], msg: &[u8]) -> Result<StmMultiSig, AggregationFailure> {
         let avk = self.avk.as_ref().unwrap();
         let msgp = avk.concat_with_msg(msg);
-        let mut seen_parties = std::collections::HashSet::new();
+        let mut seen_indices = std::collections::HashSet::new();
         let mut evals = Vec::new();
         for (sig, ix) in sigs.iter().zip(indices.iter()) {
-            if !self.verify(sig.clone(), *ix, msg) ||
-                seen_parties.contains(&sig.party)
+            if !self.verify(sig.clone(), *ix, msg) {
+                return Err(AggregationFailure::VerifyFailed);
+            } else if seen_indices.contains(ix)
             {
-                return None;
+                return Err(AggregationFailure::DuplicateIndex);
             }
-            seen_parties.insert(sig.party);
+            seen_indices.insert(*ix);
             evals.push(Msp::eval(&msgp, *ix, &sig.sigma));
         }
         let mvks = sigs.iter().map(|sig| sig.pk.mvk).collect::<Vec<_>>();
@@ -148,7 +166,7 @@ impl StmParty {
             evals,
         };
         let proof = ConcatProof::prove(avk, &ivk, msg, &witness);
-        Some(StmMultiSig {
+        Ok(StmMultiSig {
             ivk,
             mu,
             proof,
@@ -157,7 +175,7 @@ impl StmParty {
 
     pub fn verify_aggregate(&self, msig: &StmMultiSig, msg: &[u8]) -> bool {
         let avk = self.avk.as_ref().unwrap();
-        if !msig.proof.verify(PHI, self.total_stake.unwrap(), M, avk, &msig.ivk, msg) {
+        if !msig.proof.verify(&self.params, self.total_stake.unwrap(), avk, &msig.ivk, msg) {
             return false;
         }
         let msgp = avk.concat_with_msg(msg);
@@ -168,58 +186,213 @@ impl StmParty {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::{HashSet, HashMap};
+    use proptest::prelude::*;
+    use proptest::collection::{vec, hash_map};
 
-    fn setup_parties(nparties: usize) -> Vec<StmParty> {
+    fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmParty> {
+        let stake = vec![1; nparties];
+        setup_parties(params, stake)
+    }
+
+    fn setup_parties(params: StmParameters,
+                     stake: Vec<Stake>) -> Vec<StmParty> {
         let mut kr = KeyReg::new();
-        let mut ps = (0..nparties).map(|pid| {
-            let mut p = StmParty::setup(pid, 1);
-            p.register(&mut kr);
-            p
-        }).collect::<Vec<StmParty>>();
+        let mut ps = stake.iter()
+                          .enumerate()
+                          .map(|(pid, stake)| {
+                              let mut p = StmParty::setup(params, pid, *stake);
+                              p.register(&mut kr);
+                              p
+                          }).collect::<Vec<StmParty>>();
         for p in ps.iter_mut() {
             p.retrieve_all(&kr);
         }
         ps
     }
 
-    #[test]
-    fn test_sig() {
-        let nparties = 128;
-        let ntries = 100;
-        let msg = rand::random::<[u8;16]>();
-        let mut ps = setup_parties(nparties);
-        let p = &mut ps[rand::random::<usize>() % nparties];
-        p.create_avk();
-        let mut index = 0;
-        for _ in 0..ntries {
-            if let Some(sig) = p.create_sig(&msg, index) {
-                assert!(p.verify(sig, index, &msg));
-                index += 1;
+    /// Pick an arbitrary power of 2 between min and max
+    fn arb_num_parties(min: u32, max: u32) -> impl Strategy<Value = usize> {
+        let min_height = (min as f64).log2().ceil() as u32;
+        let max_height = (max as f64).log2().ceil() as u32;
+        (min_height..max_height)
+            .prop_map(|h| (2 as usize).pow(h))
+    }
+
+    /// Generate a vector of stakes that should sum to `honest_stake`
+    /// when ignoring the indices in `adversaries`
+    fn arb_honest_for_adversaries(num_parties: usize,
+                                  honest_stake: Stake,
+                                  adversaries: HashMap<usize, Stake>)
+                                  -> impl Strategy<Value = Vec<Stake>> {
+        vec(1..honest_stake, num_parties).prop_map(move |parties| {
+            let honest_sum = parties
+                .iter()
+                .enumerate()
+                .fold(0, |acc, (i, s)| if !adversaries.contains_key(&i) { acc + s } else { acc });
+
+            parties.iter().enumerate().map(|(i, s)| {
+                if let Some(a) = adversaries.get(&i) {
+                    *a
+                } else {
+                    (*s * honest_stake)/honest_sum
+                }
+            }).collect()
+        })
+    }
+
+    /// Generate a vector of N stakes summing to N*tstake,
+    /// plus a subset S of 0..N such that the sum of the stakes at indices
+    /// in S is astake*N
+    fn arb_parties_with_adversaries(num_parties: usize,
+                                    num_adversaries: usize,
+                                    total_stake: Stake,
+                                    adversary_stake: Stake,
+    ) -> impl Strategy<Value = (HashSet<usize>, Vec<Stake>)> {
+        hash_map(0..num_parties,
+                 1..total_stake,
+                 num_adversaries)
+            .prop_flat_map(move |adversaries| {
+                let adversary_sum: Stake = adversaries
+                                           .values()
+                                           .sum();
+                let adversaries_normed = adversaries.iter().map(|(a, stake)| {
+                    (*a, (stake*adversary_stake)/adversary_sum)
+                }).collect();
+
+                let adversaries = adversaries.into_keys().collect();
+                (Just(adversaries), arb_honest_for_adversaries(num_parties, total_stake-adversary_stake, adversaries_normed))
+            })
+    }
+
+    fn arb_num_parties_and_index(min:u32, max: u32) -> impl Strategy <Value = (usize, usize)> {
+        arb_num_parties(min, max)
+            .prop_flat_map(|n| {
+                (Just(n), 0..n)
+            })
+    }
+
+    fn find_signatures(m: u64, k: u64, msg: &[u8], ps: &mut [StmParty], is: &[usize])
+                          -> (Vec<Index>, Vec<StmSig>) {
+        let mut ixs = Vec::new();
+        let mut sigs = Vec::new();
+        for ix in 1..m {
+            for i in is {
+                if let Some(sig) = ps[*i].create_sig(&msg, ix) {
+                    sigs.push(sig);
+                    ixs.push(ix);
+                    break;
+                }
+            }
+            if ixs.len() == k as usize {
+                break;
+            }
+        }
+
+        (ixs, sigs)
+    }
+
+    proptest! {
+        #[test]
+        /// Test that when a party creates a signature it can be verified
+        fn test_sig((nparties, p_i) in arb_num_parties_and_index(2, 32),
+                    msg in any::<[u8;16]>()) {
+            let params = StmParameters { m: (nparties as u64), k: 1, phi_f: 0.2 };
+            let mut ps = setup_equal_parties(params, nparties);
+            let p = &mut ps[p_i];
+            p.create_avk();
+
+            for index in 1..nparties {
+                if let Some(sig) = p.create_sig(&msg, index as u64) {
+                    assert!(p.verify(sig, index as u64, &msg));
+                }
             }
         }
     }
 
-    #[test]
-    fn test_aggregate_sig() {
-        for _ in 0..16 {
-            let nparties = 16;
-            let msg = rand::random::<[u8;16]>();
-            let mut ps = setup_parties(nparties);
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(50))]
+
+        #[test]
+        /// Test that when a quorum is found, the aggregate signature can be verified
+        fn test_aggregate_sig(nparties in arb_num_parties(2, 16),
+                              m in 10_u64..20,
+                              k in 1_u64..5,
+                              msg in any::<[u8;16]>()) {
+            let params = StmParameters { m: m, k: k, phi_f: 0.2 };
+            let mut ps = setup_equal_parties(params, nparties);
             ps.iter_mut().for_each(StmParty::create_avk);
-            let mut sigs = Vec::new();
-            let mut ixs = Vec::new();
-            let mut ix = 0;
-            for p in &ps {
-                if let Some(sig) = p.create_sig(&msg, ix) {
-                    sigs.push(sig);
-                    ixs.push(ix);
-                    ix += 1;
-                }
-            }
-            if sigs.len() > 0 {
-                let msig = ps[0].aggregate(&sigs, &ixs, &msg).unwrap();
+
+            let all_ps: Vec<usize> = (0..nparties).collect();
+            let (ixs, sigs) = find_signatures(m, k, &msg, &mut ps, &all_ps);
+
+            if sigs.len() >= params.k as usize {
+                let msig = ps[0].aggregate(&sigs[0..k as usize], &ixs[0..k as usize], &msg).unwrap();
                 assert!(ps[1].verify_aggregate(&msig, &msg));
             }
+        }
+    }
+
+    /// Pick a power of 2 N between min and max, and then
+    /// generate a vector of N stakes summing to N*tstake,
+    /// plus a subset S of 0..N such that the sum of the stakes at indices
+    /// in S is astake*N
+    fn arb_parties_adversary_stake(min: u32, max:u32, tstake: Stake, astake: Stake)
+                                   -> impl Strategy<Value = (HashSet<usize>, Vec<Stake>)> {
+        arb_num_parties(min,max)
+            .prop_flat_map(|n| (Just (n), 1..=n/2))
+            .prop_flat_map(move |(n, nadv)|
+                           arb_parties_with_adversaries(n, nadv, tstake*n as Stake, astake*n as Stake))
+    }
+
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(10))]
+
+        #[test]
+        /// Test that when the adversaries do not hold sufficient stake, they can not form a quorum
+        fn test_adversary_quorum(
+            (adversaries, parties) in arb_parties_adversary_stake(8, 64, 16, 4),
+            msg in any::<[u8;16]>(),
+            i in any::<usize>(), j in any::<usize>(),
+        ) {
+            // Test sanity check:
+            // Check that the adversarial party has less than 40% of the total stake.
+            let (good, bad) = parties.iter().enumerate().fold((0,0), |(acc1, acc2), (i, st)| {
+                if adversaries.contains(&i) {
+                    (acc1, acc2 + *st)
+                } else {
+                    (acc1 + *st, acc2)
+                }
+            });
+            assert!(bad as f64 / ((good + bad) as f64) < 0.4);
+
+            let aggregator = i % parties.len();
+            let verifier   = j % parties.len();
+
+            let params = StmParameters { m: 2642, k: 357, phi_f: 0.2 }; // From Table 1
+            let mut ps = setup_parties(params, parties);
+
+            for a in &adversaries {
+                ps[*a].create_avk();
+            }
+            if !adversaries.contains(&aggregator) {
+                ps[aggregator].create_avk();
+            }
+            if !adversaries.contains(&verifier) {
+                ps[verifier].create_avk();
+            }
+
+            let (ixs, sigs) = find_signatures(params.m,
+                                              params.k,
+                                              &msg,
+                                              &mut ps,
+                                              &adversaries.into_iter().collect::<Vec<_>>());
+
+            assert!(sigs.len() < params.k as usize);
+
+            let msig = ps[aggregator].aggregate(&sigs, &ixs, &msg).expect("Aggregate failed");
+            assert!(!ps[verifier].verify_aggregate(&msig, &msg));
         }
     }
 }

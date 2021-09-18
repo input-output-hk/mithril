@@ -13,17 +13,17 @@ pub struct Msp { }
 #[derive(Clone,Copy)]
 pub struct MspSk(Scalar);
 
-#[derive(Clone,Copy)]
+#[derive(Debug,Clone,Copy)]
 pub struct MspMvk(pub G2Projective);
 
-#[derive(Clone,Copy)]
+#[derive(Debug,Clone,Copy)]
 pub struct MspPk {
     pub mvk: MspMvk,
     pub k1: G1Projective,
     pub k2: G1Projective,
 }
 
-#[derive(Clone,Copy)]
+#[derive(Debug,Clone,Copy)]
 pub struct MspSig(G1Projective);
 
 static POP: &[u8] = b"PoP";
@@ -77,18 +77,18 @@ impl Msp {
     // MSP.AKey
     pub fn aggregate_keys(mvks: &[MspMvk]) -> MspMvk {
         MspMvk(mvks
-            .iter()
-            .fold(G2Projective::from(G2Affine::zero()),
-                  |acc, x| acc + x.0))
+               .iter()
+               .map(|s| s.0)
+               .sum())
     }
 
     // MSP.Aggr
     pub fn aggregate_sigs(msg: &[u8], sigmas: &[MspSig]) -> MspSig {
         // XXX: what is d?
         MspSig(sigmas
-            .iter()
-            .fold(G1Projective::from(G1Affine::zero()),
-                  |acc, s| acc + s.0))
+               .iter()
+               .map(|s| s.0)
+               .sum())
     }
 
     // MSP.AVer
@@ -148,6 +148,21 @@ mod tests {
             let (sk, pk) = Msp::gen();
             let sig = Msp::sig(&sk, &msg);
             assert!(Msp::ver(&msg, &pk.mvk, &sig));
+        }
+
+        #[test]
+        fn test_invalid_sig(msg in prop::collection::vec(any::<u8>(), 1..128),
+                            r in prop::collection::vec(any::<u64>(), 100)) {
+            let (sk, pk) = Msp::gen();
+
+            // Low probability is still greater than zero :)
+            let mut success = 0;
+            for i in 1..100 {
+                let x = MspSig(G1Affine::one() * Scalar::from(r[i]));
+                if Msp::ver(&msg, &pk.mvk, &x) { success += 1; }
+            }
+
+            assert!(success <= 5);
         }
 
         #[test]

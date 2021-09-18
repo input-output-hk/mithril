@@ -413,6 +413,7 @@ dependencies = [
  "digest",
  "fff",
  "groupy",
+ "lazy_static",
  "neptune",
  "proptest",
  "rand 0.7.3",
