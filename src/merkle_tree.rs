@@ -4,8 +4,8 @@ use neptune::poseidon::{Poseidon, PoseidonConstants};
 use neptune::{scalar_from_u64, Scalar};
 
 use lazy_static::lazy_static;
-use std::thread_local;
 use std::cell::RefCell;
+use std::thread_local;
 
 lazy_static! {
     /// Poseidon needs a reference to the Constants to create a new instance.
@@ -38,7 +38,6 @@ pub struct MerkleTree {
     n: usize,
 }
 
-
 pub trait IntoHash {
     fn into_hash<'a>(&self, hasher: &mut MerkleHasher<'a>) -> Scalar;
 }
@@ -46,38 +45,51 @@ pub trait IntoHash {
 impl MerkleTree {
     pub fn create<V: IntoHash>(leaves: &[V]) -> MerkleTree {
         let n = leaves.len();
-        assert!(n > 1, "MerkleTree::create() called with fewer than 2 leaves");
-        assert!((n & (n - 1) == 0), "MerkleTree::create() called with non-power of 2 leaves {}", n);
+        assert!(
+            n > 1,
+            "MerkleTree::create() called with fewer than 2 leaves"
+        );
+        assert!(
+            (n & (n - 1) == 0),
+            "MerkleTree::create() called with non-power of 2 leaves {}",
+            n
+        );
 
-        let num_nodes = 2*n - 1;
+        let num_nodes = 2 * n - 1;
 
         let mut nodes = vec![scalar_from_u64(0); num_nodes];
 
         // Get the hasher, potentially creating it for this thread.
         HASHER.with(|hasher| {
             for i in 0..n {
-                nodes[num_nodes-n+i] = hash_leaf(&mut hasher.borrow_mut(), &leaves[i]);
+                nodes[num_nodes - n + i] = hash_leaf(&mut hasher.borrow_mut(), &leaves[i]);
             }
 
-            for i in (0..num_nodes-n).rev() {
-                nodes[i] = hash_nodes(&mut hasher.borrow_mut(),
-                                    nodes[left_child(i)],
-                                    nodes[right_child(i)]);
+            for i in (0..num_nodes - n).rev() {
+                nodes[i] = hash_nodes(
+                    &mut hasher.borrow_mut(),
+                    nodes[left_child(i)],
+                    nodes[right_child(i)],
+                );
             }
         });
 
         Self {
             nodes: nodes,
             n: n,
-            leaf_off: num_nodes-n,
+            leaf_off: num_nodes - n,
         }
     }
 
     /// Check an inclusion proof that `val` is the `i`th leaf stored in the tree.
     /// Requires i < self.n
     pub fn check<V: IntoHash>(&self, val: &V, i: usize, proof: &Path) -> bool {
-        assert!(i < self.n,
-                "check index out of bounds: asked for {} out of {}", i, self.n);
+        assert!(
+            i < self.n,
+            "check index out of bounds: asked for {} out of {}",
+            i,
+            self.n
+        );
         let mut idx = i;
         let height = (self.n as f64).log2().ceil() as usize;
 
@@ -86,9 +98,9 @@ impl MerkleTree {
             let mut h = hash_leaf(&mut hasher.borrow_mut(), val);
             for k in 1..=height {
                 if (idx & 0b1) == 0 {
-                    h = hash_nodes(&mut hasher.borrow_mut(), h, proof.0[k-1]);
+                    h = hash_nodes(&mut hasher.borrow_mut(), h, proof.0[k - 1]);
                 } else {
-                    h = hash_nodes(&mut hasher.borrow_mut(), proof.0[k-1], h);
+                    h = hash_nodes(&mut hasher.borrow_mut(), proof.0[k - 1], h);
                 }
                 idx = idx >> 1;
             }
@@ -115,8 +127,12 @@ impl MerkleTree {
     /// for the `i`th value stored in the tree.
     /// Requires `i < self.n`
     pub fn get_path(&self, i: usize) -> Path {
-        assert!(i < self.n,
-                "Proof index out of bounds: asked for {} out of {}", i, self.n);
+        assert!(
+            i < self.n,
+            "Proof index out of bounds: asked for {} out of {}",
+            i,
+            self.n
+        );
         let mut idx = self.idx_of_leaf(i);
         let mut proof = Vec::new();
 
@@ -161,15 +177,15 @@ fn hash_binary<'a, A>(hasher: &mut MerkleHasher<'a>, left: Hash, right: Hash) ->
 
 fn parent(i: usize) -> usize {
     assert!(i > 0, "The root node does not have a parent");
-    (i - 1)/2
+    (i - 1) / 2
 }
 
 fn left_child(i: usize) -> usize {
-    (2*i) + 1
+    (2 * i) + 1
 }
 
 fn right_child(i: usize) -> usize {
-    (2*i) + 2
+    (2 * i) + 2
 }
 
 fn sibling(i: usize) -> usize {
@@ -177,7 +193,11 @@ fn sibling(i: usize) -> usize {
     // In the heap representation, the left sibling is always odd
     // And the right sibling is the next node
     // We're assuming that the heap is complete
-    if i % 2 == 1 { i + 1 } else { i - 1 }
+    if i % 2 == 1 {
+        i + 1
+    } else {
+        i - 1
+    }
 }
 
 /////////////////////
@@ -198,7 +218,7 @@ impl IntoHash for Scalar {
     }
 }
 
-impl <V: IntoHash> IntoHash for Vec<V> {
+impl<V: IntoHash> IntoHash for Vec<V> {
     fn into_hash<'a>(&self, hasher: &mut MerkleHasher<'a>) -> Hash {
         assert!(self.len() > 0, "Can not convert empty slice to Hash");
         let mut h = self[0].into_hash(hasher);
@@ -235,7 +255,7 @@ impl IntoHash for blstrs::G1Affine {
     fn into_hash<'a>(&self, hasher: &mut MerkleHasher<'a>) -> Hash {
         let x = blstrs::FpRepr::from(self.x()).0.to_vec();
         let y = blstrs::FpRepr::from(self.y()).0.to_vec();
-        (x,y).into_hash(hasher)
+        (x, y).into_hash(hasher)
     }
 }
 
@@ -271,9 +291,12 @@ impl IntoHash for blstrs::G2Projective {
 
 impl IntoHash for crate::msp::MspPk {
     fn into_hash<'a>(&self, hasher: &mut MerkleHasher<'a>) -> Hash {
-        vec![self.mvk.into_hash(hasher),
-             self.k1.into_hash(hasher),
-             self.k2.into_hash(hasher)].into_hash(hasher)
+        vec![
+            self.mvk.into_hash(hasher),
+            self.k1.into_hash(hasher),
+            self.k2.into_hash(hasher),
+        ]
+        .into_hash(hasher)
     }
 }
 
@@ -290,8 +313,8 @@ impl IntoHash for crate::msp::MspMvk {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use proptest::prelude::*;
     use proptest::collection::{hash_set, vec};
+    use proptest::prelude::*;
 
     prop_compose! {
         fn arb_tree(max_height: u32)
@@ -327,7 +350,6 @@ mod tests {
             (vals.into_iter().collect(), proof)
         }
     }
-
 
     proptest! {
         #[test]

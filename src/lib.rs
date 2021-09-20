@@ -1,10 +1,10 @@
 #![allow(dead_code, unused_variables)]
 
-pub mod stm;
 pub mod key_reg;
-pub mod msp;
 pub mod merkle_tree;
+pub mod msp;
 pub mod proof;
+pub mod stm;
 
 pub type Stake = u64;
 
@@ -24,4 +24,3 @@ pub fn ev_lt_phi(phi_f: f64, ev: u64, stake: Stake, total_stake: Stake) -> bool 
     // println!("{} {}", phi, ev_as_f64);
     ev_as_f64 < phi
 }
-
