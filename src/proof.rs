@@ -1,3 +1,5 @@
+//! Prove the validity of aggregated signatures.
+
 use super::Index;
 use crate::ev_lt_phi;
 use crate::merkle_tree::MerkleTree;

@@ -1,3 +1,5 @@
+//! Creation and verification of Merkle Trees using the Neptune hash.
+
 use crate::Path;
 use blstrs::Bls12;
 use neptune::poseidon::{Poseidon, PoseidonConstants};
@@ -23,7 +25,7 @@ pub type Hash = neptune::Scalar;
 
 pub type MerkleHasher<'a> = Poseidon<'a, Bls12, typenum::U2>;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MerkleTree {
     // The nodes are stored in an array heap:
     // nodes[0] is the root,

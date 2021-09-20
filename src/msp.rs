@@ -1,4 +1,4 @@
-//! Multisignature scheme API
+//! Base multisignature scheme. Currently using BLS12.
 
 use super::Index;
 

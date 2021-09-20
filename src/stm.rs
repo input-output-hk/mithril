@@ -1,10 +1,13 @@
+//! Top-level API for Mithril Stake-based Threshold Multisignature scheme.
+
 use super::{ev_lt_phi, Index, PartyId, Path, Stake};
 use crate::key_reg::KeyReg;
 use crate::merkle_tree::MerkleTree;
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
 use crate::proof::Proof;
 
-#[derive(Clone, Debug, Copy)]
+/// Used to set protocol parameters.
+#[derive(Clone, Debug, Copy, PartialEq)]
 pub struct StmParameters {
     /// Security parameter, upper bound on indices
     pub m: u64,
@@ -16,17 +19,36 @@ pub struct StmParameters {
     pub phi_f: f64,
 }
 
-pub struct StmParty {
+/// Initializer for `StmSigner`.
+pub struct StmInitializer {
     party_id: PartyId,
     stake: Stake,
     avk: Option<MerkleTree>,
     sk: Option<MspSk>,
     pk: Option<MspPk>,
-    reg: Option<Vec<Option<(MspPk, Stake)>>>, // map from PID -> (PK,Stake)
     total_stake: Option<Stake>,
     params: StmParameters,
 }
 
+/// Participant in the protocol. Can sign messages.
+pub struct StmSigner {
+    party_id: PartyId,
+    stake: Stake,
+    params: StmParameters,
+    total_stake: Stake,
+    avk: MerkleTree,
+    sk: MspSk,
+    pk: MspPk,
+}
+
+/// `StmClerk` can verify and aggregate `StmSig`s and verify `StmMultiSig`s.
+pub struct StmClerk {
+    avk: MerkleTree,
+    params: StmParameters,
+    total_stake: Stake,
+}
+
+/// Signature created by a single party who has won the lottery.
 #[derive(Clone, Debug)]
 pub struct StmSig {
     pub sigma: MspSig,
@@ -36,6 +58,8 @@ pub struct StmSig {
     pub path: Path,
 }
 
+/// Aggregated signature of many parties.
+/// Contains proof that it is well-formed.
 #[derive(Clone)]
 pub struct StmMultiSig<P> {
     ivk: MspMvk,
@@ -43,13 +67,14 @@ pub struct StmMultiSig<P> {
     proof: P,
 }
 
+/// Error types for aggregation.
 #[derive(Debug)]
 pub enum AggregationFailure {
     VerifyFailed,
     DuplicateIndex,
 }
 
-impl StmParty {
+impl StmInitializer {
     //////////////////////////
     // Initialization phase //
     //////////////////////////
@@ -60,7 +85,6 @@ impl StmParty {
             avk: None,
             sk: None,
             pk: None,
-            reg: None,
             total_stake: None,
             params,
         }
@@ -80,24 +104,26 @@ impl StmParty {
         // Reg := (K(P_i), stake_i)
         // Reg is padded to length N using null entries of stake 0
         // AVK <- MT.Create(Reg)
-        self.reg = Some(kr.retrieve_all());
+        let reg = kr.retrieve_all();
+        self.avk = Some(MerkleTree::create(&reg));
         // get total stake
-        self.total_stake = Some(
-            self.reg
-                .as_ref()
-                .unwrap()
-                .iter()
-                .filter_map(|p| p.map(|(_, s)| s))
-                .sum(),
-        );
+        self.total_stake = Some(reg.iter().filter_map(|p| p.map(|(_, s)| s)).sum());
     }
 
-    // Creating a MerkleTree is expensive. Only do it if you have to.
-    pub fn create_avk(&mut self) {
-        let avk: MerkleTree = MerkleTree::create(self.reg.as_ref().unwrap());
-        self.avk = Some(avk);
+    pub fn finish(self) -> StmSigner {
+        StmSigner {
+            party_id: self.party_id,
+            stake: self.stake,
+            params: self.params,
+            total_stake: self.total_stake.expect("total stake unknown"),
+            avk: self.avk.expect("merkle tree not created"),
+            sk: self.sk.expect("register not called"),
+            pk: self.pk.expect("register not called"),
+        }
     }
+}
 
+impl StmSigner {
     /////////////////////
     // Operation phase //
     /////////////////////
@@ -106,13 +132,13 @@ impl StmParty {
         // sigma <- MSP.Sig(msk, msg')
         // ev <- MSP.Eval(msg', index, sigma)
         // return 1 if ev < phi(stake) else return 0
-        let msgp = self.avk.as_ref().unwrap().concat_with_msg(msg);
-        let sigma = Msp::sig(self.sk.as_ref().unwrap(), &msgp);
+        let msgp = self.avk.concat_with_msg(msg);
+        let sigma = Msp::sig(&self.sk, &msgp);
         let ev = Msp::eval(&msgp, index, &sigma);
-        ev_lt_phi(self.params.phi_f, ev, self.stake, self.total_stake.unwrap())
+        ev_lt_phi(self.params.phi_f, ev, self.stake, self.total_stake)
     }
 
-    pub fn create_sig(&self, msg: &[u8], index: Index) -> Option<StmSig> {
+    pub fn sign(&self, msg: &[u8], index: Index) -> Option<StmSig> {
         if self.eligibility_check(msg, index) {
             // msg' <- AVK||msg
             // sigma <- MSP.Sig(msk,msg')
@@ -120,10 +146,10 @@ impl StmParty {
             //      p_i is the users path inside the merkle tree AVK
             //      reg_i is (mvk_i, stake_i)
             // return pi
-            let msgp = self.avk.as_ref().unwrap().concat_with_msg(msg);
-            let sigma = Msp::sig(self.sk.as_ref().unwrap(), &msgp);
-            let path = self.avk.as_ref().unwrap().get_path(self.party_id);
-            let pk = self.pk.as_ref().unwrap().clone();
+            let msgp = self.avk.concat_with_msg(msg);
+            let sigma = Msp::sig(&self.sk, &msgp);
+            let path = self.avk.get_path(self.party_id);
+            let pk = self.pk.clone();
             Some(StmSig {
                 sigma,
                 pk,
@@ -135,13 +161,26 @@ impl StmParty {
             None
         }
     }
+}
 
-    pub fn verify(&self, sig: StmSig, index: Index, msg: &[u8]) -> bool {
-        let avk = self.avk.as_ref().unwrap();
-        let msgp = avk.concat_with_msg(msg);
+impl StmClerk {
+    pub fn new(params: StmParameters, avk: MerkleTree, total_stake: Stake) -> Self {
+        Self {
+            params,
+            avk,
+            total_stake,
+        }
+    }
+
+    pub fn from_signer(signer: &StmSigner) -> Self {
+        Self::new(signer.params, signer.avk.clone(), signer.total_stake)
+    }
+
+    pub fn verify_sig(&self, sig: &StmSig, index: Index, msg: &[u8]) -> bool {
+        let msgp = self.avk.concat_with_msg(msg);
         let ev = Msp::eval(&msgp, index, &sig.sigma);
-        if !ev_lt_phi(self.params.phi_f, ev, sig.stake, self.total_stake.unwrap())
-            || !avk.check(&(sig.pk.clone(), sig.stake), sig.party, &sig.path)
+        if !ev_lt_phi(self.params.phi_f, ev, sig.stake, self.total_stake)
+            || !self.avk.check(&(sig.pk.clone(), sig.stake), sig.party, &sig.path)
         {
             return false;
         }
@@ -154,12 +193,11 @@ impl StmParty {
         indices: &[Index],
         msg: &[u8],
     ) -> Result<StmMultiSig<P>, AggregationFailure> {
-        let avk = self.avk.as_ref().unwrap();
-        let msgp = avk.concat_with_msg(msg);
+        let msgp = self.avk.concat_with_msg(msg);
         let mut seen_indices = std::collections::HashSet::new();
         let mut evals = Vec::new();
         for (sig, ix) in sigs.iter().zip(indices.iter()) {
-            if !self.verify(sig.clone(), *ix, msg) {
+            if !self.verify_sig(sig, *ix, msg) {
                 return Err(AggregationFailure::VerifyFailed);
             } else if seen_indices.contains(ix) {
                 return Err(AggregationFailure::DuplicateIndex);
@@ -171,19 +209,18 @@ impl StmParty {
         let sigmas = sigs.iter().map(|sig| sig.sigma).collect::<Vec<_>>();
         let ivk = Msp::aggregate_keys(&mvks);
         let mu = Msp::aggregate_sigs(msg, &sigmas);
-        let proof = P::prove(avk, &ivk, msg, &sigs, &indices, &evals);
+        let proof = P::prove(&self.avk, &ivk, msg, &sigs, &indices, &evals);
         Ok(StmMultiSig { ivk, mu, proof })
     }
 
-    pub fn verify_aggregate<P: Proof>(&self, msig: &StmMultiSig<P>, msg: &[u8]) -> bool {
-        let avk = self.avk.as_ref().unwrap();
+    pub fn verify_msig<P: Proof>(&self, msig: &StmMultiSig<P>, msg: &[u8]) -> bool {
         if !msig
             .proof
-            .verify(&self.params, self.total_stake.unwrap(), avk, &msig.ivk, msg)
+            .verify(&self.params, self.total_stake, &self.avk, &msig.ivk, msg)
         {
             return false;
         }
-        let msgp = avk.concat_with_msg(msg);
+        let msgp = self.avk.concat_with_msg(msg);
         Msp::aggregate_ver(&msgp, &msig.ivk, &msig.mu)
     }
 }
@@ -196,26 +233,25 @@ mod tests {
     use proptest::prelude::*;
     use std::collections::{HashMap, HashSet};
 
-    fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmParty> {
+    fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmSigner> {
         let stake = vec![1; nparties];
         setup_parties(params, stake)
     }
 
-    fn setup_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<StmParty> {
+    fn setup_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<StmSigner> {
         let mut kr = KeyReg::new();
-        let mut ps = stake
+        let ps = stake
             .iter()
             .enumerate()
             .map(|(pid, stake)| {
-                let mut p = StmParty::setup(params, pid, *stake);
+                let mut p = StmInitializer::setup(params, pid, *stake);
                 p.register(&mut kr);
                 p
-            })
-            .collect::<Vec<StmParty>>();
-        for p in ps.iter_mut() {
+            }).collect::<Vec<_>>();
+        ps.into_iter().map(|mut p| {
             p.retrieve_all(&kr);
-        }
-        ps
+            p.finish()
+        }).collect()
     }
 
     /// Pick an arbitrary power of 2 between min and max
@@ -293,14 +329,14 @@ mod tests {
         m: u64,
         k: u64,
         msg: &[u8],
-        ps: &mut [StmParty],
+        ps: &mut [StmSigner],
         is: &[usize],
     ) -> (Vec<Index>, Vec<StmSig>) {
         let mut ixs = Vec::new();
         let mut sigs = Vec::new();
         for ix in 1..m {
             for i in is {
-                if let Some(sig) = ps[*i].create_sig(&msg, ix) {
+                if let Some(sig) = ps[*i].sign(&msg, ix) {
                     sigs.push(sig);
                     ixs.push(ix);
                     break;
@@ -322,11 +358,11 @@ mod tests {
             let params = StmParameters { m: (nparties as u64), k: 1, phi_f: 0.2 };
             let mut ps = setup_equal_parties(params, nparties);
             let p = &mut ps[p_i];
-            p.create_avk();
+            let clerk = StmClerk::from_signer(&p);
 
             for index in 1..nparties {
-                if let Some(sig) = p.create_sig(&msg, index as u64) {
-                    assert!(p.verify(sig, index as u64, &msg));
+                if let Some(sig) = p.sign(&msg, index as u64) {
+                    assert!(clerk.verify_sig(&sig, index as u64, &msg));
                 }
             }
         }
@@ -343,14 +379,19 @@ mod tests {
                               msg in any::<[u8;16]>()) {
             let params = StmParameters { m: m, k: k, phi_f: 0.2 };
             let mut ps = setup_equal_parties(params, nparties);
-            ps.iter_mut().for_each(StmParty::create_avk);
+            let clerk = StmClerk::from_signer(&ps[0]);
 
             let all_ps: Vec<usize> = (0..nparties).collect();
             let (ixs, sigs) = find_signatures(m, k, &msg, &mut ps, &all_ps);
 
             if sigs.len() >= params.k as usize {
+<<<<<<< HEAD
                 let msig = ps[0].aggregate::<ConcatProof>(&sigs[0..k as usize], &ixs[0..k as usize], &msg).unwrap();
                 assert!(ps[1].verify_aggregate(&msig, &msg));
+=======
+                let msig = clerk.aggregate(&sigs[0..k as usize], &ixs[0..k as usize], &msg).unwrap();
+                assert!(clerk.verify_msig(&msig, &msg));
+>>>>>>> refactor-stm-api
             }
         }
     }
@@ -393,21 +434,8 @@ mod tests {
             });
             assert!(bad as f64 / ((good + bad) as f64) < 0.4);
 
-            let aggregator = i % parties.len();
-            let verifier   = j % parties.len();
-
             let params = StmParameters { m: 2642, k: 357, phi_f: 0.2 }; // From Table 1
             let mut ps = setup_parties(params, parties);
-
-            for a in &adversaries {
-                ps[*a].create_avk();
-            }
-            if !adversaries.contains(&aggregator) {
-                ps[aggregator].create_avk();
-            }
-            if !adversaries.contains(&verifier) {
-                ps[verifier].create_avk();
-            }
 
             let (ixs, sigs) = find_signatures(params.m,
                                               params.k,
@@ -417,9 +445,16 @@ mod tests {
 
             assert!(sigs.len() < params.k as usize);
 
+<<<<<<< HEAD
             let msig = ps[aggregator].aggregate::<ConcatProof>(&sigs, &ixs, &msg)
                                      .expect("Aggregate failed");
             assert!(!ps[verifier].verify_aggregate(&msig, &msg));
+=======
+            let clerk = StmClerk::from_signer(&ps[0]);
+
+            let msig = clerk.aggregate(&sigs, &ixs, &msg).expect("Aggregate failed");
+            assert!(!clerk.verify_msig(&msig, &msg));
+>>>>>>> refactor-stm-api
         }
     }
 }
