@@ -48,16 +48,17 @@ impl MerkleTree {
     pub fn create<V: IntoHash>(leaves: &[V]) -> MerkleTree {
         let n = leaves.len();
         assert!(
-            n > 1,
-            "MerkleTree::create() called with fewer than 2 leaves"
-        );
-        assert!(
-            (n & (n - 1) == 0),
-            "MerkleTree::create() called with non-power of 2 leaves {}",
-            n
+            n > 0,
+            "MerkleTree::create() called with no leaves"
         );
 
-        let num_nodes = 2 * n - 1;
+        let mut next_pow_2 = n - 1;
+        while (next_pow_2 & (next_pow_2 - 1)) != 0 {
+            next_pow_2 = next_pow_2 & (next_pow_2 - 1);
+        }
+        next_pow_2 = next_pow_2 << 1;
+
+        let num_nodes = n + next_pow_2 - 1;
 
         let mut nodes = vec![scalar_from_u64(0); num_nodes];
 
@@ -68,11 +69,17 @@ impl MerkleTree {
             }
 
             for i in (0..num_nodes - n).rev() {
-                nodes[i] = hash_nodes(
-                    &mut hasher.borrow_mut(),
-                    nodes[left_child(i)],
-                    nodes[right_child(i)],
-                );
+                let left = if left_child(i) < num_nodes {
+                    nodes[left_child(i)]
+                } else {
+                    scalar_from_u64(0)
+                };
+                let right = if right_child(i) < num_nodes {
+                    nodes[right_child(i)]
+                } else {
+                    left
+                };
+                nodes[i] = hash_nodes(&mut hasher.borrow_mut(), left, right);
             }
         });
 
@@ -93,16 +100,15 @@ impl MerkleTree {
             self.n
         );
         let mut idx = i;
-        let height = (self.n as f64).log2().ceil() as usize;
 
         // Get the hasher, potentially creating it for this thread.
         let h = HASHER.with(|hasher| {
             let mut h = hash_leaf(&mut hasher.borrow_mut(), val);
-            for k in 1..=height {
+            for p in &proof.0 {
                 if (idx & 0b1) == 0 {
-                    h = hash_nodes(&mut hasher.borrow_mut(), h, proof.0[k - 1]);
+                    h = hash_nodes(&mut hasher.borrow_mut(), h, *p);
                 } else {
-                    h = hash_nodes(&mut hasher.borrow_mut(), proof.0[k - 1], h);
+                    h = hash_nodes(&mut hasher.borrow_mut(), *p, h);
                 }
                 idx = idx >> 1;
             }
@@ -139,7 +145,12 @@ impl MerkleTree {
         let mut proof = Vec::new();
 
         while idx > 0 {
-            proof.push(self.nodes[sibling(idx)]);
+            let h = if sibling(idx) < self.nodes.len() {
+                self.nodes[sibling(idx)]
+            } else {
+                self.nodes[idx]
+            };
+            proof.push(h);
             idx = parent(idx);
         }
 
@@ -319,9 +330,8 @@ mod tests {
     use proptest::prelude::*;
 
     prop_compose! {
-        fn arb_tree(max_height: u32)
-                   (height in 1..10)
-                   (v in vec(any::<u64>(), (2 as usize).pow(height as u32))) -> (MerkleTree, Vec<u64>) {
+        fn arb_tree(max_size: u32)
+                   (v in vec(any::<u64>(), 2..(max_size as usize)))  -> (MerkleTree, Vec<u64>) {
              (MerkleTree::create(&v), v)
         }
     }
@@ -329,9 +339,9 @@ mod tests {
     proptest! {
         // Test the relation that t.get_path(i) is a valid
         // proof for i
-        #![proptest_config(ProptestConfig::with_cases(10))]
+        #![proptest_config(ProptestConfig::with_cases(100))]
         #[test]
-        fn test_create_proof((t, values) in arb_tree(10)) {
+        fn test_create_proof((t, values) in arb_tree(30)) {
             for i in 0..values.len() {
                 let pf = t.get_path(i as usize);
                 assert!(t.check(&values[i], i as usize, &pf));

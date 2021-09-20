@@ -230,13 +230,6 @@ mod tests {
         ps
     }
 
-    /// Pick an arbitrary power of 2 between min and max
-    fn arb_num_parties(min: u32, max: u32) -> impl Strategy<Value = usize> {
-        let min_height = (min as f64).log2().ceil() as u32;
-        let max_height = (max as f64).log2().ceil() as u32;
-        (min_height..max_height).prop_map(|h| (2 as usize).pow(h))
-    }
-
     /// Generate a vector of stakes that should sum to `honest_stake`
     /// when ignoring the indices in `adversaries`
     fn arb_honest_for_adversaries(
@@ -297,8 +290,8 @@ mod tests {
         )
     }
 
-    fn arb_num_parties_and_index(min: u32, max: u32) -> impl Strategy<Value = (usize, usize)> {
-        arb_num_parties(min, max).prop_flat_map(|n| (Just(n), 0..n))
+    fn arb_num_parties_and_index(min: usize, max: usize) -> impl Strategy<Value = (usize, usize)> {
+        (min..max).prop_flat_map(|n| (Just(n), 0..n))
     }
 
     fn find_signatures(
@@ -349,7 +342,7 @@ mod tests {
 
         #[test]
         /// Test that when a quorum is found, the aggregate signature can be verified
-        fn test_aggregate_sig(nparties in arb_num_parties(2, 16),
+        fn test_aggregate_sig(nparties in 2_usize..16,
                               m in 10_u64..20,
                               k in 1_u64..5,
                               msg in any::<[u8;16]>()) {
@@ -367,18 +360,18 @@ mod tests {
         }
     }
 
-    /// Pick a power of 2 N between min and max, and then
+    /// Pick N between min and max, and then
     /// generate a vector of N stakes summing to N*tstake,
     /// plus a subset S of 0..N such that the sum of the stakes at indices
     /// in S is astake*N
     fn arb_parties_adversary_stake(
-        min: u32,
-        max: u32,
+        min: usize,
+        max: usize,
         tstake: Stake,
         astake: Stake,
     ) -> impl Strategy<Value = (HashSet<usize>, Vec<Stake>)> {
-        arb_num_parties(min, max)
-            .prop_flat_map(|n| (Just(n), 1..=n / 2))
+        (min..max)
+            .prop_flat_map(|n| (Just(n), 1..=n/2))
             .prop_flat_map(move |(n, nadv)| {
                 arb_parties_with_adversaries(n, nadv, tstake * n as Stake, astake * n as Stake)
             })
