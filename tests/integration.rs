@@ -62,8 +62,10 @@ fn test_full_protocol() {
         }
     }
 
-    // Aggregate sig
+    // Aggregate and verify with random parties
     println!("** Aggregating signatures");
-    let msig = ps[0].aggregate(&sigs, &ixs, &msg).expect("Aggregation failed");
-    assert!(ps[0].verify_aggregate(&msig, &msg), "Aggregate verification failed");
+    let aggregator = rand::random::<usize>() % ps.len();
+    let verifier   = rand::random::<usize>() % ps.len();
+    let msig = ps[aggregator].aggregate(&sigs, &ixs, &msg).expect("Aggregation failed");
+    assert!(ps[verifier].verify_aggregate(&msig, &msg), "Aggregate verification failed");
 }
