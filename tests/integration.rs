@@ -1,10 +1,6 @@
 use mithril::key_reg::KeyReg;
-<<<<<<< HEAD
 use mithril::proof::ConcatProof;
-use mithril::stm::{StmParameters, StmParty};
-=======
 use mithril::stm::{StmParameters, StmInitializer, StmSigner, StmClerk};
->>>>>>> refactor-stm-api
 use rand;
 use rayon::prelude::*;
 
@@ -74,15 +70,8 @@ fn test_full_protocol() {
 
     // Aggregate and verify with random parties
     println!("** Aggregating signatures");
-<<<<<<< HEAD
-    let aggregator = rand::random::<usize>() % ps.len();
-    let verifier = rand::random::<usize>() % ps.len();
-    let msig = ps[aggregator]
-        .aggregate::<ConcatProof>(&sigs, &ixs, &msg)
-=======
     let msig = clerk
-        .aggregate(&sigs, &ixs, &msg)
->>>>>>> refactor-stm-api
+        .aggregate::<ConcatProof>(&sigs, &ixs, &msg)
         .expect("Aggregation failed");
     assert!(
         clerk.verify_msig(&msig, &msg),

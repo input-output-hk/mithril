@@ -353,11 +353,11 @@ mod tests {
     proptest! {
         #[test]
         /// Test that when a party creates a signature it can be verified
-        fn test_sig((nparties, p_i) in arb_num_parties_and_index(2, 32),
-                    msg in any::<[u8;16]>()) {
+        fn test_sig(msg in any::<[u8;16]>()) {
+            let nparties = 2;
             let params = StmParameters { m: (nparties as u64), k: 1, phi_f: 0.2 };
             let mut ps = setup_equal_parties(params, nparties);
-            let p = &mut ps[p_i];
+            let p = &mut ps[0];
             let clerk = StmClerk::from_signer(&p);
 
             for index in 1..nparties {
@@ -385,13 +385,8 @@ mod tests {
             let (ixs, sigs) = find_signatures(m, k, &msg, &mut ps, &all_ps);
 
             if sigs.len() >= params.k as usize {
-<<<<<<< HEAD
-                let msig = ps[0].aggregate::<ConcatProof>(&sigs[0..k as usize], &ixs[0..k as usize], &msg).unwrap();
-                assert!(ps[1].verify_aggregate(&msig, &msg));
-=======
-                let msig = clerk.aggregate(&sigs[0..k as usize], &ixs[0..k as usize], &msg).unwrap();
+                let msig = clerk.aggregate::<ConcatProof>(&sigs[0..k as usize], &ixs[0..k as usize], &msg).unwrap();
                 assert!(clerk.verify_msig(&msig, &msg));
->>>>>>> refactor-stm-api
             }
         }
     }
@@ -445,16 +440,10 @@ mod tests {
 
             assert!(sigs.len() < params.k as usize);
 
-<<<<<<< HEAD
-            let msig = ps[aggregator].aggregate::<ConcatProof>(&sigs, &ixs, &msg)
-                                     .expect("Aggregate failed");
-            assert!(!ps[verifier].verify_aggregate(&msig, &msg));
-=======
             let clerk = StmClerk::from_signer(&ps[0]);
 
-            let msig = clerk.aggregate(&sigs, &ixs, &msg).expect("Aggregate failed");
+            let msig = clerk.aggregate::<ConcatProof>(&sigs, &ixs, &msg).expect("Aggregate failed");
             assert!(!clerk.verify_msig(&msig, &msg));
->>>>>>> refactor-stm-api
         }
     }
 }
