@@ -1,3 +1,5 @@
+//! Creation and verification of Merkle Trees using the Neptune hash.
+
 use crate::Path;
 use blstrs::Bls12;
 use neptune::poseidon::{Poseidon, PoseidonConstants};

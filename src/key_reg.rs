@@ -1,3 +1,5 @@
+//! Placeholder key registration functionality.
+
 use std::collections::HashMap;
 
 use super::msp::{Msp, MspPk};

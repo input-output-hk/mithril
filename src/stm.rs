@@ -1,9 +1,12 @@
+//! Top-level API for Mithril Stake-based Threshold Multisignature scheme.
+
 use super::{ev_lt_phi, Index, PartyId, Path, Stake};
 use crate::key_reg::KeyReg;
 use crate::merkle_tree::MerkleTree;
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
 use crate::proof::{ConcatProof, Witness};
 
+/// Used to set protocol parameters.
 #[derive(Clone, Debug, Copy)]
 pub struct StmParameters {
     /// Security parameter, upper bound on indices
@@ -16,6 +19,7 @@ pub struct StmParameters {
     pub phi_f: f64,
 }
 
+/// Participant in the STM protocol. Top-level API.
 pub struct StmParty {
     party_id: PartyId,
     stake: Stake,
@@ -27,6 +31,7 @@ pub struct StmParty {
     params: StmParameters,
 }
 
+/// Signature created by a single party who has won the lottery.
 #[derive(Clone, Debug)]
 pub struct StmSig {
     pub sigma: MspSig,
@@ -36,6 +41,8 @@ pub struct StmSig {
     pub path: Path,
 }
 
+/// Aggregated signature of many parties.
+/// Contains proof that it is well-formed.
 #[derive(Clone)]
 pub struct StmMultiSig {
     ivk: MspMvk,
@@ -43,6 +50,7 @@ pub struct StmMultiSig {
     proof: ConcatProof,
 }
 
+/// Error types for aggregation.
 #[derive(Debug)]
 pub enum AggregationFailure {
     VerifyFailed,
