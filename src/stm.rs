@@ -183,6 +183,7 @@ impl StmParty {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::proof::ConcatProof;
     use std::collections::{HashSet, HashMap};
     use proptest::prelude::*;
     use proptest::collection::{vec, hash_map};
