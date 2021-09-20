@@ -1,5 +1,5 @@
 use mithril::key_reg::KeyReg;
-use mithril::stm::{StmParameters, StmParty};
+use mithril::stm::{StmParameters, StmInitializer, StmSigner, StmClerk};
 use rand;
 use rayon::prelude::*;
 
@@ -24,15 +24,16 @@ fn test_full_protocol() {
 
     for pid in 0..nparties {
         let stake = 1 + (rand::random::<u64>() % 9999);
-        let mut p = StmParty::setup(params, pid, stake);
+        let mut p = StmInitializer::setup(params, pid, stake);
         p.register(&mut key_reg);
         ps.push(p);
     }
 
-    ps.par_iter_mut().for_each(|p| {
+    let ps = ps.into_par_iter().map(|mut p| {
         p.retrieve_all(&key_reg);
-        p.create_avk();
-    });
+        p.finish()
+    }).collect::<Vec<StmSigner>>();
+
 
     /////////////////////
     // operation phase //
@@ -44,7 +45,7 @@ fn test_full_protocol() {
     let mut ixs = Vec::new();
     for ix in 1..params.m {
         for p in &ps {
-            if let Some(sig) = p.create_sig(&msg, ix) {
+            if let Some(sig) = p.sign(&msg, ix) {
                 sigs.push(sig);
                 ixs.push(ix);
                 break;
@@ -58,23 +59,21 @@ fn test_full_protocol() {
     // Check that we can find a quorum
     assert!(params.k as usize == sigs.len());
 
+    let clerk = StmClerk::from_signer(&ps[0]);
+
     // Check all parties can verify every sig
     println!("** Verifying signatures");
     for (s, ix) in sigs.iter().zip(&ixs) {
-        for p in &ps {
-            assert!(p.verify(s.clone(), *ix, &msg), "Verification failed");
-        }
+        assert!(clerk.verify_sig(s, *ix, &msg), "Verification failed");
     }
 
     // Aggregate and verify with random parties
     println!("** Aggregating signatures");
-    let aggregator = rand::random::<usize>() % ps.len();
-    let verifier = rand::random::<usize>() % ps.len();
-    let msig = ps[aggregator]
+    let msig = clerk
         .aggregate(&sigs, &ixs, &msg)
         .expect("Aggregation failed");
     assert!(
-        ps[verifier].verify_aggregate(&msig, &msg),
+        clerk.verify_msig(&msig, &msg),
         "Aggregate verification failed"
     );
 }
