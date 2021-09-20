@@ -3,10 +3,27 @@ use blstrs::Bls12;
 use neptune::poseidon::{Poseidon, PoseidonConstants};
 use neptune::{scalar_from_u64, Scalar};
 
+use lazy_static::lazy_static;
+use std::thread_local;
+use std::cell::RefCell;
+
+lazy_static! {
+    /// Poseidon needs a reference to the Constants to create a new instance.
+    static ref CONSTS: PoseidonConstants<Bls12, typenum::U2> = PoseidonConstants::new();
+}
+
+thread_local! {
+    /// Creates a new hasher only once per thread.
+    static HASHER: RefCell<Poseidon<'static, Bls12, typenum::U2>> = {
+        RefCell::new(Poseidon::new(&CONSTS))
+    };
+}
+
 pub type Hash = neptune::Scalar;
 
 pub type MerkleHasher<'a> = Poseidon<'a, Bls12, typenum::U2>;
 
+#[derive(Debug)]
 pub struct MerkleTree {
     // The nodes are stored in an array heap:
     // nodes[0] is the root,
@@ -36,18 +53,18 @@ impl MerkleTree {
 
         let mut nodes = vec![scalar_from_u64(0); num_nodes];
 
-        let constants = PoseidonConstants::new();
-        let mut hasher = Poseidon::new(&constants);
+        // Get the hasher, potentially creating it for this thread.
+        HASHER.with(|hasher| {
+            for i in 0..n {
+                nodes[num_nodes-n+i] = hash_leaf(&mut hasher.borrow_mut(), &leaves[i]);
+            }
 
-        for i in 0..n {
-            nodes[num_nodes-n+i] = hash_leaf(&mut hasher, &leaves[i]);
-        }
-
-        for i in (0..num_nodes-n).rev() {
-            nodes[i] = hash_nodes(&mut hasher,
-                                  nodes[left_child(i)],
-                                  nodes[right_child(i)]);
-        }
+            for i in (0..num_nodes-n).rev() {
+                nodes[i] = hash_nodes(&mut hasher.borrow_mut(),
+                                    nodes[left_child(i)],
+                                    nodes[right_child(i)]);
+            }
+        });
 
         Self {
             nodes: nodes,
@@ -64,18 +81,19 @@ impl MerkleTree {
         let mut idx = i;
         let height = (self.n as f64).log2().ceil() as usize;
 
-        let constants = PoseidonConstants::new();
-        let mut hasher = MerkleHasher::new(&constants);
-
-        let mut h = hash_leaf(&mut hasher, val);
-        for k in 1..=height {
-            if (idx & 0b1) == 0 {
-                h = hash_nodes(&mut hasher, h, proof.0[k-1]);
-            } else {
-                h = hash_nodes(&mut hasher, proof.0[k-1], h);
+        // Get the hasher, potentially creating it for this thread.
+        let h = HASHER.with(|hasher| {
+            let mut h = hash_leaf(&mut hasher.borrow_mut(), val);
+            for k in 1..=height {
+                if (idx & 0b1) == 0 {
+                    h = hash_nodes(&mut hasher.borrow_mut(), h, proof.0[k-1]);
+                } else {
+                    h = hash_nodes(&mut hasher.borrow_mut(), proof.0[k-1], h);
+                }
+                idx = idx >> 1;
             }
-            idx = idx >> 1;
-        }
+            h
+        });
 
         h == self.nodes[0]
     }
@@ -273,21 +291,22 @@ impl IntoHash for crate::msp::MspMvk {
 mod tests {
     use super::*;
     use proptest::prelude::*;
+    use proptest::collection::{hash_set, vec};
+
+    prop_compose! {
+        fn arb_tree(max_height: u32)
+                   (height in 1..10)
+                   (v in vec(any::<u64>(), (2 as usize).pow(height as u32))) -> (MerkleTree, Vec<u64>) {
+             (MerkleTree::create(&v), v)
+        }
+    }
 
     proptest! {
         // Test the relation that t.get_path(i) is a valid
         // proof for i
         #![proptest_config(ProptestConfig::with_cases(10))]
         #[test]
-        fn test_create_proof(
-            values in (1..10)
-                .prop_flat_map(|height| {
-                    prop::collection::vec(
-                        any::<u64>(),
-                        (2 as usize).pow(height as u32))
-                })
-        ) {
-            let t = MerkleTree::create(&values);
+        fn test_create_proof((t, values) in arb_tree(10)) {
             for i in 0..values.len() {
                 let pf = t.get_path(i as usize);
                 assert!(t.check(&values[i], i as usize, &pf));
@@ -295,25 +314,35 @@ mod tests {
         }
     }
 
+    fn pow2_plus1(h: usize) -> usize {
+        1 + (2 as usize).pow(h as u32)
+    }
+
+    prop_compose! {
+        // Returns values with a randomly generated path
+        fn values_with_invalid_proof(max_height: usize)
+                                    (h in 1..max_height)
+                                    (vals in hash_set(any::<u64>(), pow2_plus1(h)),
+                                     proof in vec(any::<u64>(), h)) -> (Vec<u64>, Vec<u64>) {
+            (vals.into_iter().collect(), proof)
+        }
+    }
+
+
     proptest! {
         #[test]
         fn test_create_invalid_proof(
             i in any::<usize>(),
-            (values, pf) in (1..10)
-                .prop_flat_map(|height| {
-                    (prop::collection::vec(
-                        any::<u64>(), (2 as usize).pow(height as u32)),
-                        proptest::collection::vec(any::<u64>(), height as usize))
-                })
+            (values, proof) in values_with_invalid_proof(10)
         ) {
-            let t = MerkleTree::create(&values);
+            let t = MerkleTree::create(&values[1..]);
             let constants = PoseidonConstants::new();
             let mut hasher = Poseidon::new(&constants);
 
-            let idx = i % values.len();
+            let idx = i % (values.len() - 1);
 
-            let path = Path(pf.iter().map(|x| x.into_hash(&mut hasher)).collect());
-            assert!(!t.check(&values[idx], idx, &path));
+            let path = Path(proof.iter().map(|x| x.into_hash(&mut hasher)).collect());
+            assert!(!t.check(&values[0], idx, &path));
         }
     }
 }

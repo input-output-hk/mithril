@@ -185,7 +185,7 @@ mod tests {
     use super::*;
     use std::collections::{HashSet, HashMap};
     use proptest::prelude::*;
-    use crate::proof::ConcatProof;
+    use proptest::collection::{vec, hash_map};
 
     fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmParty> {
         let stake = vec![1; nparties];
@@ -208,6 +208,7 @@ mod tests {
         ps
     }
 
+    /// Pick an arbitrary power of 2 between min and max
     fn arb_num_parties(min: u32, max: u32) -> impl Strategy<Value = usize> {
         let min_height = (min as f64).log2().ceil() as u32;
         let max_height = (max as f64).log2().ceil() as u32;
@@ -215,11 +216,13 @@ mod tests {
             .prop_map(|h| (2 as usize).pow(h))
     }
 
+    /// Generate a vector of stakes that should sum to `honest_stake`
+    /// when ignoring the indices in `adversaries`
     fn arb_honest_for_adversaries(num_parties: usize,
                                   honest_stake: Stake,
-                                  adversaries: HashMap<usize, Stake>) -> impl Strategy<Value = Vec<Stake>> {
-        // let honest = (0..num_parties).filter(|i| !adversaries.contains_key(i));
-        proptest::collection::vec(1..honest_stake, num_parties).prop_map(move |parties| {
+                                  adversaries: HashMap<usize, Stake>)
+                                  -> impl Strategy<Value = Vec<Stake>> {
+        vec(1..honest_stake, num_parties).prop_map(move |parties| {
             let honest_sum = parties
                 .iter()
                 .enumerate()
@@ -235,14 +238,17 @@ mod tests {
         })
     }
 
+    /// Generate a vector of N stakes summing to N*tstake,
+    /// plus a subset S of 0..N such that the sum of the stakes at indices
+    /// in S is astake*N
     fn arb_parties_with_adversaries(num_parties: usize,
                                     num_adversaries: usize,
                                     total_stake: Stake,
                                     adversary_stake: Stake,
     ) -> impl Strategy<Value = (HashSet<usize>, Vec<Stake>)> {
-        proptest::collection::hash_map(0..num_parties,
-                                       1..total_stake,
-                                       num_adversaries)
+        hash_map(0..num_parties,
+                 1..total_stake,
+                 num_adversaries)
             .prop_flat_map(move |adversaries| {
                 let adversary_sum: Stake = adversaries
                                            .values()
@@ -307,7 +313,8 @@ mod tests {
         #[test]
         /// Test that when a quorum is found, the aggregate signature can be verified
         fn test_aggregate_sig(nparties in arb_num_parties(2, 16),
-                              (m, k) in (10_u64..20).prop_flat_map(|mm| (Just(mm), 1_u64..5)),
+                              m in 10_u64..20,
+                              k in 1_u64..5,
                               msg in any::<[u8;16]>()) {
             let params = StmParameters { m: m, k: k, phi_f: 0.2 };
             let mut ps = setup_equal_parties(params, nparties);
@@ -323,17 +330,26 @@ mod tests {
         }
     }
 
+    /// Pick a power of 2 N between min and max, and then
+    /// generate a vector of N stakes summing to N*tstake,
+    /// plus a subset S of 0..N such that the sum of the stakes at indices
+    /// in S is astake*N
+    fn arb_parties_adversary_stake(min: u32, max:u32, tstake: Stake, astake: Stake)
+                                   -> impl Strategy<Value = (HashSet<usize>, Vec<Stake>)> {
+        arb_num_parties(min,max)
+            .prop_flat_map(|n| (Just (n), 1..=n/2))
+            .prop_flat_map(move |(n, nadv)|
+                           arb_parties_with_adversaries(n, nadv, tstake*n as Stake, astake*n as Stake))
+    }
+
+
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(10))]
 
         #[test]
         /// Test that when the adversaries do not hold sufficient stake, they can not form a quorum
         fn test_adversary_quorum(
-            (adversaries, parties) in
-                arb_num_parties(8,64)
-                .prop_flat_map(|n| (Just (n), 1..=n/2, Just(16*n as Stake), Just(4*n as Stake)))
-                .prop_flat_map(|(n, nadv, tstake, astake)|
-                               arb_parties_with_adversaries(n, nadv, tstake, astake)),
+            (adversaries, parties) in arb_parties_adversary_stake(8, 64, 16, 4),
             msg in any::<[u8;16]>(),
             i in any::<usize>(), j in any::<usize>(),
         ) {
@@ -347,6 +363,7 @@ mod tests {
                 }
             });
             assert!(bad as f64 / ((good + bad) as f64) < 0.4);
+
             let aggregator = i % parties.len();
             let verifier   = j % parties.len();
 
@@ -374,7 +391,6 @@ mod tests {
             let msig = ps[aggregator].aggregate::<ConcatProof>(&sigs, &ixs, &msg)
                                      .expect("Aggregate failed");
             assert!(!ps[verifier].verify_aggregate(&msig, &msg));
-
         }
     }
 }
