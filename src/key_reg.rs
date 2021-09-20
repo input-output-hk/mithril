@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use super::{PartyId, Stake};
 use super::msp::{Msp, MspPk};
+use super::{PartyId, Stake};
 
 pub struct KeyReg {
     allow: bool,
@@ -12,7 +12,7 @@ impl KeyReg {
     pub fn new() -> Self {
         Self {
             allow: true,
-            store: HashMap::new()
+            store: HashMap::new(),
         }
     }
 
@@ -31,7 +31,9 @@ impl KeyReg {
 
     pub fn retrieve_all(&self) -> Vec<Option<(MspPk, Stake)>> {
         let max_party_id = *self.store.keys().max().unwrap();
-        (0..=max_party_id).map(|p|self.store.get(&p).cloned()).collect()
+        (0..=max_party_id)
+            .map(|p| self.store.get(&p).cloned())
+            .collect()
     }
 
     pub fn close(&mut self) {

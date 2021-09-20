@@ -2,32 +2,32 @@
 
 use super::Index;
 
-use blstrs::{pairing, Scalar, Field, G1Affine, G1Projective, G2Projective, G2Affine};
-use rand_core::OsRng;
-use groupy::CurveAffine;
 use blake2::VarBlake2b;
-use digest::{VariableOutput,Update};
+use blstrs::{pairing, Field, G1Affine, G1Projective, G2Affine, G2Projective, Scalar};
+use digest::{Update, VariableOutput};
+use groupy::CurveAffine;
+use rand_core::OsRng;
 
-pub struct Msp { }
+pub struct Msp {}
 
-#[derive(Clone,Copy)]
+#[derive(Clone, Copy)]
 pub struct MspSk(Scalar);
 
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct MspMvk(pub G2Projective);
 
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct MspPk {
     pub mvk: MspMvk,
     pub k1: G1Projective,
     pub k2: G1Projective,
 }
 
-#[derive(Debug,Clone,Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct MspSig(G1Projective);
 
 static POP: &[u8] = b"PoP";
-static M: &[u8]   = b"M";
+static M: &[u8] = b"M";
 
 impl Msp {
     pub fn gen() -> (MspSk, MspPk) {
@@ -42,7 +42,6 @@ impl Msp {
         let k2 = G1Affine::one() * x;
         // return sk,mvk,k=(k1,k2)
         (MspSk(x), MspPk { mvk, k1, k2 })
-
     }
 
     pub fn check(pk: &MspPk) -> bool {
@@ -50,12 +49,12 @@ impl Msp {
         //      and e(g1,mvk) = e(k2,g2)
         //      are both true, return 1
         let mvk_g2 = G2Affine::from(pk.mvk.0);
-        let e_k1_g2   = pairing(pk.k1.into(), G2Affine::one());
+        let e_k1_g2 = pairing(pk.k1.into(), G2Affine::one());
         let h_pop_mvk = hash_to_g1(POP, &pk.mvk.to_bytes());
         let e_hg1_mvk = pairing(h_pop_mvk, mvk_g2);
 
         let e_g1_mvk = pairing(G1Affine::one(), mvk_g2);
-        let e_k2_g2  = pairing(pk.k2.into(), G2Affine::one());
+        let e_k2_g2 = pairing(pk.k2.into(), G2Affine::one());
 
         (e_k1_g2 == e_hg1_mvk) && (e_g1_mvk == e_k2_g2)
     }
@@ -69,26 +68,20 @@ impl Msp {
     pub fn ver(msg: &[u8], mvk: &MspMvk, sigma: &MspSig) -> bool {
         // return 1 if e(sigma,g2) = e(H_G1("M"||msg),mvk)
         let e_sigma_g2 = pairing(G1Affine::from(sigma.0), G2Affine::one());
-        let e_hg1_mvk  = pairing(hash_to_g1(M, msg), G2Affine::from(mvk.0));
+        let e_hg1_mvk = pairing(hash_to_g1(M, msg), G2Affine::from(mvk.0));
 
         e_sigma_g2 == e_hg1_mvk
     }
 
     // MSP.AKey
     pub fn aggregate_keys(mvks: &[MspMvk]) -> MspMvk {
-        MspMvk(mvks
-               .iter()
-               .map(|s| s.0)
-               .sum())
+        MspMvk(mvks.iter().map(|s| s.0).sum())
     }
 
     // MSP.Aggr
     pub fn aggregate_sigs(msg: &[u8], sigmas: &[MspSig]) -> MspSig {
         // XXX: what is d?
-        MspSig(sigmas
-               .iter()
-               .map(|s| s.0)
-               .sum())
+        MspSig(sigmas.iter().map(|s| s.0).sum())
     }
 
     // MSP.AVer
@@ -97,12 +90,17 @@ impl Msp {
     }
 
     pub fn eval(msg: &[u8], index: Index, sigma: &MspSig) -> u64 {
-        let mut hasher : VarBlake2b = VariableOutput::new(8).unwrap();
+        let mut hasher: VarBlake2b = VariableOutput::new(8).unwrap();
         // H("map"||msg||index||sigma)
-        hasher.update(&["map".as_bytes(),
-                        msg,
-                        &index.to_le_bytes(),
-                        &sigma.0.to_uncompressed()].concat());
+        hasher.update(
+            &[
+                "map".as_bytes(),
+                msg,
+                &index.to_le_bytes(),
+                &sigma.0.to_uncompressed(),
+            ]
+            .concat(),
+        );
         let mut dest = [0 as u8; 8];
         hasher.finalize_variable(|out| {
             dest.copy_from_slice(out);

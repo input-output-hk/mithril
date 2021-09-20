@@ -1,13 +1,13 @@
 use mithril::key_reg::KeyReg;
-use mithril::stm::{StmParty, StmParameters};
+use mithril::proof::ConcatProof;
+use mithril::stm::{StmParameters, StmParty};
 use rand;
 use rayon::prelude::*;
-use mithril::proof::ConcatProof;
 
 #[test]
 fn test_full_protocol() {
     let nparties = 64;
-    let msg = rand::random::<[u8;16]>();
+    let msg = rand::random::<[u8; 16]>();
 
     //////////////////////////
     // initialization phase //
@@ -17,7 +17,11 @@ fn test_full_protocol() {
     let mut key_reg = KeyReg::new();
 
     let mut ps = Vec::with_capacity(nparties);
-    let params = StmParameters { k: 357, m: 2642, phi_f: 0.2 };
+    let params = StmParameters {
+        k: 357,
+        m: 2642,
+        phi_f: 0.2,
+    };
 
     for pid in 0..nparties {
         let stake = 1 + (rand::random::<u64>() % 9999);
@@ -38,7 +42,7 @@ fn test_full_protocol() {
 
     println!("** Finding signatures");
     let mut sigs = Vec::new();
-    let mut ixs  = Vec::new();
+    let mut ixs = Vec::new();
     for ix in 1..params.m {
         for p in &ps {
             if let Some(sig) = p.create_sig(&msg, ix) {
@@ -57,7 +61,7 @@ fn test_full_protocol() {
 
     // Check all parties can verify every sig
     println!("** Verifying signatures");
-    for (s,ix) in sigs.iter().zip(&ixs) {
+    for (s, ix) in sigs.iter().zip(&ixs) {
         for p in &ps {
             assert!(p.verify(s.clone(), *ix, &msg), "Verification failed");
         }
@@ -66,7 +70,12 @@ fn test_full_protocol() {
     // Aggregate and verify with random parties
     println!("** Aggregating signatures");
     let aggregator = rand::random::<usize>() % ps.len();
-    let verifier   = rand::random::<usize>() % ps.len();
-    let msig = ps[aggregator].aggregate::<ConcatProof>(&sigs, &ixs, &msg).expect("Aggregation failed");
-    assert!(ps[verifier].verify_aggregate(&msig, &msg), "Aggregate verification failed");
+    let verifier = rand::random::<usize>() % ps.len();
+    let msig = ps[aggregator]
+        .aggregate::<ConcatProof>(&sigs, &ixs, &msg)
+        .expect("Aggregation failed");
+    assert!(
+        ps[verifier].verify_aggregate(&msig, &msg),
+        "Aggregate verification failed"
+    );
 }
