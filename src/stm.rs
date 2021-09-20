@@ -371,7 +371,7 @@ mod tests {
         astake: Stake,
     ) -> impl Strategy<Value = (HashSet<usize>, Vec<Stake>)> {
         (min..max)
-            .prop_flat_map(|n| (Just(n), 1..=n/2))
+            .prop_flat_map(|n| (Just(n), 1..=n / 2))
             .prop_flat_map(move |(n, nadv)| {
                 arb_parties_with_adversaries(n, nadv, tstake * n as Stake, astake * n as Stake)
             })

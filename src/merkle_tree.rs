@@ -47,10 +47,7 @@ pub trait IntoHash {
 impl MerkleTree {
     pub fn create<V: IntoHash>(leaves: &[V]) -> MerkleTree {
         let n = leaves.len();
-        assert!(
-            n > 0,
-            "MerkleTree::create() called with no leaves"
-        );
+        assert!(n > 0, "MerkleTree::create() called with no leaves");
 
         let mut next_pow_2 = n - 1;
         while (next_pow_2 & (next_pow_2 - 1)) != 0 {
