@@ -1,6 +1,6 @@
 use mithril::key_reg::KeyReg;
 use mithril::proof::ConcatProof;
-use mithril::stm::{StmParameters, StmInitializer, StmSigner, StmClerk};
+use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner};
 use rand;
 use rayon::prelude::*;
 
@@ -30,11 +30,13 @@ fn test_full_protocol() {
         ps.push(p);
     }
 
-    let ps = ps.into_par_iter().map(|mut p| {
-        p.retrieve_all(&key_reg);
-        p.finish()
-    }).collect::<Vec<StmSigner>>();
-
+    let ps = ps
+        .into_par_iter()
+        .map(|mut p| {
+            p.retrieve_all(&key_reg);
+            p.finish()
+        })
+        .collect::<Vec<StmSigner>>();
 
     /////////////////////
     // operation phase //

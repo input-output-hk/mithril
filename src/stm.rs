@@ -180,7 +180,9 @@ impl StmClerk {
         let msgp = self.avk.concat_with_msg(msg);
         let ev = Msp::eval(&msgp, index, &sig.sigma);
         if !ev_lt_phi(self.params.phi_f, ev, sig.stake, self.total_stake)
-            || !self.avk.check(&(sig.pk.clone(), sig.stake), sig.party, &sig.path)
+            || !self
+                .avk
+                .check(&(sig.pk.clone(), sig.stake), sig.party, &sig.path)
         {
             return false;
         }
@@ -247,11 +249,14 @@ mod tests {
                 let mut p = StmInitializer::setup(params, pid, *stake);
                 p.register(&mut kr);
                 p
-            }).collect::<Vec<_>>();
-        ps.into_iter().map(|mut p| {
-            p.retrieve_all(&kr);
-            p.finish()
-        }).collect()
+            })
+            .collect::<Vec<_>>();
+        ps.into_iter()
+            .map(|mut p| {
+                p.retrieve_all(&kr);
+                p.finish()
+            })
+            .collect()
     }
 
     /// Generate a vector of stakes that should sum to `honest_stake`
