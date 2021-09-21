@@ -49,13 +49,7 @@ impl MerkleTree {
         let n = leaves.len();
         assert!(n > 0, "MerkleTree::create() called with no leaves");
 
-        let mut next_pow_2 = n - 1;
-        while (next_pow_2 & (next_pow_2 - 1)) != 0 {
-            next_pow_2 = next_pow_2 & (next_pow_2 - 1);
-        }
-        next_pow_2 = next_pow_2 << 1;
-
-        let num_nodes = n + next_pow_2 - 1;
+        let num_nodes = n + n.next_power_of_two() - 1;
 
         let mut nodes = vec![scalar_from_u64(0); num_nodes];
 
