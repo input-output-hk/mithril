@@ -28,7 +28,7 @@ pub trait Proof {
     ) -> bool;
 }
 
-// Proof system that simply concatenates the witness
+/// Proof system that simply concatenates the signatures.
 #[derive(Clone)]
 pub struct ConcatProof {
     sigs: Vec<StmSig>,
