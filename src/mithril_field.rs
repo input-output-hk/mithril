@@ -1,10 +1,8 @@
 //! Abstractions for working with ark curves
 use crate::hashutils::hash_message;
-use crate::mithril_hash::IntoHash;
 
 use ark_ec::{
     AffineCurve,
-    PairingEngine,
 };
 use ark_ff::fields::{
     FftParameters,

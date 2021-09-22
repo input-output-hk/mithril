@@ -7,10 +7,8 @@ use crate::merkle_tree::{MerkleTree};
 use crate::mithril_field::{HashToCurve, MithrilField, MithrilFieldWrapper};
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
 use crate::proof::Proof;
-use crate::hashutils::hash_message;
 
 use ark_ec::{
-    AffineCurve,
     PairingEngine,
 };
 
@@ -501,21 +499,6 @@ mod tests {
 
             let msig = clerk.aggregate::<ConcatProof<Bls12_377>>(&sigs, &ixs, &msg).expect("Aggregate failed");
             assert!(!clerk.verify_msig(&msig, &msg));
-        }
-    }
-}
-
-impl HashToCurve for ark_bls12_377::G1Affine {
-    fn hash_to_curve(bytes: &[u8]) -> Self {
-        let needed = <ark_bls12_377::FqParameters as ark_ff::FpParameters>::MODULUS_BITS / 8;
-        let x: &[u8] = &hash_message(bytes, needed as usize);
-        let mut q = num_bigint::BigUint::from_bytes_le(x); // Replace with correct bigint
-        loop {
-            if let Some(elt) = Self::from_random_bytes(&q.to_bytes_le()) {
-                return elt
-            } else {
-                q += 1u8;
-            }
         }
     }
 }
