@@ -1,103 +1,115 @@
 //! Base multisignature scheme. Currently using BLS12.
 
+use super::mithril_field::HashToCurve;
 use super::Index;
 
 use blake2::VarBlake2b;
-use blstrs::{pairing, Field, G1Affine, G1Projective, G2Affine, G2Projective, Scalar};
+use std::marker::PhantomData;
+use ark_ec::{AffineCurve, PairingEngine};
+use ark_ff::bytes::ToBytes;
 use digest::{Update, VariableOutput};
-use groupy::CurveAffine;
-use rand_core::OsRng;
+use rand_core::{OsRng, RngCore};
 
-pub struct Msp {}
+pub struct Msp<P: PairingEngine> {
+    x: PhantomData<P>,
+}
 
 #[derive(Clone, Copy)]
-pub struct MspSk(Scalar);
+pub struct MspSk<P: PairingEngine>(P::Fr);
 
 #[derive(Debug, Clone, Copy)]
-pub struct MspMvk(pub G2Projective);
+pub struct MspMvk<P: PairingEngine>(pub P::G2Projective);
 
 #[derive(Debug, Clone, Copy)]
-pub struct MspPk {
-    pub mvk: MspMvk,
-    pub k1: G1Projective,
-    pub k2: G1Projective,
+pub struct MspPk<P: PairingEngine> {
+    pub mvk: MspMvk<P>,
+    pub k1: P::G1Projective,
+    pub k2: P::G1Projective,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct MspSig(G1Projective);
+pub struct MspSig<P: PairingEngine>(P::G1Projective);
 
 static POP: &[u8] = b"PoP";
 static M: &[u8] = b"M";
 
-impl Msp {
-    pub fn gen() -> (MspSk, MspPk) {
+impl<P> Msp<P>
+where
+    P: PairingEngine,
+    P::G1Affine: HashToCurve,
+{
+    pub fn gen() -> (MspSk<P>, MspPk<P>) {
         // sk=x <- Zq
         let mut rng = OsRng::default();
-        let x = Scalar::random(&mut rng);
+        let x = P::Fr::from(rng.next_u64());
         // mvk <- g2^x
-        let mvk = MspMvk(G2Affine::one() * x);
+        let mvk = MspMvk(P::G2Affine::prime_subgroup_generator().mul(x));
         // k1 <- H_G1("PoP"||mvk)^x
-        let k1 = hash_to_g1(POP, &mvk.to_bytes()) * x;
+        let k1 = P::G1Affine::hash_to_curve([POP, &mvk.to_bytes()].concat().as_ref()).mul(x);
         // k2 <- g1^x
-        let k2 = G1Affine::one() * x;
+        let k2 = P::G1Affine::prime_subgroup_generator().mul(x);
         // return sk,mvk,k=(k1,k2)
         (MspSk(x), MspPk { mvk, k1, k2 })
     }
 
-    pub fn check(pk: &MspPk) -> bool {
+    pub fn check(pk: &MspPk<P>) -> bool {
         // if e(k1,g2) = e(H_G1("PoP"||mvk),mvk)
         //      and e(g1,mvk) = e(k2,g2)
         //      are both true, return 1
-        let mvk_g2 = G2Affine::from(pk.mvk.0);
-        let e_k1_g2 = pairing(pk.k1.into(), G2Affine::one());
-        let h_pop_mvk = hash_to_g1(POP, &pk.mvk.to_bytes());
-        let e_hg1_mvk = pairing(h_pop_mvk, mvk_g2);
+        let mvk_g2 = P::G2Affine::from(pk.mvk.0);
+        let e_k1_g2 = P::pairing(pk.k1.into(), P::G2Affine::prime_subgroup_generator());
+        let h_pop_mvk = P::G1Affine::hash_to_curve([POP, &pk.mvk.to_bytes()].concat().as_ref());
+        let e_hg1_mvk = P::pairing(h_pop_mvk, mvk_g2);
 
-        let e_g1_mvk = pairing(G1Affine::one(), mvk_g2);
-        let e_k2_g2 = pairing(pk.k2.into(), G2Affine::one());
+        let e_g1_mvk = P::pairing(P::G1Affine::prime_subgroup_generator(), mvk_g2);
+        let e_k2_g2 = P::pairing(pk.k2.into(), P::G2Affine::prime_subgroup_generator());
 
         (e_k1_g2 == e_hg1_mvk) && (e_g1_mvk == e_k2_g2)
     }
 
-    pub fn sig(sk: &MspSk, msg: &[u8]) -> MspSig {
+    pub fn sig(sk: &MspSk<P>, msg: &[u8]) -> MspSig<P> {
         // return sigma <- H_G1("M"||msg)^x
-        let g1 = hash_to_g1(M, msg);
-        MspSig(g1 * sk.0)
+        let g1 = P::G1Affine::hash_to_curve([M, msg].concat().as_ref());
+        MspSig(g1.mul(sk.0))
     }
 
-    pub fn ver(msg: &[u8], mvk: &MspMvk, sigma: &MspSig) -> bool {
+    pub fn ver(msg: &[u8], mvk: &MspMvk<P>, sigma: &MspSig<P>) -> bool {
         // return 1 if e(sigma,g2) = e(H_G1("M"||msg),mvk)
-        let e_sigma_g2 = pairing(G1Affine::from(sigma.0), G2Affine::one());
-        let e_hg1_mvk = pairing(hash_to_g1(M, msg), G2Affine::from(mvk.0));
+        let e_sigma_g2 = P::pairing(
+            P::G1Affine::from(sigma.0),
+            P::G2Affine::prime_subgroup_generator(),
+        );
+        let g1 = P::G1Affine::hash_to_curve([M, msg].concat().as_ref());
+        let e_hg1_mvk = P::pairing(g1, P::G2Affine::from(mvk.0));
 
         e_sigma_g2 == e_hg1_mvk
     }
 
     // MSP.AKey
-    pub fn aggregate_keys(mvks: &[MspMvk]) -> MspMvk {
+    pub fn aggregate_keys(mvks: &[MspMvk<P>]) -> MspMvk<P> {
         MspMvk(mvks.iter().map(|s| s.0).sum())
     }
 
     // MSP.Aggr
-    pub fn aggregate_sigs(msg: &[u8], sigmas: &[MspSig]) -> MspSig {
+    pub fn aggregate_sigs(msg: &[u8], sigmas: &[MspSig<P>]) -> MspSig<P> {
         // XXX: what is d?
         MspSig(sigmas.iter().map(|s| s.0).sum())
     }
 
     // MSP.AVer
-    pub fn aggregate_ver(msg: &[u8], ivk: &MspMvk, mu: &MspSig) -> bool {
+    pub fn aggregate_ver(msg: &[u8], ivk: &MspMvk<P>, mu: &MspSig<P>) -> bool {
         Self::ver(msg, ivk, mu)
     }
 
-    pub fn eval(msg: &[u8], index: Index, sigma: &MspSig) -> u64 {
+    pub fn eval(msg: &[u8], index: Index, sigma: &MspSig<P>) -> u64 {
         let mut hasher: VarBlake2b = VariableOutput::new(8).unwrap();
-        // H("map"||msg||index||sigma)
+        // // H("map"||msg||index||sigma)
         hasher.update(
             &[
                 "map".as_bytes(),
                 msg,
                 &index.to_le_bytes(),
-                &sigma.0.to_uncompressed(),
+                &sigma.to_bytes(),
             ]
             .concat(),
         );
@@ -106,61 +118,60 @@ impl Msp {
             dest.copy_from_slice(out);
         });
         u64::from_le_bytes(dest)
-        // XXX: See section 6 to implement M from Elligator Squared
-        // return ev <- M_msg,index(sigma)
+        // // XXX: See section 6 to implement M from Elligator Squared
+        // // return ev <- M_msg,index(sigma)
     }
 }
 
-impl MspMvk {
-    pub fn to_bytes(&self) -> [u8; 96] {
-        // Notes: to_vec() here causes a segfault later, why?
-        self.0.to_uncompressed()
+impl<P: PairingEngine> MspMvk<P> {
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = vec![];
+        self.0.write(&mut bytes).unwrap();
+        bytes
     }
 }
 
-fn hash_to_g1(tag: &[u8], bytes: &[u8]) -> G1Affine {
-    // k1 <- H_G1("PoP"||mvk)^x
-    G1Affine::from(G1Projective::hash_to_curve(bytes, b"mithril", tag))
+impl<P: PairingEngine> MspSig<P> {
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = vec![];
+        self.0.write(&mut bytes).unwrap();
+        bytes
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use proptest::prelude::*;
+    use ark_bls12_377::{Bls12_377, G1Affine, G2Affine, Fr};
 
     proptest! {
+        #![proptest_config(ProptestConfig::with_cases(1000))]
+
         #[test]
-        fn test_pair_prop(x in any::<u64>(),
-                          y in any::<u64>()) {
+        fn test_pair_prop(x in any::<u64>(), y in any::<u64>()) {
             // Sanity check that the library behaves as expected
-            let sx = blstrs::Scalar::from(x);
-            let sy = blstrs::Scalar::from(y);
-            let gt = pairing((G1Affine::one() * sx).into(),
-                             (G2Affine::one() * sy).into());
-            let should_be = pairing((G1Affine::one() * (sx * sy)).into(), G2Affine::one());
+            let sx = Fr::from(x);
+            let sy = Fr::from(y);
+            let gt = Bls12_377::pairing(G1Affine::prime_subgroup_generator().mul(sx),
+                                        G2Affine::prime_subgroup_generator().mul(sy));
+            let should_be = Bls12_377::pairing(G1Affine::prime_subgroup_generator().mul(sx * sy), G2Affine::prime_subgroup_generator());
             assert!(gt == should_be);
         }
 
         #[test]
         fn test_sig(msg in prop::collection::vec(any::<u8>(), 1..128)) {
-            let (sk, pk) = Msp::gen();
+            let (sk, pk) = Msp::<Bls12_377>::gen();
             let sig = Msp::sig(&sk, &msg);
             assert!(Msp::ver(&msg, &pk.mvk, &sig));
         }
 
         #[test]
         fn test_invalid_sig(msg in prop::collection::vec(any::<u8>(), 1..128),
-                            r in prop::collection::vec(any::<u64>(), 100)) {
-            let (sk, pk) = Msp::gen();
-
-            // Low probability is still greater than zero :)
-            let mut success = 0;
-            for i in 1..100 {
-                let x = MspSig(G1Affine::one() * Scalar::from(r[i]));
-                if Msp::ver(&msg, &pk.mvk, &x) { success += 1; }
-            }
-
-            assert!(success <= 5);
+                            r in any::<u64>()) {
+            let (sk, pk) = Msp::<Bls12_377>::gen();
+            let x = MspSig(G1Affine::prime_subgroup_generator().mul(Fr::from(r)));
+            assert!(!Msp::ver(&msg, &pk.mvk, &x));
         }
 
         #[test]
@@ -169,7 +180,7 @@ mod tests {
             let mut mvks = Vec::new();
             let mut sigs = Vec::new();
             for _ in 0..num_sigs {
-                let (sk, pk) = Msp::gen();
+                let (sk, pk) = Msp::<Bls12_377>::gen();
                 let sig = Msp::sig(&sk, &msg);
                 assert!(Msp::ver(&msg, &pk.mvk, &sig));
                 sigs.push(sig);
@@ -184,15 +195,15 @@ mod tests {
         fn test_eval_sanity_check(msg in prop::collection::vec(any::<u8>(), 1..128),
                                   idx in any::<u64>(),
                                   s in any::<u64>()) {
-            let sigma = MspSig(G1Affine::one() * blstrs::Scalar::from(s));
-            Msp::eval(&msg, idx, &sigma);
+            let sigma = MspSig(G1Affine::prime_subgroup_generator().mul(Fr::from(s)));
+            Msp::<Bls12_377>::eval(&msg, idx, &sigma);
         }
     }
 
     #[test]
     fn test_gen() {
         for _ in 0..128 {
-            let (_sk, pk) = Msp::gen();
+            let (_sk, pk) = Msp::<Bls12_377>::gen();
             assert!(Msp::check(&pk));
         }
     }

@@ -1,37 +1,21 @@
 //! Creation and verification of Merkle Trees using the Neptune hash.
 
+use crate::mithril_field::{MithrilFieldWrapper, MithrilField};
+use crate::mithril_hash::{IntoHash, MithrilHasher};
 use crate::Path;
-use blstrs::Bls12;
 use neptune::poseidon::{Poseidon, PoseidonConstants};
-use neptune::{scalar_from_u64, Scalar};
-
-use lazy_static::lazy_static;
-use std::cell::RefCell;
-use std::thread_local;
-
-lazy_static! {
-    /// Poseidon needs a reference to the Constants to create a new instance.
-    static ref CONSTS: PoseidonConstants<Bls12, typenum::U2> = PoseidonConstants::new();
-}
-
-thread_local! {
-    /// Creates a new hasher only once per thread.
-    static HASHER: RefCell<Poseidon<'static, Bls12, typenum::U2>> = {
-        RefCell::new(Poseidon::new(&CONSTS))
-    };
-}
-
-pub type Hash = neptune::Scalar;
-
-pub type MerkleHasher<'a> = Poseidon<'a, Bls12, typenum::U2>;
+use ark_ff::biginteger::BigInteger;
 
 #[derive(Debug, Clone)]
-pub struct MerkleTree {
+pub struct MerkleTree<F>
+where
+    F: MithrilField,
+{
     // The nodes are stored in an array heap:
     // nodes[0] is the root,
     // the parent of nodes[i] is nodes[(i-1)/2]
     // the children of nodes[i] are {nodes[2i + 1], nodes[2i + 2]}
-    nodes: Vec<Hash>,
+    nodes: Vec<MithrilFieldWrapper<F>>,
 
     // The leaves begin at nodes[leaf_off]
     leaf_off: usize,
@@ -40,39 +24,38 @@ pub struct MerkleTree {
     n: usize,
 }
 
-pub trait IntoHash {
-    fn into_hash<'a>(&self, hasher: &mut MerkleHasher<'a>) -> Scalar;
-}
-
-impl MerkleTree {
-    pub fn create<V: IntoHash>(leaves: &[V]) -> MerkleTree {
+impl<F> MerkleTree<F>
+where
+    F: MithrilField,
+{
+    pub fn create<V: IntoHash<F>>(leaves: &[V]) -> MerkleTree<F> {
         let n = leaves.len();
         assert!(n > 0, "MerkleTree::create() called with no leaves");
 
         let num_nodes = n + n.next_power_of_two() - 1;
 
-        let mut nodes = vec![scalar_from_u64(0); num_nodes];
+        let mut nodes: Vec<MithrilFieldWrapper<F>> = vec![MithrilFieldWrapper(F::zero()); num_nodes];
 
         // Get the hasher, potentially creating it for this thread.
-        HASHER.with(|hasher| {
-            for i in 0..n {
-                nodes[num_nodes - n + i] = hash_leaf(&mut hasher.borrow_mut(), &leaves[i]);
-            }
+        let constants = PoseidonConstants::new();
+        let mut hasher: MithrilHasher<F> = Poseidon::new(&constants);
+        for i in 0..n {
+            nodes[num_nodes - n + i] = hash_leaf(&mut hasher, &leaves[i]);
+        }
 
-            for i in (0..num_nodes - n).rev() {
-                let left = if left_child(i) < num_nodes {
-                    nodes[left_child(i)]
-                } else {
-                    scalar_from_u64(0)
-                };
-                let right = if right_child(i) < num_nodes {
-                    nodes[right_child(i)]
-                } else {
-                    left
-                };
-                nodes[i] = hash_nodes(&mut hasher.borrow_mut(), left, right);
-            }
-        });
+        for i in (0..num_nodes - n).rev() {
+            let left = if left_child(i) < num_nodes {
+                nodes[left_child(i)]
+            } else {
+                MithrilFieldWrapper(F::zero())
+            };
+            let right = if right_child(i) < num_nodes {
+                nodes[right_child(i)]
+            } else {
+                left
+            };
+            nodes[i] = hash_nodes(&mut hasher, left, right);
+        }
 
         Self {
             nodes: nodes,
@@ -83,7 +66,7 @@ impl MerkleTree {
 
     /// Check an inclusion proof that `val` is the `i`th leaf stored in the tree.
     /// Requires i < self.n
-    pub fn check<V: IntoHash>(&self, val: &V, i: usize, proof: &Path) -> bool {
+    pub fn check<V: IntoHash<F>>(&self, val: &V, i: usize, proof: &Path<F>) -> bool {
         assert!(
             i < self.n,
             "check index out of bounds: asked for {} out of {}",
@@ -93,24 +76,23 @@ impl MerkleTree {
         let mut idx = i;
 
         // Get the hasher, potentially creating it for this thread.
-        let h = HASHER.with(|hasher| {
-            let mut h = hash_leaf(&mut hasher.borrow_mut(), val);
-            for p in &proof.0 {
-                if (idx & 0b1) == 0 {
-                    h = hash_nodes(&mut hasher.borrow_mut(), h, *p);
-                } else {
-                    h = hash_nodes(&mut hasher.borrow_mut(), *p, h);
-                }
-                idx = idx >> 1;
+        let constants = PoseidonConstants::new();
+        let mut hasher: MithrilHasher<F> = Poseidon::new(&constants);
+        let mut h = hash_leaf(&mut hasher, val);
+        for p in &proof.0 {
+            if (idx & 0b1) == 0 {
+                h = hash_nodes(&mut hasher, h, *p);
+            } else {
+                h = hash_nodes(&mut hasher, *p, h);
             }
-            h
-        });
+            idx = idx >> 1;
+        }
 
         h == self.nodes[0]
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
-        self.nodes[0].to_bytes_le().to_vec()
+        self.nodes[0].0.into_repr().to_bytes_le()
     }
 
     // TODO: Does this belong in this module?
@@ -125,7 +107,7 @@ impl MerkleTree {
     /// Get a path (hashes of siblings of the path to the root node
     /// for the `i`th value stored in the tree.
     /// Requires `i < self.n`
-    pub fn get_path(&self, i: usize) -> Path {
+    pub fn get_path(&self, i: usize) -> Path<F> {
         assert!(
             i < self.n,
             "Proof index out of bounds: asked for {} out of {}",
@@ -157,18 +139,18 @@ impl MerkleTree {
 // Hash Helpers //
 //////////////////
 
-fn hash_leaf<'a, V: IntoHash>(hasher: &mut MerkleHasher<'a>, leaf: &V) -> Hash {
+fn hash_leaf<'a, F: MithrilField, V: IntoHash<F>>(
+    hasher: &mut MithrilHasher<'a, F>,
+    leaf: &V,
+) -> MithrilFieldWrapper<F> {
     leaf.into_hash(hasher)
 }
 
-fn hash_nodes<'a>(hasher: &mut MerkleHasher<'a>, left: Hash, right: Hash) -> Hash {
-    hasher.reset();
-    hasher.input(left).unwrap();
-    hasher.input(right).unwrap();
-    hasher.hash()
-}
-
-fn hash_binary<'a, A>(hasher: &mut MerkleHasher<'a>, left: Hash, right: Hash) -> Hash {
+fn hash_nodes<'a, F: MithrilField>(
+    hasher: &mut MithrilHasher<'a, F>,
+    left: MithrilFieldWrapper<F>,
+    right: MithrilFieldWrapper<F>,
+) -> MithrilFieldWrapper<F> {
     hasher.reset();
     hasher.input(left).unwrap();
     hasher.input(right).unwrap();
@@ -203,126 +185,20 @@ fn sibling(i: usize) -> usize {
         i - 1
     }
 }
-
-/////////////////////
-// Value Instances //
-/////////////////////
-
-impl IntoHash for u64 {
-    fn into_hash<'a>(&self, hasher: &mut MerkleHasher<'a>) -> Hash {
-        hasher.reset();
-        hasher.input(scalar_from_u64(*self)).unwrap();
-        hasher.hash()
-    }
-}
-
-impl IntoHash for Scalar {
-    fn into_hash<'a>(&self, _mh: &mut MerkleHasher<'a>) -> Hash {
-        *self
-    }
-}
-
-impl<V: IntoHash> IntoHash for Vec<V> {
-    fn into_hash<'a>(&self, hasher: &mut MerkleHasher<'a>) -> Hash {
-        assert!(self.len() > 0, "Can not convert empty slice to Hash");
-        let mut h = self[0].into_hash(hasher);
-        for val in self {
-            h = (h, val.into_hash(hasher)).into_hash(hasher);
-        }
-
-        h
-    }
-}
-
-impl<V1: IntoHash, V2: IntoHash> IntoHash for (V1, V2) {
-    fn into_hash<'a>(&self, hasher: &mut MerkleHasher<'a>) -> Hash {
-        let h1 = self.0.into_hash(hasher);
-        let h2 = self.1.into_hash(hasher);
-        hasher.reset();
-        hasher.input(h1).unwrap();
-        hasher.input(h2).unwrap();
-        hasher.hash()
-    }
-}
-
-impl<V: IntoHash> IntoHash for Option<V> {
-    fn into_hash<'a>(&self, hasher: &mut MerkleHasher<'a>) -> Hash {
-        if let Some(inner) = self {
-            inner.into_hash(hasher)
-        } else {
-            0u64.into_hash(hasher)
-        }
-    }
-}
-
-impl IntoHash for blstrs::G1Affine {
-    fn into_hash<'a>(&self, hasher: &mut MerkleHasher<'a>) -> Hash {
-        let x = blstrs::FpRepr::from(self.x()).0.to_vec();
-        let y = blstrs::FpRepr::from(self.y()).0.to_vec();
-        (x, y).into_hash(hasher)
-    }
-}
-
-impl IntoHash for blstrs::FpRepr {
-    fn into_hash<'a>(&self, hasher: &mut MerkleHasher<'a>) -> Hash {
-        self.0.to_vec().into_hash(hasher)
-    }
-}
-
-impl IntoHash for blstrs::Fp {
-    fn into_hash<'a>(&self, hasher: &mut MerkleHasher<'a>) -> Hash {
-        blstrs::FpRepr::from(*self).into_hash(hasher)
-    }
-}
-
-impl IntoHash for blstrs::Fp2 {
-    fn into_hash<'a>(&self, hasher: &mut MerkleHasher<'a>) -> Hash {
-        vec![self.c0(), self.c1()].into_hash(hasher)
-    }
-}
-
-impl IntoHash for blstrs::G1Projective {
-    fn into_hash<'a>(&self, hasher: &mut MerkleHasher<'a>) -> Hash {
-        vec![self.x(), self.y(), self.z()].into_hash(hasher)
-    }
-}
-
-impl IntoHash for blstrs::G2Projective {
-    fn into_hash<'a>(&self, hasher: &mut MerkleHasher<'a>) -> Hash {
-        vec![self.x(), self.y(), self.z()].into_hash(hasher)
-    }
-}
-
-impl IntoHash for crate::msp::MspPk {
-    fn into_hash<'a>(&self, hasher: &mut MerkleHasher<'a>) -> Hash {
-        vec![
-            self.mvk.into_hash(hasher),
-            self.k1.into_hash(hasher),
-            self.k2.into_hash(hasher),
-        ]
-        .into_hash(hasher)
-    }
-}
-
-impl IntoHash for crate::msp::MspMvk {
-    fn into_hash<'a>(&self, hasher: &mut MerkleHasher<'a>) -> Hash {
-        self.0.into_hash(hasher)
-    }
-}
-
-/////////////////////
-// Testing         //
-/////////////////////
+// /////////////////////
+// // Testing         //
+// /////////////////////
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ark_bls12_377::Fr;
     use proptest::collection::{hash_set, vec};
     use proptest::prelude::*;
 
     prop_compose! {
         fn arb_tree(max_size: u32)
-                   (v in vec(any::<u64>(), 2..(max_size as usize)))  -> (MerkleTree, Vec<u64>) {
+                   (v in vec(any::<u64>(), 2..(max_size as usize))) -> (MerkleTree<Fr>, Vec<u64>) {
              (MerkleTree::create(&v), v)
         }
     }
@@ -360,7 +236,7 @@ mod tests {
             i in any::<usize>(),
             (values, proof) in values_with_invalid_proof(10)
         ) {
-            let t = MerkleTree::create(&values[1..]);
+            let t = MerkleTree::<Fr>::create(&values[1..]);
             let constants = PoseidonConstants::new();
             let mut hasher = Poseidon::new(&constants);
 

@@ -1,3 +1,5 @@
+use ark_bls12_377::Bls12_377;
+use ark_bls12_377;
 use mithril::key_reg::KeyReg;
 use mithril::proof::ConcatProof;
 use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner};
@@ -6,7 +8,7 @@ use rayon::prelude::*;
 
 #[test]
 fn test_full_protocol() {
-    let nparties = 64;
+    let nparties = 8;
     let msg = rand::random::<[u8; 16]>();
 
     //////////////////////////
@@ -16,10 +18,10 @@ fn test_full_protocol() {
 
     let mut key_reg = KeyReg::new();
 
-    let mut ps = Vec::with_capacity(nparties);
+    let mut ps: Vec<StmInitializer<Bls12_377>> = Vec::with_capacity(nparties);
     let params = StmParameters {
-        k: 357,
-        m: 2642,
+        k: 10,
+        m: 100,
         phi_f: 0.2,
     };
 
@@ -36,7 +38,7 @@ fn test_full_protocol() {
             p.retrieve_all(&key_reg);
             p.finish()
         })
-        .collect::<Vec<StmSigner>>();
+        .collect::<Vec<StmSigner<Bls12_377>>>();
 
     /////////////////////
     // operation phase //
@@ -73,7 +75,7 @@ fn test_full_protocol() {
     // Aggregate and verify with random parties
     println!("** Aggregating signatures");
     let msig = clerk
-        .aggregate::<ConcatProof>(&sigs, &ixs, &msg)
+        .aggregate::<ConcatProof<Bls12_377>>(&sigs, &ixs, &msg)
         .expect("Aggregation failed");
     assert!(
         clerk.verify_msig(&msig, &msg),

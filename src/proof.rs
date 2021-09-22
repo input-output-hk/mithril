@@ -3,18 +3,22 @@
 use super::Index;
 use crate::ev_lt_phi;
 use crate::merkle_tree::MerkleTree;
+use crate::mithril_field::{MithrilField, HashToCurve};
+use crate::mithril_hash::{IntoHash};
 use crate::msp::{Msp, MspMvk};
 use crate::stm::{StmParameters, StmSig};
 
+use ark_ec::PairingEngine;
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
-pub trait Proof {
+pub trait Proof<P: PairingEngine>
+{
     fn prove(
-        avk: &MerkleTree,
-        ivk: &MspMvk,
+        avk: &MerkleTree<P::Fr>,
+        ivk: &MspMvk<P>,
         msg: &[u8],
-        sigs: &[StmSig],
+        sigs: &[StmSig<P>],
         indices: &[Index],
         evals: &[u64],
     ) -> Self;
@@ -22,26 +26,36 @@ pub trait Proof {
         &self,
         params: &StmParameters,
         total_stake: u64,
-        avk: &MerkleTree,
-        ivk: &MspMvk,
+        avk: &MerkleTree<P::Fr>,
+        ivk: &MspMvk<P>,
         msg: &[u8],
     ) -> bool;
 }
 
 /// Proof system that simply concatenates the signatures.
 #[derive(Clone)]
-pub struct ConcatProof {
-    sigs: Vec<StmSig>,
+pub struct ConcatProof<P>
+where
+    P: PairingEngine
+{
+    sigs: Vec<StmSig<P>>,
     indices: Vec<Index>,
     evals: Vec<u64>,
 }
 
-impl Proof for ConcatProof {
+impl<P> Proof<P> for ConcatProof<P>
+where
+    P: PairingEngine,
+    P::G1Affine: HashToCurve,
+    P::G2Projective: IntoHash<P::Fr>,
+    P::Fr: MithrilField,
+
+{
     fn prove(
-        _avk: &MerkleTree,
-        _ivk: &MspMvk,
+        _avk: &MerkleTree<P::Fr>,
+        _ivk: &MspMvk<P>,
         _msg: &[u8],
-        sigs: &[StmSig],
+        sigs: &[StmSig<P>],
         indices: &[Index],
         evals: &[u64],
     ) -> Self {
@@ -56,8 +70,8 @@ impl Proof for ConcatProof {
         &self,
         params: &StmParameters,
         total_stake: u64,
-        avk: &MerkleTree,
-        ivk: &MspMvk,
+        avk: &MerkleTree<P::Fr>,
+        ivk: &MspMvk<P>,
         msg: &[u8],
     ) -> bool {
         // ivk = Prod(1..k, mvk[i])
