@@ -60,31 +60,48 @@ impl Proof for ConcatProof {
         ivk: &MspMvk,
         msg: &[u8],
     ) -> bool {
-        // ivk = Prod(1..k, mvk[i])
-        let ivk_check = ivk.0 == self.sigs.iter().map(|s| s.pk.mvk.0).sum();
+        self.check_ivk(ivk)
+            && self.check_index_bound(params)
+            && self.check_index_unique()
+            && self.check_quorum(params)
+            && self.check_path(params, avk)
+            && self.check_eval(params, avk, msg)
+            && self.check_stake(params, total_stake)
+    }
+}
 
-        // \forall i. index[i] <= m
-        let index_bound_check = self.indices.iter().all(|i| i <= &params.m);
+impl ConcatProof {
+    /// ivk = Prod(1..k, mvk[i])
+    fn check_ivk(&self, ivk: &MspMvk) -> bool {
+        ivk.0 == self.sigs.iter().map(|s| s.pk.mvk.0).sum()
+    }
 
-        // \forall i. \forall j. (i == j || index[i] != index[j])
-        let index_uniq_check =
-            HashSet::<Index>::from_iter(self.indices.iter().cloned()).len() == self.indices.len();
+    /// \forall i. index[i] <= m
+    fn check_index_bound(&self, params: &StmParameters) -> bool {
+        self.indices.iter().all(|i| i <= &params.m)
+    }
 
-        // k-sized quorum
-        let quorum_check = params.k as usize <= self.sigs.len()
+    /// \forall i. \forall j. (i == j || index[i] != index[j])
+    fn check_index_unique(&self) -> bool {
+        HashSet::<Index>::from_iter(self.indices.iter().cloned()).len() == self.indices.len()
+    }
+
+    /// k-sized quorum
+    fn check_quorum(&self, params: &StmParameters) -> bool {
+        params.k as usize <= self.sigs.len()
             && params.k as usize <= self.evals.len()
-            && params.k as usize <= self.indices.len();
+            && params.k as usize <= self.indices.len()
+    }
 
-        if !quorum_check {
-            return false;
-        }
-
-        // \forall i : [0..k]. path[i] is a witness for (mvk[i]), stake[i] in avk
-        let path_check = self.sigs[0..params.k as usize]
+    /// \forall i : [0..k]. path[i] is a witness for (mvk[i]), stake[i] in avk
+    fn check_path(&self, params: &StmParameters, avk: &MerkleTree) -> bool {
+        self.sigs[0..params.k as usize]
             .iter()
-            .all(|sig| avk.check(&(sig.pk, sig.stake), sig.party, &sig.path));
+            .all(|sig| avk.check(&(sig.pk, sig.stake), sig.party, &sig.path))
+    }
 
-        // \forall i : [1..k]. ev[i] = MSP.Eval(msg, index[i], sig[i])
+    /// \forall i : [1..k]. ev[i] = MSP.Eval(msg, index[i], sig[i])
+    fn check_eval(&self, params: &StmParameters, avk: &MerkleTree, msg: &[u8]) -> bool {
         let msp_evals = self.indices[0..params.k as usize]
             .iter()
             .zip(self.sigs[0..params.k as usize].iter())
@@ -92,22 +109,18 @@ impl Proof for ConcatProof {
                 let msgp = avk.concat_with_msg(msg);
                 Msp::eval(&msgp, *idx, &sig.sigma)
             });
-        let eval_check = self.evals[0..params.k as usize]
+
+        self.evals[0..params.k as usize]
             .iter()
             .zip(msp_evals)
-            .all(|(ev, msp_e)| *ev == msp_e);
+            .all(|(ev, msp_e)| *ev == msp_e)
+    }
 
-        // \forall i : [1..k]. ev[i] <= phi(stake_i)
-        let eval_stake_check = self.evals[0..params.k as usize]
+    /// \forall i : [1..k]. ev[i] <= phi(stake_i)
+    fn check_stake(&self, params: &StmParameters, total_stake: u64) -> bool {
+        self.evals[0..params.k as usize]
             .iter()
             .zip(&self.sigs[0..params.k as usize])
-            .all(|(ev, sig)| ev_lt_phi(params.phi_f, *ev, sig.stake, total_stake));
-
-        ivk_check
-            && index_bound_check
-            && index_uniq_check
-            && path_check
-            && eval_check
-            && eval_stake_check
+            .all(|(ev, sig)| ev_lt_phi(params.phi_f, *ev, sig.stake, total_stake))
     }
 }
