@@ -7,6 +7,7 @@ use blstrs::{pairing, Field, G1Affine, G1Projective, G2Affine, G2Projective, Sca
 use digest::{Update, VariableOutput};
 use groupy::CurveAffine;
 use rand_core::OsRng;
+use std::cmp::Ordering;
 
 pub struct Msp {}
 
@@ -23,8 +24,26 @@ pub struct MspPk {
     pub k2: G1Projective,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MspSig(pub(crate) G1Projective);
+
+impl MspSig {
+    fn cmp_msp_sig(&self, other: &Self) -> Ordering {
+        (self.0.x(), self.0.y(), self.0.z()).cmp(&(other.0.x(), other.0.y(), other.0.z()))
+    }
+}
+
+impl PartialOrd for MspSig {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp_msp_sig(other))
+    }
+}
+
+impl Ord for MspSig {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.cmp_msp_sig(other)
+    }
+}
 
 static POP: &[u8] = b"PoP";
 static M: &[u8] = b"M";
