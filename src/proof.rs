@@ -16,6 +16,9 @@ pub struct Statement<'l> {
     pub(crate) msg: &'l [u8],
 }
 
+
+/// Denotes witnesses to the fact that
+/// the statement holds.
 pub struct Witness<'l> {
     pub(crate) sigs: &'l [StmSig],
     pub(crate) indices: &'l [Index],
