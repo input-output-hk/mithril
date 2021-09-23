@@ -24,7 +24,7 @@ pub struct MspPk {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub struct MspSig(G1Projective);
+pub struct MspSig(pub(crate) G1Projective);
 
 static POP: &[u8] = b"PoP";
 static M: &[u8] = b"M";
