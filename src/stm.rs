@@ -405,9 +405,11 @@ mod tests {
             let all_ps: Vec<usize> = (0..nparties).collect();
             let (ixs, sigs) = find_signatures(m, k, &msg, &mut ps, &all_ps);
 
-            if sigs.len() >= params.k as usize {
-                let msig = clerk.aggregate::<ConcatProof>(&sigs[0..k as usize], &ixs[0..k as usize], &msg).unwrap();
+            let (num_uniq, msig) = clerk.aggregate::<ConcatProof>(&sigs, &ixs, &msg).unwrap();
+            if params.k as usize <= num_uniq {
                 assert!(clerk.verify_msig(&msig, &msg));
+            } else {
+                assert!(!clerk.verify_msig(&msig, &msg));
             }
         }
     }
@@ -463,7 +465,7 @@ mod tests {
 
             let clerk = StmClerk::from_signer(&ps[0]);
 
-            let msig = clerk.aggregate::<ConcatProof>(&sigs, &ixs, &msg).expect("Aggregate failed");
+            let (_, msig) = clerk.aggregate::<ConcatProof>(&sigs, &ixs, &msg).expect("Aggregate failed");
             assert!(!clerk.verify_msig(&msig, &msg));
         }
     }
