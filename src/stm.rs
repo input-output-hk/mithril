@@ -72,8 +72,9 @@ pub struct StmMultiSig<P> {
 /// Error types for aggregation.
 #[derive(Debug)]
 pub enum AggregationFailure {
+    NotEnoughSignatures(usize),
+    /// How many signatures we got
     VerifyFailed,
-    DuplicateIndex,
 }
 
 impl StmInitializer {
@@ -196,7 +197,7 @@ impl StmClerk {
         sigs: &[StmSig],
         indices: &[Index],
         msg: &[u8],
-    ) -> Result<(usize, StmMultiSig<P>), AggregationFailure> {
+    ) -> Result<StmMultiSig<P>, AggregationFailure> {
         let msgp = self.avk.concat_with_msg(msg);
         let mut evals = Vec::new();
         let mut mvks = Vec::new();
@@ -214,6 +215,10 @@ impl StmClerk {
             sigs_to_verify.push(sig.clone());
             indices_to_verify.push(*ix);
         }
+        let n_unique = indices_to_verify.len();
+        if n_unique < self.params.k as usize {
+            return Err(AggregationFailure::NotEnoughSignatures(n_unique));
+        }
 
         let ivk = Msp::aggregate_keys(&mvks);
         let mu = Msp::aggregate_sigs(msg, &sigmas);
@@ -226,7 +231,7 @@ impl StmClerk {
             &indices_to_verify,
             &evals,
         );
-        Ok((indices_to_verify.len(), StmMultiSig { ivk, mu, proof }))
+        Ok(StmMultiSig { ivk, mu, proof })
     }
 
     pub fn verify_msig<P: Proof>(&self, msig: &StmMultiSig<P>, msg: &[u8]) -> bool {
@@ -416,11 +421,15 @@ mod tests {
             let all_ps: Vec<usize> = (0..nparties).collect();
             let (ixs, sigs) = find_signatures(m, k, &msg, &mut ps, &all_ps);
 
-            let (num_uniq, msig) = clerk.aggregate::<ConcatProof>(&sigs, &ixs, &msg).unwrap();
-            if params.k as usize <= num_uniq {
-                assert!(clerk.verify_msig(&msig, &msg));
-            } else {
-                assert!(!clerk.verify_msig(&msig, &msg));
+            let msig = clerk.aggregate::<ConcatProof>(&sigs, &ixs, &msg);
+
+            match msig {
+                Ok(aggr) =>
+                    assert!(clerk.verify_msig(&aggr, &msg)),
+                Err(AggregationFailure::NotEnoughSignatures(n)) =>
+                    assert!(n < params.k as usize),
+                _ =>
+                    assert!(false)
             }
         }
     }
@@ -476,8 +485,13 @@ mod tests {
 
             let clerk = StmClerk::from_signer(&ps[0]);
 
-            let (_, msig) = clerk.aggregate::<ConcatProof>(&sigs, &ixs, &msg).expect("Aggregate failed");
-            assert!(!clerk.verify_msig(&msig, &msg));
+            let msig = clerk.aggregate::<ConcatProof>(&sigs, &ixs, &msg);
+            match msig {
+                Err(AggregationFailure::NotEnoughSignatures(n)) =>
+                    assert!(n < params.k as usize),
+                _ =>
+                    assert!(false),
+            }
         }
     }
 }

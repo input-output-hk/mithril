@@ -1,6 +1,6 @@
 use mithril::key_reg::KeyReg;
 use mithril::proof::ConcatProof;
-use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner};
+use mithril::stm::{AggregationFailure, StmClerk, StmInitializer, StmParameters, StmSigner};
 use rand;
 use rayon::prelude::*;
 
@@ -76,12 +76,10 @@ fn test_full_protocol() {
 
     // Aggregate and verify with random parties
     println!("** Aggregating signatures");
-    let (num, msig) = clerk
-        .aggregate::<ConcatProof>(&sigs, &ixs, &msg)
-        .expect("Aggregation failed");
-    assert!(
-        (num < params.k as usize && !clerk.verify_msig(&msig, &msg))
-            || (num >= params.k as usize && clerk.verify_msig(&msig, &msg)),
-        "Aggregate verification failed"
-    );
+    let msig = clerk.aggregate::<ConcatProof>(&sigs, &ixs, &msg);
+    match msig {
+        Ok(aggr) => assert!(clerk.verify_msig(&aggr, &msg)),
+        Err(AggregationFailure::NotEnoughSignatures(n)) => assert!(n < params.k as usize),
+        Err(_) => assert!(false),
+    }
 }
