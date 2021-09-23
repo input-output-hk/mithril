@@ -9,14 +9,14 @@ use crate::stm::{StmParameters, StmSig};
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
-pub(crate) struct Statement<'l> {
+pub struct Statement<'l> {
     pub(crate) avk: &'l MerkleTree,
     pub(crate) ivk: &'l MspMvk,
     pub(crate) mu: &'l crate::msp::MspSig,
     pub(crate) msg: &'l [u8],
 }
 
-pub(crate) struct Witness<'l> {
+pub struct Witness<'l> {
     pub(crate) sigs: &'l [StmSig],
     pub(crate) indices: &'l [Index],
     pub(crate) evals: &'l [u64],
