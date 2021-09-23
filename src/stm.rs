@@ -257,6 +257,7 @@ mod tests {
     use proptest::collection::{hash_map, vec};
     use proptest::prelude::*;
     use std::collections::{HashMap, HashSet};
+    use rayon::prelude::*;
 
     fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmSigner> {
         let stake = vec![1; nparties];
@@ -350,25 +351,26 @@ mod tests {
         m: u64,
         k: u64,
         msg: &[u8],
-        ps: &mut [StmSigner],
+        ps: &[StmSigner],
         is: &[usize],
     ) -> (Vec<Index>, Vec<StmSig>) {
-        let mut ixs = Vec::new();
-        let mut sigs = Vec::new();
-        for ix in 1..m {
-            for i in is {
-                if let Some(sig) = ps[*i].sign(&msg, ix) {
-                    sigs.push(sig);
-                    ixs.push(ix);
-                    break;
+        let indices: Vec<_> = (1..m).collect();
+        let res = indices
+            .par_iter()
+            .flat_map(|ix| {
+                let mut ixs = Vec::new();
+                let mut sigs = Vec::new();
+                for i in is {
+                    if let Some(sig) = ps[*i].sign(&msg, *ix) {
+                        sigs.push(sig);
+                        ixs.push(*ix);
+                    }
                 }
-            }
-            if ixs.len() == k as usize {
-                break;
-            }
-        }
+                (ixs, sigs)
+            })
+            .unzip();
 
-        (ixs, sigs)
+        res
     }
 
     proptest! {
