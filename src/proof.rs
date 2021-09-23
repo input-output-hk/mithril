@@ -9,13 +9,17 @@ use crate::stm::{StmParameters, StmSig};
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
+/// The statement we want to prove, namely that
+/// the signature aggregated by our scheme with
+/// the given MerkleTree, aggregated verification keys,
+/// and aggregated signatures is valid for the
+/// given message.
 pub struct Statement<'l> {
     pub(crate) avk: &'l MerkleTree,
     pub(crate) ivk: &'l MspMvk,
     pub(crate) mu: &'l MspSig,
     pub(crate) msg: &'l [u8],
 }
-
 
 /// Denotes witnesses to the fact that
 /// the statement holds.
