@@ -46,73 +46,90 @@ impl Proof for ConcatProof {
     }
 
     fn verify(&self, params: &StmParameters, total_stake: u64, stmt: Statement) -> bool {
-        self.check_ivk(stmt.ivk)
+            self.check_quorum(params)
+            && self.check_ivk(stmt.ivk)
             && self.check_sum(stmt.mu)
             && self.check_index_bound(params)
             && self.check_index_unique()
-            && self.check_quorum(params)
-            && self.check_path(params, stmt.avk)
-            && self.check_eval(params, stmt.avk, stmt.msg)
+            && self.check_path(stmt.avk)
+            && self.check_eval(stmt.avk, stmt.msg)
             && self.check_stake(params, total_stake)
     }
 }
 
 impl ConcatProof {
     /// ivk = Prod(1..k, mvk[i])
+    /// requires that this proof has exactly k signatures
     fn check_ivk(&self, ivk: &MspMvk) -> bool {
-        ivk.0 == self.sigs.iter().map(|s| s.pk.mvk.0).sum()
+        let mvks = self
+            .sigs
+            .iter()
+            .map(|s| s.pk.mvk).collect::<Vec<_>>();
+
+        let sum = Msp::aggregate_keys(&mvks).0;
+        ivk.0 == sum
     }
 
+    /// mu = Prod(1..k, sigma[i])
+    /// requires that this proof has exactly k signatures
     fn check_sum(&self, mu: &MspSig) -> bool {
-        let mu1 = self.sigs.iter().map(|s| s.sigma.0).sum();
+        let mu1 = self
+            .sigs
+            .iter().map(|s| s.sigma.0).sum();
         mu.0 == mu1
     }
 
     /// \forall i. index[i] <= m
+    /// requires that this proof has exactly k signatures
     fn check_index_bound(&self, params: &StmParameters) -> bool {
         self.indices.iter().all(|i| i <= &params.m)
     }
 
     /// \forall i. \forall j. (i == j || index[i] != index[j])
+    /// requires that this proof has exactly k signatures
     fn check_index_unique(&self) -> bool {
         HashSet::<Index>::from_iter(self.indices.iter().cloned()).len() == self.indices.len()
     }
 
     /// k-sized quorum
+    /// if this returns `true`, then then there are exactly k signatures
     fn check_quorum(&self, params: &StmParameters) -> bool {
-        params.k as usize <= self.sigs.len()
-            && params.k as usize <= self.evals.len()
-            && params.k as usize <= self.indices.len()
+        params.k as usize == self.sigs.len()
+            && params.k as usize == self.evals.len()
+            && params.k as usize == self.indices.len()
     }
 
     /// \forall i : [0..k]. path[i] is a witness for (mvk[i]), stake[i] in avk
-    fn check_path(&self, params: &StmParameters, avk: &MerkleTree) -> bool {
-        self.sigs[0..params.k as usize]
+    /// requires that this proof has exactly k signatures
+    fn check_path(&self, avk: &MerkleTree) -> bool {
+        self.sigs
             .iter()
             .all(|sig| avk.check(&(sig.pk, sig.stake), sig.party, &sig.path))
     }
 
     /// \forall i : [1..k]. ev[i] = MSP.Eval(msg, index[i], sig[i])
-    fn check_eval(&self, params: &StmParameters, avk: &MerkleTree, msg: &[u8]) -> bool {
-        let msp_evals = self.indices[0..params.k as usize]
+    /// requires that this proof has exactly k signatures
+    fn check_eval(&self, avk: &MerkleTree, msg: &[u8]) -> bool {
+        let msp_evals = self.indices
             .iter()
-            .zip(self.sigs[0..params.k as usize].iter())
+            .zip(self.sigs.iter())
             .map(|(idx, sig)| {
                 let msgp = avk.concat_with_msg(msg);
                 Msp::eval(&msgp, *idx, &sig.sigma)
             });
 
-        self.evals[0..params.k as usize]
+        self.evals
             .iter()
             .zip(msp_evals)
             .all(|(ev, msp_e)| *ev == msp_e)
     }
 
     /// \forall i : [1..k]. ev[i] <= phi(stake_i)
+    /// requires that this proof has exactly k signatures
     fn check_stake(&self, params: &StmParameters, total_stake: u64) -> bool {
-        self.evals[0..params.k as usize]
+        self.evals
             .iter()
-            .zip(&self.sigs[0..params.k as usize])
+            .zip(&self.sigs)
             .all(|(ev, sig)| ev_lt_phi(params.phi_f, *ev, sig.stake, total_stake))
     }
 }
