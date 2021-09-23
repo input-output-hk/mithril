@@ -3,7 +3,7 @@
 use super::Index;
 use crate::ev_lt_phi;
 use crate::merkle_tree::MerkleTree;
-use crate::msp::{Msp, MspSig, MspMvk};
+use crate::msp::{Msp, MspMvk, MspSig};
 use crate::stm::{StmParameters, StmSig};
 
 use std::collections::HashSet;
@@ -46,7 +46,7 @@ impl Proof for ConcatProof {
     }
 
     fn verify(&self, params: &StmParameters, total_stake: u64, stmt: Statement) -> bool {
-            self.check_quorum(params)
+        self.check_quorum(params)
             && self.check_ivk(stmt.ivk)
             && self.check_sum(stmt.mu)
             && self.check_index_bound(params)
@@ -61,10 +61,7 @@ impl ConcatProof {
     /// ivk = Prod(1..k, mvk[i])
     /// requires that this proof has exactly k signatures
     fn check_ivk(&self, ivk: &MspMvk) -> bool {
-        let mvks = self
-            .sigs
-            .iter()
-            .map(|s| s.pk.mvk).collect::<Vec<_>>();
+        let mvks = self.sigs.iter().map(|s| s.pk.mvk).collect::<Vec<_>>();
 
         let sum = Msp::aggregate_keys(&mvks).0;
         ivk.0 == sum
@@ -73,9 +70,7 @@ impl ConcatProof {
     /// mu = Prod(1..k, sigma[i])
     /// requires that this proof has exactly k signatures
     fn check_sum(&self, mu: &MspSig) -> bool {
-        let mu1 = self
-            .sigs
-            .iter().map(|s| s.sigma.0).sum();
+        let mu1 = self.sigs.iter().map(|s| s.sigma.0).sum();
         mu.0 == mu1
     }
 
@@ -110,13 +105,10 @@ impl ConcatProof {
     /// \forall i : [1..k]. ev[i] = MSP.Eval(msg, index[i], sig[i])
     /// requires that this proof has exactly k signatures
     fn check_eval(&self, avk: &MerkleTree, msg: &[u8]) -> bool {
-        let msp_evals = self.indices
-            .iter()
-            .zip(self.sigs.iter())
-            .map(|(idx, sig)| {
-                let msgp = avk.concat_with_msg(msg);
-                Msp::eval(&msgp, *idx, &sig.sigma)
-            });
+        let msp_evals = self.indices.iter().zip(self.sigs.iter()).map(|(idx, sig)| {
+            let msgp = avk.concat_with_msg(msg);
+            Msp::eval(&msgp, *idx, &sig.sigma)
+        });
 
         self.evals
             .iter()
