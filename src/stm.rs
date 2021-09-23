@@ -1,5 +1,7 @@
 //! Top-level API for Mithril Stake-based Threshold Multisignature scheme.
 
+use crate::proof::Witness;
+use crate::proof::Statement;
 use super::{ev_lt_phi, Index, PartyId, Path, Stake};
 use crate::key_reg::KeyReg;
 use crate::merkle_tree::MerkleTree;
@@ -211,14 +213,34 @@ impl StmClerk {
         let sigmas = sigs.iter().map(|sig| sig.sigma).collect::<Vec<_>>();
         let ivk = Msp::aggregate_keys(&mvks);
         let mu = Msp::aggregate_sigs(msg, &sigmas);
-        let proof = P::prove(&self.avk, &ivk, msg, &sigs, &indices, &evals);
+
+        let stmt = Statement {
+            avk: &self.avk,
+            ivk: &ivk,
+            mu: &mu,
+            msg
+        };
+
+        let witness = Witness {
+            sigs: &sigs,
+            indices: &indices,
+            evals: &evals,
+        };
+
+        let proof = P::prove(stmt, witness);
         Ok(StmMultiSig { ivk, mu, proof })
     }
 
     pub fn verify_msig<P: Proof>(&self, msig: &StmMultiSig<P>, msg: &[u8]) -> bool {
+        let stmt = Statement {
+            avk: &self.avk,
+            ivk: &msig.ivk,
+            mu: &msig.mu,
+            msg
+        };
         if !msig
             .proof
-            .verify(&self.params, self.total_stake, &self.avk, &msig.ivk, msg)
+            .verify(&self.params, self.total_stake, stmt)
         {
             return false;
         }

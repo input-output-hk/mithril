@@ -9,23 +9,23 @@ use crate::stm::{StmParameters, StmSig};
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
+pub(crate) struct Statement<'l> {
+    pub(crate) avk: &'l MerkleTree,
+    pub(crate) ivk: &'l MspMvk,
+    pub(crate) mu: &'l crate::msp::MspSig,
+    pub(crate) msg: &'l [u8],
+}
+
+pub(crate) struct Witness<'l> {
+    pub(crate) sigs: &'l [StmSig],
+    pub(crate) indices: &'l [Index],
+    pub(crate) evals: &'l [u64],
+}
+
 pub trait Proof {
-    fn prove(
-        avk: &MerkleTree,
-        ivk: &MspMvk,
-        msg: &[u8],
-        sigs: &[StmSig],
-        indices: &[Index],
-        evals: &[u64],
-    ) -> Self;
-    fn verify(
-        &self,
-        params: &StmParameters,
-        total_stake: u64,
-        avk: &MerkleTree,
-        ivk: &MspMvk,
-        msg: &[u8],
-    ) -> bool;
+    fn prove(stmt: Statement, witness: Witness) -> Self;
+
+    fn verify(&self, params: &StmParameters, total_stake: u64, stmt: Statement) -> bool;
 }
 
 /// Proof system that simply concatenates the signatures.
@@ -37,35 +37,21 @@ pub struct ConcatProof {
 }
 
 impl Proof for ConcatProof {
-    fn prove(
-        _avk: &MerkleTree,
-        _ivk: &MspMvk,
-        _msg: &[u8],
-        sigs: &[StmSig],
-        indices: &[Index],
-        evals: &[u64],
-    ) -> Self {
+    fn prove(stmt: Statement, witness: Witness) -> Self {
         Self {
-            sigs: sigs.to_vec(),
-            indices: indices.to_vec(),
-            evals: evals.to_vec(),
+            sigs: witness.sigs.to_vec(),
+            indices: witness.indices.to_vec(),
+            evals: witness.evals.to_vec(),
         }
     }
 
-    fn verify(
-        &self,
-        params: &StmParameters,
-        total_stake: u64,
-        avk: &MerkleTree,
-        ivk: &MspMvk,
-        msg: &[u8],
-    ) -> bool {
-        self.check_ivk(ivk)
+    fn verify(&self, params: &StmParameters, total_stake: u64, stmt: Statement) -> bool {
+        self.check_ivk(stmt.ivk)
             && self.check_index_bound(params)
             && self.check_index_unique()
             && self.check_quorum(params)
-            && self.check_path(params, avk)
-            && self.check_eval(params, avk, msg)
+            && self.check_path(params, stmt.avk)
+            && self.check_eval(params, stmt.avk, stmt.msg)
             && self.check_stake(params, total_stake)
     }
 }
