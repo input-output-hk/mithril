@@ -3,7 +3,7 @@
 use super::Index;
 use crate::ev_lt_phi;
 use crate::merkle_tree::MerkleTree;
-use crate::msp::{Msp, MspMvk};
+use crate::msp::{Msp, MspSig, MspMvk};
 use crate::stm::{StmParameters, StmSig};
 
 use std::collections::HashSet;
@@ -12,7 +12,7 @@ use std::iter::FromIterator;
 pub struct Statement<'l> {
     pub(crate) avk: &'l MerkleTree,
     pub(crate) ivk: &'l MspMvk,
-    pub(crate) mu: &'l crate::msp::MspSig,
+    pub(crate) mu: &'l MspSig,
     pub(crate) msg: &'l [u8],
 }
 
@@ -47,6 +47,7 @@ impl Proof for ConcatProof {
 
     fn verify(&self, params: &StmParameters, total_stake: u64, stmt: Statement) -> bool {
         self.check_ivk(stmt.ivk)
+            && self.check_sum(stmt.mu)
             && self.check_index_bound(params)
             && self.check_index_unique()
             && self.check_quorum(params)
@@ -60,6 +61,11 @@ impl ConcatProof {
     /// ivk = Prod(1..k, mvk[i])
     fn check_ivk(&self, ivk: &MspMvk) -> bool {
         ivk.0 == self.sigs.iter().map(|s| s.pk.mvk.0).sum()
+    }
+
+    fn check_sum(&self, mu: &MspSig) -> bool {
+        let mu1 = self.sigs.iter().map(|s| s.sigma.0).sum();
+        mu.0 == mu1
     }
 
     /// \forall i. index[i] <= m
