@@ -1,6 +1,6 @@
 use mithril::key_reg::KeyReg;
 use mithril::proof::ConcatProof;
-use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner};
+use mithril::stm::{AggregationFailure, StmClerk, StmInitializer, StmParameters, StmSigner};
 use rand;
 use rayon::prelude::*;
 
@@ -44,23 +44,27 @@ fn test_full_protocol() {
     println!("* Operation phase");
 
     println!("** Finding signatures");
+    let p_results = ps
+        .par_iter()
+        .map(|p| {
+            let mut sigs = Vec::new();
+            let mut ixs = Vec::new();
+            for ix in 1..params.m {
+                if let Some(sig) = p.sign(&msg, ix) {
+                    sigs.push(sig);
+                    ixs.push(ix);
+                }
+            }
+
+            (ixs, sigs)
+        })
+        .collect::<Vec<_>>();
     let mut sigs = Vec::new();
     let mut ixs = Vec::new();
-    for ix in 1..params.m {
-        for p in &ps {
-            if let Some(sig) = p.sign(&msg, ix) {
-                sigs.push(sig);
-                ixs.push(ix);
-                break;
-            }
-        }
-
-        if params.k as usize == sigs.len() {
-            break;
-        }
+    for res in p_results {
+        ixs.extend(res.0);
+        sigs.extend(res.1);
     }
-    // Check that we can find a quorum
-    assert!(params.k as usize == sigs.len());
 
     let clerk = StmClerk::from_signer(&ps[0]);
 
@@ -72,11 +76,10 @@ fn test_full_protocol() {
 
     // Aggregate and verify with random parties
     println!("** Aggregating signatures");
-    let msig = clerk
-        .aggregate::<ConcatProof>(&sigs, &ixs, &msg)
-        .expect("Aggregation failed");
-    assert!(
-        clerk.verify_msig(&msig, &msg),
-        "Aggregate verification failed"
-    );
+    let msig = clerk.aggregate::<ConcatProof>(&sigs, &ixs, &msg);
+    match msig {
+        Ok(aggr) => assert!(clerk.verify_msig(&aggr, &msg)),
+        Err(AggregationFailure::NotEnoughSignatures(n)) => assert!(n < params.k as usize),
+        Err(_) => assert!(false),
+    }
 }

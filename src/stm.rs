@@ -6,6 +6,8 @@ use crate::merkle_tree::MerkleTree;
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
 use crate::proof::Proof;
 
+use std::collections::HashMap;
+
 /// Used to set protocol parameters.
 #[derive(Clone, Debug, Copy, PartialEq)]
 pub struct StmParameters {
@@ -70,8 +72,9 @@ pub struct StmMultiSig<P> {
 /// Error types for aggregation.
 #[derive(Debug)]
 pub enum AggregationFailure {
+    NotEnoughSignatures(usize),
+    /// How many signatures we got
     VerifyFailed,
-    DuplicateIndex,
 }
 
 impl StmInitializer {
@@ -196,22 +199,38 @@ impl StmClerk {
         msg: &[u8],
     ) -> Result<StmMultiSig<P>, AggregationFailure> {
         let msgp = self.avk.concat_with_msg(msg);
-        let mut seen_indices = std::collections::HashSet::new();
         let mut evals = Vec::new();
-        for (sig, ix) in sigs.iter().zip(indices.iter()) {
-            if !self.verify_sig(sig, *ix, msg) {
+        let mut mvks = Vec::new();
+        let mut sigmas = Vec::new();
+        let mut sigs_to_verify = Vec::new();
+        let mut indices_to_verify = Vec::new();
+
+        for (ix, sig) in dedup_sigs_for_indices(sigs, indices) {
+            if !self.verify_sig(&sig, *ix, msg) {
                 return Err(AggregationFailure::VerifyFailed);
-            } else if seen_indices.contains(ix) {
-                return Err(AggregationFailure::DuplicateIndex);
             }
-            seen_indices.insert(*ix);
             evals.push(Msp::eval(&msgp, *ix, &sig.sigma));
+            sigmas.push(sig.sigma);
+            mvks.push(sig.pk.mvk);
+            sigs_to_verify.push(sig.clone());
+            indices_to_verify.push(*ix);
         }
-        let mvks = sigs.iter().map(|sig| sig.pk.mvk).collect::<Vec<_>>();
-        let sigmas = sigs.iter().map(|sig| sig.sigma).collect::<Vec<_>>();
+        let n_unique = indices_to_verify.len();
+        if n_unique < self.params.k as usize {
+            return Err(AggregationFailure::NotEnoughSignatures(n_unique));
+        }
+
         let ivk = Msp::aggregate_keys(&mvks);
         let mu = Msp::aggregate_sigs(msg, &sigmas);
-        let proof = P::prove(&self.avk, &ivk, msg, &sigs, &indices, &evals);
+
+        let proof = P::prove(
+            &self.avk,
+            &ivk,
+            msg,
+            &sigs_to_verify,
+            &indices_to_verify,
+            &evals,
+        );
         Ok(StmMultiSig { ivk, mu, proof })
     }
 
@@ -227,12 +246,31 @@ impl StmClerk {
     }
 }
 
+fn dedup_sigs_for_indices<'a>(
+    sigs: &'a [StmSig],
+    indices: &'a [Index],
+) -> impl IntoIterator<Item = (&'a Index, &'a StmSig)> {
+    let mut sigs_by_index: HashMap<&Index, &StmSig> = HashMap::new();
+    for (ix, sig) in indices.iter().zip(sigs) {
+        if let Some(old_sig) = sigs_by_index.get(ix) {
+            if sig.sigma < old_sig.sigma {
+                sigs_by_index.insert(ix, sig);
+            }
+        } else {
+            sigs_by_index.insert(ix, sig);
+        }
+    }
+
+    sigs_by_index.into_iter()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::proof::ConcatProof;
     use proptest::collection::{hash_map, vec};
     use proptest::prelude::*;
+    use rayon::prelude::*;
     use std::collections::{HashMap, HashSet};
 
     fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmSigner> {
@@ -327,25 +365,26 @@ mod tests {
         m: u64,
         k: u64,
         msg: &[u8],
-        ps: &mut [StmSigner],
+        ps: &[StmSigner],
         is: &[usize],
     ) -> (Vec<Index>, Vec<StmSig>) {
-        let mut ixs = Vec::new();
-        let mut sigs = Vec::new();
-        for ix in 1..m {
-            for i in is {
-                if let Some(sig) = ps[*i].sign(&msg, ix) {
-                    sigs.push(sig);
-                    ixs.push(ix);
-                    break;
+        let indices: Vec<_> = (1..m).collect();
+        let res = indices
+            .par_iter()
+            .flat_map(|ix| {
+                let mut ixs = Vec::new();
+                let mut sigs = Vec::new();
+                for i in is {
+                    if let Some(sig) = ps[*i].sign(&msg, *ix) {
+                        sigs.push(sig);
+                        ixs.push(*ix);
+                    }
                 }
-            }
-            if ixs.len() == k as usize {
-                break;
-            }
-        }
+                (ixs, sigs)
+            })
+            .unzip();
 
-        (ixs, sigs)
+        res
     }
 
     proptest! {
@@ -382,9 +421,15 @@ mod tests {
             let all_ps: Vec<usize> = (0..nparties).collect();
             let (ixs, sigs) = find_signatures(m, k, &msg, &mut ps, &all_ps);
 
-            if sigs.len() >= params.k as usize {
-                let msig = clerk.aggregate::<ConcatProof>(&sigs[0..k as usize], &ixs[0..k as usize], &msg).unwrap();
-                assert!(clerk.verify_msig(&msig, &msg));
+            let msig = clerk.aggregate::<ConcatProof>(&sigs, &ixs, &msg);
+
+            match msig {
+                Ok(aggr) =>
+                    assert!(clerk.verify_msig(&aggr, &msg)),
+                Err(AggregationFailure::NotEnoughSignatures(n)) =>
+                    assert!(n < params.k as usize),
+                _ =>
+                    assert!(false)
             }
         }
     }
@@ -440,8 +485,13 @@ mod tests {
 
             let clerk = StmClerk::from_signer(&ps[0]);
 
-            let msig = clerk.aggregate::<ConcatProof>(&sigs, &ixs, &msg).expect("Aggregate failed");
-            assert!(!clerk.verify_msig(&msig, &msg));
+            let msig = clerk.aggregate::<ConcatProof>(&sigs, &ixs, &msg);
+            match msig {
+                Err(AggregationFailure::NotEnoughSignatures(n)) =>
+                    assert!(n < params.k as usize),
+                _ =>
+                    assert!(false),
+            }
         }
     }
 }
