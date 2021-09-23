@@ -60,7 +60,7 @@ fn test_full_protocol() {
         })
         .collect::<Vec<_>>();
     let mut sigs = Vec::new();
-    let mut ixs  = Vec::new();
+    let mut ixs = Vec::new();
     for res in p_results {
         ixs.extend(res.0);
         sigs.extend(res.1);
@@ -80,8 +80,8 @@ fn test_full_protocol() {
         .aggregate::<ConcatProof>(&sigs, &ixs, &msg)
         .expect("Aggregation failed");
     assert!(
-        (num < params.k as usize && !clerk.verify_msig(&msig, &msg)) ||
-        (num >= params.k as usize && clerk.verify_msig(&msig, &msg)),
+        (num < params.k as usize && !clerk.verify_msig(&msig, &msg))
+            || (num >= params.k as usize && clerk.verify_msig(&msig, &msg)),
         "Aggregate verification failed"
     );
 }

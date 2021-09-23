@@ -2,12 +2,12 @@
 
 use super::Index;
 
-use std::cmp::Ordering;
 use blake2::VarBlake2b;
 use blstrs::{pairing, Field, G1Affine, G1Projective, G2Affine, G2Projective, Scalar};
 use digest::{Update, VariableOutput};
 use groupy::CurveAffine;
 use rand_core::OsRng;
+use std::cmp::Ordering;
 
 pub struct Msp {}
 
@@ -29,18 +29,17 @@ pub struct MspSig(G1Projective);
 
 impl MspSig {
     fn cmp_msp_sig(&self, other: &Self) -> Ordering {
-        (self.0.x(), self.0.y(), self.0.z())
-            .cmp(&(other.0.x(), other.0.y(), other.0.z()))
+        (self.0.x(), self.0.y(), self.0.z()).cmp(&(other.0.x(), other.0.y(), other.0.z()))
     }
 }
 
-impl PartialOrd<> for MspSig {
+impl PartialOrd for MspSig {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp_msp_sig(other))
     }
 }
 
-impl Ord<> for MspSig {
+impl Ord for MspSig {
     fn cmp(&self, other: &Self) -> Ordering {
         self.cmp_msp_sig(other)
     }

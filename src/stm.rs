@@ -218,7 +218,14 @@ impl StmClerk {
         let ivk = Msp::aggregate_keys(&mvks);
         let mu = Msp::aggregate_sigs(msg, &sigmas);
 
-        let proof = P::prove(&self.avk, &ivk, msg, &sigs_to_verify, &indices_to_verify, &evals);
+        let proof = P::prove(
+            &self.avk,
+            &ivk,
+            msg,
+            &sigs_to_verify,
+            &indices_to_verify,
+            &evals,
+        );
         Ok((indices_to_verify.len(), StmMultiSig { ivk, mu, proof }))
     }
 
@@ -234,9 +241,12 @@ impl StmClerk {
     }
 }
 
-fn dedup_sigs_for_indices<'a>(sigs: &'a [StmSig], indices: &'a [Index]) -> impl IntoIterator<Item=(&'a Index, &'a StmSig)> {
+fn dedup_sigs_for_indices<'a>(
+    sigs: &'a [StmSig],
+    indices: &'a [Index],
+) -> impl IntoIterator<Item = (&'a Index, &'a StmSig)> {
     let mut sigs_by_index: HashMap<&Index, &StmSig> = HashMap::new();
-    for (ix,sig) in indices.iter().zip(sigs) {
+    for (ix, sig) in indices.iter().zip(sigs) {
         if let Some(old_sig) = sigs_by_index.get(ix) {
             if sig.sigma < old_sig.sigma {
                 sigs_by_index.insert(ix, sig);
@@ -249,15 +259,14 @@ fn dedup_sigs_for_indices<'a>(sigs: &'a [StmSig], indices: &'a [Index]) -> impl 
     sigs_by_index.into_iter()
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::proof::ConcatProof;
     use proptest::collection::{hash_map, vec};
     use proptest::prelude::*;
-    use std::collections::{HashMap, HashSet};
     use rayon::prelude::*;
+    use std::collections::{HashMap, HashSet};
 
     fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmSigner> {
         let stake = vec![1; nparties];
