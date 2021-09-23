@@ -211,11 +211,16 @@ impl StmClerk {
             if !self.verify_sig(&sig, *ix, msg) {
                 return Err(AggregationFailure::VerifyFailed);
             }
+
             evals.push(Msp::eval(&msgp, *ix, &sig.sigma));
             sigmas.push(sig.sigma);
             mvks.push(sig.pk.mvk);
             sigs_to_verify.push(sig.clone());
             indices_to_verify.push(*ix);
+
+            if indices_to_verify.len() == self.params.k as usize {
+                break;
+            }
         }
         let n_unique = indices_to_verify.len();
         if n_unique < self.params.k as usize {
@@ -233,8 +238,8 @@ impl StmClerk {
         };
 
         let witness = Witness {
-            sigs: &sigs,
-            indices: &indices,
+            sigs: &sigs_to_verify,
+            indices: &indices_to_verify,
             evals: &evals,
         };
 
