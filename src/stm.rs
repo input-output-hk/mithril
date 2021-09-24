@@ -5,6 +5,8 @@ use crate::key_reg::KeyReg;
 use crate::merkle_tree::MerkleTree;
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
 use crate::proof::Proof;
+use crate::proof::Statement;
+use crate::proof::Witness;
 
 use std::collections::HashMap;
 
@@ -209,11 +211,16 @@ impl StmClerk {
             if !self.verify_sig(&sig, *ix, msg) {
                 return Err(AggregationFailure::VerifyFailed);
             }
+
             evals.push(Msp::eval(&msgp, *ix, &sig.sigma));
             sigmas.push(sig.sigma);
             mvks.push(sig.pk.mvk);
             sigs_to_verify.push(sig.clone());
             indices_to_verify.push(*ix);
+
+            if indices_to_verify.len() == self.params.k as usize {
+                break;
+            }
         }
         let n_unique = indices_to_verify.len();
         if n_unique < self.params.k as usize {
@@ -223,22 +230,31 @@ impl StmClerk {
         let ivk = Msp::aggregate_keys(&mvks);
         let mu = Msp::aggregate_sigs(msg, &sigmas);
 
-        let proof = P::prove(
-            &self.avk,
-            &ivk,
+        let stmt = Statement {
+            avk: &self.avk,
+            ivk: &ivk,
+            mu: &mu,
             msg,
-            &sigs_to_verify,
-            &indices_to_verify,
-            &evals,
-        );
+        };
+
+        let witness = Witness {
+            sigs: &sigs_to_verify,
+            indices: &indices_to_verify,
+            evals: &evals,
+        };
+
+        let proof = P::prove(stmt, witness);
         Ok(StmMultiSig { ivk, mu, proof })
     }
 
     pub fn verify_msig<P: Proof>(&self, msig: &StmMultiSig<P>, msg: &[u8]) -> bool {
-        if !msig
-            .proof
-            .verify(&self.params, self.total_stake, &self.avk, &msig.ivk, msg)
-        {
+        let stmt = Statement {
+            avk: &self.avk,
+            ivk: &msig.ivk,
+            mu: &msig.mu,
+            msg,
+        };
+        if !msig.proof.verify(&self.params, self.total_stake, stmt) {
             return false;
         }
         let msgp = self.avk.concat_with_msg(msg);

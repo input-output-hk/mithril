@@ -25,7 +25,7 @@ pub struct MspPk {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct MspSig(G1Projective);
+pub struct MspSig(pub(crate) G1Projective);
 
 impl MspSig {
     fn cmp_msp_sig(&self, other: &Self) -> Ordering {

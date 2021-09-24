@@ -3,29 +3,36 @@
 use super::Index;
 use crate::ev_lt_phi;
 use crate::merkle_tree::MerkleTree;
-use crate::msp::{Msp, MspMvk};
+use crate::msp::{Msp, MspMvk, MspSig};
 use crate::stm::{StmParameters, StmSig};
 
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
+/// The statement we want to prove, namely that
+/// the signature aggregated by our scheme with
+/// the given MerkleTree, aggregated verification keys,
+/// and aggregated signatures is valid for the
+/// given message.
+pub struct Statement<'l> {
+    pub(crate) avk: &'l MerkleTree,
+    pub(crate) ivk: &'l MspMvk,
+    pub(crate) mu: &'l MspSig,
+    pub(crate) msg: &'l [u8],
+}
+
+/// Denotes witnesses to the fact that
+/// the statement holds.
+pub struct Witness<'l> {
+    pub(crate) sigs: &'l [StmSig],
+    pub(crate) indices: &'l [Index],
+    pub(crate) evals: &'l [u64],
+}
+
 pub trait Proof {
-    fn prove(
-        avk: &MerkleTree,
-        ivk: &MspMvk,
-        msg: &[u8],
-        sigs: &[StmSig],
-        indices: &[Index],
-        evals: &[u64],
-    ) -> Self;
-    fn verify(
-        &self,
-        params: &StmParameters,
-        total_stake: u64,
-        avk: &MerkleTree,
-        ivk: &MspMvk,
-        msg: &[u8],
-    ) -> bool;
+    fn prove(stmt: Statement, witness: Witness) -> Self;
+
+    fn verify(&self, params: &StmParameters, total_stake: u64, stmt: Statement) -> bool;
 }
 
 /// Proof system that simply concatenates the signatures.
@@ -37,77 +44,91 @@ pub struct ConcatProof {
 }
 
 impl Proof for ConcatProof {
-    fn prove(
-        _avk: &MerkleTree,
-        _ivk: &MspMvk,
-        _msg: &[u8],
-        sigs: &[StmSig],
-        indices: &[Index],
-        evals: &[u64],
-    ) -> Self {
+    fn prove(stmt: Statement, witness: Witness) -> Self {
         Self {
-            sigs: sigs.to_vec(),
-            indices: indices.to_vec(),
-            evals: evals.to_vec(),
+            sigs: witness.sigs.to_vec(),
+            indices: witness.indices.to_vec(),
+            evals: witness.evals.to_vec(),
         }
     }
 
-    fn verify(
-        &self,
-        params: &StmParameters,
-        total_stake: u64,
-        avk: &MerkleTree,
-        ivk: &MspMvk,
-        msg: &[u8],
-    ) -> bool {
-        // ivk = Prod(1..k, mvk[i])
-        let ivk_check = ivk.0 == self.sigs.iter().map(|s| s.pk.mvk.0).sum();
+    fn verify(&self, params: &StmParameters, total_stake: u64, stmt: Statement) -> bool {
+        self.check_quorum(params)
+            && self.check_ivk(stmt.ivk)
+            && self.check_sum(stmt.mu)
+            && self.check_index_bound(params)
+            && self.check_index_unique()
+            && self.check_path(stmt.avk)
+            && self.check_eval(stmt.avk, stmt.msg)
+            && self.check_stake(params, total_stake)
+    }
+}
 
-        // \forall i. index[i] <= m
-        let index_bound_check = self.indices.iter().all(|i| i <= &params.m);
+impl ConcatProof {
+    /// ivk = Prod(1..k, mvk[i])
+    /// requires that this proof has exactly k signatures
+    fn check_ivk(&self, ivk: &MspMvk) -> bool {
+        let mvks = self.sigs.iter().map(|s| s.pk.mvk).collect::<Vec<_>>();
 
-        // \forall i. \forall j. (i == j || index[i] != index[j])
-        let index_uniq_check =
-            HashSet::<Index>::from_iter(self.indices.iter().cloned()).len() == self.indices.len();
+        let sum = Msp::aggregate_keys(&mvks).0;
+        ivk.0 == sum
+    }
 
-        // k-sized quorum
-        let quorum_check = params.k as usize <= self.sigs.len()
-            && params.k as usize <= self.evals.len()
-            && params.k as usize <= self.indices.len();
+    /// mu = Prod(1..k, sigma[i])
+    /// requires that this proof has exactly k signatures
+    fn check_sum(&self, mu: &MspSig) -> bool {
+        let mu1 = self.sigs.iter().map(|s| s.sigma.0).sum();
+        mu.0 == mu1
+    }
 
-        if !quorum_check {
-            return false;
-        }
+    /// \forall i. index[i] <= m
+    /// requires that this proof has exactly k signatures
+    fn check_index_bound(&self, params: &StmParameters) -> bool {
+        self.indices.iter().all(|i| i <= &params.m)
+    }
 
-        // \forall i : [0..k]. path[i] is a witness for (mvk[i]), stake[i] in avk
-        let path_check = self.sigs[0..params.k as usize]
+    /// \forall i. \forall j. (i == j || index[i] != index[j])
+    /// requires that this proof has exactly k signatures
+    fn check_index_unique(&self) -> bool {
+        HashSet::<Index>::from_iter(self.indices.iter().cloned()).len() == self.indices.len()
+    }
+
+    /// k-sized quorum
+    /// if this returns `true`, then then there are exactly k signatures
+    fn check_quorum(&self, params: &StmParameters) -> bool {
+        params.k as usize == self.sigs.len()
+            && params.k as usize == self.evals.len()
+            && params.k as usize == self.indices.len()
+    }
+
+    /// \forall i : [0..k]. path[i] is a witness for (mvk[i]), stake[i] in avk
+    /// requires that this proof has exactly k signatures
+    fn check_path(&self, avk: &MerkleTree) -> bool {
+        self.sigs
             .iter()
-            .all(|sig| avk.check(&(sig.pk, sig.stake), sig.party, &sig.path));
+            .all(|sig| avk.check(&(sig.pk, sig.stake), sig.party, &sig.path))
+    }
 
-        // \forall i : [1..k]. ev[i] = MSP.Eval(msg, index[i], sig[i])
-        let msp_evals = self.indices[0..params.k as usize]
-            .iter()
-            .zip(self.sigs[0..params.k as usize].iter())
-            .map(|(idx, sig)| {
-                let msgp = avk.concat_with_msg(msg);
-                Msp::eval(&msgp, *idx, &sig.sigma)
-            });
-        let eval_check = self.evals[0..params.k as usize]
+    /// \forall i : [1..k]. ev[i] = MSP.Eval(msg, index[i], sig[i])
+    /// requires that this proof has exactly k signatures
+    fn check_eval(&self, avk: &MerkleTree, msg: &[u8]) -> bool {
+        let msp_evals = self.indices.iter().zip(self.sigs.iter()).map(|(idx, sig)| {
+            let msgp = avk.concat_with_msg(msg);
+            Msp::eval(&msgp, *idx, &sig.sigma)
+        });
+
+        self.evals
             .iter()
             .zip(msp_evals)
-            .all(|(ev, msp_e)| *ev == msp_e);
+            .all(|(ev, msp_e)| *ev == msp_e)
+    }
 
-        // \forall i : [1..k]. ev[i] <= phi(stake_i)
-        let eval_stake_check = self.evals[0..params.k as usize]
+    /// \forall i : [1..k]. ev[i] <= phi(stake_i)
+    /// requires that this proof has exactly k signatures
+    fn check_stake(&self, params: &StmParameters, total_stake: u64) -> bool {
+        self.evals
             .iter()
-            .zip(&self.sigs[0..params.k as usize])
-            .all(|(ev, sig)| ev_lt_phi(params.phi_f, *ev, sig.stake, total_stake));
-
-        ivk_check
-            && index_bound_check
-            && index_uniq_check
-            && path_check
-            && eval_check
-            && eval_stake_check
+            .zip(&self.sigs)
+            .all(|(ev, sig)| ev_lt_phi(params.phi_f, *ev, sig.stake, total_stake))
     }
 }
