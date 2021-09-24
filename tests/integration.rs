@@ -8,7 +8,7 @@ use rayon::prelude::*;
 
 #[test]
 fn test_full_protocol() {
-    let nparties = 8;
+    let nparties = 32;
     let msg = rand::random::<[u8; 16]>();
 
     //////////////////////////
@@ -20,8 +20,8 @@ fn test_full_protocol() {
 
     let mut ps: Vec<StmInitializer<Bls12_377>> = Vec::with_capacity(nparties);
     let params = StmParameters {
-        k: 10,
-        m: 100,
+        k: 357,
+        m: 2642,
         phi_f: 0.2,
     };
 
