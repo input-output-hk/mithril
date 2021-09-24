@@ -1,11 +1,6 @@
 use crate::mithril_field::{
+    wrapper::{MithrilEngine, MithrilField, MithrilFieldWrapper, MithrilFieldWrapperRepr},
     AsCoord,
-    wrapper::{
-        MithrilField,
-        MithrilFieldWrapper,
-        MithrilFieldWrapperRepr,
-        MithrilEngine
-    }
 };
 use neptune::Poseidon;
 
@@ -35,7 +30,7 @@ impl<F: MithrilField> IntoHash<F> for MithrilFieldWrapper<F> {
     }
 }
 
-impl<F: MithrilField, V: IntoHash<F>+Clone> IntoHash<F> for &[V] {
+impl<F: MithrilField, V: IntoHash<F> + Clone> IntoHash<F> for &[V] {
     fn into_hash<'a>(&self, hasher: &mut MithrilHasher<'a, F>) -> MithrilFieldWrapper<F> {
         self.to_vec().into_hash(hasher)
     }
@@ -77,15 +72,12 @@ impl<F: MithrilField, V: IntoHash<F>> IntoHash<F> for Option<V> {
 }
 
 // Ark Curve instances
-use ark_ec::models::{
-    SWModelParameters,
-    short_weierstrass_jacobian::GroupProjective,
-};
+use ark_ec::models::{short_weierstrass_jacobian::GroupProjective, SWModelParameters};
 
 impl<P: SWModelParameters, F: MithrilField> IntoHash<F> for GroupProjective<P>
 where
     P::BaseField: IntoHash<F>,
-    GroupProjective<P>: AsCoord<P::BaseField>
+    GroupProjective<P>: AsCoord<P::BaseField>,
 {
     fn into_hash<'a>(&self, hasher: &mut MithrilHasher<'a, F>) -> MithrilFieldWrapper<F> {
         self.as_coords().into_hash(hasher)
@@ -96,35 +88,29 @@ where
 use ark_ff::fields::models::{
     cubic_extension::{CubicExtField, CubicExtParameters},
     quadratic_extension::{QuadExtField, QuadExtParameters},
-    Fp64,
-    Fp256,
-    Fp320,
-    Fp384,
-    Fp448,
-    Fp768,
-    Fp832,
+    Fp256, Fp320, Fp384, Fp448, Fp64, Fp768, Fp832,
 };
 
-impl<P: QuadExtParameters, F:MithrilField> IntoHash<F> for QuadExtField<P>
+impl<P: QuadExtParameters, F: MithrilField> IntoHash<F> for QuadExtField<P>
 where
-    P::BaseField: IntoHash<F>
+    P::BaseField: IntoHash<F>,
 {
     fn into_hash<'a>(&self, hasher: &mut MithrilHasher<'a, F>) -> MithrilFieldWrapper<F> {
-        vec![self.c0.into_hash(hasher),
-             self.c1.into_hash(hasher)
-        ].into_hash(hasher)
+        vec![self.c0.into_hash(hasher), self.c1.into_hash(hasher)].into_hash(hasher)
     }
 }
 
-impl<P: CubicExtParameters, F:MithrilField> IntoHash<F> for CubicExtField<P>
+impl<P: CubicExtParameters, F: MithrilField> IntoHash<F> for CubicExtField<P>
 where
-    P::BaseField: IntoHash<F>
+    P::BaseField: IntoHash<F>,
 {
     fn into_hash<'a>(&self, hasher: &mut MithrilHasher<'a, F>) -> MithrilFieldWrapper<F> {
-        vec![self.c0.into_hash(hasher),
-             self.c1.into_hash(hasher),
-             self.c2.into_hash(hasher)
-        ].into_hash(hasher)
+        vec![
+            self.c0.into_hash(hasher),
+            self.c1.into_hash(hasher),
+            self.c2.into_hash(hasher),
+        ]
+        .into_hash(hasher)
     }
 }
 
@@ -135,7 +121,7 @@ macro_rules! fp_into_hash {
                 self.0.as_ref().into_hash(hasher)
             }
         }
-    }
+    };
 }
 
 fp_into_hash!(Fp64);
@@ -148,7 +134,7 @@ fp_into_hash!(Fp832);
 
 impl<F: MithrilField> IntoHash<F> for num_bigint::BigUint
 where
-    Vec<u64>: IntoHash<F>
+    Vec<u64>: IntoHash<F>,
 {
     fn into_hash<'a>(&self, hasher: &mut MithrilHasher<'a, F>) -> MithrilFieldWrapper<F> {
         self.to_u64_digits().into_hash(hasher)

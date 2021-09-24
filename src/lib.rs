@@ -1,14 +1,14 @@
 #![allow(dead_code, unused_variables)]
 
+pub mod hashutils;
 pub mod key_reg;
 pub mod merkle_tree;
 pub mod msp;
 pub mod proof;
 pub mod stm;
-pub mod hashutils;
 
-pub mod mithril_hash;
 pub mod mithril_field;
+pub mod mithril_hash;
 
 use ark_ff::fields::{PrimeField, SquareRootField};
 use mithril_field::wrapper::MithrilFieldWrapper;

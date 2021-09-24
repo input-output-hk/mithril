@@ -3,11 +3,8 @@
 use super::Index;
 use crate::ev_lt_phi;
 use crate::merkle_tree::MerkleTree;
-use crate::mithril_field::{
-    HashToCurve,
-    wrapper::MithrilField,
-};
-use crate::mithril_hash::{IntoHash};
+use crate::mithril_field::{wrapper::MithrilField, HashToCurve};
+use crate::mithril_hash::IntoHash;
 use crate::msp::{Msp, MspMvk};
 use crate::stm::{StmParameters, StmSig};
 
@@ -15,8 +12,7 @@ use ark_ec::PairingEngine;
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
-pub trait Proof<P: PairingEngine>
-{
+pub trait Proof<P: PairingEngine> {
     fn prove(
         avk: &MerkleTree<P::Fr>,
         ivk: &MspMvk<P>,
@@ -39,7 +35,7 @@ pub trait Proof<P: PairingEngine>
 #[derive(Clone)]
 pub struct ConcatProof<P>
 where
-    P: PairingEngine
+    P: PairingEngine,
 {
     sigs: Vec<StmSig<P>>,
     indices: Vec<Index>,
@@ -52,7 +48,6 @@ where
     P::G1Affine: HashToCurve,
     P::G2Projective: IntoHash<P::Fr>,
     P::Fr: MithrilField,
-
 {
     fn prove(
         _avk: &MerkleTree<P::Fr>,

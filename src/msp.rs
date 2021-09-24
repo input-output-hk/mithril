@@ -1,25 +1,19 @@
 //! Base multisignature scheme. Currently using BLS12.
 
 use super::mithril_field::{
-    AsCoord,
-    HashToCurve,
-    wrapper::{
-        MithrilField,
-        MithrilFieldWrapper,
-    },
+    wrapper::{MithrilField, MithrilFieldWrapper},
+    AsCoord, HashToCurve,
 };
-use super::mithril_hash::{
-    IntoHash, MithrilHasher,
-};
+use super::mithril_hash::{IntoHash, MithrilHasher};
 use super::Index;
 
-use blake2::VarBlake2b;
-use std::marker::PhantomData;
 use ark_ec::{AffineCurve, PairingEngine};
 use ark_ff::bytes::ToBytes;
+use blake2::VarBlake2b;
 use digest::{Update, VariableOutput};
 use rand_core::{OsRng, RngCore};
 use std::cmp::Ordering;
+use std::marker::PhantomData;
 
 pub struct Msp<P: PairingEngine> {
     x: PhantomData<P>,
@@ -200,8 +194,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ark_bls12_377::{Bls12_377, Fr, G1Affine, G2Affine};
     use proptest::prelude::*;
-    use ark_bls12_377::{Bls12_377, G1Affine, G2Affine, Fr};
 
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(1000))]

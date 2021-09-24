@@ -1,10 +1,10 @@
 //! Creation and verification of Merkle Trees using the Neptune hash.
 
-use crate::mithril_field::wrapper::{MithrilFieldWrapper, MithrilField};
+use crate::mithril_field::wrapper::{MithrilField, MithrilFieldWrapper};
 use crate::mithril_hash::{IntoHash, MithrilHasher};
 use crate::Path;
-use neptune::poseidon::{Poseidon, PoseidonConstants};
 use ark_ff::biginteger::BigInteger;
+use neptune::poseidon::{Poseidon, PoseidonConstants};
 
 #[derive(Debug, Clone)]
 pub struct MerkleTree<F>
@@ -34,7 +34,8 @@ where
 
         let num_nodes = n + n.next_power_of_two() - 1;
 
-        let mut nodes: Vec<MithrilFieldWrapper<F>> = vec![MithrilFieldWrapper(F::zero()); num_nodes];
+        let mut nodes: Vec<MithrilFieldWrapper<F>> =
+            vec![MithrilFieldWrapper(F::zero()); num_nodes];
 
         // Get the hasher, potentially creating it for this thread.
         let constants = PoseidonConstants::new();

@@ -2,21 +2,16 @@
 
 use super::{ev_lt_phi, Index, PartyId, Path, Stake};
 use crate::key_reg::KeyReg;
-use crate::mithril_hash::{IntoHash, MithrilHasher};
-use crate::merkle_tree::{MerkleTree};
+use crate::merkle_tree::MerkleTree;
 use crate::mithril_field::{
+    wrapper::{MithrilField, MithrilFieldWrapper},
     HashToCurve,
-    wrapper::{
-        MithrilField,
-        MithrilFieldWrapper
-    },
 };
+use crate::mithril_hash::{IntoHash, MithrilHasher};
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
 use crate::proof::Proof;
 
-use ark_ec::{
-    PairingEngine,
-};
+use ark_ec::PairingEngine;
 use std::collections::HashMap;
 
 /// Used to set protocol parameters.
@@ -64,7 +59,7 @@ where
 /// `StmClerk` can verify and aggregate `StmSig`s and verify `StmMultiSig`s.
 pub struct StmClerk<PE>
 where
-    PE: PairingEngine
+    PE: PairingEngine,
 {
     avk: MerkleTree<PE::Fr>,
     params: StmParameters,
@@ -84,9 +79,9 @@ pub struct StmSig<P: PairingEngine> {
 /// Aggregated signature of many parties.
 /// Contains proof that it is well-formed.
 #[derive(Clone)]
-pub struct StmMultiSig<P,E>
+pub struct StmMultiSig<P, E>
 where
-    E: PairingEngine
+    E: PairingEngine,
 {
     ivk: MspMvk<E>,
     mu: MspSig<E>,
@@ -207,7 +202,7 @@ where
     PE::G1Affine: HashToCurve,
     PE::G2Projective: IntoHash<PE::Fr>,
     PE::Fr: MithrilField,
-    MspSig<PE>: Ord
+    MspSig<PE>: Ord,
 {
     pub fn new(params: StmParameters, avk: MerkleTree<PE::Fr>, total_stake: Stake) -> Self {
         Self {
@@ -239,7 +234,7 @@ where
         sigs: &[StmSig<PE>],
         indices: &[Index],
         msg: &[u8],
-    ) -> Result<StmMultiSig<P,PE>, AggregationFailure> {
+    ) -> Result<StmMultiSig<P, PE>, AggregationFailure> {
         let msgp = self.avk.concat_with_msg(msg);
         let mut evals = Vec::new();
         let mut mvks = Vec::new();
@@ -288,12 +283,12 @@ where
     }
 }
 
-fn dedup_sigs_for_indices<'a, P:PairingEngine>(
+fn dedup_sigs_for_indices<'a, P: PairingEngine>(
     sigs: &'a [StmSig<P>],
     indices: &'a [Index],
 ) -> impl IntoIterator<Item = (&'a Index, &'a StmSig<P>)>
 where
-    MspSig<P>: Ord
+    MspSig<P>: Ord,
 {
     let mut sigs_by_index: HashMap<&Index, &StmSig<P>> = HashMap::new();
     for (ix, sig) in indices.iter().zip(sigs) {
@@ -313,11 +308,11 @@ where
 mod tests {
     use super::*;
     use crate::proof::ConcatProof;
+    use ark_bls12_377::Bls12_377;
     use proptest::collection::{hash_map, vec};
     use proptest::prelude::*;
     use rayon::prelude::*;
     use std::collections::{HashMap, HashSet};
-    use ark_bls12_377::Bls12_377;
 
     fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmSigner<Bls12_377>> {
         let stake = vec![1; nparties];

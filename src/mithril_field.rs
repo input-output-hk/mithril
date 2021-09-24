@@ -2,25 +2,17 @@
 use crate::hashutils::hash_message;
 
 use ark_ec::{
-    AffineCurve,
-    SWModelParameters,
-    models::{
-        short_weierstrass_jacobian::{
-            GroupProjective,
-            GroupAffine,
-        }
-    }
+    models::short_weierstrass_jacobian::{GroupAffine, GroupProjective},
+    AffineCurve, SWModelParameters,
 };
 
-use ark_ff::{
-    Field, PrimeField, FpParameters
-};
+use ark_ff::{Field, FpParameters, PrimeField};
 
 pub trait HashToCurve: AffineCurve {
     fn hash_to_curve(input: &[u8]) -> Self;
 }
 
-impl<C:AffineCurve> HashToCurve for C {
+impl<C: AffineCurve> HashToCurve for C {
     fn hash_to_curve(bytes: &[u8]) -> Self {
         let needed =
             <<<C::BaseField as Field>::BasePrimeField as PrimeField>::Params as FpParameters>::MODULUS_BITS / 8;
@@ -28,7 +20,7 @@ impl<C:AffineCurve> HashToCurve for C {
         let mut q = num_bigint::BigUint::from_bytes_le(x);
         loop {
             if let Some(elt) = Self::from_random_bytes(&q.to_bytes_le()) {
-                return elt
+                return elt;
             } else {
                 q += 1u8;
             }
@@ -40,15 +32,13 @@ pub trait AsCoord<T> {
     fn as_coords(&self) -> Vec<T>;
 }
 
-impl<P: SWModelParameters> AsCoord<P::BaseField> for GroupProjective<P>
-{
+impl<P: SWModelParameters> AsCoord<P::BaseField> for GroupProjective<P> {
     fn as_coords(&self) -> Vec<P::BaseField> {
         vec![self.x, self.y, self.z]
     }
 }
 
-impl<P: SWModelParameters> AsCoord<P::BaseField> for GroupAffine<P>
-{
+impl<P: SWModelParameters> AsCoord<P::BaseField> for GroupAffine<P> {
     fn as_coords(&self) -> Vec<P::BaseField> {
         vec![self.x, self.y]
     }
@@ -56,14 +46,10 @@ impl<P: SWModelParameters> AsCoord<P::BaseField> for GroupAffine<P>
 
 /// For interpreting Ark Fields as FFF fields (necessary to use neptune's poseidon implementation)
 pub mod wrapper {
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use ark_ff::fields::{
-        FftParameters,
-        FpParameters,
-        LegendreSymbol,
-        PrimeField,
-        SquareRootField
+        FftParameters, FpParameters, LegendreSymbol, PrimeField, SquareRootField,
     };
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
     use std::fmt;
 
     #[derive(PartialEq, Eq, Clone, Copy, Debug)]
@@ -193,7 +179,7 @@ pub mod wrapper {
                     rng.next_u64().to_le_bytes(),
                     rng.next_u64().to_le_bytes(),
                 ]
-                    .concat();
+                .concat();
                 if let Some(x) = F::from_random_bytes(v) {
                     return MithrilFieldWrapper(x);
                 }
@@ -276,7 +262,8 @@ pub mod wrapper {
         }
 
         fn root_of_unity() -> Self {
-            MithrilFieldWrapper(F::get_root_of_unity((2 as usize).pow(Self::S)).unwrap()) // TODO: Boop
+            MithrilFieldWrapper(F::get_root_of_unity((2 as usize).pow(Self::S)).unwrap())
+            // TODO: Boop
         }
 
         fn from_random_bytes(bytes: &[u8]) -> std::option::Option<Self> {
@@ -291,7 +278,7 @@ pub mod wrapper {
     impl<F> fff::SqrtField for MithrilFieldWrapper<F>
     where
         F: MithrilField,
-    // MithrilFieldWrapper<F>: fff::Field,
+        // MithrilFieldWrapper<F>: fff::Field,
     {
         fn legendre(&self) -> fff::LegendreSymbol {
             match self.0.legendre() {
