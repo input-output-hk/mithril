@@ -2,8 +2,7 @@
 use crate::hashutils::hash_message;
 
 use ark_ec::{
-    models::short_weierstrass_jacobian::{GroupAffine, GroupProjective},
-    AffineCurve, SWModelParameters,
+    AffineCurve
 };
 
 use ark_ff::{Field, FpParameters, PrimeField};
@@ -32,15 +31,49 @@ pub trait AsCoord<T> {
     fn as_coords(&self) -> Vec<T>;
 }
 
-impl<P: SWModelParameters> AsCoord<P::BaseField> for GroupProjective<P> {
-    fn as_coords(&self) -> Vec<P::BaseField> {
-        vec![self.x, self.y, self.z]
+mod weierstrass_jacobian {
+    use super::*;
+    use ark_ec::{
+        SWModelParameters,
+        models::short_weierstrass_jacobian::{
+            GroupAffine,
+            GroupProjective
+        }
+    };
+
+    impl<P: SWModelParameters> AsCoord<P::BaseField> for GroupProjective<P> {
+        fn as_coords(&self) -> Vec<P::BaseField> {
+            vec![self.x, self.y, self.z]
+        }
+    }
+
+    impl<P: SWModelParameters> AsCoord<P::BaseField> for GroupAffine<P> {
+        fn as_coords(&self) -> Vec<P::BaseField> {
+            vec![self.x, self.y]
+        }
     }
 }
 
-impl<P: SWModelParameters> AsCoord<P::BaseField> for GroupAffine<P> {
-    fn as_coords(&self) -> Vec<P::BaseField> {
-        vec![self.x, self.y]
+mod edwards_extended {
+    use super::*;
+    use ark_ec::{
+        TEModelParameters,
+        models::twisted_edwards_extended::{
+            GroupAffine,
+            GroupProjective
+        }
+    };
+
+    impl<P: TEModelParameters> AsCoord<P::BaseField> for GroupProjective<P> {
+        fn as_coords(&self) -> Vec<P::BaseField> {
+            vec![self.x, self.y, self.z]
+        }
+    }
+
+    impl<P: TEModelParameters> AsCoord<P::BaseField> for GroupAffine<P> {
+        fn as_coords(&self) -> Vec<P::BaseField> {
+            vec![self.x, self.y]
+        }
     }
 }
 
