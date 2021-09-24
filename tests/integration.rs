@@ -78,20 +78,10 @@ fn test_full_protocol() {
 
     // Aggregate and verify with random parties
     println!("** Aggregating signatures");
-<<<<<<< HEAD
-    let msig = clerk
-        .aggregate::<ConcatProof<Bls12_377>>(&sigs, &ixs, &msg)
-        .expect("Aggregation failed");
-    assert!(
-        clerk.verify_msig(&msig, &msg),
-        "Aggregate verification failed"
-    );
-=======
-    let msig = clerk.aggregate::<ConcatProof>(&sigs, &ixs, &msg);
+    let msig = clerk.aggregate::<ConcatProof<Bls12_377>>(&sigs, &ixs, &msg);
     match msig {
         Ok(aggr) => assert!(clerk.verify_msig(&aggr, &msg)),
         Err(AggregationFailure::NotEnoughSignatures(n)) => assert!(n < params.k as usize),
         Err(_) => assert!(false),
     }
->>>>>>> origin/master
 }
