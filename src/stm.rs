@@ -288,26 +288,6 @@ where
     }
 }
 
-impl<P: PairingEngine> IntoHash<P::Fr> for MspMvk<P>
-where
-    P::G2Projective: IntoHash<P::Fr>,
-    P::Fr: MithrilField,
-{
-    fn into_hash<'a>(&self, hasher: &mut MithrilHasher<'a, P::Fr>) -> MithrilFieldWrapper<P::Fr> {
-        self.0.into_hash(hasher)
-    }
-}
-
-impl<P: PairingEngine> IntoHash<P::Fr> for MspPk<P>
-where
-    P::G2Projective: IntoHash<P::Fr>,
-    P::Fr: MithrilField,
-{
-    fn into_hash<'a>(&self, hasher: &mut MithrilHasher<'a, P::Fr>) -> MithrilFieldWrapper<P::Fr> {
-        self.mvk.into_hash(hasher)
-    }
-}
-
 fn dedup_sigs_for_indices<'a, P:PairingEngine>(
     sigs: &'a [StmSig<P>],
     indices: &'a [Index],
