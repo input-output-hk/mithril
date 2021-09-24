@@ -1,8 +1,9 @@
 //! Base multisignature scheme. Currently using BLS12.
 
 use super::mithril_field::{
+    hash_to_curve,
     wrapper::{MithrilField, MithrilFieldWrapper},
-    AsCoord, HashToCurve,
+    AsCoord
 };
 use super::mithril_hash::{IntoHash, MithrilHasher};
 use super::Index;
@@ -68,7 +69,6 @@ static M: &[u8] = b"M";
 impl<P> Msp<P>
 where
     P: PairingEngine,
-    P::G1Affine: HashToCurve,
 {
     pub fn gen() -> (MspSk<P>, MspPk<P>) {
         // sk=x <- Zq
@@ -77,7 +77,7 @@ where
         // mvk <- g2^x
         let mvk = MspMvk(P::G2Affine::prime_subgroup_generator().mul(x));
         // k1 <- H_G1("PoP"||mvk)^x
-        let k1 = P::G1Affine::hash_to_curve([POP, &mvk.to_bytes()].concat().as_ref()).mul(x);
+        let k1 = hash_to_curve::<P::G1Affine>([POP, &mvk.to_bytes()].concat().as_ref()).mul(x);
         // k2 <- g1^x
         let k2 = P::G1Affine::prime_subgroup_generator().mul(x);
         // return sk,mvk,k=(k1,k2)
@@ -90,7 +90,7 @@ where
         //      are both true, return 1
         let mvk_g2 = P::G2Affine::from(pk.mvk.0);
         let e_k1_g2 = P::pairing(pk.k1.into(), P::G2Affine::prime_subgroup_generator());
-        let h_pop_mvk = P::G1Affine::hash_to_curve([POP, &pk.mvk.to_bytes()].concat().as_ref());
+        let h_pop_mvk = hash_to_curve::<P::G1Affine>([POP, &pk.mvk.to_bytes()].concat().as_ref());
         let e_hg1_mvk = P::pairing(h_pop_mvk, mvk_g2);
 
         let e_g1_mvk = P::pairing(P::G1Affine::prime_subgroup_generator(), mvk_g2);
@@ -101,7 +101,7 @@ where
 
     pub fn sig(sk: &MspSk<P>, msg: &[u8]) -> MspSig<P> {
         // return sigma <- H_G1("M"||msg)^x
-        let g1 = P::G1Affine::hash_to_curve([M, msg].concat().as_ref());
+        let g1 = hash_to_curve::<P::G1Affine>([M, msg].concat().as_ref());
         MspSig(g1.mul(sk.0))
     }
 
@@ -111,7 +111,7 @@ where
             P::G1Affine::from(sigma.0),
             P::G2Affine::prime_subgroup_generator(),
         );
-        let g1 = P::G1Affine::hash_to_curve([M, msg].concat().as_ref());
+        let g1 = hash_to_curve::<P::G1Affine>([M, msg].concat().as_ref());
         let e_hg1_mvk = P::pairing(g1, P::G2Affine::from(mvk.0));
 
         e_sigma_g2 == e_hg1_mvk

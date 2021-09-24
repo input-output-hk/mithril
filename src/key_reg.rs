@@ -1,6 +1,5 @@
 //! Placeholder key registration functionality.
 
-use crate::mithril_field::HashToCurve;
 use std::collections::HashMap;
 
 use super::msp::{Msp, MspPk};
@@ -19,7 +18,6 @@ where
 impl<P> KeyReg<P>
 where
     P: PairingEngine,
-    P::G1Affine: HashToCurve,
 {
     pub fn new() -> Self {
         Self {

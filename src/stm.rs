@@ -5,7 +5,6 @@ use crate::key_reg::KeyReg;
 use crate::merkle_tree::MerkleTree;
 use crate::mithril_field::{
     wrapper::{MithrilField, MithrilFieldWrapper},
-    HashToCurve,
 };
 use crate::mithril_hash::{IntoHash, MithrilHasher};
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
@@ -99,7 +98,6 @@ pub enum AggregationFailure {
 impl<P> StmInitializer<P>
 where
     P: PairingEngine,
-    P::G1Affine: HashToCurve,
     P::G2Projective: IntoHash<P::Fr>,
     P::Fr: MithrilField,
     P::Fqe: IntoHash<P::Fr>,
@@ -155,7 +153,6 @@ where
 impl<PE> StmSigner<PE>
 where
     PE: PairingEngine,
-    PE::G1Affine: HashToCurve,
 {
     /////////////////////
     // Operation phase //
@@ -199,7 +196,6 @@ where
 impl<PE> StmClerk<PE>
 where
     PE: PairingEngine,
-    PE::G1Affine: HashToCurve,
     PE::G2Projective: IntoHash<PE::Fr>,
     PE::Fr: MithrilField,
     MspSig<PE>: Ord,

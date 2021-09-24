@@ -3,7 +3,9 @@
 use super::Index;
 use crate::ev_lt_phi;
 use crate::merkle_tree::MerkleTree;
-use crate::mithril_field::{wrapper::MithrilField, HashToCurve};
+use crate::mithril_field::{
+    wrapper::MithrilField,
+};
 use crate::mithril_hash::IntoHash;
 use crate::msp::{Msp, MspMvk};
 use crate::stm::{StmParameters, StmSig};
@@ -45,7 +47,6 @@ where
 impl<P> Proof<P> for ConcatProof<P>
 where
     P: PairingEngine,
-    P::G1Affine: HashToCurve,
     P::G2Projective: IntoHash<P::Fr>,
     P::Fr: MithrilField,
 {

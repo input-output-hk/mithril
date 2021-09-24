@@ -7,22 +7,16 @@ use ark_ec::{
 
 use ark_ff::{Field, FpParameters, PrimeField};
 
-pub trait HashToCurve: AffineCurve {
-    fn hash_to_curve(input: &[u8]) -> Self;
-}
-
-impl<C: AffineCurve> HashToCurve for C {
-    fn hash_to_curve(bytes: &[u8]) -> Self {
-        let needed =
-            <<<C::BaseField as Field>::BasePrimeField as PrimeField>::Params as FpParameters>::MODULUS_BITS / 8;
-        let x: &[u8] = &hash_message(bytes, needed as usize);
-        let mut q = num_bigint::BigUint::from_bytes_le(x);
-        loop {
-            if let Some(elt) = Self::from_random_bytes(&q.to_bytes_le()) {
-                return elt;
-            } else {
-                q += 1u8;
-            }
+pub fn hash_to_curve<C: AffineCurve>(bytes: &[u8]) -> C {
+    let needed =
+        <<<C::BaseField as Field>::BasePrimeField as PrimeField>::Params as FpParameters>::MODULUS_BITS / 8;
+    let x: &[u8] = &hash_message(bytes, needed as usize);
+    let mut q = num_bigint::BigUint::from_bytes_le(x);
+    loop {
+        if let Some(elt) = C::from_random_bytes(&q.to_bytes_le()) {
+            return elt;
+        } else {
+            q += 1u8;
         }
     }
 }
