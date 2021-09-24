@@ -1,8 +1,11 @@
 use crate::mithril_field::{
-    MithrilField,
-    MithrilFieldWrapper,
-    MithrilFieldWrapperRepr,
-    MithrilEngine
+    AsCoord,
+    wrapper::{
+        MithrilField,
+        MithrilFieldWrapper,
+        MithrilFieldWrapperRepr,
+        MithrilEngine
+    }
 };
 use neptune::Poseidon;
 
@@ -20,7 +23,6 @@ impl<F: MithrilField> IntoHash<F> for u64 {
     fn into_hash<'a>(&self, hasher: &mut MithrilHasher<'a, F>) -> MithrilFieldWrapper<F> {
         hasher.reset();
         let repr = MithrilFieldWrapperRepr(F::BigInt::from(*self));
-        // let repr = MithrilFieldWrapperRepr::from(*self);
         let mf = fff::PrimeField::from_repr(repr).unwrap();
         hasher.input(mf).unwrap();
         hasher.hash()
@@ -82,13 +84,11 @@ use ark_ec::models::{
 
 impl<P: SWModelParameters, F: MithrilField> IntoHash<F> for GroupProjective<P>
 where
-    P::BaseField: IntoHash<F>
+    P::BaseField: IntoHash<F>,
+    GroupProjective<P>: AsCoord<P::BaseField>
 {
     fn into_hash<'a>(&self, hasher: &mut MithrilHasher<'a, F>) -> MithrilFieldWrapper<F> {
-        let xh = self.x.into_hash(hasher);
-        let yh = self.y.into_hash(hasher);
-        let zh = self.z.into_hash(hasher);
-        vec![xh,yh,zh].into_hash(hasher)
+        self.as_coords().into_hash(hasher)
     }
 }
 
@@ -103,7 +103,6 @@ use ark_ff::fields::models::{
     Fp448,
     Fp768,
     Fp832,
-
 };
 
 impl<P: QuadExtParameters, F:MithrilField> IntoHash<F> for QuadExtField<P>

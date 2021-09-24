@@ -11,7 +11,7 @@ pub mod mithril_hash;
 pub mod mithril_field;
 
 use ark_ff::fields::{PrimeField, SquareRootField};
-use mithril_field::MithrilFieldWrapper;
+use mithril_field::wrapper::MithrilFieldWrapper;
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;

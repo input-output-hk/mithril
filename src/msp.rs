@@ -1,6 +1,9 @@
 //! Base multisignature scheme. Currently using BLS12.
 
-use super::mithril_field::HashToCurve;
+use super::mithril_field::{
+    AsCoord,
+    HashToCurve
+};
 use super::Index;
 
 use blake2::VarBlake2b;
@@ -9,6 +12,7 @@ use ark_ec::{AffineCurve, PairingEngine};
 use ark_ff::bytes::ToBytes;
 use digest::{Update, VariableOutput};
 use rand_core::{OsRng, RngCore};
+use std::cmp::Ordering;
 
 pub struct Msp<P: PairingEngine> {
     x: PhantomData<P>,
@@ -27,8 +31,35 @@ pub struct MspPk<P: PairingEngine> {
     pub k2: P::G1Projective,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MspSig<P: PairingEngine>(P::G1Projective);
+
+impl<P: PairingEngine> MspSig<P>
+where
+    P::G1Projective: AsCoord<P::Fq>,
+{
+    fn cmp_msp_sig(&self, other: &Self) -> Ordering {
+        self.0.as_coords().cmp(&other.0.as_coords())
+    }
+}
+
+impl<P: PairingEngine> PartialOrd for MspSig<P>
+where
+    P::G1Projective: AsCoord<P::Fq>,
+{
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp_msp_sig(other))
+    }
+}
+
+impl<P: PairingEngine> Ord for MspSig<P>
+where
+    P::G1Projective: AsCoord<P::Fq>,
+{
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.cmp_msp_sig(other)
+    }
+}
 
 static POP: &[u8] = b"PoP";
 static M: &[u8] = b"M";

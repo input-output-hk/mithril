@@ -1,6 +1,6 @@
 //! Creation and verification of Merkle Trees using the Neptune hash.
 
-use crate::mithril_field::{MithrilFieldWrapper, MithrilField};
+use crate::mithril_field::wrapper::{MithrilFieldWrapper, MithrilField};
 use crate::mithril_hash::{IntoHash, MithrilHasher};
 use crate::Path;
 use neptune::poseidon::{Poseidon, PoseidonConstants};
