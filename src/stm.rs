@@ -3,9 +3,7 @@
 use super::{ev_lt_phi, Index, PartyId, Path, Stake};
 use crate::key_reg::KeyReg;
 use crate::merkle_tree::MerkleTree;
-use crate::mithril_field::{
-    wrapper::{MithrilField, MithrilFieldWrapper},
-};
+use crate::mithril_field::wrapper::{MithrilField, MithrilFieldWrapper};
 use crate::mithril_hash::{IntoHash, MithrilHasher};
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
 use crate::proof::Proof;

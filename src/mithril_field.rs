@@ -1,9 +1,7 @@
 //! Abstractions for working with ark curves
 use crate::hashutils::hash_message;
 
-use ark_ec::{
-    AffineCurve
-};
+use ark_ec::AffineCurve;
 
 use ark_ff::{Field, FpParameters, PrimeField};
 
@@ -28,11 +26,8 @@ pub trait AsCoord<T> {
 mod weierstrass_jacobian {
     use super::*;
     use ark_ec::{
+        models::short_weierstrass_jacobian::{GroupAffine, GroupProjective},
         SWModelParameters,
-        models::short_weierstrass_jacobian::{
-            GroupAffine,
-            GroupProjective
-        }
     };
 
     impl<P: SWModelParameters> AsCoord<P::BaseField> for GroupProjective<P> {
@@ -51,11 +46,8 @@ mod weierstrass_jacobian {
 mod edwards_extended {
     use super::*;
     use ark_ec::{
+        models::twisted_edwards_extended::{GroupAffine, GroupProjective},
         TEModelParameters,
-        models::twisted_edwards_extended::{
-            GroupAffine,
-            GroupProjective
-        }
     };
 
     impl<P: TEModelParameters> AsCoord<P::BaseField> for GroupProjective<P> {

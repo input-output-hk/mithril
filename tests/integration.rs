@@ -1,5 +1,5 @@
-use ark_bls12_377::Bls12_377;
 use ark_bls12_377;
+use ark_bls12_377::Bls12_377;
 use mithril::key_reg::KeyReg;
 use mithril::proof::ConcatProof;
 use mithril::stm::{AggregationFailure, StmClerk, StmInitializer, StmParameters, StmSigner};

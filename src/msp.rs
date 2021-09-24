@@ -3,7 +3,7 @@
 use super::mithril_field::{
     hash_to_curve,
     wrapper::{MithrilField, MithrilFieldWrapper},
-    AsCoord
+    AsCoord,
 };
 use super::mithril_hash::{IntoHash, MithrilHasher};
 use super::Index;
