@@ -12,13 +12,18 @@ use ark_ec::{
     }
 };
 
+use ark_ff::{
+    Field, PrimeField, FpParameters
+};
+
 pub trait HashToCurve: AffineCurve {
     fn hash_to_curve(input: &[u8]) -> Self;
 }
 
-impl HashToCurve for ark_bls12_377::G1Affine {
+impl<C:AffineCurve> HashToCurve for C {
     fn hash_to_curve(bytes: &[u8]) -> Self {
-        let needed = <ark_bls12_377::FqParameters as ark_ff::FpParameters>::MODULUS_BITS / 8;
+        let needed =
+            <<<C::BaseField as Field>::BasePrimeField as PrimeField>::Params as FpParameters>::MODULUS_BITS / 8;
         let x: &[u8] = &hash_message(bytes, needed as usize);
         let mut q = num_bigint::BigUint::from_bytes_le(x);
         loop {
