@@ -1,6 +1,6 @@
 //! Base multisignature scheme. Currently using BLS12.
 
-use super::mithril_field::{
+use super::mithril_curves::{
     hash_to_curve,
     wrapper::{MithrilField, MithrilFieldWrapper},
     AsCoord,
@@ -38,7 +38,7 @@ pub struct MspSig<P: PairingEngine>(P::G1Projective);
 
 impl<P: PairingEngine> MspSig<P>
 where
-    P::G1Projective: AsCoord<P::Fq>,
+    P::G1Projective: AsCoord,
 {
     fn cmp_msp_sig(&self, other: &Self) -> Ordering {
         self.0.as_coords().cmp(&other.0.as_coords())
@@ -47,7 +47,7 @@ where
 
 impl<P: PairingEngine> PartialOrd for MspSig<P>
 where
-    P::G1Projective: AsCoord<P::Fq>,
+    P::G1Projective: AsCoord,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp_msp_sig(other))
@@ -56,7 +56,7 @@ where
 
 impl<P: PairingEngine> Ord for MspSig<P>
 where
-    P::G1Projective: AsCoord<P::Fq>,
+    P::G1Projective: AsCoord,
 {
     fn cmp(&self, other: &Self) -> Ordering {
         self.cmp_msp_sig(other)

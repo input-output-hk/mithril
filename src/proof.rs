@@ -3,7 +3,7 @@
 use super::Index;
 use crate::ev_lt_phi;
 use crate::merkle_tree::MerkleTree;
-use crate::mithril_field::wrapper::MithrilField;
+use crate::mithril_curves::wrapper::MithrilField;
 use crate::mithril_hash::IntoHash;
 use crate::msp::{Msp, MspMvk};
 use crate::stm::{StmParameters, StmSig};

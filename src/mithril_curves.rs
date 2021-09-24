@@ -1,8 +1,7 @@
 //! Abstractions for working with ark curves
 use crate::hashutils::hash_message;
 
-use ark_ec::AffineCurve;
-
+use ark_ec::{ProjectiveCurve, AffineCurve};
 use ark_ff::{Field, FpParameters, PrimeField};
 
 pub fn hash_to_curve<C: AffineCurve>(bytes: &[u8]) -> C {
@@ -19,26 +18,20 @@ pub fn hash_to_curve<C: AffineCurve>(bytes: &[u8]) -> C {
     }
 }
 
-pub trait AsCoord<T> {
-    fn as_coords(&self) -> Vec<T>;
+pub trait AsCoord: ProjectiveCurve {
+    fn as_coords(&self) -> (Self::BaseField, Self::BaseField, Self::BaseField);
 }
 
 mod weierstrass_jacobian {
     use super::*;
     use ark_ec::{
-        models::short_weierstrass_jacobian::{GroupAffine, GroupProjective},
+        models::short_weierstrass_jacobian::GroupProjective,
         SWModelParameters,
     };
 
-    impl<P: SWModelParameters> AsCoord<P::BaseField> for GroupProjective<P> {
-        fn as_coords(&self) -> Vec<P::BaseField> {
-            vec![self.x, self.y, self.z]
-        }
-    }
-
-    impl<P: SWModelParameters> AsCoord<P::BaseField> for GroupAffine<P> {
-        fn as_coords(&self) -> Vec<P::BaseField> {
-            vec![self.x, self.y]
+    impl<P: SWModelParameters> AsCoord for GroupProjective<P> {
+        fn as_coords(&self) -> (Self::BaseField, Self::BaseField, Self::BaseField) {
+            (self.x, self.y, self.z)
         }
     }
 }
@@ -46,19 +39,13 @@ mod weierstrass_jacobian {
 mod edwards_extended {
     use super::*;
     use ark_ec::{
-        models::twisted_edwards_extended::{GroupAffine, GroupProjective},
+        models::twisted_edwards_extended::GroupProjective,
         TEModelParameters,
     };
 
-    impl<P: TEModelParameters> AsCoord<P::BaseField> for GroupProjective<P> {
-        fn as_coords(&self) -> Vec<P::BaseField> {
-            vec![self.x, self.y, self.z]
-        }
-    }
-
-    impl<P: TEModelParameters> AsCoord<P::BaseField> for GroupAffine<P> {
-        fn as_coords(&self) -> Vec<P::BaseField> {
-            vec![self.x, self.y]
+    impl<P: TEModelParameters> AsCoord for GroupProjective<P> {
+        fn as_coords(&self) -> (Self::BaseField, Self::BaseField, Self::BaseField) {
+            (self.x, self.y, self.z)
         }
     }
 }

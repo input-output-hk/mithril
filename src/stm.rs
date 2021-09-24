@@ -3,8 +3,8 @@
 use super::{ev_lt_phi, Index, PartyId, Path, Stake};
 use crate::key_reg::KeyReg;
 use crate::merkle_tree::MerkleTree;
-use crate::mithril_field::wrapper::{MithrilField, MithrilFieldWrapper};
-use crate::mithril_hash::{IntoHash, MithrilHasher};
+use crate::mithril_curves::wrapper::MithrilField;
+use crate::mithril_hash::IntoHash;
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
 use crate::proof::Proof;
 
@@ -400,7 +400,7 @@ mod tests {
         m: u64,
         k: u64,
         msg: &[u8],
-        ps: &mut [StmSigner<Bls12_377>],
+        ps: &[StmSigner<Bls12_377>],
         is: &[usize],
     ) -> (Vec<Index>, Vec<StmSig<Bls12_377>>) {
         let indices: Vec<_> = (1..m).collect();
@@ -445,7 +445,7 @@ mod tests {
 
         #[test]
         /// Test that when a quorum is found, the aggregate signature can be verified
-        fn test_aggregate_sig(nparties in 2_usize..16,
+        fn test_aggregate_sig(nparties in 2_usize..30,
                               m in 10_u64..20,
                               k in 1_u64..5,
                               msg in any::<[u8;16]>()) {
@@ -492,7 +492,7 @@ mod tests {
         #[test]
         /// Test that when the adversaries do not hold sufficient stake, they can not form a quorum
         fn test_adversary_quorum(
-            (adversaries, parties) in arb_parties_adversary_stake(2, 10, 16, 4),
+            (adversaries, parties) in arb_parties_adversary_stake(8, 30, 16, 4),
             msg in any::<[u8;16]>(),
             i in any::<usize>(), j in any::<usize>(),
         ) {

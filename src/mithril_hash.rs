@@ -1,4 +1,4 @@
-use crate::mithril_field::{
+use crate::mithril_curves::{
     wrapper::{MithrilEngine, MithrilField, MithrilFieldWrapper, MithrilFieldWrapperRepr},
     AsCoord,
 };
@@ -13,7 +13,6 @@ pub trait IntoHash<F: MithrilField> {
 ////////////////////////
 // IntoHash Instances //
 ////////////////////////
-
 impl<F: MithrilField> IntoHash<F> for u64 {
     fn into_hash<'a>(&self, hasher: &mut MithrilHasher<'a, F>) -> MithrilFieldWrapper<F> {
         hasher.reset();
@@ -21,6 +20,15 @@ impl<F: MithrilField> IntoHash<F> for u64 {
         let mf = fff::PrimeField::from_repr(repr).unwrap();
         hasher.input(mf).unwrap();
         hasher.hash()
+    }
+}
+
+impl<F: MithrilField> IntoHash<F> for num_bigint::BigUint
+where
+    Vec<u64>: IntoHash<F>,
+{
+    fn into_hash<'a>(&self, hasher: &mut MithrilHasher<'a, F>) -> MithrilFieldWrapper<F> {
+        self.to_u64_digits().into_hash(hasher)
     }
 }
 
@@ -71,16 +79,13 @@ impl<F: MithrilField, V: IntoHash<F>> IntoHash<F> for Option<V> {
     }
 }
 
-// Ark Curve instances
-use ark_ec::models::{short_weierstrass_jacobian::GroupProjective, SWModelParameters};
-
-impl<P: SWModelParameters, F: MithrilField> IntoHash<F> for GroupProjective<P>
+impl<F: MithrilField, G: AsCoord> IntoHash<F> for G
 where
-    P::BaseField: IntoHash<F>,
-    GroupProjective<P>: AsCoord<P::BaseField>,
+    G::BaseField: IntoHash<F>,
 {
     fn into_hash<'a>(&self, hasher: &mut MithrilHasher<'a, F>) -> MithrilFieldWrapper<F> {
-        self.as_coords().into_hash(hasher)
+        let (x,y,z) = self.as_coords();
+        vec![x,y,z].into_hash(hasher)
     }
 }
 
@@ -131,12 +136,3 @@ fp_into_hash!(Fp384);
 fp_into_hash!(Fp448);
 fp_into_hash!(Fp768);
 fp_into_hash!(Fp832);
-
-impl<F: MithrilField> IntoHash<F> for num_bigint::BigUint
-where
-    Vec<u64>: IntoHash<F>,
-{
-    fn into_hash<'a>(&self, hasher: &mut MithrilHasher<'a, F>) -> MithrilFieldWrapper<F> {
-        self.to_u64_digits().into_hash(hasher)
-    }
-}

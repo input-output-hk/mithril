@@ -7,11 +7,11 @@ pub mod msp;
 pub mod proof;
 pub mod stm;
 
-pub mod mithril_field;
+pub mod mithril_curves;
 pub mod mithril_hash;
 
 use ark_ff::fields::{PrimeField, SquareRootField};
-use mithril_field::wrapper::MithrilFieldWrapper;
+use mithril_curves::wrapper::MithrilFieldWrapper;
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
