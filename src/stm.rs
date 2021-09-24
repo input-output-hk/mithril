@@ -25,16 +25,16 @@ pub struct StmParameters {
 }
 
 /// Initializer for `StmSigner`.
-pub struct StmInitializer<P>
+pub struct StmInitializer<PE>
 where
-    P: PairingEngine,
-    P::Fr: MithrilField,
+    PE: PairingEngine,
+    PE::Fr: MithrilField,
 {
     party_id: PartyId,
     stake: Stake,
-    avk: Option<MerkleTree<P::Fr>>,
-    sk: Option<MspSk<P>>,
-    pk: Option<MspPk<P>>,
+    avk: Option<MerkleTree<PE::Fr>>,
+    sk: Option<MspSk<PE>>,
+    pk: Option<MspPk<PE>>,
     total_stake: Option<Stake>,
     params: StmParameters,
 }
@@ -65,23 +65,23 @@ where
 
 /// Signature created by a single party who has won the lottery.
 #[derive(Clone, Debug)]
-pub struct StmSig<P: PairingEngine> {
-    pub sigma: MspSig<P>,
-    pub pk: MspPk<P>,
+pub struct StmSig<PE: PairingEngine> {
+    pub sigma: MspSig<PE>,
+    pub pk: MspPk<PE>,
     pub party: PartyId,
     pub stake: Stake,
-    pub path: Path<P::Fr>,
+    pub path: Path<PE::Fr>,
 }
 
 /// Aggregated signature of many parties.
 /// Contains proof that it is well-formed.
 #[derive(Clone)]
-pub struct StmMultiSig<P, E>
+pub struct StmMultiSig<P, PE>
 where
-    E: PairingEngine,
+    PE: PairingEngine,
 {
-    ivk: MspMvk<E>,
-    mu: MspSig<E>,
+    ivk: MspMvk<PE>,
+    mu: MspSig<PE>,
     proof: P,
 }
 
@@ -93,12 +93,11 @@ pub enum AggregationFailure {
     VerifyFailed,
 }
 
-impl<P> StmInitializer<P>
+impl<PE> StmInitializer<PE>
 where
-    P: PairingEngine,
-    P::G2Projective: IntoHash<P::Fr>,
-    P::Fr: MithrilField,
-    P::Fqe: IntoHash<P::Fr>,
+    PE: PairingEngine,
+    PE::G2Projective: IntoHash<PE::Fr>,
+    PE::Fqe: IntoHash<PE::Fr>,
 {
     //////////////////////////
     // Initialization phase //
@@ -115,7 +114,7 @@ where
         }
     }
 
-    pub fn register(&mut self, kr: &mut KeyReg<P>) {
+    pub fn register(&mut self, kr: &mut KeyReg<PE>) {
         // (msk_i, mvk_i, k_i) <- MSP.Gen(Param)
         // (vk_i, sk_i) := ((mvk_i, k_i), msk_i)
         // send (Register, sid, vk_i) to F_KR
@@ -125,7 +124,7 @@ where
         kr.register(self.party_id, self.stake, pk);
     }
 
-    pub fn retrieve_all(&mut self, kr: &KeyReg<P>) {
+    pub fn retrieve_all(&mut self, kr: &KeyReg<PE>) {
         // Reg := (K(P_i), stake_i)
         // Reg is padded to length N using null entries of stake 0
         // AVK <- MT.Create(Reg)
@@ -135,7 +134,7 @@ where
         self.total_stake = Some(reg.iter().filter_map(|p| p.map(|(_, s)| s)).sum());
     }
 
-    pub fn finish(self) -> StmSigner<P> {
+    pub fn finish(self) -> StmSigner<PE> {
         StmSigner {
             party_id: self.party_id,
             stake: self.stake,
@@ -195,7 +194,6 @@ impl<PE> StmClerk<PE>
 where
     PE: PairingEngine,
     PE::G2Projective: IntoHash<PE::Fr>,
-    PE::Fr: MithrilField,
     MspSig<PE>: Ord,
 {
     pub fn new(params: StmParameters, avk: MerkleTree<PE::Fr>, total_stake: Stake) -> Self {
@@ -277,14 +275,14 @@ where
     }
 }
 
-fn dedup_sigs_for_indices<'a, P: PairingEngine>(
-    sigs: &'a [StmSig<P>],
+fn dedup_sigs_for_indices<'a, PE: PairingEngine>(
+    sigs: &'a [StmSig<PE>],
     indices: &'a [Index],
-) -> impl IntoIterator<Item = (&'a Index, &'a StmSig<P>)>
+) -> impl IntoIterator<Item = (&'a Index, &'a StmSig<PE>)>
 where
-    MspSig<P>: Ord,
+    MspSig<PE>: Ord,
 {
-    let mut sigs_by_index: HashMap<&Index, &StmSig<P>> = HashMap::new();
+    let mut sigs_by_index: HashMap<&Index, &StmSig<PE>> = HashMap::new();
     for (ix, sig) in indices.iter().zip(sigs) {
         if let Some(old_sig) = sigs_by_index.get(ix) {
             if sig.sigma < old_sig.sigma {

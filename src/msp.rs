@@ -16,124 +16,121 @@ use rand_core::{OsRng, RngCore};
 use std::cmp::Ordering;
 use std::marker::PhantomData;
 
-pub struct Msp<P: PairingEngine> {
-    x: PhantomData<P>,
+pub struct Msp<PE: PairingEngine> {
+    x: PhantomData<PE>,
 }
 
 #[derive(Clone, Copy)]
-pub struct MspSk<P: PairingEngine>(P::Fr);
+pub struct MspSk<PE: PairingEngine>(PE::Fr);
 
 #[derive(Debug, Clone, Copy)]
-pub struct MspMvk<P: PairingEngine>(pub P::G2Projective);
+pub struct MspMvk<PE: PairingEngine>(pub PE::G2Projective);
 
 #[derive(Debug, Clone, Copy)]
-pub struct MspPk<P: PairingEngine> {
-    pub mvk: MspMvk<P>,
-    pub k1: P::G1Projective,
-    pub k2: P::G1Projective,
+pub struct MspPk<PE: PairingEngine> {
+    pub mvk: MspMvk<PE>,
+    pub k1: PE::G1Projective,
+    pub k2: PE::G1Projective,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct MspSig<P: PairingEngine>(P::G1Projective);
+pub struct MspSig<PE: PairingEngine>(PE::G1Projective);
 
-impl<P: PairingEngine> MspSig<P>
+impl<PE: PairingEngine> MspSig<PE>
 where
-    P::G1Projective: AsCoord,
+    PE::G1Projective: AsCoord,
 {
     fn cmp_msp_sig(&self, other: &Self) -> Ordering {
         self.0.as_coords().cmp(&other.0.as_coords())
     }
 }
 
-impl<P: PairingEngine> PartialOrd for MspSig<P>
+impl<PE: PairingEngine> PartialOrd for MspSig<PE>
 where
-    P::G1Projective: AsCoord,
+    PE::G1Projective: AsCoord,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp_msp_sig(other))
     }
 }
 
-impl<P: PairingEngine> Ord for MspSig<P>
+impl<PE: PairingEngine> Ord for MspSig<PE>
 where
-    P::G1Projective: AsCoord,
+    PE::G1Projective: AsCoord,
 {
     fn cmp(&self, other: &Self) -> Ordering {
         self.cmp_msp_sig(other)
     }
 }
 
-static POP: &[u8] = b"PoP";
-static M: &[u8] = b"M";
+const POP: &[u8] = b"PoP";
+const M: &[u8] = b"M";
 
-impl<P> Msp<P>
-where
-    P: PairingEngine,
-{
-    pub fn gen() -> (MspSk<P>, MspPk<P>) {
+impl<PE: PairingEngine> Msp<PE> {
+    pub fn gen() -> (MspSk<PE>, MspPk<PE>) {
         // sk=x <- Zq
         let mut rng = OsRng::default();
-        let x = P::Fr::from(rng.next_u64());
+        let x = PE::Fr::from(rng.next_u64());
         // mvk <- g2^x
-        let mvk = MspMvk(P::G2Affine::prime_subgroup_generator().mul(x));
+        let mvk = MspMvk(PE::G2Affine::prime_subgroup_generator().mul(x));
         // k1 <- H_G1("PoP"||mvk)^x
-        let k1 = hash_to_curve::<P::G1Affine>([POP, &mvk.to_bytes()].concat().as_ref()).mul(x);
+        let k1 = hash_to_curve::<PE::G1Affine>([POP, &mvk.to_bytes()].concat().as_ref()).mul(x);
         // k2 <- g1^x
-        let k2 = P::G1Affine::prime_subgroup_generator().mul(x);
+        let k2 = PE::G1Affine::prime_subgroup_generator().mul(x);
         // return sk,mvk,k=(k1,k2)
         (MspSk(x), MspPk { mvk, k1, k2 })
     }
 
-    pub fn check(pk: &MspPk<P>) -> bool {
+    pub fn check(pk: &MspPk<PE>) -> bool {
         // if e(k1,g2) = e(H_G1("PoP"||mvk),mvk)
         //      and e(g1,mvk) = e(k2,g2)
         //      are both true, return 1
-        let mvk_g2 = P::G2Affine::from(pk.mvk.0);
-        let e_k1_g2 = P::pairing(pk.k1.into(), P::G2Affine::prime_subgroup_generator());
-        let h_pop_mvk = hash_to_curve::<P::G1Affine>([POP, &pk.mvk.to_bytes()].concat().as_ref());
-        let e_hg1_mvk = P::pairing(h_pop_mvk, mvk_g2);
+        let mvk_g2 = PE::G2Affine::from(pk.mvk.0);
+        let e_k1_g2 = PE::pairing(pk.k1.into(), PE::G2Affine::prime_subgroup_generator());
+        let h_pop_mvk = hash_to_curve::<PE::G1Affine>([POP, &pk.mvk.to_bytes()].concat().as_ref());
+        let e_hg1_mvk = PE::pairing(h_pop_mvk, mvk_g2);
 
-        let e_g1_mvk = P::pairing(P::G1Affine::prime_subgroup_generator(), mvk_g2);
-        let e_k2_g2 = P::pairing(pk.k2.into(), P::G2Affine::prime_subgroup_generator());
+        let e_g1_mvk = PE::pairing(PE::G1Affine::prime_subgroup_generator(), mvk_g2);
+        let e_k2_g2 = PE::pairing(pk.k2.into(), PE::G2Affine::prime_subgroup_generator());
 
         (e_k1_g2 == e_hg1_mvk) && (e_g1_mvk == e_k2_g2)
     }
 
-    pub fn sig(sk: &MspSk<P>, msg: &[u8]) -> MspSig<P> {
+    pub fn sig(sk: &MspSk<PE>, msg: &[u8]) -> MspSig<PE> {
         // return sigma <- H_G1("M"||msg)^x
-        let g1 = hash_to_curve::<P::G1Affine>([M, msg].concat().as_ref());
+        let g1 = hash_to_curve::<PE::G1Affine>([M, msg].concat().as_ref());
         MspSig(g1.mul(sk.0))
     }
 
-    pub fn ver(msg: &[u8], mvk: &MspMvk<P>, sigma: &MspSig<P>) -> bool {
+    pub fn ver(msg: &[u8], mvk: &MspMvk<PE>, sigma: &MspSig<PE>) -> bool {
         // return 1 if e(sigma,g2) = e(H_G1("M"||msg),mvk)
-        let e_sigma_g2 = P::pairing(
-            P::G1Affine::from(sigma.0),
-            P::G2Affine::prime_subgroup_generator(),
+        let e_sigma_g2 = PE::pairing(
+            PE::G1Affine::from(sigma.0),
+            PE::G2Affine::prime_subgroup_generator(),
         );
-        let g1 = hash_to_curve::<P::G1Affine>([M, msg].concat().as_ref());
-        let e_hg1_mvk = P::pairing(g1, P::G2Affine::from(mvk.0));
+        let g1 = hash_to_curve::<PE::G1Affine>([M, msg].concat().as_ref());
+        let e_hg1_mvk = PE::pairing(g1, PE::G2Affine::from(mvk.0));
 
         e_sigma_g2 == e_hg1_mvk
     }
 
     // MSP.AKey
-    pub fn aggregate_keys(mvks: &[MspMvk<P>]) -> MspMvk<P> {
+    pub fn aggregate_keys(mvks: &[MspMvk<PE>]) -> MspMvk<PE> {
         MspMvk(mvks.iter().map(|s| s.0).sum())
     }
 
     // MSP.Aggr
-    pub fn aggregate_sigs(msg: &[u8], sigmas: &[MspSig<P>]) -> MspSig<P> {
+    pub fn aggregate_sigs(msg: &[u8], sigmas: &[MspSig<PE>]) -> MspSig<PE> {
         // XXX: what is d?
         MspSig(sigmas.iter().map(|s| s.0).sum())
     }
 
     // MSP.AVer
-    pub fn aggregate_ver(msg: &[u8], ivk: &MspMvk<P>, mu: &MspSig<P>) -> bool {
+    pub fn aggregate_ver(msg: &[u8], ivk: &MspMvk<PE>, mu: &MspSig<PE>) -> bool {
         Self::ver(msg, ivk, mu)
     }
 
-    pub fn eval(msg: &[u8], index: Index, sigma: &MspSig<P>) -> u64 {
+    pub fn eval(msg: &[u8], index: Index, sigma: &MspSig<PE>) -> u64 {
         let mut hasher: VarBlake2b = VariableOutput::new(8).unwrap();
         // // H("map"||msg||index||sigma)
         hasher.update(
@@ -155,7 +152,7 @@ where
     }
 }
 
-impl<P: PairingEngine> MspMvk<P> {
+impl<PE: PairingEngine> MspMvk<PE> {
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = vec![];
         self.0.write(&mut bytes).unwrap();
@@ -163,7 +160,7 @@ impl<P: PairingEngine> MspMvk<P> {
     }
 }
 
-impl<P: PairingEngine> MspSig<P> {
+impl<PE: PairingEngine> MspSig<PE> {
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = vec![];
         self.0.write(&mut bytes).unwrap();
@@ -171,22 +168,22 @@ impl<P: PairingEngine> MspSig<P> {
     }
 }
 
-impl<P: PairingEngine> IntoHash<P::Fr> for MspMvk<P>
+impl<PE: PairingEngine> IntoHash<PE::Fr> for MspMvk<PE>
 where
-    P::G2Projective: IntoHash<P::Fr>,
-    P::Fr: MithrilField,
+    PE::G2Projective: IntoHash<PE::Fr>,
+    PE::Fr: MithrilField,
 {
-    fn into_hash<'a>(&self, hasher: &mut MithrilHasher<'a, P::Fr>) -> MithrilFieldWrapper<P::Fr> {
+    fn into_hash<'a>(&self, hasher: &mut MithrilHasher<'a, PE::Fr>) -> MithrilFieldWrapper<PE::Fr> {
         self.0.into_hash(hasher)
     }
 }
 
-impl<P: PairingEngine> IntoHash<P::Fr> for MspPk<P>
+impl<PE: PairingEngine> IntoHash<PE::Fr> for MspPk<PE>
 where
-    P::G2Projective: IntoHash<P::Fr>,
-    P::Fr: MithrilField,
+    PE::G2Projective: IntoHash<PE::Fr>,
+    PE::Fr: MithrilField,
 {
-    fn into_hash<'a>(&self, hasher: &mut MithrilHasher<'a, P::Fr>) -> MithrilFieldWrapper<P::Fr> {
+    fn into_hash<'a>(&self, hasher: &mut MithrilHasher<'a, PE::Fr>) -> MithrilFieldWrapper<PE::Fr> {
         self.mvk.into_hash(hasher)
     }
 }

@@ -12,12 +12,12 @@ use ark_ec::PairingEngine;
 use std::collections::HashSet;
 use std::iter::FromIterator;
 
-pub trait Proof<P: PairingEngine> {
+pub trait Proof<PE: PairingEngine> {
     fn prove(
-        avk: &MerkleTree<P::Fr>,
-        ivk: &MspMvk<P>,
+        avk: &MerkleTree<PE::Fr>,
+        ivk: &MspMvk<PE>,
         msg: &[u8],
-        sigs: &[StmSig<P>],
+        sigs: &[StmSig<PE>],
         indices: &[Index],
         evals: &[u64],
     ) -> Self;
@@ -25,8 +25,8 @@ pub trait Proof<P: PairingEngine> {
         &self,
         params: &StmParameters,
         total_stake: u64,
-        avk: &MerkleTree<P::Fr>,
-        ivk: &MspMvk<P>,
+        avk: &MerkleTree<PE::Fr>,
+        ivk: &MspMvk<PE>,
         msg: &[u8],
     ) -> bool;
 }
