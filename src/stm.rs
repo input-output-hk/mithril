@@ -4,9 +4,7 @@ use super::{ev_lt_phi, Index, PartyId, Path, Stake};
 use crate::key_reg::KeyReg;
 use crate::merkle_tree::MerkleTree;
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
-use crate::proof::Proof;
-use crate::proof::Statement;
-use crate::proof::Witness;
+use crate::proof::{Proof, ConcatProof, ConcatWitness};
 
 use std::collections::HashMap;
 
@@ -194,12 +192,12 @@ impl StmClerk {
         Msp::ver(&msgp, &sig.pk.mvk, &sig.sigma)
     }
 
-    pub fn aggregate<P: Proof>(
+    pub fn aggregate(
         &self,
         sigs: &[StmSig],
         indices: &[Index],
         msg: &[u8],
-    ) -> Result<StmMultiSig<P>, AggregationFailure> {
+    ) -> Result<StmMultiSig<ConcatProof>, AggregationFailure> {
         let msgp = self.avk.concat_with_msg(msg);
         let mut evals = Vec::new();
         let mut mvks = Vec::new();
@@ -230,31 +228,24 @@ impl StmClerk {
         let ivk = Msp::aggregate_keys(&mvks);
         let mu = Msp::aggregate_sigs(msg, &sigmas);
 
-        let stmt = Statement {
-            avk: &self.avk,
-            ivk: &ivk,
-            mu: &mu,
-            msg,
+        let witness = ConcatWitness {
+            sigs: sigs_to_verify,
+            indices: indices_to_verify,
+            evals: evals,
+            avk: self.avk.clone(),
+            ivk: ivk,
+            mu: mu,
+            msg: msg.to_vec(),
+            params: self.params,
+            total_stake: self.total_stake,
         };
 
-        let witness = Witness {
-            sigs: &sigs_to_verify,
-            indices: &indices_to_verify,
-            evals: &evals,
-        };
-
-        let proof = P::prove(stmt, witness);
+        let proof = ConcatProof::prove(&(), Box::new(|_| unreachable!()), witness);
         Ok(StmMultiSig { ivk, mu, proof })
     }
 
-    pub fn verify_msig<P: Proof>(&self, msig: &StmMultiSig<P>, msg: &[u8]) -> bool {
-        let stmt = Statement {
-            avk: &self.avk,
-            ivk: &msig.ivk,
-            mu: &msig.mu,
-            msg,
-        };
-        if !msig.proof.verify(&self.params, self.total_stake, stmt) {
+    pub fn verify_msig(&self, msig: &StmMultiSig<ConcatProof>, msg: &[u8]) -> bool {
+        if !msig.proof.verify(&(), Box::new(|p| p.check())) {
             return false;
         }
         let msgp = self.avk.concat_with_msg(msg);
@@ -283,7 +274,6 @@ fn dedup_sigs_for_indices<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::proof::ConcatProof;
     use proptest::collection::{hash_map, vec};
     use proptest::prelude::*;
     use rayon::prelude::*;
@@ -437,7 +427,7 @@ mod tests {
             let all_ps: Vec<usize> = (0..nparties).collect();
             let (ixs, sigs) = find_signatures(m, k, &msg, &mut ps, &all_ps);
 
-            let msig = clerk.aggregate::<ConcatProof>(&sigs, &ixs, &msg);
+            let msig = clerk.aggregate(&sigs, &ixs, &msg);
 
             match msig {
                 Ok(aggr) =>
@@ -501,7 +491,7 @@ mod tests {
 
             let clerk = StmClerk::from_signer(&ps[0]);
 
-            let msig = clerk.aggregate::<ConcatProof>(&sigs, &ixs, &msg);
+            let msig = clerk.aggregate(&sigs, &ixs, &msg);
             match msig {
                 Err(AggregationFailure::NotEnoughSignatures(n)) =>
                     assert!(n < params.k as usize),
