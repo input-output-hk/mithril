@@ -4,7 +4,8 @@ use super::{ev_lt_phi, Index, PartyId, Path, Stake};
 use crate::key_reg::KeyReg;
 use crate::merkle_tree::MerkleTree;
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
-use crate::proof::{Proof, ConcatProof, ConcatWitness};
+use crate::proof::ProofSystem;
+use crate::mithril_proof::{ConcatProof,Witness,Statement};
 
 use std::collections::HashMap;
 
@@ -63,10 +64,10 @@ pub struct StmSig {
 /// Aggregated signature of many parties.
 /// Contains proof that it is well-formed.
 #[derive(Clone)]
-pub struct StmMultiSig<P> {
+pub struct StmMultiSig<P: ProofSystem> {
     ivk: MspMvk,
     mu: MspSig,
-    proof: P,
+    proof: P::Proof,
 }
 
 /// Error types for aggregation.
@@ -228,24 +229,38 @@ impl StmClerk {
         let ivk = Msp::aggregate_keys(&mvks);
         let mu = Msp::aggregate_sigs(msg, &sigmas);
 
-        let witness = ConcatWitness {
+        let statement = Statement {
+            avk: &self.avk,
+            ivk: &ivk,
+            mu: &mu,
+            msg: msg,
+            params: &self.params,
+            total_stake: self.total_stake,
+        };
+        let witness = Witness {
             sigs: sigs_to_verify,
             indices: indices_to_verify,
             evals: evals,
-            avk: self.avk.clone(),
-            ivk: ivk,
-            mu: mu,
-            msg: msg.to_vec(),
-            params: self.params,
-            total_stake: self.total_stake,
         };
 
-        let proof = ConcatProof::prove(&(), Box::new(|_| unreachable!()), witness);
+        let ps = ConcatProof::new();
+        let proof = ps.prove((), statement, witness);
         Ok(StmMultiSig { ivk, mu, proof })
     }
 
     pub fn verify_msig(&self, msig: &StmMultiSig<ConcatProof>, msg: &[u8]) -> bool {
-        if !msig.proof.verify(&(), Box::new(|p| p.check())) {
+        let ps = ConcatProof::new();
+        let statement = Statement {
+            // Specific to the message and signatures
+            ivk: &msig.ivk,
+            mu: &msig.mu,
+            msg: msg,
+            // These are "background" information"
+            avk: &self.avk,
+            params: &self.params,
+            total_stake: self.total_stake,
+        };
+        if !ps.verify((), &msig.proof, &statement) {
             return false;
         }
         let msgp = self.avk.concat_with_msg(msg);
