@@ -1,14 +1,31 @@
-//! Creation and verification of Merkle Trees using the Neptune hash.
+//! Creation and verification of Merkle Trees
 use crate::Path;
 
+/// This trait describes a hashing algorithm. For mithril we need
+/// (1) a way to inject stored values into the tree
+/// (2) a way to combine hashes
+/// (H_p is used for both of these in the paper)
 pub trait HashLeaf<L> {
     type F: Eq + Clone + std::fmt::Debug;
 
+    /// Create a new hasher
     fn new() -> Self;
+
+    /// This should be some "null" representative
     fn zero() -> Self::F;
+
+    /// How to map (or label) values with their hash values
     fn inject(v: &L) -> Self::F;
+
+    /// How to extract hashes as bytes
     fn as_bytes(h: &Self::F) -> Vec<u8>;
+
+    /// Combine (and hash) two hash values
     fn hash_children(&mut self, left: &Self::F, right: &Self::F) -> Self::F;
+
+    /// Hash together an arbitrary number of values,
+    /// Reducing the input with `zero()` as the initial value
+    /// and `hash_children` as the operation
     fn hash(&mut self, leaf: &[Self::F]) -> Self::F {
         leaf.into_iter()
             .fold(Self::zero(), |h, l| self.hash_children(&h, &l))
