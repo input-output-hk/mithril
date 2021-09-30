@@ -4,7 +4,7 @@ use super::Index;
 use crate::ev_lt_phi;
 use crate::merkle_tree::{HashLeaf, MerkleTree};
 use crate::msp::{Msp, MspMvk};
-use crate::stm::{StmParameters, StmSig, MTValue};
+use crate::stm::{MTValue, StmParameters, StmSig};
 
 use ark_ec::PairingEngine;
 use std::collections::HashSet;
@@ -12,7 +12,7 @@ use std::iter::FromIterator;
 
 pub trait Proof<PE: PairingEngine, H: HashLeaf<MTValue<PE>>> {
     fn prove(
-        avk: &MerkleTree<MTValue<PE>,H>,
+        avk: &MerkleTree<MTValue<PE>, H>,
         ivk: &MspMvk<PE>,
         msg: &[u8],
         sigs: &[StmSig<PE, H::F>],
@@ -23,7 +23,7 @@ pub trait Proof<PE: PairingEngine, H: HashLeaf<MTValue<PE>>> {
         &self,
         params: &StmParameters,
         total_stake: u64,
-        avk: &MerkleTree<MTValue<PE>,H>,
+        avk: &MerkleTree<MTValue<PE>, H>,
         ivk: &MspMvk<PE>,
         msg: &[u8],
     ) -> bool;
@@ -46,7 +46,7 @@ where
     H: HashLeaf<MTValue<P>>,
 {
     fn prove(
-        _avk: &MerkleTree<MTValue<P>,H>,
+        _avk: &MerkleTree<MTValue<P>, H>,
         _ivk: &MspMvk<P>,
         _msg: &[u8],
         sigs: &[StmSig<P, H::F>],
@@ -64,7 +64,7 @@ where
         &self,
         params: &StmParameters,
         total_stake: u64,
-        avk: &MerkleTree<MTValue<P>,H>,
+        avk: &MerkleTree<MTValue<P>, H>,
         ivk: &MspMvk<P>,
         msg: &[u8],
     ) -> bool {
@@ -88,12 +88,9 @@ where
         }
 
         // \forall i : [0..k]. path[i] is a witness for (mvk[i]), stake[i] in avk
-        let path_check = self.sigs[0..params.k as usize].iter().all(|sig| {
-            avk.check(&MTValue(sig.pk.mvk, sig.stake),
-                sig.party,
-                &sig.path,
-            )
-        });
+        let path_check = self.sigs[0..params.k as usize]
+            .iter()
+            .all(|sig| avk.check(&MTValue(sig.pk.mvk, sig.stake), sig.party, &sig.path));
 
         // \forall i : [1..k]. ev[i] = MSP.Eval(msg, index[i], sig[i])
         let msp_evals = self.indices[0..params.k as usize]

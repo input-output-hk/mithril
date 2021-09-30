@@ -35,7 +35,7 @@ where
 {
     party_id: PartyId,
     stake: Stake,
-    avk: Option<MerkleTree<MTValue<PE>,H>>,
+    avk: Option<MerkleTree<MTValue<PE>, H>>,
     sk: Option<MspSk<PE>>,
     pk: Option<MspPk<PE>>,
     total_stake: Option<Stake>,
@@ -52,7 +52,7 @@ where
     stake: Stake,
     params: StmParameters,
     total_stake: Stake,
-    avk: MerkleTree<MTValue<PE>,H>,
+    avk: MerkleTree<MTValue<PE>, H>,
     sk: MspSk<PE>,
     pk: MspPk<PE>,
 }
@@ -63,7 +63,7 @@ where
     H: HashLeaf<MTValue<PE>>,
     PE: PairingEngine,
 {
-    avk: MerkleTree<MTValue<PE>,H>,
+    avk: MerkleTree<MTValue<PE>, H>,
     params: StmParameters,
     total_stake: Stake,
 }
@@ -132,7 +132,7 @@ where
         // Reg := (K(P_i), stake_i)
         // Reg is padded to length N using null entries of stake 0
         // AVK <- MT.Create(Reg)
-        let reg : Vec<MTValue<PE>> = kr
+        let reg: Vec<MTValue<PE>> = kr
             .retrieve_all()
             .into_iter()
             .map(|so| {
@@ -142,11 +142,7 @@ where
             .collect();
         self.avk = Some(MerkleTree::create(&reg));
         // get total stake
-        self.total_stake = Some(
-            reg.iter()
-                .map(|s| s.1)
-                .sum(),
-        );
+        self.total_stake = Some(reg.iter().map(|s| s.1).sum());
     }
 
     pub fn finish(self) -> StmSigner<H, PE> {
@@ -212,7 +208,7 @@ where
     PE: PairingEngine,
     PE::G1Projective: ToConstraintField<PE::Fq>,
 {
-    pub fn new(params: StmParameters, avk: MerkleTree<MTValue<PE>,H>, total_stake: Stake) -> Self {
+    pub fn new(params: StmParameters, avk: MerkleTree<MTValue<PE>, H>, total_stake: Stake) -> Self {
         Self {
             params,
             avk,
@@ -229,14 +225,13 @@ where
         let ev = Msp::eval(&msgp, index, &sig.sigma);
 
         if !ev_lt_phi(self.params.phi_f, ev, sig.stake, self.total_stake)
-            || !self.avk.check(&MTValue(sig.pk.mvk, sig.stake),
-                               sig.party,
-                               &sig.path,
-            )
+            || !self
+                .avk
+                .check(&MTValue(sig.pk.mvk, sig.stake), sig.party, &sig.path)
         {
             return false;
         }
-        true // Msp::ver(&msgp, &sig.pk.mvk, &sig.sigma)
+        Msp::ver(&msgp, &sig.pk.mvk, &sig.sigma)
     }
 
     pub fn aggregate<P: Proof<PE, H>>(
@@ -420,7 +415,10 @@ mod tests {
         msg: &[u8],
         ps: &[StmSigner<H, Bls12_377>],
         is: &[usize],
-    ) -> (Vec<Index>, Vec<StmSig<Bls12_377, <H as HashLeaf<MTValue<Bls12_377>>>::F>>) {
+    ) -> (
+        Vec<Index>,
+        Vec<StmSig<Bls12_377, <H as HashLeaf<MTValue<Bls12_377>>>::F>>,
+    ) {
         let indices: Vec<_> = (1..m).collect();
         let res = indices
             .par_iter()

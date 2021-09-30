@@ -6,10 +6,10 @@ use std::collections::HashMap;
 use super::msp::{Msp, MspPk};
 use super::{PartyId, Stake};
 
-use num_traits::identities::Zero;
-use ark_ec::{PairingEngine};
+use ark_ec::PairingEngine;
 use ark_ff::ToBytes;
 use ark_std::io::Write;
+use num_traits::identities::Zero;
 
 pub struct KeyReg<PE>
 where
@@ -33,7 +33,7 @@ impl<PE: PairingEngine> RegParty<PE> {
                 k1: PE::G1Projective::zero(),
                 k2: PE::G1Projective::zero(),
             },
-            stake: 0
+            stake: 0,
         }
     }
 }

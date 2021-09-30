@@ -33,7 +33,7 @@ pub trait HashLeaf<L> {
 }
 
 #[derive(Debug, Clone)]
-pub struct MerkleTree<L,H>
+pub struct MerkleTree<L, H>
 where
     H: HashLeaf<L>,
 {
@@ -50,13 +50,13 @@ where
     n: usize,
 }
 
-impl<L,H> MerkleTree<L,H>
+impl<L, H> MerkleTree<L, H>
 where
     H: HashLeaf<L>,
 {
     /// converting a single V to bytes, and then calling H::from_bytes() should result
     /// in an H::F
-    pub fn create(leaves: &[L]) -> MerkleTree<L,H> {
+    pub fn create(leaves: &[L]) -> MerkleTree<L, H> {
         let n = leaves.len();
         let mut hasher = H::new();
         assert!(n > 0, "MerkleTree::create() called with no leaves");
