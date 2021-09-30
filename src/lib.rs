@@ -6,12 +6,8 @@ pub mod merkle_tree;
 pub mod msp;
 pub mod proof;
 pub mod stm;
-
 pub mod mithril_curves;
-pub mod mithril_hash;
 
-use ark_ff::fields::{PrimeField, SquareRootField};
-use mithril_curves::wrapper::MithrilFieldWrapper;
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
@@ -26,9 +22,7 @@ pub type Index = u64;
 /// Path of hashes from root to leaf in a Merkle Tree.
 /// Used to verify the credentials of users and signatures.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Path<F>(Vec<MithrilFieldWrapper<F>>)
-where
-    F: PrimeField + SquareRootField;
+pub struct Path<F>(Vec<F>);
 
 /// Compares the output of `phi` (a real) to the output of `ev` (a hash).
 /// Used to determine winning lottery tickets.

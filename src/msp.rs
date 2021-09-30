@@ -1,15 +1,10 @@
 //! Base multisignature scheme. Currently using BLS12.
 
-use super::mithril_curves::{
-    hash_to_curve,
-    wrapper::{MithrilField, MithrilFieldWrapper},
-    AsCoord,
-};
-use super::mithril_hash::{IntoHash, MithrilHasher};
+use super::mithril_curves::hash_to_curve;
 use super::Index;
 
 use ark_ec::{AffineCurve, PairingEngine};
-use ark_ff::bytes::ToBytes;
+use ark_ff::{bytes::ToBytes, ToConstraintField};
 use blake2::VarBlake2b;
 use digest::{Update, VariableOutput};
 use rand_core::{OsRng, RngCore};
@@ -38,16 +33,16 @@ pub struct MspSig<PE: PairingEngine>(PE::G1Projective);
 
 impl<PE: PairingEngine> MspSig<PE>
 where
-    PE::G1Projective: AsCoord,
+    PE::G1Projective: ToConstraintField<PE::Fq>,
 {
     fn cmp_msp_sig(&self, other: &Self) -> Ordering {
-        self.0.as_coords().cmp(&other.0.as_coords())
+        self.0.to_field_elements().cmp(&other.0.to_field_elements())
     }
 }
 
 impl<PE: PairingEngine> PartialOrd for MspSig<PE>
 where
-    PE::G1Projective: AsCoord,
+    PE::G1Projective: ToConstraintField<PE::Fq>,
 {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp_msp_sig(other))
@@ -56,7 +51,7 @@ where
 
 impl<PE: PairingEngine> Ord for MspSig<PE>
 where
-    PE::G1Projective: AsCoord,
+    PE::G1Projective: ToConstraintField<PE::Fq>,
 {
     fn cmp(&self, other: &Self) -> Ordering {
         self.cmp_msp_sig(other)
@@ -154,9 +149,7 @@ impl<PE: PairingEngine> Msp<PE> {
 
 impl<PE: PairingEngine> MspMvk<PE> {
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = vec![];
-        self.0.write(&mut bytes).unwrap();
-        bytes
+        ark_ff::to_bytes!(self.0).unwrap()
     }
 }
 
@@ -165,26 +158,6 @@ impl<PE: PairingEngine> MspSig<PE> {
         let mut bytes = vec![];
         self.0.write(&mut bytes).unwrap();
         bytes
-    }
-}
-
-impl<PE: PairingEngine> IntoHash<PE::Fr> for MspMvk<PE>
-where
-    PE::G2Projective: IntoHash<PE::Fr>,
-    PE::Fr: MithrilField,
-{
-    fn into_hash<'a>(&self, hasher: &mut MithrilHasher<'a, PE::Fr>) -> MithrilFieldWrapper<PE::Fr> {
-        self.0.into_hash(hasher)
-    }
-}
-
-impl<PE: PairingEngine> IntoHash<PE::Fr> for MspPk<PE>
-where
-    PE::G2Projective: IntoHash<PE::Fr>,
-    PE::Fr: MithrilField,
-{
-    fn into_hash<'a>(&self, hasher: &mut MithrilHasher<'a, PE::Fr>) -> MithrilFieldWrapper<PE::Fr> {
-        self.mvk.into_hash(hasher)
     }
 }
 

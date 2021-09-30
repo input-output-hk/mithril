@@ -1,15 +1,11 @@
-use blake2::VarBlake2b;
-use digest::{Update, VariableOutput};
+use digest::ExtendableOutput;
+use sha3::Shake256;
+use std::io::Write;
 use std::vec::Vec;
 
 pub fn hash_message(msg: &[u8], out_len: usize) -> Vec<u8> {
-    let mut dest = vec![0; out_len];
-    let mut hasher: VarBlake2b = VariableOutput::new(out_len).unwrap();
-
-    hasher.update(msg);
-    hasher.finalize_variable(|out| {
-        dest.copy_from_slice(out);
-    });
-
-    dest
+    let mut hasher = Shake256::default();
+    hasher.write(msg).unwrap();
+    let out = hasher.finalize_boxed(out_len);
+    out.to_vec()
 }

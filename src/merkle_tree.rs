@@ -1,21 +1,61 @@
 //! Creation and verification of Merkle Trees using the Neptune hash.
-
-use crate::mithril_curves::wrapper::{MithrilField, MithrilFieldWrapper};
-use crate::mithril_hash::{IntoHash, MithrilHasher};
 use crate::Path;
-use ark_ff::biginteger::BigInteger;
-use neptune::poseidon::{Poseidon, PoseidonConstants};
+
+pub trait HashLeaf<L> {
+    type F: Eq + Clone + std::fmt::Debug;
+
+    fn new() -> Self;
+    fn zero() -> Self::F;
+    fn inject(v: &L) -> Self::F;
+    fn as_bytes(h: &Self::F) -> Vec<u8>;
+    fn hash_children(&mut self, left: &Self::F, right: &Self::F) -> Self::F;
+    fn hash(&mut self, leaf: &[Self::F]) -> Self::F {
+        leaf.into_iter()
+            .fold(Self::zero(), |h, l| self.hash_children(&h, &l))
+    }
+}
+
+pub mod digest {
+    use super::HashLeaf;
+    use sha3::Digest;
+
+    impl<T: ark_ff::ToBytes, D: Digest> HashLeaf<T> for D {
+        type F = Vec<u8>;
+
+        fn new() -> Self {
+            Self::new()
+        }
+
+        fn inject(v: &T) -> Self::F {
+            ark_ff::to_bytes!(v).unwrap()
+        }
+
+        fn zero() -> Self::F {
+            vec![0]
+        }
+
+        fn as_bytes(h: &Self::F) -> Vec<u8> {
+            h.to_vec()
+        }
+
+        fn hash_children(&mut self, left: &Self::F, right: &Self::F) -> Self::F {
+            let input: &[u8] = &[&left[..], &right[..]].concat();
+
+            D::digest(input)[..].to_vec()
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
-pub struct MerkleTree<F>
+pub struct MerkleTree<L,H>
 where
-    F: MithrilField,
+    H: HashLeaf<L>,
 {
     // The nodes are stored in an array heap:
     // nodes[0] is the root,
     // the parent of nodes[i] is nodes[(i-1)/2]
     // the children of nodes[i] are {nodes[2i + 1], nodes[2i + 2]}
-    nodes: Vec<MithrilFieldWrapper<F>>,
+    nodes: Vec<H::F>,
 
     // The leaves begin at nodes[leaf_off]
     leaf_off: usize,
@@ -24,38 +64,42 @@ where
     n: usize,
 }
 
-impl<F> MerkleTree<F>
+impl<L,H> MerkleTree<L,H>
 where
-    F: MithrilField,
+    H: HashLeaf<L>,
 {
-    pub fn create<V: IntoHash<F>>(leaves: &[V]) -> MerkleTree<F> {
+    /// converting a single V to bytes, and then calling H::from_bytes() should result
+    /// in an H::F
+    pub fn create(leaves: &[L]) -> MerkleTree<L,H> {
         let n = leaves.len();
+        let mut hasher = H::new();
         assert!(n > 0, "MerkleTree::create() called with no leaves");
 
         let num_nodes = n + n.next_power_of_two() - 1;
 
-        let mut nodes: Vec<MithrilFieldWrapper<F>> =
-            vec![MithrilFieldWrapper(F::zero()); num_nodes];
+        let mut nodes = vec![H::zero(); num_nodes];
 
         // Get the hasher, potentially creating it for this thread.
-        let constants = PoseidonConstants::new();
-        let mut hasher: MithrilHasher<F> = Poseidon::new(&constants);
+        // let constants = PoseidonConstants::new();
+        // let mut hasher: MithrilHasher<F> = Poseidon::new(&constants);
         for i in 0..n {
-            nodes[num_nodes - n + i] = hash_leaf(&mut hasher, &leaves[i]);
+            let leaf_hash = H::inject(&leaves[i]);
+            nodes[num_nodes - n + i] = hasher.hash(&[leaf_hash]);
         }
 
         for i in (0..num_nodes - n).rev() {
+            let z = H::zero();
             let left = if left_child(i) < num_nodes {
-                nodes[left_child(i)]
+                &nodes[left_child(i)]
             } else {
-                MithrilFieldWrapper(F::zero())
+                &z
             };
             let right = if right_child(i) < num_nodes {
-                nodes[right_child(i)]
+                &nodes[right_child(i)]
             } else {
-                left
+                &left
             };
-            nodes[i] = hash_nodes(&mut hasher, left, right);
+            nodes[i] = hasher.hash_children(left, right);
         }
 
         Self {
@@ -67,7 +111,7 @@ where
 
     /// Check an inclusion proof that `val` is the `i`th leaf stored in the tree.
     /// Requires i < self.n
-    pub fn check<V: IntoHash<F>>(&self, val: &V, i: usize, proof: &Path<F>) -> bool {
+    pub fn check(&self, val: &L, i: usize, proof: &Path<H::F>) -> bool {
         assert!(
             i < self.n,
             "check index out of bounds: asked for {} out of {}",
@@ -76,15 +120,14 @@ where
         );
         let mut idx = i;
 
-        // Get the hasher, potentially creating it for this thread.
-        let constants = PoseidonConstants::new();
-        let mut hasher: MithrilHasher<F> = Poseidon::new(&constants);
-        let mut h = hash_leaf(&mut hasher, val);
+        let mut hasher = H::new();
+        let leaf_hash = H::inject(val);
+        let mut h = hasher.hash(&[leaf_hash]);
         for p in &proof.0 {
             if (idx & 0b1) == 0 {
-                h = hash_nodes(&mut hasher, h, *p);
+                h = hasher.hash_children(&h, p);
             } else {
-                h = hash_nodes(&mut hasher, *p, h);
+                h = hasher.hash_children(p, &h);
             }
             idx = idx >> 1;
         }
@@ -93,7 +136,7 @@ where
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
-        self.nodes[0].0.into_repr().to_bytes_le()
+        H::as_bytes(&self.nodes[0])
     }
 
     // TODO: Does this belong in this module?
@@ -108,7 +151,7 @@ where
     /// Get a path (hashes of siblings of the path to the root node
     /// for the `i`th value stored in the tree.
     /// Requires `i < self.n`
-    pub fn get_path(&self, i: usize) -> Path<F> {
+    pub fn get_path(&self, i: usize) -> Path<H::F> {
         assert!(
             i < self.n,
             "Proof index out of bounds: asked for {} out of {}",
@@ -120,11 +163,11 @@ where
 
         while idx > 0 {
             let h = if sibling(idx) < self.nodes.len() {
-                self.nodes[sibling(idx)]
+                &self.nodes[sibling(idx)]
             } else {
-                self.nodes[idx]
+                &self.nodes[idx]
             };
-            proof.push(h);
+            proof.push(h.clone());
             idx = parent(idx);
         }
 
@@ -134,28 +177,6 @@ where
     fn idx_of_leaf(&self, i: usize) -> usize {
         self.leaf_off + i
     }
-}
-
-//////////////////
-// Hash Helpers //
-//////////////////
-
-fn hash_leaf<'a, F: MithrilField, V: IntoHash<F>>(
-    hasher: &mut MithrilHasher<'a, F>,
-    leaf: &V,
-) -> MithrilFieldWrapper<F> {
-    leaf.into_hash(hasher)
-}
-
-fn hash_nodes<'a, F: MithrilField>(
-    hasher: &mut MithrilHasher<'a, F>,
-    left: MithrilFieldWrapper<F>,
-    right: MithrilFieldWrapper<F>,
-) -> MithrilFieldWrapper<F> {
-    hasher.reset();
-    hasher.input(left).unwrap();
-    hasher.input(right).unwrap();
-    hasher.hash()
 }
 
 //////////////////
@@ -186,21 +207,21 @@ fn sibling(i: usize) -> usize {
         i - 1
     }
 }
-// /////////////////////
-// // Testing         //
-// /////////////////////
+
+/////////////////////
+// Testing         //
+/////////////////////
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ark_bls12_377::Fr;
     use proptest::collection::{hash_set, vec};
     use proptest::prelude::*;
 
     prop_compose! {
         fn arb_tree(max_size: u32)
-                   (v in vec(any::<u64>(), 2..(max_size as usize))) -> (MerkleTree<Fr>, Vec<u64>) {
-             (MerkleTree::create(&v), v)
+                   (v in vec(any::<u64>(), 2..(max_size as usize))) -> (MerkleTree<u64, sha3::Sha3_256>, Vec<u64>) {
+             (MerkleTree::<u64, sha3::Sha3_256>::create(&v), v)
         }
     }
 
@@ -237,13 +258,13 @@ mod tests {
             i in any::<usize>(),
             (values, proof) in values_with_invalid_proof(10)
         ) {
-            let t = MerkleTree::<Fr>::create(&values[1..]);
-            let constants = PoseidonConstants::new();
-            let mut hasher = Poseidon::new(&constants);
-
+            let t = MerkleTree::<u64, sha3::Sha3_256>::create(&values[1..]);
             let idx = i % (values.len() - 1);
 
-            let path = Path(proof.iter().map(|x| x.into_hash(&mut hasher)).collect());
+            let path = Path(proof
+                            .iter()
+                            .map(|x| sha3::Sha3_256::inject(x))
+                            .collect());
             assert!(!t.check(&values[0], idx, &path));
         }
     }

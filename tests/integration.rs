@@ -18,7 +18,7 @@ fn test_full_protocol() {
 
     let mut key_reg = KeyReg::new();
 
-    let mut ps: Vec<StmInitializer<Bls12_377>> = Vec::with_capacity(nparties);
+    let mut ps: Vec<StmInitializer<sha3::Sha3_256, Bls12_377>> = Vec::with_capacity(nparties);
     let params = StmParameters {
         k: 357,
         m: 2642,
@@ -38,7 +38,7 @@ fn test_full_protocol() {
             p.retrieve_all(&key_reg);
             p.finish()
         })
-        .collect::<Vec<StmSigner<Bls12_377>>>();
+        .collect::<Vec<StmSigner<sha3::Sha3_256, Bls12_377>>>();
 
     /////////////////////
     // operation phase //
@@ -78,10 +78,16 @@ fn test_full_protocol() {
 
     // Aggregate and verify with random parties
     println!("** Aggregating signatures");
-    let msig = clerk.aggregate::<ConcatProof<Bls12_377>>(&sigs, &ixs, &msg);
+    let msig = clerk.aggregate::<ConcatProof<Bls12_377, Vec<u8>>>(&sigs, &ixs, &msg);
     match msig {
-        Ok(aggr) => assert!(clerk.verify_msig(&aggr, &msg)),
-        Err(AggregationFailure::NotEnoughSignatures(n)) => assert!(n < params.k as usize),
+        Ok(aggr) => {
+            println!("Aggregate ok");
+            assert!(clerk.verify_msig(&aggr, &msg));
+        }
+        Err(AggregationFailure::NotEnoughSignatures(n)) => {
+            println!("Not enough signatures");
+            assert!(n < params.k as usize)
+        }
         Err(_) => assert!(false),
     }
 }

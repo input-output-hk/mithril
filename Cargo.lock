@@ -14,6 +14,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "ark-bn254"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ea691771ebbb28aea556c044e2e5c5227398d840cee0c34d4d20fa8eb2689e8c"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-std",
+]
+
+[[package]]
+name = "ark-bw6-761"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5abb465edcdee2bec3eff283e43f1c2414d1a4f6eaeb8e3de02aba3695d0520b"
+dependencies = [
+ "ark-bls12-377",
+ "ark-ec",
+ "ark-ff",
+ "ark-std",
+]
+
+[[package]]
+name = "ark-cp6-782"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb8b94a4e6f8912729377e6cbc67bee76315a3a696605f56fb4ace0a6479481d"
+dependencies = [
+ "ark-bls12-377",
+ "ark-ec",
+ "ark-ff",
+ "ark-std",
+]
+
+[[package]]
 name = "ark-crypto-primitives"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -256,8 +291,15 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4152116fd6e9dadb291ae18fc1ec3575ed6d84c29642d97890f4b4a3417297e4"
 dependencies = [
+ "block-padding",
  "generic-array",
 ]
+
+[[package]]
+name = "block-padding"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8d696c370c750c948ada61c69a0ee2cbbb9c50b1019ddb86d9317157a99c2cae"
 
 [[package]]
 name = "blst"
@@ -641,6 +683,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "keccak"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "67c21572b4949434e4fc1e1978b99c5f77064153c59d998bf13ecd96fb5ecba7"
+
+[[package]]
 name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -700,6 +748,9 @@ name = "mithril"
 version = "0.1.0"
 dependencies = [
  "ark-bls12-377",
+ "ark-bn254",
+ "ark-bw6-761",
+ "ark-cp6-782",
  "ark-crypto-primitives",
  "ark-ec",
  "ark-ff",
@@ -709,15 +760,18 @@ dependencies = [
  "criterion",
  "digest",
  "fff",
+ "generic-array",
  "groupy",
  "lazy_static",
  "neptune",
  "num-bigint 0.4.2",
+ "num-traits",
  "proptest",
  "rand 0.8.4",
  "rand_core 0.5.1",
  "rayon",
  "serde",
+ "sha3",
  "typenum",
 ]
 
@@ -1201,6 +1255,18 @@ dependencies = [
  "cfg-if",
  "cpufeatures",
  "digest",
+ "opaque-debug",
+]
+
+[[package]]
+name = "sha3"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f81199417d4e5de3f04b1e871023acea7389672c4135918f05aa9cbf2f2fa809"
+dependencies = [
+ "block-buffer",
+ "digest",
+ "keccak",
  "opaque-debug",
 ]
 
