@@ -3,11 +3,11 @@
 pub mod hashutils;
 pub mod key_reg;
 pub mod merkle_tree;
+pub mod mithril_curves;
+pub mod models;
 pub mod msp;
 pub mod proof;
 pub mod stm;
-pub mod mithril_curves;
-
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;

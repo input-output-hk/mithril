@@ -7,20 +7,12 @@ use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
 use crate::proof::Proof;
 
 use ark_ec::PairingEngine;
-use ark_ff::{ToBytes, ToConstraintField};
-use ark_std::io::Write;
+use ark_ff::ToConstraintField;
 use std::collections::HashMap;
 
 /// The values that are represented in the Merkle Tree.
 #[derive(Clone)]
 pub struct MTValue<PE: PairingEngine>(pub MspMvk<PE>, pub Stake);
-
-impl<PE: PairingEngine> ToBytes for MTValue<PE> {
-    fn write<W: Write>(&self, mut writer: W) -> std::result::Result<(), std::io::Error> {
-        self.0.0.write(&mut writer)?;
-        self.1.write(&mut writer)
-    }
-}
 
 /// Used to set protocol parameters.
 #[derive(Clone, Copy, PartialEq)]

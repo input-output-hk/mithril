@@ -32,37 +32,6 @@ pub trait HashLeaf<L> {
     }
 }
 
-pub mod digest {
-    use super::HashLeaf;
-    use sha3::Digest;
-
-    impl<T: ark_ff::ToBytes, D: Digest> HashLeaf<T> for D {
-        type F = Vec<u8>;
-
-        fn new() -> Self {
-            Self::new()
-        }
-
-        fn inject(v: &T) -> Self::F {
-            ark_ff::to_bytes!(v).unwrap()
-        }
-
-        fn zero() -> Self::F {
-            vec![0]
-        }
-
-        fn as_bytes(h: &Self::F) -> Vec<u8> {
-            h.to_vec()
-        }
-
-        fn hash_children(&mut self, left: &Self::F, right: &Self::F) -> Self::F {
-            let input: &[u8] = &[&left[..], &right[..]].concat();
-
-            D::digest(input)[..].to_vec()
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct MerkleTree<L,H>
 where
