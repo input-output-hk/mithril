@@ -54,3 +54,40 @@ $ bitcoin-cli verifytxoutproof $(cat proof)
   "757faada852390732e7a5594a33c422fe0fe350acd22bc130c6f04834964e1bf"
 ]
 ```
+
+## FAQ
+
+1. Do you see a difference between a SPV node and an SPV client or are they the same thing?
+
+As I understand it, a SPV node is really an SPV-enabled node, eg. a full node that at least can produce SPV proofs on request, and also can handle client filters whether through [Bloom filters](https://github.com/bitcoin/bips/blob/master/bip-0037.mediawiki) or [block filters](https://github.com/bitcoin/bips/blob/master/bip-0157.mediawiki). I am not aware of SPV-only nodes that would not be clients, eg. leaves in the network, because to produce a proof one has to have the whole block(s) and not only the headers.
+
+2. What goes in the proof of inclusion or SPV proof?
+
+It's the "branch" of the Merkle Tree that leads to the root which is stored in the block header, ie. a sequence of transaction hashes (transaction ids) along with their siblings. Given such a branch, one can compute the root hash it leads to by iteratively computing the hash at each node in the branch, given the previous hashes of the node's children. If the computed and actual block hashes are the same then the transaction _must_ be in that block.
+
+3. What is the MT protocol?
+
+Are they [Merkle-tree](https://en.wikipedia.org/wiki/Merkle_tree)? I don't know of any _MT protocol_.
+
+4. Is there some more information about the size of an SPV node/ SPV client?
+
+Clients: [This article](https://wiki.bitcoinsv.io/index.php/Simplified_Payment_Verification) and others mention a current total block headers size of around 50MB. To this cost, one should add the size of the data the client is interested in, eg. transactions and UTXO set.
+
+5. why is it hard for an SPV client to keep track of numerous wallets?
+
+I haven't read any specific article on this issue but I can imagine that as the number of addresses to track increases, so does the complexity of checking all of them at every block: Create or retrieve the filters, then retrieve the block(s) of interest if there's a hit, possibly trying again if it's a false positive...
+
+6. I've read somewhere that not every SPV node keeps a UTXO state, is there more information about how they manage this?
+
+I don't know
+
+7. Do you think this improved Bloom filters is something that we should explorer in the context of Mithril?
+
+Yes. I don't know if it makes sense cryptographically, but if we could in some way derive a certificate for each block filter, given a global certificate, that would allow lightweight clients and full (or mithril-aware) nodes to interact through a similar protocol: Get a root certificate, verify it against previously known "Safe" state, then filter the available UTXO set using deterministic block filters.
+
+Actually, I think we could not use the [Merkle-Patricia Tree]() we've been building for Hydra for that purpose:
+* Mithril certificate signs the root hash of a MPT built from the UTXO set
+* Mithril nodes maintain block filters
+* Clients can retrieve block filters and certificate, then request specific UTXOs
+* Mithril node sends UTXO set along with proof it's part of the MPT
+  * False positives are simply ignored
