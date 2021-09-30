@@ -23,7 +23,6 @@ pub struct Statement<'l> {
     pub(crate) total_stake: u64,
 }
 
-
 #[derive(Clone)]
 pub struct Witness {
     pub(crate) sigs: Vec<StmSig>,
@@ -34,12 +33,14 @@ pub struct Witness {
 // /// Proof system that simply concatenates the signatures.
 // #[derive(Clone)]
 // pub struct ConcatProof(Witness);
-pub struct ConcatProof<'l> { p: std::marker::PhantomData<&'l ()> }
+pub struct ConcatProof<'l> {
+    p: std::marker::PhantomData<&'l ()>,
+}
 
 impl<'l> ConcatProof<'l> {
     pub fn new() -> Self {
         Self {
-            p: std::marker::PhantomData
+            p: std::marker::PhantomData,
         }
     }
 }
@@ -54,7 +55,6 @@ impl Witness {
             && self.check_path(stmt.avk)
             && self.check_eval(stmt.avk, stmt.msg)
             && self.check_stake(stmt.params.phi_f, stmt.total_stake)
-
     }
 
     /// ivk = Prod(1..k, mvk[i])
@@ -88,9 +88,7 @@ impl Witness {
     /// k-sized quorum
     /// if this returns `true`, then then there are exactly k signatures
     fn check_quorum(&self, k: usize) -> bool {
-        k == self.sigs.len()
-            && k == self.evals.len()
-            && k == self.indices.len()
+        k == self.sigs.len() && k == self.evals.len() && k == self.indices.len()
     }
 
     /// \forall i : [0..k]. path[i] is a witness for (mvk[i]), stake[i] in avk

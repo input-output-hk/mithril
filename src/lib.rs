@@ -2,9 +2,9 @@
 
 pub mod key_reg;
 pub mod merkle_tree;
+pub mod mithril_proof;
 pub mod msp;
 pub mod proof;
-pub mod mithril_proof;
 pub mod stm;
 
 /// The quantity of stake held by a party, represented as a `u64`.

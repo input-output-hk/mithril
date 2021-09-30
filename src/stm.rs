@@ -3,9 +3,9 @@
 use super::{ev_lt_phi, Index, PartyId, Path, Stake};
 use crate::key_reg::KeyReg;
 use crate::merkle_tree::MerkleTree;
+use crate::mithril_proof::{ConcatProof, Statement, Witness};
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
 use crate::proof::ProofSystem;
-use crate::mithril_proof::{ConcatProof,Witness,Statement};
 
 use std::collections::HashMap;
 
