@@ -4,6 +4,8 @@ use super::Index;
 use crate::ev_lt_phi;
 use crate::merkle_tree::MerkleTree;
 use crate::msp::{Msp, MspMvk, MspSig};
+use crate::proof::Proof;
+use crate::proof::ProverEnv;
 use crate::stm::{StmParameters, StmSig};
 
 use std::collections::HashSet;
@@ -108,25 +110,27 @@ impl Witness {
     }
 }
 
-pub mod concat_proofs {
-    use super::*;
-    pub type ConcatProof = Witness;
-    pub struct ConcatEnv;
+pub trait MithrilProof<Env>: for<'l> Proof<Env, Statement<'l>, Self::Relation, Witness>
+where
+    Env: ProverEnv,
+{
+    type Relation;
+    const RELATION: Self::Relation;
+}
 
-    impl crate::proof::ProverEnv for ConcatEnv {
-        type VerificationKey = ();
-        type ProvingKey = ();
-        fn setup(&self) -> ((), ()) {
-            ((), ())
-        }
+pub mod concat_proofs {
+    use super::{MithrilProof, Statement, Witness};
+    pub use crate::proof::trivial::TrivialEnv;
+    use crate::proof::trivial::TrivialProof;
+
+    pub type ConcatProof = TrivialProof<Witness>;
+
+    impl MithrilProof<TrivialEnv> for TrivialProof<Witness> {
+        type Relation = for<'l> fn(&Statement<'l>, &Witness) -> bool;
+        const RELATION: for<'l> fn(&Statement<'l>, &Witness) -> bool = trivial_relation;
     }
 
-    impl<'l> crate::proof::Provable<ConcatEnv, Witness, Witness> for Statement<'l> {
-        fn prove(&self, env: &ConcatEnv, pk: &(), witness: Witness) -> Witness {
-            witness
-        }
-        fn verify(&self, env: &ConcatEnv, vk: &(), proof: &Witness) -> bool {
-            proof.verify(&self)
-        }
+    fn trivial_relation<'l>(s: &Statement<'l>, w: &Witness) -> bool {
+        w.verify(s)
     }
 }

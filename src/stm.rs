@@ -3,9 +3,9 @@
 use super::{ev_lt_phi, Index, PartyId, Path, Stake};
 use crate::key_reg::KeyReg;
 use crate::merkle_tree::MerkleTree;
-use crate::mithril_proof::{Statement, Witness};
+use crate::mithril_proof::{MithrilProof, Statement, Witness};
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
-use crate::proof::{Provable, ProverEnv};
+use crate::proof::ProverEnv;
 use std::collections::HashMap;
 
 /// Used to set protocol parameters.
@@ -211,7 +211,7 @@ impl<E: ProverEnv> StmClerk<E> {
         msg: &[u8],
     ) -> Result<StmMultiSig<Proof>, AggregationFailure>
     where
-        for<'x> Statement<'x>: Provable<E, Witness, Proof>,
+        Proof: MithrilProof<E>,
     {
         let msgp = self.avk.concat_with_msg(msg);
         let mut evals = Vec::new();
@@ -256,13 +256,13 @@ impl<E: ProverEnv> StmClerk<E> {
             indices: indices_to_verify,
             evals: evals,
         };
-        let proof = statement.prove(&self.proof_env, &self.proof_key, witness);
+        let proof = Proof::prove(&self.proof_env, &self.proof_key, &Proof::RELATION, witness);
         Ok(StmMultiSig { ivk, mu, proof })
     }
 
     pub fn verify_msig<Proof>(&self, msig: &StmMultiSig<Proof>, msg: &[u8]) -> bool
     where
-        for<'x> Statement<'x>: Provable<E, Witness, Proof>,
+        Proof: MithrilProof<E>,
     {
         let statement = Statement {
             // Specific to the message and signatures
@@ -274,7 +274,12 @@ impl<E: ProverEnv> StmClerk<E> {
             params: &self.params,
             total_stake: self.total_stake,
         };
-        if !statement.verify(&self.proof_env, &self.verif_key, &msig.proof) {
+        if !msig.proof.verify(
+            &self.proof_env,
+            &self.verif_key,
+            &Proof::RELATION,
+            &statement,
+        ) {
             return false;
         }
         let msgp = self.avk.concat_with_msg(msg);
@@ -303,7 +308,7 @@ fn dedup_sigs_for_indices<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::mithril_proof::concat_proofs::{ConcatEnv, ConcatProof};
+    use crate::mithril_proof::concat_proofs::*;
     use proptest::collection::{hash_map, vec};
     use proptest::prelude::*;
     use rayon::prelude::*;
@@ -431,7 +436,7 @@ mod tests {
             let params = StmParameters { m: (nparties as u64), k: 1, phi_f: 0.2 };
             let mut ps = setup_equal_parties(params, nparties);
             let p = &mut ps[0];
-            let clerk = StmClerk::from_signer(&p, ConcatEnv);
+            let clerk = StmClerk::from_signer(&p, TrivialEnv);
 
             for index in 1..nparties {
                 if let Some(sig) = p.sign(&msg, index as u64) {
@@ -452,7 +457,7 @@ mod tests {
                               msg in any::<[u8;16]>()) {
             let params = StmParameters { m: m, k: k, phi_f: 0.2 };
             let mut ps = setup_equal_parties(params, nparties);
-            let clerk = StmClerk::from_signer(&ps[0], ConcatEnv);
+            let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
 
             let all_ps: Vec<usize> = (0..nparties).collect();
             let (ixs, sigs) = find_signatures(m, k, &msg, &mut ps, &all_ps);
@@ -519,7 +524,7 @@ mod tests {
 
             assert!(sigs.len() < params.k as usize);
 
-            let clerk = StmClerk::from_signer(&ps[0], ConcatEnv);
+            let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
 
             let msig = clerk.aggregate::<ConcatProof>(&sigs, &ixs, &msg);
             match msig {

@@ -1,5 +1,5 @@
 use mithril::key_reg::KeyReg;
-use mithril::mithril_proof::concat_proofs::*;
+use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
 use mithril::stm::{AggregationFailure, StmClerk, StmInitializer, StmParameters, StmSigner};
 use rand;
 use rayon::prelude::*;
@@ -66,7 +66,7 @@ fn test_full_protocol() {
         sigs.extend(res.1);
     }
 
-    let clerk = StmClerk::from_signer(&ps[0], ConcatEnv);
+    let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
 
     // Check all parties can verify every sig
     println!("** Verifying signatures");
