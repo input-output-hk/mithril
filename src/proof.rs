@@ -1,24 +1,16 @@
-//! Prove the validity of aggregated signatures.
+//! General API for producing proofs from statements and witnesses
 
-pub trait ProofSystem {
-    type Proof;
-    type Statement;
-    type Witness;
-
+pub trait ProverEnv {
     type ProvingKey;
     type VerificationKey;
 
-    /// Given a statement and a witness to its truth, produce a proof
-    /// that there exists a witness such that the statement is true.
-    fn prove(&self, pk: Self::ProvingKey, stmt: Self::Statement, wit: Self::Witness)
-        -> Self::Proof;
+    fn setup(&self) -> (Self::ProvingKey, Self::VerificationKey);
+}
 
-    /// Check that `proof` is indeed a valid proof that there exists a witness to
-    /// the truth of `stmt`
-    fn verify(
-        &self,
-        vk: Self::VerificationKey,
-        proof: &Self::Proof,
-        stmt: &Self::Statement,
-    ) -> bool;
+pub trait Provable<Env, Witness, Proof>
+where
+    Env: ProverEnv,
+{
+    fn prove(&self, env: &Env, pk: &Env::ProvingKey, witness: Witness) -> Proof;
+    fn verify(&self, env: &Env, vk: &Env::VerificationKey, proof: &Proof) -> bool;
 }

@@ -1,4 +1,4 @@
-use crate::proof::ProofSystem;
+//! Prove the validity of aggregated signatures.
 
 use super::Index;
 use crate::ev_lt_phi;
@@ -28,21 +28,6 @@ pub struct Witness {
     pub(crate) sigs: Vec<StmSig>,
     pub(crate) indices: Vec<Index>,
     pub(crate) evals: Vec<u64>,
-}
-
-// /// Proof system that simply concatenates the signatures.
-// #[derive(Clone)]
-// pub struct ConcatProof(Witness);
-pub struct ConcatProof<'l> {
-    p: std::marker::PhantomData<&'l ()>,
-}
-
-impl<'l> ConcatProof<'l> {
-    pub fn new() -> Self {
-        Self {
-            p: std::marker::PhantomData,
-        }
-    }
 }
 
 impl Witness {
@@ -123,18 +108,25 @@ impl Witness {
     }
 }
 
-impl<'l> ProofSystem for ConcatProof<'l> {
-    type Statement = Statement<'l>;
-    type Proof = Witness;
-    type Witness = Witness;
-    type ProvingKey = ();
-    type VerificationKey = ();
+pub mod concat_proofs {
+    use super::*;
+    pub type ConcatProof = Witness;
+    pub struct ConcatEnv;
 
-    fn prove(&self, _pk: (), _stmt: Self::Statement, wit: Self::Witness) -> Self::Proof {
-        wit
+    impl crate::proof::ProverEnv for ConcatEnv {
+        type VerificationKey = ();
+        type ProvingKey = ();
+        fn setup(&self) -> ((), ()) {
+            ((), ())
+        }
     }
 
-    fn verify(&self, vk: (), proof: &Self::Proof, stmt: &Self::Statement) -> bool {
-        proof.verify(&stmt)
+    impl<'l> crate::proof::Provable<ConcatEnv, Witness, Witness> for Statement<'l> {
+        fn prove(&self, env: &ConcatEnv, pk: &(), witness: Witness) -> Witness {
+            witness
+        }
+        fn verify(&self, env: &ConcatEnv, vk: &(), proof: &Witness) -> bool {
+            proof.verify(&self)
+        }
     }
 }

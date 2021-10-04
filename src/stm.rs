@@ -3,10 +3,9 @@
 use super::{ev_lt_phi, Index, PartyId, Path, Stake};
 use crate::key_reg::KeyReg;
 use crate::merkle_tree::MerkleTree;
-use crate::mithril_proof::{ConcatProof, Statement, Witness};
+use crate::mithril_proof::{Statement, Witness};
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
-use crate::proof::ProofSystem;
-
+use crate::proof::{Provable, ProverEnv};
 use std::collections::HashMap;
 
 /// Used to set protocol parameters.
@@ -45,10 +44,13 @@ pub struct StmSigner {
 }
 
 /// `StmClerk` can verify and aggregate `StmSig`s and verify `StmMultiSig`s.
-pub struct StmClerk {
+pub struct StmClerk<E: ProverEnv> {
     avk: MerkleTree,
     params: StmParameters,
     total_stake: Stake,
+    proof_env: E,
+    proof_key: E::ProvingKey,
+    verif_key: E::VerificationKey,
 }
 
 /// Signature created by a single party who has won the lottery.
@@ -64,10 +66,10 @@ pub struct StmSig {
 /// Aggregated signature of many parties.
 /// Contains proof that it is well-formed.
 #[derive(Clone)]
-pub struct StmMultiSig<P: ProofSystem> {
+pub struct StmMultiSig<Proof> {
     ivk: MspMvk,
     mu: MspSig,
-    proof: P::Proof,
+    proof: Proof,
 }
 
 /// Error types for aggregation.
@@ -167,17 +169,26 @@ impl StmSigner {
     }
 }
 
-impl StmClerk {
-    pub fn new(params: StmParameters, avk: MerkleTree, total_stake: Stake) -> Self {
+impl<E: ProverEnv> StmClerk<E> {
+    pub fn new(params: StmParameters, proof_env: E, avk: MerkleTree, total_stake: Stake) -> Self {
+        let (pk, vk) = proof_env.setup();
         Self {
             params,
             avk,
             total_stake,
+            proof_env,
+            proof_key: pk,
+            verif_key: vk,
         }
     }
 
-    pub fn from_signer(signer: &StmSigner) -> Self {
-        Self::new(signer.params, signer.avk.clone(), signer.total_stake)
+    pub fn from_signer(signer: &StmSigner, proof_env: E) -> Self {
+        Self::new(
+            signer.params,
+            proof_env,
+            signer.avk.clone(),
+            signer.total_stake,
+        )
     }
 
     pub fn verify_sig(&self, sig: &StmSig, index: Index, msg: &[u8]) -> bool {
@@ -193,12 +204,15 @@ impl StmClerk {
         Msp::ver(&msgp, &sig.pk.mvk, &sig.sigma)
     }
 
-    pub fn aggregate(
+    pub fn aggregate<Proof>(
         &self,
         sigs: &[StmSig],
         indices: &[Index],
         msg: &[u8],
-    ) -> Result<StmMultiSig<ConcatProof>, AggregationFailure> {
+    ) -> Result<StmMultiSig<Proof>, AggregationFailure>
+    where
+        for<'x> Statement<'x>: Provable<E, Witness, Proof>,
+    {
         let msgp = self.avk.concat_with_msg(msg);
         let mut evals = Vec::new();
         let mut mvks = Vec::new();
@@ -242,14 +256,14 @@ impl StmClerk {
             indices: indices_to_verify,
             evals: evals,
         };
-
-        let ps = ConcatProof::new();
-        let proof = ps.prove((), statement, witness);
+        let proof = statement.prove(&self.proof_env, &self.proof_key, witness);
         Ok(StmMultiSig { ivk, mu, proof })
     }
 
-    pub fn verify_msig(&self, msig: &StmMultiSig<ConcatProof>, msg: &[u8]) -> bool {
-        let ps = ConcatProof::new();
+    pub fn verify_msig<Proof>(&self, msig: &StmMultiSig<Proof>, msg: &[u8]) -> bool
+    where
+        for<'x> Statement<'x>: Provable<E, Witness, Proof>,
+    {
         let statement = Statement {
             // Specific to the message and signatures
             ivk: &msig.ivk,
@@ -260,7 +274,7 @@ impl StmClerk {
             params: &self.params,
             total_stake: self.total_stake,
         };
-        if !ps.verify((), &msig.proof, &statement) {
+        if !statement.verify(&self.proof_env, &self.verif_key, &msig.proof) {
             return false;
         }
         let msgp = self.avk.concat_with_msg(msg);
@@ -289,6 +303,7 @@ fn dedup_sigs_for_indices<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::mithril_proof::concat_proofs::{ConcatEnv, ConcatProof};
     use proptest::collection::{hash_map, vec};
     use proptest::prelude::*;
     use rayon::prelude::*;
@@ -416,7 +431,7 @@ mod tests {
             let params = StmParameters { m: (nparties as u64), k: 1, phi_f: 0.2 };
             let mut ps = setup_equal_parties(params, nparties);
             let p = &mut ps[0];
-            let clerk = StmClerk::from_signer(&p);
+            let clerk = StmClerk::from_signer(&p, ConcatEnv);
 
             for index in 1..nparties {
                 if let Some(sig) = p.sign(&msg, index as u64) {
@@ -437,16 +452,16 @@ mod tests {
                               msg in any::<[u8;16]>()) {
             let params = StmParameters { m: m, k: k, phi_f: 0.2 };
             let mut ps = setup_equal_parties(params, nparties);
-            let clerk = StmClerk::from_signer(&ps[0]);
+            let clerk = StmClerk::from_signer(&ps[0], ConcatEnv);
 
             let all_ps: Vec<usize> = (0..nparties).collect();
             let (ixs, sigs) = find_signatures(m, k, &msg, &mut ps, &all_ps);
 
-            let msig = clerk.aggregate(&sigs, &ixs, &msg);
+            let msig = clerk.aggregate::<ConcatProof>(&sigs, &ixs, &msg);
 
             match msig {
                 Ok(aggr) =>
-                    assert!(clerk.verify_msig(&aggr, &msg)),
+                    assert!(clerk.verify_msig::<ConcatProof>(&aggr, &msg)),
                 Err(AggregationFailure::NotEnoughSignatures(n)) =>
                     assert!(n < params.k as usize),
                 _ =>
@@ -504,9 +519,9 @@ mod tests {
 
             assert!(sigs.len() < params.k as usize);
 
-            let clerk = StmClerk::from_signer(&ps[0]);
+            let clerk = StmClerk::from_signer(&ps[0], ConcatEnv);
 
-            let msig = clerk.aggregate(&sigs, &ixs, &msg);
+            let msig = clerk.aggregate::<ConcatProof>(&sigs, &ixs, &msg);
             match msig {
                 Err(AggregationFailure::NotEnoughSignatures(n)) =>
                     assert!(n < params.k as usize),
