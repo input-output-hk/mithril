@@ -7,14 +7,6 @@ pub trait ProverEnv {
     fn setup(&self) -> (Self::ProvingKey, Self::VerificationKey);
 }
 
-pub trait Provable<Env, Relation, Witness, Proof>
-where
-    Env: ProverEnv,
-{
-    fn prove(&self, env: &Env, pk: &Env::ProvingKey, rel: &Relation, witness: Witness) -> Proof;
-    fn verify(&self, env: &Env, vk: &Env::VerificationKey, rel: &Relation, proof: &Proof) -> bool;
-}
-
 pub trait Proof<Env, Statement, Relation, Witness>
 where
     Env: ProverEnv,
@@ -31,26 +23,9 @@ where
 
 pub mod trivial {
     use super::*;
-    pub struct Trivial;
-    pub struct TrivialStmt<S>(S);
-
-    pub struct TrivialProof<W>(W);
-
-    impl<Env, Stmt, R, Witness> Provable<Env, R, Witness, Witness> for Stmt
-    where
-        Env: ProverEnv,
-        R: Fn(&Stmt, &Witness) -> bool,
-    {
-        fn prove(&self, _env: &Env, _pk: &Env::ProvingKey, _rel: &R, witness: Witness) -> Witness {
-            witness
-        }
-
-        fn verify(&self, _env: &Env, _vk: &Env::VerificationKey, rel: &R, proof: &Witness) -> bool {
-            rel(&self, proof)
-        }
-    }
 
     pub struct TrivialEnv;
+    pub struct TrivialProof<W>(W);
 
     impl ProverEnv for TrivialEnv {
         type VerificationKey = ();
