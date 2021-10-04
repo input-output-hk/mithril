@@ -64,3 +64,9 @@ packages:
 #
 # Allow a newer minor version of GHC than the snapshot specifies
 # compiler-check: newer-minor
+extra-deps:
+- bloomfilter-2.0.1.0
+- git: https://github.com/input-output-hk/hydra-poc.git
+  commit: 260b44668e5be80d53dd7eefcfef8038287be0b3
+  subdirs:
+  - merkle-patricia-tree

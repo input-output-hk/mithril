@@ -3,7 +3,27 @@
 # For more information, please see the documentation at:
 #   https://docs.haskellstack.org/en/stable/lock_files
 
-packages: []
+packages:
+- completed:
+    hackage: bloomfilter-2.0.1.0@sha256:5b67d765315fb2abc1cde85e3c20ae1badfbe8d1070ed57525b7c428586e2d2f,1728
+    pantry-tree:
+      size: 1081
+      sha256: 30d79e4e95082a3af0fe83457bb29cffb637e240346dc2372cc34ede9f8f0ae8
+  original:
+    hackage: bloomfilter-2.0.1.0
+- completed:
+    subdir: merkle-patricia-tree
+    name: merkle-patricia-tree
+    version: 0.1.0
+    git: https://github.com/input-output-hk/hydra-poc.git
+    pantry-tree:
+      size: 418
+      sha256: 78d3021bc9d810909898f6ed36785f2f99cc68f07018b3be756b14bf9ddd82cf
+    commit: 260b44668e5be80d53dd7eefcfef8038287be0b3
+  original:
+    subdir: merkle-patricia-tree
+    git: https://github.com/input-output-hk/hydra-poc.git
+    commit: 260b44668e5be80d53dd7eefcfef8038287be0b3
 snapshots:
 - completed:
     size: 585392
