@@ -25,9 +25,11 @@ dependencies:
 - bytestring
 - containers
 - cryptonite
+- generic-random
 - merkle-patricia-tree
 - QuickCheck
 - quickcheck-instances
+- serialise
 
 library:
   source-dirs: src
