@@ -4,6 +4,7 @@ pub mod hashutils;
 pub mod key_reg;
 pub mod merkle_tree;
 pub mod mithril_curves;
+pub mod mithril_proof;
 pub mod models;
 pub mod msp;
 pub mod proof;

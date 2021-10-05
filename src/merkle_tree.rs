@@ -5,8 +5,8 @@ use crate::Path;
 /// (1) a way to inject stored values into the tree
 /// (2) a way to combine hashes
 /// (H_p is used for both of these in the paper)
-pub trait HashLeaf<L> {
-    type F: Eq + Clone + std::fmt::Debug;
+pub trait MTHashLeaf<L> {
+    type F: Eq + Clone;
 
     /// Create a new hasher
     fn new() -> Self;
@@ -35,7 +35,7 @@ pub trait HashLeaf<L> {
 #[derive(Debug, Clone)]
 pub struct MerkleTree<L, H>
 where
-    H: HashLeaf<L>,
+    H: MTHashLeaf<L>,
 {
     // The nodes are stored in an array heap:
     // nodes[0] is the root,
@@ -52,7 +52,7 @@ where
 
 impl<L, H> MerkleTree<L, H>
 where
-    H: HashLeaf<L>,
+    H: MTHashLeaf<L>,
 {
     /// converting a single V to bytes, and then calling H::from_bytes() should result
     /// in an H::F

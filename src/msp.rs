@@ -29,7 +29,7 @@ pub struct MspPk<PE: PairingEngine> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct MspSig<PE: PairingEngine>(PE::G1Projective);
+pub struct MspSig<PE: PairingEngine>(pub(crate) PE::G1Projective);
 
 impl<PE: PairingEngine> MspSig<PE>
 where

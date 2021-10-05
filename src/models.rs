@@ -1,16 +1,16 @@
-//! Convenient instantiations HashLeaf
+//! Convenient instantiations MTHashLeaf
 
 pub mod digest {
     //! Implementations necessary for Digest-based instantiations
 
-    use crate::merkle_tree::HashLeaf;
+    use crate::merkle_tree::MTHashLeaf;
     use crate::stm::MTValue;
     use ark_ec::PairingEngine;
     use ark_ff::ToBytes;
     use ark_std::io::Write;
     use sha3::Digest;
 
-    impl<T: ark_ff::ToBytes, D: Digest> HashLeaf<T> for D {
+    impl<T: ark_ff::ToBytes, D: Digest> MTHashLeaf<T> for D {
         type F = Vec<u8>;
 
         fn new() -> Self {
