@@ -25,6 +25,7 @@ pub struct Statement<'l> {
     pub(crate) total_stake: u64,
 }
 
+/// A Witness is an aggregation of signatures
 #[derive(Clone)]
 pub struct Witness {
     pub(crate) sigs: Vec<StmSig>,
@@ -110,6 +111,8 @@ impl Witness {
     }
 }
 
+/// Here we fix the type of statements and witnesses to those defined by the Mithril protocol.
+/// Implementations of `MithrilProof` fix the relation as well.
 pub trait MithrilProof<Env>: for<'l> Proof<Env, Statement<'l>, Self::Relation, Witness>
 where
     Env: ProverEnv,
@@ -119,6 +122,8 @@ where
 }
 
 pub mod concat_proofs {
+    //! This is the trivial proof system instantiated to Mithril: witnesses are
+    //! just the aggregated signatures themselves.
     use super::{MithrilProof, Statement, Witness};
     pub use crate::proof::trivial::TrivialEnv;
     use crate::proof::trivial::TrivialProof;

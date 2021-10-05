@@ -1,5 +1,7 @@
 //! General API for producing proofs from statements and witnesses
 
+/// An environment or context that can contain any long-lived information
+/// relevant to the proof backend
 pub trait ProverEnv {
     type ProvingKey;
     type VerificationKey;
@@ -7,6 +9,9 @@ pub trait ProverEnv {
     fn setup(&self) -> (Self::ProvingKey, Self::VerificationKey);
 }
 
+/// Implementors of `Proof<E,S,R,W>` know how to prove that
+/// a relation of type `R` holds between values of types `S` and `W`
+/// (generally the proofs are knowledge of such a `W`)
 pub trait Proof<Env, Statement, Relation, Witness>
 where
     Env: ProverEnv,
@@ -22,6 +27,8 @@ where
 }
 
 pub mod trivial {
+    //! A trivial implementation of `Proof` where proofs of knowledge of
+    //! witnesses are just the witnesses themselves.
     use super::*;
 
     pub struct TrivialEnv;
