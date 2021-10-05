@@ -7,6 +7,7 @@
 module Mithril where
 
 import Codec.Serialise (Serialise (..), serialise)
+import Data.BloomFilter.Hash (Hashable)
 import Data.ByteString (ByteString, pack)
 import Data.ByteString.Lazy (toStrict)
 import qualified Data.Map as Map
@@ -27,7 +28,7 @@ genHash :: Gen ByteString
 genHash = pack <$> vectorOf 28 arbitrary
 
 newtype Address = Address ByteString
-  deriving newtype (Eq, Show, Serialise)
+  deriving newtype (Eq, Show, Serialise, Hashable)
 
 instance Arbitrary Address where
   arbitrary = Address <$> genHash
@@ -89,8 +90,8 @@ data Utxo = Utxo
 
 data Utxos = Utxos
   { utxoSet :: [Utxo],
-    inUtxo :: ByteString,
-    notInUtxo :: ByteString
+    inUtxo :: Utxo,
+    notInUtxo :: Utxo
   }
   deriving (Eq, Show)
 
@@ -104,8 +105,8 @@ instance Arbitrary Utxos where
     pure $
       Utxos
         { utxoSet,
-          inUtxo = toStrict $ serialise $ txRef $ head utxoSet,
-          notInUtxo = toStrict $ serialise $ txRef otherUtxo
+          inUtxo = head utxoSet,
+          notInUtxo = otherUtxo
         }
 
 makeTree :: [Utxo] -> MerklePatriciaTree Blake2b_224 Utxo
