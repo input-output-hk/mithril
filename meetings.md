@@ -2,6 +2,24 @@
 
 Meeting minutes are sorted by date, most recent first.
 
+## 2021-10-05 - Mithril Product Q&A
+
+Separate proof production, Mithril signatures of the state from the actual storage and delivery of UTXO
+Mithril lightwallet should be able to connect to any (trusted?) node
+* need not keep all the certificates -> only need to keep it to some depth
+
+how about verifying proof on a mobile phone?
+* This is doable, a cert is about 1-200KB
+
+we need initial trusted point / result of previous certificate
+
+How to boostrap a node with mithril?
+* should we be signing past data depending on the stake of the past? But what about keys
+* key evolving signature -> key rotation over time => avoid an adversary tracking nodes and resigning past data
+* we need to be starting from some definite point in time (Eg. mithril hard-fork?)
+* there's some misconceptions floating around that mithril certificate should start at genesis, eg. retrofitting "block headers" in the past
+  but it does not seem possible to sign past blocks using past stakes and signatures
+
 ## 2021-09-07 - Roman/Dmytrov
 
 Introductions:
@@ -76,8 +94,6 @@ size of 1 signature: 1 group element, but we need the MT to verify the stake dis
 
 musig is simpler: set of pubkeys is known
 * mithril adss the complication of verifying the stake which adds much more information to verify[<0;125;28M[<0;125;28m
-
-
 
 ## 2021-09-03 - Mithril Product Meeting
 
