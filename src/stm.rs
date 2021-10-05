@@ -311,6 +311,7 @@ where
             &self.proof_env,
             &self.proof_key,
             &Proof::RELATION,
+            &Proof::S::from(statement),
             Proof::W::from(witness),
         );
         Ok(StmMultiSig { ivk, mu, proof })
