@@ -10,18 +10,19 @@ use crate::stm::{StmParameters, StmSig};
 
 use std::collections::HashSet;
 use std::iter::FromIterator;
+use std::rc::Rc;
 
 /// The statement we want to prove, namely that
 /// the signature aggregated by our scheme with
 /// the given MerkleTree, aggregated verification keys,
 /// and aggregated signatures is valid for the
 /// given message.
-pub struct Statement<'l> {
-    pub(crate) avk: &'l MerkleTree,
-    pub(crate) ivk: &'l MspMvk,
-    pub(crate) mu: &'l MspSig,
-    pub(crate) msg: &'l [u8],
-    pub(crate) params: &'l StmParameters,
+pub struct Statement {
+    pub(crate) avk: Rc<MerkleTree>,
+    pub(crate) ivk: Rc<MspMvk>,
+    pub(crate) mu: Rc<MspSig>,
+    pub(crate) msg: Rc<[u8]>,
+    pub(crate) params: Rc<StmParameters>,
     pub(crate) total_stake: u64,
 }
 
@@ -34,14 +35,14 @@ pub struct Witness {
 }
 
 impl Witness {
-    fn verify<'l>(&self, stmt: &Statement<'l>) -> bool {
+    fn verify<'l>(&self, stmt: &Statement) -> bool {
         self.check_quorum(stmt.params.k as usize)
-            && self.check_ivk(stmt.ivk)
-            && self.check_sum(stmt.mu)
+            && self.check_ivk(&stmt.ivk)
+            && self.check_sum(&stmt.mu)
             && self.check_index_bound(stmt.params.m)
             && self.check_index_unique()
-            && self.check_path(stmt.avk)
-            && self.check_eval(stmt.avk, stmt.msg)
+            && self.check_path(&stmt.avk)
+            && self.check_eval(&stmt.avk, &stmt.msg)
             && self.check_stake(stmt.params.phi_f, stmt.total_stake)
     }
 
@@ -113,10 +114,12 @@ impl Witness {
 
 /// Here we fix the type of statements and witnesses to those defined by the Mithril protocol.
 /// Implementations of `MithrilProof` fix the relation as well.
-pub trait MithrilProof<Env>: for<'l> Proof<Env, Statement<'l>, Self::Relation, Witness>
+pub trait MithrilProof<Env>: Proof<Env, Self::S, Self::Relation, Self::W>
 where
     Env: ProverEnv,
 {
+    type S: From<Statement>;
+    type W: From<Witness>;
     type Relation;
     const RELATION: Self::Relation;
 }
@@ -130,12 +133,15 @@ pub mod concat_proofs {
 
     pub type ConcatProof = TrivialProof<Witness>;
 
-    impl MithrilProof<TrivialEnv> for TrivialProof<Witness> {
-        type Relation = for<'l> fn(&Statement<'l>, &Witness) -> bool;
-        const RELATION: for<'l> fn(&Statement<'l>, &Witness) -> bool = trivial_relation;
+    impl MithrilProof<TrivialEnv> for TrivialProof<Witness>
+    {
+        type S = Statement;
+        type W = Witness;
+        type Relation = fn(&Statement, &Witness) -> bool;
+        const RELATION: fn(&Statement, &Witness) -> bool = trivial_relation;
     }
 
-    fn trivial_relation<'l>(s: &Statement<'l>, w: &Witness) -> bool {
+    fn trivial_relation<'l>(s: &Statement, w: &Witness) -> bool {
         w.verify(s)
     }
 }

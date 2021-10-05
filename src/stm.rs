@@ -1,11 +1,13 @@
 //! Top-level API for Mithril Stake-based Threshold Multisignature scheme.
 
+use std::rc::Rc;
 use super::{ev_lt_phi, Index, PartyId, Path, Stake};
 use crate::key_reg::KeyReg;
 use crate::merkle_tree::MerkleTree;
 use crate::mithril_proof::{MithrilProof, Statement, Witness};
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
 use crate::proof::ProverEnv;
+use std::convert::From;
 use std::collections::HashMap;
 
 /// Used to set protocol parameters.
@@ -45,7 +47,7 @@ pub struct StmSigner {
 
 /// `StmClerk` can verify and aggregate `StmSig`s and verify `StmMultiSig`s.
 pub struct StmClerk<E: ProverEnv> {
-    avk: MerkleTree,
+    avk: Rc<MerkleTree>,
     params: StmParameters,
     total_stake: Stake,
     proof_env: E,
@@ -174,7 +176,7 @@ impl<E: ProverEnv> StmClerk<E> {
         let (pk, vk) = proof_env.setup();
         Self {
             params,
-            avk,
+            avk: Rc::new(avk),
             total_stake,
             proof_env,
             proof_key: pk,
@@ -244,11 +246,11 @@ impl<E: ProverEnv> StmClerk<E> {
         let mu = Msp::aggregate_sigs(msg, &sigmas);
 
         let statement = Statement {
-            avk: &self.avk,
-            ivk: &ivk,
-            mu: &mu,
-            msg: msg,
-            params: &self.params,
+            avk: self.avk.clone(),
+            ivk: Rc::from(ivk),
+            mu: Rc::from(mu),
+            msg: Rc::from(msg),
+            params: Rc::from(self.params),
             total_stake: self.total_stake,
         };
         let witness = Witness {
@@ -256,7 +258,7 @@ impl<E: ProverEnv> StmClerk<E> {
             indices: indices_to_verify,
             evals: evals,
         };
-        let proof = Proof::prove(&self.proof_env, &self.proof_key, &Proof::RELATION, witness);
+        let proof = Proof::prove(&self.proof_env, &self.proof_key, &Proof::RELATION, Proof::W::from(witness));
         Ok(StmMultiSig { ivk, mu, proof })
     }
 
@@ -266,19 +268,19 @@ impl<E: ProverEnv> StmClerk<E> {
     {
         let statement = Statement {
             // Specific to the message and signatures
-            ivk: &msig.ivk,
-            mu: &msig.mu,
-            msg: msg,
+            ivk: Rc::from(msig.ivk),
+            mu: Rc::from(msig.mu),
+            msg: Rc::from(msg),
             // These are "background" information"
-            avk: &self.avk,
-            params: &self.params,
+            avk: self.avk.clone(),
+            params: Rc::from(self.params),
             total_stake: self.total_stake,
         };
         if !msig.proof.verify(
             &self.proof_env,
             &self.verif_key,
             &Proof::RELATION,
-            &statement,
+            &Proof::S::from(statement),
         ) {
             return false;
         }
