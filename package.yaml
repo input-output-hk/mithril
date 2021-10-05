@@ -20,6 +20,7 @@ extra-source-files:
 description:         Please see the README on GitHub at <https://github.com/githubuser/mithril#readme>
 
 dependencies:
+- array
 - base >= 4.7 && < 5
 - bloomfilter
 - bytestring
@@ -33,6 +34,9 @@ dependencies:
 
 library:
   source-dirs: src
+  ghc-options:
+  - -Wall
+  - -Werror
 
 executables:
   mithril-exe:
@@ -42,6 +46,8 @@ executables:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -Wall
+    - -Werror
     dependencies:
     - mithril
 
@@ -53,6 +59,8 @@ tests:
     - -threaded
     - -rtsopts
     - -with-rtsopts=-N
+    - -Wall
+    - -Werror
     dependencies:
     - mithril
     - hspec

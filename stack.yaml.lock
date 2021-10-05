@@ -18,12 +18,12 @@ packages:
     git: https://github.com/input-output-hk/hydra-poc.git
     pantry-tree:
       size: 418
-      sha256: 78d3021bc9d810909898f6ed36785f2f99cc68f07018b3be756b14bf9ddd82cf
-    commit: 260b44668e5be80d53dd7eefcfef8038287be0b3
+      sha256: 5c0b1570c5a88164c633b6fb6a48c4b9e6e2b755ad2fba27868b94e6a7601e1f
+    commit: b07f0b00cea8584239a95a96f42e500e36d07de5
   original:
     subdir: merkle-patricia-tree
     git: https://github.com/input-output-hk/hydra-poc.git
-    commit: 260b44668e5be80d53dd7eefcfef8038287be0b3
+    commit: b07f0b00cea8584239a95a96f42e500e36d07de5
 snapshots:
 - completed:
     size: 585392
