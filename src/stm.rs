@@ -258,7 +258,7 @@ impl<E: ProverEnv> StmClerk<E> {
             indices: indices_to_verify,
             evals: evals,
         };
-        let proof = Proof::prove(&self.proof_env, &self.proof_key, &Proof::RELATION, Proof::W::from(witness));
+        let proof = Proof::prove(&self.proof_env, &self.proof_key, &Proof::RELATION, &Proof::S::from(statement), Proof::W::from(witness));
         Ok(StmMultiSig { ivk, mu, proof })
     }
 

@@ -16,7 +16,7 @@ pub trait Proof<Env, Statement, Relation, Witness>
 where
     Env: ProverEnv,
 {
-    fn prove(env: &Env, pk: &Env::ProvingKey, rel: &Relation, witness: Witness) -> Self;
+    fn prove(env: &Env, pk: &Env::ProvingKey, rel: &Relation, stmt: &Statement, witness: Witness) -> Self;
     fn verify(
         &self,
         env: &Env,
@@ -46,7 +46,7 @@ pub mod trivial {
     where
         R: Fn(&Stmt, &Witness) -> bool,
     {
-        fn prove(env: &TrivialEnv, _pk: &(), rel: &R, witness: Witness) -> Self {
+        fn prove(env: &TrivialEnv, _pk: &(), rel: &R, _statement: &Stmt, witness: Witness) -> Self {
             TrivialProof(witness)
         }
 
