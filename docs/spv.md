@@ -85,9 +85,26 @@ I don't know
 
 Yes. I don't know if it makes sense cryptographically, but if we could in some way derive a certificate for each block filter, given a global certificate, that would allow lightweight clients and full (or mithril-aware) nodes to interact through a similar protocol: Get a root certificate, verify it against previously known "Safe" state, then filter the available UTXO set using deterministic block filters.
 
-Actually, I think we could not use the [Merkle-Patricia Tree]() we've been building for Hydra for that purpose:
+## Emulating SPV with Mithril
+
+Actually, I think we could not use the [Merkle-Patricia Tree](https://github.com/input-output-hk/hydra-poc/tree/master/merkle-patricia-tree) we've been building for Hydra for that purpose:
 * Mithril certificate signs the root hash of a MPT built from the UTXO set
+  * Note the MPT can be built incrementally at each block/epoch, deleting and adding UTXO
+  * Perhaps it would make more sense to store transactions' id in a basic Merkle-Tree
 * Mithril nodes maintain block filters
-* Clients can retrieve block filters and certificate, then request specific UTXOs
-* Mithril node sends UTXO set along with proof it's part of the MPT
+  * We could use Golomb-Rice coded sets as proposed in BIP-0158 to provide compact filters
+  * Filters should index all addresses in the UTXO set, at least, to enable light clients to lookup transactions of interest only
+* Clients can retrieve block filters and certificate, then request specific Transactions/Blocks
+  * It's unclear what a light client would need, probably transactions are enough?
+* Mithril node sends requested UTXO/Transaction set along with proof it's part of the MPT
   * False positives are simply ignored
+  * The proof guarantees the UTXO/Transaction is in the root hence has been signed
+
+I wrote [some code](https://github.com/input-output-hk/mithril/blob/29b0209ba90d39d02f366ca526485d2474935f5e/test/Mithril/FilterSpec.hs) experimenting with:
+* Storing the UTXO set in a Merkle-Patricia-Tree indexed by reference (transaction id + transaction index)
+* Building a Bloom filter for addresses in the UTXO set
+
+Some basic measures I made, given a set of 10000 UTXO:
+* Utxo size (serialised) is: 151MB
+* Bloom Filter size is: 32KB
+* Proof size: 552B
