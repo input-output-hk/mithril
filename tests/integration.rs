@@ -1,12 +1,16 @@
+use ark_bls12_377;
+use ark_bls12_377::Bls12_377;
 use mithril::key_reg::KeyReg;
 use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
 use mithril::stm::{AggregationFailure, StmClerk, StmInitializer, StmParameters, StmSigner};
 use rand;
 use rayon::prelude::*;
 
+type H = sha3::Sha3_256;
+
 #[test]
 fn test_full_protocol() {
-    let nparties = 64;
+    let nparties = 32;
     let msg = rand::random::<[u8; 16]>();
 
     //////////////////////////
@@ -16,7 +20,7 @@ fn test_full_protocol() {
 
     let mut key_reg = KeyReg::new();
 
-    let mut ps = Vec::with_capacity(nparties);
+    let mut ps: Vec<StmInitializer<sha3::Sha3_256, Bls12_377>> = Vec::with_capacity(nparties);
     let params = StmParameters {
         k: 357,
         m: 2642,
@@ -36,7 +40,7 @@ fn test_full_protocol() {
             p.retrieve_all(&key_reg);
             p.finish()
         })
-        .collect::<Vec<StmSigner>>();
+        .collect::<Vec<StmSigner<sha3::Sha3_256, Bls12_377>>>();
 
     /////////////////////
     // operation phase //
@@ -76,10 +80,16 @@ fn test_full_protocol() {
 
     // Aggregate and verify with random parties
     println!("** Aggregating signatures");
-    let msig = clerk.aggregate::<ConcatProof>(&sigs, &ixs, &msg);
+    let msig = clerk.aggregate::<ConcatProof<Bls12_377, H>>(&sigs, &ixs, &msg);
     match msig {
-        Ok(aggr) => assert!(clerk.verify_msig::<ConcatProof>(&aggr, &msg)),
-        Err(AggregationFailure::NotEnoughSignatures(n)) => assert!(n < params.k as usize),
+        Ok(aggr) => {
+            println!("Aggregate ok");
+            assert!(clerk.verify_msig::<ConcatProof<Bls12_377, H>>(&aggr, &msg));
+        }
+        Err(AggregationFailure::NotEnoughSignatures(n)) => {
+            println!("Not enough signatures");
+            assert!(n < params.k as usize)
+        }
         Err(_) => assert!(false),
     }
 }

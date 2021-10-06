@@ -1,17 +1,23 @@
 //! Top-level API for Mithril Stake-based Threshold Multisignature scheme.
 
-use std::rc::Rc;
 use super::{ev_lt_phi, Index, PartyId, Path, Stake};
-use crate::key_reg::KeyReg;
-use crate::merkle_tree::MerkleTree;
+use crate::key_reg::{KeyReg, RegParty};
+use crate::merkle_tree::{MTHashLeaf, MerkleTree};
 use crate::mithril_proof::{MithrilProof, Statement, Witness};
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
 use crate::proof::ProverEnv;
-use std::convert::From;
+use ark_ec::PairingEngine;
+use ark_ff::ToConstraintField;
 use std::collections::HashMap;
+use std::convert::From;
+use std::rc::Rc;
+
+/// The values that are represented in the Merkle Tree.
+#[derive(Clone)]
+pub struct MTValue<PE: PairingEngine>(pub MspMvk<PE>, pub Stake);
 
 /// Used to set protocol parameters.
-#[derive(Clone, Debug, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct StmParameters {
     /// Security parameter, upper bound on indices
     pub m: u64,
@@ -24,30 +30,43 @@ pub struct StmParameters {
 }
 
 /// Initializer for `StmSigner`.
-pub struct StmInitializer {
+pub struct StmInitializer<H, PE>
+where
+    H: MTHashLeaf<MTValue<PE>>,
+    PE: PairingEngine,
+{
     party_id: PartyId,
     stake: Stake,
-    avk: Option<MerkleTree>,
-    sk: Option<MspSk>,
-    pk: Option<MspPk>,
+    avk: Option<MerkleTree<MTValue<PE>, H>>,
+    sk: Option<MspSk<PE>>,
+    pk: Option<MspPk<PE>>,
     total_stake: Option<Stake>,
     params: StmParameters,
 }
 
 /// Participant in the protocol. Can sign messages.
-pub struct StmSigner {
+pub struct StmSigner<H, PE>
+where
+    H: MTHashLeaf<MTValue<PE>>,
+    PE: PairingEngine,
+{
     party_id: PartyId,
     stake: Stake,
     params: StmParameters,
     total_stake: Stake,
-    avk: MerkleTree,
-    sk: MspSk,
-    pk: MspPk,
+    avk: MerkleTree<MTValue<PE>, H>,
+    sk: MspSk<PE>,
+    pk: MspPk<PE>,
 }
 
 /// `StmClerk` can verify and aggregate `StmSig`s and verify `StmMultiSig`s.
-pub struct StmClerk<E: ProverEnv> {
-    avk: Rc<MerkleTree>,
+pub struct StmClerk<H, PE, E>
+where
+    H: MTHashLeaf<MTValue<PE>>,
+    PE: PairingEngine,
+    E: ProverEnv,
+{
+    avk: Rc<MerkleTree<MTValue<PE>, H>>,
     params: StmParameters,
     total_stake: Stake,
     proof_env: E,
@@ -57,20 +76,23 @@ pub struct StmClerk<E: ProverEnv> {
 
 /// Signature created by a single party who has won the lottery.
 #[derive(Clone, Debug)]
-pub struct StmSig {
-    pub sigma: MspSig,
-    pub pk: MspPk,
+pub struct StmSig<PE: PairingEngine, F> {
+    pub sigma: MspSig<PE>,
+    pub pk: MspPk<PE>,
     pub party: PartyId,
     pub stake: Stake,
-    pub path: Path,
+    pub path: Path<F>,
 }
 
 /// Aggregated signature of many parties.
 /// Contains proof that it is well-formed.
 #[derive(Clone)]
-pub struct StmMultiSig<Proof> {
-    ivk: MspMvk,
-    mu: MspSig,
+pub struct StmMultiSig<PE, Proof>
+where
+    PE: PairingEngine,
+{
+    ivk: MspMvk<PE>,
+    mu: MspSig<PE>,
     proof: Proof,
 }
 
@@ -82,7 +104,11 @@ pub enum AggregationFailure {
     VerifyFailed,
 }
 
-impl StmInitializer {
+impl<H, PE> StmInitializer<H, PE>
+where
+    PE: PairingEngine,
+    H: MTHashLeaf<MTValue<PE>>,
+{
     //////////////////////////
     // Initialization phase //
     //////////////////////////
@@ -98,7 +124,7 @@ impl StmInitializer {
         }
     }
 
-    pub fn register(&mut self, kr: &mut KeyReg) {
+    pub fn register(&mut self, kr: &mut KeyReg<PE>) {
         // (msk_i, mvk_i, k_i) <- MSP.Gen(Param)
         // (vk_i, sk_i) := ((mvk_i, k_i), msk_i)
         // send (Register, sid, vk_i) to F_KR
@@ -108,17 +134,24 @@ impl StmInitializer {
         kr.register(self.party_id, self.stake, pk);
     }
 
-    pub fn retrieve_all(&mut self, kr: &KeyReg) {
+    pub fn retrieve_all(&mut self, kr: &KeyReg<PE>) {
         // Reg := (K(P_i), stake_i)
         // Reg is padded to length N using null entries of stake 0
         // AVK <- MT.Create(Reg)
-        let reg = kr.retrieve_all();
+        let reg: Vec<MTValue<PE>> = kr
+            .retrieve_all()
+            .into_iter()
+            .map(|so| {
+                let p = so.unwrap_or(RegParty::null_party());
+                MTValue(p.pk.mvk, p.stake)
+            })
+            .collect();
         self.avk = Some(MerkleTree::create(&reg));
         // get total stake
-        self.total_stake = Some(reg.iter().filter_map(|p| p.map(|(_, s)| s)).sum());
+        self.total_stake = Some(reg.iter().map(|s| s.1).sum());
     }
 
-    pub fn finish(self) -> StmSigner {
+    pub fn finish(self) -> StmSigner<H, PE> {
         StmSigner {
             party_id: self.party_id,
             stake: self.stake,
@@ -131,7 +164,11 @@ impl StmInitializer {
     }
 }
 
-impl StmSigner {
+impl<H, PE> StmSigner<H, PE>
+where
+    H: MTHashLeaf<MTValue<PE>>,
+    PE: PairingEngine,
+{
     /////////////////////
     // Operation phase //
     /////////////////////
@@ -146,7 +183,7 @@ impl StmSigner {
         ev_lt_phi(self.params.phi_f, ev, self.stake, self.total_stake)
     }
 
-    pub fn sign(&self, msg: &[u8], index: Index) -> Option<StmSig> {
+    pub fn sign(&self, msg: &[u8], index: Index) -> Option<StmSig<PE, H::F>> {
         if self.eligibility_check(msg, index) {
             // msg' <- AVK||msg
             // sigma <- MSP.Sig(msk,msg')
@@ -171,8 +208,19 @@ impl StmSigner {
     }
 }
 
-impl<E: ProverEnv> StmClerk<E> {
-    pub fn new(params: StmParameters, proof_env: E, avk: MerkleTree, total_stake: Stake) -> Self {
+impl<H, PE, E: ProverEnv> StmClerk<H, PE, E>
+where
+    E: ProverEnv,
+    H: MTHashLeaf<MTValue<PE>> + Clone,
+    PE: PairingEngine,
+    PE::G1Projective: ToConstraintField<PE::Fq>,
+{
+    pub fn new(
+        params: StmParameters,
+        proof_env: E,
+        avk: MerkleTree<MTValue<PE>, H>,
+        total_stake: Stake,
+    ) -> Self {
         let (pk, vk) = proof_env.setup();
         Self {
             params,
@@ -184,7 +232,7 @@ impl<E: ProverEnv> StmClerk<E> {
         }
     }
 
-    pub fn from_signer(signer: &StmSigner, proof_env: E) -> Self {
+    pub fn from_signer(signer: &StmSigner<H, PE>, proof_env: E) -> Self {
         Self::new(
             signer.params,
             proof_env,
@@ -193,13 +241,14 @@ impl<E: ProverEnv> StmClerk<E> {
         )
     }
 
-    pub fn verify_sig(&self, sig: &StmSig, index: Index, msg: &[u8]) -> bool {
+    pub fn verify_sig(&self, sig: &StmSig<PE, H::F>, index: Index, msg: &[u8]) -> bool {
         let msgp = self.avk.concat_with_msg(msg);
         let ev = Msp::eval(&msgp, index, &sig.sigma);
+
         if !ev_lt_phi(self.params.phi_f, ev, sig.stake, self.total_stake)
             || !self
                 .avk
-                .check(&(sig.pk.clone(), sig.stake), sig.party, &sig.path)
+                .check(&MTValue(sig.pk.mvk, sig.stake), sig.party, &sig.path)
         {
             return false;
         }
@@ -208,12 +257,12 @@ impl<E: ProverEnv> StmClerk<E> {
 
     pub fn aggregate<Proof>(
         &self,
-        sigs: &[StmSig],
+        sigs: &[StmSig<PE, H::F>],
         indices: &[Index],
         msg: &[u8],
-    ) -> Result<StmMultiSig<Proof>, AggregationFailure>
+    ) -> Result<StmMultiSig<PE, Proof>, AggregationFailure>
     where
-        Proof: MithrilProof<E>,
+        Proof: MithrilProof<PE, H, E>,
     {
         let msgp = self.avk.concat_with_msg(msg);
         let mut evals = Vec::new();
@@ -222,7 +271,7 @@ impl<E: ProverEnv> StmClerk<E> {
         let mut sigs_to_verify = Vec::new();
         let mut indices_to_verify = Vec::new();
 
-        for (ix, sig) in dedup_sigs_for_indices(sigs, indices) {
+        for (ix, sig) in dedup_sigs_for_indices::<H, PE>(sigs, indices) {
             if !self.verify_sig(&sig, *ix, msg) {
                 return Err(AggregationFailure::VerifyFailed);
             }
@@ -258,13 +307,19 @@ impl<E: ProverEnv> StmClerk<E> {
             indices: indices_to_verify,
             evals: evals,
         };
-        let proof = Proof::prove(&self.proof_env, &self.proof_key, &Proof::RELATION, &Proof::S::from(statement), Proof::W::from(witness));
+        let proof = Proof::prove(
+            &self.proof_env,
+            &self.proof_key,
+            &Proof::RELATION,
+            &Proof::S::from(statement),
+            Proof::W::from(witness),
+        );
         Ok(StmMultiSig { ivk, mu, proof })
     }
 
-    pub fn verify_msig<Proof>(&self, msig: &StmMultiSig<Proof>, msg: &[u8]) -> bool
+    pub fn verify_msig<Proof>(&self, msig: &StmMultiSig<PE, Proof>, msg: &[u8]) -> bool
     where
-        Proof: MithrilProof<E>,
+        Proof: MithrilProof<PE, H, E>,
     {
         let statement = Statement {
             // Specific to the message and signatures
@@ -289,11 +344,14 @@ impl<E: ProverEnv> StmClerk<E> {
     }
 }
 
-fn dedup_sigs_for_indices<'a>(
-    sigs: &'a [StmSig],
+fn dedup_sigs_for_indices<'a, H: MTHashLeaf<MTValue<PE>>, PE: PairingEngine>(
+    sigs: &'a [StmSig<PE, H::F>],
     indices: &'a [Index],
-) -> impl IntoIterator<Item = (&'a Index, &'a StmSig)> {
-    let mut sigs_by_index: HashMap<&Index, &StmSig> = HashMap::new();
+) -> impl IntoIterator<Item = (&'a Index, &'a StmSig<PE, H::F>)>
+where
+    PE::G1Projective: ToConstraintField<PE::Fq>,
+{
+    let mut sigs_by_index: HashMap<&Index, &StmSig<PE, H::F>> = HashMap::new();
     for (ix, sig) in indices.iter().zip(sigs) {
         if let Some(old_sig) = sigs_by_index.get(ix) {
             if sig.sigma < old_sig.sigma {
@@ -311,17 +369,20 @@ fn dedup_sigs_for_indices<'a>(
 mod tests {
     use super::*;
     use crate::mithril_proof::concat_proofs::*;
+    use ark_bls12_377::Bls12_377;
     use proptest::collection::{hash_map, vec};
     use proptest::prelude::*;
     use rayon::prelude::*;
     use std::collections::{HashMap, HashSet};
 
-    fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmSigner> {
+    type H = sha3::Sha3_256;
+
+    fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmSigner<H, Bls12_377>> {
         let stake = vec![1; nparties];
         setup_parties(params, stake)
     }
 
-    fn setup_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<StmSigner> {
+    fn setup_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<StmSigner<H, Bls12_377>> {
         let mut kr = KeyReg::new();
         let ps = stake
             .iter()
@@ -408,9 +469,12 @@ mod tests {
         m: u64,
         k: u64,
         msg: &[u8],
-        ps: &[StmSigner],
+        ps: &[StmSigner<H, Bls12_377>],
         is: &[usize],
-    ) -> (Vec<Index>, Vec<StmSig>) {
+    ) -> (
+        Vec<Index>,
+        Vec<StmSig<Bls12_377, <H as MTHashLeaf<MTValue<Bls12_377>>>::F>>,
+    ) {
         let indices: Vec<_> = (1..m).collect();
         let res = indices
             .par_iter()
@@ -440,6 +504,7 @@ mod tests {
             let p = &mut ps[0];
             let clerk = StmClerk::from_signer(&p, TrivialEnv);
 
+
             for index in 1..nparties {
                 if let Some(sig) = p.sign(&msg, index as u64) {
                     assert!(clerk.verify_sig(&sig, index as u64, &msg));
@@ -453,7 +518,7 @@ mod tests {
 
         #[test]
         /// Test that when a quorum is found, the aggregate signature can be verified
-        fn test_aggregate_sig(nparties in 2_usize..16,
+        fn test_aggregate_sig(nparties in 2_usize..30,
                               m in 10_u64..20,
                               k in 1_u64..5,
                               msg in any::<[u8;16]>()) {
@@ -464,11 +529,11 @@ mod tests {
             let all_ps: Vec<usize> = (0..nparties).collect();
             let (ixs, sigs) = find_signatures(m, k, &msg, &mut ps, &all_ps);
 
-            let msig = clerk.aggregate::<ConcatProof>(&sigs, &ixs, &msg);
+            let msig = clerk.aggregate::<ConcatProof<Bls12_377,H>>(&sigs, &ixs, &msg);
 
             match msig {
                 Ok(aggr) =>
-                    assert!(clerk.verify_msig::<ConcatProof>(&aggr, &msg)),
+                    assert!(clerk.verify_msig::<ConcatProof<Bls12_377,H>>(&aggr, &msg)),
                 Err(AggregationFailure::NotEnoughSignatures(n)) =>
                     assert!(n < params.k as usize),
                 _ =>
@@ -500,7 +565,7 @@ mod tests {
         #[test]
         /// Test that when the adversaries do not hold sufficient stake, they can not form a quorum
         fn test_adversary_quorum(
-            (adversaries, parties) in arb_parties_adversary_stake(8, 64, 16, 4),
+            (adversaries, parties) in arb_parties_adversary_stake(8, 30, 16, 4),
             msg in any::<[u8;16]>(),
             i in any::<usize>(), j in any::<usize>(),
         ) {
@@ -528,7 +593,7 @@ mod tests {
 
             let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
 
-            let msig = clerk.aggregate::<ConcatProof>(&sigs, &ixs, &msg);
+            let msig = clerk.aggregate::<ConcatProof<Bls12_377,H>>(&sigs, &ixs, &msg);
             match msig {
                 Err(AggregationFailure::NotEnoughSignatures(n)) =>
                     assert!(n < params.k as usize),

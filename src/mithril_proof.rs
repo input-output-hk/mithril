@@ -2,12 +2,12 @@
 
 use super::Index;
 use crate::ev_lt_phi;
-use crate::merkle_tree::MerkleTree;
+use crate::merkle_tree::{MTHashLeaf, MerkleTree};
 use crate::msp::{Msp, MspMvk, MspSig};
 use crate::proof::Proof;
 use crate::proof::ProverEnv;
-use crate::stm::{StmParameters, StmSig};
-
+use crate::stm::{MTValue, StmParameters, StmSig};
+use ark_ec::PairingEngine;
 use std::collections::HashSet;
 use std::iter::FromIterator;
 use std::rc::Rc;
@@ -17,10 +17,10 @@ use std::rc::Rc;
 /// the given MerkleTree, aggregated verification keys,
 /// and aggregated signatures is valid for the
 /// given message.
-pub struct Statement {
-    pub(crate) avk: Rc<MerkleTree>,
-    pub(crate) ivk: Rc<MspMvk>,
-    pub(crate) mu: Rc<MspSig>,
+pub struct Statement<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> {
+    pub(crate) avk: Rc<MerkleTree<MTValue<PE>, H>>,
+    pub(crate) ivk: Rc<MspMvk<PE>>,
+    pub(crate) mu: Rc<MspSig<PE>>,
     pub(crate) msg: Rc<[u8]>,
     pub(crate) params: Rc<StmParameters>,
     pub(crate) total_stake: u64,
@@ -28,14 +28,14 @@ pub struct Statement {
 
 /// A Witness is an aggregation of signatures
 #[derive(Clone)]
-pub struct Witness {
-    pub(crate) sigs: Vec<StmSig>,
+pub struct Witness<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> {
+    pub(crate) sigs: Vec<StmSig<PE, H::F>>,
     pub(crate) indices: Vec<Index>,
     pub(crate) evals: Vec<u64>,
 }
 
-impl Witness {
-    fn verify<'l>(&self, stmt: &Statement) -> bool {
+impl<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> Witness<PE, H> {
+    fn verify<'l>(&self, stmt: &Statement<PE, H>) -> bool {
         self.check_quorum(stmt.params.k as usize)
             && self.check_ivk(&stmt.ivk)
             && self.check_sum(&stmt.mu)
@@ -48,7 +48,7 @@ impl Witness {
 
     /// ivk = Prod(1..k, mvk[i])
     /// requires that this proof has exactly k signatures
-    fn check_ivk(&self, ivk: &MspMvk) -> bool {
+    fn check_ivk(&self, ivk: &MspMvk<PE>) -> bool {
         let mvks = self.sigs.iter().map(|s| s.pk.mvk).collect::<Vec<_>>();
 
         let sum = Msp::aggregate_keys(&mvks).0;
@@ -57,7 +57,7 @@ impl Witness {
 
     /// mu = Prod(1..k, sigma[i])
     /// requires that this proof has exactly k signatures
-    fn check_sum(&self, mu: &MspSig) -> bool {
+    fn check_sum(&self, mu: &MspSig<PE>) -> bool {
         let mu1 = self.sigs.iter().map(|s| s.sigma.0).sum();
         mu.0 == mu1
     }
@@ -82,15 +82,15 @@ impl Witness {
 
     /// \forall i : [0..k]. path[i] is a witness for (mvk[i]), stake[i] in avk
     /// requires that this proof has exactly k signatures
-    fn check_path(&self, avk: &MerkleTree) -> bool {
+    fn check_path(&self, avk: &MerkleTree<MTValue<PE>, H>) -> bool {
         self.sigs
             .iter()
-            .all(|sig| avk.check(&(sig.pk, sig.stake), sig.party, &sig.path))
+            .all(|sig| avk.check(&MTValue(sig.pk.mvk, sig.stake), sig.party, &sig.path))
     }
 
     /// \forall i : [1..k]. ev[i] = MSP.Eval(msg, index[i], sig[i])
     /// requires that this proof has exactly k signatures
-    fn check_eval(&self, avk: &MerkleTree, msg: &[u8]) -> bool {
+    fn check_eval(&self, avk: &MerkleTree<MTValue<PE>, H>, msg: &[u8]) -> bool {
         let msp_evals = self.indices.iter().zip(self.sigs.iter()).map(|(idx, sig)| {
             let msgp = avk.concat_with_msg(msg);
             Msp::eval(&msgp, *idx, &sig.sigma)
@@ -114,12 +114,14 @@ impl Witness {
 
 /// Here we fix the type of statements and witnesses to those defined by the Mithril protocol.
 /// Implementations of `MithrilProof` fix the relation as well.
-pub trait MithrilProof<Env>: Proof<Env, Self::S, Self::Relation, Self::W>
+pub trait MithrilProof<PE, H, Env>: Proof<Env, Self::S, Self::Relation, Self::W>
 where
+    PE: PairingEngine,
+    H: MTHashLeaf<MTValue<PE>>,
     Env: ProverEnv,
 {
-    type S: From<Statement>;
-    type W: From<Witness>;
+    type S: From<Statement<PE, H>>;
+    type W: From<Witness<PE, H>>;
     type Relation;
     const RELATION: Self::Relation;
 }
@@ -128,20 +130,30 @@ pub mod concat_proofs {
     //! This is the trivial proof system instantiated to Mithril: witnesses are
     //! just the aggregated signatures themselves.
     use super::{MithrilProof, Statement, Witness};
+    use crate::merkle_tree::MTHashLeaf;
     pub use crate::proof::trivial::TrivialEnv;
     use crate::proof::trivial::TrivialProof;
+    use crate::stm::MTValue;
+    use ark_ec::PairingEngine;
 
-    pub type ConcatProof = TrivialProof<Witness>;
+    pub type ConcatProof<PE, H> = TrivialProof<Witness<PE, H>>;
 
-    impl MithrilProof<TrivialEnv> for TrivialProof<Witness>
+    impl<PE, H> MithrilProof<PE, H, TrivialEnv> for TrivialProof<Witness<PE, H>>
+    where
+        PE: PairingEngine,
+        H: MTHashLeaf<MTValue<PE>>,
     {
-        type S = Statement;
-        type W = Witness;
-        type Relation = fn(&Statement, &Witness) -> bool;
-        const RELATION: fn(&Statement, &Witness) -> bool = trivial_relation;
+        type S = Statement<PE, H>;
+        type W = Witness<PE, H>;
+        type Relation = fn(&Self::S, &Self::W) -> bool;
+        const RELATION: fn(&Self::S, &Self::W) -> bool = trivial_relation;
     }
 
-    fn trivial_relation<'l>(s: &Statement, w: &Witness) -> bool {
+    fn trivial_relation<'l, PE, H>(s: &Statement<PE, H>, w: &Witness<PE, H>) -> bool
+    where
+        PE: PairingEngine,
+        H: MTHashLeaf<MTValue<PE>>,
+    {
         w.verify(s)
     }
 }

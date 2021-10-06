@@ -1,8 +1,11 @@
 #![allow(dead_code, unused_variables)]
 
+pub mod hashutils;
 pub mod key_reg;
 pub mod merkle_tree;
+pub mod mithril_curves;
 pub mod mithril_proof;
+pub mod models;
 pub mod msp;
 pub mod proof;
 pub mod stm;
@@ -20,7 +23,7 @@ pub type Index = u64;
 /// Path of hashes from root to leaf in a Merkle Tree.
 /// Used to verify the credentials of users and signatures.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Path(Vec<merkle_tree::Hash>);
+pub struct Path<F>(Vec<F>);
 
 /// Compares the output of `phi` (a real) to the output of `ev` (a hash).
 /// Used to determine winning lottery tickets.
