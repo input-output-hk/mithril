@@ -54,7 +54,7 @@ impl<L, H> MerkleTree<L, H>
 where
     H: MTHashLeaf<L>,
 {
-    /// converting a single V to bytes, and then calling H::from_bytes() should result
+    /// converting a single L to bytes, and then calling H::from_bytes() should result
     /// in an H::F
     pub fn create(leaves: &[L]) -> MerkleTree<L, H> {
         let n = leaves.len();
