@@ -1,13 +1,13 @@
 //! Top-level API for Mithril Stake-based Threshold Multisignature scheme.
 
+use std::rc::Rc;
 use super::{ev_lt_phi, Index, PartyId, Path, Stake};
 use crate::key_reg::KeyReg;
 use crate::merkle_tree::MerkleTree;
+use crate::mithril_proof::{MithrilProof, Statement, Witness};
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
-use crate::proof::Proof;
-use crate::proof::Statement;
-use crate::proof::Witness;
-
+use crate::proof::ProverEnv;
+use std::convert::From;
 use std::collections::HashMap;
 
 /// Used to set protocol parameters.
@@ -46,10 +46,13 @@ pub struct StmSigner {
 }
 
 /// `StmClerk` can verify and aggregate `StmSig`s and verify `StmMultiSig`s.
-pub struct StmClerk {
-    avk: MerkleTree,
+pub struct StmClerk<E: ProverEnv> {
+    avk: Rc<MerkleTree>,
     params: StmParameters,
     total_stake: Stake,
+    proof_env: E,
+    proof_key: E::ProvingKey,
+    verif_key: E::VerificationKey,
 }
 
 /// Signature created by a single party who has won the lottery.
@@ -65,10 +68,10 @@ pub struct StmSig {
 /// Aggregated signature of many parties.
 /// Contains proof that it is well-formed.
 #[derive(Clone)]
-pub struct StmMultiSig<P> {
+pub struct StmMultiSig<Proof> {
     ivk: MspMvk,
     mu: MspSig,
-    proof: P,
+    proof: Proof,
 }
 
 /// Error types for aggregation.
@@ -168,17 +171,26 @@ impl StmSigner {
     }
 }
 
-impl StmClerk {
-    pub fn new(params: StmParameters, avk: MerkleTree, total_stake: Stake) -> Self {
+impl<E: ProverEnv> StmClerk<E> {
+    pub fn new(params: StmParameters, proof_env: E, avk: MerkleTree, total_stake: Stake) -> Self {
+        let (pk, vk) = proof_env.setup();
         Self {
             params,
-            avk,
+            avk: Rc::new(avk),
             total_stake,
+            proof_env,
+            proof_key: pk,
+            verif_key: vk,
         }
     }
 
-    pub fn from_signer(signer: &StmSigner) -> Self {
-        Self::new(signer.params, signer.avk.clone(), signer.total_stake)
+    pub fn from_signer(signer: &StmSigner, proof_env: E) -> Self {
+        Self::new(
+            signer.params,
+            proof_env,
+            signer.avk.clone(),
+            signer.total_stake,
+        )
     }
 
     pub fn verify_sig(&self, sig: &StmSig, index: Index, msg: &[u8]) -> bool {
@@ -194,12 +206,15 @@ impl StmClerk {
         Msp::ver(&msgp, &sig.pk.mvk, &sig.sigma)
     }
 
-    pub fn aggregate<P: Proof>(
+    pub fn aggregate<Proof>(
         &self,
         sigs: &[StmSig],
         indices: &[Index],
         msg: &[u8],
-    ) -> Result<StmMultiSig<P>, AggregationFailure> {
+    ) -> Result<StmMultiSig<Proof>, AggregationFailure>
+    where
+        Proof: MithrilProof<E>,
+    {
         let msgp = self.avk.concat_with_msg(msg);
         let mut evals = Vec::new();
         let mut mvks = Vec::new();
@@ -230,31 +245,43 @@ impl StmClerk {
         let ivk = Msp::aggregate_keys(&mvks);
         let mu = Msp::aggregate_sigs(msg, &sigmas);
 
-        let stmt = Statement {
-            avk: &self.avk,
-            ivk: &ivk,
-            mu: &mu,
-            msg,
+        let statement = Statement {
+            avk: self.avk.clone(),
+            ivk: Rc::from(ivk),
+            mu: Rc::from(mu),
+            msg: Rc::from(msg),
+            params: Rc::from(self.params),
+            total_stake: self.total_stake,
         };
-
         let witness = Witness {
-            sigs: &sigs_to_verify,
-            indices: &indices_to_verify,
-            evals: &evals,
+            sigs: sigs_to_verify,
+            indices: indices_to_verify,
+            evals: evals,
         };
-
-        let proof = P::prove(stmt, witness);
+        let proof = Proof::prove(&self.proof_env, &self.proof_key, &Proof::RELATION, &Proof::S::from(statement), Proof::W::from(witness));
         Ok(StmMultiSig { ivk, mu, proof })
     }
 
-    pub fn verify_msig<P: Proof>(&self, msig: &StmMultiSig<P>, msg: &[u8]) -> bool {
-        let stmt = Statement {
-            avk: &self.avk,
-            ivk: &msig.ivk,
-            mu: &msig.mu,
-            msg,
+    pub fn verify_msig<Proof>(&self, msig: &StmMultiSig<Proof>, msg: &[u8]) -> bool
+    where
+        Proof: MithrilProof<E>,
+    {
+        let statement = Statement {
+            // Specific to the message and signatures
+            ivk: Rc::from(msig.ivk),
+            mu: Rc::from(msig.mu),
+            msg: Rc::from(msg),
+            // These are "background" information"
+            avk: self.avk.clone(),
+            params: Rc::from(self.params),
+            total_stake: self.total_stake,
         };
-        if !msig.proof.verify(&self.params, self.total_stake, stmt) {
+        if !msig.proof.verify(
+            &self.proof_env,
+            &self.verif_key,
+            &Proof::RELATION,
+            &Proof::S::from(statement),
+        ) {
             return false;
         }
         let msgp = self.avk.concat_with_msg(msg);
@@ -283,7 +310,7 @@ fn dedup_sigs_for_indices<'a>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::proof::ConcatProof;
+    use crate::mithril_proof::concat_proofs::*;
     use proptest::collection::{hash_map, vec};
     use proptest::prelude::*;
     use rayon::prelude::*;
@@ -411,7 +438,7 @@ mod tests {
             let params = StmParameters { m: (nparties as u64), k: 1, phi_f: 0.2 };
             let mut ps = setup_equal_parties(params, nparties);
             let p = &mut ps[0];
-            let clerk = StmClerk::from_signer(&p);
+            let clerk = StmClerk::from_signer(&p, TrivialEnv);
 
             for index in 1..nparties {
                 if let Some(sig) = p.sign(&msg, index as u64) {
@@ -432,7 +459,7 @@ mod tests {
                               msg in any::<[u8;16]>()) {
             let params = StmParameters { m: m, k: k, phi_f: 0.2 };
             let mut ps = setup_equal_parties(params, nparties);
-            let clerk = StmClerk::from_signer(&ps[0]);
+            let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
 
             let all_ps: Vec<usize> = (0..nparties).collect();
             let (ixs, sigs) = find_signatures(m, k, &msg, &mut ps, &all_ps);
@@ -441,7 +468,7 @@ mod tests {
 
             match msig {
                 Ok(aggr) =>
-                    assert!(clerk.verify_msig(&aggr, &msg)),
+                    assert!(clerk.verify_msig::<ConcatProof>(&aggr, &msg)),
                 Err(AggregationFailure::NotEnoughSignatures(n)) =>
                     assert!(n < params.k as usize),
                 _ =>
@@ -499,7 +526,7 @@ mod tests {
 
             assert!(sigs.len() < params.k as usize);
 
-            let clerk = StmClerk::from_signer(&ps[0]);
+            let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
 
             let msig = clerk.aggregate::<ConcatProof>(&sigs, &ixs, &msg);
             match msig {

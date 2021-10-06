@@ -1,134 +1,57 @@
-//! Prove the validity of aggregated signatures.
+//! General API for producing proofs from statements and witnesses
 
-use super::Index;
-use crate::ev_lt_phi;
-use crate::merkle_tree::MerkleTree;
-use crate::msp::{Msp, MspMvk, MspSig};
-use crate::stm::{StmParameters, StmSig};
+/// An environment or context that can contain any long-lived information
+/// relevant to the proof backend
+pub trait ProverEnv {
+    type ProvingKey;
+    type VerificationKey;
 
-use std::collections::HashSet;
-use std::iter::FromIterator;
-
-/// The statement we want to prove, namely that
-/// the signature aggregated by our scheme with
-/// the given MerkleTree, aggregated verification keys,
-/// and aggregated signatures is valid for the
-/// given message.
-pub struct Statement<'l> {
-    pub(crate) avk: &'l MerkleTree,
-    pub(crate) ivk: &'l MspMvk,
-    pub(crate) mu: &'l MspSig,
-    pub(crate) msg: &'l [u8],
+    fn setup(&self) -> (Self::ProvingKey, Self::VerificationKey);
 }
 
-/// Denotes witnesses to the fact that
-/// the statement holds.
-pub struct Witness<'l> {
-    pub(crate) sigs: &'l [StmSig],
-    pub(crate) indices: &'l [Index],
-    pub(crate) evals: &'l [u64],
+/// Implementors of `Proof<E,S,R,W>` know how to prove that
+/// a relation of type `R` holds between values of types `S` and `W`
+/// (generally the proofs are knowledge of such a `W`)
+pub trait Proof<Env, Statement, Relation, Witness>
+where
+    Env: ProverEnv,
+{
+    fn prove(env: &Env, pk: &Env::ProvingKey, rel: &Relation, stmt: &Statement, witness: Witness) -> Self;
+    fn verify(
+        &self,
+        env: &Env,
+        vk: &Env::VerificationKey,
+        rel: &Relation,
+        stmt: &Statement,
+    ) -> bool;
 }
 
-pub trait Proof {
-    fn prove(stmt: Statement, witness: Witness) -> Self;
+pub mod trivial {
+    //! A trivial implementation of `Proof` where proofs of knowledge of
+    //! witnesses are just the witnesses themselves.
+    use super::*;
 
-    fn verify(&self, params: &StmParameters, total_stake: u64, stmt: Statement) -> bool;
-}
+    pub struct TrivialEnv;
+    pub struct TrivialProof<W>(W);
 
-/// Proof system that simply concatenates the signatures.
-#[derive(Clone)]
-pub struct ConcatProof {
-    sigs: Vec<StmSig>,
-    indices: Vec<Index>,
-    evals: Vec<u64>,
-}
-
-impl Proof for ConcatProof {
-    fn prove(stmt: Statement, witness: Witness) -> Self {
-        Self {
-            sigs: witness.sigs.to_vec(),
-            indices: witness.indices.to_vec(),
-            evals: witness.evals.to_vec(),
+    impl ProverEnv for TrivialEnv {
+        type VerificationKey = ();
+        type ProvingKey = ();
+        fn setup(&self) -> ((), ()) {
+            ((), ())
         }
     }
 
-    fn verify(&self, params: &StmParameters, total_stake: u64, stmt: Statement) -> bool {
-        self.check_quorum(params)
-            && self.check_ivk(stmt.ivk)
-            && self.check_sum(stmt.mu)
-            && self.check_index_bound(params)
-            && self.check_index_unique()
-            && self.check_path(stmt.avk)
-            && self.check_eval(stmt.avk, stmt.msg)
-            && self.check_stake(params, total_stake)
-    }
-}
+    impl<Stmt, R, Witness> Proof<TrivialEnv, Stmt, R, Witness> for TrivialProof<Witness>
+    where
+        R: Fn(&Stmt, &Witness) -> bool,
+    {
+        fn prove(env: &TrivialEnv, _pk: &(), rel: &R, _statement: &Stmt, witness: Witness) -> Self {
+            TrivialProof(witness)
+        }
 
-impl ConcatProof {
-    /// ivk = Prod(1..k, mvk[i])
-    /// requires that this proof has exactly k signatures
-    fn check_ivk(&self, ivk: &MspMvk) -> bool {
-        let mvks = self.sigs.iter().map(|s| s.pk.mvk).collect::<Vec<_>>();
-
-        let sum = Msp::aggregate_keys(&mvks).0;
-        ivk.0 == sum
-    }
-
-    /// mu = Prod(1..k, sigma[i])
-    /// requires that this proof has exactly k signatures
-    fn check_sum(&self, mu: &MspSig) -> bool {
-        let mu1 = self.sigs.iter().map(|s| s.sigma.0).sum();
-        mu.0 == mu1
-    }
-
-    /// \forall i. index[i] <= m
-    /// requires that this proof has exactly k signatures
-    fn check_index_bound(&self, params: &StmParameters) -> bool {
-        self.indices.iter().all(|i| i <= &params.m)
-    }
-
-    /// \forall i. \forall j. (i == j || index[i] != index[j])
-    /// requires that this proof has exactly k signatures
-    fn check_index_unique(&self) -> bool {
-        HashSet::<Index>::from_iter(self.indices.iter().cloned()).len() == self.indices.len()
-    }
-
-    /// k-sized quorum
-    /// if this returns `true`, then then there are exactly k signatures
-    fn check_quorum(&self, params: &StmParameters) -> bool {
-        params.k as usize == self.sigs.len()
-            && params.k as usize == self.evals.len()
-            && params.k as usize == self.indices.len()
-    }
-
-    /// \forall i : [0..k]. path[i] is a witness for (mvk[i]), stake[i] in avk
-    /// requires that this proof has exactly k signatures
-    fn check_path(&self, avk: &MerkleTree) -> bool {
-        self.sigs
-            .iter()
-            .all(|sig| avk.check(&(sig.pk, sig.stake), sig.party, &sig.path))
-    }
-
-    /// \forall i : [1..k]. ev[i] = MSP.Eval(msg, index[i], sig[i])
-    /// requires that this proof has exactly k signatures
-    fn check_eval(&self, avk: &MerkleTree, msg: &[u8]) -> bool {
-        let msp_evals = self.indices.iter().zip(self.sigs.iter()).map(|(idx, sig)| {
-            let msgp = avk.concat_with_msg(msg);
-            Msp::eval(&msgp, *idx, &sig.sigma)
-        });
-
-        self.evals
-            .iter()
-            .zip(msp_evals)
-            .all(|(ev, msp_e)| *ev == msp_e)
-    }
-
-    /// \forall i : [1..k]. ev[i] <= phi(stake_i)
-    /// requires that this proof has exactly k signatures
-    fn check_stake(&self, params: &StmParameters, total_stake: u64) -> bool {
-        self.evals
-            .iter()
-            .zip(&self.sigs)
-            .all(|(ev, sig)| ev_lt_phi(params.phi_f, *ev, sig.stake, total_stake))
+        fn verify(&self, env: &TrivialEnv, vk: &(), rel: &R, statement: &Stmt) -> bool {
+            rel(statement, &self.0)
+        }
     }
 }
