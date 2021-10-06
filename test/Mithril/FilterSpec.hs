@@ -15,6 +15,7 @@ import qualified Data.BloomFilter.Easy as Bloom
 import Data.ByteString.Lazy (toStrict)
 import qualified Data.ByteString.Lazy as LBS
 import Data.Function ((&))
+import Data.Functor ((<&>))
 import Data.Maybe (isJust, isNothing)
 import Data.Tree.MerklePatricia (mkProof)
 import Mithril.Filter
@@ -23,6 +24,7 @@ import Test.Hspec.QuickCheck (modifyMaxSuccess, prop)
 import Test.QuickCheck
   ( Arbitrary (..),
     checkCoverage,
+    choose,
     collect,
     counterexample,
     cover,
@@ -77,9 +79,13 @@ spec = parallel $ do
 
     it "size for 10,000 UTXO" $ do
       utxoSet <- generate $ vectorOf 10_000 arbitrary
+      utxo <- generate (choose (0, 9999)) <&> (utxoSet !!)
       let addrFilter = bitArray $ Bloom.easyList 0.001 $ address <$> utxoSet
+          mpt = makeTree utxoSet
           (lb, ub) = bounds addrFilter
           sizeOfBloomFilter = 4 * (ub - lb)
+          Just proof = mkProof (toStrict $ serialise $ txRef utxo) mpt
 
       putStrLn $ "Utxo Size: " <> show (LBS.length (serialise utxoSet) `div` (1024 * 1024)) <> "MB"
       putStrLn $ "Filter Size: " <> show sizeOfBloomFilter
+      putStrLn $ "Proof Size: " <> show (LBS.length (serialise proof))
