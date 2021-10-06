@@ -16,7 +16,13 @@ pub trait Proof<Env, Statement, Relation, Witness>
 where
     Env: ProverEnv,
 {
-    fn prove(env: &Env, pk: &Env::ProvingKey, rel: &Relation, stmt: &Statement, witness: Witness) -> Self;
+    fn prove(
+        env: &Env,
+        pk: &Env::ProvingKey,
+        rel: &Relation,
+        stmt: &Statement,
+        witness: Witness,
+    ) -> Self;
     fn verify(
         &self,
         env: &Env,
