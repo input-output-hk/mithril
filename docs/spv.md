@@ -85,6 +85,10 @@ I don't know
 
 Yes. I don't know if it makes sense cryptographically, but if we could in some way derive a certificate for each block filter, given a global certificate, that would allow lightweight clients and full (or mithril-aware) nodes to interact through a similar protocol: Get a root certificate, verify it against previously known "Safe" state, then filter the available UTXO set using deterministic block filters.
 
+8. Why cannot we run plain SPV on Cardano?
+
+Cardano being a Proof-of-Stake chain has different tradeoffs when it comes to validating blocks. In bitcoin, the Proof-of-Work puzzle is part of the header hence it's easy to limit verification process to headers. In Cardano, validity of a block depends on current stake distribution and knowing the stake distribution requires going through all transactions in a block and update the stakes accordingly. Because the stake distribution is large, putting it in block headers is also impractical.
+
 ## Emulating SPV with Mithril
 
 Actually, I think we could not use the [Merkle-Patricia Tree](https://github.com/input-output-hk/hydra-poc/tree/master/merkle-patricia-tree) we've been building for Hydra for that purpose:
