@@ -112,7 +112,7 @@ where
             } else {
                 h = hasher.hash_children(p, &h);
             }
-            idx = idx >> 1;
+            idx >>= 1;
         }
 
         h == self.nodes[0]
