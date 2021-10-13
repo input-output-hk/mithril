@@ -83,3 +83,12 @@ where
         self.allow = false;
     }
 }
+
+impl<PE> Default for KeyReg<PE>
+where
+    PE: PairingEngine
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
