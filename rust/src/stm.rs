@@ -1,6 +1,6 @@
 //! Top-level API for Mithril Stake-based Threshold Multisignature scheme.
 
-use super::{ev_lt_phi, Index, PartyId, Path, Stake};
+use super::{ev_lt_phi, concat_avk_with_msg, Index, PartyId, Path, Stake};
 use crate::key_reg::{KeyReg, RegParty};
 use crate::merkle_tree::{MTHashLeaf, MerkleTree};
 use crate::mithril_proof::{MithrilProof, Statement, Witness};
@@ -181,7 +181,7 @@ where
         // sigma <- MSP.Sig(msk, msg')
         // ev <- MSP.Eval(msg', index, sigma)
         // return 1 if ev < phi(stake) else return 0
-        let msgp = self.avk.concat_with_msg(msg);
+        let msgp = concat_avk_with_msg(&self.avk, msg);
         let sigma = Msp::sig(&self.sk, &msgp);
         let ev = Msp::eval(&msgp, index, &sigma);
         ev_lt_phi(self.params.phi_f, ev, self.stake, self.total_stake)
@@ -195,7 +195,7 @@ where
             //      p_i is the users path inside the merkle tree AVK
             //      reg_i is (mvk_i, stake_i)
             // return pi
-            let msgp = self.avk.concat_with_msg(msg);
+            let msgp = concat_avk_with_msg(&self.avk, msg);
             let sigma = Msp::sig(&self.sk, &msgp);
             let path = self.avk.get_path(self.party_id);
             let pk = self.pk.clone();
@@ -246,7 +246,7 @@ where
     }
 
     pub fn verify_sig(&self, sig: &StmSig<PE, H::F>, index: Index, msg: &[u8]) -> bool {
-        let msgp = self.avk.concat_with_msg(msg);
+        let msgp = concat_avk_with_msg(&self.avk, msg);
         let ev = Msp::eval(&msgp, index, &sig.sigma);
 
         if !ev_lt_phi(self.params.phi_f, ev, sig.stake, self.total_stake)
@@ -268,7 +268,7 @@ where
     where
         Proof: MithrilProof<PE, H, E>,
     {
-        let msgp = self.avk.concat_with_msg(msg);
+        let msgp = concat_avk_with_msg(&self.avk, msg);
         let mut evals = Vec::new();
         let mut mvks = Vec::new();
         let mut sigmas = Vec::new();
@@ -343,7 +343,7 @@ where
         ) {
             return false;
         }
-        let msgp = self.avk.concat_with_msg(msg);
+        let msgp = concat_avk_with_msg(&self.avk, msg);
         Msp::aggregate_ver(&msgp, &msig.ivk, &msig.mu)
     }
 }

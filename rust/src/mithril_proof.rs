@@ -1,6 +1,7 @@
 //! Prove the validity of aggregated signatures.
 
 use super::Index;
+use crate::concat_avk_with_msg;
 use crate::ev_lt_phi;
 use crate::merkle_tree::{MTHashLeaf, MerkleTree};
 use crate::msp::{Msp, MspMvk, MspSig};
@@ -92,7 +93,7 @@ impl<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> Witness<PE, H> {
     /// requires that this proof has exactly k signatures
     fn check_eval(&self, avk: &MerkleTree<MTValue<PE>, H>, msg: &[u8]) -> bool {
         let msp_evals = self.indices.iter().zip(self.sigs.iter()).map(|(idx, sig)| {
-            let msgp = avk.concat_with_msg(msg);
+            let msgp = concat_avk_with_msg(&avk, msg);
             Msp::eval(&msgp, *idx, &sig.sigma)
         });
 

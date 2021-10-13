@@ -121,15 +121,6 @@ where
         H::as_bytes(&self.nodes[0])
     }
 
-    // TODO: Does this belong in this module?
-    pub fn concat_with_msg(&self, msg: &[u8]) -> Vec<u8> {
-        let mut msgp = msg.to_vec();
-        let mut bytes = self.to_bytes();
-        msgp.append(&mut bytes);
-
-        msgp
-    }
-
     /// Get a path (hashes of siblings of the path to the root node
     /// for the `i`th value stored in the tree.
     /// Requires `i < self.n`
