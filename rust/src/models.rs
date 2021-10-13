@@ -17,7 +17,7 @@ pub mod digest {
             Self::new()
         }
 
-        fn inject(v: &T) -> Self::F {
+        fn inject(&mut self, v: &T) -> Self::F {
             ark_ff::to_bytes!(v).unwrap()
         }
 

@@ -14,11 +14,11 @@ pub trait MTHashLeaf<L> {
     /// This should be some "null" representative
     fn zero() -> Self::F;
 
-    /// How to map (or label) values with their hash values
-    fn inject(v: &L) -> Self::F;
-
     /// How to extract hashes as bytes
     fn as_bytes(h: &Self::F) -> Vec<u8>;
+
+    /// How to map (or label) values with their hash values
+    fn inject(&mut self, v: &L) -> Self::F;
 
     /// Combine (and hash) two hash values
     fn hash_children(&mut self, left: &Self::F, right: &Self::F) -> Self::F;
@@ -67,7 +67,7 @@ where
 
         // Get the hasher, potentially creating it for this thread.
         for i in 0..n {
-            let leaf_hash = H::inject(&leaves[i]);
+            let leaf_hash = hasher.inject(&leaves[i]);
             nodes[num_nodes - n + i] = hasher.hash(&[leaf_hash]);
         }
 
@@ -105,7 +105,7 @@ where
         let mut idx = i;
 
         let mut hasher = H::new();
-        let leaf_hash = H::inject(val);
+        let leaf_hash = hasher.inject(val);
         let mut h = hasher.hash(&[leaf_hash]);
         for p in &proof.0 {
             if (idx & 0b1) == 0 {
@@ -244,10 +244,10 @@ mod tests {
         ) {
             let t = MerkleTree::<u64, sha3::Sha3_256>::create(&values[1..]);
             let idx = i % (values.len() - 1);
-
+            let mut hasher = <sha3::Sha3_256 as MTHashLeaf<u64>>::new();
             let path = Path(proof
                             .iter()
-                            .map(|x| sha3::Sha3_256::inject(x))
+                            .map(|x| hasher.inject(x))
                             .collect());
             assert!(!t.check(&values[0], idx, &path));
         }
