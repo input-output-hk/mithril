@@ -38,11 +38,11 @@ where
 {
     party_id: PartyId,
     stake: Stake,
+    params: StmParameters,
     avk: Option<MerkleTree<MTValue<PE>, H>>,
     sk: Option<MspSk<PE>>,
     pk: Option<MspPk<PE>>,
     total_stake: Option<Stake>,
-    params: StmParameters,
 }
 
 /// Participant in the protocol. Can sign messages.
@@ -54,10 +54,10 @@ where
     party_id: PartyId,
     stake: Stake,
     params: StmParameters,
-    total_stake: Stake,
     avk: MerkleTree<MTValue<PE>, H>,
     sk: MspSk<PE>,
     pk: MspPk<PE>,
+    total_stake: Stake,
 }
 
 /// `StmClerk` can verify and aggregate `StmSig`s and verify `StmMultiSig`s.
