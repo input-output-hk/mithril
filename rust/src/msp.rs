@@ -1,4 +1,4 @@
-//! Base multisignature scheme. Currently using BLS12.
+//! Base multisignature scheme.
 
 use super::mithril_curves::hash_to_curve;
 use super::Index;
