@@ -149,7 +149,7 @@ where
             .retrieve_all()
             .into_iter()
             .map(|so| {
-                let p = so.unwrap_or(RegParty::null_party());
+                let p = so.unwrap_or_else(RegParty::null_party);
                 MTValue(p.pk.mvk, p.stake)
             })
             .collect();
