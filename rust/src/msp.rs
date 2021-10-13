@@ -139,7 +139,7 @@ impl<PE: PairingEngine> Msp<PE> {
             ]
             .concat(),
         );
-        let mut dest = [0 as u8; 8];
+        let mut dest = [0; 8];
         hasher.finalize_variable(|out| {
             dest.copy_from_slice(out);
         });
