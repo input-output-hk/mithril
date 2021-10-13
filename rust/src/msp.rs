@@ -4,10 +4,10 @@ use super::mithril_curves::hash_to_curve;
 use super::Index;
 
 use ark_ec::{AffineCurve, PairingEngine};
-use ark_ff::{bytes::ToBytes, ToConstraintField, PrimeField};
+use ark_ff::{bytes::ToBytes, ToConstraintField, UniformRand};
 use blake2::VarBlake2b;
 use digest::{Update, VariableOutput};
-use rand_core::OsRng;
+use rand::Rng;
 use std::cmp::Ordering;
 use std::marker::PhantomData;
 
@@ -62,10 +62,13 @@ const POP: &[u8] = b"PoP";
 const M: &[u8] = b"M";
 
 impl<PE: PairingEngine> Msp<PE> {
-    pub fn gen() -> (MspSk<PE>, MspPk<PE>) {
+    pub fn gen<R>(rng: &mut R) -> (MspSk<PE>, MspPk<PE>)
+    where
+        R: Rng + ?Sized
+    {
         // sk=x <- Zq
         // mvk <- g2^x
-        let x = random_f();
+        let x = <PE::Fr as UniformRand>::rand(rng);
         let mvk = MspMvk(PE::G2Affine::prime_subgroup_generator().mul(x));
         // k1 <- H_G1("PoP"||mvk)^x
         let k1 = hash_to_curve::<PE::G1Affine>([POP, &mvk.to_bytes()].concat().as_ref()).mul(x);
@@ -147,11 +150,6 @@ impl<PE: PairingEngine> Msp<PE> {
 }
 
 
-fn random_f<F: PrimeField>() -> F {
-    let mut rng = OsRng::default();
-    F::rand(&mut rng)
-}
-
 impl<PE: PairingEngine> MspMvk<PE> {
     pub fn to_bytes(&self) -> Vec<u8> {
         ark_ff::to_bytes!(self.0).unwrap()
@@ -170,6 +168,7 @@ impl<PE: PairingEngine> MspSig<PE> {
 mod tests {
     use super::*;
     use ark_bls12_377::{Bls12_377, Fr, G1Affine, G2Affine};
+    use rand::thread_rng;
     use proptest::prelude::*;
 
     proptest! {
@@ -188,7 +187,7 @@ mod tests {
 
         #[test]
         fn test_sig(msg in prop::collection::vec(any::<u8>(), 1..128)) {
-            let (sk, pk) = Msp::<Bls12_377>::gen();
+            let (sk, pk) = Msp::<Bls12_377>::gen(&mut thread_rng());
             let sig = Msp::sig(&sk, &msg);
             assert!(Msp::ver(&msg, &pk.mvk, &sig));
         }
@@ -196,7 +195,7 @@ mod tests {
         #[test]
         fn test_invalid_sig(msg in prop::collection::vec(any::<u8>(), 1..128),
                             r in any::<u64>()) {
-            let (sk, pk) = Msp::<Bls12_377>::gen();
+            let (sk, pk) = Msp::<Bls12_377>::gen(&mut thread_rng());
             let x = MspSig(G1Affine::prime_subgroup_generator().mul(Fr::from(r)));
             assert!(!Msp::ver(&msg, &pk.mvk, &x));
         }
@@ -207,7 +206,7 @@ mod tests {
             let mut mvks = Vec::new();
             let mut sigs = Vec::new();
             for _ in 0..num_sigs {
-                let (sk, pk) = Msp::<Bls12_377>::gen();
+                let (sk, pk) = Msp::<Bls12_377>::gen(&mut thread_rng());
                 let sig = Msp::sig(&sk, &msg);
                 assert!(Msp::ver(&msg, &pk.mvk, &sig));
                 sigs.push(sig);
@@ -230,7 +229,7 @@ mod tests {
     #[test]
     fn test_gen() {
         for _ in 0..128 {
-            let (_sk, pk) = Msp::<Bls12_377>::gen();
+            let (_sk, pk) = Msp::<Bls12_377>::gen(&mut thread_rng());
             assert!(Msp::check(&pk));
         }
     }

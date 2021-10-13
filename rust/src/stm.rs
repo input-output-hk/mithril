@@ -11,6 +11,7 @@ use ark_ff::ToConstraintField;
 use std::collections::HashMap;
 use std::convert::From;
 use std::rc::Rc;
+use rand::Rng;
 
 /// The values that are represented in the Merkle Tree.
 #[derive(Clone)]
@@ -124,11 +125,14 @@ where
         }
     }
 
-    pub fn register(&mut self, kr: &mut KeyReg<PE>) {
+    pub fn register<R>(&mut self, rng: &mut R, kr: &mut KeyReg<PE>)
+        where
+        R: Rng + ?Sized
+    {
         // (msk_i, mvk_i, k_i) <- MSP.Gen(Param)
         // (vk_i, sk_i) := ((mvk_i, k_i), msk_i)
         // send (Register, sid, vk_i) to F_KR
-        let (sk, pk) = Msp::gen();
+        let (sk, pk) = Msp::gen(rng);
         self.sk = Some(sk);
         self.pk = Some(pk.clone());
         kr.register(self.party_id, self.stake, pk);
@@ -371,6 +375,10 @@ mod tests {
     use crate::mithril_proof::concat_proofs::*;
     use ark_bls12_377::Bls12_377;
     use proptest::collection::{hash_map, vec};
+    use proptest::test_runner::{
+        RngAlgorithm::ChaCha,
+        TestRng,
+    };
     use proptest::prelude::*;
     use rayon::prelude::*;
     use std::collections::{HashMap, HashSet};
@@ -384,12 +392,13 @@ mod tests {
 
     fn setup_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<StmSigner<H, Bls12_377>> {
         let mut kr = KeyReg::new();
+        let mut rng = TestRng::deterministic_rng(ChaCha);
         let ps = stake
             .iter()
             .enumerate()
             .map(|(pid, stake)| {
                 let mut p = StmInitializer::setup(params, pid, *stake);
-                p.register(&mut kr);
+                p.register(&mut rng, &mut kr);
                 p
             })
             .collect::<Vec<_>>();

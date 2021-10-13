@@ -30,7 +30,7 @@ fn test_full_protocol() {
     for pid in 0..nparties {
         let stake = 1 + (rand::random::<u64>() % 9999);
         let mut p = StmInitializer::setup(params, pid, stake);
-        p.register(&mut key_reg);
+        p.register(&mut rand::thread_rng(), &mut key_reg);
         ps.push(p);
     }
 
