@@ -377,14 +377,22 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::proof::trivial::{TrivialProof, TrivialEnv};
     use crate::mithril_proof::concat_proofs::*;
-    use ark_bls12_377::Bls12_377;
+    use ark_bls12_377::{
+        Bls12_377,
+        G1Projective as G1P,
+        G2Projective as G2P
+    };
+    use ark_ec::ProjectiveCurve;
     use proptest::collection::{hash_map, vec};
     use proptest::prelude::*;
     use proptest::test_runner::{RngAlgorithm::ChaCha, TestRng};
     use rayon::prelude::*;
     use std::collections::{HashMap, HashSet};
 
+    type Proof = TrivialProof<Witness<Bls12_377,H>>;
+    type Sig = StmMultiSig<Bls12_377, Proof>;
     type H = sha3::Sha3_256;
 
     fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmSigner<H, Bls12_377>> {
@@ -611,6 +619,111 @@ mod tests {
                 _ =>
                     assert!(false),
             }
+        }
+    }
+
+    #[derive(Debug)]
+    struct ProofTest {
+        n: usize,
+        msig: Result<Sig, AggregationFailure>,
+        clerk: StmClerk<H, Bls12_377, TrivialEnv>,
+        msg: [u8;16],
+    }
+
+    /// Run the protocol up to aggregation. This will produce a valid aggregation of signatures.
+    /// The following tests mutate this aggregation so that the proof is no longer valid.
+    fn arb_proof_setup(max_parties: usize) -> impl Strategy<Value = ProofTest> {
+        any::<[u8;16]>().prop_flat_map(move |msg| {
+            (2..max_parties).prop_map(move |n| {
+                let params = StmParameters { m: 100, k: 5, phi_f: 0.2 };
+                let mut ps = setup_equal_parties(params, n);
+                let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
+
+                let all_ps: Vec<usize> = (0..n).collect();
+                let (ixs, sigs) = find_signatures(params.m, params.k, &msg, &mut ps, &all_ps);
+
+                let msig = clerk.aggregate::<ConcatProof<Bls12_377,H>>(&sigs, &ixs, &msg);
+                ProofTest { n, clerk, msig, msg }
+            })
+        })
+    }
+
+    fn with_proof_mod<F>(mut tc: ProofTest, f: F)
+        where
+        F: Fn(&mut Sig, &mut StmClerk<H, Bls12_377, TrivialEnv>, &mut [u8; 16])
+    {
+        match tc.msig {
+            Ok(mut aggr) => {
+                f(&mut aggr, &mut tc.clerk, &mut tc.msg);
+                assert!(!tc.clerk.verify_msig(&aggr, &tc.msg))
+            }
+            _ => assert!(false)
+        }
+    }
+
+    proptest! {
+        // Each of the tests below corresponds to falsifying a conjunct in the
+        // defintion of the proved relation between statement & witness as
+        // defined in the Mithril protocol
+        #[test]
+        fn test_invalid_proof_quorum(tc in arb_proof_setup(10),
+                                     rnd in any::<u64>()) {
+            with_proof_mod(tc, |aggr, clerk, msg| {
+                clerk.params.k += 1;
+            })
+        }
+        #[test]
+        fn test_invalid_proof_ivk(tc in arb_proof_setup(10),
+                                  rnd in any::<u64>()) {
+            with_proof_mod(tc, |aggr, clerk, msg| {
+                let x = G2P::prime_subgroup_generator().mul(&[rnd]);
+                aggr.ivk = MspMvk(x)
+            })
+        }
+        #[test]
+        fn test_invalid_proof_mu(tc in arb_proof_setup(10),
+                                 rnd in any::<u64>()) {
+            with_proof_mod(tc, |aggr, clerk, msg| {
+                let x = G1P::prime_subgroup_generator().mul(&[rnd]);
+                aggr.mu = MspSig(x)
+            })
+        }
+        #[test]
+        fn test_invalid_proof_index_bound(tc in arb_proof_setup(10),
+                                          rnd in any::<u64>()) {
+            with_proof_mod(tc, |aggr, clerk, msg| {
+                clerk.params.m = 1;
+            })
+        }
+        #[test]
+        fn test_invalid_proof_index_unique(tc in arb_proof_setup(10)) {
+            with_proof_mod(tc, |aggr, clerk, msg| {
+                for i in aggr.proof.0.indices.iter_mut() {
+                    *i = *i % (clerk.params.k - 1)
+                }
+            })
+        }
+        #[test]
+        fn test_invalid_proof_path(tc in arb_proof_setup(10), i in any::<usize>()) {
+            let n = tc.n;
+            with_proof_mod(tc, |aggr, clerk, msg| {
+                let pi = i % clerk.params.k as usize;
+                aggr.proof.0.sigs[pi].party = (aggr.proof.0.sigs[pi].party + 1) % n;
+            })
+        }
+        #[test]
+        fn test_invalid_proof_eval(tc in arb_proof_setup(10), i in any::<usize>(), v in any::<u64>()) {
+            with_proof_mod(tc, |aggr, clerk, msg| {
+                let pi = i % clerk.params.k as usize;
+                aggr.proof.0.evals[pi] = v;
+            })
+        }
+        #[test]
+        fn test_invalid_proof_stake(tc in arb_proof_setup(10), i in any::<usize>()) {
+            with_proof_mod(tc, |aggr, clerk, msg| {
+                let pi = i % clerk.params.k as usize;
+                aggr.proof.0.evals[pi] = 0;
+            })
         }
     }
 }
