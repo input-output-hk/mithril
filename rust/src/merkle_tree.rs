@@ -1,12 +1,13 @@
 //! Creation and verification of Merkle Trees
 use crate::Path;
+use std::fmt::Debug;
 
 /// This trait describes a hashing algorithm. For mithril we need
 /// (1) a way to inject stored values into the tree
 /// (2) a way to combine hashes
 /// (H_p is used for both of these in the paper)
 pub trait MTHashLeaf<L> {
-    type F: Eq + Clone;
+    type F: Eq + Clone + Debug;
 
     /// Create a new hasher
     fn new() -> Self;

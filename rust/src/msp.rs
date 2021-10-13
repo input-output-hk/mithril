@@ -15,7 +15,7 @@ pub struct Msp<PE: PairingEngine> {
     x: PhantomData<PE>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct MspSk<PE: PairingEngine>(PE::Fr);
 
 #[derive(Debug, Clone, Copy)]

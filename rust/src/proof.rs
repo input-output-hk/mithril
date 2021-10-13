@@ -38,8 +38,10 @@ pub mod trivial {
     //! witnesses are just the witnesses themselves.
     use super::*;
 
+    #[derive(Debug, Clone)]
     pub struct TrivialEnv;
 
+    #[derive(Debug, Clone)]
     pub struct TrivialProof<W>(pub W);
 
     impl ProverEnv for TrivialEnv {

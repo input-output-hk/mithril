@@ -14,11 +14,11 @@ use std::convert::From;
 use std::rc::Rc;
 
 /// The values that are represented in the Merkle Tree.
-#[derive(Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct MTValue<PE: PairingEngine>(pub MspMvk<PE>, pub Stake);
 
 /// Used to set protocol parameters.
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct StmParameters {
     /// Security parameter, upper bound on indices
     pub m: u64,
@@ -31,6 +31,7 @@ pub struct StmParameters {
 }
 
 /// Initializer for `StmSigner`.
+#[derive(Debug, Clone)]
 pub struct StmInitializer<H, PE>
 where
     H: MTHashLeaf<MTValue<PE>>,
@@ -46,6 +47,7 @@ where
 }
 
 /// Participant in the protocol. Can sign messages.
+#[derive(Debug, Clone)]
 pub struct StmSigner<H, PE>
 where
     H: MTHashLeaf<MTValue<PE>>,
@@ -61,6 +63,7 @@ where
 }
 
 /// `StmClerk` can verify and aggregate `StmSig`s and verify `StmMultiSig`s.
+#[derive(Debug, Clone)]
 pub struct StmClerk<H, PE, E>
 where
     H: MTHashLeaf<MTValue<PE>>,
@@ -76,7 +79,7 @@ where
 }
 
 /// Signature created by a single party who has won the lottery.
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct StmSig<PE: PairingEngine, F> {
     pub sigma: MspSig<PE>,
     pub pk: MspPk<PE>,
@@ -87,7 +90,7 @@ pub struct StmSig<PE: PairingEngine, F> {
 
 /// Aggregated signature of many parties.
 /// Contains proof that it is well-formed.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct StmMultiSig<PE, Proof>
 where
     PE: PairingEngine,
@@ -98,7 +101,7 @@ where
 }
 
 /// Error types for aggregation.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum AggregationFailure {
     NotEnoughSignatures(usize),
     /// How many signatures we got

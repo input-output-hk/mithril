@@ -28,7 +28,7 @@ pub struct Statement<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> {
 }
 
 /// A Witness is an aggregation of signatures
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Witness<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> {
     pub(crate) sigs: Vec<StmSig<PE, H::F>>,
     pub(crate) indices: Vec<Index>,
