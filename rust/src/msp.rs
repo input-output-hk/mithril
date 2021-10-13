@@ -4,10 +4,10 @@ use super::mithril_curves::hash_to_curve;
 use super::Index;
 
 use ark_ec::{AffineCurve, PairingEngine};
-use ark_ff::{bytes::ToBytes, ToConstraintField};
+use ark_ff::{bytes::ToBytes, ToConstraintField, PrimeField};
 use blake2::VarBlake2b;
 use digest::{Update, VariableOutput};
-use rand_core::{OsRng, RngCore};
+use rand_core::OsRng;
 use std::cmp::Ordering;
 use std::marker::PhantomData;
 
@@ -64,9 +64,8 @@ const M: &[u8] = b"M";
 impl<PE: PairingEngine> Msp<PE> {
     pub fn gen() -> (MspSk<PE>, MspPk<PE>) {
         // sk=x <- Zq
-        let mut rng = OsRng::default();
-        let x = PE::Fr::from(rng.next_u64());
         // mvk <- g2^x
+        let x = random_f();
         let mvk = MspMvk(PE::G2Affine::prime_subgroup_generator().mul(x));
         // k1 <- H_G1("PoP"||mvk)^x
         let k1 = hash_to_curve::<PE::G1Affine>([POP, &mvk.to_bytes()].concat().as_ref()).mul(x);
@@ -145,6 +144,12 @@ impl<PE: PairingEngine> Msp<PE> {
         // // XXX: See section 6 to implement M from Elligator Squared
         // // return ev <- M_msg,index(sigma)
     }
+}
+
+
+fn random_f<F: PrimeField>() -> F {
+    let mut rng = OsRng::default();
+    F::rand(&mut rng)
 }
 
 impl<PE: PairingEngine> MspMvk<PE> {
