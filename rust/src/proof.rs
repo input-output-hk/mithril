@@ -39,7 +39,8 @@ pub mod trivial {
     use super::*;
 
     pub struct TrivialEnv;
-    pub struct TrivialProof<W>(W);
+
+    pub struct TrivialProof<W>(pub W);
 
     impl ProverEnv for TrivialEnv {
         type VerificationKey = ();
