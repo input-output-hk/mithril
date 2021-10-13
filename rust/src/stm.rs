@@ -137,7 +137,7 @@ where
         // send (Register, sid, vk_i) to F_KR
         let (sk, pk) = Msp::gen(rng);
         self.sk = Some(sk);
-        self.pk = Some(pk.clone());
+        self.pk = Some(pk);
         kr.register(self.party_id, self.stake, pk);
     }
 
@@ -201,10 +201,9 @@ where
             let msgp = concat_avk_with_msg(&self.avk, msg);
             let sigma = Msp::sig(&self.sk, &msgp);
             let path = self.avk.get_path(self.party_id);
-            let pk = self.pk.clone();
             Some(StmSig {
                 sigma,
-                pk,
+                pk: self.pk,
                 party: self.party_id,
                 stake: self.stake,
                 path,
