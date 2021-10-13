@@ -29,7 +29,7 @@ pub trait MTHashLeaf<L> {
     /// and `hash_children` as the operation
     fn hash(&mut self, leaf: &[Self::F]) -> Self::F {
         leaf.iter()
-            .fold(Self::zero(), |h, l| self.hash_children(&h, &l))
+            .fold(Self::zero(), |h, l| self.hash_children(&h, l))
     }
 }
 
