@@ -12,7 +12,7 @@ pub trait ProverEnv {
 /// Implementors of `Proof<E,S,R,W>` know how to prove that
 /// a relation of type `R` holds between values of types `S` and `W`
 /// (generally the proofs are knowledge of such a `W`)
-pub trait Proof<Env, Statement, Relation, Witness>
+pub trait Proof<Env, Statement, Relation, Witness>: Sized
 where
     Env: ProverEnv,
 {
@@ -22,7 +22,8 @@ where
         rel: &Relation,
         stmt: &Statement,
         witness: Witness,
-    ) -> Self;
+    ) -> Option<Self>;
+
     fn verify(
         &self,
         env: &Env,
@@ -52,8 +53,12 @@ pub mod trivial {
     where
         R: Fn(&Stmt, &Witness) -> bool,
     {
-        fn prove(env: &TrivialEnv, _pk: &(), rel: &R, _stmt: &Stmt, witness: Witness) -> Self {
-            TrivialProof(witness)
+        fn prove(env: &TrivialEnv, _pk: &(), rel: &R, stmt: &Stmt, witness: Witness) -> Option<Self> {
+            if rel(stmt, &witness) {
+                Some(TrivialProof(witness))
+            } else {
+                None
+            }
         }
 
         fn verify(&self, env: &TrivialEnv, vk: &(), rel: &R, statement: &Stmt) -> bool {

@@ -311,13 +311,15 @@ where
             indices: indices_to_verify,
             evals: evals,
         };
+        // We're honest, so proving shouldn't fail
         let proof = Proof::prove(
             &self.proof_env,
             &self.proof_key,
             &Proof::RELATION,
             &Proof::S::from(statement),
             Proof::W::from(witness),
-        );
+        ).expect("Constructed invalid proof");
+
         Ok(StmMultiSig { ivk, mu, proof })
     }
 
