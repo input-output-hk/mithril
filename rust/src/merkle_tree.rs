@@ -67,8 +67,7 @@ where
 
         // Get the hasher, potentially creating it for this thread.
         for i in 0..n {
-            let leaf_hash = hasher.inject(&leaves[i]);
-            nodes[num_nodes - n + i] = hasher.hash(&[leaf_hash]);
+            nodes[num_nodes - n + i] = hasher.inject(&leaves[i]);
         }
 
         for i in (0..num_nodes - n).rev() {
@@ -105,8 +104,7 @@ where
         let mut idx = i;
 
         let mut hasher = H::new();
-        let leaf_hash = hasher.inject(val);
-        let mut h = hasher.hash(&[leaf_hash]);
+        let mut h = hasher.inject(val);
         for p in &proof.0 {
             if (idx & 0b1) == 0 {
                 h = hasher.hash_children(&h, p);
