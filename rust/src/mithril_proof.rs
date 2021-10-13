@@ -48,7 +48,6 @@ impl<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> Witness<PE, H> {
     }
 
     /// ivk = Prod(1..k, mvk[i])
-    /// requires that this proof has exactly k signatures
     fn check_ivk(&self, ivk: &MspMvk<PE>) -> bool {
         let mvks = self.sigs.iter().map(|s| s.pk.mvk).collect::<Vec<_>>();
 
@@ -57,20 +56,17 @@ impl<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> Witness<PE, H> {
     }
 
     /// mu = Prod(1..k, sigma[i])
-    /// requires that this proof has exactly k signatures
     fn check_sum(&self, mu: &MspSig<PE>) -> bool {
         let mu1 = self.sigs.iter().map(|s| s.sigma.0).sum();
         mu.0 == mu1
     }
 
     /// \forall i. index[i] <= m
-    /// requires that this proof has exactly k signatures
     fn check_index_bound(&self, m: u64) -> bool {
         self.indices.iter().all(|i| *i <= m)
     }
 
     /// \forall i. \forall j. (i == j || index[i] != index[j])
-    /// requires that this proof has exactly k signatures
     fn check_index_unique(&self) -> bool {
         HashSet::<Index>::from_iter(self.indices.iter().cloned()).len() == self.indices.len()
     }
@@ -82,7 +78,6 @@ impl<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> Witness<PE, H> {
     }
 
     /// \forall i : [0..k]. path[i] is a witness for (mvk[i]), stake[i] in avk
-    /// requires that this proof has exactly k signatures
     fn check_path(&self, avk: &MerkleTree<MTValue<PE>, H>) -> bool {
         self.sigs
             .iter()
@@ -90,7 +85,6 @@ impl<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> Witness<PE, H> {
     }
 
     /// \forall i : [1..k]. ev[i] = MSP.Eval(msg, index[i], sig[i])
-    /// requires that this proof has exactly k signatures
     fn check_eval(&self, avk: &MerkleTree<MTValue<PE>, H>, msg: &[u8]) -> bool {
         let msp_evals = self.indices.iter().zip(self.sigs.iter()).map(|(idx, sig)| {
             let msgp = concat_avk_with_msg(&avk, msg);
@@ -104,7 +98,6 @@ impl<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> Witness<PE, H> {
     }
 
     /// \forall i : [1..k]. ev[i] <= phi(stake_i)
-    /// requires that this proof has exactly k signatures
     fn check_stake(&self, phi_f: f64, total_stake: u64) -> bool {
         self.evals
             .iter()
