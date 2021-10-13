@@ -75,7 +75,7 @@ impl<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> Witness<PE, H> {
     }
 
     /// k-sized quorum
-    /// if this returns `true`, then then there are exactly k signatures
+    /// if this returns `true`, then there are exactly k signatures
     fn check_quorum(&self, k: usize) -> bool {
         k == self.sigs.len() && k == self.evals.len() && k == self.indices.len()
     }

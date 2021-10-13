@@ -17,7 +17,7 @@ pub type Stake = u64;
 pub type PartyId = usize;
 
 /// Quorum index for signatures.
-/// An aggregate signature (`StmMutliSig`) must have at least `k` unique indices.
+/// An aggregate signature (`StmMultiSig`) must have at least `k` unique indices.
 pub type Index = u64;
 
 /// Path of hashes from root to leaf in a Merkle Tree.
