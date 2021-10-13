@@ -36,7 +36,7 @@ pub struct Witness<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> {
 }
 
 impl<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> Witness<PE, H> {
-    fn verify<'l>(&self, stmt: &Statement<PE, H>) -> bool {
+    fn verify(&self, stmt: &Statement<PE, H>) -> bool {
         self.check_quorum(stmt.params.k as usize)
             && self.check_ivk(&stmt.ivk)
             && self.check_sum(&stmt.mu)
