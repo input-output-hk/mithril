@@ -66,8 +66,6 @@ where
         let mut nodes = vec![H::zero(); num_nodes];
 
         // Get the hasher, potentially creating it for this thread.
-        // let constants = PoseidonConstants::new();
-        // let mut hasher: MithrilHasher<F> = Poseidon::new(&constants);
         for i in 0..n {
             let leaf_hash = H::inject(&leaves[i]);
             nodes[num_nodes - n + i] = hasher.hash(&[leaf_hash]);
