@@ -377,13 +377,9 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::proof::trivial::{TrivialProof, TrivialEnv};
     use crate::mithril_proof::concat_proofs::*;
-    use ark_bls12_377::{
-        Bls12_377,
-        G1Projective as G1P,
-        G2Projective as G2P
-    };
+    use crate::proof::trivial::{TrivialEnv, TrivialProof};
+    use ark_bls12_377::{Bls12_377, G1Projective as G1P, G2Projective as G2P};
     use ark_ec::ProjectiveCurve;
     use proptest::collection::{hash_map, vec};
     use proptest::prelude::*;
@@ -391,7 +387,7 @@ mod tests {
     use rayon::prelude::*;
     use std::collections::{HashMap, HashSet};
 
-    type Proof = TrivialProof<Witness<Bls12_377,H>>;
+    type Proof = TrivialProof<Witness<Bls12_377, H>>;
     type Sig = StmMultiSig<Bls12_377, Proof>;
     type H = sha3::Sha3_256;
 
@@ -627,37 +623,46 @@ mod tests {
         n: usize,
         msig: Result<Sig, AggregationFailure>,
         clerk: StmClerk<H, Bls12_377, TrivialEnv>,
-        msg: [u8;16],
+        msg: [u8; 16],
     }
 
     /// Run the protocol up to aggregation. This will produce a valid aggregation of signatures.
     /// The following tests mutate this aggregation so that the proof is no longer valid.
     fn arb_proof_setup(max_parties: usize) -> impl Strategy<Value = ProofTest> {
-        any::<[u8;16]>().prop_flat_map(move |msg| {
+        any::<[u8; 16]>().prop_flat_map(move |msg| {
             (2..max_parties).prop_map(move |n| {
-                let params = StmParameters { m: 100, k: 5, phi_f: 0.2 };
+                let params = StmParameters {
+                    m: 100,
+                    k: 5,
+                    phi_f: 0.2,
+                };
                 let mut ps = setup_equal_parties(params, n);
                 let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
 
                 let all_ps: Vec<usize> = (0..n).collect();
                 let (ixs, sigs) = find_signatures(params.m, params.k, &msg, &mut ps, &all_ps);
 
-                let msig = clerk.aggregate::<ConcatProof<Bls12_377,H>>(&sigs, &ixs, &msg);
-                ProofTest { n, clerk, msig, msg }
+                let msig = clerk.aggregate::<ConcatProof<Bls12_377, H>>(&sigs, &ixs, &msg);
+                ProofTest {
+                    n,
+                    clerk,
+                    msig,
+                    msg,
+                }
             })
         })
     }
 
     fn with_proof_mod<F>(mut tc: ProofTest, f: F)
-        where
-        F: Fn(&mut Sig, &mut StmClerk<H, Bls12_377, TrivialEnv>, &mut [u8; 16])
+    where
+        F: Fn(&mut Sig, &mut StmClerk<H, Bls12_377, TrivialEnv>, &mut [u8; 16]),
     {
         match tc.msig {
             Ok(mut aggr) => {
                 f(&mut aggr, &mut tc.clerk, &mut tc.msg);
                 assert!(!tc.clerk.verify_msig(&aggr, &tc.msg))
             }
-            _ => assert!(false)
+            _ => assert!(false),
         }
     }
 
