@@ -87,7 +87,7 @@ impl<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> Witness<PE, H> {
     /// \forall i : [1..k]. ev[i] = MSP.Eval(msg, index[i], sig[i])
     fn check_eval(&self, avk: &MerkleTree<MTValue<PE>, H>, msg: &[u8]) -> bool {
         let msp_evals = self.indices.iter().zip(self.sigs.iter()).map(|(idx, sig)| {
-            let msgp = concat_avk_with_msg(&avk, msg);
+            let msgp = concat_avk_with_msg(avk, msg);
             Msp::eval(&msgp, *idx, &sig.sigma)
         });
 

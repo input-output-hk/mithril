@@ -279,7 +279,7 @@ where
         let mut indices_to_verify = Vec::new();
 
         for (ix, sig) in dedup_sigs_for_indices::<H, PE>(sigs, indices) {
-            if !self.verify_sig(&sig, *ix, msg) {
+            if !self.verify_sig(sig, *ix, msg) {
                 return Err(AggregationFailure::VerifyFailed);
             }
 
