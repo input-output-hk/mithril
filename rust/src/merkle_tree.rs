@@ -28,7 +28,7 @@ pub trait MTHashLeaf<L> {
     /// Reducing the input with `zero()` as the initial value
     /// and `hash_children` as the operation
     fn hash(&mut self, leaf: &[Self::F]) -> Self::F {
-        leaf.into_iter()
+        leaf.iter()
             .fold(Self::zero(), |h, l| self.hash_children(&h, &l))
     }
 }
