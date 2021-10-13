@@ -8,10 +8,10 @@ use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
 use crate::proof::ProverEnv;
 use ark_ec::PairingEngine;
 use ark_ff::ToConstraintField;
+use rand::Rng;
 use std::collections::HashMap;
 use std::convert::From;
 use std::rc::Rc;
-use rand::Rng;
 
 /// The values that are represented in the Merkle Tree.
 #[derive(Clone)]
@@ -126,8 +126,8 @@ where
     }
 
     pub fn register<R>(&mut self, rng: &mut R, kr: &mut KeyReg<PE>)
-        where
-        R: Rng + ?Sized
+    where
+        R: Rng + ?Sized,
     {
         // (msk_i, mvk_i, k_i) <- MSP.Gen(Param)
         // (vk_i, sk_i) := ((mvk_i, k_i), msk_i)
@@ -375,11 +375,8 @@ mod tests {
     use crate::mithril_proof::concat_proofs::*;
     use ark_bls12_377::Bls12_377;
     use proptest::collection::{hash_map, vec};
-    use proptest::test_runner::{
-        RngAlgorithm::ChaCha,
-        TestRng,
-    };
     use proptest::prelude::*;
+    use proptest::test_runner::{RngAlgorithm::ChaCha, TestRng};
     use rayon::prelude::*;
     use std::collections::{HashMap, HashSet};
 

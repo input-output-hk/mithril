@@ -64,7 +64,7 @@ const M: &[u8] = b"M";
 impl<PE: PairingEngine> Msp<PE> {
     pub fn gen<R>(rng: &mut R) -> (MspSk<PE>, MspPk<PE>)
     where
-        R: Rng + ?Sized
+        R: Rng + ?Sized,
     {
         // sk=x <- Zq
         // mvk <- g2^x
@@ -149,7 +149,6 @@ impl<PE: PairingEngine> Msp<PE> {
     }
 }
 
-
 impl<PE: PairingEngine> MspMvk<PE> {
     pub fn to_bytes(&self) -> Vec<u8> {
         ark_ff::to_bytes!(self.0).unwrap()
@@ -168,8 +167,8 @@ impl<PE: PairingEngine> MspSig<PE> {
 mod tests {
     use super::*;
     use ark_bls12_377::{Bls12_377, Fr, G1Affine, G2Affine};
-    use rand::thread_rng;
     use proptest::prelude::*;
+    use rand::thread_rng;
 
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(1000))]
