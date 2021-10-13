@@ -87,8 +87,8 @@ where
         }
 
         Self {
-            nodes: nodes,
-            n: n,
+            nodes,
+            n,
             leaf_off: num_nodes - n,
         }
     }

@@ -312,7 +312,7 @@ where
         let witness = Witness {
             sigs: sigs_to_verify,
             indices: indices_to_verify,
-            evals: evals,
+            evals,
         };
         // We're honest, so proving shouldn't fail
         let proof = Proof::prove(

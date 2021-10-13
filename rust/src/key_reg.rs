@@ -65,10 +65,7 @@ where
         if Msp::check(&pk) {
             self.store.insert(
                 party_id,
-                RegParty {
-                    pk: pk,
-                    stake: stake,
-                },
+                RegParty { pk, stake },
             );
         }
     }
