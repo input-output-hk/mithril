@@ -117,7 +117,7 @@ where
         h == self.nodes[0]
     }
 
-    pub fn to_bytes(&self) -> Vec<u8> {
+    pub fn root_to_bytes(&self) -> Vec<u8> {
         H::as_bytes(&self.nodes[0])
     }
 
