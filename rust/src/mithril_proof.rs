@@ -149,7 +149,7 @@ pub mod concat_proofs {
         const RELATION: fn(&Self::S, &Self::W) -> bool = trivial_relation;
     }
 
-    fn trivial_relation<'l, PE, H>(s: &Statement<PE, H>, w: &Witness<PE, H>) -> bool
+    fn trivial_relation<PE, H>(s: &Statement<PE, H>, w: &Witness<PE, H>) -> bool
     where
         PE: PairingEngine,
         H: MTHashLeaf<MTValue<PE>>,
