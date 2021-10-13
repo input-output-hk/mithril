@@ -56,7 +56,13 @@ pub mod trivial {
     where
         R: Fn(&Stmt, &Witness) -> bool,
     {
-        fn prove(env: &TrivialEnv, _pk: &(), rel: &R, stmt: &Stmt, witness: Witness) -> Option<Self> {
+        fn prove(
+            env: &TrivialEnv,
+            _pk: &(),
+            rel: &R,
+            stmt: &Stmt,
+            witness: Witness,
+        ) -> Option<Self> {
             if rel(stmt, &witness) {
                 Some(TrivialProof(witness))
             } else {

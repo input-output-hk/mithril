@@ -1,6 +1,6 @@
 //! Top-level API for Mithril Stake-based Threshold Multisignature scheme.
 
-use super::{ev_lt_phi, concat_avk_with_msg, Index, PartyId, Path, Stake};
+use super::{concat_avk_with_msg, ev_lt_phi, Index, PartyId, Path, Stake};
 use crate::key_reg::{KeyReg, RegParty};
 use crate::merkle_tree::{MTHashLeaf, MerkleTree};
 use crate::mithril_proof::{MithrilProof, Statement, Witness};
@@ -320,7 +320,8 @@ where
             &Proof::RELATION,
             &Proof::S::from(statement),
             Proof::W::from(witness),
-        ).expect("Constructed invalid proof");
+        )
+        .expect("Constructed invalid proof");
 
         Ok(StmMultiSig { ivk, mu, proof })
     }

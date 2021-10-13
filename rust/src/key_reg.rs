@@ -63,10 +63,7 @@ where
             return;
         }
         if Msp::check(&pk) {
-            self.store.insert(
-                party_id,
-                RegParty { pk, stake },
-            );
+            self.store.insert(party_id, RegParty { pk, stake });
         }
     }
 
@@ -86,7 +83,7 @@ where
 
 impl<PE> Default for KeyReg<PE>
 where
-    PE: PairingEngine
+    PE: PairingEngine,
 {
     fn default() -> Self {
         Self::new()
