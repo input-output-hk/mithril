@@ -384,9 +384,9 @@ mod tests {
     use proptest::collection::{hash_map, vec};
     use proptest::prelude::*;
     use proptest::test_runner::{RngAlgorithm::ChaCha, TestRng};
+    use rand::{Rng, SeedableRng};
     use rayon::prelude::*;
     use std::collections::{HashMap, HashSet};
-    use rand::{Rng, SeedableRng};
 
     type Proof = TrivialProof<Witness<Bls12_377, H>>;
     type Sig = StmMultiSig<Bls12_377, Proof>;
