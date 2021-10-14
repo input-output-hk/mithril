@@ -660,8 +660,8 @@ mod tests {
                 let msig = clerk.aggregate::<ConcatProof<Bls12_377, H>>(&sigs, &ixs, &msg);
                 ProofTest {
                     n,
-                    clerk,
                     msig,
+                    clerk,
                     msg,
                 }
             })
