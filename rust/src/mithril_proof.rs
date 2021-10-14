@@ -6,7 +6,6 @@ use crate::ev_lt_phi;
 use crate::merkle_tree::{MTHashLeaf, MerkleTree};
 use crate::msp::{Msp, MspMvk, MspSig};
 use crate::proof::Proof;
-use crate::proof::ProverEnv;
 use crate::stm::{MTValue, StmParameters, StmSig};
 use ark_ec::PairingEngine;
 use std::collections::HashSet;
@@ -106,17 +105,10 @@ impl<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> Witness<PE, H> {
     }
 }
 
-/// Here we fix the type of statements and witnesses to those defined by the Mithril protocol.
-/// Implementations of `MithrilProof` fix the relation as well.
-pub trait MithrilProof<PE, H, Env>: Proof<Env, Self::S, Self::Relation, Self::W>
-where
-    PE: PairingEngine,
-    H: MTHashLeaf<MTValue<PE>>,
-    Env: ProverEnv,
+
+/// A MithrilProof just fixes the relation to a constant.
+pub trait MithrilProof: Proof
 {
-    type S: From<Statement<PE, H>>;
-    type W: From<Witness<PE, H>>;
-    type Relation;
     const RELATION: Self::Relation;
 }
 
@@ -130,17 +122,16 @@ pub mod concat_proofs {
     use crate::stm::MTValue;
     use ark_ec::PairingEngine;
 
-    pub type ConcatProof<PE, H> = TrivialProof<Witness<PE, H>>;
+    pub type ConcatEnv = TrivialEnv;
+    pub type ConcatRel<PE,H> = fn(&Statement<PE,H>, &Witness<PE,H>) -> bool;
+    pub type ConcatProof<PE, H> = TrivialProof<Statement<PE,H>, ConcatRel<PE,H>, Witness<PE, H>>;
 
-    impl<PE, H> MithrilProof<PE, H, TrivialEnv> for TrivialProof<Witness<PE, H>>
+    impl<PE, H> MithrilProof for ConcatProof<PE,H>
     where
         PE: PairingEngine,
         H: MTHashLeaf<MTValue<PE>>,
     {
-        type S = Statement<PE, H>;
-        type W = Witness<PE, H>;
-        type Relation = fn(&Self::S, &Self::W) -> bool;
-        const RELATION: fn(&Self::S, &Self::W) -> bool = trivial_relation;
+        const RELATION: ConcatRel<PE,H> = trivial_relation;
     }
 
     fn trivial_relation<PE, H>(s: &Statement<PE, H>, w: &Witness<PE, H>) -> bool
