@@ -98,6 +98,7 @@ pub struct StmSig<PE: PairingEngine, F> {
 pub struct StmMultiSig<PE, Proof>
 where
     PE: PairingEngine,
+    Proof: MithrilProof,
 {
     ivk: MspMvk<PE>,
     mu: MspSig<PE>,
