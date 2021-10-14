@@ -105,10 +105,8 @@ impl<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> Witness<PE, H> {
     }
 }
 
-
 /// A MithrilProof just fixes the relation to a constant.
-pub trait MithrilProof: Proof
-{
+pub trait MithrilProof: Proof {
     const RELATION: Self::Relation;
 }
 
@@ -123,15 +121,15 @@ pub mod concat_proofs {
     use ark_ec::PairingEngine;
 
     pub type ConcatEnv = TrivialEnv;
-    pub type ConcatRel<PE,H> = fn(&Statement<PE,H>, &Witness<PE,H>) -> bool;
-    pub type ConcatProof<PE, H> = TrivialProof<Statement<PE,H>, ConcatRel<PE,H>, Witness<PE, H>>;
+    pub type ConcatRel<PE, H> = fn(&Statement<PE, H>, &Witness<PE, H>) -> bool;
+    pub type ConcatProof<PE, H> = TrivialProof<Statement<PE, H>, ConcatRel<PE, H>, Witness<PE, H>>;
 
-    impl<PE, H> MithrilProof for ConcatProof<PE,H>
+    impl<PE, H> MithrilProof for ConcatProof<PE, H>
     where
         PE: PairingEngine,
         H: MTHashLeaf<MTValue<PE>>,
     {
-        const RELATION: ConcatRel<PE,H> = trivial_relation;
+        const RELATION: ConcatRel<PE, H> = trivial_relation;
     }
 
     fn trivial_relation<PE, H>(s: &Statement<PE, H>, w: &Witness<PE, H>) -> bool
