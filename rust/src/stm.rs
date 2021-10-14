@@ -280,9 +280,9 @@ where
         msg: &[u8],
     ) -> Result<StmMultiSig<PE, Proof>, AggregationFailure>
     where
-        Proof: MithrilProof<Env=E>,
-        Proof::Statement: From<Statement<PE,H>>,
-        Proof::Witness: From<Witness<PE,H>>,
+        Proof: MithrilProof<Env = E>,
+        Proof::Statement: From<Statement<PE, H>>,
+        Proof::Witness: From<Witness<PE, H>>,
     {
         let msgp = concat_avk_with_msg(&self.avk, msg);
         let mut evals = Vec::new();
@@ -342,9 +342,9 @@ where
 
     pub fn verify_msig<Proof>(&self, msig: &StmMultiSig<PE, Proof>, msg: &[u8]) -> bool
     where
-        Proof: MithrilProof<Env=E>,
-        Proof::Statement: From<Statement<PE,H>>,
-        Proof::Witness: From<Witness<PE,H>>,
+        Proof: MithrilProof<Env = E>,
+        Proof::Statement: From<Statement<PE, H>>,
+        Proof::Witness: From<Witness<PE, H>>,
     {
         let statement = Statement {
             // Specific to the message and signatures

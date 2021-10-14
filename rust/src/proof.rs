@@ -12,8 +12,7 @@ pub trait ProverEnv {
 /// Implementors of `Proof<E,S,R,W>` know how to prove that
 /// a relation of type `R` holds between values of types `S` and `W`
 /// (generally the proofs are knowledge of such a `W`)
-pub trait Proof: Sized
-{
+pub trait Proof: Sized {
     type Env: ProverEnv;
     type Statement;
     type Relation;
@@ -46,13 +45,13 @@ pub mod trivial {
     pub struct TrivialEnv;
 
     #[derive(Clone)]
-    pub struct TrivialProof<S,R,W> {
+    pub struct TrivialProof<S, R, W> {
         pub witness: W,
         pr: PhantomData<R>,
         ps: PhantomData<S>,
     }
 
-    impl<S, R, W: Debug> Debug for TrivialProof<S,R,W> {
+    impl<S, R, W: Debug> Debug for TrivialProof<S, R, W> {
         fn fmt(&self, f: &mut Formatter<'_>) -> Result {
             write!(f, "TrivialProof({:?})", self.witness)
         }
@@ -66,7 +65,7 @@ pub mod trivial {
         }
     }
 
-    impl<Stmt,R,Witness> Proof for TrivialProof<Stmt,R,Witness>
+    impl<Stmt, R, Witness> Proof for TrivialProof<Stmt, R, Witness>
     where
         R: Fn(&Stmt, &Witness) -> bool,
     {
@@ -82,7 +81,11 @@ pub mod trivial {
             witness: Self::Witness,
         ) -> Option<Self> {
             if rel(stmt, &witness) {
-                Some(TrivialProof { witness, pr: PhantomData, ps: PhantomData })
+                Some(TrivialProof {
+                    witness,
+                    pr: PhantomData,
+                    ps: PhantomData,
+                })
             } else {
                 None
             }
