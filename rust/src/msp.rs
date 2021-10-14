@@ -64,7 +64,7 @@ const M: &[u8] = b"M";
 impl<PE: PairingEngine> Msp<PE> {
     pub fn gen<R>(rng: &mut R) -> (MspSk<PE>, MspPk<PE>)
     where
-        R: Rng + ?Sized,
+        R: Rng + rand::CryptoRng + ?Sized,
     {
         // sk=x <- Zq
         // mvk <- g2^x

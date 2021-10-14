@@ -555,6 +555,7 @@ dependencies = [
  "num-traits",
  "proptest",
  "rand",
+ "rand_chacha",
  "rand_core",
  "rayon",
  "sha3",

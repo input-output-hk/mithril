@@ -130,7 +130,7 @@ where
 
     pub fn register<R>(&mut self, rng: &mut R, kr: &mut KeyReg<PE>)
     where
-        R: Rng + ?Sized,
+        R: Rng + rand::CryptoRng + ?Sized,
     {
         // (msk_i, mvk_i, k_i) <- MSP.Gen(Param)
         // (vk_i, sk_i) := ((mvk_i, k_i), msk_i)
@@ -386,6 +386,7 @@ mod tests {
     use proptest::test_runner::{RngAlgorithm::ChaCha, TestRng};
     use rayon::prelude::*;
     use std::collections::{HashMap, HashSet};
+    use rand::{Rng, SeedableRng};
 
     type Proof = TrivialProof<Witness<Bls12_377, H>>;
     type Sig = StmMultiSig<Bls12_377, Proof>;
@@ -398,7 +399,8 @@ mod tests {
 
     fn setup_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<StmSigner<H, Bls12_377>> {
         let mut kr = KeyReg::new();
-        let mut rng = TestRng::deterministic_rng(ChaCha);
+        let mut trng = TestRng::deterministic_rng(ChaCha);
+        let mut rng = rand_chacha::ChaCha8Rng::from_seed(trng.gen());
         let ps = stake
             .iter()
             .enumerate()
