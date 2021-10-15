@@ -9,8 +9,8 @@ use blake2::VarBlake2b;
 use digest::{Update, VariableOutput};
 use rand::Rng;
 use std::cmp::Ordering;
-use std::marker::PhantomData;
 use std::hash::Hash;
+use std::marker::PhantomData;
 
 pub struct Msp<PE: PairingEngine> {
     x: PhantomData<PE>,

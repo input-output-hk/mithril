@@ -1,7 +1,7 @@
 //! Placeholder key registration functionality.
 
+use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
-use std::collections::{HashSet, HashMap};
 use std::iter::FromIterator;
 
 use super::msp::{Msp, MspMvk, MspPk};
@@ -66,9 +66,7 @@ where
     MspPk<PE>: Hash,
 {
     pub fn new(players: &[(PartyId, Stake)]) -> Self {
-        let parties = players
-            .iter()
-            .map(|(id, stake)| { (*id, (*stake, None)) });
+        let parties = players.iter().map(|(id, stake)| (*id, (*stake, None)));
         Self {
             allow: true,
             parties: HashMap::from_iter(parties),
@@ -104,8 +102,10 @@ where
 
     pub fn retrieve(&self, party_id: PartyId) -> Option<RegParty<PE>> {
         let (stake, pko) = self.parties.get(&party_id)?;
-        pko.map(|pk| {
-            RegParty {party_id, pk: pk, stake: *stake}
+        pko.map(|pk| RegParty {
+            party_id,
+            pk,
+            stake: *stake,
         })
     }
 
@@ -113,7 +113,11 @@ where
         let mut out = vec![];
         for (party_id, (stake, pko)) in &self.parties {
             if let Some(pk) = pko {
-                out.push(RegParty { party_id: *party_id, pk: *pk, stake: *stake })
+                out.push(RegParty {
+                    party_id: *party_id,
+                    pk: *pk,
+                    stake: *stake,
+                })
             }
         }
 

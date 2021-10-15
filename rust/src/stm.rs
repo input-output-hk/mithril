@@ -11,8 +11,8 @@ use ark_ff::ToConstraintField;
 use rand::Rng;
 use std::collections::HashMap;
 use std::convert::From;
-use std::rc::Rc;
 use std::iter::FromIterator;
+use std::rc::Rc;
 
 /// The values that are represented in the Merkle Tree.
 #[derive(Debug, Clone, Copy)]
@@ -152,18 +152,24 @@ where
         // AVK <- MT.Create(Reg)
         let reg: Vec<RegParty<PE>> = kr.retrieve_all();
 
-        let mtvals = reg.iter().map(|rp| MTValue(rp.pk.mvk, rp.stake)).collect::<Vec<_>>();
+        let mtvals = reg
+            .iter()
+            .map(|rp| MTValue(rp.pk.mvk, rp.stake))
+            .collect::<Vec<_>>();
         self.avk = Some(MerkleTree::create(&mtvals));
-        self.avk_indices = Some(HashMap::from_iter(reg.iter().enumerate().map(|(i, rp)| (rp.party_id, i))));
+        self.avk_indices = Some(HashMap::from_iter(
+            reg.iter().enumerate().map(|(i, rp)| (rp.party_id, i)),
+        ));
         // get total stake
         self.total_stake = Some(mtvals.iter().map(|s| s.1).sum());
     }
 
     pub fn finish(self) -> StmSigner<H, PE> {
         let indices = self.avk_indices.expect("registered party indices unknown");
+        let my_id = self.party_id;
         let my_index = indices
-            .get(&self.party_id)
-            .expect(&format!("party unkown: {}", self.party_id));
+            .get(&my_id)
+            .unwrap_or_else(|| panic!("party unkown: {}", my_id));
 
         StmSigner {
             party_id: self.party_id,
