@@ -143,7 +143,7 @@ where
         let (sk, pk) = Msp::gen(rng);
         self.sk = Some(sk);
         self.pk = Some(pk);
-        kr.register(self.party_id, self.stake, pk);
+        kr.register(self.party_id, self.stake, pk).unwrap();
     }
 
     pub fn retrieve_all(&mut self, kr: &KeyReg<PE>) {
