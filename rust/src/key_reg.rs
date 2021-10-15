@@ -53,10 +53,16 @@ impl<PE: PairingEngine> ToBytes for RegParty<PE> {
 
 #[derive(Debug, Clone)]
 pub enum RegisterError {
+    /// Registration has ended
     NotAllowed,
+    /// This key has already been registered by a participant
     KeyRegistered,
+    /// This participant has already been registered
     PartyRegistered,
+    /// The supplied participant id does not belong to the
+    /// participant list
     UnknownPartyId,
+    /// The supplied key is not valid
     InvalidKey,
 }
 
