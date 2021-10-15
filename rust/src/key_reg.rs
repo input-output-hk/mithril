@@ -51,6 +51,15 @@ impl<PE: PairingEngine> ToBytes for RegParty<PE> {
     }
 }
 
+#[derive(Debug, Clone)]
+pub enum RegisterError {
+    NotAllowed,
+    KeyRegistered,
+    PartyRegistered,
+    UnknownPartyId,
+    InvalidKey,
+}
+
 impl<PE> KeyReg<PE>
 where
     PE: PairingEngine,
@@ -67,16 +76,29 @@ where
         }
     }
 
-    pub fn register(&mut self, party_id: PartyId, stake: Stake, pk: MspPk<PE>) {
-        if !self.allow || self.keys.contains(&pk) {
-            return;
+    pub fn register(
+        &mut self,
+        party_id: PartyId,
+        stake: Stake,
+        pk: MspPk<PE>,
+    ) -> Result<(), RegisterError> {
+        if !self.allow {
+            return Err(RegisterError::NotAllowed);
+        }
+        if self.keys.contains(&pk) {
+            return Err(RegisterError::KeyRegistered);
         }
 
         if let Some((stake, k)) = self.parties.get_mut(&party_id) {
             if Msp::check(&pk) {
                 *k = Some(pk);
                 self.keys.insert(pk);
+                Ok(())
+            } else {
+                Err(RegisterError::InvalidKey)
             }
+        } else {
+            Err(RegisterError::UnknownPartyId)
         }
     }
 
