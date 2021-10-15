@@ -317,10 +317,10 @@ where
 
         let statement = Statement {
             avk: self.avk.clone(),
-            ivk: Rc::from(ivk),
-            mu: Rc::from(mu),
-            msg: Rc::from(msg),
-            params: Rc::from(self.params),
+            ivk,
+            mu,
+            msg: msg.to_vec(),
+            params: self.params,
             total_stake: self.total_stake,
         };
         let witness = Witness {
@@ -349,12 +349,12 @@ where
     {
         let statement = Statement {
             // Specific to the message and signatures
-            ivk: Rc::from(msig.ivk),
-            mu: Rc::from(msig.mu),
-            msg: Rc::from(msg),
+            ivk: msig.ivk,
+            mu: msig.mu,
+            msg: msg.to_vec(),
             // These are "background" information"
             avk: self.avk.clone(),
-            params: Rc::from(self.params),
+            params: self.params,
             total_stake: self.total_stake,
         };
         if !msig.proof.verify(

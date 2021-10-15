@@ -19,10 +19,10 @@ use std::rc::Rc;
 /// given message.
 pub struct Statement<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> {
     pub(crate) avk: Rc<MerkleTree<MTValue<PE>, H>>,
-    pub(crate) ivk: Rc<MspMvk<PE>>,
-    pub(crate) mu: Rc<MspSig<PE>>,
-    pub(crate) msg: Rc<[u8]>,
-    pub(crate) params: Rc<StmParameters>,
+    pub(crate) ivk: MspMvk<PE>,
+    pub(crate) mu: MspSig<PE>,
+    pub(crate) msg: Vec<u8>,
+    pub(crate) params: StmParameters,
     pub(crate) total_stake: u64,
 }
 
