@@ -134,3 +134,69 @@ where
         Self::new(&[])
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::msp::Msp;
+    use ark_bls12_377::Bls12_377;
+    use proptest::collection::vec;
+    use proptest::prelude::*;
+    use rand::{rngs::StdRng, SeedableRng};
+
+    fn arb_participants(min: usize, max: usize) -> impl Strategy<Value = Vec<(PartyId, Stake)>> {
+        vec(any::<Stake>(), min..=max).prop_map(|v| v.into_iter().enumerate().collect())
+    }
+
+    proptest! {
+        #[test]
+        fn test_keyreg(ps in arb_participants(2, 10),
+                       nkeys in 2..10_usize,
+                       stop in 2..10_usize,
+                       seed in any::<[u8;32]>()) {
+            let mut rng = StdRng::from_seed(seed);
+            let mut kr = KeyReg::new(&ps);
+
+            let gen_keys = (1..nkeys).map(|i| {
+                Msp::<Bls12_377>::gen(&mut rng).1
+            }).collect::<Vec<_>>();
+
+            // Record successful registrations
+            let mut keys = HashSet::new();
+            let mut parties = HashSet::new();
+
+            for (i, p) in ps.iter().enumerate() {
+                let pk = gen_keys[i % gen_keys.len()];
+                let reg = kr.register(p.0, p.1, pk);
+                match reg {
+                    Ok(_) => {
+                        assert!(i <= stop);
+                        assert!(keys.insert(pk));
+                        assert!(parties.insert(p.0));
+                    },
+                    Err(RegisterError::KeyRegistered) => {
+                        assert!(keys.contains(&pk));
+                    }
+                    Err(RegisterError::PartyRegistered) => {
+                        assert!(parties.contains(&p.0));
+                    }
+                    Err(RegisterError::InvalidKey) => unreachable!(),
+                    Err(RegisterError::UnknownPartyId) => unreachable!(),
+                    Err(RegisterError::NotAllowed) => assert!(i > stop),
+                }
+
+                if i == stop {
+                    kr.close();
+                }
+            }
+
+            let registered = kr.retrieve_all();
+            let retrieved_keys = registered.iter().map(|r| r.pk).collect::<HashSet<_>>();
+            let retrieved_ids = registered.iter().map(|r| r.party_id).collect::<HashSet<_>>();
+
+            assert!(retrieved_ids == parties);
+            assert!(retrieved_keys == keys);
+
+        }
+    }
+}
