@@ -18,6 +18,10 @@ use std::rc::Rc;
 /// and aggregated signatures is valid for the
 /// given message.
 pub struct Statement<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> {
+    // We use Rc here to avoid exposing a lifetime parameter. Parameterizing
+    // Statement by a lifetime ends up bubbling the lifetime to whoever is
+    // producing proofs, effectively tying the lifetime of the proof to that of
+    // the prover, which is undesirable.
     pub(crate) avk: Rc<MerkleTree<MTValue<PE>, H>>,
     pub(crate) ivk: MspMvk<PE>,
     pub(crate) mu: MspSig<PE>,
