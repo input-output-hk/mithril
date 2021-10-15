@@ -16,17 +16,21 @@ fn test_full_protocol() {
     //////////////////////////
     println!("* Initialization phase");
 
-    let mut key_reg = KeyReg::new();
-
-    let mut ps: Vec<StmInitializer<sha3::Sha3_256, Bls12_377>> = Vec::with_capacity(nparties);
     let params = StmParameters {
         k: 357,
         m: 2642,
         phi_f: 0.2,
     };
 
-    for pid in 0..nparties {
-        let stake = 1 + (rand::random::<u64>() % 9999);
+    let parties = (0..nparties)
+        .into_iter()
+        .map(|pid| (pid, 1 + (rand::random::<u64>() % 9999)))
+        .collect::<Vec<_>>();
+
+    let mut key_reg = KeyReg::new(&parties);
+
+    let mut ps: Vec<StmInitializer<sha3::Sha3_256, Bls12_377>> = Vec::with_capacity(nparties);
+    for (pid, stake) in parties {
         let mut p = StmInitializer::setup(params, pid, stake);
         p.register(&mut rand::thread_rng(), &mut key_reg);
         ps.push(p);

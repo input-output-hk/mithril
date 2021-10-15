@@ -1,9 +1,10 @@
 //! Placeholder key registration functionality.
 
-use crate::msp::MspMvk;
-use std::collections::HashMap;
+use std::hash::Hash;
+use std::collections::{HashSet, HashMap};
+use std::iter::FromIterator;
 
-use super::msp::{Msp, MspPk};
+use super::msp::{Msp, MspMvk, MspPk};
 use super::{PartyId, Stake};
 
 use ark_ec::PairingEngine;
@@ -16,11 +17,13 @@ where
     PE: PairingEngine,
 {
     allow: bool,
-    store: HashMap<PartyId, RegParty<PE>>,
+    parties: HashMap<PartyId, (Stake, Option<MspPk<PE>>)>,
+    keys: HashSet<MspPk<PE>>,
 }
 
 #[derive(Clone, Debug)]
 pub struct RegParty<PE: PairingEngine> {
+    pub party_id: PartyId,
     pub pk: MspPk<PE>,
     pub stake: Stake,
 }
@@ -28,6 +31,7 @@ pub struct RegParty<PE: PairingEngine> {
 impl<PE: PairingEngine> RegParty<PE> {
     pub fn null_party() -> Self {
         Self {
+            party_id: 0,
             pk: MspPk {
                 mvk: MspMvk(PE::G2Projective::zero()),
                 k1: PE::G1Projective::zero(),
@@ -50,30 +54,48 @@ impl<PE: PairingEngine> ToBytes for RegParty<PE> {
 impl<PE> KeyReg<PE>
 where
     PE: PairingEngine,
+    MspPk<PE>: Hash,
 {
-    pub fn new() -> Self {
+    pub fn new(players: &[(PartyId, Stake)]) -> Self {
+        let parties = players
+            .iter()
+            .map(|(id, stake)| { (*id, (*stake, None)) });
         Self {
             allow: true,
-            store: HashMap::new(),
+            parties: HashMap::from_iter(parties),
+            keys: HashSet::new(),
         }
     }
 
     pub fn register(&mut self, party_id: PartyId, stake: Stake, pk: MspPk<PE>) {
-        if !self.allow || self.store.contains_key(&party_id) {
+        if !self.allow || self.keys.contains(&pk) {
             return;
         }
-        if Msp::check(&pk) {
-            self.store.insert(party_id, RegParty { pk, stake });
+
+        if let Some((stake, k)) = self.parties.get_mut(&party_id) {
+            if Msp::check(&pk) {
+                *k = Some(pk);
+                self.keys.insert(pk);
+            }
         }
     }
 
     pub fn retrieve(&self, party_id: PartyId) -> Option<RegParty<PE>> {
-        self.store.get(&party_id).cloned()
+        let (stake, pko) = self.parties.get(&party_id)?;
+        pko.map(|pk| {
+            RegParty {party_id, pk: pk, stake: *stake}
+        })
     }
 
-    pub fn retrieve_all(&self) -> Vec<Option<RegParty<PE>>> {
-        let max_party_id = *self.store.keys().max().unwrap();
-        (0..=max_party_id).map(|p| self.retrieve(p)).collect()
+    pub fn retrieve_all(&self) -> Vec<RegParty<PE>> {
+        let mut out = vec![];
+        for (party_id, (stake, pko)) in &self.parties {
+            if let Some(pk) = pko {
+                out.push(RegParty { party_id: *party_id, pk: *pk, stake: *stake })
+            }
+        }
+
+        out
     }
 
     pub fn close(&mut self) {
@@ -84,8 +106,9 @@ where
 impl<PE> Default for KeyReg<PE>
 where
     PE: PairingEngine,
+    MspPk<PE>: Hash,
 {
     fn default() -> Self {
-        Self::new()
+        Self::new(&[])
     }
 }
