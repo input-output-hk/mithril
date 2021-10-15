@@ -10,6 +10,7 @@ use digest::{Update, VariableOutput};
 use rand::Rng;
 use std::cmp::Ordering;
 use std::marker::PhantomData;
+use std::hash::Hash;
 
 pub struct Msp<PE: PairingEngine> {
     x: PhantomData<PE>,
@@ -18,10 +19,10 @@ pub struct Msp<PE: PairingEngine> {
 #[derive(Debug, Clone, Copy)]
 pub struct MspSk<PE: PairingEngine>(PE::Fr);
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MspMvk<PE: PairingEngine>(pub PE::G2Projective);
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MspPk<PE: PairingEngine> {
     pub mvk: MspMvk<PE>,
     pub k1: PE::G1Projective,

@@ -12,6 +12,7 @@ use rand::Rng;
 use std::collections::HashMap;
 use std::convert::From;
 use std::rc::Rc;
+use std::iter::FromIterator;
 
 /// The values that are represented in the Merkle Tree.
 #[derive(Debug, Clone, Copy)]
@@ -41,6 +42,7 @@ where
     stake: Stake,
     params: StmParameters,
     avk: Option<MerkleTree<MTValue<PE>, H>>,
+    avk_indices: Option<HashMap<PartyId, usize>>,
     sk: Option<MspSk<PE>>,
     pk: Option<MspPk<PE>>,
     total_stake: Option<Stake>,
@@ -54,6 +56,7 @@ where
     PE: PairingEngine,
 {
     party_id: PartyId,
+    avk_idx: usize,
     stake: Stake,
     params: StmParameters,
     avk: MerkleTree<MTValue<PE>, H>,
@@ -111,6 +114,7 @@ pub enum AggregationFailure {
 impl<H, PE> StmInitializer<H, PE>
 where
     PE: PairingEngine,
+    MspPk<PE>: std::hash::Hash,
     H: MTHashLeaf<MTValue<PE>>,
 {
     //////////////////////////
@@ -120,6 +124,7 @@ where
         Self {
             party_id,
             stake,
+            avk_indices: None,
             avk: None,
             sk: None,
             pk: None,
@@ -145,22 +150,24 @@ where
         // Reg := (K(P_i), stake_i)
         // Reg is padded to length N using null entries of stake 0
         // AVK <- MT.Create(Reg)
-        let reg: Vec<MTValue<PE>> = kr
-            .retrieve_all()
-            .into_iter()
-            .map(|so| {
-                let p = so.unwrap_or_else(RegParty::null_party);
-                MTValue(p.pk.mvk, p.stake)
-            })
-            .collect();
-        self.avk = Some(MerkleTree::create(&reg));
+        let reg: Vec<RegParty<PE>> = kr.retrieve_all();
+
+        let mtvals = reg.iter().map(|rp| MTValue(rp.pk.mvk, rp.stake)).collect::<Vec<_>>();
+        self.avk = Some(MerkleTree::create(&mtvals));
+        self.avk_indices = Some(HashMap::from_iter(reg.iter().enumerate().map(|(i, rp)| (rp.party_id, i))));
         // get total stake
-        self.total_stake = Some(reg.iter().map(|s| s.1).sum());
+        self.total_stake = Some(mtvals.iter().map(|s| s.1).sum());
     }
 
     pub fn finish(self) -> StmSigner<H, PE> {
+        let indices = self.avk_indices.expect("registered party indices unknown");
+        let my_index = indices
+            .get(&self.party_id)
+            .expect(&format!("party unkown: {}", self.party_id));
+
         StmSigner {
             party_id: self.party_id,
+            avk_idx: *my_index,
             stake: self.stake,
             params: self.params,
             total_stake: self.total_stake.expect("total stake unknown"),
@@ -200,11 +207,11 @@ where
             // return pi
             let msgp = concat_avk_with_msg(&self.avk, msg);
             let sigma = Msp::sig(&self.sk, &msgp);
-            let path = self.avk.get_path(self.party_id);
+            let path = self.avk.get_path(self.avk_idx);
             Some(StmSig {
                 sigma,
                 pk: self.pk,
-                party: self.party_id,
+                party: self.avk_idx,
                 stake: self.stake,
                 path,
             })
@@ -399,16 +406,14 @@ mod tests {
     }
 
     fn setup_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<StmSigner<H, Bls12_377>> {
-        let mut kr = KeyReg::new();
+        let parties = stake.into_iter().enumerate().collect::<Vec<_>>();
+        let mut kr = KeyReg::new(&parties);
         let mut trng = TestRng::deterministic_rng(ChaCha);
         let mut rng = rand_chacha::ChaCha8Rng::from_seed(trng.gen());
-
-        #[allow(clippy::needless_collect)]
-        let ps = stake
-            .iter()
-            .enumerate()
+        let ps = parties
+            .into_iter()
             .map(|(pid, stake)| {
-                let mut p = StmInitializer::setup(params, pid, *stake);
+                let mut p = StmInitializer::setup(params, pid, stake);
                 p.register(&mut rng, &mut kr);
                 p
             })
