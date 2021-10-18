@@ -205,11 +205,10 @@ mod tests {
         #![proptest_config(ProptestConfig::with_cases(100))]
         #[test]
         fn test_create_proof((t, values) in arb_tree(30)) {
-            #[allow(clippy::needless_range_loop)]
-            for i in 0..values.len() {
-                let pf = t.get_path(i as usize);
-                assert!(t.check(&values[i], i as usize, &pf));
-            }
+            values.iter().enumerate().for_each(|(i, v)| {
+                let pf = t.get_path(i);
+                assert!(t.check(&values[i], i, &pf));
+            })
         }
     }
 
