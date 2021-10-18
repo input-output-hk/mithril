@@ -168,8 +168,8 @@ pub mod concat_proofs {
     //! just the aggregated signatures themselves.
     use super::{MithrilProof, MithrilStatement, MithrilWitness};
     use crate::merkle_tree::MTHashLeaf;
-    pub use crate::proof::trivial::TrivialEnv;
     use crate::proof::trivial::TrivialProof;
+    pub use crate::proof::trivial::{TrivialEnv, TrivialErr};
     use crate::stm::MTValue;
     use ark_ec::PairingEngine;
     use ark_ff::{FromBytes, ToBytes};

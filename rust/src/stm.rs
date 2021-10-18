@@ -494,12 +494,16 @@ where
             params: self.params,
             total_stake: self.total_stake,
         };
-        if !msig.proof.verify(
-            &self.proof_env,
-            &self.verif_key,
-            &Proof::RELATION,
-            &Proof::Statement::from(statement),
-        ) {
+        if msig
+            .proof
+            .verify(
+                &self.proof_env,
+                &self.verif_key,
+                &Proof::RELATION,
+                &Proof::Statement::from(statement),
+            )
+            .is_err()
+        {
             return false;
         }
         let msgp = concat_avk_with_msg(&self.avk, msg);
