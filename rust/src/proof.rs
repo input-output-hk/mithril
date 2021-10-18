@@ -1,4 +1,5 @@
 //! General API for producing proofs from statements and witnesses
+use std::fmt::Debug;
 
 /// An environment or context that can contain any long-lived information
 /// relevant to the proof backend
@@ -17,13 +18,15 @@ pub trait Proof: Sized {
     type Statement;
     type Relation;
     type Witness;
+    type Error: Debug;
+
     fn prove(
         env: &Self::Env,
         pk: &<Self::Env as ProverEnv>::ProvingKey,
         rel: &Self::Relation,
         stmt: &Self::Statement,
         witness: Self::Witness,
-    ) -> Option<Self>;
+    ) -> Result<Self, Self::Error>;
 
     fn verify(
         &self,
@@ -31,14 +34,14 @@ pub trait Proof: Sized {
         vk: &<Self::Env as ProverEnv>::VerificationKey,
         rel: &Self::Relation,
         stmt: &Self::Statement,
-    ) -> bool;
+    ) -> Result<(), Self::Error>;
 }
 
 pub mod trivial {
     //! A trivial implementation of `Proof` where proofs of knowledge of
     //! witnesses are just the witnesses themselves.
     use super::*;
-    use std::fmt::{Debug, Formatter, Result};
+    use std::fmt::{Debug, Formatter, Result as FmtResult};
     use std::marker::PhantomData;
 
     #[derive(Debug, Clone)]
@@ -62,7 +65,7 @@ pub mod trivial {
     }
 
     impl<S, R, W: Debug> Debug for TrivialProof<S, R, W> {
-        fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
             write!(f, "TrivialProof({:?})", self.witness)
         }
     }
@@ -75,6 +78,11 @@ pub mod trivial {
         }
     }
 
+    #[derive(Debug)]
+    pub enum TrivialErr {
+        NotProvable,
+    }
+
     impl<Stmt, R, Witness> Proof for TrivialProof<Stmt, R, Witness>
     where
         R: Fn(&Stmt, &Witness) -> bool,
@@ -83,22 +91,33 @@ pub mod trivial {
         type Statement = Stmt;
         type Relation = R;
         type Witness = Witness;
+        type Error = TrivialErr;
         fn prove(
             env: &TrivialEnv,
             _pk: &(),
             rel: &Self::Relation,
             stmt: &Stmt,
             witness: Self::Witness,
-        ) -> Option<Self> {
+        ) -> Result<Self, TrivialErr> {
             if rel(stmt, &witness) {
-                Some(TrivialProof::new(witness))
+                Ok(TrivialProof::new(witness))
             } else {
-                None
+                Err(TrivialErr::NotProvable)
             }
         }
 
-        fn verify(&self, env: &TrivialEnv, vk: &(), rel: &R, statement: &Stmt) -> bool {
-            rel(statement, &self.witness)
+        fn verify(
+            &self,
+            env: &TrivialEnv,
+            vk: &(),
+            rel: &R,
+            statement: &Stmt,
+        ) -> Result<(), TrivialErr> {
+            if rel(statement, &self.witness) {
+                Ok(())
+            } else {
+                Err(TrivialErr::NotProvable)
+            }
         }
     }
 }
