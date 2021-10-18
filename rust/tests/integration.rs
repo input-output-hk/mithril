@@ -1,9 +1,7 @@
-use ark_bls12_377;
 use ark_bls12_377::Bls12_377;
 use mithril::key_reg::KeyReg;
 use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
 use mithril::stm::{AggregationFailure, StmClerk, StmInitializer, StmParameters, StmSigner};
-use rand;
 use rayon::prelude::*;
 
 type H = sha3::Sha3_256;
@@ -90,6 +88,6 @@ fn test_full_protocol() {
             println!("Not enough signatures");
             assert!(n < params.k as usize)
         }
-        Err(_) => assert!(false),
+        Err(_) => unreachable!(),
     }
 }
