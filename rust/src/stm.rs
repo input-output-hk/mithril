@@ -391,6 +391,7 @@ mod tests {
     type Proof = TrivialProof<Witness<Bls12_377, H>>;
     type Sig = StmMultiSig<Bls12_377, Proof>;
     type H = sha3::Sha3_256;
+    type F = <H as MTHashLeaf<MTValue<Bls12_377>>>::F;
 
     fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmSigner<H, Bls12_377>> {
         let stake = vec![1; nparties];
@@ -401,6 +402,8 @@ mod tests {
         let mut kr = KeyReg::new();
         let mut trng = TestRng::deterministic_rng(ChaCha);
         let mut rng = rand_chacha::ChaCha8Rng::from_seed(trng.gen());
+
+        #[allow(clippy::needless_collect)]
         let ps = stake
             .iter()
             .enumerate()
@@ -490,7 +493,7 @@ mod tests {
         is: &[usize],
     ) -> (
         Vec<Index>,
-        Vec<StmSig<Bls12_377, <H as MTHashLeaf<MTValue<Bls12_377>>>::F>>,
+        Vec<StmSig<Bls12_377, F>>,
     ) {
         let indices: Vec<_> = (1..m).collect();
         let res = indices
@@ -499,7 +502,7 @@ mod tests {
                 let mut ixs = Vec::new();
                 let mut sigs = Vec::new();
                 for i in is {
-                    if let Some(sig) = ps[*i].sign(&msg, *ix) {
+                    if let Some(sig) = ps[*i].sign(msg, *ix) {
                         sigs.push(sig);
                         ixs.push(*ix);
                     }
@@ -517,9 +520,9 @@ mod tests {
         fn test_sig(msg in any::<[u8;16]>()) {
             let nparties = 2;
             let params = StmParameters { m: (nparties as u64), k: 1, phi_f: 0.2 };
-            let mut ps = setup_equal_parties(params, nparties);
-            let p = &mut ps[0];
-            let clerk = StmClerk::from_signer(&p, TrivialEnv);
+            let ps = setup_equal_parties(params, nparties);
+            let p = &ps[0];
+            let clerk = StmClerk::from_signer(p, TrivialEnv);
 
 
             for index in 1..nparties {
@@ -539,12 +542,12 @@ mod tests {
                               m in 10_u64..20,
                               k in 1_u64..5,
                               msg in any::<[u8;16]>()) {
-            let params = StmParameters { m: m, k: k, phi_f: 0.2 };
-            let mut ps = setup_equal_parties(params, nparties);
+            let params = StmParameters { m, k, phi_f: 0.2 };
+            let ps = setup_equal_parties(params, nparties);
             let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
 
             let all_ps: Vec<usize> = (0..nparties).collect();
-            let (ixs, sigs) = find_signatures(m, k, &msg, &mut ps, &all_ps);
+            let (ixs, sigs) = find_signatures(m, k, &msg, &ps, &all_ps);
 
             let msig = clerk.aggregate::<ConcatProof<Bls12_377,H>>(&sigs, &ixs, &msg);
 
@@ -553,8 +556,7 @@ mod tests {
                     assert!(clerk.verify_msig::<ConcatProof<Bls12_377,H>>(&aggr, &msg)),
                 Err(AggregationFailure::NotEnoughSignatures(n)) =>
                     assert!(n < params.k as usize),
-                _ =>
-                    assert!(false)
+                _ => unreachable!()
             }
         }
     }
@@ -598,12 +600,12 @@ mod tests {
             assert!(bad as f64 / ((good + bad) as f64) < 0.4);
 
             let params = StmParameters { m: 2642, k: 357, phi_f: 0.2 }; // From Table 1
-            let mut ps = setup_parties(params, parties);
+            let ps = setup_parties(params, parties);
 
             let (ixs, sigs) = find_signatures(params.m,
                                               params.k,
                                               &msg,
-                                              &mut ps,
+                                              &ps,
                                               &adversaries.into_iter().collect::<Vec<_>>());
 
             assert!(sigs.len() < params.k as usize);
@@ -615,7 +617,7 @@ mod tests {
                 Err(AggregationFailure::NotEnoughSignatures(n)) =>
                     assert!(n < params.k as usize),
                 _ =>
-                    assert!(false),
+                    unreachable!(),
             }
         }
     }
@@ -638,11 +640,11 @@ mod tests {
                     k: 5,
                     phi_f: 0.2,
                 };
-                let mut ps = setup_equal_parties(params, n);
+                let ps = setup_equal_parties(params, n);
                 let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
 
                 let all_ps: Vec<usize> = (0..n).collect();
-                let (ixs, sigs) = find_signatures(params.m, params.k, &msg, &mut ps, &all_ps);
+                let (ixs, sigs) = find_signatures(params.m, params.k, &msg, &ps, &all_ps);
 
                 let msig = clerk.aggregate::<ConcatProof<Bls12_377, H>>(&sigs, &ixs, &msg);
                 ProofTest {
@@ -664,7 +666,7 @@ mod tests {
                 f(&mut aggr, &mut tc.clerk, &mut tc.msg);
                 assert!(!tc.clerk.verify_msig(&aggr, &tc.msg))
             }
-            _ => assert!(false),
+            _ => unreachable!(),
         }
     }
 
@@ -706,7 +708,7 @@ mod tests {
         fn test_invalid_proof_index_unique(tc in arb_proof_setup(10)) {
             with_proof_mod(tc, |aggr, clerk, msg| {
                 for i in aggr.proof.0.indices.iter_mut() {
-                    *i = *i % (clerk.params.k - 1)
+                    *i %= clerk.params.k - 1
                 }
             })
         }
