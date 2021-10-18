@@ -491,10 +491,7 @@ mod tests {
         msg: &[u8],
         ps: &[StmSigner<H, Bls12_377>],
         is: &[usize],
-    ) -> (
-        Vec<Index>,
-        Vec<StmSig<Bls12_377, F>>,
-    ) {
+    ) -> (Vec<Index>, Vec<StmSig<Bls12_377, F>>) {
         let indices: Vec<_> = (1..m).collect();
         let res = indices
             .par_iter()
