@@ -3,7 +3,7 @@
 use super::{concat_avk_with_msg, ev_lt_phi, Index, PartyId, Path, Stake};
 use crate::key_reg::{KeyReg, RegParty};
 use crate::merkle_tree::{MTHashLeaf, MerkleTree};
-use crate::mithril_proof::{MithrilProof, Statement, Witness};
+use crate::mithril_proof::{MithrilProof, MithrilStatement, MithrilWitness};
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
 use crate::proof::ProverEnv;
 use ark_ec::PairingEngine;
@@ -282,8 +282,8 @@ where
     ) -> Result<StmMultiSig<PE, Proof>, AggregationFailure>
     where
         Proof: MithrilProof<Env = E>,
-        Proof::Statement: From<Statement<PE, H>>,
-        Proof::Witness: From<Witness<PE, H>>,
+        Proof::Statement: From<MithrilStatement<PE, H>>,
+        Proof::Witness: From<MithrilWitness<PE, H>>,
     {
         let msgp = concat_avk_with_msg(&self.avk, msg);
         let mut evals = Vec::new();
@@ -315,7 +315,7 @@ where
         let ivk = Msp::aggregate_keys(&mvks);
         let mu = Msp::aggregate_sigs(&sigmas);
 
-        let statement = Statement {
+        let statement = MithrilStatement {
             avk: self.avk.clone(),
             ivk,
             mu,
@@ -323,7 +323,7 @@ where
             params: self.params,
             total_stake: self.total_stake,
         };
-        let witness = Witness {
+        let witness = MithrilWitness {
             sigs: sigs_to_verify,
             indices: indices_to_verify,
             evals,
@@ -344,10 +344,10 @@ where
     pub fn verify_msig<Proof>(&self, msig: &StmMultiSig<PE, Proof>, msg: &[u8]) -> bool
     where
         Proof: MithrilProof<Env = E>,
-        Proof::Statement: From<Statement<PE, H>>,
-        Proof::Witness: From<Witness<PE, H>>,
+        Proof::Statement: From<MithrilStatement<PE, H>>,
+        Proof::Witness: From<MithrilWitness<PE, H>>,
     {
-        let statement = Statement {
+        let statement = MithrilStatement {
             // Specific to the message and signatures
             ivk: msig.ivk,
             mu: msig.mu,
