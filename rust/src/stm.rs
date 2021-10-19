@@ -274,6 +274,11 @@ where
         Msp::ver(&msgp, &sig.pk.mvk, &sig.sigma)
     }
 
+    /// Aggregate a set of signatures for their corresponding indices.
+    ///
+    /// The `From` bound on `Proof::Statement` allows `aggregate` to translate
+    /// from the `Mithril` specific statement and witness types to their proof system-specific
+    /// representations.
     pub fn aggregate<Proof>(
         &self,
         sigs: &[StmSig<PE, H::F>],
@@ -341,6 +346,11 @@ where
         Ok(StmMultiSig { ivk, mu, proof })
     }
 
+    /// Verify an aggregation of signatures.
+    ///
+    /// The `From` bound on `Proof::Statement` allows `aggregate` to translate
+    /// from the `Mithril` specific statement and witness types to their proof system-specific
+    /// representations.
     pub fn verify_msig<Proof>(&self, msig: &StmMultiSig<PE, Proof>, msg: &[u8]) -> bool
     where
         Proof: MithrilProof<Env = E>,
