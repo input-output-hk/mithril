@@ -17,7 +17,7 @@ use std::rc::Rc;
 /// the given MerkleTree, aggregated verification keys,
 /// and aggregated signatures is valid for the
 /// given message.
-pub struct Statement<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> {
+pub struct MithrilStatement<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> {
     // We use Rc here to avoid exposing a lifetime parameter. Parameterizing
     // Statement by a lifetime ends up bubbling the lifetime to whoever is
     // producing proofs, effectively tying the lifetime of the proof to that of
@@ -30,16 +30,16 @@ pub struct Statement<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> {
     pub(crate) total_stake: u64,
 }
 
-/// A Witness is an aggregation of signatures
+/// A MithrilWitness is an aggregation of signatures
 #[derive(Debug, Clone)]
-pub struct Witness<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> {
+pub struct MithrilWitness<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> {
     pub(crate) sigs: Vec<StmSig<PE, H::F>>,
     pub(crate) indices: Vec<Index>,
     pub(crate) evals: Vec<u64>,
 }
 
-impl<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> Witness<PE, H> {
-    fn verify(&self, stmt: &Statement<PE, H>) -> bool {
+impl<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> MithrilWitness<PE, H> {
+    fn verify(&self, stmt: &MithrilStatement<PE, H>) -> bool {
         self.check_quorum(stmt.params.k as usize)
             && self.check_ivk(&stmt.ivk)
             && self.check_sum(&stmt.mu)
@@ -117,7 +117,7 @@ pub trait MithrilProof: Proof {
 pub mod concat_proofs {
     //! This is the trivial proof system instantiated to Mithril: witnesses are
     //! just the aggregated signatures themselves.
-    use super::{MithrilProof, Statement, Witness};
+    use super::{MithrilProof, MithrilStatement, MithrilWitness};
     use crate::merkle_tree::MTHashLeaf;
     pub use crate::proof::trivial::TrivialEnv;
     use crate::proof::trivial::TrivialProof;
@@ -125,8 +125,9 @@ pub mod concat_proofs {
     use ark_ec::PairingEngine;
 
     pub type ConcatEnv = TrivialEnv;
-    pub type ConcatRel<PE, H> = fn(&Statement<PE, H>, &Witness<PE, H>) -> bool;
-    pub type ConcatProof<PE, H> = TrivialProof<Statement<PE, H>, ConcatRel<PE, H>, Witness<PE, H>>;
+    pub type ConcatRel<PE, H> = fn(&MithrilStatement<PE, H>, &MithrilWitness<PE, H>) -> bool;
+    pub type ConcatProof<PE, H> =
+        TrivialProof<MithrilStatement<PE, H>, ConcatRel<PE, H>, MithrilWitness<PE, H>>;
 
     impl<PE, H> MithrilProof for ConcatProof<PE, H>
     where
@@ -136,7 +137,7 @@ pub mod concat_proofs {
         const RELATION: ConcatRel<PE, H> = trivial_relation;
     }
 
-    fn trivial_relation<PE, H>(s: &Statement<PE, H>, w: &Witness<PE, H>) -> bool
+    fn trivial_relation<PE, H>(s: &MithrilStatement<PE, H>, w: &MithrilWitness<PE, H>) -> bool
     where
         PE: PairingEngine,
         H: MTHashLeaf<MTValue<PE>>,
