@@ -52,18 +52,21 @@ impl<PE: PairingEngine> ToBytes for RegParty<PE> {
 }
 
 #[derive(Debug, Clone)]
-pub enum RegisterError {
+pub enum RegisterError<PE>
+where
+    PE: PairingEngine,
+{
     /// Registration has ended
     NotAllowed,
     /// This key has already been registered by a participant
-    KeyRegistered,
+    KeyRegistered(MspPk<PE>),
     /// This participant has already been registered
-    PartyRegistered,
+    PartyRegistered(PartyId),
     /// The supplied participant id does not belong to the
     /// participant list
-    UnknownPartyId,
+    UnknownPartyId(PartyId),
     /// The supplied key is not valid
-    InvalidKey,
+    InvalidKey(MspPk<PE>),
 }
 
 impl<PE> KeyReg<PE>
@@ -85,12 +88,12 @@ where
         party_id: PartyId,
         stake: Stake,
         pk: MspPk<PE>,
-    ) -> Result<(), RegisterError> {
+    ) -> Result<(), RegisterError<PE>> {
         if !self.allow {
             return Err(RegisterError::NotAllowed);
         }
         if self.keys.contains(&pk) {
-            return Err(RegisterError::KeyRegistered);
+            return Err(RegisterError::KeyRegistered(pk));
         }
 
         if let Some((stake, k)) = self.parties.get_mut(&party_id) {
@@ -99,10 +102,10 @@ where
                 self.keys.insert(pk);
                 Ok(())
             } else {
-                Err(RegisterError::InvalidKey)
+                Err(RegisterError::InvalidKey(pk))
             }
         } else {
-            Err(RegisterError::UnknownPartyId)
+            Err(RegisterError::UnknownPartyId(party_id))
         }
     }
 
@@ -184,14 +187,16 @@ mod tests {
                         assert!(keys.insert(pk));
                         assert!(parties.insert(p.0));
                     },
-                    Err(RegisterError::KeyRegistered) => {
-                        assert!(keys.contains(&pk));
+                    Err(RegisterError::KeyRegistered(pk1)) => {
+                        assert!(pk1 == pk);
+                        assert!(keys.contains(&pk1));
                     }
-                    Err(RegisterError::PartyRegistered) => {
-                        assert!(parties.contains(&p.0));
+                    Err(RegisterError::PartyRegistered(party)) => {
+                        assert!(party == p.0);
+                        assert!(parties.contains(&party));
                     }
-                    Err(RegisterError::InvalidKey) => unreachable!(),
-                    Err(RegisterError::UnknownPartyId) => unreachable!(),
+                    Err(RegisterError::InvalidKey(_)) => unreachable!(),
+                    Err(RegisterError::UnknownPartyId(_)) => unreachable!(),
                     Err(RegisterError::NotAllowed) => assert!(i > stop),
                 }
 
