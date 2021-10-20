@@ -17,12 +17,25 @@ where
     PE: PairingEngine,
 {
     allow: bool,
-    parties: HashMap<PartyId, (Stake, Option<MspPk<PE>>)>,
+    parties: HashMap<PartyId, Party<PE>>,
     keys: HashSet<MspPk<PE>>,
 }
 
+/// A known participant in the protocol who may
 #[derive(Clone, Debug)]
-pub struct RegParty<PE: PairingEngine> {
+struct Party<PE>
+where
+    PE: PairingEngine,
+{
+    pub stake: Stake,
+    pub pk: Option<MspPk<PE>>,
+}
+
+#[derive(Clone, Debug)]
+pub struct RegParty<PE>
+where
+    PE: PairingEngine,
+{
     pub party_id: PartyId,
     pub pk: MspPk<PE>,
     pub stake: Stake,
@@ -75,7 +88,13 @@ where
     MspPk<PE>: Hash,
 {
     pub fn new(players: &[(PartyId, Stake)]) -> Self {
-        let parties = players.iter().map(|(id, stake)| (*id, (*stake, None)));
+        let parties = players.iter().map(|(id, stake)| {
+            let party = Party {
+                stake: *stake,
+                pk: None,
+            };
+            (*id, party)
+        });
         Self {
             allow: true,
             parties: HashMap::from_iter(parties),
@@ -96,9 +115,9 @@ where
             return Err(RegisterError::KeyRegistered(pk));
         }
 
-        if let Some((stake, k)) = self.parties.get_mut(&party_id) {
+        if let Some(mut party) = self.parties.get_mut(&party_id) {
             if Msp::check(&pk) {
-                *k = Some(pk);
+                party.pk = Some(pk);
                 self.keys.insert(pk);
                 Ok(())
             } else {
@@ -110,22 +129,22 @@ where
     }
 
     pub fn retrieve(&self, party_id: PartyId) -> Option<RegParty<PE>> {
-        let (stake, pko) = self.parties.get(&party_id)?;
-        pko.map(|pk| RegParty {
+        let party = self.parties.get(&party_id)?;
+        party.pk.map(|pk| RegParty {
             party_id,
             pk,
-            stake: *stake,
+            stake: party.stake,
         })
     }
 
     pub fn retrieve_all(&self) -> Vec<RegParty<PE>> {
         let mut out = vec![];
-        for (party_id, (stake, pko)) in &self.parties {
-            if let Some(pk) = pko {
+        for (party_id, party) in &self.parties {
+            if let Some(pk) = party.pk {
                 out.push(RegParty {
                     party_id: *party_id,
-                    pk: *pk,
-                    stake: *stake,
+                    pk,
+                    stake: party.stake,
                 })
             }
         }
