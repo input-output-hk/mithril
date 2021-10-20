@@ -147,20 +147,18 @@ where
     }
 
     pub fn retrieve_all(&mut self, kr: &KeyReg<PE>) {
-        // Reg := (K(P_i), stake_i)
-        // Reg is padded to length N using null entries of stake 0
-        // AVK <- MT.Create(Reg)
+        // Reg := (K(P_i), stake_i) via key registration
         let reg: Vec<RegParty<PE>> = kr.retrieve_all();
-
-        let mtvals = reg
-            .iter()
-            .map(|rp| MTValue(rp.pk.mvk, rp.stake))
-            .collect::<Vec<_>>();
+        // The paper uses Reg as the vector of values with which to initialize
+        // the merkle tree. The implementation stores MTValues (derived from
+        // this vector) in the tree.
+        let mtvals: Vec<MTValue<PE>> = reg.iter().map(|rp| MTValue(rp.pk.mvk, rp.stake)).collect();
+        // AVK <- MT.Create(Reg)
         self.avk = Some(MerkleTree::create(&mtvals));
         self.avk_indices = Some(HashMap::from_iter(
             reg.iter().enumerate().map(|(i, rp)| (rp.party_id, i)),
         ));
-        // get total stake
+
         self.total_stake = Some(mtvals.iter().map(|s| s.1).sum());
     }
 
