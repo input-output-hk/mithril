@@ -52,7 +52,7 @@ jobs:
   doc:
     name: Mithril Docs
     runs-on: ubuntu-latest
-
+    steps:
       - name: Run cargo doc
         uses: actions-rs/cargo@v1
         with:
