@@ -146,7 +146,7 @@ where
         kr.register(self.party_id, self.stake, pk).unwrap();
     }
 
-    pub fn retrieve_all(&mut self, kr: &KeyReg<PE>) {
+    pub fn build_avk(&mut self, kr: &KeyReg<PE>) {
         // Reg := (K(P_i), stake_i) via key registration
         let reg: Vec<RegParty<PE>> = kr.retrieve_all();
         // The paper uses Reg as the vector of values with which to initialize
@@ -424,7 +424,7 @@ mod tests {
             .collect::<Vec<_>>();
         ps.into_iter()
             .map(|mut p| {
-                p.retrieve_all(&kr);
+                p.build_avk(&kr);
                 p.finish()
             })
             .collect()

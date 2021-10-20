@@ -39,7 +39,7 @@ fn test_full_protocol() {
     let ps = ps
         .into_par_iter()
         .map(|mut p| {
-            p.retrieve_all(&key_reg);
+            p.build_avk(&key_reg);
             p.finish()
         })
         .collect::<Vec<StmSigner<sha3::Sha3_256, Bls12_377>>>();
