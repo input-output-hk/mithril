@@ -9,6 +9,6 @@ This repository aims at hosting the various artefacts produced as part of the _p
 
 <div align="center">
   <a href='https://github.com/input-output-hk/mithril/actions'>
-    <img src="https://img.shields.io/github/workflow/status/input-output-hk/mithril/CI?label=Build&style=for-the-badge" />
+    <img src="https://github.com/github/docs/actions/workflows/ci.yml/badge.svg" />
   </a>
 </div>
