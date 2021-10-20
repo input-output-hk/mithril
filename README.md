@@ -6,3 +6,9 @@ This repository aims at hosting the various artefacts produced as part of the _p
 
 * [Documentation](./docs)
 * [Meeting minutes](./meetings.md)
+
+<div align="center">
+  <a href='https://github.com/input-output-hk/mithril/actions'>
+    <img src="https://img.shields.io/github/workflow/status/input-output-hk/mithril/CI?label=Build&style=for-the-badge" />
+  </a>
+</div>
