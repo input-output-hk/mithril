@@ -49,6 +49,10 @@ jobs:
           command: test
           args: --release --manifest-path ./rust/Cargo.toml
 
+  doc:
+    name: Mithril Docs
+    runs-on: ubuntu-latest
+
       - name: Run cargo doc
         uses: actions-rs/cargo@v1
         with:
