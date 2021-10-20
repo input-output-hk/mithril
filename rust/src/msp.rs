@@ -118,8 +118,7 @@ impl<PE: PairingEngine> Msp<PE> {
     }
 
     // MSP.Aggr
-    pub fn aggregate_sigs(msg: &[u8], sigmas: &[MspSig<PE>]) -> MspSig<PE> {
-        // XXX: what is d?
+    pub fn aggregate_sigs(sigmas: &[MspSig<PE>]) -> MspSig<PE> {
         MspSig(sigmas.iter().map(|s| s.0).sum())
     }
 
@@ -213,7 +212,7 @@ mod tests {
                 mvks.push(pk.mvk);
             }
             let ivk = Msp::aggregate_keys(&mvks);
-            let mu = Msp::aggregate_sigs(&msg, &sigs);
+            let mu = Msp::aggregate_sigs(&sigs);
             assert!(Msp::aggregate_ver(&msg, &ivk, &mu));
         }
 

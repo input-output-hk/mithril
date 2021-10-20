@@ -309,7 +309,7 @@ where
         }
 
         let ivk = Msp::aggregate_keys(&mvks);
-        let mu = Msp::aggregate_sigs(msg, &sigmas);
+        let mu = Msp::aggregate_sigs(&sigmas);
 
         let statement = Statement {
             avk: self.avk.clone(),
