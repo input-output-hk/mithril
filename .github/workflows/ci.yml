@@ -17,7 +17,7 @@ jobs:
           components: clippy, rustfmt
           override: true
 
-      - name: Cargo fmt 
+      - name: Cargo fmt
         uses: actions-rs/cargo@v1
         with:
           command: fmt
@@ -28,7 +28,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --manifest-path ./rust/Cargo.toml --all-features
-    
+
   test:
     name: Mithril Tests
     runs-on: ubuntu-latest
@@ -48,3 +48,16 @@ jobs:
         with:
           command: test
           args: --release --manifest-path ./rust/Cargo.toml
+
+      - name: Run cargo doc
+        uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: --manifest-path ./rust/Cargo.toml
+
+      - name: Publish Documentation
+        uses: peaceiris/actions-gh-pages@v3
+        if: github.event_name == 'push'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
+          publish_dir: rust/target/doc
