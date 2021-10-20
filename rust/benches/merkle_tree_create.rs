@@ -1,47 +1,32 @@
-use blstrs::{G1Projective, G2Projective};
+use ark_bls12_377::Bls12_377;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use std::time::Duration;
+use rand_core::{RngCore,OsRng};
 
 use mithril::merkle_tree::MerkleTree;
-use mithril::msp::{MspMvk, MspPk};
+use mithril::msp::{Msp, MspMvk};
+
+type C = Bls12_377;
+type H = blake2::Blake2b;
+
+pub fn gen_keys(n: usize) -> Vec<MspMvk<C>> {
+    let mut rng = OsRng::default();
+
+    (0..n).map(|_| Msp::gen(&mut rng).1.mvk).collect()
+}
 
 pub fn merkle_tree_create_benchmark(c: &mut Criterion) {
-    // Generate random hash values
-    let n: usize = 2_usize.pow(5_u32);
-    let ps: Vec<MspPk> = (0..n)
-        .map(|_| {
-            let x = rand::random::<u64>().to_le_bytes();
-            let y = rand::random::<u64>().to_le_bytes();
-            let z = rand::random::<u64>().to_le_bytes();
-            let mvk = MspMvk(G2Projective::hash_to_curve(&x, b"mvk_bench", &[]));
-            let k1 = G1Projective::hash_to_curve(&y, b"mvk_bench", &[]);
-            let k2 = G1Projective::hash_to_curve(&z, b"mvk_bench", &[]);
-            MspPk { mvk, k1, k2 }
-        })
-        .collect();
-
+    let ps = gen_keys(32);
     c.bench_function("Merkle Tree create 2**5", |b| {
-        b.iter(|| MerkleTree::create(black_box(&ps)))
+        b.iter(|| MerkleTree::<_, H>::create(black_box(&ps)))
     });
 }
 
 pub fn merkle_tree_verify_benchmark(c: &mut Criterion) {
-    // Generate random hash values
-    let n: usize = 2_usize.pow(5_u32);
-    let ps: Vec<MspPk> = (0..n)
-        .map(|_| {
-            let x = rand::random::<u64>().to_le_bytes();
-            let y = rand::random::<u64>().to_le_bytes();
-            let z = rand::random::<u64>().to_le_bytes();
-            let mvk = MspMvk(G2Projective::hash_to_curve(&x, b"mvk_bench", &[]));
-            let k1 = G1Projective::hash_to_curve(&y, b"mvk_bench", &[]);
-            let k2 = G1Projective::hash_to_curve(&z, b"mvk_bench", &[]);
-            MspPk { mvk, k1, k2 }
-        })
-        .collect();
-
-    let mt = MerkleTree::create(&ps);
-    let i = rand::random::<usize>() % n;
+    let mut rng = OsRng::default();
+    let ps = gen_keys(32);
+    let mt = MerkleTree::<_, H>::create(&ps);
+    let i  = rng.next_u64() as usize % 32;
     let path = mt.get_path(i);
     c.bench_function("Merkle Tree verify 2**5", |b| {
         b.iter(|| mt.check(&ps[i], i, &path))
