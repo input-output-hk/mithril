@@ -37,6 +37,10 @@ rand_chacha = "0.3.1"
 name = "merkle_tree_create"
 harness = false
 
+[[bench]]
+name = "aggregate_and_verify"
+harness = false
+
 [features]
 default = ["example_curves"]
 example_curves = ["ark-bn254", "ark-bw6-761", "ark-cp6-782"]
