@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include "../include/mithril.h"
+#include "../target/include/mithril.h"
 
 int main(int argc, char **argv) {
     char *msg = argv[1];

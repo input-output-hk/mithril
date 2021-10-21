@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 /// Taken directly from cbindgen docs
 fn main() {
-    let include = PathBuf::from("include");
+    let include = PathBuf::from("target").join(PathBuf::from("include"));
     let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
 
     cbindgen::Builder::new()

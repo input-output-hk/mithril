@@ -11,4 +11,3 @@ To execute:
 ``` sh
 ./test "a message to sign"
 ```
-
