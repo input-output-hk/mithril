@@ -5,7 +5,7 @@ edition = "2018"
 
 [lib]
 name = "mithril"
-crate-type = ["lib", "cdylib"]
+crate-type = ["lib", "cdylib", "staticlib"]
 
 [dependencies]
 ark-std      = "0.3.0"
