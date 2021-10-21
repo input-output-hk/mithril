@@ -157,6 +157,9 @@ where
     /// Retrieve all registered parties from the key registration service
     /// and build the avk for this set.
     ///
+    /// Note that if this StmInitializer was modified *between* the last call to `register`,
+    /// then the resulting `StmSigner` may not be able to produce valid signatures.
+    ///
     /// Returns an StmSigner specialized to
     /// (1) this StmSigner's ID and current stake
     /// (2) this StmSigner's parameter valuation
