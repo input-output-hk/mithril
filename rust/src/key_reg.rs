@@ -18,6 +18,8 @@ where
 {
     allow: bool,
     parties: HashMap<PartyId, Party<PE>>,
+    // `keys` is just the set of all of the keys that have been registered
+    // (i.e., in `parties`)
     keys: HashSet<MspPk<PE>>,
 }
 
