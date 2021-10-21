@@ -1,7 +1,7 @@
 //! Top-level API for Mithril Stake-based Threshold Multisignature scheme.
 
 use super::{concat_avk_with_msg, ev_lt_phi, Index, PartyId, Path, Stake};
-use crate::key_reg::{KeyReg, RegParty};
+use crate::key_reg::{KeyReg, RegParty, RegisterError};
 use crate::merkle_tree::{MTHashLeaf, MerkleTree};
 use crate::mithril_proof::{MithrilProof, MithrilStatement, MithrilWitness};
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
@@ -11,7 +11,6 @@ use ark_ff::ToConstraintField;
 use rand::Rng;
 use std::collections::HashMap;
 use std::convert::From;
-use std::iter::FromIterator;
 use std::rc::Rc;
 
 /// The values that are represented in the Merkle Tree.
@@ -34,19 +33,15 @@ pub struct StmParameters {
 
 /// Initializer for `StmSigner`.
 #[derive(Debug, Clone)]
-pub struct StmInitializer<H, PE>
+pub struct StmInitializer<PE>
 where
-    H: MTHashLeaf<MTValue<PE>>,
     PE: PairingEngine,
 {
     party_id: PartyId,
     stake: Stake,
     params: StmParameters,
-    avk: Option<MerkleTree<MTValue<PE>, H>>,
-    avk_indices: Option<HashMap<PartyId, usize>>,
-    sk: Option<MspSk<PE>>,
-    pk: Option<MspPk<PE>>,
-    total_stake: Option<Stake>,
+    sk: MspSk<PE>,
+    pk: MspPk<PE>,
 }
 
 /// Participant in the protocol. Can sign messages.
@@ -113,42 +108,64 @@ pub enum AggregationFailure {
     VerifyFailed,
 }
 
-impl<H, PE> StmInitializer<H, PE>
+impl<PE> StmInitializer<PE>
 where
     PE: PairingEngine,
     MspPk<PE>: std::hash::Hash,
-    H: MTHashLeaf<MTValue<PE>>,
 {
     //////////////////////////
     // Initialization phase //
     //////////////////////////
-    pub fn setup(params: StmParameters, party_id: PartyId, stake: Stake) -> Self {
+
+    /// Builds an `StmInitializer` that is ready to register with the key registration service
+    pub fn setup<R>(params: StmParameters, party_id: PartyId, stake: Stake, rng: &mut R) -> Self
+    where
+        R: Rng + rand::CryptoRng + ?Sized,
+    {
+        let (sk, pk) = Msp::gen(rng);
         Self {
             party_id,
             stake,
-            avk_indices: None,
-            avk: None,
-            sk: None,
-            pk: None,
-            total_stake: None,
+            pk,
+            sk,
             params,
         }
     }
 
-    pub fn register<R>(&mut self, rng: &mut R, kr: &mut KeyReg<PE>)
+    pub fn generate_new_key<R>(&mut self, rng: &mut R)
     where
         R: Rng + rand::CryptoRng + ?Sized,
     {
-        // (msk_i, mvk_i, k_i) <- MSP.Gen(Param)
-        // (vk_i, sk_i) := ((mvk_i, k_i), msk_i)
-        // send (Register, sid, vk_i) to F_KR
         let (sk, pk) = Msp::gen(rng);
-        self.sk = Some(sk);
-        self.pk = Some(pk);
-        kr.register(self.party_id, self.stake, pk).unwrap();
+        self.sk = sk;
+        self.pk = pk;
     }
 
-    pub fn build_avk(&mut self, kr: &KeyReg<PE>) {
+    pub fn set_stake(&mut self, stake: Stake) {
+        self.stake = stake;
+    }
+
+    pub fn set_params(&mut self, params: StmParameters) {
+        self.params = params;
+    }
+
+    /// Register the current id, stake, and key with the registration service.
+    pub fn register(&mut self, kr: &mut KeyReg<PE>) -> Result<(), RegisterError<PE>> {
+        kr.register(self.party_id, self.stake, self.pk)
+    }
+
+    /// Retrieve all registered parties from the key registration service
+    /// and build the avk for this set.
+    ///
+    /// Returns an StmSigner specialized to
+    /// (1) this StmSigner's ID and current stake
+    /// (2) this StmSigner's parameter valuation
+    /// (3) the avk as built from the current registered parties (according to the registration service)
+    /// (4) the current total stake (according to the registration service)
+    pub fn new_signer<H>(&mut self, kr: &KeyReg<PE>) -> StmSigner<H, PE>
+    where
+        H: MTHashLeaf<MTValue<PE>>,
+    {
         // Reg := (K(P_i), stake_i) via key registration
         let reg: Vec<RegParty<PE>> = kr.retrieve_all();
         // The paper uses Reg as the vector of values with which to initialize
@@ -156,30 +173,24 @@ where
         // this vector) in the tree.
         let mtvals: Vec<MTValue<PE>> = reg.iter().map(|rp| MTValue(rp.pk.mvk, rp.stake)).collect();
         // AVK <- MT.Create(Reg)
-        self.avk = Some(MerkleTree::create(&mtvals));
-        self.avk_indices = Some(HashMap::from_iter(
-            reg.iter().enumerate().map(|(i, rp)| (rp.party_id, i)),
-        ));
-
-        self.total_stake = Some(mtvals.iter().map(|s| s.1).sum());
-    }
-
-    pub fn finish(self) -> StmSigner<H, PE> {
-        let indices = self.avk_indices.expect("registered party indices unknown");
-        let my_id = self.party_id;
-        let my_index = indices
-            .get(&my_id)
-            .unwrap_or_else(|| panic!("party unkown: {}", my_id));
+        let avk = MerkleTree::create(&mtvals);
+        let my_index = reg
+            .iter()
+            .enumerate()
+            .find(|(i, rp)| rp.party_id == self.party_id)
+            .unwrap_or_else(|| panic!("party unknown: {}", self.party_id))
+            .0;
+        let total_stake = mtvals.iter().map(|s| s.1).sum();
 
         StmSigner {
             party_id: self.party_id,
-            avk_idx: *my_index,
+            avk_idx: my_index,
             stake: self.stake,
             params: self.params,
-            total_stake: self.total_stake.expect("total stake unknown"),
-            avk: self.avk.expect("merkle tree not created"),
-            sk: self.sk.expect("register not called"),
-            pk: self.pk.expect("register not called"),
+            avk,
+            sk: self.sk,
+            pk: self.pk,
+            total_stake,
         }
     }
 }
@@ -433,17 +444,12 @@ mod tests {
         let ps = parties
             .into_iter()
             .map(|(pid, stake)| {
-                let mut p = StmInitializer::setup(params, pid, stake);
-                p.register(&mut rng, &mut kr);
+                let mut p = StmInitializer::setup(params, pid, stake, &mut rng);
+                p.register(&mut kr).unwrap();
                 p
             })
             .collect::<Vec<_>>();
-        ps.into_iter()
-            .map(|mut p| {
-                p.build_avk(&kr);
-                p.finish()
-            })
-            .collect()
+        ps.into_iter().map(|mut p| p.new_signer(&kr)).collect()
     }
 
     /// Generate a vector of stakes that should sum to `honest_stake`

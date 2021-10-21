@@ -29,20 +29,17 @@ fn test_full_protocol() {
 
     let mut key_reg = KeyReg::new(&parties);
 
-    let mut ps: Vec<StmInitializer<sha3::Sha3_256, Bls12_377>> = Vec::with_capacity(nparties);
+    let mut ps: Vec<StmInitializer<Bls12_377>> = Vec::with_capacity(nparties);
     for (pid, stake) in parties {
-        let mut p = StmInitializer::setup(params, pid, stake);
-        p.register(&mut rand::thread_rng(), &mut key_reg);
+        let mut p = StmInitializer::setup(params, pid, stake, &mut rand::thread_rng());
+        p.register(&mut key_reg).unwrap();
         ps.push(p);
     }
 
     let ps = ps
         .into_par_iter()
-        .map(|mut p| {
-            p.build_avk(&key_reg);
-            p.finish()
-        })
-        .collect::<Vec<StmSigner<sha3::Sha3_256, Bls12_377>>>();
+        .map(|mut p| p.new_signer(&key_reg))
+        .collect::<Vec<StmSigner<H, Bls12_377>>>();
 
     /////////////////////
     // operation phase //
