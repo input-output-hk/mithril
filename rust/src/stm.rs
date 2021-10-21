@@ -441,6 +441,9 @@ mod tests {
         let mut kr = KeyReg::new(&parties);
         let mut trng = TestRng::deterministic_rng(ChaCha);
         let mut rng = rand_chacha::ChaCha8Rng::from_seed(trng.gen());
+
+        // The needless_collect lint is not correct here
+        #[allow(clippy::needless_collect)]
         let ps = parties
             .into_iter()
             .map(|(pid, stake)| {
@@ -449,6 +452,7 @@ mod tests {
                 p
             })
             .collect::<Vec<_>>();
+
         ps.into_iter().map(|mut p| p.new_signer(&kr)).collect()
     }
 
