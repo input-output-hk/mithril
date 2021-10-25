@@ -20,6 +20,7 @@ pub struct MTValue<PE: PairingEngine>(pub MspMvk<PE>, pub Stake);
 
 /// Used to set protocol parameters.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[repr(C)]
 pub struct StmParameters {
     /// Security parameter, upper bound on indices
     pub m: u64,
