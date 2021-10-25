@@ -16,8 +16,9 @@ type (
 )
 
 var (
-	ErrSignFailed         = errors.New("sign failed")
-	ErrVerificationFailed = errors.New("verification failed")
+	ErrSignFailed          = errors.New("sign failed")
+	ErrVerifyFailed        = errors.New("verification failed")
+	ErrNotEnoughSignatures = errors.New("not enough signatures")
 )
 
 func NewStmtParams(m, k int, phiF float64) StmParameters {
