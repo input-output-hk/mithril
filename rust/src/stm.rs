@@ -1,7 +1,7 @@
 //! Top-level API for Mithril Stake-based Threshold Multisignature scheme.
 
 use super::{concat_avk_with_msg, ev_lt_phi, Index, PartyId, Path, Stake};
-use crate::key_reg::{KeyReg, RegParty, RegisterError};
+use crate::key_reg::RegParty;
 use crate::merkle_tree::{MTHashLeaf, MerkleTree};
 use crate::mithril_proof::{MithrilProof, MithrilStatement, MithrilWitness};
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
@@ -141,21 +141,32 @@ where
         self.pk = pk;
     }
 
+    pub fn secret_key(&self) -> MspSk<PE> {
+        self.sk
+    }
+
+    pub fn public_key(&self) -> MspPk<PE> {
+        self.pk
+    }
+
     pub fn set_stake(&mut self, stake: Stake) {
         self.stake = stake;
     }
 
-    pub fn set_params(&mut self, params: StmParameters) {
-        self.params = params;
+    pub fn stake(&self) -> Stake {
+        self.stake
     }
 
     /// Register the current id, stake, and key with the registration service.
     pub fn register(&mut self, kr: &mut KeyReg<PE>) -> Result<(), RegisterError<PE>> {
         kr.register(self.party_id, self.stake, self.pk)
+    pub fn party_id(&self) -> PartyId {
+        self.party_id
     }
 
-    /// Retrieve all registered parties from the key registration service
-    /// and build the avk for this set.
+    pub fn set_params(&mut self, params: StmParameters) {
+        self.params = params;
+    }
     ///
     /// Note that if this StmInitializer was modified *between* the last call to `register`,
     /// then the resulting `StmSigner` may not be able to produce valid signatures.
