@@ -150,7 +150,7 @@ where
         self.sk
     }
 
-    pub fn public_key(&self) -> MspPk<PE> {
+    pub fn verification_key(&self) -> MspPk<PE> {
         self.pk
     }
 
@@ -465,7 +465,7 @@ mod tests {
             .into_iter()
             .map(|(pid, stake)| {
                 let p = StmInitializer::setup(params, pid, stake, &mut rng);
-                kr.register(p.party_id(), p.stake(), p.public_key())
+                kr.register(p.party_id(), p.stake(), p.verification_key())
                     .unwrap();
                 p
             })
