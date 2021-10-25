@@ -16,7 +16,7 @@ pub struct Msp<PE: PairingEngine> {
     x: PhantomData<PE>,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MspSk<PE: PairingEngine>(PE::Fr);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -163,12 +163,63 @@ impl<PE: PairingEngine> MspSig<PE> {
     }
 }
 
+mod to_bytes {
+    use super::*;
+    use ark_ff::bytes::{FromBytes, ToBytes};
+    use ark_std::io::{Read, Write};
+
+    impl<PE: PairingEngine> FromBytes for MspSk<PE> {
+        fn read<R: Read>(reader: R) -> std::result::Result<Self, std::io::Error> {
+            let k = <PE::Fr as FromBytes>::read(reader)?;
+            Ok(MspSk(k))
+        }
+    }
+
+    impl<PE: PairingEngine> FromBytes for MspMvk<PE> {
+        fn read<R: Read>(reader: R) -> std::result::Result<Self, std::io::Error> {
+            let k = <PE::G2Projective as FromBytes>::read(reader)?;
+            Ok(MspMvk(k))
+        }
+    }
+
+    impl<PE: PairingEngine> FromBytes for MspPk<PE> {
+        fn read<R: Read>(mut reader: R) -> std::result::Result<Self, std::io::Error> {
+            let mvk = MspMvk::<PE>::read(&mut reader)?;
+            let k1 = PE::G1Projective::read(&mut reader)?;
+            let k2 = PE::G1Projective::read(&mut reader)?;
+            Ok(MspPk { mvk, k1, k2 })
+        }
+    }
+
+    impl<PE: PairingEngine> ToBytes for MspSk<PE> {
+        fn write<W: Write>(&self, mut writer: W) -> std::result::Result<(), std::io::Error> {
+            self.0.write(&mut writer)
+        }
+    }
+
+    impl<PE: PairingEngine> ToBytes for MspMvk<PE> {
+        fn write<W: Write>(&self, mut writer: W) -> std::result::Result<(), std::io::Error> {
+            self.0.write(&mut writer)
+        }
+    }
+
+    impl<PE: PairingEngine> ToBytes for MspPk<PE> {
+        fn write<W: Write>(&self, mut writer: W) -> std::result::Result<(), std::io::Error> {
+            self.mvk.write(&mut writer)?;
+            self.k1.write(&mut writer)?;
+            self.k2.write(&mut writer)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use ark_bls12_377::{Bls12_377, Fr, G1Affine, G2Affine};
+    use ark_ff::FromBytes;
     use proptest::prelude::*;
     use rand::thread_rng;
+    use rand_core::SeedableRng;
 
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(1000))]
@@ -222,6 +273,25 @@ mod tests {
                                   s in any::<u64>()) {
             let sigma = MspSig(G1Affine::prime_subgroup_generator().mul(Fr::from(s)));
             Msp::<Bls12_377>::eval(&msg, idx, &sigma);
+        }
+
+
+        #[test]
+        fn serialize_deserialize_pk(seed in any::<u64>()) {
+            let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
+            let (_, pk) = Msp::<Bls12_377>::gen(&mut rng);
+            let pk_bytes: &[u8] = &ark_ff::to_bytes!(pk).unwrap();
+            let pk2: MspPk<Bls12_377> = MspPk::read(pk_bytes).unwrap();
+            assert!(pk == pk2);
+        }
+
+        #[test]
+        fn serialize_deserialize_sk(seed in any::<u64>()) {
+            let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
+            let (sk, _) = Msp::<Bls12_377>::gen(&mut rng);
+            let sk_bytes: &[u8] = &ark_ff::to_bytes!(sk).unwrap();
+            let sk2: MspSk<Bls12_377> = MspSk::read(sk_bytes).unwrap();
+            assert!(sk == sk2);
         }
     }
 
