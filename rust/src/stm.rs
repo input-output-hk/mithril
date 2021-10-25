@@ -157,9 +157,6 @@ where
         self.stake
     }
 
-    /// Register the current id, stake, and key with the registration service.
-    pub fn register(&mut self, kr: &mut KeyReg<PE>) -> Result<(), RegisterError<PE>> {
-        kr.register(self.party_id, self.stake, self.pk)
     pub fn party_id(&self) -> PartyId {
         self.party_id
     }
@@ -167,6 +164,8 @@ where
     pub fn set_params(&mut self, params: StmParameters) {
         self.params = params;
     }
+
+    /// Build the avk for the given list of parties.
     ///
     /// Note that if this StmInitializer was modified *between* the last call to `register`,
     /// then the resulting `StmSigner` may not be able to produce valid signatures.
@@ -176,12 +175,10 @@ where
     /// (2) this StmSigner's parameter valuation
     /// (3) the avk as built from the current registered parties (according to the registration service)
     /// (4) the current total stake (according to the registration service)
-    pub fn new_signer<H>(&mut self, kr: &KeyReg<PE>) -> StmSigner<H, PE>
+    pub fn new_signer<H>(&self, reg: &[RegParty<PE>]) -> StmSigner<H, PE>
     where
         H: MTHashLeaf<MTValue<PE>>,
     {
-        // Reg := (K(P_i), stake_i) via key registration
-        let reg: Vec<RegParty<PE>> = kr.retrieve_all();
         // The paper uses Reg as the vector of values with which to initialize
         // the merkle tree. The implementation stores MTValues (derived from
         // this vector) in the tree.
@@ -429,6 +426,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::key_reg::*;
     use crate::mithril_proof::concat_proofs::*;
     use crate::proof::trivial::TrivialEnv;
     use ark_bls12_377::{Bls12_377, G1Projective as G1P, G2Projective as G2P};
@@ -461,13 +459,14 @@ mod tests {
         let ps = parties
             .into_iter()
             .map(|(pid, stake)| {
-                let mut p = StmInitializer::setup(params, pid, stake, &mut rng);
-                p.register(&mut kr).unwrap();
+                let p = StmInitializer::setup(params, pid, stake, &mut rng);
+                kr.register(p.party_id(), p.stake(), p.public_key())
+                    .unwrap();
                 p
             })
             .collect::<Vec<_>>();
-
-        ps.into_iter().map(|mut p| p.new_signer(&kr)).collect()
+        let reg = kr.retrieve_all();
+        ps.into_iter().map(|p| p.new_signer(&reg)).collect()
     }
 
     /// Generate a vector of stakes that should sum to `honest_stake`

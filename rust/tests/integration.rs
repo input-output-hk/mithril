@@ -31,14 +31,18 @@ fn test_full_protocol() {
 
     let mut ps: Vec<StmInitializer<Bls12_377>> = Vec::with_capacity(nparties);
     for (pid, stake) in parties {
-        let mut p = StmInitializer::setup(params, pid, stake, &mut rand::thread_rng());
-        p.register(&mut key_reg).unwrap();
+        let p = StmInitializer::setup(params, pid, stake, &mut rand::thread_rng());
+        key_reg
+            .register(p.party_id(), p.stake(), p.public_key())
+            .unwrap();
         ps.push(p);
     }
 
+    let reg = key_reg.retrieve_all();
+
     let ps = ps
         .into_par_iter()
-        .map(|mut p| p.new_signer(&key_reg))
+        .map(|p| p.new_signer(&reg))
         .collect::<Vec<StmSigner<H, Bls12_377>>>();
 
     /////////////////////
