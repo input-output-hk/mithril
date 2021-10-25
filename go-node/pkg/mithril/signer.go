@@ -16,16 +16,18 @@ type StmSigner struct {
 	ptr C.StmSignerPtr
 }
 
-func (s StmSigner) EligibilityCheck(msg string) bool {
-	return bool(C.stm_signer_eligibility_check(s.ptr, C.CString(msg), 1))
+func (s StmSigner) EligibilityCheck(index int64, msg string) bool {
+	rv := C.stm_signer_eligibility_check(s.ptr, C.CString(msg), C.ulonglong(index))
+	return bool(rv)
 }
 
-func (s StmSigner) Sign(msg string) (Signature, error) {
+func (s StmSigner) Sign(index int64, msg string) (Signature, error) {
 	var sig Signature
 
-	if C.stm_signer_sign(s.ptr, C.CString(msg), 1, &sig); sig == nil {
+	if C.stm_signer_sign(s.ptr, C.CString(msg), C.ulonglong(index), &sig); sig == nil {
 		return nil, ErrSignFailed
 	}
+
 	return sig, nil
 }
 
