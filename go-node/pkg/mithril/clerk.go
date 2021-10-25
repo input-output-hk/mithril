@@ -17,16 +17,22 @@ type StmClerk struct {
 func (c StmClerk) Aggregate(index int64, sign Signature, msg string) (MultiSignConst, error) {
 	var msc MultiSignConst
 
-	i := C.ulonglong(index)
-	if rv := C.stm_clerk_aggregate(c.ptr, 1, sign, &i, C.CString(msg), &msc); int(rv) == -1 {
-		return nil, ErrVerificationFailed
-	}
+	idx := C.Index(index)
+	rv := C.stm_clerk_aggregate(c.ptr, 1, sign, &idx, C.CString(msg), &msc)
 
-	return msc, nil
+	switch int(rv) {
+	case 0: // If verification is successful
+		return msc, nil
+	case -1: // If verification is failed
+		return nil, ErrVerifyFailed
+	default: // If not enough signature
+		return nil, ErrNotEnoughSignatures
+	}
 }
 
 func (c StmClerk) VerifySign(msg string, index int64, sig Signature) bool {
-	return bool(C.stm_clerk_verify_sig(c.ptr, sig, C.ulonglong(index), C.CString(msg)))
+	rv := C.stm_clerk_verify_sig(c.ptr, sig, C.ulonglong(index), C.CString(msg))
+	return bool(rv)
 }
 
 func (c StmClerk) VerifyMultiSign(msc MultiSignConst, msg string) bool {
