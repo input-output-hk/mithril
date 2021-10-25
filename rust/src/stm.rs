@@ -37,10 +37,15 @@ pub struct StmInitializer<PE>
 where
     PE: PairingEngine,
 {
+    /// This participant's Id
     party_id: PartyId,
+    /// This participant's stake
     stake: Stake,
+    /// Current protocol instantiation parameters
     params: StmParameters,
+    /// Secret key
     sk: MspSk<PE>,
+    /// Verification (public) key + proof of possession
     pk: MspPk<PE>,
 }
 
