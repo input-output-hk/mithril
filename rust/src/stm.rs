@@ -3,7 +3,7 @@
 use super::{concat_avk_with_msg, ev_lt_phi, Index, PartyId, Path, Stake};
 use crate::key_reg::{KeyReg, RegParty};
 use crate::merkle_tree::{MTHashLeaf, MerkleTree};
-use crate::mithril_proof::{MithrilProof, Statement, Witness};
+use crate::mithril_proof::{MithrilProof, MithrilStatement, MithrilWitness};
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
 use crate::proof::ProverEnv;
 use ark_ec::PairingEngine;
@@ -98,6 +98,7 @@ pub struct StmSig<PE: PairingEngine, F> {
 pub struct StmMultiSig<PE, Proof>
 where
     PE: PairingEngine,
+    Proof: MithrilProof,
 {
     ivk: MspMvk<PE>,
     mu: MspSig<PE>,
@@ -273,6 +274,11 @@ where
         Msp::ver(&msgp, &sig.pk.mvk, &sig.sigma)
     }
 
+    /// Aggregate a set of signatures for their corresponding indices.
+    ///
+    /// The `From` bound on `Proof::Statement` allows `aggregate` to translate
+    /// from the `Mithril` specific statement and witness types to their proof system-specific
+    /// representations.
     pub fn aggregate<Proof>(
         &self,
         sigs: &[StmSig<PE, H::F>],
@@ -280,7 +286,9 @@ where
         msg: &[u8],
     ) -> Result<StmMultiSig<PE, Proof>, AggregationFailure>
     where
-        Proof: MithrilProof<PE, H, E>,
+        Proof: MithrilProof<Env = E>,
+        Proof::Statement: From<MithrilStatement<PE, H>>,
+        Proof::Witness: From<MithrilWitness<PE, H>>,
     {
         let msgp = concat_avk_with_msg(&self.avk, msg);
         let mut evals = Vec::new();
@@ -312,15 +320,15 @@ where
         let ivk = Msp::aggregate_keys(&mvks);
         let mu = Msp::aggregate_sigs(&sigmas);
 
-        let statement = Statement {
+        let statement = MithrilStatement {
             avk: self.avk.clone(),
-            ivk: Rc::from(ivk),
-            mu: Rc::from(mu),
-            msg: Rc::from(msg),
-            params: Rc::from(self.params),
+            ivk,
+            mu,
+            msg: msg.to_vec(),
+            params: self.params,
             total_stake: self.total_stake,
         };
-        let witness = Witness {
+        let witness = MithrilWitness {
             sigs: sigs_to_verify,
             indices: indices_to_verify,
             evals,
@@ -330,33 +338,40 @@ where
             &self.proof_env,
             &self.proof_key,
             &Proof::RELATION,
-            &Proof::S::from(statement),
-            Proof::W::from(witness),
+            &Proof::Statement::from(statement),
+            Proof::Witness::from(witness),
         )
         .expect("Constructed invalid proof");
 
         Ok(StmMultiSig { ivk, mu, proof })
     }
 
+    /// Verify an aggregation of signatures.
+    ///
+    /// The `From` bound on `Proof::Statement` allows `aggregate` to translate
+    /// from the `Mithril` specific statement and witness types to their proof system-specific
+    /// representations.
     pub fn verify_msig<Proof>(&self, msig: &StmMultiSig<PE, Proof>, msg: &[u8]) -> bool
     where
-        Proof: MithrilProof<PE, H, E>,
+        Proof: MithrilProof<Env = E>,
+        Proof::Statement: From<MithrilStatement<PE, H>>,
+        Proof::Witness: From<MithrilWitness<PE, H>>,
     {
-        let statement = Statement {
+        let statement = MithrilStatement {
             // Specific to the message and signatures
-            ivk: Rc::from(msig.ivk),
-            mu: Rc::from(msig.mu),
-            msg: Rc::from(msg),
+            ivk: msig.ivk,
+            mu: msig.mu,
+            msg: msg.to_vec(),
             // These are "background" information"
             avk: self.avk.clone(),
-            params: Rc::from(self.params),
+            params: self.params,
             total_stake: self.total_stake,
         };
         if !msig.proof.verify(
             &self.proof_env,
             &self.verif_key,
             &Proof::RELATION,
-            &Proof::S::from(statement),
+            &Proof::Statement::from(statement),
         ) {
             return false;
         }
@@ -390,7 +405,7 @@ where
 mod tests {
     use super::*;
     use crate::mithril_proof::concat_proofs::*;
-    use crate::proof::trivial::{TrivialEnv, TrivialProof};
+    use crate::proof::trivial::TrivialEnv;
     use ark_bls12_377::{Bls12_377, G1Projective as G1P, G2Projective as G2P};
     use ark_ec::ProjectiveCurve;
     use proptest::collection::{hash_map, vec};
@@ -400,7 +415,7 @@ mod tests {
     use rayon::prelude::*;
     use std::collections::{HashMap, HashSet};
 
-    type Proof = TrivialProof<Witness<Bls12_377, H>>;
+    type Proof = ConcatProof<Bls12_377, H>;
     type Sig = StmMultiSig<Bls12_377, Proof>;
     type H = sha3::Sha3_256;
     type F = <H as MTHashLeaf<MTValue<Bls12_377>>>::F;
@@ -656,8 +671,8 @@ mod tests {
                 let msig = clerk.aggregate::<ConcatProof<Bls12_377, H>>(&sigs, &ixs, &msg);
                 ProofTest {
                     n,
-                    clerk,
                     msig,
+                    clerk,
                     msg,
                 }
             })
@@ -714,7 +729,7 @@ mod tests {
         #[test]
         fn test_invalid_proof_index_unique(tc in arb_proof_setup(10)) {
             with_proof_mod(tc, |aggr, clerk, msg| {
-                for i in aggr.proof.0.indices.iter_mut() {
+                for i in aggr.proof.witness.indices.iter_mut() {
                     *i %= clerk.params.k - 1
                 }
             })
@@ -724,21 +739,21 @@ mod tests {
             let n = tc.n;
             with_proof_mod(tc, |aggr, clerk, msg| {
                 let pi = i % clerk.params.k as usize;
-                aggr.proof.0.sigs[pi].party = (aggr.proof.0.sigs[pi].party + 1) % n;
+                aggr.proof.witness.sigs[pi].party = (aggr.proof.witness.sigs[pi].party + 1) % n;
             })
         }
         #[test]
         fn test_invalid_proof_eval(tc in arb_proof_setup(10), i in any::<usize>(), v in any::<u64>()) {
             with_proof_mod(tc, |aggr, clerk, msg| {
                 let pi = i % clerk.params.k as usize;
-                aggr.proof.0.evals[pi] = v;
+                aggr.proof.witness.evals[pi] = v;
             })
         }
         #[test]
         fn test_invalid_proof_stake(tc in arb_proof_setup(10), i in any::<usize>()) {
             with_proof_mod(tc, |aggr, clerk, msg| {
                 let pi = i % clerk.params.k as usize;
-                aggr.proof.0.evals[pi] = 0;
+                aggr.proof.witness.evals[pi] = 0;
             })
         }
     }

@@ -6,7 +6,6 @@ use crate::ev_lt_phi;
 use crate::merkle_tree::{MTHashLeaf, MerkleTree};
 use crate::msp::{Msp, MspMvk, MspSig};
 use crate::proof::Proof;
-use crate::proof::ProverEnv;
 use crate::stm::{MTValue, StmParameters, StmSig};
 use ark_ec::PairingEngine;
 use std::collections::HashSet;
@@ -18,25 +17,29 @@ use std::rc::Rc;
 /// the given MerkleTree, aggregated verification keys,
 /// and aggregated signatures is valid for the
 /// given message.
-pub struct Statement<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> {
+pub struct MithrilStatement<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> {
+    // We use Rc here to avoid exposing a lifetime parameter. Parameterizing
+    // Statement by a lifetime ends up bubbling the lifetime to whoever is
+    // producing proofs, effectively tying the lifetime of the proof to that of
+    // the prover, which is undesirable.
     pub(crate) avk: Rc<MerkleTree<MTValue<PE>, H>>,
-    pub(crate) ivk: Rc<MspMvk<PE>>,
-    pub(crate) mu: Rc<MspSig<PE>>,
-    pub(crate) msg: Rc<[u8]>,
-    pub(crate) params: Rc<StmParameters>,
+    pub(crate) ivk: MspMvk<PE>,
+    pub(crate) mu: MspSig<PE>,
+    pub(crate) msg: Vec<u8>,
+    pub(crate) params: StmParameters,
     pub(crate) total_stake: u64,
 }
 
-/// A Witness is an aggregation of signatures
+/// A MithrilWitness is an aggregation of signatures
 #[derive(Debug, Clone)]
-pub struct Witness<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> {
+pub struct MithrilWitness<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> {
     pub(crate) sigs: Vec<StmSig<PE, H::F>>,
     pub(crate) indices: Vec<Index>,
     pub(crate) evals: Vec<u64>,
 }
 
-impl<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> Witness<PE, H> {
-    fn verify(&self, stmt: &Statement<PE, H>) -> bool {
+impl<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> MithrilWitness<PE, H> {
+    fn verify(&self, stmt: &MithrilStatement<PE, H>) -> bool {
         self.check_quorum(stmt.params.k as usize)
             && self.check_ivk(&stmt.ivk)
             && self.check_sum(&stmt.mu)
@@ -106,44 +109,35 @@ impl<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> Witness<PE, H> {
     }
 }
 
-/// Here we fix the type of statements and witnesses to those defined by the Mithril protocol.
-/// Implementations of `MithrilProof` fix the relation as well.
-pub trait MithrilProof<PE, H, Env>: Proof<Env, Self::S, Self::Relation, Self::W>
-where
-    PE: PairingEngine,
-    H: MTHashLeaf<MTValue<PE>>,
-    Env: ProverEnv,
-{
-    type S: From<Statement<PE, H>>;
-    type W: From<Witness<PE, H>>;
-    type Relation;
+/// A MithrilProof just fixes the relation to a constant.
+pub trait MithrilProof: Proof {
     const RELATION: Self::Relation;
 }
 
 pub mod concat_proofs {
     //! This is the trivial proof system instantiated to Mithril: witnesses are
     //! just the aggregated signatures themselves.
-    use super::{MithrilProof, Statement, Witness};
+    use super::{MithrilProof, MithrilStatement, MithrilWitness};
     use crate::merkle_tree::MTHashLeaf;
     pub use crate::proof::trivial::TrivialEnv;
     use crate::proof::trivial::TrivialProof;
     use crate::stm::MTValue;
     use ark_ec::PairingEngine;
 
-    pub type ConcatProof<PE, H> = TrivialProof<Witness<PE, H>>;
+    pub type ConcatEnv = TrivialEnv;
+    pub type ConcatRel<PE, H> = fn(&MithrilStatement<PE, H>, &MithrilWitness<PE, H>) -> bool;
+    pub type ConcatProof<PE, H> =
+        TrivialProof<MithrilStatement<PE, H>, ConcatRel<PE, H>, MithrilWitness<PE, H>>;
 
-    impl<PE, H> MithrilProof<PE, H, TrivialEnv> for TrivialProof<Witness<PE, H>>
+    impl<PE, H> MithrilProof for ConcatProof<PE, H>
     where
         PE: PairingEngine,
         H: MTHashLeaf<MTValue<PE>>,
     {
-        type S = Statement<PE, H>;
-        type W = Witness<PE, H>;
-        type Relation = fn(&Self::S, &Self::W) -> bool;
-        const RELATION: fn(&Self::S, &Self::W) -> bool = trivial_relation;
+        const RELATION: ConcatRel<PE, H> = trivial_relation;
     }
 
-    fn trivial_relation<PE, H>(s: &Statement<PE, H>, w: &Witness<PE, H>) -> bool
+    fn trivial_relation<PE, H>(s: &MithrilStatement<PE, H>, w: &MithrilWitness<PE, H>) -> bool
     where
         PE: PairingEngine,
         H: MTHashLeaf<MTValue<PE>>,

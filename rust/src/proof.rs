@@ -12,24 +12,25 @@ pub trait ProverEnv {
 /// Implementors of `Proof<E,S,R,W>` know how to prove that
 /// a relation of type `R` holds between values of types `S` and `W`
 /// (generally the proofs are knowledge of such a `W`)
-pub trait Proof<Env, Statement, Relation, Witness>: Sized
-where
-    Env: ProverEnv,
-{
+pub trait Proof: Sized {
+    type Env: ProverEnv;
+    type Statement;
+    type Relation;
+    type Witness;
     fn prove(
-        env: &Env,
-        pk: &Env::ProvingKey,
-        rel: &Relation,
-        stmt: &Statement,
-        witness: Witness,
+        env: &Self::Env,
+        pk: &<Self::Env as ProverEnv>::ProvingKey,
+        rel: &Self::Relation,
+        stmt: &Self::Statement,
+        witness: Self::Witness,
     ) -> Option<Self>;
 
     fn verify(
         &self,
-        env: &Env,
-        vk: &Env::VerificationKey,
-        rel: &Relation,
-        stmt: &Statement,
+        env: &Self::Env,
+        vk: &<Self::Env as ProverEnv>::VerificationKey,
+        rel: &Self::Relation,
+        stmt: &Self::Statement,
     ) -> bool;
 }
 
@@ -37,12 +38,24 @@ pub mod trivial {
     //! A trivial implementation of `Proof` where proofs of knowledge of
     //! witnesses are just the witnesses themselves.
     use super::*;
+    use std::fmt::{Debug, Formatter, Result};
+    use std::marker::PhantomData;
 
     #[derive(Debug, Clone)]
     pub struct TrivialEnv;
 
-    #[derive(Debug, Clone)]
-    pub struct TrivialProof<W>(pub W);
+    #[derive(Clone)]
+    pub struct TrivialProof<S, R, W> {
+        pub witness: W,
+        pr: PhantomData<R>,
+        ps: PhantomData<S>,
+    }
+
+    impl<S, R, W: Debug> Debug for TrivialProof<S, R, W> {
+        fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+            write!(f, "TrivialProof({:?})", self.witness)
+        }
+    }
 
     impl ProverEnv for TrivialEnv {
         type VerificationKey = ();
@@ -52,26 +65,34 @@ pub mod trivial {
         }
     }
 
-    impl<Stmt, R, Witness> Proof<TrivialEnv, Stmt, R, Witness> for TrivialProof<Witness>
+    impl<Stmt, R, Witness> Proof for TrivialProof<Stmt, R, Witness>
     where
         R: Fn(&Stmt, &Witness) -> bool,
     {
+        type Env = TrivialEnv;
+        type Statement = Stmt;
+        type Relation = R;
+        type Witness = Witness;
         fn prove(
             env: &TrivialEnv,
             _pk: &(),
-            rel: &R,
+            rel: &Self::Relation,
             stmt: &Stmt,
-            witness: Witness,
+            witness: Self::Witness,
         ) -> Option<Self> {
             if rel(stmt, &witness) {
-                Some(TrivialProof(witness))
+                Some(TrivialProof {
+                    witness,
+                    pr: PhantomData,
+                    ps: PhantomData,
+                })
             } else {
                 None
             }
         }
 
         fn verify(&self, env: &TrivialEnv, vk: &(), rel: &R, statement: &Stmt) -> bool {
-            rel(statement, &self.0)
+            rel(statement, &self.witness)
         }
     }
 }
