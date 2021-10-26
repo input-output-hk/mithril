@@ -1,7 +1,5 @@
 //! Top-level API for Mithril Stake-based Threshold Multisignature scheme.
 
-use ark_ff::bytes::{FromBytes, ToBytes};
-use ark_std::io::{Read, Write};
 use super::{concat_avk_with_msg, ev_lt_phi, Index, PartyId, Path, Stake};
 use crate::key_reg::RegParty;
 use crate::merkle_tree::{MTHashLeaf, MerkleTree};
@@ -9,12 +7,14 @@ use crate::mithril_proof::{MithrilProof, MithrilStatement, MithrilWitness};
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
 use crate::proof::ProverEnv;
 use ark_ec::PairingEngine;
+use ark_ff::bytes::{FromBytes, ToBytes};
 use ark_ff::ToConstraintField;
+use ark_std::io::{Read, Write};
 use rand::Rng;
 use std::collections::HashMap;
 use std::convert::From;
-use std::rc::Rc;
 use std::convert::TryInto;
+use std::rc::Rc;
 
 /// The values that are represented in the Merkle Tree.
 #[derive(Debug, Clone, Copy)]
@@ -116,7 +116,7 @@ pub enum AggregationFailure {
     VerifyFailed,
 }
 
-impl<PE: PairingEngine, F: FromBytes> FromBytes for StmSig<PE,F> {
+impl<PE: PairingEngine, F: FromBytes> FromBytes for StmSig<PE, F> {
     fn read<R: Read>(mut reader: R) -> std::io::Result<Self> {
         let sigma = MspSig::<PE>::read(&mut reader)?;
         let pk = MspPk::<PE>::read(&mut reader)?;
@@ -125,11 +125,17 @@ impl<PE: PairingEngine, F: FromBytes> FromBytes for StmSig<PE,F> {
         let stake = Stake::read(&mut reader)?;
         let path = Path::read(&mut reader)?;
 
-        Ok(StmSig { sigma, pk, party, stake, path })
+        Ok(StmSig {
+            sigma,
+            pk,
+            party,
+            stake,
+            path,
+        })
     }
 }
 
-impl<PE: PairingEngine, F: ToBytes> ToBytes for StmSig<PE,F> {
+impl<PE: PairingEngine, F: ToBytes> ToBytes for StmSig<PE, F> {
     fn write<W: Write>(&self, mut writer: W) -> std::result::Result<(), std::io::Error> {
         self.sigma.write(&mut writer)?;
         self.pk.write(&mut writer)?;
@@ -142,23 +148,22 @@ impl<PE: PairingEngine, F: ToBytes> ToBytes for StmSig<PE,F> {
     }
 }
 
-impl<PE: PairingEngine, Proof:MithrilProof> FromBytes for StmMultiSig<PE, Proof> {
+impl<PE: PairingEngine, Proof: MithrilProof> FromBytes for StmMultiSig<PE, Proof> {
     fn read<R: Read>(mut reader: R) -> std::io::Result<Self> {
         let ivk = MspMvk::read(&mut reader)?;
         let mu = MspSig::read(&mut reader)?;
         let proof = Proof::read(&mut reader)?;
 
-        Ok(StmMultiSig{ ivk, mu, proof })
+        Ok(StmMultiSig { ivk, mu, proof })
     }
 }
-impl<PE: PairingEngine, Proof:MithrilProof> ToBytes for StmMultiSig<PE, Proof> {
+impl<PE: PairingEngine, Proof: MithrilProof> ToBytes for StmMultiSig<PE, Proof> {
     fn write<W: Write>(&self, mut writer: W) -> std::result::Result<(), std::io::Error> {
         self.ivk.write(&mut writer)?;
         self.mu.write(&mut writer)?;
         self.proof.write(&mut writer)
     }
 }
-
 
 impl<PE> StmInitializer<PE>
 where
@@ -686,9 +691,6 @@ mod tests {
                 },
                 _ => ()
             }
-
-
-
         }
     }
 

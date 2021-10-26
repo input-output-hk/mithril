@@ -7,13 +7,13 @@ use crate::merkle_tree::{MTHashLeaf, MerkleTree};
 use crate::msp::{Msp, MspMvk, MspSig};
 use crate::proof::Proof;
 use crate::stm::{MTValue, StmParameters, StmSig};
-use std::io::{Read, Write};
-use ark_ff::{ToBytes,FromBytes};
 use ark_ec::PairingEngine;
+use ark_ff::{FromBytes, ToBytes};
 use std::collections::HashSet;
+use std::convert::TryInto;
+use std::io::{Read, Write};
 use std::iter::FromIterator;
 use std::rc::Rc;
-use std::convert::TryInto;
 
 /// The statement we want to prove, namely that
 /// the signature aggregated by our scheme with
@@ -116,7 +116,7 @@ impl<PE, H> ToBytes for MithrilWitness<PE, H>
 where
     PE: PairingEngine,
     H: MTHashLeaf<MTValue<PE>>,
-    H::F: ToBytes
+    H::F: ToBytes,
 {
     fn write<W: Write>(&self, mut writer: W) -> std::io::Result<()> {
         let n: u64 = self.sigs.len().try_into().unwrap();
@@ -134,11 +134,11 @@ where
 {
     fn read<R: Read>(mut reader: R) -> std::io::Result<Self> {
         let n = u64::read(&mut reader)?;
-        let mut sigs: Vec<StmSig<PE,H::F>> = Vec::with_capacity(n as usize);
+        let mut sigs: Vec<StmSig<PE, H::F>> = Vec::with_capacity(n as usize);
         let mut indices: Vec<Index> = Vec::with_capacity(n as usize);
         let mut evals: Vec<u64> = Vec::with_capacity(n as usize);
         for i in 0..n {
-            let s = StmSig::<PE,H::F>::read(&mut reader)?;
+            let s = StmSig::<PE, H::F>::read(&mut reader)?;
             sigs.push(s);
         }
         for i in 0..n {
@@ -150,10 +150,13 @@ where
             evals.push(ev);
         }
 
-        Ok(MithrilWitness { sigs, indices, evals })
+        Ok(MithrilWitness {
+            sigs,
+            indices,
+            evals,
+        })
     }
 }
-
 
 /// A MithrilProof just fixes the relation to a constant.
 pub trait MithrilProof: Proof + ToBytes + FromBytes {
@@ -169,7 +172,7 @@ pub mod concat_proofs {
     use crate::proof::trivial::TrivialProof;
     use crate::stm::MTValue;
     use ark_ec::PairingEngine;
-    use ark_ff::{ToBytes,FromBytes};
+    use ark_ff::{FromBytes, ToBytes};
     use std::io::{Read, Write};
 
     pub type ConcatEnv = TrivialEnv;
@@ -204,7 +207,7 @@ pub mod concat_proofs {
         H::F: FromBytes,
     {
         fn read<R: Read>(reader: R) -> std::io::Result<Self> {
-            let witness = MithrilWitness::<PE,H>::read(reader)?;
+            let witness = MithrilWitness::<PE, H>::read(reader)?;
 
             Ok(TrivialProof::new(witness))
         }

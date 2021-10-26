@@ -11,7 +11,10 @@ pub mod proof;
 pub mod stm;
 
 use ark_ff::{FromBytes, ToBytes};
-use std::{convert::TryInto, io::{Read, Write}};
+use std::{
+    convert::TryInto,
+    io::{Read, Write},
+};
 
 use crate::merkle_tree::{MTHashLeaf, MerkleTree};
 
@@ -228,7 +231,7 @@ mod c_api {
         }
 
         #[no_mangle]
-        pub extern "C" fn stm_initializer_set_secret_key(me: StmInitializerPtr, k: MspSkPtr)  {
+        pub extern "C" fn stm_initializer_set_secret_key(me: StmInitializerPtr, k: MspSkPtr) {
             unsafe {
                 let ref_me = &mut *me;
                 ref_me.set_secret_key(*k);
@@ -244,13 +247,12 @@ mod c_api {
         }
 
         #[no_mangle]
-        pub extern "C" fn stm_initializer_set_verification_key(me: StmInitializerPtr, k: MspPkPtr)  {
+        pub extern "C" fn stm_initializer_set_verification_key(me: StmInitializerPtr, k: MspPkPtr) {
             unsafe {
                 let ref_me = &mut *me;
                 ref_me.set_verification_key(*k);
             }
         }
-
 
         #[no_mangle]
         pub extern "C" fn stm_initializer_new_signer(

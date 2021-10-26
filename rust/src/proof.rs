@@ -51,7 +51,7 @@ pub mod trivial {
         ps: PhantomData<S>,
     }
 
-    impl<S,R,W> TrivialProof<S, R, W> {
+    impl<S, R, W> TrivialProof<S, R, W> {
         pub fn new(witness: W) -> Self {
             Self {
                 witness,
