@@ -112,7 +112,7 @@ impl<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> MithrilWitness<PE, H> {
     /// k-sized quorum
     /// if this returns `true`, then there are exactly k signatures
     fn check_quorum(&self, k: usize) -> Result<(), MithrilWitnessError> {
-        if k != self.sigs.len() && k == self.evals.len() && k == self.indices.len() {
+        if !(k == self.sigs.len() && k == self.evals.len() && k == self.indices.len()) {
             return Err(MithrilWitnessError::NoQuorum);
         }
         Ok(())
