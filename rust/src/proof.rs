@@ -79,30 +79,29 @@ pub mod trivial {
     }
 
     #[derive(Debug)]
-    pub enum TrivialErr {
-        NotProvable,
-    }
+    pub struct TrivialError<Error: Debug>(Error);
 
-    impl<Stmt, R, Witness> Proof for TrivialProof<Stmt, R, Witness>
+    impl<Stmt, R, Witness, UnderlyingError> Proof for TrivialProof<Stmt, R, Witness>
     where
-        R: Fn(&Stmt, &Witness) -> bool,
+        R: Fn(&Stmt, &Witness) -> Result<(), UnderlyingError>,
+        UnderlyingError: Debug,
     {
         type Env = TrivialEnv;
         type Statement = Stmt;
         type Relation = R;
         type Witness = Witness;
-        type Error = TrivialErr;
+        type Error = TrivialError<UnderlyingError>;
         fn prove(
             env: &TrivialEnv,
             _pk: &(),
             rel: &Self::Relation,
             stmt: &Stmt,
             witness: Self::Witness,
-        ) -> Result<Self, TrivialErr> {
-            if rel(stmt, &witness) {
-                Ok(TrivialProof::new(witness))
+        ) -> Result<Self, Self::Error> {
+            if let Err(e) = rel(stmt, &witness) {
+                Err(TrivialError(e))
             } else {
-                Err(TrivialErr::NotProvable)
+                Ok(TrivialProof::new(witness))
             }
         }
 
@@ -112,11 +111,11 @@ pub mod trivial {
             vk: &(),
             rel: &R,
             statement: &Stmt,
-        ) -> Result<(), TrivialErr> {
-            if rel(statement, &self.witness) {
-                Ok(())
+        ) -> Result<(), Self::Error> {
+            if let Err(e) = rel(statement, &self.witness) {
+                Err(TrivialError(e))
             } else {
-                Err(TrivialErr::NotProvable)
+                Ok(())
             }
         }
     }
