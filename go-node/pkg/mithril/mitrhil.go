@@ -21,16 +21,16 @@ var (
 	ErrNotEnoughSignatures = errors.New("not enough signatures")
 )
 
-func NewStmtParams(m, k int, phiF float64) StmParameters {
+func NewStmtParams(k, m int, phiF float64) StmParameters {
 	return StmParameters{
-		m:     C.ulonglong(m),
 		k:     C.ulonglong(k),
+		m:     C.ulonglong(m),
 		phi_f: C.double(phiF),
 	}
 }
 
-func NewParticipant(partyId, stake int64) Participant {
-	k := C.Participant{
+func NewParticipant(partyId, stake int64) *Participant {
+	k := &C.Participant{
 		party_id: C.PartyId(partyId),
 		stake:    C.Stake(stake),
 	}
