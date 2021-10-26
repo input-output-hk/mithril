@@ -8,7 +8,7 @@ use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
 use crate::proof::ProverEnv;
 use ark_ec::PairingEngine;
 use ark_ff::ToConstraintField;
-use rand::Rng;
+use rand_core::{CryptoRng, RngCore};
 use std::collections::HashMap;
 use std::convert::From;
 use std::iter::FromIterator;
@@ -137,7 +137,7 @@ where
 
     pub fn register<R>(&mut self, rng: &mut R, kr: &mut KeyReg<PE>)
     where
-        R: Rng + rand::CryptoRng + ?Sized,
+        R: RngCore + CryptoRng,
     {
         // (msk_i, mvk_i, k_i) <- MSP.Gen(Param)
         // (vk_i, sk_i) := ((mvk_i, k_i), msk_i)
@@ -411,9 +411,11 @@ mod tests {
     use proptest::collection::{hash_map, vec};
     use proptest::prelude::*;
     use proptest::test_runner::{RngAlgorithm::ChaCha, TestRng};
-    use rand::{Rng, SeedableRng};
     use rayon::prelude::*;
     use std::collections::{HashMap, HashSet};
+
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
 
     type Proof = ConcatProof<Bls12_377, H>;
     type Sig = StmMultiSig<Bls12_377, Proof>;
@@ -429,7 +431,7 @@ mod tests {
         let parties = stake.into_iter().enumerate().collect::<Vec<_>>();
         let mut kr = KeyReg::new(&parties);
         let mut trng = TestRng::deterministic_rng(ChaCha);
-        let mut rng = rand_chacha::ChaCha8Rng::from_seed(trng.gen());
+        let mut rng = ChaCha20Rng::from_seed(trng.gen());
         let ps = parties
             .into_iter()
             .map(|(pid, stake)| {
