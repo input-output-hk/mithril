@@ -4,12 +4,17 @@ use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
 use mithril::stm::{AggregationFailure, StmClerk, StmInitializer, StmParameters, StmSigner};
 use rayon::prelude::*;
 
+use rand_chacha::ChaCha20Rng;
+use rand_core::{RngCore, SeedableRng};
+
 type H = blake2::Blake2b;
 
 #[test]
 fn test_full_protocol() {
     let nparties = 32;
-    let msg = rand::random::<[u8; 16]>();
+    let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+    let mut msg = [0u8; 16];
+    rng.fill_bytes(&mut msg);
 
     //////////////////////////
     // initialization phase //
@@ -24,7 +29,7 @@ fn test_full_protocol() {
 
     let parties = (0..nparties)
         .into_iter()
-        .map(|pid| (pid, 1 + (rand::random::<u64>() % 9999)))
+        .map(|pid| (pid, 1 + (rng.next_u64() % 9999)))
         .collect::<Vec<_>>();
 
     let mut key_reg = KeyReg::new(&parties);
@@ -32,7 +37,7 @@ fn test_full_protocol() {
     let mut ps: Vec<StmInitializer<blake2::Blake2b, Bls12_377>> = Vec::with_capacity(nparties);
     for (pid, stake) in parties {
         let mut p = StmInitializer::setup(params, pid, stake);
-        p.register(&mut rand::thread_rng(), &mut key_reg);
+        p.register(&mut rng, &mut key_reg);
         ps.push(p);
     }
 
