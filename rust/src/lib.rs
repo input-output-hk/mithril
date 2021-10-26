@@ -150,32 +150,90 @@ mod c_api {
         }
     }
 
-    mod serialize {
-        use ark_ff::FromBytes;
+    pub mod serialize {
+        use super::*;
+        use ark_ff::{FromBytes, ToBytes};
         use std::slice;
 
-        use super::*;
+        /// Sets *key_bytes to the serialization
+        /// Sets *key_size to the size of the buffer
         #[no_mangle]
         pub extern "C" fn msp_serialize_verification_key(
             kptr: MspPkPtr,
             key_size: *mut usize,
             key_bytes: *mut *const u8,
         ) {
-            unsafe {
-                let key = *Box::from_raw(kptr);
-                let bytes = Box::new(ark_ff::to_bytes!(key).unwrap());
-                *key_size = bytes.len();
-                *key_bytes = bytes.as_ptr();
-            }
+            c_serialize(kptr, key_size, key_bytes);
         }
         #[no_mangle]
         pub extern "C" fn msp_deserialize_verification_key(
             key_size: usize,
             key_bytes: *const u8,
         ) -> MspPkPtr {
+            c_deserialize(key_size, key_bytes)
+        }
+        /// Sets *key_bytes to the serialization
+        /// Sets *key_size to the size of the buffer
+        #[no_mangle]
+        pub extern "C" fn msp_serialize_secret_key(
+            kptr: MspSkPtr,
+            key_size: *mut usize,
+            key_bytes: *mut *const u8,
+        ) {
+            c_serialize(kptr, key_size, key_bytes);
+        }
+        #[no_mangle]
+        pub extern "C" fn msp_deserialize_secret_key(
+            key_size: usize,
+            key_bytes: *const u8,
+        ) -> MspPkPtr {
+            c_deserialize(key_size, key_bytes)
+        }
+        /// Sets *sig_bytes to the serialization
+        /// Sets *sig_size to the size of the buffer
+        #[no_mangle]
+        pub extern "C" fn stm_serialize_sig(
+            sptr: SigPtr,
+            sig_size: *mut usize,
+            sig_bytes: *mut *const u8,
+        ) {
+            c_serialize(sptr, sig_size, sig_bytes);
+        }
+        #[no_mangle]
+        pub extern "C" fn stm_deserialize_sig(sig_size: usize, sig_bytes: *const u8) -> SigPtr {
+            c_deserialize(sig_size, sig_bytes)
+        }
+        /// Sets *msig_bytes to the serialization
+        /// Sets *msig_size to the size of the buffer
+        #[no_mangle]
+        pub extern "C" fn stm_serialize_multi_sig(
+            msig_ptr: MultiSigPtr,
+            msig_size: *mut usize,
+            msig_bytes: *mut *const u8,
+        ) {
+            c_serialize(msig_ptr, msig_size, msig_bytes)
+        }
+
+        #[no_mangle]
+        pub extern "C" fn stm_deserialize_multi_sig(
+            sig_size: usize,
+            sig_bytes: *const u8,
+        ) -> MultiSigPtr {
+            c_deserialize(sig_size, sig_bytes)
+        }
+
+        fn c_serialize<T: ToBytes>(ptr: *mut T, size: *mut usize, out_bytes: *mut *const u8) {
             unsafe {
-                let key = MspPk::read(slice::from_raw_parts(key_bytes, key_size)).unwrap();
-                Box::into_raw(Box::new(key))
+                let v = *Box::from_raw(ptr);
+                let bytes: Box<Vec<u8>> = Box::new(ark_ff::to_bytes!(v).unwrap());
+                *size = bytes.len();
+                *out_bytes = bytes.as_ptr();
+            }
+        }
+        fn c_deserialize<T: FromBytes>(size: usize, bytes: *const u8) -> *mut T {
+            unsafe {
+                let val = T::read(slice::from_raw_parts(bytes, size)).unwrap();
+                Box::into_raw(Box::new(val))
             }
         }
     }
