@@ -417,7 +417,7 @@ mod tests {
 
     type Proof = ConcatProof<Bls12_377, H>;
     type Sig = StmMultiSig<Bls12_377, Proof>;
-    type H = sha3::Sha3_256;
+    type H = blake2::Blake2b;
     type F = <H as MTHashLeaf<MTValue<Bls12_377>>>::F;
 
     fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmSigner<H, Bls12_377>> {

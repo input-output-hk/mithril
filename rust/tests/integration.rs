@@ -4,7 +4,7 @@ use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
 use mithril::stm::{AggregationFailure, StmClerk, StmInitializer, StmParameters, StmSigner};
 use rayon::prelude::*;
 
-type H = sha3::Sha3_256;
+type H = blake2::Blake2b;
 
 #[test]
 fn test_full_protocol() {
@@ -29,7 +29,7 @@ fn test_full_protocol() {
 
     let mut key_reg = KeyReg::new(&parties);
 
-    let mut ps: Vec<StmInitializer<sha3::Sha3_256, Bls12_377>> = Vec::with_capacity(nparties);
+    let mut ps: Vec<StmInitializer<blake2::Blake2b, Bls12_377>> = Vec::with_capacity(nparties);
     for (pid, stake) in parties {
         let mut p = StmInitializer::setup(params, pid, stake);
         p.register(&mut rand::thread_rng(), &mut key_reg);
@@ -42,7 +42,7 @@ fn test_full_protocol() {
             p.build_avk(&key_reg);
             p.finish()
         })
-        .collect::<Vec<StmSigner<sha3::Sha3_256, Bls12_377>>>();
+        .collect::<Vec<StmSigner<blake2::Blake2b, Bls12_377>>>();
 
     /////////////////////
     // operation phase //
