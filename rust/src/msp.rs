@@ -190,6 +190,12 @@ mod to_bytes {
             Ok(MspPk { mvk, k1, k2 })
         }
     }
+    impl<PE: PairingEngine> FromBytes for MspSig<PE> {
+        fn read<R: Read>(reader: R) -> std::result::Result<Self, std::io::Error> {
+            let s = <PE::G1Projective as FromBytes>::read(reader)?;
+            Ok(MspSig(s))
+        }
+    }
 
     impl<PE: PairingEngine> ToBytes for MspSk<PE> {
         fn write<W: Write>(&self, mut writer: W) -> std::result::Result<(), std::io::Error> {
@@ -208,6 +214,11 @@ mod to_bytes {
             self.mvk.write(&mut writer)?;
             self.k1.write(&mut writer)?;
             self.k2.write(&mut writer)
+        }
+    }
+    impl<PE: PairingEngine> ToBytes for MspSig<PE> {
+        fn write<W: Write>(&self, writer: W) -> std::result::Result<(), std::io::Error> {
+            self.0.write(writer)
         }
     }
 }

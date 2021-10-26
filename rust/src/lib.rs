@@ -10,6 +10,9 @@ pub mod msp;
 pub mod proof;
 pub mod stm;
 
+use ark_ff::{FromBytes, ToBytes};
+use std::{convert::TryInto, io::{Read, Write}};
+
 use crate::merkle_tree::{MTHashLeaf, MerkleTree};
 
 /// The quantity of stake held by a party, represented as a `u64`.
@@ -47,6 +50,30 @@ where
     msgp.append(&mut bytes);
 
     msgp
+}
+
+impl<F: ToBytes> ToBytes for Path<F> {
+    fn write<W: Write>(&self, mut writer: W) -> std::io::Result<()> {
+        let n: u64 = self.0.len().try_into().unwrap();
+        n.write(&mut writer)?;
+        for pi in &self.0 {
+            pi.write(&mut writer)?;
+        }
+
+        Ok(())
+    }
+}
+impl<F: FromBytes> FromBytes for Path<F> {
+    fn read<R: Read>(mut reader: R) -> std::io::Result<Self> {
+        let n = u64::read(&mut reader)?;
+        let mut p = Vec::with_capacity(n as usize);
+        for i in 0..n {
+            let pi = F::read(&mut reader)?;
+            p.push(pi);
+        }
+
+        Ok(Path(p))
+    }
 }
 
 mod c_api {

@@ -51,6 +51,16 @@ pub mod trivial {
         ps: PhantomData<S>,
     }
 
+    impl<S,R,W> TrivialProof<S, R, W> {
+        pub fn new(witness: W) -> Self {
+            Self {
+                witness,
+                pr: PhantomData,
+                ps: PhantomData,
+            }
+        }
+    }
+
     impl<S, R, W: Debug> Debug for TrivialProof<S, R, W> {
         fn fmt(&self, f: &mut Formatter<'_>) -> Result {
             write!(f, "TrivialProof({:?})", self.witness)
@@ -81,11 +91,7 @@ pub mod trivial {
             witness: Self::Witness,
         ) -> Option<Self> {
             if rel(stmt, &witness) {
-                Some(TrivialProof {
-                    witness,
-                    pr: PhantomData,
-                    ps: PhantomData,
-                })
+                Some(TrivialProof::new(witness))
             } else {
                 None
             }

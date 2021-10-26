@@ -1,5 +1,7 @@
 //! Top-level API for Mithril Stake-based Threshold Multisignature scheme.
 
+use ark_ff::bytes::{FromBytes, ToBytes};
+use ark_std::io::{Read, Write};
 use super::{concat_avk_with_msg, ev_lt_phi, Index, PartyId, Path, Stake};
 use crate::key_reg::RegParty;
 use crate::merkle_tree::{MTHashLeaf, MerkleTree};
@@ -12,6 +14,7 @@ use rand::Rng;
 use std::collections::HashMap;
 use std::convert::From;
 use std::rc::Rc;
+use std::convert::TryInto;
 
 /// The values that are represented in the Merkle Tree.
 #[derive(Debug, Clone, Copy)]
@@ -112,6 +115,50 @@ pub enum AggregationFailure {
     /// How many signatures we got
     VerifyFailed,
 }
+
+impl<PE: PairingEngine, F: FromBytes> FromBytes for StmSig<PE,F> {
+    fn read<R: Read>(mut reader: R) -> std::io::Result<Self> {
+        let sigma = MspSig::<PE>::read(&mut reader)?;
+        let pk = MspPk::<PE>::read(&mut reader)?;
+        let party_u64 = u64::read(&mut reader)?;
+        let party = party_u64 as usize;
+        let stake = Stake::read(&mut reader)?;
+        let path = Path::read(&mut reader)?;
+
+        Ok(StmSig { sigma, pk, party, stake, path })
+    }
+}
+
+impl<PE: PairingEngine, F: ToBytes> ToBytes for StmSig<PE,F> {
+    fn write<W: Write>(&self, mut writer: W) -> std::result::Result<(), std::io::Error> {
+        self.sigma.write(&mut writer)?;
+        self.pk.write(&mut writer)?;
+        let party: u64 = self.party.try_into().unwrap();
+        party.write(&mut writer)?;
+        self.stake.write(&mut writer)?;
+        self.path.write(&mut writer)?;
+
+        Ok(())
+    }
+}
+
+impl<PE: PairingEngine, Proof:MithrilProof> FromBytes for StmMultiSig<PE, Proof> {
+    fn read<R: Read>(mut reader: R) -> std::io::Result<Self> {
+        let ivk = MspMvk::read(&mut reader)?;
+        let mu = MspSig::read(&mut reader)?;
+        let proof = Proof::read(&mut reader)?;
+
+        Ok(StmMultiSig{ ivk, mu, proof })
+    }
+}
+impl<PE: PairingEngine, Proof:MithrilProof> ToBytes for StmMultiSig<PE, Proof> {
+    fn write<W: Write>(&self, mut writer: W) -> std::result::Result<(), std::io::Error> {
+        self.ivk.write(&mut writer)?;
+        self.mu.write(&mut writer)?;
+        self.proof.write(&mut writer)
+    }
+}
+
 
 impl<PE> StmInitializer<PE>
 where
@@ -616,6 +663,32 @@ mod tests {
                     assert!(n < params.k as usize),
                 _ => unreachable!()
             }
+        }
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(10))]
+        #[test]
+        fn test_sig_serialize_deserialize(nparties in 2_usize..10,
+                                          msg in any::<[u8;16]>()) {
+            let params = StmParameters { m: 10, k: 1, phi_f: 1.0 };
+            let ps = setup_equal_parties(params, nparties);
+            let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
+
+            let all_ps: Vec<usize> = (0..nparties).collect();
+            let (ixs, sigs) = find_signatures(10, 1, &msg, &ps, &all_ps);
+            let msig = clerk.aggregate::<ConcatProof<Bls12_377,H>>(&sigs, &ixs, &msg);
+            match msig {
+                Ok(aggr) => {
+                    let bytes: Vec<u8> = ark_ff::to_bytes!(aggr).unwrap();
+                    let aggr2 = StmMultiSig::read(&bytes[..]).unwrap();
+                    assert!(clerk.verify_msig::<ConcatProof<Bls12_377,H>>(&aggr2, &msg));
+                },
+                _ => ()
+            }
+
+
+
         }
     }
 
