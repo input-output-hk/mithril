@@ -19,7 +19,6 @@ num-traits  = "0.2.14"
 typenum     = "1.14.0"
 rand_core   = "0.6.3"
 blake2      = "0.9.2"
-sha3        = "0.9.1"
 generic-array = "0.14"
 ark-bn254     = { version = "0.3.0", optional = true }
 ark-bw6-761   = { version = "0.3.0", optional = true }
