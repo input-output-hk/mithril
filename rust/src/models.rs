@@ -8,7 +8,7 @@ pub mod digest {
     use ark_ec::PairingEngine;
     use ark_ff::ToBytes;
     use ark_std::io::Write;
-    use sha3::Digest;
+    use blake2::Digest;
 
     impl<T: ark_ff::ToBytes, D: Digest> MTHashLeaf<T> for D {
         type F = Vec<u8>;

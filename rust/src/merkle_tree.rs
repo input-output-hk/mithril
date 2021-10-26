@@ -194,8 +194,8 @@ mod tests {
 
     prop_compose! {
         fn arb_tree(max_size: u32)
-                   (v in vec(any::<u64>(), 2..(max_size as usize))) -> (MerkleTree<u64, sha3::Sha3_256>, Vec<u64>) {
-             (MerkleTree::<u64, sha3::Sha3_256>::create(&v), v)
+                   (v in vec(any::<u64>(), 2..(max_size as usize))) -> (MerkleTree<u64, blake2::Blake2b>, Vec<u64>) {
+             (MerkleTree::<u64, blake2::Blake2b>::create(&v), v)
         }
     }
 
@@ -232,9 +232,9 @@ mod tests {
             i in any::<usize>(),
             (values, proof) in values_with_invalid_proof(10)
         ) {
-            let t = MerkleTree::<u64, sha3::Sha3_256>::create(&values[1..]);
+            let t = MerkleTree::<u64, blake2::Blake2b>::create(&values[1..]);
             let idx = i % (values.len() - 1);
-            let mut hasher = <sha3::Sha3_256 as MTHashLeaf<u64>>::new();
+            let mut hasher = <blake2::Blake2b as MTHashLeaf<u64>>::new();
             let path = Path(proof
                             .iter()
                             .map(|x| hasher.inject(x))
