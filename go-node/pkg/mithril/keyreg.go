@@ -5,8 +5,8 @@ package mithril
 */
 import "C"
 
-func NewKeyReg(participant Participant) KeyReg {
-	return KeyReg{ptr: C.key_reg_new(1, &participant)}
+func NewKeyReg(participants []*Participant) KeyReg {
+	return KeyReg{ptr: C.key_reg_new(C.ulong(len(participants)), participants[0])}
 }
 
 type KeyReg struct {
