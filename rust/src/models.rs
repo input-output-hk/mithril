@@ -8,11 +8,12 @@ pub mod digest {
     use crate::merkle_tree::MTHashLeaf;
     use crate::stm::MTValue;
     use ark_ec::PairingEngine;
-    use ark_ff::{FromBytes, ToBytes};
-    use ark_std::io::{Read, Write};
-    use sha3::Digest;
+    use ark_ff::{FromBytes,ToBytes};
+    use ark_std::io::{Read,Write};
+    use blake2::Digest;
 
-    /// An internal wrapper that allows us to define traits
+    /// A newtype that allows us to implement traits
+    /// like ToBytes, FromBytes
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub struct DigestHash(pub(crate) Vec<u8>);
 

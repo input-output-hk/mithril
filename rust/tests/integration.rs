@@ -4,7 +4,7 @@ use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
 use mithril::stm::{AggregationFailure, StmClerk, StmInitializer, StmParameters, StmSigner};
 use rayon::prelude::*;
 
-type H = sha3::Sha3_256;
+type H = blake2::Blake2b;
 
 #[test]
 fn test_full_protocol() {
