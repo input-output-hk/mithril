@@ -10,10 +10,10 @@ func main() {
 	msg := "123"
 	mithril.NewParticipant(1, 1)
 
-	params := mithril.NewStmtParams(100, 1, 1.0)
+	params := mithril.NewStmtParams(1, 100, 1.0)
 
 	p0 := mithril.NewParticipant(1, 1)
-	k := mithril.NewKeyReg(p0)
+	k := mithril.NewKeyReg([]*mithril.Participant{p0})
 	defer k.Free()
 
 	initializer := mithril.NewStmInitializer(params)
