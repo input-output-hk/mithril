@@ -83,7 +83,10 @@ fn test_full_protocol() {
     // Check all parties can verify every sig
     println!("** Verifying signatures");
     for (s, ix) in sigs.iter().zip(&ixs) {
-        assert!(clerk.verify_sig(s, *ix, &msg), "Verification failed");
+        assert!(
+            clerk.verify_sig(s, *ix, &msg).is_ok(),
+            "Verification failed"
+        );
     }
 
     // Aggregate and verify with random parties
@@ -92,7 +95,9 @@ fn test_full_protocol() {
     match msig {
         Ok(aggr) => {
             println!("Aggregate ok");
-            assert!(clerk.verify_msig::<ConcatProof<Bls12_377, H>>(&aggr, &msg));
+            assert!(clerk
+                .verify_msig::<ConcatProof<Bls12_377, H>>(&aggr, &msg)
+                .is_ok());
         }
         Err(AggregationFailure::NotEnoughSignatures(n)) => {
             println!("Not enough signatures");

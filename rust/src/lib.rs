@@ -416,7 +416,9 @@ mod c_api {
                 let ref_me = &*me;
                 let msg_str = CStr::from_ptr(msg);
                 let ref_sig = &*sig;
-                ref_me.verify_sig(ref_sig, index, msg_str.to_bytes())
+                ref_me
+                    .verify_sig(ref_sig, index, msg_str.to_bytes())
+                    .is_ok()
             }
         }
 
@@ -444,7 +446,7 @@ mod c_api {
                         *sig = Box::into_raw(Box::new(msig));
                         0
                     }
-                    Err(AggregationFailure::VerifyFailed) => -1,
+                    Err(AggregationFailure::VerifyFailed(_, _, _)) => -1,
                     Err(AggregationFailure::NotEnoughSignatures(n)) => n.try_into().unwrap(),
                 }
             }
@@ -460,7 +462,7 @@ mod c_api {
                 let ref_me = &*me;
                 let ref_msig = &*msig;
                 let msg_str = CStr::from_ptr(msg);
-                ref_me.verify_msig(ref_msig, msg_str.to_bytes())
+                ref_me.verify_msig(ref_msig, msg_str.to_bytes()).is_ok()
             }
         }
     }
