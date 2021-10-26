@@ -10,9 +10,9 @@ pub trait ProverEnv {
     fn setup(&self) -> (Self::ProvingKey, Self::VerificationKey);
 }
 
-/// Implementors of `Proof<E,S,R,W>` know how to prove that
-/// a relation of type `R` holds between values of types `S` and `W`
-/// (generally the proofs are knowledge of such a `W`)
+/// Implementors of `Proof` know how to prove that a relation of type `Relation`
+/// holds between values of types `Statement` and `Witness` (generally the
+/// proofs are knowledge of such a `Witness`)
 pub trait Proof: Sized {
     type Env: ProverEnv;
     type Statement;
