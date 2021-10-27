@@ -439,17 +439,20 @@ mod c_api {
         pub extern "C" fn stm_clerk_aggregate(
             me: StmClerkPtr,
             n_sigs: usize,
-            sigs: SigConstPtr,
+            sigs: *const SigPtr,
             indices: *const Index,
             msg: *const c_char,
             sig: *mut MultiSigConstPtr,
         ) -> i64 {
             unsafe {
                 let ref_me = &*me;
-                let sigs = slice::from_raw_parts(sigs, n_sigs);
+                let sigs = slice::from_raw_parts(sigs, n_sigs)
+                    .iter()
+                    .map(|p| (**p).clone())
+                    .collect::<Vec<_>>();
                 let indices = slice::from_raw_parts(indices, n_sigs);
                 let msg_str = CStr::from_ptr(msg);
-                let aggr = ref_me.aggregate(sigs, indices, msg_str.to_bytes());
+                let aggr = ref_me.aggregate(&sigs, indices, msg_str.to_bytes());
                 match aggr {
                     Ok(msig) => {
                         *sig = Box::into_raw(Box::new(msig));
