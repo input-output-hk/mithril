@@ -1,7 +1,7 @@
 use ark_bls12_377::Bls12_377;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use rand_core::{OsRng, RngCore};
 use std::time::Duration;
-use rand_core::{RngCore,OsRng};
 
 use mithril::merkle_tree::MerkleTree;
 use mithril::msp::{Msp, MspMvk};
@@ -26,7 +26,7 @@ pub fn merkle_tree_verify_benchmark(c: &mut Criterion) {
     let mut rng = OsRng::default();
     let ps = gen_keys(32);
     let mt = MerkleTree::<_, H>::create(&ps);
-    let i  = rng.next_u64() as usize % 32;
+    let i = rng.next_u64() as usize % 32;
     let path = mt.get_path(i);
     c.bench_function("Merkle Tree verify 2**5", |b| {
         b.iter(|| mt.check(&ps[i], i, &path))

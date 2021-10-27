@@ -3,10 +3,10 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use mithril::key_reg::KeyReg;
 use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
 use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner};
-use rayon::prelude::*;
-use std::time::Duration;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
+use rayon::prelude::*;
+use std::time::Duration;
 
 type C = Bls12_377;
 type H = blake2::Blake2b;
