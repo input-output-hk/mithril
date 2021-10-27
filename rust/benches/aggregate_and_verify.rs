@@ -2,7 +2,7 @@ use ark_bls12_377::Bls12_377;
 use criterion::{criterion_group, criterion_main, Criterion};
 use mithril::key_reg::KeyReg;
 use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
-use mithril::stm::{AggregationFailure, StmClerk, StmInitializer, StmParameters, StmSigner};
+use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner};
 use rayon::prelude::*;
 use std::time::Duration;
 use rand_chacha::ChaCha20Rng;
