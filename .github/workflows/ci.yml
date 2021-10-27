@@ -17,6 +17,11 @@ jobs:
           components: clippy, rustfmt
           override: true
 
+      - name: Cargo check
+        uses: actions-rs/cargo@v1
+          command: check
+          args: --all-targets --manifest-path ./rust/Cargo.toml
+
       - name: Cargo fmt
         uses: actions-rs/cargo@v1
         with:
