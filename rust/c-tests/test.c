@@ -9,18 +9,23 @@ int main(int argc, char **argv) {
     params.m = 100;
     params.phi_f = 1.0;
 
-    Participant p0;
-    p0.stake = 1;
-    p0.party_id = 1;
+    PartyId party_ids[2] = {1, 2};
+    Stake   party_stake[2] = {1, 0};
+    MspPkPtr keys[2];
+    StmInitializerPtr initializer[2];
 
-    KeyRegPtr key_reg = key_reg_new(1, &p0);
+    for (int i = 0; i < 2; i++) {
+        initializer[i] = stm_intializer_setup(params, party_ids[i], party_stake[i]);
+        keys[i] = stm_initializer_verification_key(initializer[i]);
+    }
 
-    StmInitializerPtr initializer = stm_intializer_setup(params, 1, 1);
-    stm_initializer_register(initializer, key_reg);
-    stm_initializer_build_avk(initializer, key_reg);
-    free_keyreg(key_reg);
+#ifdef FAIL
+    int signeri = 1;
+#else
+    int signeri = 0;
+#endif
+    StmSignerPtr signer = stm_initializer_new_signer(initializer[signeri], 2, party_ids, party_stake, keys);
 
-    StmSignerPtr signer = stm_initializer_finish(initializer);
     bool success = stm_signer_eligibility_check(signer, msg, 1);
 
     if (!success) {

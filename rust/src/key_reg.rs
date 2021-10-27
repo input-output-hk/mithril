@@ -18,10 +18,14 @@ where
 {
     allow: bool,
     parties: HashMap<PartyId, Party<PE>>,
+    // `keys` is just the set of all of the keys that have been registered
+    // (i.e., in `parties`)
     keys: HashSet<MspPk<PE>>,
 }
 
-/// A known participant in the protocol who may
+/// Represents the status of a known participant in the protocol who is allowed
+/// to register their key. `RegParty` values will be produced from mappings
+/// (id |-> Party { stake, Some(key) }) in key_reg.parties
 #[derive(Clone, Debug)]
 struct Party<PE>
 where
@@ -32,6 +36,7 @@ where
 }
 
 #[derive(Clone, Debug)]
+/// A registered party, i.e. an id associated with its stake and public key
 pub struct RegParty<PE>
 where
     PE: PairingEngine,

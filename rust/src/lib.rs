@@ -10,6 +10,12 @@ pub mod msp;
 pub mod proof;
 pub mod stm;
 
+use ark_ff::{FromBytes, ToBytes};
+use std::{
+    convert::TryInto,
+    io::{Read, Write},
+};
+
 use crate::merkle_tree::{MTHashLeaf, MerkleTree};
 
 /// The quantity of stake held by a party, represented as a `u64`.
@@ -49,14 +55,37 @@ where
     msgp
 }
 
+impl<F: ToBytes> ToBytes for Path<F> {
+    fn write<W: Write>(&self, mut writer: W) -> std::io::Result<()> {
+        let n: u64 = self.0.len().try_into().unwrap();
+        n.write(&mut writer)?;
+        for pi in &self.0 {
+            pi.write(&mut writer)?;
+        }
+
+        Ok(())
+    }
+}
+impl<F: FromBytes> FromBytes for Path<F> {
+    fn read<R: Read>(mut reader: R) -> std::io::Result<Self> {
+        let n = u64::read(&mut reader)?;
+        let mut p = Vec::with_capacity(n as usize);
+        for i in 0..n {
+            let pi = F::read(&mut reader)?;
+            p.push(pi);
+        }
+
+        Ok(Path(p))
+    }
+}
+
 mod c_api {
-    use crate::Index;
     use crate::{
-        key_reg::KeyReg,
         merkle_tree::{MTHashLeaf, MerkleTree},
         mithril_proof::concat_proofs::{ConcatProof, TrivialEnv},
+        msp::{MspPk, MspSk},
         stm::*,
-        PartyId, Stake,
+        Index, PartyId, Stake,
     };
     use rand_core::OsRng;
     use std::ffi::CStr;
@@ -71,12 +100,13 @@ mod c_api {
     type C = ark_bls12_377::Bls12_377;
     type H = blake2::Blake2b;
     type F = <H as MTHashLeaf<MTValue<C>>>::F;
-    type KeyRegPtr = *mut KeyReg<C>;
+    type MspSkPtr = *mut MspSk<C>;
+    type MspPkPtr = *mut MspPk<C>;
     type SigPtr = *mut StmSig<C, F>;
     type SigConstPtr = *const StmSig<C, F>;
     type MultiSigPtr = *mut StmMultiSig<C, ConcatProof<C, H>>;
     type MultiSigConstPtr = *const StmMultiSig<C, ConcatProof<C, H>>;
-    type StmInitializerPtr = *mut StmInitializer<H, C>;
+    type StmInitializerPtr = *mut StmInitializer<C>;
     type StmSignerPtr = *mut StmSigner<H, C>;
     type StmClerkPtr = *mut StmClerk<H, C, TrivialEnv>;
     type MerkleTreePtr = *mut MerkleTree<MTValue<C>, H>;
@@ -84,13 +114,6 @@ mod c_api {
 
     // A macro would be nice for the below, but macros do not
     // seem to work properly with cbindgen:
-    #[no_mangle]
-    pub extern "C" fn free_keyreg(p: KeyRegPtr) {
-        assert!(!p.is_null());
-        unsafe {
-            Box::from_raw(p);
-        }
-    }
     #[no_mangle]
     pub extern "C" fn free_sig(p: SigPtr) {
         assert!(!p.is_null());
@@ -127,27 +150,115 @@ mod c_api {
         }
     }
 
-    mod key_reg {
+    pub mod serialize {
         use super::*;
-        use core::slice;
+        use ark_ff::{FromBytes, ToBytes};
+        use std::slice;
+
+        /// Sets *key_bytes to the serialization
+        /// Sets *key_size to the size of the buffer
+        #[no_mangle]
+        pub extern "C" fn msp_serialize_verification_key(
+            kptr: MspPkPtr,
+            key_size: *mut usize,
+            key_bytes: *mut *const u8,
+        ) {
+            c_serialize(kptr, key_size, key_bytes);
+        }
+        #[no_mangle]
+        pub extern "C" fn msp_deserialize_verification_key(
+            key_size: usize,
+            key_bytes: *const u8,
+        ) -> MspPkPtr {
+            c_deserialize(key_size, key_bytes)
+        }
+        /// Sets *key_bytes to the serialization
+        /// Sets *key_size to the size of the buffer
+        #[no_mangle]
+        pub extern "C" fn msp_serialize_secret_key(
+            kptr: MspSkPtr,
+            key_size: *mut usize,
+            key_bytes: *mut *const u8,
+        ) {
+            c_serialize(kptr, key_size, key_bytes);
+        }
+        #[no_mangle]
+        pub extern "C" fn msp_deserialize_secret_key(
+            key_size: usize,
+            key_bytes: *const u8,
+        ) -> MspPkPtr {
+            c_deserialize(key_size, key_bytes)
+        }
+        /// Sets *sig_bytes to the serialization
+        /// Sets *sig_size to the size of the buffer
+        #[no_mangle]
+        pub extern "C" fn stm_serialize_sig(
+            sptr: SigPtr,
+            sig_size: *mut usize,
+            sig_bytes: *mut *const u8,
+        ) {
+            c_serialize(sptr, sig_size, sig_bytes);
+        }
+        #[no_mangle]
+        pub extern "C" fn stm_deserialize_sig(sig_size: usize, sig_bytes: *const u8) -> SigPtr {
+            c_deserialize(sig_size, sig_bytes)
+        }
+        /// Sets *msig_bytes to the serialization
+        /// Sets *msig_size to the size of the buffer
+        #[no_mangle]
+        pub extern "C" fn stm_serialize_multi_sig(
+            msig_ptr: MultiSigPtr,
+            msig_size: *mut usize,
+            msig_bytes: *mut *const u8,
+        ) {
+            c_serialize(msig_ptr, msig_size, msig_bytes)
+        }
 
         #[no_mangle]
-        pub extern "C" fn key_reg_new(
-            n_participants: usize,
-            participants: *const Participant,
-        ) -> KeyRegPtr {
+        pub extern "C" fn stm_deserialize_multi_sig(
+            sig_size: usize,
+            sig_bytes: *const u8,
+        ) -> MultiSigPtr {
+            c_deserialize(sig_size, sig_bytes)
+        }
+
+        #[no_mangle]
+        pub extern "C" fn stm_serialize_initializer(
+            init_ptr: StmInitializerPtr,
+            init_size: *mut usize,
+            init_bytes: *mut *const u8,
+        ) {
+            c_serialize(init_ptr, init_size, init_bytes)
+        }
+
+        #[no_mangle]
+        pub extern "C" fn stm_deserialize_initializer(
+            init_size: usize,
+            init_bytes: *const u8,
+        ) -> StmInitializerPtr {
+            c_deserialize(init_size, init_bytes)
+        }
+
+        fn c_serialize<T: ToBytes>(ptr: *mut T, size: *mut usize, out_bytes: *mut *const u8) {
             unsafe {
-                let ps = slice::from_raw_parts(participants, n_participants)
-                    .iter()
-                    .map(|p| (p.party_id, p.stake))
-                    .collect::<Vec<_>>();
-                Box::into_raw(Box::new(KeyReg::new(&ps)))
+                let v = *Box::from_raw(ptr);
+                let bytes: Box<Vec<u8>> = Box::new(ark_ff::to_bytes!(v).unwrap());
+                *size = bytes.len();
+                *out_bytes = bytes.as_ptr();
+            }
+        }
+        fn c_deserialize<T: FromBytes>(size: usize, bytes: *const u8) -> *mut T {
+            unsafe {
+                let val = T::read(slice::from_raw_parts(bytes, size)).unwrap();
+                Box::into_raw(Box::new(val))
             }
         }
     }
 
     mod initializer {
         use super::*;
+        use crate::key_reg::RegParty;
+        use std::slice;
 
         #[no_mangle]
         pub extern "C" fn stm_intializer_setup(
@@ -155,34 +266,78 @@ mod c_api {
             party_id: PartyId,
             stake: Stake,
         ) -> StmInitializerPtr {
-            Box::into_raw(Box::new(StmInitializer::setup(params, party_id, stake)))
+            let mut rng = OsRng::default();
+            Box::into_raw(Box::new(StmInitializer::setup(
+                params, party_id, stake, &mut rng,
+            )))
         }
 
         #[no_mangle]
-        pub extern "C" fn stm_initializer_register(me: StmInitializerPtr, kr: KeyRegPtr) {
+        pub extern "C" fn stm_initailizer_generate_new_key(me: StmInitializerPtr) {
             let mut rng = OsRng::default();
             unsafe {
                 let ref_me = &mut *me;
-                let ref_kr = &mut *kr;
-                ref_me.register(&mut rng, ref_kr);
+                ref_me.generate_new_key(&mut rng);
             }
         }
 
         #[no_mangle]
-        pub extern "C" fn stm_initializer_build_avk(me: StmInitializerPtr, kr: KeyRegPtr) {
+        pub extern "C" fn stm_initializer_party_id(me: StmInitializerPtr) -> PartyId {
+            unsafe {
+                let ref_me = &*me;
+                ref_me.party_id()
+            }
+        }
+
+        #[no_mangle]
+        pub extern "C" fn stm_initializer_stake(me: StmInitializerPtr) -> Stake {
+            unsafe {
+                let ref_me = &*me;
+                ref_me.stake()
+            }
+        }
+
+        #[no_mangle]
+        pub extern "C" fn stm_initializer_secret_key(me: StmInitializerPtr) -> MspSkPtr {
             unsafe {
                 let ref_me = &mut *me;
-                let ref_kr = &mut *kr;
-                ref_me.build_avk(ref_kr);
+                Box::into_raw(Box::new(ref_me.secret_key()))
             }
         }
 
         #[no_mangle]
-        /// Construct an StmSigner. Frees the StmInitializerPtr.
-        pub extern "C" fn stm_initializer_finish(me: StmInitializerPtr) -> StmSignerPtr {
+        pub extern "C" fn stm_initializer_verification_key(me: StmInitializerPtr) -> MspPkPtr {
             unsafe {
-                let init = Box::from_raw(me);
-                Box::into_raw(Box::new(init.finish()))
+                let ref_me = &mut *me;
+                Box::into_raw(Box::new(ref_me.verification_key()))
+            }
+        }
+
+        #[no_mangle]
+        pub extern "C" fn stm_initializer_new_signer(
+            me: StmInitializerPtr,
+            n_parties: usize,
+            party_ids: *const PartyId,
+            party_stakes: *const Stake,
+            party_keys: *const MspPkPtr,
+        ) -> StmSignerPtr {
+            unsafe {
+                let ref_me = &mut *me;
+                let ids = slice::from_raw_parts(party_ids, n_parties);
+                let stakes = slice::from_raw_parts(party_stakes, n_parties);
+                let keys = slice::from_raw_parts(party_keys, n_parties);
+                let reg = ids
+                    .iter()
+                    .zip(stakes)
+                    .zip(keys)
+                    .map(|((party_id, stake), k)| RegParty {
+                        party_id: *party_id,
+                        stake: *stake,
+                        pk: **k,
+                    })
+                    .collect::<Vec<_>>();
+
+                Box::into_raw(Box::new(ref_me.new_signer(&reg)))
             }
         }
     }

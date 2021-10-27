@@ -8,7 +8,10 @@ use crate::msp::{Msp, MspMvk, MspSig};
 use crate::proof::Proof;
 use crate::stm::{MTValue, StmParameters, StmSig};
 use ark_ec::PairingEngine;
+use ark_ff::{FromBytes, ToBytes};
 use std::collections::HashSet;
+use std::convert::TryInto;
+use std::io::{Read, Write};
 use std::iter::FromIterator;
 use std::rc::Rc;
 
@@ -109,8 +112,54 @@ impl<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> MithrilWitness<PE, H> {
     }
 }
 
+impl<PE, H> ToBytes for MithrilWitness<PE, H>
+where
+    PE: PairingEngine,
+    H: MTHashLeaf<MTValue<PE>>,
+    H::F: ToBytes,
+{
+    fn write<W: Write>(&self, mut writer: W) -> std::io::Result<()> {
+        let n: u64 = self.sigs.len().try_into().unwrap();
+        n.write(&mut writer)?;
+        self.sigs.write(&mut writer)?;
+        self.indices.write(&mut writer)?;
+        self.evals.write(&mut writer)
+    }
+}
+impl<PE, H> FromBytes for MithrilWitness<PE, H>
+where
+    PE: PairingEngine,
+    H: MTHashLeaf<MTValue<PE>>,
+    H::F: FromBytes,
+{
+    fn read<R: Read>(mut reader: R) -> std::io::Result<Self> {
+        let n = u64::read(&mut reader)?;
+        let mut sigs: Vec<StmSig<PE, H::F>> = Vec::with_capacity(n as usize);
+        let mut indices: Vec<Index> = Vec::with_capacity(n as usize);
+        let mut evals: Vec<u64> = Vec::with_capacity(n as usize);
+        for i in 0..n {
+            let s = StmSig::<PE, H::F>::read(&mut reader)?;
+            sigs.push(s);
+        }
+        for i in 0..n {
+            let idx = Index::read(&mut reader)?;
+            indices.push(idx);
+        }
+        for i in 0..n {
+            let ev = u64::read(&mut reader)?;
+            evals.push(ev);
+        }
+
+        Ok(MithrilWitness {
+            sigs,
+            indices,
+            evals,
+        })
+    }
+}
+
 /// A MithrilProof just fixes the relation to a constant.
-pub trait MithrilProof: Proof {
+pub trait MithrilProof: Proof + ToBytes + FromBytes {
     const RELATION: Self::Relation;
 }
 
@@ -123,6 +172,8 @@ pub mod concat_proofs {
     use crate::proof::trivial::TrivialProof;
     use crate::stm::MTValue;
     use ark_ec::PairingEngine;
+    use ark_ff::{FromBytes, ToBytes};
+    use std::io::{Read, Write};
 
     pub type ConcatEnv = TrivialEnv;
     pub type ConcatRel<PE, H> = fn(&MithrilStatement<PE, H>, &MithrilWitness<PE, H>) -> bool;
@@ -133,8 +184,33 @@ pub mod concat_proofs {
     where
         PE: PairingEngine,
         H: MTHashLeaf<MTValue<PE>>,
+        H::F: ToBytes + FromBytes,
     {
         const RELATION: ConcatRel<PE, H> = trivial_relation;
+    }
+
+    impl<PE, H> ToBytes for ConcatProof<PE, H>
+    where
+        PE: PairingEngine,
+        H: MTHashLeaf<MTValue<PE>>,
+        H::F: ToBytes,
+    {
+        fn write<W: Write>(&self, writer: W) -> std::io::Result<()> {
+            self.witness.write(writer)
+        }
+    }
+
+    impl<PE, H> FromBytes for ConcatProof<PE, H>
+    where
+        PE: PairingEngine,
+        H: MTHashLeaf<MTValue<PE>>,
+        H::F: FromBytes,
+    {
+        fn read<R: Read>(reader: R) -> std::io::Result<Self> {
+            let witness = MithrilWitness::<PE, H>::read(reader)?;
+
+            Ok(TrivialProof::new(witness))
+        }
     }
 
     fn trivial_relation<PE, H>(s: &MithrilStatement<PE, H>, w: &MithrilWitness<PE, H>) -> bool

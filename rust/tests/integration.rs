@@ -34,20 +34,21 @@ fn test_full_protocol() {
 
     let mut key_reg = KeyReg::new(&parties);
 
-    let mut ps: Vec<StmInitializer<blake2::Blake2b, Bls12_377>> = Vec::with_capacity(nparties);
+    let mut ps: Vec<StmInitializer<Bls12_377>> = Vec::with_capacity(nparties);
     for (pid, stake) in parties {
-        let mut p = StmInitializer::setup(params, pid, stake);
-        p.register(&mut rng, &mut key_reg);
+        let p = StmInitializer::setup(params, pid, stake, &mut rng);
+        key_reg
+            .register(p.party_id(), p.stake(), p.verification_key())
+            .unwrap();
         ps.push(p);
     }
 
+    let reg = key_reg.retrieve_all();
+
     let ps = ps
         .into_par_iter()
-        .map(|mut p| {
-            p.build_avk(&key_reg);
-            p.finish()
-        })
-        .collect::<Vec<StmSigner<blake2::Blake2b, Bls12_377>>>();
+        .map(|p| p.new_signer(&reg))
+        .collect::<Vec<StmSigner<H, Bls12_377>>>();
 
     /////////////////////
     // operation phase //
