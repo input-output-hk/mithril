@@ -458,7 +458,7 @@ where
         let mut sigs_to_verify = Vec::new();
         let mut indices_to_verify = Vec::new();
 
-        for (ix, sig) in dedup_sigs_for_indices::<H, PE>(sigs, indices) {
+        for (ix, sig) in dedup_sigs_for_indices::<H, PE>(indices, sigs) {
             if let Err(e) = self.verify_sig(sig, *ix, msg) {
                 return Err(AggregationFailure::VerifyFailed(e, sig.clone(), *ix));
             }
@@ -549,8 +549,8 @@ where
 }
 
 fn dedup_sigs_for_indices<'a, H: MTHashLeaf<MTValue<PE>>, PE: PairingEngine>(
-    sigs: &'a [StmSig<PE, H::F>],
     indices: &'a [Index],
+    sigs: &'a [StmSig<PE, H::F>],
 ) -> impl IntoIterator<Item = (&'a Index, &'a StmSig<PE, H::F>)>
 where
     PE::G1Projective: ToConstraintField<PE::Fq>,
