@@ -36,7 +36,7 @@ fn test_full_protocol() {
 
     let mut ps: Vec<StmInitializer<Bls12_377>> = Vec::with_capacity(nparties);
     for (pid, stake) in parties {
-        let p = StmInitializer::setup(params, pid, stake, &mut rand::thread_rng());
+        let p = StmInitializer::setup(params, pid, stake, &mut rng);
         key_reg
             .register(p.party_id(), p.stake(), p.verification_key())
             .unwrap();
