@@ -3,13 +3,13 @@
 pub mod digest {
     //! Implementations necessary for Digest-based instantiations
 
-    use std::convert::TryInto;
-    use crate::stm::MTValue;
     use crate::merkle_tree::MTHashLeaf;
+    use crate::stm::MTValue;
     use ark_ec::PairingEngine;
     use ark_ff::{FromBytes, ToBytes};
     use ark_std::io::{Read, Write};
     use blake2::Digest;
+    use std::convert::TryInto;
 
     /// A newtype that allows us to implement traits
     /// like ToBytes, FromBytes
