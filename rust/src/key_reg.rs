@@ -179,7 +179,8 @@ mod tests {
     use ark_bls12_377::Bls12_377;
     use proptest::collection::vec;
     use proptest::prelude::*;
-    use rand::{rngs::StdRng, SeedableRng};
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
 
     fn arb_participants(min: usize, max: usize) -> impl Strategy<Value = Vec<(PartyId, Stake)>> {
         vec(any::<Stake>(), min..=max).prop_map(|v| v.into_iter().enumerate().collect())
@@ -191,7 +192,7 @@ mod tests {
                        nkeys in 2..10_usize,
                        stop in 2..10_usize,
                        seed in any::<[u8;32]>()) {
-            let mut rng = StdRng::from_seed(seed);
+            let mut rng = ChaCha20Rng::from_seed(seed);
             let mut kr = KeyReg::new(&ps);
 
             let gen_keys = (1..nkeys).map(|i| {

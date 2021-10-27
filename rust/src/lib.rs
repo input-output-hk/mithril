@@ -87,7 +87,7 @@ mod c_api {
         stm::*,
         Index, PartyId, Stake,
     };
-    use rand::rngs::OsRng;
+    use rand_core::OsRng;
     use std::ffi::CStr;
     use std::os::raw::c_char;
 

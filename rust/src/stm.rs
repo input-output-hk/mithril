@@ -10,7 +10,7 @@ use ark_ec::PairingEngine;
 use ark_ff::bytes::{FromBytes, ToBytes};
 use ark_ff::ToConstraintField;
 use ark_std::io::{Read, Write};
-use rand::Rng;
+use rand_core::{CryptoRng, RngCore};
 use std::collections::HashMap;
 use std::convert::From;
 use std::convert::TryInto;
@@ -225,7 +225,7 @@ where
     /// Builds an `StmInitializer` that is ready to register with the key registration service
     pub fn setup<R>(params: StmParameters, party_id: PartyId, stake: Stake, rng: &mut R) -> Self
     where
-        R: Rng + rand::CryptoRng + ?Sized,
+        R: RngCore + CryptoRng,
     {
         let (sk, pk) = Msp::gen(rng);
         Self {
@@ -239,7 +239,7 @@ where
 
     pub fn generate_new_key<R>(&mut self, rng: &mut R)
     where
-        R: Rng + rand::CryptoRng + ?Sized,
+        R: RngCore + CryptoRng,
     {
         let (sk, pk) = Msp::gen(rng);
         self.sk = sk;
@@ -539,9 +539,11 @@ mod tests {
     use proptest::collection::{hash_map, vec};
     use proptest::prelude::*;
     use proptest::test_runner::{RngAlgorithm::ChaCha, TestRng};
-    use rand::{Rng, SeedableRng};
     use rayon::prelude::*;
     use std::collections::{HashMap, HashSet};
+
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
 
     type Proof = ConcatProof<Bls12_377, H>;
     type Sig = StmMultiSig<Bls12_377, Proof>;
@@ -557,8 +559,7 @@ mod tests {
         let parties = stake.into_iter().enumerate().collect::<Vec<_>>();
         let mut kr = KeyReg::new(&parties);
         let mut trng = TestRng::deterministic_rng(ChaCha);
-        let mut rng = rand_chacha::ChaCha8Rng::from_seed(trng.gen());
-
+        let mut rng = ChaCha20Rng::from_seed(trng.gen());
         // The needless_collect lint is not correct here
         #[allow(clippy::needless_collect)]
         let ps = parties

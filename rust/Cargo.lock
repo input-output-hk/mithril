@@ -562,7 +562,6 @@ dependencies = [
  "num-bigint",
  "num-traits",
  "proptest",
- "rand",
  "rand_chacha",
  "rand_core",
  "rayon",

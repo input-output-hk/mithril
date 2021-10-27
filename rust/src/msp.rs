@@ -7,7 +7,7 @@ use ark_ec::{AffineCurve, PairingEngine};
 use ark_ff::{bytes::ToBytes, ToConstraintField, UniformRand};
 use blake2::VarBlake2b;
 use digest::{Update, VariableOutput};
-use rand::Rng;
+use rand_core::{CryptoRng, RngCore};
 use std::cmp::Ordering;
 use std::hash::Hash;
 use std::marker::PhantomData;
@@ -65,7 +65,7 @@ const M: &[u8] = b"M";
 impl<PE: PairingEngine> Msp<PE> {
     pub fn gen<R>(rng: &mut R) -> (MspSk<PE>, MspPk<PE>)
     where
-        R: Rng + rand::CryptoRng + ?Sized,
+        R: RngCore + CryptoRng,
     {
         // sk=x <- Zq
         // mvk <- g2^x
@@ -229,8 +229,8 @@ mod tests {
     use ark_bls12_377::{Bls12_377, Fr, G1Affine, G2Affine};
     use ark_ff::FromBytes;
     use proptest::prelude::*;
-    use rand::thread_rng;
-    use rand_core::SeedableRng;
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::{OsRng, SeedableRng};
 
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(1000))]
@@ -247,27 +247,34 @@ mod tests {
         }
 
         #[test]
-        fn test_sig(msg in prop::collection::vec(any::<u8>(), 1..128)) {
-            let (sk, pk) = Msp::<Bls12_377>::gen(&mut thread_rng());
+        fn test_sig(
+            msg in prop::collection::vec(any::<u8>(), 1..128),
+            seed in any::<[u8;32]>(),
+        ) {
+            let (sk, pk) = Msp::<Bls12_377>::gen(&mut ChaCha20Rng::from_seed(seed));
             let sig = Msp::sig(&sk, &msg);
             assert!(Msp::ver(&msg, &pk.mvk, &sig));
         }
 
         #[test]
         fn test_invalid_sig(msg in prop::collection::vec(any::<u8>(), 1..128),
-                            r in any::<u64>()) {
-            let (sk, pk) = Msp::<Bls12_377>::gen(&mut thread_rng());
+                            r in any::<u64>(),
+                            seed in any::<[u8;32]>(),
+        ) {
+            let (sk, pk) = Msp::<Bls12_377>::gen(&mut ChaCha20Rng::from_seed(seed));
             let x = MspSig(G1Affine::prime_subgroup_generator().mul(Fr::from(r)));
             assert!(!Msp::ver(&msg, &pk.mvk, &x));
         }
 
         #[test]
         fn test_aggregate_sig(msg in prop::collection::vec(any::<u8>(), 1..128),
-                              num_sigs in 1..16) {
+                              num_sigs in 1..16,
+                              seed in any::<[u8;32]>(),
+        ) {
             let mut mvks = Vec::new();
             let mut sigs = Vec::new();
             for _ in 0..num_sigs {
-                let (sk, pk) = Msp::<Bls12_377>::gen(&mut thread_rng());
+                let (sk, pk) = Msp::<Bls12_377>::gen(&mut ChaCha20Rng::from_seed(seed));
                 let sig = Msp::sig(&sk, &msg);
                 assert!(Msp::ver(&msg, &pk.mvk, &sig));
                 sigs.push(sig);
@@ -309,7 +316,7 @@ mod tests {
     #[test]
     fn test_gen() {
         for _ in 0..128 {
-            let (_sk, pk) = Msp::<Bls12_377>::gen(&mut thread_rng());
+            let (_sk, pk) = Msp::<Bls12_377>::gen(&mut OsRng);
             assert!(Msp::check(&pk));
         }
     }
