@@ -103,9 +103,7 @@ mod c_api {
     type MspSkPtr = *mut MspSk<C>;
     type MspPkPtr = *mut MspPk<C>;
     type SigPtr = *mut StmSig<C, F>;
-    type SigConstPtr = *const StmSig<C, F>;
     type MultiSigPtr = *mut StmMultiSig<C, ConcatProof<C, H>>;
-    type MultiSigConstPtr = *const StmMultiSig<C, ConcatProof<C, H>>;
     type StmInitializerPtr = *mut StmInitializer<C>;
     type StmSignerPtr = *mut StmSigner<H, C>;
     type StmClerkPtr = *mut StmClerk<H, C, TrivialEnv>;
@@ -413,7 +411,7 @@ mod c_api {
         #[no_mangle]
         pub extern "C" fn stm_clerk_verify_sig(
             me: StmClerkPtr,
-            sig: SigConstPtr,
+            sig: SigPtr,
             index: Index,
             msg: *const c_char,
         ) -> i64 {
@@ -442,7 +440,7 @@ mod c_api {
             sigs: *const SigPtr,
             indices: *const Index,
             msg: *const c_char,
-            sig: *mut MultiSigConstPtr,
+            sig: *mut MultiSigPtr,
         ) -> i64 {
             unsafe {
                 let ref_me = &*me;
@@ -472,7 +470,7 @@ mod c_api {
         #[no_mangle]
         pub extern "C" fn stm_clerk_verify_msig(
             me: StmClerkPtr,
-            msig: MultiSigConstPtr,
+            msig: MultiSigPtr,
             msg: *const c_char,
         ) -> i64 {
             unsafe {
