@@ -222,6 +222,23 @@ mod c_api {
             c_deserialize(sig_size, sig_bytes)
         }
 
+        #[no_mangle]
+        pub extern "C" fn stm_serialize_initializer(
+            init_ptr: StmInitializerPtr,
+            init_size: *mut usize,
+            init_bytes: *mut *const u8,
+        ) {
+            c_serialize(init_ptr, init_size, init_bytes)
+        }
+
+        #[no_mangle]
+        pub extern "C" fn stm_deserialize_initializer(
+            init_size: usize,
+            init_bytes: *const u8,
+        ) -> StmInitializerPtr {
+            c_deserialize(init_size, init_bytes)
+        }
+
         fn c_serialize<T: ToBytes>(ptr: *mut T, size: *mut usize, out_bytes: *mut *const u8) {
             unsafe {
                 let v = *Box::from_raw(ptr);
