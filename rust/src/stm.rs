@@ -250,16 +250,8 @@ where
         self.sk
     }
 
-    pub fn set_secret_key(&mut self, sk: MspSk<PE>) {
-        self.sk = sk;
-    }
-
     pub fn verification_key(&self) -> MspPk<PE> {
         self.pk
-    }
-
-    pub fn set_verification_key(&mut self, pk: MspPk<PE>) {
-        self.pk = pk;
     }
 
     pub fn set_stake(&mut self, stake: Stake) {

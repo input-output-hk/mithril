@@ -306,26 +306,10 @@ mod c_api {
         }
 
         #[no_mangle]
-        pub extern "C" fn stm_initializer_set_secret_key(me: StmInitializerPtr, k: MspSkPtr) {
-            unsafe {
-                let ref_me = &mut *me;
-                ref_me.set_secret_key(*k);
-            }
-        }
-
-        #[no_mangle]
         pub extern "C" fn stm_initializer_verification_key(me: StmInitializerPtr) -> MspPkPtr {
             unsafe {
                 let ref_me = &mut *me;
                 Box::into_raw(Box::new(ref_me.verification_key()))
-            }
-        }
-
-        #[no_mangle]
-        pub extern "C" fn stm_initializer_set_verification_key(me: StmInitializerPtr, k: MspPkPtr) {
-            unsafe {
-                let ref_me = &mut *me;
-                ref_me.set_verification_key(*k);
             }
         }
 
