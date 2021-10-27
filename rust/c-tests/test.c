@@ -1,14 +1,16 @@
 #include <stdio.h>
 #include "../target/include/mithril.h"
 
+
 int main(int argc, char **argv) {
     char *msg = argv[1];
 
     StmParameters params;
-    params.k = 1;
+    params.k = 2;
     params.m = 100;
-    params.phi_f = 1.0;
+    params.phi_f = 0.2;
 
+    Index indices[2];
     PartyId party_ids[2] = {1, 2};
     Stake   party_stake[2] = {1, 0};
     MspPkPtr keys[2];
@@ -26,31 +28,40 @@ int main(int argc, char **argv) {
 #endif
     StmSignerPtr signer = stm_initializer_new_signer(initializer[signeri], 2, party_ids, party_stake, keys);
 
-    bool success = stm_signer_eligibility_check(signer, msg, 1);
+    int success = 0;
+    for (Index i = 0; i < 100 && success < 2; i++) {
+        if (stm_signer_eligibility_check(signer, msg, i)) {
+            printf("Can sign index %llx\n", i);
+            indices[success++] = i;
+        }
+    }
 
-    if (!success) {
+    if (success < 2) {
         printf("Not eligible to sign\n");
         return 1;
     }
 
-    SigPtr sig;
-    stm_signer_sign(signer, msg, 1, &sig);
+    SigPtr sig[2];
+    stm_signer_sign(signer, msg, indices[0], &sig[0]);
+    stm_signer_sign(signer, msg, indices[1], &sig[1]);
 
-    if (!sig) {
+    if (!sig[0] || !sig[1]) {
         printf("Signing failed\n");
         return 2;
     }
 
     StmClerkPtr clerk = stm_clerk_from_signer(signer);
-    
-    if (stm_clerk_verify_sig(clerk, sig, 1, msg)) {
-        printf("Signature invalid\n");
+    if (stm_clerk_verify_sig(clerk, sig[0], indices[0], msg)) {
+        printf("Signature 1 invalid\n");
+        return 3;
+    }
+    if (stm_clerk_verify_sig(clerk, sig[1], indices[1], msg)) {
+        printf("Signature 2 invalid\n");
         return 3;
     }
 
-    MultiSigConstPtr multi_sig;
-    Index index = 1;
-    int r = stm_clerk_aggregate(clerk, 1, sig, &index, msg, &multi_sig);
+    MultiSigPtr multi_sig;
+    int r = stm_clerk_aggregate(clerk, 2, sig, indices, msg, &multi_sig);
     if (r || !multi_sig) {
         printf("Aggregation failed: ");
         if (r < 0) printf("Verification failed\n");
@@ -61,7 +72,8 @@ int main(int argc, char **argv) {
     int64_t msig_ok = stm_clerk_verify_msig(clerk, multi_sig, msg);
     if (!msig_ok) {
         free_stm_clerk(clerk);
-        free_sig(sig);
+        free_sig(sig[0]);
+        free_sig(sig[1]);
         free_multi_sig((MultiSigPtr)multi_sig);
         printf("Test completed successfully!\n");
         return 0;
