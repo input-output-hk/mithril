@@ -44,7 +44,7 @@ pub struct MithrilWitness<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> {
 #[derive(Debug, Clone, Copy)]
 pub enum MithrilWitnessError {
     /// No qorum was found
-    NoQuorum,
+    NoQuorum = 1,
     /// The IVK is invalid after aggregating the keys
     IvkInvalid,
     /// Mu is not the sum of the signatures
@@ -59,6 +59,13 @@ pub enum MithrilWitnessError {
     EvalInvalid,
     /// A party did not actually win the lottery
     StakeInvalid,
+}
+
+#[allow(clippy::from_over_into)]
+impl Into<i64> for MithrilWitnessError {
+    fn into(self) -> i64 {
+        self as i64
+    }
 }
 
 impl<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> MithrilWitness<PE, H> {

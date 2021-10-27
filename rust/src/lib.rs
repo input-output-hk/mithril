@@ -405,20 +405,29 @@ mod c_api {
             }
         }
 
+        /// Try to verify a signature.
+        /// returns 0 if the signature is valid
+        /// returns -1 if the lottery win is false
+        /// returns -2 if the Merkle Tree is invalid
+        /// returns -3 if the MSP signature is invalid
         #[no_mangle]
         pub extern "C" fn stm_clerk_verify_sig(
             me: StmClerkPtr,
             sig: SigConstPtr,
             index: Index,
             msg: *const c_char,
-        ) -> bool {
+        ) -> i64 {
             unsafe {
                 let ref_me = &*me;
                 let msg_str = CStr::from_ptr(msg);
                 let ref_sig = &*sig;
-                ref_me
-                    .verify_sig(ref_sig, index, msg_str.to_bytes())
-                    .is_ok()
+                let out = ref_me.verify_sig(ref_sig, index, msg_str.to_bytes());
+                match out {
+                    Ok(()) => 0,
+                    Err(VerificationFailure::LotteryLost) => -1,
+                    Err(VerificationFailure::InvalidMerkleTree) => -2,
+                    Err(VerificationFailure::InvalidSignature) => -3,
+                }
             }
         }
 
@@ -452,17 +461,27 @@ mod c_api {
             }
         }
 
+        /// Try to verify a multisignature.
+        /// returns 0 if the signature is valid
+        /// returns -1 if the aggregation is invalid
+        /// returns n > 0 if the proof verification failed, where n is the error number
+        /// from the proof system.
         #[no_mangle]
         pub extern "C" fn stm_clerk_verify_msig(
             me: StmClerkPtr,
             msig: MultiSigConstPtr,
             msg: *const c_char,
-        ) -> bool {
+        ) -> i64 {
             unsafe {
                 let ref_me = &*me;
                 let ref_msig = &*msig;
                 let msg_str = CStr::from_ptr(msg);
-                ref_me.verify_msig(ref_msig, msg_str.to_bytes()).is_ok()
+                let out = ref_me.verify_msig(ref_msig, msg_str.to_bytes());
+                match out {
+                    Ok(()) => 0,
+                    Err(MultiVerificationFailure::InvalidAggregate) => -1,
+                    Err(MultiVerificationFailure::ProofError(e)) => e.into(),
+                }
             }
         }
     }

@@ -18,7 +18,7 @@ pub trait Proof: Sized {
     type Statement;
     type Relation;
     type Witness;
-    type Error: Debug;
+    type Error: Debug + Into<i64>; // Into<i64> allows passing the error to the C API
 
     fn prove(
         env: &Self::Env,
@@ -79,12 +79,19 @@ pub mod trivial {
     }
 
     #[derive(Debug)]
-    pub struct TrivialError<Error: Debug>(Error);
+    pub struct TrivialError<Error: Debug + Into<i64>>(Error);
+
+    #[allow(clippy::from_over_into)]
+    impl<Error: Debug + Into<i64>> Into<i64> for TrivialError<Error> {
+        fn into(self) -> i64 {
+            self.0.into()
+        }
+    }
 
     impl<Stmt, R, Witness, UnderlyingError> Proof for TrivialProof<Stmt, R, Witness>
     where
         R: Fn(&Stmt, &Witness) -> Result<(), UnderlyingError>,
-        UnderlyingError: Debug,
+        UnderlyingError: Debug + Into<i64>,
     {
         type Env = TrivialEnv;
         type Statement = Stmt;
