@@ -157,11 +157,59 @@ impl<PE: PairingEngine, Proof: MithrilProof> FromBytes for StmMultiSig<PE, Proof
         Ok(StmMultiSig { ivk, mu, proof })
     }
 }
+
 impl<PE: PairingEngine, Proof: MithrilProof> ToBytes for StmMultiSig<PE, Proof> {
     fn write<W: Write>(&self, mut writer: W) -> std::result::Result<(), std::io::Error> {
         self.ivk.write(&mut writer)?;
         self.mu.write(&mut writer)?;
         self.proof.write(&mut writer)
+    }
+}
+
+impl FromBytes for StmParameters {
+    fn read<R: Read>(mut reader: R) -> std::io::Result<Self> {
+        let m = u64::read(&mut reader)?;
+        let k = u64::read(&mut reader)?;
+        let phi_f_int = u64::read(&mut reader)?;
+        let phi_f = f64::from_bits(phi_f_int);
+
+        Ok(StmParameters { m, k, phi_f })
+    }
+}
+
+impl ToBytes for StmParameters {
+    fn write<W: Write>(&self, mut writer: W) -> std::io::Result<()> {
+        self.m.write(&mut writer)?;
+        self.k.write(&mut writer)?;
+        self.phi_f.to_bits().write(&mut writer)
+    }
+}
+
+impl<PE: PairingEngine> FromBytes for StmInitializer<PE> {
+    fn read<R: Read>(mut reader: R) -> std::io::Result<Self> {
+        let party_id = u64::read(&mut reader)?;
+        let stake = Stake::read(&mut reader)?;
+        let params = StmParameters::read(&mut reader)?;
+        let sk = MspSk::<PE>::read(&mut reader)?;
+        let pk = MspPk::<PE>::read(&mut reader)?;
+
+        Ok(StmInitializer {
+            party_id: party_id as usize,
+            stake,
+            params,
+            sk,
+            pk,
+        })
+    }
+}
+
+impl<PE: PairingEngine> ToBytes for StmInitializer<PE> {
+    fn write<W: Write>(&self, mut writer: W) -> std::io::Result<()> {
+        (self.party_id as u64).write(&mut writer)?;
+        self.stake.write(&mut writer)?;
+        self.params.write(&mut writer)?;
+        self.sk.write(&mut writer)?;
+        self.pk.write(&mut writer)
     }
 }
 
