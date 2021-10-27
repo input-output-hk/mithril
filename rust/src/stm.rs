@@ -683,13 +683,10 @@ mod tests {
             let all_ps: Vec<usize> = (0..nparties).collect();
             let (ixs, sigs) = find_signatures(10, 1, &msg, &ps, &all_ps);
             let msig = clerk.aggregate::<ConcatProof<Bls12_377,H>>(&sigs, &ixs, &msg);
-            match msig {
-                Ok(aggr) => {
+            if let Ok(aggr) = msig {
                     let bytes: Vec<u8> = ark_ff::to_bytes!(aggr).unwrap();
                     let aggr2 = StmMultiSig::read(&bytes[..]).unwrap();
                     assert!(clerk.verify_msig::<ConcatProof<Bls12_377,H>>(&aggr2, &msg));
-                },
-                _ => ()
             }
         }
     }
