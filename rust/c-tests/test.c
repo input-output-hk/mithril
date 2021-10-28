@@ -5,12 +5,18 @@
 int main(int argc, char **argv) {
     char *msg = argv[1];
 
+#ifndef NEEDED_SIGS
+#define NEEDED_SIGS 5
+#endif
+
     StmParameters params;
-    params.k = 2;
+    params.k = NEEDED_SIGS;
     params.m = 100;
     params.phi_f = 0.2;
 
-    Index indices[2];
+    Index indices[NEEDED_SIGS];
+
+    // Test with 2 parties, one with all the stake, one with none.
     PartyId party_ids[2] = {1, 2};
     Stake   party_stake[2] = {1, 0};
     MspPkPtr keys[2];
@@ -29,39 +35,38 @@ int main(int argc, char **argv) {
     StmSignerPtr signer = stm_initializer_new_signer(initializer[signeri], 2, party_ids, party_stake, keys);
 
     int success = 0;
-    for (Index i = 0; i < 100 && success < 2; i++) {
+    for (Index i = 0; i < 100 && success < NEEDED_SIGS; i++) {
         if (stm_signer_eligibility_check(signer, msg, i)) {
-            printf("Can sign index %llx\n", i);
+            printf("Can sign index %lld\n", i);
             indices[success++] = i;
         }
     }
 
-    if (success < 2) {
-        printf("Not eligible to sign\n");
+    if (success < NEEDED_SIGS) {
+        printf("Not eligible to sign enough indices\n");
         return 1;
     }
 
-    SigPtr sig[2];
-    stm_signer_sign(signer, msg, indices[0], &sig[0]);
-    stm_signer_sign(signer, msg, indices[1], &sig[1]);
-
-    if (!sig[0] || !sig[1]) {
-        printf("Signing failed\n");
-        return 2;
+    SigPtr sig[NEEDED_SIGS];
+    for (int i = 0; i < NEEDED_SIGS; i++) {
+        stm_signer_sign(signer, msg, indices[i], &sig[i]);
+        if (!sig[i]) {
+            printf("Signing signature %d failed\n", i);
+            return 2;
+        }
     }
+
 
     StmClerkPtr clerk = stm_clerk_from_signer(signer);
-    if (stm_clerk_verify_sig(clerk, sig[0], indices[0], msg)) {
-        printf("Signature 1 invalid\n");
-        return 3;
-    }
-    if (stm_clerk_verify_sig(clerk, sig[1], indices[1], msg)) {
-        printf("Signature 2 invalid\n");
-        return 3;
+    for (int i = 0; i < NEEDED_SIGS; i++) {
+        if (stm_clerk_verify_sig(clerk, sig[i], indices[i], msg)) {
+            printf("Signature %d invalid\n", i);
+            return 3;
+        }
     }
 
     MultiSigPtr multi_sig;
-    int r = stm_clerk_aggregate(clerk, 2, sig, indices, msg, &multi_sig);
+    int r = stm_clerk_aggregate(clerk, NEEDED_SIGS, sig, indices, msg, &multi_sig);
     if (r || !multi_sig) {
         printf("Aggregation failed: ");
         if (r < 0) printf("Verification failed\n");
@@ -72,8 +77,8 @@ int main(int argc, char **argv) {
     int64_t msig_ok = stm_clerk_verify_msig(clerk, multi_sig, msg);
     if (!msig_ok) {
         free_stm_clerk(clerk);
-        free_sig(sig[0]);
-        free_sig(sig[1]);
+        for (int i = 0; i < NEEDED_SIGS; i++)
+            free_sig(sig[i]);
         free_multi_sig((MultiSigPtr)multi_sig);
         printf("Test completed successfully!\n");
         return 0;
