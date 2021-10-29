@@ -52,18 +52,25 @@ fn main() {
     // Now, each party generates their own KeyReg instance, and registers all other participating
     // parties
     // todo: if each party runs its own registration independently, this example fails. Figure out why.
-    let key_reg_0 = local_reg(&parties, &parties_pks);
-    let key_reg_1 = key_reg_0.clone(); // local_reg(&parties, &parties_pks); //
-    let key_reg_2 = key_reg_0.clone(); // local_reg(&parties, &parties_pks); //
-    let key_reg_3 = key_reg_0.clone(); // local_reg(&parties, &parties_pks); //
+    let mut key_reg = Vec::new();
+    key_reg.push(local_reg(&parties, &parties_pks));
+    key_reg.push(local_reg(&parties, &parties_pks));
+    key_reg.push(local_reg(&parties, &parties_pks));
+    key_reg.push(local_reg(&parties, &parties_pks));
+
+    for i in 0..4 {
+        for j in 0..4 {
+            assert_eq!(key_reg[i].retrieve_all(), key_reg[j].retrieve_all());
+        }
+    }
 
     // Now, with information of all participating parties (we can create the Merkle Tree), the
     // signers can be initialised.
     // todo: maybe we can directly pass `key_reg` to `StmInitialiser`, and do `retrieve_all` there
-    let party_0 = party_0_init.new_signer(&key_reg_0.retrieve_all());
-    let party_1 = party_1_init.new_signer(&key_reg_1.retrieve_all());
-    let party_2 = party_2_init.new_signer(&key_reg_2.retrieve_all());
-    let party_3 = party_3_init.new_signer(&key_reg_3.retrieve_all());
+    let party_0 = party_0_init.new_signer(&key_reg[0].retrieve_all());
+    let party_1 = party_1_init.new_signer(&key_reg[1].retrieve_all());
+    let party_2 = party_2_init.new_signer(&key_reg[2].retrieve_all());
+    let party_3 = party_3_init.new_signer(&key_reg[3].retrieve_all());
 
     /////////////////////
     // operation phase //
@@ -169,7 +176,10 @@ fn local_reg(ids: &Vec<(usize, u64)>, pks: &Vec<MspPk<Bls12_377>>) -> KeyReg<Bls
     // todo: maybe its cleaner to have a `StmPublic` instance that covers the "shareable"
     // data, such as the public key, stake and id.
     for (&pk, id) in pks.into_iter().zip(ids.into_iter()) {
-        assert!(local_keyreg.register(id.0, id.1, pk.clone()).is_ok());
+        match local_keyreg.register(id.0, id.1, pk.clone()) {
+            Err(e) => panic!("{:?}", e),
+            Ok(()) => (),
+        }
     }
     local_keyreg
 }
