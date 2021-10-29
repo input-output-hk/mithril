@@ -36,7 +36,7 @@ where
     pub pk: Option<MspPk<PE>>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 /// A registered party, i.e. an id associated with its stake and public key
 pub struct RegParty<PE>
 where
@@ -145,7 +145,10 @@ where
 
     pub fn retrieve_all(&self) -> Vec<RegParty<PE>> {
         let mut out = vec![];
-        for (party_id, party) in &self.parties {
+        let mut ps = self.parties.keys().collect::<Vec<_>>();
+        ps.sort();
+        for party_id in ps {
+            let party = &self.parties[party_id];
             if let Some(pk) = party.pk {
                 out.push(RegParty {
                     party_id: *party_id,
