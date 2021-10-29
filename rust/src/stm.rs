@@ -30,7 +30,7 @@ pub struct StmParameters {
     /// Quorum parameter
     pub k: u64,
 
-    /// `f` in phi(w) = 1 - (1 - f)^w
+    /// `f` in phi(w) = 1 - (1 - f)^w, where w is the stake of a participant.
     pub phi_f: f64,
 }
 
@@ -828,19 +828,6 @@ mod tests {
         })
     }
 
-    fn with_proof_mod<F>(mut tc: ProofTest, f: F)
-    where
-        F: Fn(&mut Sig, &mut StmClerk<H, Bls12_377, TrivialEnv>, &mut [u8; 16]),
-    {
-        match tc.msig {
-            Ok(mut aggr) => {
-                f(&mut aggr, &mut tc.clerk, &mut tc.msg);
-                assert!(!tc.clerk.verify_msig(&aggr, &tc.msg))
-            }
-            _ => unreachable!(),
-        }
-    }
-
     proptest! {
         // Each of the tests below corresponds to falsifying a conjunct in the
         // defintion of the proved relation between statement & witness as
@@ -904,6 +891,19 @@ mod tests {
                 let pi = i % clerk.params.k as usize;
                 aggr.proof.witness.evals[pi] = 0;
             })
+        }
+    }
+
+    fn with_proof_mod<F>(mut tc: ProofTest, f: F)
+    where
+        F: Fn(&mut Sig, &mut StmClerk<H, Bls12_377, TrivialEnv>, &mut [u8; 16]),
+    {
+        match tc.msig {
+            Ok(mut aggr) => {
+                f(&mut aggr, &mut tc.clerk, &mut tc.msg);
+                assert!(!tc.clerk.verify_msig(&aggr, &tc.msg))
+            }
+            _ => unreachable!(),
         }
     }
 }

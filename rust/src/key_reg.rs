@@ -12,6 +12,7 @@ use ark_ff::ToBytes;
 use ark_std::io::Write;
 use num_traits::identities::Zero;
 
+#[derive(Clone, Debug)]
 pub struct KeyReg<PE>
 where
     PE: PairingEngine,
