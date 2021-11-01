@@ -768,7 +768,7 @@ mod tests {
             if let Ok(aggr) = msig {
                     let bytes: Vec<u8> = ark_ff::to_bytes!(aggr).unwrap();
                     let aggr2 = StmMultiSig::read(&bytes[..]).unwrap();
-                    assert!(clerk.verify_msig::<ConcatProof<Bls12_377,H>>(&aggr2, &msg));
+                    assert!(clerk.verify_msig::<ConcatProof<Bls12_377,H>>(&aggr2, &msg).is_ok());
             }
         }
     }
