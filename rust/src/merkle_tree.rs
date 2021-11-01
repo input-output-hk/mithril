@@ -7,6 +7,7 @@ use std::fmt::Debug;
 /// (2) a way to combine hashes
 /// (H_p is used for both of these in the paper)
 pub trait MTHashLeaf<L> {
+    /// The output domain of the hasher.
     type F: Eq + Clone + Debug;
 
     /// Create a new hasher
@@ -33,6 +34,7 @@ pub trait MTHashLeaf<L> {
     }
 }
 
+/// Tree of hashes, providing a commitment of data and its ordering.
 #[derive(Debug, Clone)]
 pub struct MerkleTree<L, H>
 where
@@ -118,6 +120,7 @@ where
         h == self.nodes[0]
     }
 
+    /// Convert the root of the tree to bytes.
     pub fn root_to_bytes(&self) -> Vec<u8> {
         H::as_bytes(&self.nodes[0])
     }

@@ -160,6 +160,7 @@ where
 
 /// A MithrilProof just fixes the relation to a constant.
 pub trait MithrilProof: Proof + ToBytes + FromBytes {
+    /// The relation is a constant.
     const RELATION: Self::Relation;
 }
 
@@ -175,8 +176,11 @@ pub mod concat_proofs {
     use ark_ff::{FromBytes, ToBytes};
     use std::io::{Read, Write};
 
+    /// Set the env to the TrivialEnv.
     pub type ConcatEnv = TrivialEnv;
+    /// The relation is a function outputting bool.
     pub type ConcatRel<PE, H> = fn(&MithrilStatement<PE, H>, &MithrilWitness<PE, H>) -> bool;
+    /// The proof is a TrivialProof.
     pub type ConcatProof<PE, H> =
         TrivialProof<MithrilStatement<PE, H>, ConcatRel<PE, H>, MithrilWitness<PE, H>>;
 

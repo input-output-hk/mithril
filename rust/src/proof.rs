@@ -3,9 +3,11 @@
 /// An environment or context that can contain any long-lived information
 /// relevant to the proof backend
 pub trait ProverEnv {
+    /// The secret key used to create proofs.
     type ProvingKey;
+    /// The public key used to verify proofs.
     type VerificationKey;
-
+    /// Create a new key pair.
     fn setup(&self) -> (Self::ProvingKey, Self::VerificationKey);
 }
 
@@ -13,10 +15,15 @@ pub trait ProverEnv {
 /// a relation of type `R` holds between values of types `S` and `W`
 /// (generally the proofs are knowledge of such a `W`)
 pub trait Proof: Sized {
+    /// Context for this proof system.
     type Env: ProverEnv;
+    /// Statement to be proven.
     type Statement;
+    /// Relation between values of type Statement and type Witness.
     type Relation;
+    /// Witness of the validity of Statement.
     type Witness;
+    /// Construct a proof.
     fn prove(
         env: &Self::Env,
         pk: &<Self::Env as ProverEnv>::ProvingKey,
@@ -24,7 +31,7 @@ pub trait Proof: Sized {
         stmt: &Self::Statement,
         witness: Self::Witness,
     ) -> Option<Self>;
-
+    /// Verify a proof.
     fn verify(
         &self,
         env: &Self::Env,
@@ -41,17 +48,21 @@ pub mod trivial {
     use std::fmt::{Debug, Formatter, Result};
     use std::marker::PhantomData;
 
+    /// Trivial environment which contains nothing.
     #[derive(Debug, Clone)]
     pub struct TrivialEnv;
 
+    /// TrivialProof simply contains the Witness directly.
     #[derive(Clone)]
     pub struct TrivialProof<S, R, W> {
+        /// The witness itself.
         pub witness: W,
         pr: PhantomData<R>,
         ps: PhantomData<S>,
     }
 
     impl<S, R, W> TrivialProof<S, R, W> {
+        /// Create a new TrivialProof from the witness.
         pub fn new(witness: W) -> Self {
             Self {
                 witness,

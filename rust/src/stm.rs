@@ -88,10 +88,15 @@ where
 /// Signature created by a single party who has won the lottery.
 #[derive(Debug, Clone)]
 pub struct StmSig<PE: PairingEngine, F> {
+    /// The signature from the underlying MSP scheme.
     pub sigma: MspSig<PE>,
+    /// The pubkey from the underlying MSP scheme.
     pub pk: MspPk<PE>,
+    /// The party that made this signature.
     pub party: PartyId,
+    /// The stake of the party that made this signature.
     pub stake: Stake,
+    /// The path through the MerkleTree for this party.
     pub path: Path<F>,
 }
 
@@ -111,6 +116,7 @@ where
 /// Error types for aggregation.
 #[derive(Debug, Clone, Copy)]
 pub enum AggregationFailure {
+    /// Not enough signatures were collected, got this many instead.
     NotEnoughSignatures(usize),
     /// How many signatures we got
     VerifyFailed,
@@ -237,6 +243,7 @@ where
         }
     }
 
+    /// Create a new key.
     pub fn generate_new_key<R>(&mut self, rng: &mut R)
     where
         R: RngCore + CryptoRng,
@@ -246,26 +253,32 @@ where
         self.pk = pk;
     }
 
+    /// Extract the secret key.
     pub fn secret_key(&self) -> MspSk<PE> {
         self.sk
     }
 
+    /// Extract the verification key.
     pub fn verification_key(&self) -> MspPk<PE> {
         self.pk
     }
 
+    /// Set the stake.
     pub fn set_stake(&mut self, stake: Stake) {
         self.stake = stake;
     }
 
+    /// Get the stake.
     pub fn stake(&self) -> Stake {
         self.stake
     }
 
+    /// Get the party ID.
     pub fn party_id(&self) -> PartyId {
         self.party_id
     }
 
+    /// Set the StmParameters.
     pub fn set_params(&mut self, params: StmParameters) {
         self.params = params;
     }
@@ -319,6 +332,7 @@ where
     /////////////////////
     // Operation phase //
     /////////////////////
+    /// Try to win the lottery for this message/index combo.
     pub fn eligibility_check(&self, msg: &[u8], index: Index) -> bool {
         // let msg' <- AVK || msg
         // sigma <- MSP.Sig(msk, msg')
@@ -330,6 +344,7 @@ where
         ev_lt_phi(self.params.phi_f, ev, self.stake, self.total_stake)
     }
 
+    /// If lottery is won for this message/index, signs it.
     pub fn sign(&self, msg: &[u8], index: Index) -> Option<StmSig<PE, H::F>> {
         if self.eligibility_check(msg, index) {
             // msg' <- AVK||msg
@@ -361,6 +376,7 @@ where
     PE: PairingEngine,
     PE::G1Projective: ToConstraintField<PE::Fq>,
 {
+    /// Create a new Clerk.
     pub fn new(
         params: StmParameters,
         proof_env: E,
@@ -378,6 +394,7 @@ where
         }
     }
 
+    /// Creates a Clerk from a Signer.
     pub fn from_signer(signer: &StmSigner<H, PE>, proof_env: E) -> Self {
         Self::new(
             signer.params,
@@ -387,6 +404,7 @@ where
         )
     }
 
+    /// Verify a signature.
     pub fn verify_sig(&self, sig: &StmSig<PE, H::F>, index: Index, msg: &[u8]) -> bool {
         let msgp = concat_avk_with_msg(&self.avk, msg);
         let ev = Msp::eval(&msgp, index, &sig.sigma);

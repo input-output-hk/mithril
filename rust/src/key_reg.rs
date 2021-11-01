@@ -12,6 +12,8 @@ use ark_ff::ToBytes;
 use ark_std::io::Write;
 use num_traits::identities::Zero;
 
+/// Simple struct that collects pubkeys and stakes of parties. Placeholder for a more
+/// realistic distributed key registration protocol.
 #[derive(Clone, Debug)]
 pub struct KeyReg<PE>
 where
@@ -32,7 +34,9 @@ struct Party<PE>
 where
     PE: PairingEngine,
 {
+    /// The stake of of the party.
     pub stake: Stake,
+    /// The public key of the party.
     pub pk: Option<MspPk<PE>>,
 }
 
@@ -42,12 +46,16 @@ pub struct RegParty<PE>
 where
     PE: PairingEngine,
 {
+    /// The id for the registered party.
     pub party_id: PartyId,
+    /// The pubkey for the registered party.
     pub pk: MspPk<PE>,
+    /// The stake for the registered party.
     pub stake: Stake,
 }
 
 impl<PE: PairingEngine> RegParty<PE> {
+    /// Empty party.
     pub fn null_party() -> Self {
         Self {
             party_id: 0,
@@ -70,6 +78,7 @@ impl<PE: PairingEngine> ToBytes for RegParty<PE> {
     }
 }
 
+/// Errors which can be outputted by key registration.
 #[derive(Debug, Clone)]
 pub enum RegisterError<PE>
 where
@@ -93,6 +102,7 @@ where
     PE: PairingEngine,
     MspPk<PE>: Hash,
 {
+    /// Create a new KeyReg with all parties and stakes known.
     pub fn new(players: &[(PartyId, Stake)]) -> Self {
         let parties = players.iter().map(|(id, stake)| {
             let party = Party {
@@ -108,6 +118,7 @@ where
         }
     }
 
+    /// Register the pubkey for a particular party.
     pub fn register(&mut self, party_id: PartyId, pk: MspPk<PE>) -> Result<(), RegisterError<PE>> {
         if !self.allow {
             return Err(RegisterError::NotAllowed);
@@ -129,6 +140,7 @@ where
         }
     }
 
+    /// Retrieve the pubkey and stake for a party.
     pub fn retrieve(&self, party_id: PartyId) -> Option<RegParty<PE>> {
         let party = self.parties.get(&party_id)?;
         party.pk.map(|pk| RegParty {
@@ -138,6 +150,7 @@ where
         })
     }
 
+    /// Retrieve the pubkey and stake for all parties.
     pub fn retrieve_all(&self) -> Vec<RegParty<PE>> {
         let mut out = vec![];
         let mut ps = self.parties.keys().collect::<Vec<_>>();
@@ -156,6 +169,7 @@ where
         out
     }
 
+    /// End registration. Disables `KeyReg::register`.
     pub fn close(&mut self) {
         self.allow = false;
     }

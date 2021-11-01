@@ -12,23 +12,31 @@ use std::cmp::Ordering;
 use std::hash::Hash;
 use std::marker::PhantomData;
 
+/// Struct used to namespace the functions.
 pub struct Msp<PE: PairingEngine> {
     x: PhantomData<PE>,
 }
 
+/// MSP secret key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MspSk<PE: PairingEngine>(PE::Fr);
 
+/// MSP verification key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MspMvk<PE: PairingEngine>(pub PE::G2Projective);
 
+/// MSP public key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MspPk<PE: PairingEngine> {
+    /// The mvk.
     pub mvk: MspMvk<PE>,
+    /// The first G1 element.
     pub k1: PE::G1Projective,
+    /// The second G1 element.
     pub k2: PE::G1Projective,
 }
 
+/// MSP signature.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MspSig<PE: PairingEngine>(pub(crate) PE::G1Projective);
 
@@ -36,6 +44,7 @@ impl<PE: PairingEngine> MspSig<PE>
 where
     PE::G1Projective: ToConstraintField<PE::Fq>,
 {
+    /// Compare two signatures. Used for PartialOrd impl, used to rank signatures.
     fn cmp_msp_sig(&self, other: &Self) -> Ordering {
         self.0.to_field_elements().cmp(&other.0.to_field_elements())
     }
@@ -63,6 +72,7 @@ const POP: &[u8] = b"PoP";
 const M: &[u8] = b"M";
 
 impl<PE: PairingEngine> Msp<PE> {
+    /// Create a new pubkey/secretkey pair.
     pub fn gen<R>(rng: &mut R) -> (MspSk<PE>, MspPk<PE>)
     where
         R: RngCore + CryptoRng,
@@ -79,6 +89,7 @@ impl<PE: PairingEngine> Msp<PE> {
         (MspSk(x), MspPk { mvk, k1, k2 })
     }
 
+    /// Check that a pubkey is well-formed.
     pub fn check(pk: &MspPk<PE>) -> bool {
         // if e(k1,g2) = e(H_G1("PoP"||mvk),mvk)
         //      and e(g1,mvk) = e(k2,g2)
@@ -94,12 +105,14 @@ impl<PE: PairingEngine> Msp<PE> {
         (e_k1_g2 == e_hg1_mvk) && (e_g1_mvk == e_k2_g2)
     }
 
+    /// Sign a message using a secret key.
     pub fn sig(sk: &MspSk<PE>, msg: &[u8]) -> MspSig<PE> {
         // return sigma <- H_G1("M"||msg)^x
         let g1 = hash_to_curve::<PE::G1Affine>([M, msg].concat().as_ref());
         MspSig(g1.mul(sk.0))
     }
 
+    /// Verify a signature against a verification key.
     pub fn ver(msg: &[u8], mvk: &MspMvk<PE>, sigma: &MspSig<PE>) -> bool {
         // return 1 if e(sigma,g2) = e(H_G1("M"||msg),mvk)
         let e_sigma_g2 = PE::pairing(
@@ -113,20 +126,24 @@ impl<PE: PairingEngine> Msp<PE> {
     }
 
     // MSP.AKey
+    /// Aggregate verification keys.
     pub fn aggregate_keys(mvks: &[MspMvk<PE>]) -> MspMvk<PE> {
         MspMvk(mvks.iter().map(|s| s.0).sum())
     }
 
     // MSP.Aggr
+    /// Aggregate signatures.
     pub fn aggregate_sigs(sigmas: &[MspSig<PE>]) -> MspSig<PE> {
         MspSig(sigmas.iter().map(|s| s.0).sum())
     }
 
     // MSP.AVer
+    /// Verify an aggregate signature (identical to `Msp::ver`).
     pub fn aggregate_ver(msg: &[u8], ivk: &MspMvk<PE>, mu: &MspSig<PE>) -> bool {
         Self::ver(msg, ivk, mu)
     }
 
+    /// Hash the signature to produce a u64.
     pub fn eval(msg: &[u8], index: Index, sigma: &MspSig<PE>) -> u64 {
         let mut hasher: VarBlake2b = VariableOutput::new(8).unwrap();
         // // H("map"||msg||index||sigma)
@@ -150,12 +167,14 @@ impl<PE: PairingEngine> Msp<PE> {
 }
 
 impl<PE: PairingEngine> MspMvk<PE> {
+    /// Convert the mvk to bytes.
     pub fn to_bytes(&self) -> Vec<u8> {
         ark_ff::to_bytes!(self.0).unwrap()
     }
 }
 
 impl<PE: PairingEngine> MspSig<PE> {
+    /// Convert the signature to bytes.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = vec![];
         self.0.write(&mut bytes).unwrap();

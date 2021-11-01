@@ -1,6 +1,11 @@
+#![warn(missing_docs)]
+
+//! Implementation of Mithril Threshold Stake-Based Signatures
+//! [[paper](https://eprint.iacr.org/2021/916)].
+
 pub mod key_reg;
 pub mod merkle_tree;
-pub mod mithril_curves;
+mod mithril_curves;
 pub mod mithril_proof;
 pub mod models;
 pub mod msp;
@@ -41,6 +46,7 @@ pub fn ev_lt_phi(phi_f: f64, ev: u64, stake: Stake, total_stake: Stake) -> bool 
     ev_as_f64 < phi
 }
 
+/// Serializes the Merkle Tree together with a message in a single vector of bytes.
 pub fn concat_avk_with_msg<L, H>(avk: &MerkleTree<L, H>, msg: &[u8]) -> Vec<u8>
 where
     H: MTHashLeaf<L>,
