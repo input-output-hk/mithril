@@ -88,12 +88,6 @@ mod c_api {
     use std::ffi::CStr;
     use std::os::raw::c_char;
 
-    #[repr(C)]
-    pub struct Participant {
-        party_id: PartyId,
-        stake: Stake,
-    }
-
     type C = ark_bls12_377::Bls12_377;
     type H = blake2::Blake2b;
     type F = <H as MTHashLeaf<MTValue<C>>>::F;
@@ -107,7 +101,6 @@ mod c_api {
     type StmSignerPtr = *mut StmSigner<H, C>;
     type StmClerkPtr = *mut StmClerk<H, C, TrivialEnv>;
     type MerkleTreePtr = *mut MerkleTree<MTValue<C>, H>;
-    type ParticipantPtr = *const Participant;
 
     // A macro would be nice for the below, but macros do not
     // seem to work properly with cbindgen:
