@@ -635,10 +635,6 @@ mod tests {
         )
     }
 
-    fn arb_num_parties_and_index(min: usize, max: usize) -> impl Strategy<Value = (usize, usize)> {
-        (min..max).prop_flat_map(|n| (Just(n), 0..n))
-    }
-
     fn find_signatures(
         m: u64,
         msg: &[u8],
