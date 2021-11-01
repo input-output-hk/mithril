@@ -108,11 +108,7 @@ where
         }
     }
 
-    pub fn register(
-        &mut self,
-        party_id: PartyId,
-        pk: MspPk<PE>,
-    ) -> Result<(), RegisterError<PE>> {
+    pub fn register(&mut self, party_id: PartyId, pk: MspPk<PE>) -> Result<(), RegisterError<PE>> {
         if !self.allow {
             return Err(RegisterError::NotAllowed);
         }
