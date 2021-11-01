@@ -261,7 +261,7 @@ mod tests {
                             r in any::<u64>(),
                             seed in any::<[u8;32]>(),
         ) {
-            let (sk, pk) = Msp::<Bls12_377>::gen(&mut ChaCha20Rng::from_seed(seed));
+            let (_sk, pk) = Msp::<Bls12_377>::gen(&mut ChaCha20Rng::from_seed(seed));
             let x = MspSig(G1Affine::prime_subgroup_generator().mul(Fr::from(r)));
             assert!(!Msp::ver(&msg, &pk.mvk, &x));
         }

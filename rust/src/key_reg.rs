@@ -198,7 +198,7 @@ mod tests {
             let mut rng = ChaCha20Rng::from_seed(seed);
             let mut kr = KeyReg::new(&ps);
 
-            let gen_keys = (1..nkeys).map(|i| {
+            let gen_keys = (1..nkeys).map(|_| {
                 Msp::<Bls12_377>::gen(&mut rng).1
             }).collect::<Vec<_>>();
 

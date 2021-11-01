@@ -205,7 +205,7 @@ mod tests {
         #![proptest_config(ProptestConfig::with_cases(100))]
         #[test]
         fn test_create_proof((t, values) in arb_tree(30)) {
-            values.iter().enumerate().for_each(|(i, v)| {
+            values.iter().enumerate().for_each(|(i, _v)| {
                 let pf = t.get_path(i);
                 assert!(t.check(&values[i], i, &pf));
             })

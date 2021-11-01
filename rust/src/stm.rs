@@ -757,7 +757,7 @@ mod tests {
         fn test_adversary_quorum(
             (adversaries, parties) in arb_parties_adversary_stake(8, 30, 16, 4),
             msg in any::<[u8;16]>(),
-            i in any::<usize>(), j in any::<usize>(),
+            _i in any::<usize>(), _j in any::<usize>(),
         ) {
             // Test sanity check:
             // Check that the adversarial party has less than 40% of the total stake.
@@ -834,15 +834,15 @@ mod tests {
         // defined in the Mithril protocol
         #[test]
         fn test_invalid_proof_quorum(tc in arb_proof_setup(10),
-                                     rnd in any::<u64>()) {
-            with_proof_mod(tc, |aggr, clerk, msg| {
+                                     _rnd in any::<u64>()) {
+            with_proof_mod(tc, |_aggr, clerk, _msg| {
                 clerk.params.k += 1;
             })
         }
         #[test]
         fn test_invalid_proof_ivk(tc in arb_proof_setup(10),
                                   rnd in any::<u64>()) {
-            with_proof_mod(tc, |aggr, clerk, msg| {
+            with_proof_mod(tc, |aggr, _clerk, _msg| {
                 let x = G2P::prime_subgroup_generator().mul(&[rnd]);
                 aggr.ivk = MspMvk(x)
             })
@@ -850,21 +850,21 @@ mod tests {
         #[test]
         fn test_invalid_proof_mu(tc in arb_proof_setup(10),
                                  rnd in any::<u64>()) {
-            with_proof_mod(tc, |aggr, clerk, msg| {
+            with_proof_mod(tc, |aggr, _clerk, _msg| {
                 let x = G1P::prime_subgroup_generator().mul(&[rnd]);
                 aggr.mu = MspSig(x)
             })
         }
         #[test]
         fn test_invalid_proof_index_bound(tc in arb_proof_setup(10),
-                                          rnd in any::<u64>()) {
-            with_proof_mod(tc, |aggr, clerk, msg| {
+                                          _rnd in any::<u64>()) {
+            with_proof_mod(tc, |_aggr, clerk, _msg| {
                 clerk.params.m = 1;
             })
         }
         #[test]
         fn test_invalid_proof_index_unique(tc in arb_proof_setup(10)) {
-            with_proof_mod(tc, |aggr, clerk, msg| {
+            with_proof_mod(tc, |aggr, clerk, _msg| {
                 for i in aggr.proof.witness.indices.iter_mut() {
                     *i %= clerk.params.k - 1
                 }
@@ -873,21 +873,21 @@ mod tests {
         #[test]
         fn test_invalid_proof_path(tc in arb_proof_setup(10), i in any::<usize>()) {
             let n = tc.n;
-            with_proof_mod(tc, |aggr, clerk, msg| {
+            with_proof_mod(tc, |aggr, clerk, _msg| {
                 let pi = i % clerk.params.k as usize;
                 aggr.proof.witness.sigs[pi].party = (aggr.proof.witness.sigs[pi].party + 1) % n;
             })
         }
         #[test]
         fn test_invalid_proof_eval(tc in arb_proof_setup(10), i in any::<usize>(), v in any::<u64>()) {
-            with_proof_mod(tc, |aggr, clerk, msg| {
+            with_proof_mod(tc, |aggr, clerk, _msg| {
                 let pi = i % clerk.params.k as usize;
                 aggr.proof.witness.evals[pi] = v;
             })
         }
         #[test]
         fn test_invalid_proof_stake(tc in arb_proof_setup(10), i in any::<usize>()) {
-            with_proof_mod(tc, |aggr, clerk, msg| {
+            with_proof_mod(tc, |aggr, clerk, _msg| {
                 let pi = i % clerk.params.k as usize;
                 aggr.proof.witness.evals[pi] = 0;
             })
