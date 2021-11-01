@@ -67,7 +67,7 @@ impl<F: FromBytes> FromBytes for Path<F> {
     fn read<R: Read>(mut reader: R) -> std::io::Result<Self> {
         let n = u64::read(&mut reader)?;
         let mut p = Vec::with_capacity(n as usize);
-        for i in 0..n {
+        for _ in 0..n {
             let pi = F::read(&mut reader)?;
             p.push(pi);
         }

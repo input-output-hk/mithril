@@ -137,15 +137,15 @@ where
         let mut sigs: Vec<StmSig<PE, H::F>> = Vec::with_capacity(n as usize);
         let mut indices: Vec<Index> = Vec::with_capacity(n as usize);
         let mut evals: Vec<u64> = Vec::with_capacity(n as usize);
-        for i in 0..n {
+        for _ in 0..n {
             let s = StmSig::<PE, H::F>::read(&mut reader)?;
             sigs.push(s);
         }
-        for i in 0..n {
+        for _ in 0..n {
             let idx = Index::read(&mut reader)?;
             indices.push(idx);
         }
-        for i in 0..n {
+        for _ in 0..n {
             let ev = u64::read(&mut reader)?;
             evals.push(ev);
         }

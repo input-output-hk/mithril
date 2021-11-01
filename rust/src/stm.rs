@@ -293,7 +293,7 @@ where
         let my_index = reg
             .iter()
             .enumerate()
-            .find(|(i, rp)| rp.party_id == self.party_id)
+            .find(|(_i, rp)| rp.party_id == self.party_id)
             .unwrap_or_else(|| panic!("party unknown: {}", self.party_id))
             .0;
         let total_stake = mtvals.iter().map(|s| s.1).sum();

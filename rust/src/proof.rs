@@ -84,7 +84,7 @@ pub mod trivial {
         type Relation = R;
         type Witness = Witness;
         fn prove(
-            env: &TrivialEnv,
+            _env: &TrivialEnv,
             _pk: &(),
             rel: &Self::Relation,
             stmt: &Stmt,
@@ -97,7 +97,7 @@ pub mod trivial {
             }
         }
 
-        fn verify(&self, env: &TrivialEnv, vk: &(), rel: &R, statement: &Stmt) -> bool {
+        fn verify(&self, _env: &TrivialEnv, _vk: &(), rel: &R, statement: &Stmt) -> bool {
             rel(statement, &self.witness)
         }
     }
