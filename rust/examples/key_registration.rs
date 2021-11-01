@@ -26,7 +26,7 @@ fn main() {
         // Let's try with three signatures
         k: 3,
         m: 10,
-        // so that it always passes
+        // `phi_f` = 1, so that it always passes, for the purpose of the example
         phi_f: 1.0,
     };
 
@@ -51,7 +51,6 @@ fn main() {
 
     // Now, each party generates their own KeyReg instance, and registers all other participating
     // parties
-    // todo: if each party runs its own registration independently, this example fails. Figure out why.
     let mut key_reg = Vec::new();
     key_reg.push(local_reg(&parties, &parties_pks));
     key_reg.push(local_reg(&parties, &parties_pks));
@@ -66,7 +65,6 @@ fn main() {
 
     // Now, with information of all participating parties (we can create the Merkle Tree), the
     // signers can be initialised.
-    // todo: maybe we can directly pass `key_reg` to `StmInitialiser`, and do `retrieve_all` there
     let party_0 = party_0_init.new_signer(&key_reg[0].retrieve_all());
     let party_1 = party_1_init.new_signer(&key_reg[1].retrieve_all());
     let party_2 = party_2_init.new_signer(&key_reg[2].retrieve_all());
@@ -139,20 +137,28 @@ fn main() {
 
     // Now we aggregate the signatures
     let msig_1 =
-        clerk.aggregate::<ConcatProof<Bls12_377, H>>(&complete_sigs_1, &complete_ixs_1, &msg);
-    assert!(msig_1.is_ok());
-    let aggr_1 = msig_1.unwrap();
-    assert!(clerk.verify_msig::<ConcatProof<Bls12_377, H>>(&aggr_1, &msg));
+        match clerk.aggregate::<ConcatProof<Bls12_377, H>>(&complete_sigs_1, &complete_ixs_1, &msg)
+        {
+            Ok(s) => s,
+            Err(e) => {
+                panic!("Aggregation failed: {:?}", e)
+            }
+        };
+    assert!(clerk.verify_msig::<ConcatProof<Bls12_377, H>>(&msig_1, &msg));
 
     let msig_2 =
-        clerk.aggregate::<ConcatProof<Bls12_377, H>>(&complete_sigs_2, &complete_ixs_2, &msg);
-    assert!(msig_2.is_ok());
-    let aggr_2 = msig_2.unwrap();
-    assert!(clerk.verify_msig::<ConcatProof<Bls12_377, H>>(&aggr_2, &msg));
+        match clerk.aggregate::<ConcatProof<Bls12_377, H>>(&complete_sigs_2, &complete_ixs_2, &msg)
+        {
+            Ok(s) => s,
+            Err(e) => {
+                panic!("Aggregation failed: {:?}", e)
+            }
+        };
+    assert!(clerk.verify_msig::<ConcatProof<Bls12_377, H>>(&msig_2, &msg));
 
     let msig_3 =
         clerk.aggregate::<ConcatProof<Bls12_377, H>>(&incomplete_sigs_3, &incomplete_ixs_3, &msg);
-    assert!(!msig_3.is_ok());
+    assert!(msig_3.is_err());
 }
 
 fn try_signatures(
