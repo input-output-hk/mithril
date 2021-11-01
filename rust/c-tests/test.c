@@ -42,7 +42,8 @@ int main(int argc, char **argv) {
     }
 
     StmClerkPtr clerk = stm_clerk_from_signer(signer);
-    if (!stm_clerk_verify_sig(clerk, sig, 1, msg)) {
+    
+    if (stm_clerk_verify_sig(clerk, sig, 1, msg)) {
         printf("Signature invalid\n");
         return 3;
     }
@@ -50,15 +51,15 @@ int main(int argc, char **argv) {
     MultiSigConstPtr multi_sig;
     Index index = 1;
     int r = stm_clerk_aggregate(clerk, 1, sig, &index, msg, &multi_sig);
-    if (r) {
+    if (r || !multi_sig) {
         printf("Aggregation failed: ");
         if (r < 0) printf("Verification failed\n");
         else printf("Only got %d signatures\n", r);
         return 4;
     }
 
-    bool msig_ok = stm_clerk_verify_msig(clerk, multi_sig, msg);
-    if (msig_ok) {
+    int64_t msig_ok = stm_clerk_verify_msig(clerk, multi_sig, msg);
+    if (!msig_ok) {
         free_stm_clerk(clerk);
         free_sig(sig);
         free_multi_sig((MultiSigPtr)multi_sig);
