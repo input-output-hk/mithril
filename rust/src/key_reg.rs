@@ -111,7 +111,6 @@ where
     pub fn register(
         &mut self,
         party_id: PartyId,
-        stake: Stake,
         pk: MspPk<PE>,
     ) -> Result<(), RegisterError<PE>> {
         if !self.allow {
@@ -209,7 +208,7 @@ mod tests {
 
             for (i, p) in ps.iter().enumerate() {
                 let pk = gen_keys[i % gen_keys.len()];
-                let reg = kr.register(p.0, p.1, pk);
+                let reg = kr.register(p.0, pk);
                 match reg {
                     Ok(_) => {
                         assert!(i <= stop);

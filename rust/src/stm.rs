@@ -566,7 +566,7 @@ mod tests {
             .into_iter()
             .map(|(pid, stake)| {
                 let p = StmInitializer::setup(params, pid, stake, &mut rng);
-                kr.register(p.party_id(), p.stake(), p.verification_key())
+                kr.register(p.party_id(), p.verification_key())
                     .unwrap();
                 p
             })

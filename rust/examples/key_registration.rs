@@ -182,7 +182,7 @@ fn local_reg(ids: &Vec<(usize, u64)>, pks: &Vec<MspPk<Bls12_377>>) -> KeyReg<Bls
     // todo: maybe its cleaner to have a `StmPublic` instance that covers the "shareable"
     // data, such as the public key, stake and id.
     for (&pk, id) in pks.into_iter().zip(ids.into_iter()) {
-        match local_keyreg.register(id.0, id.1, pk.clone()) {
+        match local_keyreg.register(id.0, pk.clone()) {
             Err(e) => panic!("{:?}", e),
             Ok(()) => (),
         }

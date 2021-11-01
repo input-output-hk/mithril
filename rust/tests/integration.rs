@@ -38,7 +38,7 @@ fn test_full_protocol() {
     for (pid, stake) in parties {
         let p = StmInitializer::setup(params, pid, stake, &mut rng);
         key_reg
-            .register(p.party_id(), p.stake(), p.verification_key())
+            .register(p.party_id(), p.verification_key())
             .unwrap();
         ps.push(p);
     }
