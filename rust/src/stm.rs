@@ -641,7 +641,6 @@ mod tests {
 
     fn find_signatures(
         m: u64,
-        k: u64,
         msg: &[u8],
         ps: &[StmSigner<H, Bls12_377>],
         is: &[usize],
@@ -698,7 +697,7 @@ mod tests {
             let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
 
             let all_ps: Vec<usize> = (0..nparties).collect();
-            let (ixs, sigs) = find_signatures(m, k, &msg, &ps, &all_ps);
+            let (ixs, sigs) = find_signatures(m, &msg, &ps, &all_ps);
 
             let msig = clerk.aggregate::<ConcatProof<Bls12_377,H>>(&sigs, &ixs, &msg);
 
@@ -722,7 +721,7 @@ mod tests {
             let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
 
             let all_ps: Vec<usize> = (0..nparties).collect();
-            let (ixs, sigs) = find_signatures(10, 1, &msg, &ps, &all_ps);
+            let (ixs, sigs) = find_signatures(10, &msg, &ps, &all_ps);
             let msig = clerk.aggregate::<ConcatProof<Bls12_377,H>>(&sigs, &ixs, &msg);
             if let Ok(aggr) = msig {
                     let bytes: Vec<u8> = ark_ff::to_bytes!(aggr).unwrap();
@@ -774,7 +773,6 @@ mod tests {
             let ps = setup_parties(params, parties);
 
             let (ixs, sigs) = find_signatures(params.m,
-                                              params.k,
                                               &msg,
                                               &ps,
                                               &adversaries.into_iter().collect::<Vec<_>>());
@@ -815,7 +813,7 @@ mod tests {
                 let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
 
                 let all_ps: Vec<usize> = (0..n).collect();
-                let (ixs, sigs) = find_signatures(params.m, params.k, &msg, &ps, &all_ps);
+                let (ixs, sigs) = find_signatures(params.m, &msg, &ps, &all_ps);
 
                 let msig = clerk.aggregate::<ConcatProof<Bls12_377, H>>(&sigs, &ixs, &msg);
                 ProofTest {
