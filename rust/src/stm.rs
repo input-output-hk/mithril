@@ -137,6 +137,7 @@ pub enum VerificationFailure {
 }
 
 /// Error types for multisignature verification
+#[derive(Debug, Clone, Copy)]
 pub enum MultiVerificationFailure<Proof>
 where
     Proof: MithrilProof,

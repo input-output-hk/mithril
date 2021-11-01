@@ -34,7 +34,7 @@ fn aggregate_and_verify(c: &mut Criterion) {
     for (pid, stake) in parties {
         let p = StmInitializer::setup(params, pid, stake, &mut rng);
         key_reg
-            .register(p.party_id(), p.stake(), p.verification_key())
+            .register(p.party_id(), p.verification_key())
             .unwrap();
         ps.push(p);
     }
@@ -78,7 +78,7 @@ fn aggregate_and_verify(c: &mut Criterion) {
     group.bench_with_input("Verification", &msig, |b, msig| {
         b.iter(|| {
             if let Ok(aggr) = msig {
-                clerk.verify_msig::<ConcatProof<C, H>>(aggr, &msg);
+                clerk.verify_msig::<ConcatProof<C, H>>(aggr, &msg).unwrap();
             }
         })
     });
