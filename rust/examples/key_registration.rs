@@ -144,7 +144,9 @@ fn main() {
                 panic!("Aggregation failed: {:?}", e)
             }
         };
-    assert!(clerk.verify_msig::<ConcatProof<Bls12_377, H>>(&msig_1, &msg));
+    assert!(clerk
+        .verify_msig::<ConcatProof<Bls12_377, H>>(&msig_1, &msg)
+        .is_ok());
 
     let msig_2 =
         match clerk.aggregate::<ConcatProof<Bls12_377, H>>(&complete_sigs_2, &complete_ixs_2, &msg)
@@ -154,7 +156,9 @@ fn main() {
                 panic!("Aggregation failed: {:?}", e)
             }
         };
-    assert!(clerk.verify_msig::<ConcatProof<Bls12_377, H>>(&msig_2, &msg));
+    assert!(clerk
+        .verify_msig::<ConcatProof<Bls12_377, H>>(&msig_2, &msg)
+        .is_ok());
 
     let msig_3 =
         clerk.aggregate::<ConcatProof<Bls12_377, H>>(&incomplete_sigs_3, &incomplete_ixs_3, &msg);

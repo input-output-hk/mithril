@@ -114,12 +114,37 @@ where
 }
 
 /// Error types for aggregation.
-#[derive(Debug, Clone, Copy)]
-pub enum AggregationFailure {
+#[derive(Debug, Clone)]
+pub enum AggregationFailure<PE, F>
+where
+    PE: PairingEngine,
+{
     /// Not enough signatures were collected, got this many instead.
     NotEnoughSignatures(usize),
-    /// How many signatures we got
-    VerifyFailed,
+    /// Verification failed for this signature
+    VerifyFailed(VerificationFailure, StmSig<PE, F>, Index),
+}
+
+/// Error types for single signature verification
+#[derive(Debug, Clone, Copy)]
+pub enum VerificationFailure {
+    /// The lottery was actually lost for the signature
+    LotteryLost,
+    /// The Merkle Tree is invalid
+    InvalidMerkleTree,
+    /// The MSP signature is invalid
+    InvalidSignature,
+}
+
+/// Error types for multisignature verification
+pub enum MultiVerificationFailure<Proof>
+where
+    Proof: MithrilProof,
+{
+    /// The underlying MSP aggregate is invalid
+    InvalidAggregate,
+    /// Error wrapper for underlying proof system.
+    ProofError(Proof::Error),
 }
 
 impl<PE: PairingEngine, F: FromBytes> FromBytes for StmSig<PE, F> {
@@ -405,18 +430,27 @@ where
     }
 
     /// Verify a signature.
-    pub fn verify_sig(&self, sig: &StmSig<PE, H::F>, index: Index, msg: &[u8]) -> bool {
+    pub fn verify_sig(
+        &self,
+        sig: &StmSig<PE, H::F>,
+        index: Index,
+        msg: &[u8],
+    ) -> Result<(), VerificationFailure> {
         let msgp = concat_avk_with_msg(&self.avk, msg);
         let ev = Msp::eval(&msgp, index, &sig.sigma);
 
-        if !ev_lt_phi(self.params.phi_f, ev, sig.stake, self.total_stake)
-            || !self
-                .avk
-                .check(&MTValue(sig.pk.mvk, sig.stake), sig.party, &sig.path)
+        if !ev_lt_phi(self.params.phi_f, ev, sig.stake, self.total_stake) {
+            Err(VerificationFailure::LotteryLost)
+        } else if !self
+            .avk
+            .check(&MTValue(sig.pk.mvk, sig.stake), sig.party, &sig.path)
         {
-            return false;
+            Err(VerificationFailure::InvalidMerkleTree)
+        } else if !Msp::ver(&msgp, &sig.pk.mvk, &sig.sigma) {
+            Err(VerificationFailure::InvalidSignature)
+        } else {
+            Ok(())
         }
-        Msp::ver(&msgp, &sig.pk.mvk, &sig.sigma)
     }
 
     /// Aggregate a set of signatures for their corresponding indices.
@@ -429,7 +463,7 @@ where
         sigs: &[StmSig<PE, H::F>],
         indices: &[Index],
         msg: &[u8],
-    ) -> Result<StmMultiSig<PE, Proof>, AggregationFailure>
+    ) -> Result<StmMultiSig<PE, Proof>, AggregationFailure<PE, H::F>>
     where
         Proof: MithrilProof<Env = E>,
         Proof::Statement: From<MithrilStatement<PE, H>>,
@@ -442,9 +476,9 @@ where
         let mut sigs_to_verify = Vec::new();
         let mut indices_to_verify = Vec::new();
 
-        for (ix, sig) in dedup_sigs_for_indices::<H, PE>(sigs, indices) {
-            if !self.verify_sig(sig, *ix, msg) {
-                return Err(AggregationFailure::VerifyFailed);
+        for (ix, sig) in dedup_sigs_for_indices::<H, PE>(indices, sigs) {
+            if let Err(e) = self.verify_sig(sig, *ix, msg) {
+                return Err(AggregationFailure::VerifyFailed(e, sig.clone(), *ix));
             }
 
             evals.push(Msp::eval(&msgp, *ix, &sig.sigma));
@@ -496,7 +530,11 @@ where
     /// The `From` bound on `Proof::Statement` allows `aggregate` to translate
     /// from the `Mithril` specific statement and witness types to their proof system-specific
     /// representations.
-    pub fn verify_msig<Proof>(&self, msig: &StmMultiSig<PE, Proof>, msg: &[u8]) -> bool
+    pub fn verify_msig<Proof>(
+        &self,
+        msig: &StmMultiSig<PE, Proof>,
+        msg: &[u8],
+    ) -> Result<(), MultiVerificationFailure<Proof>>
     where
         Proof: MithrilProof<Env = E>,
         Proof::Statement: From<MithrilStatement<PE, H>>,
@@ -512,22 +550,25 @@ where
             params: self.params,
             total_stake: self.total_stake,
         };
-        if !msig.proof.verify(
+        if let Err(e) = msig.proof.verify(
             &self.proof_env,
             &self.verif_key,
             &Proof::RELATION,
             &Proof::Statement::from(statement),
         ) {
-            return false;
+            return Err(MultiVerificationFailure::ProofError(e));
         }
         let msgp = concat_avk_with_msg(&self.avk, msg);
-        Msp::aggregate_ver(&msgp, &msig.ivk, &msig.mu)
+        if !Msp::aggregate_ver(&msgp, &msig.ivk, &msig.mu) {
+            return Err(MultiVerificationFailure::InvalidAggregate);
+        }
+        Ok(())
     }
 }
 
 fn dedup_sigs_for_indices<'a, H: MTHashLeaf<MTValue<PE>>, PE: PairingEngine>(
-    sigs: &'a [StmSig<PE, H::F>],
     indices: &'a [Index],
+    sigs: &'a [StmSig<PE, H::F>],
 ) -> impl IntoIterator<Item = (&'a Index, &'a StmSig<PE, H::F>)>
 where
     PE::G1Projective: ToConstraintField<PE::Fq>,
@@ -690,7 +731,7 @@ mod tests {
 
             for index in 1..nparties {
                 if let Some(sig) = p.sign(&msg, index as u64) {
-                    assert!(clerk.verify_sig(&sig, index as u64, &msg));
+                    assert!(clerk.verify_sig(&sig, index as u64, &msg).is_ok());
                 }
             }
         }
@@ -716,7 +757,7 @@ mod tests {
 
             match msig {
                 Ok(aggr) =>
-                    assert!(clerk.verify_msig::<ConcatProof<Bls12_377,H>>(&aggr, &msg)),
+                    assert!(clerk.verify_msig::<ConcatProof<Bls12_377,H>>(&aggr, &msg).is_ok()),
                 Err(AggregationFailure::NotEnoughSignatures(n)) =>
                     assert!(n < params.k as usize),
                 _ => unreachable!()
@@ -739,7 +780,7 @@ mod tests {
             if let Ok(aggr) = msig {
                     let bytes: Vec<u8> = ark_ff::to_bytes!(aggr).unwrap();
                     let aggr2 = StmMultiSig::read(&bytes[..]).unwrap();
-                    assert!(clerk.verify_msig::<ConcatProof<Bls12_377,H>>(&aggr2, &msg));
+                    assert!(clerk.verify_msig::<ConcatProof<Bls12_377,H>>(&aggr2, &msg).is_ok());
             }
         }
     }
@@ -807,7 +848,7 @@ mod tests {
     #[derive(Debug)]
     struct ProofTest {
         n: usize,
-        msig: Result<Sig, AggregationFailure>,
+        msig: Result<Sig, AggregationFailure<Bls12_377, F>>,
         clerk: StmClerk<H, Bls12_377, TrivialEnv>,
         msg: [u8; 16],
     }
@@ -837,6 +878,19 @@ mod tests {
                 }
             })
         })
+    }
+
+    fn with_proof_mod<F>(mut tc: ProofTest, f: F)
+    where
+        F: Fn(&mut Sig, &mut StmClerk<H, Bls12_377, TrivialEnv>, &mut [u8; 16]),
+    {
+        match tc.msig {
+            Ok(mut aggr) => {
+                f(&mut aggr, &mut tc.clerk, &mut tc.msg);
+                assert!(!tc.clerk.verify_msig(&aggr, &tc.msg).is_ok())
+            }
+            _ => unreachable!(),
+        }
     }
 
     proptest! {
@@ -902,19 +956,6 @@ mod tests {
                 let pi = i % clerk.params.k as usize;
                 aggr.proof.witness.evals[pi] = 0;
             })
-        }
-    }
-
-    fn with_proof_mod<F>(mut tc: ProofTest, f: F)
-    where
-        F: Fn(&mut Sig, &mut StmClerk<H, Bls12_377, TrivialEnv>, &mut [u8; 16]),
-    {
-        match tc.msig {
-            Ok(mut aggr) => {
-                f(&mut aggr, &mut tc.clerk, &mut tc.msg);
-                assert!(!tc.clerk.verify_msig(&aggr, &tc.msg))
-            }
-            _ => unreachable!(),
         }
     }
 }

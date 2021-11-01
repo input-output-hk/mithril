@@ -100,9 +100,7 @@ mod c_api {
     type MspSkPtr = *mut MspSk<C>;
     type MspPkPtr = *mut MspPk<C>;
     type SigPtr = *mut StmSig<C, F>;
-    type SigConstPtr = *const StmSig<C, F>;
     type MultiSigPtr = *mut StmMultiSig<C, ConcatProof<C, H>>;
-    type MultiSigConstPtr = *const StmMultiSig<C, ConcatProof<C, H>>;
     type StmInitializerPtr = *mut StmInitializer<C>;
     type StmSignerPtr = *mut StmSigner<H, C>;
     type StmClerkPtr = *mut StmClerk<H, C, TrivialEnv>;
@@ -401,18 +399,29 @@ mod c_api {
             }
         }
 
+        /// Try to verify a signature.
+        /// returns 0 if the signature is valid
+        /// returns -1 if the lottery win is false
+        /// returns -2 if the Merkle Tree is invalid
+        /// returns -3 if the MSP signature is invalid
         #[no_mangle]
         pub extern "C" fn stm_clerk_verify_sig(
             me: StmClerkPtr,
-            sig: SigConstPtr,
+            sig: SigPtr,
             index: Index,
             msg: *const c_char,
-        ) -> bool {
+        ) -> i64 {
             unsafe {
                 let ref_me = &*me;
                 let msg_str = CStr::from_ptr(msg);
                 let ref_sig = &*sig;
-                ref_me.verify_sig(ref_sig, index, msg_str.to_bytes())
+                let out = ref_me.verify_sig(ref_sig, index, msg_str.to_bytes());
+                match out {
+                    Ok(()) => 0,
+                    Err(VerificationFailure::LotteryLost) => -1,
+                    Err(VerificationFailure::InvalidMerkleTree) => -2,
+                    Err(VerificationFailure::InvalidSignature) => -3,
+                }
             }
         }
 
@@ -424,39 +433,52 @@ mod c_api {
         pub extern "C" fn stm_clerk_aggregate(
             me: StmClerkPtr,
             n_sigs: usize,
-            sigs: SigConstPtr,
+            sigs: *const SigPtr,
             indices: *const Index,
             msg: *const c_char,
-            sig: *mut MultiSigConstPtr,
+            sig: *mut MultiSigPtr,
         ) -> i64 {
             unsafe {
                 let ref_me = &*me;
-                let sigs = slice::from_raw_parts(sigs, n_sigs);
+                let sigs = slice::from_raw_parts(sigs, n_sigs)
+                    .iter()
+                    .map(|p| (**p).clone())
+                    .collect::<Vec<_>>();
                 let indices = slice::from_raw_parts(indices, n_sigs);
                 let msg_str = CStr::from_ptr(msg);
-                let aggr = ref_me.aggregate(sigs, indices, msg_str.to_bytes());
+                let aggr = ref_me.aggregate(&sigs, indices, msg_str.to_bytes());
                 match aggr {
                     Ok(msig) => {
                         *sig = Box::into_raw(Box::new(msig));
                         0
                     }
-                    Err(AggregationFailure::VerifyFailed) => -1,
+                    Err(AggregationFailure::VerifyFailed(_, _, _)) => -1,
                     Err(AggregationFailure::NotEnoughSignatures(n)) => n.try_into().unwrap(),
                 }
             }
         }
 
+        /// Try to verify a multisignature.
+        /// returns 0 if the signature is valid
+        /// returns -1 if the aggregation is invalid
+        /// returns n > 0 if the proof verification failed, where n is the error number
+        /// from the proof system.
         #[no_mangle]
         pub extern "C" fn stm_clerk_verify_msig(
             me: StmClerkPtr,
-            msig: MultiSigConstPtr,
+            msig: MultiSigPtr,
             msg: *const c_char,
-        ) -> bool {
+        ) -> i64 {
             unsafe {
                 let ref_me = &*me;
                 let ref_msig = &*msig;
                 let msg_str = CStr::from_ptr(msg);
-                ref_me.verify_msig(ref_msig, msg_str.to_bytes())
+                let out = ref_me.verify_msig(ref_msig, msg_str.to_bytes());
+                match out {
+                    Ok(()) => 0,
+                    Err(MultiVerificationFailure::InvalidAggregate) => -1,
+                    Err(MultiVerificationFailure::ProofError(e)) => e.into(),
+                }
             }
         }
     }

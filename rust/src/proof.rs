@@ -1,4 +1,5 @@
 //! General API for producing proofs from statements and witnesses
+use std::fmt::Debug;
 
 /// An environment or context that can contain any long-lived information
 /// relevant to the proof backend
@@ -11,9 +12,9 @@ pub trait ProverEnv {
     fn setup(&self) -> (Self::ProvingKey, Self::VerificationKey);
 }
 
-/// Implementors of `Proof<E,S,R,W>` know how to prove that
-/// a relation of type `R` holds between values of types `S` and `W`
-/// (generally the proofs are knowledge of such a `W`)
+/// Implementors of `Proof` know how to prove that a relation of type `Relation`
+/// holds between values of types `Statement` and `Witness` (generally the
+/// proofs are knowledge of such a `Witness`)
 pub trait Proof: Sized {
     /// Context for this proof system.
     type Env: ProverEnv;
@@ -23,6 +24,10 @@ pub trait Proof: Sized {
     type Relation;
     /// Witness of the validity of Statement.
     type Witness;
+    /// Type of errors which can be output by the proof system.
+    /// Into<i64> allows passing the error to the C API.
+    type Error: Debug + Into<i64>;
+
     /// Construct a proof.
     fn prove(
         env: &Self::Env,
@@ -30,7 +35,8 @@ pub trait Proof: Sized {
         rel: &Self::Relation,
         stmt: &Self::Statement,
         witness: Self::Witness,
-    ) -> Option<Self>;
+    ) -> Result<Self, Self::Error>;
+
     /// Verify a proof.
     fn verify(
         &self,
@@ -38,14 +44,14 @@ pub trait Proof: Sized {
         vk: &<Self::Env as ProverEnv>::VerificationKey,
         rel: &Self::Relation,
         stmt: &Self::Statement,
-    ) -> bool;
+    ) -> Result<(), Self::Error>;
 }
 
 pub mod trivial {
     //! A trivial implementation of `Proof` where proofs of knowledge of
     //! witnesses are just the witnesses themselves.
     use super::*;
-    use std::fmt::{Debug, Formatter, Result};
+    use std::fmt::{Debug, Formatter, Result as FmtResult};
     use std::marker::PhantomData;
 
     /// Trivial environment which contains nothing.
@@ -73,7 +79,7 @@ pub mod trivial {
     }
 
     impl<S, R, W: Debug> Debug for TrivialProof<S, R, W> {
-        fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
             write!(f, "TrivialProof({:?})", self.witness)
         }
     }
@@ -86,30 +92,53 @@ pub mod trivial {
         }
     }
 
-    impl<Stmt, R, Witness> Proof for TrivialProof<Stmt, R, Witness>
+    /// Error wrapper for TrivialProof.
+    #[derive(Debug)]
+    pub struct TrivialError<Error: Debug + Into<i64>>(Error);
+
+    #[allow(clippy::from_over_into)]
+    impl<Error: Debug + Into<i64>> Into<i64> for TrivialError<Error> {
+        fn into(self) -> i64 {
+            self.0.into()
+        }
+    }
+
+    impl<Stmt, R, Witness, UnderlyingError> Proof for TrivialProof<Stmt, R, Witness>
     where
-        R: Fn(&Stmt, &Witness) -> bool,
+        R: Fn(&Stmt, &Witness) -> Result<(), UnderlyingError>,
+        UnderlyingError: Debug + Into<i64>,
     {
         type Env = TrivialEnv;
         type Statement = Stmt;
         type Relation = R;
         type Witness = Witness;
+        type Error = TrivialError<UnderlyingError>;
         fn prove(
             _env: &TrivialEnv,
             _pk: &(),
             rel: &Self::Relation,
             stmt: &Stmt,
             witness: Self::Witness,
-        ) -> Option<Self> {
-            if rel(stmt, &witness) {
-                Some(TrivialProof::new(witness))
+        ) -> Result<Self, Self::Error> {
+            if let Err(e) = rel(stmt, &witness) {
+                Err(TrivialError(e))
             } else {
-                None
+                Ok(TrivialProof::new(witness))
             }
         }
 
-        fn verify(&self, _env: &TrivialEnv, _vk: &(), rel: &R, statement: &Stmt) -> bool {
-            rel(statement, &self.witness)
+        fn verify(
+            &self,
+            _env: &TrivialEnv,
+            _vk: &(),
+            rel: &R,
+            statement: &Stmt,
+        ) -> Result<(), Self::Error> {
+            if let Err(e) = rel(statement, &self.witness) {
+                Err(TrivialError(e))
+            } else {
+                Ok(())
+            }
         }
     }
 }
