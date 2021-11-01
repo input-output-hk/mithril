@@ -1,6 +1,5 @@
 #![allow(dead_code, unused_variables)]
 
-pub mod hashutils;
 pub mod key_reg;
 pub mod merkle_tree;
 pub mod mithril_curves;
