@@ -129,6 +129,15 @@ pub struct MspPk<PE: PairingEngine> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MspSig<PE: PairingEngine>(pub(crate) PE::G1Projective);
 
+impl<'a, PE: PairingEngine> Sum<&'a Self> for MspSig<PE> {
+    fn sum<I>(iter: I) -> Self
+    where
+        I: Iterator<Item = &'a Self>,
+    {
+        MspSig(iter.map(|x| x.0).sum())
+    }
+}
+
 impl<PE: PairingEngine> MspSig<PE>
 where
     PE::G1Projective: ToConstraintField<PE::Fq>,
