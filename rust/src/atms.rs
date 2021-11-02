@@ -25,6 +25,7 @@ pub trait VerifySig {
 }
 
 /// Aggregation of Keys
+#[derive(Debug)]
 pub struct Avk<VK, H>
 where
     H: MTHashLeaf<VK>,
@@ -38,6 +39,7 @@ where
 }
 
 /// An Aggregated Signature
+#[derive(Debug)]
 pub struct Asig<VK, Sig, F> {
     /// The product of the aggregated signatures
     aggregate: Sig,
@@ -95,11 +97,15 @@ where
 impl<VK, Sig, F> Asig<VK, Sig, F>
 where
     F: Clone,
-    VK: Clone + Eq + Hash + Sub<VK, Output = VK> + for<'a> Sum<&'a VK>,
+    VK: Clone + Eq + Hash + Sub<VK, Output = VK> + for<'a> Sum<&'a VK> + std::fmt::Debug,
     Sig: for<'a> Sum<&'a Sig> + for<'a> VerifySig<VK = VK>,
 {
     /// Aggregate a sequence of signatures. Called `ASig` in the paper
-    pub fn new<H: MTHashLeaf<VK, F = F>>(msg: &[u8], keys: &Avk<VK, H>, sigs: &[(VK, Sig)]) -> Self {
+    pub fn new<H: MTHashLeaf<VK, F = F>>(
+        msg: &[u8],
+        keys: &Avk<VK, H>,
+        sigs: &[(VK, Sig)],
+    ) -> Self {
         let signers = sigs.iter().map(|(k, _)| k).collect::<HashSet<_>>();
         let keys_proofs = keys
             .leaf_map
@@ -184,7 +190,7 @@ mod msp {
         type VK = MspMvk<PE>;
 
         fn verify(&self, msg: &[u8], key: &Self::VK) -> bool {
-            Msp::ver(msg, key, self)
+            Msp::aggregate_ver(msg, key, self)
         }
     }
 }
@@ -195,42 +201,56 @@ mod tests {
     use crate::msp::*;
     use ark_bls12_377::Bls12_377;
     use blake2::Blake2b;
+    use proptest::collection::vec;
+    use proptest::prelude::*;
     use rand_chacha::ChaCha20Rng;
-    use rand_core::{RngCore, SeedableRng};
+    use rand_core::SeedableRng;
 
     type C = Bls12_377;
     type H = Blake2b;
     type VK = MspMvk<C>;
     type F = <H as MTHashLeaf<VK>>::F;
 
+    proptest! {
     #[test]
-    fn test_atms_protocol() {
-        let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let mut msg = [0u8; 16];
-        rng.fill_bytes(&mut msg);
+    fn test_atms_protocol(n in 1..=32_usize,
+                          subset_is in vec(any::<usize>(), 1..=32_usize),
+                          t_frac in 1..=4_usize,
+                          msg in any::<[u8; 16]>(),
+                          seed in any::<[u8; 32]>()) {
+        let t = n/t_frac;
+        let mut rng = ChaCha20Rng::from_seed(seed);
 
         let mut signatures = Vec::new();
-        for _ in 1..=8 {
+        for _ in 1..=n {
             let (sk, pk) = Msp::<C>::gen(&mut rng);
             let sig = Msp::sig(&sk, &msg);
+            assert!(Msp::ver(&msg, &pk.mvk, &sig));
             signatures.push((pk.mvk, sig));
         }
-
-        // Just for fun, "shuffle" the order
-        signatures.reverse();
 
         let keys = signatures.iter().map(|(k, _)| *k).collect::<Vec<VK>>();
         let avk = Avk::<VK, H>::new(&keys);
         assert!(avk.check(&keys));
 
-        let subset = signatures
+        let subset = subset_is
             .iter()
-            .enumerate()
-            .filter_map(|(i, x)| if i % 2 == 0 { Some(*x) } else { None })
+            .map(|i| {
+                signatures[i % n]
+            })
             .collect::<Vec<_>>();
         let aggr_sig = Asig::new(&msg, &avk, &subset);
 
-        assert!(aggr_sig.verify(3, &msg, &avk).is_ok());
-        assert!(aggr_sig.verify(8, &msg, &avk).is_err());
+        match aggr_sig.verify(t, &msg, &avk) {
+            Ok(()) => (),
+            Err(VerifyFailure::FoundDuplicates) => {
+                assert!(subset.iter().map(|x| x.0).collect::<HashSet<_>>().len() < subset.len())
+            }
+            Err(VerifyFailure::InsufficientSignatures(d)) => {
+                assert!(subset.len() == d)
+            }
+            Err(err) => unreachable!("{:?}", err)
+        }
+    }
     }
 }
