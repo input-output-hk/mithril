@@ -7,12 +7,25 @@
 //! signature scheme, which will define its own type of key and signature. All
 //! we need here is to be able to verify signatures against keys.
 
-use crate::merkle_tree::*;
 use crate::Path;
+use crate::{merkle_tree::*, Stake};
+use ark_ff::ToBytes;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
+use std::io::Write;
 use std::iter::{FromIterator, Sum};
 use std::ops::Sub;
+
+/// The values that are represented in the Merkle Tree.
+#[derive(Debug, Clone, Copy)]
+pub struct MTValue<VK>(pub VK, pub Stake);
+
+impl<VK: ToBytes> ToBytes for MTValue<VK> {
+    fn write<W: Write>(&self, mut writer: W) -> std::result::Result<(), std::io::Error> {
+        self.0.write(&mut writer)?;
+        self.1.write(&mut writer)
+    }
+}
 
 /// The implementation relies on an underlying signature scheme
 /// All that we need from it is the ability to verify that a signature
@@ -28,14 +41,16 @@ pub trait VerifySig {
 #[derive(Debug)]
 pub struct Avk<VK, H>
 where
-    H: MTHashLeaf<VK>,
+    H: MTHashLeaf<MTValue<VK>>,
 {
     /// The product of the aggregated keys
     aggregate_key: VK,
     /// The Merkle commitment to the set of keys
-    tree: MerkleTree<VK, H>,
+    tree: MerkleTree<MTValue<VK>, H>,
     /// Mapping to identify position of key within merkle tree
-    leaf_map: HashMap<VK, usize>,
+    leaf_map: HashMap<VK, (Stake, usize)>,
+    /// Total stake
+    total_stake: Stake,
 }
 
 /// An Aggregated Signature
@@ -56,39 +71,48 @@ pub enum VerifyFailure<VK, F> {
     InvalidProof(usize, VK, Path<F>),
     /// Duplicate non-signers in signature
     FoundDuplicates,
-    /// Found `x` signatures which is less than the threshold
-    InsufficientSignatures(usize),
+    /// Non-signers sum to the given stake, which is more than half of total
+    TooMuchOutstandingStake(Stake),
     /// Underlying signature scheme failed to verify
     InvalidSignature,
 }
 
 impl<VK, H> Avk<VK, H>
 where
-    VK: Eq + Ord + Clone + Hash + for<'a> Sum<&'a VK>,
-    H: MTHashLeaf<VK>,
+    VK: Eq + Ord + Clone + Hash + for<'a> Sum<&'a VK> + ToBytes,
+    H: MTHashLeaf<MTValue<VK>>,
 {
     /// Aggregate a set of keys into a canonical order.
     /// Called `AKey` in the paper.
-    pub fn new(keys: &[VK]) -> Self {
+    pub fn new(keys: &[(VK, Stake)]) -> Self {
         let mut keys2 = keys.to_vec();
 
         // This ensures the order is the same for permutations of the input keys
         keys2.sort();
 
-        let aggregate_key = keys2.iter().sum();
-        let tree = MerkleTree::create(keys2.as_ref());
-        let leaf_map = HashMap::from_iter(keys2.into_iter().enumerate().map(|(x, y)| (y, x)));
+        let aggregate_key = keys2.iter().map(|k| &k.0).sum();
+        let tree = MerkleTree::create(
+            keys2
+                .iter()
+                .map(|(k, s)| MTValue(k.clone(), *s))
+                .collect::<Vec<_>>()
+                .as_ref(),
+        );
+        let leaf_map =
+            HashMap::from_iter(keys2.into_iter().enumerate().map(|(i, (k, s))| (k, (s, i))));
+        let total_stake = keys.iter().map(|x| x.1).sum();
 
         Avk {
             aggregate_key,
             tree,
             leaf_map,
+            total_stake,
         }
     }
 
     /// Check that this aggregation is derived from the given sequence of keys.
     /// Called `ACheck` in the paper.
-    pub fn check(&self, keys: &[VK]) -> bool {
+    pub fn check(&self, keys: &[(VK, Stake)]) -> bool {
         let akey2 = Self::new(keys);
         self.tree.root() == akey2.tree.root() && self.aggregate_key == akey2.aggregate_key
     }
@@ -101,7 +125,7 @@ where
     Sig: for<'a> Sum<&'a Sig> + for<'a> VerifySig<VK = VK>,
 {
     /// Aggregate a sequence of signatures. Called `ASig` in the paper
-    pub fn new<H: MTHashLeaf<VK, F = F>>(
+    pub fn new<H: MTHashLeaf<MTValue<VK>, F = F>>(
         msg: &[u8],
         keys: &Avk<VK, H>,
         sigs: &[(VK, Sig)],
@@ -112,7 +136,7 @@ where
             .keys()
             .filter_map(|k| {
                 if !signers.contains(k) {
-                    let idx = keys.leaf_map.get(k)?;
+                    let (_, idx) = keys.leaf_map.get(k)?;
                     Some((k.clone(), keys.tree.get_path(*idx)))
                 } else {
                     None
@@ -128,7 +152,7 @@ where
 
     /// Verify that this aggregation is valid for the given collection of keys and message.
     /// Called `AVer` in the paper
-    pub fn verify<H: MTHashLeaf<VK, F = F>>(
+    pub fn verify<H: MTHashLeaf<MTValue<VK>, F = F>>(
         &self,
         t: usize,
         msg: &[u8],
@@ -137,17 +161,22 @@ where
         // Check duplicates by building this set of
         // non-signing keys
         let mut unique_non_signers = HashSet::new();
+        let mut non_signing_stake = 0;
 
         // Check inclusion proofs
         for (non_signer, proof) in &self.keys_proofs {
-            if let Some(idx) = keys.leaf_map.get(non_signer) {
-                if !keys.tree.check(non_signer, *idx, proof) {
+            if let Some((stake, idx)) = keys.leaf_map.get(non_signer) {
+                if !keys
+                    .tree
+                    .check(&MTValue(non_signer.clone(), *stake), *idx, proof)
+                {
                     return Err(VerifyFailure::InvalidProof(
                         *idx,
                         non_signer.clone(),
                         proof.clone(),
                     ));
                 } else {
+                    non_signing_stake += stake;
                     unique_non_signers.insert(non_signer);
                 }
             } else {
@@ -160,10 +189,8 @@ where
             return Err(VerifyFailure::FoundDuplicates);
         }
 
-        // Check enough signatures
-        let d = keys.leaf_map.keys().len() - unique_non_signers.len();
-        if d < t {
-            return Err(VerifyFailure::InsufficientSignatures(d));
+        if non_signing_stake >= keys.total_stake {
+            return Err(VerifyFailure::TooMuchOutstandingStake(non_signing_stake));
         }
 
         // Check with the underlying signature scheme that the quotient of the
@@ -209,12 +236,12 @@ mod tests {
     type C = Bls12_377;
     type H = Blake2b;
     type VK = MspMvk<C>;
-    type F = <H as MTHashLeaf<VK>>::F;
+    type F = <H as MTHashLeaf<MTValue<VK>>>::F;
 
     proptest! {
     #[test]
     fn test_atms_protocol(n in 1..=32_usize,
-                          subset_is in vec(any::<usize>(), 1..=32_usize),
+                          subset_is in vec(1..=32_usize, 1..=32_usize),
                           t_frac in 1..=4_usize,
                           msg in any::<[u8; 16]>(),
                           seed in any::<[u8; 32]>()) {
@@ -229,11 +256,16 @@ mod tests {
             signatures.push((pk.mvk, sig));
         }
 
-        let keys = signatures.iter().map(|(k, _)| *k).collect::<Vec<VK>>();
+        let keys = signatures.iter().map(|(k, _)| (*k, 1)).collect::<Vec<(VK, Stake)>>();
         let avk = Avk::<VK, H>::new(&keys);
         assert!(avk.check(&keys));
 
-        let subset = subset_is
+        let unique_is = subset_is
+            .iter()
+            .map(|i| i % n)
+            .collect::<HashSet<_>>();
+
+        let subset = unique_is
             .iter()
             .map(|i| {
                 signatures[i % n]
@@ -246,8 +278,8 @@ mod tests {
             Err(VerifyFailure::FoundDuplicates) => {
                 assert!(subset.iter().map(|x| x.0).collect::<HashSet<_>>().len() < subset.len())
             }
-            Err(VerifyFailure::InsufficientSignatures(d)) => {
-                assert!(subset.len() == d)
+            Err(VerifyFailure::TooMuchOutstandingStake(d)) => {
+                assert!(d as usize > n/2);
             }
             Err(err) => unreachable!("{:?}", err)
         }
