@@ -54,6 +54,7 @@ use blake2::VarBlake2b;
 use digest::{Update, VariableOutput};
 use rand_core::{CryptoRng, RngCore};
 use std::hash::Hash;
+use std::iter::Sum;
 use std::marker::PhantomData;
 use std::{cmp::Ordering, collections::hash_map::DefaultHasher, hash::Hasher};
 
@@ -93,6 +94,15 @@ impl<PE: PairingEngine> PartialOrd for MspMvk<PE> {
 impl<PE: PairingEngine> Ord for MspMvk<PE> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.cmp_msp_mvk(other)
+    }
+}
+
+impl<'a, PE: PairingEngine> Sum<&'a Self> for MspMvk<PE> {
+    fn sum<I>(iter: I) -> Self
+    where
+        I: Iterator<Item = &'a Self>,
+    {
+        MspMvk(iter.map(|x| x.0).sum())
     }
 }
 
