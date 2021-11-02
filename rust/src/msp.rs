@@ -56,6 +56,7 @@ use rand_core::{CryptoRng, RngCore};
 use std::hash::Hash;
 use std::iter::Sum;
 use std::marker::PhantomData;
+use std::ops::Sub;
 use std::{cmp::Ordering, collections::hash_map::DefaultHasher, hash::Hasher};
 
 /// Struct used to namespace the functions.
@@ -103,6 +104,13 @@ impl<'a, PE: PairingEngine> Sum<&'a Self> for MspMvk<PE> {
         I: Iterator<Item = &'a Self>,
     {
         MspMvk(iter.map(|x| x.0).sum())
+    }
+}
+
+impl<'a, PE: PairingEngine> Sub for MspMvk<PE> {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self {
+        MspMvk(self.0 - rhs.0)
     }
 }
 
