@@ -166,6 +166,11 @@ where
         h == self.nodes[0]
     }
 
+    /// Get the root of the tree
+    pub fn root(&self) -> &H::F {
+        &self.nodes[0]
+    }
+
     /// Convert the root of the tree to bytes.
     pub fn root_to_bytes(&self) -> Vec<u8> {
         H::as_bytes(&self.nodes[0])
