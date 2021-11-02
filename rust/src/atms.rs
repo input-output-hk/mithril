@@ -154,7 +154,6 @@ where
     /// Called `AVer` in the paper
     pub fn verify<H: MTHashLeaf<MTValue<VK>, F = F>>(
         &self,
-        t: usize,
         msg: &[u8],
         keys: &Avk<VK, H>,
     ) -> Result<(), VerifyFailure<VK, F>> {
@@ -273,7 +272,7 @@ mod tests {
             .collect::<Vec<_>>();
         let aggr_sig = Asig::new(&msg, &avk, &subset);
 
-        match aggr_sig.verify(t, &msg, &avk) {
+        match aggr_sig.verify(&msg, &avk) {
             Ok(()) => (),
             Err(VerifyFailure::FoundDuplicates) => {
                 assert!(subset.iter().map(|x| x.0).collect::<HashSet<_>>().len() < subset.len())
