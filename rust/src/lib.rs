@@ -47,6 +47,7 @@ pub fn ev_lt_phi(phi_f: f64, ev: u64, stake: Stake, total_stake: Stake) -> bool 
 }
 
 /// Serializes the Merkle Tree together with a message in a single vector of bytes.
+/// Outputs msg || avk as a vector of bytes.
 pub fn concat_avk_with_msg<L, H>(avk: &MerkleTree<L, H>, msg: &[u8]) -> Vec<u8>
 where
     H: MTHashLeaf<L>,

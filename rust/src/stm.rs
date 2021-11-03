@@ -332,7 +332,7 @@ where
         let my_index = reg
             .iter()
             .enumerate()
-            .find(|(_i, rp)| rp.party_id == self.party_id)
+            .find(|(_, rp)| rp.party_id == self.party_id)
             .unwrap_or_else(|| panic!("party unknown: {}", self.party_id))
             .0;
         let total_stake = mtvals.iter().map(|s| s.1).sum();
@@ -811,7 +811,6 @@ mod tests {
         fn test_adversary_quorum(
             (adversaries, parties) in arb_parties_adversary_stake(8, 30, 16, 4),
             msg in any::<[u8;16]>(),
-            _i in any::<usize>(), _j in any::<usize>(),
         ) {
             // Test sanity check:
             // Check that the adversarial party has less than 40% of the total stake.
@@ -899,8 +898,7 @@ mod tests {
         // defintion of the proved relation between statement & witness as
         // defined in the Mithril protocol
         #[test]
-        fn test_invalid_proof_quorum(tc in arb_proof_setup(10),
-                                     _rnd in any::<u64>()) {
+        fn test_invalid_proof_quorum(tc in arb_proof_setup(10)) {
             with_proof_mod(tc, |_aggr, clerk, _msg| {
                 clerk.params.k += 1;
             })
@@ -922,8 +920,7 @@ mod tests {
             })
         }
         #[test]
-        fn test_invalid_proof_index_bound(tc in arb_proof_setup(10),
-                                          _rnd in any::<u64>()) {
+        fn test_invalid_proof_index_bound(tc in arb_proof_setup(10)) {
             with_proof_mod(tc, |_aggr, clerk, _msg| {
                 clerk.params.m = 1;
             })

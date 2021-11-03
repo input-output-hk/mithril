@@ -13,6 +13,7 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 
 /// Struct used to namespace the functions.
+/// See section 2.4 of [the paper](https://eprint.iacr.org/2021/916).
 pub struct Msp<PE: PairingEngine> {
     x: PhantomData<PE>,
 }
@@ -25,14 +26,14 @@ pub struct MspSk<PE: PairingEngine>(PE::Fr);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MspMvk<PE: PairingEngine>(pub PE::G2Projective);
 
-/// MSP public key.
+/// MSP public key, contains the verification key and proof of posession.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MspPk<PE: PairingEngine> {
-    /// The mvk.
+    /// The verification key.
     pub mvk: MspMvk<PE>,
-    /// The first G1 element.
+    /// The first element of the PoP.
     pub k1: PE::G1Projective,
-    /// The second G1 element.
+    /// The second element of the PoP.
     pub k2: PE::G1Projective,
 }
 
