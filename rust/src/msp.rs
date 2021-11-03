@@ -1,4 +1,49 @@
-//! Base multisignature scheme.
+//! Base multisignature scheme, used as a primitive for STM.
+//! See Section 2.4 of [the paper](https://eprint.iacr.org/2021/916).
+//!
+//! The following is an example showing how to use Msp with the BLS12 curve.
+//! It creates 10 signatures of the same (arbitrary) message, then shows how to combine
+//! those signatures into an aggregate signature.
+//!
+//! ```rust
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!     use mithril::msp::Msp; // Import the Msp module
+//!     use rand_chacha::rand_core::{RngCore, SeedableRng}; // For RNG functionality
+//!     use ark_bls12_377::Bls12_377; // Underlying curve using Ark
+//!
+//!     // We will create and aggregate 10 signatures in this example
+//!     let num_sigs = 10;
+//!
+//!     // create and initialize the RNG
+//!     let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(42);
+//!
+//!     // The message will just be some arbitrary data
+//!     let mut msg = [0; 16];
+//!     rng.fill_bytes(&mut msg);
+//!
+//!     let mut mvks = Vec::new(); // vec of verification keys
+//!     let mut sigs = Vec::new(); // vec of signatures
+//!
+//!     for _ in 0..num_sigs {
+//!         // Create a new keypair using the BLS12_377 curve
+//!         let (sk, pk) = Msp::<Bls12_377>::gen(&mut rng);
+//!         // Sign the message using an individual secret key
+//!         let sig = Msp::sig(&sk, &msg);
+//!         // Check that the individual verification is valid
+//!         assert!(Msp::ver(&msg, &pk.mvk, &sig));
+//!         sigs.push(sig);
+//!         mvks.push(pk.mvk);
+//!     }
+//!
+//!     // Aggregate the verification keys
+//!     let ivk = Msp::aggregate_keys(&mvks);
+//!     // Aggregate the signatures keys
+//!     let mu = Msp::aggregate_sigs(&sigs);
+//!     // Check that the aggregated signature is valid
+//!     assert!(Msp::aggregate_ver(&msg, &ivk, &mu));
+//! # Ok(())
+//! # }
+//! ```
 
 use super::mithril_curves::hash_to_curve;
 use super::Index;
@@ -13,7 +58,6 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 
 /// Struct used to namespace the functions.
-/// See section 2.4 of [the paper](https://eprint.iacr.org/2021/916).
 pub struct Msp<PE: PairingEngine> {
     x: PhantomData<PE>,
 }
@@ -291,10 +335,11 @@ mod tests {
                               num_sigs in 1..16,
                               seed in any::<[u8;32]>(),
         ) {
+            let mut rng = ChaCha20Rng::from_seed(seed);
             let mut mvks = Vec::new();
             let mut sigs = Vec::new();
             for _ in 0..num_sigs {
-                let (sk, pk) = Msp::<Bls12_377>::gen(&mut ChaCha20Rng::from_seed(seed));
+                let (sk, pk) = Msp::<Bls12_377>::gen(&mut rng);
                 let sig = Msp::sig(&sk, &msg);
                 assert!(Msp::ver(&msg, &pk.mvk, &sig));
                 sigs.push(sig);
