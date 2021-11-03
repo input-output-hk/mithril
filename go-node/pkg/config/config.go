@@ -14,8 +14,9 @@ type Config struct {
 			PhiF float64 `mapstructure:"phi_f"`
 		} `mapstructure:"params"`
 		Participants []struct {
-			PartyId int64 `mapstructure:"party_id"`
-			Stake   int64 `mapstructure:"stake"`
+			PartyId int64  `mapstructure:"party_id"`
+			Stake   int64  `mapstructure:"stake"`
+			Key     string `mapstructure:"key"`
 		} `mapstructure:"participants"`
 	} `mapstructure:"mithril"`
 }
