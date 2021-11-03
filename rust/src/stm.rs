@@ -1,4 +1,127 @@
 //! Top-level API for Mithril Stake-based Threshold Multisignature scheme.
+//! See figure 6 of [the paper](https://eprint.iacr.org/2021/916) for most of the
+//! protocol.
+//!
+//! What follows is a simple example showing the usage of STM.
+//!
+//! ```rust
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! use ark_bls12_377::Bls12_377; // Use BLS12 for base elliptic curve
+//! use mithril::key_reg::KeyReg; // Import key registration functionality
+//! use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
+//! use mithril::stm::{AggregationFailure, StmClerk, StmInitializer, StmParameters, StmSigner};
+//! use rayon::prelude::*; // We use par_iter to speed things up
+//!
+//! use rand_chacha::ChaCha20Rng;
+//! use rand_core::{RngCore, SeedableRng};
+//!
+//! let nparties = 4; // Use a small number of parties for this example
+//! type H = blake2::Blake2b; // Setting the hash function for convenience
+//!
+//! let mut rng = ChaCha20Rng::from_seed([0u8; 32]); // create and initialize rng
+//! let mut msg = [0u8; 16]; // setting an arbitrary message
+//! rng.fill_bytes(&mut msg);
+//!
+//! // In the following, we will have 4 parties try to sign `msg`, then aggregate and
+//! // verify those signatures.
+//!
+//! //////////////////////////
+//! // initialization phase //
+//! //////////////////////////
+//!
+//! // Set low parameters for testing
+//! // XXX: not for production
+//! let params = StmParameters {
+//!     m: 100, // Security parameter XXX: not for production
+//!     k: 2, // Qorum parameter XXX: not for production
+//!     phi_f: 0.2, // Lottery parameter XXX: not for production
+//! };
+//!
+//! // Generate some arbitrary stake for each party
+//! // Stake is an integer.
+//! // Total stake of all parties is total stake in the system.
+//! let parties = (0..nparties)
+//!     .into_iter()
+//!     .map(|pid| (pid, 1 + (rng.next_u64() % 9999)))
+//!     .collect::<Vec<_>>();
+//!
+//! // Create a new key registry from the parties and their stake
+//! let mut key_reg = KeyReg::new(&parties);
+//!
+//! // For each party, crate a StmInitializer.
+//! // This struct can create keys for the party.
+//! let mut ps: Vec<StmInitializer<Bls12_377>> = Vec::with_capacity(nparties);
+//! for (pid, stake) in parties {
+//!     // Create keys for this party
+//!     let p = StmInitializer::setup(params, pid, stake, &mut rng);
+//!     // Register keys with the KeyReg service
+//!     key_reg
+//!         .register(p.party_id(), p.verification_key())
+//!         .unwrap();
+//!     ps.push(p);
+//! }
+//!
+//! // Extract all the public keys for each party.
+//! // This is used to create StmSigner.
+//! let reg = key_reg.retrieve_all();
+//!
+//! // Finialize the StmInitializer and turn it into a StmSigner, which can execute the
+//! // rest of the protocol.
+//! let ps = ps
+//!     .into_par_iter()
+//!     .map(|p| p.new_signer(&reg))
+//!     .collect::<Vec<StmSigner<H, Bls12_377>>>();
+//!
+//! /////////////////////
+//! // operation phase //
+//! /////////////////////
+//!
+//! // Next, each party tries to sign the message for each index available.
+//! // We collect the successful signatures into a vec.
+//! let p_results = ps
+//!     .par_iter()
+//!     .map(|p| {
+//!         // Now for party p we try to sign the msg with each index.
+//!         let mut sigs = Vec::new();
+//!         let mut ixs = Vec::new();
+//!         for ix in 1..params.m {
+//!             // If party p wins the lottery for index ix, then sign the message
+//!             if let Some(sig) = p.sign(&msg, ix) {
+//!                 sigs.push(sig);
+//!                 ixs.push(ix);
+//!             }
+//!         }
+//!         (ixs, sigs)
+//!     })
+//!     .collect::<Vec<_>>();
+//! let mut sigs = Vec::new();
+//! let mut ixs = Vec::new();
+//! for res in p_results {
+//!     ixs.extend(res.0);
+//!     sigs.extend(res.1);
+//! }
+//!
+//! // StmClerk can aggregate and verify signatures.
+//! let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
+//!
+//! // Aggregate and verify the signatures
+//! let msig = clerk.aggregate::<ConcatProof<Bls12_377, H>>(&sigs, &ixs, &msg);
+//! match msig {
+//!     Ok(aggr) => {
+//!         println!("Aggregate ok");
+//!         assert!(clerk
+//!             .verify_msig::<ConcatProof<Bls12_377, H>>(&aggr, &msg)
+//!             .is_ok());
+//!     }
+//!     Err(AggregationFailure::NotEnoughSignatures(n)) => {
+//!         println!("Not enough signatures");
+//!         assert!(n < params.k as usize)
+//!     }
+//!     Err(_) => unreachable!(),
+//! }
+//! # Ok(())
+//! # }
+//! ```
 
 use super::{concat_avk_with_msg, ev_lt_phi, Index, PartyId, Path, Stake};
 use crate::key_reg::RegParty;
