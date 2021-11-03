@@ -1,8 +1,9 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"github.com/input-output-hk/mithril/go-node/pkg/config"
+	"github.com/input-output-hk/mithril/go-node/pkg/node"
 )
 
 func main() {
@@ -12,5 +13,10 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Println(cfg)
+	p2pNode, err := node.New(context.Background(), cfg)
+	if err != nil {
+		panic(err)
+	}
+
+	_ = p2pNode.ServeNode()
 }
