@@ -450,25 +450,23 @@ where
         // the merkle tree. The implementation stores MTValues (derived from
         // this vector) in the tree.
         let mtvals: Vec<MTValue<PE>> = reg.iter().map(|rp| MTValue(rp.pk.mvk, rp.stake)).collect();
-        // AVK <- MT.Create(Reg)
-        let avk = MerkleTree::create(&mtvals);
-        let my_index = reg
-            .iter()
-            .enumerate()
-            .find(|(_, rp)| rp.party_id == self.party_id)
-            .unwrap_or_else(|| panic!("party unknown: {}", self.party_id))
-            .0;
-        let total_stake = mtvals.iter().map(|s| s.1).sum();
-
+        // Extract this signer's party index from the registry
+        let mut my_index = None;
+        for (i, rp) in reg.iter().enumerate() {
+            if rp.party_id == self.party_id {
+                my_index = Some(i);
+                break;
+            }
+        }
         StmSigner {
             party_id: self.party_id,
-            avk_idx: my_index,
+            avk_idx: my_index.unwrap_or_else(|| panic!("party unknown: {}", self.party_id)),
             stake: self.stake,
             params: self.params,
-            avk,
+            avk: MerkleTree::create(&mtvals),
             sk: self.sk,
             pk: self.pk,
-            total_stake,
+            total_stake: mtvals.iter().map(|s| s.1).sum(),
         }
     }
 }
