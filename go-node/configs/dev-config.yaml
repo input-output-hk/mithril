@@ -1,0 +1,22 @@
+mithril:
+  party_id: 1
+  params:
+    k: 1
+    m: 500
+    phi_f: 1.0
+  participants:
+    - party_id: 1
+      stake: 1
+      key: "123"
+    - party_id: 2
+      stake: 2
+      key: "123"
+    - party_id: 3
+      stake: 3
+      key: "123"
+    - party_id: 4
+      stake: 4
+      key: "123"
+    - party_id: 5
+      stake: 5
+      key: "123"

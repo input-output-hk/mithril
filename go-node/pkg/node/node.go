@@ -4,10 +4,6 @@ import (
 	"container/list"
 	"context"
 	"fmt"
-	"os"
-	"os/signal"
-	"syscall"
-
 	"github.com/input-output-hk/mithril/go-node/pkg/config"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
@@ -15,6 +11,9 @@ import (
 	"github.com/libp2p/go-libp2p-core/peer"
 	noise "github.com/libp2p/go-libp2p-noise"
 	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 func New(ctx context.Context, cfg *config.Config) (*Node, error) {
@@ -37,6 +36,7 @@ func New(ctx context.Context, cfg *config.Config) (*Node, error) {
 type Node struct {
 	ctx    context.Context
 	config *config.Config
+	self   *PeerNode
 	host   host.Host
 	peers  list.List
 }
@@ -58,7 +58,7 @@ func (n *Node) ServeNode() error {
 
 	// This gets called every time a peer connects and opens a stream to this node.
 	n.host.SetStreamHandler(protocolID, func(s network.Stream) {
-		newPeer(n.ctx, *n, s)
+		n.self = newPeer(n.ctx, *n, s)
 	})
 
 	sigCh := make(chan os.Signal)
@@ -66,9 +66,6 @@ func (n *Node) ServeNode() error {
 
 	<-sigCh
 	return nil
-}
-
-func (n Node) startServer() {
 }
 
 func (n Node) HandlePeerFound(peerAddrInfo peer.AddrInfo) {
@@ -85,10 +82,23 @@ func (n Node) HandlePeerFound(peerAddrInfo peer.AddrInfo) {
 		panic(err)
 	}
 
-	newPeer(n.ctx, n, stream)
+	p := newPeer(n.ctx, n, stream)
+	n.SayHello(p)
+
 	fmt.Println("HandlePeerFound", peerAddrInfo)
 }
 
 func (n Node) HandlePeerTimeout(peerNode PeerNode) {
 	peerNode.Close()
+}
+
+func (n Node) SayHello(peerNode *PeerNode) {
+	m := Message{
+		Type: helloMessage,
+		Payload: Hello{
+			Text: "Keys will be provided",
+		},
+	}
+
+	peerNode.writeCh <- m
 }
