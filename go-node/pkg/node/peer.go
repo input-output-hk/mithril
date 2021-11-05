@@ -1,8 +1,9 @@
 package node
 
 import (
+	"bufio"
 	"context"
-	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -26,6 +27,8 @@ func newPeer(ctx context.Context, node Node, stream network.Stream) *PeerNode {
 		stream:     stream,
 		foundAt:    time.Now(),
 		lastSeenAt: time.Now(),
+		rw:         bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream)),
+		writeCh:    make(chan Message, 32),
 	}
 
 	go pn.readStream()
@@ -41,6 +44,9 @@ type PeerNode struct {
 	stream     network.Stream
 	foundAt    time.Time
 	lastSeenAt time.Time
+
+	rw      *bufio.ReadWriter
+	writeCh chan Message
 }
 
 func (p PeerNode) Close() error {
@@ -56,43 +62,25 @@ func (p PeerNode) Close() error {
 func (p PeerNode) readStream() {
 
 	for {
-		select {
-		case <-p.ctx.Done():
-			return
-
-		default:
-			var counter uint64
-			// get Message
-			// h map
-
-			err := binary.Read(p.stream, binary.BigEndian, &counter)
-			if err != nil {
-				fmt.Printf("Error reading from %s: %+v\n", p.stream.ID(), err)
-				return
-			}
-
-			fmt.Printf("Received %d from %s\n", counter, p.stream.ID())
+		str, err := p.rw.ReadString('\n')
+		if err != nil {
+			panic(err)
 		}
 
+		fmt.Println(str)
 	}
 }
 
 func (p PeerNode) writeStream() {
-	var counter uint64
-
 	for {
 		select {
 		case <-p.ctx.Done():
 			return
 
-		case <-time.After(time.Second):
-			counter++
-
-			err := binary.Write(p.stream, binary.BigEndian, counter)
-			if err != nil {
-				p.node.HandlePeerTimeout(p)
-				return
-			}
+		case m := <-p.writeCh:
+			data, _ := json.Marshal(m)
+			p.rw.WriteString(fmt.Sprintf("%s\n", string(data)))
+			p.rw.Flush()
 		}
 	}
 }

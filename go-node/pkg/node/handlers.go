@@ -1,21 +1,14 @@
 package node
 
+const (
+	helloMessage = "hello"
+)
+
 type Message struct {
-	Type    string                 `json:"type"`
-	Payload map[string]interface{} `json:"payload"`
+	Type    string      `json:"type"`
+	Payload interface{} `json:"payload"`
 }
 
 type Hello struct {
-	Msg string `mapstructure:"msg"`
+	Text string `mapstructure:"msg" json:"msg"`
 }
-
-type SignRequest struct {
-}
-
-type SignResponse struct {
-	RequestId int64
-	BlockId   int
-}
-
-type HandshakeParams struct{}
-
