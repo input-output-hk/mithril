@@ -12,7 +12,6 @@ import (
 
 type (
 	StmParameters = C.StmParameters
-	Participant   = C.Participant
 )
 
 var (
@@ -29,10 +28,10 @@ func NewStmtParams(k, m int, phiF float64) StmParameters {
 	}
 }
 
-func NewParticipant(partyId, stake int64) *Participant {
-	k := &C.Participant{
-		party_id: C.PartyId(partyId),
-		stake:    C.Stake(stake),
-	}
-	return k
-}
+//func NewParticipant(partyId, stake int64) *Participant {
+//	k := &C.Participant{
+//		party_id: C.PartyId(partyId),
+//		stake:    C.Stake(stake),
+//	}
+//	return k
+//}
