@@ -19,3 +19,4 @@ docker run -it mithril /bin/bash -c "cd /mithril; /root/.cargo/bin/cargo test --
 To build and run the benchmarks:
 ```
 docker run -it mithril /bin/bash -c "cd /mithril; /root/.cargo/bin/cargo bench"
+```
