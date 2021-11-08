@@ -148,63 +148,67 @@ mod c_api {
     pub mod serialize {
         use super::*;
         use ark_ff::{FromBytes, ToBytes};
-        use std::slice;
+        use std::{intrinsics::copy_nonoverlapping, slice};
 
         /// Sets *key_bytes to the serialization
         /// Sets *key_size to the size of the buffer
+        /// The caller is responsible for freeing this buffer
         #[no_mangle]
         pub extern "C" fn msp_serialize_verification_key(
             kptr: MspPkPtr,
             key_size: *mut usize,
-            key_bytes: *mut *const u8,
+            key_bytes: *mut *mut u8,
         ) {
             c_serialize(kptr, key_size, key_bytes);
         }
         #[no_mangle]
         pub extern "C" fn msp_deserialize_verification_key(
             key_size: usize,
-            key_bytes: *const u8,
+            key_bytes: *mut u8,
         ) -> MspPkPtr {
             c_deserialize(key_size, key_bytes)
         }
         /// Sets *key_bytes to the serialization
         /// Sets *key_size to the size of the buffer
+        /// The caller is responsible for freeing this buffer
         #[no_mangle]
         pub extern "C" fn msp_serialize_secret_key(
             kptr: MspSkPtr,
             key_size: *mut usize,
-            key_bytes: *mut *const u8,
+            key_bytes: *mut *mut u8,
         ) {
             c_serialize(kptr, key_size, key_bytes);
         }
         #[no_mangle]
         pub extern "C" fn msp_deserialize_secret_key(
             key_size: usize,
-            key_bytes: *const u8,
+            key_bytes: *mut u8,
         ) -> MspPkPtr {
             c_deserialize(key_size, key_bytes)
         }
         /// Sets *sig_bytes to the serialization
         /// Sets *sig_size to the size of the buffer
+        /// The caller is responsible for freeing this buffer
         #[no_mangle]
         pub extern "C" fn stm_serialize_sig(
             sptr: SigPtr,
             sig_size: *mut usize,
-            sig_bytes: *mut *const u8,
+            sig_bytes: *mut *mut u8,
         ) {
             c_serialize(sptr, sig_size, sig_bytes);
         }
         #[no_mangle]
-        pub extern "C" fn stm_deserialize_sig(sig_size: usize, sig_bytes: *const u8) -> SigPtr {
+        pub extern "C" fn stm_deserialize_sig(sig_size: usize, sig_bytes: *mut u8) -> SigPtr {
             c_deserialize(sig_size, sig_bytes)
         }
         /// Sets *msig_bytes to the serialization
         /// Sets *msig_size to the size of the buffer
+        /// The caller is responsible for freeing this buffer
         #[no_mangle]
         pub extern "C" fn stm_serialize_multi_sig(
             msig_ptr: MultiSigPtr,
             msig_size: *mut usize,
-            msig_bytes: *mut *const u8,
+            msig_bytes: *mut *mut u8,
         ) {
             c_serialize(msig_ptr, msig_size, msig_bytes)
         }
@@ -212,7 +216,7 @@ mod c_api {
         #[no_mangle]
         pub extern "C" fn stm_deserialize_multi_sig(
             sig_size: usize,
-            sig_bytes: *const u8,
+            sig_bytes: *mut u8,
         ) -> MultiSigPtr {
             c_deserialize(sig_size, sig_bytes)
         }
@@ -221,7 +225,7 @@ mod c_api {
         pub extern "C" fn stm_serialize_initializer(
             init_ptr: StmInitializerPtr,
             init_size: *mut usize,
-            init_bytes: *mut *const u8,
+            init_bytes: *mut *mut u8,
         ) {
             c_serialize(init_ptr, init_size, init_bytes)
         }
@@ -229,19 +233,24 @@ mod c_api {
         #[no_mangle]
         pub extern "C" fn stm_deserialize_initializer(
             init_size: usize,
-            init_bytes: *const u8,
+            init_bytes: *mut u8,
         ) -> StmInitializerPtr {
             c_deserialize(init_size, init_bytes)
         }
 
-        fn c_serialize<T: ToBytes>(ptr: *mut T, size: *mut usize, out_bytes: *mut *const u8) {
+        fn c_serialize<T: ToBytes>(ptr: *mut T, size: *mut usize, out_bytes: *mut *mut u8) {
             unsafe {
-                let v = *Box::from_raw(ptr);
-                let bytes: Box<Vec<u8>> = Box::new(ark_ff::to_bytes!(v).unwrap());
-                *size = bytes.len();
-                *out_bytes = bytes.as_ptr();
+                let v = &*ptr;
+                let bytes = ark_ff::to_bytes!(v).unwrap();
+                let len = bytes.len();
+                *size = len;
+                let dst = libc::malloc(len) as *mut u8;
+                assert!(!dst.is_null());
+                copy_nonoverlapping(bytes.as_ptr(), dst, len);
+                *out_bytes = dst;
             }
         }
+
         fn c_deserialize<T: FromBytes>(size: usize, bytes: *const u8) -> *mut T {
             unsafe {
                 let val = T::read(slice::from_raw_parts(bytes, size)).unwrap();
