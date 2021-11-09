@@ -1,15 +1,9 @@
 //! Prove the validity of aggregated signatures.
 
-use crate::stm::{
-    MTValue,
-    StmParameters,
-    StmSig,
-    Index,
-    ev_lt_phi,
-};
-use crate::merkle_tree::{MTHashLeaf, MerkleTree, concat_avk_with_msg};
+use crate::merkle_tree::{concat_avk_with_msg, MTHashLeaf, MerkleTree};
 use crate::msp::{Msp, MspMvk, MspSig};
 use crate::proof::Proof;
+use crate::stm::{ev_lt_phi, Index, MTValue, StmParameters, StmSig};
 use ark_ec::PairingEngine;
 use ark_ff::{FromBytes, ToBytes};
 use std::collections::HashSet;

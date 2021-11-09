@@ -124,7 +124,7 @@
 //! ```
 
 use crate::key_reg::RegParty;
-use crate::merkle_tree::{MTHashLeaf, MerkleTree, Path, concat_avk_with_msg};
+use crate::merkle_tree::{concat_avk_with_msg, MTHashLeaf, MerkleTree, Path};
 use crate::mithril_proof::{MithrilProof, MithrilStatement, MithrilWitness};
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
 use crate::proof::ProverEnv;

@@ -1,11 +1,10 @@
 //! Creation and verification of Merkle Trees
+use ark_ff::{FromBytes, ToBytes};
 use std::{
-    fmt::Debug,
     convert::TryInto,
+    fmt::Debug,
     io::{Read, Write},
 };
-use ark_ff::{FromBytes, ToBytes};
-
 
 /// Path of hashes from root to leaf in a Merkle Tree.
 /// Used to verify the credentials of users and signatures.
@@ -39,8 +38,8 @@ impl<F: FromBytes> FromBytes for Path<F> {
 /// Serializes the Merkle Tree together with a message in a single vector of bytes.
 /// Outputs msg || avk as a vector of bytes.
 pub fn concat_avk_with_msg<L, H>(avk: &MerkleTree<L, H>, msg: &[u8]) -> Vec<u8>
-    where
-        H: MTHashLeaf<L>,
+where
+    H: MTHashLeaf<L>,
 {
     let mut msgp = msg.to_vec();
     let mut bytes = avk.root_to_bytes();

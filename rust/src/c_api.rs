@@ -1,5 +1,4 @@
 //! C api
-#[allow(missing_docs)]
 use crate::{
     merkle_tree::{MTHashLeaf, MerkleTree},
     mithril_proof::concat_proofs::{ConcatProof, TrivialEnv},
@@ -24,6 +23,7 @@ type MerkleTreePtr = *mut MerkleTree<MTValue<C>, H>;
 
 // A macro would be nice for the below, but macros do not
 // seem to work properly with cbindgen:
+/// Frees a signature pointer
 #[no_mangle]
 pub extern "C" fn free_sig(p: SigPtr) {
     assert!(!p.is_null());
@@ -31,6 +31,7 @@ pub extern "C" fn free_sig(p: SigPtr) {
         Box::from_raw(p);
     }
 }
+/// Frees a multi signature pointer
 #[no_mangle]
 pub extern "C" fn free_multi_sig(p: MultiSigPtr) {
     assert!(!p.is_null());
@@ -38,6 +39,7 @@ pub extern "C" fn free_multi_sig(p: MultiSigPtr) {
         Box::from_raw(p);
     }
 }
+/// Frees an STM initialiser pointer
 #[no_mangle]
 pub extern "C" fn free_stm_initializer(p: StmInitializerPtr) {
     assert!(!p.is_null());
@@ -45,6 +47,7 @@ pub extern "C" fn free_stm_initializer(p: StmInitializerPtr) {
         Box::from_raw(p);
     }
 }
+/// Frees an STM signer pointer
 #[no_mangle]
 pub extern "C" fn free_stm_signer(p: StmSignerPtr) {
     assert!(!p.is_null());
@@ -53,6 +56,7 @@ pub extern "C" fn free_stm_signer(p: StmSignerPtr) {
     }
 }
 #[no_mangle]
+/// Frees an STM Clerk pointer
 pub extern "C" fn free_stm_clerk(p: StmClerkPtr) {
     assert!(!p.is_null());
     unsafe {
@@ -61,6 +65,7 @@ pub extern "C" fn free_stm_clerk(p: StmClerkPtr) {
 }
 
 pub mod serialize {
+    //! Serialisation functions
     use super::*;
     use ark_ff::{FromBytes, ToBytes};
     use std::{intrinsics::copy_nonoverlapping, slice};
@@ -76,6 +81,7 @@ pub mod serialize {
     ) {
         c_serialize(kptr, key_size, key_bytes);
     }
+    /// Given a pointer and its size, deserialize into a MSP verification/public key
     #[no_mangle]
     pub extern "C" fn msp_deserialize_verification_key(
         key_size: usize,
@@ -94,11 +100,9 @@ pub mod serialize {
     ) {
         c_serialize(kptr, key_size, key_bytes);
     }
+    /// Given a pointer and its size, deserialize into a MSP secret key
     #[no_mangle]
-    pub extern "C" fn msp_deserialize_secret_key(
-        key_size: usize,
-        key_bytes: *mut u8,
-    ) -> MspPkPtr {
+    pub extern "C" fn msp_deserialize_secret_key(key_size: usize, key_bytes: *mut u8) -> MspPkPtr {
         c_deserialize(key_size, key_bytes)
     }
     /// Sets *sig_bytes to the serialization
@@ -112,6 +116,7 @@ pub mod serialize {
     ) {
         c_serialize(sptr, sig_size, sig_bytes);
     }
+    /// Given a pointer and its size, deserialize into an STM signature
     #[no_mangle]
     pub extern "C" fn stm_deserialize_sig(sig_size: usize, sig_bytes: *mut u8) -> SigPtr {
         c_deserialize(sig_size, sig_bytes)
@@ -127,7 +132,7 @@ pub mod serialize {
     ) {
         c_serialize(msig_ptr, msig_size, msig_bytes)
     }
-
+    /// Given a pointer and its size, deserialize into an STM multi signature
     #[no_mangle]
     pub extern "C" fn stm_deserialize_multi_sig(
         sig_size: usize,
@@ -136,6 +141,9 @@ pub mod serialize {
         c_deserialize(sig_size, sig_bytes)
     }
 
+    /// Sets *init_bytes to the serialization
+    /// Sets *init_size to the size of the buffer
+    /// The caller is responsible for freeing this buffer
     #[no_mangle]
     pub extern "C" fn stm_serialize_initializer(
         init_ptr: StmInitializerPtr,
@@ -145,6 +153,7 @@ pub mod serialize {
         c_serialize(init_ptr, init_size, init_bytes)
     }
 
+    /// Given a pointer and its size, deserialize into an STM initializer
     #[no_mangle]
     pub extern "C" fn stm_deserialize_initializer(
         init_size: usize,
