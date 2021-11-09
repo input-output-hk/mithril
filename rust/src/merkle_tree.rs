@@ -1,6 +1,53 @@
 //! Creation and verification of Merkle Trees
-use crate::Path;
-use std::fmt::Debug;
+use std::{
+    fmt::Debug,
+    convert::TryInto,
+    io::{Read, Write},
+};
+use ark_ff::{FromBytes, ToBytes};
+
+
+/// Path of hashes from root to leaf in a Merkle Tree.
+/// Used to verify the credentials of users and signatures.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Path<F>(Vec<F>);
+
+impl<F: ToBytes> ToBytes for Path<F> {
+    fn write<W: Write>(&self, mut writer: W) -> std::io::Result<()> {
+        let n: u64 = self.0.len().try_into().unwrap();
+        n.write(&mut writer)?;
+        for pi in &self.0 {
+            pi.write(&mut writer)?;
+        }
+
+        Ok(())
+    }
+}
+impl<F: FromBytes> FromBytes for Path<F> {
+    fn read<R: Read>(mut reader: R) -> std::io::Result<Self> {
+        let n = u64::read(&mut reader)?;
+        let mut p = Vec::with_capacity(n as usize);
+        for _ in 0..n {
+            let pi = F::read(&mut reader)?;
+            p.push(pi);
+        }
+
+        Ok(Path(p))
+    }
+}
+
+/// Serializes the Merkle Tree together with a message in a single vector of bytes.
+/// Outputs msg || avk as a vector of bytes.
+pub fn concat_avk_with_msg<L, H>(avk: &MerkleTree<L, H>, msg: &[u8]) -> Vec<u8>
+    where
+        H: MTHashLeaf<L>,
+{
+    let mut msgp = msg.to_vec();
+    let mut bytes = avk.root_to_bytes();
+    msgp.append(&mut bytes);
+
+    msgp
+}
 
 /// This trait describes a hashing algorithm. For mithril we need
 /// (1) a way to inject stored values into the tree

@@ -46,7 +46,7 @@
 //! ```
 
 use super::mithril_curves::hash_to_curve;
-use super::Index;
+use super::stm::Index;
 
 use ark_ec::{AffineCurve, PairingEngine};
 use ark_ff::{bytes::ToBytes, ToConstraintField, UniformRand};

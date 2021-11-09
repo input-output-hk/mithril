@@ -1,9 +1,10 @@
+//! C api
+#[allow(missing_docs)]
 use crate::{
     merkle_tree::{MTHashLeaf, MerkleTree},
     mithril_proof::concat_proofs::{ConcatProof, TrivialEnv},
     msp::{MspPk, MspSk},
     stm::*,
-    Index, PartyId, Stake,
 };
 use rand_core::OsRng;
 use std::ffi::CStr;

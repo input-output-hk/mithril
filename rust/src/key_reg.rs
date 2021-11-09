@@ -5,7 +5,7 @@ use std::hash::Hash;
 use std::iter::FromIterator;
 
 use super::msp::{Msp, MspMvk, MspPk};
-use super::{PartyId, Stake};
+use super::stm::{PartyId, Stake};
 
 use ark_ec::PairingEngine;
 use ark_ff::ToBytes;
