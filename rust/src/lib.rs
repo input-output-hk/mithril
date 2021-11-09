@@ -183,7 +183,7 @@ mod c_api {
         pub extern "C" fn msp_deserialize_secret_key(
             key_size: usize,
             key_bytes: *mut u8,
-        ) -> MspPkPtr {
+        ) -> MspSkPtr {
             c_deserialize(key_size, key_bytes)
         }
         /// Sets *sig_bytes to the serialization
