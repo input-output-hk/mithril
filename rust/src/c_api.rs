@@ -102,7 +102,7 @@ pub mod serialize {
     }
     /// Given a pointer and its size, deserialize into a MSP secret key
     #[no_mangle]
-    pub extern "C" fn msp_deserialize_secret_key(key_size: usize, key_bytes: *mut u8) -> MspPkPtr {
+    pub extern "C" fn msp_deserialize_secret_key(key_size: usize, key_bytes: *mut u8) -> MspSkPtr {
         c_deserialize(key_size, key_bytes)
     }
     /// Sets *sig_bytes to the serialization
@@ -164,6 +164,7 @@ pub mod serialize {
 
     fn c_serialize<T: ToBytes>(ptr: *mut T, size: *mut usize, out_bytes: *mut *mut u8) {
         unsafe {
+            assert!(!ptr.is_null());
             let v = &*ptr;
             let bytes = ark_ff::to_bytes!(v).unwrap();
             let len = bytes.len();
