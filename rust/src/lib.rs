@@ -240,6 +240,7 @@ mod c_api {
 
         fn c_serialize<T: ToBytes>(ptr: *mut T, size: *mut usize, out_bytes: *mut *mut u8) {
             unsafe {
+                assert!(!ptr.is_null());
                 let v = &*ptr;
                 let bytes = ark_ff::to_bytes!(v).unwrap();
                 let len = bytes.len();
