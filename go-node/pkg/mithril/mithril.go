@@ -6,6 +6,7 @@ package mithril
 #include "mithril.h"
 */
 import "C"
+
 import (
 	"errors"
 )
@@ -18,6 +19,13 @@ var (
 	ErrSignFailed          = errors.New("sign failed")
 	ErrVerifyFailed        = errors.New("verification failed")
 	ErrNotEnoughSignatures = errors.New("not enough signatures")
+
+	ErrLotteryLost       = errors.New("lottery lost")
+	ErrInvalidMerkleTree = errors.New("invalid merkle tree")
+	ErrInvalidSignature  = errors.New("invalid signature")
+
+	ErrInvalidAggregate = errors.New("invalid aggregate")
+	ErrProofError       = errors.New("proof error")
 )
 
 func NewStmtParams(k, m int, phiF float64) StmParameters {
@@ -27,11 +35,3 @@ func NewStmtParams(k, m int, phiF float64) StmParameters {
 		phi_f: C.double(phiF),
 	}
 }
-
-//func NewParticipant(partyId, stake int64) *Participant {
-//	k := &C.Participant{
-//		party_id: C.PartyId(partyId),
-//		stake:    C.Stake(stake),
-//	}
-//	return k
-//}

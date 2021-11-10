@@ -96,9 +96,8 @@ func (n Node) SayHello(peerNode *PeerNode) {
 	m := Message{
 		Type: helloMessage,
 		Payload: Hello{
-			Text: "Keys will be provided",
+			PublicKey: "Keys will be provided",
 		},
 	}
-
 	peerNode.writeCh <- m
 }
