@@ -23,12 +23,12 @@ type Initializer struct {
 	isFreed bool
 }
 
-func (si Initializer) PartyId() int64 {
-	return int64(C.stm_initializer_party_id(si.ptr))
+func (si Initializer) PartyId() uint64 {
+	return uint64(C.stm_initializer_party_id(si.ptr))
 }
 
-func (si Initializer) Stake() int64 {
-	return int64(C.stm_initializer_stake(si.ptr))
+func (si Initializer) Stake() uint64 {
+	return uint64(C.stm_initializer_stake(si.ptr))
 }
 
 func (si Initializer) Participant() Participant {
@@ -64,10 +64,4 @@ func (si *Initializer) Free() {
 	}
 	C.free_stm_initializer(si.ptr)
 	si.isFreed = true
-}
-
-type Participant struct {
-	PartyId int64
-	Stake   int64
-	pk      C.MspPkPtr
 }
