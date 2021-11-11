@@ -1,0 +1,51 @@
+use ark_bls12_377::Bls12_377;
+use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId};
+use mithril::key_reg::KeyReg;
+use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
+use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner};
+use rand_chacha::ChaCha20Rng;
+use rand_core::{RngCore, SeedableRng};
+use rayon::prelude::*;
+use std::time::Duration;
+use mithril::msp::{Msp, MspMvk, MspSig};
+
+type C = Bls12_377;
+type H = blake2::Blake2b;
+
+static NR_SIGNERS: [usize; 6] = [8, 16, 32, 64, 128, 256];
+
+fn msp(c: &mut Criterion) {
+    let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
+    let mut msg = [0u8; 16];
+    rng.fill_bytes(&mut msg);
+    let mut mvks = Vec::new();
+    let mut sigs = Vec::new();
+
+    let mut group = c.benchmark_group("Multi-signatures");
+    group.bench_function("Key generation", |b| b.iter(|| Msp::<Bls12_377>::gen(&mut rng)));
+
+    let (sk, pk) = Msp::<Bls12_377>::gen(&mut rng);
+    group.bench_function("Single signature", |b| b.iter(|| Msp::sig(&sk, &msg)));
+
+    for _ in 0..NR_SIGNERS[5] {
+        let (sk, pk) = Msp::<Bls12_377>::gen(&mut rng);
+        let sig = Msp::sig(&sk, &msg);
+        sigs.push(sig);
+        mvks.push(pk.mvk);
+    }
+
+    for size in NR_SIGNERS {
+        group.bench_with_input(BenchmarkId::new("Aggregate keys", size), &size, |b, &i| b.iter(|| Msp::aggregate_keys(&mvks[..i])));
+        group.bench_with_input(BenchmarkId::new("Aggregate signatures", size), &size, |b, &i| b.iter(|| Msp::aggregate_sigs(&sigs[..i])));
+    }
+    let ivk = Msp::aggregate_keys(&mvks);
+    let mu = Msp::aggregate_sigs(&sigs);
+    group.bench_function("Signature verification", |b| b.iter(|| Msp::aggregate_ver(&msg, &ivk, &mu)));
+
+    group.finish();
+}
+
+criterion_group!(name = benches;
+                 config = Criterion::default().measurement_time(Duration::new(5, 0));
+                 targets = msp);
+criterion_main!(benches);

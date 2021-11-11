@@ -39,7 +39,7 @@ name = "merkle_tree_create"
 harness = false
 
 [[bench]]
-name = "aggregate_and_verify"
+name = "msp"
 harness = false
 
 [features]
