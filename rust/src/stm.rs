@@ -871,7 +871,7 @@ mod tests {
         fn test_dedup(msg in any::<[u8; 16]>(), misbehaving_parties in 2usize..5) {
             let nparties = 10usize;
             let false_msg = [1u8; 20];
-            let params = StmParameters { m: (nparties as u64), k: 1, phi_f: 0.2 };
+            let params = StmParameters { m: (nparties as u64), k: 1, phi_f: 1.0 };
             let ps = setup_equal_parties(params, nparties);
             let p = &ps[0];
             let clerk = StmClerk::from_signer(p, TrivialEnv);
