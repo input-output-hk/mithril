@@ -605,7 +605,7 @@ where
         let mut sigs_to_verify = Vec::new();
         let mut indices_to_verify = Vec::new();
 
-        for (ix, sig) in dedup_sigs_for_indices::<H, PE>(indices, sigs) {
+        for (ix, sig) in self.dedup_sigs_for_indices(msg, indices, sigs) {
             if let Err(e) = self.verify_sig(sig, *ix, msg) {
                 return Err(AggregationFailure::VerifyFailed(e, sig.clone(), *ix));
             }
@@ -693,6 +693,32 @@ where
         }
         Ok(())
     }
+
+    /// Given a slice of `indices` and one of `sigs`, this functions selects a single valid signature
+    /// per index. In case of conflict (having several signatures for the same index) it selects the
+    /// smallest signature (i.e. takes the signature with the smallest scalar).
+    fn dedup_sigs_for_indices<'a>(
+        &self,
+        msg: &[u8],
+        indices: &'a [Index],
+        sigs: &'a [StmSig<PE, H::F>],
+    ) -> impl IntoIterator<Item = (&'a Index, &'a StmSig<PE, H::F>)>
+        where
+            PE::G1Projective: ToConstraintField<PE::Fq>,
+    {
+        let mut sigs_by_index: HashMap<&Index, &StmSig<PE, H::F>> = HashMap::new();
+        for (ix, sig) in indices.iter().zip(sigs) {
+            if let Some(old_sig) = sigs_by_index.get(ix) {
+                if sig.sigma < old_sig.sigma {
+                    sigs_by_index.insert(ix, sig);
+                }
+            } else {
+                sigs_by_index.insert(ix, sig);
+            }
+        }
+
+        sigs_by_index.into_iter()
+    }
 }
 
 /// Compares the output of `phi` (a real) to the output of `ev` (a hash).
@@ -704,27 +730,6 @@ pub fn ev_lt_phi(phi_f: f64, ev: u64, stake: Stake, total_stake: Stake) -> bool 
     let ev_as_f64 = ev as f64 / 2_f64.powf(64.0);
     // println!("{} {}", phi, ev_as_f64);
     ev_as_f64 < phi
-}
-
-fn dedup_sigs_for_indices<'a, H: MTHashLeaf<MTValue<PE>>, PE: PairingEngine>(
-    indices: &'a [Index],
-    sigs: &'a [StmSig<PE, H::F>],
-) -> impl IntoIterator<Item = (&'a Index, &'a StmSig<PE, H::F>)>
-where
-    PE::G1Projective: ToConstraintField<PE::Fq>,
-{
-    let mut sigs_by_index: HashMap<&Index, &StmSig<PE, H::F>> = HashMap::new();
-    for (ix, sig) in indices.iter().zip(sigs) {
-        if let Some(old_sig) = sigs_by_index.get(ix) {
-            if sig.sigma < old_sig.sigma {
-                sigs_by_index.insert(ix, sig);
-            }
-        } else {
-            sigs_by_index.insert(ix, sig);
-        }
-    }
-
-    sigs_by_index.into_iter()
 }
 
 #[cfg(test)]
