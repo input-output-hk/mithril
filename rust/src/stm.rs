@@ -708,6 +708,9 @@ where
     {
         let mut sigs_by_index: HashMap<&Index, &StmSig<PE, H::F>> = HashMap::new();
         for (ix, sig) in indices.iter().zip(sigs) {
+            if self.verify_sig(sig, *ix, msg).is_err() {
+                continue;
+            }
             if let Some(old_sig) = sigs_by_index.get(ix) {
                 if sig.sigma < old_sig.sigma {
                     sigs_by_index.insert(ix, sig);
@@ -861,6 +864,42 @@ mod tests {
             .unzip();
 
         res
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(50))]
+
+        #[test]
+        /// Test that `dedup_sigs_for_indices` only takes valid signatures.
+        fn test_dedup(msg in any::<[u8; 16]>(), misbehaving_parties in 2usize..5) {
+            let nparties = 10usize;
+            let false_msg = [1u8; 20];
+            let params = StmParameters { m: (nparties as u64), k: 1, phi_f: 0.2 };
+            let ps = setup_equal_parties(params, nparties);
+            let p = &ps[0];
+            let clerk = StmClerk::from_signer(p, TrivialEnv);
+            let mut sigs = Vec::with_capacity(nparties);
+            let mut ixs = Vec::with_capacity(nparties);
+
+
+            for index in 0..misbehaving_parties {
+                if let Some(sig) = p.sign(&false_msg, index as u64) {
+                    sigs.push(sig);
+                    ixs.push(index as u64);
+                }
+            }
+
+            for index in misbehaving_parties..nparties {
+                if let Some(sig) = p.sign(&msg, index as u64) {
+                    sigs.push(sig);
+                    ixs.push(index as u64);
+                }
+            }
+
+            for (&passed_ixs, passed_sigs) in clerk.dedup_sigs_for_indices(&msg, &ixs, &sigs) {
+                assert!(clerk.verify_sig(&passed_sigs, passed_ixs as u64, &msg).is_ok());
+            }
+        }
     }
 
     proptest! {
