@@ -712,7 +712,6 @@ where
                 count += 1;
                 sigs_by_index.insert(ix, sig);
             }
-
             if count == self.params.k {
                 return Ok(sigs_by_index.into_iter());
             }
