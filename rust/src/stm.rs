@@ -606,10 +606,6 @@ where
         let mut indices_to_verify = Vec::new();
 
         for (ix, sig) in self.dedup_sigs_for_indices(msg, indices, sigs) {
-            if let Err(e) = self.verify_sig(sig, *ix, msg) {
-                return Err(AggregationFailure::VerifyFailed(e, sig.clone(), *ix));
-            }
-
             evals.push(Msp::eval(&msgp, *ix, &sig.sigma));
             sigmas.push(sig.sigma);
             mvks.push(sig.pk.mvk);
@@ -703,8 +699,8 @@ where
         indices: &'a [Index],
         sigs: &'a [StmSig<PE, H::F>],
     ) -> impl IntoIterator<Item = (&'a Index, &'a StmSig<PE, H::F>)>
-        where
-            PE::G1Projective: ToConstraintField<PE::Fq>,
+    where
+        PE::G1Projective: ToConstraintField<PE::Fq>,
     {
         let mut sigs_by_index: HashMap<&Index, &StmSig<PE, H::F>> = HashMap::new();
         for (ix, sig) in indices.iter().zip(sigs) {
