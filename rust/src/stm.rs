@@ -605,20 +605,12 @@ where
         let mut sigs_to_verify = Vec::new();
         let mut indices_to_verify = Vec::new();
 
-        for (ix, sig) in self.dedup_sigs_for_indices(msg, indices, sigs) {
+        for (ix, sig) in self.dedup_sigs_for_indices(msg, indices, sigs)? {
             evals.push(Msp::eval(&msgp, *ix, &sig.sigma));
             sigmas.push(sig.sigma);
             mvks.push(sig.pk.mvk);
             sigs_to_verify.push(sig.clone());
             indices_to_verify.push(*ix);
-
-            if indices_to_verify.len() == self.params.k as usize {
-                break;
-            }
-        }
-        let n_unique = indices_to_verify.len();
-        if n_unique < self.params.k as usize {
-            return Err(AggregationFailure::NotEnoughSignatures(n_unique));
         }
 
         let ivk = Msp::aggregate_keys(&mvks);
@@ -692,17 +684,22 @@ where
 
     /// Given a slice of `indices` and one of `sigs`, this functions selects a single valid signature
     /// per index. In case of conflict (having several signatures for the same index) it selects the
-    /// smallest signature (i.e. takes the signature with the smallest scalar).
+    /// smallest signature (i.e. takes the signature with the smallest scalar). The function only
+    /// selects `self.k` signatures. If there is no sufficient, then returns an error.
     fn dedup_sigs_for_indices<'a>(
         &self,
         msg: &[u8],
         indices: &'a [Index],
         sigs: &'a [StmSig<PE, H::F>],
-    ) -> impl IntoIterator<Item = (&'a Index, &'a StmSig<PE, H::F>)>
+    ) -> Result<
+        impl IntoIterator<Item = (&'a Index, &'a StmSig<PE, H::F>)>,
+        AggregationFailure<PE, H::F>,
+    >
     where
         PE::G1Projective: ToConstraintField<PE::Fq>,
     {
         let mut sigs_by_index: HashMap<&Index, &StmSig<PE, H::F>> = HashMap::new();
+        let mut count = 0;
         for (ix, sig) in indices.iter().zip(sigs) {
             if self.verify_sig(sig, *ix, msg).is_err() {
                 continue;
@@ -712,11 +709,15 @@ where
                     sigs_by_index.insert(ix, sig);
                 }
             } else {
+                count += 1;
                 sigs_by_index.insert(ix, sig);
             }
-        }
 
-        sigs_by_index.into_iter()
+            if count == self.params.k {
+                return Ok(sigs_by_index.into_iter());
+            }
+        }
+        Err(AggregationFailure::NotEnoughSignatures(count as usize))
     }
 }
 
@@ -892,7 +893,7 @@ mod tests {
                 }
             }
 
-            for (&passed_ixs, passed_sigs) in clerk.dedup_sigs_for_indices(&msg, &ixs, &sigs) {
+            for (&passed_ixs, passed_sigs) in clerk.dedup_sigs_for_indices(&msg, &ixs, &sigs).unwrap() {
                 assert!(clerk.verify_sig(&passed_sigs, passed_ixs as u64, &msg).is_ok());
             }
         }
