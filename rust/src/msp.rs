@@ -89,7 +89,8 @@ impl<PE: PairingEngine> MspSig<PE>
 where
     PE::G1Projective: ToConstraintField<PE::Fq>,
 {
-    /// Compare two signatures. Used for PartialOrd impl, used to rank signatures.
+    /// Compare two signatures. Used for PartialOrd impl, used to rank signatures. The comparison
+    /// function can be anything, as long as it is consistent across different nodes.
     fn cmp_msp_sig(&self, other: &Self) -> Ordering {
         self.0.to_field_elements().cmp(&other.0.to_field_elements())
     }

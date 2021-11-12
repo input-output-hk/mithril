@@ -42,6 +42,10 @@ harness = false
 name = "msp"
 harness = false
 
+[[bench]]
+name = "stm"
+harness = false
+
 [features]
 default = ["example_curves"]
 example_curves = ["ark-bn254", "ark-bw6-761", "ark-cp6-782"]

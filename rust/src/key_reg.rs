@@ -87,7 +87,7 @@ where
     /// Registration has ended
     NotAllowed,
     /// This key has already been registered by a participant
-    KeyRegistered(MspPk<PE>),
+    KeyRegistered(Vec<u8>),
     /// This participant has already been registered
     PartyRegistered(PartyId),
     /// The supplied participant id does not belong to the
@@ -124,7 +124,7 @@ where
             return Err(RegisterError::NotAllowed);
         }
         if self.keys.contains(&pk) {
-            return Err(RegisterError::KeyRegistered(pk));
+            return Err(RegisterError::KeyRegistered(pk.mvk.to_bytes()));
         }
 
         if let Some(mut party) = self.parties.get_mut(&party_id) {
@@ -226,8 +226,8 @@ mod tests {
                         assert!(parties.insert(p.0));
                     },
                     Err(RegisterError::KeyRegistered(pk1)) => {
-                        assert!(pk1 == pk);
-                        assert!(keys.contains(&pk1));
+                        assert!(pk1 == pk.mvk.to_bytes());
+                        assert!(keys.contains(&pk));
                     }
                     Err(RegisterError::PartyRegistered(party)) => {
                         assert!(party == p.0);
