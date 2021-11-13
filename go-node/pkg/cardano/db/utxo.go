@@ -69,7 +69,7 @@ func (r *UTXORepository) GetTxOutputs(tx Querier, blockNumber int64) (txOuts map
 		if err != nil {
 			log.Fatal(err)
 		}
-		if txOuts[txOut.Address] == nil {
+		if _, ok := txOuts[txOut.Address]; ok == false {
 			txOuts[txOut.Address] = []*types.UTXO{}
 		}
 		txOuts[txOut.Address] = append(txOuts[txOut.Address], txOut)
