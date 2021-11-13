@@ -9,8 +9,8 @@ type Config struct {
 	Mithril struct {
 		PartyId int64 `mapstructure:"party_id"`
 		Params  struct {
-			K    int     `mapstructure:"k"`
-			M    int     `mapstructure:"m"`
+			K    uint64  `mapstructure:"k"`
+			M    uint64  `mapstructure:"m"`
 			PhiF float64 `mapstructure:"phi_f"`
 		} `mapstructure:"params"`
 		Participants []struct {

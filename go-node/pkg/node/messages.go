@@ -6,6 +6,8 @@ import (
 
 const (
 	helloMessage = "hello"
+	sigRequest   = "sigRequest"
+	sigResponse  = "sigResponse"
 )
 
 // Here we define a mithril node communication messages.
@@ -18,33 +20,30 @@ type (
 	}
 
 	Hello struct {
-		// Are these parameters fixed or sign process depended?
-
-		//PartyId   uint64 `mapstructure:"partyId" json:"partyId"`
-		//Stake     uint64 `mapstructure:"stake" json:"stake"`
-
-		CardanoAddress uint64
-		PublicKey      string `mapstructure:"publicKey" json:"publicKey"`
+		CardanoAddress string `mapstructure:"cardano_address" json:"cardano_address"`
+		PartyId        uint64 `mapstructure:"party_id" json:"party_id"`
+		Stake          uint64 `mapstructure:"stake" json:"stake"`
+		PublicKey      string `mapstructure:"public_key" json:"public_key"`
 	}
 
-	SignRequest struct {
-		RequestId uint64
+	SigRequest struct {
+		RequestId uint64 `mapstructure:"request_id" json:"request_id"`
 
-		Params       mithril.Parameters
-		Participants []mithril.Participant
+		Params       mithril.Parameters    `mapstructure:"params" json:"cardano_address"`
+		Participants []mithril.Participant `mapstructure:"participants" json:"participants"`
 
-		BlockNumber uint64
-		BlockHash   string
-		MerkleRoot  string
+		BlockNumber uint64 `mapstructure:"block_number" json:"block_number"`
+		BlockHash   string `mapstructure:"block_hash" json:"block_hash"`
+		MerkleRoot  string `mapstructure:"merkle_root" json:"merkle_root"`
 	}
 
-	SignResponse struct {
-		RequestId  uint64
-		Signatures []Signature
+	SigResponse struct {
+		RequestId  uint64      `mapstructure:"request_id" json:"request_id"`
+		Signatures []Signature `mapstructure:"signatures" json:"signatures"`
 	}
 
 	Signature struct {
-		Index uint64
-		Sig   string
+		Index uint64 `mapstructure:"index" json:"index"`
+		Sig   string `mapstructure:"sig" json:"sig"`
 	}
 )

@@ -1,10 +1,10 @@
 package node
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/input-output-hk/mithril/go-node/pkg/mithril"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
 	"github.com/multiformats/go-multiaddr"
@@ -13,7 +13,7 @@ import (
 
 const (
 	Initial int = iota
-	Connected
+	Ready
 	Zombie
 )
 
@@ -27,7 +27,7 @@ func newPeer(ctx context.Context, node Node, stream network.Stream) *PeerNode {
 		stream:     stream,
 		foundAt:    time.Now(),
 		lastSeenAt: time.Now(),
-		rw:         bufio.NewReadWriter(bufio.NewReader(stream), bufio.NewWriter(stream)),
+		status:     Initial,
 		writeCh:    make(chan Message, 32),
 	}
 
@@ -44,9 +44,10 @@ type PeerNode struct {
 	stream     network.Stream
 	foundAt    time.Time
 	lastSeenAt time.Time
+	status     int
+	writeCh    chan Message
 
-	rw      *bufio.ReadWriter
-	writeCh chan Message
+	participant mithril.Participant
 }
 
 func (p PeerNode) Close() error {
@@ -60,14 +61,15 @@ func (p PeerNode) Close() error {
 }
 
 func (p PeerNode) readStream() {
+	decoder := json.NewDecoder(p.stream)
 
 	for {
-		str, err := p.rw.ReadString('\n')
-		if err != nil {
+		var m Message
+		if err := decoder.Decode(&m); err != nil {
 			panic(err)
 		}
 
-		fmt.Println(str)
+		fmt.Println(m)
 	}
 }
 
@@ -78,9 +80,10 @@ func (p PeerNode) writeStream() {
 			return
 
 		case m := <-p.writeCh:
+			fmt.Printf("Sending msg: %s\n", m.Type)
 			data, _ := json.Marshal(m)
-			p.rw.WriteString(fmt.Sprintf("%s\n", string(data)))
-			p.rw.Flush()
+			p.stream.Write(data)
+			fmt.Println("Sent:", string(data))
 		}
 	}
 }
@@ -90,4 +93,9 @@ func (p PeerNode) AddrInfo() peer.AddrInfo {
 		ID:    p.stream.Conn().RemotePeer(),
 		Addrs: []multiaddr.Multiaddr{p.stream.Conn().RemoteMultiaddr()},
 	}
+}
+
+func (p *PeerNode) OnHello(hello Hello) {
+	p.participant = mithril.NewParticipant(hello.PartyId, hello.Stake, hello.PublicKey)
+	p.status = Ready
 }

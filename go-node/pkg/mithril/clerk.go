@@ -8,11 +8,6 @@ import (
 	"errors"
 )
 
-//func NewClerk(params StmParameters, avk MerkelTree, stake int64) Clerk {
-//	return Clerk{ptr: C.stm_clerk_new(params, avk, C.ulonglong(stake))}
-//}
-//
-
 type Clerk struct {
 	ptr     C.StmClerkPtr
 	isFreed bool
@@ -40,7 +35,7 @@ func (c Clerk) Aggregate(signatures []*Signature, msg string) (*MultiSign, error
 	}
 }
 
-func (c Clerk) VerifySign(msg string, index int64, sig *Signature) error {
+func (c Clerk) VerifySign(msg string, index uint64, sig *Signature) error {
 	rv := int(C.stm_clerk_verify_sig(c.ptr, sig.ptr, C.ulonglong(index), C.CString(msg)))
 	switch rv {
 	case 0:

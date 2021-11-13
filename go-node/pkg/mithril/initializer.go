@@ -5,10 +5,11 @@ package mithril
 */
 import "C"
 
-func NewInitializer(params StmParameters, partyId, stake int64) Initializer {
+func NewInitializer(params Parameters, partyId, stake uint64) Initializer {
 	initializer := Initializer{params: params}
+	stmParams := NewStmtParams(params.K, params.M, params.PhiF)
 
-	initializer.ptr = C.stm_intializer_setup(params, C.PartyId(partyId), C.ulonglong(stake))
+	initializer.ptr = C.stm_intializer_setup(stmParams, C.PartyId(partyId), C.ulonglong(stake))
 	initializer.sk = C.stm_initializer_secret_key(initializer.ptr)
 	initializer.pk = C.stm_initializer_verification_key(initializer.ptr)
 
@@ -16,7 +17,7 @@ func NewInitializer(params StmParameters, partyId, stake int64) Initializer {
 }
 
 type Initializer struct {
-	params  StmParameters
+	params  Parameters
 	ptr     C.StmInitializerPtr
 	sk      C.MspSkPtr
 	pk      C.MspPkPtr

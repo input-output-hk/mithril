@@ -16,15 +16,16 @@ type (
 	StmParameters = C.StmParameters
 
 	Participant struct {
-		PartyId   uint64
-		Stake     uint64
-		PublicKey string
+		PartyId   uint64 `mapstructure:"party_id" json:"party_id"`
+		Stake     uint64 `mapstructure:"stake" json:"stake"`
+		PublicKey string `mapstructure:"public_key" json:"public_key"`
 		pk        C.MspPkPtr
 	}
 
 	Parameters struct {
-		K, M uint64
-		PhiF float64
+		K    uint64  `mapstructure:"k" json:"k"`
+		M    uint64  `mapstructure:"m" json:"m"`
+		PhiF float64 `mapstructure:"phi_f" json:"phi_f"`
 	}
 )
 
