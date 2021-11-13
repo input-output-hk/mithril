@@ -24,10 +24,10 @@ func TestUTXORepository_GetTxOutputs(t *testing.T) {
 	defer s.Conn.Close(context.TODO())
 	assert.Nil(t, err)
 
-	var txOuts map[types.Address][]*types.TxOut
+	var txOuts map[types.Address][]*types.UTXO
 
 	err = s.Transact(context.TODO(), func(tx pgx.Tx) error {
-		txOuts, err = s.UTXORepository.GetTxOutputs(tx, 1)
+		txOuts, err = s.UTXORepository.GetTxOutputs(tx, 250000)
 		return err
 	})
 	assert.Nil(t, err)
