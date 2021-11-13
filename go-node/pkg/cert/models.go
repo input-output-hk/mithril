@@ -19,7 +19,6 @@ type (
 	}
 )
 
-
 func (c Certificate) MarshalJSON() ([]byte, error) {
 	return nil, nil
 }

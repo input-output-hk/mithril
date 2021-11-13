@@ -1,0 +1,14 @@
+{
+    // merkle tree proof
+    "certificate": {
+        "multiSign": "123123121312"
+    },
+    "address": "X",
+    "utxo": [
+        {
+            "txId": "hash",
+            "outputIndex": 12,
+            "value": 44
+        }
+    ],
+}
