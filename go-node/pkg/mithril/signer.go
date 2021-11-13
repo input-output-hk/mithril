@@ -4,7 +4,10 @@ package mithril
 #include "mithril.h"
 */
 import "C"
-import "encoding/hex"
+import (
+	"encoding/base64"
+	"encoding/hex"
+)
 
 func NewSigner(initializer Initializer, participants []Participant) *Signer {
 
@@ -31,12 +34,12 @@ type Signer struct {
 	ptr C.StmSignerPtr
 }
 
-func (s Signer) EligibilityCheck(index int64, msg string) bool {
+func (s Signer) EligibilityCheck(index uint64, msg string) bool {
 	rv := C.stm_signer_eligibility_check(s.ptr, C.CString(msg), C.ulonglong(index))
 	return bool(rv)
 }
 
-func (s Signer) Sign(index int64, msg string) (*Signature, error) {
+func (s Signer) Sign(index uint64, msg string) (*Signature, error) {
 	var sig Signature
 
 	if C.stm_signer_sign(s.ptr, C.CString(msg), C.ulonglong(index), &sig.ptr); sig.ptr == nil {
@@ -53,7 +56,7 @@ func (s Signer) Clerk() Clerk {
 
 type Signature struct {
 	ptr     C.SigPtr
-	index   int64
+	index   uint64
 	isFreed bool
 }
 
@@ -65,7 +68,11 @@ func (s Signature) HexString() string {
 	return hex.EncodeToString(s.Encode())
 }
 
-func (s Signature) Index() int64 {
+func (s Signature) Base64() string {
+	return base64.StdEncoding.EncodeToString(s.Encode())
+}
+
+func (s Signature) Index() uint64 {
 	return s.index
 }
 

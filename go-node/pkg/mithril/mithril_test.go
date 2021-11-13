@@ -73,7 +73,7 @@ func TestInitializerDecodeEncode(t *testing.T) {
 }
 
 func TestStmInitializerRefreshKeys(t *testing.T) {
-	params := NewStmtParams(1, 100, 1.0)
+	params := Parameters{K: 1, M: 100, PhiF: 1.0}
 	i := NewInitializer(params, 3, 4)
 
 	oldKey := i.SecretKey()
@@ -115,9 +115,9 @@ func TestMultiSignWithStaticKeys(t *testing.T) {
 	me.Free()
 
 	success := 0
-	indices := make([]int64, neededSigns)
+	indices := make([]uint64, neededSigns)
 
-	var i int64
+	var i uint64
 	for i = 0; i < totalSigns && success < neededSigns; i++ {
 		if signer.EligibilityCheck(i, signMsg) {
 			indices[success] = i
@@ -132,7 +132,7 @@ func TestMultiSignWithStaticKeys(t *testing.T) {
 	fmt.Println("indices", indices)
 
 	var signatures []*Signature
-	for i := 0; i < neededSigns; i++ {
+	for i = 0; i < neededSigns; i++ {
 		sign, err := signer.Sign(indices[i], signMsg)
 		if err != nil {
 			t.Error("Failed to sign message")
