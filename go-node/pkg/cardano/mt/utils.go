@@ -1,7 +1,7 @@
 package mt
 
 import (
-	"crypto/sha256"
+	"crypto"
 	"encoding/json"
 	"github.com/input-output-hk/mithril/go-node/pkg/cardano/types"
 )
@@ -14,7 +14,7 @@ func CalculateHash(txOut *types.UTXO) ([]byte, error) {
 		return nil, err
 	}
 
-	h := sha256.New()
+	h := crypto.BLAKE2b_256.New()
 	if _, err := h.Write(marshal); err != nil {
 		return nil, err
 	}
