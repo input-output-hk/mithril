@@ -1,14 +1,49 @@
-package db
+package cardano
 
 import (
 	"context"
+	"github.com/input-output-hk/mithril/go-node/internal/log"
+	"github.com/input-output-hk/mithril/go-node/internal/pg"
 	"github.com/input-output-hk/mithril/go-node/pkg/cardano/types"
 	"github.com/jackc/pgx/v4"
-	"log"
+	"time"
 )
 
-type Querier interface {
-	Query(ctx context.Context, sql string, args ...interface{}) (pgx.Rows, error)
+// Storage model
+type Storage struct {
+	Conn           *pgx.Conn
+	UTXORepository *UTXORepository
+}
+
+// NewStorage new pg storage
+func NewStorage(ctx context.Context, conn *pgx.Conn) *Storage {
+
+	utxoRepo := &UTXORepository{}
+
+	return &Storage{
+		Conn:           conn,
+		UTXORepository: utxoRepo,
+	}
+}
+
+// Transact generate and handle tx and recover in case of panic
+func (ps *Storage) Transact(ctx context.Context, txFunc func(pgx.Tx) error) (err error) {
+	tCtx, _ := context.WithTimeout(ctx, time.Second*30)
+	tx, err := ps.Conn.Begin(tCtx)
+	if err != nil {
+		return err
+	}
+	// Rollback is safe to call even if the tx is already closed, so if
+	// the tx commits successfully, this is a no-op
+	defer tx.Rollback(ctx)
+
+	err = txFunc(tx)
+	if err != nil {
+		return err
+	}
+
+	err = tx.Commit(ctx)
+	return err
 }
 
 const getTxOutputsSQL = `-- select all spent out till block
@@ -50,7 +85,7 @@ type UTXORepository struct {
 }
 
 // GetTxOutputs get sets from Conn
-func (r *UTXORepository) GetTxOutputs(tx Querier, blockNumber int64) (txOuts map[types.Address][]*types.UTXO, err error) {
+func (r *UTXORepository) GetTxOutputs(tx pg.Querier, blockNumber int64) (txOuts map[types.Address][]*types.UTXO, err error) {
 
 	rows, err := tx.Query(context.Background(), getTxOutputsSQL, blockNumber)
 	if err != nil {

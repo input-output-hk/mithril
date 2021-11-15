@@ -2,13 +2,12 @@ package cardano
 
 import (
 	"context"
-	"github.com/input-output-hk/mithril/go-node/pkg/cardano/db"
 	"github.com/input-output-hk/mithril/go-node/pkg/cardano/mt"
 	"github.com/input-output-hk/mithril/go-node/pkg/cardano/types"
 	"github.com/jackc/pgx/v4"
 )
 
-func ProcessUTXO(storage db.Storage, tree mt.MerkleTree, blockNumber int64) (root []byte, err error) {
+func ProcessUTXO(storage Storage, tree mt.MerkleTree, blockNumber int64) (root []byte, err error) {
 	// Get UTXO from DB
 	var txOuts map[types.Address][]*types.UTXO
 
@@ -30,9 +29,13 @@ func ProcessUTXO(storage db.Storage, tree mt.MerkleTree, blockNumber int64) (roo
 		}
 
 		root, err = tree.GetRoot()
-
 		return err
 	})
 
 	return root, err
+}
+
+
+func GetLastBlockNumber() int64 {
+	return 250000
 }

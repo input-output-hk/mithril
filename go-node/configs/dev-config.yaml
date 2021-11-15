@@ -1,5 +1,6 @@
+postgre_dsn: "host=127.0.0.1 port=54321 user=alex password=123456 dbname=testnet sslmode=disable"
 mithril:
-  party_id: 1
+  party_id: 0
   params:
     k: 1
     m: 500
@@ -9,7 +10,7 @@ mithril:
       stake: 1
       key: "123"
     - party_id: 2
-      stake: 2
+      stake: 0
       key: "123"
     - party_id: 3
       stake: 3
