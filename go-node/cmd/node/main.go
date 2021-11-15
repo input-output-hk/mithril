@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"github.com/input-output-hk/mithril/go-node/internal/pg"
 	"github.com/input-output-hk/mithril/go-node/pkg/config"
 	"github.com/input-output-hk/mithril/go-node/pkg/node"
 )
@@ -13,7 +15,13 @@ func main() {
 		panic(err)
 	}
 
-	p2pNode, err := node.New(context.Background(), cfg)
+	fmt.Println("foo", cfg.PostgresDSN)
+	dbConn, err := pg.NewConn(context.Background(), cfg.PostgresDSN)
+	if err != nil {
+		panic(err)
+	}
+
+	p2pNode, err := node.New(context.Background(), cfg, dbConn)
 	if err != nil {
 		panic(err)
 	}

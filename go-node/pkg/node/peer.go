@@ -17,7 +17,7 @@ const (
 	Zombie
 )
 
-func newPeer(ctx context.Context, node Node, stream network.Stream) *PeerNode {
+func newPeer(ctx context.Context, node *Node, stream network.Stream) *PeerNode {
 	peerCtx, cancel := context.WithCancel(ctx)
 
 	pn := &PeerNode{
@@ -40,7 +40,7 @@ func newPeer(ctx context.Context, node Node, stream network.Stream) *PeerNode {
 type PeerNode struct {
 	ctx        context.Context
 	ctxCancel  context.CancelFunc
-	node       Node
+	node       *Node
 	stream     network.Stream
 	foundAt    time.Time
 	lastSeenAt time.Time
@@ -68,9 +68,6 @@ func (p PeerNode) readStream() {
 	decoder := json.NewDecoder(p.stream)
 
 	for {
-		fmt.Printf("%s:%d:%d: Waiting input messages\n", p.Id(), p.node.participant.PartyId, p.participant.PartyId)
-		fmt.Println(p.participant)
-
 		var m Message
 		if err := decoder.Decode(&m); err != nil {
 			panic(err)
@@ -83,6 +80,13 @@ func (p PeerNode) readStream() {
 				panic(err)
 			}
 			p.OnHello(hello)
+
+		case sigRequest:
+			var sigReq SigRequest
+			if err := readMessage(m.Payload, &sigReq); err != nil {
+				panic(err)
+			}
+			p.OnSigRequest(sigReq)
 
 
 		default:
@@ -115,6 +119,7 @@ func (p PeerNode) AddrInfo() peer.AddrInfo {
 func (p *PeerNode) OnHello(hello Hello) {
 	p.participant = mithril.NewParticipant(hello.PartyId, hello.Stake, hello.PublicKey)
 	p.status = Ready
+
 	fmt.Printf("On node %d peer %d is ready\n", p.node.participant.PartyId, p.participant.PartyId)
 }
 

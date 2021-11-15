@@ -1,12 +1,14 @@
 package node
 
 import (
-	"bufio"
 	"container/list"
 	"context"
 	"fmt"
+	"github.com/input-output-hk/mithril/go-node/internal/log"
+	"github.com/input-output-hk/mithril/go-node/pkg/cardano"
 	"github.com/input-output-hk/mithril/go-node/pkg/config"
 	"github.com/input-output-hk/mithril/go-node/pkg/mithril"
+	"github.com/jackc/pgx/v4"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
 	"github.com/libp2p/go-libp2p-core/network"
@@ -15,13 +17,14 @@ import (
 	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 )
 
 const masterPartyId = 1
 
-func New(ctx context.Context, cfg *config.Config) (*Node, error) {
+func New(ctx context.Context, cfg *config.Config, conn *pgx.Conn) (*Node, error) {
 
 	node, err := libp2p.New(ctx,
 		libp2p.ListenAddrStrings("/ip4/127.0.0.1/tcp/0"),
@@ -36,25 +39,28 @@ func New(ctx context.Context, cfg *config.Config) (*Node, error) {
 
 	params := mithril.Parameters{K: mcfg.Params.K, M: mcfg.Params.M, PhiF: mcfg.Params.PhiF}
 	initializer := mithril.NewInitializer(params, part.PartyId, part.Stake)
-	fmt.Println("PartyId", part)
 
 	return &Node{
-		ctx:         ctx,
-		host:        node,
-		config:      cfg,
+		ctx:       ctx,
+		host:      node,
+		config:    cfg,
+		peerNodes: make(map[peer.ID]*PeerNode, 0),
+
+		storage: cardano.NewStorage(ctx, conn),
+
+		// mithril
 		participant: initializer.Participant(),
-		peerNodes:   make(map[peer.ID]*PeerNode, 0),
 	}, nil
 }
 
 type Node struct {
-	ctx    context.Context
-	config *config.Config
-	host   host.Host
-	peers  list.List
-
-	stream network.Stream
-	rw     *bufio.ReadWriter
+	ctx      context.Context
+	config   *config.Config
+	host     host.Host
+	peers    list.List
+	peerLock sync.Mutex
+	stream   network.Stream
+	storage  *cardano.Storage
 
 	participant mithril.Participant
 	peerNodes   map[peer.ID]*PeerNode
@@ -62,12 +68,18 @@ type Node struct {
 
 func (n *Node) ServeNode() error {
 
-	// Print this node's addresses and ID
-	fmt.Println("Addresses:", n.host.Addrs())
-	fmt.Println("ID:", n.host.ID())
+	var multiAddrs []string
 	for _, multiAddr := range n.host.Addrs() {
-		fmt.Println("Full Multi Addr: ", multiAddr.String()+"/p2p/"+n.host.ID().String())
+		multiAddrs = append(multiAddrs, multiAddr.String()+"/p2p/"+n.host.ID().String())
 	}
+
+	log.Infow("Starting Mithril Node",
+		"id", n.host.ID(),
+		"party_id", n.participant.PartyId,
+		"stake", n.participant.Stake,
+		"addresses", n.host.Addrs(),
+		"full_multi_addrs", multiAddrs,
+	)
 
 	// Setup peer discovery.
 	discoveryService := mdns.NewMdnsService(n.host, discoveryNamespace)
@@ -78,9 +90,7 @@ func (n *Node) ServeNode() error {
 	// This gets called every time a peer connects and opens a stream to this node.
 	n.host.SetStreamHandler(protocolID, func(s network.Stream) {
 		fmt.Println("SetStreamHandler:", s.Conn().RemotePeer().String())
-		p := newPeer(n.ctx, *n, s)
-		n.GreetNewPeer(p)
-		n.peerNodes[p.Id()] = p
+		n.HandleNewPeer(s)
 	})
 
 	if n.participant.PartyId == masterPartyId {
@@ -95,23 +105,41 @@ func (n *Node) ServeNode() error {
 	return nil
 }
 
-func (n Node) HandleMasterTask() {
-	timer := time.NewTicker(3 * time.Second)
+func (n *Node) HandleMasterTask() {
+	time.Sleep(10 * time.Second)
 
-	for {
-		select {
-		case <-timer.C:
-			msg := Message{
-				Type:    "123",
-				Payload: nil,
-			}
+	//for {
+	//	select {
+	//	case <-timer.C:
+	//		msg := Message{
+	//			Type:    "123",
+	//			Payload: nil,
+	//		}
+	//
+	//		for _, p := range n.peerNodes {
+	//			p.writeCh <- msg
+	//		}
+	//	}
+	//}
+}
 
-			fmt.Println("Task...", len(n.peerNodes))
-			for _, p := range n.peerNodes {
-				p.writeCh <- msg
-			}
-		}
+func (n *Node) HandleNewPeer(stream network.Stream) {
+	n.peerLock.Lock()
+	defer n.peerLock.Unlock()
+
+	peerId := stream.Conn().RemotePeer()
+	if _, ok := n.peerNodes[peerId]; ok {
+		_ = stream.Close()
+		return
 	}
+
+	p := newPeer(n.ctx, n, stream)
+	n.peerNodes[p.Id()] = p
+	n.GreetNewPeer(p)
+
+	log.Infow("New peer connection",
+		"id", p.Id(),
+	)
 }
 
 func (n *Node) HandlePeerFound(peerAddrInfo peer.AddrInfo) {
@@ -133,15 +161,14 @@ func (n *Node) HandlePeerFound(peerAddrInfo peer.AddrInfo) {
 	}
 
 	fmt.Println("HandlePeerFound:", stream.Conn().RemotePeer().String())
-	p := newPeer(n.ctx, *n, stream)
-	n.peerNodes[p.Id()] = p
+	n.HandleNewPeer(stream)
 }
 
-func (n Node) HandlePeerTimeout(peerNode PeerNode) {
+func (n *Node) HandlePeerTimeout(peerNode PeerNode) {
 	peerNode.Close()
 }
 
-func (n Node) GreetNewPeer(peerNode *PeerNode) {
+func (n *Node) GreetNewPeer(peerNode *PeerNode) {
 	m := Message{
 		Type: helloMessage,
 		Payload: Hello{
@@ -153,7 +180,7 @@ func (n Node) GreetNewPeer(peerNode *PeerNode) {
 	peerNode.writeCh <- m
 }
 
-func (n Node) SendHelloMessage(peer *PeerNode) {
+func (n *Node) SendHelloMessage(peer *PeerNode) {
 	msg := Message{
 		Type: helloMessage,
 		Payload: Hello{
@@ -166,8 +193,9 @@ func (n Node) SendHelloMessage(peer *PeerNode) {
 	peer.writeCh <- msg
 }
 
-func (n Node) CreateSigRequest() {
+func (n *Node) CreateSigRequest() {
 
+	mcfg := n.config.Mithril
 	participants := []mithril.Participant{n.participant}
 
 	for _, p := range n.peerNodes {
@@ -178,7 +206,7 @@ func (n Node) CreateSigRequest() {
 		Type: sigRequest,
 		Payload: SigRequest{
 			RequestId:    uint64(time.Now().Unix()),
-			Params:       mithril.Parameters{},
+			Params:       mithril.Parameters{K: mcfg.Params.K, M: mcfg.Params.M, PhiF: mcfg.Params.PhiF},
 			Participants: participants,
 			BlockNumber:  3,
 			BlockHash:    "<the hash>",
@@ -188,11 +216,10 @@ func (n Node) CreateSigRequest() {
 
 	for _, p := range n.peerNodes {
 		p.writeCh <- msg
-
 	}
 }
 
-func (n Node) HandleSigRequest(peer *PeerNode, req SigRequest) {
+func (n *Node) HandleSigRequest(peer *PeerNode, req SigRequest) {
 	initializer := mithril.NewInitializer(req.Params, n.participant.PartyId, n.participant.Stake)
 	defer initializer.Free()
 

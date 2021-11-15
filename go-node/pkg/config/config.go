@@ -1,11 +1,11 @@
 package config
 
 type Config struct {
-	Server struct {
+	PostgresDSN string `mapstructure:"postgre_dsn"`
+	Server      struct {
 		Port int    `mapstructure:"port"`
 		Host string `mapstructure:"host"`
 	} `mapstructure:"server"`
-
 	Mithril struct {
 		PartyId int64 `mapstructure:"party_id"`
 		Params  struct {
