@@ -2,6 +2,7 @@ package node
 
 import (
 	"github.com/input-output-hk/mithril/go-node/pkg/mithril"
+	"github.com/mitchellh/mapstructure"
 )
 
 const (
@@ -47,3 +48,8 @@ type (
 		Sig   string `mapstructure:"sig" json:"sig"`
 	}
 )
+
+
+func readMessage(input interface{}, output interface{}) error {
+	return mapstructure.Decode(input, output)
+}
