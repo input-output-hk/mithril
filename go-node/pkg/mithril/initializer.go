@@ -4,6 +4,7 @@ package mithril
 #include "mithril.h"
 */
 import "C"
+import "encoding/base64"
 
 func NewInitializer(params Parameters, partyId, stake uint64) Initializer {
 	initializer := Initializer{params: params}
@@ -34,9 +35,10 @@ func (si Initializer) Stake() uint64 {
 
 func (si Initializer) Participant() Participant {
 	return Participant{
-		PartyId: si.PartyId(),
-		Stake:   si.Stake(),
-		pk:      si.pk,
+		PartyId:   si.PartyId(),
+		Stake:     si.Stake(),
+		PublicKey: base64.StdEncoding.EncodeToString(encodePublicKey(si.pk)),
+		pk:        si.pk,
 	}
 }
 

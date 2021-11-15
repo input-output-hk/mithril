@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"container/list"
 	"context"
-	"encoding/json"
 	"fmt"
 	"github.com/input-output-hk/mithril/go-node/pkg/config"
 	"github.com/input-output-hk/mithril/go-node/pkg/mithril"
@@ -20,6 +19,8 @@ import (
 	"time"
 )
 
+const masterPartyId = 1
+
 func New(ctx context.Context, cfg *config.Config) (*Node, error) {
 
 	node, err := libp2p.New(ctx,
@@ -30,14 +31,19 @@ func New(ctx context.Context, cfg *config.Config) (*Node, error) {
 		return nil, err
 	}
 
-	p := mithril.Parameters{K: cfg.Mithril.Params.K, M: cfg.Mithril.Params.M, PhiF: cfg.Mithril.Params.PhiF}
-	i := mithril.NewInitializer(p, 1, 1)
+	mcfg := cfg.Mithril
+	part := mcfg.Participants[mcfg.PartyId]
+
+	params := mithril.Parameters{K: mcfg.Params.K, M: mcfg.Params.M, PhiF: mcfg.Params.PhiF}
+	initializer := mithril.NewInitializer(params, part.PartyId, part.Stake)
+	fmt.Println("PartyId", part)
 
 	return &Node{
 		ctx:         ctx,
 		host:        node,
 		config:      cfg,
-		participant: i.Participant(),
+		participant: initializer.Participant(),
+		peerNodes:   make(map[peer.ID]*PeerNode, 0),
 	}, nil
 }
 
@@ -51,7 +57,7 @@ type Node struct {
 	rw     *bufio.ReadWriter
 
 	participant mithril.Participant
-	peerNodes   []*PeerNode
+	peerNodes   map[peer.ID]*PeerNode
 }
 
 func (n *Node) ServeNode() error {
@@ -71,9 +77,16 @@ func (n *Node) ServeNode() error {
 
 	// This gets called every time a peer connects and opens a stream to this node.
 	n.host.SetStreamHandler(protocolID, func(s network.Stream) {
-		go n.readStream(s)
-		go n.writeStream(s)
+		fmt.Println("SetStreamHandler:", s.Conn().RemotePeer().String())
+		p := newPeer(n.ctx, *n, s)
+		n.GreetNewPeer(p)
+		n.peerNodes[p.Id()] = p
 	})
+
+	if n.participant.PartyId == masterPartyId {
+		fmt.Println("Doing master stream...")
+		go n.HandleMasterTask()
+	}
 
 	sigCh := make(chan os.Signal)
 	signal.Notify(sigCh, syscall.SIGKILL, syscall.SIGINT)
@@ -82,8 +95,31 @@ func (n *Node) ServeNode() error {
 	return nil
 }
 
+func (n Node) HandleMasterTask() {
+	timer := time.NewTicker(3 * time.Second)
+
+	for {
+		select {
+		case <-timer.C:
+			msg := Message{
+				Type:    "123",
+				Payload: nil,
+			}
+
+			fmt.Println("Task...", len(n.peerNodes))
+			for _, p := range n.peerNodes {
+				p.writeCh <- msg
+			}
+		}
+	}
+}
+
 func (n *Node) HandlePeerFound(peerAddrInfo peer.AddrInfo) {
 	if peerAddrInfo.ID == n.host.ID() {
+		return
+	}
+
+	if n.participant.PartyId == masterPartyId {
 		return
 	}
 
@@ -96,17 +132,16 @@ func (n *Node) HandlePeerFound(peerAddrInfo peer.AddrInfo) {
 		panic(err)
 	}
 
+	fmt.Println("HandlePeerFound:", stream.Conn().RemotePeer().String())
 	p := newPeer(n.ctx, *n, stream)
-
-	n.SendHelloMessage(p)
-	n.peerNodes = append(n.peerNodes, p)
+	n.peerNodes[p.Id()] = p
 }
 
 func (n Node) HandlePeerTimeout(peerNode PeerNode) {
 	peerNode.Close()
 }
 
-func (n Node) SayHello(peerNode *PeerNode) {
+func (n Node) GreetNewPeer(peerNode *PeerNode) {
 	m := Message{
 		Type: helloMessage,
 		Payload: Hello{
@@ -122,7 +157,7 @@ func (n Node) SendHelloMessage(peer *PeerNode) {
 	msg := Message{
 		Type: helloMessage,
 		Payload: Hello{
-			CardanoAddress: "",
+			CardanoAddress: "<CADDR>",
 			PartyId:        n.participant.PartyId,
 			Stake:          n.participant.Stake,
 			PublicKey:      n.participant.PublicKey,
@@ -199,21 +234,5 @@ func (n Node) HandleSigRequest(peer *PeerNode, req SigRequest) {
 		},
 	}
 
-	fmt.Println("Sent Hello Message")
 	peer.writeCh <- response
-}
-
-func (n Node) readStream(stream network.Stream) {
-	decoder := json.NewDecoder(stream)
-
-	for {
-		var m Message
-		if err := decoder.Decode(&m); err != nil {
-			panic(err)
-		}
-		fmt.Println("Read", m)
-	}
-}
-
-func (n Node) writeStream(stream network.Stream) {
 }

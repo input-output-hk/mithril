@@ -50,6 +50,10 @@ type PeerNode struct {
 	participant mithril.Participant
 }
 
+func (p PeerNode) Id() peer.ID {
+	return p.stream.Conn().RemotePeer()
+}
+
 func (p PeerNode) Close() error {
 	p.ctxCancel()
 
@@ -64,12 +68,26 @@ func (p PeerNode) readStream() {
 	decoder := json.NewDecoder(p.stream)
 
 	for {
+		fmt.Printf("%s:%d:%d: Waiting input messages\n", p.Id(), p.node.participant.PartyId, p.participant.PartyId)
+		fmt.Println(p.participant)
+
 		var m Message
 		if err := decoder.Decode(&m); err != nil {
 			panic(err)
 		}
 
-		fmt.Println(m)
+		switch m.Type {
+		case helloMessage:
+			var hello Hello
+			if err := readMessage(m.Payload, &hello); err != nil {
+				panic(err)
+			}
+			p.OnHello(hello)
+
+
+		default:
+			fmt.Println("Unknown message:", m.Payload)
+		}
 	}
 }
 
@@ -80,10 +98,9 @@ func (p PeerNode) writeStream() {
 			return
 
 		case m := <-p.writeCh:
-			fmt.Printf("Sending msg: %s\n", m.Type)
+			fmt.Printf("Sending message: %d --> %d: %s\n", p.node.participant.PartyId, p.participant.PartyId, m.Type)
 			data, _ := json.Marshal(m)
 			p.stream.Write(data)
-			fmt.Println("Sent:", string(data))
 		}
 	}
 }
@@ -98,4 +115,9 @@ func (p PeerNode) AddrInfo() peer.AddrInfo {
 func (p *PeerNode) OnHello(hello Hello) {
 	p.participant = mithril.NewParticipant(hello.PartyId, hello.Stake, hello.PublicKey)
 	p.status = Ready
+	fmt.Printf("On node %d peer %d is ready\n", p.node.participant.PartyId, p.participant.PartyId)
+}
+
+func (p *PeerNode) OnSigRequest(sigReq SigRequest) {
+	p.node.HandleSigRequest(p, sigReq)
 }
