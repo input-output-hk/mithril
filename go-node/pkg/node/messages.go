@@ -1,6 +1,7 @@
 package node
 
 import (
+	"github.com/input-output-hk/mithril/go-node/internal/log"
 	"github.com/input-output-hk/mithril/go-node/pkg/mithril"
 	"github.com/mitchellh/mapstructure"
 )
@@ -30,7 +31,7 @@ type (
 	SigRequest struct {
 		RequestId uint64 `mapstructure:"request_id" json:"request_id"`
 
-		Params       mithril.Parameters    `mapstructure:"params" json:"cardano_address"`
+		Params       mithril.Parameters    `mapstructure:"params" json:"params"`
 		Participants []mithril.Participant `mapstructure:"participants" json:"participants"`
 
 		BlockNumber uint64 `mapstructure:"block_number" json:"block_number"`
@@ -49,7 +50,14 @@ type (
 	}
 )
 
-
-func readMessage(input interface{}, output interface{}) error {
-	return mapstructure.Decode(input, output)
+func readMessage(p *PeerNode, input Message, output interface{}) error {
+	err := mapstructure.Decode(input.Payload, output)
+	if err != nil {
+		log.Errorw("Failed to decode message",
+			"peer_id", p.Id(),
+			"msg_type", input.Type,
+			"err", err,
+		)
+	}
+	return err
 }
