@@ -2,18 +2,18 @@ postgre_dsn: "host=127.0.0.1 port=54321 user=alex password=123456 dbname=testnet
 mithril:
   party_id: 0
   params:
-    k: 1
-    m: 500
-    phi_f: 1.0
+    k: 5
+    m: 100
+    phi_f: 0.2
   participants:
     - party_id: 1
       stake: 1
       key: "123"
     - party_id: 2
-      stake: 0
+      stake: 1
       key: "123"
     - party_id: 3
-      stake: 3
+      stake: 5
       key: "123"
     - party_id: 4
       stake: 4

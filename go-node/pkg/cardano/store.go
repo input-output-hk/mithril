@@ -2,8 +2,8 @@ package cardano
 
 import (
 	"context"
-	"github.com/input-output-hk/mithril/go-node/internal/log"
 	"github.com/input-output-hk/mithril/go-node/internal/pg"
+	"github.com/input-output-hk/mithril/go-node/pkg/cardano/mt"
 	"github.com/input-output-hk/mithril/go-node/pkg/cardano/types"
 	"github.com/jackc/pgx/v4"
 	"time"
@@ -16,11 +16,11 @@ type Storage struct {
 }
 
 // NewStorage new pg storage
-func NewStorage(ctx context.Context, conn *pgx.Conn) *Storage {
+func NewStorage(ctx context.Context, conn *pgx.Conn) Storage {
 
 	utxoRepo := &UTXORepository{}
 
-	return &Storage{
+	return Storage{
 		Conn:           conn,
 		UTXORepository: utxoRepo,
 	}
@@ -49,11 +49,11 @@ func (ps *Storage) Transact(ctx context.Context, txFunc func(pgx.Tx) error) (err
 const getTxOutputsSQL = `-- select all spent out till block
 with
      -- select all outputs till block_no
-     tx_o as (select tx_out.id, tx_id, index,address,address_raw, payment_cred, stake_address_id, value
+     tx_o as (select tx_out.id, tx_id, index, address, address_raw, payment_cred, stake_address_id, value
                 from tx_out
                          inner join tx t on t.id = tx_out.tx_id
                          inner join block on t.block_id=block.id
-                where block_no<$1),
+                where block_no < $1),
 
      -- In this select i'm not sure which id sould be used
      -- tx_in_id or tx_out_id?????
@@ -78,41 +78,48 @@ where
                  tx_o.index = tx_i.tx_out_index
           where tx_outer.id = tx_o.id
         )
-ORDER BY tx_outer.address;`
+ORDER BY tx_outer.address, tx_id, index;`
 
 // UTXORepository type for utxo repository
 type UTXORepository struct {
 }
 
 // GetTxOutputs get sets from Conn
-func (r *UTXORepository) GetTxOutputs(tx pg.Querier, blockNumber int64) (txOuts map[types.Address][]*types.UTXO, err error) {
+func (r *UTXORepository) GetTxOutputs(tx pg.Querier, blockNumber uint64, tree mt.MerkleTree) (int, error) {
 
 	rows, err := tx.Query(context.Background(), getTxOutputsSQL, blockNumber)
 	if err != nil {
-		log.Fatal(err)
+		return 0, err
 	}
 	defer rows.Close()
-
-	txOuts = make(map[types.Address][]*types.UTXO)
+	txOutLen := 0
 
 	for rows.Next() {
+		txOutLen++
+
 		/*
 		   1. group tx output
 		*/
 		txOut := &types.UTXO{}
 		err := rows.Scan(&txOut.Address, &txOut.Index, &txOut.Value, &txOut.TxID)
 		if err != nil {
-			log.Fatal(err)
+			return 0, err
 		}
-		if _, ok := txOuts[txOut.Address]; ok == false {
-			txOuts[txOut.Address] = []*types.UTXO{}
+		hash, err := mt.CalculateHash(txOut)
+		if err != nil {
+			return 0, err
 		}
-		txOuts[txOut.Address] = append(txOuts[txOut.Address], txOut)
 
+		err = tree.Add(hash)
+		if err != nil {
+			return 0, err
+		}
 	}
 
-	if err := rows.Err(); err != nil {
-		log.Fatal(err)
+	err = rows.Err()
+	if err != nil {
+		return 0, err
 	}
-	return txOuts, nil
+
+	return txOutLen, nil
 }

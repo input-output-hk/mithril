@@ -6,6 +6,7 @@ import "C"
 #include "mithril.h"
 */
 import "C"
+import "encoding/base64"
 
 func decodeSecretKey(src []byte) C.MspSkPtr {
 	size, cBuf := toCBytes(src)
@@ -25,6 +26,11 @@ func decodeInitializer(src []byte) Initializer {
 	si.pk = C.stm_initializer_verification_key(si.ptr)
 
 	return si
+}
+
+func DecodeSignature(src string) *Signature {
+	buf, _ := base64.StdEncoding.DecodeString(src)
+	return decodeSignature(buf)
 }
 
 func decodeSignature(src []byte) *Signature {

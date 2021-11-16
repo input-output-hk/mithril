@@ -3,7 +3,7 @@ package node
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"github.com/input-output-hk/mithril/go-node/internal/log"
 	"github.com/input-output-hk/mithril/go-node/pkg/mithril"
 	"github.com/libp2p/go-libp2p-core/network"
 	"github.com/libp2p/go-libp2p-core/peer"
@@ -64,45 +64,66 @@ func (p PeerNode) Close() error {
 	return nil
 }
 
-func (p PeerNode) readStream() {
+func (p *PeerNode) readStream() {
+	defer p.node.HandlePeerLost(p)
+
 	decoder := json.NewDecoder(p.stream)
 
 	for {
 		var m Message
 		if err := decoder.Decode(&m); err != nil {
-			panic(err)
+			log.Errorw("Failed to read peer",
+				"peer_id", p.Id(),
+				"stream_id", p.stream.ID(),
+				"err", err,
+			)
+			return
 		}
 
 		switch m.Type {
 		case helloMessage:
 			var hello Hello
-			if err := readMessage(m.Payload, &hello); err != nil {
-				panic(err)
+			err := readMessage(p, m, &hello)
+			if err != nil {
+				continue
 			}
 			p.OnHello(hello)
 
 		case sigRequest:
 			var sigReq SigRequest
-			if err := readMessage(m.Payload, &sigReq); err != nil {
-				panic(err)
+			err := readMessage(p, m, &sigReq)
+			if err != nil {
+				continue
 			}
 			p.OnSigRequest(sigReq)
 
+		case sigResponse:
+			var sigRes SigResponse
+			err := readMessage(p, m, &sigRes)
+			if err != nil {
+				continue
+			}
+			p.OnSigResponse(sigRes)
 
 		default:
-			fmt.Println("Unknown message:", m.Payload)
+			log.Error("Unknown message type",
+				"peer_id", p.Id(),
+				"msg_type", m.Type,
+				"payload", m.Payload,
+			)
 		}
 	}
 }
 
-func (p PeerNode) writeStream() {
+func (p *PeerNode) writeStream() {
+	defer p.node.HandlePeerLost(p)
+
 	for {
 		select {
 		case <-p.ctx.Done():
 			return
 
 		case m := <-p.writeCh:
-			fmt.Printf("Sending message: %d --> %d: %s\n", p.node.participant.PartyId, p.participant.PartyId, m.Type)
 			data, _ := json.Marshal(m)
 			p.stream.Write(data)
 		}
@@ -120,9 +141,18 @@ func (p *PeerNode) OnHello(hello Hello) {
 	p.participant = mithril.NewParticipant(hello.PartyId, hello.Stake, hello.PublicKey)
 	p.status = Ready
 
-	fmt.Printf("On node %d peer %d is ready\n", p.node.participant.PartyId, p.participant.PartyId)
+	log.Infow("Peer introduction",
+		"peer_id", p.Id().String(),
+		"stream_id", p.stream.ID(),
+		"party_id", p.participant.PartyId,
+		"stake", p.participant.Stake,
+	)
 }
 
 func (p *PeerNode) OnSigRequest(sigReq SigRequest) {
 	p.node.HandleSigRequest(p, sigReq)
+}
+
+func (p *PeerNode) OnSigResponse(sigRes SigResponse) {
+	p.node.HandleSigResponse(p, sigRes)
 }
