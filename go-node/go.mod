@@ -3,6 +3,7 @@ module github.com/input-output-hk/mithril/go-node
 go 1.17
 
 require (
+	github.com/go-chi/chi v1.5.4
 	github.com/jackc/pgx/v4 v4.13.0
 	github.com/libp2p/go-libp2p v0.15.0
 	github.com/libp2p/go-libp2p-core v0.9.0
@@ -14,6 +15,9 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/wealdtech/go-merkletree v1.0.0
 	go.uber.org/zap v1.19.0
+)
+
+require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/btcsuite/btcd v0.22.0-beta // indirect
 	github.com/cenkalti/backoff/v4 v4.1.1 // indirect

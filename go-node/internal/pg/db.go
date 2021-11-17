@@ -17,3 +17,11 @@ type Transacter interface {
 func NewConn(ctx context.Context, connString string) (*pgx.Conn, error) {
 	return pgx.Connect(ctx, connString)
 }
+
+func ApplyMigrations(conn *pgx.Conn) error {
+	//migrations := &migrate.FileMigrationSource{Dir: "migrations"}
+	//if _, err := migrate.Exec(conn, "postgres", migrations, migrate.Up); err != nil {
+	//	return err
+	//}
+	return nil
+}
