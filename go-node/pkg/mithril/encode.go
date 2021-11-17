@@ -26,10 +26,15 @@ func encodeInitializer(si Initializer) []byte {
 	})
 }
 
+
 func encodeSignature(sig C.SigPtr) []byte {
 	return encodeToBytes(func(size *C.ulong, buf **C.uchar) {
 		C.stm_serialize_sig(sig, size, buf)
 	})
+}
+
+func EncodeMultiSig(multiSig *MultiSign) []byte {
+	return encodeMultiSign(multiSig.ptr)
 }
 
 func encodeMultiSign(ms C.MultiSigPtr) []byte {

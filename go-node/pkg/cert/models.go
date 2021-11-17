@@ -7,16 +7,17 @@ import (
 
 type (
 	Certificate struct {
-		Params       mithril.Parameters
-		Participants []mithril.Participant
+		Id     uint64
+		Params mithril.Parameters
+		// Participants []mithril.Participant
 
 		BlockNumber uint64
 		BlockHash   []byte
 		MerkleRoot  []byte
 		MultiSig    []byte
 
-		CreatedAt  time.Time
-		FinishedAt time.Time
+		SigStartedAt  time.Time
+		SigFinishedAt time.Time
 	}
 )
 
