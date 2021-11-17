@@ -24,6 +24,7 @@ func (c Clerk) Aggregate(signatures []*Signature, msg string) (*MultiSign, error
 	}
 
 	rv := C.stm_clerk_aggregate(c.ptr, C.ulong(len(signs)), &signs[0], &indices[0], C.CString(msg), &msc.ptr)
+	// fmt.Println("Aggregate returns:", rv, msc.ptr)
 
 	switch int(rv) {
 	case 0: // If verification is successful

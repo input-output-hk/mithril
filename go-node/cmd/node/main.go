@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"github.com/input-output-hk/mithril/go-node/internal/pg"
+	"github.com/input-output-hk/mithril/go-node/pkg/api"
 	"github.com/input-output-hk/mithril/go-node/pkg/config"
 	"github.com/input-output-hk/mithril/go-node/pkg/node"
 	"sync"
@@ -19,6 +20,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	defer dbConn.Close(context.TODO())
 
 	err = pg.ApplyMigrations(dbConn)
 	if err != nil {
@@ -30,23 +32,22 @@ func main() {
 		panic(err)
 	}
 
-	//apiServer := api.NewServer(cfg, dbConn)
-
-
-
 	wg := sync.WaitGroup{}
-	wg.Add(2)
-
+	wg.Add(1)
 
 	go func() {
 		_ = p2pNode.ServeNode()
 		wg.Done()
 	}()
 
-	go func() {
-		//_ = apiServer.ListenAndServe()
-		wg.Done()
-	}()
+	if cfg.Mithril.PartyId == 0 {
+		apiServer := api.NewServer(cfg, dbConn)
+		wg.Add(1)
+		go func() {
+			_ = apiServer.ListenAndServe()
+			wg.Done()
+		}()
+	}
 
 	wg.Wait()
 }

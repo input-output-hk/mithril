@@ -9,13 +9,14 @@ import (
 	"net/http"
 )
 
-func NewServer(config *config.Config, db *pgx.Conn) *Server {
+func NewServer(config *config.Config, conn *pgx.Conn) *Server {
 	router := chi.NewRouter()
 
 	router.Use(middleware.RequestID)
 	router.Use(middleware.RealIP)
 	router.Use(middleware.Logger)
 	router.Use(middleware.Recoverer)
+	router.Use(DatabaseMiddleware(conn))
 
 	router.Get("/certs", listCertificates)
 
@@ -23,7 +24,8 @@ func NewServer(config *config.Config, db *pgx.Conn) *Server {
 		config: config,
 		router: router,
 		httpServer: http.Server{
-			Addr: config.Http.ServerAddr,
+			Addr:    config.Http.ServerAddr,
+			Handler: router,
 		},
 	}
 }

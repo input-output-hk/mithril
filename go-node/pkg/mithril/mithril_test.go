@@ -100,6 +100,7 @@ func TestMultiSignWithStaticKeys(t *testing.T) {
 	var me Initializer
 	var participants []Participant
 
+	// Step #1. Done by initializer
 	data, _ := base64.StdEncoding.DecodeString(rawInitializers[0])
 	me = decodeInitializer(data)
 	participants = append(participants, me.Participant())
@@ -111,6 +112,7 @@ func TestMultiSignWithStaticKeys(t *testing.T) {
 		initializer.Free()
 	}
 
+	// Step #2. Done by particular node.
 	signer := NewSigner(me, participants)
 	me.Free()
 
@@ -140,6 +142,7 @@ func TestMultiSignWithStaticKeys(t *testing.T) {
 		signatures = append(signatures, sign)
 	}
 
+	// Step #3. Aggregate all signatures.
 	clerk := signer.Clerk()
 	defer clerk.Free()
 
