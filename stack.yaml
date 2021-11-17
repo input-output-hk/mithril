@@ -17,7 +17,7 @@
 #
 # resolver: ./custom-snapshot.yaml
 # resolver: https://example.com/snapshots/2018-01-01.yaml
-resolver: lts-18.2
+resolver: lts-18.17
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -67,6 +67,6 @@ packages:
 extra-deps:
 - bloomfilter-2.0.1.0
 - git: https://github.com/input-output-hk/hydra-poc.git
-  commit: b07f0b00cea8584239a95a96f42e500e36d07de5
+  commit: df2bb91931755b998c1b0a7035fc82e14cb0d0dc
   subdirs:
   - merkle-patricia-tree
