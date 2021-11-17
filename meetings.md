@@ -2,6 +2,37 @@
 
 Meeting minutes are sorted by date, most recent first.
 
+## 2021-11-17 - Demo
+
+- 3 nodes for the demo, connect to each other directly using [libp2p](https://libp2p.io/) for connecting the nodes
+- DB stores the certificates -> can retrieve certificates from API with block number + MT root for UTXO + multisig
+- multisign = base64 of binary code from library, how about what happens in client?
+  - provide a better representation for aggregate?
+  - mithril has multisig + STMs -> the one that rely on the MT, contains the paths of the MT
+  - we want to define the serialisation format but not structure it when we send it
+- not clear how the library works?
+  - define criteria defining when the test should pass
+  - explanation: signers will play a lottery, parameter defining how many signatures are required => there might be some messages where the parties don't win enough lottery
+    - more parties with all parameters being equal => more succesful signatures
+    - inigo working on benchmarks varying the parameters
+- next steps:
+  - fix bugs -> file issues
+  - what kind of benchmarks we need -> brainstorm
+  - finish the API
+  - node live check
+  - aggregate process
+  - write documentation
+  - build instructions + CI
+  - end-to-end test
+
+- actions:
+  - (IV) file bugs
+  - (IOG) Fix bugs
+  - (IV) provide a PR with go code and build/run instructions
+  - (IV) internal brainstorm on benchmarks
+  - (both) reconvene on Mon/Tue to plan next sprint
+
+
 ## 2021-11-16 - Mithril Dev Q&A
 
 - deployment strategy? CI mandatory
