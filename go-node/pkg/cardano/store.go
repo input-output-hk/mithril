@@ -33,6 +33,7 @@ func (ps *Storage) Transact(ctx context.Context, txFunc func(pgx.Tx) error) (err
 	if err != nil {
 		return err
 	}
+
 	// Rollback is safe to call even if the tx is already closed, so if
 	// the tx commits successfully, this is a no-op
 	defer tx.Rollback(ctx)

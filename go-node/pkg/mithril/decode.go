@@ -18,6 +18,11 @@ func decodePublicKey(src []byte) C.MspPkPtr {
 	return C.msp_deserialize_verification_key(size, cBuf)
 }
 
+func DecodeInitializer(src string) Initializer {
+	buf, _ := base64.StdEncoding.DecodeString(src)
+	return decodeInitializer(buf)
+}
+
 func decodeInitializer(src []byte) Initializer {
 	size, cBuf := toCBytes(src)
 

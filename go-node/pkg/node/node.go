@@ -42,8 +42,7 @@ func New(ctx context.Context, cfg *config.Config, conn *pgx.Conn) (*Node, error)
 	mcfg := cfg.Mithril
 	part := mcfg.Participants[mcfg.PartyId]
 
-	params := mithril.Parameters{K: mcfg.Params.K, M: mcfg.Params.M, PhiF: mcfg.Params.PhiF}
-	initializer := mithril.NewInitializer(params, part.PartyId, part.Stake)
+	initializer := mithril.DecodeInitializer(part.Initializer)
 
 	return &Node{
 		ctx:       ctx,
@@ -86,6 +85,7 @@ func (n *Node) ServeNode() error {
 
 	log.Infow("Starting Mithril Node",
 		"node_id", n.host.ID(),
+		"cfg_slot", n.config.Mithril.PartyId,
 		"party_id", n.participant.PartyId,
 		"stake", n.participant.Stake,
 		"addresses", n.host.Addrs(),

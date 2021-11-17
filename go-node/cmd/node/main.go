@@ -2,10 +2,10 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"github.com/input-output-hk/mithril/go-node/internal/pg"
 	"github.com/input-output-hk/mithril/go-node/pkg/config"
 	"github.com/input-output-hk/mithril/go-node/pkg/node"
+	"sync"
 )
 
 func main() {
@@ -15,8 +15,12 @@ func main() {
 		panic(err)
 	}
 
-	fmt.Println("foo", cfg.PostgresDSN)
 	dbConn, err := pg.NewConn(context.Background(), cfg.PostgresDSN)
+	if err != nil {
+		panic(err)
+	}
+
+	err = pg.ApplyMigrations(dbConn)
 	if err != nil {
 		panic(err)
 	}
@@ -26,5 +30,23 @@ func main() {
 		panic(err)
 	}
 
-	_ = p2pNode.ServeNode()
+	//apiServer := api.NewServer(cfg, dbConn)
+
+
+
+	wg := sync.WaitGroup{}
+	wg.Add(2)
+
+
+	go func() {
+		_ = p2pNode.ServeNode()
+		wg.Done()
+	}()
+
+	go func() {
+		//_ = apiServer.ListenAndServe()
+		wg.Done()
+	}()
+
+	wg.Wait()
 }
