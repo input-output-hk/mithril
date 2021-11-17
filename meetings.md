@@ -2,6 +2,96 @@
 
 Meeting minutes are sorted by date, most recent first.
 
+## 2021-11-16 - Mithril Dev Q&A
+
+- deployment strategy? CI mandatory
+  example testnet: https://github.com/input-output-hk/cardano-node/tree/master/scripts/byron-to-alonzo
+  even better packaged: https://github.com/woofpool/cardano-private-testnet-setup
+  => why I said we need to interact more...!
+- security? =>
+- sizing? => amount of Utxo
+- persisting keys? => Mithril keys for multisig
+  keys can be serialised and exported but cannot be passed
+  initialiser can be serialised with the initial keys
+  provide an API to be able to update the keys? -> better to update the stake
+- process: load the initialiser if it exists, else generate new one
+- leave stake cahnge aside for the moment
+- getting errors from "not enough indices"
+  phi_f = 1 => all indices are valid
+  not enough indices is fine, we can tweak phi_f to reduce it
+- don't need to keep the individual signatures of each node around -> aggregated by the aggregator
+- how does the mithril client verifies a certificate?
+  Clerk initialises all parameters
+  verifier of aggregate verifies signatures wrt to Clerk
+- hardcoded elements?
+  leadership? -> height of nodes? => we don't need a leader to start the signing the process
+  the entity generating the certificate is not trusted => use
+- implementing MT => 1M Utxo = 1GB
+- now understanding the library and can start asking questions!
+
+## 2021-11-10 - Parallel Epoch Validation
+
+Parallel Epoch Validation: something Mithril does well without any engineering
+
+* we are verifying message according to some state => verifying several messages against several states
+* each message includes the next state
+  state is very small : H(MT) + some parameters that don't change often
+* things are hard if we have a large state -> implies we need to attach large (n,n+1) state in each verification
+* parallelism should be in the node -> state used for verification is very small
+* useful for catching up with a chain of certificates -> we can download a whole bunch of certificates w/ proofs and verify all of them in parallel
+* we need to measure concretely!!
+
+* do we need the crypto library for verification?
+  => probably yes
+* we could skip some part of the logic -> use wasm to ship it to light client
+* separate library in 2 parts, signer + verifier and only ship the verifier for light clients
+
+## 2021-10-27 - Discussion w/ Cardano node
+
+2 problems:
+- end-users have a hard time folllowing the chain
+- enterprise users need to resync db-sync every so often which requires hours/days
+  - additional ops requirements
+  - majority of people running db-sync don't care about history of chain -> make a transaction, get some level of certainty it got "validated"
+  - "eventual history" is good enough
+  - low-hanging fruit, 1st increment?
+- diff. between mithril node/client
+  - mithril takes whole Utxo set -> do not solve hardware solutions for "light" clients?
+- Q. how long is too long?
+  - days... => might be enough to sync up faster with db-sync
+  - start w/ current Utxo snapshot then continue from some point (checkpointing)
+  - bootstrap the node itself is hard
+  - < 6 hours
+- real questoin: how fast can I get node and db-sync up and running to be able to make requests on them?
+- given an up-to-date node -> have a db-sync w/o history but w/ Utxo set
+  - don't need to replay the full history to populate db-sync
+  - requires change to db schema -> it does not store Utxo, only a way to replay them (history)
+  - requires analysis about queries
+- what people want is _mithril_ !
+- db-sync is just slow right now, not doing any validation, only populating data
+- could use mithril to get some state
+- majority of clients use combination of node + db-sync + graphql api
+- 2 modes of mithril:
+  - get me a validated point -> I want to spend some point
+  - get me a validated point + sync the chain in the background (takes hours to download history, particluar choice of DB, lookups instead of writes...)
+- mithril in and of itself is not very useful in the enterprise setting -> need more work to do to use the blessed Utxo state
+- one use-case: Exchange that use WBE could benefit directly from this -> put the Utxo
+- requirements on trust?
+  - provide "blessed" checkpoints to exchanges as long as it's quick? -> don't know
+- why is it too long?
+  - every offline day -> 50M loss for an exchange!
+  - every upgrade -> resyncing the whole state
+  - more a DevOps best practice problem -> we could provide solutions/advices on how to operate stuff
+- let's the PoC/demonstrator live its life until December
+  - continue work on the Product side -> have high-level requirements/architecture by EOY and then do proper product design
+- why l2 solution wont' work
+  - checkpoint approach is cool, great feature to add
+  - difficulty : _what_ do you sign? Need a ledger state that's useful -> hash(MT(Utxo))
+  - every node has to maintain exact same representation -> not an impl detail anymore, part of the on-chain format -> standardize the format of the state
+  - specification ---> implementation dependency
+  - have to be part of the ledger's rules, enforced
+  - is it so much work to do it on L1?
+
 ## 2021-10-05 - Mithril Product Q&A
 
 Separate proof production, Mithril signatures of the state from the actual storage and delivery of UTXO
