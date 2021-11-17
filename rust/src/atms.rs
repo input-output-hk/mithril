@@ -7,8 +7,7 @@
 //! signature scheme, which will define its own type of key and signature. All
 //! we need here is to be able to verify signatures against keys.
 
-use crate::Path;
-use crate::{merkle_tree::*, Stake};
+use crate::{merkle_tree::*, stm::Stake};
 use ark_ff::ToBytes;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
