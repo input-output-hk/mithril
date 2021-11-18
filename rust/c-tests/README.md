@@ -5,7 +5,7 @@
 After running `cargo build --release` in the parent directory, build the test executable:
 
 ``` sh
-$(CXX) test.c -o test -l gtest -lmithril -L ../target/release
+$(CXX) test.c -g -o test -lmithril -lgtest -lgtest_main -L ../target/release
 ```
 
 To execute the tests:
@@ -18,17 +18,4 @@ export LD_LIBRARY_PATH=../target/release
 [----------] 1 test from stm
 [ RUN      ] stm.ok
 ...
-```
-
-To test a failing case, compile the program with `FAIL` defined:
-
-``` sh
-clang test.c -o test -lmithril -L ../target/release -DFAIL
-```
-
-Execute as before:
-
-``` sh
-./test "a message to sign"
-Not eligible to sign
 ```
