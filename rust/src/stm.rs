@@ -419,6 +419,13 @@ where
         self.pk
     }
 
+    /// Set a new pair of keys out of a secret key
+    pub fn set_key(&mut self, sk: &MspSk<PE>) {
+        let pk = MspPk::from(sk);
+        self.sk = *sk;
+        self.pk = pk;
+    }
+
     /// Set the stake.
     pub fn set_stake(&mut self, stake: Stake) {
         self.stake = stake;

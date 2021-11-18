@@ -46,6 +46,15 @@ TEST(stm, produceAndVerifyAggregateSignature) {
 
     ASSERT_EQ(stm_initializer_params(initializer[0]).m, new_params.m);
 
+    // Now , let's say that we store the secret key of the initialiser in (secure) memory.
+    MspSkPtr sk = stm_initializer_secret_key(initializer[0]);
+
+    // We can recover it later, after generating a fresh initializer. Given that the keys
+    // have already been registered, a successful run of the protocol means that this key
+    // recovery worked well.
+    initializer[0] = stm_intializer_setup(params, party_ids[0], party_stake[0]);
+    stm_initializer_set_keys(initializer[0], sk);
+
     StmSignerPtr signer = stm_initializer_new_signer(initializer[0], 2, party_ids, party_stake, keys);
 
     int success = 0;

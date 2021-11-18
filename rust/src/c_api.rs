@@ -267,6 +267,16 @@ mod initializer {
     }
 
     #[no_mangle]
+    pub extern "C" fn stm_initializer_set_keys(me: StmInitializerPtr, key_ptr: MspSkPtr) {
+        unsafe {
+            assert!(!key_ptr.is_null());
+            let key = &*key_ptr;
+            let ref_me = &mut *me;
+            ref_me.set_key(key);
+        }
+    }
+
+    #[no_mangle]
     pub extern "C" fn stm_initializer_new_signer(
         me: StmInitializerPtr,
         n_parties: usize,

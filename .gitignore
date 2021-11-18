@@ -1,4 +1,6 @@
 mithril.cabal
 .stack-work/
 .direnv/
+rust/c-tests/test
+rust/c-tests/test.dSYM/
 *~
