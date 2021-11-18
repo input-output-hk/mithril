@@ -72,7 +72,7 @@ TEST(stm, ok) {
     SigPtr sig[NEEDED_SIGS];
     for (int i = 0; i < NEEDED_SIGS; i++) {
         stm_signer_sign(signer, msg, indices[i], &sig[i]);
-        ASSERT_TRUE(sig[i]);
+        ASSERT_NE(sig[i], nullptr);
     }
 
 
@@ -93,8 +93,3 @@ TEST(stm, ok) {
         free_sig(sig[i]);
     free_multi_sig((MultiSigPtr)multi_sig);
 }
-
-/* int main(int argc, char **argv) { */
-/*   ::testing::InitGoogleTest(&argc, argv); */
-/*   return RUN_ALL_TESTS(); */
-/* } */
