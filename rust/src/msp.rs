@@ -117,6 +117,18 @@ where
 const POP: &[u8] = b"PoP";
 const M: &[u8] = b"M";
 
+impl<PE: PairingEngine> From<&MspSk<PE>> for MspPk<PE> {
+    fn from(sk: &MspSk<PE>) -> Self {
+        let mvk = MspMvk(PE::G2Affine::prime_subgroup_generator().mul(sk.0));
+        // k1 <- H_G1("PoP"||mvk)^x
+        let k1 = hash_to_curve::<PE::G1Affine>([POP, &mvk.to_bytes()].concat().as_ref()).mul(sk.0);
+        // k2 <- g1^x
+        let k2 = PE::G1Affine::prime_subgroup_generator().mul(sk.0);
+        // return sk,mvk,k=(k1,k2)
+        MspPk { mvk, k1, k2 }
+    }
+}
+
 impl<PE: PairingEngine> Msp<PE> {
     /// Create a new pubkey/secretkey pair.
     pub fn gen<R>(rng: &mut R) -> (MspSk<PE>, MspPk<PE>)
@@ -125,14 +137,10 @@ impl<PE: PairingEngine> Msp<PE> {
     {
         // sk=x <- Zq
         // mvk <- g2^x
-        let x = <PE::Fr as UniformRand>::rand(rng);
-        let mvk = MspMvk(PE::G2Affine::prime_subgroup_generator().mul(x));
-        // k1 <- H_G1("PoP"||mvk)^x
-        let k1 = hash_to_curve::<PE::G1Affine>([POP, &mvk.to_bytes()].concat().as_ref()).mul(x);
-        // k2 <- g1^x
-        let k2 = PE::G1Affine::prime_subgroup_generator().mul(x);
-        // return sk,mvk,k=(k1,k2)
-        (MspSk(x), MspPk { mvk, k1, k2 })
+        let sk = MspSk(<PE::Fr as UniformRand>::rand(rng));
+        let pk = MspPk::from(&sk);
+
+        (sk, pk)
     }
 
     /// Check that a pubkey is well-formed.
