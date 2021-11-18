@@ -9,6 +9,7 @@
 }:
 let
   libs = [
+    pkgs.gtest
   ];
 
   tools = [

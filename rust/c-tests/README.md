@@ -1,16 +1,23 @@
-# Example usage of C library
+# Mithril C library Usage
 
-After running `cargo build --release` in the parent directory,
+## Running tests
+
+After running `cargo build --release` in the parent directory, build the test executable:
 
 ``` sh
-clang test.c -o test -lmithril -L ../target/release
+$(CXX) test.c -o test -l gtest -lmithril -L ../target/release
 ```
 
-To execute:
+To execute the tests:
 
 ``` sh
-./test "a message to sign"
-Test completed successfully!
+export LD_LIBRARY_PATH=../target/release
+./test
+[==========] Running 1 test from 1 test suite.
+[----------] Global test environment set-up.
+[----------] 1 test from stm
+[ RUN      ] stm.ok
+...
 ```
 
 To test a failing case, compile the program with `FAIL` defined:
