@@ -73,16 +73,10 @@ pub struct MspSk<PE: PairingEngine>(PE::Fr);
 pub struct MspMvk<PE: PairingEngine>(pub PE::G2Projective);
 
 impl<PE: PairingEngine> MspMvk<PE> {
+    /// Compare two `MspMvk`. Used for PartialOrd impl, used to order signatures. The comparison
+    /// function can be anything, as long as it is consistent.
     pub fn cmp_msp_mvk(&self, other: &MspMvk<PE>) -> Ordering {
-        let mut s = DefaultHasher::new();
-        self.0.hash(&mut s);
-        let me: u64 = s.finish();
-
-        s = DefaultHasher::new();
-        other.0.hash(&mut s);
-        let them: u64 = s.finish();
-
-        me.cmp(&them)
+        self.0.to_field_elements().cmp(&other.0.to_field_elements())
     }
 }
 
