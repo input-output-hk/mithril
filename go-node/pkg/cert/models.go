@@ -1,6 +1,8 @@
 package cert
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"github.com/input-output-hk/mithril/go-node/pkg/mithril"
 	"time"
 )
@@ -22,5 +24,25 @@ type (
 )
 
 func (c Certificate) MarshalJSON() ([]byte, error) {
-	return nil, nil
+	type temp struct {
+		Id          uint64 `json:"id"`
+		BlockNumber uint64 `json:"block_number"`
+		BlockHash   string `json:"block_hash"`
+		MerkleRoot  string `json:"merkle_root"`
+		MultiSig    string `json:"multi_sig"`
+
+		SigStartedAt  time.Time `json:"sig_started_at"`
+		SigFinishedAt time.Time `json:"sig_finished_at"`
+	}
+
+	t := temp{
+		Id:            c.Id,
+		BlockNumber:   c.BlockNumber,
+		BlockHash:     base64.StdEncoding.EncodeToString(c.BlockHash),
+		MerkleRoot:    base64.StdEncoding.EncodeToString(c.MerkleRoot),
+		MultiSig:      base64.StdEncoding.EncodeToString(c.MultiSig),
+		SigStartedAt:  c.SigStartedAt,
+		SigFinishedAt: c.SigFinishedAt,
+	}
+	return json.Marshal(t)
 }

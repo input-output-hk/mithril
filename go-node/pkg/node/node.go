@@ -18,6 +18,7 @@ import (
 	noise "github.com/libp2p/go-libp2p-noise"
 	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
 	"github.com/pkg/errors"
+	"math/rand"
 	"os"
 	"os/signal"
 	"strings"
@@ -130,7 +131,9 @@ func (n *Node) HandleMasterTask() {
 	for {
 		select {
 		case <-ticker.C:
-			n.CreateSigRequest()
+			if len(n.peerNodes) > 0 {
+				n.CreateSigRequest()
+			}
 		}
 	}
 }
@@ -437,7 +440,9 @@ func (n *Node) TryAggregate(clerk mithril.Clerk) {
 	}
 
 	// n.sigProcess.cert.MultiSig = multiSig.Encode()
-	n.sigProcess.cert.MultiSig = []byte("Well.")
+	n.sigProcess.cert.MultiSig = make([]byte, 5760)
+	rand.Read(n.sigProcess.cert.MultiSig)
+
 	defer func() {
 		n.sigProcess = nil
 	}()
