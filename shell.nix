@@ -9,6 +9,7 @@
 }:
 let
   libs = [
+    pkgs.clang
     pkgs.gtest
   ];
 
