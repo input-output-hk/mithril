@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <gtest/gtest.h>
 extern "C" {
 #include "../target/include/mithril.h"
@@ -63,7 +62,7 @@ TEST(stm, ok) {
     int success = 0;
     for (Index i = 0; i < 100 && success < NEEDED_SIGS; i++) {
         if (stm_signer_eligibility_check(signer, msg, i)) {
-            printf("Can sign index %lld\n", i);
+            printf("Can sign index %ld\n", i);
             indices[success++] = i;
         }
     }
