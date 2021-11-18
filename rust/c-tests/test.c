@@ -94,7 +94,7 @@ TEST(stm, ok) {
     free_multi_sig((MultiSigPtr)multi_sig);
 }
 
-int main(int argc, char **argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}
+/* int main(int argc, char **argv) { */
+/*   ::testing::InitGoogleTest(&argc, argv); */
+/*   return RUN_ALL_TESTS(); */
+/* } */
