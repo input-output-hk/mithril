@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"fmt"
 	"github.com/input-output-hk/mithril/go-node/internal/pg"
 	"github.com/input-output-hk/mithril/go-node/pkg/cert"
 	"github.com/jackc/pgx/v4"
@@ -22,7 +21,6 @@ func listCertificates(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println(certs)
 	JsonResponse(w, 200, certs)
 }
 
