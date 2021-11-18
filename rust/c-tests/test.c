@@ -1,9 +1,11 @@
 #include <stdio.h>
+#include <gtest/gtest.h>
+extern "C" {
 #include "../target/include/mithril.h"
+}
 
-
-int main(int argc, char **argv) {
-    char *msg = argv[1];
+TEST(stm, ok) {
+    const char *msg = "some message";
 
 #ifndef NEEDED_SIGS
 #define NEEDED_SIGS 5
@@ -66,48 +68,34 @@ int main(int argc, char **argv) {
         }
     }
 
-    if (success < NEEDED_SIGS) {
-        printf("Not eligible to sign enough indices\n");
-        return 1;
-    }
+    ASSERT_LT(success, NEEDED_SIGS);
 
     SigPtr sig[NEEDED_SIGS];
     for (int i = 0; i < NEEDED_SIGS; i++) {
         stm_signer_sign(signer, msg, indices[i], &sig[i]);
-        if (!sig[i]) {
-            printf("Signing signature %d failed\n", i);
-            return 2;
-        }
+        ASSERT_TRUE(sig[i]);
     }
 
 
     StmClerkPtr clerk = stm_clerk_from_signer(signer);
     for (int i = 0; i < NEEDED_SIGS; i++) {
-        if (stm_clerk_verify_sig(clerk, sig[i], indices[i], msg)) {
-            printf("Signature %d invalid\n", i);
-            return 3;
-        }
+      ASSERT_EQ(stm_clerk_verify_sig(clerk, sig[i], indices[i], msg), 0);
     }
 
     MultiSigPtr multi_sig;
     int r = stm_clerk_aggregate(clerk, NEEDED_SIGS, sig, indices, msg, &multi_sig);
-    if (r || !multi_sig) {
-        printf("Aggregation failed: ");
-        if (r < 0) printf("Verification failed\n");
-        else printf("Only got %d signatures\n", r);
-        return 4;
-    }
+    ASSERT_EQ(r, 0);
+    ASSERT_NE(multi_sig, nullptr);
 
     int64_t msig_ok = stm_clerk_verify_msig(clerk, multi_sig, msg);
-    if (!msig_ok) {
-        free_stm_clerk(clerk);
-        for (int i = 0; i < NEEDED_SIGS; i++)
-            free_sig(sig[i]);
-        free_multi_sig((MultiSigPtr)multi_sig);
-        printf("Test completed successfully!\n");
-        return 0;
-    } else {
-        printf("Verification of multisignature failed\n");
-        return 5;
-    }
+    ASSERT_EQ(msig_ok, 0);
+    free_stm_clerk(clerk);
+    for (int i = 0; i < NEEDED_SIGS; i++)
+        free_sig(sig[i]);
+    free_multi_sig((MultiSigPtr)multi_sig);
+}
+
+int main(int argc, char **argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
 }
