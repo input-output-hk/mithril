@@ -227,6 +227,14 @@ mod initializer {
     }
 
     #[no_mangle]
+    pub extern "C" fn stm_initializer_params(me: StmInitializerPtr) -> StmParameters {
+        unsafe {
+            let ref_me = &mut *me;
+            ref_me.params()
+        }
+    }
+
+    #[no_mangle]
     pub extern "C" fn stm_initializer_secret_key(me: StmInitializerPtr) -> MspSkPtr {
         unsafe {
             let ref_me = &mut *me;
@@ -239,6 +247,22 @@ mod initializer {
         unsafe {
             let ref_me = &mut *me;
             Box::into_raw(Box::new(ref_me.verification_key()))
+        }
+    }
+
+    #[no_mangle]
+    pub extern "C" fn stm_initializer_set_stake(me: StmInitializerPtr, stake: Stake) {
+        unsafe {
+            let ref_me = &mut *me;
+            ref_me.set_stake(stake);
+        }
+    }
+
+    #[no_mangle]
+    pub extern "C" fn stm_initializer_set_params(me: StmInitializerPtr, params: StmParameters) {
+        unsafe {
+            let ref_me = &mut *me;
+            ref_me.set_params(params);
         }
     }
 
