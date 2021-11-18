@@ -11,7 +11,7 @@ int main(int argc, char **argv) {
 
     StmParameters params;
     params.k = NEEDED_SIGS;
-    params.m = 100;
+    params.m = 101;
     params.phi_f = 0.2;
 
     Index indices[NEEDED_SIGS];
@@ -25,6 +25,30 @@ int main(int argc, char **argv) {
     for (int i = 0; i < 2; i++) {
         initializer[i] = stm_intializer_setup(params, party_ids[i], party_stake[i]);
         keys[i] = stm_initializer_verification_key(initializer[i]);
+    }
+
+    if (stm_initializer_stake(initializer[0]) != party_stake[0]) {
+        printf("Stake check failed");
+        return 1;
+    }
+
+    stm_initializer_set_stake(initializer[0], 3);
+
+    if (stm_initializer_stake(initializer[0]) != 3) {
+        printf("Update stake failed");
+        return 1;
+    }
+
+    StmParameters new_params;
+    new_params.k = NEEDED_SIGS;
+    new_params.m = 100;
+    new_params.phi_f = 0.2;
+
+    stm_initializer_set_params(initializer[0], new_params);
+
+    if (stm_initializer_params(initializer[0]).m != new_params.m) {
+        printf("Failed to update parameters");
+        return 1;
     }
 
 #ifdef FAIL

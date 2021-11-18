@@ -439,6 +439,11 @@ where
         self.params = params;
     }
 
+    /// Get the parameters
+    pub fn params(&self) -> StmParameters {
+        self.params
+    }
+
     /// Build the avk for the given list of parties.
     ///
     /// Note that if this StmInitializer was modified *between* the last call to `register`,
