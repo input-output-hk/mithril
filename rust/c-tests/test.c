@@ -3,12 +3,12 @@ extern "C" {
 #include "../target/include/mithril.h"
 }
 
-TEST(stm, ok) {
-    const char *msg = "some message";
-
 #ifndef NEEDED_SIGS
 #define NEEDED_SIGS 5
 #endif
+
+TEST(stm, produceAndVerifyAggregateSignature) {
+    const char *msg = "some message";
 
     StmParameters params;
     params.k = NEEDED_SIGS;
@@ -79,4 +79,37 @@ TEST(stm, ok) {
     for (int i = 0; i < NEEDED_SIGS; i++)
         free_sig(sig[i]);
     free_multi_sig((MultiSigPtr)multi_sig);
+}
+
+TEST(stm, failSigningIfIneligible) {
+    const char *msg = "some message";
+
+    StmParameters params;
+    params.k = NEEDED_SIGS;
+    params.m = 100;
+    params.phi_f = 0.2;
+
+    Index indices[NEEDED_SIGS];
+
+    // Test with 2 parties, one with all the stake, one with none.
+    PartyId party_ids[2] = {1, 2};
+    Stake   party_stake[2] = {1, 0};
+    MspPkPtr keys[2];
+    StmInitializerPtr initializer[2];
+
+    for (int i = 0; i < 2; i++) {
+        initializer[i] = stm_intializer_setup(params, party_ids[i], party_stake[i]);
+        keys[i] = stm_initializer_verification_key(initializer[i]);
+    }
+
+    StmSignerPtr signer = stm_initializer_new_signer(initializer[1], 2, party_ids, party_stake, keys);
+
+    int success = 0;
+    for (Index i = 0; i < 100 && success < NEEDED_SIGS; i++) {
+        if (stm_signer_eligibility_check(signer, msg, i)) {
+            indices[success++] = i;
+        }
+    }
+
+    ASSERT_EQ(success, 0);
 }
