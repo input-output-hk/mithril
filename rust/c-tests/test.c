@@ -28,17 +28,14 @@ TEST(stm, ok) {
         keys[i] = stm_initializer_verification_key(initializer[i]);
     }
 
-    if (stm_initializer_stake(initializer[0]) != party_stake[0]) {
-        printf("Stake check failed");
-        return 1;
-    }
+    // We just ensure that we can set the stake and params
+    ASSERT_EQ(stm_initializer_stake(initializer[0]), party_stake[0]);
 
     stm_initializer_set_stake(initializer[0], 3);
 
-    if (stm_initializer_stake(initializer[0]) != 3) {
-        printf("Update stake failed");
-        return 1;
-    }
+    ASSERT_EQ(stm_initializer_stake(initializer[0]), 3);
+
+    stm_initializer_set_stake(initializer[0], party_stake[0]);
 
     StmParameters new_params;
     new_params.k = NEEDED_SIGS;
@@ -47,34 +44,24 @@ TEST(stm, ok) {
 
     stm_initializer_set_params(initializer[0], new_params);
 
-    if (stm_initializer_params(initializer[0]).m != new_params.m) {
-        printf("Failed to update parameters");
-        return 1;
-    }
+    ASSERT_EQ(stm_initializer_params(initializer[0]).m, new_params.m);
 
-#ifdef FAIL
-    int signeri = 1;
-#else
-    int signeri = 0;
-#endif
-    StmSignerPtr signer = stm_initializer_new_signer(initializer[signeri], 2, party_ids, party_stake, keys);
+    StmSignerPtr signer = stm_initializer_new_signer(initializer[0], 2, party_ids, party_stake, keys);
 
     int success = 0;
     for (Index i = 0; i < 100 && success < NEEDED_SIGS; i++) {
         if (stm_signer_eligibility_check(signer, msg, i)) {
-            printf("Can sign index %ld\n", i);
             indices[success++] = i;
         }
     }
 
-    ASSERT_LT(success, NEEDED_SIGS);
+    ASSERT_GE(success, NEEDED_SIGS);
 
     SigPtr sig[NEEDED_SIGS];
     for (int i = 0; i < NEEDED_SIGS; i++) {
         stm_signer_sign(signer, msg, indices[i], &sig[i]);
         ASSERT_NE(sig[i], nullptr);
     }
-
 
     StmClerkPtr clerk = stm_clerk_from_signer(signer);
     for (int i = 0; i < NEEDED_SIGS; i++) {
