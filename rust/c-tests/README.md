@@ -1,5 +1,11 @@
 # Mithril C library Usage
 
+## Environment
+
+Compiling and testing the C library requires a working installation of [clang](https://clang.llvm.org/) and [gtest](https://github.com/google/googletest).
+To install those, one can use [nix](https://nixos.org/) and enter `nix-shell` from the top-level directory: This shell comes equiped with the right set of dependencies.
+Alternatively, check the documentation of your package-manager for system-dependent install instructions.
+
 ## Running tests
 
 After running `cargo build --release` in the parent directory, build the test executable:
@@ -20,16 +26,10 @@ Running main() from ../googletest/src/gtest_main.cc
 [----------] Global test environment set-up.
 [----------] 1 test from stm
 [ RUN      ] stm.ok
-test.c:51: Failure
-Expected: (sig[i]) != (nullptr), actual: NULL vs (nullptr)
-[  FAILED  ] stm.ok (45 ms)
-[----------] 1 test from stm (45 ms total)
+[       OK ] stm.ok (55 ms)
+[----------] 1 test from stm (55 ms total)
 
 [----------] Global test environment tear-down
-[==========] 1 test from 1 test suite ran. (45 ms total)
-[  PASSED  ] 0 tests.
-[  FAILED  ] 1 test, listed below:
-[  FAILED  ] stm.ok
-
- 1 FAILED TEST
+[==========] 1 test from 1 test suite ran. (55 ms total)
+[  PASSED  ] 1 test.
 ```
