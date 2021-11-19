@@ -17,42 +17,48 @@ jobs:
           components: clippy, rustfmt
           override: true
 
-      - name: Cargo check
+      - name: Cargo build
         uses: actions-rs/cargo@v1
         with:
-          command: check
-          args: --all-targets --manifest-path ./rust/Cargo.toml
-
-      - name: Cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all --manifest-path ./rust/Cargo.toml -- --check
-
-      - name: Clippy Check
-        uses: actions-rs/clippy-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --manifest-path ./rust/Cargo.toml --all-features
-
-      - name: Run cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+          command: build
           args: --release --manifest-path ./rust/Cargo.toml
 
-      - name: Run cargo doc
-        uses: actions-rs/cargo@v1
-        with:
-          command: doc
-          args: --manifest-path ./rust/Cargo.toml
+      # - name: Cargo check
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: check
+      #     args: --all-targets --manifest-path ./rust/Cargo.toml
 
-      - name: Publish Documentation
-        uses: peaceiris/actions-gh-pages@v3
-        if: github.event_name == 'push'
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
-          publish_dir: rust/target/doc
+      # - name: Cargo fmt
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: fmt
+      #     args: --all --manifest-path ./rust/Cargo.toml -- --check
+
+      # - name: Clippy Check
+      #   uses: actions-rs/clippy-check@v1
+      #   with:
+      #     token: ${{ secrets.GITHUB_TOKEN }}
+      #     args: --manifest-path ./rust/Cargo.toml --all-features
+
+      # - name: Run cargo test
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: test
+      #     args: --release --manifest-path ./rust/Cargo.toml
+
+      # - name: Run cargo doc
+      #   uses: actions-rs/cargo@v1
+      #   with:
+      #     command: doc
+      #     args: --manifest-path ./rust/Cargo.toml
+
+      # - name: Publish Documentation
+      #   uses: peaceiris/actions-gh-pages@v3
+      #   if: github.event_name == 'push'
+      #   with:
+      #     github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
+      #     publish_dir: rust/target/doc
 
       - name: Set up Clang
         uses: egor-tensin/setup-clang@v1
@@ -61,7 +67,7 @@ jobs:
           platform: x64
 
       - name: Install gtest manually
-        run: sudo apt-get install libgtest-dev && cd /usr/src/gtest && sudo cmake CMakeLists.txt && sudo make && sudo cp *.a /usr/lib && sudo ln -s /usr/lib/libgtest.a /usr/local/lib/libgtest.a && sudo ln -s /usr/lib/libgtest_main.a /usr/local/lib/libgtest_main.a
+        run: sudo apt-get install libgtest-dev && cd /usr/src/gtest && sudo cmake CMakeLists.txt && sudo make && sudo cp lib/*.a /usr/lib && sudo ln -s /usr/lib/libgtest.a /usr/local/lib/libgtest.a && sudo ln -s /usr/lib/libgtest_main.a /usr/local/lib/libgtest_main.a
 
       - name: Build C test
         run: clang -x c++ test.c -g -o test -L . -lmithril -lstdc++ -lgtest -lgtest_main
