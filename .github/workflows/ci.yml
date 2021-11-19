@@ -18,14 +18,14 @@ jobs:
           override: true
 
 
-    - uses: actions/cache@v2.1.5
-      name: Cache rust/Cargo.toml
-      with:
-        path: |
-          rust/target
-        key: ${{ runner.os }}-${{ hashFiles('rust/Cargo.toml') }}
-        restore-keys: |
-            ${{ runner.os }}-key
+      - uses: actions/cache@v2.1.5
+        name: Cache rust/Cargo.toml
+        with:
+          path: |
+            rust/target
+          key: ${{ runner.os }}-${{ hashFiles('rust/Cargo.toml') }}
+          restore-keys: |
+              ${{ runner.os }}-key
 
       - name: Cargo build
         uses: actions-rs/cargo@v1
