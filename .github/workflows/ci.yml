@@ -79,5 +79,5 @@ jobs:
         run: sudo apt-get install libgtest-dev && cd /usr/src/gtest && sudo cmake CMakeLists.txt && sudo make && sudo cp lib/*.a /usr/lib && sudo ln -s /usr/lib/libgtest.a /usr/local/lib/libgtest.a && sudo ln -s /usr/lib/libgtest_main.a /usr/local/lib/libgtest_main.a
 
       - name: Build C test
-        run: clang -x c++ test.c -g -o test -L ../target/release -lmithril -lstdc++ -lgtest -lgtest_main
+        run: clang -x c++ test.c -g -o test -L ../target/release -lmithril -lpthread -lstdc++ -lgtest -lgtest_main
         working-directory: rust/c-tests
