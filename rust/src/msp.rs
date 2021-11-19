@@ -53,11 +53,11 @@ use ark_ff::{bytes::ToBytes, ToConstraintField, UniformRand};
 use blake2::VarBlake2b;
 use digest::{Update, VariableOutput};
 use rand_core::{CryptoRng, RngCore};
+use std::cmp::Ordering;
 use std::hash::Hash;
 use std::iter::Sum;
 use std::marker::PhantomData;
 use std::ops::Sub;
-use std::{cmp::Ordering, collections::hash_map::DefaultHasher, hash::Hasher};
 
 /// Struct used to namespace the functions.
 pub struct Msp<PE: PairingEngine> {
@@ -72,7 +72,10 @@ pub struct MspSk<PE: PairingEngine>(PE::Fr);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MspMvk<PE: PairingEngine>(pub PE::G2Projective);
 
-impl<PE: PairingEngine> MspMvk<PE> {
+impl<PE: PairingEngine> MspMvk<PE>
+where
+    PE::G2Projective: ToConstraintField<PE::Fq>,
+{
     /// Compare two `MspMvk`. Used for PartialOrd impl, used to order signatures. The comparison
     /// function can be anything, as long as it is consistent.
     pub fn cmp_msp_mvk(&self, other: &MspMvk<PE>) -> Ordering {
@@ -80,13 +83,19 @@ impl<PE: PairingEngine> MspMvk<PE> {
     }
 }
 
-impl<PE: PairingEngine> PartialOrd for MspMvk<PE> {
+impl<PE: PairingEngine> PartialOrd for MspMvk<PE>
+where
+    PE::G2Projective: ToConstraintField<PE::Fq>,
+{
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp_msp_mvk(other))
     }
 }
 
-impl<PE: PairingEngine> Ord for MspMvk<PE> {
+impl<PE: PairingEngine> Ord for MspMvk<PE>
+where
+    PE::G2Projective: ToConstraintField<PE::Fq>,
+{
     fn cmp(&self, other: &Self) -> Ordering {
         self.cmp_msp_mvk(other)
     }
