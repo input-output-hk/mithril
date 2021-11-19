@@ -60,6 +60,7 @@ use std::marker::PhantomData;
 use std::ops::Sub;
 
 /// Struct used to namespace the functions.
+#[derive(Debug)]
 pub struct Msp<PE: PairingEngine> {
     x: PhantomData<PE>,
 }

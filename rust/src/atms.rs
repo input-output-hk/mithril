@@ -12,6 +12,7 @@ use crate::{merkle_tree::*, stm::Stake};
 use ark_ff::ToBytes;
 use digest::Digest;
 use std::collections::{HashMap, HashSet};
+use std::fmt::Debug;
 use std::hash::Hash;
 use std::io::Write;
 use std::iter::{FromIterator, Sum};
@@ -31,16 +32,16 @@ impl<PK: ToBytes> ToBytes for MTValue<PK> {
 /// The implementation relies on an underlying public signature with a proof
 /// of possession. We need the ability to verify the Proof of Possesion, and to
 /// verify the signature.
-pub trait Atms {
+pub trait Atms: Sized + Debug {
     /// Proof of Possession of the secret key with respect to the Public Key.
-    type POP;
+    type POP: Copy;
     /// Associated type that defines the Public Key.
     type PK;
     /// Associated type that defines the Signature.
     type SIG;
     /// Verify the proof of possesion. If it is valid, return the public key (without
     /// the proof of possession)
-    fn verify_proof(proof: &Self::POP) -> Result<Self::PK, ()>;
+    fn verify_proof(proof: &Self::POP) -> Option<Self::PK>;
     /// Verify that the signature is valid for a message `msg` and key `key`
     fn verify(msg: &[u8], pk: &Self::PK, sig: &Self::SIG) -> bool;
 }
@@ -78,6 +79,29 @@ where
     keys_proofs: Vec<(A::PK, Path<F>)>,
 }
 
+#[derive(Debug)]
+/// Errors associated with Atms
+pub enum AtmsError<A, F>
+where
+    A: Atms,
+{
+    /// An unknown key (we don't know its index in the merkle tree)
+    UnknownKey(A::PK),
+    /// The proof that `PK` is at a given idx is false
+    InvalidMerkleProof(usize, A::PK, Path<F>),
+    /// The proof that the secret key with respect to `PK` is known, fails
+    InvalidPoPProof(A::POP),
+    /// Duplicate non-signers in signature
+    FoundDuplicates,
+    /// Non-signers sum to the given stake, which is more than half of total
+    TooMuchOutstandingStake(Stake),
+    /// Underlying signature scheme failed to verify
+    InvalidSignature,
+    /// The given public key does not correspond to the aggregation of the given
+    /// set of keys
+    InvalidAggregation,
+}
+
 impl<A, H> Avk<A, H>
 where
     A: Atms,
@@ -86,10 +110,13 @@ where
 {
     /// Aggregate a set of keys, and commit to them in a canonical order.
     /// Called `AKey` in the paper.
-    pub fn new(keys_pop: &[(A::POP, Stake)]) -> Result<Self, ()> {
+    pub fn new<F>(keys_pop: &[(A::POP, Stake)]) -> Result<Self, AtmsError<A, F>> {
         let mut keys: Vec<(A::PK, Stake)> = Vec::with_capacity(keys_pop.len());
         for (key, stake) in keys_pop {
-            let pk = A::verify_proof(key)?;
+            let pk = match A::verify_proof(key) {
+                None => return Err(AtmsError::InvalidPoPProof(*key)),
+                Some(p) => p,
+            };
             keys.push((pk, *stake))
         }
 
@@ -117,12 +144,12 @@ where
 
     /// Check that this aggregation is derived from the given sequence of valid keys.
     /// Called `ACheck` in the paper.
-    pub fn check(&self, keys: &[(A::POP, Stake)]) -> Result<(), ()> {
+    pub fn check<F>(&self, keys: &[(A::POP, Stake)]) -> Result<(), AtmsError<A, F>> {
         let akey2 = Self::new(keys)?;
         if self.tree.root() == akey2.tree.root() && self.aggregate_key == akey2.aggregate_key {
             return Ok(());
         }
-        Err(())
+        Err(AtmsError::InvalidAggregation)
     }
 }
 
@@ -165,7 +192,7 @@ where
         &self,
         msg: &[u8],
         keys: &Avk<A, H>,
-    ) -> Result<(), ()> {
+    ) -> Result<(), AtmsError<A, F>> {
         // Check duplicates by building this set of
         // non-signing keys
         let mut unique_non_signers = HashSet::new();
@@ -178,28 +205,32 @@ where
                     .tree
                     .check(&MTValue(non_signer.clone(), *stake), *idx, proof)
                 {
-                    return Err(());
+                    return Err(AtmsError::InvalidMerkleProof(
+                        *idx,
+                        non_signer.clone(),
+                        proof.clone(),
+                    ));
                 } else {
                     non_signing_stake += stake;
                     // Check non-signers are distinct
                     if !unique_non_signers.insert(non_signer) {
-                        return Err(());
+                        return Err(AtmsError::UnknownKey(non_signer.clone()));
                     }
                 }
             } else {
-                return Err(());
+                return Err(AtmsError::FoundDuplicates);
             }
         }
 
         if non_signing_stake >= keys.total_stake {
-            return Err(());
+            return Err(AtmsError::TooMuchOutstandingStake(non_signing_stake));
         }
 
         // Check with the underlying signature scheme that the quotient of the
         // aggregated key by the non-signers validates this signature.
         let avk2 = keys.aggregate_key.clone() - unique_non_signers.into_iter().sum();
         if !A::verify(msg, &avk2, &self.aggregate) {
-            return Err(());
+            return Err(AtmsError::InvalidSignature);
         }
 
         Ok(())
@@ -220,11 +251,11 @@ mod msp {
         type PK = MspMvk<PE>;
         type SIG = MspSig<PE>;
 
-        fn verify_proof(proof: &Self::POP) -> Result<Self::PK, ()> {
+        fn verify_proof(proof: &Self::POP) -> Option<Self::PK> {
             if Msp::check(proof) {
-                return Ok(proof.mvk);
+                return Some(proof.mvk);
             }
-            Err(())
+            None
         }
 
         fn verify(msg: &[u8], pk: &Self::PK, sig: &Self::SIG) -> bool {
@@ -247,6 +278,7 @@ mod tests {
     type C = Bls12_377;
     type H = Blake2b;
     type A = Msp<C>;
+    type F = <H as MTHashLeaf<MTValue<MspMvk<C>>>>::F;
 
     proptest! {
     #[test]
@@ -272,10 +304,10 @@ mod tests {
                 signatures.push((pk.mvk, sig));
             }
 
-            let avk = Avk::<A, H>::new(&keys);
+            let avk = Avk::<A, H>::new::<F>(&keys);
             assert!(avk.is_ok());
             let avk = avk.unwrap();
-            assert!(avk.check(&keys).is_ok());
+            assert!(avk.check::<F>(&keys).is_ok());
 
             let unique_is = subset_is
                 .iter()
@@ -291,15 +323,14 @@ mod tests {
             let aggr_sig = Asig::new(&avk, &subset);
 
             match aggr_sig.verify(&msg, &avk) {
-                // Ok(()) => (),
-                // Err(VerifyFailure::FoundDuplicates) => {
-                //     assert!(subset.iter().map(|x| x.0).collect::<HashSet<_>>().len() < subset.len())
-                // }
-                // Err(VerifyFailure::TooMuchOutstandingStake(d)) => {
-                //     assert!(d as usize > n/2);
-                // }
-                // Err(err) => unreachable!("{:?}", err)
-                _ => (),
+                Ok(()) => (),
+                Err(AtmsError::FoundDuplicates) => {
+                    assert!(subset.iter().map(|x| x.0).collect::<HashSet<_>>().len() < subset.len())
+                }
+                Err(AtmsError::TooMuchOutstandingStake(d)) => {
+                    assert!(d as usize > n/2);
+                }
+                Err(err) => unreachable!("{:?}", err)
             }
         }
     }
