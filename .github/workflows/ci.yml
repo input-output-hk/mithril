@@ -17,12 +17,21 @@ jobs:
           components: clippy, rustfmt
           override: true
 
+
+    - uses: actions/cache@v2.1.5
+      name: Cache rust/Cargo.toml
+      with:
+        path: |
+          rust/target
+        key: ${{ runner.os }}-${{ hashFiles('rust/Cargo.toml') }}
+        restore-keys: |
+            ${{ runner.os }}-key
+
       - name: Cargo build
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --release --manifest-path ./rust/Cargo.toml
-
       # - name: Cargo check
       #   uses: actions-rs/cargo@v1
       #   with:
