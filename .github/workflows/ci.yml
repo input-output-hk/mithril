@@ -1,6 +1,10 @@
-on: [push, pull_request]
-
 name: CI
+
+# do not run workflow twice on PRs
+on:
+  push:
+  pull_request:
+    types: [opened, reopened]
 
 jobs:
   build:
