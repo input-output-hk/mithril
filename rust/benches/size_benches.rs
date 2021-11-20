@@ -27,11 +27,6 @@ fn main() {
     let mut msg = [0u8; 16];
     rng.fill_bytes(&mut msg);
 
-    let parties = (0..nparties)
-        .into_iter()
-        .map(|pid| (pid, 1 + (rng.next_u64() % 9999)))
-        .collect::<Vec<_>>();
-
     for k in NR_K {
         let params = StmParameters {
             k,
@@ -90,8 +85,14 @@ fn main() {
             .unwrap();
 
         let mut writer = Vec::new();
-        msig.write(&mut writer);
-
-        println!("k = {}; {} bytes", k, writer.len());
+        match msig.write(&mut writer) {
+            Ok(_) => {
+                println!("k = {}; {} bytes", k, writer.len());
+            }
+            Err(_) => {
+                println!("Failed to write multisignature");
+                std::process::exit(1);
+            }
+        }
     }
 }

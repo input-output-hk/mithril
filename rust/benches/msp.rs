@@ -5,9 +5,6 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use std::time::Duration;
 
-type C = Bls12_377;
-type H = blake2::Blake2b;
-
 static NR_SIGNERS: [usize; 6] = [8, 16, 32, 64, 128, 256];
 
 fn msp(c: &mut Criterion) {
