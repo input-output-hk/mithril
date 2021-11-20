@@ -36,7 +36,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --all-targets --manifest-path ./rust/Cargo.toml
+          args: --release --all-targets --manifest-path ./rust/Cargo.toml
 
       - name: Cargo fmt
         uses: actions-rs/cargo@v1
