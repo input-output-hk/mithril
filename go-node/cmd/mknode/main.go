@@ -33,13 +33,12 @@ func main() {
 
 	for i, err := range errs {
 		if err != nil {
-			fmt.Printf("Invalid arg %d: %s", i, err.Error())
+			fmt.Printf("Invalid arg %d: %s\n", i, err.Error())
 			return
 		}
 	}
 
-	fmt.Println("Input params:", k, m, phi, partyId, stake)
-
+	fmt.Println("Input args:", k, m, phi, partyId, stake)
 
 	params := mithril.Parameters{K: uint64(k), M: uint64(m), PhiF: phi}
 	initializer := mithril.NewInitializer(params, uint64(partyId), uint64(stake))

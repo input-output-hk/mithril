@@ -33,9 +33,11 @@ func decodeInitializer(src []byte) Initializer {
 	return si
 }
 
-func DecodeSignature(src string) *Signature {
+func DecodeSignature(src string, index uint64) *Signature {
 	buf, _ := base64.StdEncoding.DecodeString(src)
-	return decodeSignature(buf)
+	sig := decodeSignature(buf)
+	sig.index = index
+	return sig
 }
 
 func decodeSignature(src []byte) *Signature {

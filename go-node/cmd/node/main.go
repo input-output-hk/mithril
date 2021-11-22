@@ -6,7 +6,11 @@ import (
 	"github.com/input-output-hk/mithril/go-node/pkg/api"
 	"github.com/input-output-hk/mithril/go-node/pkg/config"
 	"github.com/input-output-hk/mithril/go-node/pkg/node"
+	"os"
+	"os/signal"
 	"sync"
+	"syscall"
+	"time"
 )
 
 func main() {
@@ -27,27 +31,46 @@ func main() {
 		panic(err)
 	}
 
-	p2pNode, err := node.New(context.Background(), cfg, dbConn)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	p2pNode, err := node.New(ctx, cfg, dbConn)
+	if err != nil {
+		panic(err)
+	}
+
+	// start api server goroutine
+	apiServer, err := api.NewServer(cfg, dbConn)
 	if err != nil {
 		panic(err)
 	}
 
 	wg := sync.WaitGroup{}
-	wg.Add(1)
 
+	// start node goroutine
+	wg.Add(1)
 	go func() {
 		_ = p2pNode.ServeNode()
 		wg.Done()
 	}()
 
-	if cfg.Mithril.PartyId == 0 {
-		apiServer := api.NewServer(cfg, dbConn)
-		wg.Add(1)
-		go func() {
-			_ = apiServer.ListenAndServe()
-			wg.Done()
-		}()
-	}
+	// start api server
+	wg.Add(1)
+	go func() {
+		_ = apiServer.ListenAndServe()
+		wg.Done()
+	}()
+
+	sigCh := make(chan os.Signal)
+	signal.Notify(sigCh, syscall.SIGKILL, syscall.SIGINT)
+
+	<-sigCh
+
+	cancel()
+	exitCtx, exitCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer exitCancel()
+
+	go func() { _ = apiServer.Shutdown(exitCtx) }()
+	go func() { _ = p2pNode.Shutdown() }()
 
 	wg.Wait()
 }

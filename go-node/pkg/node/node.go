@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"github.com/input-output-hk/mithril/go-node/internal/log"
 	"github.com/input-output-hk/mithril/go-node/internal/pg"
-	"github.com/input-output-hk/mithril/go-node/pkg/cardano"
 	"github.com/input-output-hk/mithril/go-node/pkg/cert"
 	"github.com/input-output-hk/mithril/go-node/pkg/config"
 	"github.com/input-output-hk/mithril/go-node/pkg/mithril"
@@ -18,17 +17,13 @@ import (
 	noise "github.com/libp2p/go-libp2p-noise"
 	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
 	"github.com/pkg/errors"
-	"math/rand"
-	"os"
-	"os/signal"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 )
 
 const (
-	blockNumber   = 250000
+	blockNumber   = 160000
 	masterPartyId = 1
 )
 
@@ -55,7 +50,6 @@ func New(ctx context.Context, cfg *config.Config, conn *pgx.Conn) (*Node, error)
 
 		nextBlockNumber: blockNumber,
 		conn:            conn,
-		storage:         cardano.NewStorage(ctx, conn),
 
 		// mithril
 		initializer: initializer,
@@ -73,7 +67,6 @@ type Node struct {
 	stream   network.Stream
 
 	conn      *pgx.Conn
-	storage   cardano.Storage
 	peerNodes map[peer.ID]*PeerNode
 
 	nextBlockNumber uint64
@@ -92,6 +85,7 @@ func (n *Node) ServeNode() error {
 
 	log.Infow("Starting Mithril Node",
 		"node_id", n.host.ID(),
+		"is_leader", n.config.Leader,
 		"cfg_slot", n.config.Mithril.PartyId,
 		"party_id", n.participant.PartyId,
 		"stake", n.participant.Stake,
@@ -111,27 +105,34 @@ func (n *Node) ServeNode() error {
 		n.HandleNewPeer(s)
 	})
 
-	if n.participant.PartyId == masterPartyId {
-		go n.HandleMasterTask()
+	return n.mainLoop()
+}
+
+func (n *Node) Shutdown() error {
+	n.peerLock.Lock()
+	defer n.peerLock.Unlock()
+
+	for _, p := range n.peerNodes {
+		_ = p.Close()
 	}
 
-	sigCh := make(chan os.Signal)
-	signal.Notify(sigCh, syscall.SIGKILL, syscall.SIGINT)
-
-	<-sigCh
+	n.host.Close()
+	n.ctx.Done()
 	return nil
 }
 
-func (n *Node) HandleMasterTask() {
+func (n *Node) mainLoop() error {
 	time.Sleep(5 * time.Second)
-	n.CreateSigRequest()
 
 	ticker := time.NewTicker(30 * time.Second)
 
 	for {
 		select {
+		case <-n.ctx.Done():
+			return n.Shutdown()
+
 		case <-ticker.C:
-			if len(n.peerNodes) > 0 {
+			if n.config.Leader && len(n.peerNodes) > 0 {
 				n.CreateSigRequest()
 			}
 		}
@@ -217,16 +218,17 @@ func (n *Node) CreateSigRequest() {
 	defer n.sigLock.Unlock()
 
 	defer func() {
-		n.nextBlockNumber += 1
+		n.nextBlockNumber += 10000
 	}()
 
-	mcfg := n.config.Mithril
-	participants := []mithril.Participant{n.participant}
-	hash, err := GetBlockMTHash(n.storage, n.nextBlockNumber)
+	hash, blockHash, err := GetBlockMTHash(n.conn, n.nextBlockNumber)
 	if err != nil {
 		log.Error(err)
 		return
 	}
+
+	mcfg := n.config.Mithril
+	participants := []mithril.Participant{n.participant}
 
 	var peerNodes []*PeerNode
 	for _, p := range n.peerNodes {
@@ -246,7 +248,7 @@ func (n *Node) CreateSigRequest() {
 			Id:           uint64(time.Now().Unix()),
 			Params:       params,
 			BlockNumber:  n.nextBlockNumber,
-			BlockHash:    []byte("<block has>"),
+			BlockHash:    blockHash,
 			MerkleRoot:   hash,
 			SigStartedAt: time.Now(),
 		},
@@ -329,7 +331,7 @@ func (n *Node) HandleSigRequest(peer *PeerNode, req SigRequest) {
 		"stake", n.participant.Stake,
 	)
 
-	hash, err := GetBlockMTHash(n.storage, req.BlockNumber)
+	hash, _, err := GetBlockMTHash(n.conn, req.BlockNumber)
 	if err != nil {
 		log.Error(err)
 		return
@@ -394,7 +396,7 @@ func (n *Node) HandleSigResponse(peer *PeerNode, res SigResponse) {
 	defer clerk.Free()
 
 	for _, s := range res.Signatures {
-		sig := mithril.DecodeSignature(s.Sig)
+		sig := mithril.DecodeSignature(s.Sig, s.Index)
 		err := clerk.VerifySign(n.sigProcess.hashStr, s.Index, sig)
 		if err != nil {
 			log.Errorw("Failed to verify peer sign",
@@ -411,11 +413,10 @@ func (n *Node) HandleSigResponse(peer *PeerNode, res SigResponse) {
 }
 
 func (n *Node) TryAggregate(clerk mithril.Clerk) {
-
 	var sigs []*mithril.Signature
 	for _, sa := range n.sigProcess.signatures {
 		for _, s := range sa {
-			sig := mithril.DecodeSignature(s.Sig)
+			sig := mithril.DecodeSignature(s.Sig, s.Index)
 			sigs = append(sigs, sig)
 		}
 	}
@@ -426,7 +427,7 @@ func (n *Node) TryAggregate(clerk mithril.Clerk) {
 		}
 	}()
 
-	_, err := clerk.Aggregate(sigs, n.sigProcess.hashStr)
+	multiSig, err := clerk.Aggregate(sigs, n.sigProcess.hashStr)
 	if err != nil {
 		if err == mithril.ErrNotEnoughSignatures {
 			return
@@ -439,9 +440,13 @@ func (n *Node) TryAggregate(clerk mithril.Clerk) {
 		return
 	}
 
-	// n.sigProcess.cert.MultiSig = multiSig.Encode()
-	n.sigProcess.cert.MultiSig = make([]byte, 5760)
-	rand.Read(n.sigProcess.cert.MultiSig)
+	err = clerk.VerifyMultiSign(multiSig, n.sigProcess.hashStr)
+	if err != nil {
+		log.Errorw("Failed to validate multiSig")
+		return
+	}
+
+	n.sigProcess.cert.MultiSig = multiSig.Encode()
 
 	defer func() {
 		n.sigProcess = nil
