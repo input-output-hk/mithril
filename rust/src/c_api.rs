@@ -1,4 +1,5 @@
 //! C api
+use crate::key_reg::KeyReg;
 use crate::{
     merkle_tree::{MTHashLeaf, MerkleTree},
     mithril_proof::concat_proofs::{ConcatProof, TrivialEnv},
@@ -20,6 +21,7 @@ type StmInitializerPtr = *mut StmInitializer<C>;
 type StmSignerPtr = *mut StmSigner<H, C>;
 type StmClerkPtr = *mut StmClerk<H, C, TrivialEnv>;
 type MerkleTreePtr = *mut MerkleTree<MTValue<C>, H>;
+type KeyRegPtr = *mut KeyReg<C>;
 
 // A macro would be nice for the below, but macros do not
 // seem to work properly with cbindgen:
@@ -335,6 +337,84 @@ mod signer {
             if let Some(s) = ref_me.sign(msg_str.to_bytes(), index) {
                 *out = Box::into_raw(Box::new(s))
             }
+        }
+    }
+}
+
+mod key_reg {
+    use crate::c_api::{KeyRegPtr, MerkleTreePtr, MspPkPtr};
+    use crate::key_reg::{KeyReg, RegisterError};
+    use crate::stm::{PartyId, Stake};
+    use std::slice;
+
+    #[no_mangle]
+    pub extern "C" fn key_registration(
+        n_parties: usize,
+        party_ids: *const PartyId,
+        party_stakes: *const Stake,
+    ) -> KeyRegPtr {
+        unsafe {
+            let ids = slice::from_raw_parts(party_ids, n_parties);
+            let stakes = slice::from_raw_parts(party_stakes, n_parties);
+
+            let ids_stake = ids
+                .iter()
+                .zip(stakes.iter())
+                .map(|(id, stake)| (*id, *stake))
+                .collect::<Vec<_>>();
+            Box::into_raw(Box::new(KeyReg::new(&ids_stake)))
+        }
+    }
+
+    #[no_mangle]
+    /// Register the party. If registration is succesful, returns 0, otherwise returns the
+    /// following depending on the received error:
+    /// * -1 if the registration is closed,
+    /// * -2 if the key is already registered,
+    /// * -3 if the key is invalid
+    /// * -4 if the `party_id` is unknown
+    /// * -5 is unexpected behaviour
+    pub extern "C" fn register_party(
+        key_reg: KeyRegPtr,
+        party_id: PartyId,
+        party_key: MspPkPtr,
+    ) -> i64 {
+        unsafe {
+            assert!(!key_reg.is_null());
+            let ref_key_reg = &mut *key_reg;
+            let pk = *Box::from_raw(party_key);
+            match ref_key_reg.register(party_id, pk) {
+                Ok(()) => 0,
+                Err(RegisterError::NotAllowed) => -1,
+                Err(RegisterError::KeyRegistered(_)) => -2,
+                Err(RegisterError::InvalidKey(_)) => -3,
+                Err(RegisterError::UnknownPartyId(_)) => -4,
+                _ => -5,
+            }
+        }
+    }
+
+    #[no_mangle]
+    pub extern "C" fn generate_avk(key_reg: KeyRegPtr, avk_ptr: *mut MerkleTreePtr) -> i64 {
+        unsafe {
+            assert!(!key_reg.is_null());
+            let ref_key_ref = &mut *key_reg;
+            match ref_key_ref.generate_avk() {
+                Ok(key) => {
+                    *avk_ptr = Box::into_raw(Box::new(key));
+                    0
+                }
+                Err(_) => -1,
+            }
+        }
+    }
+
+    #[no_mangle]
+    pub extern "C" fn close_registration(key_reg: KeyRegPtr) {
+        unsafe {
+            assert!(!key_reg.is_null());
+            let ref_key_reg = &mut *key_reg;
+            ref_key_reg.close();
         }
     }
 }
