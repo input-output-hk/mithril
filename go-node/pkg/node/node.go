@@ -4,6 +4,7 @@ import (
 	"container/list"
 	"context"
 	"encoding/base64"
+	"encoding/hex"
 	"github.com/input-output-hk/mithril/go-node/internal/log"
 	"github.com/input-output-hk/mithril/go-node/internal/pg"
 	"github.com/input-output-hk/mithril/go-node/pkg/cert"
@@ -260,7 +261,7 @@ func (n *Node) CreateSigRequest() {
 		Params:       params,
 		Participants: participants,
 		BlockNumber:  n.nextBlockNumber,
-		BlockHash:    "<block hash>",
+		BlockHash:    hex.EncodeToString(blockHash),
 		MerkleRoot:   n.sigProcess.hashStr,
 	}
 

@@ -23,8 +23,8 @@ func NewServer(config *config.Config, conn *pgx.Conn) (*Server, error) {
 	router.Use(DatabaseMiddleware(conn))
 
 	router.Get("/certs", listCertificates)
-	router.Get("/certs/{merkle_root}", utxo)
-	router.Get("/certs/{merkle_root}/{addr}", utxoByAddr)
+	router.Get("/utxo/{merkle_root}", utxo)
+	router.Get("/utxo/{merkle_root}/{addr}", utxoByAddr)
 
 	// Temporary solution. Make all node api servers
 	// run on different ports.
