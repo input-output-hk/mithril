@@ -85,14 +85,7 @@ fn main() {
             .unwrap();
 
         let mut writer = Vec::new();
-        match msig.write(&mut writer) {
-            Ok(_) => {
-                println!("k = {}; {} bytes", k, writer.len());
-            }
-            Err(_) => {
-                println!("Failed to write multisignature");
-                std::process::exit(1);
-            }
-        }
+msig.write(&mut writer).expect("Failed to write multisignature");
+println!("k = {}; {} bytes", k, writer.len());
     }
 }
