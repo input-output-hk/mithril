@@ -49,3 +49,12 @@ AQAAAAAAAAABAAAAAAAAAGQAAAAAAAAABQAAAAAAAACamZmZmZnJP9sS3FJEAsCiY2lsCT2KTBvJ9rxX
 ```
 
 Copy the last line (base64) to the configuration file to correspond participant initializer.
+
+
+## API SERVER
+
+Following API endpoints are available:
+
+* ``/certs`` - list currently signed certificates.
+* ``/certs/{merkle_root}`` - list certificate UTxO addresses.
+* ``/certs/{merkle_root}/{addr}`` - gets proofs and UTxO for a specific address.
