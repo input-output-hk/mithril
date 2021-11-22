@@ -16,10 +16,8 @@ func TestNewStorage(t *testing.T) {
 	conn, err := pg.NewConn(context.TODO(), connStr)
 	require.Nil(t, err)
 
-	s := NewStorage(context.TODO(), conn)
-
 	timeCtx, _ := context.WithTimeout(context.Background(), time.Second*5)
-	err = s.Conn.Ping(timeCtx)
+	err = conn.Ping(timeCtx)
 	assert.Nil(t, err)
 }
 
@@ -33,7 +31,7 @@ func TestUTXORepository_GetTxOutputs(t *testing.T) {
 	//var txOuts map[types.Address][]*types.UTXO
 	//
 	////err = s.Transact(context.TODO(), func(tx pgx.Tx) error {
-	////	txOuts, err = s.UTXORepository.GetTxOutputs(tx, 250000)
+	////	txOuts, err = s.UTXORepository.GetAllTxOutputs(tx, 250000)
 	////	return err
 	////})
 	//require.Nil(t, err)

@@ -45,3 +45,20 @@ func Recent(ctx context.Context, tx pgx.Tx) ([]Certificate, error) {
 
 	return certs, nil
 }
+
+func GetByMTHash(ctx context.Context, tx pgx.Tx, hash []byte) (*Certificate, error) {
+	stmt := `select id, block_number, block_hash, merkle_root, multi_sig, sig_started_at, sig_finished_at
+				from mithril_certificates where merkle_root = $1
+				order by id limit 1`
+
+	var c Certificate
+	err := tx.QueryRow(ctx, stmt, hash).Scan(
+		&c.Id, &c.BlockNumber, &c.BlockHash, &c.MerkleRoot,
+		&c.MultiSig, &c.SigStartedAt, &c.SigFinishedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return &c, nil
+}
