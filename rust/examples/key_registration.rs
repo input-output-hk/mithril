@@ -5,7 +5,7 @@
 use ark_bls12_377::Bls12_377;
 use mithril::key_reg::KeyReg;
 use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
-use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
+use mithril::stm::{Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
 
 use mithril::models::digest::DigestHash;
 use mithril::msp::MspPk;
@@ -30,9 +30,14 @@ fn main() {
         phi_f: 1.0,
     };
 
+    let mut total_stake: Stake = 0;
     let parties = (0..nparties)
         .into_iter()
-        .map(|pid| (pid, 1 + (rng.next_u64() % 9999)))
+        .map(|pid| {
+            let stake = rng.next_u64() % 999;
+            total_stake += stake;
+            (pid, 1 + stake)
+        })
         .collect::<Vec<_>>();
 
     // Each party generates their Stm keys
@@ -51,11 +56,12 @@ fn main() {
 
     // Now, each party generates their own KeyReg instance, and registers all other participating
     // parties
-    let mut key_reg = Vec::new();
-    key_reg.push(local_reg(&parties, &parties_pks));
-    key_reg.push(local_reg(&parties, &parties_pks));
-    key_reg.push(local_reg(&parties, &parties_pks));
-    key_reg.push(local_reg(&parties, &parties_pks));
+    let key_reg = vec![
+        local_reg(&parties, &parties_pks),
+        local_reg(&parties, &parties_pks),
+        local_reg(&parties, &parties_pks),
+        local_reg(&parties, &parties_pks),
+    ];
 
     for i in 0..4 {
         for j in 0..4 {
@@ -94,11 +100,7 @@ fn main() {
         party_0_sigs[1].clone(),
         party_3_sigs[2].clone(),
     ];
-    let complete_ixs_1 = vec![
-        party_0_ixs[0].clone(),
-        party_0_ixs[1].clone(),
-        party_3_ixs[2].clone(),
-    ];
+    let complete_ixs_1 = vec![party_0_ixs[0], party_0_ixs[1], party_3_ixs[2]];
 
     let complete_sigs_2 = vec![
         party_1_sigs[0].clone(),
@@ -109,12 +111,12 @@ fn main() {
         party_1_sigs[5].clone(),
     ];
     let complete_ixs_2 = vec![
-        party_1_ixs[0].clone(),
-        party_2_ixs[1].clone(),
-        party_0_ixs[2].clone(),
-        party_1_ixs[3].clone(),
-        party_3_ixs[4].clone(),
-        party_1_ixs[5].clone(),
+        party_1_ixs[0],
+        party_2_ixs[1],
+        party_0_ixs[2],
+        party_1_ixs[3],
+        party_3_ixs[4],
+        party_1_ixs[5],
     ];
 
     // The following is incomplete. While it has more than 3, it has a lot for the same index.
@@ -126,14 +128,20 @@ fn main() {
         party_1_sigs[1].clone(),
     ];
     let incomplete_ixs_3 = vec![
-        party_1_ixs[0].clone(),
-        party_2_ixs[0].clone(),
-        party_0_ixs[0].clone(),
-        party_3_ixs[0].clone(),
-        party_1_ixs[1].clone(),
+        party_1_ixs[0],
+        party_2_ixs[0],
+        party_0_ixs[0],
+        party_3_ixs[0],
+        party_1_ixs[1],
     ];
 
-    let clerk = StmClerk::from_signer(&party_0, TrivialEnv);
+    let mut clerk_registration = local_reg(&parties, &parties_pks);
+    clerk_registration.close();
+    let clerk_avk = match clerk_registration.generate_avk() {
+        Ok(k) => k,
+        Err(_) => panic!("Key generation by clerk failed"),
+    };
+    let clerk = StmClerk::new(params, TrivialEnv, clerk_avk, total_stake);
 
     // Now we aggregate the signatures
     let msig_1 =
@@ -181,12 +189,12 @@ fn try_signatures(
     (sigs, ixs)
 }
 
-fn local_reg(ids: &Vec<(usize, u64)>, pks: &Vec<MspPk<Bls12_377>>) -> KeyReg<Bls12_377> {
-    let mut local_keyreg = KeyReg::new(&ids);
+fn local_reg(ids: &[(usize, u64)], pks: &[MspPk<Bls12_377>]) -> KeyReg<Bls12_377> {
+    let mut local_keyreg = KeyReg::new(ids);
     // todo: maybe its cleaner to have a `StmPublic` instance that covers the "shareable"
     // data, such as the public key, stake and id.
-    for (&pk, id) in pks.into_iter().zip(ids.into_iter()) {
-        match local_keyreg.register(id.0, pk.clone()) {
+    for (&pk, id) in pks.iter().zip(ids.iter()) {
+        match local_keyreg.register(id.0, pk) {
             Err(e) => panic!("{:?}", e),
             Ok(()) => (),
         }

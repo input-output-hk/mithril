@@ -72,7 +72,19 @@ TEST(stm, produceAndVerifyAggregateSignature) {
         ASSERT_NE(sig[i], nullptr);
     }
 
-    StmClerkPtr clerk = stm_clerk_from_signer(signer);
+    // The Clerk first needs to run the registration with all participating parties. We explicitly list all steps.
+    // First it defines which are the parties than can participate (this can happen before the clerk knows their
+    // public keys).
+    KeyRegPtr clerk_kr = key_registration(2, party_ids, party_stake);
+    // Next it registers their public keys
+    ASSERT_EQ(register_party(clerk_kr, party_ids[0], keys[0]), 0);
+    ASSERT_EQ(register_party(clerk_kr, party_ids[1], keys[1]), 0);
+    // Now the registration phases closes, and no other parties can be included
+    close_registration(clerk_kr);
+    // After closing the registration, the clerk can generate the global key
+    MerkleTreePtr avk;
+    ASSERT_EQ(generate_avk(clerk_kr, &avk), 0);
+    StmClerkPtr clerk = stm_clerk_new(params, avk, 1);
     for (int i = 0; i < NEEDED_SIGS; i++) {
       ASSERT_EQ(stm_clerk_verify_sig(clerk, sig[i], indices[i], msg), 0);
     }

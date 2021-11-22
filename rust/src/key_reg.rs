@@ -7,6 +7,8 @@ use std::iter::FromIterator;
 use super::msp::{Msp, MspMvk, MspPk};
 use super::stm::{PartyId, Stake};
 
+use crate::merkle_tree::{MTHashLeaf, MerkleTree};
+use crate::stm::MTValue;
 use ark_ec::PairingEngine;
 use ark_ff::ToBytes;
 use ark_std::io::Write;
@@ -95,6 +97,9 @@ where
     UnknownPartyId(PartyId),
     /// The supplied key is not valid
     InvalidKey(MspPk<PE>),
+    /// An instance of a registration cannot generate an AVK before the
+    /// registration is closed.
+    RegistrationStillOpen,
 }
 
 impl<PE> KeyReg<PE>
@@ -169,6 +174,25 @@ where
         out
     }
 
+    /// Generates an AVK out of a set of registered parties. The registration needs to be closed
+    /// in order to generate the AVK.
+    pub fn generate_avk<H>(&self) -> Result<MerkleTree<MTValue<PE>, H>, RegisterError<PE>>
+    where
+        H: MTHashLeaf<MTValue<PE>>,
+    {
+        if self.allow {
+            return Err(RegisterError::RegistrationStillOpen);
+        }
+
+        let mtvals: Vec<MTValue<PE>> = self
+            .retrieve_all()
+            .iter()
+            .map(|rp| MTValue(rp.pk.mvk, rp.stake))
+            .collect();
+
+        Ok(MerkleTree::create(&mtvals))
+    }
+
     /// End registration. Disables `KeyReg::register`.
     pub fn close(&mut self) {
         self.allow = false;
@@ -235,6 +259,7 @@ mod tests {
                     }
                     Err(RegisterError::InvalidKey(_)) => unreachable!(),
                     Err(RegisterError::UnknownPartyId(_)) => unreachable!(),
+                    Err(RegisterError::RegistrationStillOpen) => unreachable!(),
                     Err(RegisterError::NotAllowed) => assert!(i > stop),
                 }
 

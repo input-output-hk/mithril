@@ -905,7 +905,7 @@ mod tests {
             }
 
             for (&passed_ixs, passed_sigs) in clerk.dedup_sigs_for_indices(&msg, &ixs, &sigs).unwrap() {
-                assert!(clerk.verify_sig(&passed_sigs, passed_ixs as u64, &msg).is_ok());
+                assert!(clerk.verify_sig(passed_sigs, passed_ixs as u64, &msg).is_ok());
             }
         }
     }
