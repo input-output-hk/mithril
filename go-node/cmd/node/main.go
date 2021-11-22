@@ -2,15 +2,16 @@ package main
 
 import (
 	"context"
-	"github.com/input-output-hk/mithril/go-node/internal/pg"
-	"github.com/input-output-hk/mithril/go-node/pkg/api"
-	"github.com/input-output-hk/mithril/go-node/pkg/config"
-	"github.com/input-output-hk/mithril/go-node/pkg/node"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
+
+	"github.com/input-output-hk/mithril/go-node/internal/pg"
+	"github.com/input-output-hk/mithril/go-node/pkg/api"
+	"github.com/input-output-hk/mithril/go-node/pkg/config"
+	"github.com/input-output-hk/mithril/go-node/pkg/node"
 )
 
 func main() {
@@ -26,7 +27,7 @@ func main() {
 	}
 	defer dbConn.Close(context.TODO())
 
-	err = pg.ApplyMigrations(dbConn)
+	err = pg.ApplyMigrations(cfg)
 	if err != nil {
 		panic(err)
 	}

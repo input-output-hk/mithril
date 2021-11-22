@@ -2,8 +2,13 @@ package pg
 
 import (
 	"context"
-	"github.com/jackc/pgx/v4"
+	"database/sql"
 	"time"
+
+	"github.com/input-output-hk/mithril/go-node/pkg/config"
+	"github.com/jackc/pgx/v4"
+	_ "github.com/jackc/pgx/v4/stdlib"
+	migrate "github.com/rubenv/sql-migrate"
 )
 
 type Querier interface {
@@ -40,10 +45,16 @@ func WithTX(ctx context.Context, conn *pgx.Conn, txFunc func(context.Context, pg
 	return err
 }
 
-func ApplyMigrations(conn *pgx.Conn) error {
-	//migrations := &migrate.FileMigrationSource{Dir: "migrations"}
-	//if _, err := migrate.Exec(conn, "postgres", migrations, migrate.Up); err != nil {
-	//	return err
-	//}
+func ApplyMigrations(config *config.Config) error {
+	db, err := sql.Open("pgx", config.PostgresDSN)
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
+	migrations := &migrate.FileMigrationSource{Dir: "migrations"}
+	if _, err := migrate.Exec(db, "postgres", migrations, migrate.Up); err != nil {
+		return err
+	}
 	return nil
 }
