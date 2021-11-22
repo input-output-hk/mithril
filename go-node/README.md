@@ -2,33 +2,42 @@
 
 ## Requirements
 
-In order to run a mithril node you need a ready PostgreSQL with sync-db data.
+In order to run a mithril node you need a ready PostgreSQL with sync-db data. Also check that the following required
+tools are installed.
+
+```shell
+$ cargo --version
+cargo 1.55.0
+
+$ go version
+go version go1.17.2 darwin/amd64
+```
 
 ## Building
 
 Before compiling mithril node you need to build a rust lib. Just run the command below.
 
 ```shell
-make mlib
+$ cd go-node
+$ make mlib
 ```
 
 ## Running Node
 
 ```shell
-cd go-node
-POSTGRE_DSN="host=127.0.0.1 port=5432 user=cdb password=123456 dbname=testnet sslmode=disable" \
-MITHRIL_PARTY_ID=<N> \
- go run cmd/node/main.go
+$ cd go-node
+
+$ POSTGRE_DSN="host=127.0.0.1 port=5432 user=cdb password=123456 dbname=testnet sslmode=disable" \
+  MITHRIL_PARTY_ID=<N> go run cmd/node/main.go
 ```
 
 where N is a ``party_id`` index from 0 to 4. By default, each node starts as a leader. If yoo want to run node just as
 signing node then provide ``LEADER=false`` to environment variables list.
 
-
 ## Working Algorithm
 
 Running node every 30 seconds fetches a UTxO and initiates a certificate sign process. If the certificate sign process
-receives enough amount of valid signatures from peer nodes then the node will save a certificate to the DB.
+receives enough amount of valid signatures from peer nodes then the node will save a certificate to the DB. gt
 
 ## Playing Parameters
 
@@ -50,11 +59,10 @@ AQAAAAAAAAABAAAAAAAAAGQAAAAAAAAABQAAAAAAAACamZmZmZnJP9sS3FJEAsCiY2lsCT2KTBvJ9rxX
 
 Copy the last line (base64) to the configuration file to correspond participant initializer.
 
-
 ## API SERVER
 
 Following API endpoints are available:
 
 * ``/certs`` - list currently signed certificates.
-* ``/certs/{merkle_root}`` - list certificate UTxO addresses.
-* ``/certs/{merkle_root}/{addr}`` - gets proofs and UTxO for a specific address.
+* ``/utxo/{merkle_root}`` - list certificate UTxO addresses.
+* ``/utxo/{merkle_root}/{addr}`` - gets proofs and UTxO for a specific address.
