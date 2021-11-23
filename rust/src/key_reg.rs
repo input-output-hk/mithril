@@ -228,6 +228,8 @@ mod tests {
         fn test_keyreg(ps in arb_participants(2, 10),
                        nkeys in 2..10_usize,
                        stop in 2..10_usize,
+                       fake_it in 0..4usize,
+                       fake_id in 0..4usize,
                        seed in any::<[u8;32]>()) {
             let mut rng = ChaCha20Rng::from_seed(seed);
             let mut kr = KeyReg::new(&ps);
@@ -241,8 +243,18 @@ mod tests {
             let mut parties = HashSet::new();
 
             for (i, p) in ps.iter().enumerate() {
-                let pk = gen_keys[i % gen_keys.len()];
-                let reg = kr.register(p.0, pk);
+                let mut pk = gen_keys[i % gen_keys.len()];
+
+                if fake_it == 0 {
+                    pk.k1 = pk.k2;
+                }
+
+                let id = p.0;
+                if fake_it == 1 {
+                    id = 9999;
+                }
+
+                let reg = kr.register(id, pk);
                 match reg {
                     Ok(_) => {
                         assert!(i <= stop);
@@ -257,9 +269,12 @@ mod tests {
                         assert!(party == p.0);
                         assert!(parties.contains(&party));
                     }
-                    Err(RegisterError::InvalidKey(_)) => unreachable!(),
-                    Err(RegisterError::UnknownPartyId(_)) => unreachable!(),
-                    Err(RegisterError::RegistrationStillOpen) => unreachable!(),
+                    Err(RegisterError::InvalidKey(a)) => {
+                        assert_eq!(fake_it, 0);
+                        assert!(!Msp::check(&a));
+                    }
+                    Err(RegisterError::UnknownPartyId(a)) => assert_eq!(fake_it, 1),
+                    Err(RegisterError::RegistrationStillOpen) => unreachable!("Error cannot be reached with register function"),
                     Err(RegisterError::NotAllowed) => assert!(i > stop),
                 }
 
