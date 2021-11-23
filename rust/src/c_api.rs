@@ -382,8 +382,7 @@ mod key_reg {
         unsafe {
             assert!(!key_reg.is_null());
             let ref_key_reg = &mut *key_reg;
-            let pk = *Box::from_raw(party_key);
-            match ref_key_reg.register(party_id, pk) {
+            match ref_key_reg.register(party_id, *party_key) {
                 Ok(()) => 0,
                 Err(RegisterError::NotAllowed) => -1,
                 Err(RegisterError::KeyRegistered(_)) => -2,
