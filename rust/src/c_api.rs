@@ -1,5 +1,5 @@
 //! C api
-use crate::key_reg::KeyReg;
+use crate::key_reg::{ClosedKeyReg, KeyReg};
 use crate::{
     merkle_tree::{MTHashLeaf, MerkleTree},
     mithril_proof::concat_proofs::{ConcatProof, TrivialEnv},
@@ -22,6 +22,7 @@ type StmSignerPtr = *mut StmSigner<H, C>;
 type StmClerkPtr = *mut StmClerk<H, C, TrivialEnv>;
 type MerkleTreePtr = *mut MerkleTree<MTValue<C>, H>;
 type KeyRegPtr = *mut KeyReg<C>;
+type ClosedKeyRegPtr = *mut ClosedKeyReg<C, H>;
 
 // A macro would be nice for the below, but macros do not
 // seem to work properly with cbindgen:
@@ -342,7 +343,7 @@ mod signer {
 }
 
 mod key_reg {
-    use crate::c_api::{KeyRegPtr, MerkleTreePtr, MspPkPtr};
+    use crate::c_api::{ClosedKeyRegPtr, KeyRegPtr, MerkleTreePtr, MspPkPtr};
     use crate::key_reg::{KeyReg, RegisterError};
     use crate::stm::{PartyId, Stake};
     use std::slice;
@@ -369,11 +370,10 @@ mod key_reg {
     #[no_mangle]
     /// Register the party. If registration is succesful, returns 0, otherwise returns the
     /// following depending on the received error:
-    /// * -1 if the registration is closed,
-    /// * -2 if the key is already registered,
-    /// * -3 if the key is invalid
-    /// * -4 if the `party_id` is unknown
-    /// * -5 is unexpected behaviour
+    /// * -1 if the key is already registered,
+    /// * -2 if the key is invalid
+    /// * -3 if the `party_id` is unknown
+    /// * -4 is unexpected behaviour
     pub extern "C" fn register_party(
         key_reg: KeyRegPtr,
         party_id: PartyId,
@@ -384,36 +384,28 @@ mod key_reg {
             let ref_key_reg = &mut *key_reg;
             match ref_key_reg.register(party_id, *party_key) {
                 Ok(()) => 0,
-                Err(RegisterError::NotAllowed) => -1,
-                Err(RegisterError::KeyRegistered(_)) => -2,
-                Err(RegisterError::InvalidKey(_)) => -3,
-                Err(RegisterError::UnknownPartyId(_)) => -4,
-                _ => -5,
+                Err(RegisterError::KeyRegistered(_)) => -1,
+                Err(RegisterError::InvalidKey(_)) => -2,
+                Err(RegisterError::UnknownPartyId(_)) => -3,
+                _ => -4,
             }
         }
     }
 
     #[no_mangle]
-    pub extern "C" fn generate_avk(key_reg: KeyRegPtr, avk_ptr: *mut MerkleTreePtr) -> i64 {
+    pub extern "C" fn generate_avk(key_reg: ClosedKeyRegPtr) -> MerkleTreePtr {
         unsafe {
             assert!(!key_reg.is_null());
-            let ref_key_ref = &mut *key_reg;
-            match ref_key_ref.generate_avk() {
-                Ok(key) => {
-                    *avk_ptr = Box::into_raw(Box::new(key));
-                    0
-                }
-                Err(_) => -1,
-            }
+            Box::into_raw(Box::new((*key_reg).avk.clone()))
         }
     }
 
     #[no_mangle]
-    pub extern "C" fn close_registration(key_reg: KeyRegPtr) {
+    pub extern "C" fn close_registration(key_reg: KeyRegPtr) -> ClosedKeyRegPtr {
         unsafe {
             assert!(!key_reg.is_null());
-            let ref_key_reg = &mut *key_reg;
-            ref_key_reg.close();
+            let ref_key_reg = *Box::from_raw(key_reg);
+            Box::into_raw(Box::new(ref_key_reg.close()))
         }
     }
 }

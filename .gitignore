@@ -4,3 +4,4 @@ mithril.cabal
 rust/c-tests/test
 rust/c-tests/test.dSYM/
 *~
+rust/proptest-regressions/key_reg.txt

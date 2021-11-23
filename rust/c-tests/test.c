@@ -42,25 +42,19 @@ TEST(stm, invalidRegistration) {
     KeyRegPtr clerk_kr = key_registration(2, party_ids, party_stake);
     ASSERT_EQ(register_party(clerk_kr, party_ids[0], keys[0]), 0);
 
-    // If it register twice the same party, it fails with error code -2
-    ASSERT_EQ(register_party(clerk_kr, party_ids[0], keys[0]), -2);
+    // If it register twice the same party, it fails with error code -1
+    ASSERT_EQ(register_party(clerk_kr, party_ids[0], keys[0]), -1);
 
-    // If the key is incorrect, then we get error code -3. For that, let's mangle the bits of a key
+    // If the key is incorrect, then we get error code -2. For that, let's mangle the bits of a key
     unsigned char *fake_key;
     unsigned long size;
     msp_serialize_verification_key(keys[1], &size, &fake_key);
     fake_key[0] &= 0x00;
     MspPkPtr f_key = msp_deserialize_verification_key(size, fake_key);
-    ASSERT_EQ(register_party(clerk_kr, party_ids[1], f_key), -3);
+    ASSERT_EQ(register_party(clerk_kr, party_ids[1], f_key), -2);
 
-    // If we try to register the fake party, it will fail with error code -4
-    ASSERT_EQ(register_party(clerk_kr, party_id_fake, keys_fake), -4);
-
-    // Now the registration phases closes, and no other parties can be included
-    close_registration(clerk_kr);
-
-    // Finally, if we try to register now that the registration is closed, we get error code -1
-    ASSERT_EQ(register_party(clerk_kr, party_ids[1], keys[1]), -1);
+    // If we try to register the fake party, it will fail with error code -3
+    ASSERT_EQ(register_party(clerk_kr, party_id_fake, keys_fake), -3);
 }
 
 TEST(stm, clerkFromPublicData) {
@@ -101,10 +95,9 @@ TEST(stm, clerkFromPublicData) {
     ASSERT_EQ(register_party(clerk_kr, party_ids[0], keys[0]), 0);
     ASSERT_EQ(register_party(clerk_kr, party_ids[1], keys[1]), 0);
     // Now the registration phases closes, and no other parties can be included
-    close_registration(clerk_kr);
+    ClosedKeyRegPtr closed_reg = close_registration(clerk_kr);
     // After closing the registration, the clerk can generate the global key
-    MerkleTreePtr avk;
-    ASSERT_EQ(generate_avk(clerk_kr, &avk), 0);
+    MerkleTreePtr avk = generate_avk(closed_reg);
     StmClerkPtr clerk = stm_clerk_new(params, avk, 1);
 
     // The following can happen several times for distinct messaged, without requiring to run the registration phase
