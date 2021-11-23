@@ -7,6 +7,62 @@ extern "C" {
 #define NEEDED_SIGS 5
 #endif
 
+TEST(stm, invalidRegistration) {
+    // Lets test invalid registrations
+    const char *msg = "some message";
+
+    StmParameters params;
+    params.k = NEEDED_SIGS;
+    params.m = 101;
+    params.phi_f = 0.2;
+
+    // Test with 2 parties, one with all the stake, one with none.
+    PartyId party_ids[3] = {1, 2, 3};
+    PartyId party_id_fake = 4;
+    Stake   party_stake[3] = {1, 0, 0};
+    Stake party_stake_fake = 4;
+    MspPkPtr keys[3];
+    MspPkPtr keys_fake;
+
+    // Scope of the signers, which is not required knowledge for the clerk. Signers initialise.
+    {
+        StmInitializerPtr initializer[2];
+        StmInitializerPtr initializer_fake;
+
+        for (int i = 0; i < 3; i++) {
+            initializer[i] = stm_intializer_setup(params, party_ids[i], party_stake[i]);
+            keys[i] = stm_initializer_verification_key(initializer[i]);
+        }
+        initializer_fake = stm_intializer_setup(params, party_id_fake, party_stake_fake);
+        keys_fake = stm_initializer_verification_key(initializer_fake);
+    }
+
+    // Now the public keys are broadcast, and a third party (i.e. a Clerk), can register all participating parties. However,
+    // it registers all participants except the `fake`.
+    KeyRegPtr clerk_kr = key_registration(2, party_ids, party_stake);
+    ASSERT_EQ(register_party(clerk_kr, party_ids[0], keys[0]), 0);
+
+    // If it register twice the same party, it fails with error code -2
+    ASSERT_EQ(register_party(clerk_kr, party_ids[0], keys[0]), -2);
+
+    // If the key is incorrect, then we get error code -3. For that, let's mangle the bits of a key
+    unsigned char *fake_key;
+    unsigned long size;
+    msp_serialize_verification_key(keys[1], &size, &fake_key);
+    fake_key[0] &= 0x00;
+    MspPkPtr f_key = msp_deserialize_verification_key(size, fake_key);
+    ASSERT_EQ(register_party(clerk_kr, party_ids[1], f_key), -3);
+
+    // If we try to register the fake party, it will fail with error code -4
+    ASSERT_EQ(register_party(clerk_kr, party_id_fake, keys_fake), -4);
+
+    // Now the registration phases closes, and no other parties can be included
+    close_registration(clerk_kr);
+
+    // Finally, if we try to register now that the registration is closed, we get error code -1
+    ASSERT_EQ(register_party(clerk_kr, party_ids[1], keys[1]), -1);
+}
+
 TEST(stm, clerkFromPublicData) {
     // The following data is public, and known to all participants
     const char *msg = "some message";
