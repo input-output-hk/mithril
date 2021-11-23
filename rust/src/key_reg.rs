@@ -21,11 +21,23 @@ pub struct KeyReg<PE>
 where
     PE: PairingEngine,
 {
-    allow: bool,
     parties: HashMap<PartyId, Party<PE>>,
     // `keys` is just the set of all of the keys that have been registered
     // (i.e., in `parties`)
     keys: HashSet<MspPk<PE>>,
+}
+
+/// Structure generated out of a closed registration. One can only get a global `avk` out of
+/// a closed key registration.
+#[derive(Clone, Debug)]
+pub struct ClosedKeyReg<PE, H>
+where
+    PE: PairingEngine,
+    H: MTHashLeaf<MTValue<PE>>,
+{
+    key_reg: KeyReg<PE>,
+    /// Unique public key out of the key registration instance
+    pub avk: MerkleTree<MTValue<PE>, H>,
 }
 
 /// Represents the status of a known participant in the protocol who is allowed
@@ -86,8 +98,6 @@ pub enum RegisterError<PE>
 where
     PE: PairingEngine,
 {
-    /// Registration has ended
-    NotAllowed,
     /// This key has already been registered by a participant
     KeyRegistered(Vec<u8>),
     /// This participant has already been registered
@@ -117,7 +127,6 @@ where
             (*id, party)
         });
         Self {
-            allow: true,
             parties: HashMap::from_iter(parties),
             keys: HashSet::new(),
         }
@@ -125,9 +134,6 @@ where
 
     /// Register the pubkey for a particular party.
     pub fn register(&mut self, party_id: PartyId, pk: MspPk<PE>) -> Result<(), RegisterError<PE>> {
-        if !self.allow {
-            return Err(RegisterError::NotAllowed);
-        }
         if self.keys.contains(&pk) {
             return Err(RegisterError::KeyRegistered(pk.mvk.to_bytes()));
         }
@@ -174,28 +180,22 @@ where
         out
     }
 
-    /// Generates an AVK out of a set of registered parties. The registration needs to be closed
-    /// in order to generate the AVK.
-    pub fn generate_avk<H>(&self) -> Result<MerkleTree<MTValue<PE>, H>, RegisterError<PE>>
+    /// End registration. Disables `KeyReg::register`. Consumes the instance of `self` and returns
+    /// a `ClosedKeyReg`.
+    pub fn close<H>(self) -> ClosedKeyReg<PE, H>
     where
         H: MTHashLeaf<MTValue<PE>>,
     {
-        if self.allow {
-            return Err(RegisterError::RegistrationStillOpen);
-        }
-
         let mtvals: Vec<MTValue<PE>> = self
             .retrieve_all()
             .iter()
             .map(|rp| MTValue(rp.pk.mvk, rp.stake))
             .collect();
 
-        Ok(MerkleTree::create(&mtvals))
-    }
-
-    /// End registration. Disables `KeyReg::register`.
-    pub fn close(&mut self) {
-        self.allow = false;
+        ClosedKeyReg {
+            key_reg: self,
+            avk: MerkleTree::create(&mtvals),
+        }
     }
 }
 
@@ -206,6 +206,23 @@ where
 {
     fn default() -> Self {
         Self::new(&[])
+    }
+}
+
+impl<PE, H> ClosedKeyReg<PE, H>
+where
+    PE: PairingEngine,
+    MspPk<PE>: Hash,
+    H: MTHashLeaf<MTValue<PE>>,
+{
+    /// Retrieve the pubkey and stake for a party.
+    pub fn retrieve(&self, party_id: PartyId) -> Option<RegParty<PE>> {
+        self.key_reg.retrieve(party_id)
+    }
+
+    /// Retrieve the pubkey and stake for all parties.
+    pub fn retrieve_all(&self) -> Vec<RegParty<PE>> {
+        self.key_reg.retrieve_all()
     }
 }
 
@@ -227,9 +244,7 @@ mod tests {
         #[test]
         fn test_keyreg(ps in arb_participants(2, 10),
                        nkeys in 2..10_usize,
-                       stop in 2..10_usize,
                        fake_it in 0..4usize,
-                       fake_id in 0..4usize,
                        seed in any::<[u8;32]>()) {
             let mut rng = ChaCha20Rng::from_seed(seed);
             let mut kr = KeyReg::new(&ps);
@@ -249,7 +264,7 @@ mod tests {
                     pk.k1 = pk.k2;
                 }
 
-                let id = p.0;
+                let mut id = p.0;
                 if fake_it == 1 {
                     id = 9999;
                 }
@@ -257,7 +272,6 @@ mod tests {
                 let reg = kr.register(id, pk);
                 match reg {
                     Ok(_) => {
-                        assert!(i <= stop);
                         assert!(keys.insert(pk));
                         assert!(parties.insert(p.0));
                     },
@@ -273,13 +287,8 @@ mod tests {
                         assert_eq!(fake_it, 0);
                         assert!(!Msp::check(&a));
                     }
-                    Err(RegisterError::UnknownPartyId(a)) => assert_eq!(fake_it, 1),
+                    Err(RegisterError::UnknownPartyId(_)) => assert_eq!(fake_it, 1),
                     Err(RegisterError::RegistrationStillOpen) => unreachable!("Error cannot be reached with register function"),
-                    Err(RegisterError::NotAllowed) => assert!(i > stop),
-                }
-
-                if i == stop {
-                    kr.close();
                 }
             }
 

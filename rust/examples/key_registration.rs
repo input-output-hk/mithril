@@ -135,13 +135,9 @@ fn main() {
         party_1_ixs[1],
     ];
 
-    let mut clerk_registration = local_reg(&parties, &parties_pks);
-    clerk_registration.close();
-    let clerk_avk = match clerk_registration.generate_avk() {
-        Ok(k) => k,
-        Err(_) => panic!("Key generation by clerk failed"),
-    };
-    let clerk = StmClerk::new(params, TrivialEnv, clerk_avk, total_stake);
+    let clerk_registration = local_reg(&parties, &parties_pks);
+    let closed_registration = clerk_registration.close();
+    let clerk = StmClerk::new(params, TrivialEnv, closed_registration.avk, total_stake);
 
     // Now we aggregate the signatures
     let msig_1 =
