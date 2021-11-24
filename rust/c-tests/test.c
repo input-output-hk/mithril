@@ -9,8 +9,6 @@ extern "C" {
 
 TEST(stm, invalidRegistration) {
     // Lets test invalid registrations
-    const char *msg = "some message";
-
     StmParameters params;
     params.k = NEEDED_SIGS;
     params.m = 101;
@@ -26,7 +24,7 @@ TEST(stm, invalidRegistration) {
 
     // Scope of the signers, which is not required knowledge for the clerk. Signers initialise.
     {
-        StmInitializerPtr initializer[2];
+        StmInitializerPtr initializer[3];
         StmInitializerPtr initializer_fake;
 
         for (int i = 0; i < 3; i++) {
@@ -39,7 +37,7 @@ TEST(stm, invalidRegistration) {
 
     // Now the public keys are broadcast, and a third party (i.e. a Clerk), can register all participating parties. However,
     // it registers all participants except the `fake`.
-    KeyRegPtr clerk_kr = key_registration(2, party_ids, party_stake);
+    KeyRegPtr clerk_kr = key_registration(3, party_ids, party_stake);
     ASSERT_EQ(register_party(clerk_kr, party_ids[0], keys[0]), 0);
 
     // If it register twice the same party, it fails with error code -1
@@ -74,15 +72,28 @@ TEST(stm, clerkFromPublicData) {
     MspPkPtr keys[2];
     StmSignerPtr signer;
 
-    // Scope of the signers, which is not required knowledge for the clerk. Signers initialise.
+    // Scope of the signers, which is not required knowledge for the clerk. Signers initialise. There is no central
+    // entity, so each signer needs to have its own instance of the key registration.
     {
         StmInitializerPtr initializer[2];
+        KeyRegPtr key_regs[2];
+        ClosedKeyRegPtr closed_reg[2];
 
         for (int i = 0; i < 2; i++) {
             initializer[i] = stm_intializer_setup(params, party_ids[i], party_stake[i]);
             keys[i] = stm_initializer_verification_key(initializer[i]);
         }
-        signer = stm_initializer_new_signer(initializer[0], 2, party_ids, party_stake, keys);
+
+        for (int i = 0; i < 2; i++) {
+            key_regs[i] = key_registration(2, party_ids, party_stake);
+            // They register both parties (including themselves).
+            ASSERT_EQ(register_party(key_regs[i], party_ids[0], keys[0]), 0);
+            ASSERT_EQ(register_party(key_regs[i], party_ids[1], keys[1]), 0);
+            // Now the registration phases closes, and no other parties can be included
+             closed_reg[i] = close_registration(key_regs[i]);
+        }
+
+        signer = stm_initializer_new_signer(initializer[0], closed_reg[0]);
     }
 
     // Now the public keys are broadcast, and a third party (i.e. a Clerk), can register all participating parties.
@@ -96,9 +107,8 @@ TEST(stm, clerkFromPublicData) {
     ASSERT_EQ(register_party(clerk_kr, party_ids[1], keys[1]), 0);
     // Now the registration phases closes, and no other parties can be included
     ClosedKeyRegPtr closed_reg = close_registration(clerk_kr);
-    // After closing the registration, the clerk can generate the global key
-    MerkleTreePtr avk = generate_avk(closed_reg);
-    StmClerkPtr clerk = stm_clerk_new(params, avk, 1);
+    // After closing the registration, the clerk can be created
+    StmClerkPtr clerk = stm_clerk_from_reg(params, closed_reg);
 
     // The following can happen several times for distinct messaged, without requiring to run the registration phase
     // over again. Again, the following is out of scope of the Clerk. The latter only needs access to the resulting
@@ -152,6 +162,8 @@ TEST(stm, produceAndVerifyAggregateSignature) {
     Stake   party_stake[2] = {1, 0};
     MspPkPtr keys[2];
     StmInitializerPtr initializer[2];
+    KeyRegPtr key_regs[2];
+    ClosedKeyRegPtr closed_reg[2];
 
     for (int i = 0; i < 2; i++) {
         initializer[i] = stm_intializer_setup(params, party_ids[i], party_stake[i]);
@@ -185,7 +197,17 @@ TEST(stm, produceAndVerifyAggregateSignature) {
     initializer[0] = stm_intializer_setup(params, party_ids[0], party_stake[0]);
     stm_initializer_set_keys(initializer[0], sk);
 
-    StmSignerPtr signer = stm_initializer_new_signer(initializer[0], 2, party_ids, party_stake, keys);
+    // Each party needs to run its registration.
+    for (int i = 0; i < 2; i++) {
+        key_regs[i] = key_registration(2, party_ids, party_stake);
+        // They register both parties (including themselves).
+        ASSERT_EQ(register_party(key_regs[i], party_ids[0], keys[0]), 0);
+        ASSERT_EQ(register_party(key_regs[i], party_ids[1], keys[1]), 0);
+        // Now the registration phases closes, and no other parties can be included
+        closed_reg[i] = close_registration(key_regs[i]);
+    }
+
+    StmSignerPtr signer = stm_initializer_new_signer(initializer[0], closed_reg[0]);
 
     int success = 0;
     for (Index i = 0; i < 100 && success < NEEDED_SIGS; i++) {
@@ -235,13 +257,25 @@ TEST(stm, failSigningIfIneligible) {
     Stake   party_stake[2] = {1, 0};
     MspPkPtr keys[2];
     StmInitializerPtr initializer[2];
+    KeyRegPtr key_regs[2];
+    ClosedKeyRegPtr closed_reg[2];
 
     for (int i = 0; i < 2; i++) {
         initializer[i] = stm_intializer_setup(params, party_ids[i], party_stake[i]);
         keys[i] = stm_initializer_verification_key(initializer[i]);
     }
+    // Each party needs to run its registration.
 
-    StmSignerPtr signer = stm_initializer_new_signer(initializer[1], 2, party_ids, party_stake, keys);
+    for (int i = 0; i < 2; i++) {
+        key_regs[i] = key_registration(2, party_ids, party_stake);
+        // They register both parties (including themselves).
+        ASSERT_EQ(register_party(key_regs[i], party_ids[0], keys[0]), 0);
+        ASSERT_EQ(register_party(key_regs[i], party_ids[1], keys[1]), 0);
+        // Now the registration phases closes, and no other parties can be included
+        closed_reg[i] = close_registration(key_regs[i]);
+    }
+
+    StmSignerPtr signer = stm_initializer_new_signer(initializer[1], closed_reg[1]);
 
     int success = 0;
     for (Index i = 0; i < 100 && success < NEEDED_SIGS; i++) {
