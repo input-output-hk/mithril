@@ -61,15 +61,14 @@
 //!     ps.push(p);
 //! }
 //!
-//! // Extract all the public keys for each party.
-//! // This is used to create StmSigner.
-//! let reg = key_reg.retrieve_all();
+//! // Close the key registration.
+//! let closed_reg = key_reg.close();
 //!
 //! // Finialize the StmInitializer and turn it into a StmSigner, which can execute the
 //! // rest of the protocol.
 //! let ps = ps
 //!     .into_par_iter()
-//!     .map(|p| p.new_signer(&reg))
+//!     .map(|p| p.new_signer(&closed_reg))
 //!     .collect::<Vec<StmSigner<H, Bls12_377>>>();
 //!
 //! /////////////////////
