@@ -36,7 +36,9 @@ where
     H: MTHashLeaf<MTValue<PE>>,
 {
     key_reg: KeyReg<PE>,
-    /// Unique public key out of the key registration instance
+    /// Total stake of the registered parties.
+    pub total_stake: Stake,
+    /// Unique public key out of the key registration instance.
     pub avk: MerkleTree<MTValue<PE>, H>,
 }
 
@@ -194,6 +196,7 @@ where
 
         ClosedKeyReg {
             key_reg: self,
+            total_stake: mtvals.iter().map(|s| s.1).sum(),
             avk: MerkleTree::create(&mtvals),
         }
     }

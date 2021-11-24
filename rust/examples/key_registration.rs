@@ -3,7 +3,7 @@
 //! run presented in `tests/integration.rs`, we explicitly treat each party individually.
 
 use ark_bls12_377::Bls12_377;
-use mithril::key_reg::KeyReg;
+use mithril::key_reg::{KeyReg, ClosedKeyReg};
 use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
 use mithril::stm::{Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
 
@@ -55,7 +55,7 @@ fn main() {
     ];
 
     // Now, each party generates their own KeyReg instance, and registers all other participating
-    // parties
+    // parties. Once all parties are registered, the key registration is closed.
     let key_reg = vec![
         local_reg(&parties, &parties_pks),
         local_reg(&parties, &parties_pks),
@@ -71,10 +71,10 @@ fn main() {
 
     // Now, with information of all participating parties (we can create the Merkle Tree), the
     // signers can be initialised.
-    let party_0 = party_0_init.new_signer(&key_reg[0].retrieve_all());
-    let party_1 = party_1_init.new_signer(&key_reg[1].retrieve_all());
-    let party_2 = party_2_init.new_signer(&key_reg[2].retrieve_all());
-    let party_3 = party_3_init.new_signer(&key_reg[3].retrieve_all());
+    let party_0 = party_0_init.new_signer(&key_reg[0]);
+    let party_1 = party_1_init.new_signer(&key_reg[1]);
+    let party_2 = party_2_init.new_signer(&key_reg[2]);
+    let party_3 = party_3_init.new_signer(&key_reg[3]);
 
     /////////////////////
     // operation phase //
@@ -135,9 +135,8 @@ fn main() {
         party_1_ixs[1],
     ];
 
-    let clerk_registration = local_reg(&parties, &parties_pks);
-    let closed_registration = clerk_registration.close();
-    let clerk = StmClerk::new(params, TrivialEnv, closed_registration.avk, total_stake);
+    let closed_registration = local_reg(&parties, &parties_pks);
+    let clerk = StmClerk::from_registration(params, TrivialEnv, &closed_registration);
 
     // Now we aggregate the signatures
     let msig_1 =
@@ -185,7 +184,7 @@ fn try_signatures(
     (sigs, ixs)
 }
 
-fn local_reg(ids: &[(usize, u64)], pks: &[MspPk<Bls12_377>]) -> KeyReg<Bls12_377> {
+fn local_reg(ids: &[(usize, u64)], pks: &[MspPk<Bls12_377>]) -> ClosedKeyReg<Bls12_377, H> {
     let mut local_keyreg = KeyReg::new(ids);
     // todo: maybe its cleaner to have a `StmPublic` instance that covers the "shareable"
     // data, such as the public key, stake and id.
@@ -195,5 +194,5 @@ fn local_reg(ids: &[(usize, u64)], pks: &[MspPk<Bls12_377>]) -> KeyReg<Bls12_377
             Ok(()) => (),
         }
     }
-    local_keyreg
+    local_keyreg.close()
 }

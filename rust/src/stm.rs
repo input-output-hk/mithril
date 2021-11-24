@@ -123,7 +123,7 @@
 //! # }
 //! ```
 
-use crate::key_reg::RegParty;
+use crate::key_reg::{ClosedKeyReg};
 use crate::merkle_tree::{concat_avk_with_msg, MTHashLeaf, MerkleTree, Path};
 use crate::mithril_proof::{MithrilProof, MithrilStatement, MithrilWitness};
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
@@ -164,7 +164,8 @@ pub struct StmParameters {
     pub phi_f: f64,
 }
 
-/// Initializer for `StmSigner`.
+/// Initializer for `StmSigner`. This is the data that is used during the key registration
+/// procedure. One the latter is finished, this instance is consumed into an `StmSigner`.
 #[derive(Debug, Clone)]
 pub struct StmInitializer<PE>
 where
@@ -182,7 +183,9 @@ where
     pk: MspPk<PE>,
 }
 
-/// Participant in the protocol. Can sign messages.
+/// Participant in the protocol. Can sign messages. This instance can only be generated out of
+/// an `StmInitializer` and a closed `KeyReg`. This ensures that a `MerkleTree` root is not
+/// computed before all participants have registered.
 #[derive(Debug, Clone)]
 pub struct StmSigner<H, PE>
 where
@@ -199,7 +202,9 @@ where
     total_stake: Stake,
 }
 
-/// `StmClerk` can verify and aggregate `StmSig`s and verify `StmMultiSig`s.
+/// `StmClerk` can verify and aggregate `StmSig`s and verify `StmMultiSig`s. Clerks can only be
+/// generated with the registration closed. This avoids that a Merkle Tree is computed before
+/// all parties have registered.
 #[derive(Debug, Clone)]
 pub struct StmClerk<H, PE, E>
 where
@@ -461,17 +466,14 @@ where
     /// (2) this StmSigner's parameter valuation
     /// (3) the avk as built from the current registered parties (according to the registration service)
     /// (4) the current total stake (according to the registration service)
-    pub fn new_signer<H>(&self, reg: &[RegParty<PE>]) -> StmSigner<H, PE>
+    pub fn new_signer<H>(self, closed_reg: &ClosedKeyReg<PE, H>) -> StmSigner<H, PE>
     where
-        H: MTHashLeaf<MTValue<PE>>,
+        H: MTHashLeaf<MTValue<PE>> + Clone,
     {
-        // The paper uses Reg as the vector of values with which to initialize
-        // the merkle tree. The implementation stores MTValues (derived from
-        // this vector) in the tree.
-        let mtvals: Vec<MTValue<PE>> = reg.iter().map(|rp| MTValue(rp.pk.mvk, rp.stake)).collect();
-        // Extract this signer's party index from the registry
+        // Extract this signer's party index from the registry, i.e. the position of the merkle
+        // tree leaf.
         let mut my_index = None;
-        for (i, rp) in reg.iter().enumerate() {
+        for (i, rp) in closed_reg.retrieve_all().iter().enumerate() {
             if rp.party_id == self.party_id {
                 my_index = Some(i);
                 break;
@@ -479,13 +481,18 @@ where
         }
         StmSigner {
             party_id: self.party_id,
-            avk_idx: my_index.unwrap_or_else(|| panic!("party unknown: {}", self.party_id)),
+            avk_idx: my_index.unwrap_or_else(|| {
+                panic!(
+                    "Initializer not registered: {}. Cannot participate as a signer.",
+                    self.party_id
+                )
+            }),
             stake: self.stake,
             params: self.params,
-            avk: MerkleTree::create(&mtvals),
+            avk: closed_reg.avk.clone(),
             sk: self.sk,
             pk: self.pk,
-            total_stake: mtvals.iter().map(|s| s.1).sum(),
+            total_stake: closed_reg.total_stake,
         }
     }
 }
@@ -542,18 +549,17 @@ where
     PE: PairingEngine,
     PE::G1Projective: ToConstraintField<PE::Fq>,
 {
-    /// Create a new Clerk.
-    pub fn new(
+    /// Create a new `Clerk` from a closed registration instance.
+    pub fn from_registration(
         params: StmParameters,
         proof_env: E,
-        avk: MerkleTree<MTValue<PE>, H>,
-        total_stake: Stake,
+        closed_reg: &ClosedKeyReg<PE, H>,
     ) -> Self {
         let (pk, vk) = proof_env.setup();
         Self {
             params,
-            avk: Rc::new(avk),
-            total_stake,
+            avk: Rc::new(closed_reg.avk.clone()),
+            total_stake: closed_reg.total_stake,
             proof_env,
             proof_key: pk,
             verif_key: vk,
@@ -562,12 +568,15 @@ where
 
     /// Creates a Clerk from a Signer.
     pub fn from_signer(signer: &StmSigner<H, PE>, proof_env: E) -> Self {
-        Self::new(
-            signer.params,
+        let (proof_key, verif_key) = proof_env.setup();
+        Self {
+            params: signer.params,
             proof_env,
-            signer.avk.clone(),
-            signer.total_stake,
-        )
+            avk: Rc::new(signer.avk.clone()),
+            total_stake: signer.total_stake,
+            proof_key,
+            verif_key,
+        }
     }
 
     /// Verify a signature.
@@ -785,8 +794,8 @@ mod tests {
                 p
             })
             .collect::<Vec<_>>();
-        let reg = kr.retrieve_all();
-        ps.into_iter().map(|p| p.new_signer(&reg)).collect()
+        let closed_reg = kr.close();
+        ps.into_iter().map(|p| p.new_signer(&closed_reg)).collect()
     }
 
     /// Generate a vector of stakes that should sum to `honest_stake`
