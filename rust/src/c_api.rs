@@ -189,8 +189,6 @@ pub mod serialize {
 
 mod initializer {
     use super::*;
-    use crate::key_reg::RegParty;
-    use std::slice;
 
     #[no_mangle]
     pub extern "C" fn stm_intializer_setup(
@@ -279,31 +277,20 @@ mod initializer {
         }
     }
 
+    /// This function consumes the `StmInitilizer`. This ensures that after the registration is
+    /// closed, there is no more mangling of the data of the registered party (such as stake or
+    /// keys).
     #[no_mangle]
     pub extern "C" fn stm_initializer_new_signer(
         me: StmInitializerPtr,
-        n_parties: usize,
-        party_ids: *const PartyId,
-        party_stakes: *const Stake,
-        party_keys: *const MspPkPtr,
+        closed_reg: ClosedKeyRegPtr,
     ) -> StmSignerPtr {
         unsafe {
-            let ref_me = &mut *me;
-            let ids = slice::from_raw_parts(party_ids, n_parties);
-            let stakes = slice::from_raw_parts(party_stakes, n_parties);
-            let keys = slice::from_raw_parts(party_keys, n_parties);
-            let reg = ids
-                .iter()
-                .zip(stakes)
-                .zip(keys)
-                .map(|((party_id, stake), k)| RegParty {
-                    party_id: *party_id,
-                    stake: *stake,
-                    pk: **k,
-                })
-                .collect::<Vec<_>>();
-
-            Box::into_raw(Box::new(ref_me.new_signer(&reg)))
+            assert!(!me.is_null());
+            assert!(!closed_reg.is_null());
+            let ref_me = *Box::from_raw(me);
+            let ref_reg = &*closed_reg;
+            Box::into_raw(Box::new(ref_me.new_signer(ref_reg)))
         }
     }
 }
@@ -415,18 +402,19 @@ mod clerk {
     use core::slice;
     use std::convert::TryInto;
 
+    /// A clerk can only be generated out of a `ClosedKeyReg` instance, or out of an `StmSigner`.
+    /// This function initialises a `Clerk` out of a `ClosedKeyReg`.
     #[no_mangle]
-    pub extern "C" fn stm_clerk_new(
+    pub extern "C" fn stm_clerk_from_reg(
         params: StmParameters,
-        avk: MerkleTreePtr,
-        total_stake: Stake,
+        closed_reg: ClosedKeyRegPtr,
     ) -> StmClerkPtr {
         unsafe {
-            Box::into_raw(Box::new(StmClerk::new(
+            assert!(!closed_reg.is_null());
+            Box::into_raw(Box::new(StmClerk::from_registration(
                 params,
                 TrivialEnv,
-                *Box::from_raw(avk),
-                total_stake,
+                &*closed_reg,
             )))
         }
     }

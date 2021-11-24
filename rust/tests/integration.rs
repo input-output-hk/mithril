@@ -43,11 +43,11 @@ fn test_full_protocol() {
         ps.push(p);
     }
 
-    let reg = key_reg.retrieve_all();
+    let closed_reg = key_reg.close();
 
     let ps = ps
         .into_par_iter()
-        .map(|p| p.new_signer(&reg))
+        .map(|p| p.new_signer(&closed_reg))
         .collect::<Vec<StmSigner<H, Bls12_377>>>();
 
     /////////////////////
