@@ -539,6 +539,23 @@ where
             None
         }
     }
+
+    /// This function should be called when a signing epoch is finished (or when a new one starts).
+    /// It consumes `self` and turns it back to an `StmInitializer`, which allows for an update in
+    /// the dynamic parameters (such as stake distribution, or participants). To ensure that the
+    /// `StmInitializer` will not be used for the previous registration, this function also consumes
+    /// the `ClosedKeyReg` instance.
+    ///
+    /// See an example [here](mithril::examples::dynamic_stake).
+    pub fn new_epoch(self, _closed_reg: ClosedKeyReg<PE, H>) -> StmInitializer<PE> {
+        StmInitializer{
+            party_id: self.party_id,
+            stake: self.stake,
+            params: self.params,
+            sk: self.sk,
+            pk: self.pk
+        }
+    }
 }
 
 impl<H, PE, E: ProverEnv> StmClerk<H, PE, E>
