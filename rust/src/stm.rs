@@ -122,7 +122,7 @@
 //! # }
 //! ```
 
-use crate::key_reg::{ClosedKeyReg};
+use crate::key_reg::ClosedKeyReg;
 use crate::merkle_tree::{concat_avk_with_msg, MTHashLeaf, MerkleTree, Path};
 use crate::mithril_proof::{MithrilProof, MithrilStatement, MithrilWitness};
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
@@ -544,16 +544,26 @@ where
     /// It consumes `self` and turns it back to an `StmInitializer`, which allows for an update in
     /// the dynamic parameters (such as stake distribution, or participants). To ensure that the
     /// `StmInitializer` will not be used for the previous registration, this function also consumes
-    /// the `ClosedKeyReg` instance.
+    /// the `ClosedKeyReg` instance. In case the stake of the current party has changed, it includes
+    /// it as input.
     ///
     /// See an example [here](mithril::examples::dynamic_stake).
-    pub fn new_epoch(self, _closed_reg: ClosedKeyReg<PE, H>) -> StmInitializer<PE> {
-        StmInitializer{
+    pub fn new_epoch(
+        self,
+        _closed_reg: ClosedKeyReg<PE, H>,
+        new_stake: Option<Stake>,
+    ) -> StmInitializer<PE> {
+        let stake = match new_stake {
+            None => self.stake,
+            Some(s) => s,
+        };
+
+        StmInitializer {
             party_id: self.party_id,
-            stake: self.stake,
+            stake,
             params: self.params,
             sk: self.sk,
-            pk: self.pk
+            pk: self.pk,
         }
     }
 }

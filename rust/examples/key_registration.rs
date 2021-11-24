@@ -3,7 +3,7 @@
 //! run presented in `tests/integration.rs`, we explicitly treat each party individually.
 
 use ark_bls12_377::Bls12_377;
-use mithril::key_reg::{KeyReg, ClosedKeyReg};
+use mithril::key_reg::{ClosedKeyReg, KeyReg};
 use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
 use mithril::stm::{Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
 
