@@ -103,7 +103,7 @@ fn main() {
     //////// EPOCH 2 ///////////////
     ////////////////////////////////
 
-    println!("Begining of Epoch 1.");
+    println!("Begining of Epoch 2.");
     println!();
 
     // Now the second epoch starts. A new party joins, and the stake of all

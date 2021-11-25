@@ -277,7 +277,7 @@ mod initializer {
         }
     }
 
-    /// This function consumes the `StmInitilizer`. This ensures that after the registration is
+    /// This function consumes the `StmInitializer`. This ensures that after the registration is
     /// closed, there is no more mangling of the data of the registered party (such as stake or
     /// keys).
     #[no_mangle]
