@@ -327,6 +327,24 @@ mod signer {
             }
         }
     }
+
+    /// Move to a new epoch. This happens when the parameters (such as signers or stake
+    /// distribution) change. It consumes the instance of the previous closed registration, and
+    /// returns a new StmInitializer with the updated stake of the signer in question.
+    #[no_mangle]
+    pub extern "C" fn stm_signer_new_epoch(
+        me: StmSignerPtr,
+        closed_reg: ClosedKeyRegPtr,
+        new_stake: Stake,
+    ) -> StmInitializerPtr {
+        unsafe {
+            assert!(!me.is_null());
+            assert!(!closed_reg.is_null());
+            let me = *Box::from_raw(me);
+            let closed_reg = *Box::from_raw(closed_reg);
+            Box::into_raw(Box::new(me.new_epoch(closed_reg, Some(new_stake))))
+        }
+    }
 }
 
 mod key_reg {

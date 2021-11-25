@@ -269,3 +269,66 @@ TEST(stm, failSigningIfIneligible) {
 
     ASSERT_EQ(success, 0);
 }
+
+TEST(stm, dynamicStake) {
+    StmParameters params;
+    params.k = NEEDED_SIGS;
+    params.m = 100;
+    params.phi_f = 0.2;
+
+    // Test with 2 parties, one with all the stake, one with none. In the second epoch we'll have three parties, so we
+    // initialise the key array with a size of 3.
+    PartyId party_ids[2] = {1, 2};
+    Stake   party_stake[2] = {1, 0};
+    MspPkPtr keys[3];
+    StmInitializerPtr initializer[2];
+    ClosedKeyRegPtr closed_reg[2];
+
+    multiple_initializers(2, party_ids, party_stake, params, initializer, keys);
+    multiple_key_reg(2, party_ids, party_stake, keys, closed_reg);
+
+    StmSignerPtr signer[2];
+    signer[0] = stm_initializer_new_signer(initializer[0], closed_reg[0]);
+    signer[1] = stm_initializer_new_signer(initializer[1], closed_reg[1]);
+    /*
+     * Some signing happens. This is the operation phase. At some point the operation phase finishes, and we proceed to
+     * the next epoch. In this epoch change, the stake and the parties are updated. This means that we need to
+     * update the signer (as it contains the merkle tree root, and the total stake). One way to go would be to
+     * extract the key pair from the initializer, regenerate a fresh one with the new params, and change the key
+     * pair of the fresh initializer with the key pair of the previous one. However, that is not the best way.
+     * Particularly because the `stm_initializer_new_signer` function consumes the initializer. This is to ensure
+     * that one cannot change the initializer values once the key registration is closed.
+     */
+    EXPECT_TRUE(initializer[1] != nullptr);
+
+    /*
+     * Therefore, what we need to do is go back from the signer to an initializer instance. To minimise possible misuse
+     * of the transition, we consume the closed registration, so that we force the library user to regenerate a new
+     * registration instance (with the updated parameters). Let's also assume that there is a new signer.
+     */
+    PartyId party_ids_epoch2[3] = {1, 2, 3};
+    Stake   party_stake_epoch2[3] = {0, 1, 0};
+    StmInitializerPtr initializer_epoch2[3];
+    ClosedKeyRegPtr closed_reg_epoch2[3];
+
+    // Only party 2 needs to create its initializer
+    initializer_epoch2[2] = stm_intializer_setup(params, party_ids_epoch2[2], party_stake_epoch2[2]);
+    keys[2] = stm_initializer_verification_key(initializer_epoch2[2]);
+
+    // Given that the keys will be kept the same, the key registration can happen after the new party has broadcast its
+    // key.
+    multiple_key_reg(3, party_ids_epoch2, party_stake_epoch2, keys, closed_reg_epoch2);
+
+    // In order to create the signer instance with the new registration, the previous signers need to create the
+    // `StmInitializer` instance. They do so by consuming the signer and registration instances from epoch 1.
+    initializer_epoch2[0] = stm_signer_new_epoch(signer[0], closed_reg[0], party_stake_epoch2[0]);
+    initializer_epoch2[2] = stm_signer_new_epoch(signer[1], closed_reg[1], party_stake_epoch2[1]);
+
+    EXPECT_TRUE(signer[0] != nullptr);
+    EXPECT_TRUE(closed_reg[0] != nullptr);
+    EXPECT_TRUE(signer[1] != nullptr);
+    EXPECT_TRUE(closed_reg[1] != nullptr);
+
+    // Finally, the signer instances can be created for each signer, and an operation phase under the new stake
+    // distribution may happen.
+}
