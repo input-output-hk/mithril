@@ -112,7 +112,10 @@ where
 {
     /// Aggregate a set of keys, and commit to them in a canonical order.
     /// Called `AKey` in the paper.
-    pub fn new<F>(keys_pop: &[(A::PreCheckedPK, Stake)], threshold: Stake) -> Result<Self, AtmsError<A, F>> {
+    pub fn new<F>(
+        keys_pop: &[(A::PreCheckedPK, Stake)],
+        threshold: Stake,
+    ) -> Result<Self, AtmsError<A, F>> {
         let mut keys: Vec<(A::CheckedPK, Stake)> = Vec::with_capacity(keys_pop.len());
         for (key, stake) in keys_pop {
             let pk = match A::check_key(key) {
@@ -234,7 +237,7 @@ where
                     ));
                 }
             } else {
-                return Err(AtmsError::UnknownKey(non_signer));
+                return Err(AtmsError::UnknownKey(non_signer.clone()));
             }
         }
 
@@ -267,14 +270,14 @@ mod msp {
         type CheckedPK = MspMvk<PE>;
         type SIG = MspSig<PE>;
 
-        fn check_key(proof: &Self::POP) -> Option<Self::PK> {
+        fn check_key(proof: &Self::PreCheckedPK) -> Option<Self::CheckedPK> {
             if Msp::check(proof) {
                 return Some(proof.mvk);
             }
             None
         }
 
-        fn verify(msg: &[u8], pk: &Self::PK, sig: &Self::SIG) -> bool {
+        fn verify(msg: &[u8], pk: &Self::CheckedPK, sig: &Self::SIG) -> bool {
             Msp::aggregate_ver(msg, pk, sig)
         }
     }
