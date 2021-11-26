@@ -19,7 +19,6 @@ fn test_full_protocol() {
     //////////////////////////
     // initialization phase //
     //////////////////////////
-    println!("* Initialization phase");
 
     let params = StmParameters {
         k: 357,
@@ -53,9 +52,7 @@ fn test_full_protocol() {
     /////////////////////
     // operation phase //
     /////////////////////
-    println!("* Operation phase");
 
-    println!("** Finding signatures");
     let p_results = ps
         .par_iter()
         .map(|p| {
@@ -81,7 +78,6 @@ fn test_full_protocol() {
     let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
 
     // Check all parties can verify every sig
-    println!("** Verifying signatures");
     for (s, ix) in sigs.iter().zip(&ixs) {
         assert!(
             clerk.verify_sig(s, *ix, &msg).is_ok(),
@@ -90,7 +86,6 @@ fn test_full_protocol() {
     }
 
     // Aggregate and verify with random parties
-    println!("** Aggregating signatures");
     let msig = clerk.aggregate::<ConcatProof<Bls12_377, H>>(&sigs, &ixs, &msg);
     match msig {
         Ok(aggr) => {
