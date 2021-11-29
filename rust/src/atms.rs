@@ -15,7 +15,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::io::Write;
-use std::iter::{FromIterator, Sum};
+use std::iter::Sum;
 use std::ops::Sub;
 
 /// The values that are represented in the Merkle Tree.
@@ -83,25 +83,26 @@ where
 
 #[derive(Debug)]
 /// Errors associated with Atms
-pub enum AtmsError<A, F>
+pub enum AtmsError<A, F, H>
 where
     A: Atms,
+    H: MTHashLeaf<MTValue<A::CheckedPK>> + Digest,
 {
     /// An unknown key (we don't know its index in the merkle tree)
     UnknownKey(A::CheckedPK),
     /// The proof that `PK` is at a given idx is false
     InvalidMerkleProof(usize, A::CheckedPK, Path<F>),
     /// The proof that the secret key with respect to `PK` is known, fails
-    InvalidPoPProof(A::PreCheckedPK),
+    InvalidProofOfPossession(A::PreCheckedPK),
     /// Duplicate non-signers in signature
-    FoundDuplicates,
+    FoundDuplicates(A::CheckedPK),
     /// Non-signers sum to the given stake, which is more than half of total
     TooMuchOutstandingStake(Stake),
     /// Underlying signature scheme failed to verify
-    InvalidSignature,
+    InvalidSignature(A::SIG),
     /// The given public key does not correspond to the aggregation of the given
     /// set of keys
-    InvalidAggregation,
+    InvalidAggregation(Avk<A, H>),
 }
 
 impl<A, H> Avk<A, H>
@@ -115,33 +116,32 @@ where
     pub fn new<F>(
         keys_pop: &[(A::PreCheckedPK, Stake)],
         threshold: Stake,
-    ) -> Result<Self, AtmsError<A, F>> {
+    ) -> Result<Self, AtmsError<A, F, H>> {
         let mut keys: Vec<(A::CheckedPK, Stake)> = Vec::with_capacity(keys_pop.len());
+        let mut total_stake: Stake = 0;
         for (key, stake) in keys_pop {
             let pk = match A::check_key(key) {
                 Some(p) => p,
-                _ => return Err(AtmsError::InvalidPoPProof(*key)),
+                _ => return Err(AtmsError::InvalidProofOfPossession(*key)),
             };
-            keys.push((pk, *stake))
+            total_stake += stake;
+            keys.push((pk, *stake));
         }
+        let aggregate_key: A::CheckedPK = keys.iter().map(|k| &k.0).sum();
 
         // This ensures the order is the same for permutations of the input keys
         keys.sort();
 
-        let aggregate_key: A::CheckedPK = keys.iter().map(|k| &k.0).sum();
-        let tree = MerkleTree::create(
-            keys.iter()
-                .map(|(k, s)| MTValue(k.clone(), *s))
-                .collect::<Vec<_>>()
-                .as_ref(),
-        );
-        let leaf_map =
-            HashMap::from_iter(keys.into_iter().enumerate().map(|(i, (k, s))| (k, (s, i))));
-        let total_stake = keys_pop.iter().map(|x| x.1).sum();
+        let mut tree_vec = Vec::with_capacity(keys_pop.len());
+        let mut leaf_map = HashMap::new();
+        for (index, (key, stake)) in keys.iter().enumerate() {
+            leaf_map.insert(key.clone(), (*stake, index));
+            tree_vec.push(MTValue(key.clone(), *stake));
+        }
 
         Ok(Avk {
             aggregate_key,
-            tree,
+            tree: MerkleTree::create(&tree_vec),
             leaf_map,
             total_stake,
             threshold,
@@ -150,13 +150,13 @@ where
 
     /// Check that this aggregation is derived from the given sequence of valid keys.
     /// Called `ACheck` in the paper.
-    pub fn check<F>(&self, keys: &[(A::PreCheckedPK, Stake)]) -> Result<(), AtmsError<A, F>> {
+    pub fn check<F>(&self, keys: &[(A::PreCheckedPK, Stake)]) -> Result<(), AtmsError<A, F, H>> {
         // Stake is irrelevant for this check.
         let akey2 = Self::new(keys, 0)?;
         if self.tree.root() == akey2.tree.root() && self.aggregate_key == akey2.aggregate_key {
             return Ok(());
         }
-        Err(AtmsError::InvalidAggregation)
+        Err(AtmsError::InvalidAggregation(akey2))
     }
 }
 
@@ -211,7 +211,7 @@ where
         &self,
         msg: &[u8],
         keys: &Avk<A, H>,
-    ) -> Result<(), AtmsError<A, F>> {
+    ) -> Result<(), AtmsError<A, F, H>> {
         // Check duplicates by building this set of
         // non-signing keys
         let mut unique_non_signers = HashSet::new();
@@ -227,7 +227,7 @@ where
                     non_signing_stake += stake;
                     // Check non-signers are distinct
                     if !unique_non_signers.insert(non_signer) {
-                        return Err(AtmsError::FoundDuplicates);
+                        return Err(AtmsError::FoundDuplicates(non_signer.clone()));
                     }
                 } else {
                     return Err(AtmsError::InvalidMerkleProof(
@@ -249,7 +249,7 @@ where
         // aggregated key by the non-signers validates this signature.
         let avk2 = keys.aggregate_key.clone() - unique_non_signers.into_iter().sum();
         if !A::verify(msg, &avk2, &self.aggregate) {
-            return Err(AtmsError::InvalidSignature);
+            return Err(AtmsError::InvalidSignature(self.aggregate.clone()));
         }
 
         Ok(())
@@ -341,7 +341,7 @@ mod tests {
                 Ok(()) => {
                     assert!(subset.len() >= threshold as usize)
                 },
-                Err(AtmsError::FoundDuplicates) => {
+                Err(AtmsError::FoundDuplicates(_)) => {
                     assert!(subset.iter().map(|x| x.0).collect::<HashSet<_>>().len() < subset.len())
                 }
                 Err(AtmsError::TooMuchOutstandingStake(d)) => {
