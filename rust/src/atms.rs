@@ -304,10 +304,9 @@ mod tests {
     fn test_atms_protocol(n in 5..=32_usize,
                           subset_is in vec(1..=32_usize, 1..=32_usize),
                           threshold_frac in 2..=4_usize,
-                          // msg in any::<[u8; 16]>(),
+                          msg in any::<[u8; 16]>(),
                           // seed in any::<[u8; 32]>()
         ) {
-            let msg = [0u8; 16];
             let seed = [0u8; 32];
             let threshold: u64 = (n - n/threshold_frac) as u64;
             let mut rng = ChaCha20Rng::from_seed(seed);
