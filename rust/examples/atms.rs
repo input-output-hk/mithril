@@ -4,10 +4,12 @@ use mithril::msp::{MspPk, MspMvk, MspSig, Msp};
 use mithril::stm::Stake;
 use mithril::atms::{Avk, Asig, AtmsError, MTValue};
 use std::collections::HashSet;
-use ark_bls12_377::Bls12_377;
+use ark_bls12_377::{Bls12_377, Parameters};
 use blake2::{Blake2b, Digest};
 use mithril::merkle_tree::MTHashLeaf;
 use ark_std::rand::prelude::IteratorRandom;
+use mithril::models::digest::DigestHash;
+use ark_ec::bls12::Bls12;
 
 type C = Bls12_377;
 type H = Blake2b;
@@ -38,7 +40,7 @@ fn main() {
     println!("Public keys generated (and broadcast): ");
     println!("-------------------------------------- ");
     for (index, key) in parties_pks.iter().enumerate() {
-        println!("Key of party # {}: {:x}", index,
+        println!("Unique identifier of key of party # {}: {:x}", index,
                  H::digest(&key.mvk.to_bytes()));
     }
     println!();
@@ -111,8 +113,11 @@ fn main() {
     // Now the parties can sign messages. No need of interaction.
     rng.fill_bytes(&mut msg);
     println!("Message to sign: {:?}", msg);
+    println!();
     let mut signatures = Vec::with_capacity(nr_parties_2);
-    for i in qualified_signers {
+
+    println!("Now, assume that only 4 parties are available for signing, and therefore, verification will fail.");
+    for &i in qualified_signers.iter().take(4) {
         signatures.push((parties_keypair[i].1.mvk, Msp::sig(&parties_keypair[i].0, &msg)));
     }
     println!();
@@ -120,5 +125,9 @@ fn main() {
     let aggr_sig = Asig::new(&avk_key, &signatures[..]);
 
     // aggregated signatures can be verified using the ATMs single key.
-    assert!(aggr_sig.verify(&msg, &avk_key).is_ok());
+    match aggr_sig.verify(&msg, &avk_key) {
+        Ok(_) => unreachable!(),
+        Err(AtmsError::TooMuchOutstandingStake(_)) => {println!("Expected failure: Not enough signatures. Invalid verification.")}
+        Err(_) => unreachable!(),
+    }
 }
