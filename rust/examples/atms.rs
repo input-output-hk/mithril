@@ -1,25 +1,20 @@
-use rand_chacha::ChaCha20Rng;
-use rand_core::{SeedableRng, RngCore};
-use mithril::msp::{MspPk, MspMvk, MspSig, Msp};
-use mithril::stm::Stake;
-use mithril::atms::{Avk, Asig, AtmsError, MTValue};
-use std::collections::HashSet;
-use ark_bls12_377::{Bls12_377, Parameters};
-use blake2::{Blake2b, Digest};
-use mithril::merkle_tree::MTHashLeaf;
+use ark_bls12_377::Bls12_377;
 use ark_std::rand::prelude::IteratorRandom;
-use mithril::models::digest::DigestHash;
-use ark_ec::bls12::Bls12;
+use blake2::{Blake2b, Digest};
+use mithril::atms::{Asig, AtmsError, Avk, MTValue};
+use mithril::merkle_tree::MTHashLeaf;
+use mithril::msp::{Msp, MspMvk};
+use rand_chacha::ChaCha20Rng;
+use rand_core::{RngCore, SeedableRng};
 
 type C = Bls12_377;
 type H = Blake2b;
 type A = Msp<C>;
 type F = <H as MTHashLeaf<MTValue<MspMvk<C>>>>::F;
 
-
 fn main() {
     let total_nr_players = 10;
-    let players = (0..total_nr_players);
+    let players = 0..total_nr_players;
 
     println!("Initialised.");
     println!("=======================");
@@ -33,15 +28,18 @@ fn main() {
     let mut parties_pks = Vec::with_capacity(total_nr_players);
     for _ in 0..total_nr_players {
         let keypair = Msp::<C>::gen(&mut rng);
-        parties_pks.push(keypair.1.clone());
+        parties_pks.push(keypair.1);
         parties_keypair.push(keypair);
     }
 
     println!("Public keys generated (and broadcast): ");
     println!("-------------------------------------- ");
     for (index, key) in parties_pks.iter().enumerate() {
-        println!("Unique identifier of key of party # {}: {:x}", index,
-                 H::digest(&key.mvk.to_bytes()));
+        println!(
+            "Unique identifier of key of party # {}: {:x}",
+            index,
+            H::digest(&key.mvk.to_bytes())
+        );
     }
     println!();
 
@@ -56,7 +54,7 @@ fn main() {
     // player.
     let mut qp_keys = Vec::with_capacity(nr_parties_1);
     for &qp in qualified_signers.iter() {
-        qp_keys.push((parties_pks[qp].clone(), 1));
+        qp_keys.push((parties_pks[qp], 1));
     }
 
     println!("Beggining of Epoch 1");
@@ -68,15 +66,18 @@ fn main() {
     println!("ATMs single key generation");
     println!();
     // With this data, we can generate the ATMs single key.
-    let avk_key = Avk::<A, H>::new::<F>(&qp_keys, threshold).expect("We assume proofs of possession are valid.");
-
+    let avk_key = Avk::<A, H>::new::<F>(&qp_keys, threshold)
+        .expect("We assume proofs of possession are valid.");
 
     // Now the parties can sign messages. No need of interaction.
     rng.fill_bytes(&mut msg);
     println!("Message to sign: {:?}", msg);
     let mut signatures = Vec::with_capacity(nr_parties_1);
     for &i in qualified_signers.iter() {
-        signatures.push((parties_keypair[i].1.mvk, Msp::sig(&parties_keypair[i].0, &msg)));
+        signatures.push((
+            parties_keypair[i].1.mvk,
+            Msp::sig(&parties_keypair[i].0, &msg),
+        ));
     }
     println!();
     println!("Signature aggregation (may be performed by an untrusted party)");
@@ -95,7 +96,7 @@ fn main() {
     // player.
     let mut qp_keys = Vec::with_capacity(nr_parties_2);
     for &qp in qualified_signers.iter() {
-        qp_keys.push((parties_pks[qp].clone(), 1));
+        qp_keys.push((parties_pks[qp], 1));
     }
 
     println!("Beggining of Epoch 2");
@@ -107,8 +108,8 @@ fn main() {
     println!("ATMs single key generation (needs to be recomputed)");
     println!();
     // With this data, we can generate the ATMs single key.
-    let avk_key = Avk::<A, H>::new::<F>(&qp_keys, threshold).expect("We assume proofs of possession are valid.");
-
+    let avk_key = Avk::<A, H>::new::<F>(&qp_keys, threshold)
+        .expect("We assume proofs of possession are valid.");
 
     // Now the parties can sign messages. No need of interaction.
     rng.fill_bytes(&mut msg);
@@ -118,7 +119,10 @@ fn main() {
 
     println!("Now, assume that only 4 parties are available for signing, and therefore, verification will fail.");
     for &i in qualified_signers.iter().take(4) {
-        signatures.push((parties_keypair[i].1.mvk, Msp::sig(&parties_keypair[i].0, &msg)));
+        signatures.push((
+            parties_keypair[i].1.mvk,
+            Msp::sig(&parties_keypair[i].0, &msg),
+        ));
     }
     println!();
     println!("Signature aggregation (may be performed by an untrusted party).");
@@ -127,7 +131,9 @@ fn main() {
     // aggregated signatures can be verified using the ATMs single key.
     match aggr_sig.verify(&msg, &avk_key) {
         Ok(_) => unreachable!(),
-        Err(AtmsError::TooMuchOutstandingStake(_)) => {println!("Expected failure: Not enough signatures. Invalid verification.")}
+        Err(AtmsError::TooMuchOutstandingStake(_)) => {
+            println!("Expected failure: Not enough signatures. Invalid verification.")
+        }
         Err(_) => unreachable!(),
     }
 }

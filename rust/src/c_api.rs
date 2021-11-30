@@ -1,5 +1,7 @@
 //! C api
+use crate::atms::{Asig, Avk};
 use crate::key_reg::{ClosedKeyReg, KeyReg};
+use crate::msp::{Msp, MspSig};
 use crate::{
     merkle_tree::{MTHashLeaf, MerkleTree},
     mithril_proof::concat_proofs::{ConcatProof, TrivialEnv},
@@ -15,6 +17,7 @@ type H = blake2::Blake2b;
 type F = <H as MTHashLeaf<MTValue<C>>>::F;
 type MspSkPtr = *mut MspSk<C>;
 type MspPkPtr = *mut MspPk<C>;
+type MspSigPtr = *mut MspSig<C>;
 type SigPtr = *mut StmSig<C, F>;
 type MultiSigPtr = *mut StmMultiSig<C, ConcatProof<C, H>>;
 type StmInitializerPtr = *mut StmInitializer<C>;
@@ -23,6 +26,8 @@ type StmClerkPtr = *mut StmClerk<H, C, TrivialEnv>;
 type MerkleTreePtr = *mut MerkleTree<MTValue<C>, H>;
 type KeyRegPtr = *mut KeyReg<C>;
 type ClosedKeyRegPtr = *mut ClosedKeyReg<C, H>;
+type AvkPtr = *mut Avk<Msp<C>, H>;
+type AsigPtr = *mut Asig<Msp<C>, F>;
 
 // A macro would be nice for the below, but macros do not
 // seem to work properly with cbindgen:
@@ -524,6 +529,115 @@ mod clerk {
                 Ok(()) => 0,
                 Err(MultiVerificationFailure::InvalidAggregate) => -1,
                 Err(MultiVerificationFailure::ProofError(e)) => e.into(),
+            }
+        }
+    }
+}
+
+mod msp {
+    use super::*;
+    use crate::msp::Msp;
+
+    #[no_mangle]
+    pub extern "C" fn msp_generate_keypair(sk_ptr: *mut MspSkPtr, pk_ptr: *mut MspPkPtr) {
+        let mut rng = OsRng::default();
+        let (sk, pk) = Msp::gen(&mut rng);
+        unsafe {
+            *sk_ptr = Box::into_raw(Box::new(sk));
+            *pk_ptr = Box::into_raw(Box::new(pk));
+        }
+    }
+
+    #[no_mangle]
+    pub extern "C" fn msp_sign(msg_ptr: *const c_char, key_ptr: MspSkPtr) -> MspSigPtr {
+        unsafe {
+            assert!(!key_ptr.is_null());
+            let msg = CStr::from_ptr(msg_ptr);
+            let key = *key_ptr;
+            Box::into_raw(Box::new(Msp::sig(&key, msg.to_bytes())))
+        }
+    }
+}
+mod atms {
+    use super::*;
+    use crate::atms::AtmsError;
+    use core::slice;
+
+    #[no_mangle]
+    /// Performs the key aggregation. Returns 0 upon success, or -1 if one of the keys included in
+    /// the aggregation have an invalid proof of possession.
+    pub extern "C" fn avk_key_aggregation(
+        keys: *const MspPkPtr,
+        stake: *const Stake,
+        nr_signers: usize,
+        threshold: usize,
+        avk_key: *mut AvkPtr,
+    ) -> i64 {
+        unsafe {
+            assert!(!keys.is_null());
+            let stake = slice::from_raw_parts(stake, nr_signers);
+            let pks = slice::from_raw_parts(keys, nr_signers)
+                .iter()
+                .zip(stake.iter())
+                .map(|(p, s)| (**p, *s))
+                .collect::<Vec<_>>();
+            match Avk::new::<F>(&pks, threshold as u64) {
+                Ok(k) => {
+                    *avk_key = Box::into_raw(Box::new(k));
+                    0
+                }
+                Err(_) => -1,
+            }
+        }
+    }
+
+    #[no_mangle]
+    pub extern "C" fn atms_aggregate_sigs(
+        sigs_ptr: *const MspSigPtr,
+        pks_ptr: *const MspPkPtr,
+        avk_ptr: AvkPtr,
+        nr_signatures: usize,
+    ) -> AsigPtr {
+        unsafe {
+            assert!(!sigs_ptr.is_null());
+            assert!(!avk_ptr.is_null());
+            let sigs = slice::from_raw_parts(sigs_ptr, nr_signatures)
+                .iter()
+                .zip(slice::from_raw_parts(pks_ptr, nr_signatures).iter())
+                .map(|(p, k)| ((**k).mvk, **p))
+                .collect::<Vec<_>>();
+            let avk = &*avk_ptr;
+            Box::into_raw(Box::new(Asig::new::<H>(avk, &sigs)))
+        }
+    }
+
+    #[no_mangle]
+    /// Verifies a signature `sig_ptr` under aggregated key `avk_ptr`. Returns:
+    /// * 0 upon success
+    /// * -1 if the threshold is not reached
+    /// * -2 if there were duplicates keys in `self`
+    /// * -3 if there is an invalid proof of Merkle Tree membership
+    /// * -4 if a key in `self` is not found in `avk_ptr`
+    /// * -5 if the signature is invalid
+    pub extern "C" fn atms_verify_sig(
+        msg_ptr: *const c_char,
+        sig_ptr: AsigPtr,
+        avk_ptr: AvkPtr,
+    ) -> i64 {
+        unsafe {
+            let msg = CStr::from_ptr(msg_ptr);
+            let sig = &*sig_ptr;
+            let avk = &*avk_ptr;
+            match sig.verify::<H>(msg.to_bytes(), avk) {
+                Ok(_) => 0,
+                Err(AtmsError::TooMuchOutstandingStake(_)) => -1,
+                Err(AtmsError::FoundDuplicates(_)) => -2,
+                Err(AtmsError::InvalidMerkleProof(_, _, _)) => -3,
+                Err(AtmsError::UnknownKey(_)) => -4,
+                Err(AtmsError::InvalidSignature(_)) => -5,
+                _ => {
+                    panic!("All errors than can happen from sig.verify are covered")
+                }
             }
         }
     }

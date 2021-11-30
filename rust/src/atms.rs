@@ -241,7 +241,7 @@ where
             }
         }
 
-        if non_signing_stake >= keys.total_stake - keys.threshold {
+        if non_signing_stake > keys.total_stake - keys.threshold {
             return Err(AtmsError::TooMuchOutstandingStake(non_signing_stake));
         }
 
