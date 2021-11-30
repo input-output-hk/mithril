@@ -26,20 +26,29 @@ To execute the tests:
 export LD_LIBRARY_PATH=../target/release
 ./test
 Running main() from ../googletest/src/gtest_main.cc
-[==========] Running 4 tests from 1 test suite.
+[==========] Running 7 tests from 2 test suites.
 [----------] Global test environment set-up.
-[----------] 4 tests from stm
+[----------] 5 tests from stm
 [ RUN      ] stm.invalidRegistration
-[       OK ] stm.invalidRegistration (21 ms)
+[       OK ] stm.invalidRegistration (19 ms)
 [ RUN      ] stm.clerkFromPublicData
-[       OK ] stm.clerkFromPublicData (94 ms)
+[       OK ] stm.clerkFromPublicData (86 ms)
 [ RUN      ] stm.produceAndVerifyAggregateSignature
-[       OK ] stm.produceAndVerifyAggregateSignature (84 ms)
+[       OK ] stm.produceAndVerifyAggregateSignature (80 ms)
 [ RUN      ] stm.failSigningIfIneligible
 [       OK ] stm.failSigningIfIneligible (60 ms)
-[----------] 4 tests from stm (261 ms total)
+[ RUN      ] stm.dynamicStake
+[       OK ] stm.dynamicStake (93 ms)
+[----------] 5 tests from stm (340 ms total)
+
+[----------] 2 tests from atm
+[ RUN      ] atm.produceAndVerifyAggregateSignature
+[       OK ] atm.produceAndVerifyAggregateSignature (45 ms)
+[ RUN      ] atm.testingErrors
+[       OK ] atm.testingErrors (69 ms)
+[----------] 2 tests from atm (115 ms total)
 
 [----------] Global test environment tear-down
-[==========] 4 tests from 1 test suite ran. (261 ms total)
-[  PASSED  ] 4 tests.
+[==========] 7 tests from 2 test suites ran. (456 ms total)
+[  PASSED  ] 7 tests.
 ```
