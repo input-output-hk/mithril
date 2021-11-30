@@ -81,7 +81,7 @@ where
     keys_proofs: Vec<(A::CheckedPK, Path<F>)>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 /// Errors associated with Atms
 pub enum AtmsError<A, F, H>
 where
@@ -89,19 +89,26 @@ where
     H: MTHashLeaf<MTValue<A::CheckedPK>> + Digest,
 {
     /// An unknown key (we don't know its index in the merkle tree)
+    #[error("Key not present in the Merkle Tree.")]
     UnknownKey(A::CheckedPK),
     /// The proof that `PK` is at a given idx is false
+    #[error("Proof that key with index {0} is in Merkle Tree is invalid.")]
     InvalidMerkleProof(usize, A::CheckedPK, Path<F>),
     /// The proof that the secret key with respect to `PK` is known, fails
+    #[error("Proof of Possesion of the secret key is invalid.")]
     InvalidProofOfPossession(A::PreCheckedPK),
     /// Duplicate non-signers in signature
+    #[error("Submitted keys of non-signers contains duplicates.")]
     FoundDuplicates(A::CheckedPK),
     /// Non-signers sum to the given stake, which is more than half of total
+    #[error("Signatures do not exceed the required threshold.")]
     TooMuchOutstandingStake(Stake),
     /// Underlying signature scheme failed to verify
+    #[error("Invalid Signature.")]
     InvalidSignature(A::SIG),
     /// The given public key does not correspond to the aggregation of the given
     /// set of keys
+    #[error("Given public key does not correspond to the aggregation of the set of public keys.")]
     InvalidAggregation(Avk<A, H>),
 }
 

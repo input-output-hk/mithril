@@ -95,23 +95,24 @@ impl<PE: PairingEngine> ToBytes for RegParty<PE> {
 }
 
 /// Errors which can be outputted by key registration.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, thiserror::Error)]
 pub enum RegisterError<PE>
 where
     PE: PairingEngine,
 {
     /// This key has already been registered by a participant
+    #[error("This key has already been registered.")]
     KeyRegistered(Vec<u8>),
     /// This participant has already been registered
+    #[error("This participant has already been registered.")]
     PartyRegistered(PartyId),
     /// The supplied participant id does not belong to the
     /// participant list
+    #[error("The supplied participant id does not belong to the participant list.")]
     UnknownPartyId(PartyId),
     /// The supplied key is not valid
+    #[error("The verification of correctness of the supplied key is invalid.")]
     InvalidKey(MspPk<PE>),
-    /// An instance of a registration cannot generate an AVK before the
-    /// registration is closed.
-    RegistrationStillOpen,
 }
 
 impl<PE> KeyReg<PE>
@@ -291,7 +292,6 @@ mod tests {
                         assert!(!Msp::check(&a));
                     }
                     Err(RegisterError::UnknownPartyId(_)) => assert_eq!(fake_it, 1),
-                    Err(RegisterError::RegistrationStillOpen) => unreachable!("Error cannot be reached with register function"),
                 }
             }
 

@@ -39,23 +39,31 @@ pub struct MithrilWitness<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> {
 }
 
 /// Errors which can be output by Mithril verification.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, thiserror::Error)]
 pub enum MithrilWitnessError {
     /// No qorum was found
+    #[error("No Quorum was found")]
     NoQuorum = 1,
     /// The IVK is invalid after aggregating the keys
+    #[error("Aggregated key does not correspond to the expected key.")]
     IvkInvalid,
     /// Mu is not the sum of the signatures
+    #[error("Aggregated signature does not correspond to the expected signature.")]
     SumInvalid,
     /// There is an index out of bounds
+    #[error("Received index is higher than what the security parameter allows.")]
     IndexBoundFailed,
     /// There is a duplicate index
+    #[error("Index is not unique.")]
     IndexNotUnique,
     /// The path is not valid for the Merkle Tree
+    #[error("The path of the Merkle Tree is invalid.")]
     PathInvalid,
     /// MSP.Eval was computed incorrectly
+    #[error("The claimed evaluation of function phi is incorrect.")]
     EvalInvalid,
     /// A party did not actually win the lottery
+    #[error("The current party did not win the lottery.")]
     StakeInvalid,
 }
 

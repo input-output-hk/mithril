@@ -1,5 +1,5 @@
 //! General API for producing proofs from statements and witnesses
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 
 /// An environment or context that can contain any long-lived information
 /// relevant to the proof backend
@@ -26,7 +26,7 @@ pub trait Proof: Sized {
     type Witness;
     /// Type of errors which can be output by the proof system.
     /// Into<i64> allows passing the error to the C API.
-    type Error: Debug + Into<i64>;
+    type Error: Debug + Into<i64> + Display;
 
     /// Construct a proof.
     fn prove(
@@ -93,11 +93,12 @@ pub mod trivial {
     }
 
     /// Error wrapper for TrivialProof.
-    #[derive(Debug)]
-    pub struct TrivialError<Error: Debug + Into<i64>>(Error);
+    #[derive(Debug, thiserror::Error)]
+    #[error("Error wrapper for Trivial Proof.")]
+    pub struct TrivialError<Error: Debug + Into<i64> + Display>(Error);
 
     #[allow(clippy::from_over_into)]
-    impl<Error: Debug + Into<i64>> Into<i64> for TrivialError<Error> {
+    impl<Error: Debug + Into<i64> + Display> Into<i64> for TrivialError<Error> {
         fn into(self) -> i64 {
             self.0.into()
         }
@@ -106,7 +107,7 @@ pub mod trivial {
     impl<Stmt, R, Witness, UnderlyingError> Proof for TrivialProof<Stmt, R, Witness>
     where
         R: Fn(&Stmt, &Witness) -> Result<(), UnderlyingError>,
-        UnderlyingError: Debug + Into<i64>,
+        UnderlyingError: Debug + Into<i64> + Display,
     {
         type Env = TrivialEnv;
         type Statement = Stmt;
