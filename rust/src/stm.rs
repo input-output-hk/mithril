@@ -248,37 +248,41 @@ where
 }
 
 /// Error types for aggregation.
-#[derive(Debug, Clone)]
-pub enum AggregationFailure<PE, F>
-where
-    PE: PairingEngine,
-{
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum AggregationFailure {
     /// Not enough signatures were collected, got this many instead.
+    #[error("Not enough signatures. Got only {0} signatures")]
     NotEnoughSignatures(usize),
     /// Verification failed for this signature
-    VerifyFailed(VerificationFailure, StmSig<PE, F>, Index),
+    #[error("Signature with index {1} failed. {0}")]
+    VerifyFailed(VerificationFailure, Index),
 }
 
 /// Error types for single signature verification
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, thiserror::Error)]
 pub enum VerificationFailure {
     /// The lottery was actually lost for the signature
+    #[error("Lottery for this epoch was lost.")]
     LotteryLost,
     /// The Merkle Tree is invalid
+    #[error("Provided Merkle Tree is invalid.")]
     InvalidMerkleTree,
     /// The MSP signature is invalid
+    #[error("Invalid Signature")]
     InvalidSignature,
 }
 
 /// Error types for multisignature verification
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, thiserror::Error)]
 pub enum MultiVerificationFailure<Proof>
 where
     Proof: MithrilProof,
 {
     /// The underlying MSP aggregate is invalid
+    #[error("The underlying MSP aggregate is invalid.")]
     InvalidAggregate,
     /// Error wrapper for underlying proof system.
+    #[error("Proof of validity failed. {0}")]
     ProofError(Proof::Error),
 }
 
@@ -639,7 +643,7 @@ where
         sigs: &[StmSig<PE, H::F>],
         indices: &[Index],
         msg: &[u8],
-    ) -> Result<StmMultiSig<PE, Proof>, AggregationFailure<PE, H::F>>
+    ) -> Result<StmMultiSig<PE, Proof>, AggregationFailure>
     where
         Proof: MithrilProof<Env = E>,
         Proof::Statement: From<MithrilStatement<PE, H>>,
@@ -738,10 +742,7 @@ where
         msg: &[u8],
         indices: &'a [Index],
         sigs: &'a [StmSig<PE, H::F>],
-    ) -> Result<
-        impl IntoIterator<Item = (&'a Index, &'a StmSig<PE, H::F>)>,
-        AggregationFailure<PE, H::F>,
-    >
+    ) -> Result<impl IntoIterator<Item = (&'a Index, &'a StmSig<PE, H::F>)>, AggregationFailure>
     where
         PE::G1Projective: ToConstraintField<PE::Fq>,
     {
@@ -1074,7 +1075,7 @@ mod tests {
     #[derive(Debug)]
     struct ProofTest {
         n: usize,
-        msig: Result<Sig, AggregationFailure<Bls12_377, F>>,
+        msig: Result<Sig, AggregationFailure>,
         clerk: StmClerk<H, Bls12_377, TrivialEnv>,
         msg: [u8; 16],
     }

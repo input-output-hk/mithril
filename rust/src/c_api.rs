@@ -498,7 +498,7 @@ mod clerk {
                     *sig = Box::into_raw(Box::new(msig));
                     0
                 }
-                Err(AggregationFailure::VerifyFailed(_, _, _)) => -1,
+                Err(AggregationFailure::VerifyFailed(_, _)) => -1,
                 Err(AggregationFailure::NotEnoughSignatures(n)) => n.try_into().unwrap(),
             }
         }
