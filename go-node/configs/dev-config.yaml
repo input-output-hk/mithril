@@ -1,4 +1,4 @@
-postgre_dsn: "host=127.0.0.1 port=54321 user=alex password=123456 dbname=testnet sslmode=disable"
+postgres_dsn: "host=127.0.0.1 port=54321 user=alex password=123456 dbname=testnet sslmode=disable"
 leader: true
 http:
   listen_addr: "127.0.0.1:8000"

@@ -123,7 +123,6 @@ func (n *Node) Shutdown() error {
 }
 
 func (n *Node) mainLoop() error {
-	time.Sleep(5 * time.Second)
 
 	ticker := time.NewTicker(30 * time.Second)
 
@@ -161,6 +160,8 @@ func (n *Node) HandleNewPeer(stream network.Stream) {
 }
 
 func (n *Node) HandlePeerFound(peerAddrInfo peer.AddrInfo) {
+
+	// No need to create a connection peer is a node itself.
 	if peerAddrInfo.ID == n.host.ID() {
 		return
 	}
@@ -170,12 +171,20 @@ func (n *Node) HandlePeerFound(peerAddrInfo peer.AddrInfo) {
 	}
 
 	if err := n.host.Connect(n.ctx, peerAddrInfo); err != nil {
-		panic(err)
+		log.Errorf("Failed to connect",
+			"peer_addr", peerAddrInfo,
+			"err", err,
+		)
+		return
 	}
 
 	stream, err := n.host.NewStream(n.ctx, peerAddrInfo.ID, protocolID)
 	if err != nil {
-		panic(err)
+		log.Errorf("Failed to create a stream",
+			"peer_addr", peerAddrInfo,
+			"err", err,
+		)
+		return
 	}
 
 	n.HandleNewPeer(stream)
@@ -199,19 +208,6 @@ func (n *Node) GreetNewPeer(peerNode *PeerNode) {
 		},
 	}
 	peerNode.writeCh <- m
-}
-
-func (n *Node) SendHelloMessage(peer *PeerNode) {
-	msg := Message{
-		Type: helloMessage,
-		Payload: Hello{
-			CardanoAddress: "<CADDR>",
-			PartyId:        n.participant.PartyId,
-			Stake:          n.participant.Stake,
-			PublicKey:      n.participant.PublicKey,
-		},
-	}
-	peer.writeCh <- msg
 }
 
 func (n *Node) CreateSigRequest() {

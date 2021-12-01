@@ -2,7 +2,7 @@ package mithril
 
 /*
 #cgo CFLAGS: -g -Wall
-#cgo LDFLAGS: -L. -lmithril
+#cgo LDFLAGS: -L. -lmithril -lm -ldl
 #include "mithril.h"
 */
 import "C"
