@@ -2,6 +2,35 @@
 
 Meeting minutes are sorted by date, most recent first.
 
+## 2021-12-01 - Weekly
+
+> Hello,
+> Here comes agenda for today meeting:
+> 1. Mithril node status discussion:
+>     - Private network setup (WIP).
+>     - Resolve comments on github PR's (WIP).
+>     - Docker composer for Mithril node
+>     - Switch to GraphQL
+>     - Working on the Mithril client
+>     - Start performance tests
+>     - Implement github autotests
+> 2. Additional part-time engineer for the project to help Sasha with the project backlog.
+> 3. Misc
+
+PR's comments:
+- `ulonglong` issue: Seems like it's a Linux specific problem? Replacing with `ulong` does not work on Mac OS
+  => file an issue
+- DevOps engineer looking at Docker -> perhaps Monday?
+- launching a testnet -> https://github.com/input-output-hk/cardano-node/tree/master/cardano-testnet
+- launching network + docker-compose => next week
+- Help on spinning up a devnet network => write a script to do that and maybe inject transactions
+
+TODOs:
+- (AB): Look at integer sizes discrepancies: https://github.com/input-output-hk/mithril/issues/64
+- (AB, optional): Provide script/code to spin up easily a devnet/testnet: https://github.com/input-output-hk/mithril/issues/65
+- (IV): End-to-end scenario with mithril client validating certificate(s)
+- (IV): dockerizing node
+
 ## 2021-11-17 - Demo
 
 - 3 nodes for the demo, connect to each other directly using [libp2p](https://libp2p.io/) for connecting the nodes
