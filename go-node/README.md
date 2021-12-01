@@ -27,7 +27,7 @@ $ make mlib
 ```shell
 $ cd go-node
 
-$ POSTGRE_DSN="host=127.0.0.1 port=5432 user=cdb password=123456 dbname=testnet sslmode=disable" \
+$ POSTGRES_DSN="host=127.0.0.1 port=5432 user=cdb password=123456 dbname=testnet sslmode=disable" \
   MITHRIL_PARTY_ID=<N> go run cmd/node/main.go
 ```
 

@@ -12,7 +12,6 @@ type (
 	Certificate struct {
 		Id     uint64
 		Params mithril.Parameters
-		// Participants []mithril.Participant
 
 		BlockNumber uint64
 		BlockHash   []byte

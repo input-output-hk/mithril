@@ -13,7 +13,7 @@ type MerkleTree interface {
 }
 
 type Proof struct {
-	Hashes [][]byte // array of hex
+	Hashes [][]byte
 	Index  uint64
 }
 

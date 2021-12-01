@@ -127,7 +127,7 @@ func utxoByAddr(w http.ResponseWriter, r *http.Request) {
 
 	JsonResponse(w, http.StatusOK, struct {
 		Address string     `json:"address"`
-		Proofs  []ProofDAO `json:"utxos"`
+		Proofs  []ProofDAO `json:"proofs"`
 	}{
 		Address: addr,
 		Proofs:  proofs,
