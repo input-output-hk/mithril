@@ -221,7 +221,7 @@ TEST(stm, produceAndVerifyAggregateSignature) {
 
     StmClerkPtr clerk = stm_clerk_from_signer(signer);
     for (int i = 0; i < NEEDED_SIGS; i++) {
-      ASSERT_EQ(stm_clerk_verify_sig(clerk, sig[i], indices[i], msg), 0);
+        ASSERT_EQ(stm_clerk_verify_sig(clerk, sig[i], indices[i], msg), 0);
     }
 
     MultiSigPtr multi_sig;
@@ -332,6 +332,7 @@ TEST(stm, dynamicStake) {
     // Finally, the signer instances can be created for each signer, and an operation phase under the new stake
     // distribution may happen.
 }
+<<<<<<< HEAD:rust/c-tests/test.c
 
 TEST(atm, produceAndVerifyAggregateSignature) {
     const char *msg = "some message";
