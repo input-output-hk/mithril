@@ -211,6 +211,7 @@ mod initializer {
     pub extern "C" fn stm_initailizer_generate_new_key(me: StmInitializerPtr) {
         let mut rng = OsRng::default();
         unsafe {
+            assert!(!me.is_null());
             let ref_me = &mut *me;
             ref_me.generate_new_key(&mut rng);
         }
@@ -219,6 +220,7 @@ mod initializer {
     #[no_mangle]
     pub extern "C" fn stm_initializer_party_id(me: StmInitializerPtr) -> PartyId {
         unsafe {
+            assert!(!me.is_null());
             let ref_me = &*me;
             ref_me.party_id()
         }
@@ -227,6 +229,7 @@ mod initializer {
     #[no_mangle]
     pub extern "C" fn stm_initializer_stake(me: StmInitializerPtr) -> Stake {
         unsafe {
+            assert!(!me.is_null());
             let ref_me = &*me;
             ref_me.stake()
         }
@@ -235,6 +238,7 @@ mod initializer {
     #[no_mangle]
     pub extern "C" fn stm_initializer_params(me: StmInitializerPtr) -> StmParameters {
         unsafe {
+            assert!(!me.is_null());
             let ref_me = &mut *me;
             ref_me.params()
         }
@@ -243,6 +247,7 @@ mod initializer {
     #[no_mangle]
     pub extern "C" fn stm_initializer_secret_key(me: StmInitializerPtr) -> MspSkPtr {
         unsafe {
+            assert!(!me.is_null());
             let ref_me = &mut *me;
             Box::into_raw(Box::new(ref_me.secret_key()))
         }
@@ -251,6 +256,7 @@ mod initializer {
     #[no_mangle]
     pub extern "C" fn stm_initializer_verification_key(me: StmInitializerPtr) -> MspPkPtr {
         unsafe {
+            assert!(!me.is_null());
             let ref_me = &mut *me;
             Box::into_raw(Box::new(ref_me.verification_key()))
         }
@@ -259,6 +265,7 @@ mod initializer {
     #[no_mangle]
     pub extern "C" fn stm_initializer_set_stake(me: StmInitializerPtr, stake: Stake) {
         unsafe {
+            assert!(!me.is_null());
             let ref_me = &mut *me;
             ref_me.set_stake(stake);
         }
@@ -267,6 +274,7 @@ mod initializer {
     #[no_mangle]
     pub extern "C" fn stm_initializer_set_params(me: StmInitializerPtr, params: StmParameters) {
         unsafe {
+            assert!(!me.is_null());
             let ref_me = &mut *me;
             ref_me.set_params(params);
         }
@@ -275,6 +283,7 @@ mod initializer {
     #[no_mangle]
     pub extern "C" fn stm_initializer_set_keys(me: StmInitializerPtr, key_ptr: MspSkPtr) {
         unsafe {
+            assert!(!me.is_null());
             assert!(!key_ptr.is_null());
             let key = &*key_ptr;
             let ref_me = &mut *me;
@@ -310,6 +319,8 @@ mod signer {
         index: Index,
     ) -> bool {
         unsafe {
+            assert!(!me.is_null());
+            assert!(!msg.is_null());
             let ref_me = &mut *me;
             let msg_str = CStr::from_ptr(msg);
             ref_me.eligibility_check(msg_str.to_bytes(), index)
@@ -325,6 +336,9 @@ mod signer {
         out: *mut SigPtr,
     ) {
         unsafe {
+            assert!(!me.is_null());
+            assert!(!msg.is_null());
+            assert!(!out.is_null());
             let ref_me = &mut *me;
             let msg_str = CStr::from_ptr(msg);
             if let Some(s) = ref_me.sign(msg_str.to_bytes(), index) {
@@ -365,6 +379,8 @@ mod key_reg {
         party_stakes: *const Stake,
     ) -> KeyRegPtr {
         unsafe {
+            assert!(!party_ids.is_null());
+            assert!(!party_stakes.is_null());
             let ids = slice::from_raw_parts(party_ids, n_parties);
             let stakes = slice::from_raw_parts(party_stakes, n_parties);
 
@@ -391,6 +407,7 @@ mod key_reg {
     ) -> i64 {
         unsafe {
             assert!(!key_reg.is_null());
+            assert!(!party_key.is_null());
             let ref_key_reg = &mut *key_reg;
             match ref_key_reg.register(party_id, *party_key) {
                 Ok(()) => 0,
@@ -444,6 +461,7 @@ mod clerk {
     #[no_mangle]
     pub extern "C" fn stm_clerk_from_signer(signer: StmSignerPtr) -> StmClerkPtr {
         unsafe {
+            assert!(!signer.is_null());
             let ref_signer = &*signer;
             Box::into_raw(Box::new(StmClerk::from_signer(ref_signer, TrivialEnv)))
         }
@@ -462,6 +480,9 @@ mod clerk {
         msg: *const c_char,
     ) -> i64 {
         unsafe {
+            assert!(!me.is_null());
+            assert!(!sig.is_null());
+            assert!(!msg.is_null());
             let ref_me = &*me;
             let msg_str = CStr::from_ptr(msg);
             let ref_sig = &*sig;
@@ -489,6 +510,12 @@ mod clerk {
         sig: *mut MultiSigPtr,
     ) -> i64 {
         unsafe {
+            assert!(!me.is_null());
+            assert!(!sigs.is_null());
+            assert!(!indices.is_null());
+            assert!(!msg.is_null());
+            assert!(!sig.is_null());
+
             let ref_me = &*me;
             let sigs = slice::from_raw_parts(sigs, n_sigs)
                 .iter()
@@ -519,6 +546,10 @@ mod clerk {
         msg: *const c_char,
     ) -> i64 {
         unsafe {
+            assert!(!me.is_null());
+            assert!(!msig.is_null());
+            assert!(!msg.is_null());
+
             let ref_me = &*me;
             let ref_msig = &*msig;
             let msg_str = CStr::from_ptr(msg);
@@ -540,6 +571,8 @@ mod msp {
     pub extern "C" fn msp_generate_keypair(sk_ptr: *mut MspSkPtr, pk_ptr: *mut MspPkPtr) {
         let mut rng = OsRng::default();
         let (sk, pk) = Msp::gen(&mut rng);
+        assert!(!sk_ptr.is_null());
+        assert!(!pk_ptr.is_null());
         unsafe {
             *sk_ptr = Box::into_raw(Box::new(sk));
             *pk_ptr = Box::into_raw(Box::new(pk));
@@ -550,8 +583,9 @@ mod msp {
     pub extern "C" fn msp_sign(msg_ptr: *const c_char, key_ptr: MspSkPtr) -> MspSigPtr {
         unsafe {
             assert!(!key_ptr.is_null());
+            assert!(!msg_ptr.is_null());
             let msg = CStr::from_ptr(msg_ptr);
-            let key = *key_ptr;
+            let key = *Box::from_raw(key_ptr);
             Box::into_raw(Box::new(Msp::sig(&key, msg.to_bytes())))
         }
     }
@@ -593,6 +627,8 @@ mod atms {
     ) -> i64 {
         unsafe {
             assert!(!keys.is_null());
+            assert!(!stake.is_null());
+            assert!(!avk_key.is_null());
             let stake = slice::from_raw_parts(stake, nr_signers);
             let pks = slice::from_raw_parts(keys, nr_signers)
                 .iter()
@@ -618,6 +654,7 @@ mod atms {
     ) -> AsigPtr {
         unsafe {
             assert!(!sigs_ptr.is_null());
+            assert!(!pks_ptr.is_null());
             assert!(!avk_ptr.is_null());
             let sigs = slice::from_raw_parts(sigs_ptr, nr_signatures)
                 .iter()
@@ -643,6 +680,9 @@ mod atms {
         avk_ptr: AvkPtr,
     ) -> i64 {
         unsafe {
+            assert!(!msg_ptr.is_null());
+            assert!(!sig_ptr.is_null());
+            assert!(!avk_ptr.is_null());
             let msg = CStr::from_ptr(msg_ptr);
             let sig = &*sig_ptr;
             let avk = &*avk_ptr;
