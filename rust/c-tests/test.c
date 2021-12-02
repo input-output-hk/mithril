@@ -411,6 +411,12 @@ TEST(atm, testingErrors) {
     // We also create the fake signature
     MspSigPtr sig_fake = msp_sign(msg, fake_skey);
 
+    // The signature is valid on its own
+    ASSERT_EQ(msp_verify(msg, fake_key, sig_fake), 0);
+
+    // And the signature is invalid when verified over an invalid key
+    ASSERT_EQ(msp_verify(msg, keys[0], sig_fake), -1);
+
     // First we create a signature with no sufficient signers.
     AsigPtr aggregated_sig_1 = atms_aggregate_sigs(sigs, keys, avk_pk, 2);
     ASSERT_EQ(atms_verify_sig(msg, aggregated_sig_1, avk_pk), -1);

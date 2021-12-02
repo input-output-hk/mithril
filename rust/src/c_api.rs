@@ -557,6 +557,26 @@ mod msp {
             Box::into_raw(Box::new(Msp::sig(&key, msg.to_bytes())))
         }
     }
+
+    #[no_mangle]
+    pub extern "C" fn msp_verify(
+        msg_ptr: *const c_char,
+        key_ptr: MspPkPtr,
+        sig_ptr: MspSigPtr,
+    ) -> i64 {
+        unsafe {
+            assert!(!key_ptr.is_null());
+            assert!(!sig_ptr.is_null());
+
+            let msg = CStr::from_ptr(msg_ptr);
+            let key = &*key_ptr;
+            let sig = &*sig_ptr;
+            match Msp::ver(msg.to_bytes(), &key.mvk, sig) {
+                true => 0,
+                false => -1,
+            }
+        }
+    }
 }
 mod atms {
     use super::*;
