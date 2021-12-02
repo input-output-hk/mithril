@@ -1,7 +1,7 @@
 mithril.cabal
 .stack-work/
 .direnv/
-rust/c-tests/test
-rust/c-tests/test.dSYM/
+rust/c-tests/tests
+rust/c-tests/tests.dSYM/
 *~
 rust/proptest-regressions/

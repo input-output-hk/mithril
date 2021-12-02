@@ -85,6 +85,9 @@ fn main() {
 
     // aggregated signatures can be verified using the ATMs single key.
     assert!(aggr_sig.verify(&msg, &avk_key).is_ok());
+    println!();
+    println!("Valid signature!");
+    println!();
 
     // A different epoch begins when the signers (or the stake) changes.
     // Beginning of epoch 2
@@ -126,6 +129,7 @@ fn main() {
     }
     println!();
     println!("Signature aggregation (may be performed by an untrusted party).");
+    println!();
     let aggr_sig = Asig::new(&avk_key, &signatures[..]);
 
     // aggregated signatures can be verified using the ATMs single key.
