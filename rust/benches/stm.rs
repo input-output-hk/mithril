@@ -1,14 +1,16 @@
 use ark_bls12_377::Bls12_377;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use mithril::key_reg::KeyReg;
+use mithril::merkle_tree::MTHashLeaf;
 use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
-use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner};
+use mithril::stm::{MTValue, StmClerk, StmInitializer, StmParameters, StmSigner};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::prelude::*;
 
 type C = Bls12_377;
 type H = blake2::Blake2b;
+type F = <H as MTHashLeaf<MTValue<Bls12_377>>>::F;
 
 ///
 /// This benchmark framework is not ideal. We really have to think what is the best mechanism for
@@ -174,16 +176,20 @@ fn stm_benches(c: &mut Criterion) {
         let clerk = StmClerk::from_signer(&party_dummy, TrivialEnv);
 
         group.bench_function(BenchmarkId::new("Aggregation", &param_string), |b| {
-            b.iter(|| clerk.aggregate::<ConcatProof<C, H>>(&sigs, &ixs, &msg))
+            b.iter(|| clerk.aggregate::<ConcatProof<C, H, F>>(&sigs, &ixs, &msg))
         });
     }
 
     let clerk = StmClerk::from_signer(&party_dummy, TrivialEnv);
     let msig = clerk
-        .aggregate::<ConcatProof<C, H>>(&sigs, &ixs, &msg)
+        .aggregate::<ConcatProof<C, H, F>>(&sigs, &ixs, &msg)
         .unwrap();
     group.bench_function("Verification", |b| {
-        b.iter(|| clerk.verify_msig::<ConcatProof<C, H>>(&msig, &msg).unwrap())
+        b.iter(|| {
+            clerk
+                .verify_msig::<ConcatProof<C, H, F>>(&msig, &msg)
+                .unwrap()
+        })
     });
 }
 

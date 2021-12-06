@@ -5,14 +5,16 @@
 use ark_bls12_377::Bls12_377;
 use mithril::key_reg::{ClosedKeyReg, KeyReg};
 use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
-use mithril::stm::{Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
+use mithril::stm::{MTValue, Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
 
+use mithril::merkle_tree::MTHashLeaf;
 use mithril::models::digest::DigestHash;
 use mithril::msp::MspPk;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
 type H = blake2::Blake2b;
+type F = <H as MTHashLeaf<MTValue<Bls12_377>>>::F;
 
 fn main() {
     let nparties = 4;
@@ -139,32 +141,39 @@ fn main() {
     let clerk = StmClerk::from_registration(params, TrivialEnv, &closed_registration);
 
     // Now we aggregate the signatures
-    let msig_1 =
-        match clerk.aggregate::<ConcatProof<Bls12_377, H>>(&complete_sigs_1, &complete_ixs_1, &msg)
-        {
-            Ok(s) => s,
-            Err(e) => {
-                panic!("Aggregation failed: {:?}", e)
-            }
-        };
+    let msig_1 = match clerk.aggregate::<ConcatProof<Bls12_377, H, F>>(
+        &complete_sigs_1,
+        &complete_ixs_1,
+        &msg,
+    ) {
+        Ok(s) => s,
+        Err(e) => {
+            panic!("Aggregation failed: {:?}", e)
+        }
+    };
     assert!(clerk
-        .verify_msig::<ConcatProof<Bls12_377, H>>(&msig_1, &msg)
+        .verify_msig::<ConcatProof<Bls12_377, H, F>>(&msig_1, &msg)
         .is_ok());
 
-    let msig_2 =
-        match clerk.aggregate::<ConcatProof<Bls12_377, H>>(&complete_sigs_2, &complete_ixs_2, &msg)
-        {
-            Ok(s) => s,
-            Err(e) => {
-                panic!("Aggregation failed: {:?}", e)
-            }
-        };
+    let msig_2 = match clerk.aggregate::<ConcatProof<Bls12_377, H, F>>(
+        &complete_sigs_2,
+        &complete_ixs_2,
+        &msg,
+    ) {
+        Ok(s) => s,
+        Err(e) => {
+            panic!("Aggregation failed: {:?}", e)
+        }
+    };
     assert!(clerk
-        .verify_msig::<ConcatProof<Bls12_377, H>>(&msig_2, &msg)
+        .verify_msig::<ConcatProof<Bls12_377, H, F>>(&msig_2, &msg)
         .is_ok());
 
-    let msig_3 =
-        clerk.aggregate::<ConcatProof<Bls12_377, H>>(&incomplete_sigs_3, &incomplete_ixs_3, &msg);
+    let msig_3 = clerk.aggregate::<ConcatProof<Bls12_377, H, F>>(
+        &incomplete_sigs_3,
+        &incomplete_ixs_3,
+        &msg,
+    );
     assert!(msig_3.is_err());
 }
 

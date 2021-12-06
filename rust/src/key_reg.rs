@@ -104,11 +104,11 @@ where
     #[error("This key has already been registered.")]
     KeyRegistered(Vec<u8>),
     /// This participant has already been registered
-    #[error("This participant has already been registered.")]
+    #[error("Participant {0} has already been registered.")]
     PartyRegistered(PartyId),
     /// The supplied participant id does not belong to the
     /// participant list
-    #[error("The supplied participant id does not belong to the participant list.")]
+    #[error("Participant id {0} does not belong to the participants list.")]
     UnknownPartyId(PartyId),
     /// The supplied key is not valid
     #[error("The verification of correctness of the supplied key is invalid.")]

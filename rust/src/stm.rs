@@ -9,14 +9,16 @@
 //! use ark_bls12_377::Bls12_377; // Use BLS12 for base elliptic curve
 //! use mithril::key_reg::KeyReg; // Import key registration functionality
 //! use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
-//! use mithril::stm::{AggregationFailure, StmClerk, StmInitializer, StmParameters, StmSigner};
+//! use mithril::stm::{AggregationFailure, StmClerk, StmInitializer, StmParameters, StmSigner, MTValue};
 //! use rayon::prelude::*; // We use par_iter to speed things up
 //!
 //! use rand_chacha::ChaCha20Rng;
 //! use rand_core::{RngCore, SeedableRng};
+//! use mithril::merkle_tree::MTHashLeaf;
 //!
 //! let nparties = 4; // Use a small number of parties for this example
 //! type H = blake2::Blake2b; // Setting the hash function for convenience
+//! type F = <H as MTHashLeaf<MTValue<Bls12_377>>>::F;
 //!
 //! let mut rng = ChaCha20Rng::from_seed([0u8; 32]); // create and initialize rng
 //! let mut msg = [0u8; 16]; // setting an arbitrary message
@@ -104,17 +106,17 @@
 //! let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
 //!
 //! // Aggregate and verify the signatures
-//! let msig = clerk.aggregate::<ConcatProof<Bls12_377, H>>(&sigs, &ixs, &msg);
+//! let msig = clerk.aggregate::<ConcatProof<Bls12_377, H, F>>(&sigs, &ixs, &msg);
 //! match msig {
 //!     Ok(aggr) => {
 //!         println!("Aggregate ok");
 //!         assert!(clerk
-//!             .verify_msig::<ConcatProof<Bls12_377, H>>(&aggr, &msg)
+//!             .verify_msig::<ConcatProof<Bls12_377, H, F>>(&aggr, &msg)
 //!             .is_ok());
 //!     }
-//!     Err(AggregationFailure::NotEnoughSignatures(n)) => {
+//!     Err(AggregationFailure::NotEnoughSignatures(n, k)) => {
 //!         println!("Not enough signatures");
-//!         assert!(n < params.k as usize)
+//!         assert!(n < params.k && k == params.k)
 //!     }
 //!     Err(_) => unreachable!(),
 //! }
@@ -251,36 +253,34 @@ where
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum AggregationFailure {
     /// Not enough signatures were collected, got this many instead.
-    #[error("Not enough signatures. Got only {0} signatures")]
-    NotEnoughSignatures(usize),
-    /// Verification failed for this signature
-    #[error("Signature with index {1} failed. {0}")]
-    VerifyFailed(VerificationFailure, Index),
+    #[error("Not enough signatures. Got only {0} out of {1}.")]
+    NotEnoughSignatures(u64, u64),
 }
 
 /// Error types for single signature verification
-#[derive(Debug, Clone, Copy, thiserror::Error)]
-pub enum VerificationFailure {
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum VerificationFailure<PE: PairingEngine, F> {
     /// The lottery was actually lost for the signature
     #[error("Lottery for this epoch was lost.")]
     LotteryLost,
     /// The Merkle Tree is invalid
-    #[error("Provided Merkle Tree is invalid.")]
-    InvalidMerkleTree,
+    #[error("The path of the Merkle Tree is invalid.")]
+    InvalidMerkleTree(Path<F>),
     /// The MSP signature is invalid
-    #[error("Invalid Signature")]
-    InvalidSignature,
+    #[error("Invalid Signature.")]
+    InvalidSignature(MspSig<PE>),
 }
 
 /// Error types for multisignature verification
 #[derive(Debug, Clone, Copy, thiserror::Error)]
-pub enum MultiVerificationFailure<Proof>
+pub enum MultiVerificationFailure<Proof, PE>
 where
     Proof: MithrilProof,
+    PE: PairingEngine,
 {
     /// The underlying MSP aggregate is invalid
     #[error("The underlying MSP aggregate is invalid.")]
-    InvalidAggregate,
+    InvalidAggregate(MspSig<PE>),
     /// Error wrapper for underlying proof system.
     #[error("Proof of validity failed. {0}")]
     ProofError(Proof::Error),
@@ -615,7 +615,7 @@ where
         sig: &StmSig<PE, H::F>,
         index: Index,
         msg: &[u8],
-    ) -> Result<(), VerificationFailure> {
+    ) -> Result<(), VerificationFailure<PE, H::F>> {
         let msgp = concat_avk_with_msg(&self.avk, msg);
         let ev = Msp::eval(&msgp, index, &sig.sigma);
 
@@ -625,9 +625,9 @@ where
             .avk
             .check(&MTValue(sig.pk.mvk, sig.stake), sig.party, &sig.path)
         {
-            Err(VerificationFailure::InvalidMerkleTree)
+            Err(VerificationFailure::InvalidMerkleTree(sig.path.clone()))
         } else if !Msp::ver(&msgp, &sig.pk.mvk, &sig.sigma) {
-            Err(VerificationFailure::InvalidSignature)
+            Err(VerificationFailure::InvalidSignature(sig.sigma))
         } else {
             Ok(())
         }
@@ -702,7 +702,7 @@ where
         &self,
         msig: &StmMultiSig<PE, Proof>,
         msg: &[u8],
-    ) -> Result<(), MultiVerificationFailure<Proof>>
+    ) -> Result<(), MultiVerificationFailure<Proof, PE>>
     where
         Proof: MithrilProof<Env = E>,
         Proof::Statement: From<MithrilStatement<PE, H>>,
@@ -728,7 +728,7 @@ where
         }
         let msgp = concat_avk_with_msg(&self.avk, msg);
         if !Msp::aggregate_ver(&msgp, &msig.ivk, &msig.mu) {
-            return Err(MultiVerificationFailure::InvalidAggregate);
+            return Err(MultiVerificationFailure::InvalidAggregate(msig.mu));
         }
         Ok(())
     }
@@ -764,7 +764,10 @@ where
                 return Ok(sigs_by_index.into_iter());
             }
         }
-        Err(AggregationFailure::NotEnoughSignatures(count as usize))
+        Err(AggregationFailure::NotEnoughSignatures(
+            count,
+            self.params.k,
+        ))
     }
 }
 
@@ -796,7 +799,7 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    type Proof = ConcatProof<Bls12_377, H>;
+    type Proof = ConcatProof<Bls12_377, H, F>;
     type Sig = StmMultiSig<Bls12_377, Proof>;
     type H = blake2::Blake2b;
     type F = <H as MTHashLeaf<MTValue<Bls12_377>>>::F;
@@ -981,14 +984,13 @@ mod tests {
             let all_ps: Vec<usize> = (0..nparties).collect();
             let (ixs, sigs) = find_signatures(m, &msg, &ps, &all_ps);
 
-            let msig = clerk.aggregate::<ConcatProof<Bls12_377,H>>(&sigs, &ixs, &msg);
+            let msig = clerk.aggregate::<ConcatProof<Bls12_377,H, F>>(&sigs, &ixs, &msg);
 
             match msig {
                 Ok(aggr) =>
-                    assert!(clerk.verify_msig::<ConcatProof<Bls12_377,H>>(&aggr, &msg).is_ok()),
-                Err(AggregationFailure::NotEnoughSignatures(n)) =>
-                    assert!(n < params.k as usize),
-                _ => unreachable!()
+                    assert!(clerk.verify_msig::<ConcatProof<Bls12_377,H, F>>(&aggr, &msg).is_ok()),
+                Err(AggregationFailure::NotEnoughSignatures(n, k)) =>
+                    assert!(n < params.k || k == params.k),
             }
         }
     }
@@ -1004,11 +1006,11 @@ mod tests {
 
             let all_ps: Vec<usize> = (0..nparties).collect();
             let (ixs, sigs) = find_signatures(10, &msg, &ps, &all_ps);
-            let msig = clerk.aggregate::<ConcatProof<Bls12_377,H>>(&sigs, &ixs, &msg);
+            let msig = clerk.aggregate::<ConcatProof<Bls12_377,H, F>>(&sigs, &ixs, &msg);
             if let Ok(aggr) = msig {
                     let bytes: Vec<u8> = ark_ff::to_bytes!(aggr).unwrap();
                     let aggr2 = StmMultiSig::read(&bytes[..]).unwrap();
-                    assert!(clerk.verify_msig::<ConcatProof<Bls12_377,H>>(&aggr2, &msg).is_ok());
+                    assert!(clerk.verify_msig::<ConcatProof<Bls12_377,H, F>>(&aggr2, &msg).is_ok());
             }
         }
     }
@@ -1062,10 +1064,10 @@ mod tests {
 
             let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
 
-            let msig = clerk.aggregate::<ConcatProof<Bls12_377,H>>(&sigs, &ixs, &msg);
+            let msig = clerk.aggregate::<ConcatProof<Bls12_377,H, F>>(&sigs, &ixs, &msg);
             match msig {
-                Err(AggregationFailure::NotEnoughSignatures(n)) =>
-                    assert!(n < params.k as usize),
+                Err(AggregationFailure::NotEnoughSignatures(n, k)) =>
+                    assert!(n < params.k && params.k == k),
                 _ =>
                     unreachable!(),
             }
@@ -1096,7 +1098,7 @@ mod tests {
                 let all_ps: Vec<usize> = (0..n).collect();
                 let (ixs, sigs) = find_signatures(params.m, &msg, &ps, &all_ps);
 
-                let msig = clerk.aggregate::<ConcatProof<Bls12_377, H>>(&sigs, &ixs, &msg);
+                let msig = clerk.aggregate::<ConcatProof<Bls12_377, H, F>>(&sigs, &ixs, &msg);
                 ProofTest {
                     n,
                     msig,

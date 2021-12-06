@@ -1,13 +1,17 @@
 use ark_bls12_377::Bls12_377;
 use mithril::key_reg::KeyReg;
 use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
-use mithril::stm::{AggregationFailure, StmClerk, StmInitializer, StmParameters, StmSigner};
+use mithril::stm::{
+    AggregationFailure, MTValue, StmClerk, StmInitializer, StmParameters, StmSigner,
+};
 use rayon::prelude::*;
 
+use mithril::merkle_tree::MTHashLeaf;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
 type H = blake2::Blake2b;
+type F = <H as MTHashLeaf<MTValue<Bls12_377>>>::F;
 
 #[test]
 fn test_full_protocol() {
@@ -86,18 +90,17 @@ fn test_full_protocol() {
     }
 
     // Aggregate and verify with random parties
-    let msig = clerk.aggregate::<ConcatProof<Bls12_377, H>>(&sigs, &ixs, &msg);
+    let msig = clerk.aggregate::<ConcatProof<Bls12_377, H, F>>(&sigs, &ixs, &msg);
     match msig {
         Ok(aggr) => {
             println!("Aggregate ok");
             assert!(clerk
-                .verify_msig::<ConcatProof<Bls12_377, H>>(&aggr, &msg)
+                .verify_msig::<ConcatProof<Bls12_377, H, F>>(&aggr, &msg)
                 .is_ok());
         }
-        Err(AggregationFailure::NotEnoughSignatures(n)) => {
+        Err(AggregationFailure::NotEnoughSignatures(n, k)) => {
             println!("Not enough signatures");
-            assert!(n < params.k as usize)
+            assert!(n < params.k && k == params.k)
         }
-        Err(_) => unreachable!(),
     }
 }

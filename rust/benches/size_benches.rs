@@ -1,14 +1,16 @@
 use ark_bls12_377::Bls12_377;
 use ark_ff::ToBytes;
 use mithril::key_reg::KeyReg;
+use mithril::merkle_tree::MTHashLeaf;
 use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
-use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner};
+use mithril::stm::{MTValue, StmClerk, StmInitializer, StmParameters, StmSigner};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::prelude::*;
 
 type C = Bls12_377;
 type H = blake2::Blake2b;
+type F = <H as MTHashLeaf<MTValue<C>>>::F;
 
 fn main() {
     // The only parameter over which the proof size changes is `k`, the number of required
@@ -81,7 +83,7 @@ fn main() {
 
         let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
         let msig = clerk
-            .aggregate::<ConcatProof<C, H>>(&sigs, &ixs, &msg)
+            .aggregate::<ConcatProof<C, H, F>>(&sigs, &ixs, &msg)
             .unwrap();
 
         let mut writer = Vec::new();

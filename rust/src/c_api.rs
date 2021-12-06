@@ -16,7 +16,7 @@ type F = <H as MTHashLeaf<MTValue<C>>>::F;
 type MspSkPtr = *mut MspSk<C>;
 type MspPkPtr = *mut MspPk<C>;
 type SigPtr = *mut StmSig<C, F>;
-type MultiSigPtr = *mut StmMultiSig<C, ConcatProof<C, H>>;
+type MultiSigPtr = *mut StmMultiSig<C, ConcatProof<C, H, F>>;
 type StmInitializerPtr = *mut StmInitializer<C>;
 type StmSignerPtr = *mut StmSigner<H, C>;
 type StmClerkPtr = *mut StmClerk<H, C, TrivialEnv>;
@@ -418,7 +418,6 @@ mod key_reg {
 mod clerk {
     use super::*;
     use core::slice;
-    use std::convert::TryInto;
 
     /// A clerk can only be generated out of a `ClosedKeyReg` instance, or out of an `StmSigner`.
     /// This function initialises a `Clerk` out of a `ClosedKeyReg`.
@@ -465,8 +464,8 @@ mod clerk {
             match out {
                 Ok(()) => 0,
                 Err(VerificationFailure::LotteryLost) => -1,
-                Err(VerificationFailure::InvalidMerkleTree) => -2,
-                Err(VerificationFailure::InvalidSignature) => -3,
+                Err(VerificationFailure::InvalidMerkleTree(_)) => -2,
+                Err(VerificationFailure::InvalidSignature(_)) => -3,
             }
         }
     }
@@ -498,8 +497,7 @@ mod clerk {
                     *sig = Box::into_raw(Box::new(msig));
                     0
                 }
-                Err(AggregationFailure::VerifyFailed(_, _)) => -1,
-                Err(AggregationFailure::NotEnoughSignatures(n)) => n.try_into().unwrap(),
+                Err(AggregationFailure::NotEnoughSignatures(n, m)) => n as i64 - m as i64,
             }
         }
     }
@@ -522,7 +520,7 @@ mod clerk {
             let out = ref_me.verify_msig(ref_msig, msg_str.to_bytes());
             match out {
                 Ok(()) => 0,
-                Err(MultiVerificationFailure::InvalidAggregate) => -1,
+                Err(MultiVerificationFailure::InvalidAggregate(_)) => -1,
                 Err(MultiVerificationFailure::ProofError(e)) => e.into(),
             }
         }
