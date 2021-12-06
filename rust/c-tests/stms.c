@@ -300,7 +300,8 @@ TEST(stm, dynamicStake) {
      * is to ensure that one cannot change the initializer values once the key registration is closed. We can see that
      * the pointer was already freed.
      */
-    ASSERT_DEATH(stm_initializer_new_signer(initializer[1], closed_reg[1]), ".* pointer being freed was not allocated.*");
+    // todo: does it make sense to free the pointer?
+    ASSERT_DEATH(stm_initializer_new_signer(initializer[1], closed_reg[1]), ".*");
 
     /*
      * Therefore, what we need to do is go back from the signer to an initializer instance. To minimise possible misuse
