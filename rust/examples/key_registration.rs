@@ -58,25 +58,17 @@ fn main() {
 
     // Now, each party generates their own KeyReg instance, and registers all other participating
     // parties. Once all parties are registered, the key registration is closed.
-    let key_reg = vec![
-        local_reg(&parties, &parties_pks),
-        local_reg(&parties, &parties_pks),
-        local_reg(&parties, &parties_pks),
-        local_reg(&parties, &parties_pks),
-    ];
-
-    for i in 0..4 {
-        for j in 0..4 {
-            assert_eq!(key_reg[i].retrieve_all(), key_reg[j].retrieve_all());
-        }
-    }
+    let key_reg_0 = local_reg(&parties, &parties_pks);
+    let key_reg_1 = local_reg(&parties, &parties_pks);
+    let key_reg_2 = local_reg(&parties, &parties_pks);
+    let key_reg_3 = local_reg(&parties, &parties_pks);
 
     // Now, with information of all participating parties (we can create the Merkle Tree), the
     // signers can be initialised.
-    let party_0 = party_0_init.new_signer(&key_reg[0]);
-    let party_1 = party_1_init.new_signer(&key_reg[1]);
-    let party_2 = party_2_init.new_signer(&key_reg[2]);
-    let party_3 = party_3_init.new_signer(&key_reg[3]);
+    let party_0 = party_0_init.new_signer(key_reg_0);
+    let party_1 = party_1_init.new_signer(key_reg_1);
+    let party_2 = party_2_init.new_signer(key_reg_2);
+    let party_3 = party_3_init.new_signer(key_reg_3);
 
     /////////////////////
     // operation phase //
@@ -138,7 +130,7 @@ fn main() {
     ];
 
     let closed_registration = local_reg(&parties, &parties_pks);
-    let clerk = StmClerk::from_registration(params, TrivialEnv, &closed_registration);
+    let clerk = StmClerk::from_registration(params, TrivialEnv, closed_registration);
 
     // Now we aggregate the signatures
     let msig_1 = match clerk.aggregate::<ConcatProof<Bls12_377, H, F>>(

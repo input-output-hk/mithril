@@ -56,7 +56,7 @@ fn main() {
 
         let ps = ps
             .into_par_iter()
-            .map(|p| p.new_signer(&closed_reg))
+            .map(|p| p.new_signer(closed_reg.clone()))
             .collect::<Vec<StmSigner<H, C>>>();
 
         let p_results = ps

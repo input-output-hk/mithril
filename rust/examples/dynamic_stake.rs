@@ -82,8 +82,10 @@ fn main() {
 
     // Now, with information of all participating parties, the
     // signers can be initialised (we can create the Merkle Tree).
-    let party_0 = party_0_init_e1.new_signer(&party_0_key_reg_e1);
-    let party_1 = party_1_init_e1.new_signer(&party_1_key_reg_e1);
+    // The (closed) key registration is consumed, to ensure that it
+    // is not used to initialise a signer at a different epoch.
+    let party_0 = party_0_init_e1.new_signer(party_0_key_reg_e1);
+    let party_1 = party_1_init_e1.new_signer(party_1_key_reg_e1);
     println!("+------------------------+");
     println!("| Operation phase begins |");
     println!("| Signing happens here   |");
@@ -128,12 +130,12 @@ fn main() {
     // A way would be to create a fresh `StmInitializer` using the new stake, and then change
     // the keypair so that it corresponds to the keypair generated in Epoch 1. However,
     // we can simplify this by allowing a transition from `StmSigner` back to `StmInitializer`.
-    // To decrease the chances of misusing this transition, the function not only consumes
-    // the instance of `StmSigner`, but also that of the `ClosedKeyReg`.
+    // To decrease the chances of misusing this transition, the function consumes
+    // the instance of `StmSigner`.
     //
     // It would work as follows:
-    let party_0_init_e2 = party_0.new_epoch(party_0_key_reg_e1, Some(parties_e2[0].1));
-    let party_1_init_e2 = party_1.new_epoch(party_1_key_reg_e1, Some(parties_e2[1].1));
+    let party_0_init_e2 = party_0.new_epoch(Some(parties_e2[0].1));
+    let party_1_init_e2 = party_1.new_epoch(Some(parties_e2[1].1));
 
     // The third party needs to generate from scratch and broadcast the key (which we represent
     // by appending to the `pks` vector.
@@ -158,21 +160,19 @@ fn main() {
     );
     println!();
 
-    // Now, the key reg of epoch 1 is consumed, so it cannot be used to generate a signer.
+    // The key reg of epoch 1 was consumed, so it cannot be used to generate a signer.
     // This forces us to re-run the key registration (which is good).
-    let key_reg_e2 = vec![
-        local_reg(&parties_e2, &parties_pks),
-        local_reg(&parties_e2, &parties_pks),
-        local_reg(&parties_e2, &parties_pks),
-    ];
+    let key_reg_e2_0 = local_reg(&parties_e2, &parties_pks);
+    let key_reg_e2_1 = local_reg(&parties_e2, &parties_pks);
+    let key_reg_e2_2 = local_reg(&parties_e2, &parties_pks);
     println!("Registration of epoch 2 is closed, and signers are initialised");
     println!();
     // And finally, new signers can be created to signe messages in epoch 2. Again, signers
     // of epoch 1 are consumed, so they cannot be used to sign messages of this epoch (again,
     // this is good).
-    let _party_0_e2 = party_0_init_e2.new_signer(&key_reg_e2[0]);
-    let _party_1_e2 = party_1_init_e2.new_signer(&key_reg_e2[1]);
-    let _party_2_e2 = party_2_init_e2.new_signer(&key_reg_e2[2]);
+    let _party_0_e2 = party_0_init_e2.new_signer(key_reg_e2_0);
+    let _party_1_e2 = party_1_init_e2.new_signer(key_reg_e2_1);
+    let _party_2_e2 = party_2_init_e2.new_signer(key_reg_e2_2);
     println!("+------------------------+");
     println!("| Operation phase begins |");
     println!("| Signing happens here   |");
