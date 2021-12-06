@@ -296,10 +296,11 @@ TEST(stm, dynamicStake) {
      * update the signer (as it contains the merkle tree root, and the total stake). One way to go would be to
      * extract the key pair from the initializer, regenerate a fresh one with the new params, and change the key
      * pair of the fresh initializer with the key pair of the previous one. However, that is not the best way.
-     * Particularly because the `stm_initializer_new_signer` function consumes the initializer. This is to ensure
-     * that one cannot change the initializer values once the key registration is closed.
+     * Particularly because the `stm_initializer_new_signer` function consumes the initializer and registration. This
+     * is to ensure that one cannot change the initializer values once the key registration is closed. We can see that
+     * the pointer was already freed.
      */
-    EXPECT_TRUE(initializer[1] != nullptr);
+    ASSERT_DEATH(stm_initializer_new_signer(initializer[1], closed_reg[1]), ".* pointer being freed was not allocated.*");
 
     /*
      * Therefore, what we need to do is go back from the signer to an initializer instance. To minimise possible misuse
@@ -321,13 +322,11 @@ TEST(stm, dynamicStake) {
 
     // In order to create the signer instance with the new registration, the previous signers need to create the
     // `StmInitializer` instance. They do so by consuming the signer and registration instances from epoch 1.
-    initializer_epoch2[0] = stm_signer_new_epoch(signer[0], closed_reg[0], party_stake_epoch2[0]);
-    initializer_epoch2[2] = stm_signer_new_epoch(signer[1], closed_reg[1], party_stake_epoch2[1]);
+    initializer_epoch2[0] = stm_signer_new_epoch(signer[0], party_stake_epoch2[0]);
+    initializer_epoch2[2] = stm_signer_new_epoch(signer[1], party_stake_epoch2[1]);
 
-    EXPECT_TRUE(signer[0] != nullptr);
-    EXPECT_TRUE(closed_reg[0] != nullptr);
-    EXPECT_TRUE(signer[1] != nullptr);
-    EXPECT_TRUE(closed_reg[1] != nullptr);
+    // We can see that the stm_signer_new_epoch function frees the pointer
+    ASSERT_DEATH(stm_signer_new_epoch(signer[1], party_stake_epoch2[1]), ".* pointer being freed was not allocated.*");
 
     // Finally, the signer instances can be created for each signer, and an operation phase under the new stake
     // distribution may happen.
