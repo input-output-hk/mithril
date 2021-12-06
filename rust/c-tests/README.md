@@ -15,7 +15,7 @@ specified [here](https://github.com/google/googletest/blob/main/googletest/READM
 After running `cargo build --release` in the parent directory, build the test executable:
 
 ``` sh
-clang -x c++ test.c -g -o test -L . -lmithril -lstdc++ -lgtest -lgtest_main
+clang -x c++ tests.c stms.c atms.c -g -o tests -L ./target/release -lmithril -lstdc++ -lgtest -lgtest_main
 ```
 
 **NOTE**: Do not use g++, it does compile but leads to segfault when running the test.
@@ -24,7 +24,7 @@ To execute the tests:
 
 ``` sh
 export LD_LIBRARY_PATH=../target/release
-./test
+./tests
 Running main() from ../googletest/src/gtest_main.cc
 [==========] Running 7 tests from 2 test suites.
 [----------] Global test environment set-up.
