@@ -1,6 +1,6 @@
 //! Prove the validity of aggregated signatures.
 
-use crate::merkle_tree::{concat_avk_with_msg, MTHashLeaf, MerkleTree};
+use crate::merkle_tree::{concat_avk_with_msg, MTHashLeaf, MerkleTree, Path};
 use crate::msp::{Msp, MspMvk, MspSig};
 use crate::proof::Proof;
 use crate::stm::{ev_lt_phi, Index, MTValue, StmParameters, StmSig};
@@ -39,43 +39,57 @@ pub struct MithrilWitness<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> {
 }
 
 /// Errors which can be output by Mithril verification.
-#[derive(Debug, Clone, Copy, thiserror::Error)]
-pub enum MithrilWitnessError {
-    /// No qorum was found
-    #[error("No Quorum was found")]
-    NoQuorum = 1,
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum MithrilWitnessError<PE: PairingEngine, F> {
+    /// No quorum was found
+    #[error("No Quorum was found.")]
+    NoQuorum,
     /// The IVK is invalid after aggregating the keys
     #[error("Aggregated key does not correspond to the expected key.")]
-    IvkInvalid,
+    IvkInvalid(MspMvk<PE>),
     /// Mu is not the sum of the signatures
     #[error("Aggregated signature does not correspond to the expected signature.")]
-    SumInvalid,
+    SumInvalid(MspSig<PE>),
     /// There is an index out of bounds
-    #[error("Received index is higher than what the security parameter allows.")]
-    IndexBoundFailed,
+    #[error("Received index, {0}, is higher than what the security parameter allows, {1}.")]
+    IndexBoundFailed(u64, u64),
     /// There is a duplicate index
-    #[error("Index is not unique.")]
+    #[error("Indeces are not unique.")]
     IndexNotUnique,
     /// The path is not valid for the Merkle Tree
     #[error("The path of the Merkle Tree is invalid.")]
-    PathInvalid,
+    PathInvalid(Path<F>),
     /// MSP.Eval was computed incorrectly
-    #[error("The claimed evaluation of function phi is incorrect.")]
-    EvalInvalid,
+    #[error("The claimed evaluation of function phi, {0}, is incorrect.")]
+    EvalInvalid(u64),
     /// A party did not actually win the lottery
     #[error("The current party did not win the lottery.")]
     StakeInvalid,
 }
 
 #[allow(clippy::from_over_into)]
-impl Into<i64> for MithrilWitnessError {
+impl<PE: PairingEngine, F> Into<i64> for MithrilWitnessError<PE, F> {
     fn into(self) -> i64 {
-        self as i64
+        // -1 is reserved to the function failing.
+        match self {
+            MithrilWitnessError::NoQuorum => -2,
+            MithrilWitnessError::IvkInvalid(_) => -3,
+            MithrilWitnessError::SumInvalid(_) => -4,
+            MithrilWitnessError::IndexBoundFailed(_, _) => -5,
+            MithrilWitnessError::IndexNotUnique => -6,
+            MithrilWitnessError::PathInvalid(_) => -7,
+            MithrilWitnessError::EvalInvalid(_) => -8,
+            MithrilWitnessError::StakeInvalid => -9,
+        }
     }
 }
 
-impl<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> MithrilWitness<PE, H> {
-    fn verify(&self, stmt: &MithrilStatement<PE, H>) -> Result<(), MithrilWitnessError> {
+impl<PE, H> MithrilWitness<PE, H>
+where
+    PE: PairingEngine,
+    H: MTHashLeaf<MTValue<PE>>,
+{
+    fn verify(&self, stmt: &MithrilStatement<PE, H>) -> Result<(), MithrilWitnessError<PE, H::F>> {
         self.check_quorum(stmt.params.k as usize)?;
         self.check_ivk(&stmt.ivk)?;
         self.check_sum(&stmt.mu)?;
@@ -88,34 +102,36 @@ impl<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> MithrilWitness<PE, H> {
     }
 
     /// ivk = Prod(1..k, mvk[i])
-    fn check_ivk(&self, ivk: &MspMvk<PE>) -> Result<(), MithrilWitnessError> {
+    fn check_ivk(&self, ivk: &MspMvk<PE>) -> Result<(), MithrilWitnessError<PE, H::F>> {
         let mvks = self.sigs.iter().map(|s| s.pk.mvk).collect::<Vec<_>>();
         let sum = Msp::aggregate_keys(&mvks).0;
         if ivk.0 != sum {
-            return Err(MithrilWitnessError::IvkInvalid);
+            return Err(MithrilWitnessError::IvkInvalid(MspMvk(sum)));
         }
         Ok(())
     }
 
     /// mu = Prod(1..k, sigma[i])
-    fn check_sum(&self, mu: &MspSig<PE>) -> Result<(), MithrilWitnessError> {
+    fn check_sum(&self, mu: &MspSig<PE>) -> Result<(), MithrilWitnessError<PE, H::F>> {
         let mu1 = self.sigs.iter().map(|s| s.sigma.0).sum();
         if mu.0 != mu1 {
-            return Err(MithrilWitnessError::SumInvalid);
+            return Err(MithrilWitnessError::SumInvalid(MspSig(mu1)));
         }
         Ok(())
     }
 
     /// \forall i. index[i] <= m
-    fn check_index_bound(&self, m: u64) -> Result<(), MithrilWitnessError> {
-        if !self.indices.iter().all(|i| *i <= m) {
-            return Err(MithrilWitnessError::IndexBoundFailed);
+    fn check_index_bound(&self, m: u64) -> Result<(), MithrilWitnessError<PE, H::F>> {
+        for &i in self.indices.iter() {
+            if i > m {
+                return Err(MithrilWitnessError::IndexBoundFailed(i, m));
+            }
         }
         Ok(())
     }
 
     /// \forall i. \forall j. (i == j || index[i] != index[j])
-    fn check_index_unique(&self) -> Result<(), MithrilWitnessError> {
+    fn check_index_unique(&self) -> Result<(), MithrilWitnessError<PE, H::F>> {
         if HashSet::<Index>::from_iter(self.indices.iter().cloned()).len() != self.indices.len() {
             return Err(MithrilWitnessError::IndexNotUnique);
         }
@@ -124,7 +140,7 @@ impl<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> MithrilWitness<PE, H> {
 
     /// k-sized quorum
     /// if this returns `true`, then there are exactly k signatures
-    fn check_quorum(&self, k: usize) -> Result<(), MithrilWitnessError> {
+    fn check_quorum(&self, k: usize) -> Result<(), MithrilWitnessError<PE, H::F>> {
         if !(k == self.sigs.len() && k == self.evals.len() && k == self.indices.len()) {
             return Err(MithrilWitnessError::NoQuorum);
         }
@@ -132,13 +148,14 @@ impl<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> MithrilWitness<PE, H> {
     }
 
     /// \forall i : [0..k]. path[i] is a witness for (mvk[i]), stake[i] in avk
-    fn check_path(&self, avk: &MerkleTree<MTValue<PE>, H>) -> Result<(), MithrilWitnessError> {
-        if !self
-            .sigs
-            .iter()
-            .all(|sig| avk.check(&MTValue(sig.pk.mvk, sig.stake), sig.party, &sig.path))
-        {
-            return Err(MithrilWitnessError::PathInvalid);
+    fn check_path(
+        &self,
+        avk: &MerkleTree<MTValue<PE>, H>,
+    ) -> Result<(), MithrilWitnessError<PE, H::F>> {
+        for sig in self.sigs.iter() {
+            if !avk.check(&MTValue(sig.pk.mvk, sig.stake), sig.party, &sig.path) {
+                return Err(MithrilWitnessError::PathInvalid(sig.path.clone()));
+            }
         }
         Ok(())
     }
@@ -148,25 +165,26 @@ impl<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> MithrilWitness<PE, H> {
         &self,
         avk: &MerkleTree<MTValue<PE>, H>,
         msg: &[u8],
-    ) -> Result<(), MithrilWitnessError> {
+    ) -> Result<(), MithrilWitnessError<PE, H::F>> {
         let msp_evals = self.indices.iter().zip(self.sigs.iter()).map(|(idx, sig)| {
             let msgp = concat_avk_with_msg(avk, msg);
             Msp::eval(&msgp, *idx, &sig.sigma)
         });
 
-        if !self
-            .evals
-            .iter()
-            .zip(msp_evals)
-            .all(|(ev, msp_e)| *ev == msp_e)
-        {
-            return Err(MithrilWitnessError::EvalInvalid);
+        for (&ev, msp_e) in self.evals.iter().zip(msp_evals) {
+            if ev != msp_e {
+                return Err(MithrilWitnessError::EvalInvalid(ev));
+            }
         }
         Ok(())
     }
 
     /// \forall i : [1..k]. ev[i] <= phi(stake_i)
-    fn check_stake(&self, phi_f: f64, total_stake: u64) -> Result<(), MithrilWitnessError> {
+    fn check_stake(
+        &self,
+        phi_f: f64,
+        total_stake: u64,
+    ) -> Result<(), MithrilWitnessError<PE, H::F>> {
         if !self
             .evals
             .iter()
@@ -246,22 +264,24 @@ pub mod concat_proofs {
     /// Set the env to the TrivialEnv.
     pub type ConcatEnv = TrivialEnv;
     /// The relation is a function outputting an error or not.
-    pub type ConcatRel<PE, H> =
-        fn(&MithrilStatement<PE, H>, &MithrilWitness<PE, H>) -> Result<(), MithrilWitnessError>;
+    pub type ConcatRel<PE, H, F> = fn(
+        &MithrilStatement<PE, H>,
+        &MithrilWitness<PE, H>,
+    ) -> Result<(), MithrilWitnessError<PE, F>>;
     /// The proof is a TrivialProof.
-    pub type ConcatProof<PE, H> =
-        TrivialProof<MithrilStatement<PE, H>, ConcatRel<PE, H>, MithrilWitness<PE, H>>;
+    pub type ConcatProof<PE, H, F> =
+        TrivialProof<MithrilStatement<PE, H>, ConcatRel<PE, H, F>, MithrilWitness<PE, H>>;
 
-    impl<PE, H> MithrilProof for ConcatProof<PE, H>
+    impl<PE, H> MithrilProof for ConcatProof<PE, H, H::F>
     where
         PE: PairingEngine,
         H: MTHashLeaf<MTValue<PE>>,
         H::F: ToBytes + FromBytes,
     {
-        const RELATION: ConcatRel<PE, H> = trivial_relation;
+        const RELATION: ConcatRel<PE, H, H::F> = trivial_relation;
     }
 
-    impl<PE, H> ToBytes for ConcatProof<PE, H>
+    impl<PE, H> ToBytes for ConcatProof<PE, H, H::F>
     where
         PE: PairingEngine,
         H: MTHashLeaf<MTValue<PE>>,
@@ -272,7 +292,7 @@ pub mod concat_proofs {
         }
     }
 
-    impl<PE, H> FromBytes for ConcatProof<PE, H>
+    impl<PE, H> FromBytes for ConcatProof<PE, H, H::F>
     where
         PE: PairingEngine,
         H: MTHashLeaf<MTValue<PE>>,
@@ -288,7 +308,7 @@ pub mod concat_proofs {
     fn trivial_relation<PE, H>(
         s: &MithrilStatement<PE, H>,
         w: &MithrilWitness<PE, H>,
-    ) -> Result<(), MithrilWitnessError>
+    ) -> Result<(), MithrilWitnessError<PE, H::F>>
     where
         PE: PairingEngine,
         H: MTHashLeaf<MTValue<PE>>,

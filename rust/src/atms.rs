@@ -101,7 +101,7 @@ where
     #[error("Submitted keys of non-signers contains duplicates.")]
     FoundDuplicates(A::CheckedPK),
     /// Non-signers sum to the given stake, which is more than half of total
-    #[error("Signatures do not exceed the required threshold.")]
+    #[error("Signatures do not exceed the required threshold {0}.")]
     TooMuchOutstandingStake(Stake),
     /// Underlying signature scheme failed to verify
     #[error("Invalid Signature.")]
