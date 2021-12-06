@@ -70,7 +70,7 @@ fn stm_benches(c: &mut Criterion) {
 
     let ps = ps
         .into_par_iter()
-        .map(|p| p.new_signer(&closed_reg))
+        .map(|p| p.new_signer(closed_reg.clone()))
         .collect::<Vec<StmSigner<H, C>>>();
 
     let mut party_dummy = ps[0].clone();
@@ -101,7 +101,7 @@ fn stm_benches(c: &mut Criterion) {
 
         let ps = ps
             .into_par_iter()
-            .map(|p| p.new_signer(&closed_reg))
+            .map(|p| p.new_signer(closed_reg.clone()))
             .collect::<Vec<StmSigner<H, C>>>();
 
         group.bench_with_input(
@@ -145,7 +145,7 @@ fn stm_benches(c: &mut Criterion) {
 
         let ps = ps
             .into_par_iter()
-            .map(|p| p.new_signer(&closed_reg))
+            .map(|p| p.new_signer(closed_reg.clone()))
             .collect::<Vec<StmSigner<H, C>>>();
 
         let p_results = ps

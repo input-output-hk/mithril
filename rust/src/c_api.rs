@@ -293,7 +293,8 @@ mod initializer {
 
     /// This function consumes the `StmInitializer`. This ensures that after the registration is
     /// closed, there is no more mangling of the data of the registered party (such as stake or
-    /// keys).
+    /// keys). The closed registration is consumed, to minimise the possibilities of misusing
+    /// it to initialise a new signer.
     #[no_mangle]
     pub extern "C" fn stm_initializer_new_signer(
         me: StmInitializerPtr,
@@ -303,7 +304,7 @@ mod initializer {
             assert!(!me.is_null());
             assert!(!closed_reg.is_null());
             let ref_me = *Box::from_raw(me);
-            let ref_reg = &*closed_reg;
+            let ref_reg = *Box::from_raw(closed_reg);
             Box::into_raw(Box::new(ref_me.new_signer(ref_reg)))
         }
     }
@@ -348,20 +349,17 @@ mod signer {
     }
 
     /// Move to a new epoch. This happens when the parameters (such as signers or stake
-    /// distribution) change. It consumes the instance of the previous closed registration, and
-    /// returns a new StmInitializer with the updated stake of the signer in question.
+    /// distribution) change. Returns a new StmInitializer with the updated stake of the signer in
+    /// question, and consumes the StmSigner.
     #[no_mangle]
     pub extern "C" fn stm_signer_new_epoch(
         me: StmSignerPtr,
-        closed_reg: ClosedKeyRegPtr,
         new_stake: Stake,
     ) -> StmInitializerPtr {
         unsafe {
             assert!(!me.is_null());
-            assert!(!closed_reg.is_null());
             let me = *Box::from_raw(me);
-            let closed_reg = *Box::from_raw(closed_reg);
-            Box::into_raw(Box::new(me.new_epoch(closed_reg, Some(new_stake))))
+            Box::into_raw(Box::new(me.new_epoch(Some(new_stake))))
         }
     }
 }
@@ -450,10 +448,9 @@ mod clerk {
     ) -> StmClerkPtr {
         unsafe {
             assert!(!closed_reg.is_null());
+            let closed_reg = *Box::from_raw(closed_reg);
             Box::into_raw(Box::new(StmClerk::from_registration(
-                params,
-                TrivialEnv,
-                &*closed_reg,
+                params, TrivialEnv, closed_reg,
             )))
         }
     }

@@ -167,7 +167,7 @@ pub struct StmParameters {
 
 /// Initializer for `StmSigner`. This is the data that is used during the key registration
 /// procedure. One the latter is finished, this instance is consumed into an `StmSigner`.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct StmInitializer<PE>
 where
     PE: PairingEngine,
@@ -469,7 +469,7 @@ where
     /// (2) this StmSigner's parameter valuation
     /// (3) the avk as built from the current registered parties (according to the registration service)
     /// (4) the current total stake (according to the registration service)
-    pub fn new_signer<H>(self, closed_reg: &ClosedKeyReg<PE, H>) -> StmSigner<H, PE>
+    pub fn new_signer<H>(self, closed_reg: ClosedKeyReg<PE, H>) -> StmSigner<H, PE>
     where
         H: MTHashLeaf<MTValue<PE>> + Clone,
     {
@@ -492,7 +492,7 @@ where
             }),
             stake: self.stake,
             params: self.params,
-            avk: closed_reg.avk.clone(),
+            avk: closed_reg.avk,
             sk: self.sk,
             pk: self.pk,
             total_stake: closed_reg.total_stake,
@@ -552,11 +552,7 @@ where
     /// it as input.
     ///
     /// See an example [here](mithril::examples::dynamic_stake).
-    pub fn new_epoch(
-        self,
-        _closed_reg: ClosedKeyReg<PE, H>,
-        new_stake: Option<Stake>,
-    ) -> StmInitializer<PE> {
+    pub fn new_epoch(self, new_stake: Option<Stake>) -> StmInitializer<PE> {
         let stake = match new_stake {
             None => self.stake,
             Some(s) => s,
@@ -583,12 +579,12 @@ where
     pub fn from_registration(
         params: StmParameters,
         proof_env: E,
-        closed_reg: &ClosedKeyReg<PE, H>,
+        closed_reg: ClosedKeyReg<PE, H>,
     ) -> Self {
         let (pk, vk) = proof_env.setup();
         Self {
             params,
-            avk: Rc::new(closed_reg.avk.clone()),
+            avk: Rc::new(closed_reg.avk),
             total_stake: closed_reg.total_stake,
             proof_env,
             proof_key: pk,
@@ -825,7 +821,9 @@ mod tests {
             })
             .collect::<Vec<_>>();
         let closed_reg = kr.close();
-        ps.into_iter().map(|p| p.new_signer(&closed_reg)).collect()
+        ps.into_iter()
+            .map(|p| p.new_signer(closed_reg.clone()))
+            .collect()
     }
 
     /// Generate a vector of stakes that should sum to `honest_stake`
