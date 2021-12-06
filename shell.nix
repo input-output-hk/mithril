@@ -9,8 +9,10 @@
 }:
 let
   libs = [
-    pkgs.clang
+    pkgs.clang_12
     pkgs.gtest
+    pkgs.go_1_17
+    pkgs.gopls
   ];
 
   tools = [
@@ -22,10 +24,12 @@ let
     pkgs.haskellPackages.cabal-fmt
     # For plotting results of local-cluster benchmarks
     pkgs.gnuplot
+    pkgs.postgresql
+    pkgs.lsof
   ];
 
   # A "cabal-only" shell which does not use haskell.nix
-  cabalShell = pkgs.mkShell {
+  cabalShell = pkgs.llvmPackages_12.stdenv.mkDerivation {
     name = "mithril-stack-shell";
 
     buildInputs = tools ++ libs ++ [
