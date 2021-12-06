@@ -1,7 +1,5 @@
 package mithril
 
-import "C"
-
 /*
 #include "mithril.h"
 */

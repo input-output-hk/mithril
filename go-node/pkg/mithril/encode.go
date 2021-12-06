@@ -1,6 +1,5 @@
 package mithril
 
-import "C"
 import "unsafe"
 
 /*
