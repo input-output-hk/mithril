@@ -20,6 +20,8 @@ func NewInitializer(params Parameters, partyId, stake uint64) Initializer {
 type Initializer struct {
 	params  Parameters
 	ptr     C.StmInitializerPtr
+	krPtr   C.KeyRegPtr
+	ckrPtr  C.ClosedKeyRegPtr
 	sk      C.MspSkPtr
 	pk      C.MspPkPtr
 	isFreed bool
