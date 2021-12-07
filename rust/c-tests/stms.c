@@ -327,7 +327,7 @@ TEST(stm, dynamicStake) {
     initializer_epoch2[2] = stm_signer_new_epoch(signer[1], party_stake_epoch2[1]);
 
     // We can see that the stm_signer_new_epoch function frees the pointer
-    ASSERT_DEATH(stm_signer_new_epoch(signer[1], party_stake_epoch2[1]), ".* pointer being freed was not allocated.*");
+    ASSERT_DEATH(stm_signer_new_epoch(signer[1], party_stake_epoch2[1]), ".*");
 
     // Finally, the signer instances can be created for each signer, and an operation phase under the new stake
     // distribution may happen.
