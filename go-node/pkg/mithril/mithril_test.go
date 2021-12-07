@@ -114,7 +114,6 @@ func TestMultiSignWithStaticKeys(t *testing.T) {
 
 	// Step #2. Done by particular node.
 	signer := NewSigner(me, participants)
-	me.Free()
 
 	success := 0
 	indices := make([]uint64, neededSigns)

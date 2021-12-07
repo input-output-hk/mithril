@@ -4,13 +4,13 @@ package mithril
 #include "mithril.h"
 */
 import "C"
+
 import (
 	"encoding/base64"
 	"encoding/hex"
 )
 
 func NewSigner(initializer Initializer, participants []Participant) *Signer {
-
 	partyIds := make([]C.PartyId, len(participants))
 	partyStakes := make([]C.Stake, len(participants))
 	partyKeys := make([]C.MspPkPtr, len(participants))
@@ -19,14 +19,17 @@ func NewSigner(initializer Initializer, participants []Participant) *Signer {
 		partyIds[i] = C.PartyId(p.PartyId)
 		partyStakes[i] = C.Stake(p.Stake)
 		partyKeys[i] = p.pk
+
 	}
 
+	keyReg := C.key_registration(C.ulong(len(partyIds)), &partyIds[0], &partyStakes[0])
+	for _, p := range participants {
+		C.register_party(keyReg, C.PartyId(p.PartyId), p.pk)
+	}
+	closedKeyReg := C.close_registration(keyReg)
+
 	return &Signer{
-		ptr: C.stm_initializer_new_signer(initializer.ptr,
-			C.ulong(len(participants)),
-			&partyIds[0],
-			&partyStakes[0],
-			&partyKeys[0]),
+		ptr: C.stm_initializer_new_signer(initializer.ptr, closedKeyReg),
 	}
 }
 
