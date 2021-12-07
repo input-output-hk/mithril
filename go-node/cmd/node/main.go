@@ -16,7 +16,7 @@ import (
 
 func main() {
 
-	cfg, err := config.ReadConfigFromFile("dev-config")
+	cfg, err := config.ReadConfigFromFile(config.Source())
 	if err != nil {
 		panic(err)
 	}

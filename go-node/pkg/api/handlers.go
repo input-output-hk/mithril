@@ -19,7 +19,7 @@ type Proof struct {
 }
 
 type ProofDAO struct {
-	Proof Proof      `json:"utxoByAddr"`
+	Proof Proof      `json:"proof"`
 	UTxO  types.UTXO `json:"utxo"`
 }
 

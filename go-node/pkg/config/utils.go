@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// ReadConfigFromFile read issuer configuration
+// ReadConfigFromFile read node configuration
 func ReadConfigFromFile(path string) (*Config, error) {
 	viper.AddConfigPath("./configs")
 	viper.SetConfigName(path)
@@ -29,4 +29,8 @@ func ReadConfigFromFile(path string) (*Config, error) {
 	}
 
 	return config, nil
+}
+
+func Source() string {
+	return "dev-config"
 }
