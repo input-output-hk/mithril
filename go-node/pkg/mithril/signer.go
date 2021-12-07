@@ -35,14 +35,14 @@ type Signer struct {
 }
 
 func (s Signer) EligibilityCheck(index uint64, msg string) bool {
-	rv := C.stm_signer_eligibility_check(s.ptr, C.CString(msg), C.ulonglong(index))
+	rv := C.stm_signer_eligibility_check(s.ptr, C.CString(msg), C.uint64_t(index))
 	return bool(rv)
 }
 
 func (s Signer) Sign(index uint64, msg string) (*Signature, error) {
 	var sig Signature
 
-	if C.stm_signer_sign(s.ptr, C.CString(msg), C.ulonglong(index), &sig.ptr); sig.ptr == nil {
+	if C.stm_signer_sign(s.ptr, C.CString(msg), C.uint64_t(index), &sig.ptr); sig.ptr == nil {
 		return nil, ErrSignFailed
 	}
 

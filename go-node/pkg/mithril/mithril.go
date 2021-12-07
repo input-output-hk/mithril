@@ -44,8 +44,8 @@ var (
 
 func NewStmtParams(k, m uint64, phiF float64) StmParameters {
 	return StmParameters{
-		k:     C.ulonglong(k),
-		m:     C.ulonglong(m),
+		k:     C.uint64_t(k),
+		m:     C.uint64_t(m),
 		phi_f: C.double(phiF),
 	}
 }
