@@ -767,15 +767,66 @@ where
     }
 }
 
-/// Compares the output of `phi` (a real) to the output of `ev` (a hash).
+/// Checks that ev is successful in the lottery. In particular, it compares the output of `phi`
+/// (a real) to the output of `ev` (a hash).  It uses the same technique used in the
+/// [Cardano ledger](https://github.com/input-output-hk/cardano-ledger/). In particular,
+/// `ev` is a natural in `[0,2^512]`, while `phi` is a floating point in `[0, 1]`, and so what
+/// this check does is verify whether `p < 1 - (1 - phi_f)^w`, with `p = ev / 2^512`.
+///
+/// The calculation is done using the following optimization:
+///
+/// let `q = 1 / (1 - p)` and `c = ln(1 - phi_f)`
+///
+/// then          `p < 1 - (1 - phi_f)^w`
+/// `<=> 1 / (1 - p) < exp(-w * c)`
+/// `<=> q           < exp(-w * c)`
+///
+/// This can be computed using the taylor expansion. Using error estimation, we can do
+/// an early stop, once we know that the result is either above or below.  We iterate 1000
+/// times. If no conclusive result has been reached, we return false.
+///
+/// Note that         1             1               evMax
+///             q = ----- = ------------------ = -------------
+///                 1 - p    1 - (ev / evMax)    (evMax - ev)
+///
 /// Used to determine winning lottery tickets.
-pub fn ev_lt_phi(phi_f: f64, ev: u64, stake: Stake, total_stake: Stake) -> bool {
-    //TODO: Fix this, casting to f64 isn't safe
-    let w = (stake as f64) / (total_stake as f64);
-    let phi = 1.0 - (1.0 - phi_f).powf(w);
-    let ev_as_f64 = ev as f64 / 2_f64.powf(64.0);
-    // println!("{} {}", phi, ev_as_f64);
-    ev_as_f64 < phi
+pub fn ev_lt_phi(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> bool {
+    use core::ops::Neg;
+    use num_bigint::{BigInt, Sign};
+    use num_rational::Ratio;
+    use num_traits::One;
+
+    // If phi_f = 1, then we automatically break with true
+    if (phi_f - 1.0).abs() < f64::EPSILON {
+        return true;
+    }
+
+    let ev_max = BigInt::from(2u8).pow(512);
+    let ev = BigInt::from_bytes_le(Sign::Plus, &ev);
+
+    let q = Ratio::new_raw(ev_max.clone(), ev_max - ev);
+    let c =
+        Ratio::from_float((1.0 - phi_f).ln()).expect("Only fails if the float is infinite or NaN.");
+    let w = Ratio::new_raw(BigInt::from(stake), BigInt::from(total_stake));
+
+    // Now we compute a taylor function that breaks when the result is known.
+    let mut x = (w * c).neg();
+    let mut phi = Ratio::from_integer(One::one());
+    let mut divisor: BigInt = One::one();
+    for _ in 0..1000 {
+        phi += x.clone();
+
+        divisor += 1;
+        x = (x.clone() * x.clone()) / divisor.clone();
+        let error_term = x.clone() * BigInt::from(3); // we define bound for the error term to be 3, but reconsider.
+
+        if q > phi.clone() + error_term.clone() {
+            return false;
+        } else if q < phi.clone() - error_term.clone() {
+            return true;
+        }
+    }
+    false
 }
 
 #[cfg(test)]
@@ -1169,7 +1220,10 @@ mod tests {
             })
         }
         #[test]
-        fn test_invalid_proof_eval(tc in arb_proof_setup(10), i in any::<usize>(), v in any::<u64>()) {
+        fn test_invalid_proof_eval(tc in arb_proof_setup(10), i in any::<usize>(), seed in any::<[u8;32]>()) {
+            let mut rng = ChaCha20Rng::from_seed(seed);
+            let mut v = [0u8; 64];
+            rng.fill_bytes(&mut v);
             with_proof_mod(tc, |aggr, clerk, _msg| {
                 let pi = i % clerk.params.k as usize;
                 aggr.proof.witness.evals[pi] = v;
@@ -1179,7 +1233,7 @@ mod tests {
         fn test_invalid_proof_stake(tc in arb_proof_setup(10), i in any::<usize>()) {
             with_proof_mod(tc, |aggr, clerk, _msg| {
                 let pi = i % clerk.params.k as usize;
-                aggr.proof.witness.evals[pi] = 0;
+                aggr.proof.witness.evals[pi] = [0u8; 64];
             })
         }
     }

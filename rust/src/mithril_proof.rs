@@ -35,7 +35,7 @@ pub struct MithrilStatement<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> {
 pub struct MithrilWitness<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> {
     pub(crate) sigs: Vec<StmSig<PE, H::F>>,
     pub(crate) indices: Vec<Index>,
-    pub(crate) evals: Vec<u64>,
+    pub(crate) evals: Vec<[u8; 64]>,
 }
 
 /// Errors which can be output by Mithril verification.
@@ -60,8 +60,8 @@ pub enum MithrilWitnessError<PE: PairingEngine, F> {
     #[error("The path of the Merkle Tree is invalid.")]
     PathInvalid(Path<F>),
     /// MSP.Eval was computed incorrectly
-    #[error("The claimed evaluation of function phi, {0}, is incorrect.")]
-    EvalInvalid(u64),
+    #[error("The claimed evaluation of function phi is incorrect.")]
+    EvalInvalid([u8; 64]),
     /// A party did not actually win the lottery
     #[error("The current party did not win the lottery.")]
     StakeInvalid,
@@ -221,7 +221,7 @@ where
         let n = u64::read(&mut reader)?;
         let mut sigs: Vec<StmSig<PE, H::F>> = Vec::with_capacity(n as usize);
         let mut indices: Vec<Index> = Vec::with_capacity(n as usize);
-        let mut evals: Vec<u64> = Vec::with_capacity(n as usize);
+        let mut evals: Vec<[u8; 64]> = Vec::with_capacity(n as usize);
         for _ in 0..n {
             let s = StmSig::<PE, H::F>::read(&mut reader)?;
             sigs.push(s);
@@ -230,8 +230,9 @@ where
             let idx = Index::read(&mut reader)?;
             indices.push(idx);
         }
+        let mut ev = [0u8; 64];
         for _ in 0..n {
-            let ev = u64::read(&mut reader)?;
+            reader.read_exact(&mut ev)?;
             evals.push(ev);
         }
 

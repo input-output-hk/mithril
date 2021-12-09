@@ -50,8 +50,7 @@ use super::stm::Index;
 
 use ark_ec::{AffineCurve, PairingEngine};
 use ark_ff::{bytes::ToBytes, ToConstraintField, UniformRand};
-use blake2::VarBlake2b;
-use digest::{Update, VariableOutput};
+use blake2::{Blake2b, Digest};
 use rand_core::{CryptoRng, RngCore};
 use std::cmp::Ordering;
 use std::hash::Hash;
@@ -254,26 +253,21 @@ impl<PE: PairingEngine> Msp<PE> {
         Self::ver(msg, ivk, mu)
     }
 
-    /// Hash the signature to produce a u64.
-    pub fn eval(msg: &[u8], index: Index, sigma: &MspSig<PE>) -> u64 {
-        let mut hasher: VarBlake2b = VariableOutput::new(8).unwrap();
-        // // H("map"||msg||index||sigma)
-        hasher.update(
-            &[
-                "map".as_bytes(),
-                msg,
-                &index.to_le_bytes(),
-                &sigma.to_bytes(),
-            ]
-            .concat(),
-        );
-        let mut dest = [0; 8];
-        hasher.finalize_variable(|out| {
-            dest.copy_from_slice(out);
-        });
-        u64::from_le_bytes(dest)
-        // // XXX: See section 6 to implement M from Elligator Squared
-        // // return ev <- M_msg,index(sigma)
+    /// Hash the signature to produce a 64 bytes integer. We follow the same mechanism as Shelley
+    /// for the lottery (i.e., we follow the VRF lottery mechanism as described in Section 16 of
+    /// https://hydra.iohk.io/build/8201171/download/1/ledger-spec.pdf).
+    pub fn eval(msg: &[u8], index: Index, sigma: &MspSig<PE>) -> [u8; 64] {
+        let hasher = Blake2b::new()
+            .chain(b"map")
+            .chain(msg)
+            .chain(&index.to_le_bytes())
+            .chain(&sigma.to_bytes())
+            .finalize();
+
+        let mut output = [0u8; 64];
+        output.copy_from_slice(hasher.as_slice());
+
+        output
     }
 }
 
