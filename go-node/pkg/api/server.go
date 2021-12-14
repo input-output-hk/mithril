@@ -24,6 +24,8 @@ func NewServer(config *config.Config, conn *pgx.Conn, node *node.Node) (*Server,
 	router.Get("/utxo/{merkle_root}", utxo)
 	router.Get("/utxo/{merkle_root}/{addr}", utxoByAddr)
 	router.Get("/config", getNodeConfig(node))
+	router.Get("/certs/{hash}", getCertByHash)
+	router.Get("/list-certs", getAllCerts)
 
 	return &Server{
 		config: config,

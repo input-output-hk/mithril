@@ -3,6 +3,8 @@ package api
 import (
 	"context"
 	"encoding/hex"
+	"net/http"
+
 	"github.com/go-chi/chi"
 	"github.com/input-output-hk/mithril/go-node/internal/pg"
 	"github.com/input-output-hk/mithril/go-node/pkg/cardano"
@@ -12,7 +14,6 @@ import (
 	"github.com/input-output-hk/mithril/go-node/pkg/mithril"
 	"github.com/input-output-hk/mithril/go-node/pkg/node"
 	"github.com/jackc/pgx/v4"
-	"net/http"
 )
 
 type Proof struct {
@@ -152,4 +153,43 @@ func getNodeConfig(node *node.Node) http.HandlerFunc {
 		}
 		JsonResponse(w, http.StatusOK, res)
 	}
+}
+
+// getCertByHash return a certificate by certificate hash.
+func getCertByHash(w http.ResponseWriter, r *http.Request) {
+	hash, err := hex.DecodeString(chi.URLParam(r, "hash"))
+	if err != nil {
+		ErrResponse(w, err)
+		return
+	}
+
+	var c *cert.Certificate
+	err = pg.WithTX(r.Context(), GetDbConn(r), func(ctx context.Context, tx pgx.Tx) error {
+		var err error
+		c, err = cert.GetByCertHash(ctx, tx, hash)
+		return err
+	})
+	if err != nil {
+		ErrResponse(w, err)
+		return
+	}
+
+	JsonResponse(w, 200, c)
+}
+
+// getAllCerts return all certificates for all nodes.
+func getAllCerts(w http.ResponseWriter, r *http.Request) {
+	var certs []cert.Certificate
+
+	err := pg.WithTX(r.Context(), GetDbConn(r), func(ctx context.Context, tx pgx.Tx) error {
+		var err error
+		certs, err = cert.GetAllCerts(ctx, tx)
+		return err
+	})
+	if err != nil {
+		ErrResponse(w, err)
+		return
+	}
+
+	JsonResponse(w, 200, certs)
 }
