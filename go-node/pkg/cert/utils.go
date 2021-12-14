@@ -1,8 +1,6 @@
 package cert
 
-import (
-	"crypto/sha256"
-)
+import "crypto/sha256"
 
 func Hash(c Certificate) []byte {
 	h := sha256.New()
