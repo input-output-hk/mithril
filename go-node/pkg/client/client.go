@@ -18,6 +18,15 @@ type MithrilClient struct {
 	httpClient request.Request
 }
 
+func (mc MithrilClient) Config() (*NetworkConfig, error) {
+	var nc NetworkConfig
+	err := mc.httpClient.Get(&nc, "config", nil)
+	if err != nil {
+		return nil, err
+	}
+	return &nc, nil
+}
+
 func (mc MithrilClient) RecentCerts() ([]cert.Certificate, error) {
 	var certs []cert.Certificate
 	err := mc.httpClient.Get(&certs, "certs", nil)
