@@ -403,7 +403,6 @@ func (n *Node) HandleSigResponse(peer *PeerNode, res SigResponse) {
 
 	signer := mithril.NewSigner(n.initializer, n.sigProcess.participants)
 	clerk := signer.Clerk()
-	defer clerk.Free()
 
 	for _, s := range res.Signatures {
 		sig := mithril.DecodeSignature(s.Sig, s.Index)

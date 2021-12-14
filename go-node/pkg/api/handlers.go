@@ -142,7 +142,7 @@ func utxoByAddr(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func getParticipants(node *node.Node) http.HandlerFunc {
+func getNodeConfig(node *node.Node) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		res := network{
