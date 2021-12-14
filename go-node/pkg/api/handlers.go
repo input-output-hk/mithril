@@ -19,7 +19,7 @@ type Proof struct {
 }
 
 type ProofDAO struct {
-	Proof Proof      `json:"utxoByAddr"`
+	Proof Proof      `json:"proof"`
 	UTxO  types.UTXO `json:"utxo"`
 }
 
@@ -28,7 +28,7 @@ func listCertificates(w http.ResponseWriter, r *http.Request) {
 
 	err := pg.WithTX(r.Context(), GetDbConn(r), func(ctx context.Context, tx pgx.Tx) error {
 		var err error
-		certs, err = cert.Recent(ctx, tx)
+		certs, err = cert.Recent(ctx, tx, 1)
 		return err
 	})
 	if err != nil {
@@ -51,7 +51,7 @@ func utxo(w http.ResponseWriter, r *http.Request) {
 
 	err = pg.WithTX(r.Context(), GetDbConn(r), func(ctx context.Context, tx pgx.Tx) error {
 		var err error
-		certificate, err = cert.GetByMTHash(ctx, tx, hash)
+		certificate, err = cert.GetByMerkleTreeHash(ctx, tx, hash)
 		if err != nil {
 			return err
 		}
@@ -84,7 +84,7 @@ func utxoByAddr(w http.ResponseWriter, r *http.Request) {
 
 	err = pg.WithTX(r.Context(), GetDbConn(r), func(ctx context.Context, tx pgx.Tx) error {
 		var err error
-		certificate, err = cert.GetByMTHash(ctx, tx, hash)
+		certificate, err = cert.GetByMerkleTreeHash(ctx, tx, hash)
 		if err != nil {
 			return err
 		}

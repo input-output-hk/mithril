@@ -160,3 +160,85 @@ func TestMultiSignWithStaticKeys(t *testing.T) {
 		t.Error("Failed to verify multiSign")
 	}
 }
+
+func TestMultiSignWithStaticKeys2(t *testing.T) {
+	const (
+		neededSigns = 5
+		totalSigns  = 100
+		signMsg     = "hi"
+	)
+
+	// params := NewStmtParams(neededSigns, totalSigns, 0.2)
+	rawInitializers := []string{
+		"AQAAAAAAAAABAAAAAAAAAGQAAAAAAAAABQAAAAAAAACamZmZmZnJP6kPGsFQOUFljlOuWOn4U8p9w+HyhLiNSCSq3ARfZEUN1ZG0wkO5kehrLwQVxq3vRZLjddNOvcJeEqLl1bKXujsqKqGxvrYh+SUgaiZAfAoAVX1T40ezVnY/IEEXCfJNFAUfpK+CbS6VAkYXBbeE+pwwR5A2tBmrujcm7D2SNF4ABuLeCw6HhK94C7ClMaVIRnWqrUkn5bfwCkxIM52S023Ec9YK6W9zUX5fZxa6y6AAy9K1jolFeo89IvFkEiU6HP97kHclyFBFkz/lMqZg/f7bKhpa0RCNDmOarILUp3AB6TloFUSnSEJC2PtgKI41wTmS74XFdwb1pdqdlJ7y3u+YKUVQxvi/QwPHyPOkZf4AQj7VCwsfZJ2VxG034xLyTVq+ef9j9ZBDxLEjGFbUYigC90oM4g08cpyNgdAWRdoAD93HdxwWMDtdIWooQXpI19uhlBn9OpMxXeKiVKJv9fLKXNOor0HgK0IQ9+ZhbAMAA+KXE6AOK0C1zuxfXYvtXMmh0kawNDWa5ZQVSSdAT6h6+FHOiPvcdF/DL+FkV6EBM6IAVdvrQEhrEjzPqoaarDMCI5HCHIx93SxcDGL399vnjGm0tyNNy5ioUZplH5MAna1LzhveTCGTPVgPEQnEiKprmXjPAyDO9LDQWejc3ZWRMsX6tMM8dTwt14GQZuMA8g5UKS5XT4NuDZ/x8K8sSnkRbM4ukoyHfY+4ZCkwOq3RFBWiTZQwaEuiiKoLQiIBRyYjwNRYcmspJWXsIRiS4CnykUVARNH7Wy4sXa700i6rInf247TGrfjrkJ6K0vEA",
+		"AgAAAAAAAAAAAAAAAAAAAGQAAAAAAAAABQAAAAAAAACamZmZmZnJP+ZEhqwjcwbKuczhR2VoNVv3Q0So43f3dbe1j+3sMHgPKSLzOUzRPlrCaufmm8s4lHI7p8zNlZjxXi4VqxXtoGaMGsFo1+jOHdHng4txbY4Bao4bDmbscvNd2/4PtkP+3LwbA1F/FIxWWYBaG4wvA1reR+p4LqDyX9i/ymAs9UUB7tD/Q61xSthlP6IFoPvGYvxziLj5XN2DmPoXrWMz9LYLt++74OJ1qn+PoixPRtYAUwpg/BwrLQ9yyRnZh3QNGQrjvtQrPNSruY38/pULg5EUYXN1zaOgZC8XwHK5O34AbrceUJ5eHI/lePZQ9qSww+jv6QeyalZjf11nn5SLg48NmfXZjoz3GxWL97whppgBOMoXL21P/UWtBXcxNqbOQPpjIihJn7qk54To9iN7B0FS0TOlWyxnR8t65rMpIJcBqjpLRLgmHKHRv+hAe1IhnWt18p0pVitlo8ScmJXW5xMkds6BsCP3E9+ytzsKEhEAi3b4oQGT/oyK9ck8pIdo9PDwsvJG+aDzM7JVv+SP2O85vQazwvDgTq+RLWER4GkB6BUMBVBNWMU2qedy2tglpJzqvJsVe0PAgBXFaX3bBi7V7GPd6ZHMFYz+/MBqTXUB3H79C0m6cq7r7R7eEx6W3dwXV74BCpd8ETQkL5OP48P9QyazlQC5279IUdxd7ioA0GJVpImtAB0R+pVqO+f2kOWz+MlOynzrFUGDFYArDQE2C4FtDpi82DRxuaPMtpMAATA6VqH3w6+TZMUy4qBHi3d4XBxIqX/AD+h899untxOyj9lbbKICfwtWqTQTYdIA",
+	}
+
+	var me Initializer
+	var participants []Participant
+
+	// Step #1. Done by initializer
+	data, _ := base64.StdEncoding.DecodeString(rawInitializers[0])
+	me = decodeInitializer(data)
+	participants = append(participants, me.Participant())
+
+	for i := 1; i < len(rawInitializers); i++ {
+		data, _ := base64.StdEncoding.DecodeString(rawInitializers[i])
+		initializer := decodeInitializer(data)
+		participants = append(participants, initializer.Participant())
+		initializer.Free()
+	}
+
+	// Step #2. Done by particular node.
+	signer := NewSigner(me, participants)
+
+	success := 0
+	indices := make([]uint64, neededSigns)
+
+	var i uint64
+	for i = 0; i < totalSigns && success < neededSigns; i++ {
+		if signer.EligibilityCheck(i, signMsg) {
+			indices[success] = i
+			success++
+		}
+	}
+
+	if success < neededSigns {
+		t.Error("Not eligible to sign enough indices")
+	}
+
+	fmt.Println("indices", indices)
+
+	var signatures []*Signature
+	for i = 0; i < neededSigns; i++ {
+		sign, err := signer.Sign(indices[i], signMsg)
+		if err != nil {
+			t.Error("Failed to sign message")
+		}
+		signatures = append(signatures, sign)
+	}
+
+	// Step #3. Aggregate all signatures.
+	clerk := signer.Clerk()
+	defer clerk.Free()
+
+	for i := 0; i < neededSigns; i++ {
+		if err := clerk.VerifySign(signMsg, indices[i], signatures[i]); err != nil {
+			t.Errorf("Signature %d invalid\n", i)
+		}
+	}
+
+	multiSign, err := clerk.Aggregate(signatures, signMsg)
+	if err != nil {
+		t.Error("Failed to aggregate")
+	}
+
+	if err := clerk.VerifyMultiSign(multiSign, signMsg); err != nil {
+		t.Error("Failed to verify multiSign")
+	}
+
+	vClerk := NewClerk(Parameters{K: neededSigns, M: totalSigns, PhiF: 0.2}, participants)
+	if err := vClerk.VerifyMultiSign(multiSign, signMsg); err != nil {
+		t.Error("Clerk Failed to verify multiSig")
+	}
+}

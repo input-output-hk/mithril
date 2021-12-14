@@ -22,6 +22,10 @@ func DecodeInitializer(src string) Initializer {
 	return decodeInitializer(buf)
 }
 
+func MultiSigFromBytes(src []byte) *MultiSign {
+	return decodeMultiSign(src)
+}
+
 func decodeInitializer(src []byte) Initializer {
 	size, cBuf := toCBytes(src)
 

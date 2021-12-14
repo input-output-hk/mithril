@@ -37,6 +37,8 @@ type (
 		BlockNumber uint64 `mapstructure:"block_number" json:"block_number"`
 		BlockHash   string `mapstructure:"block_hash" json:"block_hash"`
 		MerkleRoot  string `mapstructure:"merkle_root" json:"merkle_root"`
+		CertHash    string `mapstructure:"cert_hash" json:"cert_hash"`
+		PrevHash    string `mapstructure:"prev_hash" json:"prev_hash"`
 	}
 
 	SigResponse struct {

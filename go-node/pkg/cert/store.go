@@ -6,12 +6,18 @@ import (
 )
 
 func Save(ctx context.Context, tx pgx.Tx, cert *Certificate) error {
-	stmt := `insert into mithril_certificates
-				(id, block_number, block_hash, merkle_root, multi_sig, sig_started_at, sig_finished_at)
-				values ($1, $2, $3, $4, $5, $6, $7)`
+	stmt := `insert into mithril_certificates (
+				id, node_id, participants, cert_hash, prev_hash,
+				block_number, block_hash, merkle_root,
+				multi_sig, sig_started_at, sig_finished_at
+			 ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
 
 	_, err := tx.Exec(ctx, stmt,
 		cert.Id,
+		cert.NodeId,
+		cert.Participants,
+		cert.CertHash,
+		cert.PrevHash,
 		cert.BlockNumber,
 		cert.BlockHash,
 		cert.MerkleRoot,
@@ -22,11 +28,13 @@ func Save(ctx context.Context, tx pgx.Tx, cert *Certificate) error {
 	return err
 }
 
-func Recent(ctx context.Context, tx pgx.Tx) ([]Certificate, error) {
-	stmt := `select id, block_number, block_hash, merkle_root, multi_sig, sig_started_at, sig_finished_at
+func Recent(ctx context.Context, tx pgx.Tx, nodeId uint64) ([]Certificate, error) {
+	stmt := `select id, block_number, block_hash, merkle_root, multi_sig, sig_started_at, sig_finished_at,
+				cert_hash, participants
 				from mithril_certificates
+				where node_id = $1
 				order by id desc limit 20`
-	rows, err := tx.Query(ctx, stmt)
+	rows, err := tx.Query(ctx, stmt, nodeId)
 	if err != nil {
 		return nil, err
 	}
@@ -36,7 +44,9 @@ func Recent(ctx context.Context, tx pgx.Tx) ([]Certificate, error) {
 	for rows.Next() {
 		var c Certificate
 		err := rows.Scan(&c.Id, &c.BlockNumber, &c.BlockHash, &c.MerkleRoot,
-			&c.MultiSig, &c.SigStartedAt, &c.SigFinishedAt)
+			&c.MultiSig, &c.SigStartedAt, &c.SigFinishedAt,
+			&c.CertHash, &c.Participants,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -46,7 +56,7 @@ func Recent(ctx context.Context, tx pgx.Tx) ([]Certificate, error) {
 	return certs, nil
 }
 
-func GetByMTHash(ctx context.Context, tx pgx.Tx, hash []byte) (*Certificate, error) {
+func GetByMerkleTreeHash(ctx context.Context, tx pgx.Tx, hash []byte) (*Certificate, error) {
 	stmt := `select id, block_number, block_hash, merkle_root, multi_sig, sig_started_at, sig_finished_at
 				from mithril_certificates where merkle_root = $1
 				order by id limit 1`
