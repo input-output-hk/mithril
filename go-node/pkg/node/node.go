@@ -243,7 +243,8 @@ func (n *Node) CreateSigRequest() {
 		hashStr:      base64.StdEncoding.EncodeToString(hash),
 		cert: cert.Certificate{
 			Id:           uint64(time.Now().Unix()),
-			Params:       params,
+			NodeId:       n.participant.PartyId,
+			Participants: participants,
 			BlockNumber:  n.nextBlockNumber,
 			BlockHash:    blockHash,
 			MerkleRoot:   hash,
@@ -252,6 +253,9 @@ func (n *Node) CreateSigRequest() {
 		signatures: make(map[peer.ID][]Signature, 0),
 	}
 
+	n.sigProcess.cert.CertHash = cert.Hash(n.sigProcess.cert)
+	n.sigProcess.cert.PrevHash = cert.Hash(n.sigProcess.cert)
+
 	req := SigRequest{
 		RequestId:    n.sigProcess.cert.Id,
 		Params:       params,
@@ -259,6 +263,8 @@ func (n *Node) CreateSigRequest() {
 		BlockNumber:  n.nextBlockNumber,
 		BlockHash:    hex.EncodeToString(blockHash),
 		MerkleRoot:   n.sigProcess.hashStr,
+		CertHash:     n.sigProcess.cert.CertHash.String(),
+		PrevHash:     n.sigProcess.cert.PrevHash.String(),
 	}
 
 	msg := Message{
@@ -289,7 +295,13 @@ func (n *Node) CreateNodeSignatures(req SigRequest, participants []mithril.Parti
 
 	var success uint64 = 0
 	indices := make([]uint64, req.Params.K)
-	signer := mithril.NewSigner(n.initializer, participants)
+
+	// FIXME: We cannot reuse the initializer.
+	mcfg := n.config.Mithril
+	part := mcfg.Participants[mcfg.PartyId]
+
+	initializer := mithril.DecodeInitializer(part.Initializer)
+	signer := mithril.NewSigner(initializer, participants)
 
 	var i uint64
 	for i = 0; i < req.Params.M && success < req.Params.K; i++ {

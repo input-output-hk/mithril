@@ -28,9 +28,35 @@ func NewSigner(initializer Initializer, participants []Participant) *Signer {
 	}
 	closedKeyReg := C.close_registration(keyReg)
 
+
+	// FIXME In a better way.
+	defer func() {
+		initializer.isFreed = true
+	}()
+
 	return &Signer{
 		ptr: C.stm_initializer_new_signer(initializer.ptr, closedKeyReg),
 	}
+}
+
+func NewClerk(params Parameters, participants []Participant) Clerk {
+	partyIds := make([]C.PartyId, len(participants))
+	partyStakes := make([]C.Stake, len(participants))
+
+	for i, p := range participants {
+		partyIds[i] = C.PartyId(p.PartyId)
+		partyStakes[i] = C.Stake(p.Stake)
+	}
+
+	keyReg := C.key_registration(C.ulong(len(partyIds)), &partyIds[0], &partyStakes[0])
+	for _, p := range participants {
+		C.register_party(keyReg, C.PartyId(p.PartyId), p.pk)
+	}
+
+	stmParams := NewStmtParams(params.K, params.M, params.PhiF)
+	closedKeyReg := C.close_registration(keyReg)
+
+	return Clerk{ptr: C.stm_clerk_from_reg(stmParams, closedKeyReg)}
 }
 
 type Signer struct {

@@ -1,6 +1,7 @@
 package cert
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -9,41 +10,82 @@ import (
 )
 
 type (
+	Hex    []byte
+	Base64 []byte
+
 	Certificate struct {
-		Id     uint64
-		Params mithril.Parameters
-
-		BlockNumber uint64
-		BlockHash   []byte
-		MerkleRoot  []byte
-		MultiSig    []byte
-
-		SigStartedAt  time.Time
-		SigFinishedAt time.Time
-	}
-)
-
-func (c Certificate) MarshalJSON() ([]byte, error) {
-	type temp struct {
-		Id          uint64 `json:"id"`
-		BlockNumber uint64 `json:"block_number"`
-		BlockHash   string `json:"block_hash"`
-		MerkleRoot  string `json:"merkle_root"`
-		MultiSig    string `json:"multi_sig"`
+		Id           uint64                `json:"id"`
+		NodeId       uint64                `json:"node_id"`
+		CertHash     Hex                   `json:"cert_hash"`
+		PrevHash     Hex                   `json:"prev_hash"`
+		Participants []mithril.Participant `json:"participants"`
+		BlockNumber  uint64                `json:"block_number"`
+		BlockHash    Hex                   `json:"block_hash"`
+		MerkleRoot   Hex                   `json:"merkle_root"`
+		MultiSig     Base64                `json:"multi_sig"`
 
 		SigStartedAt  time.Time `json:"sig_started_at"`
 		SigFinishedAt time.Time `json:"sig_finished_at"`
 	}
+)
 
-	t := temp{
-		Id:            c.Id,
-		BlockNumber:   c.BlockNumber,
-		BlockHash:     hex.EncodeToString(c.BlockHash),
-		MerkleRoot:    hex.EncodeToString(c.MerkleRoot),
-		MultiSig:      base64.StdEncoding.EncodeToString(c.MultiSig),
-		SigStartedAt:  c.SigStartedAt,
-		SigFinishedAt: c.SigFinishedAt,
+func (h Hex) MarshalJSON() ([]byte, error) {
+	return json.Marshal(hex.EncodeToString(h))
+}
+
+func (h Hex) String() string {
+	return hex.EncodeToString(h)
+}
+
+func (h *Hex) UnmarshalJSON(src []byte) error {
+	var str string
+
+	err := json.Unmarshal(src, &str)
+	if err != nil {
+		return err
+	}
+	buf, err := hex.DecodeString(str)
+	if err != nil {
+		return err
 	}
 
-	return json.Marshal(t)
+	*h = buf
+	return nil
+}
+
+func (b64 Base64) MarshalJSON() ([]byte, error) {
+	return json.Marshal(base64.StdEncoding.EncodeToString(b64))
+}
+
+func (b64 *Base64) UnmarshalJSON(src []byte) error {
+	var str string
+	err := json.Unmarshal(src, &str)
+	if err != nil {
+		return err
+	}
+
+	buf, err := base64.StdEncoding.DecodeString(str)
+	if err != nil {
+		return err
+	}
+
+	*b64 = buf
+	return nil
+}
+
+// VerifyMultiSig certificate verification method.
+func (c Certificate) VerifyMultiSig(clerk mithril.Clerk) error {
+	var participants []mithril.Participant
+	for _, p := range c.Participants {
+		participants = append(participants, mithril.NewParticipant(p.PartyId, p.Stake, p.PublicKey))
+	}
+
+	multiSig := mithril.MultiSigFromBytes(c.MultiSig)
+	message := base64.StdEncoding.EncodeToString(c.MerkleRoot)
+
+	return clerk.VerifyMultiSign(multiSig, message)
+}
+
+func (c Certificate) VerifyHash() bool {
+	return bytes.Compare(c.CertHash, Hash(c)) == 0
 }

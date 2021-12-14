@@ -18,7 +18,7 @@ type (
 	Participant struct {
 		PartyId   uint64 `mapstructure:"party_id" json:"party_id"`
 		Stake     uint64 `mapstructure:"stake" json:"stake"`
-		PublicKey string `mapstructure:"public_key" json:"public_key"`
+		PublicKey string `mapstructure:"public_key" json:"public_key,omitempty"`
 		pk        C.MspPkPtr
 	}
 

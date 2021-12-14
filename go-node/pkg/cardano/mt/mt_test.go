@@ -33,7 +33,8 @@ func TestProof(t *testing.T) {
 	require.NoError(t, err)
 	fmt.Printf("%+v\n", proof)
 
-	valid, err := mt.VerifyProof([]byte("Baz"), proof, root)
+	mt2 := NewMerkleTree()
+	valid, err := mt2.VerifyProof([]byte("Baz"), proof, root)
 	require.NoError(t, err)
 	assert.True(t, valid)
 }
