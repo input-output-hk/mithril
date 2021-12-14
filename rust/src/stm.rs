@@ -131,21 +131,20 @@ use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
 use crate::proof::ProverEnv;
 use ark_ec::PairingEngine;
 use ark_ff::bytes::{FromBytes, ToBytes};
-use ark_ff::{ToConstraintField};
+use ark_ff::ToConstraintField;
 use ark_std::io::{Read, Write};
 use rand_core::{CryptoRng, RngCore};
 use std::collections::HashMap;
 use std::convert::From;
 use std::convert::TryInto;
 use std::rc::Rc;
-use num_traits::{Signed, FromPrimitive, One};
-use num_rational::{Ratio, BigRational};
-use std::fmt::Display;
-use num_bigint::{BigInt, Sign};
-use std::ops::Neg;
-use rug::Float;
-use rug::integer::Order;
-use rug::ops::Pow;
+#[cfg(feature = "pure-rust")]
+use {
+    num_bigint::{BigInt, Sign},
+    num_rational::Ratio,
+    num_traits::{One, Signed},
+    std::ops::Neg,
+};
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
@@ -774,7 +773,7 @@ where
         ))
     }
 }
-
+#[cfg(feature = "pure-rust")]
 /// Checks that ev is successful in the lottery. In particular, it compares the output of `phi`
 /// (a real) to the output of `ev` (a hash).  It uses the same technique used in the
 /// [Cardano ledger](https://github.com/input-output-hk/cardano-ledger/). In particular,
@@ -813,9 +812,10 @@ pub fn ev_lt_phi(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> 
     let w = Ratio::new_raw(BigInt::from(stake), BigInt::from(total_stake));
     let x = (w * c).neg();
     // Now we compute a taylor function that breaks when the result is known.
-    taylor_comparison(10, q, x)
+    taylor_comparison(1000, q, x)
 }
 
+#[cfg(feature = "pure-rust")]
 /// Checks if cmp < exp(x).
 fn taylor_comparison(bound: usize, cmp: Ratio<BigInt>, x: Ratio<BigInt>) -> bool {
     let mut new_x = x.clone();
@@ -837,6 +837,26 @@ fn taylor_comparison(bound: usize, cmp: Ratio<BigInt>, x: Ratio<BigInt>) -> bool
     false
 }
 
+#[cfg(not(feature = "pure-rust"))]
+/// The crate `rug` has sufficient optimizations to not require a taylor approximation with early
+/// stop. The difference between the current implementation and the one using the optimization
+/// above is around 10% faster.
+pub fn ev_lt_phi(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> bool {
+    use rug::{integer::Order, ops::Pow, Float};
+
+    // If phi_f = 1, then we automatically break with true
+    if (phi_f - 1.0).abs() < f64::EPSILON {
+        return true;
+    }
+    let ev = rug::Integer::from_digits(&ev, Order::LsfLe);
+    let ev_max: Float = Float::with_val(512, 2).pow(512);
+    let q = ev / ev_max;
+
+    let w = Float::with_val(512, stake) / Float::with_val(512, total_stake);
+    let phi = Float::with_val(512, 1.0 - (1.0 - phi_f)).pow(w);
+
+    q < phi
+}
 
 #[cfg(test)]
 mod tests {
@@ -852,6 +872,9 @@ mod tests {
     use rayon::prelude::*;
     use std::collections::{HashMap, HashSet};
 
+    use num_bigint::{BigInt, Sign};
+    use num_rational::Ratio;
+    use num_traits::float::Float;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
@@ -1253,8 +1276,8 @@ mod tests {
         let ev = BigInt::from_bytes_le(Sign::Plus, &ev);
         let q = Ratio::new_raw(ev, ev_max);
 
-        let w = stake as f64/total_stake as f64;
-        let phi = Ratio::from_float(1.0 - (1.0 - phi_f).pow(w)).unwrap();
+        let w = stake as f64 / total_stake as f64;
+        let phi = Ratio::from_float(1.0 - (1.0 - phi_f).powf(w)).unwrap();
         q < phi
     }
 
@@ -1278,6 +1301,7 @@ mod tests {
             assert_eq!(quick_result, result);
         }
 
+        #[cfg(feature = "pure-rust")]
         #[test]
         /// Checking the early break of Taylor compuation
         fn early_break_taylor(
