@@ -131,13 +131,21 @@ use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
 use crate::proof::ProverEnv;
 use ark_ec::PairingEngine;
 use ark_ff::bytes::{FromBytes, ToBytes};
-use ark_ff::ToConstraintField;
+use ark_ff::{ToConstraintField};
 use ark_std::io::{Read, Write};
 use rand_core::{CryptoRng, RngCore};
 use std::collections::HashMap;
 use std::convert::From;
 use std::convert::TryInto;
 use std::rc::Rc;
+use num_traits::{Signed, FromPrimitive, One};
+use num_rational::{Ratio, BigRational};
+use std::fmt::Display;
+use num_bigint::{BigInt, Sign};
+use std::ops::Neg;
+use rug::Float;
+use rug::integer::Order;
+use rug::ops::Pow;
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
@@ -791,11 +799,6 @@ where
 ///
 /// Used to determine winning lottery tickets.
 pub fn ev_lt_phi(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> bool {
-    use core::ops::Neg;
-    use num_bigint::{BigInt, Sign};
-    use num_rational::Ratio;
-    use num_traits::One;
-
     // If phi_f = 1, then we automatically break with true
     if (phi_f - 1.0).abs() < f64::EPSILON {
         return true;
@@ -803,31 +806,37 @@ pub fn ev_lt_phi(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> 
 
     let ev_max = BigInt::from(2u8).pow(512);
     let ev = BigInt::from_bytes_le(Sign::Plus, &ev);
-
     let q = Ratio::new_raw(ev_max.clone(), ev_max - ev);
+
     let c =
         Ratio::from_float((1.0 - phi_f).ln()).expect("Only fails if the float is infinite or NaN.");
     let w = Ratio::new_raw(BigInt::from(stake), BigInt::from(total_stake));
-
+    let x = (w * c).neg();
     // Now we compute a taylor function that breaks when the result is known.
-    let mut x = (w * c).neg();
-    let mut phi = Ratio::from_integer(One::one());
+    taylor_comparison(10, q, x)
+}
+
+/// Checks if cmp < exp(x).
+fn taylor_comparison(bound: usize, cmp: Ratio<BigInt>, x: Ratio<BigInt>) -> bool {
+    let mut new_x = x.clone();
+    let mut phi: Ratio<BigInt> = One::one();
     let mut divisor: BigInt = One::one();
-    for _ in 0..1000 {
-        phi += x.clone();
+    for _ in 0..bound {
+        phi += new_x.clone();
 
         divisor += 1;
-        x = (x.clone() * x.clone()) / divisor.clone();
-        let error_term = x.clone() * BigInt::from(3); // we define bound for the error term to be 3, but reconsider.
+        new_x = (new_x.clone() * x.clone()) / divisor.clone();
+        let error_term = new_x.clone().abs() * BigInt::from(3); // we define bound for the error term to be 3, but reconsider.
 
-        if q > phi.clone() + error_term.clone() {
+        if cmp > (phi.clone() + error_term.clone()) {
             return false;
-        } else if q < phi.clone() - error_term.clone() {
+        } else if cmp < phi.clone() - error_term.clone() {
             return true;
         }
     }
     false
 }
+
 
 #[cfg(test)]
 mod tests {
@@ -1235,6 +1244,50 @@ mod tests {
                 let pi = i % clerk.params.k as usize;
                 aggr.proof.witness.evals[pi] = [0u8; 64];
             })
+        }
+    }
+
+    // Implementation of `ev_lt_phi` without approximation. We only get the precision of f64 here.
+    fn simple_ev_lt_phi(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> bool {
+        let ev_max = BigInt::from(2u8).pow(512);
+        let ev = BigInt::from_bytes_le(Sign::Plus, &ev);
+        let q = Ratio::new_raw(ev, ev_max);
+
+        let w = stake as f64/total_stake as f64;
+        let phi = Ratio::from_float(1.0 - (1.0 - phi_f).pow(w)).unwrap();
+        q < phi
+    }
+
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(50))]
+
+        #[test]
+        /// Checking the ev_lt_phi function.
+        fn test_precision_approximation(
+            phi_f in 0.01..0.5f64,
+            ev_1 in any::<[u8; 32]>(),
+            ev_2 in any::<[u8; 32]>(),
+            total_stake in 100_000_000..1_000_000_000u64,
+            stake in 1_000_000..50_000_000u64
+        ) {
+            let mut ev = [0u8; 64];
+            ev.copy_from_slice(&[&ev_1[..], &ev_2[..]].concat());
+
+            let quick_result = simple_ev_lt_phi(phi_f, ev, stake, total_stake);
+            let result = ev_lt_phi(phi_f, ev, stake, total_stake);
+            assert_eq!(quick_result, result);
+        }
+
+        #[test]
+        /// Checking the early break of Taylor compuation
+        fn early_break_taylor(
+            x in -0.9..0.9f64,
+        ) {
+            let exponential = Float::exp(x);
+            let cmp_n = Ratio::from_float(exponential - 2e-10_f64).unwrap();
+            let cmp_p = Ratio::from_float(exponential + 2e-10_f64).unwrap();
+            assert!(taylor_comparison(1000, cmp_n, Ratio::from_float(x).unwrap()));
+            assert!(!taylor_comparison(1000, cmp_p, Ratio::from_float(x).unwrap()));
         }
     }
 }
