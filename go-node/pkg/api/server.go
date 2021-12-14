@@ -6,11 +6,12 @@ import (
 	"github.com/go-chi/chi/middleware"
 	"github.com/input-output-hk/mithril/go-node/internal/log"
 	"github.com/input-output-hk/mithril/go-node/pkg/config"
+	"github.com/input-output-hk/mithril/go-node/pkg/node"
 	"github.com/jackc/pgx/v4"
 	"net/http"
 )
 
-func NewServer(config *config.Config, conn *pgx.Conn) (*Server, error) {
+func NewServer(config *config.Config, conn *pgx.Conn, node *node.Node) (*Server, error) {
 	router := chi.NewRouter()
 
 	router.Use(middleware.RequestID)
@@ -22,6 +23,7 @@ func NewServer(config *config.Config, conn *pgx.Conn) (*Server, error) {
 	router.Get("/certs", listCertificates)
 	router.Get("/utxo/{merkle_root}", utxo)
 	router.Get("/utxo/{merkle_root}/{addr}", utxoByAddr)
+	router.Get("/participants", getParticipants(node))
 
 	return &Server{
 		config: config,

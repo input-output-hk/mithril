@@ -4,7 +4,6 @@ package mithril
 #include "mithril.h"
 */
 import "C"
-
 import "encoding/base64"
 
 func decodeSecretKey(src []byte) C.MspSkPtr {

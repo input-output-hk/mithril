@@ -5,6 +5,10 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/input-output-hk/mithril/go-node/internal/log"
 	"github.com/input-output-hk/mithril/go-node/internal/pg"
 	"github.com/input-output-hk/mithril/go-node/pkg/cert"
@@ -18,9 +22,6 @@ import (
 	noise "github.com/libp2p/go-libp2p-noise"
 	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
 	"github.com/pkg/errors"
-	"strings"
-	"sync"
-	"time"
 )
 
 const (
@@ -473,4 +474,23 @@ func (n *Node) TryAggregate(clerk mithril.Clerk) {
 	}
 
 	log.Infow("MultiSig has been aggregated")
+}
+
+func (n *Node) GetParticipant(ctx context.Context) mithril.Participant {
+	return n.participant
+}
+
+func (n *Node) GetPeers(ctx context.Context) []mithril.Participant {
+	// TODO(illia-korotia): use RWMutex
+	n.peerLock.Lock()
+	defer n.peerLock.Unlock()
+	p := make([]mithril.Participant, 0, len(n.peerNodes))
+	for _, v := range n.peerNodes {
+		p = append(p, v.participant)
+	}
+	return p
+}
+
+func (n *Node) GetParams(ctx context.Context) mithril.Parameters {
+	return mithril.Parameters(n.config.Mithril.Params)
 }

@@ -9,6 +9,8 @@ import (
 	"github.com/input-output-hk/mithril/go-node/pkg/cardano/mt"
 	"github.com/input-output-hk/mithril/go-node/pkg/cardano/types"
 	"github.com/input-output-hk/mithril/go-node/pkg/cert"
+	"github.com/input-output-hk/mithril/go-node/pkg/mithril"
+	"github.com/input-output-hk/mithril/go-node/pkg/node"
 	"github.com/jackc/pgx/v4"
 	"net/http"
 )
@@ -21,6 +23,12 @@ type Proof struct {
 type ProofDAO struct {
 	Proof Proof      `json:"proof"`
 	UTxO  types.UTXO `json:"utxo"`
+}
+
+type network struct {
+	Params      mithril.Parameters    `json:"params"`
+	CurrentNode mithril.Participant   `json:"currentNode"`
+	Peers       []mithril.Participant `json:"peers"`
 }
 
 func listCertificates(w http.ResponseWriter, r *http.Request) {
@@ -132,4 +140,16 @@ func utxoByAddr(w http.ResponseWriter, r *http.Request) {
 		Address: addr,
 		Proofs:  proofs,
 	})
+}
+
+func getParticipants(node *node.Node) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := r.Context()
+		res := network{
+			Params:      node.GetParams(ctx),
+			CurrentNode: node.GetParticipant(ctx),
+			Peers:       node.GetPeers(ctx),
+		}
+		JsonResponse(w, http.StatusOK, res)
+	}
 }
