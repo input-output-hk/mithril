@@ -12,3 +12,9 @@ This repository aims at hosting the various artefacts produced as part of the _p
     <img src="https://github.com/input-output-hk/mithril/actions/workflows/ci.yml/badge.svg" />
   </a>
 </div>
+
+### Docker
+Example: 
+```
+docker build -t test -f Dockerfile . && docker run -it --entrypoint /bin/bash --name test --rm test
+```

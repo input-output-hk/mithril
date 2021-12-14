@@ -40,7 +40,7 @@ func main() {
 	}
 
 	// start api server goroutine
-	apiServer, err := api.NewServer(cfg, dbConn)
+	apiServer, err := api.NewServer(cfg, dbConn, p2pNode)
 	if err != nil {
 		panic(err)
 	}
