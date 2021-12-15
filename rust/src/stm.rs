@@ -840,7 +840,8 @@ fn taylor_comparison(bound: usize, cmp: Ratio<BigInt>, x: Ratio<BigInt>) -> bool
 #[cfg(not(feature = "pure-rust"))]
 /// The crate `rug` has sufficient optimizations to not require a taylor approximation with early
 /// stop. The difference between the current implementation and the one using the optimization
-/// above is around 10% faster.
+/// above is around 10% faster. We perform the computations with 60 decimal digits of precision,
+/// since this is enough to represent the fraction of a single lovelace.
 pub fn ev_lt_phi(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> bool {
     use rug::{integer::Order, ops::Pow, Float};
 
@@ -849,11 +850,11 @@ pub fn ev_lt_phi(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> 
         return true;
     }
     let ev = rug::Integer::from_digits(&ev, Order::LsfLe);
-    let ev_max: Float = Float::with_val(512, 2).pow(512);
+    let ev_max: Float = Float::with_val(60, 2).pow(512);
     let q = ev / ev_max;
 
-    let w = Float::with_val(512, stake) / Float::with_val(512, total_stake);
-    let phi = Float::with_val(512, 1.0 - (1.0 - phi_f)).pow(w);
+    let w = Float::with_val(60, stake) / Float::with_val(60, total_stake);
+    let phi = Float::with_val(60, 1.0) - Float::with_val(60, 1.0 - phi_f).pow(w);
 
     q < phi
 }
@@ -874,7 +875,6 @@ mod tests {
 
     use num_bigint::{BigInt, Sign};
     use num_rational::Ratio;
-    use num_traits::float::Float;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
