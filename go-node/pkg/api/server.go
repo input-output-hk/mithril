@@ -19,12 +19,13 @@ func NewServer(config *config.Config, conn *pgx.Conn, node *node.Node) (*Server,
 	router.Use(middleware.Logger)
 	router.Use(middleware.Recoverer)
 	router.Use(DatabaseMiddleware(conn))
+	router.Use(NodeIdMiddleware(node))
 
 	router.Get("/certs", listCertificates)
-	router.Get("/utxo/{merkle_root}", utxo)
-	router.Get("/utxo/{merkle_root}/{addr}", utxoByAddr)
-	router.Get("/config", getNodeConfig(node))
 	router.Get("/certs/{hash}", getCertByHash)
+	router.Get("/utxo/{hash}", utxo)
+	router.Get("/utxo/{hash}/{addr}", utxoByAddr)
+	router.Get("/config", getConfig(config))
 	router.Get("/list-certs", getAllCerts)
 
 	return &Server{

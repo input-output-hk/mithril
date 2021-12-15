@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"github.com/input-output-hk/mithril/go-node/pkg/node"
 	"github.com/jackc/pgx/v4"
 	"net/http"
 )
@@ -25,4 +26,8 @@ func JsonResponse(w http.ResponseWriter, code int, payload interface{}) {
 func ErrResponse(w http.ResponseWriter, err error) {
 	w.WriteHeader(http.StatusInternalServerError)
 	w.Write([]byte(err.Error()))
+}
+
+func GetNode(r *http.Request) *node.Node {
+	return r.Context().Value(NodeCtxKey).(*node.Node)
 }

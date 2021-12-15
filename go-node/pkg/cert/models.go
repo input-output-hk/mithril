@@ -14,12 +14,12 @@ type (
 	Base64 []byte
 
 	Certificate struct {
-		Id           uint64                `json:"id"`
-		NodeId       uint64                `json:"node_id"`
+		Id           uint64                `json:"id" mapstructure:"id"`
+		NodeId       uint64                `json:"node_id,omitempty" mapstructure:"node_id"`
 		CertHash     Hex                   `json:"cert_hash"`
 		PrevHash     Hex                   `json:"prev_hash"`
 		Participants []mithril.Participant `json:"participants"`
-		BlockNumber  uint64                `json:"block_number"`
+		BlockNumber  uint64                `json:"block_number" mapstructure:"block_id"`
 		BlockHash    Hex                   `json:"block_hash"`
 		MerkleRoot   Hex                   `json:"merkle_root"`
 		MultiSig     Base64                `json:"multi_sig"`
@@ -75,15 +75,9 @@ func (b64 *Base64) UnmarshalJSON(src []byte) error {
 
 // VerifyMultiSig certificate verification method.
 func (c Certificate) VerifyMultiSig(clerk mithril.Clerk) error {
-	var participants []mithril.Participant
-	for _, p := range c.Participants {
-		participants = append(participants, mithril.NewParticipant(p.PartyId, p.Stake, p.PublicKey))
-	}
-
+	hash := Hash(c)
 	multiSig := mithril.MultiSigFromBytes(c.MultiSig)
-	message := base64.StdEncoding.EncodeToString(c.MerkleRoot)
-
-	return clerk.VerifyMultiSign(multiSig, message)
+	return clerk.VerifyMultiSign(multiSig, hex.EncodeToString(hash))
 }
 
 func (c Certificate) VerifyHash() bool {

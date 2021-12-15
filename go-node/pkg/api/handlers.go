@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/hex"
+	"github.com/input-output-hk/mithril/go-node/pkg/config"
 	"net/http"
 
 	"github.com/go-chi/chi"
@@ -12,7 +13,6 @@ import (
 	"github.com/input-output-hk/mithril/go-node/pkg/cardano/types"
 	"github.com/input-output-hk/mithril/go-node/pkg/cert"
 	"github.com/input-output-hk/mithril/go-node/pkg/mithril"
-	"github.com/input-output-hk/mithril/go-node/pkg/node"
 	"github.com/jackc/pgx/v4"
 )
 
@@ -33,11 +33,12 @@ type network struct {
 }
 
 func listCertificates(w http.ResponseWriter, r *http.Request) {
+	n := GetNode(r)
 	var certs []cert.Certificate
 
 	err := pg.WithTX(r.Context(), GetDbConn(r), func(ctx context.Context, tx pgx.Tx) error {
 		var err error
-		certs, err = cert.Recent(ctx, tx, 1)
+		certs, err = cert.Recent(ctx, tx, n.PartyId())
 		return err
 	})
 	if err != nil {
@@ -49,7 +50,7 @@ func listCertificates(w http.ResponseWriter, r *http.Request) {
 }
 
 func utxo(w http.ResponseWriter, r *http.Request) {
-	hash, err := hex.DecodeString(chi.URLParam(r, "merkle_root"))
+	hash, err := hex.DecodeString(chi.URLParam(r, "hash"))
 	if err != nil {
 		ErrResponse(w, err)
 		return
@@ -60,7 +61,8 @@ func utxo(w http.ResponseWriter, r *http.Request) {
 
 	err = pg.WithTX(r.Context(), GetDbConn(r), func(ctx context.Context, tx pgx.Tx) error {
 		var err error
-		certificate, err = cert.GetByMerkleTreeHash(ctx, tx, hash)
+		n := GetNode(r)
+		certificate, err = cert.GetByCertHash(ctx, tx, n.PartyId(), hash)
 		if err != nil {
 			return err
 		}
@@ -78,7 +80,6 @@ func utxo(w http.ResponseWriter, r *http.Request) {
 }
 
 func utxoByAddr(w http.ResponseWriter, r *http.Request) {
-
 	hash, err := hex.DecodeString(chi.URLParam(r, "merkle_root"))
 	if err != nil {
 		ErrResponse(w, err)
@@ -143,13 +144,21 @@ func utxoByAddr(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func getNodeConfig(node *node.Node) http.HandlerFunc {
+func getConfig(cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ctx := r.Context()
+		mcfg := cfg.Mithril
+		params := mcfg.Params
+
+		var participants []mithril.Participant
+		for _, p := range mcfg.Participants {
+			initializer := mithril.DecodeInitializer(p.Initializer)
+			participants = append(participants, initializer.Participant())
+		}
+
 		res := network{
-			Params:      node.GetParams(ctx),
-			CurrentNode: node.GetParticipant(ctx),
-			Peers:       node.GetPeers(ctx),
+			Params: mithril.Parameters{K: params.K, M: params.M, PhiF: params.PhiF},
+			//CurrentNode: node.GetParticipant(ctx),
+			Peers: participants,
 		}
 		JsonResponse(w, http.StatusOK, res)
 	}
@@ -157,6 +166,7 @@ func getNodeConfig(node *node.Node) http.HandlerFunc {
 
 // getCertByHash return a certificate by certificate hash.
 func getCertByHash(w http.ResponseWriter, r *http.Request) {
+	n := GetNode(r)
 	hash, err := hex.DecodeString(chi.URLParam(r, "hash"))
 	if err != nil {
 		ErrResponse(w, err)
@@ -164,9 +174,10 @@ func getCertByHash(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var c *cert.Certificate
+
 	err = pg.WithTX(r.Context(), GetDbConn(r), func(ctx context.Context, tx pgx.Tx) error {
 		var err error
-		c, err = cert.GetByCertHash(ctx, tx, hash)
+		c, err = cert.GetByCertHash(ctx, tx, n.Participant.PartyId, hash)
 		return err
 	})
 	if err != nil {
@@ -174,16 +185,21 @@ func getCertByHash(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	for i := 0; i < len(c.Participants); i++ {
+		c.Participants[i].PublicKey = ""
+	}
+
 	JsonResponse(w, 200, c)
 }
 
 // getAllCerts return all certificates for all nodes.
 func getAllCerts(w http.ResponseWriter, r *http.Request) {
+	n := GetNode(r)
 	var certs []cert.Certificate
 
 	err := pg.WithTX(r.Context(), GetDbConn(r), func(ctx context.Context, tx pgx.Tx) error {
 		var err error
-		certs, err = cert.GetAllCerts(ctx, tx)
+		certs, err = cert.GetAllCerts(ctx, tx, n.Participant.PartyId)
 		return err
 	})
 	if err != nil {
