@@ -1,13 +1,12 @@
 package main
 
 import (
-	bytes2 "bytes"
-	"encoding/hex"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/cheynewallace/tabby"
 	"github.com/input-output-hk/mithril/go-node/internal/log"
-	mt2 "github.com/input-output-hk/mithril/go-node/pkg/cardano/mt"
+	"github.com/input-output-hk/mithril/go-node/pkg/cardano/mt"
 	"github.com/input-output-hk/mithril/go-node/pkg/cardano/types"
 	"github.com/input-output-hk/mithril/go-node/pkg/cert"
 	"github.com/input-output-hk/mithril/go-node/pkg/client"
@@ -74,9 +73,9 @@ func list(c *cli.Context) error {
 	}
 
 	t := tabby.New()
-	t.AddHeader("ID", "BlockNum", "Merkle Root", "Created At")
+	t.AddHeader("ID", "BlockNum", "Certificate Hash", "Created At")
 	for _, c := range certs {
-		t.AddLine(c.Id, c.BlockNumber, c.MerkleRoot.String(), c.SigFinishedAt.String())
+		t.AddLine(c.Id, c.BlockNumber, c.CertHash.String(), c.SigFinishedAt.String())
 	}
 
 	t.Print()
@@ -87,33 +86,28 @@ func list(c *cli.Context) error {
 func fetchCert(c *cli.Context) error {
 
 	if c.Args().Len() != 1 {
-		fmt.Println("Provide a MerkleRoot hash")
+		fmt.Println("Provide a certificate hash")
 		return nil
 	}
 
 	hash := c.Args().Get(0)
 	mc := client.NewClient(c.String("host"))
 
-	certs, err := mc.RecentCerts()
+	ce, err := mc.CertByHash(hash)
 	if err != nil {
 		return err
 	}
 
-	for _, vc := range certs {
-		if vc.MerkleRoot.String() == hash {
-			data, err := json.MarshalIndent(vc, "", "  ")
-			if err != nil {
-				return err
-			}
-			fmt.Println(string(data))
-			return nil
-		}
+	data, err := json.MarshalIndent(ce, "", "  ")
+	if err != nil {
+		return err
 	}
-
-	return errors.Errorf("%s: no certificate has been found", hash)
+	fmt.Println(string(data))
+	return nil
 }
 
 func verifyCert(c *cli.Context) error {
+	mc := client.NewClient(c.String("host"))
 
 	if c.Args().Len() != 1 {
 		fmt.Println("Please provide a filename")
@@ -126,18 +120,23 @@ func verifyCert(c *cli.Context) error {
 	}
 	defer f.Close()
 
-	bytes, err := io.ReadAll(f)
+	buf, err := io.ReadAll(f)
 	if err != nil {
 		return err
 	}
 
-	var cv cert.Certificate
-	err = json.Unmarshal(bytes, &cv)
+	var ce cert.Certificate
+	err = json.Unmarshal(buf, &ce)
 	if err != nil {
 		return err
 	}
 
-	err = cv.VerifyMultiSig()
+	clerk, err := mc.ClerkForCertificate(ce)
+	if err != nil {
+		return err
+	}
+
+	err = ce.VerifyMultiSig(clerk)
 	if err != nil {
 		return err
 	}
@@ -170,6 +169,7 @@ func fetchUTXO(c *cli.Context) error {
 }
 
 func verifyUTXO(c *cli.Context) error {
+	mc := client.NewClient(c.String("host"))
 
 	if c.Args().Len() != 2 {
 		fmt.Println("Usage: verify_utxo <cert.json> <utxo.json>")
@@ -182,18 +182,20 @@ func verifyUTXO(c *cli.Context) error {
 	}
 	defer crtf.Close()
 
-	bytes, err := io.ReadAll(crtf)
+	buf, err := io.ReadAll(crtf)
 	if err != nil {
 		return err
 	}
 
-	var cv cert.Certificate
-	err = json.Unmarshal(bytes, &cv)
+	var ce cert.Certificate
+	err = json.Unmarshal(buf, &ce)
 	if err != nil {
 		return err
 	}
 
-	err = cv.VerifyMultiSig()
+	clerk, err := mc.ClerkForCertificate(ce)
+
+	err = ce.VerifyMultiSig(clerk)
 	if err != nil {
 		return err
 	}
@@ -203,24 +205,24 @@ func verifyUTXO(c *cli.Context) error {
 		return err
 	}
 
-	bytes, err = io.ReadAll(utxof)
+	buf, err = io.ReadAll(utxof)
 	if err != nil {
 		return err
 	}
 
-	var utxos []types.UTXO
-	err = json.Unmarshal(bytes, &utxos)
+	var utxos []*types.UTXO
+	err = json.Unmarshal(buf, &utxos)
 	if err != nil {
 		return err
 	}
 
-	root := mt2.NewMerkleTree()
+	root := mt.NewMerkleTree()
 	for _, u := range utxos {
-		proof, err := mt2.CalculateHash(&u)
+		hash, err := mt.CalculateHash(u)
 		if err != nil {
 			return err
 		}
-		err = root.Add(proof)
+		err = root.Add(hash)
 		if err != nil {
 			return err
 		}
@@ -231,11 +233,10 @@ func verifyUTXO(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Println(cv.MerkleRoot.String())
-	fmt.Println(hex.EncodeToString(mtHash))
-	if bytes2.Compare(mtHash, cv.MerkleRoot) == 0 {
+	if bytes.Compare(mtHash, ce.MerkleRoot) == 0 {
 		fmt.Println("Verification has been passed")
+		return nil
 	}
 
-	return errors.New("verification failed")
+	return errors.New("UTXO set verification failed")
 }

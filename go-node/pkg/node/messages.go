@@ -2,6 +2,7 @@ package node
 
 import (
 	"github.com/input-output-hk/mithril/go-node/internal/log"
+	"github.com/input-output-hk/mithril/go-node/pkg/cert"
 	"github.com/input-output-hk/mithril/go-node/pkg/mithril"
 	"github.com/mitchellh/mapstructure"
 )
@@ -34,11 +35,7 @@ type (
 		Params       mithril.Parameters    `mapstructure:"params" json:"params"`
 		Participants []mithril.Participant `mapstructure:"participants" json:"participants"`
 
-		BlockNumber uint64 `mapstructure:"block_number" json:"block_number"`
-		BlockHash   string `mapstructure:"block_hash" json:"block_hash"`
-		MerkleRoot  string `mapstructure:"merkle_root" json:"merkle_root"`
-		CertHash    string `mapstructure:"cert_hash" json:"cert_hash"`
-		PrevHash    string `mapstructure:"prev_hash" json:"prev_hash"`
+		Cert cert.Certificate `json:"certificate"`
 	}
 
 	SigResponse struct {

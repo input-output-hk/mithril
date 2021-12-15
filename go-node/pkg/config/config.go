@@ -7,7 +7,7 @@ type Config struct {
 		ServerAddr string `mapstructure:"listen_addr"`
 	} `mapstructure:"http"`
 	Mithril struct {
-		PartyId int64 `mapstructure:"party_id"`
+		PartyId uint64 `mapstructure:"party_id"`
 		Params  struct {
 			K    uint64  `mapstructure:"k"`
 			M    uint64  `mapstructure:"m"`

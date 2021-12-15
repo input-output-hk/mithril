@@ -95,6 +95,18 @@ func (p *PeerNode) readStream() {
 			if err != nil {
 				continue
 			}
+
+			in := m.Payload.(map[string]interface{})
+			buf, err := json.Marshal(in["certificate"])
+
+			if err != nil {
+				continue
+			}
+
+			if err := json.Unmarshal(buf, &sigReq.Cert); err != nil {
+				log.Error(err)
+			}
+
 			p.OnSigRequest(sigReq)
 
 		case sigResponse:
