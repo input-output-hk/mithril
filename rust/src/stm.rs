@@ -816,7 +816,17 @@ pub fn ev_lt_phi(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> 
 }
 
 #[cfg(feature = "pure-rust")]
-/// Checks if cmp < exp(x).
+/// Checks if cmp < exp(x). Uses error approximation for an early stop. Whenever the value being
+/// compared, `cmp`, is smaller (or greater) than the current approximation minus an `error_term`
+/// (plus an `error_term` respectively), then we stop approximating. The choice of the `error_term`
+/// is specific to our use case, and this function should not be used in other contexts without
+/// reconsidering the `error_term`. As a conservative value of the `error_term` we choose
+/// `new_x * M`, where `new_x` is the next term of the taylor expansion, and `M` is the largest
+/// value of `x` in a reasonable range. Note that `x >= 0`, given that `x = - w * c`, with
+/// `0 <= w <= 1` and `c < 0`, as `c` is defined as `c = ln(1.0 - phi_f)` with `phi_f \in (0,1)`.
+/// Therefore, a good integral bound is the maximum value that `|ln(1.0 - phi_f)|` can take with
+/// `phi_f \in [0, 0.95]` (if we expect to have `phi_f > 0.95` this bound should be extended),
+/// which is `3`. Hence, we set `M = 3`.
 fn taylor_comparison(bound: usize, cmp: Ratio<BigInt>, x: Ratio<BigInt>) -> bool {
     let mut new_x = x.clone();
     let mut phi: Ratio<BigInt> = One::one();
@@ -826,7 +836,7 @@ fn taylor_comparison(bound: usize, cmp: Ratio<BigInt>, x: Ratio<BigInt>) -> bool
 
         divisor += 1;
         new_x = (new_x.clone() * x.clone()) / divisor.clone();
-        let error_term = new_x.clone().abs() * BigInt::from(3); // we define bound for the error term to be 3, but reconsider.
+        let error_term = new_x.clone().abs() * BigInt::from(3); // new_x * M
 
         if cmp > (phi.clone() + error_term.clone()) {
             return false;
@@ -840,8 +850,13 @@ fn taylor_comparison(bound: usize, cmp: Ratio<BigInt>, x: Ratio<BigInt>) -> bool
 #[cfg(not(feature = "pure-rust"))]
 /// The crate `rug` has sufficient optimizations to not require a taylor approximation with early
 /// stop. The difference between the current implementation and the one using the optimization
-/// above is around 10% faster. We perform the computations with 60 decimal digits of precision,
-/// since this is enough to represent the fraction of a single lovelace.
+/// above is around 10% faster. We perform the computations with 117 significant bits of
+/// precision, since this is enough to represent the fraction of a single lovelace. We have that
+/// 1e6 lovelace equals 1 ada, and there is 45 billion ada in circulation. Meaning there are
+/// 4.5e16 lovelace, so 1e-17 is sufficient to represent fractions of the stake distribution. In
+/// order to keep the error in the 1e-17 range, we need to carry out the computations with 34
+/// decimal digits (in order to represent the 4.5e16 ada without any rounding errors, we need
+/// double that precision).
 pub fn ev_lt_phi(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> bool {
     use rug::{integer::Order, ops::Pow, Float};
 
@@ -850,11 +865,11 @@ pub fn ev_lt_phi(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> 
         return true;
     }
     let ev = rug::Integer::from_digits(&ev, Order::LsfLe);
-    let ev_max: Float = Float::with_val(60, 2).pow(512);
+    let ev_max: Float = Float::with_val(117, 2).pow(512);
     let q = ev / ev_max;
 
-    let w = Float::with_val(60, stake) / Float::with_val(60, total_stake);
-    let phi = Float::with_val(60, 1.0) - Float::with_val(60, 1.0 - phi_f).pow(w);
+    let w = Float::with_val(117, stake) / Float::with_val(117, total_stake);
+    let phi = Float::with_val(117, 1.0) - Float::with_val(117, 1.0 - phi_f).pow(w);
 
     q < phi
 }
@@ -1307,7 +1322,7 @@ mod tests {
         fn early_break_taylor(
             x in -0.9..0.9f64,
         ) {
-            let exponential = Float::exp(x);
+            let exponential = num_traits::float::Float::exp(x);
             let cmp_n = Ratio::from_float(exponential - 2e-10_f64).unwrap();
             let cmp_p = Ratio::from_float(exponential + 2e-10_f64).unwrap();
             assert!(taylor_comparison(1000, cmp_n, Ratio::from_float(x).unwrap()));
