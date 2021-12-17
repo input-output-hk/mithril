@@ -405,7 +405,7 @@ mod signer {
                 }
                 return -1;
             }
-            -99
+            NULLPOINTERERR
         }
     }
 
@@ -427,7 +427,7 @@ mod signer {
                 }
                 return 0;
             }
-            -99
+            NULLPOINTERERR
         }
     }
 
@@ -448,7 +448,7 @@ mod signer {
                 *ref_stm_initializer = Box::into_raw(Box::new(me.new_epoch(Some(new_stake))));
                 return 0;
             }
-            -99
+            NULLPOINTERERR
         }
     }
 }
@@ -481,7 +481,7 @@ mod key_reg {
                 *key = Box::into_raw(Box::new(KeyReg::new(&ids_stake)));
                 return 0;
             }
-            -99
+            NULLPOINTERERR
         }
     }
 
@@ -492,7 +492,7 @@ mod key_reg {
     /// * -2 if the key is invalid
     /// * -3 if the `party_id` is unknown
     /// * -4 is unexpected behaviour
-    /// * -99 if invalid pointers
+    /// * NULLPOINTERERR if invalid pointers
     pub extern "C" fn register_party(
         key_reg: KeyRegPtr,
         party_id: PartyId,
@@ -508,7 +508,7 @@ mod key_reg {
                     _ => -4,
                 };
             }
-            -99
+            NULLPOINTERERR
         }
     }
 
@@ -519,7 +519,7 @@ mod key_reg {
                 *mk_tree = Box::into_raw(Box::new(key_reg.avk.clone()));
                 return 0;
             }
-            -99
+            NULLPOINTERERR
         }
     }
 
@@ -534,7 +534,7 @@ mod key_reg {
                 *ref_closed_reg = Box::into_raw(Box::new(ref_key_reg.close()));
                 return 0;
             }
-            -99
+            NULLPOINTERERR
         }
     }
 }
@@ -559,7 +559,7 @@ mod clerk {
                 )));
                 return 0;
             }
-            -99
+            NULLPOINTERERR
         }
     }
 
@@ -570,7 +570,7 @@ mod clerk {
                 *ref_clerk = Box::into_raw(Box::new(StmClerk::from_signer(ref_signer, TrivialEnv)));
                 return 0;
             }
-            -99
+            NULLPOINTERERR
         }
     }
 
@@ -580,7 +580,7 @@ mod clerk {
     /// * -1 if the lottery win is false
     /// * -2 if the Merkle Tree is invalid
     /// * -3 if the MSP signature is invalid
-    /// * -99 if invalid pointers
+    /// * NULLPOINTERERR if invalid pointers
     ///
     #[no_mangle]
     pub extern "C" fn stm_clerk_verify_sig(
@@ -602,7 +602,7 @@ mod clerk {
                     Err(VerificationFailure::InvalidSignature(_)) => -3,
                 };
             }
-            -99
+            NULLPOINTERERR
         }
     }
 
@@ -642,7 +642,7 @@ mod clerk {
                     Err(AggregationFailure::NotEnoughSignatures(n, m)) => n as i64 - m as i64,
                 };
             }
-            -99
+            NULLPOINTERERR
         }
     }
 
@@ -669,7 +669,7 @@ mod clerk {
                     Err(MultiVerificationFailure::ProofError(e)) => e.into(),
                 };
             }
-            -99
+            NULLPOINTERERR
         }
     }
 }
