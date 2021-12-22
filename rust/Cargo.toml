@@ -35,9 +35,11 @@ rayon       = "1.5.1"
 proptest    = "1.0.0"
 rand_chacha = "0.3.1"
 num-integer = "0.1.44"
+rand = "0.7"
 ark-bn254     = { version = "0.3.0" }
 ark-bw6-761   = { version = "0.3.0" }
 ark-cp6-782   = { version = "0.3.0" }
+curve25519-dalek = "3"
 
 [[bench]]
 name = "merkle_tree_create"
