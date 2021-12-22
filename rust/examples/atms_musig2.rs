@@ -159,9 +159,6 @@ impl MuSigSignature {
 }
 
 /// Now we implement Atms for MuSig2
-use super::*;
-use crate::msp::{Msp, MspMvk, MspPk, MspSig};
-use ark_ec::PairingEngine;
 use mithril::atms::Atms;
 
 impl Atms for MuSig2 {
@@ -220,5 +217,5 @@ fn main() {
     let aggr_sig = MuSigSigner::aggregate_signatures(&partial_signatures);
     let aggr_pk = MuSigSigner::aggregate_keys(&pks);
 
-    assert!(aggr_sig.verify(aggr_pk, msg).is_ok());
+    assert!(aggr_sig.verify(&aggr_pk, msg).is_ok());
 }
