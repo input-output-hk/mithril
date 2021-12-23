@@ -19,15 +19,127 @@ struct MuSig2;
 
 type MuSigPk = RistrettoPoint;
 
+/// Helper function for ATMS. This will contain a public key and its associated exponent.
+/// The latter is not checked to be valid, and it is left to the creator function to compute
+/// the valid exponent (or verify its validity). This structure allows us to define binary
+/// operations over prepared keys, as well as verifying partial signatures.
+/// As a result of a binary operation between two keys, the resulting key has 1 as a public
+/// exponent.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PreparedPk {
+    pk: MuSigPk,
+    public_exponent: Scalar,
+}
+
+impl PreparedPk {
+    /// Compare two `PreparedPk`s. Used for PartialOrd impl, used to order signatures. The comparison
+    /// function can be anything, as long as it is consistent.
+    pub fn cmp_msp_mvk(&self, other: &PreparedPk) -> Ordering {
+        let lhs_bytes = self.public_exponent.as_bytes();
+        let rhs_bytes = other.public_exponent.as_bytes();
+
+        for (l, r) in lhs_bytes.iter().zip(rhs_bytes.iter()) {
+            match l.cmp(r) {
+                Ordering::Less => return Ordering::Less,
+                Ordering::Equal => continue,
+                Ordering::Greater => return Ordering::Greater,
+            }
+        }
+
+        return Ordering::Equal;
+    }
+}
+
+impl ToBytes for PreparedPk {
+    fn write<W: Write>(&self, mut writer: W) -> Result<(), Error> {
+        writer.write(self.pk.compress().as_bytes())?;
+        writer.write(self.public_exponent.as_bytes())?;
+        Ok(())
+    }
+}
+
+impl PartialOrd for PreparedPk {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp_msp_mvk(other))
+    }
+}
+
+impl Ord for PreparedPk {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.cmp_msp_mvk(other)
+    }
+}
+
+impl<'a> Sum<&'a Self> for PreparedPk {
+    fn sum<I>(iter: I) -> Self
+    where
+        I: Iterator<Item = &'a Self>,
+    {
+        PreparedPk {
+            pk: iter.map(|x| x.public_exponent * x.pk).sum(),
+            public_exponent: Scalar::one(),
+        }
+    }
+}
+
+impl Hash for PreparedPk {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.public_exponent.as_bytes().hash(state);
+        self.pk.compress().as_bytes().hash(state);
+    }
+}
+
+impl<'a> Sub for PreparedPk {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self {
+        PreparedPk {
+            pk: self.public_exponent * self.pk - rhs.public_exponent * rhs.pk,
+            public_exponent: Scalar::one(),
+        }
+    }
+}
+
 #[derive(Clone)]
 struct MuSigSigner {
     sk: Scalar,
     pk: MuSigPk,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
 struct MuSigSignature {
     announcement: RistrettoPoint,
     response: Scalar,
+}
+
+impl PartialOrd for MuSigSignature {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp_msp_mvk(other))
+    }
+}
+
+impl Ord for MuSigSignature {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.cmp_msp_mvk(other)
+    }
+}
+
+impl<'a> Sum<&'a Self> for MuSigSignature {
+    fn sum<I>(iter: I) -> Self
+    where
+        I: Iterator<Item = &'a Self>,
+    {
+        // todo: definitely not the way to go
+        let mut announcement = RISTRETTO_BASEPOINT_POINT;
+        let mut response = Scalar::zero();
+        for element in iter {
+            announcement = element.announcement;
+            response += element.response;
+        }
+        MuSigSignature {
+            response,
+            announcement,
+        }
+    }
 }
 
 impl MuSigSigner {
@@ -58,7 +170,7 @@ impl MuSigSigner {
         self,
         pks: &[RistrettoPoint],
         committed_randomness: &[(RistrettoPoint, RistrettoPoint)],
-        private_randomness: (Scalar, Scalar),
+        private_randomness: &(Scalar, Scalar),
         message: &[u8],
     ) -> MuSigSignature {
         assert_eq!(pks.len(), committed_randomness.len());
@@ -136,6 +248,20 @@ impl MuSigSigner {
         }
         aggr_key
     }
+
+    fn compute_prepared_pk(&self, pks: &[MuSigPk]) -> PreparedPk {
+        let mut hasher = Blake2b::new();
+        for pk in pks {
+            hasher.update(pk.compress().as_bytes());
+        }
+
+        hasher.update(self.pk.compress().as_bytes());
+
+        PreparedPk {
+            pk: self.pk,
+            public_exponent: Scalar::from_hash(hasher),
+        }
+    }
 }
 
 impl MuSigSignature {
@@ -156,25 +282,74 @@ impl MuSigSignature {
 
         Ok(())
     }
+
+    /// Compare two `MuSigSignature`s. Used for PartialOrd impl, used to order signatures. The comparison
+    /// function can be anything, as long as it is consistent.
+    pub fn cmp_msp_mvk(&self, other: &Self) -> Ordering {
+        let lhs_bytes = self.response.as_bytes();
+        let rhs_bytes = other.response.as_bytes();
+
+        for (l, r) in lhs_bytes.iter().zip(rhs_bytes.iter()) {
+            match l.cmp(r) {
+                Ordering::Less => return Ordering::Less,
+                Ordering::Equal => continue,
+                Ordering::Greater => return Ordering::Greater,
+            }
+        }
+
+        return Ordering::Equal;
+    }
 }
 
+use ark_ff::ToBytes;
 /// Now we implement Atms for MuSig2
-use mithril::atms::Atms;
+use mithril::atms::{Asig, Atms, AtmsError, Avk};
+use mithril::stm::Stake;
+use std::borrow::Borrow;
+use std::cmp::Ordering;
+use std::collections::HashSet;
+use std::hash::{Hash, Hasher};
+use std::io::{Error, Write};
+use std::iter::Sum;
+use std::ops::Sub;
 
 impl Atms for MuSig2 {
     type PreCheckedPK = MuSigPk;
-    type CheckedPK = MuSigPk;
+    type PreparedPk = PreparedPk;
     type SIG = MuSigSignature;
 
-    fn check_key(proof: &Self::PreCheckedPK) -> Option<Self::CheckedPK> {
-        Some(*proof)
+    fn verify(msg: &[u8], pk: &Self::PreparedPk, sig: &Self::SIG) -> bool {
+        sig.verify(&(pk.public_exponent * pk.pk), msg).is_ok()
     }
 
-    fn verify(msg: &[u8], pk: &Self::CheckedPK, sig: &Self::SIG) -> bool {
-        sig.verify(pk, msg).is_ok()
+    fn prepare_keys(
+        keys_pop: &[(Self::PreCheckedPK, Stake)],
+    ) -> Option<(Vec<(Self::PreparedPk, Stake)>, Stake)> {
+        let mut total_stake = 0u64;
+        let mut keys = Vec::with_capacity(keys_pop.len());
+        let mut hasher: Blake2b = Blake2b::new();
+        for (key, _) in keys_pop.into_iter() {
+            hasher.update(key.compress().as_bytes());
+        }
+
+        for &(pk, stake) in keys_pop.into_iter() {
+            let mut hasheri = hasher.clone();
+            hasheri.update(pk.compress().as_bytes());
+            total_stake += stake;
+            keys.push((
+                PreparedPk {
+                    pk,
+                    public_exponent: Scalar::from_hash(hasheri),
+                },
+                stake,
+            ));
+        }
+        Some((keys, total_stake))
     }
 }
-
+//todo: define ordering of keys
+// todo: define sum and neg of prepared keys (which would be a pair of a key and its public
+// exponent).
 fn main() {
     use rand::rngs::OsRng;
     let nr_signers = 4;
@@ -207,7 +382,7 @@ fn main() {
             signer.partial_signature(
                 &pks,
                 &public_comms,
-                (commitments[index].0, commitments[index].clone().1),
+                &(commitments[index].0, commitments[index].clone().1),
                 msg,
             )
         })
@@ -218,4 +393,52 @@ fn main() {
     let aggr_pk = MuSigSigner::aggregate_keys(&pks);
 
     assert!(aggr_sig.verify(&aggr_pk, msg).is_ok());
+
+    ////////////////////////////////////////////////////
+    // Now lets test the ATMS signatures with MuSig2. //
+    ////////////////////////////////////////////////////
+
+    let n = 10 as u64;
+    let threshold = 7 as u64;
+    let mut rng = OsRng;
+
+    let mut pkeys: Vec<MuSigPk> = Vec::new();
+    let mut private_commitments = Vec::new();
+    let mut pub_announcements = Vec::new();
+    let mut signers: Vec<MuSigSigner> = Vec::new();
+    for _ in 1..=n {
+        let signer = MuSigSigner::new(&mut rng);
+        let (r_1, r_2, c_1, c_2) = MuSigSigner::commit_randomness(&mut rng);
+        private_commitments.push((r_1, r_2));
+        pub_announcements.push((c_1, c_2));
+        pkeys.push(signer.pk);
+        signers.push(signer);
+    }
+
+    let mut keys_stake = Vec::new();
+    let mut signatures: Vec<(PreparedPk, MuSigSignature)> = Vec::new();
+    for (index, signer) in signers.iter().enumerate() {
+        let sig = signer.clone().partial_signature(
+            &pkeys,
+            &pub_announcements,
+            &private_commitments[index],
+            msg,
+        );
+        keys_stake.push((pkeys[index], 1));
+        signatures.push((signer.compute_prepared_pk(&pkeys), sig));
+    }
+
+    let avk = match Avk::<MuSig2, Blake2b>::new(&keys_stake, threshold) {
+        Ok(key) => key,
+        Err(_) => panic!("Shouldn't happen"),
+    };
+
+    assert!(avk.check(&keys_stake).is_ok());
+
+    let aggr_sig = Asig::new(&avk, &signatures[..threshold as usize]);
+    aggr_sig.verify(msg, &avk).unwrap();
+    // match aggr_sig.verify(msg, &avk) {
+    //     Ok(()) => { },
+    //     _ => {unreachable!()}
+    // }
 }

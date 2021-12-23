@@ -36,15 +36,18 @@ impl<PK: ToBytes> ToBytes for MTValue<PK> {
 pub trait Atms: Sized + Debug {
     /// Public key before verification of correctness.
     type PreCheckedPK: Copy;
-    /// Public key after verification of correctness.
-    type CheckedPK;
+    /// Public key after preparation for ATMS protocol. This preparation may be a verification
+    /// of a proof of correctness or a computation of an associated public exponent.
+    type PreparedPk;
     /// Associated type that defines the Signature.
     type SIG;
-    /// Verify the correctness of the public key. If it is valid, return the public key (without
-    /// the proof of correctness).
-    fn check_key(proof: &Self::PreCheckedPK) -> Option<Self::CheckedPK>;
+    /// Prepare a set of public keys. If all are valid, return a vector formed of tuples of
+    /// public keys and their corresponding stake, as well as the total stake.
+    fn prepare_keys(
+        keys_pop: &[(Self::PreCheckedPK, Stake)],
+    ) -> Option<(Vec<(Self::PreparedPk, Stake)>, Stake)>;
     /// Verify that the signature is valid for a message `msg` and key `key`
-    fn verify(msg: &[u8], pk: &Self::CheckedPK, sig: &Self::SIG) -> bool;
+    fn verify(msg: &[u8], pk: &Self::PreparedPk, sig: &Self::SIG) -> bool;
 }
 
 /// An aggregated key, that contains the aggregation of a set of keys, the merkle commitment of
@@ -54,14 +57,14 @@ pub trait Atms: Sized + Debug {
 pub struct Avk<A, H>
 where
     A: Atms,
-    H: MTHashLeaf<MTValue<A::CheckedPK>> + Digest,
+    H: MTHashLeaf<MTValue<A::PreparedPk>> + Digest,
 {
     /// The product of the aggregated keys
-    aggregate_key: A::CheckedPK,
+    aggregate_key: A::PreparedPk,
     /// The Merkle commitment to the set of keys
-    tree: MerkleTree<MTValue<A::CheckedPK>, H>,
+    tree: MerkleTree<MTValue<A::PreparedPk>, H>,
     /// Mapping to identify position of key within merkle tree
-    leaf_map: HashMap<A::CheckedPK, (Stake, usize)>,
+    leaf_map: HashMap<A::PreparedPk, (Stake, usize)>,
     /// Total stake
     total_stake: Stake,
     /// Threshold of Stake required to validate a signature
@@ -78,28 +81,28 @@ where
     aggregate: A::SIG,
     /// Proofs of membership of non-signing keys in the original
     /// set of keys
-    keys_proofs: Vec<(A::CheckedPK, Path<F>)>,
+    keys_proofs: Vec<(A::PreparedPk, Path<F>)>,
 }
 
 #[derive(Debug, thiserror::Error)]
 /// Errors associated with Atms
-pub enum AtmsError<A, F, H>
+pub enum AtmsError<A, H>
 where
     A: Atms,
-    H: MTHashLeaf<MTValue<A::CheckedPK>> + Digest,
+    H: MTHashLeaf<MTValue<A::PreparedPk>> + Digest,
 {
     /// An unknown key (we don't know its index in the merkle tree)
     #[error("Key not present in the Merkle Tree.")]
-    UnknownKey(A::CheckedPK),
+    UnknownKey(A::PreparedPk),
     /// The proof that `PK` is at a given idx is false
     #[error("Proof that key with index {0} is in Merkle Tree is invalid.")]
-    InvalidMerkleProof(usize, A::CheckedPK, Path<F>),
-    /// The proof that the secret key with respect to `PK` is known, fails
-    #[error("Proof of Possesion of the secret key is invalid.")]
-    InvalidProofOfPossession(A::PreCheckedPK),
+    InvalidMerkleProof(usize, A::PreparedPk, Path<H::F>),
+    /// A key submitted for aggregation is invalid.
+    #[error("Invalid key provided in the set of keys.")]
+    InvalidKey,
     /// Duplicate non-signers in signature
     #[error("Submitted keys of non-signers contains duplicates.")]
-    FoundDuplicates(A::CheckedPK),
+    FoundDuplicates(A::PreparedPk),
     /// Non-signers sum to the given stake, which is more than half of total
     #[error("Signatures do not exceed the required threshold {0}.")]
     TooMuchOutstandingStake(Stake),
@@ -115,26 +118,22 @@ where
 impl<A, H> Avk<A, H>
 where
     A: Atms,
-    A::CheckedPK: Eq + Ord + Clone + Hash + for<'a> Sum<&'a A::CheckedPK> + ToBytes,
-    H: MTHashLeaf<MTValue<A::CheckedPK>> + Digest,
+    A::PreparedPk: Eq + Ord + Clone + Hash + for<'a> Sum<&'a A::PreparedPk> + ToBytes,
+    H: MTHashLeaf<MTValue<A::PreparedPk>> + Digest,
 {
     /// Aggregate a set of keys, and commit to them in a canonical order.
     /// Called `AKey` in the paper.
-    pub fn new<F>(
+    pub fn new(
         keys_pop: &[(A::PreCheckedPK, Stake)],
         threshold: Stake,
-    ) -> Result<Self, AtmsError<A, F, H>> {
-        let mut keys: Vec<(A::CheckedPK, Stake)> = Vec::with_capacity(keys_pop.len());
-        let mut total_stake: Stake = 0;
-        for (key, stake) in keys_pop {
-            let pk = match A::check_key(key) {
-                Some(p) => p,
-                _ => return Err(AtmsError::InvalidProofOfPossession(*key)),
+    ) -> Result<Self, AtmsError<A, H>> {
+        let (mut keys, total_stake): (Vec<(A::PreparedPk, Stake)>, Stake) =
+            match A::prepare_keys(keys_pop) {
+                None => return Err(AtmsError::InvalidKey),
+                Some(a) => a,
             };
-            total_stake += stake;
-            keys.push((pk, *stake));
-        }
-        let aggregate_key: A::CheckedPK = keys.iter().map(|k| &k.0).sum();
+
+        let aggregate_key: A::PreparedPk = keys.iter().map(|k| &k.0).sum();
 
         // This ensures the order is the same for permutations of the input keys
         keys.sort();
@@ -157,7 +156,7 @@ where
 
     /// Check that this aggregation is derived from the given sequence of valid keys.
     /// Called `ACheck` in the paper.
-    pub fn check<F>(&self, keys: &[(A::PreCheckedPK, Stake)]) -> Result<(), AtmsError<A, F, H>> {
+    pub fn check(&self, keys: &[(A::PreCheckedPK, Stake)]) -> Result<(), AtmsError<A, H>> {
         // Stake is irrelevant for this check.
         let akey2 = Self::new(keys, 0)?;
         if self.tree.root() == akey2.tree.root() && self.aggregate_key == akey2.aggregate_key {
@@ -171,19 +170,19 @@ impl<A, F> Asig<A, F>
 where
     F: Clone,
     A: Atms,
-    A::CheckedPK: Clone
+    A::PreparedPk: Clone
         + Eq
         + Hash
-        + Sub<A::CheckedPK, Output = A::CheckedPK>
-        + for<'a> Sum<&'a A::CheckedPK>
+        + Sub<A::PreparedPk, Output = A::PreparedPk>
+        + for<'a> Sum<&'a A::PreparedPk>
         + std::fmt::Debug
         + Ord,
     A::SIG: for<'a> Sum<&'a A::SIG> + Ord + Clone,
 {
     /// Aggregate a list of signatures.
-    pub fn new<H: MTHashLeaf<MTValue<A::CheckedPK>, F = F> + Digest>(
+    pub fn new<H: MTHashLeaf<MTValue<A::PreparedPk>, F = F> + Digest>(
         keys: &Avk<A, H>,
-        sigs: &[(A::CheckedPK, A::SIG)],
+        sigs: &[(A::PreparedPk, A::SIG)],
     ) -> Self {
         let signers = sigs.iter().map(|(k, _)| k).collect::<HashSet<_>>();
         let keys_proofs = keys
@@ -214,11 +213,11 @@ where
 
     /// Verify that this aggregation is valid for the given collection of keys and message.
     /// Called `AVer` in the paper
-    pub fn verify<H: MTHashLeaf<MTValue<A::CheckedPK>, F = F> + Digest>(
+    pub fn verify<H: MTHashLeaf<MTValue<A::PreparedPk>, F = F> + Digest>(
         &self,
         msg: &[u8],
         keys: &Avk<A, H>,
-    ) -> Result<(), AtmsError<A, F, H>> {
+    ) -> Result<(), AtmsError<A, H>> {
         // Check duplicates by building this set of
         // non-signing keys
         let mut unique_non_signers = HashSet::new();
@@ -274,17 +273,27 @@ mod msp {
         PE: PairingEngine + Hash,
     {
         type PreCheckedPK = MspPk<PE>;
-        type CheckedPK = MspMvk<PE>;
+        type PreparedPk = MspMvk<PE>;
         type SIG = MspSig<PE>;
 
-        fn check_key(proof: &Self::PreCheckedPK) -> Option<Self::CheckedPK> {
-            if Msp::check(proof) {
-                return Some(proof.mvk);
+        fn prepare_keys(
+            keys_pop: &[(Self::PreCheckedPK, Stake)],
+        ) -> Option<(Vec<(Self::PreparedPk, Stake)>, Stake)> {
+            let mut keys: Vec<(Self::PreparedPk, Stake)> = Vec::with_capacity(keys_pop.len());
+            let mut total_stake: Stake = 0;
+            for (key, stake) in keys_pop {
+                if Msp::check(key) {
+                    keys.push((key.mvk, *stake));
+                } else {
+                    return None;
+                }
+                total_stake += stake;
             }
-            None
+
+            Some((keys, total_stake))
         }
 
-        fn verify(msg: &[u8], pk: &Self::CheckedPK, sig: &Self::SIG) -> bool {
+        fn verify(msg: &[u8], pk: &Self::PreparedPk, sig: &Self::SIG) -> bool {
             Msp::aggregate_ver(msg, pk, sig)
         }
     }
@@ -304,7 +313,6 @@ mod tests {
     type C = Bls12_377;
     type H = Blake2b;
     type A = Msp<C>;
-    type F = <H as MTHashLeaf<MTValue<MspMvk<C>>>>::F;
 
     proptest! {
     #[test]
@@ -328,10 +336,10 @@ mod tests {
                 signatures.push((pk.mvk, sig));
             }
 
-            let avk = Avk::<A, H>::new::<F>(&keys, threshold);
+            let avk = Avk::<A, H>::new(&keys, threshold);
             assert!(avk.is_ok());
             let avk = avk.unwrap();
-            assert!(avk.check::<F>(&keys).is_ok());
+            assert!(avk.check(&keys).is_ok());
 
             // Note that we accept repeated signatures.
             let subset = subset_is
