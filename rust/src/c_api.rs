@@ -755,7 +755,7 @@ mod atms {
                     .zip(stake.iter())
                     .map(|(p, s)| (**p, *s))
                     .collect::<Vec<_>>();
-                return match Avk::new::<F>(&pks, threshold as u64) {
+                return match Avk::new(&pks, threshold as u64) {
                     Ok(k) => {
                         *ref_avk_key = Box::into_raw(Box::new(k));
                         0

@@ -1,16 +1,15 @@
 use ark_bls12_377::Bls12_377;
 use ark_std::rand::prelude::IteratorRandom;
 use blake2::{Blake2b, Digest};
-use mithril::atms::{Asig, AtmsError, Avk, MTValue};
-use mithril::merkle_tree::MTHashLeaf;
-use mithril::msp::{Msp, MspMvk};
+use mithril::atms::{Asig, AtmsError, Avk};
+use mithril::msp::Msp;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
 type C = Bls12_377;
 type H = Blake2b;
 type A = Msp<C>;
-type F = <H as MTHashLeaf<MTValue<MspMvk<C>>>>::F;
+// type F = <H as MTHashLeaf<MTValue<MspMvk<C>>>>::F;
 
 fn main() {
     let total_nr_players = 10;
@@ -66,8 +65,8 @@ fn main() {
     println!("ATMs single key generation");
     println!();
     // With this data, we can generate the ATMs single key.
-    let avk_key = Avk::<A, H>::new::<F>(&qp_keys, threshold)
-        .expect("We assume proofs of possession are valid.");
+    let avk_key =
+        Avk::<A, H>::new(&qp_keys, threshold).expect("We assume proofs of possession are valid.");
 
     // Now the parties can sign messages. No need of interaction.
     rng.fill_bytes(&mut msg);
@@ -111,8 +110,8 @@ fn main() {
     println!("ATMs single key generation (needs to be recomputed)");
     println!();
     // With this data, we can generate the ATMs single key.
-    let avk_key = Avk::<A, H>::new::<F>(&qp_keys, threshold)
-        .expect("We assume proofs of possession are valid.");
+    let avk_key =
+        Avk::<A, H>::new(&qp_keys, threshold).expect("We assume proofs of possession are valid.");
 
     // Now the parties can sign messages. No need of interaction.
     rng.fill_bytes(&mut msg);

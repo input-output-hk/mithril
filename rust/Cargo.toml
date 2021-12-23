@@ -25,6 +25,7 @@ libc        = "0.2.40"
 thiserror = "1.0"
 num-integer = {version = "0.1.44", optional=true }
 rug = { version = "1.14", optional=true }
+bytes = "1"
 
 [build-dependencies]
 cbindgen    = "0.7.1"
