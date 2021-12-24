@@ -15,3 +15,12 @@ create table mithril_certificates
     sig_started_at  timestamp with time zone,
     sig_finished_at timestamp with time zone
 );
+
+create table mithril_benchmarks
+(
+    node_id    bigint                   not null,
+    cert_hash  bytea                    not null,
+    title      varchar(512)             not null,
+    start_time timestamp with time zone not null,
+    end_time   timestamp with time zone not null
+);

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -28,6 +29,12 @@ func ReadConfigFromFile(path string) (*Config, error) {
 		return nil, errors.Wrap(err, "Error parsing config file")
 	}
 
+	for _, e := range os.Environ() {
+		if strings.Compare("TEST_RUN=true", e) == 0 {
+			config.TestRun = true
+		}
+	}
+	
 	return config, nil
 }
 
