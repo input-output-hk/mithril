@@ -8,6 +8,8 @@
 //! we need here is to be able to verify signatures against keys, and verify that
 //! keys have a valid PoP.
 
+#![allow(clippy::type_complexity)]
+
 use crate::{merkle_tree::*, stm::Stake};
 use ark_ff::ToBytes;
 use digest::Digest;
@@ -47,7 +49,12 @@ pub trait Atms: Sized + Debug {
         keys_pop: &[(Self::PreCheckedPK, Stake)],
     ) -> Option<(Vec<(Self::PreparedPk, Stake)>, Stake)>;
     /// Verify that the signature is valid for a message `msg` and key `key`
-    fn verify(msg: &[u8], aggregate_key: Self::PreparedPk, nonsigners_aggregate_key: Self::PreparedPk, sig: &Self::SIG) -> bool;
+    fn verify(
+        msg: &[u8],
+        aggregate_key: Self::PreparedPk,
+        nonsigners_aggregate_key: Self::PreparedPk,
+        sig: &Self::SIG,
+    ) -> bool;
 }
 
 /// An aggregated key, that contains the aggregation of a set of keys, the merkle commitment of
@@ -252,7 +259,12 @@ where
         }
         // Check with the underlying signature scheme that the quotient of the
         // aggregated key by the non-signers validates this signature.
-        if !A::verify(msg, keys.aggregate_key.clone(), unique_non_signers.into_iter().sum(), &self.aggregate) {
+        if !A::verify(
+            msg,
+            keys.aggregate_key.clone(),
+            unique_non_signers.into_iter().sum(),
+            &self.aggregate,
+        ) {
             return Err(AtmsError::InvalidSignature(self.aggregate.clone()));
         }
 
@@ -291,7 +303,12 @@ mod msp {
             Some((keys, total_stake))
         }
 
-        fn verify(msg: &[u8], aggregate_key: Self::PreparedPk, nonsigners_aggregate_key: Self::PreparedPk, sig: &Self::SIG) -> bool {
+        fn verify(
+            msg: &[u8],
+            aggregate_key: Self::PreparedPk,
+            nonsigners_aggregate_key: Self::PreparedPk,
+            sig: &Self::SIG,
+        ) -> bool {
             let avk2 = aggregate_key - nonsigners_aggregate_key;
             Msp::aggregate_ver(msg, &avk2, sig)
         }
