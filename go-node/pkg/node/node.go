@@ -5,6 +5,8 @@ import (
 	"container/list"
 	"context"
 	"encoding/base64"
+	"fmt"
+	"github.com/input-output-hk/mithril/go-node/internal/bm"
 	"sync"
 	"time"
 
@@ -44,6 +46,7 @@ func New(ctx context.Context, cfg *config.Config, conn *pgx.Conn) (*Node, error)
 
 	return &Node{
 		ctx:       ctx,
+		nextTC:    make(chan bool, 10),
 		host:      node,
 		config:    cfg,
 		peerNodes: make(map[peer.ID]*PeerNode, 0),
@@ -57,6 +60,7 @@ func New(ctx context.Context, cfg *config.Config, conn *pgx.Conn) (*Node, error)
 
 type Node struct {
 	ctx      context.Context
+	nextTC   chan bool
 	config   *config.Config
 	host     host.Host
 	peers    list.List
@@ -106,6 +110,9 @@ func (n *Node) ServeNode() error {
 		n.HandleNewPeer(s)
 	})
 
+	if n.config.TestRun {
+		return n.testRun()
+	}
 	return n.mainLoop()
 }
 
@@ -142,6 +149,27 @@ func (n *Node) mainLoop() error {
 		case <-ticker.C:
 			if n.config.Leader && len(n.peerNodes) > 0 {
 				n.CreateSigRequest()
+			}
+		}
+	}
+}
+
+func (n *Node) testRun() error {
+	testSizes := []uint64{100000, 500000, 1000000, 5000000, 10000000}
+	//testSizes := []uint64{10000000}
+	nextIndex := 0
+
+	n.nextTC <- true
+
+	for {
+		select {
+		case <-n.ctx.Done():
+			return n.Shutdown()
+
+		case <-n.nextTC:
+			if nextIndex < len(testSizes) {
+				n.CreateTestSigRequest(testSizes[nextIndex])
+				nextIndex++
 			}
 		}
 	}
@@ -308,6 +336,108 @@ func (n *Node) CreateSigRequest() {
 	n.sigProcess.signatures[n.host.ID()] = sigs
 }
 
+func (n *Node) CreateTestSigRequest(size uint64) {
+	n.sigLock.Lock()
+	defer n.sigLock.Unlock()
+
+	sigReqEvent := bm.New(fmt.Sprintf("Testing %d UTXO set", size))
+
+	lastCert, err := cert.GetLastCert(n.ctx, n.conn, n.PartyId())
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
+	var lastCertHash cert.Hex
+	if lastCert != nil {
+		lastCertHash = lastCert.CertHash
+	} else {
+		lastCertHash = cert.GenesisHash()
+	}
+
+	hash, blockHash, dbEvents, err := GetTestBlockMTHash(n.conn, n.PartyId(), size)
+	if err != nil {
+		log.Error(err)
+		return
+	}
+
+	mcfg := n.config.Mithril
+	participants := []mithril.Participant{n.Participant}
+
+	var peerNodes []*PeerNode
+	for _, p := range n.peerNodes {
+		if p.status != Ready {
+			continue
+		}
+		participants = append(participants, p.participant)
+		peerNodes = append(peerNodes, p)
+	}
+
+	nextCert := cert.Certificate{
+		Id:           uint64(time.Now().Unix()),
+		NodeId:       n.PartyId(),
+		Participants: participants,
+		PrevHash:     lastCertHash,
+		BlockNumber:  size,
+		BlockHash:    blockHash,
+		MerkleRoot:   hash,
+		SigStartedAt: time.Now(),
+	}
+	nextCert.CertHash = cert.Hash(nextCert)
+
+	params := mithril.Parameters{K: mcfg.Params.K, M: mcfg.Params.M, PhiF: mcfg.Params.PhiF}
+
+	n.sigProcess = &sigProcess{
+		participants: participants,
+		hashStr:      base64.StdEncoding.EncodeToString(hash),
+		cert:         nextCert,
+		signatures:   make(map[peer.ID][]Signature, 0),
+	}
+
+	req := SigRequest{
+		RequestId:    n.sigProcess.cert.Id,
+		Params:       params,
+		Participants: participants,
+		Cert:         nextCert,
+	}
+
+	log.Infow("Issued TEST multiSig request",
+		"id", nextCert.Id,
+		"cert_hash", nextCert.CertHash.String(),
+		"prev_hash", nextCert.PrevHash.String(),
+		"merle_root", nextCert.MerkleRoot.String(),
+		"block_number", nextCert.BlockNumber,
+		"block_hash", nextCert.BlockHash,
+		"participants_amount", len(participants),
+	)
+
+	msg := Message{Type: sigRequest, Payload: req}
+	for _, p := range peerNodes {
+		p.writeCh <- msg
+	}
+
+	sigs, err := n.CreateNodeSignatures(req, participants)
+	if err != nil {
+		return
+	}
+
+	sigReqEvent.Stop()
+	events := []*bm.Event{sigReqEvent}
+	events = append(events, dbEvents...)
+
+	for _, e := range events {
+		e.NodeId = n.PartyId()
+		e.CertHash = nextCert.CertHash
+	}
+
+	err = bm.SaveAll(n.ctx, n.conn, events)
+	if err != nil {
+		log.Error(err)
+	}
+
+	n.sigProcess.signatures[n.host.ID()] = sigs
+}
+
 func (n *Node) CreateNodeSignatures(req SigRequest, participants []mithril.Participant) ([]Signature, error) {
 
 	var success uint64 = 0
@@ -362,7 +492,15 @@ func (n *Node) HandleSigRequest(peer *PeerNode, req SigRequest) {
 		"block_hash", req.Cert.BlockHash,
 	)
 
-	hash, _, err := GetBlockMTHash(n.conn, req.Cert.BlockNumber)
+	var hash []byte
+	var err error
+	var dbEvents []*bm.Event
+	if bytes.HasPrefix(req.Cert.BlockHash, []byte{0x0, 0x0, 0x0, 0x0}) {
+		hash, _, dbEvents, err = GetTestBlockMTHash(n.conn, 0, req.Cert.BlockNumber)
+	} else {
+		hash, _, err = GetBlockMTHash(n.conn, req.Cert.BlockNumber)
+	}
+
 	if err != nil {
 		log.Error(err)
 		return
@@ -404,6 +542,16 @@ func (n *Node) HandleSigRequest(peer *PeerNode, req SigRequest) {
 		"block_number", req.Cert.BlockNumber,
 		"hash", req.Cert.MerkleRoot,
 	)
+
+	for _, e := range dbEvents {
+		e.NodeId = n.PartyId()
+		e.CertHash = req.Cert.CertHash
+	}
+
+	err = bm.SaveAll(n.ctx, n.conn, dbEvents)
+	if err != nil {
+		log.Error(err)
+	}
 }
 
 func (n *Node) HandleSigResponse(peer *PeerNode, res SigResponse) {
@@ -446,6 +594,8 @@ func (n *Node) HandleSigResponse(peer *PeerNode, res SigResponse) {
 }
 
 func (n *Node) TryAggregate(clerk mithril.Clerk) {
+
+	aggEvent := bm.New("Aggregate MultiSig")
 	var sigs []*mithril.Signature
 	for _, sa := range n.sigProcess.signatures {
 		for _, s := range sa {
@@ -491,12 +641,25 @@ func (n *Node) TryAggregate(clerk mithril.Clerk) {
 		return cert.Save(ctx, tx, &c)
 	})
 
+	if bytes.HasPrefix(n.sigProcess.cert.BlockHash, []byte{0x0, 0x0, 0x0, 0x0}) {
+		n.nextTC <- true
+	}
+
 	if err != nil {
 		log.Errorw("Failed to save cert to DB", "err", err)
 		return
 	}
 
 	log.Infow("MultiSig has been aggregated")
+
+	aggEvent.Stop()
+	aggEvent.NodeId = n.PartyId()
+	aggEvent.CertHash = n.sigProcess.cert.CertHash
+
+	err = bm.Save(n.ctx, n.conn, aggEvent)
+	if err != nil {
+		log.Error(err)
+	}
 }
 
 func (n *Node) GetParticipant(ctx context.Context) mithril.Participant {

@@ -2,6 +2,7 @@ package cardano
 
 import (
 	"context"
+	"fmt"
 	"github.com/input-output-hk/mithril/go-node/internal/pg"
 	"github.com/input-output-hk/mithril/go-node/pkg/cardano/types"
 	"github.com/jackc/pgx/v4"
@@ -124,6 +125,34 @@ func GetTxOutputsByAddr(ctx context.Context, tx pgx.Tx, blockNumber uint64, addr
 			return nil, err
 		}
 		list = append(list, txOut)
+	}
+	return list, nil
+}
+
+func GetTxTestList(ctx context.Context, tx pgx.Tx, size uint64) ([]*types.UTXO, error) {
+	sql := fmt.Sprintf(`SELECT address,
+       t.hash as hash,
+       index,
+       value
+			FROM tx_out
+         inner join tx t on t.id = tx_out.tx_id
+		ORDER BY address, t.hash, index
+		LIMIT %d;`, size)
+
+	rows, err := tx.Query(context.Background(), sql)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []*types.UTXO
+	for rows.Next() {
+		txOut := types.UTXO{}
+		err := rows.Scan(&txOut.Address, &txOut.Hash, &txOut.Index, &txOut.Value)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, &txOut)
 	}
 	return list, nil
 }

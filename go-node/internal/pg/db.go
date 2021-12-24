@@ -3,6 +3,7 @@ package pg
 import (
 	"context"
 	"database/sql"
+	"github.com/jackc/pgconn"
 	"time"
 
 	"github.com/input-output-hk/mithril/go-node/pkg/config"
@@ -14,6 +15,11 @@ import (
 type Querier interface {
 	Query(ctx context.Context, sql string, args ...interface{}) (pgx.Rows, error)
 	QueryRow(ctx context.Context, sql string, args ...interface{}) pgx.Row
+}
+
+type Runner interface {
+	Querier
+	Exec(ctx context.Context, sql string, arguments ...interface{}) (pgconn.CommandTag, error)
 }
 
 // Transacter is the interface to wrap base sql transaction

@@ -3,6 +3,7 @@ package config
 type Config struct {
 	PostgresDSN string `mapstructure:"postgres_dsn"`
 	Leader      bool   `mapstructure:"leader"`
+	TestRun     bool   `mapstructure:"test_run"`
 	Http        struct {
 		ServerAddr string `mapstructure:"listen_addr"`
 	} `mapstructure:"http"`
