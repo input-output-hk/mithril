@@ -22,7 +22,7 @@ type MuSigPk = RistrettoPoint;
 /// Helper function for ATMS. This will contain a public key and its associated exponent.
 /// The latter is not checked to be valid, and it is left to the creator function to compute
 /// the valid exponent (or verify its validity). This structure allows us to define binary
-/// operations over prepared keys, as well as verifying partial signatures.
+/// operations over prepared keys.
 /// As a result of a binary operation between two keys, the resulting key has 1 as a public
 /// exponent.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -89,9 +89,9 @@ impl Hash for PreparedPk {
     }
 }
 
-impl<'a> Sub for PreparedPk {
+impl Sub<PreparedPk> for PreparedPk {
     type Output = Self;
-    fn sub(self, rhs: Self) -> Self {
+    fn sub(self, rhs: Self) -> PreparedPk {
         PreparedPk {
             pk: self.public_exponent * self.pk - rhs.public_exponent * rhs.pk,
             public_exponent: Scalar::one(),
@@ -176,6 +176,7 @@ impl MuSigSigner {
         assert_eq!(pks.len(), committed_randomness.len());
 
         let aggr_key = Self::aggregate_keys(pks);
+        println!("Signing verification key: {:?}", aggr_key.compress().as_bytes());
         let mut added_commit_1 = RistrettoPoint::identity();
         let mut added_commit_2 = RistrettoPoint::identity();
 
@@ -220,6 +221,7 @@ impl MuSigSigner {
     }
 
     fn aggregate_signatures(sigs: &[MuSigSignature]) -> MuSigSignature {
+        // todo: Maybe we want to check the announcement here as well
         let mut aggr_response = Scalar::zero();
         for sig in sigs {
             aggr_response += sig.response;
@@ -318,8 +320,13 @@ impl Atms for MuSig2 {
     type PreparedPk = PreparedPk;
     type SIG = MuSigSignature;
 
-    fn verify(msg: &[u8], pk: &Self::PreparedPk, sig: &Self::SIG) -> bool {
-        sig.verify(&(pk.public_exponent * pk.pk), msg).is_ok()
+    /// Note that this function uses the aggregate_key to compute the challenge of the Fiat-Shamir
+    /// instantiation, but then uses the subtracted key to verify the signature equation.
+    fn verify(msg: &[u8], aggregate_key: Self::PreparedPk, nonsigners_aggregate_key: Self::PreparedPk, sig: &Self::SIG) -> bool {
+        let verification_key = aggregate_key.clone() - nonsigners_aggregate_key;
+        println!("Final verification key: {:?}", verification_key.pk.compress().as_bytes());
+
+        sig.verify(&verification_key.pk, msg).is_ok()
     }
 
     fn prepare_keys(
@@ -352,79 +359,79 @@ impl Atms for MuSig2 {
 // exponent).
 fn main() {
     use rand::rngs::OsRng;
-    let nr_signers = 4;
-    // let's test MuSig2
+    // let nr_signers = 4;
+    // // let's test MuSig2
     let msg = b"testing dummy MuSig2";
-    let signers: Vec<MuSigSigner> = (0..nr_signers)
-        .into_iter()
-        .map(|_| MuSigSigner::new(&mut OsRng))
-        .collect();
-    let pks: Vec<RistrettoPoint> = signers
-        .clone()
-        .into_iter()
-        .map(|signer| signer.pk)
-        .collect();
-
-    let commitments: Vec<(Scalar, Scalar, RistrettoPoint, RistrettoPoint)> = (0..nr_signers)
-        .into_iter()
-        .map(|_| MuSigSigner::commit_randomness(&mut OsRng))
-        .collect();
-    let public_comms: Vec<(RistrettoPoint, RistrettoPoint)> = commitments
-        .clone()
-        .into_iter()
-        .map(|comm| (comm.2, comm.3))
-        .collect();
-
-    let partial_signatures: Vec<MuSigSignature> = signers
-        .into_iter()
-        .enumerate()
-        .map(|(index, signer)| {
-            signer.partial_signature(
-                &pks,
-                &public_comms,
-                &(commitments[index].0, commitments[index].clone().1),
-                msg,
-            )
-        })
-        .collect();
-
-    // now we aggregate them
-    let aggr_sig = MuSigSigner::aggregate_signatures(&partial_signatures);
-    let aggr_pk = MuSigSigner::aggregate_keys(&pks);
-
-    assert!(aggr_sig.verify(&aggr_pk, msg).is_ok());
+    // let signers: Vec<MuSigSigner> = (0..nr_signers)
+    //     .into_iter()
+    //     .map(|_| MuSigSigner::new(&mut OsRng))
+    //     .collect();
+    // let pks: Vec<RistrettoPoint> = signers
+    //     .clone()
+    //     .into_iter()
+    //     .map(|signer| signer.pk)
+    //     .collect();
+    //
+    // let commitments: Vec<(Scalar, Scalar, RistrettoPoint, RistrettoPoint)> = (0..nr_signers)
+    //     .into_iter()
+    //     .map(|_| MuSigSigner::commit_randomness(&mut OsRng))
+    //     .collect();
+    // let public_comms: Vec<(RistrettoPoint, RistrettoPoint)> = commitments
+    //     .clone()
+    //     .into_iter()
+    //     .map(|comm| (comm.2, comm.3))
+    //     .collect();
+    //
+    // let partial_signatures: Vec<MuSigSignature> = signers
+    //     .into_iter()
+    //     .enumerate()
+    //     .map(|(index, signer)| {
+    //         signer.partial_signature(
+    //             &pks,
+    //             &public_comms,
+    //             &(commitments[index].0, commitments[index].clone().1),
+    //             msg,
+    //         )
+    //     })
+    //     .collect();
+    //
+    // // now we aggregate them
+    // let aggr_sig = MuSigSigner::aggregate_signatures(&partial_signatures);
+    // let aggr_pk = MuSigSigner::aggregate_keys(&pks);
+    //
+    // assert!(aggr_sig.verify(&aggr_pk, msg).is_ok());
 
     ////////////////////////////////////////////////////
     // Now lets test the ATMS signatures with MuSig2. //
     ////////////////////////////////////////////////////
 
     let n = 10 as u64;
-    let threshold = 7 as u64;
+    let threshold = 8 as u64;
     let mut rng = OsRng;
 
     let mut pkeys: Vec<MuSigPk> = Vec::new();
     let mut private_commitments = Vec::new();
     let mut pub_announcements = Vec::new();
     let mut signers: Vec<MuSigSigner> = Vec::new();
-    for _ in 1..=n {
+    let mut keys_stake = Vec::new();
+    for _ in 0..n {
         let signer = MuSigSigner::new(&mut rng);
         let (r_1, r_2, c_1, c_2) = MuSigSigner::commit_randomness(&mut rng);
         private_commitments.push((r_1, r_2));
         pub_announcements.push((c_1, c_2));
         pkeys.push(signer.pk);
+        keys_stake.push((signer.pk, 1));
         signers.push(signer);
     }
 
-    let mut keys_stake = Vec::new();
     let mut signatures: Vec<(PreparedPk, MuSigSignature)> = Vec::new();
-    for (index, signer) in signers.iter().enumerate() {
+    for (index, signer) in signers[..threshold as usize].iter().enumerate() {
         let sig = signer.clone().partial_signature(
-            &pkeys,
-            &pub_announcements,
+            &pkeys[..threshold as usize],
+            &pub_announcements[..threshold as usize],
             &private_commitments[index],
             msg,
         );
-        keys_stake.push((pkeys[index], 1));
         signatures.push((signer.compute_prepared_pk(&pkeys), sig));
     }
 
@@ -435,7 +442,7 @@ fn main() {
 
     assert!(avk.check(&keys_stake).is_ok());
 
-    let aggr_sig = Asig::new(&avk, &signatures[..threshold as usize]);
+    let aggr_sig = Asig::new(&avk, &signatures);
     aggr_sig.verify(msg, &avk).unwrap();
     // match aggr_sig.verify(msg, &avk) {
     //     Ok(()) => { },

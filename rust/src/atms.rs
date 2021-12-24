@@ -47,7 +47,7 @@ pub trait Atms: Sized + Debug {
         keys_pop: &[(Self::PreCheckedPK, Stake)],
     ) -> Option<(Vec<(Self::PreparedPk, Stake)>, Stake)>;
     /// Verify that the signature is valid for a message `msg` and key `key`
-    fn verify(msg: &[u8], pk: &Self::PreparedPk, sig: &Self::SIG) -> bool;
+    fn verify(msg: &[u8], aggregate_key: Self::PreparedPk, nonsigners_aggregate_key: Self::PreparedPk, sig: &Self::SIG) -> bool;
 }
 
 /// An aggregated key, that contains the aggregation of a set of keys, the merkle commitment of
@@ -250,11 +250,9 @@ where
         if non_signing_stake > keys.total_stake - keys.threshold {
             return Err(AtmsError::TooMuchOutstandingStake(non_signing_stake));
         }
-
         // Check with the underlying signature scheme that the quotient of the
         // aggregated key by the non-signers validates this signature.
-        let avk2 = keys.aggregate_key.clone() - unique_non_signers.into_iter().sum();
-        if !A::verify(msg, &avk2, &self.aggregate) {
+        if !A::verify(msg, keys.aggregate_key.clone(), unique_non_signers.into_iter().sum(), &self.aggregate) {
             return Err(AtmsError::InvalidSignature(self.aggregate.clone()));
         }
 
@@ -293,8 +291,9 @@ mod msp {
             Some((keys, total_stake))
         }
 
-        fn verify(msg: &[u8], pk: &Self::PreparedPk, sig: &Self::SIG) -> bool {
-            Msp::aggregate_ver(msg, pk, sig)
+        fn verify(msg: &[u8], aggregate_key: Self::PreparedPk, nonsigners_aggregate_key: Self::PreparedPk, sig: &Self::SIG) -> bool {
+            let avk2 = aggregate_key - nonsigners_aggregate_key;
+            Msp::aggregate_ver(msg, &avk2, sig)
         }
     }
 }

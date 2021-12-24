@@ -110,9 +110,9 @@ impl<'a, PE: PairingEngine> Sum<&'a Self> for MspMvk<PE> {
     }
 }
 
-impl<'a, PE: PairingEngine> Sub for MspMvk<PE> {
+impl<PE: PairingEngine> Sub for MspMvk<PE> {
     type Output = Self;
-    fn sub(self, rhs: Self) -> Self {
+    fn sub(self, rhs: Self) -> MspMvk<PE> {
         MspMvk(self.0 - rhs.0)
     }
 }
