@@ -86,7 +86,8 @@ TEST(stm, invalidRegistration) {
     ASSERT_EQ(err, 0);
 
     // If it register twice the same party, it fails with error code -1
-    ASSERT_EQ(register_party(clerk_kr, party_ids[0], keys[0]), -1);
+    err = register_party(clerk_kr, party_ids[0], keys[0]);
+    ASSERT_EQ(err, -1);
 
     // If the key is incorrect, then we get error code -2. For that, let's mangle the bits of a key
     unsigned char *fake_key;
@@ -98,10 +99,12 @@ TEST(stm, invalidRegistration) {
     err = msp_deserialize_verification_key(size, fake_key, &f_key);
     ASSERT_EQ(err, 0);
 
-    ASSERT_EQ(register_party(clerk_kr, party_ids[1], f_key), -2);
+    err = register_party(clerk_kr, party_ids[1], f_key);
+    ASSERT_EQ(err, -2);
 
     // If we try to register the fake party, it will fail with error code -3
-    ASSERT_EQ(register_party(clerk_kr, party_id_fake, keys_fake), -3);
+    err = register_party(clerk_kr, party_id_fake, keys_fake);
+    ASSERT_EQ(err, -3);
 }
 
 TEST(stm, clerkFromPublicData) {
