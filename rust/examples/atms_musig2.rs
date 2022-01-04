@@ -1,7 +1,8 @@
 //! In this example we provide a simple instance of MuSig2 using Ristretto, and use it to
-//! instantiate ATMS while being compatible with Schnorr-signatures. For sake of simplicity,
-//! we make this example to be interactive. However, MuSig2 can be made non-interactive with
-//! a pre-computation phase.
+//! instantiate ATMS while being compatible with Schnorr-signatures. Contrary to MuSig2, this
+//! construction is interactive, as we need signers to know which are the participating signers.
+//! In MuSig2, all signers need to participate. However, for ATMS that is not the case. In order
+//! to produce a valid signature, they need to know which is the subset of participating signers.
 //!
 //! # DISCLAIMER
 //! This implementation of MuSig2 is not secure. It is a minimal working version to show how ATMS
@@ -31,7 +32,39 @@ use std::{
 #[derive(Debug)]
 struct MuSig2;
 
-type MuSigPk = RistrettoPoint;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct MuSigPk(RistrettoPoint);
+
+impl MuSigPk {
+    /// Compare two `MuSigPk`s. Used for PartialOrd impl, used to order keys. The comparison
+    /// function can be anything, as long as it is consistent.
+    pub fn cmp_msp_mvk(&self, other: &Self) -> Ordering {
+        let lhs_bytes = self.0.compress();
+        let rhs_bytes = other.0.compress();
+
+        for (l, r) in lhs_bytes.as_bytes().iter().zip(rhs_bytes.as_bytes().iter()) {
+            match l.cmp(r) {
+                Ordering::Less => return Ordering::Less,
+                Ordering::Equal => continue,
+                Ordering::Greater => return Ordering::Greater,
+            }
+        }
+        Ordering::Equal
+    }
+}
+
+impl PartialOrd for MuSigPk {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp_msp_mvk(other))
+    }
+}
+
+impl Ord for MuSigPk {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.cmp_msp_mvk(other)
+    }
+}
+
 
 /// Helper function for ATMS. This will contain a public key and its associated exponent.
 /// The latter is not checked to be valid, and it is left to the creator function to compute
@@ -65,7 +98,7 @@ impl PreparedPk {
 
 impl ToBytes for PreparedPk {
     fn write<W: Write>(&self, mut writer: W) -> Result<(), Error> {
-        writer.write_all(self.pk.compress().as_bytes())?;
+        writer.write_all(self.pk.0.compress().as_bytes())?;
         writer.write_all(self.public_exponent.as_bytes())?;
         Ok(())
     }
@@ -89,7 +122,7 @@ impl<'a> Sum<&'a Self> for PreparedPk {
         I: Iterator<Item = &'a Self>,
     {
         PreparedPk {
-            pk: iter.map(|x| x.public_exponent * x.pk).sum(),
+            pk: MuSigPk(iter.map(|x| x.public_exponent * x.pk.0).sum()),
             public_exponent: Scalar::one(),
         }
     }
@@ -99,7 +132,7 @@ impl<'a> Sum<&'a Self> for PreparedPk {
 impl Hash for PreparedPk {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.public_exponent.as_bytes().hash(state);
-        self.pk.compress().as_bytes().hash(state);
+        self.pk.0.compress().as_bytes().hash(state);
     }
 }
 
@@ -107,7 +140,7 @@ impl Sub<PreparedPk> for PreparedPk {
     type Output = Self;
     fn sub(self, rhs: Self) -> PreparedPk {
         PreparedPk {
-            pk: self.public_exponent * self.pk - rhs.public_exponent * rhs.pk,
+            pk: MuSigPk(self.public_exponent * self.pk.0 - rhs.public_exponent * rhs.pk.0),
             public_exponent: Scalar::one(),
         }
     }
@@ -162,7 +195,7 @@ impl MuSigSigner {
         R: CryptoRng + RngCore,
     {
         let sk = Scalar::random(rng);
-        let pk = sk * RISTRETTO_BASEPOINT_POINT;
+        let pk = MuSigPk(sk * RISTRETTO_BASEPOINT_POINT);
 
         Self { sk, pk }
     }
@@ -182,12 +215,13 @@ impl MuSigSigner {
 
     fn partial_signature(
         self,
-        pks: &[RistrettoPoint],
+        eligible_pks: &[MuSigPk],
+        participating_pks: &[MuSigPk],
         committed_randomness: &[(RistrettoPoint, RistrettoPoint)],
         private_randomness: &(Scalar, Scalar),
         message: &[u8],
     ) -> MuSigSignature {
-        let aggr_key = Self::aggregate_keys(pks);
+        let aggr_key = Self::aggregate_keys(eligible_pks, participating_pks);
         let mut added_commit_1 = RistrettoPoint::identity();
         let mut added_commit_2 = RistrettoPoint::identity();
 
@@ -202,7 +236,7 @@ impl MuSigSigner {
         let _b_1 = Scalar::one(); // we ignore it
         let hash_b_2 = Blake2b::new()
             .chain(b"2")
-            .chain(aggr_key.compress().as_bytes())
+            .chain(aggr_key.0.compress().as_bytes())
             .chain(flatted_commitments)
             .chain(message);
         let b_2 = Scalar::from_hash(hash_b_2);
@@ -210,17 +244,19 @@ impl MuSigSigner {
         let announcement = added_commit_1 + b_2 * added_commit_2;
         let challenge = Scalar::from_hash(
             Blake2b::new()
-                .chain(aggr_key.compress().as_bytes())
+                .chain(aggr_key.0.compress().as_bytes())
                 .chain(announcement.compress().as_bytes())
                 .chain(message),
         );
 
         let mut hash = Blake2b::new();
-        for pk in pks {
-            hash.update(pk.compress().as_bytes());
+        let mut ordered_pks = eligible_pks.to_vec();
+        ordered_pks.sort_unstable();
+        for pk in ordered_pks {
+            hash.update(pk.0.compress().as_bytes());
         }
 
-        hash.update(self.pk.compress().as_bytes());
+        hash.update(self.pk.0.compress().as_bytes());
 
         let ai = Scalar::from_hash(hash);
         let response = challenge * ai * self.sk + private_randomness.0 + private_randomness.1 * b_2;
@@ -244,31 +280,33 @@ impl MuSigSigner {
         }
     }
 
-    /// todo: This function MUST ORDER THE PUBLIC KEYS!!!! We don't do it because we are simply performing
-    /// a dummy test. But for this to work ONE NEEDS TO DEFINE A DETERMINISTIC MECHANISM TO ORDER
-    /// THE PUBLIC KEYS.
-    fn aggregate_keys(pks: &[RistrettoPoint]) -> RistrettoPoint {
+    fn aggregate_keys(eligible_pks: &[MuSigPk], participants_pks: &[MuSigPk]) -> MuSigPk {
+        assert!(eligible_pks.len() >= participants_pks.len());
         let mut hash = Blake2b::new();
-        for pk in pks {
-            hash.update(pk.compress().as_bytes());
+        let mut ordered_pks = eligible_pks.to_vec();
+        ordered_pks.sort_unstable();
+        for pk in ordered_pks {
+            hash.update(pk.0.compress().as_bytes());
         }
 
         let mut aggr_key = RistrettoPoint::identity();
-        for pk in pks {
+        for pk in participants_pks {
             let mut hasheri = hash.clone();
-            hasheri.update(pk.compress().as_bytes());
-            aggr_key += Scalar::from_hash(hasheri) * pk;
+            hasheri.update(pk.0.compress().as_bytes());
+            aggr_key += Scalar::from_hash(hasheri) * pk.0;
         }
-        aggr_key
+        MuSigPk(aggr_key)
     }
 
     fn compute_prepared_pk(&self, pks: &[MuSigPk]) -> PreparedPk {
         let mut hasher = Blake2b::new();
-        for pk in pks {
-            hasher.update(pk.compress().as_bytes());
+        let mut ordered_pks = pks.to_vec();
+        ordered_pks.sort_unstable();
+        for pk in ordered_pks {
+            hasher.update(pk.0.compress().as_bytes());
         }
 
-        hasher.update(self.pk.compress().as_bytes());
+        hasher.update(self.pk.0.compress().as_bytes());
 
         PreparedPk {
             pk: self.pk,
@@ -283,11 +321,11 @@ impl MuSigSignature {
 
         let challenge = Scalar::from_hash(
             Blake2b::new()
-                .chain(pk.compress().as_bytes())
+                .chain(pk.0.compress().as_bytes())
                 .chain(self.announcement.compress().as_bytes())
                 .chain(message),
         );
-        let rhs = challenge * pk + self.announcement;
+        let rhs = challenge * pk.0 + self.announcement;
 
         if lhs != rhs {
             return Err(());
@@ -319,8 +357,6 @@ impl Atms for MuSig2 {
     type PreparedPk = PreparedPk;
     type SIG = MuSigSignature;
 
-    /// Note that this function uses the aggregate_key to compute the challenge of the Fiat-Shamir
-    /// instantiation, but then uses the subtracted key to verify the signature equation.
     fn verify(
         msg: &[u8],
         aggregate_key: Self::PreparedPk,
@@ -329,17 +365,7 @@ impl Atms for MuSig2 {
     ) -> bool {
         let verification_key = aggregate_key.clone() - nonsigners_aggregate_key;
 
-        let lhs = sig.response * RISTRETTO_BASEPOINT_POINT;
-
-        let challenge = Scalar::from_hash(
-            Blake2b::new()
-                .chain(aggregate_key.pk.compress().as_bytes())
-                .chain(sig.announcement.compress().as_bytes())
-                .chain(msg),
-        );
-        let rhs = challenge * verification_key.pk + sig.announcement;
-
-        lhs == rhs
+        sig.verify(&verification_key.pk, msg).is_ok()
     }
 
     fn prepare_keys(
@@ -347,14 +373,16 @@ impl Atms for MuSig2 {
     ) -> Option<(Vec<(Self::PreparedPk, Stake)>, Stake)> {
         let mut total_stake = 0u64;
         let mut keys = Vec::with_capacity(keys_pop.len());
+        let mut ordered_keys: Vec<MuSigPk> = keys_pop.iter().map(|key| key.0).collect();
+        ordered_keys.sort_unstable();
         let mut hasher: Blake2b = Blake2b::new();
-        for (key, _) in keys_pop.iter() {
-            hasher.update(key.compress().as_bytes());
+        for key in ordered_keys.iter() {
+            hasher.update(key.0.compress().as_bytes());
         }
 
         for &(pk, stake) in keys_pop.iter() {
             let mut hasheri = hasher.clone();
-            hasheri.update(pk.compress().as_bytes());
+            hasheri.update(pk.0.compress().as_bytes());
             total_stake += stake;
             keys.push((
                 PreparedPk {
@@ -367,9 +395,7 @@ impl Atms for MuSig2 {
         Some((keys, total_stake))
     }
 }
-//todo: define ordering of keys
-// todo: define sum and neg of prepared keys (which would be a pair of a key and its public
-// exponent).
+
 fn main() {
     use rand::rngs::OsRng;
     let nr_signers = 4;
@@ -379,7 +405,7 @@ fn main() {
         .into_iter()
         .map(|_| MuSigSigner::new(&mut OsRng))
         .collect();
-    let pks: Vec<RistrettoPoint> = signers
+    let pks: Vec<MuSigPk> = signers
         .clone()
         .into_iter()
         .map(|signer| signer.pk)
@@ -401,6 +427,7 @@ fn main() {
         .map(|(index, signer)| {
             signer.partial_signature(
                 &pks,
+                &pks,
                 &public_comms,
                 &(commitments[index].0, commitments[index].1),
                 msg,
@@ -410,7 +437,7 @@ fn main() {
 
     // now we aggregate them
     let aggr_sig = MuSigSigner::aggregate_signatures(&partial_signatures);
-    let aggr_pk = MuSigSigner::aggregate_keys(&pks);
+    let aggr_pk = MuSigSigner::aggregate_keys(&pks, &pks);
 
     assert!(aggr_sig.verify(&aggr_pk, msg).is_ok());
 
@@ -441,6 +468,7 @@ fn main() {
     for (index, signer) in signers[..threshold as usize].iter().enumerate() {
         let sig = signer.clone().partial_signature(
             &pkeys,
+            &pkeys[..threshold as usize],
             &pub_announcements[..threshold as usize],
             &private_commitments[index],
             msg,
