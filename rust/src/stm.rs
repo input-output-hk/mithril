@@ -954,9 +954,9 @@ mod tests {
         })
     }
 
-    /// Generate a vector of N stakes summing to N*tstake,
-    /// plus a subset S of 0..N such that the sum of the stakes at indices
-    /// in S is astake*N
+    /// Generate a vector of `num_parties` stakes summing to `num_parties * total_stake`,
+    /// plus a subset S of 0..num_parties such that the sum of the stakes at indices
+    /// in S is adversary_stake * N
     fn arb_parties_with_adversaries(
         num_parties: usize,
         num_adversaries: usize,
@@ -971,7 +971,7 @@ mod tests {
                     .map(|(a, stake)| (*a, (stake * adversary_stake) / adversary_sum))
                     .collect();
 
-                let adversaries = adversaries.into_keys().collect();
+                let adversaries = adversaries.into_iter().map(|(key, _)| key).collect();
                 (
                     Just(adversaries),
                     arb_honest_for_adversaries(
