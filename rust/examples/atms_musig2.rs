@@ -65,7 +65,6 @@ impl Ord for MuSigPk {
     }
 }
 
-
 /// Helper function for ATMS. This will contain a public key and its associated exponent.
 /// The latter is not checked to be valid, and it is left to the creator function to compute
 /// the valid exponent (or verify its validity). This structure allows us to define binary
