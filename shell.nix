@@ -13,6 +13,9 @@ let
     pkgs.gtest
     pkgs.go_1_17
     pkgs.gopls
+    pkgs.rustup
+    pkgs.m4
+    pkgs.openssl.dev
   ];
 
   tools = [
