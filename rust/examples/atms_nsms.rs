@@ -16,7 +16,7 @@
 use ark_ff::ToBytes;
 use blake2::{Blake2b, Digest};
 use curve25519_dalek::{
-    constants::RISTRETTO_BASEPOINT_POINT, ristretto::RistrettoPoint, scalar::Scalar,
+    constants::{RISTRETTO_BASEPOINT_POINT, BASEPOINT_ORDER}, ristretto::RistrettoPoint, scalar::Scalar,
     traits::Identity,
 };
 use mithril::{
@@ -33,10 +33,10 @@ use std::{
 };
 
 #[derive(Debug)]
-struct NaiveSchnorr;
+pub struct NaiveSchnorr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct SchnorrVk(RistrettoPoint);
+pub struct SchnorrVk(RistrettoPoint);
 
 impl SchnorrVk {
     /// Compare two `SchnorrPk`s. Used for PartialOrd impl, used to order keys. The comparison
@@ -53,6 +53,10 @@ impl SchnorrVk {
             }
         }
         Ordering::Equal
+    }
+
+    pub unsafe fn convert_ed25519(&self) -> Ed25519Vk {
+        Ed25519Vk(mul_torsion_safe(&std::mem::transmute(self.0)))
     }
 }
 
@@ -73,7 +77,7 @@ impl Ord for SchnorrVk {
 /// the provided proof of possession. This structure allows us to define binary
 /// operations over prepared keys.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-struct SchnorrPk {
+pub struct SchnorrPk {
     vk: SchnorrVk,
     pop: (RistrettoPoint, Scalar),
 }
@@ -144,13 +148,13 @@ impl Sub<SchnorrVk> for SchnorrVk {
 }
 
 #[derive(Clone)]
-struct SchnorrSigner {
+pub struct SchnorrSigner {
     sk: Scalar,
     pk: SchnorrPk,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-struct SchnorrSignature {
+pub struct SchnorrSignature {
     announcement: RistrettoPoint,
     response: Scalar,
 }
@@ -299,6 +303,10 @@ impl SchnorrSignature {
 
         Ordering::Equal
     }
+
+    pub unsafe fn convert_ed25519(&self) -> Ed25519Signature {
+        Ed25519Signature { announcement: mul_torsion_safe(&std::mem::transmute(self.announcement)), response: self.response }
+    }
 }
 
 impl Atms for NaiveSchnorr {
@@ -338,10 +346,193 @@ impl Atms for NaiveSchnorr {
     }
 }
 
+use curve25519_dalek::edwards::EdwardsPoint;
+
+#[derive(Debug)]
+pub struct NaiveEd25519;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Ed25519Vk(EdwardsPoint);
+
+fn mul_torsion_safe(point: &EdwardsPoint) -> EdwardsPoint {
+    point * BASEPOINT_ORDER * Scalar::from(3u8) + point
+}
+
+impl Ed25519Vk {
+    /// Compare two `iEd25519Vk`s. Used for PartialOrd impl, used to order keys. The comparison
+    /// function can be anything, as long as it is consistent.
+    pub fn cmp_msp_mvk(&self, other: &Self) -> Ordering {
+        let lhs_bytes = self.0.compress();
+        let rhs_bytes = other.0.compress();
+
+        for (l, r) in lhs_bytes.as_bytes().iter().zip(rhs_bytes.as_bytes().iter()) {
+            match l.cmp(r) {
+                Ordering::Less => return Ordering::Less,
+                Ordering::Equal => continue,
+                Ordering::Greater => return Ordering::Greater,
+            }
+        }
+        Ordering::Equal
+    }
+}
+
+impl PartialOrd for Ed25519Vk {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp_msp_mvk(other))
+    }
+}
+
+impl Ord for Ed25519Vk {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.cmp_msp_mvk(other)
+    }
+}
+
+impl ToBytes for Ed25519Vk {
+    fn write<W: Write>(&self, mut writer: W) -> Result<(), Error> {
+        writer.write_all(self.0.compress().as_bytes())?;
+        Ok(())
+    }
+}
+
+impl<'a> Sum<&'a Self> for Ed25519Vk {
+    fn sum<I>(iter: I) -> Self
+        where
+            I: Iterator<Item = &'a Self>,
+    {
+        Ed25519Vk(iter.map(|x| x.0).sum())
+    }
+}
+
+#[allow(clippy::derive_hash_xor_eq)]
+impl Hash for Ed25519Vk {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.0.compress().as_bytes().hash(state);
+    }
+}
+
+impl Sub<Ed25519Vk> for Ed25519Vk {
+    type Output = Self;
+    fn sub(self, rhs: Self) -> Self {
+        Ed25519Vk(self.0 - rhs.0)
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Ed25519Signature {
+    announcement: EdwardsPoint,
+    response: Scalar,
+}
+
+impl PartialOrd for Ed25519Signature {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp_msp_mvk(other))
+    }
+}
+
+impl Ord for Ed25519Signature {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.cmp_msp_mvk(other)
+    }
+}
+
+impl<'a> Sum<&'a Self> for Ed25519Signature {
+    fn sum<I>(iter: I) -> Self
+        where
+            I: Iterator<Item = &'a Self>,
+    {
+        // todo: definitely not the way to go
+        let mut announcement = EdwardsPoint::identity();
+        let mut response = Scalar::zero();
+        for element in iter {
+            announcement = element.announcement;
+            response += element.response;
+        }
+        Ed25519Signature {
+            response,
+            announcement,
+        }
+    }
+}
+
+impl Ed25519Signature {
+    fn verify(&self, pk: &Ed25519Vk, message: &[u8]) -> Result<(), ()> {
+        let lhs = self.response * EdwardsPoint::identity();
+
+        let challenge = Scalar::from_hash(
+            Blake2b::new()
+                .chain(pk.0.compress().as_bytes())
+                .chain(self.announcement.compress().as_bytes())
+                .chain(message),
+        );
+        let rhs = challenge * pk.0 + self.announcement;
+
+        if lhs != rhs {
+            return Err(());
+        }
+
+        Ok(())
+    }
+
+    /// Compare two `SchnorrSignature`s. Used for PartialOrd impl, used to order signatures. The comparison
+    /// function can be anything, as long as it is consistent.
+    pub fn cmp_msp_mvk(&self, other: &Self) -> Ordering {
+        let lhs_bytes = self.response.as_bytes();
+        let rhs_bytes = other.response.as_bytes();
+
+        for (l, r) in lhs_bytes.iter().zip(rhs_bytes.iter()) {
+            match l.cmp(r) {
+                Ordering::Less => return Ordering::Less,
+                Ordering::Equal => continue,
+                Ordering::Greater => return Ordering::Greater,
+            }
+        }
+
+        Ordering::Equal
+    }
+}
+
+impl Atms for NaiveEd25519 {
+    type PreCheckedPK = SchnorrPk;
+    type PreparedPk = Ed25519Vk;
+    type SIG = Ed25519Signature;
+
+    fn verify(
+        msg: &[u8],
+        aggregate_key: Self::PreparedPk,
+        nonsigners_aggregate_key: Self::PreparedPk,
+        sig: &Self::SIG,
+    ) -> bool {
+        let verification_key = aggregate_key.clone() - nonsigners_aggregate_key;
+
+        sig.verify(&verification_key, msg).is_ok()
+    }
+
+    fn prepare_keys(
+        keys_pop: &[(Self::PreCheckedPK, Stake)],
+    ) -> Option<(Vec<(Self::PreparedPk, Stake)>, Stake)> {
+        let mut total_stake = 0u64;
+        let mut keys = Vec::with_capacity(keys_pop.len());
+
+        for &(pk, stake) in keys_pop.iter() {
+            if !pk.verify_pop() {
+                return None;
+            }
+
+            total_stake += stake;
+            keys.push((
+                unsafe {pk.vk.convert_ed25519()},
+                stake,
+            ));
+        }
+        Some((keys, total_stake))
+    }
+}
+
 fn main() {
     use rand::rngs::OsRng;
     let nr_signers = 4;
-    // let's test NaiveSchnorr
+    // let's test NaiveSchnorr with an ed25519 verifier.
     let msg = b"testing naive Schnorr";
     let signers: Vec<SchnorrSigner> = (0..nr_signers)
         .into_iter()
@@ -417,6 +608,55 @@ fn main() {
     }
 
     let avk = match Avk::<NaiveSchnorr, Blake2b>::new(&keys_stake, threshold) {
+        Ok(key) => key,
+        Err(_) => panic!("Shouldn't happen"),
+    };
+
+    assert!(avk.check(&keys_stake).is_ok());
+
+    let aggr_sig = Asig::new(&avk, &signatures);
+    aggr_sig.verify(msg, &avk).unwrap();
+    // match aggr_sig.verify(msg, &avk) {
+    //     Ok(()) => { },
+    //     _ => {unreachable!()}
+    // }
+
+
+    ////////////////////////////////////////////////////
+    //  Now lets test the ATMS signatures with NSMS.  //
+    ////////////////////////////////////////////////////
+
+    let n = 10u64;
+    let threshold = 8u64;
+    let mut rng = OsRng;
+
+    let mut pkeys: Vec<SchnorrVk> = Vec::new();
+    let mut private_commitments = Vec::new();
+    let mut pub_announcements = Vec::new();
+    let mut signers: Vec<SchnorrSigner> = Vec::new();
+    let mut keys_stake = Vec::new();
+    for _ in 0..n {
+        let signer = SchnorrSigner::new(&mut rng);
+        let (r, c) = SchnorrSigner::commit_randomness(&mut rng);
+        private_commitments.push(r);
+        pub_announcements.push(c);
+        pkeys.push(signer.pk.vk);
+        keys_stake.push((signer.pk, 1));
+        signers.push(signer);
+    }
+
+    let mut signatures: Vec<(Ed25519Vk, Ed25519Signature)> = Vec::new();
+    for (index, signer) in signers[..threshold as usize].iter().enumerate() {
+        let sig = signer.clone().partial_signature(
+            &pkeys[..threshold as usize],
+            &pub_announcements[..threshold as usize],
+            &private_commitments[index],
+            msg,
+        );
+        signatures.push(unsafe { (signer.pk.vk.convert_ed25519(), sig.convert_ed25519()) });
+    }
+
+    let avk = match Avk::<NaiveEd25519, Blake2b>::new(&keys_stake, threshold) {
         Ok(key) => key,
         Err(_) => panic!("Shouldn't happen"),
     };
