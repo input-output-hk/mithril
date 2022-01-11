@@ -82,13 +82,11 @@ fn main() {
         }
 
         let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
-        let msig = clerk
-            .aggregate::<ConcatProof<C, H, F>>(&sigs, &ixs, &msg)
-            .unwrap();
-
-        let mut writer = Vec::new();
-        msig.write(&mut writer)
-            .expect("Failed to write multisignature");
-        println!("k = {}; {} bytes", k, writer.len());
+        if let Ok(msig) = clerk.aggregate::<ConcatProof<C, H, F>>(&sigs, &ixs, &msg) {
+            let mut writer = Vec::new();
+            msig.write(&mut writer)
+                .expect("Failed to write multisignature");
+            println!("k = {}; {} bytes", k, writer.len());
+        }
     }
 }
