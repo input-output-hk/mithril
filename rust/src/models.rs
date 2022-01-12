@@ -31,7 +31,7 @@ pub mod digest {
             DigestHash(vec![0])
         }
 
-        fn as_bytes(h: &Self::F) -> Vec<u8> {
+        fn root_bytes(h: &Self::F) -> Vec<u8> {
             h.0.to_vec()
         }
 

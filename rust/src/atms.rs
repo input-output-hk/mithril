@@ -213,8 +213,8 @@ where
 
         let aggregate: A::SIG = unique_sigs.iter().map(|(_, s)| s).sum();
         Self {
-            keys_proofs,
             aggregate,
+            keys_proofs,
         }
     }
 

@@ -2,7 +2,6 @@
 
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
-use std::iter::FromIterator;
 
 use super::msp::{Msp, MspMvk, MspPk};
 use super::stm::{PartyId, Stake};
@@ -130,7 +129,7 @@ where
             (*id, party)
         });
         Self {
-            parties: HashMap::from_iter(parties),
+            parties: parties.collect(),
             keys: HashSet::new(),
         }
     }
