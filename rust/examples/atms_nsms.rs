@@ -242,6 +242,67 @@ impl SchnorrSigner {
         }
     }
 
+    fn ed25519_compat_partial_signature(
+        self,
+        pks: &[SchnorrVk],
+        committed_randomness: &[RistrettoPoint],
+        private_randomness: &Scalar,
+        message: &[u8],
+    ) -> SchnorrSignature {
+        let aggr_key = Self::aggregate_keys(pks);
+        let mut announcement = RistrettoPoint::identity();
+
+        for committed_pair in committed_randomness {
+            announcement += committed_pair;
+        }
+
+        let announcement_ed25519 = unsafe { mul_torsion_safe(&std::mem::transmute(announcement)) };
+        let challenge = unsafe {
+            Scalar::from_hash(
+                Blake2b::new()
+                    .chain(aggr_key.convert_ed25519().0.compress().as_bytes() )
+                    .chain(announcement_ed25519.compress().as_bytes())
+                    .chain(message),
+            )
+        };
+
+        let response = challenge * self.sk + private_randomness;
+
+        SchnorrSignature {
+            announcement,
+            response,
+        }
+    }
+
+    fn ed25519_compat_signature<R>(
+        &self,
+        message: &[u8],
+        rng: &mut R
+    ) -> SchnorrSignature
+    where
+        R: CryptoRng + RngCore
+    {
+        let randomness = Scalar::random(rng);
+        let announcement = randomness * RISTRETTO_BASEPOINT_POINT;
+
+        let announcement_ed25519 = unsafe { mul_torsion_safe(&std::mem::transmute(announcement)) };
+        let challenge = unsafe {
+            Scalar::from_hash(
+                Blake2b::new()
+                    .chain(self.pk.vk.convert_ed25519().0.compress().as_bytes() )
+                    .chain(announcement_ed25519.compress().as_bytes())
+                    .chain(message),
+            )
+        };
+
+        let response = challenge * self.sk + randomness;
+
+        SchnorrSignature {
+            announcement,
+            response,
+        }
+    }
+
     fn aggregate_signatures(sigs: &[SchnorrSignature]) -> Result<SchnorrSignature, ()> {
         // todo: Maybe we want to check the announcement here as well
         let announcement = sigs[0].announcement;
@@ -347,6 +408,7 @@ impl Atms for NaiveSchnorr {
 }
 
 use curve25519_dalek::edwards::EdwardsPoint;
+use curve25519_dalek::constants::ED25519_BASEPOINT_POINT;
 
 #[derive(Debug)]
 pub struct NaiveEd25519;
@@ -457,7 +519,7 @@ impl<'a> Sum<&'a Self> for Ed25519Signature {
 
 impl Ed25519Signature {
     fn verify(&self, pk: &Ed25519Vk, message: &[u8]) -> Result<(), ()> {
-        let lhs = self.response * EdwardsPoint::identity();
+        let lhs = self.response * ED25519_BASEPOINT_POINT;
 
         let challenge = Scalar::from_hash(
             Blake2b::new()
@@ -465,6 +527,7 @@ impl Ed25519Signature {
                 .chain(self.announcement.compress().as_bytes())
                 .chain(message),
         );
+
         let rhs = challenge * pk.0 + self.announcement;
 
         if lhs != rhs {
@@ -621,6 +684,15 @@ fn main() {
     //     _ => {unreachable!()}
     // }
 
+    ////////////////////////////////////////////////////
+    //  Test conversion from Schnorr to ed25519 sig§.  //
+    ////////////////////////////////////////////////////
+
+    let signer = SchnorrSigner::new(&mut rng);
+    let signature = signer.ed25519_compat_signature(msg, &mut rng);
+    let ed25519_signature = unsafe { signature.convert_ed25519() };
+    let ed25519_pk = unsafe { signer.pk.vk.convert_ed25519() };
+    assert!(ed25519_signature.verify(&ed25519_pk, msg).is_ok());
 
     ////////////////////////////////////////////////////
     //  Now lets test the ATMS signatures with NSMS.  //
@@ -647,7 +719,7 @@ fn main() {
 
     let mut signatures: Vec<(Ed25519Vk, Ed25519Signature)> = Vec::new();
     for (index, signer) in signers[..threshold as usize].iter().enumerate() {
-        let sig = signer.clone().partial_signature(
+        let sig = signer.clone().ed25519_compat_partial_signature(
             &pkeys[..threshold as usize],
             &pub_announcements[..threshold as usize],
             &private_commitments[index],
