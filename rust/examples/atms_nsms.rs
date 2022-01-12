@@ -14,7 +14,7 @@
 #![allow(clippy::type_complexity)]
 
 use ark_ff::ToBytes;
-use blake2::{Blake2b, Digest};
+use sha2::{Sha512, Digest};
 use curve25519_dalek::{
     constants::{RISTRETTO_BASEPOINT_POINT, BASEPOINT_ORDER}, ristretto::RistrettoPoint, scalar::Scalar,
     traits::Identity,
@@ -56,7 +56,8 @@ impl SchnorrVk {
     }
 
     pub unsafe fn convert_ed25519(&self) -> Ed25519Vk {
-        Ed25519Vk(mul_torsion_safe(&std::mem::transmute(self.0)))
+        let point: EdwardsPoint = mul_torsion_safe(&std::mem::transmute(self.0));
+        Ed25519Vk(DalekPublicKey::from_bytes(point.compress().as_bytes()).expect("Compressed bytes are from an Edwards point"))
     }
 }
 
@@ -89,9 +90,11 @@ impl SchnorrPk {
         let randomness = Scalar::random(rng);
         let announcement = randomness * RISTRETTO_BASEPOINT_POINT;
 
-        let challenge = Scalar::from_hash(blake2::Blake2b::new()
+        let c_hash = Sha512::new()
             .chain(pk.0.compress().as_bytes())
-            .chain(announcement.compress().as_bytes()));
+            .chain(announcement.compress().as_bytes());
+
+        let challenge = Scalar::from_hash(c_hash);
 
         let response = randomness + challenge * sk;
 
@@ -106,7 +109,7 @@ impl SchnorrPk {
         let announcement = self.pop.0;
         let response = self.pop.1;
 
-        let challenge = Scalar::from_hash(blake2::Blake2b::new()
+        let challenge = Scalar::from_hash(Sha512::new()
             .chain(self.vk.0.compress().as_bytes())
             .chain(announcement.compress().as_bytes()));
 
@@ -228,9 +231,9 @@ impl SchnorrSigner {
         }
 
         let challenge = Scalar::from_hash(
-            Blake2b::new()
-                .chain(aggr_key.0.compress().as_bytes())
+            Sha512::new()
                 .chain(announcement.compress().as_bytes())
+                .chain(aggr_key.0.compress().as_bytes())
                 .chain(message),
         );
 
@@ -259,9 +262,9 @@ impl SchnorrSigner {
         let announcement_ed25519 = unsafe { mul_torsion_safe(&std::mem::transmute(announcement)) };
         let challenge = unsafe {
             Scalar::from_hash(
-                Blake2b::new()
-                    .chain(aggr_key.convert_ed25519().0.compress().as_bytes() )
+                Sha512::new()
                     .chain(announcement_ed25519.compress().as_bytes())
+                    .chain(aggr_key.convert_ed25519().0.as_bytes() )
                     .chain(message),
             )
         };
@@ -288,9 +291,9 @@ impl SchnorrSigner {
         let announcement_ed25519 = unsafe { mul_torsion_safe(&std::mem::transmute(announcement)) };
         let challenge = unsafe {
             Scalar::from_hash(
-                Blake2b::new()
-                    .chain(self.pk.vk.convert_ed25519().0.compress().as_bytes() )
+                Sha512::new()
                     .chain(announcement_ed25519.compress().as_bytes())
+                    .chain(self.pk.vk.convert_ed25519().0.as_bytes() )
                     .chain(message),
             )
         };
@@ -334,9 +337,9 @@ impl SchnorrSignature {
         let lhs = self.response * RISTRETTO_BASEPOINT_POINT;
 
         let challenge = Scalar::from_hash(
-            Blake2b::new()
-                .chain(pk.0.compress().as_bytes())
+            Sha512::new()
                 .chain(self.announcement.compress().as_bytes())
+                .chain(pk.0.compress().as_bytes())
                 .chain(message),
         );
         let rhs = challenge * pk.0 + self.announcement;
@@ -366,7 +369,11 @@ impl SchnorrSignature {
     }
 
     pub unsafe fn convert_ed25519(&self) -> Ed25519Signature {
-        Ed25519Signature { announcement: mul_torsion_safe(&std::mem::transmute(self.announcement)), response: self.response }
+        let mut ed_signature = [0u8; 64];
+        let announcement = mul_torsion_safe(&std::mem::transmute(self.announcement));
+        ed_signature[..32].copy_from_slice(announcement.compress().as_bytes());
+        ed_signature[32..].copy_from_slice(self.response.as_bytes());
+        Ed25519Signature ( DalekSignature::from_bytes(&ed_signature).expect("Is a valid signature") )
     }
 }
 
@@ -407,27 +414,31 @@ impl Atms for NaiveSchnorr {
     }
 }
 
-use curve25519_dalek::edwards::EdwardsPoint;
-use curve25519_dalek::constants::ED25519_BASEPOINT_POINT;
+use curve25519_dalek::edwards::{EdwardsPoint, CompressedEdwardsY};
 
 #[derive(Debug)]
 pub struct NaiveEd25519;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Ed25519Vk(EdwardsPoint);
+pub struct Ed25519Vk(DalekPublicKey);
 
 fn mul_torsion_safe(point: &EdwardsPoint) -> EdwardsPoint {
     point * BASEPOINT_ORDER * Scalar::from(3u8) + point
 }
 
 impl Ed25519Vk {
+    pub fn from_point(point: EdwardsPoint) -> Self {
+        Ed25519Vk(DalekPublicKey::from_bytes(point.compress().as_bytes()).expect("Will work"))
+    }
+    pub fn to_point(&self) -> EdwardsPoint {
+        CompressedEdwardsY::from_slice(self.0.as_bytes())
+            .decompress()
+            .expect("Bytes of public key represent a valid point")
+    }
     /// Compare two `iEd25519Vk`s. Used for PartialOrd impl, used to order keys. The comparison
     /// function can be anything, as long as it is consistent.
     pub fn cmp_msp_mvk(&self, other: &Self) -> Ordering {
-        let lhs_bytes = self.0.compress();
-        let rhs_bytes = other.0.compress();
-
-        for (l, r) in lhs_bytes.as_bytes().iter().zip(rhs_bytes.as_bytes().iter()) {
+        for (l, r) in self.0.as_bytes().iter().zip(other.0.as_bytes().iter()) {
             match l.cmp(r) {
                 Ordering::Less => return Ordering::Less,
                 Ordering::Equal => continue,
@@ -452,7 +463,7 @@ impl Ord for Ed25519Vk {
 
 impl ToBytes for Ed25519Vk {
     fn write<W: Write>(&self, mut writer: W) -> Result<(), Error> {
-        writer.write_all(self.0.compress().as_bytes())?;
+        writer.write_all(self.0.as_bytes())?;
         Ok(())
     }
 }
@@ -462,29 +473,36 @@ impl<'a> Sum<&'a Self> for Ed25519Vk {
         where
             I: Iterator<Item = &'a Self>,
     {
-        Ed25519Vk(iter.map(|x| x.0).sum())
+        let mut aggr_point = EdwardsPoint::identity();
+        for point in iter {
+            aggr_point += point.to_point();
+        }
+        Ed25519Vk::from_point(aggr_point)
     }
 }
 
 #[allow(clippy::derive_hash_xor_eq)]
 impl Hash for Ed25519Vk {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.0.compress().as_bytes().hash(state);
+        self.0.as_bytes().hash(state);
     }
 }
 
 impl Sub<Ed25519Vk> for Ed25519Vk {
     type Output = Self;
     fn sub(self, rhs: Self) -> Self {
-        Ed25519Vk(self.0 - rhs.0)
+        let lhs = CompressedEdwardsY::from_slice(self.0.as_bytes())
+            .decompress()
+            .expect("Bytes of public key represent a valid point");
+        let rhs = CompressedEdwardsY::from_slice(rhs.0.as_bytes())
+            .decompress()
+            .expect("Bytes of public key represent a valid point");
+        Ed25519Vk(DalekPublicKey::from_bytes((lhs - rhs).compress().as_bytes()).expect("Point is valid"))
     }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct Ed25519Signature {
-    announcement: EdwardsPoint,
-    response: Scalar,
-}
+pub struct Ed25519Signature(DalekSignature);
 
 impl PartialOrd for Ed25519Signature {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -503,47 +521,59 @@ impl<'a> Sum<&'a Self> for Ed25519Signature {
         where
             I: Iterator<Item = &'a Self>,
     {
-        // todo: definitely not the way to go
         let mut announcement = EdwardsPoint::identity();
         let mut response = Scalar::zero();
         for element in iter {
-            announcement = element.announcement;
-            response += element.response;
+            let (current_ann, current_res) = element.extract_ann_res();
+            announcement = current_ann;
+            response += current_res;
         }
-        Ed25519Signature {
-            response,
-            announcement,
-        }
+
+        let mut resulting_sig = [0u8; 64];
+        resulting_sig[..32].copy_from_slice(announcement.compress().as_bytes());
+        resulting_sig[32..].copy_from_slice(response.as_bytes());
+        Ed25519Signature(DalekSignature::from_bytes(&resulting_sig).expect("Signature must be valid"))
     }
 }
 
 impl Ed25519Signature {
+    fn extract_ann_res(&self) -> (EdwardsPoint, Scalar) {
+        let announcement = CompressedEdwardsY::from_slice(&self.0.to_bytes()[..32]).decompress().expect("Point is valid in signature");
+        let mut res_bytes = [0u8; 32];
+        res_bytes.copy_from_slice(&self.0.to_bytes()[32..]);
+        let response = Scalar::from_bits(res_bytes);
+        (announcement, response)
+    }
+
     fn verify(&self, pk: &Ed25519Vk, message: &[u8]) -> Result<(), ()> {
-        let lhs = self.response * ED25519_BASEPOINT_POINT;
-
-        let challenge = Scalar::from_hash(
-            Blake2b::new()
-                .chain(pk.0.compress().as_bytes())
-                .chain(self.announcement.compress().as_bytes())
-                .chain(message),
-        );
-
-        let rhs = challenge * pk.0 + self.announcement;
-
-        if lhs != rhs {
-            return Err(());
+        match pk.0.verify(message, &self.0) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(())
         }
-
-        Ok(())
+        // let (announcement, response) = self.extract_ann_res();
+        // let lhs = response * ED25519_BASEPOINT_POINT;
+        //
+        // let challenge = Scalar::from_hash(
+        //     Sha512::new()
+        //         .chain(pk.0.as_bytes())
+        //         .chain(announcement.compress().as_bytes())
+        //         .chain(message),
+        // );
+        //
+        // let rhs = challenge * pk.to_point() + announcement;
+        //
+        // if lhs != rhs {
+        //     return Err(());
+        // }
+        //
+        // Ok(())
     }
 
     /// Compare two `SchnorrSignature`s. Used for PartialOrd impl, used to order signatures. The comparison
     /// function can be anything, as long as it is consistent.
     pub fn cmp_msp_mvk(&self, other: &Self) -> Ordering {
-        let lhs_bytes = self.response.as_bytes();
-        let rhs_bytes = other.response.as_bytes();
 
-        for (l, r) in lhs_bytes.iter().zip(rhs_bytes.iter()) {
+        for (l, r) in self.0.to_bytes().iter().zip(other.0.to_bytes().iter()) {
             match l.cmp(r) {
                 Ordering::Less => return Ordering::Less,
                 Ordering::Equal => continue,
@@ -554,6 +584,8 @@ impl Ed25519Signature {
         Ordering::Equal
     }
 }
+
+use ed25519_dalek::{PublicKey as DalekPublicKey, Signature as DalekSignature, Verifier};
 
 impl Atms for NaiveEd25519 {
     type PreCheckedPK = SchnorrPk;
@@ -670,7 +702,7 @@ fn main() {
         signatures.push((signer.pk.vk, sig));
     }
 
-    let avk = match Avk::<NaiveSchnorr, Blake2b>::new(&keys_stake, threshold) {
+    let avk = match Avk::<NaiveSchnorr, Sha512>::new(&keys_stake, threshold) {
         Ok(key) => key,
         Err(_) => panic!("Shouldn't happen"),
     };
@@ -728,7 +760,7 @@ fn main() {
         signatures.push(unsafe { (signer.pk.vk.convert_ed25519(), sig.convert_ed25519()) });
     }
 
-    let avk = match Avk::<NaiveEd25519, Blake2b>::new(&keys_stake, threshold) {
+    let avk = match Avk::<NaiveEd25519, Sha512>::new(&keys_stake, threshold) {
         Ok(key) => key,
         Err(_) => panic!("Shouldn't happen"),
     };
