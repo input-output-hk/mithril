@@ -9,7 +9,6 @@ use ark_ff::{FromBytes, ToBytes};
 use std::collections::HashSet;
 use std::convert::TryInto;
 use std::io::{Read, Write};
-use std::iter::FromIterator;
 use std::rc::Rc;
 
 /// The statement we want to prove, namely that
@@ -132,7 +131,14 @@ where
 
     /// \forall i. \forall j. (i == j || index[i] != index[j])
     fn check_index_unique(&self) -> Result<(), MithrilWitnessError<PE, H::F>> {
-        if HashSet::<Index>::from_iter(self.indices.iter().cloned()).len() != self.indices.len() {
+        if self
+            .indices
+            .iter()
+            .cloned()
+            .collect::<HashSet<Index>>()
+            .len()
+            != self.indices.len()
+        {
             return Err(MithrilWitnessError::IndexNotUnique);
         }
         Ok(())

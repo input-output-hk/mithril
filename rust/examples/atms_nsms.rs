@@ -14,9 +14,10 @@
 #![allow(clippy::type_complexity)]
 
 use ark_ff::ToBytes;
-use sha2::{Sha512, Digest};
 use curve25519_dalek::{
-    constants::{RISTRETTO_BASEPOINT_POINT, BASEPOINT_ORDER}, ristretto::RistrettoPoint, scalar::Scalar,
+    constants::{BASEPOINT_ORDER, RISTRETTO_BASEPOINT_POINT},
+    ristretto::RistrettoPoint,
+    scalar::Scalar,
     traits::Identity,
 };
 use mithril::{
@@ -24,6 +25,7 @@ use mithril::{
     stm::Stake,
 };
 use rand::{CryptoRng, RngCore};
+use sha2::{Digest, Sha512};
 use std::{
     cmp::Ordering,
     hash::{Hash, Hasher},
@@ -57,7 +59,10 @@ impl SchnorrVk {
 
     pub unsafe fn convert_ed25519(&self) -> Ed25519Vk {
         let point: EdwardsPoint = mul_torsion_safe(&std::mem::transmute(self.0));
-        Ed25519Vk(DalekPublicKey::from_bytes(point.compress().as_bytes()).expect("Compressed bytes are from an Edwards point"))
+        Ed25519Vk(
+            DalekPublicKey::from_bytes(point.compress().as_bytes())
+                .expect("Compressed bytes are from an Edwards point"),
+        )
     }
 }
 
@@ -85,7 +90,8 @@ pub struct SchnorrPk {
 
 impl SchnorrPk {
     pub fn new<R>(pk: SchnorrVk, sk: Scalar, rng: &mut R) -> Self
-    where R: CryptoRng + RngCore
+    where
+        R: CryptoRng + RngCore,
     {
         let randomness = Scalar::random(rng);
         let announcement = randomness * RISTRETTO_BASEPOINT_POINT;
@@ -98,20 +104,21 @@ impl SchnorrPk {
 
         let response = randomness + challenge * sk;
 
-        Self{
+        Self {
             vk: pk,
-            pop: (announcement, response)
+            pop: (announcement, response),
         }
-
     }
     /// Verify PoP
     pub fn verify_pop(&self) -> bool {
         let announcement = self.pop.0;
         let response = self.pop.1;
 
-        let challenge = Scalar::from_hash(Sha512::new()
-            .chain(self.vk.0.compress().as_bytes())
-            .chain(announcement.compress().as_bytes()));
+        let challenge = Scalar::from_hash(
+            Sha512::new()
+                .chain(self.vk.0.compress().as_bytes())
+                .chain(announcement.compress().as_bytes()),
+        );
 
         let lhs = response * RISTRETTO_BASEPOINT_POINT;
         let rhs = announcement + challenge * self.vk.0;
@@ -129,8 +136,8 @@ impl ToBytes for SchnorrVk {
 
 impl<'a> Sum<&'a Self> for SchnorrVk {
     fn sum<I>(iter: I) -> Self
-        where
-            I: Iterator<Item = &'a Self>,
+    where
+        I: Iterator<Item = &'a Self>,
     {
         SchnorrVk(iter.map(|x| x.0).sum())
     }
@@ -176,8 +183,8 @@ impl Ord for SchnorrSignature {
 
 impl<'a> Sum<&'a Self> for SchnorrSignature {
     fn sum<I>(iter: I) -> Self
-        where
-            I: Iterator<Item = &'a Self>,
+    where
+        I: Iterator<Item = &'a Self>,
     {
         // todo: definitely not the way to go
         let mut announcement = RISTRETTO_BASEPOINT_POINT;
@@ -195,8 +202,8 @@ impl<'a> Sum<&'a Self> for SchnorrSignature {
 
 impl SchnorrSigner {
     fn new<R>(rng: &mut R) -> Self
-        where
-            R: CryptoRng + RngCore,
+    where
+        R: CryptoRng + RngCore,
     {
         let sk = Scalar::random(rng);
         let vk = SchnorrVk(sk * RISTRETTO_BASEPOINT_POINT);
@@ -207,8 +214,8 @@ impl SchnorrSigner {
     }
 
     fn commit_randomness<R>(rng: &mut R) -> (Scalar, RistrettoPoint)
-        where
-            R: CryptoRng + RngCore,
+    where
+        R: CryptoRng + RngCore,
     {
         let randomness = Scalar::random(rng);
         let commitment = randomness * RISTRETTO_BASEPOINT_POINT;
@@ -264,7 +271,7 @@ impl SchnorrSigner {
             Scalar::from_hash(
                 Sha512::new()
                     .chain(announcement_ed25519.compress().as_bytes())
-                    .chain(aggr_key.convert_ed25519().0.as_bytes() )
+                    .chain(aggr_key.convert_ed25519().0.as_bytes())
                     .chain(message),
             )
         };
@@ -277,13 +284,9 @@ impl SchnorrSigner {
         }
     }
 
-    fn ed25519_compat_signature<R>(
-        &self,
-        message: &[u8],
-        rng: &mut R
-    ) -> SchnorrSignature
+    fn ed25519_compat_signature<R>(&self, message: &[u8], rng: &mut R) -> SchnorrSignature
     where
-        R: CryptoRng + RngCore
+        R: CryptoRng + RngCore,
     {
         let randomness = Scalar::random(rng);
         let announcement = randomness * RISTRETTO_BASEPOINT_POINT;
@@ -293,7 +296,7 @@ impl SchnorrSigner {
             Scalar::from_hash(
                 Sha512::new()
                     .chain(announcement_ed25519.compress().as_bytes())
-                    .chain(self.pk.vk.convert_ed25519().0.as_bytes() )
+                    .chain(self.pk.vk.convert_ed25519().0.as_bytes())
                     .chain(message),
             )
         };
@@ -373,7 +376,7 @@ impl SchnorrSignature {
         let announcement = mul_torsion_safe(&std::mem::transmute(self.announcement));
         ed_signature[..32].copy_from_slice(announcement.compress().as_bytes());
         ed_signature[32..].copy_from_slice(self.response.as_bytes());
-        Ed25519Signature ( DalekSignature::from_bytes(&ed_signature).expect("Is a valid signature") )
+        Ed25519Signature(DalekSignature::from_bytes(&ed_signature).expect("Is a valid signature"))
     }
 }
 
@@ -405,16 +408,13 @@ impl Atms for NaiveSchnorr {
             }
 
             total_stake += stake;
-            keys.push((
-                pk.vk,
-                stake,
-            ));
+            keys.push((pk.vk, stake));
         }
         Some((keys, total_stake))
     }
 }
 
-use curve25519_dalek::edwards::{EdwardsPoint, CompressedEdwardsY};
+use curve25519_dalek::edwards::{CompressedEdwardsY, EdwardsPoint};
 
 #[derive(Debug)]
 pub struct NaiveEd25519;
@@ -470,8 +470,8 @@ impl ToBytes for Ed25519Vk {
 
 impl<'a> Sum<&'a Self> for Ed25519Vk {
     fn sum<I>(iter: I) -> Self
-        where
-            I: Iterator<Item = &'a Self>,
+    where
+        I: Iterator<Item = &'a Self>,
     {
         let mut aggr_point = EdwardsPoint::identity();
         for point in iter {
@@ -497,7 +497,9 @@ impl Sub<Ed25519Vk> for Ed25519Vk {
         let rhs = CompressedEdwardsY::from_slice(rhs.0.as_bytes())
             .decompress()
             .expect("Bytes of public key represent a valid point");
-        Ed25519Vk(DalekPublicKey::from_bytes((lhs - rhs).compress().as_bytes()).expect("Point is valid"))
+        Ed25519Vk(
+            DalekPublicKey::from_bytes((lhs - rhs).compress().as_bytes()).expect("Point is valid"),
+        )
     }
 }
 
@@ -518,8 +520,8 @@ impl Ord for Ed25519Signature {
 
 impl<'a> Sum<&'a Self> for Ed25519Signature {
     fn sum<I>(iter: I) -> Self
-        where
-            I: Iterator<Item = &'a Self>,
+    where
+        I: Iterator<Item = &'a Self>,
     {
         let mut announcement = EdwardsPoint::identity();
         let mut response = Scalar::zero();
@@ -532,13 +534,17 @@ impl<'a> Sum<&'a Self> for Ed25519Signature {
         let mut resulting_sig = [0u8; 64];
         resulting_sig[..32].copy_from_slice(announcement.compress().as_bytes());
         resulting_sig[32..].copy_from_slice(response.as_bytes());
-        Ed25519Signature(DalekSignature::from_bytes(&resulting_sig).expect("Signature must be valid"))
+        Ed25519Signature(
+            DalekSignature::from_bytes(&resulting_sig).expect("Signature must be valid"),
+        )
     }
 }
 
 impl Ed25519Signature {
     fn extract_ann_res(&self) -> (EdwardsPoint, Scalar) {
-        let announcement = CompressedEdwardsY::from_slice(&self.0.to_bytes()[..32]).decompress().expect("Point is valid in signature");
+        let announcement = CompressedEdwardsY::from_slice(&self.0.to_bytes()[..32])
+            .decompress()
+            .expect("Point is valid in signature");
         let mut res_bytes = [0u8; 32];
         res_bytes.copy_from_slice(&self.0.to_bytes()[32..]);
         let response = Scalar::from_bits(res_bytes);
@@ -548,7 +554,7 @@ impl Ed25519Signature {
     fn verify(&self, pk: &Ed25519Vk, message: &[u8]) -> Result<(), ()> {
         match pk.0.verify(message, &self.0) {
             Ok(_) => Ok(()),
-            Err(_) => Err(())
+            Err(_) => Err(()),
         }
         // let (announcement, response) = self.extract_ann_res();
         // let lhs = response * ED25519_BASEPOINT_POINT;
@@ -572,7 +578,6 @@ impl Ed25519Signature {
     /// Compare two `SchnorrSignature`s. Used for PartialOrd impl, used to order signatures. The comparison
     /// function can be anything, as long as it is consistent.
     pub fn cmp_msp_mvk(&self, other: &Self) -> Ordering {
-
         for (l, r) in self.0.to_bytes().iter().zip(other.0.to_bytes().iter()) {
             match l.cmp(r) {
                 Ordering::Less => return Ordering::Less,
@@ -615,10 +620,7 @@ impl Atms for NaiveEd25519 {
             }
 
             total_stake += stake;
-            keys.push((
-                unsafe {pk.vk.convert_ed25519()},
-                stake,
-            ));
+            keys.push((unsafe { pk.vk.convert_ed25519() }, stake));
         }
         Some((keys, total_stake))
     }
@@ -643,27 +645,20 @@ fn main() {
         .into_iter()
         .map(|_| SchnorrSigner::commit_randomness(&mut OsRng))
         .collect();
-    let public_comms: Vec<RistrettoPoint> = commitments
-        .clone()
-        .into_iter()
-        .map(|comm| comm.1)
-        .collect();
+    let public_comms: Vec<RistrettoPoint> =
+        commitments.clone().into_iter().map(|comm| comm.1).collect();
 
     let partial_signatures: Vec<SchnorrSignature> = signers
         .into_iter()
         .enumerate()
         .map(|(index, signer)| {
-            signer.partial_signature(
-                &pks,
-                &public_comms,
-                &commitments[index].0,
-                msg,
-            )
+            signer.partial_signature(&pks, &public_comms, &commitments[index].0, msg)
         })
         .collect();
 
     // now we aggregate them
-    let aggr_sig = SchnorrSigner::aggregate_signatures(&partial_signatures).expect("Not expecting to fail");
+    let aggr_sig =
+        SchnorrSigner::aggregate_signatures(&partial_signatures).expect("Not expecting to fail");
     let aggr_pk = SchnorrSigner::aggregate_keys(&pks);
 
     assert!(aggr_sig.verify(&aggr_pk, msg).is_ok());

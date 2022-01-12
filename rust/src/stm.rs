@@ -408,9 +408,9 @@ where
         Self {
             party_id,
             stake,
-            pk,
-            sk,
             params,
+            sk,
+            pk,
         }
     }
 

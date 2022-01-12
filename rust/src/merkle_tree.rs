@@ -63,7 +63,7 @@ pub trait MTHashLeaf<L> {
     fn zero() -> Self::F;
 
     /// How to extract hashes as bytes
-    fn as_bytes(h: &Self::F) -> Vec<u8>;
+    fn root_bytes(h: &Self::F) -> Vec<u8>;
 
     /// How to map (or label) values with their hash values
     fn inject(&mut self, v: &L) -> Self::F;
@@ -173,7 +173,7 @@ where
 
     /// Convert the root of the tree to bytes.
     pub fn root_to_bytes(&self) -> Vec<u8> {
-        H::as_bytes(&self.nodes[0])
+        H::root_bytes(&self.nodes[0])
     }
 
     /// Get a path (hashes of siblings of the path to the root node
