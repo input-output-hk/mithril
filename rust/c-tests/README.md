@@ -15,7 +15,7 @@ specified [here](https://github.com/google/googletest/blob/main/googletest/READM
 After running `cargo build --release` in the parent directory, build the test executable:
 
 ``` sh
-clang -x c++ tests.c stms.c atms.c -g -o tests -L ./target/release -lmithril -lstdc++ -lgtest -lgtest_main
+clang -x c++ tests.c stms.c -g -o tests -L ./target/release -lmithril -lstdc++ -lgtest -lgtest_main
 ```
 
 **NOTE**: Do not use g++, it does compile but leads to segfault when running the test.
@@ -26,29 +26,22 @@ To execute the tests:
 export LD_LIBRARY_PATH=../target/release
 ./tests
 Running main() from ../googletest/src/gtest_main.cc
-[==========] Running 7 tests from 2 test suites.
+[==========] Running 5 tests from 1 test suite.
 [----------] Global test environment set-up.
 [----------] 5 tests from stm
 [ RUN      ] stm.invalidRegistration
-[       OK ] stm.invalidRegistration (19 ms)
+[       OK ] stm.invalidRegistration (21 ms)
 [ RUN      ] stm.clerkFromPublicData
-[       OK ] stm.clerkFromPublicData (86 ms)
+[       OK ] stm.clerkFromPublicData (96 ms)
 [ RUN      ] stm.produceAndVerifyAggregateSignature
-[       OK ] stm.produceAndVerifyAggregateSignature (80 ms)
+[       OK ] stm.produceAndVerifyAggregateSignature (84 ms)
 [ RUN      ] stm.failSigningIfIneligible
-[       OK ] stm.failSigningIfIneligible (60 ms)
+[       OK ] stm.failSigningIfIneligible (63 ms)
 [ RUN      ] stm.dynamicStake
-[       OK ] stm.dynamicStake (93 ms)
-[----------] 5 tests from stm (340 ms total)
-
-[----------] 2 tests from atm
-[ RUN      ] atm.produceAndVerifyAggregateSignature
-[       OK ] atm.produceAndVerifyAggregateSignature (45 ms)
-[ RUN      ] atm.testingErrors
-[       OK ] atm.testingErrors (69 ms)
-[----------] 2 tests from atm (115 ms total)
+[       OK ] stm.dynamicStake (103 ms)
+[----------] 5 tests from stm (370 ms total)
 
 [----------] Global test environment tear-down
-[==========] 7 tests from 2 test suites ran. (456 ms total)
-[  PASSED  ] 7 tests.
+[==========] 5 tests from 1 test suite ran. (370 ms total)
+[  PASSED  ] 5 tests.
 ```
