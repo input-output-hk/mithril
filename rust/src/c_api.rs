@@ -1,8 +1,6 @@
 //! C api. All functions return an i64, with 0 upon success, and -99 if the returned pointer
 //! is null. Other error codes are function dependent.
-use crate::atms::{Asig, Avk};
 use crate::key_reg::{ClosedKeyReg, KeyReg};
-use crate::msp::{Msp, MspSig};
 use crate::{
     merkle_tree::{MTHashLeaf, MerkleTree},
     mithril_proof::concat_proofs::{ConcatProof, TrivialEnv},
@@ -20,7 +18,6 @@ type H = blake2::Blake2b;
 type F = <H as MTHashLeaf<MTValue<C>>>::F;
 type MspSkPtr = *mut MspSk<C>;
 type MspPkPtr = *mut MspPk<C>;
-type MspSigPtr = *mut MspSig<C>;
 type SigPtr = *mut StmSig<C, F>;
 type MultiSigPtr = *mut StmMultiSig<C, ConcatProof<C, H, F>>;
 type StmInitializerPtr = *mut StmInitializer<C>;
@@ -29,8 +26,6 @@ type StmClerkPtr = *mut StmClerk<H, C, TrivialEnv>;
 type MerkleTreePtr = *mut MerkleTree<MTValue<C>, H>;
 type KeyRegPtr = *mut KeyReg<C>;
 type ClosedKeyRegPtr = *mut ClosedKeyReg<C, H>;
-type AvkPtr = *mut Avk<Msp<C>, H>;
-type AsigPtr = *mut Asig<Msp<C>, F>;
 
 // A macro would be nice for the below, but macros do not
 // seem to work properly with cbindgen:
@@ -667,161 +662,6 @@ mod clerk {
                     Ok(()) => 0,
                     Err(MultiVerificationFailure::InvalidAggregate(_)) => -1,
                     Err(MultiVerificationFailure::ProofError(e)) => e.into(),
-                };
-            }
-            NULLPOINTERERR
-        }
-    }
-}
-
-mod msp {
-    use super::*;
-    use crate::msp::Msp;
-
-    #[no_mangle]
-    pub extern "C" fn msp_generate_keypair(sk_ptr: *mut MspSkPtr, pk_ptr: *mut MspPkPtr) -> i64 {
-        let mut rng = OsRng::default();
-        let (sk, pk) = Msp::gen(&mut rng);
-        unsafe {
-            if let (Some(ref_sk), Some(ref_pk)) = (sk_ptr.as_mut(), pk_ptr.as_mut()) {
-                *ref_sk = Box::into_raw(Box::new(sk));
-                *ref_pk = Box::into_raw(Box::new(pk));
-                return 0;
-            }
-            NULLPOINTERERR
-        }
-    }
-
-    #[no_mangle]
-    pub extern "C" fn msp_sign(
-        msg_ptr: *const c_char,
-        key_ptr: MspSkPtr,
-        signature_pts: *mut MspSigPtr,
-    ) -> i64 {
-        unsafe {
-            if let (Some(ref_key), Some(ref_msg), Some(ref_sig)) =
-                (key_ptr.as_ref(), msg_ptr.as_ref(), signature_pts.as_mut())
-            {
-                let msg = CStr::from_ptr(ref_msg);
-                *ref_sig = Box::into_raw(Box::new(Msp::sig(ref_key, msg.to_bytes())));
-                return 0;
-            }
-            NULLPOINTERERR
-        }
-    }
-
-    #[no_mangle]
-    pub extern "C" fn msp_verify(
-        msg_ptr: *const c_char,
-        key_ptr: MspPkPtr,
-        sig_ptr: MspSigPtr,
-    ) -> i64 {
-        unsafe {
-            if let (Some(ref_msg), Some(ref_key), Some(ref_sig)) =
-                (msg_ptr.as_ref(), key_ptr.as_ref(), sig_ptr.as_ref())
-            {
-                let msg = CStr::from_ptr(ref_msg);
-                return match Msp::ver(msg.to_bytes(), &ref_key.mvk, ref_sig) {
-                    true => 0,
-                    false => -1,
-                };
-            }
-            NULLPOINTERERR
-        }
-    }
-}
-mod atms {
-    use super::*;
-    use crate::atms::AtmsError;
-    use core::slice;
-
-    #[no_mangle]
-    /// Performs the key aggregation. Returns 0 upon success, or -1 if one of the keys included in
-    /// the aggregation have an invalid proof of possession.
-    pub extern "C" fn avk_key_aggregation(
-        keys: *const MspPkPtr,
-        stake: *const Stake,
-        nr_signers: usize,
-        threshold: usize,
-        avk_key: *mut AvkPtr,
-    ) -> i64 {
-        unsafe {
-            if let (Some(ref_key), Some(ref_stake), Some(ref_avk_key)) =
-                (keys.as_ref(), stake.as_ref(), avk_key.as_mut())
-            {
-                let stake = slice::from_raw_parts(ref_stake, nr_signers);
-                let pks = slice::from_raw_parts(ref_key, nr_signers)
-                    .iter()
-                    .zip(stake.iter())
-                    .map(|(p, s)| (**p, *s))
-                    .collect::<Vec<_>>();
-                return match Avk::new(&pks, threshold as u64) {
-                    Ok(k) => {
-                        *ref_avk_key = Box::into_raw(Box::new(k));
-                        0
-                    }
-                    Err(_) => -1,
-                };
-            }
-            NULLPOINTERERR
-        }
-    }
-
-    #[no_mangle]
-    pub extern "C" fn atms_aggregate_sigs(
-        sigs_ptr: *const MspSigPtr,
-        pks_ptr: *const MspPkPtr,
-        avk_ptr: AvkPtr,
-        nr_signatures: usize,
-        aggr_sig: *mut AsigPtr,
-    ) -> i64 {
-        unsafe {
-            if let (Some(ref_sigs), Some(ref_pks), Some(ref_avk), Some(ref_aggr_sig)) = (
-                sigs_ptr.as_ref(),
-                pks_ptr.as_ref(),
-                avk_ptr.as_ref(),
-                aggr_sig.as_mut(),
-            ) {
-                let sigs = slice::from_raw_parts(ref_sigs, nr_signatures)
-                    .iter()
-                    .zip(slice::from_raw_parts(ref_pks, nr_signatures).iter())
-                    .map(|(p, k)| ((**k).mvk, **p))
-                    .collect::<Vec<_>>();
-                *ref_aggr_sig = Box::into_raw(Box::new(Asig::new::<H>(ref_avk, &sigs)));
-                return 0;
-            }
-            NULLPOINTERERR
-        }
-    }
-
-    #[no_mangle]
-    /// Verifies a signature `sig_ptr` under aggregated key `avk_ptr`. Returns:
-    /// * 0 upon success
-    /// * -1 if the threshold is not reached
-    /// * -2 if there were duplicates keys in `self`
-    /// * -3 if there is an invalid proof of Merkle Tree membership
-    /// * -4 if a key in `self` is not found in `avk_ptr`
-    /// * -5 if the signature is invalid
-    pub extern "C" fn atms_verify_sig(
-        msg_ptr: *const c_char,
-        sig_ptr: AsigPtr,
-        avk_ptr: AvkPtr,
-    ) -> i64 {
-        unsafe {
-            if let (Some(ref_msg), Some(ref_sig), Some(ref_avk)) =
-                (msg_ptr.as_ref(), sig_ptr.as_ref(), avk_ptr.as_ref())
-            {
-                let msg = CStr::from_ptr(ref_msg);
-                return match ref_sig.verify::<H>(msg.to_bytes(), ref_avk) {
-                    Ok(_) => 0,
-                    Err(AtmsError::TooMuchOutstandingStake(_)) => -1,
-                    Err(AtmsError::FoundDuplicates(_)) => -2,
-                    Err(AtmsError::InvalidMerkleProof(_, _, _)) => -3,
-                    Err(AtmsError::UnknownKey(_)) => -4,
-                    Err(AtmsError::InvalidSignature(_)) => -5,
-                    _ => {
-                        panic!("All errors than can happen from sig.verify are covered");
-                    }
                 };
             }
             NULLPOINTERERR
