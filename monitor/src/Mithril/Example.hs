@@ -11,6 +11,7 @@ data MessageTrace = MessageTrace
   , receiver :: Protocol.PartyId
   , request :: Protocol.PI_STM
   , response :: Maybe Protocol.PI_STM
+  , time :: Int
   }
 
 message :: Protocol.PI_STM -> Maybe Protocol.Message
@@ -26,18 +27,20 @@ message p =
 -- We can define a simple monitor that terminates when it sees a problem
 -- or it stops looking
 
-type Monitor a = Monitor.Monitor MessageTrace a
+type Monitor a = Monitor.Monitor MessageTrace String a
 
 data Check =
     Ok
   | Problem String
+  deriving (Show, Eq)
 
 
-
+notOk :: Check -> Bool
+notOk = (/=Ok)
 
 -- define what it means for a party to be unknown
-csigPartyUnknown :: Set Protocol.PartyId -> MessageTrace -> Maybe Protocol.PartyId
-csigPartyUnknown pids msg =
+csigRespPartyUnknown :: Set Protocol.PartyId -> MessageTrace -> Maybe Protocol.PartyId
+csigRespPartyUnknown pids msg =
   case response msg of
     Just (Protocol.CreateSigResponse si) ->
       if not (Protocol.siParty si `Set.member` pids)
@@ -48,19 +51,53 @@ csigPartyUnknown pids msg =
 
 -- given a known list of parties, CreateSig should not respond in
 -- a way that involves an unknown party
-createSigUnknownParty :: Set Protocol.PartyId -> Monitor Check
-createSigUnknownParty pids =
-  do  party <- Monitor.onJust (csigPartyUnknown pids)
+createSigUnknownPartyResponse :: Set Protocol.PartyId -> Monitor Check
+createSigUnknownPartyResponse pids =
+  do  party <- Monitor.onJust (csigRespPartyUnknown pids)
       pure $ Problem ("Unknown party id in CreateSig response: " <> show party)
 
+-- the stake in the response of `CreateSig` should be consistent with subsequent use:
+inconsistentStake :: Monitor Check
+inconsistentStake =
+  do  sig <- Monitor.onJust createSigResponse
+      let pid = Protocol.siParty sig
+          stake = snd . Protocol.siReg $ sig
 
--- We can also define a monitor that logs using Writer
+      Monitor.nextWhen (stakeIncorrectForUser stake pid)
+      pure $ Problem ("Inconsistent stake for user " <> show pid)
 
-type ProblemLog = [String]
-type LoggingMonitor a = Monitor.MonitorT MessageTrace (Writer.Writer ProblemLog) a
 
-log :: String -> LoggingMonitor a
-log logmsg = Writer.tell [logmsg]
+-- scope a monitor to a particular message
+messageMonitor :: Set Protocol.PartyId -> Monitor Check
+messageMonitor pids =
+  do  msg <- Monitor.onJust (message . request)  -- TODO: version of this that doesn't consume the incoming message
+      Monitor.filterInput ((==Just msg) . message . request) $
 
-csigPartyUnknownLog :: Set Protocol.PartyId -> LoggingMonitor ()
-csigPartyUnknownLog = undefined
+        -- run these in parallel, since they both return problems - return the first problem
+        Monitor.anyInParallel [ createSigUnknownPartyResponse pids
+                              , inconsistentStake
+                              ]
+
+createSigReq :: MessageTrace -> Maybe MessageTrace
+createSigReq msg =
+  case request msg of
+    Protocol.CreateSig _ _ -> Just msg
+    _ -> Nothing
+
+createSigResponse :: MessageTrace -> Maybe Protocol.SigInfo
+createSigResponse msg =
+  case response msg of
+    Just (Protocol.CreateSigResponse si) -> Just si
+    _ -> Nothing
+
+aggregateSigRequest :: MessageTrace -> Maybe ([Protocol.PartyId], [Protocol.SigInfo], [Protocol.Index], Protocol.Message)
+aggregateSigRequest msg =
+  case request msg of
+    Protocol.Aggregate ps sigs idxs msg -> Just (ps, sigs, idxs, msg)
+    _ -> Nothing
+
+stakeIncorrectForUser :: Protocol.Stake -> Protocol.PartyId -> MessageTrace -> Bool
+stakeIncorrectForUser stake user mt =
+  case request mt of
+    Protocol.Aggregate _ sigs _ _ ->
+      any (/=stake) [snd . Protocol.siReg $ sig | sig <- sigs, Protocol.siParty sig == user]

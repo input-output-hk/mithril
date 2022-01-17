@@ -20,6 +20,9 @@ extra-source-files:  CHANGELOG.md
 library
   exposed-modules:      Mithril.Protocol
                         Mithril.Monitor
+                        Mithril.Messages
+
+
   -- other-modules:
   -- other-extensions:
   build-depends:        base ^>=4.13.0.0,
@@ -27,7 +30,11 @@ library
                         containers,
                         async,
                         mtl,
-                        random
+                        random,
+                        void,
+                        time,
+                        aeson,
+                        free
   hs-source-dirs:       src
   default-language:     Haskell2010
 

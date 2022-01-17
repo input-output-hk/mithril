@@ -1,146 +1,149 @@
-{-# LANGUAGE GADTs #-}
 module Mithril.Monitor where
 
-import qualified Control.Monad.Identity as Identity
+import Control.Monad((>=>), ap)
+import Control.Applicative((<|>))
 import qualified Data.Foldable as Foldable
-import qualified Control.Monad.Trans as Trans
 
-data MonitorT msg m a where
-  Result :: Monad m => a -> MonitorT msg m a
-  Continue :: Monad m => (msg -> m (MonitorT msg m a)) -> MonitorT msg m a
+data Monitor i o a =
+    Result a
+  | Yield o (Monitor i o a)
+  | Continue (i -> Monitor i o a)
 
-type Monitor msg a = MonitorT msg Identity.Identity a
+log :: o -> Monitor i o ()
+log l = Yield l (pure ())
 
-instance Monad m => Functor (MonitorT msg m) where
-  fmap f ma =
-    case ma of
+instance Functor (Monitor i o) where
+  fmap f m =
+    case m of
       Result a -> Result (f a)
-      Continue c ->
-        Continue $ \msg ->
-          do  ma' <- c msg
-              pure $ fmap f ma'
+      Yield o c -> Yield o (fmap f c)
+      Continue c -> Continue (fmap f . c)
 
-instance Monad m => Applicative (MonitorT msg m) where
-  mf <*> ma = mf >>= \f -> f <$> ma
+instance Applicative (Monitor i o) where
+  (<*>) = ap
   pure a = Result a
 
-instance Monad m => Monad (MonitorT msg m) where
+instance Monad (Monitor i o) where
   ma >>= fmb =
     case ma of
-      Result a -> fmb a
-      Continue c -> Continue (cont c)
-    where
-      cont c msg =
-        do  ma' <- c msg
-            pure (ma' >>= fmb)
+      Result a  -> fmb a
+      Yield o c -> Yield o (c >>= fmb)
+      Continue c -> Continue (c >=> fmb)
 
--- instance Trans.MonadTrans (MonitorT msg) where
---   -- lift :: Monad m => m a -> MonitorT msg m a
---   lift m =
---     fmap Result
--------------------------------------------------------------------------------
--- API
+--
 
-observe' :: Monitor msg a -> msg -> Monitor msg a
-observe' mon msg =
+observe :: Monitor i o a -> i -> Monitor i o a
+observe mon msg =
   case mon of
     Result a -> Result a
-    Continue c -> Identity.runIdentity (c msg)
+    Yield o m -> Yield o (m `observe` msg)
+    Continue c  -> c msg
 
-observe :: Monad m => MonitorT msg m a -> msg -> m (MonitorT msg m a)
-observe mt msg =
-  case mt of
-    Result a -> pure $ Result a
-    Continue c -> c msg
+-- TODO: make tail recursive
+output :: Monitor i o a -> (Monitor i o a, [o])
+output ma =
+  case ma of
+    Yield o ma' ->
+      let (ma'', os) = output ma'
+      in (ma'', o:os)
+    Continue _ -> (ma, [])
+    Result _ -> (ma, [])
 
-getResult :: MonitorT msg m a -> Maybe a
-getResult (Continue _) = Nothing
-getResult (Result a) = Just a
+step :: Monitor i o a -> i -> (Monitor i o a, [o])
+step m msg = output (m `observe` msg)
 
-hasResult :: MonitorT msg m a -> Bool
-hasResult m =
-  case m of
-    Result _ -> True
-    Continue _ -> False
+next :: Monitor i o i
+next = Continue (pure <$> id)
 
--- | Gets the next message that satisfies a predicate
-next :: Monad m => (msg -> Bool) -> MonitorT msg m msg
-next p = Continue impl
-  where
-    impl msg =
-      if p msg then pure (Result msg) else pure (Continue impl)
+on :: (i -> Monitor i o a) -> Monitor i o a
+on = Continue
 
--- | Completes when the function argument returns Just
-onJust :: Monad m => (msg -> Maybe a) -> MonitorT msg m a
+onJust :: (i -> Maybe a) -> Monitor i o a
 onJust f = Continue impl
   where
     impl msg =
       case f msg of
-        Just a -> pure $ Result a
-        Nothing -> pure $ Continue impl
+        Nothing -> onJust f
+        Just a -> pure a
 
--- | Completes when the function argument returns a non empty list
-onElems :: Monad m => (msg -> [a]) -> MonitorT msg m [a]
-onElems f = Continue impl
+
+
+nextWhen :: (i -> Bool) -> Monitor i o i
+nextWhen p = Continue impl
   where
     impl msg =
-      case f msg of
-        [] -> pure $ Continue impl
-        r -> pure $ Result r
+      if p msg then pure msg else nextWhen p
 
-mapInput :: Monad m => (msg -> b) -> MonitorT b m c -> MonitorT msg m c
-mapInput f m0 =
-  case m0 of
-    Result c -> Result c
-    Continue c -> Continue (impl c)
-  where
-    impl c msg = mapInput f <$> c (f msg)
+getResult :: Monitor i o a -> Maybe a
+getResult (Result a) = Just a
+getResult (Continue _) = Nothing
+getResult (Yield _ m) = getResult m
 
-filterInput :: Monad m => (msg -> Bool) -> MonitorT msg m a -> MonitorT msg m a
-filterInput p m0 =
-  case m0 of
-    Result a -> Result a
-    Continue c -> Continue (impl c)
+-- TODO: doesn't output
+allInParallel :: Traversable t => t (Monitor i o a) -> Monitor i o (t a)
+allInParallel ms =
+  case getResult `traverse` ms of
+    Just as -> pure as
+    Nothing -> Continue impl
   where
-    impl c msg =
-      if p msg
-        then filterInput p <$> c msg
-        else pure $ Continue c
-
--- | Run a container of monitors in parallel, completing when all complete
---   and producing results in the same structure
---   Note that this isn't `traverse` since that is sequential
-parallel :: (Traversable f, Monad m) => f (MonitorT msg m a) -> MonitorT msg m (f a)
-parallel ms =
-    case complete ms of
-        Just as -> Result as
-        Nothing -> Continue impl
-  where
-    complete m = getResult `traverse` m
     impl msg =
-      do  ms' <- (`observe` msg) `traverse` ms
-          pure $ parallel ms'
+      let ms' = (`observe` msg) <$> ms
+      in  allInParallel ms'
 
-
-parallel_ :: (Traversable f, Monad m) => f (MonitorT msg m a) -> MonitorT msg m ()
-parallel_ ms = parallel ms >> pure ()
+allInParallel_ :: (Traversable f) => f (Monitor msg i a) -> Monitor msg i ()
+allInParallel_ ms = allInParallel ms >> pure ()
 
 -- | Run a Traversable of monitors in parallel, completing when the first completes
-parallelAny :: (Traversable f, Monad m) => f (MonitorT msg m a) -> MonitorT msg m a
-parallelAny ms =
+anyInParallel :: (Foldable f, Functor f) => f (Monitor i o a) -> Monitor i o a
+anyInParallel ms =
   case complete ms of
     Just as -> Result as
     Nothing -> Continue impl
   where
     complete m = Foldable.foldl' step Nothing m
 
-    step (Just a) _ = Just a
-    step Nothing (Result a) = Just a
-    step Nothing _ = Nothing
+    step a b = a <|> getResult b
 
     impl msg =
-      do  ms' <- (`observe` msg) `traverse` ms
-          pure $ parallelAny ms'
+      do  let ms' = (`observe` msg) <$> ms
+          anyInParallel ms'
 
-parallelAny_ :: (Traversable f, Monad m) => f (MonitorT msg m a) -> MonitorT msg m ()
-parallelAny_ ms = parallelAny ms >> pure ()
+anyInParallel_ :: (Traversable f) => f (Monitor i o a) -> Monitor i o ()
+anyInParallel_ ms = anyInParallel ms >> pure ()
+
+-- run a monitor continuously
+forever :: Monitor i o a -> Monitor i o b
+forever mon = mon >> forever mon
+
+--
+inParallelEither :: Monitor i o a -> Monitor i o b -> Monitor i o (Either a b)
+inParallelEither ma mb =
+  case (ma, mb) of
+    (Yield o ma', _) -> Yield o (inParallelEither ma' mb)
+    (_, Yield o mb') -> Yield o (inParallelEither ma mb')
+    (Result a, _) -> Result (Left a)
+    (_, Result b) -> Result (Right b)
+    (Continue c1, Continue c2) -> Continue (impl c1 c2)
+  where
+    impl c1 c2 msg = inParallelEither (c1 msg) (c2 msg)
+
+-- mapInput :: (i -> b) -> Monitor b o a -> Monitor i o a
+-- mapInput f m0 =
+--   case m0 of
+--     Result a -> Result a
+--     Yield o m -> Yield o (mapInput f m)
+--     Continue c -> Continue (impl c)
+--   where
+--     impl c msg = mapInput f <$> c (f msg)
+
+filterInput :: (i -> Bool) -> Monitor i o a -> Monitor i o a
+filterInput p m0 =
+  case m0 of
+    Result a -> Result a
+    Yield o m -> Yield o (filterInput p m)
+    Continue c -> Continue (impl c)
+  where
+    impl c msg =
+      if p msg
+        then filterInput p (c msg)
+        else filterInput p m0
