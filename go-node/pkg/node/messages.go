@@ -32,8 +32,8 @@ type (
 	SigRequest struct {
 		RequestId uint64 `mapstructure:"request_id" json:"request_id"`
 
-		Params       mithril.Parameters    `mapstructure:"params" json:"params"`
-		Participants []mithril.Participant `mapstructure:"participants" json:"participants"`
+		Params       mithril.Parameters     `mapstructure:"params" json:"params"`
+		Participants []*mithril.Participant `mapstructure:"participants" json:"participants"`
 
 		Cert cert.Certificate `json:"certificate"`
 	}

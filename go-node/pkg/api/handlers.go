@@ -27,9 +27,9 @@ type ProofDAO struct {
 }
 
 type network struct {
-	Params      mithril.Parameters    `json:"params"`
-	CurrentNode mithril.Participant   `json:"currentNode"`
-	Peers       []mithril.Participant `json:"peers"`
+	Params      mithril.Parameters     `json:"params"`
+	CurrentNode mithril.Participant    `json:"currentNode"`
+	Peers       []*mithril.Participant `json:"peers"`
 }
 
 func listCertificates(w http.ResponseWriter, r *http.Request) {
@@ -149,9 +149,13 @@ func getConfig(cfg *config.Config) http.HandlerFunc {
 		mcfg := cfg.Mithril
 		params := mcfg.Params
 
-		var participants []mithril.Participant
+		var participants []*mithril.Participant
 		for _, p := range mcfg.Participants {
-			initializer := mithril.DecodeInitializer(p.Initializer)
+			initializer, err := mithril.DecodeInitializer(p.Initializer)
+			if err != nil {
+				ErrResponse(w, err)
+				return
+			}
 			participants = append(participants, initializer.Participant())
 		}
 

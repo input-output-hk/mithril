@@ -14,15 +14,15 @@ type (
 	Base64 []byte
 
 	Certificate struct {
-		Id           uint64                `json:"id" mapstructure:"id"`
-		NodeId       uint64                `json:"node_id,omitempty" mapstructure:"node_id"`
-		CertHash     Hex                   `json:"cert_hash"`
-		PrevHash     Hex                   `json:"prev_hash"`
-		Participants []mithril.Participant `json:"participants"`
-		BlockNumber  uint64                `json:"block_number" mapstructure:"block_id"`
-		BlockHash    Hex                   `json:"block_hash"`
-		MerkleRoot   Hex                   `json:"merkle_root"`
-		MultiSig     Base64                `json:"multi_sig"`
+		Id           uint64                 `json:"id" mapstructure:"id"`
+		NodeId       uint64                 `json:"node_id,omitempty" mapstructure:"node_id"`
+		CertHash     Hex                    `json:"cert_hash"`
+		PrevHash     Hex                    `json:"prev_hash"`
+		Participants []*mithril.Participant `json:"participants"`
+		BlockNumber  uint64                 `json:"block_number" mapstructure:"block_id"`
+		BlockHash    Hex                    `json:"block_hash"`
+		MerkleRoot   Hex                    `json:"merkle_root"`
+		MultiSig     Base64                 `json:"multi_sig"`
 
 		SigStartedAt  time.Time `json:"sig_started_at"`
 		SigFinishedAt time.Time `json:"sig_finished_at"`
@@ -74,9 +74,13 @@ func (b64 *Base64) UnmarshalJSON(src []byte) error {
 }
 
 // VerifyMultiSig certificate verification method.
-func (c Certificate) VerifyMultiSig(clerk mithril.Clerk) error {
+func (c Certificate) VerifyMultiSig(clerk *mithril.Clerk) error {
 	hash := Hash(c)
-	multiSig := mithril.MultiSigFromBytes(c.MultiSig)
+
+	multiSig, err := mithril.MultiSigFromBytes(c.MultiSig)
+	if err != nil {
+		return err
+	}
 	return clerk.VerifyMultiSign(multiSig, hex.EncodeToString(hash))
 }
 

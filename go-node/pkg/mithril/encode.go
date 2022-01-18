@@ -19,12 +19,11 @@ func encodePublicKey(key C.MspPkPtr) []byte {
 	})
 }
 
-func encodeInitializer(si Initializer) []byte {
+func encodeInitializer(si *Initializer) []byte {
 	return encodeToBytes(func(size *C.ulong, buf **C.uchar) {
 		C.stm_serialize_initializer(si.ptr, size, buf)
 	})
 }
-
 
 func encodeSignature(sig C.SigPtr) []byte {
 	return encodeToBytes(func(size *C.ulong, buf **C.uchar) {

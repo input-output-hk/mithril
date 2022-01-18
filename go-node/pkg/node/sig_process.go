@@ -8,7 +8,7 @@ import (
 
 type sigProcess struct {
 	params       mithril.Parameters
-	participants []mithril.Participant
+	participants []*mithril.Participant
 	hashStr      string
 	cert         cert.Certificate
 	signatures   map[peer.ID][]Signature

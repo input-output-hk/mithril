@@ -50,10 +50,10 @@ func (mc MithrilClient) ParticipantsByPartyId() (map[uint64]*mithril.Participant
 	return participantsMap, nil
 }
 
-func (mc MithrilClient) ClerkForCertificate(c cert.Certificate) (mithril.Clerk, error) {
+func (mc MithrilClient) ClerkForCertificate(c cert.Certificate) (*mithril.Clerk, error) {
 	nc, err := mc.Config()
 	if err != nil {
-		return mithril.Clerk{}, err
+		return nil, err
 	}
 
 	participantsMap := make(map[uint64]*mithril.Participant, 0)
@@ -61,16 +61,23 @@ func (mc MithrilClient) ClerkForCertificate(c cert.Certificate) (mithril.Clerk, 
 		participantsMap[p.PartyId] = p
 	}
 
-	var participants []mithril.Participant
+	var participants []*mithril.Participant
 	for _, pe := range c.Participants {
 		if p, ok := participantsMap[pe.PartyId]; ok {
-			participants = append(participants, mithril.NewParticipant(p.PartyId, pe.Stake, p.PublicKey))
+			participant, err := mithril.NewParticipant(p.PartyId, pe.Stake, p.PublicKey)
+			if err != nil {
+				return nil, err
+			}
+			participants = append(participants, participant)
 		} else {
-			return mithril.Clerk{}, errors.Errorf("party_id=%d is not found", pe.PartyId)
+			return nil, errors.Errorf("party_id=%d is not found", pe.PartyId)
 		}
 	}
 
-	clerk := mithril.NewClerk(nc.Params, participants)
+	clerk, err := mithril.NewClerk(nc.Params, participants)
+	if err != nil {
+		return nil, err
+	}
 	return clerk, nil
 }
 

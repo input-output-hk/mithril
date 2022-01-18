@@ -10,7 +10,7 @@ import (
 	"encoding/hex"
 )
 
-func NewSigner(initializer Initializer, participants []Participant) *Signer {
+func NewSigner(initializer *Initializer, participants []*Participant) (*Signer, error) {
 	partyIds := make([]C.PartyId, len(participants))
 	partyStakes := make([]C.Stake, len(participants))
 	partyKeys := make([]C.MspPkPtr, len(participants))
@@ -22,24 +22,38 @@ func NewSigner(initializer Initializer, participants []Participant) *Signer {
 
 	}
 
-	keyReg := C.key_registration(C.ulong(len(partyIds)), &partyIds[0], &partyStakes[0])
-	for _, p := range participants {
-		C.register_party(keyReg, C.PartyId(p.PartyId), p.pk)
+	var keyReg C.KeyRegPtr
+	ret := C.key_registration(C.ulong(len(partyIds)), &partyIds[0], &partyStakes[0], &keyReg)
+	if ret != 0 {
+		return nil, ErrInitFailed
 	}
-	closedKeyReg := C.close_registration(keyReg)
-
+	for _, p := range participants {
+		ret = C.register_party(keyReg, C.PartyId(p.PartyId), p.pk)
+		if ret != 0 {
+			return nil, ErrInitFailed
+		}
+	}
+	var closedKeyReg C.ClosedKeyRegPtr
+	ret = C.close_registration(keyReg, &closedKeyReg)
+	if ret != 0 {
+		return nil, ErrInitFailed
+	}
 
 	// FIXME In a better way.
 	defer func() {
 		initializer.isFreed = true
 	}()
 
-	return &Signer{
-		ptr: C.stm_initializer_new_signer(initializer.ptr, closedKeyReg),
+	var ptr C.StmSignerPtr
+	ret = C.stm_initializer_new_signer(initializer.ptr, closedKeyReg, &ptr)
+	if ret != 0 {
+		return nil, ErrInitFailed
 	}
+
+	return &Signer{ptr: ptr}, nil
 }
 
-func NewClerk(params Parameters, participants []Participant) Clerk {
+func NewClerk(params Parameters, participants []*Participant) (*Clerk, error) {
 	partyIds := make([]C.PartyId, len(participants))
 	partyStakes := make([]C.Stake, len(participants))
 
@@ -48,15 +62,33 @@ func NewClerk(params Parameters, participants []Participant) Clerk {
 		partyStakes[i] = C.Stake(p.Stake)
 	}
 
-	keyReg := C.key_registration(C.ulong(len(partyIds)), &partyIds[0], &partyStakes[0])
+	var keyReg C.KeyRegPtr
+	ret := C.key_registration(C.ulong(len(partyIds)), &partyIds[0], &partyStakes[0], &keyReg)
+	if ret != 0 {
+		return nil, ErrInitFailed
+	}
 	for _, p := range participants {
-		C.register_party(keyReg, C.PartyId(p.PartyId), p.pk)
+		ret = C.register_party(keyReg, C.PartyId(p.PartyId), p.pk)
+		if ret != 0 {
+			return nil, ErrInitFailed
+		}
 	}
 
 	stmParams := NewStmtParams(params.K, params.M, params.PhiF)
-	closedKeyReg := C.close_registration(keyReg)
 
-	return Clerk{ptr: C.stm_clerk_from_reg(stmParams, closedKeyReg)}
+	var closedKeyReg C.ClosedKeyRegPtr
+	ret = C.close_registration(keyReg, &closedKeyReg)
+	if ret != 0 {
+		return nil, ErrInitFailed
+	}
+
+	var ptr C.StmClerkPtr
+	ret = C.stm_clerk_from_reg(stmParams, closedKeyReg, &ptr)
+	if ret != 0 {
+		return nil, ErrInitFailed
+	}
+
+	return &Clerk{ptr: ptr}, nil
 }
 
 type Signer struct {
@@ -65,7 +97,7 @@ type Signer struct {
 
 func (s Signer) EligibilityCheck(index uint64, msg string) bool {
 	rv := C.stm_signer_eligibility_check(s.ptr, C.CString(msg), C.uint64_t(index))
-	return bool(rv)
+	return rv == 0
 }
 
 func (s Signer) Sign(index uint64, msg string) (*Signature, error) {
@@ -79,8 +111,13 @@ func (s Signer) Sign(index uint64, msg string) (*Signature, error) {
 	return &sig, nil
 }
 
-func (s Signer) Clerk() Clerk {
-	return Clerk{ptr: C.stm_clerk_from_signer(s.ptr)}
+func (s Signer) Clerk() (*Clerk, error) {
+	var ptr C.StmClerkPtr
+	ret := C.stm_clerk_from_signer(s.ptr, &ptr)
+	if ret != 0 {
+		return nil, ErrInitFailed
+	}
+	return &Clerk{ptr: ptr}, nil
 }
 
 type Signature struct {
