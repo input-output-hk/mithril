@@ -41,7 +41,7 @@ func main() {
 	fmt.Println("Input args:", k, m, phi, partyId, stake)
 
 	params := mithril.Parameters{K: uint64(k), M: uint64(m), PhiF: phi}
-	initializer := mithril.NewInitializer(params, uint64(partyId), uint64(stake))
+	initializer, err := mithril.NewInitializer(params, uint64(partyId), uint64(stake))
 	participant := initializer.Participant()
 
 	fmt.Printf("Initializer: part_id=%d, stake=%d\n", initializer.PartyId(), initializer.Stake())

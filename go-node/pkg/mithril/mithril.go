@@ -50,16 +50,21 @@ func NewStmtParams(k, m uint64, phiF float64) StmParameters {
 	}
 }
 
-func NewParticipant(partyId, stake uint64, key string) Participant {
+func NewParticipant(partyId, stake uint64, key string) (*Participant, error) {
 	keyBytes, err := base64.StdEncoding.DecodeString(key)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	return Participant{
+	pk, err := decodePublicKey(keyBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Participant{
 		PartyId:   partyId,
 		Stake:     stake,
 		PublicKey: key,
-		pk:        decodePublicKey(keyBytes),
-	}
+		pk:        pk,
+	}, nil
 }

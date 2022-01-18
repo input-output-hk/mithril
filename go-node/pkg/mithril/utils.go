@@ -7,6 +7,9 @@ func DecodeParticipant(p *Participant) error {
 	if err != nil {
 		return err
 	}
-	p.pk = decodePublicKey(keyBytes)
+	p.pk, err = decodePublicKey(keyBytes)
+	if err != nil {
+		return err
+	}
 	return nil
 }

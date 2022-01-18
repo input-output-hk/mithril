@@ -47,7 +47,7 @@ type PeerNode struct {
 	status     int
 	writeCh    chan Message
 
-	participant mithril.Participant
+	participant *mithril.Participant
 }
 
 func (p PeerNode) Id() peer.ID {
@@ -150,7 +150,12 @@ func (p PeerNode) AddrInfo() peer.AddrInfo {
 }
 
 func (p *PeerNode) OnHello(hello Hello) {
-	p.participant = mithril.NewParticipant(hello.PartyId, hello.Stake, hello.PublicKey)
+	var err error
+	p.participant, err = mithril.NewParticipant(hello.PartyId, hello.Stake, hello.PublicKey)
+	if err != nil {
+		return
+	}
+
 	p.status = Ready
 
 	log.Infow("Peer introduction",
@@ -162,9 +167,15 @@ func (p *PeerNode) OnHello(hello Hello) {
 }
 
 func (p *PeerNode) OnSigRequest(sigReq SigRequest) {
-	p.node.HandleSigRequest(p, sigReq)
+	err := p.node.HandleSigRequest(p, sigReq)
+	if err != nil {
+		log.Error(err)
+	}
 }
 
 func (p *PeerNode) OnSigResponse(sigRes SigResponse) {
-	p.node.HandleSigResponse(p, sigRes)
+	err := p.node.HandleSigResponse(p, sigRes)
+	if err != nil {
+		log.Error(err)
+	}
 }

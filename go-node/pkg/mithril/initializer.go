@@ -4,17 +4,34 @@ package mithril
 #include "mithril.h"
 */
 import "C"
-import "encoding/base64"
+import (
+	"encoding/base64"
+	"errors"
+)
 
-func NewInitializer(params Parameters, partyId, stake uint64) Initializer {
-	initializer := Initializer{params: params}
+var (
+	ErrInitFailed = errors.New("init failed")
+)
+
+func NewInitializer(params Parameters, partyId, stake uint64) (*Initializer, error) {
+	initializer := &Initializer{params: params}
 	stmParams := NewStmtParams(params.K, params.M, params.PhiF)
 
-	initializer.ptr = C.stm_intializer_setup(stmParams, C.PartyId(partyId), C.uint64_t(stake))
-	initializer.sk = C.stm_initializer_secret_key(initializer.ptr)
-	initializer.pk = C.stm_initializer_verification_key(initializer.ptr)
+	ret := C.stm_intializer_setup(stmParams, C.PartyId(partyId), C.uint64_t(stake), &initializer.ptr)
+	if ret != 0 {
+		return nil, ErrInitFailed
+	}
 
-	return initializer
+	ret = C.stm_initializer_secret_key(initializer.ptr, &initializer.sk)
+	if ret != 0 {
+		return nil, ErrInitFailed
+	}
+	ret = C.stm_initializer_verification_key(initializer.ptr, &initializer.pk)
+	if ret != 0 {
+		return nil, ErrInitFailed
+	}
+
+	return initializer, nil
 }
 
 type Initializer struct {
@@ -28,15 +45,19 @@ type Initializer struct {
 }
 
 func (si Initializer) PartyId() uint64 {
-	return uint64(C.stm_initializer_party_id(si.ptr))
+	var id C.ulong
+	C.stm_initializer_party_id(si.ptr, &id)
+	return uint64(id)
 }
 
 func (si Initializer) Stake() uint64 {
-	return uint64(C.stm_initializer_stake(si.ptr))
+	var st C.ulonglong
+	C.stm_initializer_stake(si.ptr, &st)
+	return uint64(st)
 }
 
-func (si Initializer) Participant() Participant {
-	return Participant{
+func (si Initializer) Participant() *Participant {
+	return &Participant{
 		PartyId:   si.PartyId(),
 		Stake:     si.Stake(),
 		PublicKey: base64.StdEncoding.EncodeToString(encodePublicKey(si.pk)),
@@ -44,11 +65,18 @@ func (si Initializer) Participant() Participant {
 	}
 }
 
-func (si *Initializer) RefreshKeys() {
+func (si *Initializer) RefreshKeys() error {
 	C.stm_initailizer_generate_new_key(si.ptr)
 
-	si.sk = C.stm_initializer_secret_key(si.ptr)
-	si.pk = C.stm_initializer_verification_key(si.ptr)
+	ret := C.stm_initializer_secret_key(si.ptr, &si.sk)
+	if ret != 0 {
+		return ErrInitFailed
+	}
+	ret = C.stm_initializer_verification_key(si.ptr, &si.pk)
+	if ret != 0 {
+		return ErrInitFailed
+	}
+	return nil
 }
 
 func (si Initializer) SecretKey() []byte {
@@ -59,7 +87,7 @@ func (si Initializer) PublicKey() []byte {
 	return encodePublicKey(si.pk)
 }
 
-func (si Initializer) Encode() []byte {
+func (si *Initializer) Encode() []byte {
 	return encodeInitializer(si)
 }
 
