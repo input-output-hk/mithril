@@ -50,6 +50,8 @@ let
     # Force a UTF-8 locale because many Haskell programs and tests
     # assume this.
     LANG = "en_US.UTF-8";
+    # This is required by postgres
+    LC_ALL = "C.UTF-8";
 
     # Make the shell suitable for the stack nix integration
     # <nixpkgs/pkgs/development/haskell-modules/generic-stack-builder.nix>
