@@ -34,6 +34,25 @@ $ POSTGRES_DSN="host=127.0.0.1 port=5432 user=cdb password=123456 dbname=testnet
 where N is a ``party_id`` index from 0 to 4. By default, each node starts as a leader. If yoo want to run node just as
 signing node then provide ``LEADER=false`` to environment variables list.
 
+### Postgres
+
+Running a node requires a running Postgres DB populated with data from [db-sync](https://github.com/input-output-hk/cardano-db-sync).
+One can simply run a cardano-node and then a db-sync process alongside, then make sure the mithril node can connect to the Postgres instnace.
+Alternatively for testing purpose, it's possible to run a standalone instance populated with a dump.
+
+Assuming one has a fresh dump available as `db.dump`, then do:
+
+```
+initdb -D .tmp/mydb
+pg_ctl -D .tmp/mydb -l logfile -o "--unix_socket_directories='$PWD'" start
+createdb -h $(pwd) testnet
+psql -h $(pwd) -d testnet < db.dump
+```
+
+This will execute all SQL commands from the dump and populate the DB.
+
+Note that the user to pass to the node for connection should be the one executing those commands, which is the DB owner by default.
+
 ## Working Algorithm
 
 Running node every 30 seconds fetches a UTxO and initiates a certificate sign process. If the certificate sign process

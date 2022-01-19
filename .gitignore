@@ -5,3 +5,6 @@ rust/c-tests/tests
 rust/c-tests/tests.dSYM/
 *~
 rust/proptest-regressions/
+*.dump
+.tmp/
+.s.PGSQL*
