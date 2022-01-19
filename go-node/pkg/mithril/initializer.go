@@ -51,7 +51,7 @@ func (si Initializer) PartyId() uint64 {
 }
 
 func (si Initializer) Stake() uint64 {
-	var st C.ulonglong
+	var st C.uint64_t
 	C.stm_initializer_stake(si.ptr, &st)
 	return uint64(st)
 }
