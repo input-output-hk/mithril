@@ -196,7 +196,7 @@ instance JSON.FromJSON Certificate where
       Certificate <$> c .: "id"
                   <*> c .: "node_id"
                   <*> (c .: "cert_hash" >>= parseHex)
-                  <*> (c .: "cert_prev" >>= parseHex)
+                  <*> (c .: "prev_hash" >>= parseHex)
                   <*> c .: "participants"
                   <*> c .: "block_number"
                   <*> (c .: "block_hash" >>= parseHex)
@@ -248,9 +248,9 @@ instance JSON.FromJSON Signature where
 instance JSON.ToJSON Payload where
   toJSON p =
     case p of
-      PayloadHello p -> JSON.toJSON p
-      PayloadSigRequest r -> JSON.toJSON p
-      PayloadSigResponse r -> JSON.toJSON p
+      PayloadHello h -> JSON.toJSON h
+      PayloadSigRequest r -> JSON.toJSON r
+      PayloadSigResponse r -> JSON.toJSON r
 
 payloadTypeName :: Payload -> Text
 payloadTypeName p =

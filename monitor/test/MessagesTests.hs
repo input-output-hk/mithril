@@ -12,11 +12,24 @@ import Data.Word(Word8, Word64)
 import Mithril.Messages
 
 
-messageTests :: Tasty.TestTree
-messageTests =
+tests :: Tasty.TestTree
+tests =
   Tasty.testGroup "Message"
-    [ QC.testProperty "Message (round trip)" (QC.forAll messageGen roundTripCorrect)
+    [ roundTrip "Signature" signatureGen
+    , roundTrip "Parameters" parametersGen
+    , roundTrip "Participant" participantGen
+    , roundTrip "Certificate" certificateGen
+    , roundTrip "Hello" helloGen
+    , roundTrip "SigRequest" sigRequestGen
+    , roundTrip "SigResponse" sigResponseGen
+    , roundTrip "Message" messageGen
     ]
+
+roundTrip :: (Eq a, Show a, JSON.FromJSON a, JSON.ToJSON a) => String -> QC.Gen a -> Tasty.TestTree
+roundTrip n p = QC.testProperty (n ++ " (round trip)") (QC.forAll p roundTripCorrect)
+
+asciiStringGen :: QC.Gen String
+asciiStringGen = QC.listOf QC.arbitraryASCIIChar
 
 bytesGen :: QC.Gen Bytes
 bytesGen = BS.pack <$> QC.listOf QC.chooseAny
@@ -37,15 +50,15 @@ hashGen :: QC.Gen Bytes
 hashGen = bytesGen
 
 timeGen :: QC.Gen String
-timeGen = QC.listOf QC.chooseAny
+timeGen = asciiStringGen
 
 signatureGen :: QC.Gen Signature
 signatureGen =
   Signature <$> indexGen
             <*> keyGen
 
-parameterGen :: QC.Gen Parameters
-parameterGen =
+parametersGen :: QC.Gen Parameters
+parametersGen =
   Parameters <$> QC.choose (0, 1000)
              <*> QC.choose (0, 1000)
              <*> QC.choose (0, 1.0)
@@ -82,7 +95,7 @@ payloadGen =
 
 helloGen :: QC.Gen Hello
 helloGen =
-  Hello <$> QC.listOf QC.chooseAny  -- cardano address
+  Hello <$> asciiStringGen  -- cardano address
         <*> partyIdGen
         <*> stakeGen
         <*> keyGen
@@ -90,7 +103,7 @@ helloGen =
 sigRequestGen :: QC.Gen SigRequest
 sigRequestGen =
   SigRequest <$> QC.chooseAny -- requestId
-             <*> parameterGen
+             <*> parametersGen
              <*> QC.listOf participantGen
              <*> certificateGen
 
@@ -100,11 +113,11 @@ sigResponseGen =
               <*> QC.listOf signatureGen
 
 roundTripCorrect :: 
-  (Eq a, JSON.ToJSON a, JSON.FromJSON a) =>
+  (Eq a, Show a, JSON.ToJSON a, JSON.FromJSON a) =>
   a ->
-  Bool
+  QC.Property
 roundTripCorrect v =
   let rv' = JSON.fromJSON (JSON.toJSON v)
   in case rv' of
-    JSON.Error _ -> False
-    JSON.Success v' -> v == v'
+    JSON.Error err -> QC.counterexample err False
+    JSON.Success v' -> v QC.=== v'
