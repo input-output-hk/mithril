@@ -25,7 +25,7 @@ library
 
   -- other-modules:
   -- other-extensions:
-  build-depends:        base ^>=4.13.0.0,
+  build-depends:        base >=4.13,
                         bytestring,
                         containers,
                         async,
@@ -34,7 +34,10 @@ library
                         void,
                         time,
                         aeson,
-                        free
+                        free,
+                        base64-bytestring,
+                        base16-bytestring,
+                        text
   hs-source-dirs:       src
   default-language:     Haskell2010
 
@@ -43,8 +46,11 @@ test-suite unit-tests
     main-is:    Main.hs
     hs-source-dirs: test
     other-modules:      MonitorTests
-    build-depends:      base ^>=4.13.0.0,
+                        MessagesTests
+    build-depends:      base >=4.13,
                         mithril-monitor,
                         tasty,
                         tasty-hunit,
-                        tasty-quickcheck
+                        tasty-quickcheck,
+                        bytestring,
+                        aeson
