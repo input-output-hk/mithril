@@ -4,12 +4,13 @@ ENV PATH=/root/.cargo/bin:/go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/b
 
 RUN apk --update --no-cache add \
     ca-certificates wget xz openssl \
-    git bash alpine-sdk upx unzip libgcc nano \
+    git bash alpine-sdk upx unzip libgcc nano musl-dev m4 \
     && update-ca-certificates
 
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -q -y
+RUN curl https://sh.rustup.rs -sSf | sh -s -- -q -y  \
+  && rustup target add x86_64-unknown-linux-musl
 
-WORKDIR /app   
+WORKDIR /app
 COPY . .
 
 WORKDIR /app/go-node/
