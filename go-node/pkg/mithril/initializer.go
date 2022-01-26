@@ -45,7 +45,7 @@ type Initializer struct {
 }
 
 func (si Initializer) PartyId() uint64 {
-	var id C.uint64_t
+	var id C.ulong
 	C.stm_initializer_party_id(si.ptr, &id)
 	return uint64(id)
 }
