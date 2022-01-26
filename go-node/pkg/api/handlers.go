@@ -67,7 +67,7 @@ func utxo(w http.ResponseWriter, r *http.Request) {
 			return err
 		}
 
-		utxoSet, err = cardano.GetAllTxOutputs(ctx, tx, certificate.BlockNumber)
+		utxoSet, err = cardano.GetAllTxOutputs(context.Background(), tx, certificate.BlockNumber)
 		return err
 	})
 
