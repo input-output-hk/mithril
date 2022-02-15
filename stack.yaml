@@ -29,7 +29,7 @@ resolver: lts-18.17
 #   - auto-update
 #   - wai
 packages:
-- .
+- monitor
 # Dependency packages to be pulled from upstream that are not in the resolver.
 # These entries can reference officially published versions as well as
 # forks / in-progress versions pinned to a git hash. For example:
@@ -66,7 +66,3 @@ packages:
 # compiler-check: newer-minor
 extra-deps:
 - bloomfilter-2.0.1.0
-- git: https://github.com/input-output-hk/hydra-poc.git
-  commit: df2bb91931755b998c1b0a7035fc82e14cb0d0dc
-  subdirs:
-  - merkle-patricia-tree
