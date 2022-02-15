@@ -1434,6 +1434,7 @@ dependencies = [
  "ark-ff",
  "ark-std",
  "base64",
+ "blake2",
  "clap 3.0.14",
  "futures",
  "mithril",

@@ -1,9 +1,12 @@
 use crate::message::{Message, Hello, SigRequest, SigResponse, PartyId, Parameters, Stake};
+use crate::network::Network;
 use std::collections::HashMap;
 use std::io::Cursor;
 use std::io;
-use mithril::key_reg;
+use std::time;
 use std::io::Write;
+
+use mithril::key_reg;
 use mithril::stm;
 use mithril::msp;
 use rand_core;
@@ -15,13 +18,11 @@ use ark_ec;
 use ark_ff;
 use ark_ff::ToBytes;
 
-trait Network {
-  fn me(&self) -> PartyId;
-  fn peers(&self) -> Vec<PartyId>;
-  // broadcast only?
-  fn send(&self, to: &PartyId, message: &Message) -> Result<(), String>;
-  fn recv(&self, timeout: u64) -> Result<(PartyId, Message), String>;
-}
+const timeout : time::Duration = time::Duration::from_secs(5);
+
+type StakeDistribution = HashMap<PartyId, Stake>;
+type ValidationKey = msp::MspPk<Bls12_377>;
+type H = blake2::Blake2b;
 
 fn as_backend_params(p: Parameters) -> stm::StmParameters {
   stm::StmParameters {
@@ -31,7 +32,7 @@ fn as_backend_params(p: Parameters) -> stm::StmParameters {
   }
 }
 
-fn bytes_to_key<PE>(bytes: &Vec<u8>) -> io::Result<msp::MspPk<PE>>
+fn bytes_to_key_io<PE>(bytes: &Vec<u8>) -> io::Result<msp::MspPk<PE>>
   where PE: ark_ec::PairingEngine
 {
   let mut rdr = Cursor::new(bytes);
@@ -46,6 +47,21 @@ fn bytes_to_key<PE>(bytes: &Vec<u8>) -> io::Result<msp::MspPk<PE>>
   })
 }
 
+fn str_err_result<R, E>(r: Result<R, E>) -> Result<R, String>
+  where E : std::fmt::Display
+{
+  match r {
+    Ok(v) => Ok(v),
+    Err(e) => Err(e.to_string()),
+  }
+}
+
+fn bytes_to_key<PE>(bytes: &Vec<u8>) -> Result<msp::MspPk<PE>, String>
+  where PE: ark_ec::PairingEngine
+{
+  str_err_result(bytes_to_key_io(bytes))
+}
+
 fn key_to_bytes<PE>(key: &msp::MspPk<PE>) -> Vec<u8>
   where PE: ark_ec::PairingEngine
 {
@@ -58,7 +74,29 @@ fn key_to_bytes<PE>(key: &msp::MspPk<PE>) -> Vec<u8>
   buf
 }
 
-fn node_impl<N>(network: N, params: Parameters, stake: Stake) -> Result<(), String>
+fn mk_keyreg<PE>(stake_dist: &StakeDistribution, keys: &HashMap<PartyId, msp::MspPk<PE>>) -> Result<key_reg::ClosedKeyReg<PE, H>, String>
+  where PE : ark_ec::PairingEngine,
+        msp::MspPk<PE> : std::hash::Hash,
+{
+  // TODO: cleanup
+  let keyreg_players: Vec<(usize, u64)> =
+    stake_dist.iter()
+              .map(|(p, s)| (*p as usize, *s))
+              .collect();
+
+  let mut keyreg: key_reg::KeyReg<PE> = key_reg::KeyReg::new(&keyreg_players);
+
+  for(pid, stake) in stake_dist.iter() {
+    let pk =
+      keys.get(pid).map_or(Err("key not found for party in stake distrimbution"),
+                        |key| Ok(key))?;
+    keyreg.register(*pid as usize, *pk);
+  }
+
+  return Ok(keyreg.close());
+}
+
+fn node_impl<N>(network: N, params: Parameters, stake_dist: StakeDistribution) -> Result<(), String>
   where N : Network
 {
   // -- Setup phase -----------------------------------------------------------
@@ -67,11 +105,14 @@ fn node_impl<N>(network: N, params: Parameters, stake: Stake) -> Result<(), Stri
   let params_be = as_backend_params(params);
   // fixme
   let me_usize : usize = network.me().try_into().unwrap();
+  let stake: Stake =
+    stake_dist.get(&network.me())
+              .map_or(Err("invalid stake distribution"), |s| Ok(*s))?;
 
   let init: stm::StmInitializer<Bls12_377> =
     stm::StmInitializer::setup(params_be, me_usize, stake, &mut rng);
 
-  // -- Initialization phase --------------------------------------------------
+  // -- Registration phase ----------------------------------------------------
 
   let hello =
     Message::Hello(Hello {
@@ -81,23 +122,21 @@ fn node_impl<N>(network: N, params: Parameters, stake: Stake) -> Result<(), Stri
       public_key: key_to_bytes(&init.verification_key()),
     });
 
-  for pid in &network.peers() {
-    if *pid != network.me() {
-      // broadcast
-      network.send(pid, &hello)?;
-    }
-  }
+  network.send(&hello)?;
 
   let mut peer_hello : HashMap<PartyId, Hello> = HashMap::new();
+  let mut pks: HashMap<PartyId, ValidationKey> = HashMap::new();
   let mut queue : Vec<(PartyId, Message)> = Vec::new();
 
+  // recv `Hello` until all peers have responded
   while !network.peers().iter().all(|p| peer_hello.contains_key(p)) {
     // TODO: configurable timeout
-    let (from, msg) = network.recv(1000 * 60 * 5)?;
+    let (from, msg) = network.recv(timeout)?;
     match msg {
       Message::Hello(h) => {
         // TODO: what should happen if we get two `Hello` messages?
         if !peer_hello.contains_key(&from) {
+          pks.insert(from, bytes_to_key(&h.public_key)?);
           peer_hello.insert(from, h);
         }
       }
@@ -108,6 +147,11 @@ fn node_impl<N>(network: N, params: Parameters, stake: Stake) -> Result<(), Stri
       }
     }
   }
+
+  let key_reg = mk_keyreg(&stake_dist, &pks)?;
+  let signer = init.new_signer(key_reg);
+
+  // -- Asynchronous Phase ----------------------------------------------------
 
   todo!("not implemented!")
 

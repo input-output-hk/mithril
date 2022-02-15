@@ -3,7 +3,7 @@ use std::collections::{HashMap,HashSet};
 use std::sync::mpsc;
 use std::time;
 
-trait Network {
+pub trait Network {
   fn me(&self) -> PartyId;
   fn peers(&self) -> Vec<PartyId>;
   // broadcast only?
@@ -12,7 +12,7 @@ trait Network {
 }
 
 // maybe this is the right abstraction and the Network trait is not really necessary?
-struct ChannelNetwork {
+pub struct ChannelNetwork {
   party_id: u64,
   input: mpsc::Receiver<(PartyId, Message)>,
   output: HashMap<PartyId, mpsc::Sender<(PartyId, Message)>>,
@@ -43,7 +43,7 @@ impl Network for ChannelNetwork {
     }
 }
 
-fn mk_testing_network(parties: &HashSet<PartyId>) -> HashMap<PartyId, ChannelNetwork> {
+pub fn mk_testing_network(parties: &HashSet<PartyId>) -> HashMap<PartyId, ChannelNetwork> {
   let mut recver : HashMap<PartyId, mpsc::Receiver<(PartyId, Message)>> = HashMap::new();
   let mut sender : HashMap<PartyId, mpsc::Sender<(PartyId, Message)>> = HashMap::new();
 
