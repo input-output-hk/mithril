@@ -29,7 +29,7 @@ fn main() {
     let mut msg = [0u8; 16];
     rng.fill_bytes(&mut msg);
 
-    for k in NR_K {
+    for &k in NR_K.iter() {
         let params = StmParameters {
             k,
             m: 1024,
