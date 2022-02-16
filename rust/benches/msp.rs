@@ -29,7 +29,7 @@ fn msp(c: &mut Criterion) {
         mvks.push(pk.mvk);
     }
 
-    for size in NR_SIGNERS {
+    for &size in NR_SIGNERS.iter() {
         group.bench_with_input(BenchmarkId::new("Aggregate keys", size), &size, |b, &i| {
             b.iter(|| Msp::aggregate_keys(&mvks[..i]))
         });

@@ -52,7 +52,7 @@ fn stm_benches(c: &mut Criterion) {
         ps.push(StmInitializer::setup(params, pid, stake, &mut rng));
     }
     let mut key_reg = KeyReg::new(&parties);
-    for nr in NR_PARTIES {
+    for &nr in NR_PARTIES.iter() {
         group.bench_with_input(BenchmarkId::new("Key registration", &nr), &nr, |b, &nr| {
             b.iter(|| {
                 // We need to initialise the key_reg at each iteration
@@ -75,7 +75,7 @@ fn stm_benches(c: &mut Criterion) {
 
     let mut party_dummy = ps[0].clone();
 
-    for m in NR_M {
+    for &m in NR_M.iter() {
         k = 8;
 
         let param_string = format!("k: {}, m: {}", k, m);
@@ -120,7 +120,7 @@ fn stm_benches(c: &mut Criterion) {
     let mut sigs = Vec::new();
     let mut ixs = Vec::new();
 
-    for k in NR_K {
+    for &k in NR_K.iter() {
         m = 50;
         let param_string = format!("k: {}, m: {}", k, m);
 

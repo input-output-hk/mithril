@@ -54,6 +54,13 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --manifest-path ./rust/Cargo.toml --all-features
 
+      - name: Compile benchmarks
+        uses: actions-rs/cargo@v1
+        continue-on-error: false
+        with:
+          command: bench
+          args: --no-run --locked
+
       - name: Run cargo test
         uses: actions-rs/cargo@v1
         with:
