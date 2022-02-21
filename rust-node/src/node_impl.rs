@@ -71,14 +71,16 @@ where
     let keyreg_players: Vec<(usize, u64)> =
         stake_dist.iter().map(|(p, s)| (*p as usize, *s)).collect();
 
+    println!("keys: {}", keys.keys().count());
+
     let mut keyreg: key_reg::KeyReg<PE> = key_reg::KeyReg::new(&keyreg_players);
 
-    for (pid, stake) in stake_dist.iter() {
+    for pid in stake_dist.keys() {
         let pk = keys.get(pid).map_or(
-            Err("key not found for party in stake distrimbution"),
+            Err(std::format!("key not found for party {} in stake distribution", pid)),
             |key| Ok(key),
         )?;
-        keyreg.register(*pid as usize, *pk);
+        str_err_result(keyreg.register(*pid as usize, *pk))?;
     }
 
     return Ok(keyreg.close());
@@ -216,6 +218,8 @@ where
 
     let mut peer_hello: HashMap<PartyId, Hello> = HashMap::new();
     let mut pks: HashMap<PartyId, ValidationKey> = HashMap::new();
+    pks.insert(network.me(), init.verification_key().clone());
+
 
     // recv `Hello` until all peers have responded
     while !network.peers().iter().all(|p| peer_hello.contains_key(p)) {
@@ -244,4 +248,59 @@ where
         participants: peer_hello,
         signer: signer,
     })
+}
+
+#[cfg(test)]
+mod test {
+  use super::*;
+  use std::{collections::HashSet, sync::mpsc, thread};
+
+  #[test]
+  fn test_init() {
+    let parameters =
+      Parameters {
+        m: 4,
+        k: 3,
+        phi_f: 0.4,
+      };
+
+    let mut stake_dist: HashMap<PartyId, Stake> = HashMap::new();
+    for i in 0..4 {
+      stake_dist.insert(i, 1);
+    }
+
+    let parties = HashSet::from_iter(stake_dist.keys().map(|k| *k));
+    let mut networks = network::mk_testing_network(&parties);
+
+    //let (sen , recv) = mpsc::channel();
+    let mut handles : Vec<std::thread::JoinHandle<Option<String>>> = Vec::new();
+
+    for p in &parties {
+      let network = networks.remove(p).unwrap();
+      let ps = parameters.clone();
+      let dist = stake_dist.clone();
+      let handle: std::thread::JoinHandle<Option<String>> =
+        std::thread::spawn(move || {
+          if let Err(s) = node_init(&network, &ps, &dist) {
+            return Some(s);
+          }
+
+          return None;
+        });
+      handles.push(handle);
+    }
+
+    // TODO: timeout?
+    for handle in handles {
+      match handle.join() {
+        Ok(None) => {}
+        Ok(Some(s)) => {
+          panic!("initialization failed: {}", s)
+        }
+        Err(e) => {
+          panic!("thread join failed with error")
+        }
+      }
+    }
+  }
 }
