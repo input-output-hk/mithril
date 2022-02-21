@@ -8,7 +8,8 @@ pub trait Network {
   fn peers(&self) -> Vec<PartyId>;
   // broadcast only?
   fn send(&self, message: &Message) -> Result<(), String>;
-  fn recv(&self, timeout: time::Duration) -> Result<(PartyId, Message), String>;
+  fn recv(&self) -> Result<(PartyId, Message), String>;
+  fn recv_timeout(&self, timeout: time::Duration) -> Result<(PartyId, Message), String>;
 }
 
 // maybe this is the right abstraction and the Network trait is not really necessary?
@@ -35,7 +36,14 @@ impl Network for ChannelNetwork {
       Ok(())
     }
 
-    fn recv(&self, timeout: time::Duration) -> Result<(PartyId, Message), String> {
+    fn recv(&self) -> Result<(PartyId, Message), String> {
+      match self.input.recv() {
+        Ok(m) => Ok(m),
+        Err(e) => Err("Recv error".to_string())
+      }
+    }
+
+    fn recv_timeout(&self, timeout: time::Duration) -> Result<(PartyId, Message), String> {
       match self.input.recv_timeout(timeout) {
         Ok(m) => Ok(m),
         Err(e) => Err("Timeout exceeded".to_string())

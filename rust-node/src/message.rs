@@ -12,8 +12,8 @@ pub type PublicKey = Bytes;
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct Signature {
-  index : Index,
-  sig : Bytes,
+  pub index : Index,
+  pub sig : Bytes,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -47,9 +47,9 @@ pub struct Certificate {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub enum Message {
-  Ok(),
   Hello(Hello),
-  SigRequest(SigRequest),
+  // SigRequest(SigRequest),
+  SigMessage(SigMessage),
   SigResponse(SigResponse),
 }
 
@@ -61,6 +61,7 @@ pub struct Hello {
   pub public_key : PublicKey,
 }
 
+// TODO: maybe this isn't right?
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SigRequest {
   pub id : u64,
@@ -71,7 +72,13 @@ pub struct SigRequest {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SigResponse {
-  request_id : u64,
-  signatures : Vec<Signature>,
+  pub request_id : u64,
+  pub signatures : Vec<Signature>,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct SigMessage {
+  pub id : u64,
+  pub message : Bytes,
 }
 
