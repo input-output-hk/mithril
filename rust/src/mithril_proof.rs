@@ -1,6 +1,6 @@
 //! Prove the validity of aggregated signatures.
 
-use crate::merkle_tree::{concat_avk_with_msg, MTHashLeaf, MerkleTree, Path};
+use crate::merkle_tree::{concat_avk_with_msg, MTHashLeaf, MerkleTreeCommitment, Path};
 use crate::msp::{Msp, MspMvk, MspSig};
 use crate::proof::Proof;
 use crate::stm::{ev_lt_phi, Index, MTValue, StmParameters, StmSig};
@@ -21,7 +21,7 @@ pub struct MithrilStatement<PE: PairingEngine, H: MTHashLeaf<MTValue<PE>>> {
     // Statement by a lifetime ends up bubbling the lifetime to whoever is
     // producing proofs, effectively tying the lifetime of the proof to that of
     // the prover, which is undesirable.
-    pub(crate) avk: Rc<MerkleTree<MTValue<PE>, H>>,
+    pub(crate) avk: Rc<MerkleTreeCommitment<MTValue<PE>, H>>,
     pub(crate) ivk: MspMvk<PE>,
     pub(crate) mu: MspSig<PE>,
     pub(crate) msg: Vec<u8>,
@@ -156,7 +156,7 @@ where
     /// \forall i : [0..k]. path[i] is a witness for (mvk[i]), stake[i] in avk
     fn check_path(
         &self,
-        avk: &MerkleTree<MTValue<PE>, H>,
+        avk: &MerkleTreeCommitment<MTValue<PE>, H>,
     ) -> Result<(), MithrilWitnessError<PE, H::F>> {
         for sig in self.sigs.iter() {
             if !avk.check(&MTValue(sig.pk.mvk, sig.stake), sig.party, &sig.path) {
@@ -169,7 +169,7 @@ where
     /// \forall i : [1..k]. ev[i] = MSP.Eval(msg, index[i], sig[i])
     fn check_eval(
         &self,
-        avk: &MerkleTree<MTValue<PE>, H>,
+        avk: &MerkleTreeCommitment<MTValue<PE>, H>,
         msg: &[u8],
     ) -> Result<(), MithrilWitnessError<PE, H::F>> {
         let msp_evals = self.indices.iter().zip(self.sigs.iter()).map(|(idx, sig)| {

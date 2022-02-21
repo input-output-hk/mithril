@@ -37,12 +37,12 @@ impl<F: FromBytes> FromBytes for Path<F> {
 
 /// Serializes the Merkle Tree together with a message in a single vector of bytes.
 /// Outputs msg || avk as a vector of bytes.
-pub fn concat_avk_with_msg<L, H>(avk: &MerkleTree<L, H>, msg: &[u8]) -> Vec<u8>
+pub fn concat_avk_with_msg<L, H>(avk: &MerkleTreeCommitment<L, H>, msg: &[u8]) -> Vec<u8>
 where
     H: MTHashLeaf<L>,
 {
     let mut msgp = msg.to_vec();
-    let mut bytes = avk.root_to_bytes();
+    let mut bytes = avk.to_bytes();
     msgp.append(&mut bytes);
 
     msgp
@@ -77,6 +77,50 @@ pub trait MTHashLeaf<L> {
     fn hash(&mut self, leaf: &[Self::F]) -> Self::F {
         leaf.iter()
             .fold(Self::zero(), |h, l| self.hash_children(&h, l))
+    }
+}
+
+/// MerkleTree commitment. This structure differs from `MerkleTree` in that it does not contain
+/// all elements, which are not always necessary.
+#[derive(Debug, Clone)]
+pub struct MerkleTreeCommitment<L, H>
+where
+    H: MTHashLeaf<L>,
+{
+    value: H::F,
+}
+
+impl<L, H> MerkleTreeCommitment<L, H>
+where
+    H: MTHashLeaf<L>,
+{
+    /// Check an inclusion proof that `val` is the `i`th leaf stored in the tree.
+    /// Requires i < self.n
+    pub fn check(&self, val: &L, i: usize, proof: &Path<H::F>) -> bool {
+        let mut idx = i;
+
+        let mut hasher = H::new();
+        let mut h = hasher.inject(val);
+        for p in &proof.0 {
+            if (idx & 0b1) == 0 {
+                h = hasher.hash_children(&h, p);
+            } else {
+                h = hasher.hash_children(p, &h);
+            }
+            idx >>= 1;
+        }
+
+        h == self.value
+    }
+
+    /// Get the root of the tree
+    pub fn root(&self) -> &H::F {
+        &self.value
+    }
+
+    /// Convert the root of the tree to bytes.
+    pub fn to_bytes(&self) -> Vec<u8> {
+        H::root_bytes(&self.value)
     }
 }
 
@@ -141,29 +185,11 @@ where
         }
     }
 
-    /// Check an inclusion proof that `val` is the `i`th leaf stored in the tree.
-    /// Requires i < self.n
-    pub fn check(&self, val: &L, i: usize, proof: &Path<H::F>) -> bool {
-        assert!(
-            i < self.n,
-            "check index out of bounds: asked for {} out of {}",
-            i,
-            self.n
-        );
-        let mut idx = i;
-
-        let mut hasher = H::new();
-        let mut h = hasher.inject(val);
-        for p in &proof.0 {
-            if (idx & 0b1) == 0 {
-                h = hasher.hash_children(&h, p);
-            } else {
-                h = hasher.hash_children(p, &h);
-            }
-            idx >>= 1;
+    /// Build a `MerkleTreeCommitment`, which simply consists in returning the root.
+    pub fn to_commitment(&self) -> MerkleTreeCommitment<L, H> {
+        MerkleTreeCommitment {
+            value: self.nodes[0].clone(),
         }
-
-        h == self.nodes[0]
     }
 
     /// Get the root of the tree
@@ -261,7 +287,7 @@ mod tests {
         fn test_create_proof((t, values) in arb_tree(30)) {
             values.iter().enumerate().for_each(|(i, _v)| {
                 let pf = t.get_path(i);
-                assert!(t.check(&values[i], i, &pf));
+                assert!(t.to_commitment().check(&values[i], i, &pf));
             })
         }
     }
@@ -293,7 +319,7 @@ mod tests {
                             .iter()
                             .map(|x| hasher.inject(x))
                             .collect());
-            assert!(!t.check(&values[0], idx, &path));
+            assert!(!t.to_commitment().check(&values[0], idx, &path));
         }
     }
 }

@@ -521,7 +521,7 @@ where
         // sigma <- MSP.Sig(msk, msg')
         // ev <- MSP.Eval(msg', index, sigma)
         // return 1 if ev < phi(stake) else return 0
-        let msgp = concat_avk_with_msg(&self.avk, msg);
+        let msgp = concat_avk_with_msg(&self.avk.to_commitment(), msg);
         let sigma = Msp::sig(&self.sk, &msgp);
         let ev = Msp::eval(&msgp, index, &sigma);
         ev_lt_phi(self.params.phi_f, ev, self.stake, self.total_stake)
@@ -536,7 +536,7 @@ where
             //      p_i is the users path inside the merkle tree AVK
             //      reg_i is (mvk_i, stake_i)
             // return pi
-            let msgp = concat_avk_with_msg(&self.avk, msg);
+            let msgp = concat_avk_with_msg(&self.avk.to_commitment(), msg);
             let sigma = Msp::sig(&self.sk, &msgp);
             let path = self.avk.get_path(self.avk_idx);
             Some(StmSig {
@@ -619,15 +619,16 @@ where
         index: Index,
         msg: &[u8],
     ) -> Result<(), VerificationFailure<PE, H::F>> {
-        let msgp = concat_avk_with_msg(&self.avk, msg);
+        let msgp = concat_avk_with_msg(&self.avk.to_commitment(), msg);
         let ev = Msp::eval(&msgp, index, &sig.sigma);
 
         if !ev_lt_phi(self.params.phi_f, ev, sig.stake, self.total_stake) {
             Err(VerificationFailure::LotteryLost)
-        } else if !self
-            .avk
-            .check(&MTValue(sig.pk.mvk, sig.stake), sig.party, &sig.path)
-        {
+        } else if !self.avk.to_commitment().check(
+            &MTValue(sig.pk.mvk, sig.stake),
+            sig.party,
+            &sig.path,
+        ) {
             Err(VerificationFailure::InvalidMerkleTree(sig.path.clone()))
         } else if !Msp::ver(&msgp, &sig.pk.mvk, &sig.sigma) {
             Err(VerificationFailure::InvalidSignature(sig.sigma))
@@ -652,7 +653,7 @@ where
         Proof::Statement: From<MithrilStatement<PE, H>>,
         Proof::Witness: From<MithrilWitness<PE, H>>,
     {
-        let msgp = concat_avk_with_msg(&self.avk, msg);
+        let msgp = concat_avk_with_msg(&self.avk.to_commitment(), msg);
         let mut evals = Vec::new();
         let mut mvks = Vec::new();
         let mut sigmas = Vec::new();
@@ -671,7 +672,7 @@ where
         let mu = Msp::aggregate_sigs(&sigmas);
 
         let statement = MithrilStatement {
-            avk: self.avk.clone(),
+            avk: Rc::new(self.avk.to_commitment()),
             ivk,
             mu,
             msg: msg.to_vec(),
@@ -717,7 +718,7 @@ where
             mu: msig.mu,
             msg: msg.to_vec(),
             // These are "background" information"
-            avk: self.avk.clone(),
+            avk: Rc::new(self.avk.to_commitment()),
             params: self.params,
             total_stake: self.total_stake,
         };
@@ -729,7 +730,7 @@ where
         ) {
             return Err(MultiVerificationFailure::ProofError(e));
         }
-        let msgp = concat_avk_with_msg(&self.avk, msg);
+        let msgp = concat_avk_with_msg(&self.avk.to_commitment(), msg);
         if !Msp::aggregate_ver(&msgp, &msig.ivk, &msig.mu) {
             return Err(MultiVerificationFailure::InvalidAggregate(msig.mu));
         }
