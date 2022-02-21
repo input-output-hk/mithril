@@ -37,6 +37,8 @@ proptest    = "1.0.0"
 rand_chacha = "0.3.1"
 num-integer = "0.1.44"
 rand = "0.7"
+ark-bls12-377 = "0.3.0"
+ark-bls12-381 = "0.3.0"
 ark-bn254     = { version = "0.3.0" }
 ark-bw6-761   = { version = "0.3.0" }
 ark-cp6-782   = { version = "0.3.0" }
