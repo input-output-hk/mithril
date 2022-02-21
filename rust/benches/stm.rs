@@ -1,16 +1,18 @@
 use ark_bls12_377::Bls12_377;
+use ark_bls12_381::Bls12_381;
+use ark_ec::PairingEngine;
+use ark_ff::{FromBytes, ToBytes, ToConstraintField};
+use blake2::Blake2b;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use mithril::key_reg::KeyReg;
 use mithril::merkle_tree::MTHashLeaf;
 use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
+use mithril::models::digest::DigestHash;
 use mithril::stm::{MTValue, StmClerk, StmInitializer, StmParameters, StmSigner};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::prelude::*;
-
-type C = Bls12_377;
-type H = blake2::Blake2b;
-type F = <H as MTHashLeaf<MTValue<Bls12_377>>>::F;
+use std::hash::Hash;
 
 ///
 /// This benchmark framework is not ideal. We really have to think what is the best mechanism for
@@ -26,7 +28,13 @@ static NR_PARTIES: [usize; SIZE] = [32, 64, 128]; //, 256, 512, 1024, 2048, 4096
 static NR_M: [u64; SIZE] = [50, 100, 150]; //, 200, 250, 300, 350, 400];
 static NR_K: [u64; SIZE] = [8, 16, 32]; //, 64, 128, 256, 512, 1024];
 
-fn stm_benches(c: &mut Criterion) {
+fn stm_benches<C, H>(c: &mut Criterion)
+where
+    C: PairingEngine + Hash,
+    C::G1Projective: ToConstraintField<C::Fq>,
+    H: MTHashLeaf<MTValue<C>, F = DigestHash> + Clone,
+    <H as MTHashLeaf<MTValue<C>>>::F: Send + Sync + FromBytes + ToBytes,
+{
     let mut group = c.benchmark_group("STM");
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
     let mut msg = [0u8; 16];
@@ -176,24 +184,32 @@ fn stm_benches(c: &mut Criterion) {
         let clerk = StmClerk::from_signer(&party_dummy, TrivialEnv);
 
         group.bench_function(BenchmarkId::new("Aggregation", &param_string), |b| {
-            b.iter(|| clerk.aggregate::<ConcatProof<C, H, F>>(&sigs, &ixs, &msg))
+            b.iter(|| clerk.aggregate::<ConcatProof<C, H, H::F>>(&sigs, &ixs, &msg))
         });
     }
 
     let clerk = StmClerk::from_signer(&party_dummy, TrivialEnv);
     let msig = clerk
-        .aggregate::<ConcatProof<C, H, F>>(&sigs, &ixs, &msg)
+        .aggregate::<ConcatProof<C, H, H::F>>(&sigs, &ixs, &msg)
         .unwrap();
     group.bench_function("Verification", |b| {
         b.iter(|| {
             clerk
-                .verify_msig::<ConcatProof<C, H, F>>(&msig, &msg)
-                .unwrap()
+                .verify_msig::<ConcatProof<C, H, H::F>>(&msig, &msg)
+                .is_ok()
         })
     });
 }
 
+fn stm_benches_bls12_377_blake(c: &mut Criterion) {
+    stm_benches::<Bls12_377, Blake2b>(c);
+}
+
+fn stm_benches_bls12_381_blake(c: &mut Criterion) {
+    stm_benches::<Bls12_381, Blake2b>(c);
+}
+
 criterion_group!(name = benches;
                  config = Criterion::default().nresamples(5);
-                 targets = stm_benches);
+                 targets = stm_benches_bls12_377_blake, stm_benches_bls12_381_blake);
 criterion_main!(benches);
