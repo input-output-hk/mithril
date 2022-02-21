@@ -2,7 +2,7 @@
 //! is null. Other error codes are function dependent.
 use crate::key_reg::{ClosedKeyReg, KeyReg};
 use crate::{
-    merkle_tree::{MTHashLeaf, MerkleTree},
+    merkle_tree::{MTHashLeaf, MerkleTreeCommitment},
     mithril_proof::concat_proofs::{ConcatProof, TrivialEnv},
     msp::{MspPk, MspSk},
     stm::*,
@@ -23,7 +23,7 @@ type MultiSigPtr = *mut StmMultiSig<C, ConcatProof<C, H, F>>;
 type StmInitializerPtr = *mut StmInitializer<C>;
 type StmSignerPtr = *mut StmSigner<H, C>;
 type StmClerkPtr = *mut StmClerk<H, C, TrivialEnv>;
-type MerkleTreePtr = *mut MerkleTree<MTValue<C>, H>;
+type MerkleTreeCommitmentPtr = *mut MerkleTreeCommitment<MTValue<C>, H>;
 type KeyRegPtr = *mut KeyReg<C>;
 type ClosedKeyRegPtr = *mut ClosedKeyReg<C, H>;
 
@@ -449,7 +449,9 @@ mod signer {
 }
 
 mod key_reg {
-    use crate::c_api::{ClosedKeyRegPtr, KeyRegPtr, MerkleTreePtr, MspPkPtr, NULLPOINTERERR};
+    use crate::c_api::{
+        ClosedKeyRegPtr, KeyRegPtr, MerkleTreeCommitmentPtr, MspPkPtr, NULLPOINTERERR,
+    };
     use crate::key_reg::{KeyReg, RegisterError};
     use crate::stm::{PartyId, Stake};
     use std::slice;
@@ -508,10 +510,13 @@ mod key_reg {
     }
 
     #[no_mangle]
-    pub extern "C" fn generate_avk(key_reg: ClosedKeyRegPtr, mk_tree: *mut MerkleTreePtr) -> i64 {
+    pub extern "C" fn generate_avk(
+        key_reg: ClosedKeyRegPtr,
+        mk_tree: *mut MerkleTreeCommitmentPtr,
+    ) -> i64 {
         unsafe {
             if let (Some(key_reg), Some(mk_tree)) = (key_reg.as_ref(), mk_tree.as_mut()) {
-                *mk_tree = Box::into_raw(Box::new(key_reg.avk.clone()));
+                *mk_tree = Box::into_raw(Box::new(key_reg.avk.to_commitment()));
                 return 0;
             }
             NULLPOINTERERR
