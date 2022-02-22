@@ -1,5 +1,5 @@
 use ark_bls12_377::Bls12_377;
-use ark_ff::ToBytes;
+use ark_ff::{ToBytes, ToConstraintField, FromBytes};
 use mithril::key_reg::KeyReg;
 use mithril::merkle_tree::MTHashLeaf;
 use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
@@ -7,12 +7,19 @@ use mithril::stm::{MTValue, StmClerk, StmInitializer, StmParameters, StmSigner};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::prelude::*;
+use ark_ec::PairingEngine;
+use std::hash::Hash;
+use mithril::models::digest::DigestHash;
+use blake2::Blake2b;
+use ark_bls12_381::Bls12_381;
 
-type C = Bls12_377;
-type H = blake2::Blake2b;
-type F = <H as MTHashLeaf<MTValue<C>>>::F;
-
-fn main() {
+fn size<C, H>(curve: &str)
+    where
+        C: PairingEngine + Hash,
+        C::G1Projective: ToConstraintField<C::Fq>,
+        H: MTHashLeaf<MTValue<C>, F = DigestHash> + Clone,
+        <H as MTHashLeaf<MTValue<C>>>::F: Send + Sync + FromBytes + ToBytes,
+{
     // The only parameter over which the proof size changes is `k`, the number of required
     // signatures.
     println!("+----------------+");
@@ -20,6 +27,7 @@ fn main() {
     println!("+----------------+");
     println!("|----------------|");
     println!("| Trivial proofs |");
+    println!("| Curve: {:?} |", curve);
     println!("+----------------+");
 
     static NR_K: [u64; 8] = [8, 16, 32, 64, 128, 256, 512, 1024];
@@ -82,11 +90,16 @@ fn main() {
         }
 
         let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
-        if let Ok(msig) = clerk.aggregate::<ConcatProof<C, H, F>>(&sigs, &ixs, &msg) {
+        if let Ok(msig) = clerk.aggregate::<ConcatProof<C, H, H::F>>(&sigs, &ixs, &msg) {
             let mut writer = Vec::new();
             msig.write(&mut writer)
                 .expect("Failed to write multisignature");
             println!("k = {}; {} bytes", k, writer.len());
         }
     }
+}
+
+fn main() {
+    size::<Bls12_377, Blake2b>("Bls12_377");
+    size::<Bls12_381, Blake2b>("Bls12_381");
 }

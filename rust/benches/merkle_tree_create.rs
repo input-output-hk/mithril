@@ -1,18 +1,21 @@
-use ark_bls12_377::Bls12_377;
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rand_core::{OsRng, RngCore};
 use std::time::Duration;
 
 use mithril::merkle_tree::MerkleTree;
-use mithril::msp::{Msp, MspMvk};
 
-type C = Bls12_377;
 type H = blake2::Blake2b;
 
-pub fn gen_keys(n: usize) -> Vec<MspMvk<C>> {
+pub fn gen_keys(n: usize) -> Vec<[u8; 48]> {
     let mut rng = OsRng::default();
+    let mut result = Vec::with_capacity(n);
+    let mut val = [0u8; 48];
 
-    (0..n).map(|_| Msp::gen(&mut rng).1.mvk).collect()
+    for _ in 0..n {
+        rng.fill_bytes(&mut val);
+        result.push(val);
+    }
+    result
 }
 
 pub fn merkle_tree_create_benchmark(c: &mut Criterion) {
