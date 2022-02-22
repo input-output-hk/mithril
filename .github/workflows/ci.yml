@@ -59,7 +59,7 @@ jobs:
         continue-on-error: false
         with:
           command: bench
-          args: --no-run --locked
+          args: --no-run --locked --manifest-path ./rust/Cargo.toml
 
       - name: Run cargo test
         uses: actions-rs/cargo@v1
