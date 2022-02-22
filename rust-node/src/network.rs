@@ -30,7 +30,10 @@ impl Network for ChannelNetwork {
 
     fn send(&self, message: &Message) -> Result<(), String> {
       for out_channel in self.output.values() {
-        out_channel.send((self.me(), message.clone()));
+        match out_channel.send((self.me(), message.clone())) {
+          Ok(()) => (),
+          Err(s) => return Err(s.to_string())
+        };
       }
 
       Ok(())
@@ -39,14 +42,14 @@ impl Network for ChannelNetwork {
     fn recv(&self) -> Result<(PartyId, Message), String> {
       match self.input.recv() {
         Ok(m) => Ok(m),
-        Err(e) => Err("Recv error".to_string())
+        Err(e) => Err(e.to_string())
       }
     }
 
     fn recv_timeout(&self, timeout: time::Duration) -> Result<(PartyId, Message), String> {
       match self.input.recv_timeout(timeout) {
         Ok(m) => Ok(m),
-        Err(e) => Err("Timeout exceeded".to_string())
+        Err(_) => Err("Timeout exceeded".to_string())
       }
     }
 }

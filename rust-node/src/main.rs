@@ -3,9 +3,7 @@ mod network;
 mod node_impl;
 
 use serde::{Serialize, Deserialize};
-use serde_json as json;
 use std::path::Path;
-use std::io::prelude::*;
 use std::fs::File;
 use clap::Parser;
 
@@ -19,7 +17,7 @@ struct Config {
 #[derive(Parser)]
 struct Args {
     #[clap(long)]
-    configFile : String,
+    config_file : String,
 }
 
 fn main() {
@@ -28,7 +26,7 @@ fn main() {
 
     let config: Config =
         {
-            let path = Path::new(&args.configFile);
+            let path = Path::new(&args.config_file);
             let cf = File::open(path);
             let file =
                 match cf {

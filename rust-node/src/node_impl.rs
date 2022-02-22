@@ -1,27 +1,23 @@
+// TODO: remove this later
+#![allow(dead_code)]
+
 use crate::message::{
-    Hello, Message, Parameters, PartyId, SigRequest, SigResponse, Signature, Stake,
+    Hello, Message, Parameters, PartyId, SigResponse, Signature, Stake,
 };
-use crate::network::{self, Network};
+use crate::network::Network;
 use std::collections::HashMap;
-use std::io;
 use std::io::Cursor;
-use std::io::Write;
-use std::ptr::NonNull;
-use std::time;
 
 use ark_bls12_377::Bls12_377;
-use ark_ec::{self, PairingEngine};
+use ark_ec;
 use ark_ff;
-use ark_ff::ToBytes;
-use ark_std;
-use mithril::key_reg;
-use mithril::msp;
-use mithril::stm;
 use rand_chacha::ChaCha20Rng;
 use rand_core;
 use rand_core::SeedableRng;
+use mithril::key_reg;
+use mithril::msp;
+use mithril::stm;
 
-const timeout: time::Duration = time::Duration::from_secs(5);
 
 type StakeDistribution = HashMap<PartyId, Stake>;
 type ValidationKey = msp::MspPk<Bls12_377>;
@@ -50,12 +46,12 @@ where
 fn ark_to_bytes<T: ark_ff::ToBytes>(t: T) -> Vec<u8> {
     let mut buf: Vec<u8> = Vec::new();
     let mut writer: Cursor<&mut Vec<u8>> = Cursor::new(&mut buf);
-    ark_ff::ToBytes::write(&t, writer);
+    ark_ff::ToBytes::write(&t, &mut writer).unwrap(); // TODO - can this ever fail?
 
     buf
 }
 fn ark_from_bytes<T: ark_ff::FromBytes>(bytes: &Vec<u8>) -> Result<T, String> {
-    let mut rdr = Cursor::new(bytes);
+    let rdr = Cursor::new(bytes);
     str_err_result(ark_ff::FromBytes::read(rdr))
 }
 
@@ -71,8 +67,6 @@ where
     let keyreg_players: Vec<(usize, u64)> =
         stake_dist.iter().map(|(p, s)| (*p as usize, *s)).collect();
 
-    println!("keys: {}", keys.keys().count());
-
     let mut keyreg: key_reg::KeyReg<PE> = key_reg::KeyReg::new(&keyreg_players);
 
     for pid in stake_dist.keys() {
@@ -86,7 +80,7 @@ where
     return Ok(keyreg.close());
 }
 
-fn node_impl<N>(
+pub fn node_impl<N>(
     network: &N,
     params: &Parameters,
     stake_dist: &StakeDistribution,
@@ -95,7 +89,7 @@ where
     N: Network,
 {
     let mut ctx = node_init(network, &params, &stake_dist)?;
-    node_oper(network, &params, &stake_dist, &mut ctx)?;
+    node_oper(network, &params, &mut ctx)?;
 
     Ok(())
 }
@@ -142,7 +136,6 @@ fn is_sig_complete(
 fn node_oper<N>(
     network: &N,
     params: &Parameters,
-    stake_dist: &StakeDistribution,
     ctx: &mut Context,
 ) -> Result<(), String>
 where
@@ -183,6 +176,7 @@ where
         }
     }
 }
+
 
 fn node_init<N>(
     network: &N,
@@ -253,7 +247,8 @@ where
 #[cfg(test)]
 mod test {
   use super::*;
-  use std::{collections::HashSet, sync::mpsc, thread};
+  use std::{collections::HashSet, thread};
+  use crate::network;
 
   #[test]
   fn test_init() {
@@ -272,8 +267,7 @@ mod test {
     let parties = HashSet::from_iter(stake_dist.keys().map(|k| *k));
     let mut networks = network::mk_testing_network(&parties);
 
-    //let (sen , recv) = mpsc::channel();
-    let mut handles : Vec<std::thread::JoinHandle<Option<String>>> = Vec::new();
+    let mut handles : Vec<thread::JoinHandle<Option<String>>> = Vec::new();
 
     for p in &parties {
       let network = networks.remove(p).unwrap();
@@ -297,7 +291,7 @@ mod test {
         Ok(Some(s)) => {
           panic!("initialization failed: {}", s)
         }
-        Err(e) => {
+        Err(_) => {
           panic!("thread join failed with error")
         }
       }
