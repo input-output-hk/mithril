@@ -23,19 +23,19 @@ use std::hash::Hash;
 /// * Verification is independent from the parameters.
 ///
 
-const SIZE: usize = 3;
-static NR_PARTIES: [usize; SIZE] = [32, 64, 128]; //, 256, 512, 1024, 2048, 4096];
-static NR_M: [u64; SIZE] = [50, 100, 150]; //, 200, 250, 300, 350, 400];
-static NR_K: [u64; SIZE] = [8, 16, 32]; //, 64, 128, 256, 512, 1024];
+const SIZE: usize = 8;
+static NR_PARTIES: [usize; SIZE] = [32, 64, 128, 256, 512, 1024, 2048, 4096];
+static NR_M: [u64; SIZE] = [50, 100, 150, 200, 250, 300, 350, 400];
+static NR_K: [u64; SIZE] = [8, 16, 32, 64, 128, 256, 512, 1024];
 
-fn stm_benches<C, H>(c: &mut Criterion)
+fn stm_benches<C, H>(c: &mut Criterion, curve: &str)
 where
     C: PairingEngine + Hash,
     C::G1Projective: ToConstraintField<C::Fq>,
     H: MTHashLeaf<MTValue<C>, F = DigestHash> + Clone,
     <H as MTHashLeaf<MTValue<C>>>::F: Send + Sync + FromBytes + ToBytes,
 {
-    let mut group = c.benchmark_group("STM");
+    let mut group = c.benchmark_group(format!("STM/{:?}", curve));
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
     let mut msg = [0u8; 16];
     rng.fill_bytes(&mut msg);
@@ -202,11 +202,11 @@ where
 }
 
 fn stm_benches_bls12_377_blake(c: &mut Criterion) {
-    stm_benches::<Bls12_377, Blake2b>(c);
+    stm_benches::<Bls12_377, Blake2b>(c, "Bls12_381");
 }
 
 fn stm_benches_bls12_381_blake(c: &mut Criterion) {
-    stm_benches::<Bls12_381, Blake2b>(c);
+    stm_benches::<Bls12_381, Blake2b>(c, "Bls12_381");
 }
 
 criterion_group!(name = benches;
