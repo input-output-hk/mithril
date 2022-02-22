@@ -1,24 +1,24 @@
 use ark_bls12_377::Bls12_377;
-use ark_ff::{ToBytes, ToConstraintField, FromBytes};
+use ark_bls12_381::Bls12_381;
+use ark_ec::PairingEngine;
+use ark_ff::{FromBytes, ToBytes, ToConstraintField};
+use blake2::Blake2b;
 use mithril::key_reg::KeyReg;
 use mithril::merkle_tree::MTHashLeaf;
 use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
+use mithril::models::digest::DigestHash;
 use mithril::stm::{MTValue, StmClerk, StmInitializer, StmParameters, StmSigner};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::prelude::*;
-use ark_ec::PairingEngine;
 use std::hash::Hash;
-use mithril::models::digest::DigestHash;
-use blake2::Blake2b;
-use ark_bls12_381::Bls12_381;
 
 fn size<C, H>(curve: &str)
-    where
-        C: PairingEngine + Hash,
-        C::G1Projective: ToConstraintField<C::Fq>,
-        H: MTHashLeaf<MTValue<C>, F = DigestHash> + Clone,
-        <H as MTHashLeaf<MTValue<C>>>::F: Send + Sync + FromBytes + ToBytes,
+where
+    C: PairingEngine + Hash,
+    C::G1Projective: ToConstraintField<C::Fq>,
+    H: MTHashLeaf<MTValue<C>, F = DigestHash> + Clone,
+    <H as MTHashLeaf<MTValue<C>>>::F: Send + Sync + FromBytes + ToBytes,
 {
     // The only parameter over which the proof size changes is `k`, the number of required
     // signatures.
