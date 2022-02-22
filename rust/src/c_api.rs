@@ -13,7 +13,7 @@ use std::os::raw::c_char;
 
 pub const NULLPOINTERERR: i64 = -99;
 
-type C = ark_bls12_381::Bls12_381;
+type C = ark_bls12_377::Bls12_377;
 type H = blake2::Blake2b;
 type F = <H as MTHashLeaf<MTValue<C>>>::F;
 type MspSkPtr = *mut MspSk<C>;

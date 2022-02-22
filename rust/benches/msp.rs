@@ -1,11 +1,11 @@
 use ark_bls12_377::Bls12_377;
 use ark_bls12_381::Bls12_381;
+use ark_ec::PairingEngine;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use mithril::msp::Msp;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use std::time::Duration;
-use ark_ec::PairingEngine;
 
 static NR_SIGNERS: [usize; 6] = [8, 16, 32, 64, 128, 256];
 
@@ -17,9 +17,7 @@ fn msp<PE: PairingEngine>(c: &mut Criterion, curve: &str) {
     let mut sigs = Vec::new();
 
     let mut group = c.benchmark_group(format!("Multi-signatures/{:?}", curve));
-    group.bench_function("Key generation", |b| {
-        b.iter(|| Msp::<PE>::gen(&mut rng))
-    });
+    group.bench_function("Key generation", |b| b.iter(|| Msp::<PE>::gen(&mut rng)));
 
     let (sk, _) = Msp::<PE>::gen(&mut rng);
     group.bench_function("Single signature", |b| b.iter(|| Msp::sig(&sk, &msg)));
