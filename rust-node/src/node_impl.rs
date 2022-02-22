@@ -1,9 +1,7 @@
 // TODO: remove this later
 #![allow(dead_code)]
 
-use crate::message::{
-    Hello, Message, Parameters, PartyId, SigResponse, Signature, Stake,
-};
+use crate::message::{Hello, Message, Parameters, PartyId, SigResponse, Signature, Stake};
 use crate::network::Network;
 use std::collections::HashMap;
 use std::io::Cursor;
@@ -11,13 +9,12 @@ use std::io::Cursor;
 use ark_bls12_377::Bls12_377;
 use ark_ec;
 use ark_ff;
-use rand_chacha::ChaCha20Rng;
-use rand_core;
-use rand_core::SeedableRng;
 use mithril::key_reg;
 use mithril::msp;
 use mithril::stm;
-
+use rand_chacha::ChaCha20Rng;
+use rand_core;
+use rand_core::SeedableRng;
 
 type StakeDistribution = HashMap<PartyId, Stake>;
 type ValidationKey = msp::MspPk<Bls12_377>;
@@ -71,7 +68,10 @@ where
 
     for pid in stake_dist.keys() {
         let pk = keys.get(pid).map_or(
-            Err(std::format!("key not found for party {} in stake distribution", pid)),
+            Err(std::format!(
+                "key not found for party {} in stake distribution",
+                pid
+            )),
             |key| Ok(key),
         )?;
         str_err_result(keyreg.register(*pid as usize, *pk))?;
@@ -120,24 +120,23 @@ fn cache_sig_response(
 }
 
 fn is_sig_complete(
-  sig_cache: &mut HashMap<u64, HashMap<PartyId, SigResponse>>,
-  ctx: &Context,
-  request_id: u64
+    sig_cache: &mut HashMap<u64, HashMap<PartyId, SigResponse>>,
+    ctx: &Context,
+    request_id: u64,
 ) -> bool {
-  let request_cache =
-    match sig_cache.get(&request_id)  {
-      None => { return false; }
-      Some(v) => v,
+    let request_cache = match sig_cache.get(&request_id) {
+        None => {
+            return false;
+        }
+        Some(v) => v,
     };
 
-  ctx.participants.keys().all(|p| request_cache.contains_key(p))
+    ctx.participants
+        .keys()
+        .all(|p| request_cache.contains_key(p))
 }
 
-fn node_oper<N>(
-    network: &N,
-    params: &Parameters,
-    ctx: &mut Context,
-) -> Result<(), String>
+fn node_oper<N>(network: &N, params: &Parameters, ctx: &mut Context) -> Result<(), String>
 where
     N: Network,
 {
@@ -177,7 +176,6 @@ where
     }
 }
 
-
 fn node_init<N>(
     network: &N,
     params: &Parameters,
@@ -214,7 +212,6 @@ where
     let mut pks: HashMap<PartyId, ValidationKey> = HashMap::new();
     pks.insert(network.me(), init.verification_key().clone());
 
-
     // recv `Hello` until all peers have responded
     while !network.peers().iter().all(|p| peer_hello.contains_key(p)) {
         // TODO: configurable timeout
@@ -246,55 +243,53 @@ where
 
 #[cfg(test)]
 mod test {
-  use super::*;
-  use std::{collections::HashSet, thread};
-  use crate::network;
+    use super::*;
+    use crate::network;
+    use std::{collections::HashSet, thread};
 
-  #[test]
-  fn test_init() {
-    let parameters =
-      Parameters {
-        m: 4,
-        k: 3,
-        phi_f: 0.4,
-      };
+    #[test]
+    fn test_init() {
+        let parameters = Parameters {
+            m: 4,
+            k: 3,
+            phi_f: 0.4,
+        };
 
-    let mut stake_dist: HashMap<PartyId, Stake> = HashMap::new();
-    for i in 0..4 {
-      stake_dist.insert(i, 1);
-    }
-
-    let parties = HashSet::from_iter(stake_dist.keys().map(|k| *k));
-    let mut networks = network::mk_testing_network(&parties);
-
-    let mut handles : Vec<thread::JoinHandle<Option<String>>> = Vec::new();
-
-    for p in &parties {
-      let network = networks.remove(p).unwrap();
-      let ps = parameters.clone();
-      let dist = stake_dist.clone();
-      let handle: std::thread::JoinHandle<Option<String>> =
-        std::thread::spawn(move || {
-          if let Err(s) = node_init(&network, &ps, &dist) {
-            return Some(s);
-          }
-
-          return None;
-        });
-      handles.push(handle);
-    }
-
-    // TODO: timeout?
-    for handle in handles {
-      match handle.join() {
-        Ok(None) => {}
-        Ok(Some(s)) => {
-          panic!("initialization failed: {}", s)
+        let mut stake_dist: HashMap<PartyId, Stake> = HashMap::new();
+        for i in 0..4 {
+            stake_dist.insert(i, 1);
         }
-        Err(_) => {
-          panic!("thread join failed with error")
+
+        let parties = HashSet::from_iter(stake_dist.keys().map(|k| *k));
+        let mut networks = network::mk_testing_network(&parties);
+
+        let mut handles: Vec<thread::JoinHandle<Option<String>>> = Vec::new();
+
+        for p in &parties {
+            let network = networks.remove(p).unwrap();
+            let ps = parameters.clone();
+            let dist = stake_dist.clone();
+            let handle: std::thread::JoinHandle<Option<String>> = std::thread::spawn(move || {
+                if let Err(s) = node_init(&network, &ps, &dist) {
+                    return Some(s);
+                }
+
+                return None;
+            });
+            handles.push(handle);
         }
-      }
+
+        // TODO: timeout?
+        for handle in handles {
+            match handle.join() {
+                Ok(None) => {}
+                Ok(Some(s)) => {
+                    panic!("initialization failed: {}", s)
+                }
+                Err(_) => {
+                    panic!("thread join failed with error")
+                }
+            }
+        }
     }
-  }
 }
