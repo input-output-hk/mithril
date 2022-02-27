@@ -1,16 +1,26 @@
 mod message;
 mod network;
 mod node_impl;
+mod wsvc;
 
 use clap::Parser;
 use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::path::Path;
+use std::collections::HashMap;
 
-#[derive(Serialize, Deserialize)]
+
+#[derive(Serialize, Deserialize, Clone)]
 struct Config {
-    my_address: String,
-    peers: Vec<String>,
+    nodes: Vec<NodeConfig>,
+    parameters: message::Parameters,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+struct NodeConfig {
+    id: message::PartyId,
+    address_local: String,
+    address_endpoint: String,
     stake: u64,
 }
 
@@ -18,6 +28,12 @@ struct Config {
 struct Args {
     #[clap(long)]
     config_file: String,
+
+    #[clap(long)]
+    node_id: message::PartyId,
+
+    #[clap(long)]
+    debug: bool,
 }
 
 fn main() {
@@ -38,5 +54,38 @@ fn main() {
         }
     };
 
-    todo!("Not implemented!");
+    // TODO: check that nodes are not duplicated
+    let me_mb =
+        config.nodes.iter()
+                    .find(|p| p.id == args.node_id);
+
+    let me = match me_mb {
+        None => panic!("Cannot run as node {} - id does not appear in config file!", args.node_id),
+        Some(p) => p
+    };
+
+
+    let peers =
+        config.nodes.iter()
+                    .filter(|p| p.id != args.node_id);
+    let peer_addr_map =
+        peers.map(|p| (p.id, p.address_endpoint.clone())).collect();
+
+    let start_res = wsvc::start_ws_network(&me.address_local, &peer_addr_map, me.id);
+    let network = match start_res {
+        Ok(n) => n,
+        Err(e) => panic!("Couldn't start webservice and/or client thread: {}", e)
+    };
+
+    let stake_dist_iter =
+        config.nodes.iter()
+                    .map(|p| (p.id, p.stake));
+
+    let stake_dist = HashMap::from_iter(stake_dist_iter);
+
+    match node_impl::node_impl(&network, &config.parameters, &stake_dist) {
+        Err(e) => panic!("node_impl returned error: {}", e),
+        Ok(()) => (),
+    }
+
 }

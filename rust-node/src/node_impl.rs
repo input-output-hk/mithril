@@ -5,6 +5,7 @@ use crate::message::{Hello, Message, Parameters, PartyId, SigResponse, Signature
 use crate::network::Network;
 use std::collections::HashMap;
 use std::io::Cursor;
+use log::debug;
 
 use ark_bls12_377::Bls12_377;
 use ark_ec;
