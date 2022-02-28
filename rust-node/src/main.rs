@@ -13,9 +13,11 @@ use crate::config::Config;
 
 #[derive(Parser)]
 struct Args {
+    /// Path to configuration file
     #[clap(long)]
     config_file: String,
 
+    /// Party ID to run as
     #[clap(long)]
     node_id: message::PartyId,
 
