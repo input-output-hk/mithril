@@ -2,27 +2,14 @@ mod message;
 mod network;
 mod node_impl;
 mod wsvc;
+mod config;
+mod print_examples;
 
 use clap::Parser;
-use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::path::Path;
 use std::collections::HashMap;
-
-
-#[derive(Serialize, Deserialize, Clone)]
-struct Config {
-    nodes: Vec<NodeConfig>,
-    parameters: message::Parameters,
-}
-
-#[derive(Serialize, Deserialize, Clone)]
-struct NodeConfig {
-    id: message::PartyId,
-    address_local: String,
-    address_endpoint: String,
-    stake: u64,
-}
+use crate::config::Config;
 
 #[derive(Parser)]
 struct Args {
@@ -38,8 +25,8 @@ struct Args {
 
 fn main() {
     let args: Args = Args::parse();
-    // process config
 
+    // process config
     let config: Config = {
         let path = Path::new(&args.config_file);
         let cf = File::open(path);
@@ -87,5 +74,5 @@ fn main() {
         Err(e) => panic!("node_impl returned error: {}", e),
         Ok(()) => (),
     }
-
 }
+
