@@ -11,19 +11,6 @@ packages:
       sha256: 30d79e4e95082a3af0fe83457bb29cffb637e240346dc2372cc34ede9f8f0ae8
   original:
     hackage: bloomfilter-2.0.1.0
-- completed:
-    subdir: merkle-patricia-tree
-    name: merkle-patricia-tree
-    version: 0.1.0
-    git: https://github.com/input-output-hk/hydra-poc.git
-    pantry-tree:
-      size: 418
-      sha256: 5b010adfb55fbe956c4c731d2cd5888fd91c645221881787abfd4fe62caf82e7
-    commit: df2bb91931755b998c1b0a7035fc82e14cb0d0dc
-  original:
-    subdir: merkle-patricia-tree
-    git: https://github.com/input-output-hk/hydra-poc.git
-    commit: df2bb91931755b998c1b0a7035fc82e14cb0d0dc
 snapshots:
 - completed:
     size: 586292
