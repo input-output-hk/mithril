@@ -60,7 +60,10 @@ fn main() {
     let peer_addr_map =
         peers.map(|p| (p.id, p.address_endpoint.clone())).collect();
 
-    let start_res = wsvc::start_ws_network(&me.address_local, &peer_addr_map, me.id);
+
+
+    let start_res =
+        wsvc::start_ws_network(&me.address_local, &peer_addr_map, me.id);
     let network = match start_res {
         Ok(n) => n,
         Err(e) => panic!("Couldn't start webservice and/or client thread: {}", e)

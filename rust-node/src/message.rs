@@ -59,6 +59,11 @@ pub struct Hello {
     pub public_key: PublicKey,
 }
 
+#[derive(Serialize,Deserialize,Clone)]
+pub struct Result {
+    pub success : bool,
+}
+
 // TODO: maybe this isn't right?
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SigRequest {
