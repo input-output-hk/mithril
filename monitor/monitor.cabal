@@ -21,6 +21,7 @@ library
   exposed-modules:      Mithril.Protocol
                         Mithril.Monitor
                         Mithril.Messages
+                        Mithril.Network
 
 
   -- other-modules:
@@ -37,7 +38,11 @@ library
                         free,
                         base64-bytestring,
                         base16-bytestring,
-                        text
+                        text,
+                        scotty,
+                        http-conduit,
+                        http-types,
+                        warp
   hs-source-dirs:       src
   default-language:     Haskell2010
 
