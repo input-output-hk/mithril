@@ -1,0 +1,21 @@
+{
+  "nodes": [
+    {
+      "id": 1,
+      "address_local": "localhost:8001",
+      "address_endpoint": "http://localhost:8001/",
+      "stake": 1
+    },
+    {
+      "id": 2,
+      "address_local": "localhost:8002",
+      "address_endpoint": "http://localhost:8002/",
+      "stake": 1
+    }
+  ],
+  "parameters": {
+    "k": 5,
+    "m": 100,
+    "phi_f": 0.2
+  }
+}
