@@ -1,0 +1,38 @@
+digraph mvp {
+  node [ shape = "box" ];
+
+  "Spin-up a wallet quickly" -> "Bootstrap cardano node \n with certified snapshot";
+
+  "Bootstrap cardano node \n with certified snapshot" -> "Verify snapshot" ;
+  "Bootstrap cardano node \n with certified snapshot" -> "'Load' snapshot in cardano-node" ;
+
+   "'Load' snapshot in cardano-node" -> "Produce snapshot\nin appropriate format";
+
+  "Verify snapshot" -> "Retrieve snapshot";
+  "Verify snapshot" -> "Verify certificate";
+
+  "Verify certificate" -> "Retrieve certificate";
+  "Verify certificate" -> "Locate parameters";
+  "Verify certificate" -> "Retrieve certificate chain";
+  "Verify certificate" -> "Verify genesis certificate";
+
+  "Retrieve snapshot" -> "Serve snapshot";
+
+  // certificate stores and signs parameters?
+  "Locate parameters" -> "Retrieve certificate";
+
+  "Retrieve certificate" -> "Serve certificate";
+  "Retrieve certificate chain" -> "Find previous certificate";
+  "Retrieve certificate chain" -> "Serve certificate";
+  "Find previous certificate" -> "Retrieve certificate";
+
+  "Verify genesis certificate" -> "Retrieve genesis certificate";
+  "Retrieve genesis certificate" -> "Serve genesis certificate";
+
+  "Serve genesis certificate" -> "Sign genesis certificate\nw/ genesis keys";
+
+  "Serve certificate" -> "Produce certificate";
+  "Produce certificate" -> "Sign snapshot";
+  "Sign snapshot" -> "Produce snapshot";
+  "Sign snapshot" -> "Know parameters";
+}
