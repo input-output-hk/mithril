@@ -2,6 +2,51 @@
 
 Meeting minutes are sorted by date, most recent first.
 
+## 2021-03-10
+
+#### On-boarding JP on Mithril
+
+* Intros
+* Explanation of Mithril
+  * details about the certificate validation -> chain de validation
+  * We should be able to run some program representing the protocol working -> Rust CLI program?
+  * local registration -> register all stake owners, all possible lottery winners
+  * signatures need to be broadcast or sent to aggregator -> could be anyone
+  * Q.: Certificates can be different?
+  * Test Lab
+* Q&A
+  * Incentives? paying for snapshot is valid only for large amount of sync
+* Plan next days/weeks
+  * Codebase
+  * Goal: Opensource repo end of march
+  * Goal: Write CLI simulating Mithril
+  * Have a recurring meeting -> 2hours block 3 times a day
+  * have an @iohk.io address -> Roy Nakakawa
+
+#### Mithril Product Catch-up
+
+* Talking to Exchanges about Mithril
+  * Vitor talking to them abouyt Scientia
+  * Discussing problems about node bootstrap (run db-sync, lot of issues), exploring solutions
+  * Hard to find "friendly" exchanges
+* How about wallet providers?
+* Trying to talk to ops to be able to deploy a Mithril node on testnet/mainnet?
+* DApp developers could make use of a snapshot-enabled wallet
+
+* We could have a progressive strategy to increase %age of trust
+  * Maybe be cautious for mainnet?
+* _Start product development from the consumption side_: How would people use the snapshots/certificates, generate the certiciates "manually"
+  * We don't need a full fledged mithril node and network to be able to produce signatures and certificates
+
+* Certificates are signed using specific keys
+* We need to link the stake keys with the mithril keys
+* Cold keys -> sign -> KES keys
+  * Cold keys validates new KES every 2^6 epochs
+  * KES blocks are put on-chain
+
+Should not be too hard to certify Mithril signing keys https://docs.cardano.org/core-concepts/cardano-keys
+
+
 ## 2021-12-01 - Weekly
 
 > Hello,
