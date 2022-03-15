@@ -23,19 +23,14 @@ pub type Bytes = Vec<u8>;
 pub struct Party {
     /// Party's identifier
     party_id: PartyId,
-
     /// Party's stake
     stake: Stake,
-
     /// Protocol parameters
     params: Option<StmParameters>,
-
     /// Protocol signer
     signer: Option<StmSigner<H, Bls12_377>>,
-
     /// Protocol clerk
     clerk: Option<StmClerk<H, Bls12_377, TrivialEnv>>,
-
     /// Multi signatures
     msigs: HashMap<Bytes, StmMultiSig<Bls12_377, ConcatProof<Bls12_377, H, F>>>,
 }
@@ -164,12 +159,10 @@ impl Party {
                 }
             }
             None => {
-                {
-                    println!(
-                        "Party #{}: aggregate signature not found {:?}",
-                        self.party_id, message
-                    );
-                }
+                println!(
+                    "Party #{}: aggregate signature not found {:?}",
+                    self.party_id, message
+                );
                 Err(String::from("aggregate signature not found"))
             }
         }
@@ -181,13 +174,10 @@ impl Party {
 pub struct Demonstrator {
     /// Configuration of the demonstrator
     config: crate::Config,
-
     /// List of protocol participants
     parties: Vec<Party>,
-
     /// List of messages to sign
     messages: Vec<Bytes>,
-
     /// Protocol parameters
     params: Option<StmParameters>,
 }
@@ -231,7 +221,7 @@ pub trait ProtocolDemonstrator {
     fn issue_certificates(&mut self);
 
     /// Verify certificates
-    fn verify_certificates(&mut self) -> Result<(), String>;
+    fn verify_certificates(&self) -> Result<(), String>;
 }
 
 impl ProtocolDemonstrator for Demonstrator {
@@ -242,7 +232,7 @@ impl ProtocolDemonstrator for Demonstrator {
             k: self.config.k,
             phi_f: self.config.phi_f,
         });
-        println!("Protocol established to {:?}", self.params);
+        println!("Protocol established to {:?}", self.params.unwrap());
     }
 
     /// Initialization phase of the protocol
@@ -287,7 +277,7 @@ impl ProtocolDemonstrator for Demonstrator {
     }
 
     /// Verify certificates
-    fn verify_certificates(&mut self) -> Result<(), String> {
+    fn verify_certificates(&self) -> Result<(), String> {
         for (i, message) in self.messages.iter().enumerate() {
             println!("Message #{} to verify: {:?}", i, message);
             for party in self.parties.iter() {
@@ -337,6 +327,8 @@ mod tests {
         let mut demo = Demonstrator::new(&config);
         demo.establish();
         demo.initialize();
+        assert_eq!(demo.parties.len(), config.nparties);
+        assert_eq!(demo.messages.len(), config.nmessages);
         for party in demo.parties {
             assert_ne!(party.stake, 0);
             match party.signer {
@@ -357,6 +349,8 @@ mod tests {
         demo.establish();
         demo.initialize();
         demo.issue_certificates();
+        assert_eq!(demo.parties.len(), config.nparties);
+        assert_eq!(demo.messages.len(), config.nmessages);
         for party in demo.parties {
             assert_eq!(party.msigs.len(), config.nmessages);
         }
@@ -371,6 +365,8 @@ mod tests {
         demo.establish();
         demo.initialize();
         demo.issue_certificates();
+        assert_eq!(demo.parties.len(), config.nparties);
+        assert_eq!(demo.messages.len(), config.nmessages);
         for party in demo.parties {
             assert_eq!(party.msigs.len(), 0);
         }
@@ -383,6 +379,8 @@ mod tests {
         demo.establish();
         demo.initialize();
         demo.issue_certificates();
+        assert_eq!(demo.parties.len(), config.nparties);
+        assert_eq!(demo.messages.len(), config.nmessages);
         assert!(demo.verify_certificates().is_ok())
     }
 
@@ -395,6 +393,8 @@ mod tests {
         demo.establish();
         demo.initialize();
         demo.issue_certificates();
+        assert_eq!(demo.parties.len(), config.nparties);
+        assert_eq!(demo.messages.len(), config.nmessages);
         assert!(demo.verify_certificates().is_err())
     }
 }

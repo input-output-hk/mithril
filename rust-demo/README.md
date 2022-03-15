@@ -29,6 +29,9 @@ make test
 # Help
 make help
 
+# Doc
+make doc
+
 # Run with default configuration
 make run
 ```
@@ -46,4 +49,84 @@ make build
 
 # Run with custom configuration
 ./mithrildemo -k 5 -m 50 --phi-f 0.65 --nparties 5 --nmessages 2
+```
+
+## Example output:
+```
+>> Launch Mithril protocol demonstrator with configuration: 
+Config {
+    m: 100,
+    k: 5,
+    phi_f: 0.2,
+    nparties: 5,
+    nmessages: 1,
+}
+
+>> Protocol establish phase
+Party #0: party created with 826 stakes
+Party #1: party created with 741 stakes
+Party #2: party created with 144 stakes
+Party #3: party created with 734 stakes
+Party #4: party created with 41 stakes
+Protocol established to StmParameters { m: 100, k: 5, phi_f: 0.2 }
+
+>> Protocol initialize phase:
+Party #0: protocol params updated to StmParameters { m: 100, k: 5, phi_f: 0.2 }
+Party #1: protocol params updated to StmParameters { m: 100, k: 5, phi_f: 0.2 }
+Party #2: protocol params updated to StmParameters { m: 100, k: 5, phi_f: 0.2 }
+Party #3: protocol params updated to StmParameters { m: 100, k: 5, phi_f: 0.2 }
+Party #4: protocol params updated to StmParameters { m: 100, k: 5, phi_f: 0.2 }
+Party #0: protocol keys registration from [(0, 826), (1, 741), (2, 144), (3, 734), (4, 41)]
+Party #1: protocol keys registration from [(0, 826), (1, 741), (2, 144), (3, 734), (4, 41)]
+Party #2: protocol keys registration from [(0, 826), (1, 741), (2, 144), (3, 734), (4, 41)]
+Party #3: protocol keys registration from [(0, 826), (1, 741), (2, 144), (3, 734), (4, 41)]
+Party #4: protocol keys registration from [(0, 826), (1, 741), (2, 144), (3, 734), (4, 41)]
+
+>> Protocol issue certificates phase:
+Message #0 to sign: [119, 36, 224, 63, 184, 216, 74, 55, 106, 67, 184, 244, 21, 24, 161, 28]
+Party #0: sign message [119, 36, 224, 63, 184, 216, 74, 55, 106, 67, 184, 244, 21, 24, 161, 28]
+Party #0: lottery #6 won
+Party #0: lottery #9 won
+Party #0: lottery #32 won
+Party #0: lottery #43 won
+Party #0: lottery #46 won
+Party #0: lottery #57 won
+Party #0: lottery #89 won
+Party #0: lottery #96 won
+Party #1: sign message [119, 36, 224, 63, 184, 216, 74, 55, 106, 67, 184, 244, 21, 24, 161, 28]
+Party #1: lottery #6 won
+Party #1: lottery #9 won
+Party #1: lottery #43 won
+Party #1: lottery #46 won
+Party #1: lottery #57 won
+Party #1: lottery #89 won
+Party #1: lottery #96 won
+Party #2: sign message [119, 36, 224, 63, 184, 216, 74, 55, 106, 67, 184, 244, 21, 24, 161, 28]
+Party #2: lottery #43 won
+Party #2: lottery #46 won
+Party #2: lottery #96 won
+Party #3: sign message [119, 36, 224, 63, 184, 216, 74, 55, 106, 67, 184, 244, 21, 24, 161, 28]
+Party #3: lottery #6 won
+Party #3: lottery #9 won
+Party #3: lottery #43 won
+Party #3: lottery #46 won
+Party #3: lottery #57 won
+Party #3: lottery #89 won
+Party #3: lottery #96 won
+Party #4: sign message [119, 36, 224, 63, 184, 216, 74, 55, 106, 67, 184, 244, 21, 24, 161, 28]
+Party #0: aggregate signature computed
+Party #1: aggregate signature computed
+Party #2: aggregate signature computed
+Party #3: aggregate signature computed
+Party #4: aggregate signature computed
+
+>> Protocol verify certificates phase:
+Message #0 to verify: [119, 36, 224, 63, 184, 216, 74, 55, 106, 67, 184, 244, 21, 24, 161, 28]
+Party #0: aggregate signature successfully verified for [119, 36, 224, 63, 184, 216, 74, 55, 106, 67, 184, 244, 21, 24, 161, 28]!
+Party #1: aggregate signature successfully verified for [119, 36, 224, 63, 184, 216, 74, 55, 106, 67, 184, 244, 21, 24, 161, 28]!
+Party #2: aggregate signature successfully verified for [119, 36, 224, 63, 184, 216, 74, 55, 106, 67, 184, 244, 21, 24, 161, 28]!
+Party #3: aggregate signature successfully verified for [119, 36, 224, 63, 184, 216, 74, 55, 106, 67, 184, 244, 21, 24, 161, 28]!
+Party #4: aggregate signature successfully verified for [119, 36, 224, 63, 184, 216, 74, 55, 106, 67, 184, 244, 21, 24, 161, 28]!
+
+>> Congrats, protocol terminated with success!
 ```
