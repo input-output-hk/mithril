@@ -9,8 +9,8 @@ data Monitor i o a =
   | Yield o (Monitor i o a)
   | Continue (i -> Monitor i o a)
 
-log :: o -> Monitor i o ()
-log l = Yield l (pure ())
+output :: o -> Monitor i o ()
+output l = Yield l (pure ())
 
 instance Functor (Monitor i o) where
   fmap f m =
@@ -40,17 +40,17 @@ observe mon msg =
     Continue c  -> c msg
 
 -- TODO: make tail recursive
-output :: Monitor i o a -> (Monitor i o a, [o])
-output ma =
+getOutput :: Monitor i o a -> (Monitor i o a, [o])
+getOutput ma =
   case ma of
     Yield o ma' ->
-      let (ma'', os) = output ma'
+      let (ma'', os) = getOutput ma'
       in (ma'', o:os)
     Continue _ -> (ma, [])
     Result _ -> (ma, [])
 
 step :: Monitor i o a -> i -> (Monitor i o a, [o])
-step m msg = output (m `observe` msg)
+step m msg = getOutput (m `observe` msg)
 
 next :: Monitor i o i
 next = Continue (pure <$> id)
@@ -79,7 +79,7 @@ getResult (Result a) = Just a
 getResult (Continue _) = Nothing
 getResult (Yield _ m) = getResult m
 
--- TODO: doesn't output
+-- TODO: doesn't getOutput
 allInParallel :: Traversable t => t (Monitor i o a) -> Monitor i o (t a)
 allInParallel ms =
   case getResult `traverse` ms of
@@ -88,7 +88,11 @@ allInParallel ms =
   where
     impl msg =
       let ms' = (`observe` msg) <$> ms
-      in  allInParallel ms'
+          outms = getOutput <$> ms'
+          ms'' = fst <$> outms
+          outs = concat (snd <$> outms)
+
+      in  output `traverse` outs >> allInParallel ms''
 
 allInParallel_ :: (Traversable f) => f (Monitor msg i a) -> Monitor msg i ()
 allInParallel_ ms = allInParallel ms >> pure ()

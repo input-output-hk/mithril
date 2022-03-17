@@ -1,7 +1,7 @@
 // TODO: remove this later
 #![allow(dead_code)]
 
-use crate::message::{Hello, Message, Parameters, PartyId, SigResponse, Signature, Stake};
+use crate::message::{Hello, Message, Parameters, PartyId, SigResponse, Signature, Stake, InitComplete};
 use crate::network::Network;
 use std::collections::HashMap;
 use std::io::Cursor;
@@ -173,6 +173,9 @@ where
             Message::SigResponse(resp) => {
                 cache_sig_response(&mut sig_cache, from, &resp);
             }
+            Message::InitComplete(_) => {
+
+            }
         }
     }
 }
@@ -235,6 +238,9 @@ where
 
     let key_reg = mk_keyreg(&stake_dist, &pks)?;
     let signer = init.new_signer(key_reg);
+
+    let ic = InitComplete { parties: peer_hello.values().cloned().collect() };
+    network.send(&Message::InitComplete(ic))?;
 
     Ok(Context {
         participants: peer_hello,

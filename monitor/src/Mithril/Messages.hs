@@ -68,6 +68,7 @@ data Payload =
     PayloadHello Hello
   | PayloadSigRequest SigRequest
   | PayloadSigResponse SigResponse
+  | PayloadInitComplete InitComplete
   deriving(Show, Eq)
 
 data Hello = Hello
@@ -75,6 +76,11 @@ data Hello = Hello
   , helloPartyId :: PartyId
   , helloStake :: Stake
   , helloPublicKey :: PublicKey
+  }
+  deriving(Show, Eq)
+
+data InitComplete = InitComplete
+  { initCompleteParties :: [Hello]
   }
   deriving(Show, Eq)
 
@@ -234,6 +240,16 @@ instance JSON.FromJSON SigResponse where
       SigResponse <$> r .: "request_id"
                   <*> r .: "sig"
 
+instance JSON.ToJSON InitComplete where
+  toJSON r =
+    JSON.object [ "parties" .= initCompleteParties r
+                ]
+instance JSON.FromJSON InitComplete where
+  parseJSON =
+    JSON.withObject "InitComplete" $ \r ->
+      InitComplete <$> r.: "parties"
+
+
 instance JSON.ToJSON Signature where
   toJSON s =
     JSON.object [ "index" .= signatureIndex s
@@ -252,6 +268,7 @@ instance JSON.ToJSON Payload where
       PayloadHello h -> JSON.toJSON h
       PayloadSigRequest r -> JSON.toJSON r
       PayloadSigResponse r -> JSON.toJSON r
+      PayloadInitComplete r -> JSON.toJSON r
 
 payloadTypeName :: Payload -> Text
 payloadTypeName p =
@@ -259,6 +276,7 @@ payloadTypeName p =
     PayloadHello _ -> "hello"
     PayloadSigRequest _ -> "sigRequest"
     PayloadSigResponse _ -> "sigResponse"
+    PayloadInitComplete _ -> "initComplete"
 
 instance JSON.ToJSON Message where
   toJSON m =
@@ -276,6 +294,7 @@ instance JSON.FromJSON Message where
             "hello" -> PayloadHello <$> JSON.parseJSON payloadV
             "sigRequest" -> PayloadSigRequest <$> JSON.parseJSON payloadV
             "sigResponse" -> PayloadSigResponse <$> JSON.parseJSON payloadV
+            "initComplete" -> PayloadInitComplete <$> JSON.parseJSON payloadV
             _ -> fail ("Unknown message type: '" <> Text.unpack ty <> "'")
 
           pure $ Message payload

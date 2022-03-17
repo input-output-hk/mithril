@@ -12,6 +12,7 @@ import qualified Control.Concurrent.Async as Async
 import qualified Network.HTTP.Simple as Client
 import qualified Web.Scotty as Scotty
 import Data.Aeson (ToJSON, FromJSON)
+import qualified Data.Aeson as JSON
 import Data.Map (Map)
 import qualified Network.Wai.Handler.Warp as Warp
 import qualified Network.HTTP.Types.Status as HTTPStatus
@@ -57,7 +58,7 @@ sendMsg url msg =
              Client.setRequestBodyJSON msg <$> Client.parseRequest url
 
       response <- Client.httpNoBody req
-      pure $ Client.getResponseStatusCode response == 200
+      pure $ Client.getResponseStatusCode response `elem` [200, 204]
 
 routedMessageEndpoint :: (Scotty.Parsable pid, FromJSON msg) => (RoutedMessage pid msg -> IO ()) -> Scotty.ScottyM ()
 routedMessageEndpoint o =
@@ -67,8 +68,15 @@ routedMessageEndpoint o =
       Scotty.post "/:to/:from" $
         do  to <- Scotty.param "to"
             from <- Scotty.param "from"
-            msg <- Scotty.jsonData
-            let rmsg = RoutedMessage from to msg
+            msg <- Scotty.body
+
+            msg_decode <- case JSON.eitherDecode msg of
+                    Left err ->
+                      do  Scotty.liftAndCatchIO (putStrLn err)
+                          fail err
+                    Right a -> pure a
+
+            let rmsg = RoutedMessage from to msg_decode
             Scotty.liftAndCatchIO (o rmsg)
             Scotty.status HTTPStatus.status204
 

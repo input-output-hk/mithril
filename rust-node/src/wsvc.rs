@@ -14,7 +14,7 @@ fn send<T:Serialize>(url: String, msg: T) {
     let response = ureq::post(&url).send_json(&msg);
 
     match response {
-      Ok(r) if r.status() == 200 => {
+      Ok(r) if r.status() == 200 || r.status() == 204 => {
         return;
       }
       _ => {

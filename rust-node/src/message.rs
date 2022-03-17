@@ -48,7 +48,7 @@ pub struct Certificate {
 #[serde(tag="type", content="payload", rename_all="camelCase")]
 pub enum Message {
     Hello(Hello),
-    // SigRequest(SigRequest),
+    InitComplete(InitComplete),
     SigMessage(SigMessage),
     SigResponse(SigResponse),
 }
@@ -64,6 +64,11 @@ pub struct Hello {
 #[derive(Serialize,Deserialize,Clone)]
 pub struct Result {
     pub success : bool,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct InitComplete {
+    pub parties: Vec<Hello>,
 }
 
 // TODO: maybe this isn't right?
