@@ -1,15 +1,11 @@
-mod message;
-mod network;
-mod node_impl;
-mod wsvc;
-mod config;
-mod print_examples;
-
 use clap::Parser;
 use std::fs::File;
 use std::path::Path;
 use std::collections::HashMap;
-use crate::config::Config;
+use rust_node::config::Config;
+use rust_node::message as message;
+use rust_node::wsvc as wsvc;
+use rust_node::node_impl as node_impl;
 
 #[derive(Parser)]
 struct Args {

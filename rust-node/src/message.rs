@@ -1,3 +1,4 @@
+use serde::ser::{SerializeStruct, Serializer};
 use serde::{Deserialize, Serialize};
 
 pub type Index = u64;
@@ -44,6 +45,7 @@ pub struct Certificate {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
+#[serde(tag="type", content="payload", rename_all="camelCase")]
 pub enum Message {
     Hello(Hello),
     // SigRequest(SigRequest),

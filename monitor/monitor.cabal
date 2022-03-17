@@ -18,13 +18,12 @@ build-type:          Simple
 extra-source-files:  CHANGELOG.md
 
 library
-  exposed-modules:      Mithril.Protocol
+  exposed-modules:      Mithril.Simple
+                        Mithril.Protocol
                         Mithril.Monitor
                         Mithril.Messages
                         Mithril.Network
-                        Mithril.Simple
-
-
+                        Mithril.Util
   -- other-modules:
   -- other-extensions:
   build-depends:        base >=4.13,

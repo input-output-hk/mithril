@@ -17,11 +17,14 @@ import qualified System.Directory as Dir
 import qualified System.IO.Temp as Temp
 import Control.Monad(forM_)
 import qualified Data.IORef as IORef
+import Control.Exception(bracket)
 
 import qualified Mithril.Network as MNet
 import qualified Mithril.Monitor as Monitor
 import qualified Mithril.Messages as Messages
 import Mithril.Messages (PartyId, Stake)
+import Mithril.Util(pollUntil, (++/), ping)
+
 
 type RMsg = MNet.RoutedMessage Messages.PartyId Messages.Message
 
@@ -62,17 +65,10 @@ testMonitor lc mon =
                   go labNode (mon' `Monitor.observe` msg)
             Just () -> pure ()
 
-
-
-
-
-
-
-
 defaultParams :: Messages.Parameters
 defaultParams =
   Messages.Parameters { Messages.parametersK = 5
-                     , Messages.parametersM = 100
+                      , Messages.parametersM = 100
                      , Messages.parametersPhiF = 0.2
                      }
 
@@ -98,9 +94,11 @@ data NetworkConfig = NetworkConfig
 data LabConfig = LabConfig
   { labNet :: NetworkConfig
   , labRestPort :: Int
-  , labRestBase :: String
   , labRustDir :: String
   }
+
+labRestBase :: LabConfig -> String
+labRestBase lc = MNet.restAddress (labRestPort lc)
 
 instance JSON.ToJSON NodeConfig where
   toJSON nc =
@@ -137,7 +135,7 @@ isVirtualNode c = isNothing (nConfigLocalAddress c)
 
 proxyNodeConfig :: String -> NodeConfig -> NodeConfig
 proxyNodeConfig baseUri config =
-  config { nConfigExtAddress = baseUri ++ "/" ++ show (nConfigPartyId config) ++ "/"
+  config { nConfigExtAddress = baseUri ++ show (nConfigPartyId config) ++ "/"
          }
 
 proxyNetConfigFor :: (NodeConfig -> NodeConfig) -> NodeConfig -> NetworkConfig -> NetworkConfig
@@ -155,9 +153,14 @@ withLaunchNode labCfg nc a =
         let pid = nConfigPartyId nc
             nproc = Process.proc "cargo" ["run", "--", "--node-id", show pid, "--config-file", netCfgFile]
             nproc' = nproc { Process.cwd = Just (labRustDir labCfg) }
-        in Process.withCreateProcess nproc' (\_ _ _ _ -> a)
+        in Process.withCreateProcess nproc' $ \_ _ _ _ ->
+          do  pollUntil  (ping (nConfigExtAddress nc ++/ "ping")) (200 * 1000)
+              a
+
   where
     proxiedNetConfig = proxyNetConfigFor (proxyNodeConfig (labRestBase labCfg)) nc (labNet labCfg)
+
+
 
 route :: NetworkConfig -> PartyId -> PartyId -> Maybe String
 route nc _ to = nConfigExtAddress <$> nodeConfig
@@ -165,10 +168,14 @@ route nc _ to = nConfigExtAddress <$> nodeConfig
     nodeConfig = List.find (\c -> nConfigPartyId c == to && not (isVirtualNode c)) (netNodes nc)
 
 withNetCfgFile :: NetworkConfig -> (FilePath -> IO a) -> IO a
-withNetCfgFile nc f = Temp.withSystemTempFile "testlab-netconfig" (\path _ -> JSON.encodeFile path nc >> f path)
+withNetCfgFile nc f =
+  --Temp.withSystemTempFile "testlab-netconfig" (\path _ -> JSON.encodeFile path nc >> f path)
+  bracket (Temp.emptySystemTempFile "testlab-netconfig")
+          Dir.removeFile
+          (\path -> JSON.encodeFile path nc >> f path)
 
 withLab :: LabConfig -> (MNet.Node RMsg -> IO a) -> IO a
-withLab labCfg a = withLaunchNodes labCfg (MNet.withRestNode (labRestPort labCfg) (route netCfg) a)
+withLab labCfg a =  MNet.withRestNode (labRestPort labCfg) (route netCfg) (withLaunchNodes labCfg . a)
   where
     netCfg = labNet labCfg
     withLaunchNodes labCfg a = foldr (withLaunchNode labCfg) a (netNodes netCfg)
@@ -179,7 +186,6 @@ labConfig1 :: LabConfig
 labConfig1 =
   LabConfig { labNet = labNetCfg
             , labRustDir = "../rust-node"
-            , labRestBase = "http://localhost:8000/"
             , labRestPort = 8000
             }
   where
@@ -191,5 +197,12 @@ labConfig1 =
                     }
 
 
+test1 :: IO ()
+test1 =
+  do  withLab labConfig1 $ \lc ->
+        do  msg <- MNet.recvFrom lc
+            print msg
+            _ <- getLine
+            pure ()
 
 

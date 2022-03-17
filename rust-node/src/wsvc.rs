@@ -105,8 +105,13 @@ pub fn start_ws_network(addr: &String, peers: &HashMap<PartyId, String>, my_id: 
         (POST) (/{u:PartyId}) => {
           let msg: Message = rouille::try_or_400!(rouille::input::json_input(req));
           s.send((u, msg)).unwrap();
-          rouille::Response::text("hello")
+          rouille::Response::empty_204()
         },
+
+        (GET) (/ping) => {
+          rouille::Response::empty_204()
+        },
+
         _ => {
           rouille::Response::empty_404()
         }

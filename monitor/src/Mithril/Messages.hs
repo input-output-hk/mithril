@@ -1,7 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 module Mithril.Messages where
 
-import Data.Word(Word64)
+import Data.Word(Word64, Word8)
 import Data.ByteString(ByteString)
 import qualified Data.ByteString.Base64 as Base64
 import qualified Data.ByteString.Base16 as Base16
@@ -19,8 +19,8 @@ type Stake = Word64
 -- TODO: this appears to be ISO8601 time, should parse accordingly?
 type Time = String
 
-type Bytes = ByteString
-type Hex = ByteString
+type Bytes = [Word8]
+type Hex = [Word8]
 
 data Signature = Signature
   { signatureIndex :: Word64
@@ -124,18 +124,19 @@ parseTextFromEither s f =
       Right b -> pure b
 
 
-parseBase64 :: JSON.Value -> JSONT.Parser Bytes
-parseBase64 = parseTextFromEither "Bytes" bytesFromBase64
 
-parseHex :: JSON.Value -> JSONT.Parser Hex
-parseHex = parseTextFromEither "Hex" bytesFromHex
+-- parseBase64 :: JSON.Value -> JSONT.Parser Bytes
+-- parseBase64 = parseTextFromEither "Bytes" bytesFromBase64
+
+-- parseHex :: JSON.Value -> JSONT.Parser Hex
+-- parseHex = parseTextFromEither "Hex" bytesFromHex
 
 instance JSON.ToJSON Hello where
   toJSON h =
     JSON.object [ "cardano_address" .= helloCardanoAddress h
                 , "party_id" .= helloPartyId h
                 , "stake" .= helloStake h
-                , "public_key" .= bytesToBase64 (helloPublicKey h)
+                , "public_key" .= helloPublicKey h
                 ]
 
 instance JSON.FromJSON Hello where
@@ -144,7 +145,7 @@ instance JSON.FromJSON Hello where
       Hello <$> h .: "cardano_address"
             <*> h .: "party_id"
             <*> h .: "stake"
-            <*> (h .: "public_key" >>= parseBase64)
+            <*> (h .: "public_key")
 
 
 instance JSON.ToJSON Parameters where
@@ -165,7 +166,7 @@ instance JSON.ToJSON Participant where
   toJSON p =
     JSON.object [ "party_id" .= participantPartyId p
                 , "stake" .= participantStake p
-                , "public_key" .= bytesToBase64 (participantPublicKey p)
+                , "public_key" .= participantPublicKey p
                 ]
 
 instance JSON.FromJSON Participant where
@@ -173,19 +174,19 @@ instance JSON.FromJSON Participant where
     JSON.withObject "Participant" $ \p ->
       Participant <$> p .: "party_id"
                   <*> p .: "stake"
-                  <*> (p .: "public_key" >>= parseBase64)
+                  <*> p .: "public_key"
 
 instance JSON.ToJSON Certificate where
   toJSON c =
     JSON.object [ "id" .= certificateId c
                 , "node_id" .= certificateNodeId c
-                , "cert_hash" .= bytesToHex (certificateHash c)
-                , "prev_hash" .= bytesToHex (certificatePrevHash c)
+                , "cert_hash" .= certificateHash c
+                , "prev_hash" .= certificatePrevHash c
                 , "participants" .= certificateParticipants c
                 , "block_number" .= certificateBlockNumber c
-                , "block_hash" .= bytesToHex (certificateBlockHash c)
-                , "merkle_root" .= bytesToHex (certificateMerkleRoot c)
-                , "multi_sig" .= bytesToBase64 (certificateMultiSig c)
+                , "block_hash" .= certificateBlockHash c
+                , "merkle_root" .= certificateMerkleRoot c
+                , "multi_sig" .= certificateMultiSig c
                 , "sig_started_at" .= certificateStartedAt c
                 , "sig_finished_at" .= certificateFinishedAt c
                 ]
@@ -195,13 +196,13 @@ instance JSON.FromJSON Certificate where
     JSON.withObject "Certificate" $ \c ->
       Certificate <$> c .: "id"
                   <*> c .: "node_id"
-                  <*> (c .: "cert_hash" >>= parseHex)
-                  <*> (c .: "prev_hash" >>= parseHex)
+                  <*> c .: "cert_hash"
+                  <*> c .: "prev_hash"
                   <*> c .: "participants"
                   <*> c .: "block_number"
-                  <*> (c .: "block_hash" >>= parseHex)
-                  <*> (c .: "merkle_root" >>= parseHex)
-                  <*> (c .: "multi_sig" >>= parseBase64)
+                  <*> c .: "block_hash"
+                  <*> c .: "merkle_root"
+                  <*> c .: "multi_sig"
                   <*> c .: "sig_started_at"
                   <*> c .: "sig_finished_at"
 
@@ -236,14 +237,14 @@ instance JSON.FromJSON SigResponse where
 instance JSON.ToJSON Signature where
   toJSON s =
     JSON.object [ "index" .= signatureIndex s
-                , "sig" .= bytesToBase64 (signatureSig s)
+                , "sig" .= signatureSig s
                 ]
 
 instance JSON.FromJSON Signature where
   parseJSON =
     JSON.withObject "Signature" $ \s ->
       Signature <$> s .: "index"
-                <*> (s .: "sig" >>= parseBase64)
+                <*> s .: "sig"
 
 instance JSON.ToJSON Payload where
   toJSON p =
