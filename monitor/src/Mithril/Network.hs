@@ -44,7 +44,7 @@ data RoutedMessage pid m = RoutedMessage
   , rmTo :: pid
   , rmMessage :: m
   }
-  deriving Show
+  deriving (Show, Eq)
 
 sendRoutedMessage :: ToJSON msg => (pid -> pid -> Maybe String) -> RoutedMessage pid msg -> IO Bool
 sendRoutedMessage route msg =
