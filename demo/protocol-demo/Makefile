@@ -18,4 +18,4 @@ help:
 	@${CARGO} run -- -h
 
 doc:
-	${CARGO} doc
+	${CARGO} doc --open -p mithrildemo
