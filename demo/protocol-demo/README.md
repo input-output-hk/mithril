@@ -76,11 +76,14 @@ Party #1: protocol params updated to StmParameters { m: 100, k: 5, phi_f: 0.2 }
 Party #2: protocol params updated to StmParameters { m: 100, k: 5, phi_f: 0.2 }
 Party #3: protocol params updated to StmParameters { m: 100, k: 5, phi_f: 0.2 }
 Party #4: protocol params updated to StmParameters { m: 100, k: 5, phi_f: 0.2 }
+Verifier: verifier created
+Verifier: protocol params updated to StmParameters { m: 100, k: 5, phi_f: 0.2 }
 Party #0: protocol keys registration from [(0, 826), (1, 741), (2, 144), (3, 734), (4, 41)]
 Party #1: protocol keys registration from [(0, 826), (1, 741), (2, 144), (3, 734), (4, 41)]
 Party #2: protocol keys registration from [(0, 826), (1, 741), (2, 144), (3, 734), (4, 41)]
 Party #3: protocol keys registration from [(0, 826), (1, 741), (2, 144), (3, 734), (4, 41)]
 Party #4: protocol keys registration from [(0, 826), (1, 741), (2, 144), (3, 734), (4, 41)]
+Verifier: protocol keys registration from [(0, 826), (1, 741), (2, 144), (3, 734), (4, 41)]
 
 >> Protocol issue certificates phase:
 Message #0 to sign: [119, 36, 224, 63, 184, 216, 74, 55, 106, 67, 184, 244, 21, 24, 161, 28]
@@ -123,10 +126,15 @@ Party #4: aggregate signature computed
 >> Protocol verify certificates phase:
 Message #0 to verify: [119, 36, 224, 63, 184, 216, 74, 55, 106, 67, 184, 244, 21, 24, 161, 28]
 Party #0: aggregate signature successfully verified for [119, 36, 224, 63, 184, 216, 74, 55, 106, 67, 184, 244, 21, 24, 161, 28]!
+Verifier: aggregate signature successfully verified for [119, 36, 224, 63, 184, 216, 74, 55, 106, 67, 184, 244, 21, 24, 161, 28]!
 Party #1: aggregate signature successfully verified for [119, 36, 224, 63, 184, 216, 74, 55, 106, 67, 184, 244, 21, 24, 161, 28]!
+Verifier: aggregate signature successfully verified for [119, 36, 224, 63, 184, 216, 74, 55, 106, 67, 184, 244, 21, 24, 161, 28]!
 Party #2: aggregate signature successfully verified for [119, 36, 224, 63, 184, 216, 74, 55, 106, 67, 184, 244, 21, 24, 161, 28]!
+Verifier: aggregate signature successfully verified for [119, 36, 224, 63, 184, 216, 74, 55, 106, 67, 184, 244, 21, 24, 161, 28]!
 Party #3: aggregate signature successfully verified for [119, 36, 224, 63, 184, 216, 74, 55, 106, 67, 184, 244, 21, 24, 161, 28]!
+Verifier: aggregate signature successfully verified for [119, 36, 224, 63, 184, 216, 74, 55, 106, 67, 184, 244, 21, 24, 161, 28]!
 Party #4: aggregate signature successfully verified for [119, 36, 224, 63, 184, 216, 74, 55, 106, 67, 184, 244, 21, 24, 161, 28]!
+Verifier: aggregate signature successfully verified for [119, 36, 224, 63, 184, 216, 74, 55, 106, 67, 184, 244, 21, 24, 161, 28]!
 
 >> Congrats, protocol terminated with success!
 ```
