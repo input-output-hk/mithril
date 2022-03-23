@@ -17,8 +17,16 @@ type H = blake2::Blake2b;
 type F = <H as MTHashLeaf<MTValue<Bls12_377>>>::F;
 
 pub type Bytes = Vec<u8>;
+pub type ProtocolParameters = StmParameters;
+pub type ProtocolSigner = StmSigner<H, Bls12_377>;
+pub type ProtocolInitializer = StmInitializer<Bls12_377>;
+pub type ProtocolClerk = StmClerk<H, Bls12_377, TrivialEnv>;
+pub type ProtocolVerificationKey = MspPk<Bls12_377>;
+pub type ProtocolProof = ConcatProof<Bls12_377, H, F>;
+pub type ProtocolSingleSig = StmSig<Bls12_377, F>;
+pub type ProtocolMultiSig = StmMultiSig<Bls12_377, ProtocolProof>;
 
-/// Party represents a protocol participant
+/// Party represents a signing protocol participant
 #[derive(Debug)]
 pub struct Party {
     /// Party's identifier
@@ -26,13 +34,13 @@ pub struct Party {
     /// Party's stake
     stake: Stake,
     /// Protocol parameters
-    params: Option<StmParameters>,
+    params: Option<ProtocolParameters>,
     /// Protocol signer
-    signer: Option<StmSigner<H, Bls12_377>>,
+    signer: Option<ProtocolSigner>,
     /// Protocol clerk
-    clerk: Option<StmClerk<H, Bls12_377, TrivialEnv>>,
+    clerk: Option<ProtocolClerk>,
     /// Multi signatures
-    msigs: HashMap<Bytes, StmMultiSig<Bls12_377, ConcatProof<Bls12_377, H, F>>>,
+    msigs: HashMap<Bytes, ProtocolMultiSig>,
 }
 
 impl Party {
@@ -50,7 +58,7 @@ impl Party {
     }
 
     /// Update protocol parameters
-    pub fn update_params(&mut self, params: &StmParameters) {
+    pub fn update_params(&mut self, params: &ProtocolParameters) {
         println!(
             "Party #{}: protocol params updated to {:?}",
             self.party_id, params
@@ -59,7 +67,7 @@ impl Party {
     }
 
     /// Register keys
-    pub fn register_keys(&mut self, players_with_keys: &[(PartyId, Stake, MspPk<Bls12_377>)]) {
+    pub fn register_keys(&mut self, players_with_keys: &[(PartyId, Stake, ProtocolVerificationKey)]) {
         let players = players_with_keys
             .into_iter()
             .map(|(party_id, stake, _verification_key)| (*party_id, *stake))
@@ -86,7 +94,7 @@ impl Party {
     }
 
     /// Individually sign a message through lottery
-    pub fn sign_message(&mut self, message: &Bytes) -> Vec<(StmSig<Bls12_377, F>, u64)> {
+    pub fn sign_message(&mut self, message: &Bytes) -> Vec<(ProtocolSingleSig, u64)> {
         let mut signatures = Vec::new();
         println!(
             "Party #{}: sign message {:?}",
@@ -102,18 +110,18 @@ impl Party {
         signatures
     }
 
-    /// Aggregate signatures into a certificate
+    /// Aggregate signatures
     pub fn sign_aggregate(
         &mut self,
         message: &Bytes,
-        signatures: &Vec<(StmSig<Bls12_377, F>, u64)>,
+        signatures: &Vec<(ProtocolSingleSig, u64)>,
     ) {
         let unzipped_signatures: (Vec<_>, Vec<_>) = signatures.iter().cloned().unzip();
         let msig = self
             .clerk
             .as_ref()
             .unwrap()
-            .aggregate::<ConcatProof<Bls12_377, H, F>>(
+            .aggregate::<ProtocolProof>(
                 &unzipped_signatures.0,
                 &unzipped_signatures.1,
                 message,
@@ -132,15 +140,20 @@ impl Party {
         }
     }
 
+    /// Retrieve agreggate signature associated to a message
+    pub fn get_aggregate(&self, message: &Bytes) -> Option<&ProtocolMultiSig> {
+        self.msigs.get(message)
+    }
+
     /// Verify a certificate
     pub fn verify_message(&self, message: &Bytes) -> Result<(), String> {
-        match self.msigs.get(message) {
+        match self.get_aggregate(message) {
             Some(msig) => {
                 match self
                     .clerk
                     .as_ref()
                     .unwrap()
-                    .verify_msig::<ConcatProof<Bls12_377, H, F>>(&msig, message)
+                    .verify_msig::<ProtocolProof>(&msig, message)
                 {
                     Ok(_) => {
                         println!(
@@ -169,6 +182,84 @@ impl Party {
     }
 }
 
+/// Verifier represents a participant that is not a signer in the protocol
+#[derive(Debug)]
+pub struct Verifier {
+    /// Protocol parameters
+    params: Option<ProtocolParameters>,
+    /// Protocol clerk
+    clerk: Option<ProtocolClerk>,
+}
+
+impl Verifier {
+    /// Verifier factory
+    pub fn new() -> Self {
+        println!("Verifier: verifier created");
+        Self {
+            params: None,
+            clerk: None,
+        }
+    }
+
+    /// Update protocol parameters
+    pub fn update_params(&mut self, params: &ProtocolParameters) {
+        println!(
+            "Verifier: protocol params updated to {:?}",
+            params
+        );
+        self.params = Some(*params);
+    }
+
+    /// Register keys
+    pub fn register_keys(&mut self, players_with_keys: &[(PartyId, Stake, ProtocolVerificationKey)]) {
+        let players = players_with_keys
+            .into_iter()
+            .map(|(party_id, stake, _verification_key)| (*party_id, *stake))
+            .collect::<Vec<_>>();
+        println!(
+            "Verifier: protocol keys registration from {:?}",
+            players
+        );
+
+        let mut key_reg = KeyReg::new(&players);
+        for (party_id, _stake, verification_key) in players_with_keys {
+            key_reg.register(*party_id, *verification_key).unwrap();
+        }
+        let closed_reg = key_reg.close();
+
+        self.clerk = Some(StmClerk::from_registration(
+            self.params.unwrap(),
+            TrivialEnv,
+            closed_reg
+        ));
+    }
+
+    /// Verify a message
+    pub fn verify_message(&self, message: &Bytes, msig: &ProtocolMultiSig) -> Result<(), String> {
+        match self
+                    .clerk
+                    .as_ref()
+                    .unwrap()
+                    .verify_msig::<ProtocolProof>(msig, message)
+                {
+                    Ok(_) => {
+                        println!(
+                            "Verifier: aggregate signature successfully verified for {:?}!",
+                            message
+                        );
+                        Ok(())
+                    }
+                    Err(_) => {
+                        println!(
+                            "Verifier: aggregate signature verification failed {:?}",
+                            message
+                        );
+                        Err(String::from("aggregate signature tampered"))
+                    }
+                }
+    }
+}
+
 /// Demonstrator is a Mithril protocol demonstrator implementation
 #[derive(Debug)]
 pub struct Demonstrator {
@@ -176,10 +267,12 @@ pub struct Demonstrator {
     config: crate::Config,
     /// List of protocol participants
     parties: Vec<Party>,
+    /// Protocol external verifier
+    verifier: Option<Verifier>,
     /// List of messages to sign
     messages: Vec<Bytes>,
     /// Protocol parameters
-    params: Option<StmParameters>,
+    params: Option<ProtocolParameters>,
 }
 
 impl Demonstrator {
@@ -204,6 +297,7 @@ impl Demonstrator {
         Self {
             config: config.clone(),
             parties: parties,
+            verifier: None,
             messages: messages,
             params: None,
         }
@@ -227,7 +321,7 @@ pub trait ProtocolDemonstrator {
 impl ProtocolDemonstrator for Demonstrator {
     /// Establish phase of the protocol
     fn establish(&mut self) {
-        self.params = Some(StmParameters {
+        self.params = Some(ProtocolParameters {
             m: self.config.m,
             k: self.config.k,
             phi_f: self.config.phi_f,
@@ -241,6 +335,8 @@ impl ProtocolDemonstrator for Demonstrator {
         for party in self.parties.iter_mut() {
             party.update_params(&self.params.unwrap());
         }
+        let mut verifier = Verifier::new();
+        verifier.update_params(&self.params.unwrap());
 
         // Register keys
         let seed = [0u8; 32];
@@ -252,20 +348,22 @@ impl ProtocolDemonstrator for Demonstrator {
             .collect::<Vec<_>>();
         let mut players_with_keys = Vec::new();
         for (party_id, stake) in players {
-            let p: StmInitializer<Bls12_377> =
+            let p: ProtocolInitializer =
                 StmInitializer::setup(self.params.unwrap(), party_id, stake, &mut rng);
             players_with_keys.push((p.party_id(), p.stake(), p.verification_key()))
         }
         for party in self.parties.iter_mut() {
             party.register_keys(&players_with_keys);
         }
+        verifier.register_keys(&players_with_keys);
+        self.verifier = Some(verifier);
     }
 
     /// Issue certificates
     fn issue_certificates(&mut self) {
         for (i, message) in self.messages.iter().enumerate() {
             println!("Message #{} to sign: {:?}", i, message);
-            let mut signatures = Vec::<(StmSig<Bls12_377, F>, u64)>::new();
+            let mut signatures = Vec::<(ProtocolSingleSig, u64)>::new();
             for party in self.parties.iter_mut() {
                 let party_signatures = party.sign_message(&message);
                 signatures.extend(party_signatures);
@@ -282,6 +380,11 @@ impl ProtocolDemonstrator for Demonstrator {
             println!("Message #{} to verify: {:?}", i, message);
             for party in self.parties.iter() {
                 match party.verify_message(&message) {
+                    Ok(_) => (),
+                    Err(err) => return Err(err),
+                }
+                let msig = party.get_aggregate(&message).unwrap();
+                match self.verifier.as_ref().unwrap().verify_message(&message, msig) {
                     Ok(_) => (),
                     Err(err) => return Err(err),
                 }
@@ -331,15 +434,10 @@ mod tests {
         assert_eq!(demo.messages.len(), config.nmessages);
         for party in demo.parties {
             assert_ne!(party.stake, 0);
-            match party.signer {
-                Some(_) => (),
-                None => panic!("signer should be available"),
-            }
-            match party.clerk {
-                Some(_) => (),
-                None => panic!("clerk should be available"),
-            }
+            assert!(party.signer.is_some());
+            assert!(party.clerk.is_some());
         }
+        assert!(demo.verifier.is_some());
     }
 
     #[test]
