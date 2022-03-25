@@ -161,6 +161,7 @@ jobs:
       REGISTRY: ghcr.io
       IMAGE_NAME: ${{ github.repository }}
       DOCKER_FILE: ./mithril-proto/mithril-node-poc/Dockerfile
+      CONTEXT: .
       GITHUB_REF: ${{ github.ref}}
 
     steps:
@@ -194,6 +195,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
         with:
-          context: .
+          context: ${{ env.CONTEXT }}
+          file: ${{ env.DOCKER_FILE }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
