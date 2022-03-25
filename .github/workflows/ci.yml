@@ -142,11 +142,11 @@ jobs:
 
       - name: install mlib
         run: make mlib
-        working-directory: go-node/
+        working-directory: mithril-proto/mithril-node-poc/
 
       - name: Golang Tests
         run: go test ./...
-        working-directory: go-node/
+        working-directory: mithril-proto/mithril-node-poc/
 
   build-and-push-image:
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
