@@ -61,7 +61,7 @@ test-suite mithril-unit-tests
                         MessagesTests
                         SMonitorTests
     build-depends:      base >=4.13,
-                        monitor,
+                        mithril-test-lab,
                         tasty,
                         tasty-hunit,
                         tasty-quickcheck,
