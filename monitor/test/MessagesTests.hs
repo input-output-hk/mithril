@@ -32,7 +32,7 @@ asciiStringGen :: QC.Gen String
 asciiStringGen = QC.listOf QC.arbitraryASCIIChar
 
 bytesGen :: QC.Gen Bytes
-bytesGen = BS.pack <$> QC.listOf QC.chooseAny
+bytesGen = QC.arbitrary
 
 keyGen :: QC.Gen Bytes
 keyGen = bytesGen
