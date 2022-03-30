@@ -2,10 +2,10 @@ use clap::Parser;
 use std::fs::File;
 use std::path::Path;
 use std::collections::HashMap;
-use rust_node::config::Config;
-use rust_node::message as message;
-use rust_node::wsvc as wsvc;
-use rust_node::node_impl as node_impl;
+use test_node::config::Config;
+use test_node::message as message;
+use test_node::wsvc as wsvc;
+use test_node::node_impl as node_impl;
 
 #[derive(Parser)]
 struct Args {
