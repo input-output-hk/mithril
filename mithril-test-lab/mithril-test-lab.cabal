@@ -3,7 +3,7 @@ cabal-version:       2.0
 -- init'.  For further documentation, see
 -- http://haskell.org/cabal/users-guide/
 
-name:                monitor
+name:                mithril-test-lab
 version:             0.1.0.0
 -- synopsis:
 -- description:
