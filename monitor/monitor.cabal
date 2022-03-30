@@ -24,6 +24,7 @@ library
                         Mithril.Messages
                         Mithril.Network
                         Mithril.Util
+                        Mithril.SMonitor
   -- other-modules:
   -- other-extensions:
   build-depends:        base >=4.13,
@@ -46,7 +47,8 @@ library
                         process,
                         modern-uri,
                         directory,
-                        temporary
+                        temporary,
+                        streaming
 
   hs-source-dirs:       src
   default-language:     Haskell2010
@@ -57,10 +59,12 @@ test-suite mithril-unit-tests
     hs-source-dirs: test
     other-modules:      MonitorTests
                         MessagesTests
+                        SMonitorTests
     build-depends:      base >=4.13,
                         monitor,
                         tasty,
                         tasty-hunit,
                         tasty-quickcheck,
                         bytestring,
-                        aeson
+                        aeson,
+                        containers
