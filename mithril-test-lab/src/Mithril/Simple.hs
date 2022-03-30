@@ -202,7 +202,7 @@ withLab labCfg a =  MNet.withRestNode (labRestPort labCfg) (route netCfg) (withL
 labConfig1 :: LabConfig
 labConfig1 =
   LabConfig { labNet = labNetCfg
-            , labRustDir = "../rust-node"
+            , labRustDir = "../mithril-proto/test-node"
             , labRestPort = 8000
             }
   where
