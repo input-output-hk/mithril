@@ -1039,29 +1039,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rust-node"
-version = "0.1.0"
-dependencies = [
- "ark-bls12-377",
- "ark-ec",
- "ark-ff",
- "ark-std",
- "base64",
- "blake2",
- "clap 3.0.14",
- "log",
- "mithril",
- "rand 0.7.3",
- "rand_chacha 0.3.1",
- "rand_core 0.6.3",
- "rouille",
- "serde",
- "serde_json",
- "threadpool",
- "ureq",
-]
-
-[[package]]
 name = "rustc_version"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1258,6 +1235,29 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2dfed899f0eb03f32ee8c6a0aabdb8a7949659e3466561fc0adf54e26d88c5f4"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "test-node"
+version = "0.1.0"
+dependencies = [
+ "ark-bls12-377",
+ "ark-ec",
+ "ark-ff",
+ "ark-std",
+ "base64",
+ "blake2",
+ "clap 3.0.14",
+ "log",
+ "mithril",
+ "rand 0.7.3",
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.3",
+ "rouille",
+ "serde",
+ "serde_json",
+ "threadpool",
+ "ureq",
 ]
 
 [[package]]

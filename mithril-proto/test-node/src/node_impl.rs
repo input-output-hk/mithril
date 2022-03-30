@@ -5,7 +5,6 @@ use crate::message::{Hello, Message, Parameters, PartyId, SigResponse, Signature
 use crate::network::Network;
 use std::collections::HashMap;
 use std::io::Cursor;
-use log::debug;
 
 use ark_bls12_377::Bls12_377;
 use ark_ec;
@@ -280,6 +279,9 @@ mod test {
                 if let Err(s) = node_init(&network, &ps, &dist) {
                     return Some(s);
                 }
+
+                // TODO: kinda bad
+                thread::sleep(std::time::Duration::from_secs(1));
 
                 return None;
             });
