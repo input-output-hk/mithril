@@ -1,11 +1,20 @@
-# Mithril Snapshotter Demo
+# Mithril Snapshotter POC
 
 **This is a work in progress** :hammer_and_wrench:
 
 This cli implements a very simple snapshotter of the Cardano Node database for proof of concept only:
 * a **full** snapshot includes `immutable` and latest `legder` state
+
 * a **light** snapshot includes only `immutable` (the associated ledger state will be recalculated by the Cardano Node at startup)
 
+It works as follows:
+* **Create Snapshot**: create a copy of the files to snapshot from `db` (the value of the *src* argument) to a separate folder: `db.snapshot`
+  * the files are copied to `db.snapshot/src` subfolder
+  * the archive is compressed to a file `db.snapshot/archive/snapshot.tar.gz`
+
+* **Restore Snapshot**: uncompress the files from the `db.snapshot/archive/snapshot.tar.gz` to a separate `db.restore` folder (can be customized with *dest* argument)
+
+* **Compute Digest**: compute the **digest** from source `db.snapshot/src` and restored `db.restore` folder (they should be the same)
 ---
 ## Pre-requisites:
 
@@ -253,4 +262,7 @@ x ./immutable/00001.chunk
 >> Restored files digest
 >> Digest SHA256 (./testnet123): 3081aa8d66d66b48f315b72794db6f6d11569ff442762924acc8ab9bbf09d856
 >> Duration: 1s
+
+>> Congrats the digest are the same!
+
 ```
