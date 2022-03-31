@@ -16,6 +16,7 @@ let
     pkgs.rustup
     pkgs.m4
     pkgs.openssl.dev
+    pkgs.zlib.dev
   ];
 
   tools = [
