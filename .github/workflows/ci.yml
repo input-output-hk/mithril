@@ -101,9 +101,9 @@ jobs:
           output: ./github-pages/openapi-ui
           spec-file: ./openapi.yaml
 
-      - name: Publish Documentation
+      - name: Publish Github Pages
         uses: peaceiris/actions-gh-pages@v3
-        #if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         with:
           github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
           publish_dir: ./github-pages
