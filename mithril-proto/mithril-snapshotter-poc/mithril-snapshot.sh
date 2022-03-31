@@ -32,10 +32,10 @@ ElapsedDuration () {
 DirectoryDigest () {
     TMP_FILE=.tmp.txt
     rm -f $TMP_FILE
-    find $1 -type f -print | sort -n | xargs -I '{}' openssl dgst -sha256 '{}' | awk '{print $2}' >> $TMP_FILE;
+    find $1 -type f ! -name '.DS_Store' -print | sort -n | xargs -I '{}' openssl dgst -sha256 '{}' | awk '{print $2}' >> $TMP_FILE;
     DIGEST=$(cat $TMP_FILE | openssl dgst -sha256 | awk '{print $2}')
     rm $TMP_FILE
-    echo ">> Digest SHA256 ($1): $DIGEST"
+    echo $DIGEST
 }
 
 # Clean existing dir
@@ -55,7 +55,7 @@ echo "";
 # Snapshot "immutable"
 echo ">> Copy immutable files to $SNAPSHOT_DIR/src/db/immutable";
 mkdir -p $SNAPSHOT_DIR/src/db/immutable;
-find $INPUT_DIR -type f -print | grep -i immutable | xargs -I '{}' cp '{}' $SNAPSHOT_DIR/src/db/immutable;
+find $INPUT_DIR -type f -print | sort -n | grep -i immutable | xargs -I '{}' cp '{}' $SNAPSHOT_DIR/src/db/immutable;
 ElapsedDuration;
 echo "";
 
@@ -69,7 +69,7 @@ echo "";
 if [ "$SNAPSHOT_MODE" = "full" ]; then
     echo ">> Copy ledger state latest file to $SNAPSHOT_DIR/src/db/ledger";
     mkdir -p $SNAPSHOT_DIR/src/db/ledger;
-    find $INPUT_DIR -type f -print | grep -i ledger  | head -n 1 | xargs -I '{}' cp '{}' $SNAPSHOT_DIR/src/db/ledger/;
+    find $INPUT_DIR -type f -print | sort -n | grep -i ledger  | head -n 1 | xargs -I '{}' cp '{}' $SNAPSHOT_DIR/src/db/ledger/;
     ElapsedDuration;
     echo "";
 fi
@@ -110,7 +110,7 @@ echo "";
 
 # Restored list files
 echo ">> Restored files list";
-find $RESTORE_DIR -type f -print;
+find $RESTORE_DIR -type f -print | sort -n ;
 echo "";
 
 # Restored dir size
@@ -120,12 +120,21 @@ echo "";
 
 # Snapshot src files digest
 echo ">> Snapshot src files digest";
-DirectoryDigest $SNAPSHOT_DIR/src/db;
-ElapsedDuration
+DIGEST_SRC=$(DirectoryDigest $SNAPSHOT_DIR/src/db)
+echo ">> Digest SHA256 ($SNAPSHOT_DIR/src/db): $DIGEST_SRC";
+ElapsedDuration;
 echo "";
 
 # Restored files digest
 echo ">> Restored files digest";
-DirectoryDigest $RESTORE_DIR;
-ElapsedDuration
+DIGEST_RESTORED=$(DirectoryDigest $RESTORE_DIR)
+echo ">> Digest SHA256 ($RESTORE_DIR): $DIGEST_RESTORED";
+ElapsedDuration;
 echo "";
+
+# Check digests
+if [ "$DIGEST_SRC" = "$DIGEST_RESTORED" ]; then
+    echo ">> Congrats the digests are the same!";
+else
+    echo ">> Oops the digests are different!";
+fi
