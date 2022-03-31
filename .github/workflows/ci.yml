@@ -199,3 +199,21 @@ jobs:
           file: ${{ env.DOCKER_FILE }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
+
+  openapi-ui:
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+      - name: Generate OpenAPI UI
+        uses: Legion2/swagger-ui-action@v1
+        with:
+          output: openapi-ui
+          spec-file: ./openapi.yaml
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
+          publish_dir: openapi-ui
+          destination_dir: openapi-ui
