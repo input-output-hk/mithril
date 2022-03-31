@@ -367,12 +367,17 @@ components:
       type: object
       required:
       - digest
+      - certificate_hash
       - size
       - created_at
       - locations
       properties:
         digest:
           description: Digest that is signed by the signer participants
+          type: string
+          format: bytes
+        certificate_hash:
+          description: Hash of the associated certificate
           type: string
           format: bytes
         size: 
@@ -391,6 +396,7 @@ components:
       example:
               {
                 "digest": "24qQwKgWw4mr5kRZLIUA9XAsB0vSvijo8FIfrGFwBtdCNQVhBc9PXu7RiCHSRem3MmHoKbo",
+                "certificate_hash": "AsB0vSvijo8FIfrG/FwBtdCNQVhBc9P24qQwKgWw4mr5kRZL+IUA9XXu7RiCHSRem3MmHoKbo",
                 "size": 26058531636,
                 "created_at": "2022-07-21T17:32:28Z",
                 "locations":[
