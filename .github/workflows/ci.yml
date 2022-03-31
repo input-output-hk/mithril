@@ -23,11 +23,11 @@ jobs:
           override: true
 
       - uses: actions/cache@v2.1.5
-        name: Cache rust/Cargo.toml
+        name: Cache mithril-core/Cargo.toml
         with:
           path: |
-            rust/target
-          key: ${{ runner.os }}-${{ hashFiles('rust/Cargo.toml') }}
+            mithril-core/target
+          key: ${{ runner.os }}-${{ hashFiles('mithril-core/Cargo.toml') }}
           restore-keys: |
               ${{ runner.os }}-key
 
@@ -35,50 +35,50 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --manifest-path ./rust/Cargo.toml
+          args: --release --manifest-path ./mithril-core/Cargo.toml
       - name: Cargo check
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --release --all-targets --manifest-path ./rust/Cargo.toml
+          args: --release --all-targets --manifest-path ./mithril-core/Cargo.toml
 
       - name: Cargo fmt
         uses: actions-rs/cargo@v1
         with:
           command: fmt
-          args: --all --manifest-path ./rust/Cargo.toml -- --check
+          args: --all --manifest-path ./mithril-core/Cargo.toml -- --check
 
       - name: Clippy Check
         uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --manifest-path ./rust/Cargo.toml --all-features
+          args: --manifest-path ./mithril-core/Cargo.toml --all-features
 
       - name: Compile benchmarks
         uses: actions-rs/cargo@v1
         continue-on-error: false
         with:
           command: bench
-          args: --no-run --locked --manifest-path ./rust/Cargo.toml
+          args: --no-run --locked --manifest-path ./mithril-core/Cargo.toml
 
       - name: Run cargo test
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --release --manifest-path ./rust/Cargo.toml
+          args: --release --manifest-path ./mithril-core/Cargo.toml
 
       - name: Run cargo doc
         uses: actions-rs/cargo@v1
         with:
           command: doc
-          args: --manifest-path ./rust/Cargo.toml
+          args: --manifest-path ./mithril-core/Cargo.toml
 
       - name: Publish Documentation
         uses: peaceiris/actions-gh-pages@v3
         if: github.event_name == 'push'
         with:
           github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
-          publish_dir: rust/target/doc
+          publish_dir: mithril-core/target/doc
 
       - name: Set up Clang
         uses: egor-tensin/setup-clang@v1
@@ -91,11 +91,11 @@ jobs:
 
       - name: Build C test
         run: clang -x c++ tests.c stms.c -g -o tests -L ../target/release -lmithril -lpthread -lstdc++ -lgtest -lgtest_main
-        working-directory: rust/c-tests
+        working-directory: mithril-core/c-tests
 
       - name: Run C test
         run: LD_LIBRARY_PATH=../target/release ./tests --gtest_output=xml:test-results.xml
-        working-directory: rust/c-tests
+        working-directory: mithril-core/c-tests
 
       - name: Publish Unit Test Results
         uses: EnricoMi/publish-unit-test-result-action@v1

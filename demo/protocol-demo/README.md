@@ -18,7 +18,7 @@ This cli implements a very simple version of the Mithril protocol for demonstrat
 git clone https://github.com/input-output-hk/mithril
 
 # Go to sources directory
-cd rust-demo
+cd demo/protocol-demo
 ```
 
 ## Development test and build:
