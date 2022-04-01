@@ -4,7 +4,6 @@ module Test.CardanoClusterSpec where
 
 import CardanoCluster
   ( ClusterConfig (..),
-    ClusterLog (..),
     RunningCluster (..),
     defaultNetworkId,
     withCluster,
@@ -14,11 +13,14 @@ import Control.Monad.Class.MonadSTM (modifyTVar, newTVarIO, readTVarIO)
 import Control.Monad.Class.MonadSay (MonadSay, say)
 import Control.Tracer (Tracer (Tracer))
 import Hydra.Prelude
+import Logging (ClusterLog (..))
+import Mithril.Aggregator (Aggregator (..), withAggregator)
+import Mithril.Signer (Signer, withSigner)
 import Test.Hydra.Prelude
 
 spec :: Spec
 spec =
-  it "should produce blocks, provide funds, and send Hydra OCV transactions" $ do
+  it "should produce and verify snapshot" $ do
     showLogsOnFailure $ \tr ->
       withTempDir "hydra-cluster" $ \tmp -> do
         let config =
@@ -26,8 +28,36 @@ spec =
                 { parentStateDirectory = tmp,
                   networkId = defaultNetworkId
                 }
-        withCluster tr config $ \cluster -> do
-          failAfter 30 $ assertNetworkIsProducingBlock tr cluster
+        -- Start aggregator service on some random port
+        withAggregator (contramap AggregatorLog tr) $ \Aggregator {aggregatorPort} ->
+          -- Start cardano nodes cluster
+          withCluster tr config $ \cluster -> do
+            -- basic verification, we check the nodes are producing blocks
+            failAfter 30 $ assertNetworkIsProducingBlock tr cluster
+            case cluster of
+              RunningCluster {clusterNodes = node : _} -> do
+                failAfter 30 $ assertNodeIsProducingSnapshot tr node
+                withSigner (contramap SignerLog tr) aggregatorPort node $ \signer -> do
+                  failAfter 30 $ assertSignerIsSigningSnapshot signer aggregatorPort
+                  failAfter 30 $ assertClientCanVerifySnapshot signer aggregatorPort
+              _ -> failure $ "No nodes in the cluster"
+
+assertSignerIsSigningSnapshot :: Signer -> Int -> IO ()
+assertSignerIsSigningSnapshot _signer _aggregatorPort =
+  -- TODO: verify the signer signs a snapshot and sends it to the aggregator
+  pure ()
+
+assertClientCanVerifySnapshot :: Signer -> Int -> IO ()
+assertClientCanVerifySnapshot _signer _aggregatorPort =
+  -- TODO: Client checks it can download and verify a snapshot from the aggregator, using
+  -- standard route, signed by a valid signature from the single signer we pass to it
+  pure ()
+
+assertNodeIsProducingSnapshot :: Tracer IO ClusterLog -> RunningNode -> IO ()
+assertNodeIsProducingSnapshot _tracer _cardanoNode =
+  -- TODO: We check the node is producing a snapshot at the right interval, eg. every
+  -- X blocks
+  pure ()
 
 assertNetworkIsProducingBlock :: Tracer IO ClusterLog -> RunningCluster -> IO ()
 assertNetworkIsProducingBlock tracer = go (-1)
