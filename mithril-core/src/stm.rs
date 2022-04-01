@@ -991,7 +991,7 @@ mod tests {
         ps: &[StmSigner<H, Bls12_377>],
         is: &[usize],
     ) -> (Vec<Index>, Vec<StmSig<Bls12_377, F>>) {
-        let indices: Vec<_> = (1..m).collect();
+        let indices: Vec<_> = (0..m).collect();
         let res = indices
             .par_iter()
             .flat_map(|ix| {
@@ -1185,9 +1185,9 @@ mod tests {
         any::<[u8; 16]>().prop_flat_map(move |msg| {
             (2..max_parties).prop_map(move |n| {
                 let params = StmParameters {
-                    m: 100,
+                    m: 5,
                     k: 5,
-                    phi_f: 0.2,
+                    phi_f: 1.0,
                 };
                 let ps = setup_equal_parties(params, n);
                 let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
@@ -1213,9 +1213,9 @@ mod tests {
         match tc.msig {
             Ok(mut aggr) => {
                 f(&mut aggr, &mut tc.clerk, &mut tc.msg);
-                assert!(!tc.clerk.verify_msig(&aggr, &tc.msg).is_ok())
+                assert!(tc.clerk.verify_msig(&aggr, &tc.msg).is_err())
             }
-            _ => unreachable!(),
+            Err(e) => unreachable!("Reached an unexpected error: {:?}", e),
         }
     }
 
