@@ -1,7 +1,3 @@
-{-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DerivingStrategies #-}
-{-# LANGUAGE NoImplicitPrelude #-}
-
 module CardanoCluster where
 
 import qualified Cardano.Crypto.DSIGN as Crypto
@@ -10,8 +6,6 @@ import Cardano.Ledger.Keys (VKey (VKey))
 import CardanoNode
   ( CardanoNodeArgs (..),
     CardanoNodeConfig (..),
-    NodeId,
-    NodeLog,
     Port,
     PortsConfig (..),
     RunningNode (..),
@@ -23,6 +17,7 @@ import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
 import Hydra.Cardano.Api
 import Hydra.Prelude
+import Logging (ClusterLog (MsgFromNode, MsgNodeStarting))
 import qualified Paths_mithril_end_to_end as Pkg
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath ((<.>), (</>))
@@ -98,7 +93,10 @@ writeKeysFor targetDir actor = do
 
 -- * Starting a cluster or single nodes
 
-data RunningCluster = RunningCluster ClusterConfig [RunningNode]
+data RunningCluster = RunningCluster
+  { clusterConfig :: ClusterConfig,
+    clusterNodes :: [RunningNode]
+  }
 
 -- | Configuration parameters for the cluster.
 data ClusterConfig = ClusterConfig
@@ -237,13 +235,3 @@ readConfigFile :: FilePath -> IO ByteString
 readConfigFile source = do
   filename <- Pkg.getDataFileName ("config" </> source)
   BS.readFile filename
-
---
--- Logging
---
-
-data ClusterLog
-  = MsgFromNode NodeId NodeLog
-  | MsgNodeStarting CardanoNodeConfig
-  deriving stock (Eq, Show, Generic)
-  deriving anyclass (ToJSON, FromJSON)

@@ -1,5 +1,6 @@
 module Main where
 
+import Hydra.Prelude
 import qualified Spec
 import Test.Hspec.Runner
 import Test.Hydra.Prelude (dualFormatter)
