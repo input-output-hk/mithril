@@ -3,12 +3,10 @@
 module Test.CardanoClusterSpec where
 
 import CardanoCluster
-  ( Actor (Alice),
-    ClusterConfig (..),
+  ( ClusterConfig (..),
     ClusterLog (..),
     RunningCluster (..),
     defaultNetworkId,
-    keysFor,
     withCluster,
   )
 import CardanoNode (ChainTip (..), RunningNode (..), cliQueryTip)

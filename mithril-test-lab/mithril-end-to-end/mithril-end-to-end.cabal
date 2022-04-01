@@ -150,7 +150,7 @@ library
     , warp
     , websockets
 
-  ghc-options:     -haddock
+  ghc-options:     -haddock -Werror
 
 test-suite integration
   import:             project-config
@@ -199,4 +199,4 @@ test-suite integration
     hspec-discover:hspec-discover -any, cardano-node:cardano-node -any,
     cardano-cli:cardano-cli -any
 
-  ghc-options:        -threaded -rtsopts
+  ghc-options:        -threaded -rtsopts -Werror
