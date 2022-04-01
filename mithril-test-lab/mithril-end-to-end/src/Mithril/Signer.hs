@@ -13,6 +13,8 @@ data SignerLog = SignerStarted
 
 data Signer = Signer
 
+-- TODO: starts a signer daemon that checks snapshots, sign them and send the signature
+-- to the 'Aggregator' server listening at 'aggregatorPort'.
 withSigner :: Tracer IO SignerLog -> Int -> RunningNode -> (Signer -> IO a) -> IO a
 withSigner tracer _aggregatorPort _cardanoNode action = do
   traceWith tracer SignerStarted
