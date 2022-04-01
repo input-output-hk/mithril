@@ -191,6 +191,7 @@ source-repository-package
   type: git
   location: https://github.com/input-output-hk/hydra-poc
   tag: 60d1e3217a9f2ae557c5abf7c8c3c2001f7c2887
+  --sha256: 143c3sywq4inhvw12i3i35i50ci1ylajwb1hbwbbbmn7hlmvwfdj
   subdir:
     hydra-prelude
     hydra-test-utils
