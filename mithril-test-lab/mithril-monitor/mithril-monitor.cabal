@@ -3,7 +3,7 @@ cabal-version:       2.0
 -- init'.  For further documentation, see
 -- http://haskell.org/cabal/users-guide/
 
-name:                mithril-test-lab
+name:                mithril-monitor
 version:             0.1.0.0
 -- synopsis:
 -- description:
@@ -61,7 +61,7 @@ test-suite mithril-unit-tests
                         MessagesTests
                         SMonitorTests
     build-depends:      base >=4.13,
-                        mithril-test-lab,
+                        mithril-monitor,
                         tasty,
                         tasty-hunit,
                         tasty-quickcheck,

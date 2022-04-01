@@ -5,7 +5,19 @@
   # you can always find the latest nixpkgs revision for some edition on the corresponding git branch,
   # e.g. https://github.com/nixos/nixpkgs/tree/release-21.05 for 21.05
 , pkgs ? import (builtins.fetchTarball "https://github.com/NixOS/nixpkgs/archive/01eaa66bb663412c31b5399334f118030a91f1aa.tar.gz") { }
-
+, hsPkgs ? import ./default.nix { }
+, libsodium-vrf ? pkgs.libsodium.overrideAttrs (oldAttrs: {
+    name = "libsodium-1.0.18-vrf";
+    src = pkgs.fetchFromGitHub {
+      owner = "input-output-hk";
+      repo = "libsodium";
+      # branch tdammers/rebased-vrf
+      rev = "66f017f16633f2060db25e17c170c2afa0f2a8a1";
+      sha256 = "12g2wz3gyi69d87nipzqnq4xc6nky3xbmi2i2pb2hflddq8ck72f";
+    };
+    nativeBuildInputs = [ pkgs.autoreconfHook ];
+    configureFlags = "--enable-static";
+  })
 }:
 let
   libs = [
@@ -17,6 +29,8 @@ let
     pkgs.m4
     pkgs.openssl.dev
     pkgs.zlib.dev
+    pkgs.lzma
+    libsodium-vrf
   ];
 
   tools = [
@@ -32,12 +46,36 @@ let
     pkgs.lsof
   ];
 
+  haskellNixShell = hsPkgs.shellFor {
+    # NOTE: Explicit list of local packages as hoogle would not work otherwise.
+    # Make sure these are consistent with the packages in cabal.project.
+    packages = ps: with ps; [
+      mithril-monitor
+      mithril-end-to-end
+    ];
+
+    # Haskell.nix managed tools (via hackage)
+    tools = {
+      cabal = "3.4.0.0";
+      ormolu = "0.3.1.0";
+      haskell-language-server = "latest";
+    };
+
+    buildInputs = libs ++ tools;
+
+    withHoogle = true;
+
+    # Always create missing golden files
+    CREATE_MISSING_GOLDEN = 1;
+  };
+
   # A "cabal-only" shell which does not use haskell.nix
   cabalShell = pkgs.llvmPackages_12.stdenv.mkDerivation {
     name = "mithril-stack-shell";
 
     buildInputs = tools ++ libs ++ [
       pkgs.haskell.compiler.${compiler}
+      pkgs.cabal-install
       pkgs.stack
       pkgs.haskell-language-server
       pkgs.ormolu
@@ -61,4 +99,4 @@ let
   };
 
 in
-cabalShell
+haskellNixShell // { cabalOnly = cabalShell; }
