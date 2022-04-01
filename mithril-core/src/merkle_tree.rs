@@ -173,7 +173,7 @@ where
             let right = if right_child(i) < num_nodes {
                 &nodes[right_child(i)]
             } else {
-                &left
+                left
             };
             nodes[i] = hasher.hash_children(left, right);
         }
