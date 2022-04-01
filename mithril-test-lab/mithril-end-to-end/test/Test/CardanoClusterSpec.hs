@@ -33,14 +33,14 @@ spec =
           -- Start cardano nodes cluster
           withCluster tr config $ \cluster -> do
             -- basic verification, we check the nodes are producing blocks
-            failAfter 30 $ assertNetworkIsProducingBlock tr cluster
+            assertNetworkIsProducingBlock tr cluster
             case cluster of
               RunningCluster {clusterNodes = node : _} -> do
-                failAfter 30 $ assertNodeIsProducingSnapshot tr node
+                assertNodeIsProducingSnapshot tr node
                 withSigner (contramap SignerLog tr) aggregatorPort node $ \signer -> do
-                  failAfter 30 $ assertSignerIsSigningSnapshot signer aggregatorPort
-                  failAfter 30 $ assertClientCanVerifySnapshot signer aggregatorPort
-              _ -> failure $ "No nodes in the cluster"
+                  assertSignerIsSigningSnapshot signer aggregatorPort
+                  assertClientCanVerifySnapshot signer aggregatorPort
+              _ -> failure "No nodes in the cluster"
 
 assertSignerIsSigningSnapshot :: Signer -> Int -> IO ()
 assertSignerIsSigningSnapshot _signer _aggregatorPort =
@@ -60,7 +60,7 @@ assertNodeIsProducingSnapshot _tracer _cardanoNode =
   pure ()
 
 assertNetworkIsProducingBlock :: Tracer IO ClusterLog -> RunningCluster -> IO ()
-assertNetworkIsProducingBlock tracer = go (-1)
+assertNetworkIsProducingBlock tracer = failAfter 30 . go (-1)
   where
     go blk cluster = case cluster of
       RunningCluster _ (RunningNode nodeId socket : _) -> do
