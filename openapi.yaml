@@ -30,7 +30,7 @@ paths:
                   beacon:
                     $ref: '#/components/schemas/Beacon'
                   protocol:
-                    $ref: '#/components/schemas/Protocol'
+                    $ref: '#/components/schemas/ProtocolParameters'
                   signers:
                     type: array
                     items:
@@ -164,7 +164,7 @@ paths:
                 $ref: '#/components/schemas/Error'
 components:
   schemas:
-    Protocol:
+    ProtocolParameters:
       description: Protocol cryptographic parameters
       type: object
       required:
@@ -224,6 +224,7 @@ components:
       - stake
       properties:
         stake:
+          description: Stake value in ADA #TODO: Check if ADA or Lovelace
           type: integer
           format: int64
       example:
@@ -312,7 +313,8 @@ components:
           type: integer
           format: int64
         protocol:
-          $ref: '#/components/schemas/Protocol'
+          description: Protocol parameters
+          $ref: '#/components/schemas/ProtocolParameters'
         digest:
           description: Digest that is signed by the signer participants
           type: string
@@ -408,6 +410,7 @@ components:
               }
 
     Error:
+      description: Internal error representation
       type: object
       required:
         - code
