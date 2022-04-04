@@ -166,6 +166,7 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
+    use jsonschema::JSONSchema;
     use openapiv3::OpenAPI;
     use warp::http::StatusCode;
     use warp::hyper::body::Bytes;
@@ -175,16 +176,18 @@ mod tests {
     use crate::fake_data;
 
     struct APISpec<'a> {
-        openapi: OpenAPI,
+        openapi: JSONSchema,
         path: Option<&'a str>,
         method: Option<&'a str>,
     }
 
     fn read_spec<'a>() -> APISpec<'a> {
-        let openapi: OpenAPI =
-            serde_yaml::from_str(&std::fs::read_to_string("../../openapi.yaml").unwrap()).unwrap();
+        let yaml_spec = std::fs::read_to_string("../../openapi.yaml").unwrap();
+        let value: serde_json::Value = serde_yaml::from_str(&yaml_spec).unwrap();
+        let openapi = JSONSchema::compile(&value).unwrap();
+
         APISpec {
-            openapi: openapi,
+            openapi,
             path: None,
             method: None,
         }
@@ -204,9 +207,45 @@ mod tests {
         }
 
         /// Verifies the given body matches the current path's expected output
-        fn matches(&self, _bytes: &Bytes) {
-            assert!(false)
+        fn matches(&self, bytes: &Bytes) {
+            let value: serde_json::Value =
+                serde_json::from_str(std::str::from_utf8(&bytes).unwrap()).unwrap();
+
+            let result = self.openapi.validate(&value);
+
+            assert!(result.is_ok());
         }
+
+        /// Verifies the given body _does not_ match the current path's expected output
+        fn does_not_match(&self, bytes: &Bytes) {
+            let value: serde_json::Value =
+                serde_json::from_str(std::str::from_utf8(&bytes).unwrap()).unwrap();
+
+            let result = self.openapi.validate(&value);
+
+            assert!(result.is_err());
+        }
+    }
+
+    #[test]
+    fn test_can_validate_api_route() {
+        let mut openapi = read_spec();
+
+        let spec = openapi.method("GET").path("/certificate-pending");
+        let cert = fake_data::certificate_pending();
+
+        spec.matches(&Bytes::copy_from_slice(
+            serde_json::to_string(&cert).unwrap().as_bytes(),
+        ));
+    }
+
+    #[test]
+    fn test_can_invalidate_api_route() {
+        let mut openapi = read_spec();
+
+        let spec = openapi.method("GET").path("/certificate-pending");
+
+        spec.does_not_match(&Bytes::copy_from_slice(b"{}"));
     }
 
     #[tokio::test]
