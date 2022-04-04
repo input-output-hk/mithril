@@ -174,24 +174,32 @@ mod tests {
     use super::*;
     use crate::fake_data;
 
-    struct APISpec {
+    struct APISpec<'a> {
         openapi: OpenAPI,
+        path: Option<&'a str>,
+        method: Option<&'a str>,
     }
 
-    fn read_spec() -> APISpec {
+    fn read_spec<'a>() -> APISpec<'a> {
         let openapi: OpenAPI =
             serde_yaml::from_str(&std::fs::read_to_string("../../openapi.yaml").unwrap()).unwrap();
-        APISpec { openapi }
+        APISpec {
+            openapi: openapi,
+            path: None,
+            method: None,
+        }
     }
 
-    impl APISpec {
+    impl<'a> APISpec<'a> {
         /// Sets the path to specify/check.
-        fn path(&self, _path: &str) -> &APISpec {
+        fn path(&'a mut self, path: &'a str) -> &mut APISpec {
+            self.path = Some(path);
             self
         }
 
         /// Sets the method to specify/check.
-        fn method(&self, _method: &str) -> &APISpec {
+        fn method(&'a mut self, method: &'a str) -> &mut APISpec {
+            self.method = Some(method);
             self
         }
 
@@ -211,12 +219,11 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::OK);
 
-        let openapi = read_spec();
-
-        let spec = openapi.method("GET").path("/certificate-pending");
-        let body = response.body();
-
-        spec.matches(body);
+        let mut openapi: APISpec = read_spec();
+        openapi
+            .method("GET")
+            .path("/certificate-pending")
+            .matches(response.body());
     }
 
     #[tokio::test]
