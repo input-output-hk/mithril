@@ -166,11 +166,40 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
+    use openapiv3::OpenAPI;
     use warp::http::StatusCode;
+    use warp::hyper::body::Bytes;
     use warp::test::request;
 
     use super::*;
     use crate::fake_data;
+
+    struct APISpec {
+        openapi: OpenAPI,
+    }
+
+    fn read_spec() -> APISpec {
+        let openapi: OpenAPI =
+            serde_yaml::from_str(&std::fs::read_to_string("../../openapi.yaml").unwrap()).unwrap();
+        APISpec { openapi }
+    }
+
+    impl APISpec {
+        /// Sets the path to specify/check.
+        fn path(&self, _path: &str) -> &APISpec {
+            self
+        }
+
+        /// Sets the method to specify/check.
+        fn method(&self, _method: &str) -> &APISpec {
+            self
+        }
+
+        /// Verifies the given body matches the current path's expected output
+        fn matches(&self, _bytes: &Bytes) {
+            assert!(false)
+        }
+    }
 
     #[tokio::test]
     async fn test_certificate_pending_get() {
@@ -181,12 +210,13 @@ mod tests {
             .await;
 
         assert_eq!(response.status(), StatusCode::OK);
-        assert_eq!(
-            response.body(),
-            serde_json::to_string(&fake_data::certificate_pending())
-                .unwrap()
-                .as_bytes()
-        ) // TODO: should be implemented with a mock
+
+        let openapi = read_spec();
+
+        let spec = openapi.method("GET").path("/certificate-pending");
+        let body = response.body();
+
+        spec.matches(body);
     }
 
     #[tokio::test]
