@@ -168,6 +168,7 @@ mod handlers {
 mod tests {
     use jsonschema::JSONSchema;
     use openapiv3::OpenAPI;
+    use serde_json::{json, Value};
     use warp::http::StatusCode;
     use warp::hyper::body::Bytes;
     use warp::test::request;
@@ -176,15 +177,14 @@ mod tests {
     use crate::fake_data;
 
     struct APISpec<'a> {
-        openapi: JSONSchema,
+        openapi: Value,
         path: Option<&'a str>,
         method: Option<&'a str>,
     }
 
     fn read_spec<'a>() -> APISpec<'a> {
         let yaml_spec = std::fs::read_to_string("../../openapi.yaml").unwrap();
-        let value: serde_json::Value = serde_yaml::from_str(&yaml_spec).unwrap();
-        let openapi = JSONSchema::compile(&value).unwrap();
+        let openapi: serde_json::Value = serde_yaml::from_str(&yaml_spec).unwrap();
 
         APISpec {
             openapi,
@@ -206,24 +206,40 @@ mod tests {
             self
         }
 
-        /// Verifies the given body matches the current path's expected output
-        fn matches(&self, bytes: &Bytes) {
+        fn validate(&mut self, bytes: &Bytes) -> Result<(), String> {
             let value: serde_json::Value =
                 serde_json::from_str(std::str::from_utf8(&bytes).unwrap()).unwrap();
 
-            let result = self.openapi.validate(&value);
+            let schema = &mut self.openapi["paths"][self.path.unwrap()]
+                [self.method.unwrap().to_lowercase()]["responses"]["200"]["content"]
+                ["application/json"]["schema"]
+                .as_object_mut()
+                .unwrap()
+                .clone();
+            let components = &mut self.openapi.as_object_mut().unwrap();
+            schema.append(*components);
 
+            let validator = JSONSchema::compile(&json!(schema)).unwrap();
+
+            validator
+                .validate(&value)
+                .map_err(|errs| errs.into_iter().map(|e| e.to_string()).collect())
+        }
+
+        /// Verifies the given body matches the current path's expected output
+        fn matches(&mut self, bytes: &Bytes) {
+            let result = self.validate(bytes);
             assert!(result.is_ok());
         }
 
         /// Verifies the given body _does not_ match the current path's expected output
-        fn does_not_match(&self, bytes: &Bytes) {
-            let value: serde_json::Value =
-                serde_json::from_str(std::str::from_utf8(&bytes).unwrap()).unwrap();
+        fn does_not_match(&mut self, bytes: &Bytes) {
+            let result = self.validate(bytes);
 
-            let result = self.openapi.validate(&value);
-
-            assert!(result.is_err());
+            match result {
+                Err(_) => {}
+                Ok(_) => assert!(false),
+            }
         }
     }
 

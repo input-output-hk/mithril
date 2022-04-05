@@ -26,6 +26,12 @@ paths:
           content:
             application/json:
               schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - beacon
+                  - protocol
+                  - signers
                 properties:
                   beacon:
                     $ref: '#/components/schemas/Beacon'
