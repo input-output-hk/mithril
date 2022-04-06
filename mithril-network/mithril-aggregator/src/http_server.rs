@@ -112,7 +112,6 @@ mod handlers {
 
         // Certificate pending
         let certificate_pending = fake_data::certificate_pending();
-        //let certificate_pending = fake_data::beacon();
 
         Ok(warp::reply::json(&certificate_pending))
     }
@@ -265,7 +264,10 @@ mod tests {
             schema: &mut Value,
         ) -> Result<&mut APISpec, String> {
             match schema {
-                Null => Err("null schema provided".to_string()),
+                Null => match value {
+                    Null => Ok(self),
+                    _ => Err("null schema provided".to_string()),
+                },
                 _ => {
                     let schema = &mut schema.as_object_mut().unwrap().clone();
                     let components = self.openapi["components"].clone();
@@ -345,6 +347,8 @@ mod tests {
         APISpec::from_file(API_SPEC_FILE)
             .method(&method)
             .path(&path)
+            .validate_request(&Null)
+            .unwrap()
             .validate_response(&response)
             .expect("OpenAPI error");
     }
@@ -363,6 +367,8 @@ mod tests {
         APISpec::from_file(API_SPEC_FILE)
             .method(&method)
             .path(&path)
+            .validate_request(&Null)
+            .unwrap()
             .validate_response(&response)
             .expect("OpenAPI error");
     }
@@ -381,6 +387,8 @@ mod tests {
         APISpec::from_file(API_SPEC_FILE)
             .method(&method)
             .path(&path)
+            .validate_request(&Null)
+            .unwrap()
             .validate_response(&response)
             .expect("OpenAPI error");
     }
@@ -399,6 +407,8 @@ mod tests {
         APISpec::from_file(API_SPEC_FILE)
             .method(&method)
             .path(&path)
+            .validate_request(&Null)
+            .unwrap()
             .validate_response(&response)
             .expect("OpenAPI error");
     }
