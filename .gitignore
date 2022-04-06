@@ -10,3 +10,5 @@ mithril-core/proptest-regressions/
 .s.PGSQL*
 .DS_Store
 test-results.xml
+.docusaurus/
+node_modules/
