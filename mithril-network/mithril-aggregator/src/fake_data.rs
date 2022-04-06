@@ -48,8 +48,8 @@ pub(crate) fn certificate(certificate_hash: String) -> entities::Certificate {
     let previous_hash = format!("{}0", certificate_hash);
     let block = beacon.block;
     let digest = format!("1{}", block).repeat(20);
-    let started_at = "".to_string();
-    let completed_at = "".to_string();
+    let started_at = "2006-01-02T15:04:05Z".to_string();
+    let completed_at = "2006-01-02T15:04:05Z".to_string();
     let multisignature = format!("ABC{}", block).repeat(200);
     entities::Certificate::new(
         certificate_hash,
@@ -103,7 +103,7 @@ pub(crate) fn snapshots(total: u64) -> Vec<entities::Snapshot> {
             let digest = format!("1{}", snapshot_id).repeat(20);
             let certificate_hash = "123".to_string();
             let size = snapshot_id * 100000;
-            let created_at = "".to_string();
+            let created_at = "2006-01-02T15:04:05Z".to_string();
             let mut locations = Vec::new();
             locations.push(format!("http://{}", certificate_hash));
             locations.push(format!("http2://{}", certificate_hash));

@@ -804,6 +804,7 @@ dependencies = [
  "clap 3.1.8",
  "clap-verbosity-flag",
  "env_logger",
+ "http",
  "jsonschema",
  "log",
  "mockall",

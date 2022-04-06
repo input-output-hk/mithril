@@ -6,6 +6,8 @@ use warp::{http::Method, http::StatusCode, Filter};
 use crate::entities;
 use crate::fake_data;
 
+const SERVER_BASE_PATH: &str = "aggregator";
+
 /// Server
 pub struct Server {
     ip: IpAddr,
@@ -39,7 +41,7 @@ mod router {
             .allow_headers(vec!["content-type"])
             .allow_methods(vec![Method::GET, Method::POST, Method::OPTIONS]);
 
-        let routes = warp::any().and(warp::path("aggregator")).and(
+        let routes = warp::any().and(warp::path(SERVER_BASE_PATH)).and(
             certificate_pending()
                 .or(certificate_certificate_hash())
                 .or(snapshots())
@@ -110,6 +112,7 @@ mod handlers {
 
         // Certificate pending
         let certificate_pending = fake_data::certificate_pending();
+        //let certificate_pending = fake_data::beacon();
 
         Ok(warp::reply::json(&certificate_pending))
     }
@@ -166,34 +169,37 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
+    const API_SPEC_FILE: &str = "../../openapi.yaml";
+
+    use http::response::Response;
     use jsonschema::JSONSchema;
-    use openapiv3::OpenAPI;
-    use serde_json::{json, Value};
-    use warp::http::StatusCode;
+    use serde::Serialize;
+    use serde_json::{json, Value, Value::Null};
     use warp::hyper::body::Bytes;
     use warp::test::request;
 
     use super::*;
     use crate::fake_data;
 
+    /// APISpec helps validate conformity to an OpenAPI specification
     struct APISpec<'a> {
         openapi: Value,
         path: Option<&'a str>,
         method: Option<&'a str>,
     }
 
-    fn read_spec<'a>() -> APISpec<'a> {
-        let yaml_spec = std::fs::read_to_string("../../openapi.yaml").unwrap();
-        let openapi: serde_json::Value = serde_yaml::from_str(&yaml_spec).unwrap();
-
-        APISpec {
-            openapi,
-            path: None,
-            method: None,
-        }
-    }
-
     impl<'a> APISpec<'a> {
+        /// APISpec factory from spec
+        fn from_file(path: &str) -> APISpec<'a> {
+            let yaml_spec = std::fs::read_to_string(path).unwrap();
+            let openapi: serde_json::Value = serde_yaml::from_str(&yaml_spec).unwrap();
+            APISpec {
+                openapi,
+                path: None,
+                method: None,
+            }
+        }
+
         /// Sets the path to specify/check.
         fn path(&'a mut self, path: &'a str) -> &mut APISpec {
             self.path = Some(path);
@@ -206,142 +212,240 @@ mod tests {
             self
         }
 
-        fn validate(&mut self, bytes: &Bytes) -> Result<(), String> {
-            let value: serde_json::Value =
-                serde_json::from_str(std::str::from_utf8(&bytes).unwrap()).unwrap();
+        /// Validates if a request is valid
+        fn validate_request(
+            &'a mut self,
+            request_body: &impl Serialize,
+        ) -> Result<&mut APISpec, String> {
+            let path = self.path.unwrap();
+            let method = self.method.unwrap().to_lowercase();
 
-            let schema = &mut self.openapi["paths"][self.path.unwrap()]
-                [self.method.unwrap().to_lowercase()]["responses"]["200"]["content"]
-                ["application/json"]["schema"]
-                .as_object_mut()
-                .unwrap()
-                .clone();
-            let components = &mut self.openapi.as_object_mut().unwrap();
-            schema.append(*components);
-
-            let validator = JSONSchema::compile(&json!(schema)).unwrap();
-
-            validator
-                .validate(&value)
-                .map_err(|errs| errs.into_iter().map(|e| e.to_string()).collect())
+            let request_schema = &mut self.openapi.clone()["paths"][path][method]["requestBody"]
+                ["content"]["application/json"]["schema"];
+            let value = &json!(&request_body);
+            self.validate_conformity(value, request_schema)
         }
 
-        /// Verifies the given body matches the current path's expected output
-        fn matches(&mut self, bytes: &Bytes) {
-            let result = self.validate(bytes);
-            assert!(result.is_ok());
+        /// Validates if a response is valid
+        fn validate_response(
+            &'a mut self,
+            response: &Response<Bytes>,
+        ) -> Result<&mut APISpec, String> {
+            let body = response.body();
+            let status = response.status();
+
+            let path = self.path.unwrap();
+            let method = self.method.unwrap().to_lowercase();
+            let status_code = status.as_str();
+
+            let response_spec =
+                &mut self.openapi.clone()["paths"][path][method]["responses"][status_code];
+            let response_schema =
+                &mut response_spec.clone()["content"]["application/json"]["schema"];
+            if body.is_empty() {
+                match response_spec.as_object() {
+                    Some(_) => match response_schema.as_object() {
+                        Some(_) => Err("non empty body expected".to_string()),
+                        None => Ok(self),
+                    },
+                    None => Err("empty body expected".to_string()),
+                }
+            } else {
+                match &serde_json::from_slice(&body) {
+                    Ok(value) => self.validate_conformity(value, response_schema),
+                    Err(_) => Err("non empty body expected".to_string()),
+                }
+            }
         }
 
-        /// Verifies the given body _does not_ match the current path's expected output
-        fn does_not_match(&mut self, bytes: &Bytes) {
-            let result = self.validate(bytes);
+        /// Validates conformity of a value against a schema
+        fn validate_conformity(
+            &'a mut self,
+            value: &Value,
+            schema: &mut Value,
+        ) -> Result<&mut APISpec, String> {
+            match schema {
+                Null => Err("null schema provided".to_string()),
+                _ => {
+                    let schema = &mut schema.as_object_mut().unwrap().clone();
+                    let components = self.openapi["components"].clone();
+                    schema.insert(String::from("components"), components);
 
-            match result {
-                Err(_) => {}
-                Ok(_) => assert!(false),
+                    let validator = JSONSchema::compile(&json!(schema)).unwrap();
+                    match validator.validate(&value).map_err(|errs| {
+                        errs.into_iter()
+                            .map(|e| e.to_string())
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                    }) {
+                        Ok(_) => Ok(self),
+                        Err(e) => Err(e),
+                    }
+                }
             }
         }
     }
 
     #[test]
-    fn test_can_validate_api_route() {
-        let mut openapi = read_spec();
+    fn test_apispec_validate_errors() {
+        // Route does not exist
+        assert!(APISpec::from_file(API_SPEC_FILE)
+            .method(&Method::GET.as_str())
+            .path(&"/route-not-existing-in-openapi-spec")
+            .validate_response(&Response::<Bytes>::new(Bytes::from_static(b"abcdefgh")))
+            .is_err());
 
-        let spec = openapi.method("GET").path("/certificate-pending");
-        let cert = fake_data::certificate_pending();
+        // Route exists, but method does not
+        assert!(APISpec::from_file(API_SPEC_FILE)
+            .method(&Method::OPTIONS.as_str())
+            .path(&"/certificate-pending")
+            .validate_response(&Response::<Bytes>::new(Bytes::from_static(b"abcdefgh")))
+            .is_err());
 
-        spec.matches(&Bytes::copy_from_slice(
-            serde_json::to_string(&cert).unwrap().as_bytes(),
-        ));
-    }
+        // Route exists, but expects non empty reponse
+        assert!(APISpec::from_file(API_SPEC_FILE)
+            .method(&Method::GET.as_str())
+            .path(&"/certificate-pending")
+            .validate_response(&Response::<Bytes>::new(Bytes::new()))
+            .is_err());
 
-    #[test]
-    fn test_can_invalidate_api_route() {
-        let mut openapi = read_spec();
+        // Route exists, but expects empty reponse
+        assert!(APISpec::from_file(API_SPEC_FILE)
+            .method(&Method::POST.as_str())
+            .path(&"/register-signer")
+            .validate_response(&Response::<Bytes>::new(Bytes::from_static(b"abcdefgh")))
+            .is_err());
 
-        let spec = openapi.method("GET").path("/certificate-pending");
+        // Route exists, but does not expect request body
+        assert!(APISpec::from_file(API_SPEC_FILE)
+            .method(&Method::GET.as_str())
+            .path(&"/certificate-pending")
+            .validate_request(&fake_data::beacon())
+            .is_err());
 
-        spec.does_not_match(&Bytes::copy_from_slice(b"{}"));
+        // Route exists, but expects non empty request body
+        assert!(APISpec::from_file(API_SPEC_FILE)
+            .method(&Method::POST.as_str())
+            .path(&"/register-signer")
+            .validate_request(&Null)
+            .is_err());
     }
 
     #[tokio::test]
-    async fn test_certificate_pending_get() {
+    async fn test_certificate_pending_get_ok() {
+        let method = Method::GET.as_str();
+        let path = "/certificate-pending";
+
         let response = request()
-            .method("GET")
-            .path("/certificate-pending")
-            .reply(&router::certificate_pending())
+            .method(&method)
+            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
+            .reply(&router::routes())
             .await;
 
-        assert_eq!(response.status(), StatusCode::OK);
-
-        let mut openapi: APISpec = read_spec();
-        openapi
-            .method("GET")
-            .path("/certificate-pending")
-            .matches(response.body());
+        APISpec::from_file(API_SPEC_FILE)
+            .method(&method)
+            .path(&path)
+            .validate_response(&response)
+            .expect("OpenAPI error");
     }
 
     #[tokio::test]
-    async fn test_certificate_certificate_hash_get() {
+    async fn test_certificate_certificate_hash_get_ok() {
+        let method = Method::GET.as_str();
+        let path = "/certificate/{certificate_hash}";
+
         let response = request()
-            .method("GET")
-            .path("/certificate/hash123")
-            .reply(&router::certificate_certificate_hash())
+            .method(&method)
+            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
+            .reply(&router::routes())
             .await;
 
-        assert_eq!(response.status(), StatusCode::OK);
-        assert_ne!(response.body(), "")
+        APISpec::from_file(API_SPEC_FILE)
+            .method(&method)
+            .path(&path)
+            .validate_response(&response)
+            .expect("OpenAPI error");
     }
 
     #[tokio::test]
-    async fn test_snapshots_get() {
+    async fn test_snapshots_get_ok() {
+        let method = Method::GET.as_str();
+        let path = "/snapshots";
+
         let response = request()
-            .method("GET")
-            .path("/snapshots")
-            .reply(&router::snapshots())
+            .method(&method)
+            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
+            .reply(&router::routes())
             .await;
 
-        assert_eq!(response.status(), StatusCode::OK);
-        assert_ne!(response.body(), "")
+        APISpec::from_file(API_SPEC_FILE)
+            .method(&method)
+            .path(&path)
+            .validate_response(&response)
+            .expect("OpenAPI error");
     }
 
     #[tokio::test]
-    async fn test_snapshot_digest_get() {
+    async fn test_snapshot_digest_get_ok() {
+        let method = Method::GET.as_str();
+        let path = "/snapshot/{digest}";
+
         let response = request()
-            .method("GET")
-            .path("/snapshot/digest123")
-            .reply(&router::snapshot_digest())
+            .method(&method)
+            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
+            .reply(&router::routes())
             .await;
 
-        assert_eq!(response.status(), StatusCode::OK);
-        assert_ne!(response.body(), "")
+        APISpec::from_file(API_SPEC_FILE)
+            .method(&method)
+            .path(&path)
+            .validate_response(&response)
+            .expect("OpenAPI error");
     }
 
     #[tokio::test]
-    async fn test_register_signer_post() {
+    async fn test_register_signer_post_ok() {
         let signer = &fake_data::signers(1)[0];
+
+        let method = Method::POST.as_str();
+        let path = "/register-signer";
+
         let response = request()
-            .method("POST")
-            .path("/register-signer")
+            .method(&method)
+            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
             .json(signer)
-            .reply(&router::register_signer())
+            .reply(&router::routes())
             .await;
 
-        assert_eq!(response.status(), StatusCode::CREATED);
-        assert_eq!(response.body(), "")
+        APISpec::from_file(API_SPEC_FILE)
+            .method(&method)
+            .path(&path)
+            .validate_request(&signer)
+            .unwrap()
+            .validate_response(&response)
+            .expect("OpenAPI error");
     }
 
     #[tokio::test]
-    async fn test_register_signatures_post() {
+    async fn test_register_signatures_post_ok() {
         let signatures = &fake_data::single_signatures(1);
+
+        let method = Method::POST.as_str();
+        let path = "/register-signatures";
+
         let response = request()
-            .method("POST")
-            .path("/register-signatures")
+            .method(&method)
+            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
             .json(signatures)
-            .reply(&router::register_signatures())
+            .reply(&router::routes())
             .await;
 
-        assert_eq!(response.status(), StatusCode::CREATED);
-        assert_eq!(response.body(), "")
+        APISpec::from_file(API_SPEC_FILE)
+            .method(&method)
+            .path(&path)
+            .validate_request(&signatures)
+            .unwrap()
+            .validate_response(&response)
+            .expect("OpenAPI error");
     }
 }
