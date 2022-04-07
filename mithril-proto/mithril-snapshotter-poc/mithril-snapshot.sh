@@ -69,7 +69,8 @@ echo "";
 if [ "$SNAPSHOT_MODE" = "full" ]; then
     echo ">> Copy ledger state latest file to $SNAPSHOT_DIR/src/db/ledger";
     mkdir -p $SNAPSHOT_DIR/src/db/ledger;
-    find $INPUT_DIR -type f -print | sort -n | grep -i ledger  | head -n 1 | xargs -I '{}' cp '{}' $SNAPSHOT_DIR/src/db/ledger/;
+    echo "find $INPUT_DIR -type f ! -name '.DS_Store' -print | sort -n | grep -i ledger | head -n 1 | xargs -I '{}' cp '{}' $SNAPSHOT_DIR/src/db/ledger/;"
+    find $INPUT_DIR -type f ! -name '.DS_Store' -print | sort -n | grep -i ledger | head -n 1 | xargs -I '{}' cp '{}' $SNAPSHOT_DIR/src/db/ledger/;
     ElapsedDuration;
     echo "";
 fi
