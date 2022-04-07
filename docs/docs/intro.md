@@ -2,7 +2,7 @@
 
 ## Reports
 
-* [PoC 2022-01 Milestone Report](./2022-01-report.md)
+* [PoC 2022-01 Milestone Report](../milestone/2022-01-report.md)
 
 ## Technical Documentation
 

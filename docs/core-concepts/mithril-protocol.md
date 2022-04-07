@@ -1,3 +1,7 @@
+---
+id: mithril-protocol
+---
+
 # Mithril Protocol
 
 The full details of the Mithril protocol are provided in the published paper. This section is high-level description of the protocol in layman’s terms.

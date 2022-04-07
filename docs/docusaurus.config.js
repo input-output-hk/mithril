@@ -40,13 +40,47 @@ const config = {
     ],
   ],
 
+  plugins: [
+    [
+      'content-docs',
+      /** @type {import('@docusaurus/plugin-content-docs').Options} */
+      ({
+        id: 'core-concepts',
+        path: 'core-concepts',
+        routeBasePath: 'core-concepts',
+        editUrl: 'https://github.com/input-output-hk/hydra-poc/tree/master/docs/core-concepts'
+      })
+    ],
+    [
+      'content-docs',
+      /** @type {import('@docusaurus/plugin-content-docs').Options} */
+      ({
+        id: 'topologies',
+        path: 'topologies',
+        routeBasePath: 'topologies',
+        editUrl: 'https://github.com/input-output-hk/hydra-poc/tree/master/docs/topologies'
+      }),
+    ],
+    [
+      'content-docs',
+      /** @type {import('@docusaurus/plugin-content-docs').Options} */
+      ({
+        id: 'test-lab',
+        path: 'test-lab',
+        routeBasePath: 'test-lab',
+        editUrl: 'https://github.com/input-output-hk/hydra-poc/tree/master/docs/test-lab'
+      }),
+    ],
+  ],
+
+
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
       navbar: {
-        title: 'My Site',
+        title: 'Mithril',
         logo: {
-          alt: 'My Site Logo',
+          alt: 'Mithril Logo',
           src: 'img/logo.svg',
         },
         items: [
@@ -56,9 +90,29 @@ const config = {
             position: 'left',
             label: 'Tutorial',
           },
+          {
+            to: '/core-concepts',
+            label: 'Core Concepts',
+            position: 'left',
+          },
+          {
+            to: '/topologies',
+            label: 'Topologies',
+            position: 'left',
+          },
+          {
+            to: '/test-lab',
+            label: 'Test Lab',
+            position: 'left',
+          },
+          {
+            to: '/topologies',
+            label: 'Topologies',
+            position: 'left',
+          },
           {to: '/milestones', label: 'Milestones', position: 'right'},
           {
-            href: 'https://github.com/facebook/docusaurus',
+            href: 'https://github.com/input-output-hk/mithril/',
             label: 'GitHub',
             position: 'right',
           },
@@ -76,33 +130,17 @@ const config = {
               },
             ],
           },
-          {
-            title: 'Community',
-            items: [
-              {
-                label: 'Stack Overflow',
-                href: 'https://stackoverflow.com/questions/tagged/docusaurus',
-              },
-              {
-                label: 'Discord',
-                href: 'https://discordapp.com/invite/docusaurus',
-              },
-              {
-                label: 'Twitter',
-                href: 'https://twitter.com/docusaurus',
-              },
-            ],
-          },
+          // @todo
+          // {
+          //   title: 'Community',
+          //   items: [],
+          // },
           {
             title: 'More',
             items: [
               {
-                label: 'Blog',
-                to: '/blog',
-              },
-              {
-                label: 'GitHub',
-                href: 'https://github.com/facebook/docusaurus',
+                label: 'Input Output (Blog)',
+                to: 'https://iohk.io/en/blog'
               },
             ],
           },

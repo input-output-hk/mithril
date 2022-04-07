@@ -1,3 +1,8 @@
+---
+sidebar_label: Design
+sidebar_position: 2
+---
+
 # Mithril Test Lab Design
 
 
