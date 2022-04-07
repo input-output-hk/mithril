@@ -298,6 +298,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ build-mithril-core, build-mithril-aggregator ] 
     steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
       - name: Cache mithril-core/Cargo.toml
         uses: actions/cache@v2.1.5
         with:
