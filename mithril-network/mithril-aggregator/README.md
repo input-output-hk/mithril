@@ -52,9 +52,19 @@ make build
 ./mithril-aggregator
 ```
 
+## Build and run Docker container:
+
+```bash
+# Build Docker image
+docker build -t mithril/mithril-aggregator .
+
+# Run Docker container
+docker run --rm --name='mithril-aggregator' mithril/mithril-aggregator
+```
+
 ## Interact with the Mithril Aggregator
 ```bash
-# Interactt with the aggregator through the OpenAPI UI
+# Interact with the aggregator through the OpenAPI UI
 open -u https://input-output-hk.github.io/mithril/openapi-ui/
 ```
 

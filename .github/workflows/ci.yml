@@ -190,7 +190,7 @@ jobs:
         run: go test ./...
         working-directory: mithril-proto/mithril-node-poc/
 
-  build-and-push-docker-image-mithril-node-poc:
+  docker-mithril-node-poc:
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     needs: [ build-mithril-core, build-mithril-node-poc ] 
@@ -201,7 +201,7 @@ jobs:
     env:
       PUSH_PACKAGES: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       REGISTRY: ghcr.io
-      IMAGE_NAME: ${{ github.repository }}
+      IMAGE_NAME: mithril-node-poc
       DOCKER_FILE: ./mithril-proto/mithril-node-poc/Dockerfile
       CONTEXT: .
       GITHUB_REF: ${{ github.ref}}
@@ -280,7 +280,7 @@ jobs:
           command: doc
           args: --manifest-path ./mithril-core/Cargo.toml --target-dir ./github-pages/mithril-network/mithril-aggregator
 
-      - name: Mithril Aggregator/ Generate OpenAPI UI
+      - name: Mithril Aggregator / Generate OpenAPI UI
         uses: Legion2/swagger-ui-action@v1
         with:
           output: ./github-pages/openapi-ui

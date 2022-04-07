@@ -1,8 +1,8 @@
-.PHONY: all build test run help doc
+.PHONY: all build test debug run help doc
 
 CARGO = cargo
 
-all: version test build
+all: test build
 
 build:
 	${CARGO} build --release
