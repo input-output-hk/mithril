@@ -253,7 +253,7 @@ jobs:
       PUSH_PACKAGES: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       REGISTRY: ghcr.io
       IMAGE_NAME: build-mithril-aggregator
-      DOCKER_FILE: ./mithril-network/build-mithril-aggregator/Dockerfile
+      DOCKER_FILE: ./mithril-network/mithril-aggregator/Dockerfile
       CONTEXT: .
       GITHUB_REF: ${{ github.ref}}
 
