@@ -7,7 +7,7 @@ on:
     types: [opened, reopened]
 
 jobs:
-  build:
+  build-mithril-core:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     steps:
@@ -36,6 +36,7 @@ jobs:
         with:
           command: build
           args: --release --manifest-path ./mithril-core/Cargo.toml
+
       - name: Cargo check
         uses: actions-rs/cargo@v1
         with:
@@ -67,12 +68,6 @@ jobs:
           command: test
           args: --release --manifest-path ./mithril-core/Cargo.toml
 
-      - name: Run cargo doc
-        uses: actions-rs/cargo@v1
-        with:
-          command: doc
-          args: --manifest-path ./mithril-core/Cargo.toml --target-dir ./github-pages/mithril-core
-
       - name: Set up Clang
         uses: egor-tensin/setup-clang@v1
         with:
@@ -95,20 +90,61 @@ jobs:
         with:
           files: ./**/test-results.xml
 
-      - name: Generate OpenAPI UI
-        uses: Legion2/swagger-ui-action@v1
-        with:
-          output: ./github-pages/openapi-ui
-          spec-file: ./openapi.yaml
+  build-mithril-aggregator:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
 
-      - name: Publish Github Pages
-        uses: peaceiris/actions-gh-pages@v3
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
-          publish_dir: ./github-pages
+          profile: minimal
+          toolchain: stable
+          components: clippy, rustfmt
+          override: true
 
-  go-tests:
+      - uses: actions/cache@v2.1.5
+        name: Cache mithril-network/mithril-aggregator/Cargo.toml
+        with:
+          path: |
+            mithril-network/mithril-aggregator/target
+          key: ${{ runner.os }}-${{ hashFiles('mithril-network/mithril-aggregator/Cargo.toml') }}
+          restore-keys: |
+              ${{ runner.os }}-key
+
+      - name: Cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --manifest-path ./mithril-network/mithril-aggregator/Cargo.toml
+
+      - name: Cargo check
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --release --all-targets --manifest-path ./mithril-network/mithril-aggregator/Cargo.toml
+
+      - name: Cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all --manifest-path ./mithril-network/mithril-aggregator/Cargo.toml -- --check
+
+      - name: Clippy Check
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --manifest-path ./mithril-network/mithril-aggregator/Cargo.toml --all-features
+
+      - name: Run cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --release --manifest-path ./mithril-network/mithril-aggregator/Cargo.toml
+
+  build-mithril-node-poc:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
@@ -154,10 +190,10 @@ jobs:
         run: go test ./...
         working-directory: mithril-proto/mithril-node-poc/
 
-  build-and-push-image:
+  docker-mithril-node-poc:
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
-    needs: [ build, go-tests ]
+    needs: [ build-mithril-core, build-mithril-node-poc ] 
     permissions:
       contents: read
       packages: write
@@ -165,7 +201,7 @@ jobs:
     env:
       PUSH_PACKAGES: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       REGISTRY: ghcr.io
-      IMAGE_NAME: ${{ github.repository }}
+      IMAGE_NAME: mithril-node-poc
       DOCKER_FILE: ./mithril-proto/mithril-node-poc/Dockerfile
       CONTEXT: .
       GITHUB_REF: ${{ github.ref}}
@@ -203,11 +239,114 @@ jobs:
         with:
           context: ${{ env.CONTEXT }}
           file: ${{ env.DOCKER_FILE }}
-          push: true
+          push: ${{ env.PUSH_PACKAGES }}
           tags: ${{ steps.meta.outputs.tags }}
+
+  docker-mithril-aggregator:
+    runs-on: ubuntu-latest
+    needs: [ build-mithril-core, build-mithril-aggregator ] 
+    permissions:
+      contents: read
+      packages: write
+      
+    env:
+      PUSH_PACKAGES: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      REGISTRY: ghcr.io
+      IMAGE_NAME: build-mithril-aggregator
+      DOCKER_FILE: ./mithril-network/mithril-aggregator/Dockerfile
+      CONTEXT: .
+      GITHUB_REF: ${{ github.ref}}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Set outputs
+        id: vars
+        run: echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
+
+      - name: Extract branch name
+        shell: bash
+        run: echo "##[set-output name=branch;]$(echo ${GITHUB_REF#refs/heads/})"
+        id: extract_branch
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@f054a8b539a109f9f41c372932f1ae047eff08c9
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags:
+            type=raw,value={{branch}}-{{sha}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@ad44023a93711e3deb337508980b4b5e9bcdc5dc
+        with:
+          context: ${{ env.CONTEXT }}
+          file: ${{ env.DOCKER_FILE }}
+          push: ${{ env.PUSH_PACKAGES }}
+          tags: ${{ steps.meta.outputs.tags }}
+
+  generate-publish-docs:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    needs: [ build-mithril-core, build-mithril-aggregator ] 
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Cache mithril-core/Cargo.toml
+        uses: actions/cache@v2.1.5
+        with:
+          path: |
+            mithril-core/target
+          key: ${{ runner.os }}-${{ hashFiles('mithril-core/Cargo.toml') }}
+          restore-keys: |
+              ${{ runner.os }}-key
+
+      - name: Mithril Core / Generate doc
+        uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: --manifest-path ./mithril-core/Cargo.toml --target-dir ./github-pages/mithril-core
+
+      - uses: actions/cache@v2.1.5
+        name: Cache mithril-network/mithril-aggregator/Cargo.toml
+        with:
+          path: |
+            mithril-network/mithril-aggregator/target
+          key: ${{ runner.os }}-${{ hashFiles('mithril-network/mithril-aggregator/Cargo.toml') }}
+          restore-keys: |
+              ${{ runner.os }}-key
+
+      - name: Mithril Aggregator / Generate doc
+        uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: --manifest-path ./mithril-core/Cargo.toml --target-dir ./github-pages/mithril-network/mithril-aggregator
+
+      - name: Mithril Aggregator / Generate OpenAPI UI
+        uses: Legion2/swagger-ui-action@v1
+        with:
+          output: ./github-pages/openapi-ui
+          spec-file: ./openapi.yaml
+
+      - name: Mithril / Publish Github Pages
+        uses: peaceiris/actions-gh-pages@v3
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
+          publish_dir: ./github-pages
 
   build-test-lab:
     runs-on: ubuntu-latest
+    needs: [ build-mithril-core, build-mithril-aggregator ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -219,7 +358,6 @@ jobs:
           extra_nix_config: |
             trusted-public-keys = iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
             substituters = https://cache.nixos.org https://hydra.iohk.io https://iohk.cachix.org
-
       - name: Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
         uses: actions/cache@v2.1.5
         with:
@@ -229,13 +367,12 @@ jobs:
             dist-newstyle
           key: |
             cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
-
       - name: Prepare nix-shell
         run: |
           nix-build shell.nix
-
       - name: Build
         run: nix-shell --run '.github/workflows/ci-build.sh'
 
       - name: Test
         run: nix-shell --run '.github/workflows/ci-test.sh'
+

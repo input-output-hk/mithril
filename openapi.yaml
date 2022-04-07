@@ -26,15 +26,7 @@ paths:
           content:
             application/json:
               schema:
-                properties:
-                  beacon:
-                    $ref: '#/components/schemas/Beacon'
-                  protocol:
-                    $ref: '#/components/schemas/Protocol'
-                  signers:
-                    type: array
-                    items:
-                        $ref: '#/components/schemas/SignerWithStake'     
+                $ref: '#/components/schemas/CertificatePending'    
         default:
           description: pending certificate error
           content:
@@ -132,6 +124,8 @@ paths:
           description: signer registration succeeded
         '409':
           description: signer registration already done
+        '400':
+          description: signer registration bad request
         default:
           description: signer registration error
           content:
@@ -154,6 +148,8 @@ paths:
       responses:
         '201':
           description: signatures registration succeeded
+        '400':
+          description: signer registration bad request
         '409':
           description: signatures registration already done
         default:
@@ -164,9 +160,10 @@ paths:
                 $ref: '#/components/schemas/Error'
 components:
   schemas:
-    Protocol:
+    ProtocolParameters:
       description: Protocol cryptographic parameters
       type: object
+      additionalProperties: true
       required:
         - k
         - m
@@ -194,6 +191,7 @@ components:
     Beacon:
       description: Beacon represents a point in the Cardano chain at which a Mithril certificate should be produced
       type: object
+      additionalProperties: true
       required:
         - network
         - epoch
@@ -217,13 +215,33 @@ components:
               "block": 7060000,
               }
     
+    CertificatePending:
+      description: CertificatePending represents all the informations related to the certificate currently expecting to receive quorum of single signatures
+      type: object
+      additionalProperties: false
+      required:
+        - beacon
+        - protocol
+        - signers
+      properties:
+        beacon:
+          $ref: '#/components/schemas/Beacon'
+        protocol:
+          $ref: '#/components/schemas/ProtocolParameters'
+        signers:
+          type: array
+          items:
+              $ref: '#/components/schemas/SignerWithStake'
+
     Stake:
       description: Stake represents the stakes of a participant in the Cardano chain
       type: object
+      additionalProperties: true
       required:
       - stake
       properties:
         stake:
+          description: Stake value in ADA #TODO: Check if ADA or Lovelace
           type: integer
           format: int64
       example:
@@ -234,6 +252,7 @@ components:
     Signer:
       description: Signer represents a signing participant in the network
       type: object
+      additionalProperties: true
       required:
         - party_id
         - verification_key
@@ -254,6 +273,7 @@ components:
 
     SignerWithStake:
       description: Signer represents a signing party in the network (including its stakes)
+      additionalProperties: true
       allOf:
         - $ref: '#/components/schemas/Signer'
         - $ref: '#/components/schemas/Stake'
@@ -261,6 +281,7 @@ components:
     SingleSignature:
       description: SingleSignature represents a single signature originating from a participant in the network for a digest at a specific lottery index
       type: object
+      additionalProperties: false
       required:
         - party_id
         - index
@@ -288,6 +309,7 @@ components:
     Certificate:
       description: Certificate represents a Mithril certificate embedding a Mithril STM multisignature  
       type: object
+      additionalProperties: false
       required:
         - hash
         - previous_hash
@@ -312,7 +334,8 @@ components:
           type: integer
           format: int64
         protocol:
-          $ref: '#/components/schemas/Protocol'
+          description: Protocol parameters
+          $ref: '#/components/schemas/ProtocolParameters'
         digest:
           description: Digest that is signed by the signer participants
           type: string
@@ -365,6 +388,7 @@ components:
     Snapshot:
       description: Snapshot represents a snapshot file and its metadata
       type: object
+      additionalProperties: false
       required:
       - digest
       - certificate_hash
@@ -408,7 +432,9 @@ components:
               }
 
     Error:
+      description: Internal error representation
       type: object
+      additionalProperties: false
       required:
         - code
         - message
