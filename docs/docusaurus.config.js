@@ -26,7 +26,7 @@ const config = {
           editUrl: 'https://github.com/input-output-hk/mithril/tree/main/docs/docs/',
         },
         blog: {
-          path: 'milestone',
+          path: 'milestones',
           routeBasePath: 'milestones/',
           blogTitle: "milestones",
           blogSidebarTitle: "Milestones",
@@ -81,7 +81,7 @@ const config = {
         title: 'Mithril',
         logo: {
           alt: 'Mithril Logo',
-          src: 'img/logo.svg',
+          src: 'img/logo.png',
         },
         items: [
           {

@@ -12,3 +12,4 @@ mithril-core/proptest-regressions/
 test-results.xml
 .docusaurus/
 node_modules/
+/docs/build/
