@@ -1,5 +1,6 @@
 #![doc = include_str!("../README.md")]
 
+mod apispec;
 mod entities;
 mod fake_data;
 mod http_server;
