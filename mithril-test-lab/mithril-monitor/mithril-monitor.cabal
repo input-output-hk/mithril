@@ -18,9 +18,9 @@ build-type:          Simple
 extra-source-files:  CHANGELOG.md
 
 library
-  exposed-modules:      Mithril.Monitor
-                        Mithril.Network
-                        Mithril.Util
+  exposed-modules:      Mithril.Monitor.Monitor
+                        Mithril.Monitor.Network
+                        Mithril.Monitor.Util
 
   -- other-modules:
   -- other-extensions:

@@ -1,7 +1,7 @@
 module MonitorTests where
 
 import qualified Test.Tasty as Tasty
-import Mithril.Monitor as Monitor
+import Mithril.Monitor.Monitor as Monitor
 import qualified Test.Tasty.QuickCheck as QC
 import qualified Test.Tasty.HUnit as HUnit
 import Data.Void (Void)

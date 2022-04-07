@@ -16,7 +16,7 @@ import qualified Data.Aeson as JSON
 import Data.Map (Map)
 import qualified Network.Wai.Handler.Warp as Warp
 import qualified Network.HTTP.Types.Status as HTTPStatus
-import Mithril.Util(pollUntil, (++/), ping)
+import Mithril.Monitor.Util(pollUntil, (++/), ping)
 
 
 -------------------------------------------------------------------------------

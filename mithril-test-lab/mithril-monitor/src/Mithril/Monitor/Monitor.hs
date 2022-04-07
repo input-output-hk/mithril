@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE TupleSections #-}
-module Mithril.Monitor where
+module Mithril.Monitor.Monitor where
 import Prelude hiding(either, all, any)
 
 import Data.Word(Word, Word64)
