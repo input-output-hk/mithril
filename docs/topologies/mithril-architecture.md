@@ -1,3 +1,7 @@
+---
+sidebar_position: 2
+---
+
 # Mithril Architecture
 
 The following figure sketches of our current understanding of the Mithril network architecture, following initial PoC phase ending in 2021 Q4.

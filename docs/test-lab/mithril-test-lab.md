@@ -1,3 +1,9 @@
+---
+id: mithril-test-lab
+title: Overview
+sidebar_position: 1
+---
+
 # Mithril Test Lab
 
 The following picture describes in high-level box-and-wire diagram how a Mithril Test Lab would instrument Mithril nodes to run complex adversarial tests.
@@ -29,13 +35,13 @@ The Mithril Test Lab is expected to provide the tooling to build, run, and check
 
 #### Where are we?
 
-* Sketched [monitor](../../monitor/README.md) as the way to specify expected behaviour of Mithril network and nodes in Haskell
+* Sketched [monitor](https://github.com/input-output-hk/mithril/tree/main/mithril-test-lab/mithril-monitor) as the way to specify expected behaviour of Mithril network and nodes in Haskell
   * `Monitor`s are _composable observers_ that can _monitor_ the trace of observable behaviour of interconnected Mithril nodes to verify some protocol invariants
   * Users can define basic assertions, properties, invariants, using the language provided by monitors
   * They should also be used to _drive_ the network, eg. decide when to request signature, when to retrieve certificate and verify them...
   * In essence, `Monitor`s are an eDSL somewhat akin to [Free monads](https://serokell.io/blog/introduction-to-free-monads) to represent interesting tests about a Mithril network, or more precisely to represent _executable specifications_
   * Monitors are interesting if thye provide more abstracting power than mere test examples, eg. express composable behaviour, up to interleaving, provided generative power to be able to abstract from details...
-* Sketched [Rust mithril node](../../mithril-proto/test-node/) which is expected to evolve into some kind of _reference implementation_ of the Mithril protocol
+* Sketched [Rust mithril node](https://github.com/input-output-hk/mithril/tree/main/mithril-proto/test-node) which is expected to evolve into some kind of _reference implementation_ of the Mithril protocol
   * As the underlying library is written in Rust, a Rust node should be "easy" to implement and provides more assurance we are actually uysing the protocol right
   * This "node"'s usefulness hinges on the fact it really can be instrumented by the monitors' or an over-arching driver/orchestrator: It does not have to implement all the complexity of networking and orchestration a real node entails, it only serves as an _oracle_ against which to check the actual node's implementation
   * _but_ it's also useful as a way to test the `Monitor` mechanics, and as a surrogate for the real node while we are developing the actual node _and_ the test lab itself
