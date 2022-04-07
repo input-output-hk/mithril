@@ -38,6 +38,20 @@ const config = {
         },
       }),
     ],
+    [
+      'redocusaurus',
+      {
+        specs: [
+          {
+            spec: '../openapi.yaml',
+            route: '/aggregator-api/',
+          },
+        ],
+        theme: {
+          primaryColor: '#1890ff',
+        },
+      },
+    ],
   ],
 
   plugins: [
@@ -106,8 +120,8 @@ const config = {
             position: 'left',
           },
           {
-            to: '/topologies',
-            label: 'Topologies',
+            to: '/aggregator-api',
+            label: 'Aggregator Server Api Reference',
             position: 'left',
           },
           {to: '/milestones', label: 'Milestones', position: 'right'},
