@@ -13,7 +13,7 @@ use crate::http_server::Server;
 #[derive(Parser, Debug, Clone)]
 pub struct Args {
     /// Server listening IP
-    #[clap(long, default_value = "127.0.0.1")]
+    #[clap(long, default_value = "0.0.0.0")]
     server_ip: String,
 
     /// Server listening port

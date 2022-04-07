@@ -56,7 +56,8 @@ make build
 
 ```bash
 # Build Docker image
-docker build -t mithril/mithril-aggregator .
+cd ../../
+docker build -t mithril/mithril-aggregator -f mithril-network/mithril-aggregator/Dockerfile .
 
 # Run Docker container
 docker run --rm --name='mithril-aggregator' mithril/mithril-aggregator
