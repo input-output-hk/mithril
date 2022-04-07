@@ -297,6 +297,7 @@ jobs:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     needs: [ build-mithril-core, build-mithril-aggregator ] 
+    steps:
       - name: Cache mithril-core/Cargo.toml
         uses: actions/cache@v2.1.5
         with:
