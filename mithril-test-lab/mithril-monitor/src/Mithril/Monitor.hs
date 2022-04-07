@@ -1,153 +1,326 @@
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE TupleSections #-}
 module Mithril.Monitor where
+import Prelude hiding(either, all, any)
 
-import Control.Monad((>=>), ap)
-import Control.Applicative((<|>))
-import qualified Data.Foldable as Foldable
+import Data.Word(Word, Word64)
+import Control.Applicative ((<|>), Alternative (empty))
+import Control.Monad (ap, unless, join)
+import Data.Functor ((<&>))
+import Data.Void (Void)
+import qualified Data.Maybe as Maybe
+import Data.Foldable (Foldable(foldl'))
+
+type Duration = Word64
+
+data Input i =
+    ClockDelta Duration
+  | Input i
+
+data Output o = Output
+  { outTimeout :: Maybe Duration
+  , outValues  :: [o]
+  }
+
+combineOutput :: (Duration -> Duration -> Duration) -> Output o -> Output o -> Output o
+combineOutput f a b =
+    Output { outTimeout = timeout'
+           , outValues = concat (outValues <$> [a, b])
+           }
+    where
+      timeout' =
+        let t1 = outTimeout a
+            t2 = outTimeout b
+        in (f <$> t1 <*> t2) <|> t1 <|> t2
+
+emptyOutput :: Output o
+emptyOutput = Output { outTimeout = Nothing
+                     , outValues = []
+                     }
+
+instance Monoid (Output o) where
+  mempty = emptyOutput
+
+instance Semigroup (Output o) where
+  (<>) = combineOutput const
+
+type MonitorStep i o a = Input i -> Monitor i o a
 
 data Monitor i o a =
-    Result a
-  | Yield o (Monitor i o a)
-  | Continue (i -> Monitor i o a)
-
-output :: o -> Monitor i o ()
-output l = Yield l (pure ())
+    Active (MonitorStep i o a)
+  | Done a
+  | Fail String
+  | Out (Output o) (Monitor i o a)
 
 instance Functor (Monitor i o) where
-  fmap f m =
-    case m of
-      Result a -> Result (f a)
-      Yield o c -> Yield o (fmap f c)
-      Continue c -> Continue (fmap f . c)
+  fmap f ma =
+    case ma of
+        Active step -> Active $ \i -> fmap f (step i)
+        Done a -> Done (f a)
+        Fail s -> Fail s
+        Out o ma' -> Out o (fmap f ma')
 
 instance Applicative (Monitor i o) where
-  (<*>) = ap
-  pure a = Result a
+  pure a = Done a
+  f <*> m = ap f m
 
 instance Monad (Monitor i o) where
   ma >>= fmb =
     case ma of
-      Result a  -> fmb a
-      Yield o c -> Yield o (c >>= fmb)
-      Continue c -> Continue (c >=> fmb)
+      Fail s -> Fail s
+      Done a -> fmb a
+      Out o ma' -> Out o (ma' >>= fmb)
+      Active step ->
+        let step' i =
+              let ma' = step i
+              in  ma' >>= fmb
+        in Active step'
 
---
+instance MonadFail (Monitor i o) where
+  fail =  Fail
 
-observe :: Monitor i o a -> i -> Monitor i o a
-observe mon msg =
-  case mon of
-    Result a -> Result a
-    Yield o m -> Yield o (m `observe` msg)
-    Continue c  -> c msg
+instance Alternative (Monitor i o) where
+  empty = fail "empty monitor"
+  a <|> b = case a of
+    Active f ->
+      do  i <- next
+          a' <- a `observeInner` i
+          case a' of
+            Fail s -> join (b `observeInner` i)
+            _ -> a'
 
--- TODO: make tail recursive
-getOutput :: Monitor i o a -> (Monitor i o a, [o])
-getOutput ma =
-  case ma of
-    Yield o ma' ->
-      let (ma'', os) = getOutput ma'
-      in (ma'', o:os)
-    Continue _ -> (ma, [])
-    Result _ -> (ma, [])
+    Done a' -> Done a'
+    Fail s -> b
+    Out out mon -> Out out (mon <|> b)
 
-step :: Monitor i o a -> i -> (Monitor i o a, [o])
-step m msg = getOutput (m `observe` msg)
+
+
+-- fundamental operations -----------------------------------------------------
+
+getResult :: Monitor i o a -> Maybe (Either String a)
+getResult m =
+  case m of
+    Out _ m' -> getResult m
+    Done a -> Just (Right a)
+    Active _ -> Nothing
+    Fail s -> Just (Left s)
+
+getResults :: Traversable t => t (Monitor i o a) -> Maybe (Either String (t a))
+getResults ms = fmap sequence (traverse getResult ms)
+
+isComplete :: Monitor i o a -> Bool
+isComplete m = Maybe.isJust (getResult m)
+
+output :: o -> Monitor i o ()
+output o = Out (Output Nothing [o]) (Done ())
+
+output' :: Output o -> Monitor i o ()
+output' o = Out o (Done ())
+
+getOutput :: Monitor i o a -> (Output o, Monitor i o a)
+getOutput m =
+  case m of
+    Out o m' ->
+      let (o', m'') = getOutput m'
+      in  (o <> o', m'')
+    Fail _ -> (emptyOutput, m)
+    Done _ -> (emptyOutput, m)
+    Active _ -> (emptyOutput, m)
+
+
+observe :: Monitor i o a -> i -> (Output o, Monitor i o a)
+observe m i = m `observeInput` Input i
+
+observeInner :: Monitor i o a -> i -> Monitor i o (Monitor i o a)
+observeInner m i =
+  do  let (o, m') = m `observe` i
+      output' o
+      pure m'
+
+observeMany :: Foldable f => Monitor i o a -> f i -> (Output o, Monitor i o a)
+observeMany m0 = foldl' step (emptyOutput, m0)
+  where
+    step (o, m) i =
+      let (o', m') = m `observe` i
+      in (o <> o', m')
+
+
+observeInput :: Monitor i o a -> Input i -> (Output o, Monitor i o a)
+observeInput m i =
+  case m of
+    Out o a' ->
+      let (o', a'') = a' `observeInput` i
+      in (o <> o', a'')
+    Fail _ -> (emptyOutput, m)
+    Done a -> (emptyOutput, m)
+    Active step -> getOutput (step i)
 
 next :: Monitor i o i
-next = Continue (pure <$> id)
+next = Active $ \case
+  ClockDelta _ -> next
+  Input i -> pure i
 
-on :: (i -> Monitor i o a) -> Monitor i o a
-on = Continue
+nextInput :: Monitor i o (Input i)
+nextInput = Active pure
 
-onJust :: (i -> Maybe a) -> Monitor i o a
-onJust f = Continue impl
+onFail :: Monitor i o a -> Monitor i o a -> Monitor i o a
+onFail ma mb =
+  case ma of
+    Out o ma' -> Out o (onFail ma' mb)
+    Fail _ -> mb
+    Done a -> pure a
+    Active step -> Active $ \i -> step i `onFail` mb
+
+modStep :: Monitor i o a -> (MonitorStep i o a -> MonitorStep i o a) -> Monitor i o a
+modStep ma f =
+  case ma of
+    Out o ma' -> Out o (modStep ma' f)
+    Fail _ -> ma
+    Done a -> Done a
+    Active step -> Active (f step)
+
+
+-- ignore all messages for a particular duration
+wait :: Duration -> Monitor i o ()
+wait t =
+  do  output' emptyOutput { outTimeout = Just t }
+      d <- onInput delta
+      if t <= d
+        then pure ()
+        else wait (t - d)
   where
-    impl msg =
-      case f msg of
-        Nothing -> onJust f
-        Just a -> pure a
+    delta =
+      do  ClockDelta d <- nextInput
+          pure d
+
+onTimeout :: Duration -> Monitor i o a -> Monitor i o a -> Monitor i o a
+onTimeout d m1 m2 =
+  do  r <- either (wait d) m1
+      case r of
+        Left _ -> m2
+        Right a -> pure a
+
+
+withTimeout :: Duration -> Monitor i o a -> Monitor i o a
+withTimeout d m = onTimeout d m (fail "timeout exceeded")
+
+-- withTimeout :: Duration -> Monitor i o a -> Monitor i o a
+-- withTimeout t ma =
+--   case ma of
+--     Done a -> Done a
+--     Fail s -> Fail s
+--     Out out mon -> Out out (withTimeout t mon)
+--     Active _ ->
+--       do  output' (emptyOutput { outTimeout = Just t })
+--           i <- nextInput
+--           case i of
+--             ClockDelta d | d > t -> fail "timeout exceeded"
+--                          | otherwise -> withTimeout (t - d) ma
+--             Input i' ->
+--               let (o', ma') = ma `observe` i'
+--               in  output' o' >> withTimeout t ma'
 
 
 
-nextWhen :: (i -> Bool) -> Monitor i o i
-nextWhen p = Continue impl
+
+on :: Monitor i o a -> Monitor i o a
+on m = m `onFail` on m
+
+onInput :: Monitor i o a -> Monitor i o a
+onInput m = m `onFail` onInput m
+
+any :: Foldable t => t (Monitor i o a) -> Monitor i o a
+any = foldr race (fail "any failed")
+
+all :: (Traversable t) => t (Monitor i o a) -> Monitor i o (t a)
+all ms =
+  case getResults ms of
+    Just (Right as) -> pure as
+    Just (Left s) -> fail s
+    Nothing ->
+      do  i <- nextInput
+
+          let obs = (`observeInput` i) <$> ms
+              os = fst <$> obs
+              ms' = snd <$> obs
+
+          output' (foldr (combineOutput min) emptyOutput os)
+          all ms'
+
+all_ :: (Traversable t) => t (Monitor i o a) -> Monitor i o ()
+all_ ms = all ms >> pure ()
+
+
+race :: Monitor i o a -> Monitor i o a -> Monitor i o a
+race a b = unEither <$> either a b
   where
-    impl msg =
-      if p msg then pure msg else nextWhen p
+    unEither (Left a) = a
+    unEither (Right a) = a
 
-getResult :: Monitor i o a -> Maybe a
-getResult (Result a) = Just a
-getResult (Continue _) = Nothing
-getResult (Yield _ m) = getResult m
 
--- TODO: doesn't getOutput
-allInParallel :: Traversable t => t (Monitor i o a) -> Monitor i o (t a)
-allInParallel ms =
-  case getResult `traverse` ms of
-    Just as -> pure as
-    Nothing -> Continue impl
-  where
-    impl msg =
-      let ms' = (`observe` msg) <$> ms
-          outms = getOutput <$> ms'
-          ms'' = fst <$> outms
-          outs = concat (snd <$> outms)
+either :: Monitor i o a -> Monitor i o b -> Monitor i o (Either a b)
+either a b =
+  case (a,b) of
+    (Out o a', _) -> Out o (either a' b)
+    (_, Out o b') -> Out o (either a b')
+    (Fail _, _) -> Right <$> b
+    (_, Fail _) -> Left <$> a
+    (Done ra, _) -> pure (Left ra)
+    (_, Done rb) -> pure (Right rb)
+    (Active _, Active _) ->
+      Active $ \i ->
+        let (o1, a') = a `observeInput` i
+            (o2, b') = b `observeInput` i
+        in Out (combineOutput max o1 o2) (either a' b')
 
-      in  output `traverse` outs >> allInParallel ms''
+both :: Monitor i o a -> Monitor i o b -> Monitor i o (a,b)
+both a b =
+  case (a, b) of
+    (Out o a', _) -> Out o (both a' b)
+    (_, Out o b') -> Out o (both a b')
+    (Fail s, _) -> Fail s
+    (_, Fail s) -> Fail s
+    (Done ra, _) -> (ra,) <$> b
+    (_, Done rb) -> (,rb) <$> a
+    (Active _, Active _) ->
+      Active $ \i ->
+        let (o1, a') = a `observeInput` i
+            (o2, b') = b `observeInput` i
+        in Out (combineOutput min o1 o2) (both a' b')
 
-allInParallel_ :: (Traversable f) => f (Monitor msg i a) -> Monitor msg i ()
-allInParallel_ ms = allInParallel ms >> pure ()
+-- execute a and b in parellel, returning mb - but if ma fails, the overall result fails
+guard :: Monitor i o a -> Monitor i o b -> Monitor i o b
+guard a b =
+  case (a, b) of
+    (Out o a', _) -> Out o (guard a' b)
+    (_, Out o b') -> Out o (guard a b')
+    (Fail s, _) -> Fail s
+    (_, Fail s) -> Fail s
+    (Done ra, _) -> b
+    (_, Done rb) -> Done rb
+    (Active _, Active _) ->
+      Active $ \i ->
+        let (o1, a') = a `observeInput` i
+            (o2, b') = b `observeInput` i
+        in Out (combineOutput min o1 o2) (guard a' b')
 
--- | Run a Traversable of monitors in parallel, completing when the first completes
-anyInParallel :: (Foldable f, Functor f) => f (Monitor i o a) -> Monitor i o a
-anyInParallel ms =
-  case complete ms of
-    Just as -> Result as
-    Nothing -> Continue impl
-  where
-    complete m = Foldable.foldl' step Nothing m
+try :: Monitor i o a -> Monitor i o (Maybe a)
+try m = (Just <$> m) `onFail` pure Nothing
 
-    step a b = a <|> getResult b
 
-    impl msg =
-      do  let ms' = (`observe` msg) <$> ms
-          anyInParallel ms'
+everywhere :: Monitor i o () -> Monitor i o Void
+everywhere m =
+  snd <$> both (m `onFail` pure ()) (next >> everywhere m)
 
-anyInParallel_ :: (Traversable f) => f (Monitor i o a) -> Monitor i o ()
-anyInParallel_ ms = anyInParallel ms >> pure ()
+always :: Monitor i o a -> Monitor i o Void
+always m = fmap snd (both m (next >> always m))
 
--- run a monitor continuously
-forever :: Monitor i o a -> Monitor i o b
-forever mon = mon >> forever mon
+never :: Monitor i o a -> Monitor i o Void
+never m = any [m >> fail "never violated", next >> never m]
 
---
-inParallelEither :: Monitor i o a -> Monitor i o b -> Monitor i o (Either a b)
-inParallelEither ma mb =
-  case (ma, mb) of
-    (Yield o ma', _) -> Yield o (inParallelEither ma' mb)
-    (_, Yield o mb') -> Yield o (inParallelEither ma mb')
-    (Result a, _) -> Result (Left a)
-    (_, Result b) -> Result (Right b)
-    (Continue c1, Continue c2) -> Continue (impl c1 c2)
-  where
-    impl c1 c2 msg = inParallelEither (c1 msg) (c2 msg)
+eventually :: Monitor i o a -> Monitor i o a
+eventually m = any [m, next >> eventually m]
 
--- mapInput :: (i -> b) -> Monitor b o a -> Monitor i o a
--- mapInput f m0 =
---   case m0 of
---     Result a -> Result a
---     Yield o m -> Yield o (mapInput f m)
---     Continue c -> Continue (impl c)
---   where
---     impl c msg = mapInput f <$> c (f msg)
+require :: Bool -> Monitor i o ()
+require b = unless b (Fail "require failed")
 
-filterInput :: (i -> Bool) -> Monitor i o a -> Monitor i o a
-filterInput p m0 =
-  case m0 of
-    Result a -> Result a
-    Yield o m -> Yield o (filterInput p m)
-    Continue c -> Continue (impl c)
-  where
-    impl c msg =
-      if p msg
-        then filterInput p (c msg)
-        else filterInput p m0

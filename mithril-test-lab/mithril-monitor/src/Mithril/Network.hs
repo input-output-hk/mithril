@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Mithril.Network where
+module Mithril.Monitor.Network where
 
 import Control.Concurrent.Chan(Chan)
 import qualified Control.Concurrent.Chan as Chan
