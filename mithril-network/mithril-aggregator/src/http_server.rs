@@ -19,7 +19,7 @@ impl Server {
     pub fn new(ip: String, port: u16) -> Self {
         Self {
             ip: ip.parse::<IpAddr>().unwrap(),
-            port: port,
+            port,
         }
     }
 
@@ -41,7 +41,7 @@ mod router {
             .allow_headers(vec!["content-type"])
             .allow_methods(vec![Method::GET, Method::POST, Method::OPTIONS]);
 
-        let routes = warp::any().and(warp::path(SERVER_BASE_PATH)).and(
+        warp::any().and(warp::path(SERVER_BASE_PATH)).and(
             certificate_pending()
                 .or(certificate_certificate_hash())
                 .or(snapshots())
@@ -49,8 +49,7 @@ mod router {
                 .or(register_signer())
                 .or(register_signatures())
                 .with(cors),
-        );
-        routes
+        )
     }
 
     /// GET /certificate-pending
