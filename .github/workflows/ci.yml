@@ -201,7 +201,7 @@ jobs:
     env:
       PUSH_PACKAGES: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       REGISTRY: ghcr.io
-      IMAGE_NAME: mithril
+      IMAGE_NAME: ${{ github.repository_owner }}/mithril-node-poc
       DOCKER_FILE: ./mithril-proto/mithril-node-poc/Dockerfile
       CONTEXT: .
       GITHUB_REF: ${{ github.ref}}
@@ -250,10 +250,9 @@ jobs:
       packages: write
       
     env:
-      #PUSH_PACKAGES: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}  #TODO: To reactivate once the package is declared in the registry
-      PUSH_PACKAGES: false
+      PUSH_PACKAGES: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       REGISTRY: ghcr.io
-      IMAGE_NAME: mithril-aggregator
+      IMAGE_NAME: ${{ github.repository_owner }}/mithril-aggregator
       DOCKER_FILE: ./mithril-network/mithril-aggregator/Dockerfile
       CONTEXT: .
       GITHUB_REF: ${{ github.ref}}
