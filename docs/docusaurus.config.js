@@ -9,7 +9,7 @@ const config = {
   title: 'Mithril',
   tagline: 'User Manual, Core Concepts and API Reference',
   url: 'https://input-output-hk.github.io',
-  baseUrl: '/',
+  baseUrl: '/doc/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/favicon.ico',
@@ -22,8 +22,10 @@ const config = {
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
         docs: {
+          path: 'root',
+          routeBasePath: '/',
           sidebarPath: require.resolve('./sidebars.js'),
-          editUrl: 'https://github.com/input-output-hk/mithril/tree/main/docs/docs/',
+          editUrl: 'https://github.com/input-output-hk/mithril/tree/main/docs/root/',
         },
         blog: {
           path: 'milestones',
@@ -54,42 +56,8 @@ const config = {
     ],
   ],
 
-  plugins: [
-    [
-      'content-docs',
-      /** @type {import('@docusaurus/plugin-content-docs').Options} */
-      ({
-        id: 'core-concepts',
-        path: 'core-concepts',
-        routeBasePath: 'core-concepts',
-        editUrl: 'https://github.com/input-output-hk/hydra-poc/tree/master/docs/core-concepts'
-      })
-    ],
-    [
-      'content-docs',
-      /** @type {import('@docusaurus/plugin-content-docs').Options} */
-      ({
-        id: 'topologies',
-        path: 'topologies',
-        routeBasePath: 'topologies',
-        editUrl: 'https://github.com/input-output-hk/hydra-poc/tree/master/docs/topologies'
-      }),
-    ],
-    [
-      'content-docs',
-      /** @type {import('@docusaurus/plugin-content-docs').Options} */
-      ({
-        id: 'test-lab',
-        path: 'test-lab',
-        routeBasePath: 'test-lab',
-        editUrl: 'https://github.com/input-output-hk/hydra-poc/tree/master/docs/test-lab'
-      }),
-    ],
-  ],
-
-
   themeConfig:
-    /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
+  /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
       navbar: {
         title: 'Mithril',
@@ -102,20 +70,23 @@ const config = {
             type: 'doc',
             docId: 'intro',
             position: 'left',
-            label: 'Tutorial',
+            label: 'Getting Started',
           },
           {
-            to: '/core-concepts',
+            type: 'doc',
+            docId: 'core-concepts/index',
             label: 'Core Concepts',
             position: 'left',
           },
           {
-            to: '/topologies',
+            type: 'doc',
+            docId: 'topologies/index',
             label: 'Topologies',
             position: 'left',
           },
           {
-            to: '/test-lab',
+            type: 'doc',
+            docId: 'test-lab/index',
             label: 'Test Lab',
             position: 'left',
           },
@@ -135,16 +106,11 @@ const config = {
       footer: {
         style: 'dark',
         links: [
-          {
-            title: 'Docs',
-            items: [
-              {
-                label: 'Tutorial',
-                to: '/docs/intro',
-              },
-            ],
-          },
           // @todo
+          // {
+          //   title: 'Contributing',
+          //   items: [],
+          // },
           // {
           //   title: 'Community',
           //   items: [],
