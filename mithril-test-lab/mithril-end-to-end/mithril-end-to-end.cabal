@@ -211,7 +211,14 @@ executable start-devnet
   hs-source-dirs: exe
   main-is:        start-devnet.hs
   build-depends:
+    , aeson
     , base
+    , bytestring
+    , contra-tracer
+    , directory
+    , filepath
     , hydra-prelude
     , mithril-end-to-end
     , optparse-applicative
+
+  ghc-options:    -threaded -rtsopts -Werror
