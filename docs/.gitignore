@@ -1,0 +1,14 @@
+# Dependencies
+/node_modules
+
+# Production
+/build
+
+# Generated files
+.docusaurus
+.cache-loader
+
+# Misc
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
