@@ -205,3 +205,13 @@ test-suite integration
     cardano-cli:cardano-cli -any
 
   ghc-options:        -threaded -rtsopts -Werror
+
+executable start-devnet
+  import:         project-config
+  hs-source-dirs: exe
+  main-is:        start-devnet.hs
+  build-depends:
+    , base
+    , hydra-prelude
+    , mithril-end-to-end
+    , optparse-applicative
