@@ -193,7 +193,7 @@ jobs:
   docker-mithril-node-poc:
     if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
-    needs: [ build-mithril-core, build-mithril-node-poc ] 
+    needs: [ build-mithril-core, build-mithril-node-poc ]
     permissions:
       contents: read
       packages: write
@@ -244,11 +244,11 @@ jobs:
 
   docker-mithril-aggregator:
     runs-on: ubuntu-latest
-    needs: [ build-mithril-core, build-mithril-aggregator ] 
+    needs: [ build-mithril-core, build-mithril-aggregator ]
     permissions:
       contents: read
       packages: write
-      
+
     env:
       PUSH_PACKAGES: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       REGISTRY: ghcr.io
@@ -296,7 +296,7 @@ jobs:
   generate-publish-docs:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
-    needs: [ build-mithril-core, build-mithril-aggregator ] 
+    needs: [ build-mithril-core, build-mithril-aggregator ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -367,6 +367,11 @@ jobs:
             dist-newstyle
           key: |
             cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
+
+      - name: Prepare nix-shell
+        run: |
+          nix-build shell.nix
+
       - name: Build
         run: nix-shell --run '.github/workflows/ci-build.sh'
 
