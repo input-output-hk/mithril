@@ -383,12 +383,8 @@ jobs:
             dist-newstyle
           key: |
             cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
-      - name: Prepare nix-shell
-        run: |
-          nix-build shell.nix
       - name: Build
         run: nix-shell --run '.github/workflows/ci-build.sh'
 
       - name: Test
         run: nix-shell --run '.github/workflows/ci-test.sh'
-
