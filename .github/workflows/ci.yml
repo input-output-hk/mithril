@@ -364,9 +364,9 @@ jobs:
           path: |
             ~/.cabal/packages
             ~/.cabal/store
-            dist-newstyle
+            mithril-test-lab/dist-newstyle
           key: |
-            cabal-${{ runner.os }}-${{ hashFiles('cabal.project', 'default.nix', 'shell.nix') }}
+            cabal-${{ runner.os }}-${{ hashFiles('mithril-test-lab/cabal.project', 'shell.nix') }}
 
       - name: Prepare nix-shell
         run: |
