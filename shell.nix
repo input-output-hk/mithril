@@ -69,6 +69,17 @@ let
     # <nixpkgs/pkgs/development/haskell-modules/generic-stack-builder.nix>
     GIT_SSL_CAINFO = "${pkgs.cacert}/etc/ssl/certs/ca-bundle.crt";
     STACK_IN_NIX_SHELL = "true";
+    phases = [ "buildPhase" ];
+
+    buildPhase = ''
+    echo "------------------------------------------------------------" >>$out
+    echo " WARNING: the existence of this path is not guaranteed." >>$out
+    echo " It is an internal implementation detail for pkgs.mkShell."   >>$out
+    echo "------------------------------------------------------------" >>$out
+    echo >> $out
+    # Record all build inputs as runtime dependencies
+    export >> $out
+  '';
   };
 
 in
