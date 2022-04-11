@@ -26,8 +26,10 @@ jobs:
         name: Cache mithril-core/Cargo.toml
         with:
           path: |
+            ~/.cargo/registry
+            ~/.cargo/git
             mithril-core/target
-          key: ${{ runner.os }}-${{ hashFiles('mithril-core/Cargo.toml') }}
+          key: ${{ runner.os }}-${{ hashFiles('mithril-core/Cargo.lock') }}
           restore-keys: |
               ${{ runner.os }}-key
 
@@ -109,8 +111,10 @@ jobs:
         name: Cache mithril-network/mithril-aggregator/Cargo.toml
         with:
           path: |
+            ~/.cargo/registry
+            ~/.cargo/git
             mithril-network/mithril-aggregator/target
-          key: ${{ runner.os }}-${{ hashFiles('mithril-network/mithril-aggregator/Cargo.toml') }}
+          key: ${{ runner.os }}-${{ hashFiles('mithril-network/mithril-aggregator/Cargo.lock') }}
           restore-keys: |
               ${{ runner.os }}-key
 
