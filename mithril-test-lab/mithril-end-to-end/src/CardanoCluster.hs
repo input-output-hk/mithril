@@ -84,11 +84,9 @@ writeKeysFor targetDir actor = do
   pure (vkTarget, skTarget)
   where
     skTarget = targetDir </> skName
-
     vkTarget = targetDir </> vkName
 
     skName = actorName actor <.> ".sk"
-
     vkName = actorName actor <.> ".vk"
 
 -- * Starting a cluster or single nodes
