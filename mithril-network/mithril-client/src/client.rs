@@ -89,13 +89,17 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_snapshots_ok() {
+        let config = Config {
+            network: "testnet".to_string(),
+            aggregator_endpoint: "http://endpoint".to_string(),
+        };
         let fake_snapshots = get_fake_snapshots();
         let mut mock_aggregator_handler = MockAggregatorHandler::new();
         mock_aggregator_handler
             .expect_list_snapshots()
             .return_const(Ok(fake_snapshots.clone()))
             .once();
-        let mut client = Client::new();
+        let mut client = Client::new(Arc::new(config));
         client.with_aggregator_handler(mock_aggregator_handler);
         let snapshots = client.list_snapshots().await;
         snapshots.as_ref().expect("unexpected error");
@@ -104,12 +108,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_snapshots_ko() {
+        let config = Config {
+            network: "testnet".to_string(),
+            aggregator_endpoint: "http://endpoint".to_string(),
+        };
         let mut mock_aggregator_handler = MockAggregatorHandler::new();
         mock_aggregator_handler
             .expect_list_snapshots()
             .return_const(Err("error occurred".to_string()))
             .once();
-        let mut client = Client::new();
+        let mut client = Client::new(Arc::new(config));
         client.with_aggregator_handler(mock_aggregator_handler);
         let snapshots = client.list_snapshots().await;
         assert!(snapshots.is_err(), "an error should have occurred");
