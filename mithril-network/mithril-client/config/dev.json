@@ -1,0 +1,4 @@
+{
+    "network": "testnet",
+    "aggregator_endpoint": "http://localhost:8080/aggregator"
+}
