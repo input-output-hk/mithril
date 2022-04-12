@@ -165,7 +165,7 @@ test-suite integration
   other-modules:
     Paths_mithril_end_to_end
     Spec
-    Test.CardanoClusterSpec
+    Test.EndToEndSpec
 
   build-depends:
     , aeson
@@ -184,6 +184,7 @@ test-suite integration
     , hspec
     , hspec-core
     , hspec-golden-aeson
+    , http-conduit
     , hydra-prelude
     , hydra-test-utils
     , io-classes

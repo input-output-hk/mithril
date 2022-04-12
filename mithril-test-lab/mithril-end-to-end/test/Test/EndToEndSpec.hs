@@ -1,6 +1,7 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
-module Test.CardanoClusterSpec where
+module Test.EndToEndSpec where
 
 import CardanoCluster
   ( ClusterConfig (..),
@@ -12,10 +13,12 @@ import CardanoNode (ChainTip (..), RunningNode (..), cliQueryTip)
 import Control.Monad.Class.MonadSTM (modifyTVar, newTVarIO, readTVarIO)
 import Control.Monad.Class.MonadSay (MonadSay, say)
 import Control.Tracer (Tracer (Tracer))
+import Data.Aeson (Value)
 import Hydra.Prelude
 import Logging (ClusterLog (..))
 import Mithril.Aggregator (Aggregator (..), withAggregator)
 import Mithril.Signer (Signer, withSigner)
+import Network.HTTP.Simple (getResponseBody, httpJSON, parseRequest)
 import Test.Hydra.Prelude
 
 spec :: Spec
@@ -29,18 +32,22 @@ spec =
                   networkId = defaultNetworkId
                 }
         -- Start aggregator service on some random port
-        withAggregator (contramap AggregatorLog tr) $ \Aggregator {aggregatorPort} ->
+        withAggregator tmp (contramap AggregatorLog tr) $ \Aggregator {aggregatorPort} -> do
           -- Start cardano nodes cluster
-          withCluster tr config $ \cluster -> do
-            -- basic verification, we check the nodes are producing blocks
-            assertNetworkIsProducingBlock tr cluster
-            case cluster of
-              RunningCluster {clusterNodes = node : _} -> do
-                assertNodeIsProducingSnapshot tr node
-                withSigner (contramap SignerLog tr) aggregatorPort node $ \signer -> do
-                  assertSignerIsSigningSnapshot signer aggregatorPort
-                  assertClientCanVerifySnapshot signer aggregatorPort
-              _ -> failure "No nodes in the cluster"
+          withCluster tr config $
+            \cluster -> do
+              -- basic verification, we check the nodes are producing blocks
+              assertNetworkIsProducingBlock tr cluster
+              case cluster of
+                RunningCluster {clusterNodes = node : _} -> do
+                  assertNodeIsProducingSnapshot tr node
+                  withSigner (contramap SignerLog tr) aggregatorPort node $ \signer -> do
+                    assertSignerIsSigningSnapshot signer aggregatorPort
+                    assertClientCanVerifySnapshot signer aggregatorPort
+                _ -> failure "No nodes in the cluster"
+
+newtype Snapshots = Snapshots [Value]
+  deriving newtype (FromJSON)
 
 assertSignerIsSigningSnapshot :: Signer -> Int -> IO ()
 assertSignerIsSigningSnapshot _signer _aggregatorPort =
@@ -48,10 +55,10 @@ assertSignerIsSigningSnapshot _signer _aggregatorPort =
   pure ()
 
 assertClientCanVerifySnapshot :: Signer -> Int -> IO ()
-assertClientCanVerifySnapshot _signer _aggregatorPort =
-  -- TODO: Client checks it can download and verify a snapshot from the aggregator, using
-  -- standard route, signed by a valid signature from the single signer we pass to it
-  pure ()
+assertClientCanVerifySnapshot _signer aggregatorPort = do
+  request <- parseRequest $ "http://localhost:" <> show aggregatorPort <> "/aggregator/snapshots"
+  Snapshots snapshotsList <- getResponseBody <$> httpJSON request
+  length snapshotsList `shouldBe` 1
 
 assertNodeIsProducingSnapshot :: Tracer IO ClusterLog -> RunningNode -> IO ()
 assertNodeIsProducingSnapshot _tracer _cardanoNode =
