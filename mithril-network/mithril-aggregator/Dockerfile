@@ -38,5 +38,4 @@ WORKDIR /app/
 USER appuser
 
 # Run the executable
-EXPOSE 8080
 ENTRYPOINT ["/app/bin/mithril-aggregator","-vvv"]
