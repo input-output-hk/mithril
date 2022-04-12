@@ -3,7 +3,7 @@
 use crate::entities;
 
 /// Fake Beacon
-pub(crate) fn beacon() -> entities::Beacon {
+pub fn beacon() -> entities::Beacon {
     let network = "testnet".to_string();
     let epoch = 196;
     let block = 3443000;
@@ -11,7 +11,7 @@ pub(crate) fn beacon() -> entities::Beacon {
 }
 
 /// Fake ProtocolParameters
-pub(crate) fn protocol_parameters() -> entities::ProtocolParameters {
+pub fn protocol_parameters() -> entities::ProtocolParameters {
     let k = 5;
     let m = 100;
     let phi_f = 0.2;
@@ -19,7 +19,7 @@ pub(crate) fn protocol_parameters() -> entities::ProtocolParameters {
 }
 
 /// Fake CertificatePending
-pub(crate) fn certificate_pending() -> entities::CertificatePending {
+pub fn certificate_pending() -> entities::CertificatePending {
     // Beacon
     let beacon = beacon();
 
@@ -34,7 +34,7 @@ pub(crate) fn certificate_pending() -> entities::CertificatePending {
 }
 
 /// Fake Certificate
-pub(crate) fn certificate(certificate_hash: String) -> entities::Certificate {
+pub fn certificate(certificate_hash: String) -> entities::Certificate {
     // Beacon
     let beacon = beacon();
 
@@ -65,7 +65,7 @@ pub(crate) fn certificate(certificate_hash: String) -> entities::Certificate {
 }
 
 /// Fake SignersWithStake
-pub(crate) fn signers_with_stakes(total: u64) -> Vec<entities::SignerWithStake> {
+pub fn signers_with_stakes(total: u64) -> Vec<entities::SignerWithStake> {
     (1..total + 1)
         .map(|signer_id| {
             let party_id = signer_id;
@@ -77,7 +77,7 @@ pub(crate) fn signers_with_stakes(total: u64) -> Vec<entities::SignerWithStake> 
 }
 
 /// Fake Signers
-pub(crate) fn signers(total: u64) -> Vec<entities::Signer> {
+pub fn signers(total: u64) -> Vec<entities::Signer> {
     signers_with_stakes(total)
         .iter()
         .map(|signer| entities::Signer::new(signer.party_id, signer.verification_key.clone()))
@@ -85,7 +85,7 @@ pub(crate) fn signers(total: u64) -> Vec<entities::Signer> {
 }
 
 /// Fake SingleSignatures
-pub(crate) fn single_signatures(total: u64) -> Vec<entities::SingleSignature> {
+pub fn single_signatures(total: u64) -> Vec<entities::SingleSignature> {
     (1..total + 1)
         .map(|signature_id| {
             let party_id = signature_id;
@@ -97,7 +97,7 @@ pub(crate) fn single_signatures(total: u64) -> Vec<entities::SingleSignature> {
 }
 
 /// Fake Snapshots
-pub(crate) fn snapshots(total: u64) -> Vec<entities::Snapshot> {
+pub fn snapshots(total: u64) -> Vec<entities::Snapshot> {
     (1..total + 1)
         .map(|snapshot_id| {
             let digest = format!("1{}", snapshot_id).repeat(20);
