@@ -1,6 +1,7 @@
 use log::{debug, info};
 use std::convert::Infallible;
 use std::net::IpAddr;
+use warp::Future;
 use warp::{http::Method, http::StatusCode, Filter};
 
 use crate::entities;
@@ -24,10 +25,12 @@ impl Server {
     }
 
     /// Start
-    pub async fn start(&self) {
+    pub async fn start(&self, shutdown_signal: impl Future<Output = ()> + Send + 'static) {
         info!("Start Server");
         let routes = router::routes();
-        warp::serve(routes).run((self.ip, self.port)).await;
+        let (_, server) =
+            warp::serve(routes).bind_with_graceful_shutdown((self.ip, self.port), shutdown_signal);
+        tokio::spawn(server).await.unwrap();
     }
 }
 
