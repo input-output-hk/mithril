@@ -36,7 +36,17 @@ async fn main() {
         .filter_level(args.verbose.log_level_filter())
         .init();
 
+    println!("Starting server...");
+    println!("Press Ctrl+C to stop...");
+    let shutdown_signal = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to install CTRL+C signal handler");
+    };
+
     // Start REST server
     let http_server = Server::new(args.server_ip, args.server_port);
-    http_server.start().await;
+    http_server.start(shutdown_signal).await;
+
+    println!("Exiting...");
 }
