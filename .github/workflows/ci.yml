@@ -487,7 +487,7 @@ jobs:
         uses: Legion2/swagger-ui-action@v1
         with:
           output: ./github-pages/openapi-ui
-          spec-file: ./openapi.yaml
+          spec-file: ./mithril-network/openapi.yaml
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
