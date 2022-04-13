@@ -21,6 +21,7 @@ library
   exposed-modules:      Mithril.Monitor.Monitor
                         Mithril.Monitor.Network
                         Mithril.Monitor.Util
+                        Mithril.Monitor.Aggregator
 
   -- other-modules:
   -- other-extensions:
@@ -46,7 +47,10 @@ library
                         directory,
                         temporary,
                         streaming,
-                        mithril-aggregator-server
+                        mithril-aggregator-server,
+                        exceptions,
+                        servant-server,
+                        servant-client
 
   hs-source-dirs:       src
   default-language:     Haskell2010

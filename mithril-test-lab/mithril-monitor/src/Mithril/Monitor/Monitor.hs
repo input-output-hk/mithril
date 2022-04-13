@@ -21,6 +21,7 @@ data Output o = Output
   { outTimeout :: Maybe Duration
   , outValues  :: [o]
   }
+  deriving Show
 
 combineOutput :: (Duration -> Duration -> Duration) -> Output o -> Output o -> Output o
 combineOutput f a b =
@@ -232,6 +233,38 @@ onInput m = m `onFail` onInput m
 any :: Foldable t => t (Monitor i o a) -> Monitor i o a
 any = foldr race (fail "any failed")
 
+watch :: [Monitor i o a] -> Monitor i o ([a], [Monitor i o a])
+watch ms =
+  case (results, ms') of
+    -- stop if no monitors remain
+    (a, []) -> pure (a, [])
+
+    -- continue if no results have been produced
+    ([], _) ->
+      do  i <- next
+          ms'' <- (`observeInner` i) `traverse` ms'
+          watch ms''
+
+    -- stop if any results have been produced
+    (a, _) -> pure (a, ms')
+
+  where
+    results = concat resultss
+    ms' = concat mss'
+    (resultss, mss') = unzip (obs <$> ms)
+    obs :: Monitor i o a -> ([a], [Monitor i o a])
+    obs mon =
+      case mon of
+        Active f -> ([], [mon])
+        Done a -> ([a], [])
+        Fail s -> ([], [])
+        Out o m' ->
+          let (rs, ms) = obs m'
+          in (rs, Out o <$> ms)
+
+
+
+
 all :: (Traversable t) => t (Monitor i o a) -> Monitor i o (t a)
 all ms =
   case getResults ms of
@@ -323,4 +356,17 @@ eventually m = any [m, next >> eventually m]
 
 require :: Bool -> Monitor i o ()
 require b = unless b (Fail "require failed")
+
+accept :: (i -> Bool) -> Monitor i o i
+accept f =
+  do  m <- next
+      require (f m)
+      pure m
+
+-- parallel version of <|*|>
+infixl 4 <|*|>
+(<|*|>) :: Monitor i o (t -> b) -> Monitor i o t -> Monitor i o b
+mf <|*|> ma =
+  do  (f, a) <- both mf ma
+      pure (f a)
 
