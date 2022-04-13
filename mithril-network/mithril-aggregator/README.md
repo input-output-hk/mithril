@@ -60,7 +60,7 @@ cd ../../
 docker build -t mithril/mithril-aggregator -f mithril-network/mithril-aggregator/Dockerfile .
 
 # Run Docker container
-docker run --rm --name='mithril-aggregator' mithril/mithril-aggregator
+docker run --rm -p 8080:8080 --name='mithril-aggregator' mithril/mithril-aggregator
 ```
 
 ## Interact with the Mithril Aggregator
