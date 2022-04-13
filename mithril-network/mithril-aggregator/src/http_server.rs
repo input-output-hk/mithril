@@ -132,7 +132,7 @@ mod handlers {
         debug!("snapshots");
 
         // Snapshots
-        let snapshots = fake_data::snapshots(10);
+        let snapshots = fake_data::snapshots(1);
 
         Ok(warp::reply::json(&snapshots))
     }
