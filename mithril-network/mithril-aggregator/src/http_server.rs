@@ -170,7 +170,7 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
-    const API_SPEC_FILE: &str = "../../openapi.yaml";
+    const API_SPEC_FILE: &str = "../openapi.yaml";
 
     use serde_json::Value::Null;
     use warp::test::request;

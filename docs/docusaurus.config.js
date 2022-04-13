@@ -45,7 +45,7 @@ const config = {
       {
         specs: [
           {
-            spec: '../openapi.yaml',
+            spec: '../mithril-network/openapi.yaml',
             route: '/aggregator-api/',
           },
         ],

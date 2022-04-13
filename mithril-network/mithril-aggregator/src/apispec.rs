@@ -1,5 +1,5 @@
 #![cfg(test)]
-const API_SPEC_FILE: &str = "../../openapi.yaml";
+const API_SPEC_FILE: &str = "../openapi.yaml";
 
 use http::response::Response;
 use jsonschema::JSONSchema;
