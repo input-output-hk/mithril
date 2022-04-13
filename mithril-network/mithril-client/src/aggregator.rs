@@ -4,106 +4,72 @@ use reqwest::{self, StatusCode};
 use std::sync::Arc;
 
 use crate::entities::*;
-use mithril_aggregator::entities::Snapshot;
 
 #[cfg(test)]
 use mockall::automock;
 
-/// AggregatorHandler represents a read interactor with a snapshot
+/// AggregatorHandler represents a read interactor with an aggregator
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait AggregatorHandler {
     /// List snapshots
-    async fn list_snapshots(&self, config: Arc<Config>) -> Result<Vec<SnapshotListItem>, String>;
+    async fn list_snapshots(&self) -> Result<Vec<Snapshot>, String>;
+
+    /// Get snapshot details
+    async fn get_snapshot_details(&self, digest: String) -> Result<Snapshot, String>;
 
     /// Download Snapshot
-    async fn download_snapshot(&self, config: Arc<Config>, digest: String) -> Result<(), String>;
-}
-
-/// AggregatorHandlerFake is a fake AggregatorHandler
-pub struct AggregatorHandlerFake {}
-
-impl AggregatorHandlerFake {
-    /// AggregatorHandlerFake factory
-    #[allow(dead_code)]
-    pub fn new() -> Self {
-        debug!("New AggregatorHandlerFake created");
-        Self {}
-    }
-}
-
-#[async_trait]
-impl AggregatorHandler for AggregatorHandlerFake {
-    /// List snapshots
-    async fn list_snapshots(&self, _config: Arc<Config>) -> Result<Vec<SnapshotListItem>, String> {
-        debug!("List snapshots");
-        let snapshots = (0..9)
-            .into_iter()
-            .map(|snapshot_id| {
-                let snapshot_id = snapshot_id + 1;
-                SnapshotListItem::new(
-                    "testnet".to_string(),
-                    format!("{}", snapshot_id).repeat(35),
-                    false,
-                    snapshot_id * 100000000000,
-                    snapshot_id as u16,
-                    "2022-07-21T17:32:28Z".to_string(),
-                )
-            })
-            .collect();
-        Ok(snapshots)
-    }
-
-    /// Download Snapshot
-    async fn download_snapshot(&self, _config: Arc<Config>, digest: String) -> Result<(), String> {
-        debug!("Download snapshot {}", digest);
-        Ok(())
-    }
+    async fn download_snapshot(&self, digest: String) -> Result<(), String>;
 }
 
 /// AggregatorHTTPClient is a http client for an aggregator
-pub struct AggregatorHTTPClient {}
+pub struct AggregatorHTTPClient {
+    config: Arc<Config>,
+}
 
 impl AggregatorHTTPClient {
     /// AggregatorHTTPClient factory
-    pub fn new() -> Self {
+    pub fn new(config: Arc<Config>) -> Self {
         debug!("New AggregatorHTTPClient created");
-        Self {}
+        Self { config }
     }
 }
 
 #[async_trait]
 impl AggregatorHandler for AggregatorHTTPClient {
     /// List snapshots
-    async fn list_snapshots(&self, config: Arc<Config>) -> Result<Vec<SnapshotListItem>, String> {
+    async fn list_snapshots(&self) -> Result<Vec<Snapshot>, String> {
         debug!("List snapshots");
 
+        let config = self.config.clone();
         let url = format!("{}/snapshots", config.aggregator_endpoint);
-        println!("URL={:?}", url);
         let response = reqwest::get(url.clone()).await;
         match response {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<Vec<Snapshot>>().await {
-                    Ok(snapshots) => {
-                        let snapshot_items = snapshots
-                            .iter()
-                            .map(|snapshot| {
-                                let downloaded = false;
-                                SnapshotListItem::new(
-                                    config.network.clone(),
-                                    snapshot.digest.clone(),
-                                    downloaded,
-                                    snapshot.size,
-                                    snapshot.locations.len() as u16,
-                                    snapshot.created_at.clone(),
-                                )
-                            })
-                            .collect::<Vec<SnapshotListItem>>();
-                        Ok(snapshot_items)
-                    }
+                    Ok(snapshots) => Ok(snapshots),
                     Err(err) => Err(err.to_string()),
                 },
-                StatusCode::NOT_FOUND => Err("404 received".to_string()),
+                status_error => Err(format!("error {} received", status_error)),
+            },
+            Err(err) => Err(err.to_string()),
+        }
+    }
+
+    /// Get snapshot details
+    async fn get_snapshot_details(&self, digest: String) -> Result<Snapshot, String> {
+        debug!("Details snapshot {}", digest);
+
+        let config = self.config.clone();
+        let url = format!("{}/snapshot/{}", config.aggregator_endpoint, digest);
+        let response = reqwest::get(url.clone()).await;
+        match response {
+            Ok(response) => match response.status() {
+                StatusCode::OK => match response.json::<Snapshot>().await {
+                    Ok(snapshot) => Ok(snapshot),
+                    Err(err) => Err(err.to_string()),
+                },
+                StatusCode::NOT_FOUND => Err(format!("Snapshot not found")),
                 status_error => Err(format!("error {} received", status_error)),
             },
             Err(err) => Err(err.to_string()),
@@ -111,9 +77,8 @@ impl AggregatorHandler for AggregatorHTTPClient {
     }
 
     /// Download Snapshot
-    async fn download_snapshot(&self, _config: Arc<Config>, digest: String) -> Result<(), String> {
-        debug!("Download snapshot {}", digest);
-        Ok(())
+    async fn download_snapshot(&self, _digest: String) -> Result<(), String> {
+        unimplemented!()
     }
 }
 
@@ -121,47 +86,106 @@ impl AggregatorHandler for AggregatorHTTPClient {
 mod tests {
     use super::*;
     use httpmock::prelude::*;
-    use mithril_aggregator::fake_data;
     use serde_json::json;
 
-    #[tokio::test]
-    async fn test_list_snapshots_ok() {
+    use mithril_aggregator::fake_data;
+
+    fn setup_test() -> (MockServer, Arc<Config>) {
         let server = MockServer::start();
-
-        let fake_snapshots = fake_data::snapshots(5);
-
-        let _snapshots_mock = server.mock(|when, then| {
-            when.path("/snapshots");
-            then.status(200).body(json!(fake_snapshots).to_string());
-        });
-
-        let config = Config {
+        let config = Arc::new(Config {
             network: "testnet".to_string(),
             aggregator_endpoint: server.url(""),
-        };
-
-        let aggregator_client = AggregatorHTTPClient::new();
-        let snapshots = aggregator_client.list_snapshots(Arc::new(config)).await;
-        snapshots.as_ref().expect("unexpected error");
-        assert_eq!(snapshots.unwrap().len(), fake_snapshots.clone().len());
+        });
+        (server, config)
     }
 
     #[tokio::test]
-    async fn test_list_snapshots_error() {
-        let server = MockServer::start();
+    async fn test_list_snapshots_ok() {
+        let (server, config) = setup_test();
+        let snapshots_expected = fake_data::snapshots(5);
+        let _snapshots_mock = server.mock(|when, then| {
+            when.path("/snapshots");
+            then.status(200).body(json!(snapshots_expected).to_string());
+        });
+        let aggregator_client = AggregatorHTTPClient::new(config.clone());
+        let snapshots = aggregator_client.list_snapshots().await;
+        snapshots.as_ref().expect("unexpected error");
+        assert_eq!(snapshots.unwrap(), snapshots_expected);
+    }
 
+    #[tokio::test]
+    async fn test_list_snapshots_ko_500() {
+        let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.path("/snapshots");
             then.status(500);
         });
-
-        let config = Config {
-            network: "testnet".to_string(),
-            aggregator_endpoint: server.url(""),
-        };
-
-        let aggregator_client = AggregatorHTTPClient::new();
-        let snapshots = aggregator_client.list_snapshots(Arc::new(config)).await;
+        let aggregator_client = AggregatorHTTPClient::new(config.clone());
+        let snapshots = aggregator_client.list_snapshots().await;
         assert!(snapshots.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_list_snapshots_ko_unreachable() {
+        let config = Arc::new(Config {
+            network: "testnet".to_string(),
+            aggregator_endpoint: "http://unreachable".to_string(),
+        });
+        let aggregator_client = AggregatorHTTPClient::new(config.clone());
+        let snapshots = aggregator_client.list_snapshots().await;
+        assert!(snapshots.is_err());
+    }
+
+    #[tokio::test]
+    async fn get_snapshot_details_ok() {
+        let digest = "digest123".to_string();
+        let (server, config) = setup_test();
+        let snapshot_expected = fake_data::snapshots(1).first().unwrap().to_owned();
+        let _snapshots_mock = server.mock(|when, then| {
+            when.path(format!("/snapshot/{}", digest));
+            then.status(200).body(json!(snapshot_expected).to_string());
+        });
+        let aggregator_client = AggregatorHTTPClient::new(config.clone());
+        let snapshot = aggregator_client.get_snapshot_details(digest).await;
+        snapshot.as_ref().expect("unexpected error");
+        assert_eq!(snapshot.unwrap(), snapshot_expected);
+    }
+
+    #[tokio::test]
+    async fn get_snapshot_details_ko_404() {
+        let digest = "digest123".to_string();
+        let (server, config) = setup_test();
+        let _snapshots_mock = server.mock(|when, then| {
+            when.path(format!("/snapshot/{}", digest));
+            then.status(404);
+        });
+        let aggregator_client = AggregatorHTTPClient::new(config.clone());
+        let snapshot = aggregator_client.get_snapshot_details(digest).await;
+        assert!(snapshot.is_err());
+    }
+
+    #[tokio::test]
+    async fn get_snapshot_details_ko_500() {
+        let digest = "digest123".to_string();
+        let (server, config) = setup_test();
+        let _snapshots_mock = server.mock(|when, then| {
+            when.path(format!("/snapshot/{}", digest));
+            then.status(500);
+        });
+        let aggregator_client = AggregatorHTTPClient::new(config.clone());
+        let snapshot = aggregator_client.get_snapshot_details(digest).await;
+        assert!(snapshot.is_err());
+    }
+
+    #[tokio::test]
+    async fn get_snapshot_details_ko_unreachable() {
+        let digest = "digest123".to_string();
+        let config = Arc::new(Config {
+            network: "testnet".to_string(),
+            aggregator_endpoint: "http://unreachable".to_string(),
+        });
+        let aggregator_client = AggregatorHTTPClient::new(config.clone());
+        let snapshot = aggregator_client.get_snapshot_details(digest).await;
+        assert!(snapshot.is_err());
     }
 }

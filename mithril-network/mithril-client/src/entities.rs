@@ -1,6 +1,9 @@
 use cli_table::{format::Justify, Table};
 use serde::{Deserialize, Serialize};
 
+/// Snapshot is an alias from the aggregator Snapshot type
+pub type Snapshot = mithril_aggregator::entities::Snapshot;
+
 /// Client configuration
 #[derive(Table, Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -14,6 +17,7 @@ pub struct Config {
 }
 
 /// SnapshotListItem represents a snapshot list item from an aggregator
+/// for the purpose of tabular display
 #[derive(Table, Debug, Clone, PartialEq, PartialOrd)]
 pub struct SnapshotListItem {
     /// Cardano network
@@ -23,10 +27,6 @@ pub struct SnapshotListItem {
     /// Digest that is signed by the signer participants
     #[table(title = "Digest")]
     pub digest: String,
-
-    /// Whether the binary content of the snapshot is downloaded
-    #[table(title = "Downloaded")]
-    pub downloaded: bool,
 
     /// Size of the snapshot file in Bytes
     #[table(title = "Size", justify = "Justify::Right")]
@@ -46,7 +46,6 @@ impl SnapshotListItem {
     pub fn new(
         network: String,
         digest: String,
-        downloaded: bool,
         size: u64,
         total_locations: u16,
         created_at: String,
@@ -54,10 +53,32 @@ impl SnapshotListItem {
         SnapshotListItem {
             network,
             digest,
-            downloaded,
             size,
             created_at,
             total_locations,
+        }
+    }
+}
+
+/// SnapshotFieldItem represents a field of a snapshot item from an aggregator
+/// for the purpose of tabular display
+#[derive(Table, Debug, Clone, PartialEq, PartialOrd)]
+pub struct SnapshotFieldItem {
+    /// Field name
+    #[table(title = "Info")]
+    pub field_name: String,
+
+    /// Field value
+    #[table(title = "Value")]
+    pub field_value: String,
+}
+
+impl SnapshotFieldItem {
+    /// SnapshotFieldItem factory
+    pub fn new(field_name: String, field_value: String) -> SnapshotFieldItem {
+        SnapshotFieldItem {
+            field_name,
+            field_value,
         }
     }
 }

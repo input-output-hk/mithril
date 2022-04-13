@@ -1,6 +1,7 @@
 #![doc = include_str!("../README.md")]
 
 mod aggregator;
+mod aggregator_fake;
 mod client;
 mod entities;
 mod errors;
@@ -13,7 +14,7 @@ use std::fs::File;
 use std::path::Path;
 use std::sync::Arc;
 
-use crate::aggregator::AggregatorHTTPClient;
+use crate::aggregator::*;
 use crate::client::Client;
 use crate::entities::Config;
 
@@ -41,6 +42,14 @@ enum Commands {
     /// List snapshots
     #[clap(arg_required_else_help = false)]
     List {},
+
+    /// Infos about a snapshot
+    #[clap(arg_required_else_help = false)]
+    Show {
+        /// Snapshot digest
+        #[clap(required = true)]
+        digest: String,
+    },
 
     /// Download snapshot
     #[clap(arg_required_else_help = true)]
@@ -82,20 +91,24 @@ async fn main() {
             Ok(c) => c,
         }
     };
+    let config = Arc::new(config);
     debug!("{:?}", config);
-    //print_stdout(config.with_title()).unwrap();
 
     // Init dependencies
-    let aggregator_handler = AggregatorHTTPClient::new();
+    let aggregator_handler = AggregatorHTTPClient::new(config.clone());
 
     // Init client
-    let mut client = Client::new(Arc::new(config));
+    let mut client = Client::new(config.clone());
     client.with_aggregator_handler(aggregator_handler);
 
     // Execute commands
     match &args.command {
         Commands::List {} => match client.list_snapshots().await {
-            Ok(snapshots) => print_stdout(snapshots.with_title()).unwrap(),
+            Ok(snapshot_list_items) => print_stdout(snapshot_list_items.with_title()).unwrap(),
+            Err(err) => pretty_print_error(err),
+        },
+        Commands::Show { digest } => match client.show_snapshot(digest.to_string()).await {
+            Ok(snapshot_field_items) => print_stdout(snapshot_field_items.with_title()).unwrap(),
             Err(err) => pretty_print_error(err),
         },
         Commands::Download { digest } => {
