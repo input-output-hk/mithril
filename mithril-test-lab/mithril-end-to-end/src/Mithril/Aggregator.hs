@@ -5,9 +5,11 @@ module Mithril.Aggregator where
 
 import Control.Tracer (Tracer, traceWith)
 import Hydra.Prelude
+import qualified Paths_mithril_end_to_end as Pkg
+import System.Directory (doesFileExist)
 import System.FilePath ((</>))
 import System.Process (CreateProcess (..), StdStream (UseHandle), proc, withCreateProcess)
-import Test.Hydra.Prelude (checkProcessHasNotDied)
+import Test.Hydra.Prelude (checkProcessHasNotDied, failure)
 import Test.Network.Ports (randomUnusedTCPPort)
 
 data Aggregator = Aggregator {aggregatorPort :: Int}
@@ -18,13 +20,11 @@ data AggregatorLog
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
--- TODO: start an aggregator server on some default configuration that allocates random
--- port and wait for 'action' to terminate before closing the server.
 withAggregator :: FilePath -> Tracer IO AggregatorLog -> (Aggregator -> IO a) -> IO a
 withAggregator workDir tracer action = do
   port <- randomUnusedTCPPort
-  let process = aggregatorProcess (Just workDir) port
-      logFile = workDir </> "aggregator.log"
+  process <- aggregatorProcess (Just workDir) port
+  let logFile = workDir </> "aggregator.log"
   traceWith tracer (StartingAggregator workDir)
   withFile logFile WriteMode $ \out ->
     withCreateProcess process {std_out = UseHandle out, std_err = UseHandle out} $ \_stdin _stdout _stderr processHandle ->
@@ -35,5 +35,9 @@ withAggregator workDir tracer action = do
           Left _ -> error "should never happen"
           Right a -> pure a
 
-aggregatorProcess :: Maybe FilePath -> Int -> CreateProcess
-aggregatorProcess cwd port = (proc "mithril-aggregator" ["--server-port", show port]) {cwd}
+aggregatorProcess :: Maybe FilePath -> Int -> IO CreateProcess
+aggregatorProcess cwd port = do
+  binDir <- Pkg.getBinDir
+  let aggregator = binDir </> "mithril-aggregator"
+  unlessM (doesFileExist aggregator) $ failure $ "cannot find mithril-aggregator executable in expected location (" <> binDir <> ")"
+  pure $ (proc aggregator ["--server-port", show port]) {cwd}

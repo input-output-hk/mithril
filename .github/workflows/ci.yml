@@ -92,6 +92,14 @@ jobs:
         with:
           files: ./**/test-results.xml
 
+      - name: Publish libmithril
+        uses: actions/upload-artifact@v3
+        with:
+          name: libmithril
+          path: |
+            mithril-core/target/release/libmithril.so
+            mithril-core/target/include/mithril.h
+
   build-mithril-aggregator:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
@@ -147,6 +155,12 @@ jobs:
         with:
           command: test
           args: --release --manifest-path ./mithril-network/mithril-aggregator/Cargo.toml
+
+      - name: Publish aggregator
+        uses: actions/upload-artifact@v3
+        with:
+          name: mithril-aggregator
+          path: mithril-network/mithril-aggregator/target/release/mithril-aggregator
 
   build-mithril-node-poc:
     runs-on: ubuntu-latest
@@ -378,6 +392,7 @@ jobs:
           extra_nix_config: |
             trusted-public-keys = iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
             substituters = https://cache.nixos.org https://hydra.iohk.io https://iohk.cachix.org
+
       - name: Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
         uses: actions/cache@v2.1.5
         with:
@@ -391,6 +406,14 @@ jobs:
       - name: Prepare nix-shell
         run: |
           nix-build shell.nix
+
+      - name: Download aggregator
+        uses: actions/download-artifact@v3
+        with:
+          name: mithril-aggregator
+          path: ~/.cabal/bin/
+
+      - run: chmod +x ~/.cabal/bin/mithril-aggregator
 
       - name: Build
         run: nix-shell --run '.github/workflows/ci-build.sh'
