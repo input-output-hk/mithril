@@ -43,6 +43,10 @@ pub struct CertificatePending {
     #[serde(rename = "protocol")]
     pub protocol_parameters: ProtocolParameters,
 
+    /// Hash of the previous certificate
+    #[serde(rename = "previous_hash")]
+    pub previous_hash: String,
+
     /// Current Signers with stakes
     #[serde(rename = "signers")]
     pub signers: Vec<SignerWithStake>,
@@ -53,11 +57,13 @@ impl CertificatePending {
     pub fn new(
         beacon: Beacon,
         protocol_parameters: ProtocolParameters,
+        previous_hash: String,
         signers: Vec<SignerWithStake>,
     ) -> CertificatePending {
         CertificatePending {
             beacon,
             protocol_parameters,
+            previous_hash,
             signers,
         }
     }
