@@ -23,7 +23,7 @@ jobs:
           override: true
 
       - uses: actions/cache@v2.1.5
-        name: Cache mithril-core/Cargo.toml
+        name: Cache mithril-core/Cargo.lock
         with:
           path: |
             ~/.cargo/registry
@@ -116,7 +116,7 @@ jobs:
           override: true
 
       - uses: actions/cache@v2.1.5
-        name: Cache mithril-network/mithril-aggregator/Cargo.toml
+        name: Cache mithril-network/mithril-aggregator/Cargo.lock
         with:
           path: |
             ~/.cargo/registry
@@ -217,6 +217,12 @@ jobs:
         with:
           command: test
           args: --release --manifest-path ./mithril-network/mithril-client/Cargo.toml
+
+      - name: Publish client
+        uses: actions/upload-artifact@v3
+        with:
+          name: mithril-client
+          path: mithril-network/mithril-client/target/release/mithril-client
 
   build-mithril-node-poc:
     runs-on: ubuntu-latest
@@ -426,12 +432,14 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
 
-      - name: Cache mithril-core/Cargo.toml
+      - name: Cache mithril-core/Cargo.lock
         uses: actions/cache@v2.1.5
         with:
           path: |
+            ~/.cargo/registry
+            ~/.cargo/git
             mithril-core/target
-          key: ${{ runner.os }}-${{ hashFiles('mithril-core/Cargo.toml') }}
+          key: ${{ runner.os }}-${{ hashFiles('mithril-core/Cargo.lock') }}
           restore-keys: |
               ${{ runner.os }}-key
 
@@ -442,11 +450,13 @@ jobs:
           args: --manifest-path ./mithril-core/Cargo.toml --target-dir ./github-pages/mithril-core
 
       - uses: actions/cache@v2.1.5
-        name: Cache mithril-network/mithril-aggregator/Cargo.toml
+        name: Cache mithril-network/mithril-aggregator/Cargo.lock
         with:
           path: |
+            ~/.cargo/registry
+            ~/.cargo/git
             mithril-network/mithril-aggregator/target
-          key: ${{ runner.os }}-${{ hashFiles('mithril-network/mithril-aggregator/Cargo.toml') }}
+          key: ${{ runner.os }}-${{ hashFiles('mithril-network/mithril-aggregator/Cargo.lock') }}
           restore-keys: |
               ${{ runner.os }}-key
 
@@ -456,11 +466,22 @@ jobs:
           command: doc
           args: --manifest-path ./mithril-network/mithril-aggregator/Cargo.toml --target-dir ./github-pages/mithril-network/mithril-aggregator
 
+      - uses: actions/cache@v2.1.5
+        name: Cache mithril-network/mithril-client/Cargo.lock
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            mithril-network/mithril-client/target
+          key: ${{ runner.os }}-${{ hashFiles('mithril-network/mithril-client/Cargo.lock') }}
+          restore-keys: |
+              ${{ runner.os }}-key
+
       - name: Mithril Client / Generate doc
         uses: actions-rs/cargo@v1
         with:
           command: doc
-          args: --manifest-path ./mithril-network/mithril-aggregator/Cargo.toml --target-dir ./github-pages/mithril-network/mithril-client
+          args: --manifest-path ./mithril-network/mithril-client/Cargo.toml --target-dir ./github-pages/mithril-network/mithril-client
 
       - name: Mithril Aggregator / Generate OpenAPI UI
         uses: Legion2/swagger-ui-action@v1
@@ -493,7 +514,7 @@ jobs:
 
   build-test-lab:
     runs-on: ubuntu-latest
-    needs: [ build-mithril-core, build-mithril-aggregator, build-mithril-client ]
+    needs: [ build-mithril-core, build-mithril-aggregator ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -533,3 +554,4 @@ jobs:
 
       - name: Test
         run: nix-shell --run '.github/workflows/ci-test.sh'
+        
