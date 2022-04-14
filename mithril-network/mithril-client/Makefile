@@ -1,7 +1,7 @@
 %:
     @:
 
-.PHONY: all build test debug run clean help doc
+.PHONY: all build test check debug run clean help doc
 
 args = `arg="$(filter-out $@,$(MAKECMDGOALS))" && echo $${arg:-${1}}`
 
@@ -21,6 +21,10 @@ debug:
 
 test:
 	${CARGO} test
+
+check:
+	${CARGO} check
+	${CARGO} clippy
 
 clean:
 	${CARGO} clean
