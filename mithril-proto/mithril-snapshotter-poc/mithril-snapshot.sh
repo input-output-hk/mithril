@@ -8,10 +8,6 @@ if [ "$INPUT_DIR" = "" ]; then
     exit;
 fi
 SNAPSHOT_DIR="$INPUT_DIR.snapshot"
-RESTORE_DIR=$3
-if [ "$RESTORE_DIR" = "" ]; then
-    RESTORE_DIR="$INPUT_DIR.restore"
-fi
 
 # Launch
 SECONDS=0
@@ -19,7 +15,6 @@ echo "Mithril Snapshot in '$SNAPSHOT_MODE' mode";
 echo "";
 echo ">> SOURCE: $INPUT_DIR";
 echo ">> SNAPSHOT: $SNAPSHOT_DIR";
-echo ">> RESTORE: $RESTORE_DIR";
 echo "";
 
 # Print elapsed duration
@@ -40,7 +35,6 @@ DirectoryDigest () {
 
 # Clean existing dir
 rm -rf $SNAPSHOT_DIR;
-rm -rf $RESTORE_DIR;
 
 # List input files
 echo ">> Input files list";
@@ -101,40 +95,9 @@ echo ">> Snapshot archive file size";
 du -h $SNAPSHOT_DIR/archive;
 echo "";
 
-# Restore snapshot
-echo ">> Restore snapshot archive to $RESTORE_DIR";
-mkdir -p $RESTORE_DIR/db
-tar -xzvf $SNAPSHOT_DIR/archive/snapshot.tar.gz -C $RESTORE_DIR/db
+# Snapshot files digest
+echo ">> Snapshot files digest";
+DIGEST_SNAPSHOT=$(DirectoryDigest $SNAPSHOT_DIR)
+echo ">> Digest SHA256 ($SNAPSHOT_DIR): $DIGEST_SNAPSHOT";
 ElapsedDuration;
 echo "";
-
-# Restored list files
-echo ">> Restored files list";
-find $RESTORE_DIR -type f -print | sort -n ;
-echo "";
-
-# Restored dir size
-echo ">> Restored files size";
-du -h $RESTORE_DIR;
-echo "";
-
-# Snapshot src files digest
-echo ">> Snapshot src files digest";
-DIGEST_SRC=$(DirectoryDigest $SNAPSHOT_DIR/src/db)
-echo ">> Digest SHA256 ($SNAPSHOT_DIR/src/db): $DIGEST_SRC";
-ElapsedDuration;
-echo "";
-
-# Restored files digest
-echo ">> Restored files digest";
-DIGEST_RESTORED=$(DirectoryDigest $RESTORE_DIR)
-echo ">> Digest SHA256 ($RESTORE_DIR): $DIGEST_RESTORED";
-ElapsedDuration;
-echo "";
-
-# Check digests
-if [ "$DIGEST_SRC" = "$DIGEST_RESTORED" ]; then
-    echo ">> Congrats the digests are the same!";
-else
-    echo ">> Oops the digests are different!";
-fi

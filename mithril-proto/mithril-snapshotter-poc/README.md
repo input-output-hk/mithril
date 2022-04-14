@@ -12,9 +12,9 @@ It works as follows:
   * the files are copied to `db.snapshot/src` subfolder
   * the archive is compressed to a file `db.snapshot/archive/snapshot.tar.gz`
 
-* **Restore Snapshot**: uncompress the files from the `db.snapshot/archive/snapshot.tar.gz` to a separate `db.restore` folder (can be customized with *dest* argument)
-
 * **Compute Digest**: compute the **digest** from source `db.snapshot/src` and restored `db.restore` folder (they should be the same)
+
+* Script `mithril-restore.sh` can be used to restore the DB from a snapshot file and also output **digest** for comparison purpose
 ---
 ## Pre-requisites:
 
@@ -35,16 +35,13 @@ cd mithril-snapshotter-poc
 ## Run Snapshot and Restore:
 ```bash
 # Run full snapshot of ./testnet.example folder 
-# (will be restored to ./testnet.example.restore)
 make snapshot-full src=./testnet.example
 
-# Run full snapshot of ./testnet.example folder 
-# (will be restored to ./custom.restore)
-make snapshot-full src=./testnet.example dest=./custom.restore
-
 # Run light snapshot of ./testnet.example folder 
-# (will be restored to ./custom.restore)
-make snapshot-light src=./testnet.example dest=./custom.restore
+make snapshot-light src=./testnet.example 
+
+# Restore snapshot in custome directory
+./mithril-restore.sh ./testnet.example.snapshot/archive/snapshot.tar.gz custom.restore
 
 # Run the restored database of the Cardano Node
 # Execute this command in the Cardona Node folder
@@ -201,6 +198,13 @@ drwxr-xr-x  0 jp     staff       0 Mar 29 18:50 ./ledger/
 >> Snapshot archive file size
  30M    ./testnet.example.snapshot/archive
 
+>> Snapshot src files diges
+>> Digest SHA256 (./testnet.example.snapshot/src/db): 3081aa8d66d66b48f315b72794db6f6d11569ff442762924acc8ab9bbf09d856
+>> Duration: 2s
+```
+
+Restoration:
+```
 >> Restore snapshot archive to ./testnet123
 x ./
 x ./immutable/
@@ -255,14 +259,8 @@ x ./immutable/00001.chunk
 102M    ./testnet123/db
 102M    ./testnet123
 
->> Snapshot src files digest
->> Digest SHA256 (./testnet.example.snapshot/src/db): 3081aa8d66d66b48f315b72794db6f6d11569ff442762924acc8ab9bbf09d856
->> Duration: 2s
-
 >> Restored files digest
 >> Digest SHA256 (./testnet123): 3081aa8d66d66b48f315b72794db6f6d11569ff442762924acc8ab9bbf09d856
 >> Duration: 1s
-
->> Congrats the digest are the same!
 
 ```

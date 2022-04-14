@@ -5,7 +5,7 @@ CARGO = cargo
 all: snapshot-full
 
 snapshot-full:
-	@sh mithril-snapshot.sh full $(src) $(dest)
+	@sh mithril-snapshot.sh full $(src)
 
 snapshot-light:
-	@sh mithril-snapshot.sh light $(src) $(dest)
+	@sh mithril-snapshot.sh light $(src)
