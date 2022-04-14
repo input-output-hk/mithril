@@ -18,8 +18,10 @@ import qualified MithrilAggregatorServer.Types as AT
 
 import Mithril.Monitor.Monitor(Monitor, (<|*|>))
 import qualified Mithril.Monitor.Monitor as Monitor
-import Data.Void (Void)
+import Data.Void (Void, absurd)
 import Data.Map (Map)
+import qualified Data.Map as Map
+import Control.Monad (unless)
 
 data RequestResponse =
     ReqCertHashGet Text
@@ -262,12 +264,6 @@ responseTo mid =
 onResponse :: Int -> Monitor Message a b -> Monitor Message a b
 onResponse mid m = snd <$> Monitor.on (Monitor.both (responseTo mid) m)
 
-
-
-
-
-
-
 data SigningContext = SigningContext
   { scSigner :: AT.Signer
   , scPending :: JSON.Value
@@ -279,6 +275,10 @@ type PartyId = Integer
 type Stake = Integer
 type StakeDist = Map PartyId Stake
 type Epoch = Integer
+type Hash = Text
+type PendingCert = JSON.Value -- this is how it appears in the generated servant code
+
+-- Stuff we don't exactly know how to do yet
 
 lottery :: SigningContext -> [Index]
 lottery = undefined
@@ -289,6 +289,12 @@ areSignaturesSufficient = undefined
 epochChanged :: Monitor Message a Epoch
 epochChanged = undefined
 
+stakeDistForEpoch :: Epoch -> StakeDist
+stakeDistForEpoch = undefined
+
+pendingCertHash :: PendingCert -> Hash
+pendingCertHash = undefined
+
 registration :: PartyId -> Monitor Message a AT.Signer
 registration pid =
   do  (reqId, signer) <- Monitor.on (withReqId reqRegisterSignerPost >>= forMyPid)
@@ -298,7 +304,7 @@ registration pid =
     forMyPid (a, signer) =
       Monitor.require (pid == AT.signerPartyUnderscoreid signer) >> pure (a, signer)
 
--- TODO: we don't know who is asking for the pending cert
+-- TODO: we don't know who is asking for the pending cert - does it matter?
 getPendingCert :: PartyId -> Monitor Message a JSON.Value
 getPendingCert pid =
   do  (reqId, _) <- withReqId reqCertPendingGet
@@ -330,7 +336,7 @@ signer pid =
       reg <- registration pid
 
       -- wait for epoch change
-      epoch <- epochChanged
+      epoch <- Monitor.on epochChanged
 
       -- wait until we have successfully acquired the pending cert
       pendingCert <- Monitor.on (getPendingCert pid)
@@ -359,17 +365,6 @@ signatures pids = withPendingConsistent getSignatures
                 [] -> fail "Could not get enough signatures"
                 _ -> go ms' acc
 
-
--- it would be simpler to wait for all possible signers
-allSigners :: [PartyId] -> Monitor Message Text [AT.SingleSignature]
-allSigners pids =
-  do  -- is it possible to finish when he have a sufficient number of sigs?
-      signatures <- concat <$> Monitor.all (signer <$> pids)
-      if areSignaturesSufficient signatures
-        then pure signatures  -- at this point we should aggregate?
-        else Monitor.output "Signature failed" >> fail ""
-
-
 -- require the pending certificate to be consistent throughout
 withPendingConsistent :: Monitor Message Text a -> Monitor Message Text a
 withPendingConsistent m = consistentPending `Monitor.guard` m
@@ -385,5 +380,52 @@ consistentPending =
 
     isConsistentWith p1 p2 = p1 == p2 -- NOTE: this isn't true because signatures are added
 
+
+pendingCertIsReal :: JSON.Value -> Monitor Message Text ()
+pendingCertIsReal pcert =
+  do  hash <- Monitor.on reqCertHashGet
+      if pendingCertHash pcert == hash
+        then do cert <- Monitor.on respCertHashGet
+                unless (consistent cert pcert) (Monitor.output "Inconsistent response to reqCertHash")
+        else pure ()
+  where
+    consistent = undefined  -- TODO!
+
+
+monitorUntil ::  Monitor Message a Void -> Monitor Message a b -> Monitor Message a b
+monitorUntil m1 = Monitor.race (absurd <$> m1)
+
+aggregator :: Monitor Message Text ()
+aggregator =
+  do  -- epoch e-1 (aka e0)
+      e0 <- epochChanged
+      let stakeDist = stakeDistForEpoch e0
+
+      -- registration begins and (after the epoch boundary for e) the signatures are aggregated
+      (sigs, pendingCert, e1) <- (,,) <$> signatures (Map.keys stakeDist)
+                                      <|*|> Monitor.on respCertPendingGet
+                                      <|*|> Monitor.on epochChanged
+
+
+      -- in epoch e+1 (aka e2) we should see the pendingCert become real
+      e2 <- Monitor.on epochChanged
+
+
+      -- this should probably be true at all points after this, but
+      -- to make sure we don't accumulate state forever we'll stop watching
+      -- when the next epoch happens
+      Monitor.everywhere (pendingCertIsReal pendingCert) `monitorUntil` epochChanged
+
+      pure ()
+
+
+-- -- it would be simpler to wait for all possible signers
+-- allSigners :: [PartyId] -> Monitor Message Text [AT.SingleSignature]
+-- allSigners pids =
+--   do  -- is it possible to finish when he have a sufficient number of sigs?
+--       signatures <- concat <$> Monitor.all (signer <$> pids)
+--       if areSignaturesSufficient signatures
+--         then pure signatures  -- at this point we should aggregate?
+--         else Monitor.output "Signature failed" >> fail ""
 
 
