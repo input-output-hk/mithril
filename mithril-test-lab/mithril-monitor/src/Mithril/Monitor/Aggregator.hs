@@ -381,7 +381,11 @@ consistentPending =
     isConsistentWith p1 p2 = p1 == p2 -- NOTE: this isn't true because signatures are added
 
 
-pendingCertIsReal :: JSON.Value -> Monitor Message Text ()
+monitorUntil ::  Monitor Message a Void -> Monitor Message a b -> Monitor Message a b
+monitorUntil m1 = Monitor.race (absurd <$> m1)
+
+-- Check that the aggregator behaves as if the pending certificate is real
+pendingCertIsReal :: PendingCert -> Monitor Message Text ()
 pendingCertIsReal pcert =
   do  hash <- Monitor.on reqCertHashGet
       if pendingCertHash pcert == hash
@@ -390,10 +394,6 @@ pendingCertIsReal pcert =
         else pure ()
   where
     consistent = undefined  -- TODO!
-
-
-monitorUntil ::  Monitor Message a Void -> Monitor Message a b -> Monitor Message a b
-monitorUntil m1 = Monitor.race (absurd <$> m1)
 
 aggregator :: Monitor Message Text ()
 aggregator =
