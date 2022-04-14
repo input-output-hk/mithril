@@ -402,6 +402,7 @@ aggregator =
       let stakeDist = stakeDistForEpoch e0
 
       -- registration begins and (after the epoch boundary for e) the signatures are aggregated
+      -- NB <|*|> is the parallel version of <*>
       (sigs, pendingCert, e1) <- (,,) <$> signatures (Map.keys stakeDist)
                                       <|*|> Monitor.on respCertPendingGet
                                       <|*|> Monitor.on epochChanged
