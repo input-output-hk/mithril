@@ -21,7 +21,7 @@ where
     /// Client factory
     pub fn new(config: Arc<Config>) -> Self {
         Self {
-            config: config,
+            config,
             aggregator_handler: None,
         }
     }
@@ -100,19 +100,19 @@ pub(crate) fn convert_to_field_items(
     config: Arc<Config>,
 ) -> Vec<SnapshotFieldItem> {
     let mut field_items = vec![
-        SnapshotFieldItem::new("Network".to_string(), format!("{}", config.network)),
-        SnapshotFieldItem::new("Digest".to_string(), format!("{}", snapshot.digest)),
+        SnapshotFieldItem::new("Network".to_string(), config.network.to_string()),
+        SnapshotFieldItem::new("Digest".to_string(), snapshot.digest.to_string()),
         SnapshotFieldItem::new("Size".to_string(), format!("{}", snapshot.size)),
     ];
     for (idx, location) in snapshot.locations.iter().enumerate() {
         field_items.push(SnapshotFieldItem::new(
             format!("Location {}", idx + 1),
-            format!("{}", location),
+            location.to_string(),
         ));
     }
     field_items.push(SnapshotFieldItem::new(
         "Created".to_string(),
-        format!("{}", snapshot.created_at),
+        snapshot.created_at.to_string(),
     ));
     field_items
 }
@@ -151,7 +151,7 @@ mod tests {
             .collect::<Vec<SnapshotListItem>>();
         assert_eq!(
             snapshot_list_items.unwrap(),
-            snapshot_list_items_expected.clone()
+            snapshot_list_items_expected
         );
     }
 
@@ -187,7 +187,7 @@ mod tests {
         let snapshot_item = client.show_snapshot(digest).await;
         snapshot_item.as_ref().expect("unexpected error");
         let snapshot_item_expected = convert_to_field_items(&fake_snapshot, config.clone());
-        assert_eq!(snapshot_item.unwrap(), snapshot_item_expected.clone());
+        assert_eq!(snapshot_item.unwrap(), snapshot_item_expected);
     }
 
     #[tokio::test]

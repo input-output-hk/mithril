@@ -69,7 +69,7 @@ impl AggregatorHandler for AggregatorHTTPClient {
                     Ok(snapshot) => Ok(snapshot),
                     Err(err) => Err(err.to_string()),
                 },
-                StatusCode::NOT_FOUND => Err(format!("Snapshot not found")),
+                StatusCode::NOT_FOUND => Err("Snapshot not found".to_string()),
                 status_error => Err(format!("error {} received", status_error)),
             },
             Err(err) => Err(err.to_string()),
