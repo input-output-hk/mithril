@@ -263,33 +263,46 @@ onResponse :: Int -> Monitor Message a b -> Monitor Message a b
 onResponse mid m = snd <$> Monitor.on (Monitor.both (responseTo mid) m)
 
 
-getPending :: Monitor Message a JSON.Value
-getPending =
-  do  (reqId, _) <- withReqId reqCertPendingGet
-      onResponse reqId respCertPendingGet
 
 
-registration :: Monitor Message a AT.Signer
-registration =
-  do  (reqId, signer) <- Monitor.on (withReqId reqRegisterSignerPost)
-      onResponse reqId respRegisterSignerPost
-      pure signer
+
+
 
 data SigningContext = SigningContext
   { scSigner :: AT.Signer
   , scPending :: JSON.Value
+  , scEpoch :: Epoch
   }
 
 type Index = Integer
 type PartyId = Integer
 type Stake = Integer
 type StakeDist = Map PartyId Stake
+type Epoch = Integer
 
 lottery :: SigningContext -> [Index]
 lottery = undefined
 
 areSignaturesSufficient :: [AT.SingleSignature] -> Bool
 areSignaturesSufficient = undefined
+
+epochChanged :: Monitor Message a Epoch
+epochChanged = undefined
+
+registration :: PartyId -> Monitor Message a AT.Signer
+registration pid =
+  do  (reqId, signer) <- Monitor.on (withReqId reqRegisterSignerPost >>= forMyPid)
+      onResponse reqId respRegisterSignerPost
+      pure signer
+  where
+    forMyPid (a, signer) =
+      Monitor.require (pid == AT.signerPartyUnderscoreid signer) >> pure (a, signer)
+
+-- TODO: we don't know who is asking for the pending cert
+getPendingCert :: PartyId -> Monitor Message a JSON.Value
+getPendingCert pid =
+  do  (reqId, _) <- withReqId reqCertPendingGet
+      onResponse reqId respCertPendingGet
 
 expectSig :: PartyId -> Index -> Monitor Message Text AT.SingleSignature
 expectSig pid idx = sign
@@ -309,20 +322,51 @@ expectSig pid idx = sign
       AT.singleSignaturePartyUnderscoreid ssig == pid &&
       AT.singleSignatureIndex ssig == idx
 
--- could add timeout here?
+-- Monitor for any particular signer
+-- TODO: could add timeout here?
 signer :: PartyId -> Monitor Message Text [AT.SingleSignature]
 signer pid =
-  do  -- wait for pending certificate and registration in any order
-      sc <- SigningContext <$> registration <|*|> getPending
-      let idxs = lottery sc
-      Monitor.all (expectSig pid <$> idxs)
+  do  -- register
+      reg <- registration pid
 
+      -- wait for epoch change
+      epoch <- epochChanged
+
+      -- wait until we have successfully acquired the pending cert
+      pendingCert <- Monitor.on (getPendingCert pid)
+
+      -- do the signing lottery
+      let sc = SigningContext reg pendingCert epoch
+          signatureIdxs = lottery sc
+
+      -- wait for all signatures are produced for relevant indexes
+      Monitor.all (expectSig pid <$> signatureIdxs)
+
+
+-- wait until we have a signature for every index from the set of potential
+-- signers
+signatures :: [PartyId] -> Monitor Message Text [AT.SingleSignature]
+signatures pids = withPendingConsistent getSignatures
+  where
+    getSignatures = go (signer <$> pids) []
+    go ms acc =
+      do  (sigs, ms') <- Monitor.watch ms
+          let sigs' = concat sigs ++ acc
+          if areSignaturesSufficient sigs'
+            then pure sigs'
+            else
+              case ms' of
+                [] -> fail "Could not get enough signatures"
+                _ -> go ms' acc
+
+
+-- it would be simpler to wait for all possible signers
 allSigners :: [PartyId] -> Monitor Message Text [AT.SingleSignature]
 allSigners pids =
   do  -- is it possible to finish when he have a sufficient number of sigs?
       signatures <- concat <$> Monitor.all (signer <$> pids)
       if areSignaturesSufficient signatures
-        then pure signatures
+        then pure signatures  -- at this point we should aggregate?
         else Monitor.output "Signature failed" >> fail ""
 
 

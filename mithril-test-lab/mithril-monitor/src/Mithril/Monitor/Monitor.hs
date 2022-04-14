@@ -86,9 +86,8 @@ instance Alternative (Monitor i o) where
     Active f ->
       do  i <- next
           a' <- a `observeInner` i
-          case a' of
-            Fail s -> join (b `observeInner` i)
-            _ -> a'
+          b' <- b `observeInner` i
+          a' <|> b'
 
     Done a' -> Done a'
     Fail s -> b
@@ -369,4 +368,28 @@ infixl 4 <|*|>
 mf <|*|> ma =
   do  (f, a) <- both mf ma
       pure (f a)
+
+
+trace :: Monitor i o a -> Monitor i o (a, [i])
+trace m0 = go m0 []
+  where
+    go m acc =
+      case m of
+        Done a -> pure (a, acc)
+        Fail f -> Fail f
+        Out o m' ->
+          do  output' o
+              go m' acc
+        Active _ ->
+          do  i <- next
+              m' <- m `observeInner` i
+              go m' (acc ++ [i])
+
+
+lookahead :: Monitor i o a -> Monitor i o b -> Monitor i o b
+lookahead la m =
+  do  (_, is) <- trace la
+      let (o, m') = m `observeMany` is
+      output' o
+      m'
 
