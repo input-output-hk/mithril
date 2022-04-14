@@ -447,7 +447,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: doc
-          args: --manifest-path ./mithril-core/Cargo.toml --target-dir ./github-pages/mithril-core
+          args: --no-deps --manifest-path ./mithril-core/Cargo.toml --target-dir ./rust-doc/mithril-core
 
       - uses: actions/cache@v2.1.5
         name: Cache mithril-network/mithril-aggregator/Cargo.lock
@@ -464,7 +464,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: doc
-          args: --manifest-path ./mithril-network/mithril-aggregator/Cargo.toml --target-dir ./github-pages/mithril-network/mithril-aggregator
+          args: --no-deps --manifest-path ./mithril-network/mithril-aggregator/Cargo.toml --target-dir ./rust-doc/mithril-network/mithril-aggregator
 
       - uses: actions/cache@v2.1.5
         name: Cache mithril-network/mithril-client/Cargo.lock
@@ -481,7 +481,14 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: doc
-          args: --manifest-path ./mithril-network/mithril-client/Cargo.toml --target-dir ./github-pages/mithril-network/mithril-client
+          args: --no-deps --manifest-path ./mithril-network/mithril-client/Cargo.toml --target-dir ./rust-doc/mithril-network/mithril-client
+
+      - name: Rust Documentation (Copy docs)
+        working-directory: .
+        run: |
+          mkdir -p ./github-pages/mithril-core/doc && cp -r ./rust-doc/mithril-core/doc ./github-pages/mithril-core/doc
+          mkdir -p ./github-pages/mithril-network/mithril-aggregator/doc && cp -r ./rust-doc/mithril-network/mithril-aggregator/doc ./github-pages/mithril-network/mithril-aggregator/doc
+          mkdir -p ./github-pages/mithril-network/mithril-client/doc && cp -r ./rust-doc/mithril-network/mithril-client/doc ./github-pages/mithril-network/mithril-client/doc
 
       - name: Mithril Aggregator / Generate OpenAPI UI
         uses: Legion2/swagger-ui-action@v1
