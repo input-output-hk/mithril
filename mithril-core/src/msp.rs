@@ -255,7 +255,7 @@ impl<PE: PairingEngine> Msp<PE> {
 
     /// Hash the signature to produce a 64 bytes integer. We follow the same mechanism as Shelley
     /// for the lottery (i.e., we follow the VRF lottery mechanism as described in Section 16 of
-    /// https://hydra.iohk.io/build/8201171/download/1/ledger-spec.pdf).
+    /// <https://hydra.iohk.io/build/8201171/download/1/ledger-spec.pdf>).
     pub fn eval(msg: &[u8], index: Index, sigma: &MspSig<PE>) -> [u8; 64] {
         let hasher = Blake2b::new()
             .chain(b"map")
