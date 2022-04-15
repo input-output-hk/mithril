@@ -39,7 +39,7 @@ pub struct Args {
 /// CLI command list
 #[derive(Subcommand)]
 enum Commands {
-    /// List snapshots
+    /// List available snapshots
     #[clap(arg_required_else_help = false)]
     List {},
 
@@ -51,15 +51,19 @@ enum Commands {
         digest: String,
     },
 
-    /// Download snapshot
+    /// Download a snapshot
     #[clap(arg_required_else_help = true)]
     Download {
         /// Snapshot digest
         #[clap(required = true)]
         digest: String,
+
+        /// Snapshot location index
+        #[clap(required = false, default_value_t = 1)]
+        location_index: isize,
     },
 
-    /// Restore snapshot
+    /// Restore a snapshot
     #[clap(arg_required_else_help = true)]
     Restore {
         /// Snapshot digest
@@ -111,9 +115,19 @@ async fn main() {
             Ok(snapshot_field_items) => print_stdout(snapshot_field_items.with_title()).unwrap(),
             Err(err) => pretty_print_error(err),
         },
-        Commands::Download { digest } => {
-            client.download_snapshot(digest.to_string()).await.unwrap();
-        }
+        Commands::Download {
+            digest,
+            location_index,
+        } => match client
+            .download_snapshot(digest.to_string(), *location_index)
+            .await
+        {
+            Ok((from, to)) => println!(
+                "Download success {} #{}\nfrom {}\nto {}",
+                digest, location_index, from, to
+            ),
+            Err(err) => pretty_print_error(err),
+        },
         Commands::Restore { digest } => {
             client.restore_snapshot(digest.to_string()).await.unwrap();
         }

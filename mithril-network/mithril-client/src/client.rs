@@ -40,39 +40,60 @@ where
     /// List snapshots
     pub async fn list_snapshots(&self) -> Result<Vec<SnapshotListItem>, String> {
         debug!("List snapshots");
-        if let Some(aggregator_handler) = &self.aggregator_handler {
-            match aggregator_handler.list_snapshots().await {
+        match &self.aggregator_handler {
+            Some(aggregator_handler) => match aggregator_handler.list_snapshots().await {
                 Ok(snapshots) => Ok(snapshots
                     .iter()
                     .map(|snapshot| convert_to_list_item(snapshot, self.config.clone()))
                     .collect::<Vec<SnapshotListItem>>()),
                 Err(err) => Err(err),
-            }
-        } else {
-            Err(errors::MISSING_AGGREGATOR_HANDLER.to_string())
+            },
+            None => Err(errors::MISSING_AGGREGATOR_HANDLER.to_string()),
         }
     }
 
     /// Show a snapshot
     pub async fn show_snapshot(&self, digest: String) -> Result<Vec<SnapshotFieldItem>, String> {
         debug!("Show snapshot {}", digest);
-        if let Some(aggregator_handler) = &self.aggregator_handler {
-            match aggregator_handler.get_snapshot_details(digest).await {
+        match &self.aggregator_handler {
+            Some(aggregator_handler) => match aggregator_handler.get_snapshot_details(digest).await
+            {
                 Ok(snapshot) => Ok(convert_to_field_items(&snapshot, self.config.clone())),
                 Err(err) => Err(err),
-            }
-        } else {
-            Err(errors::MISSING_AGGREGATOR_HANDLER.to_string())
+            },
+            None => Err(errors::MISSING_AGGREGATOR_HANDLER.to_string()),
         }
     }
 
     /// Download a snapshot by digest
-    pub async fn download_snapshot(&self, digest: String) -> Result<(), String> {
+    pub async fn download_snapshot(
+        &self,
+        digest: String,
+        location_index: isize,
+    ) -> Result<(String, String), String> {
         debug!("Download snapshot {}", digest);
-        if let Some(aggregator_handler) = &self.aggregator_handler {
-            aggregator_handler.download_snapshot(digest.clone()).await
-        } else {
-            Err(errors::MISSING_AGGREGATOR_HANDLER.to_string())
+        match &self.aggregator_handler {
+            Some(aggregator_handler) => match aggregator_handler
+                .get_snapshot_details(digest.clone())
+                .await
+            {
+                Ok(snapshot) => {
+                    let from = snapshot
+                        .locations
+                        .get((location_index - 1) as usize)
+                        .unwrap()
+                        .to_owned();
+                    match aggregator_handler
+                        .download_snapshot(digest.clone(), from.clone())
+                        .await
+                    {
+                        Ok(to) => Ok((from.clone(), to)),
+                        Err(err) => Err(err),
+                    }
+                }
+                Err(err) => Err(err),
+            },
+            None => Err(errors::MISSING_AGGREGATOR_HANDLER.to_string()),
         }
     }
 
@@ -149,10 +170,7 @@ mod tests {
             .iter()
             .map(|snapshot| convert_to_list_item(snapshot, config.clone()))
             .collect::<Vec<SnapshotListItem>>();
-        assert_eq!(
-            snapshot_list_items.unwrap(),
-            snapshot_list_items_expected
-        );
+        assert_eq!(snapshot_list_items.unwrap(), snapshot_list_items_expected);
     }
 
     #[tokio::test]
