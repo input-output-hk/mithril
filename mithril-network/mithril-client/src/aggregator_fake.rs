@@ -34,8 +34,7 @@ impl AggregatorHandler for AggregatorHandlerFake {
     }
 
     /// Download Snapshot
-    async fn download_snapshot(&self, digest: String) -> Result<(), String> {
-        debug!("Download snapshot {}", digest);
-        Ok(())
+    async fn download_snapshot(&self, digest: String, location: String) -> Result<String, String> {
+        unimplemented!("Download snapshot {} at {}", digest, location);
     }
 }
