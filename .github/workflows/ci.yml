@@ -87,6 +87,12 @@ jobs:
         run: LD_LIBRARY_PATH=../target/release ./tests --gtest_output=xml:test-results.xml
         working-directory: mithril-core/c-tests
 
+      - name: Mithril Core / Generate doc
+        uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: --no-deps --release --manifest-path ./mithril-core/Cargo.toml
+
       - name: Publish Unit Test Results
         uses: EnricoMi/publish-unit-test-result-action@v1
         with:
@@ -100,6 +106,13 @@ jobs:
             mithril-core/target/release/libmithril.so
             mithril-core/target/include/mithril.h
 
+      - name: Publish libmithril-doc
+        uses: actions/upload-artifact@v3
+        with:
+          name: libmithril-doc
+          path: |
+            mithril-core/target/doc/
+  
   build-mithril-aggregator:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
@@ -156,11 +169,24 @@ jobs:
           command: test
           args: --release --manifest-path ./mithril-network/mithril-aggregator/Cargo.toml
 
+      - name: Mithril Aggregator / Generate doc
+        uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: --no-deps --release --manifest-path ./mithril-network/mithril-aggregator/Cargo.toml
+
       - name: Publish aggregator
         uses: actions/upload-artifact@v3
         with:
           name: mithril-aggregator
           path: mithril-network/mithril-aggregator/target/release/mithril-aggregator
+
+      - name: Publish aggregator-doc
+        uses: actions/upload-artifact@v3
+        with:
+          name: mithril-aggregator-doc
+          path: |
+            mithril-network/mithril-aggregator/target/doc/
           
   build-mithril-client:
     if: github.event.pull_request.draft == false
@@ -218,11 +244,24 @@ jobs:
           command: test
           args: --release --manifest-path ./mithril-network/mithril-client/Cargo.toml
 
+      - name: Mithril Client / Generate doc
+        uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: --no-deps --release --manifest-path ./mithril-network/mithril-client/Cargo.toml
+
       - name: Publish client
         uses: actions/upload-artifact@v3
         with:
           name: mithril-client
           path: mithril-network/mithril-client/target/release/mithril-client
+
+      - name: Publish client-doc
+        uses: actions/upload-artifact@v3
+        with:
+          name: mithril-client-doc
+          path: |
+            mithril-network/mithril-client/target/doc/
 
   build-mithril-node-poc:
     runs-on: ubuntu-latest
@@ -432,64 +471,24 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
 
-      - name: Cache mithril-core/Cargo.lock
-        uses: actions/cache@v2.1.5
+      - name: Download libmithril-doc artifact
+        uses: actions/download-artifact@v3
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            mithril-core/target
-          key: ${{ runner.os }}-${{ hashFiles('mithril-core/Cargo.lock') }}
-          restore-keys: |
-              ${{ runner.os }}-key
+          name: libmithril-doc
+          path: ./github-pages/mithril-core/doc
 
-      - name: Mithril Core / Generate doc
-        uses: actions-rs/cargo@v1
+      - name: Download aggregator-doc artifact
+        uses: actions/download-artifact@v3
         with:
-          command: doc
-          args: --no-deps --manifest-path ./mithril-core/Cargo.toml --target-dir ./rust-doc/mithril-core
-
-      - uses: actions/cache@v2.1.5
-        name: Cache mithril-network/mithril-aggregator/Cargo.lock
+          name: mithril-aggregator-doc
+          path: ./github-pages/mithril-network/mithril-aggregator/doc
+      
+      - name: Download client-doc artifact
+        uses: actions/download-artifact@v3
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            mithril-network/mithril-aggregator/target
-          key: ${{ runner.os }}-${{ hashFiles('mithril-network/mithril-aggregator/Cargo.lock') }}
-          restore-keys: |
-              ${{ runner.os }}-key
-
-      - name: Mithril Aggregator / Generate doc
-        uses: actions-rs/cargo@v1
-        with:
-          command: doc
-          args: --no-deps --manifest-path ./mithril-network/mithril-aggregator/Cargo.toml --target-dir ./rust-doc/mithril-network/mithril-aggregator
-
-      - uses: actions/cache@v2.1.5
-        name: Cache mithril-network/mithril-client/Cargo.lock
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            mithril-network/mithril-client/target
-          key: ${{ runner.os }}-${{ hashFiles('mithril-network/mithril-client/Cargo.lock') }}
-          restore-keys: |
-              ${{ runner.os }}-key
-
-      - name: Mithril Client / Generate doc
-        uses: actions-rs/cargo@v1
-        with:
-          command: doc
-          args: --no-deps --manifest-path ./mithril-network/mithril-client/Cargo.toml --target-dir ./rust-doc/mithril-network/mithril-client
-
-      - name: Rust Documentation (Copy docs)
-        working-directory: .
-        run: |
-          mkdir -p ./github-pages/mithril-core/doc && cp -r ./rust-doc/mithril-core/doc ./github-pages/mithril-core/doc
-          mkdir -p ./github-pages/mithril-network/mithril-aggregator/doc && cp -r ./rust-doc/mithril-network/mithril-aggregator/doc ./github-pages/mithril-network/mithril-aggregator/doc
-          mkdir -p ./github-pages/mithril-network/mithril-client/doc && cp -r ./rust-doc/mithril-network/mithril-client/doc ./github-pages/mithril-network/mithril-client/doc
-
+          name: mithril-client-doc
+          path: ./github-pages/mithril-network/mithril-client/doc
+      
       - name: Mithril Aggregator / Generate OpenAPI UI
         uses: Legion2/swagger-ui-action@v1
         with:
