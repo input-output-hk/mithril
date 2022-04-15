@@ -6,6 +6,7 @@ use warp::{http::Method, http::StatusCode, Filter};
 
 use crate::entities;
 use crate::fake_data;
+use crate::snapshot_store::*;
 
 const SERVER_BASE_PATH: &str = "aggregator";
 
@@ -135,9 +136,23 @@ mod handlers {
         debug!("snapshots");
 
         // Snapshots
-        let snapshots = fake_data::snapshots(1);
-
-        Ok(warp::reply::json(&snapshots))
+        //let snapshots = fake_data::snapshots(1);
+        let network = "testnet";
+        let url = format!(
+            "https://storage.googleapis.com/cardano-{}/snapshots.json",
+            network
+        );
+        let snapshot_store = SnapshotStoreHTTPClient::new(url);
+        match snapshot_store.list_snapshots().await {
+            Ok(snapshots) => Ok(warp::reply::with_status(
+                warp::reply::json(&snapshots),
+                StatusCode::OK,
+            )),
+            Err(err) => Ok(warp::reply::with_status(
+                warp::reply::json(&err),
+                StatusCode::INTERNAL_SERVER_ERROR,
+            )),
+        }
     }
 
     /// Snapshot by digest

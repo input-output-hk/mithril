@@ -4,6 +4,7 @@ mod apispec;
 mod entities;
 mod fake_data;
 mod http_server;
+mod snapshot_store;
 mod snapshotter;
 
 use clap::Parser;
