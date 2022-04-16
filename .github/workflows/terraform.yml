@@ -16,7 +16,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: mithril/mithril-infra
+        working-directory: mithril-network/mithril-infra
 
     steps:
 
