@@ -3,8 +3,6 @@ name: Terraform
 # do not run workflow twice on PRs
 on:
   push:
-    branches:
-    - main
   pull_request:
     types: [opened, reopened]
 
