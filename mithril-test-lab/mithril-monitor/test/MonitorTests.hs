@@ -12,7 +12,7 @@ import Data.Sequence(Seq, (<|))
 import Data.Word (Word64)
 import qualified Data.Maybe as Maybe
 import qualified Data.List as List
-import Control.Applicative (some)
+import Control.Monad(forever)
 
 tests :: Tasty.TestTree
 tests =
@@ -57,6 +57,9 @@ intmon m i =
         Just (Left _) -> Nothing
         Just (Right i) -> Just i
 
+obsNoOut :: IntMon a -> [Int] -> IntMon a
+obsNoOut m ins = snd $ m `observeMany` ins
+
 opTests :: Tasty.TestTree
 opTests =
   Tasty.testGroup "Monitor Unit Tests"
@@ -75,50 +78,147 @@ opTests =
     , QC.testProperty "any"
         (\l n -> Monitor.any (eq <$> l) `intmon` [n] == Maybe.listToMaybe [k | k <- l, k == n])
 
-    , QC.testProperty "all"
-        (\n1 n2 -> Monitor.all [eq n1, eq n2] `intmon` [n1] == (if n1 == n2 then Just [n1,n1] else Nothing))
+    , QC.testProperty "allIntList" allIntList
 
-    -- , QC.testProperty "evenoddeven"
-    --     (\l -> evenoddeven `intmon` l == evenOddEvenList l)
+    , QC.testProperty "bothIntList" bothIntList
+    , QC.testProperty "watchIntList" watchIntList
+    , QC.testProperty "raceIntList" raceIntList
+    , QC.testProperty "eitherIntList" eitherIntList
+    , QC.testProperty "guardIntList" guardIntList
+    , QC.testProperty "alwaysIntList" alwaysIntList
+    , QC.testProperty "neverIntList" neverIntList
+    , QC.testProperty "eventuallyIntList" eventuallyIntList
+    , QC.testProperty "onIntList" onIntList
+    , QC.testProperty "accept" (\i -> accept (==i) `intmon` [i] == Just i)
+    , QC.testProperty "accept i,j"
+        (\i j -> accept (==i) `intmon` [j] == if i == j then Just i else Nothing)
+    , QC.testProperty "parallelIntList" parallelIntList
+    , QC.testProperty "collectUntilIntList" collectUntilIntList
+    , QC.testProperty "traceIntList" traceIntList
     ]
+
+eq :: Int -> IntMon Int
+eq i =
+  do  j <- next
+      require (i == j)
+      pure i
+
+onEq :: Int -> IntMon Int
+onEq = on . eq
+
+
+oeoe :: Monitor Int o [Int]
+oeoe =
+  do  o1 <- accept odd
+      e1 <- accept even
+      o2 <- accept odd
+      e2 <- accept even
+      pure [o1, e1, o2, e2]
+
+allIntList :: [Int] -> [Int] -> Bool
+allIntList l1 l2 = Monitor.all (onEq <$> l1) `intmon` l2 == expected
   where
-    eq i =
-      do  j <- next
-          require (i == j)
-          pure i
+    expected =
+      if Prelude.all (`elem` l2) l1
+        then Just l1
+        else Nothing
 
-evenOddEvenList :: Integral a => [a] -> Maybe [a]
-evenOddEvenList l =
-  let (evens, l') = span even l
-      (odds, l'') = span odd l'
-      (evens', l''') = span even l''
-  in case l''' of
-    [] | not $ Prelude.any null [evens, odds, evens'] -> Just l
-    _ -> Nothing
+bothIntList :: [Int] -> Int -> Int -> Bool
+bothIntList l n1 n2 = both (onEq n1) (onEq n2) `intmon` l == expected
+  where
+  expected =
+    if n1 `elem` l && n2 `elem` l
+      then Just (n1, n2)
+      else Nothing
 
-
-evenoddeven :: Monitor Int o [Int]
-evenoddeven =
-  do  evens <- some evenm
-      odds <- some oddm
-      evens' <- some evenm
-      pure (evens ++ odds ++ evens')
-
-
-evenm :: Monitor Int o Int
-evenm =
-  do  i <- next
-      require (even i)
-      pure i
-
-oddm :: Monitor Int o Int
-oddm =
-  do  i <- next
-      require (odd i)
-      pure i
+watchIntList :: [Int] -> [Int] -> Bool
+watchIntList l1 = go (onEq <$> l1)
+  where
+    go ms ls =
+      let r = watch ms `intmon` ls
+      in case (ls, r) of
+          ([], Nothing) -> True
+          (h:l2', Just (as, ms')) | h `elem` l1 ->
+                                    Prelude.all (==h) as &&  go ms' l2'
+                                  | otherwise   -> null as && go ms' l2'
+          _ -> False
 
 
+raceIntList :: [Int] -> Int -> Int -> Bool
+raceIntList l1 n1 n2 =
+  race (onEq n1) (onEq n2) `intmon` l1 == expected
+  where
+    expected = List.find (`elem` [n1, n2]) l1
 
+eitherIntList :: [Int] -> Bool
+eitherIntList l = Monitor.either (accept even) (accept odd) `intmon` l == expected
+  where
+    expected =
+      case l of
+        [] -> Nothing
+        h:_ | even h -> Just (Left h)
+            | otherwise -> Just (Right h)
+
+guardIntList :: [Int] -> Bool
+guardIntList ls =
+  Monitor.guard (forever $ accept even) (eq `traverse ` ls) `intmon` ls == expected
+  where
+    expected =
+      if Prelude.all even ls
+        then Just ls
+        else Nothing
+
+alwaysIntList :: [Int] -> Bool
+alwaysIntList ls =
+  Monitor.isFailed (Monitor.always (accept even) `obsNoOut` ls) /= Prelude.all even ls
+
+neverIntList :: [Int] -> Bool
+neverIntList ls =
+  Monitor.isFailed (Monitor.never (accept even) `obsNoOut` ls) == Prelude.any even ls
+
+eventuallyIntList :: [Int] -> Bool
+eventuallyIntList ls = eventually oeoe `intmon` ls == expected ls
+  where
+    expected l =
+      case l of
+        o1:e1:o2:e2:t | odd o1 && odd o2 && even e1 && even e2 -> Just [o1,e1,o2,e2]
+                      | otherwise -> expected (e1:o2:e2:t)
+        _ -> Nothing
+
+onIntList :: [Int] -> Bool
+onIntList ls = on oeoe `intmon` ls == expected
+  where
+    expected = goEx ls scheme []
+    scheme = [odd, even, odd, even]
+    goEx l s acc =
+      case (l,s) of
+        (_, []) -> Just acc
+        ([], _) -> Nothing
+        (lh:l', sh:s') | sh lh -> goEx l' s' (acc ++ [lh])
+                       | otherwise -> goEx l' scheme []
+
+parallelIntList :: [Int] -> Bool
+parallelIntList ls = ((,) <$> on (accept odd) <|*|> on (accept even)) `intmon` ls == expected
+  where
+    expected =
+      do  i <- List.find odd ls
+          j <- List.find even ls
+          pure (i, j)
+
+collectUntilIntList :: [Int] -> Bool
+collectUntilIntList ls =
+  [accept even, next >> accept even, next >> next >> accept even ] `collectUntil` on (accept odd) `intmon` ls == expected
+  where
+    expected =
+      do  o <- List.find odd ls
+          pure (take 3 $ takeWhile even ls, o)
+
+traceIntList :: [Int] -> Bool
+traceIntList ls = trace (on $ accept odd) `intmon` ls == expected
+  where
+    expected =
+      do o <- List.find odd ls
+         pure (o, List.takeWhile even ls ++ [o])
 
 traceTests :: Tasty.TestTree
 traceTests =

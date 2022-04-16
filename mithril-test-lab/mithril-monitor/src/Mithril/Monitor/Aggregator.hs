@@ -378,11 +378,12 @@ consistentPending =
       do  p2 <- Monitor.on reqCertPendingGet
           Monitor.require (isConsistentWith p1 p2)
 
-    isConsistentWith p1 p2 = p1 == p2 -- NOTE: this isn't true because signatures are added
+    isConsistentWith p1 p2 = p1 == p2 -- NOTE: this might need some work
 
 
 monitorUntil ::  Monitor Message a Void -> Monitor Message a b -> Monitor Message a b
 monitorUntil m1 = Monitor.race (absurd <$> m1)
+
 
 -- Check that the aggregator behaves as if the pending certificate is real
 pendingCertIsReal :: PendingCert -> Monitor Message Text ()
@@ -395,29 +396,27 @@ pendingCertIsReal pcert =
   where
     consistent = undefined  -- TODO!
 
-aggregator :: Monitor Message Text ()
-aggregator =
-  do  -- epoch e-1 (aka e0)
-      e0 <- epochChanged
-      let stakeDist = stakeDistForEpoch e0
+-- aggregator :: Monitor Message Text ()
+-- aggregator =
+--   do  -- epoch e-1 (aka e0)
+--       e0 <- epochChanged
+--       let stakeDist = stakeDistForEpoch e0
 
-      -- registration begins and (after the epoch boundary for e) the signatures are aggregated
-      -- NB <|*|> is the parallel version of <*>
-      (sigs, pendingCert, e1) <- (,,) <$> signatures (Map.keys stakeDist)
-                                      <|*|> Monitor.on respCertPendingGet
-                                      <|*|> Monitor.on epochChanged
+--       (regs, e1) <- (registration <$> Map.keys stakeDist) `Monitor.collectUntil` epochChanged
 
+--       -- Wait for enough signatures as well as collecting the pending cert at some point
+--       (sigs, pending) <- Monitor.both (sign <$> reg regs)
+--                                       (Monitor.on getPendingCert)
 
-      -- in epoch e+1 (aka e2) we should see the pendingCert become real
-      e2 <- Monitor.on epochChanged
+--       -- in epoch e+1 (aka e2) we should see the pendingCert become real
+--       e2 <- Monitor.on epochChanged
 
+--       -- this should probably be true at all points after this, but
+--       -- to make sure we don't accumulate state forever we'll stop watching
+--       -- when the next epoch happens
+--       Monitor.everywhere (pendingCertIsReal pendingCert) `monitorUntil` epochChanged
 
-      -- this should probably be true at all points after this, but
-      -- to make sure we don't accumulate state forever we'll stop watching
-      -- when the next epoch happens
-      Monitor.everywhere (pendingCertIsReal pendingCert) `monitorUntil` epochChanged
-
-      pure ()
+--       pure ()
 
 
 -- -- it would be simpler to wait for all possible signers

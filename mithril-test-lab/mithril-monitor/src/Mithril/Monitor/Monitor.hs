@@ -53,6 +53,14 @@ data Monitor i o a =
   | Fail String
   | Out (Output o) (Monitor i o a)
 
+describe :: (Show a, Show o) => Monitor i o a -> String
+describe m =
+  case m of
+    Active _ -> "Active"
+    Done a -> "Done " ++ show a
+    Out o m' -> "Output " ++ show o ++ " -- " ++ describe m'
+    Fail s -> "Fail " ++ show s
+
 instance Functor (Monitor i o) where
   fmap f ma =
     case ma of
@@ -110,6 +118,10 @@ getResults ms = fmap sequence (traverse getResult ms)
 
 isComplete :: Monitor i o a -> Bool
 isComplete m = Maybe.isJust (getResult m)
+
+isFailed :: Monitor i o a -> Bool
+isFailed (Fail _) = True
+isFailed _ = False
 
 output :: o -> Monitor i o ()
 output o = Out (Output Nothing [o]) (Done ())
@@ -234,35 +246,9 @@ any = foldr race (fail "any failed")
 
 watch :: [Monitor i o a] -> Monitor i o ([a], [Monitor i o a])
 watch ms =
-  case (results, ms') of
-    -- stop if no monitors remain
-    (a, []) -> pure (a, [])
-
-    -- continue if no results have been produced
-    ([], _) ->
-      do  i <- next
-          ms'' <- (`observeInner` i) `traverse` ms'
-          watch ms''
-
-    -- stop if any results have been produced
-    (a, _) -> pure (a, ms')
-
-  where
-    results = concat resultss
-    ms' = concat mss'
-    (resultss, mss') = unzip (obs <$> ms)
-    obs :: Monitor i o a -> ([a], [Monitor i o a])
-    obs mon =
-      case mon of
-        Active f -> ([], [mon])
-        Done a -> ([a], [])
-        Fail s -> ([], [])
-        Out o m' ->
-          let (rs, ms) = obs m'
-          in (rs, Out o <$> ms)
-
-
-
+  do  (as, n) <- ms `collectUntil` next
+      ms' <- (`observeInner` n) `traverse` ms
+      pure (as, [m | m <- ms', not (isComplete m)])
 
 all :: (Traversable t) => t (Monitor i o a) -> Monitor i o (t a)
 all ms =
@@ -344,11 +330,18 @@ everywhere :: Monitor i o () -> Monitor i o Void
 everywhere m =
   snd <$> both (m `onFail` pure ()) (next >> everywhere m)
 
+-- is this ever actually useful?
 always :: Monitor i o a -> Monitor i o Void
 always m = fmap snd (both m (next >> always m))
 
+-- is this ever actually useful?
 never :: Monitor i o a -> Monitor i o Void
-never m = any [m >> fail "never violated", next >> never m]
+never m = snd <$> both doM (next >> never m)
+  where
+    doM =
+      try m >>= \case
+        Nothing -> pure ()
+        Just _ -> fail "never violated"
 
 eventually :: Monitor i o a -> Monitor i o a
 eventually m = any [m, next >> eventually m]
@@ -392,4 +385,25 @@ lookahead la m =
       let (o, m') = m `observeMany` is
       output' o
       m'
+
+
+
+
+-- collectOutput :: Monitor i o1 a -> Monitor i o2 ([o1], a)
+-- collectOutput m0 = go [] m0
+--   where
+--     go acc m =
+--       case m of
+--         Done a -> pure (a, acc)
+--         Fail f -> Fail f
+--         Out o m' ->
+--           do  output' Output { outTimeout = outTimeout o, outValues = [] }
+--               go (acc <> outValues o) m'
+--         Active f -> Active (\i -> go acc (f i))
+
+
+collectUntil :: [Monitor i o a] -> Monitor i o b -> Monitor i o ([a], b)
+collectUntil mas mb = both (Maybe.catMaybes <$> all (mk <$> mas)) mb
+  where
+    mk m = race (mb >> pure Nothing) (Just <$> m) `onFail` pure Nothing
 
