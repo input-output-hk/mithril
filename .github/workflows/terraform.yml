@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+      BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
 
     defaults:
       run:
@@ -21,12 +22,9 @@ jobs:
     - name: Checkout sources
       uses: actions/checkout@v2
 
-    - name: Extract Docker Image name
-      id: meta
-      uses: docker/metadata-action@v3
-      with:
-        tags:
-          type=raw,value={{branch}}-{{sha}}
+    - name: Get short SHA
+      id: slug
+      run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-7)"
 
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v1
@@ -40,8 +38,8 @@ jobs:
       run: terraform fmt -check
 
     - name: Terraform Plan
-      run: terraform plan -var image_id=${{ steps.meta.outputs.tags }}
+      run: terraform plan -var image_id=${{ env.BRANCH_NAME }}-${{ steps.slug.outputs.sha8 }}
 
     - name: Terraform Apply
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-      run: terraform apply -auto-approve  -var image_id=${{ steps.meta.outputs.tags }}
+      run: terraform apply -auto-approve  -var image_id=${{ env.BRANCH_NAME }}-${{ steps.slug.outputs.sha8 }}
