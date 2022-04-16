@@ -23,7 +23,6 @@ variable "google_provider_project" {
 }
 
 provider "google" {
-  credentials = var.google_provider_file
   region      = var.google_provider_region
   zone        = var.google_provider_zone
   project     = var.google_provider_project
