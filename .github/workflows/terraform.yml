@@ -1,0 +1,40 @@
+name: Terraform
+
+# do not run workflow twice on PRs
+on:
+  push:
+    branches:
+    - main
+  pull_request:
+    types: [opened, reopened]
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    env:
+        GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+
+    defaults:
+      run:
+        working-directory: mithril/mithril-infra
+
+    steps:
+
+    - name: Checkout sources
+      uses: actions/checkout@v2
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v1
+
+    - name: Init Terraform
+      run: terraform init
+
+    - name: Check Terraform
+      run: terraform fmt -check
+
+    - name: Terraform Plan
+      run: terraform plan
+
+    - name: Terraform Apply
+      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      run: terraform apply -auto-approve
