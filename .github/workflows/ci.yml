@@ -569,7 +569,7 @@ jobs:
       run: terraform plan -var image_id=${{ env.BRANCH_NAME }}-${{ steps.slug.outputs.sha8 }}
 
     - name: Update Pull Request
-      uses: actions/github-script@6
+      uses: actions/github-script@v6
       if: github.event_name == 'pull_request'
       env:
         PLAN: "terraform\n${{ steps.plan.outputs.stdout }}"
