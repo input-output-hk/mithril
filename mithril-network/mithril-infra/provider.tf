@@ -23,9 +23,9 @@ variable "google_provider_project" {
 }
 
 provider "google" {
-  region      = var.google_provider_region
-  zone        = var.google_provider_zone
-  project     = var.google_provider_project
+  region  = var.google_provider_region
+  zone    = var.google_provider_zone
+  project = var.google_provider_project
 }
 
 variable "image_id" {
