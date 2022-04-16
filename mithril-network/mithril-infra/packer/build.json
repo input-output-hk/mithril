@@ -1,0 +1,27 @@
+{
+  "variables": {
+    "gcp_account_file": "",
+    "gcp_project_id": ""
+  },
+  "builders": [
+    {
+      "type": "googlecompute",
+      "source_image": "ubuntu-minimal-2110-impish-v20211014",
+      "account_file": "{{user `gcp_account_file`}}",
+      "project_id": "{{user `gcp_project_id`}}",
+      "ssh_username": "curry",
+      "image_family": "iog-mithril",
+      "image_name": "iog-mithril-{{timestamp}}",
+      "zone": "europe-west4-a"
+    }
+  ],
+  "provisioners": [{
+    "type": "shell",
+    "inline": [
+      "sleep 30"
+    ]
+  }, {
+    "type": "shell",
+    "script": "build-env.sh"
+  }]
+}
