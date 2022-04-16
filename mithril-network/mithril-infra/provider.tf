@@ -19,6 +19,7 @@ variable "google_provider_zone" {
 variable "google_provider_project" {
   type = string
   description = "The identifier of the project to deploy resources in"
+  default =  "iog-hydra"
 }
 
 provider "google" {
