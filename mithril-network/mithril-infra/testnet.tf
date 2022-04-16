@@ -12,14 +12,14 @@ resource "google_project_iam_member" "mithril_account" {
 # an instance running a mithril aggregator alongside a cardano node
 # on public testnet
 resource "google_compute_instance" "mithril-aggregator-testnet" {
-  name         = "mithril-aggregator-testnet-1"
+  name = "mithril-aggregator-testnet-1"
 
   # https://cloud.google.com/compute/docs/compute-optimized-machines
   # 2 vCPU, 16GB
-  machine_type = "e2-highmem-2"
+  machine_type              = "e2-highmem-2"
   allow_stopping_for_update = true
 
-  tags = [ "mithril-aggregator", "testnet" ]
+  tags = ["mithril-aggregator", "testnet"]
 
   metadata = {
     # sets the public keys that are authorised to log on this machin
@@ -34,7 +34,7 @@ resource "google_compute_instance" "mithril-aggregator-testnet" {
   }
 
   network_interface {
-    network       = "default"
+    network = "default"
     access_config {
       # A statically allocated IP
       nat_ip = google_compute_address.mithril-aggregator-testnet-address.address
