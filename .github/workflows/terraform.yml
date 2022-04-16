@@ -10,7 +10,8 @@ jobs:
   terraform:
     runs-on: ubuntu-latest
     env:
-        GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+      GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+      IMAGE_ID: {{branch}}-{{sha}}
 
     defaults:
       run:
@@ -33,8 +34,8 @@ jobs:
       run: terraform fmt -check
 
     - name: Terraform Plan
-      run: terraform plan
+      run: terraform plan -var image_id=${IMAGE_ID}
 
     - name: Terraform Apply
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-      run: terraform apply -auto-approve
+      run: terraform apply -auto-approve  -var image_id=${IMAGE_ID}
