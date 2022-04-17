@@ -4,10 +4,13 @@ mod apispec;
 mod entities;
 mod fake_data;
 mod http_server;
+mod snapshotter;
 
 use clap::Parser;
+use std::thread;
 
 use crate::http_server::Server;
+use crate::snapshotter::Snapshotter;
 
 /// Node args
 #[derive(Parser, Debug, Clone)]
@@ -23,6 +26,10 @@ pub struct Args {
     /// Verbosity level
     #[clap(flatten)]
     verbose: clap_verbosity_flag::Verbosity,
+
+    /// Snapshot interval, in seconds
+    #[clap(long, default_value_t = 10000)]
+    snapshot_interval: u32,
 }
 
 #[tokio::main]
@@ -44,9 +51,17 @@ async fn main() {
             .expect("failed to install CTRL+C signal handler");
     };
 
+    // Start snapshot uploader
+    let snapshotter = Snapshotter::new(args.snapshot_interval);
+    let stopper = snapshotter.stopper();
+
+    thread::spawn(move || snapshotter.run());
+
     // Start REST server
     let http_server = Server::new(args.server_ip, args.server_port);
     http_server.start(shutdown_signal).await;
+
+    stopper.stop();
 
     println!("Exiting...");
 }
