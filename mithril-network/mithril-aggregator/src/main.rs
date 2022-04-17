@@ -30,6 +30,10 @@ pub struct Args {
     /// Snapshot interval, in seconds
     #[clap(long, default_value_t = 10000)]
     snapshot_interval: u32,
+
+    /// Directory to snapshot
+    #[clap(long, default_value = "/db")]
+    db_directory: String,
 }
 
 #[tokio::main]
@@ -52,7 +56,7 @@ async fn main() {
     };
 
     // Start snapshot uploader
-    let snapshotter = Snapshotter::new(args.snapshot_interval);
+    let snapshotter = Snapshotter::new(args.snapshot_interval, args.db_directory);
     let stopper = snapshotter.stopper();
 
     thread::spawn(move || snapshotter.run());
