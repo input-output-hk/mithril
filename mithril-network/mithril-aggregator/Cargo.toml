@@ -26,6 +26,9 @@ http = "0.2.6"
 walkdir = "2"
 sha2 = "0.10.2"
 hex = "0.3.1"
+flate2 = "1.0.23"
+tar = "0.4.38"
+chrono = "0.4"
 
 #[dev-dependencies]
 mockall = "0.11.0"

@@ -1,8 +1,14 @@
+use crate::entities::Snapshot;
+use chrono::prelude::*;
+use flate2::write::GzEncoder;
+use flate2::Compression;
 use hex;
 use log::error;
 use log::info;
+use serde_json;
 use sha2::{Digest, Sha256};
 use std::ffi::OsStr;
+use std::fs;
 use std::fs::File;
 use std::io;
 use std::path::Path;
@@ -14,7 +20,7 @@ use walkdir::DirEntry;
 use walkdir::WalkDir;
 
 /// Message sent to Snapshotter
-pub enum Snapshot {
+pub enum Messages {
     Stop,
 }
 
@@ -27,15 +33,15 @@ pub struct Snapshotter {
     db_directory: String,
 
     /// For sending instructions to the snapshotter
-    tx: Sender<Snapshot>,
+    tx: Sender<Messages>,
 
     /// For receiving messages while snapshotter is running
-    rx: Receiver<Snapshot>,
+    rx: Receiver<Messages>,
 }
 
 pub struct Stopper {
     /// For sending instructions to the snapshotter
-    tx: Sender<Snapshot>,
+    tx: Sender<Messages>,
 }
 
 #[derive(Debug)]
@@ -70,7 +76,7 @@ impl Snapshotter {
                         error!("{:?}", e)
                     }
                 }
-                Ok(Snapshot::Stop) => info!("Stopped snapshotter"),
+                Ok(Messages::Stop) => info!("Stopped snapshotter"),
             }
         }
     }
@@ -91,8 +97,34 @@ impl Snapshotter {
         info!("#files: {}, #immutables: {}", files.len(), immutables.len());
 
         let hash = compute_hash(&immutables);
+        let digest = hex::encode(hash);
+        info!("snapshot hash: {}", digest);
 
-        info!("snapshot hash: {}", hex::encode(hash));
+        let tar_gz = File::create("testnet.tar.gz").unwrap();
+        let enc = GzEncoder::new(tar_gz, Compression::default());
+        let mut tar = tar::Builder::new(enc);
+
+        info!("compressing {} into testnet.tar.gz", &self.db_directory);
+
+        tar.append_dir_all(".", &self.db_directory).unwrap();
+        tar.finish().unwrap();
+
+        // TODO: compute size accurately
+        let size = fs::metadata("testnet.tar.gz").unwrap().len();
+
+        let timestamp: DateTime<Utc> = Utc::now();
+        let created_at = format!("{:?}", timestamp);
+
+        let snapshot = Snapshot {
+            digest,
+            certificate_hash: "".to_string(),
+            size,
+            created_at,
+            locations: vec![],
+        };
+
+        info!("snapshot: {}", serde_json::to_string(&snapshot).unwrap());
+        serde_json::to_writer(&File::create("snapshots.json").unwrap(), &snapshot).unwrap();
 
         Ok(())
     }
@@ -130,6 +162,6 @@ impl Stopper {
     /// Stop
     pub fn stop(&self) {
         info!("Stopping Snapshotter");
-        self.tx.send(Snapshot::Stop).unwrap();
+        self.tx.send(Messages::Stop).unwrap();
     }
 }
