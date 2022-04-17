@@ -538,7 +538,10 @@ jobs:
     runs-on: ubuntu-latest
     needs: [ docker-mithril-aggregator, docker-mithril-client ]
     env:
+      # Contains a JSON-formatted service account key
       GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+      # Contains a RSA private key
+      GCLOUD_PRIVATE_KEY: ${{ secrets.GCLOUD_PRIVATE_KEY }}
       BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
 
     defaults:
@@ -566,7 +569,7 @@ jobs:
       run: terraform fmt -check
 
     - name: Terraform Plan
-      run: terraform plan -var image_id=${{ env.BRANCH_NAME }}-${{ steps.slug.outputs.sha8 }}
+      run: terraform plan -var image_id=${{ env.BRANCH_NAME }}-${{ steps.slug.outputs.sha8 }} -var private_key=${{ env.GCLOUD_PRIVATE_KEY }}
 
     - name: Update Pull Request
       uses: actions/github-script@v6
@@ -600,4 +603,4 @@ jobs:
 
     - name: Terraform Apply
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-      run: terraform apply -auto-approve  -var image_id=${{ env.BRANCH_NAME }}-${{ steps.slug.outputs.sha8 }}
+      run: terraform apply -auto-approve  -var image_id=${{ env.BRANCH_NAME }}-${{ steps.slug.outputs.sha8 }}  -var private_key=${{ env.GCLOUD_PRIVATE_KEY }}

@@ -22,7 +22,7 @@ resource "google_compute_instance" "mithril-aggregator-testnet" {
   tags = ["mithril-aggregator", "testnet"]
 
   metadata = {
-    # sets the public keys that are authorised to log on this machin
+    # sets the public keys that are authorised to log on this machine
     sshKeys = file("ssh_keys")
   }
 

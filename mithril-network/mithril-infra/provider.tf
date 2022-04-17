@@ -32,3 +32,8 @@ variable "image_id" {
   type        = string
   description = "The image tag of service to deploy"
 }
+
+variable "private_key" {
+  type        = string
+  description = "The private key used to authenticate connections for configuring remote VMs"
+}
