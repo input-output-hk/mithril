@@ -47,6 +47,7 @@ COPY --from=rustbuilder /app/target/release/mithril-aggregator /app/bin/mithril-
 
 #Workdir
 WORKDIR /app/
+RUN chown -R appuser /app/
 
 # Use an unprivileged user
 USER appuser
