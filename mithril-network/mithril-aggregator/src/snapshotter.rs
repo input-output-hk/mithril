@@ -96,6 +96,7 @@ impl Snapshotter {
     }
 
     fn snapshot(&self, rt: &Runtime) -> Result<(), SnapshotError> {
+        let archive_name = "testnet.tar.gz";
         let files = list_files(&*self.db_directory);
         let immutables: Vec<&DirEntry> = files
             .iter()
@@ -108,7 +109,7 @@ impl Snapshotter {
         let digest = hex::encode(hash);
         info!("snapshot hash: {}", digest);
 
-        let size = self.create_archive("testnet.tar.gz")?;
+        let size = self.create_archive(archive_name)?;
 
         let timestamp: DateTime<Utc> = Utc::now();
         let created_at = format!("{:?}", timestamp);
@@ -118,13 +119,17 @@ impl Snapshotter {
             certificate_hash: "".to_string(),
             size,
             created_at,
-            locations: vec![],
+            locations: vec![format!(
+                "https://storage.cloud.google.com/cardano-testnet/{}",
+                archive_name
+            )],
         };
 
         info!("snapshot: {}", serde_json::to_string(&snapshot).unwrap());
         serde_json::to_writer(&File::create("snapshots.json").unwrap(), &snapshot).unwrap();
 
-        rt.block_on(upload_file("testnet.tar.gz"))?;
+        rt.block_on(upload_file(archive_name))?;
+        rt.block_on(upload_file("snapshots.json"))?;
         Ok(())
     }
 
@@ -159,7 +164,7 @@ async fn upload_file(filename: &str) -> Result<(), SnapshotError> {
             "cardano-testnet",
             stream,
             None,
-            "testnet.tar.gz",
+            filename,
             "application/octet-stream",
         )
         .await;
