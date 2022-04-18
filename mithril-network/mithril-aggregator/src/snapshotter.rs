@@ -144,11 +144,27 @@ impl Snapshotter {
     }
 
     fn create_archive(&self, archive_name: &str) -> Result<u64, SnapshotError> {
-        let tar_gz = File::create(archive_name)?;
+        let path = Path::new(".").join(archive_name);
+        let tar_gz = match File::create(&path) {
+            Err(e) => {
+                return Err(SnapshotError {
+                    reason: format!(
+                        "cannot create archive {}: {}",
+                        &path.to_str().unwrap(),
+                        e.to_string()
+                    ),
+                })
+            }
+            Ok(f) => f,
+        };
         let enc = GzEncoder::new(tar_gz, Compression::default());
         let mut tar = tar::Builder::new(enc);
 
-        info!("compressing {} into {}", &self.db_directory, archive_name);
+        info!(
+            "compressing {} into {}",
+            &self.db_directory,
+            &path.to_str().unwrap()
+        );
 
         tar.append_dir_all(".", &self.db_directory)?;
 
@@ -170,6 +186,7 @@ async fn upload_file(filename: &str) -> Result<(), SnapshotError> {
         });
     };
 
+    info!("uploading {}", filename);
     let client = Client::default();
     let file = tokio::fs::File::open(filename).await.unwrap();
     let stream = FramedRead::new(file, BytesCodec::new());
@@ -190,6 +207,8 @@ async fn upload_file(filename: &str) -> Result<(), SnapshotError> {
         });
     };
 
+    info!("uploaded {}", filename);
+
     // ensure the uploaded file as public read access
     // when a file is uploaded to gcloud storage its permissions are overwritten so
     // we need to put them back
@@ -197,6 +216,11 @@ async fn upload_file(filename: &str) -> Result<(), SnapshotError> {
         entity: Entity::AllUsers,
         role: Role::Reader,
     };
+
+    info!(
+        "updating acl for {}: {:?}",
+        filename, new_bucket_access_control
+    );
 
     let acl = client
         .object_access_control()
@@ -209,6 +233,8 @@ async fn upload_file(filename: &str) -> Result<(), SnapshotError> {
         });
     };
 
+    info!("updated acl for {} ", filename);
+
     Ok(())
 }
 
@@ -220,9 +246,10 @@ fn compute_hash(entries: &Vec<&DirEntry>) -> [u8; 32] {
         let mut file = File::open(entry.path()).unwrap();
 
         io::copy(&mut file, &mut hasher).unwrap();
+        let percent = (ix + 1) * 100 / total;
         // report progress every 5%
-        if (ix / total * 100 % 5) == 0 {
-            info!("hashed {}", ix);
+        if (percent % 5) == 0 {
+            info!("hashed {} %", percent);
         }
     }
 
