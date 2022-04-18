@@ -246,11 +246,11 @@ struct Progress {
 impl Progress {
     fn report(&mut self, ix: usize) -> bool {
         self.index = ix;
-        (self.percent() % 5) == 0
+        ix % (self.total / 20) == 0
     }
 
-    fn percent(&self) -> usize {
-        (self.index + 1) * 100 / self.total
+    fn percent(&self) -> f64 {
+        (self.index as f64 * 100.0 / self.total as f64).ceil()
     }
 }
 
@@ -279,7 +279,7 @@ fn compute_hash(entries: &Vec<&DirEntry>) -> [u8; 32] {
         // FIXME: For some reason this does not work, the logs keep reporting every
         // single ix and not every 5% increment, I am puzzled
         if progress.report(ix) {
-            info!("hashed progress: {}", &progress);
+            info!("hashing: {}", &progress);
         }
     }
 
@@ -318,12 +318,12 @@ mod tests {
     fn reports_progress_every_5_percent() {
         let mut progress = Progress {
             index: 0,
-            total: 100,
+            total: 7000,
         };
 
         assert_eq!(false, progress.report(1));
-        assert_eq!(true, progress.report(4));
-        assert_eq!(false, progress.report(7));
-        assert_eq!(true, progress.report(19));
+        assert_eq!(false, progress.report(4));
+        assert_eq!(true, progress.report(350));
+        assert_eq!(false, progress.report(351));
     }
 }
