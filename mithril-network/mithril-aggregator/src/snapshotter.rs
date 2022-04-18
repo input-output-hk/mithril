@@ -108,17 +108,7 @@ impl Snapshotter {
         let digest = hex::encode(hash);
         info!("snapshot hash: {}", digest);
 
-        let tar_gz = File::create("testnet.tar.gz").unwrap();
-        let enc = GzEncoder::new(tar_gz, Compression::default());
-        let mut tar = tar::Builder::new(enc);
-
-        info!("compressing {} into testnet.tar.gz", &self.db_directory);
-
-        tar.append_dir_all(".", &self.db_directory).unwrap();
-        tar.finish().unwrap();
-
-        // TODO: compute size accurately
-        let size = fs::metadata("testnet.tar.gz").unwrap().len();
+        let size = self.create_archive("testnet.tar.gz")?;
 
         let timestamp: DateTime<Utc> = Utc::now();
         let created_at = format!("{:?}", timestamp);
@@ -136,6 +126,20 @@ impl Snapshotter {
 
         rt.block_on(upload_file("testnet.tar.gz"))?;
         Ok(())
+    }
+
+    fn create_archive(&self, archive_name: &str) -> Result<u64, SnapshotError> {
+        let tar_gz = File::create(archive_name).unwrap();
+        let enc = GzEncoder::new(tar_gz, Compression::default());
+        let mut tar = tar::Builder::new(enc);
+
+        info!("compressing {} into {}", &self.db_directory, archive_name);
+
+        tar.append_dir_all(".", &self.db_directory).unwrap();
+        tar.finish().unwrap();
+
+        // TODO: compute size accurately
+        Ok(fs::metadata(archive_name).unwrap().len())
     }
 }
 
