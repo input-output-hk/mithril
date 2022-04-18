@@ -1,10 +1,11 @@
 use crate::entities::Snapshot;
 use chrono::prelude::*;
+use cloud_storage::bucket::Entity;
+use cloud_storage::bucket_access_control::Role;
+use cloud_storage::object_access_control::NewObjectAccessControl;
 use cloud_storage::Client;
-use cloud_storage::Object;
 use flate2::write::GzEncoder;
 use flate2::Compression;
-use futures::executor::block_on;
 use hex;
 use log::error;
 use log::info;
@@ -12,9 +13,10 @@ use serde_json;
 use sha2::{Digest, Sha256};
 use std::env;
 use std::ffi::OsStr;
-use std::fs;
 use std::fs::File;
 use std::io;
+use std::io::prelude::*;
+use std::io::SeekFrom;
 use std::path::Path;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
@@ -141,10 +143,15 @@ impl Snapshotter {
         info!("compressing {} into {}", &self.db_directory, archive_name);
 
         tar.append_dir_all(".", &self.db_directory).unwrap();
-        tar.finish().unwrap();
 
-        // TODO: compute size accurately
-        Ok(fs::metadata(archive_name).unwrap().len())
+        // complete gz encoding and retrieve underlying file to compute size accurately
+        // TODO: proper error handling, like everywhere else...
+        let mut gz = tar.into_inner().unwrap();
+        gz.try_finish().unwrap();
+        let mut f = gz.finish().unwrap();
+        let size: u64 = f.seek(SeekFrom::End(0)).unwrap();
+
+        Ok(size)
     }
 }
 
@@ -170,6 +177,25 @@ async fn upload_file(filename: &str) -> Result<(), SnapshotError> {
         .await;
 
     if let Err(e) = response {
+        return Err(SnapshotError {
+            reason: e.to_string(),
+        });
+    };
+
+    // ensure the uploaded file as public read access
+    // when a file is uploaded to gcloud storage its permissions are overwritten so
+    // we need to put them back
+    let new_bucket_access_control = NewObjectAccessControl {
+        entity: Entity::AllUsers,
+        role: Role::Reader,
+    };
+
+    let acl = client
+        .object_access_control()
+        .create("cardano-testnet", filename, &new_bucket_access_control)
+        .await;
+
+    if let Err(e) = acl {
         return Err(SnapshotError {
             reason: e.to_string(),
         });
