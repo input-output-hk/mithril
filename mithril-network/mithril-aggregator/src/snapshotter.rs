@@ -59,6 +59,14 @@ struct SnapshotError {
     reason: String,
 }
 
+impl std::convert::From<io::Error> for SnapshotError {
+    fn from(err: io::Error) -> Self {
+        SnapshotError {
+            reason: err.to_string(),
+        }
+    }
+}
+
 impl Snapshotter {
     /// Server factory
     pub fn new(interval: u32, db_directory: String) -> Self {
@@ -136,20 +144,20 @@ impl Snapshotter {
     }
 
     fn create_archive(&self, archive_name: &str) -> Result<u64, SnapshotError> {
-        let tar_gz = File::create(archive_name).unwrap();
+        let tar_gz = File::create(archive_name)?;
         let enc = GzEncoder::new(tar_gz, Compression::default());
         let mut tar = tar::Builder::new(enc);
 
         info!("compressing {} into {}", &self.db_directory, archive_name);
 
-        tar.append_dir_all(".", &self.db_directory).unwrap();
+        tar.append_dir_all(".", &self.db_directory)?;
 
         // complete gz encoding and retrieve underlying file to compute size accurately
         // TODO: proper error handling, like everywhere else...
-        let mut gz = tar.into_inner().unwrap();
-        gz.try_finish().unwrap();
-        let mut f = gz.finish().unwrap();
-        let size: u64 = f.seek(SeekFrom::End(0)).unwrap();
+        let mut gz = tar.into_inner()?;
+        gz.try_finish()?;
+        let mut f = gz.finish()?;
+        let size: u64 = f.seek(SeekFrom::End(0))?;
 
         Ok(size)
     }
@@ -206,11 +214,16 @@ async fn upload_file(filename: &str) -> Result<(), SnapshotError> {
 
 fn compute_hash(entries: &Vec<&DirEntry>) -> [u8; 32] {
     let mut hasher = Sha256::new();
+    let total = entries.len();
 
-    for &entry in entries {
+    for (ix, &entry) in entries.iter().enumerate() {
         let mut file = File::open(entry.path()).unwrap();
 
         io::copy(&mut file, &mut hasher).unwrap();
+        // report progress every 5%
+        if (ix / total * 100 % 5) == 0 {
+            info!("hashed {}", ix);
+        }
     }
 
     hasher.finalize().into()
