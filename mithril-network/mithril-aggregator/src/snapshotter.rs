@@ -238,18 +238,48 @@ async fn upload_file(filename: &str) -> Result<(), SnapshotError> {
     Ok(())
 }
 
+struct Progress {
+    index: usize,
+    total: usize,
+}
+
+impl Progress {
+    fn report(&mut self, ix: usize) -> bool {
+        self.index = ix;
+        (self.percent() % 5) == 0
+    }
+
+    fn percent(&self) -> usize {
+        (self.index + 1) * 100 / self.total
+    }
+}
+
+impl std::fmt::Display for Progress {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(
+            f,
+            "{}",
+            format!("{}/{} ({}%)", self.index, self.total, self.percent())
+        )
+    }
+}
+
 fn compute_hash(entries: &Vec<&DirEntry>) -> [u8; 32] {
     let mut hasher = Sha256::new();
-    let total = entries.len();
+    let mut progress = Progress {
+        index: 0,
+        total: entries.len(),
+    };
 
     for (ix, &entry) in entries.iter().enumerate() {
         let mut file = File::open(entry.path()).unwrap();
 
         io::copy(&mut file, &mut hasher).unwrap();
-        let percent = (ix + 1) * 100 / total;
-        // report progress every 5%
-        if (percent % 5) == 0 {
-            info!("hashed {} %", percent);
+
+        // FIXME: For some reason this does not work, the logs keep reporting every
+        // single ix and not every 5% increment, I am puzzled
+        if progress.report(ix) {
+            info!("hashed progress: {}", &progress);
         }
     }
 
@@ -277,5 +307,23 @@ impl Stopper {
     pub fn stop(&self) {
         info!("Stopping Snapshotter");
         self.tx.send(Messages::Stop).unwrap();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reports_progress_every_5_percent() {
+        let mut progress = Progress {
+            index: 0,
+            total: 100,
+        };
+
+        assert_eq!(false, progress.report(1));
+        assert_eq!(true, progress.report(4));
+        assert_eq!(false, progress.report(7));
+        assert_eq!(true, progress.report(19));
     }
 }
