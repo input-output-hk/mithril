@@ -28,7 +28,8 @@ pub struct Args {
     verbose: clap_verbosity_flag::Verbosity,
 
     /// Snapshot interval, in seconds
-    #[clap(long, default_value_t = 10000)]
+    /// Defaults to 4 hours
+    #[clap(long, default_value_t = 14400)]
     snapshot_interval: u32,
 
     /// Directory to snapshot

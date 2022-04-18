@@ -37,3 +37,8 @@ variable "private_key" {
   type        = string
   description = "The private key used to authenticate connections for configuring remote VMs"
 }
+
+variable "google_application_credentials_json" {
+  type        = string
+  description = "Service account JSON key file used by aggregator to upload files to gcloud storage"
+}
