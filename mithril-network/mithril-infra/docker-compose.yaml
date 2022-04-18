@@ -25,6 +25,8 @@ services:
   mithril-aggregator:
     image: ghcr.io/input-output-hk/mithril-aggregator:${IMAGE_ID:-latest}
     restart: always
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS_JSON=${GOOGLE_APPLICATION_CREDENTIALS_JSON}
     logging:
       driver: "json-file"
       options:
