@@ -1,12 +1,16 @@
 use crate::entities::Snapshot;
 use chrono::prelude::*;
+use cloud_storage::Client;
+use cloud_storage::Object;
 use flate2::write::GzEncoder;
 use flate2::Compression;
+use futures::executor::block_on;
 use hex;
 use log::error;
 use log::info;
 use serde_json;
 use sha2::{Digest, Sha256};
+use std::env;
 use std::ffi::OsStr;
 use std::fs;
 use std::fs::File;
@@ -15,6 +19,9 @@ use std::path::Path;
 use std::sync::mpsc;
 use std::sync::mpsc::{Receiver, Sender};
 use std::time::Duration;
+use tokio::runtime::Runtime;
+use tokio_util::codec::BytesCodec;
+use tokio_util::codec::FramedRead;
 
 use walkdir::DirEntry;
 use walkdir::WalkDir;
@@ -65,6 +72,7 @@ impl Snapshotter {
     /// Start
     pub fn run(&self) {
         info!("Starting Snapshotter");
+        let rt = Runtime::new().unwrap();
         loop {
             match self
                 .rx
@@ -72,7 +80,7 @@ impl Snapshotter {
             {
                 Err(_) => {
                     info!("Snapshotting");
-                    if let Err(e) = self.snapshot() {
+                    if let Err(e) = self.snapshot(&rt) {
                         error!("{:?}", e)
                     }
                 }
@@ -87,7 +95,7 @@ impl Snapshotter {
         }
     }
 
-    fn snapshot(&self) -> Result<(), SnapshotError> {
+    fn snapshot(&self, rt: &Runtime) -> Result<(), SnapshotError> {
         let files = list_files(&*self.db_directory);
         let immutables: Vec<&DirEntry> = files
             .iter()
@@ -126,8 +134,39 @@ impl Snapshotter {
         info!("snapshot: {}", serde_json::to_string(&snapshot).unwrap());
         serde_json::to_writer(&File::create("snapshots.json").unwrap(), &snapshot).unwrap();
 
+        rt.block_on(upload_file("testnet.tar.gz"))?;
         Ok(())
     }
+}
+
+async fn upload_file(filename: &str) -> Result<(), SnapshotError> {
+    if env::var("GOOGLE_APPLICATION_CREDENTIALS_JSON").is_err() {
+        return Err(SnapshotError {
+            reason: "Missing GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable".to_string(),
+        });
+    };
+
+    let client = Client::default();
+    let file = tokio::fs::File::open(filename).await.unwrap();
+    let stream = FramedRead::new(file, BytesCodec::new());
+    let response = client
+        .object()
+        .create_streamed(
+            "cardano-testnet",
+            stream,
+            None,
+            "testnet.tar.gz",
+            "application/octet-stream",
+        )
+        .await;
+
+    if let Err(e) = response {
+        return Err(SnapshotError {
+            reason: e.to_string(),
+        });
+    };
+
+    Ok(())
 }
 
 fn compute_hash(entries: &Vec<&DirEntry>) -> [u8; 32] {
