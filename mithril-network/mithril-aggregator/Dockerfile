@@ -11,10 +11,24 @@ RUN adduser -D -g '' appuser
 
 # Copy files
 WORKDIR /app
-COPY . .
+RUN echo "fn  main () {}" > /app/dummy.rs
+
+# If this changed likely the Cargo.toml changed so lets trigger the
+# recopying of it anyways
+COPY mithril-network/mithril-aggregator/Cargo.lock /app/
+
+COPY mithril-network/mithril-aggregator/Cargo.toml /app/
+
+# We'll get to what this substitution is for but replace main.rs with
+# lib.rs if this is a library
+RUN sed -i 's/src\/lib.rs/dummy.rs/' Cargo.toml
+RUN cargo build --release
+# Now return the file back to normal
+RUN sed -i 's/dummy.rs/src\/lib.rs/' Cargo.toml
+# Copy the rest of the files into the container
+COPY ./mithril-network/mithril-aggregator /app
 
 # Build the binary
-WORKDIR /app/mithril-network/mithril-aggregator/
 RUN make build
 
 ###############################
@@ -29,7 +43,7 @@ RUN apk update
 COPY --from=rustbuilder /etc/passwd /etc/passwd
 
 # Copy the executable
-COPY --from=rustbuilder /app/mithril-network/mithril-aggregator/target/release/mithril-aggregator /app/bin/mithril-aggregator
+COPY --from=rustbuilder /app/target/release/mithril-aggregator /app/bin/mithril-aggregator
 
 #Workdir
 WORKDIR /app/
