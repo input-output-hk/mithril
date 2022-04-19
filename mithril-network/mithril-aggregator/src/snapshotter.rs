@@ -124,7 +124,7 @@ impl Snapshotter {
         let timestamp: DateTime<Utc> = Utc::now();
         let created_at = format!("{:?}", timestamp);
 
-        let snapshot = Snapshot {
+        let snapshots = vec![Snapshot {
             digest,
             certificate_hash: "".to_string(),
             size,
@@ -133,10 +133,10 @@ impl Snapshotter {
                 "https://storage.cloud.google.com/cardano-testnet/{}",
                 archive_name
             )],
-        };
+        }];
 
-        info!("snapshot: {}", serde_json::to_string(&snapshot).unwrap());
-        serde_json::to_writer(&File::create("snapshots.json").unwrap(), &snapshot).unwrap();
+        info!("snapshot: {}", serde_json::to_string(&snapshots).unwrap());
+        serde_json::to_writer(&File::create("snapshots.json").unwrap(), &snapshots).unwrap();
 
         rt.block_on(upload_file(archive_name))?;
         rt.block_on(upload_file("snapshots.json"))?;
