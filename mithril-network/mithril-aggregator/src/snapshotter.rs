@@ -276,8 +276,6 @@ fn compute_hash(entries: &Vec<&DirEntry>) -> [u8; 32] {
 
         io::copy(&mut file, &mut hasher).unwrap();
 
-        // FIXME: For some reason this does not work, the logs keep reporting every
-        // single ix and not every 5% increment, I am puzzled
         if progress.report(ix) {
             info!("hashing: {}", &progress);
         }
