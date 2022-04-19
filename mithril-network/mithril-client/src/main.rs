@@ -128,9 +128,22 @@ async fn main() {
             ),
             Err(err) => pretty_print_error(err),
         },
-        Commands::Restore { digest } => {
-            client.restore_snapshot(digest.to_string()).await.unwrap();
-        }
+        Commands::Restore { digest } => match client.restore_snapshot(digest.to_string()).await {
+            Ok(to) => {
+                println!(
+                    r###"Unarchive success {}
+to {}
+
+Restore a Cardano Node with:
+
+docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="{}",target=/data/db/ -e NETWORK=testnet inputoutput/cardano-node
+
+"###,
+                    digest, to, to
+                )
+            }
+            Err(err) => pretty_print_error(err),
+        },
     }
 }
 
