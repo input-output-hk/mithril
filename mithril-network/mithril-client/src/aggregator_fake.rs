@@ -38,8 +38,8 @@ impl AggregatorHandler for AggregatorHandlerFake {
         unimplemented!("Download snapshot {} at {}", digest, location);
     }
 
-    /// Unarchive snapshot
-    async fn unarchive_snapshot(&self, digest: String) -> Result<String, String> {
-        unimplemented!("Unarchive snapshot {}", digest);
+    /// Unpack snapshot
+    async fn unpack_snapshot(&self, digest: String) -> Result<String, String> {
+        unimplemented!("Unpack snapshot {}", digest);
     }
 }

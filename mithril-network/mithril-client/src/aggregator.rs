@@ -28,8 +28,8 @@ pub trait AggregatorHandler {
     /// Download snapshot
     async fn download_snapshot(&self, digest: String, location: String) -> Result<String, String>;
 
-    /// Unarchive snapshot
-    async fn unarchive_snapshot(&self, digest: String) -> Result<String, String>;
+    /// Unpack snapshot
+    async fn unpack_snapshot(&self, digest: String) -> Result<String, String>;
 }
 
 /// AggregatorHTTPClient is a http client for an aggregator
@@ -116,7 +116,7 @@ impl AggregatorHandler for AggregatorHTTPClient {
                             bytes_downloaded,
                             bytes_total
                         );
-                        io::stdout().flush().ok().expect("Could not flush stdout");
+                        io::stdout().flush().expect("Could not flush stdout");
                     }
                     Ok(local_path.into_os_string().into_string().unwrap())
                 }
@@ -127,19 +127,15 @@ impl AggregatorHandler for AggregatorHTTPClient {
         }
     }
 
-    /// Unarchive snapshot
-    async fn unarchive_snapshot(&self, digest: String) -> Result<String, String> {
+    /// Unpack snapshot
+    async fn unpack_snapshot(&self, digest: String) -> Result<String, String> {
         debug!("Restore snapshot {}", digest);
         println!("Restoring...");
         let local_path = archive_file_path(digest, self.config.network.clone())?;
         let snapshot_file_tar_gz = fs::File::open(local_path.clone())
             .map_err(|e| format!("can't open snapshot file: {}", e))?;
         let snapshot_file_tar = GzDecoder::new(snapshot_file_tar_gz);
-        let unarchive_dir_path = local_path
-            .clone()
-            .parent()
-            .unwrap()
-            .join(path::Path::new("db"));
+        let unarchive_dir_path = local_path.parent().unwrap().join(path::Path::new("db"));
         let mut snapshot_archive = Archive::new(snapshot_file_tar);
         snapshot_archive
             .unpack(&unarchive_dir_path)
@@ -161,6 +157,8 @@ fn archive_file_path(digest: String, network: String) -> Result<path::PathBuf, S
 #[cfg(test)]
 mod tests {
     use super::*;
+    use flate2::write::GzEncoder;
+    use flate2::Compression;
     use httpmock::prelude::*;
     use serde_json::json;
     use std::io::Read;
@@ -312,5 +310,44 @@ mod tests {
         let location = "http123://unreachable".to_string();
         let local_file_path = aggregator_client.download_snapshot(digest, location).await;
         assert!(local_file_path.is_err());
+    }
+
+    #[tokio::test]
+    async fn unpack_snapshot_ok() {
+        let network = "testnet".to_string();
+        let digest = "digest123".to_string();
+        let (_, config) = setup_test();
+        let data_expected = "1234567890".repeat(1024).to_string();
+        let data_file_name = "data.txt";
+        let archive_file_path = archive_file_path(digest.clone(), network).unwrap();
+        let source_directory_name = "src";
+        let source_file_path = archive_file_path
+            .parent()
+            .unwrap()
+            .join(path::Path::new(source_directory_name))
+            .join(path::Path::new(data_file_name));
+        fs::create_dir_all(&source_file_path.parent().unwrap()).unwrap();
+        let mut source_file = fs::File::create(&source_file_path).unwrap();
+        write!(source_file, "{}", data_expected).unwrap();
+        let archive_file = fs::File::create(&archive_file_path).unwrap();
+        let archive_encoder = GzEncoder::new(&archive_file, Compression::default());
+        let mut archive_builder = tar::Builder::new(archive_encoder);
+        archive_builder
+            .append_dir_all(".", &source_file_path.parent().unwrap())
+            .unwrap();
+
+        archive_builder.into_inner().unwrap().finish().unwrap();
+        let aggregator_client = AggregatorHTTPClient::new(config.clone());
+        let local_dir_path = aggregator_client.unpack_snapshot(digest.clone()).await;
+        local_dir_path.expect("unexpected error");
+    }
+
+    #[tokio::test]
+    async fn unpack_snapshot_ko_noarchive() {
+        let digest = "digest123".to_string();
+        let (_, config) = setup_test();
+        let aggregator_client = AggregatorHTTPClient::new(config.clone());
+        let local_dir_path = aggregator_client.unpack_snapshot(digest).await;
+        assert!(local_dir_path.is_err());
     }
 }
