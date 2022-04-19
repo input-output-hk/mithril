@@ -1,4 +1,5 @@
 use log::{debug, info};
+use serde_json::Value::Null;
 use std::convert::Infallible;
 use std::net::IpAddr;
 use warp::Future;
@@ -136,7 +137,11 @@ mod handlers {
         debug!("snapshots");
 
         // Snapshots
-        //let snapshots = fake_data::snapshots(1);
+        //         let snapshots = fake_data::snapshots(1);
+        //         Ok(warp::reply::with_status(
+        //             warp::reply::json(&snapshots),
+        //             StatusCode::OK,
+        //         ))
         let network = "testnet";
         let url = format!(
             "https://storage.googleapis.com/cardano-{}/snapshots.json",
@@ -160,10 +165,32 @@ mod handlers {
         debug!("snapshot_digest/{}", digest);
 
         // Snapshot
-        let snapshots = fake_data::snapshots(10);
-        let snapshot = snapshots.last();
+        // let snapshots = fake_data::snapshots(10);
+        // let snapshot = snapshots.last();
 
-        Ok(warp::reply::json(&snapshot))
+        // Ok(warp::reply::json(&snapshot))
+        let network = "testnet";
+        let url = format!(
+            "https://storage.googleapis.com/cardano-{}/snapshots.json",
+            network
+        );
+        let snapshot_store = SnapshotStoreHTTPClient::new(url);
+        match snapshot_store.get_snapshot_details(digest).await {
+            Ok(snapshot) => match snapshot {
+                Some(snapshot) => Ok(warp::reply::with_status(
+                    warp::reply::json(&snapshot),
+                    StatusCode::OK,
+                )),
+                None => Ok(warp::reply::with_status(
+                    warp::reply::json(&Null),
+                    StatusCode::NOT_FOUND,
+                )),
+            },
+            Err(err) => Ok(warp::reply::with_status(
+                warp::reply::json(&err),
+                StatusCode::INTERNAL_SERVER_ERROR,
+            )),
+        }
     }
 
     /// Register Signer
