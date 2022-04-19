@@ -1,13 +1,13 @@
 ###############################
 # STEP 1: build rust executable
 ###############################
-FROM rust:alpine AS rustbuilder
+FROM rust:1.60 AS rustbuilder
 
 # Upgrade and install build base
-RUN apk update && apk add build-base && apk add pkgconfig && apk add openssl-dev
+RUN apt-get update && apt-get install -y libssl-dev
 
 # Create appuser
-RUN adduser -D -g '' appuser
+RUN adduser --no-create-home --disabled-password appuser
 
 # Copy files
 WORKDIR /app
@@ -34,10 +34,10 @@ RUN make build
 ###############################
 # STEP 2: build a small image
 ###############################
-FROM alpine:latest
+FROM debian:buster-slim
 
 # Upgrade
-RUN apk update
+RUN apt-get update && apt-get install -y libssl1.1 ca-certificates && rm -rf /var/lib/apt/lists/*
 
 # Import the user and group files from the builder
 COPY --from=rustbuilder /etc/passwd /etc/passwd
