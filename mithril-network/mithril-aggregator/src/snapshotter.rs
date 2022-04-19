@@ -130,7 +130,7 @@ impl Snapshotter {
             size,
             created_at,
             locations: vec![format!(
-                "https://storage.cloud.google.com/cardano-testnet/{}",
+                "https://storage.googleapis.com/cardano-testnet/{}",
                 archive_name
             )],
         }];
