@@ -102,7 +102,7 @@ where
         debug!("Restore snapshot {}", digest);
         match &self.aggregator_handler {
             Some(aggregator_handler) => {
-                match aggregator_handler.unarchive_snapshot(digest.clone()).await {
+                match aggregator_handler.unpack_snapshot(digest.clone()).await {
                     Ok(to) => Ok(to),
                     Err(err) => Err(err),
                 }
