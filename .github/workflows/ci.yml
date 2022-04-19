@@ -42,7 +42,7 @@ jobs:
 
     - name: Terraform Plan
       run: |
-        terraform plan -var "image_id=${{ env.BRANCH_NAME }}-${{ steps.slug.outputs.sha8 }}" -var "private_key=\"${{ env.GCLOUD_PRIVATE_KEY }}\"" -var "google_application_credentials_json=\"${{ env.GOOGLE_CREDENTIALS }}\""
+        terraform plan -var "image_id=${{ env.BRANCH_NAME }}-${{ steps.slug.outputs.sha8 }}" -var "private_key=${{ env.GCLOUD_PRIVATE_KEY }}" -var "google_application_credentials_json=${{ env.GOOGLE_CREDENTIALS }}"
 
     - name: Update Pull Request
       uses: actions/github-script@v6
@@ -77,4 +77,4 @@ jobs:
     - name: Terraform Apply
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
       run: |
-        terraform apply -auto-approve  -var "image_id=${{ env.BRANCH_NAME }}-${{ steps.slug.outputs.sha8 }}" -var "private_key=\"${{ env.GCLOUD_PRIVATE_KEY }}\"" -var "google_application_credentials_json=\"${{ env.GOOGLE_CREDENTIALS }}\""
+        terraform apply -auto-approve  -var "image_id=${{ env.BRANCH_NAME }}-${{ steps.slug.outputs.sha8 }}" -var "private_key=${{ env.GCLOUD_PRIVATE_KEY }}" -var "google_application_credentials_json=${{ env.GOOGLE_CREDENTIALS }}"
