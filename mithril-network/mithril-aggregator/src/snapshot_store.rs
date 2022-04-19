@@ -15,7 +15,7 @@ pub trait SnapshotStorer {
     async fn list_snapshots(&self) -> Result<Vec<Snapshot>, String>;
 
     /// Get snapshot details
-    async fn get_snapshot_details(&self, digest: String) -> Result<Snapshot, String>;
+    async fn get_snapshot_details(&self, digest: String) -> Result<Option<Snapshot>, String>;
 }
 
 /// SnapshotStoreHTTPClient is a http client for an remote snapshot manifest
@@ -51,8 +51,13 @@ impl SnapshotStorer for SnapshotStoreHTTPClient {
     }
 
     /// Get snapshot details
-    async fn get_snapshot_details(&self, _digest: String) -> Result<Snapshot, String> {
-        unimplemented!()
+    async fn get_snapshot_details(&self, digest: String) -> Result<Option<Snapshot>, String> {
+        for snapshot in self.list_snapshots().await? {
+            if digest.eq(&snapshot.digest) {
+                return Ok(Some(snapshot));
+            }
+        }
+        Ok(None)
     }
 }
 
@@ -84,6 +89,23 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_get_snapshot_details_ok() {
+        let server = setup_test();
+        let all_snapshots = fake_data::snapshots(5);
+        let snapshot_expected = &all_snapshots[2];
+        let _snapshots_mock = server.mock(|when, then| {
+            when.path("/snapshots-manifest");
+            then.status(200).body(json!(all_snapshots).to_string());
+        });
+        let snapshot_store = SnapshotStoreHTTPClient::new(server.url("/snapshots-manifest"));
+        let snapshot = snapshot_store
+            .get_snapshot_details(snapshot_expected.digest.clone())
+            .await;
+        snapshot.as_ref().expect("unexpected error");
+        assert_eq!(Some(snapshot_expected.clone()), snapshot.unwrap());
+    }
+
+    #[tokio::test]
     async fn test_list_snapshots_ko_500() {
         let server = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
@@ -92,6 +114,18 @@ mod tests {
         });
         let snapshot_store = SnapshotStoreHTTPClient::new(server.url("/snapshots-manifest"));
         let snapshots = snapshot_store.list_snapshots().await;
+        assert!(snapshots.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_get_snapshot_details_ko_500() {
+        let server = setup_test();
+        let _snapshots_mock = server.mock(|when, then| {
+            when.path("/snapshots-manifest");
+            then.status(500);
+        });
+        let snapshot_store = SnapshotStoreHTTPClient::new(server.url("/snapshots-manifest"));
+        let snapshots = snapshot_store.get_snapshot_details("abc".to_string()).await;
         assert!(snapshots.is_err());
     }
 
