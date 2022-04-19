@@ -1,12 +1,14 @@
 use async_trait::async_trait;
+use flate2::read::GzDecoder;
 use futures::StreamExt;
 use log::debug;
 use reqwest::{self, StatusCode};
 use std::env;
 use std::fs;
-use std::io::Write;
+use std::io::{self, Write};
 use std::path;
 use std::sync::Arc;
+use tar::Archive;
 
 use crate::entities::*;
 
@@ -25,6 +27,9 @@ pub trait AggregatorHandler {
 
     /// Download snapshot
     async fn download_snapshot(&self, digest: String, location: String) -> Result<String, String>;
+
+    /// Unarchive snapshot
+    async fn unarchive_snapshot(&self, digest: String) -> Result<String, String>;
 }
 
 /// AggregatorHTTPClient is a http client for an aggregator
@@ -89,12 +94,7 @@ impl AggregatorHandler for AggregatorHTTPClient {
         match response {
             Ok(response) => match response.status() {
                 StatusCode::OK => {
-                    let local_path = env::current_dir()
-                        .map_err(|e| format!("current dir not available: {}", e))?
-                        .join(path::Path::new(&format!(
-                            "data/{}/{}/snapshot.archive",
-                            self.config.network, digest
-                        )));
+                    let local_path = archive_file_path(digest, self.config.network.clone())?;
                     fs::create_dir_all(&local_path.parent().unwrap())
                         .map_err(|e| format!("can't create snapshot dir: {}", e))?;
                     let mut local_file = fs::File::create(&local_path)
@@ -110,11 +110,13 @@ impl AggregatorHandler for AggregatorHTTPClient {
                             .write_all(&chunk)
                             .map_err(|e| format!("can't write to snapshot file: {}", e))?;
                         bytes_downloaded += chunk.len() as u64;
-                        debug!(
-                            "Downloaded {}% - {} Bytes",
+                        print!(
+                            "Downloaded {}% - {}/{} Bytes\r",
                             100 * bytes_downloaded / bytes_total,
-                            bytes_downloaded
+                            bytes_downloaded,
+                            bytes_total
                         );
+                        io::stdout().flush().ok().expect("Could not flush stdout");
                     }
                     Ok(local_path.into_os_string().into_string().unwrap())
                 }
@@ -124,6 +126,36 @@ impl AggregatorHandler for AggregatorHTTPClient {
             Err(err) => Err(err.to_string()),
         }
     }
+
+    /// Unarchive snapshot
+    async fn unarchive_snapshot(&self, digest: String) -> Result<String, String> {
+        debug!("Restore snapshot {}", digest);
+        println!("Restoring...");
+        let local_path = archive_file_path(digest, self.config.network.clone())?;
+        let snapshot_file_tar_gz = fs::File::open(local_path.clone())
+            .map_err(|e| format!("can't open snapshot file: {}", e))?;
+        let snapshot_file_tar = GzDecoder::new(snapshot_file_tar_gz);
+        let unarchive_dir_path = local_path
+            .clone()
+            .parent()
+            .unwrap()
+            .join(path::Path::new("db"));
+        let mut snapshot_archive = Archive::new(snapshot_file_tar);
+        snapshot_archive
+            .unpack(&unarchive_dir_path)
+            .map_err(|e| format!("can't unpack snapshot archive: {}", e))?;
+        Ok(unarchive_dir_path.into_os_string().into_string().unwrap())
+    }
+}
+
+/// Computes local archive filepath
+fn archive_file_path(digest: String, network: String) -> Result<path::PathBuf, String> {
+    Ok(env::current_dir()
+        .map_err(|e| format!("current dir not available: {}", e))?
+        .join(path::Path::new(&format!(
+            "data/{}/{}/snapshot.archive.tar.gz",
+            network, digest
+        ))))
 }
 
 #[cfg(test)]
@@ -240,7 +272,7 @@ mod tests {
         let url_path = "/download";
         let (server, config) = setup_test();
         let data_expected = "1234567890".repeat(1024).to_string();
-        let _download_mock = server.mock(|when, then| {
+        server.mock(|when, then| {
             when.path(url_path.to_string());
             then.status(200).body(&data_expected);
         });

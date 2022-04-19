@@ -98,9 +98,17 @@ where
     }
 
     /// Restore a snapshot by hash
-    pub async fn restore_snapshot(&self, hash: String) -> Result<(), String> {
-        debug!("Restore snapshot {}", hash);
-        Ok(())
+    pub async fn restore_snapshot(&self, digest: String) -> Result<String, String> {
+        debug!("Restore snapshot {}", digest);
+        match &self.aggregator_handler {
+            Some(aggregator_handler) => {
+                match aggregator_handler.unarchive_snapshot(digest.clone()).await {
+                    Ok(to) => Ok(to),
+                    Err(err) => Err(err),
+                }
+            }
+            None => Err(errors::MISSING_AGGREGATOR_HANDLER.to_string()),
+        }
     }
 }
 
