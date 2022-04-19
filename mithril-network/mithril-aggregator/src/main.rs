@@ -57,7 +57,7 @@ async fn main() {
     };
 
     // Start snapshot uploader
-    let snapshotter = Snapshotter::new(args.snapshot_interval, args.db_directory);
+    let snapshotter = Snapshotter::new(args.snapshot_interval * 1000, args.db_directory);
     let stopper = snapshotter.stopper();
 
     thread::spawn(move || snapshotter.run());
