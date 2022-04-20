@@ -5,6 +5,16 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Aggregator configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Config {
+    /// Cardano network
+    pub network: String,
+
+    /// Snapshots manifest location
+    pub url_snapshot_manifest: String,
+}
+
 /// Beacon represents a point in the Cardano chain at which a Mithril certificate should be produced
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct Beacon {
@@ -141,7 +151,7 @@ impl Certificate {
 pub struct Error {
     /// error code
     #[serde(rename = "code")]
-    pub code: Option<serde_json::Value>,
+    pub code: String,
 
     /// error message
     #[serde(rename = "message")]
@@ -150,7 +160,7 @@ pub struct Error {
 
 impl Error {
     /// Error factory
-    pub fn new(code: Option<serde_json::Value>, message: String) -> Error {
+    pub fn new(code: String, message: String) -> Error {
         Error { code, message }
     }
 }
