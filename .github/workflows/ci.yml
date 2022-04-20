@@ -584,7 +584,11 @@ jobs:
 
   terraform:
     runs-on: ubuntu-latest
-    needs: [ docker-mithril-aggregator, docker-mithril-client ]
+    needs:
+    - docker-mithril-aggregator
+    - docker-mithril-client
+    - test-mithril-core
+    - build-test-lab
     env:
       # Contains a JSON-formatted service account key
       GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
