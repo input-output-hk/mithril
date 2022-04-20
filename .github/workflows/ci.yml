@@ -64,6 +64,61 @@ jobs:
           command: bench
           args: --no-run --locked --manifest-path ./mithril-core/Cargo.toml
 
+      - name: Mithril Core / Generate doc
+        uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: --no-deps --release --manifest-path ./mithril-core/Cargo.toml
+
+      - name: Publish libmithril
+        uses: actions/upload-artifact@v3
+        with:
+          name: libmithril
+          path: |
+            mithril-core/target/release/libmithril.so
+            mithril-core/target/include/mithril.h
+
+      - name: Publish libmithril-doc
+        uses: actions/upload-artifact@v3
+        with:
+          name: libmithril-doc
+          path: |
+            mithril-core/target/doc/
+
+  test-mithril-core:
+    if: github.event.pull_request.draft == false
+    needs:
+    - build-mithril-core
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: clippy, rustfmt
+          override: true
+
+      - uses: actions/cache@v2.1.5
+        name: Cache mithril-core/Cargo.lock
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            mithril-core/target
+          key: ${{ runner.os }}-${{ hashFiles('mithril-core/Cargo.lock') }}
+          restore-keys: |
+              ${{ runner.os }}-key
+
+      - name: Download mithril core
+        uses: actions/download-artifact@v3
+        with:
+          name: libmithril
+          path: mithril-core/target/include/
+
       - name: Run cargo test
         uses: actions-rs/cargo@v1
         with:
@@ -87,31 +142,10 @@ jobs:
         run: LD_LIBRARY_PATH=../target/release ./tests --gtest_output=xml:test-results.xml
         working-directory: mithril-core/c-tests
 
-      - name: Mithril Core / Generate doc
-        uses: actions-rs/cargo@v1
-        with:
-          command: doc
-          args: --no-deps --release --manifest-path ./mithril-core/Cargo.toml
-
       - name: Publish Unit Test Results
         uses: EnricoMi/publish-unit-test-result-action@v1
         with:
           files: ./**/test-results.xml
-
-      - name: Publish libmithril
-        uses: actions/upload-artifact@v3
-        with:
-          name: libmithril
-          path: |
-            mithril-core/target/release/libmithril.so
-            mithril-core/target/include/mithril.h
-
-      - name: Publish libmithril-doc
-        uses: actions/upload-artifact@v3
-        with:
-          name: libmithril-doc
-          path: |
-            mithril-core/target/doc/
 
   build-mithril-aggregator:
     if: github.event.pull_request.draft == false
