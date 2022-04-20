@@ -51,8 +51,11 @@ make build
 # Help
 ./mithril-client --help
 
-# Run
-./mithril-client
+# Run and show list of snapshots
+./mithril-client list
+
+# Run and show list of snapshots for the testnet config file
+./mithril-client -c ./config/testnet.json list
 ```
 
 ## Build and run Docker container:
