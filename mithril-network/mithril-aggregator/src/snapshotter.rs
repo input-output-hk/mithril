@@ -18,20 +18,12 @@ use std::io;
 use std::io::prelude::*;
 use std::io::SeekFrom;
 use std::path::Path;
-use std::sync::mpsc;
-use std::sync::mpsc::{Receiver, Sender};
-use std::time::Duration;
-use tokio::runtime::Runtime;
+use tokio::time::{sleep, Duration};
 use tokio_util::codec::BytesCodec;
 use tokio_util::codec::FramedRead;
 
 use walkdir::DirEntry;
 use walkdir::WalkDir;
-
-/// Message sent to Snapshotter
-pub enum Messages {
-    Stop,
-}
 
 /// Snapshotter
 pub struct Snapshotter {
@@ -40,17 +32,6 @@ pub struct Snapshotter {
 
     /// DB directory to snapshot
     db_directory: String,
-
-    /// For sending instructions to the snapshotter
-    tx: Sender<Messages>,
-
-    /// For receiving messages while snapshotter is running
-    rx: Receiver<Messages>,
-}
-
-pub struct Stopper {
-    /// For sending instructions to the snapshotter
-    tx: Sender<Messages>,
 }
 
 #[derive(Debug)]
@@ -70,42 +51,25 @@ impl std::convert::From<io::Error> for SnapshotError {
 impl Snapshotter {
     /// Server factory
     pub fn new(interval: u32, db_directory: String) -> Self {
-        let (tx, rx) = mpsc::channel();
         Self {
             interval,
             db_directory,
-            rx,
-            tx,
         }
     }
 
     /// Start
-    pub fn run(&self) {
+    pub async fn run(&self) {
         info!("Starting Snapshotter");
-        let rt = Runtime::new().unwrap();
         loop {
-            match self
-                .rx
-                .recv_timeout(Duration::from_millis(self.interval.into()))
-            {
-                Err(_) => {
-                    info!("Snapshotting");
-                    if let Err(e) = self.snapshot(&rt) {
-                        error!("{:?}", e)
-                    }
-                }
-                Ok(Messages::Stop) => info!("Stopped snapshotter"),
+            sleep(Duration::from_millis(self.interval.into())).await;
+            info!("Snapshotting");
+            if let Err(e) = self.snapshot().await {
+                error!("{:?}", e)
             }
         }
     }
 
-    pub fn stopper(&self) -> Stopper {
-        Stopper {
-            tx: self.tx.clone(),
-        }
-    }
-
-    fn snapshot(&self, rt: &Runtime) -> Result<(), SnapshotError> {
+    async fn snapshot(&self) -> Result<(), SnapshotError> {
         let archive_name = "testnet.tar.gz";
         let files = list_files(&*self.db_directory);
         let immutables: Vec<&DirEntry> = files
@@ -138,8 +102,9 @@ impl Snapshotter {
         info!("snapshot: {}", serde_json::to_string(&snapshots).unwrap());
         serde_json::to_writer(&File::create("snapshots.json").unwrap(), &snapshots).unwrap();
 
-        rt.block_on(upload_file(archive_name))?;
-        rt.block_on(upload_file("snapshots.json"))?;
+        upload_file(archive_name).await?;
+        upload_file("snapshots.json").await?;
+
         Ok(())
     }
 
@@ -298,14 +263,6 @@ fn list_files(dir: &str) -> Vec<DirEntry> {
         }
     }
     files
-}
-
-impl Stopper {
-    /// Stop
-    pub fn stop(&self) {
-        info!("Stopping Snapshotter");
-        self.tx.send(Messages::Stop).unwrap();
-    }
 }
 
 #[cfg(test)]

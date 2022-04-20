@@ -8,7 +8,6 @@ mod snapshot_store;
 mod snapshotter;
 
 use clap::Parser;
-use std::thread;
 
 use crate::http_server::Server;
 use crate::snapshotter::Snapshotter;
@@ -58,16 +57,19 @@ async fn main() {
     };
 
     // Start snapshot uploader
-    let snapshotter = Snapshotter::new(args.snapshot_interval * 1000, args.db_directory);
-    let stopper = snapshotter.stopper();
-
-    thread::spawn(move || snapshotter.run());
+    let handle = tokio::spawn(async move {
+        let snapshotter = Snapshotter::new(
+            args.snapshot_interval.clone() * 1000,
+            args.db_directory.clone(),
+        );
+        snapshotter.run().await
+    });
 
     // Start REST server
     let http_server = Server::new(args.server_ip, args.server_port);
     http_server.start(shutdown_signal).await;
 
-    stopper.stop();
+    handle.abort();
 
     println!("Exiting...");
 }
