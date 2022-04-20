@@ -14,10 +14,10 @@ COPY mithril-aggregator /app/bin/mithril-aggregator
 
 #Workdir
 WORKDIR /app/
-RUN chown -R appuser /app/
+RUN chown -R appuser /app/ && chmod a+x /app/bin/mithril-aggregator
 
 # Use an unprivileged user
 USER appuser
 
 # Run the executable
-ENTRYPOINT ["/app/bin/mithril-aggregator","-vvv"]
+ENTRYPOINT ["/app/bin/mithril-aggregator","-vv"]

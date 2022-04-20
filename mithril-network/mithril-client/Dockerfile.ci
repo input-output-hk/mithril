@@ -15,7 +15,7 @@ COPY mithril-network/mithril-client/config /app/config
 
 # Workdir
 WORKDIR /app/
-RUN chown -R appuser /app/
+RUN chown -R appuser /app/ && chmod a+x /app/bin/mithril-client
 
 # Use an unprivileged user
 USER appuser
