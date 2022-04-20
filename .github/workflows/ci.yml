@@ -1,10 +1,7 @@
 name: CI
 
 # do not run workflow twice on PRs
-on:
-  push:
-  pull_request:
-    types: [opened, reopened]
+on: [push]
 
 jobs:
   build-mithril-core:
