@@ -445,7 +445,7 @@ jobs:
       PUSH_PACKAGES: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       REGISTRY: ghcr.io
       IMAGE_NAME: ${{ github.repository_owner }}/mithril-client
-      DOCKER_FILE: ./mithril-network/mithril-client/Dockerfile
+      DOCKER_FILE: ./mithril-network/mithril-client/Dockerfile.ci
       CONTEXT: .
       GITHUB_REF: ${{ github.ref}}
 
@@ -467,6 +467,12 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags:
             type=raw,value={{branch}}-{{sha}}
+
+      - name: Download mithril client executable
+        uses: actions/download-artifact@v3
+        with:
+          name: mithril-client
+          path: .
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v2
