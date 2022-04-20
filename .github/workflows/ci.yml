@@ -388,6 +388,7 @@ jobs:
 
   docker-mithril-aggregator:
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' }}
     needs: [ build-mithril-core, build-mithril-aggregator ]
     permissions:
       contents: read
@@ -436,6 +437,7 @@ jobs:
 
   docker-mithril-client:
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' }}
     needs: [ build-mithril-core, build-mithril-client ]
     permissions:
       contents: read
