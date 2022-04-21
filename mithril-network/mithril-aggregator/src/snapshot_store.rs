@@ -70,8 +70,7 @@ mod tests {
     use crate::fake_data;
 
     fn setup_test() -> MockServer {
-        let server = MockServer::start();
-        server
+        MockServer::start()
     }
 
     #[tokio::test]

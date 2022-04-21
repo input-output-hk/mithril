@@ -118,7 +118,7 @@ impl<'a> APISpec<'a> {
                 schema.insert(String::from("components"), components);
 
                 let validator = JSONSchema::compile(&json!(schema)).unwrap();
-                match validator.validate(&value).map_err(|errs| {
+                match validator.validate(value).map_err(|errs| {
                     errs.into_iter()
                         .map(|e| e.to_string())
                         .collect::<Vec<String>>()
@@ -144,8 +144,8 @@ mod tests {
     fn test_apispec_validate_ok() {
         // Route exists and does not expect request body, but expects response
         assert!(APISpec::from_file(API_SPEC_FILE)
-            .method(&Method::GET.as_str())
-            .path(&"/certificate-pending")
+            .method(Method::GET.as_str())
+            .path("/certificate-pending")
             .validate_request(&Null)
             .unwrap()
             .validate_response(&Response::<Bytes>::new(Bytes::from(
@@ -157,8 +157,8 @@ mod tests {
 
         // Route exists and expects request body, but does not expect response
         assert!(APISpec::from_file(API_SPEC_FILE)
-            .method(&Method::POST.as_str())
-            .path(&"/register-signer")
+            .method(Method::POST.as_str())
+            .path("/register-signer")
             .validate_request(&fake_data::signers(1)[0])
             .unwrap()
             .validate_response(&Response::<Bytes>::new(Bytes::new()))
@@ -175,8 +175,8 @@ mod tests {
         ));
         *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
         assert!(APISpec::from_file(API_SPEC_FILE)
-            .method(&Method::POST.as_str())
-            .path(&"/register-signer")
+            .method(Method::POST.as_str())
+            .path("/register-signer")
             .validate_response(&response)
             .is_ok());
     }
@@ -185,43 +185,43 @@ mod tests {
     fn test_apispec_validate_errors() {
         // Route does not exist
         assert!(APISpec::from_file(API_SPEC_FILE)
-            .method(&Method::GET.as_str())
-            .path(&"/route-not-existing-in-openapi-spec")
+            .method(Method::GET.as_str())
+            .path("/route-not-existing-in-openapi-spec")
             .validate_response(&Response::<Bytes>::new(Bytes::from_static(b"abcdefgh")))
             .is_err());
 
         // Route exists, but method does not
         assert!(APISpec::from_file(API_SPEC_FILE)
-            .method(&Method::OPTIONS.as_str())
-            .path(&"/certificate-pending")
+            .method(Method::OPTIONS.as_str())
+            .path("/certificate-pending")
             .validate_response(&Response::<Bytes>::new(Bytes::from_static(b"abcdefgh")))
             .is_err());
 
         // Route exists, but expects non empty reponse
         assert!(APISpec::from_file(API_SPEC_FILE)
-            .method(&Method::GET.as_str())
-            .path(&"/certificate-pending")
+            .method(Method::GET.as_str())
+            .path("/certificate-pending")
             .validate_response(&Response::<Bytes>::new(Bytes::new()))
             .is_err());
 
         // Route exists, but expects empty reponse
         assert!(APISpec::from_file(API_SPEC_FILE)
-            .method(&Method::POST.as_str())
-            .path(&"/register-signer")
+            .method(Method::POST.as_str())
+            .path("/register-signer")
             .validate_response(&Response::<Bytes>::new(Bytes::from_static(b"abcdefgh")))
             .is_err());
 
         // Route exists, but does not expect request body
         assert!(APISpec::from_file(API_SPEC_FILE)
-            .method(&Method::GET.as_str())
-            .path(&"/certificate-pending")
+            .method(Method::GET.as_str())
+            .path("/certificate-pending")
             .validate_request(&fake_data::beacon())
             .is_err());
 
         // Route exists, but expects non empty request body
         assert!(APISpec::from_file(API_SPEC_FILE)
-            .method(&Method::POST.as_str())
-            .path(&"/register-signer")
+            .method(Method::POST.as_str())
+            .path("/register-signer")
             .validate_request(&Null)
             .is_err());
     }
