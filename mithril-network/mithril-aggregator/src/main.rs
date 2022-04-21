@@ -3,16 +3,15 @@
 mod apispec;
 mod dependency;
 mod entities;
-mod errors;
 mod fake_data;
 mod http_server;
 mod snapshot_store;
 mod snapshotter;
 
 use clap::Parser;
+use config;
 use log::debug;
-use std::fs::File;
-use std::path::Path;
+use std::env;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -36,9 +35,9 @@ pub struct Args {
     #[clap(flatten)]
     verbose: clap_verbosity_flag::Verbosity,
 
-    /// Config file
-    #[clap(short, long, default_value = "./config/dev.json")]
-    config_file: String,
+    /// Run mode
+    #[clap(short, long, default_value = "dev")]
+    run_mode: String,
 
     /// Snapshot interval, in seconds
     /// Defaults to 4 hours
@@ -62,17 +61,15 @@ async fn main() {
         .init();
 
     // Load config
-    let config: Config = {
-        let file_handler = File::open(Path::new(&args.config_file));
-        let file = match file_handler {
-            Err(e) => panic!("{}: {}", errors::OPEN_CONFIG_FILE, e),
-            Ok(f) => f,
-        };
-        match serde_json::from_reader(file) {
-            Err(e) => panic!("{}: {}", errors::PARSE_CONFIG_FILE, e),
-            Ok(c) => c,
-        }
-    };
+    let run_mode = env::var("RUN_MODE").unwrap_or_else(|_| args.run_mode.into());
+    debug!("Run Mode: {}", run_mode);
+    let config: Config = config::Config::builder()
+        .add_source(config::File::with_name(&format!("./config/{}.json", run_mode)).required(false))
+        .add_source(config::Environment::default())
+        .build()
+        .unwrap()
+        .try_deserialize()
+        .unwrap();
     debug!("{:?}", config);
 
     // Init dependencies
