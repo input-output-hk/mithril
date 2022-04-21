@@ -11,6 +11,7 @@ RUN adduser --no-create-home --disabled-password appuser
 
 # Copy the executable
 COPY mithril-aggregator /app/bin/mithril-aggregator
+COPY mithril-network/mithril-aggregator/config /app/config
 
 #Workdir
 WORKDIR /app/

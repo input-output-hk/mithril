@@ -1,0 +1,4 @@
+{
+    "network": "testnet",
+    "url_snapshot_manifest": "https://storage.googleapis.com/cardano-testnet/snapshots.json"
+}
