@@ -28,10 +28,10 @@ const config = {
           editUrl: 'https://github.com/input-output-hk/mithril/tree/main/docs/root/',
         },
         blog: {
-          path: 'milestones',
-          routeBasePath: 'milestones/',
-          blogTitle: "milestones",
-          blogSidebarTitle: "Milestones",
+          path: 'adr',
+          routeBasePath: 'adr/',
+          blogTitle: "ADR",
+          blogSidebarTitle: "ADR",
           sortPosts: 'ascending',
           showReadingTime: true,
         },
@@ -95,7 +95,7 @@ const config = {
             label: 'Aggregator Server Api Reference',
             position: 'left',
           },
-          {to: '/milestones', label: 'Milestones', position: 'right'},
+          {to: '/adr', label: 'ADRs', position: 'right'},
           {
             href: 'https://github.com/input-output-hk/mithril/',
             label: 'GitHub',

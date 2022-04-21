@@ -40,6 +40,8 @@ let
     pkgs.haskellPackages.cabal-fmt
     # For plotting results of local-cluster benchmarks
     pkgs.gnuplot
+    # For generating documentation
+    pkgs.yarn
   ];
 
   # A "cabal-only" shell which does not use haskell.nix

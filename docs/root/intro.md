@@ -4,10 +4,6 @@ sidebar_position: 1
 
 # Documentation
 
-## Reports
-
-* [PoC 2022-01 Milestone Report](/doc/milestones/2022-01-report)
-
 ## Technical Documentation
 
 * [Mithril Core Concepts](./core-concepts/)
