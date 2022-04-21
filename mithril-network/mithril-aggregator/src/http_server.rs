@@ -6,7 +6,7 @@ use std::sync::Arc;
 use warp::Future;
 use warp::{http::Method, http::StatusCode, Filter};
 
-use crate::dependency::DependencyManager;
+use crate::dependency::{DependencyManager, SnapshotStorerWrapper};
 use crate::entities;
 use crate::fake_data;
 
@@ -86,7 +86,7 @@ mod router {
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("snapshots")
             .and(warp::get())
-            .and(with_dependency_manager(dependency_manager))
+            .and(with_snapshot_storer(dependency_manager))
             .and_then(handlers::snapshots)
     }
 
@@ -96,7 +96,7 @@ mod router {
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("snapshot" / String)
             .and(warp::get())
-            .and(with_dependency_manager(dependency_manager))
+            .and(with_snapshot_storer(dependency_manager))
             .and_then(handlers::snapshot_digest)
     }
 
@@ -123,6 +123,13 @@ mod router {
         dependency_manager: Arc<DependencyManager>,
     ) -> impl Filter<Extract = (Arc<DependencyManager>,), Error = Infallible> + Clone {
         warp::any().map(move || dependency_manager.clone())
+    }
+
+    /// With snapshot storer middleware
+    fn with_snapshot_storer(
+        dependency_manager: Arc<DependencyManager>,
+    ) -> impl Filter<Extract = (SnapshotStorerWrapper,), Error = Infallible> + Clone {
+        warp::any().map(move || dependency_manager.snapshot_storer.as_ref().unwrap().clone())
     }
 }
 
@@ -155,17 +162,12 @@ mod handlers {
 
     /// Snapshots
     pub async fn snapshots(
-        dependency_manager: Arc<DependencyManager>,
+        snapshot_storer: SnapshotStorerWrapper,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("snapshots");
 
         // Snapshots
-        let snapshot_store = dependency_manager
-            .snapshot_storer
-            .as_ref()
-            .unwrap()
-            .read()
-            .await;
+        let snapshot_store = snapshot_storer.read().await;
         match snapshot_store.list_snapshots().await {
             Ok(snapshots) => Ok(warp::reply::with_status(
                 warp::reply::json(&snapshots),
@@ -181,17 +183,12 @@ mod handlers {
     /// Snapshot by digest
     pub async fn snapshot_digest(
         digest: String,
-        dependency_manager: Arc<DependencyManager>,
+        snapshot_storer: SnapshotStorerWrapper,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("snapshot_digest/{}", digest);
 
         // Snapshot
-        let snapshot_store = dependency_manager
-            .snapshot_storer
-            .as_ref()
-            .unwrap()
-            .read()
-            .await;
+        let snapshot_store = snapshot_storer.read().await;
         match snapshot_store.get_snapshot_details(digest).await {
             Ok(snapshot) => match snapshot {
                 Some(snapshot) => Ok(warp::reply::with_status(
