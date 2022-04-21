@@ -131,7 +131,7 @@ async fn main() {
         Commands::Restore { digest } => match client.restore_snapshot(digest.to_string()).await {
             Ok(to) => {
                 println!(
-                    r###"Unarchive success {}
+                    r###"Unpack success {}
 to {}
 
 Restore a Cardano Node with:
