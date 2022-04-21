@@ -55,7 +55,7 @@ mod router {
             certificate_pending(dependency_manager.clone())
                 .or(certificate_certificate_hash())
                 .or(snapshots(dependency_manager.clone()))
-                .or(snapshot_digest(dependency_manager.clone()))
+                .or(snapshot_digest(dependency_manager))
                 .or(register_signer())
                 .or(register_signatures())
                 .with(cors),
@@ -68,7 +68,7 @@ mod router {
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("certificate-pending")
             .and(warp::get())
-            .and(with_dependency_manager(dependency_manager.clone()))
+            .and(with_dependency_manager(dependency_manager))
             .and_then(handlers::certificate_pending)
     }
 
@@ -86,7 +86,7 @@ mod router {
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("snapshots")
             .and(warp::get())
-            .and(with_dependency_manager(dependency_manager.clone()))
+            .and(with_dependency_manager(dependency_manager))
             .and_then(handlers::snapshots)
     }
 
@@ -96,7 +96,7 @@ mod router {
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("snapshot" / String)
             .and(warp::get())
-            .and(with_dependency_manager(dependency_manager.clone()))
+            .and(with_dependency_manager(dependency_manager))
             .and_then(handlers::snapshot_digest)
     }
 
@@ -172,10 +172,7 @@ mod handlers {
                 StatusCode::OK,
             )),
             Err(err) => Ok(warp::reply::with_status(
-                warp::reply::json(&entities::Error::new(
-                    "MITHRIL-E0001".to_string(),
-                    err.to_string(),
-                )),
+                warp::reply::json(&entities::Error::new("MITHRIL-E0001".to_string(), err)),
                 StatusCode::INTERNAL_SERVER_ERROR,
             )),
         }
@@ -207,10 +204,7 @@ mod handlers {
                 )),
             },
             Err(err) => Ok(warp::reply::with_status(
-                warp::reply::json(&entities::Error::new(
-                    "MITHRIL-E0002".to_string(),
-                    err.to_string(),
-                )),
+                warp::reply::json(&entities::Error::new("MITHRIL-E0002".to_string(), err)),
                 StatusCode::INTERNAL_SERVER_ERROR,
             )),
         }
@@ -253,8 +247,7 @@ mod tests {
             url_snapshot_manifest: "https://storage.googleapis.com/cardano-testnet/snapshots.json"
                 .to_string(),
         };
-        let dependency_manager = DependencyManager::new(config);
-        dependency_manager
+        DependencyManager::new(config)
     }
 
     #[tokio::test]
@@ -264,14 +257,14 @@ mod tests {
         let path = "/certificate-pending";
 
         let response = request()
-            .method(&method)
+            .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
             .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
-            .method(&method)
-            .path(&path)
+            .method(method)
+            .path(path)
             .validate_request(&Null)
             .unwrap()
             .validate_response(&response)
@@ -285,14 +278,14 @@ mod tests {
         let path = "/certificate/{certificate_hash}";
 
         let response = request()
-            .method(&method)
+            .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
             .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
-            .method(&method)
-            .path(&path)
+            .method(method)
+            .path(path)
             .validate_request(&Null)
             .unwrap()
             .validate_response(&response)
@@ -314,14 +307,14 @@ mod tests {
         let path = "/snapshots";
 
         let response = request()
-            .method(&method)
+            .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
             .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
-            .method(&method)
-            .path(&path)
+            .method(method)
+            .path(path)
             .validate_request(&Null)
             .unwrap()
             .validate_response(&response)
@@ -342,18 +335,18 @@ mod tests {
         let path = "/snapshots";
 
         let response = request()
-            .method(&method)
+            .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
             .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
-            .method(&method)
-            .path(&path)
+            .method(method)
+            .path(path)
             .validate_request(&Null)
             .unwrap()
             .validate_response(&response)
-            .expect(&format!("OpenAPI error: {:#?}", &response.body()));
+            .expect("OpenAPI error");
     }
 
     #[tokio::test]
@@ -371,14 +364,14 @@ mod tests {
         let path = "/snapshot/{digest}";
 
         let response = request()
-            .method(&method)
+            .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
             .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
-            .method(&method)
-            .path(&path)
+            .method(method)
+            .path(path)
             .validate_request(&Null)
             .unwrap()
             .validate_response(&response)
@@ -399,14 +392,14 @@ mod tests {
         let path = "/snapshot/{digest}";
 
         let response = request()
-            .method(&method)
+            .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
             .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
-            .method(&method)
-            .path(&path)
+            .method(method)
+            .path(path)
             .validate_request(&Null)
             .unwrap()
             .validate_response(&response)
@@ -427,14 +420,14 @@ mod tests {
         let path = "/snapshot/{digest}";
 
         let response = request()
-            .method(&method)
+            .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
             .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
-            .method(&method)
-            .path(&path)
+            .method(method)
+            .path(path)
             .validate_request(&Null)
             .unwrap()
             .validate_response(&response)
@@ -450,15 +443,15 @@ mod tests {
         let path = "/register-signer";
 
         let response = request()
-            .method(&method)
+            .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
             .json(signer)
             .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
-            .method(&method)
-            .path(&path)
+            .method(method)
+            .path(path)
             .validate_request(&signer)
             .unwrap()
             .validate_response(&response)
@@ -474,15 +467,15 @@ mod tests {
         let path = "/register-signatures";
 
         let response = request()
-            .method(&method)
+            .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
             .json(signatures)
             .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
-            .method(&method)
-            .path(&path)
+            .method(method)
+            .path(path)
             .validate_request(&signatures)
             .unwrap()
             .validate_response(&response)
