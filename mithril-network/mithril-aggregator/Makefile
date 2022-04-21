@@ -1,4 +1,4 @@
-.PHONY: all build test debug run help doc
+.PHONY: all build test check debug run help doc
 
 CARGO = cargo
 
@@ -16,6 +16,10 @@ debug:
 
 test:
 	${CARGO} test
+
+check:
+	${CARGO} check --all-targets
+	${CARGO} clippy --all-targets
 
 help:
 	@${CARGO} run -- -h
