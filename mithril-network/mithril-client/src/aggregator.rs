@@ -129,18 +129,18 @@ impl AggregatorHandler for AggregatorHTTPClient {
 
     /// Unpack snapshot
     async fn unpack_snapshot(&self, digest: String) -> Result<String, String> {
-        debug!("Restore snapshot {}", digest);
-        println!("Restoring...");
+        debug!("Unpack snapshot {}", digest);
+        println!("Unpacking snapshot...");
         let local_path = archive_file_path(digest, self.config.network.clone())?;
         let snapshot_file_tar_gz = fs::File::open(local_path.clone())
             .map_err(|e| format!("can't open snapshot file: {}", e))?;
         let snapshot_file_tar = GzDecoder::new(snapshot_file_tar_gz);
-        let unarchive_dir_path = local_path.parent().unwrap().join(path::Path::new("db"));
+        let unpack_dir_path = local_path.parent().unwrap().join(path::Path::new("db"));
         let mut snapshot_archive = Archive::new(snapshot_file_tar);
         snapshot_archive
-            .unpack(&unarchive_dir_path)
+            .unpack(&unpack_dir_path)
             .map_err(|e| format!("can't unpack snapshot archive: {}", e))?;
-        Ok(unarchive_dir_path.into_os_string().into_string().unwrap())
+        Ok(unpack_dir_path.into_os_string().into_string().unwrap())
     }
 }
 
