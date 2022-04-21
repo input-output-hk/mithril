@@ -4,6 +4,7 @@
 module Mithril.Aggregator where
 
 import Control.Tracer (Tracer, traceWith)
+import qualified Data.ByteString as BS
 import Hydra.Prelude
 import qualified Paths_mithril_end_to_end as Pkg
 import System.Directory (doesFileExist)
@@ -17,6 +18,7 @@ data Aggregator = Aggregator {aggregatorPort :: Int}
 data AggregatorLog
   = AggregatorStarted Int
   | StartingAggregator {workDirectory :: FilePath}
+  | AggregatorLog {logEntry :: Text}
   deriving stock (Eq, Show, Generic)
   deriving anyclass (ToJSON, FromJSON)
 
@@ -28,12 +30,14 @@ withAggregator workDir tracer action = do
   traceWith tracer (StartingAggregator workDir)
   withFile logFile WriteMode $ \out ->
     withCreateProcess process {std_out = UseHandle out, std_err = UseHandle out} $ \_stdin _stdout _stderr processHandle ->
-      race
-        (checkProcessHasNotDied "mithril-aggregator" processHandle)
-        (traceWith tracer (AggregatorStarted port) >> action (Aggregator port))
-        >>= \case
-          Left _ -> error "should never happen"
-          Right a -> pure a
+      ( race
+          (checkProcessHasNotDied "mithril-aggregator" processHandle)
+          (traceWith tracer (AggregatorStarted port) >> action (Aggregator port))
+          >>= \case
+            Left _ -> error "should never happen"
+            Right a -> pure a
+      )
+        `onException` (BS.readFile logFile >>= BS.putStr)
 
 aggregatorProcess :: Maybe FilePath -> Int -> IO CreateProcess
 aggregatorProcess cwd port = do
