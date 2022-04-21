@@ -493,8 +493,8 @@ jobs:
 
       - name: Test
         env:
-        - NETWORK: testnet
-        - URL_SNAPSHOT_MANIFEST: https://storage.googleapis.com/cardano-testnet/snapshots.json
+          NETWORK: testnet
+          URL_SNAPSHOT_MANIFEST: https://storage.googleapis.com/cardano-testnet/snapshots.json
         run: nix-shell --run '.github/workflows/ci-test.sh'
 
   terraform:
