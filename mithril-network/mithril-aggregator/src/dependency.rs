@@ -4,9 +4,13 @@ use tokio::sync::RwLock;
 use crate::entities::*;
 use crate::snapshot_store::SnapshotStorer;
 
+///  SnapshotStorerWrapper represents a wrapper of a SnapshotStorer
+pub type SnapshotStorerWrapper = Arc<RwLock<dyn SnapshotStorer + Sync + Send>>;
+
+/// DependencyManager handles the dependencies
 pub struct DependencyManager {
     pub config: Config,
-    pub snapshot_storer: Option<Arc<RwLock<dyn SnapshotStorer + Sync + Send>>>,
+    pub snapshot_storer: Option<SnapshotStorerWrapper>,
 }
 
 impl DependencyManager {
@@ -19,10 +23,7 @@ impl DependencyManager {
     }
 
     /// With SnapshotStorer
-    pub fn with_snapshot_storer(
-        &mut self,
-        snapshot_storer: Arc<RwLock<dyn SnapshotStorer + Sync + Send>>,
-    ) -> &mut Self {
+    pub fn with_snapshot_storer(&mut self, snapshot_storer: SnapshotStorerWrapper) -> &mut Self {
         self.snapshot_storer = Some(snapshot_storer);
         self
     }
