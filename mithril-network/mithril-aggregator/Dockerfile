@@ -45,6 +45,9 @@ COPY --from=rustbuilder /etc/passwd /etc/passwd
 # Copy the executable
 COPY --from=rustbuilder /app/target/release/mithril-aggregator /app/bin/mithril-aggregator
 
+# Copy the config files
+COPY --from=rustbuilder /app/mithril-network/mithril-aggregator/config /app/config
+
 #Workdir
 WORKDIR /app/
 RUN chown -R appuser /app/
