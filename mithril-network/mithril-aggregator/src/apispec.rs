@@ -62,24 +62,42 @@ impl<'a> APISpec<'a> {
 
         let path = self.path.unwrap();
         let method = self.method.unwrap().to_lowercase();
-        let status_code = status.as_str();
+        let mut openapi = self.openapi.clone();
 
-        let response_spec =
-            &mut self.openapi.clone()["paths"][path][method]["responses"][status_code];
-        let response_schema = &mut response_spec.clone()["content"]["application/json"]["schema"];
-        if body.is_empty() {
-            match response_spec.as_object() {
-                Some(_) => match response_schema.as_object() {
-                    Some(_) => Err("non empty body expected".to_string()),
-                    None => Ok(self),
-                },
-                None => Err("empty body expected".to_string()),
+        let response_spec = {
+            match &mut openapi["paths"][path][&method]["responses"] {
+                Null => None,
+                response_spec => {
+                    let status_code = status.as_str();
+                    if response_spec.as_object().unwrap().contains_key(status_code) {
+                        Some(&response_spec[status_code])
+                    } else {
+                        Some(&response_spec["default"])
+                    }
+                }
             }
-        } else {
-            match &serde_json::from_slice(&body) {
-                Ok(value) => self.validate_conformity(value, response_schema),
-                Err(_) => Err("non empty body expected".to_string()),
+        };
+
+        match response_spec {
+            Some(response_spec) => {
+                let response_schema =
+                    &mut response_spec.clone()["content"]["application/json"]["schema"];
+                if body.is_empty() {
+                    match response_spec.as_object() {
+                        Some(_) => match response_schema.as_object() {
+                            Some(_) => Err("non empty body expected".to_string()),
+                            None => Ok(self),
+                        },
+                        None => Err("empty body expected".to_string()),
+                    }
+                } else {
+                    match &serde_json::from_slice(&body) {
+                        Ok(value) => self.validate_conformity(value, response_schema),
+                        Err(_) => Err("non empty body expected".to_string()),
+                    }
+                }
             }
+            None => Err(format!("unmatched path and method: {} {}", path, method)),
         }
     }
 
@@ -116,9 +134,10 @@ impl<'a> APISpec<'a> {
 
 #[cfg(test)]
 mod tests {
-    use warp::http::Method;
+    use warp::{http::Method, http::StatusCode};
 
     use super::*;
+    use crate::entities;
     use crate::fake_data;
 
     #[test]
@@ -144,6 +163,22 @@ mod tests {
             .unwrap()
             .validate_response(&Response::<Bytes>::new(Bytes::new()))
             .is_err());
+
+        // Route exists and matches default status code
+        let mut response = Response::<Bytes>::new(Bytes::from(
+            json!(&entities::Error::new(
+                "MITHRIL-E0001".to_string(),
+                "an error occurred".to_string(),
+            ))
+            .to_string()
+            .into_bytes(),
+        ));
+        *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
+        assert!(APISpec::from_file(API_SPEC_FILE)
+            .method(&Method::POST.as_str())
+            .path(&"/register-signer")
+            .validate_response(&response)
+            .is_ok());
     }
 
     #[test]
