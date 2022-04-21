@@ -294,95 +294,6 @@ jobs:
           path: |
             mithril-network/mithril-client/target/doc/
 
-  build-mithril-node-poc:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v2
-
-      - uses: actions/setup-go@v2
-        with:
-          go-version: '1.17.1'
-
-      - uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - uses: actions/cache@v2
-        with:
-          path: |
-            ~/.cache/go-build
-            ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          components: clippy, rustfmt
-          override: true
-
-      - name: install mlib
-        run: make mlib
-        working-directory: mithril-proto/mithril-node-poc/
-
-      - name: Golang Tests
-        run: go test ./...
-        working-directory: mithril-proto/mithril-node-poc/
-
-  docker-mithril-node-poc:
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    runs-on: ubuntu-latest
-    needs: [ build-mithril-core, build-mithril-node-poc ]
-    permissions:
-      contents: read
-      packages: write
-
-    env:
-      PUSH_PACKAGES: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-      REGISTRY: ghcr.io
-      IMAGE_NAME: ${{ github.repository_owner }}/mithril-node-poc
-      DOCKER_FILE: ./mithril-proto/mithril-node-poc/Dockerfile
-      CONTEXT: .
-      GITHUB_REF: ${{ github.ref}}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Log in to the Container registry
-        uses: docker/login-action@v1
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v3
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags:
-            type=raw,value={{branch}}-{{sha}}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v2
-        with:
-          context: ${{ env.CONTEXT }}
-          file: ${{ env.DOCKER_FILE }}
-          push: ${{ env.PUSH_PACKAGES }}
-          tags: ${{ steps.meta.outputs.tags }}
-
   docker-mithril-aggregator:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'push' }}
@@ -484,7 +395,11 @@ jobs:
   generate-publish-docs:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
-    needs: [ build-mithril-core, build-mithril-aggregator, build-mithril-client ]
+    needs:
+    - docker-mithril-aggregator
+    - docker-mithril-client
+    - test-mithril-core
+    - build-test-lab
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
