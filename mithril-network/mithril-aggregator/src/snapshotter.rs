@@ -61,11 +61,12 @@ impl Snapshotter {
     pub async fn run(&self) {
         info!("Starting Snapshotter");
         loop {
-            sleep(Duration::from_millis(self.interval.into())).await;
             info!("Snapshotting");
             if let Err(e) = self.snapshot().await {
                 error!("{:?}", e)
             }
+            info!("Sleeping for {}", self.interval);
+            sleep(Duration::from_millis(self.interval.into())).await;
         }
     }
 
