@@ -5,7 +5,7 @@ use crate::entities::*;
 use crate::snapshot_store::SnapshotStorer;
 
 ///  SnapshotStorerWrapper represents a wrapper of a SnapshotStorer
-pub type SnapshotStorerWrapper = Arc<RwLock<dyn SnapshotStorer + Sync + Send>>;
+pub type SnapshotStorerWrapper = Arc<RwLock<dyn SnapshotStorer>>;
 
 /// DependencyManager handles the dependencies
 pub struct DependencyManager {
