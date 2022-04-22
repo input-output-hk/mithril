@@ -1,5 +1,4 @@
 use log::debug;
-use std::sync::Arc;
 
 use crate::aggregator::AggregatorHandler;
 use crate::entities::*;
@@ -10,7 +9,7 @@ pub struct Client<R>
 where
     R: AggregatorHandler,
 {
-    pub config: Arc<Config>,
+    pub network: String,
     pub aggregator_handler: Option<Box<R>>,
 }
 
@@ -19,9 +18,9 @@ where
     R: AggregatorHandler,
 {
     /// Client factory
-    pub fn new(config: Arc<Config>) -> Self {
+    pub fn new(network: String) -> Self {
         Self {
-            config,
+            network,
             aggregator_handler: None,
         }
     }
@@ -44,7 +43,7 @@ where
             Some(aggregator_handler) => match aggregator_handler.list_snapshots().await {
                 Ok(snapshots) => Ok(snapshots
                     .iter()
-                    .map(|snapshot| convert_to_list_item(snapshot, self.config.clone()))
+                    .map(|snapshot| convert_to_list_item(snapshot, self.network.clone()))
                     .collect::<Vec<SnapshotListItem>>()),
                 Err(err) => Err(err),
             },
@@ -58,7 +57,7 @@ where
         match &self.aggregator_handler {
             Some(aggregator_handler) => match aggregator_handler.get_snapshot_details(digest).await
             {
-                Ok(snapshot) => Ok(convert_to_field_items(&snapshot, self.config.clone())),
+                Ok(snapshot) => Ok(convert_to_field_items(&snapshot, self.network.clone())),
                 Err(err) => Err(err),
             },
             None => Err(errors::MISSING_AGGREGATOR_HANDLER.to_string()),
@@ -113,9 +112,9 @@ where
 }
 
 /// Convert Snapshot to SnapshotListItem routine
-pub(crate) fn convert_to_list_item(snapshot: &Snapshot, config: Arc<Config>) -> SnapshotListItem {
+pub(crate) fn convert_to_list_item(snapshot: &Snapshot, network: String) -> SnapshotListItem {
     SnapshotListItem::new(
-        config.network.clone(),
+        network,
         snapshot.digest.clone(),
         snapshot.size,
         snapshot.locations.len() as u16,
@@ -126,10 +125,10 @@ pub(crate) fn convert_to_list_item(snapshot: &Snapshot, config: Arc<Config>) -> 
 /// Convert Snapshot to SnapshotFieldItems routine
 pub(crate) fn convert_to_field_items(
     snapshot: &Snapshot,
-    config: Arc<Config>,
+    network: String,
 ) -> Vec<SnapshotFieldItem> {
     let mut field_items = vec![
-        SnapshotFieldItem::new("Network".to_string(), config.network.to_string()),
+        SnapshotFieldItem::new("Network".to_string(), network),
         SnapshotFieldItem::new("Digest".to_string(), snapshot.digest.to_string()),
         SnapshotFieldItem::new("Size".to_string(), format!("{}", snapshot.size)),
     ];
@@ -163,33 +162,32 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_snapshots_ok() {
-        let config = setup_test();
+        let network = "testnet".to_string();
         let fake_snapshots = fake_data::snapshots(5);
         let mut mock_aggregator_handler = MockAggregatorHandler::new();
         mock_aggregator_handler
             .expect_list_snapshots()
             .return_const(Ok(fake_snapshots.clone()))
             .once();
-        let mut client = Client::new(config.clone());
+        let mut client = Client::new(network.clone());
         client.with_aggregator_handler(mock_aggregator_handler);
         let snapshot_list_items = client.list_snapshots().await;
         snapshot_list_items.as_ref().expect("unexpected error");
         let snapshot_list_items_expected = fake_snapshots
             .iter()
-            .map(|snapshot| convert_to_list_item(snapshot, config.clone()))
+            .map(|snapshot| convert_to_list_item(snapshot, network.clone()))
             .collect::<Vec<SnapshotListItem>>();
         assert_eq!(snapshot_list_items.unwrap(), snapshot_list_items_expected);
     }
 
     #[tokio::test]
     async fn test_list_snapshots_ko() {
-        let config = setup_test();
         let mut mock_aggregator_handler = MockAggregatorHandler::new();
         mock_aggregator_handler
             .expect_list_snapshots()
             .return_const(Err("error occurred".to_string()))
             .once();
-        let mut client = Client::new(config.clone());
+        let mut client = Client::new("testnet".to_string());
         client.with_aggregator_handler(mock_aggregator_handler);
         let snapshot_list_items = client.list_snapshots().await;
         assert!(
@@ -200,7 +198,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_show_snapshot_ok() {
-        let config = setup_test();
         let digest = "digest123".to_string();
         let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
         let mut mock_aggregator_handler = MockAggregatorHandler::new();
@@ -208,24 +205,23 @@ mod tests {
             .expect_get_snapshot_details()
             .return_const(Ok(fake_snapshot.clone()))
             .once();
-        let mut client = Client::new(config.clone());
+        let mut client = Client::new("testnet".to_string());
         client.with_aggregator_handler(mock_aggregator_handler);
         let snapshot_item = client.show_snapshot(digest).await;
         snapshot_item.as_ref().expect("unexpected error");
-        let snapshot_item_expected = convert_to_field_items(&fake_snapshot, config.clone());
+        let snapshot_item_expected = convert_to_field_items(&fake_snapshot, "testnet".to_string());
         assert_eq!(snapshot_item.unwrap(), snapshot_item_expected);
     }
 
     #[tokio::test]
     async fn test_show_snapshot_ko() {
-        let config = setup_test();
         let digest = "digest123".to_string();
         let mut mock_aggregator_handler = MockAggregatorHandler::new();
         mock_aggregator_handler
             .expect_get_snapshot_details()
             .return_const(Err("error occurred".to_string()))
             .once();
-        let mut client = Client::new(config.clone());
+        let mut client = Client::new("testnet".to_string());
         client.with_aggregator_handler(mock_aggregator_handler);
         let snapshot_item = client.show_snapshot(digest).await;
         assert!(snapshot_item.is_err(), "an error should have occurred");

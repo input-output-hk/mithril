@@ -55,7 +55,11 @@ make build
 ./mithril-client list
 
 # Run and show list of snapshots for the testnet config file
-./mithril-client -c ./config/testnet.json list
+# Run in a specific mode
+./mithril-client -r testnet list
+
+# Run with custom configuration with env vars
+NETWORK=testnet AGGREGATOR_ENDPOINT=http://aggregator.api.mithril.network/aggregator ./mithril-client
 ```
 
 ## Build and run Docker container:
