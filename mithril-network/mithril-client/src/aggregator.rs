@@ -7,7 +7,6 @@ use std::env;
 use std::fs;
 use std::io::{self, Write};
 use std::path;
-use std::sync::Arc;
 use tar::Archive;
 
 use crate::entities::*;
@@ -34,14 +33,18 @@ pub trait AggregatorHandler {
 
 /// AggregatorHTTPClient is a http client for an aggregator
 pub struct AggregatorHTTPClient {
-    config: Arc<Config>,
+    network: String,
+    aggregator_endpoint: String,
 }
 
 impl AggregatorHTTPClient {
     /// AggregatorHTTPClient factory
-    pub fn new(config: Arc<Config>) -> Self {
+    pub fn new(network: String, aggregator_endpoint: String) -> Self {
         debug!("New AggregatorHTTPClient created");
-        Self { config }
+        Self {
+            network,
+            aggregator_endpoint,
+        }
     }
 }
 
@@ -51,8 +54,7 @@ impl AggregatorHandler for AggregatorHTTPClient {
     async fn list_snapshots(&self) -> Result<Vec<Snapshot>, String> {
         debug!("List snapshots");
 
-        let config = self.config.clone();
-        let url = format!("{}/snapshots", config.aggregator_endpoint);
+        let url = format!("{}/snapshots", self.aggregator_endpoint);
         let response = reqwest::get(url.clone()).await;
         match response {
             Ok(response) => match response.status() {
@@ -70,8 +72,7 @@ impl AggregatorHandler for AggregatorHTTPClient {
     async fn get_snapshot_details(&self, digest: String) -> Result<Snapshot, String> {
         debug!("Details snapshot {}", digest);
 
-        let config = self.config.clone();
-        let url = format!("{}/snapshot/{}", config.aggregator_endpoint, digest);
+        let url = format!("{}/snapshot/{}", self.aggregator_endpoint, digest);
         let response = reqwest::get(url.clone()).await;
         match response {
             Ok(response) => match response.status() {
@@ -94,7 +95,7 @@ impl AggregatorHandler for AggregatorHTTPClient {
         match response {
             Ok(response) => match response.status() {
                 StatusCode::OK => {
-                    let local_path = archive_file_path(digest, self.config.network.clone())?;
+                    let local_path = archive_file_path(digest, self.network.clone())?;
                     fs::create_dir_all(&local_path.parent().unwrap())
                         .map_err(|e| format!("can't create snapshot dir: {}", e))?;
                     let mut local_file = fs::File::create(&local_path)
@@ -131,7 +132,7 @@ impl AggregatorHandler for AggregatorHTTPClient {
     async fn unpack_snapshot(&self, digest: String) -> Result<String, String> {
         debug!("Unpack snapshot {}", digest);
         println!("Unpacking snapshot...");
-        let local_path = archive_file_path(digest, self.config.network.clone())?;
+        let local_path = archive_file_path(digest, self.network.clone())?;
         let snapshot_file_tar_gz = fs::File::open(local_path.clone())
             .map_err(|e| format!("can't open snapshot file: {}", e))?;
         let snapshot_file_tar = GzDecoder::new(snapshot_file_tar_gz);
@@ -165,12 +166,12 @@ mod tests {
 
     use mithril_aggregator::fake_data;
 
-    fn setup_test() -> (MockServer, Arc<Config>) {
+    fn setup_test() -> (MockServer, Config) {
         let server = MockServer::start();
-        let config = Arc::new(Config {
+        let config = Config {
             network: "testnet".to_string(),
             aggregator_endpoint: server.url(""),
-        });
+        };
         (server, config)
     }
 
@@ -182,7 +183,8 @@ mod tests {
             when.path("/snapshots");
             then.status(200).body(json!(snapshots_expected).to_string());
         });
-        let aggregator_client = AggregatorHTTPClient::new(config.clone());
+        let aggregator_client =
+            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
         let snapshots = aggregator_client.list_snapshots().await;
         snapshots.as_ref().expect("unexpected error");
         assert_eq!(snapshots.unwrap(), snapshots_expected);
@@ -195,18 +197,16 @@ mod tests {
             when.path("/snapshots");
             then.status(500);
         });
-        let aggregator_client = AggregatorHTTPClient::new(config.clone());
+        let aggregator_client =
+            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
         let snapshots = aggregator_client.list_snapshots().await;
         assert!(snapshots.is_err());
     }
 
     #[tokio::test]
     async fn test_list_snapshots_ko_unreachable() {
-        let config = Arc::new(Config {
-            network: "testnet".to_string(),
-            aggregator_endpoint: "http://unreachable".to_string(),
-        });
-        let aggregator_client = AggregatorHTTPClient::new(config.clone());
+        let aggregator_client =
+            AggregatorHTTPClient::new("testnet".to_string(), "http://unreachable".to_string());
         let snapshots = aggregator_client.list_snapshots().await;
         assert!(snapshots.is_err());
     }
@@ -220,7 +220,8 @@ mod tests {
             when.path(format!("/snapshot/{}", digest));
             then.status(200).body(json!(snapshot_expected).to_string());
         });
-        let aggregator_client = AggregatorHTTPClient::new(config.clone());
+        let aggregator_client =
+            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
         let snapshot = aggregator_client.get_snapshot_details(digest).await;
         snapshot.as_ref().expect("unexpected error");
         assert_eq!(snapshot.unwrap(), snapshot_expected);
@@ -234,7 +235,8 @@ mod tests {
             when.path(format!("/snapshot/{}", digest));
             then.status(404);
         });
-        let aggregator_client = AggregatorHTTPClient::new(config.clone());
+        let aggregator_client =
+            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
         let snapshot = aggregator_client.get_snapshot_details(digest).await;
         assert!(snapshot.is_err());
     }
@@ -247,7 +249,8 @@ mod tests {
             when.path(format!("/snapshot/{}", digest));
             then.status(500);
         });
-        let aggregator_client = AggregatorHTTPClient::new(config.clone());
+        let aggregator_client =
+            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
         let snapshot = aggregator_client.get_snapshot_details(digest).await;
         assert!(snapshot.is_err());
     }
@@ -255,11 +258,8 @@ mod tests {
     #[tokio::test]
     async fn get_snapshot_details_ko_unreachable() {
         let digest = "digest123".to_string();
-        let config = Arc::new(Config {
-            network: "testnet".to_string(),
-            aggregator_endpoint: "http123://unreachable".to_string(),
-        });
-        let aggregator_client = AggregatorHTTPClient::new(config.clone());
+        let aggregator_client =
+            AggregatorHTTPClient::new("testnet".to_string(), "http123://unreachable".to_string());
         let snapshot = aggregator_client.get_snapshot_details(digest).await;
         assert!(snapshot.is_err());
     }
@@ -274,7 +274,8 @@ mod tests {
             when.path(url_path.to_string());
             then.status(200).body(&data_expected);
         });
-        let aggregator_client = AggregatorHTTPClient::new(config.clone());
+        let aggregator_client =
+            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
         let location = server.url(url_path);
         let local_file_path = aggregator_client.download_snapshot(digest, location).await;
         local_file_path.as_ref().expect("unexpected error");
@@ -296,7 +297,8 @@ mod tests {
             when.path(url_path.to_string());
             then.status(500);
         });
-        let aggregator_client = AggregatorHTTPClient::new(config.clone());
+        let aggregator_client =
+            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
         let location = server.url(url_path);
         let local_file_path = aggregator_client.download_snapshot(digest, location).await;
         assert!(local_file_path.is_err());
@@ -306,7 +308,8 @@ mod tests {
     async fn get_download_snapshot_ko_500() {
         let digest = "digest123".to_string();
         let (_, config) = setup_test();
-        let aggregator_client = AggregatorHTTPClient::new(config.clone());
+        let aggregator_client =
+            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
         let location = "http123://unreachable".to_string();
         let local_file_path = aggregator_client.download_snapshot(digest, location).await;
         assert!(local_file_path.is_err());
@@ -337,7 +340,8 @@ mod tests {
             .unwrap();
 
         archive_builder.into_inner().unwrap().finish().unwrap();
-        let aggregator_client = AggregatorHTTPClient::new(config.clone());
+        let aggregator_client =
+            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
         let local_dir_path = aggregator_client.unpack_snapshot(digest.clone()).await;
         local_dir_path.expect("unexpected error");
     }
@@ -346,7 +350,8 @@ mod tests {
     async fn unpack_snapshot_ko_noarchive() {
         let digest = "digest123".to_string();
         let (_, config) = setup_test();
-        let aggregator_client = AggregatorHTTPClient::new(config.clone());
+        let aggregator_client =
+            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
         let local_dir_path = aggregator_client.unpack_snapshot(digest).await;
         assert!(local_dir_path.is_err());
     }

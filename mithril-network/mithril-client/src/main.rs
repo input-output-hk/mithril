@@ -10,9 +10,7 @@ use clap::{Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
 use cli_table::{print_stdout, WithTitle};
 use log::debug;
-use std::fs::File;
-use std::path::Path;
-use std::sync::Arc;
+use std::env;
 
 use crate::aggregator::*;
 use crate::client::Client;
@@ -27,9 +25,9 @@ pub struct Args {
     #[clap(subcommand)]
     command: Commands,
 
-    /// Config file
-    #[clap(short, long, default_value = "./config/dev.json")]
-    config_file: String,
+    /// Run Mode
+    #[clap(short, long, default_value = "dev")]
+    run_mode: String,
 
     /// Verbosity level
     #[clap(flatten)]
@@ -84,25 +82,23 @@ async fn main() {
         .init();
 
     // Load config
-    let config: Config = {
-        let file_handler = File::open(Path::new(&args.config_file));
-        let file = match file_handler {
-            Err(e) => panic!("{}: {}", errors::OPEN_CONFIG_FILE, e),
-            Ok(f) => f,
-        };
-        match serde_json::from_reader(file) {
-            Err(e) => panic!("{}: {}", errors::PARSE_CONFIG_FILE, e),
-            Ok(c) => c,
-        }
-    };
-    let config = Arc::new(config);
+    let run_mode = env::var("RUN_MODE").unwrap_or(args.run_mode);
+    debug!("Run Mode: {}", run_mode);
+    let config: Config = config::Config::builder()
+        .add_source(config::File::with_name(&format!("./config/{}.json", run_mode)).required(false))
+        .add_source(config::Environment::default())
+        .build()
+        .unwrap()
+        .try_deserialize()
+        .unwrap();
     debug!("{:?}", config);
 
     // Init dependencies
-    let aggregator_handler = AggregatorHTTPClient::new(config.clone());
+    let aggregator_handler =
+        AggregatorHTTPClient::new(config.network.clone(), config.aggregator_endpoint.clone());
 
     // Init client
-    let mut client = Client::new(config.clone());
+    let mut client = Client::new(config.network.clone());
     client.with_aggregator_handler(aggregator_handler);
 
     // Execute commands
