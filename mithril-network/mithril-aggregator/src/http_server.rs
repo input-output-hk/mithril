@@ -53,27 +53,27 @@ mod router {
 
         warp::any().and(warp::path(SERVER_BASE_PATH)).and(
             certificate_pending(dependency_manager.clone())
-                .or(certificate_certificate_hash())
+                .or(certificate_certificate_hash(dependency_manager.clone()))
                 .or(snapshots(dependency_manager.clone()))
-                .or(snapshot_digest(dependency_manager))
-                .or(register_signer())
-                .or(register_signatures())
+                .or(snapshot_digest(dependency_manager.clone()))
+                .or(register_signer(dependency_manager.clone()))
+                .or(register_signatures(dependency_manager))
                 .with(cors),
         )
     }
 
     /// GET /certificate-pending
     pub fn certificate_pending(
-        dependency_manager: Arc<DependencyManager>,
+        _dependency_manager: Arc<DependencyManager>,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("certificate-pending")
             .and(warp::get())
-            .and(with_dependency_manager(dependency_manager))
             .and_then(handlers::certificate_pending)
     }
 
     /// GET /certificate/{certificate_hash}
     pub fn certificate_certificate_hash(
+        _dependency_manager: Arc<DependencyManager>,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("certificate" / String)
             .and(warp::get())
@@ -102,6 +102,7 @@ mod router {
 
     /// POST /register-signer
     pub fn register_signer(
+        _dependency_manager: Arc<DependencyManager>,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("register-signer")
             .and(warp::post())
@@ -111,18 +112,12 @@ mod router {
 
     /// POST /register-signatures
     pub fn register_signatures(
+        _dependency_manager: Arc<DependencyManager>,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("register-signatures")
             .and(warp::post())
             .and(warp::body::json())
             .and_then(handlers::register_signatures)
-    }
-
-    /// With dependency manager middleware
-    fn with_dependency_manager(
-        dependency_manager: Arc<DependencyManager>,
-    ) -> impl Filter<Extract = (Arc<DependencyManager>,), Error = Infallible> + Clone {
-        warp::any().map(move || dependency_manager.clone())
     }
 
     /// With snapshot storer middleware
@@ -137,9 +132,7 @@ mod handlers {
     use super::*;
 
     /// Certificate Pending
-    pub async fn certificate_pending(
-        _dependency_manager: Arc<DependencyManager>,
-    ) -> Result<impl warp::Reply, Infallible> {
+    pub async fn certificate_pending() -> Result<impl warp::Reply, Infallible> {
         debug!("certificate_pending");
 
         // Certificate pending
