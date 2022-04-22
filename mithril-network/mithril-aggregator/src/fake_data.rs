@@ -1,12 +1,18 @@
 #![allow(dead_code)]
 
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use crate::entities;
 
 /// Fake Beacon
 pub fn beacon() -> entities::Beacon {
     let network = "testnet".to_string();
-    let epoch = 196;
-    let block = 3443000;
+    let seconds_since_unix_epoch = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs();
+    let epoch = seconds_since_unix_epoch / 86400_u64; // 1 epoch every day
+    let block = 100 * (seconds_since_unix_epoch / (5 * 100)) as u64; // 1 block every 5s and 1 snapshot every 100 blocks
     entities::Beacon::new(network, epoch, block)
 }
 
