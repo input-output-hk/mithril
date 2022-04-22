@@ -20,7 +20,7 @@ pub fn beacon() -> entities::Beacon {
 pub fn protocol_parameters() -> entities::ProtocolParameters {
     let k = 5;
     let m = 100;
-    let phi_f = 0.2;
+    let phi_f = 0.65;
     entities::ProtocolParameters::new(k, m, phi_f)
 }
 
