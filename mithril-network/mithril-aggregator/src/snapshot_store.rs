@@ -10,7 +10,7 @@ use mockall::automock;
 /// SnapshotStorer represents a snapshot store interactor
 #[cfg_attr(test, automock)]
 #[async_trait]
-pub trait SnapshotStorer {
+pub trait SnapshotStorer: Sync + Send {
     /// List snapshots
     async fn list_snapshots(&self) -> Result<Vec<Snapshot>, String>;
 
