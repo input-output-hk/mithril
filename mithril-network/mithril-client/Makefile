@@ -23,8 +23,8 @@ test:
 	${CARGO} test
 
 check:
-	${CARGO} check
-	${CARGO} clippy
+	${CARGO} check --all-features
+	${CARGO} clippy --all-features
 
 clean:
 	${CARGO} clean

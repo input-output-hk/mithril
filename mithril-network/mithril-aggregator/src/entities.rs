@@ -121,6 +121,7 @@ pub struct Certificate {
 
 impl Certificate {
     /// Certificate factory
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         hash: String,
         previous_hash: String,
