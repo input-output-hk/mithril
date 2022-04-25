@@ -148,17 +148,9 @@ pub(crate) fn convert_to_field_items(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::Arc;
 
     use crate::aggregator::MockAggregatorHandler;
     use mithril_aggregator::fake_data;
-
-    fn setup_test() -> Arc<Config> {
-        Arc::new(Config {
-            network: "testnet".to_string(),
-            aggregator_endpoint: "".to_string(),
-        })
-    }
 
     #[tokio::test]
     async fn test_list_snapshots_ok() {

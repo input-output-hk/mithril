@@ -91,7 +91,7 @@ impl<'a> APISpec<'a> {
                         None => Err("empty body expected".to_string()),
                     }
                 } else {
-                    match &serde_json::from_slice(&body) {
+                    match &serde_json::from_slice(body) {
                         Ok(value) => self.validate_conformity(value, response_schema),
                         Err(_) => Err("non empty body expected".to_string()),
                     }

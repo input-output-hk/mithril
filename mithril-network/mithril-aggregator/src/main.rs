@@ -9,7 +9,7 @@ mod snapshot_store;
 mod snapshotter;
 
 use clap::Parser;
-use config;
+
 use log::debug;
 use std::env;
 use std::sync::Arc;
@@ -61,7 +61,7 @@ async fn main() {
         .init();
 
     // Load config
-    let run_mode = env::var("RUN_MODE").unwrap_or_else(|_| args.run_mode.into());
+    let run_mode = env::var("RUN_MODE").unwrap_or(args.run_mode);
     debug!("Run Mode: {}", run_mode);
     let config: Config = config::Config::builder()
         .add_source(config::File::with_name(&format!("./config/{}.json", run_mode)).required(false))
@@ -84,10 +84,8 @@ async fn main() {
 
     // Start snapshot uploader
     let handle = tokio::spawn(async move {
-        let snapshotter = Snapshotter::new(
-            args.snapshot_interval.clone() * 1000,
-            args.db_directory.clone(),
-        );
+        let snapshotter =
+            Snapshotter::new(args.snapshot_interval * 1000, args.db_directory.clone());
         snapshotter.run().await
     });
 

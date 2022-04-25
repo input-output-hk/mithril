@@ -18,8 +18,8 @@ test:
 	${CARGO} test
 
 check:
-	${CARGO} check --all-targets
-	${CARGO} clippy --all-targets
+	${CARGO} check --all-features
+	${CARGO} clippy --all-features
 
 help:
 	@${CARGO} run -- -h

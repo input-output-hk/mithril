@@ -6,10 +6,10 @@ use cloud_storage::object_access_control::NewObjectAccessControl;
 use cloud_storage::Client;
 use flate2::write::GzEncoder;
 use flate2::Compression;
-use hex;
+
 use log::error;
 use log::info;
-use serde_json;
+
 use sha2::{Digest, Sha256};
 use std::env;
 use std::ffi::OsStr;
@@ -37,10 +37,11 @@ pub struct Snapshotter {
 #[derive(Debug)]
 struct SnapshotError {
     /// Detailed error
+    #[allow(dead_code)] // Indirectly used in Snapshotter::run when logging the error
     reason: String,
 }
 
-impl std::convert::From<io::Error> for SnapshotError {
+impl From<io::Error> for SnapshotError {
     fn from(err: io::Error) -> Self {
         SnapshotError {
             reason: err.to_string(),
@@ -114,11 +115,7 @@ impl Snapshotter {
         let tar_gz = match File::create(&path) {
             Err(e) => {
                 return Err(SnapshotError {
-                    reason: format!(
-                        "cannot create archive {}: {}",
-                        &path.to_str().unwrap(),
-                        e.to_string()
-                    ),
+                    reason: format!("cannot create archive {}: {}", &path.to_str().unwrap(), e),
                 })
             }
             Ok(f) => f,
@@ -222,15 +219,11 @@ impl Progress {
 
 impl std::fmt::Display for Progress {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(
-            f,
-            "{}",
-            format!("{}/{} ({}%)", self.index, self.total, self.percent())
-        )
+        write!(f, "{}/{} ({}%)", self.index, self.total, self.percent())
     }
 }
 
-fn compute_hash(entries: &Vec<&DirEntry>) -> [u8; 32] {
+fn compute_hash(entries: &[&DirEntry]) -> [u8; 32] {
     let mut hasher = Sha256::new();
     let mut progress = Progress {
         index: 0,
@@ -277,9 +270,9 @@ mod tests {
             total: 7000,
         };
 
-        assert_eq!(false, progress.report(1));
-        assert_eq!(false, progress.report(4));
-        assert_eq!(true, progress.report(350));
-        assert_eq!(false, progress.report(351));
+        assert!(!progress.report(1));
+        assert!(!progress.report(4));
+        assert!(progress.report(350));
+        assert!(!progress.report(351));
     }
 }
