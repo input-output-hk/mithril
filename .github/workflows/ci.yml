@@ -51,6 +51,7 @@ jobs:
       - name: Clippy Check
         uses: actions-rs/clippy-check@v1
         with:
+          name: clippy-mithril-core
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --manifest-path ./mithril-core/Cargo.toml --all-features
 
@@ -191,6 +192,7 @@ jobs:
       - name: Clippy Check
         uses: actions-rs/clippy-check@v1
         with:
+          name: clippy-mithril-aggregator
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --manifest-path ./mithril-network/mithril-aggregator/Cargo.toml --all-features
 
@@ -266,6 +268,7 @@ jobs:
       - name: Clippy Check
         uses: actions-rs/clippy-check@v1
         with:
+          name: clippy-mithril-client
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --manifest-path ./mithril-network/mithril-client/Cargo.toml --all-features
 
