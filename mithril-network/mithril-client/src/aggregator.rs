@@ -158,8 +158,6 @@ fn archive_file_path(digest: String, network: String) -> Result<path::PathBuf, S
 #[cfg(test)]
 mod tests {
     use super::*;
-    use flate2::write::GzEncoder;
-    use flate2::Compression;
     use httpmock::prelude::*;
     use serde_json::json;
     use std::io::Read;
@@ -317,29 +315,8 @@ mod tests {
 
     #[tokio::test]
     async fn unpack_snapshot_ok() {
-        let network = "testnet".to_string();
         let digest = "digest123".to_string();
         let (_, config) = setup_test();
-        let data_expected = "1234567890".repeat(1024).to_string();
-        let data_file_name = "data.txt";
-        let archive_file_path = archive_file_path(digest.clone(), network).unwrap();
-        let source_directory_name = "src";
-        let source_file_path = archive_file_path
-            .parent()
-            .unwrap()
-            .join(path::Path::new(source_directory_name))
-            .join(path::Path::new(data_file_name));
-        fs::create_dir_all(&source_file_path.parent().unwrap()).unwrap();
-        let mut source_file = fs::File::create(&source_file_path).unwrap();
-        write!(source_file, "{}", data_expected).unwrap();
-        let archive_file = fs::File::create(&archive_file_path).unwrap();
-        let archive_encoder = GzEncoder::new(&archive_file, Compression::default());
-        let mut archive_builder = tar::Builder::new(archive_encoder);
-        archive_builder
-            .append_dir_all(".", &source_file_path.parent().unwrap())
-            .unwrap();
-
-        archive_builder.into_inner().unwrap().finish().unwrap();
         let aggregator_client =
             AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
         let local_dir_path = aggregator_client.unpack_snapshot(digest.clone()).await;
