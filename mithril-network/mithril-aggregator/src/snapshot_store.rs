@@ -1,3 +1,4 @@
+use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use log::debug;
 use reqwest::{self, StatusCode};
@@ -12,10 +13,10 @@ use mockall::automock;
 #[async_trait]
 pub trait SnapshotStorer: Sync + Send {
     /// List snapshots
-    async fn list_snapshots(&self) -> Result<Vec<Snapshot>, String>;
+    async fn list_snapshots(&self) -> Result<Vec<Snapshot>>;
 
     /// Get snapshot details
-    async fn get_snapshot_details(&self, digest: String) -> Result<Option<Snapshot>, String>;
+    async fn get_snapshot_details(&self, digest: String) -> Result<Option<Snapshot>>;
 }
 
 /// SnapshotStoreHTTPClient is a http client for an remote snapshot manifest
@@ -34,24 +35,18 @@ impl SnapshotStoreHTTPClient {
 #[async_trait]
 impl SnapshotStorer for SnapshotStoreHTTPClient {
     /// List snapshots
-    async fn list_snapshots(&self) -> Result<Vec<Snapshot>, String> {
+    async fn list_snapshots(&self) -> Result<Vec<Snapshot>> {
         debug!("List snapshots from {}", self.url_manifest);
 
-        let response = reqwest::get(&self.url_manifest).await;
-        match response {
-            Ok(response) => match response.status() {
-                StatusCode::OK => match response.json::<Vec<Snapshot>>().await {
-                    Ok(snapshots) => Ok(snapshots),
-                    Err(err) => Err(err.to_string()),
-                },
-                status_error => Err(format!("error {} received", status_error)),
-            },
-            Err(err) => Err(err.to_string()),
+        let response = reqwest::get(&self.url_manifest).await?;
+        match response.status() {
+            StatusCode::OK => Ok(response.json::<Vec<Snapshot>>().await?),
+            status_error => Err(anyhow!("error {} received", status_error)),
         }
     }
 
     /// Get snapshot details
-    async fn get_snapshot_details(&self, digest: String) -> Result<Option<Snapshot>, String> {
+    async fn get_snapshot_details(&self, digest: String) -> Result<Option<Snapshot>> {
         for snapshot in self.list_snapshots().await? {
             if digest.eq(&snapshot.digest) {
                 return Ok(Some(snapshot));

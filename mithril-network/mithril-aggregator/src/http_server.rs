@@ -167,7 +167,10 @@ mod handlers {
                 StatusCode::OK,
             )),
             Err(err) => Ok(warp::reply::with_status(
-                warp::reply::json(&entities::Error::new("MITHRIL-E0001".to_string(), err)),
+                warp::reply::json(&entities::Error::new(
+                    "MITHRIL-E0001".to_string(),
+                    err.to_string(),
+                )),
                 StatusCode::INTERNAL_SERVER_ERROR,
             )),
         }
@@ -194,7 +197,10 @@ mod handlers {
                 )),
             },
             Err(err) => Ok(warp::reply::with_status(
-                warp::reply::json(&entities::Error::new("MITHRIL-E0002".to_string(), err)),
+                warp::reply::json(&entities::Error::new(
+                    "MITHRIL-E0002".to_string(),
+                    err.to_string(),
+                )),
                 StatusCode::INTERNAL_SERVER_ERROR,
             )),
         }
@@ -221,6 +227,7 @@ mod handlers {
 mod tests {
     const API_SPEC_FILE: &str = "../openapi.yaml";
 
+    use anyhow::anyhow;
     use serde_json::Value::Null;
     use tokio::sync::RwLock;
     use warp::test::request;
@@ -288,8 +295,7 @@ mod tests {
         let mut mock_snapshot_storer = MockSnapshotStorer::new();
         mock_snapshot_storer
             .expect_list_snapshots()
-            .return_const(Ok(fake_snapshots))
-            .once();
+            .return_once(|| Ok(fake_snapshots));
         let mut dependency_manager = setup_dependency_manager();
         dependency_manager.with_snapshot_storer(Arc::new(RwLock::new(mock_snapshot_storer)));
 
@@ -316,8 +322,7 @@ mod tests {
         let mut mock_snapshot_storer = MockSnapshotStorer::new();
         mock_snapshot_storer
             .expect_list_snapshots()
-            .return_const(Err("an error occurred".to_string()))
-            .once();
+            .return_once(|| Err(anyhow!("an error occurred".to_string())));
         let mut dependency_manager = setup_dependency_manager();
         dependency_manager.with_snapshot_storer(Arc::new(RwLock::new(mock_snapshot_storer)));
 
@@ -345,8 +350,7 @@ mod tests {
         let mut mock_snapshot_storer = MockSnapshotStorer::new();
         mock_snapshot_storer
             .expect_get_snapshot_details()
-            .return_const(Ok(Some(fake_snapshot)))
-            .once();
+            .return_once(|_| Ok(Some(fake_snapshot)));
         let mut dependency_manager = setup_dependency_manager();
         dependency_manager.with_snapshot_storer(Arc::new(RwLock::new(mock_snapshot_storer)));
 
@@ -373,8 +377,7 @@ mod tests {
         let mut mock_snapshot_storer = MockSnapshotStorer::new();
         mock_snapshot_storer
             .expect_get_snapshot_details()
-            .return_const(Ok(None))
-            .once();
+            .return_once(|_| Ok(None));
         let mut dependency_manager = setup_dependency_manager();
         dependency_manager.with_snapshot_storer(Arc::new(RwLock::new(mock_snapshot_storer)));
 
@@ -401,8 +404,7 @@ mod tests {
         let mut mock_snapshot_storer = MockSnapshotStorer::new();
         mock_snapshot_storer
             .expect_get_snapshot_details()
-            .return_const(Err("an error occurred".to_string()))
-            .once();
+            .return_once(|_| Err(anyhow!("an error occurred".to_string())));
         let mut dependency_manager = setup_dependency_manager();
         dependency_manager.with_snapshot_storer(Arc::new(RwLock::new(mock_snapshot_storer)));
 
