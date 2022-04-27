@@ -46,14 +46,14 @@
 
 use super::stm::Index;
 
-use blst::min_pk::{Signature as BlstSig, SecretKey as BlstSk, PublicKey as BlstPk, AggregatePublicKey, AggregateSignature};
+use blst::min_sig::{Signature as BlstSig, SecretKey as BlstSk, PublicKey as BlstPk, AggregatePublicKey, AggregateSignature};
 use blake2::{Blake2b, Digest};
 use rand_core::{CryptoRng, RngCore};
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::iter::Sum;
 use std::ops::Sub;
-use blst::{BLST_ERROR, blst_fp12, blst_fp12_finalverify, blst_p1, blst_p1_affine, blst_p1_affine_generator, blst_p1_generator, blst_p1_mult, blst_p1_to_affine, blst_p2_affine, blst_p2_affine_generator, blst_p2_deserialize};
+use blst::{BLST_ERROR, blst_fp12, blst_fp12_finalverify, blst_p1, blst_p1_affine, blst_p1_affine_generator, blst_p1_to_affine, blst_p2_affine, blst_p2_affine_generator, blst_p2_uncompress, blst_scalar, blst_scalar_from_bendian, blst_sk_to_pk_in_g1};
 
 /// Struct used to namespace the functions.
 #[derive(Debug)]
@@ -241,8 +241,11 @@ impl From<&MspSk> for MspPoP {
         let k1 = sk.0.sign(POP, &[], &[]);
         // k2 <- g1^x
         let k2 = unsafe {
+            let mut sk_scalar = blst_scalar::default();
+            blst_scalar_from_bendian(&mut sk_scalar, &sk.0.to_bytes()[0]);
+
             let mut out = blst_p1::default();
-            blst_p1_mult(&mut out, blst_p1_generator(), &sk.0.to_bytes()[0], 256);
+            blst_sk_to_pk_in_g1(&mut out, &sk_scalar);
             out
         };
         // return sk,mvk,k=(k1,k2)
@@ -265,14 +268,14 @@ impl MspPoP {
     // todo: review carefully. Unsafe to use algebraic operations
     fn check(&self, pk: &MspMvk) -> bool {
         let result= unsafe {
-            let mut k2_p = blst_p1_affine::default();
-            let mut mvk_p = blst_p2_affine::default();
             let g1_p = *blst_p1_affine_generator();
-            let g2_p = *blst_p2_affine_generator();
-            blst_p1_to_affine(&mut k2_p, &self.k2);
-            blst_p2_deserialize(&mut mvk_p, &pk.0.to_bytes()[0]);
-
+            let mut mvk_p = blst_p2_affine::default();
+            assert_eq!(blst_p2_uncompress(&mut mvk_p, &pk.0.to_bytes()[0]), BLST_ERROR::BLST_SUCCESS);
             let ml_lhs = blst_fp12::miller_loop(&mvk_p, &g1_p);
+
+            let mut k2_p = blst_p1_affine::default();
+            blst_p1_to_affine(&mut k2_p, &self.k2);
+            let g2_p = *blst_p2_affine_generator();
             let ml_rhs = blst_fp12::miller_loop(&g2_p, &k2_p);
 
             blst_fp12_finalverify(&ml_lhs, &ml_rhs)
@@ -349,14 +352,14 @@ impl Msp {
 
 impl MspMvk {
     /// Convert the mvk to bytes.
-    pub fn to_bytes(&self) -> [u8; 48] {
+    pub fn to_bytes(&self) -> [u8; 96] {
         self.0.to_bytes()
     }
 }
 
 impl MspSig {
     /// Convert the signature to bytes.
-    pub fn to_bytes(&self) -> [u8; 96] {
+    pub fn to_bytes(&self) -> [u8; 48] {
         self.0.to_bytes()
     }
 }
@@ -383,7 +386,6 @@ mod tests {
 
         #[test]
         fn test_invalid_sig(msg in prop::collection::vec(any::<u8>(), 1..128),
-                            r in any::<u64>(),
                             seed in any::<[u8;32]>(),
         ) {
             let mut rng = ChaCha20Rng::from_seed(seed);
@@ -417,7 +419,7 @@ mod tests {
         fn test_eval_sanity_check(msg in prop::collection::vec(any::<u8>(), 1..128),
                                   idx in any::<u64>(),
                                   seed in any::<[u8;32]>()) {
-            let (sk, pk) = Msp::gen(&mut ChaCha20Rng::from_seed(seed));
+            let (sk, _pk) = Msp::gen(&mut ChaCha20Rng::from_seed(seed));
             let sig = Msp::sig(&sk, &msg);
             Msp::eval(&msg, idx, &sig);
         }

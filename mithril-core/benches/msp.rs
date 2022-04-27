@@ -13,7 +13,7 @@ fn msp(c: &mut Criterion) {
     let mut mvks = Vec::new();
     let mut sigs = Vec::new();
 
-    let mut group = c.benchmark_group(format!("Multi-signatures/"));
+    let mut group = c.benchmark_group("Multi-signatures/");
     group.bench_function("Key generation", |b| b.iter(|| Msp::gen(&mut rng)));
 
     let (sk, _) = Msp::gen(&mut rng);

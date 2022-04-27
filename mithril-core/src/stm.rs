@@ -6,7 +6,6 @@
 //!
 //! ```rust
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! use ark_bls12_377::Bls12_377; // Use BLS12 for base elliptic curve
 //! use mithril::key_reg::KeyReg; // Import key registration functionality
 //! use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
 //! use mithril::stm::{AggregationFailure, StmClerk, StmInitializer, StmParameters, StmSigner, MTValue};
@@ -18,7 +17,7 @@
 //!
 //! let nparties = 4; // Use a small number of parties for this example
 //! type H = blake2::Blake2b; // Setting the hash function for convenience
-//! type F = <H as MTHashLeaf<MTValue<Bls12_377>>>::F;
+//! type F = <H as MTHashLeaf>::F;
 //!
 //! let mut rng = ChaCha20Rng::from_seed([0u8; 32]); // create and initialize rng
 //! let mut msg = [0u8; 16]; // setting an arbitrary message
@@ -52,7 +51,7 @@
 //!
 //! // For each party, crate a StmInitializer.
 //! // This struct can create keys for the party.
-//! let mut ps: Vec<StmInitializer<Bls12_377>> = Vec::with_capacity(nparties);
+//! let mut ps: Vec<StmInitializer> = Vec::with_capacity(nparties);
 //! for (pid, stake) in parties {
 //!     // Create keys for this party
 //!     let p = StmInitializer::setup(params, pid, stake, &mut rng);
@@ -154,10 +153,10 @@ pub type Index = u64;
 pub struct MTValue(pub MspMvk, pub Stake);
 
 impl MTValue {
-    pub(crate) fn to_bytes (&self) -> [u8; 56] {
-        let mut result = [0u8; 56];
-        result[..48].copy_from_slice(&self.0.to_bytes());
-        result[48..].copy_from_slice(&self.1.to_be_bytes());
+    pub(crate) fn to_bytes (self) -> [u8; 104] {
+        let mut result = [0u8; 104];
+        result[..96].copy_from_slice(&self.0.to_bytes());
+        result[96..].copy_from_slice(&self.1.to_be_bytes());
         result
     }
 }

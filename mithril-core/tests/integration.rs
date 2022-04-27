@@ -1,7 +1,7 @@
 use mithril::key_reg::KeyReg;
 use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
 use mithril::stm::{
-    AggregationFailure, MTValue, StmClerk, StmInitializer, StmParameters, StmSigner,
+    AggregationFailure, StmClerk, StmInitializer, StmParameters, StmSigner,
 };
 use rayon::prelude::*;
 

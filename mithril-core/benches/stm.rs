@@ -3,12 +3,10 @@ use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use mithril::key_reg::KeyReg;
 use mithril::merkle_tree::MTHashLeaf;
 use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
-use mithril::models::digest::DigestHash;
-use mithril::stm::{MTValue, StmClerk, StmInitializer, StmParameters, StmSigner};
+use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::prelude::*;
-use std::hash::Hash;
 
 ///
 /// This benchmark framework is not ideal. We really have to think what is the best mechanism for

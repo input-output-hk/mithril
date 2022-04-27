@@ -4,7 +4,7 @@
 
 use mithril::key_reg::{ClosedKeyReg, KeyReg};
 use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
-use mithril::stm::{MTValue, Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
+use mithril::stm::{Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
 
 use mithril::merkle_tree::MTHashLeaf;
 use mithril::models::digest::DigestHash;

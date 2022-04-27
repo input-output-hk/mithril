@@ -72,7 +72,7 @@ pub enum RegisterError
 {
     /// This key has already been registered by a participant
     #[error("This key has already been registered.")]
-    KeyRegistered([u8; 48]),
+    KeyRegistered([u8; 96]),
     /// This participant has already been registered
     #[error("Participant {0} has already been registered.")]
     PartyRegistered(PartyId),
@@ -82,7 +82,7 @@ pub enum RegisterError
     UnknownPartyId(PartyId),
     /// The supplied key is not valid
     #[error("The verification of correctness of the supplied key is invalid.")]
-    InvalidKey(MspPk),
+    InvalidKey(Box<MspPk>),
 }
 
 impl KeyReg
@@ -114,7 +114,7 @@ impl KeyReg
                 self.keys.insert(pk);
                 Ok(())
             } else {
-                Err(RegisterError::InvalidKey(pk))
+                Err(RegisterError::InvalidKey(Box::new(pk)))
             }
         } else {
             Err(RegisterError::UnknownPartyId(party_id))
