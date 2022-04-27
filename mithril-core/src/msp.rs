@@ -44,30 +44,28 @@
 //! # }
 //! ```
 
-use super::mithril_curves::hash_to_curve;
 use super::stm::Index;
 
 use blst::min_pk::{Signature as BlstSig, SecretKey as BlstSk, PublicKey as BlstPk, AggregatePublicKey, AggregateSignature};
 use blake2::{Blake2b, Digest};
 use rand_core::{CryptoRng, RngCore};
 use std::cmp::Ordering;
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 use std::iter::Sum;
-use std::marker::PhantomData;
 use std::ops::Sub;
-use blst::{BLST_ERROR, blst_fp12, blst_fp12_finalverify, blst_p1, blst_p1_affine, blst_p1_affine_generator, blst_p1_deserialize, blst_p1_generator, blst_p1_mult, blst_p1_to_affine, blst_p2, blst_p2_affine, blst_p2_affine_generator, blst_p2_deserialize};
+use blst::{BLST_ERROR, blst_fp12, blst_fp12_finalverify, blst_p1, blst_p1_affine, blst_p1_affine_generator, blst_p1_generator, blst_p1_mult, blst_p1_to_affine, blst_p2_affine, blst_p2_affine_generator, blst_p2_deserialize};
 
 /// Struct used to namespace the functions.
 #[derive(Debug)]
 pub struct Msp {}
 
 /// MSP secret key.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone)]
 pub struct MspSk(BlstSk);
 
 /// MSP verification key.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct MspMvk(BlstPk);
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MspMvk(pub(crate) BlstPk);
 
 impl MspMvk {
     /// Compare two `MspMvk`. Used for PartialOrd impl, used to order signatures. The comparison
@@ -147,19 +145,37 @@ impl Sub for MspMvk {
 }
 
 /// MSP proof of possession
-struct MspPoP {
-    k1: BlstSig,
-    k2: blst_p1
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MspPoP {
+    pub(crate) k1: BlstSig,
+    pub(crate) k2: blst_p1
 }
 
 /// MSP public key, contains the verification key and proof of posession.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy)]
 pub struct MspPk {
     /// The verification key.
     pub mvk: MspMvk,
     /// Proof of Possession.
     pub pop: MspPoP,
 }
+
+
+impl Hash for MspPk {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        Hash::hash_slice(&self.mvk.to_bytes(), state)
+    }
+}
+
+// We need to implement PartialEq instead of deriving it because we are implementing Hash.
+impl PartialEq for MspPk {
+    fn eq(&self, other: &Self) -> bool {
+        self.mvk == other.mvk
+    }
+}
+
+impl Eq for MspPk {}
+
 
 /// MSP signature.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -171,15 +187,12 @@ impl<'a> Sum<&'a Self> for MspSig {
         I: Iterator<Item = &'a Self>,
     {
         let signatures: Vec<&BlstSig> = iter.map(|x| &x.0).collect();
-        let mut aggregate = BlstSig::default();
-
-        if !signatures.is_empty() {
-            aggregate = AggregateSignature::aggregate(&signatures, false)
+        assert!(!signatures.is_empty(), "One cannot add an empty vector");
+        let aggregate = AggregateSignature::aggregate(&signatures, false)
                 .expect("Signatures are assumed verified before aggregation. If signatures are invalid, they should not be aggregated.")
                 .to_signature();
-        }
 
-        Self(aggregate.to_signature())
+        Self(aggregate)
     }
 }
 
@@ -214,7 +227,6 @@ impl Ord for MspSig {
 }
 
 const POP: &[u8] = b"PoP";
-const M: &[u8] = b"M";
 
 impl From<&MspSk> for MspMvk {
     fn from(sk: &MspSk) -> Self {
@@ -252,23 +264,19 @@ impl MspPoP {
     /// manually.
     // todo: review carefully. Unsafe to use algebraic operations
     fn check(&self, pk: &MspMvk) -> bool {
-        let mut g1_p = blst_p1_affine::default();
-        let mut g2_p = blst_p2_affine::default();
-
-        let mut k2_p = blst_p1_affine::default();
-        let mut mvk_p = blst_p2_affine::default();
-        let mut result;
-        unsafe {
-            g1_p = *blst_p1_affine_generator();
-            g2_p = *blst_p2_affine_generator();
+        let result= unsafe {
+            let mut k2_p = blst_p1_affine::default();
+            let mut mvk_p = blst_p2_affine::default();
+            let g1_p = *blst_p1_affine_generator();
+            let g2_p = *blst_p2_affine_generator();
             blst_p1_to_affine(&mut k2_p, &self.k2);
             blst_p2_deserialize(&mut mvk_p, &pk.0.to_bytes()[0]);
 
             let ml_lhs = blst_fp12::miller_loop(&mvk_p, &g1_p);
             let ml_rhs = blst_fp12::miller_loop(&g2_p, &k2_p);
 
-            result = blst_fp12_finalverify(&ml_lhs, &ml_rhs);
-        }
+            blst_fp12_finalverify(&ml_lhs, &ml_rhs)
+        };
 
         self.k1.verify(false, POP, &[], &[], &pk.0, false) == BLST_ERROR::BLST_SUCCESS && result
     }
@@ -286,7 +294,8 @@ impl Msp {
             BlstSk::key_gen(&ikm, &[])
                 .expect("Error occurs when the length of ikm < 32. This will not happen here."),
         );
-        (sk, sk.into())
+        let pk: MspPk = (&sk).into();
+        (sk, pk)
     }
 
     /// Check that a pubkey is well-formed.
@@ -306,12 +315,12 @@ impl Msp {
 
     /// Aggregate verification keys.
     pub fn aggregate_keys(mvks: &[MspMvk]) -> MspMvk {
-        MspMvk(mvks.iter().map(|s| s.0).sum())
+        mvks.iter().sum()
     }
 
     /// Aggregate signatures.
     pub fn aggregate_sigs(sigmas: &[MspSig]) -> MspSig {
-        MspSig(sigmas.iter().map(|s| s.0).sum())
+        sigmas.iter().sum()
     }
 
     /// Verify an aggregate signature (identical to `Msp::ver`).
@@ -410,7 +419,7 @@ mod tests {
                                   seed in any::<[u8;32]>()) {
             let (sk, pk) = Msp::gen(&mut ChaCha20Rng::from_seed(seed));
             let sig = Msp::sig(&sk, &msg);
-            Msp::<Bls12_377>::eval(&msg, idx, &sig);
+            Msp::eval(&msg, idx, &sig);
         }
 
         // todo: handle serialization

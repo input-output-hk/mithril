@@ -71,7 +71,7 @@
 //! let ps = ps
 //!     .into_par_iter()
 //!     .map(|p| p.new_signer(closed_reg.clone()))
-//!     .collect::<Vec<StmSigner<H, Bls12_377>>>();
+//!     .collect::<Vec<StmSigner<H>>>();
 //!
 //! /////////////////////
 //! // operation phase //
@@ -106,12 +106,12 @@
 //! let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
 //!
 //! // Aggregate and verify the signatures
-//! let msig = clerk.aggregate::<ConcatProof<Bls12_377, H, F>>(&sigs, &ixs, &msg);
+//! let msig = clerk.aggregate::<ConcatProof<H, F>>(&sigs, &ixs, &msg);
 //! match msig {
 //!     Ok(aggr) => {
 //!         println!("Aggregate ok");
 //!         assert!(clerk
-//!             .verify_msig::<ConcatProof<Bls12_377, H, F>>(&aggr, &msg)
+//!             .verify_msig::<ConcatProof<H, F>>(&aggr, &msg)
 //!             .is_ok());
 //!     }
 //!     Err(AggregationFailure::NotEnoughSignatures(n, k)) => {
@@ -129,14 +129,9 @@ use crate::merkle_tree::{concat_avk_with_msg, MTHashLeaf, MerkleTree, Path};
 use crate::mithril_proof::{MithrilProof, MithrilStatement, MithrilWitness};
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
 use crate::proof::ProverEnv;
-use ark_ec::PairingEngine;
-use ark_ff::bytes::{FromBytes, ToBytes};
-use ark_ff::ToConstraintField;
-use ark_std::io::{Read, Write};
 use rand_core::{CryptoRng, RngCore};
 use std::collections::HashMap;
 use std::convert::From;
-use std::convert::TryInto;
 use std::rc::Rc;
 #[cfg(feature = "pure-rust")]
 use {
@@ -156,7 +151,16 @@ pub type Index = u64;
 
 /// The values that are represented in the Merkle Tree.
 #[derive(Debug, Clone, Copy)]
-pub struct MTValue<PE: PairingEngine>(pub MspMvk<PE>, pub Stake);
+pub struct MTValue(pub MspMvk, pub Stake);
+
+impl MTValue {
+    pub(crate) fn to_bytes (&self) -> [u8; 56] {
+        let mut result = [0u8; 56];
+        result[..48].copy_from_slice(&self.0.to_bytes());
+        result[48..].copy_from_slice(&self.1.to_be_bytes());
+        result
+    }
+}
 
 /// Used to set protocol parameters.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -175,9 +179,7 @@ pub struct StmParameters {
 /// Initializer for `StmSigner`. This is the data that is used during the key registration
 /// procedure. One the latter is finished, this instance is consumed into an `StmSigner`.
 #[derive(Debug)]
-pub struct StmInitializer<PE>
-where
-    PE: PairingEngine,
+pub struct StmInitializer
 {
     /// This participant's Id
     party_id: PartyId,
@@ -186,27 +188,26 @@ where
     /// Current protocol instantiation parameters
     params: StmParameters,
     /// Secret key
-    sk: MspSk<PE>,
+    sk: MspSk,
     /// Verification (public) key + proof of possession
-    pk: MspPk<PE>,
+    pk: MspPk,
 }
 
 /// Participant in the protocol. Can sign messages. This instance can only be generated out of
 /// an `StmInitializer` and a closed `KeyReg`. This ensures that a `MerkleTree` root is not
 /// computed before all participants have registered.
 #[derive(Debug, Clone)]
-pub struct StmSigner<H, PE>
+pub struct StmSigner<H>
 where
-    H: MTHashLeaf<MTValue<PE>>,
-    PE: PairingEngine,
+    H: MTHashLeaf,
 {
     party_id: PartyId,
     avk_idx: usize,
     stake: Stake,
     params: StmParameters,
-    avk: MerkleTree<MTValue<PE>, H>,
-    sk: MspSk<PE>,
-    pk: MspPk<PE>,
+    avk: MerkleTree<H>,
+    sk: MspSk,
+    pk: MspPk,
     total_stake: Stake,
 }
 
@@ -214,13 +215,12 @@ where
 /// generated with the registration closed. This avoids that a Merkle Tree is computed before
 /// all parties have registered.
 #[derive(Debug, Clone)]
-pub struct StmClerk<H, PE, E>
+pub struct StmClerk<H, E>
 where
-    H: MTHashLeaf<MTValue<PE>>,
-    PE: PairingEngine,
+    H: MTHashLeaf,
     E: ProverEnv,
 {
-    avk: Rc<MerkleTree<MTValue<PE>, H>>,
+    avk: Rc<MerkleTree<H>>,
     params: StmParameters,
     total_stake: Stake,
     proof_env: E,
@@ -230,11 +230,11 @@ where
 
 /// Signature created by a single party who has won the lottery.
 #[derive(Debug, Clone)]
-pub struct StmSig<PE: PairingEngine, F> {
+pub struct StmSig<F> {
     /// The signature from the underlying MSP scheme.
-    pub sigma: MspSig<PE>,
+    pub sigma: MspSig,
     /// The pubkey from the underlying MSP scheme.
-    pub pk: MspPk<PE>,
+    pub pk: MspPk,
     /// The party that made this signature.
     pub party: PartyId,
     /// The stake of the party that made this signature.
@@ -246,13 +246,12 @@ pub struct StmSig<PE: PairingEngine, F> {
 /// Aggregated signature of many parties.
 /// Contains proof that it is well-formed.
 #[derive(Debug, Clone)]
-pub struct StmMultiSig<PE, Proof>
+pub struct StmMultiSig<Proof>
 where
-    PE: PairingEngine,
     Proof: MithrilProof,
 {
-    ivk: MspMvk<PE>,
-    mu: MspSig<PE>,
+    ivk: MspMvk,
+    mu: MspSig,
     proof: Proof,
 }
 
@@ -266,7 +265,7 @@ pub enum AggregationFailure {
 
 /// Error types for single signature verification
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum VerificationFailure<PE: PairingEngine, F> {
+pub enum VerificationFailure<F> {
     /// The lottery was actually lost for the signature
     #[error("Lottery for this epoch was lost.")]
     LotteryLost,
@@ -275,125 +274,122 @@ pub enum VerificationFailure<PE: PairingEngine, F> {
     InvalidMerkleTree(Path<F>),
     /// The MSP signature is invalid
     #[error("Invalid Signature.")]
-    InvalidSignature(MspSig<PE>),
+    InvalidSignature(MspSig),
 }
 
 /// Error types for multisignature verification
 #[derive(Debug, Clone, Copy, thiserror::Error)]
-pub enum MultiVerificationFailure<Proof, PE>
+pub enum MultiVerificationFailure<Proof>
 where
     Proof: MithrilProof,
-    PE: PairingEngine,
 {
     /// The underlying MSP aggregate is invalid
     #[error("The underlying MSP aggregate is invalid.")]
-    InvalidAggregate(MspSig<PE>),
+    InvalidAggregate(MspSig),
     /// Error wrapper for underlying proof system.
     #[error("Proof of validity failed. {0}")]
     ProofError(Proof::Error),
 }
 
-impl<PE: PairingEngine, F: FromBytes> FromBytes for StmSig<PE, F> {
-    fn read<R: Read>(mut reader: R) -> std::io::Result<Self> {
-        let sigma = MspSig::<PE>::read(&mut reader)?;
-        let pk = MspPk::<PE>::read(&mut reader)?;
-        let party_u64 = u64::read(&mut reader)?;
-        let party = party_u64 as usize;
-        let stake = Stake::read(&mut reader)?;
-        let path = Path::read(&mut reader)?;
+// todo: handle serialization
+// impl<PE: PairingEngine, F: FromBytes> FromBytes for StmSig<F> {
+//     fn read<R: Read>(mut reader: R) -> std::io::Result<Self> {
+//         let sigma = MspSig::<PE>::read(&mut reader)?;
+//         let pk = MspPk::<PE>::read(&mut reader)?;
+//         let party_u64 = u64::read(&mut reader)?;
+//         let party = party_u64 as usize;
+//         let stake = Stake::read(&mut reader)?;
+//         let path = Path::read(&mut reader)?;
+//
+//         Ok(StmSig {
+//             sigma,
+//             pk,
+//             party,
+//             stake,
+//             path,
+//         })
+//     }
+// }
+//
+// impl<PE: PairingEngine, F: ToBytes> ToBytes for StmSig<PE, F> {
+//     fn write<W: Write>(&self, mut writer: W) -> std::result::Result<(), std::io::Error> {
+//         self.sigma.write(&mut writer)?;
+//         self.pk.write(&mut writer)?;
+//         let party: u64 = self.party.try_into().unwrap();
+//         party.write(&mut writer)?;
+//         self.stake.write(&mut writer)?;
+//         self.path.write(&mut writer)?;
+//
+//         Ok(())
+//     }
+// }
+//
+// impl<PE: PairingEngine, Proof: MithrilProof> FromBytes for StmMultiSig<PE, Proof> {
+//     fn read<R: Read>(mut reader: R) -> std::io::Result<Self> {
+//         let ivk = MspMvk::read(&mut reader)?;
+//         let mu = MspSig::read(&mut reader)?;
+//         let proof = Proof::read(&mut reader)?;
+//
+//         Ok(StmMultiSig { ivk, mu, proof })
+//     }
+// }
+//
+// impl<PE: PairingEngine, Proof: MithrilProof> ToBytes for StmMultiSig<PE, Proof> {
+//     fn write<W: Write>(&self, mut writer: W) -> std::result::Result<(), std::io::Error> {
+//         self.ivk.write(&mut writer)?;
+//         self.mu.write(&mut writer)?;
+//         self.proof.write(&mut writer)
+//     }
+// }
+//
+// impl FromBytes for StmParameters {
+//     fn read<R: Read>(mut reader: R) -> std::io::Result<Self> {
+//         let m = u64::read(&mut reader)?;
+//         let k = u64::read(&mut reader)?;
+//         let phi_f_int = u64::read(&mut reader)?;
+//         let phi_f = f64::from_bits(phi_f_int);
+//
+//         Ok(StmParameters { m, k, phi_f })
+//     }
+// }
+//
+// impl ToBytes for StmParameters {
+//     fn write<W: Write>(&self, mut writer: W) -> std::io::Result<()> {
+//         self.m.write(&mut writer)?;
+//         self.k.write(&mut writer)?;
+//         self.phi_f.to_bits().write(&mut writer)
+//     }
+// }
+//
+// impl<PE: PairingEngine> FromBytes for StmInitializer<PE> {
+//     fn read<R: Read>(mut reader: R) -> std::io::Result<Self> {
+//         let party_id = u64::read(&mut reader)?;
+//         let stake = Stake::read(&mut reader)?;
+//         let params = StmParameters::read(&mut reader)?;
+//         let sk = MspSk::<PE>::read(&mut reader)?;
+//         let pk = MspPk::<PE>::read(&mut reader)?;
+//
+//         Ok(StmInitializer {
+//             party_id: party_id as usize,
+//             stake,
+//             params,
+//             sk,
+//             pk,
+//         })
+//     }
+// }
+//
+// impl<PE: PairingEngine> ToBytes for StmInitializer<PE> {
+//     fn write<W: Write>(&self, mut writer: W) -> std::io::Result<()> {
+//         (self.party_id as u64).write(&mut writer)?;
+//         self.stake.write(&mut writer)?;
+//         self.params.write(&mut writer)?;
+//         self.sk.write(&mut writer)?;
+//         self.pk.write(&mut writer)
+//     }
+// }
 
-        Ok(StmSig {
-            sigma,
-            pk,
-            party,
-            stake,
-            path,
-        })
-    }
-}
-
-impl<PE: PairingEngine, F: ToBytes> ToBytes for StmSig<PE, F> {
-    fn write<W: Write>(&self, mut writer: W) -> std::result::Result<(), std::io::Error> {
-        self.sigma.write(&mut writer)?;
-        self.pk.write(&mut writer)?;
-        let party: u64 = self.party.try_into().unwrap();
-        party.write(&mut writer)?;
-        self.stake.write(&mut writer)?;
-        self.path.write(&mut writer)?;
-
-        Ok(())
-    }
-}
-
-impl<PE: PairingEngine, Proof: MithrilProof> FromBytes for StmMultiSig<PE, Proof> {
-    fn read<R: Read>(mut reader: R) -> std::io::Result<Self> {
-        let ivk = MspMvk::read(&mut reader)?;
-        let mu = MspSig::read(&mut reader)?;
-        let proof = Proof::read(&mut reader)?;
-
-        Ok(StmMultiSig { ivk, mu, proof })
-    }
-}
-
-impl<PE: PairingEngine, Proof: MithrilProof> ToBytes for StmMultiSig<PE, Proof> {
-    fn write<W: Write>(&self, mut writer: W) -> std::result::Result<(), std::io::Error> {
-        self.ivk.write(&mut writer)?;
-        self.mu.write(&mut writer)?;
-        self.proof.write(&mut writer)
-    }
-}
-
-impl FromBytes for StmParameters {
-    fn read<R: Read>(mut reader: R) -> std::io::Result<Self> {
-        let m = u64::read(&mut reader)?;
-        let k = u64::read(&mut reader)?;
-        let phi_f_int = u64::read(&mut reader)?;
-        let phi_f = f64::from_bits(phi_f_int);
-
-        Ok(StmParameters { m, k, phi_f })
-    }
-}
-
-impl ToBytes for StmParameters {
-    fn write<W: Write>(&self, mut writer: W) -> std::io::Result<()> {
-        self.m.write(&mut writer)?;
-        self.k.write(&mut writer)?;
-        self.phi_f.to_bits().write(&mut writer)
-    }
-}
-
-impl<PE: PairingEngine> FromBytes for StmInitializer<PE> {
-    fn read<R: Read>(mut reader: R) -> std::io::Result<Self> {
-        let party_id = u64::read(&mut reader)?;
-        let stake = Stake::read(&mut reader)?;
-        let params = StmParameters::read(&mut reader)?;
-        let sk = MspSk::<PE>::read(&mut reader)?;
-        let pk = MspPk::<PE>::read(&mut reader)?;
-
-        Ok(StmInitializer {
-            party_id: party_id as usize,
-            stake,
-            params,
-            sk,
-            pk,
-        })
-    }
-}
-
-impl<PE: PairingEngine> ToBytes for StmInitializer<PE> {
-    fn write<W: Write>(&self, mut writer: W) -> std::io::Result<()> {
-        (self.party_id as u64).write(&mut writer)?;
-        self.stake.write(&mut writer)?;
-        self.params.write(&mut writer)?;
-        self.sk.write(&mut writer)?;
-        self.pk.write(&mut writer)
-    }
-}
-
-impl<PE> StmInitializer<PE>
-where
-    PE: PairingEngine,
-    MspPk<PE>: std::hash::Hash,
+impl StmInitializer
 {
     //////////////////////////
     // Initialization phase //
@@ -425,19 +421,20 @@ where
     }
 
     /// Extract the secret key.
-    pub fn secret_key(&self) -> MspSk<PE> {
-        self.sk
+    pub fn secret_key(&self) -> MspSk {
+        self.sk.clone()
     }
 
     /// Extract the verification key.
-    pub fn verification_key(&self) -> MspPk<PE> {
+    pub fn verification_key(&self) -> MspPk {
         self.pk
     }
 
     /// Set a new pair of keys out of a secret key
-    pub fn set_key(&mut self, sk: &MspSk<PE>) {
+    // todo: mmmh, do we need this?
+    pub fn set_key(&mut self, sk: &MspSk) {
         let pk = MspPk::from(sk);
-        self.sk = *sk;
+        self.sk = sk.clone();
         self.pk = pk;
     }
 
@@ -476,9 +473,9 @@ where
     /// (2) this StmSigner's parameter valuation
     /// (3) the avk as built from the current registered parties (according to the registration service)
     /// (4) the current total stake (according to the registration service)
-    pub fn new_signer<H>(self, closed_reg: ClosedKeyReg<PE, H>) -> StmSigner<H, PE>
+    pub fn new_signer<H>(self, closed_reg: ClosedKeyReg<H>) -> StmSigner<H>
     where
-        H: MTHashLeaf<MTValue<PE>> + Clone,
+        H: MTHashLeaf + Clone,
     {
         // Extract this signer's party index from the registry, i.e. the position of the merkle
         // tree leaf.
@@ -507,10 +504,9 @@ where
     }
 }
 
-impl<H, PE> StmSigner<H, PE>
+impl<H> StmSigner<H>
 where
-    H: MTHashLeaf<MTValue<PE>>,
-    PE: PairingEngine,
+    H: MTHashLeaf,
 {
     /////////////////////
     // Operation phase //
@@ -528,7 +524,7 @@ where
     }
 
     /// If lottery is won for this message/index, signs it.
-    pub fn sign(&self, msg: &[u8], index: Index) -> Option<StmSig<PE, H::F>> {
+    pub fn sign(&self, msg: &[u8], index: Index) -> Option<StmSig<H::F>> {
         if self.eligibility_check(msg, index) {
             // msg' <- AVK||msg
             // sigma <- MSP.Sig(msk,msg')
@@ -559,7 +555,7 @@ where
     /// it as input.
     ///
     /// See an example [here](mithril::examples::dynamic_stake).
-    pub fn new_epoch(self, new_stake: Option<Stake>) -> StmInitializer<PE> {
+    pub fn new_epoch(self, new_stake: Option<Stake>) -> StmInitializer {
         let stake = match new_stake {
             None => self.stake,
             Some(s) => s,
@@ -575,18 +571,16 @@ where
     }
 }
 
-impl<H, PE, E: ProverEnv> StmClerk<H, PE, E>
+impl<H, E: ProverEnv> StmClerk<H, E>
 where
     E: ProverEnv,
-    H: MTHashLeaf<MTValue<PE>> + Clone,
-    PE: PairingEngine,
-    PE::G1Projective: ToConstraintField<PE::Fq>,
+    H: MTHashLeaf + Clone,
 {
     /// Create a new `Clerk` from a closed registration instance.
     pub fn from_registration(
         params: StmParameters,
         proof_env: E,
-        closed_reg: ClosedKeyReg<PE, H>,
+        closed_reg: ClosedKeyReg<H>,
     ) -> Self {
         let (pk, vk) = proof_env.setup();
         Self {
@@ -600,7 +594,7 @@ where
     }
 
     /// Creates a Clerk from a Signer.
-    pub fn from_signer(signer: &StmSigner<H, PE>, proof_env: E) -> Self {
+    pub fn from_signer(signer: &StmSigner<H>, proof_env: E) -> Self {
         let (proof_key, verif_key) = proof_env.setup();
         Self {
             params: signer.params,
@@ -615,17 +609,17 @@ where
     /// Verify a signature.
     pub fn verify_sig(
         &self,
-        sig: &StmSig<PE, H::F>,
+        sig: &StmSig<H::F>,
         index: Index,
         msg: &[u8],
-    ) -> Result<(), VerificationFailure<PE, H::F>> {
+    ) -> Result<(), VerificationFailure<H::F>> {
         let msgp = concat_avk_with_msg(&self.avk.to_commitment(), msg);
         let ev = Msp::eval(&msgp, index, &sig.sigma);
 
         if !ev_lt_phi(self.params.phi_f, ev, sig.stake, self.total_stake) {
             Err(VerificationFailure::LotteryLost)
         } else if !self.avk.to_commitment().check(
-            &MTValue(sig.pk.mvk, sig.stake),
+            &MTValue(sig.pk.mvk, sig.stake).to_bytes(),
             sig.party,
             &sig.path,
         ) {
@@ -644,14 +638,14 @@ where
     /// representations.
     pub fn aggregate<Proof>(
         &self,
-        sigs: &[StmSig<PE, H::F>],
+        sigs: &[StmSig<H::F>],
         indices: &[Index],
         msg: &[u8],
-    ) -> Result<StmMultiSig<PE, Proof>, AggregationFailure>
+    ) -> Result<StmMultiSig<Proof>, AggregationFailure>
     where
         Proof: MithrilProof<Env = E>,
-        Proof::Statement: From<MithrilStatement<PE, H>>,
-        Proof::Witness: From<MithrilWitness<PE, H>>,
+        Proof::Statement: From<MithrilStatement<H>>,
+        Proof::Witness: From<MithrilWitness<H>>,
     {
         let msgp = concat_avk_with_msg(&self.avk.to_commitment(), msg);
         let mut evals = Vec::new();
@@ -704,13 +698,13 @@ where
     /// representations.
     pub fn verify_msig<Proof>(
         &self,
-        msig: &StmMultiSig<PE, Proof>,
+        msig: &StmMultiSig<Proof>,
         msg: &[u8],
-    ) -> Result<(), MultiVerificationFailure<Proof, PE>>
+    ) -> Result<(), MultiVerificationFailure<Proof>>
     where
         Proof: MithrilProof<Env = E>,
-        Proof::Statement: From<MithrilStatement<PE, H>>,
-        Proof::Witness: From<MithrilWitness<PE, H>>,
+        Proof::Statement: From<MithrilStatement<H>>,
+        Proof::Witness: From<MithrilWitness<H>>,
     {
         let statement = MithrilStatement {
             // Specific to the message and signatures
@@ -745,12 +739,10 @@ where
         &self,
         msg: &[u8],
         indices: &'a [Index],
-        sigs: &'a [StmSig<PE, H::F>],
-    ) -> Result<impl IntoIterator<Item = (&'a Index, &'a StmSig<PE, H::F>)>, AggregationFailure>
-    where
-        PE::G1Projective: ToConstraintField<PE::Fq>,
+        sigs: &'a [StmSig<H::F>],
+    ) -> Result<impl IntoIterator<Item = (&'a Index, &'a StmSig<H::F>)>, AggregationFailure>
     {
-        let mut sigs_by_index: HashMap<&Index, &StmSig<PE, H::F>> = HashMap::new();
+        let mut sigs_by_index: HashMap<&Index, &StmSig<H::F>> = HashMap::new();
         let mut count = 0;
         for (ix, sig) in indices.iter().zip(sigs) {
             if self.verify_sig(sig, *ix, msg).is_err() {
@@ -881,8 +873,6 @@ mod tests {
     use crate::key_reg::*;
     use crate::mithril_proof::concat_proofs::*;
     use crate::proof::trivial::TrivialEnv;
-    use ark_bls12_377::{Bls12_377, G1Projective as G1P, G2Projective as G2P};
-    use ark_ec::ProjectiveCurve;
     use proptest::collection::{hash_map, vec};
     use proptest::prelude::*;
     use proptest::test_runner::{RngAlgorithm::ChaCha, TestRng};
@@ -894,17 +884,17 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    type Proof = ConcatProof<Bls12_377, H, F>;
-    type Sig = StmMultiSig<Bls12_377, Proof>;
+    type Proof = ConcatProof<H, F>;
+    type Sig = StmMultiSig<Proof>;
     type H = blake2::Blake2b;
-    type F = <H as MTHashLeaf<MTValue<Bls12_377>>>::F;
+    type F = <H as MTHashLeaf>::F;
 
-    fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmSigner<H, Bls12_377>> {
+    fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmSigner<H>> {
         let stake = vec![1; nparties];
         setup_parties(params, stake)
     }
 
-    fn setup_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<StmSigner<H, Bls12_377>> {
+    fn setup_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<StmSigner<H>> {
         let parties = stake.into_iter().enumerate().collect::<Vec<_>>();
         let mut kr = KeyReg::new(&parties);
         let mut trng = TestRng::deterministic_rng(ChaCha);
@@ -988,9 +978,9 @@ mod tests {
     fn find_signatures(
         m: u64,
         msg: &[u8],
-        ps: &[StmSigner<H, Bls12_377>],
+        ps: &[StmSigner<H>],
         is: &[usize],
-    ) -> (Vec<Index>, Vec<StmSig<Bls12_377, F>>) {
+    ) -> (Vec<Index>, Vec<StmSig<F>>) {
         let indices: Vec<_> = (0..m).collect();
         let res = indices
             .par_iter()
@@ -1081,36 +1071,36 @@ mod tests {
             let all_ps: Vec<usize> = (0..nparties).collect();
             let (ixs, sigs) = find_signatures(m, &msg, &ps, &all_ps);
 
-            let msig = clerk.aggregate::<ConcatProof<Bls12_377,H, F>>(&sigs, &ixs, &msg);
+            let msig = clerk.aggregate::<ConcatProof<H, F>>(&sigs, &ixs, &msg);
 
             match msig {
                 Ok(aggr) =>
-                    assert!(clerk.verify_msig::<ConcatProof<Bls12_377,H, F>>(&aggr, &msg).is_ok()),
+                    assert!(clerk.verify_msig::<ConcatProof<H, F>>(&aggr, &msg).is_ok()),
                 Err(AggregationFailure::NotEnoughSignatures(n, k)) =>
                     assert!(n < params.k || k == params.k),
             }
         }
     }
 
-    proptest! {
-        #![proptest_config(ProptestConfig::with_cases(10))]
-        #[test]
-        fn test_sig_serialize_deserialize(nparties in 2_usize..10,
-                                          msg in any::<[u8;16]>()) {
-            let params = StmParameters { m: 10, k: 1, phi_f: 1.0 };
-            let ps = setup_equal_parties(params, nparties);
-            let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
-
-            let all_ps: Vec<usize> = (0..nparties).collect();
-            let (ixs, sigs) = find_signatures(10, &msg, &ps, &all_ps);
-            let msig = clerk.aggregate::<ConcatProof<Bls12_377,H, F>>(&sigs, &ixs, &msg);
-            if let Ok(aggr) = msig {
-                    let bytes: Vec<u8> = ark_ff::to_bytes!(aggr).unwrap();
-                    let aggr2 = StmMultiSig::read(&bytes[..]).unwrap();
-                    assert!(clerk.verify_msig::<ConcatProof<Bls12_377,H, F>>(&aggr2, &msg).is_ok());
-            }
-        }
-    }
+    // proptest! {
+    //     #![proptest_config(ProptestConfig::with_cases(10))]
+    //     #[test]
+    //     fn test_sig_serialize_deserialize(nparties in 2_usize..10,
+    //                                       msg in any::<[u8;16]>()) {
+    //         let params = StmParameters { m: 10, k: 1, phi_f: 1.0 };
+    //         let ps = setup_equal_parties(params, nparties);
+    //         let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
+    //
+    //         let all_ps: Vec<usize> = (0..nparties).collect();
+    //         let (ixs, sigs) = find_signatures(10, &msg, &ps, &all_ps);
+    //         let msig = clerk.aggregate::<ConcatProof<Bls12_377,H, F>>(&sigs, &ixs, &msg);
+    //         if let Ok(aggr) = msig {
+    //                 let bytes: Vec<u8> = ark_ff::to_bytes!(aggr).unwrap();
+    //                 let aggr2 = StmMultiSig::read(&bytes[..]).unwrap();
+    //                 assert!(clerk.verify_msig::<ConcatProof<Bls12_377,H, F>>(&aggr2, &msg).is_ok());
+    //         }
+    //     }
+    // }
 
     /// Pick N between min and max, and then
     /// generate a vector of N stakes summing to N*tstake,
@@ -1161,7 +1151,7 @@ mod tests {
 
             let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
 
-            let msig = clerk.aggregate::<ConcatProof<Bls12_377,H, F>>(&sigs, &ixs, &msg);
+            let msig = clerk.aggregate::<ConcatProof<H, F>>(&sigs, &ixs, &msg);
             match msig {
                 Err(AggregationFailure::NotEnoughSignatures(n, k)) =>
                     assert!(n < params.k && params.k == k),
@@ -1175,7 +1165,7 @@ mod tests {
     struct ProofTest {
         n: usize,
         msig: Result<Sig, AggregationFailure>,
-        clerk: StmClerk<H, Bls12_377, TrivialEnv>,
+        clerk: StmClerk<H, TrivialEnv>,
         msg: [u8; 16],
     }
 
@@ -1195,7 +1185,7 @@ mod tests {
                 let all_ps: Vec<usize> = (0..n).collect();
                 let (ixs, sigs) = find_signatures(params.m, &msg, &ps, &all_ps);
 
-                let msig = clerk.aggregate::<ConcatProof<Bls12_377, H, F>>(&sigs, &ixs, &msg);
+                let msig = clerk.aggregate::<ConcatProof<H, F>>(&sigs, &ixs, &msg);
                 ProofTest {
                     n,
                     msig,
@@ -1208,7 +1198,7 @@ mod tests {
 
     fn with_proof_mod<F>(mut tc: ProofTest, f: F)
     where
-        F: Fn(&mut Sig, &mut StmClerk<H, Bls12_377, TrivialEnv>, &mut [u8; 16]),
+        F: Fn(&mut Sig, &mut StmClerk<H, TrivialEnv>, &mut [u8; 16]),
     {
         match tc.msig {
             Ok(mut aggr) => {
@@ -1231,18 +1221,18 @@ mod tests {
         }
         #[test]
         fn test_invalid_proof_ivk(tc in arb_proof_setup(10),
-                                  rnd in any::<u64>()) {
+                                  seed in any::<[u8; 32]>()) {
             with_proof_mod(tc, |aggr, _clerk, _msg| {
-                let x = G2P::prime_subgroup_generator().mul(&[rnd]);
-                aggr.ivk = MspMvk(x)
+                let (_sk, mvk) = Msp::gen(&mut ChaCha20Rng::from_seed(seed));
+                aggr.ivk = mvk.mvk
             })
         }
         #[test]
         fn test_invalid_proof_mu(tc in arb_proof_setup(10),
-                                 rnd in any::<u64>()) {
+                                 seed in any::<[u8; 32]>()) {
             with_proof_mod(tc, |aggr, _clerk, _msg| {
-                let x = G1P::prime_subgroup_generator().mul(&[rnd]);
-                aggr.mu = MspSig(x)
+                let (sk, _mvk) = Msp::gen(&mut ChaCha20Rng::from_seed(seed));
+                aggr.mu = Msp::sig(&sk, b"unexpected message");
             })
         }
         #[test]

@@ -13,19 +13,18 @@ use std::os::raw::c_char;
 
 pub const NULLPOINTERERR: i64 = -99;
 
-type C = ark_bls12_377::Bls12_377;
 type H = blake2::Blake2b;
-type F = <H as MTHashLeaf<MTValue<C>>>::F;
-type MspSkPtr = *mut MspSk<C>;
-type MspPkPtr = *mut MspPk<C>;
-type SigPtr = *mut StmSig<C, F>;
-type MultiSigPtr = *mut StmMultiSig<C, ConcatProof<C, H, F>>;
-type StmInitializerPtr = *mut StmInitializer<C>;
-type StmSignerPtr = *mut StmSigner<H, C>;
-type StmClerkPtr = *mut StmClerk<H, C, TrivialEnv>;
-type MerkleTreeCommitmentPtr = *mut MerkleTreeCommitment<MTValue<C>, H>;
-type KeyRegPtr = *mut KeyReg<C>;
-type ClosedKeyRegPtr = *mut ClosedKeyReg<C, H>;
+type F = <H as MTHashLeaf>::F;
+type MspSkPtr = *mut MspSk;
+type MspPkPtr = *mut MspPk;
+type SigPtr = *mut StmSig<F>;
+type MultiSigPtr = *mut StmMultiSig<ConcatProof<H, F>>;
+type StmInitializerPtr = *mut StmInitializer;
+type StmSignerPtr = *mut StmSigner<H>;
+type StmClerkPtr = *mut StmClerk<H, TrivialEnv>;
+type MerkleTreeCommitmentPtr = *mut MerkleTreeCommitment<H>;
+type KeyRegPtr = *mut KeyReg;
+type ClosedKeyRegPtr = *mut ClosedKeyReg<H>;
 
 // A macro would be nice for the below, but macros do not
 // seem to work properly with cbindgen:
@@ -85,143 +84,142 @@ pub extern "C" fn free_stm_clerk(p: StmClerkPtr) -> i64 {
     }
 }
 
-pub mod serialize {
-    //! Serialisation functions
-    use super::*;
-    use ark_ff::{FromBytes, ToBytes};
-    use std::{intrinsics::copy_nonoverlapping, slice};
-
-    /// Sets *key_bytes to the serialization
-    /// Sets *key_size to the size of the buffer
-    /// The caller is responsible for freeing this buffer
-    #[no_mangle]
-    pub extern "C" fn msp_serialize_verification_key(
-        kptr: MspPkPtr,
-        key_size: *mut usize,
-        key_bytes: *mut *mut u8,
-    ) -> i64 {
-        c_serialize(kptr, key_size, key_bytes)
-    }
-    /// Given a pointer and its size, deserialize into a MSP verification/public key
-    #[no_mangle]
-    pub extern "C" fn msp_deserialize_verification_key(
-        key_size: usize,
-        key_bytes: *mut u8,
-        output_struct: *mut MspPkPtr,
-    ) -> i64 {
-        c_deserialize(key_size, key_bytes, output_struct)
-    }
-    /// Sets *key_bytes to the serialization
-    /// Sets *key_size to the size of the buffer
-    /// The caller is responsible for freeing this buffer
-    #[no_mangle]
-    pub extern "C" fn msp_serialize_secret_key(
-        kptr: MspSkPtr,
-        key_size: *mut usize,
-        key_bytes: *mut *mut u8,
-    ) -> i64 {
-        c_serialize(kptr, key_size, key_bytes)
-    }
-    /// Given a pointer and its size, deserialize into a MSP secret key
-    #[no_mangle]
-    pub extern "C" fn msp_deserialize_secret_key(
-        key_size: usize,
-        key_bytes: *mut u8,
-        output_struct: *mut MspSkPtr,
-    ) -> i64 {
-        c_deserialize(key_size, key_bytes, output_struct)
-    }
-    /// Sets *sig_bytes to the serialization
-    /// Sets *sig_size to the size of the buffer
-    /// The caller is responsible for freeing this buffer
-    #[no_mangle]
-    pub extern "C" fn stm_serialize_sig(
-        sptr: SigPtr,
-        sig_size: *mut usize,
-        sig_bytes: *mut *mut u8,
-    ) -> i64 {
-        c_serialize(sptr, sig_size, sig_bytes)
-    }
-    /// Given a pointer and its size, deserialize into an STM signature
-    #[no_mangle]
-    pub extern "C" fn stm_deserialize_sig(
-        sig_size: usize,
-        sig_bytes: *mut u8,
-        output_struct: *mut SigPtr,
-    ) -> i64 {
-        c_deserialize(sig_size, sig_bytes, output_struct)
-    }
-    /// Sets *msig_bytes to the serialization
-    /// Sets *msig_size to the size of the buffer
-    /// The caller is responsible for freeing this buffer
-    #[no_mangle]
-    pub extern "C" fn stm_serialize_multi_sig(
-        msig_ptr: MultiSigPtr,
-        msig_size: *mut usize,
-        msig_bytes: *mut *mut u8,
-    ) -> i64 {
-        c_serialize(msig_ptr, msig_size, msig_bytes)
-    }
-    /// Given a pointer and its size, deserialize into an STM multi signature
-    #[no_mangle]
-    pub extern "C" fn stm_deserialize_multi_sig(
-        sig_size: usize,
-        sig_bytes: *mut u8,
-        output_struct: *mut MultiSigPtr,
-    ) -> i64 {
-        c_deserialize(sig_size, sig_bytes, output_struct)
-    }
-
-    /// Sets *init_bytes to the serialization
-    /// Sets *init_size to the size of the buffer
-    /// The caller is responsible for freeing this buffer
-    #[no_mangle]
-    pub extern "C" fn stm_serialize_initializer(
-        init_ptr: StmInitializerPtr,
-        init_size: *mut usize,
-        init_bytes: *mut *mut u8,
-    ) -> i64 {
-        c_serialize(init_ptr, init_size, init_bytes)
-    }
-
-    /// Given a pointer and its size, deserialize into an STM initializer
-    #[no_mangle]
-    pub extern "C" fn stm_deserialize_initializer(
-        init_size: usize,
-        init_bytes: *mut u8,
-        output_struct: *mut StmInitializerPtr,
-    ) -> i64 {
-        c_deserialize(init_size, init_bytes, output_struct)
-    }
-
-    fn c_serialize<T: ToBytes>(ptr: *mut T, size: *mut usize, out_bytes: *mut *mut u8) -> i64 {
-        unsafe {
-            if let (Some(v), Some(size_checked), Some(out_checked)) =
-                (ptr.as_ref(), size.as_mut(), out_bytes.as_mut())
-            {
-                let bytes = ark_ff::to_bytes!(v).unwrap();
-                let len = bytes.len();
-                *size_checked = len;
-                let dst = libc::malloc(len) as *mut u8;
-                copy_nonoverlapping(bytes.as_ptr(), dst, len);
-                *out_checked = dst;
-                return 0;
-            }
-            NULLPOINTERERR
-        }
-    }
-
-    fn c_deserialize<T: FromBytes>(size: usize, bytes: *const u8, result: *mut *mut T) -> i64 {
-        unsafe {
-            if let (Some(res), Some(bytes)) = (result.as_mut(), bytes.as_ref()) {
-                let val = T::read(slice::from_raw_parts(bytes, size)).unwrap();
-                *res = Box::into_raw(Box::new(val));
-                return 0;
-            }
-            NULLPOINTERERR
-        }
-    }
-}
+// pub mod serialize {
+//     //! Serialisation functions
+//     use super::*;
+//     use std::{intrinsics::copy_nonoverlapping, slice};
+//
+//     /// Sets *key_bytes to the serialization
+//     /// Sets *key_size to the size of the buffer
+//     /// The caller is responsible for freeing this buffer
+//     #[no_mangle]
+//     pub extern "C" fn msp_serialize_verification_key(
+//         kptr: MspPkPtr,
+//         key_size: *mut usize,
+//         key_bytes: *mut *mut u8,
+//     ) -> i64 {
+//         c_serialize(kptr, key_size, key_bytes)
+//     }
+//     /// Given a pointer and its size, deserialize into a MSP verification/public key
+//     #[no_mangle]
+//     pub extern "C" fn msp_deserialize_verification_key(
+//         key_size: usize,
+//         key_bytes: *mut u8,
+//         output_struct: *mut MspPkPtr,
+//     ) -> i64 {
+//         c_deserialize(key_size, key_bytes, output_struct)
+//     }
+//     /// Sets *key_bytes to the serialization
+//     /// Sets *key_size to the size of the buffer
+//     /// The caller is responsible for freeing this buffer
+//     #[no_mangle]
+//     pub extern "C" fn msp_serialize_secret_key(
+//         kptr: MspSkPtr,
+//         key_size: *mut usize,
+//         key_bytes: *mut *mut u8,
+//     ) -> i64 {
+//         c_serialize(kptr, key_size, key_bytes)
+//     }
+//     /// Given a pointer and its size, deserialize into a MSP secret key
+//     #[no_mangle]
+//     pub extern "C" fn msp_deserialize_secret_key(
+//         key_size: usize,
+//         key_bytes: *mut u8,
+//         output_struct: *mut MspSkPtr,
+//     ) -> i64 {
+//         c_deserialize(key_size, key_bytes, output_struct)
+//     }
+//     /// Sets *sig_bytes to the serialization
+//     /// Sets *sig_size to the size of the buffer
+//     /// The caller is responsible for freeing this buffer
+//     #[no_mangle]
+//     pub extern "C" fn stm_serialize_sig(
+//         sptr: SigPtr,
+//         sig_size: *mut usize,
+//         sig_bytes: *mut *mut u8,
+//     ) -> i64 {
+//         c_serialize(sptr, sig_size, sig_bytes)
+//     }
+//     /// Given a pointer and its size, deserialize into an STM signature
+//     #[no_mangle]
+//     pub extern "C" fn stm_deserialize_sig(
+//         sig_size: usize,
+//         sig_bytes: *mut u8,
+//         output_struct: *mut SigPtr,
+//     ) -> i64 {
+//         c_deserialize(sig_size, sig_bytes, output_struct)
+//     }
+//     /// Sets *msig_bytes to the serialization
+//     /// Sets *msig_size to the size of the buffer
+//     /// The caller is responsible for freeing this buffer
+//     #[no_mangle]
+//     pub extern "C" fn stm_serialize_multi_sig(
+//         msig_ptr: MultiSigPtr,
+//         msig_size: *mut usize,
+//         msig_bytes: *mut *mut u8,
+//     ) -> i64 {
+//         c_serialize(msig_ptr, msig_size, msig_bytes)
+//     }
+//     /// Given a pointer and its size, deserialize into an STM multi signature
+//     #[no_mangle]
+//     pub extern "C" fn stm_deserialize_multi_sig(
+//         sig_size: usize,
+//         sig_bytes: *mut u8,
+//         output_struct: *mut MultiSigPtr,
+//     ) -> i64 {
+//         c_deserialize(sig_size, sig_bytes, output_struct)
+//     }
+//
+//     /// Sets *init_bytes to the serialization
+//     /// Sets *init_size to the size of the buffer
+//     /// The caller is responsible for freeing this buffer
+//     #[no_mangle]
+//     pub extern "C" fn stm_serialize_initializer(
+//         init_ptr: StmInitializerPtr,
+//         init_size: *mut usize,
+//         init_bytes: *mut *mut u8,
+//     ) -> i64 {
+//         c_serialize(init_ptr, init_size, init_bytes)
+//     }
+//
+//     /// Given a pointer and its size, deserialize into an STM initializer
+//     #[no_mangle]
+//     pub extern "C" fn stm_deserialize_initializer(
+//         init_size: usize,
+//         init_bytes: *mut u8,
+//         output_struct: *mut StmInitializerPtr,
+//     ) -> i64 {
+//         c_deserialize(init_size, init_bytes, output_struct)
+//     }
+//
+//     fn c_serialize<T: ToBytes>(ptr: *mut T, size: *mut usize, out_bytes: *mut *mut u8) -> i64 {
+//         unsafe {
+//             if let (Some(v), Some(size_checked), Some(out_checked)) =
+//                 (ptr.as_ref(), size.as_mut(), out_bytes.as_mut())
+//             {
+//                 let bytes = ark_ff::to_bytes!(v).unwrap();
+//                 let len = bytes.len();
+//                 *size_checked = len;
+//                 let dst = libc::malloc(len) as *mut u8;
+//                 copy_nonoverlapping(bytes.as_ptr(), dst, len);
+//                 *out_checked = dst;
+//                 return 0;
+//             }
+//             NULLPOINTERERR
+//         }
+//     }
+//
+//     fn c_deserialize<T: FromBytes>(size: usize, bytes: *const u8, result: *mut *mut T) -> i64 {
+//         unsafe {
+//             if let (Some(res), Some(bytes)) = (result.as_mut(), bytes.as_ref()) {
+//                 let val = T::read(slice::from_raw_parts(bytes, size)).unwrap();
+//                 *res = Box::into_raw(Box::new(val));
+//                 return 0;
+//             }
+//             NULLPOINTERERR
+//         }
+//     }
+// }
 
 mod initializer {
     use super::*;

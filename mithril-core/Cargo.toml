@@ -47,9 +47,10 @@ harness = false
 name = "stm"
 harness = false
 
-[[bench]]
-name = "size_benches"
-harness = false
+# todo: until we have serialization
+#[[bench]]
+#name = "size_benches"
+#harness = false
 
 [features]
 default = ["rug"]

@@ -6,7 +6,6 @@
 mod c_api;
 pub mod key_reg;
 pub mod merkle_tree;
-mod mithril_curves;
 pub mod mithril_proof;
 pub mod models;
 pub mod msp;

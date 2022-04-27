@@ -2,7 +2,6 @@
 //! but instead by all the participants in the signature process. Contrarily to the full protocol
 //! run presented in `tests/integration.rs`, we explicitly treat each party individually.
 
-use ark_bls12_377::Bls12_377;
 use mithril::key_reg::{ClosedKeyReg, KeyReg};
 use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
 use mithril::stm::{MTValue, Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
@@ -14,7 +13,7 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
 type H = blake2::Blake2b;
-type F = <H as MTHashLeaf<MTValue<Bls12_377>>>::F;
+type F = <H as MTHashLeaf>::F;
 
 fn main() {
     let nparties = 4;
@@ -49,7 +48,7 @@ fn main() {
     let party_3_init = StmInitializer::setup(params, parties[3].0, parties[3].1, &mut rng);
 
     // The public keys are broadcast. All participants will have the same keys.
-    let parties_pks: Vec<MspPk<Bls12_377>> = vec![
+    let parties_pks: Vec<MspPk> = vec![
         party_0_init.verification_key(),
         party_1_init.verification_key(),
         party_2_init.verification_key(),
@@ -133,7 +132,7 @@ fn main() {
     let clerk = StmClerk::from_registration(params, TrivialEnv, closed_registration);
 
     // Now we aggregate the signatures
-    let msig_1 = match clerk.aggregate::<ConcatProof<Bls12_377, H, F>>(
+    let msig_1 = match clerk.aggregate::<ConcatProof<H, F>>(
         &complete_sigs_1,
         &complete_ixs_1,
         &msg,
@@ -144,10 +143,10 @@ fn main() {
         }
     };
     assert!(clerk
-        .verify_msig::<ConcatProof<Bls12_377, H, F>>(&msig_1, &msg)
+        .verify_msig::<ConcatProof<H, F>>(&msig_1, &msg)
         .is_ok());
 
-    let msig_2 = match clerk.aggregate::<ConcatProof<Bls12_377, H, F>>(
+    let msig_2 = match clerk.aggregate::<ConcatProof<H, F>>(
         &complete_sigs_2,
         &complete_ixs_2,
         &msg,
@@ -158,10 +157,10 @@ fn main() {
         }
     };
     assert!(clerk
-        .verify_msig::<ConcatProof<Bls12_377, H, F>>(&msig_2, &msg)
+        .verify_msig::<ConcatProof<H, F>>(&msig_2, &msg)
         .is_ok());
 
-    let msig_3 = clerk.aggregate::<ConcatProof<Bls12_377, H, F>>(
+    let msig_3 = clerk.aggregate::<ConcatProof<H, F>>(
         &incomplete_sigs_3,
         &incomplete_ixs_3,
         &msg,
@@ -170,10 +169,10 @@ fn main() {
 }
 
 fn try_signatures(
-    party: &StmSigner<H, Bls12_377>,
+    party: &StmSigner<H>,
     msg: &[u8],
     m: u64,
-) -> (Vec<StmSig<Bls12_377, DigestHash>>, Vec<u64>) {
+) -> (Vec<StmSig<DigestHash>>, Vec<u64>) {
     let mut sigs = Vec::new();
     let mut ixs = Vec::new();
     for ix in 0..m {
@@ -185,7 +184,7 @@ fn try_signatures(
     (sigs, ixs)
 }
 
-fn local_reg(ids: &[(usize, u64)], pks: &[MspPk<Bls12_377>]) -> ClosedKeyReg<Bls12_377, H> {
+fn local_reg(ids: &[(usize, u64)], pks: &[MspPk]) -> ClosedKeyReg<H> {
     let mut local_keyreg = KeyReg::new(ids);
     // todo: maybe its cleaner to have a `StmPublic` instance that covers the "shareable"
     // data, such as the public key, stake and id.

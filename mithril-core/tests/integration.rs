@@ -1,4 +1,3 @@
-use ark_bls12_377::Bls12_377;
 use mithril::key_reg::KeyReg;
 use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
 use mithril::stm::{
@@ -11,7 +10,7 @@ use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
 type H = blake2::Blake2b;
-type F = <H as MTHashLeaf<MTValue<Bls12_377>>>::F;
+type F = <H as MTHashLeaf>::F;
 
 #[test]
 fn test_full_protocol() {
@@ -37,7 +36,7 @@ fn test_full_protocol() {
 
     let mut key_reg = KeyReg::new(&parties);
 
-    let mut ps: Vec<StmInitializer<Bls12_377>> = Vec::with_capacity(nparties);
+    let mut ps: Vec<StmInitializer> = Vec::with_capacity(nparties);
     for (pid, stake) in parties {
         let p = StmInitializer::setup(params, pid, stake, &mut rng);
         key_reg
@@ -51,7 +50,7 @@ fn test_full_protocol() {
     let ps = ps
         .into_par_iter()
         .map(|p| p.new_signer(closed_reg.clone()))
-        .collect::<Vec<StmSigner<H, Bls12_377>>>();
+        .collect::<Vec<StmSigner<H>>>();
 
     /////////////////////
     // operation phase //
@@ -90,12 +89,12 @@ fn test_full_protocol() {
     }
 
     // Aggregate and verify with random parties
-    let msig = clerk.aggregate::<ConcatProof<Bls12_377, H, F>>(&sigs, &ixs, &msg);
+    let msig = clerk.aggregate::<ConcatProof<H, F>>(&sigs, &ixs, &msg);
     match msig {
         Ok(aggr) => {
             println!("Aggregate ok");
             assert!(clerk
-                .verify_msig::<ConcatProof<Bls12_377, H, F>>(&aggr, &msg)
+                .verify_msig::<ConcatProof<H, F>>(&aggr, &msg)
                 .is_ok());
         }
         Err(AggregationFailure::NotEnoughSignatures(n, k)) => {

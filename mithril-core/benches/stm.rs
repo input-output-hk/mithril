@@ -1,7 +1,3 @@
-use ark_bls12_377::Bls12_377;
-use ark_bls12_381::Bls12_381;
-use ark_ec::PairingEngine;
-use ark_ff::{FromBytes, ToBytes, ToConstraintField};
 use blake2::Blake2b;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use mithril::key_reg::KeyReg;
@@ -28,12 +24,10 @@ static NR_PARTIES: [usize; SIZE] = [32, 64, 128, 256, 512, 1024, 2048, 4096];
 static NR_M: [u64; SIZE] = [50, 100, 150, 200, 250, 300, 350, 400];
 static NR_K: [u64; SIZE] = [8, 16, 32, 64, 128, 256, 512, 1024];
 
-fn stm_benches<C, H>(c: &mut Criterion, curve: &str)
+fn stm_benches<H>(c: &mut Criterion, curve: &str)
 where
-    C: PairingEngine + Hash,
-    C::G1Projective: ToConstraintField<C::Fq>,
-    H: MTHashLeaf<MTValue<C>, F = DigestHash> + Clone,
-    <H as MTHashLeaf<MTValue<C>>>::F: Send + Sync + FromBytes + ToBytes,
+    H: MTHashLeaf + Clone,
+    <H as MTHashLeaf>::F: Send + Sync,
 {
     let mut group = c.benchmark_group(format!("STM/{:?}", curve));
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
@@ -55,7 +49,7 @@ where
         phi_f: 1.0,
     };
 
-    let mut ps: Vec<StmInitializer<C>> = Vec::with_capacity(NR_PARTIES[SIZE - 1]);
+    let mut ps: Vec<StmInitializer> = Vec::with_capacity(NR_PARTIES[SIZE - 1]);
     for (pid, stake) in parties.clone() {
         ps.push(StmInitializer::setup(params, pid, stake, &mut rng));
     }
@@ -79,7 +73,7 @@ where
     let ps = ps
         .into_par_iter()
         .map(|p| p.new_signer(closed_reg.clone()))
-        .collect::<Vec<StmSigner<H, C>>>();
+        .collect::<Vec<StmSigner<H>>>();
 
     let mut party_dummy = ps[0].clone();
 
@@ -96,7 +90,7 @@ where
         };
 
         let mut key_reg = KeyReg::new(&parties);
-        let mut ps: Vec<StmInitializer<C>> = Vec::with_capacity(NR_PARTIES[SIZE - 1]);
+        let mut ps: Vec<StmInitializer> = Vec::with_capacity(NR_PARTIES[SIZE - 1]);
         for (pid, stake) in parties.clone() {
             let p = StmInitializer::setup(params, pid, stake, &mut rng);
             key_reg
@@ -110,7 +104,7 @@ where
         let ps = ps
             .into_par_iter()
             .map(|p| p.new_signer(closed_reg.clone()))
-            .collect::<Vec<StmSigner<H, C>>>();
+            .collect::<Vec<StmSigner<H>>>();
 
         group.bench_with_input(
             BenchmarkId::new("Play all lotteries", &param_string),
@@ -140,7 +134,7 @@ where
         };
 
         let mut key_reg = KeyReg::new(&parties);
-        let mut ps: Vec<StmInitializer<C>> = Vec::with_capacity(NR_PARTIES[SIZE - 1]);
+        let mut ps: Vec<StmInitializer> = Vec::with_capacity(NR_PARTIES[SIZE - 1]);
         for (pid, stake) in parties.clone() {
             let p = StmInitializer::setup(params, pid, stake, &mut rng);
             key_reg
@@ -154,7 +148,7 @@ where
         let ps = ps
             .into_par_iter()
             .map(|p| p.new_signer(closed_reg.clone()))
-            .collect::<Vec<StmSigner<H, C>>>();
+            .collect::<Vec<StmSigner<H>>>();
 
         let p_results = ps
             .par_iter()
@@ -184,29 +178,29 @@ where
         let clerk = StmClerk::from_signer(&party_dummy, TrivialEnv);
 
         group.bench_function(BenchmarkId::new("Aggregation", &param_string), |b| {
-            b.iter(|| clerk.aggregate::<ConcatProof<C, H, H::F>>(&sigs, &ixs, &msg))
+            b.iter(|| clerk.aggregate::<ConcatProof<H, H::F>>(&sigs, &ixs, &msg))
         });
     }
 
     let clerk = StmClerk::from_signer(&party_dummy, TrivialEnv);
     let msig = clerk
-        .aggregate::<ConcatProof<C, H, H::F>>(&sigs, &ixs, &msg)
+        .aggregate::<ConcatProof<H, H::F>>(&sigs, &ixs, &msg)
         .unwrap();
     group.bench_function("Verification", |b| {
         b.iter(|| {
             clerk
-                .verify_msig::<ConcatProof<C, H, H::F>>(&msig, &msg)
+                .verify_msig::<ConcatProof<H, H::F>>(&msig, &msg)
                 .is_ok()
         })
     });
 }
 
 fn stm_benches_bls12_377_blake(c: &mut Criterion) {
-    stm_benches::<Bls12_377, Blake2b>(c, "Bls12_381");
+    stm_benches::<Blake2b>(c, "Bls12_381");
 }
 
 fn stm_benches_bls12_381_blake(c: &mut Criterion) {
-    stm_benches::<Bls12_381, Blake2b>(c, "Bls12_381");
+    stm_benches::<Blake2b>(c, "Bls12_381");
 }
 
 criterion_group!(name = benches;
