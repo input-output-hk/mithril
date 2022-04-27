@@ -46,7 +46,7 @@ COPY --from=rustbuilder /etc/passwd /etc/passwd
 COPY --from=rustbuilder /app/target/release/mithril-aggregator /app/bin/mithril-aggregator
 
 # Copy the config files
-COPY --from=rustbuilder /app/mithril-network/mithril-aggregator/config /app/config
+COPY --from=rustbuilder /app/config /app/config
 
 #Workdir
 WORKDIR /app/
