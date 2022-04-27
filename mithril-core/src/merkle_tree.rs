@@ -1,7 +1,5 @@
 //! Creation and verification of Merkle Trees
-use std::{
-    fmt::Debug,
-};
+use std::fmt::Debug;
 
 /// Path of hashes from root to leaf in a Merkle Tree.
 /// Used to verify the credentials of users and signatures.

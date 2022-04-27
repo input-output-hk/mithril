@@ -107,7 +107,8 @@ where
 
     /// mu = Prod(1..k, sigma[i])
     fn check_sum(&self, mu: &MspSig) -> Result<(), MithrilWitnessError<H::F>> {
-        let mu1: MspSig = Msp::aggregate_sigs(&self.sigs.iter().map(|s| s.sigma).collect::<Vec<MspSig>>());
+        let mu1: MspSig =
+            Msp::aggregate_sigs(&self.sigs.iter().map(|s| s.sigma).collect::<Vec<MspSig>>());
         if mu != &mu1 {
             return Err(MithrilWitnessError::SumInvalid(mu1));
         }
@@ -149,12 +150,13 @@ where
     }
 
     /// \forall i : [0..k]. path[i] is a witness for (mvk[i]), stake[i] in avk
-    fn check_path(
-        &self,
-        avk: &MerkleTreeCommitment<H>,
-    ) -> Result<(), MithrilWitnessError<H::F>> {
+    fn check_path(&self, avk: &MerkleTreeCommitment<H>) -> Result<(), MithrilWitnessError<H::F>> {
         for sig in self.sigs.iter() {
-            if !avk.check(&MTValue(sig.pk.mvk, sig.stake).to_bytes(), sig.party, &sig.path) {
+            if !avk.check(
+                &MTValue(sig.pk.mvk, sig.stake).to_bytes(),
+                sig.party,
+                &sig.path,
+            ) {
                 return Err(MithrilWitnessError::PathInvalid(sig.path.clone()));
             }
         }
@@ -181,11 +183,7 @@ where
     }
 
     /// \forall i : [1..k]. ev[i] <= phi(stake_i)
-    fn check_stake(
-        &self,
-        phi_f: f64,
-        total_stake: u64,
-    ) -> Result<(), MithrilWitnessError<H::F>> {
+    fn check_stake(&self, phi_f: f64, total_stake: u64) -> Result<(), MithrilWitnessError<H::F>> {
         if !self
             .evals
             .iter()
@@ -262,10 +260,8 @@ pub mod concat_proofs {
     /// Set the env to the TrivialEnv.
     pub type ConcatEnv = TrivialEnv;
     /// The relation is a function outputting an error or not.
-    pub type ConcatRel<H, F> = fn(
-        &MithrilStatement<H>,
-        &MithrilWitness<H>,
-    ) -> Result<(), MithrilWitnessError<F>>;
+    pub type ConcatRel<H, F> =
+        fn(&MithrilStatement<H>, &MithrilWitness<H>) -> Result<(), MithrilWitnessError<F>>;
     /// The proof is a TrivialProof.
     pub type ConcatProof<H, F> =
         TrivialProof<MithrilStatement<H>, ConcatRel<H, F>, MithrilWitness<H>>;

@@ -153,7 +153,7 @@ pub type Index = u64;
 pub struct MTValue(pub MspMvk, pub Stake);
 
 impl MTValue {
-    pub(crate) fn to_bytes (self) -> [u8; 104] {
+    pub(crate) fn to_bytes(self) -> [u8; 104] {
         let mut result = [0u8; 104];
         result[..96].copy_from_slice(&self.0.to_bytes());
         result[96..].copy_from_slice(&self.1.to_be_bytes());
@@ -178,8 +178,7 @@ pub struct StmParameters {
 /// Initializer for `StmSigner`. This is the data that is used during the key registration
 /// procedure. One the latter is finished, this instance is consumed into an `StmSigner`.
 #[derive(Debug)]
-pub struct StmInitializer
-{
+pub struct StmInitializer {
     /// This participant's Id
     party_id: PartyId,
     /// This participant's stake
@@ -388,8 +387,7 @@ where
 //     }
 // }
 
-impl StmInitializer
-{
+impl StmInitializer {
     //////////////////////////
     // Initialization phase //
     //////////////////////////
@@ -739,8 +737,7 @@ where
         msg: &[u8],
         indices: &'a [Index],
         sigs: &'a [StmSig<H::F>],
-    ) -> Result<impl IntoIterator<Item = (&'a Index, &'a StmSig<H::F>)>, AggregationFailure>
-    {
+    ) -> Result<impl IntoIterator<Item = (&'a Index, &'a StmSig<H::F>)>, AggregationFailure> {
         let mut sigs_by_index: HashMap<&Index, &StmSig<H::F>> = HashMap::new();
         let mut count = 0;
         for (ix, sig) in indices.iter().zip(sigs) {

@@ -132,11 +132,8 @@ fn main() {
     let clerk = StmClerk::from_registration(params, TrivialEnv, closed_registration);
 
     // Now we aggregate the signatures
-    let msig_1 = match clerk.aggregate::<ConcatProof<H, F>>(
-        &complete_sigs_1,
-        &complete_ixs_1,
-        &msg,
-    ) {
+    let msig_1 = match clerk.aggregate::<ConcatProof<H, F>>(&complete_sigs_1, &complete_ixs_1, &msg)
+    {
         Ok(s) => s,
         Err(e) => {
             panic!("Aggregation failed: {:?}", e)
@@ -146,11 +143,8 @@ fn main() {
         .verify_msig::<ConcatProof<H, F>>(&msig_1, &msg)
         .is_ok());
 
-    let msig_2 = match clerk.aggregate::<ConcatProof<H, F>>(
-        &complete_sigs_2,
-        &complete_ixs_2,
-        &msg,
-    ) {
+    let msig_2 = match clerk.aggregate::<ConcatProof<H, F>>(&complete_sigs_2, &complete_ixs_2, &msg)
+    {
         Ok(s) => s,
         Err(e) => {
             panic!("Aggregation failed: {:?}", e)
@@ -160,19 +154,11 @@ fn main() {
         .verify_msig::<ConcatProof<H, F>>(&msig_2, &msg)
         .is_ok());
 
-    let msig_3 = clerk.aggregate::<ConcatProof<H, F>>(
-        &incomplete_sigs_3,
-        &incomplete_ixs_3,
-        &msg,
-    );
+    let msig_3 = clerk.aggregate::<ConcatProof<H, F>>(&incomplete_sigs_3, &incomplete_ixs_3, &msg);
     assert!(msig_3.is_err());
 }
 
-fn try_signatures(
-    party: &StmSigner<H>,
-    msg: &[u8],
-    m: u64,
-) -> (Vec<StmSig<DigestHash>>, Vec<u64>) {
+fn try_signatures(party: &StmSigner<H>, msg: &[u8], m: u64) -> (Vec<StmSig<DigestHash>>, Vec<u64>) {
     let mut sigs = Vec::new();
     let mut ixs = Vec::new();
     for ix in 0..m {

@@ -1,8 +1,6 @@
 use mithril::key_reg::KeyReg;
 use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
-use mithril::stm::{
-    AggregationFailure, StmClerk, StmInitializer, StmParameters, StmSigner,
-};
+use mithril::stm::{AggregationFailure, StmClerk, StmInitializer, StmParameters, StmSigner};
 use rayon::prelude::*;
 
 use mithril::merkle_tree::MTHashLeaf;
@@ -93,9 +91,7 @@ fn test_full_protocol() {
     match msig {
         Ok(aggr) => {
             println!("Aggregate ok");
-            assert!(clerk
-                .verify_msig::<ConcatProof<H, F>>(&aggr, &msg)
-                .is_ok());
+            assert!(clerk.verify_msig::<ConcatProof<H, F>>(&aggr, &msg).is_ok());
         }
         Err(AggregationFailure::NotEnoughSignatures(n, k)) => {
             println!("Not enough signatures");

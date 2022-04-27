@@ -11,8 +11,7 @@ use crate::stm::MTValue;
 /// Simple struct that collects pubkeys and stakes of parties. Placeholder for a more
 /// realistic distributed key registration protocol.
 #[derive(Clone, Debug)]
-pub struct KeyReg
-{
+pub struct KeyReg {
     parties: HashMap<PartyId, Party>,
     // `keys` is just the set of all of the keys that have been registered
     // (i.e., in `parties`)
@@ -37,8 +36,7 @@ where
 /// to register their key. `RegParty` values will be produced from mappings
 /// (id |-> Party { stake, Some(key) }) in key_reg.parties
 #[derive(Clone, Debug)]
-struct Party
-{
+struct Party {
     /// The stake of of the party.
     pub stake: Stake,
     /// The public key of the party.
@@ -47,8 +45,7 @@ struct Party
 
 #[derive(Clone, Debug, PartialEq)]
 /// A registered party, i.e. an id associated with its stake and public key
-pub struct RegParty
-{
+pub struct RegParty {
     /// The id for the registered party.
     pub party_id: PartyId,
     /// The pubkey for the registered party.
@@ -68,8 +65,7 @@ pub struct RegParty
 
 /// Errors which can be outputted by key registration.
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum RegisterError
-{
+pub enum RegisterError {
     /// This key has already been registered by a participant
     #[error("This key has already been registered.")]
     KeyRegistered([u8; 96]),
@@ -85,8 +81,7 @@ pub enum RegisterError
     InvalidKey(Box<MspPk>),
 }
 
-impl KeyReg
-{
+impl KeyReg {
     /// Create a new KeyReg with all parties and stakes known.
     pub fn new(players: &[(PartyId, Stake)]) -> Self {
         let parties = players.iter().map(|(id, stake)| {
@@ -165,13 +160,17 @@ impl KeyReg
         ClosedKeyReg {
             key_reg: self,
             total_stake: mtvals.iter().map(|s| s.1).sum(),
-            avk: MerkleTree::create(&mtvals.iter().map(|&s| s.to_bytes().to_vec()).collect::<Vec<Vec<u8>>>()),
+            avk: MerkleTree::create(
+                &mtvals
+                    .iter()
+                    .map(|&s| s.to_bytes().to_vec())
+                    .collect::<Vec<Vec<u8>>>(),
+            ),
         }
     }
 }
 
-impl Default for KeyReg
-{
+impl Default for KeyReg {
     fn default() -> Self {
         Self::new(&[])
     }
@@ -194,9 +193,9 @@ where
 
 #[cfg(test)]
 mod tests {
-    use blst::blst_p1_generator;
     use super::*;
     use crate::msp::Msp;
+    use blst::blst_p1_generator;
     use proptest::collection::vec;
     use proptest::prelude::*;
     use rand_chacha::ChaCha20Rng;

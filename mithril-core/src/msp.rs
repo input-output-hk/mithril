@@ -46,14 +46,21 @@
 
 use super::stm::Index;
 
-use blst::min_sig::{Signature as BlstSig, SecretKey as BlstSk, PublicKey as BlstPk, AggregatePublicKey, AggregateSignature};
 use blake2::{Blake2b, Digest};
+use blst::min_sig::{
+    AggregatePublicKey, AggregateSignature, PublicKey as BlstPk, SecretKey as BlstSk,
+    Signature as BlstSig,
+};
+use blst::{
+    blst_fp12, blst_fp12_finalverify, blst_p1, blst_p1_affine, blst_p1_affine_generator,
+    blst_p1_to_affine, blst_p2_affine, blst_p2_affine_generator, blst_p2_uncompress, blst_scalar,
+    blst_scalar_from_bendian, blst_sk_to_pk_in_g1, BLST_ERROR,
+};
 use rand_core::{CryptoRng, RngCore};
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::iter::Sum;
 use std::ops::Sub;
-use blst::{BLST_ERROR, blst_fp12, blst_fp12_finalverify, blst_p1, blst_p1_affine, blst_p1_affine_generator, blst_p1_to_affine, blst_p2_affine, blst_p2_affine_generator, blst_p2_uncompress, blst_scalar, blst_scalar_from_bendian, blst_sk_to_pk_in_g1};
 
 /// Struct used to namespace the functions.
 #[derive(Debug)]
@@ -86,15 +93,13 @@ impl MspMvk {
     }
 }
 
-impl PartialOrd for MspMvk
-{
+impl PartialOrd for MspMvk {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp_msp_mvk(other))
     }
 }
 
-impl Ord for MspMvk
-{
+impl Ord for MspMvk {
     fn cmp(&self, other: &Self) -> Ordering {
         self.cmp_msp_mvk(other)
     }
@@ -148,7 +153,7 @@ impl Sub for MspMvk {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MspPoP {
     pub(crate) k1: BlstSig,
-    pub(crate) k2: blst_p1
+    pub(crate) k2: blst_p1,
 }
 
 /// MSP public key, contains the verification key and proof of posession.
@@ -159,7 +164,6 @@ pub struct MspPk {
     /// Proof of Possession.
     pub pop: MspPoP,
 }
-
 
 impl Hash for MspPk {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -175,7 +179,6 @@ impl PartialEq for MspPk {
 }
 
 impl Eq for MspPk {}
-
 
 /// MSP signature.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -255,8 +258,10 @@ impl From<&MspSk> for MspPoP {
 
 impl From<&MspSk> for MspPk {
     fn from(sk: &MspSk) -> Self {
-        Self { mvk: sk.into(), pop: sk.into() }
-
+        Self {
+            mvk: sk.into(),
+            pop: sk.into(),
+        }
     }
 }
 
@@ -267,10 +272,13 @@ impl MspPoP {
     /// manually.
     // todo: review carefully. Unsafe to use algebraic operations
     fn check(&self, pk: &MspMvk) -> bool {
-        let result= unsafe {
+        let result = unsafe {
             let g1_p = *blst_p1_affine_generator();
             let mut mvk_p = blst_p2_affine::default();
-            assert_eq!(blst_p2_uncompress(&mut mvk_p, &pk.0.to_bytes()[0]), BLST_ERROR::BLST_SUCCESS);
+            assert_eq!(
+                blst_p2_uncompress(&mut mvk_p, &pk.0.to_bytes()[0]),
+                BLST_ERROR::BLST_SUCCESS
+            );
             let ml_lhs = blst_fp12::miller_loop(&mvk_p, &g1_p);
 
             let mut k2_p = blst_p1_affine::default();
