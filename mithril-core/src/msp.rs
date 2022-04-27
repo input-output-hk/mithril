@@ -47,14 +47,10 @@
 use super::stm::Index;
 
 use blake2::{Blake2b, Digest};
+use blst::blst_p1;
 use blst::min_sig::{
     AggregatePublicKey, AggregateSignature, PublicKey as BlstPk, SecretKey as BlstSk,
     Signature as BlstSig,
-};
-use blst::{
-    blst_fp12, blst_fp12_finalverify, blst_p1, blst_p1_affine, blst_p1_affine_generator,
-    blst_p1_to_affine, blst_p2_affine, blst_p2_affine_generator, blst_p2_uncompress, blst_scalar,
-    blst_scalar_from_bendian, blst_sk_to_pk_in_g1, BLST_ERROR,
 };
 use rand_core::{CryptoRng, RngCore};
 use std::cmp::Ordering;
@@ -241,6 +237,7 @@ impl From<&MspSk> for MspMvk {
 // todo: particular care reviewing this
 impl From<&MspSk> for MspPoP {
     fn from(sk: &MspSk) -> Self {
+        use blst::{blst_scalar, blst_scalar_from_bendian, blst_sk_to_pk_in_g1};
         let k1 = sk.0.sign(POP, &[], &[]);
         // k2 <- g1^x
         let k2 = unsafe {
@@ -272,6 +269,11 @@ impl MspPoP {
     /// manually.
     // todo: review carefully. Unsafe to use algebraic operations
     fn check(&self, pk: &MspMvk) -> bool {
+        use blst::{
+            blst_fp12, blst_fp12_finalverify, blst_p1_affine, blst_p1_affine_generator,
+            blst_p1_to_affine, blst_p2_affine, blst_p2_affine_generator, blst_p2_uncompress,
+            BLST_ERROR,
+        };
         let result = unsafe {
             let g1_p = *blst_p1_affine_generator();
             let mut mvk_p = blst_p2_affine::default();
@@ -321,6 +323,7 @@ impl Msp {
 
     /// Verify a signature against a verification key.
     pub fn ver(msg: &[u8], mvk: &MspMvk, sigma: &MspSig) -> bool {
+        use blst::BLST_ERROR;
         sigma.0.verify(false, msg, &[], &[], &mvk.0, false) == BLST_ERROR::BLST_SUCCESS
     }
 
