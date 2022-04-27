@@ -111,6 +111,15 @@ jobs:
           restore-keys: |
               ${{ runner.os }}-key
 
+      - uses: actions/cache@v2.1.5
+        name: Cache cargo2junit
+        with:
+          path: |
+            ~/.cargo/bin/cargo2junit
+          key: ${{ runner.os }}-${{ hashFiles('~/.cargo/bin/cargo2junit') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo2junit-key
+
       - name: Download mithril core
         uses: actions/download-artifact@v3
         with:
@@ -118,10 +127,9 @@ jobs:
           path: mithril-core/target/include/
 
       - name: Install cargo2junit
-        uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: cargo2junit
+        run: |
+          # Suppress the "binary `cargo2junit` already exists in destination" error
+          cargo install cargo2junit 2>/dev/null || true
 
       - name: Run cargo test
         working-directory: mithril-core
@@ -179,6 +187,15 @@ jobs:
           restore-keys: |
               ${{ runner.os }}-key
 
+      - uses: actions/cache@v2.1.5
+        name: Cache cargo2junit
+        with:
+          path: |
+            ~/.cargo/bin/cargo2junit
+          key: ${{ runner.os }}-${{ hashFiles('~/.cargo/bin/cargo2junit') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo2junit-key
+
       - name: Cargo build
         uses: actions-rs/cargo@v1
         with:
@@ -205,10 +222,9 @@ jobs:
           args: --manifest-path ./mithril-network/mithril-aggregator/Cargo.toml --all-features
 
       - name: Install cargo2junit
-        uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: cargo2junit
+        run: |
+          # Suppress the "binary `cargo2junit` already exists in destination" error
+          cargo install cargo2junit 2>/dev/null || true
 
       - name: Run cargo test
         working-directory: mithril-network/mithril-aggregator
@@ -268,6 +284,15 @@ jobs:
           restore-keys: |
               ${{ runner.os }}-key
 
+      - uses: actions/cache@v2.1.5
+        name: Cache cargo2junit
+        with:
+          path: |
+            ~/.cargo/bin/cargo2junit
+          key: ${{ runner.os }}-${{ hashFiles('~/.cargo/bin/cargo2junit') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo2junit-key
+
       - name: Cargo build
         uses: actions-rs/cargo@v1
         with:
@@ -294,10 +319,9 @@ jobs:
           args: --manifest-path ./mithril-network/mithril-client/Cargo.toml --all-features
       
       - name: Install cargo2junit
-        uses: actions-rs/cargo@v1
-        with:
-          command: install
-          args: cargo2junit
+        run: |
+          # Suppress the "binary `cargo2junit` already exists in destination" error
+          cargo install cargo2junit 2>/dev/null || true
 
       - name: Run cargo test
         working-directory: mithril-network/mithril-client
