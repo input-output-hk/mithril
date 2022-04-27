@@ -1,0 +1,24 @@
+# Creates a docker image to run an executable built outside of the image
+# This relies on the fact the mithril-signer executable has been built
+# on a debian-compatible x86-64 environment
+FROM debian:buster-slim
+
+# Upgrade
+RUN apt-get update && apt-get install -y libssl1.1 ca-certificates && rm -rf /var/lib/apt/lists/*
+
+# Create appuser
+RUN adduser --no-create-home --disabled-password appuser
+
+# Copy the executable
+COPY mithril-signer /app/bin/mithril-signer
+COPY mithril-network/mithril-signer/config /app/config
+
+# Workdir
+WORKDIR /app/
+RUN chown -R appuser /app/ && chmod a+x /app/bin/mithril-signer
+
+# Use an unprivileged user
+USER appuser
+
+# Run the executable
+ENTRYPOINT ["/app/bin/mithril-signer"]
