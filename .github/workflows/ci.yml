@@ -117,11 +117,17 @@ jobs:
           name: libmithril
           path: mithril-core/target/include/
 
-      - name: Run cargo test
+      - name: Install cargo2junit
         uses: actions-rs/cargo@v1
         with:
-          command: test
-          args: --release --manifest-path ./mithril-core/Cargo.toml
+          command: install
+          args: cargo2junit
+
+      - name: Run cargo test
+        working-directory: mithril-core
+        run: |
+          cargo test --release -- -Z unstable-options --format json --report-time | tee results.json
+          cat results.json | cargo2junit > test-results-mithril-core.xml
 
       - name: Set up Clang
         uses: egor-tensin/setup-clang@v1
@@ -137,13 +143,15 @@ jobs:
         working-directory: mithril-core/c-tests
 
       - name: Run C test
-        run: LD_LIBRARY_PATH=../target/release ./tests --gtest_output=xml:test-results.xml
+        run: LD_LIBRARY_PATH=../target/release ./tests --gtest_output=xml:test-results-ctest-mithril-core.xml
         working-directory: mithril-core/c-tests
 
       - name: Publish Unit Test Results
+        if: always()
         uses: EnricoMi/publish-unit-test-result-action@v1
         with:
-          files: ./**/test-results.xml
+          check_name: test-results-mithril-core
+          files: ./**/test-results-*.xml
 
   build-mithril-aggregator:
     if: github.event.pull_request.draft == false
@@ -196,11 +204,17 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --manifest-path ./mithril-network/mithril-aggregator/Cargo.toml --all-features
 
-      - name: Run cargo test
+      - name: Install cargo2junit
         uses: actions-rs/cargo@v1
         with:
-          command: test
-          args: --release --manifest-path ./mithril-network/mithril-aggregator/Cargo.toml
+          command: install
+          args: cargo2junit
+
+      - name: Run cargo test
+        working-directory: mithril-network/mithril-aggregator
+        run: |
+          cargo test --release -- -Z unstable-options --format json --report-time | tee results.json
+          cat results.json | cargo2junit > test-results-mithril-aggregator.xml
 
       - name: Mithril Aggregator / Generate doc
         uses: actions-rs/cargo@v1
@@ -220,6 +234,13 @@ jobs:
           name: mithril-aggregator-doc
           path: |
             mithril-network/mithril-aggregator/target/doc/
+
+      - name: Publish Unit Test Results
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v1
+        with:
+          check_name: test-results-mithril-aggregator
+          files: ./**/test-results-*.xml
 
   build-mithril-client:
     if: github.event.pull_request.draft == false
@@ -271,12 +292,18 @@ jobs:
           name: clippy-mithril-client
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --manifest-path ./mithril-network/mithril-client/Cargo.toml --all-features
-
-      - name: Run cargo test
+      
+      - name: Install cargo2junit
         uses: actions-rs/cargo@v1
         with:
-          command: test
-          args: --release --manifest-path ./mithril-network/mithril-client/Cargo.toml
+          command: install
+          args: cargo2junit
+
+      - name: Run cargo test
+        working-directory: mithril-network/mithril-client
+        run: |
+          cargo test --release -- -Z unstable-options --format json --report-time | tee results.json
+          cat results.json | cargo2junit > test-results-mithril-client.xml
 
       - name: Mithril Client / Generate doc
         uses: actions-rs/cargo@v1
@@ -296,6 +323,13 @@ jobs:
           name: mithril-client-doc
           path: |
             mithril-network/mithril-client/target/doc/
+
+      - name: Publish Unit Test Results
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v1
+        with:
+          check_name: test-results-mithril-client
+          files: ./**/test-results-*.xml
 
   docker-mithril-aggregator:
     runs-on: ubuntu-latest
