@@ -5,7 +5,7 @@ use crate::msp::{Msp, MspMvk, MspSig};
 use crate::proof::Proof;
 use crate::stm::{ev_lt_phi, Index, MTValue, StmParameters, StmSig};
 use std::collections::HashSet;
-use std::rc::Rc;
+use std::sync::Arc;
 
 /// The statement we want to prove, namely that
 /// the signature aggregated by our scheme with
@@ -13,11 +13,11 @@ use std::rc::Rc;
 /// and aggregated signatures is valid for the
 /// given message.
 pub struct MithrilStatement<H: MTHashLeaf> {
-    // We use Rc here to avoid exposing a lifetime parameter. Parameterizing
-    // Statement by a lifetime ends up bubbling the lifetime to whoever is
+    // We use Arc here to avoid exposing a lifetime parameter being thread-safe.
+    // Parameterizing Statement by a lifetime ends up bubbling the lifetime to whoever is
     // producing proofs, effectively tying the lifetime of the proof to that of
     // the prover, which is undesirable.
-    pub(crate) avk: Rc<MerkleTreeCommitment<H>>,
+    pub(crate) avk: Arc<MerkleTreeCommitment<H>>,
     pub(crate) ivk: MspMvk,
     pub(crate) mu: MspSig,
     pub(crate) msg: Vec<u8>,

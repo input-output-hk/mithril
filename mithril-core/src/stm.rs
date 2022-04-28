@@ -131,7 +131,7 @@ use crate::proof::ProverEnv;
 use rand_core::{CryptoRng, RngCore};
 use std::collections::HashMap;
 use std::convert::From;
-use std::rc::Rc;
+use std::sync::Arc;
 #[cfg(feature = "pure-rust")]
 use {
     num_bigint::{BigInt, Sign},
@@ -218,7 +218,7 @@ where
     H: MTHashLeaf,
     E: ProverEnv,
 {
-    avk: Rc<MerkleTree<H>>,
+    avk: Arc<MerkleTree<H>>,
     params: StmParameters,
     total_stake: Stake,
     proof_env: E,
@@ -582,7 +582,7 @@ where
         let (pk, vk) = proof_env.setup();
         Self {
             params,
-            avk: Rc::new(closed_reg.avk),
+            avk: Arc::new(closed_reg.avk),
             total_stake: closed_reg.total_stake,
             proof_env,
             proof_key: pk,
@@ -596,7 +596,7 @@ where
         Self {
             params: signer.params,
             proof_env,
-            avk: Rc::new(signer.avk.clone()),
+            avk: Arc::new(signer.avk.clone()),
             total_stake: signer.total_stake,
             proof_key,
             verif_key,
@@ -663,7 +663,7 @@ where
         let mu = Msp::aggregate_sigs(&sigmas);
 
         let statement = MithrilStatement {
-            avk: Rc::new(self.avk.to_commitment()),
+            avk: Arc::new(self.avk.to_commitment()),
             ivk,
             mu,
             msg: msg.to_vec(),
@@ -709,7 +709,7 @@ where
             mu: msig.mu,
             msg: msg.to_vec(),
             // These are "background" information"
-            avk: Rc::new(self.avk.to_commitment()),
+            avk: Arc::new(self.avk.to_commitment()),
             params: self.params,
             total_stake: self.total_stake,
         };
