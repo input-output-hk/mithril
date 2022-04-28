@@ -5,6 +5,7 @@ mod dependency;
 mod entities;
 mod fake_data;
 mod http_server;
+mod multi_signer;
 mod snapshot_store;
 mod snapshotter;
 
@@ -17,6 +18,10 @@ use tokio::sync::RwLock;
 
 use crate::entities::Config;
 use crate::http_server::Server;
+use crate::multi_signer::{
+    key_decode_hex, MultiSigner, MultiSignerImpl, ProtocolParameters, ProtocolPartyId,
+    ProtocolSignerVerificationKey, ProtocolStake,
+};
 use crate::snapshot_store::SnapshotStoreHTTPClient;
 use crate::snapshotter::Snapshotter;
 
@@ -77,9 +82,13 @@ async fn main() {
         config.url_snapshot_manifest.clone(),
     )));
 
+    let multi_signer = Arc::new(RwLock::new(init_multi_signer()));
+
     // Init dependecy manager
     let mut dependency_manager = dependency::DependencyManager::new(config);
-    dependency_manager.with_snapshot_storer(snapshot_storer.clone());
+    dependency_manager
+        .with_snapshot_storer(snapshot_storer.clone())
+        .with_multi_signer(multi_signer.clone());
     let dependency_manager = Arc::new(dependency_manager);
 
     // Start snapshot uploader
@@ -103,4 +112,48 @@ async fn main() {
     handle.abort();
 
     println!("Exiting...");
+}
+
+/// Init multi signer dependency
+fn init_multi_signer() -> impl MultiSigner {
+    let mut multi_signer = MultiSignerImpl::new();
+
+    // Update protocol parameters
+    let protocol_parameters = fake_data::protocol_parameters();
+    let protocol_parameters = ProtocolParameters {
+        m: protocol_parameters.m,
+        k: protocol_parameters.k,
+        phi_f: protocol_parameters.phi_f as f64,
+    };
+    multi_signer
+        .update_protocol_parameters(&protocol_parameters)
+        .expect("update protocol parameters failed");
+
+    // Update stake distribution
+    let total_signers = 5;
+    let stakes = fake_data::signers_with_stakes(total_signers)
+        .iter()
+        .map(|signer| {
+            (
+                signer.party_id as ProtocolPartyId,
+                signer.stake as ProtocolStake,
+            )
+        })
+        .collect::<_>();
+    multi_signer
+        .update_stake_distribution(&stakes)
+        .expect("stake distribution update failed");
+
+    // Register signers
+    fake_data::signers(total_signers).iter().for_each(|signer| {
+        multi_signer
+            .register_signer(
+                signer.party_id as ProtocolPartyId,
+                &key_decode_hex::<ProtocolSignerVerificationKey>(signer.verification_key.clone())
+                    .unwrap(),
+            )
+            .expect("register signer failed");
+    });
+
+    multi_signer
 }
