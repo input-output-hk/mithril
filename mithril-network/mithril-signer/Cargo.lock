@@ -45,6 +45,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "08f9b8508dccb7687a1d6c4ce66b2b0ecef467c94667de27d8d7fe1f8d2a9cdc"
 
 [[package]]
+name = "arc-swap"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c5d78ce20460b82d3fa150275ed9d55e21064fc7951177baacf86a145c4a4b1f"
+
+[[package]]
 name = "ascii-canvas"
 version = "3.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -592,6 +598,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b540bd8bc810d3885c6ea91e2018302f68baba2129ab3e88f32389ee9370880d"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "crossbeam-channel"
+version = "0.5.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5aaa7bd5fb665c6864b5f963dd9097905c54125909c7aa94c9e18507cdbe6c53"
+dependencies = [
+ "cfg-if",
+ "crossbeam-utils",
 ]
 
 [[package]]
@@ -1158,6 +1174,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
 
 [[package]]
+name = "hostname"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3c731c3e10504cc8ed35cfe2f1db4c9274c3d35fa486e3b31df46f068ef3e867"
+dependencies = [
+ "libc",
+ "match_cfg",
+ "winapi",
+]
+
+[[package]]
 name = "http"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1533,6 +1560,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3e2e65a1a2e43cfcb47a895c4c8b10d1f4a61097f9f254f183aee60cad9c651d"
 
 [[package]]
+name = "match_cfg"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ffbee8634e0d45d258acb448e7eaab3fce7a0a467395d4d9f228e3c1f01fb2e4"
+
+[[package]]
 name = "matches"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1635,18 +1668,20 @@ name = "mithril-signer"
 version = "0.1.0"
 dependencies = [
  "clap 3.1.12",
- "clap-verbosity-flag",
  "cli-table",
  "config",
- "env_logger",
  "flate2",
  "httpmock",
- "log",
  "mithril-aggregator",
  "mockall",
  "reqwest",
  "serde",
  "serde_json",
+ "slog",
+ "slog-async",
+ "slog-bunyan",
+ "slog-scope",
+ "slog-term",
  "tar",
 ]
 
@@ -2573,6 +2608,72 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eb703cfe953bccee95685111adeedb76fabe4e97549a58d16f03ea7b9367bb32"
 
 [[package]]
+name = "slog"
+version = "2.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8347046d4ebd943127157b94d63abb990fcf729dc4e9978927fdf4ac3c998d06"
+
+[[package]]
+name = "slog-async"
+version = "2.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "766c59b252e62a34651412870ff55d8c4e6d04df19b43eecb2703e417b097ffe"
+dependencies = [
+ "crossbeam-channel",
+ "slog",
+ "take_mut",
+ "thread_local",
+]
+
+[[package]]
+name = "slog-bunyan"
+version = "2.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "440fd32d0423c31e4f98d76c0b62ebdb847f905aa07357197e9b41ac620af97d"
+dependencies = [
+ "hostname",
+ "slog",
+ "slog-json",
+ "time 0.3.9",
+]
+
+[[package]]
+name = "slog-json"
+version = "2.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3e1e53f61af1e3c8b852eef0a9dee29008f55d6dd63794f3f12cef786cf0f219"
+dependencies = [
+ "serde",
+ "serde_json",
+ "slog",
+ "time 0.3.9",
+]
+
+[[package]]
+name = "slog-scope"
+version = "4.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f95a4b4c3274cd2869549da82b57ccc930859bdbf5bcea0424bc5f140b3c786"
+dependencies = [
+ "arc-swap",
+ "lazy_static",
+ "slog",
+]
+
+[[package]]
+name = "slog-term"
+version = "2.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "87d29185c55b7b258b4f120eab00f48557d4d9bc814f41713f449d35b0f8977c"
+dependencies = [
+ "atty",
+ "slog",
+ "term",
+ "thread_local",
+ "time 0.3.9",
+]
+
+[[package]]
 name = "sluice"
 version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2666,6 +2767,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "take_mut"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f764005d11ee5f36500a149ace24e00e3da98b0158b3e2d53a7495660d3f4d60"
+
+[[package]]
 name = "tar"
 version = "0.4.38"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2752,6 +2859,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "thread_local"
+version = "1.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5516c27b78311c50bf42c071425c560ac799b11c30b31f87e3081965fe5e0180"
+dependencies = [
+ "once_cell",
+]
+
+[[package]]
 name = "time"
 version = "0.1.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2767,6 +2883,7 @@ version = "0.3.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2702e08a7a860f005826c6815dcac101b19b5eb330c27fe4a5928fec1d20ddd"
 dependencies = [
+ "itoa 1.0.1",
  "libc",
  "num_threads",
  "time-macros",
