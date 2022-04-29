@@ -1,6 +1,7 @@
 //! Placeholder key registration functionality.
 
 use std::collections::{HashMap, HashSet};
+use crate::error::RegisterError;
 
 use super::msp::{Msp, MspPk};
 use super::stm::{PartyId, Stake};
@@ -47,6 +48,7 @@ struct Party {
 /// A registered party, i.e. an id associated with its stake and public key
 pub struct RegParty {
     /// The id for the registered party.
+    // todo: I don't see the goal of the identifier
     pub party_id: PartyId,
     /// The pubkey for the registered party.
     pub pk: MspPk,
@@ -54,31 +56,36 @@ pub struct RegParty {
     pub stake: Stake,
 }
 
-// impl<PE: PairingEngine> ToBytes for RegParty {
-//     fn write<W: Write>(&self, mut writer: W) -> std::result::Result<(), std::io::Error> {
-//         self.pk.mvk.0.write(&mut writer)?;
-//         self.pk.k1.write(&mut writer)?;
-//         self.pk.k2.write(&mut writer)?;
-//         self.stake.write(&mut writer)
-//     }
-// }
+impl RegParty {
+    /// Convert to bytes
+    /// # Layout
+    /// The layout of a `RegParty` encoding is
+    /// * Party index (position in the merkle tree)
+    /// * Public key
+    /// * Stake (as an 8 byte tuple)
+    pub fn to_bytes(&self) -> [u8; 208]{
+        let mut output = [0u8; 208];
+        output[..8].copy_from_slice(&self.party_id.to_be_bytes());
+        output[8..200].copy_from_slice(&self.pk.to_bytes());
+        output[200..].copy_from_slice(&self.stake.to_be_bytes());
+        output
+    }
 
-/// Errors which can be outputted by key registration.
-#[derive(Debug, Clone, thiserror::Error)]
-pub enum RegisterError {
-    /// This key has already been registered by a participant
-    #[error("This key has already been registered.")]
-    KeyRegistered([u8; 96]),
-    /// This participant has already been registered
-    #[error("Participant {0} has already been registered.")]
-    PartyRegistered(PartyId),
-    /// The supplied participant id does not belong to the
-    /// participant list
-    #[error("Participant id {0} does not belong to the participants list.")]
-    UnknownPartyId(PartyId),
-    /// The supplied key is not valid
-    #[error("The verification of correctness of the supplied key is invalid.")]
-    InvalidKey(Box<MspPk>),
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, RegisterError> {
+        let mut u64_bytes = [0u8; 8];
+        u64_bytes.copy_from_slice(&bytes[..8]);
+        let party_id = u64::from_be_bytes(u64_bytes);
+
+        let pk = MspPk::from_bytes(&bytes[8..])?;
+        u64_bytes.copy_from_slice(&bytes[200..]);
+        let stake = u64::from_be_bytes(u64_bytes);
+
+        Ok(Self {
+            party_id,
+            pk,
+            stake
+        })
+    }
 }
 
 impl KeyReg {
@@ -202,7 +209,7 @@ mod tests {
     use rand_core::SeedableRng;
 
     fn arb_participants(min: usize, max: usize) -> impl Strategy<Value = Vec<(PartyId, Stake)>> {
-        vec(any::<Stake>(), min..=max).prop_map(|v| v.into_iter().enumerate().collect())
+        vec(any::<Stake>(), min..=max).prop_map(|v| v.into_iter().enumerate().map(|(index, value)| (index as u64, value)).collect())
     }
 
     proptest! {
@@ -253,6 +260,7 @@ mod tests {
                         assert!(Msp::check(&a).is_err());
                     }
                     Err(RegisterError::UnknownPartyId(_)) => assert_eq!(fake_it, 1),
+                    Err(RegisterError::SerializationError) => unreachable!(),
                 }
             }
 

@@ -34,7 +34,7 @@ fn test_full_protocol() {
 
     let mut key_reg = KeyReg::new(&parties);
 
-    let mut ps: Vec<StmInitializer> = Vec::with_capacity(nparties);
+    let mut ps: Vec<StmInitializer> = Vec::with_capacity(nparties as usize);
     for (pid, stake) in parties {
         let p = StmInitializer::setup(params, pid, stake, &mut rng);
         key_reg

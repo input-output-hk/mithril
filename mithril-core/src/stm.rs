@@ -43,7 +43,7 @@
 //! // Total stake of all parties is total stake in the system.
 //! let parties = (0..nparties)
 //!     .into_iter()
-//!     .map(|pid| (pid, 1 + (rng.next_u64() % 9999)))
+//!     .map(|pid| (pid as u64, 1 + (rng.next_u64() % 9999)))
 //!     .collect::<Vec<_>>();
 //!
 //! // Create a new key registry from the parties and their stake
@@ -143,7 +143,7 @@ use {
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
 /// Party identifier, unique for each participant in the protocol.
-pub type PartyId = usize;
+pub type PartyId = u64;
 /// Quorum index for signatures.
 /// An aggregate signature (`StmMultiSig`) must have at least `k` unique indices.
 pub type Index = u64;
@@ -194,13 +194,13 @@ pub struct StmInitializer {
 /// Participant in the protocol. Can sign messages. This instance can only be generated out of
 /// an `StmInitializer` and a closed `KeyReg`. This ensures that a `MerkleTree` root is not
 /// computed before all participants have registered.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct StmSigner<H>
 where
     H: MTHashLeaf,
 {
     party_id: PartyId,
-    avk_idx: usize,
+    avk_idx: u64,
     stake: Stake,
     params: StmParameters,
     avk: MerkleTree<H>,
@@ -374,9 +374,9 @@ impl StmInitializer {
         // Extract this signer's party index from the registry, i.e. the position of the merkle
         // tree leaf.
         let mut my_index = None;
-        for (i, rp) in closed_reg.retrieve_all().iter().enumerate() {
+        for rp in closed_reg.retrieve_all().iter() {
             if rp.party_id == self.party_id {
-                my_index = Some(i);
+                my_index = Some(rp.party_id);
                 break;
             }
         }
@@ -788,7 +788,7 @@ mod tests {
     }
 
     fn setup_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<StmSigner<H>> {
-        let parties = stake.into_iter().enumerate().collect::<Vec<_>>();
+        let parties = stake.into_iter().enumerate().map(|(index, stake)| (index as u64, stake)).collect::<Vec<_>>();
         let mut kr = KeyReg::new(&parties);
         let mut trng = TestRng::deterministic_rng(ChaCha);
         let mut rng = ChaCha20Rng::from_seed(trng.gen());
@@ -1147,7 +1147,7 @@ mod tests {
             let n = tc.n;
             with_proof_mod(tc, |aggr, clerk, _msg| {
                 let pi = i % clerk.params.k as usize;
-                aggr.proof.witness.sigs[pi].party = (aggr.proof.witness.sigs[pi].party + 1) % n;
+                aggr.proof.witness.sigs[pi].party = (aggr.proof.witness.sigs[pi].party + 1) % n as u64;
             })
         }
         #[test]

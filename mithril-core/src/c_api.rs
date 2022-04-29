@@ -428,7 +428,8 @@ mod key_reg {
     use crate::c_api::{
         ClosedKeyRegPtr, KeyRegPtr, MerkleTreeCommitmentPtr, MspPkPtr, NULLPOINTERERR,
     };
-    use crate::key_reg::{KeyReg, RegisterError};
+    use crate::key_reg::KeyReg;
+    use crate::error::RegisterError;
     use crate::stm::{PartyId, Stake};
     use std::slice;
 

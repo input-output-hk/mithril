@@ -91,7 +91,7 @@ where
 {
     /// Check an inclusion proof that `val` is the `i`th leaf stored in the tree.
     /// Requires i < self.n
-    pub fn check(&self, val: &[u8], i: usize, proof: &Path<H::F>) -> bool {
+    pub fn check(&self, val: &[u8], i: u64, proof: &Path<H::F>) -> bool {
         let mut idx = i;
 
         let mut hasher = H::new();
@@ -200,14 +200,14 @@ where
     /// Get a path (hashes of siblings of the path to the root node
     /// for the `i`th value stored in the tree.
     /// Requires `i < self.n`
-    pub fn get_path(&self, i: usize) -> Path<H::F> {
+    pub fn get_path(&self, i: u64) -> Path<H::F> {
         assert!(
-            i < self.n,
+            i < self.n as u64,
             "Proof index out of bounds: asked for {} out of {}",
             i,
             self.n
         );
-        let mut idx = self.idx_of_leaf(i);
+        let mut idx = self.idx_of_leaf(i as usize); // todo: handle this conversion
         let mut proof = Vec::new();
 
         while idx > 0 {
@@ -281,8 +281,8 @@ mod tests {
         #[test]
         fn test_create_proof((t, values) in arb_tree(30)) {
             values.iter().enumerate().for_each(|(i, _v)| {
-                let pf = t.get_path(i);
-                assert!(t.to_commitment().check(&values[i], i, &pf));
+                let pf = t.get_path(i as u64);
+                assert!(t.to_commitment().check(&values[i], i as u64, &pf));
             })
         }
     }
@@ -314,7 +314,7 @@ mod tests {
                             .iter()
                             .map(|x| hasher.inject(x))
                             .collect());
-            assert!(!t.to_commitment().check(&values[0], idx, &path));
+            assert!(!t.to_commitment().check(&values[0], idx as u64, &path));
         }
     }
 }

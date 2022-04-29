@@ -170,7 +170,7 @@ fn try_signatures(party: &StmSigner<H>, msg: &[u8], m: u64) -> (Vec<StmSig<Diges
     (sigs, ixs)
 }
 
-fn local_reg(ids: &[(usize, u64)], pks: &[MspPk]) -> ClosedKeyReg<H> {
+fn local_reg(ids: &[(u64, u64)], pks: &[MspPk]) -> ClosedKeyReg<H> {
     let mut local_keyreg = KeyReg::new(ids);
     // todo: maybe its cleaner to have a `StmPublic` instance that covers the "shareable"
     // data, such as the public key, stake and id.

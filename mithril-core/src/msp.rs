@@ -57,14 +57,14 @@ use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::iter::Sum;
 use std::ops::Sub;
-use crate::error::{MithrilCoreError, blst_err_to_atms};
+use crate::error::{MultiSignatureError, blst_err_to_atms};
 
 /// Struct used to namespace the functions.
 #[derive(Debug)]
 pub struct Msp {}
 
 /// MSP secret key.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MspSk(BlstSk);
 
 impl MspSk {
@@ -76,7 +76,7 @@ impl MspSk {
     /// Convert a string of bytes into a `SigningKey`.
     /// # Error
     /// Fails if the byte string represents a scalar larger than the group order.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MithrilCoreError> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
         match BlstSk::from_bytes(&bytes[..32]) {
             Ok(sk) => Ok(Self(sk)),
             Err(e) => Err(blst_err_to_atms(e)
@@ -99,7 +99,7 @@ impl MspMvk {
     ///
     /// # Error
     /// This function fails if the bytes do not represent a compressed point of the curve.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MithrilCoreError> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
         match BlstPk::from_bytes(&bytes[..96]) {
             Ok(pk) => Ok(Self(pk)),
             Err(e) => Err(blst_err_to_atms(e)
@@ -240,7 +240,7 @@ impl MspSig {
     /// Convert a string of bytes into a `Signature`.
     /// # Error
     /// Returns an error if the byte string does not represent a point in the curve.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MithrilCoreError> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
         match BlstSig::from_bytes(&bytes[..48]) {
             Ok(sig) => Ok(Self(sig)),
             Err(e) => Err(blst_err_to_atms(e)
@@ -315,9 +315,38 @@ impl From<&MspSk> for MspPk {
 }
 
 impl MspPk {
-    /// Verify a `MspPk`
-    fn check(&self) -> Result<(), MithrilCoreError> {
-        self.pop.check(&self.mvk)
+    /// if e(k1,g2) = e(H_G1("PoP"||mvk),mvk) and e(g1,mvk) = e(k2,g2)
+    /// are both true, return 1. The first part is a signature verification
+    /// of message "PoP", while the second we need to compute the pairing
+    /// manually.
+    // todo: review carefully. Unsafe to use algebraic operations
+    fn check(&self) -> Result<(), MultiSignatureError> {
+        use blst::{
+            blst_fp12, blst_fp12_finalverify, blst_p1_affine, blst_p1_affine_generator,
+            blst_p1_to_affine, blst_p2_affine, blst_p2_affine_generator, blst_p2_uncompress,
+            BLST_ERROR,
+        };
+        let result = unsafe {
+            let g1_p = *blst_p1_affine_generator();
+            let mut mvk_p = blst_p2_affine::default();
+            assert_eq!(
+                blst_p2_uncompress(&mut mvk_p, &self.mvk.0.to_bytes()[0]),
+                BLST_ERROR::BLST_SUCCESS
+            );
+            let ml_lhs = blst_fp12::miller_loop(&mvk_p, &g1_p);
+
+            let mut k2_p = blst_p1_affine::default();
+            blst_p1_to_affine(&mut k2_p, &self.pop.k2);
+            let g2_p = *blst_p2_affine_generator();
+            let ml_rhs = blst_fp12::miller_loop(&g2_p, &k2_p);
+
+            blst_fp12_finalverify(&ml_lhs, &ml_rhs)
+        };
+
+        if !(self.pop.k1.verify(false, POP, &[], &[], &self.mvk.0, false) == BLST_ERROR::BLST_SUCCESS && result) {
+            return Err(MultiSignatureError::InvalidKey(Box::new(*self)));
+        }
+        Ok(())
     }
     /// Convert to a 144 byte string.
     ///
@@ -334,7 +363,7 @@ impl MspPk {
 
     /// Deserialise a byte string to a `PublicKeyPoP`.
     // todo: deserialise only valid keys?
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MithrilCoreError> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
         let mvk = MspMvk::from_bytes(&bytes[..96])?;
 
         let pop = MspPoP::from_bytes(&bytes[96..])?;
@@ -344,40 +373,6 @@ impl MspPk {
 }
 
 impl MspPoP {
-    /// if e(k1,g2) = e(H_G1("PoP"||mvk),mvk) and e(g1,mvk) = e(k2,g2)
-    /// are both true, return 1. The first part is a signature verification
-    /// of message "PoP", while the second we need to compute the pairing
-    /// manually.
-    // todo: review carefully. Unsafe to use algebraic operations
-    fn check(&self, pk: &MspMvk) -> Result<(), MithrilCoreError> {
-        use blst::{
-            blst_fp12, blst_fp12_finalverify, blst_p1_affine, blst_p1_affine_generator,
-            blst_p1_to_affine, blst_p2_affine, blst_p2_affine_generator, blst_p2_uncompress,
-            BLST_ERROR,
-        };
-        let result = unsafe {
-            let g1_p = *blst_p1_affine_generator();
-            let mut mvk_p = blst_p2_affine::default();
-            assert_eq!(
-                blst_p2_uncompress(&mut mvk_p, &pk.0.to_bytes()[0]),
-                BLST_ERROR::BLST_SUCCESS
-            );
-            let ml_lhs = blst_fp12::miller_loop(&mvk_p, &g1_p);
-
-            let mut k2_p = blst_p1_affine::default();
-            blst_p1_to_affine(&mut k2_p, &self.k2);
-            let g2_p = *blst_p2_affine_generator();
-            let ml_rhs = blst_fp12::miller_loop(&g2_p, &k2_p);
-
-            blst_fp12_finalverify(&ml_lhs, &ml_rhs)
-        };
-
-        if !(self.k1.verify(false, POP, &[], &[], &pk.0, false) == BLST_ERROR::BLST_SUCCESS && result) {
-            return Err(MithrilCoreError::InvalidKey);
-        }
-        Ok(())
-    }
-
     /// Convert to a 144 byte string.
     ///
     /// # Layout
@@ -397,7 +392,7 @@ impl MspPoP {
     }
 
     /// Deserialise a byte string to a `PublicKeyPoP`.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MithrilCoreError> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
         let k1 = match BlstSig::from_bytes(&bytes[..48]) {
             Ok(key) => key,
             Err(e) => {
@@ -435,7 +430,7 @@ impl Msp {
     }
 
     /// Check that a pubkey is well-formed.
-    pub fn check(pk: &MspPk) -> Result<(), MithrilCoreError> {
+    pub fn check(pk: &MspPk) -> Result<(), MultiSignatureError> {
         pk.check()
     }
 

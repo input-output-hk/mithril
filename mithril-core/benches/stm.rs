@@ -34,7 +34,7 @@ where
 
     let parties = (0..NR_PARTIES[SIZE - 1])
         .into_iter()
-        .map(|pid| (pid, 1 + (rng.next_u64() % 9999)))
+        .map(|pid| (pid as u64, 1 + (rng.next_u64() % 9999)))
         .collect::<Vec<_>>();
 
     let mut k = 8;
@@ -49,7 +49,7 @@ where
 
     let mut ps: Vec<StmInitializer> = Vec::with_capacity(NR_PARTIES[SIZE - 1]);
     for (pid, stake) in parties.clone() {
-        ps.push(StmInitializer::setup(params, pid, stake, &mut rng));
+        ps.push(StmInitializer::setup(params, pid as u64, stake, &mut rng));
     }
     let mut key_reg = KeyReg::new(&parties);
     for &nr in NR_PARTIES.iter() {
