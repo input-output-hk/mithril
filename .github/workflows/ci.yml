@@ -132,10 +132,10 @@ jobs:
           cargo install cargo2junit 2>/dev/null || true
 
       - name: Run cargo test
+        shell: bash
         working-directory: mithril-core
         run: |
-          cargo test --release -- -Z unstable-options --format json --report-time | tee results.json
-          cat results.json | cargo2junit > test-results-mithril-core.xml
+          set -o pipefail && cargo test --release -- -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-mithril-core.xml)
 
       - name: Set up Clang
         uses: egor-tensin/setup-clang@v1
@@ -227,10 +227,10 @@ jobs:
           cargo install cargo2junit 2>/dev/null || true
 
       - name: Run cargo test
+        shell: bash
         working-directory: mithril-network/mithril-aggregator
         run: |
-          cargo test --release -- -Z unstable-options --format json --report-time | tee results.json
-          cat results.json | cargo2junit > test-results-mithril-aggregator.xml
+          set -o pipefail && cargo test --release -- -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-mithril-aggregator.xml)
 
       - name: Mithril Aggregator / Generate doc
         uses: actions-rs/cargo@v1
@@ -324,10 +324,10 @@ jobs:
           cargo install cargo2junit 2>/dev/null || true
 
       - name: Run cargo test
+        shell: bash
         working-directory: mithril-network/mithril-client
         run: |
-          cargo test --release -- -Z unstable-options --format json --report-time | tee results.json
-          cat results.json | cargo2junit > test-results-mithril-client.xml
+          set -o pipefail && cargo test --release -- -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-mithril-client.xml)
 
       - name: Mithril Client / Generate doc
         uses: actions-rs/cargo@v1
@@ -421,10 +421,10 @@ jobs:
           cargo install cargo2junit 2>/dev/null || true
 
       - name: Run cargo test
+        shell: bash
         working-directory: mithril-network/mithril-signer
         run: |
-          cargo test --release -- -Z unstable-options --format json --report-time | tee results.json
-          cat results.json | cargo2junit > test-results-mithril-signer.xml
+          set -o pipefail && cargo test --release -- -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-mithril-signer.xml)
 
       - name: Mithril Signer / Generate doc
         uses: actions-rs/cargo@v1
