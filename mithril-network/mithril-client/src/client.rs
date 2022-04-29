@@ -52,7 +52,7 @@ where
     }
 
     /// Show a snapshot
-    pub async fn show_snapshot(&self, digest: String) -> Result<Vec<SnapshotFieldItem>, String> {
+    pub async fn show_snapshot(&self, digest: &str) -> Result<Vec<SnapshotFieldItem>, String> {
         debug!("Show snapshot {}", digest);
         match &self.aggregator_handler {
             Some(aggregator_handler) => match aggregator_handler.get_snapshot_details(digest).await
@@ -67,14 +67,12 @@ where
     /// Download a snapshot by digest
     pub async fn download_snapshot(
         &self,
-        digest: String,
+        digest: &str,
         location_index: isize,
     ) -> Result<(String, String), String> {
         debug!("Download snapshot {}", digest);
         match &self.aggregator_handler {
-            Some(aggregator_handler) => match aggregator_handler
-                .get_snapshot_details(digest.clone())
-                .await
+            Some(aggregator_handler) => match aggregator_handler.get_snapshot_details(digest).await
             {
                 Ok(snapshot) => {
                     let from = snapshot
@@ -82,11 +80,8 @@ where
                         .get((location_index - 1) as usize)
                         .unwrap()
                         .to_owned();
-                    match aggregator_handler
-                        .download_snapshot(digest.clone(), from.clone())
-                        .await
-                    {
-                        Ok(to) => Ok((from.clone(), to)),
+                    match aggregator_handler.download_snapshot(digest, &from).await {
+                        Ok(to) => Ok((from, to)),
                         Err(err) => Err(err),
                     }
                 }
@@ -97,15 +92,13 @@ where
     }
 
     /// Restore a snapshot by hash
-    pub async fn restore_snapshot(&self, digest: String) -> Result<String, String> {
+    pub async fn restore_snapshot(&self, digest: &str) -> Result<String, String> {
         debug!("Restore snapshot {}", digest);
         match &self.aggregator_handler {
-            Some(aggregator_handler) => {
-                match aggregator_handler.unpack_snapshot(digest.clone()).await {
-                    Ok(to) => Ok(to),
-                    Err(err) => Err(err),
-                }
-            }
+            Some(aggregator_handler) => match aggregator_handler.unpack_snapshot(digest).await {
+                Ok(to) => Ok(to),
+                Err(err) => Err(err),
+            },
             None => Err(errors::MISSING_AGGREGATOR_HANDLER.to_string()),
         }
     }
@@ -190,7 +183,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_show_snapshot_ok() {
-        let digest = "digest123".to_string();
+        let digest = "digest123";
         let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
         let mut mock_aggregator_handler = MockAggregatorHandler::new();
         mock_aggregator_handler
@@ -207,7 +200,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_show_snapshot_ko() {
-        let digest = "digest123".to_string();
+        let digest = "digest123";
         let mut mock_aggregator_handler = MockAggregatorHandler::new();
         mock_aggregator_handler
             .expect_get_snapshot_details()

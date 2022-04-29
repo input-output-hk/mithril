@@ -107,24 +107,21 @@ async fn main() {
             Ok(snapshot_list_items) => print_stdout(snapshot_list_items.with_title()).unwrap(),
             Err(err) => pretty_print_error(err),
         },
-        Commands::Show { digest } => match client.show_snapshot(digest.to_string()).await {
+        Commands::Show { digest } => match client.show_snapshot(digest).await {
             Ok(snapshot_field_items) => print_stdout(snapshot_field_items.with_title()).unwrap(),
             Err(err) => pretty_print_error(err),
         },
         Commands::Download {
             digest,
             location_index,
-        } => match client
-            .download_snapshot(digest.to_string(), *location_index)
-            .await
-        {
+        } => match client.download_snapshot(digest, *location_index).await {
             Ok((from, to)) => println!(
                 "Download success {} #{}\nfrom {}\nto {}",
                 digest, location_index, from, to
             ),
             Err(err) => pretty_print_error(err),
         },
-        Commands::Restore { digest } => match client.restore_snapshot(digest.to_string()).await {
+        Commands::Restore { digest } => match client.restore_snapshot(digest).await {
             Ok(to) => {
                 println!(
                     r###"Unpack success {}

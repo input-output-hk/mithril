@@ -28,18 +28,18 @@ impl AggregatorHandler for AggregatorHandlerFake {
     }
 
     /// Get snapshot details
-    async fn get_snapshot_details(&self, _digest: String) -> Result<Snapshot, String> {
+    async fn get_snapshot_details(&self, _digest: &str) -> Result<Snapshot, String> {
         let snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
         Ok(snapshot)
     }
 
     /// Download Snapshot
-    async fn download_snapshot(&self, digest: String, location: String) -> Result<String, String> {
+    async fn download_snapshot(&self, digest: &str, location: &str) -> Result<String, String> {
         unimplemented!("Download snapshot {} at {}", digest, location);
     }
 
     /// Unpack snapshot
-    async fn unpack_snapshot(&self, digest: String) -> Result<String, String> {
+    async fn unpack_snapshot(&self, digest: &str) -> Result<String, String> {
         unimplemented!("Unpack snapshot {}", digest);
     }
 }

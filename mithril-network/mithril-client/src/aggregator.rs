@@ -22,13 +22,13 @@ pub trait AggregatorHandler {
     async fn list_snapshots(&self) -> Result<Vec<Snapshot>, String>;
 
     /// Get snapshot details
-    async fn get_snapshot_details(&self, digest: String) -> Result<Snapshot, String>;
+    async fn get_snapshot_details(&self, digest: &str) -> Result<Snapshot, String>;
 
     /// Download snapshot
-    async fn download_snapshot(&self, digest: String, location: String) -> Result<String, String>;
+    async fn download_snapshot(&self, digest: &str, location: &str) -> Result<String, String>;
 
     /// Unpack snapshot
-    async fn unpack_snapshot(&self, digest: String) -> Result<String, String>;
+    async fn unpack_snapshot(&self, digest: &str) -> Result<String, String>;
 }
 
 /// AggregatorHTTPClient is a http client for an aggregator
@@ -69,7 +69,7 @@ impl AggregatorHandler for AggregatorHTTPClient {
     }
 
     /// Get snapshot details
-    async fn get_snapshot_details(&self, digest: String) -> Result<Snapshot, String> {
+    async fn get_snapshot_details(&self, digest: &str) -> Result<Snapshot, String> {
         debug!("Details snapshot {}", digest);
 
         let url = format!("{}/snapshot/{}", self.aggregator_endpoint, digest);
@@ -88,14 +88,13 @@ impl AggregatorHandler for AggregatorHTTPClient {
     }
 
     /// Download Snapshot
-    async fn download_snapshot(&self, digest: String, location: String) -> Result<String, String> {
+    async fn download_snapshot(&self, digest: &str, location: &str) -> Result<String, String> {
         debug!("Download snapshot {} from {}", digest, location);
-        let remote_url = location.clone();
-        let response = reqwest::get(remote_url.clone()).await;
+        let response = reqwest::get(location).await;
         match response {
             Ok(response) => match response.status() {
                 StatusCode::OK => {
-                    let local_path = archive_file_path(digest, self.network.clone())?;
+                    let local_path = archive_file_path(digest, &self.network)?;
                     fs::create_dir_all(&local_path.parent().unwrap())
                         .map_err(|e| format!("can't create snapshot dir: {}", e))?;
                     let mut local_file = fs::File::create(&local_path)
@@ -129,10 +128,10 @@ impl AggregatorHandler for AggregatorHTTPClient {
     }
 
     /// Unpack snapshot
-    async fn unpack_snapshot(&self, digest: String) -> Result<String, String> {
+    async fn unpack_snapshot(&self, digest: &str) -> Result<String, String> {
         debug!("Unpack snapshot {}", digest);
         println!("Unpacking snapshot...");
-        let local_path = archive_file_path(digest, self.network.clone())?;
+        let local_path = archive_file_path(digest, &self.network)?;
         let snapshot_file_tar_gz = fs::File::open(local_path.clone())
             .map_err(|e| format!("can't open snapshot file: {}", e))?;
         let snapshot_file_tar = GzDecoder::new(snapshot_file_tar_gz);
@@ -146,7 +145,7 @@ impl AggregatorHandler for AggregatorHTTPClient {
 }
 
 /// Computes local archive filepath
-fn archive_file_path(digest: String, network: String) -> Result<path::PathBuf, String> {
+fn archive_file_path(digest: &str, network: &str) -> Result<path::PathBuf, String> {
     Ok(env::current_dir()
         .map_err(|e| format!("current dir not available: {}", e))?
         .join(path::Path::new(&format!(
@@ -162,7 +161,6 @@ mod tests {
     use flate2::Compression;
     use httpmock::prelude::*;
     use serde_json::json;
-    use std::io::Read;
 
     use mithril_aggregator::fake_data;
 
@@ -173,6 +171,37 @@ mod tests {
             aggregator_endpoint: server.url(""),
         };
         (server, config)
+    }
+
+    /// see [`archive_file_path`] to see the path that will be removed if it exist
+    fn ensure_snapshot_dir_does_not_exist(digest: &str, network: &str) {
+        let archive_file_path = archive_file_path(digest, network).unwrap();
+        let archive_folder_path = archive_file_path.parent().unwrap();
+        if archive_folder_path.exists() {
+            fs::remove_dir_all(archive_folder_path).unwrap();
+        }
+    }
+
+    /// see [`archive_file_path`] to see where the dummy will be created
+    fn build_dummy_snapshot(digest: &str, network: &str, data_expected: &str) {
+        let data_file_name = "data.txt";
+        let archive_file_path = archive_file_path(digest, network).unwrap();
+        let source_directory_name = "src";
+        let source_file_path = archive_file_path
+            .parent()
+            .unwrap()
+            .join(path::Path::new(source_directory_name))
+            .join(path::Path::new(data_file_name));
+        fs::create_dir_all(&source_file_path.parent().unwrap()).unwrap();
+        let mut source_file = fs::File::create(&source_file_path).unwrap();
+        write!(source_file, "{}", data_expected).unwrap();
+        let archive_file = fs::File::create(&archive_file_path).unwrap();
+        let archive_encoder = GzEncoder::new(&archive_file, Compression::default());
+        let mut archive_builder = tar::Builder::new(archive_encoder);
+        archive_builder
+            .append_dir_all(".", &source_file_path.parent().unwrap())
+            .unwrap();
+        archive_builder.into_inner().unwrap().finish().unwrap();
     }
 
     #[tokio::test]
@@ -213,7 +242,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_snapshot_details_ok() {
-        let digest = "digest123".to_string();
+        let digest = "digest123";
         let (server, config) = setup_test();
         let snapshot_expected = fake_data::snapshots(1).first().unwrap().to_owned();
         let _snapshots_mock = server.mock(|when, then| {
@@ -229,7 +258,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_snapshot_details_ko_404() {
-        let digest = "digest123".to_string();
+        let digest = "digest123";
         let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.path(format!("/snapshot/{}", digest));
@@ -243,7 +272,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_snapshot_details_ko_500() {
-        let digest = "digest123".to_string();
+        let digest = "digest123";
         let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.path(format!("/snapshot/{}", digest));
@@ -257,7 +286,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_snapshot_details_ko_unreachable() {
-        let digest = "digest123".to_string();
+        let digest = "digest123";
         let aggregator_client =
             AggregatorHTTPClient::new("testnet".to_string(), "http123://unreachable".to_string());
         let snapshot = aggregator_client.get_snapshot_details(digest).await;
@@ -266,7 +295,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_download_snapshot_ok() {
-        let digest = "digest123".to_string();
+        let digest = "digest_get_download_snapshot_ok";
         let url_path = "/download";
         let (server, config) = setup_test();
         let data_expected = "1234567890".repeat(1024).to_string();
@@ -274,23 +303,21 @@ mod tests {
             when.path(url_path.to_string());
             then.status(200).body(&data_expected);
         });
+        ensure_snapshot_dir_does_not_exist(digest, &config.network);
+
         let aggregator_client =
             AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
         let location = server.url(url_path);
-        let local_file_path = aggregator_client.download_snapshot(digest, location).await;
+        let local_file_path = aggregator_client.download_snapshot(digest, &location).await;
         local_file_path.as_ref().expect("unexpected error");
-        let local_file_path = local_file_path.unwrap();
-        let mut local_file = fs::File::open(&local_file_path).unwrap();
-        let mut data_downloaded = "".to_string();
-        local_file.read_to_string(&mut data_downloaded).unwrap();
+        let data_downloaded = fs::read_to_string(&local_file_path.unwrap()).unwrap();
+
         assert_eq!(data_downloaded, data_expected);
-        fs::remove_file(&local_file_path).unwrap();
-        fs::remove_dir_all(path::Path::new(&local_file_path).parent().unwrap()).unwrap();
     }
 
     #[tokio::test]
     async fn get_download_snapshot_ko_unreachable() {
-        let digest = "digest123".to_string();
+        let digest = "digest123";
         let url_path = "/download";
         let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
@@ -300,56 +327,42 @@ mod tests {
         let aggregator_client =
             AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
         let location = server.url(url_path);
-        let local_file_path = aggregator_client.download_snapshot(digest, location).await;
+        let local_file_path = aggregator_client.download_snapshot(digest, &location).await;
         assert!(local_file_path.is_err());
     }
 
     #[tokio::test]
     async fn get_download_snapshot_ko_500() {
-        let digest = "digest123".to_string();
+        let digest = "digest_get_download_snapshot_ko_500";
         let (_, config) = setup_test();
         let aggregator_client =
             AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
         let location = "http123://unreachable".to_string();
-        let local_file_path = aggregator_client.download_snapshot(digest, location).await;
+        let local_file_path = aggregator_client.download_snapshot(digest, &location).await;
         assert!(local_file_path.is_err());
     }
 
     #[tokio::test]
     async fn unpack_snapshot_ok() {
-        let network = "testnet".to_string();
-        let digest = "digest123".to_string();
+        let digest = "digest_unpack_snapshot_ok";
         let (_, config) = setup_test();
-        let data_expected = "1234567890".repeat(1024).to_string();
-        let data_file_name = "data.txt";
-        let archive_file_path = archive_file_path(digest.clone(), network).unwrap();
-        let source_directory_name = "src";
-        let source_file_path = archive_file_path
-            .parent()
-            .unwrap()
-            .join(path::Path::new(source_directory_name))
-            .join(path::Path::new(data_file_name));
-        fs::create_dir_all(&source_file_path.parent().unwrap()).unwrap();
-        let mut source_file = fs::File::create(&source_file_path).unwrap();
-        write!(source_file, "{}", data_expected).unwrap();
-        let archive_file = fs::File::create(&archive_file_path).unwrap();
-        let archive_encoder = GzEncoder::new(&archive_file, Compression::default());
-        let mut archive_builder = tar::Builder::new(archive_encoder);
-        archive_builder
-            .append_dir_all(".", &source_file_path.parent().unwrap())
-            .unwrap();
+        let data_expected = "1234567890".repeat(1024);
 
-        archive_builder.into_inner().unwrap().finish().unwrap();
+        ensure_snapshot_dir_does_not_exist(digest, &config.network);
+        build_dummy_snapshot(digest, &config.network, &data_expected);
+
         let aggregator_client =
             AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
-        let local_dir_path = aggregator_client.unpack_snapshot(digest.clone()).await;
+        let local_dir_path = aggregator_client.unpack_snapshot(digest).await;
         local_dir_path.expect("unexpected error");
     }
 
     #[tokio::test]
     async fn unpack_snapshot_ko_noarchive() {
-        let digest = "digest123".to_string();
+        let digest = "digest_unpack_snapshot_ko_noarchive";
         let (_, config) = setup_test();
+        ensure_snapshot_dir_does_not_exist(digest, &config.network);
+
         let aggregator_client =
             AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
         let local_dir_path = aggregator_client.unpack_snapshot(digest).await;
