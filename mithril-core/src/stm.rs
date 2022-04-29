@@ -180,21 +180,21 @@ pub struct StmParameters {
 #[derive(Debug)]
 pub struct StmInitializer {
     /// This participant's Id
-    party_id: PartyId,
+    pub(crate) party_id: PartyId,
     /// This participant's stake
-    stake: Stake,
+    pub(crate) stake: Stake,
     /// Current protocol instantiation parameters
-    params: StmParameters,
+    pub(crate) params: StmParameters,
     /// Secret key
-    sk: MspSk,
+    pub(crate) sk: MspSk,
     /// Verification (public) key + proof of possession
-    pk: MspPk,
+    pub(crate) pk: MspPk,
 }
 
 /// Participant in the protocol. Can sign messages. This instance can only be generated out of
 /// an `StmInitializer` and a closed `KeyReg`. This ensures that a `MerkleTree` root is not
 /// computed before all participants have registered.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct StmSigner<H>
 where
     H: MTHashLeaf,
@@ -248,9 +248,9 @@ pub struct StmMultiSig<Proof>
 where
     Proof: MithrilProof,
 {
-    ivk: MspMvk,
-    mu: MspSig,
-    proof: Proof,
+    pub(crate) ivk: MspMvk,
+    pub(crate) mu: MspSig,
+    pub(crate) proof: Proof,
 }
 
 /// Error types for aggregation.
@@ -289,104 +289,6 @@ where
     ProofError(Proof::Error),
 }
 
-// todo: handle serialization
-// impl<PE: PairingEngine, F: FromBytes> FromBytes for StmSig<F> {
-//     fn read<R: Read>(mut reader: R) -> std::io::Result<Self> {
-//         let sigma = MspSig::<PE>::read(&mut reader)?;
-//         let pk = MspPk::<PE>::read(&mut reader)?;
-//         let party_u64 = u64::read(&mut reader)?;
-//         let party = party_u64 as usize;
-//         let stake = Stake::read(&mut reader)?;
-//         let path = Path::read(&mut reader)?;
-//
-//         Ok(StmSig {
-//             sigma,
-//             pk,
-//             party,
-//             stake,
-//             path,
-//         })
-//     }
-// }
-//
-// impl<PE: PairingEngine, F: ToBytes> ToBytes for StmSig<PE, F> {
-//     fn write<W: Write>(&self, mut writer: W) -> std::result::Result<(), std::io::Error> {
-//         self.sigma.write(&mut writer)?;
-//         self.pk.write(&mut writer)?;
-//         let party: u64 = self.party.try_into().unwrap();
-//         party.write(&mut writer)?;
-//         self.stake.write(&mut writer)?;
-//         self.path.write(&mut writer)?;
-//
-//         Ok(())
-//     }
-// }
-//
-// impl<PE: PairingEngine, Proof: MithrilProof> FromBytes for StmMultiSig<PE, Proof> {
-//     fn read<R: Read>(mut reader: R) -> std::io::Result<Self> {
-//         let ivk = MspMvk::read(&mut reader)?;
-//         let mu = MspSig::read(&mut reader)?;
-//         let proof = Proof::read(&mut reader)?;
-//
-//         Ok(StmMultiSig { ivk, mu, proof })
-//     }
-// }
-//
-// impl<PE: PairingEngine, Proof: MithrilProof> ToBytes for StmMultiSig<PE, Proof> {
-//     fn write<W: Write>(&self, mut writer: W) -> std::result::Result<(), std::io::Error> {
-//         self.ivk.write(&mut writer)?;
-//         self.mu.write(&mut writer)?;
-//         self.proof.write(&mut writer)
-//     }
-// }
-//
-// impl FromBytes for StmParameters {
-//     fn read<R: Read>(mut reader: R) -> std::io::Result<Self> {
-//         let m = u64::read(&mut reader)?;
-//         let k = u64::read(&mut reader)?;
-//         let phi_f_int = u64::read(&mut reader)?;
-//         let phi_f = f64::from_bits(phi_f_int);
-//
-//         Ok(StmParameters { m, k, phi_f })
-//     }
-// }
-//
-// impl ToBytes for StmParameters {
-//     fn write<W: Write>(&self, mut writer: W) -> std::io::Result<()> {
-//         self.m.write(&mut writer)?;
-//         self.k.write(&mut writer)?;
-//         self.phi_f.to_bits().write(&mut writer)
-//     }
-// }
-//
-// impl<PE: PairingEngine> FromBytes for StmInitializer<PE> {
-//     fn read<R: Read>(mut reader: R) -> std::io::Result<Self> {
-//         let party_id = u64::read(&mut reader)?;
-//         let stake = Stake::read(&mut reader)?;
-//         let params = StmParameters::read(&mut reader)?;
-//         let sk = MspSk::<PE>::read(&mut reader)?;
-//         let pk = MspPk::<PE>::read(&mut reader)?;
-//
-//         Ok(StmInitializer {
-//             party_id: party_id as usize,
-//             stake,
-//             params,
-//             sk,
-//             pk,
-//         })
-//     }
-// }
-//
-// impl<PE: PairingEngine> ToBytes for StmInitializer<PE> {
-//     fn write<W: Write>(&self, mut writer: W) -> std::io::Result<()> {
-//         (self.party_id as u64).write(&mut writer)?;
-//         self.stake.write(&mut writer)?;
-//         self.params.write(&mut writer)?;
-//         self.sk.write(&mut writer)?;
-//         self.pk.write(&mut writer)
-//     }
-// }
-
 impl StmInitializer {
     //////////////////////////
     // Initialization phase //
@@ -417,11 +319,6 @@ impl StmInitializer {
         self.pk = pk;
     }
 
-    /// Extract the secret key.
-    pub fn secret_key(&self) -> MspSk {
-        self.sk.clone()
-    }
-
     /// Extract the verification key.
     pub fn verification_key(&self) -> MspPk {
         self.pk
@@ -429,9 +326,9 @@ impl StmInitializer {
 
     /// Set a new pair of keys out of a secret key
     // todo: mmmh, do we need this?
-    pub fn set_key(&mut self, sk: &MspSk) {
-        let pk = MspPk::from(sk);
-        self.sk = sk.clone();
+    pub fn set_key(&mut self, sk: MspSk) {
+        let pk = MspPk::from(&sk);
+        self.sk = sk;
         self.pk = pk;
     }
 

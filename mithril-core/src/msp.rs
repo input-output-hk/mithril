@@ -47,7 +47,7 @@
 use super::stm::Index;
 
 use blake2::{Blake2b, Digest};
-use blst::blst_p1;
+use blst::{blst_p1, blst_p1_affine, blst_p1_compress, blst_p1_from_affine, blst_p1_uncompress};
 use blst::min_sig::{
     AggregatePublicKey, AggregateSignature, PublicKey as BlstPk, SecretKey as BlstSk,
     Signature as BlstSig,
@@ -57,20 +57,56 @@ use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::iter::Sum;
 use std::ops::Sub;
+use crate::error::{MithrilCoreError, blst_err_to_atms};
 
 /// Struct used to namespace the functions.
 #[derive(Debug)]
 pub struct Msp {}
 
 /// MSP secret key.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct MspSk(BlstSk);
+
+impl MspSk {
+    /// Convert the secret key into byte string.
+    pub fn to_bytes(&self) -> [u8; 32] {
+        self.0.to_bytes()
+    }
+
+    /// Convert a string of bytes into a `SigningKey`.
+    /// # Error
+    /// Fails if the byte string represents a scalar larger than the group order.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MithrilCoreError> {
+        match BlstSk::from_bytes(&bytes[..32]) {
+            Ok(sk) => Ok(Self(sk)),
+            Err(e) => Err(blst_err_to_atms(e)
+                .expect_err("If deserialisation is not successful, blst returns and error different to SUCCESS."))
+        }
+    }
+}
 
 /// MSP verification key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MspMvk(pub(crate) BlstPk);
 
 impl MspMvk {
+    /// Convert an `PublicKey` to its compressed byte representation.
+    pub fn to_bytes(&self) -> [u8; 96] {
+        self.0.to_bytes()
+    }
+
+    /// Convert a compressed byte string into a `PublicKey`.
+    ///
+    /// # Error
+    /// This function fails if the bytes do not represent a compressed point of the curve.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MithrilCoreError> {
+        match BlstPk::from_bytes(&bytes[..96]) {
+            Ok(pk) => Ok(Self(pk)),
+            Err(e) => Err(blst_err_to_atms(e)
+                .expect_err("If deserialisation is not successful, blst returns and error different to SUCCESS."))
+        }
+    }
+
     /// Compare two `MspMvk`. Used for PartialOrd impl, used to order signatures. The comparison
     /// function can be anything, as long as it is consistent.
     pub fn cmp_msp_mvk(&self, other: &MspMvk) -> Ordering {
@@ -196,6 +232,22 @@ impl<'a> Sum<&'a Self> for MspSig {
 }
 
 impl MspSig {
+    /// Convert an `Signature` to its compressed byte representation.
+    pub fn to_bytes(&self) -> [u8; 48] {
+        self.0.to_bytes()
+    }
+
+    /// Convert a string of bytes into a `Signature`.
+    /// # Error
+    /// Returns an error if the byte string does not represent a point in the curve.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MithrilCoreError> {
+        match BlstSig::from_bytes(&bytes[..48]) {
+            Ok(sig) => Ok(Self(sig)),
+            Err(e) => Err(blst_err_to_atms(e)
+                .expect_err("If deserialisation is not successful, blst returns and error different to SUCCESS."))
+        }
+    }
+
     /// Compare two signatures. Used for PartialOrd impl, used to rank signatures. The comparison
     /// function can be anything, as long as it is consistent across different nodes.
     fn cmp_msp_sig(&self, other: &Self) -> Ordering {
@@ -262,13 +314,42 @@ impl From<&MspSk> for MspPk {
     }
 }
 
+impl MspPk {
+    /// Verify a `MspPk`
+    fn check(&self) -> Result<(), MithrilCoreError> {
+        self.pop.check(&self.mvk)
+    }
+    /// Convert to a 144 byte string.
+    ///
+    /// # Layout
+    /// The layout of a `PublicKeyPoP` encoding is
+    /// * Public key
+    /// * Proof of Possession
+    pub fn to_bytes(&self) -> [u8; 192] {
+        let mut pkpop_bytes = [0u8; 192];
+        pkpop_bytes[..96].copy_from_slice(&self.mvk.to_bytes());
+        pkpop_bytes[96..].copy_from_slice(&self.pop.to_bytes());
+        pkpop_bytes
+    }
+
+    /// Deserialise a byte string to a `PublicKeyPoP`.
+    // todo: deserialise only valid keys?
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MithrilCoreError> {
+        let mvk = MspMvk::from_bytes(&bytes[..96])?;
+
+        let pop = MspPoP::from_bytes(&bytes[96..])?;
+
+        Ok(Self { mvk , pop })
+    }
+}
+
 impl MspPoP {
     /// if e(k1,g2) = e(H_G1("PoP"||mvk),mvk) and e(g1,mvk) = e(k2,g2)
     /// are both true, return 1. The first part is a signature verification
     /// of message "PoP", while the second we need to compute the pairing
     /// manually.
     // todo: review carefully. Unsafe to use algebraic operations
-    fn check(&self, pk: &MspMvk) -> bool {
+    fn check(&self, pk: &MspMvk) -> Result<(), MithrilCoreError> {
         use blst::{
             blst_fp12, blst_fp12_finalverify, blst_p1_affine, blst_p1_affine_generator,
             blst_p1_to_affine, blst_p2_affine, blst_p2_affine_generator, blst_p2_uncompress,
@@ -291,7 +372,49 @@ impl MspPoP {
             blst_fp12_finalverify(&ml_lhs, &ml_rhs)
         };
 
-        self.k1.verify(false, POP, &[], &[], &pk.0, false) == BLST_ERROR::BLST_SUCCESS && result
+        if !(self.k1.verify(false, POP, &[], &[], &pk.0, false) == BLST_ERROR::BLST_SUCCESS && result) {
+            return Err(MithrilCoreError::InvalidKey);
+        }
+        Ok(())
+    }
+
+    /// Convert to a 144 byte string.
+    ///
+    /// # Layout
+    /// The layout of a `MspPoP` encoding is
+    /// * K1 (G1 point)
+    /// * K2 (G1 point)
+    pub fn to_bytes(&self) -> [u8; 96] {
+        let mut pop_bytes = [0u8; 96];
+        pop_bytes[..48].copy_from_slice(&self.k1.to_bytes());
+        let k2_bytes = unsafe {
+            let mut bytes = [0u8; 48];
+            blst_p1_compress(&mut bytes[0], &self.k2);
+            bytes
+        };
+        pop_bytes[48..].copy_from_slice(&k2_bytes);
+        pop_bytes
+    }
+
+    /// Deserialise a byte string to a `PublicKeyPoP`.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MithrilCoreError> {
+        let k1 = match BlstSig::from_bytes(&bytes[..48]) {
+            Ok(key) => key,
+            Err(e) => {
+                return Err(blst_err_to_atms(e)
+                    .expect_err("If it passed, blst returns and error different to SUCCESS."))
+            }
+        };
+
+        let k2 = unsafe {
+            let mut point = blst_p1_affine::default();
+            let mut out = blst_p1::default();
+            blst_p1_uncompress(&mut point,  &bytes[48]);
+            blst_p1_from_affine(&mut out, &point);
+            out
+        };
+
+        Ok(Self{ k1, k2 })
     }
 }
 
@@ -312,8 +435,8 @@ impl Msp {
     }
 
     /// Check that a pubkey is well-formed.
-    pub fn check(pk: &MspPk) -> bool {
-        pk.pop.check(&pk.mvk)
+    pub fn check(pk: &MspPk) -> Result<(), MithrilCoreError> {
+        pk.check()
     }
 
     /// Sign a message using a secret key.
@@ -361,26 +484,20 @@ impl Msp {
     }
 }
 
-impl MspMvk {
-    /// Convert the mvk to bytes.
-    pub fn to_bytes(&self) -> [u8; 96] {
-        self.0.to_bytes()
-    }
-}
-
-impl MspSig {
-    /// Convert the signature to bytes.
-    pub fn to_bytes(&self) -> [u8; 48] {
-        self.0.to_bytes()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use proptest::prelude::*;
     use rand_chacha::ChaCha20Rng;
     use rand_core::{OsRng, SeedableRng};
+
+    impl PartialEq for MspSk {
+        fn eq(&self, other: &Self) -> bool {
+            self.0.to_bytes() == other.0.to_bytes()
+        }
+    }
+
+    impl Eq for MspSk {}
 
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(1000))]
@@ -435,31 +552,30 @@ mod tests {
             Msp::eval(&msg, idx, &sig);
         }
 
-        // todo: handle serialization
-        // #[test]
-        // fn serialize_deserialize_pk(seed in any::<u64>()) {
-        //     let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
-        //     let (_, pk) = Msp::gen(&mut rng);
-        //     let pk_bytes: &[u8] = &ark_ff::to_bytes!(pk).unwrap();
-        //     let pk2: MspPk<Bls12_377> = MspPk::read(pk_bytes).unwrap();
-        //     assert!(pk == pk2);
-        // }
-        //
-        // #[test]
-        // fn serialize_deserialize_sk(seed in any::<u64>()) {
-        //     let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
-        //     let (sk, _) = Msp::<Bls12_377>::gen(&mut rng);
-        //     let sk_bytes: &[u8] = &ark_ff::to_bytes!(sk).unwrap();
-        //     let sk2: MspSk<Bls12_377> = MspSk::read(sk_bytes).unwrap();
-        //     assert!(sk == sk2);
-        // }
+        #[test]
+        fn serialize_deserialize_pk(seed in any::<u64>()) {
+            let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
+            let (_, pk) = Msp::gen(&mut rng);
+            let pk_bytes = pk.to_bytes();
+            let pk2: MspPk = MspPk::from_bytes(&pk_bytes).unwrap();
+            assert!(pk == pk2);
+        }
+
+        #[test]
+        fn serialize_deserialize_sk(seed in any::<u64>()) {
+            let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
+            let (sk, _) = Msp::gen(&mut rng);
+            let sk_bytes: [u8; 32] = sk.to_bytes();
+            let sk2 = MspSk::from_bytes(&sk_bytes).unwrap();
+            assert!(sk == sk2);
+        }
     }
 
     #[test]
     fn test_gen() {
         for _ in 0..128 {
             let (_sk, pk) = Msp::gen(&mut OsRng);
-            assert!(Msp::check(&pk));
+            assert!(Msp::check(&pk).is_ok());
         }
     }
 }

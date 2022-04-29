@@ -295,17 +295,6 @@ mod initializer {
     }
 
     #[no_mangle]
-    pub extern "C" fn stm_initializer_secret_key(me: StmInitializerPtr, sk: *mut MspSkPtr) -> i64 {
-        unsafe {
-            if let (Some(ref_me), Some(ref_sk)) = (me.as_ref(), sk.as_mut()) {
-                *ref_sk = Box::into_raw(Box::new(ref_me.secret_key()));
-                return 0;
-            }
-            NULLPOINTERERR
-        }
-    }
-
-    #[no_mangle]
     pub extern "C" fn stm_initializer_verification_key(
         me: StmInitializerPtr,
         pk: *mut MspPkPtr,
@@ -338,17 +327,6 @@ mod initializer {
         unsafe {
             if let Some(ref_me) = me.as_mut() {
                 ref_me.set_params(params);
-                return 0;
-            }
-            NULLPOINTERERR
-        }
-    }
-
-    #[no_mangle]
-    pub extern "C" fn stm_initializer_set_keys(me: StmInitializerPtr, key: MspSkPtr) -> i64 {
-        unsafe {
-            if let (Some(ref_me), Some(ref_key)) = (me.as_mut(), key.as_ref()) {
-                ref_me.set_key(ref_key);
                 return 0;
             }
             NULLPOINTERERR

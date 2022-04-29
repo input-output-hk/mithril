@@ -104,7 +104,7 @@ impl KeyReg {
         }
 
         if let Some(mut party) = self.parties.get_mut(&party_id) {
-            if Msp::check(&pk) {
+            if Msp::check(&pk).is_ok() {
                 party.pk = Some(pk);
                 self.keys.insert(pk);
                 Ok(())
@@ -250,7 +250,7 @@ mod tests {
                     }
                     Err(RegisterError::InvalidKey(a)) => {
                         assert_eq!(fake_it, 0);
-                        assert!(!Msp::check(&a));
+                        assert!(Msp::check(&a).is_err());
                     }
                     Err(RegisterError::UnknownPartyId(_)) => assert_eq!(fake_it, 1),
                 }

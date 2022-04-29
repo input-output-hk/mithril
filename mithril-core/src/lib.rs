@@ -4,6 +4,7 @@
 //! [[paper](https://eprint.iacr.org/2021/916)].
 
 mod c_api;
+pub mod error;
 pub mod key_reg;
 pub mod merkle_tree;
 pub mod mithril_proof;
