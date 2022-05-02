@@ -62,7 +62,7 @@ NETWORK=testnet URL_SNAPSHOT_MANIFEST=https://storage.googleapis.com/cardano-tes
 
 ```bash
 # Build Docker image
-cd ../../
+cd ../
 docker build -t mithril/mithril-aggregator -f mithril-aggregator/Dockerfile .
 
 # Run Docker container
