@@ -282,6 +282,8 @@ mod handlers {
         debug!("register_signatures/{:?}", signatures);
 
         let mut multi_signer = multi_signer.write().await;
+        let message = fake_data::digest();
+        multi_signer.update_current_message(message).unwrap();
         for signature in &signatures {
             match &multi_signer::key_decode_hex(signature.signature.clone()) {
                 Ok(single_signature) => {
@@ -618,6 +620,10 @@ mod tests {
     async fn test_register_signatures_post_ok() {
         let mut mock_multi_signer = MockMultiSigner::new();
         mock_multi_signer
+            .expect_update_current_message()
+            .return_const(Ok(()))
+            .once();
+        mock_multi_signer
             .expect_register_single_signature()
             .return_const(Ok(()))
             .once();
@@ -648,6 +654,10 @@ mod tests {
     #[tokio::test]
     async fn test_register_signatures_post_ko() {
         let mut mock_multi_signer = MockMultiSigner::new();
+        mock_multi_signer
+            .expect_update_current_message()
+            .return_const(Ok(()))
+            .once();
         mock_multi_signer
             .expect_register_single_signature()
             .return_const(Err("an error occurred".to_string()))

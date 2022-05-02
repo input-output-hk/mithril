@@ -17,6 +17,17 @@ pub fn beacon() -> entities::Beacon {
     entities::Beacon::new(network, epoch, block)
 }
 
+/// Fake Digest
+pub fn digest() -> Vec<u8> {
+    let beacon = beacon();
+    format!(
+        "digest-{}-{}-{}",
+        beacon.network, beacon.epoch, beacon.block
+    )
+    .as_bytes()
+    .to_vec()
+}
+
 /// Fake ProtocolParameters
 pub fn protocol_parameters() -> entities::ProtocolParameters {
     let k = 5;
