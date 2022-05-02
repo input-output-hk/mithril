@@ -14,7 +14,7 @@ WORKDIR /app
 COPY . .
 
 # Build the binary
-WORKDIR /app/mithril-network/mithril-client/
+WORKDIR /app/mithril-signer/
 RUN make build
 
 ###############################
@@ -29,10 +29,10 @@ RUN apk update
 COPY --from=rustbuilder /etc/passwd /etc/passwd
 
 # Copy the executable
-COPY --from=rustbuilder /app/mithril-network/mithril-client/target/release/mithril-client /app/bin/mithril-client
+COPY --from=rustbuilder /app/mithril-signer/target/release/mithril-signer /app/bin/mithril-signer
 
 # Copy the config files
-COPY --from=rustbuilder /app/mithril-network/mithril-client/config /app/config
+COPY --from=rustbuilder /app/mithril-signer/config /app/config
 
 #Workdir
 WORKDIR /app/
@@ -41,4 +41,4 @@ WORKDIR /app/
 USER appuser
 
 # Run the executable
-ENTRYPOINT ["/app/bin/mithril-client"]
+ENTRYPOINT ["/app/bin/mithril-signer"]

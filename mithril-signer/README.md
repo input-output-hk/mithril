@@ -18,7 +18,7 @@ This is a first version of the Mithril Signer
 git clone https://github.com/input-output-hk/mithril
 
 # Go to sources directory
-cd mithril-network/mithril-signer
+cd mithril-signer
 ```
 
 ## Development test and build:
@@ -63,7 +63,7 @@ NETWORK=testnet AGGREGATOR_ENDPOINT=http://aggregator.api.mithril.network/aggreg
 ```bash
 # Build Docker image
 cd ../../
-docker build -t mithril/mithril-signer -f mithril-network/mithril-signer/Dockerfile .
+docker build -t mithril/mithril-signer -f mithril-signer/Dockerfile .
 
 # Run Docker container
 docker run --rm --name='mithril-signer' mithril/mithril-signer

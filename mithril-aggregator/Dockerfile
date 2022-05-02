@@ -15,9 +15,9 @@ RUN echo "fn  main () {}" > /app/dummy.rs
 
 # If this changed likely the Cargo.toml changed so lets trigger the
 # recopying of it anyways
-COPY mithril-network/mithril-aggregator/Cargo.lock /app/
+COPY mithril-aggregator/Cargo.lock /app/
 
-COPY mithril-network/mithril-aggregator/Cargo.toml /app/
+COPY mithril-aggregator/Cargo.toml /app/
 
 # We'll get to what this substitution is for but replace main.rs with
 # lib.rs if this is a library
@@ -26,7 +26,7 @@ RUN cargo build --release
 # Now return the file back to normal
 RUN sed -i 's/dummy.rs/src\/lib.rs/' Cargo.toml
 # Copy the rest of the files into the container
-COPY ./mithril-network/mithril-aggregator /app
+COPY ./mithril-aggregator /app
 
 # Build the binary
 RUN make build
