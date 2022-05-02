@@ -11,7 +11,7 @@ RUN adduser --no-create-home --disabled-password appuser
 
 # Copy the executable
 COPY mithril-signer /app/bin/mithril-signer
-COPY mithril-network/mithril-signer/config /app/config
+COPY mithril-signer/config /app/config
 
 # Workdir
 WORKDIR /app/

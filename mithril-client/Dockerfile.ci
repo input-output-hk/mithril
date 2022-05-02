@@ -11,7 +11,7 @@ RUN adduser --no-create-home --disabled-password appuser
 
 # Copy the executable
 COPY mithril-client /app/bin/mithril-client
-COPY mithril-network/mithril-client/config /app/config
+COPY mithril-client/config /app/config
 
 # Workdir
 WORKDIR /app/

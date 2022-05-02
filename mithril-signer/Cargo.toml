@@ -7,7 +7,7 @@ description = "A Mithril Signer"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-mithril-aggregator = { path = "../../mithril-network/mithril-aggregator" }
+mithril-aggregator = { path = "../../mithril-aggregator" }
 slog = { version = "2.7.0" , features = ["max_level_trace", "release_max_level_debug"] }
 slog-async = "2.7.0"
 slog-bunyan = "2.4.0"

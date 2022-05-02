@@ -21,7 +21,7 @@
 git clone https://github.com/input-output-hk/mithril
 
 # Go to sources directory
-cd mithril-network/mithril-client
+cd mithril-client
 ```
 
 ## Development test and build:
@@ -67,7 +67,7 @@ NETWORK=testnet AGGREGATOR_ENDPOINT=http://aggregator.api.mithril.network/aggreg
 ```bash
 # Build Docker image
 cd ../../
-docker build -t mithril/mithril-client -f mithril-network/mithril-client/Dockerfile .
+docker build -t mithril/mithril-client -f mithril-client/Dockerfile .
 
 # Run Docker container
 docker run --rm --name='mithril-client' mithril/mithril-client

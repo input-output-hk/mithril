@@ -9,8 +9,8 @@ This is a first version of the Mithril Aggregagator
 
 **Install Rust**
 
-- Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (version 1.58.0+). 
-
+- Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (version 1.58.0+).
+- Install OpenSSL development libraries, for example on Ubuntu/Debian/Mint run `apt install libssl-dev`
 
 ## Download source code:
 ```bash
@@ -18,7 +18,7 @@ This is a first version of the Mithril Aggregagator
 git clone https://github.com/input-output-hk/mithril
 
 # Go to sources directory
-cd mithril-network/mithril-aggregator
+cd mithril-aggregator
 ```
 
 ## Development test and build:
@@ -63,7 +63,7 @@ NETWORK=testnet URL_SNAPSHOT_MANIFEST=https://storage.googleapis.com/cardano-tes
 ```bash
 # Build Docker image
 cd ../../
-docker build -t mithril/mithril-aggregator -f mithril-network/mithril-aggregator/Dockerfile .
+docker build -t mithril/mithril-aggregator -f mithril-aggregator/Dockerfile .
 
 # Run Docker container
 docker run --rm -p 8080:8080 --name='mithril-aggregator' mithril/mithril-aggregator
@@ -74,4 +74,3 @@ docker run --rm -p 8080:8080 --name='mithril-aggregator' mithril/mithril-aggrega
 # Interact with the aggregator through the OpenAPI UI
 open -u https://input-output-hk.github.io/mithril/openapi-ui/
 ```
-

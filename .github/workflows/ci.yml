@@ -177,13 +177,13 @@ jobs:
           override: true
 
       - uses: actions/cache@v2.1.5
-        name: Cache mithril-network/mithril-aggregator/Cargo.lock
+        name: Cache mithril-aggregator/Cargo.lock
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            mithril-network/mithril-aggregator/target
-          key: ${{ runner.os }}-${{ hashFiles('mithril-network/mithril-aggregator/Cargo.lock') }}
+            mithril-aggregator/target
+          key: ${{ runner.os }}-${{ hashFiles('mithril-aggregator/Cargo.lock') }}
           restore-keys: |
               ${{ runner.os }}-key
 
@@ -200,26 +200,26 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --manifest-path ./mithril-network/mithril-aggregator/Cargo.toml
+          args: --release --manifest-path ./mithril-aggregator/Cargo.toml
 
       - name: Cargo check
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --release --all-targets --manifest-path ./mithril-network/mithril-aggregator/Cargo.toml
+          args: --release --all-targets --manifest-path ./mithril-aggregator/Cargo.toml
 
       - name: Cargo fmt
         uses: actions-rs/cargo@v1
         with:
           command: fmt
-          args: --all --manifest-path ./mithril-network/mithril-aggregator/Cargo.toml -- --check
+          args: --all --manifest-path ./mithril-aggregator/Cargo.toml -- --check
 
       - name: Clippy Check
         uses: actions-rs/clippy-check@v1
         with:
           name: clippy-mithril-aggregator
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --manifest-path ./mithril-network/mithril-aggregator/Cargo.toml --all-features
+          args: --manifest-path ./mithril-aggregator/Cargo.toml --all-features
 
       - name: Install cargo2junit
         run: |
@@ -228,7 +228,7 @@ jobs:
 
       - name: Run cargo test
         shell: bash
-        working-directory: mithril-network/mithril-aggregator
+        working-directory: mithril-aggregator
         run: |
           set -o pipefail && cargo test --release -- -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-mithril-aggregator.xml)
 
@@ -236,20 +236,20 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: doc
-          args: --no-deps --release --manifest-path ./mithril-network/mithril-aggregator/Cargo.toml
+          args: --no-deps --release --manifest-path ./mithril-aggregator/Cargo.toml
 
       - name: Publish aggregator
         uses: actions/upload-artifact@v3
         with:
           name: mithril-aggregator
-          path: mithril-network/mithril-aggregator/target/release/mithril-aggregator
+          path: mithril-aggregator/target/release/mithril-aggregator
 
       - name: Publish aggregator-doc
         uses: actions/upload-artifact@v3
         with:
           name: mithril-aggregator-doc
           path: |
-            mithril-network/mithril-aggregator/target/doc/
+            mithril-aggregator/target/doc/
 
       - name: Publish Unit Test Results
         if: always()
@@ -274,13 +274,13 @@ jobs:
           override: true
 
       - uses: actions/cache@v2.1.5
-        name: Cache mithril-network/mithril-client/Cargo.toml
+        name: Cache mithril-client/Cargo.toml
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            mithril-network/mithril-client/target
-          key: ${{ runner.os }}-${{ hashFiles('mithril-network/mithril-client/Cargo.lock') }}
+            mithril-client/target
+          key: ${{ runner.os }}-${{ hashFiles('mithril-client/Cargo.lock') }}
           restore-keys: |
               ${{ runner.os }}-key
 
@@ -297,27 +297,27 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --manifest-path ./mithril-network/mithril-client/Cargo.toml
+          args: --release --manifest-path ./mithril-client/Cargo.toml
 
       - name: Cargo check
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --release --all-targets --manifest-path ./mithril-network/mithril-client/Cargo.toml
+          args: --release --all-targets --manifest-path ./mithril-client/Cargo.toml
 
       - name: Cargo fmt
         uses: actions-rs/cargo@v1
         with:
           command: fmt
-          args: --all --manifest-path ./mithril-network/mithril-client/Cargo.toml -- --check
+          args: --all --manifest-path ./mithril-client/Cargo.toml -- --check
 
       - name: Clippy Check
         uses: actions-rs/clippy-check@v1
         with:
           name: clippy-mithril-client
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --manifest-path ./mithril-network/mithril-client/Cargo.toml --all-features
-      
+          args: --manifest-path ./mithril-client/Cargo.toml --all-features
+
       - name: Install cargo2junit
         run: |
           # Suppress the "binary `cargo2junit` already exists in destination" error
@@ -325,7 +325,7 @@ jobs:
 
       - name: Run cargo test
         shell: bash
-        working-directory: mithril-network/mithril-client
+        working-directory: mithril-client
         run: |
           set -o pipefail && cargo test --release -- -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-mithril-client.xml)
 
@@ -333,20 +333,20 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: doc
-          args: --no-deps --release --manifest-path ./mithril-network/mithril-client/Cargo.toml
+          args: --no-deps --release --manifest-path ./mithril-client/Cargo.toml
 
       - name: Publish client
         uses: actions/upload-artifact@v3
         with:
           name: mithril-client
-          path: mithril-network/mithril-client/target/release/mithril-client
+          path: mithril-client/target/release/mithril-client
 
       - name: Publish client-doc
         uses: actions/upload-artifact@v3
         with:
           name: mithril-client-doc
           path: |
-            mithril-network/mithril-client/target/doc/
+            mithril-client/target/doc/
 
       - name: Publish Unit Test Results
         if: always()
@@ -371,13 +371,13 @@ jobs:
           override: true
 
       - uses: actions/cache@v2.1.5
-        name: Cache mithril-network/mithril-signer/Cargo.toml
+        name: Cache mithril-signer/Cargo.toml
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-            mithril-network/mithril-signer/target
-          key: ${{ runner.os }}-${{ hashFiles('mithril-network/mithril-signer/Cargo.lock') }}
+            mithril-signer/target
+          key: ${{ runner.os }}-${{ hashFiles('mithril-signer/Cargo.lock') }}
           restore-keys: |
             ${{ runner.os }}-key
 
@@ -394,26 +394,26 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --manifest-path ./mithril-network/mithril-signer/Cargo.toml
+          args: --release --manifest-path ./mithril-signer/Cargo.toml
 
       - name: Cargo check
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --release --all-targets --manifest-path ./mithril-network/mithril-signer/Cargo.toml
+          args: --release --all-targets --manifest-path ./mithril-signer/Cargo.toml
 
       - name: Cargo fmt
         uses: actions-rs/cargo@v1
         with:
           command: fmt
-          args: --all --manifest-path ./mithril-network/mithril-signer/Cargo.toml -- --check
+          args: --all --manifest-path ./mithril-signer/Cargo.toml -- --check
 
       - name: Clippy Check
         uses: actions-rs/clippy-check@v1
         with:
           name: clippy-mithril-signer
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --manifest-path ./mithril-network/mithril-signer/Cargo.toml --all-features
+          args: --manifest-path ./mithril-signer/Cargo.toml --all-features
 
       - name: Install cargo2junit
         run: |
@@ -422,7 +422,7 @@ jobs:
 
       - name: Run cargo test
         shell: bash
-        working-directory: mithril-network/mithril-signer
+        working-directory: mithril-signer
         run: |
           set -o pipefail && cargo test --release -- -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-mithril-signer.xml)
 
@@ -430,20 +430,20 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: doc
-          args: --no-deps --release --manifest-path ./mithril-network/mithril-signer/Cargo.toml
+          args: --no-deps --release --manifest-path ./mithril-signer/Cargo.toml
 
       - name: Publish Signer
         uses: actions/upload-artifact@v3
         with:
           name: mithril-signer
-          path: mithril-network/mithril-signer/target/release/mithril-signer
+          path: mithril-signer/target/release/mithril-signer
 
       - name: Publish Signer-doc
         uses: actions/upload-artifact@v3
         with:
           name: mithril-signer-doc
           path: |
-            mithril-network/mithril-signer/target/doc/
+            mithril-signer/target/doc/
 
       - name: Publish Unit Test Results
         if: always()
@@ -464,7 +464,7 @@ jobs:
       PUSH_PACKAGES: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       REGISTRY: ghcr.io
       IMAGE_NAME: ${{ github.repository_owner }}/mithril-aggregator
-      DOCKER_FILE: ./mithril-network/mithril-aggregator/Dockerfile.ci
+      DOCKER_FILE: ./mithril-aggregator/Dockerfile.ci
       CONTEXT: .
       GITHUB_REF: ${{ github.ref}}
 
@@ -513,7 +513,7 @@ jobs:
       PUSH_PACKAGES: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       REGISTRY: ghcr.io
       IMAGE_NAME: ${{ github.repository_owner }}/mithril-client
-      DOCKER_FILE: ./mithril-network/mithril-client/Dockerfile.ci
+      DOCKER_FILE: ./mithril-client/Dockerfile.ci
       CONTEXT: .
       GITHUB_REF: ${{ github.ref}}
 
@@ -562,7 +562,7 @@ jobs:
       PUSH_PACKAGES: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
       REGISTRY: ghcr.io
       IMAGE_NAME: ${{ github.repository_owner }}/mithril-signer
-      DOCKER_FILE: ./mithril-network/mithril-signer/Dockerfile.ci
+      DOCKER_FILE: ./mithril-signer/Dockerfile.ci
       CONTEXT: .
       GITHUB_REF: ${{ github.ref}}
 
@@ -622,25 +622,25 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: mithril-aggregator-doc
-          path: ./github-pages/mithril-network/mithril-aggregator/doc
+          path: ./github-pages/mithril-aggregator/doc
 
       - name: Download client-doc artifact
         uses: actions/download-artifact@v3
         with:
           name: mithril-client-doc
-          path: ./github-pages/mithril-network/mithril-client/doc
+          path: ./github-pages/mithril-client/doc
 
       - name: Download signer-doc artifact
         uses: actions/download-artifact@v3
         with:
           name: mithril-signer-doc
-          path: ./github-pages/mithril-network/mithril-signer/doc
+          path: ./github-pages/mithril-signer/doc
 
       - name: Mithril Aggregator / Generate OpenAPI UI
         uses: Legion2/swagger-ui-action@v1
         with:
           output: ./github-pages/openapi-ui
-          spec-file: ./mithril-network/openapi.yaml
+          spec-file: ./openapi.yaml
 
       - name: Setup Node.js
         uses: actions/setup-node@v3
@@ -728,7 +728,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: mithril-network/mithril-infra
+        working-directory: mithril-infra
 
     steps:
 
