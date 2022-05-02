@@ -22,6 +22,6 @@ reqwest = { version = "0.11", features = ["json", "stream"] }
 tar = "0.4.38"
 flate2 = "1.0.23"
 
-#[dev-dependencies]
+[dev-dependencies]
 mockall = "0.11.0"
 httpmock = "0.6.6"

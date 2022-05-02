@@ -6,6 +6,7 @@ use std::env;
 use std::sync::Arc;
 
 mod entities;
+mod signer;
 
 /// CLI args
 #[derive(Parser)]
