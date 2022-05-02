@@ -41,6 +41,12 @@ use mockall::automock;
 /// MultiSigner is the cryptographic engine in charge of producing multi signatures from individual signatures
 #[cfg_attr(test, automock)]
 pub trait MultiSigner: Sync + Send {
+    /// Get current message
+    fn get_current_message(&self) -> Option<Bytes>;
+
+    /// Update current message
+    fn update_current_message(&mut self, message: Bytes) -> Result<(), String>;
+
     /// Get protocol parameters
     fn get_protocol_parameters(&self) -> Option<ProtocolParameters>;
 
@@ -89,6 +95,7 @@ pub trait MultiSigner: Sync + Send {
 
 /// MultiSignerImpl is an implementation of the MultiSigner
 pub struct MultiSignerImpl {
+    current_message: Option<Bytes>,
     protocol_parameters: Option<ProtocolParameters>,
     stakes: Vec<(ProtocolPartyId, ProtocolStake)>,
     signers: HashMap<ProtocolPartyId, ProtocolSignerVerificationKey>,
@@ -108,6 +115,7 @@ impl MultiSignerImpl {
     pub fn new() -> Self {
         debug!("New MultiSignerImpl created");
         Self {
+            current_message: None,
             protocol_parameters: None,
             stakes: Vec::new(),
             signers: HashMap::new(),
@@ -116,15 +124,8 @@ impl MultiSignerImpl {
         }
     }
 
-    /// Get message to sign
-    // TODO: This should be computed separately
-    pub fn message(&self) -> Bytes {
-        // TODO: return concatenated current beacon fields
-        Vec::from_hex("7724e03fb8d84a376a43b8f41518a11c").unwrap()
-    }
-
     /// Creates a clerk
-    // TODO: The clerk should be a field of the MultiSignerImpl struct, but this is not possible now as the Clerk us an unsafe 'Rc'
+    // TODO: The clerk should be a field of the MultiSignerImpl struct, but this is not possible now as the Clerk uses an unsafe 'Rc'
     pub fn clerk(&self) -> ProtocolClerk {
         let stakes = self.get_stake_distribution();
         let mut key_registration: ProtocolKeyRegistration = KeyReg::new(&stakes);
@@ -145,6 +146,17 @@ impl MultiSignerImpl {
 }
 
 impl MultiSigner for MultiSignerImpl {
+    /// Get current message
+    fn get_current_message(&self) -> Option<Bytes> {
+        self.current_message.clone()
+    }
+
+    /// Update current message
+    fn update_current_message(&mut self, message: Bytes) -> Result<(), String> {
+        self.current_message = Some(message);
+        Ok(())
+    }
+
     /// Get protocol parameters
     fn get_protocol_parameters(&self) -> Option<ProtocolParameters> {
         self.protocol_parameters
@@ -204,7 +216,7 @@ impl MultiSigner for MultiSignerImpl {
             party_id, index
         );
 
-        let message = &self.message();
+        let message = &self.get_current_message().unwrap();
         let clerk = self.clerk();
         match clerk.verify_sig(signature, index, message) {
             Ok(_) => {
@@ -270,7 +282,7 @@ impl MultiSigner for MultiSignerImpl {
     fn create_multi_signature(&mut self) -> Result<Option<ProtocolMultiSignature>, String> {
         debug!("Create multi signature");
 
-        let message = &self.message();
+        let message = &self.get_current_message().unwrap();
         let signatures: (Vec<ProtocolSingleSignature>, Vec<ProtocolLotteryIndex>) = self
             .single_signatures
             .iter()
@@ -327,6 +339,10 @@ mod tests {
 
     use rand_chacha::ChaCha20Rng;
     use rand_core::{RngCore, SeedableRng};
+
+    fn message() -> Bytes {
+        Vec::from_hex("7724e03fb8d84a376a43b8f41518a11c").unwrap()
+    }
 
     fn setup_protocol_parameters() -> ProtocolParameters {
         ProtocolParameters {
@@ -416,6 +432,21 @@ mod tests {
     }
 
     #[test]
+    fn test_multi_signer_current_message_ok() {
+        let mut multi_signer = MultiSignerImpl::new();
+
+        let current_message_expected = Vec::from_hex("7724e03fb8d84a376a43b8f41518a11c").unwrap();
+        multi_signer
+            .update_current_message(current_message_expected.clone())
+            .expect("update current message failed");
+
+        let current_message = multi_signer
+            .get_current_message()
+            .expect("current message should have been retrieved");
+        assert_eq!(current_message_expected, current_message)
+    }
+
+    #[test]
     fn test_multi_signer_protocol_parameters_ok() {
         let mut multi_signer = MultiSignerImpl::new();
 
@@ -471,7 +502,11 @@ mod tests {
     #[test]
     fn test_multi_signer_multi_signature_ok() {
         let mut multi_signer = MultiSignerImpl::new();
-        let message = multi_signer.message();
+
+        let message = message();
+        multi_signer
+            .update_current_message(message.clone())
+            .expect("update current message failed");
 
         let protocol_parameters = setup_protocol_parameters();
         multi_signer
