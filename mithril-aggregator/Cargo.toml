@@ -11,7 +11,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 path = "src/lib.rs"
 
 [dependencies]
-mithril = { path = "../../mithril-core" }
+mithril = { path = "../mithril-core" }
 log = { version = "0.4.14", features = ["max_level_debug", "release_max_level_debug"] }
 env_logger = "0.8.4"
 clap = { version = "3.1.6", features = ["derive"] }
