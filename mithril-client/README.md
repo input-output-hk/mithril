@@ -11,7 +11,7 @@
 
 **Install Rust**
 
-- Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (version 1.58.0+). 
+- Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (version 1.58.0+).
 - Install Rust [Clippy](https://github.com/rust-lang/rust-clippy) component.
 
 
@@ -66,7 +66,7 @@ NETWORK=testnet AGGREGATOR_ENDPOINT=http://aggregator.api.mithril.network/aggreg
 
 ```bash
 # Build Docker image
-cd ../../
+cd ../
 docker build -t mithril/mithril-client -f mithril-client/Dockerfile .
 
 # Run Docker container
