@@ -29,6 +29,9 @@ pub trait AggregatorHandler {
 
     /// Unpack snapshot
     async fn unpack_snapshot(&self, digest: &str) -> Result<String, String>;
+
+    /// Get certificate details
+    async fn get_certificate_details(&self, certificate_hash: &str) -> Result<Certificate, String>;
 }
 
 /// AggregatorHTTPClient is a http client for an aggregator
@@ -53,7 +56,6 @@ impl AggregatorHandler for AggregatorHTTPClient {
     /// List snapshots
     async fn list_snapshots(&self) -> Result<Vec<Snapshot>, String> {
         debug!("List snapshots");
-
         let url = format!("{}/snapshots", self.aggregator_endpoint);
         let response = reqwest::get(url.clone()).await;
         match response {
@@ -71,7 +73,6 @@ impl AggregatorHandler for AggregatorHTTPClient {
     /// Get snapshot details
     async fn get_snapshot_details(&self, digest: &str) -> Result<Snapshot, String> {
         debug!("Details snapshot {}", digest);
-
         let url = format!("{}/snapshot/{}", self.aggregator_endpoint, digest);
         let response = reqwest::get(url.clone()).await;
         match response {
@@ -141,6 +142,27 @@ impl AggregatorHandler for AggregatorHTTPClient {
             .unpack(&unpack_dir_path)
             .map_err(|e| format!("can't unpack snapshot archive: {}", e))?;
         Ok(unpack_dir_path.into_os_string().into_string().unwrap())
+    }
+
+    /// Get certificate details
+    async fn get_certificate_details(&self, certificate_hash: &str) -> Result<Certificate, String> {
+        debug!("Details certificate {}", certificate_hash);
+        let url = format!(
+            "{}/certificate/{}",
+            self.aggregator_endpoint, certificate_hash
+        );
+        let response = reqwest::get(url.clone()).await;
+        match response {
+            Ok(response) => match response.status() {
+                StatusCode::OK => match response.json::<Certificate>().await {
+                    Ok(certificate) => Ok(certificate),
+                    Err(err) => Err(err.to_string()),
+                },
+                StatusCode::NOT_FOUND => Err("Certificate not found".to_string()),
+                status_error => Err(format!("error {} received", status_error)),
+            },
+            Err(err) => Err(err.to_string()),
+        }
     }
 }
 
@@ -367,5 +389,67 @@ mod tests {
             AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
         let local_dir_path = aggregator_client.unpack_snapshot(digest).await;
         assert!(local_dir_path.is_err());
+    }
+
+    #[tokio::test]
+    async fn get_certificate_details_ok() {
+        let certificate_hash = "certificate-hash-123";
+        let (server, config) = setup_test();
+        let certificate_expected = fake_data::certificate(certificate_hash.to_string());
+        let _certificate_mock = server.mock(|when, then| {
+            when.path(format!("/certificate/{}", certificate_hash));
+            then.status(200)
+                .body(json!(certificate_expected).to_string());
+        });
+        let aggregator_client =
+            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
+        let certificate = aggregator_client
+            .get_certificate_details(certificate_hash)
+            .await;
+        certificate.as_ref().expect("unexpected error");
+        assert_eq!(certificate.unwrap(), certificate_expected);
+    }
+
+    #[tokio::test]
+    async fn get_certificate_details_ko_404() {
+        let certificate_hash = "certificate-hash-123";
+        let (server, config) = setup_test();
+        let _certificate_mock = server.mock(|when, then| {
+            when.path(format!("/certificate/{}", certificate_hash));
+            then.status(404);
+        });
+        let aggregator_client =
+            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
+        let certificate = aggregator_client
+            .get_certificate_details(certificate_hash)
+            .await;
+        assert!(certificate.is_err());
+    }
+
+    #[tokio::test]
+    async fn get_certificate_details_ko_500() {
+        let certificate_hash = "certificate-hash-123";
+        let (server, config) = setup_test();
+        let _certificate_mock = server.mock(|when, then| {
+            when.path(format!("/certificate/{}", certificate_hash));
+            then.status(500);
+        });
+        let aggregator_client =
+            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
+        let certificate = aggregator_client
+            .get_certificate_details(certificate_hash)
+            .await;
+        assert!(certificate.is_err());
+    }
+
+    #[tokio::test]
+    async fn get_certificate_details_ko_unreachable() {
+        let certificate_hash = "certificate-hash-123";
+        let aggregator_client =
+            AggregatorHTTPClient::new("testnet".to_string(), "http123://unreachable".to_string());
+        let certificate = aggregator_client
+            .get_certificate_details(certificate_hash)
+            .await;
+        assert!(certificate.is_err());
     }
 }

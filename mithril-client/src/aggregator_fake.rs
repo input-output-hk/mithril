@@ -42,4 +42,9 @@ impl AggregatorHandler for AggregatorHandlerFake {
     async fn unpack_snapshot(&self, digest: &str) -> Result<String, String> {
         unimplemented!("Unpack snapshot {}", digest);
     }
+
+    /// Get certificate details
+    async fn get_certificate_details(&self, certificate_hash: &str) -> Result<Certificate, String> {
+        unimplemented!("Details certificate {}", certificate_hash);
+    }
 }
