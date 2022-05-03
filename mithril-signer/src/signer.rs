@@ -1,4 +1,8 @@
-use mithril_aggregator::entities::{Beacon, CertificatePending};
+use thiserror::Error;
+
+use mithril_aggregator::entities::{
+    Beacon, CertificatePending, ProtocolParameters, SingleSignature,
+};
 
 #[cfg(test)]
 use mockall::automock;
@@ -12,7 +16,26 @@ pub trait CertificateHandler {
 
 struct Signer {
     certificate_handler: Box<dyn CertificateHandler>,
+    single_signer: Box<dyn SingleSigner>,
     current_beacon: Option<Beacon>,
+}
+
+#[derive(Error, Debug, PartialEq)]
+pub enum SignerError {
+    #[error("single signatures computation failed: `{0}`")]
+    SingleSignaturesComputeFailed(String),
+    #[error("could not retrieve pending certificate: `{0}`")]
+    RetrievePendingCertificateFailed(String),
+}
+
+#[cfg_attr(test, automock)]
+pub trait SingleSigner {
+    fn compute_single_signatures(
+        &self,
+        message: Vec<u8>,
+        stake_distribution: Vec<String>,
+        protocol_parameters: &ProtocolParameters,
+    ) -> Result<Vec<SingleSignature>, String>;
 }
 
 impl Signer {
@@ -20,18 +43,20 @@ impl Signer {
         _party_id: &str,
         _signing_key: &str,
         certificate_handler: Box<dyn CertificateHandler>,
+        single_signer: Box<dyn SingleSigner>,
     ) -> Self {
         Self {
             certificate_handler,
+            single_signer,
             current_beacon: None,
         }
     }
 
-    fn run(&mut self) {
+    fn run(&mut self) -> Result<(), SignerError> {
         if let Some(pending_certificate) = self
             .certificate_handler
             .retrieve_pending_certificate()
-            .unwrap()
+            .map_err(SignerError::RetrievePendingCertificateFailed)?
         {
             let must_register_signature = match &self.current_beacon {
                 None => {
@@ -42,9 +67,24 @@ impl Signer {
             };
 
             if must_register_signature {
-                let _ = self.certificate_handler.register_signatures("");
+                let message = "message".as_bytes().to_vec();
+                let stake_distribution = vec!["a".to_string()];
+                match self.single_signer.compute_single_signatures(
+                    message,
+                    stake_distribution,
+                    &pending_certificate.protocol_parameters,
+                ) {
+                    Ok(signatures) => {
+                        if signatures.len() > 0 {
+                            let _ = self.certificate_handler.register_signatures("");
+                        }
+                    }
+                    Err(_) => {}
+                };
             }
         }
+
+        Ok(())
     }
 }
 
@@ -63,8 +103,35 @@ mod tests {
             .return_const(Ok(None))
             .once();
 
-        let mut signer = Signer::new(party_id, signing_key, Box::new(mock_certificate_handler));
+        let mut signer = Signer::new(
+            party_id,
+            signing_key,
+            Box::new(mock_certificate_handler),
+            Box::new(MockSingleSigner::new()),
+        );
         signer.run();
+    }
+
+    #[test]
+    fn signer_fails_when_pending_certificate_fails() {
+        let party_id = "";
+        let signing_key = "";
+        let mut mock_certificate_handler = MockCertificateHandler::new();
+        mock_certificate_handler
+            .expect_retrieve_pending_certificate()
+            .return_const(Err("An Error".to_string()))
+            .once();
+
+        let mut signer = Signer::new(
+            party_id,
+            signing_key,
+            Box::new(mock_certificate_handler),
+            Box::new(MockSingleSigner::new()),
+        );
+        assert_eq!(
+            SignerError::RetrievePendingCertificateFailed("An Error".to_string()),
+            signer.run().unwrap_err()
+        );
     }
 
     #[test]
@@ -72,6 +139,7 @@ mod tests {
         let party_id = "";
         let signing_key = "";
         let mut mock_certificate_handler = MockCertificateHandler::new();
+        let mut mock_single_signer = MockSingleSigner::new();
         let pending_certificate = fake_data::certificate_pending();
         mock_certificate_handler
             .expect_retrieve_pending_certificate()
@@ -85,8 +153,17 @@ mod tests {
             .expect_register_signatures()
             .return_const(Ok(()))
             .once();
+        mock_single_signer
+            .expect_compute_single_signatures()
+            .return_const(Ok(fake_data::single_signatures(2)))
+            .once();
 
-        let mut signer = Signer::new(party_id, signing_key, Box::new(mock_certificate_handler));
+        let mut signer = Signer::new(
+            party_id,
+            signing_key,
+            Box::new(mock_certificate_handler),
+            Box::new(mock_single_signer),
+        );
         signer.run();
         signer.run();
     }
@@ -96,6 +173,7 @@ mod tests {
         let party_id = "";
         let signing_key = "";
         let mut mock_certificate_handler = MockCertificateHandler::new();
+        let mut mock_single_signer = MockSingleSigner::new();
         let pending_certificate = fake_data::certificate_pending();
         mock_certificate_handler
             .expect_retrieve_pending_certificate()
@@ -105,9 +183,46 @@ mod tests {
             .expect_register_signatures()
             .return_const(Ok(()))
             .once();
+        mock_single_signer
+            .expect_compute_single_signatures()
+            .return_const(Ok(fake_data::single_signatures(2)))
+            .once();
 
-        let mut signer = Signer::new(party_id, signing_key, Box::new(mock_certificate_handler));
+        let mut signer = Signer::new(
+            party_id,
+            signing_key,
+            Box::new(mock_certificate_handler),
+            Box::new(mock_single_signer),
+        );
         signer.run();
+        signer.run();
+    }
+
+    #[test]
+    fn signer_does_not_send_signatures_if_none_are_computed() {
+        let party_id = "";
+        let signing_key = "";
+        let mut mock_certificate_handler = MockCertificateHandler::new();
+        let mut mock_single_signer = MockSingleSigner::new();
+        let pending_certificate = fake_data::certificate_pending();
+        mock_certificate_handler
+            .expect_retrieve_pending_certificate()
+            .return_const(Ok(Some(pending_certificate)))
+            .once();
+        mock_certificate_handler
+            .expect_register_signatures()
+            .times(0);
+        mock_single_signer
+            .expect_compute_single_signatures()
+            .return_const(Ok(fake_data::single_signatures(0)))
+            .once();
+
+        let mut signer = Signer::new(
+            party_id,
+            signing_key,
+            Box::new(mock_certificate_handler),
+            Box::new(mock_single_signer),
+        );
         signer.run();
     }
 }
