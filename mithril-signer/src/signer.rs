@@ -69,18 +69,17 @@ impl Signer {
             if must_register_signature {
                 let message = "message".as_bytes().to_vec();
                 let stake_distribution = vec!["a".to_string()];
-                match self.single_signer.compute_single_signatures(
-                    message,
-                    stake_distribution,
-                    &pending_certificate.protocol_parameters,
-                ) {
-                    Ok(signatures) => {
-                        if signatures.len() > 0 {
-                            let _ = self.certificate_handler.register_signatures("");
-                        }
-                    }
-                    Err(_) => {}
-                };
+                let signatures = self
+                    .single_signer
+                    .compute_single_signatures(
+                        message,
+                        stake_distribution,
+                        &pending_certificate.protocol_parameters,
+                    )
+                    .map_err(SignerError::SingleSignaturesComputeFailed)?;
+                if !signatures.is_empty() {
+                    let _ = self.certificate_handler.register_signatures("");
+                }
             }
         }
 
@@ -109,7 +108,7 @@ mod tests {
             Box::new(mock_certificate_handler),
             Box::new(MockSingleSigner::new()),
         );
-        signer.run();
+        assert!(signer.run().is_ok());
     }
 
     #[test]
@@ -164,8 +163,8 @@ mod tests {
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
         );
-        signer.run();
-        signer.run();
+        assert!(signer.run().is_ok());
+        assert!(signer.run().is_ok());
     }
 
     #[test]
@@ -194,8 +193,8 @@ mod tests {
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
         );
-        signer.run();
-        signer.run();
+        assert!(signer.run().is_ok());
+        assert!(signer.run().is_ok());
     }
 
     #[test]
@@ -223,6 +222,34 @@ mod tests {
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
         );
-        signer.run();
+        assert!(signer.run().is_ok());
+    }
+
+    #[test]
+    fn signer_fails_if_signature_computation_fails() {
+        let party_id = "";
+        let signing_key = "";
+        let mut mock_certificate_handler = MockCertificateHandler::new();
+        let mut mock_single_signer = MockSingleSigner::new();
+        let pending_certificate = fake_data::certificate_pending();
+        mock_certificate_handler
+            .expect_retrieve_pending_certificate()
+            .return_const(Ok(Some(pending_certificate)))
+            .once();
+        mock_single_signer
+            .expect_compute_single_signatures()
+            .return_const(Err("An Error".to_string()))
+            .once();
+
+        let mut signer = Signer::new(
+            party_id,
+            signing_key,
+            Box::new(mock_certificate_handler),
+            Box::new(mock_single_signer),
+        );
+        assert_eq!(
+            SignerError::SingleSignaturesComputeFailed("An Error".to_string()),
+            signer.run().unwrap_err()
+        );
     }
 }
