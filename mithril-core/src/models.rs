@@ -11,7 +11,7 @@ pub mod digest {
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub struct DigestHash(pub(crate) Vec<u8>);
 
-    impl<D: Digest> MTHashLeaf for D {
+    impl<D: Digest + Clone> MTHashLeaf for D {
         type F = DigestHash;
 
         fn new() -> Self {

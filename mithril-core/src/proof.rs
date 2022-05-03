@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display};
 
 /// An environment or context that can contain any long-lived information
 /// relevant to the proof backend
-pub trait ProverEnv {
+pub trait ProverEnv: Clone {
     /// The secret key used to create proofs.
     type ProvingKey;
     /// The public key used to verify proofs.

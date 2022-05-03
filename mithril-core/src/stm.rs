@@ -128,7 +128,7 @@ use crate::error::{
     AggregationFailure, MultiVerificationFailure, RegisterError, VerificationFailure,
 };
 use crate::key_reg::ClosedKeyReg;
-use crate::merkle_tree::{concat_avk_with_msg, MTHashLeaf, MerkleTree, Path};
+use crate::merkle_tree::{concat_avk_with_msg, MTHashLeaf, MerkleTree, Path, MerkleTreeCommitment};
 use crate::mithril_proof::{MithrilProof, MithrilStatement, MithrilWitness};
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
 use crate::proof::ProverEnv;
@@ -260,7 +260,6 @@ where
     total_stake: Stake,
     proof_env: E,
     proof_key: E::ProvingKey,
-    verif_key: E::VerificationKey,
 }
 
 /// Signature created by a single party who has won the lottery.
@@ -512,27 +511,25 @@ where
         proof_env: E,
         closed_reg: ClosedKeyReg<H>,
     ) -> Self {
-        let (pk, vk) = proof_env.setup();
+        let (pk, _vk) = proof_env.setup();
         Self {
             params,
             avk: Arc::new(closed_reg.avk),
             total_stake: closed_reg.total_stake,
             proof_env,
             proof_key: pk,
-            verif_key: vk,
         }
     }
 
     /// Creates a Clerk from a Signer.
     pub fn from_signer(signer: &StmSigner<H>, proof_env: E) -> Self {
-        let (proof_key, verif_key) = proof_env.setup();
+        let (proof_key, _verif_key) = proof_env.setup();
         Self {
             params: signer.params,
             proof_env,
             avk: Arc::new(signer.avk.clone()),
             total_stake: signer.total_stake,
             proof_key,
-            verif_key,
         }
     }
 
@@ -636,29 +633,8 @@ where
         Proof::Statement: From<MithrilStatement<H>>,
         Proof::Witness: From<MithrilWitness<H>>,
     {
-        let statement = MithrilStatement {
-            // Specific to the message and signatures
-            ivk: msig.ivk,
-            mu: msig.mu,
-            msg: msg.to_vec(),
-            // These are "background" information"
-            avk: Arc::new(self.avk.to_commitment()),
-            params: self.params,
-            total_stake: self.total_stake,
-        };
-        if let Err(e) = msig.proof.verify(
-            &self.proof_env,
-            &self.verif_key,
-            &Proof::RELATION,
-            &Proof::Statement::from(statement),
-        ) {
-            return Err(MultiVerificationFailure::ProofError(e));
-        }
-        let msgp = concat_avk_with_msg(&self.avk.to_commitment(), msg);
-        if !Msp::aggregate_ver(&msgp, &msig.ivk, &msig.mu) {
-            return Err(MultiVerificationFailure::InvalidAggregate(msig.mu));
-        }
-        Ok(())
+        StmVerifier::new(self.avk.to_commitment(), self.params, self.total_stake, self.proof_env.clone())
+            .verify_msig(msg, msig)
     }
 
     /// Given a slice of `indices` and one of `sigs`, this functions selects a single valid signature
@@ -695,6 +671,7 @@ where
         ))
     }
 }
+
 #[cfg(feature = "pure-rust")]
 /// Checks that ev is successful in the lottery. In particular, it compares the output of `phi`
 /// (a real) to the output of `ev` (a hash).  It uses the same technique used in the
@@ -795,6 +772,75 @@ pub fn ev_lt_phi(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> 
 
     q < phi
 }
+
+/// `StmVerifier` can verify `StmSig`s. `StmVerifiers` require les sinformation than
+/// `StmClerks` or `StmSigner`s, as they do not require knowledge of the whole Merkle
+/// Tree, but only the commitment.
+#[derive(Debug, Clone)]
+pub struct StmVerifier<H, E>
+    where
+        H: MTHashLeaf,
+        E: ProverEnv,
+{
+    avk_commitment: MerkleTreeCommitment<H>,
+    params: StmParameters,
+    total_stake: Stake,
+    proof_env: E,
+    verif_key: E::VerificationKey,
+}
+
+impl<H, E> StmVerifier<H,E>
+    where
+        H: MTHashLeaf,
+        E: ProverEnv,
+{
+    /// Generate a new StmVerifier. When creating a verifier from scratch, the top level application should validate
+    /// that the avk_commitment, params, and total_stake are correct wrt some trusted state.
+    pub fn new(avk_commitment: MerkleTreeCommitment<H>, params: StmParameters, total_stake: Stake, proof_env: E) -> Self {
+        // If we ever consider proof environments with a trusted setup, we need to rethink the creation of the verifier
+        let (_, verif_key) = proof_env.setup();
+        Self {
+            avk_commitment,
+            params,
+            total_stake,
+            proof_env,
+            verif_key
+        }
+    }
+
+    /// Verify an aggregated signature
+    pub fn verify_msig<Proof>(&self, msg: &[u8], sig: &StmMultiSig<Proof>) -> Result<(), MultiVerificationFailure<Proof>>
+        where
+            Proof: MithrilProof<Env = E>,
+            Proof::Statement: From<MithrilStatement<H>>,
+            Proof::Witness: From<MithrilWitness<H>>,
+    {
+        let statement = MithrilStatement {
+            // Specific to the message and signatures
+            ivk: sig.ivk,
+            mu: sig.mu,
+            msg: msg.to_vec(),
+            // These are "background" information"
+            avk: Arc::new(self.avk_commitment.clone()),
+            params: self.params,
+            total_stake: self.total_stake,
+        };
+        if let Err(e) = sig.proof.verify(
+            &self.proof_env,
+            &self.verif_key,
+            &Proof::RELATION,
+            &Proof::Statement::from(statement),
+        ) {
+            return Err(MultiVerificationFailure::ProofError(e));
+        }
+        let msgp = concat_avk_with_msg(&self.avk_commitment, msg);
+        if !Msp::aggregate_ver(&msgp, &sig.ivk, &sig.mu) {
+            return Err(MultiVerificationFailure::InvalidAggregate(sig.mu));
+        }
+        Ok(())
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -992,7 +1038,8 @@ mod tests {
         #![proptest_config(ProptestConfig::with_cases(50))]
 
         #[test]
-        /// Test that when a quorum is found, the aggregate signature can be verified
+        /// Test that when a quorum is found, the aggregate signature can be verified by an `StmClerk` or by
+        /// an `StmVerifier`.
         fn test_aggregate_sig(nparties in 2_usize..30,
                               m in 10_u64..20,
                               k in 1_u64..5,
@@ -1005,10 +1052,13 @@ mod tests {
             let (ixs, sigs) = find_signatures(m, &msg, &ps, &all_ps);
 
             let msig = clerk.aggregate::<ConcatProof<H, F>>(&sigs, &ixs, &msg);
+            let verifier = StmVerifier::new(clerk.avk.to_commitment(), params, clerk.total_stake, TrivialEnv);
 
             match msig {
-                Ok(aggr) =>
-                    assert!(clerk.verify_msig::<ConcatProof<H, F>>(&aggr, &msg).is_ok()),
+                Ok(aggr) => {
+                    assert!(clerk.verify_msig::<ConcatProof<H, F>>(&aggr, &msg).is_ok());
+                    assert!(verifier.verify_msig::<ConcatProof<H, F>>(&msg, &aggr).is_ok());
+                }
                 Err(AggregationFailure::NotEnoughSignatures(n, k)) =>
                     assert!(n < params.k || k == params.k),
             }

@@ -21,6 +21,7 @@ type MultiSigPtr = *mut StmMultiSig<ConcatProof<H, F>>;
 type StmInitializerPtr = *mut StmInitializer;
 type StmSignerPtr = *mut StmSigner<H>;
 type StmClerkPtr = *mut StmClerk<H, TrivialEnv>;
+type StmVerifierPtr = *mut StmVerifier<H, TrivialEnv>;
 type MerkleTreeCommitmentPtr = *mut MerkleTreeCommitment<H>;
 type KeyRegPtr = *mut KeyReg;
 type ClosedKeyRegPtr = *mut ClosedKeyReg<H>;
@@ -74,6 +75,18 @@ pub extern "C" fn free_stm_signer(p: StmSignerPtr) -> i64 {
 #[no_mangle]
 /// Frees an STM Clerk pointer
 pub extern "C" fn free_stm_clerk(p: StmClerkPtr) -> i64 {
+    unsafe {
+        if let Some(p) = p.as_mut() {
+            Box::from_raw(p);
+            return 0;
+        }
+        NULLPOINTERERR
+    }
+}
+
+#[no_mangle]
+/// Frees and STM verifier pointer
+pub extern "C" fn free_stm_verifier(p: StmVerifierPtr) -> i64 {
     unsafe {
         if let Some(p) = p.as_mut() {
             Box::from_raw(p);
@@ -513,6 +526,20 @@ mod key_reg {
             NULLPOINTERERR
         }
     }
+
+    #[no_mangle]
+    pub extern "C" fn total_stake(
+        closed_reg: ClosedKeyRegPtr,
+        stake: &mut Stake
+    ) -> i64 {
+        unsafe {
+            if let Some(closed_reg) = closed_reg.as_ref() {
+                *stake = closed_reg.total_stake;
+                return 0;
+            }
+            NULLPOINTERERR
+        }
+    }
 }
 
 mod clerk {
@@ -640,6 +667,57 @@ mod clerk {
             {
                 let msg_str = CStr::from_ptr(msg);
                 let out = ref_me.verify_msig(ref_msig, msg_str.to_bytes());
+                return match out {
+                    Ok(()) => 0,
+                    Err(MultiVerificationFailure::InvalidAggregate(_)) => -1,
+                    Err(MultiVerificationFailure::ProofError(e)) => e.into(),
+                };
+            }
+            NULLPOINTERERR
+        }
+    }
+}
+
+mod verifier {
+    use crate::error::MultiVerificationFailure;
+    use super::*;
+
+    /// A verifier can be generated from a merkle tree commitment, `StmParameters` and
+    /// the total stake.
+    #[no_mangle]
+    pub extern "C" fn stm_verifier_new(
+        avk_commitment_ptr: MerkleTreeCommitmentPtr,
+        params: StmParameters,
+        total_stake: Stake,
+        verifier_ptr: *mut StmVerifierPtr,
+    ) -> i64 {
+        unsafe {
+            if let (Some(avk_commitment), Some(verifier)) = (avk_commitment_ptr.as_ref(), verifier_ptr.as_mut()) {
+                let stm_verifier = StmVerifier::new(avk_commitment.clone(), params, total_stake, TrivialEnv);
+                *verifier = Box::into_raw(Box::new(stm_verifier));
+                return 0;
+            }
+            NULLPOINTERERR
+        }
+    }
+
+    /// Try to verify a multisignature.
+    /// returns 0 if the signature is valid
+    /// returns -1 if the aggregation is invalid
+    /// returns n > 0 if the proof verification failed, where n is the error number
+    /// from the proof system.
+    #[no_mangle]
+    pub extern "C" fn stm_verifier_verify_msig(
+        me: StmVerifierPtr,
+        msig: MultiSigPtr,
+        msg: *const c_char,
+    ) -> i64 {
+        unsafe {
+            if let (Some(ref_me), Some(ref_msig), Some(msg)) =
+            (me.as_ref(), msig.as_ref(), msg.as_ref())
+            {
+                let msg_str = CStr::from_ptr(msg);
+                let out = ref_me.verify_msig(msg_str.to_bytes(), ref_msig);
                 return match out {
                     Ok(()) => 0,
                     Err(MultiVerificationFailure::InvalidAggregate(_)) => -1,

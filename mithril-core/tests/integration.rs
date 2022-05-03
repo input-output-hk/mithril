@@ -1,6 +1,6 @@
 use mithril::key_reg::KeyReg;
 use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
-use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner};
+use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner, StmVerifier};
 use rayon::prelude::*;
 
 use mithril::error::AggregationFailure;
@@ -87,12 +87,16 @@ fn test_full_protocol() {
         );
     }
 
-    // Aggregate and verify with random parties
+    // Aggregate with random parties
     let msig = clerk.aggregate::<ConcatProof<H, F>>(&sigs, &ixs, &msg);
+
+
+    // Verify aggregated signature with a fresh verifier
+    let verifier = StmVerifier::new(closed_reg.avk.to_commitment(), params, closed_reg.total_stake, TrivialEnv);
     match msig {
         Ok(aggr) => {
             println!("Aggregate ok");
-            assert!(clerk.verify_msig::<ConcatProof<H, F>>(&aggr, &msg).is_ok());
+            assert!(verifier.verify_msig::<ConcatProof<H, F>>(&msg, &aggr).is_ok());
         }
         Err(AggregationFailure::NotEnoughSignatures(n, k)) => {
             println!("Not enough signatures");

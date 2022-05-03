@@ -192,9 +192,19 @@ TEST(stm, clerkFromPublicData) {
     ASSERT_EQ(err, 0);
     ASSERT_NE(multi_sig, nullptr);
 
-    err = stm_clerk_verify_msig(clerk, multi_sig, msg);
+    // Now we can generate the verifier (which does not need as much data as the clerk)
+    StmVerifierPtr verifier;
+    MerkleTreeCommitmentPtr avk_comm_ptr;
+    Stake system_stake;
+
+    generate_avk(closed_reg, &avk_comm_ptr);
+    total_stake(closed_reg, &system_stake);
+    err = stm_verifier_new(avk_comm_ptr, params, system_stake, &verifier);
+
+    err = stm_verifier_verify_msig(verifier, multi_sig, msg);
     ASSERT_EQ(err, 0);
     free_stm_clerk(clerk);
+    free_stm_verifier(verifier);
     for (int i = 0; i < NEEDED_SIGS; i++)
         free_sig(sig[i]);
     free_multi_sig((MultiSigPtr)multi_sig);
@@ -246,19 +256,6 @@ TEST(stm, produceAndVerifyAggregateSignature) {
     err = stm_initializer_params(initializer[0], &retrieved_params);
     ASSERT_EQ(err, 0);
     ASSERT_EQ(retrieved_params.m, new_params.m);
-
-    // Now , let's say that we store the secret key of the initialiser in (secure) memory.
-    MspSkPtr sk;
-    err = stm_initializer_secret_key(initializer[0], &sk);
-    ASSERT_EQ(err, 0);
-
-    // We can recover it later, after generating a fresh initializer. Given that the keys
-    // have already been registered, a successful run of the protocol means that this key
-    // recovery worked well.
-    err = stm_intializer_setup(params, party_ids[0], party_stake[0], &initializer[0]);
-    ASSERT_EQ(err, 0);
-    err = stm_initializer_set_keys(initializer[0], sk);
-    ASSERT_EQ(err, 0);
 
     // Each party needs to run its registration.
     err = multiple_key_reg(2, party_ids, party_stake, keys, closed_reg);

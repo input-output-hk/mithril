@@ -47,7 +47,7 @@ where
 /// (1) a way to inject stored values into the tree
 /// (2) a way to combine hashes
 /// (H_p is used for both of these in the paper)
-pub trait MTHashLeaf {
+pub trait MTHashLeaf: Clone {
     /// The output domain of the hasher.
     type F: Eq + Clone + Debug;
 

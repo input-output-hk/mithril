@@ -4,7 +4,7 @@
 
 use mithril::key_reg::{ClosedKeyReg, KeyReg};
 use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
-use mithril::stm::{Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
+use mithril::stm::{Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner, StmVerifier};
 
 use mithril::merkle_tree::MTHashLeaf;
 use mithril::models::digest::DigestHash;
@@ -129,7 +129,8 @@ fn main() {
     ];
 
     let closed_registration = local_reg(&parties, &parties_pks);
-    let clerk = StmClerk::from_registration(params, TrivialEnv, closed_registration);
+    let clerk = StmClerk::from_registration(params, TrivialEnv, closed_registration.clone());
+    let verifier = StmVerifier::new(closed_registration.avk.to_commitment(), params, closed_registration.total_stake, TrivialEnv);
 
     // Now we aggregate the signatures
     let msig_1 = match clerk.aggregate::<ConcatProof<H, F>>(&complete_sigs_1, &complete_ixs_1, &msg)
@@ -139,8 +140,8 @@ fn main() {
             panic!("Aggregation failed: {:?}", e)
         }
     };
-    assert!(clerk
-        .verify_msig::<ConcatProof<H, F>>(&msig_1, &msg)
+    assert!(verifier
+        .verify_msig::<ConcatProof<H, F>>(&msg, &msig_1)
         .is_ok());
 
     let msig_2 = match clerk.aggregate::<ConcatProof<H, F>>(&complete_sigs_2, &complete_ixs_2, &msg)
@@ -150,8 +151,8 @@ fn main() {
             panic!("Aggregation failed: {:?}", e)
         }
     };
-    assert!(clerk
-        .verify_msig::<ConcatProof<H, F>>(&msig_2, &msg)
+    assert!(verifier
+        .verify_msig::<ConcatProof<H, F>>(&msg, &msig_2)
         .is_ok());
 
     let msig_3 = clerk.aggregate::<ConcatProof<H, F>>(&incomplete_sigs_3, &incomplete_ixs_3, &msg);
