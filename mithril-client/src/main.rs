@@ -4,7 +4,7 @@ mod aggregator;
 mod aggregator_fake;
 mod client;
 mod entities;
-mod errors;
+mod verifier;
 
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
@@ -15,6 +15,7 @@ use std::env;
 use crate::aggregator::*;
 use crate::client::Client;
 use crate::entities::Config;
+use crate::verifier::*;
 
 /// CLI args
 #[derive(Parser)]
@@ -94,12 +95,17 @@ async fn main() {
     debug!("{:?}", config);
 
     // Init dependencies
-    let aggregator_handler =
-        AggregatorHTTPClient::new(config.network.clone(), config.aggregator_endpoint.clone());
+    let aggregator_handler = Box::new(AggregatorHTTPClient::new(
+        config.network.clone(),
+        config.aggregator_endpoint.clone(),
+    ));
+    let verifier = Box::new(VerifierImpl::new());
 
     // Init client
     let mut client = Client::new(config.network.clone());
-    client.with_aggregator_handler(aggregator_handler);
+    client
+        .with_aggregator_handler(aggregator_handler)
+        .with_verifier(verifier);
 
     // Execute commands
     match &args.command {
