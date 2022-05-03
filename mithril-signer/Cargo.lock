@@ -1890,6 +1890,11 @@ dependencies = [
 name = "mithril-signer"
 version = "0.1.0"
 dependencies = [
+ "ark-bls12-377",
+ "ark-ec",
+ "ark-ff",
+ "ark-std",
+ "blake2",
  "clap 3.1.12",
  "cli-table",
  "config",
@@ -1898,6 +1903,9 @@ dependencies = [
  "mithril",
  "mithril-aggregator",
  "mockall",
+ "rand 0.7.3",
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.3",
  "reqwest",
  "serde",
  "serde_json",

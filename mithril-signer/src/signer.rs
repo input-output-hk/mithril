@@ -1,8 +1,7 @@
 use thiserror::Error;
 
-use mithril_aggregator::entities::{
-    Beacon, CertificatePending, ProtocolParameters, SingleSignature,
-};
+use mithril_aggregator::entities::Beacon;
+use mithril_aggregator::fake_data;
 
 use crate::certificate_handler::CertificateHandler;
 use crate::single_signer::SingleSigner;
@@ -51,7 +50,7 @@ impl Signer {
 
             if must_register_signature {
                 let message = "message".as_bytes().to_vec();
-                let stake_distribution = vec!["a".to_string()];
+                let stake_distribution = fake_data::signers_with_stakes(5);
                 let signatures = self
                     .single_signer
                     .compute_single_signatures(
@@ -59,7 +58,7 @@ impl Signer {
                         stake_distribution,
                         &pending_certificate.protocol_parameters,
                     )
-                    .map_err(SignerError::SingleSignaturesComputeFailed)?;
+                    .map_err(|e| SignerError::SingleSignaturesComputeFailed(e.to_string()))?;
                 if !signatures.is_empty() {
                     let _ = self.certificate_handler.register_signatures("");
                 }
@@ -74,7 +73,7 @@ impl Signer {
 mod tests {
     use super::*;
     use crate::certificate_handler::MockCertificateHandler;
-    use crate::single_signer::MockSingleSigner;
+    use crate::single_signer::{MockSingleSigner, SingleSignerError};
     use mithril_aggregator::fake_data;
 
     #[test]
@@ -143,8 +142,7 @@ mod tests {
             .once();
         mock_single_signer
             .expect_compute_single_signatures()
-            .return_const(Ok(fake_data::single_signatures(2)))
-            .once();
+            .return_once(|_, _, _| Ok(fake_data::single_signatures(2)));
 
         let mut signer = Signer::new(
             party_id,
@@ -173,8 +171,7 @@ mod tests {
             .once();
         mock_single_signer
             .expect_compute_single_signatures()
-            .return_const(Ok(fake_data::single_signatures(2)))
-            .once();
+            .return_once(|_, _, _| Ok(fake_data::single_signatures(2)));
 
         let mut signer = Signer::new(
             party_id,
@@ -202,8 +199,7 @@ mod tests {
             .never();
         mock_single_signer
             .expect_compute_single_signatures()
-            .return_const(Ok(fake_data::single_signatures(0)))
-            .once();
+            .return_once(|_, _, _| Ok(fake_data::single_signatures(0)));
 
         let mut signer = Signer::new(
             party_id,
@@ -227,8 +223,7 @@ mod tests {
             .once();
         mock_single_signer
             .expect_compute_single_signatures()
-            .return_const(Err("An Error".to_string()))
-            .once();
+            .return_once(|_, _, _| Err(SingleSignerError::UnregisteredVerificationKey()));
 
         let mut signer = Signer::new(
             party_id,
@@ -237,7 +232,9 @@ mod tests {
             Box::new(mock_single_signer),
         );
         assert_eq!(
-            SignerError::SingleSignaturesComputeFailed("An Error".to_string()),
+            SignerError::SingleSignaturesComputeFailed(
+                SingleSignerError::UnregisteredVerificationKey().to_string()
+            ),
             signer.run().unwrap_err()
         );
     }
