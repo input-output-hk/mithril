@@ -4,15 +4,8 @@ use mithril_aggregator::entities::{
     Beacon, CertificatePending, ProtocolParameters, SingleSignature,
 };
 
-#[cfg(test)]
-use mockall::automock;
-
-#[cfg_attr(test, automock)]
-pub trait CertificateHandler {
-    fn retrieve_pending_certificate(&self) -> Result<Option<CertificatePending>, String>;
-
-    fn register_signatures(&self, signature: &str) -> Result<(), String>;
-}
+use crate::certificate_handler::CertificateHandler;
+use crate::single_signer::SingleSigner;
 
 struct Signer {
     certificate_handler: Box<dyn CertificateHandler>,
@@ -26,16 +19,6 @@ pub enum SignerError {
     SingleSignaturesComputeFailed(String),
     #[error("could not retrieve pending certificate: `{0}`")]
     RetrievePendingCertificateFailed(String),
-}
-
-#[cfg_attr(test, automock)]
-pub trait SingleSigner {
-    fn compute_single_signatures(
-        &self,
-        message: Vec<u8>,
-        stake_distribution: Vec<String>,
-        protocol_parameters: &ProtocolParameters,
-    ) -> Result<Vec<SingleSignature>, String>;
 }
 
 impl Signer {
@@ -90,6 +73,8 @@ impl Signer {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::certificate_handler::MockCertificateHandler;
+    use crate::single_signer::MockSingleSigner;
     use mithril_aggregator::fake_data;
 
     #[test]
@@ -97,16 +82,20 @@ mod tests {
         let party_id = "";
         let signing_key = "";
         let mut mock_certificate_handler = MockCertificateHandler::new();
+        let mut mock_single_signer = MockSingleSigner::new();
         mock_certificate_handler
             .expect_retrieve_pending_certificate()
             .return_const(Ok(None))
             .once();
+        mock_single_signer
+            .expect_compute_single_signatures()
+            .never();
 
         let mut signer = Signer::new(
             party_id,
             signing_key,
             Box::new(mock_certificate_handler),
-            Box::new(MockSingleSigner::new()),
+            Box::new(mock_single_signer),
         );
         assert!(signer.run().is_ok());
     }
@@ -210,7 +199,7 @@ mod tests {
             .once();
         mock_certificate_handler
             .expect_register_signatures()
-            .times(0);
+            .never();
         mock_single_signer
             .expect_compute_single_signatures()
             .return_const(Ok(fake_data::single_signatures(0)))
