@@ -1,7 +1,7 @@
 //! Placeholder key registration functionality.
 
-use std::collections::{HashMap, HashSet};
 use crate::error::RegisterError;
+use std::collections::{HashMap, HashSet};
 
 use super::msp::{Msp, MspPk};
 use super::stm::{PartyId, Stake};
@@ -63,7 +63,7 @@ impl RegParty {
     /// * Party index (position in the merkle tree)
     /// * Public key
     /// * Stake (as an 8 byte tuple)
-    pub fn to_bytes(&self) -> [u8; 208]{
+    pub fn to_bytes(&self) -> [u8; 208] {
         let mut output = [0u8; 208];
         output[..8].copy_from_slice(&self.party_id.to_be_bytes());
         output[8..200].copy_from_slice(&self.pk.to_bytes());
@@ -71,6 +71,7 @@ impl RegParty {
         output
     }
 
+    /// Convert an array of bytes to a `RegParty`.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, RegisterError> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(&bytes[..8]);
@@ -83,7 +84,7 @@ impl RegParty {
         Ok(Self {
             party_id,
             pk,
-            stake
+            stake,
         })
     }
 }
@@ -209,7 +210,12 @@ mod tests {
     use rand_core::SeedableRng;
 
     fn arb_participants(min: usize, max: usize) -> impl Strategy<Value = Vec<(PartyId, Stake)>> {
-        vec(any::<Stake>(), min..=max).prop_map(|v| v.into_iter().enumerate().map(|(index, value)| (index as u64, value)).collect())
+        vec(any::<Stake>(), min..=max).prop_map(|v| {
+            v.into_iter()
+                .enumerate()
+                .map(|(index, value)| (index as u64, value))
+                .collect()
+        })
     }
 
     proptest! {

@@ -4,7 +4,7 @@ use crate::key_reg::{ClosedKeyReg, KeyReg};
 use crate::{
     merkle_tree::{MTHashLeaf, MerkleTreeCommitment},
     mithril_proof::concat_proofs::{ConcatProof, TrivialEnv},
-    msp::{MspPk, MspSk},
+    msp::MspPk,
     stm::*,
 };
 use rand_core::OsRng;
@@ -15,7 +15,6 @@ pub const NULLPOINTERERR: i64 = -99;
 
 type H = blake2::Blake2b;
 type F = <H as MTHashLeaf>::F;
-type MspSkPtr = *mut MspSk;
 type MspPkPtr = *mut MspPk;
 type SigPtr = *mut StmSig<F>;
 type MultiSigPtr = *mut StmMultiSig<ConcatProof<H, F>>;
@@ -428,8 +427,8 @@ mod key_reg {
     use crate::c_api::{
         ClosedKeyRegPtr, KeyRegPtr, MerkleTreeCommitmentPtr, MspPkPtr, NULLPOINTERERR,
     };
-    use crate::key_reg::KeyReg;
     use crate::error::RegisterError;
+    use crate::key_reg::KeyReg;
     use crate::stm::{PartyId, Stake};
     use std::slice;
 
@@ -518,6 +517,7 @@ mod key_reg {
 
 mod clerk {
     use super::*;
+    use crate::error::{AggregationFailure, MultiVerificationFailure, VerificationFailure};
     use core::slice;
 
     /// A clerk can only be generated out of a `ClosedKeyReg` instance, or out of an `StmSigner`.

@@ -8,7 +8,8 @@
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! use mithril::key_reg::KeyReg; // Import key registration functionality
 //! use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
-//! use mithril::stm::{AggregationFailure, StmClerk, StmInitializer, StmParameters, StmSigner, MTValue};
+//! use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner, MTValue};
+//! use mithril::error::AggregationFailure;
 //! use rayon::prelude::*; // We use par_iter to speed things up
 //!
 //! use rand_chacha::ChaCha20Rng;
@@ -123,6 +124,9 @@
 //! # }
 //! ```
 
+use crate::error::{
+    AggregationFailure, MultiVerificationFailure, RegisterError, VerificationFailure,
+};
 use crate::key_reg::ClosedKeyReg;
 use crate::merkle_tree::{concat_avk_with_msg, MTHashLeaf, MerkleTree, Path};
 use crate::mithril_proof::{MithrilProof, MithrilStatement, MithrilWitness};
@@ -132,7 +136,7 @@ use rand_core::{CryptoRng, RngCore};
 use std::collections::HashMap;
 use std::convert::From;
 use std::sync::Arc;
-#[cfg(feature = "pure-rust")]
+#[cfg(feature = "num-integer-backend")]
 use {
     num_bigint::{BigInt, Sign},
     num_rational::Ratio,
@@ -173,6 +177,39 @@ pub struct StmParameters {
 
     /// `f` in phi(w) = 1 - (1 - f)^w, where w is the stake of a participant.
     pub phi_f: f64,
+}
+
+impl StmParameters {
+    /// Convert to bytes
+    ///
+    /// # Layout
+    /// * Security parameter, m (as u64)
+    /// * Quorum parameter, k (as u64)
+    /// * Phi f, as (f64)
+    pub fn to_bytes(&self) -> [u8; 24] {
+        let mut out = [0; 24];
+        out[..8].copy_from_slice(&self.m.to_be_bytes());
+        out[8..16].copy_from_slice(&self.k.to_be_bytes());
+        out[16..].copy_from_slice(&self.phi_f.to_be_bytes());
+        out
+    }
+
+    /// Convert `StmParameters` from a byte slice
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, RegisterError> {
+        if bytes.len() != 24 {
+            return Err(RegisterError::SerializationError);
+        }
+
+        let mut u64_bytes = [0u8; 8];
+        u64_bytes.copy_from_slice(&bytes[..8]);
+        let m = u64::from_be_bytes(u64_bytes);
+        u64_bytes.copy_from_slice(&bytes[8..16]);
+        let k = u64::from_be_bytes(u64_bytes);
+        u64_bytes.copy_from_slice(&bytes[16..]);
+        let phi_f = f64::from_be_bytes(u64_bytes);
+
+        Ok(Self { m, k, phi_f })
+    }
 }
 
 /// Initializer for `StmSigner`. This is the data that is used during the key registration
@@ -253,48 +290,9 @@ where
     pub(crate) proof: Proof,
 }
 
-/// Error types for aggregation.
-#[derive(Debug, Clone, thiserror::Error)]
-pub enum AggregationFailure {
-    /// Not enough signatures were collected, got this many instead.
-    #[error("Not enough signatures. Got only {0} out of {1}.")]
-    NotEnoughSignatures(u64, u64),
-}
-
-/// Error types for single signature verification
-#[derive(Debug, Clone, thiserror::Error)]
-pub enum VerificationFailure<F> {
-    /// The lottery was actually lost for the signature
-    #[error("Lottery for this epoch was lost.")]
-    LotteryLost,
-    /// The Merkle Tree is invalid
-    #[error("The path of the Merkle Tree is invalid.")]
-    InvalidMerkleTree(Path<F>),
-    /// The MSP signature is invalid
-    #[error("Invalid Signature.")]
-    InvalidSignature(MspSig),
-}
-
-/// Error types for multisignature verification
-#[derive(Debug, Clone, Copy, thiserror::Error)]
-pub enum MultiVerificationFailure<Proof>
-where
-    Proof: MithrilProof,
-{
-    /// The underlying MSP aggregate is invalid
-    #[error("The underlying MSP aggregate is invalid.")]
-    InvalidAggregate(MspSig),
-    /// Error wrapper for underlying proof system.
-    #[error("Proof of validity failed. {0}")]
-    ProofError(Proof::Error),
-}
-
 impl StmInitializer {
-    //////////////////////////
-    // Initialization phase //
-    //////////////////////////
-
     /// Builds an `StmInitializer` that is ready to register with the key registration service
+    // todo: definitely don't like how the id is handled. To initialise one needs to be aware of the id?
     pub fn setup<R>(params: StmParameters, party_id: PartyId, stake: Stake, rng: &mut R) -> Self
     where
         R: RngCore + CryptoRng,
@@ -395,6 +393,44 @@ impl StmInitializer {
             pk: self.pk,
             total_stake: closed_reg.total_stake,
         }
+    }
+
+    /// Convert to bytes
+    ///
+    /// # Layout
+    /// * Party identifier (u64)
+    /// * Stake (u64)
+    /// * Params
+    /// * Secret Key
+    /// * Public key (including PoP)
+    pub fn to_bytes(&self) -> [u8; 264] {
+        let mut out = [0u8; 264];
+        out[..8].copy_from_slice(&self.party_id.to_be_bytes());
+        out[8..16].copy_from_slice(&self.stake.to_be_bytes());
+        out[16..40].copy_from_slice(&self.params.to_bytes());
+        out[40..72].copy_from_slice(&self.sk.to_bytes());
+        out[72..].copy_from_slice(&self.pk.to_bytes());
+        out
+    }
+
+    /// Convert a slice of bytes to an `StmInitializer`
+    pub fn from_bytes(bytes: &[u8]) -> Result<StmInitializer, RegisterError> {
+        let mut u64_bytes = [0u8; 8];
+        u64_bytes.copy_from_slice(&bytes[..8]);
+        let party_id = u64::from_be_bytes(u64_bytes);
+        u64_bytes.copy_from_slice(&bytes[8..16]);
+        let stake = u64::from_be_bytes(u64_bytes);
+        let params = StmParameters::from_bytes(&bytes[16..])?;
+        let sk = MspSk::from_bytes(&bytes[40..])?;
+        let pk = MspPk::from_bytes(&bytes[72..])?;
+
+        Ok(Self {
+            party_id,
+            stake,
+            params,
+            sk,
+            pk,
+        })
     }
 }
 
@@ -788,7 +824,11 @@ mod tests {
     }
 
     fn setup_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<StmSigner<H>> {
-        let parties = stake.into_iter().enumerate().map(|(index, stake)| (index as u64, stake)).collect::<Vec<_>>();
+        let parties = stake
+            .into_iter()
+            .enumerate()
+            .map(|(index, stake)| (index as u64, stake))
+            .collect::<Vec<_>>();
         let mut kr = KeyReg::new(&parties);
         let mut trng = TestRng::deterministic_rng(ChaCha);
         let mut rng = ChaCha20Rng::from_seed(trng.gen());

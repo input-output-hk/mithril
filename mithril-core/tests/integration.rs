@@ -1,8 +1,9 @@
 use mithril::key_reg::KeyReg;
 use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
-use mithril::stm::{AggregationFailure, StmClerk, StmInitializer, StmParameters, StmSigner};
+use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner};
 use rayon::prelude::*;
 
+use mithril::error::AggregationFailure;
 use mithril::merkle_tree::MTHashLeaf;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};

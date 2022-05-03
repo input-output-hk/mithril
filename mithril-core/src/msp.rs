@@ -46,18 +46,18 @@
 
 use super::stm::Index;
 
+use crate::error::{blst_err_to_atms, MultiSignatureError};
 use blake2::{Blake2b, Digest};
-use blst::{blst_p1, blst_p1_affine, blst_p1_compress, blst_p1_from_affine, blst_p1_uncompress};
 use blst::min_sig::{
     AggregatePublicKey, AggregateSignature, PublicKey as BlstPk, SecretKey as BlstSk,
     Signature as BlstSig,
 };
+use blst::{blst_p1, blst_p1_affine, blst_p1_compress, blst_p1_from_affine, blst_p1_uncompress};
 use rand_core::{CryptoRng, RngCore};
 use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::iter::Sum;
 use std::ops::Sub;
-use crate::error::{MultiSignatureError, blst_err_to_atms};
 
 /// Struct used to namespace the functions.
 #[derive(Debug)]
@@ -322,9 +322,8 @@ impl MspPk {
     // todo: review carefully. Unsafe to use algebraic operations
     fn check(&self) -> Result<(), MultiSignatureError> {
         use blst::{
-            blst_fp12, blst_fp12_finalverify, blst_p1_affine, blst_p1_affine_generator,
-            blst_p1_to_affine, blst_p2_affine, blst_p2_affine_generator, blst_p2_uncompress,
-            BLST_ERROR,
+            blst_fp12, blst_fp12_finalverify, blst_p1_affine_generator, blst_p1_to_affine,
+            blst_p2_affine, blst_p2_affine_generator, blst_p2_uncompress, BLST_ERROR,
         };
         let result = unsafe {
             let g1_p = *blst_p1_affine_generator();
@@ -343,7 +342,10 @@ impl MspPk {
             blst_fp12_finalverify(&ml_lhs, &ml_rhs)
         };
 
-        if !(self.pop.k1.verify(false, POP, &[], &[], &self.mvk.0, false) == BLST_ERROR::BLST_SUCCESS && result) {
+        if !(self.pop.k1.verify(false, POP, &[], &[], &self.mvk.0, false)
+            == BLST_ERROR::BLST_SUCCESS
+            && result)
+        {
             return Err(MultiSignatureError::InvalidKey(Box::new(*self)));
         }
         Ok(())
@@ -368,7 +370,7 @@ impl MspPk {
 
         let pop = MspPoP::from_bytes(&bytes[96..])?;
 
-        Ok(Self { mvk , pop })
+        Ok(Self { mvk, pop })
     }
 }
 
@@ -404,12 +406,12 @@ impl MspPoP {
         let k2 = unsafe {
             let mut point = blst_p1_affine::default();
             let mut out = blst_p1::default();
-            blst_p1_uncompress(&mut point,  &bytes[48]);
+            blst_p1_uncompress(&mut point, &bytes[48]);
             blst_p1_from_affine(&mut out, &point);
             out
         };
 
-        Ok(Self{ k1, k2 })
+        Ok(Self { k1, k2 })
     }
 }
 
