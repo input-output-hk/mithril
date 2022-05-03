@@ -5,8 +5,10 @@ use slog_scope::debug;
 use std::env;
 use std::sync::Arc;
 
+mod certificate_handler;
 mod entities;
 mod signer;
+mod single_signer;
 
 /// CLI args
 #[derive(Parser)]
