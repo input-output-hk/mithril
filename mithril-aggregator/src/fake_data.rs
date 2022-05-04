@@ -106,9 +106,10 @@ pub fn signers(total: u64) -> Vec<entities::Signer> {
 // TODO: To delete once key registration is implemented
 #[derive(Serialize, Deserialize, Clone)]
 pub struct SignerWithSecretKeys {
-    party_id: u64,
-    verification_key: String,
-    secret_key: String,
+    pub party_id: u64,
+    pub stake: u64,
+    pub verification_key: String,
+    pub secret_key: String,
 }
 
 /// Fake SignerKeys returns Verification/Secret keys for a party_id
