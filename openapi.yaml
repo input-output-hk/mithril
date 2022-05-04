@@ -32,6 +32,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CertificatePending"
+        "204":
+          description: no pending certificate available
         default:
           description: pending certificate error
           content:
