@@ -41,7 +41,7 @@ spec =
               case cluster of
                 RunningCluster {clusterNodes = node : _} -> do
                   assertNodeIsProducingSnapshot tr node
-                  withSigner (contramap SignerLog tr) aggregatorPort node $ \signer -> do
+                  withSigner tmp (contramap SignerLog tr) aggregatorPort node $ \signer -> do
                     assertSignerIsSigningSnapshot signer aggregatorPort
                     assertClientCanVerifySnapshot signer aggregatorPort
                 _ -> failure "No nodes in the cluster"

@@ -8,6 +8,7 @@ import qualified Data.ByteString as BS
 import Hydra.Prelude
 import qualified Paths_mithril_end_to_end as Pkg
 import System.Directory (doesFileExist)
+import System.Environment (getEnvironment)
 import System.FilePath ((</>))
 import System.Process (CreateProcess (..), StdStream (UseHandle), proc, withCreateProcess)
 import Test.Hydra.Prelude (checkProcessHasNotDied, failure)
@@ -42,6 +43,13 @@ withAggregator workDir tracer action = do
 aggregatorProcess :: Maybe FilePath -> Int -> IO CreateProcess
 aggregatorProcess cwd port = do
   binDir <- Pkg.getBinDir
+  baseEnv <- getEnvironment
   let aggregator = binDir </> "mithril-aggregator"
+      env =
+        Just $
+          [ ("NETWORK", "testnet"),
+            ("URL_SNAPSHOT_MANIFEST", "https://storage.googleapis.com/cardano-testnet/snapshots.json")
+          ]
+            <> baseEnv
   unlessM (doesFileExist aggregator) $ failure $ "cannot find mithril-aggregator executable in expected location (" <> binDir <> ")"
-  pure $ (proc aggregator ["--server-port", show port]) {cwd}
+  pure $ (proc aggregator ["--server-port", show port]) {cwd, env}
