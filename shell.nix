@@ -1,10 +1,10 @@
 # A shell setup providing build tools and utilities for a development
 # environment.
 { compiler ? "ghc8107"
-  # nixpkgs 21.05 at 2021-11-17
+  # nixpkgs 21.11
   # you can always find the latest nixpkgs revision for some edition on the corresponding git branch,
   # e.g. https://github.com/nixos/nixpkgs/tree/release-21.05 for 21.05
-, pkgs ? import (builtins.fetchTarball "https://github.com/NixOS/nixpkgs/archive/01eaa66bb663412c31b5399334f118030a91f1aa.tar.gz") { }
+, pkgs ? import (builtins.fetchTarball "https://github.com/NixOS/nixpkgs/archive/a7ecde854aee5c4c7cd6177f54a99d2c1ff28a31.tar.gz") { }
 , libsodium-vrf ? pkgs.libsodium.overrideAttrs (oldAttrs: {
     name = "libsodium-1.0.18-vrf";
     src = pkgs.fetchFromGitHub {
@@ -17,12 +17,22 @@
     nativeBuildInputs = [ pkgs.autoreconfHook ];
     configureFlags = "--enable-static";
   })
+, # Add cardano-node & cardano-cli for our shell environment.
+  # This is stable as it doesn't mix dependencies with this code-base; the
+  # fetched binaries are the "standard" builds that people test. This should be
+  # fast as it mostly fetches Hydra (CI) caches without building much.
+  cardano-node ? import
+    (pkgs.fetchgit {
+      url = "https://github.com/input-output-hk/cardano-node";
+      rev = "1.34.1";
+      sha256 = "1hh53whcj5y9kw4qpkiza7rmkniz18r493vv4dzl1a8r5fy3b2bv";
+    })
+    { }
 }:
 let
   libs = [
     pkgs.clang
     pkgs.gtest
-    pkgs.rustup
     pkgs.m4
     pkgs.openssl.dev
     pkgs.zlib
@@ -32,6 +42,8 @@ let
   ];
 
   tools = [
+    pkgs.rustc
+    pkgs.cargo
     pkgs.pkgconfig
     pkgs.haskellPackages.ghcid
     pkgs.haskellPackages.hspec-discover
@@ -42,6 +54,9 @@ let
     pkgs.gnuplot
     # For generating documentation
     pkgs.yarn
+    # To interact with cardano-node and testing out things
+    cardano-node.cardano-cli
+    cardano-node.cardano-node
   ];
 
   # A "cabal-only" shell which does not use haskell.nix
