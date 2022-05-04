@@ -4,6 +4,7 @@
 use hex::{FromHex, ToHex};
 use log::debug;
 use std::io::Cursor;
+use thiserror::Error;
 
 use ark_bls12_377::Bls12_377;
 use mithril::key_reg::KeyReg;
@@ -14,6 +15,11 @@ use mithril::stm::{
     Index, MTValue, PartyId, Stake, StmClerk, StmInitializer, StmMultiSig, StmParameters, StmSig,
     StmSigner,
 };
+
+use crate::entities;
+
+#[cfg(test)]
+use mockall::automock;
 
 pub type Bytes = Vec<u8>;
 
@@ -35,10 +41,15 @@ pub type ProtocolMultiSignature = StmMultiSig<Bls12_377, ProtocolProof>;
 pub type ProtocolSignerVerificationKey = MspPk<Bls12_377>;
 pub type ProtocolSignerSecretKey = MspSk<Bls12_377>;
 
-use crate::entities;
-
-#[cfg(test)]
-use mockall::automock;
+#[derive(Error, Debug)]
+pub enum ProtocolError {
+    #[error("key encode failed")]
+    KeyEncodeFailed(String),
+    #[error("key decode failed")]
+    KeyDecodeFailed(String),
+    #[error("multi signature verification failed")]
+    VerifyMultiSignatureError(String),
+}
 
 /// Verifier is the cryptographic engine in charge of verifying multi signatures and certificates
 #[cfg_attr(test, automock)]
@@ -50,7 +61,7 @@ pub trait Verifier {
         multi_signature: &str,
         signers_with_stakes: &[entities::SignerWithStake],
         protocol_parameters: &entities::ProtocolParameters,
-    ) -> Result<(), String>;
+    ) -> Result<(), ProtocolError>;
 }
 
 /// VerifierImpl is an implementation of the Verifier
@@ -108,32 +119,31 @@ impl Verifier for VerifierImpl {
         multi_signature: &str,
         signers_with_stakes: &[entities::SignerWithStake],
         protocol_parameters: &entities::ProtocolParameters,
-    ) -> Result<(), String> {
+    ) -> Result<(), ProtocolError> {
         debug!("Verify multi signature for {:?}", message);
         let clerk = self.create_clerk(signers_with_stakes, protocol_parameters);
-        let multi_signature: ProtocolMultiSignature =
-            key_decode_hex(multi_signature.to_string()).map_err(|e| e)?;
+        let multi_signature: ProtocolMultiSignature = key_decode_hex(multi_signature.to_string())?;
         clerk
             .as_ref()
             .unwrap()
             .verify_msig::<ProtocolProof>(&multi_signature, message)
-            .map_err(|e| e.to_string())
+            .map_err(|e| ProtocolError::VerifyMultiSignatureError(e.to_string()))
     }
 }
 
 /// Encode key to hex helper
-pub fn key_encode_hex<T: ark_ff::ToBytes>(from: T) -> Result<String, String> {
+pub fn key_encode_hex<T: ark_ff::ToBytes>(from: T) -> Result<String, ProtocolError> {
     Ok(ark_ff::to_bytes!(from)
-        .map_err(|e| format!("can't convert to hex: {}", e))?
+        .map_err(|e| ProtocolError::KeyEncodeFailed(e.to_string()))?
         .encode_hex::<String>())
 }
 
 /// Decode key from hex helper
-pub fn key_decode_hex<T: ark_ff::FromBytes>(from: String) -> Result<T, String> {
+pub fn key_decode_hex<T: ark_ff::FromBytes>(from: String) -> Result<T, ProtocolError> {
     ark_ff::FromBytes::read(Cursor::new(
-        Vec::from_hex(from).map_err(|e| format!("can't parse from hex: {}", e))?,
+        Vec::from_hex(from).map_err(|e| ProtocolError::KeyDecodeFailed(e.to_string()))?,
     ))
-    .map_err(|e| format!("can't convert to bytes: {}", e))
+    .map_err(|e| ProtocolError::KeyDecodeFailed(e.to_string()))
 }
 
 #[cfg(test)]

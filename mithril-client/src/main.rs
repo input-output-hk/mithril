@@ -1,7 +1,6 @@
 #![doc = include_str!("../README.md")]
 
 mod aggregator;
-mod aggregator_fake;
 mod client;
 mod entities;
 mod verifier;

@@ -56,7 +56,8 @@ impl Client {
             .ok_or_else(|| MISSING_AGGREGATOR_HANDLER.to_string())?;
         Ok(aggregator_handler
             .list_snapshots()
-            .await?
+            .await
+            .map_err(|e| e.to_string())?
             .iter()
             .map(|snapshot| convert_to_list_item(snapshot, self.network.clone()))
             .collect::<Vec<SnapshotListItem>>())
@@ -70,7 +71,10 @@ impl Client {
             .as_ref()
             .ok_or_else(|| MISSING_AGGREGATOR_HANDLER.to_string())?;
         Ok(convert_to_field_items(
-            &aggregator_handler.get_snapshot_details(digest).await?,
+            &aggregator_handler
+                .get_snapshot_details(digest)
+                .await
+                .map_err(|e| e.to_string())?,
             self.network.clone(),
         ))
     }
@@ -86,7 +90,10 @@ impl Client {
             .aggregator_handler
             .as_ref()
             .ok_or_else(|| MISSING_AGGREGATOR_HANDLER.to_string())?;
-        let snapshot = aggregator_handler.get_snapshot_details(digest).await?;
+        let snapshot = aggregator_handler
+            .get_snapshot_details(digest)
+            .await
+            .map_err(|e| e.to_string())?;
         let from = snapshot
             .locations
             .get((location_index - 1) as usize)
@@ -94,7 +101,7 @@ impl Client {
             .to_owned();
         match aggregator_handler.download_snapshot(digest, &from).await {
             Ok(to) => Ok((from, to)),
-            Err(err) => Err(err),
+            Err(err) => Err(err.to_string()),
         }
     }
 
@@ -114,14 +121,20 @@ impl Client {
         let certificate_hash = str::from_utf8(&fake_digest).map_err(|e| e.to_string())?;
         let certificate_details = aggregator_handler
             .get_certificate_details(certificate_hash)
-            .await?;
-        verifier.verify_multi_signature(
-            &fake_digest,
-            certificate_details.multisignature.as_ref(),
-            &certificate_details.participants,
-            &certificate_details.protocol_parameters,
-        )?;
-        aggregator_handler.unpack_snapshot(digest).await
+            .await
+            .map_err(|e| e.to_string())?;
+        verifier
+            .verify_multi_signature(
+                &fake_digest,
+                certificate_details.multisignature.as_ref(),
+                &certificate_details.participants,
+                &certificate_details.protocol_parameters,
+            )
+            .map_err(|e| e.to_string())?;
+        aggregator_handler
+            .unpack_snapshot(digest)
+            .await
+            .map_err(|e| e.to_string())
     }
 }
 
@@ -163,28 +176,30 @@ pub(crate) fn convert_to_field_items(
 mod tests {
     use super::*;
 
-    use crate::aggregator::MockAggregatorHandler;
-    use crate::verifier::MockVerifier;
+    use crate::aggregator::{AggregatorHandlerError, MockAggregatorHandler};
+    use crate::verifier::{MockVerifier, ProtocolError};
     use mithril_aggregator::fake_data;
 
     #[tokio::test]
     async fn test_list_snapshots_ok() {
         let network = "testnet".to_string();
         let fake_snapshots = fake_data::snapshots(5);
-        let mut mock_aggregator_handler = MockAggregatorHandler::new();
-        mock_aggregator_handler
-            .expect_list_snapshots()
-            .return_const(Ok(fake_snapshots.clone()))
-            .once();
-        let mut client = Client::new(network.clone());
-        client.with_aggregator_handler(Box::new(mock_aggregator_handler));
-        let snapshot_list_items = client.list_snapshots().await;
-        snapshot_list_items.as_ref().expect("unexpected error");
         let snapshot_list_items_expected = fake_snapshots
             .iter()
             .map(|snapshot| convert_to_list_item(snapshot, network.clone()))
             .collect::<Vec<SnapshotListItem>>();
-        assert_eq!(snapshot_list_items.unwrap(), snapshot_list_items_expected);
+        let mut mock_aggregator_handler = MockAggregatorHandler::new();
+        mock_aggregator_handler
+            .expect_list_snapshots()
+            .return_once(move || Ok(fake_snapshots));
+        let mut client = Client::new(network.clone());
+        client.with_aggregator_handler(Box::new(mock_aggregator_handler));
+        let snapshot_list_items = client.list_snapshots().await;
+        snapshot_list_items.as_ref().expect("unexpected error");
+        assert_eq!(
+            snapshot_list_items.unwrap(),
+            snapshot_list_items_expected.to_owned()
+        );
     }
 
     #[tokio::test]
@@ -192,8 +207,11 @@ mod tests {
         let mut mock_aggregator_handler = MockAggregatorHandler::new();
         mock_aggregator_handler
             .expect_list_snapshots()
-            .return_const(Err("error occurred".to_string()))
-            .once();
+            .return_once(move || {
+                Err(AggregatorHandlerError::RemoteServerTechnical(
+                    "error occurred".to_string(),
+                ))
+            });
         let mut client = Client::new("testnet".to_string());
         client.with_aggregator_handler(Box::new(mock_aggregator_handler));
         let snapshot_list_items = client.list_snapshots().await;
@@ -207,16 +225,15 @@ mod tests {
     async fn test_show_snapshot_ok() {
         let digest = "digest123";
         let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
+        let snapshot_item_expected = convert_to_field_items(&fake_snapshot, "testnet".to_string());
         let mut mock_aggregator_handler = MockAggregatorHandler::new();
         mock_aggregator_handler
             .expect_get_snapshot_details()
-            .return_const(Ok(fake_snapshot.clone()))
-            .once();
+            .return_once(move |_| Ok(fake_snapshot));
         let mut client = Client::new("testnet".to_string());
         client.with_aggregator_handler(Box::new(mock_aggregator_handler));
         let snapshot_item = client.show_snapshot(digest).await;
         snapshot_item.as_ref().expect("unexpected error");
-        let snapshot_item_expected = convert_to_field_items(&fake_snapshot, "testnet".to_string());
         assert_eq!(snapshot_item.unwrap(), snapshot_item_expected);
     }
 
@@ -226,8 +243,11 @@ mod tests {
         let mut mock_aggregator_handler = MockAggregatorHandler::new();
         mock_aggregator_handler
             .expect_get_snapshot_details()
-            .return_const(Err("error occurred".to_string()))
-            .once();
+            .return_once(move |_| {
+                Err(AggregatorHandlerError::RemoteServerTechnical(
+                    "error occurred".to_string(),
+                ))
+            });
         let mut client = Client::new("testnet".to_string());
         client.with_aggregator_handler(Box::new(mock_aggregator_handler));
         let snapshot_item = client.show_snapshot(digest).await;
@@ -242,16 +262,13 @@ mod tests {
         let mut mock_verifier = MockVerifier::new();
         mock_aggregator_handler
             .expect_get_certificate_details()
-            .return_const(Ok(fake_certificate.clone()))
-            .once();
+            .return_once(move |_| Ok(fake_certificate));
         mock_aggregator_handler
             .expect_unpack_snapshot()
-            .return_const(Ok("".to_string()))
-            .once();
+            .return_once(|_| Ok("".to_string()));
         mock_verifier
             .expect_verify_multi_signature()
-            .return_const(Ok(()))
-            .once();
+            .return_once(|_, _, _, _| Ok(()));
         let mut client = Client::new("testnet".to_string());
         client
             .with_aggregator_handler(Box::new(mock_aggregator_handler))
@@ -267,8 +284,11 @@ mod tests {
         let mock_verifier = MockVerifier::new();
         mock_aggregator_handler
             .expect_get_certificate_details()
-            .return_const(Err("an error".to_string()))
-            .once();
+            .return_once(move |_| {
+                Err(AggregatorHandlerError::RemoteServerTechnical(
+                    "error occurred".to_string(),
+                ))
+            });
         let mut client = Client::new("testnet".to_string());
         client
             .with_aggregator_handler(Box::new(mock_aggregator_handler))
@@ -285,13 +305,15 @@ mod tests {
         let mut mock_verifier = MockVerifier::new();
         mock_aggregator_handler
             .expect_get_certificate_details()
-            .return_const(Ok(fake_certificate.clone()))
-            .once();
+            .return_once(move |_| Ok(fake_certificate));
 
         mock_verifier
             .expect_verify_multi_signature()
-            .return_const(Err("an error".to_string()))
-            .once();
+            .return_once(move |_, _, _, _| {
+                Err(ProtocolError::VerifyMultiSignatureError(
+                    "error occurred".to_string(),
+                ))
+            });
         let mut client = Client::new("testnet".to_string());
         client
             .with_aggregator_handler(Box::new(mock_aggregator_handler))
@@ -308,16 +330,17 @@ mod tests {
         let mut mock_verifier = MockVerifier::new();
         mock_aggregator_handler
             .expect_get_certificate_details()
-            .return_const(Ok(fake_certificate.clone()))
-            .once();
+            .return_once(move |_| Ok(fake_certificate));
         mock_aggregator_handler
             .expect_unpack_snapshot()
-            .return_const(Err("an error".to_string()))
-            .once();
+            .return_once(move |_| {
+                Err(AggregatorHandlerError::RemoteServerTechnical(
+                    "error occurred".to_string(),
+                ))
+            });
         mock_verifier
             .expect_verify_multi_signature()
-            .return_const(Ok(()))
-            .once();
+            .return_once(|_, _, _, _| Ok(()));
         let mut client = Client::new("testnet".to_string());
         client
             .with_aggregator_handler(Box::new(mock_aggregator_handler))
