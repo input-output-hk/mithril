@@ -1,168 +1,172 @@
 //! Creation and verification of Merkle Trees
+use crate::error::MerkleTreeError;
+use digest::{Digest, FixedOutput};
+use std::convert::TryFrom;
 use std::fmt::Debug;
+use std::marker::PhantomData;
 
-/// Path of hashes from root to leaf in a Merkle Tree.
+/// Path of hashes from root to leaf in a Merkle Tree. Contains all hashes on the path, and the index
+/// of the leaf.
 /// Used to verify the credentials of users and signatures.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Path<F> {
-    values: Vec<F>,
-    index: usize,
+pub struct Path<D: Digest + FixedOutput> {
+    pub(crate) values: Vec<Vec<u8>>,
+    pub(crate) index: usize,
+    hasher: PhantomData<D>,
 }
-
-// impl<F: ToBytes> ToBytes for Path<F> {
-//     fn write<W: Write>(&self, mut writer: W) -> std::io::Result<()> {
-//         let n: u64 = self.0.len().try_into().unwrap();
-//         n.write(&mut writer)?;
-//         for pi in &self.0 {
-//             pi.write(&mut writer)?;
-//         }
-//
-//         Ok(())
-//     }
-// }
-// impl<F: FromBytes> FromBytes for Path<F> {
-//     fn read<R: Read>(mut reader: R) -> std::io::Result<Self> {
-//         let n = u64::read(&mut reader)?;
-//         let mut p = Vec::with_capacity(n as usize);
-//         for _ in 0..n {
-//             let pi = F::read(&mut reader)?;
-//             p.push(pi);
-//         }
-//
-//         Ok(Path(p))
-//     }
-// }
 
 /// Serializes the Merkle Tree together with a message in a single vector of bytes.
 /// Outputs msg || avk as a vector of bytes.
-pub fn concat_avk_with_msg<H>(avk: &MerkleTreeCommitment<H>, msg: &[u8]) -> Vec<u8>
+pub fn concat_avk_with_msg<D>(avk: &MerkleTreeCommitment<D>, msg: &[u8]) -> Vec<u8>
 where
-    H: MTHashLeaf,
+    D: Digest + FixedOutput,
 {
     let mut msgp = msg.to_vec();
-    let mut bytes = avk.to_bytes();
+    let mut bytes = avk.root.clone();
     msgp.append(&mut bytes);
 
     msgp
 }
-
-/// This trait describes a hashing algorithm. For mithril we need
-/// (1) a way to inject stored values into the tree
-/// (2) a way to combine hashes
-/// (H_p is used for both of these in the paper)
-pub trait MTHashLeaf: Clone {
-    /// The output domain of the hasher.
-    type F: Eq + Clone + Debug;
-
-    /// Create a new hasher
-    fn new() -> Self;
-
-    /// This should be some "null" representative
-    fn zero() -> Self::F;
-
-    /// How to extract hashes as bytes
-    fn root_bytes(h: &Self::F) -> Vec<u8>;
-
-    /// How to map (or label) values with their hash values
-    fn inject(&mut self, v: &[u8]) -> Self::F;
-
-    /// Combine (and hash) two hash values
-    fn hash_children(&mut self, left: &Self::F, right: &Self::F) -> Self::F;
-
-    /// Hash together an arbitrary number of values,
-    /// Reducing the input with `zero()` as the initial value
-    /// and `hash_children` as the operation
-    fn hash(&mut self, leaf: &[Self::F]) -> Self::F {
-        leaf.iter()
-            .fold(Self::zero(), |h, l| self.hash_children(&h, l))
-    }
-}
+//
+// /// This trait describes a hashing algorithm. For mithril we need
+// /// (1) a way to inject stored values into the tree
+// /// (2) a way to combine hashes
+// /// (H_p is used for both of these in the paper)
+// /// todo: I think this trait complicates things. I think with a Digest it is enough
+// pub trait MTHashLeaf: Clone {
+//     /// The output domain of the hasher.
+//     type F: Eq + Clone + Debug;
+//
+//     /// Create a new hasher
+//     fn new() -> Self;
+//
+//     /// Output size of hashing algorithm
+//     fn output_size() -> usize;
+//
+//     /// This should be some "null" representative
+//     fn zero() -> Self::F;
+//
+//     /// How to extract hashes as bytes
+//     fn root_bytes(h: &Self::F) -> Vec<u8>;
+//
+//     /// How to map (or label) values with their hash values
+//     fn inject(&mut self, v: &[u8]) -> Self::F;
+//
+//     /// Combine (and hash) two hash values
+//     fn hash_children(&mut self, left: &Self::F, right: &Self::F) -> Self::F;
+//
+//     /// Hash together an arbitrary number of values,
+//     /// Reducing the input with `zero()` as the initial value
+//     /// and `hash_children` as the operation
+//     fn hash(&mut self, leaf: &[Self::F]) -> Self::F {
+//         leaf.iter()
+//             .fold(Self::zero(), |h, l| self.hash_children(&h, l))
+//     }
+// }
 
 /// MerkleTree commitment. This structure differs from `MerkleTree` in that it does not contain
 /// all elements, which are not always necessary.
 #[derive(Debug, Clone)]
-pub struct MerkleTreeCommitment<H>
-where
-    H: MTHashLeaf,
-{
-    value: H::F,
+pub struct MerkleTreeCommitment<D: Digest + FixedOutput> {
+    /// Root of the merkle commitment
+    pub root: Vec<u8>,
+    /// Number of leaves committed in the commitment
+    pub nr_leaves: usize,
+    hasher: PhantomData<D>,
 }
 
-impl<H> MerkleTreeCommitment<H>
+impl<D> MerkleTreeCommitment<D>
 where
-    H: MTHashLeaf,
+    D: Digest + FixedOutput,
 {
-    /// Check an inclusion proof that `val` is the `i`th leaf stored in the tree.
-    /// Requires i < self.n
-    pub fn check(&self, val: &[u8], proof: &Path<H::F>) -> bool {
-        let mut idx = proof.index as u64;
+    /// Check an inclusion proof that `val` is part of the tree by traveling the whole path
+    /// until the root.
+    ///
+    /// # Error
+    /// Returns an error if the path is invalid.
+    ///
+    /// # Example
+    /// ```
+    /// # use rand_core::{OsRng, RngCore};
+    /// # use mithril::merkle_tree::MerkleTree;
+    /// # use blake2::Blake2b;
+    /// # fn main() {
+    /// let mut rng = OsRng::default();
+    /// // We generate the keys.
+    /// let mut keys = Vec::with_capacity(32);
+    /// for _ in 0..32 {
+    ///     let mut leaf = [0u8; 32];
+    ///     rng.fill_bytes(&mut leaf);
+    ///     keys.push(leaf.to_vec());
+    /// }
+    /// // Compute the Merkle tree of the keys.
+    /// let mt = MerkleTree::<Blake2b>::create(&keys);
+    /// // Compute the path of key in position 3.
+    /// let path = mt.get_path(3);
+    /// // Verify the proof of membership with respect to the merkle commitment.
+    /// assert!(mt.to_commitment().check(&keys[3], &path).is_ok());
+    ///
+    /// # }
+    pub fn check(&self, val: &[u8], proof: &Path<D>) -> Result<(), MerkleTreeError> {
+        let mut idx = proof.index;
 
-        let mut hasher = H::new();
-        let mut h = hasher.inject(val);
+        let mut h = D::digest(val).to_vec();
         for p in &proof.values {
             if (idx & 0b1) == 0 {
-                h = hasher.hash_children(&h, p);
+                h = D::new().chain(h).chain(p).finalize().to_vec();
             } else {
-                h = hasher.hash_children(p, &h);
+                h = D::new().chain(p).chain(h).finalize().to_vec();
             }
             idx >>= 1;
         }
 
-        h == self.value
-    }
-
-    /// Get the root of the tree
-    pub fn root(&self) -> &H::F {
-        &self.value
-    }
-
-    /// Convert the root of the tree to bytes.
-    pub fn to_bytes(&self) -> Vec<u8> {
-        H::root_bytes(&self.value)
+        if h == self.root {
+            return Ok(());
+        }
+        Err(MerkleTreeError::InvalidPath)
     }
 }
 
 /// Tree of hashes, providing a commitment of data and its ordering.
-#[derive(Debug, Clone)]
-pub struct MerkleTree<H>
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MerkleTree<D>
 where
-    H: MTHashLeaf,
+    D: Digest + FixedOutput,
 {
-    // The nodes are stored in an array heap:
-    // nodes[0] is the root,
-    // the parent of nodes[i] is nodes[(i-1)/2]
-    // the children of nodes[i] are {nodes[2i + 1], nodes[2i + 2]}
-    nodes: Vec<H::F>,
-
-    // The leaves begin at nodes[leaf_off]
+    /// The nodes are stored in an array heap:
+    /// `nodes[0]` is the root,
+    /// the parent of `nodes[i]` is `nodes[(i-1)/2]`
+    /// the children of `nodes[i]` are `{nodes[2i + 1], nodes[2i + 2]}`
+    /// All nodes have size `Output<D>::output_size()`, even leafs (which are
+    /// hashed before committing them).
+    pub(crate) nodes: Vec<Vec<u8>>,
+    /// The leaves begin at `nodes[leaf_off]`
     leaf_off: usize,
-
-    // Number of leaves cached here
-    n: usize,
+    /// Number of leaves cached in the merkle tree
+    pub(crate) n: usize,
+    /// Phantom type to link the tree with its hasher
+    hasher: PhantomData<D>,
 }
 
-impl<H> MerkleTree<H>
+impl<D> MerkleTree<D>
 where
-    H: MTHashLeaf,
+    D: Digest + FixedOutput,
 {
-    /// converting a single L to bytes, and then calling H::from_bytes() should result
-    /// in an H::F
-    pub fn create(leaves: &[Vec<u8>]) -> MerkleTree<H> {
+    /// Provide a non-empty list of leaves, `create` generate its corresponding `MerkleTree`.
+    pub fn create(leaves: &[Vec<u8>]) -> MerkleTree<D> {
         let n = leaves.len();
-        let mut hasher = H::new();
         assert!(n > 0, "MerkleTree::create() called with no leaves");
 
         let num_nodes = n + n.next_power_of_two() - 1;
 
-        let mut nodes = vec![H::zero(); num_nodes];
+        let mut nodes = vec![vec![0u8]; num_nodes];
 
-        // Get the hasher, potentially creating it for this thread.
-        for i in 0..n {
-            nodes[num_nodes - n + i] = hasher.inject(&leaves[i]);
+        for i in 0..leaves.len() {
+            nodes[num_nodes - n + i] = D::digest(&leaves[i].clone()).to_vec();
         }
 
         for i in (0..num_nodes - n).rev() {
-            let z = H::zero();
+            let z = D::digest(&[0u8]).to_vec();
             let left = if left_child(i) < num_nodes {
                 &nodes[left_child(i)]
             } else {
@@ -171,53 +175,51 @@ where
             let right = if right_child(i) < num_nodes {
                 &nodes[right_child(i)]
             } else {
-                left
+                &z
             };
-            nodes[i] = hasher.hash_children(left, right);
+            nodes[i] = D::new().chain(left).chain(right).finalize().to_vec();
         }
 
         Self {
             nodes,
             n,
             leaf_off: num_nodes - n,
+            hasher: PhantomData::default(),
         }
     }
 
-    /// Build a `MerkleTreeCommitment`, which simply consists in returning the root.
-    pub fn to_commitment(&self) -> MerkleTreeCommitment<H> {
+    /// Convert merkle tree to a commitment. This function simply returns the root
+    pub fn to_commitment(&self) -> MerkleTreeCommitment<D> {
         MerkleTreeCommitment {
-            value: self.nodes[0].clone(),
+            root: self.nodes[0].clone(),
+            nr_leaves: self.n,
+            hasher: self.hasher,
         }
     }
 
     /// Get the root of the tree
-    pub fn root(&self) -> &H::F {
+    pub fn root(&self) -> &Vec<u8> {
         &self.nodes[0]
     }
 
-    /// Convert the root of the tree to bytes.
-    pub fn root_to_bytes(&self) -> Vec<u8> {
-        H::root_bytes(&self.nodes[0])
-    }
-
-    /// Get a path (hashes of siblings of the path to the root node
+    /// Get a path (hashes of siblings of the path to the root node)
     /// for the `i`th value stored in the tree.
     /// Requires `i < self.n`
-    pub fn get_path(&self, i: u64) -> Path<H::F> {
+    pub fn get_path(&self, i: usize) -> Path<D> {
         assert!(
-            i < self.n as u64,
+            i < self.n,
             "Proof index out of bounds: asked for {} out of {}",
             i,
             self.n
         );
-        let mut idx = self.idx_of_leaf(i as usize); // todo: handle this conversion
+        let mut idx = self.idx_of_leaf(i);
         let mut proof = Vec::new();
 
         while idx > 0 {
             let h = if sibling(idx) < self.nodes.len() {
-                &self.nodes[sibling(idx)]
+                self.nodes[sibling(idx)].clone()
             } else {
-                &self.nodes[idx]
+                D::digest(&[0u8]).to_vec()
             };
             proof.push(h.clone());
             idx = parent(idx);
@@ -225,12 +227,51 @@ where
 
         Path {
             values: proof,
-            index: i as usize, // todo: handle this conversion
+            index: i,
+            hasher: Default::default(),
         }
     }
 
     fn idx_of_leaf(&self, i: usize) -> usize {
         self.leaf_off + i
+    }
+
+    /// Convert a `MerkleTree` into a byte string, containing $4 + n * S$ where $n$ is the
+    /// number of nodes and $S$ the output size of the hash function.
+    ///
+    /// # Layout
+    /// The layout of a `MerkleTree` is:
+    /// * Number of leaves committed in the Merkle Tree
+    /// * All nodes of the merkle tree (starting with the root)
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut result = Vec::with_capacity(4 + self.nodes.len() * D::output_size());
+        result.extend_from_slice(
+            &u32::try_from(self.n)
+                .expect("Length must fit in u32")
+                .to_be_bytes(),
+        );
+        for node in self.nodes.iter() {
+            result.extend_from_slice(node);
+        }
+        result
+    }
+
+    /// Try to convert a byte string into a `MerkleTree`.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MerkleTreeError> {
+        let mut u64_bytes = [0u8; 8];
+        u64_bytes.copy_from_slice(&bytes[..8]);
+        let n = usize::try_from(u64::from_be_bytes(u64_bytes)).unwrap(); // todo: handle the conversion
+        let num_nodes = n + n - 1;
+        let mut nodes = Vec::with_capacity(num_nodes);
+        for i in 0..num_nodes {
+            nodes.push(bytes[8 + i * D::output_size()..8 + (i + 1) * D::output_size()].to_vec());
+        }
+        Ok(Self {
+            nodes,
+            leaf_off: num_nodes - n,
+            n,
+            hasher: PhantomData::default(),
+        })
     }
 }
 
@@ -287,8 +328,8 @@ mod tests {
         #[test]
         fn test_create_proof((t, values) in arb_tree(30)) {
             values.iter().enumerate().for_each(|(i, _v)| {
-                let pf = t.get_path(i as u64);
-                assert!(t.to_commitment().check(&values[i], &pf));
+                let pf = t.get_path(i);
+                assert!(t.to_commitment().check(&values[i], &pf).is_ok());
             })
         }
     }
@@ -315,14 +356,14 @@ mod tests {
         ) {
             let t = MerkleTree::<blake2::Blake2b>::create(&values[1..]);
             let index = i % (values.len() - 1);
-            let mut hasher = <blake2::Blake2b as MTHashLeaf>::new();
             let path = Path{values: proof
                             .iter()
-                            .map(|x| hasher.inject(x))
+                            .map(|x|  blake2::Blake2b::digest(x).to_vec())
                             .collect(),
-                index
+                index,
+                hasher: PhantomData::<blake2::Blake2b>::default()
                 };
-            assert!(!t.to_commitment().check(&values[0], &path));
+            assert!(t.to_commitment().check(&values[0], &path).is_err());
         }
     }
 }

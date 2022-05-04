@@ -1,12 +1,13 @@
 use blake2::Blake2b;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use digest::{Digest, FixedOutput};
 use mithril::key_reg::KeyReg;
-use mithril::merkle_tree::MTHashLeaf;
 use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
 use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::prelude::*;
+use std::fmt::Debug;
 
 ///
 /// This benchmark framework is not ideal. We really have to think what is the best mechanism for
@@ -24,8 +25,7 @@ static NR_K: [u64; SIZE] = [8, 16, 32, 64, 128, 256, 512, 1024];
 
 fn stm_benches<H>(c: &mut Criterion, curve: &str)
 where
-    H: MTHashLeaf + Clone,
-    <H as MTHashLeaf>::F: Send + Sync,
+    H: Clone + Debug + Digest + FixedOutput + Send + Sync,
 {
     let mut group = c.benchmark_group(format!("STM/{:?}", curve));
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
@@ -176,20 +176,16 @@ where
         let clerk = StmClerk::from_signer(&party_dummy, TrivialEnv);
 
         group.bench_function(BenchmarkId::new("Aggregation", &param_string), |b| {
-            b.iter(|| clerk.aggregate::<ConcatProof<H, H::F>>(&sigs, &ixs, &msg))
+            b.iter(|| clerk.aggregate::<ConcatProof<H>>(&sigs, &ixs, &msg))
         });
     }
 
     let clerk = StmClerk::from_signer(&party_dummy, TrivialEnv);
     let msig = clerk
-        .aggregate::<ConcatProof<H, H::F>>(&sigs, &ixs, &msg)
+        .aggregate::<ConcatProof<H>>(&sigs, &ixs, &msg)
         .unwrap();
     group.bench_function("Verification", |b| {
-        b.iter(|| {
-            clerk
-                .verify_msig::<ConcatProof<H, H::F>>(&msig, &msg)
-                .is_ok()
-        })
+        b.iter(|| clerk.verify_msig::<ConcatProof<H>>(&msig, &msg).is_ok())
     });
 }
 

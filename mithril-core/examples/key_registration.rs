@@ -8,14 +8,11 @@ use mithril::stm::{
     Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner, StmVerifier,
 };
 
-use mithril::merkle_tree::MTHashLeaf;
-use mithril::models::digest::DigestHash;
 use mithril::msp::MspPk;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
 type H = blake2::Blake2b;
-type F = <H as MTHashLeaf>::F;
 
 fn main() {
     let nparties = 4;
@@ -140,33 +137,31 @@ fn main() {
     );
 
     // Now we aggregate the signatures
-    let msig_1 = match clerk.aggregate::<ConcatProof<H, F>>(&complete_sigs_1, &complete_ixs_1, &msg)
-    {
+    let msig_1 = match clerk.aggregate::<ConcatProof<H>>(&complete_sigs_1, &complete_ixs_1, &msg) {
         Ok(s) => s,
         Err(e) => {
             panic!("Aggregation failed: {:?}", e)
         }
     };
     assert!(verifier
-        .verify_msig::<ConcatProof<H, F>>(&msg, &msig_1)
+        .verify_msig::<ConcatProof<H>>(&msg, &msig_1)
         .is_ok());
 
-    let msig_2 = match clerk.aggregate::<ConcatProof<H, F>>(&complete_sigs_2, &complete_ixs_2, &msg)
-    {
+    let msig_2 = match clerk.aggregate::<ConcatProof<H>>(&complete_sigs_2, &complete_ixs_2, &msg) {
         Ok(s) => s,
         Err(e) => {
             panic!("Aggregation failed: {:?}", e)
         }
     };
     assert!(verifier
-        .verify_msig::<ConcatProof<H, F>>(&msg, &msig_2)
+        .verify_msig::<ConcatProof<H>>(&msg, &msig_2)
         .is_ok());
 
-    let msig_3 = clerk.aggregate::<ConcatProof<H, F>>(&incomplete_sigs_3, &incomplete_ixs_3, &msg);
+    let msig_3 = clerk.aggregate::<ConcatProof<H>>(&incomplete_sigs_3, &incomplete_ixs_3, &msg);
     assert!(msig_3.is_err());
 }
 
-fn try_signatures(party: &StmSigner<H>, msg: &[u8], m: u64) -> (Vec<StmSig<DigestHash>>, Vec<u64>) {
+fn try_signatures(party: &StmSigner<H>, msg: &[u8], m: u64) -> (Vec<StmSig<H>>, Vec<u64>) {
     let mut sigs = Vec::new();
     let mut ixs = Vec::new();
     for ix in 0..m {

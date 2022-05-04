@@ -30,7 +30,7 @@ pub fn merkle_tree_verify_benchmark(c: &mut Criterion) {
     let ps = gen_keys(32);
     let mt = MerkleTree::<H>::create(&ps);
     let i = rng.next_u64() % 32;
-    let path = mt.get_path(i);
+    let path = mt.get_path(i as usize);
     c.bench_function("Merkle Tree verify 2**5", |b| {
         b.iter(|| mt.to_commitment().check(&ps[i as usize], &path))
     });

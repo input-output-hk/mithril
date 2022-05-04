@@ -1,12 +1,13 @@
 //! Placeholder key registration functionality.
 
 use crate::error::RegisterError;
+use digest::{Digest, FixedOutput};
 use std::collections::{HashMap, HashSet};
 
 use super::msp::{Msp, MspPk};
 use super::stm::{PartyId, Stake};
 
-use crate::merkle_tree::{MTHashLeaf, MerkleTree};
+use crate::merkle_tree::MerkleTree;
 use crate::stm::MTValue;
 
 /// Simple struct that collects pubkeys and stakes of parties. Placeholder for a more
@@ -22,15 +23,15 @@ pub struct KeyReg {
 /// Structure generated out of a closed registration. One can only get a global `avk` out of
 /// a closed key registration.
 #[derive(Clone, Debug)]
-pub struct ClosedKeyReg<H>
+pub struct ClosedKeyReg<D>
 where
-    H: MTHashLeaf,
+    D: Digest + FixedOutput,
 {
     key_reg: KeyReg,
     /// Total stake of the registered parties.
     pub total_stake: Stake,
     /// Unique public key out of the key registration instance.
-    pub avk: MerkleTree<H>,
+    pub avk: MerkleTree<D>,
 }
 
 /// Represents the status of a known participant in the protocol who is allowed
@@ -156,9 +157,9 @@ impl KeyReg {
 
     /// End registration. Disables `KeyReg::register`. Consumes the instance of `self` and returns
     /// a `ClosedKeyReg`.
-    pub fn close<H>(self) -> ClosedKeyReg<H>
+    pub fn close<D>(self) -> ClosedKeyReg<D>
     where
-        H: MTHashLeaf,
+        D: Digest + FixedOutput,
     {
         let mtvals: Vec<MTValue> = self
             .retrieve_all()
@@ -185,9 +186,9 @@ impl Default for KeyReg {
     }
 }
 
-impl<H> ClosedKeyReg<H>
+impl<D> ClosedKeyReg<D>
 where
-    H: MTHashLeaf,
+    D: Digest + FixedOutput,
 {
     /// Retrieve the pubkey and stake for a party.
     pub fn retrieve(&self, party_id: PartyId) -> Option<RegParty> {

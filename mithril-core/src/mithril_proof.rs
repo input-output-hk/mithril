@@ -1,9 +1,10 @@
 //! Prove the validity of aggregated signatures.
 
-use crate::merkle_tree::{concat_avk_with_msg, MTHashLeaf, MerkleTreeCommitment, Path};
+use crate::merkle_tree::{concat_avk_with_msg, MerkleTreeCommitment, Path};
 use crate::msp::{Msp, MspMvk, MspSig};
 use crate::proof::Proof;
 use crate::stm::{ev_lt_phi, Index, MTValue, StmParameters, StmSig};
+use digest::{Digest, FixedOutput};
 use std::collections::HashSet;
 use std::sync::Arc;
 
@@ -12,12 +13,12 @@ use std::sync::Arc;
 /// the given MerkleTree, aggregated verification keys,
 /// and aggregated signatures is valid for the
 /// given message.
-pub struct MithrilStatement<H: MTHashLeaf> {
+pub struct MithrilStatement<D: Digest + FixedOutput> {
     // We use Arc here to avoid exposing a lifetime parameter being thread-safe.
     // Parameterizing Statement by a lifetime ends up bubbling the lifetime to whoever is
     // producing proofs, effectively tying the lifetime of the proof to that of
     // the prover, which is undesirable.
-    pub(crate) avk: Arc<MerkleTreeCommitment<H>>,
+    pub(crate) avk: Arc<MerkleTreeCommitment<D>>,
     pub(crate) ivk: MspMvk,
     pub(crate) mu: MspSig,
     pub(crate) msg: Vec<u8>,
@@ -27,15 +28,15 @@ pub struct MithrilStatement<H: MTHashLeaf> {
 
 /// A MithrilWitness is an aggregation of signatures
 #[derive(Debug, Clone)]
-pub struct MithrilWitness<H: MTHashLeaf> {
-    pub(crate) sigs: Vec<StmSig<H::F>>,
+pub struct MithrilWitness<D: Clone + Digest + FixedOutput> {
+    pub(crate) sigs: Vec<StmSig<D>>,
     pub(crate) indices: Vec<Index>,
     pub(crate) evals: Vec<[u8; 64]>,
 }
 
 /// Errors which can be output by Mithril verification.
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum MithrilWitnessError<F> {
+pub enum MithrilWitnessError<D: Digest + FixedOutput> {
     /// No quorum was found
     #[error("No Quorum was found.")]
     NoQuorum,
@@ -53,7 +54,7 @@ pub enum MithrilWitnessError<F> {
     IndexNotUnique,
     /// The path is not valid for the Merkle Tree
     #[error("The path of the Merkle Tree is invalid.")]
-    PathInvalid(Path<F>),
+    PathInvalid(Path<D>),
     /// MSP.Eval was computed incorrectly
     #[error("The claimed evaluation of function phi is incorrect.")]
     EvalInvalid([u8; 64]),
@@ -63,7 +64,7 @@ pub enum MithrilWitnessError<F> {
 }
 
 #[allow(clippy::from_over_into)]
-impl<F> Into<i64> for MithrilWitnessError<F> {
+impl<D: Digest + FixedOutput> Into<i64> for MithrilWitnessError<D> {
     fn into(self) -> i64 {
         // -1 is reserved to the function failing.
         match self {
@@ -79,11 +80,8 @@ impl<F> Into<i64> for MithrilWitnessError<F> {
     }
 }
 
-impl<H> MithrilWitness<H>
-where
-    H: MTHashLeaf,
-{
-    fn verify(&self, stmt: &MithrilStatement<H>) -> Result<(), MithrilWitnessError<H::F>> {
+impl<D: Clone + Digest + FixedOutput> MithrilWitness<D> {
+    fn verify(&self, stmt: &MithrilStatement<D>) -> Result<(), MithrilWitnessError<D>> {
         self.check_quorum(stmt.params.k as usize)?;
         self.check_ivk(&stmt.ivk)?;
         self.check_sum(&stmt.mu)?;
@@ -96,7 +94,7 @@ where
     }
 
     /// ivk = Prod(1..k, mvk[i])
-    fn check_ivk(&self, ivk: &MspMvk) -> Result<(), MithrilWitnessError<H::F>> {
+    fn check_ivk(&self, ivk: &MspMvk) -> Result<(), MithrilWitnessError<D>> {
         let mvks = self.sigs.iter().map(|s| s.pk.mvk).collect::<Vec<_>>();
         let sum = Msp::aggregate_keys(&mvks).0;
         if ivk.0 != sum {
@@ -106,7 +104,7 @@ where
     }
 
     /// mu = Prod(1..k, sigma[i])
-    fn check_sum(&self, mu: &MspSig) -> Result<(), MithrilWitnessError<H::F>> {
+    fn check_sum(&self, mu: &MspSig) -> Result<(), MithrilWitnessError<D>> {
         let mu1: MspSig =
             Msp::aggregate_sigs(&self.sigs.iter().map(|s| s.sigma).collect::<Vec<MspSig>>());
         if mu != &mu1 {
@@ -116,7 +114,7 @@ where
     }
 
     /// \forall i. index[i] <= m
-    fn check_index_bound(&self, m: u64) -> Result<(), MithrilWitnessError<H::F>> {
+    fn check_index_bound(&self, m: u64) -> Result<(), MithrilWitnessError<D>> {
         for &i in self.indices.iter() {
             if i > m {
                 return Err(MithrilWitnessError::IndexBoundFailed(i, m));
@@ -126,7 +124,7 @@ where
     }
 
     /// \forall i. \forall j. (i == j || index[i] != index[j])
-    fn check_index_unique(&self) -> Result<(), MithrilWitnessError<H::F>> {
+    fn check_index_unique(&self) -> Result<(), MithrilWitnessError<D>> {
         if self
             .indices
             .iter()
@@ -142,7 +140,7 @@ where
 
     /// k-sized quorum
     /// if this returns `true`, then there are exactly k signatures
-    fn check_quorum(&self, k: usize) -> Result<(), MithrilWitnessError<H::F>> {
+    fn check_quorum(&self, k: usize) -> Result<(), MithrilWitnessError<D>> {
         if !(k == self.sigs.len() && k == self.evals.len() && k == self.indices.len()) {
             return Err(MithrilWitnessError::NoQuorum);
         }
@@ -150,9 +148,12 @@ where
     }
 
     /// \forall i : [0..k]. path[i] is a witness for (mvk[i]), stake[i] in avk
-    fn check_path(&self, avk: &MerkleTreeCommitment<H>) -> Result<(), MithrilWitnessError<H::F>> {
+    fn check_path(&self, avk: &MerkleTreeCommitment<D>) -> Result<(), MithrilWitnessError<D>> {
         for sig in self.sigs.iter() {
-            if !avk.check(&MTValue(sig.pk.mvk, sig.stake).to_bytes(), &sig.path) {
+            if avk
+                .check(&MTValue(sig.pk.mvk, sig.stake).to_bytes(), &sig.path)
+                .is_err()
+            {
                 return Err(MithrilWitnessError::PathInvalid(sig.path.clone()));
             }
         }
@@ -162,9 +163,9 @@ where
     /// \forall i : [1..k]. ev[i] = MSP.Eval(msg, index[i], sig[i])
     fn check_eval(
         &self,
-        avk: &MerkleTreeCommitment<H>,
+        avk: &MerkleTreeCommitment<D>,
         msg: &[u8],
-    ) -> Result<(), MithrilWitnessError<H::F>> {
+    ) -> Result<(), MithrilWitnessError<D>> {
         let msp_evals = self.indices.iter().zip(self.sigs.iter()).map(|(idx, sig)| {
             let msgp = concat_avk_with_msg(avk, msg);
             Msp::eval(&msgp, *idx, &sig.sigma)
@@ -179,7 +180,7 @@ where
     }
 
     /// \forall i : [1..k]. ev[i] <= phi(stake_i)
-    fn check_stake(&self, phi_f: f64, total_stake: u64) -> Result<(), MithrilWitnessError<H::F>> {
+    fn check_stake(&self, phi_f: f64, total_stake: u64) -> Result<(), MithrilWitnessError<D>> {
         if !self
             .evals
             .iter()
@@ -249,24 +250,24 @@ pub mod concat_proofs {
     //! This is the trivial proof system instantiated to Mithril: witnesses are
     //! just the aggregated signatures themselves.
     use super::{MithrilProof, MithrilStatement, MithrilWitness, MithrilWitnessError};
-    use crate::merkle_tree::MTHashLeaf;
     use crate::proof::trivial::TrivialProof;
     pub use crate::proof::trivial::{TrivialEnv, TrivialError};
+    use digest::{Digest, FixedOutput};
+    use std::fmt::Debug;
 
     /// Set the env to the TrivialEnv.
     pub type ConcatEnv = TrivialEnv;
     /// The relation is a function outputting an error or not.
-    pub type ConcatRel<H, F> =
-        fn(&MithrilStatement<H>, &MithrilWitness<H>) -> Result<(), MithrilWitnessError<F>>;
+    pub type ConcatRel<D> =
+        fn(&MithrilStatement<D>, &MithrilWitness<D>) -> Result<(), MithrilWitnessError<D>>;
     /// The proof is a TrivialProof.
-    pub type ConcatProof<H, F> =
-        TrivialProof<MithrilStatement<H>, ConcatRel<H, F>, MithrilWitness<H>>;
+    pub type ConcatProof<D> = TrivialProof<MithrilStatement<D>, ConcatRel<D>, MithrilWitness<D>>;
 
-    impl<H> MithrilProof for ConcatProof<H, H::F>
+    impl<D> MithrilProof for ConcatProof<D>
     where
-        H: MTHashLeaf,
+        D: Clone + Digest + Debug + FixedOutput,
     {
-        const RELATION: ConcatRel<H, H::F> = trivial_relation;
+        const RELATION: ConcatRel<D> = trivial_relation;
     }
 
     // impl<H> ToBytes for ConcatProof<H>
@@ -289,12 +290,12 @@ pub mod concat_proofs {
     //     }
     // }
 
-    fn trivial_relation<H>(
-        s: &MithrilStatement<H>,
-        w: &MithrilWitness<H>,
-    ) -> Result<(), MithrilWitnessError<H::F>>
+    fn trivial_relation<D>(
+        s: &MithrilStatement<D>,
+        w: &MithrilWitness<D>,
+    ) -> Result<(), MithrilWitnessError<D>>
     where
-        H: MTHashLeaf,
+        D: Clone + Digest + FixedOutput,
     {
         w.verify(s)
     }

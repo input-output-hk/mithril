@@ -4,12 +4,10 @@ use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner, StmVerifi
 use rayon::prelude::*;
 
 use mithril::error::AggregationFailure;
-use mithril::merkle_tree::MTHashLeaf;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
 type H = blake2::Blake2b;
-type F = <H as MTHashLeaf>::F;
 
 #[test]
 fn test_full_protocol() {
@@ -88,7 +86,7 @@ fn test_full_protocol() {
     }
 
     // Aggregate with random parties
-    let msig = clerk.aggregate::<ConcatProof<H, F>>(&sigs, &ixs, &msg);
+    let msig = clerk.aggregate::<ConcatProof<H>>(&sigs, &ixs, &msg);
 
     // Verify aggregated signature with a fresh verifier
     let verifier = StmVerifier::new(
@@ -100,9 +98,7 @@ fn test_full_protocol() {
     match msig {
         Ok(aggr) => {
             println!("Aggregate ok");
-            assert!(verifier
-                .verify_msig::<ConcatProof<H, F>>(&msg, &aggr)
-                .is_ok());
+            assert!(verifier.verify_msig::<ConcatProof<H>>(&msg, &aggr).is_ok());
         }
         Err(AggregationFailure::NotEnoughSignatures(n, k)) => {
             println!("Not enough signatures");

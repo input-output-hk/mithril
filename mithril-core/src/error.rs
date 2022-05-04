@@ -5,6 +5,7 @@ use crate::mithril_proof::MithrilProof;
 use crate::msp::{MspPk, MspSig};
 use crate::stm::PartyId;
 use blst::BLST_ERROR;
+use digest::{Digest, FixedOutput};
 
 // todo: better organise these errors.
 
@@ -35,16 +36,27 @@ pub enum AggregationFailure {
 
 /// Error types for single signature verification
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum VerificationFailure<F> {
+pub enum VerificationFailure<D: Digest + FixedOutput> {
     /// The lottery was actually lost for the signature
     #[error("Lottery for this epoch was lost.")]
     LotteryLost,
     /// The Merkle Tree is invalid
     #[error("The path of the Merkle Tree is invalid.")]
-    InvalidMerkleTree(Path<F>),
+    InvalidMerkleTree(Path<D>),
     /// The MSP signature is invalid
     #[error("Invalid Signature.")]
     InvalidSignature(MspSig),
+}
+
+/// Error types related to merkle trees
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum MerkleTreeError {
+    /// Serialization error
+    #[error("Serialization of a merkle tree failed")]
+    SerializationError,
+    /// Invalid merkle path
+    #[error("Path does not verify against root")]
+    InvalidPath,
 }
 
 /// Error types for multisignature verification
@@ -89,6 +101,18 @@ impl From<MultiSignatureError> for RegisterError {
             MultiSignatureError::InvalidKey(k) => Self::InvalidKey(k),
             _ => todo!(),
         }
+    }
+}
+
+impl From<RegisterError> for MultiSignatureError {
+    fn from(_: RegisterError) -> Self {
+        todo!()
+    }
+}
+
+impl From<MerkleTreeError> for MultiSignatureError {
+    fn from(_: MerkleTreeError) -> Self {
+        todo!()
     }
 }
 

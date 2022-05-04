@@ -2,7 +2,7 @@
 //! is null. Other error codes are function dependent.
 use crate::key_reg::{ClosedKeyReg, KeyReg};
 use crate::{
-    merkle_tree::{MTHashLeaf, MerkleTreeCommitment},
+    merkle_tree::MerkleTreeCommitment,
     mithril_proof::concat_proofs::{ConcatProof, TrivialEnv},
     msp::MspPk,
     stm::*,
@@ -14,10 +14,9 @@ use std::os::raw::c_char;
 pub const NULLPOINTERERR: i64 = -99;
 
 type H = blake2::Blake2b;
-type F = <H as MTHashLeaf>::F;
 type MspPkPtr = *mut MspPk;
-type SigPtr = *mut StmSig<F>;
-type MultiSigPtr = *mut StmMultiSig<ConcatProof<H, F>>;
+type SigPtr = *mut StmSig<H>;
+type MultiSigPtr = *mut StmMultiSig<ConcatProof<H>>;
 type StmInitializerPtr = *mut StmInitializer;
 type StmSignerPtr = *mut StmSigner<H>;
 type StmClerkPtr = *mut StmClerk<H, TrivialEnv>;

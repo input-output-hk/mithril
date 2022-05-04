@@ -8,7 +8,6 @@ pub mod error;
 pub mod key_reg;
 pub mod merkle_tree;
 pub mod mithril_proof;
-pub mod models;
 pub mod msp;
 pub mod proof;
 pub mod stm;
