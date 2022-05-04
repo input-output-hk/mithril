@@ -24,6 +24,7 @@ tar = "0.4.38"
 flate2 = "1.0.23"
 config = "0.13.1"
 hex = "0.4.3"
+thiserror = "1.0.31"
 
 rand_core   = "0.6.3"
 rand_chacha = "0.3.1"

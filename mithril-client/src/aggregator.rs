@@ -8,30 +8,52 @@ use std::fs;
 use std::io::{self, Write};
 use std::path;
 use tar::Archive;
+use thiserror::Error;
 
 use crate::entities::*;
 
 #[cfg(test)]
 use mockall::automock;
 
+#[derive(Error, Debug)]
+pub enum AggregatorHandlerError {
+    #[error("remote server technical error: '{0}'")]
+    RemoteServerTechnical(String),
+    #[error("remote server logical error: '{0}'")]
+    RemoteServerLogical(String),
+    #[error("remote server unreachable: '{0}'")]
+    RemoteServerUnreachable(String),
+    #[error("json parsing failed: '{0}'")]
+    JsonParseFailed(String),
+    #[error("io error:")]
+    IOError(#[from] io::Error),
+}
+
 /// AggregatorHandler represents a read interactor with an aggregator
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait AggregatorHandler {
     /// List snapshots
-    async fn list_snapshots(&self) -> Result<Vec<Snapshot>, String>;
+    async fn list_snapshots(&self) -> Result<Vec<Snapshot>, AggregatorHandlerError>;
 
     /// Get snapshot details
-    async fn get_snapshot_details(&self, digest: &str) -> Result<Snapshot, String>;
+    async fn get_snapshot_details(&self, digest: &str) -> Result<Snapshot, AggregatorHandlerError>;
 
     /// Download snapshot
-    async fn download_snapshot(&self, digest: &str, location: &str) -> Result<String, String>;
+    async fn download_snapshot(
+        &self,
+        digest: &str,
+        location: &str,
+    ) -> Result<String, AggregatorHandlerError>;
 
     /// Unpack snapshot
-    async fn unpack_snapshot(&self, digest: &str) -> Result<String, String>;
+    async fn unpack_snapshot(&self, digest: &str) -> Result<String, AggregatorHandlerError>;
 
     /// Get certificate details
-    async fn get_certificate_details(&self, certificate_hash: &str) -> Result<Certificate, String>;
+    async fn get_certificate_details(
+        &self,
+        certificate_hash: &str,
+    ) -> Result<Certificate, AggregatorHandlerError>;
 }
 
 /// AggregatorHTTPClient is a http client for an aggregator
@@ -54,7 +76,7 @@ impl AggregatorHTTPClient {
 #[async_trait]
 impl AggregatorHandler for AggregatorHTTPClient {
     /// List snapshots
-    async fn list_snapshots(&self) -> Result<Vec<Snapshot>, String> {
+    async fn list_snapshots(&self) -> Result<Vec<Snapshot>, AggregatorHandlerError> {
         debug!("List snapshots");
         let url = format!("{}/snapshots", self.aggregator_endpoint);
         let response = reqwest::get(url.clone()).await;
@@ -62,16 +84,20 @@ impl AggregatorHandler for AggregatorHTTPClient {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<Vec<Snapshot>>().await {
                     Ok(snapshots) => Ok(snapshots),
-                    Err(err) => Err(err.to_string()),
+                    Err(err) => Err(AggregatorHandlerError::JsonParseFailed(err.to_string())),
                 },
-                status_error => Err(format!("error {} received", status_error)),
+                status_error => Err(AggregatorHandlerError::RemoteServerTechnical(
+                    status_error.to_string(),
+                )),
             },
-            Err(err) => Err(err.to_string()),
+            Err(err) => Err(AggregatorHandlerError::RemoteServerUnreachable(
+                err.to_string(),
+            )),
         }
     }
 
     /// Get snapshot details
-    async fn get_snapshot_details(&self, digest: &str) -> Result<Snapshot, String> {
+    async fn get_snapshot_details(&self, digest: &str) -> Result<Snapshot, AggregatorHandlerError> {
         debug!("Details snapshot {}", digest);
         let url = format!("{}/snapshot/{}", self.aggregator_endpoint, digest);
         let response = reqwest::get(url.clone()).await;
@@ -79,37 +105,47 @@ impl AggregatorHandler for AggregatorHTTPClient {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<Snapshot>().await {
                     Ok(snapshot) => Ok(snapshot),
-                    Err(err) => Err(err.to_string()),
+                    Err(err) => Err(AggregatorHandlerError::JsonParseFailed(err.to_string())),
                 },
-                StatusCode::NOT_FOUND => Err("Snapshot not found".to_string()),
-                status_error => Err(format!("error {} received", status_error)),
+                StatusCode::NOT_FOUND => Err(AggregatorHandlerError::RemoteServerLogical(
+                    "snapshot not found".to_string(),
+                )),
+                status_error => Err(AggregatorHandlerError::RemoteServerTechnical(
+                    status_error.to_string(),
+                )),
             },
-            Err(err) => Err(err.to_string()),
+            Err(err) => Err(AggregatorHandlerError::RemoteServerUnreachable(
+                err.to_string(),
+            )),
         }
     }
 
     /// Download Snapshot
-    async fn download_snapshot(&self, digest: &str, location: &str) -> Result<String, String> {
+    async fn download_snapshot(
+        &self,
+        digest: &str,
+        location: &str,
+    ) -> Result<String, AggregatorHandlerError> {
         debug!("Download snapshot {} from {}", digest, location);
         let response = reqwest::get(location).await;
         match response {
             Ok(response) => match response.status() {
                 StatusCode::OK => {
                     let local_path = archive_file_path(digest, &self.network)?;
-                    fs::create_dir_all(&local_path.parent().unwrap())
-                        .map_err(|e| format!("can't create snapshot dir: {}", e))?;
-                    let mut local_file = fs::File::create(&local_path)
-                        .map_err(|e| format!("can't access snapshot file: {}", e))?;
-                    let bytes_total = response
-                        .content_length()
-                        .ok_or_else(|| "can't get content length".to_string())?;
+                    fs::create_dir_all(&local_path.parent().unwrap())?;
+                    let mut local_file = fs::File::create(&local_path)?;
+                    let bytes_total = response.content_length().ok_or_else(|| {
+                        AggregatorHandlerError::RemoteServerTechnical(
+                            "can't get content length".to_string(),
+                        )
+                    })?;
                     let mut bytes_downloaded = 0;
                     let mut remote_stream = response.bytes_stream();
                     while let Some(item) = remote_stream.next().await {
-                        let chunk = item.map_err(|e| format!("download failed: {}", e))?;
-                        local_file
-                            .write_all(&chunk)
-                            .map_err(|e| format!("can't write to snapshot file: {}", e))?;
+                        let chunk = item.map_err(|e| {
+                            AggregatorHandlerError::RemoteServerTechnical(e.to_string())
+                        })?;
+                        local_file.write_all(&chunk)?;
                         bytes_downloaded += chunk.len() as u64;
                         print!(
                             "Downloaded {}% - {}/{} Bytes\r",
@@ -121,31 +157,37 @@ impl AggregatorHandler for AggregatorHTTPClient {
                     }
                     Ok(local_path.into_os_string().into_string().unwrap())
                 }
-                StatusCode::NOT_FOUND => Err("snapshot archive not found".to_string()),
-                status_error => Err(format!("error {} received", status_error)),
+                StatusCode::NOT_FOUND => Err(AggregatorHandlerError::RemoteServerLogical(
+                    "snapshot archive not found".to_string(),
+                )),
+                status_error => Err(AggregatorHandlerError::RemoteServerTechnical(
+                    status_error.to_string(),
+                )),
             },
-            Err(err) => Err(err.to_string()),
+            Err(err) => Err(AggregatorHandlerError::RemoteServerUnreachable(
+                err.to_string(),
+            )),
         }
     }
 
     /// Unpack snapshot
-    async fn unpack_snapshot(&self, digest: &str) -> Result<String, String> {
+    async fn unpack_snapshot(&self, digest: &str) -> Result<String, AggregatorHandlerError> {
         debug!("Unpack snapshot {}", digest);
         println!("Unpacking snapshot...");
         let local_path = archive_file_path(digest, &self.network)?;
-        let snapshot_file_tar_gz = fs::File::open(local_path.clone())
-            .map_err(|e| format!("can't open snapshot file: {}", e))?;
+        let snapshot_file_tar_gz = fs::File::open(local_path.clone())?;
         let snapshot_file_tar = GzDecoder::new(snapshot_file_tar_gz);
         let unpack_dir_path = local_path.parent().unwrap().join(path::Path::new("db"));
         let mut snapshot_archive = Archive::new(snapshot_file_tar);
-        snapshot_archive
-            .unpack(&unpack_dir_path)
-            .map_err(|e| format!("can't unpack snapshot archive: {}", e))?;
+        snapshot_archive.unpack(&unpack_dir_path)?;
         Ok(unpack_dir_path.into_os_string().into_string().unwrap())
     }
 
     /// Get certificate details
-    async fn get_certificate_details(&self, certificate_hash: &str) -> Result<Certificate, String> {
+    async fn get_certificate_details(
+        &self,
+        certificate_hash: &str,
+    ) -> Result<Certificate, AggregatorHandlerError> {
         debug!("Details certificate {}", certificate_hash);
         let url = format!(
             "{}/certificate/{}",
@@ -156,24 +198,28 @@ impl AggregatorHandler for AggregatorHTTPClient {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<Certificate>().await {
                     Ok(certificate) => Ok(certificate),
-                    Err(err) => Err(err.to_string()),
+                    Err(err) => Err(AggregatorHandlerError::JsonParseFailed(err.to_string())),
                 },
-                StatusCode::NOT_FOUND => Err("Certificate not found".to_string()),
-                status_error => Err(format!("error {} received", status_error)),
+                StatusCode::NOT_FOUND => Err(AggregatorHandlerError::RemoteServerLogical(
+                    "certificate not found".to_string(),
+                )),
+                status_error => Err(AggregatorHandlerError::RemoteServerTechnical(
+                    status_error.to_string(),
+                )),
             },
-            Err(err) => Err(err.to_string()),
+            Err(err) => Err(AggregatorHandlerError::RemoteServerUnreachable(
+                err.to_string(),
+            )),
         }
     }
 }
 
 /// Computes local archive filepath
-fn archive_file_path(digest: &str, network: &str) -> Result<path::PathBuf, String> {
-    Ok(env::current_dir()
-        .map_err(|e| format!("current dir not available: {}", e))?
-        .join(path::Path::new(&format!(
-            "data/{}/{}/snapshot.archive.tar.gz",
-            network, digest
-        ))))
+fn archive_file_path(digest: &str, network: &str) -> Result<path::PathBuf, AggregatorHandlerError> {
+    Ok(env::current_dir()?.join(path::Path::new(&format!(
+        "data/{}/{}/snapshot.archive.tar.gz",
+        network, digest
+    ))))
 }
 
 #[cfg(test)]
