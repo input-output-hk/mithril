@@ -1,9 +1,15 @@
+use crate::certificate_handler::CertificateHandlerNoOp;
 use crate::entities::Config;
+use crate::signer::Signer;
+use crate::single_signer::{key_decode_hex, MithrilSingleSigner};
 use clap::Parser;
+use mithril_aggregator::fake_data;
 use slog::{o, Drain, Level, Logger};
-use slog_scope::debug;
+use slog_scope::{debug, error, info};
 use std::env;
 use std::sync::Arc;
+use std::time::Duration;
+use tokio::time::sleep;
 
 mod certificate_handler;
 mod entities;
@@ -46,7 +52,8 @@ fn build_logger(min_level: Level) -> Logger {
     Logger::root(Arc::new(drain), o!())
 }
 
-fn main() {
+#[tokio::main]
+async fn main() {
     // Load args
     let args = Args::parse();
     let _guard = slog_scope::set_global_logger(build_logger(args.log_level()));
@@ -62,5 +69,19 @@ fn main() {
         .unwrap();
     debug!("Started"; "run_mode" => &run_mode, "config" => format!("{:?}", config));
 
-    println!("Hello, world!");
+    loop {
+        let fake_signer = fake_data::signer_keys(config.party_id).unwrap();
+        let single_signer = MithrilSingleSigner::new(
+            fake_signer.party_id,
+            key_decode_hex(&fake_signer.secret_key).unwrap(),
+        );
+        let certificate_handler = CertificateHandlerNoOp {};
+
+        let mut signer = Signer::new(Box::new(certificate_handler), Box::new(single_signer));
+        if let Err(e) = signer.run().await {
+            error!("{:?}", e)
+        }
+        info!("Sleeping for {}", config.run_interval);
+        sleep(Duration::from_millis(config.run_interval)).await;
+    }
 }

@@ -6,7 +6,7 @@ use mithril_aggregator::fake_data;
 use crate::certificate_handler::CertificateHandler;
 use crate::single_signer::SingleSigner;
 
-struct Signer {
+pub struct Signer {
     certificate_handler: Box<dyn CertificateHandler>,
     single_signer: Box<dyn SingleSigner>,
     current_beacon: Option<Beacon>,
@@ -21,9 +21,7 @@ pub enum SignerError {
 }
 
 impl Signer {
-    fn new(
-        _party_id: &str,
-        _signing_key: &str,
+    pub fn new(
         certificate_handler: Box<dyn CertificateHandler>,
         single_signer: Box<dyn SingleSigner>,
     ) -> Self {
@@ -34,10 +32,11 @@ impl Signer {
         }
     }
 
-    fn run(&mut self) -> Result<(), SignerError> {
+    pub async fn run(&mut self) -> Result<(), SignerError> {
         if let Some(pending_certificate) = self
             .certificate_handler
             .retrieve_pending_certificate()
+            .await
             .map_err(SignerError::RetrievePendingCertificateFailed)?
         {
             let must_register_signature = match &self.current_beacon {
@@ -49,7 +48,7 @@ impl Signer {
             };
 
             if must_register_signature {
-                let message = "message".as_bytes().to_vec();
+                let message = fake_data::digest();
                 let stake_distribution = fake_data::signers_with_stakes(5);
                 let signatures = self
                     .single_signer
@@ -60,7 +59,7 @@ impl Signer {
                     )
                     .map_err(|e| SignerError::SingleSignaturesComputeFailed(e.to_string()))?;
                 if !signatures.is_empty() {
-                    let _ = self.certificate_handler.register_signatures("");
+                    let _ = self.certificate_handler.register_signatures("").await;
                 }
             }
         }
@@ -76,8 +75,8 @@ mod tests {
     use crate::single_signer::{MockSingleSigner, SingleSignerError};
     use mithril_aggregator::fake_data;
 
-    #[test]
-    fn signer_doesnt_sign_when_there_is_no_pending_certificate() {
+    #[tokio::test]
+    async fn signer_doesnt_sign_when_there_is_no_pending_certificate() {
         let party_id = "";
         let signing_key = "";
         let mut mock_certificate_handler = MockCertificateHandler::new();
@@ -96,11 +95,11 @@ mod tests {
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
         );
-        assert!(signer.run().is_ok());
+        assert!(signer.run().await.is_ok());
     }
 
-    #[test]
-    fn signer_fails_when_pending_certificate_fails() {
+    #[tokio::test]
+    async fn signer_fails_when_pending_certificate_fails() {
         let party_id = "";
         let signing_key = "";
         let mut mock_certificate_handler = MockCertificateHandler::new();
@@ -117,12 +116,12 @@ mod tests {
         );
         assert_eq!(
             SignerError::RetrievePendingCertificateFailed("An Error".to_string()),
-            signer.run().unwrap_err()
+            signer.run().await.unwrap_err()
         );
     }
 
-    #[test]
-    fn signer_sign_when_triggered_by_pending_certificate() {
+    #[tokio::test]
+    async fn signer_sign_when_triggered_by_pending_certificate() {
         let party_id = "";
         let signing_key = "";
         let mut mock_certificate_handler = MockCertificateHandler::new();
@@ -150,12 +149,12 @@ mod tests {
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
         );
-        assert!(signer.run().is_ok());
-        assert!(signer.run().is_ok());
+        assert!(signer.run().await.is_ok());
+        assert!(signer.run().await.is_ok());
     }
 
-    #[test]
-    fn signer_sign_only_once_if_pending_certificate_has_not_changed() {
+    #[tokio::test]
+    async fn signer_sign_only_once_if_pending_certificate_has_not_changed() {
         let party_id = "";
         let signing_key = "";
         let mut mock_certificate_handler = MockCertificateHandler::new();
@@ -179,12 +178,12 @@ mod tests {
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
         );
-        assert!(signer.run().is_ok());
-        assert!(signer.run().is_ok());
+        assert!(signer.run().await.is_ok());
+        assert!(signer.run().await.is_ok());
     }
 
-    #[test]
-    fn signer_does_not_send_signatures_if_none_are_computed() {
+    #[tokio::test]
+    async fn signer_does_not_send_signatures_if_none_are_computed() {
         let party_id = "";
         let signing_key = "";
         let mut mock_certificate_handler = MockCertificateHandler::new();
@@ -207,11 +206,11 @@ mod tests {
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
         );
-        assert!(signer.run().is_ok());
+        assert!(signer.run().await.is_ok());
     }
 
-    #[test]
-    fn signer_fails_if_signature_computation_fails() {
+    #[tokio::test]
+    async fn signer_fails_if_signature_computation_fails() {
         let party_id = "";
         let signing_key = "";
         let mut mock_certificate_handler = MockCertificateHandler::new();
@@ -235,7 +234,7 @@ mod tests {
             SignerError::SingleSignaturesComputeFailed(
                 SingleSignerError::UnregisteredVerificationKey().to_string()
             ),
-            signer.run().unwrap_err()
+            signer.run().await.unwrap_err()
         );
     }
 }

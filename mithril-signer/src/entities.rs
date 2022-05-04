@@ -11,4 +11,12 @@ pub struct Config {
     /// Aggregator endpoint
     #[table(title = "Aggregator Endpoint")]
     pub aggregator_endpoint: String,
+
+    /// Party Id
+    #[table(title = "Party Id")]
+    pub party_id: u64,
+
+    /// Run Interval
+    #[table(title = "Interval between two signatures attempts")]
+    pub run_interval: u64,
 }

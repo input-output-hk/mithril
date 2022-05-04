@@ -1,4 +1,6 @@
 {
     "network": "testnet",
-    "aggregator_endpoint": "http://localhost:8080/aggregator"
+    "aggregator_endpoint": "http://localhost:8080/aggregator",
+    "party_id": 0,
+    "run_interval": 20000
 }
