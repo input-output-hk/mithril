@@ -1894,6 +1894,7 @@ dependencies = [
  "ark-ec",
  "ark-ff",
  "ark-std",
+ "async-trait",
  "blake2",
  "clap 3.1.12",
  "cli-table",
@@ -1917,6 +1918,7 @@ dependencies = [
  "slog-term",
  "tar",
  "thiserror",
+ "tokio",
 ]
 
 [[package]]
