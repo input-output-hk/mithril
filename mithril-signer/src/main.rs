@@ -1,4 +1,4 @@
-use crate::certificate_handler::CertificateHandlerNoOp;
+use crate::certificate_handler::CertificateHandlerHTTPClient;
 use crate::entities::Config;
 use crate::signer::Signer;
 use crate::single_signer::{key_decode_hex, MithrilSingleSigner};
@@ -75,7 +75,8 @@ async fn main() {
             fake_signer.party_id,
             key_decode_hex(&fake_signer.secret_key).unwrap(),
         );
-        let certificate_handler = CertificateHandlerNoOp {};
+        let certificate_handler =
+            CertificateHandlerHTTPClient::new(config.aggregator_endpoint.clone());
 
         let mut signer = Signer::new(Box::new(certificate_handler), Box::new(single_signer));
         if let Err(e) = signer.run().await {
