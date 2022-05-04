@@ -134,7 +134,8 @@ impl KeyReg {
         })
     }
 
-    /// Retrieve the pubkey and stake for all parties.
+    /// Retrieve the pubkey and stake for all parties. The keys are ordered,
+    /// to provide a consistent merkle commitment.
     pub fn retrieve_all(&self) -> Vec<RegParty> {
         let mut out = vec![];
         let mut ps = self.parties.keys().collect::<Vec<_>>();

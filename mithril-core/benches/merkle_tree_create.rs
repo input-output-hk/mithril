@@ -32,7 +32,7 @@ pub fn merkle_tree_verify_benchmark(c: &mut Criterion) {
     let i = rng.next_u64() % 32;
     let path = mt.get_path(i);
     c.bench_function("Merkle Tree verify 2**5", |b| {
-        b.iter(|| mt.to_commitment().check(&ps[i as usize], i, &path))
+        b.iter(|| mt.to_commitment().check(&ps[i as usize], &path))
     });
 }
 

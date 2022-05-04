@@ -4,7 +4,10 @@ use std::fmt::Debug;
 /// Path of hashes from root to leaf in a Merkle Tree.
 /// Used to verify the credentials of users and signatures.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Path<F>(Vec<F>);
+pub struct Path<F> {
+    values: Vec<F>,
+    index: usize,
+}
 
 // impl<F: ToBytes> ToBytes for Path<F> {
 //     fn write<W: Write>(&self, mut writer: W) -> std::io::Result<()> {
@@ -91,12 +94,12 @@ where
 {
     /// Check an inclusion proof that `val` is the `i`th leaf stored in the tree.
     /// Requires i < self.n
-    pub fn check(&self, val: &[u8], i: u64, proof: &Path<H::F>) -> bool {
-        let mut idx = i;
+    pub fn check(&self, val: &[u8], proof: &Path<H::F>) -> bool {
+        let mut idx = proof.index as u64;
 
         let mut hasher = H::new();
         let mut h = hasher.inject(val);
-        for p in &proof.0 {
+        for p in &proof.values {
             if (idx & 0b1) == 0 {
                 h = hasher.hash_children(&h, p);
             } else {
@@ -220,7 +223,10 @@ where
             idx = parent(idx);
         }
 
-        Path(proof)
+        Path {
+            values: proof,
+            index: i as usize, // todo: handle this conversion
+        }
     }
 
     fn idx_of_leaf(&self, i: usize) -> usize {
@@ -282,7 +288,7 @@ mod tests {
         fn test_create_proof((t, values) in arb_tree(30)) {
             values.iter().enumerate().for_each(|(i, _v)| {
                 let pf = t.get_path(i as u64);
-                assert!(t.to_commitment().check(&values[i], i as u64, &pf));
+                assert!(t.to_commitment().check(&values[i], &pf));
             })
         }
     }
@@ -308,13 +314,15 @@ mod tests {
             (values, proof) in values_with_invalid_proof(10)
         ) {
             let t = MerkleTree::<blake2::Blake2b>::create(&values[1..]);
-            let idx = i % (values.len() - 1);
+            let index = i % (values.len() - 1);
             let mut hasher = <blake2::Blake2b as MTHashLeaf>::new();
-            let path = Path(proof
+            let path = Path{values: proof
                             .iter()
                             .map(|x| hasher.inject(x))
-                            .collect());
-            assert!(!t.to_commitment().check(&values[0], idx as u64, &path));
+                            .collect(),
+                index
+                };
+            assert!(!t.to_commitment().check(&values[0], &path));
         }
     }
 }

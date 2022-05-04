@@ -56,8 +56,8 @@ TEST(stm, invalidRegistration) {
     params.phi_f = 0.2;
 
     // Test with 2 parties, one with all the stake, one with none.
-    PartyId party_ids[3] = {1, 2, 3};
-    PartyId party_id_fake = 4;
+    PartyId party_ids[3] = {0, 1, 2};
+    PartyId party_id_fake = 3;
     Stake   party_stake[3] = {1, 0, 0};
     Stake party_stake_fake = 4;
     MspPkPtr keys[3];
@@ -121,7 +121,7 @@ TEST(stm, clerkFromPublicData) {
     Index indices[NEEDED_SIGS];
 
     // Test with 2 parties, one with all the stake, one with none.
-    PartyId party_ids[2] = {1, 2};
+    PartyId party_ids[2] = {0, 1};
     Stake   party_stake[2] = {1, 0};
     MspPkPtr keys[2];
     StmSignerPtr signer;
@@ -208,6 +208,7 @@ TEST(stm, clerkFromPublicData) {
     for (int i = 0; i < NEEDED_SIGS; i++)
         free_sig(sig[i]);
     free_multi_sig((MultiSigPtr)multi_sig);
+    free_closed_reg(closed_reg);
 }
 
 TEST(stm, produceAndVerifyAggregateSignature) {
@@ -222,7 +223,7 @@ TEST(stm, produceAndVerifyAggregateSignature) {
     Index indices[NEEDED_SIGS];
 
     // Test with 2 parties, one with all the stake, one with none.
-    PartyId party_ids[2] = {1, 2};
+    PartyId party_ids[2] = {5, 134};
     Stake   party_stake[2] = {1, 0};
     MspPkPtr keys[2];
     StmInitializerPtr initializer[2];
@@ -313,7 +314,7 @@ TEST(stm, failSigningIfIneligible) {
     Index indices[NEEDED_SIGS];
 
     // Test with 2 parties, one with all the stake, one with none.
-    PartyId party_ids[2] = {1, 2};
+    PartyId party_ids[2] = {0, 1};
     Stake   party_stake[2] = {1, 0};
     MspPkPtr keys[2];
     StmInitializerPtr initializer[2];
@@ -348,7 +349,7 @@ TEST(stm, dynamicStake) {
 
     // Test with 2 parties, one with all the stake, one with none. In the second epoch we'll have three parties, so we
     // initialise the key array with a size of 3.
-    PartyId party_ids[2] = {1, 2};
+    PartyId party_ids[2] = {5, 13};
     Stake   party_stake[2] = {1, 0};
     MspPkPtr keys[3];
     StmInitializerPtr initializer[2];

@@ -128,7 +128,7 @@ use crate::error::{
     AggregationFailure, MultiVerificationFailure, RegisterError, VerificationFailure,
 };
 use crate::key_reg::ClosedKeyReg;
-use crate::merkle_tree::{concat_avk_with_msg, MTHashLeaf, MerkleTree, Path, MerkleTreeCommitment};
+use crate::merkle_tree::{concat_avk_with_msg, MTHashLeaf, MerkleTree, MerkleTreeCommitment, Path};
 use crate::mithril_proof::{MithrilProof, MithrilStatement, MithrilWitness};
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
 use crate::proof::ProverEnv;
@@ -237,7 +237,7 @@ where
     H: MTHashLeaf,
 {
     party_id: PartyId,
-    avk_idx: u64,
+    mt_index: u64,
     stake: Stake,
     params: StmParameters,
     avk: MerkleTree<H>,
@@ -371,15 +371,15 @@ impl StmInitializer {
         // Extract this signer's party index from the registry, i.e. the position of the merkle
         // tree leaf.
         let mut my_index = None;
-        for rp in closed_reg.retrieve_all().iter() {
+        for (i, rp) in closed_reg.retrieve_all().iter().enumerate() {
             if rp.party_id == self.party_id {
-                my_index = Some(rp.party_id);
+                my_index = Some(i as u64);
                 break;
             }
         }
         StmSigner {
             party_id: self.party_id,
-            avk_idx: my_index.unwrap_or_else(|| {
+            mt_index: my_index.unwrap_or_else(|| {
                 panic!(
                     "Initializer not registered: {}. Cannot participate as a signer.",
                     self.party_id
@@ -463,11 +463,11 @@ where
             // return pi
             let msgp = concat_avk_with_msg(&self.avk.to_commitment(), msg);
             let sigma = Msp::sig(&self.sk, &msgp);
-            let path = self.avk.get_path(self.avk_idx);
+            let path = self.avk.get_path(self.mt_index);
             Some(StmSig {
                 sigma,
                 pk: self.pk,
-                party: self.avk_idx,
+                party: self.mt_index,
                 stake: self.stake,
                 path,
             })
@@ -506,6 +506,7 @@ where
     H: MTHashLeaf + Clone,
 {
     /// Create a new `Clerk` from a closed registration instance.
+    /// todo: why does it consume the closed reg?
     pub fn from_registration(
         params: StmParameters,
         proof_env: E,
@@ -545,11 +546,11 @@ where
 
         if !ev_lt_phi(self.params.phi_f, ev, sig.stake, self.total_stake) {
             Err(VerificationFailure::LotteryLost)
-        } else if !self.avk.to_commitment().check(
-            &MTValue(sig.pk.mvk, sig.stake).to_bytes(),
-            sig.party,
-            &sig.path,
-        ) {
+        } else if !self
+            .avk
+            .to_commitment()
+            .check(&MTValue(sig.pk.mvk, sig.stake).to_bytes(), &sig.path)
+        {
             Err(VerificationFailure::InvalidMerkleTree(sig.path.clone()))
         } else if !Msp::ver(&msgp, &sig.pk.mvk, &sig.sigma) {
             Err(VerificationFailure::InvalidSignature(sig.sigma))
@@ -633,8 +634,13 @@ where
         Proof::Statement: From<MithrilStatement<H>>,
         Proof::Witness: From<MithrilWitness<H>>,
     {
-        StmVerifier::new(self.avk.to_commitment(), self.params, self.total_stake, self.proof_env.clone())
-            .verify_msig(msg, msig)
+        StmVerifier::new(
+            self.avk.to_commitment(),
+            self.params,
+            self.total_stake,
+            self.proof_env.clone(),
+        )
+        .verify_msig(msg, msig)
     }
 
     /// Given a slice of `indices` and one of `sigs`, this functions selects a single valid signature
@@ -778,9 +784,9 @@ pub fn ev_lt_phi(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> 
 /// Tree, but only the commitment.
 #[derive(Debug, Clone)]
 pub struct StmVerifier<H, E>
-    where
-        H: MTHashLeaf,
-        E: ProverEnv,
+where
+    H: MTHashLeaf,
+    E: ProverEnv,
 {
     avk_commitment: MerkleTreeCommitment<H>,
     params: StmParameters,
@@ -789,14 +795,19 @@ pub struct StmVerifier<H, E>
     verif_key: E::VerificationKey,
 }
 
-impl<H, E> StmVerifier<H,E>
-    where
-        H: MTHashLeaf,
-        E: ProverEnv,
+impl<H, E> StmVerifier<H, E>
+where
+    H: MTHashLeaf,
+    E: ProverEnv,
 {
     /// Generate a new StmVerifier. When creating a verifier from scratch, the top level application should validate
     /// that the avk_commitment, params, and total_stake are correct wrt some trusted state.
-    pub fn new(avk_commitment: MerkleTreeCommitment<H>, params: StmParameters, total_stake: Stake, proof_env: E) -> Self {
+    pub fn new(
+        avk_commitment: MerkleTreeCommitment<H>,
+        params: StmParameters,
+        total_stake: Stake,
+        proof_env: E,
+    ) -> Self {
         // If we ever consider proof environments with a trusted setup, we need to rethink the creation of the verifier
         let (_, verif_key) = proof_env.setup();
         Self {
@@ -804,16 +815,20 @@ impl<H, E> StmVerifier<H,E>
             params,
             total_stake,
             proof_env,
-            verif_key
+            verif_key,
         }
     }
 
     /// Verify an aggregated signature
-    pub fn verify_msig<Proof>(&self, msg: &[u8], sig: &StmMultiSig<Proof>) -> Result<(), MultiVerificationFailure<Proof>>
-        where
-            Proof: MithrilProof<Env = E>,
-            Proof::Statement: From<MithrilStatement<H>>,
-            Proof::Witness: From<MithrilWitness<H>>,
+    pub fn verify_msig<Proof>(
+        &self,
+        msg: &[u8],
+        sig: &StmMultiSig<Proof>,
+    ) -> Result<(), MultiVerificationFailure<Proof>>
+    where
+        Proof: MithrilProof<Env = E>,
+        Proof::Statement: From<MithrilStatement<H>>,
+        Proof::Witness: From<MithrilWitness<H>>,
     {
         let statement = MithrilStatement {
             // Specific to the message and signatures
@@ -840,7 +855,6 @@ impl<H, E> StmVerifier<H,E>
         Ok(())
     }
 }
-
 
 #[cfg(test)]
 mod tests {

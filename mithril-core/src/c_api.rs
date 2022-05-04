@@ -85,8 +85,20 @@ pub extern "C" fn free_stm_clerk(p: StmClerkPtr) -> i64 {
 }
 
 #[no_mangle]
-/// Frees and STM verifier pointer
+/// Frees an STM verifier pointer
 pub extern "C" fn free_stm_verifier(p: StmVerifierPtr) -> i64 {
+    unsafe {
+        if let Some(p) = p.as_mut() {
+            Box::from_raw(p);
+            return 0;
+        }
+        NULLPOINTERERR
+    }
+}
+
+#[no_mangle]
+/// Frees a closed registration pointer
+pub extern "C" fn free_closed_reg(p: ClosedKeyRegPtr) -> i64 {
     unsafe {
         if let Some(p) = p.as_mut() {
             Box::from_raw(p);
@@ -528,10 +540,7 @@ mod key_reg {
     }
 
     #[no_mangle]
-    pub extern "C" fn total_stake(
-        closed_reg: ClosedKeyRegPtr,
-        stake: &mut Stake
-    ) -> i64 {
+    pub extern "C" fn total_stake(closed_reg: ClosedKeyRegPtr, stake: &mut Stake) -> i64 {
         unsafe {
             if let Some(closed_reg) = closed_reg.as_ref() {
                 *stake = closed_reg.total_stake;
@@ -556,10 +565,12 @@ mod clerk {
         clerk: *mut StmClerkPtr,
     ) -> i64 {
         unsafe {
-            if let (Some(ref_closed_reg), Some(ref_clerk)) = (closed_reg.as_mut(), clerk.as_mut()) {
-                let closed_reg = *Box::from_raw(ref_closed_reg);
+            if let (Some(ref_closed_reg), Some(ref_clerk)) = (closed_reg.as_ref(), clerk.as_mut()) {
+                let closed_reg = ref_closed_reg;
                 *ref_clerk = Box::into_raw(Box::new(StmClerk::from_registration(
-                    params, TrivialEnv, closed_reg,
+                    params,
+                    TrivialEnv,
+                    closed_reg.clone(),
                 )));
                 return 0;
             }
@@ -679,8 +690,8 @@ mod clerk {
 }
 
 mod verifier {
-    use crate::error::MultiVerificationFailure;
     use super::*;
+    use crate::error::MultiVerificationFailure;
 
     /// A verifier can be generated from a merkle tree commitment, `StmParameters` and
     /// the total stake.
@@ -692,8 +703,11 @@ mod verifier {
         verifier_ptr: *mut StmVerifierPtr,
     ) -> i64 {
         unsafe {
-            if let (Some(avk_commitment), Some(verifier)) = (avk_commitment_ptr.as_ref(), verifier_ptr.as_mut()) {
-                let stm_verifier = StmVerifier::new(avk_commitment.clone(), params, total_stake, TrivialEnv);
+            if let (Some(avk_commitment), Some(verifier)) =
+                (avk_commitment_ptr.as_ref(), verifier_ptr.as_mut())
+            {
+                let stm_verifier =
+                    StmVerifier::new(avk_commitment.clone(), params, total_stake, TrivialEnv);
                 *verifier = Box::into_raw(Box::new(stm_verifier));
                 return 0;
             }
@@ -714,7 +728,7 @@ mod verifier {
     ) -> i64 {
         unsafe {
             if let (Some(ref_me), Some(ref_msig), Some(msg)) =
-            (me.as_ref(), msig.as_ref(), msg.as_ref())
+                (me.as_ref(), msig.as_ref(), msg.as_ref())
             {
                 let msg_str = CStr::from_ptr(msg);
                 let out = ref_me.verify_msig(msg_str.to_bytes(), ref_msig);

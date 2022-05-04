@@ -152,11 +152,7 @@ where
     /// \forall i : [0..k]. path[i] is a witness for (mvk[i]), stake[i] in avk
     fn check_path(&self, avk: &MerkleTreeCommitment<H>) -> Result<(), MithrilWitnessError<H::F>> {
         for sig in self.sigs.iter() {
-            if !avk.check(
-                &MTValue(sig.pk.mvk, sig.stake).to_bytes(),
-                sig.party,
-                &sig.path,
-            ) {
+            if !avk.check(&MTValue(sig.pk.mvk, sig.stake).to_bytes(), &sig.path) {
                 return Err(MithrilWitnessError::PathInvalid(sig.path.clone()));
             }
         }
