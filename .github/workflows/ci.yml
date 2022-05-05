@@ -706,8 +706,15 @@ jobs:
           name: mithril-signer
           path: ~/.cabal/bin/
 
+      - name: Download client
+        uses: actions/download-artifact@v3
+        with:
+          name: mithril-client
+          path: ~/.cabal/bin/
+
       - run: |
           chmod +x ~/.cabal/bin/mithril-aggregator
+          chmod +x ~/.cabal/bin/mithril-client
           chmod +x ~/.cabal/bin/mithril-signer
 
 

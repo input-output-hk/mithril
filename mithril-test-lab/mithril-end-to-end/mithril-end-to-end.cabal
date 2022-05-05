@@ -111,6 +111,7 @@ library
     CardanoNode
     Logging
     Mithril.Aggregator
+    Mithril.Client
     Mithril.Signer
     Paths_mithril_end_to_end
 
