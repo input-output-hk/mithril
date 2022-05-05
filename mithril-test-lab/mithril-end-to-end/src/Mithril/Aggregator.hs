@@ -6,6 +6,7 @@ module Mithril.Aggregator where
 
 import Control.Tracer (Tracer, traceWith)
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Base16 as Hex
 import Hydra.Prelude
 import qualified Paths_mithril_end_to_end as Pkg
 import System.Directory (doesFileExist)
@@ -59,7 +60,7 @@ data Beacon = Beacon
 
 digestOf :: Beacon -> Text
 digestOf Beacon {network, epoch, block} =
-  "digest-" <> network <> "-" <> show epoch <> "-" <> show block
+  Hex.encodeBase16 $ encodeUtf8 $ "digest-" <> network <> "-" <> show epoch <> "-" <> show block
 
 data Aggregator = Aggregator {aggregatorPort :: Int}
 
