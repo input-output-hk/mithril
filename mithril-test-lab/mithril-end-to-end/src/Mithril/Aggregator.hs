@@ -34,7 +34,7 @@ data Certificate = Certificate
   { hash :: Text,
     previous_hash :: Text,
     block :: Word64,
-    protocol_parameters :: ProtocolParameters,
+    protocol :: ProtocolParameters,
     digest :: Text,
     started_at :: UTCTime,
     completed_at :: UTCTime,
