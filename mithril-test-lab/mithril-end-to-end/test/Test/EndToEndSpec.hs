@@ -1,4 +1,5 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 module Test.EndToEndSpec where
@@ -13,12 +14,19 @@ import CardanoNode (ChainTip (..), RunningNode (..), cliQueryTip)
 import Control.Monad.Class.MonadSTM (modifyTVar, newTVarIO, readTVarIO)
 import Control.Monad.Class.MonadSay (MonadSay, say)
 import Control.Tracer (Tracer (Tracer))
-import Data.Aeson (Value)
+import Data.Aeson (Value, eitherDecode)
+import qualified Data.Text as Text
 import Hydra.Prelude
 import Logging (ClusterLog (..))
-import Mithril.Aggregator (Aggregator (..), withAggregator)
+import Mithril.Aggregator
+  ( Aggregator (..),
+    Certificate (Certificate, participants),
+    CertificatePending (CertificatePending, beacon),
+    digestOf,
+    withAggregator,
+  )
 import Mithril.Signer (Signer, withSigner)
-import Network.HTTP.Simple (getResponseBody, httpJSON, parseRequest)
+import Network.HTTP.Simple (getResponseBody, getResponseStatusCode, httpJSON, httpLBS, parseRequest)
 import Test.Hydra.Prelude
 
 spec :: Spec
@@ -40,19 +48,30 @@ spec =
               assertNetworkIsProducingBlock tr cluster
               case cluster of
                 RunningCluster {clusterNodes = node : _} -> do
-                  assertNodeIsProducingSnapshot tr node
+                  digest <- assertNodeIsProducingSnapshot tr node aggregatorPort
                   withSigner tmp (contramap SignerLog tr) aggregatorPort node $ \signer -> do
-                    assertSignerIsSigningSnapshot signer aggregatorPort
+                    assertSignerIsSigningSnapshot signer aggregatorPort digest
                     assertClientCanVerifySnapshot signer aggregatorPort
                 _ -> failure "No nodes in the cluster"
 
 newtype Snapshots = Snapshots [Value]
   deriving newtype (FromJSON)
 
-assertSignerIsSigningSnapshot :: Signer -> Int -> IO ()
-assertSignerIsSigningSnapshot _signer _aggregatorPort =
-  -- TODO: verify the signer signs a snapshot and sends it to the aggregator
-  pure ()
+assertSignerIsSigningSnapshot :: Signer -> Int -> Text -> IO ()
+assertSignerIsSigningSnapshot _signer aggregatorPort digest = go 10
+  where
+    go :: Int -> IO ()
+    go 0 = failure "Timeout exhausted"
+    go n = do
+      request <- parseRequest $ "http://localhost:" <> show aggregatorPort <> "/aggregator/certificate/" <> Text.unpack digest
+      response <- httpLBS request
+      case getResponseStatusCode response of
+        404 -> threadDelay 1 >> go (n -1)
+        200 ->
+          case eitherDecode (getResponseBody response) of
+            Right Certificate {participants} -> length participants `shouldBe` 1
+            Left err -> failure $ "invalid certificate body : " <> show err
+        other -> failure $ "unexpected status code: " <> show other
 
 assertClientCanVerifySnapshot :: Signer -> Int -> IO ()
 assertClientCanVerifySnapshot _signer aggregatorPort = do
@@ -60,11 +79,11 @@ assertClientCanVerifySnapshot _signer aggregatorPort = do
   Snapshots snapshotsList <- getResponseBody <$> httpJSON request
   length snapshotsList `shouldBe` 1
 
-assertNodeIsProducingSnapshot :: Tracer IO ClusterLog -> RunningNode -> IO ()
-assertNodeIsProducingSnapshot _tracer _cardanoNode =
-  -- TODO: We check the node is producing a snapshot at the right interval, eg. every
-  -- X blocks
-  pure ()
+assertNodeIsProducingSnapshot :: Tracer IO ClusterLog -> RunningNode -> Int -> IO Text
+assertNodeIsProducingSnapshot _tracer _cardanoNode aggregatorPort = do
+  request <- parseRequest $ "http://localhost:" <> show aggregatorPort <> "/aggregator/certificate-pending"
+  CertificatePending {beacon} <- getResponseBody <$> httpJSON request
+  pure $ digestOf beacon
 
 assertNetworkIsProducingBlock :: Tracer IO ClusterLog -> RunningCluster -> IO ()
 assertNetworkIsProducingBlock tracer = failAfter 30 . go (-1)
