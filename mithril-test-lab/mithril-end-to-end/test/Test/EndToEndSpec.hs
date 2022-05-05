@@ -67,10 +67,12 @@ assertSignerIsSigningSnapshot _signer aggregatorPort digest = go 10
       response <- httpLBS request
       case getResponseStatusCode response of
         404 -> threadDelay 1 >> go (n -1)
-        200 ->
-          case eitherDecode (getResponseBody response) of
-            Right Certificate {participants} -> length participants `shouldBe` 1
-            Left err -> failure $ "invalid certificate body : " <> show err
+        200 -> do
+          let body = getResponseBody response
+          case eitherDecode body of
+            Right Certificate {participants} ->
+              length participants `shouldBe` 5 -- FIXME: should be the number of registered signers but currently hardcoded
+            Left err -> failure $ "invalid certificate body : " <> show err <> ", raw body: '" <> show body <> "'"
         other -> failure $ "unexpected status code: " <> show other
 
 assertClientCanVerifySnapshot :: Signer -> Int -> IO ()
