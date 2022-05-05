@@ -1,3 +1,4 @@
+use hex::ToHex;
 use log::debug;
 use mithril_aggregator::fake_data;
 use std::str;
@@ -116,16 +117,16 @@ impl Client {
             .verifier
             .as_ref()
             .ok_or_else(|| MISSING_VERIFIER.to_string())?;
-        let fake_digest = fake_data::digest();
-        debug!("Fake digest {:?}", fake_digest);
-        let certificate_hash = str::from_utf8(&fake_digest).map_err(|e| e.to_string())?;
+        let fake_digest = &fake_data::digest();
+        let certificate_hash = &fake_digest.encode_hex::<String>();
+        debug!("Fake certificate hash {:?}", certificate_hash);
         let certificate_details = aggregator_handler
             .get_certificate_details(certificate_hash)
             .await
             .map_err(|e| e.to_string())?;
         verifier
             .verify_multi_signature(
-                &fake_digest,
+                fake_digest,
                 certificate_details.multisignature.as_ref(),
                 &certificate_details.participants,
                 &certificate_details.protocol_parameters,
