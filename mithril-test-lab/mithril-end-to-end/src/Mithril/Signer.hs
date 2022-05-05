@@ -51,6 +51,14 @@ signerProcess cwd aggregatorEndpoint = do
   binDir <- Pkg.getBinDir
   baseEnv <- getEnvironment
   let signer = binDir </> "mithril-signer"
-      env = Just (("AGGREGATOR_ENDPOINT", toString aggregatorEndpoint) : ("NETWORK", "testnet") : baseEnv)
+      env =
+        Just $
+          [ ("AGGREGATOR_ENDPOINT", toString aggregatorEndpoint),
+            ("NETWORK", "testnet"),
+            ("PARTY_ID", "0"),
+            ("RUN_INTERVAL", "5")
+          ]
+            <> baseEnv
+
   unlessM (doesFileExist signer) $ failure $ "cannot find mithril-signer executable in expected location (" <> binDir <> ")"
-  pure $ (proc signer []) {cwd, env}
+  pure $ (proc signer ["-vvv"]) {cwd, env}

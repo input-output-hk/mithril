@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveAnyClass #-}
+{-# LANGUAGE DuplicateRecordFields #-}
 
 -- | Controls Mithril aggregator service.
 module Mithril.Aggregator where
@@ -13,6 +14,52 @@ import System.FilePath ((</>))
 import System.Process (CreateProcess (..), StdStream (UseHandle), proc, withCreateProcess)
 import Test.Hydra.Prelude (checkProcessHasNotDied, failure)
 import Test.Network.Ports (randomUnusedTCPPort)
+
+data ProtocolParameters = ProtocolParameters
+  { k :: Word64,
+    m :: Word64,
+    phi_f :: Float
+  }
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+
+data SignerWithStake = SignerWithStake
+  { party_id :: Word64,
+    verification_key :: Text,
+    stake :: Word64
+  }
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+
+data Certificate = Certificate
+  { hash :: Text,
+    previous_hash :: Text,
+    block :: Word64,
+    protocol_parameters :: ProtocolParameters,
+    digest :: Text,
+    started_at :: UTCTime,
+    completed_at :: UTCTime,
+    participants :: [SignerWithStake],
+    multisignature :: Text
+  }
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+
+data CertificatePending = CertificatePending
+  { beacon :: Beacon,
+    protocol :: ProtocolParameters,
+    previous_hash :: Text,
+    signers :: [SignerWithStake]
+  }
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+
+data Beacon = Beacon
+  { network :: Text,
+    epoch :: Word64,
+    block :: Word64
+  }
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+
+digestOf :: Beacon -> Text
+digestOf Beacon {network, epoch, block} =
+  "digest-" <> network <> "-" <> show epoch <> "-" <> show block
 
 data Aggregator = Aggregator {aggregatorPort :: Int}
 
@@ -52,4 +99,4 @@ aggregatorProcess cwd port = do
           ]
             <> baseEnv
   unlessM (doesFileExist aggregator) $ failure $ "cannot find mithril-aggregator executable in expected location (" <> binDir <> ")"
-  pure $ (proc aggregator ["--server-port", show port]) {cwd, env}
+  pure $ (proc aggregator ["--server-port", show port, "-vvv"]) {cwd, env}
