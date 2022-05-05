@@ -25,6 +25,7 @@ import Mithril.Aggregator
     digestOf,
     withAggregator,
   )
+import Mithril.Client (runClient)
 import Mithril.Signer (Signer, withSigner)
 import Network.HTTP.Simple (getResponseBody, getResponseStatusCode, httpJSON, httpLBS, parseRequest)
 import Test.Hydra.Prelude
@@ -40,7 +41,7 @@ spec =
                   networkId = defaultNetworkId
                 }
         -- Start aggregator service on some random port
-        withAggregator tmp (contramap AggregatorLog tr) $ \Aggregator {aggregatorPort} -> do
+        withAggregator tmp (contramap AggregatorLog tr) $ \aggregator@Aggregator {aggregatorPort} -> do
           -- Start cardano nodes cluster
           withCluster tr config $
             \cluster -> do
@@ -51,7 +52,7 @@ spec =
                   digest <- assertNodeIsProducingSnapshot tr node aggregatorPort
                   withSigner tmp (contramap SignerLog tr) aggregatorPort node $ \signer -> do
                     assertSignerIsSigningSnapshot signer aggregatorPort digest
-                    assertClientCanVerifySnapshot signer aggregatorPort
+                    assertClientCanVerifySnapshot tmp aggregator digest
                 _ -> failure "No nodes in the cluster"
 
 newtype Snapshots = Snapshots [Value]
@@ -75,11 +76,10 @@ assertSignerIsSigningSnapshot _signer aggregatorPort digest = go 10
             Left err -> failure $ "invalid certificate body : " <> show err <> ", raw body: '" <> show body <> "'"
         other -> failure $ "unexpected status code: " <> show other
 
-assertClientCanVerifySnapshot :: Signer -> Int -> IO ()
-assertClientCanVerifySnapshot _signer aggregatorPort = do
-  request <- parseRequest $ "http://localhost:" <> show aggregatorPort <> "/aggregator/snapshots"
-  Snapshots snapshotsList <- getResponseBody <$> httpJSON request
-  length snapshotsList `shouldBe` 1
+assertClientCanVerifySnapshot :: FilePath -> Aggregator -> Text -> IO ()
+assertClientCanVerifySnapshot workDir aggregator digest =
+  -- we only check the client exits with success
+  void $ runClient workDir aggregator ["restore", digest]
 
 assertNodeIsProducingSnapshot :: Tracer IO ClusterLog -> RunningNode -> Int -> IO Text
 assertNodeIsProducingSnapshot _tracer _cardanoNode aggregatorPort = do
