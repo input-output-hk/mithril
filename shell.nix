@@ -44,6 +44,8 @@ let
   tools = [
     pkgs.rustc
     pkgs.cargo
+    pkgs.rls
+    pkgs.rustfmt
     pkgs.pkgconfig
     pkgs.haskellPackages.ghcid
     pkgs.haskellPackages.hspec-discover
