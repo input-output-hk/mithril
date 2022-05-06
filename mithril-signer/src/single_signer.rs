@@ -1,8 +1,10 @@
-// @todo: remove this
+// TODO: remove this
 #![allow(dead_code)]
 
 use ark_bls12_377::Bls12_377;
 use hex::{FromHex, ToHex};
+
+use slog_scope::{trace, warn};
 use std::io::Cursor;
 use thiserror::Error;
 
@@ -14,7 +16,7 @@ use mithril::stm::{
     Index, MTValue, PartyId, Stake, StmClerk, StmInitializer, StmMultiSig, StmParameters, StmSig,
     StmSigner,
 };
-use mithril_aggregator::entities;
+use mithril_aggregator::entities::{self, SignerWithStake, SingleSignature};
 
 pub type Bytes = Vec<u8>;
 
@@ -36,12 +38,8 @@ pub type ProtocolMultiSignature = StmMultiSig<Bls12_377, ProtocolProof>;
 pub type ProtocolSignerVerificationKey = MspPk<Bls12_377>;
 pub type ProtocolSignerSecretKey = MspSk<Bls12_377>;
 
-use mithril_aggregator::entities::{SignerWithStake, SingleSignature};
 #[cfg(test)]
 use mockall::automock;
-use rand_chacha::ChaCha20Rng;
-use rand_core::SeedableRng;
-use slog_scope::{trace, warn};
 
 #[cfg_attr(test, automock)]
 pub trait SingleSigner {
@@ -103,8 +101,7 @@ impl MithrilSingleSigner {
         }
         let closed_reg = key_reg.close();
 
-        let seed = [0u8; 32];
-        let mut rng = ChaCha20Rng::from_seed(seed);
+        let mut rng = rand::thread_rng();
         let mut initializer = StmInitializer::setup(
             protocol_parameters,
             self.party_id as ProtocolPartyId,
