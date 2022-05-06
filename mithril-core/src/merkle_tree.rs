@@ -1,7 +1,7 @@
 //! Creation and verification of Merkle Trees
 use crate::error::MerkleTreeError;
 use digest::{Digest, FixedOutput};
-use std::convert::TryFrom;
+use std::convert::{TryFrom};
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
@@ -27,42 +27,6 @@ where
 
     msgp
 }
-//
-// /// This trait describes a hashing algorithm. For mithril we need
-// /// (1) a way to inject stored values into the tree
-// /// (2) a way to combine hashes
-// /// (H_p is used for both of these in the paper)
-// /// todo: I think this trait complicates things. I think with a Digest it is enough
-// pub trait MTHashLeaf: Clone {
-//     /// The output domain of the hasher.
-//     type F: Eq + Clone + Debug;
-//
-//     /// Create a new hasher
-//     fn new() -> Self;
-//
-//     /// Output size of hashing algorithm
-//     fn output_size() -> usize;
-//
-//     /// This should be some "null" representative
-//     fn zero() -> Self::F;
-//
-//     /// How to extract hashes as bytes
-//     fn root_bytes(h: &Self::F) -> Vec<u8>;
-//
-//     /// How to map (or label) values with their hash values
-//     fn inject(&mut self, v: &[u8]) -> Self::F;
-//
-//     /// Combine (and hash) two hash values
-//     fn hash_children(&mut self, left: &Self::F, right: &Self::F) -> Self::F;
-//
-//     /// Hash together an arbitrary number of values,
-//     /// Reducing the input with `zero()` as the initial value
-//     /// and `hash_children` as the operation
-//     fn hash(&mut self, leaf: &[Self::F]) -> Self::F {
-//         leaf.iter()
-//             .fold(Self::zero(), |h, l| self.hash_children(&h, l))
-//     }
-// }
 
 /// MerkleTree commitment. This structure differs from `MerkleTree` in that it does not contain
 /// all elements, which are not always necessary.
@@ -275,6 +239,45 @@ where
     }
 }
 
+impl<D: Digest + Clone + FixedOutput> Path<D> {
+    /// Convert to bytes
+    ///
+    /// # Layout
+    /// * Index representing the position in the Merkle Tree
+    /// * Size of the Path
+    /// * Path of hashes
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut output = Vec::new();
+        output.extend_from_slice(&u64::try_from(self.index).unwrap().to_be_bytes());
+        output.extend_from_slice(&u64::try_from(self.values.len()).unwrap().to_be_bytes());
+        for value in &self.values {
+            output.extend_from_slice(value)
+        }
+
+        output
+    }
+
+    /// Convert a byte slice into a Path
+    pub fn from_bytes(bytes: &[u8]) -> Result<Path<D>, MerkleTreeError> {
+        // todo: handle conversions
+        let mut u64_bytes = [0u8; 8];
+        u64_bytes.copy_from_slice(&bytes[..8]);
+        let index = usize::try_from(u64::from_be_bytes(u64_bytes)).unwrap();
+        u64_bytes.copy_from_slice(&bytes[8..16]);
+        let len = usize::try_from(u64::from_be_bytes(u64_bytes)).unwrap();
+        let mut values = Vec::with_capacity(len);
+        for i in 0..(len as usize) {
+            values.push(bytes[16 + i * D::output_size()..16 + (i + 1) * D::output_size()].to_vec());
+        }
+
+        Ok(Path {
+            values,
+            index,
+            hasher: Default::default()
+        })
+    }
+}
+
 //////////////////
 // Heap Helpers //
 //////////////////
@@ -330,6 +333,16 @@ mod tests {
             values.iter().enumerate().for_each(|(i, _v)| {
                 let pf = t.get_path(i);
                 assert!(t.to_commitment().check(&values[i], &pf).is_ok());
+            })
+        }
+
+        #[test]
+        fn test_bytes_path((t, values) in arb_tree(30)) {
+            values.iter().enumerate().for_each(|(i, _v)| {
+                let pf = t.get_path(i);
+                let bytes = pf.to_bytes();
+                let deserialised = Path::from_bytes(&bytes).unwrap();
+                assert!(t.to_commitment().check(&values[i], &deserialised).is_ok());
             })
         }
     }

@@ -131,7 +131,7 @@ use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
 use digest::{Digest, FixedOutput};
 use rand_core::{CryptoRng, RngCore};
 use std::collections::{HashMap, HashSet};
-use std::convert::{From, TryInto};
+use std::convert::{From, TryFrom, TryInto};
 use std::sync::Arc;
 #[cfg(feature = "num-integer-backend")]
 use {
@@ -262,6 +262,7 @@ pub struct StmSig<D: Clone + Digest + FixedOutput> {
     /// The signature from the underlying MSP scheme.
     pub sigma: MspSig,
     /// The pubkey from the underlying MSP scheme.
+    // todo: do we need the full pk? or just the mvk?
     pub pk: MspPk,
     /// The party that made this signature.
     pub party: PartyId,
@@ -271,6 +272,52 @@ pub struct StmSig<D: Clone + Digest + FixedOutput> {
     pub index: Index,
     /// The path through the MerkleTree for this party.
     pub path: Path<D>,
+}
+
+impl<D: Clone + Digest + FixedOutput> StmSig<D> {
+    /// Convert an `StmSig` into bytes
+    ///
+    /// # Layout
+    ///
+    /// * Party id
+    /// * Stake
+    /// * Index of the signature
+    /// * Public Key
+    /// * Msp Signature
+    /// * Merkle Path for (Public Key, Stake)
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut output = Vec::new();
+        output.extend_from_slice(&self.party.to_be_bytes());
+        output.extend_from_slice(&self.stake.to_be_bytes());
+        output.extend_from_slice(&self.index.to_be_bytes());
+        output.extend_from_slice(&self.pk.to_bytes());
+        output.extend_from_slice(&self.sigma.to_bytes());
+        output.extend_from_slice(&self.path.to_bytes());
+        output
+    }
+
+    /// Convert an `StmSig` from a byte slice
+    pub fn from_bytes(bytes: &[u8]) -> Result<StmSig<D>, MultiSignatureError> {
+        let mut u64_bytes = [0u8; 8];
+        u64_bytes.copy_from_slice(&bytes[..8]);
+        let party = u64::from_be_bytes(u64_bytes);
+        u64_bytes.copy_from_slice(&bytes[8..16]);
+        let stake = u64::from_be_bytes(u64_bytes);
+        u64_bytes.copy_from_slice(&bytes[16..24]);
+        let index = u64::from_be_bytes(u64_bytes);
+        let pk = MspPk::from_bytes(&bytes[24..])?;
+        let sigma = MspSig::from_bytes(&bytes[216..])?;
+        let path = Path::from_bytes(&bytes[264..])?;
+
+        Ok(StmSig {
+            sigma,
+            pk,
+            party,
+            stake,
+            index,
+            path
+        })
+    }
 }
 
 /// `StmMultiSig` uses the "concatenation" proving system. This means that the aggregated
@@ -341,6 +388,39 @@ impl<D: Clone + Digest + FixedOutput> StmMultiSig<D> {
         }
 
         Ok(())
+    }
+
+    /// Convert multi signature to bytes
+    ///
+    /// # Layout
+    /// * Number of signatures
+    /// * Size of a signature
+    /// * Signatures
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut out = Vec::new();
+        out.extend_from_slice(&u64::try_from(self.signatures.len()).unwrap().to_be_bytes());
+        out.extend_from_slice(&u64::try_from(self.signatures[0].to_bytes().len()).unwrap().to_be_bytes());
+        for sig in &self.signatures {
+            out.extend_from_slice(&sig.to_bytes())
+        }
+        out
+    }
+
+    /// Convert a `StmMultiSig` from a byte slice
+    pub fn from_bytes(bytes: &[u8]) -> Result<StmMultiSig<D>, MultiSignatureError> {
+        let mut u64_bytes = [0u8; 8];
+        u64_bytes.copy_from_slice(&bytes[..8]);
+        let size = usize::try_from(u64::from_be_bytes(u64_bytes)).unwrap();
+        u64_bytes.copy_from_slice(&bytes[8..16]);
+        let sig_size = usize::try_from(u64::from_be_bytes(u64_bytes)).unwrap();
+        let mut signatures = Vec::with_capacity(size);
+        for i in 0..size {
+            signatures.push(StmSig::from_bytes(&bytes[16 + i * sig_size..16 + (i + 1) * sig_size])?);
+        }
+
+        Ok(StmMultiSig {
+            signatures
+        })
     }
 }
 
@@ -1087,25 +1167,43 @@ mod tests {
         }
     }
 
-    // proptest! {
-    //     #![proptest_config(ProptestConfig::with_cases(10))]
-    //     #[test]
-    //     fn test_sig_serialize_deserialize(nparties in 2_usize..10,
-    //                                       msg in any::<[u8;16]>()) {
-    //         let params = StmParameters { m: 10, k: 1, phi_f: 1.0 };
-    //         let ps = setup_equal_parties(params, nparties);
-    //         let clerk = StmClerk::from_signer(&ps[0]);
-    //
-    //         let all_ps: Vec<usize> = (0..nparties).collect();
-    //         let (ixs, sigs) = find_signatures(10, &msg, &ps, &all_ps);
-    //         let msig = clerk.aggregate::<ConcatProof<Bls12_377,H, F>>(&sigs, &ixs, &msg);
-    //         if let Ok(aggr) = msig {
-    //                 let bytes: Vec<u8> = ark_ff::to_bytes!(aggr).unwrap();
-    //                 let aggr2 = StmMultiSig::read(&bytes[..]).unwrap();
-    //                 assert!(clerk.verify_msig::<ConcatProof<Bls12_377,H, F>>(&aggr2, &msg).is_ok());
-    //         }
-    //     }
-    // }
+    proptest! {
+        #![proptest_config(ProptestConfig::with_cases(10))]
+
+        #[test]
+        fn test_sig_serialize_deserialize(msg in any::<[u8;16]>()) {
+            let nparties = 2;
+            let params = StmParameters { m: (nparties as u64), k: 1, phi_f: 0.2 };
+            let ps = setup_equal_parties(params, nparties);
+            let p = &ps[0];
+            let clerk = StmClerk::from_signer(p);
+
+            for index in 0..nparties {
+                if let Some(sig) = p.sign(&msg, index as u64) {
+                    let bytes = sig.to_bytes();
+                    let sig_deser = StmSig::<D>::from_bytes(&bytes).unwrap();
+                    assert!(clerk.verify_sig(&sig_deser, &msg).is_ok());
+                }
+            }
+        }
+
+        #[test]
+        fn test_multisig_serialize_deserialize(nparties in 2_usize..10,
+                                          msg in any::<[u8;16]>()) {
+            let params = StmParameters { m: 10, k: 1, phi_f: 1.0 };
+            let ps = setup_equal_parties(params, nparties);
+            let clerk = StmClerk::from_signer(&ps[0]);
+
+            let all_ps: Vec<usize> = (0..nparties).collect();
+            let sigs = find_signatures(10, &msg, &ps, &all_ps);
+            let msig = clerk.aggregate(&sigs, &msg);
+            if let Ok(aggr) = msig {
+                    let bytes: Vec<u8> = aggr.to_bytes();
+                    let aggr2 = StmMultiSig::from_bytes(&bytes).unwrap();
+                    assert!(clerk.verify_msig(&aggr2, &msg).is_ok());
+            }
+        }
+    }
 
     /// Pick N between min and max, and then
     /// generate a vector of N stakes summing to N*tstake,
