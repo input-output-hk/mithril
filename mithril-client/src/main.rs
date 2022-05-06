@@ -71,7 +71,7 @@ enum Commands {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), String> {
     // Load args
     let args = Args::parse();
 
@@ -88,9 +88,9 @@ async fn main() {
         .add_source(config::File::with_name(&format!("./config/{}.json", run_mode)).required(false))
         .add_source(config::Environment::default())
         .build()
-        .unwrap()
+        .map_err(|e| format!("configuration build error: {}", e))?
         .try_deserialize()
-        .unwrap();
+        .map_err(|e| format!("configuration deserialize error: {}", e))?;
     debug!("{:?}", config);
 
     // Init dependencies
@@ -143,10 +143,11 @@ docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind
             Err(err) => pretty_print_error(err),
         },
     }
+    Ok(())
 }
 
 /// Pretty print error
-fn pretty_print_error(err: String) {
+fn pretty_print_error(err: impl std::error::Error) {
     println!("An error occurred:");
-    println!("{:?}", err);
+    println!("{}", err);
 }

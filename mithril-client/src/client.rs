@@ -2,24 +2,42 @@ use hex::ToHex;
 use log::debug;
 use mithril_aggregator::fake_data;
 use std::str;
+use thiserror::Error;
 
-use crate::aggregator::AggregatorHandler;
+use crate::aggregator;
 use crate::entities::*;
-use crate::verifier::Verifier;
+use crate::verifier;
 
 pub const MISSING_AGGREGATOR_HANDLER: &str = "missing aggregator handler";
 pub const MISSING_VERIFIER: &str = "missing verifier";
 
 /// AggregatorHandlerWrapper wraps an AggregatorHandler
-pub type AggregatorHandlerWrapper = Box<dyn AggregatorHandler>;
+pub type AggregatorHandlerWrapper = Box<dyn aggregator::AggregatorHandler>;
 
 /// VerifierWrapper wraps a Verifier
-pub type VerifierWrapper = Box<dyn Verifier>;
+pub type VerifierWrapper = Box<dyn verifier::Verifier>;
+
+#[derive(Error, Debug)]
+pub enum ClientError {
+    #[error("a dependency is missing: '{0}'")]
+    MissingDependency(String),
+    #[error("an input is invalid: '{0}'")]
+    InvalidInput(String),
+    #[error("aggregator handler error: '{0}'")]
+    AggregatorHandlerError(#[from] aggregator::AggregatorHandlerError),
+    #[error("verifier error: '{0}'")]
+    VerifierError(#[from] verifier::ProtocolError),
+}
 
 /// Mithril client wrapper
 pub struct Client {
+    /// Cardano network
     pub network: String,
+
+    /// Aggregator handler dependency that interacts with an aggregator
     pub aggregator_handler: Option<AggregatorHandlerWrapper>,
+
+    /// Verifier dependency that verifies certificates and their multi signatures
     pub verifier: Option<VerifierWrapper>,
 }
 
@@ -49,33 +67,31 @@ impl Client {
     }
 
     /// List snapshots
-    pub async fn list_snapshots(&self) -> Result<Vec<SnapshotListItem>, String> {
+    pub async fn list_snapshots(&self) -> Result<Vec<SnapshotListItem>, ClientError> {
         debug!("List snapshots");
-        let aggregator_handler = &self
-            .aggregator_handler
-            .as_ref()
-            .ok_or_else(|| MISSING_AGGREGATOR_HANDLER.to_string())?;
+        let aggregator_handler = &self.aggregator_handler.as_ref().ok_or_else(|| {
+            ClientError::MissingDependency(MISSING_AGGREGATOR_HANDLER.to_string())
+        })?;
         Ok(aggregator_handler
             .list_snapshots()
             .await
-            .map_err(|e| e.to_string())?
+            .map_err(ClientError::AggregatorHandlerError)?
             .iter()
             .map(|snapshot| convert_to_list_item(snapshot, self.network.clone()))
             .collect::<Vec<SnapshotListItem>>())
     }
 
     /// Show a snapshot
-    pub async fn show_snapshot(&self, digest: &str) -> Result<Vec<SnapshotFieldItem>, String> {
+    pub async fn show_snapshot(&self, digest: &str) -> Result<Vec<SnapshotFieldItem>, ClientError> {
         debug!("Show snapshot {}", digest);
-        let aggregator_handler = &self
-            .aggregator_handler
-            .as_ref()
-            .ok_or_else(|| MISSING_AGGREGATOR_HANDLER.to_string())?;
+        let aggregator_handler = &self.aggregator_handler.as_ref().ok_or_else(|| {
+            ClientError::MissingDependency(MISSING_AGGREGATOR_HANDLER.to_string())
+        })?;
         Ok(convert_to_field_items(
             &aggregator_handler
                 .get_snapshot_details(digest)
                 .await
-                .map_err(|e| e.to_string())?,
+                .map_err(ClientError::AggregatorHandlerError)?,
             self.network.clone(),
         ))
     }
@@ -85,45 +101,44 @@ impl Client {
         &self,
         digest: &str,
         location_index: isize,
-    ) -> Result<(String, String), String> {
+    ) -> Result<(String, String), ClientError> {
         debug!("Download snapshot {}", digest);
-        let aggregator_handler = &self
-            .aggregator_handler
-            .as_ref()
-            .ok_or_else(|| MISSING_AGGREGATOR_HANDLER.to_string())?;
+        let aggregator_handler = &self.aggregator_handler.as_ref().ok_or_else(|| {
+            ClientError::MissingDependency(MISSING_AGGREGATOR_HANDLER.to_string())
+        })?;
         let snapshot = aggregator_handler
             .get_snapshot_details(digest)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(ClientError::AggregatorHandlerError)?;
+
         let from = snapshot
             .locations
             .get((location_index - 1) as usize)
-            .unwrap()
+            .ok_or_else(|| ClientError::InvalidInput("invalid location index".to_string()))?
             .to_owned();
         match aggregator_handler.download_snapshot(digest, &from).await {
             Ok(to) => Ok((from, to)),
-            Err(err) => Err(err.to_string()),
+            Err(err) => Err(ClientError::AggregatorHandlerError(err)),
         }
     }
 
     /// Restore a snapshot by digest
-    pub async fn restore_snapshot(&self, digest: &str) -> Result<String, String> {
+    pub async fn restore_snapshot(&self, digest: &str) -> Result<String, ClientError> {
         debug!("Restore snapshot {}", digest);
-        let aggregator_handler = &self
-            .aggregator_handler
-            .as_ref()
-            .ok_or_else(|| MISSING_AGGREGATOR_HANDLER.to_string())?;
+        let aggregator_handler = &self.aggregator_handler.as_ref().ok_or_else(|| {
+            ClientError::MissingDependency(MISSING_AGGREGATOR_HANDLER.to_string())
+        })?;
         let verifier = &self
             .verifier
             .as_ref()
-            .ok_or_else(|| MISSING_VERIFIER.to_string())?;
+            .ok_or_else(|| ClientError::MissingDependency(MISSING_VERIFIER.to_string()))?;
         let fake_digest = &fake_data::digest();
         let certificate_hash = &fake_digest.encode_hex::<String>();
         debug!("Fake certificate hash {:?}", certificate_hash);
         let certificate_details = aggregator_handler
             .get_certificate_details(certificate_hash)
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(ClientError::AggregatorHandlerError)?;
         verifier
             .verify_multi_signature(
                 fake_digest,
@@ -131,11 +146,11 @@ impl Client {
                 &certificate_details.participants,
                 &certificate_details.protocol_parameters,
             )
-            .map_err(|e| e.to_string())?;
+            .map_err(ClientError::VerifierError)?;
         aggregator_handler
             .unpack_snapshot(digest)
             .await
-            .map_err(|e| e.to_string())
+            .map_err(ClientError::AggregatorHandlerError)
     }
 }
 
