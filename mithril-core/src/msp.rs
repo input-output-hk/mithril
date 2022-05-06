@@ -58,6 +58,9 @@ use std::cmp::Ordering;
 use std::hash::{Hash, Hasher};
 use std::iter::Sum;
 use std::ops::Sub;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::de::Visitor;
+use serde::ser::SerializeSeq;
 
 /// Struct used to namespace the functions.
 #[derive(Debug)]
@@ -189,7 +192,7 @@ pub struct MspPoP {
 }
 
 /// MSP public key, contains the verification key and proof of posession.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct MspPk {
     /// The verification key.
     pub mvk: MspMvk,
@@ -478,6 +481,180 @@ impl Msp {
         output.copy_from_slice(hasher.as_slice());
 
         output
+    }
+}
+
+
+impl Serialize for MspSk
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(32))?;
+        for e in self.to_bytes().iter() {
+            seq.serialize_element(e)?;
+        }
+        seq.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for MspSk {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where D: Deserializer<'de>
+    {
+        struct MspSkVisitor;
+
+        impl<'de> Visitor<'de> for MspSkVisitor {
+            type Value = MspSk;
+
+            fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+                formatter.write_str("a multi signature secret key")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<MspSk, A::Error>
+                where A: serde::de::SeqAccess<'de>
+            {
+                let mut bytes = [0u8; 32];
+                for i in 0..32 {
+                    bytes[i] = seq.next_element()?
+                        .ok_or(serde::de::Error::invalid_length(i, &"expected 32 bytes"))?;
+                }
+                MspSk::from_bytes(&bytes).map_err(|_| serde::de::Error::custom("decompression failed"))
+            }
+        }
+
+        deserializer.deserialize_tuple(32, MspSkVisitor)
+    }
+}
+
+
+impl Serialize for MspMvk
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(96))?;
+        for e in self.to_bytes().iter() {
+            seq.serialize_element(e)?;
+        }
+        seq.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for MspMvk {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where D: Deserializer<'de>
+    {
+        struct MspMvkVisitor;
+
+        impl<'de> Visitor<'de> for MspMvkVisitor {
+            type Value = MspMvk;
+
+            fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+                formatter.write_str("a multi signature secret key")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<MspMvk, A::Error>
+                where A: serde::de::SeqAccess<'de>
+            {
+                let mut bytes = [0u8; 96];
+                for i in 0..96 {
+                    bytes[i] = seq.next_element()?
+                        .ok_or(serde::de::Error::invalid_length(i, &"expected 32 bytes"))?;
+                }
+                MspMvk::from_bytes(&bytes).map_err(|_| serde::de::Error::custom("decompression failed"))
+            }
+        }
+
+        deserializer.deserialize_tuple(96, MspMvkVisitor)
+    }
+}
+
+impl Serialize for MspPoP
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(96))?;
+        for e in self.to_bytes().iter() {
+            seq.serialize_element(e)?;
+        }
+        seq.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for MspPoP {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where D: Deserializer<'de>
+    {
+        struct MspPoPVisitor;
+
+        impl<'de> Visitor<'de> for MspPoPVisitor {
+            type Value = MspPoP;
+
+            fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+                formatter.write_str("a multi signature secret key")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<MspPoP, A::Error>
+                where A: serde::de::SeqAccess<'de>
+            {
+                let mut bytes = [0u8; 96];
+                for i in 0..96 {
+                    bytes[i] = seq.next_element()?
+                        .ok_or(serde::de::Error::invalid_length(i, &"expected 32 bytes"))?;
+                }
+                MspPoP::from_bytes(&bytes).map_err(|_| serde::de::Error::custom("decompression failed"))
+            }
+        }
+
+        deserializer.deserialize_tuple(96, MspPoPVisitor)
+    }
+}
+
+impl Serialize for MspSig
+{
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(48))?;
+        for e in self.to_bytes().iter() {
+            seq.serialize_element(e)?;
+        }
+        seq.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for MspSig {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where D: Deserializer<'de>
+    {
+        struct MspSigVisitor;
+
+        impl<'de> Visitor<'de> for MspSigVisitor {
+            type Value = MspSig;
+
+            fn expecting(&self, formatter: &mut ::core::fmt::Formatter) -> ::core::fmt::Result {
+                formatter.write_str("a multi signature secret key")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<MspSig, A::Error>
+                where A: serde::de::SeqAccess<'de>
+            {
+                let mut bytes = [0u8; 48];
+                for i in 0..48 {
+                    bytes[i] = seq.next_element()?
+                        .ok_or(serde::de::Error::invalid_length(i, &"expected 32 bytes"))?;
+                }
+                MspSig::from_bytes(&bytes).map_err(|_| serde::de::Error::custom("decompression failed"))
+            }
+        }
+
+        deserializer.deserialize_tuple(96, MspSigVisitor)
     }
 }
 

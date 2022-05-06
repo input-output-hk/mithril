@@ -493,6 +493,8 @@ dependencies = [
  "rand_core 0.6.3",
  "rayon",
  "rug",
+ "serde",
+ "serde_json",
  "sha2",
  "thiserror",
  "typenum",
