@@ -183,10 +183,7 @@ fn local_reg(ids: &[(u64, u64)], pks: &[MspPk]) -> ClosedKeyReg<H> {
     // todo: maybe its cleaner to have a `StmPublic` instance that covers the "shareable"
     // data, such as the public key, stake and id.
     for (&pk, id) in pks.iter().zip(ids.iter()) {
-        match local_keyreg.register(id.0, pk) {
-            Err(e) => panic!("{:?}", e),
-            Ok(()) => (),
-        }
+        local_keyreg.register(id.0, pk).unwrap();
     }
     local_keyreg.close()
 }

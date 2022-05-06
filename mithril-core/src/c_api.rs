@@ -1,12 +1,7 @@
 //! C api. All functions return an i64, with 0 upon success, and -99 if the returned pointer
 //! is null. Other error codes are function dependent.
 use crate::key_reg::{ClosedKeyReg, KeyReg};
-use crate::{
-    merkle_tree::MerkleTreeCommitment,
-    mithril_proof::concat_proofs::{ConcatProof, TrivialEnv},
-    msp::MspPk,
-    stm::*,
-};
+use crate::{merkle_tree::MerkleTreeCommitment, msp::MspPk, stm::*};
 use rand_core::OsRng;
 use std::ffi::CStr;
 use std::os::raw::c_char;
@@ -16,11 +11,11 @@ pub const NULLPOINTERERR: i64 = -99;
 type H = blake2::Blake2b;
 type MspPkPtr = *mut MspPk;
 type SigPtr = *mut StmSig<H>;
-type MultiSigPtr = *mut StmMultiSig<ConcatProof<H>>;
+type MultiSigPtr = *mut StmMultiSig<H>;
 type StmInitializerPtr = *mut StmInitializer;
 type StmSignerPtr = *mut StmSigner<H>;
-type StmClerkPtr = *mut StmClerk<H, TrivialEnv>;
-type StmVerifierPtr = *mut StmVerifier<H, TrivialEnv>;
+type StmClerkPtr = *mut StmClerk<H>;
+type StmVerifierPtr = *mut StmVerifier<H>;
 type MerkleTreeCommitmentPtr = *mut MerkleTreeCommitment<H>;
 type KeyRegPtr = *mut KeyReg;
 type ClosedKeyRegPtr = *mut ClosedKeyReg<H>;
@@ -552,7 +547,7 @@ mod key_reg {
 
 mod clerk {
     use super::*;
-    use crate::error::{AggregationFailure, MultiVerificationFailure, VerificationFailure};
+    use crate::error::{AggregationFailure, VerificationFailure};
     use core::slice;
 
     /// A clerk can only be generated out of a `ClosedKeyReg` instance, or out of an `StmSigner`.
@@ -568,7 +563,6 @@ mod clerk {
                 let closed_reg = ref_closed_reg;
                 *ref_clerk = Box::into_raw(Box::new(StmClerk::from_registration(
                     params,
-                    TrivialEnv,
                     closed_reg.clone(),
                 )));
                 return 0;
@@ -581,7 +575,7 @@ mod clerk {
     pub extern "C" fn stm_clerk_from_signer(signer: StmSignerPtr, clerk: *mut StmClerkPtr) -> i64 {
         unsafe {
             if let (Some(ref_signer), Some(ref_clerk)) = (signer.as_ref(), clerk.as_mut()) {
-                *ref_clerk = Box::into_raw(Box::new(StmClerk::from_signer(ref_signer, TrivialEnv)));
+                *ref_clerk = Box::into_raw(Box::new(StmClerk::from_signer(ref_signer)));
                 return 0;
             }
             NULLPOINTERERR
@@ -600,7 +594,6 @@ mod clerk {
     pub extern "C" fn stm_clerk_verify_sig(
         me: StmClerkPtr,
         sig: SigPtr,
-        index: Index,
         msg: *const c_char,
     ) -> i64 {
         unsafe {
@@ -608,7 +601,7 @@ mod clerk {
                 (me.as_ref(), msg.as_ref(), sig.as_ref())
             {
                 let msg_str = CStr::from_ptr(msg);
-                let out = ref_me.verify_sig(ref_sig, index, msg_str.to_bytes());
+                let out = ref_me.verify_sig(ref_sig, msg_str.to_bytes());
                 return match out {
                     Ok(()) => 0,
                     Err(VerificationFailure::LotteryLost) => -1,
@@ -629,25 +622,19 @@ mod clerk {
         me: StmClerkPtr,
         n_sigs: usize,
         sigs: *const SigPtr,
-        indices: *const Index,
         msg: *const c_char,
         sig: *mut MultiSigPtr,
     ) -> i64 {
         unsafe {
-            if let (Some(ref_me), Some(sigs), Some(indices), Some(msg), Some(ref_sig)) = (
-                me.as_ref(),
-                sigs.as_ref(),
-                indices.as_ref(),
-                msg.as_ref(),
-                sig.as_mut(),
-            ) {
+            if let (Some(ref_me), Some(sigs), Some(msg), Some(ref_sig)) =
+                (me.as_ref(), sigs.as_ref(), msg.as_ref(), sig.as_mut())
+            {
                 let sigs = slice::from_raw_parts(sigs, n_sigs)
                     .iter()
                     .map(|p| (**p).clone())
                     .collect::<Vec<_>>();
-                let indices = slice::from_raw_parts(indices, n_sigs);
                 let msg_str = CStr::from_ptr(msg);
-                let aggr = ref_me.aggregate(&sigs, indices, msg_str.to_bytes());
+                let aggr = ref_me.aggregate(&sigs, msg_str.to_bytes());
                 return match aggr {
                     Ok(msig) => {
                         *ref_sig = Box::into_raw(Box::new(msig));
@@ -679,8 +666,7 @@ mod clerk {
                 let out = ref_me.verify_msig(ref_msig, msg_str.to_bytes());
                 return match out {
                     Ok(()) => 0,
-                    Err(MultiVerificationFailure::InvalidAggregate(_)) => -1,
-                    Err(MultiVerificationFailure::ProofError(e)) => e.into(),
+                    Err(e) => e.into(),
                 };
             }
             NULLPOINTERERR
@@ -690,7 +676,6 @@ mod clerk {
 
 mod verifier {
     use super::*;
-    use crate::error::MultiVerificationFailure;
 
     /// A verifier can be generated from a merkle tree commitment, `StmParameters` and
     /// the total stake.
@@ -705,8 +690,7 @@ mod verifier {
             if let (Some(avk_commitment), Some(verifier)) =
                 (avk_commitment_ptr.as_ref(), verifier_ptr.as_mut())
             {
-                let stm_verifier =
-                    StmVerifier::new(avk_commitment.clone(), params, total_stake, TrivialEnv);
+                let stm_verifier = StmVerifier::new(avk_commitment.clone(), params, total_stake);
                 *verifier = Box::into_raw(Box::new(stm_verifier));
                 return 0;
             }
@@ -733,8 +717,7 @@ mod verifier {
                 let out = ref_me.verify_msig(msg_str.to_bytes(), ref_msig);
                 return match out {
                     Ok(()) => 0,
-                    Err(MultiVerificationFailure::InvalidAggregate(_)) => -1,
-                    Err(MultiVerificationFailure::ProofError(e)) => e.into(),
+                    Err(e) => e.into(),
                 };
             }
             NULLPOINTERERR

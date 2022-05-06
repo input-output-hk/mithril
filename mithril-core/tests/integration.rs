@@ -1,5 +1,4 @@
 use mithril::key_reg::KeyReg;
-use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
 use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner, StmVerifier};
 use rayon::prelude::*;
 
@@ -75,30 +74,26 @@ fn test_full_protocol() {
         sigs.extend(res.1);
     }
 
-    let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
+    let clerk = StmClerk::from_signer(&ps[0]);
 
     // Check all parties can verify every sig
-    for (s, ix) in sigs.iter().zip(&ixs) {
-        assert!(
-            clerk.verify_sig(s, *ix, &msg).is_ok(),
-            "Verification failed"
-        );
+    for s in sigs.iter() {
+        assert!(clerk.verify_sig(s, &msg).is_ok(), "Verification failed");
     }
 
     // Aggregate with random parties
-    let msig = clerk.aggregate::<ConcatProof<H>>(&sigs, &ixs, &msg);
+    let msig = clerk.aggregate(&sigs, &msg);
 
     // Verify aggregated signature with a fresh verifier
     let verifier = StmVerifier::new(
         closed_reg.avk.to_commitment(),
         params,
         closed_reg.total_stake,
-        TrivialEnv,
     );
     match msig {
         Ok(aggr) => {
             println!("Aggregate ok");
-            assert!(verifier.verify_msig::<ConcatProof<H>>(&msg, &aggr).is_ok());
+            assert!(verifier.verify_msig(&msg, &aggr).is_ok());
         }
         Err(AggregationFailure::NotEnoughSignatures(n, k)) => {
             println!("Not enough signatures");

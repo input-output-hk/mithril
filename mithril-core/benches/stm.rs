@@ -2,7 +2,6 @@ use blake2::Blake2b;
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use digest::{Digest, FixedOutput};
 use mithril::key_reg::KeyReg;
-use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
 use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
@@ -118,7 +117,6 @@ where
     }
 
     let mut sigs = Vec::new();
-    let mut ixs = Vec::new();
 
     for &k in NR_K.iter() {
         m = 50;
@@ -152,40 +150,35 @@ where
             .par_iter()
             .map(|p| {
                 let mut sigs = Vec::new();
-                let mut ixs = Vec::new();
                 for ix in 1..params.m {
                     if let Some(sig) = p.sign(&msg, ix) {
                         sigs.push(sig);
-                        ixs.push(ix);
                     }
                 }
 
-                (ixs, sigs)
+                sigs
             })
             .collect::<Vec<_>>();
 
         sigs = Vec::new();
-        ixs = Vec::new();
 
+        // todo: probably can be optimized
         for res in p_results {
-            ixs.extend(res.0);
-            sigs.extend(res.1);
+            sigs.extend(res);
         }
 
         party_dummy = ps[0].clone();
-        let clerk = StmClerk::from_signer(&party_dummy, TrivialEnv);
+        let clerk = StmClerk::from_signer(&party_dummy);
 
         group.bench_function(BenchmarkId::new("Aggregation", &param_string), |b| {
-            b.iter(|| clerk.aggregate::<ConcatProof<H>>(&sigs, &ixs, &msg))
+            b.iter(|| clerk.aggregate(&sigs, &msg))
         });
     }
 
-    let clerk = StmClerk::from_signer(&party_dummy, TrivialEnv);
-    let msig = clerk
-        .aggregate::<ConcatProof<H>>(&sigs, &ixs, &msg)
-        .unwrap();
+    let clerk = StmClerk::from_signer(&party_dummy);
+    let msig = clerk.aggregate(&sigs, &msg).unwrap();
     group.bench_function("Verification", |b| {
-        b.iter(|| clerk.verify_msig::<ConcatProof<H>>(&msig, &msg).is_ok())
+        b.iter(|| clerk.verify_msig(&msig, &msg).is_ok())
     });
 }
 

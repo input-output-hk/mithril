@@ -1,8 +1,7 @@
 //! Crate specific errors
 
 use crate::merkle_tree::Path;
-use crate::mithril_proof::MithrilProof;
-use crate::msp::{MspPk, MspSig};
+use crate::msp::{MspMvk, MspPk, MspSig};
 use crate::stm::PartyId;
 use blst::BLST_ERROR;
 use digest::{Digest, FixedOutput};
@@ -24,6 +23,56 @@ pub enum MultiSignatureError {
     /// Incorrect proof of possession
     #[error("Key with invalid PoP")]
     InvalidKey(Box<MspPk>),
+}
+
+/// Errors which can be output by Mithril verification.
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum MithrilWitnessError<D: Digest + FixedOutput> {
+    /// No quorum was found
+    #[error("No Quorum was found.")]
+    NoQuorum,
+    /// The IVK is invalid after aggregating the keys
+    #[error("Aggregated key does not correspond to the expected key.")]
+    IvkInvalid(MspMvk),
+    /// Mu is not the sum of the signatures
+    #[error("Aggregated signature does not correspond to the expected signature.")]
+    SumInvalid(MspSig),
+    /// There is an index out of bounds
+    #[error("Received index, {0}, is higher than what the security parameter allows, {1}.")]
+    IndexBoundFailed(u64, u64),
+    /// There is a duplicate index
+    #[error("Indeces are not unique.")]
+    IndexNotUnique,
+    /// The path is not valid for the Merkle Tree
+    #[error("The path of the Merkle Tree is invalid.")]
+    PathInvalid(Path<D>),
+    /// MSP.Eval was computed incorrectly
+    #[error("The claimed evaluation of function phi is incorrect.")]
+    EvalInvalid([u8; 64]),
+    /// A party did not actually win the lottery
+    #[error("The current party did not win the lottery.")]
+    StakeInvalid,
+    /// A party submitted an invalid signature
+    #[error("A provided signature is invalid")]
+    InvalidSignature(MspSig),
+}
+
+#[allow(clippy::from_over_into)]
+impl<D: Digest + FixedOutput> Into<i64> for MithrilWitnessError<D> {
+    fn into(self) -> i64 {
+        // -1 is reserved to the function failing.
+        match self {
+            MithrilWitnessError::NoQuorum => -2,
+            MithrilWitnessError::IvkInvalid(_) => -3,
+            MithrilWitnessError::SumInvalid(_) => -4,
+            MithrilWitnessError::IndexBoundFailed(_, _) => -5,
+            MithrilWitnessError::IndexNotUnique => -6,
+            MithrilWitnessError::PathInvalid(_) => -7,
+            MithrilWitnessError::EvalInvalid(_) => -8,
+            MithrilWitnessError::StakeInvalid => -9,
+            MithrilWitnessError::InvalidSignature(_) => -10,
+        }
+    }
 }
 
 /// Error types for aggregation.
@@ -57,20 +106,6 @@ pub enum MerkleTreeError {
     /// Invalid merkle path
     #[error("Path does not verify against root")]
     InvalidPath,
-}
-
-/// Error types for multisignature verification
-#[derive(Debug, Clone, Copy, thiserror::Error)]
-pub enum MultiVerificationFailure<Proof>
-where
-    Proof: MithrilProof,
-{
-    /// The underlying MSP aggregate is invalid
-    #[error("The underlying MSP aggregate is invalid.")]
-    InvalidAggregate(MspSig),
-    /// Error wrapper for underlying proof system.
-    #[error("Proof of validity failed. {0}")]
-    ProofError(Proof::Error),
 }
 
 /// Errors which can be outputted by key registration.

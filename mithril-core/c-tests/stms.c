@@ -183,12 +183,12 @@ TEST(stm, clerkFromPublicData) {
 
     // Now, the Clerk can verify each signature individually.
     for (int i = 0; i < NEEDED_SIGS; i++) {
-        ASSERT_EQ(stm_clerk_verify_sig(clerk, sig[i], indices[i], msg), 0);
+        ASSERT_EQ(stm_clerk_verify_sig(clerk, sig[i], msg), 0);
     }
 
     // And finally, it aggregates them.
     MultiSigPtr multi_sig;
-    err = stm_clerk_aggregate(clerk, NEEDED_SIGS, sig, indices, msg, &multi_sig);
+    err = stm_clerk_aggregate(clerk, NEEDED_SIGS, sig, msg, &multi_sig);
     ASSERT_EQ(err, 0);
     ASSERT_NE(multi_sig, nullptr);
 
@@ -286,11 +286,11 @@ TEST(stm, produceAndVerifyAggregateSignature) {
     err = stm_clerk_from_signer(signer, &clerk);
     ASSERT_EQ(err, 0);
     for (int i = 0; i < NEEDED_SIGS; i++) {
-        ASSERT_EQ(stm_clerk_verify_sig(clerk, sig[i], indices[i], msg), 0);
+        ASSERT_EQ(stm_clerk_verify_sig(clerk, sig[i], msg), 0);
     }
 
     MultiSigPtr multi_sig;
-    err = stm_clerk_aggregate(clerk, NEEDED_SIGS, sig, indices, msg, &multi_sig);
+    err = stm_clerk_aggregate(clerk, NEEDED_SIGS, sig, msg, &multi_sig);
     ASSERT_EQ(err, 0);
     ASSERT_NE(multi_sig, nullptr);
 
