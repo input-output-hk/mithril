@@ -1,14 +1,15 @@
 //! Creation and verification of Merkle Trees
 use crate::error::MerkleTreeError;
 use digest::{Digest, FixedOutput};
-use std::convert::{TryFrom};
+use serde::{Deserialize, Serialize};
+use std::convert::TryFrom;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
 /// Path of hashes from root to leaf in a Merkle Tree. Contains all hashes on the path, and the index
 /// of the leaf.
 /// Used to verify the credentials of users and signatures.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Path<D: Digest + FixedOutput> {
     pub(crate) values: Vec<Vec<u8>>,
     pub(crate) index: usize,
@@ -30,7 +31,7 @@ where
 
 /// MerkleTree commitment. This structure differs from `MerkleTree` in that it does not contain
 /// all elements, which are not always necessary.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MerkleTreeCommitment<D: Digest + FixedOutput> {
     /// Root of the merkle commitment
     pub root: Vec<u8>,
@@ -92,7 +93,7 @@ where
 }
 
 /// Tree of hashes, providing a commitment of data and its ordering.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MerkleTree<D>
 where
     D: Digest + FixedOutput,
@@ -273,7 +274,7 @@ impl<D: Digest + Clone + FixedOutput> Path<D> {
         Ok(Path {
             values,
             index,
-            hasher: Default::default()
+            hasher: Default::default(),
         })
     }
 }

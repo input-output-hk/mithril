@@ -130,6 +130,7 @@ use crate::merkle_tree::{concat_avk_with_msg, MerkleTree, MerkleTreeCommitment, 
 use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
 use digest::{Digest, FixedOutput};
 use rand_core::{CryptoRng, RngCore};
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::convert::{From, TryFrom, TryInto};
 use std::sync::Arc;
@@ -150,7 +151,7 @@ pub type PartyId = u64;
 pub type Index = u64;
 
 /// The values that are represented in the Merkle Tree.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct MTValue(pub MspMvk, pub Stake);
 
 impl MTValue {
@@ -163,7 +164,7 @@ impl MTValue {
 }
 
 /// Used to set protocol parameters.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[repr(C)]
 pub struct StmParameters {
     /// Security parameter, upper bound on indices
@@ -211,7 +212,7 @@ impl StmParameters {
 
 /// Initializer for `StmSigner`. This is the data that is used during the key registration
 /// procedure. One the latter is finished, this instance is consumed into an `StmSigner`.
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StmInitializer {
     /// This participant's Id
     pub(crate) party_id: PartyId,
@@ -228,7 +229,7 @@ pub struct StmInitializer {
 /// Participant in the protocol. Can sign messages. This instance can only be generated out of
 /// an `StmInitializer` and a closed `KeyReg`. This ensures that a `MerkleTree` root is not
 /// computed before all participants have registered.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StmSigner<D>
 where
     D: Digest + FixedOutput,
@@ -246,7 +247,7 @@ where
 /// `StmClerk` can verify and aggregate `StmSig`s and verify `StmMultiSig`s. Clerks can only be
 /// generated with the registration closed. This avoids that a Merkle Tree is computed before
 /// all parties have registered.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StmClerk<D>
 where
     D: Clone + Digest + FixedOutput,
@@ -257,7 +258,7 @@ where
 }
 
 /// Signature created by a single party who has won the lottery.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StmSig<D: Clone + Digest + FixedOutput> {
     /// The signature from the underlying MSP scheme.
     pub sigma: MspSig,
@@ -315,14 +316,14 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
             party,
             stake,
             index,
-            path
+            path,
         })
     }
 }
 
 /// `StmMultiSig` uses the "concatenation" proving system. This means that the aggregated
 /// signature contains a vector of the individual signatures.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StmMultiSig<D>
 where
     D: Clone + Digest + FixedOutput,
@@ -399,7 +400,11 @@ impl<D: Clone + Digest + FixedOutput> StmMultiSig<D> {
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
         out.extend_from_slice(&u64::try_from(self.signatures.len()).unwrap().to_be_bytes());
-        out.extend_from_slice(&u64::try_from(self.signatures[0].to_bytes().len()).unwrap().to_be_bytes());
+        out.extend_from_slice(
+            &u64::try_from(self.signatures[0].to_bytes().len())
+                .unwrap()
+                .to_be_bytes(),
+        );
         for sig in &self.signatures {
             out.extend_from_slice(&sig.to_bytes())
         }
@@ -415,12 +420,12 @@ impl<D: Clone + Digest + FixedOutput> StmMultiSig<D> {
         let sig_size = usize::try_from(u64::from_be_bytes(u64_bytes)).unwrap();
         let mut signatures = Vec::with_capacity(size);
         for i in 0..size {
-            signatures.push(StmSig::from_bytes(&bytes[16 + i * sig_size..16 + (i + 1) * sig_size])?);
+            signatures.push(StmSig::from_bytes(
+                &bytes[16 + i * sig_size..16 + (i + 1) * sig_size],
+            )?);
         }
 
-        Ok(StmMultiSig {
-            signatures
-        })
+        Ok(StmMultiSig { signatures })
     }
 }
 
@@ -811,7 +816,7 @@ where
     }
 }
 
-#[cfg(feature = "pure-rust")]
+#[cfg(feature = "num-integer-backend")]
 /// Checks that ev is successful in the lottery. In particular, it compares the output of `phi`
 /// (a real) to the output of `ev` (a hash).  It uses the same technique used in the
 /// [Cardano ledger](https://github.com/input-output-hk/cardano-ledger/). In particular,
@@ -853,7 +858,7 @@ pub fn ev_lt_phi(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> 
     taylor_comparison(1000, q, x)
 }
 
-#[cfg(feature = "pure-rust")]
+#[cfg(feature = "num-integer-backend")]
 /// Checks if cmp < exp(x). Uses error approximation for an early stop. Whenever the value being
 /// compared, `cmp`, is smaller (or greater) than the current approximation minus an `error_term`
 /// (plus an `error_term` respectively), then we stop approximating. The choice of the `error_term`
@@ -885,7 +890,7 @@ fn taylor_comparison(bound: usize, cmp: Ratio<BigInt>, x: Ratio<BigInt>) -> bool
     false
 }
 
-#[cfg(not(feature = "pure-rust"))]
+#[cfg(not(feature = "num-integer-backend"))]
 /// The crate `rug` has sufficient optimizations to not require a taylor approximation with early
 /// stop. The difference between the current implementation and the one using the optimization
 /// above is around 10% faster. We perform the computations with 117 significant bits of
@@ -915,7 +920,7 @@ pub fn ev_lt_phi(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> 
 /// `StmVerifier` can verify `StmSig`s. `StmVerifiers` require les sinformation than
 /// `StmClerks` or `StmSigner`s, as they do not require knowledge of the whole Merkle
 /// Tree, but only the commitment.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StmVerifier<D>
 where
     D: Clone + Digest + FixedOutput,
@@ -1378,7 +1383,7 @@ mod tests {
             assert_eq!(quick_result, result);
         }
 
-        #[cfg(feature = "pure-rust")]
+        #[cfg(feature = "num-integer-backend")]
         #[test]
         /// Checking the early break of Taylor compuation
         fn early_break_taylor(
