@@ -101,7 +101,7 @@ impl MithrilSingleSigner {
         }
         let closed_reg = key_reg.close();
 
-        let mut rng = rand::thread_rng();
+        let mut rng = rand_core::OsRng;
         let mut initializer = StmInitializer::setup(
             protocol_parameters,
             self.party_id as ProtocolPartyId,
