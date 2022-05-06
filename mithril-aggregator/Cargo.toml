@@ -37,16 +37,14 @@ futures = "0.3"
 reqwest = { version = "0.11", features = ["json"] }
 config = "0.13.1"
 
-rand_core   = "0.6.3"
-rand_chacha = "0.3.1"
-rand = "0.7"
+# TODO: to remove with use of the new version of 'mithril-core'
 ark-bls12-377 = "0.3.0"
-ark-std      = "0.3.0"
 ark-ff      = "0.3.0"
-ark-ec      = "0.3.0"
 blake2      = "0.9.2"
 
-
-#[dev-dependencies]
+[dev-dependencies]
 mockall = "0.11.0"
 httpmock = "0.6.6"
+rand_core   = "0.6.3"
+rand_chacha = "0.3.1"
+rand = "0.8"
