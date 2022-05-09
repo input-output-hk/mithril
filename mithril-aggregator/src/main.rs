@@ -149,8 +149,7 @@ fn init_multi_signer() -> impl MultiSigner {
         multi_signer
             .register_signer(
                 signer.party_id as ProtocolPartyId,
-                &key_decode_hex::<ProtocolSignerVerificationKey>(signer.verification_key.clone())
-                    .unwrap(),
+                &key_decode_hex::<ProtocolSignerVerificationKey>(&signer.verification_key).unwrap(),
             )
             .expect("register signer failed");
     });
