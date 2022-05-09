@@ -4,11 +4,10 @@
 //! [[paper](https://eprint.iacr.org/2021/916)].
 
 mod c_api;
+pub mod error;
 pub mod key_reg;
 pub mod merkle_tree;
-mod mithril_curves;
-pub mod mithril_proof;
-pub mod models;
+// pub mod mithril_proof;
 pub mod msp;
-pub mod proof;
+// pub mod proof;
 pub mod stm;

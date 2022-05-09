@@ -1,124 +1,96 @@
 //! Placeholder key registration functionality.
 
+use crate::error::RegisterError;
+use digest::{Digest, FixedOutput};
 use std::collections::{HashMap, HashSet};
-use std::hash::Hash;
 
-use super::msp::{Msp, MspMvk, MspPk};
+use super::msp::{Msp, MspPk};
 use super::stm::{PartyId, Stake};
 
-use crate::merkle_tree::{MTHashLeaf, MerkleTree};
+use crate::merkle_tree::MerkleTree;
 use crate::stm::MTValue;
-use ark_ec::PairingEngine;
-use ark_ff::ToBytes;
-use ark_std::io::Write;
-use num_traits::identities::Zero;
 
 /// Simple struct that collects pubkeys and stakes of parties. Placeholder for a more
 /// realistic distributed key registration protocol.
 #[derive(Clone, Debug)]
-pub struct KeyReg<PE>
-where
-    PE: PairingEngine,
-{
-    parties: HashMap<PartyId, Party<PE>>,
+pub struct KeyReg {
+    parties: HashMap<PartyId, Party>,
     // `keys` is just the set of all of the keys that have been registered
     // (i.e., in `parties`)
-    keys: HashSet<MspPk<PE>>,
+    keys: HashSet<MspPk>,
 }
 
 /// Structure generated out of a closed registration. One can only get a global `avk` out of
 /// a closed key registration.
 #[derive(Clone, Debug)]
-pub struct ClosedKeyReg<PE, H>
+pub struct ClosedKeyReg<D>
 where
-    PE: PairingEngine,
-    H: MTHashLeaf<MTValue<PE>>,
+    D: Digest + FixedOutput,
 {
-    key_reg: KeyReg<PE>,
+    key_reg: KeyReg,
     /// Total stake of the registered parties.
     pub total_stake: Stake,
     /// Unique public key out of the key registration instance.
-    pub avk: MerkleTree<MTValue<PE>, H>,
+    pub avk: MerkleTree<D>,
 }
 
 /// Represents the status of a known participant in the protocol who is allowed
 /// to register their key. `RegParty` values will be produced from mappings
 /// (id |-> Party { stake, Some(key) }) in key_reg.parties
 #[derive(Clone, Debug)]
-struct Party<PE>
-where
-    PE: PairingEngine,
-{
+struct Party {
     /// The stake of of the party.
     pub stake: Stake,
     /// The public key of the party.
-    pub pk: Option<MspPk<PE>>,
+    pub pk: Option<MspPk>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 /// A registered party, i.e. an id associated with its stake and public key
-pub struct RegParty<PE>
-where
-    PE: PairingEngine,
-{
+pub struct RegParty {
     /// The id for the registered party.
+    // todo: I don't see the goal of the identifier
     pub party_id: PartyId,
     /// The pubkey for the registered party.
-    pub pk: MspPk<PE>,
+    pub pk: MspPk,
     /// The stake for the registered party.
     pub stake: Stake,
 }
 
-impl<PE: PairingEngine> RegParty<PE> {
-    /// Empty party.
-    pub fn null_party() -> Self {
-        Self {
-            party_id: 0,
-            pk: MspPk {
-                mvk: MspMvk(PE::G2Projective::zero()),
-                k1: PE::G1Projective::zero(),
-                k2: PE::G1Projective::zero(),
-            },
-            stake: 0,
-        }
+impl RegParty {
+    /// Convert to bytes
+    /// # Layout
+    /// The layout of a `RegParty` encoding is
+    /// * Party index (position in the merkle tree)
+    /// * Public key
+    /// * Stake (as an 8 byte tuple)
+    pub fn to_bytes(&self) -> [u8; 208] {
+        let mut output = [0u8; 208];
+        output[..8].copy_from_slice(&self.party_id.to_be_bytes());
+        output[8..200].copy_from_slice(&self.pk.to_bytes());
+        output[200..].copy_from_slice(&self.stake.to_be_bytes());
+        output
+    }
+
+    /// Convert an array of bytes to a `RegParty`.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, RegisterError> {
+        let mut u64_bytes = [0u8; 8];
+        u64_bytes.copy_from_slice(&bytes[..8]);
+        let party_id = u64::from_be_bytes(u64_bytes);
+
+        let pk = MspPk::from_bytes(&bytes[8..])?;
+        u64_bytes.copy_from_slice(&bytes[200..]);
+        let stake = u64::from_be_bytes(u64_bytes);
+
+        Ok(Self {
+            party_id,
+            pk,
+            stake,
+        })
     }
 }
 
-impl<PE: PairingEngine> ToBytes for RegParty<PE> {
-    fn write<W: Write>(&self, mut writer: W) -> std::result::Result<(), std::io::Error> {
-        self.pk.mvk.0.write(&mut writer)?;
-        self.pk.k1.write(&mut writer)?;
-        self.pk.k2.write(&mut writer)?;
-        self.stake.write(&mut writer)
-    }
-}
-
-/// Errors which can be outputted by key registration.
-#[derive(Debug, Clone, thiserror::Error)]
-pub enum RegisterError<PE>
-where
-    PE: PairingEngine,
-{
-    /// This key has already been registered by a participant
-    #[error("This key has already been registered.")]
-    KeyRegistered(Vec<u8>),
-    /// This participant has already been registered
-    #[error("Participant {0} has already been registered.")]
-    PartyRegistered(PartyId),
-    /// The supplied participant id does not belong to the
-    /// participant list
-    #[error("Participant id {0} does not belong to the participants list.")]
-    UnknownPartyId(PartyId),
-    /// The supplied key is not valid
-    #[error("The verification of correctness of the supplied key is invalid.")]
-    InvalidKey(MspPk<PE>),
-}
-
-impl<PE> KeyReg<PE>
-where
-    PE: PairingEngine,
-    MspPk<PE>: Hash,
-{
+impl KeyReg {
     /// Create a new KeyReg with all parties and stakes known.
     pub fn new(players: &[(PartyId, Stake)]) -> Self {
         let parties = players.iter().map(|(id, stake)| {
@@ -135,18 +107,18 @@ where
     }
 
     /// Register the pubkey for a particular party.
-    pub fn register(&mut self, party_id: PartyId, pk: MspPk<PE>) -> Result<(), RegisterError<PE>> {
+    pub fn register(&mut self, party_id: PartyId, pk: MspPk) -> Result<(), RegisterError> {
         if self.keys.contains(&pk) {
             return Err(RegisterError::KeyRegistered(pk.mvk.to_bytes()));
         }
 
         if let Some(mut party) = self.parties.get_mut(&party_id) {
-            if Msp::check(&pk) {
+            if Msp::check(&pk).is_ok() {
                 party.pk = Some(pk);
                 self.keys.insert(pk);
                 Ok(())
             } else {
-                Err(RegisterError::InvalidKey(pk))
+                Err(RegisterError::InvalidKey(Box::new(pk)))
             }
         } else {
             Err(RegisterError::UnknownPartyId(party_id))
@@ -154,7 +126,7 @@ where
     }
 
     /// Retrieve the pubkey and stake for a party.
-    pub fn retrieve(&self, party_id: PartyId) -> Option<RegParty<PE>> {
+    pub fn retrieve(&self, party_id: PartyId) -> Option<RegParty> {
         let party = self.parties.get(&party_id)?;
         party.pk.map(|pk| RegParty {
             party_id,
@@ -163,8 +135,9 @@ where
         })
     }
 
-    /// Retrieve the pubkey and stake for all parties.
-    pub fn retrieve_all(&self) -> Vec<RegParty<PE>> {
+    /// Retrieve the pubkey and stake for all parties. The keys are ordered,
+    /// to provide a consistent merkle commitment.
+    pub fn retrieve_all(&self) -> Vec<RegParty> {
         let mut out = vec![];
         let mut ps = self.parties.keys().collect::<Vec<_>>();
         ps.sort();
@@ -184,11 +157,11 @@ where
 
     /// End registration. Disables `KeyReg::register`. Consumes the instance of `self` and returns
     /// a `ClosedKeyReg`.
-    pub fn close<H>(self) -> ClosedKeyReg<PE, H>
+    pub fn close<D>(self) -> ClosedKeyReg<D>
     where
-        H: MTHashLeaf<MTValue<PE>>,
+        D: Digest + FixedOutput,
     {
-        let mtvals: Vec<MTValue<PE>> = self
+        let mtvals: Vec<MTValue> = self
             .retrieve_all()
             .iter()
             .map(|rp| MTValue(rp.pk.mvk, rp.stake))
@@ -197,34 +170,33 @@ where
         ClosedKeyReg {
             key_reg: self,
             total_stake: mtvals.iter().map(|s| s.1).sum(),
-            avk: MerkleTree::create(&mtvals),
+            avk: MerkleTree::create(
+                &mtvals
+                    .iter()
+                    .map(|&s| s.to_bytes().to_vec())
+                    .collect::<Vec<Vec<u8>>>(),
+            ),
         }
     }
 }
 
-impl<PE> Default for KeyReg<PE>
-where
-    PE: PairingEngine,
-    MspPk<PE>: Hash,
-{
+impl Default for KeyReg {
     fn default() -> Self {
         Self::new(&[])
     }
 }
 
-impl<PE, H> ClosedKeyReg<PE, H>
+impl<D> ClosedKeyReg<D>
 where
-    PE: PairingEngine,
-    MspPk<PE>: Hash,
-    H: MTHashLeaf<MTValue<PE>>,
+    D: Digest + FixedOutput,
 {
     /// Retrieve the pubkey and stake for a party.
-    pub fn retrieve(&self, party_id: PartyId) -> Option<RegParty<PE>> {
+    pub fn retrieve(&self, party_id: PartyId) -> Option<RegParty> {
         self.key_reg.retrieve(party_id)
     }
 
     /// Retrieve the pubkey and stake for all parties.
-    pub fn retrieve_all(&self) -> Vec<RegParty<PE>> {
+    pub fn retrieve_all(&self) -> Vec<RegParty> {
         self.key_reg.retrieve_all()
     }
 }
@@ -233,14 +205,19 @@ where
 mod tests {
     use super::*;
     use crate::msp::Msp;
-    use ark_bls12_377::Bls12_377;
+    use blst::blst_p1_generator;
     use proptest::collection::vec;
     use proptest::prelude::*;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
     fn arb_participants(min: usize, max: usize) -> impl Strategy<Value = Vec<(PartyId, Stake)>> {
-        vec(any::<Stake>(), min..=max).prop_map(|v| v.into_iter().enumerate().collect())
+        vec(any::<Stake>(), min..=max).prop_map(|v| {
+            v.into_iter()
+                .enumerate()
+                .map(|(index, value)| (index as u64, value))
+                .collect()
+        })
     }
 
     proptest! {
@@ -253,7 +230,7 @@ mod tests {
             let mut kr = KeyReg::new(&ps);
 
             let gen_keys = (1..nkeys).map(|_| {
-                Msp::<Bls12_377>::gen(&mut rng).1
+                Msp::gen(&mut rng).1
             }).collect::<Vec<_>>();
 
             // Record successful registrations
@@ -264,7 +241,7 @@ mod tests {
                 let mut pk = gen_keys[i % gen_keys.len()];
 
                 if fake_it == 0 {
-                    pk.k1 = pk.k2;
+                   pk.pop.k2 = unsafe { *blst_p1_generator() };
                 }
 
                 let mut id = p.0;
@@ -288,9 +265,10 @@ mod tests {
                     }
                     Err(RegisterError::InvalidKey(a)) => {
                         assert_eq!(fake_it, 0);
-                        assert!(!Msp::check(&a));
+                        assert!(Msp::check(&a).is_err());
                     }
                     Err(RegisterError::UnknownPartyId(_)) => assert_eq!(fake_it, 1),
+                    Err(RegisterError::SerializationError) => unreachable!(),
                 }
             }
 

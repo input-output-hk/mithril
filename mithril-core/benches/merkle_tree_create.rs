@@ -6,14 +6,14 @@ use mithril::merkle_tree::MerkleTree;
 
 type H = blake2::Blake2b;
 
-pub fn gen_keys(n: usize) -> Vec<[u8; 48]> {
+pub fn gen_keys(n: usize) -> Vec<Vec<u8>> {
     let mut rng = OsRng::default();
     let mut result = Vec::with_capacity(n);
     let mut val = [0u8; 48];
 
     for _ in 0..n {
         rng.fill_bytes(&mut val);
-        result.push(val);
+        result.push(val.to_vec());
     }
     result
 }
@@ -21,18 +21,18 @@ pub fn gen_keys(n: usize) -> Vec<[u8; 48]> {
 pub fn merkle_tree_create_benchmark(c: &mut Criterion) {
     let ps = gen_keys(32);
     c.bench_function("Merkle Tree create 2**5", |b| {
-        b.iter(|| MerkleTree::<_, H>::create(black_box(&ps)))
+        b.iter(|| MerkleTree::<H>::create(black_box(&ps)))
     });
 }
 
 pub fn merkle_tree_verify_benchmark(c: &mut Criterion) {
     let mut rng = OsRng::default();
     let ps = gen_keys(32);
-    let mt = MerkleTree::<_, H>::create(&ps);
-    let i = rng.next_u64() as usize % 32;
-    let path = mt.get_path(i);
+    let mt = MerkleTree::<H>::create(&ps);
+    let i = rng.next_u64() % 32;
+    let path = mt.get_path(i as usize);
     c.bench_function("Merkle Tree verify 2**5", |b| {
-        b.iter(|| mt.to_commitment().check(&ps[i], i, &path))
+        b.iter(|| mt.to_commitment().check(&ps[i as usize], &path))
     });
 }
 

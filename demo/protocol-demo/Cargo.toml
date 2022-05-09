@@ -16,12 +16,6 @@ rouille="3.5.0"
 ureq = { version = "2.4.0", features = ["json"] }
 threadpool = "1.8.1"
 hex = "0.4.3"
-
 rand_core   = "0.6.3"
 rand_chacha = "0.3.1"
-rand = "0.7"
-ark-bls12-377 = "0.3.0"
-ark-std      = "0.3.0"
-ark-ff      = "0.3.0"
-ark-ec      = "0.3.0"
 blake2      = "0.9.2"

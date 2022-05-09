@@ -1,42 +1,36 @@
 // TODO: remove this
 #![allow(dead_code)]
 
-use ark_bls12_377::Bls12_377;
 use hex::{FromHex, ToHex};
-
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 use slog_scope::{trace, warn};
-use std::io::Cursor;
 use thiserror::Error;
 
 use mithril::key_reg::KeyReg;
-use mithril::merkle_tree::MTHashLeaf;
-use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
 use mithril::msp::{MspPk, MspSk};
 use mithril::stm::{
-    Index, MTValue, PartyId, Stake, StmClerk, StmInitializer, StmMultiSig, StmParameters, StmSig,
-    StmSigner,
+    Index, PartyId, Stake, StmClerk, StmInitializer, StmMultiSig, StmParameters, StmSig, StmSigner,
 };
 use mithril_aggregator::entities::{self, SignerWithStake, SingleSignature};
 
 pub type Bytes = Vec<u8>;
 
 // Protocol types alias
-type H = blake2::Blake2b;
-type F = <H as MTHashLeaf<MTValue<Bls12_377>>>::F;
+type D = blake2::Blake2b;
 pub type ProtocolPartyId = PartyId;
 pub type ProtocolStake = Stake;
 pub type ProtocolStakeDistribution = Vec<(ProtocolPartyId, ProtocolStake)>;
 pub type ProtocolParameters = StmParameters;
 pub type ProtocolLotteryIndex = Index;
-pub type ProtocolSigner = StmSigner<H, Bls12_377>;
-pub type ProtocolInitializer = StmInitializer<Bls12_377>;
-pub type ProtocolClerk = StmClerk<H, Bls12_377, TrivialEnv>;
-pub type ProtocolKeyRegistration = KeyReg<Bls12_377>;
-pub type ProtocolProof = ConcatProof<Bls12_377, H, F>;
-pub type ProtocolSingleSignature = StmSig<Bls12_377, F>;
-pub type ProtocolMultiSignature = StmMultiSig<Bls12_377, ProtocolProof>;
-pub type ProtocolSignerVerificationKey = MspPk<Bls12_377>;
-pub type ProtocolSignerSecretKey = MspSk<Bls12_377>;
+pub type ProtocolSigner = StmSigner<D>;
+pub type ProtocolInitializer = StmInitializer;
+pub type ProtocolClerk = StmClerk<D>;
+pub type ProtocolKeyRegistration = KeyReg;
+pub type ProtocolSingleSignature = StmSig<D>;
+pub type ProtocolMultiSignature = StmMultiSig<D>;
+pub type ProtocolSignerVerificationKey = MspPk;
+pub type ProtocolSignerSecretKey = MspSk;
 
 #[cfg(test)]
 use mockall::automock;
@@ -108,7 +102,7 @@ impl MithrilSingleSigner {
             current_player_stake,
             &mut rng,
         );
-        initializer.set_key(&self.secret_key);
+        initializer.set_key(self.secret_key.clone());
 
         Ok(initializer.new_signer(closed_reg))
     }
@@ -148,7 +142,7 @@ impl SingleSigner for MithrilSingleSigner {
         for i in 1..=protocol_parameters.m {
             if let Some(signature) = protocol_signer.sign(&message, i) {
                 trace!("Party #{}: lottery #{} won", self.party_id, i,);
-                let encoded_signature = key_encode_hex(signature);
+                let encoded_signature = key_encode_hex_sig(&signature);
 
                 if encoded_signature.is_err() {
                     warn!("couldn't compute signature: `{:?}`", encoded_signature); // @todo: structured log
@@ -166,25 +160,75 @@ impl SingleSigner for MithrilSingleSigner {
     }
 }
 
+// TODO: To remove once 'ProtocolSingleSignature' implements `Serialize`
+pub fn key_encode_hex_sig(from: &ProtocolSingleSignature) -> Result<String, String> {
+    Ok(from.to_bytes().encode_hex::<String>())
+}
+
+// TODO: To remove once 'ProtocolSingleSignature' implements `Deserialize`
+pub fn key_decode_hex_sig(from: &str) -> Result<ProtocolSingleSignature, String> {
+    let from_vec = Vec::from_hex(from).map_err(|e| format!("can't parse from hex: {}", e))?;
+    ProtocolSingleSignature::from_bytes(&from_vec)
+        .map_err(|e| format!("can't decode multi signature: {}", e))
+}
+
 /// Encode key to hex helper
-pub fn key_encode_hex<T: ark_ff::ToBytes>(from: T) -> Result<String, String> {
-    Ok(ark_ff::to_bytes!(from)
+pub fn key_encode_hex<T>(from: T) -> Result<String, String>
+where
+    T: Serialize,
+{
+    Ok(serde_json::to_string(&from)
         .map_err(|e| format!("can't convert to hex: {}", e))?
         .encode_hex::<String>())
 }
 
 /// Decode key from hex helper
-pub fn key_decode_hex<T: ark_ff::FromBytes>(from: &str) -> Result<T, String> {
-    ark_ff::FromBytes::read(Cursor::new(
-        Vec::from_hex(from).map_err(|e| format!("can't parse from hex: {}", e))?,
-    ))
-    .map_err(|e| format!("can't convert to bytes: {}", e))
+pub fn key_decode_hex<T>(from: &str) -> Result<T, String>
+where
+    T: DeserializeOwned,
+{
+    let from_vec = Vec::from_hex(from).map_err(|e| format!("can't parse from hex: {}", e))?;
+    serde_json::from_slice(from_vec.as_slice()).map_err(|e| format!("can't deserialize: {}", e))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use mithril_aggregator::fake_data;
+
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
+
+    fn setup_protocol_parameters() -> ProtocolParameters {
+        ProtocolParameters {
+            m: 10,
+            k: 5,
+            phi_f: 0.65,
+        }
+    }
+
+    #[test]
+    fn test_key_encode_decode_hex() {
+        let protocol_params = setup_protocol_parameters();
+        let party_id = 123;
+        let stake = 100;
+        let seed = [0u8; 32];
+        let mut rng = ChaCha20Rng::from_seed(seed);
+        let protocol_initializer: ProtocolInitializer =
+            StmInitializer::setup(protocol_params, party_id, stake, &mut rng);
+        let verification_key: ProtocolSignerVerificationKey =
+            protocol_initializer.verification_key();
+        let secret_key: ProtocolSignerSecretKey = protocol_initializer.secret_key();
+        let verification_key_hex =
+            key_encode_hex(verification_key).expect("unexpected hex encoding error");
+        let secret_key_hex = key_encode_hex(&secret_key).expect("unexpected hex encoding error");
+        let verification_key_restored =
+            key_decode_hex(&verification_key_hex).expect("unexpected hex decoding error");
+        let secret_key_restored: ProtocolSignerSecretKey =
+            key_decode_hex(&secret_key_hex).expect("unexpected hex decoding error");
+        assert_eq!(verification_key, verification_key_restored);
+        assert_eq!(secret_key.to_bytes(), secret_key_restored.to_bytes());
+    }
 
     #[test]
     fn cant_compute_if_signer_verification_key_is_not_registered() {
@@ -237,7 +281,7 @@ mod tests {
                 &protocol_parameters,
             )
             .unwrap();
-        let clerk = StmClerk::from_signer(&protocol_signer, TrivialEnv);
+        let clerk = StmClerk::from_signer(&protocol_signer);
 
         let message = "message".as_bytes();
         let sign_result = single_signer.compute_single_signatures(
@@ -248,8 +292,8 @@ mod tests {
 
         assert!(!sign_result.as_ref().unwrap().is_empty());
         for sig in sign_result.unwrap() {
-            let decoded_sig = key_decode_hex(&sig.signature).unwrap();
-            assert!(clerk.verify_sig(&decoded_sig, sig.index, message).is_ok());
+            let decoded_sig = key_decode_hex_sig(&sig.signature).unwrap();
+            assert!(clerk.verify_sig(&decoded_sig, message).is_ok());
             assert_eq!(
                 decoded_sig.pk,
                 key_decode_hex(&signer_with_keys.verification_key).unwrap()

@@ -27,10 +27,6 @@ async-trait = "0.1.52"
 tokio = { version = "1.17.0", features = ["full"] }
 hex = "0.4.3"
 rand_core   = "0.6.3"
-
-# TODO: to remove with use of the new version of 'mithril-core'
-ark-bls12-377 = "0.3.0"
-ark-ff      = "0.3.0"
 blake2      = "0.9.2"
 
 [dev-dependencies]

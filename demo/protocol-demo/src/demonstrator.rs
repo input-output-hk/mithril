@@ -1,43 +1,47 @@
+// TODO: to be removed later
+#![allow(dead_code)]
+
 use hex::{FromHex, ToHex};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
 use std::fs;
-use std::io::{Cursor, Write};
+use std::io::Write;
 use std::path;
 
-use ark_bls12_377::Bls12_377;
+use mithril::error::AggregationFailure;
 use mithril::key_reg::KeyReg;
-use mithril::merkle_tree::MTHashLeaf;
-use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
 use mithril::msp::{MspPk, MspSk};
 use mithril::stm::{
-    AggregationFailure, MTValue, PartyId, Stake, StmClerk, StmInitializer, StmMultiSig,
-    StmParameters, StmSig, StmSigner,
+    Index, PartyId, Stake, StmClerk, StmInitializer, StmMultiSig, StmParameters, StmSig, StmSigner,
 };
 
 pub type Bytes = Vec<u8>;
 
 // Protocol types alias
-type H = blake2::Blake2b;
-type F = <H as MTHashLeaf<MTValue<Bls12_377>>>::F;
+type D = blake2::Blake2b;
+pub type ProtocolPartyId = PartyId;
+pub type ProtocolStake = Stake;
+pub type ProtocolStakeDistribution = Vec<(ProtocolPartyId, ProtocolStake)>;
 pub type ProtocolParameters = StmParameters;
-pub type ProtocolSigner = StmSigner<H, Bls12_377>;
-pub type ProtocolInitializer = StmInitializer<Bls12_377>;
-pub type ProtocolClerk = StmClerk<H, Bls12_377, TrivialEnv>;
-pub type ProtocolProof = ConcatProof<Bls12_377, H, F>;
-pub type ProtocolSingleSignature = StmSig<Bls12_377, F>;
-pub type ProtocolMultiSignature = StmMultiSig<Bls12_377, ProtocolProof>;
-pub type ProtocolSignerVerificationKey = MspPk<Bls12_377>;
-pub type ProtocolSignerSecretKey = MspSk<Bls12_377>;
+pub type ProtocolLotteryIndex = Index;
+pub type ProtocolSigner = StmSigner<D>;
+pub type ProtocolInitializer = StmInitializer;
+pub type ProtocolClerk = StmClerk<D>;
+pub type ProtocolKeyRegistration = KeyReg;
+pub type ProtocolSingleSignature = StmSig<D>;
+pub type ProtocolMultiSignature = StmMultiSig<D>;
+pub type ProtocolSignerVerificationKey = MspPk;
+pub type ProtocolSignerSecretKey = MspSk;
 
 /// Player artifacts
 #[derive(Debug, Serialize, Deserialize)]
 struct PlayerArtifact {
-    party_id: PartyId,
-    stake: Stake,
+    party_id: ProtocolPartyId,
+    stake: ProtocolStake,
     verification_key: String,
     secret_key: String,
 }
@@ -45,7 +49,7 @@ struct PlayerArtifact {
 /// Single Signature artifacts
 #[derive(Debug, Serialize, Deserialize)]
 struct SingleSignatureArtifact {
-    party_id: PartyId,
+    party_id: ProtocolPartyId,
     message: String,
     lottery: u64,
     signature: String,
@@ -54,7 +58,7 @@ struct SingleSignatureArtifact {
 /// Multi Signature artifacts
 #[derive(Debug, Serialize, Deserialize)]
 struct MultiSignatureArtifact {
-    party_id: PartyId,
+    party_id: ProtocolPartyId,
     message: String,
     signature: String,
 }
@@ -63,9 +67,9 @@ struct MultiSignatureArtifact {
 #[derive(Debug)]
 pub struct Party {
     /// Party's identifier
-    party_id: PartyId,
+    party_id: ProtocolPartyId,
     /// Party's stake
-    stake: Stake,
+    stake: ProtocolStake,
     /// Protocol parameters
     params: Option<ProtocolParameters>,
     /// Protocol signer
@@ -81,8 +85,8 @@ impl Party {
     pub fn new(party_id: usize, stake: u64) -> Self {
         println!("Party #{}: party created with {} stakes", party_id, stake);
         Self {
-            party_id: party_id as PartyId,
-            stake: stake as Stake,
+            party_id: party_id as ProtocolPartyId,
+            stake: stake as ProtocolStake,
             params: None,
             signer: None,
             clerk: None,
@@ -102,10 +106,14 @@ impl Party {
     /// Register keys
     pub fn register_keys(
         &mut self,
-        players_with_keys: &[(PartyId, Stake, ProtocolSignerVerificationKey)],
+        players_with_keys: &[(
+            ProtocolPartyId,
+            ProtocolStake,
+            ProtocolSignerVerificationKey,
+        )],
     ) {
         let players = players_with_keys
-            .into_iter()
+            .iter()
             .map(|(party_id, stake, _verification_key)| (*party_id, *stake))
             .collect::<Vec<_>>();
         println!(
@@ -113,7 +121,7 @@ impl Party {
             self.party_id, players
         );
 
-        let mut key_reg = KeyReg::new(&players);
+        let mut key_reg: ProtocolKeyRegistration = KeyReg::new(&players);
         for (party_id, _stake, verification_key) in players_with_keys {
             key_reg.register(*party_id, *verification_key).unwrap();
         }
@@ -123,10 +131,7 @@ impl Party {
         let mut rng = ChaCha20Rng::from_seed(seed);
         let p = StmInitializer::setup(self.params.unwrap(), self.party_id, self.stake, &mut rng);
         self.signer = Some(p.new_signer(closed_reg));
-        self.clerk = Some(StmClerk::from_signer(
-            &self.signer.as_ref().unwrap(),
-            TrivialEnv,
-        ));
+        self.clerk = Some(StmClerk::from_signer(self.signer.as_ref().unwrap()));
     }
 
     /// Individually sign a message through lottery
@@ -138,7 +143,7 @@ impl Party {
             message.encode_hex::<String>()
         );
         for i in 1..self.params.unwrap().m {
-            if let Some(signature) = self.signer.as_ref().unwrap().sign(&message, i) {
+            if let Some(signature) = self.signer.as_ref().unwrap().sign(message, i) {
                 println!("Party #{}: lottery #{} won", self.party_id, i,);
                 signatures.push((signature, i));
             }
@@ -150,14 +155,15 @@ impl Party {
     pub fn sign_aggregate(
         &mut self,
         message: &Bytes,
-        signatures: &Vec<(ProtocolSingleSignature, u64)>,
+        signatures: &[(ProtocolSingleSignature, u64)],
     ) -> Option<&ProtocolMultiSignature> {
         let unzipped_signatures: (Vec<_>, Vec<_>) = signatures.iter().cloned().unzip();
-        let msig = self.clerk.as_ref().unwrap().aggregate::<ProtocolProof>(
-            &unzipped_signatures.0,
-            &unzipped_signatures.1,
-            message,
-        );
+        println!("123 {}", signatures.len());
+        let msig = self
+            .clerk
+            .as_ref()
+            .unwrap()
+            .aggregate(&unzipped_signatures.0, message);
         match msig {
             Ok(aggregate_signature) => {
                 println!("Party #{}: aggregate signature computed", self.party_id);
@@ -182,31 +188,24 @@ impl Party {
     /// Verify a certificate
     pub fn verify_message(&self, message: &Bytes) -> Result<(), String> {
         match self.get_aggregate(message) {
-            Some(msig) => {
-                match self
-                    .clerk
-                    .as_ref()
-                    .unwrap()
-                    .verify_msig::<ProtocolProof>(&msig, message)
-                {
-                    Ok(_) => {
-                        println!(
-                            "Party #{}: aggregate signature successfully verified for {}!",
-                            self.party_id,
-                            message.encode_hex::<String>()
-                        );
-                        Ok(())
-                    }
-                    Err(_) => {
-                        println!(
-                            "Party #{}: aggregate signature verification failed {}",
-                            self.party_id,
-                            message.encode_hex::<String>()
-                        );
-                        Err(String::from("aggregate signature tampered"))
-                    }
+            Some(msig) => match self.clerk.as_ref().unwrap().verify_msig(msig, message) {
+                Ok(_) => {
+                    println!(
+                        "Party #{}: aggregate signature successfully verified for {}!",
+                        self.party_id,
+                        message.encode_hex::<String>()
+                    );
+                    Ok(())
                 }
-            }
+                Err(_) => {
+                    println!(
+                        "Party #{}: aggregate signature verification failed {}",
+                        self.party_id,
+                        message.encode_hex::<String>()
+                    );
+                    Err(String::from("aggregate signature tampered"))
+                }
+            },
             None => {
                 println!(
                     "Party #{}: aggregate signature not found {}",
@@ -247,10 +246,14 @@ impl Verifier {
     /// Register keys
     pub fn register_keys(
         &mut self,
-        players_with_keys: &[(PartyId, Stake, ProtocolSignerVerificationKey)],
+        players_with_keys: &[(
+            ProtocolPartyId,
+            ProtocolStake,
+            ProtocolSignerVerificationKey,
+        )],
     ) {
         let players = players_with_keys
-            .into_iter()
+            .iter()
             .map(|(party_id, stake, _verification_key)| (*party_id, *stake))
             .collect::<Vec<_>>();
         println!("Verifier: protocol keys registration from {:?}", players);
@@ -263,7 +266,6 @@ impl Verifier {
 
         self.clerk = Some(StmClerk::from_registration(
             self.params.unwrap(),
-            TrivialEnv,
             closed_reg,
         ));
     }
@@ -274,12 +276,7 @@ impl Verifier {
         message: &Bytes,
         msig: &ProtocolMultiSignature,
     ) -> Result<(), String> {
-        match self
-            .clerk
-            .as_ref()
-            .unwrap()
-            .verify_msig::<ProtocolProof>(msig, message)
-        {
+        match self.clerk.as_ref().unwrap().verify_msig(msig, message) {
             Ok(_) => {
                 println!(
                     "Verifier: aggregate signature successfully verified for {}!",
@@ -333,10 +330,10 @@ impl Demonstrator {
             })
             .collect::<Vec<Bytes>>();
         Self {
-            config: config.clone(),
-            parties: parties,
+            config: *config,
+            parties,
             verifier: None,
-            messages: messages,
+            messages,
             params: None,
         }
     }
@@ -404,10 +401,10 @@ impl ProtocolDemonstrator for Demonstrator {
                 (
                     player.party_id,
                     player.stake,
-                    key_decode_hex(player.verification_key.clone()).unwrap(),
+                    key_decode_hex(&player.verification_key).unwrap(),
                 )
             })
-            .collect::<Vec<(usize, u64, ProtocolSignerVerificationKey)>>();
+            .collect::<Vec<(u64, u64, ProtocolSignerVerificationKey)>>();
         verifier.register_keys(&players_with_keys);
         for party in self.parties.iter_mut() {
             party.register_keys(&players_with_keys);
@@ -427,7 +424,7 @@ impl ProtocolDemonstrator for Demonstrator {
             println!("Message #{} to sign: {:?}", i, message);
             let mut signatures = Vec::<(ProtocolSingleSignature, u64)>::new();
             for party in self.parties.iter_mut() {
-                let party_signatures = party.sign_message(&message);
+                let party_signatures = party.sign_message(message);
                 single_signature_artifacts.extend(
                     party_signatures
                         .iter()
@@ -435,7 +432,7 @@ impl ProtocolDemonstrator for Demonstrator {
                             party_id: party.party_id,
                             message: message.encode_hex::<String>(),
                             lottery: sig.1,
-                            signature: key_encode_hex(&sig.0).unwrap(),
+                            signature: key_encode_hex_sig(&sig.0).unwrap(),
                         })
                         .collect::<Vec<SingleSignatureArtifact>>(),
                 );
@@ -443,11 +440,11 @@ impl ProtocolDemonstrator for Demonstrator {
             }
             for party in self.parties.iter_mut() {
                 let party_id = party.party_id;
-                if let Some(multi_signature) = party.sign_aggregate(&message, &signatures) {
+                if let Some(multi_signature) = party.sign_aggregate(message, &signatures) {
                     multi_signature_artifacts.push(MultiSignatureArtifact {
-                        party_id: party_id,
+                        party_id,
                         message: message.encode_hex::<String>(),
-                        signature: key_encode_hex(multi_signature).unwrap(),
+                        signature: key_encode_hex_multisig(multi_signature).unwrap(),
                     })
                 }
             }
@@ -467,16 +464,16 @@ impl ProtocolDemonstrator for Demonstrator {
                 message.encode_hex::<String>()
             );
             for party in self.parties.iter() {
-                match party.verify_message(&message) {
+                match party.verify_message(message) {
                     Ok(_) => (),
                     Err(err) => return Err(err),
                 }
-                let msig = party.get_aggregate(&message).unwrap();
+                let msig = party.get_aggregate(message).unwrap();
                 match self
                     .verifier
                     .as_ref()
                     .unwrap()
-                    .verify_message(&message, msig)
+                    .verify_message(message, msig)
                 {
                     Ok(_) => (),
                     Err(err) => return Err(err),
@@ -487,19 +484,47 @@ impl ProtocolDemonstrator for Demonstrator {
     }
 }
 
+// TODO: To remove once 'ProtocolMultiSignature' implements `Serialize`
+pub fn key_encode_hex_multisig(from: &ProtocolMultiSignature) -> Result<String, String> {
+    Ok(from.to_bytes().encode_hex::<String>())
+}
+
+// TODO: To remove once 'ProtocolMultiSignature' implements `Deserialize`
+pub fn key_decode_hex_multisig(from: &str) -> Result<ProtocolMultiSignature, String> {
+    let from_vec = Vec::from_hex(from).map_err(|e| format!("can't parse from hex: {}", e))?;
+    ProtocolMultiSignature::from_bytes(&from_vec)
+        .map_err(|e| format!("can't decode multi signature: {}", e))
+}
+
+// TODO: To remove once 'ProtocolSingleSignature' implements `Serialize`
+pub fn key_encode_hex_sig(from: &ProtocolSingleSignature) -> Result<String, String> {
+    Ok(from.to_bytes().encode_hex::<String>())
+}
+
+// TODO: To remove once 'ProtocolSingleSignature' implements `Deserialize`
+pub fn key_decode_hex_sig(from: &str) -> Result<ProtocolSingleSignature, String> {
+    let from_vec = Vec::from_hex(from).map_err(|e| format!("can't parse from hex: {}", e))?;
+    ProtocolSingleSignature::from_bytes(&from_vec)
+        .map_err(|e| format!("can't decode multi signature: {}", e))
+}
+
 /// Encode key to hex helper
-fn key_encode_hex<T: ark_ff::ToBytes>(from: T) -> Result<String, String> {
-    Ok(ark_ff::to_bytes!(from)
+pub fn key_encode_hex<T>(from: T) -> Result<String, String>
+where
+    T: Serialize,
+{
+    Ok(serde_json::to_string(&from)
         .map_err(|e| format!("can't convert to hex: {}", e))?
         .encode_hex::<String>())
 }
 
 /// Decode key from hex helper
-fn key_decode_hex<T: ark_ff::FromBytes>(from: String) -> Result<T, String> {
-    Ok(ark_ff::FromBytes::read(Cursor::new(
-        Vec::from_hex(from).map_err(|e| format!("can't parse from hex: {}", e))?,
-    ))
-    .map_err(|e| format!("can't convert to bytes: {}", e))?)
+pub fn key_decode_hex<T>(from: &str) -> Result<T, String>
+where
+    T: DeserializeOwned,
+{
+    let from_vec = Vec::from_hex(from).map_err(|e| format!("can't parse from hex: {}", e))?;
+    serde_json::from_slice(from_vec.as_slice()).map_err(|e| format!("can't deserialize: {}", e))
 }
 
 /// Write artifacts helper
@@ -522,11 +547,21 @@ pub fn write_artifacts<T: Serialize>(artifact_name: &str, value: &T) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn default_config() -> crate::Config {
-        crate::Config {
+
+    fn setup_protocol_parameters() -> ProtocolParameters {
+        ProtocolParameters {
             m: 100,
             k: 10,
-            phi_f: 0.5,
+            phi_f: 0.65,
+        }
+    }
+
+    fn default_config() -> crate::Config {
+        let protocol_parameters = setup_protocol_parameters();
+        crate::Config {
+            m: protocol_parameters.m,
+            k: protocol_parameters.k,
+            phi_f: protocol_parameters.phi_f,
             nparties: 5,
             nmessages: 2,
         }
@@ -623,26 +658,25 @@ mod tests {
 
     #[test]
     fn test_key_encode_decode_hex() {
-        let config = default_config();
-        let mut demo = Demonstrator::new(&config);
-        demo.establish();
+        let protocol_params = setup_protocol_parameters();
         let party_id = 123;
         let stake = 100;
         let seed = [0u8; 32];
         let mut rng = ChaCha20Rng::from_seed(seed);
         let protocol_initializer: ProtocolInitializer =
-            StmInitializer::setup(demo.params.unwrap(), party_id, stake, &mut rng);
+            StmInitializer::setup(protocol_params, party_id, stake, &mut rng);
         let verification_key: ProtocolSignerVerificationKey =
             protocol_initializer.verification_key();
         let secret_key: ProtocolSignerSecretKey = protocol_initializer.secret_key();
         let verification_key_hex =
             key_encode_hex(verification_key).expect("unexpected hex encoding error");
-        let secret_key_hex = key_encode_hex(secret_key).expect("unexpected hex encoding error");
-        let verification_key_restored =
-            key_decode_hex(verification_key_hex).expect("unexpected hex decoding error");
-        let secret_key_restored =
-            key_decode_hex(secret_key_hex).expect("unexpected hex decoding error");
+        let secret_key_hex = key_encode_hex(&secret_key).expect("unexpected hex encoding error");
+        let verification_key_restored: ProtocolSignerVerificationKey =
+            key_decode_hex::<ProtocolSignerVerificationKey>(&verification_key_hex)
+                .expect("unexpected hex decoding error");
+        let secret_key_restored: ProtocolSignerSecretKey =
+            key_decode_hex(&secret_key_hex).expect("unexpected hex decoding error");
         assert_eq!(verification_key, verification_key_restored);
-        assert_eq!(secret_key, secret_key_restored);
+        assert_eq!(secret_key.to_bytes(), secret_key_restored.to_bytes());
     }
 }

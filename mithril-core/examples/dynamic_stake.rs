@@ -2,7 +2,6 @@
 //! distribution is dynamic among different epochs. We show how instances should be
 //! updated.
 
-use ark_bls12_377::Bls12_377;
 use blake2::Digest;
 use mithril::key_reg::{ClosedKeyReg, KeyReg};
 use mithril::msp::MspPk;
@@ -56,7 +55,7 @@ fn main() {
 
     // The public keys are broadcast. All participants will have the same keys. We expect
     // the keys to be persistent.
-    let mut parties_pks: Vec<MspPk<Bls12_377>> = vec![
+    let mut parties_pks: Vec<MspPk> = vec![
         party_0_init_e1.verification_key(),
         party_1_init_e1.verification_key(),
     ];
@@ -179,15 +178,12 @@ fn main() {
     println!("+------------------------+");
 }
 
-fn local_reg(ids: &[(usize, u64)], pks: &[MspPk<Bls12_377>]) -> ClosedKeyReg<Bls12_377, H> {
+fn local_reg(ids: &[(u64, u64)], pks: &[MspPk]) -> ClosedKeyReg<H> {
     let mut local_keyreg = KeyReg::new(ids);
     // todo: maybe its cleaner to have a `StmPublic` instance that covers the "shareable"
     // data, such as the public key, stake and id.
     for (&pk, id) in pks.iter().zip(ids.iter()) {
-        match local_keyreg.register(id.0, pk) {
-            Err(e) => panic!("{:?}", e),
-            Ok(()) => (),
-        }
+        local_keyreg.register(id.0, pk).unwrap();
     }
     local_keyreg.close()
 }

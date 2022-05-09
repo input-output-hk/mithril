@@ -2,19 +2,16 @@
 //! but instead by all the participants in the signature process. Contrarily to the full protocol
 //! run presented in `tests/integration.rs`, we explicitly treat each party individually.
 
-use ark_bls12_377::Bls12_377;
 use mithril::key_reg::{ClosedKeyReg, KeyReg};
-use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
-use mithril::stm::{MTValue, Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
+use mithril::stm::{
+    Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner, StmVerifier,
+};
 
-use mithril::merkle_tree::MTHashLeaf;
-use mithril::models::digest::DigestHash;
 use mithril::msp::MspPk;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
 type H = blake2::Blake2b;
-type F = <H as MTHashLeaf<MTValue<Bls12_377>>>::F;
 
 fn main() {
     let nparties = 4;
@@ -49,7 +46,7 @@ fn main() {
     let party_3_init = StmInitializer::setup(params, parties[3].0, parties[3].1, &mut rng);
 
     // The public keys are broadcast. All participants will have the same keys.
-    let parties_pks: Vec<MspPk<Bls12_377>> = vec![
+    let parties_pks: Vec<MspPk> = vec![
         party_0_init.verification_key(),
         party_1_init.verification_key(),
         party_2_init.verification_key(),
@@ -77,10 +74,10 @@ fn main() {
     // Now an asynchronous phase begins. The signers no longer need to communicate among themselves
     // Given the parameters we've chosen, the signers will be eligible for all indices.
     // todo: what if we have a structure that contains a signature and the index for which its valid?
-    let (party_0_sigs, party_0_ixs) = try_signatures(&party_0, &msg, params.m);
-    let (party_1_sigs, party_1_ixs) = try_signatures(&party_1, &msg, params.m);
-    let (party_2_sigs, party_2_ixs) = try_signatures(&party_2, &msg, params.m);
-    let (party_3_sigs, party_3_ixs) = try_signatures(&party_3, &msg, params.m);
+    let party_0_sigs = try_signatures(&party_0, &msg, params.m);
+    let party_1_sigs = try_signatures(&party_1, &msg, params.m);
+    let party_2_sigs = try_signatures(&party_2, &msg, params.m);
+    let party_3_sigs = try_signatures(&party_3, &msg, params.m);
 
     // Parties must have signed all indices
     assert_eq!(party_0_sigs.len(), 10);
@@ -94,7 +91,6 @@ fn main() {
         party_0_sigs[1].clone(),
         party_3_sigs[2].clone(),
     ];
-    let complete_ixs_1 = vec![party_0_ixs[0], party_0_ixs[1], party_3_ixs[2]];
 
     let complete_sigs_2 = vec![
         party_1_sigs[0].clone(),
@@ -103,14 +99,6 @@ fn main() {
         party_1_sigs[3].clone(),
         party_3_sigs[4].clone(),
         party_1_sigs[5].clone(),
-    ];
-    let complete_ixs_2 = vec![
-        party_1_ixs[0],
-        party_2_ixs[1],
-        party_0_ixs[2],
-        party_1_ixs[3],
-        party_3_ixs[4],
-        party_1_ixs[5],
     ];
 
     // The following is incomplete. While it has more than 3, it has a lot for the same index.
@@ -121,79 +109,49 @@ fn main() {
         party_3_sigs[0].clone(),
         party_1_sigs[1].clone(),
     ];
-    let incomplete_ixs_3 = vec![
-        party_1_ixs[0],
-        party_2_ixs[0],
-        party_0_ixs[0],
-        party_3_ixs[0],
-        party_1_ixs[1],
-    ];
 
     let closed_registration = local_reg(&parties, &parties_pks);
-    let clerk = StmClerk::from_registration(params, TrivialEnv, closed_registration);
+    let clerk = StmClerk::from_registration(params, closed_registration.clone());
+    let verifier = StmVerifier::new(
+        closed_registration.avk.to_commitment(),
+        params,
+        closed_registration.total_stake,
+    );
 
     // Now we aggregate the signatures
-    let msig_1 = match clerk.aggregate::<ConcatProof<Bls12_377, H, F>>(
-        &complete_sigs_1,
-        &complete_ixs_1,
-        &msg,
-    ) {
+    let msig_1 = match clerk.aggregate(&complete_sigs_1, &msg) {
         Ok(s) => s,
         Err(e) => {
             panic!("Aggregation failed: {:?}", e)
         }
     };
-    assert!(clerk
-        .verify_msig::<ConcatProof<Bls12_377, H, F>>(&msig_1, &msg)
-        .is_ok());
+    assert!(verifier.verify_msig(&msg, &msig_1).is_ok());
 
-    let msig_2 = match clerk.aggregate::<ConcatProof<Bls12_377, H, F>>(
-        &complete_sigs_2,
-        &complete_ixs_2,
-        &msg,
-    ) {
+    let msig_2 = match clerk.aggregate(&complete_sigs_2, &msg) {
         Ok(s) => s,
         Err(e) => {
             panic!("Aggregation failed: {:?}", e)
         }
     };
-    assert!(clerk
-        .verify_msig::<ConcatProof<Bls12_377, H, F>>(&msig_2, &msg)
-        .is_ok());
+    assert!(verifier.verify_msig(&msg, &msig_2).is_ok());
 
-    let msig_3 = clerk.aggregate::<ConcatProof<Bls12_377, H, F>>(
-        &incomplete_sigs_3,
-        &incomplete_ixs_3,
-        &msg,
-    );
+    let msig_3 = clerk.aggregate(&incomplete_sigs_3, &msg);
     assert!(msig_3.is_err());
 }
 
-fn try_signatures(
-    party: &StmSigner<H, Bls12_377>,
-    msg: &[u8],
-    m: u64,
-) -> (Vec<StmSig<Bls12_377, DigestHash>>, Vec<u64>) {
-    let mut sigs = Vec::new();
-    let mut ixs = Vec::new();
-    for ix in 0..m {
-        if let Some(sig) = party.sign(msg, ix) {
-            sigs.push(sig);
-            ixs.push(ix);
-        }
-    }
-    (sigs, ixs)
+fn try_signatures(party: &StmSigner<H>, msg: &[u8], m: u64) -> Vec<StmSig<H>> {
+    (0..m)
+        .into_iter()
+        .filter_map(|ix| party.sign(msg, ix))
+        .collect()
 }
 
-fn local_reg(ids: &[(usize, u64)], pks: &[MspPk<Bls12_377>]) -> ClosedKeyReg<Bls12_377, H> {
+fn local_reg(ids: &[(u64, u64)], pks: &[MspPk]) -> ClosedKeyReg<H> {
     let mut local_keyreg = KeyReg::new(ids);
     // todo: maybe its cleaner to have a `StmPublic` instance that covers the "shareable"
     // data, such as the public key, stake and id.
     for (&pk, id) in pks.iter().zip(ids.iter()) {
-        match local_keyreg.register(id.0, pk) {
-            Err(e) => panic!("{:?}", e),
-            Ok(()) => (),
-        }
+        local_keyreg.register(id.0, pk).unwrap();
     }
     local_keyreg.close()
 }

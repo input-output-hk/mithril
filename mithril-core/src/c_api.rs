@@ -1,31 +1,24 @@
 //! C api. All functions return an i64, with 0 upon success, and -99 if the returned pointer
 //! is null. Other error codes are function dependent.
 use crate::key_reg::{ClosedKeyReg, KeyReg};
-use crate::{
-    merkle_tree::{MTHashLeaf, MerkleTreeCommitment},
-    mithril_proof::concat_proofs::{ConcatProof, TrivialEnv},
-    msp::{MspPk, MspSk},
-    stm::*,
-};
+use crate::{merkle_tree::MerkleTreeCommitment, msp::MspPk, stm::*};
 use rand_core::OsRng;
 use std::ffi::CStr;
 use std::os::raw::c_char;
 
 pub const NULLPOINTERERR: i64 = -99;
 
-type C = ark_bls12_377::Bls12_377;
 type H = blake2::Blake2b;
-type F = <H as MTHashLeaf<MTValue<C>>>::F;
-type MspSkPtr = *mut MspSk<C>;
-type MspPkPtr = *mut MspPk<C>;
-type SigPtr = *mut StmSig<C, F>;
-type MultiSigPtr = *mut StmMultiSig<C, ConcatProof<C, H, F>>;
-type StmInitializerPtr = *mut StmInitializer<C>;
-type StmSignerPtr = *mut StmSigner<H, C>;
-type StmClerkPtr = *mut StmClerk<H, C, TrivialEnv>;
-type MerkleTreeCommitmentPtr = *mut MerkleTreeCommitment<MTValue<C>, H>;
-type KeyRegPtr = *mut KeyReg<C>;
-type ClosedKeyRegPtr = *mut ClosedKeyReg<C, H>;
+type MspPkPtr = *mut MspPk;
+type SigPtr = *mut StmSig<H>;
+type MultiSigPtr = *mut StmMultiSig<H>;
+type StmInitializerPtr = *mut StmInitializer;
+type StmSignerPtr = *mut StmSigner<H>;
+type StmClerkPtr = *mut StmClerk<H>;
+type StmVerifierPtr = *mut StmVerifier<H>;
+type MerkleTreeCommitmentPtr = *mut MerkleTreeCommitment<H>;
+type KeyRegPtr = *mut KeyReg;
+type ClosedKeyRegPtr = *mut ClosedKeyReg<H>;
 
 // A macro would be nice for the below, but macros do not
 // seem to work properly with cbindgen:
@@ -85,143 +78,166 @@ pub extern "C" fn free_stm_clerk(p: StmClerkPtr) -> i64 {
     }
 }
 
-pub mod serialize {
-    //! Serialisation functions
-    use super::*;
-    use ark_ff::{FromBytes, ToBytes};
-    use std::{intrinsics::copy_nonoverlapping, slice};
-
-    /// Sets *key_bytes to the serialization
-    /// Sets *key_size to the size of the buffer
-    /// The caller is responsible for freeing this buffer
-    #[no_mangle]
-    pub extern "C" fn msp_serialize_verification_key(
-        kptr: MspPkPtr,
-        key_size: *mut usize,
-        key_bytes: *mut *mut u8,
-    ) -> i64 {
-        c_serialize(kptr, key_size, key_bytes)
-    }
-    /// Given a pointer and its size, deserialize into a MSP verification/public key
-    #[no_mangle]
-    pub extern "C" fn msp_deserialize_verification_key(
-        key_size: usize,
-        key_bytes: *mut u8,
-        output_struct: *mut MspPkPtr,
-    ) -> i64 {
-        c_deserialize(key_size, key_bytes, output_struct)
-    }
-    /// Sets *key_bytes to the serialization
-    /// Sets *key_size to the size of the buffer
-    /// The caller is responsible for freeing this buffer
-    #[no_mangle]
-    pub extern "C" fn msp_serialize_secret_key(
-        kptr: MspSkPtr,
-        key_size: *mut usize,
-        key_bytes: *mut *mut u8,
-    ) -> i64 {
-        c_serialize(kptr, key_size, key_bytes)
-    }
-    /// Given a pointer and its size, deserialize into a MSP secret key
-    #[no_mangle]
-    pub extern "C" fn msp_deserialize_secret_key(
-        key_size: usize,
-        key_bytes: *mut u8,
-        output_struct: *mut MspSkPtr,
-    ) -> i64 {
-        c_deserialize(key_size, key_bytes, output_struct)
-    }
-    /// Sets *sig_bytes to the serialization
-    /// Sets *sig_size to the size of the buffer
-    /// The caller is responsible for freeing this buffer
-    #[no_mangle]
-    pub extern "C" fn stm_serialize_sig(
-        sptr: SigPtr,
-        sig_size: *mut usize,
-        sig_bytes: *mut *mut u8,
-    ) -> i64 {
-        c_serialize(sptr, sig_size, sig_bytes)
-    }
-    /// Given a pointer and its size, deserialize into an STM signature
-    #[no_mangle]
-    pub extern "C" fn stm_deserialize_sig(
-        sig_size: usize,
-        sig_bytes: *mut u8,
-        output_struct: *mut SigPtr,
-    ) -> i64 {
-        c_deserialize(sig_size, sig_bytes, output_struct)
-    }
-    /// Sets *msig_bytes to the serialization
-    /// Sets *msig_size to the size of the buffer
-    /// The caller is responsible for freeing this buffer
-    #[no_mangle]
-    pub extern "C" fn stm_serialize_multi_sig(
-        msig_ptr: MultiSigPtr,
-        msig_size: *mut usize,
-        msig_bytes: *mut *mut u8,
-    ) -> i64 {
-        c_serialize(msig_ptr, msig_size, msig_bytes)
-    }
-    /// Given a pointer and its size, deserialize into an STM multi signature
-    #[no_mangle]
-    pub extern "C" fn stm_deserialize_multi_sig(
-        sig_size: usize,
-        sig_bytes: *mut u8,
-        output_struct: *mut MultiSigPtr,
-    ) -> i64 {
-        c_deserialize(sig_size, sig_bytes, output_struct)
-    }
-
-    /// Sets *init_bytes to the serialization
-    /// Sets *init_size to the size of the buffer
-    /// The caller is responsible for freeing this buffer
-    #[no_mangle]
-    pub extern "C" fn stm_serialize_initializer(
-        init_ptr: StmInitializerPtr,
-        init_size: *mut usize,
-        init_bytes: *mut *mut u8,
-    ) -> i64 {
-        c_serialize(init_ptr, init_size, init_bytes)
-    }
-
-    /// Given a pointer and its size, deserialize into an STM initializer
-    #[no_mangle]
-    pub extern "C" fn stm_deserialize_initializer(
-        init_size: usize,
-        init_bytes: *mut u8,
-        output_struct: *mut StmInitializerPtr,
-    ) -> i64 {
-        c_deserialize(init_size, init_bytes, output_struct)
-    }
-
-    fn c_serialize<T: ToBytes>(ptr: *mut T, size: *mut usize, out_bytes: *mut *mut u8) -> i64 {
-        unsafe {
-            if let (Some(v), Some(size_checked), Some(out_checked)) =
-                (ptr.as_ref(), size.as_mut(), out_bytes.as_mut())
-            {
-                let bytes = ark_ff::to_bytes!(v).unwrap();
-                let len = bytes.len();
-                *size_checked = len;
-                let dst = libc::malloc(len) as *mut u8;
-                copy_nonoverlapping(bytes.as_ptr(), dst, len);
-                *out_checked = dst;
-                return 0;
-            }
-            NULLPOINTERERR
+#[no_mangle]
+/// Frees an STM verifier pointer
+pub extern "C" fn free_stm_verifier(p: StmVerifierPtr) -> i64 {
+    unsafe {
+        if let Some(p) = p.as_mut() {
+            Box::from_raw(p);
+            return 0;
         }
-    }
-
-    fn c_deserialize<T: FromBytes>(size: usize, bytes: *const u8, result: *mut *mut T) -> i64 {
-        unsafe {
-            if let (Some(res), Some(bytes)) = (result.as_mut(), bytes.as_ref()) {
-                let val = T::read(slice::from_raw_parts(bytes, size)).unwrap();
-                *res = Box::into_raw(Box::new(val));
-                return 0;
-            }
-            NULLPOINTERERR
-        }
+        NULLPOINTERERR
     }
 }
+
+#[no_mangle]
+/// Frees a closed registration pointer
+pub extern "C" fn free_closed_reg(p: ClosedKeyRegPtr) -> i64 {
+    unsafe {
+        if let Some(p) = p.as_mut() {
+            Box::from_raw(p);
+            return 0;
+        }
+        NULLPOINTERERR
+    }
+}
+
+// pub mod serialize {
+//     //! Serialisation functions
+//     use super::*;
+//     use std::{intrinsics::copy_nonoverlapping, slice};
+//
+//     /// Sets *key_bytes to the serialization
+//     /// Sets *key_size to the size of the buffer
+//     /// The caller is responsible for freeing this buffer
+//     #[no_mangle]
+//     pub extern "C" fn msp_serialize_verification_key(
+//         kptr: MspPkPtr,
+//         key_size: *mut usize,
+//         key_bytes: *mut *mut u8,
+//     ) -> i64 {
+//         c_serialize(kptr, key_size, key_bytes)
+//     }
+//     /// Given a pointer and its size, deserialize into a MSP verification/public key
+//     #[no_mangle]
+//     pub extern "C" fn msp_deserialize_verification_key(
+//         key_size: usize,
+//         key_bytes: *mut u8,
+//         output_struct: *mut MspPkPtr,
+//     ) -> i64 {
+//         c_deserialize(key_size, key_bytes, output_struct)
+//     }
+//     /// Sets *key_bytes to the serialization
+//     /// Sets *key_size to the size of the buffer
+//     /// The caller is responsible for freeing this buffer
+//     #[no_mangle]
+//     pub extern "C" fn msp_serialize_secret_key(
+//         kptr: MspSkPtr,
+//         key_size: *mut usize,
+//         key_bytes: *mut *mut u8,
+//     ) -> i64 {
+//         c_serialize(kptr, key_size, key_bytes)
+//     }
+//     /// Given a pointer and its size, deserialize into a MSP secret key
+//     #[no_mangle]
+//     pub extern "C" fn msp_deserialize_secret_key(
+//         key_size: usize,
+//         key_bytes: *mut u8,
+//         output_struct: *mut MspSkPtr,
+//     ) -> i64 {
+//         c_deserialize(key_size, key_bytes, output_struct)
+//     }
+//     /// Sets *sig_bytes to the serialization
+//     /// Sets *sig_size to the size of the buffer
+//     /// The caller is responsible for freeing this buffer
+//     #[no_mangle]
+//     pub extern "C" fn stm_serialize_sig(
+//         sptr: SigPtr,
+//         sig_size: *mut usize,
+//         sig_bytes: *mut *mut u8,
+//     ) -> i64 {
+//         c_serialize(sptr, sig_size, sig_bytes)
+//     }
+//     /// Given a pointer and its size, deserialize into an STM signature
+//     #[no_mangle]
+//     pub extern "C" fn stm_deserialize_sig(
+//         sig_size: usize,
+//         sig_bytes: *mut u8,
+//         output_struct: *mut SigPtr,
+//     ) -> i64 {
+//         c_deserialize(sig_size, sig_bytes, output_struct)
+//     }
+//     /// Sets *msig_bytes to the serialization
+//     /// Sets *msig_size to the size of the buffer
+//     /// The caller is responsible for freeing this buffer
+//     #[no_mangle]
+//     pub extern "C" fn stm_serialize_multi_sig(
+//         msig_ptr: MultiSigPtr,
+//         msig_size: *mut usize,
+//         msig_bytes: *mut *mut u8,
+//     ) -> i64 {
+//         c_serialize(msig_ptr, msig_size, msig_bytes)
+//     }
+//     /// Given a pointer and its size, deserialize into an STM multi signature
+//     #[no_mangle]
+//     pub extern "C" fn stm_deserialize_multi_sig(
+//         sig_size: usize,
+//         sig_bytes: *mut u8,
+//         output_struct: *mut MultiSigPtr,
+//     ) -> i64 {
+//         c_deserialize(sig_size, sig_bytes, output_struct)
+//     }
+//
+//     /// Sets *init_bytes to the serialization
+//     /// Sets *init_size to the size of the buffer
+//     /// The caller is responsible for freeing this buffer
+//     #[no_mangle]
+//     pub extern "C" fn stm_serialize_initializer(
+//         init_ptr: StmInitializerPtr,
+//         init_size: *mut usize,
+//         init_bytes: *mut *mut u8,
+//     ) -> i64 {
+//         c_serialize(init_ptr, init_size, init_bytes)
+//     }
+//
+//     /// Given a pointer and its size, deserialize into an STM initializer
+//     #[no_mangle]
+//     pub extern "C" fn stm_deserialize_initializer(
+//         init_size: usize,
+//         init_bytes: *mut u8,
+//         output_struct: *mut StmInitializerPtr,
+//     ) -> i64 {
+//         c_deserialize(init_size, init_bytes, output_struct)
+//     }
+//
+//     fn c_serialize<T: ToBytes>(ptr: *mut T, size: *mut usize, out_bytes: *mut *mut u8) -> i64 {
+//         unsafe {
+//             if let (Some(v), Some(size_checked), Some(out_checked)) =
+//                 (ptr.as_ref(), size.as_mut(), out_bytes.as_mut())
+//             {
+//                 let bytes = ark_ff::to_bytes!(v).unwrap();
+//                 let len = bytes.len();
+//                 *size_checked = len;
+//                 let dst = libc::malloc(len) as *mut u8;
+//                 copy_nonoverlapping(bytes.as_ptr(), dst, len);
+//                 *out_checked = dst;
+//                 return 0;
+//             }
+//             NULLPOINTERERR
+//         }
+//     }
+//
+//     fn c_deserialize<T: FromBytes>(size: usize, bytes: *const u8, result: *mut *mut T) -> i64 {
+//         unsafe {
+//             if let (Some(res), Some(bytes)) = (result.as_mut(), bytes.as_ref()) {
+//                 let val = T::read(slice::from_raw_parts(bytes, size)).unwrap();
+//                 *res = Box::into_raw(Box::new(val));
+//                 return 0;
+//             }
+//             NULLPOINTERERR
+//         }
+//     }
+// }
 
 mod initializer {
     use super::*;
@@ -297,17 +313,6 @@ mod initializer {
     }
 
     #[no_mangle]
-    pub extern "C" fn stm_initializer_secret_key(me: StmInitializerPtr, sk: *mut MspSkPtr) -> i64 {
-        unsafe {
-            if let (Some(ref_me), Some(ref_sk)) = (me.as_ref(), sk.as_mut()) {
-                *ref_sk = Box::into_raw(Box::new(ref_me.secret_key()));
-                return 0;
-            }
-            NULLPOINTERERR
-        }
-    }
-
-    #[no_mangle]
     pub extern "C" fn stm_initializer_verification_key(
         me: StmInitializerPtr,
         pk: *mut MspPkPtr,
@@ -340,17 +345,6 @@ mod initializer {
         unsafe {
             if let Some(ref_me) = me.as_mut() {
                 ref_me.set_params(params);
-                return 0;
-            }
-            NULLPOINTERERR
-        }
-    }
-
-    #[no_mangle]
-    pub extern "C" fn stm_initializer_set_keys(me: StmInitializerPtr, key: MspSkPtr) -> i64 {
-        unsafe {
-            if let (Some(ref_me), Some(ref_key)) = (me.as_mut(), key.as_ref()) {
-                ref_me.set_key(ref_key);
                 return 0;
             }
             NULLPOINTERERR
@@ -452,7 +446,8 @@ mod key_reg {
     use crate::c_api::{
         ClosedKeyRegPtr, KeyRegPtr, MerkleTreeCommitmentPtr, MspPkPtr, NULLPOINTERERR,
     };
-    use crate::key_reg::{KeyReg, RegisterError};
+    use crate::error::RegisterError;
+    use crate::key_reg::KeyReg;
     use crate::stm::{PartyId, Stake};
     use std::slice;
 
@@ -537,10 +532,22 @@ mod key_reg {
             NULLPOINTERERR
         }
     }
+
+    #[no_mangle]
+    pub extern "C" fn total_stake(closed_reg: ClosedKeyRegPtr, stake: &mut Stake) -> i64 {
+        unsafe {
+            if let Some(closed_reg) = closed_reg.as_ref() {
+                *stake = closed_reg.total_stake;
+                return 0;
+            }
+            NULLPOINTERERR
+        }
+    }
 }
 
 mod clerk {
     use super::*;
+    use crate::error::{AggregationFailure, VerificationFailure};
     use core::slice;
 
     /// A clerk can only be generated out of a `ClosedKeyReg` instance, or out of an `StmSigner`.
@@ -552,10 +559,11 @@ mod clerk {
         clerk: *mut StmClerkPtr,
     ) -> i64 {
         unsafe {
-            if let (Some(ref_closed_reg), Some(ref_clerk)) = (closed_reg.as_mut(), clerk.as_mut()) {
-                let closed_reg = *Box::from_raw(ref_closed_reg);
+            if let (Some(ref_closed_reg), Some(ref_clerk)) = (closed_reg.as_ref(), clerk.as_mut()) {
+                let closed_reg = ref_closed_reg;
                 *ref_clerk = Box::into_raw(Box::new(StmClerk::from_registration(
-                    params, TrivialEnv, closed_reg,
+                    params,
+                    closed_reg.clone(),
                 )));
                 return 0;
             }
@@ -567,7 +575,7 @@ mod clerk {
     pub extern "C" fn stm_clerk_from_signer(signer: StmSignerPtr, clerk: *mut StmClerkPtr) -> i64 {
         unsafe {
             if let (Some(ref_signer), Some(ref_clerk)) = (signer.as_ref(), clerk.as_mut()) {
-                *ref_clerk = Box::into_raw(Box::new(StmClerk::from_signer(ref_signer, TrivialEnv)));
+                *ref_clerk = Box::into_raw(Box::new(StmClerk::from_signer(ref_signer)));
                 return 0;
             }
             NULLPOINTERERR
@@ -586,7 +594,6 @@ mod clerk {
     pub extern "C" fn stm_clerk_verify_sig(
         me: StmClerkPtr,
         sig: SigPtr,
-        index: Index,
         msg: *const c_char,
     ) -> i64 {
         unsafe {
@@ -594,7 +601,7 @@ mod clerk {
                 (me.as_ref(), msg.as_ref(), sig.as_ref())
             {
                 let msg_str = CStr::from_ptr(msg);
-                let out = ref_me.verify_sig(ref_sig, index, msg_str.to_bytes());
+                let out = ref_me.verify_sig(ref_sig, msg_str.to_bytes());
                 return match out {
                     Ok(()) => 0,
                     Err(VerificationFailure::LotteryLost) => -1,
@@ -615,25 +622,19 @@ mod clerk {
         me: StmClerkPtr,
         n_sigs: usize,
         sigs: *const SigPtr,
-        indices: *const Index,
         msg: *const c_char,
         sig: *mut MultiSigPtr,
     ) -> i64 {
         unsafe {
-            if let (Some(ref_me), Some(sigs), Some(indices), Some(msg), Some(ref_sig)) = (
-                me.as_ref(),
-                sigs.as_ref(),
-                indices.as_ref(),
-                msg.as_ref(),
-                sig.as_mut(),
-            ) {
+            if let (Some(ref_me), Some(sigs), Some(msg), Some(ref_sig)) =
+                (me.as_ref(), sigs.as_ref(), msg.as_ref(), sig.as_mut())
+            {
                 let sigs = slice::from_raw_parts(sigs, n_sigs)
                     .iter()
                     .map(|p| (**p).clone())
                     .collect::<Vec<_>>();
-                let indices = slice::from_raw_parts(indices, n_sigs);
                 let msg_str = CStr::from_ptr(msg);
-                let aggr = ref_me.aggregate(&sigs, indices, msg_str.to_bytes());
+                let aggr = ref_me.aggregate(&sigs, msg_str.to_bytes());
                 return match aggr {
                     Ok(msig) => {
                         *ref_sig = Box::into_raw(Box::new(msig));
@@ -665,8 +666,58 @@ mod clerk {
                 let out = ref_me.verify_msig(ref_msig, msg_str.to_bytes());
                 return match out {
                     Ok(()) => 0,
-                    Err(MultiVerificationFailure::InvalidAggregate(_)) => -1,
-                    Err(MultiVerificationFailure::ProofError(e)) => e.into(),
+                    Err(e) => e.into(),
+                };
+            }
+            NULLPOINTERERR
+        }
+    }
+}
+
+mod verifier {
+    use super::*;
+
+    /// A verifier can be generated from a merkle tree commitment, `StmParameters` and
+    /// the total stake.
+    #[no_mangle]
+    pub extern "C" fn stm_verifier_new(
+        avk_commitment_ptr: MerkleTreeCommitmentPtr,
+        params: StmParameters,
+        total_stake: Stake,
+        verifier_ptr: *mut StmVerifierPtr,
+    ) -> i64 {
+        unsafe {
+            if let (Some(avk_commitment), Some(verifier)) =
+                (avk_commitment_ptr.as_ref(), verifier_ptr.as_mut())
+            {
+                let stm_verifier = StmVerifier::new(avk_commitment.clone(), params, total_stake);
+                *verifier = Box::into_raw(Box::new(stm_verifier));
+                return 0;
+            }
+            NULLPOINTERERR
+        }
+    }
+
+    /// Try to verify a multisignature.
+    /// returns 0 if the signature is valid
+    /// returns -1 if the aggregation is invalid
+    /// returns n > 0 if the proof verification failed, where n is the error number
+    /// from the proof system.
+    #[no_mangle]
+    pub extern "C" fn stm_verifier_verify_msig(
+        me: StmVerifierPtr,
+        msig: MultiSigPtr,
+        msg: *const c_char,
+    ) -> i64 {
+        unsafe {
+            if let (Some(ref_me), Some(ref_msig), Some(msg)) =
+                (me.as_ref(), msig.as_ref(), msg.as_ref())
+            {
+                let msg_str = CStr::from_ptr(msg);
+                let out = ref_me.verify_msig(msg_str.to_bytes(), ref_msig);
+                return match out {
+                    Ok(()) => 0,
+                    Err(e) => e.into(),
                 };
             }
             NULLPOINTERERR

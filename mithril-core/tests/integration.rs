@@ -1,17 +1,12 @@
-use ark_bls12_377::Bls12_377;
 use mithril::key_reg::KeyReg;
-use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
-use mithril::stm::{
-    AggregationFailure, MTValue, StmClerk, StmInitializer, StmParameters, StmSigner,
-};
+use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner, StmVerifier};
 use rayon::prelude::*;
 
-use mithril::merkle_tree::MTHashLeaf;
+use mithril::error::AggregationFailure;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
 type H = blake2::Blake2b;
-type F = <H as MTHashLeaf<MTValue<Bls12_377>>>::F;
 
 #[test]
 fn test_full_protocol() {
@@ -37,7 +32,7 @@ fn test_full_protocol() {
 
     let mut key_reg = KeyReg::new(&parties);
 
-    let mut ps: Vec<StmInitializer<Bls12_377>> = Vec::with_capacity(nparties);
+    let mut ps: Vec<StmInitializer> = Vec::with_capacity(nparties as usize);
     for (pid, stake) in parties {
         let p = StmInitializer::setup(params, pid, stake, &mut rng);
         key_reg
@@ -51,7 +46,7 @@ fn test_full_protocol() {
     let ps = ps
         .into_par_iter()
         .map(|p| p.new_signer(closed_reg.clone()))
-        .collect::<Vec<StmSigner<H, Bls12_377>>>();
+        .collect::<Vec<StmSigner<H>>>();
 
     /////////////////////
     // operation phase //
@@ -79,24 +74,26 @@ fn test_full_protocol() {
         sigs.extend(res.1);
     }
 
-    let clerk = StmClerk::from_signer(&ps[0], TrivialEnv);
+    let clerk = StmClerk::from_signer(&ps[0]);
 
     // Check all parties can verify every sig
-    for (s, ix) in sigs.iter().zip(&ixs) {
-        assert!(
-            clerk.verify_sig(s, *ix, &msg).is_ok(),
-            "Verification failed"
-        );
+    for s in sigs.iter() {
+        assert!(clerk.verify_sig(s, &msg).is_ok(), "Verification failed");
     }
 
-    // Aggregate and verify with random parties
-    let msig = clerk.aggregate::<ConcatProof<Bls12_377, H, F>>(&sigs, &ixs, &msg);
+    // Aggregate with random parties
+    let msig = clerk.aggregate(&sigs, &msg);
+
+    // Verify aggregated signature with a fresh verifier
+    let verifier = StmVerifier::new(
+        closed_reg.avk.to_commitment(),
+        params,
+        closed_reg.total_stake,
+    );
     match msig {
         Ok(aggr) => {
             println!("Aggregate ok");
-            assert!(clerk
-                .verify_msig::<ConcatProof<Bls12_377, H, F>>(&aggr, &msg)
-                .is_ok());
+            assert!(verifier.verify_msig(&msg, &aggr).is_ok());
         }
         Err(AggregationFailure::NotEnoughSignatures(n, k)) => {
             println!("Not enough signatures");
