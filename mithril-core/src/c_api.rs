@@ -1,7 +1,7 @@
 //! C api. All functions return an i64, with 0 upon success, and -99 if the returned pointer
 //! is null. Other error codes are function dependent.
 use crate::key_reg::{ClosedKeyReg, KeyReg};
-use crate::{merkle_tree::MerkleTreeCommitment, msp::MspPk, stm::*};
+use crate::{merkle_tree::MerkleTreeCommitment, stm::*};
 use rand_core::OsRng;
 use std::ffi::CStr;
 use std::os::raw::c_char;
@@ -9,7 +9,7 @@ use std::os::raw::c_char;
 pub const NULLPOINTERERR: i64 = -99;
 
 type H = blake2::Blake2b;
-type MspPkPtr = *mut MspPk;
+type StmVerificationKeyPtr = *mut StmVerificationKey;
 type SigPtr = *mut StmSig<H>;
 type MultiSigPtr = *mut StmMultiSig<H>;
 type StmInitializerPtr = *mut StmInitializer;
@@ -315,7 +315,7 @@ mod initializer {
     #[no_mangle]
     pub extern "C" fn stm_initializer_verification_key(
         me: StmInitializerPtr,
-        pk: *mut MspPkPtr,
+        pk: *mut StmVerificationKeyPtr,
     ) -> i64 {
         unsafe {
             if let (Some(ref_me), Some(ref_pk)) = (me.as_ref(), pk.as_mut()) {
@@ -444,7 +444,7 @@ mod signer {
 
 mod key_reg {
     use crate::c_api::{
-        ClosedKeyRegPtr, KeyRegPtr, MerkleTreeCommitmentPtr, MspPkPtr, NULLPOINTERERR,
+        ClosedKeyRegPtr, KeyRegPtr, MerkleTreeCommitmentPtr, StmVerificationKeyPtr, NULLPOINTERERR,
     };
     use crate::error::RegisterError;
     use crate::key_reg::KeyReg;
@@ -488,7 +488,7 @@ mod key_reg {
     pub extern "C" fn register_party(
         key_reg: KeyRegPtr,
         party_id: PartyId,
-        party_key: MspPkPtr,
+        party_key: StmVerificationKeyPtr,
     ) -> i64 {
         unsafe {
             if let (Some(ref_key_reg), Some(party_key)) = (key_reg.as_mut(), party_key.as_ref()) {

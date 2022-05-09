@@ -1,5 +1,5 @@
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use mithril::msp::Msp;
+use mithril::msp::{VerificationKey, VerificationKeyPoP, Signature, SigningKey};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use std::time::Duration;
@@ -14,32 +14,38 @@ fn msp(c: &mut Criterion) {
     let mut sigs = Vec::new();
 
     let mut group = c.benchmark_group("Multi-signatures/");
-    group.bench_function("Key generation", |b| b.iter(|| Msp::gen(&mut rng)));
+    group.bench_function("Key generation", |b| {
+        b.iter(|| {
+            let sk = SigningKey::gen(&mut rng);
+            let _pk = VerificationKeyPoP::from(&sk);
+        })
+    });
 
-    let (sk, _) = Msp::gen(&mut rng);
-    group.bench_function("Single signature", |b| b.iter(|| Msp::sig(&sk, &msg)));
+    let sk = SigningKey::gen(&mut rng);
+    group.bench_function("Single signature", |b| b.iter(|| sk.sign(&msg)));
 
     for _ in 0..*NR_SIGNERS.last().unwrap() {
-        let (sk, pk) = Msp::gen(&mut rng);
-        let sig = Msp::sig(&sk, &msg);
+        let sk = SigningKey::gen(&mut rng);
+        let pk = VerificationKeyPoP::from(&sk);
+        let sig = sk.sign(&msg);
         sigs.push(sig);
-        mvks.push(pk.mvk);
+        mvks.push(pk.vk);
     }
 
     for &size in NR_SIGNERS.iter() {
         group.bench_with_input(BenchmarkId::new("Aggregate keys", size), &size, |b, &i| {
-            b.iter(|| Msp::aggregate_keys(&mvks[..i]))
+            b.iter(|| mvks[..i].iter().sum::<VerificationKey>())
         });
         group.bench_with_input(
             BenchmarkId::new("Aggregate signatures", size),
             &size,
-            |b, &i| b.iter(|| Msp::aggregate_sigs(&sigs[..i])),
+            |b, &i| b.iter(|| sigs[..i].iter().sum::<Signature>()),
         );
     }
-    let ivk = Msp::aggregate_keys(&mvks);
-    let mu = Msp::aggregate_sigs(&sigs);
+    let ivk = mvks.iter().sum();
+    let mu = sigs.iter().sum::<Signature>();
     group.bench_function("Signature verification", |b| {
-        b.iter(|| Msp::aggregate_ver(&msg, &ivk, &mu))
+        b.iter(|| mu.verify(&msg, &ivk))
     });
 
     group.finish();

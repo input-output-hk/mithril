@@ -4,7 +4,7 @@
 
 use blake2::Digest;
 use mithril::key_reg::{ClosedKeyReg, KeyReg};
-use mithril::msp::MspPk;
+use mithril::msp::VerificationKeyPoP;
 use mithril::stm::{Stake, StmInitializer, StmParameters};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
@@ -55,7 +55,7 @@ fn main() {
 
     // The public keys are broadcast. All participants will have the same keys. We expect
     // the keys to be persistent.
-    let mut parties_pks: Vec<MspPk> = vec![
+    let mut parties_pks: Vec<VerificationKeyPoP> = vec![
         party_0_init_e1.verification_key(),
         party_1_init_e1.verification_key(),
     ];
@@ -63,12 +63,12 @@ fn main() {
     println!(
         "Party 0: Stake => {:?}, PubKey => {:x}",
         parties_e1[0].1,
-        H::digest(&parties_pks[0].mvk.to_bytes())
+        H::digest(&parties_pks[0].vk.to_bytes())
     );
     println!(
         "Party 1: Stake => {:?}, PubKey => {:x}",
         parties_e1[1].1,
-        H::digest(&parties_pks[1].mvk.to_bytes())
+        H::digest(&parties_pks[1].vk.to_bytes())
     );
     println!();
 
@@ -145,17 +145,17 @@ fn main() {
     println!(
         "Party 0: Stake => {:?}, PubKey => {:x}",
         parties_e2[0].1,
-        H::digest(&parties_pks[0].mvk.to_bytes())
+        H::digest(&parties_pks[0].vk.to_bytes())
     );
     println!(
         "Party 1: Stake => {:?}, PubKey => {:x}",
         parties_e2[1].1,
-        H::digest(&parties_pks[1].mvk.to_bytes())
+        H::digest(&parties_pks[1].vk.to_bytes())
     );
     println!(
         "Party 2: Stake => {:?}, PubKey => {:x}",
         parties_e2[2].1,
-        H::digest(&parties_pks[2].mvk.to_bytes())
+        H::digest(&parties_pks[2].vk.to_bytes())
     );
     println!();
 
@@ -178,7 +178,7 @@ fn main() {
     println!("+------------------------+");
 }
 
-fn local_reg(ids: &[(u64, u64)], pks: &[MspPk]) -> ClosedKeyReg<H> {
+fn local_reg(ids: &[(u64, u64)], pks: &[VerificationKeyPoP]) -> ClosedKeyReg<H> {
     let mut local_keyreg = KeyReg::new(ids);
     // todo: maybe its cleaner to have a `StmPublic` instance that covers the "shareable"
     // data, such as the public key, stake and id.
