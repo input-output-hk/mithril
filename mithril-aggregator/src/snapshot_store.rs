@@ -1,7 +1,7 @@
 use async_trait::async_trait;
-use log::debug;
 use mithril_common::entities::Snapshot;
 use reqwest::{self, StatusCode};
+use slog_scope::debug;
 
 #[cfg(test)]
 use mockall::automock;

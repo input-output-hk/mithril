@@ -1,8 +1,8 @@
 use chrono::prelude::*;
-use log::{debug, info};
 use mithril_common::entities;
 use mithril_common::fake_data;
 use serde_json::Value::Null;
+use slog_scope::{debug, info};
 use std::convert::Infallible;
 use std::net::IpAddr;
 use std::sync::Arc;

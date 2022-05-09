@@ -2,9 +2,9 @@
 #![allow(dead_code)]
 
 use hex::{FromHex, ToHex};
-use log::{debug, warn};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use slog_scope::{debug, warn};
 use std::collections::HashMap;
 
 use mithril::key_reg::KeyReg;

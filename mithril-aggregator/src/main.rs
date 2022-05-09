@@ -8,9 +8,10 @@ mod snapshot_store;
 
 use clap::Parser;
 
-use log::debug;
 use mithril_common::fake_data;
 use mithril_common::snapshotter::Snapshotter;
+use slog::{Drain, Level, Logger};
+use slog_scope::debug;
 use std::env;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -35,8 +36,8 @@ pub struct Args {
     server_port: u16,
 
     /// Verbosity level
-    #[clap(flatten)]
-    verbose: clap_verbosity_flag::Verbosity,
+    #[clap(short, long, parse(from_occurrences))]
+    verbose: usize,
 
     /// Run mode
     #[clap(short, long, default_value = "dev")]
@@ -52,20 +53,36 @@ pub struct Args {
     db_directory: String,
 }
 
+impl Args {
+    fn log_level(&self) -> Level {
+        match self.verbose {
+            0 => Level::Warning,
+            1 => Level::Info,
+            2 => Level::Debug,
+            _ => Level::Trace,
+        }
+    }
+}
+
+fn build_logger(min_level: Level) -> Logger {
+    let drain = slog_bunyan::new(std::io::stdout())
+        .set_pretty(false)
+        .build()
+        .fuse();
+    let drain = slog::LevelFilter::new(drain, min_level).fuse();
+    let drain = slog_async::Async::new(drain).build().fuse();
+
+    Logger::root(Arc::new(drain), slog::o!())
+}
+
 #[tokio::main]
 async fn main() {
     // Load args
     let args = Args::parse();
-
-    // Init logger
-    env_logger::Builder::new()
-        .target(env_logger::Target::Stdout)
-        .filter_level(args.verbose.log_level_filter())
-        .init();
+    let _guard = slog_scope::set_global_logger(build_logger(args.log_level()));
 
     // Load config
     let run_mode = env::var("RUN_MODE").unwrap_or(args.run_mode);
-    debug!("Run Mode: {}", run_mode);
     let config: Config = config::Config::builder()
         .add_source(config::File::with_name(&format!("./config/{}.json", run_mode)).required(false))
         .add_source(config::Environment::default())
@@ -73,7 +90,7 @@ async fn main() {
         .unwrap()
         .try_deserialize()
         .unwrap();
-    debug!("{:?}", config);
+    debug!("Started"; "run_mode" => &run_mode, "config" => format!("{:?}", config));
 
     // Init dependencies
     let snapshot_storer = Arc::new(RwLock::new(SnapshotStoreHTTPClient::new(
@@ -91,8 +108,11 @@ async fn main() {
 
     // Start snapshot uploader
     let handle = tokio::spawn(async move {
-        let snapshotter =
-            Snapshotter::new(args.snapshot_interval * 1000, args.db_directory.clone());
+        let snapshotter = Snapshotter::new(
+            args.snapshot_interval * 1000,
+            args.db_directory.clone(),
+            slog_scope::logger(),
+        );
         snapshotter.run().await
     });
 
