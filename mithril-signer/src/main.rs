@@ -3,7 +3,7 @@ use crate::entities::Config;
 use crate::signer::Signer;
 use crate::single_signer::{key_decode_hex, MithrilSingleSigner};
 use clap::Parser;
-use mithril_aggregator::fake_data;
+use mithril_common::fake_data;
 use slog::{o, Drain, Level, Logger};
 use slog_scope::{debug, error, info};
 use std::env;

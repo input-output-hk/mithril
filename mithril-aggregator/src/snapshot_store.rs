@@ -1,8 +1,7 @@
 use async_trait::async_trait;
 use log::debug;
+use mithril_common::entities::Snapshot;
 use reqwest::{self, StatusCode};
-
-use crate::entities::*;
 
 #[cfg(test)]
 use mockall::automock;
@@ -65,9 +64,8 @@ impl SnapshotStorer for SnapshotStoreHTTPClient {
 mod tests {
     use super::*;
     use httpmock::prelude::*;
+    use mithril_common::fake_data;
     use serde_json::json;
-
-    use crate::fake_data;
 
     fn setup_test() -> MockServer {
         MockServer::start()

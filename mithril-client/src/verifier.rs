@@ -117,7 +117,7 @@ impl Verifier for VerifierImpl {
         debug!("Verify multi signature for {:?}", message);
         let clerk = self.create_clerk(signers_with_stakes, protocol_parameters);
         let multi_signature: ProtocolMultiSignature = key_decode_hex_multisig(multi_signature)
-            .map_err(|e| ProtocolError::VerifyMultiSignatureError(e.to_string()))?;
+            .map_err(|e| ProtocolError::VerifyMultiSignatureError(e))?;
         clerk
             .as_ref()
             .unwrap()
@@ -161,7 +161,6 @@ where
 mod tests {
     use super::*;
 
-    use mithril_aggregator::multi_signer::key_encode_hex_multisig;
     use rand_chacha::ChaCha20Rng;
     use rand_core::{RngCore, SeedableRng};
 

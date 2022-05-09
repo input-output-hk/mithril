@@ -1,7 +1,7 @@
 use thiserror::Error;
 
-use mithril_aggregator::entities::Beacon;
-use mithril_aggregator::fake_data;
+use mithril_common::entities::Beacon;
+use mithril_common::fake_data;
 
 use crate::certificate_handler::CertificateHandler;
 use crate::single_signer::SingleSigner;
@@ -76,7 +76,7 @@ mod tests {
     use super::*;
     use crate::certificate_handler::{CertificateHandlerError, MockCertificateHandler};
     use crate::single_signer::{MockSingleSigner, SingleSignerError};
-    use mithril_aggregator::fake_data;
+    use mithril_common::fake_data;
 
     #[tokio::test]
     async fn signer_doesnt_sign_when_there_is_no_pending_certificate() {

@@ -1,17 +1,16 @@
 #![doc = include_str!("../README.md")]
 
-mod apispec;
 mod dependency;
 mod entities;
-mod fake_data;
 mod http_server;
 mod multi_signer;
 mod snapshot_store;
-mod snapshotter;
 
 use clap::Parser;
 
 use log::debug;
+use mithril_common::fake_data;
+use mithril_common::snapshotter::Snapshotter;
 use std::env;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -23,7 +22,6 @@ use crate::multi_signer::{
     ProtocolSignerVerificationKey, ProtocolStake,
 };
 use crate::snapshot_store::SnapshotStoreHTTPClient;
-use crate::snapshotter::Snapshotter;
 
 /// Node args
 #[derive(Parser, Debug, Clone)]

@@ -8,7 +8,7 @@ description = "A Mithril Signer"
 
 [dependencies]
 mithril = { path = "../mithril-core" }
-mithril-aggregator = { path = "../mithril-aggregator" }
+mithril-common = { path = "../mithril-common" }
 slog = { version = "2.7.0" , features = ["max_level_trace", "release_max_level_debug"] }
 slog-async = "2.7.0"
 slog-bunyan = "2.4.0"

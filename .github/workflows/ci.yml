@@ -162,6 +162,104 @@ jobs:
           path: |
             ./**/test-results-*.xml
 
+  build-mithril-common:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: clippy, rustfmt
+          override: true
+
+      - uses: actions/cache@v2.1.5
+        name: Cache mithril-common/Cargo.lock
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            mithril-common/target
+          key: ${{ runner.os }}-${{ hashFiles('mithril-common/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-key
+
+      - uses: actions/cache@v2.1.5
+        name: Cache cargo2junit
+        with:
+          path: |
+            ~/.cargo/bin/cargo2junit
+          key: ${{ runner.os }}-${{ hashFiles('~/.cargo/bin/cargo2junit') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo2junit-key
+
+      - name: Cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --manifest-path ./mithril-common/Cargo.toml
+
+      - name: Cargo check
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --release --all-targets --manifest-path ./mithril-common/Cargo.toml
+
+      - name: Cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all --manifest-path ./mithril-common/Cargo.toml -- --check
+
+      - name: Clippy Check
+        uses: actions-rs/clippy-check@v1
+        with:
+          name: clippy-mithril-common
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --manifest-path ./mithril-common/Cargo.toml --all-features
+
+      - name: Install cargo2junit
+        run: |
+          # Suppress the "binary `cargo2junit` already exists in destination" error
+          cargo install cargo2junit 2>/dev/null || true
+
+      - name: Run cargo test
+        shell: bash
+        working-directory: mithril-common
+        run: |
+          set -o pipefail && cargo test --release -- -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-mithril-common.xml)
+
+      - name: Mithril Aggregator / Generate doc
+        uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: --no-deps --release --manifest-path ./mithril-common/Cargo.toml
+
+      - name: Publish common
+        uses: actions/upload-artifact@v3
+        with:
+          name: mithril-common
+          path: mithril-common/target/release/mithril-common
+
+      - name: Publish common-doc
+        uses: actions/upload-artifact@v3
+        with:
+          name: mithril-common-doc
+          path: |
+            mithril-common/target/doc/
+
+      - name: Upload Unit Test Results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results-mithril-common
+          path: |
+            ./**/test-results-*.xml
+
   build-mithril-aggregator:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
@@ -459,7 +557,7 @@ jobs:
   docker-mithril-aggregator:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'push' }}
-    needs: [ build-mithril-core, build-mithril-aggregator ]
+    needs: [ build-mithril-core, build-mithril-common, build-mithril-aggregator ]
     permissions:
       contents: read
       packages: write
@@ -508,7 +606,7 @@ jobs:
   docker-mithril-client:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'push' }}
-    needs: [ build-mithril-core, build-mithril-client ]
+    needs: [ build-mithril-core, build-mithril-common, build-mithril-client ]
     permissions:
       contents: read
       packages: write
@@ -557,7 +655,7 @@ jobs:
   docker-mithril-signer:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'push' }}
-    needs: [ build-mithril-core, build-mithril-signer ]
+    needs: [ build-mithril-core, build-mithril-common, build-mithril-signer ]
     permissions:
       contents: read
       packages: write
@@ -606,7 +704,8 @@ jobs:
   publish-tests-results:
     if: github.event.pull_request.draft == false && ${{ always() }}
     runs-on: ubuntu-latest
-    needs: 
+    needs:
+      - build-mithril-common
       - build-mithril-aggregator
       - build-mithril-client
       - build-mithril-signer
@@ -617,6 +716,12 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: test-results-mithril-core
+
+      - name: Download mithril-common Tests Results
+        if: always()
+        uses: actions/download-artifact@v3
+        with:
+          name: test-results-mithril-common
       
       - name: Download mithril-aggregator Tests Results
         if: always()
@@ -649,6 +754,7 @@ jobs:
     - docker-mithril-aggregator
     - docker-mithril-client
     - docker-mithril-signer
+    - build-mithril-common
     - test-mithril-core
     - build-test-lab
     steps:
@@ -660,6 +766,12 @@ jobs:
         with:
           name: libmithril-doc
           path: ./github-pages/mithril-core/doc
+
+      - name: Download mithril-common-doc artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: mithril-common-doc
+          path: ./github-pages/mithril-common/doc
 
       - name: Download aggregator-doc artifact
         uses: actions/download-artifact@v3

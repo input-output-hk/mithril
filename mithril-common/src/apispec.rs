@@ -1,6 +1,3 @@
-#![cfg(test)]
-const API_SPEC_FILE: &str = "../openapi.yaml";
-
 use http::response::Response;
 use jsonschema::JSONSchema;
 use serde::Serialize;
@@ -8,7 +5,7 @@ use serde_json::{json, Value, Value::Null};
 use warp::hyper::body::Bytes;
 
 /// APISpec helps validate conformity to an OpenAPI specification
-pub(crate) struct APISpec<'a> {
+pub struct APISpec<'a> {
     openapi: Value,
     path: Option<&'a str>,
     method: Option<&'a str>,
@@ -16,7 +13,7 @@ pub(crate) struct APISpec<'a> {
 
 impl<'a> APISpec<'a> {
     /// APISpec factory from spec
-    pub(crate) fn from_file(path: &str) -> APISpec<'a> {
+    pub fn from_file(path: &str) -> APISpec<'a> {
         let yaml_spec = std::fs::read_to_string(path).unwrap();
         let openapi: serde_json::Value = serde_yaml::from_str(&yaml_spec).unwrap();
         APISpec {
@@ -27,19 +24,19 @@ impl<'a> APISpec<'a> {
     }
 
     /// Sets the path to specify/check.
-    pub(crate) fn path(&'a mut self, path: &'a str) -> &mut APISpec {
+    pub fn path(&'a mut self, path: &'a str) -> &mut APISpec {
         self.path = Some(path);
         self
     }
 
     /// Sets the method to specify/check.
-    pub(crate) fn method(&'a mut self, method: &'a str) -> &mut APISpec {
+    pub fn method(&'a mut self, method: &'a str) -> &mut APISpec {
         self.method = Some(method);
         self
     }
 
     /// Validates if a request is valid
-    pub(crate) fn validate_request(
+    pub fn validate_request(
         &'a mut self,
         request_body: &impl Serialize,
     ) -> Result<&mut APISpec, String> {
@@ -53,7 +50,7 @@ impl<'a> APISpec<'a> {
     }
 
     /// Validates if a response is valid
-    pub(crate) fn validate_response(
+    pub fn validate_response(
         &'a mut self,
         response: &Response<Bytes>,
     ) -> Result<&mut APISpec, String> {
@@ -102,7 +99,7 @@ impl<'a> APISpec<'a> {
     }
 
     /// Validates conformity of a value against a schema
-    pub(crate) fn validate_conformity(
+    pub fn validate_conformity(
         &'a mut self,
         value: &Value,
         schema: &mut Value,
@@ -134,11 +131,14 @@ impl<'a> APISpec<'a> {
 
 #[cfg(test)]
 mod tests {
-    use warp::{http::Method, http::StatusCode};
+    use http::StatusCode;
+    use warp::http::Method;
 
     use super::*;
     use crate::entities;
     use crate::fake_data;
+
+    const API_SPEC_FILE: &str = "../openapi.yaml";
 
     #[test]
     fn test_apispec_validate_ok() {

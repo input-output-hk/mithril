@@ -12,7 +12,7 @@ use mithril::msp::{MspPk, MspSk};
 use mithril::stm::{
     Index, PartyId, Stake, StmClerk, StmInitializer, StmMultiSig, StmParameters, StmSig, StmSigner,
 };
-use mithril_aggregator::entities::{self, SignerWithStake, SingleSignature};
+use mithril_common::entities::{self, SignerWithStake, SingleSignature};
 
 pub type Bytes = Vec<u8>;
 
@@ -194,7 +194,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mithril_aggregator::fake_data;
+    use mithril_common::fake_data;
 
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
