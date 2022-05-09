@@ -1,7 +1,7 @@
 //! Crate specific errors
 
 use crate::merkle_tree::Path;
-use crate::msp::{MspMvk, MspPk, MspSig};
+use crate::msp::{VerificationKey, VerificationKeyPoP, Signature};
 use crate::stm::PartyId;
 use blst::BLST_ERROR;
 use digest::{Digest, FixedOutput};
@@ -22,7 +22,7 @@ pub enum MultiSignatureError {
     SerializationError,
     /// Incorrect proof of possession
     #[error("Key with invalid PoP")]
-    InvalidKey(Box<MspPk>),
+    InvalidKey(Box<VerificationKeyPoP>),
 }
 
 /// Errors which can be output by Mithril verification.
@@ -33,10 +33,10 @@ pub enum MithrilWitnessError<D: Digest + FixedOutput> {
     NoQuorum,
     /// The IVK is invalid after aggregating the keys
     #[error("Aggregated key does not correspond to the expected key.")]
-    IvkInvalid(MspMvk),
+    IvkInvalid(VerificationKey),
     /// Mu is not the sum of the signatures
     #[error("Aggregated signature does not correspond to the expected signature.")]
-    SumInvalid(MspSig),
+    SumInvalid(Signature),
     /// There is an index out of bounds
     #[error("Received index, {0}, is higher than what the security parameter allows, {1}.")]
     IndexBoundFailed(u64, u64),
@@ -54,7 +54,7 @@ pub enum MithrilWitnessError<D: Digest + FixedOutput> {
     StakeInvalid,
     /// A party submitted an invalid signature
     #[error("A provided signature is invalid")]
-    InvalidSignature(MspSig),
+    InvalidSignature(Signature),
 }
 
 #[allow(clippy::from_over_into)]
@@ -94,7 +94,7 @@ pub enum VerificationFailure<D: Digest + FixedOutput> {
     InvalidMerkleTree(Path<D>),
     /// The MSP signature is invalid
     #[error("Invalid Signature.")]
-    InvalidSignature(MspSig),
+    InvalidSignature(Signature),
 }
 
 /// Error types related to merkle trees
@@ -123,7 +123,7 @@ pub enum RegisterError {
     UnknownPartyId(PartyId),
     /// The supplied key is not valid
     #[error("The verification of correctness of the supplied key is invalid.")]
-    InvalidKey(Box<MspPk>),
+    InvalidKey(Box<VerificationKeyPoP>),
     /// Serialization error
     #[error("Serialization error")]
     SerializationError,

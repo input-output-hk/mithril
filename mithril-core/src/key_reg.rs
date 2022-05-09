@@ -3,8 +3,9 @@
 use crate::error::RegisterError;
 use digest::{Digest, FixedOutput};
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
-use super::msp::{Msp, MspPk};
+use super::msp::VerificationKeyPoP;
 use super::stm::{PartyId, Stake};
 
 use crate::merkle_tree::MerkleTree;
@@ -17,7 +18,7 @@ pub struct KeyReg {
     parties: HashMap<PartyId, Party>,
     // `keys` is just the set of all of the keys that have been registered
     // (i.e., in `parties`)
-    keys: HashSet<MspPk>,
+    keys: HashSet<VerificationKeyPoP>,
 }
 
 /// Structure generated out of a closed registration. One can only get a global `avk` out of
@@ -31,7 +32,7 @@ where
     /// Total stake of the registered parties.
     pub total_stake: Stake,
     /// Unique public key out of the key registration instance.
-    pub avk: MerkleTree<D>,
+    pub avk: Arc<MerkleTree<D>>,
 }
 
 /// Represents the status of a known participant in the protocol who is allowed
@@ -42,7 +43,7 @@ struct Party {
     /// The stake of of the party.
     pub stake: Stake,
     /// The public key of the party.
-    pub pk: Option<MspPk>,
+    pub pk: Option<VerificationKeyPoP>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -52,7 +53,7 @@ pub struct RegParty {
     // todo: I don't see the goal of the identifier
     pub party_id: PartyId,
     /// The pubkey for the registered party.
-    pub pk: MspPk,
+    pub pk: VerificationKeyPoP,
     /// The stake for the registered party.
     pub stake: Stake,
 }
@@ -78,7 +79,7 @@ impl RegParty {
         u64_bytes.copy_from_slice(&bytes[..8]);
         let party_id = u64::from_be_bytes(u64_bytes);
 
-        let pk = MspPk::from_bytes(&bytes[8..])?;
+        let pk = VerificationKeyPoP::from_bytes(&bytes[8..])?;
         u64_bytes.copy_from_slice(&bytes[200..]);
         let stake = u64::from_be_bytes(u64_bytes);
 
@@ -107,13 +108,13 @@ impl KeyReg {
     }
 
     /// Register the pubkey for a particular party.
-    pub fn register(&mut self, party_id: PartyId, pk: MspPk) -> Result<(), RegisterError> {
+    pub fn register(&mut self, party_id: PartyId, pk: VerificationKeyPoP) -> Result<(), RegisterError> {
         if self.keys.contains(&pk) {
-            return Err(RegisterError::KeyRegistered(pk.mvk.to_bytes()));
+            return Err(RegisterError::KeyRegistered(pk.vk.to_bytes()));
         }
 
         if let Some(mut party) = self.parties.get_mut(&party_id) {
-            if Msp::check(&pk).is_ok() {
+            if pk.check().is_ok() {
                 party.pk = Some(pk);
                 self.keys.insert(pk);
                 Ok(())
@@ -164,18 +165,18 @@ impl KeyReg {
         let mtvals: Vec<MTValue> = self
             .retrieve_all()
             .iter()
-            .map(|rp| MTValue(rp.pk.mvk, rp.stake))
+            .map(|rp| MTValue(rp.pk.vk, rp.stake))
             .collect();
 
         ClosedKeyReg {
             key_reg: self,
             total_stake: mtvals.iter().map(|s| s.1).sum(),
-            avk: MerkleTree::create(
+            avk: Arc::new(MerkleTree::create(
                 &mtvals
                     .iter()
                     .map(|&s| s.to_bytes().to_vec())
                     .collect::<Vec<Vec<u8>>>(),
-            ),
+            )),
         }
     }
 }
@@ -204,8 +205,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::msp::Msp;
-    use blst::blst_p1_generator;
+    use crate::msp::SigningKey;
     use proptest::collection::vec;
     use proptest::prelude::*;
     use rand_chacha::ChaCha20Rng;
@@ -230,8 +230,14 @@ mod tests {
             let mut kr = KeyReg::new(&ps);
 
             let gen_keys = (1..nkeys).map(|_| {
-                Msp::gen(&mut rng).1
+                let sk = SigningKey::gen(&mut rng);
+                VerificationKeyPoP::from(&sk)
             }).collect::<Vec<_>>();
+
+            let fake_key = {
+                let sk = SigningKey::gen(&mut rng);
+                VerificationKeyPoP::from(&sk)
+            };
 
             // Record successful registrations
             let mut keys = HashSet::new();
@@ -241,7 +247,7 @@ mod tests {
                 let mut pk = gen_keys[i % gen_keys.len()];
 
                 if fake_it == 0 {
-                   pk.pop.k2 = unsafe { *blst_p1_generator() };
+                   pk.pop = fake_key.pop;
                 }
 
                 let mut id = p.0;
@@ -256,7 +262,7 @@ mod tests {
                         assert!(parties.insert(p.0));
                     },
                     Err(RegisterError::KeyRegistered(pk1)) => {
-                        assert!(pk1 == pk.mvk.to_bytes());
+                        assert!(pk1 == pk.vk.to_bytes());
                         assert!(keys.contains(&pk));
                     }
                     Err(RegisterError::PartyRegistered(party)) => {
@@ -265,7 +271,7 @@ mod tests {
                     }
                     Err(RegisterError::InvalidKey(a)) => {
                         assert_eq!(fake_it, 0);
-                        assert!(Msp::check(&a).is_err());
+                        assert!(a.check().is_err());
                     }
                     Err(RegisterError::UnknownPartyId(_)) => assert_eq!(fake_it, 1),
                     Err(RegisterError::SerializationError) => unreachable!(),

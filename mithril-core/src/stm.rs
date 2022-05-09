@@ -127,7 +127,7 @@ use crate::error::{
 };
 use crate::key_reg::ClosedKeyReg;
 use crate::merkle_tree::{concat_avk_with_msg, MerkleTree, MerkleTreeCommitment, Path};
-use crate::msp::{Msp, MspMvk, MspPk, MspSig, MspSk};
+use crate::msp::{VerificationKey, VerificationKeyPoP, Signature, SigningKey};
 use digest::{Digest, FixedOutput};
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
@@ -152,7 +152,7 @@ pub type Index = u64;
 
 /// The values that are represented in the Merkle Tree.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct MTValue(pub MspMvk, pub Stake);
+pub struct MTValue(pub VerificationKey, pub Stake);
 
 impl MTValue {
     pub(crate) fn to_bytes(self) -> [u8; 104] {
@@ -210,6 +210,9 @@ impl StmParameters {
     }
 }
 
+/// Wrapper of the MultiSignature Verification key
+pub type StmVerificationKey = VerificationKeyPoP;
+
 /// Initializer for `StmSigner`. This is the data that is used during the key registration
 /// procedure. One the latter is finished, this instance is consumed into an `StmSigner`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -221,9 +224,9 @@ pub struct StmInitializer {
     /// Current protocol instantiation parameters
     pub(crate) params: StmParameters,
     /// Secret key
-    pub(crate) sk: MspSk,
+    pub(crate) sk: SigningKey,
     /// Verification (public) key + proof of possession
-    pub(crate) pk: MspPk,
+    pub(crate) pk: StmVerificationKey,
 }
 
 /// Participant in the protocol. Can sign messages. This instance can only be generated out of
@@ -238,9 +241,9 @@ where
     mt_index: u64,
     stake: Stake,
     params: StmParameters,
-    avk: MerkleTree<D>,
-    sk: MspSk,
-    pk: MspPk,
+    avk: Arc<MerkleTree<D>>,
+    sk: SigningKey,
+    pk: StmVerificationKey,
     total_stake: Stake,
 }
 
@@ -261,10 +264,10 @@ where
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StmSig<D: Clone + Digest + FixedOutput> {
     /// The signature from the underlying MSP scheme.
-    pub sigma: MspSig,
+    pub sigma: Signature,
     /// The pubkey from the underlying MSP scheme.
     // todo: do we need the full pk? or just the mvk?
-    pub pk: MspPk,
+    pub pk: StmVerificationKey,
     /// The party that made this signature.
     pub party: PartyId,
     /// The stake of the party that made this signature.
@@ -306,8 +309,8 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
         let stake = u64::from_be_bytes(u64_bytes);
         u64_bytes.copy_from_slice(&bytes[16..24]);
         let index = u64::from_be_bytes(u64_bytes);
-        let pk = MspPk::from_bytes(&bytes[24..])?;
-        let sigma = MspSig::from_bytes(&bytes[216..])?;
+        let pk = StmVerificationKey::from_bytes(&bytes[24..])?;
+        let sigma = Signature::from_bytes(&bytes[216..])?;
         let path = Path::from_bytes(&bytes[264..])?;
 
         Ok(StmSig {
@@ -368,7 +371,7 @@ impl<D: Clone + Digest + FixedOutput> StmMultiSig<D> {
         // Check that all signatures did win the lottery
         for sig in self.signatures.iter() {
             let msgp = concat_avk_with_msg(avk, msg);
-            let ev = Msp::eval(&msgp, sig.index, &sig.sigma);
+            let ev = sig.sigma.eval(&msgp, sig.index);
 
             if !ev_lt_phi(parameters.phi_f, ev, sig.stake, total_stake) {
                 return Err(MithrilWitnessError::EvalInvalid(ev));
@@ -376,14 +379,15 @@ impl<D: Clone + Digest + FixedOutput> StmMultiSig<D> {
 
             // Check that merkle paths are valid
             if avk
-                .check(&MTValue(sig.pk.mvk, sig.stake).to_bytes(), &sig.path)
+                .check(&MTValue(sig.pk.vk, sig.stake).to_bytes(), &sig.path)
                 .is_err()
             {
                 return Err(MithrilWitnessError::PathInvalid(sig.path.clone()));
             }
 
             // Check that signatures are valid
-            if Msp::ver(msg, &sig.pk.mvk, &sig.sigma) {
+            // todo: wait, WHAT?? if ok it fails?
+            if sig.sigma.verify(msg, &sig.pk.vk).is_ok() {
                 return Err(MithrilWitnessError::InvalidSignature(sig.sigma));
             }
         }
@@ -436,7 +440,8 @@ impl StmInitializer {
     where
         R: RngCore + CryptoRng,
     {
-        let (sk, pk) = Msp::gen(rng);
+        let sk = SigningKey::gen(rng);
+        let pk = StmVerificationKey::from(&sk);
         Self {
             party_id,
             stake,
@@ -451,25 +456,26 @@ impl StmInitializer {
     where
         R: RngCore + CryptoRng,
     {
-        let (sk, pk) = Msp::gen(rng);
+        let sk = SigningKey::gen(rng);
+        let pk = StmVerificationKey::from(&sk);
         self.sk = sk;
         self.pk = pk;
     }
 
     /// Extract the secret key.
-    pub fn secret_key(&self) -> MspSk {
+    pub fn secret_key(&self) -> SigningKey {
         self.sk.clone()
     }
 
     /// Extract the verification key.
-    pub fn verification_key(&self) -> MspPk {
+    pub fn verification_key(&self) -> StmVerificationKey {
         self.pk
     }
 
     /// Set a new pair of keys out of a secret key
     // todo: mmmh, do we need this?
-    pub fn set_key(&mut self, sk: MspSk) {
-        let pk = MspPk::from(&sk);
+    pub fn set_key(&mut self, sk: SigningKey) {
+        let pk = StmVerificationKey::from(&sk);
         self.sk = sk;
         self.pk = pk;
     }
@@ -565,8 +571,8 @@ impl StmInitializer {
         u64_bytes.copy_from_slice(&bytes[8..16]);
         let stake = u64::from_be_bytes(u64_bytes);
         let params = StmParameters::from_bytes(&bytes[16..])?;
-        let sk = MspSk::from_bytes(&bytes[40..])?;
-        let pk = MspPk::from_bytes(&bytes[72..])?;
+        let sk = SigningKey::from_bytes(&bytes[40..])?;
+        let pk = StmVerificationKey::from_bytes(&bytes[72..])?;
 
         Ok(Self {
             party_id,
@@ -592,8 +598,8 @@ where
         // ev <- MSP.Eval(msg', index, sigma)
         // return 1 if ev < phi(stake) else return 0
         let msgp = concat_avk_with_msg(&self.avk.to_commitment(), msg);
-        let sigma = Msp::sig(&self.sk, &msgp);
-        let ev = Msp::eval(&msgp, index, &sigma);
+        let sigma = self.sk.sign(&msgp);
+        let ev = sigma.eval(&msgp, index);
         ev_lt_phi(self.params.phi_f, ev, self.stake, self.total_stake)
     }
 
@@ -607,7 +613,7 @@ where
             //      reg_i is (mvk_i, stake_i)
             // return pi
             let msgp = concat_avk_with_msg(&self.avk.to_commitment(), msg);
-            let sigma = Msp::sig(&self.sk, &msgp);
+            let sigma = self.sk.sign(&msgp);
             let path = self.avk.get_path(self.mt_index.try_into().unwrap());
             Some(StmSig {
                 sigma,
@@ -686,10 +692,10 @@ where
         u64_bytes.copy_from_slice(&bytes[24..32]);
         let total_stake = u64::from_be_bytes(u64_bytes);
         let params = StmParameters::from_bytes(&bytes[32..])?;
-        let sk = MspSk::from_bytes(&bytes[56..])?;
-        let pk = MspPk::from_bytes(&bytes[88..])?;
+        let sk = SigningKey::from_bytes(&bytes[56..])?;
+        let pk = StmVerificationKey::from_bytes(&bytes[88..])?;
 
-        let avk = MerkleTree::from_bytes(&bytes[280..])?;
+        let avk = Arc::new(MerkleTree::from_bytes(&bytes[280..])?);
 
         Ok(Self {
             party_id,
@@ -713,7 +719,7 @@ where
     pub fn from_registration(params: StmParameters, closed_reg: ClosedKeyReg<D>) -> Self {
         Self {
             params,
-            avk: Arc::new(closed_reg.avk),
+            avk: closed_reg.avk,
             total_stake: closed_reg.total_stake,
         }
     }
@@ -722,7 +728,7 @@ where
     pub fn from_signer(signer: &StmSigner<D>) -> Self {
         Self {
             params: signer.params,
-            avk: Arc::new(signer.avk.clone()),
+            avk: signer.avk.clone(),
             total_stake: signer.total_stake,
         }
     }
@@ -732,18 +738,18 @@ where
     /// todo: I may prefer an associated method to the signature, but ok.
     pub fn verify_sig(&self, sig: &StmSig<D>, msg: &[u8]) -> Result<(), VerificationFailure<D>> {
         let msgp = concat_avk_with_msg(&self.avk.to_commitment(), msg);
-        let ev = Msp::eval(&msgp, sig.index, &sig.sigma);
+        let ev = sig.sigma.eval(&msgp, sig.index);
 
         if !ev_lt_phi(self.params.phi_f, ev, sig.stake, self.total_stake) {
             Err(VerificationFailure::LotteryLost)
         } else if self
             .avk
             .to_commitment()
-            .check(&MTValue(sig.pk.mvk, sig.stake).to_bytes(), &sig.path)
+            .check(&MTValue(sig.pk.vk, sig.stake).to_bytes(), &sig.path)
             .is_err()
         {
             Err(VerificationFailure::InvalidMerkleTree(sig.path.clone()))
-        } else if !Msp::ver(&msgp, &sig.pk.mvk, &sig.sigma) {
+        } else if sig.sigma.verify(&msgp, &sig.pk.vk).is_err() {
             Err(VerificationFailure::InvalidSignature(sig.sigma))
         } else {
             Ok(())
@@ -1168,7 +1174,8 @@ mod tests {
 
             match msig {
                 Ok(aggr) => {
-                    assert!(clerk.verify_msig(&aggr, &msg).is_ok());
+                    clerk.verify_msig(&aggr, &msg).unwrap();
+                    // assert!(clerk.verify_msig(&aggr, &msg).is_ok());
                     assert!(verifier.verify_msig(&msg, &aggr).is_ok());
                 }
                 Err(AggregationFailure::NotEnoughSignatures(n, k)) =>
