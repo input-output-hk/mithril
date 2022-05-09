@@ -1,20 +1,12 @@
 #![doc = include_str!("../README.md")]
 
-mod aggregator;
-mod client;
-mod entities;
-mod verifier;
-
 use clap::{Parser, Subcommand};
 use clap_verbosity_flag::{InfoLevel, Verbosity};
 use cli_table::{print_stdout, WithTitle};
 use log::debug;
 use std::env;
 
-use crate::aggregator::*;
-use crate::client::Client;
-use crate::entities::Config;
-use crate::verifier::*;
+use mithril_client::{Client, AggregatorHTTPClient, VerifierImpl, Config};
 
 /// CLI args
 #[derive(Parser)]
