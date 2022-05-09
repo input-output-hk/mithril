@@ -1,7 +1,4 @@
-use crate::certificate_handler::CertificateHandlerHTTPClient;
-use crate::entities::Config;
-use crate::signer::Signer;
-use crate::single_signer::{key_decode_hex, MithrilSingleSigner};
+use mithril_signer::{CertificateHandlerHTTPClient, Config, Signer, key_decode_hex, MithrilSingleSigner};
 use clap::Parser;
 use mithril_common::fake_data;
 use slog::{o, Drain, Level, Logger};
@@ -10,11 +7,6 @@ use std::env;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
-
-mod certificate_handler;
-mod entities;
-mod signer;
-mod single_signer;
 
 /// CLI args
 #[derive(Parser)]
