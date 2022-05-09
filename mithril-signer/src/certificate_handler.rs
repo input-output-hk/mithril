@@ -1,6 +1,6 @@
 use async_trait::async_trait;
-use mithril_aggregator::entities::CertificatePending;
-use mithril_aggregator::entities::SingleSignature;
+use mithril_common::entities::CertificatePending;
+use mithril_common::entities::SingleSignature;
 use reqwest::{self, StatusCode};
 use slog_scope::debug;
 use std::io;
@@ -112,7 +112,7 @@ mod tests {
     use httpmock::prelude::*;
     use serde_json::json;
 
-    use mithril_aggregator::fake_data;
+    use mithril_common::fake_data;
 
     use crate::entities::Config;
 

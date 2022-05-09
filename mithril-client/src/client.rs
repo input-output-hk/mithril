@@ -1,6 +1,6 @@
 use hex::ToHex;
 use log::debug;
-use mithril_aggregator::fake_data;
+use mithril_common::fake_data;
 use std::str;
 use thiserror::Error;
 
@@ -194,7 +194,7 @@ mod tests {
 
     use crate::aggregator::{AggregatorHandlerError, MockAggregatorHandler};
     use crate::verifier::{MockVerifier, ProtocolError};
-    use mithril_aggregator::fake_data;
+    use mithril_common::fake_data;
 
     #[tokio::test]
     async fn test_list_snapshots_ok() {

@@ -1,5 +1,7 @@
 use chrono::prelude::*;
 use log::{debug, info};
+use mithril_common::entities;
+use mithril_common::fake_data;
 use serde_json::Value::Null;
 use std::convert::Infallible;
 use std::net::IpAddr;
@@ -8,8 +10,6 @@ use warp::Future;
 use warp::{http::Method, http::StatusCode, Filter};
 
 use crate::dependency::{DependencyManager, MultiSignerWrapper, SnapshotStorerWrapper};
-use crate::entities;
-use crate::fake_data;
 use crate::multi_signer;
 
 const SERVER_BASE_PATH: &str = "aggregator";
@@ -325,14 +325,14 @@ mod handlers {
 mod tests {
     const API_SPEC_FILE: &str = "../openapi.yaml";
 
+    use mithril_common::apispec::APISpec;
+    use mithril_common::fake_data;
     use serde_json::Value::Null;
     use tokio::sync::RwLock;
     use warp::test::request;
 
     use super::*;
-    use crate::apispec::APISpec;
     use crate::entities::*;
-    use crate::fake_data;
     use crate::multi_signer::{key_decode_hex_multisig, MockMultiSigner};
     use crate::snapshot_store::MockSnapshotStorer;
 

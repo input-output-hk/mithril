@@ -230,7 +230,7 @@ mod tests {
     use httpmock::prelude::*;
     use serde_json::json;
 
-    use mithril_aggregator::fake_data;
+    use mithril_common::fake_data;
 
     fn setup_test() -> (MockServer, Config) {
         let server = MockServer::start();
