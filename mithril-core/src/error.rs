@@ -1,7 +1,7 @@
 //! Crate specific errors
 
 use crate::merkle_tree::Path;
-use crate::msp::{VerificationKey, VerificationKeyPoP, Signature};
+use crate::msp::{Signature, VerificationKey, VerificationKeyPoP};
 use crate::stm::PartyId;
 use blst::BLST_ERROR;
 use digest::{Digest, FixedOutput};

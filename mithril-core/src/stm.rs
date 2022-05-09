@@ -127,7 +127,7 @@ use crate::error::{
 };
 use crate::key_reg::ClosedKeyReg;
 use crate::merkle_tree::{concat_avk_with_msg, MerkleTree, MerkleTreeCommitment, Path};
-use crate::msp::{VerificationKey, VerificationKeyPoP, Signature, SigningKey};
+use crate::msp::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
 use digest::{Digest, FixedOutput};
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};

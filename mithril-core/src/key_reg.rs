@@ -108,7 +108,11 @@ impl KeyReg {
     }
 
     /// Register the pubkey for a particular party.
-    pub fn register(&mut self, party_id: PartyId, pk: VerificationKeyPoP) -> Result<(), RegisterError> {
+    pub fn register(
+        &mut self,
+        party_id: PartyId,
+        pk: VerificationKeyPoP,
+    ) -> Result<(), RegisterError> {
         if self.keys.contains(&pk) {
             return Err(RegisterError::KeyRegistered(pk.vk.to_bytes()));
         }

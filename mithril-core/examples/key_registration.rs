@@ -4,10 +4,10 @@
 
 use mithril::key_reg::{ClosedKeyReg, KeyReg};
 use mithril::stm::{
-    Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner, StmVerifier,
+    Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner, StmVerificationKey,
+    StmVerifier,
 };
 
-use mithril::msp::VerificationKeyPoP;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
@@ -46,7 +46,7 @@ fn main() {
     let party_3_init = StmInitializer::setup(params, parties[3].0, parties[3].1, &mut rng);
 
     // The public keys are broadcast. All participants will have the same keys.
-    let parties_pks: Vec<VerificationKeyPoP> = vec![
+    let parties_pks: Vec<StmVerificationKey> = vec![
         party_0_init.verification_key(),
         party_1_init.verification_key(),
         party_2_init.verification_key(),
@@ -146,7 +146,7 @@ fn try_signatures(party: &StmSigner<H>, msg: &[u8], m: u64) -> Vec<StmSig<H>> {
         .collect()
 }
 
-fn local_reg(ids: &[(u64, u64)], pks: &[VerificationKeyPoP]) -> ClosedKeyReg<H> {
+fn local_reg(ids: &[(u64, u64)], pks: &[StmVerificationKey]) -> ClosedKeyReg<H> {
     let mut local_keyreg = KeyReg::new(ids);
     // todo: maybe its cleaner to have a `StmPublic` instance that covers the "shareable"
     // data, such as the public key, stake and id.
