@@ -42,10 +42,6 @@ name = "merkle_tree_create"
 harness = false
 
 [[bench]]
-name = "msp"
-harness = false
-
-[[bench]]
 name = "stm"
 harness = false
 

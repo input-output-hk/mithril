@@ -1,48 +1,5 @@
 //! Base multisignature scheme, used as a primitive for STM.
 //! See Section 2.4 of [the paper](https://eprint.iacr.org/2021/916).
-//!
-//! The following is an example showing how to use Msp with the BLS12 curve.
-//! It creates 10 signatures of the same (arbitrary) message, then shows how to combine
-//! those signatures into an aggregate signature.
-//!
-//! ```rust
-//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     use mithril::msp::{VerificationKey, VerificationKeyPoP, Signature, SigningKey};
-//!     use rand_chacha::rand_core::{RngCore, SeedableRng}; // For RNG functionality
-//!
-//!     // We will create and aggregate 10 signatures in this example
-//!     let num_sigs = 10;
-//!
-//!     // create and initialize the RNG
-//!     let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(42);
-//!
-//!     // The message will just be some arbitrary data
-//!     let mut msg = [0; 16];
-//!     rng.fill_bytes(&mut msg);
-//!
-//!     let mut mvks = Vec::new(); // vec of verification keys
-//!     let mut sigs = Vec::new(); // vec of signatures
-//!
-//!     for _ in 0..num_sigs {
-//!         // Create a new keypair
-//!         let sk = SigningKey::gen(&mut rng);
-//!         let pk = VerificationKeyPoP::from(&sk);
-//!         // Sign the message using an individual secret key
-//!         let sig = sk.sign(&msg);
-//!         // Check that the individual verification is valid
-//!         assert!(sig.verify(&msg, &pk.vk).is_ok());
-//!         sigs.push(sig);
-//!         mvks.push(pk.vk);
-//!     }
-//!
-//!     // Aggregate the verification keys
-//!     let ivk = mvks.iter().sum::<VerificationKey>();
-//!     // Aggregate the signatures keys
-//!     let mu = sigs.iter().sum::<Signature>();
-//!     // Check that the aggregated signature is valid
-//!     assert!(mu.verify(&msg, &ivk).is_ok());
-//! # Ok(())
-//! # }
 //! ```
 
 use super::stm::Index;
@@ -120,7 +77,7 @@ pub struct VerificationKey(BlstPk);
 
 impl VerificationKey {
     /// Convert an `VerificationKey` to its compressed byte representation.
-    pub fn to_bytes(&self) -> [u8; 96] {
+    pub fn to_bytes(self) -> [u8; 96] {
         self.0.to_bytes()
     }
 
@@ -244,8 +201,6 @@ impl PartialEq for VerificationKeyPoP {
 
 impl Eq for VerificationKeyPoP {}
 
-
-
 impl From<&SigningKey> for VerificationKey {
     /// Convert a secret key into an `MspMvk`. This is performed by computing
     /// `MspMvk = g2 * sk`, where `g2` is the generator in G2. We can use the
@@ -327,7 +282,7 @@ impl VerificationKeyPoP {
     /// The layout of a `PublicKeyPoP` encoding is
     /// * Public key
     /// * Proof of Possession
-    pub fn to_bytes(&self) -> [u8; 192] {
+    pub fn to_bytes(self) -> [u8; 192] {
         let mut pkpop_bytes = [0u8; 192];
         pkpop_bytes[..96].copy_from_slice(&self.vk.to_bytes());
         pkpop_bytes[96..].copy_from_slice(&self.pop.to_bytes());
@@ -351,7 +306,7 @@ impl ProofOfPossession {
     /// The layout of a `MspPoP` encoding is
     /// * K1 (G1 point)
     /// * K2 (G1 point)
-    pub fn to_bytes(&self) -> [u8; 96] {
+    pub fn to_bytes(self) -> [u8; 96] {
         let mut pop_bytes = [0u8; 96];
         pop_bytes[..48].copy_from_slice(&self.k1.to_bytes());
         let k2_bytes = unsafe {
@@ -434,7 +389,7 @@ impl Signature {
     }
 
     /// Convert an `Signature` to its compressed byte representation.
-    pub fn to_bytes(&self) -> [u8; 48] {
+    pub fn to_bytes(self) -> [u8; 48] {
         self.0.to_bytes()
     }
 
