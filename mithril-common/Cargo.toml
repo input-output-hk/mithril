@@ -15,11 +15,11 @@ flate2 = "1.0.23"
 hex = "0.4.3"
 http = "0.2.6"
 jsonschema = "0.12.2"
-log = { version = "0.4.14", features = ["max_level_debug", "release_max_level_debug"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.8"
 sha2 = "0.10.2"
+slog = { version = "2.7.0" , features = ["max_level_trace", "release_max_level_debug"] }
 tar = "0.4.38"
 tokio = { version = "1.17.0", features = ["full"] }
 tokio-util = { version = "0.7.1", features = ["codec"] }

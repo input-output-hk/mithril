@@ -7,10 +7,8 @@ use cloud_storage::Client;
 use flate2::write::GzEncoder;
 use flate2::Compression;
 
-use log::error;
-use log::info;
-
 use sha2::{Digest, Sha256};
+use slog::{error, info, Logger};
 use std::env;
 use std::ffi::OsStr;
 use std::fs::File;
@@ -32,6 +30,9 @@ pub struct Snapshotter {
 
     /// DB directory to snapshot
     db_directory: String,
+
+    /// The logger where the logs should be written
+    logger: Logger,
 }
 
 #[derive(Debug)]
@@ -51,22 +52,23 @@ impl From<io::Error> for SnapshotError {
 
 impl Snapshotter {
     /// Server factory
-    pub fn new(interval: u32, db_directory: String) -> Self {
+    pub fn new(interval: u32, db_directory: String, logger: Logger) -> Self {
         Self {
             interval,
             db_directory,
+            logger,
         }
     }
 
     /// Start
     pub async fn run(&self) {
-        info!("Starting Snapshotter");
+        info!(self.logger, "Starting Snapshotter");
         loop {
-            info!("Snapshotting");
+            info!(self.logger, "Snapshotting");
             if let Err(e) = self.snapshot().await {
-                error!("{:?}", e)
+                error!(self.logger, "{:?}", e)
             }
-            info!("Sleeping for {}", self.interval);
+            info!(self.logger, "Sleeping for {}", self.interval);
             sleep(Duration::from_millis(self.interval.into())).await;
         }
     }
@@ -79,11 +81,16 @@ impl Snapshotter {
             .filter(|entry| is_immutable(entry.path()))
             .collect();
 
-        info!("#files: {}, #immutables: {}", files.len(), immutables.len());
+        info!(
+            self.logger,
+            "#files: {}, #immutables: {}",
+            files.len(),
+            immutables.len()
+        );
 
-        let hash = compute_hash(&immutables);
+        let hash = self.compute_hash(&immutables);
         let digest = hex::encode(hash);
-        info!("snapshot hash: {}", digest);
+        info!(self.logger, "snapshot hash: {}", digest);
 
         let size = self.create_archive(archive_name)?;
 
@@ -101,11 +108,15 @@ impl Snapshotter {
             )],
         }];
 
-        info!("snapshot: {}", serde_json::to_string(&snapshots).unwrap());
+        info!(
+            self.logger,
+            "snapshot: {}",
+            serde_json::to_string(&snapshots).unwrap()
+        );
         serde_json::to_writer(&File::create("snapshots.json").unwrap(), &snapshots).unwrap();
 
-        upload_file(archive_name).await?;
-        upload_file("snapshots.json").await?;
+        self.upload_file(archive_name).await?;
+        self.upload_file("snapshots.json").await?;
 
         Ok(())
     }
@@ -124,6 +135,7 @@ impl Snapshotter {
         let mut tar = tar::Builder::new(enc);
 
         info!(
+            self.logger,
             "compressing {} into {}",
             &self.db_directory,
             &path.to_str().unwrap()
@@ -140,65 +152,86 @@ impl Snapshotter {
 
         Ok(size)
     }
-}
 
-async fn upload_file(filename: &str) -> Result<(), SnapshotError> {
-    if env::var("GOOGLE_APPLICATION_CREDENTIALS_JSON").is_err() {
-        return Err(SnapshotError {
-            reason: "Missing GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable".to_string(),
-        });
-    };
+    async fn upload_file(&self, filename: &str) -> Result<(), SnapshotError> {
+        if env::var("GOOGLE_APPLICATION_CREDENTIALS_JSON").is_err() {
+            return Err(SnapshotError {
+                reason: "Missing GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable"
+                    .to_string(),
+            });
+        };
 
-    info!("uploading {}", filename);
-    let client = Client::default();
-    let file = tokio::fs::File::open(filename).await.unwrap();
-    let stream = FramedRead::new(file, BytesCodec::new());
-    let response = client
-        .object()
-        .create_streamed(
-            "cardano-testnet",
-            stream,
-            None,
-            filename,
-            "application/octet-stream",
-        )
-        .await;
+        info!(self.logger, "uploading {}", filename);
+        let client = Client::default();
+        let file = tokio::fs::File::open(filename).await.unwrap();
+        let stream = FramedRead::new(file, BytesCodec::new());
+        let response = client
+            .object()
+            .create_streamed(
+                "cardano-testnet",
+                stream,
+                None,
+                filename,
+                "application/octet-stream",
+            )
+            .await;
 
-    if let Err(e) = response {
-        return Err(SnapshotError {
-            reason: e.to_string(),
-        });
-    };
+        if let Err(e) = response {
+            return Err(SnapshotError {
+                reason: e.to_string(),
+            });
+        };
 
-    info!("uploaded {}", filename);
+        info!(self.logger, "uploaded {}", filename);
 
-    // ensure the uploaded file as public read access
-    // when a file is uploaded to gcloud storage its permissions are overwritten so
-    // we need to put them back
-    let new_bucket_access_control = NewObjectAccessControl {
-        entity: Entity::AllUsers,
-        role: Role::Reader,
-    };
+        // ensure the uploaded file as public read access
+        // when a file is uploaded to gcloud storage its permissions are overwritten so
+        // we need to put them back
+        let new_bucket_access_control = NewObjectAccessControl {
+            entity: Entity::AllUsers,
+            role: Role::Reader,
+        };
 
-    info!(
-        "updating acl for {}: {:?}",
-        filename, new_bucket_access_control
-    );
+        info!(
+            self.logger,
+            "updating acl for {}: {:?}", filename, new_bucket_access_control
+        );
 
-    let acl = client
-        .object_access_control()
-        .create("cardano-testnet", filename, &new_bucket_access_control)
-        .await;
+        let acl = client
+            .object_access_control()
+            .create("cardano-testnet", filename, &new_bucket_access_control)
+            .await;
 
-    if let Err(e) = acl {
-        return Err(SnapshotError {
-            reason: e.to_string(),
-        });
-    };
+        if let Err(e) = acl {
+            return Err(SnapshotError {
+                reason: e.to_string(),
+            });
+        };
 
-    info!("updated acl for {} ", filename);
+        info!(self.logger, "updated acl for {} ", filename);
 
-    Ok(())
+        Ok(())
+    }
+
+    fn compute_hash(&self, entries: &[&DirEntry]) -> [u8; 32] {
+        let mut hasher = Sha256::new();
+        let mut progress = Progress {
+            index: 0,
+            total: entries.len(),
+        };
+
+        for (ix, &entry) in entries.iter().enumerate() {
+            let mut file = File::open(entry.path()).unwrap();
+
+            io::copy(&mut file, &mut hasher).unwrap();
+
+            if progress.report(ix) {
+                info!(self.logger, "hashing: {}", &progress);
+            }
+        }
+
+        hasher.finalize().into()
+    }
 }
 
 struct Progress {
@@ -221,26 +254,6 @@ impl std::fmt::Display for Progress {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         write!(f, "{}/{} ({}%)", self.index, self.total, self.percent())
     }
-}
-
-fn compute_hash(entries: &[&DirEntry]) -> [u8; 32] {
-    let mut hasher = Sha256::new();
-    let mut progress = Progress {
-        index: 0,
-        total: entries.len(),
-    };
-
-    for (ix, &entry) in entries.iter().enumerate() {
-        let mut file = File::open(entry.path()).unwrap();
-
-        io::copy(&mut file, &mut hasher).unwrap();
-
-        if progress.report(ix) {
-            info!("hashing: {}", &progress);
-        }
-    }
-
-    hasher.finalize().into()
 }
 
 fn is_immutable(path: &Path) -> bool {
