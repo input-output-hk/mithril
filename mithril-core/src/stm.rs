@@ -456,6 +456,11 @@ impl StmInitializer {
         self.pk = pk;
     }
 
+    /// Extract the secret key.
+    pub fn secret_key(&self) -> MspSk {
+        self.sk.clone()
+    }
+
     /// Extract the verification key.
     pub fn verification_key(&self) -> MspPk {
         self.pk
