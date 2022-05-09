@@ -3,43 +3,38 @@
 
 use hex::{FromHex, ToHex};
 use log::debug;
-use std::io::Cursor;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 use thiserror::Error;
 
-use ark_bls12_377::Bls12_377;
 use mithril::key_reg::KeyReg;
-use mithril::merkle_tree::MTHashLeaf;
-use mithril::mithril_proof::concat_proofs::{ConcatProof, TrivialEnv};
 use mithril::msp::{MspPk, MspSk};
 use mithril::stm::{
-    Index, MTValue, PartyId, Stake, StmClerk, StmInitializer, StmMultiSig, StmParameters, StmSig,
-    StmSigner,
+    Index, PartyId, Stake, StmClerk, StmInitializer, StmMultiSig, StmParameters, StmSig, StmSigner,
 };
-
-use crate::entities;
-
-#[cfg(test)]
-use mockall::automock;
 
 pub type Bytes = Vec<u8>;
 
 // Protocol types alias
-type H = blake2::Blake2b;
-type F = <H as MTHashLeaf<MTValue<Bls12_377>>>::F;
+type D = blake2::Blake2b;
 pub type ProtocolPartyId = PartyId;
 pub type ProtocolStake = Stake;
 pub type ProtocolStakeDistribution = Vec<(ProtocolPartyId, ProtocolStake)>;
 pub type ProtocolParameters = StmParameters;
 pub type ProtocolLotteryIndex = Index;
-pub type ProtocolSigner = StmSigner<H, Bls12_377>;
-pub type ProtocolInitializer = StmInitializer<Bls12_377>;
-pub type ProtocolClerk = StmClerk<H, Bls12_377, TrivialEnv>;
-pub type ProtocolKeyRegistration = KeyReg<Bls12_377>;
-pub type ProtocolProof = ConcatProof<Bls12_377, H, F>;
-pub type ProtocolSingleSignature = StmSig<Bls12_377, F>;
-pub type ProtocolMultiSignature = StmMultiSig<Bls12_377, ProtocolProof>;
-pub type ProtocolSignerVerificationKey = MspPk<Bls12_377>;
-pub type ProtocolSignerSecretKey = MspSk<Bls12_377>;
+pub type ProtocolSigner = StmSigner<D>;
+pub type ProtocolInitializer = StmInitializer;
+pub type ProtocolClerk = StmClerk<D>;
+pub type ProtocolKeyRegistration = KeyReg;
+pub type ProtocolSingleSignature = StmSig<D>;
+pub type ProtocolMultiSignature = StmMultiSig<D>;
+pub type ProtocolSignerVerificationKey = MspPk;
+pub type ProtocolSignerSecretKey = MspSk;
+
+use crate::entities;
+
+#[cfg(test)]
+use mockall::automock;
 
 #[derive(Error, Debug)]
 pub enum ProtocolError {
@@ -96,7 +91,7 @@ impl VerifierImpl {
             .collect::<ProtocolStakeDistribution>();
         let mut key_registration: ProtocolKeyRegistration = KeyReg::new(&stakes);
         signers_with_stakes.iter().for_each(|signer| {
-            if let Ok(verification_key) = key_decode_hex(signer.verification_key.clone()) {
+            if let Ok(verification_key) = key_decode_hex(&signer.verification_key) {
                 key_registration
                     .register(signer.party_id as ProtocolPartyId, verification_key)
                     .unwrap();
@@ -105,7 +100,6 @@ impl VerifierImpl {
         let closed_registration = key_registration.close();
         Ok(StmClerk::from_registration(
             protocol_parameters,
-            TrivialEnv,
             closed_registration,
         ))
     }
@@ -122,34 +116,52 @@ impl Verifier for VerifierImpl {
     ) -> Result<(), ProtocolError> {
         debug!("Verify multi signature for {:?}", message);
         let clerk = self.create_clerk(signers_with_stakes, protocol_parameters);
-        let multi_signature: ProtocolMultiSignature = key_decode_hex(multi_signature.to_string())?;
+        let multi_signature: ProtocolMultiSignature = key_decode_hex_multisig(multi_signature)
+            .map_err(|e| ProtocolError::VerifyMultiSignatureError(e.to_string()))?;
         clerk
             .as_ref()
             .unwrap()
-            .verify_msig::<ProtocolProof>(&multi_signature, message)
+            .verify_msig(&multi_signature, message)
             .map_err(|e| ProtocolError::VerifyMultiSignatureError(e.to_string()))
     }
 }
 
+// TODO: To remove once 'ProtocolMultiSignature' implements `Serialize`
+pub fn key_encode_hex_multisig(from: &ProtocolMultiSignature) -> Result<String, String> {
+    Ok(from.to_bytes().encode_hex::<String>())
+}
+
+// TODO: To remove once 'ProtocolMultiSignature' implements `Deserialize`
+pub fn key_decode_hex_multisig(from: &str) -> Result<ProtocolMultiSignature, String> {
+    let from_vec = Vec::from_hex(from).map_err(|e| format!("can't parse from hex: {}", e))?;
+    ProtocolMultiSignature::from_bytes(&from_vec)
+        .map_err(|e| format!("can't decode multi signature: {}", e))
+}
+
 /// Encode key to hex helper
-pub fn key_encode_hex<T: ark_ff::ToBytes>(from: T) -> Result<String, ProtocolError> {
-    Ok(ark_ff::to_bytes!(from)
-        .map_err(|e| ProtocolError::KeyEncodeFailed(e.to_string()))?
+pub fn key_encode_hex<T>(from: T) -> Result<String, String>
+where
+    T: Serialize,
+{
+    Ok(serde_json::to_string(&from)
+        .map_err(|e| format!("can't convert to hex: {}", e))?
         .encode_hex::<String>())
 }
 
 /// Decode key from hex helper
-pub fn key_decode_hex<T: ark_ff::FromBytes>(from: String) -> Result<T, ProtocolError> {
-    ark_ff::FromBytes::read(Cursor::new(
-        Vec::from_hex(from).map_err(|e| ProtocolError::KeyDecodeFailed(e.to_string()))?,
-    ))
-    .map_err(|e| ProtocolError::KeyDecodeFailed(e.to_string()))
+pub fn key_decode_hex<T>(from: &str) -> Result<T, String>
+where
+    T: DeserializeOwned,
+{
+    let from_vec = Vec::from_hex(from).map_err(|e| format!("can't parse from hex: {}", e))?;
+    serde_json::from_slice(from_vec.as_slice()).map_err(|e| format!("can't deserialize: {}", e))
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    use mithril_aggregator::multi_signer::key_encode_hex_multisig;
     use rand_chacha::ChaCha20Rng;
     use rand_core::{RngCore, SeedableRng};
 
@@ -235,13 +247,13 @@ mod tests {
         let secret_key: ProtocolSignerSecretKey = protocol_initializer.secret_key();
         let verification_key_hex =
             key_encode_hex(verification_key).expect("unexpected hex encoding error");
-        let secret_key_hex = key_encode_hex(secret_key).expect("unexpected hex encoding error");
+        let secret_key_hex = key_encode_hex(&secret_key).expect("unexpected hex encoding error");
         let verification_key_restored =
-            key_decode_hex(verification_key_hex).expect("unexpected hex decoding error");
-        let secret_key_restored =
-            key_decode_hex(secret_key_hex).expect("unexpected hex decoding error");
+            key_decode_hex(&verification_key_hex).expect("unexpected hex decoding error");
+        let secret_key_restored: ProtocolSignerSecretKey =
+            key_decode_hex(&secret_key_hex).expect("unexpected hex decoding error");
         assert_eq!(verification_key, verification_key_restored);
-        assert_eq!(secret_key, secret_key_restored);
+        assert_eq!(secret_key.to_bytes(), secret_key_restored.to_bytes());
     }
 
     #[test]
@@ -254,19 +266,14 @@ mod tests {
         signers.iter().for_each(|(_, _, _, protocol_signer)| {
             for i in 1..=protocol_parameters.m {
                 if let Some(signature) = protocol_signer.sign(&message, i) {
-                    single_signatures.push((signature, i as ProtocolLotteryIndex));
+                    single_signatures.push(signature);
                 }
             }
         });
 
-        let signatures: (Vec<ProtocolSingleSignature>, Vec<ProtocolLotteryIndex>) =
-            single_signatures.into_iter().unzip();
-
         let first_signer = &signers.first().unwrap().3;
-        let clerk = StmClerk::from_signer(&first_signer, TrivialEnv);
-        let multi_signature = clerk
-            .aggregate::<ProtocolProof>(signatures.0.as_slice(), signatures.1.as_slice(), &message)
-            .unwrap();
+        let clerk = StmClerk::from_signer(&first_signer);
+        let multi_signature = clerk.aggregate(&single_signatures, &message).unwrap();
 
         let verifier = VerifierImpl::new();
         let protocol_parameters = entities::ProtocolParameters {
@@ -289,7 +296,7 @@ mod tests {
             verifier
                 .verify_multi_signature(
                     &message_tampered,
-                    &key_encode_hex(&multi_signature).unwrap(),
+                    &key_encode_hex_multisig(&multi_signature).unwrap(),
                     &signers_with_stakes,
                     &protocol_parameters,
                 )
@@ -299,7 +306,7 @@ mod tests {
         verifier
             .verify_multi_signature(
                 &message,
-                &key_encode_hex(&multi_signature).unwrap(),
+                &key_encode_hex_multisig(&multi_signature).unwrap(),
                 &signers_with_stakes,
                 &protocol_parameters,
             )
