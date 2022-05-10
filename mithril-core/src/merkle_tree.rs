@@ -16,19 +16,6 @@ pub struct Path<D: Digest + FixedOutput> {
     hasher: PhantomData<D>,
 }
 
-/// Serializes the Merkle Tree together with a message in a single vector of bytes.
-/// Outputs msg || avk as a vector of bytes.
-pub fn concat_avk_with_msg<D>(avk: &MerkleTreeCommitment<D>, msg: &[u8]) -> Vec<u8>
-where
-    D: Digest + FixedOutput,
-{
-    let mut msgp = msg.to_vec();
-    let mut bytes = avk.root.clone();
-    msgp.append(&mut bytes);
-
-    msgp
-}
-
 /// MerkleTree commitment. This structure differs from `MerkleTree` in that it does not contain
 /// all elements, which are not always necessary.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -90,6 +77,19 @@ where
         }
         Err(MerkleTreeError::InvalidPath)
     }
+
+    /// Serializes the Merkle Tree commitment together with a message in a single vector of bytes.
+    /// Outputs msg || self as a vector of bytes.
+    pub fn concat_with_msg(&self, msg: &[u8]) -> Vec<u8>
+        where
+            D: Digest + FixedOutput,
+    {
+        let mut msgp = msg.to_vec();
+        let mut bytes = self.root.clone();
+        msgp.append(&mut bytes);
+
+        msgp
+    }
 }
 
 /// Tree of hashes, providing a commitment of data and its ordering.
@@ -117,7 +117,7 @@ impl<D> MerkleTree<D>
 where
     D: Digest + FixedOutput,
 {
-    /// Provide a non-empty list of leaves, `create` generate its corresponding `MerkleTree`.
+    /// Provided a non-empty list of leaves, `create` generates its corresponding `MerkleTree`.
     pub fn create(leaves: &[Vec<u8>]) -> MerkleTree<D> {
         let n = leaves.len();
         assert!(n > 0, "MerkleTree::create() called with no leaves");
@@ -209,9 +209,9 @@ where
     /// * Number of leaves committed in the Merkle Tree
     /// * All nodes of the merkle tree (starting with the root)
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut result = Vec::with_capacity(4 + self.nodes.len() * D::output_size());
+        let mut result = Vec::with_capacity(8 + self.nodes.len() * D::output_size());
         result.extend_from_slice(
-            &u32::try_from(self.n)
+            &u64::try_from(self.n)
                 .expect("Length must fit in u32")
                 .to_be_bytes(),
         );
@@ -226,7 +226,7 @@ where
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(&bytes[..8]);
         let n = usize::try_from(u64::from_be_bytes(u64_bytes)).unwrap(); // todo: handle the conversion
-        let num_nodes = n + n - 1;
+        let num_nodes = n + n.next_power_of_two() - 1;
         let mut nodes = Vec::with_capacity(num_nodes);
         for i in 0..num_nodes {
             nodes.push(bytes[8 + i * D::output_size()..8 + (i + 1) * D::output_size()].to_vec());
@@ -314,14 +314,16 @@ fn sibling(i: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use blake2::Blake2b;
+    use bincode;
     use super::*;
     use proptest::collection::{hash_set, vec};
     use proptest::prelude::*;
 
     prop_compose! {
         fn arb_tree(max_size: u32)
-                   (v in vec(vec(any::<u8>(), 2..16), 2..(max_size as usize))) -> (MerkleTree<blake2::Blake2b>, Vec<Vec<u8>>) {
-             (MerkleTree::<blake2::Blake2b>::create(&v), v)
+                   (v in vec(vec(any::<u8>(), 2..16), 2..(max_size as usize))) -> (MerkleTree<Blake2b>, Vec<Vec<u8>>) {
+             (MerkleTree::<Blake2b>::create(&v), v)
         }
     }
 
@@ -368,14 +370,14 @@ mod tests {
             i in any::<usize>(),
             (values, proof) in values_with_invalid_proof(10)
         ) {
-            let t = MerkleTree::<blake2::Blake2b>::create(&values[1..]);
+            let t = MerkleTree::<Blake2b>::create(&values[1..]);
             let index = i % (values.len() - 1);
             let path = Path{values: proof
                             .iter()
-                            .map(|x|  blake2::Blake2b::digest(x).to_vec())
+                            .map(|x|  Blake2b::digest(x).to_vec())
                             .collect(),
                 index,
-                hasher: PhantomData::<blake2::Blake2b>::default()
+                hasher: PhantomData::<Blake2b>::default()
                 };
             assert!(t.to_commitment().check(&values[0], &path).is_err());
         }
