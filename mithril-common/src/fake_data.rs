@@ -22,7 +22,7 @@ pub fn digest() -> Vec<u8> {
     let beacon = beacon();
     format!(
         "digest-{}-{}-{}",
-        beacon.network, beacon.epoch, beacon.block
+        beacon.network, beacon.epoch, beacon.immutable_number
     )
     .as_bytes()
     .to_vec()
@@ -67,7 +67,7 @@ pub fn certificate(certificate_hash: String) -> entities::Certificate {
 
     // Certificate
     let previous_hash = format!("{}0", certificate_hash);
-    let block = beacon.block;
+    let block = beacon.immutable_number;
     let digest = format!("1{}", block).repeat(20);
     let started_at = "2006-01-02T15:04:05Z".to_string();
     let completed_at = "2006-01-02T15:04:05Z".to_string();

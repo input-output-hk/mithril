@@ -54,13 +54,13 @@ data CertificatePending = CertificatePending
 data Beacon = Beacon
   { network :: Text,
     epoch :: Word64,
-    block :: Word64
+    immutable_number :: Word64
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
 digestOf :: Beacon -> Text
-digestOf Beacon {network, epoch, block} =
-  Hex.encodeBase16 $ encodeUtf8 $ "digest-" <> network <> "-" <> show epoch <> "-" <> show block
+digestOf Beacon {network, epoch, immutable_number} =
+  Hex.encodeBase16 $ encodeUtf8 $ "digest-" <> network <> "-" <> show epoch <> "-" <> show immutable_number
 
 data Aggregator = Aggregator {aggregatorPort :: Int}
 

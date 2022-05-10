@@ -171,7 +171,7 @@ mod handlers {
                 let digest = message.clone();
                 let certificate_hash = message;
                 let previous_hash = "".to_string();
-                let block = beacon.block;
+                let block = beacon.immutable_number;
                 let timestamp: DateTime<Utc> = Utc::now();
                 let started_at = format!("{:?}", timestamp);
                 let completed_at = started_at.clone();

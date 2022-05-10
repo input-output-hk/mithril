@@ -15,17 +15,17 @@ pub struct Beacon {
     pub epoch: u64,
 
     /// Cardano chain block number
-    #[serde(rename = "block")]
-    pub block: u64,
+    #[serde(rename = "immutable_number")]
+    pub immutable_number: u64,
 }
 
 impl Beacon {
     /// Beacon factory
-    pub fn new(network: String, epoch: u64, block: u64) -> Beacon {
+    pub fn new(network: String, epoch: u64, immutable_number: u64) -> Beacon {
         Beacon {
             network,
             epoch,
-            block,
+            immutable_number,
         }
     }
 }
