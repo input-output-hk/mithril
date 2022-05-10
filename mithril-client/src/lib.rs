@@ -3,7 +3,6 @@ mod client;
 mod entities;
 mod verifier;
 
-use crate::aggregator::*;
 pub use crate::aggregator::{AggregatorHTTPClient, AggregatorHandlerError};
 pub use crate::client::Client;
 pub use crate::entities::Config;
