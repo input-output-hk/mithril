@@ -6,4 +6,4 @@ mod single_signer;
 pub use certificate_handler::CertificateHandlerHTTPClient;
 pub use entities::Config;
 pub use signer::Signer;
-pub use single_signer::{key_decode_hex, MithrilSingleSigner};
+pub use single_signer::MithrilSingleSigner;

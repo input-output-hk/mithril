@@ -1,14 +1,14 @@
 use clap::Parser;
-use mithril_common::fake_data;
-use mithril_signer::{
-    key_decode_hex, CertificateHandlerHTTPClient, Config, MithrilSingleSigner, Signer,
-};
 use slog::{o, Drain, Level, Logger};
 use slog_scope::{debug, error, info};
 use std::env;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
+
+use mithril_common::crypto_helper::key_decode_hex;
+use mithril_common::fake_data;
+use mithril_signer::{CertificateHandlerHTTPClient, Config, MithrilSingleSigner, Signer};
 
 /// CLI args
 #[derive(Parser)]
