@@ -17,7 +17,7 @@ use blst::min_sig::{
 use blst::{blst_p1, blst_p1_affine, blst_p1_compress, blst_p1_from_affine, blst_p1_uncompress};
 
 use rand_core::{CryptoRng, RngCore};
-use serde::{de::Visitor, ser::SerializeSeq, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 use std::{
     cmp::Ordering,
     hash::{Hash, Hasher},
@@ -445,7 +445,8 @@ macro_rules! impl_serde {
             where
                 S: Serializer,
             {
-                let mut seq = serializer.serialize_seq(Some($size))?;
+                use serde::ser::SerializeTuple;
+                let mut seq = serializer.serialize_tuple($size)?;
                 for e in self.to_bytes().iter() {
                     seq.serialize_element(e)?;
                 }
@@ -483,8 +484,11 @@ macro_rules! impl_serde {
                                     &format!("expected bytes{}", $size.to_string()).as_str(),
                                 ))?;
                         }
-                        <$st>::from_bytes(&bytes)
-                            .map_err(|_| serde::de::Error::custom("decompression failed"))
+                        <$st>::from_bytes(&bytes).map_err(|_| {
+                            serde::de::Error::custom(
+                                &format!("deserialization failed [{}]", stringify!($st)).as_str(),
+                            )
+                        })
                     }
                 }
 
@@ -573,10 +577,23 @@ mod tests {
         fn serialize_deserialize_pk(seed in any::<u64>()) {
             let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
             let sk = SigningKey::gen(&mut rng);
+            let vk = VerificationKey::from(&sk);
+            let vk_bytes = vk.to_bytes();
+            let vk2 = VerificationKey::from_bytes(&vk_bytes).unwrap();
+            assert_eq!(vk, vk2);
             let pk = VerificationKeyPoP::from(&sk);
             let pk_bytes = pk.to_bytes();
             let pk2: VerificationKeyPoP = VerificationKeyPoP::from_bytes(&pk_bytes).unwrap();
-            assert!(pk == pk2);
+            assert_eq!(pk, pk2);
+
+            // Now we test serde
+            let encoded = bincode::serialize(&vk).unwrap();
+            assert_eq!(encoded, vk_bytes);
+            let decoded: VerificationKey = bincode::deserialize(&encoded).unwrap();
+            assert_eq!(vk, decoded);
+            let encoded = bincode::serialize(&pk).unwrap();
+            let decoded: VerificationKeyPoP = bincode::deserialize(&encoded).unwrap();
+            assert_eq!(pk, decoded);
         }
 
         #[test]
@@ -585,7 +602,16 @@ mod tests {
             let sk = SigningKey::gen(&mut rng);
             let sk_bytes: [u8; 32] = sk.to_bytes();
             let sk2 = SigningKey::from_bytes(&sk_bytes).unwrap();
-            assert!(sk == sk2);
+            assert_eq!(sk, sk2);
+
+            // Now we test serde
+            let encoded = bincode::serialize(&sk).unwrap();
+            let decoded: SigningKey = bincode::deserialize(&encoded).unwrap();
+            assert_eq!(sk, decoded);
+
+            // See that it is consistent with raw serialisation
+            let decoded_bytes: SigningKey = bincode::deserialize(&sk_bytes).unwrap();
+            assert_eq!(sk, decoded_bytes);
         }
     }
 
