@@ -3,8 +3,8 @@ use thiserror::Error;
 use mithril_common::entities::Beacon;
 use mithril_common::fake_data;
 
-use crate::certificate_handler::CertificateHandler;
-use crate::single_signer::SingleSigner;
+use super::certificate_handler::CertificateHandler;
+use super::single_signer::SingleSigner;
 
 pub struct Signer {
     certificate_handler: Box<dyn CertificateHandler>,
@@ -73,9 +73,9 @@ impl Signer {
 
 #[cfg(test)]
 mod tests {
+    use super::super::certificate_handler::{CertificateHandlerError, MockCertificateHandler};
+    use super::super::single_signer::{MockSingleSigner, SingleSignerError};
     use super::*;
-    use crate::certificate_handler::{CertificateHandlerError, MockCertificateHandler};
-    use crate::single_signer::{MockSingleSigner, SingleSignerError};
     use mithril_common::fake_data;
 
     #[tokio::test]
