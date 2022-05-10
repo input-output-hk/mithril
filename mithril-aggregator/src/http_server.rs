@@ -9,8 +9,8 @@ use std::sync::Arc;
 use warp::Future;
 use warp::{http::Method, http::StatusCode, Filter};
 
-use crate::dependency::{DependencyManager, MultiSignerWrapper, SnapshotStorerWrapper};
-use crate::multi_signer;
+use super::dependency::{DependencyManager, MultiSignerWrapper, SnapshotStorerWrapper};
+use super::multi_signer;
 
 const SERVER_BASE_PATH: &str = "aggregator";
 
@@ -331,10 +331,10 @@ mod tests {
     use tokio::sync::RwLock;
     use warp::test::request;
 
+    use super::super::entities::*;
+    use super::super::multi_signer::{key_decode_hex_multisig, MockMultiSigner};
+    use super::super::snapshot_store::MockSnapshotStorer;
     use super::*;
-    use crate::entities::*;
-    use crate::multi_signer::{key_decode_hex_multisig, MockMultiSigner};
-    use crate::snapshot_store::MockSnapshotStorer;
 
     fn setup_dependency_manager() -> DependencyManager {
         let config = Config {
