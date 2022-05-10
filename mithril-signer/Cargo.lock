@@ -1666,7 +1666,6 @@ dependencies = [
  "mithril",
  "mithril-common",
  "mockall",
- "rand_chacha",
  "rand_core",
  "reqwest",
  "serde",
