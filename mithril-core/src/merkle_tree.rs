@@ -81,8 +81,8 @@ where
     /// Serializes the Merkle Tree commitment together with a message in a single vector of bytes.
     /// Outputs msg || self as a vector of bytes.
     pub fn concat_with_msg(&self, msg: &[u8]) -> Vec<u8>
-        where
-            D: Digest + FixedOutput,
+    where
+        D: Digest + FixedOutput,
     {
         let mut msgp = msg.to_vec();
         let mut bytes = self.root.clone();
@@ -314,9 +314,9 @@ fn sibling(i: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use blake2::Blake2b;
-    use bincode;
     use super::*;
+    use bincode;
+    use blake2::Blake2b;
     use proptest::collection::{hash_set, vec};
     use proptest::prelude::*;
 
@@ -346,7 +346,31 @@ mod tests {
                 let bytes = pf.to_bytes();
                 let deserialised = Path::from_bytes(&bytes).unwrap();
                 assert!(t.to_commitment().check(&values[i], &deserialised).is_ok());
+
+                let encoded = bincode::serialize(&pf).unwrap();
+                let decoded: Path<Blake2b> = bincode::deserialize(&encoded).unwrap();
+                assert!(t.to_commitment().check(&values[i], &decoded).is_ok());
             })
+        }
+
+        #[test]
+        fn test_bytes_tree((t, values) in arb_tree(5)) {
+            let bytes = t.to_bytes();
+            let deserialised = MerkleTree::<Blake2b>::from_bytes(&bytes).unwrap();
+            let tree = MerkleTree::<Blake2b>::create(&values);
+            assert_eq!(tree.nodes, deserialised.nodes);
+
+            let encoded = bincode::serialize(&t).unwrap();
+            let decoded: MerkleTree::<Blake2b> = bincode::deserialize(&encoded).unwrap();
+            assert_eq!(tree.nodes, decoded.nodes);
+        }
+
+        #[test]
+        fn test_bytes_tree_commitment((t, values) in arb_tree(5)) {
+            let encoded = bincode::serialize(&t.to_commitment()).unwrap();
+            let decoded: MerkleTreeCommitment::<Blake2b> = bincode::deserialize(&encoded).unwrap();
+            let tree_commitment = MerkleTree::<Blake2b>::create(&values).to_commitment();
+            assert_eq!(tree_commitment.root, decoded.root);
         }
     }
 

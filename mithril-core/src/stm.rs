@@ -233,6 +233,10 @@ pub struct StmInitializer {
 /// an `StmInitializer` and a closed `KeyReg`. This ensures that a `MerkleTree` root is not
 /// computed before all participants have registered.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound(
+    serialize = "MerkleTree<D>: Serialize",
+    deserialize = "MerkleTree<D>: Deserialize<'de>"
+))]
 pub struct StmSigner<D>
 where
     D: Digest + FixedOutput,
@@ -251,6 +255,10 @@ where
 /// generated with the registration closed. This avoids that a Merkle Tree is computed before
 /// all parties have registered.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound(
+    serialize = "MerkleTree<D>: Serialize",
+    deserialize = "MerkleTree<D>: Deserialize<'de>"
+))]
 pub struct StmClerk<D>
 where
     D: Clone + Digest + FixedOutput,
@@ -262,6 +270,10 @@ where
 
 /// Signature created by a single party who has won the lottery.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound(
+    serialize = "Path<D>: Serialize",
+    deserialize = "Path<D>: Deserialize<'de>"
+))]
 pub struct StmSig<D: Clone + Digest + FixedOutput> {
     /// The signature from the underlying MSP scheme.
     pub sigma: Signature,
@@ -327,6 +339,10 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
 /// `StmMultiSig` uses the "concatenation" proving system. This means that the aggregated
 /// signature contains a vector of the individual signatures.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound(
+    serialize = "Path<D>: Serialize",
+    deserialize = "Path<D>: Deserialize<'de>"
+))]
 pub struct StmMultiSig<D>
 where
     D: Clone + Digest + FixedOutput,
@@ -975,12 +991,13 @@ where
 mod tests {
     use super::*;
     use crate::key_reg::*;
+    use bincode;
+    use blake2::Blake2b;
     use proptest::collection::{hash_map, vec};
     use proptest::prelude::*;
     use proptest::test_runner::{RngAlgorithm::ChaCha, TestRng};
     use rayon::prelude::*;
     use std::collections::{HashMap, HashSet};
-    use blake2::Blake2b;
 
     use num_bigint::{BigInt, Sign};
     use num_rational::Ratio;
@@ -1189,6 +1206,42 @@ mod tests {
         #![proptest_config(ProptestConfig::with_cases(10))]
 
         #[test]
+        fn test_initializer_serialize_deserialize(seed in any::<[u8;32]>()) {
+            let mut rng = ChaCha20Rng::from_seed(seed);
+            let params = StmParameters { m: 1, k: 1, phi_f: 1.0 };
+            let pid = rng.next_u64();
+            let stake = rng.next_u64();
+            let initializer = StmInitializer::setup(params, pid, stake, &mut rng);
+
+            let bytes = bincode::serialize(&initializer).unwrap();
+            assert!(bincode::deserialize::<StmInitializer>(&bytes).is_ok())
+        }
+
+         #[test]
+        fn test_signer_serialize_deserialize(msg in any::<[u8;16]>(), nparties in 1..12usize) {
+            let params = StmParameters { m: (nparties as u64), k: 1, phi_f: 1.0 };
+            let ps = setup_equal_parties(params, nparties);
+            for p in ps {
+                let bytes = bincode::serialize(&p).unwrap();
+                let signer = bincode::deserialize::<StmSigner<D>>(&bytes).unwrap();
+                assert!(signer.sign(&msg, 1).is_some())
+            }
+        }
+
+         #[test]
+        fn test_clerk_serialize_deserialize(msg in any::<[u8;16]>(), nparties in 1..12usize) {
+            let params = StmParameters { m: (nparties as u64), k: 1, phi_f: 1.0 };
+            let ps = setup_equal_parties(params, nparties);
+            for p in ps {
+                let sig = p.sign(&msg, 1).unwrap();
+                let clerk = StmClerk::from_signer(&p);
+                let bytes = bincode::serialize(&clerk).unwrap();
+                let clerk = bincode::deserialize::<StmClerk<D>>(&bytes).unwrap();
+                assert!(clerk.verify_sig(&sig, &msg).is_ok())
+            }
+        }
+
+        #[test]
         fn test_sig_serialize_deserialize(msg in any::<[u8;16]>()) {
             let nparties = 2;
             let params = StmParameters { m: (nparties as u64), k: 1, phi_f: 0.2 };
@@ -1201,6 +1254,10 @@ mod tests {
                     let bytes = sig.to_bytes();
                     let sig_deser = StmSig::<D>::from_bytes(&bytes).unwrap();
                     assert!(clerk.verify_sig(&sig_deser, &msg).is_ok());
+
+                    let encoded = bincode::serialize(&sig).unwrap();
+                    let decoded: StmSig::<D> = bincode::deserialize(&encoded).unwrap();
+                    assert!(clerk.verify_sig(&decoded, &msg).is_ok());
                 }
             }
         }
@@ -1219,6 +1276,10 @@ mod tests {
                     let bytes: Vec<u8> = aggr.to_bytes();
                     let aggr2 = StmMultiSig::from_bytes(&bytes).unwrap();
                     assert!(clerk.verify_msig(&aggr2, &msg).is_ok());
+
+                    let encoded = bincode::serialize(&aggr).unwrap();
+                    let decoded: StmMultiSig::<D> = bincode::deserialize(&encoded).unwrap();
+                    assert!(clerk.verify_msig(&decoded, &msg).is_ok());
             }
         }
     }
