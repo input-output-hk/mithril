@@ -3,6 +3,8 @@
 
 use serde::{Deserialize, Serialize};
 
+pub type ImmutableNumber = u64;
+
 /// Beacon represents a point in the Cardano chain at which a Mithril certificate should be produced
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct Beacon {
@@ -16,7 +18,7 @@ pub struct Beacon {
 
     /// Cardano chain block number
     #[serde(rename = "immutable_number")]
-    pub immutable_number: u64,
+    pub immutable_number: ImmutableNumber,
 }
 
 impl Beacon {
