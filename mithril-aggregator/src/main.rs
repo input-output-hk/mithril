@@ -1,13 +1,11 @@
 #![doc = include_str!("../README.md")]
 
-mod dependency;
-mod entities;
-mod http_server;
-mod multi_signer;
-mod snapshot_store;
-
 use clap::Parser;
 
+use mithril_aggregator::{
+    key_decode_hex, Config, DependencyManager, MultiSigner, MultiSignerImpl, ProtocolParameters,
+    ProtocolPartyId, ProtocolSignerVerificationKey, ProtocolStake, Server, SnapshotStoreHTTPClient,
+};
 use mithril_common::fake_data;
 use mithril_common::snapshotter::Snapshotter;
 use slog::{Drain, Level, Logger};
@@ -15,15 +13,6 @@ use slog_scope::debug;
 use std::env;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-
-use crate::entities::Config;
-use crate::http_server::Server;
-use crate::multi_signer::{
-    key_decode_hex, MultiSigner, MultiSignerImpl, ProtocolParameters, ProtocolPartyId,
-    ProtocolSignerVerificationKey, ProtocolStake,
-};
-use crate::snapshot_store::SnapshotStoreHTTPClient;
-
 /// Node args
 #[derive(Parser, Debug, Clone)]
 pub struct Args {
@@ -100,7 +89,7 @@ async fn main() {
     let multi_signer = Arc::new(RwLock::new(init_multi_signer()));
 
     // Init dependecy manager
-    let mut dependency_manager = dependency::DependencyManager::new(config);
+    let mut dependency_manager = DependencyManager::new(config);
     dependency_manager
         .with_snapshot_storer(snapshot_storer.clone())
         .with_multi_signer(multi_signer.clone());
