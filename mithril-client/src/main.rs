@@ -6,7 +6,7 @@ use cli_table::{print_stdout, WithTitle};
 use log::debug;
 use std::env;
 
-use mithril_client::{Client, AggregatorHTTPClient, VerifierImpl, Config};
+use mithril_client::{AggregatorHTTPClient, Client, Config, VerifierImpl};
 
 /// CLI args
 #[derive(Parser)]
