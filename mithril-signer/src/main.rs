@@ -1,6 +1,8 @@
-use mithril_signer::{CertificateHandlerHTTPClient, Config, Signer, key_decode_hex, MithrilSingleSigner};
 use clap::Parser;
 use mithril_common::fake_data;
+use mithril_signer::{
+    key_decode_hex, CertificateHandlerHTTPClient, Config, MithrilSingleSigner, Signer,
+};
 use slog::{o, Drain, Level, Logger};
 use slog_scope::{debug, error, info};
 use std::env;
