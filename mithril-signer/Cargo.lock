@@ -1629,12 +1629,16 @@ dependencies = [
 name = "mithril-common"
 version = "0.1.0"
 dependencies = [
+ "blake2",
  "chrono",
  "cloud-storage",
  "flate2",
  "hex",
  "http",
  "jsonschema",
+ "mithril",
+ "rand_chacha",
+ "rand_core",
  "serde",
  "serde_json",
  "serde_yaml",
