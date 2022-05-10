@@ -126,7 +126,7 @@ use crate::error::{
     VerificationFailure,
 };
 use crate::key_reg::ClosedKeyReg;
-use crate::merkle_tree::{concat_avk_with_msg, MerkleTree, MerkleTreeCommitment, Path};
+use crate::merkle_tree::{MerkleTree, MerkleTreeCommitment, Path};
 use crate::msp::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
 use digest::{Digest, FixedOutput};
 use rand_core::{CryptoRng, RngCore};
@@ -370,7 +370,7 @@ impl<D: Clone + Digest + FixedOutput> StmMultiSig<D> {
 
         // Check that all signatures did win the lottery
         for sig in self.signatures.iter() {
-            let msgp = concat_avk_with_msg(avk, msg);
+            let msgp = avk.concat_with_msg(msg);
             let ev = sig.sigma.eval(&msgp, sig.index);
 
             if !ev_lt_phi(parameters.phi_f, ev, sig.stake, total_stake) {
@@ -597,7 +597,7 @@ where
         // sigma <- MSP.Sig(msk, msg')
         // ev <- MSP.Eval(msg', index, sigma)
         // return 1 if ev < phi(stake) else return 0
-        let msgp = concat_avk_with_msg(&self.avk.to_commitment(), msg);
+        let msgp = self.avk.to_commitment().concat_with_msg(msg);
         let sigma = self.sk.sign(&msgp);
         let ev = sigma.eval(&msgp, index);
         ev_lt_phi(self.params.phi_f, ev, self.stake, self.total_stake)
@@ -612,7 +612,7 @@ where
             //      p_i is the users path inside the merkle tree AVK
             //      reg_i is (mvk_i, stake_i)
             // return pi
-            let msgp = concat_avk_with_msg(&self.avk.to_commitment(), msg);
+            let msgp = self.avk.to_commitment().concat_with_msg(msg);
             let sigma = self.sk.sign(&msgp);
             let path = self.avk.get_path(self.mt_index.try_into().unwrap());
             Some(StmSig {
@@ -737,7 +737,7 @@ where
     /// underlying msp signature validates.
     /// todo: I may prefer an associated method to the signature, but ok.
     pub fn verify_sig(&self, sig: &StmSig<D>, msg: &[u8]) -> Result<(), VerificationFailure<D>> {
-        let msgp = concat_avk_with_msg(&self.avk.to_commitment(), msg);
+        let msgp = self.avk.to_commitment().concat_with_msg(msg);
         let ev = sig.sigma.eval(&msgp, sig.index);
 
         if !ev_lt_phi(self.params.phi_f, ev, sig.stake, self.total_stake) {
@@ -980,6 +980,7 @@ mod tests {
     use proptest::test_runner::{RngAlgorithm::ChaCha, TestRng};
     use rayon::prelude::*;
     use std::collections::{HashMap, HashSet};
+    use blake2::Blake2b;
 
     use num_bigint::{BigInt, Sign};
     use num_rational::Ratio;
@@ -987,7 +988,7 @@ mod tests {
     use rand_core::SeedableRng;
 
     type Sig = StmMultiSig<D>;
-    type D = blake2::Blake2b;
+    type D = Blake2b;
 
     fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmSigner<D>> {
         let stake = vec![1; nparties];

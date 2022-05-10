@@ -1,4 +1,4 @@
-//! Placeholder key registration functionality.
+//! Key registration functionality.
 
 use crate::error::RegisterError;
 use digest::{Digest, FixedOutput};
@@ -13,7 +13,7 @@ use crate::stm::MTValue;
 
 /// Simple struct that collects pubkeys and stakes of parties. Placeholder for a more
 /// realistic distributed key registration protocol.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct KeyReg {
     parties: HashMap<PartyId, Party>,
     // `keys` is just the set of all of the keys that have been registered
@@ -23,7 +23,7 @@ pub struct KeyReg {
 
 /// Structure generated out of a closed registration. One can only get a global `avk` out of
 /// a closed key registration.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ClosedKeyReg<D>
 where
     D: Digest + FixedOutput,
@@ -38,7 +38,7 @@ where
 /// Represents the status of a known participant in the protocol who is allowed
 /// to register their key. `RegParty` values will be produced from mappings
 /// (id |-> Party { stake, Some(key) }) in key_reg.parties
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct Party {
     /// The stake of of the party.
     pub stake: Stake,
@@ -46,7 +46,7 @@ struct Party {
     pub pk: Option<VerificationKeyPoP>,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 /// A registered party, i.e. an id associated with its stake and public key
 pub struct RegParty {
     /// The id for the registered party.
@@ -56,39 +56,6 @@ pub struct RegParty {
     pub pk: VerificationKeyPoP,
     /// The stake for the registered party.
     pub stake: Stake,
-}
-
-impl RegParty {
-    /// Convert to bytes
-    /// # Layout
-    /// The layout of a `RegParty` encoding is
-    /// * Party index (position in the merkle tree)
-    /// * Public key
-    /// * Stake (as an 8 byte tuple)
-    pub fn to_bytes(&self) -> [u8; 208] {
-        let mut output = [0u8; 208];
-        output[..8].copy_from_slice(&self.party_id.to_be_bytes());
-        output[8..200].copy_from_slice(&self.pk.to_bytes());
-        output[200..].copy_from_slice(&self.stake.to_be_bytes());
-        output
-    }
-
-    /// Convert an array of bytes to a `RegParty`.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, RegisterError> {
-        let mut u64_bytes = [0u8; 8];
-        u64_bytes.copy_from_slice(&bytes[..8]);
-        let party_id = u64::from_be_bytes(u64_bytes);
-
-        let pk = VerificationKeyPoP::from_bytes(&bytes[8..])?;
-        u64_bytes.copy_from_slice(&bytes[200..]);
-        let stake = u64::from_be_bytes(u64_bytes);
-
-        Ok(Self {
-            party_id,
-            pk,
-            stake,
-        })
-    }
 }
 
 impl KeyReg {
