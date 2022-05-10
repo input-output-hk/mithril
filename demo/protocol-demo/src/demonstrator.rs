@@ -1,10 +1,6 @@
-// TODO: to be removed later
-#![allow(dead_code)]
-
-use hex::{FromHex, ToHex};
+use hex::ToHex;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
-use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
@@ -12,30 +8,12 @@ use std::fs;
 use std::io::Write;
 use std::path;
 
-use mithril::error::AggregationFailure;
-use mithril::key_reg::KeyReg;
-use mithril::msp::{MspPk, MspSk};
-use mithril::stm::{
-    Index, PartyId, Stake, StmClerk, StmInitializer, StmMultiSig, StmParameters, StmSig, StmSigner,
+use mithril_common::crypto_helper::{
+    key_decode_hex, key_encode_hex, key_encode_hex_multisig, key_encode_hex_sig, Bytes,
+    ProtocolClerk, ProtocolInitializer, ProtocolKeyRegistration, ProtocolMultiSignature,
+    ProtocolParameters, ProtocolPartyId, ProtocolSigner, ProtocolSignerSecretKey,
+    ProtocolSignerVerificationKey, ProtocolSingleSignature, ProtocolStake,
 };
-
-pub type Bytes = Vec<u8>;
-
-// Protocol types alias
-type D = blake2::Blake2b;
-pub type ProtocolPartyId = PartyId;
-pub type ProtocolStake = Stake;
-pub type ProtocolStakeDistribution = Vec<(ProtocolPartyId, ProtocolStake)>;
-pub type ProtocolParameters = StmParameters;
-pub type ProtocolLotteryIndex = Index;
-pub type ProtocolSigner = StmSigner<D>;
-pub type ProtocolInitializer = StmInitializer;
-pub type ProtocolClerk = StmClerk<D>;
-pub type ProtocolKeyRegistration = KeyReg;
-pub type ProtocolSingleSignature = StmSig<D>;
-pub type ProtocolMultiSignature = StmMultiSig<D>;
-pub type ProtocolSignerVerificationKey = MspPk;
-pub type ProtocolSignerSecretKey = MspSk;
 
 /// Player artifacts
 #[derive(Debug, Serialize, Deserialize)]
@@ -121,7 +99,7 @@ impl Party {
             self.party_id, players
         );
 
-        let mut key_reg: ProtocolKeyRegistration = KeyReg::new(&players);
+        let mut key_reg = ProtocolKeyRegistration::new(&players);
         for (party_id, _stake, verification_key) in players_with_keys {
             key_reg.register(*party_id, *verification_key).unwrap();
         }
@@ -129,9 +107,10 @@ impl Party {
 
         let seed = [0u8; 32];
         let mut rng = ChaCha20Rng::from_seed(seed);
-        let p = StmInitializer::setup(self.params.unwrap(), self.party_id, self.stake, &mut rng);
+        let p =
+            ProtocolInitializer::setup(self.params.unwrap(), self.party_id, self.stake, &mut rng);
         self.signer = Some(p.new_signer(closed_reg));
-        self.clerk = Some(StmClerk::from_signer(self.signer.as_ref().unwrap()));
+        self.clerk = Some(ProtocolClerk::from_signer(self.signer.as_ref().unwrap()));
     }
 
     /// Individually sign a message through lottery
@@ -170,7 +149,7 @@ impl Party {
                 self.msigs.insert(message.clone(), aggregate_signature);
                 self.get_aggregate(message)
             }
-            Err(AggregationFailure::NotEnoughSignatures(_n, _k)) => {
+            Err(_) => {
                 println!(
                     "Party #{}: not enough signatures to compute aggregate",
                     self.party_id
@@ -258,13 +237,13 @@ impl Verifier {
             .collect::<Vec<_>>();
         println!("Verifier: protocol keys registration from {:?}", players);
 
-        let mut key_reg = KeyReg::new(&players);
+        let mut key_reg = ProtocolKeyRegistration::new(&players);
         for (party_id, _stake, verification_key) in players_with_keys {
             key_reg.register(*party_id, *verification_key).unwrap();
         }
         let closed_reg = key_reg.close();
 
-        self.clerk = Some(StmClerk::from_registration(
+        self.clerk = Some(ProtocolClerk::from_registration(
             self.params.unwrap(),
             closed_reg,
         ));
@@ -383,8 +362,8 @@ impl ProtocolDemonstrator for Demonstrator {
             .collect::<Vec<_>>();
         let mut players_artifacts = Vec::new();
         for (party_id, stake) in players {
-            let protocol_initializer: ProtocolInitializer =
-                StmInitializer::setup(self.params.unwrap(), party_id, stake, &mut rng);
+            let protocol_initializer =
+                ProtocolInitializer::setup(self.params.unwrap(), party_id, stake, &mut rng);
             let verification_key: ProtocolSignerVerificationKey =
                 protocol_initializer.verification_key();
             let secret_key: ProtocolSignerSecretKey = protocol_initializer.secret_key();
@@ -482,49 +461,6 @@ impl ProtocolDemonstrator for Demonstrator {
         }
         Ok(())
     }
-}
-
-// TODO: To remove once 'ProtocolMultiSignature' implements `Serialize`
-pub fn key_encode_hex_multisig(from: &ProtocolMultiSignature) -> Result<String, String> {
-    Ok(from.to_bytes().encode_hex::<String>())
-}
-
-// TODO: To remove once 'ProtocolMultiSignature' implements `Deserialize`
-pub fn key_decode_hex_multisig(from: &str) -> Result<ProtocolMultiSignature, String> {
-    let from_vec = Vec::from_hex(from).map_err(|e| format!("can't parse from hex: {}", e))?;
-    ProtocolMultiSignature::from_bytes(&from_vec)
-        .map_err(|e| format!("can't decode multi signature: {}", e))
-}
-
-// TODO: To remove once 'ProtocolSingleSignature' implements `Serialize`
-pub fn key_encode_hex_sig(from: &ProtocolSingleSignature) -> Result<String, String> {
-    Ok(from.to_bytes().encode_hex::<String>())
-}
-
-// TODO: To remove once 'ProtocolSingleSignature' implements `Deserialize`
-pub fn key_decode_hex_sig(from: &str) -> Result<ProtocolSingleSignature, String> {
-    let from_vec = Vec::from_hex(from).map_err(|e| format!("can't parse from hex: {}", e))?;
-    ProtocolSingleSignature::from_bytes(&from_vec)
-        .map_err(|e| format!("can't decode multi signature: {}", e))
-}
-
-/// Encode key to hex helper
-pub fn key_encode_hex<T>(from: T) -> Result<String, String>
-where
-    T: Serialize,
-{
-    Ok(serde_json::to_string(&from)
-        .map_err(|e| format!("can't convert to hex: {}", e))?
-        .encode_hex::<String>())
-}
-
-/// Decode key from hex helper
-pub fn key_decode_hex<T>(from: &str) -> Result<T, String>
-where
-    T: DeserializeOwned,
-{
-    let from_vec = Vec::from_hex(from).map_err(|e| format!("can't parse from hex: {}", e))?;
-    serde_json::from_slice(from_vec.as_slice()).map_err(|e| format!("can't deserialize: {}", e))
 }
 
 /// Write artifacts helper
@@ -663,8 +599,8 @@ mod tests {
         let stake = 100;
         let seed = [0u8; 32];
         let mut rng = ChaCha20Rng::from_seed(seed);
-        let protocol_initializer: ProtocolInitializer =
-            StmInitializer::setup(protocol_params, party_id, stake, &mut rng);
+        let protocol_initializer =
+            ProtocolInitializer::setup(protocol_params, party_id, stake, &mut rng);
         let verification_key: ProtocolSignerVerificationKey =
             protocol_initializer.verification_key();
         let secret_key: ProtocolSignerSecretKey = protocol_initializer.secret_key();
