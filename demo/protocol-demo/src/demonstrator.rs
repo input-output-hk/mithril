@@ -98,7 +98,7 @@ impl Party {
             self.party_id, players
         );
 
-        let mut key_reg = ProtocolKeyRegistration::new(&players);
+        let mut key_reg = ProtocolKeyRegistration::init(&players);
         for (party_id, _stake, verification_key) in players_with_keys {
             key_reg.register(*party_id, *verification_key).unwrap();
         }
@@ -236,7 +236,7 @@ impl Verifier {
             .collect::<Vec<_>>();
         println!("Verifier: protocol keys registration from {:?}", players);
 
-        let mut key_reg = ProtocolKeyRegistration::new(&players);
+        let mut key_reg = ProtocolKeyRegistration::init(&players);
         for (party_id, _stake, verification_key) in players_with_keys {
             key_reg.register(*party_id, *verification_key).unwrap();
         }

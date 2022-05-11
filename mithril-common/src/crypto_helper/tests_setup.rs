@@ -45,7 +45,7 @@ pub fn setup_signers(
         })
         .collect::<Vec<(ProtocolPartyId, ProtocolStake, ProtocolInitializer)>>();
 
-    let mut key_registration = ProtocolKeyRegistration::new(
+    let mut key_registration = ProtocolKeyRegistration::init(
         &signers
             .iter()
             .map(|(party_id, stake, _)| (*party_id, *stake))

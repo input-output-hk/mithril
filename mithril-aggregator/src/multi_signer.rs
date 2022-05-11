@@ -103,7 +103,7 @@ impl MultiSignerImpl {
     // TODO: The clerk should be a field of the MultiSignerImpl struct, but this is not possible now as the Clerk uses an unsafe 'Rc'
     pub fn clerk(&self) -> ProtocolClerk {
         let stakes = self.get_stake_distribution();
-        let mut key_registration = ProtocolKeyRegistration::new(&stakes);
+        let mut key_registration = ProtocolKeyRegistration::init(&stakes);
         stakes.iter().for_each(|(party_id, _stake)| {
             if let Some(verification_key) = self.get_signer(*party_id) {
                 key_registration

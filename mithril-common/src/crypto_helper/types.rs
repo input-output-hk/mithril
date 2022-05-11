@@ -1,5 +1,5 @@
 use mithril::key_reg::KeyReg;
-use mithril::msp::SigningKey;
+use mithril::multi_sig::SigningKey;
 use mithril::stm::{
     Index, PartyId, Stake, StmClerk, StmInitializer, StmMultiSig, StmParameters, StmSig, StmSigner,
     StmVerificationKey,
