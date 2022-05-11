@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 use super::adapters::Adapter;
-use super::StoreError;
+use super::AdapterError;
 use mithril_common::crypto_helper::{ProtocolPartyId, ProtocolSignerVerificationKey};
 use std::sync::RwLock;
 
@@ -22,12 +22,10 @@ impl SignerVerificationKeyStore {
         &self,
         party_id: ProtocolPartyId,
         verification_key: ProtocolSignerVerificationKey,
-    ) -> Result<(), StoreError> {
+    ) -> Result<(), AdapterError> {
         let mut adapter = self.adapter.write().unwrap();
 
-        adapter
-            .store_record(party_id, verification_key)
-            .map_err(|e| StoreError::AdapterError(e.to_string()))
+        adapter.store_record(party_id, verification_key)
     }
 
     /// returns a verification key matching the given party_id
@@ -37,11 +35,9 @@ impl SignerVerificationKeyStore {
     pub fn fetch(
         &self,
         party_id: ProtocolPartyId,
-    ) -> Result<Option<ProtocolSignerVerificationKey>, StoreError> {
+    ) -> Result<Option<ProtocolSignerVerificationKey>, AdapterError> {
         let adapter = self.adapter.read().unwrap();
-        let record = adapter
-            .get_record(&party_id)
-            .map_err(|e| StoreError::AdapterError(e.to_string()))?;
+        let record = adapter.get_record(&party_id)?;
 
         match record {
             Some(vk) => Ok(Some(vk.clone())),

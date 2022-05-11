@@ -1,5 +1,4 @@
-use super::Adapter;
-use std::error::Error;
+use super::{Adapter, AdapterError};
 
 // DumbAdapter stores a single value for testing purposes.
 pub struct DumbAdapter<I: std::cmp::PartialEq, V> {
@@ -25,7 +24,7 @@ where
     type Key = I;
     type Record = V;
 
-    fn get_record(&self, key: &Self::Key) -> Result<Option<&Self::Record>, Box<dyn Error>> {
+    fn get_record(&self, key: &Self::Key) -> Result<Option<&Self::Record>, AdapterError> {
         if &self.key == key {
             Ok(Some(&self.value))
         } else {
@@ -33,11 +32,11 @@ where
         }
     }
 
-    fn record_exists(&self, key: &Self::Key) -> Result<bool, Box<dyn Error>> {
+    fn record_exists(&self, key: &Self::Key) -> Result<bool, AdapterError> {
         Ok(self.key == *key)
     }
 
-    fn store_record(&mut self, key: Self::Key, record: Self::Record) -> Result<(), Box<dyn Error>> {
+    fn store_record(&mut self, key: Self::Key, record: Self::Record) -> Result<(), AdapterError> {
         self.key = key;
         self.value = record;
 
