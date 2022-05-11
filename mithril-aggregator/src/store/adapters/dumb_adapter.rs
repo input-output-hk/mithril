@@ -55,11 +55,28 @@ mod tests {
     use super::*;
 
     #[test]
-    fn dumb_adapter_exists() {
+    fn record_exists_works() {
         let value = "three".to_string();
         let adapter = DumbAdapter::new(3, Box::new(value));
 
         assert!(adapter.record_exists(&3).unwrap());
         assert!(!adapter.record_exists(&0).unwrap());
+    }
+
+    #[test]
+    fn get_record_works() {
+        let value = "three".to_string();
+        let adapter = DumbAdapter::new(3, Box::new(value));
+
+        assert_eq!("three", adapter.get_record(&3).unwrap().unwrap());
+        assert!(adapter.get_record(&0).unwrap().is_none());
+    }
+
+    #[test]
+    fn store_record_fails() {
+        let value = "three".to_string();
+        let mut adapter = DumbAdapter::new(3, Box::new(value));
+
+        assert!(adapter.store_record(0, "fail".to_string()).is_err());
     }
 }

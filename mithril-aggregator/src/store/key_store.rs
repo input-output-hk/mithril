@@ -3,11 +3,11 @@ use super::StoreError;
 use crate::ProtocolSignerVerificationKey;
 use mithril::stm::PartyId;
 
-struct VkStore {
+struct SignerVerificationKeyStore {
     adapter: Box<dyn Adapter<Key = PartyId, Record = ProtocolSignerVerificationKey>>,
 }
 
-impl VkStore {
+impl SignerVerificationKeyStore {
     pub fn new(
         adapter: Box<dyn Adapter<Key = PartyId, Record = ProtocolSignerVerificationKey>>,
     ) -> Self {
