@@ -72,8 +72,23 @@ impl SigningKey {
 
 /// MultiSig verification key, which iss a wrapper over the BlstPk (element in G2)
 /// from the blst library.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default)]
 pub struct VerificationKey(BlstPk);
+
+impl Hash for VerificationKey {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        Hash::hash_slice(&self.to_bytes(), state)
+    }
+}
+
+// We need to implement PartialEq instead of deriving it because we are implementing Hash.
+impl PartialEq for VerificationKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl Eq for VerificationKey {}
 
 impl VerificationKey {
     /// Convert an `VerificationKey` to its compressed byte representation.
@@ -178,28 +193,13 @@ pub struct ProofOfPossession {
 }
 
 /// MultiSig public key, contains the verification key and the proof of possession.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct VerificationKeyPoP {
     /// The verification key.
     pub vk: VerificationKey,
     /// Proof of Possession.
     pub pop: ProofOfPossession,
 }
-
-impl Hash for VerificationKeyPoP {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        Hash::hash_slice(&self.vk.to_bytes(), state)
-    }
-}
-
-// We need to implement PartialEq instead of deriving it because we are implementing Hash.
-impl PartialEq for VerificationKeyPoP {
-    fn eq(&self, other: &Self) -> bool {
-        self.vk == other.vk
-    }
-}
-
-impl Eq for VerificationKeyPoP {}
 
 impl From<&SigningKey> for VerificationKey {
     /// Convert a secret key into an `MspMvk`. This is performed by computing

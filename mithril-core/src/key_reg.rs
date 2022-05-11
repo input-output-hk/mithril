@@ -5,20 +5,20 @@ use digest::{Digest, FixedOutput};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use super::msp::VerificationKeyPoP;
+use super::multi_sig::VerificationKeyPoP;
 use super::stm::{PartyId, Stake};
 
-use crate::merkle_tree::MerkleTree;
-use crate::stm::MTValue;
+use crate::merkle_tree::{MTLeaf, MerkleTree};
+use crate::multi_sig::VerificationKey;
 
-/// Simple struct that collects pubkeys and stakes of parties. Placeholder for a more
-/// realistic distributed key registration protocol.
+/// Struct that collects public keys and stakes of parties. Each participant (both the
+/// signers and the clerks) need to run their own instance of the key registration.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct KeyReg {
     parties: HashMap<PartyId, Party>,
     // `keys` is just the set of all of the keys that have been registered
-    // (i.e., in `parties`)
-    keys: HashSet<VerificationKeyPoP>,
+    // which allows us for a check check on whether the key already exists.
+    keys: HashSet<VerificationKey>,
 }
 
 /// Structure generated out of a closed registration. One can only get a global `avk` out of
@@ -28,7 +28,8 @@ pub struct ClosedKeyReg<D>
 where
     D: Digest + FixedOutput,
 {
-    key_reg: KeyReg,
+    /// Ordered list of registered parties
+    pub reg_parties: Vec<RegParty>,
     /// Total stake of the registered parties.
     pub total_stake: Stake,
     /// Unique public key out of the key registration instance.
@@ -41,30 +42,21 @@ where
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Party {
     /// The stake of of the party.
-    pub stake: Stake,
+    stake: Stake,
     /// The public key of the party.
-    pub pk: Option<VerificationKeyPoP>,
+    vk: Option<VerificationKey>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-/// A registered party, i.e. an id associated with its stake and public key
-pub struct RegParty {
-    /// The id for the registered party.
-    // todo: I don't see the goal of the identifier
-    pub party_id: PartyId,
-    /// The pubkey for the registered party.
-    pub pk: VerificationKeyPoP,
-    /// The stake for the registered party.
-    pub stake: Stake,
-}
+/// A registered party, a stake associated with its public key
+pub type RegParty = MTLeaf;
 
 impl KeyReg {
-    /// Create a new KeyReg with all parties and stakes known.
-    pub fn new(players: &[(PartyId, Stake)]) -> Self {
+    /// Initialise a KeyReg with all eligible parties and stakes known.
+    pub fn init(players: &[(PartyId, Stake)]) -> Self {
         let parties = players.iter().map(|(id, stake)| {
             let party = Party {
                 stake: *stake,
-                pk: None,
+                vk: None,
             };
             (*id, party)
         });
@@ -80,14 +72,14 @@ impl KeyReg {
         party_id: PartyId,
         pk: VerificationKeyPoP,
     ) -> Result<(), RegisterError> {
-        if self.keys.contains(&pk) {
-            return Err(RegisterError::KeyRegistered(pk.vk.to_bytes()));
+        if self.keys.contains(&pk.vk) {
+            return Err(RegisterError::KeyRegistered(pk.vk));
         }
 
         if let Some(mut party) = self.parties.get_mut(&party_id) {
             if pk.check().is_ok() {
-                party.pk = Some(pk);
-                self.keys.insert(pk);
+                party.vk = Some(pk.vk);
+                self.keys.insert(pk.vk);
                 Ok(())
             } else {
                 Err(RegisterError::InvalidKey(Box::new(pk)))
@@ -97,86 +89,45 @@ impl KeyReg {
         }
     }
 
-    /// Retrieve the pubkey and stake for a party.
-    pub fn retrieve(&self, party_id: PartyId) -> Option<RegParty> {
-        let party = self.parties.get(&party_id)?;
-        party.pk.map(|pk| RegParty {
-            party_id,
-            pk,
-            stake: party.stake,
-        })
-    }
-
-    /// Retrieve the pubkey and stake for all parties. The keys are ordered,
-    /// to provide a consistent merkle commitment.
-    pub fn retrieve_all(&self) -> Vec<RegParty> {
-        let mut out = vec![];
-        let mut ps = self.parties.keys().collect::<Vec<_>>();
-        ps.sort();
-        for party_id in ps {
-            let party = &self.parties[party_id];
-            if let Some(pk) = party.pk {
-                out.push(RegParty {
-                    party_id: *party_id,
-                    pk,
-                    stake: party.stake,
-                })
-            }
-        }
-
-        out
-    }
-
     /// End registration. Disables `KeyReg::register`. Consumes the instance of `self` and returns
     /// a `ClosedKeyReg`.
     pub fn close<D>(self) -> ClosedKeyReg<D>
     where
         D: Digest + FixedOutput,
     {
-        let mtvals: Vec<MTValue> = self
-            .retrieve_all()
+        let mut total_stake = 0;
+        let mut reg_parties = self
+            .parties
             .iter()
-            .map(|rp| MTValue(rp.pk.vk, rp.stake))
-            .collect();
+            .filter_map(|(_, party)| {
+                if let Some(vk) = party.vk {
+                    total_stake += party.stake;
+                    return Some(MTLeaf(vk, party.stake));
+                }
+                None
+            })
+            .collect::<Vec<RegParty>>();
+        reg_parties.sort();
 
         ClosedKeyReg {
-            key_reg: self,
-            total_stake: mtvals.iter().map(|s| s.1).sum(),
-            avk: Arc::new(MerkleTree::create(
-                &mtvals
-                    .iter()
-                    .map(|&s| s.to_bytes().to_vec())
-                    .collect::<Vec<Vec<u8>>>(),
-            )),
+            avk: Arc::new(MerkleTree::create(&reg_parties)),
+            reg_parties,
+            total_stake,
         }
     }
 }
 
 impl Default for KeyReg {
     fn default() -> Self {
-        Self::new(&[])
-    }
-}
-
-impl<D> ClosedKeyReg<D>
-where
-    D: Digest + FixedOutput,
-{
-    /// Retrieve the pubkey and stake for a party.
-    pub fn retrieve(&self, party_id: PartyId) -> Option<RegParty> {
-        self.key_reg.retrieve(party_id)
-    }
-
-    /// Retrieve the pubkey and stake for all parties.
-    pub fn retrieve_all(&self) -> Vec<RegParty> {
-        self.key_reg.retrieve_all()
+        Self::init(&[])
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::msp::SigningKey;
+    use crate::multi_sig::SigningKey;
+    use blake2::Blake2b;
     use proptest::collection::vec;
     use proptest::prelude::*;
     use rand_chacha::ChaCha20Rng;
@@ -198,7 +149,7 @@ mod tests {
                        fake_it in 0..4usize,
                        seed in any::<[u8;32]>()) {
             let mut rng = ChaCha20Rng::from_seed(seed);
-            let mut kr = KeyReg::new(&ps);
+            let mut kr = KeyReg::init(&ps);
 
             let gen_keys = (1..nkeys).map(|_| {
                 let sk = SigningKey::gen(&mut rng);
@@ -229,12 +180,12 @@ mod tests {
                 let reg = kr.register(id, pk);
                 match reg {
                     Ok(_) => {
-                        assert!(keys.insert(pk));
+                        assert!(keys.insert(pk.vk));
                         assert!(parties.insert(p.0));
                     },
                     Err(RegisterError::KeyRegistered(pk1)) => {
-                        assert!(pk1 == pk.vk.to_bytes());
-                        assert!(keys.contains(&pk));
+                        assert!(pk1 == pk.vk);
+                        assert!(keys.contains(&pk.vk));
                     }
                     Err(RegisterError::PartyRegistered(party)) => {
                         assert!(party == p.0);
@@ -249,12 +200,19 @@ mod tests {
                 }
             }
 
-            let registered = kr.retrieve_all();
-            let retrieved_keys = registered.iter().map(|r| r.pk).collect::<HashSet<_>>();
-            let retrieved_ids = registered.iter().map(|r| r.party_id).collect::<HashSet<_>>();
+            let retrieved_ids = kr.parties.iter().filter_map(|(key, value)| {
+                if value.vk.is_some() {
+                    return Some(*key);
+                }
+                None
+            } ).collect::<HashSet<_>>();
+            if retrieved_ids.len() != 0 {
+                let closed = kr.close::<Blake2b>();
+                let retrieved_keys = closed.reg_parties.iter().map(|r| r.0).collect::<HashSet<_>>();
+                assert!(retrieved_keys == keys);
+            }
 
             assert!(retrieved_ids == parties);
-            assert!(retrieved_keys == keys);
 
         }
     }

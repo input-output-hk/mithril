@@ -1,10 +1,39 @@
 //! Creation and verification of Merkle Trees
 use crate::error::MerkleTreeError;
+use crate::multi_sig::VerificationKey;
+use crate::stm::Stake;
 use digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
 use std::convert::TryFrom;
 use std::fmt::Debug;
 use std::marker::PhantomData;
+
+/// The values that are represented in the Merkle Tree.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MTLeaf(pub VerificationKey, pub Stake);
+
+impl MTLeaf {
+    pub(crate) fn to_bytes(self) -> [u8; 104] {
+        let mut result = [0u8; 104];
+        result[..96].copy_from_slice(&self.0.to_bytes());
+        result[96..].copy_from_slice(&self.1.to_be_bytes());
+        result
+    }
+}
+
+/// Ordering of MT Values. First we order by stake, then by key.
+impl PartialOrd for MTLeaf {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.1.cmp(&other.1).then(self.0.cmp(&other.0)))
+    }
+}
+
+impl Ord for MTLeaf {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.1.cmp(&other.1).then(self.0.cmp(&other.0))
+    }
+}
 
 /// Path of hashes from root to leaf in a Merkle Tree. Contains all hashes on the path, and the index
 /// of the leaf.
@@ -40,16 +69,16 @@ where
     /// # Example
     /// ```
     /// # use rand_core::{OsRng, RngCore};
-    /// # use mithril::merkle_tree::MerkleTree;
+    /// # use mithril::merkle_tree::{MerkleTree, MTLeaf};
     /// # use blake2::Blake2b;
     /// # fn main() {
     /// let mut rng = OsRng::default();
     /// // We generate the keys.
     /// let mut keys = Vec::with_capacity(32);
     /// for _ in 0..32 {
-    ///     let mut leaf = [0u8; 32];
-    ///     rng.fill_bytes(&mut leaf);
-    ///     keys.push(leaf.to_vec());
+    ///     let mut mt_leaf = MTLeaf::default();
+    ///     mt_leaf.1 = rng.next_u64();
+    ///     keys.push(mt_leaf);
     /// }
     /// // Compute the Merkle tree of the keys.
     /// let mt = MerkleTree::<Blake2b>::create(&keys);
@@ -59,10 +88,10 @@ where
     /// assert!(mt.to_commitment().check(&keys[3], &path).is_ok());
     ///
     /// # }
-    pub fn check(&self, val: &[u8], proof: &Path<D>) -> Result<(), MerkleTreeError> {
+    pub fn check(&self, val: &MTLeaf, proof: &Path<D>) -> Result<(), MerkleTreeError> {
         let mut idx = proof.index;
 
-        let mut h = D::digest(val).to_vec();
+        let mut h = D::digest(&val.to_bytes()).to_vec();
         for p in &proof.values {
             if (idx & 0b1) == 0 {
                 h = D::new().chain(h).chain(p).finalize().to_vec();
@@ -118,7 +147,8 @@ where
     D: Digest + FixedOutput,
 {
     /// Provided a non-empty list of leaves, `create` generates its corresponding `MerkleTree`.
-    pub fn create(leaves: &[Vec<u8>]) -> MerkleTree<D> {
+    // todo: probably we can order in this function
+    pub fn create(leaves: &[MTLeaf]) -> MerkleTree<D> {
         let n = leaves.len();
         assert!(n > 0, "MerkleTree::create() called with no leaves");
 
@@ -127,7 +157,7 @@ where
         let mut nodes = vec![vec![0u8]; num_nodes];
 
         for i in 0..leaves.len() {
-            nodes[num_nodes - n + i] = D::digest(&leaves[i].clone()).to_vec();
+            nodes[num_nodes - n + i] = D::digest(&leaves[i].to_bytes()).to_vec();
         }
 
         for i in (0..num_nodes - n).rev() {
@@ -317,13 +347,15 @@ mod tests {
     use super::*;
     use bincode;
     use blake2::Blake2b;
-    use proptest::collection::{hash_set, vec};
+    use proptest::collection::vec;
     use proptest::prelude::*;
 
     prop_compose! {
         fn arb_tree(max_size: u32)
-                   (v in vec(vec(any::<u8>(), 2..16), 2..(max_size as usize))) -> (MerkleTree<Blake2b>, Vec<Vec<u8>>) {
-             (MerkleTree::<Blake2b>::create(&v), v)
+                   (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<Blake2b>, Vec<MTLeaf>) {
+            let pks = vec![VerificationKey::default(); v.len()];
+            let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MTLeaf(key, stake)).collect::<Vec<MTLeaf>>();
+             (MerkleTree::<Blake2b>::create(&leaves), leaves)
         }
     }
 
@@ -382,9 +414,11 @@ mod tests {
         // Returns values with a randomly generated path
         fn values_with_invalid_proof(max_height: usize)
                                     (h in 1..max_height)
-                                    (vals in hash_set(vec(any::<u8>(), 2..16), pow2_plus1(h)),
-                                     proof in vec(vec(any::<u8>(), 16), h)) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
-            (vals.into_iter().collect(), proof)
+                                    (v in vec(any::<u64>(), 2..pow2_plus1(h)),
+                                     proof in vec(vec(any::<u8>(), 16), h)) -> (Vec<MTLeaf>, Vec<Vec<u8>>) {
+            let pks = vec![VerificationKey::default(); v.len()];
+            let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MTLeaf(key, stake)).collect::<Vec<MTLeaf>>();
+            (leaves, proof)
         }
     }
 

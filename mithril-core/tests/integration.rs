@@ -30,7 +30,7 @@ fn test_full_protocol() {
         .map(|pid| (pid, 1 + (rng.next_u64() % 9999)))
         .collect::<Vec<_>>();
 
-    let mut key_reg = KeyReg::new(&parties);
+    let mut key_reg = KeyReg::init(&parties);
 
     let mut ps: Vec<StmInitializer> = Vec::with_capacity(nparties as usize);
     for (pid, stake) in parties {
