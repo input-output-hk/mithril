@@ -1,6 +1,5 @@
 use super::Adapter;
-use std::io::Error as IOError;
-use std::{error::Error, io::ErrorKind};
+use std::error::Error;
 
 // DumbAdapter stores a single value for testing purposes.
 pub struct DumbAdapter<I: std::cmp::PartialEq, V> {

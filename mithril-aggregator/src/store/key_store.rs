@@ -30,13 +30,17 @@ impl SignerVerificationKeyStore {
             .map_err(|e| StoreError::AdapterError(e.to_string()))
     }
 
+    /// returns a verification key matching the given party_id
+    /// it actually returns a clone of the matching verification key if any this
+    /// is because a lock is used to allow concurrency use of this
+    /// store, it is necessary to release the lock before returning the value
     pub fn fetch(
         &self,
-        party_id: &ProtocolPartyId,
+        party_id: ProtocolPartyId,
     ) -> Result<Option<ProtocolSignerVerificationKey>, StoreError> {
         let adapter = self.adapter.read().unwrap();
         let record = adapter
-            .get_record(party_id)
+            .get_record(&party_id)
             .map_err(|e| StoreError::AdapterError(e.to_string()))?;
 
         match record {
@@ -66,7 +70,7 @@ mod tests {
             Box::new(signer_key.clone()),
         )));
 
-        assert_eq!(signer_key, store.fetch(&party_id).unwrap().unwrap());
+        assert_eq!(signer_key, store.fetch(party_id).unwrap().unwrap());
     }
 
     #[test]
@@ -77,7 +81,7 @@ mod tests {
             Box::new(signer_key.clone()),
         )));
 
-        assert!(store.fetch(&(party_id + 1)).unwrap().is_none());
+        assert!(store.fetch(party_id + 1).unwrap().is_none());
     }
 
     #[test]
@@ -88,8 +92,8 @@ mod tests {
             Box::new(signer_key.clone()),
         )));
 
-        assert!(store.fetch(&party_id).unwrap().is_none());
+        assert!(store.fetch(party_id).unwrap().is_none());
         assert!(store.save(party_id, signer_key).is_ok());
-        assert!(store.fetch(&party_id).unwrap().is_some());
+        assert!(store.fetch(party_id).unwrap().is_some());
     }
 }
