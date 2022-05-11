@@ -1,7 +1,8 @@
 use mithril::key_reg::KeyReg;
-use mithril::msp::{MspPk, MspSk};
+use mithril::msp::SigningKey;
 use mithril::stm::{
     Index, PartyId, Stake, StmClerk, StmInitializer, StmMultiSig, StmParameters, StmSig, StmSigner,
+    StmVerificationKey,
 };
 
 pub type Bytes = Vec<u8>;
@@ -19,5 +20,5 @@ pub type ProtocolClerk = StmClerk<D>;
 pub type ProtocolKeyRegistration = KeyReg;
 pub type ProtocolSingleSignature = StmSig<D>;
 pub type ProtocolMultiSignature = StmMultiSig<D>;
-pub type ProtocolSignerVerificationKey = MspPk;
-pub type ProtocolSignerSecretKey = MspSk;
+pub type ProtocolSignerVerificationKey = StmVerificationKey;
+pub type ProtocolSignerSecretKey = SigningKey;
