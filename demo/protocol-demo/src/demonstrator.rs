@@ -9,10 +9,9 @@ use std::io::Write;
 use std::path;
 
 use mithril_common::crypto_helper::{
-    key_decode_hex, key_encode_hex, key_encode_hex_multisig, key_encode_hex_sig, Bytes,
-    ProtocolClerk, ProtocolInitializer, ProtocolKeyRegistration, ProtocolMultiSignature,
-    ProtocolParameters, ProtocolPartyId, ProtocolSigner, ProtocolSignerSecretKey,
-    ProtocolSignerVerificationKey, ProtocolSingleSignature, ProtocolStake,
+    key_decode_hex, key_encode_hex, Bytes, ProtocolClerk, ProtocolInitializer,
+    ProtocolKeyRegistration, ProtocolMultiSignature, ProtocolParameters, ProtocolPartyId,
+    ProtocolSigner, ProtocolSignerVerificationKey, ProtocolSingleSignature, ProtocolStake,
 };
 
 /// Player artifacts
@@ -411,7 +410,7 @@ impl ProtocolDemonstrator for Demonstrator {
                             party_id: party.party_id,
                             message: message.encode_hex::<String>(),
                             lottery: sig.1,
-                            signature: key_encode_hex_sig(&sig.0).unwrap(),
+                            signature: key_encode_hex(&sig.0).unwrap(),
                         })
                         .collect::<Vec<SingleSignatureArtifact>>(),
                 );
@@ -423,7 +422,7 @@ impl ProtocolDemonstrator for Demonstrator {
                     multi_signature_artifacts.push(MultiSignatureArtifact {
                         party_id,
                         message: message.encode_hex::<String>(),
-                        signature: key_encode_hex_multisig(multi_signature).unwrap(),
+                        signature: key_encode_hex(multi_signature).unwrap(),
                     })
                 }
             }
@@ -590,29 +589,5 @@ mod tests {
         assert_eq!(demo.parties.len(), config.nparties);
         assert_eq!(demo.messages.len(), config.nmessages);
         assert!(demo.verify_certificates().is_err())
-    }
-
-    #[test]
-    fn test_key_encode_decode_hex() {
-        let protocol_params = setup_protocol_parameters();
-        let party_id = 123;
-        let stake = 100;
-        let seed = [0u8; 32];
-        let mut rng = ChaCha20Rng::from_seed(seed);
-        let protocol_initializer =
-            ProtocolInitializer::setup(protocol_params, party_id, stake, &mut rng);
-        let verification_key: ProtocolSignerVerificationKey =
-            protocol_initializer.verification_key();
-        let secret_key: ProtocolSignerSecretKey = protocol_initializer.secret_key();
-        let verification_key_hex =
-            key_encode_hex(verification_key).expect("unexpected hex encoding error");
-        let secret_key_hex = key_encode_hex(&secret_key).expect("unexpected hex encoding error");
-        let verification_key_restored: ProtocolSignerVerificationKey =
-            key_decode_hex::<ProtocolSignerVerificationKey>(&verification_key_hex)
-                .expect("unexpected hex decoding error");
-        let secret_key_restored: ProtocolSignerSecretKey =
-            key_decode_hex(&secret_key_hex).expect("unexpected hex decoding error");
-        assert_eq!(verification_key, verification_key_restored);
-        assert_eq!(secret_key.to_bytes(), secret_key_restored.to_bytes());
     }
 }
