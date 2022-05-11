@@ -17,12 +17,16 @@ slog-term = "2.9.0"
 clap = { version = "3.1.6", features = ["derive"] }
 clap-verbosity-flag = "1.0.0"
 chrono = "0.4"
+cloud-storage = "0.11.0"
+flate2 = "1.0.23"
 warp = "0.3"
 tokio = { version = "1.17.0", features = ["full"] }
 tokio-util = { version = "0.7.1", features = ["codec"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.8"
+tar = "0.4.38"
+thiserror = "1.0.31"
 async-trait = "0.1.52"
 openapiv3 = "1.0.1"
 hex = "0.4.3"

@@ -5,14 +5,15 @@ use clap::Parser;
 use mithril_aggregator::{
     key_decode_hex, Config, DependencyManager, MultiSigner, MultiSignerImpl, ProtocolParameters,
     ProtocolPartyId, ProtocolSignerVerificationKey, ProtocolStake, Server, SnapshotStoreHTTPClient,
+    Snapshotter,
 };
 use mithril_common::fake_data;
-use mithril_common::snapshotter::Snapshotter;
 use slog::{Drain, Level, Logger};
 use slog_scope::debug;
 use std::env;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+
 /// Node args
 #[derive(Parser, Debug, Clone)]
 pub struct Args {
