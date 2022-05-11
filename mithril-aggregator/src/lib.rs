@@ -3,6 +3,7 @@ mod entities;
 mod http_server;
 mod multi_signer;
 mod snapshot_store;
+mod store;
 
 pub use crate::entities::Config;
 pub use crate::http_server::Server;
