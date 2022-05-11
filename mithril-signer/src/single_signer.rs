@@ -62,7 +62,7 @@ impl MithrilSingleSigner {
             phi_f: protocol_parameters.phi_f as f64,
         };
 
-        let mut key_reg = ProtocolKeyRegistration::new(&players);
+        let mut key_reg = ProtocolKeyRegistration::init(&players);
         for s in stake_distribution {
             let decoded_key = key_decode_hex(&s.verification_key)?;
             key_reg

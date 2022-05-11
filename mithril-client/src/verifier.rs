@@ -60,7 +60,7 @@ impl VerifierImpl {
                 )
             })
             .collect::<ProtocolStakeDistribution>();
-        let mut key_registration = ProtocolKeyRegistration::new(&stakes);
+        let mut key_registration = ProtocolKeyRegistration::init(&stakes);
         signers_with_stakes.iter().for_each(|signer| {
             if let Ok(verification_key) = key_decode_hex(&signer.verification_key) {
                 key_registration
