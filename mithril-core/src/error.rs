@@ -1,7 +1,7 @@
 //! Crate specific errors
 
 use crate::merkle_tree::Path;
-use crate::msp::{Signature, VerificationKey, VerificationKeyPoP};
+use crate::multi_sig::{Signature, VerificationKey, VerificationKeyPoP};
 use crate::stm::PartyId;
 use blst::BLST_ERROR;
 use digest::{Digest, FixedOutput};
@@ -113,7 +113,7 @@ pub enum MerkleTreeError {
 pub enum RegisterError {
     /// This key has already been registered by a participant
     #[error("This key has already been registered.")]
-    KeyRegistered([u8; 96]),
+    KeyRegistered(VerificationKey),
     /// This participant has already been registered
     #[error("Participant {0} has already been registered.")]
     PartyRegistered(PartyId),

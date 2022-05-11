@@ -7,7 +7,7 @@
 //! ```rust
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! use mithril::key_reg::KeyReg; // Import key registration functionality
-//! use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner, MTValue};
+//! use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner};
 //! use mithril::error::AggregationFailure;
 //! use rayon::prelude::*; // We use par_iter to speed things up
 //!
@@ -45,7 +45,7 @@
 //!     .collect::<Vec<_>>();
 //!
 //! // Create a new key registry from the parties and their stake
-//! let mut key_reg = KeyReg::new(&parties);
+//! let mut key_reg = KeyReg::init(&parties);
 //!
 //! // For each party, crate a StmInitializer.
 //! // This struct can create keys for the party.
@@ -126,8 +126,8 @@ use crate::error::{
     VerificationFailure,
 };
 use crate::key_reg::ClosedKeyReg;
-use crate::merkle_tree::{MerkleTree, MerkleTreeCommitment, Path};
-use crate::msp::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
+use crate::merkle_tree::{MTLeaf, MerkleTree, MerkleTreeCommitment, Path};
+use crate::multi_sig::{Signature, SigningKey, VerificationKeyPoP};
 use digest::{Digest, FixedOutput};
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
@@ -149,19 +149,6 @@ pub type PartyId = u64;
 /// Quorum index for signatures.
 /// An aggregate signature (`StmMultiSig`) must have at least `k` unique indices.
 pub type Index = u64;
-
-/// The values that are represented in the Merkle Tree.
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub struct MTValue(pub VerificationKey, pub Stake);
-
-impl MTValue {
-    pub(crate) fn to_bytes(self) -> [u8; 104] {
-        let mut result = [0u8; 104];
-        result[..96].copy_from_slice(&self.0.to_bytes());
-        result[96..].copy_from_slice(&self.1.to_be_bytes());
-        result
-    }
-}
 
 /// Used to set protocol parameters.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -394,10 +381,7 @@ impl<D: Clone + Digest + FixedOutput> StmMultiSig<D> {
             }
 
             // Check that merkle paths are valid
-            if avk
-                .check(&MTValue(sig.pk.vk, sig.stake).to_bytes(), &sig.path)
-                .is_err()
-            {
+            if avk.check(&MTLeaf(sig.pk.vk, sig.stake), &sig.path).is_err() {
                 return Err(MithrilWitnessError::PathInvalid(sig.path.clone()));
             }
 
@@ -478,7 +462,8 @@ impl StmInitializer {
         self.pk = pk;
     }
 
-    /// Extract the secret key.
+    /// Extract the secret key
+    // todo: do we need this? We shouldn't
     pub fn secret_key(&self) -> SigningKey {
         self.sk.clone()
     }
@@ -538,8 +523,8 @@ impl StmInitializer {
         // Extract this signer's party index from the registry, i.e. the position of the merkle
         // tree leaf.
         let mut my_index = None;
-        for (i, rp) in closed_reg.retrieve_all().iter().enumerate() {
-            if rp.party_id == self.party_id {
+        for (i, rp) in closed_reg.reg_parties.iter().enumerate() {
+            if rp.0 == self.pk.vk {
                 my_index = Some(i as u64);
                 break;
             }
@@ -769,7 +754,7 @@ where
     /// # }
     ///
     /// # fn local_reg(ids: &[(u64, u64)], pks: &[StmVerificationKey]) -> ClosedKeyReg<Blake2b> {
-    /// #    let mut local_keyreg = KeyReg::new(ids);
+    /// #    let mut local_keyreg = KeyReg::init(ids);
     /// #    for (&pk, id) in pks.iter().zip(ids.iter()) {
     /// #        local_keyreg.register(id.0, pk).unwrap();
     /// #    }
@@ -885,7 +870,7 @@ where
         } else if self
             .avk
             .to_commitment()
-            .check(&MTValue(sig.pk.vk, sig.stake).to_bytes(), &sig.path)
+            .check(&MTLeaf(sig.pk.vk, sig.stake), &sig.path)
             .is_err()
         {
             Err(VerificationFailure::InvalidMerkleTree(sig.path.clone()))
@@ -1142,7 +1127,7 @@ mod tests {
             .enumerate()
             .map(|(index, stake)| (index as u64, stake))
             .collect::<Vec<_>>();
-        let mut kr = KeyReg::new(&parties);
+        let mut kr = KeyReg::init(&parties);
         let mut trng = TestRng::deterministic_rng(ChaCha);
         let mut rng = ChaCha20Rng::from_seed(trng.gen());
         // The needless_collect lint is not correct here

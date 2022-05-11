@@ -41,7 +41,7 @@ where
             .collect::<Vec<_>>();
         let mut ps: Vec<StmInitializer> = Vec::with_capacity(nparties);
 
-        let mut key_reg = KeyReg::new(&parties);
+        let mut key_reg = KeyReg::init(&parties);
         for (pid, stake) in parties.clone() {
             let p = StmInitializer::setup(params, pid as u64, stake, &mut rng);
             key_reg

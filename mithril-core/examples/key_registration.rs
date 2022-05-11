@@ -147,7 +147,7 @@ fn try_signatures(party: &StmSigner<H>, msg: &[u8], m: u64) -> Vec<StmSig<H>> {
 }
 
 fn local_reg(ids: &[(u64, u64)], pks: &[StmVerificationKey]) -> ClosedKeyReg<H> {
-    let mut local_keyreg = KeyReg::new(ids);
+    let mut local_keyreg = KeyReg::init(ids);
     // todo: maybe its cleaner to have a `StmPublic` instance that covers the "shareable"
     // data, such as the public key, stake and id.
     for (&pk, id) in pks.iter().zip(ids.iter()) {

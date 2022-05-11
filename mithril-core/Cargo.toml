@@ -38,18 +38,19 @@ rand = "0.7"
 sha2 = "0.9"
 serde_json = "1"
 
-[[bench]]
-name = "merkle_tree_create"
-harness = false
+# todo: decide if we want o have merkle trees public
+#[[bench]]
+#name = "merkle_tree_create"
+#harness = false
 
 [[bench]]
 name = "stm"
 harness = false
 
 # todo: until we have serialization
-#[[bench]]
-#name = "size_benches"
-#harness = false
+[[bench]]
+name = "size_benches"
+harness = false
 
 [features]
 default = ["rug"]

@@ -50,12 +50,12 @@ where
     for (pid, stake) in parties.clone() {
         ps.push(StmInitializer::setup(params, pid as u64, stake, &mut rng));
     }
-    let mut key_reg = KeyReg::new(&parties);
+    let mut key_reg = KeyReg::init(&parties);
     for &nr in NR_PARTIES.iter() {
         group.bench_with_input(BenchmarkId::new("Key registration", &nr), &nr, |b, &nr| {
             b.iter(|| {
                 // We need to initialise the key_reg at each iteration
-                key_reg = KeyReg::new(&parties[..nr]);
+                key_reg = KeyReg::init(&parties[..nr]);
                 for p in ps[..nr].iter() {
                     key_reg
                         .register(p.party_id(), p.verification_key())
@@ -86,7 +86,7 @@ where
             phi_f: 1.0,
         };
 
-        let mut key_reg = KeyReg::new(&parties);
+        let mut key_reg = KeyReg::init(&parties);
         let mut ps: Vec<StmInitializer> = Vec::with_capacity(NR_PARTIES[SIZE - 1]);
         for (pid, stake) in parties.clone() {
             let p = StmInitializer::setup(params, pid, stake, &mut rng);
@@ -129,7 +129,7 @@ where
             phi_f: 1.0,
         };
 
-        let mut key_reg = KeyReg::new(&parties);
+        let mut key_reg = KeyReg::init(&parties);
         let mut ps: Vec<StmInitializer> = Vec::with_capacity(NR_PARTIES[SIZE - 1]);
         for (pid, stake) in parties.clone() {
             let p = StmInitializer::setup(params, pid, stake, &mut rng);

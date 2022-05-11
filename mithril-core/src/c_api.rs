@@ -470,7 +470,7 @@ mod key_reg {
                     .zip(stakes.iter())
                     .map(|(id, stake)| (*id, *stake))
                     .collect::<Vec<_>>();
-                *key = Box::into_raw(Box::new(KeyReg::new(&ids_stake)));
+                *key = Box::into_raw(Box::new(KeyReg::init(&ids_stake)));
                 return 0;
             }
             NULLPOINTERERR
