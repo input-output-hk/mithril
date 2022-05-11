@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use super::adapters::Adapter;
 use super::StoreError;
 use crate::ProtocolSignerVerificationKey;
@@ -14,18 +15,29 @@ impl SignerVerificationKeyStore {
         Self { adapter }
     }
 
-    pub fn save_vk(
+    pub fn save(
         &self,
-        party_id: PartyId,
-        verification_key: ProtocolSignerVerificationKey,
+        _party_id: PartyId,
+        _verification_key: ProtocolSignerVerificationKey,
     ) -> Result<(), StoreError> {
         unimplemented!()
     }
+
+    pub fn fetch(
+        &self,
+        _party_id: PartyId,
+    ) -> Result<Option<ProtocolSignerVerificationKey>, StoreError> {
+        unimplemented!()
+    }
 }
-/*
-#[tests]
+
+#[cfg(test)]
 mod tests {
-    #[test]
-    fn
+    /*
+       use super::super::adapters::DumbAdapter;
+       #[test]
+       fn create_dumb_adapter() -> DumbAdapter {
+           DumbAdapter::new(44 as PartyId, Box::new())
+       }
+    */
 }
-*/

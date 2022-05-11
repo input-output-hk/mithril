@@ -38,15 +38,11 @@ where
         Ok(self.key == *key)
     }
 
-    fn store_record(
-        &mut self,
-        _key: Self::Key,
-        _record: Self::Record,
-    ) -> Result<(), Box<dyn Error>> {
-        Err(Box::new(IOError::new(
-            ErrorKind::AlreadyExists,
-            "cannot store in dumb adapter",
-        )))
+    fn store_record(&mut self, key: Self::Key, record: Self::Record) -> Result<(), Box<dyn Error>> {
+        self.key = key;
+        self.value = record;
+
+        Ok(())
     }
 }
 
@@ -59,8 +55,14 @@ mod tests {
         let value = "three".to_string();
         let adapter = DumbAdapter::new(3, Box::new(value));
 
-        assert!(adapter.record_exists(&3).unwrap());
-        assert!(!adapter.record_exists(&0).unwrap());
+        assert!(
+            adapter.record_exists(&3).unwrap(),
+            "checking an existing key returns true"
+        );
+        assert!(
+            !adapter.record_exists(&0).unwrap(),
+            "checking a non existing key returns false"
+        );
     }
 
     #[test]
@@ -68,15 +70,30 @@ mod tests {
         let value = "three".to_string();
         let adapter = DumbAdapter::new(3, Box::new(value));
 
-        assert_eq!("three", adapter.get_record(&3).unwrap().unwrap());
-        assert!(adapter.get_record(&0).unwrap().is_none());
+        assert_eq!(
+            "three",
+            adapter.get_record(&3).unwrap().unwrap(),
+            "getting a record from an existing key"
+        );
+        assert!(
+            adapter.get_record(&0).unwrap().is_none(),
+            "getting a record with a non existing key should return None"
+        );
     }
 
     #[test]
-    fn store_record_fails() {
+    fn store_record_works() {
         let value = "three".to_string();
         let mut adapter = DumbAdapter::new(3, Box::new(value));
 
-        assert!(adapter.store_record(0, "fail".to_string()).is_err());
+        assert!(
+            adapter.store_record(0, "zero".to_string()).is_ok(),
+            "storing a valid key should return OK"
+        );
+        assert_eq!(
+            "zero",
+            adapter.get_record(&0).unwrap().unwrap(),
+            "using the same key the record should be the same"
+        );
     }
 }
