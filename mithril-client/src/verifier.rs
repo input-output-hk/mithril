@@ -2,9 +2,8 @@ use log::debug;
 use thiserror::Error;
 
 use mithril_common::crypto_helper::{
-    key_decode_hex, key_decode_hex_multisig, Bytes, ProtocolClerk, ProtocolKeyRegistration,
-    ProtocolMultiSignature, ProtocolParameters, ProtocolPartyId, ProtocolStake,
-    ProtocolStakeDistribution,
+    key_decode_hex, Bytes, ProtocolClerk, ProtocolKeyRegistration, ProtocolMultiSignature,
+    ProtocolParameters, ProtocolPartyId, ProtocolStake, ProtocolStakeDistribution,
 };
 
 use crate::entities;
@@ -77,6 +76,12 @@ impl VerifierImpl {
     }
 }
 
+impl Default for VerifierImpl {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Verifier for VerifierImpl {
     /// Verify a multi signature
     fn verify_multi_signature(
@@ -88,8 +93,8 @@ impl Verifier for VerifierImpl {
     ) -> Result<(), ProtocolError> {
         debug!("Verify multi signature for {:?}", message);
         let clerk = self.create_clerk(signers_with_stakes, protocol_parameters);
-        let multi_signature: ProtocolMultiSignature = key_decode_hex_multisig(multi_signature)
-            .map_err(ProtocolError::VerifyMultiSignatureError)?;
+        let multi_signature: ProtocolMultiSignature =
+            key_decode_hex(multi_signature).map_err(ProtocolError::VerifyMultiSignatureError)?;
         clerk
             .as_ref()
             .unwrap()
@@ -102,8 +107,8 @@ impl Verifier for VerifierImpl {
 mod tests {
     use super::*;
 
+    use mithril_common::crypto_helper::key_encode_hex;
     use mithril_common::crypto_helper::tests_setup::*;
-    use mithril_common::crypto_helper::{key_encode_hex, key_encode_hex_multisig};
 
     #[test]
     fn test_multi_signer_multi_signature_ok() {
@@ -145,7 +150,7 @@ mod tests {
             verifier
                 .verify_multi_signature(
                     &message_tampered,
-                    &key_encode_hex_multisig(&multi_signature).unwrap(),
+                    &key_encode_hex(&multi_signature).unwrap(),
                     &signers_with_stakes,
                     &protocol_parameters,
                 )
@@ -155,7 +160,7 @@ mod tests {
         verifier
             .verify_multi_signature(
                 &message,
-                &key_encode_hex_multisig(&multi_signature).unwrap(),
+                &key_encode_hex(&multi_signature).unwrap(),
                 &signers_with_stakes,
                 &protocol_parameters,
             )

@@ -1,32 +1,6 @@
-use super::types::*;
-
 use hex::{FromHex, ToHex};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-
-// TODO: To remove once 'ProtocolMultiSignature' implements `Serialize`
-pub fn key_encode_hex_multisig(from: &ProtocolMultiSignature) -> Result<String, String> {
-    Ok(from.to_bytes().encode_hex::<String>())
-}
-
-// TODO: To remove once 'ProtocolMultiSignature' implements `Deserialize`
-pub fn key_decode_hex_multisig(from: &str) -> Result<ProtocolMultiSignature, String> {
-    let from_vec = Vec::from_hex(from).map_err(|e| format!("can't parse from hex: {}", e))?;
-    ProtocolMultiSignature::from_bytes(&from_vec)
-        .map_err(|e| format!("can't decode multi signature: {}", e))
-}
-
-// TODO: To remove once 'ProtocolSingleSignature' implements `Serialize`
-pub fn key_encode_hex_sig(from: &ProtocolSingleSignature) -> Result<String, String> {
-    Ok(from.to_bytes().encode_hex::<String>())
-}
-
-// TODO: To remove once 'ProtocolSingleSignature' implements `Deserialize`
-pub fn key_decode_hex_sig(from: &str) -> Result<ProtocolSingleSignature, String> {
-    let from_vec = Vec::from_hex(from).map_err(|e| format!("can't parse from hex: {}", e))?;
-    ProtocolSingleSignature::from_bytes(&from_vec)
-        .map_err(|e| format!("can't decode multi signature: {}", e))
-}
 
 /// Encode key to hex helper
 pub fn key_encode_hex<T>(from: T) -> Result<String, String>
@@ -50,6 +24,7 @@ where
 #[cfg(test)]
 pub mod tests {
     use super::super::tests_setup::*;
+    use super::super::types::*;
     use super::*;
 
     use rand_chacha::ChaCha20Rng;
@@ -70,15 +45,10 @@ pub mod tests {
             ProtocolInitializer::setup(protocol_params, party_id, stake, &mut rng);
         let verification_key: ProtocolSignerVerificationKey =
             protocol_initializer.verification_key();
-        let secret_key: ProtocolSignerSecretKey = protocol_initializer.secret_key();
         let verification_key_hex =
             key_encode_hex(verification_key).expect("unexpected hex encoding error");
-        let secret_key_hex = key_encode_hex(&secret_key).expect("unexpected hex encoding error");
         let verification_key_restored =
             key_decode_hex(&verification_key_hex).expect("unexpected hex decoding error");
-        let secret_key_restored: ProtocolSignerSecretKey =
-            key_decode_hex(&secret_key_hex).expect("unexpected hex decoding error");
         assert_eq!(verification_key, verification_key_restored);
-        assert_eq!(secret_key.to_bytes(), secret_key_restored.to_bytes());
     }
 }

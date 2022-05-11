@@ -3,7 +3,7 @@ use slog_scope::{trace, warn};
 use thiserror::Error;
 
 use mithril_common::crypto_helper::{
-    key_decode_hex, key_encode_hex_sig, Bytes, ProtocolInitializer, ProtocolKeyRegistration,
+    key_decode_hex, key_encode_hex, Bytes, ProtocolInitializer, ProtocolKeyRegistration,
     ProtocolParameters, ProtocolPartyId, ProtocolSigner, ProtocolSignerSecretKey, ProtocolStake,
 };
 use mithril_common::entities::{self, SignerWithStake, SingleSignature};
@@ -118,7 +118,7 @@ impl SingleSigner for MithrilSingleSigner {
         for i in 1..=protocol_parameters.m {
             if let Some(signature) = protocol_signer.sign(&message, i) {
                 trace!("Party #{}: lottery #{} won", self.party_id, i,);
-                let encoded_signature = key_encode_hex_sig(&signature);
+                let encoded_signature = key_encode_hex(&signature);
 
                 if encoded_signature.is_err() {
                     warn!("couldn't compute signature: `{:?}`", encoded_signature); // @todo: structured log
@@ -140,7 +140,7 @@ impl SingleSigner for MithrilSingleSigner {
 mod tests {
     use super::*;
 
-    use mithril_common::crypto_helper::{key_decode_hex_sig, ProtocolClerk, ProtocolSigner};
+    use mithril_common::crypto_helper::{key_decode_hex, ProtocolClerk, ProtocolSigner};
     use mithril_common::fake_data;
 
     #[test]
@@ -205,7 +205,7 @@ mod tests {
 
         assert!(!sign_result.as_ref().unwrap().is_empty());
         for sig in sign_result.unwrap() {
-            let decoded_sig = key_decode_hex_sig(&sig.signature).unwrap();
+            let decoded_sig = key_decode_hex(&sig.signature).unwrap();
             assert!(clerk.verify_sig(&decoded_sig, message).is_ok());
             assert_eq!(
                 decoded_sig.pk,

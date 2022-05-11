@@ -4,10 +4,10 @@ use std::collections::HashMap;
 
 // TODO: remove pub
 pub use mithril_common::crypto_helper::{
-    key_decode_hex, key_decode_hex_multisig, key_decode_hex_sig, key_encode_hex,
-    key_encode_hex_multisig, Bytes, ProtocolClerk, ProtocolKeyRegistration, ProtocolLotteryIndex,
-    ProtocolMultiSignature, ProtocolParameters, ProtocolPartyId, ProtocolSignerVerificationKey,
-    ProtocolSingleSignature, ProtocolStake, ProtocolStakeDistribution,
+    key_decode_hex, key_encode_hex, Bytes, ProtocolClerk, ProtocolKeyRegistration,
+    ProtocolLotteryIndex, ProtocolMultiSignature, ProtocolParameters, ProtocolPartyId,
+    ProtocolSignerVerificationKey, ProtocolSingleSignature, ProtocolStake,
+    ProtocolStakeDistribution,
 };
 
 #[cfg(test)]
@@ -215,7 +215,7 @@ impl MultiSigner for MultiSignerImpl {
                     Ok(Some(multi_signature)) => {
                         debug!(
                             "A multi signature has been created: {}",
-                            key_encode_hex_multisig(&multi_signature).unwrap()
+                            key_encode_hex(&multi_signature).unwrap()
                         );
                     }
                     Ok(None) => {
@@ -240,9 +240,8 @@ impl MultiSigner for MultiSignerImpl {
         debug!("Get multi signature for message {}", message);
         match self.multi_signatures.get(&message) {
             Some(multi_signature) => {
-                let multi_signature: ProtocolMultiSignature =
-                    key_decode_hex_multisig(multi_signature)
-                        .map_err(|e| format!("can't decode multi signature: {}", e))?;
+                let multi_signature: ProtocolMultiSignature = key_decode_hex(multi_signature)
+                    .map_err(|e| format!("can't decode multi signature: {}", e))?;
                 Ok(Some(multi_signature))
             }
             None => Ok(None),
@@ -273,7 +272,7 @@ impl MultiSigner for MultiSignerImpl {
             Ok(multi_signature) => {
                 self.multi_signatures.insert(
                     message.encode_hex::<String>(),
-                    key_encode_hex_multisig(&multi_signature).unwrap(),
+                    key_encode_hex(&multi_signature).unwrap(),
                 );
                 self.single_signatures.drain();
                 Ok(Some(multi_signature))
