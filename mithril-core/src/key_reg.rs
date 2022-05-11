@@ -206,7 +206,7 @@ mod tests {
                 }
                 None
             } ).collect::<HashSet<_>>();
-            if retrieved_ids.len() != 0 {
+            if !retrieved_ids.is_empty() {
                 let closed = kr.close::<Blake2b>();
                 let retrieved_keys = closed.reg_parties.iter().map(|r| r.0).collect::<HashSet<_>>();
                 assert!(retrieved_keys == keys);
