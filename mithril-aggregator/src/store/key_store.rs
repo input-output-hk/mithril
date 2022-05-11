@@ -2,33 +2,47 @@
 use super::adapters::Adapter;
 use super::StoreError;
 use mithril_common::crypto_helper::{ProtocolPartyId, ProtocolSignerVerificationKey};
+use std::sync::RwLock;
 
 struct SignerVerificationKeyStore {
-    adapter: Box<dyn Adapter<Key = ProtocolPartyId, Record = ProtocolSignerVerificationKey>>,
+    adapter:
+        RwLock<Box<dyn Adapter<Key = ProtocolPartyId, Record = ProtocolSignerVerificationKey>>>,
 }
 
 impl SignerVerificationKeyStore {
     pub fn new(
         adapter: Box<dyn Adapter<Key = ProtocolPartyId, Record = ProtocolSignerVerificationKey>>,
     ) -> Self {
-        Self { adapter }
+        Self {
+            adapter: RwLock::new(adapter),
+        }
     }
 
     pub fn save(
         &self,
-        _party_id: ProtocolPartyId,
-        _verification_key: ProtocolSignerVerificationKey,
+        party_id: ProtocolPartyId,
+        verification_key: ProtocolSignerVerificationKey,
     ) -> Result<(), StoreError> {
-        todo!()
+        let mut adapter = self.adapter.write().unwrap();
+
+        adapter
+            .store_record(party_id, verification_key)
+            .map_err(|e| StoreError::AdapterError(e.to_string()))
     }
 
     pub fn fetch(
         &self,
         party_id: &ProtocolPartyId,
-    ) -> Result<Option<&ProtocolSignerVerificationKey>, StoreError> {
-        self.adapter
+    ) -> Result<Option<ProtocolSignerVerificationKey>, StoreError> {
+        let adapter = self.adapter.read().unwrap();
+        let record = adapter
             .get_record(party_id)
-            .map_err(|e| StoreError::AdapterError(e.to_string()))
+            .map_err(|e| StoreError::AdapterError(e.to_string()))?;
+
+        match record {
+            Some(vk) => Ok(Some(vk.clone())),
+            _ => Ok(None),
+        }
     }
 }
 
@@ -51,6 +65,31 @@ mod tests {
             party_id,
             Box::new(signer_key.clone()),
         )));
-        assert_eq!(&signer_key, store.fetch(&party_id).unwrap().unwrap());
+
+        assert_eq!(signer_key, store.fetch(&party_id).unwrap().unwrap());
+    }
+
+    #[test]
+    fn test_fetch_using_non_existent_key() {
+        let (party_id, signer_key) = generate_mithril_artefacts();
+        let store = SignerVerificationKeyStore::new(Box::new(DumbAdapter::new(
+            party_id,
+            Box::new(signer_key.clone()),
+        )));
+
+        assert!(store.fetch(&(party_id + 1)).unwrap().is_none());
+    }
+
+    #[test]
+    fn test_save_verification_key() {
+        let (party_id, signer_key) = generate_mithril_artefacts();
+        let store = SignerVerificationKeyStore::new(Box::new(DumbAdapter::new(
+            party_id + 1,
+            Box::new(signer_key.clone()),
+        )));
+
+        assert!(store.fetch(&party_id).unwrap().is_none());
+        assert!(store.save(party_id, signer_key).is_ok());
+        assert!(store.fetch(&party_id).unwrap().is_some());
     }
 }
