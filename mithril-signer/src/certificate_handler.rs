@@ -1,10 +1,10 @@
 use async_trait::async_trait;
-use mithril_common::entities::CertificatePending;
-use mithril_common::entities::SingleSignature;
 use reqwest::{self, StatusCode};
 use slog_scope::debug;
 use std::io;
 use thiserror::Error;
+
+use mithril_common::entities::{CertificatePending, Signer, SingleSignature};
 
 #[cfg(test)]
 use mockall::automock;
@@ -30,6 +30,9 @@ pub trait CertificateHandler {
     async fn retrieve_pending_certificate(
         &self,
     ) -> Result<Option<CertificatePending>, CertificateHandlerError>;
+
+    /// Registers signer with the aggregator
+    async fn register_signer(&self, signer: &Signer) -> Result<(), CertificateHandlerError>;
 
     /// Registers single signatures with the aggregator
     async fn register_signatures(
@@ -68,6 +71,30 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
                     Err(err) => Err(CertificateHandlerError::JsonParseFailed(err.to_string())),
                 },
                 StatusCode::NO_CONTENT => Ok(None),
+                status_error => Err(CertificateHandlerError::RemoteServerTechnical(
+                    status_error.to_string(),
+                )),
+            },
+            Err(err) => Err(CertificateHandlerError::RemoteServerUnreachable(
+                err.to_string(),
+            )),
+        }
+    }
+
+    async fn register_signer(&self, signer: &Signer) -> Result<(), CertificateHandlerError> {
+        debug!("Register signer");
+        let url = format!("{}/register-signer", self.aggregator_endpoint);
+        let client = reqwest::Client::new();
+        let response = client.post(url.clone()).json(signer).send().await;
+        match response {
+            Ok(response) => match response.status() {
+                StatusCode::CREATED => Ok(()),
+                StatusCode::BAD_REQUEST => Err(CertificateHandlerError::RemoteServerLogical(
+                    "bad request".to_string(),
+                )),
+                StatusCode::CONFLICT => Err(CertificateHandlerError::RemoteServerLogical(
+                    "already registered signer".to_string(),
+                )),
                 status_error => Err(CertificateHandlerError::RemoteServerTechnical(
                     status_error.to_string(),
                 )),
@@ -170,6 +197,73 @@ mod tests {
             CertificateHandlerError::RemoteServerTechnical("500 Internal Server Error".to_string())
                 .to_string(),
             pending_certificate.unwrap_err().to_string()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_register_signer_ok_201() {
+        let single_signers = fake_data::signers(1);
+        let single_signer = single_signers.first().unwrap();
+        let (server, config) = setup_test();
+        let _snapshots_mock = server.mock(|when, then| {
+            when.method(POST).path("/register-signer");
+            then.status(201);
+        });
+        let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
+        let register_signer = certificate_handler.register_signer(&single_signer).await;
+        register_signer.expect("unexpected error");
+    }
+
+    #[tokio::test]
+    async fn test_register_signer_ok_400() {
+        let single_signers = fake_data::signers(1);
+        let single_signer = single_signers.first().unwrap();
+        let (server, config) = setup_test();
+        let _snapshots_mock = server.mock(|when, then| {
+            when.method(POST).path("/register-signer");
+            then.status(400);
+        });
+        let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
+        let register_signer = certificate_handler.register_signer(&single_signer).await;
+        assert_eq!(
+            CertificateHandlerError::RemoteServerLogical("bad request".to_string()).to_string(),
+            register_signer.unwrap_err().to_string()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_register_signer_ok_409() {
+        let single_signers = fake_data::signers(1);
+        let single_signer = single_signers.first().unwrap();
+        let (server, config) = setup_test();
+        let _snapshots_mock = server.mock(|when, then| {
+            when.method(POST).path("/register-signer");
+            then.status(409);
+        });
+        let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
+        let register_signer = certificate_handler.register_signer(&single_signer).await;
+        assert_eq!(
+            CertificateHandlerError::RemoteServerLogical("already registered signer".to_string())
+                .to_string(),
+            register_signer.unwrap_err().to_string()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_register_signer_ok_500() {
+        let single_signers = fake_data::signers(1);
+        let single_signer = single_signers.first().unwrap();
+        let (server, config) = setup_test();
+        let _snapshots_mock = server.mock(|when, then| {
+            when.method(POST).path("/register-signer");
+            then.status(500);
+        });
+        let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
+        let register_signer = certificate_handler.register_signer(&single_signer).await;
+        assert_eq!(
+            CertificateHandlerError::RemoteServerTechnical("500 Internal Server Error".to_string())
+                .to_string(),
+            register_signer.unwrap_err().to_string()
         );
     }
 
