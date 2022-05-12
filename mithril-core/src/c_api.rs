@@ -9,9 +9,9 @@ use std::os::raw::c_char;
 pub const NULLPOINTERERR: i64 = -99;
 
 type H = blake2::Blake2b;
-type StmVerificationKeyPtr = *mut StmVerificationKey;
+type StmVerificationKeyPoPPtr = *mut StmVerificationKeyPoP;
 type SigPtr = *mut StmSig<H>;
-type MultiSigPtr = *mut StmMultiSig<H>;
+type MultiSigPtr = *mut StmAggrSig<H>;
 type StmInitializerPtr = *mut StmInitializer;
 type StmSignerPtr = *mut StmSigner<H>;
 type StmClerkPtr = *mut StmClerk<H>;
@@ -315,7 +315,7 @@ mod initializer {
     #[no_mangle]
     pub extern "C" fn stm_initializer_verification_key(
         me: StmInitializerPtr,
-        pk: *mut StmVerificationKeyPtr,
+        pk: *mut StmVerificationKeyPoPPtr,
     ) -> i64 {
         unsafe {
             if let (Some(ref_me), Some(ref_pk)) = (me.as_ref(), pk.as_mut()) {
@@ -444,7 +444,7 @@ mod signer {
 
 mod key_reg {
     use crate::c_api::{
-        ClosedKeyRegPtr, KeyRegPtr, MerkleTreeCommitmentPtr, StmVerificationKeyPtr, NULLPOINTERERR,
+        ClosedKeyRegPtr, KeyRegPtr, MerkleTreeCommitmentPtr, StmVerificationKeyPoPPtr, NULLPOINTERERR,
     };
     use crate::error::RegisterError;
     use crate::key_reg::KeyReg;
@@ -488,7 +488,7 @@ mod key_reg {
     pub extern "C" fn register_party(
         key_reg: KeyRegPtr,
         party_id: PartyId,
-        party_key: StmVerificationKeyPtr,
+        party_key: StmVerificationKeyPoPPtr,
     ) -> i64 {
         unsafe {
             if let (Some(ref_key_reg), Some(party_key)) = (key_reg.as_mut(), party_key.as_ref()) {
@@ -511,7 +511,7 @@ mod key_reg {
     ) -> i64 {
         unsafe {
             if let (Some(key_reg), Some(mk_tree)) = (key_reg.as_ref(), mk_tree.as_mut()) {
-                *mk_tree = Box::into_raw(Box::new(key_reg.avk.to_commitment()));
+                *mk_tree = Box::into_raw(Box::new(key_reg.merkle_tree.to_commitment()));
                 return 0;
             }
             NULLPOINTERERR
@@ -582,12 +582,13 @@ mod clerk {
         }
     }
 
-    /// Try to verify a signature.
+    /// Verify a signature.
     /// returns:
     /// * 0 if the signature is valid
     /// * -1 if the lottery win is false
-    /// * -2 if the Merkle Tree is invalid
+    /// * -2 if the Merkle Tree path is invalid
     /// * -3 if the MSP signature is invalid
+    /// * -4 if the Index is out of bounds
     /// * NULLPOINTERERR if invalid pointers
     ///
     #[no_mangle]
@@ -601,12 +602,14 @@ mod clerk {
                 (me.as_ref(), msg.as_ref(), sig.as_ref())
             {
                 let msg_str = CStr::from_ptr(msg);
-                let out = ref_me.verify_sig(ref_sig, msg_str.to_bytes());
+                let avk = StmAggrVerificationKey::from(&ref_me.closed_reg);
+                let out = ref_sig.verify(&ref_me.params, &avk, msg_str.to_bytes());
                 return match out {
                     Ok(()) => 0,
                     Err(VerificationFailure::LotteryLost) => -1,
                     Err(VerificationFailure::InvalidMerkleTree(_)) => -2,
                     Err(VerificationFailure::InvalidSignature(_)) => -3,
+                    Err(VerificationFailure::IndexBoundFailed(_,_)) => -4,
                 };
             }
             NULLPOINTERERR

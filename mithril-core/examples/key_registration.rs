@@ -3,10 +3,7 @@
 //! run presented in `tests/integration.rs`, we explicitly treat each party individually.
 
 use mithril::key_reg::{ClosedKeyReg, KeyReg};
-use mithril::stm::{
-    Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner, StmVerificationKey,
-    StmVerifier,
-};
+use mithril::stm::{Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner, StmVerificationKeyPoP, StmVerifier};
 
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
@@ -46,7 +43,7 @@ fn main() {
     let party_3_init = StmInitializer::setup(params, parties[3].0, parties[3].1, &mut rng);
 
     // The public keys are broadcast. All participants will have the same keys.
-    let parties_pks: Vec<StmVerificationKey> = vec![
+    let parties_pks: Vec<StmVerificationKeyPoP> = vec![
         party_0_init.verification_key(),
         party_1_init.verification_key(),
         party_2_init.verification_key(),
@@ -113,7 +110,7 @@ fn main() {
     let closed_registration = local_reg(&parties, &parties_pks);
     let clerk = StmClerk::from_registration(params, closed_registration.clone());
     let verifier = StmVerifier::new(
-        closed_registration.avk.to_commitment(),
+        closed_registration.merkle_tree.to_commitment(),
         params,
         closed_registration.total_stake,
     );
@@ -146,7 +143,7 @@ fn try_signatures(party: &StmSigner<H>, msg: &[u8], m: u64) -> Vec<StmSig<H>> {
         .collect()
 }
 
-fn local_reg(ids: &[(u64, u64)], pks: &[StmVerificationKey]) -> ClosedKeyReg<H> {
+fn local_reg(ids: &[(u64, u64)], pks: &[StmVerificationKeyPoP]) -> ClosedKeyReg<H> {
     let mut local_keyreg = KeyReg::init(ids);
     // todo: maybe its cleaner to have a `StmPublic` instance that covers the "shareable"
     // data, such as the public key, stake and id.

@@ -4,6 +4,7 @@ use crate::error::RegisterError;
 use digest::{Digest, FixedOutput};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use serde::{Deserialize, Serialize};
 
 use super::multi_sig::VerificationKeyPoP;
 use super::stm::{PartyId, Stake};
@@ -23,7 +24,11 @@ pub struct KeyReg {
 
 /// Structure generated out of a closed registration. One can only get a global `avk` out of
 /// a closed key registration.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(bound(
+serialize = "MerkleTree<D>: Serialize",
+deserialize = "MerkleTree<D>: Deserialize<'de>"
+))]
 pub struct ClosedKeyReg<D>
 where
     D: Digest + FixedOutput,
@@ -33,7 +38,7 @@ where
     /// Total stake of the registered parties.
     pub total_stake: Stake,
     /// Unique public key out of the key registration instance.
-    pub avk: Arc<MerkleTree<D>>,
+    pub merkle_tree: Arc<MerkleTree<D>>,
 }
 
 /// Represents the status of a known participant in the protocol who is allowed
@@ -110,7 +115,7 @@ impl KeyReg {
         reg_parties.sort();
 
         ClosedKeyReg {
-            avk: Arc::new(MerkleTree::create(&reg_parties)),
+            merkle_tree: Arc::new(MerkleTree::create(&reg_parties)),
             reg_parties,
             total_stake,
         }

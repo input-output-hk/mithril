@@ -75,10 +75,11 @@ fn test_full_protocol() {
     }
 
     let clerk = StmClerk::from_signer(&ps[0]);
+    let avk = clerk.compute_avk();
 
     // Check all parties can verify every sig
     for s in sigs.iter() {
-        assert!(clerk.verify_sig(s, &msg).is_ok(), "Verification failed");
+        assert!(s.verify(&params, &avk, &msg).is_ok(), "Verification failed");
     }
 
     // Aggregate with random parties
@@ -86,7 +87,7 @@ fn test_full_protocol() {
 
     // Verify aggregated signature with a fresh verifier
     let verifier = StmVerifier::new(
-        closed_reg.avk.to_commitment(),
+        closed_reg.merkle_tree.to_commitment(),
         params,
         closed_reg.total_stake,
     );
