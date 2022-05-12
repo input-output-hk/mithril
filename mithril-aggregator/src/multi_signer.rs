@@ -10,6 +10,7 @@ pub use mithril_common::crypto_helper::{
     ProtocolSignerVerificationKey, ProtocolSingleSignature, ProtocolStake,
     ProtocolStakeDistribution,
 };
+use mithril_common::entities;
 
 #[cfg(test)]
 use mockall::automock;
@@ -67,7 +68,13 @@ pub trait MultiSigner: Sync + Send {
     ) -> Result<(), ProtocolError>;
 
     /// Get signer
-    fn get_signer(&self, party_id: ProtocolPartyId) -> Option<ProtocolSignerVerificationKey>;
+    fn get_signer(
+        &self,
+        party_id: ProtocolPartyId,
+    ) -> Result<Option<ProtocolSignerVerificationKey>, ProtocolError>;
+
+    /// Get signers
+    fn get_signers(&self) -> Result<Vec<entities::SignerWithStake>, ProtocolError>;
 
     /// Registers a single signature
     fn register_single_signature(
@@ -124,7 +131,7 @@ impl MultiSignerImpl {
         let stakes = self.get_stake_distribution();
         let mut key_registration = ProtocolKeyRegistration::init(&stakes);
         stakes.iter().for_each(|(party_id, _stake)| {
-            if let Some(verification_key) = self.get_signer(*party_id) {
+            if let Some(verification_key) = self.get_signer(*party_id).unwrap() {
                 key_registration
                     .register(*party_id, verification_key)
                     .unwrap();
@@ -178,8 +185,30 @@ impl MultiSigner for MultiSignerImpl {
     }
 
     /// Get signer verification key
-    fn get_signer(&self, party_id: ProtocolPartyId) -> Option<ProtocolSignerVerificationKey> {
-        self.signers.get(&party_id).copied()
+    fn get_signer(
+        &self,
+        party_id: ProtocolPartyId,
+    ) -> Result<Option<ProtocolSignerVerificationKey>, ProtocolError> {
+        Ok(self.signers.get(&party_id).copied())
+    }
+
+    /// Get signers
+    fn get_signers(&self) -> Result<Vec<entities::SignerWithStake>, ProtocolError> {
+        Ok(self
+            .get_stake_distribution()
+            .iter()
+            .filter_map(|(party_id, stake)| match self.get_signer(*party_id) {
+                Ok(Some(verification_key)) => match key_encode_hex(verification_key) {
+                    Ok(verification_key) => Some(entities::SignerWithStake::new(
+                        *party_id as u64,
+                        verification_key,
+                        *stake as u64,
+                    )),
+                    Err(_) => None,
+                },
+                _ => None,
+            })
+            .collect())
     }
 
     /// Register a signer
@@ -363,6 +392,14 @@ mod tests {
     fn test_multi_signer_register_signer_ok() {
         let mut multi_signer = MultiSignerImpl::new();
 
+        let stake_distribution_expected = setup_signers(5)
+            .iter()
+            .map(|(party_id, stake, _, _)| (*party_id, *stake))
+            .collect::<_>();
+        multi_signer
+            .update_stake_distribution(&stake_distribution_expected)
+            .expect("update stake distribution failed");
+
         let signers = setup_signers(5);
         signers
             .iter()
@@ -372,13 +409,27 @@ mod tests {
                     .expect("register should have succeeded")
             });
 
+        let mut signers_all_expected = Vec::new();
         signers
             .iter()
-            .for_each(|(party_id, _, verification_key_expected, _)| {
+            .for_each(|(party_id, stake, verification_key_expected, _)| {
                 let verification_key = multi_signer.get_signer(*party_id);
-                assert!(verification_key.is_some());
-                assert_eq!(*verification_key_expected, verification_key.unwrap());
+                assert!(verification_key.as_ref().unwrap().is_some());
+                assert_eq!(
+                    *verification_key_expected,
+                    verification_key.unwrap().unwrap()
+                );
+                signers_all_expected.push(entities::SignerWithStake::new(
+                    *party_id,
+                    key_encode_hex(verification_key_expected).unwrap(),
+                    *stake,
+                ));
             });
+
+        let signers_all = multi_signer
+            .get_signers()
+            .expect("get signers should have been succeeded");
+        assert_eq!(signers_all_expected, signers_all);
     }
 
     #[test]
