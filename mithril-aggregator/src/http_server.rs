@@ -246,7 +246,10 @@ mod handlers {
                 StatusCode::NOT_FOUND,
             )),
             Err(err) => Ok(warp::reply::with_status(
-                warp::reply::json(&entities::Error::new("MITHRIL-E0005".to_string(), err)),
+                warp::reply::json(&entities::Error::new(
+                    "MITHRIL-E0005".to_string(),
+                    err.to_string(),
+                )),
                 StatusCode::INTERNAL_SERVER_ERROR,
             )),
         }
@@ -316,8 +319,14 @@ mod handlers {
                         warp::reply::json(&Null),
                         StatusCode::CREATED,
                     )),
+                    Err(multi_signer::ProtocolError::ExistingSigner()) => Ok(
+                        warp::reply::with_status(warp::reply::json(&Null), StatusCode::CONFLICT),
+                    ),
                     Err(err) => Ok(warp::reply::with_status(
-                        warp::reply::json(&entities::Error::new("MITHRIL-E0006".to_string(), err)),
+                        warp::reply::json(&entities::Error::new(
+                            "MITHRIL-E0006".to_string(),
+                            err.to_string(),
+                        )),
                         StatusCode::INTERNAL_SERVER_ERROR,
                     )),
                 }
@@ -340,25 +349,33 @@ mod handlers {
         for signature in &signatures {
             match key_decode_hex(&signature.signature) {
                 Ok(single_signature) => {
-                    if let Err(err) = multi_signer.register_single_signature(
+                    match multi_signer.register_single_signature(
                         signature.party_id as multi_signer::ProtocolPartyId,
                         &single_signature,
                         signature.index as multi_signer::ProtocolLotteryIndex,
                     ) {
-                        return Ok(warp::reply::with_status(
-                            warp::reply::json(&entities::Error::new(
-                                "MITHRIL-E0003".to_string(),
-                                err,
-                            )),
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                        ));
+                        Err(multi_signer::ProtocolError::ExistingSingleSignature(_)) => {
+                            return Ok(warp::reply::with_status(
+                                warp::reply::json(&Null),
+                                StatusCode::CONFLICT,
+                            ));
+                        }
+                        Err(err) => {
+                            return Ok(warp::reply::with_status(
+                                warp::reply::json(&entities::Error::new(
+                                    "MITHRIL-E0003".to_string(),
+                                    err.to_string(),
+                                )),
+                                StatusCode::INTERNAL_SERVER_ERROR,
+                            ));
+                        }
+                        _ => {}
                     }
                 }
-                Err(err) => {
-                    // TODO: Depending on the error we should return a 409 or a 500
+                Err(_) => {
                     return Ok(warp::reply::with_status(
-                        warp::reply::json(&entities::Error::new("MITHRIL-E0004".to_string(), err)),
-                        StatusCode::INTERNAL_SERVER_ERROR,
+                        warp::reply::json(&Null),
+                        StatusCode::BAD_REQUEST,
                     ));
                 }
             }
@@ -382,6 +399,8 @@ mod tests {
     use warp::test::request;
 
     use super::super::beacon_store::MockBeaconStore;
+    use super::super::multi_signer::ProtocolError;
+
     use super::super::entities::*;
     use super::super::multi_signer::MockMultiSigner;
     use super::super::snapshot_store::MockSnapshotStorer;
@@ -553,7 +572,7 @@ mod tests {
         let mut mock_multi_signer = MockMultiSigner::new();
         mock_multi_signer
             .expect_get_multi_signature()
-            .return_once(|_| Err("an error occurred".to_string()));
+            .return_once(|_| Err(ProtocolError::Codec("an error occurred".to_string())));
         let mut dependency_manager = setup_dependency_manager();
         dependency_manager
             .with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)))
@@ -724,8 +743,7 @@ mod tests {
         let mut mock_multi_signer = MockMultiSigner::new();
         mock_multi_signer
             .expect_register_signer()
-            .return_const(Ok(()))
-            .once();
+            .return_once(|_, _| Ok(()));
         let mut dependency_manager = setup_dependency_manager();
         dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
 
@@ -779,12 +797,41 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_register_signer_post_ko_409() {
+        let mut mock_multi_signer = MockMultiSigner::new();
+        mock_multi_signer
+            .expect_register_signer()
+            .return_once(|_, _| Err(ProtocolError::ExistingSigner()));
+        let mut dependency_manager = setup_dependency_manager();
+        dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
+
+        let signer = &fake_data::signers(1)[0];
+
+        let method = Method::POST.as_str();
+        let path = "/register-signer";
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
+            .json(signer)
+            .reply(&router::routes(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::from_file(API_SPEC_FILE)
+            .method(method)
+            .path(path)
+            .validate_request(&signer)
+            .unwrap()
+            .validate_response(&response)
+            .expect("OpenAPI error");
+    }
+
+    #[tokio::test]
     async fn test_register_signer_post_ko_500() {
         let mut mock_multi_signer = MockMultiSigner::new();
         mock_multi_signer
             .expect_register_signer()
-            .return_const(Err("an error occurred".to_string()))
-            .once();
+            .return_once(|_, _| Err(ProtocolError::Core("an error occurred".to_string())));
         let mut dependency_manager = setup_dependency_manager();
         dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
 
@@ -813,9 +860,11 @@ mod tests {
     async fn test_register_signatures_post_ok() {
         let mut mock_multi_signer = MockMultiSigner::new();
         mock_multi_signer
+            .expect_update_current_message()
+            .return_once(|_| Ok(()));
+        mock_multi_signer
             .expect_register_single_signature()
-            .return_const(Ok(()))
-            .once();
+            .return_once(|_, _, _| Ok(()));
         let mut dependency_manager = setup_dependency_manager();
         dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
 
@@ -841,12 +890,78 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signatures_post_ko() {
+    async fn test_register_signatures_post_ko_400() {
         let mut mock_multi_signer = MockMultiSigner::new();
         mock_multi_signer
+            .expect_update_current_message()
+            .return_once(|_| Ok(()));
+        let mut dependency_manager = setup_dependency_manager();
+        dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
+
+        let mut signatures = fake_data::single_signatures(1);
+        signatures[0].signature = "invalid-signature".to_string();
+
+        let method = Method::POST.as_str();
+        let path = "/register-signatures";
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
+            .json(&signatures)
+            .reply(&router::routes(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::from_file(API_SPEC_FILE)
+            .method(method)
+            .path(path)
+            .validate_request(&signatures)
+            .unwrap()
+            .validate_response(&response)
+            .expect("OpenAPI error");
+    }
+
+    #[tokio::test]
+    async fn test_register_signatures_post_ko_409() {
+        let mut mock_multi_signer = MockMultiSigner::new();
+        mock_multi_signer
+            .expect_update_current_message()
+            .return_once(|_| Ok(()));
+        mock_multi_signer
             .expect_register_single_signature()
-            .return_const(Err("an error occurred".to_string()))
-            .once();
+            .return_once(|_, _, _| Err(ProtocolError::ExistingSingleSignature(1)));
+        let mut dependency_manager = setup_dependency_manager();
+        dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
+
+        let signatures = &fake_data::single_signatures(1);
+
+        let method = Method::POST.as_str();
+        let path = "/register-signatures";
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
+            .json(signatures)
+            .reply(&router::routes(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::from_file(API_SPEC_FILE)
+            .method(method)
+            .path(path)
+            .validate_request(&signatures)
+            .unwrap()
+            .validate_response(&response)
+            .expect("OpenAPI error");
+    }
+
+    #[tokio::test]
+    async fn test_register_signatures_post_ko_500() {
+        let mut mock_multi_signer = MockMultiSigner::new();
+        mock_multi_signer
+            .expect_update_current_message()
+            .return_once(|_| Ok(()));
+        mock_multi_signer
+            .expect_register_single_signature()
+            .return_once(|_, _, _| Err(ProtocolError::Core("an error occurred".to_string())));
         let mut dependency_manager = setup_dependency_manager();
         dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
 
