@@ -3,9 +3,9 @@
 use clap::Parser;
 
 use mithril_aggregator::{
-    key_decode_hex, Config, DependencyManager, MultiSigner, MultiSignerImpl, ProtocolParameters,
-    ProtocolPartyId, ProtocolSignerVerificationKey, ProtocolStake, Server, SnapshotStoreHTTPClient,
-    Snapshotter,
+    key_decode_hex, AggregatorRuntime, Config, DependencyManager, MultiSigner, MultiSignerImpl,
+    ProtocolParameters, ProtocolPartyId, ProtocolSignerVerificationKey, ProtocolStake, Server,
+    SnapshotStoreHTTPClient,
 };
 use mithril_common::fake_data;
 use slog::{Drain, Level, Logger};
@@ -98,12 +98,9 @@ async fn main() {
 
     // Start snapshot uploader
     let handle = tokio::spawn(async move {
-        let snapshotter = Snapshotter::new(
-            args.snapshot_interval * 1000,
-            args.db_directory.clone(),
-            slog_scope::logger(),
-        );
-        snapshotter.run().await
+        let runtime =
+            AggregatorRuntime::new(args.snapshot_interval * 1000, args.db_directory.clone());
+        runtime.run().await
     });
 
     // Start REST server

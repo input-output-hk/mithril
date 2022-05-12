@@ -1,5 +1,4 @@
 use mithril_common::entities::Snapshot;
-use mithril_common::immutable_digester::ImmutableDigester;
 
 use chrono::prelude::*;
 use cloud_storage::bucket::Entity;
@@ -8,31 +7,24 @@ use cloud_storage::object_access_control::NewObjectAccessControl;
 use cloud_storage::Client;
 use flate2::write::GzEncoder;
 use flate2::Compression;
-use slog::{error, info, Logger};
+use slog_scope::info;
 use std::env;
 use std::fs::File;
 use std::io;
 use std::io::{Seek, SeekFrom};
 use std::path::Path;
 use thiserror::Error;
-use tokio::time::{sleep, Duration};
 use tokio_util::codec::BytesCodec;
 use tokio_util::codec::FramedRead;
 
 /// Snapshotter
 pub struct Snapshotter {
-    /// Interval between each snapshot, in seconds
-    interval: u32,
-
     /// DB directory to snapshot
     db_directory: String,
-
-    /// The logger where the logs should be written
-    logger: Logger,
 }
 
 #[derive(Error, Debug)]
-enum SnapshotError {
+pub enum SnapshotError {
     #[error("Create archive error: ")]
     CreateArchiveError(#[from] io::Error),
 
@@ -42,40 +34,13 @@ enum SnapshotError {
 
 impl Snapshotter {
     /// Snapshotter factory
-    pub fn new(interval: u32, db_directory: String, logger: Logger) -> Self {
-        Self {
-            interval,
-            db_directory,
-            logger,
-        }
+    pub fn new(db_directory: String) -> Self {
+        Self { db_directory }
     }
 
-    /// Run snapshotter loop
-    pub async fn run(&self) {
-        info!(self.logger, "Starting Snapshotter");
-        loop {
-            info!(self.logger, "Snapshotting");
-
-            let digester = ImmutableDigester::new(self.db_directory.clone(), self.logger.clone());
-            match digester.compute_digest() {
-                Ok(digest_result) => {
-                    if let Err(e) = self.snapshot(digest_result.digest).await {
-                        error!(self.logger, "{:?}", e)
-                    }
-                }
-                Err(e) => {
-                    error!(self.logger, "{:?}", e)
-                }
-            };
-
-            info!(self.logger, "Sleeping for {}", self.interval);
-            sleep(Duration::from_millis(self.interval.into())).await;
-        }
-    }
-
-    async fn snapshot(&self, immutable_digest: String) -> Result<(), SnapshotError> {
+    pub async fn snapshot(&self, immutable_digest: String) -> Result<(), SnapshotError> {
         let archive_name = "testnet.tar.gz";
-        info!(self.logger, "snapshot hash: {}", immutable_digest);
+        info!("snapshot hash: {}", immutable_digest);
 
         let size = self.create_archive(archive_name)?;
 
@@ -93,11 +58,7 @@ impl Snapshotter {
             )],
         }];
 
-        info!(
-            self.logger,
-            "snapshot: {}",
-            serde_json::to_string(&snapshots).unwrap()
-        );
+        info!("snapshot: {}", serde_json::to_string(&snapshots).unwrap());
         serde_json::to_writer(&File::create("snapshots.json").unwrap(), &snapshots).unwrap();
 
         self.upload_file(archive_name).await?;
@@ -113,7 +74,6 @@ impl Snapshotter {
         let mut tar = tar::Builder::new(enc);
 
         info!(
-            self.logger,
             "compressing {} into {}",
             &self.db_directory,
             &path.to_str().unwrap()
@@ -142,7 +102,7 @@ impl Snapshotter {
             ));
         };
 
-        info!(self.logger, "uploading {}", filename);
+        info!("uploading {}", filename);
         let client = Client::default();
         let file = tokio::fs::File::open(filename).await.unwrap();
         let stream = FramedRead::new(file, BytesCodec::new());
@@ -158,7 +118,7 @@ impl Snapshotter {
             .await
             .map_err(|e| SnapshotError::UploadFileError(e.to_string()))?;
 
-        info!(self.logger, "uploaded {}", filename);
+        info!("uploaded {}", filename);
 
         // ensure the uploaded file as public read access
         // when a file is uploaded to gcloud storage its permissions are overwritten so
@@ -169,8 +129,8 @@ impl Snapshotter {
         };
 
         info!(
-            self.logger,
-            "updating acl for {}: {:?}", filename, new_bucket_access_control
+            "updating acl for {}: {:?}",
+            filename, new_bucket_access_control
         );
 
         client
@@ -179,7 +139,7 @@ impl Snapshotter {
             .await
             .map_err(|e| SnapshotError::UploadFileError(e.to_string()))?;
 
-        info!(self.logger, "updated acl for {} ", filename);
+        info!("updated acl for {} ", filename);
 
         Ok(())
     }
