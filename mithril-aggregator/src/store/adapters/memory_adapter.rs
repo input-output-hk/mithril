@@ -1,4 +1,3 @@
-#![allow(dead_code, unused_variables)]
 use std::{collections::HashMap, hash::Hash};
 
 use super::{Adapter, AdapterError};
@@ -29,7 +28,7 @@ where
     type Record = V;
 
     fn get_record(&self, key: &Self::Key) -> Result<Option<&Self::Record>, AdapterError> {
-        todo!()
+        Ok(self.data.get(key))
     }
 
     fn record_exists(&self, key: &Self::Key) -> Result<bool, AdapterError> {
@@ -46,6 +45,19 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn instanciate_populated_store() -> MemoryAdapter<u64, String> {
+        let data: HashMap<u64, String> = {
+            let mut data: HashMap<u64, String> = HashMap::new();
+            data.insert(1, "one".to_string());
+            data.insert(2, "two".to_string());
+
+            data
+        };
+
+        MemoryAdapter::new_with(data)
+    }
+
     #[test]
     fn store_record_works() {
         let mut adapter: MemoryAdapter<u64, &str> = MemoryAdapter::new();
@@ -57,17 +69,29 @@ mod tests {
 
     #[test]
     fn record_exists_works() {
-        let data: HashMap<u64, &str> = {
-            let mut data: HashMap<u64, &str> = HashMap::new();
-            data.insert(1, "one");
-            data.insert(2, "two");
-
-            data
-        };
-        let adapter: MemoryAdapter<u64, &str> = MemoryAdapter::new_with(data);
+        let adapter = instanciate_populated_store();
 
         assert!(adapter.record_exists(&1).unwrap());
         assert!(adapter.record_exists(&2).unwrap());
         assert!(!adapter.record_exists(&3).unwrap());
+    }
+
+    #[test]
+    fn get_record_with_existing_key_work() {
+        let adapter = instanciate_populated_store();
+        let value = adapter.get_record(&1).unwrap();
+
+        assert!(value.is_some());
+        let value = value.unwrap();
+
+        assert_eq!(&("one".to_string()), value);
+    }
+
+    #[test]
+    fn get_record_with_non_existing_key_work() {
+        let adapter = instanciate_populated_store();
+        let value = adapter.get_record(&0).unwrap();
+
+        assert!(value.is_none());
     }
 }

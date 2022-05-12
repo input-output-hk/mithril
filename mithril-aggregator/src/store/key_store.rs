@@ -6,16 +6,16 @@ use std::sync::RwLock;
 
 struct SignerVerificationKeyStore {
     adapter:
-        RwLock<Box<dyn Adapter<Key = ProtocolPartyId, Record = ProtocolSignerVerificationKey>>>,
+        Box<RwLock<dyn Adapter<Key = ProtocolPartyId, Record = ProtocolSignerVerificationKey>>>,
 }
 
 impl SignerVerificationKeyStore {
     pub fn new(
-        adapter: Box<dyn Adapter<Key = ProtocolPartyId, Record = ProtocolSignerVerificationKey>>,
+        adapter: Box<
+            RwLock<dyn Adapter<Key = ProtocolPartyId, Record = ProtocolSignerVerificationKey>>,
+        >,
     ) -> Self {
-        Self {
-            adapter: RwLock::new(adapter),
-        }
+        Self { adapter }
     }
 
     pub fn save(
@@ -23,7 +23,10 @@ impl SignerVerificationKeyStore {
         party_id: ProtocolPartyId,
         verification_key: ProtocolSignerVerificationKey,
     ) -> Result<(), AdapterError> {
-        let mut adapter = self.adapter.write().unwrap();
+        let mut adapter = self
+            .adapter
+            .write()
+            .map_err(|e| AdapterError::InputOutputError(e.to_string()))?;
 
         adapter.store_record(party_id, verification_key)
     }
@@ -37,7 +40,9 @@ impl SignerVerificationKeyStore {
         party_id: ProtocolPartyId,
     ) -> Result<Option<ProtocolSignerVerificationKey>, AdapterError> {
         let adapter = self.adapter.read().unwrap();
-        let record = adapter.get_record(&party_id)?;
+        let record = adapter
+            .get_record(&party_id)
+            .map_err(|e| AdapterError::InputOutputError(e.to_string()))?;
 
         match record {
             Some(vk) => Ok(Some(vk.clone())),
@@ -58,38 +63,40 @@ mod tests {
         (party_id, signer)
     }
 
-    #[test]
-    fn test_fetch_verification_key() {
+    fn instanciate_populated_store() -> (
+        ProtocolPartyId,
+        ProtocolSignerVerificationKey,
+        SignerVerificationKeyStore,
+    ) {
         let (party_id, signer_key) = generate_mithril_artefacts();
-        let store = SignerVerificationKeyStore::new(Box::new(DumbAdapter::new(
+        let store = SignerVerificationKeyStore::new(Box::new(RwLock::new(DumbAdapter::new(
             party_id,
             Box::new(signer_key.clone()),
-        )));
+        ))));
+
+        (party_id, signer_key, store)
+    }
+
+    #[test]
+    fn test_fetch_verification_key() {
+        let (party_id, signer_key, store) = instanciate_populated_store();
 
         assert_eq!(signer_key, store.fetch(party_id).unwrap().unwrap());
     }
 
     #[test]
     fn test_fetch_using_non_existent_key() {
-        let (party_id, signer_key) = generate_mithril_artefacts();
-        let store = SignerVerificationKeyStore::new(Box::new(DumbAdapter::new(
-            party_id,
-            Box::new(signer_key.clone()),
-        )));
+        let (party_id, _signer_key, store) = instanciate_populated_store();
 
         assert!(store.fetch(party_id + 1).unwrap().is_none());
     }
 
     #[test]
     fn test_save_verification_key() {
-        let (party_id, signer_key) = generate_mithril_artefacts();
-        let store = SignerVerificationKeyStore::new(Box::new(DumbAdapter::new(
-            party_id + 1,
-            Box::new(signer_key.clone()),
-        )));
+        let (party_id, signer_key, store) = instanciate_populated_store();
 
-        assert!(store.fetch(party_id).unwrap().is_none());
-        assert!(store.save(party_id, signer_key).is_ok());
-        assert!(store.fetch(party_id).unwrap().is_some());
+        assert!(store.fetch(party_id + 1).unwrap().is_none());
+        assert!(store.save(party_id + 1, signer_key).is_ok());
+        assert!(store.fetch(party_id + 1).unwrap().is_some());
     }
 }
