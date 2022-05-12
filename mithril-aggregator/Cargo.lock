@@ -1632,6 +1632,7 @@ dependencies = [
  "slog-bunyan",
  "slog-scope",
  "slog-term",
+ "thiserror",
  "tokio",
  "tokio-util 0.7.1",
  "warp",
