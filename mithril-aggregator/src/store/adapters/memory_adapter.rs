@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use std::{collections::HashMap, hash::Hash};
 
 use super::{Adapter, AdapterError};
