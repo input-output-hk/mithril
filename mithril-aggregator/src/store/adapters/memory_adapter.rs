@@ -37,7 +37,9 @@ where
     }
 
     fn store_record(&mut self, key: Self::Key, record: Self::Record) -> Result<(), AdapterError> {
-        todo!()
+        let _old_value = self.data.insert(key, record);
+
+        Ok(())
     }
 }
 
