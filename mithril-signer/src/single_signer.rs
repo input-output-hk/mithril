@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use mithril_common::crypto_helper::{
     key_decode_hex, key_encode_hex, Bytes, ProtocolInitializer, ProtocolKeyRegistration,
-    ProtocolParameters, ProtocolPartyId, ProtocolSigner, ProtocolSignerSecretKey, ProtocolStake,
+    ProtocolPartyId, ProtocolSigner, ProtocolSignerSecretKey, ProtocolStake,
 };
 use mithril_common::entities::{self, SignerWithStake, SingleSignature};
 
@@ -49,18 +49,13 @@ impl MithrilSingleSigner {
     pub fn create_protocol_signer(
         &self,
         current_player_stake: ProtocolStake,
-        stake_distribution: &[SignerWithStake], // @todo : use a hmap to prevent party id duplication
+        stake_distribution: &[SignerWithStake], // TODO : use a hmap to prevent party id duplication
         protocol_parameters: &entities::ProtocolParameters,
     ) -> Result<ProtocolSigner, String> {
         let players = stake_distribution
             .iter()
             .map(|s| (s.party_id as ProtocolPartyId, s.stake as ProtocolStake))
             .collect::<Vec<_>>();
-        let protocol_parameters = ProtocolParameters {
-            k: protocol_parameters.k,
-            m: protocol_parameters.m,
-            phi_f: protocol_parameters.phi_f as f64,
-        };
 
         let mut key_reg = ProtocolKeyRegistration::init(&players);
         for s in stake_distribution {
@@ -73,7 +68,7 @@ impl MithrilSingleSigner {
 
         let mut rng = rand_core::OsRng;
         let mut initializer = ProtocolInitializer::setup(
-            protocol_parameters,
+            protocol_parameters.to_owned().into(),
             self.party_id as ProtocolPartyId,
             current_player_stake,
             &mut rng,

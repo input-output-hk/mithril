@@ -3,7 +3,7 @@ use thiserror::Error;
 
 use mithril_common::crypto_helper::{
     key_decode_hex, Bytes, ProtocolClerk, ProtocolKeyRegistration, ProtocolMultiSignature,
-    ProtocolParameters, ProtocolPartyId, ProtocolStake, ProtocolStakeDistribution,
+    ProtocolPartyId, ProtocolStake, ProtocolStakeDistribution,
 };
 
 use crate::entities;
@@ -46,11 +46,6 @@ impl VerifierImpl {
         signers_with_stakes: &[entities::SignerWithStake],
         protocol_parameters: &entities::ProtocolParameters,
     ) -> Result<ProtocolClerk, String> {
-        let protocol_parameters = ProtocolParameters {
-            k: protocol_parameters.k,
-            m: protocol_parameters.m,
-            phi_f: protocol_parameters.phi_f as f64,
-        };
         let stakes = signers_with_stakes
             .iter()
             .map(|signer| {
@@ -70,7 +65,7 @@ impl VerifierImpl {
         });
         let closed_registration = key_registration.close();
         Ok(ProtocolClerk::from_registration(
-            protocol_parameters,
+            protocol_parameters.to_owned().into(),
             closed_registration,
         ))
     }
@@ -130,11 +125,7 @@ mod tests {
         let multi_signature = clerk.aggregate(&single_signatures, &message).unwrap();
 
         let verifier = VerifierImpl::new();
-        let protocol_parameters = entities::ProtocolParameters {
-            k: protocol_parameters.k,
-            m: protocol_parameters.m,
-            phi_f: protocol_parameters.phi_f as f32,
-        };
+        let protocol_parameters = protocol_parameters.into();
         let signers_with_stakes = signers
             .iter()
             .map(|(party_id, stake, verification_key, _)| {
