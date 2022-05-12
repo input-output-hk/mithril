@@ -3,9 +3,8 @@
 use clap::Parser;
 
 use mithril_aggregator::{
-    key_decode_hex, AggregatorRuntime, Config, DependencyManager, MemoryBeaconStore, MultiSigner,
-    MultiSignerImpl, ProtocolPartyId, ProtocolSignerVerificationKey, ProtocolStake, Server,
-    SnapshotStoreHTTPClient,
+    AggregatorRuntime, Config, DependencyManager, MemoryBeaconStore, MultiSigner, MultiSignerImpl,
+    ProtocolPartyId, ProtocolStake, Server, SnapshotStoreHTTPClient,
 };
 use mithril_common::fake_data;
 use slog::{Drain, Level, Logger};
@@ -150,16 +149,6 @@ fn init_multi_signer() -> impl MultiSigner {
     multi_signer
         .update_stake_distribution(&stakes)
         .expect("stake distribution update failed");
-
-    // Register signers
-    fake_data::signers(total_signers).iter().for_each(|signer| {
-        multi_signer
-            .register_signer(
-                signer.party_id as ProtocolPartyId,
-                &key_decode_hex::<ProtocolSignerVerificationKey>(&signer.verification_key).unwrap(),
-            )
-            .expect("register signer failed");
-    });
 
     multi_signer
 }
