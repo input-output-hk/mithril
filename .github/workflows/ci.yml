@@ -72,6 +72,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: libmithril
+          if-no-files-found: error
           path: |
             mithril-core/target/release/libmithril.so
             mithril-core/target/include/mithril.h
@@ -80,6 +81,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: libmithril-doc
+          if-no-files-found: error
           path: |
             mithril-core/target/doc/
 
@@ -237,7 +239,7 @@ jobs:
         run: |
           set -o pipefail && cargo test --release -- -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-${{ matrix.project }}.xml)
 
-      - name: ${{ matrix.project }} / Generate doc
+      - name: Generate ${{ matrix.project }} doc
         uses: actions-rs/cargo@v1
         with:
           command: doc
@@ -247,12 +249,16 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.project }}
-          path: ${{ matrix.project }}/target/release/${{ matrix.project }}
+          path: |
+            ${{ matrix.project }}/target/release/${{ matrix.project }}
+            ${{ matrix.project }}/target/release/lib*.so
+          if-no-files-found: error
 
       - name: Publish ${{ matrix.project }}-doc
         uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.project }}-doc
+          if-no-files-found: error
           path: |
             ${{ matrix.project }}/target/doc/
 
