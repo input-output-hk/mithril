@@ -67,10 +67,11 @@ mod router {
 
     /// GET /certificate-pending
     pub fn certificate_pending(
-        _dependency_manager: Arc<DependencyManager>,
+        dependency_manager: Arc<DependencyManager>,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("certificate-pending")
             .and(warp::get())
+            .and(with_multi_signer(dependency_manager))
             .and_then(handlers::certificate_pending)
     }
 
@@ -145,13 +146,39 @@ mod handlers {
     use super::*;
 
     /// Certificate Pending
-    pub async fn certificate_pending() -> Result<impl warp::Reply, Infallible> {
+    pub async fn certificate_pending(
+        multi_signer: MultiSignerWrapper,
+    ) -> Result<impl warp::Reply, Infallible> {
         debug!("certificate_pending");
 
-        // Certificate pending
-        let certificate_pending = fake_data::certificate_pending();
+        let certificate_pending_fake = fake_data::certificate_pending();
+        let multi_signer = multi_signer.read().await;
 
-        Ok(warp::reply::json(&certificate_pending))
+        let beacon = certificate_pending_fake.beacon;
+
+        let protocol_parameters = multi_signer.get_protocol_parameters();
+        if protocol_parameters.is_none() {
+            return Ok(warp::reply::with_status(
+                warp::reply::json(&entities::Error::new(
+                    "MITHRIL-E0004".to_string(),
+                    "no protocol parameters available".to_string(),
+                )),
+                StatusCode::INTERNAL_SERVER_ERROR,
+            ));
+        }
+        let protocol_parameters = protocol_parameters.unwrap().into();
+
+        let previous_hash = certificate_pending_fake.previous_hash;
+
+        let signers = certificate_pending_fake.signers;
+
+        let certificate_pending =
+            entities::CertificatePending::new(beacon, protocol_parameters, previous_hash, signers);
+
+        Ok(warp::reply::with_status(
+            warp::reply::json(&certificate_pending),
+            StatusCode::OK,
+        ))
     }
 
     /// Certificate by certificate hash
@@ -388,7 +415,41 @@ mod tests {
 
     #[tokio::test]
     async fn test_certificate_pending_get_ok() {
-        let dependency_manager = setup_dependency_manager();
+        let fake_protocol_parameters = fake_data::protocol_parameters();
+        let mut mock_multi_signer = MockMultiSigner::new();
+        mock_multi_signer
+            .expect_get_protocol_parameters()
+            .return_once(|| Some(fake_protocol_parameters.into()));
+        let mut dependency_manager = setup_dependency_manager();
+        dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
+
+        let method = Method::GET.as_str();
+        let path = "/certificate-pending";
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
+            .reply(&router::routes(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::from_file(API_SPEC_FILE)
+            .method(method)
+            .path(path)
+            .validate_request(&Null)
+            .unwrap()
+            .validate_response(&response)
+            .expect("OpenAPI error");
+    }
+
+    #[tokio::test]
+    async fn test_certificate_pending_get_ko_protocol_parameters_500() {
+        let mut mock_multi_signer = MockMultiSigner::new();
+        mock_multi_signer
+            .expect_get_protocol_parameters()
+            .return_once(|| None);
+        let mut dependency_manager = setup_dependency_manager();
+        dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
+
         let method = Method::GET.as_str();
         let path = "/certificate-pending";
 
