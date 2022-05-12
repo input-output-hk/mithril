@@ -170,7 +170,17 @@ mod handlers {
 
         let previous_hash = certificate_pending_fake.previous_hash;
 
-        let signers = certificate_pending_fake.signers;
+        let signers = multi_signer.get_signers();
+        if let Err(err) = signers {
+            return Ok(warp::reply::with_status(
+                warp::reply::json(&entities::Error::new(
+                    "MITHRIL-E0007".to_string(),
+                    err.to_string(),
+                )),
+                StatusCode::INTERNAL_SERVER_ERROR,
+            ));
+        }
+        let signers = signers.unwrap();
 
         let certificate_pending =
             entities::CertificatePending::new(beacon, protocol_parameters, previous_hash, signers);
@@ -208,7 +218,7 @@ mod handlers {
                     .get_stake_distribution()
                     .iter()
                     .map(|(party_id, stake)| {
-                        let verification_key = match multi_signer.get_signer(*party_id) {
+                        let verification_key = match multi_signer.get_signer(*party_id).unwrap() {
                             Some(verification_key) => {
                                 multi_signer::key_encode_hex(verification_key).unwrap()
                             }
@@ -416,10 +426,14 @@ mod tests {
     #[tokio::test]
     async fn test_certificate_pending_get_ok() {
         let fake_protocol_parameters = fake_data::protocol_parameters();
+        let fake_signers_with_stakes = fake_data::signers_with_stakes(5);
         let mut mock_multi_signer = MockMultiSigner::new();
         mock_multi_signer
             .expect_get_protocol_parameters()
             .return_once(|| Some(fake_protocol_parameters.into()));
+        mock_multi_signer
+            .expect_get_signers()
+            .return_once(|| Ok(fake_signers_with_stakes));
         let mut dependency_manager = setup_dependency_manager();
         dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
 
@@ -447,6 +461,37 @@ mod tests {
         mock_multi_signer
             .expect_get_protocol_parameters()
             .return_once(|| None);
+        let mut dependency_manager = setup_dependency_manager();
+        dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
+
+        let method = Method::GET.as_str();
+        let path = "/certificate-pending";
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
+            .reply(&router::routes(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::from_file(API_SPEC_FILE)
+            .method(method)
+            .path(path)
+            .validate_request(&Null)
+            .unwrap()
+            .validate_response(&response)
+            .expect("OpenAPI error");
+    }
+
+    #[tokio::test]
+    async fn test_certificate_pending_get_ko_signers_500() {
+        let fake_protocol_parameters = fake_data::protocol_parameters();
+        let mut mock_multi_signer = MockMultiSigner::new();
+        mock_multi_signer
+            .expect_get_protocol_parameters()
+            .return_once(|| Some(fake_protocol_parameters.into()));
+        mock_multi_signer
+            .expect_get_signers()
+            .return_once(|| Err(ProtocolError::Codec("an error occurred".to_string())));
         let mut dependency_manager = setup_dependency_manager();
         dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
 
