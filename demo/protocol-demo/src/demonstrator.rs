@@ -11,7 +11,8 @@ use std::path;
 use mithril_common::crypto_helper::{
     key_decode_hex, key_encode_hex, Bytes, ProtocolClerk, ProtocolInitializer,
     ProtocolKeyRegistration, ProtocolMultiSignature, ProtocolParameters, ProtocolPartyId,
-    ProtocolSigner, ProtocolSignerVerificationKey, ProtocolSingleSignature, ProtocolStake,
+    ProtocolSigner, ProtocolSignerSecretKey, ProtocolSignerVerificationKey,
+    ProtocolSingleSignature, ProtocolStake,
 };
 
 /// Player artifacts
