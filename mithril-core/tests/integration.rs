@@ -1,5 +1,5 @@
 use mithril::key_reg::KeyReg;
-use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner, StmVerifier};
+use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner};
 use rayon::prelude::*;
 
 use mithril::error::AggregationFailure;
@@ -85,16 +85,10 @@ fn test_full_protocol() {
     // Aggregate with random parties
     let msig = clerk.aggregate(&sigs, &msg);
 
-    // Verify aggregated signature with a fresh verifier
-    let verifier = StmVerifier::new(
-        closed_reg.merkle_tree.to_commitment(),
-        params,
-        closed_reg.total_stake,
-    );
     match msig {
         Ok(aggr) => {
             println!("Aggregate ok");
-            assert!(verifier.verify_msig(&msg, &aggr).is_ok());
+            assert!(aggr.verify(&msg, &clerk.compute_avk(), &params).is_ok());
         }
         Err(AggregationFailure::NotEnoughSignatures(n, k)) => {
             println!("Not enough signatures");

@@ -107,8 +107,8 @@
 //! match msig {
 //!     Ok(aggr) => {
 //!         println!("Aggregate ok");
-//!         assert!(clerk
-//!             .verify_msig(&aggr, &msg)
+//!         assert!(aggr
+//!             .verify(&msg, &clerk.compute_avk(), &params)
 //!             .is_ok());
 //!     }
 //!     Err(AggregationFailure::NotEnoughSignatures(n, k)) => {
@@ -121,6 +121,7 @@
 //! # }
 //! ```
 
+use crate::dense_mapping::ev_lt_phi;
 use crate::error::{
     AggregationFailure, MithrilWitnessError, MultiSignatureError, RegisterError,
     VerificationFailure,
@@ -133,13 +134,6 @@ use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::convert::{From, TryFrom, TryInto};
-#[cfg(feature = "num-integer-backend")]
-use {
-    num_bigint::{BigInt, Sign},
-    num_rational::Ratio,
-    num_traits::{One, Signed},
-    std::ops::Neg,
-};
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
@@ -682,10 +676,8 @@ where
     ///     // Parameter. This information is broadcast (or known) to all
     ///     // participants.
     /// let params = StmParameters {
-    ///         // Let's try with three signatures
     ///         k: 3,
     ///         m: 10,
-    ///         // `phi_f` = 1, so that it always passes, for the purpose of the example
     ///         phi_f: 1.0,
     ///     };
     ///
@@ -720,8 +712,7 @@ where
     ///         party_1_init_e1.verification_key(),
     ///     ];
     ///
-    ///     // Now, each party generates their own KeyReg instance, and registers all other
-    ///     // participating parties. Once all parties are registered, the key registration
+    ///     // Now, each party registers all other participating parties. Once all parties are registered, the key registration
     ///     // is closed.
     ///     let party_0_key_reg_e1 = local_reg(&parties_e1, &parties_pks);
     ///     let party_1_key_reg_e1 = local_reg(&parties_e1, &parties_pks);
@@ -732,11 +723,6 @@ where
     ///     // is not used to initialise a signer at a different epoch.
     ///     let party_0 = party_0_init_e1.new_signer(party_0_key_reg_e1);
     ///     let party_1 = party_1_init_e1.new_signer(party_1_key_reg_e1);
-    ///
-    ///     //////////////////////////////////////
-    ///     ///////// OPERATION PHASE ////////////
-    ///     ///////// Signing happens ////////////
-    ///     //////////////////////////////////////
     ///
     ///     ////////////////////////////////
     ///     //////// EPOCH 2 ///////////////
@@ -758,13 +744,7 @@ where
     ///         .collect::<Vec<_>>();
     ///
     ///     // Now the `StmSigner`s are outdated with respect to the new stake, and participants.
-    ///     // A way would be to create a fresh `StmInitializer` using the new stake, and then change
-    ///     // the keypair so that it corresponds to the keypair generated in Epoch 1. However,
-    ///     // we can simplify this by allowing a transition from `StmSigner` back to `StmInitializer`.
-    ///     // To decrease the chances of misusing this transition, the function consumes
-    ///     // the instance of `StmSigner`.
-    ///     //
-    ///     // It would work as follows:
+    ///     // We allow a transition from `StmSigner` back to `StmInitializer`:
     ///     let party_0_init_e2 = party_0.new_epoch(Some(parties_e2[0].1));
     ///     let party_1_init_e2 = party_1.new_epoch(Some(parties_e2[1].1));
     ///
@@ -856,24 +836,6 @@ where
         })
     }
 
-    /// Verify an aggregation of signatures.
-    ///
-    /// The `From` bound on `Proof::Statement` allows `aggregate` to translate
-    /// from the `Mithril` specific statement and witness types to their proof system-specific
-    /// representations.
-    pub fn verify_msig(
-        &self,
-        msig: &StmAggrSig<D>,
-        msg: &[u8],
-    ) -> Result<(), MithrilWitnessError<D>> {
-        StmVerifier::new(
-            self.closed_reg.merkle_tree.to_commitment(),
-            self.params,
-            self.closed_reg.total_stake,
-        )
-        .verify_msig(msg, msig)
-    }
-
     /// Given a slice of `indices` and one of `sigs`, this functions selects a single valid signature
     /// per index. In case of conflict (having several signatures for the same index) it selects the
     /// smallest signature (i.e. takes the signature with the smallest scalar). The function only
@@ -915,149 +877,6 @@ where
     }
 }
 
-#[cfg(feature = "num-integer-backend")]
-/// Checks that ev is successful in the lottery. In particular, it compares the output of `phi`
-/// (a real) to the output of `ev` (a hash).  It uses the same technique used in the
-/// [Cardano ledger](https://github.com/input-output-hk/cardano-ledger/). In particular,
-/// `ev` is a natural in `[0,2^512]`, while `phi` is a floating point in `[0, 1]`, and so what
-/// this check does is verify whether `p < 1 - (1 - phi_f)^w`, with `p = ev / 2^512`.
-///
-/// The calculation is done using the following optimization:
-///
-/// let `q = 1 / (1 - p)` and `c = ln(1 - phi_f)`
-///
-/// then          `p < 1 - (1 - phi_f)^w`
-/// `<=> 1 / (1 - p) < exp(-w * c)`
-/// `<=> q           < exp(-w * c)`
-///
-/// This can be computed using the taylor expansion. Using error estimation, we can do
-/// an early stop, once we know that the result is either above or below.  We iterate 1000
-/// times. If no conclusive result has been reached, we return false.
-///
-/// Note that         1             1               evMax
-///             q = ----- = ------------------ = -------------
-///                 1 - p    1 - (ev / evMax)    (evMax - ev)
-///
-/// Used to determine winning lottery tickets.
-pub fn ev_lt_phi(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> bool {
-    // If phi_f = 1, then we automatically break with true
-    if (phi_f - 1.0).abs() < f64::EPSILON {
-        return true;
-    }
-
-    let ev_max = BigInt::from(2u8).pow(512);
-    let ev = BigInt::from_bytes_le(Sign::Plus, &ev);
-    let q = Ratio::new_raw(ev_max.clone(), ev_max - ev);
-
-    let c =
-        Ratio::from_float((1.0 - phi_f).ln()).expect("Only fails if the float is infinite or NaN.");
-    let w = Ratio::new_raw(BigInt::from(stake), BigInt::from(total_stake));
-    let x = (w * c).neg();
-    // Now we compute a taylor function that breaks when the result is known.
-    taylor_comparison(1000, q, x)
-}
-
-#[cfg(feature = "num-integer-backend")]
-/// Checks if cmp < exp(x). Uses error approximation for an early stop. Whenever the value being
-/// compared, `cmp`, is smaller (or greater) than the current approximation minus an `error_term`
-/// (plus an `error_term` respectively), then we stop approximating. The choice of the `error_term`
-/// is specific to our use case, and this function should not be used in other contexts without
-/// reconsidering the `error_term`. As a conservative value of the `error_term` we choose
-/// `new_x * M`, where `new_x` is the next term of the taylor expansion, and `M` is the largest
-/// value of `x` in a reasonable range. Note that `x >= 0`, given that `x = - w * c`, with
-/// `0 <= w <= 1` and `c < 0`, as `c` is defined as `c = ln(1.0 - phi_f)` with `phi_f \in (0,1)`.
-/// Therefore, a good integral bound is the maximum value that `|ln(1.0 - phi_f)|` can take with
-/// `phi_f \in [0, 0.95]` (if we expect to have `phi_f > 0.95` this bound should be extended),
-/// which is `3`. Hence, we set `M = 3`.
-fn taylor_comparison(bound: usize, cmp: Ratio<BigInt>, x: Ratio<BigInt>) -> bool {
-    let mut new_x = x.clone();
-    let mut phi: Ratio<BigInt> = One::one();
-    let mut divisor: BigInt = One::one();
-    for _ in 0..bound {
-        phi += new_x.clone();
-
-        divisor += 1;
-        new_x = (new_x.clone() * x.clone()) / divisor.clone();
-        let error_term = new_x.clone().abs() * BigInt::from(3); // new_x * M
-
-        if cmp > (phi.clone() + error_term.clone()) {
-            return false;
-        } else if cmp < phi.clone() - error_term.clone() {
-            return true;
-        }
-    }
-    false
-}
-
-#[cfg(not(feature = "num-integer-backend"))]
-/// The crate `rug` has sufficient optimizations to not require a taylor approximation with early
-/// stop. The difference between the current implementation and the one using the optimization
-/// above is around 10% faster. We perform the computations with 117 significant bits of
-/// precision, since this is enough to represent the fraction of a single lovelace. We have that
-/// 1e6 lovelace equals 1 ada, and there is 45 billion ada in circulation. Meaning there are
-/// 4.5e16 lovelace, so 1e-17 is sufficient to represent fractions of the stake distribution. In
-/// order to keep the error in the 1e-17 range, we need to carry out the computations with 34
-/// decimal digits (in order to represent the 4.5e16 ada without any rounding errors, we need
-/// double that precision).
-pub fn ev_lt_phi(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> bool {
-    use rug::{integer::Order, ops::Pow, Float};
-
-    // If phi_f = 1, then we automatically break with true
-    if (phi_f - 1.0).abs() < f64::EPSILON {
-        return true;
-    }
-    let ev = rug::Integer::from_digits(&ev, Order::LsfLe);
-    let ev_max: Float = Float::with_val(117, 2).pow(512);
-    let q = ev / ev_max;
-
-    let w = Float::with_val(117, stake) / Float::with_val(117, total_stake);
-    let phi = Float::with_val(117, 1.0) - Float::with_val(117, 1.0 - phi_f).pow(w);
-
-    q < phi
-}
-
-/// `StmVerifier` can verify `StmSig`s. `StmVerifiers` require les sinformation than
-/// `StmClerks` or `StmSigner`s, as they do not require knowledge of the whole Merkle
-/// Tree, but only the commitment.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StmVerifier<D>
-where
-    D: Clone + Digest + FixedOutput,
-{
-    avk: StmAggrVerificationKey<D>,
-    params: StmParameters,
-}
-
-impl<D> StmVerifier<D>
-where
-    D: Clone + Digest + FixedOutput,
-{
-    /// Generate a new StmVerifier. When creating a verifier from scratch, the top level application should validate
-    /// that the avk_commitment, params, and total_stake are correct wrt some trusted state.
-    pub fn new(
-        mt_commitment: MerkleTreeCommitment<D>,
-        params: StmParameters,
-        total_stake: Stake,
-    ) -> Self {
-        let avk = StmAggrVerificationKey {
-            mt_commitment,
-            total_stake,
-        };
-        Self { avk, params }
-    }
-
-    /// Verify an aggregated signature
-    pub fn verify_msig(
-        &self,
-        msg: &[u8],
-        sig: &StmAggrSig<D>,
-    ) -> Result<(), MithrilWitnessError<D>> {
-        sig.verify(msg, &self.avk, &self.params)?;
-
-        Ok(())
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1070,8 +889,6 @@ mod tests {
     use rayon::prelude::*;
     use std::collections::{HashMap, HashSet};
 
-    use num_bigint::{BigInt, Sign};
-    use num_rational::Ratio;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
@@ -1246,8 +1063,8 @@ mod tests {
         #![proptest_config(ProptestConfig::with_cases(50))]
 
         #[test]
-        /// Test that when a quorum is found, the aggregate signature can be verified by an `StmClerk` or by
-        /// an `StmVerifier`.
+        /// Test that when a quorum is found, the aggregate signature can be verified by anyone with
+        /// access to the avk and the parameters.
         fn test_aggregate_sig(nparties in 2_usize..30,
                               m in 10_u64..20,
                               k in 1_u64..5,
@@ -1258,14 +1075,11 @@ mod tests {
 
             let all_ps: Vec<usize> = (0..nparties).collect();
             let sigs = find_signatures(m, &msg, &ps, &all_ps);
-
             let msig = clerk.aggregate(&sigs, &msg);
-            let verifier = StmVerifier::new(clerk.closed_reg.merkle_tree.to_commitment(), params, clerk.closed_reg.total_stake);
 
             match msig {
                 Ok(aggr) => {
-                    clerk.verify_msig(&aggr, &msg).unwrap();
-                    assert!(verifier.verify_msig(&msg, &aggr).is_ok());
+                    assert!(aggr.verify(&msg, &clerk.compute_avk(), &params).is_ok());
                 }
                 Err(AggregationFailure::NotEnoughSignatures(n, k)) =>
                     assert!(n < params.k || k == params.k),
@@ -1323,11 +1137,11 @@ mod tests {
             if let Ok(aggr) = msig {
                     let bytes: Vec<u8> = aggr.to_bytes();
                     let aggr2 = StmAggrSig::from_bytes(&bytes).unwrap();
-                    assert!(clerk.verify_msig(&aggr2, &msg).is_ok());
+                    assert!(aggr2.verify(&msg, &clerk.compute_avk(), &params).is_ok());
 
                     let encoded = bincode::serialize(&aggr).unwrap();
                     let decoded: StmAggrSig::<D> = bincode::deserialize(&encoded).unwrap();
-                    assert!(clerk.verify_msig(&decoded, &msg).is_ok());
+                    assert!(decoded.verify(&msg, &clerk.compute_avk(), &params).is_ok());
             }
         }
     }
@@ -1433,7 +1247,9 @@ mod tests {
         match tc.msig {
             Ok(mut aggr) => {
                 f(&mut aggr, &mut tc.clerk, &mut tc.msg);
-                assert!(tc.clerk.verify_msig(&aggr, &tc.msg).is_err())
+                assert!(aggr
+                    .verify(&tc.msg, &tc.clerk.compute_avk(), &tc.clerk.params)
+                    .is_err())
             }
             Err(e) => unreachable!("Reached an unexpected error: {:?}", e),
         }
@@ -1470,51 +1286,6 @@ mod tests {
                 let pi = i % clerk.params.k as usize;
                 aggr.signatures[pi].path.index = (aggr.signatures[pi].path.index + 1) % n;
             })
-        }
-    }
-
-    // Implementation of `ev_lt_phi` without approximation. We only get the precision of f64 here.
-    fn simple_ev_lt_phi(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> bool {
-        let ev_max = BigInt::from(2u8).pow(512);
-        let ev = BigInt::from_bytes_le(Sign::Plus, &ev);
-        let q = Ratio::new_raw(ev, ev_max);
-
-        let w = stake as f64 / total_stake as f64;
-        let phi = Ratio::from_float(1.0 - (1.0 - phi_f).powf(w)).unwrap();
-        q < phi
-    }
-
-    proptest! {
-        #![proptest_config(ProptestConfig::with_cases(50))]
-
-        #[test]
-        /// Checking the ev_lt_phi function.
-        fn test_precision_approximation(
-            phi_f in 0.01..0.5f64,
-            ev_1 in any::<[u8; 32]>(),
-            ev_2 in any::<[u8; 32]>(),
-            total_stake in 100_000_000..1_000_000_000u64,
-            stake in 1_000_000..50_000_000u64
-        ) {
-            let mut ev = [0u8; 64];
-            ev.copy_from_slice(&[&ev_1[..], &ev_2[..]].concat());
-
-            let quick_result = simple_ev_lt_phi(phi_f, ev, stake, total_stake);
-            let result = ev_lt_phi(phi_f, ev, stake, total_stake);
-            assert_eq!(quick_result, result);
-        }
-
-        #[cfg(feature = "num-integer-backend")]
-        #[test]
-        /// Checking the early break of Taylor compuation
-        fn early_break_taylor(
-            x in -0.9..0.9f64,
-        ) {
-            let exponential = num_traits::float::Float::exp(x);
-            let cmp_n = Ratio::from_float(exponential - 2e-10_f64).unwrap();
-            let cmp_p = Ratio::from_float(exponential + 2e-10_f64).unwrap();
-            assert!(taylor_comparison(1000, cmp_n, Ratio::from_float(x).unwrap()));
-            assert!(!taylor_comparison(1000, cmp_p, Ratio::from_float(x).unwrap()));
         }
     }
 }

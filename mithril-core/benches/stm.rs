@@ -178,7 +178,7 @@ where
     let clerk = StmClerk::from_signer(&party_dummy);
     let msig = clerk.aggregate(&sigs, &msg).unwrap();
     group.bench_function("Verification", |b| {
-        b.iter(|| clerk.verify_msig(&msig, &msg).is_ok())
+        b.iter(|| msig.verify(&msg, &clerk.compute_avk(), &params).is_ok())
     });
 }
 

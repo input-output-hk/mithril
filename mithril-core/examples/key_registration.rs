@@ -5,7 +5,6 @@
 use mithril::key_reg::{ClosedKeyReg, KeyReg};
 use mithril::stm::{
     Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner, StmVerificationKeyPoP,
-    StmVerifier,
 };
 
 use rand_chacha::ChaCha20Rng;
@@ -111,12 +110,7 @@ fn main() {
     ];
 
     let closed_registration = local_reg(&parties, &parties_pks);
-    let clerk = StmClerk::from_registration(params, closed_registration.clone());
-    let verifier = StmVerifier::new(
-        closed_registration.merkle_tree.to_commitment(),
-        params,
-        closed_registration.total_stake,
-    );
+    let clerk = StmClerk::from_registration(params, closed_registration);
 
     // Now we aggregate the signatures
     let msig_1 = match clerk.aggregate(&complete_sigs_1, &msg) {
@@ -125,7 +119,7 @@ fn main() {
             panic!("Aggregation failed: {:?}", e)
         }
     };
-    assert!(verifier.verify_msig(&msg, &msig_1).is_ok());
+    assert!(msig_1.verify(&msg, &clerk.compute_avk(), &params).is_ok());
 
     let msig_2 = match clerk.aggregate(&complete_sigs_2, &msg) {
         Ok(s) => s,
@@ -133,7 +127,7 @@ fn main() {
             panic!("Aggregation failed: {:?}", e)
         }
     };
-    assert!(verifier.verify_msig(&msg, &msig_2).is_ok());
+    assert!(msig_2.verify(&msg, &clerk.compute_avk(), &params).is_ok());
 
     let msig_3 = clerk.aggregate(&incomplete_sigs_3, &msg);
     assert!(msig_3.is_err());
