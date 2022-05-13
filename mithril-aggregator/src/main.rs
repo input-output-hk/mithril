@@ -3,9 +3,9 @@
 use clap::Parser;
 
 use mithril_aggregator::{
-    key_decode_hex, AggregatorRuntime, Config, DependencyManager, MultiSigner, MultiSignerImpl,
-    ProtocolParameters, ProtocolPartyId, ProtocolSignerVerificationKey, ProtocolStake, Server,
-    SnapshotStoreHTTPClient,
+    key_decode_hex, AggregatorRuntime, Config, DependencyManager, MemoryBeaconStore, MultiSigner,
+    MultiSignerImpl, ProtocolParameters, ProtocolPartyId, ProtocolSignerVerificationKey,
+    ProtocolStake, Server, SnapshotStoreHTTPClient,
 };
 use mithril_common::fake_data;
 use slog::{Drain, Level, Logger};
@@ -88,18 +88,23 @@ async fn main() {
     )));
 
     let multi_signer = Arc::new(RwLock::new(init_multi_signer()));
+    let beacon_store = Arc::new(RwLock::new(MemoryBeaconStore::default()));
 
-    // Init dependecy manager
+    // Init dependency manager
     let mut dependency_manager = DependencyManager::new(config);
     dependency_manager
         .with_snapshot_storer(snapshot_storer.clone())
-        .with_multi_signer(multi_signer.clone());
+        .with_multi_signer(multi_signer.clone())
+        .with_beacon_store(beacon_store.clone());
     let dependency_manager = Arc::new(dependency_manager);
 
     // Start snapshot uploader
     let handle = tokio::spawn(async move {
-        let runtime =
-            AggregatorRuntime::new(args.snapshot_interval * 1000, args.db_directory.clone());
+        let runtime = AggregatorRuntime::new(
+            args.snapshot_interval * 1000,
+            args.db_directory.clone(),
+            beacon_store.clone(),
+        );
         runtime.run().await
     });
 

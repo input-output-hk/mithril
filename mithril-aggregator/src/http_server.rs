@@ -10,7 +10,9 @@ use std::sync::Arc;
 use warp::Future;
 use warp::{http::Method, http::StatusCode, Filter};
 
-use super::dependency::{DependencyManager, MultiSignerWrapper, SnapshotStorerWrapper};
+use super::dependency::{
+    BeaconStoreWrapper, DependencyManager, MultiSignerWrapper, SnapshotStorerWrapper,
+};
 use super::multi_signer;
 
 const SERVER_BASE_PATH: &str = "aggregator";
@@ -67,10 +69,11 @@ mod router {
 
     /// GET /certificate-pending
     pub fn certificate_pending(
-        _dependency_manager: Arc<DependencyManager>,
+        dependency_manager: Arc<DependencyManager>,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("certificate-pending")
             .and(warp::get())
+            .and(with_beacon_store(dependency_manager))
             .and_then(handlers::certificate_pending)
     }
 
@@ -138,19 +141,44 @@ mod router {
     ) -> impl Filter<Extract = (MultiSignerWrapper,), Error = Infallible> + Clone {
         warp::any().map(move || dependency_manager.multi_signer.as_ref().unwrap().clone())
     }
+
+    /// With beacon store middleware
+    fn with_beacon_store(
+        dependency_manager: Arc<DependencyManager>,
+    ) -> impl Filter<Extract = (BeaconStoreWrapper,), Error = Infallible> + Clone {
+        warp::any().map(move || dependency_manager.beacon_store.as_ref().unwrap().clone())
+    }
 }
 
 mod handlers {
     use super::*;
 
     /// Certificate Pending
-    pub async fn certificate_pending() -> Result<impl warp::Reply, Infallible> {
+    pub async fn certificate_pending(
+        beacon_store: BeaconStoreWrapper,
+    ) -> Result<impl warp::Reply, Infallible> {
         debug!("certificate_pending");
 
-        // Certificate pending
-        let certificate_pending = fake_data::certificate_pending();
+        let beacon_store = beacon_store.read().await;
+        match beacon_store.get_current_beacon().await {
+            Ok(Some(beacon)) => {
+                let mut certificate_pending = fake_data::certificate_pending();
+                certificate_pending.beacon = beacon;
 
-        Ok(warp::reply::json(&certificate_pending))
+                Ok(warp::reply::with_status(
+                    warp::reply::json(&certificate_pending),
+                    StatusCode::OK,
+                ))
+            }
+            Ok(None) => Ok(warp::reply::with_status(
+                warp::reply::json(&Null),
+                StatusCode::NO_CONTENT,
+            )),
+            Err(err) => Ok(warp::reply::with_status(
+                warp::reply::json(&entities::Error::new("MITHRIL-E0006".to_string(), err)),
+                StatusCode::INTERNAL_SERVER_ERROR,
+            )),
+        }
     }
 
     /// Certificate by certificate hash
@@ -329,6 +357,7 @@ mod tests {
     use tokio::sync::RwLock;
     use warp::test::request;
 
+    use super::super::beacon_store::MockBeaconStore;
     use super::super::entities::*;
     use super::super::multi_signer::MockMultiSigner;
     use super::super::snapshot_store::MockSnapshotStorer;
@@ -345,9 +374,66 @@ mod tests {
 
     #[tokio::test]
     async fn test_certificate_pending_get_ok() {
-        let dependency_manager = setup_dependency_manager();
+        let mut beacon_store = MockBeaconStore::new();
+        beacon_store
+            .expect_get_current_beacon()
+            .return_once(|| Ok(Some(fake_data::beacon())));
+        let mut dependency_manager = setup_dependency_manager();
         let method = Method::GET.as_str();
         let path = "/certificate-pending";
+        dependency_manager.with_beacon_store(Arc::new(RwLock::new(beacon_store)));
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
+            .reply(&router::routes(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::from_file(API_SPEC_FILE)
+            .method(method)
+            .path(path)
+            .validate_request(&Null)
+            .unwrap()
+            .validate_response(&response)
+            .expect("OpenAPI error");
+    }
+
+    #[tokio::test]
+    async fn test_certificate_pending_get_ok_204() {
+        let mut beacon_store = MockBeaconStore::new();
+        beacon_store
+            .expect_get_current_beacon()
+            .return_once(|| Ok(None));
+        let mut dependency_manager = setup_dependency_manager();
+        let method = Method::GET.as_str();
+        let path = "/certificate-pending";
+        dependency_manager.with_beacon_store(Arc::new(RwLock::new(beacon_store)));
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
+            .reply(&router::routes(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::from_file(API_SPEC_FILE)
+            .method(method)
+            .path(path)
+            .validate_request(&Null)
+            .unwrap()
+            .validate_response(&response)
+            .expect("OpenAPI error");
+    }
+
+    #[tokio::test]
+    async fn test_certificate_pending_get_ko() {
+        let mut beacon_store = MockBeaconStore::new();
+        beacon_store
+            .expect_get_current_beacon()
+            .return_once(|| Err("an error occurred".to_string()));
+        let mut dependency_manager = setup_dependency_manager();
+        let method = Method::GET.as_str();
+        let path = "/certificate-pending";
+        dependency_manager.with_beacon_store(Arc::new(RwLock::new(beacon_store)));
 
         let response = request()
             .method(method)
