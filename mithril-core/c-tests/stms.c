@@ -8,7 +8,7 @@ extern "C" {
 #endif
 
 /* Helper function to generate the key registration (and closure) for `nparties` number of parties. */
-static int multiple_key_reg(const unsigned long nparties, PartyId *party_ids, Stake *party_stake, StmVerificationKeyPtr *keys, ClosedKeyRegPtr *closed_reg) {
+static int multiple_key_reg(const unsigned long nparties, PartyId *party_ids, Stake *party_stake, StmVerificationKeyPoPPtr *keys, ClosedKeyRegPtr *closed_reg) {
     int err;
     KeyRegPtr key_regs[nparties];
     for (int i = 0; i < nparties; i++) {
@@ -33,7 +33,7 @@ static int multiple_key_reg(const unsigned long nparties, PartyId *party_ids, St
 }
 
 /* Helper function for the initialisation of the different parties. */
-static int multiple_initializers(const unsigned long nparties, PartyId *party_ids, Stake *party_stake, StmParameters params, StmInitializerPtr *initializer, StmVerificationKeyPtr *keys) {
+static int multiple_initializers(const unsigned long nparties, PartyId *party_ids, Stake *party_stake, StmParameters params, StmInitializerPtr *initializer, StmVerificationKeyPoPPtr *keys) {
     for (int i = 0; i < nparties; i++) {
         int err;
         err = stm_intializer_setup(params, party_ids[i], party_stake[i], &initializer[i]);
@@ -60,8 +60,8 @@ TEST(stm, invalidRegistration) {
     PartyId party_id_fake = 3;
     Stake   party_stake[3] = {1, 0, 0};
     Stake party_stake_fake = 4;
-    StmVerificationKeyPtr keys[3];
-    StmVerificationKeyPtr keys_fake;
+    StmVerificationKeyPoPPtr keys[3];
+    StmVerificationKeyPoPPtr keys_fake;
 
     int err;
 
@@ -96,7 +96,7 @@ TEST(stm, invalidRegistration) {
 //    err = msp_serialize_verification_key(keys[1], &size, &fake_key);
 //    ASSERT_EQ(err, 0);
 //    fake_key[0] &= 0x00;
-//    StmVerificationKeyPtr f_key;
+//    StmVerificationKeyPoPPtr f_key;
 //    err = msp_deserialize_verification_key(size, fake_key, &f_key);
 //    ASSERT_EQ(err, 0);
 //
@@ -123,7 +123,7 @@ TEST(stm, clerkFromPublicData) {
     // Test with 2 parties, one with all the stake, one with none.
     PartyId party_ids[2] = {0, 1};
     Stake   party_stake[2] = {1, 0};
-    StmVerificationKeyPtr keys[2];
+    StmVerificationKeyPoPPtr keys[2];
     StmSignerPtr signer;
 
     // Scope of the signers, which is not required knowledge for the clerk. Signers initialise. There is no central
@@ -225,7 +225,7 @@ TEST(stm, produceAndVerifyAggregateSignature) {
     // Test with 2 parties, one with all the stake, one with none.
     PartyId party_ids[2] = {5, 134};
     Stake   party_stake[2] = {1, 0};
-    StmVerificationKeyPtr keys[2];
+    StmVerificationKeyPoPPtr keys[2];
     StmInitializerPtr initializer[2];
     ClosedKeyRegPtr closed_reg[2];
 
@@ -316,7 +316,7 @@ TEST(stm, failSigningIfIneligible) {
     // Test with 2 parties, one with all the stake, one with none.
     PartyId party_ids[2] = {0, 1};
     Stake   party_stake[2] = {1, 0};
-    StmVerificationKeyPtr keys[2];
+    StmVerificationKeyPoPPtr keys[2];
     StmInitializerPtr initializer[2];
     ClosedKeyRegPtr closed_reg[2];
 
@@ -351,7 +351,7 @@ TEST(stm, dynamicStake) {
     // initialise the key array with a size of 3.
     PartyId party_ids[2] = {5, 13};
     Stake   party_stake[2] = {1, 0};
-    StmVerificationKeyPtr keys[3];
+    StmVerificationKeyPoPPtr keys[3];
     StmInitializerPtr initializer[2];
     ClosedKeyRegPtr closed_reg[2];
 
