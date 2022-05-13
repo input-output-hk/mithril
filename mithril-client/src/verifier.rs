@@ -88,12 +88,21 @@ impl Verifier for VerifierImpl {
     ) -> Result<(), ProtocolError> {
         debug!("Verify multi signature for {:?}", message);
         let clerk = self.create_clerk(signers_with_stakes, protocol_parameters);
-        let multi_signature: ProtocolMultiSignature =
-            key_decode_hex(multi_signature).map_err(ProtocolError::VerifyMultiSignatureError)?;
-        clerk
+
+        // todo: these two declarations are patches. Probably better ways to do this.
+        let avk = clerk
             .as_ref()
             .unwrap()
-            .verify_msig(&multi_signature, message)
+            .compute_avk();
+        let protocol_parameters = ProtocolParameters {
+            k: protocol_parameters.k,
+            m: protocol_parameters.m,
+            phi_f: protocol_parameters.phi_f as f64,
+        };
+        let multi_signature: ProtocolMultiSignature =
+            key_decode_hex(multi_signature).map_err(ProtocolError::VerifyMultiSignatureError)?;
+        multi_signature
+            .verify(message, &avk, &protocol_parameters)
             .map_err(|e| ProtocolError::VerifyMultiSignatureError(e.to_string()))
     }
 }

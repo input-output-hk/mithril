@@ -110,10 +110,10 @@ pub(crate) fn ev_lt_phi(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Sta
 
 #[cfg(test)]
 mod tests {
-    use proptest::prelude::*;
+    use super::*;
     use num_bigint::{BigInt, Sign};
     use num_rational::Ratio;
-    use super::*;
+    use proptest::prelude::*;
     // Implementation of `ev_lt_phi` without approximation. We only get the precision of f64 here.
     fn simple_ev_lt_phi(phi_f: f64, ev: [u8; 64], stake: Stake, total_stake: Stake) -> bool {
         let ev_max = BigInt::from(2u8).pow(512);

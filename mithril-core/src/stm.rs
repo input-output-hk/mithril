@@ -144,6 +144,12 @@ pub type PartyId = u64;
 pub type Index = u64;
 
 /// Used to set protocol parameters.
+// todo: this is the criteria to consider parameters valid:
+// Let A = max assumed adversarial stake
+// Let a = A / max_stake
+// Let p = φ(a)  // f needs tuning, something close to 0.2 is reasonable
+// Then, we're secure if SUM[from i=k to i=m] Binomial(i successes, m experiments, p chance of success) <= 2^-100 or thereabouts.
+// The latter turns to 1 - BinomialCDF(k-1,m,p)
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 #[repr(C)]
 pub struct StmParameters {
