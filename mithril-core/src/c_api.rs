@@ -444,7 +444,8 @@ mod signer {
 
 mod key_reg {
     use crate::c_api::{
-        ClosedKeyRegPtr, KeyRegPtr, MerkleTreeCommitmentPtr, StmVerificationKeyPoPPtr, NULLPOINTERERR,
+        ClosedKeyRegPtr, KeyRegPtr, MerkleTreeCommitmentPtr, StmVerificationKeyPoPPtr,
+        NULLPOINTERERR,
     };
     use crate::error::RegisterError;
     use crate::key_reg::KeyReg;
@@ -609,7 +610,7 @@ mod clerk {
                     Err(VerificationFailure::LotteryLost) => -1,
                     Err(VerificationFailure::InvalidMerkleTree(_)) => -2,
                     Err(VerificationFailure::InvalidSignature(_)) => -3,
-                    Err(VerificationFailure::IndexBoundFailed(_,_)) => -4,
+                    Err(VerificationFailure::IndexBoundFailed(_, _)) => -4,
                 };
             }
             NULLPOINTERERR

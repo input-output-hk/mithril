@@ -276,7 +276,12 @@ pub struct StmSig<D: Clone + Digest + FixedOutput> {
 impl<D: Clone + Digest + FixedOutput> StmSig<D> {
     /// Verify an stm signature by checking that the lottery was won, the merkle path is correct,
     /// the index is in the desired range and the underlying msp signature validates.
-    pub fn verify(&self, params: &StmParameters, avk: &StmAggrVerificationKey<D>, msg: &[u8]) -> Result<(), VerificationFailure<D>> {
+    pub fn verify(
+        &self,
+        params: &StmParameters,
+        avk: &StmAggrVerificationKey<D>,
+        msg: &[u8],
+    ) -> Result<(), VerificationFailure<D>> {
         let msgp = avk.mt_commitment.concat_with_msg(msg);
 
         if self.index > params.m {
@@ -344,7 +349,7 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StmAggrVerificationKey<D>
 where
-    D: Clone + Digest + FixedOutput
+    D: Clone + Digest + FixedOutput,
 {
     mt_commitment: MerkleTreeCommitment<D>,
     total_stake: Stake,
@@ -357,7 +362,7 @@ where
     fn from(reg: &ClosedKeyReg<D>) -> Self {
         Self {
             mt_commitment: reg.merkle_tree.to_commitment(),
-            total_stake: reg.total_stake
+            total_stake: reg.total_stake,
         }
     }
 }
@@ -419,13 +424,29 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
             }
 
             // Check that merkle paths are valid
-            if avk.mt_commitment.check(&MTLeaf(sig.pk, sig.stake), &sig.path).is_err() {
+            if avk
+                .mt_commitment
+                .check(&MTLeaf(sig.pk, sig.stake), &sig.path)
+                .is_err()
+            {
                 return Err(MithrilWitnessError::PathInvalid(sig.path.clone()));
             }
         }
 
-        let aggregate_signature: Signature = self.signatures.iter().map(|sig| sig.sigma).collect::<Vec<Signature>>().iter().sum();
-        let aggregate_mpk: StmVerificationKey = self.signatures.iter().map(|sig| sig.pk).collect::<Vec<StmVerificationKey>>().iter().sum();
+        let aggregate_signature: Signature = self
+            .signatures
+            .iter()
+            .map(|sig| sig.sigma)
+            .collect::<Vec<Signature>>()
+            .iter()
+            .sum();
+        let aggregate_mpk: StmVerificationKey = self
+            .signatures
+            .iter()
+            .map(|sig| sig.pk)
+            .collect::<Vec<StmVerificationKey>>()
+            .iter()
+            .sum();
 
         aggregate_signature.verify(&avk.mt_commitment.concat_with_msg(msg), &aggregate_mpk)?;
         Ok(())
@@ -627,10 +648,19 @@ where
         // sigma <- MSP.Sig(msk, msg')
         // ev <- MSP.Eval(msg', index, sigma)
         // return 1 if ev < phi(stake) else return 0
-        let msgp = self.closed_reg.merkle_tree.to_commitment().concat_with_msg(msg);
+        let msgp = self
+            .closed_reg
+            .merkle_tree
+            .to_commitment()
+            .concat_with_msg(msg);
         let sigma = self.sk.sign(&msgp);
         let ev = sigma.eval(&msgp, index);
-        ev_lt_phi(self.params.phi_f, ev, self.stake, self.closed_reg.total_stake)
+        ev_lt_phi(
+            self.params.phi_f,
+            ev,
+            self.stake,
+            self.closed_reg.total_stake,
+        )
     }
 
     /// If lottery is won for this message/index, signs it.
@@ -642,9 +672,16 @@ where
             //      p_i is the users path inside the merkle tree AVK
             //      reg_i is (mvk_i, stake_i)
             // return pi
-            let msgp = self.closed_reg.merkle_tree.to_commitment().concat_with_msg(msg);
+            let msgp = self
+                .closed_reg
+                .merkle_tree
+                .to_commitment()
+                .concat_with_msg(msg);
             let sigma = self.sk.sign(&msgp);
-            let path = self.closed_reg.merkle_tree.get_path(self.mt_index.try_into().unwrap());
+            let path = self
+                .closed_reg
+                .merkle_tree
+                .get_path(self.mt_index.try_into().unwrap());
             Some(StmSig {
                 sigma,
                 pk: self.vk,
@@ -875,10 +912,7 @@ where
     /// Create a new `Clerk` from a closed registration instance.
     /// todo: why does it consume the closed reg?
     pub fn from_registration(params: StmParameters, closed_reg: ClosedKeyReg<D>) -> Self {
-        Self {
-            params,
-            closed_reg
-        }
+        Self { params, closed_reg }
     }
 
     /// Creates a Clerk from a Signer.
@@ -921,8 +955,12 @@ where
         msig: &StmAggrSig<D>,
         msg: &[u8],
     ) -> Result<(), MithrilWitnessError<D>> {
-        StmVerifier::new(self.closed_reg.merkle_tree.to_commitment(), self.params, self.closed_reg.total_stake)
-            .verify_msig(msg, msig)
+        StmVerifier::new(
+            self.closed_reg.merkle_tree.to_commitment(),
+            self.params,
+            self.closed_reg.total_stake,
+        )
+        .verify_msig(msg, msig)
     }
 
     /// Given a slice of `indices` and one of `sigs`, this functions selects a single valid signature
@@ -1090,11 +1128,11 @@ where
         params: StmParameters,
         total_stake: Stake,
     ) -> Self {
-        let avk = StmAggrVerificationKey { mt_commitment, total_stake };
-        Self {
-            avk,
-            params,
-        }
+        let avk = StmAggrVerificationKey {
+            mt_commitment,
+            total_stake,
+        };
+        Self { avk, params }
     }
 
     /// Verify an aggregated signature

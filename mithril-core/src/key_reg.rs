@@ -2,9 +2,9 @@
 
 use crate::error::RegisterError;
 use digest::{Digest, FixedOutput};
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use serde::{Deserialize, Serialize};
 
 use super::multi_sig::VerificationKeyPoP;
 use super::stm::{PartyId, Stake};
@@ -26,8 +26,8 @@ pub struct KeyReg {
 /// a closed key registration.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(bound(
-serialize = "MerkleTree<D>: Serialize",
-deserialize = "MerkleTree<D>: Deserialize<'de>"
+    serialize = "MerkleTree<D>: Serialize",
+    deserialize = "MerkleTree<D>: Deserialize<'de>"
 ))]
 pub struct ClosedKeyReg<D>
 where

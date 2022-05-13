@@ -241,7 +241,8 @@ impl MultiSigner for MultiSignerImpl {
             .get_current_message()
             .ok_or_else(ProtocolError::UnavailableMessage)?;
         let clerk = self.clerk();
-        match clerk.verify_sig(signature, message) {
+        let avk = clerk.compute_avk();
+        match signature.verify(&self.protocol_parameters.unwrap(), &avk, message) {
             Ok(_) => {
                 // Register single signature
                 self.single_signatures

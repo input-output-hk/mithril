@@ -3,7 +3,10 @@
 //! run presented in `tests/integration.rs`, we explicitly treat each party individually.
 
 use mithril::key_reg::{ClosedKeyReg, KeyReg};
-use mithril::stm::{Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner, StmVerificationKeyPoP, StmVerifier};
+use mithril::stm::{
+    Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner, StmVerificationKeyPoP,
+    StmVerifier,
+};
 
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
