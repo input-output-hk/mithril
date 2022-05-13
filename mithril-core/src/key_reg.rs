@@ -2,7 +2,6 @@
 
 use crate::error::RegisterError;
 use digest::{Digest, FixedOutput};
-use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
@@ -24,11 +23,7 @@ pub struct KeyReg {
 
 /// Structure generated out of a closed registration. One can only get a global `avk` out of
 /// a closed key registration.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(bound(
-    serialize = "MerkleTree<D>: Serialize",
-    deserialize = "MerkleTree<D>: Deserialize<'de>"
-))]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ClosedKeyReg<D>
 where
     D: Digest + FixedOutput,

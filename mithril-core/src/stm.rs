@@ -220,11 +220,7 @@ pub struct StmInitializer {
 /// Participant in the protocol can sign messages. This instance can only be generated out of
 /// an `StmInitializer` and a `ClosedKeyReg`. This ensures that a `MerkleTree` root is not
 /// computed before all participants have registered.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(bound(
-    serialize = "ClosedKeyReg<D>: Serialize",
-    deserialize = "ClosedKeyReg<D>: Deserialize<'de>"
-))]
+#[derive(Debug, Clone)]
 pub struct StmSigner<D>
 where
     D: Digest + FixedOutput,
@@ -241,11 +237,7 @@ where
 /// `StmClerk` can verify and aggregate `StmSig`s and verify `StmMultiSig`s. Clerks can only be
 /// generated with the registration closed. This avoids that a Merkle Tree is computed before
 /// all parties have registered.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(bound(
-    serialize = "ClosedKeyReg<D>: Serialize",
-    deserialize = "ClosedKeyReg<D>: Deserialize<'de>"
-))]
+#[derive(Debug, Clone)]
 pub struct StmClerk<D>
 where
     D: Clone + Digest + FixedOutput,
@@ -639,45 +631,22 @@ impl<D> StmSigner<D>
 where
     D: Clone + Digest + FixedOutput,
 {
-    /////////////////////
-    // Operation phase //
-    /////////////////////
-    /// Try to win the lottery for this message/index combo.
-    pub fn eligibility_check(&self, msg: &[u8], index: Index) -> bool {
-        // let msg' <- AVK || msg
-        // sigma <- MSP.Sig(msk, msg')
-        // ev <- MSP.Eval(msg', index, sigma)
-        // return 1 if ev < phi(stake) else return 0
+    /// If lottery is won for this message/index, signs it.
+    pub fn sign(&self, msg: &[u8], index: Index) -> Option<StmSig<D>> {
         let msgp = self
             .closed_reg
             .merkle_tree
             .to_commitment()
             .concat_with_msg(msg);
         let sigma = self.sk.sign(&msgp);
-        let ev = sigma.eval(&msgp, index);
-        ev_lt_phi(
+
+        // Check if lottery is won
+        if ev_lt_phi(
             self.params.phi_f,
-            ev,
+            sigma.eval(&msgp, index),
             self.stake,
             self.closed_reg.total_stake,
-        )
-    }
-
-    /// If lottery is won for this message/index, signs it.
-    pub fn sign(&self, msg: &[u8], index: Index) -> Option<StmSig<D>> {
-        if self.eligibility_check(msg, index) {
-            // msg' <- AVK||msg
-            // sigma <- MSP.Sig(msk,msg')
-            // pi = (sigma, reg_i, i, p_i) where
-            //      p_i is the users path inside the merkle tree AVK
-            //      reg_i is (mvk_i, stake_i)
-            // return pi
-            let msgp = self
-                .closed_reg
-                .merkle_tree
-                .to_commitment()
-                .concat_with_msg(msg);
-            let sigma = self.sk.sign(&msgp);
+        ) {
             let path = self
                 .closed_reg
                 .merkle_tree
@@ -840,64 +809,6 @@ where
             sk: self.sk,
         }
     }
-
-    /// Return a byte string
-    ///
-    /// # Layout
-    /// * party_id,
-    /// * mt_index,
-    /// * stake,
-    /// * total_stake,
-    /// * params,
-    /// * sk,
-    /// * pk,
-    /// * avk,
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut output = Vec::new();
-        output.extend_from_slice(&self.party_id.to_be_bytes());
-        output.extend_from_slice(&self.mt_index.to_be_bytes());
-        output.extend_from_slice(&self.stake.to_be_bytes());
-        output.extend_from_slice(&self.closed_reg.total_stake.to_be_bytes());
-        output.extend_from_slice(&self.params.to_bytes());
-        output.extend_from_slice(&self.sk.to_bytes());
-        output.extend_from_slice(&self.vk.to_bytes());
-        output.extend_from_slice(&self.closed_reg.merkle_tree.to_bytes());
-
-        output
-    }
-
-    // /// Convert a byte string into an `StmSigner`
-    // ///
-    // /// # Panics
-    // /// todo: we probably want this in all `from_bytes` fns
-    // /// If the slice has not the expected size, the function fails.
-    // pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
-    //     let mut u64_bytes = [0u8; 8];
-    //     u64_bytes.copy_from_slice(&bytes[..8]);
-    //     let party_id = u64::from_be_bytes(u64_bytes);
-    //     u64_bytes.copy_from_slice(&bytes[8..16]);
-    //     let mt_index = u64::from_be_bytes(u64_bytes);
-    //     u64_bytes.copy_from_slice(&bytes[16..24]);
-    //     let stake = u64::from_be_bytes(u64_bytes);
-    //     u64_bytes.copy_from_slice(&bytes[24..32]);
-    //     let total_stake = u64::from_be_bytes(u64_bytes);
-    //     let params = StmParameters::from_bytes(&bytes[32..])?;
-    //     let sk = SigningKey::from_bytes(&bytes[56..])?;
-    //     let pk = StmVerificationKey::from_bytes(&bytes[88..])?;
-    //
-    //     let avk = Arc::new(MerkleTree::from_bytes(&bytes[280..])?);
-    //
-    //     Ok(Self {
-    //         party_id,
-    //         mt_index,
-    //         stake,
-    //         params,
-    //         avk,
-    //         sk,
-    //         pk,
-    //         total_stake,
-    //     })
-    // }
 
     /// Compute the `StmAggrVerificationKey` related to the used registration
     pub fn compute_avk(&self) -> StmAggrVerificationKey<D> {
@@ -1377,31 +1288,6 @@ mod tests {
             assert!(bincode::deserialize::<StmInitializer>(&bytes).is_ok())
         }
 
-         #[test]
-        fn test_signer_serialize_deserialize(msg in any::<[u8;16]>(), nparties in 1..12usize) {
-            let params = StmParameters { m: (nparties as u64), k: 1, phi_f: 1.0 };
-            let ps = setup_equal_parties(params, nparties);
-            for p in ps {
-                let bytes = bincode::serialize(&p).unwrap();
-                let signer = bincode::deserialize::<StmSigner<D>>(&bytes).unwrap();
-                assert!(signer.sign(&msg, 1).is_some())
-            }
-        }
-
-         #[test]
-        fn test_clerk_serialize_deserialize(msg in any::<[u8;16]>(), nparties in 1..12usize) {
-            let params = StmParameters { m: (nparties as u64), k: 1, phi_f: 1.0 };
-            let ps = setup_equal_parties(params, nparties);
-            for p in ps {
-                let sig = p.sign(&msg, 1).unwrap();
-                let clerk = StmClerk::from_signer(&p);
-                let bytes = bincode::serialize(&clerk).unwrap();
-                let clerk = bincode::deserialize::<StmClerk<D>>(&bytes).unwrap();
-                let avk = clerk.compute_avk();
-                assert!(sig.verify(&params, &avk, &msg).is_ok())
-            }
-        }
-
         #[test]
         fn test_sig_serialize_deserialize(msg in any::<[u8;16]>()) {
             let nparties = 2;
@@ -1447,9 +1333,9 @@ mod tests {
     }
 
     /// Pick N between min and max, and then
-    /// generate a vector of N stakes summing to N*tstake,
+    /// generate a vector of N stakes summing to N * tstake,
     /// plus a subset S of 0..N such that the sum of the stakes at indices
-    /// in S is astake*N
+    /// in S is astake * N
     fn arb_parties_adversary_stake(
         min: usize,
         max: usize,

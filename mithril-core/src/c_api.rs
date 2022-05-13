@@ -378,27 +378,8 @@ mod initializer {
 mod signer {
     use super::*;
 
-    /// Checks if a signer is eligible to sign. Returns 0 on success, -1 on failure, or -99 if
-    /// pointers are invalid.
-    #[no_mangle]
-    pub extern "C" fn stm_signer_eligibility_check(
-        me: StmSignerPtr,
-        msg: *const c_char,
-        index: Index,
-    ) -> i64 {
-        unsafe {
-            if let (Some(ref_me), Some(msg)) = (me.as_ref(), msg.as_ref()) {
-                let msg_str = CStr::from_ptr(msg);
-                if ref_me.eligibility_check(msg_str.to_bytes(), index) {
-                    return 0;
-                }
-                return -1;
-            }
-            NULLPOINTERERR
-        }
-    }
-
-    /// Try to sign a message. Sets *out to point to the signature if successful.
+    /// Try to sign a message. Sets *out to point to the signature if successful. Returns 0 on success,
+    /// -1 on failure, or -99 if pointers are invalid.
     #[no_mangle]
     pub extern "C" fn stm_signer_sign(
         me: StmSignerPtr,
@@ -411,10 +392,12 @@ mod signer {
                 (me.as_ref(), out.as_mut(), msg.as_ref())
             {
                 let msg_str = CStr::from_ptr(msg);
-                if let Some(s) = ref_me.sign(msg_str.to_bytes(), index) {
+                return if let Some(s) = ref_me.sign(msg_str.to_bytes(), index) {
                     *ref_out = Box::into_raw(Box::new(s));
-                }
-                return 0;
+                    0
+                } else {
+                    -1
+                };
             }
             NULLPOINTERERR
         }
