@@ -82,10 +82,19 @@ assertClientCanVerifySnapshot workDir aggregator digest =
   void $ runClient workDir aggregator ["restore", digest]
 
 assertNodeIsProducingSnapshot :: Tracer IO ClusterLog -> RunningNode -> Int -> IO Text
-assertNodeIsProducingSnapshot _tracer _cardanoNode aggregatorPort = do
-  request <- parseRequest $ "http://localhost:" <> show aggregatorPort <> "/aggregator/certificate-pending"
-  CertificatePending {beacon} <- getResponseBody <$> httpJSON request
-  pure $ digestOf beacon
+assertNodeIsProducingSnapshot _tracer _cardanoNode aggregatorPort = go 10
+  where
+    go :: Int -> IO Text
+    go 0 = failure "Timeout exhausted"
+    go n = do
+      request <- parseRequest $ "http://localhost:" <> show aggregatorPort <> "/aggregator/certificate-pending"
+      response <- httpLBS request
+      case getResponseStatusCode response of
+        204 -> threadDelay 1 >> go (n -1)
+        200 -> do
+          CertificatePending {beacon} <- getResponseBody <$> httpJSON request
+          pure $ digestOf beacon
+        other -> failure $ "unexpected status code: " <> show other
 
 assertNetworkIsProducingBlock :: Tracer IO ClusterLog -> RunningCluster -> IO ()
 assertNetworkIsProducingBlock tracer = failAfter 30 . go (-1)
