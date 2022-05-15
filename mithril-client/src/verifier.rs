@@ -112,7 +112,7 @@ mod tests {
         let message = setup_message();
 
         let mut single_signatures = Vec::new();
-        signers.iter().for_each(|(_, _, _, protocol_signer)| {
+        signers.iter().for_each(|(_, _, _, protocol_signer, _)| {
             for i in 1..=protocol_parameters.m {
                 if let Some(signature) = protocol_signer.sign(&message, i) {
                     single_signatures.push(signature);
@@ -128,7 +128,7 @@ mod tests {
         let protocol_parameters = protocol_parameters.into();
         let signers_with_stakes = signers
             .iter()
-            .map(|(party_id, stake, verification_key, _)| {
+            .map(|(party_id, stake, verification_key, _, _)| {
                 entities::SignerWithStake::new(
                     *party_id as u64,
                     key_encode_hex(verification_key).unwrap(),
