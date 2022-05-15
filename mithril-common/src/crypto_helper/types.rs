@@ -1,5 +1,4 @@
 use mithril::key_reg::KeyReg;
-use mithril::multi_sig::SigningKey;
 use mithril::stm::{
     Index, PartyId, Stake, StmClerk, StmInitializer, StmMultiSig, StmParameters, StmSig, StmSigner,
     StmVerificationKey,
@@ -23,7 +22,6 @@ pub type ProtocolKeyRegistration = KeyReg;
 pub type ProtocolSingleSignature = StmSig<D>;
 pub type ProtocolMultiSignature = StmMultiSig<D>;
 pub type ProtocolSignerVerificationKey = StmVerificationKey;
-pub type ProtocolSignerSecretKey = SigningKey;
 
 impl From<ProtocolParameters> for entities::ProtocolParameters {
     fn from(other: ProtocolParameters) -> Self {
