@@ -6,8 +6,6 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::time::sleep;
 
-use mithril_common::crypto_helper::key_decode_hex;
-use mithril_common::fake_data;
 use mithril_signer::{CertificateHandlerHTTPClient, Config, MithrilSingleSigner, Signer};
 
 /// CLI args
@@ -47,7 +45,7 @@ fn build_logger(min_level: Level) -> Logger {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), String> {
     // Load args
     let args = Args::parse();
     let _guard = slog_scope::set_global_logger(build_logger(args.log_level()));
@@ -58,17 +56,15 @@ async fn main() {
         .add_source(config::File::with_name(&format!("./config/{}.json", run_mode)).required(false))
         .add_source(config::Environment::default())
         .build()
-        .unwrap()
+        .map_err(|e| format!("configuration build error: {}", e))?
         .try_deserialize()
-        .unwrap();
+        .map_err(|e| format!("configuration deserialize error: {}", e))?;
     debug!("Started"; "run_mode" => &run_mode, "config" => format!("{:?}", config));
 
     loop {
-        let fake_signer = fake_data::signer_keys(config.party_id).unwrap();
-        let single_signer = MithrilSingleSigner::new(
-            fake_signer.party_id,
-            key_decode_hex(&fake_signer.secret_key).unwrap(),
-        );
+        //TODO: Use serialized ProtocolInitializer here, loaded e.g. from filesystem
+        let protocol_initializer_encoded = "";
+        let single_signer = MithrilSingleSigner::new(config.party_id, protocol_initializer_encoded);
         let certificate_handler =
             CertificateHandlerHTTPClient::new(config.aggregator_endpoint.clone());
 
