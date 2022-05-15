@@ -378,7 +378,7 @@ mod tests {
 
         let stake_distribution_expected = setup_signers(5)
             .iter()
-            .map(|(party_id, stake, _, _)| (*party_id, *stake))
+            .map(|(party_id, stake, _, _, _)| (*party_id, *stake))
             .collect::<_>();
         multi_signer
             .update_stake_distribution(&stake_distribution_expected)
@@ -394,7 +394,7 @@ mod tests {
 
         let stake_distribution_expected = setup_signers(5)
             .iter()
-            .map(|(party_id, stake, _, _)| (*party_id, *stake))
+            .map(|(party_id, stake, _, _, _)| (*party_id, *stake))
             .collect::<_>();
         multi_signer
             .update_stake_distribution(&stake_distribution_expected)
@@ -403,7 +403,7 @@ mod tests {
         let signers = setup_signers(5);
         signers
             .iter()
-            .for_each(|(party_id, _, verification_key, _)| {
+            .for_each(|(party_id, _, verification_key, _, _)| {
                 multi_signer
                     .register_signer(*party_id, &verification_key)
                     .expect("register should have succeeded")
@@ -412,7 +412,7 @@ mod tests {
         let mut signers_all_expected = Vec::new();
         signers
             .iter()
-            .for_each(|(party_id, stake, verification_key_expected, _)| {
+            .for_each(|(party_id, stake, verification_key_expected, _, _)| {
                 let verification_key = multi_signer.get_signer(*party_id);
                 assert!(verification_key.as_ref().unwrap().is_some());
                 assert_eq!(
@@ -449,14 +449,14 @@ mod tests {
         let signers = setup_signers(5);
         let stake_distribution = &signers
             .iter()
-            .map(|(party_id, stake, _, _)| (*party_id, *stake))
+            .map(|(party_id, stake, _, _, _)| (*party_id, *stake))
             .collect::<_>();
         multi_signer
             .update_stake_distribution(&stake_distribution)
             .expect("update stake distribution failed");
         signers
             .iter()
-            .for_each(|(party_id, _, verification_key, _)| {
+            .for_each(|(party_id, _, verification_key, _, _)| {
                 multi_signer
                     .register_signer(*party_id, verification_key)
                     .expect("register should have succeeded")
@@ -465,7 +465,7 @@ mod tests {
         let mut signatures = Vec::new();
         signers
             .iter()
-            .for_each(|(party_id, _, _, protocol_signer)| {
+            .for_each(|(party_id, _, _, protocol_signer, _)| {
                 for i in 1..=protocol_parameters.m {
                     if let Some(signature) = protocol_signer.sign(&message, i) {
                         signatures.push((*party_id, signature, i as ProtocolLotteryIndex));
