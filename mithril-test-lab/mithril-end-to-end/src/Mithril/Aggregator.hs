@@ -100,4 +100,4 @@ aggregatorProcess cwd port = do
           ]
             <> baseEnv
   unlessM (doesFileExist aggregator) $ failure $ "cannot find mithril-aggregator executable in expected location (" <> binDir <> ")"
-  pure $ (proc aggregator ["--server-port", show port, "-vvv"]) {cwd, env}
+  pure $ (proc aggregator ["--db-directory", "db", "--server-port", show port, "-vvv"]) {cwd, env}

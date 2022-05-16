@@ -98,7 +98,7 @@ struct Progress {
 impl Progress {
     fn report(&mut self, ix: usize) -> bool {
         self.index = ix;
-        ix % (self.total / 20) == 0
+        (20 * ix) % self.total == 0
     }
 
     fn percent(&self) -> f64 {
@@ -194,6 +194,8 @@ mod tests {
             write!(source_file, "This is a test file named '{}'", filename).unwrap();
         }
     }
+
+    // TODO: Test the case where number of immutable files is lower than 20
 
     #[test]
     fn reports_progress_every_5_percent() {

@@ -2,7 +2,7 @@ use crate::dependency::BeaconStoreWrapper;
 use crate::Snapshotter;
 use mithril_common::fake_data;
 use mithril_common::immutable_digester::ImmutableDigester;
-use slog_scope::{error, info};
+use slog_scope::{debug, error, info};
 use tokio::time::{sleep, Duration};
 
 /// AggregatorRuntime
@@ -46,6 +46,7 @@ impl AggregatorRuntime {
     async fn do_work(&self) -> Result<(), String> {
         let snapshotter = Snapshotter::new(self.db_directory.clone());
         let digester = ImmutableDigester::new(self.db_directory.clone(), slog_scope::logger());
+        debug!("Making snapshot"; "directory" => &self.db_directory);
 
         match digester.compute_digest() {
             Ok(digest_result) => {

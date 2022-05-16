@@ -28,6 +28,8 @@ import Mithril.Aggregator
 import Mithril.Client (runClient)
 import Mithril.Signer (Signer, withSigner)
 import Network.HTTP.Simple (getResponseBody, getResponseStatusCode, httpJSON, httpLBS, parseRequest)
+import System.Directory (listDirectory)
+import System.FilePath (takeDirectory, takeExtension, (</>))
 import Test.Hydra.Prelude
 
 spec :: Spec
@@ -40,20 +42,22 @@ spec =
                 { parentStateDirectory = tmp,
                   networkId = defaultNetworkId
                 }
-        -- Start aggregator service on some random port
-        withAggregator tmp (contramap AggregatorLog tr) $ \aggregator@Aggregator {aggregatorPort} -> do
-          -- Start cardano nodes cluster
-          withCluster tr config $
-            \cluster -> do
-              -- basic verification, we check the nodes are producing blocks
-              assertNetworkIsProducingBlock tr cluster
-              case cluster of
-                RunningCluster {clusterNodes = node : _} -> do
+        -- Start cardano nodes cluster
+        withCluster tr config $
+          \cluster -> do
+            -- basic verification, we check the nodes are producing blocks
+            assertNetworkIsProducingBlock tr cluster
+            case cluster of
+              RunningCluster {clusterNodes = node@(RunningNode _ nodeSocket) : _} -> do
+                waitForDBToBePopulated (takeDirectory nodeSocket)
+                -- Start aggregator service on some random port
+                withAggregator (takeDirectory nodeSocket) (contramap AggregatorLog tr) $ \aggregator@Aggregator {aggregatorPort} -> do
+                  threadDelay 2
                   digest <- assertNodeIsProducingSnapshot tr node aggregatorPort
                   withSigner tmp (contramap SignerLog tr) aggregatorPort node $ \signer -> do
                     assertSignerIsSigningSnapshot signer aggregatorPort digest
                     assertClientCanVerifySnapshot tmp aggregator digest
-                _ -> failure "No nodes in the cluster"
+              _ -> failure "No nodes in the cluster"
 
 newtype Snapshots = Snapshots [Value]
   deriving newtype (FromJSON)
@@ -111,6 +115,15 @@ assertNetworkIsProducingBlock tracer = failAfter 30 . go (-1)
 
 waitForNewBlock :: IO ()
 waitForNewBlock = threadDelay (2 * slotLength)
+
+waitForDBToBePopulated :: FilePath -> IO ()
+waitForDBToBePopulated nodeDirectory = do
+  let immutableDir = nodeDirectory </> "db" </> "immutable"
+      isChunk = ((== ".chunk") . takeExtension)
+  immutableFiles <- filter isChunk <$> listDirectory immutableDir
+  when (length immutableFiles < 2) $ do
+    putStrLn $ "waiting for immutable directory " <> immutableDir <> " to have at least 2 chunk files"
+    threadDelay 1 >> waitForDBToBePopulated nodeDirectory
 
 slotLength :: DiffTime
 slotLength = 1 -- FIXME this should be found in the genesis file

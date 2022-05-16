@@ -14,7 +14,7 @@
 
   "RequiresNetworkMagic": "RequiresNoMagic",
 
-  "minSeverity": "Info",
+  "minSeverity": "Trace",
   "defaultBackends": ["KatipBK"],
   "defaultScribes": [[ "StdoutSK", "stdout" ]],
   "setupBackends": ["KatipBK"],
@@ -30,7 +30,7 @@
   "TurnOnLogMetrics": true,
   "TurnOnLogging": true,
 
-  "TracingVerbosity": "NormalVerbosity",
+  "TracingVerbosity": "MaximalVerbosity",
   "TraceBlockFetchClient": false,
   "TraceBlockFetchDecisions": false,
   "TraceBlockFetchProtocol": false,

@@ -54,5 +54,5 @@
     "slotsPerKESPeriod": 129600,
     "slotLength": 0.1,
     "maxKESEvolutions": 60,
-    "securityParam": 2160
+    "securityParam": 21
 }
