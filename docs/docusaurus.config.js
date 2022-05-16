@@ -57,7 +57,7 @@ const config = {
   ],
 
   themeConfig:
-  /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
+    /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
       navbar: {
         title: 'Mithril',
@@ -95,7 +95,12 @@ const config = {
             label: 'Aggregator Server Api Reference',
             position: 'left',
           },
-          {to: '/adr', label: 'ADRs', position: 'right'},
+          {
+            to: '/glossary',
+            label: 'Glossary',
+            position: 'right',
+          },
+          { to: '/adr', label: 'ADRs', position: 'right' },
           {
             href: 'https://github.com/input-output-hk/mithril/',
             label: 'GitHub',
