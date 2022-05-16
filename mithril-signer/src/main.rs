@@ -61,14 +61,13 @@ async fn main() -> Result<(), String> {
         .map_err(|e| format!("configuration deserialize error: {}", e))?;
     debug!("Started"; "run_mode" => &run_mode, "config" => format!("{:?}", config));
 
-    loop {
-        //TODO: Use serialized ProtocolInitializer here, loaded e.g. from filesystem
-        let protocol_initializer_encoded = "";
-        let single_signer = MithrilSingleSigner::new(config.party_id, protocol_initializer_encoded);
-        let certificate_handler =
-            CertificateHandlerHTTPClient::new(config.aggregator_endpoint.clone());
+    // TODO: Use serialized ProtocolInitializer here, loaded e.g. from filesystem
+    let protocol_initializer_encoded = "";
+    let single_signer = MithrilSingleSigner::new(config.party_id, protocol_initializer_encoded);
+    let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint.clone());
 
-        let mut signer = Signer::new(Box::new(certificate_handler), Box::new(single_signer));
+    let mut signer = Signer::new(Box::new(certificate_handler), Box::new(single_signer));
+    loop {
         if let Err(e) = signer.run().await {
             error!("{:?}", e)
         }
