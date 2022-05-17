@@ -1,6 +1,5 @@
-use hex::ToHex;
 use log::debug;
-use mithril_common::fake_data;
+
 use std::str;
 use thiserror::Error;
 
@@ -9,6 +8,7 @@ use crate::entities::*;
 use crate::verifier;
 
 pub const MISSING_AGGREGATOR_HANDLER: &str = "missing aggregator handler";
+#[allow(dead_code)]
 pub const MISSING_VERIFIER: &str = "missing verifier";
 
 /// AggregatorHandlerWrapper wraps an AggregatorHandler
@@ -128,11 +128,15 @@ impl Client {
         let aggregator_handler = &self.aggregator_handler.as_ref().ok_or_else(|| {
             ClientError::MissingDependency(MISSING_AGGREGATOR_HANDLER.to_string())
         })?;
-        let verifier = &self
+        // TODO: Reactivate when real certificate hash is available
+        /*let verifier = &self
             .verifier
             .as_ref()
             .ok_or_else(|| ClientError::MissingDependency(MISSING_VERIFIER.to_string()))?;
-        let fake_digest = &fake_data::digest();
+
+        let mut beacon = fake_data::beacon();
+        beacon.immutable_file_number = 0;
+        let fake_digest = &fake_data::digest(&beacon);
         let certificate_hash = &fake_digest.encode_hex::<String>();
         debug!("Fake certificate hash {:?}", certificate_hash);
         let certificate_details = aggregator_handler
@@ -146,7 +150,7 @@ impl Client {
                 &certificate_details.participants,
                 &certificate_details.protocol_parameters,
             )
-            .map_err(ClientError::VerifierError)?;
+            .map_err(ClientError::VerifierError)?;*/
         aggregator_handler
             .unpack_snapshot(digest)
             .await
@@ -293,7 +297,9 @@ mod tests {
         restore.expect("unexpected error");
     }
 
-    #[tokio::test]
+    #[allow(dead_code)]
+    // TODO: To reactivate once real snapshot available
+    //#[tokio::test]
     async fn test_restore_snapshot_ko_get_certificate_details() {
         let certificate_hash = "certhash123";
         let mut mock_aggregator_handler = MockAggregatorHandler::new();
@@ -305,6 +311,7 @@ mod tests {
                     "error occurred".to_string(),
                 ))
             });
+
         let mut client = Client::new("testnet".to_string());
         client
             .with_aggregator_handler(Box::new(mock_aggregator_handler))
@@ -313,7 +320,9 @@ mod tests {
         assert!(restore.is_err(), "an error should have occurred");
     }
 
-    #[tokio::test]
+    #[allow(dead_code)]
+    // TODO: To reactivate once real snapshot available
+    //#[tokio::test]
     async fn test_restore_snapshot_ko_verify_multi_signature() {
         let certificate_hash = "certhash123";
         let fake_certificate = fake_data::certificate(certificate_hash.to_string());

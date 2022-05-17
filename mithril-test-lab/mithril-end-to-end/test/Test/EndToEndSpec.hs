@@ -98,7 +98,7 @@ assertNodeIsProducingSnapshot _tracer _cardanoNode aggregatorPort = go 10
         200 -> do
           CertificatePending {beacon} <- getResponseBody <$> httpJSON request
           let digest = digestOf beacon
-          putStrLn $ "Got beacon : " <> show beacon <> ", computed certificate hash : " <> show digest
+          putStrLn $ "Got beacon : " <> show beacon <> ", computed digest : " <> show digest
           pure $ digest
         other -> failure $ "unexpected status code: " <> show other
 
