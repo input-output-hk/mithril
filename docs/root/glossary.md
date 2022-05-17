@@ -8,15 +8,23 @@ Here is a comprehensive list of terms'definition used in the project.
 
 ## Aggregator
 
-An Aggregator is a software instance that computes, checks the [Mithril Signatures](#mithril-signature) and issues the [Snapshots](#snapshot) along with their [Digest](#snapshot-digest).
+An Aggregator is a software instance that computes, checks the [mithril signatures](#mithril-signature) and issues the [snapshots](#snapshot) along with their [digest](#snapshot-digest).
 
 ## Beacon
 
-A Beacon is a software data structure that holds parameters tied to a given [Epoch](#epoch).
+A Beacon is a software data structure that holds parameters tied to a given [epoch](#epoch).
+
+## Certificate
+
+See [mithril signature](#mithril-signature).
 
 ## Client
 
-A client is a software ran by a Wallet owner or anyone who needs to compute the [ledger state](#ledger-state). Clients use Mithril to ensure the snapshots they download is certified to be the official one.
+A client is a software ran by a Wallet owner or anyone who needs to compute the [ledger state](#ledger-state). Clients use Mithril to ensure the snapshot they download is certified by a randomly distributed population to be the official one.
+
+## Digest
+
+See [snapshot digest](#snapshot-digest).
 
 ## Epoch
 
@@ -32,23 +40,31 @@ The Ledger State represents all the wallets'balances according to the transactio
 
 ## Mithril Signature
 
-A Mithril Signature is a unique signature computed from multiple [Signers](#signer)'s signatures depending on a common shared message (the [Snapshot Digest](#snapshot-digest)).
+A Mithril Signature is a unique signature computed from a random distributed population of [signers](#signer)'s signatures depending on a common shared message.
+
+## Party
+
+A party is a person or something represented by a key pair on the Cardano network and who is involved in a [mithril signature](#mithril-signature).
 
 ## Signer
 
-A Signer is a software that acts as a party in [Mithril Signatures](#mithril-signature). As such it uses someone's stake to participate to internal Mithril gambling process.
+A Signer is a software that acts as a party in [mithril signatures](#mithril-signature). As such it uses the [party](#party)'s stake to participate to internal Mithril gambling process.
 
 ## Signer Verification Key
 
-A Signer Verification Key is a key computed from a [Signer](#signer)'s private key to assess his identity in the [Mithril Signature](#mithril-signature).
+A Signer Verification Key is a key computed from a [Party](#party)'s private key to assess his identity in the [Mithril Signature](#mithril-signature).
 
 ## Snapshot
 
-A Mithril Snapshot is a signed archive of the Blockchain that can be used by Clients to restore the [Ledger State](#ledger-state) quicker than computing it from scratch.
+A Mithril Snapshot is a signed archive of the Blockchain that can be used by [Clients](#client) to restore the [Ledger State](#ledger-state) quicker than computing it from scratch.
+
+## Snapshot Certificate
+
+The snapshot certificate is a [mithril signature](#mithril-signature) of the [snapshot digest](#snapshot-digest) that ensures its authenticity to all [clients](#clients) who want to use it.
 
 ## Snapshot Digest
 
-A Snapshot digest is a unique control sum (hash) associated to a [Snapshot](#snapshot). It can be used to assert a [Snapshot](#snapshot) is valid or can be signed to certify the according [Snapshot](#snapshot)'s provenance.
+A snapshot digest (or simply, Digest) is a unique control sum (hash) associated to a [Snapshot](#snapshot). It can be used to assert a [Snapshot](#snapshot) is valid or can be signed to certify the according [Snapshot](#snapshot)'s provenance.
 
 ## Stake Distribution
 
