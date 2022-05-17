@@ -66,15 +66,14 @@ pub fn certificate(certificate_hash: String) -> entities::Certificate {
 
     // Certificate
     let previous_hash = format!("{}0", certificate_hash);
-    let block = beacon.immutable_file_number;
-    let digest = format!("1{}", block).repeat(20);
+    let digest = format!("1{}", beacon.immutable_file_number).repeat(20);
     let started_at = "2006-01-02T15:04:05Z".to_string();
     let completed_at = "2006-01-02T15:04:05Z".to_string();
-    let multisignature = format!("ABC{}", block).repeat(200);
+    let multisignature = format!("ABC{}", beacon.immutable_file_number).repeat(200);
     entities::Certificate::new(
         certificate_hash,
         previous_hash,
-        block,
+        beacon,
         protocol_parameters,
         digest,
         started_at,

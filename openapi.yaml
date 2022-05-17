@@ -318,7 +318,7 @@ components:
       required:
         - hash
         - previous_hash
-        - block
+        - beacon
         - protocol
         - digest
         - started_at
@@ -334,10 +334,8 @@ components:
           description: Hash of the previous certificate
           type: string
           format: bytes
-        block:
-          description: Cardano chain block number
-          type: integer
-          format: int64
+        beacon:
+          $ref: "#/components/schemas/Beacon"
         protocol:
           description: Protocol parameters
           $ref: "#/components/schemas/ProtocolParameters"

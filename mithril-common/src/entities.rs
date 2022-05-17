@@ -80,9 +80,9 @@ pub struct Certificate {
     #[serde(rename = "previous_hash")]
     pub previous_hash: String,
 
-    /// Cardano chain block number
-    #[serde(rename = "block")]
-    pub block: u64,
+    /// Cardano chain beacon
+    #[serde(rename = "beacon")]
+    pub beacon: Beacon,
 
     /// Protocol parameters
     #[serde(rename = "protocol")]
@@ -115,7 +115,7 @@ impl Certificate {
     pub fn new(
         hash: String,
         previous_hash: String,
-        block: u64,
+        beacon: Beacon,
         protocol_parameters: ProtocolParameters,
         digest: String,
         started_at: String,
@@ -126,7 +126,7 @@ impl Certificate {
         Certificate {
             hash,
             previous_hash,
-            block,
+            beacon,
             protocol_parameters,
             digest,
             started_at,

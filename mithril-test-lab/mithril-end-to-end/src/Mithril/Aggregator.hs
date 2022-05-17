@@ -33,7 +33,7 @@ data SignerWithStake = SignerWithStake
 data Certificate = Certificate
   { hash :: Text,
     previous_hash :: Text,
-    block :: Word64,
+    beacon :: Beacon,
     protocol :: ProtocolParameters,
     digest :: Text,
     started_at :: UTCTime,
