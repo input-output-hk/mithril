@@ -12,9 +12,12 @@ import CardanoNode
     defaultCardanoNodeArgs,
     withCardanoNode,
   )
+import qualified Codec.Archive.Tar as Tar
+import qualified Codec.Compression.GZip as GZip
 import Control.Tracer (Tracer, traceWith)
 import qualified Data.Aeson as Aeson
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Lazy as LBS
 import Hydra.Cardano.Api
 import Hydra.Prelude
 import Logging (ClusterLog (MsgFromNode, MsgNodeStarting))
@@ -99,7 +102,8 @@ data RunningCluster = RunningCluster
 -- | Configuration parameters for the cluster.
 data ClusterConfig = ClusterConfig
   { parentStateDirectory :: FilePath,
-    networkId :: NetworkId
+    networkId :: NetworkId,
+    primedDB :: Maybe FilePath
   }
 
 asSigningKey :: AsType (SigningKey PaymentKey)
@@ -107,17 +111,25 @@ asSigningKey = AsSigningKey AsPaymentKey
 
 withCluster ::
   Tracer IO ClusterLog -> ClusterConfig -> (RunningCluster -> IO ()) -> IO ()
-withCluster tr cfg@ClusterConfig {parentStateDirectory} action = do
+withCluster tr cfg@ClusterConfig {parentStateDirectory, primedDB} action = do
   systemStart <- initSystemStart
   (cfgA, cfgB, cfgC) <-
     makeNodesConfig parentStateDirectory systemStart
       <$> randomUnusedTCPPorts 3
+
+  primeDB [cfgA, cfgB, cfgC] primedDB
 
   withBFTNode tr cfgA $ \nodeA -> do
     withBFTNode tr cfgB $ \nodeB -> do
       withBFTNode tr cfgC $ \nodeC -> do
         let nodes = [nodeA, nodeB, nodeC]
         action (RunningCluster cfg nodes)
+  where
+    primeDB nodesConfig = \case
+      Nothing -> pure ()
+      Just file -> forM_ nodesConfig $ \(CardanoNodeConfig _ dir _ _) -> do
+        dump <- readConfigFile file
+        Tar.unpack (dir </> "db") . Tar.read . GZip.decompress . LBS.fromStrict $ dump
 
 -- | Start a cardano-node in BFT mode using the config from config/ and
 -- credentials from config/credentials/ using given 'nodeId'. NOTE: This means
