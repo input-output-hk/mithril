@@ -1,7 +1,7 @@
 use crate::entities::ImmutableFileNumber;
 
 use sha2::{Digest, Sha256};
-use slog::{info, Logger};
+use slog::{debug, info, Logger};
 use std::ffi::OsStr;
 use std::fs::File;
 use std::io;
@@ -62,6 +62,8 @@ impl ImmutableDigester {
             .compute_hash(&immutables)
             .map_err(ImmutableDigesterError::DigestComputationError)?;
         let digest = hex::encode(hash);
+
+        debug!(self.logger, "#computed digest: {:?}", digest);
 
         Ok(ImmutableDigesterResult {
             digest,

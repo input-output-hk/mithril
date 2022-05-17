@@ -97,7 +97,9 @@ assertNodeIsProducingSnapshot _tracer _cardanoNode aggregatorPort = go 10
         204 -> threadDelay 1 >> go (n -1)
         200 -> do
           CertificatePending {beacon} <- getResponseBody <$> httpJSON request
-          pure $ digestOf beacon
+          let digest = digestOf beacon
+          putStrLn $ "Got beacon : " <> show beacon <> ", computed certificate hash : " <> show digest
+          pure $ digest
         other -> failure $ "unexpected status code: " <> show other
 
 assertNetworkIsProducingBlock :: Tracer IO ClusterLog -> RunningCluster -> IO ()
