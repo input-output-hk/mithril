@@ -7,7 +7,7 @@ use clap::Parser;
 #[derive(Parser, Debug, PartialEq, Clone, Copy)]
 pub struct Config {
     /// Security parameter, upper bound on indices
-    #[clap(short, long, default_value_t = 100)]
+    #[clap(short, long, default_value_t = 200)]
     m: u64,
 
     /// Quorum parameter

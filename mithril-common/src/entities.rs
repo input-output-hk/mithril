@@ -48,6 +48,7 @@ pub struct CertificatePending {
     pub previous_hash: String,
 
     /// Current Signers with stakes
+    // TODO: Should return Vec<Signer> instead, will be updated when stake distribution is real
     #[serde(rename = "signers")]
     pub signers: Vec<SignerWithStake>,
 }

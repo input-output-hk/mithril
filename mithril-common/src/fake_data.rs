@@ -1,6 +1,5 @@
 #![allow(dead_code)]
 
-use serde::{Deserialize, Serialize};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::entities;
@@ -98,28 +97,6 @@ pub fn signers(total: u64) -> Vec<entities::Signer> {
         .iter()
         .map(|signer| entities::Signer::new(signer.party_id, signer.verification_key.clone()))
         .collect::<Vec<entities::Signer>>()
-}
-
-/// SignerWithSecretKeys represents a signer with verification/secret keys
-// TODO: To delete once key registration is implemented
-#[derive(Serialize, Deserialize, Clone)]
-pub struct SignerWithSecretKeys {
-    pub party_id: u64,
-    pub stake: u64,
-    pub verification_key: String,
-    pub secret_key: String,
-}
-
-/// Fake SignerKeys returns Verification/Secret keys for a party_id
-// TODO: To delete once key registration is implemented
-pub fn signer_keys(party_id: u64) -> Option<SignerWithSecretKeys> {
-    let signers_with_secret_keys =
-        serde_json::from_str::<Vec<SignerWithSecretKeys>>(SIGNERS_WITH_STAKE_JSON).unwrap();
-    let signer_keys = signers_with_secret_keys
-        .iter()
-        .filter(|signer| signer.party_id == party_id)
-        .collect::<Vec<&SignerWithSecretKeys>>();
-    Some((*(signer_keys.first()?)).clone())
 }
 
 /// Fake SingleSignatures

@@ -30,10 +30,6 @@ pub mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    pub fn message() -> Bytes {
-        Vec::from_hex("7724e03fb8d84a376a43b8f41518a11c").unwrap()
-    }
-
     #[test]
     fn test_key_encode_decode_hex() {
         let protocol_params = setup_protocol_parameters();

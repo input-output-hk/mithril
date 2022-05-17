@@ -23,6 +23,7 @@ pub fn setup_signers(
     ProtocolStake,
     ProtocolSignerVerificationKey,
     ProtocolSigner,
+    ProtocolInitializer,
 )> {
     let seed = [0u8; 32];
     let mut rng = ChaCha20Rng::from_seed(seed);
@@ -66,7 +67,10 @@ pub fn setup_signers(
                 party_id,
                 stake,
                 protocol_initializer.verification_key(),
-                protocol_initializer.new_signer(closed_key_registration.clone()),
+                protocol_initializer
+                    .clone()
+                    .new_signer(closed_key_registration.clone()),
+                protocol_initializer,
             )
         })
         .collect::<_>()

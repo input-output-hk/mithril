@@ -20,7 +20,7 @@ struct PlayerArtifact {
     party_id: ProtocolPartyId,
     stake: ProtocolStake,
     verification_key: String,
-    secret_key: String,
+    initializer: String,
 }
 
 /// Single Signature artifacts
@@ -136,7 +136,6 @@ impl Party {
         signatures: &[(ProtocolSingleSignature, u64)],
     ) -> Option<&ProtocolMultiSignature> {
         let unzipped_signatures: (Vec<_>, Vec<_>) = signatures.iter().cloned().unzip();
-        println!("123 {}", signatures.len());
         let msig = self
             .clerk
             .as_ref()
@@ -365,12 +364,11 @@ impl ProtocolDemonstrator for Demonstrator {
                 ProtocolInitializer::setup(self.params.unwrap(), party_id, stake, &mut rng);
             let verification_key: ProtocolSignerVerificationKey =
                 protocol_initializer.verification_key();
-            let secret_key: ProtocolSignerSecretKey = protocol_initializer.secret_key();
             players_artifacts.push(PlayerArtifact {
                 party_id: protocol_initializer.party_id(),
                 stake: protocol_initializer.stake(),
                 verification_key: key_encode_hex(verification_key).unwrap(),
-                secret_key: key_encode_hex(secret_key).unwrap(),
+                initializer: key_encode_hex(protocol_initializer).unwrap(),
             })
         }
         let players_with_keys = players_artifacts

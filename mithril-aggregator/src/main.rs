@@ -3,9 +3,8 @@
 use clap::Parser;
 
 use mithril_aggregator::{
-    key_decode_hex, AggregatorRuntime, Config, DependencyManager, MemoryBeaconStore, MultiSigner,
-    MultiSignerImpl, ProtocolParameters, ProtocolPartyId, ProtocolSignerVerificationKey,
-    ProtocolStake, Server, SnapshotStoreHTTPClient,
+    AggregatorRuntime, Config, DependencyManager, MemoryBeaconStore, MultiSigner, MultiSignerImpl,
+    ProtocolPartyId, ProtocolStake, Server, SnapshotStoreHTTPClient,
 };
 use mithril_common::fake_data;
 use slog::{Drain, Level, Logger};
@@ -66,7 +65,7 @@ fn build_logger(min_level: Level) -> Logger {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), String> {
     // Load args
     let args = Args::parse();
     let _guard = slog_scope::set_global_logger(build_logger(args.log_level()));
@@ -77,9 +76,9 @@ async fn main() {
         .add_source(config::File::with_name(&format!("./config/{}.json", run_mode)).required(false))
         .add_source(config::Environment::default())
         .build()
-        .unwrap()
+        .map_err(|e| format!("configuration build error: {}", e))?
         .try_deserialize()
-        .unwrap();
+        .map_err(|e| format!("configuration deserialize error: {}", e))?;
     debug!("Started"; "run_mode" => &run_mode, "config" => format!("{:?}", config));
 
     // Init dependencies
@@ -123,6 +122,7 @@ async fn main() {
     handle.abort();
 
     println!("Exiting...");
+    Ok(())
 }
 
 /// Init multi signer dependency
@@ -131,13 +131,8 @@ fn init_multi_signer() -> impl MultiSigner {
 
     // Update protocol parameters
     let protocol_parameters = fake_data::protocol_parameters();
-    let protocol_parameters = ProtocolParameters {
-        m: protocol_parameters.m,
-        k: protocol_parameters.k,
-        phi_f: protocol_parameters.phi_f as f64,
-    };
     multi_signer
-        .update_protocol_parameters(&protocol_parameters)
+        .update_protocol_parameters(&protocol_parameters.into())
         .expect("update protocol parameters failed");
 
     // Update stake distribution
@@ -154,16 +149,6 @@ fn init_multi_signer() -> impl MultiSigner {
     multi_signer
         .update_stake_distribution(&stakes)
         .expect("stake distribution update failed");
-
-    // Register signers
-    fake_data::signers(total_signers).iter().for_each(|signer| {
-        multi_signer
-            .register_signer(
-                signer.party_id as ProtocolPartyId,
-                &key_decode_hex::<ProtocolSignerVerificationKey>(&signer.verification_key).unwrap(),
-            )
-            .expect("register signer failed");
-    });
 
     multi_signer
 }

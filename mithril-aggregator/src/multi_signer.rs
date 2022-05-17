@@ -1,6 +1,7 @@
 use hex::ToHex;
 use slog_scope::{debug, warn};
 use std::collections::HashMap;
+use thiserror::Error;
 
 // TODO: remove pub
 pub use mithril_common::crypto_helper::{
@@ -9,9 +10,28 @@ pub use mithril_common::crypto_helper::{
     ProtocolSignerVerificationKey, ProtocolSingleSignature, ProtocolStake,
     ProtocolStakeDistribution,
 };
+use mithril_common::entities;
 
 #[cfg(test)]
 use mockall::automock;
+
+#[derive(Error, Debug)]
+pub enum ProtocolError {
+    #[error("signer already registered")]
+    ExistingSigner(),
+
+    #[error("single signature already recorded")]
+    ExistingSingleSignature(ProtocolLotteryIndex),
+
+    #[error("codec error: '{0}'")]
+    Codec(String),
+
+    #[error("core error: '{0}'")]
+    Core(String),
+
+    #[error("no message available")]
+    UnavailableMessage(),
+}
 
 /// MultiSigner is the cryptographic engine in charge of producing multi signatures from individual signatures
 #[cfg_attr(test, automock)]
@@ -20,7 +40,7 @@ pub trait MultiSigner: Sync + Send {
     fn get_current_message(&self) -> Option<Bytes>;
 
     /// Update current message
-    fn update_current_message(&mut self, message: Bytes) -> Result<(), String>;
+    fn update_current_message(&mut self, message: Bytes) -> Result<(), ProtocolError>;
 
     /// Get protocol parameters
     fn get_protocol_parameters(&self) -> Option<ProtocolParameters>;
@@ -29,7 +49,7 @@ pub trait MultiSigner: Sync + Send {
     fn update_protocol_parameters(
         &mut self,
         protocol_parameters: &ProtocolParameters,
-    ) -> Result<(), String>;
+    ) -> Result<(), ProtocolError>;
 
     /// Get stake distribution
     fn get_stake_distribution(&self) -> ProtocolStakeDistribution;
@@ -38,17 +58,23 @@ pub trait MultiSigner: Sync + Send {
     fn update_stake_distribution(
         &mut self,
         stakes: &ProtocolStakeDistribution,
-    ) -> Result<(), String>;
+    ) -> Result<(), ProtocolError>;
 
     /// Register a signer
     fn register_signer(
         &mut self,
         party_id: ProtocolPartyId,
         verification_key: &ProtocolSignerVerificationKey,
-    ) -> Result<(), String>;
+    ) -> Result<(), ProtocolError>;
 
     /// Get signer
-    fn get_signer(&self, party_id: ProtocolPartyId) -> Option<ProtocolSignerVerificationKey>;
+    fn get_signer(
+        &self,
+        party_id: ProtocolPartyId,
+    ) -> Result<Option<ProtocolSignerVerificationKey>, ProtocolError>;
+
+    /// Get signers
+    fn get_signers(&self) -> Result<Vec<entities::SignerWithStake>, ProtocolError>;
 
     /// Registers a single signature
     fn register_single_signature(
@@ -56,16 +82,16 @@ pub trait MultiSigner: Sync + Send {
         party_id: ProtocolPartyId,
         signature: &ProtocolSingleSignature,
         index: ProtocolLotteryIndex,
-    ) -> Result<(), String>;
+    ) -> Result<(), ProtocolError>;
 
     /// Retrieves a multi signature from a message
     fn get_multi_signature(
         &self,
         message: String,
-    ) -> Result<Option<ProtocolMultiSignature>, String>;
+    ) -> Result<Option<ProtocolMultiSignature>, ProtocolError>;
 
     /// Create a multi signature from single signatures
-    fn create_multi_signature(&mut self) -> Result<Option<ProtocolMultiSignature>, String>;
+    fn create_multi_signature(&mut self) -> Result<Option<ProtocolMultiSignature>, ProtocolError>;
 }
 
 /// MultiSignerImpl is an implementation of the MultiSigner
@@ -105,7 +131,7 @@ impl MultiSignerImpl {
         let stakes = self.get_stake_distribution();
         let mut key_registration = ProtocolKeyRegistration::init(&stakes);
         stakes.iter().for_each(|(party_id, _stake)| {
-            if let Some(verification_key) = self.get_signer(*party_id) {
+            if let Some(verification_key) = self.get_signer(*party_id).unwrap() {
                 key_registration
                     .register(*party_id, verification_key)
                     .unwrap();
@@ -123,7 +149,7 @@ impl MultiSigner for MultiSignerImpl {
     }
 
     /// Update current message
-    fn update_current_message(&mut self, message: Bytes) -> Result<(), String> {
+    fn update_current_message(&mut self, message: Bytes) -> Result<(), ProtocolError> {
         self.current_message = Some(message);
         Ok(())
     }
@@ -137,7 +163,7 @@ impl MultiSigner for MultiSignerImpl {
     fn update_protocol_parameters(
         &mut self,
         protocol_parameters: &ProtocolParameters,
-    ) -> Result<(), String> {
+    ) -> Result<(), ProtocolError> {
         debug!("Update protocol parameters to {:?}", protocol_parameters);
         self.protocol_parameters = Some(protocol_parameters.to_owned());
         Ok(())
@@ -152,15 +178,37 @@ impl MultiSigner for MultiSignerImpl {
     fn update_stake_distribution(
         &mut self,
         stakes: &ProtocolStakeDistribution,
-    ) -> Result<(), String> {
+    ) -> Result<(), ProtocolError> {
         debug!("Update stake distribution to {:?}", stakes);
         self.stakes = stakes.to_owned();
         Ok(())
     }
 
     /// Get signer verification key
-    fn get_signer(&self, party_id: ProtocolPartyId) -> Option<ProtocolSignerVerificationKey> {
-        self.signers.get(&party_id).copied()
+    fn get_signer(
+        &self,
+        party_id: ProtocolPartyId,
+    ) -> Result<Option<ProtocolSignerVerificationKey>, ProtocolError> {
+        Ok(self.signers.get(&party_id).copied())
+    }
+
+    /// Get signers
+    fn get_signers(&self) -> Result<Vec<entities::SignerWithStake>, ProtocolError> {
+        Ok(self
+            .get_stake_distribution()
+            .iter()
+            .filter_map(|(party_id, stake)| match self.get_signer(*party_id) {
+                Ok(Some(verification_key)) => match key_encode_hex(verification_key) {
+                    Ok(verification_key) => Some(entities::SignerWithStake::new(
+                        *party_id as u64,
+                        verification_key,
+                        *stake as u64,
+                    )),
+                    Err(_) => None,
+                },
+                _ => None,
+            })
+            .collect())
     }
 
     /// Register a signer
@@ -168,10 +216,12 @@ impl MultiSigner for MultiSignerImpl {
         &mut self,
         party_id: ProtocolPartyId,
         verification_key: &ProtocolSignerVerificationKey,
-    ) -> Result<(), String> {
+    ) -> Result<(), ProtocolError> {
         debug!("Register signer {}", party_id);
-        self.signers.insert(party_id, *verification_key);
-        Ok(())
+        match self.signers.insert(party_id, *verification_key) {
+            Some(_) => Err(ProtocolError::ExistingSigner()),
+            None => Ok(()),
+        }
     }
 
     /// Registers a single signature
@@ -181,13 +231,15 @@ impl MultiSigner for MultiSignerImpl {
         party_id: ProtocolPartyId,
         signature: &ProtocolSingleSignature,
         index: ProtocolLotteryIndex,
-    ) -> Result<(), String> {
+    ) -> Result<(), ProtocolError> {
         debug!(
             "Register single signature from {} at index {}",
             party_id, index
         );
 
-        let message = &self.get_current_message().unwrap();
+        let message = &self
+            .get_current_message()
+            .ok_or_else(ProtocolError::UnavailableMessage)?;
         let clerk = self.clerk();
         match clerk.verify_sig(signature, message) {
             Ok(_) => {
@@ -202,7 +254,7 @@ impl MultiSigner for MultiSignerImpl {
                             "Signature already registered from {} at index {}",
                             party_id, index
                         );
-                        return Err("signature already registered".to_string());
+                        return Err(ProtocolError::ExistingSingleSignature(index));
                     }
                     None => {
                         signatures.insert(index, signature.to_owned());
@@ -228,7 +280,7 @@ impl MultiSigner for MultiSignerImpl {
 
                 Ok(())
             }
-            Err(e) => Err(e.to_string()),
+            Err(e) => Err(ProtocolError::Core(e.to_string())),
         }
     }
 
@@ -236,12 +288,12 @@ impl MultiSigner for MultiSignerImpl {
     fn get_multi_signature(
         &self,
         message: String,
-    ) -> Result<Option<ProtocolMultiSignature>, String> {
+    ) -> Result<Option<ProtocolMultiSignature>, ProtocolError> {
         debug!("Get multi signature for message {}", message);
         match self.multi_signatures.get(&message) {
             Some(multi_signature) => {
-                let multi_signature: ProtocolMultiSignature = key_decode_hex(multi_signature)
-                    .map_err(|e| format!("can't decode multi signature: {}", e))?;
+                let multi_signature: ProtocolMultiSignature =
+                    key_decode_hex(multi_signature).map_err(ProtocolError::Codec)?;
                 Ok(Some(multi_signature))
             }
             None => Ok(None),
@@ -249,10 +301,12 @@ impl MultiSigner for MultiSignerImpl {
     }
 
     /// Create a multi signature from single signatures
-    fn create_multi_signature(&mut self) -> Result<Option<ProtocolMultiSignature>, String> {
+    fn create_multi_signature(&mut self) -> Result<Option<ProtocolMultiSignature>, ProtocolError> {
         debug!("Create multi signature");
 
-        let message = &self.get_current_message().unwrap();
+        let message = &self
+            .get_current_message()
+            .ok_or_else(ProtocolError::UnavailableMessage)?;
         let signatures: Vec<ProtocolSingleSignature> = self
             .single_signatures
             .iter()
@@ -272,12 +326,12 @@ impl MultiSigner for MultiSignerImpl {
             Ok(multi_signature) => {
                 self.multi_signatures.insert(
                     message.encode_hex::<String>(),
-                    key_encode_hex(&multi_signature).unwrap(),
+                    key_encode_hex(&multi_signature).map_err(ProtocolError::Codec)?,
                 );
                 self.single_signatures.drain();
                 Ok(Some(multi_signature))
             }
-            Err(e) => Err(e.to_string()),
+            Err(err) => Err(ProtocolError::Core(err.to_string())),
         }
     }
 }
@@ -324,7 +378,7 @@ mod tests {
 
         let stake_distribution_expected = setup_signers(5)
             .iter()
-            .map(|(party_id, stake, _, _)| (*party_id, *stake))
+            .map(|(party_id, stake, _, _, _)| (*party_id, *stake))
             .collect::<_>();
         multi_signer
             .update_stake_distribution(&stake_distribution_expected)
@@ -338,22 +392,44 @@ mod tests {
     fn test_multi_signer_register_signer_ok() {
         let mut multi_signer = MultiSignerImpl::new();
 
+        let stake_distribution_expected = setup_signers(5)
+            .iter()
+            .map(|(party_id, stake, _, _, _)| (*party_id, *stake))
+            .collect::<_>();
+        multi_signer
+            .update_stake_distribution(&stake_distribution_expected)
+            .expect("update stake distribution failed");
+
         let signers = setup_signers(5);
         signers
             .iter()
-            .for_each(|(party_id, _, verification_key, _)| {
+            .for_each(|(party_id, _, verification_key, _, _)| {
                 multi_signer
                     .register_signer(*party_id, &verification_key)
                     .expect("register should have succeeded")
             });
 
+        let mut signers_all_expected = Vec::new();
         signers
             .iter()
-            .for_each(|(party_id, _, verification_key_expected, _)| {
+            .for_each(|(party_id, stake, verification_key_expected, _, _)| {
                 let verification_key = multi_signer.get_signer(*party_id);
-                assert!(verification_key.is_some());
-                assert_eq!(*verification_key_expected, verification_key.unwrap());
+                assert!(verification_key.as_ref().unwrap().is_some());
+                assert_eq!(
+                    *verification_key_expected,
+                    verification_key.unwrap().unwrap()
+                );
+                signers_all_expected.push(entities::SignerWithStake::new(
+                    *party_id,
+                    key_encode_hex(verification_key_expected).unwrap(),
+                    *stake,
+                ));
             });
+
+        let signers_all = multi_signer
+            .get_signers()
+            .expect("get signers should have been succeeded");
+        assert_eq!(signers_all_expected, signers_all);
     }
 
     #[test]
@@ -373,14 +449,14 @@ mod tests {
         let signers = setup_signers(5);
         let stake_distribution = &signers
             .iter()
-            .map(|(party_id, stake, _, _)| (*party_id, *stake))
+            .map(|(party_id, stake, _, _, _)| (*party_id, *stake))
             .collect::<_>();
         multi_signer
             .update_stake_distribution(&stake_distribution)
             .expect("update stake distribution failed");
         signers
             .iter()
-            .for_each(|(party_id, _, verification_key, _)| {
+            .for_each(|(party_id, _, verification_key, _, _)| {
                 multi_signer
                     .register_signer(*party_id, verification_key)
                     .expect("register should have succeeded")
@@ -389,7 +465,7 @@ mod tests {
         let mut signatures = Vec::new();
         signers
             .iter()
-            .for_each(|(party_id, _, _, protocol_signer)| {
+            .for_each(|(party_id, _, _, protocol_signer, _)| {
                 for i in 1..=protocol_parameters.m {
                     if let Some(signature) = protocol_signer.sign(&message, i) {
                         signatures.push((*party_id, signature, i as ProtocolLotteryIndex));

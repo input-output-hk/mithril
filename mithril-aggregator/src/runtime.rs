@@ -66,7 +66,9 @@ impl AggregatorRuntime {
 
                 let mut multi_signer = self.multi_signer.write().await;
                 let message = fake_data::digest(&beacon);
-                multi_signer.update_current_message(message)?;
+                multi_signer
+                    .update_current_message(message)
+                    .map_err(|e| e.to_string())?;
 
                 snapshotter
                     .snapshot(digest_result.digest)
