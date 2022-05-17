@@ -462,12 +462,6 @@ impl StmInitializer {
         self.pk = pk;
     }
 
-    /// Extract the secret key
-    // todo: do we need this? We shouldn't
-    pub fn secret_key(&self) -> SigningKey {
-        self.sk.clone()
-    }
-
     /// Extract the verification key.
     pub fn verification_key(&self) -> StmVerificationKey {
         self.pk
