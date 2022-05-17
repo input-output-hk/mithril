@@ -13,7 +13,8 @@ main = do
   let config =
         ClusterConfig
           { parentStateDirectory = workDir,
-            networkId = defaultNetworkId
+            networkId = defaultNetworkId,
+            primedDB = Nothing
           }
       tr = Tracer $ \a -> LBS.hPut stdout (encode a <> "\n")
   withCluster tr config $ \_cluster -> do
