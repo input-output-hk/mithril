@@ -1,4 +1,4 @@
-use crate::entities::ImmutableNumber;
+use crate::entities::ImmutableFileNumber;
 
 use sha2::{Digest, Sha256};
 use slog::{info, Logger};
@@ -37,7 +37,7 @@ pub struct ImmutableDigesterResult {
     pub digest: String,
 
     /// The number of the last immutable file used to compute the digest
-    pub last_immutable_number: ImmutableNumber,
+    pub last_immutable_file_number: ImmutableFileNumber,
 }
 
 impl ImmutableDigester {
@@ -65,7 +65,7 @@ impl ImmutableDigester {
 
         Ok(ImmutableDigesterResult {
             digest,
-            last_immutable_number: last_immutable.number,
+            last_immutable_file_number: last_immutable.number,
         })
     }
 
@@ -120,7 +120,7 @@ fn is_immutable(path: &Path) -> bool {
 #[derive(Debug)]
 struct ImmutableFile {
     path: PathBuf,
-    number: ImmutableNumber,
+    number: ImmutableFileNumber,
 }
 
 impl ImmutableFile {
@@ -132,13 +132,13 @@ impl ImmutableFile {
             "Couldn't extract the filename as string for '{:?}'",
             path
         ))?;
-        let immutable_number = filename
-            .parse::<ImmutableNumber>()
+        let immutable_file_number = filename
+            .parse::<ImmutableFileNumber>()
             .map_err(|e| e.to_string())?;
 
         Ok(Self {
             path,
-            number: immutable_number,
+            number: immutable_file_number,
         })
     }
 

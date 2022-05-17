@@ -202,7 +202,7 @@ components:
       required:
         - network
         - epoch
-        - immutable_number
+        - immutable_file_number
       properties:
         network:
           description: Cardano network
@@ -211,11 +211,11 @@ components:
           description: Cardano chain epoch number
           type: integer
           format: int64
-        immutable_number:
+        immutable_file_number:
           description: Number of the last immutable file that should be included the snapshot
           type: integer
           format: int64
-      example: { "network": "mainnet", "epoch": 329, "immutable_number": 7060000 }
+      example: { "network": "mainnet", "epoch": 329, "immutable_file_number": 7060000 }
 
     CertificatePending:
       description: CertificatePending represents all the informations related to the certificate currently expecting to receive quorum of single signatures

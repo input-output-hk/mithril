@@ -52,7 +52,7 @@ impl AggregatorRuntime {
             Ok(digest_result) => {
                 let mut beacon_store = self.beacon_store.write().await;
                 let mut beacon = fake_data::beacon();
-                beacon.immutable_number = digest_result.last_immutable_number;
+                beacon.immutable_file_number = digest_result.last_immutable_file_number;
                 beacon_store.set_current_beacon(beacon).await?;
                 snapshotter
                     .snapshot(digest_result.digest)

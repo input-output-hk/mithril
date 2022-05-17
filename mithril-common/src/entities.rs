@@ -3,7 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
-pub type ImmutableNumber = u64;
+pub type ImmutableFileNumber = u64;
 
 /// Beacon represents a point in the Cardano chain at which a Mithril certificate should be produced
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
@@ -16,18 +16,18 @@ pub struct Beacon {
     #[serde(rename = "epoch")]
     pub epoch: u64,
 
-    /// Cardano chain block number
-    #[serde(rename = "immutable_number")]
-    pub immutable_number: ImmutableNumber,
+    /// Number of the last included immutable files for the digest computation
+    #[serde(rename = "immutable_file_number")]
+    pub immutable_file_number: ImmutableFileNumber,
 }
 
 impl Beacon {
     /// Beacon factory
-    pub fn new(network: String, epoch: u64, immutable_number: u64) -> Beacon {
+    pub fn new(network: String, epoch: u64, immutable_file_number: u64) -> Beacon {
         Beacon {
             network,
             epoch,
-            immutable_number,
+            immutable_file_number,
         }
     }
 }
