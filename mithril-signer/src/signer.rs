@@ -39,6 +39,7 @@ impl Signer {
             .await
             .map_err(|e| SignerError::RetrievePendingCertificateFailed(e.to_string()))?
         {
+            let message = fake_data::digest(&pending_certificate.beacon);
             let must_register_signature = match &self.current_beacon {
                 None => {
                     self.current_beacon = Some(pending_certificate.beacon);
@@ -48,7 +49,6 @@ impl Signer {
             };
 
             if must_register_signature {
-                let message = fake_data::digest();
                 let stake_distribution = fake_data::signers_with_stakes(5);
                 let signatures = self
                     .single_signer

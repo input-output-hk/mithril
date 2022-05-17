@@ -104,6 +104,7 @@ async fn main() {
             args.snapshot_interval * 1000,
             args.db_directory.clone(),
             beacon_store.clone(),
+            multi_signer.clone(),
         );
         runtime.run().await
     });

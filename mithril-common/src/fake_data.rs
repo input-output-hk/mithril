@@ -13,13 +13,12 @@ pub fn beacon() -> entities::Beacon {
         .unwrap()
         .as_secs();
     let epoch = seconds_since_unix_epoch / 86400_u64; // 1 epoch every day
-    let block = 100 * (seconds_since_unix_epoch / (5 * 100)) as u64; // 1 block every 5s and 1 snapshot every 100 blocks
-    entities::Beacon::new(network, epoch, block)
+    let immutable_file_number = (seconds_since_unix_epoch / (5 * 100)) as u64; // 1 immutable_file_number every 500s
+    entities::Beacon::new(network, epoch, immutable_file_number)
 }
 
 /// Fake Digest
-pub fn digest() -> Vec<u8> {
-    let beacon = beacon();
+pub fn digest(beacon: &entities::Beacon) -> Vec<u8> {
     format!(
         "digest-{}-{}-{}",
         beacon.network, beacon.epoch, beacon.immutable_file_number

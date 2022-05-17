@@ -1,4 +1,4 @@
-use crate::dependency::BeaconStoreWrapper;
+use crate::dependency::{BeaconStoreWrapper, MultiSignerWrapper};
 use crate::Snapshotter;
 use mithril_common::fake_data;
 use mithril_common::immutable_digester::ImmutableDigester;
@@ -15,15 +15,24 @@ pub struct AggregatorRuntime {
 
     /// Beacon store
     beacon_store: BeaconStoreWrapper,
+
+    /// Multi signer
+    multi_signer: MultiSignerWrapper,
 }
 
 impl AggregatorRuntime {
     /// AggregatorRuntime factory
-    pub fn new(interval: u32, db_directory: String, beacon_store: BeaconStoreWrapper) -> Self {
+    pub fn new(
+        interval: u32,
+        db_directory: String,
+        beacon_store: BeaconStoreWrapper,
+        multi_signer: MultiSignerWrapper,
+    ) -> Self {
         Self {
             interval,
             db_directory,
             beacon_store,
+            multi_signer,
         }
     }
 
@@ -53,7 +62,12 @@ impl AggregatorRuntime {
                 let mut beacon_store = self.beacon_store.write().await;
                 let mut beacon = fake_data::beacon();
                 beacon.immutable_file_number = digest_result.last_immutable_file_number;
-                beacon_store.set_current_beacon(beacon).await?;
+                beacon_store.set_current_beacon(beacon.clone()).await?;
+
+                let mut multi_signer = self.multi_signer.write().await;
+                let message = fake_data::digest(&beacon);
+                multi_signer.update_current_message(message)?;
+
                 snapshotter
                     .snapshot(digest_result.digest)
                     .await
