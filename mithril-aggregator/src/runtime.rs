@@ -95,7 +95,8 @@ impl AggregatorRuntime {
 
                 match self.manage_trigger_snapshot(&message, &beacon).await {
                     Ok(true) => {
-                        let snapshot = snapshotter.snapshot().await?;
+                        let snapshot_name = format!("testnet.{}.tar.gz", &digest_result.digest);
+                        let snapshot = snapshotter.snapshot(&snapshot_name).await?;
                         let mut snapshot_store = self.snapshot_store.write().await;
                         snapshot_store
                             .upload_snapshot(digest_result.digest, snapshot)

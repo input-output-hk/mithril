@@ -1,6 +1,5 @@
 use crate::snapshot_stores::SnapshotStoreError;
 use crate::SnapshotStore;
-use mithril_common::entities::Snapshot;
 
 use async_trait::async_trait;
 use chrono::prelude::*;
@@ -8,6 +7,7 @@ use cloud_storage::bucket::Entity;
 use cloud_storage::bucket_access_control::Role;
 use cloud_storage::object_access_control::NewObjectAccessControl;
 use cloud_storage::Client;
+use mithril_common::entities::Snapshot;
 use reqwest::{self, StatusCode};
 use slog_scope::debug;
 use slog_scope::info;
@@ -111,7 +111,7 @@ impl SnapshotStore for GCPSnapshotStore {
     async fn upload_snapshot(
         &mut self,
         digest: String,
-        mut snapshot: File,
+        mut snapshot_file: File,
     ) -> Result<(), SnapshotStoreError> {
         let timestamp: DateTime<Utc> = Utc::now();
         let created_at = format!("{:?}", timestamp);
@@ -119,7 +119,7 @@ impl SnapshotStore for GCPSnapshotStore {
 
         info!("snapshot hash: {}", digest);
 
-        let size: u64 = snapshot
+        let size: u64 = snapshot_file
             .seek(SeekFrom::End(0))
             .map_err(|e| SnapshotStoreError::UploadFileError(e.to_string()))?;
 

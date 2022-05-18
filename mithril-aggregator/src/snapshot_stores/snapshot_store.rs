@@ -20,7 +20,7 @@ pub trait SnapshotStore: Sync + Send {
     async fn upload_snapshot(
         &mut self,
         digest: String,
-        mut snapshot: File,
+        mut snapshot_file: File,
     ) -> Result<(), SnapshotStoreError>;
 }
 

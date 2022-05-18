@@ -27,8 +27,7 @@ impl Snapshotter {
         Self { db_directory }
     }
 
-    pub async fn snapshot(&self) -> Result<File, SnapshotError> {
-        let archive_name = "testnet.tar.gz";
+    pub async fn snapshot(&self, archive_name: &str) -> Result<File, SnapshotError> {
         self.create_archive(archive_name)
     }
 
