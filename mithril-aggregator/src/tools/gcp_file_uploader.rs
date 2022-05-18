@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use cloud_storage::bucket::Entity;
 use cloud_storage::bucket_access_control::Role;
 use cloud_storage::object_access_control::NewObjectAccessControl;
@@ -8,11 +9,22 @@ use std::path::Path;
 use tokio_util::codec::BytesCodec;
 use tokio_util::codec::FramedRead;
 
-pub struct GcpFileUploader {
+#[cfg(test)]
+use mockall::automock;
+
+/// GcpFileUploader represents a Google Cloud Platform file uploader interactor
+#[cfg_attr(test, automock)]
+#[async_trait]
+pub trait GcpFileUploader: Sync + Send {
+    /// Upload a snapshot
+    async fn upload_file(&self, filepath: &Path) -> Result<(), String>;
+}
+
+pub struct BasicGcpFileUploader {
     bucket: String,
 }
 
-impl Default for GcpFileUploader {
+impl Default for BasicGcpFileUploader {
     fn default() -> Self {
         Self {
             bucket: "cardano-testnet".to_string(),
@@ -20,8 +32,9 @@ impl Default for GcpFileUploader {
     }
 }
 
-impl GcpFileUploader {
-    pub async fn upload_file(&self, filepath: &Path) -> Result<(), String> {
+#[async_trait]
+impl GcpFileUploader for BasicGcpFileUploader {
+    async fn upload_file(&self, filepath: &Path) -> Result<(), String> {
         if env::var("GOOGLE_APPLICATION_CREDENTIALS_JSON").is_err() {
             return Err(
                 "Missing GOOGLE_APPLICATION_CREDENTIALS_JSON environment variable".to_string(),

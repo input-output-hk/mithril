@@ -7,9 +7,9 @@ use std::path::Path;
 /// LocalSnapshotUploader is a snapshot uploader working using local files
 pub struct LocalSnapshotUploader {}
 
-impl LocalSnapshotUploader {
+impl Default for LocalSnapshotUploader {
     /// LocalSnapshotUploader factory
-    pub fn new() -> Self {
+    fn default() -> Self {
         debug!("New LocalSnapshotUploader created");
         Self {}
     }
@@ -37,7 +37,7 @@ mod tests {
         let digest = "41e27b9ed5a32531b95b2b7ff3c0757591a06a337efaf19a524a998e348028e7";
         let snapshot_path = format!("testnet.{}.tar.gz", digest);
         let expected_location = format!("https://0.0.0.0/snapshot/{}/download", &digest);
-        let uploader = LocalSnapshotUploader::new();
+        let uploader = LocalSnapshotUploader::default();
 
         assert_eq!(
             Ok(expected_location),

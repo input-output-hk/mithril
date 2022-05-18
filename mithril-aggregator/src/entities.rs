@@ -1,6 +1,7 @@
 use crate::dependency::SnapshotStoreWrapper;
 use crate::snapshot_stores::LocalSnapshotStore;
 use crate::snapshot_uploaders::SnapshotUploader;
+use crate::tools::BasicGcpFileUploader;
 use crate::{GCPSnapshotStore, GCPSnapshotUploader, LocalSnapshotUploader};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -40,6 +41,7 @@ impl Config {
     pub fn build_snapshot_store(&self) -> SnapshotStoreWrapper {
         match self.snapshot_store_type {
             SnapshotStoreType::Gcp => Arc::new(RwLock::new(GCPSnapshotStore::new(
+                Box::new(BasicGcpFileUploader::default()),
                 self.url_snapshot_manifest.clone(),
             ))),
             SnapshotStoreType::Local => Arc::new(RwLock::new(LocalSnapshotStore::new())),
@@ -48,8 +50,10 @@ impl Config {
 
     pub fn build_snapshot_uploader(&self) -> Box<dyn SnapshotUploader> {
         match self.snapshot_store_type {
-            SnapshotStoreType::Gcp => Box::new(GCPSnapshotUploader::new()),
-            SnapshotStoreType::Local => Box::new(LocalSnapshotUploader::new()),
+            SnapshotStoreType::Gcp => Box::new(GCPSnapshotUploader::new(Box::new(
+                BasicGcpFileUploader::default(),
+            ))),
+            SnapshotStoreType::Local => Box::new(LocalSnapshotUploader::default()),
         }
     }
 }
