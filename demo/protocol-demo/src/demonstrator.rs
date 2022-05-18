@@ -165,7 +165,11 @@ impl Party {
     /// Verify a certificate
     pub fn verify_message(&self, message: &Bytes) -> Result<(), String> {
         match self.get_aggregate(message) {
-            Some(msig) => match self.clerk.as_ref().unwrap().verify_msig(msig, message) {
+            Some(msig) => match msig.verify(
+                message,
+                &self.clerk.as_ref().unwrap().compute_avk(),
+                &self.params.unwrap(),
+            ) {
                 Ok(_) => {
                     println!(
                         "Party #{}: aggregate signature successfully verified for {}!",
@@ -253,7 +257,11 @@ impl Verifier {
         message: &Bytes,
         msig: &ProtocolMultiSignature,
     ) -> Result<(), String> {
-        match self.clerk.as_ref().unwrap().verify_msig(msig, message) {
+        match msig.verify(
+            message,
+            &self.clerk.as_ref().unwrap().compute_avk(),
+            &self.params.unwrap(),
+        ) {
             Ok(_) => {
                 println!(
                     "Verifier: aggregate signature successfully verified for {}!",
