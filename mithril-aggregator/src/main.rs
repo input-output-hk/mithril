@@ -92,7 +92,7 @@ async fn main() -> Result<(), String> {
     // Init dependency manager
     let mut dependency_manager = DependencyManager::new(config);
     dependency_manager
-        .with_snapshot_storer(snapshot_store.clone())
+        .with_snapshot_store(snapshot_store.clone())
         .with_multi_signer(multi_signer.clone())
         .with_beacon_store(beacon_store.clone());
     let dependency_manager = Arc::new(dependency_manager);

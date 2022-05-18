@@ -96,7 +96,7 @@ mod router {
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("snapshots")
             .and(warp::get())
-            .and(with_snapshot_storer(dependency_manager))
+            .and(with_snapshot_store(dependency_manager))
             .and_then(handlers::snapshots)
     }
 
@@ -106,7 +106,7 @@ mod router {
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("snapshot" / String)
             .and(warp::get())
-            .and(with_snapshot_storer(dependency_manager))
+            .and(with_snapshot_store(dependency_manager))
             .and_then(handlers::snapshot_digest)
     }
 
@@ -132,11 +132,11 @@ mod router {
             .and_then(handlers::register_signatures)
     }
 
-    /// With snapshot storer middleware
-    fn with_snapshot_storer(
+    /// With snapshot store middleware
+    fn with_snapshot_store(
         dependency_manager: Arc<DependencyManager>,
     ) -> impl Filter<Extract = (SnapshotStoreWrapper,), Error = Infallible> + Clone {
-        warp::any().map(move || dependency_manager.snapshot_storer.as_ref().unwrap().clone())
+        warp::any().map(move || dependency_manager.snapshot_store.as_ref().unwrap().clone())
     }
 
     /// With multi signer middleware
@@ -313,12 +313,12 @@ mod handlers {
 
     /// Snapshots
     pub async fn snapshots(
-        snapshot_storer: SnapshotStoreWrapper,
+        snapshot_store: SnapshotStoreWrapper,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("snapshots");
 
         // Snapshots
-        let snapshot_store = snapshot_storer.read().await;
+        let snapshot_store = snapshot_store.read().await;
         match snapshot_store.list_snapshots().await {
             Ok(snapshots) => Ok(warp::reply::with_status(
                 warp::reply::json(&snapshots),
@@ -334,12 +334,12 @@ mod handlers {
     /// Snapshot by digest
     pub async fn snapshot_digest(
         digest: String,
-        snapshot_storer: SnapshotStoreWrapper,
+        snapshot_store: SnapshotStoreWrapper,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("snapshot_digest/{}", digest);
 
         // Snapshot
-        let snapshot_store = snapshot_storer.read().await;
+        let snapshot_store = snapshot_store.read().await;
         match snapshot_store.get_snapshot_details(digest).await {
             Ok(snapshot) => match snapshot {
                 Some(snapshot) => Ok(warp::reply::with_status(
@@ -759,13 +759,13 @@ mod tests {
     #[tokio::test]
     async fn test_snapshots_get_ok() {
         let fake_snapshots = fake_data::snapshots(5);
-        let mut mock_snapshot_storer = MockSnapshotStore::new();
-        mock_snapshot_storer
+        let mut mock_snapshot_store = MockSnapshotStore::new();
+        mock_snapshot_store
             .expect_list_snapshots()
             .return_const(Ok(fake_snapshots))
             .once();
         let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_snapshot_storer(Arc::new(RwLock::new(mock_snapshot_storer)));
+        dependency_manager.with_snapshot_store(Arc::new(RwLock::new(mock_snapshot_store)));
 
         let method = Method::GET.as_str();
         let path = "/snapshots";
@@ -787,13 +787,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_snapshots_get_ko() {
-        let mut mock_snapshot_storer = MockSnapshotStore::new();
-        mock_snapshot_storer
+        let mut mock_snapshot_store = MockSnapshotStore::new();
+        mock_snapshot_store
             .expect_list_snapshots()
             .return_const(Err("an error occurred".to_string()))
             .once();
         let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_snapshot_storer(Arc::new(RwLock::new(mock_snapshot_storer)));
+        dependency_manager.with_snapshot_store(Arc::new(RwLock::new(mock_snapshot_store)));
 
         let method = Method::GET.as_str();
         let path = "/snapshots";
@@ -816,13 +816,13 @@ mod tests {
     #[tokio::test]
     async fn test_snapshot_digest_get_ok() {
         let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
-        let mut mock_snapshot_storer = MockSnapshotStore::new();
-        mock_snapshot_storer
+        let mut mock_snapshot_store = MockSnapshotStore::new();
+        mock_snapshot_store
             .expect_get_snapshot_details()
             .return_const(Ok(Some(fake_snapshot)))
             .once();
         let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_snapshot_storer(Arc::new(RwLock::new(mock_snapshot_storer)));
+        dependency_manager.with_snapshot_store(Arc::new(RwLock::new(mock_snapshot_store)));
 
         let method = Method::GET.as_str();
         let path = "/snapshot/{digest}";
@@ -844,13 +844,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_snapshot_digest_get_ok_nosnapshot() {
-        let mut mock_snapshot_storer = MockSnapshotStore::new();
-        mock_snapshot_storer
+        let mut mock_snapshot_store = MockSnapshotStore::new();
+        mock_snapshot_store
             .expect_get_snapshot_details()
             .return_const(Ok(None))
             .once();
         let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_snapshot_storer(Arc::new(RwLock::new(mock_snapshot_storer)));
+        dependency_manager.with_snapshot_store(Arc::new(RwLock::new(mock_snapshot_store)));
 
         let method = Method::GET.as_str();
         let path = "/snapshot/{digest}";
@@ -872,13 +872,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_snapshot_digest_get_ko() {
-        let mut mock_snapshot_storer = MockSnapshotStore::new();
-        mock_snapshot_storer
+        let mut mock_snapshot_store = MockSnapshotStore::new();
+        mock_snapshot_store
             .expect_get_snapshot_details()
             .return_const(Err("an error occurred".to_string()))
             .once();
         let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_snapshot_storer(Arc::new(RwLock::new(mock_snapshot_storer)));
+        dependency_manager.with_snapshot_store(Arc::new(RwLock::new(mock_snapshot_store)));
 
         let method = Method::GET.as_str();
         let path = "/snapshot/{digest}";
