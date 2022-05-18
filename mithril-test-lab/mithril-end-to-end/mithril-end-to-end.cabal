@@ -148,6 +148,7 @@ library
     , retry
     , say
     , streaming-commons
+    , tar
     , temporary
     , text
     , time
@@ -155,6 +156,7 @@ library
     , unordered-containers
     , warp
     , websockets
+    , zlib
 
   ghc-options:     -haddock -Werror
 
@@ -210,9 +212,9 @@ test-suite integration
   ghc-options:        -threaded -rtsopts -Werror
 
 executable start-devnet
-  import:         project-config
-  hs-source-dirs: exe
-  main-is:        start-devnet.hs
+  import:             project-config
+  hs-source-dirs:     exe
+  main-is:            start-devnet.hs
   build-depends:
     , aeson
     , base

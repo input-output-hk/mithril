@@ -40,7 +40,8 @@ spec =
         let config =
               ClusterConfig
                 { parentStateDirectory = tmp,
-                  networkId = defaultNetworkId
+                  networkId = defaultNetworkId,
+                  primedDB = Just "test-db.tar.gz"
                 }
         -- Start cardano nodes cluster
         withCluster tr config $
