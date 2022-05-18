@@ -7,5 +7,5 @@ mod c_api;
 pub mod error;
 pub mod key_reg;
 pub mod merkle_tree;
-pub mod multi_sig;
+mod multi_sig;
 pub mod stm;
