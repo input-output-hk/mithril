@@ -4,7 +4,7 @@ use tokio::sync::RwLock;
 
 use super::entities::*;
 use super::multi_signer::MultiSigner;
-use super::snapshot_store::SnapshotStore;
+use super::snapshot_stores::SnapshotStore;
 
 /// BeaconStoreWrapper wraps a BeaconStore
 pub type BeaconStoreWrapper = Arc<RwLock<dyn BeaconStore>>;

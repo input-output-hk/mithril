@@ -1,4 +1,4 @@
-use crate::snapshot_store::snapshot_store::SnapshotStore;
+use crate::SnapshotStore;
 use async_trait::async_trait;
 use mithril_common::entities::Snapshot;
 use reqwest::{self, StatusCode};

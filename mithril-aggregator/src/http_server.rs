@@ -458,7 +458,7 @@ mod tests {
 
     use super::super::entities::*;
     use super::super::multi_signer::MockMultiSigner;
-    use super::super::snapshot_store::MockSnapshotStore;
+    use super::super::snapshot_stores::MockSnapshotStore;
     use super::*;
 
     fn setup_dependency_manager() -> DependencyManager {
