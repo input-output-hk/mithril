@@ -15,4 +15,7 @@ pub trait SnapshotStore: Sync + Send {
 
     /// Get snapshot details
     async fn get_snapshot_details(&self, digest: String) -> Result<Option<Snapshot>, String>;
+
+    /// Upload a snapshot & update the snapshot list
+    async fn upload_snapshot(&mut self) -> Result<(), String>;
 }

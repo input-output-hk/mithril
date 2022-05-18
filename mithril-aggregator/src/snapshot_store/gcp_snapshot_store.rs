@@ -4,12 +4,12 @@ use mithril_common::entities::Snapshot;
 use reqwest::{self, StatusCode};
 use slog_scope::debug;
 
-/// SnapshotStoreHTTPClient is a http client for an remote snapshot manifest
-pub struct SnapshotStoreHTTPClient {
+/// GoogleCloudPlatformSnapshotStore is a snapshot store working using Google Cloud Platform services
+pub struct GCPSnapshotStore {
     url_manifest: String,
 }
 
-impl SnapshotStoreHTTPClient {
+impl GCPSnapshotStore {
     /// SnapshotStoreHTTPClient factory
     pub fn new(url_manifest: String) -> Self {
         debug!("New SnapshotStoreHTTPClient created");
@@ -18,7 +18,7 @@ impl SnapshotStoreHTTPClient {
 }
 
 #[async_trait]
-impl SnapshotStore for SnapshotStoreHTTPClient {
+impl SnapshotStore for GCPSnapshotStore {
     /// List snapshots
     async fn list_snapshots(&self) -> Result<Vec<Snapshot>, String> {
         debug!("List snapshots from {}", self.url_manifest);
@@ -45,6 +45,10 @@ impl SnapshotStore for SnapshotStoreHTTPClient {
         }
         Ok(None)
     }
+
+    async fn upload_snapshot(&mut self) -> Result<(), String> {
+        todo!()
+    }
 }
 
 #[cfg(test)]
@@ -66,7 +70,7 @@ mod tests {
             when.path("/snapshots-manifest");
             then.status(200).body(json!(snapshots_expected).to_string());
         });
-        let snapshot_store = SnapshotStoreHTTPClient::new(server.url("/snapshots-manifest"));
+        let snapshot_store = GCPSnapshotStore::new(server.url("/snapshots-manifest"));
         let snapshots = snapshot_store.list_snapshots().await;
         snapshots.as_ref().expect("unexpected error");
         assert_eq!(snapshots.unwrap(), snapshots_expected);
@@ -81,7 +85,7 @@ mod tests {
             when.path("/snapshots-manifest");
             then.status(200).body(json!(all_snapshots).to_string());
         });
-        let snapshot_store = SnapshotStoreHTTPClient::new(server.url("/snapshots-manifest"));
+        let snapshot_store = GCPSnapshotStore::new(server.url("/snapshots-manifest"));
         let snapshot = snapshot_store
             .get_snapshot_details(snapshot_expected.digest.clone())
             .await;
@@ -96,7 +100,7 @@ mod tests {
             when.path("/snapshots-manifest");
             then.status(500);
         });
-        let snapshot_store = SnapshotStoreHTTPClient::new(server.url("/snapshots-manifest"));
+        let snapshot_store = GCPSnapshotStore::new(server.url("/snapshots-manifest"));
         let snapshots = snapshot_store.list_snapshots().await;
         assert!(snapshots.is_err());
     }
@@ -108,14 +112,14 @@ mod tests {
             when.path("/snapshots-manifest");
             then.status(500);
         });
-        let snapshot_store = SnapshotStoreHTTPClient::new(server.url("/snapshots-manifest"));
+        let snapshot_store = GCPSnapshotStore::new(server.url("/snapshots-manifest"));
         let snapshots = snapshot_store.get_snapshot_details("abc".to_string()).await;
         assert!(snapshots.is_err());
     }
 
     #[tokio::test]
     async fn test_list_snapshots_ko_unreachable() {
-        let snapshot_store = SnapshotStoreHTTPClient::new("http123://unreachable".to_string());
+        let snapshot_store = GCPSnapshotStore::new("http123://unreachable".to_string());
         let snapshots = snapshot_store.list_snapshots().await;
         assert!(snapshots.is_err());
     }

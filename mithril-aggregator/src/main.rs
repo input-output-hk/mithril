@@ -3,8 +3,8 @@
 use clap::Parser;
 
 use mithril_aggregator::{
-    AggregatorRuntime, Config, DependencyManager, MemoryBeaconStore, MultiSigner, MultiSignerImpl,
-    ProtocolPartyId, ProtocolStake, Server, SnapshotStoreHTTPClient,
+    AggregatorRuntime, Config, DependencyManager, GCPSnapshotStore, MemoryBeaconStore, MultiSigner,
+    MultiSignerImpl, ProtocolPartyId, ProtocolStake, Server,
 };
 use mithril_common::fake_data;
 use slog::{Drain, Level, Logger};
@@ -82,7 +82,7 @@ async fn main() -> Result<(), String> {
     debug!("Started"; "run_mode" => &run_mode, "config" => format!("{:?}", config));
 
     // Init dependencies
-    let snapshot_storer = Arc::new(RwLock::new(SnapshotStoreHTTPClient::new(
+    let snapshot_storer = Arc::new(RwLock::new(GCPSnapshotStore::new(
         config.url_snapshot_manifest.clone(),
     )));
 

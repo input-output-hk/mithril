@@ -1,7 +1,7 @@
-mod http_snapshot_store;
+mod gcp_snapshot_store;
 mod snapshot_store;
 
-pub use http_snapshot_store::SnapshotStoreHTTPClient;
+pub use gcp_snapshot_store::GCPSnapshotStore;
 pub use snapshot_store::SnapshotStore;
 
 #[cfg(test)]
