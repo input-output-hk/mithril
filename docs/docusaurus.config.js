@@ -102,8 +102,9 @@ const config = {
           },
           { to: '/adr', label: 'ADRs', position: 'right' },
           {
+            className: 'header-github-link',
+            html: ':before',
             href: 'https://github.com/input-output-hk/mithril/',
-            label: 'GitHub',
             position: 'right',
           },
         ],
