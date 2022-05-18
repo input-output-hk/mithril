@@ -54,8 +54,8 @@ spec =
                 -- Start aggregator service on some random port
                 withAggregator (takeDirectory nodeSocket) (contramap AggregatorLog tr) $ \aggregator@Aggregator {aggregatorPort} -> do
                   threadDelay 2
-                  digest <- assertNodeIsProducingSnapshot tr node aggregatorPort
                   withSigner tmp (contramap SignerLog tr) aggregatorPort node $ \signer -> do
+                    digest <- assertNodeIsProducingSnapshot tr node aggregatorPort
                     assertSignerIsSigningSnapshot signer aggregatorPort digest
                     assertClientCanVerifySnapshot tmp aggregator digest
               _ -> failure "No nodes in the cluster"

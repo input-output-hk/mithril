@@ -1,9 +1,30 @@
-use crate::dependency::{BeaconStoreWrapper, MultiSignerWrapper};
-use crate::Snapshotter;
+use super::dependency::{BeaconStoreWrapper, MultiSignerWrapper};
+use super::{BeaconStoreError, ProtocolError, SnapshotError, Snapshotter};
+
+use mithril_common::crypto_helper::Bytes;
+use mithril_common::entities::Beacon;
 use mithril_common::fake_data;
-use mithril_common::immutable_digester::ImmutableDigester;
-use slog_scope::{debug, error, info};
+use mithril_common::immutable_digester::{ImmutableDigester, ImmutableDigesterError};
+
+use hex::ToHex;
+use slog_scope::{debug, error, info, warn};
+use thiserror::Error;
 use tokio::time::{sleep, Duration};
+
+#[derive(Error, Debug)]
+pub enum RuntimeError {
+    #[error("multi signer error")]
+    MultiSignerError(#[from] ProtocolError),
+
+    #[error("beacon store error")]
+    BeaconStoreError(#[from] BeaconStoreError),
+
+    #[error("snapshotter error")]
+    SnapshotterError(#[from] SnapshotError),
+
+    #[error("immutable digester error")]
+    ImmutableDigesterError(#[from] ImmutableDigesterError),
+}
 
 /// AggregatorRuntime
 pub struct AggregatorRuntime {
@@ -52,34 +73,70 @@ impl AggregatorRuntime {
         }
     }
 
-    async fn do_work(&self) -> Result<(), String> {
+    async fn do_work(&self) -> Result<(), RuntimeError> {
         let snapshotter = Snapshotter::new(self.db_directory.clone());
         let digester = ImmutableDigester::new(self.db_directory.clone(), slog_scope::logger());
         debug!("Making snapshot"; "directory" => &self.db_directory);
 
         match digester.compute_digest() {
             Ok(digest_result) => {
-                let mut beacon_store = self.beacon_store.write().await;
                 let mut beacon = fake_data::beacon();
                 beacon.immutable_file_number = digest_result.last_immutable_file_number;
-                beacon_store.set_current_beacon(beacon.clone()).await?;
-
-                let mut multi_signer = self.multi_signer.write().await;
                 let message = fake_data::digest(&beacon);
-                multi_signer
-                    .update_current_message(message)
-                    .map_err(|e| e.to_string())?;
-
-                snapshotter
-                    .snapshot(digest_result.digest)
-                    .await
-                    .map_err(|e| e.to_string())?;
-                Ok(())
+                match self.manage_trigger_snapshot(&message, &beacon).await {
+                    Ok(true) => {
+                        snapshotter.snapshot(digest_result.digest).await?;
+                        Ok(())
+                    }
+                    Ok(false) => Ok(()),
+                    Err(err) => Err(err),
+                }
             }
-            Err(error) => {
+            Err(err) => {
                 let mut beacon_store = self.beacon_store.write().await;
                 beacon_store.reset_current_beacon().await?;
-                Err(error.to_string())
+                Err(RuntimeError::ImmutableDigesterError(err))
+            }
+        }
+    }
+
+    async fn manage_trigger_snapshot(
+        &self,
+        message: &Bytes,
+        beacon: &Beacon,
+    ) -> Result<bool, RuntimeError> {
+        let mut multi_signer = self.multi_signer.write().await;
+        let mut beacon_store = self.beacon_store.write().await;
+        match multi_signer.get_multi_signature(message.encode_hex::<String>()) {
+            Ok(None) => {
+                beacon_store.set_current_beacon(beacon.clone()).await?;
+                multi_signer.update_current_message(message.to_owned())?;
+                match multi_signer.create_multi_signature() {
+                    Ok(Some(_)) => {
+                        debug!(
+                            "A multi signature has been created for message: {}",
+                            multi_signer
+                                .get_current_message()
+                                .unwrap()
+                                .encode_hex::<String>()
+                        );
+                    }
+                    Ok(None) => {
+                        warn!("Not ready to create a multi signature: quorum is not reached yet");
+                    }
+                    Err(e) => {
+                        warn!("Error while creating a multi signature: {}", e);
+                    }
+                }
+                Ok(true)
+            }
+            Ok(_) => {
+                beacon_store.reset_current_beacon().await?;
+                Ok(false)
+            }
+            Err(err) => {
+                beacon_store.reset_current_beacon().await?;
+                Err(RuntimeError::MultiSignerError(err))
             }
         }
     }

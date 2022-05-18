@@ -1,21 +1,29 @@
 use async_trait::async_trait;
+use thiserror::Error;
+
 use mithril_common::entities::Beacon;
 
 #[cfg(test)]
 use mockall::automock;
+
+#[derive(Error, Debug)]
+pub enum BeaconStoreError {
+    #[error("Generic error")]
+    GenericError(),
+}
 
 /// BeaconStore represents a beacon store interactor
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait BeaconStore: Sync + Send {
     /// Get the current beacon
-    async fn get_current_beacon(&self) -> Result<Option<Beacon>, String>;
+    async fn get_current_beacon(&self) -> Result<Option<Beacon>, BeaconStoreError>;
 
     /// Set the current beacon
-    async fn set_current_beacon(&mut self, beacon: Beacon) -> Result<(), String>;
+    async fn set_current_beacon(&mut self, beacon: Beacon) -> Result<(), BeaconStoreError>;
 
     /// Reset the current beacon
-    async fn reset_current_beacon(&mut self) -> Result<(), String>;
+    async fn reset_current_beacon(&mut self) -> Result<(), BeaconStoreError>;
 }
 
 /// MemoryBeaconStore is in memory [`BeaconStore`]
@@ -34,16 +42,16 @@ impl Default for MemoryBeaconStore {
 
 #[async_trait]
 impl BeaconStore for MemoryBeaconStore {
-    async fn get_current_beacon(&self) -> Result<Option<Beacon>, String> {
+    async fn get_current_beacon(&self) -> Result<Option<Beacon>, BeaconStoreError> {
         Ok(self.current_beacon.clone())
     }
 
-    async fn set_current_beacon(&mut self, beacon: Beacon) -> Result<(), String> {
+    async fn set_current_beacon(&mut self, beacon: Beacon) -> Result<(), BeaconStoreError> {
         self.current_beacon = Some(beacon);
         Ok(())
     }
 
-    async fn reset_current_beacon(&mut self) -> Result<(), String> {
+    async fn reset_current_beacon(&mut self) -> Result<(), BeaconStoreError> {
         self.current_beacon = None;
         Ok(())
     }

@@ -261,23 +261,6 @@ impl MultiSigner for MultiSignerImpl {
                     }
                 };
 
-                // Create a multi signature
-                // TODO: Should be triggered separately
-                match self.create_multi_signature() {
-                    Ok(Some(multi_signature)) => {
-                        debug!(
-                            "A multi signature has been created: {}",
-                            key_encode_hex(&multi_signature).unwrap()
-                        );
-                    }
-                    Ok(None) => {
-                        warn!("Not ready to create a multi signature: quorum is not reached yet");
-                    }
-                    Err(e) => {
-                        warn!("Error while creating a multi signature: {}", e);
-                    }
-                }
-
                 Ok(())
             }
             Err(e) => Err(ProtocolError::Core(e.to_string())),
@@ -475,6 +458,9 @@ mod tests {
 
         let quorum_split = protocol_parameters.k as usize - 1;
         assert!(quorum_split > 1, "quorum should be greater");
+        multi_signer
+            .create_multi_signature()
+            .expect("create multi sgnature should not fail");
         assert!(multi_signer
             .get_multi_signature(message.encode_hex::<String>())
             .expect("get multi signature should not fail")
@@ -486,6 +472,9 @@ mod tests {
                     .register_single_signature(*party_id, signature, *index)
                     .expect("register single signature should not fail");
             });
+        multi_signer
+            .create_multi_signature()
+            .expect("create multi sgnature should not fail");
         assert!(multi_signer
             .get_multi_signature(message.encode_hex::<String>())
             .expect("get multi signature should not fail")
@@ -497,6 +486,9 @@ mod tests {
                     .register_single_signature(*party_id, signature, *index)
                     .expect("register single signature should not fail");
             });
+        multi_signer
+            .create_multi_signature()
+            .expect("create multi sgnature should not fail");
         assert!(multi_signer
             .get_multi_signature(message.encode_hex::<String>())
             .expect("get multi signature should not fail")

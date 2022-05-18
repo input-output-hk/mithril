@@ -2,3 +2,4 @@ target/
 mithril-aggregator
 .DS_Store
 *.tar.gz
+snapshots.json
