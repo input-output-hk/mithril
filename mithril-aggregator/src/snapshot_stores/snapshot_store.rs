@@ -1,5 +1,7 @@
 use async_trait::async_trait;
 use mithril_common::entities::Snapshot;
+use std::fs::File;
+use thiserror::Error;
 
 #[cfg(test)]
 use mockall::automock;
@@ -15,5 +17,15 @@ pub trait SnapshotStore: Sync + Send {
     async fn get_snapshot_details(&self, digest: String) -> Result<Option<Snapshot>, String>;
 
     /// Upload a snapshot & update the snapshot list
-    async fn upload_snapshot(&mut self) -> Result<(), String>;
+    async fn upload_snapshot(
+        &mut self,
+        digest: String,
+        mut snapshot: File,
+    ) -> Result<(), SnapshotStoreError>;
+}
+
+#[derive(Error, Debug)]
+pub enum SnapshotStoreError {
+    #[error("Upload file error: `{0}`")]
+    UploadFileError(String),
 }

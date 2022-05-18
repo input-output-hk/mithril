@@ -82,7 +82,7 @@ async fn main() -> Result<(), String> {
     debug!("Started"; "run_mode" => &run_mode, "config" => format!("{:?}", config));
 
     // Init dependencies
-    let snapshot_storer = Arc::new(RwLock::new(GCPSnapshotStore::new(
+    let snapshot_store = Arc::new(RwLock::new(GCPSnapshotStore::new(
         config.url_snapshot_manifest.clone(),
     )));
 
@@ -92,7 +92,7 @@ async fn main() -> Result<(), String> {
     // Init dependency manager
     let mut dependency_manager = DependencyManager::new(config);
     dependency_manager
-        .with_snapshot_storer(snapshot_storer.clone())
+        .with_snapshot_storer(snapshot_store.clone())
         .with_multi_signer(multi_signer.clone())
         .with_beacon_store(beacon_store.clone());
     let dependency_manager = Arc::new(dependency_manager);
@@ -104,6 +104,7 @@ async fn main() -> Result<(), String> {
             args.db_directory.clone(),
             beacon_store.clone(),
             multi_signer.clone(),
+            snapshot_store.clone(),
         );
         runtime.run().await
     });

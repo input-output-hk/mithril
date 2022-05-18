@@ -1,4 +1,4 @@
-use super::dependency::{BeaconStoreWrapper, MultiSignerWrapper};
+use super::dependency::{BeaconStoreWrapper, MultiSignerWrapper, SnapshotStoreWrapper};
 use super::{BeaconStoreError, ProtocolError, SnapshotError, Snapshotter};
 
 use mithril_common::crypto_helper::Bytes;
@@ -6,6 +6,7 @@ use mithril_common::entities::Beacon;
 use mithril_common::fake_data;
 use mithril_common::immutable_digester::{ImmutableDigester, ImmutableDigesterError};
 
+use crate::snapshot_stores::SnapshotStoreError;
 use hex::ToHex;
 use slog_scope::{debug, error, info, warn};
 use thiserror::Error;
@@ -24,6 +25,9 @@ pub enum RuntimeError {
 
     #[error("immutable digester error")]
     ImmutableDigesterError(#[from] ImmutableDigesterError),
+
+    #[error("snapshotter error")]
+    SnapshotStoreError(#[from] SnapshotStoreError),
 }
 
 /// AggregatorRuntime
@@ -39,6 +43,9 @@ pub struct AggregatorRuntime {
 
     /// Multi signer
     multi_signer: MultiSignerWrapper,
+
+    /// Snapshot store
+    snapshot_store: SnapshotStoreWrapper,
 }
 
 impl AggregatorRuntime {
@@ -48,12 +55,14 @@ impl AggregatorRuntime {
         db_directory: String,
         beacon_store: BeaconStoreWrapper,
         multi_signer: MultiSignerWrapper,
+        snapshot_store: SnapshotStoreWrapper,
     ) -> Self {
         Self {
             interval,
             db_directory,
             beacon_store,
             multi_signer,
+            snapshot_store,
         }
     }
 
@@ -83,9 +92,15 @@ impl AggregatorRuntime {
                 let mut beacon = fake_data::beacon();
                 beacon.immutable_file_number = digest_result.last_immutable_file_number;
                 let message = fake_data::digest(&beacon);
+
                 match self.manage_trigger_snapshot(&message, &beacon).await {
                     Ok(true) => {
-                        snapshotter.snapshot(digest_result.digest).await?;
+                        let snapshot = snapshotter.snapshot().await?;
+                        let mut snapshot_store = self.snapshot_store.write().await;
+                        snapshot_store
+                            .upload_snapshot(digest_result.digest, snapshot)
+                            .await?;
+
                         Ok(())
                     }
                     Ok(false) => Ok(()),
