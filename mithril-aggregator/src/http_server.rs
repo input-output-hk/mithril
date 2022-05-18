@@ -466,6 +466,8 @@ mod tests {
             network: "testnet".to_string(),
             url_snapshot_manifest: "https://storage.googleapis.com/cardano-testnet/snapshots.json"
                 .to_string(),
+            snapshot_store_type: SnapshotStoreType::Local,
+            snapshot_uploader_type: SnapshotUploaderType::Local,
         };
         DependencyManager::new(config)
     }

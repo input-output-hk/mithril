@@ -3,8 +3,8 @@
 use clap::Parser;
 
 use mithril_aggregator::{
-    AggregatorRuntime, Config, DependencyManager, GCPSnapshotStore, GCPSnapshotUploader,
-    MemoryBeaconStore, MultiSigner, MultiSignerImpl, ProtocolPartyId, ProtocolStake, Server,
+    AggregatorRuntime, Config, DependencyManager, MemoryBeaconStore, MultiSigner, MultiSignerImpl,
+    ProtocolPartyId, ProtocolStake, Server,
 };
 use mithril_common::fake_data;
 use slog::{Drain, Level, Logger};
@@ -82,12 +82,10 @@ async fn main() -> Result<(), String> {
     debug!("Started"; "run_mode" => &run_mode, "config" => format!("{:?}", config));
 
     // Init dependencies
-    let snapshot_store = Arc::new(RwLock::new(GCPSnapshotStore::new(
-        config.url_snapshot_manifest.clone(),
-    )));
-
+    let snapshot_store = config.build_snapshot_store();
     let multi_signer = Arc::new(RwLock::new(init_multi_signer()));
     let beacon_store = Arc::new(RwLock::new(MemoryBeaconStore::default()));
+    let snapshot_uploader = config.build_snapshot_uploader();
 
     // Init dependency manager
     let mut dependency_manager = DependencyManager::new(config);
@@ -105,7 +103,7 @@ async fn main() -> Result<(), String> {
             beacon_store.clone(),
             multi_signer.clone(),
             snapshot_store.clone(),
-            Box::new(GCPSnapshotUploader::new()),
+            snapshot_uploader,
         );
         runtime.run().await
     });
