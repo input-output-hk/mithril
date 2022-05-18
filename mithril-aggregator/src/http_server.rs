@@ -12,7 +12,7 @@ use warp::Future;
 use warp::{http::Method, http::StatusCode, Filter};
 
 use super::dependency::{
-    BeaconStoreWrapper, DependencyManager, MultiSignerWrapper, SnapshotStorerWrapper,
+    BeaconStoreWrapper, DependencyManager, MultiSignerWrapper, SnapshotStoreWrapper,
 };
 use super::multi_signer;
 
@@ -135,7 +135,7 @@ mod router {
     /// With snapshot storer middleware
     fn with_snapshot_storer(
         dependency_manager: Arc<DependencyManager>,
-    ) -> impl Filter<Extract = (SnapshotStorerWrapper,), Error = Infallible> + Clone {
+    ) -> impl Filter<Extract = (SnapshotStoreWrapper,), Error = Infallible> + Clone {
         warp::any().map(move || dependency_manager.snapshot_storer.as_ref().unwrap().clone())
     }
 
@@ -313,7 +313,7 @@ mod handlers {
 
     /// Snapshots
     pub async fn snapshots(
-        snapshot_storer: SnapshotStorerWrapper,
+        snapshot_storer: SnapshotStoreWrapper,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("snapshots");
 
@@ -334,7 +334,7 @@ mod handlers {
     /// Snapshot by digest
     pub async fn snapshot_digest(
         digest: String,
-        snapshot_storer: SnapshotStorerWrapper,
+        snapshot_storer: SnapshotStoreWrapper,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("snapshot_digest/{}", digest);
 
@@ -458,7 +458,7 @@ mod tests {
 
     use super::super::entities::*;
     use super::super::multi_signer::MockMultiSigner;
-    use super::super::snapshot_store::MockSnapshotStorer;
+    use super::super::snapshot_store::MockSnapshotStore;
     use super::*;
 
     fn setup_dependency_manager() -> DependencyManager {
@@ -759,7 +759,7 @@ mod tests {
     #[tokio::test]
     async fn test_snapshots_get_ok() {
         let fake_snapshots = fake_data::snapshots(5);
-        let mut mock_snapshot_storer = MockSnapshotStorer::new();
+        let mut mock_snapshot_storer = MockSnapshotStore::new();
         mock_snapshot_storer
             .expect_list_snapshots()
             .return_const(Ok(fake_snapshots))
@@ -787,7 +787,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_snapshots_get_ko() {
-        let mut mock_snapshot_storer = MockSnapshotStorer::new();
+        let mut mock_snapshot_storer = MockSnapshotStore::new();
         mock_snapshot_storer
             .expect_list_snapshots()
             .return_const(Err("an error occurred".to_string()))
@@ -816,7 +816,7 @@ mod tests {
     #[tokio::test]
     async fn test_snapshot_digest_get_ok() {
         let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
-        let mut mock_snapshot_storer = MockSnapshotStorer::new();
+        let mut mock_snapshot_storer = MockSnapshotStore::new();
         mock_snapshot_storer
             .expect_get_snapshot_details()
             .return_const(Ok(Some(fake_snapshot)))
@@ -844,7 +844,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_snapshot_digest_get_ok_nosnapshot() {
-        let mut mock_snapshot_storer = MockSnapshotStorer::new();
+        let mut mock_snapshot_storer = MockSnapshotStore::new();
         mock_snapshot_storer
             .expect_get_snapshot_details()
             .return_const(Ok(None))
@@ -872,7 +872,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_snapshot_digest_get_ko() {
-        let mut mock_snapshot_storer = MockSnapshotStorer::new();
+        let mut mock_snapshot_storer = MockSnapshotStore::new();
         mock_snapshot_storer
             .expect_get_snapshot_details()
             .return_const(Err("an error occurred".to_string()))

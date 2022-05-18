@@ -1,21 +1,8 @@
+use crate::snapshot_store::snapshot_store::SnapshotStore;
 use async_trait::async_trait;
 use mithril_common::entities::Snapshot;
 use reqwest::{self, StatusCode};
 use slog_scope::debug;
-
-#[cfg(test)]
-use mockall::automock;
-
-/// SnapshotStorer represents a snapshot store interactor
-#[cfg_attr(test, automock)]
-#[async_trait]
-pub trait SnapshotStorer: Sync + Send {
-    /// List snapshots
-    async fn list_snapshots(&self) -> Result<Vec<Snapshot>, String>;
-
-    /// Get snapshot details
-    async fn get_snapshot_details(&self, digest: String) -> Result<Option<Snapshot>, String>;
-}
 
 /// SnapshotStoreHTTPClient is a http client for an remote snapshot manifest
 pub struct SnapshotStoreHTTPClient {
@@ -31,7 +18,7 @@ impl SnapshotStoreHTTPClient {
 }
 
 #[async_trait]
-impl SnapshotStorer for SnapshotStoreHTTPClient {
+impl SnapshotStore for SnapshotStoreHTTPClient {
     /// List snapshots
     async fn list_snapshots(&self) -> Result<Vec<Snapshot>, String> {
         debug!("List snapshots from {}", self.url_manifest);

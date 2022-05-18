@@ -4,13 +4,13 @@ use tokio::sync::RwLock;
 
 use super::entities::*;
 use super::multi_signer::MultiSigner;
-use super::snapshot_store::SnapshotStorer;
+use super::snapshot_store::SnapshotStore;
 
 /// BeaconStoreWrapper wraps a BeaconStore
 pub type BeaconStoreWrapper = Arc<RwLock<dyn BeaconStore>>;
 
 ///  SnapshotStorerWrapper wraps a SnapshotStorer
-pub type SnapshotStorerWrapper = Arc<RwLock<dyn SnapshotStorer>>;
+pub type SnapshotStoreWrapper = Arc<RwLock<dyn SnapshotStore>>;
 
 /// MultiSignerWrapper wraps a MultiSigner
 pub type MultiSignerWrapper = Arc<RwLock<dyn MultiSigner>>;
@@ -18,7 +18,7 @@ pub type MultiSignerWrapper = Arc<RwLock<dyn MultiSigner>>;
 /// DependencyManager handles the dependencies
 pub struct DependencyManager {
     pub config: Config,
-    pub snapshot_storer: Option<SnapshotStorerWrapper>,
+    pub snapshot_storer: Option<SnapshotStoreWrapper>,
     pub multi_signer: Option<MultiSignerWrapper>,
     pub beacon_store: Option<BeaconStoreWrapper>,
 }
@@ -35,7 +35,7 @@ impl DependencyManager {
     }
 
     /// With SnapshotStorer
-    pub fn with_snapshot_storer(&mut self, snapshot_storer: SnapshotStorerWrapper) -> &mut Self {
+    pub fn with_snapshot_storer(&mut self, snapshot_storer: SnapshotStoreWrapper) -> &mut Self {
         self.snapshot_storer = Some(snapshot_storer);
         self
     }
