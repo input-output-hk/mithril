@@ -3,8 +3,8 @@
 use clap::Parser;
 
 use mithril_aggregator::{
-    AggregatorRuntime, Config, DependencyManager, GCPSnapshotStore, MemoryBeaconStore, MultiSigner,
-    MultiSignerImpl, ProtocolPartyId, ProtocolStake, Server,
+    AggregatorRuntime, Config, DependencyManager, GCPSnapshotStore, GCPSnapshotUploader,
+    MemoryBeaconStore, MultiSigner, MultiSignerImpl, ProtocolPartyId, ProtocolStake, Server,
 };
 use mithril_common::fake_data;
 use slog::{Drain, Level, Logger};
@@ -105,6 +105,7 @@ async fn main() -> Result<(), String> {
             beacon_store.clone(),
             multi_signer.clone(),
             snapshot_store.clone(),
+            Box::new(GCPSnapshotUploader::new()),
         );
         runtime.run().await
     });

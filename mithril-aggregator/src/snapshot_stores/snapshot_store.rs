@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use mithril_common::entities::Snapshot;
-use std::fs::File;
 use thiserror::Error;
 
 #[cfg(test)]
@@ -17,15 +16,11 @@ pub trait SnapshotStore: Sync + Send {
     async fn get_snapshot_details(&self, digest: String) -> Result<Option<Snapshot>, String>;
 
     /// Upload a snapshot & update the snapshot list
-    async fn upload_snapshot(
-        &mut self,
-        digest: String,
-        mut snapshot_file: File,
-    ) -> Result<(), SnapshotStoreError>;
+    async fn add_snapshot(&mut self, snapshot: Snapshot) -> Result<(), SnapshotStoreError>;
 }
 
 #[derive(Error, Debug)]
 pub enum SnapshotStoreError {
-    #[error("Upload file error: `{0}`")]
-    UploadFileError(String),
+    #[error("Error while adding new snapshot to GCP: `{0}`")]
+    GcpError(String),
 }

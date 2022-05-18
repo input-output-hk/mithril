@@ -7,8 +7,15 @@ use mithril_common::fake_data;
 use mithril_common::immutable_digester::{ImmutableDigester, ImmutableDigesterError};
 
 use crate::snapshot_stores::SnapshotStoreError;
+use crate::snapshot_uploaders::{SnapshotLocation, SnapshotUploader};
+use chrono::{DateTime, Utc};
 use hex::ToHex;
+use mithril_common::entities::Snapshot;
 use slog_scope::{debug, error, info, warn};
+use std::fs::File;
+use std::io;
+use std::io::{Seek, SeekFrom};
+use std::path::Path;
 use thiserror::Error;
 use tokio::time::{sleep, Duration};
 
@@ -26,8 +33,14 @@ pub enum RuntimeError {
     #[error("immutable digester error")]
     ImmutableDigesterError(#[from] ImmutableDigesterError),
 
-    #[error("snapshotter error")]
+    #[error("snapshot store error")]
     SnapshotStoreError(#[from] SnapshotStoreError),
+
+    #[error("snapshot uploader error: {0}")]
+    SnapshotUploaderError(String),
+
+    #[error("snapshot build error")]
+    SnapshotBuildError(#[from] io::Error),
 }
 
 /// AggregatorRuntime
@@ -46,6 +59,9 @@ pub struct AggregatorRuntime {
 
     /// Snapshot store
     snapshot_store: SnapshotStoreWrapper,
+
+    /// Snapshot uploader
+    snapshot_uploader: Box<dyn SnapshotUploader>,
 }
 
 impl AggregatorRuntime {
@@ -56,6 +72,7 @@ impl AggregatorRuntime {
         beacon_store: BeaconStoreWrapper,
         multi_signer: MultiSignerWrapper,
         snapshot_store: SnapshotStoreWrapper,
+        snapshot_uploader: Box<dyn SnapshotUploader>,
     ) -> Self {
         Self {
             interval,
@@ -63,6 +80,7 @@ impl AggregatorRuntime {
             beacon_store,
             multi_signer,
             snapshot_store,
+            snapshot_uploader,
         }
     }
 
@@ -96,11 +114,22 @@ impl AggregatorRuntime {
                 match self.manage_trigger_snapshot(&message, &beacon).await {
                     Ok(true) => {
                         let snapshot_name = format!("testnet.{}.tar.gz", &digest_result.digest);
-                        let snapshot = snapshotter.snapshot(&snapshot_name).await?;
+                        let snapshot_path = snapshotter.snapshot(&snapshot_name).await?;
+
+                        let uploaded_snapshot_location = self
+                            .snapshot_uploader
+                            .upload_snapshot(&snapshot_path)
+                            .await
+                            .map_err(RuntimeError::SnapshotUploaderError)?;
+                        let new_snapshot = build_new_snapshot(
+                            digest_result.digest,
+                            &snapshot_path,
+                            uploaded_snapshot_location,
+                        )?;
+                        info!("Got new snapshot"; "snapshot" => format!("{:?}", new_snapshot));
+
                         let mut snapshot_store = self.snapshot_store.write().await;
-                        snapshot_store
-                            .upload_snapshot(digest_result.digest, snapshot)
-                            .await?;
+                        snapshot_store.add_snapshot(new_snapshot).await?;
 
                         Ok(())
                     }
@@ -156,4 +185,24 @@ impl AggregatorRuntime {
             }
         }
     }
+}
+
+fn build_new_snapshot(
+    digest: String,
+    snapshot_filepath: &Path,
+    uploaded_snapshot_location: SnapshotLocation,
+) -> Result<Snapshot, RuntimeError> {
+    let timestamp: DateTime<Utc> = Utc::now();
+    let created_at = format!("{:?}", timestamp);
+
+    let mut tar_gz = File::create(&snapshot_filepath)?;
+    let size: u64 = tar_gz.seek(SeekFrom::End(0))?;
+
+    Ok(Snapshot::new(
+        digest,
+        "".to_string(),
+        size,
+        created_at,
+        vec![uploaded_snapshot_location],
+    ))
 }
