@@ -38,36 +38,6 @@ const sidebars = {
       dirName: 'test-lab',
     },
   ],
-  developerDocSidebar: [
-    {
-      type: 'category',
-      label: 'Guides',
-      collapsible: true,
-      collapsed: false,
-      items: [
-        {
-          type: 'link',
-          label: 'Generator Rust documentation',
-          href: 'http://mithril.network/mithril-aggregator/doc/mithril_aggregator/index.html'
-        },
-        {
-          type: 'link',
-          label: 'Signer Rust documentation',
-          href: 'http://mithril.network/mithril-signer/doc/mithril_signer/index.html'
-        },
-        {
-          type: 'link',
-          label: 'Client Rust documentation',
-          href: 'http://mithril.network/mithril-client/doc/mithril_client/index.html'
-        },
-        {
-          type: 'link',
-          label: 'Aggegator HTTP API',
-          href: '/aggregator-api'
-        },
-      ],
-    },
-  ]
 };
 
 module.exports = sidebars;
