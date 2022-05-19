@@ -10,6 +10,7 @@ use mithril_common::fake_data;
 use slog::{Drain, Level, Logger};
 use slog_scope::debug;
 use std::env;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -39,7 +40,12 @@ pub struct Args {
 
     /// Directory to snapshot
     #[clap(long, default_value = "/db")]
-    db_directory: String,
+    db_directory: PathBuf,
+
+    /// Directory to store snapshot
+    /// Defaults to work folder
+    #[clap(long, default_value = ".")]
+    snapshot_directory: PathBuf,
 }
 
 impl Args {
@@ -85,7 +91,8 @@ async fn main() -> Result<(), String> {
     let snapshot_store = config.build_snapshot_store();
     let multi_signer = Arc::new(RwLock::new(init_multi_signer()));
     let beacon_store = Arc::new(RwLock::new(MemoryBeaconStore::default()));
-    let snapshot_uploader = config.build_snapshot_uploader();
+    let snapshot_uploader =
+        config.build_snapshot_uploader(args.server_ip.clone(), args.server_port);
 
     // Init dependency manager
     let mut dependency_manager = DependencyManager::new(config);
@@ -96,10 +103,12 @@ async fn main() -> Result<(), String> {
     let dependency_manager = Arc::new(dependency_manager);
 
     // Start snapshot uploader
+    let snapshot_directory = args.snapshot_directory.clone();
     let handle = tokio::spawn(async move {
         let runtime = AggregatorRuntime::new(
             args.snapshot_interval * 1000,
             args.db_directory.clone(),
+            snapshot_directory,
             beacon_store.clone(),
             multi_signer.clone(),
             snapshot_store.clone(),
@@ -116,7 +125,12 @@ async fn main() -> Result<(), String> {
             .await
             .expect("failed to install CTRL+C signal handler");
     };
-    let http_server = Server::new(args.server_ip, args.server_port, dependency_manager.clone());
+    let http_server = Server::new(
+        args.server_ip,
+        args.server_port,
+        dependency_manager.clone(),
+        args.snapshot_directory.clone(),
+    );
     http_server.start(shutdown_signal).await;
 
     handle.abort();

@@ -9,6 +9,7 @@ pub struct APISpec<'a> {
     openapi: Value,
     path: Option<&'a str>,
     method: Option<&'a str>,
+    content_type: Option<&'a str>,
 }
 
 impl<'a> APISpec<'a> {
@@ -20,6 +21,7 @@ impl<'a> APISpec<'a> {
             openapi,
             path: None,
             method: None,
+            content_type: Some("application/json"),
         }
     }
 
@@ -35,6 +37,12 @@ impl<'a> APISpec<'a> {
         self
     }
 
+    /// Sets the content type to specify/check, note that it defaults to "application/json".
+    pub fn content_type(&'a mut self, content_type: &'a str) -> &mut APISpec {
+        self.content_type = Some(content_type);
+        self
+    }
+
     /// Validates if a request is valid
     pub fn validate_request(
         &'a mut self,
@@ -42,9 +50,10 @@ impl<'a> APISpec<'a> {
     ) -> Result<&mut APISpec, String> {
         let path = self.path.unwrap();
         let method = self.method.unwrap().to_lowercase();
+        let content_type = self.content_type.unwrap();
 
         let request_schema = &mut self.openapi.clone()["paths"][path][method]["requestBody"]
-            ["content"]["application/json"]["schema"];
+            ["content"][content_type]["schema"];
         let value = &json!(&request_body);
         self.validate_conformity(value, request_schema)
     }
@@ -59,6 +68,7 @@ impl<'a> APISpec<'a> {
 
         let path = self.path.unwrap();
         let method = self.method.unwrap().to_lowercase();
+        let content_type = self.content_type.unwrap();
         let mut openapi = self.openapi.clone();
 
         let response_spec = {
@@ -77,8 +87,7 @@ impl<'a> APISpec<'a> {
 
         match response_spec {
             Some(response_spec) => {
-                let response_schema =
-                    &mut response_spec.clone()["content"]["application/json"]["schema"];
+                let response_schema = &mut response_spec.clone()["content"][content_type]["schema"];
                 if body.is_empty() {
                     match response_spec.as_object() {
                         Some(_) => match response_schema.as_object() {

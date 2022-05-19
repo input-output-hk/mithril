@@ -15,7 +15,7 @@ use slog_scope::{debug, error, info, warn};
 use std::fs::File;
 use std::io;
 use std::io::{Seek, SeekFrom};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use thiserror::Error;
 use tokio::time::{sleep, Duration};
 
@@ -49,7 +49,10 @@ pub struct AggregatorRuntime {
     interval: u32,
 
     /// DB directory to snapshot
-    db_directory: String,
+    db_directory: PathBuf,
+
+    /// Directory to store snapshot
+    snapshot_directory: PathBuf,
 
     /// Beacon store
     beacon_store: BeaconStoreWrapper,
@@ -68,7 +71,8 @@ impl AggregatorRuntime {
     /// AggregatorRuntime factory
     pub fn new(
         interval: u32,
-        db_directory: String,
+        db_directory: PathBuf,
+        snapshot_directory: PathBuf,
         beacon_store: BeaconStoreWrapper,
         multi_signer: MultiSignerWrapper,
         snapshot_store: SnapshotStoreWrapper,
@@ -77,6 +81,7 @@ impl AggregatorRuntime {
         Self {
             interval,
             db_directory,
+            snapshot_directory,
             beacon_store,
             multi_signer,
             snapshot_store,
@@ -101,9 +106,10 @@ impl AggregatorRuntime {
     }
 
     async fn do_work(&self) -> Result<(), RuntimeError> {
-        let snapshotter = Snapshotter::new(self.db_directory.clone());
+        let snapshotter =
+            Snapshotter::new(self.db_directory.clone(), self.snapshot_directory.clone());
         let digester = ImmutableDigester::new(self.db_directory.clone(), slog_scope::logger());
-        debug!("Making snapshot"; "directory" => &self.db_directory);
+        debug!("Making snapshot"; "directory" => self.db_directory.display());
 
         match digester.compute_digest() {
             Ok(digest_result) => {
@@ -114,7 +120,7 @@ impl AggregatorRuntime {
                 match self.manage_trigger_snapshot(&message, &beacon).await {
                     Ok(true) => {
                         let snapshot_name = format!("testnet.{}.tar.gz", &digest_result.digest);
-                        let snapshot_path = snapshotter.snapshot(&snapshot_name).await?;
+                        let snapshot_path = snapshotter.snapshot(&snapshot_name)?;
 
                         let uploaded_snapshot_location = self
                             .snapshot_uploader
@@ -195,7 +201,7 @@ fn build_new_snapshot(
     let timestamp: DateTime<Utc> = Utc::now();
     let created_at = format!("{:?}", timestamp);
 
-    let mut tar_gz = File::create(&snapshot_filepath)?;
+    let mut tar_gz = File::open(&snapshot_filepath)?;
     let size: u64 = tar_gz.seek(SeekFrom::End(0))?;
 
     Ok(Snapshot::new(

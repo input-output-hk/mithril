@@ -48,12 +48,19 @@ impl Config {
         }
     }
 
-    pub fn build_snapshot_uploader(&self) -> Box<dyn SnapshotUploader> {
+    pub fn build_snapshot_uploader(
+        &self,
+        snapshot_server_url: String,
+        snapshot_server_port: u16,
+    ) -> Box<dyn SnapshotUploader> {
         match self.snapshot_store_type {
             SnapshotStoreType::Gcp => Box::new(GCPSnapshotUploader::new(Box::new(
                 BasicGcpFileUploader::default(),
             ))),
-            SnapshotStoreType::Local => Box::new(LocalSnapshotUploader::default()),
+            SnapshotStoreType::Local => Box::new(LocalSnapshotUploader::new(
+                snapshot_server_url,
+                snapshot_server_port,
+            )),
         }
     }
 }

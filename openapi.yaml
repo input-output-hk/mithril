@@ -89,6 +89,36 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+  /snapshot/{digest}/download:
+    get:
+      summary: Download the snapshot
+      description: |
+        Returns the snapshot archive binary content
+      parameters:
+        - name: digest
+          in: path
+          description: Digest of the snapshot to download
+          required: true
+          schema:
+            type: string
+            format: bytes
+          example: "NQVhBc9frGFwBtdCKgWw4P24qQwAsB0vSvijo8FImr5kRZL"
+      responses:
+        "200":
+          description: snapshot found
+          content:
+            application/gzip:
+              schema: 
+                type: string
+                format: binary
+        "404":
+          description: snapshot not found
+        default:
+          description: snapshot retrieval error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /snapshot/{digest}:
     get:
       summary: Get snapshot informations

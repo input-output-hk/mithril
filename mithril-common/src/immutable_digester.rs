@@ -13,7 +13,7 @@ use walkdir::WalkDir;
 /// ImmutableDigester
 pub struct ImmutableDigester {
     /// A cardano node DB directory
-    db_directory: String,
+    db_directory: PathBuf,
 
     /// The logger where the logs should be written
     logger: Logger,
@@ -42,7 +42,7 @@ pub struct ImmutableDigesterResult {
 
 impl ImmutableDigester {
     /// ImmutableDigester factory
-    pub fn new(db_directory: String, logger: Logger) -> Self {
+    pub fn new(db_directory: PathBuf, logger: Logger) -> Self {
         Self {
             db_directory,
             logger,
@@ -148,7 +148,7 @@ impl ImmutableFile {
     ///
     /// Important Note: It will skip the last chunk / primary / secondary trio since they're not yet
     /// complete.
-    fn list_in_dir(dir: &str) -> Result<Vec<ImmutableFile>, String> {
+    fn list_in_dir(dir: &Path) -> Result<Vec<ImmutableFile>, String> {
         let mut files: Vec<ImmutableFile> = vec![];
 
         for path in WalkDir::new(dir)
@@ -239,7 +239,7 @@ mod tests {
             "21.secondary",
         ];
         create_fake_files(&target_dir, &entries);
-        let result = ImmutableFile::list_in_dir(target_dir.parent().unwrap().to_str().unwrap())
+        let result = ImmutableFile::list_in_dir(target_dir.parent().unwrap())
             .expect("ImmutableFile::list_in_dir Failed");
 
         assert_eq!(result.last().unwrap().number, 423);
@@ -258,7 +258,7 @@ mod tests {
             get_test_dir("list_immutable_file_should_works_even_in_a_empty_folder/immutable");
         let entries = vec![];
         create_fake_files(&target_dir, &entries);
-        let result = ImmutableFile::list_in_dir(target_dir.parent().unwrap().to_str().unwrap())
+        let result = ImmutableFile::list_in_dir(target_dir.parent().unwrap())
             .expect("ImmutableFile::list_in_dir Failed");
 
         assert!(result.is_empty());
