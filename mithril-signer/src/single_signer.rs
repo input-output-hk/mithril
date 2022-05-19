@@ -198,7 +198,7 @@ mod tests {
     use super::*;
 
     use mithril_common::crypto_helper::tests_setup::*;
-    use mithril_common::crypto_helper::{key_decode_hex, ProtocolClerk};
+    use mithril_common::crypto_helper::{key_decode_hex, ProtocolClerk, ProtocolSingleSignature};
 
     #[test]
     fn cant_compute_if_signer_verification_key_is_not_registered() {
@@ -259,6 +259,9 @@ mod tests {
             current_signer.0,
             &key_encode_hex(&current_signer.4).unwrap(),
         );
+        let protocol_signer = &current_signer.3;
+        let clerk = ProtocolClerk::from_signer(&protocol_signer);
+        let avk = clerk.compute_avk();
 
         let sign_result = single_signer.compute_single_signatures(
             message.clone(),
@@ -266,14 +269,15 @@ mod tests {
             &protocol_parameters.into(),
         );
 
-        let protocol_signer = &current_signer.3;
-        let clerk = ProtocolClerk::from_signer(&protocol_signer);
-
         assert!(&single_signer.get_protocol_initializer().is_some());
         assert!(!sign_result.as_ref().unwrap().is_empty());
         for sig in sign_result.unwrap() {
-            let decoded_sig = key_decode_hex(&sig.signature).unwrap();
-            assert!(clerk.verify_sig(&decoded_sig, &message).is_ok());
+            let decoded_sig: ProtocolSingleSignature = key_decode_hex(&sig.signature).unwrap();
+            assert!(decoded_sig
+                .verify(&protocol_parameters, &avk, &message)
+                .is_ok());
+            //TODO: decoded_sig.pk should probably be a StmVerificationKeyPoP, uncomment once fixed
+            //assert_eq!(current_signer.2, decoded_sig.pk);
         }
     }
 }

@@ -86,6 +86,9 @@ pub enum AggregationFailure {
 /// Error types for single signature verification
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum VerificationFailure<D: Digest + FixedOutput> {
+    /// The signature index is out of bounds
+    #[error("Received index, {0}, is higher than what the security parameter allows, {1}.")]
+    IndexBoundFailed(u64, u64),
     /// The lottery was actually lost for the signature
     #[error("Lottery for this epoch was lost.")]
     LotteryLost,
@@ -148,6 +151,20 @@ impl From<RegisterError> for MultiSignatureError {
 impl From<MerkleTreeError> for MultiSignatureError {
     fn from(_: MerkleTreeError) -> Self {
         todo!()
+    }
+}
+
+impl<D: Digest + Clone + FixedOutput> From<MultiSignatureError> for MithrilWitnessError<D> {
+    fn from(_: MultiSignatureError) -> Self {
+        // todo:
+        Self::StakeInvalid
+    }
+}
+
+impl<D: Digest + Clone + FixedOutput> From<VerificationFailure<D>> for MithrilWitnessError<D> {
+    fn from(_: VerificationFailure<D>) -> Self {
+        // todo:
+        Self::StakeInvalid
     }
 }
 

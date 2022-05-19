@@ -45,7 +45,7 @@ impl VerifierImpl {
         &self,
         signers_with_stakes: &[entities::SignerWithStake],
         protocol_parameters: &entities::ProtocolParameters,
-    ) -> Result<ProtocolClerk, String> {
+    ) -> Result<ProtocolClerk, ProtocolError> {
         let stakes = signers_with_stakes
             .iter()
             .map(|signer| {
@@ -87,13 +87,16 @@ impl Verifier for VerifierImpl {
         protocol_parameters: &entities::ProtocolParameters,
     ) -> Result<(), ProtocolError> {
         debug!("Verify multi signature for {:?}", message);
-        let clerk = self.create_clerk(signers_with_stakes, protocol_parameters);
         let multi_signature: ProtocolMultiSignature =
             key_decode_hex(multi_signature).map_err(ProtocolError::VerifyMultiSignatureError)?;
-        clerk
-            .as_ref()
-            .unwrap()
-            .verify_msig(&multi_signature, message)
+        multi_signature
+            .verify(
+                message,
+                &self
+                    .create_clerk(signers_with_stakes, protocol_parameters)?
+                    .compute_avk(),
+                &protocol_parameters.to_owned().into(),
+            )
             .map_err(|e| ProtocolError::VerifyMultiSignatureError(e.to_string()))
     }
 }

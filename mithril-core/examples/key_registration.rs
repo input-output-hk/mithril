@@ -4,8 +4,7 @@
 
 use mithril::key_reg::{ClosedKeyReg, KeyReg};
 use mithril::stm::{
-    Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner, StmVerificationKey,
-    StmVerifier,
+    Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner, StmVerificationKeyPoP,
 };
 
 use rand_chacha::ChaCha20Rng;
@@ -46,7 +45,7 @@ fn main() {
     let party_3_init = StmInitializer::setup(params, parties[3].0, parties[3].1, &mut rng);
 
     // The public keys are broadcast. All participants will have the same keys.
-    let parties_pks: Vec<StmVerificationKey> = vec![
+    let parties_pks: Vec<StmVerificationKeyPoP> = vec![
         party_0_init.verification_key(),
         party_1_init.verification_key(),
         party_2_init.verification_key(),
@@ -111,12 +110,7 @@ fn main() {
     ];
 
     let closed_registration = local_reg(&parties, &parties_pks);
-    let clerk = StmClerk::from_registration(params, closed_registration.clone());
-    let verifier = StmVerifier::new(
-        closed_registration.avk.to_commitment(),
-        params,
-        closed_registration.total_stake,
-    );
+    let clerk = StmClerk::from_registration(params, closed_registration);
 
     // Now we aggregate the signatures
     let msig_1 = match clerk.aggregate(&complete_sigs_1, &msg) {
@@ -125,7 +119,7 @@ fn main() {
             panic!("Aggregation failed: {:?}", e)
         }
     };
-    assert!(verifier.verify_msig(&msg, &msig_1).is_ok());
+    assert!(msig_1.verify(&msg, &clerk.compute_avk(), &params).is_ok());
 
     let msig_2 = match clerk.aggregate(&complete_sigs_2, &msg) {
         Ok(s) => s,
@@ -133,7 +127,7 @@ fn main() {
             panic!("Aggregation failed: {:?}", e)
         }
     };
-    assert!(verifier.verify_msig(&msg, &msig_2).is_ok());
+    assert!(msig_2.verify(&msg, &clerk.compute_avk(), &params).is_ok());
 
     let msig_3 = clerk.aggregate(&incomplete_sigs_3, &msg);
     assert!(msig_3.is_err());
@@ -146,7 +140,7 @@ fn try_signatures(party: &StmSigner<H>, msg: &[u8], m: u64) -> Vec<StmSig<H>> {
         .collect()
 }
 
-fn local_reg(ids: &[(u64, u64)], pks: &[StmVerificationKey]) -> ClosedKeyReg<H> {
+fn local_reg(ids: &[(u64, u64)], pks: &[StmVerificationKeyPoP]) -> ClosedKeyReg<H> {
     let mut local_keyreg = KeyReg::init(ids);
     // todo: maybe its cleaner to have a `StmPublic` instance that covers the "shareable"
     // data, such as the public key, stake and id.

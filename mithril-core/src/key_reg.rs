@@ -33,7 +33,7 @@ where
     /// Total stake of the registered parties.
     pub total_stake: Stake,
     /// Unique public key out of the key registration instance.
-    pub avk: Arc<MerkleTree<D>>,
+    pub merkle_tree: Arc<MerkleTree<D>>,
 }
 
 /// Represents the status of a known participant in the protocol who is allowed
@@ -110,7 +110,7 @@ impl KeyReg {
         reg_parties.sort();
 
         ClosedKeyReg {
-            avk: Arc::new(MerkleTree::create(&reg_parties)),
+            merkle_tree: Arc::new(MerkleTree::create(&reg_parties)),
             reg_parties,
             total_stake,
         }

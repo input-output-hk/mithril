@@ -1,7 +1,7 @@
 use mithril::key_reg::KeyReg;
 use mithril::stm::{
-    Index, PartyId, Stake, StmClerk, StmInitializer, StmMultiSig, StmParameters, StmSig, StmSigner,
-    StmVerificationKey,
+    Index, PartyId, Stake, StmAggrSig, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner,
+    StmVerificationKeyPoP,
 };
 
 use super::super::entities;
@@ -20,8 +20,8 @@ pub type ProtocolInitializer = StmInitializer;
 pub type ProtocolClerk = StmClerk<D>;
 pub type ProtocolKeyRegistration = KeyReg;
 pub type ProtocolSingleSignature = StmSig<D>;
-pub type ProtocolMultiSignature = StmMultiSig<D>;
-pub type ProtocolSignerVerificationKey = StmVerificationKey;
+pub type ProtocolMultiSignature = StmAggrSig<D>;
+pub type ProtocolSignerVerificationKey = StmVerificationKeyPoP;
 
 impl From<ProtocolParameters> for entities::ProtocolParameters {
     fn from(other: ProtocolParameters) -> Self {
