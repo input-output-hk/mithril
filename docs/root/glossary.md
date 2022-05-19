@@ -16,7 +16,12 @@ A Beacon is a software data structure that holds parameters tied to a given [epo
 
 ## Certificate
 
-See [mithril signature](#mithril-signature).
+A Certificate is a digital document that contains:
+
+ * the Epoch when this information is relevant
+ * the snapshot digest
+ * the Mithril Signature of the digest
+ * 
 
 ## Client
 

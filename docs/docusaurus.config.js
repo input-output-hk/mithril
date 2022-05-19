@@ -91,9 +91,27 @@ const config = {
             position: 'left',
           },
           {
-            to: '/aggregator-api',
-            label: 'Aggregator Server Api Reference',
+            type: 'dropdown',
+            label: 'developer doc',
             position: 'left',
+            items: [
+              {
+                to: 'http://mithril.network/mithril-aggregator/doc/mithril_aggregator/index.html',
+                label: 'Aggregator Rust documentation'
+              },
+              {
+                to: 'http://mithril.network/mithril-signer/doc/mithril_signer/index.html',
+                label: 'Signer Rust documentation'
+              },
+              {
+                to: 'http://mithril.network/mithril-client/doc/mithril_client/index.html',
+                label: 'Client Rust documentation'
+              },
+              {
+                to: '/aggregator-api',
+                label: 'Aggegator HTTP API'
+              },
+            ]
           },
           {
             to: '/glossary',

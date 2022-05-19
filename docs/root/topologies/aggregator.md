@@ -1,8 +1,6 @@
 # Aggregator
 
-## Protocol Establishment Phase
-
-### initialization
+The Aggregator is the central piece of the Mithril certificate creation.
 
 The first phase of the protocole is triggered when a new Epoch starts in the Cardano network. The aggregator node saves the current stake ditribution and starts performing the snapshot for this new epoch which is then stored in the cloud. A message is then created containing the current and the previous snapshots digests.
 
