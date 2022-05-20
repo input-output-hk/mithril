@@ -10,6 +10,20 @@ Mithril is an research project to provide [Stake-based Threshold Multisignatures
 
 This repository aims at hosting the various artefacts produced as part of the _prototyping phase_: Documentation, PoCs and prototype code...
 
+* Mithril Aggregator - the server runtime that creates certified blockchain snapshots using Mithril signatures.
+* Mithril Signer - the signer runtime that participates to Mithril signatures.
+* Mithril Client - a client runtime that checks and restores blockchain certified snapshots.
+* Mithril Common - shared library
+* Mithril Core - the Mithril cryptographic library
+
 * [Documentation](./docs)
 * [Wiki](https://github.com/input-output-hk/mithril/wiki)
+
+## Build
+
+In a shell with a Cargo toolkit in the PATH, just enter
+
+ `make`
+
+ It should build the whole project.
 
