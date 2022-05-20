@@ -22,25 +22,25 @@ use tokio::time::{sleep, Duration};
 #[derive(Error, Debug)]
 pub enum RuntimeError {
     #[error("multi signer error")]
-    MultiSignerError(#[from] ProtocolError),
+    MultiSigner(#[from] ProtocolError),
 
     #[error("beacon store error")]
-    BeaconStoreError(#[from] BeaconStoreError),
+    BeaconStore(#[from] BeaconStoreError),
 
     #[error("snapshotter error")]
-    SnapshotterError(#[from] SnapshotError),
+    Snapshotter(#[from] SnapshotError),
 
     #[error("immutable digester error")]
-    ImmutableDigesterError(#[from] ImmutableDigesterError),
+    ImmutableDigester(#[from] ImmutableDigesterError),
 
     #[error("snapshot store error")]
-    SnapshotStoreError(#[from] SnapshotStoreError),
+    SnapshotStore(#[from] SnapshotStoreError),
 
     #[error("snapshot uploader error: {0}")]
-    SnapshotUploaderError(String),
+    SnapshotUploader(String),
 
     #[error("snapshot build error")]
-    SnapshotBuildError(#[from] io::Error),
+    SnapshotBuild(#[from] io::Error),
 }
 
 /// AggregatorRuntime
@@ -126,7 +126,7 @@ impl AggregatorRuntime {
                             .snapshot_uploader
                             .upload_snapshot(&snapshot_path)
                             .await
-                            .map_err(RuntimeError::SnapshotUploaderError)?;
+                            .map_err(RuntimeError::SnapshotUploader)?;
                         let new_snapshot = build_new_snapshot(
                             digest_result.digest,
                             &snapshot_path,
@@ -146,7 +146,7 @@ impl AggregatorRuntime {
             Err(err) => {
                 let mut beacon_store = self.beacon_store.write().await;
                 beacon_store.reset_current_beacon().await?;
-                Err(RuntimeError::ImmutableDigesterError(err))
+                Err(RuntimeError::ImmutableDigester(err))
             }
         }
     }
@@ -187,7 +187,7 @@ impl AggregatorRuntime {
             }
             Err(err) => {
                 beacon_store.reset_current_beacon().await?;
-                Err(RuntimeError::MultiSignerError(err))
+                Err(RuntimeError::MultiSigner(err))
             }
         }
     }
