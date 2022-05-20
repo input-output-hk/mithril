@@ -10,18 +10,14 @@ use std::path::Path;
 pub struct LocalSnapshotUploader {
     /// Snapshot server listening IP
     snapshot_server_url: String,
-
-    /// Snapshot server listening port
-    snapshot_server_port: u16,
 }
 
 impl LocalSnapshotUploader {
     /// LocalSnapshotUploader factory
-    pub(crate) fn new(snapshot_server_url: String, snapshot_server_port: u16) -> Self {
-        debug!("New LocalSnapshotUploader created"; "snapshot_server_url" => &snapshot_server_url, "snapshot_server_port" => snapshot_server_port);
+    pub(crate) fn new(snapshot_server_url: String) -> Self {
+        debug!("New LocalSnapshotUploader created"; "snapshot_server_url" => &snapshot_server_url);
         Self {
             snapshot_server_url,
-            snapshot_server_port,
         }
     }
 }
@@ -32,9 +28,8 @@ impl SnapshotUploader for LocalSnapshotUploader {
         let archive_name = snapshot_filepath.file_name().unwrap().to_str().unwrap();
         let digest = tools::extract_digest_from_path(Path::new(archive_name));
         let location = format!(
-            "http://{}:{}/{}/snapshot/{}/download",
+            "http://{}/{}/snapshot/{}/download",
             self.snapshot_server_url,
-            self.snapshot_server_port,
             http_server::SERVER_BASE_PATH,
             digest.unwrap()
         );
@@ -52,18 +47,16 @@ mod tests {
 
     #[tokio::test]
     async fn should_extract_digest_to_deduce_location() {
-        let url = "test.com".to_string();
-        let port = 8080;
+        let url = "test.com:8080".to_string();
         let digest = "41e27b9ed5a32531b95b2b7ff3c0757591a06a337efaf19a524a998e348028e7";
         let snapshot_path = format!("testnet.{}.tar.gz", digest);
         let expected_location = format!(
-            "http://{}:{}/{}/snapshot/{}/download",
+            "http://{}/{}/snapshot/{}/download",
             url,
-            port,
             http_server::SERVER_BASE_PATH,
             &digest
         );
-        let uploader = LocalSnapshotUploader::new(url, port);
+        let uploader = LocalSnapshotUploader::new(url);
 
         assert_eq!(
             Ok(expected_location),

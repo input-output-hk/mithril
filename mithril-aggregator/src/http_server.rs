@@ -7,7 +7,6 @@ use serde_json::Value::Null;
 use slog_scope::{debug, info};
 use std::convert::Infallible;
 use std::net::IpAddr;
-use std::path::PathBuf;
 use std::sync::Arc;
 use warp::Future;
 use warp::{http::Method, http::StatusCode, Filter};
@@ -16,6 +15,7 @@ use super::dependency::{
     BeaconStoreWrapper, DependencyManager, MultiSignerWrapper, SnapshotStoreWrapper,
 };
 use super::multi_signer;
+use super::Config;
 
 pub const SERVER_BASE_PATH: &str = "aggregator";
 
@@ -24,32 +24,22 @@ pub struct Server {
     ip: IpAddr,
     port: u16,
     dependency_manager: Arc<DependencyManager>,
-    snapshot_directory: PathBuf,
 }
 
 impl Server {
     /// Server factory
-    pub fn new(
-        ip: String,
-        port: u16,
-        dependency_manager: Arc<DependencyManager>,
-        snapshot_directory: PathBuf,
-    ) -> Self {
+    pub fn new(ip: String, port: u16, dependency_manager: Arc<DependencyManager>) -> Self {
         Self {
             ip: ip.parse::<IpAddr>().unwrap(),
             port,
             dependency_manager,
-            snapshot_directory,
         }
     }
 
     /// Start
     pub async fn start(&self, shutdown_signal: impl Future<Output = ()> + Send + 'static) {
         info!("Start Server");
-        let routes = router::routes(
-            self.dependency_manager.clone(),
-            self.snapshot_directory.clone(),
-        );
+        let routes = router::routes(self.dependency_manager.clone());
         let (_, server) =
             warp::serve(routes).bind_with_graceful_shutdown((self.ip, self.port), shutdown_signal);
         tokio::spawn(server).await.unwrap();
@@ -62,7 +52,6 @@ mod router {
     /// Routes
     pub fn routes(
         dependency_manager: Arc<DependencyManager>,
-        snapshot_directory: PathBuf,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         let cors = warp::cors()
             .allow_any_origin()
@@ -73,10 +62,7 @@ mod router {
             certificate_pending(dependency_manager.clone())
                 .or(certificate_certificate_hash(dependency_manager.clone()))
                 .or(snapshots(dependency_manager.clone()))
-                .or(serve_snapshots_dir(
-                    dependency_manager.clone(),
-                    snapshot_directory,
-                ))
+                .or(serve_snapshots_dir(dependency_manager.clone()))
                 .or(snapshot_download(dependency_manager.clone()))
                 .or(snapshot_digest(dependency_manager.clone()))
                 .or(register_signer(dependency_manager.clone()))
@@ -123,16 +109,18 @@ mod router {
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("snapshot" / String / "download")
             .and(warp::get())
+            .and(with_config(dependency_manager.clone()))
             .and(with_snapshot_store(dependency_manager))
             .and_then(handlers::snapshot_download)
     }
 
     pub fn serve_snapshots_dir(
         dependency_manager: Arc<DependencyManager>,
-        snapshot_directory: PathBuf,
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+        let config = dependency_manager.config.clone();
+
         warp::path("snapshot_download")
-            .and(warp::fs::dir(snapshot_directory))
+            .and(warp::fs::dir(config.snapshot_directory))
             .and(with_snapshot_store(dependency_manager))
             .and_then(handlers::ensure_downloaded_file_is_a_snapshot)
     }
@@ -188,6 +176,13 @@ mod router {
         dependency_manager: Arc<DependencyManager>,
     ) -> impl Filter<Extract = (BeaconStoreWrapper,), Error = Infallible> + Clone {
         warp::any().map(move || dependency_manager.beacon_store.as_ref().unwrap().clone())
+    }
+
+    /// With config middleware
+    fn with_config(
+        dependency_manager: Arc<DependencyManager>,
+    ) -> impl Filter<Extract = (Config,), Error = Infallible> + Clone {
+        warp::any().map(move || dependency_manager.config.clone())
     }
 }
 
@@ -409,6 +404,7 @@ mod handlers {
     /// Snapshot download
     pub async fn snapshot_download(
         digest: String,
+        config: Config,
         snapshot_store: SnapshotStoreWrapper,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("snapshot_download/{}", digest);
@@ -417,9 +413,10 @@ mod handlers {
         let snapshot_store = snapshot_store.read().await;
         match snapshot_store.get_snapshot_details(digest).await {
             Ok(Some(snapshot)) => {
+                let filename = format!("testnet.{}.tar.gz", snapshot.digest);
                 let snapshot_uri = format!(
-                    "http://0.0.0.0:8080/aggregator/snapshot_download/testnet.{}.tar.gz",
-                    snapshot.digest
+                    "{}/{}/snapshot_download/{}",
+                    config.server_url, SERVER_BASE_PATH, filename
                 );
                 let snapshot_uri = Uri::from_str(&snapshot_uri).unwrap();
 
@@ -555,15 +552,13 @@ mod tests {
     use mithril_common::apispec::APISpec;
     use mithril_common::fake_data;
     use serde_json::Value::Null;
-    use std::path::PathBuf;
     use tokio::sync::RwLock;
     use warp::test::request;
 
     use super::super::beacon_store::{BeaconStoreError, MockBeaconStore};
-    use super::super::multi_signer::ProtocolError;
-
     use super::super::entities::*;
     use super::super::multi_signer::MockMultiSigner;
+    use super::super::multi_signer::ProtocolError;
     use super::super::snapshot_stores::MockSnapshotStore;
     use super::*;
 
@@ -574,6 +569,9 @@ mod tests {
                 .to_string(),
             snapshot_store_type: SnapshotStoreType::Local,
             snapshot_uploader_type: SnapshotUploaderType::Local,
+            server_url: "http://0.0.0.0:8080".to_string(),
+            db_directory: Default::default(),
+            snapshot_directory: Default::default(),
         };
         DependencyManager::new(config)
     }
@@ -607,10 +605,7 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .reply(&router::routes(
-                Arc::new(dependency_manager),
-                PathBuf::new(),
-            ))
+            .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
@@ -644,10 +639,7 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .reply(&router::routes(
-                Arc::new(dependency_manager),
-                PathBuf::new(),
-            ))
+            .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
@@ -680,10 +672,7 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .reply(&router::routes(
-                Arc::new(dependency_manager),
-                PathBuf::new(),
-            ))
+            .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
@@ -723,10 +712,7 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .reply(&router::routes(
-                Arc::new(dependency_manager),
-                PathBuf::new(),
-            ))
+            .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
@@ -762,10 +748,7 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .reply(&router::routes(
-                Arc::new(dependency_manager),
-                PathBuf::new(),
-            ))
+            .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
         APISpec::from_file(API_SPEC_FILE)
             .method(method)
@@ -801,10 +784,7 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .reply(&router::routes(
-                Arc::new(dependency_manager),
-                PathBuf::new(),
-            ))
+            .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
@@ -837,10 +817,7 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .reply(&router::routes(
-                Arc::new(dependency_manager),
-                PathBuf::new(),
-            ))
+            .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
@@ -873,10 +850,7 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .reply(&router::routes(
-                Arc::new(dependency_manager),
-                PathBuf::new(),
-            ))
+            .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
@@ -905,10 +879,7 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .reply(&router::routes(
-                Arc::new(dependency_manager),
-                PathBuf::new(),
-            ))
+            .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
@@ -936,10 +907,7 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .reply(&router::routes(
-                Arc::new(dependency_manager),
-                PathBuf::new(),
-            ))
+            .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
@@ -968,10 +936,7 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .reply(&router::routes(
-                Arc::new(dependency_manager),
-                PathBuf::new(),
-            ))
+            .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
@@ -1000,10 +965,7 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .reply(&router::routes(
-                Arc::new(dependency_manager),
-                PathBuf::new(),
-            ))
+            .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
@@ -1031,10 +993,7 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .reply(&router::routes(
-                Arc::new(dependency_manager),
-                PathBuf::new(),
-            ))
+            .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
@@ -1063,10 +1022,7 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .reply(&router::routes(
-                Arc::new(dependency_manager),
-                PathBuf::new(),
-            ))
+            .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
@@ -1094,10 +1050,7 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .reply(&router::routes(
-                Arc::new(dependency_manager),
-                PathBuf::new(),
-            ))
+            .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
@@ -1125,10 +1078,7 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .reply(&router::routes(
-                Arc::new(dependency_manager),
-                PathBuf::new(),
-            ))
+            .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
@@ -1158,10 +1108,7 @@ mod tests {
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
             .json(signer)
-            .reply(&router::routes(
-                Arc::new(dependency_manager),
-                PathBuf::new(),
-            ))
+            .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
@@ -1189,10 +1136,7 @@ mod tests {
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
             .json(&signer)
-            .reply(&router::routes(
-                Arc::new(dependency_manager),
-                PathBuf::new(),
-            ))
+            .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
@@ -1222,10 +1166,7 @@ mod tests {
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
             .json(signer)
-            .reply(&router::routes(
-                Arc::new(dependency_manager),
-                PathBuf::new(),
-            ))
+            .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
@@ -1255,10 +1196,7 @@ mod tests {
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
             .json(signer)
-            .reply(&router::routes(
-                Arc::new(dependency_manager),
-                PathBuf::new(),
-            ))
+            .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
@@ -1291,10 +1229,7 @@ mod tests {
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
             .json(signatures)
-            .reply(&router::routes(
-                Arc::new(dependency_manager),
-                PathBuf::new(),
-            ))
+            .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
@@ -1325,10 +1260,7 @@ mod tests {
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
             .json(&signatures)
-            .reply(&router::routes(
-                Arc::new(dependency_manager),
-                PathBuf::new(),
-            ))
+            .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
@@ -1361,10 +1293,7 @@ mod tests {
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
             .json(signatures)
-            .reply(&router::routes(
-                Arc::new(dependency_manager),
-                PathBuf::new(),
-            ))
+            .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
@@ -1397,10 +1326,7 @@ mod tests {
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
             .json(signatures)
-            .reply(&router::routes(
-                Arc::new(dependency_manager),
-                PathBuf::new(),
-            ))
+            .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)

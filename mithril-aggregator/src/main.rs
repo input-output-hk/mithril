@@ -2,6 +2,7 @@
 
 use clap::Parser;
 
+use config::{Map, Source, Value, ValueKind};
 use mithril_aggregator::{
     AggregatorRuntime, Config, DependencyManager, MemoryBeaconStore, MultiSigner, MultiSignerImpl,
     ProtocolPartyId, ProtocolStake, Server,
@@ -57,30 +58,64 @@ impl Args {
             _ => Level::Trace,
         }
     }
+
+    fn build_logger(&self) -> Logger {
+        let drain = slog_bunyan::new(std::io::stdout())
+            .set_pretty(false)
+            .build()
+            .fuse();
+        let drain = slog::LevelFilter::new(drain, self.log_level()).fuse();
+        let drain = slog_async::Async::new(drain).build().fuse();
+
+        Logger::root(Arc::new(drain), slog::o!())
+    }
 }
 
-fn build_logger(min_level: Level) -> Logger {
-    let drain = slog_bunyan::new(std::io::stdout())
-        .set_pretty(false)
-        .build()
-        .fuse();
-    let drain = slog::LevelFilter::new(drain, min_level).fuse();
-    let drain = slog_async::Async::new(drain).build().fuse();
+impl Source for Args {
+    fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
+        Box::new((*self).clone())
+    }
 
-    Logger::root(Arc::new(drain), slog::o!())
+    fn collect(&self) -> Result<Map<String, Value>, config::ConfigError> {
+        let mut result = Map::new();
+        let uri = "clap arguments".to_string();
+
+        let server_url = format!("http://{}:{}/", &self.server_ip, &self.server_port);
+        result.insert(
+            "server_url".to_string(),
+            Value::new(Some(&uri), ValueKind::from(server_url)),
+        );
+        result.insert(
+            "db_directory".to_string(),
+            Value::new(
+                Some(&uri),
+                ValueKind::from(self.db_directory.to_str().unwrap().to_string()),
+            ),
+        );
+        result.insert(
+            "snapshot_directory".to_string(),
+            Value::new(
+                Some(&uri),
+                ValueKind::from(self.snapshot_directory.to_str().unwrap().to_string()),
+            ),
+        );
+
+        Ok(result)
+    }
 }
 
 #[tokio::main]
 async fn main() -> Result<(), String> {
     // Load args
     let args = Args::parse();
-    let _guard = slog_scope::set_global_logger(build_logger(args.log_level()));
+    let _guard = slog_scope::set_global_logger(args.build_logger());
 
     // Load config
-    let run_mode = env::var("RUN_MODE").unwrap_or(args.run_mode);
+    let run_mode = env::var("RUN_MODE").unwrap_or_else(|_| args.run_mode.clone());
     let config: Config = config::Config::builder()
         .add_source(config::File::with_name(&format!("./config/{}.json", run_mode)).required(false))
         .add_source(config::Environment::default())
+        .add_source(args.clone())
         .build()
         .map_err(|e| format!("configuration build error: {}", e))?
         .try_deserialize()
@@ -91,11 +126,10 @@ async fn main() -> Result<(), String> {
     let snapshot_store = config.build_snapshot_store();
     let multi_signer = Arc::new(RwLock::new(init_multi_signer()));
     let beacon_store = Arc::new(RwLock::new(MemoryBeaconStore::default()));
-    let snapshot_uploader =
-        config.build_snapshot_uploader(args.server_ip.clone(), args.server_port);
+    let snapshot_uploader = config.build_snapshot_uploader();
 
     // Init dependency manager
-    let mut dependency_manager = DependencyManager::new(config);
+    let mut dependency_manager = DependencyManager::new(config.clone());
     dependency_manager
         .with_snapshot_store(snapshot_store.clone())
         .with_multi_signer(multi_signer.clone())
@@ -103,11 +137,11 @@ async fn main() -> Result<(), String> {
     let dependency_manager = Arc::new(dependency_manager);
 
     // Start snapshot uploader
-    let snapshot_directory = args.snapshot_directory.clone();
+    let snapshot_directory = config.snapshot_directory.clone();
     let handle = tokio::spawn(async move {
         let runtime = AggregatorRuntime::new(
             args.snapshot_interval * 1000,
-            args.db_directory.clone(),
+            config.db_directory.clone(),
             snapshot_directory,
             beacon_store.clone(),
             multi_signer.clone(),
@@ -125,12 +159,7 @@ async fn main() -> Result<(), String> {
             .await
             .expect("failed to install CTRL+C signal handler");
     };
-    let http_server = Server::new(
-        args.server_ip,
-        args.server_port,
-        dependency_manager.clone(),
-        args.snapshot_directory.clone(),
-    );
+    let http_server = Server::new(args.server_ip, args.server_port, dependency_manager.clone());
     http_server.start(shutdown_signal).await;
 
     handle.abort();

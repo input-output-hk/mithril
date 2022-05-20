@@ -4,6 +4,7 @@ use crate::snapshot_uploaders::SnapshotUploader;
 use crate::tools::GcpFileUploader;
 use crate::{LocalSnapshotUploader, RemoteSnapshotStore, RemoteSnapshotUploader};
 use serde::{Deserialize, Serialize};
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -21,6 +22,15 @@ pub struct Config {
 
     /// Type of snapshot uploader to use
     pub snapshot_uploader_type: SnapshotUploaderType,
+
+    /// Server listening IP
+    pub server_url: String,
+
+    /// Directory to snapshot
+    pub db_directory: PathBuf,
+
+    /// Directory to store snapshot
+    pub snapshot_directory: PathBuf,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -48,19 +58,14 @@ impl Config {
         }
     }
 
-    pub fn build_snapshot_uploader(
-        &self,
-        snapshot_server_url: String,
-        snapshot_server_port: u16,
-    ) -> Box<dyn SnapshotUploader> {
+    pub fn build_snapshot_uploader(&self) -> Box<dyn SnapshotUploader> {
         match self.snapshot_store_type {
             SnapshotStoreType::Gcp => Box::new(RemoteSnapshotUploader::new(Box::new(
                 GcpFileUploader::default(),
             ))),
-            SnapshotStoreType::Local => Box::new(LocalSnapshotUploader::new(
-                snapshot_server_url,
-                snapshot_server_port,
-            )),
+            SnapshotStoreType::Local => {
+                Box::new(LocalSnapshotUploader::new(self.server_url.clone()))
+            }
         }
     }
 }
