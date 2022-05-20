@@ -413,7 +413,7 @@ mod handlers {
         let snapshot_store = snapshot_store.read().await;
         match snapshot_store.get_snapshot_details(digest).await {
             Ok(Some(snapshot)) => {
-                let filename = format!("testnet.{}.tar.gz", snapshot.digest);
+                let filename = format!("{}.{}.tar.gz", config.network, snapshot.digest);
                 let snapshot_uri = format!(
                     "{}/{}/snapshot_download/{}",
                     config.server_url, SERVER_BASE_PATH, filename

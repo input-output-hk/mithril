@@ -141,6 +141,7 @@ async fn main() -> Result<(), String> {
     let handle = tokio::spawn(async move {
         let runtime = AggregatorRuntime::new(
             args.snapshot_interval * 1000,
+            config.network.clone(),
             config.db_directory.clone(),
             snapshot_directory,
             beacon_store.clone(),

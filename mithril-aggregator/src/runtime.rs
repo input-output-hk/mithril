@@ -48,6 +48,9 @@ pub struct AggregatorRuntime {
     /// Interval between each snapshot, in seconds
     interval: u32,
 
+    /// Cardano network
+    network: String,
+
     /// DB directory to snapshot
     db_directory: PathBuf,
 
@@ -71,6 +74,7 @@ impl AggregatorRuntime {
     /// AggregatorRuntime factory
     pub fn new(
         interval: u32,
+        network: String,
         db_directory: PathBuf,
         snapshot_directory: PathBuf,
         beacon_store: BeaconStoreWrapper,
@@ -80,6 +84,7 @@ impl AggregatorRuntime {
     ) -> Self {
         Self {
             interval,
+            network,
             db_directory,
             snapshot_directory,
             beacon_store,
@@ -119,7 +124,8 @@ impl AggregatorRuntime {
 
                 match self.manage_trigger_snapshot(&message, &beacon).await {
                     Ok(true) => {
-                        let snapshot_name = format!("testnet.{}.tar.gz", &digest_result.digest);
+                        let snapshot_name =
+                            format!("{}.{}.tar.gz", self.network, &digest_result.digest);
                         let snapshot_path = snapshotter.snapshot(&snapshot_name)?;
 
                         let uploaded_snapshot_location = self
