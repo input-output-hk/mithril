@@ -1,8 +1,8 @@
 use crate::dependency::SnapshotStoreWrapper;
 use crate::snapshot_stores::LocalSnapshotStore;
 use crate::snapshot_uploaders::SnapshotUploader;
-use crate::tools::BasicGcpFileUploader;
-use crate::{GCPSnapshotStore, GCPSnapshotUploader, LocalSnapshotUploader};
+use crate::tools::GcpFileUploader;
+use crate::{LocalSnapshotUploader, RemoteSnapshotStore, RemoteSnapshotUploader};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -40,8 +40,8 @@ pub enum SnapshotUploaderType {
 impl Config {
     pub fn build_snapshot_store(&self) -> SnapshotStoreWrapper {
         match self.snapshot_store_type {
-            SnapshotStoreType::Gcp => Arc::new(RwLock::new(GCPSnapshotStore::new(
-                Box::new(BasicGcpFileUploader::default()),
+            SnapshotStoreType::Gcp => Arc::new(RwLock::new(RemoteSnapshotStore::new(
+                Box::new(GcpFileUploader::default()),
                 self.url_snapshot_manifest.clone(),
             ))),
             SnapshotStoreType::Local => Arc::new(RwLock::new(LocalSnapshotStore::new())),
@@ -54,8 +54,8 @@ impl Config {
         snapshot_server_port: u16,
     ) -> Box<dyn SnapshotUploader> {
         match self.snapshot_store_type {
-            SnapshotStoreType::Gcp => Box::new(GCPSnapshotUploader::new(Box::new(
-                BasicGcpFileUploader::default(),
+            SnapshotStoreType::Gcp => Box::new(RemoteSnapshotUploader::new(Box::new(
+                GcpFileUploader::default(),
             ))),
             SnapshotStoreType::Local => Box::new(LocalSnapshotUploader::new(
                 snapshot_server_url,

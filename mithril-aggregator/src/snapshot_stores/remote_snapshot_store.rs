@@ -1,7 +1,7 @@
 use crate::snapshot_stores::SnapshotStoreError;
 use crate::SnapshotStore;
 
-use crate::tools::GcpFileUploader;
+use crate::tools::RemoteFileUploader;
 use async_trait::async_trait;
 use mithril_common::entities::Snapshot;
 use reqwest::{self, StatusCode};
@@ -11,15 +11,15 @@ use std::fs::File;
 use std::path::Path;
 
 /// GoogleCloudPlatformSnapshotStore is a snapshot store working using Google Cloud Platform services
-pub struct GCPSnapshotStore {
-    file_uploader: Box<dyn GcpFileUploader>,
+pub struct RemoteSnapshotStore {
+    file_uploader: Box<dyn RemoteFileUploader>,
 
     url_manifest: String,
 }
 
-impl GCPSnapshotStore {
+impl RemoteSnapshotStore {
     /// SnapshotStoreHTTPClient factory
-    pub fn new(file_uploader: Box<dyn GcpFileUploader>, url_manifest: String) -> Self {
+    pub fn new(file_uploader: Box<dyn RemoteFileUploader>, url_manifest: String) -> Self {
         debug!("New SnapshotStoreHTTPClient created");
         Self {
             file_uploader,
@@ -29,7 +29,7 @@ impl GCPSnapshotStore {
 }
 
 #[async_trait]
-impl SnapshotStore for GCPSnapshotStore {
+impl SnapshotStore for RemoteSnapshotStore {
     /// List snapshots
     async fn list_snapshots(&self) -> Result<Vec<Snapshot>, String> {
         debug!("List snapshots from {}", self.url_manifest);
@@ -83,7 +83,7 @@ mod tests {
     use mithril_common::fake_data;
     use serde_json::json;
 
-    use crate::tools::MockGcpFileUploader;
+    use crate::tools::MockRemoteFileUploader;
 
     fn setup_test() -> MockServer {
         MockServer::start()
@@ -91,7 +91,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_snapshots_ok() {
-        let file_uploader = MockGcpFileUploader::new();
+        let file_uploader = MockRemoteFileUploader::new();
         let server = setup_test();
         let snapshots_expected = fake_data::snapshots(5);
         let _snapshots_mock = server.mock(|when, then| {
@@ -99,7 +99,7 @@ mod tests {
             then.status(200).body(json!(snapshots_expected).to_string());
         });
         let snapshot_store =
-            GCPSnapshotStore::new(Box::new(file_uploader), server.url("/snapshots-manifest"));
+            RemoteSnapshotStore::new(Box::new(file_uploader), server.url("/snapshots-manifest"));
         let snapshots = snapshot_store.list_snapshots().await;
         snapshots.as_ref().expect("unexpected error");
         assert_eq!(snapshots.unwrap(), snapshots_expected);
@@ -107,7 +107,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_snapshot_details_ok() {
-        let file_uploader = MockGcpFileUploader::new();
+        let file_uploader = MockRemoteFileUploader::new();
         let server = setup_test();
         let all_snapshots = fake_data::snapshots(5);
         let snapshot_expected = &all_snapshots[2];
@@ -116,7 +116,7 @@ mod tests {
             then.status(200).body(json!(all_snapshots).to_string());
         });
         let snapshot_store =
-            GCPSnapshotStore::new(Box::new(file_uploader), server.url("/snapshots-manifest"));
+            RemoteSnapshotStore::new(Box::new(file_uploader), server.url("/snapshots-manifest"));
         let snapshot = snapshot_store
             .get_snapshot_details(snapshot_expected.digest.clone())
             .await;
@@ -126,47 +126,47 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_snapshots_ko_500() {
-        let file_uploader = MockGcpFileUploader::new();
+        let file_uploader = MockRemoteFileUploader::new();
         let server = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.path("/snapshots-manifest");
             then.status(500);
         });
         let snapshot_store =
-            GCPSnapshotStore::new(Box::new(file_uploader), server.url("/snapshots-manifest"));
+            RemoteSnapshotStore::new(Box::new(file_uploader), server.url("/snapshots-manifest"));
         let snapshots = snapshot_store.list_snapshots().await;
         assert!(snapshots.is_err());
     }
 
     #[tokio::test]
     async fn test_get_snapshot_details_ko_500() {
-        let file_uploader = MockGcpFileUploader::new();
+        let file_uploader = MockRemoteFileUploader::new();
         let server = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.path("/snapshots-manifest");
             then.status(500);
         });
         let snapshot_store =
-            GCPSnapshotStore::new(Box::new(file_uploader), server.url("/snapshots-manifest"));
+            RemoteSnapshotStore::new(Box::new(file_uploader), server.url("/snapshots-manifest"));
         let snapshots = snapshot_store.get_snapshot_details("abc".to_string()).await;
         assert!(snapshots.is_err());
     }
 
     #[tokio::test]
     async fn test_list_snapshots_ko_unreachable() {
-        let file_uploader = MockGcpFileUploader::new();
+        let file_uploader = MockRemoteFileUploader::new();
         let snapshot_store =
-            GCPSnapshotStore::new(Box::new(file_uploader), "http123://unreachable".to_string());
+            RemoteSnapshotStore::new(Box::new(file_uploader), "http123://unreachable".to_string());
         let snapshots = snapshot_store.list_snapshots().await;
         assert!(snapshots.is_err());
     }
 
     #[tokio::test]
     async fn test_add_snapshot_ok() {
-        let mut file_uploader = MockGcpFileUploader::new();
+        let mut file_uploader = MockRemoteFileUploader::new();
         file_uploader.expect_upload_file().return_const(Ok(()));
         let mut snapshot_store =
-            GCPSnapshotStore::new(Box::new(file_uploader), "http123://unreachable".to_string());
+            RemoteSnapshotStore::new(Box::new(file_uploader), "http123://unreachable".to_string());
         let snapshot = Snapshot {
             digest: "abc".to_string(),
             certificate_hash: "abc".to_string(),
@@ -183,12 +183,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_add_snapshot_ko() {
-        let mut file_uploader = MockGcpFileUploader::new();
+        let mut file_uploader = MockRemoteFileUploader::new();
         file_uploader
             .expect_upload_file()
             .return_const(Err("unexpected error".to_string()));
         let mut snapshot_store =
-            GCPSnapshotStore::new(Box::new(file_uploader), "http123://unreachable".to_string());
+            RemoteSnapshotStore::new(Box::new(file_uploader), "http123://unreachable".to_string());
         let snapshot = Snapshot {
             digest: "abc".to_string(),
             certificate_hash: "abc".to_string(),

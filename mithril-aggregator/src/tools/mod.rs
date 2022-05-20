@@ -1,8 +1,8 @@
 mod digest_helpers;
-mod gcp_file_uploader;
+mod remote_file_uploader;
 
 pub use digest_helpers::extract_digest_from_path;
-pub use gcp_file_uploader::{BasicGcpFileUploader, GcpFileUploader};
+pub use remote_file_uploader::{GcpFileUploader, RemoteFileUploader};
 
 #[cfg(test)]
-pub use gcp_file_uploader::MockGcpFileUploader;
+pub use remote_file_uploader::MockRemoteFileUploader;

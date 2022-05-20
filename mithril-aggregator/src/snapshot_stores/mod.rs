@@ -1,9 +1,9 @@
-mod gcp_snapshot_store;
 mod local_snapshot_store;
+mod remote_snapshot_store;
 mod snapshot_store;
 
-pub use gcp_snapshot_store::GCPSnapshotStore;
 pub use local_snapshot_store::LocalSnapshotStore;
+pub use remote_snapshot_store::RemoteSnapshotStore;
 pub use snapshot_store::SnapshotStore;
 pub use snapshot_store::SnapshotStoreError;
 

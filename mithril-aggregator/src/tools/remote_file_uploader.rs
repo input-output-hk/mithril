@@ -12,19 +12,20 @@ use tokio_util::codec::FramedRead;
 #[cfg(test)]
 use mockall::automock;
 
-/// GcpFileUploader represents a Google Cloud Platform file uploader interactor
+/// RemoteFileUploader represents a remote file uploader interactor
 #[cfg_attr(test, automock)]
 #[async_trait]
-pub trait GcpFileUploader: Sync + Send {
+pub trait RemoteFileUploader: Sync + Send {
     /// Upload a snapshot
     async fn upload_file(&self, filepath: &Path) -> Result<(), String>;
 }
 
-pub struct BasicGcpFileUploader {
+/// GcpFileUploader represents a Google Cloud Platform file uploader interactor
+pub struct GcpFileUploader {
     bucket: String,
 }
 
-impl Default for BasicGcpFileUploader {
+impl Default for GcpFileUploader {
     fn default() -> Self {
         Self {
             bucket: "cardano-testnet".to_string(),
@@ -33,7 +34,7 @@ impl Default for BasicGcpFileUploader {
 }
 
 #[async_trait]
-impl GcpFileUploader for BasicGcpFileUploader {
+impl RemoteFileUploader for GcpFileUploader {
     async fn upload_file(&self, filepath: &Path) -> Result<(), String> {
         if env::var("GOOGLE_APPLICATION_CREDENTIALS_JSON").is_err() {
             return Err(

@@ -15,9 +15,9 @@ pub use crate::multi_signer::{
     key_decode_hex, MultiSigner, MultiSignerImpl, ProtocolError, ProtocolParameters,
     ProtocolPartyId, ProtocolSignerVerificationKey, ProtocolStake,
 };
-pub use crate::snapshot_stores::{GCPSnapshotStore, SnapshotStore};
+pub use crate::snapshot_stores::{RemoteSnapshotStore, SnapshotStore};
 pub use beacon_store::{BeaconStoreError, MemoryBeaconStore};
 pub use dependency::DependencyManager;
 pub use runtime::AggregatorRuntime;
-pub use snapshot_uploaders::{GCPSnapshotUploader, LocalSnapshotUploader};
+pub use snapshot_uploaders::{LocalSnapshotUploader, RemoteSnapshotUploader};
 pub use snapshotter::{SnapshotError, Snapshotter};
