@@ -1,0 +1,10 @@
+[workspace]
+
+members = [
+  "mithril-core",
+  "mithril-common",
+  "mithril-aggregator",
+  "mithril-signer",
+  "mithril-client",
+  "demo/protocol-demo"
+]
