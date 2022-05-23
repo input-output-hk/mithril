@@ -6,7 +6,7 @@ all: test build
 
 build:
 	${CARGO} build --release
-	cp ./target/release/mithril-signer .
+	cp ../target/release/mithril-signer .
 
 run: build
 	./mithril-signer

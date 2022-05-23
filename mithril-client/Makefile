@@ -11,7 +11,7 @@ all: test build
 
 build:
 	${CARGO} build --release
-	cp ./target/release/mithril-client .
+	cp ../target/release/mithril-client .
 
 run: build
 	@./mithril-client $(call args,defaultstring)

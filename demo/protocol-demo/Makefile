@@ -11,7 +11,7 @@ all: test build
 
 build:
 	${CARGO} build --release
-	cp ./target/release/mithrildemo .
+	cp ../../target/release/mithrildemo .
 
 run: build
 	@./mithrildemo
