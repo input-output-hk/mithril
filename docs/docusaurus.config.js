@@ -57,7 +57,7 @@ const config = {
   ],
 
   themeConfig:
-  /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
+    /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
       navbar: {
         title: 'Mithril',
@@ -91,14 +91,38 @@ const config = {
             position: 'left',
           },
           {
-            to: '/aggregator-api',
-            label: 'Aggregator Server Api Reference',
+            type: 'dropdown',
+            label: 'developer doc',
             position: 'left',
+            items: [
+              {
+                to: 'http://mithril.network/mithril-aggregator/doc/mithril_aggregator/index.html',
+                label: 'Aggregator Rust documentation'
+              },
+              {
+                to: 'http://mithril.network/mithril-signer/doc/mithril_signer/index.html',
+                label: 'Signer Rust documentation'
+              },
+              {
+                to: 'http://mithril.network/mithril-client/doc/mithril_client/index.html',
+                label: 'Client Rust documentation'
+              },
+              {
+                to: '/aggregator-api',
+                label: 'Aggegator HTTP API'
+              },
+            ]
           },
-          {to: '/adr', label: 'ADRs', position: 'right'},
           {
+            to: '/glossary',
+            label: 'Glossary',
+            position: 'right',
+          },
+          { to: '/adr', label: 'ADRs', position: 'right' },
+          {
+            className: 'header-github-link',
+            html: ':before',
             href: 'https://github.com/input-output-hk/mithril/',
-            label: 'GitHub',
             position: 'right',
           },
         ],
