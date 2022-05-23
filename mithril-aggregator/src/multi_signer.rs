@@ -87,7 +87,7 @@ pub trait MultiSigner: Sync + Send {
     /// Retrieves a multi signature from a message
     fn get_multi_signature(
         &self,
-        message: String,
+        message: &str,
     ) -> Result<Option<ProtocolMultiSignature>, ProtocolError>;
 
     /// Create a multi signature from single signatures
@@ -96,12 +96,23 @@ pub trait MultiSigner: Sync + Send {
 
 /// MultiSignerImpl is an implementation of the MultiSigner
 pub struct MultiSignerImpl {
+    /// Message that is currently signed
     current_message: Option<Bytes>,
+
+    /// Protocol parameters used for signing
     protocol_parameters: Option<ProtocolParameters>,
+
+    /// Stake distribution used for signing
     stakes: ProtocolStakeDistribution,
+
+    /// Registered signers
     signers: HashMap<ProtocolPartyId, ProtocolSignerVerificationKey>,
+
+    /// Registered single signatures by party and lottery index
     single_signatures:
         HashMap<ProtocolPartyId, HashMap<ProtocolLotteryIndex, ProtocolSingleSignature>>,
+
+    /// Recorded multi signatures by message signed
     multi_signatures: HashMap<String, String>,
 }
 
@@ -271,10 +282,10 @@ impl MultiSigner for MultiSignerImpl {
     /// Retrieves a multi signature from a message
     fn get_multi_signature(
         &self,
-        message: String,
+        message: &str,
     ) -> Result<Option<ProtocolMultiSignature>, ProtocolError> {
         debug!("Get multi signature for message {}", message);
-        match self.multi_signatures.get(&message) {
+        match self.multi_signatures.get(message) {
             Some(multi_signature) => {
                 let multi_signature: ProtocolMultiSignature =
                     key_decode_hex(multi_signature).map_err(ProtocolError::Codec)?;
@@ -463,7 +474,7 @@ mod tests {
             .create_multi_signature()
             .expect("create multi sgnature should not fail");
         assert!(multi_signer
-            .get_multi_signature(message.encode_hex::<String>())
+            .get_multi_signature(&message.encode_hex::<String>())
             .expect("get multi signature should not fail")
             .is_none());
         signatures[0..quorum_split]
@@ -477,7 +488,7 @@ mod tests {
             .create_multi_signature()
             .expect("create multi sgnature should not fail");
         assert!(multi_signer
-            .get_multi_signature(message.encode_hex::<String>())
+            .get_multi_signature(&message.encode_hex::<String>())
             .expect("get multi signature should not fail")
             .is_none());
         signatures[quorum_split..]
@@ -491,7 +502,7 @@ mod tests {
             .create_multi_signature()
             .expect("create multi sgnature should not fail");
         assert!(multi_signer
-            .get_multi_signature(message.encode_hex::<String>())
+            .get_multi_signature(&message.encode_hex::<String>())
             .expect("get multi signature should not fail")
             .is_some());
     }

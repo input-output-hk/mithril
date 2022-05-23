@@ -203,7 +203,7 @@ mod handlers {
             Ok(Some(beacon)) => {
                 let message = fake_data::digest(&beacon);
                 let multi_signer = multi_signer.read().await;
-                match multi_signer.get_multi_signature(message.encode_hex::<String>()) {
+                match multi_signer.get_multi_signature(&message.encode_hex::<String>()) {
                     Ok(None) => {
                         let mut certificate_pending = fake_data::certificate_pending();
                         certificate_pending.beacon = beacon.clone();
@@ -285,7 +285,7 @@ mod handlers {
         // TODO: This is temporary implementation that will be replaced with real certificate production
         let multi_signer = multi_signer.read().await;
         let message = certificate_hash.clone();
-        match multi_signer.get_multi_signature(message.clone()) {
+        match multi_signer.get_multi_signature(&message) {
             Ok(Some(multi_signature)) => {
                 let beacon_store = beacon_store.read().await;
                 let beacon = beacon_store.get_current_beacon().await.unwrap().unwrap();
