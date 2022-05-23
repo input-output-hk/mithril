@@ -13,6 +13,7 @@ import CardanoCluster
 import CardanoNode (ChainTip (..), RunningNode (..), cliQueryTip)
 import Control.Monad.Class.MonadSTM (modifyTVar, newTVarIO, readTVarIO)
 import Control.Monad.Class.MonadSay (MonadSay, say)
+import Control.Monad.Class.MonadTimer (timeout)
 import Control.Tracer (Tracer (Tracer))
 import Data.Aeson (Value, eitherDecode)
 import qualified Data.Text as Text
@@ -27,7 +28,14 @@ import Mithril.Aggregator
   )
 import Mithril.Client (runClient)
 import Mithril.Signer (Signer, withSigner)
-import Network.HTTP.Simple (getResponseBody, getResponseStatusCode, httpJSON, httpLBS, parseRequest)
+import Network.HTTP.Simple
+  ( HttpException,
+    getResponseBody,
+    getResponseStatusCode,
+    httpJSON,
+    httpLBS,
+    parseRequest,
+  )
 import System.Directory (listDirectory)
 import System.FilePath (takeDirectory, takeExtension, (</>))
 import Test.Hydra.Prelude
@@ -53,7 +61,7 @@ spec =
                 waitForDBToBePopulated (takeDirectory nodeSocket)
                 -- Start aggregator service on some random port
                 withAggregator (takeDirectory nodeSocket) (contramap AggregatorLog tr) $ \aggregator@Aggregator {aggregatorPort} -> do
-                  threadDelay 2
+                  waitForAggregator aggregatorPort
                   withSigner tmp (contramap SignerLog tr) aggregatorPort node $ \signer -> do
                     digest <- assertNodeIsProducingSnapshot tr node aggregatorPort
                     assertSignerIsSigningSnapshot signer aggregatorPort digest
@@ -62,6 +70,16 @@ spec =
 
 newtype Snapshots = Snapshots [Value]
   deriving newtype (FromJSON)
+
+waitForAggregator :: Int -> IO ()
+waitForAggregator port = do
+  req <- parseRequest $ "http://localhost:" <> show port <> "/aggregator/certificate-pending"
+  timeout 5 (queryAggregator req) >>= \case
+    Nothing -> failure "Timeout waiting for aggregator to be up"
+    _ -> pure ()
+  where
+    queryAggregator req =
+      void (httpLBS req) `catch` \(_ :: HttpException) -> threadDelay 0.1 >> queryAggregator req
 
 assertSignerIsSigningSnapshot :: Signer -> Int -> Text -> IO ()
 assertSignerIsSigningSnapshot _signer aggregatorPort digest = go 10
@@ -98,9 +116,7 @@ assertNodeIsProducingSnapshot _tracer _cardanoNode aggregatorPort = go 10
         204 -> threadDelay 1 >> go (n -1)
         200 -> do
           CertificatePending {beacon} <- getResponseBody <$> httpJSON request
-          let digest = digestOf beacon
-          putStrLn $ "Got beacon : " <> show beacon <> ", computed digest : " <> show digest
-          pure $ digest
+          pure $ digestOf beacon
         other -> failure $ "unexpected status code: " <> show other
 
 assertNetworkIsProducingBlock :: Tracer IO ClusterLog -> RunningCluster -> IO ()
