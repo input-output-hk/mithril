@@ -5,7 +5,7 @@ use clap::Parser;
 use config::{Map, Source, Value, ValueKind};
 use mithril_aggregator::{
     AggregatorRuntime, Config, DependencyManager, MemoryBeaconStore, MultiSigner, MultiSignerImpl,
-    ProtocolPartyId, ProtocolStake, Server,
+    ProtocolStakeDistribution, Server,
 };
 use mithril_common::fake_data;
 use slog::{Drain, Level, Logger};
@@ -181,14 +181,9 @@ fn init_multi_signer() -> impl MultiSigner {
 
     // Update stake distribution
     let total_signers = 5;
-    let stakes = fake_data::signers_with_stakes(total_signers)
-        .iter()
-        .map(|signer| {
-            (
-                signer.party_id as ProtocolPartyId,
-                signer.stake as ProtocolStake,
-            )
-        })
+    let stakes: ProtocolStakeDistribution = fake_data::signers_with_stakes(total_signers)
+        .into_iter()
+        .map(|signer| signer.into())
         .collect::<_>();
     multi_signer
         .update_stake_distribution(&stakes)

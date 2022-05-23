@@ -13,7 +13,7 @@ pub use crate::entities::Config;
 pub use crate::http_server::Server;
 pub use crate::multi_signer::{
     key_decode_hex, MultiSigner, MultiSignerImpl, ProtocolError, ProtocolParameters,
-    ProtocolPartyId, ProtocolSignerVerificationKey, ProtocolStake,
+    ProtocolPartyId, ProtocolSignerVerificationKey, ProtocolStake, ProtocolStakeDistribution,
 };
 pub use crate::snapshot_stores::{RemoteSnapshotStore, SnapshotStore};
 pub use beacon_store::{BeaconStoreError, MemoryBeaconStore};
