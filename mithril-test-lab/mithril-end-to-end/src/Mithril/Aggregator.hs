@@ -96,7 +96,9 @@ aggregatorProcess cwd port = do
       env =
         Just $
           [ ("NETWORK", "testnet"),
-            ("URL_SNAPSHOT_MANIFEST", "https://storage.googleapis.com/cardano-testnet/snapshots.json")
+            ("URL_SNAPSHOT_MANIFEST", "https://storage.googleapis.com/cardano-testnet/snapshots.json"),
+            ("SNAPSHOT_STORE_TYPE", "local"),
+            ("SNAPSHOT_UPLOADER_TYPE", "local")
           ]
             <> baseEnv
   unlessM (doesFileExist aggregator) $ failure $ "cannot find mithril-aggregator executable in expected location (" <> binDir <> ")"

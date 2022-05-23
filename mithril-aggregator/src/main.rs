@@ -2,14 +2,16 @@
 
 use clap::Parser;
 
+use config::{Map, Source, Value, ValueKind};
 use mithril_aggregator::{
     AggregatorRuntime, Config, DependencyManager, MemoryBeaconStore, MultiSigner, MultiSignerImpl,
-    ProtocolPartyId, ProtocolStake, Server, SnapshotStoreHTTPClient,
+    ProtocolPartyId, ProtocolStake, Server,
 };
 use mithril_common::fake_data;
 use slog::{Drain, Level, Logger};
 use slog_scope::debug;
 use std::env;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -39,7 +41,12 @@ pub struct Args {
 
     /// Directory to snapshot
     #[clap(long, default_value = "/db")]
-    db_directory: String,
+    db_directory: PathBuf,
+
+    /// Directory to store snapshot
+    /// Defaults to work folder
+    #[clap(long, default_value = ".")]
+    snapshot_directory: PathBuf,
 }
 
 impl Args {
@@ -51,30 +58,64 @@ impl Args {
             _ => Level::Trace,
         }
     }
+
+    fn build_logger(&self) -> Logger {
+        let drain = slog_bunyan::new(std::io::stdout())
+            .set_pretty(false)
+            .build()
+            .fuse();
+        let drain = slog::LevelFilter::new(drain, self.log_level()).fuse();
+        let drain = slog_async::Async::new(drain).build().fuse();
+
+        Logger::root(Arc::new(drain), slog::o!())
+    }
 }
 
-fn build_logger(min_level: Level) -> Logger {
-    let drain = slog_bunyan::new(std::io::stdout())
-        .set_pretty(false)
-        .build()
-        .fuse();
-    let drain = slog::LevelFilter::new(drain, min_level).fuse();
-    let drain = slog_async::Async::new(drain).build().fuse();
+impl Source for Args {
+    fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
+        Box::new((*self).clone())
+    }
 
-    Logger::root(Arc::new(drain), slog::o!())
+    fn collect(&self) -> Result<Map<String, Value>, config::ConfigError> {
+        let mut result = Map::new();
+        let uri = "clap arguments".to_string();
+
+        let server_url = format!("http://{}:{}/", &self.server_ip, &self.server_port);
+        result.insert(
+            "server_url".to_string(),
+            Value::new(Some(&uri), ValueKind::from(server_url)),
+        );
+        result.insert(
+            "db_directory".to_string(),
+            Value::new(
+                Some(&uri),
+                ValueKind::from(self.db_directory.to_str().unwrap().to_string()),
+            ),
+        );
+        result.insert(
+            "snapshot_directory".to_string(),
+            Value::new(
+                Some(&uri),
+                ValueKind::from(self.snapshot_directory.to_str().unwrap().to_string()),
+            ),
+        );
+
+        Ok(result)
+    }
 }
 
 #[tokio::main]
 async fn main() -> Result<(), String> {
     // Load args
     let args = Args::parse();
-    let _guard = slog_scope::set_global_logger(build_logger(args.log_level()));
+    let _guard = slog_scope::set_global_logger(args.build_logger());
 
     // Load config
-    let run_mode = env::var("RUN_MODE").unwrap_or(args.run_mode);
+    let run_mode = env::var("RUN_MODE").unwrap_or_else(|_| args.run_mode.clone());
     let config: Config = config::Config::builder()
         .add_source(config::File::with_name(&format!("./config/{}.json", run_mode)).required(false))
         .add_source(config::Environment::default())
+        .add_source(args.clone())
         .build()
         .map_err(|e| format!("configuration build error: {}", e))?
         .try_deserialize()
@@ -82,28 +123,31 @@ async fn main() -> Result<(), String> {
     debug!("Started"; "run_mode" => &run_mode, "config" => format!("{:?}", config));
 
     // Init dependencies
-    let snapshot_storer = Arc::new(RwLock::new(SnapshotStoreHTTPClient::new(
-        config.url_snapshot_manifest.clone(),
-    )));
-
+    let snapshot_store = config.build_snapshot_store();
     let multi_signer = Arc::new(RwLock::new(init_multi_signer()));
     let beacon_store = Arc::new(RwLock::new(MemoryBeaconStore::default()));
+    let snapshot_uploader = config.build_snapshot_uploader();
 
     // Init dependency manager
-    let mut dependency_manager = DependencyManager::new(config);
+    let mut dependency_manager = DependencyManager::new(config.clone());
     dependency_manager
-        .with_snapshot_storer(snapshot_storer.clone())
+        .with_snapshot_store(snapshot_store.clone())
         .with_multi_signer(multi_signer.clone())
         .with_beacon_store(beacon_store.clone());
     let dependency_manager = Arc::new(dependency_manager);
 
     // Start snapshot uploader
+    let snapshot_directory = config.snapshot_directory.clone();
     let handle = tokio::spawn(async move {
         let runtime = AggregatorRuntime::new(
             args.snapshot_interval * 1000,
-            args.db_directory.clone(),
+            config.network.clone(),
+            config.db_directory.clone(),
+            snapshot_directory,
             beacon_store.clone(),
             multi_signer.clone(),
+            snapshot_store.clone(),
+            snapshot_uploader,
         );
         runtime.run().await
     });

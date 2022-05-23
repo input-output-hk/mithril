@@ -1,4 +1,6 @@
 {
     "network": "testnet",
-    "url_snapshot_manifest": "https://storage.googleapis.com/cardano-testnet/snapshots.json"
+    "url_snapshot_manifest": "https://storage.googleapis.com/cardano-testnet/snapshots.json",
+    "snapshot_store_type": "gcp",
+    "snapshot_uploader_type": "gcp"
 }

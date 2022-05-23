@@ -12,11 +12,12 @@ use warp::Future;
 use warp::{http::Method, http::StatusCode, Filter};
 
 use super::dependency::{
-    BeaconStoreWrapper, DependencyManager, MultiSignerWrapper, SnapshotStorerWrapper,
+    BeaconStoreWrapper, DependencyManager, MultiSignerWrapper, SnapshotStoreWrapper,
 };
 use super::multi_signer;
+use super::Config;
 
-const SERVER_BASE_PATH: &str = "aggregator";
+pub const SERVER_BASE_PATH: &str = "aggregator";
 
 /// Server
 pub struct Server {
@@ -61,6 +62,8 @@ mod router {
             certificate_pending(dependency_manager.clone())
                 .or(certificate_certificate_hash(dependency_manager.clone()))
                 .or(snapshots(dependency_manager.clone()))
+                .or(serve_snapshots_dir(dependency_manager.clone()))
+                .or(snapshot_download(dependency_manager.clone()))
                 .or(snapshot_digest(dependency_manager.clone()))
                 .or(register_signer(dependency_manager.clone()))
                 .or(register_signatures(dependency_manager))
@@ -96,8 +99,30 @@ mod router {
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("snapshots")
             .and(warp::get())
-            .and(with_snapshot_storer(dependency_manager))
+            .and(with_snapshot_store(dependency_manager))
             .and_then(handlers::snapshots)
+    }
+
+    /// GET /snapshots/{digest}/download
+    pub fn snapshot_download(
+        dependency_manager: Arc<DependencyManager>,
+    ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+        warp::path!("snapshot" / String / "download")
+            .and(warp::get())
+            .and(with_config(dependency_manager.clone()))
+            .and(with_snapshot_store(dependency_manager))
+            .and_then(handlers::snapshot_download)
+    }
+
+    pub fn serve_snapshots_dir(
+        dependency_manager: Arc<DependencyManager>,
+    ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+        let config = dependency_manager.config.clone();
+
+        warp::path("snapshot_download")
+            .and(warp::fs::dir(config.snapshot_directory))
+            .and(with_snapshot_store(dependency_manager))
+            .and_then(handlers::ensure_downloaded_file_is_a_snapshot)
     }
 
     /// GET /snapshot/digest
@@ -106,7 +131,7 @@ mod router {
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("snapshot" / String)
             .and(warp::get())
-            .and(with_snapshot_storer(dependency_manager))
+            .and(with_snapshot_store(dependency_manager))
             .and_then(handlers::snapshot_digest)
     }
 
@@ -132,11 +157,11 @@ mod router {
             .and_then(handlers::register_signatures)
     }
 
-    /// With snapshot storer middleware
-    fn with_snapshot_storer(
+    /// With snapshot store middleware
+    fn with_snapshot_store(
         dependency_manager: Arc<DependencyManager>,
-    ) -> impl Filter<Extract = (SnapshotStorerWrapper,), Error = Infallible> + Clone {
-        warp::any().map(move || dependency_manager.snapshot_storer.as_ref().unwrap().clone())
+    ) -> impl Filter<Extract = (SnapshotStoreWrapper,), Error = Infallible> + Clone {
+        warp::any().map(move || dependency_manager.snapshot_store.as_ref().unwrap().clone())
     }
 
     /// With multi signer middleware
@@ -152,10 +177,19 @@ mod router {
     ) -> impl Filter<Extract = (BeaconStoreWrapper,), Error = Infallible> + Clone {
         warp::any().map(move || dependency_manager.beacon_store.as_ref().unwrap().clone())
     }
+
+    /// With config middleware
+    fn with_config(
+        dependency_manager: Arc<DependencyManager>,
+    ) -> impl Filter<Extract = (Config,), Error = Infallible> + Clone {
+        warp::any().map(move || dependency_manager.config.clone())
+    }
 }
 
 mod handlers {
     use super::*;
+    use std::str::FromStr;
+    use warp::http::Uri;
 
     /// Certificate Pending
     pub async fn certificate_pending(
@@ -313,12 +347,12 @@ mod handlers {
 
     /// Snapshots
     pub async fn snapshots(
-        snapshot_storer: SnapshotStorerWrapper,
+        snapshot_store: SnapshotStoreWrapper,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("snapshots");
 
         // Snapshots
-        let snapshot_store = snapshot_storer.read().await;
+        let snapshot_store = snapshot_store.read().await;
         match snapshot_store.list_snapshots().await {
             Ok(snapshots) => Ok(warp::reply::with_status(
                 warp::reply::json(&snapshots),
@@ -331,15 +365,83 @@ mod handlers {
         }
     }
 
+    /// Download a file if and only if it's a snapshot archive
+    pub async fn ensure_downloaded_file_is_a_snapshot(
+        reply: warp::fs::File,
+        snapshot_store: SnapshotStoreWrapper,
+    ) -> Result<impl warp::Reply, Infallible> {
+        let filepath = reply.path().to_path_buf();
+        debug!(
+            "ensure_downloaded_file_is_a_snapshot / file: `{}`",
+            filepath.display()
+        );
+
+        match crate::tools::extract_digest_from_path(&filepath) {
+            Ok(digest) => {
+                let snapshot_store = snapshot_store.read().await;
+                match snapshot_store.get_snapshot_details(digest).await {
+                    Ok(Some(_)) => Ok(Box::new(warp::reply::with_header(
+                        reply,
+                        "Content-Disposition",
+                        format!(
+                            "attachment; filename=\"{}\"",
+                            filepath.file_name().unwrap().to_str().unwrap()
+                        ),
+                    )) as Box<dyn warp::Reply>),
+                    _ => Ok(Box::new(warp::reply::with_status(
+                        warp::reply::reply(),
+                        StatusCode::NOT_FOUND,
+                    ))),
+                }
+            }
+            Err(_) => Ok(Box::new(warp::reply::with_status(
+                warp::reply::reply(),
+                StatusCode::NOT_FOUND,
+            ))),
+        }
+    }
+
+    /// Snapshot download
+    pub async fn snapshot_download(
+        digest: String,
+        config: Config,
+        snapshot_store: SnapshotStoreWrapper,
+    ) -> Result<impl warp::Reply, Infallible> {
+        debug!("snapshot_download/{}", digest);
+
+        // Snapshot
+        let snapshot_store = snapshot_store.read().await;
+        match snapshot_store.get_snapshot_details(digest).await {
+            Ok(Some(snapshot)) => {
+                let filename = format!("{}.{}.tar.gz", config.network, snapshot.digest);
+                let snapshot_uri = format!(
+                    "{}/{}/snapshot_download/{}",
+                    config.server_url, SERVER_BASE_PATH, filename
+                );
+                let snapshot_uri = Uri::from_str(&snapshot_uri).unwrap();
+
+                Ok(Box::new(warp::redirect::found(snapshot_uri)) as Box<dyn warp::Reply>)
+            }
+            Ok(None) => Ok(Box::new(warp::reply::with_status(
+                warp::reply::reply(),
+                StatusCode::NOT_FOUND,
+            ))),
+            Err(err) => Ok(Box::new(warp::reply::with_status(
+                warp::reply::json(&entities::Error::new("MITHRIL-E0002".to_string(), err)),
+                StatusCode::INTERNAL_SERVER_ERROR,
+            ))),
+        }
+    }
+
     /// Snapshot by digest
     pub async fn snapshot_digest(
         digest: String,
-        snapshot_storer: SnapshotStorerWrapper,
+        snapshot_store: SnapshotStoreWrapper,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("snapshot_digest/{}", digest);
 
         // Snapshot
-        let snapshot_store = snapshot_storer.read().await;
+        let snapshot_store = snapshot_store.read().await;
         match snapshot_store.get_snapshot_details(digest).await {
             Ok(snapshot) => match snapshot {
                 Some(snapshot) => Ok(warp::reply::with_status(
@@ -454,11 +556,10 @@ mod tests {
     use warp::test::request;
 
     use super::super::beacon_store::{BeaconStoreError, MockBeaconStore};
-    use super::super::multi_signer::ProtocolError;
-
     use super::super::entities::*;
     use super::super::multi_signer::MockMultiSigner;
-    use super::super::snapshot_store::MockSnapshotStorer;
+    use super::super::multi_signer::ProtocolError;
+    use super::super::snapshot_stores::MockSnapshotStore;
     use super::*;
 
     fn setup_dependency_manager() -> DependencyManager {
@@ -466,6 +567,11 @@ mod tests {
             network: "testnet".to_string(),
             url_snapshot_manifest: "https://storage.googleapis.com/cardano-testnet/snapshots.json"
                 .to_string(),
+            snapshot_store_type: SnapshotStoreType::Local,
+            snapshot_uploader_type: SnapshotUploaderType::Local,
+            server_url: "http://0.0.0.0:8080".to_string(),
+            db_directory: Default::default(),
+            snapshot_directory: Default::default(),
         };
         DependencyManager::new(config)
     }
@@ -759,13 +865,13 @@ mod tests {
     #[tokio::test]
     async fn test_snapshots_get_ok() {
         let fake_snapshots = fake_data::snapshots(5);
-        let mut mock_snapshot_storer = MockSnapshotStorer::new();
-        mock_snapshot_storer
+        let mut mock_snapshot_store = MockSnapshotStore::new();
+        mock_snapshot_store
             .expect_list_snapshots()
             .return_const(Ok(fake_snapshots))
             .once();
         let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_snapshot_storer(Arc::new(RwLock::new(mock_snapshot_storer)));
+        dependency_manager.with_snapshot_store(Arc::new(RwLock::new(mock_snapshot_store)));
 
         let method = Method::GET.as_str();
         let path = "/snapshots";
@@ -787,13 +893,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_snapshots_get_ko() {
-        let mut mock_snapshot_storer = MockSnapshotStorer::new();
-        mock_snapshot_storer
+        let mut mock_snapshot_store = MockSnapshotStore::new();
+        mock_snapshot_store
             .expect_list_snapshots()
             .return_const(Err("an error occurred".to_string()))
             .once();
         let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_snapshot_storer(Arc::new(RwLock::new(mock_snapshot_storer)));
+        dependency_manager.with_snapshot_store(Arc::new(RwLock::new(mock_snapshot_store)));
 
         let method = Method::GET.as_str();
         let path = "/snapshots";
@@ -814,15 +920,101 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_snapshot_digest_get_ok() {
+    async fn test_snapshot_download_get_ok() {
         let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
-        let mut mock_snapshot_storer = MockSnapshotStorer::new();
-        mock_snapshot_storer
+        let mut mock_snapshot_store = MockSnapshotStore::new();
+        mock_snapshot_store
             .expect_get_snapshot_details()
             .return_const(Ok(Some(fake_snapshot)))
             .once();
         let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_snapshot_storer(Arc::new(RwLock::new(mock_snapshot_storer)));
+        dependency_manager.with_snapshot_store(Arc::new(RwLock::new(mock_snapshot_store)));
+
+        let method = Method::GET.as_str();
+        let path = "/snapshot/{digest}/download";
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
+            .reply(&router::routes(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::from_file(API_SPEC_FILE)
+            .method(method)
+            .path(path)
+            .content_type("application/gzip")
+            .validate_request(&Null)
+            .unwrap()
+            .validate_response(&response)
+            .expect("OpenAPI error");
+    }
+
+    #[tokio::test]
+    async fn test_snapshot_download_get_ok_nosnapshot() {
+        let mut mock_snapshot_store = MockSnapshotStore::new();
+        mock_snapshot_store
+            .expect_get_snapshot_details()
+            .return_const(Ok(None))
+            .once();
+        let mut dependency_manager = setup_dependency_manager();
+        dependency_manager.with_snapshot_store(Arc::new(RwLock::new(mock_snapshot_store)));
+
+        let method = Method::GET.as_str();
+        let path = "/snapshot/{digest}/download";
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
+            .reply(&router::routes(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::from_file(API_SPEC_FILE)
+            .method(method)
+            .path(path)
+            .validate_request(&Null)
+            .unwrap()
+            .validate_response(&response)
+            .expect("OpenAPI error");
+    }
+
+    #[tokio::test]
+    async fn test_snapshot_download_get_ko() {
+        let mut mock_snapshot_store = MockSnapshotStore::new();
+        mock_snapshot_store
+            .expect_get_snapshot_details()
+            .return_const(Err("an error occurred".to_string()))
+            .once();
+        let mut dependency_manager = setup_dependency_manager();
+        dependency_manager.with_snapshot_store(Arc::new(RwLock::new(mock_snapshot_store)));
+
+        let method = Method::GET.as_str();
+        let path = "/snapshot/{digest}/download";
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
+            .reply(&router::routes(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::from_file(API_SPEC_FILE)
+            .method(method)
+            .path(path)
+            .validate_request(&Null)
+            .unwrap()
+            .validate_response(&response)
+            .expect("OpenAPI error");
+    }
+
+    #[tokio::test]
+    async fn test_snapshot_digest_get_ok() {
+        let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
+        let mut mock_snapshot_store = MockSnapshotStore::new();
+        mock_snapshot_store
+            .expect_get_snapshot_details()
+            .return_const(Ok(Some(fake_snapshot)))
+            .once();
+        let mut dependency_manager = setup_dependency_manager();
+        dependency_manager.with_snapshot_store(Arc::new(RwLock::new(mock_snapshot_store)));
 
         let method = Method::GET.as_str();
         let path = "/snapshot/{digest}";
@@ -844,13 +1036,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_snapshot_digest_get_ok_nosnapshot() {
-        let mut mock_snapshot_storer = MockSnapshotStorer::new();
-        mock_snapshot_storer
+        let mut mock_snapshot_store = MockSnapshotStore::new();
+        mock_snapshot_store
             .expect_get_snapshot_details()
             .return_const(Ok(None))
             .once();
         let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_snapshot_storer(Arc::new(RwLock::new(mock_snapshot_storer)));
+        dependency_manager.with_snapshot_store(Arc::new(RwLock::new(mock_snapshot_store)));
 
         let method = Method::GET.as_str();
         let path = "/snapshot/{digest}";
@@ -872,13 +1064,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_snapshot_digest_get_ko() {
-        let mut mock_snapshot_storer = MockSnapshotStorer::new();
-        mock_snapshot_storer
+        let mut mock_snapshot_store = MockSnapshotStore::new();
+        mock_snapshot_store
             .expect_get_snapshot_details()
             .return_const(Err("an error occurred".to_string()))
             .once();
         let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_snapshot_storer(Arc::new(RwLock::new(mock_snapshot_storer)));
+        dependency_manager.with_snapshot_store(Arc::new(RwLock::new(mock_snapshot_store)));
 
         let method = Method::GET.as_str();
         let path = "/snapshot/{digest}";
