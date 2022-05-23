@@ -77,7 +77,7 @@ assertSignerIsSigningSnapshot _signer aggregatorPort digest = go 10
           let body = getResponseBody response
           case eitherDecode body of
             Right Certificate {participants} ->
-              length participants `shouldBe` 5 -- FIXME: should be the number of registered signers but currently hardcoded
+              length participants `shouldBe` 1 -- FIXME: should be the number of registered signers but currently hardcoded
             Left err -> failure $ "invalid certificate body : " <> show err <> ", raw body: '" <> show body <> "'"
         other -> failure $ "unexpected status code: " <> show other
 

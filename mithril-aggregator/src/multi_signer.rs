@@ -1,3 +1,4 @@
+use chrono::prelude::*;
 use hex::ToHex;
 use slog_scope::{debug, warn};
 use std::collections::HashMap;
@@ -31,6 +32,9 @@ pub enum ProtocolError {
 
     #[error("no message available")]
     UnavailableMessage(),
+
+    #[error("no protocol parameters available")]
+    UnavailableProtocolParameters(),
 }
 
 /// MultiSigner is the cryptographic engine in charge of producing multi signatures from individual signatures
@@ -90,8 +94,16 @@ pub trait MultiSigner: Sync + Send {
         message: &str,
     ) -> Result<Option<ProtocolMultiSignature>, ProtocolError>;
 
-    /// Create a multi signature from single signatures
+    /// Creates a multi signature from single signatures
     fn create_multi_signature(&mut self) -> Result<Option<ProtocolMultiSignature>, ProtocolError>;
+
+    /// Creates a certificate from a multi signatures
+    fn create_certificate(
+        &self,
+        message: String,
+        beacon: entities::Beacon,
+        previous_hash: String,
+    ) -> Result<Option<entities::Certificate>, ProtocolError>;
 }
 
 /// MultiSignerImpl is an implementation of the MultiSigner
@@ -295,7 +307,7 @@ impl MultiSigner for MultiSignerImpl {
         }
     }
 
-    /// Create a multi signature from single signatures
+    /// Creates a multi signature from single signatures
     fn create_multi_signature(&mut self) -> Result<Option<ProtocolMultiSignature>, ProtocolError> {
         debug!("Create multi signature");
 
@@ -329,6 +341,46 @@ impl MultiSigner for MultiSignerImpl {
             Err(err) => Err(ProtocolError::Core(err.to_string())),
         }
     }
+
+    /// Creates a certificate from a multi signature
+    // TODO: Clarify what started/completed date represents
+    fn create_certificate(
+        &self,
+        message: String,
+        beacon: entities::Beacon,
+        previous_hash: String,
+    ) -> Result<Option<entities::Certificate>, ProtocolError> {
+        debug!("Create certificate");
+
+        match self.get_multi_signature(&message)? {
+            Some(multi_signature) => {
+                let protocol_parameters = self
+                    .get_protocol_parameters()
+                    .ok_or_else(ProtocolError::UnavailableProtocolParameters)?
+                    .into();
+                let digest = message.clone();
+                let certificate_hash = message;
+                let previous_hash = previous_hash;
+                let started_at = format!("{:?}", Utc::now());
+                let completed_at = started_at.clone();
+                let signers = self.get_signers()?;
+                let multi_signature =
+                    key_encode_hex(&multi_signature).map_err(ProtocolError::Codec)?;
+                Ok(Some(entities::Certificate::new(
+                    certificate_hash,
+                    previous_hash,
+                    beacon,
+                    protocol_parameters,
+                    digest,
+                    started_at,
+                    completed_at,
+                    signers,
+                    multi_signature,
+                )))
+            }
+            None => Ok(None),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -336,6 +388,7 @@ mod tests {
     use super::*;
 
     use mithril_common::crypto_helper::tests_setup::*;
+    use mithril_common::fake_data;
 
     #[test]
     fn test_multi_signer_current_message_ok() {
@@ -429,9 +482,13 @@ mod tests {
 
     #[test]
     fn test_multi_signer_multi_signature_ok() {
+        let beacon = fake_data::beacon();
+        let previous_hash = "prev-hash-123".to_string();
+
         let mut multi_signer = MultiSignerImpl::new();
 
         let message = setup_message();
+        let message_hex = message.clone().encode_hex::<String>();
         multi_signer
             .update_current_message(message.clone())
             .expect("update current message failed");
@@ -474,8 +531,12 @@ mod tests {
             .create_multi_signature()
             .expect("create multi sgnature should not fail");
         assert!(multi_signer
-            .get_multi_signature(&message.encode_hex::<String>())
+            .get_multi_signature(&message_hex)
             .expect("get multi signature should not fail")
+            .is_none());
+        assert!(multi_signer
+            .create_certificate(message_hex.clone(), beacon.clone(), previous_hash.clone())
+            .expect("create_certificate should not fail")
             .is_none());
         signatures[0..quorum_split]
             .iter()
@@ -488,8 +549,12 @@ mod tests {
             .create_multi_signature()
             .expect("create multi sgnature should not fail");
         assert!(multi_signer
-            .get_multi_signature(&message.encode_hex::<String>())
+            .get_multi_signature(&message_hex)
             .expect("get multi signature should not fail")
+            .is_none());
+        assert!(multi_signer
+            .create_certificate(message_hex.clone(), beacon.clone(), previous_hash.clone())
+            .expect("create_certificate should not fail")
             .is_none());
         signatures[quorum_split..]
             .iter()
@@ -502,8 +567,12 @@ mod tests {
             .create_multi_signature()
             .expect("create multi sgnature should not fail");
         assert!(multi_signer
-            .get_multi_signature(&message.encode_hex::<String>())
+            .get_multi_signature(&message_hex)
             .expect("get multi signature should not fail")
+            .is_some());
+        assert!(multi_signer
+            .create_certificate(message_hex.clone(), beacon.clone(), previous_hash.clone())
+            .expect("create_certificate should not fail")
             .is_some());
     }
 }
