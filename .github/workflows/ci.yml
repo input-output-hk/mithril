@@ -20,6 +20,7 @@ jobs:
           override: true
 
       - uses: actions/cache@v3
+        id: cargo-cache
         name: Cache Cargo.lock
         with:
           path: |
@@ -33,10 +34,12 @@ jobs:
             ${{ runner.os }}-key
       
       - name: Install cargo tools
+        if: ${{ steps.cargo-cache.outputs.cache-hit == false }}
         run: |
           cargo install cargo2junit 2>/dev/null || true # Suppress the "binary `cargo2junit` already exists in destination" error
 
       - name: Cargo build
+        if: ${{ steps.cargo-cache.outputs.cache-hit == false }}
         uses: actions-rs/cargo@v1
         with:
           command: build
