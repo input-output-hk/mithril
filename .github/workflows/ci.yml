@@ -4,51 +4,9 @@ name: CI
 on: [push]
 
 jobs:
-  prebuild:
-    if: github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v2
-
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          components: clippy, rustfmt
-          override: true
-
-      - uses: actions/cache@v3
-        id: cargo-cache
-        name: Cache Cargo.lock
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-key
-      
-      - name: Install cargo tools
-        if: ${{ steps.cargo-cache.outputs.cache-hit == false }}
-        run: |
-          cargo install cargo2junit 2>/dev/null || true # Suppress the "binary `cargo2junit` already exists in destination" error
-
-      - name: Cargo build
-        if: ${{ steps.cargo-cache.outputs.cache-hit == false }}
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --workspace --all-targets
-  
   build:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
-    needs: [ prebuild ]
     strategy:
       fail-fast: false
       matrix:
@@ -86,19 +44,23 @@ jobs:
         with:
           path: |
             ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
+            ~/.cargo/registry/
+            ~/.cargo/git/
             target/
-          key: ${{ runner.os }}-${{ hashFiles('/Cargo.lock') }}
+          key: cargo-${{ runner.os }}-${{ matrix.project.name }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-key
+            ${{ runner.os }}-${{ matrix.project.name }}-key
+
+      - name: Install cargo tools
+        if: ${{ steps.cargo-cache.outputs.cache-hit == false }}
+        run: |
+          cargo install cargo2junit 2>/dev/null || true # Suppress the "binary `cargo2junit` already exists in destination" error
       
       - name: Cargo build
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --bins --lib --tests -p ${{ matrix.project.cargo_project_name }}
+          args: --release --all-targets -p ${{ matrix.project.cargo_project_name }}
       
       - name: Cargo check
         uses: actions-rs/cargo@v1
