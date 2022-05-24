@@ -185,9 +185,11 @@ impl MultiSigner for MultiSignerImpl {
 
     /// Update current message
     fn update_current_message(&mut self, message: Bytes) -> Result<(), ProtocolError> {
+        if self.current_message.clone() != Some(message.clone()) {
+            self.multi_signature = None;
+            self.single_signatures.drain();
+        }
         self.current_message = Some(message);
-        self.multi_signature = None;
-        self.single_signatures.drain();
         Ok(())
     }
 
