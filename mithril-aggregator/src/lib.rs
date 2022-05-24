@@ -1,4 +1,5 @@
 mod beacon_store;
+mod certificate_store;
 mod dependency;
 mod entities;
 mod http_server;
