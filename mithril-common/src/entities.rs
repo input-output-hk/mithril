@@ -3,6 +3,7 @@
 
 use fixed::types::U8F24;
 use serde::{Deserialize, Serialize};
+use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
 pub type ImmutableFileNumber = u64;
@@ -103,9 +104,13 @@ pub struct Certificate {
     #[serde(rename = "completed_at")]
     pub completed_at: String,
 
-    /// The list of the participants (potential signers) with their stakes and verification keys
-    #[serde(rename = "participants")]
-    pub participants: Vec<SignerWithStake>,
+    /// The list of the signers with their stakes and verification keys
+    #[serde(rename = "signers")]
+    pub signers: Vec<SignerWithStake>,
+
+    /// Aggregate verification key
+    #[serde(rename = "aggregate_verification_key")]
+    pub aggregate_verification_key: String,
 
     /// STM multisignature created from a quorum of single signatures from the signers
     #[serde(rename = "multisignature")]
@@ -116,27 +121,32 @@ impl Certificate {
     /// Certificate factory
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        hash: String,
         previous_hash: String,
         beacon: Beacon,
         protocol_parameters: ProtocolParameters,
         digest: String,
         started_at: String,
         completed_at: String,
-        participants: Vec<SignerWithStake>,
+        signers: Vec<SignerWithStake>,
+        aggregate_verification_key: String,
         multisignature: String,
     ) -> Certificate {
-        Certificate {
-            hash,
+        let mut certificate = Certificate {
+            hash: "".to_string(),
             previous_hash,
             beacon,
             protocol_parameters,
             digest,
             started_at,
             completed_at,
-            participants,
+            signers,
+            aggregate_verification_key,
             multisignature,
-        }
+        };
+        let mut hasher = DefaultHasher::new();
+        certificate.hash(&mut hasher);
+        certificate.hash = format!("{:x}", hasher.finish());
+        certificate
     }
 }
 
@@ -337,7 +347,6 @@ impl Stake {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::hash_map::DefaultHasher;
 
     #[test]
     fn test_protocol_parameters_partialeq() {

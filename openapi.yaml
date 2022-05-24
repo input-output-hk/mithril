@@ -353,7 +353,8 @@ components:
         - digest
         - started_at
         - completed_at
-        - participants
+        - signers
+        - aggregate_verification_key
         - multisignature
       properties:
         hash:
@@ -381,11 +382,15 @@ components:
           description: Date and time at which the certificate was completed (when the quorum of single signatures was reached so that a multisignature could be aggregated from them)
           type: string
           format: date-time
-        participants:
-          description: The list of the participants (potential signers) with their stakes and verification keys
+        signers:
+          description: The list of the signers with their stakes and verification keys
           type: array
           items:
             $ref: "#/components/schemas/SignerWithStake"
+        aggregate_verification_key:
+          description: Aggregate verification key used to verify the multisignature
+          type: string
+          format: bytes
         multisignature:
           description: STM multisignature created from a quorum of single signatures from the signers
           type: string
