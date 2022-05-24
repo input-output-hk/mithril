@@ -45,7 +45,7 @@ jobs:
           command: build
           args: --release --workspace --all-targets
   
-  upload-artifacts:
+  build:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     needs: [ prebuild ]
@@ -92,7 +92,40 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --manifest-path ./${{ matrix.project.name }}/Cargo.toml
+          args: --release --bins --lib --tests --manifest-path ./${{ matrix.project.name }}/Cargo.toml
+      
+      - name: Cargo check
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --release --all-targets --manifest-path ./${{ matrix.project.name }}/Cargo.toml
+
+      - name: Cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all --manifest-path ./${{ matrix.project.name }}/Cargo.toml -- --check
+
+      - name: Clippy Check
+        uses: actions-rs/clippy-check@v1
+        with:
+          name: clippy-${{ matrix.project.name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --release --manifest-path ./${{ matrix.project.name }}/Cargo.toml --all-features
+
+      - name: Run cargo test
+        shell: bash
+        working-directory: ${{ matrix.project.name }}
+        run: |
+          set -o pipefail && cargo test --release -- -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-${{ matrix.project.name }}.xml)
+
+      - name: Upload Unit Test Results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results-${{ matrix.project.name }}
+          path: |
+            ./**/test-results-*.xml
       
       - name: Generate ${{ matrix.project.name }} doc
         uses: actions-rs/cargo@v1
@@ -116,76 +149,10 @@ jobs:
           path: |
             target/doc/
 
-  test-check:
-    if: github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
-    needs: [ prebuild ]
-    strategy:
-      fail-fast: false
-      matrix: 
-        project: [ mithril-core, mithril-common, mithril-aggregator, mithril-client, mithril-signer ]
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v2
-
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          components: clippy, rustfmt
-          override: true
-
-      - uses: actions/cache@v3
-        name: Cache Cargo.lock
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-${{ hashFiles('/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-key
-
-      - name: Cargo check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --release --all-targets --manifest-path ./${{ matrix.project }}/Cargo.toml
-
-      - name: Cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all --manifest-path ./${{ matrix.project }}/Cargo.toml -- --check
-
-      - name: Clippy Check
-        uses: actions-rs/clippy-check@v1
-        with:
-          name: clippy-${{ matrix.project }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --release --manifest-path ./${{ matrix.project }}/Cargo.toml --all-features
-
-      - name: Run cargo test
-        shell: bash
-        working-directory: ${{ matrix.project }}
-        run: |
-          set -o pipefail && cargo test --release -- -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-${{ matrix.project }}.xml)
-
-      - name: Upload Unit Test Results
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: test-results-${{ matrix.project }}
-          path: |
-            ./**/test-results-*.xml
-
   docker-mithril:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'push' }}
-    needs: [ upload-artifacts, test-check ]
+    needs: [ build ]
     strategy:
       fail-fast: false
       matrix:
@@ -239,7 +206,7 @@ jobs:
   publish-tests-results:
     if: github.event.pull_request.draft == false && ${{ always() }}
     runs-on: ubuntu-latest
-    needs: [ test-check ]
+    needs: [ build ]
     steps:
       - name: Download mithril-core Tests Results
         if: always()
@@ -281,9 +248,8 @@ jobs:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     needs:
-      - upload-artifacts
+      - build
       - docker-mithril
-      - test-check
       - run-test-lab
     steps:
       - name: Checkout sources
@@ -350,7 +316,7 @@ jobs:
 
   run-test-lab:
     runs-on: ubuntu-latest
-    needs: [ upload-artifacts ]
+    needs: [ build ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -413,8 +379,7 @@ jobs:
   terraform:
     runs-on: ubuntu-latest
     needs:
-      - upload-artifacts
-      - test-check
+      - build
       - docker-mithril
       - run-test-lab
     env:
