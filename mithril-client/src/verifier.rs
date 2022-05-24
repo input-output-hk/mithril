@@ -1,20 +1,19 @@
 use log::debug;
 use thiserror::Error;
 
-use mithril_common::crypto_helper::{
-    key_decode_hex, Bytes, ProtocolClerk, ProtocolKeyRegistration, ProtocolMultiSignature,
-    ProtocolPartyId, ProtocolStake, ProtocolStakeDistribution,
-};
-
-use crate::entities;
+use mithril_common::crypto_helper::{key_decode_hex, Bytes, ProtocolMultiSignature};
+use mithril_common::entities::ProtocolParameters;
 
 #[cfg(test)]
 use mockall::automock;
 
 #[derive(Error, Debug)]
 pub enum ProtocolError {
-    #[error("multi signature verification failed")]
-    VerifyMultiSignatureError(String),
+    #[error("multi signature verification failed: '{0}'")]
+    VerifyMultiSignature(String),
+
+    #[error("codec error: '{0}'")]
+    Codec(String),
 }
 
 /// Verifier is the cryptographic engine in charge of verifying multi signatures and certificates
@@ -25,8 +24,8 @@ pub trait Verifier {
         &self,
         message: &Bytes,
         multi_signature: &str,
-        signers_with_stakes: &[entities::SignerWithStake],
-        protocol_parameters: &entities::ProtocolParameters,
+        aggregate_verification_key: &str,
+        protocol_parameters: &ProtocolParameters,
     ) -> Result<(), ProtocolError>;
 }
 
@@ -38,36 +37,6 @@ impl VerifierImpl {
     pub fn new() -> Self {
         debug!("New VerifierImpl created");
         Self {}
-    }
-
-    /// Creates a clerk
-    pub fn create_clerk(
-        &self,
-        signers_with_stakes: &[entities::SignerWithStake],
-        protocol_parameters: &entities::ProtocolParameters,
-    ) -> Result<ProtocolClerk, ProtocolError> {
-        let stakes = signers_with_stakes
-            .iter()
-            .map(|signer| {
-                (
-                    signer.party_id as ProtocolPartyId,
-                    signer.stake as ProtocolStake,
-                )
-            })
-            .collect::<ProtocolStakeDistribution>();
-        let mut key_registration = ProtocolKeyRegistration::init(&stakes);
-        signers_with_stakes.iter().for_each(|signer| {
-            if let Ok(verification_key) = key_decode_hex(&signer.verification_key) {
-                key_registration
-                    .register(signer.party_id as ProtocolPartyId, verification_key)
-                    .unwrap();
-            }
-        });
-        let closed_registration = key_registration.close();
-        Ok(ProtocolClerk::from_registration(
-            protocol_parameters.to_owned().into(),
-            closed_registration,
-        ))
     }
 }
 
@@ -83,21 +52,21 @@ impl Verifier for VerifierImpl {
         &self,
         message: &Bytes,
         multi_signature: &str,
-        signers_with_stakes: &[entities::SignerWithStake],
-        protocol_parameters: &entities::ProtocolParameters,
+        aggregate_verification_key: &str,
+        protocol_parameters: &ProtocolParameters,
     ) -> Result<(), ProtocolError> {
         debug!("Verify multi signature for {:?}", message);
         let multi_signature: ProtocolMultiSignature =
-            key_decode_hex(multi_signature).map_err(ProtocolError::VerifyMultiSignatureError)?;
+            key_decode_hex(multi_signature).map_err(ProtocolError::Codec)?;
+        let aggregate_verification_key =
+            key_decode_hex(aggregate_verification_key).map_err(ProtocolError::Codec)?;
         multi_signature
             .verify(
                 message,
-                &self
-                    .create_clerk(signers_with_stakes, protocol_parameters)?
-                    .compute_avk(),
+                &aggregate_verification_key,
                 &protocol_parameters.to_owned().into(),
             )
-            .map_err(|e| ProtocolError::VerifyMultiSignatureError(e.to_string()))
+            .map_err(|e| ProtocolError::VerifyMultiSignature(e.to_string()))
     }
 }
 
@@ -105,8 +74,8 @@ impl Verifier for VerifierImpl {
 mod tests {
     use super::*;
 
-    use mithril_common::crypto_helper::key_encode_hex;
     use mithril_common::crypto_helper::tests_setup::*;
+    use mithril_common::crypto_helper::{key_encode_hex, ProtocolClerk};
 
     #[test]
     fn test_multi_signer_multi_signature_ok() {
@@ -125,27 +94,18 @@ mod tests {
 
         let first_signer = &signers.first().unwrap().3;
         let clerk = ProtocolClerk::from_signer(&first_signer);
+        let aggregate_verification_key = clerk.compute_avk();
         let multi_signature = clerk.aggregate(&single_signatures, &message).unwrap();
 
         let verifier = VerifierImpl::new();
         let protocol_parameters = protocol_parameters.into();
-        let signers_with_stakes = signers
-            .iter()
-            .map(|(party_id, stake, verification_key, _, _)| {
-                entities::SignerWithStake::new(
-                    *party_id as u64,
-                    key_encode_hex(verification_key).unwrap(),
-                    *stake as u64,
-                )
-            })
-            .collect::<Vec<entities::SignerWithStake>>();
         let message_tampered = message[1..].to_vec();
         assert!(
             verifier
                 .verify_multi_signature(
                     &message_tampered,
                     &key_encode_hex(&multi_signature).unwrap(),
-                    &signers_with_stakes,
+                    &key_encode_hex(&aggregate_verification_key).unwrap(),
                     &protocol_parameters,
                 )
                 .is_err(),
@@ -155,7 +115,7 @@ mod tests {
             .verify_multi_signature(
                 &message,
                 &key_encode_hex(&multi_signature).unwrap(),
-                &signers_with_stakes,
+                &key_encode_hex(&aggregate_verification_key).unwrap(),
                 &protocol_parameters,
             )
             .expect("multi signature verification should have succeeded");

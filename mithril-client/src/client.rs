@@ -7,6 +7,8 @@ use crate::aggregator;
 use crate::entities::*;
 use crate::verifier;
 
+use mithril_common::entities::Snapshot;
+
 pub const MISSING_AGGREGATOR_HANDLER: &str = "missing aggregator handler";
 #[allow(dead_code)]
 pub const MISSING_VERIFIER: &str = "missing verifier";
@@ -335,7 +337,7 @@ mod tests {
         mock_verifier
             .expect_verify_multi_signature()
             .return_once(move |_, _, _, _| {
-                Err(ProtocolError::VerifyMultiSignatureError(
+                Err(ProtocolError::VerifyMultiSignature(
                     "error occurred".to_string(),
                 ))
             });
