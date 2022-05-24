@@ -52,16 +52,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project: 
+        project:
+        # TODO: remove the cargo_project_name and only use the name after renaming mithril-core name in its Cargo.toml 
         - name: mithril-core
+          cargo_project_name: mithril
           artefacts_pattern: libmithril
         - name: mithril-common
+          cargo_project_name: mithril-common
           artefacts_pattern: libmithril_common
         - name: mithril-aggregator
+          cargo_project_name: mithril-aggregator
           artefacts_pattern: mithril-aggregator
         - name: mithril-client
+          cargo_project_name: mithril-client
           artefacts_pattern: mithril-client
         - name: mithril-signer
+          cargo_project_name: mithril-signer
           artefacts_pattern: mithril-signer
     steps:
       - name: Checkout sources
@@ -92,34 +98,33 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --bins --lib --tests --manifest-path ./${{ matrix.project.name }}/Cargo.toml
+          args: --release --bins --lib --tests -p ${{ matrix.project.cargo_project_name }}
       
       - name: Cargo check
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --release --all-targets --manifest-path ./${{ matrix.project.name }}/Cargo.toml
-
-      - name: Cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all --manifest-path ./${{ matrix.project.name }}/Cargo.toml -- --check
+          args: --release --all-targets -p ${{ matrix.project.cargo_project_name }}
 
       - name: Clippy Check
         uses: actions-rs/clippy-check@v1
         with:
           name: clippy-${{ matrix.project.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --release --manifest-path ./${{ matrix.project.name }}/Cargo.toml --all-features
+          args: --release --all-features -p ${{ matrix.project.cargo_project_name }}
 
-      - name: Run cargo test
+      - name: Cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -p ${{ matrix.project.cargo_project_name }}
+
+      - name: Run tests
         shell: bash
-        working-directory: ${{ matrix.project.name }}
         run: |
-          set -o pipefail && cargo test --release -- -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-${{ matrix.project.name }}.xml)
+          set -o pipefail && cargo test --release -p ${{ matrix.project.cargo_project_name }} -- -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-${{ matrix.project.name }}.xml)
 
-      - name: Upload Unit Test Results
+      - name: Upload Tests Results
         if: always()
         uses: actions/upload-artifact@v3
         with:
@@ -131,7 +136,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: doc
-          args: --no-deps --release --manifest-path ./${{ matrix.project.name }}/Cargo.toml 
+          args: --no-deps --release -p ${{ matrix.project.cargo_project_name }}
 
       - name: Publish ${{ matrix.project.name }}
         uses: actions/upload-artifact@v3
