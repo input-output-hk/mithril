@@ -1,6 +1,9 @@
+#![allow(dead_code)]
+/// ↑ only until we plug this into main code
 use mithril_common::entities::{Beacon, CertificatePending};
-use std::sync::RwLock;
+
 use thiserror::Error;
+use tokio::sync::RwLock;
 
 use super::{store_adapter::AdapterError, StoreAdapter};
 
@@ -17,29 +20,30 @@ struct CertificatePendingStore {
 }
 
 impl CertificatePendingStore {
-    pub fn new(adapter: RwLock<Adapter>) -> Self {
+    pub async fn new(adapter: RwLock<Adapter>) -> Self {
         Self { adapter }
     }
 
-    pub fn get_last_certificate(&self) -> Result<Option<CertificatePending>, StoreError> {
-        todo!()
-    }
-
-    pub fn get_from_beacon(
+    pub async fn get_from_beacon(
         &self,
         beacon: &Beacon,
     ) -> Result<Option<CertificatePending>, StoreError> {
-        todo!()
+        Ok(self.adapter.read().await.get_record(beacon)?)
     }
 
-    pub fn save(&mut self, _certificate: CertificatePending) -> Result<(), StoreError> {
-        todo!()
+    pub async fn save(&self, certificate: CertificatePending) -> Result<(), StoreError> {
+        Ok(self
+            .adapter
+            .write()
+            .await
+            .store_record(certificate.beacon.clone(), certificate)?)
     }
 
-    pub fn get_list(&self, last_n: usize) -> Result<Vec<(Beacon, CertificatePending)>, StoreError> {
-        let vars = self.adapter.read().unwrap().get_last_n_records(last_n)?;
+    pub async fn get_list(&self, last_n: usize) -> Result<Vec<CertificatePending>, StoreError> {
+        let vars = self.adapter.read().await.get_last_n_records(last_n)?;
+        let result = vars.into_iter().map(|(_, y)| y).collect();
 
-        Ok(vars)
+        Ok(result)
     }
 }
 
@@ -49,7 +53,7 @@ mod test {
     use crate::certificate_store::dumb_adapter::DumbStoreAdapter;
     use mithril_common::fake_data;
 
-    fn get_certificate_store(size: u64) -> CertificatePendingStore {
+    async fn get_certificate_pending_store(size: u64) -> CertificatePendingStore {
         let mut adapter: DumbStoreAdapter<Beacon, CertificatePending> = DumbStoreAdapter::new();
 
         for ix in 0..size {
@@ -62,30 +66,67 @@ mod test {
             );
             adapter.store_record(beacon, certificate_pending).unwrap();
         }
-        let store = CertificatePendingStore::new(RwLock::new(Box::new(adapter)));
+        let store = CertificatePendingStore::new(RwLock::new(Box::new(adapter))).await;
 
         store
     }
 
-    #[test]
-    fn list_is_empty() {
-        let store = get_certificate_store(0);
+    #[tokio::test]
+    async fn list_is_empty() {
+        let store = get_certificate_pending_store(0).await;
 
-        assert_eq!(0, store.get_list(100).unwrap().len());
+        assert_eq!(0, store.get_list(100).await.unwrap().len());
     }
 
-    #[test]
-    fn list_has_some_members() {
-        let store = get_certificate_store(1);
+    #[tokio::test]
+    async fn list_has_some_members() {
+        let store = get_certificate_pending_store(1).await;
 
-        assert_eq!(1, store.get_list(100).unwrap().len());
+        assert_eq!(1, store.get_list(100).await.unwrap().len());
     }
 
-    #[test]
-    fn get_certificate_with_good_beacon() {
+    #[tokio::test]
+    async fn get_certificate_pending_with_good_beacon() {
         let beacon = Beacon::new("testnet".to_string(), 0, 0);
-        let store = get_certificate_store(1);
-        let result = store.get_from_beacon(&beacon).unwrap();
+        let store = get_certificate_pending_store(1).await;
+        let result = store.get_from_beacon(&beacon).await.unwrap();
         assert!(result.is_some());
+    }
+
+    #[tokio::test]
+    async fn get_certificate_pending_with_wrong_beacon() {
+        let beacon = Beacon::new("testnet".to_string(), 0, 1);
+        let store = get_certificate_pending_store(1).await;
+        let result = store.get_from_beacon(&beacon).await.unwrap();
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn save_certificate_pending_once() {
+        let store = get_certificate_pending_store(1).await;
+        let beacon = Beacon::new("testnet".to_string(), 0, 1);
+        let certificate_pending = CertificatePending::new(
+            beacon,
+            fake_data::protocol_parameters(),
+            "0".to_string(),
+            fake_data::signers_with_stakes(1),
+        );
+
+        assert!(store.save(certificate_pending).await.is_ok());
+    }
+
+    #[tokio::test]
+    async fn update_certificate_pending() {
+        let store = get_certificate_pending_store(1).await;
+        let beacon = Beacon::new("testnet".to_string(), 0, 0);
+        let mut certificate_pending = store.get_from_beacon(&beacon).await.unwrap().unwrap();
+
+        assert_eq!("0".to_string(), certificate_pending.previous_hash);
+        certificate_pending.previous_hash = "one".to_string();
+
+        assert!(store.save(certificate_pending).await.is_ok());
+        let certificate_pending = store.get_from_beacon(&beacon).await.unwrap().unwrap();
+
+        assert_eq!("one".to_string(), certificate_pending.previous_hash);
     }
 }

@@ -1,5 +1,3 @@
-use serde::Serialize;
-
 use super::{AdapterError, StoreAdapter};
 
 pub struct DumbStoreAdapter<K, R> {
@@ -18,7 +16,7 @@ impl<K, R> DumbStoreAdapter<K, R> {
 
 impl<K, R> StoreAdapter for DumbStoreAdapter<K, R>
 where
-    R: Serialize + Clone,
+    R: Clone,
     K: PartialEq + Clone,
 {
     type Key = K;
