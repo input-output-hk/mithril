@@ -11,10 +11,7 @@ mod tools;
 
 pub use crate::entities::Config;
 pub use crate::http_server::Server;
-pub use crate::multi_signer::{
-    key_decode_hex, MultiSigner, MultiSignerImpl, ProtocolError, ProtocolParameters,
-    ProtocolPartyId, ProtocolSignerVerificationKey, ProtocolStake, ProtocolStakeDistribution,
-};
+pub use crate::multi_signer::{MultiSigner, MultiSignerImpl, ProtocolError};
 pub use crate::snapshot_stores::{RemoteSnapshotStore, SnapshotStore};
 pub use beacon_store::{BeaconStoreError, MemoryBeaconStore};
 pub use dependency::DependencyManager;

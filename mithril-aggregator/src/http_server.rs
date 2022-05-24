@@ -1,5 +1,4 @@
-use hex::ToHex;
-use mithril_common::crypto_helper::{key_decode_hex, ProtocolPartyId};
+use mithril_common::crypto_helper::{key_decode_hex, ProtocolLotteryIndex, ProtocolPartyId};
 use mithril_common::entities;
 use mithril_common::fake_data;
 use serde_json::Value::Null;
@@ -200,9 +199,8 @@ mod handlers {
         let beacon_store = beacon_store.read().await;
         match beacon_store.get_current_beacon().await {
             Ok(Some(beacon)) => {
-                let message = fake_data::digest(&beacon);
                 let multi_signer = multi_signer.read().await;
-                match multi_signer.get_multi_signature(&message.encode_hex::<String>()) {
+                match multi_signer.get_multi_signature() {
                     Ok(None) => {
                         let mut certificate_pending = fake_data::certificate_pending();
                         certificate_pending.beacon = beacon.clone();
@@ -285,9 +283,8 @@ mod handlers {
         let beacon_store = beacon_store.read().await;
         match beacon_store.get_current_beacon().await {
             Ok(Some(beacon)) => {
-                let message = certificate_hash.clone();
                 let previous_hash = "".to_string();
-                match multi_signer.create_certificate(message, beacon, previous_hash) {
+                match multi_signer.create_certificate(beacon, previous_hash) {
                     Ok(Some(certificate)) => Ok(warp::reply::with_status(
                         warp::reply::json(&certificate),
                         StatusCode::OK,
@@ -475,9 +472,9 @@ mod handlers {
             match key_decode_hex(&signature.signature) {
                 Ok(single_signature) => {
                     match multi_signer.register_single_signature(
-                        signature.party_id as multi_signer::ProtocolPartyId,
+                        signature.party_id as ProtocolPartyId,
                         &single_signature,
-                        signature.index as multi_signer::ProtocolLotteryIndex,
+                        signature.index as ProtocolLotteryIndex,
                     ) {
                         Err(multi_signer::ProtocolError::ExistingSingleSignature(_)) => {
                             return Ok(warp::reply::with_status(
@@ -562,7 +559,7 @@ mod tests {
             .return_once(|| Ok(fake_signers_with_stakes));
         mock_multi_signer
             .expect_get_multi_signature()
-            .return_once(|_| Ok(None));
+            .return_once(|| Ok(None));
         let mut dependency_manager = setup_dependency_manager();
 
         dependency_manager
@@ -667,7 +664,7 @@ mod tests {
             .return_once(|| Err(ProtocolError::Codec("an error occurred".to_string())));
         mock_multi_signer
             .expect_get_multi_signature()
-            .return_once(|_| Ok(None));
+            .return_once(|| Ok(None));
         let mut dependency_manager = setup_dependency_manager();
         dependency_manager
             .with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)))
@@ -703,7 +700,7 @@ mod tests {
             .return_once(|| None);
         mock_multi_signer
             .expect_get_multi_signature()
-            .return_once(|_| Ok(None));
+            .return_once(|| Ok(None));
         let mut dependency_manager = setup_dependency_manager();
         dependency_manager
             .with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)))
@@ -735,9 +732,7 @@ mod tests {
         let mut mock_multi_signer = MockMultiSigner::new();
         mock_multi_signer
             .expect_create_certificate()
-            .return_once(move |_, _, _| {
-                Ok(Some(fake_data::certificate("cert-hash-123".to_string())))
-            });
+            .return_once(move |_, _| Ok(Some(fake_data::certificate("cert-hash-123".to_string()))));
         let mut dependency_manager = setup_dependency_manager();
         dependency_manager
             .with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)))
@@ -770,7 +765,7 @@ mod tests {
         let mut mock_multi_signer = MockMultiSigner::new();
         mock_multi_signer
             .expect_create_certificate()
-            .return_once(move |_, _, _| Ok(None));
+            .return_once(move |_, _| Ok(None));
         let mut dependency_manager = setup_dependency_manager();
         dependency_manager
             .with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)))
@@ -803,7 +798,7 @@ mod tests {
         let mut mock_multi_signer = MockMultiSigner::new();
         mock_multi_signer
             .expect_create_certificate()
-            .return_once(move |_, _, _| Err(ProtocolError::Codec("an error occurred".to_string())));
+            .return_once(move |_, _| Err(ProtocolError::Codec("an error occurred".to_string())));
         let mut dependency_manager = setup_dependency_manager();
         dependency_manager
             .with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)))

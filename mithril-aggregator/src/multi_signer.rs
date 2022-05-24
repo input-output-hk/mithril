@@ -4,11 +4,10 @@ use slog_scope::{debug, warn};
 use std::collections::HashMap;
 use thiserror::Error;
 
-// TODO: remove pub
-pub use mithril_common::crypto_helper::{
-    key_decode_hex, key_encode_hex, Bytes, ProtocolClerk, ProtocolKeyRegistration,
-    ProtocolLotteryIndex, ProtocolMultiSignature, ProtocolParameters, ProtocolPartyId,
-    ProtocolSignerVerificationKey, ProtocolSingleSignature, ProtocolStake,
+use mithril_common::crypto_helper::{
+    key_encode_hex, Bytes, ProtocolAggregateVerificationKey, ProtocolClerk,
+    ProtocolKeyRegistration, ProtocolLotteryIndex, ProtocolMultiSignature, ProtocolParameters,
+    ProtocolPartyId, ProtocolSignerVerificationKey, ProtocolSingleSignature,
     ProtocolStakeDistribution,
 };
 use mithril_common::entities;
@@ -35,6 +34,9 @@ pub enum ProtocolError {
 
     #[error("no protocol parameters available")]
     UnavailableProtocolParameters(),
+
+    #[error("no clerk available")]
+    UnavailableClerk(),
 }
 
 /// MultiSigner is the cryptographic engine in charge of producing multi signatures from individual signatures
@@ -89,10 +91,7 @@ pub trait MultiSigner: Sync + Send {
     ) -> Result<(), ProtocolError>;
 
     /// Retrieves a multi signature from a message
-    fn get_multi_signature(
-        &self,
-        message: &str,
-    ) -> Result<Option<ProtocolMultiSignature>, ProtocolError>;
+    fn get_multi_signature(&self) -> Result<Option<ProtocolMultiSignature>, ProtocolError>;
 
     /// Creates a multi signature from single signatures
     fn create_multi_signature(&mut self) -> Result<Option<ProtocolMultiSignature>, ProtocolError>;
@@ -100,7 +99,6 @@ pub trait MultiSigner: Sync + Send {
     /// Creates a certificate from a multi signatures
     fn create_certificate(
         &self,
-        message: String,
         beacon: entities::Beacon,
         previous_hash: String,
     ) -> Result<Option<entities::Certificate>, ProtocolError>;
@@ -124,8 +122,11 @@ pub struct MultiSignerImpl {
     single_signatures:
         HashMap<ProtocolPartyId, HashMap<ProtocolLotteryIndex, ProtocolSingleSignature>>,
 
-    /// Recorded multi signatures by message signed
-    multi_signatures: HashMap<String, String>,
+    /// Created multi signature for message signed
+    multi_signature: Option<ProtocolMultiSignature>,
+
+    /// Created aggregate verification key
+    avk: Option<ProtocolAggregateVerificationKey>,
 }
 
 impl Default for MultiSignerImpl {
@@ -144,24 +145,35 @@ impl MultiSignerImpl {
             stakes: Vec::new(),
             signers: HashMap::new(),
             single_signatures: HashMap::new(),
-            multi_signatures: HashMap::new(),
+            multi_signature: None,
+            avk: None,
         }
     }
 
     /// Creates a clerk
     // TODO: The clerk should be a field of the MultiSignerImpl struct, but this is not possible now as the Clerk uses an unsafe 'Rc'
-    pub fn clerk(&self) -> ProtocolClerk {
+    pub fn create_clerk(&self) -> Option<ProtocolClerk> {
         let stakes = self.get_stake_distribution();
         let mut key_registration = ProtocolKeyRegistration::init(&stakes);
+        let mut total_signers = 0;
         stakes.iter().for_each(|(party_id, _stake)| {
             if let Some(verification_key) = self.get_signer(*party_id).unwrap() {
                 key_registration
                     .register(*party_id, verification_key)
                     .unwrap();
+                total_signers += 1;
             }
         });
-        let closed_registration = key_registration.close();
-        ProtocolClerk::from_registration(self.protocol_parameters.unwrap(), closed_registration)
+        match total_signers {
+            0 => None,
+            _ => {
+                let closed_registration = key_registration.close();
+                Some(ProtocolClerk::from_registration(
+                    self.protocol_parameters?,
+                    closed_registration,
+                ))
+            }
+        }
     }
 }
 
@@ -174,6 +186,8 @@ impl MultiSigner for MultiSignerImpl {
     /// Update current message
     fn update_current_message(&mut self, message: Bytes) -> Result<(), ProtocolError> {
         self.current_message = Some(message);
+        self.multi_signature = None;
+        self.single_signatures.drain();
         Ok(())
     }
 
@@ -248,7 +262,6 @@ impl MultiSigner for MultiSignerImpl {
     }
 
     /// Registers a single signature
-    // TODO: Maybe the clerk can be replaced here by a verifier in the crypto library (cf https://github.com/input-output-hk/mithril/issues/162)
     fn register_single_signature(
         &mut self,
         party_id: ProtocolPartyId,
@@ -263,9 +276,17 @@ impl MultiSigner for MultiSignerImpl {
         let message = &self
             .get_current_message()
             .ok_or_else(ProtocolError::UnavailableMessage)?;
-        let clerk = self.clerk();
-        let avk = clerk.compute_avk();
-        match signature.verify(&self.protocol_parameters.unwrap(), &avk, message) {
+        match signature.verify(
+            &self
+                .protocol_parameters
+                .ok_or_else(ProtocolError::UnavailableProtocolParameters)?,
+            &self
+                .create_clerk()
+                .as_ref()
+                .ok_or_else(ProtocolError::UnavailableClerk)?
+                .compute_avk(),
+            message,
+        ) {
             Ok(_) => {
                 // Register single signature
                 self.single_signatures
@@ -292,19 +313,9 @@ impl MultiSigner for MultiSignerImpl {
     }
 
     /// Retrieves a multi signature from a message
-    fn get_multi_signature(
-        &self,
-        message: &str,
-    ) -> Result<Option<ProtocolMultiSignature>, ProtocolError> {
-        debug!("Get multi signature for message {}", message);
-        match self.multi_signatures.get(message) {
-            Some(multi_signature) => {
-                let multi_signature: ProtocolMultiSignature =
-                    key_decode_hex(multi_signature).map_err(ProtocolError::Codec)?;
-                Ok(Some(multi_signature))
-            }
-            None => Ok(None),
-        }
+    fn get_multi_signature(&self) -> Result<Option<ProtocolMultiSignature>, ProtocolError> {
+        debug!("Get multi signature");
+        Ok(self.multi_signature.to_owned())
     }
 
     /// Creates a multi signature from single signatures
@@ -329,12 +340,13 @@ impl MultiSigner for MultiSignerImpl {
             return Ok(None);
         }
 
-        match self.clerk().aggregate(&signatures, message) {
+        let clerk = self
+            .create_clerk()
+            .ok_or_else(ProtocolError::UnavailableClerk)?;
+        match clerk.aggregate(&signatures, message) {
             Ok(multi_signature) => {
-                self.multi_signatures.insert(
-                    message.encode_hex::<String>(),
-                    key_encode_hex(&multi_signature).map_err(ProtocolError::Codec)?,
-                );
+                self.avk = Some(clerk.compute_avk());
+                self.multi_signature = Some(multi_signature.clone());
                 self.single_signatures.drain();
                 Ok(Some(multi_signature))
             }
@@ -346,28 +358,30 @@ impl MultiSigner for MultiSignerImpl {
     // TODO: Clarify what started/completed date represents
     fn create_certificate(
         &self,
-        message: String,
         beacon: entities::Beacon,
         previous_hash: String,
     ) -> Result<Option<entities::Certificate>, ProtocolError> {
         debug!("Create certificate");
 
-        match self.get_multi_signature(&message)? {
+        match self.get_multi_signature()? {
             Some(multi_signature) => {
                 let protocol_parameters = self
                     .get_protocol_parameters()
                     .ok_or_else(ProtocolError::UnavailableProtocolParameters)?
                     .into();
-                let digest = message.clone();
-                let certificate_hash = message;
+                let digest = self
+                    .get_current_message()
+                    .ok_or_else(ProtocolError::UnavailableMessage)?
+                    .encode_hex::<String>();
                 let previous_hash = previous_hash;
                 let started_at = format!("{:?}", Utc::now());
                 let completed_at = started_at.clone();
                 let signers = self.get_signers()?;
+                let aggregate_verification_key =
+                    key_encode_hex(&self.avk.as_ref().unwrap()).map_err(ProtocolError::Codec)?;
                 let multi_signature =
                     key_encode_hex(&multi_signature).map_err(ProtocolError::Codec)?;
                 Ok(Some(entities::Certificate::new(
-                    certificate_hash,
                     previous_hash,
                     beacon,
                     protocol_parameters,
@@ -375,6 +389,7 @@ impl MultiSigner for MultiSignerImpl {
                     started_at,
                     completed_at,
                     signers,
+                    aggregate_verification_key,
                     multi_signature,
                 )))
             }
@@ -488,7 +503,6 @@ mod tests {
         let mut multi_signer = MultiSignerImpl::new();
 
         let message = setup_message();
-        let message_hex = message.clone().encode_hex::<String>();
         multi_signer
             .update_current_message(message.clone())
             .expect("update current message failed");
@@ -531,11 +545,11 @@ mod tests {
             .create_multi_signature()
             .expect("create multi sgnature should not fail");
         assert!(multi_signer
-            .get_multi_signature(&message_hex)
+            .get_multi_signature()
             .expect("get multi signature should not fail")
             .is_none());
         assert!(multi_signer
-            .create_certificate(message_hex.clone(), beacon.clone(), previous_hash.clone())
+            .create_certificate(beacon.clone(), previous_hash.clone())
             .expect("create_certificate should not fail")
             .is_none());
         signatures[0..quorum_split]
@@ -549,11 +563,11 @@ mod tests {
             .create_multi_signature()
             .expect("create multi sgnature should not fail");
         assert!(multi_signer
-            .get_multi_signature(&message_hex)
+            .get_multi_signature()
             .expect("get multi signature should not fail")
             .is_none());
         assert!(multi_signer
-            .create_certificate(message_hex.clone(), beacon.clone(), previous_hash.clone())
+            .create_certificate(beacon.clone(), previous_hash.clone())
             .expect("create_certificate should not fail")
             .is_none());
         signatures[quorum_split..]
@@ -567,11 +581,11 @@ mod tests {
             .create_multi_signature()
             .expect("create multi sgnature should not fail");
         assert!(multi_signer
-            .get_multi_signature(&message_hex)
+            .get_multi_signature()
             .expect("get multi signature should not fail")
             .is_some());
         assert!(multi_signer
-            .create_certificate(message_hex.clone(), beacon.clone(), previous_hash.clone())
+            .create_certificate(beacon.clone(), previous_hash.clone())
             .expect("create_certificate should not fail")
             .is_some());
     }

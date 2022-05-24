@@ -5,8 +5,9 @@ use clap::Parser;
 use config::{Map, Source, Value, ValueKind};
 use mithril_aggregator::{
     AggregatorRuntime, Config, DependencyManager, MemoryBeaconStore, MultiSigner, MultiSignerImpl,
-    ProtocolStakeDistribution, Server,
+    Server,
 };
+use mithril_common::crypto_helper::ProtocolStakeDistribution;
 use mithril_common::fake_data;
 use slog::{Drain, Level, Logger};
 use slog_scope::debug;
