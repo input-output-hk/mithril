@@ -10,26 +10,30 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        project:
-        # TODO: remove the cargo_project_name and only use the name after renaming mithril-core name in its Cargo.toml 
-        - name: mithril-core
+        include:
+        - project: mithril-core
           cargo_project_name: mithril
-          artefacts_pattern: libmithril
-        - name: mithril-common
-          cargo_project_name: mithril-common
-          artefacts_pattern: libmithril_common
-        - name: mithril-aggregator
-          cargo_project_name: mithril-aggregator
-          artefacts_pattern: mithril-aggregator
-        - name: mithril-client
-          cargo_project_name: mithril-client
-          artefacts_pattern: mithril-client
-        - name: mithril-signer
-          cargo_project_name: mithril-signer
-          artefacts_pattern: mithril-signer
+          artifacts_pattern: libmithril
+        - project: mithril-common
+          artifacts_pattern: libmithril_common
+        - project: mithril-aggregator
+        - project: mithril-client
+        - project: mithril-signer
+    env:
+      CARGO_PROJECT_NAME: ${{ matrix.project }}
+      ARTIFACTS_PATTERN: ${{ matrix.project }}
+    
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
+
+      - name: Overriding default $CARGO_PROJECT_NAME with matrix value
+        if: ${{ matrix.cargo_project_name }}
+        run: echo "CARGO_PROJECT_NAME=${{ matrix.cargo_project_name }}" >> $GITHUB_ENV
+
+      - name: Overriding default $ARTIFACTS_PATTERN with matrix value
+        if: ${{ matrix.artifacts_pattern }}
+        run: echo "ARTIFACTS_PATTERN=${{ matrix.artifacts_pattern }}" >> $GITHUB_ENV
 
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
@@ -47,9 +51,9 @@ jobs:
             ~/.cargo/registry/
             ~/.cargo/git/
             target/
-          key: cargo-${{ runner.os }}-${{ matrix.project.name }}-${{ hashFiles('Cargo.lock') }}
+          key: cargo-${{ runner.os }}-${{ matrix.project }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-${{ matrix.project.name }}-key
+            ${{ runner.os }}-${{ matrix.project }}-key
 
       - name: Install cargo tools
         if: ${{ steps.cargo-cache.outputs.cache-hit == false }}
@@ -60,58 +64,58 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --all-targets -p ${{ matrix.project.cargo_project_name }}
+          args: --release --all-targets -p ${{ env.CARGO_PROJECT_NAME }}
       
       - name: Cargo check
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --release --all-targets -p ${{ matrix.project.cargo_project_name }}
+          args: --release --all-targets -p ${{ env.CARGO_PROJECT_NAME }}
 
       - name: Clippy Check
         uses: actions-rs/clippy-check@v1
         with:
-          name: clippy-${{ matrix.project.name }}
+          name: clippy-${{ matrix.project }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --release --all-features -p ${{ matrix.project.cargo_project_name }}
+          args: --release --all-features -p ${{ env.CARGO_PROJECT_NAME }}
 
       - name: Cargo fmt
         uses: actions-rs/cargo@v1
         with:
           command: fmt
-          args: --all -p ${{ matrix.project.cargo_project_name }}
+          args: --all -p ${{ env.CARGO_PROJECT_NAME }}
 
       - name: Run tests
         shell: bash
         run: |
-          set -o pipefail && cargo test --release -p ${{ matrix.project.cargo_project_name }} -- -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-${{ matrix.project.name }}.xml)
+          set -o pipefail && cargo test --release -p $CARGO_PROJECT_NAME -- -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-${{ matrix.project }}.xml)
 
       - name: Upload Tests Results
         if: always()
         uses: actions/upload-artifact@v3
         with:
-          name: test-results-${{ matrix.project.name }}
+          name: test-results-${{ matrix.project }}
           path: |
             ./**/test-results-*.xml
       
-      - name: Generate ${{ matrix.project.name }} doc
+      - name: Generate ${{ matrix.project }} doc
         uses: actions-rs/cargo@v1
         with:
           command: doc
-          args: --no-deps --release -p ${{ matrix.project.cargo_project_name }}
+          args: --no-deps --release -p ${{ env.CARGO_PROJECT_NAME }}
 
-      - name: Publish ${{ matrix.project.name }}
+      - name: Publish ${{ matrix.project }}
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ matrix.project.name }}
+          name: ${{ matrix.project }}
           path: |
-            target/release/${{ matrix.project.artefacts_pattern }}*
+            target/release/${{ env.ARTIFACTS_PATTERN }}*
           if-no-files-found: error
 
-      - name: Publish ${{ matrix.project.name }}-doc
+      - name: Publish ${{ matrix.project }}-doc
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ matrix.project.name }}-doc
+          name: ${{ matrix.project }}-doc
           if-no-files-found: error
           path: |
             target/doc/
