@@ -6,7 +6,7 @@ use cli_table::{print_stdout, WithTitle};
 use log::debug;
 use std::env;
 
-use mithril_client::{AggregatorHTTPClient, Client, Config, VerifierImpl};
+use mithril_client::{AggregatorHTTPClient, Config, Runtime, VerifierImpl};
 
 /// CLI args
 #[derive(Parser)]
@@ -92,33 +92,33 @@ async fn main() -> Result<(), String> {
     ));
     let verifier = Box::new(VerifierImpl::new());
 
-    // Init client
-    let mut client = Client::new(config.network.clone());
-    client
+    // Init runtime
+    let mut runtime = Runtime::new(config.network.clone());
+    runtime
         .with_aggregator_handler(aggregator_handler)
         .with_verifier(verifier);
 
     // Execute commands
     match &args.command {
-        Commands::List {} => match client.list_snapshots().await {
+        Commands::List {} => match runtime.list_snapshots().await {
             Ok(snapshot_list_items) => print_stdout(snapshot_list_items.with_title()).unwrap(),
             Err(err) => pretty_print_error(err),
         },
-        Commands::Show { digest } => match client.show_snapshot(digest).await {
+        Commands::Show { digest } => match runtime.show_snapshot(digest).await {
             Ok(snapshot_field_items) => print_stdout(snapshot_field_items.with_title()).unwrap(),
             Err(err) => pretty_print_error(err),
         },
         Commands::Download {
             digest,
             location_index,
-        } => match client.download_snapshot(digest, *location_index).await {
+        } => match runtime.download_snapshot(digest, *location_index).await {
             Ok((from, to)) => println!(
                 "Download success {} #{}\nfrom {}\nto {}",
                 digest, location_index, from, to
             ),
             Err(err) => pretty_print_error(err),
         },
-        Commands::Restore { digest } => match client.restore_snapshot(digest).await {
+        Commands::Restore { digest } => match runtime.restore_snapshot(digest).await {
             Ok(to) => {
                 println!(
                     r###"Unpack success {}
