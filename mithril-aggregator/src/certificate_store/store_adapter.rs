@@ -3,9 +3,13 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum AdapterError {
     #[error("something wrong happened: {0}")]
-    GeneralError(String),
-    #[error("problem starting the IO adapter: {0}")]
-    InitializationError(String),
+    GeneralError(Box<dyn std::error::Error>),
+    #[error("problem creating the repository: {0}")]
+    InitializationError(Box<dyn std::error::Error>),
+    #[error("problem opening the IO stream: {0}")]
+    OpeningStreamError(Box<dyn std::error::Error>),
+    #[error("problem parsing the IO stream: {0}")]
+    ParsingDataError(Box<dyn std::error::Error>),
 }
 pub trait StoreAdapter {
     type Key;
