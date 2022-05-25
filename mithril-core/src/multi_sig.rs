@@ -1,6 +1,6 @@
 //! Base multisignature scheme, used as a primitive for STM.
 //! See Section 2.4 of [the paper](https://eprint.iacr.org/2021/916).
-//! ```
+//!
 
 use super::stm::Index;
 
