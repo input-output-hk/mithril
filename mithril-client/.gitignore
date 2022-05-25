@@ -2,3 +2,4 @@ data/
 target/
 mithril-client
 .DS_Store
+tests-work-folder/
