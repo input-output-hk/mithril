@@ -1,18 +1,20 @@
 use log::debug;
+use std::path::Path;
 use std::str;
 use thiserror::Error;
 
-use crate::aggregator;
+use crate::aggregator::{AggregatorHandler, AggregatorHandlerError};
 use crate::entities::*;
-use crate::verifier;
+use crate::verifier::{ProtocolError, Verifier};
 
 use mithril_common::entities::Snapshot;
+use mithril_common::immutable_digester::{ImmutableDigester, ImmutableDigesterError};
 
 /// AggregatorHandlerWrapper wraps an AggregatorHandler
-pub type AggregatorHandlerWrapper = Box<dyn aggregator::AggregatorHandler>;
+pub type AggregatorHandlerWrapper = Box<dyn AggregatorHandler>;
 
 /// VerifierWrapper wraps a Verifier
-pub type VerifierWrapper = Box<dyn verifier::Verifier>;
+pub type VerifierWrapper = Box<dyn Verifier>;
 
 #[derive(Error, Debug)]
 pub enum RuntimeError {
@@ -23,10 +25,16 @@ pub enum RuntimeError {
     InvalidInput(String),
 
     #[error("aggregator handler error: '{0}'")]
-    AggregatorHandlerError(#[from] aggregator::AggregatorHandlerError),
+    AggregatorHandler(#[from] AggregatorHandlerError),
 
     #[error("verifier error: '{0}'")]
-    VerifierError(#[from] verifier::ProtocolError),
+    Verifier(#[from] ProtocolError),
+
+    #[error("immutale digester error: '{0}'")]
+    ImmutableDigester(#[from] ImmutableDigesterError),
+
+    #[error("digest error: '{0}'")]
+    Digest(String),
 }
 
 /// Mithril client wrapper
@@ -68,18 +76,16 @@ impl Runtime {
 
     /// Get AggregatorHandler
     fn get_aggregator_handler(&self) -> Result<&AggregatorHandlerWrapper, RuntimeError> {
-        Ok(self
-            .aggregator_handler
+        self.aggregator_handler
             .as_ref()
-            .ok_or_else(|| RuntimeError::MissingDependency("aggregator handler".to_string()))?)
+            .ok_or_else(|| RuntimeError::MissingDependency("aggregator handler".to_string()))
     }
 
     /// Get Verifier
     fn get_verifier(&self) -> Result<&VerifierWrapper, RuntimeError> {
-        Ok(self
-            .verifier
+        self.verifier
             .as_ref()
-            .ok_or_else(|| RuntimeError::MissingDependency("verifier".to_string()))?)
+            .ok_or_else(|| RuntimeError::MissingDependency("verifier".to_string()))
     }
 
     /// List snapshots
@@ -89,7 +95,7 @@ impl Runtime {
             .get_aggregator_handler()?
             .list_snapshots()
             .await
-            .map_err(RuntimeError::AggregatorHandlerError)?
+            .map_err(RuntimeError::AggregatorHandler)?
             .iter()
             .map(|snapshot| convert_to_list_item(snapshot, self.network.clone()))
             .collect::<Vec<SnapshotListItem>>())
@@ -106,7 +112,7 @@ impl Runtime {
                 .get_aggregator_handler()?
                 .get_snapshot_details(digest)
                 .await
-                .map_err(RuntimeError::AggregatorHandlerError)?,
+                .map_err(RuntimeError::AggregatorHandler)?,
             self.network.clone(),
         ))
     }
@@ -118,50 +124,61 @@ impl Runtime {
         location_index: isize,
     ) -> Result<(String, String), RuntimeError> {
         debug!("Download snapshot {}", digest);
-        let aggregator_handler = self.get_aggregator_handler()?;
-        let snapshot = aggregator_handler
+        let snapshot = self
+            .get_aggregator_handler()?
             .get_snapshot_details(digest)
             .await
-            .map_err(RuntimeError::AggregatorHandlerError)?;
+            .map_err(RuntimeError::AggregatorHandler)?;
         let from = snapshot
             .locations
             .get((location_index - 1) as usize)
             .ok_or_else(|| RuntimeError::InvalidInput("invalid location index".to_string()))?
             .to_owned();
-        match aggregator_handler.download_snapshot(digest, &from).await {
+        match self
+            .get_aggregator_handler()?
+            .download_snapshot(digest, &from)
+            .await
+        {
             Ok(to) => Ok((from, to)),
-            Err(err) => Err(RuntimeError::AggregatorHandlerError(err)),
+            Err(err) => Err(RuntimeError::AggregatorHandler(err)),
         }
     }
 
     /// Restore a snapshot by digest
     pub async fn restore_snapshot(&self, digest: &str) -> Result<String, RuntimeError> {
         debug!("Restore snapshot {}", digest);
-        let aggregator_handler = self.get_aggregator_handler()?;
-        let _verifier = self.get_verifier()?;
-        // TODO: Reactivate when real certificate hash is available
-        /*
-        let mut beacon = fake_data::beacon();
-        beacon.immutable_file_number = 0;
-        let fake_digest = &fake_data::digest(&beacon);
-        let certificate_hash = &fake_digest.encode_hex::<String>();
-        debug!("Fake certificate hash {:?}", certificate_hash);
-        let certificate_details = aggregator_handler
-            .get_certificate_details(certificate_hash)
+        let snapshot = &self
+            .get_aggregator_handler()?
+            .get_snapshot_details(digest)
             .await
-            .map_err(RuntimeError::AggregatorHandlerError)?;
-        verifier
+            .map_err(RuntimeError::AggregatorHandler)?;
+        let certificate = &self
+            .get_aggregator_handler()?
+            .get_certificate_details(&snapshot.certificate_hash)
+            .await
+            .map_err(RuntimeError::AggregatorHandler)?;
+        self.get_verifier()?
             .verify_multi_signature(
-                fake_digest,
-                certificate_details.multisignature.as_ref(),
-                &certificate_details.participants,
-                &certificate_details.protocol_parameters,
+                &digest.as_bytes().to_vec(),
+                &certificate.multisignature,
+                &certificate.aggregate_verification_key,
+                &certificate.protocol_parameters,
             )
-            .map_err(RuntimeError::VerifierError)?;*/
-        aggregator_handler
+            .map_err(RuntimeError::Verifier)?;
+        let unpacked_path = &self
+            .get_aggregator_handler()?
             .unpack_snapshot(digest)
             .await
-            .map_err(RuntimeError::AggregatorHandlerError)
+            .map_err(RuntimeError::AggregatorHandler)?;
+        let unpacked_digest =
+            ImmutableDigester::new(Path::new(unpacked_path).into(), slog_scope::logger())
+                .compute_digest()
+                .map_err(RuntimeError::ImmutableDigester)?
+                .digest;
+        match unpacked_digest == digest {
+            true => Ok(unpacked_path.to_owned()),
+            false => Err(RuntimeError::Digest(unpacked_digest)),
+        }
     }
 }
 
@@ -206,6 +223,36 @@ mod tests {
     use crate::aggregator::{AggregatorHandlerError, MockAggregatorHandler};
     use crate::verifier::{MockVerifier, ProtocolError};
     use mithril_common::fake_data;
+
+    // TODO: Dulicated test setup code from 'mithril-common/src/immutable_digester.rs' that maybe should be set in a `tests_setup' module in the 'immutable_digester'. A mock would be even better!
+    // Start duplicated code
+    use std::fs;
+    use std::fs::File;
+    use std::io::prelude::*;
+    use std::path::PathBuf;
+    const ROOT_FOLDER: &str = "tests-work-folder/";
+
+    fn get_test_dir(subdir_name: &str) -> PathBuf {
+        let parent_dir = format!("{}{}", ROOT_FOLDER, subdir_name);
+        let parent_dir = Path::new(&parent_dir).to_path_buf();
+
+        if parent_dir.exists() {
+            fs::remove_dir_all(&parent_dir)
+                .expect(&*format!("Could not remove dir {:?}", parent_dir));
+        }
+        fs::create_dir_all(&parent_dir).expect(&*format!("Could not create dir {:?}", parent_dir));
+
+        parent_dir
+    }
+
+    fn create_fake_files(parent_dir: &Path, child_filenames: &[&str]) {
+        for filename in child_filenames {
+            let file = parent_dir.join(Path::new(filename));
+            let mut source_file = File::create(&file).unwrap();
+            write!(source_file, "This is a test file named '{}'", filename).unwrap();
+        }
+    }
+    // End duplicated code
 
     #[tokio::test]
     async fn test_list_snapshots_ok() {
@@ -283,16 +330,34 @@ mod tests {
 
     #[tokio::test]
     async fn test_restore_snapshot_ok() {
+        let target_dir = get_test_dir("test_restore_snapshot_ok/immutable");
+        let entries = vec![
+            "001.chunk",
+            "001.primary",
+            "001.secondary",
+            "002.chunk",
+            "002.primary",
+            "002.secondary",
+        ];
+        create_fake_files(&target_dir, &entries);
+        let digest = ImmutableDigester::new(target_dir.clone().into(), slog_scope::logger())
+            .compute_digest()
+            .unwrap()
+            .digest;
         let certificate_hash = "certhash123";
         let fake_certificate = fake_data::certificate(certificate_hash.to_string());
+        let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
         let mut mock_aggregator_handler = MockAggregatorHandler::new();
         let mut mock_verifier = MockVerifier::new();
+        mock_aggregator_handler
+            .expect_get_snapshot_details()
+            .return_once(move |_| Ok(fake_snapshot));
         mock_aggregator_handler
             .expect_get_certificate_details()
             .return_once(move |_| Ok(fake_certificate));
         mock_aggregator_handler
             .expect_unpack_snapshot()
-            .return_once(|_| Ok("".to_string()));
+            .return_once(move |_| Ok(target_dir.to_str().unwrap().to_owned()));
         mock_verifier
             .expect_verify_multi_signature()
             .return_once(|_, _, _, _| Ok(()));
@@ -300,17 +365,107 @@ mod tests {
         client
             .with_aggregator_handler(Box::new(mock_aggregator_handler))
             .with_verifier(Box::new(mock_verifier));
-        let restore = client.restore_snapshot(certificate_hash).await;
+        let restore = client.restore_snapshot(&digest).await;
         restore.expect("unexpected error");
     }
 
-    #[allow(dead_code)]
-    // TODO: To reactivate once real snapshot available
-    //#[tokio::test]
-    async fn test_restore_snapshot_ko_get_certificate_details() {
+    #[tokio::test]
+    async fn test_restore_snapshot_ko_digests_not_matching() {
+        let target_dir = get_test_dir("test_restore_snapshot_ko_digests_not_matching/immutable");
+        let entries = vec![
+            "001.chunk",
+            "001.primary",
+            "001.secondary",
+            "002.chunk",
+            "002.primary",
+            "002.secondary",
+        ];
+        create_fake_files(&target_dir, &entries);
+        let digest = "digest-not-matching";
         let certificate_hash = "certhash123";
+        let fake_certificate = fake_data::certificate(certificate_hash.to_string());
+        let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
+        let mut mock_aggregator_handler = MockAggregatorHandler::new();
+        let mut mock_verifier = MockVerifier::new();
+        mock_aggregator_handler
+            .expect_get_snapshot_details()
+            .return_once(move |_| Ok(fake_snapshot));
+        mock_aggregator_handler
+            .expect_get_certificate_details()
+            .return_once(move |_| Ok(fake_certificate));
+        mock_aggregator_handler
+            .expect_unpack_snapshot()
+            .return_once(move |_| Ok(target_dir.to_str().unwrap().to_owned()));
+        mock_verifier
+            .expect_verify_multi_signature()
+            .return_once(|_, _, _, _| Ok(()));
+        let mut client = Runtime::new("testnet".to_string());
+        client
+            .with_aggregator_handler(Box::new(mock_aggregator_handler))
+            .with_verifier(Box::new(mock_verifier));
+        let restore = client.restore_snapshot(digest).await;
+        assert!(restore.is_err(), "an error should have occurred");
+    }
+
+    #[tokio::test]
+    async fn test_restore_snapshot_ko_digester_error() {
+        let target_dir = get_test_dir("test_restore_snapshot_ko_digester_error/immutable");
+        let digest = "digest123";
+        let certificate_hash = "certhash123";
+        let fake_certificate = fake_data::certificate(certificate_hash.to_string());
+        let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
+        let mut mock_aggregator_handler = MockAggregatorHandler::new();
+        let mut mock_verifier = MockVerifier::new();
+        mock_aggregator_handler
+            .expect_get_snapshot_details()
+            .return_once(move |_| Ok(fake_snapshot));
+        mock_aggregator_handler
+            .expect_get_certificate_details()
+            .return_once(move |_| Ok(fake_certificate));
+        mock_aggregator_handler
+            .expect_unpack_snapshot()
+            .return_once(move |_| Ok(target_dir.to_str().unwrap().to_owned()));
+        mock_verifier
+            .expect_verify_multi_signature()
+            .return_once(|_, _, _, _| Ok(()));
+        let mut client = Runtime::new("testnet".to_string());
+        client
+            .with_aggregator_handler(Box::new(mock_aggregator_handler))
+            .with_verifier(Box::new(mock_verifier));
+        let restore = client.restore_snapshot(digest).await;
+        assert!(restore.is_err(), "an error should have occurred");
+    }
+
+    #[tokio::test]
+    async fn test_restore_snapshot_ko_get_snapshot_details() {
+        let digest = "digest123";
         let mut mock_aggregator_handler = MockAggregatorHandler::new();
         let mock_verifier = MockVerifier::new();
+        mock_aggregator_handler
+            .expect_get_snapshot_details()
+            .return_once(move |_| {
+                Err(AggregatorHandlerError::RemoteServerTechnical(
+                    "error occurred".to_string(),
+                ))
+            });
+
+        let mut client = Runtime::new("testnet".to_string());
+        client
+            .with_aggregator_handler(Box::new(mock_aggregator_handler))
+            .with_verifier(Box::new(mock_verifier));
+        let restore = client.restore_snapshot(digest).await;
+        assert!(restore.is_err(), "an error should have occurred");
+    }
+
+    #[tokio::test]
+    async fn test_restore_snapshot_ko_get_certificate_details() {
+        let digest = "digest123";
+        let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
+        let mut mock_aggregator_handler = MockAggregatorHandler::new();
+        let mock_verifier = MockVerifier::new();
+        mock_aggregator_handler
+            .expect_get_snapshot_details()
+            .return_once(move |_| Ok(fake_snapshot));
         mock_aggregator_handler
             .expect_get_certificate_details()
             .return_once(move |_| {
@@ -323,18 +478,21 @@ mod tests {
         client
             .with_aggregator_handler(Box::new(mock_aggregator_handler))
             .with_verifier(Box::new(mock_verifier));
-        let restore = client.restore_snapshot(certificate_hash).await;
+        let restore = client.restore_snapshot(digest).await;
         assert!(restore.is_err(), "an error should have occurred");
     }
 
-    #[allow(dead_code)]
-    // TODO: To reactivate once real snapshot available
-    //#[tokio::test]
+    #[tokio::test]
     async fn test_restore_snapshot_ko_verify_multi_signature() {
+        let digest = "digest123";
         let certificate_hash = "certhash123";
         let fake_certificate = fake_data::certificate(certificate_hash.to_string());
+        let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
         let mut mock_aggregator_handler = MockAggregatorHandler::new();
         let mut mock_verifier = MockVerifier::new();
+        mock_aggregator_handler
+            .expect_get_snapshot_details()
+            .return_once(move |_| Ok(fake_snapshot));
         mock_aggregator_handler
             .expect_get_certificate_details()
             .return_once(move |_| Ok(fake_certificate));
@@ -350,16 +508,21 @@ mod tests {
         client
             .with_aggregator_handler(Box::new(mock_aggregator_handler))
             .with_verifier(Box::new(mock_verifier));
-        let restore = client.restore_snapshot(certificate_hash).await;
+        let restore = client.restore_snapshot(digest).await;
         assert!(restore.is_err(), "an error should have occurred");
     }
 
     #[tokio::test]
-    async fn test_restore_unpack_snapshot() {
+    async fn test_restore_snapshot_ko_restore_unpack_snapshot() {
+        let digest = "digest123";
         let certificate_hash = "certhash123";
         let fake_certificate = fake_data::certificate(certificate_hash.to_string());
+        let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
         let mut mock_aggregator_handler = MockAggregatorHandler::new();
         let mut mock_verifier = MockVerifier::new();
+        mock_aggregator_handler
+            .expect_get_snapshot_details()
+            .return_once(move |_| Ok(fake_snapshot));
         mock_aggregator_handler
             .expect_get_certificate_details()
             .return_once(move |_| Ok(fake_certificate));
@@ -377,7 +540,7 @@ mod tests {
         client
             .with_aggregator_handler(Box::new(mock_aggregator_handler))
             .with_verifier(Box::new(mock_verifier));
-        let restore = client.restore_snapshot(certificate_hash).await;
+        let restore = client.restore_snapshot(digest).await;
         assert!(restore.is_err(), "an error should have occurred");
     }
 }

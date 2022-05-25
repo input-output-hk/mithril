@@ -1,3 +1,4 @@
+use hex::ToHex;
 use log::debug;
 use thiserror::Error;
 
@@ -55,7 +56,10 @@ impl Verifier for VerifierImpl {
         aggregate_verification_key: &str,
         protocol_parameters: &ProtocolParameters,
     ) -> Result<(), ProtocolError> {
-        debug!("Verify multi signature for {:?}", message);
+        debug!(
+            "Verify multi signature for {:?}",
+            message.encode_hex::<String>()
+        );
         let multi_signature: ProtocolMultiSignature =
             key_decode_hex(multi_signature).map_err(ProtocolError::Codec)?;
         let aggregate_verification_key =
