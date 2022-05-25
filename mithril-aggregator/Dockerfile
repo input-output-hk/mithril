@@ -1,7 +1,7 @@
 ###############################
 # STEP 1: build rust executable
 ###############################
-FROM rust:1.60 AS rustbuilder
+FROM rust:1.61 AS rustbuilder
 
 # Upgrade and install build base
 RUN apt-get update && apt-get install -y libssl-dev
@@ -9,27 +9,25 @@ RUN apt-get update && apt-get install -y libssl-dev
 # Create appuser
 RUN adduser --no-create-home --disabled-password appuser
 
-# Copy files
 WORKDIR /app
-RUN echo "fn  main () {}" > /app/dummy.rs
 
-# If this changed likely the Cargo.toml changed so lets trigger the
-# recopying of it anyways
-COPY mithril-aggregator/Cargo.lock /app/
+# Copy local dependencies
+COPY mithril-core/ /mithril-core/
+COPY Cargo.lock /mithril-core/
+COPY mithril-common/ /mithril-common/
+COPY Cargo.lock /mithril-common/
 
-COPY mithril-aggregator/Cargo.toml /app/
+# Build the app using a dummy main in order to cache dependencies
+COPY mithril-aggregator/Cargo.toml /app
+COPY Cargo.lock /app/
+RUN mkdir -p /app/src/ && echo "fn  main () {}" > /app/src/main.rs
+RUN cargo build --release --manifest-path /app/Cargo.toml
 
-# We'll get to what this substitution is for but replace main.rs with
-# lib.rs if this is a library
-RUN sed -i 's/src\/lib.rs/dummy.rs/' Cargo.toml
-RUN cargo build --release
-# Now return the file back to normal
-RUN sed -i 's/dummy.rs/src\/lib.rs/' Cargo.toml
 # Copy the rest of the files into the container
-COPY ./mithril-aggregator /app
+COPY ./mithril-aggregator /app/
 
 # Build the binary
-RUN make build
+RUN cargo build --release
 
 ###############################
 # STEP 2: build a small image

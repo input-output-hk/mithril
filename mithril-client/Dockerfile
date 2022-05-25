@@ -1,38 +1,50 @@
 ###############################
 # STEP 1: build rust executable
 ###############################
-FROM rust:alpine AS rustbuilder
+FROM rust:1.61 AS rustbuilder
 
 # Upgrade and install build base
-RUN apk update && apk add build-base && apk add pkgconfig && apk add openssl-dev
+RUN apt-get update && apt-get install -y libssl-dev
 
 # Create appuser
-RUN adduser -D -g '' appuser
+RUN adduser --no-create-home --disabled-password appuser
 
-# Copy files
 WORKDIR /app
-COPY . .
+
+# Copy local dependencies
+COPY mithril-core/ /mithril-core/
+COPY Cargo.lock /mithril-core/
+COPY mithril-common/ /mithril-common/
+COPY Cargo.lock /mithril-common/
+
+# Build the app using a dummy main in order to cache dependencies
+COPY mithril-client/Cargo.toml /app
+COPY Cargo.lock /app/
+RUN mkdir -p /app/src/ && echo "fn  main () {}" > /app/src/main.rs
+RUN cargo build --release --manifest-path /app/Cargo.toml
+
+# Copy the rest of the files into the container
+COPY ./mithril-client /app/
 
 # Build the binary
-WORKDIR /app/mithril-client/
-RUN make build
+RUN cargo build --release
 
 ###############################
 # STEP 2: build a small image
 ###############################
-FROM alpine:latest
+FROM debian:buster-slim
 
 # Upgrade
-RUN apk update
+RUN apt-get update && apt-get install -y libssl1.1 ca-certificates && rm -rf /var/lib/apt/lists/*
 
 # Import the user and group files from the builder
 COPY --from=rustbuilder /etc/passwd /etc/passwd
 
 # Copy the executable
-COPY --from=rustbuilder /app/mithril-client/target/release/mithril-client /app/bin/mithril-client
+COPY --from=rustbuilder /app/target/release/mithril-client /app/bin/mithril-client
 
 # Copy the config files
-COPY --from=rustbuilder /app/mithril-client/config /app/config
+COPY --from=rustbuilder /app/config /app/config
 
 #Workdir
 WORKDIR /app/

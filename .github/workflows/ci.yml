@@ -4,160 +4,36 @@ name: CI
 on: [push]
 
 jobs:
-  build-mithril-core:
-    if: github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v2
-
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          components: clippy, rustfmt
-          override: true
-
-      - uses: actions/cache@v2.1.5
-        name: Cache mithril-core/Cargo.lock
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            mithril-core/target
-          key: ${{ runner.os }}-${{ hashFiles('mithril-core/Cargo.lock') }}
-          restore-keys: |
-              ${{ runner.os }}-key
-
-      - name: Cargo build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --manifest-path ./mithril-core/Cargo.toml
-
-      - name: Cargo check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --release --all-targets --manifest-path ./mithril-core/Cargo.toml
-
-      - name: Cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all --manifest-path ./mithril-core/Cargo.toml -- --check
-
-      - name: Clippy Check
-        uses: actions-rs/clippy-check@v1
-        with:
-          name: clippy-mithril-core
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --manifest-path ./mithril-core/Cargo.toml --all-features
-
-      - name: Compile benchmarks
-        uses: actions-rs/cargo@v1
-        continue-on-error: false
-        with:
-          command: bench
-          args: --no-run --locked --manifest-path ./mithril-core/Cargo.toml
-
-      - name: Mithril Core / Generate doc
-        uses: actions-rs/cargo@v1
-        with:
-          command: doc
-          args: --no-deps --release --manifest-path ./mithril-core/Cargo.toml
-
-      - name: Publish libmithril
-        uses: actions/upload-artifact@v3
-        with:
-          name: libmithril
-          if-no-files-found: error
-          path: |
-            mithril-core/target/release/libmithril.so
-            mithril-core/target/include/mithril.h
-
-      - name: Publish libmithril-doc
-        uses: actions/upload-artifact@v3
-        with:
-          name: libmithril-doc
-          if-no-files-found: error
-          path: |
-            mithril-core/target/doc/
-
-  test-mithril-core:
-    if: github.event.pull_request.draft == false
-    needs:
-    - build-mithril-core
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v2
-
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          components: clippy, rustfmt
-          override: true
-
-      - uses: actions/cache@v2.1.5
-        name: Cache mithril-core/Cargo.lock
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            mithril-core/target
-          key: ${{ runner.os }}-${{ hashFiles('mithril-core/Cargo.lock') }}
-          restore-keys: |
-              ${{ runner.os }}-key
-
-      - uses: actions/cache@v2.1.5
-        name: Cache cargo2junit
-        with:
-          path: |
-            ~/.cargo/bin/cargo2junit
-          key: ${{ runner.os }}-${{ hashFiles('~/.cargo/bin/cargo2junit') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo2junit-key
-
-      - name: Download mithril core
-        uses: actions/download-artifact@v3
-        with:
-          name: libmithril
-          path: mithril-core/target/include/
-
-      - name: Install cargo2junit
-        run: |
-          # Suppress the "binary `cargo2junit` already exists in destination" error
-          cargo install cargo2junit 2>/dev/null || true
-
-      - name: Run cargo test
-        shell: bash
-        working-directory: mithril-core
-        run: |
-          set -o pipefail && cargo test --release -- -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-mithril-core.xml)
-
-
-      - name: Upload Unit Test Results
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: test-results-mithril-core
-          path: |
-            ./**/test-results-*.xml
-
-  build-mithril:
+  build:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix: 
-        project: [ mithril-common, mithril-aggregator, mithril-client, mithril-signer ]
+      matrix:
+        include:
+        - project: mithril-core
+          cargo_project_name: mithril
+          artifacts_pattern: libmithril
+        - project: mithril-common
+          artifacts_pattern: libmithril_common
+        - project: mithril-aggregator
+        - project: mithril-client
+        - project: mithril-signer
+    env:
+      CARGO_PROJECT_NAME: ${{ matrix.project }}
+      ARTIFACTS_PATTERN: ${{ matrix.project }}
+    
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
+
+      - name: Overriding default $CARGO_PROJECT_NAME with matrix value
+        if: ${{ matrix.cargo_project_name }}
+        run: echo "CARGO_PROJECT_NAME=${{ matrix.cargo_project_name }}" >> $GITHUB_ENV
+
+      - name: Overriding default $ARTIFACTS_PATTERN with matrix value
+        if: ${{ matrix.artifacts_pattern }}
+        run: echo "ARTIFACTS_PATTERN=${{ matrix.artifacts_pattern }}" >> $GITHUB_ENV
 
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
@@ -167,75 +43,74 @@ jobs:
           components: clippy, rustfmt
           override: true
 
-      - uses: actions/cache@v2.1.5
-        name: Cache ${{ matrix.project }}/Cargo.lock
+      - uses: actions/cache@v3
+        name: Cache Cargo.lock
         with:
           path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            ${{ matrix.project }}/target
-          key: ${{ runner.os }}-${{ hashFiles('${{ matrix.project }}/Cargo.lock') }}
+            ~/.cargo/bin/
+            ~/.cargo/registry/
+            ~/.cargo/git/
+            target/
+          key: cargo-${{ runner.os }}-${{ matrix.project }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-key
+            cargo-${{ runner.os }}-${{ matrix.project }}-
+            cargo-${{ runner.os }}-
 
-      - uses: actions/cache@v2.1.5
-        name: Cache cargo2junit
-        with:
-          path: |
-            ~/.cargo/bin/cargo2junit
-          key: ${{ runner.os }}-${{ hashFiles('~/.cargo/bin/cargo2junit') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo2junit-key
-
+      - name: Install cargo tools
+        if: ${{ steps.cargo-cache.outputs.cache-hit == false }}
+        run: |
+          cargo install cargo2junit 2>/dev/null || true # Suppress the "binary `cargo2junit` already exists in destination" error
+      
       - name: Cargo build
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --manifest-path ./${{ matrix.project }}/Cargo.toml
-
+          args: --release --all-targets -p ${{ env.CARGO_PROJECT_NAME }}
+      
       - name: Cargo check
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --release --all-targets --manifest-path ./${{ matrix.project }}/Cargo.toml
-
-      - name: Cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all --manifest-path ./${{ matrix.project }}/Cargo.toml -- --check
+          args: --release --all-targets -p ${{ env.CARGO_PROJECT_NAME }}
 
       - name: Clippy Check
         uses: actions-rs/clippy-check@v1
         with:
           name: clippy-${{ matrix.project }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --manifest-path ./${{ matrix.project }}/Cargo.toml --all-features
+          args: --release --all-features -p ${{ env.CARGO_PROJECT_NAME }}
 
-      - name: Install cargo2junit
-        run: |
-          # Suppress the "binary `cargo2junit` already exists in destination" error
-          cargo install cargo2junit 2>/dev/null || true
+      - name: Cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --all -p ${{ env.CARGO_PROJECT_NAME }}
 
-      - name: Run cargo test
+      - name: Run tests
         shell: bash
-        working-directory: ${{ matrix.project }}
         run: |
-          set -o pipefail && cargo test --release -- -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-${{ matrix.project }}.xml)
+          set -o pipefail && cargo test --release -p $CARGO_PROJECT_NAME -- -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-${{ matrix.project }}.xml)
 
+      - name: Upload Tests Results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results-${{ matrix.project }}
+          path: |
+            ./**/test-results-*.xml
+      
       - name: Generate ${{ matrix.project }} doc
         uses: actions-rs/cargo@v1
         with:
           command: doc
-          args: --no-deps --release --manifest-path ./${{ matrix.project }}/Cargo.toml
+          args: --no-deps --release -p ${{ env.CARGO_PROJECT_NAME }}
 
       - name: Publish ${{ matrix.project }}
         uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.project }}
           path: |
-            ${{ matrix.project }}/target/release/${{ matrix.project }}
-            ${{ matrix.project }}/target/release/lib*.so
+            target/release/${{ env.ARTIFACTS_PATTERN }}*
           if-no-files-found: error
 
       - name: Publish ${{ matrix.project }}-doc
@@ -244,20 +119,12 @@ jobs:
           name: ${{ matrix.project }}-doc
           if-no-files-found: error
           path: |
-            ${{ matrix.project }}/target/doc/
-
-      - name: Upload Unit Test Results
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: test-results-${{ matrix.project }}
-          path: |
-            ./**/test-results-*.xml
+            target/doc/
 
   docker-mithril:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'push' }}
-    needs: [ build-mithril-core, build-mithril ]
+    needs: [ build ]
     strategy:
       fail-fast: false
       matrix:
@@ -311,7 +178,7 @@ jobs:
   publish-tests-results:
     if: github.event.pull_request.draft == false && ${{ always() }}
     runs-on: ubuntu-latest
-    needs: [ build-mithril, test-mithril-core ]
+    needs: [ build ]
     steps:
       - name: Download mithril-core Tests Results
         if: always()
@@ -353,18 +220,17 @@ jobs:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     needs:
-      - build-mithril
+      - build
       - docker-mithril
-      - test-mithril-core
-      - build-test-lab
+      - run-test-lab
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
 
-      - name: Download libmithril-doc artifact
+      - name: Download mithril-core-doc artifact
         uses: actions/download-artifact@v3
         with:
-          name: libmithril-doc
+          name: mithril-core-doc
           path: ./github-pages/mithril-core/doc
 
       - name: Download mithril-common-doc artifact
@@ -420,9 +286,9 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
           publish_dir: ./github-pages
 
-  build-test-lab:
+  run-test-lab:
     runs-on: ubuntu-latest
-    needs: [ build-mithril-core, build-mithril ]
+    needs: [ build ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -436,7 +302,7 @@ jobs:
             substituters = https://cache.nixos.org https://hydra.iohk.io https://iohk.cachix.org
 
       - name: Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
-        uses: actions/cache@v2.1.5
+        uses: actions/cache@v3
         with:
           path: |
             ~/.cabal/packages
@@ -485,9 +351,9 @@ jobs:
   terraform:
     runs-on: ubuntu-latest
     needs:
-    - docker-mithril
-    - test-mithril-core
-    - build-test-lab
+      - build
+      - docker-mithril
+      - run-test-lab
     env:
       # Contains a JSON-formatted service account key
       GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}

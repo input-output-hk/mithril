@@ -6,7 +6,7 @@ all: test build
 
 build:
 	${CARGO} build --release
-	cp ./target/release/mithril-aggregator .
+	cp ../target/release/mithril-aggregator .
 
 run: build
 	./mithril-aggregator
