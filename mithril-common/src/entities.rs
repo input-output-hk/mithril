@@ -1,12 +1,15 @@
 // TODO: to be removed later
 #![allow(dead_code)]
 
+use fixed::types::U8F24;
 use serde::{Deserialize, Serialize};
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 pub type ImmutableFileNumber = u64;
 
 /// Beacon represents a point in the Cardano chain at which a Mithril certificate should be produced
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, Hash)]
 pub struct Beacon {
     /// Cardano network
     #[serde(rename = "network")]
@@ -71,7 +74,7 @@ impl CertificatePending {
 }
 
 /// Certificate represents a Mithril certificate embedding a Mithril STM multisignature
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, Hash)]
 pub struct Certificate {
     /// Hash of the current certificate
     #[serde(rename = "hash")]
@@ -101,9 +104,13 @@ pub struct Certificate {
     #[serde(rename = "completed_at")]
     pub completed_at: String,
 
-    /// The list of the participants (potential signers) with their stakes and verification keys
-    #[serde(rename = "participants")]
-    pub participants: Vec<SignerWithStake>,
+    /// The list of the signers with their stakes and verification keys
+    #[serde(rename = "signers")]
+    pub signers: Vec<SignerWithStake>,
+
+    /// Aggregate verification key
+    #[serde(rename = "aggregate_verification_key")]
+    pub aggregate_verification_key: String,
 
     /// STM multisignature created from a quorum of single signatures from the signers
     #[serde(rename = "multisignature")]
@@ -114,27 +121,32 @@ impl Certificate {
     /// Certificate factory
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        hash: String,
         previous_hash: String,
         beacon: Beacon,
         protocol_parameters: ProtocolParameters,
         digest: String,
         started_at: String,
         completed_at: String,
-        participants: Vec<SignerWithStake>,
+        signers: Vec<SignerWithStake>,
+        aggregate_verification_key: String,
         multisignature: String,
     ) -> Certificate {
-        Certificate {
-            hash,
+        let mut certificate = Certificate {
+            hash: "".to_string(),
             previous_hash,
             beacon,
             protocol_parameters,
             digest,
             started_at,
             completed_at,
-            participants,
+            signers,
+            aggregate_verification_key,
             multisignature,
-        }
+        };
+        let mut hasher = DefaultHasher::new();
+        certificate.hash(&mut hasher);
+        certificate.hash = format!("{:x}", hasher.finish());
+        certificate
     }
 }
 
@@ -158,7 +170,7 @@ impl Error {
 }
 
 /// Protocol cryptographic parameters
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ProtocolParameters {
     /// Quorum parameter
     #[serde(rename = "k")]
@@ -178,10 +190,30 @@ impl ProtocolParameters {
     pub fn new(k: u64, m: u64, phi_f: f32) -> ProtocolParameters {
         ProtocolParameters { k, m, phi_f }
     }
+
+    /// phi_f_fixed is a fixed decimal representatio of phi_f
+    /// used for PartialEq and Hash implementation
+    pub fn phi_f_fixed(&self) -> U8F24 {
+        U8F24::from_num(self.phi_f)
+    }
+}
+
+impl PartialEq<ProtocolParameters> for ProtocolParameters {
+    fn eq(&self, other: &ProtocolParameters) -> bool {
+        self.k == other.k && self.m == other.m && self.phi_f_fixed() == other.phi_f_fixed()
+    }
+}
+
+impl Hash for ProtocolParameters {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.k.hash(state);
+        self.m.hash(state);
+        self.phi_f_fixed().hash(state);
+    }
 }
 
 /// Signer represents a signing participant in the network
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, Hash)]
 pub struct Signer {
     /// The unique identifier of the signer
     #[serde(rename = "party_id")]
@@ -203,7 +235,7 @@ impl Signer {
 }
 
 /// Signer represents a signing party in the network (including its stakes)
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize, Hash)]
 pub struct SignerWithStake {
     /// The unique identifier of the signer
     #[serde(rename = "party_id")]
@@ -309,5 +341,61 @@ impl Stake {
     /// Stake factory
     pub fn new(stake: u64) -> Stake {
         Stake { stake }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_protocol_parameters_partialeq() {
+        assert_eq!(
+            ProtocolParameters::new(1000, 100, 0.123001),
+            ProtocolParameters::new(1000, 100, 0.123001)
+        );
+        assert_ne!(
+            ProtocolParameters::new(1000, 100, 0.1230011),
+            ProtocolParameters::new(1000, 100, 0.1230012)
+        );
+        assert_ne!(
+            ProtocolParameters::new(1000, 100, 0.12301),
+            ProtocolParameters::new(1000, 100, 0.12300)
+        );
+        assert_ne!(
+            ProtocolParameters::new(1001, 100, 0.12300),
+            ProtocolParameters::new(1000, 100, 0.12300)
+        );
+        assert_ne!(
+            ProtocolParameters::new(1000, 101, 0.12300),
+            ProtocolParameters::new(1000, 100, 0.12300)
+        );
+    }
+
+    fn test_protocol_parameters_hash() {
+        let hash_expected = "946adce9d3be7833";
+
+        let compute_hash = |protocol_parameters: ProtocolParameters| -> String {
+            let mut hasher = DefaultHasher::new();
+            protocol_parameters.hash(&mut hasher);
+            format!("{:x}", hasher.finish())
+        };
+
+        assert_eq!(
+            hash_expected,
+            compute_hash(ProtocolParameters::new(1000, 100, 0.123))
+        );
+        assert_ne!(
+            hash_expected,
+            compute_hash(ProtocolParameters::new(2000, 100, 0.123))
+        );
+        assert_ne!(
+            hash_expected,
+            compute_hash(ProtocolParameters::new(1000, 200, 0.123))
+        );
+        assert_ne!(
+            hash_expected,
+            compute_hash(ProtocolParameters::new(1000, 100, 0.124))
+        );
     }
 }

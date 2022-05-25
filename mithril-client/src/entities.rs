@@ -1,18 +1,6 @@
 use cli_table::{format::Justify, Table};
 use serde::{Deserialize, Serialize};
 
-/// Snapshot is an alias from the aggregator Snapshot type
-pub type Snapshot = mithril_common::entities::Snapshot;
-
-/// Certificate is an alias from the aggregator Certificate type
-pub type Certificate = mithril_common::entities::Certificate;
-
-/// SignerWithStake is an alias from the aggregator SignerWithStake type
-pub type SignerWithStake = mithril_common::entities::SignerWithStake;
-
-/// ProtocolParameters is an alias from the aggregator ProtocolParameters type
-pub type ProtocolParameters = mithril_common::entities::ProtocolParameters;
-
 /// Client configuration
 #[derive(Table, Debug, Clone, Serialize, Deserialize)]
 pub struct Config {

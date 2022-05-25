@@ -38,7 +38,8 @@ data Certificate = Certificate
     digest :: Text,
     started_at :: UTCTime,
     completed_at :: UTCTime,
-    participants :: [SignerWithStake],
+    signers :: [SignerWithStake],
+    aggregate_verification_key :: Text,
     multisignature :: Text
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)

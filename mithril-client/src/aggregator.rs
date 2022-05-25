@@ -10,7 +10,7 @@ use std::path;
 use tar::Archive;
 use thiserror::Error;
 
-use crate::entities::*;
+use mithril_common::entities::{Certificate, Snapshot};
 
 #[cfg(test)]
 use mockall::automock;
@@ -225,6 +225,8 @@ fn archive_file_path(digest: &str, network: &str) -> Result<path::PathBuf, Aggre
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::entities::Config;
+
     use flate2::write::GzEncoder;
     use flate2::Compression;
     use httpmock::prelude::*;
