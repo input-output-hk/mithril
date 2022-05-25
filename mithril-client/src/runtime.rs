@@ -1,5 +1,4 @@
 use log::debug;
-
 use std::str;
 use thiserror::Error;
 
@@ -8,10 +7,6 @@ use crate::entities::*;
 use crate::verifier;
 
 use mithril_common::entities::Snapshot;
-
-pub const MISSING_AGGREGATOR_HANDLER: &str = "missing aggregator handler";
-#[allow(dead_code)]
-pub const MISSING_VERIFIER: &str = "missing verifier";
 
 /// AggregatorHandlerWrapper wraps an AggregatorHandler
 pub type AggregatorHandlerWrapper = Box<dyn aggregator::AggregatorHandler>;
@@ -23,10 +18,13 @@ pub type VerifierWrapper = Box<dyn verifier::Verifier>;
 pub enum RuntimeError {
     #[error("a dependency is missing: '{0}'")]
     MissingDependency(String),
+
     #[error("an input is invalid: '{0}'")]
     InvalidInput(String),
+
     #[error("aggregator handler error: '{0}'")]
     AggregatorHandlerError(#[from] aggregator::AggregatorHandlerError),
+
     #[error("verifier error: '{0}'")]
     VerifierError(#[from] verifier::ProtocolError),
 }
@@ -37,10 +35,10 @@ pub struct Runtime {
     pub network: String,
 
     /// Aggregator handler dependency that interacts with an aggregator
-    pub aggregator_handler: Option<AggregatorHandlerWrapper>,
+    aggregator_handler: Option<AggregatorHandlerWrapper>,
 
     /// Verifier dependency that verifies certificates and their multi signatures
-    pub verifier: Option<VerifierWrapper>,
+    verifier: Option<VerifierWrapper>,
 }
 
 impl Runtime {
@@ -68,13 +66,27 @@ impl Runtime {
         self
     }
 
+    /// Get AggregatorHandler
+    fn get_aggregator_handler(&self) -> Result<&AggregatorHandlerWrapper, RuntimeError> {
+        Ok(self
+            .aggregator_handler
+            .as_ref()
+            .ok_or_else(|| RuntimeError::MissingDependency("aggregator handler".to_string()))?)
+    }
+
+    /// Get Verifier
+    fn get_verifier(&self) -> Result<&VerifierWrapper, RuntimeError> {
+        Ok(self
+            .verifier
+            .as_ref()
+            .ok_or_else(|| RuntimeError::MissingDependency("verifier".to_string()))?)
+    }
+
     /// List snapshots
     pub async fn list_snapshots(&self) -> Result<Vec<SnapshotListItem>, RuntimeError> {
         debug!("List snapshots");
-        let aggregator_handler = &self.aggregator_handler.as_ref().ok_or_else(|| {
-            RuntimeError::MissingDependency(MISSING_AGGREGATOR_HANDLER.to_string())
-        })?;
-        Ok(aggregator_handler
+        Ok(self
+            .get_aggregator_handler()?
             .list_snapshots()
             .await
             .map_err(RuntimeError::AggregatorHandlerError)?
@@ -89,11 +101,9 @@ impl Runtime {
         digest: &str,
     ) -> Result<Vec<SnapshotFieldItem>, RuntimeError> {
         debug!("Show snapshot {}", digest);
-        let aggregator_handler = &self.aggregator_handler.as_ref().ok_or_else(|| {
-            RuntimeError::MissingDependency(MISSING_AGGREGATOR_HANDLER.to_string())
-        })?;
         Ok(convert_to_field_items(
-            &aggregator_handler
+            &self
+                .get_aggregator_handler()?
                 .get_snapshot_details(digest)
                 .await
                 .map_err(RuntimeError::AggregatorHandlerError)?,
@@ -108,14 +118,11 @@ impl Runtime {
         location_index: isize,
     ) -> Result<(String, String), RuntimeError> {
         debug!("Download snapshot {}", digest);
-        let aggregator_handler = &self.aggregator_handler.as_ref().ok_or_else(|| {
-            RuntimeError::MissingDependency(MISSING_AGGREGATOR_HANDLER.to_string())
-        })?;
+        let aggregator_handler = self.get_aggregator_handler()?;
         let snapshot = aggregator_handler
             .get_snapshot_details(digest)
             .await
             .map_err(RuntimeError::AggregatorHandlerError)?;
-
         let from = snapshot
             .locations
             .get((location_index - 1) as usize)
@@ -130,15 +137,10 @@ impl Runtime {
     /// Restore a snapshot by digest
     pub async fn restore_snapshot(&self, digest: &str) -> Result<String, RuntimeError> {
         debug!("Restore snapshot {}", digest);
-        let aggregator_handler = &self.aggregator_handler.as_ref().ok_or_else(|| {
-            RuntimeError::MissingDependency(MISSING_AGGREGATOR_HANDLER.to_string())
-        })?;
+        let aggregator_handler = self.get_aggregator_handler()?;
+        let _verifier = self.get_verifier()?;
         // TODO: Reactivate when real certificate hash is available
-        /*let verifier = &self
-            .verifier
-            .as_ref()
-            .ok_or_else(|| RuntimeError::MissingDependency(MISSING_VERIFIER.to_string()))?;
-
+        /*
         let mut beacon = fake_data::beacon();
         beacon.immutable_file_number = 0;
         let fake_digest = &fake_data::digest(&beacon);
