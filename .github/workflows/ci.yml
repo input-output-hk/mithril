@@ -53,7 +53,8 @@ jobs:
             target/
           key: cargo-${{ runner.os }}-${{ matrix.project }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-${{ matrix.project }}-key
+            cargo-${{ runner.os }}-${{ matrix.project }}-
+            cargo-${{ runner.os }}-
 
       - name: Install cargo tools
         if: ${{ steps.cargo-cache.outputs.cache-hit == false }}
