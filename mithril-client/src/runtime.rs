@@ -20,7 +20,7 @@ pub type AggregatorHandlerWrapper = Box<dyn aggregator::AggregatorHandler>;
 pub type VerifierWrapper = Box<dyn verifier::Verifier>;
 
 #[derive(Error, Debug)]
-pub enum ClientError {
+pub enum RuntimeError {
     #[error("a dependency is missing: '{0}'")]
     MissingDependency(String),
     #[error("an input is invalid: '{0}'")]
@@ -32,7 +32,7 @@ pub enum ClientError {
 }
 
 /// Mithril client wrapper
-pub struct Client {
+pub struct Runtime {
     /// Cardano network
     pub network: String,
 
@@ -43,8 +43,8 @@ pub struct Client {
     pub verifier: Option<VerifierWrapper>,
 }
 
-impl Client {
-    /// Client factory
+impl Runtime {
+    /// Runtime factory
     pub fn new(network: String) -> Self {
         Self {
             network,
@@ -69,31 +69,34 @@ impl Client {
     }
 
     /// List snapshots
-    pub async fn list_snapshots(&self) -> Result<Vec<SnapshotListItem>, ClientError> {
+    pub async fn list_snapshots(&self) -> Result<Vec<SnapshotListItem>, RuntimeError> {
         debug!("List snapshots");
         let aggregator_handler = &self.aggregator_handler.as_ref().ok_or_else(|| {
-            ClientError::MissingDependency(MISSING_AGGREGATOR_HANDLER.to_string())
+            RuntimeError::MissingDependency(MISSING_AGGREGATOR_HANDLER.to_string())
         })?;
         Ok(aggregator_handler
             .list_snapshots()
             .await
-            .map_err(ClientError::AggregatorHandlerError)?
+            .map_err(RuntimeError::AggregatorHandlerError)?
             .iter()
             .map(|snapshot| convert_to_list_item(snapshot, self.network.clone()))
             .collect::<Vec<SnapshotListItem>>())
     }
 
     /// Show a snapshot
-    pub async fn show_snapshot(&self, digest: &str) -> Result<Vec<SnapshotFieldItem>, ClientError> {
+    pub async fn show_snapshot(
+        &self,
+        digest: &str,
+    ) -> Result<Vec<SnapshotFieldItem>, RuntimeError> {
         debug!("Show snapshot {}", digest);
         let aggregator_handler = &self.aggregator_handler.as_ref().ok_or_else(|| {
-            ClientError::MissingDependency(MISSING_AGGREGATOR_HANDLER.to_string())
+            RuntimeError::MissingDependency(MISSING_AGGREGATOR_HANDLER.to_string())
         })?;
         Ok(convert_to_field_items(
             &aggregator_handler
                 .get_snapshot_details(digest)
                 .await
-                .map_err(ClientError::AggregatorHandlerError)?,
+                .map_err(RuntimeError::AggregatorHandlerError)?,
             self.network.clone(),
         ))
     }
@@ -103,38 +106,38 @@ impl Client {
         &self,
         digest: &str,
         location_index: isize,
-    ) -> Result<(String, String), ClientError> {
+    ) -> Result<(String, String), RuntimeError> {
         debug!("Download snapshot {}", digest);
         let aggregator_handler = &self.aggregator_handler.as_ref().ok_or_else(|| {
-            ClientError::MissingDependency(MISSING_AGGREGATOR_HANDLER.to_string())
+            RuntimeError::MissingDependency(MISSING_AGGREGATOR_HANDLER.to_string())
         })?;
         let snapshot = aggregator_handler
             .get_snapshot_details(digest)
             .await
-            .map_err(ClientError::AggregatorHandlerError)?;
+            .map_err(RuntimeError::AggregatorHandlerError)?;
 
         let from = snapshot
             .locations
             .get((location_index - 1) as usize)
-            .ok_or_else(|| ClientError::InvalidInput("invalid location index".to_string()))?
+            .ok_or_else(|| RuntimeError::InvalidInput("invalid location index".to_string()))?
             .to_owned();
         match aggregator_handler.download_snapshot(digest, &from).await {
             Ok(to) => Ok((from, to)),
-            Err(err) => Err(ClientError::AggregatorHandlerError(err)),
+            Err(err) => Err(RuntimeError::AggregatorHandlerError(err)),
         }
     }
 
     /// Restore a snapshot by digest
-    pub async fn restore_snapshot(&self, digest: &str) -> Result<String, ClientError> {
+    pub async fn restore_snapshot(&self, digest: &str) -> Result<String, RuntimeError> {
         debug!("Restore snapshot {}", digest);
         let aggregator_handler = &self.aggregator_handler.as_ref().ok_or_else(|| {
-            ClientError::MissingDependency(MISSING_AGGREGATOR_HANDLER.to_string())
+            RuntimeError::MissingDependency(MISSING_AGGREGATOR_HANDLER.to_string())
         })?;
         // TODO: Reactivate when real certificate hash is available
         /*let verifier = &self
             .verifier
             .as_ref()
-            .ok_or_else(|| ClientError::MissingDependency(MISSING_VERIFIER.to_string()))?;
+            .ok_or_else(|| RuntimeError::MissingDependency(MISSING_VERIFIER.to_string()))?;
 
         let mut beacon = fake_data::beacon();
         beacon.immutable_file_number = 0;
@@ -144,7 +147,7 @@ impl Client {
         let certificate_details = aggregator_handler
             .get_certificate_details(certificate_hash)
             .await
-            .map_err(ClientError::AggregatorHandlerError)?;
+            .map_err(RuntimeError::AggregatorHandlerError)?;
         verifier
             .verify_multi_signature(
                 fake_digest,
@@ -152,11 +155,11 @@ impl Client {
                 &certificate_details.participants,
                 &certificate_details.protocol_parameters,
             )
-            .map_err(ClientError::VerifierError)?;*/
+            .map_err(RuntimeError::VerifierError)?;*/
         aggregator_handler
             .unpack_snapshot(digest)
             .await
-            .map_err(ClientError::AggregatorHandlerError)
+            .map_err(RuntimeError::AggregatorHandlerError)
     }
 }
 
@@ -214,7 +217,7 @@ mod tests {
         mock_aggregator_handler
             .expect_list_snapshots()
             .return_once(move || Ok(fake_snapshots));
-        let mut client = Client::new(network.clone());
+        let mut client = Runtime::new(network.clone());
         client.with_aggregator_handler(Box::new(mock_aggregator_handler));
         let snapshot_list_items = client.list_snapshots().await;
         snapshot_list_items.as_ref().expect("unexpected error");
@@ -234,7 +237,7 @@ mod tests {
                     "error occurred".to_string(),
                 ))
             });
-        let mut client = Client::new("testnet".to_string());
+        let mut client = Runtime::new("testnet".to_string());
         client.with_aggregator_handler(Box::new(mock_aggregator_handler));
         let snapshot_list_items = client.list_snapshots().await;
         assert!(
@@ -252,7 +255,7 @@ mod tests {
         mock_aggregator_handler
             .expect_get_snapshot_details()
             .return_once(move |_| Ok(fake_snapshot));
-        let mut client = Client::new("testnet".to_string());
+        let mut client = Runtime::new("testnet".to_string());
         client.with_aggregator_handler(Box::new(mock_aggregator_handler));
         let snapshot_item = client.show_snapshot(digest).await;
         snapshot_item.as_ref().expect("unexpected error");
@@ -270,7 +273,7 @@ mod tests {
                     "error occurred".to_string(),
                 ))
             });
-        let mut client = Client::new("testnet".to_string());
+        let mut client = Runtime::new("testnet".to_string());
         client.with_aggregator_handler(Box::new(mock_aggregator_handler));
         let snapshot_item = client.show_snapshot(digest).await;
         assert!(snapshot_item.is_err(), "an error should have occurred");
@@ -291,7 +294,7 @@ mod tests {
         mock_verifier
             .expect_verify_multi_signature()
             .return_once(|_, _, _, _| Ok(()));
-        let mut client = Client::new("testnet".to_string());
+        let mut client = Runtime::new("testnet".to_string());
         client
             .with_aggregator_handler(Box::new(mock_aggregator_handler))
             .with_verifier(Box::new(mock_verifier));
@@ -314,7 +317,7 @@ mod tests {
                 ))
             });
 
-        let mut client = Client::new("testnet".to_string());
+        let mut client = Runtime::new("testnet".to_string());
         client
             .with_aggregator_handler(Box::new(mock_aggregator_handler))
             .with_verifier(Box::new(mock_verifier));
@@ -341,7 +344,7 @@ mod tests {
                     "error occurred".to_string(),
                 ))
             });
-        let mut client = Client::new("testnet".to_string());
+        let mut client = Runtime::new("testnet".to_string());
         client
             .with_aggregator_handler(Box::new(mock_aggregator_handler))
             .with_verifier(Box::new(mock_verifier));
@@ -368,7 +371,7 @@ mod tests {
         mock_verifier
             .expect_verify_multi_signature()
             .return_once(|_, _, _, _| Ok(()));
-        let mut client = Client::new("testnet".to_string());
+        let mut client = Runtime::new("testnet".to_string());
         client
             .with_aggregator_handler(Box::new(mock_aggregator_handler))
             .with_verifier(Box::new(mock_verifier));
