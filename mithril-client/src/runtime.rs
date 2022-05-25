@@ -7,7 +7,7 @@ use crate::aggregator::{AggregatorHandler, AggregatorHandlerError};
 use crate::entities::*;
 use crate::verifier::{ProtocolError, Verifier};
 
-use mithril_common::entities::Snapshot;
+use mithril_common::entities::{Certificate, Snapshot};
 use mithril_common::immutable_digester::{ImmutableDigester, ImmutableDigesterError};
 
 /// AggregatorHandlerWrapper wraps an AggregatorHandler
@@ -33,8 +33,11 @@ pub enum RuntimeError {
     #[error("immutale digester error: '{0}'")]
     ImmutableDigester(#[from] ImmutableDigesterError),
 
-    #[error("digest error: '{0}'")]
-    Digest(String),
+    #[error("digest unmatch error: '{0}'")]
+    DigestUnmatch(String),
+
+    #[error("certificate hash unmatch error")]
+    CertificateHashUnmatch,
 }
 
 /// Mithril client wrapper
@@ -157,6 +160,11 @@ impl Runtime {
             .get_certificate_details(&snapshot.certificate_hash)
             .await
             .map_err(RuntimeError::AggregatorHandler)?;
+        certificate
+            .hash
+            .eq(&Certificate::compute_hash(certificate))
+            .then(|| certificate.hash.clone())
+            .ok_or(RuntimeError::CertificateHashUnmatch)?;
         self.get_verifier()?
             .verify_multi_signature(
                 &digest.as_bytes().to_vec(),
@@ -177,7 +185,7 @@ impl Runtime {
                 .digest;
         match unpacked_digest == digest {
             true => Ok(unpacked_path.to_owned()),
-            false => Err(RuntimeError::Digest(unpacked_digest)),
+            false => Err(RuntimeError::DigestUnmatch(unpacked_digest)),
         }
     }
 }
@@ -345,7 +353,8 @@ mod tests {
             .unwrap()
             .digest;
         let certificate_hash = "certhash123";
-        let fake_certificate = fake_data::certificate(certificate_hash.to_string());
+        let mut fake_certificate = fake_data::certificate(certificate_hash.to_string());
+        fake_certificate.hash = Certificate::compute_hash(&fake_certificate);
         let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
         let mut mock_aggregator_handler = MockAggregatorHandler::new();
         let mut mock_verifier = MockVerifier::new();
@@ -367,6 +376,28 @@ mod tests {
             .with_verifier(Box::new(mock_verifier));
         let restore = client.restore_snapshot(&digest).await;
         restore.expect("unexpected error");
+    }
+
+    #[tokio::test]
+    async fn test_restore_snapshot_ko_certificate_hash_not_matching() {
+        let digest = "digest123";
+        let certificate_hash = "certhash123";
+        let fake_certificate = fake_data::certificate(certificate_hash.to_string());
+        let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
+        let mut mock_aggregator_handler = MockAggregatorHandler::new();
+        let mock_verifier = MockVerifier::new();
+        mock_aggregator_handler
+            .expect_get_snapshot_details()
+            .return_once(move |_| Ok(fake_snapshot));
+        mock_aggregator_handler
+            .expect_get_certificate_details()
+            .return_once(move |_| Ok(fake_certificate));
+        let mut client = Runtime::new("testnet".to_string());
+        client
+            .with_aggregator_handler(Box::new(mock_aggregator_handler))
+            .with_verifier(Box::new(mock_verifier));
+        let restore = client.restore_snapshot(&digest).await;
+        assert!(restore.is_err(), "an error should have occurred");
     }
 
     #[tokio::test]
