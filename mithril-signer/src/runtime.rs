@@ -1,5 +1,8 @@
+use slog_scope::{error, info};
 use std::collections::HashMap;
+use std::time::Duration;
 use thiserror::Error;
+use tokio::time::sleep;
 
 use mithril_common::crypto_helper::key_encode_hex;
 use mithril_common::entities::{self, Beacon, SignerWithStake};
@@ -8,14 +11,14 @@ use mithril_common::fake_data;
 use super::certificate_handler::CertificateHandler;
 use super::single_signer::SingleSigner;
 
-pub struct Signer {
+pub struct Runtime {
     certificate_handler: Box<dyn CertificateHandler>,
     single_signer: Box<dyn SingleSigner>,
     current_beacon: Option<Beacon>,
 }
 
 #[derive(Error, Debug, PartialEq)]
-pub enum SignerError {
+pub enum RuntimeError {
     #[error("single signatures computation failed: `{0}`")]
     SingleSignaturesComputeFailed(String),
     #[error("could not retrieve pending certificate: `{0}`")]
@@ -28,7 +31,7 @@ pub enum SignerError {
     Codec(String),
 }
 
-impl Signer {
+impl Runtime {
     pub fn new(
         certificate_handler: Box<dyn CertificateHandler>,
         single_signer: Box<dyn SingleSigner>,
@@ -40,12 +43,23 @@ impl Signer {
         }
     }
 
-    pub async fn run(&mut self) -> Result<(), SignerError> {
+    pub async fn infinite_loop(&mut self, loop_interval: u64) {
+        loop {
+            if let Err(e) = self.run().await {
+                error!("{:?}", e)
+            }
+
+            info!("Sleeping for {}", loop_interval);
+            sleep(Duration::from_millis(loop_interval)).await;
+        }
+    }
+
+    pub async fn run(&mut self) -> Result<(), RuntimeError> {
         if let Some(pending_certificate) = self
             .certificate_handler
             .retrieve_pending_certificate()
             .await
-            .map_err(|e| SignerError::RetrievePendingCertificateFailed(e.to_string()))?
+            .map_err(|e| RuntimeError::RetrievePendingCertificateFailed(e.to_string()))?
         {
             let message = fake_data::digest(&pending_certificate.beacon);
             let must_register_signature = match &self.current_beacon {
@@ -58,16 +72,16 @@ impl Signer {
                 if let Some(protocol_initializer) = self.single_signer.get_protocol_initializer() {
                     let verification_key = protocol_initializer.verification_key();
                     let verification_key =
-                        key_encode_hex(verification_key).map_err(SignerError::Codec)?;
+                        key_encode_hex(verification_key).map_err(RuntimeError::Codec)?;
                     let signer =
                         entities::Signer::new(self.single_signer.get_party_id(), verification_key);
                     self.certificate_handler
                         .register_signer(&signer)
                         .await
-                        .map_err(|e| SignerError::RegisterSignerFailed(e.to_string()))?;
+                        .map_err(|e| RuntimeError::RegisterSignerFailed(e.to_string()))?;
                     self.single_signer
                         .update_is_registered(true)
-                        .map_err(|e| SignerError::RegisterSignerFailed(e.to_string()))?;
+                        .map_err(|e| RuntimeError::RegisterSignerFailed(e.to_string()))?;
                 }
             }
 
@@ -99,7 +113,7 @@ impl Signer {
                         stake_distribution_extended,
                         &pending_certificate.protocol_parameters,
                     )
-                    .map_err(|e| SignerError::SingleSignaturesComputeFailed(e.to_string()))?;
+                    .map_err(|e| RuntimeError::SingleSignaturesComputeFailed(e.to_string()))?;
                 if !signatures.is_empty() {
                     let _ = self
                         .certificate_handler
@@ -148,7 +162,7 @@ mod tests {
             .expect_get_is_registered()
             .return_once(|| false);
 
-        let mut signer = Signer::new(
+        let mut signer = Runtime::new(
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
         );
@@ -170,12 +184,12 @@ mod tests {
             .expect_get_protocol_initializer()
             .return_once(move || None);
 
-        let mut signer = Signer::new(
+        let mut signer = Runtime::new(
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
         );
         assert_eq!(
-            SignerError::RetrievePendingCertificateFailed(
+            RuntimeError::RetrievePendingCertificateFailed(
                 CertificateHandlerError::RemoteServerTechnical("An Error".to_string()).to_string()
             ),
             signer.run().await.unwrap_err()
@@ -220,7 +234,7 @@ mod tests {
             .expect_update_is_registered()
             .return_once(move |_| Ok(()));
 
-        let mut signer = Signer::new(
+        let mut signer = Runtime::new(
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
         );
@@ -269,7 +283,7 @@ mod tests {
             .expect_get_protocol_initializer()
             .return_once(move || Some(protocol_initializer.clone()));
 
-        let mut signer = Signer::new(
+        let mut signer = Runtime::new(
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
         );
@@ -310,7 +324,7 @@ mod tests {
             .expect_update_is_registered()
             .return_once(move |_| Ok(()));
 
-        let mut signer = Signer::new(
+        let mut signer = Runtime::new(
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
         );
@@ -335,12 +349,12 @@ mod tests {
             .expect_get_protocol_initializer()
             .return_once(move || None);
 
-        let mut signer = Signer::new(
+        let mut signer = Runtime::new(
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
         );
         assert_eq!(
-            SignerError::SingleSignaturesComputeFailed(
+            RuntimeError::SingleSignaturesComputeFailed(
                 SingleSignerError::UnregisteredVerificationKey().to_string()
             ),
             signer.run().await.unwrap_err()
@@ -378,12 +392,12 @@ mod tests {
             .expect_get_is_registered()
             .return_once(|| false);
 
-        let mut signer = Signer::new(
+        let mut signer = Runtime::new(
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
         );
         assert_eq!(
-            SignerError::RegisterSignerFailed(
+            RuntimeError::RegisterSignerFailed(
                 CertificateHandlerError::RemoteServerLogical("an error occurred".to_string(),)
                     .to_string()
             ),
