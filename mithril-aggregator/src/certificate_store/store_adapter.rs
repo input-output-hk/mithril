@@ -4,6 +4,8 @@ use thiserror::Error;
 pub enum AdapterError {
     #[error("something wrong happened: {0}")]
     GeneralError(String),
+    #[error("problem starting the IO adapter: {0}")]
+    InitializationError(String),
 }
 pub trait StoreAdapter {
     type Key;
