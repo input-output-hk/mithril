@@ -70,7 +70,7 @@ pub fn certificate(certificate_hash: String) -> entities::Certificate {
     let completed_at = "2006-01-02T15:04:05Z".to_string();
     let aggregate_verification_key = format!("AVK{}", beacon.immutable_file_number).repeat(5);
     let multisignature = format!("MSIG{}", beacon.immutable_file_number).repeat(200);
-    entities::Certificate::new(
+    let mut certificate = entities::Certificate::new(
         previous_hash,
         beacon,
         protocol_parameters,
@@ -80,7 +80,9 @@ pub fn certificate(certificate_hash: String) -> entities::Certificate {
         signers,
         aggregate_verification_key,
         multisignature,
-    )
+    );
+    certificate.hash = certificate_hash;
+    certificate
 }
 
 /// Fake SignersWithStake
