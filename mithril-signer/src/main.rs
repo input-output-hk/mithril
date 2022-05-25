@@ -1,10 +1,8 @@
 use clap::Parser;
 use slog::{o, Drain, Level, Logger};
-use slog_scope::{debug, error, info};
+use slog_scope::debug;
 use std::env;
 use std::sync::Arc;
-use std::time::Duration;
-use tokio::time::sleep;
 
 use mithril_signer::{CertificateHandlerHTTPClient, Config, MithrilSingleSigner, Runtime};
 

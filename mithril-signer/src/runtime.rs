@@ -4,8 +4,10 @@ use std::time::Duration;
 use thiserror::Error;
 use tokio::time::sleep;
 
-use mithril_common::crypto_helper::key_encode_hex;
-use mithril_common::entities::{self, Beacon, SignerWithStake};
+use crate::certificate_handler::CertificateHandlerError;
+use crate::single_signer::SingleSignerError;
+use mithril_common::crypto_helper::{key_encode_hex, Bytes};
+use mithril_common::entities::{self, Beacon, CertificatePending, SignerWithStake};
 use mithril_common::fake_data;
 
 use super::certificate_handler::CertificateHandler;
@@ -17,12 +19,12 @@ pub struct Runtime {
     current_beacon: Option<Beacon>,
 }
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug)]
 pub enum RuntimeError {
     #[error("single signatures computation failed: `{0}`")]
-    SingleSignaturesComputeFailed(String),
+    SingleSignaturesComputeFailed(#[from] SingleSignerError),
     #[error("could not retrieve pending certificate: `{0}`")]
-    RetrievePendingCertificateFailed(String),
+    RetrievePendingCertificateFailed(#[from] CertificateHandlerError),
     #[error("could not retrieve protocol initializer")]
     RetrieveProtocolInitializerFailed(),
     #[error("register signer failed: `{0}`")]
@@ -58,71 +60,86 @@ impl Runtime {
         if let Some(pending_certificate) = self
             .certificate_handler
             .retrieve_pending_certificate()
-            .await
-            .map_err(|e| RuntimeError::RetrievePendingCertificateFailed(e.to_string()))?
+            .await?
         {
             let message = fake_data::digest(&pending_certificate.beacon);
-            let must_register_signature = match &self.current_beacon {
-                None => true,
-                Some(beacon) => beacon != &pending_certificate.beacon,
-            };
 
-            let must_register_signer = !self.single_signer.get_is_registered();
-            if must_register_signer {
-                if let Some(protocol_initializer) = self.single_signer.get_protocol_initializer() {
-                    let verification_key = protocol_initializer.verification_key();
-                    let verification_key =
-                        key_encode_hex(verification_key).map_err(RuntimeError::Codec)?;
-                    let signer =
-                        entities::Signer::new(self.single_signer.get_party_id(), verification_key);
-                    self.certificate_handler
-                        .register_signer(&signer)
-                        .await
-                        .map_err(|e| RuntimeError::RegisterSignerFailed(e.to_string()))?;
-                    self.single_signer
-                        .update_is_registered(true)
-                        .map_err(|e| RuntimeError::RegisterSignerFailed(e.to_string()))?;
-                }
-            }
+            self.register_to_aggregator_if_needed().await?;
 
-            if must_register_signature {
-                let stake_distribution = fake_data::signers_with_stakes(5);
-                let verification_keys = pending_certificate
-                    .signers
-                    .iter()
-                    .map(|signer| (signer.party_id, signer.verification_key.as_str()))
-                    .collect::<HashMap<u64, &str>>();
-                let stake_distribution_extended = stake_distribution
-                    .into_iter()
-                    .map(|signer| {
-                        let verification_key = match verification_keys.get(&signer.party_id) {
-                            Some(verification_key_found) => *verification_key_found,
-                            None => "",
-                        };
-                        SignerWithStake::new(
-                            signer.party_id,
-                            verification_key.to_string(),
-                            signer.stake,
-                        )
-                    })
-                    .collect::<Vec<SignerWithStake>>();
-                let signatures = self
-                    .single_signer
-                    .compute_single_signatures(
-                        message,
-                        stake_distribution_extended,
-                        &pending_certificate.protocol_parameters,
-                    )
-                    .map_err(|e| RuntimeError::SingleSignaturesComputeFailed(e.to_string()))?;
-                if !signatures.is_empty() {
-                    let _ = self
-                        .certificate_handler
-                        .register_signatures(&signatures)
-                        .await;
-                }
-                self.current_beacon = Some(pending_certificate.beacon);
+            if self.should_register_signature(&pending_certificate.beacon) {
+                self.register_signature(message, pending_certificate)
+                    .await?;
             }
         }
+
+        Ok(())
+    }
+
+    fn should_register_signature(&self, new_beacon: &Beacon) -> bool {
+        match &self.current_beacon {
+            None => true,
+            Some(beacon) => beacon != new_beacon,
+        }
+    }
+
+    async fn register_to_aggregator_if_needed(&mut self) -> Result<(), RuntimeError> {
+        let must_register_to_aggregator = !self.single_signer.get_is_registered();
+        if !must_register_to_aggregator {
+            return Ok(());
+        }
+
+        if let Some(protocol_initializer) = self.single_signer.get_protocol_initializer() {
+            let verification_key = protocol_initializer.verification_key();
+            let verification_key = key_encode_hex(verification_key).map_err(RuntimeError::Codec)?;
+            let signer = entities::Signer::new(self.single_signer.get_party_id(), verification_key);
+            self.certificate_handler
+                .register_signer(&signer)
+                .await
+                .map_err(|e| RuntimeError::RegisterSignerFailed(e.to_string()))?;
+            self.single_signer
+                .update_is_registered(true)
+                .map_err(|e| RuntimeError::RegisterSignerFailed(e.to_string()))?;
+        }
+
+        Ok(())
+    }
+
+    async fn register_signature(
+        &mut self,
+        message: Bytes,
+        pending_certificate: CertificatePending,
+    ) -> Result<(), RuntimeError> {
+        let verification_keys = pending_certificate
+            .signers
+            .iter()
+            .map(|signer| (signer.party_id, signer.verification_key.as_str()))
+            .collect::<HashMap<u64, &str>>();
+
+        let stake_distribution = fake_data::signers_with_stakes(5);
+        let stake_distribution_extended = stake_distribution
+            .into_iter()
+            .map(|signer| {
+                let verification_key = match verification_keys.get(&signer.party_id) {
+                    Some(verification_key_found) => *verification_key_found,
+                    None => "",
+                };
+                SignerWithStake::new(signer.party_id, verification_key.to_string(), signer.stake)
+            })
+            .collect::<Vec<SignerWithStake>>();
+
+        let signatures = self.single_signer.compute_single_signatures(
+            message,
+            stake_distribution_extended,
+            &pending_certificate.protocol_parameters,
+        )?;
+
+        if !signatures.is_empty() {
+            let _ = self
+                .certificate_handler
+                .register_signatures(&signatures)
+                .await;
+        }
+        self.current_beacon = Some(pending_certificate.beacon);
 
         Ok(())
     }
@@ -190,9 +207,10 @@ mod tests {
         );
         assert_eq!(
             RuntimeError::RetrievePendingCertificateFailed(
-                CertificateHandlerError::RemoteServerTechnical("An Error".to_string()).to_string()
-            ),
-            signer.run().await.unwrap_err()
+                CertificateHandlerError::RemoteServerTechnical("An Error".to_string())
+            )
+            .to_string(),
+            signer.run().await.unwrap_err().to_string()
         );
     }
 
@@ -355,9 +373,10 @@ mod tests {
         );
         assert_eq!(
             RuntimeError::SingleSignaturesComputeFailed(
-                SingleSignerError::UnregisteredVerificationKey().to_string()
-            ),
-            signer.run().await.unwrap_err()
+                SingleSignerError::UnregisteredVerificationKey()
+            )
+            .to_string(),
+            signer.run().await.unwrap_err().to_string()
         );
     }
 
@@ -398,10 +417,11 @@ mod tests {
         );
         assert_eq!(
             RuntimeError::RegisterSignerFailed(
-                CertificateHandlerError::RemoteServerLogical("an error occurred".to_string(),)
+                CertificateHandlerError::RemoteServerLogical("an error occurred".to_string())
                     .to_string()
-            ),
-            signer.run().await.unwrap_err()
+            )
+            .to_string(),
+            signer.run().await.unwrap_err().to_string()
         );
     }
 }
