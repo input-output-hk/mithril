@@ -2,11 +2,12 @@ use std::{
     collections::hash_map::DefaultHasher,
     fs::{self, Metadata},
     hash::{Hash, Hasher},
+    io::Write,
     marker::PhantomData,
     path::PathBuf,
 };
 
-use glob::{glob, Paths};
+use glob::glob;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::json;
 
@@ -20,7 +21,7 @@ struct JsonFileStoreAdapter<K, V> {
 
 impl<K, V> JsonFileStoreAdapter<K, V>
 where
-    K: Hash + PartialEq,
+    K: Hash + PartialEq + Serialize + DeserializeOwned,
     V: Serialize + DeserializeOwned,
 {
     fn create_dir(dirpath: &PathBuf) -> Result<(), AdapterError> {
@@ -41,13 +42,17 @@ where
         })
     }
 
+    fn get_hash_from_key(&self, key: &K) -> String {
+        let mut hasher = DefaultHasher::new();
+        key.hash(&mut hasher);
+        let checksum = hasher.finish();
+
+        format!("{:X}", checksum)
+    }
+
     fn get_filename_from_key(&self, key: &K) -> PathBuf {
-        let filename = {
-            let mut hasher = DefaultHasher::new();
-            key.hash(&mut hasher);
-            hasher.finish()
-        };
-        let filename = format!("{}.json", filename);
+        let hash = self.get_hash_from_key(key);
+        let filename = format!("{}.json", hash);
 
         self.dirpath.join(filename)
     }
@@ -80,6 +85,37 @@ where
 
         Ok(result)
     }
+
+    fn write_file(&self, filename: &str, msg: &str) -> Result<(), AdapterError> {
+        let filepath = self.dirpath.join(filename);
+        let mut file =
+            fs::File::create(filepath).map_err(|e| AdapterError::OpeningStreamError(e.into()))?;
+        file.write_fmt(format_args!("{}", msg))
+            .map_err(|e| AdapterError::OpeningStreamError(e.into()))?;
+
+        Ok(())
+    }
+
+    fn create_record(&self, key: &K, value: &V) -> Result<(), AdapterError> {
+        let hash = self.get_hash_from_key(key);
+        let key_filename = format!("{}.key", hash);
+        self.write_file(
+            &key_filename,
+            &serde_json::to_string(key).map_err(|e| AdapterError::ParsingDataError(e.into()))?,
+        )?;
+        self.update_record(key, value)?;
+
+        Ok(())
+    }
+
+    fn update_record(&self, key: &K, value: &V) -> Result<(), AdapterError> {
+        let hash = self.get_hash_from_key(key);
+        let filename = format!("{}.json", hash);
+        self.write_file(
+            &filename,
+            &serde_json::to_string(value).map_err(|e| AdapterError::ParsingDataError(e.into()))?,
+        )
+    }
 }
 impl<K, V> StoreAdapter for JsonFileStoreAdapter<K, V>
 where
@@ -94,8 +130,12 @@ where
      * When it is created, a key file with the same Hash as the value which
      * contains the actual key the value is associated with.
      */
-    fn store_record(&mut self, _key: Self::Key, _record: Self::Record) -> Result<(), AdapterError> {
-        todo!()
+    fn store_record(&mut self, key: &Self::Key, record: &Self::Record) -> Result<(), AdapterError> {
+        if self.record_exists(key)? {
+            self.update_record(key, record)
+        } else {
+            self.create_record(key, record)
+        }
     }
 
     /**
@@ -151,7 +191,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::{io::Write, time::Duration};
+    use std::io::Read;
+    use std::time::Duration;
 
     use super::*;
 
@@ -165,9 +206,9 @@ mod tests {
 
     fn init_dir(dir: &PathBuf) {
         for (idx, hash, msg) in [
-            (1, "2206609067086327257", "one"),
-            (2, "11876854719037224982", "two"),
-            (3, "18270091135093349626", "three"),
+            (1, "1E9F734161D62DD9", "one"),
+            (2, "A4D31070D122B816", "two"),
+            (3, "FD8C671699409CFA", "three"),
         ] {
             let value_filename = format!("{}.json", hash);
             let key_filename = format!("{}.key", hash);
@@ -223,5 +264,19 @@ mod tests {
         assert_eq!((3, "three".to_string()), values[0]);
         assert_eq!((2, "two".to_string()), values[1]);
         rmdir(dir);
+    }
+
+    #[test]
+    fn check_create_record() {
+        let dir = get_pathbuf().join("check_create_record");
+        let mut adapter = get_adapter(&dir);
+        let record = "just one".to_string();
+        assert!(adapter.store_record(&1, &record).is_ok());
+
+        let filepath = dir.join("1E9F734161D62DD9.json");
+        let mut content = String::new();
+        let mut f = fs::File::open(filepath).unwrap();
+        fs::File::read_to_string(&mut f, &mut content).unwrap();
+        assert_eq!("\"just one\"".to_string(), content);
     }
 }

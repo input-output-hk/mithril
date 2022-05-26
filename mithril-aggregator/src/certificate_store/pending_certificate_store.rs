@@ -36,7 +36,7 @@ impl CertificatePendingStore {
             .adapter
             .write()
             .await
-            .store_record(certificate.beacon.clone(), certificate)?)
+            .store_record(&certificate.beacon, &certificate)?)
     }
 
     pub async fn get_list(&self, last_n: usize) -> Result<Vec<CertificatePending>, StoreError> {
@@ -64,7 +64,7 @@ mod test {
                 ix.to_string(),
                 fake_data::signers_with_stakes(5),
             );
-            adapter.store_record(beacon, certificate_pending).unwrap();
+            adapter.store_record(&beacon, &certificate_pending).unwrap();
         }
         let store = CertificatePendingStore::new(RwLock::new(Box::new(adapter))).await;
 

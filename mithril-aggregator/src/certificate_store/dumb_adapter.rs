@@ -22,7 +22,10 @@ where
     type Key = K;
     type Record = R;
 
-    fn store_record(&mut self, key: Self::Key, record: Self::Record) -> Result<(), AdapterError> {
+    fn store_record(&mut self, key: &Self::Key, record: &Self::Record) -> Result<(), AdapterError> {
+        let key = key.clone();
+        let record = record.clone();
+
         self.last_key = Some(key);
         self.last_certificate = Some(record);
 
@@ -82,7 +85,7 @@ mod tests {
     fn test_write_record() {
         let mut adapter: DumbStoreAdapter<u64, String> = DumbStoreAdapter::new();
 
-        assert!(adapter.store_record(1, "record".to_string()).is_ok());
+        assert!(adapter.store_record(&1, &"record".to_string()).is_ok());
         assert_eq!(
             "record".to_owned(),
             adapter.get_record(&1).unwrap().unwrap()
@@ -99,7 +102,7 @@ mod tests {
     #[test]
     fn test_list_with_records() {
         let mut adapter: DumbStoreAdapter<u64, String> = DumbStoreAdapter::new();
-        let _res = adapter.store_record(1, "record".to_string()).unwrap();
+        let _res = adapter.store_record(&1, &"record".to_string()).unwrap();
         let list = adapter.get_last_n_records(10).unwrap();
 
         assert_eq!(1, list.len());
@@ -113,7 +116,7 @@ mod tests {
     #[test]
     fn test_list_with_last_zero() {
         let mut adapter: DumbStoreAdapter<u64, String> = DumbStoreAdapter::new();
-        let _res = adapter.store_record(1, "record".to_string()).unwrap();
+        let _res = adapter.store_record(&1, &"record".to_string()).unwrap();
         let list = adapter.get_last_n_records(0).unwrap();
 
         assert_eq!(0, list.len());
