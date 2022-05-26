@@ -1900,6 +1900,7 @@ dependencies = [
  "config",
  "flate2",
  "futures",
+ "glob",
  "hex",
  "httpmock",
  "mithril",

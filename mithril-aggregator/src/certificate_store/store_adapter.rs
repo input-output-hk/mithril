@@ -3,7 +3,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum AdapterError {
     #[error("something wrong happened: {0}")]
-    GeneralError(Box<dyn std::error::Error>),
+    GeneralError(String),
     #[error("problem creating the repository: {0}")]
     InitializationError(Box<dyn std::error::Error>),
     #[error("problem opening the IO stream: {0}")]
