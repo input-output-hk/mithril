@@ -73,6 +73,7 @@ where
         hashes.sort_by_key(|(_, meta)| meta.created().unwrap());
         let result = hashes
             .into_iter()
+            .rev()
             .take(nth)
             .map(|(hash, _meta)| hash)
             .collect();
@@ -162,44 +163,7 @@ mod tests {
         std::env::temp_dir().join("mithril_test")
     }
 
-    fn rmdir(dir: PathBuf) {
-        let _ = std::fs::remove_dir_all(dir);
-    }
-
-    #[test]
-    fn check_file_exists() {
-        let dir = get_pathbuf().join("check_file_exists");
-        let adapter = get_adapter(&dir);
-        let _ = fs::File::create(dir.join("2206609067086327257.json")).unwrap();
-        assert!(adapter.record_exists(&1).unwrap());
-        rmdir(dir);
-    }
-
-    #[test]
-    fn check_file_does_not_exist() {
-        let dir = get_pathbuf().join("check_file_does_not_exist");
-        let adapter = get_adapter(&dir);
-        assert!(!adapter.record_exists(&1).unwrap());
-        rmdir(dir);
-    }
-
-    #[test]
-    fn check_get_record() {
-        let dir = get_pathbuf().join("check_get_record");
-        let adapter = get_adapter(&dir);
-        let mut file = fs::File::create(dir.join("2206609067086327257.json")).unwrap();
-        let value = json!("one");
-        file.write_fmt(format_args!("{}", value)).unwrap();
-        let content = adapter.get_record(&1).unwrap().unwrap();
-        assert_eq!("one", content);
-        rmdir(dir);
-    }
-
-    #[test]
-    fn check_get_last_n() {
-        let dir = get_pathbuf().join("check_get_record");
-        let adapter = get_adapter(&dir);
-
+    fn init_dir(dir: &PathBuf) {
         for (idx, hash, msg) in [
             (1, "2206609067086327257", "one"),
             (2, "11876854719037224982", "two"),
@@ -215,7 +179,45 @@ mod tests {
             file.write_fmt(format_args!("{}", value)).unwrap();
             std::thread::sleep(Duration::from_millis(100));
         }
+    }
 
+    fn rmdir(dir: PathBuf) {
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn check_file_exists() {
+        let dir = get_pathbuf().join("check_file_exists");
+        let adapter = get_adapter(&dir);
+        init_dir(&dir);
+        assert!(adapter.record_exists(&1).unwrap());
+        rmdir(dir);
+    }
+
+    #[test]
+    fn check_file_does_not_exist() {
+        let dir = get_pathbuf().join("check_file_does_not_exist");
+        let adapter = get_adapter(&dir);
+        init_dir(&dir);
+        assert!(!adapter.record_exists(&4).unwrap());
+        rmdir(dir);
+    }
+
+    #[test]
+    fn check_get_record() {
+        let dir = get_pathbuf().join("check_get_record");
+        let adapter = get_adapter(&dir);
+        init_dir(&dir);
+        let content = adapter.get_record(&1).unwrap().unwrap();
+        assert_eq!("one", content);
+        rmdir(dir);
+    }
+
+    #[test]
+    fn check_get_last_n() {
+        let dir = get_pathbuf().join("check_get_last_n");
+        let adapter = get_adapter(&dir);
+        init_dir(&dir);
         let values = adapter.get_last_n_records(2).unwrap();
         assert!(values.len() == 2);
         assert_eq!((3, "three".to_string()), values[0]);
