@@ -271,12 +271,19 @@ mod tests {
         let dir = get_pathbuf().join("check_create_record");
         let mut adapter = get_adapter(&dir);
         let record = "just one".to_string();
-        assert!(adapter.store_record(&1, &record).is_ok());
 
-        let filepath = dir.join("1E9F734161D62DD9.json");
-        let mut content = String::new();
-        let mut f = fs::File::open(filepath).unwrap();
-        fs::File::read_to_string(&mut f, &mut content).unwrap();
-        assert_eq!("\"just one\"".to_string(), content);
+        assert!(adapter.store_record(&1, &record).is_ok());
+        assert_eq!(record, adapter.get_record(&1).unwrap().unwrap());
+    }
+
+    #[test]
+    fn check_update_record() {
+        let dir = get_pathbuf().join("check_update_record");
+        let mut adapter = get_adapter(&dir);
+        init_dir(&dir);
+        let record = "just one".to_string();
+
+        assert!(adapter.store_record(&1, &record).is_ok());
+        assert_eq!(record, adapter.get_record(&1).unwrap().unwrap());
     }
 }
