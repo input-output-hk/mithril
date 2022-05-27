@@ -9,11 +9,10 @@ use std::{
 
 use glob::glob;
 use serde::{de::DeserializeOwned, Serialize};
-use serde_json::json;
 
 use super::{AdapterError, StoreAdapter};
 
-struct JsonFileStoreAdapter<K, V> {
+pub struct JsonFileStoreAdapter<K, V> {
     dirpath: PathBuf,
     key: PhantomData<K>,
     value: PhantomData<V>,
@@ -24,12 +23,6 @@ where
     K: Hash + PartialEq + Serialize + DeserializeOwned,
     V: Serialize + DeserializeOwned,
 {
-    fn create_dir(dirpath: &PathBuf) -> Result<(), AdapterError> {
-        std::fs::create_dir_all(dirpath)
-            .map_err(|e| AdapterError::InitializationError(e.into()))?;
-
-        Ok(())
-    }
     pub fn new(dirpath: PathBuf) -> Result<Self, AdapterError> {
         if !dirpath.exists() {
             Self::create_dir(&dirpath)?;
@@ -42,12 +35,18 @@ where
         })
     }
 
+    fn create_dir(dirpath: &PathBuf) -> Result<(), AdapterError> {
+        fs::create_dir_all(dirpath).map_err(|e| AdapterError::InitializationError(e.into()))?;
+
+        Ok(())
+    }
+
     fn get_hash_from_key(&self, key: &K) -> String {
         let mut hasher = DefaultHasher::new();
         key.hash(&mut hasher);
         let checksum = hasher.finish();
 
-        format!("{:X}", checksum)
+        format!("{:0>16X}", checksum)
     }
 
     fn get_filename_from_key(&self, key: &K) -> PathBuf {
@@ -117,6 +116,7 @@ where
         )
     }
 }
+
 impl<K, V> StoreAdapter for JsonFileStoreAdapter<K, V>
 where
     K: Hash + PartialEq + Serialize + DeserializeOwned,
@@ -191,7 +191,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::io::Read;
+    use serde_json::json;
     use std::time::Duration;
 
     use super::*;
@@ -274,6 +274,7 @@ mod tests {
 
         assert!(adapter.store_record(&1, &record).is_ok());
         assert_eq!(record, adapter.get_record(&1).unwrap().unwrap());
+        rmdir(dir);
     }
 
     #[test]
@@ -285,5 +286,6 @@ mod tests {
 
         assert!(adapter.store_record(&1, &record).is_ok());
         assert_eq!(record, adapter.get_record(&1).unwrap().unwrap());
+        rmdir(dir);
     }
 }
