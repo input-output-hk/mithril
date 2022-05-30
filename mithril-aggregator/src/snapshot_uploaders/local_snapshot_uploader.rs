@@ -28,7 +28,7 @@ impl SnapshotUploader for LocalSnapshotUploader {
         let archive_name = snapshot_filepath.file_name().unwrap().to_str().unwrap();
         let digest = tools::extract_digest_from_path(Path::new(archive_name));
         let location = format!(
-            "http://{}/{}/snapshot/{}/download",
+            "{}{}/snapshot/{}/download",
             self.snapshot_server_url,
             http_server::SERVER_BASE_PATH,
             digest.unwrap()
