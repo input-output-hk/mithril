@@ -47,11 +47,11 @@ mod tests {
 
     #[tokio::test]
     async fn should_extract_digest_to_deduce_location() {
-        let url = "test.com:8080".to_string();
+        let url = "http://test.com:8080/".to_string();
         let digest = "41e27b9ed5a32531b95b2b7ff3c0757591a06a337efaf19a524a998e348028e7";
         let snapshot_path = format!("testnet.{}.tar.gz", digest);
         let expected_location = format!(
-            "http://{}/{}/snapshot/{}/download",
+            "{}{}/snapshot/{}/download",
             url,
             http_server::SERVER_BASE_PATH,
             &digest
