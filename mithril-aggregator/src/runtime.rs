@@ -6,6 +6,7 @@ use mithril_common::digesters::{Digester, DigesterError, ImmutableDigester};
 use mithril_common::entities::Beacon;
 use mithril_common::fake_data;
 
+use crate::dependency::{CertificatePendingStoreWrapper, CertificateStoreWrapper};
 use crate::snapshot_stores::SnapshotStoreError;
 use crate::snapshot_uploaders::{SnapshotLocation, SnapshotUploader};
 use chrono::{DateTime, Utc};
@@ -68,6 +69,12 @@ pub struct AggregatorRuntime {
 
     /// Snapshot uploader
     snapshot_uploader: Box<dyn SnapshotUploader>,
+
+    /// Pending certificate store
+    certificate_pending_store: CertificatePendingStoreWrapper,
+
+    /// Certificate store
+    certificate_store: CertificateStoreWrapper,
 }
 
 impl AggregatorRuntime {
@@ -83,6 +90,8 @@ impl AggregatorRuntime {
         multi_signer: MultiSignerWrapper,
         snapshot_store: SnapshotStoreWrapper,
         snapshot_uploader: Box<dyn SnapshotUploader>,
+        certificate_pending_store: CertificatePendingStoreWrapper,
+        certificate_store: CertificateStoreWrapper,
     ) -> Self {
         Self {
             interval,
@@ -93,6 +102,8 @@ impl AggregatorRuntime {
             multi_signer,
             snapshot_store,
             snapshot_uploader,
+            certificate_pending_store,
+            certificate_store,
         }
     }
 

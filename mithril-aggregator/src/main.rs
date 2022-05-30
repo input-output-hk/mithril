@@ -4,8 +4,8 @@ use clap::Parser;
 
 use config::{Map, Source, Value, ValueKind};
 use mithril_aggregator::{
-    AggregatorRuntime, CertificatePendingStore, Config, DependencyManager, JsonFileStoreAdapter,
-    MemoryBeaconStore, MultiSigner, MultiSignerImpl, Server,
+    AggregatorRuntime, CertificatePendingStore, CertificateStore, Config, DependencyManager,
+    JsonFileStoreAdapter, MemoryBeaconStore, MultiSigner, MultiSignerImpl, Server,
 };
 use mithril_common::crypto_helper::ProtocolStakeDistribution;
 use mithril_common::fake_data;
@@ -132,6 +132,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let certificate_pending_store = Arc::new(RwLock::new(CertificatePendingStore::new(Box::new(
         JsonFileStoreAdapter::new(config.pending_certificate_store_directory.clone())?,
     ))));
+    let certificate_store = Arc::new(RwLock::new(CertificateStore::new(Box::new(
+        JsonFileStoreAdapter::new(config.certificate_store_directory.clone())?,
+    ))));
 
     // Init dependency manager
     let mut dependency_manager = DependencyManager::new(config.clone());
@@ -139,7 +142,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .with_snapshot_store(snapshot_store.clone())
         .with_multi_signer(multi_signer.clone())
         .with_beacon_store(beacon_store.clone())
-        .with_certificate_pending_store(certificate_pending_store.clone());
+        .with_certificate_pending_store(certificate_pending_store.clone())
+        .with_certificate_store(certificate_store.clone());
     let dependency_manager = Arc::new(dependency_manager);
 
     // Start snapshot uploader
@@ -154,6 +158,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
             multi_signer.clone(),
             snapshot_store.clone(),
             snapshot_uploader,
+            certificate_pending_store.clone(),
+            certificate_store.clone(),
         );
         runtime.run().await
     });
