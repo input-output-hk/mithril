@@ -3,7 +3,6 @@
 use mithril_common::entities::{Beacon, CertificatePending};
 
 use thiserror::Error;
-use tokio::sync::RwLock;
 
 use super::{store_adapter::AdapterError, StoreAdapter};
 
@@ -16,11 +15,11 @@ pub enum StoreError {
 type Adapter = Box<dyn StoreAdapter<Key = Beacon, Record = CertificatePending>>;
 
 pub struct CertificatePendingStore {
-    adapter: RwLock<Adapter>,
+    adapter: Adapter,
 }
 
 impl CertificatePendingStore {
-    pub async fn new(adapter: RwLock<Adapter>) -> Self {
+    pub async fn new(adapter: Adapter) -> Self {
         Self { adapter }
     }
 
@@ -28,19 +27,17 @@ impl CertificatePendingStore {
         &self,
         beacon: &Beacon,
     ) -> Result<Option<CertificatePending>, StoreError> {
-        Ok(self.adapter.read().await.get_record(beacon)?)
+        Ok(self.adapter.get_record(beacon)?)
     }
 
-    pub async fn save(&self, certificate: CertificatePending) -> Result<(), StoreError> {
+    pub async fn save(&mut self, certificate: CertificatePending) -> Result<(), StoreError> {
         Ok(self
             .adapter
-            .write()
-            .await
             .store_record(&certificate.beacon, &certificate)?)
     }
 
     pub async fn get_list(&self, last_n: usize) -> Result<Vec<CertificatePending>, StoreError> {
-        let vars = self.adapter.read().await.get_last_n_records(last_n)?;
+        let vars = self.adapter.get_last_n_records(last_n)?;
         let result = vars.into_iter().map(|(_, y)| y).collect();
 
         Ok(result)
@@ -66,7 +63,7 @@ mod test {
             );
             adapter.store_record(&beacon, &certificate_pending).unwrap();
         }
-        let store = CertificatePendingStore::new(RwLock::new(Box::new(adapter))).await;
+        let store = CertificatePendingStore::new(Box::new(adapter)).await;
 
         store
     }
@@ -103,7 +100,7 @@ mod test {
 
     #[tokio::test]
     async fn save_certificate_pending_once() {
-        let store = get_certificate_pending_store(1).await;
+        let mut store = get_certificate_pending_store(1).await;
         let beacon = Beacon::new("testnet".to_string(), 0, 1);
         let certificate_pending = CertificatePending::new(
             beacon,
@@ -117,7 +114,7 @@ mod test {
 
     #[tokio::test]
     async fn update_certificate_pending() {
-        let store = get_certificate_pending_store(1).await;
+        let mut store = get_certificate_pending_store(1).await;
         let beacon = Beacon::new("testnet".to_string(), 0, 0);
         let mut certificate_pending = store.get_from_beacon(&beacon).await.unwrap().unwrap();
 
