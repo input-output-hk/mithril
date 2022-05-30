@@ -324,11 +324,11 @@ impl MultiSigner for MultiSignerImpl {
 
     /// Creates a multi signature from single signatures
     fn create_multi_signature(&mut self) -> Result<Option<ProtocolMultiSignature>, ProtocolError> {
-        debug!("Create multi signature");
-
         let message = &self
             .get_current_message()
             .ok_or_else(ProtocolError::UnavailableMessage)?;
+
+        debug!("Create multi signature"; "message" => ?message);
         let signatures: Vec<ProtocolSingleSignature> = self
             .single_signatures
             .iter()

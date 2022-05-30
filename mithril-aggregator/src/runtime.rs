@@ -122,9 +122,9 @@ impl AggregatorRuntime {
             Ok(digest_result) => {
                 let mut beacon = fake_data::beacon();
                 beacon.immutable_file_number = digest_result.last_immutable_file_number;
-                let message = fake_data::digest(&beacon);
+                let message = &digest_result.digest.clone().into_bytes();
 
-                match self.manage_trigger_snapshot(&message, &beacon).await {
+                match self.manage_trigger_snapshot(message, &beacon).await {
                     Ok(true) => {
                         let snapshot_name =
                             format!("{}.{}.tar.gz", self.network, &digest_result.digest);
