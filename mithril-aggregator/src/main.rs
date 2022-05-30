@@ -130,7 +130,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let beacon_store = Arc::new(RwLock::new(MemoryBeaconStore::default()));
     let snapshot_uploader = config.build_snapshot_uploader();
     let certificate_pending_store = Arc::new(RwLock::new(CertificatePendingStore::new(Box::new(
-        JsonFileStoreAdapter::new(std::env::temp_dir().join("mithril_cert_db"))?,
+        JsonFileStoreAdapter::new(config.pending_certificate_store_directory.clone())?,
     ))));
 
     // Init dependency manager
@@ -138,7 +138,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     dependency_manager
         .with_snapshot_store(snapshot_store.clone())
         .with_multi_signer(multi_signer.clone())
-        .with_beacon_store(beacon_store.clone());
+        .with_beacon_store(beacon_store.clone())
+        .with_certificate_pending_store(certificate_pending_store.clone());
     let dependency_manager = Arc::new(dependency_manager);
 
     // Start snapshot uploader

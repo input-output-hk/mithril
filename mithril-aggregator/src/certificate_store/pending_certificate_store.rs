@@ -19,7 +19,7 @@ pub struct CertificatePendingStore {
 }
 
 impl CertificatePendingStore {
-    pub async fn new(adapter: Adapter) -> Self {
+    pub fn new(adapter: Adapter) -> Self {
         Self { adapter }
     }
 
@@ -67,7 +67,7 @@ mod test {
                 .await
                 .unwrap();
         }
-        let store = CertificatePendingStore::new(Box::new(adapter)).await;
+        let store = CertificatePendingStore::new(Box::new(adapter));
 
         store
     }
