@@ -1,3 +1,4 @@
+mod certificate_store;
 mod jsonfile_store_adapter;
 mod pending_certificate_store;
 mod store_adapter;
