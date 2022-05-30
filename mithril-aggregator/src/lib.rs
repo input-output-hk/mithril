@@ -15,6 +15,7 @@ pub use crate::http_server::Server;
 pub use crate::multi_signer::{MultiSigner, MultiSignerImpl, ProtocolError};
 pub use crate::snapshot_stores::{RemoteSnapshotStore, SnapshotStore};
 pub use beacon_store::{BeaconStore, BeaconStoreError, MemoryBeaconStore};
+pub use certificate_store::CertificatePendingStore;
 pub use dependency::DependencyManager;
 pub use runtime::AggregatorRuntime;
 pub use snapshot_uploaders::{LocalSnapshotUploader, RemoteSnapshotUploader};

@@ -8,14 +8,14 @@ use tokio::sync::RwLock;
 use super::{store_adapter::AdapterError, StoreAdapter};
 
 #[derive(Debug, Error)]
-enum StoreError {
+pub enum StoreError {
     #[error("physical adapter returned an error: {0}")]
     AdapterError(#[from] AdapterError),
 }
 
 type Adapter = Box<dyn StoreAdapter<Key = Beacon, Record = CertificatePending>>;
 
-struct CertificatePendingStore {
+pub struct CertificatePendingStore {
     adapter: RwLock<Adapter>,
 }
 
