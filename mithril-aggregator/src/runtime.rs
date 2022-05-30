@@ -72,6 +72,8 @@ pub struct AggregatorRuntime {
 
 impl AggregatorRuntime {
     /// AggregatorRuntime factory
+    // TODO: Fix this by implementing an Aggregator Config that implements the From trait for a general Config
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         interval: u32,
         network: String,
