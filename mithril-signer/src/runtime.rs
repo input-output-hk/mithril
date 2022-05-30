@@ -7,6 +7,7 @@ use tokio::time::sleep;
 use crate::certificate_handler::CertificateHandlerError;
 use crate::single_signer::SingleSignerError;
 use mithril_common::crypto_helper::{key_encode_hex, Bytes};
+use mithril_common::digesters::Digester;
 use mithril_common::entities::{self, Beacon, CertificatePending, SignerWithStake};
 use mithril_common::fake_data;
 
@@ -16,6 +17,7 @@ use super::single_signer::SingleSigner;
 pub struct Runtime {
     certificate_handler: Box<dyn CertificateHandler>,
     single_signer: Box<dyn SingleSigner>,
+    digester: Box<dyn Digester>,
     current_beacon: Option<Beacon>,
 }
 
@@ -37,10 +39,12 @@ impl Runtime {
     pub fn new(
         certificate_handler: Box<dyn CertificateHandler>,
         single_signer: Box<dyn SingleSigner>,
+        digester: Box<dyn Digester>,
     ) -> Self {
         Self {
             certificate_handler,
             single_signer,
+            digester,
             current_beacon: None,
         }
     }
@@ -150,8 +154,18 @@ mod tests {
     use super::super::certificate_handler::{CertificateHandlerError, MockCertificateHandler};
     use super::super::single_signer::{MockSingleSigner, SingleSignerError};
     use super::*;
+
     use mithril_common::crypto_helper::tests_setup::*;
+    use mithril_common::digesters::{Digester, DigesterError, DigesterResult};
     use mithril_common::fake_data;
+    use mockall::mock;
+
+    mock! {
+        pub DigesterImpl { }
+        impl Digester for DigesterImpl {
+            fn compute_digest(&self) -> Result<DigesterResult, DigesterError>;
+        }
+    }
 
     #[tokio::test]
     async fn signer_doesnt_sign_when_there_is_no_pending_certificate() {
@@ -160,6 +174,7 @@ mod tests {
         let protocol_initializer = current_signer.4.clone();
         let mut mock_certificate_handler = MockCertificateHandler::new();
         let mut mock_single_signer = MockSingleSigner::new();
+        let mock_digester = MockDigesterImpl::new();
         mock_certificate_handler
             .expect_retrieve_pending_certificate()
             .return_once(|| Ok(None));
@@ -182,6 +197,7 @@ mod tests {
         let mut signer = Runtime::new(
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
+            Box::new(mock_digester),
         );
         assert!(signer.run().await.is_ok());
     }
@@ -190,6 +206,7 @@ mod tests {
     async fn signer_fails_when_pending_certificate_fails() {
         let mut mock_certificate_handler = MockCertificateHandler::new();
         let mut mock_single_signer = MockSingleSigner::new();
+        let mock_digester = MockDigesterImpl::new();
         mock_certificate_handler
             .expect_retrieve_pending_certificate()
             .return_once(|| {
@@ -204,6 +221,7 @@ mod tests {
         let mut signer = Runtime::new(
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
+            Box::new(mock_digester),
         );
         assert_eq!(
             RuntimeError::RetrievePendingCertificateFailed(
@@ -221,6 +239,7 @@ mod tests {
         let protocol_initializer = current_signer.4.clone();
         let mut mock_certificate_handler = MockCertificateHandler::new();
         let mut mock_single_signer = MockSingleSigner::new();
+        let mut mock_digester = MockDigesterImpl::new();
         let pending_certificate = fake_data::certificate_pending();
         mock_certificate_handler
             .expect_retrieve_pending_certificate()
@@ -255,6 +274,7 @@ mod tests {
         let mut signer = Runtime::new(
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
+            Box::new(mock_digester),
         );
         assert!(signer.run().await.is_ok());
         assert!(signer.run().await.is_ok());
@@ -267,6 +287,7 @@ mod tests {
         let protocol_initializer = current_signer.4.clone();
         let mut mock_certificate_handler = MockCertificateHandler::new();
         let mut mock_single_signer = MockSingleSigner::new();
+        let mut mock_digester = MockDigesterImpl::new();
         let pending_certificate = fake_data::certificate_pending();
         mock_certificate_handler
             .expect_retrieve_pending_certificate()
@@ -304,6 +325,7 @@ mod tests {
         let mut signer = Runtime::new(
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
+            Box::new(mock_digester),
         );
         assert!(signer.run().await.is_ok());
         assert!(signer.run().await.is_ok());
@@ -316,6 +338,7 @@ mod tests {
         let protocol_initializer = current_signer.4.clone();
         let mut mock_certificate_handler = MockCertificateHandler::new();
         let mut mock_single_signer = MockSingleSigner::new();
+        let mut mock_digester = MockDigesterImpl::new();
         let pending_certificate = fake_data::certificate_pending();
         mock_certificate_handler
             .expect_retrieve_pending_certificate()
@@ -345,6 +368,7 @@ mod tests {
         let mut signer = Runtime::new(
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
+            Box::new(mock_digester),
         );
         assert!(signer.run().await.is_ok());
     }
@@ -353,6 +377,7 @@ mod tests {
     async fn signer_fails_if_signature_computation_fails() {
         let mut mock_certificate_handler = MockCertificateHandler::new();
         let mut mock_single_signer = MockSingleSigner::new();
+        let mut mock_digester = MockDigesterImpl::new();
         let pending_certificate = fake_data::certificate_pending();
         mock_certificate_handler
             .expect_retrieve_pending_certificate()
@@ -370,6 +395,7 @@ mod tests {
         let mut signer = Runtime::new(
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
+            Box::new(mock_digester),
         );
         assert_eq!(
             RuntimeError::SingleSignaturesComputeFailed(
@@ -388,6 +414,7 @@ mod tests {
         let pending_certificate = fake_data::certificate_pending();
         let mut mock_certificate_handler = MockCertificateHandler::new();
         let mut mock_single_signer = MockSingleSigner::new();
+        let mut mock_digester = MockDigesterImpl::new();
         mock_certificate_handler
             .expect_retrieve_pending_certificate()
             .return_once(|| Ok(Some(pending_certificate)));
@@ -414,6 +441,7 @@ mod tests {
         let mut signer = Runtime::new(
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
+            Box::new(mock_digester),
         );
         assert_eq!(
             RuntimeError::RegisterSignerFailed(
