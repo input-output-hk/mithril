@@ -28,7 +28,7 @@ impl SnapshotUploader for LocalSnapshotUploader {
         let archive_name = snapshot_filepath.file_name().unwrap().to_str().unwrap();
         let digest = tools::extract_digest_from_path(Path::new(archive_name));
         let location = format!(
-            "http://{}/{}/snapshot/{}/download",
+            "{}{}/snapshot/{}/download",
             self.snapshot_server_url,
             http_server::SERVER_BASE_PATH,
             digest.unwrap()
@@ -47,11 +47,11 @@ mod tests {
 
     #[tokio::test]
     async fn should_extract_digest_to_deduce_location() {
-        let url = "test.com:8080".to_string();
+        let url = "http://test.com:8080/".to_string();
         let digest = "41e27b9ed5a32531b95b2b7ff3c0757591a06a337efaf19a524a998e348028e7";
         let snapshot_path = format!("testnet.{}.tar.gz", digest);
         let expected_location = format!(
-            "http://{}/{}/snapshot/{}/download",
+            "{}{}/snapshot/{}/download",
             url,
             http_server::SERVER_BASE_PATH,
             &digest
