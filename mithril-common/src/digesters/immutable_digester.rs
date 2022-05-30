@@ -1,3 +1,4 @@
+use crate::digesters::{Digester, DigesterError, DigesterResult};
 use crate::entities::ImmutableFileNumber;
 
 use sha2::{Digest, Sha256};
@@ -6,38 +7,16 @@ use std::ffi::OsStr;
 use std::fs::File;
 use std::io;
 use std::path::{Path, PathBuf};
-use thiserror::Error;
 
 use walkdir::WalkDir;
 
-/// ImmutableDigester
+/// A digester working directly on a Cardano DB immutables files
 pub struct ImmutableDigester {
     /// A cardano node DB directory
     db_directory: PathBuf,
 
     /// The logger where the logs should be written
     logger: Logger,
-}
-
-#[derive(Error, Debug)]
-pub enum ImmutableDigesterError {
-    #[error("Immutable files listing failed: `{0}`")]
-    ListImmutablesError(String),
-
-    #[error("At least two immutables chunk should exists")]
-    NotEnoughImmutable(),
-
-    #[error("Digest computation failed:")]
-    DigestComputationError(#[from] io::Error),
-}
-
-#[derive(Debug)]
-pub struct ImmutableDigesterResult {
-    /// The computed digest
-    pub digest: String,
-
-    /// The number of the last immutable file used to compute the digest
-    pub last_immutable_file_number: ImmutableFileNumber,
 }
 
 impl ImmutableDigester {
@@ -47,28 +26,6 @@ impl ImmutableDigester {
             db_directory,
             logger,
         }
-    }
-
-    pub fn compute_digest(&self) -> Result<ImmutableDigesterResult, ImmutableDigesterError> {
-        let immutables = ImmutableFile::list_in_dir(&*self.db_directory)
-            .map_err(ImmutableDigesterError::ListImmutablesError)?;
-        let last_immutable = immutables
-            .last()
-            .ok_or(ImmutableDigesterError::NotEnoughImmutable())?;
-
-        info!(self.logger, "#immutables: {}", immutables.len());
-
-        let hash = self
-            .compute_hash(&immutables)
-            .map_err(ImmutableDigesterError::DigestComputationError)?;
-        let digest = hex::encode(hash);
-
-        debug!(self.logger, "#computed digest: {:?}", digest);
-
-        Ok(ImmutableDigesterResult {
-            digest,
-            last_immutable_file_number: last_immutable.number,
-        })
     }
 
     fn compute_hash(&self, entries: &[ImmutableFile]) -> Result<[u8; 32], io::Error> {
@@ -89,6 +46,30 @@ impl ImmutableDigester {
         }
 
         Ok(hasher.finalize().into())
+    }
+}
+
+impl Digester for ImmutableDigester {
+    fn compute_digest(&self) -> Result<DigesterResult, DigesterError> {
+        let immutables = ImmutableFile::list_in_dir(&*self.db_directory)
+            .map_err(DigesterError::ListImmutablesError)?;
+        let last_immutable = immutables
+            .last()
+            .ok_or(DigesterError::NotEnoughImmutable())?;
+
+        info!(self.logger, "#immutables: {}", immutables.len());
+
+        let hash = self
+            .compute_hash(&immutables)
+            .map_err(DigesterError::DigestComputationError)?;
+        let digest = hex::encode(hash);
+
+        debug!(self.logger, "#computed digest: {:?}", digest);
+
+        Ok(DigesterResult {
+            digest,
+            last_immutable_file_number: last_immutable.number,
+        })
     }
 }
 

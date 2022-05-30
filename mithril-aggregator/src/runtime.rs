@@ -2,9 +2,9 @@ use super::dependency::{BeaconStoreWrapper, MultiSignerWrapper, SnapshotStoreWra
 use super::{BeaconStoreError, ProtocolError, SnapshotError, Snapshotter};
 
 use mithril_common::crypto_helper::Bytes;
+use mithril_common::digesters::{Digester, DigesterError, ImmutableDigester};
 use mithril_common::entities::Beacon;
 use mithril_common::fake_data;
-use mithril_common::immutable_digester::{ImmutableDigester, ImmutableDigesterError};
 
 use crate::snapshot_stores::SnapshotStoreError;
 use crate::snapshot_uploaders::{SnapshotLocation, SnapshotUploader};
@@ -30,8 +30,8 @@ pub enum RuntimeError {
     #[error("snapshotter error")]
     Snapshotter(#[from] SnapshotError),
 
-    #[error("immutable digester error")]
-    ImmutableDigester(#[from] ImmutableDigesterError),
+    #[error("digester error")]
+    Digester(#[from] DigesterError),
 
     #[error("snapshot store error")]
     SnapshotStore(#[from] SnapshotStoreError),
@@ -154,7 +154,7 @@ impl AggregatorRuntime {
             Err(err) => {
                 let mut beacon_store = self.beacon_store.write().await;
                 beacon_store.reset_current_beacon().await?;
-                Err(RuntimeError::ImmutableDigester(err))
+                Err(RuntimeError::Digester(err))
             }
         }
     }
