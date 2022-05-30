@@ -39,8 +39,8 @@ services:
       - "80:8080"
 
   mithril-signer:
-    image: ghcr.io/input-output-hk/mithril-signer:${IMAGE_ID:-latest}
-    restart: always
+   image: ghcr.io/input-output-hk/mithril-signer:${IMAGE_ID:-latest}
+   restart: always
    logging:
       driver: "json-file"
       options:
