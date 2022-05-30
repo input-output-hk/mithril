@@ -7,14 +7,17 @@ use crate::aggregator::{AggregatorHandler, AggregatorHandlerError};
 use crate::entities::*;
 use crate::verifier::{ProtocolError, Verifier};
 
+use mithril_common::digesters::{Digester, DigesterError, ImmutableDigester};
 use mithril_common::entities::{Certificate, Snapshot};
-use mithril_common::immutable_digester::{ImmutableDigester, ImmutableDigesterError};
 
 /// AggregatorHandlerWrapper wraps an AggregatorHandler
 pub type AggregatorHandlerWrapper = Box<dyn AggregatorHandler>;
 
 /// VerifierWrapper wraps a Verifier
 pub type VerifierWrapper = Box<dyn Verifier>;
+
+/// DigesterWrapper wraps a Digester
+pub type DigesterWrapper = Box<dyn Digester>;
 
 #[derive(Error, Debug)]
 pub enum RuntimeError {
@@ -31,7 +34,7 @@ pub enum RuntimeError {
     Verifier(#[from] ProtocolError),
 
     #[error("immutale digester error: '{0}'")]
-    ImmutableDigester(#[from] ImmutableDigesterError),
+    ImmutableDigester(#[from] DigesterError),
 
     #[error("digest unmatch error: '{0}'")]
     DigestUnmatch(String),
@@ -50,6 +53,9 @@ pub struct Runtime {
 
     /// Verifier dependency that verifies certificates and their multi signatures
     verifier: Option<VerifierWrapper>,
+
+    /// Digester dependency that computes the digest used as the message ot be signed and embedded in the multisignature
+    digester: Option<DigesterWrapper>,
 }
 
 impl Runtime {
@@ -59,6 +65,7 @@ impl Runtime {
             network,
             aggregator_handler: None,
             verifier: None,
+            digester: None,
         }
     }
 
@@ -77,6 +84,12 @@ impl Runtime {
         self
     }
 
+    /// With Digester
+    pub fn with_digester(&mut self, digester: DigesterWrapper) -> &mut Self {
+        self.digester = Some(digester);
+        self
+    }
+
     /// Get AggregatorHandler
     fn get_aggregator_handler(&self) -> Result<&AggregatorHandlerWrapper, RuntimeError> {
         self.aggregator_handler
@@ -89,6 +102,13 @@ impl Runtime {
         self.verifier
             .as_ref()
             .ok_or_else(|| RuntimeError::MissingDependency("verifier".to_string()))
+    }
+
+    /// Get Digester
+    fn get_digester(&self) -> Result<&DigesterWrapper, RuntimeError> {
+        self.digester
+            .as_ref()
+            .ok_or_else(|| RuntimeError::MissingDependency("digester".to_string()))
     }
 
     /// List snapshots
@@ -148,7 +168,7 @@ impl Runtime {
     }
 
     /// Restore a snapshot by digest
-    pub async fn restore_snapshot(&self, digest: &str) -> Result<String, RuntimeError> {
+    pub async fn restore_snapshot(&mut self, digest: &str) -> Result<String, RuntimeError> {
         debug!("Restore snapshot {}", digest);
         let snapshot = &self
             .get_aggregator_handler()?
@@ -178,11 +198,17 @@ impl Runtime {
             .unpack_snapshot(digest)
             .await
             .map_err(RuntimeError::AggregatorHandler)?;
-        let unpacked_digest =
-            ImmutableDigester::new(Path::new(unpacked_path).into(), slog_scope::logger())
-                .compute_digest()
-                .map_err(RuntimeError::ImmutableDigester)?
-                .digest;
+        if self.get_digester().is_err() {
+            self.with_digester(Box::new(ImmutableDigester::new(
+                Path::new(unpacked_path).into(),
+                slog_scope::logger(),
+            )));
+        }
+        let unpacked_digest = self
+            .get_digester()?
+            .compute_digest()
+            .map_err(RuntimeError::ImmutableDigester)?
+            .digest;
         match unpacked_digest == digest {
             true => Ok(unpacked_path.to_owned()),
             false => Err(RuntimeError::DigestUnmatch(unpacked_digest)),
@@ -227,40 +253,19 @@ pub(crate) fn convert_to_field_items(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mockall::mock;
 
     use crate::aggregator::{AggregatorHandlerError, MockAggregatorHandler};
     use crate::verifier::{MockVerifier, ProtocolError};
+    use mithril_common::digesters::{Digester, DigesterError, DigesterResult};
     use mithril_common::fake_data;
 
-    // TODO: Dulicated test setup code from 'mithril-common/src/immutable_digester.rs' that maybe should be set in a `tests_setup' module in the 'immutable_digester'. A mock would be even better!
-    // Start duplicated code
-    use std::fs;
-    use std::fs::File;
-    use std::io::prelude::*;
-    use std::path::PathBuf;
-    const ROOT_FOLDER: &str = "tests-work-folder/";
-
-    fn get_test_dir(subdir_name: &str) -> PathBuf {
-        let parent_dir = format!("{}{}", ROOT_FOLDER, subdir_name);
-        let parent_dir = Path::new(&parent_dir).to_path_buf();
-
-        if parent_dir.exists() {
-            fs::remove_dir_all(&parent_dir)
-                .expect(&*format!("Could not remove dir {:?}", parent_dir));
-        }
-        fs::create_dir_all(&parent_dir).expect(&*format!("Could not create dir {:?}", parent_dir));
-
-        parent_dir
-    }
-
-    fn create_fake_files(parent_dir: &Path, child_filenames: &[&str]) {
-        for filename in child_filenames {
-            let file = parent_dir.join(Path::new(filename));
-            let mut source_file = File::create(&file).unwrap();
-            write!(source_file, "This is a test file named '{}'", filename).unwrap();
+    mock! {
+       pub DigesterImpl { }
+        impl Digester for DigesterImpl {
+            fn compute_digest(&self) -> Result<DigesterResult, DigesterError>;
         }
     }
-    // End duplicated code
 
     #[tokio::test]
     async fn test_list_snapshots_ok() {
@@ -338,26 +343,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_restore_snapshot_ok() {
-        let target_dir = get_test_dir("test_restore_snapshot_ok/immutable");
-        let entries = vec![
-            "001.chunk",
-            "001.primary",
-            "001.secondary",
-            "002.chunk",
-            "002.primary",
-            "002.secondary",
-        ];
-        create_fake_files(&target_dir, &entries);
-        let digest = ImmutableDigester::new(target_dir.clone().into(), slog_scope::logger())
-            .compute_digest()
-            .unwrap()
-            .digest;
+        let digest = "digest123";
         let certificate_hash = "certhash123";
         let mut fake_certificate = fake_data::certificate(certificate_hash.to_string());
         fake_certificate.hash = Certificate::compute_hash(&fake_certificate);
         let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
         let mut mock_aggregator_handler = MockAggregatorHandler::new();
         let mut mock_verifier = MockVerifier::new();
+        let mut mock_digester = MockDigesterImpl::new();
         mock_aggregator_handler
             .expect_get_snapshot_details()
             .return_once(move |_| Ok(fake_snapshot));
@@ -366,14 +359,21 @@ mod tests {
             .return_once(move |_| Ok(fake_certificate));
         mock_aggregator_handler
             .expect_unpack_snapshot()
-            .return_once(move |_| Ok(target_dir.to_str().unwrap().to_owned()));
+            .return_once(move |_| Ok("./target-dir".to_string()));
         mock_verifier
             .expect_verify_multi_signature()
             .return_once(|_, _, _, _| Ok(()));
+        mock_digester.expect_compute_digest().return_once(|| {
+            Ok(DigesterResult {
+                digest: digest.to_string(),
+                last_immutable_file_number: 0,
+            })
+        });
         let mut client = Runtime::new("testnet".to_string());
         client
             .with_aggregator_handler(Box::new(mock_aggregator_handler))
-            .with_verifier(Box::new(mock_verifier));
+            .with_verifier(Box::new(mock_verifier))
+            .with_digester(Box::new(mock_digester));
         let restore = client.restore_snapshot(&digest).await;
         restore.expect("unexpected error");
     }
@@ -386,38 +386,38 @@ mod tests {
         let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
         let mut mock_aggregator_handler = MockAggregatorHandler::new();
         let mock_verifier = MockVerifier::new();
+        let mut mock_digester = MockDigesterImpl::new();
         mock_aggregator_handler
             .expect_get_snapshot_details()
             .return_once(move |_| Ok(fake_snapshot));
         mock_aggregator_handler
             .expect_get_certificate_details()
             .return_once(move |_| Ok(fake_certificate));
+        mock_digester.expect_compute_digest().return_once(|| {
+            Ok(DigesterResult {
+                digest: digest.to_string(),
+                last_immutable_file_number: 0,
+            })
+        });
         let mut client = Runtime::new("testnet".to_string());
         client
             .with_aggregator_handler(Box::new(mock_aggregator_handler))
-            .with_verifier(Box::new(mock_verifier));
+            .with_verifier(Box::new(mock_verifier))
+            .with_digester(Box::new(mock_digester));
         let restore = client.restore_snapshot(&digest).await;
         assert!(restore.is_err(), "an error should have occurred");
     }
 
     #[tokio::test]
     async fn test_restore_snapshot_ko_digests_not_matching() {
-        let target_dir = get_test_dir("test_restore_snapshot_ko_digests_not_matching/immutable");
-        let entries = vec![
-            "001.chunk",
-            "001.primary",
-            "001.secondary",
-            "002.chunk",
-            "002.primary",
-            "002.secondary",
-        ];
-        create_fake_files(&target_dir, &entries);
-        let digest = "digest-not-matching";
+        let digest = "digest123";
+        let digest_tampered = "digest-not-matching";
         let certificate_hash = "certhash123";
         let fake_certificate = fake_data::certificate(certificate_hash.to_string());
         let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
         let mut mock_aggregator_handler = MockAggregatorHandler::new();
         let mut mock_verifier = MockVerifier::new();
+        let mut mock_digester = MockDigesterImpl::new();
         mock_aggregator_handler
             .expect_get_snapshot_details()
             .return_once(move |_| Ok(fake_snapshot));
@@ -426,27 +426,34 @@ mod tests {
             .return_once(move |_| Ok(fake_certificate));
         mock_aggregator_handler
             .expect_unpack_snapshot()
-            .return_once(move |_| Ok(target_dir.to_str().unwrap().to_owned()));
+            .return_once(move |_| Ok("./target-dir".to_string()));
         mock_verifier
             .expect_verify_multi_signature()
             .return_once(|_, _, _, _| Ok(()));
+        mock_digester.expect_compute_digest().return_once(|| {
+            Ok(DigesterResult {
+                digest: digest_tampered.to_string(),
+                last_immutable_file_number: 0,
+            })
+        });
         let mut client = Runtime::new("testnet".to_string());
         client
             .with_aggregator_handler(Box::new(mock_aggregator_handler))
-            .with_verifier(Box::new(mock_verifier));
+            .with_verifier(Box::new(mock_verifier))
+            .with_digester(Box::new(mock_digester));
         let restore = client.restore_snapshot(digest).await;
         assert!(restore.is_err(), "an error should have occurred");
     }
 
     #[tokio::test]
     async fn test_restore_snapshot_ko_digester_error() {
-        let target_dir = get_test_dir("test_restore_snapshot_ko_digester_error/immutable");
         let digest = "digest123";
         let certificate_hash = "certhash123";
         let fake_certificate = fake_data::certificate(certificate_hash.to_string());
         let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
         let mut mock_aggregator_handler = MockAggregatorHandler::new();
         let mut mock_verifier = MockVerifier::new();
+        let mut mock_digester = MockDigesterImpl::new();
         mock_aggregator_handler
             .expect_get_snapshot_details()
             .return_once(move |_| Ok(fake_snapshot));
@@ -455,14 +462,18 @@ mod tests {
             .return_once(move |_| Ok(fake_certificate));
         mock_aggregator_handler
             .expect_unpack_snapshot()
-            .return_once(move |_| Ok(target_dir.to_str().unwrap().to_owned()));
+            .return_once(move |_| Ok("./target-dir".to_string()));
         mock_verifier
             .expect_verify_multi_signature()
             .return_once(|_, _, _, _| Ok(()));
+        mock_digester
+            .expect_compute_digest()
+            .return_once(|| Err(DigesterError::NotEnoughImmutable()));
         let mut client = Runtime::new("testnet".to_string());
         client
             .with_aggregator_handler(Box::new(mock_aggregator_handler))
-            .with_verifier(Box::new(mock_verifier));
+            .with_verifier(Box::new(mock_verifier))
+            .with_digester(Box::new(mock_digester));
         let restore = client.restore_snapshot(digest).await;
         assert!(restore.is_err(), "an error should have occurred");
     }
