@@ -11,6 +11,11 @@ mithril = { path = "../mithril-core" }
 mithril-common = { path = "../mithril-common" }
 log = { version = "0.4.14", features = ["max_level_debug", "release_max_level_debug"] }
 env_logger = "0.8.4"
+slog = { version = "2.7.0" , features = ["max_level_trace", "release_max_level_debug"] }
+slog-async = "2.7.0"
+slog-bunyan = "2.4.0"
+slog-scope = "4.4.0"
+slog-term = "2.9.0"
 clap = { version = "3.1.6", features = ["derive"] }
 clap-verbosity-flag = "1.0.0"
 cli-table = "0.4"
