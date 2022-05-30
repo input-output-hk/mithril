@@ -379,7 +379,7 @@ mod handlers {
             Ok(Some(snapshot)) => {
                 let filename = format!("{}.{}.tar.gz", config.network, snapshot.digest);
                 let snapshot_uri = format!(
-                    "{}/{}/snapshot_download/{}",
+                    "{}{}/snapshot_download/{}",
                     config.server_url, SERVER_BASE_PATH, filename
                 );
                 let snapshot_uri = Uri::from_str(&snapshot_uri).unwrap();
