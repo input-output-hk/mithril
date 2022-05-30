@@ -189,6 +189,7 @@ where
                 .map_err(|e| AdapterError::ParsingDataError(e.into()))?;
             let record = self.get_record(&key).await?.unwrap();
             // panic if no value file is associated to the key
+            // remove offending key if this case occures
             records.push((key, record));
         }
 
