@@ -7,7 +7,7 @@ use tokio::time::sleep;
 use crate::certificate_handler::CertificateHandlerError;
 use crate::single_signer::SingleSignerError;
 use mithril_common::crypto_helper::{key_encode_hex, Bytes};
-use mithril_common::digesters::Digester;
+use mithril_common::digesters::{Digester, DigesterError};
 use mithril_common::entities::{self, Beacon, CertificatePending, SignerWithStake};
 use mithril_common::fake_data;
 
@@ -33,6 +33,8 @@ pub enum RuntimeError {
     RegisterSignerFailed(String),
     #[error("codec error:`{0}`")]
     Codec(String),
+    #[error("digest computation failed: `{0}`")]
+    Digester(#[from] DigesterError),
 }
 
 impl Runtime {
@@ -66,12 +68,12 @@ impl Runtime {
             .retrieve_pending_certificate()
             .await?
         {
-            let message = fake_data::digest(&pending_certificate.beacon);
-
             self.register_to_aggregator_if_needed().await?;
 
             if self.should_register_signature(&pending_certificate.beacon) {
-                self.register_signature(message, pending_certificate)
+                let message = self.digester.compute_digest()?;
+                info!("Signing digest"; "digester_result" => #?message);
+                self.register_signature(message.digest.into_bytes(), pending_certificate)
                     .await?;
             }
         }
@@ -81,8 +83,19 @@ impl Runtime {
 
     fn should_register_signature(&self, new_beacon: &Beacon) -> bool {
         match &self.current_beacon {
-            None => true,
-            Some(beacon) => beacon != new_beacon,
+            None => {
+                info!("Unknown beacon, signatures will be registered ...");
+                true
+            }
+            Some(beacon) => {
+                if beacon != new_beacon {
+                    info!("The beacon changed, signatures will be registered ...");
+                    true
+                } else {
+                    info!("Signatures already registered for this beacon");
+                    false
+                }
+            }
         }
     }
 
@@ -263,13 +276,16 @@ mod tests {
             .return_once(move || party_id);
         mock_single_signer
             .expect_get_protocol_initializer()
-            .return_once(move || Some(protocol_initializer.clone()));
+            .return_once(move || Some(protocol_initializer));
         mock_single_signer
             .expect_get_is_registered()
             .return_once(|| false);
         mock_single_signer
             .expect_update_is_registered()
             .return_once(move |_| Ok(()));
+        mock_digester
+            .expect_compute_digest()
+            .return_once(|| Ok(fake_data::digester_result("digest")));
 
         let mut signer = Runtime::new(
             Box::new(mock_certificate_handler),
@@ -321,6 +337,9 @@ mod tests {
         mock_single_signer
             .expect_get_protocol_initializer()
             .return_once(move || Some(protocol_initializer.clone()));
+        mock_digester
+            .expect_compute_digest()
+            .return_once(|| Ok(fake_data::digester_result("digest")));
 
         let mut signer = Runtime::new(
             Box::new(mock_certificate_handler),
@@ -364,6 +383,9 @@ mod tests {
         mock_single_signer
             .expect_update_is_registered()
             .return_once(move |_| Ok(()));
+        mock_digester
+            .expect_compute_digest()
+            .return_once(|| Ok(fake_data::digester_result("digest")));
 
         let mut signer = Runtime::new(
             Box::new(mock_certificate_handler),
@@ -391,6 +413,9 @@ mod tests {
         mock_single_signer
             .expect_get_protocol_initializer()
             .return_once(move || None);
+        mock_digester
+            .expect_compute_digest()
+            .return_once(|| Ok(fake_data::digester_result("digest")));
 
         let mut signer = Runtime::new(
             Box::new(mock_certificate_handler),
@@ -414,7 +439,7 @@ mod tests {
         let pending_certificate = fake_data::certificate_pending();
         let mut mock_certificate_handler = MockCertificateHandler::new();
         let mut mock_single_signer = MockSingleSigner::new();
-        let mut mock_digester = MockDigesterImpl::new();
+        let mock_digester = MockDigesterImpl::new();
         mock_certificate_handler
             .expect_retrieve_pending_certificate()
             .return_once(|| Ok(Some(pending_certificate)));
@@ -449,6 +474,39 @@ mod tests {
                     .to_string()
             )
             .to_string(),
+            signer.run().await.unwrap_err().to_string()
+        );
+    }
+
+    #[tokio::test]
+    async fn signer_fails_if_digest_computation_fails() {
+        let mut mock_certificate_handler = MockCertificateHandler::new();
+        let mut mock_single_signer = MockSingleSigner::new();
+        let mut mock_digester = MockDigesterImpl::new();
+        let pending_certificate = fake_data::certificate_pending();
+        mock_certificate_handler
+            .expect_retrieve_pending_certificate()
+            .return_once(|| Ok(Some(pending_certificate)));
+        mock_single_signer
+            .expect_compute_single_signatures()
+            .never();
+        mock_single_signer
+            .expect_get_is_registered()
+            .return_once(|| false);
+        mock_single_signer
+            .expect_get_protocol_initializer()
+            .return_once(move || None);
+        mock_digester
+            .expect_compute_digest()
+            .return_once(|| Err(DigesterError::NotEnoughImmutable()));
+
+        let mut signer = Runtime::new(
+            Box::new(mock_certificate_handler),
+            Box::new(mock_single_signer),
+            Box::new(mock_digester),
+        );
+        assert_eq!(
+            RuntimeError::Digester(DigesterError::NotEnoughImmutable()).to_string(),
             signer.run().await.unwrap_err().to_string()
         );
     }
