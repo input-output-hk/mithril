@@ -213,8 +213,8 @@ fn build_new_snapshot(
     let size: u64 = tar_gz.seek(SeekFrom::End(0))?;
 
     Ok(Snapshot::new(
+        digest.clone(),
         digest,
-        "".to_string(),
         size,
         created_at,
         vec![uploaded_snapshot_location],
