@@ -179,6 +179,7 @@ impl AggregatorRuntime {
                                 .unwrap()
                                 .encode_hex::<String>()
                         );
+                        //TODO: save signature here
                     }
                     Ok(None) => {
                         warn!("Not ready to create a multi signature: quorum is not reached yet");

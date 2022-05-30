@@ -99,7 +99,8 @@ aggregatorProcess cwd port = do
           [ ("NETWORK", "testnet"),
             ("URL_SNAPSHOT_MANIFEST", "https://storage.googleapis.com/cardano-testnet/snapshots.json"),
             ("SNAPSHOT_STORE_TYPE", "local"),
-            ("SNAPSHOT_UPLOADER_TYPE", "local")
+            ("SNAPSHOT_UPLOADER_TYPE", "local"),
+            ("PENDING_CERTIFICATE_STORE_DIRECTORY", "./pending-certs")
           ]
             <> baseEnv
   unlessM (doesFileExist aggregator) $ failure $ "cannot find mithril-aggregator executable in expected location (" <> binDir <> ")"

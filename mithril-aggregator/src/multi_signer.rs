@@ -1,5 +1,6 @@
 use chrono::prelude::*;
 use hex::ToHex;
+use serde::Serialize;
 use slog_scope::{debug, warn};
 use std::collections::HashMap;
 use thiserror::Error;
@@ -105,6 +106,7 @@ pub trait MultiSigner: Sync + Send {
 }
 
 /// MultiSignerImpl is an implementation of the MultiSigner
+#[derive(Serialize)]
 pub struct MultiSignerImpl {
     /// Message that is currently signed
     current_message: Option<Bytes>,

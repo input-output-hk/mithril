@@ -31,6 +31,9 @@ pub struct Config {
 
     /// Directory to store snapshot
     pub snapshot_directory: PathBuf,
+
+    /// Directory to store pending certificates
+    pub pending_certificate_store_directory: PathBuf,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

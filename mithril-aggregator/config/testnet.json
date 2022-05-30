@@ -2,5 +2,6 @@
     "network": "testnet",
     "url_snapshot_manifest": "https://storage.googleapis.com/cardano-testnet/snapshots.json",
     "snapshot_store_type": "gcp",
-    "snapshot_uploader_type": "gcp"
+    "snapshot_uploader_type": "gcp",
+    "pending_certificate_store_directory": "./mithril/cert_db"
 }
