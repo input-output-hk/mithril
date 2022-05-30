@@ -7,11 +7,13 @@ use std::{
     path::PathBuf,
 };
 
+use async_trait::async_trait;
 use glob::glob;
 use serde::{de::DeserializeOwned, Serialize};
 
 use super::{AdapterError, StoreAdapter};
 
+#[derive(Debug)]
 pub struct JsonFileStoreAdapter<K, V> {
     dirpath: PathBuf,
     key: PhantomData<K>,
@@ -117,10 +119,11 @@ where
     }
 }
 
+#[async_trait]
 impl<K, V> StoreAdapter for JsonFileStoreAdapter<K, V>
 where
-    K: Hash + PartialEq + Serialize + DeserializeOwned,
-    V: Serialize + DeserializeOwned,
+    K: Hash + PartialEq + Serialize + DeserializeOwned + Sync + Send,
+    V: Serialize + DeserializeOwned + Sync + Send,
 {
     type Key = K;
     type Record = V;
@@ -130,8 +133,12 @@ where
      * When it is created, a key file with the same Hash as the value which
      * contains the actual key the value is associated with.
      */
-    fn store_record(&mut self, key: &Self::Key, record: &Self::Record) -> Result<(), AdapterError> {
-        if self.record_exists(key)? {
+    async fn store_record(
+        &mut self,
+        key: &Self::Key,
+        record: &Self::Record,
+    ) -> Result<(), AdapterError> {
+        if self.record_exists(key).await? {
             self.update_record(key, record)
         } else {
             self.create_record(key, record)
@@ -141,8 +148,8 @@ where
     /**
      * find and returns the expected value from its Key hash
      */
-    fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
-        if !self.record_exists(key)? {
+    async fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
+        if !self.record_exists(key).await? {
             return Ok(None);
         }
         let filepath = self.get_filename_from_key(key);
@@ -158,7 +165,7 @@ where
      * simple implementation
      * if the file exists, then the document exists
      */
-    fn record_exists(&self, key: &Self::Key) -> Result<bool, AdapterError> {
+    async fn record_exists(&self, key: &Self::Key) -> Result<bool, AdapterError> {
         Ok(self.get_filename_from_key(key).is_file())
     }
 
@@ -167,7 +174,7 @@ where
      * most recent elements only. This implies being able to sort on creation?
      * modification? date and be able to get the Key (not its hash)
      */
-    fn get_last_n_records(
+    async fn get_last_n_records(
         &self,
         how_many: usize,
     ) -> Result<Vec<(Self::Key, Self::Record)>, AdapterError> {
@@ -180,7 +187,7 @@ where
                 .map_err(|e| AdapterError::OpeningStreamError(e.into()))?;
             let key: K = serde_json::from_str(&content)
                 .map_err(|e| AdapterError::ParsingDataError(e.into()))?;
-            let record = self.get_record(&key)?.unwrap();
+            let record = self.get_record(&key).await?.unwrap();
             // panic if no value file is associated to the key
             records.push((key, record));
         }
@@ -226,66 +233,66 @@ mod tests {
         let _ = std::fs::remove_dir_all(dir);
     }
 
-    #[test]
-    fn check_file_exists() {
+    #[tokio::test]
+    async fn check_file_exists() {
         let dir = get_pathbuf().join("check_file_exists");
         let adapter = get_adapter(&dir);
         init_dir(&dir);
-        assert!(adapter.record_exists(&1).unwrap());
+        assert!(adapter.record_exists(&1).await.unwrap());
         rmdir(dir);
     }
 
-    #[test]
-    fn check_file_does_not_exist() {
+    #[tokio::test]
+    async fn check_file_does_not_exist() {
         let dir = get_pathbuf().join("check_file_does_not_exist");
         let adapter = get_adapter(&dir);
         init_dir(&dir);
-        assert!(!adapter.record_exists(&4).unwrap());
+        assert!(!adapter.record_exists(&4).await.unwrap());
         rmdir(dir);
     }
 
-    #[test]
-    fn check_get_record() {
+    #[tokio::test]
+    async fn check_get_record() {
         let dir = get_pathbuf().join("check_get_record");
         let adapter = get_adapter(&dir);
         init_dir(&dir);
-        let content = adapter.get_record(&1).unwrap().unwrap();
+        let content = adapter.get_record(&1).await.unwrap().unwrap();
         assert_eq!("one", content);
         rmdir(dir);
     }
 
-    #[test]
-    fn check_get_last_n() {
+    #[tokio::test]
+    async fn check_get_last_n() {
         let dir = get_pathbuf().join("check_get_last_n");
         let adapter = get_adapter(&dir);
         init_dir(&dir);
-        let values = adapter.get_last_n_records(2).unwrap();
+        let values = adapter.get_last_n_records(2).await.unwrap();
         assert!(values.len() == 2);
         assert_eq!((3, "three".to_string()), values[0]);
         assert_eq!((2, "two".to_string()), values[1]);
         rmdir(dir);
     }
 
-    #[test]
-    fn check_create_record() {
+    #[tokio::test]
+    async fn check_create_record() {
         let dir = get_pathbuf().join("check_create_record");
         let mut adapter = get_adapter(&dir);
         let record = "just one".to_string();
 
-        assert!(adapter.store_record(&1, &record).is_ok());
-        assert_eq!(record, adapter.get_record(&1).unwrap().unwrap());
+        assert!(adapter.store_record(&1, &record).await.is_ok());
+        assert_eq!(record, adapter.get_record(&1).await.unwrap().unwrap());
         rmdir(dir);
     }
 
-    #[test]
-    fn check_update_record() {
+    #[tokio::test]
+    async fn check_update_record() {
         let dir = get_pathbuf().join("check_update_record");
         let mut adapter = get_adapter(&dir);
         init_dir(&dir);
         let record = "just one".to_string();
 
-        assert!(adapter.store_record(&1, &record).is_ok());
-        assert_eq!(record, adapter.get_record(&1).unwrap().unwrap());
+        assert!(adapter.store_record(&1, &record).await.is_ok());
+        assert_eq!(record, adapter.get_record(&1).await.unwrap().unwrap());
         rmdir(dir);
     }
 }

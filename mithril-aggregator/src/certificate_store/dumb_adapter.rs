@@ -1,4 +1,5 @@
 use super::{AdapterError, StoreAdapter};
+use async_trait::async_trait;
 
 pub struct DumbStoreAdapter<K, R> {
     last_key: Option<K>,
@@ -14,15 +15,20 @@ impl<K, R> DumbStoreAdapter<K, R> {
     }
 }
 
+#[async_trait]
 impl<K, R> StoreAdapter for DumbStoreAdapter<K, R>
 where
-    R: Clone,
-    K: PartialEq + Clone,
+    R: Clone + Send + Sync,
+    K: PartialEq + Clone + Send + Sync,
 {
     type Key = K;
     type Record = R;
 
-    fn store_record(&mut self, key: &Self::Key, record: &Self::Record) -> Result<(), AdapterError> {
+    async fn store_record(
+        &mut self,
+        key: &Self::Key,
+        record: &Self::Record,
+    ) -> Result<(), AdapterError> {
         let key = key.clone();
         let record = record.clone();
 
@@ -32,19 +38,19 @@ where
         Ok(())
     }
 
-    fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
-        if self.record_exists(key)? {
+    async fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
+        if self.record_exists(key).await? {
             Ok(self.last_certificate.as_ref().cloned())
         } else {
             Ok(None)
         }
     }
 
-    fn record_exists(&self, key: &Self::Key) -> Result<bool, AdapterError> {
+    async fn record_exists(&self, key: &Self::Key) -> Result<bool, AdapterError> {
         Ok(self.last_key.is_some() && self.last_key.as_ref().unwrap() == key)
     }
 
-    fn get_last_n_records(
+    async fn get_last_n_records(
         &self,
         how_many: usize,
     ) -> Result<Vec<(Self::Key, Self::Record)>, AdapterError> {
@@ -67,43 +73,49 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn test_with_no_record_exists() {
+    #[tokio::test]
+    async fn test_with_no_record_exists() {
         let adapter: DumbStoreAdapter<u64, String> = DumbStoreAdapter::new();
 
-        assert!(!adapter.record_exists(&1).unwrap());
+        assert!(!adapter.record_exists(&1).await.unwrap());
     }
 
-    #[test]
-    fn test_with_no_record_get() {
+    #[tokio::test]
+    async fn test_with_no_record_get() {
         let adapter: DumbStoreAdapter<u64, String> = DumbStoreAdapter::new();
 
-        assert!(adapter.get_record(&1).unwrap().is_none());
+        assert!(adapter.get_record(&1).await.unwrap().is_none());
     }
 
-    #[test]
-    fn test_write_record() {
+    #[tokio::test]
+    async fn test_write_record() {
         let mut adapter: DumbStoreAdapter<u64, String> = DumbStoreAdapter::new();
 
-        assert!(adapter.store_record(&1, &"record".to_string()).is_ok());
+        assert!(adapter
+            .store_record(&1, &"record".to_string())
+            .await
+            .is_ok());
         assert_eq!(
             "record".to_owned(),
-            adapter.get_record(&1).unwrap().unwrap()
+            adapter.get_record(&1).await.unwrap().unwrap()
         );
     }
 
-    #[test]
-    fn test_list_with_no_record() {
+    #[tokio::test]
+    async fn test_list_with_no_record() {
         let adapter: DumbStoreAdapter<u64, String> = DumbStoreAdapter::new();
 
-        assert_eq!(0, adapter.get_last_n_records(10).unwrap().len());
+        assert_eq!(0, adapter.get_last_n_records(10).await.unwrap().len());
     }
 
-    #[test]
-    fn test_list_with_records() {
+    #[tokio::test]
+    async fn test_list_with_records() {
         let mut adapter: DumbStoreAdapter<u64, String> = DumbStoreAdapter::new();
-        let _res = adapter.store_record(&1, &"record".to_string()).unwrap();
-        let list = adapter.get_last_n_records(10).unwrap();
+        let _res = adapter
+            .store_record(&1, &"record".to_string())
+            .await
+            .unwrap();
+        let list = adapter.get_last_n_records(10).await.unwrap();
 
         assert_eq!(1, list.len());
 
@@ -113,11 +125,14 @@ mod tests {
         assert_eq!(&("record".to_owned()), record);
     }
 
-    #[test]
-    fn test_list_with_last_zero() {
+    #[tokio::test]
+    async fn test_list_with_last_zero() {
         let mut adapter: DumbStoreAdapter<u64, String> = DumbStoreAdapter::new();
-        let _res = adapter.store_record(&1, &"record".to_string()).unwrap();
-        let list = adapter.get_last_n_records(0).unwrap();
+        let _res = adapter
+            .store_record(&1, &"record".to_string())
+            .await
+            .unwrap();
+        let list = adapter.get_last_n_records(0).await.unwrap();
 
         assert_eq!(0, list.len());
     }

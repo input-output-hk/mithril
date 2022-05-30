@@ -4,14 +4,15 @@ use clap::Parser;
 
 use config::{Map, Source, Value, ValueKind};
 use mithril_aggregator::{
-    AggregatorRuntime, Config, DependencyManager, MemoryBeaconStore, MultiSigner, MultiSignerImpl,
-    Server,
+    AggregatorRuntime, CertificatePendingStore, Config, DependencyManager, JsonFileStoreAdapter,
+    MemoryBeaconStore, MultiSigner, MultiSignerImpl, Server,
 };
 use mithril_common::crypto_helper::ProtocolStakeDistribution;
 use mithril_common::fake_data;
 use slog::{Drain, Level, Logger};
 use slog_scope::debug;
 use std::env;
+use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -106,7 +107,7 @@ impl Source for Args {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), String> {
+async fn main() -> Result<(), Box<dyn Error>> {
     // Load args
     let args = Args::parse();
     let _guard = slog_scope::set_global_logger(args.build_logger());
@@ -128,6 +129,9 @@ async fn main() -> Result<(), String> {
     let multi_signer = Arc::new(RwLock::new(init_multi_signer()));
     let beacon_store = Arc::new(RwLock::new(MemoryBeaconStore::default()));
     let snapshot_uploader = config.build_snapshot_uploader();
+    let certificate_pending_store = Arc::new(RwLock::new(CertificatePendingStore::new(Box::new(
+        JsonFileStoreAdapter::new(std::env::temp_dir().join("mithril_cert_db"))?,
+    ))));
 
     // Init dependency manager
     let mut dependency_manager = DependencyManager::new(config.clone());

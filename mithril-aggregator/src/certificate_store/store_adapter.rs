@@ -1,3 +1,4 @@
+use async_trait::async_trait;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -11,17 +12,23 @@ pub enum AdapterError {
     #[error("problem parsing the IO stream: {0}")]
     ParsingDataError(Box<dyn std::error::Error>),
 }
-pub trait StoreAdapter {
+
+#[async_trait]
+pub trait StoreAdapter: Sync + Send {
     type Key;
     type Record;
 
-    fn store_record(&mut self, key: &Self::Key, record: &Self::Record) -> Result<(), AdapterError>;
+    async fn store_record(
+        &mut self,
+        key: &Self::Key,
+        record: &Self::Record,
+    ) -> Result<(), AdapterError>;
 
-    fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError>;
+    async fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError>;
 
-    fn record_exists(&self, key: &Self::Key) -> Result<bool, AdapterError>;
+    async fn record_exists(&self, key: &Self::Key) -> Result<bool, AdapterError>;
 
-    fn get_last_n_records(
+    async fn get_last_n_records(
         &self,
         how_many: usize,
     ) -> Result<Vec<(Self::Key, Self::Record)>, AdapterError>;

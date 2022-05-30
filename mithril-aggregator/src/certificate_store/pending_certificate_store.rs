@@ -27,17 +27,18 @@ impl CertificatePendingStore {
         &self,
         beacon: &Beacon,
     ) -> Result<Option<CertificatePending>, StoreError> {
-        Ok(self.adapter.get_record(beacon)?)
+        Ok(self.adapter.get_record(beacon).await?)
     }
 
     pub async fn save(&mut self, certificate: CertificatePending) -> Result<(), StoreError> {
         Ok(self
             .adapter
-            .store_record(&certificate.beacon, &certificate)?)
+            .store_record(&certificate.beacon, &certificate)
+            .await?)
     }
 
     pub async fn get_list(&self, last_n: usize) -> Result<Vec<CertificatePending>, StoreError> {
-        let vars = self.adapter.get_last_n_records(last_n)?;
+        let vars = self.adapter.get_last_n_records(last_n).await?;
         let result = vars.into_iter().map(|(_, y)| y).collect();
 
         Ok(result)
@@ -61,7 +62,10 @@ mod test {
                 ix.to_string(),
                 fake_data::signers_with_stakes(5),
             );
-            adapter.store_record(&beacon, &certificate_pending).unwrap();
+            adapter
+                .store_record(&beacon, &certificate_pending)
+                .await
+                .unwrap();
         }
         let store = CertificatePendingStore::new(Box::new(adapter)).await;
 
