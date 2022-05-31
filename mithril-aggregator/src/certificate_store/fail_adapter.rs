@@ -1,17 +1,18 @@
 use super::{AdapterError, StoreAdapter};
 use async_trait::async_trait;
+use std::marker::PhantomData;
 
 pub struct FailStoreAdapter<K, R> {
-    _last_key: Option<K>,
-    _last_certificate: Option<R>,
+    key: PhantomData<K>,
+    certificate: PhantomData<R>,
 }
 
 #[cfg(test)]
 impl<K, R> FailStoreAdapter<K, R> {
     pub fn new() -> Self {
         Self {
-            _last_key: None,
-            _last_certificate: None,
+            key: PhantomData,
+            certificate: PhantomData,
         }
     }
 }
