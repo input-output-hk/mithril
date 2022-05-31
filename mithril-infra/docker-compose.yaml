@@ -38,7 +38,7 @@ services:
     ports:
       - "80:8080"
 
-  mithril-signer:
+  mithril-signer-0:
     image: ghcr.io/input-output-hk/mithril-signer:${IMAGE_ID:-latest}
     restart: always
     logging:
@@ -50,6 +50,57 @@ services:
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
       - NETWORK=testnet
       - PARTY_ID=0
+      - RUN_INTERVAL=2
+      - DB_DIRECTORY=/db
+    volumes:
+      - ./testnet/node.db:/db
+
+  mithril-signer-1:
+    image: ghcr.io/input-output-hk/mithril-signer:${IMAGE_ID:-latest}
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+    environment:
+      - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
+      - NETWORK=testnet
+      - PARTY_ID=1
+      - RUN_INTERVAL=2
+      - DB_DIRECTORY=/db
+    volumes:
+      - ./testnet/node.db:/db
+
+  mithril-signer-2:
+    image: ghcr.io/input-output-hk/mithril-signer:${IMAGE_ID:-latest}
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+    environment:
+      - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
+      - NETWORK=testnet
+      - PARTY_ID=2
+      - RUN_INTERVAL=2
+      - DB_DIRECTORY=/db
+    volumes:
+      - ./testnet/node.db:/db
+
+  mithril-signer-3:
+    image: ghcr.io/input-output-hk/mithril-signer:${IMAGE_ID:-latest}
+    restart: always
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+    environment:
+      - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
+      - NETWORK=testnet
+      - PARTY_ID=3
       - RUN_INTERVAL=2
       - DB_DIRECTORY=/db
     volumes:
