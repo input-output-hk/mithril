@@ -12,4 +12,6 @@ pub use store_adapter::{AdapterError, StoreAdapter};
 
 #[cfg(test)]
 pub mod dumb_adapter;
+
+#[cfg(test)]
 pub mod fail_adapter;
