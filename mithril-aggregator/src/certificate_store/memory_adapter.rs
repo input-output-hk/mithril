@@ -1,34 +1,31 @@
 use async_trait::async_trait;
-use std::{collections::HashMap, hash::Hash, sync::Arc};
+use std::{collections::HashMap, hash::Hash};
 
 use super::{AdapterError, StoreAdapter};
 
 pub struct MemoryAdapter<K, V> {
-    index: Vec<Arc<K>>,
-    values: HashMap<Arc<K>, V>,
+    index: Vec<K>,
+    values: HashMap<K, V>,
 }
 
 impl<K, V> MemoryAdapter<K, V>
 where
-    K: Hash + Eq + Send + Sync,
+    K: Hash + Eq + Send + Sync + Clone,
     V: Send + Sync + Clone,
 {
     #[allow(dead_code)]
     pub fn new(data: Option<Vec<(K, V)>>) -> Result<Self, AdapterError> {
-        let data = if data.is_none() {
-            Vec::new()
-        } else {
-            data.unwrap()
+        let data = match data {
+            None => Vec::new(),
+            Some(v) => v,
         };
         let mut values = HashMap::new();
         let mut index = Vec::new();
 
         for (idx, elt) in data.into_iter() {
-            let idx = Arc::new(idx);
-
             if values.insert(idx.clone(), elt).is_some() {
                 return Err(AdapterError::InitializationError(
-                    format!("duplicate key found").into(),
+                    "duplicate key found".into(),
                 ));
             }
             index.push(idx);
@@ -41,7 +38,7 @@ where
 #[async_trait]
 impl<K, V> StoreAdapter for MemoryAdapter<K, V>
 where
-    K: Hash + Eq + Send + Sync,
+    K: Hash + Eq + Send + Sync + Clone,
     V: Send + Sync + Clone,
 {
     type Key = K;
@@ -68,9 +65,15 @@ where
 
     async fn get_last_n_records(
         &self,
-        _how_many: usize,
+        how_many: usize,
     ) -> Result<Vec<(Self::Key, Self::Record)>, AdapterError> {
-        todo!()
+        Ok(self
+            .index
+            .iter()
+            .rev()
+            .take(how_many)
+            .map(|k| (k.clone(), self.values.get(k).unwrap().clone()))
+            .collect())
     }
 }
 
@@ -119,5 +122,23 @@ mod tests {
         let val = adapter.get_record(&0).await.unwrap();
 
         assert!(val.is_none());
+    }
+
+    #[tokio::test]
+    async fn get_last_n_values() {
+        let adapter = init_adapter(2);
+        let vals = adapter.get_last_n_records(5).await.unwrap();
+
+        assert_eq!(2, vals.len());
+        assert_eq!((2, "value 2".to_string()), vals[0]);
+    }
+
+    #[tokio::test]
+    async fn get_last_n_existing_values() {
+        let adapter = init_adapter(5);
+        let vals = adapter.get_last_n_records(2).await.unwrap();
+
+        assert_eq!(2, vals.len());
+        assert_eq!((5, "value 5".to_string()), vals[0]);
     }
 }
