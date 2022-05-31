@@ -138,6 +138,7 @@ mod tests {
     use super::*;
     use httpmock::prelude::*;
     use serde_json::json;
+    use std::path::Path;
 
     use mithril_common::fake_data;
 
@@ -150,6 +151,7 @@ mod tests {
             aggregator_endpoint: server.url(""),
             party_id: 0,
             run_interval: 100,
+            db_directory: Path::new("./").to_path_buf(),
         };
         (server, config)
     }

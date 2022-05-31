@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+use crate::digesters::DigesterResult;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::entities;
@@ -24,6 +25,14 @@ pub fn digest(beacon: &entities::Beacon) -> Vec<u8> {
     )
     .as_bytes()
     .to_vec()
+}
+
+/// Fake DigesterResult
+pub fn digester_result(digest: &str) -> DigesterResult {
+    DigesterResult {
+        digest: digest.to_string(),
+        last_immutable_file_number: 0,
+    }
 }
 
 /// Fake ProtocolParameters
