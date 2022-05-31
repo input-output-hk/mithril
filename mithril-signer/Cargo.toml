@@ -3,33 +3,32 @@ name = "mithril-signer"
 version = "0.1.0"
 edition = "2021"
 description = "A Mithril Signer"
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+async-trait = "0.1.52"
+blake2      = "0.9.2"
+clap = { version = "3.1.6", features = ["derive"] }
+cli-table = "0.4"
+config = "0.13.1"
+flate2 = "1.0.23"
+hex = "0.4.3"
 mithril = { path = "../mithril-core" }
 mithril-common = { path = "../mithril-common" }
-slog = { version = "2.7.0" , features = ["max_level_trace", "release_max_level_debug"] }
+rand_core   = "0.6.3"
+reqwest = { version = "0.11", features = ["json", "stream"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+slog = { version = "2.7.0", features = ["max_level_trace", "release_max_level_debug"] }
 slog-async = "2.7.0"
 slog-bunyan = "2.4.0"
 slog-scope = "4.4.0"
 slog-term = "2.9.0"
-clap = { version = "3.1.6", features = ["derive"] }
-cli-table = "0.4"
-config = "0.13.1"
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-reqwest = { version = "0.11", features = ["json", "stream"] }
 tar = "0.4.38"
-flate2 = "1.0.23"
 thiserror = "1.0.31"
-async-trait = "0.1.52"
 tokio = { version = "1.17.0", features = ["full"] }
-hex = "0.4.3"
-rand_core   = "0.6.3"
-blake2      = "0.9.2"
 
 [dev-dependencies]
-mockall = "0.11.0"
 httpmock = "0.6.6"
+mockall = "0.11.0"
 

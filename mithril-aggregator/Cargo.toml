@@ -3,39 +3,38 @@ name = "mithril-aggregator"
 version = "0.1.0"
 edition = "2021"
 description = "A Mithril Aggregator server"
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+async-trait = "0.1.52"
+blake2      = "0.9.2"
+chrono = "0.4"
+clap = { version = "3.1.6", features = ["derive"] }
+clap-verbosity-flag = "1.0.0"
+cloud-storage = "0.11.0"
+config = "0.13.1"
+flate2 = "1.0.23"
+futures = "0.3"
+glob = "0.3"
+hex = "0.4.3"
 mithril = { path = "../mithril-core" }
 mithril-common = { path = "../mithril-common" }
-slog = { version = "2.7.0" , features = ["max_level_trace", "release_max_level_debug"] }
+openapiv3 = "1.0.1"
+reqwest = { version = "0.11", features = ["json"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+serde_yaml = "0.8"
+slog = { version = "2.7.0", features = ["max_level_trace", "release_max_level_debug"] }
 slog-async = "2.7.0"
 slog-bunyan = "2.4.0"
 slog-scope = "4.4.0"
 slog-term = "2.9.0"
-clap = { version = "3.1.6", features = ["derive"] }
-clap-verbosity-flag = "1.0.0"
-chrono = "0.4"
-cloud-storage = "0.11.0"
-flate2 = "1.0.23"
-warp = "0.3"
-tokio = { version = "1.17.0", features = ["full"] }
-tokio-util = { version = "0.7.1", features = ["codec"] }
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-serde_yaml = "0.8"
 tar = "0.4.38"
 thiserror = "1.0.31"
-async-trait = "0.1.52"
-openapiv3 = "1.0.1"
-hex = "0.4.3"
-futures = "0.3"
-reqwest = { version = "0.11", features = ["json"] }
-config = "0.13.1"
-blake2      = "0.9.2"
-glob = "0.3"
+tokio = { version = "1.17.0", features = ["full"] }
+tokio-util = { version = "0.7.1", features = ["codec"] }
+warp = "0.3"
 
 [dev-dependencies]
-mockall = "0.11.0"
 httpmock = "0.6.6"
+mockall = "0.11.0"

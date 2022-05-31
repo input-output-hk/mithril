@@ -2,21 +2,20 @@
 name = "mithrildemo"
 version = "0.1.0"
 edition = "2021"
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+base64 = "0.13.0"
+blake2      = "0.9.2"
+clap = { version = "3.1.6", features = ["derive"] }
+hex = "0.4.3"
+log = "0.4.14"
 mithril = { path = "../../mithril-core" }
 mithril-common = { path = "../../mithril-common" }
-clap = { version = "3.1.6", features = ["derive"] }
-serde_json = "1.0"
-serde = { version = "1.0",  features = ["derive"] }
-log = "0.4.14"
-base64 = "0.13.0"
-rouille="3.5.0"
-ureq = { version = "2.4.0", features = ["json"] }
-threadpool = "1.8.1"
-hex = "0.4.3"
-rand_core   = "0.6.3"
 rand_chacha = "0.3.1"
-blake2      = "0.9.2"
+rand_core   = "0.6.3"
+rouille = "3.5.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+threadpool = "1.8.1"
+ureq = { version = "2.4.0", features = ["json"] }
