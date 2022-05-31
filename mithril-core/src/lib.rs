@@ -7,5 +7,5 @@ mod dense_mapping;
 pub mod error;
 pub mod key_reg;
 pub mod merkle_tree;
-mod multi_sig;
+pub mod multi_sig;
 pub mod stm;

@@ -1,5 +1,5 @@
 use mithril::key_reg::KeyReg;
-use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner};
+use mithril::stm::{StmAggrSig, StmClerk, StmInitializer, StmParameters, StmSigner};
 use rayon::prelude::*;
 
 use mithril::error::AggregationFailure;
@@ -93,6 +93,9 @@ fn test_full_protocol() {
         Err(AggregationFailure::NotEnoughSignatures(n, k)) => {
             println!("Not enough signatures");
             assert!(n < params.k && k == params.k)
+        }
+        Err(AggregationFailure::InvalidUsizeConversion) => {
+            println!("Invalid usize conversion");
         }
     }
 }

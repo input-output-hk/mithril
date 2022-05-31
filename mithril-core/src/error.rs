@@ -81,6 +81,9 @@ pub enum AggregationFailure {
     /// Not enough signatures were collected, got this many instead.
     #[error("Not enough signatures. Got only {0} out of {1}.")]
     NotEnoughSignatures(u64, u64),
+    /// This error happens when we try to convert a u64 to a usize and it does not fit
+    #[error("Invalid usize conversion")]
+    InvalidUsizeConversion
 }
 
 /// Error types for single signature verification

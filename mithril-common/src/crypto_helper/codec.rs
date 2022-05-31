@@ -2,23 +2,48 @@ use hex::{FromHex, ToHex};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
+////////// Temporary trait, to understand the flaky tests ///////////
+
+pub trait BytesConv: Sized {
+    fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
+        Self::from_bytes(bytes).map_err(|_| "Failed to convert from bytes".to_owned())
+    }
+
+    fn to_bytes(&self) -> Vec<u8> {
+        self.to_bytes()
+    }
+}
+
+impl BytesConv for mithril::multi_sig::VerificationKeyPoP {}
+impl BytesConv for &mithril::multi_sig::VerificationKeyPoP {}
+impl BytesConv for mithril::stm::StmInitializer {}
+impl BytesConv for &mithril::stm::StmInitializer {}
+impl BytesConv for mithril::stm::StmSig<blake2::Blake2b> {}
+impl BytesConv for &mithril::stm::StmSig<blake2::Blake2b> {}
+impl BytesConv for mithril::stm::StmAggrSig<blake2::Blake2b> {}
+impl BytesConv for &mithril::stm::StmAggrSig<blake2::Blake2b> {}
+impl BytesConv for mithril::stm::StmAggrVerificationKey<blake2::Blake2b> {}
+impl BytesConv for &mithril::stm::StmAggrVerificationKey<blake2::Blake2b> {}
+
+
+////////// Temporary trait, to understand the flaky tests ///////////
+
 /// Encode key to hex helper
 pub fn key_encode_hex<T>(from: T) -> Result<String, String>
 where
-    T: Serialize,
+    T: BytesConv,
 {
-    Ok(serde_json::to_string(&from)
-        .map_err(|e| format!("can't convert to hex: {}", e))?
+    Ok(from.to_bytes()
         .encode_hex::<String>())
 }
 
 /// Decode key from hex helper
 pub fn key_decode_hex<T>(from: &str) -> Result<T, String>
 where
-    T: DeserializeOwned,
+    T: BytesConv,
 {
     let from_vec = Vec::from_hex(from).map_err(|e| format!("can't parse from hex: {}", e))?;
-    serde_json::from_slice(from_vec.as_slice()).map_err(|e| format!("can't deserialize: {}", e))
+    T::from_bytes(&from_vec)
 }
 
 #[cfg(test)]

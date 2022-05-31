@@ -95,13 +95,17 @@ impl KeyReg {
     where
         D: Digest + FixedOutput,
     {
-        let mut total_stake = 0;
+        let mut total_stake: Stake = 0;
         let mut reg_parties = self
             .parties
             .iter()
             .filter_map(|(_, party)| {
                 if let Some(vk) = party.vk {
-                    total_stake += party.stake;
+                    let (res, overflow) = total_stake.overflowing_add(party.stake);
+                    if overflow {
+                        panic!("Total stake overflow");
+                    }
+                    total_stake = res;
                     return Some(MTLeaf(vk, party.stake));
                 }
                 None
@@ -134,7 +138,7 @@ mod tests {
     use rand_core::SeedableRng;
 
     fn arb_participants(min: usize, max: usize) -> impl Strategy<Value = Vec<(PartyId, Stake)>> {
-        vec(any::<Stake>(), min..=max).prop_map(|v| {
+        vec(1..1u64<<60, min..=max).prop_map(|v| { // 1<<60 to avoid overflows
             v.into_iter()
                 .enumerate()
                 .map(|(index, value)| (index as u64, value))
