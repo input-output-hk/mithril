@@ -59,7 +59,8 @@ jobs:
       - name: Install cargo tools
         if: ${{ steps.cargo-cache.outputs.cache-hit == false }}
         run: |
-          cargo install cargo2junit 2>/dev/null || true # Suppress the "binary `cargo2junit` already exists in destination" error
+          cargo install cargo2junit 2>/dev/null || true # Suppress the "binary `xyz` already exists in destination" error
+          cargo install cargo-sort 2>/dev/null || true
       
       - name: Cargo build
         uses: actions-rs/cargo@v1
@@ -85,6 +86,10 @@ jobs:
         with:
           command: fmt
           args: --all -p ${{ env.CARGO_PROJECT_NAME }}
+      
+      - name: Cargo sort
+        run: |
+          cargo sort -c ${{ matrix.project }}/Cargo.toml
 
       - name: Run tests
         shell: bash
