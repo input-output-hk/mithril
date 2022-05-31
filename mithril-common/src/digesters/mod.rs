@@ -4,4 +4,4 @@ mod immutable_file;
 
 pub use digester::{Digester, DigesterError, DigesterResult};
 pub use immutable_digester::ImmutableDigester;
-pub use immutable_file::ImmutableFile;
+pub use immutable_file::{ImmutableFile, ImmutableFileCreationError, ImmutableFileListingError};

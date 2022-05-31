@@ -1,8 +1,10 @@
 use crate::entities::ImmutableFileNumber;
 
 use std::ffi::OsStr;
+use std::io;
+use std::num::ParseIntError;
 use std::path::{Path, PathBuf};
-
+use thiserror::Error;
 use walkdir::WalkDir;
 
 fn is_immutable(path: &Path) -> bool {
@@ -16,18 +18,33 @@ pub struct ImmutableFile {
     pub number: ImmutableFileNumber,
 }
 
+#[derive(Error, Debug)]
+pub enum ImmutableFileCreationError {
+    #[error("Couldn't extract the file stem for '{path:?}'")]
+    FileStemExtraction { path: PathBuf },
+    #[error("Couldn't extract the filename as string for '{path:?}'")]
+    FileNameExtraction { path: PathBuf },
+    #[error("Error while parsing immutable file number")]
+    FileNumberParsing(#[from] ParseIntError),
+}
+
+#[derive(Error, Debug)]
+pub enum ImmutableFileListingError {
+    #[error("metadata parsing failed")]
+    MetadataParsing(#[from] io::Error),
+    #[error("immutable file creation error")]
+    ImmutableFileCreation(#[from] ImmutableFileCreationError),
+}
+
 impl ImmutableFile {
-    pub fn new(path: PathBuf) -> Result<Self, String> {
+    pub fn new(path: PathBuf) -> Result<Self, ImmutableFileCreationError> {
         let filename = path
             .file_stem()
-            .ok_or(format!("Couldn't extract the file stem for '{:?}'", path))?;
-        let filename = filename.to_str().ok_or(format!(
-            "Couldn't extract the filename as string for '{:?}'",
-            path
-        ))?;
-        let immutable_file_number = filename
-            .parse::<ImmutableFileNumber>()
-            .map_err(|e| e.to_string())?;
+            .ok_or(ImmutableFileCreationError::FileStemExtraction { path: path.clone() })?;
+        let filename = filename
+            .to_str()
+            .ok_or(ImmutableFileCreationError::FileNameExtraction { path: path.clone() })?;
+        let immutable_file_number = filename.parse::<ImmutableFileNumber>()?;
 
         Ok(Self {
             path,
@@ -39,7 +56,9 @@ impl ImmutableFile {
     ///
     /// Important Note: It will skip the last chunk / primary / secondary trio since they're not yet
     /// complete.
-    pub fn list_completed_in_dir(dir: &Path) -> Result<Vec<ImmutableFile>, String> {
+    pub fn list_completed_in_dir(
+        dir: &Path,
+    ) -> Result<Vec<ImmutableFile>, ImmutableFileListingError> {
         let mut files: Vec<ImmutableFile> = vec![];
 
         for path in WalkDir::new(dir)
@@ -47,7 +66,7 @@ impl ImmutableFile {
             .filter_map(|file| file.ok())
             .map(|f| f.path().to_owned())
         {
-            let metadata = path.metadata().map_err(|e| e.to_string())?;
+            let metadata = path.metadata()?;
             if metadata.is_file() && is_immutable(&path) {
                 let immutable_file = ImmutableFile::new(path)?;
                 files.push(immutable_file);

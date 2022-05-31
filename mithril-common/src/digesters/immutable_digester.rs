@@ -48,8 +48,7 @@ impl ImmutableDigester {
 
 impl Digester for ImmutableDigester {
     fn compute_digest(&self) -> Result<DigesterResult, DigesterError> {
-        let immutables = ImmutableFile::list_completed_in_dir(&*self.db_directory)
-            .map_err(DigesterError::ListImmutablesError)?;
+        let immutables = ImmutableFile::list_completed_in_dir(&*self.db_directory)?;
         let last_immutable = immutables
             .last()
             .ok_or(DigesterError::NotEnoughImmutable())?;
