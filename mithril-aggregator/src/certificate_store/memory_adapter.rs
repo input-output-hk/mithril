@@ -46,10 +46,23 @@ where
 
     async fn store_record(
         &mut self,
-        _key: &Self::Key,
-        _record: &Self::Record,
+        key: &Self::Key,
+        record: &Self::Record,
     ) -> Result<(), AdapterError> {
-        todo!()
+        let key = (*key).clone();
+        let record = (*record).clone();
+
+        if self.values.insert(key.clone(), record).is_some() {
+            if let Some(ix) = self.index.iter().position(|k| k == &key) {
+                let _ = self.index.remove(ix);
+            } else {
+                // the index was corrupted
+                // doing nothing will repair it.
+            }
+        }
+        self.index.push(key);
+
+        Ok(())
     }
 
     async fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
@@ -140,5 +153,25 @@ mod tests {
 
         assert_eq!(2, vals.len());
         assert_eq!((5, "value 5".to_string()), vals[0]);
+    }
+
+    #[tokio::test]
+    async fn save_new_values() {
+        let mut adapter = init_adapter(2);
+
+        assert!(adapter.store_record(&10, &"ten".to_string()).await.is_ok());
+        let vals = adapter.get_last_n_records(1).await.unwrap();
+
+        assert_eq!((10, "ten".to_string()), vals[0]);
+    }
+
+    #[tokio::test]
+    async fn update_value() {
+        let mut adapter = init_adapter(2);
+
+        assert!(adapter.store_record(&1, &"one".to_string()).await.is_ok());
+        let vals = adapter.get_last_n_records(1).await.unwrap();
+
+        assert_eq!((1, "one".to_string()), vals[0]);
     }
 }
