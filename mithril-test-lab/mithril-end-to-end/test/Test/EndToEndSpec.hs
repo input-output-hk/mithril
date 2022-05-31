@@ -22,8 +22,7 @@ import Logging (ClusterLog (..))
 import Mithril.Aggregator
   ( Aggregator (..),
     Certificate (Certificate, signers),
-    CertificatePending (CertificatePending, beacon),
-    digestOf,
+    Snapshot (Snapshot, digest),
     withAggregator,
   )
 import Mithril.Client (runClient)
@@ -32,7 +31,6 @@ import Network.HTTP.Simple
   ( HttpException,
     getResponseBody,
     getResponseStatusCode,
-    httpJSON,
     httpLBS,
     parseRequest,
   )
@@ -110,13 +108,16 @@ assertNodeIsProducingSnapshot _tracer _cardanoNode aggregatorPort = go 10
     go :: Int -> IO Text
     go 0 = failure "Timeout exhausted"
     go n = do
-      request <- parseRequest $ "http://localhost:" <> show aggregatorPort <> "/aggregator/certificate-pending"
+      request <- parseRequest $ "http://localhost:" <> show aggregatorPort <> "/aggregator/snapshots"
       response <- httpLBS request
       case getResponseStatusCode response of
-        204 -> threadDelay 1 >> go (n -1)
+        404 -> threadDelay 1 >> go (n -1)
         200 -> do
-          CertificatePending {beacon} <- getResponseBody <$> httpJSON request
-          pure $ digestOf beacon
+          let body = getResponseBody response
+          case eitherDecode body of
+            Right (Snapshot {digest}:_) -> pure $ show digest
+            Right _ -> threadDelay 1 >> go (n -1)
+            Left err -> failure $ "invalid snapshot body : " <> show err <> ", raw body: '" <> show body <> "'"
         other -> failure $ "unexpected status code: " <> show other
 
 assertNetworkIsProducingBlock :: Tracer IO ClusterLog -> RunningCluster -> IO ()
