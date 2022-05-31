@@ -11,7 +11,7 @@ pub struct MemoryAdapter<K, V> {
 impl<K, V> MemoryAdapter<K, V>
 where
     K: Hash + Eq + Send + Sync,
-    V: Send + Sync,
+    V: Send + Sync + Clone,
 {
     #[allow(dead_code)]
     pub fn new(data: Option<Vec<(K, V)>>) -> Result<Self, AdapterError> {
@@ -42,7 +42,7 @@ where
 impl<K, V> StoreAdapter for MemoryAdapter<K, V>
 where
     K: Hash + Eq + Send + Sync,
-    V: Send + Sync,
+    V: Send + Sync + Clone,
 {
     type Key = K;
     type Record = V;
@@ -55,8 +55,11 @@ where
         todo!()
     }
 
-    async fn get_record(&self, _key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
-        todo!()
+    async fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
+        match self.values.get(key) {
+            Some(val) => Ok(Some(val.clone())),
+            None => Ok(None),
+        }
     }
 
     async fn record_exists(&self, key: &Self::Key) -> Result<bool, AdapterError> {
@@ -99,5 +102,22 @@ mod tests {
         let adapter = init_adapter(2);
 
         assert!(!adapter.record_exists(&0).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn read_existing_record() {
+        let adapter = init_adapter(2);
+        let val = adapter.get_record(&2).await.unwrap();
+
+        assert!(val.is_some());
+        assert_eq!("value 2".to_string(), val.unwrap());
+    }
+
+    #[tokio::test]
+    async fn read_unexisting_record() {
+        let adapter = init_adapter(2);
+        let val = adapter.get_record(&0).await.unwrap();
+
+        assert!(val.is_none());
     }
 }
