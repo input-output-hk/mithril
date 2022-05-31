@@ -3,7 +3,7 @@ use super::{BeaconStoreError, ProtocolError, SnapshotError, Snapshotter};
 
 use mithril_common::crypto_helper::Bytes;
 use mithril_common::digesters::{Digester, DigesterError, ImmutableDigester};
-use mithril_common::entities::Beacon;
+use mithril_common::entities::{Beacon, Certificate};
 use mithril_common::fake_data;
 
 use crate::dependency::{CertificatePendingStoreWrapper, CertificateStoreWrapper};
@@ -36,6 +36,9 @@ pub enum RuntimeError {
 
     #[error("snapshot store error")]
     SnapshotStore(#[from] SnapshotStoreError),
+
+    #[error("certificate store error")]
+    CertificateStore(String),
 
     #[error("snapshot uploader error: {0}")]
     SnapshotUploader(String),
@@ -136,7 +139,7 @@ impl AggregatorRuntime {
                 let message = &digest_result.digest.clone().into_bytes();
 
                 match self.manage_trigger_snapshot(message, &beacon).await {
-                    Ok(true) => {
+                    Ok(Some(certificate)) => {
                         let snapshot_name =
                             format!("{}.{}.tar.gz", self.network, &digest_result.digest);
                         let snapshot_path = snapshotter.snapshot(&snapshot_name)?;
@@ -148,6 +151,7 @@ impl AggregatorRuntime {
                             .map_err(RuntimeError::SnapshotUploader)?;
                         let new_snapshot = build_new_snapshot(
                             digest_result.digest,
+                            certificate.hash.to_owned(),
                             &snapshot_path,
                             uploaded_snapshot_location,
                         )?;
@@ -156,9 +160,15 @@ impl AggregatorRuntime {
                         let mut snapshot_store = self.snapshot_store.write().await;
                         snapshot_store.add_snapshot(new_snapshot).await?;
 
+                        let mut certificate_store = self.certificate_store.write().await;
+                        certificate_store
+                            .save(certificate)
+                            .await
+                            .map_err(|e| RuntimeError::CertificateStore(e.to_string()))?;
+
                         Ok(())
                     }
-                    Ok(false) => Ok(()),
+                    Ok(None) => Ok(()),
                     Err(err) => Err(err),
                 }
             }
@@ -174,7 +184,7 @@ impl AggregatorRuntime {
         &self,
         message: &Bytes,
         beacon: &Beacon,
-    ) -> Result<bool, RuntimeError> {
+    ) -> Result<Option<Certificate>, RuntimeError> {
         let mut multi_signer = self.multi_signer.write().await;
         let mut beacon_store = self.beacon_store.write().await;
         match multi_signer.get_multi_signature() {
@@ -190,20 +200,22 @@ impl AggregatorRuntime {
                                 .unwrap()
                                 .encode_hex::<String>()
                         );
-                        //TODO: save signature here
+                        let previous_hash = "".to_string();
+                        Ok(multi_signer.create_certificate(beacon.clone(), previous_hash)?)
                     }
                     Ok(None) => {
                         warn!("Not ready to create a multi signature: quorum is not reached yet");
+                        Ok(None)
                     }
                     Err(e) => {
                         warn!("Error while creating a multi signature: {}", e);
+                        Err(RuntimeError::MultiSigner(e))
                     }
                 }
-                Ok(true)
             }
             Ok(_) => {
                 beacon_store.reset_current_beacon().await?;
-                Ok(false)
+                Ok(None)
             }
             Err(err) => {
                 beacon_store.reset_current_beacon().await?;
@@ -215,6 +227,7 @@ impl AggregatorRuntime {
 
 fn build_new_snapshot(
     digest: String,
+    certificate_hash: String,
     snapshot_filepath: &Path,
     uploaded_snapshot_location: SnapshotLocation,
 ) -> Result<Snapshot, RuntimeError> {
@@ -225,8 +238,8 @@ fn build_new_snapshot(
     let size: u64 = tar_gz.seek(SeekFrom::End(0))?;
 
     Ok(Snapshot::new(
-        digest.clone(),
         digest,
+        certificate_hash,
         size,
         created_at,
         vec![uploaded_snapshot_location],
