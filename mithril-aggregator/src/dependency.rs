@@ -1,5 +1,5 @@
 use crate::beacon_store::BeaconStore;
-use crate::CertificatePendingStore;
+use crate::{CertificatePendingStore, CertificateStore};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -18,6 +18,8 @@ pub type MultiSignerWrapper = Arc<RwLock<dyn MultiSigner>>;
 
 pub type CertificatePendingStoreWrapper = Arc<RwLock<CertificatePendingStore>>;
 
+pub type CertificateStoreWrapper = Arc<RwLock<CertificateStore>>;
+
 /// DependencyManager handles the dependencies
 pub struct DependencyManager {
     pub config: Config,
@@ -25,6 +27,7 @@ pub struct DependencyManager {
     pub multi_signer: Option<MultiSignerWrapper>,
     pub beacon_store: Option<BeaconStoreWrapper>,
     pub certificate_pending_store: Option<CertificatePendingStoreWrapper>,
+    pub certificate_store: Option<CertificateStoreWrapper>,
 }
 
 impl DependencyManager {
@@ -36,6 +39,7 @@ impl DependencyManager {
             multi_signer: None,
             beacon_store: None,
             certificate_pending_store: None,
+            certificate_store: None,
         }
     }
 
@@ -62,6 +66,14 @@ impl DependencyManager {
         certificate_pending_store: CertificatePendingStoreWrapper,
     ) -> &mut Self {
         self.certificate_pending_store = Some(certificate_pending_store);
+        self
+    }
+
+    pub fn with_certificate_store(
+        &mut self,
+        certificate_store: CertificateStoreWrapper,
+    ) -> &mut Self {
+        self.certificate_store = Some(certificate_store);
         self
     }
 }
