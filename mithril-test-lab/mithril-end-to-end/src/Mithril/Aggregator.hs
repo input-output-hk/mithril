@@ -52,6 +52,15 @@ data CertificatePending = CertificatePending
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
+data Snapshot = Snapshot
+  { digest :: Text,
+    certificate_hash :: Text,
+    size :: Word64,
+    created_at :: UTCTime,
+    locations :: [Text]
+  }
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+
 data Beacon = Beacon
   { network :: Text,
     epoch :: Word64,

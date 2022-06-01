@@ -10,7 +10,8 @@ use warp::Future;
 use warp::{http::Method, http::StatusCode, Filter};
 
 use super::dependency::{
-    BeaconStoreWrapper, DependencyManager, MultiSignerWrapper, SnapshotStoreWrapper,
+    BeaconStoreWrapper, CertificateStoreWrapper, DependencyManager, MultiSignerWrapper,
+    SnapshotStoreWrapper,
 };
 use super::multi_signer;
 use super::Config;
@@ -86,8 +87,7 @@ mod router {
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("certificate" / String)
             .and(warp::get())
-            .and(with_beacon_store(dependency_manager.clone()))
-            .and(with_multi_signer(dependency_manager))
+            .and(with_certificate_store(dependency_manager))
             .and_then(handlers::certificate_certificate_hash)
     }
 
@@ -155,6 +155,13 @@ mod router {
             .and_then(handlers::register_signatures)
     }
 
+    /// With beacon store middleware
+    fn with_beacon_store(
+        dependency_manager: Arc<DependencyManager>,
+    ) -> impl Filter<Extract = (BeaconStoreWrapper,), Error = Infallible> + Clone {
+        warp::any().map(move || dependency_manager.beacon_store.as_ref().unwrap().clone())
+    }
+
     /// With snapshot store middleware
     fn with_snapshot_store(
         dependency_manager: Arc<DependencyManager>,
@@ -162,18 +169,24 @@ mod router {
         warp::any().map(move || dependency_manager.snapshot_store.as_ref().unwrap().clone())
     }
 
+    /// With certificate store middleware
+    fn with_certificate_store(
+        dependency_manager: Arc<DependencyManager>,
+    ) -> impl Filter<Extract = (CertificateStoreWrapper,), Error = Infallible> + Clone {
+        warp::any().map(move || {
+            dependency_manager
+                .certificate_store
+                .as_ref()
+                .unwrap()
+                .clone()
+        })
+    }
+
     /// With multi signer middleware
     fn with_multi_signer(
         dependency_manager: Arc<DependencyManager>,
     ) -> impl Filter<Extract = (MultiSignerWrapper,), Error = Infallible> + Clone {
         warp::any().map(move || dependency_manager.multi_signer.as_ref().unwrap().clone())
-    }
-
-    /// With beacon store middleware
-    fn with_beacon_store(
-        dependency_manager: Arc<DependencyManager>,
-    ) -> impl Filter<Extract = (BeaconStoreWrapper,), Error = Infallible> + Clone {
-        warp::any().map(move || dependency_manager.beacon_store.as_ref().unwrap().clone())
     }
 
     /// With config middleware
@@ -273,38 +286,26 @@ mod handlers {
     /// Certificate by certificate hash
     pub async fn certificate_certificate_hash(
         certificate_hash: String,
-        beacon_store: BeaconStoreWrapper,
-        multi_signer: MultiSignerWrapper,
+        certificate_store: CertificateStoreWrapper,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("certificate_certificate_hash/{}", certificate_hash);
 
-        // TODO: This is temporary implementation that will be linked to certificate store
-        let multi_signer = multi_signer.read().await;
-        let beacon_store = beacon_store.read().await;
-        match beacon_store.get_current_beacon().await {
-            Ok(Some(beacon)) => {
-                let previous_hash = "".to_string();
-                match multi_signer.create_certificate(beacon, previous_hash) {
-                    Ok(Some(certificate)) => Ok(warp::reply::with_status(
-                        warp::reply::json(&certificate),
-                        StatusCode::OK,
-                    )),
-                    Ok(None) => Ok(warp::reply::with_status(
-                        warp::reply::json(&Null),
-                        StatusCode::NOT_FOUND,
-                    )),
-                    Err(err) => Ok(warp::reply::with_status(
-                        warp::reply::json(&entities::Error::new(
-                            "MITHRIL-E0005".to_string(),
-                            err.to_string(),
-                        )),
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                    )),
-                }
-            }
-            _ => Ok(warp::reply::with_status(
+        let certificate_store = certificate_store.read().await;
+        match certificate_store.get_from_hash(&certificate_hash).await {
+            Ok(Some(certificate)) => Ok(warp::reply::with_status(
+                warp::reply::json(&certificate),
+                StatusCode::OK,
+            )),
+            Ok(None) => Ok(warp::reply::with_status(
                 warp::reply::json(&Null),
                 StatusCode::NOT_FOUND,
+            )),
+            Err(err) => Ok(warp::reply::with_status(
+                warp::reply::json(&entities::Error::new(
+                    "MITHRIL-E0005".to_string(),
+                    err.to_string(),
+                )),
+                StatusCode::INTERNAL_SERVER_ERROR,
             )),
         }
     }
@@ -520,6 +521,9 @@ mod tests {
     use warp::test::request;
 
     use super::super::beacon_store::{BeaconStoreError, MockBeaconStore};
+    use super::super::certificate_store::dumb_adapter::DumbStoreAdapter;
+    use super::super::certificate_store::fail_adapter::FailStoreAdapter;
+    use super::super::certificate_store::CertificateStore;
     use super::super::entities::*;
     use super::super::multi_signer::MockMultiSigner;
     use super::super::multi_signer::ProtocolError;
@@ -728,18 +732,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_certificate_certificate_hash_get_ok() {
-        let mut beacon_store = MockBeaconStore::new();
-        beacon_store
-            .expect_get_current_beacon()
-            .return_once(|| Ok(Some(fake_data::beacon())));
-        let mut mock_multi_signer = MockMultiSigner::new();
-        mock_multi_signer
-            .expect_create_certificate()
-            .return_once(move |_, _| Ok(Some(fake_data::certificate("cert-hash-123".to_string()))));
+        let mut certificate_store = CertificateStore::new(Box::new(DumbStoreAdapter::<
+            String,
+            entities::Certificate,
+        >::new()));
+        certificate_store
+            .save(fake_data::certificate("cert-hash-123".to_string()))
+            .await
+            .expect("certificate store save should have succeeded");
         let mut dependency_manager = setup_dependency_manager();
-        dependency_manager
-            .with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)))
-            .with_beacon_store(Arc::new(RwLock::new(beacon_store)));
+        dependency_manager.with_certificate_store(Arc::new(RwLock::new(certificate_store)));
 
         let method = Method::GET.as_str();
         let path = "/certificate/{certificate_hash}";
@@ -761,18 +763,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_certificate_certificate_hash_get_ok_404() {
-        let mut beacon_store = MockBeaconStore::new();
-        beacon_store
-            .expect_get_current_beacon()
-            .return_once(|| Ok(Some(fake_data::beacon())));
-        let mut mock_multi_signer = MockMultiSigner::new();
-        mock_multi_signer
-            .expect_create_certificate()
-            .return_once(move |_, _| Ok(None));
+        let certificate_store = CertificateStore::new(Box::new(DumbStoreAdapter::<
+            String,
+            entities::Certificate,
+        >::new()));
         let mut dependency_manager = setup_dependency_manager();
-        dependency_manager
-            .with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)))
-            .with_beacon_store(Arc::new(RwLock::new(beacon_store)));
+        dependency_manager.with_certificate_store(Arc::new(RwLock::new(certificate_store)));
 
         let method = Method::GET.as_str();
         let path = "/certificate/{certificate_hash}";
@@ -794,18 +790,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_certificate_certificate_hash_get_ko() {
-        let mut beacon_store = MockBeaconStore::new();
-        beacon_store
-            .expect_get_current_beacon()
-            .return_once(|| Ok(Some(fake_data::beacon())));
-        let mut mock_multi_signer = MockMultiSigner::new();
-        mock_multi_signer
-            .expect_create_certificate()
-            .return_once(move |_, _| Err(ProtocolError::Codec("an error occurred".to_string())));
+        let certificate_store = CertificateStore::new(Box::new(FailStoreAdapter::<
+            String,
+            entities::Certificate,
+        >::new()));
         let mut dependency_manager = setup_dependency_manager();
-        dependency_manager
-            .with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)))
-            .with_beacon_store(Arc::new(RwLock::new(beacon_store)));
+        dependency_manager.with_certificate_store(Arc::new(RwLock::new(certificate_store)));
 
         let method = Method::GET.as_str();
         let path = "/certificate/{certificate_hash}";
