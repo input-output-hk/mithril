@@ -89,7 +89,7 @@ jobs:
       - name: Run tests
         shell: bash
         run: |
-          set -o pipefail && cargo test --release -p $CARGO_PROJECT_NAME -- -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-${{ matrix.project }}.xml)
+          set -o pipefail && cargo test --release -p $CARGO_PROJECT_NAME -- --test-threads 1 -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-${{ matrix.project }}.xml)
 
       - name: Upload Tests Results
         if: always()
