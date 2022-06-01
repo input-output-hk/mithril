@@ -33,7 +33,7 @@ services:
       - GOOGLE_APPLICATION_CREDENTIALS_JSON=${GOOGLE_APPLICATION_CREDENTIALS_JSON}
       - NETWORK=${NETWORK:-testnet}
       - URL_SNAPSHOT_MANIFEST=https://storage.googleapis.com/cardano-${NETWORK:-testnet}/snapshots.json
-      - SNAPSHOT_STORE_TYPE=gcp
+      - SNAPSHOT_STORE_TYPE=local
       - SNAPSHOT_UPLOADER_TYPE=gcp
       - PENDING_CERTIFICATE_STORE_DIRECTORY=/tmp/mithril/pending_cert_db
       - CERTIFICATE_STORE_DIRECTORY=/tmp/mithril/cert_db
