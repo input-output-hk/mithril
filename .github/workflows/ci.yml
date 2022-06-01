@@ -91,23 +91,13 @@ jobs:
         run: |
           set -o pipefail && cargo test --release -p $CARGO_PROJECT_NAME -- --test-threads 1 -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-${{ matrix.project }}.xml)
 
-      - name: Run tests 2
-        if: always()
-        shell: bash
-        run: |
-          set -o pipefail && cargo test --release -p $CARGO_PROJECT_NAME -- --test-threads 1 -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-${{ matrix.project }}.xml)
-
-      - name: Run tests 3
-        if: always()
-        shell: bash
-        run: |
-          set -o pipefail && cargo test --release -p $CARGO_PROJECT_NAME -- --test-threads 1 -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-${{ matrix.project }}.xml)
-
-      - name: Run tests 4
-        if: always()
-        shell: bash
-        run: |
-          set -o pipefail && cargo test --release -p $CARGO_PROJECT_NAME -- --test-threads 1 -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-${{ matrix.project }}.xml)
+      - name: Publish ${{ matrix.project }} deps
+        uses: actions/upload-artifact@v3
+        if: ${{ failure() }}
+        with:
+          name: ${{ matrix.project }}
+          path: |
+            target/release/deps/mithril_*
 
 #      - name: Upload Tests Results
 #        if: always()
