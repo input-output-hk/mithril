@@ -31,7 +31,7 @@ where
         }
 
         Ok(Self {
-            dirpath: dirpath,
+            dirpath,
             key: PhantomData,
             value: PhantomData,
         })
