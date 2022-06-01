@@ -56,7 +56,7 @@ signerProcess cwd aggregatorEndpoint = do
           [ ("AGGREGATOR_ENDPOINT", toString aggregatorEndpoint),
             ("NETWORK", "testnet"),
             ("PARTY_ID", "0"),
-            ("RUN_INTERVAL", "2"),
+            ("RUN_INTERVAL", "2000"),
             ("DB_DIRECTORY", "db")
           ]
             <> baseEnv
