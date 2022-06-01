@@ -61,364 +61,379 @@ jobs:
         run: |
           cargo install cargo2junit 2>/dev/null || true # Suppress the "binary `cargo2junit` already exists in destination" error
       
-      - name: Cargo build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --all-targets -p ${{ env.CARGO_PROJECT_NAME }}
-      
-      - name: Cargo check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --release --all-targets -p ${{ env.CARGO_PROJECT_NAME }}
-
-      - name: Clippy Check
-        uses: actions-rs/clippy-check@v1
-        with:
-          name: clippy-${{ matrix.project }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --release --all-features -p ${{ env.CARGO_PROJECT_NAME }}
-
-      - name: Cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -p ${{ env.CARGO_PROJECT_NAME }}
+#      - name: Cargo build
+#        uses: actions-rs/cargo@v1
+#        with:
+#          command: build
+#          args: --release --all-targets -p ${{ env.CARGO_PROJECT_NAME }}
+#
+#      - name: Cargo check
+#        uses: actions-rs/cargo@v1
+#        with:
+#          command: check
+#          args: --release --all-targets -p ${{ env.CARGO_PROJECT_NAME }}
+#
+#      - name: Clippy Check
+#        uses: actions-rs/clippy-check@v1
+#        with:
+#          name: clippy-${{ matrix.project }}
+#          token: ${{ secrets.GITHUB_TOKEN }}
+#          args: --release --all-features -p ${{ env.CARGO_PROJECT_NAME }}
+#
+#      - name: Cargo fmt
+#        uses: actions-rs/cargo@v1
+#        with:
+#          command: fmt
+#          args: --all -p ${{ env.CARGO_PROJECT_NAME }}
 
       - name: Run tests
         shell: bash
         run: |
           set -o pipefail && cargo test --release -p $CARGO_PROJECT_NAME -- --test-threads 1 -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-${{ matrix.project }}.xml)
 
-      - name: Upload Tests Results
-        if: always()
-        uses: actions/upload-artifact@v3
-        with:
-          name: test-results-${{ matrix.project }}
-          path: |
-            ./**/test-results-*.xml
-      
-      - name: Generate ${{ matrix.project }} doc
-        uses: actions-rs/cargo@v1
-        with:
-          command: doc
-          args: --no-deps --release -p ${{ env.CARGO_PROJECT_NAME }}
-
-      - name: Publish ${{ matrix.project }}
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ matrix.project }}
-          path: |
-            target/release/${{ env.ARTIFACTS_PATTERN }}*
-          if-no-files-found: error
-
-      - name: Publish ${{ matrix.project }}-doc
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ matrix.project }}-doc
-          if-no-files-found: error
-          path: |
-            target/doc/
-
-  docker-mithril:
-    runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' }}
-    needs: [ build ]
-    strategy:
-      fail-fast: false
-      matrix:
-        project: [ mithril-aggregator, mithril-client, mithril-signer ]
-    
-    permissions:
-      contents: read
-      packages: write
-
-    env:
-      PUSH_PACKAGES: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-      REGISTRY: ghcr.io
-      IMAGE_NAME: ${{ github.repository_owner }}/${{ matrix.project }}
-      DOCKER_FILE: ./${{ matrix.project }}/Dockerfile.ci
-      CONTEXT: .
-      GITHUB_REF: ${{ github.ref}}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
-      - name: Log in to the Container registry
-        uses: docker/login-action@v1
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata (tags, labels) for Docker
-        id: meta
-        uses: docker/metadata-action@v3
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags:
-            type=raw,value={{branch}}-{{sha}}
-
-      - name: Download ${{ matrix.project }} executable
-        uses: actions/download-artifact@v3
-        with:
-          name: ${{ matrix.project }}
-          path: ${{ matrix.project }}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v2
-        with:
-          context: ${{ env.CONTEXT }}
-          file: ${{ env.DOCKER_FILE }}
-          push: ${{ env.PUSH_PACKAGES }}
-          tags: ${{ steps.meta.outputs.tags }}
-          
-  publish-tests-results:
-    if: github.event.pull_request.draft == false && ${{ always() }}
-    runs-on: ubuntu-latest
-    needs: [ build ]
-    steps:
-      - name: Download mithril-core Tests Results
-        if: always()
-        uses: actions/download-artifact@v3
-        with:
-          name: test-results-mithril-core
-
-      - name: Download mithril-common Tests Results
-        if: always()
-        uses: actions/download-artifact@v3
-        with:
-          name: test-results-mithril-common
-      
-      - name: Download mithril-aggregator Tests Results
-        if: always()
-        uses: actions/download-artifact@v3
-        with:
-          name: test-results-mithril-aggregator
-
-      - name: Download mithril-client Tests Results
-        if: always()
-        uses: actions/download-artifact@v3
-        with:
-          name: test-results-mithril-client
-
-      - name: Download mithril-signer Tests Results
-        if: always()
-        uses: actions/download-artifact@v3
-        with:
-          name: test-results-mithril-signer
-      
-      - name: Publish Unit Test Results
-        if: always()
-        uses: EnricoMi/publish-unit-test-result-action@v1
-        with:
-          files: ./**/test-results-*.xml
-
-  generate-publish-docs:
-    if: github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
-    needs:
-      - build
-      - docker-mithril
-      - run-test-lab
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v2
-
-      - name: Download mithril-core-doc artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: mithril-core-doc
-          path: ./github-pages/mithril-core/doc
-
-      - name: Download mithril-common-doc artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: mithril-common-doc
-          path: ./github-pages/mithril-common/doc
-
-      - name: Download aggregator-doc artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: mithril-aggregator-doc
-          path: ./github-pages/mithril-aggregator/doc
-
-      - name: Download client-doc artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: mithril-client-doc
-          path: ./github-pages/mithril-client/doc
-
-      - name: Download signer-doc artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: mithril-signer-doc
-          path: ./github-pages/mithril-signer/doc
-
-      - name: Mithril Aggregator / Generate OpenAPI UI
-        uses: Legion2/swagger-ui-action@v1
-        with:
-          output: ./github-pages/openapi-ui
-          spec-file: ./openapi.yaml
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 16
-          cache: 'yarn'
-          cache-dependency-path: docs/yarn.lock
-
-      - name: Documentation (Docusaurus)
-        working-directory: docs
+      - name: Run tests 2
+        shell: bash
         run: |
-          yarn && yarn build
-          mkdir -p ../github-pages/doc
-          mv build/* ../github-pages/doc
-          echo "mithril.network" > ../github-pages/CNAME
-          echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://mithril.network/doc"></head></html>' > ../github-pages/index.html
+          set -o pipefail && cargo test --release -p $CARGO_PROJECT_NAME -- --test-threads 1 -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-${{ matrix.project }}.xml)
 
-      - name: Mithril / Publish Github Pages
-        uses: peaceiris/actions-gh-pages@v3
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
-          publish_dir: ./github-pages
-
-  run-test-lab:
-    runs-on: ubuntu-latest
-    needs: [ build ]
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v2
-
-      - name: Prepare nix
-        uses: cachix/install-nix-action@v13
-        with:
-          extra_nix_config: |
-            trusted-public-keys = iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
-            substituters = https://cache.nixos.org https://hydra.iohk.io https://iohk.cachix.org
-
-      - name: Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cabal/packages
-            ~/.cabal/store
-            mithril-test-lab/dist-newstyle
-          key: |
-            cabal-${{ runner.os }}-${{ hashFiles('mithril-test-lab/cabal.project', 'shell.nix') }}
-
-      - name: Prepare nix-shell
+      - name: Run tests 3
+        shell: bash
         run: |
-          nix-build shell.nix
+          set -o pipefail && cargo test --release -p $CARGO_PROJECT_NAME -- --test-threads 1 -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-${{ matrix.project }}.xml)
 
-      - name: Download aggregator
-        uses: actions/download-artifact@v3
-        with:
-          name: mithril-aggregator
-          path: ~/.cabal/bin/
+      - name: Run tests 4
+        shell: bash
+        run: |
+          set -o pipefail && cargo test --release -p $CARGO_PROJECT_NAME -- --test-threads 1 -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-${{ matrix.project }}.xml)
 
-      - name: Download signer
-        uses: actions/download-artifact@v3
-        with:
-          name: mithril-signer
-          path: ~/.cabal/bin/
+#      - name: Upload Tests Results
+#        if: always()
+#        uses: actions/upload-artifact@v3
+#        with:
+#          name: test-results-${{ matrix.project }}
+#          path: |
+#            ./**/test-results-*.xml
+#
+#      - name: Generate ${{ matrix.project }} doc
+#        uses: actions-rs/cargo@v1
+#        with:
+#          command: doc
+#          args: --no-deps --release -p ${{ env.CARGO_PROJECT_NAME }}
+#
+#      - name: Publish ${{ matrix.project }}
+#        uses: actions/upload-artifact@v3
+#        with:
+#          name: ${{ matrix.project }}
+#          path: |
+#            target/release/${{ env.ARTIFACTS_PATTERN }}*
+#          if-no-files-found: error
+#
+#      - name: Publish ${{ matrix.project }}-doc
+#        uses: actions/upload-artifact@v3
+#        with:
+#          name: ${{ matrix.project }}-doc
+#          if-no-files-found: error
+#          path: |
+#            target/doc/
 
-      - name: Download client
-        uses: actions/download-artifact@v3
-        with:
-          name: mithril-client
-          path: ~/.cabal/bin/
-
-      - run: |
-          chmod +x ~/.cabal/bin/mithril-aggregator
-          chmod +x ~/.cabal/bin/mithril-client
-          chmod +x ~/.cabal/bin/mithril-signer
-
-
-      - name: Build
-        run: nix-shell --run '.github/workflows/ci-build.sh'
-
-      - name: Test
-        env:
-          NETWORK: testnet
-          URL_SNAPSHOT_MANIFEST: https://storage.googleapis.com/cardano-testnet/snapshots.json
-        run: nix-shell --run '.github/workflows/ci-test.sh'
-
-  terraform:
-    runs-on: ubuntu-latest
-    needs:
-      - build
-      - docker-mithril
-      - run-test-lab
-    env:
-      # Contains a JSON-formatted service account key
-      GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
-      # Contains a RSA private key
-      GCLOUD_PRIVATE_KEY: ${{ secrets.GCLOUD_PRIVATE_KEY }}
-      BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
-
-    defaults:
-      run:
-        working-directory: mithril-infra
-
-    steps:
-
-    - name: Checkout sources
-      uses: actions/checkout@v2
-
-    - name: Get short SHA
-      id: slug
-      run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-7)"
-
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v1
-      with:
-        terraform_wrapper: false
-
-    - name: Init Terraform
-      run: terraform init
-
-    - name: Check Terraform
-      run: terraform fmt -check
-
-    - name: Terraform Plan
-      run: |
-        terraform plan -var "image_id=${{ env.BRANCH_NAME }}-${{ steps.slug.outputs.sha8 }}" -var 'private_key=${{ env.GCLOUD_PRIVATE_KEY }}' -var 'google_application_credentials_json=${{ env.GOOGLE_CREDENTIALS }}'
-
-    - name: Update Pull Request
-      uses: actions/github-script@v6
-      if: github.event_name == 'pull_request'
-      env:
-        PLAN: "terraform\n${{ steps.plan.outputs.stdout }}"
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        script: |
-          const output = `#### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
-          #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
-          #### Terraform Plan 📖\`${{ steps.plan.outcome }}\`
-          #### Terraform Validation 🤖\`${{ steps.validate.outcome }}\`
-
-          <details><summary>Show Plan</summary>
-
-          \`\`\`\n
-          ${process.env.PLAN}
-          \`\`\`
-
-          </details>
-
-          *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
-
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: output
-          })
-
-    - name: Terraform Apply
-      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-      run: |
-        terraform apply -auto-approve  -var "image_id=${{ env.BRANCH_NAME }}-${{ steps.slug.outputs.sha8 }}" -var 'private_key=${{ env.GCLOUD_PRIVATE_KEY }}' -var 'google_application_credentials_json=${{ env.GOOGLE_CREDENTIALS }}'
+#  docker-mithril:
+#    runs-on: ubuntu-latest
+#    if: ${{ github.event_name == 'push' }}
+#    needs: [ build ]
+#    strategy:
+#      fail-fast: false
+#      matrix:
+#        project: [ mithril-aggregator, mithril-client, mithril-signer ]
+#
+#    permissions:
+#      contents: read
+#      packages: write
+#
+#    env:
+#      PUSH_PACKAGES: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+#      REGISTRY: ghcr.io
+#      IMAGE_NAME: ${{ github.repository_owner }}/${{ matrix.project }}
+#      DOCKER_FILE: ./${{ matrix.project }}/Dockerfile.ci
+#      CONTEXT: .
+#      GITHUB_REF: ${{ github.ref}}
+#
+#    steps:
+#      - name: Checkout
+#        uses: actions/checkout@v2
+#
+#      - name: Log in to the Container registry
+#        uses: docker/login-action@v1
+#        with:
+#          registry: ${{ env.REGISTRY }}
+#          username: ${{ github.actor }}
+#          password: ${{ secrets.GITHUB_TOKEN }}
+#
+#      - name: Extract metadata (tags, labels) for Docker
+#        id: meta
+#        uses: docker/metadata-action@v3
+#        with:
+#          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+#          tags:
+#            type=raw,value={{branch}}-{{sha}}
+#
+#      - name: Download ${{ matrix.project }} executable
+#        uses: actions/download-artifact@v3
+#        with:
+#          name: ${{ matrix.project }}
+#          path: ${{ matrix.project }}
+#
+#      - name: Build and push Docker image
+#        uses: docker/build-push-action@v2
+#        with:
+#          context: ${{ env.CONTEXT }}
+#          file: ${{ env.DOCKER_FILE }}
+#          push: ${{ env.PUSH_PACKAGES }}
+#          tags: ${{ steps.meta.outputs.tags }}
+#
+#  publish-tests-results:
+#    if: github.event.pull_request.draft == false && ${{ always() }}
+#    runs-on: ubuntu-latest
+#    needs: [ build ]
+#    steps:
+#      - name: Download mithril-core Tests Results
+#        if: always()
+#        uses: actions/download-artifact@v3
+#        with:
+#          name: test-results-mithril-core
+#
+#      - name: Download mithril-common Tests Results
+#        if: always()
+#        uses: actions/download-artifact@v3
+#        with:
+#          name: test-results-mithril-common
+#
+#      - name: Download mithril-aggregator Tests Results
+#        if: always()
+#        uses: actions/download-artifact@v3
+#        with:
+#          name: test-results-mithril-aggregator
+#
+#      - name: Download mithril-client Tests Results
+#        if: always()
+#        uses: actions/download-artifact@v3
+#        with:
+#          name: test-results-mithril-client
+#
+#      - name: Download mithril-signer Tests Results
+#        if: always()
+#        uses: actions/download-artifact@v3
+#        with:
+#          name: test-results-mithril-signer
+#
+#      - name: Publish Unit Test Results
+#        if: always()
+#        uses: EnricoMi/publish-unit-test-result-action@v1
+#        with:
+#          files: ./**/test-results-*.xml
+#
+#  generate-publish-docs:
+#    if: github.event.pull_request.draft == false
+#    runs-on: ubuntu-latest
+#    needs:
+#      - build
+#      - docker-mithril
+#      - run-test-lab
+#    steps:
+#      - name: Checkout sources
+#        uses: actions/checkout@v2
+#
+#      - name: Download mithril-core-doc artifact
+#        uses: actions/download-artifact@v3
+#        with:
+#          name: mithril-core-doc
+#          path: ./github-pages/mithril-core/doc
+#
+#      - name: Download mithril-common-doc artifact
+#        uses: actions/download-artifact@v3
+#        with:
+#          name: mithril-common-doc
+#          path: ./github-pages/mithril-common/doc
+#
+#      - name: Download aggregator-doc artifact
+#        uses: actions/download-artifact@v3
+#        with:
+#          name: mithril-aggregator-doc
+#          path: ./github-pages/mithril-aggregator/doc
+#
+#      - name: Download client-doc artifact
+#        uses: actions/download-artifact@v3
+#        with:
+#          name: mithril-client-doc
+#          path: ./github-pages/mithril-client/doc
+#
+#      - name: Download signer-doc artifact
+#        uses: actions/download-artifact@v3
+#        with:
+#          name: mithril-signer-doc
+#          path: ./github-pages/mithril-signer/doc
+#
+#      - name: Mithril Aggregator / Generate OpenAPI UI
+#        uses: Legion2/swagger-ui-action@v1
+#        with:
+#          output: ./github-pages/openapi-ui
+#          spec-file: ./openapi.yaml
+#
+#      - name: Setup Node.js
+#        uses: actions/setup-node@v3
+#        with:
+#          node-version: 16
+#          cache: 'yarn'
+#          cache-dependency-path: docs/yarn.lock
+#
+#      - name: Documentation (Docusaurus)
+#        working-directory: docs
+#        run: |
+#          yarn && yarn build
+#          mkdir -p ../github-pages/doc
+#          mv build/* ../github-pages/doc
+#          echo "mithril.network" > ../github-pages/CNAME
+#          echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://mithril.network/doc"></head></html>' > ../github-pages/index.html
+#
+#      - name: Mithril / Publish Github Pages
+#        uses: peaceiris/actions-gh-pages@v3
+#        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+#        with:
+#          github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
+#          publish_dir: ./github-pages
+#
+#  run-test-lab:
+#    runs-on: ubuntu-latest
+#    needs: [ build ]
+#    steps:
+#      - name: Checkout sources
+#        uses: actions/checkout@v2
+#
+#      - name: Prepare nix
+#        uses: cachix/install-nix-action@v13
+#        with:
+#          extra_nix_config: |
+#            trusted-public-keys = iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
+#            substituters = https://cache.nixos.org https://hydra.iohk.io https://iohk.cachix.org
+#
+#      - name: Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
+#        uses: actions/cache@v3
+#        with:
+#          path: |
+#            ~/.cabal/packages
+#            ~/.cabal/store
+#            mithril-test-lab/dist-newstyle
+#          key: |
+#            cabal-${{ runner.os }}-${{ hashFiles('mithril-test-lab/cabal.project', 'shell.nix') }}
+#
+#      - name: Prepare nix-shell
+#        run: |
+#          nix-build shell.nix
+#
+#      - name: Download aggregator
+#        uses: actions/download-artifact@v3
+#        with:
+#          name: mithril-aggregator
+#          path: ~/.cabal/bin/
+#
+#      - name: Download signer
+#        uses: actions/download-artifact@v3
+#        with:
+#          name: mithril-signer
+#          path: ~/.cabal/bin/
+#
+#      - name: Download client
+#        uses: actions/download-artifact@v3
+#        with:
+#          name: mithril-client
+#          path: ~/.cabal/bin/
+#
+#      - run: |
+#          chmod +x ~/.cabal/bin/mithril-aggregator
+#          chmod +x ~/.cabal/bin/mithril-client
+#          chmod +x ~/.cabal/bin/mithril-signer
+#
+#
+#      - name: Build
+#        run: nix-shell --run '.github/workflows/ci-build.sh'
+#
+#      - name: Test
+#        env:
+#          NETWORK: testnet
+#          URL_SNAPSHOT_MANIFEST: https://storage.googleapis.com/cardano-testnet/snapshots.json
+#        run: nix-shell --run '.github/workflows/ci-test.sh'
+#
+#  terraform:
+#    runs-on: ubuntu-latest
+#    needs:
+#      - build
+#      - docker-mithril
+#      - run-test-lab
+#    env:
+#      # Contains a JSON-formatted service account key
+#      GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+#      # Contains a RSA private key
+#      GCLOUD_PRIVATE_KEY: ${{ secrets.GCLOUD_PRIVATE_KEY }}
+#      BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+#
+#    defaults:
+#      run:
+#        working-directory: mithril-infra
+#
+#    steps:
+#
+#    - name: Checkout sources
+#      uses: actions/checkout@v2
+#
+#    - name: Get short SHA
+#      id: slug
+#      run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-7)"
+#
+#    - name: Setup Terraform
+#      uses: hashicorp/setup-terraform@v1
+#      with:
+#        terraform_wrapper: false
+#
+#    - name: Init Terraform
+#      run: terraform init
+#
+#    - name: Check Terraform
+#      run: terraform fmt -check
+#
+#    - name: Terraform Plan
+#      run: |
+#        terraform plan -var "image_id=${{ env.BRANCH_NAME }}-${{ steps.slug.outputs.sha8 }}" -var 'private_key=${{ env.GCLOUD_PRIVATE_KEY }}' -var 'google_application_credentials_json=${{ env.GOOGLE_CREDENTIALS }}'
+#
+#    - name: Update Pull Request
+#      uses: actions/github-script@v6
+#      if: github.event_name == 'pull_request'
+#      env:
+#        PLAN: "terraform\n${{ steps.plan.outputs.stdout }}"
+#      with:
+#        github-token: ${{ secrets.GITHUB_TOKEN }}
+#        script: |
+#          const output = `#### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
+#          #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
+#          #### Terraform Plan 📖\`${{ steps.plan.outcome }}\`
+#          #### Terraform Validation 🤖\`${{ steps.validate.outcome }}\`
+#
+#          <details><summary>Show Plan</summary>
+#
+#          \`\`\`\n
+#          ${process.env.PLAN}
+#          \`\`\`
+#
+#          </details>
+#
+#          *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+#
+#          github.rest.issues.createComment({
+#            issue_number: context.issue.number,
+#            owner: context.repo.owner,
+#            repo: context.repo.repo,
+#            body: output
+#          })
+#
+#    - name: Terraform Apply
+#      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+#      run: |
+#        terraform apply -auto-approve  -var "image_id=${{ env.BRANCH_NAME }}-${{ steps.slug.outputs.sha8 }}" -var 'private_key=${{ env.GCLOUD_PRIVATE_KEY }}' -var 'google_application_credentials_json=${{ env.GOOGLE_CREDENTIALS }}'
