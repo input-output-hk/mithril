@@ -4,7 +4,7 @@ use mithril_common::entities::{Beacon, CertificatePending};
 
 use thiserror::Error;
 
-use super::{store_adapter::AdapterError, StoreAdapter};
+use super::{AdapterError, StoreAdapter};
 
 #[derive(Debug, Error)]
 pub enum StoreError {
@@ -48,7 +48,7 @@ impl CertificatePendingStore {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::certificate_store::dumb_adapter::DumbStoreAdapter;
+    use crate::store::adapter::DumbStoreAdapter;
     use mithril_common::fake_data;
 
     async fn get_certificate_pending_store(size: u64) -> CertificatePendingStore {

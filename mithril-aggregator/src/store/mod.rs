@@ -1,19 +1,12 @@
 // TODO: Rename the module to avoid module inception 9https://rust-lang.github.io/rust-clippy/master/index.html#module_inception)
 #[allow(clippy::module_inception)]
+pub mod adapter;
 mod certificate_store;
-mod jsonfile_store_adapter;
-mod memory_adapter;
 mod pending_certificate_store;
-mod store_adapter;
 
+pub use adapter::{AdapterError, JsonFileStoreAdapter, MemoryAdapter, StoreAdapter};
 pub use certificate_store::{CertificateStore, StoreError as CertificateStoreError};
-pub use jsonfile_store_adapter::JsonFileStoreAdapter;
-pub use memory_adapter::MemoryAdapter;
 pub use pending_certificate_store::CertificatePendingStore;
-pub use store_adapter::{AdapterError, StoreAdapter};
 
 #[cfg(test)]
-pub mod dumb_adapter;
-
-#[cfg(test)]
-pub mod fail_adapter;
+pub use adapter::{DumbStoreAdapter, FailStoreAdapter};
