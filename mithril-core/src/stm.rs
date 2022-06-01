@@ -371,7 +371,7 @@ where
 
         let mt_commitment = MerkleTreeCommitment::<D> {
             root,
-            nr_leaves: nr_leaves as usize,
+            nr_leaves: usize::try_from(nr_leaves).map_err(|_| MultiSignatureError::SerializationError)?,
             hasher: Default::default(),
         };
 
