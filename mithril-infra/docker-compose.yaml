@@ -60,7 +60,7 @@ services:
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
       - NETWORK=testnet
       - PARTY_ID=0
-      - RUN_INTERVAL=2
+      - RUN_INTERVAL=2000
       - DB_DIRECTORY=/db
     volumes:
       - ./testnet/node.db:/db
@@ -77,7 +77,7 @@ services:
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
       - NETWORK=testnet
       - PARTY_ID=1
-      - RUN_INTERVAL=2
+      - RUN_INTERVAL=2000
       - DB_DIRECTORY=/db
     volumes:
       - ./testnet/node.db:/db
@@ -94,7 +94,7 @@ services:
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
       - NETWORK=testnet
       - PARTY_ID=2
-      - RUN_INTERVAL=2
+      - RUN_INTERVAL=2000
       - DB_DIRECTORY=/db
     volumes:
       - ./testnet/node.db:/db
@@ -111,7 +111,7 @@ services:
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
       - NETWORK=testnet
       - PARTY_ID=3
-      - RUN_INTERVAL=2
+      - RUN_INTERVAL=2000
       - DB_DIRECTORY=/db
     volumes:
       - ./testnet/node.db:/db
