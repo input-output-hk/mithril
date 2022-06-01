@@ -53,7 +53,7 @@ pub struct MerkleTreeCommitment<D: Digest + FixedOutput> {
     pub root: Vec<u8>,
     /// Number of leaves committed in the commitment
     pub nr_leaves: usize,
-    hasher: PhantomData<D>,
+    pub(crate) hasher: PhantomData<D>,
 }
 
 impl<D> MerkleTreeCommitment<D>
@@ -240,11 +240,7 @@ where
     /// * All nodes of the merkle tree (starting with the root)
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut result = Vec::with_capacity(8 + self.nodes.len() * D::output_size());
-        result.extend_from_slice(
-            &u64::try_from(self.n)
-                .unwrap()
-                .to_be_bytes(),
-        );
+        result.extend_from_slice(&u64::try_from(self.n).unwrap().to_be_bytes());
         for node in self.nodes.iter() {
             result.extend_from_slice(node);
         }
@@ -255,7 +251,8 @@ where
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MerkleTreeError> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(&bytes[..8]);
-        let n = usize::try_from(u64::from_be_bytes(u64_bytes)).map_err(|_| MerkleTreeError::SerializationError)?; // todo: handle the conversion
+        let n = usize::try_from(u64::from_be_bytes(u64_bytes))
+            .map_err(|_| MerkleTreeError::SerializationError)?; // todo: handle the conversion
         let num_nodes = n + n.next_power_of_two() - 1;
         let mut nodes = Vec::with_capacity(num_nodes);
         for i in 0..num_nodes {

@@ -138,7 +138,8 @@ mod tests {
     use rand_core::SeedableRng;
 
     fn arb_participants(min: usize, max: usize) -> impl Strategy<Value = Vec<(PartyId, Stake)>> {
-        vec(1..1u64<<60, min..=max).prop_map(|v| { // 1<<60 to avoid overflows
+        vec(1..1u64 << 60, min..=max).prop_map(|v| {
+            // 1<<60 to avoid overflows
             v.into_iter()
                 .enumerate()
                 .map(|(index, value)| (index as u64, value))

@@ -4,37 +4,70 @@ use serde::Serialize;
 
 ////////// Temporary trait, to understand the flaky tests ///////////
 
+use mithril::{multi_sig::*, stm::*};
+
 pub trait BytesConv: Sized {
-    fn from_bytes(bytes: &[u8]) -> Result<Self, String> {
-        Self::from_bytes(bytes).map_err(|_| "Failed to convert from bytes".to_owned())
+    fn from_byte(bytes: &[u8]) -> Result<Self, String>;
+    fn to_byte(&self) -> Vec<u8>;
+}
+
+impl BytesConv for VerificationKeyPoP {
+    fn from_byte(bytes: &[u8]) -> Result<Self, String> {
+        VerificationKeyPoP::from_bytes(bytes).map_err(|_| format!("Failed"))
     }
 
-    fn to_bytes(&self) -> Vec<u8> {
-        self.to_bytes()
+    fn to_byte(&self) -> Vec<u8> {
+        self.to_bytes().to_vec()
+    }
+}
+impl BytesConv for StmInitializer {
+    fn from_byte(bytes: &[u8]) -> Result<Self, String> {
+        StmInitializer::from_bytes(bytes).map_err(|_| format!("Failed"))
+    }
+
+    fn to_byte(&self) -> Vec<u8> {
+        self.to_bytes().to_vec()
     }
 }
 
-impl BytesConv for mithril::multi_sig::VerificationKeyPoP {}
-impl BytesConv for &mithril::multi_sig::VerificationKeyPoP {}
-impl BytesConv for mithril::stm::StmInitializer {}
-impl BytesConv for &mithril::stm::StmInitializer {}
-impl BytesConv for mithril::stm::StmSig<blake2::Blake2b> {}
-impl BytesConv for &mithril::stm::StmSig<blake2::Blake2b> {}
-impl BytesConv for mithril::stm::StmAggrSig<blake2::Blake2b> {}
-impl BytesConv for &mithril::stm::StmAggrSig<blake2::Blake2b> {}
-impl BytesConv for mithril::stm::StmAggrVerificationKey<blake2::Blake2b> {}
-impl BytesConv for &mithril::stm::StmAggrVerificationKey<blake2::Blake2b> {}
+impl BytesConv for StmSig<blake2::Blake2b> {
+    fn from_byte(bytes: &[u8]) -> Result<Self, String> {
+        StmSig::<blake2::Blake2b>::from_bytes(bytes).map_err(|_| format!("Failed"))
+    }
 
+    fn to_byte(&self) -> Vec<u8> {
+        self.to_bytes().to_vec()
+    }
+}
+
+impl BytesConv for StmAggrSig<blake2::Blake2b> {
+    fn from_byte(bytes: &[u8]) -> Result<Self, String> {
+        StmAggrSig::<blake2::Blake2b>::from_bytes(bytes).map_err(|_| format!("Failed"))
+    }
+
+    fn to_byte(&self) -> Vec<u8> {
+        self.to_bytes().to_vec()
+    }
+}
+
+impl BytesConv for StmAggrVerificationKey<blake2::Blake2b> {
+    fn from_byte(bytes: &[u8]) -> Result<Self, String> {
+        StmAggrVerificationKey::<blake2::Blake2b>::from_bytes(bytes).map_err(|_| format!("Failed"))
+    }
+
+    fn to_byte(&self) -> Vec<u8> {
+        self.to_bytes().to_vec()
+    }
+}
 
 ////////// Temporary trait, to understand the flaky tests ///////////
 
 /// Encode key to hex helper
-pub fn key_encode_hex<T>(from: T) -> Result<String, String>
+pub fn key_encode_hex<T>(from: &T) -> Result<String, String>
 where
     T: BytesConv,
 {
-    Ok(from.to_bytes()
-        .encode_hex::<String>())
+    Ok(from.to_byte().encode_hex::<String>())
 }
 
 /// Decode key from hex helper
@@ -43,7 +76,7 @@ where
     T: BytesConv,
 {
     let from_vec = Vec::from_hex(from).map_err(|e| format!("can't parse from hex: {}", e))?;
-    T::from_bytes(&from_vec)
+    T::from_byte(&from_vec)
 }
 
 #[cfg(test)]
@@ -67,7 +100,7 @@ pub mod tests {
         let verification_key: ProtocolSignerVerificationKey =
             protocol_initializer.verification_key();
         let verification_key_hex =
-            key_encode_hex(verification_key).expect("unexpected hex encoding error");
+            key_encode_hex(&verification_key).expect("unexpected hex encoding error");
         let verification_key_restored =
             key_decode_hex(&verification_key_hex).expect("unexpected hex decoding error");
         assert_eq!(verification_key, verification_key_restored);

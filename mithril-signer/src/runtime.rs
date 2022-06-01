@@ -107,7 +107,8 @@ impl Runtime {
 
         if let Some(protocol_initializer) = self.single_signer.get_protocol_initializer() {
             let verification_key = protocol_initializer.verification_key();
-            let verification_key = key_encode_hex(verification_key).map_err(RuntimeError::Codec)?;
+            let verification_key =
+                key_encode_hex(&verification_key).map_err(RuntimeError::Codec)?;
             let signer = entities::Signer::new(self.single_signer.get_party_id(), verification_key);
             self.certificate_handler
                 .register_signer(&signer)

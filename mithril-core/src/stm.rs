@@ -129,6 +129,7 @@ use crate::error::{
 use crate::key_reg::ClosedKeyReg;
 use crate::merkle_tree::{MTLeaf, MerkleTreeCommitment, Path};
 use crate::multi_sig::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
+use blake2::Blake2b;
 use digest::{Digest, FixedOutput};
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
@@ -351,6 +352,45 @@ where
     total_stake: Stake,
 }
 
+/////// TEMP ////////
+impl<D> StmAggrVerificationKey<D>
+where
+    D: Clone + Digest + FixedOutput,
+{
+    /// from bytes
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
+        let hash_size = D::output_size();
+        let mut root = vec![0u8; hash_size];
+        root.copy_from_slice(&bytes[..hash_size]);
+
+        let mut u64_bytes = [0u8; 8];
+        u64_bytes.copy_from_slice(&bytes[hash_size..hash_size + 8]);
+        let nr_leaves = usize::from_be_bytes(u64_bytes);
+        u64_bytes.copy_from_slice(&bytes[hash_size + 8..hash_size + 16]);
+        let total_stake = u64::from_be_bytes(u64_bytes);
+
+        let mt_commitment = MerkleTreeCommitment::<D> {
+            root,
+            nr_leaves,
+            hasher: Default::default(),
+        };
+
+        Ok(Self {
+            mt_commitment,
+            total_stake,
+        })
+    }
+
+    /// to bytes
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut output = Vec::new();
+        output.extend_from_slice(&self.mt_commitment.root);
+        output.extend_from_slice(&self.mt_commitment.nr_leaves.to_be_bytes());
+        output.extend_from_slice(&self.total_stake.to_be_bytes());
+        output
+    }
+}
+/////////////////////
 impl<D> From<&ClosedKeyReg<D>> for StmAggrVerificationKey<D>
 where
     D: Clone + Digest + FixedOutput,
@@ -472,9 +512,11 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
     pub fn from_bytes(bytes: &[u8]) -> Result<StmAggrSig<D>, MultiSignatureError> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(&bytes[..8]);
-        let size = usize::try_from(u64::from_be_bytes(u64_bytes)).map_err(|_| MultiSignatureError::SerializationError)?;
+        let size = usize::try_from(u64::from_be_bytes(u64_bytes))
+            .map_err(|_| MultiSignatureError::SerializationError)?;
         u64_bytes.copy_from_slice(&bytes[8..16]);
-        let sig_size = usize::try_from(u64::from_be_bytes(u64_bytes)).map_err(|_| MultiSignatureError::SerializationError)?;
+        let sig_size = usize::try_from(u64::from_be_bytes(u64_bytes))
+            .map_err(|_| MultiSignatureError::SerializationError)?;
         let mut signatures = Vec::with_capacity(size);
         for i in 0..size {
             signatures.push(StmSig::from_bytes(
@@ -836,7 +878,12 @@ where
     ) -> Result<StmAggrSig<D>, AggregationFailure> {
         // todo: how come the dedup does not take the concatenated message
         // let msgp = concat_avk_with_msg(&self.avk.to_commitment(), msg);
-        let mut unique_sigs = Vec::with_capacity(self.params.k.try_into().map_err(|_| AggregationFailure::InvalidUsizeConversion)?);
+        let mut unique_sigs = Vec::with_capacity(
+            self.params
+                .k
+                .try_into()
+                .map_err(|_| AggregationFailure::InvalidUsizeConversion)?,
+        );
         for (_, sigs) in self.dedup_sigs_for_indices(msg, sigs)? {
             unique_sigs.push(sigs.clone())
         }

@@ -152,7 +152,7 @@ impl SingleSigner for MithrilSingleSigner {
             .ok_or(SingleSignerError::UnregisteredPartyId())?;
 
         if let Some(protocol_initializer) = self.get_protocol_initializer() {
-            let verification_key = key_encode_hex(protocol_initializer.verification_key())
+            let verification_key = key_encode_hex(&protocol_initializer.verification_key())
                 .map_err(SingleSignerError::Codec)?;
             if current_signer_with_stake.verification_key != verification_key {
                 return Err(SingleSignerError::UnregisteredVerificationKey());
@@ -211,7 +211,7 @@ mod tests {
             .map(
                 |(party_id, stake, verification_key, _protocol_signer, _protocol_initializer)| {
                     let verification_key = match party_id {
-                        0 => key_encode_hex(signer_unregistered.2).unwrap(),
+                        0 => key_encode_hex(&signer_unregistered.2).unwrap(),
                         _ => key_encode_hex(verification_key).unwrap(),
                     };
                     SignerWithStake::new(*party_id, verification_key, *stake)

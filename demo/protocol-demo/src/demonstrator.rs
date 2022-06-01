@@ -375,8 +375,8 @@ impl ProtocolDemonstrator for Demonstrator {
             players_artifacts.push(PlayerArtifact {
                 party_id: protocol_initializer.party_id(),
                 stake: protocol_initializer.stake(),
-                verification_key: key_encode_hex(verification_key).unwrap(),
-                initializer: key_encode_hex(protocol_initializer).unwrap(),
+                verification_key: key_encode_hex(&verification_key).unwrap(),
+                initializer: key_encode_hex(&protocol_initializer).unwrap(),
             })
         }
         let players_with_keys = players_artifacts

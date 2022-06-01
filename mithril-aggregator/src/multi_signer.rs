@@ -239,7 +239,7 @@ impl MultiSigner for MultiSignerImpl {
             .get_stake_distribution()
             .iter()
             .filter_map(|(party_id, stake)| match self.get_signer(*party_id) {
-                Ok(Some(verification_key)) => match key_encode_hex(verification_key) {
+                Ok(Some(verification_key)) => match key_encode_hex(&verification_key) {
                     Ok(verification_key) => Some(entities::SignerWithStake::new(
                         *party_id as u64,
                         verification_key,
