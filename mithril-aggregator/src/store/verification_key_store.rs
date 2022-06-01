@@ -20,6 +20,11 @@ trait VerificationKeyStoreTrait {
         epoch: u64,
         key: Signer,
     ) -> Result<Option<Signer>, VerificationKeyStoreError>;
+
+    async fn get_verification_keys(
+        &self,
+        epoch: u64,
+    ) -> Result<Option<HashMap<u64, Signer>>, VerificationKeyStoreError>;
 }
 struct VerificationKeyStore {
     adapter: Adapter,
@@ -46,6 +51,13 @@ impl VerificationKeyStoreTrait for VerificationKeyStore {
         let _ = self.adapter.store_record(&epoch, &signers).await?;
 
         Ok(prev_signer)
+    }
+
+    async fn get_verification_keys(
+        &self,
+        epoch: u64,
+    ) -> Result<Option<HashMap<u64, Signer>>, VerificationKeyStoreError> {
+        Ok(self.adapter.get_record(&epoch).await?)
     }
 }
 
@@ -118,5 +130,22 @@ mod tests {
             },
             res.unwrap(),
         );
+    }
+
+    #[tokio::test]
+    async fn get_verification_keys_for_empty_epoch() {
+        let store = init_store(2, 1);
+        let res = store.get_verification_keys(0).await.unwrap();
+
+        assert!(res.is_none());
+    }
+
+    #[tokio::test]
+    async fn get_verification_keys_for_existing_epoch() {
+        let store = init_store(2, 2);
+        let res = store.get_verification_keys(1).await.unwrap();
+
+        assert!(res.is_some());
+        assert_eq!(2, res.unwrap().len());
     }
 }
