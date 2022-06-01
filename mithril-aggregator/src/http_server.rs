@@ -521,13 +521,13 @@ mod tests {
     use warp::test::request;
 
     use super::super::beacon_store::{BeaconStoreError, MockBeaconStore};
-    use super::super::certificate_store::dumb_adapter::DumbStoreAdapter;
-    use super::super::certificate_store::fail_adapter::FailStoreAdapter;
-    use super::super::certificate_store::CertificateStore;
     use super::super::entities::*;
     use super::super::multi_signer::MockMultiSigner;
     use super::super::multi_signer::ProtocolError;
     use super::super::snapshot_stores::MockSnapshotStore;
+    use super::super::store::adapter::DumbStoreAdapter;
+    use super::super::store::adapter::FailStoreAdapter;
+    use super::super::store::CertificateStore;
     use super::*;
 
     fn setup_dependency_manager() -> DependencyManager {

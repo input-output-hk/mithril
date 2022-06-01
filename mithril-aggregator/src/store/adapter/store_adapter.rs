@@ -6,11 +6,11 @@ pub enum AdapterError {
     #[error("something wrong happened: {0}")]
     GeneralError(String),
     #[error("problem creating the repository: {0}")]
-    InitializationError(Box<dyn std::error::Error>),
+    InitializationError(Box<dyn std::error::Error + Sync + Send>),
     #[error("problem opening the IO stream: {0}")]
-    OpeningStreamError(Box<dyn std::error::Error>),
+    OpeningStreamError(Box<dyn std::error::Error + Sync + Send>),
     #[error("problem parsing the IO stream: {0}")]
-    ParsingDataError(Box<dyn std::error::Error>),
+    ParsingDataError(Box<dyn std::error::Error + Sync + Send>),
 }
 
 #[async_trait]
