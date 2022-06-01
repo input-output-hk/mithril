@@ -7,7 +7,7 @@ mod runtime;
 mod snapshot_stores;
 mod snapshot_uploaders;
 mod snapshotter;
-mod store;
+pub mod store;
 mod tools;
 
 pub use crate::entities::Config;
