@@ -1,3 +1,4 @@
+use crate::digesters::ImmutableFileListingError;
 use crate::entities::ImmutableFileNumber;
 use std::io;
 use thiserror::Error;
@@ -13,8 +14,8 @@ pub struct DigesterResult {
 
 #[derive(Error, Debug)]
 pub enum DigesterError {
-    #[error("Immutable files listing failed: `{0}`")]
-    ListImmutablesError(String),
+    #[error("Immutable files listing failed")]
+    ListImmutablesError(#[from] ImmutableFileListingError),
 
     #[error("At least two immutables chunk should exists")]
     NotEnoughImmutable(),
