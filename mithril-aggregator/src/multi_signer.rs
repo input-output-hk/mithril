@@ -328,7 +328,7 @@ impl MultiSigner for MultiSignerImpl {
             .get_current_message()
             .ok_or_else(ProtocolError::UnavailableMessage)?;
 
-        debug!("Create multi signature"; "message" => ?message);
+        debug!("Create multi signature"; "message" => message.encode_hex::<String>());
         let signatures: Vec<ProtocolSingleSignature> = self
             .single_signatures
             .iter()
