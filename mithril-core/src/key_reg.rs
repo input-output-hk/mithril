@@ -95,13 +95,15 @@ impl KeyReg {
     where
         D: Digest + FixedOutput,
     {
-        let mut total_stake = 0;
+        let mut total_stake: u64 = 0;
         let mut reg_parties = self
             .parties
             .iter()
             .filter_map(|(_, party)| {
                 if let Some(vk) = party.vk {
-                    total_stake += party.stake;
+                    total_stake = (total_stake)
+                        .checked_add(party.stake)
+                        .expect("stake overflow!");
                     return Some(MTLeaf(vk, party.stake));
                 }
                 None
