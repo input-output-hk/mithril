@@ -36,10 +36,10 @@ pub struct Args {
     #[clap(short, long, default_value = "dev")]
     run_mode: String,
 
-    /// Snapshot interval, in seconds
-    /// Defaults to 4 hours
-    #[clap(long, default_value_t = 14400)]
-    snapshot_interval: u32,
+    /// Runtime interval, in seconds
+    /// Defaults to 10 minutes
+    #[clap(long, default_value_t = 600)]
+    runtime_interval: u32,
 
     /// Directory to snapshot
     #[clap(long, default_value = "/db")]
@@ -150,7 +150,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let snapshot_directory = config.snapshot_directory.clone();
     let handle = tokio::spawn(async move {
         let runtime = AggregatorRuntime::new(
-            args.snapshot_interval * 1000,
+            args.runtime_interval * 1000,
             config.network.clone(),
             config.db_directory.clone(),
             snapshot_directory,

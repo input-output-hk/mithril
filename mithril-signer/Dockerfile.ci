@@ -21,4 +21,4 @@ RUN chown -R appuser /app/ && chmod a+x /app/bin/mithril-signer
 USER appuser
 
 # Run the executable
-ENTRYPOINT ["/app/bin/mithril-signer"]
+ENTRYPOINT ["/app/bin/mithril-signer","-vv"]
