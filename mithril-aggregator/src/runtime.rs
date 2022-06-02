@@ -74,6 +74,7 @@ pub struct AggregatorRuntime {
     snapshot_uploader: Box<dyn SnapshotUploader>,
 
     /// Pending certificate store
+    #[allow(dead_code)]
     certificate_pending_store: CertificatePendingStoreWrapper,
 
     /// Certificate store
