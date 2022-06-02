@@ -8,7 +8,7 @@ use mithril_common::entities::Signer;
 type Adapter = Box<dyn StoreAdapter<Key = u64, Record = HashMap<u64, Signer>>>;
 
 #[derive(Debug, Error)]
-enum VerificationKeyStoreError {
+pub enum VerificationKeyStoreError {
     #[error("adapter error {0}")]
     AdapterError(#[from] AdapterError),
 }
@@ -26,7 +26,7 @@ trait VerificationKeyStoreTrait {
         epoch: u64,
     ) -> Result<Option<HashMap<u64, Signer>>, VerificationKeyStoreError>;
 }
-struct VerificationKeyStore {
+pub struct VerificationKeyStore {
     adapter: Adapter,
 }
 

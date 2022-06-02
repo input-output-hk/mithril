@@ -21,5 +21,5 @@ pub use snapshot_uploaders::{LocalSnapshotUploader, RemoteSnapshotUploader};
 pub use snapshotter::{SnapshotError, Snapshotter};
 pub use store::{
     AdapterError, CertificatePendingStore, CertificateStore, JsonFileStoreAdapter, MemoryAdapter,
-    StoreAdapter,
+    StoreAdapter, VerificationKeyStore,
 };
