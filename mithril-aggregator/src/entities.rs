@@ -65,11 +65,11 @@ impl Config {
     }
 
     pub fn build_snapshot_uploader(&self) -> Box<dyn SnapshotUploader> {
-        match self.snapshot_store_type {
-            SnapshotStoreType::Gcp => Box::new(RemoteSnapshotUploader::new(Box::new(
+        match self.snapshot_uploader_type {
+            SnapshotUploaderType::Gcp => Box::new(RemoteSnapshotUploader::new(Box::new(
                 GcpFileUploader::default(),
             ))),
-            SnapshotStoreType::Local => {
+            SnapshotUploaderType::Local => {
                 Box::new(LocalSnapshotUploader::new(self.server_url.clone()))
             }
         }
