@@ -6,6 +6,7 @@ use config::{Map, Source, Value, ValueKind};
 use mithril_aggregator::{
     AggregatorRuntime, CertificatePendingStore, CertificateStore, Config, DependencyManager,
     JsonFileStoreAdapter, MemoryBeaconStore, MultiSigner, MultiSignerImpl, Server,
+    VerificationKeyStore,
 };
 use mithril_common::crypto_helper::ProtocolStakeDistribution;
 use mithril_common::fake_data;
@@ -135,6 +136,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let certificate_store = Arc::new(RwLock::new(CertificateStore::new(Box::new(
         JsonFileStoreAdapter::new(config.certificate_store_directory.clone())?,
     ))));
+    let verification_key_store = Arc::new(RwLock::new(VerificationKeyStore::new(Box::new(
+        JsonFileStoreAdapter::new(config.verification_key_store_directory.clone())?,
+    ))));
 
     // Init dependency manager
     let mut dependency_manager = DependencyManager::new(config.clone());
@@ -143,7 +147,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .with_multi_signer(multi_signer.clone())
         .with_beacon_store(beacon_store.clone())
         .with_certificate_pending_store(certificate_pending_store.clone())
-        .with_certificate_store(certificate_store.clone());
+        .with_certificate_store(certificate_store.clone())
+        .with_verification_key_store(verification_key_store.clone());
     let dependency_manager = Arc::new(dependency_manager);
 
     // Start snapshot uploader
