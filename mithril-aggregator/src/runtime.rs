@@ -112,11 +112,9 @@ impl AggregatorRuntime {
 
     /// Run snapshotter loop
     pub async fn run(&self) {
-        info!("Starting Snapshotter");
+        info!("Starting runtime");
 
         loop {
-            info!("Snapshotting");
-
             if let Err(e) = self.do_work().await {
                 error!("{:?}", e)
             }
@@ -130,8 +128,8 @@ impl AggregatorRuntime {
         let snapshotter =
             Snapshotter::new(self.db_directory.clone(), self.snapshot_directory.clone());
         let digester = ImmutableDigester::new(self.db_directory.clone(), slog_scope::logger());
-        debug!("Making snapshot"; "directory" => self.db_directory.display());
 
+        info!("Computing digest"; "db_directory" => self.db_directory.display());
         match digester.compute_digest() {
             Ok(digest_result) => {
                 let mut beacon = fake_data::beacon();
@@ -140,26 +138,38 @@ impl AggregatorRuntime {
 
                 match self.manage_trigger_snapshot(message, &beacon).await {
                     Ok(Some(certificate)) => {
+                        info!(
+                            "Snapshotting immutables up to `{}` in an archive",
+                            &beacon.immutable_file_number
+                        );
                         let snapshot_name =
                             format!("{}.{}.tar.gz", self.network, &digest_result.digest);
                         let snapshot_path = snapshotter.snapshot(&snapshot_name)?;
 
+                        info!("Uploading snapshot archive");
                         let uploaded_snapshot_location = self
                             .snapshot_uploader
                             .upload_snapshot(&snapshot_path)
                             .await
                             .map_err(RuntimeError::SnapshotUploader)?;
+
+                        info!(
+                            "Snapshot archive uploaded, location: `{}`",
+                            &uploaded_snapshot_location
+                        );
+
                         let new_snapshot = build_new_snapshot(
                             digest_result.digest,
                             certificate.hash.to_owned(),
                             &snapshot_path,
                             uploaded_snapshot_location,
                         )?;
-                        info!("Got new snapshot"; "snapshot" => format!("{:?}", new_snapshot));
 
+                        info!("Storing snapshot data"; "snapshot" => format!("{:?}", new_snapshot));
                         let mut snapshot_store = self.snapshot_store.write().await;
                         snapshot_store.add_snapshot(new_snapshot).await?;
 
+                        info!("Storing certificate data"; "certificate" => format!("{:?}", certificate));
                         let mut certificate_store = self.certificate_store.write().await;
                         certificate_store
                             .save(certificate)

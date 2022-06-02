@@ -37,7 +37,7 @@ impl Server {
 
     /// Start
     pub async fn start(&self, shutdown_signal: impl Future<Output = ()> + Send + 'static) {
-        info!("Start Server");
+        info!("Start Aggregator Http Server");
         let routes = router::routes(self.dependency_manager.clone());
         let (_, server) =
             warp::serve(routes).bind_with_graceful_shutdown((self.ip, self.port), shutdown_signal);
