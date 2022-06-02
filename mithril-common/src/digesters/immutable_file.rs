@@ -1,4 +1,5 @@
 use crate::entities::ImmutableFileNumber;
+use std::cmp::Ordering;
 
 use std::ffi::OsStr;
 use std::io;
@@ -12,7 +13,7 @@ fn is_immutable(path: &Path) -> bool {
     path.iter().any(|component| component == immutable)
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ImmutableFile {
     pub path: PathBuf,
     pub number: ImmutableFileNumber,
@@ -72,9 +73,23 @@ impl ImmutableFile {
                 files.push(immutable_file);
             }
         }
-        files.sort_by(|left, right| left.number.cmp(&right.number));
+        files.sort();
 
         Ok(files.into_iter().rev().skip(3).rev().collect())
+    }
+}
+
+impl PartialOrd for ImmutableFile {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for ImmutableFile {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.number
+            .cmp(&other.number)
+            .then(self.path.cmp(&other.path))
     }
 }
 
@@ -156,5 +171,43 @@ mod tests {
             .expect("ImmutableFile::list_in_dir Failed");
 
         assert!(result.is_empty());
+    }
+
+    #[test]
+    fn immutable_order_should_be_deterministic() {
+        let target_dir = get_test_dir("immutable_order_should_be_deterministic/immutable");
+        let entries = vec![
+            "21.chunk",
+            "21.primary",
+            "21.secondary",
+            "123.chunk",
+            "123.primary",
+            "123.secondary",
+            "124.chunk",
+            "124.primary",
+            "124.secondary",
+            "125.chunk",
+            "125.primary",
+            "125.secondary",
+            "223.chunk",
+            "223.primary",
+            "223.secondary",
+            "423.chunk",
+            "423.primary",
+            "423.secondary",
+            "424.chunk",
+            "424.primary",
+            "424.secondary",
+        ];
+        create_fake_files(&target_dir, &entries);
+        let immutables = ImmutableFile::list_completed_in_dir(target_dir.parent().unwrap())
+            .expect("ImmutableFile::list_in_dir Failed");
+        let immutables_names: Vec<String> = immutables
+            .into_iter()
+            .map(|i| i.path.file_name().unwrap().to_str().unwrap().to_owned())
+            .collect();
+
+        let expected: Vec<&str> = entries.into_iter().rev().skip(3).rev().collect();
+        assert_eq!(expected, immutables_names);
     }
 }
