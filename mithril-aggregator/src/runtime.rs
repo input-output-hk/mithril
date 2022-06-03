@@ -45,6 +45,9 @@ pub enum RuntimeError {
 
     #[error("snapshot build error")]
     SnapshotBuild(#[from] io::Error),
+
+    #[error("general error")]
+    General(String),
 }
 
 /// AggregatorRuntime
@@ -131,7 +134,10 @@ impl AggregatorRuntime {
         let digester = ImmutableDigester::new(self.db_directory.clone(), slog_scope::logger());
 
         info!("Computing digest"; "db_directory" => self.db_directory.display());
-        match digester.compute_digest() {
+        let digest_result = tokio::task::spawn_blocking(move || digester.compute_digest())
+            .await
+            .map_err(|e| RuntimeError::General(e.to_string()))?;
+        match digest_result {
             Ok(digest_result) => {
                 let mut beacon = fake_data::beacon();
                 beacon.immutable_file_number = digest_result.last_immutable_file_number;
@@ -143,9 +149,17 @@ impl AggregatorRuntime {
                             "Snapshotting immutables up to `{}` in an archive",
                             &beacon.immutable_file_number
                         );
+
                         let snapshot_name =
                             format!("{}.{}.tar.gz", self.network, &digest_result.digest);
-                        let snapshot_path = snapshotter.snapshot(&snapshot_name)?;
+
+                        let snapshot_path = tokio::task::spawn_blocking(
+                            move || -> Result<PathBuf, SnapshotError> {
+                                snapshotter.snapshot(&snapshot_name)
+                            },
+                        )
+                        .await
+                        .map_err(|e| RuntimeError::General(e.to_string()))??;
 
                         info!("Uploading snapshot archive");
                         let uploaded_snapshot_location = self
