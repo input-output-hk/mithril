@@ -4,5 +4,6 @@
     "snapshot_store_type": "local",
     "snapshot_uploader_type": "local",
     "pending_certificate_store_directory": "/tmp/mithril/pending_cert_db",
-    "certificate_store_directory": "/tmp/mithril/cert_db"
+    "certificate_store_directory": "/tmp/mithril/cert_db",
+    "verification_key_store_directory": "/tmp/mithril/verification_key_db"
 }

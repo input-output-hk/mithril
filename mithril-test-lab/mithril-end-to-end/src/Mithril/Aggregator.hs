@@ -110,7 +110,8 @@ aggregatorProcess cwd port = do
             ("SNAPSHOT_STORE_TYPE", "local"),
             ("SNAPSHOT_UPLOADER_TYPE", "local"),
             ("PENDING_CERTIFICATE_STORE_DIRECTORY", "./store/pending-certs"),
-            ("CERTIFICATE_STORE_DIRECTORY", "./store/certs")
+            ("CERTIFICATE_STORE_DIRECTORY", "./store/certs"),
+            ("VERIFICATION_KEY_STORE_DIRECTORY", "./store/certs")
           ]
             <> baseEnv
   unlessM (doesFileExist aggregator) $ failure $ "cannot find mithril-aggregator executable in expected location (" <> binDir <> ")"
