@@ -200,6 +200,7 @@ async fn init_multi_signer(multi_signer: Arc<RwLock<dyn MultiSigner>>) {
     let protocol_parameters = fake_data::protocol_parameters();
     multi_signer
         .update_protocol_parameters(&protocol_parameters.into())
+        .await
         .expect("update protocol parameters failed");
 
     // Update stake distribution
@@ -210,5 +211,6 @@ async fn init_multi_signer(multi_signer: Arc<RwLock<dyn MultiSigner>>) {
         .collect::<_>();
     multi_signer
         .update_stake_distribution(&stakes)
+        .await
         .expect("stake distribution update failed");
 }

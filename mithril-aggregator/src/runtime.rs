@@ -212,21 +212,27 @@ impl AggregatorRuntime {
     ) -> Result<Option<Certificate>, RuntimeError> {
         let mut multi_signer = self.multi_signer.write().await;
         let mut beacon_store = self.beacon_store.write().await;
-        match multi_signer.get_multi_signature() {
+        match multi_signer.get_multi_signature().await {
             Ok(None) => {
                 beacon_store.set_current_beacon(beacon.clone()).await?;
-                multi_signer.update_current_message(message.to_owned())?;
-                match multi_signer.create_multi_signature() {
+                multi_signer
+                    .update_current_message(message.to_owned())
+                    .await?;
+                match multi_signer.create_multi_signature().await {
                     Ok(Some(_)) => {
+                        let message = multi_signer
+                            .get_current_message()
+                            .await
+                            .unwrap()
+                            .encode_hex::<String>();
                         debug!(
                             "A multi signature has been created for message: {}",
-                            multi_signer
-                                .get_current_message()
-                                .unwrap()
-                                .encode_hex::<String>()
+                            message
                         );
                         let previous_hash = "".to_string();
-                        Ok(multi_signer.create_certificate(beacon.clone(), previous_hash)?)
+                        Ok(multi_signer
+                            .create_certificate(beacon.clone(), previous_hash)
+                            .await?)
                     }
                     Ok(None) => {
                         warn!("Not ready to create a multi signature: quorum is not reached yet");
