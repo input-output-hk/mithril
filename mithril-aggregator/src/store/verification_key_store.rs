@@ -14,7 +14,7 @@ pub enum VerificationKeyStoreError {
 }
 
 #[async_trait]
-trait VerificationKeyStoreTrait {
+pub trait VerificationKeyStoreTrait {
     async fn save_verification_key(
         &mut self,
         epoch: u64,

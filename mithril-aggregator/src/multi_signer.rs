@@ -6,14 +6,16 @@ use std::collections::HashMap;
 use thiserror::Error;
 
 use mithril_common::crypto_helper::{
-    key_encode_hex, Bytes, ProtocolAggregateVerificationKey, ProtocolClerk,
+    key_decode_hex, key_encode_hex, Bytes, ProtocolAggregateVerificationKey, ProtocolClerk,
     ProtocolKeyRegistration, ProtocolLotteryIndex, ProtocolMultiSignature, ProtocolParameters,
     ProtocolPartyId, ProtocolSignerVerificationKey, ProtocolSingleSignature,
     ProtocolStakeDistribution,
 };
 use mithril_common::entities;
 
+use super::beacon_store::BeaconStoreError;
 use super::dependency::{BeaconStoreWrapper, VerificationKeyStoreWrapper};
+use super::store::{VerificationKeyStoreError, VerificationKeyStoreTrait};
 
 #[cfg(test)]
 use mockall::automock;
@@ -43,6 +45,15 @@ pub enum ProtocolError {
 
     #[error("no beacon available")]
     UnavailableBeacon(),
+
+    #[error("no verification keys available")]
+    UnavailableVerificationKeys(),
+
+    #[error("beacon store error: '{0}'")]
+    BeaconStore(#[from] BeaconStoreError),
+
+    #[error("verification store error: '{0}'")]
+    VerificationKeyStore(#[from] VerificationKeyStoreError),
 }
 
 /// MultiSigner is the cryptographic engine in charge of producing multi signatures from individual signatures
@@ -124,10 +135,6 @@ pub struct MultiSignerImpl {
     /// Stake distribution used for signing
     stakes: ProtocolStakeDistribution,
 
-    /// Registered signers
-    /// TODO: remove this field
-    signers: HashMap<ProtocolPartyId, ProtocolSignerVerificationKey>,
-
     /// Registered single signatures by party and lottery index
     single_signatures:
         HashMap<ProtocolPartyId, HashMap<ProtocolLotteryIndex, ProtocolSingleSignature>>,
@@ -156,7 +163,6 @@ impl MultiSignerImpl {
             current_message: None,
             protocol_parameters: None,
             stakes: Vec::new(),
-            signers: HashMap::new(),
             single_signatures: HashMap::new(),
             multi_signature: None,
             avk: None,
@@ -244,24 +250,58 @@ impl MultiSigner for MultiSignerImpl {
         &self,
         party_id: ProtocolPartyId,
     ) -> Result<Option<ProtocolSignerVerificationKey>, ProtocolError> {
-        Ok(self.signers.get(&party_id).copied())
+        let epoch = self
+            .beacon_store
+            .read()
+            .await
+            .get_current_beacon()
+            .await?
+            .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .epoch
+            - 0; // TODO: Should be -1 or -2
+        let signers = self
+            .verification_key_store
+            .read()
+            .await
+            .get_verification_keys(epoch)
+            .await?
+            .ok_or_else(ProtocolError::UnavailableVerificationKeys)?;
+        match signers.get(&party_id) {
+            Some(signer) => {
+                Ok(key_decode_hex(&signer.verification_key).map_err(ProtocolError::Codec)?)
+            }
+            _ => Ok(None),
+        }
     }
 
     /// Get signers
     async fn get_signers(&self) -> Result<Vec<entities::SignerWithStake>, ProtocolError> {
+        let epoch = self
+            .beacon_store
+            .read()
+            .await
+            .get_current_beacon()
+            .await?
+            .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .epoch
+            - 0; // TODO: Should be -1 or -2
+        let signers = self
+            .verification_key_store
+            .read()
+            .await
+            .get_verification_keys(epoch)
+            .await?
+            .ok_or_else(ProtocolError::UnavailableVerificationKeys)?;
         Ok(self
             .get_stake_distribution()
             .await
             .iter()
-            .filter_map(|(party_id, stake)| match self.signers.get(party_id) {
-                Some(verification_key) => match key_encode_hex(verification_key) {
-                    Ok(verification_key) => Some(entities::SignerWithStake::new(
-                        *party_id as u64,
-                        verification_key,
-                        *stake as u64,
-                    )),
-                    Err(_) => None,
-                },
+            .filter_map(|(party_id, stake)| match signers.get(party_id) {
+                Some(signer) => Some(entities::SignerWithStake::new(
+                    *party_id as u64,
+                    signer.verification_key.clone(),
+                    *stake as u64,
+                )),
                 _ => None,
             })
             .collect())
@@ -274,7 +314,28 @@ impl MultiSigner for MultiSignerImpl {
         verification_key: &ProtocolSignerVerificationKey,
     ) -> Result<(), ProtocolError> {
         debug!("Register signer {}", party_id);
-        match self.signers.insert(party_id, *verification_key) {
+
+        let epoch = self
+            .beacon_store
+            .read()
+            .await
+            .get_current_beacon()
+            .await?
+            .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .epoch;
+        match self
+            .verification_key_store
+            .write()
+            .await
+            .save_verification_key(
+                epoch,
+                entities::Signer::new(
+                    party_id,
+                    key_encode_hex(*verification_key).map_err(ProtocolError::Codec)?,
+                ),
+            )
+            .await?
+        {
             Some(_) => Err(ProtocolError::ExistingSigner()),
             None => Ok(()),
         }
@@ -427,7 +488,7 @@ impl MultiSigner for MultiSignerImpl {
 
 #[cfg(test)]
 mod tests {
-    use super::super::beacon_store::MemoryBeaconStore;
+    use super::super::beacon_store::{BeaconStore, MemoryBeaconStore};
     use super::super::store::adapter::MemoryAdapter;
     use super::super::store::VerificationKeyStore;
     use super::*;
@@ -437,8 +498,10 @@ mod tests {
     use std::sync::Arc;
     use tokio::sync::RwLock;
 
-    fn setup_multi_signer() -> impl MultiSigner {
-        let beacon_store = MemoryBeaconStore::new();
+    async fn setup_multi_signer() -> impl MultiSigner {
+        let beacon = fake_data::beacon();
+        let mut beacon_store = MemoryBeaconStore::new();
+        beacon_store.set_current_beacon(beacon).await.unwrap();
         let verification_key_store = VerificationKeyStore::new(Box::new(
             MemoryAdapter::<u64, HashMap<u64, entities::Signer>>::new(None).unwrap(),
         ));
@@ -451,7 +514,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_multi_signer_current_message_ok() {
-        let mut multi_signer = setup_multi_signer();
+        let mut multi_signer = setup_multi_signer().await;
 
         let current_message_expected = setup_message();
         multi_signer
@@ -468,7 +531,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_multi_signer_protocol_parameters_ok() {
-        let mut multi_signer = setup_multi_signer();
+        let mut multi_signer = setup_multi_signer().await;
 
         let protocol_parameters_expected = setup_protocol_parameters();
         multi_signer
@@ -485,7 +548,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_multi_signer_stake_distribution_ok() {
-        let mut multi_signer = setup_multi_signer();
+        let mut multi_signer = setup_multi_signer().await;
 
         let stake_distribution_expected = setup_signers(5)
             .iter()
@@ -502,7 +565,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_multi_signer_register_signer_ok() {
-        let mut multi_signer = setup_multi_signer();
+        let mut multi_signer = setup_multi_signer().await;
 
         let stake_distribution_expected = setup_signers(5)
             .iter()
@@ -548,7 +611,7 @@ mod tests {
         let beacon = fake_data::beacon();
         let previous_hash = "prev-hash-123".to_string();
 
-        let mut multi_signer = setup_multi_signer();
+        let mut multi_signer = setup_multi_signer().await;
 
         let message = setup_message();
         multi_signer
