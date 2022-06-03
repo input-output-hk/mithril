@@ -250,6 +250,7 @@ impl MultiSigner for MultiSignerImpl {
         &self,
         party_id: ProtocolPartyId,
     ) -> Result<Option<ProtocolSignerVerificationKey>, ProtocolError> {
+        #[allow(clippy::identity_op)]
         let epoch = self
             .beacon_store
             .read()
@@ -276,6 +277,7 @@ impl MultiSigner for MultiSignerImpl {
 
     /// Get signers
     async fn get_signers(&self) -> Result<Vec<entities::SignerWithStake>, ProtocolError> {
+        #[allow(clippy::identity_op)]
         let epoch = self
             .beacon_store
             .read()
@@ -296,13 +298,14 @@ impl MultiSigner for MultiSignerImpl {
             .get_stake_distribution()
             .await
             .iter()
-            .filter_map(|(party_id, stake)| match signers.get(party_id) {
-                Some(signer) => Some(entities::SignerWithStake::new(
-                    *party_id as u64,
-                    signer.verification_key.clone(),
-                    *stake as u64,
-                )),
-                _ => None,
+            .filter_map(|(party_id, stake)| {
+                signers.get(party_id).map(|signer| {
+                    entities::SignerWithStake::new(
+                        *party_id as u64,
+                        signer.verification_key.clone(),
+                        *stake as u64,
+                    )
+                })
             })
             .collect())
     }
