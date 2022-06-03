@@ -1,6 +1,5 @@
 use chrono::prelude::*;
 use hex::ToHex;
-use serde::Serialize;
 use slog_scope::{debug, warn};
 use std::collections::HashMap;
 use thiserror::Error;
@@ -12,6 +11,8 @@ use mithril_common::crypto_helper::{
     ProtocolStakeDistribution,
 };
 use mithril_common::entities;
+
+use super::dependency::VerificationKeyStoreWrapper;
 
 #[cfg(test)]
 use mockall::automock;
@@ -106,7 +107,6 @@ pub trait MultiSigner: Sync + Send {
 }
 
 /// MultiSignerImpl is an implementation of the MultiSigner
-#[derive(Serialize)]
 pub struct MultiSignerImpl {
     /// Message that is currently signed
     current_message: Option<Bytes>,
@@ -118,7 +118,11 @@ pub struct MultiSignerImpl {
     stakes: ProtocolStakeDistribution,
 
     /// Registered signers
+    /// TODO: remove this field
     signers: HashMap<ProtocolPartyId, ProtocolSignerVerificationKey>,
+
+    /// Verification key store
+    verification_key_store: VerificationKeyStoreWrapper,
 
     /// Registered single signatures by party and lottery index
     single_signatures:
@@ -131,21 +135,16 @@ pub struct MultiSignerImpl {
     avk: Option<ProtocolAggregateVerificationKey>,
 }
 
-impl Default for MultiSignerImpl {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl MultiSignerImpl {
     /// MultiSignerImpl factory
-    pub fn new() -> Self {
+    pub fn new(verification_key_store: VerificationKeyStoreWrapper) -> Self {
         debug!("New MultiSignerImpl created");
         Self {
             current_message: None,
             protocol_parameters: None,
             stakes: Vec::new(),
             signers: HashMap::new(),
+            verification_key_store,
             single_signatures: HashMap::new(),
             multi_signature: None,
             avk: None,
@@ -404,14 +403,26 @@ impl MultiSigner for MultiSignerImpl {
 
 #[cfg(test)]
 mod tests {
+    use super::super::store::adapter::MemoryAdapter;
+    use super::super::store::VerificationKeyStore;
     use super::*;
 
     use mithril_common::crypto_helper::tests_setup::*;
     use mithril_common::fake_data;
+    use std::sync::Arc;
+    use tokio::sync::RwLock;
+
+    fn setup_multi_signer() -> impl MultiSigner {
+        let verification_key_store = VerificationKeyStore::new(Box::new(
+            MemoryAdapter::<u64, HashMap<u64, entities::Signer>>::new(None).unwrap(),
+        ));
+        let multi_signer = MultiSignerImpl::new(Arc::new(RwLock::new(verification_key_store)));
+        multi_signer
+    }
 
     #[test]
     fn test_multi_signer_current_message_ok() {
-        let mut multi_signer = MultiSignerImpl::new();
+        let mut multi_signer = setup_multi_signer();
 
         let current_message_expected = setup_message();
         multi_signer
@@ -426,7 +437,7 @@ mod tests {
 
     #[test]
     fn test_multi_signer_protocol_parameters_ok() {
-        let mut multi_signer = MultiSignerImpl::new();
+        let mut multi_signer = setup_multi_signer();
 
         let protocol_parameters_expected = setup_protocol_parameters();
         multi_signer
@@ -441,7 +452,7 @@ mod tests {
 
     #[test]
     fn test_multi_signer_stake_distribution_ok() {
-        let mut multi_signer = MultiSignerImpl::new();
+        let mut multi_signer = setup_multi_signer();
 
         let stake_distribution_expected = setup_signers(5)
             .iter()
@@ -457,7 +468,7 @@ mod tests {
 
     #[test]
     fn test_multi_signer_register_signer_ok() {
-        let mut multi_signer = MultiSignerImpl::new();
+        let mut multi_signer = setup_multi_signer();
 
         let stake_distribution_expected = setup_signers(5)
             .iter()
@@ -504,7 +515,7 @@ mod tests {
         let beacon = fake_data::beacon();
         let previous_hash = "prev-hash-123".to_string();
 
-        let mut multi_signer = MultiSignerImpl::new();
+        let mut multi_signer = setup_multi_signer();
 
         let message = setup_message();
         multi_signer
