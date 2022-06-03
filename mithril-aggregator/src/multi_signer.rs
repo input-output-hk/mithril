@@ -12,7 +12,7 @@ use mithril_common::crypto_helper::{
 };
 use mithril_common::entities;
 
-use super::dependency::VerificationKeyStoreWrapper;
+use super::dependency::{BeaconStoreWrapper, VerificationKeyStoreWrapper};
 
 #[cfg(test)]
 use mockall::automock;
@@ -121,9 +121,6 @@ pub struct MultiSignerImpl {
     /// TODO: remove this field
     signers: HashMap<ProtocolPartyId, ProtocolSignerVerificationKey>,
 
-    /// Verification key store
-    verification_key_store: VerificationKeyStoreWrapper,
-
     /// Registered single signatures by party and lottery index
     single_signatures:
         HashMap<ProtocolPartyId, HashMap<ProtocolLotteryIndex, ProtocolSingleSignature>>,
@@ -133,21 +130,31 @@ pub struct MultiSignerImpl {
 
     /// Created aggregate verification key
     avk: Option<ProtocolAggregateVerificationKey>,
+
+    /// Beacon store
+    beacon_store: BeaconStoreWrapper,
+
+    /// Verification key store
+    verification_key_store: VerificationKeyStoreWrapper,
 }
 
 impl MultiSignerImpl {
     /// MultiSignerImpl factory
-    pub fn new(verification_key_store: VerificationKeyStoreWrapper) -> Self {
+    pub fn new(
+        beacon_store: BeaconStoreWrapper,
+        verification_key_store: VerificationKeyStoreWrapper,
+    ) -> Self {
         debug!("New MultiSignerImpl created");
         Self {
             current_message: None,
             protocol_parameters: None,
             stakes: Vec::new(),
             signers: HashMap::new(),
-            verification_key_store,
             single_signatures: HashMap::new(),
             multi_signature: None,
             avk: None,
+            beacon_store,
+            verification_key_store,
         }
     }
 
@@ -403,6 +410,7 @@ impl MultiSigner for MultiSignerImpl {
 
 #[cfg(test)]
 mod tests {
+    use super::super::beacon_store::MemoryBeaconStore;
     use super::super::store::adapter::MemoryAdapter;
     use super::super::store::VerificationKeyStore;
     use super::*;
@@ -413,10 +421,14 @@ mod tests {
     use tokio::sync::RwLock;
 
     fn setup_multi_signer() -> impl MultiSigner {
+        let beacon_store = MemoryBeaconStore::new();
         let verification_key_store = VerificationKeyStore::new(Box::new(
             MemoryAdapter::<u64, HashMap<u64, entities::Signer>>::new(None).unwrap(),
         ));
-        let multi_signer = MultiSignerImpl::new(Arc::new(RwLock::new(verification_key_store)));
+        let multi_signer = MultiSignerImpl::new(
+            Arc::new(RwLock::new(beacon_store)),
+            Arc::new(RwLock::new(verification_key_store)),
+        );
         multi_signer
     }
 
