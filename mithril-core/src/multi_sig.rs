@@ -14,7 +14,7 @@ use blst::min_sig::{
     AggregatePublicKey, AggregateSignature, PublicKey as BlstPk, SecretKey as BlstSk,
     Signature as BlstSig,
 };
-use blst::{blst_p1, blst_p1_affine, blst_p1_compress, blst_p1_from_affine, blst_p1_uncompress, blst_scalar_from_bendian};
+use blst::{blst_p1, blst_p1_affine, blst_p1_compress, blst_p1_from_affine, blst_p1_uncompress, blst_p2_uncompress, blst_scalar_from_bendian};
 
 use rand_core::{CryptoRng, RngCore};
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
@@ -259,8 +259,10 @@ impl VerificationKeyPoP {
         };
         let result = unsafe {
             let g1_p = *blst_p1_affine_generator();
-            let mvk_p = std::mem::transmute::<&BlstPk, &blst_p2_affine>(&self.vk.0);
-            let ml_lhs = blst_fp12::miller_loop(mvk_p, &g1_p);
+            let pk_bytes = self.vk.to_bytes();
+            let mut mvk_p = blst_p2_affine::default();
+            blst_p2_uncompress(&mut mvk_p, &pk_bytes[0]);
+            let ml_lhs = blst_fp12::miller_loop(&mvk_p, &g1_p);
 
             let mut k2_p = blst_p1_affine::default();
             blst_p1_to_affine(&mut k2_p, &self.pop.k2);
