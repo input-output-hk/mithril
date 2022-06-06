@@ -14,7 +14,7 @@ use blst::min_sig::{
     AggregatePublicKey, AggregateSignature, PublicKey as BlstPk, SecretKey as BlstSk,
     Signature as BlstSig,
 };
-use blst::{blst_p1, blst_p1_affine, blst_p1_compress, blst_p1_from_affine, blst_p1_uncompress};
+use blst::{blst_p1, blst_p1_affine, blst_p1_compress, blst_p1_from_affine, blst_p1_uncompress, blst_scalar_from_bendian};
 
 use rand_core::{CryptoRng, RngCore};
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
@@ -219,11 +219,13 @@ impl From<&SigningKey> for ProofOfPossession {
     fn from(sk: &SigningKey) -> Self {
         use blst::{blst_scalar, blst_sk_to_pk_in_g1};
         let k1 = sk.0.sign(POP, &[], &[]);
+        let mut sk_bytes = sk.to_bytes();
         let k2 = unsafe {
-            let sk_scalar = std::mem::transmute::<&BlstSk, &blst_scalar>(&sk.0);
+            let mut sk_scalar = blst_scalar::default();
+            blst_scalar_from_bendian(&mut sk_scalar, &sk_bytes[0]);
 
             let mut out = blst_p1::default();
-            blst_sk_to_pk_in_g1(&mut out, sk_scalar);
+            blst_sk_to_pk_in_g1(&mut out, &sk_scalar);
             out
         };
 
