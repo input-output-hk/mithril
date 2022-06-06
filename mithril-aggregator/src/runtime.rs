@@ -211,10 +211,12 @@ impl AggregatorRuntime {
         beacon: &Beacon,
     ) -> Result<Option<Certificate>, RuntimeError> {
         let mut multi_signer = self.multi_signer.write().await;
-        let mut beacon_store = self.beacon_store.write().await;
         match multi_signer.get_multi_signature().await {
             Ok(None) => {
-                beacon_store.set_current_beacon(beacon.clone()).await?;
+                {
+                    let mut beacon_store = self.beacon_store.write().await;
+                    beacon_store.set_current_beacon(beacon.clone()).await?;
+                }
                 multi_signer
                     .update_current_message(message.to_owned())
                     .await?;
@@ -245,10 +247,12 @@ impl AggregatorRuntime {
                 }
             }
             Ok(_) => {
+                let mut beacon_store = self.beacon_store.write().await;
                 beacon_store.reset_current_beacon().await?;
                 Ok(None)
             }
             Err(err) => {
+                let mut beacon_store = self.beacon_store.write().await;
                 beacon_store.reset_current_beacon().await?;
                 Err(RuntimeError::MultiSigner(err))
             }
