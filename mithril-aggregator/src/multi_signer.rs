@@ -46,9 +46,6 @@ pub enum ProtocolError {
     #[error("no beacon available")]
     UnavailableBeacon(),
 
-    #[error("no verification keys available")]
-    UnavailableVerificationKeys(),
-
     #[error("beacon store error: '{0}'")]
     BeaconStore(#[from] BeaconStoreError),
 
@@ -173,26 +170,28 @@ impl MultiSignerImpl {
 
     /// Creates a clerk
     // TODO: The clerk should be a field of the MultiSignerImpl struct, but this is not possible now as the Clerk uses an unsafe 'Rc'
-    pub async fn create_clerk(&self) -> Option<ProtocolClerk> {
+    pub async fn create_clerk(&self) -> Result<Option<ProtocolClerk>, ProtocolError> {
+        debug!("Create clerk");
         let stakes = self.get_stake_distribution().await;
         let mut key_registration = ProtocolKeyRegistration::init(&stakes);
         let mut total_signers = 0;
         for (party_id, _stake) in &stakes {
-            if let Some(verification_key) = self.get_signer(*party_id).await.unwrap() {
+            if let Ok(Some(verification_key)) = self.get_signer(*party_id).await {
                 key_registration
                     .register(*party_id, verification_key)
-                    .unwrap();
+                    .map_err(|e| ProtocolError::Core(e.to_string()))?;
                 total_signers += 1;
             }
         }
         match total_signers {
-            0 => None,
+            0 => Ok(None),
             _ => {
                 let closed_registration = key_registration.close();
-                Some(ProtocolClerk::from_registration(
-                    self.protocol_parameters?,
+                Ok(Some(ProtocolClerk::from_registration(
+                    self.protocol_parameters
+                        .ok_or_else(ProtocolError::UnavailableProtocolParameters)?,
                     closed_registration,
-                ))
+                )))
             }
         }
     }
@@ -250,6 +249,7 @@ impl MultiSigner for MultiSignerImpl {
         &self,
         party_id: ProtocolPartyId,
     ) -> Result<Option<ProtocolSignerVerificationKey>, ProtocolError> {
+        debug!("Get signer {}", party_id);
         #[allow(clippy::identity_op)]
         let epoch = self
             .beacon_store
@@ -266,11 +266,11 @@ impl MultiSigner for MultiSignerImpl {
             .await
             .get_verification_keys(epoch)
             .await?
-            .ok_or_else(ProtocolError::UnavailableVerificationKeys)?;
+            .unwrap_or(HashMap::new());
         match signers.get(&party_id) {
-            Some(signer) => {
-                Ok(key_decode_hex(&signer.verification_key).map_err(ProtocolError::Codec)?)
-            }
+            Some(signer) => Ok(Some(
+                key_decode_hex(&signer.verification_key).map_err(ProtocolError::Codec)?,
+            )),
             _ => Ok(None),
         }
     }
@@ -293,7 +293,7 @@ impl MultiSigner for MultiSignerImpl {
             .await
             .get_verification_keys(epoch)
             .await?
-            .ok_or_else(ProtocolError::UnavailableVerificationKeys)?;
+            .unwrap_or(HashMap::new());
         Ok(self
             .get_stake_distribution()
             .await
@@ -366,7 +366,7 @@ impl MultiSigner for MultiSignerImpl {
                 .ok_or_else(ProtocolError::UnavailableProtocolParameters)?,
             &self
                 .create_clerk()
-                .await
+                .await?
                 .as_ref()
                 .ok_or_else(ProtocolError::UnavailableClerk)?
                 .compute_avk(),
@@ -427,10 +427,9 @@ impl MultiSigner for MultiSignerImpl {
             // Quorum is not reached
             return Ok(None);
         }
-
         let clerk = self
             .create_clerk()
-            .await
+            .await?
             .ok_or_else(ProtocolError::UnavailableClerk)?;
         match clerk.aggregate(&signatures, message) {
             Ok(multi_signature) => {
