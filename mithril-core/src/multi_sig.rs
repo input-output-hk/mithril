@@ -155,33 +155,6 @@ impl<'a> Sum<&'a Self> for VerificationKey {
     }
 }
 
-// We need some unsafe code here due to what is being exposed in the rust FFI.
-// todo: Take particular care reviewing this
-impl Sub for VerificationKey {
-    type Output = Self;
-    fn sub(self, rhs: Self) -> VerificationKey {
-        use blst::{blst_bendian_from_fp, blst_fp, blst_fp_cneg, blst_fp_from_bendian};
-        let mut rhs_bytes = rhs.0.serialize();
-        unsafe {
-            let mut y_bytes: Vec<u8> = rhs_bytes[48..].to_vec();
-            let mut y: blst_fp = blst_fp::default();
-            let mut neg_y: blst_fp = blst_fp::default();
-            blst_fp_from_bendian(&mut y, y_bytes.as_ptr());
-            blst_fp_cneg(&mut neg_y, &y, true);
-
-            blst_bendian_from_fp(y_bytes.as_mut_ptr(), &neg_y);
-            rhs_bytes[48..].copy_from_slice(&y_bytes);
-        }
-        let neg_rhs = BlstPk::deserialize(&rhs_bytes)
-            .expect("The negative of a valid point is also a valid point.");
-        VerificationKey(
-            AggregatePublicKey::aggregate(&[&neg_rhs, &self.0], false)
-                .expect("Points are valid")
-                .to_public_key(),
-        )
-    }
-}
-
 /// MultiSig proof of possession, which contains two elements from G1. However,
 /// the two elements have different types: `k1` is represented as a BlstSig
 /// as it has the same structure, and this facilitates its verification. On
@@ -220,7 +193,7 @@ impl From<&SigningKey> for ProofOfPossession {
     fn from(sk: &SigningKey) -> Self {
         use blst::{blst_scalar, blst_sk_to_pk_in_g1};
         let k1 = sk.0.sign(POP, &[], &[]);
-        let mut sk_bytes = sk.to_bytes();
+        let sk_bytes = sk.to_bytes();
         let k2 = unsafe {
             let mut sk_scalar = blst_scalar::default();
             blst_scalar_from_bendian(&mut sk_scalar, sk_bytes.as_ptr());
@@ -259,18 +232,16 @@ impl VerificationKeyPoP {
             blst_p2_affine, blst_p2_affine_generator, BLST_ERROR,
         };
         let result = unsafe {
-            let g1_p = *blst_p1_affine_generator();
             let pk_bytes = self.vk.to_bytes();
             let mut mvk_p = blst_p2_affine::default();
             blst_p2_uncompress(&mut mvk_p, pk_bytes.as_ptr());
-            let ml_lhs = blst_fp12::miller_loop(&mvk_p, &g1_p);
+            let ml_lhs = blst_fp12::miller_loop(&mvk_p, &*blst_p1_affine_generator());
 
             let mut k2_p = blst_p1_affine::default();
             blst_p1_to_affine(&mut k2_p, &self.pop.k2);
-            let g2_p = *blst_p2_affine_generator();
-            let ml_rhs = blst_fp12::miller_loop(&g2_p, &k2_p);
+            let ml_rhs = blst_fp12::miller_loop(&*blst_p2_affine_generator(), &k2_p);
 
-            blst_fp12_finalverify(&ml_lhs, &ml_rhs)
+            blst_fp12::finalverify(&ml_lhs, &ml_rhs)
         };
 
         if !(self.pop.k1.verify(false, POP, &[], &[], &self.vk.0, false)
@@ -335,8 +306,10 @@ impl ProofOfPossession {
 
         let k2 = unsafe {
             let mut point = blst_p1_affine::default();
+            let mut point_bytes = [0u8; 48];
+            point_bytes.copy_from_slice(&bytes[48..]);
             let mut out = blst_p1::default();
-            blst_p1_uncompress(&mut point, bytes[48..].as_ptr());
+            blst_p1_uncompress(&mut point, point_bytes.as_ptr());
             blst_p1_from_affine(&mut out, &point);
             out
         };
