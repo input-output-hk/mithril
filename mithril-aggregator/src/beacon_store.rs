@@ -31,12 +31,18 @@ pub struct MemoryBeaconStore {
     current_beacon: Option<Beacon>,
 }
 
-impl Default for MemoryBeaconStore {
+impl MemoryBeaconStore {
     /// MemoryBeaconStore factory
-    fn default() -> Self {
+    pub fn new() -> Self {
         Self {
             current_beacon: None,
         }
+    }
+}
+
+impl Default for MemoryBeaconStore {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

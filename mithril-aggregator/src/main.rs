@@ -127,8 +127,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Init dependencies
     let snapshot_store = config.build_snapshot_store();
-    let multi_signer = Arc::new(RwLock::new(init_multi_signer()));
-    let beacon_store = Arc::new(RwLock::new(MemoryBeaconStore::default()));
+
+    let beacon_store = Arc::new(RwLock::new(MemoryBeaconStore::new()));
     let snapshot_uploader = config.build_snapshot_uploader();
     let certificate_pending_store = Arc::new(RwLock::new(CertificatePendingStore::new(Box::new(
         JsonFileStoreAdapter::new(config.pending_certificate_store_directory.clone())?,
@@ -139,6 +139,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let verification_key_store = Arc::new(RwLock::new(VerificationKeyStore::new(Box::new(
         JsonFileStoreAdapter::new(config.verification_key_store_directory.clone())?,
     ))));
+    let multi_signer = Arc::new(RwLock::new(MultiSignerImpl::new(
+        beacon_store.clone(),
+        verification_key_store.clone(),
+    )));
+    init_multi_signer(multi_signer.clone()).await;
 
     // Init dependency manager
     let mut dependency_manager = DependencyManager::new(config.clone());
@@ -187,13 +192,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 
 /// Init multi signer dependency
-fn init_multi_signer() -> impl MultiSigner {
-    let mut multi_signer = MultiSignerImpl::new();
+// TODO: remove this function when new runtime is implemented + remove protocol parameters from fake data
+async fn init_multi_signer(multi_signer: Arc<RwLock<dyn MultiSigner>>) {
+    let mut multi_signer = multi_signer.write().await;
 
     // Update protocol parameters
     let protocol_parameters = fake_data::protocol_parameters();
     multi_signer
         .update_protocol_parameters(&protocol_parameters.into())
+        .await
         .expect("update protocol parameters failed");
 
     // Update stake distribution
@@ -204,7 +211,6 @@ fn init_multi_signer() -> impl MultiSigner {
         .collect::<_>();
     multi_signer
         .update_stake_distribution(&stakes)
+        .await
         .expect("stake distribution update failed");
-
-    multi_signer
 }

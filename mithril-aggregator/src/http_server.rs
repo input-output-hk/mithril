@@ -213,12 +213,12 @@ mod handlers {
         match beacon_store.get_current_beacon().await {
             Ok(Some(beacon)) => {
                 let multi_signer = multi_signer.read().await;
-                match multi_signer.get_multi_signature() {
+                match multi_signer.get_multi_signature().await {
                     Ok(None) => {
                         let mut certificate_pending = fake_data::certificate_pending();
                         certificate_pending.beacon = beacon.clone();
 
-                        let protocol_parameters = multi_signer.get_protocol_parameters();
+                        let protocol_parameters = multi_signer.get_protocol_parameters().await;
                         if protocol_parameters.is_none() {
                             return Ok(warp::reply::with_status(
                                 warp::reply::json(&entities::Error::new(
@@ -232,7 +232,7 @@ mod handlers {
 
                         let previous_hash = certificate_pending.previous_hash;
 
-                        let signers = multi_signer.get_signers();
+                        let signers = multi_signer.get_signers().await;
                         if let Err(err) = signers {
                             return Ok(warp::reply::with_status(
                                 warp::reply::json(&entities::Error::new(
@@ -437,6 +437,7 @@ mod handlers {
             Ok(verification_key) => {
                 match multi_signer
                     .register_signer(signer.party_id as ProtocolPartyId, &verification_key)
+                    .await
                 {
                     Ok(()) => Ok(warp::reply::with_status(
                         warp::reply::json(&Null),
@@ -472,11 +473,14 @@ mod handlers {
         for signature in &signatures {
             match key_decode_hex(&signature.signature) {
                 Ok(single_signature) => {
-                    match multi_signer.register_single_signature(
-                        signature.party_id as ProtocolPartyId,
-                        &single_signature,
-                        signature.index as ProtocolLotteryIndex,
-                    ) {
+                    match multi_signer
+                        .register_single_signature(
+                            signature.party_id as ProtocolPartyId,
+                            &single_signature,
+                            signature.index as ProtocolLotteryIndex,
+                        )
+                        .await
+                    {
                         Err(multi_signer::ProtocolError::ExistingSingleSignature(_)) => {
                             return Ok(warp::reply::with_status(
                                 warp::reply::json(&Null),

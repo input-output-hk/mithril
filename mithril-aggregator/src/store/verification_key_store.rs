@@ -14,11 +14,11 @@ pub enum VerificationKeyStoreError {
 }
 
 #[async_trait]
-trait VerificationKeyStoreTrait {
+pub trait VerificationKeyStoreTrait {
     async fn save_verification_key(
         &mut self,
         epoch: u64,
-        key: Signer,
+        signer: Signer,
     ) -> Result<Option<Signer>, VerificationKeyStoreError>;
 
     async fn get_verification_keys(
