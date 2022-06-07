@@ -7,12 +7,11 @@ use super::stm::Index;
 use crate::error::MultiSignatureError;
 use blake2::{Blake2b, Digest};
 
-use blstrs::*;
+use bls12_381::*;
 use ff::Field;
 use group::prime::PrimeCurveAffine;
-use group::Curve;
+use group::{Curve, GroupEncoding};
 use group::Group;
-
 // We use `min_sig` resulting in signatures of 48 bytes and public keys of
 // 96. We can switch that around if desired by using `min_pk`.
 // todo: Maybe we want this as a compilation flag?
@@ -31,6 +30,7 @@ use std::{
     iter::Sum,
     ops::Sub,
 };
+use bls12_381::hash_to_curve::MapToCurve;
 
 /// String used to generate the proofs of possession.
 const POP: &[u8] = b"PoP";
@@ -54,12 +54,15 @@ impl SigningKey {
 
     /// Sign a message with the given secret key
     pub fn sign(&self, msg: &[u8]) -> Signature {
-        Signature(G1Projective::hash_to_curve(msg, &[], &[]) * self.0)
+        let mut hash = [0u8; 64];
+        hash.copy_from_slice(&Blake2b::digest(msg).as_slice());
+        let scalar = Scalar::from_bytes_wide(&hash); // TODO: HANDLE THIS! ONLY TEMPORARY TO CHECK FLAKY TESTS. IF THIS IS RESOLVED, and this is still here, please, panic! https://github.com/input-output-hk/mithril/issues/207
+        Signature(G1Projective::generator() * scalar * self.0)
     }
 
     /// Convert the secret key into byte string.
     pub fn to_bytes(&self) -> [u8; 32] {
-        self.0.to_bytes_be()
+        self.0.to_bytes()
     }
 
     /// Convert a string of bytes into a `SigningKey`.
@@ -71,7 +74,7 @@ impl SigningKey {
         }
         let mut array_bytes = [0u8; 32];
         array_bytes.copy_from_slice(&bytes[..32]);
-        Ok(Self(Scalar::from_bytes_be(&array_bytes).unwrap()))
+        Ok(Self(Scalar::from_bytes(&array_bytes).unwrap()))
     }
 }
 
@@ -104,7 +107,7 @@ impl Eq for VerificationKey {}
 impl VerificationKey {
     /// Convert an `VerificationKey` to its compressed byte representation.
     pub fn to_bytes(self) -> [u8; 96] {
-        self.0.to_compressed()
+        self.0.to_affine().to_compressed()
     }
 
     /// Convert a compressed byte string into a `VerificationKey`.
@@ -118,17 +121,17 @@ impl VerificationKey {
         }
         let mut array_bytes = [0u8; 96];
         array_bytes.copy_from_slice(&bytes[..96]);
-        let key = if G2Projective::from_compressed(&array_bytes)
+        let key = if G2Affine::from_compressed(&array_bytes)
             .is_some()
             .unwrap_u8()
             == 1u8
         {
-            G2Projective::from_compressed(&array_bytes).unwrap()
+            G2Affine::from_compressed(&array_bytes).unwrap()
         } else {
             return Err(MultiSignatureError::SerializationError);
         };
 
-        Ok(Self(key))
+        Ok(Self(G2Projective::from(key)))
     }
 
     /// Compare two `VerificationKey`. Used for PartialOrd impl, used to order signatures. The comparison
@@ -222,7 +225,10 @@ impl From<&SigningKey> for ProofOfPossession {
     /// `G1` and `g1` is the generator in `G1`.
     fn from(sk: &SigningKey) -> Self {
         // use blst::{blst_scalar, blst_sk_to_pk_in_g1};
-        let k1 = G1Projective::hash_to_curve(POP, &[], &[]) * sk.0;
+        let mut hash = [0u8; 64];
+        hash.copy_from_slice(&Blake2b::digest(POP).as_slice());
+        let scalar = Scalar::from_bytes_wide(&hash); // TODO: HANDLE THIS! ONLY TEMPORARY TO CHECK FLAKY TESTS. IF THIS IS RESOLVED, and this is still here, please, panic! https://github.com/input-output-hk/mithril/issues/207
+        let k1 = G1Affine::generator() * scalar * sk.0;
         let k2 = G1Affine::generator() * sk.0;
 
         Self { k1, k2 }
@@ -248,9 +254,13 @@ impl VerificationKeyPoP {
     // If we are really looking for performance improvements, we can combine the
     // two final exponantiations (for verifying k1 and k2) into a single one.
     pub fn check(&self) -> Result<(), MultiSignatureError> {
+        let mut hash = [0u8; 64];
+        hash.copy_from_slice(&Blake2b::digest(POP).as_slice());
+        let h2c_p = G1Affine::generator() * Scalar::from_bytes_wide(&hash); // TODO: HANDLE THIS! ONLY TEMPORARY TO CHECK FLAKY TESTS. IF THIS IS RESOLVED, and this is still here, please, panic! https://github.com/input-output-hk/mithril/issues/207
+
         let lhs_1 = pairing(&self.pop.k1.to_affine(), &G2Affine::generator());
         let rhs_1 = pairing(
-            &G1Projective::hash_to_curve(POP, &[], &[]).to_affine(),
+            &h2c_p.to_affine(),
             &self.vk.0.to_affine(),
         );
 
@@ -294,8 +304,8 @@ impl ProofOfPossession {
     /// * K2 (G1 point)
     pub fn to_bytes(self) -> [u8; 96] {
         let mut pop_bytes = [0u8; 96];
-        pop_bytes[..48].copy_from_slice(&self.k1.to_compressed());
-        pop_bytes[48..].copy_from_slice(&self.k2.to_compressed());
+        pop_bytes[..48].copy_from_slice(&self.k1.to_affine().to_compressed());
+        pop_bytes[48..].copy_from_slice(&self.k2.to_affine().to_compressed());
         pop_bytes
     }
 
@@ -303,10 +313,10 @@ impl ProofOfPossession {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
         let mut array_byte = [0u8; 48];
         array_byte.copy_from_slice(&bytes[..48]);
-        let k1 = G1Projective::from_compressed(&array_byte).unwrap();
+        let k1 = G1Projective::from(G1Affine::from_compressed(&array_byte).unwrap());
 
         array_byte.copy_from_slice(&bytes[48..]);
-        let k2 = G1Projective::from_compressed(&array_byte).unwrap();
+        let k2 = G1Projective::from(G1Affine::from_compressed(&array_byte).unwrap());
 
         Ok(Self { k1, k2 })
     }
@@ -323,9 +333,13 @@ pub struct Signature(G1Projective);
 impl Signature {
     /// Verify a signature against a verification key.
     pub fn verify(&self, msg: &[u8], mvk: &VerificationKey) -> Result<(), MultiSignatureError> {
+        let mut hash = [0u8; 64];
+        hash.copy_from_slice(&Blake2b::digest(msg).as_slice());
+        let h2c = G1Affine::generator() * Scalar::from_bytes_wide(&hash); // TODO: HANDLE THIS! ONLY TEMPORARY TO CHECK FLAKY TESTS. IF THIS IS RESOLVED, and this is still here, please, panic! https://github.com/input-output-hk/mithril/issues/207
+
         let lhs = pairing(&self.0.to_affine(), &G2Affine::generator());
         let rhs = pairing(
-            &G1Projective::hash_to_curve(msg, &[], &[]).to_affine(),
+            &h2c.to_affine(),
             &mvk.0.to_affine(),
         );
         if lhs == rhs {
@@ -356,7 +370,7 @@ impl Signature {
 
     /// Convert an `Signature` to its compressed byte representation.
     pub fn to_bytes(self) -> [u8; 48] {
-        self.0.to_compressed()
+        self.0.to_affine().to_compressed()
     }
 
     /// Convert a string of bytes into a `MspSig`.
@@ -366,7 +380,7 @@ impl Signature {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
         let mut array_byte = [0u8; 48];
         array_byte.copy_from_slice(&bytes[..48]);
-        Ok(Self(G1Projective::from_compressed(&array_byte).unwrap()))
+        Ok(Self(G1Projective::from(G1Affine::from_compressed(&array_byte).unwrap())))
     }
 
     /// Compare two signatures. Used for PartialOrd impl, used to rank signatures. The comparison
@@ -475,7 +489,7 @@ mod tests {
 
     impl PartialEq for SigningKey {
         fn eq(&self, other: &Self) -> bool {
-            self.0.to_bytes_be() == other.0.to_bytes_be()
+            self.0.to_bytes() == other.0.to_bytes()
         }
     }
 

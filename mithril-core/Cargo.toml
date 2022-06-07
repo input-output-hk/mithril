@@ -10,9 +10,10 @@ crate-type = ["lib", "cdylib", "staticlib"]
 [dependencies]
 digest      = { version = "0.9.0", features=["alloc"] }
 #blst = "0.3.7"
-blstrs = "0.4.2"
-ff = "0.11"
-group = { version = "0.11", features = ["tests"] }
+bls12_381 = { version = "0.7.0", features=["experimental"] }
+#blstrs = "0.4.2"
+ff = "0.12"
+group = { version = "0.12.0", features = ["tests"] }
 
 num-bigint  = "0.4.0"
 num-rational = "0.4.0"
