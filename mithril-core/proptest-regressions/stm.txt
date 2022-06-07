@@ -5,3 +5,5 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 cc 31b06535674c5a44ff216443cbd6d1b7a694cc79aa89c394aa189e1c1fea061d # shrinks to msg = [0, 0, 4, 8, 1, 1, 0, 2, 7, 3, 22, 62, 62, 38, 23, 0], misbehaving_parties = 2
+cc 4d730f7c017eefd41e0c15b7507153173b1ab32e35d1847b0e8ee3af9e71a1e6 # shrinks to msg = [153, 245, 99, 170, 115, 216, 160, 137, 5, 33, 137, 38, 199, 129, 165, 21]
+cc 3ff681357b6e1bdb0d67ec6bd0ed81fe3bf8eb96bd437e4ab482161c7d254783 # shrinks to msg = [229, 102, 13, 206, 136, 125, 82, 87, 110, 14, 168, 139, 242, 227, 255, 132]

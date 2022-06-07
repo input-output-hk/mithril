@@ -1,9 +1,9 @@
 //! Crate specific errors
 
 use crate::merkle_tree::Path;
-use crate::multi_sig::{Signature, VerificationKey, VerificationKeyPoP};
+use crate::multi_sig_blstrs::{Signature, VerificationKey, VerificationKeyPoP};
 use crate::stm::PartyId;
-use blst::BLST_ERROR;
+// use blst::BLST_ERROR;
 use digest::{Digest, FixedOutput};
 
 // todo: better organise these errors.
@@ -171,12 +171,12 @@ impl<D: Digest + Clone + FixedOutput> From<VerificationFailure<D>> for MithrilWi
     }
 }
 
-pub(crate) fn blst_err_to_atms(e: BLST_ERROR) -> Result<(), MultiSignatureError> {
-    match e {
-        BLST_ERROR::BLST_SUCCESS => Ok(()),
-        BLST_ERROR::BLST_VERIFY_FAIL => Err(MultiSignatureError::InvalidSignature),
-        BLST_ERROR::BLST_AGGR_TYPE_MISMATCH => Err(MultiSignatureError::UnexpectedBlstTypes),
-        BLST_ERROR::BLST_PK_IS_INFINITY => Err(MultiSignatureError::UnexpectedBlstTypes),
-        _ => Err(MultiSignatureError::SerializationError),
-    }
-}
+// pub(crate) fn blst_err_to_atms(e: BLST_ERROR) -> Result<(), MultiSignatureError> {
+//     match e {
+//         BLST_ERROR::BLST_SUCCESS => Ok(()),
+//         BLST_ERROR::BLST_VERIFY_FAIL => Err(MultiSignatureError::InvalidSignature),
+//         BLST_ERROR::BLST_AGGR_TYPE_MISMATCH => Err(MultiSignatureError::UnexpectedBlstTypes),
+//         BLST_ERROR::BLST_PK_IS_INFINITY => Err(MultiSignatureError::UnexpectedBlstTypes),
+//         _ => Err(MultiSignatureError::SerializationError),
+//     }
+// }

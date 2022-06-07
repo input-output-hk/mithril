@@ -128,7 +128,7 @@ use crate::error::{
 };
 use crate::key_reg::ClosedKeyReg;
 use crate::merkle_tree::{MTLeaf, MerkleTreeCommitment, Path};
-use crate::multi_sig::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
+use crate::multi_sig_blstrs::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
 use blake2::Blake2b;
 use digest::{Digest, FixedOutput};
 use rand_core::{CryptoRng, RngCore};
@@ -371,7 +371,8 @@ where
 
         let mt_commitment = MerkleTreeCommitment::<D> {
             root,
-            nr_leaves: usize::try_from(nr_leaves).map_err(|_| MultiSignatureError::SerializationError)?,
+            nr_leaves: usize::try_from(nr_leaves)
+                .map_err(|_| MultiSignatureError::SerializationError)?,
             hasher: Default::default(),
         };
 

@@ -4,7 +4,7 @@ use serde::Serialize;
 
 ////////// Temporary trait, to understand the flaky tests ///////////
 
-use mithril::{multi_sig::*, stm::*};
+use mithril::{multi_sig_blstrs::*, stm::*};
 
 pub trait BytesConv: Sized {
     fn from_byte(bytes: &[u8]) -> Result<Self, String>;

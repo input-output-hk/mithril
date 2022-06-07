@@ -5,11 +5,11 @@ use digest::{Digest, FixedOutput};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use super::multi_sig::VerificationKeyPoP;
+use super::multi_sig_blstrs::VerificationKeyPoP;
 use super::stm::{PartyId, Stake};
 
 use crate::merkle_tree::{MTLeaf, MerkleTree};
-use crate::multi_sig::VerificationKey;
+use crate::multi_sig_blstrs::VerificationKey;
 
 /// Struct that collects public keys and stakes of parties. Each participant (both the
 /// signers and the clerks) need to run their own instance of the key registration.
@@ -130,7 +130,7 @@ impl Default for KeyReg {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::multi_sig::SigningKey;
+    use crate::multi_sig_blstrs::SigningKey;
     use blake2::Blake2b;
     use proptest::collection::vec;
     use proptest::prelude::*;

@@ -1,6 +1,6 @@
 //! Creation and verification of Merkle Trees
 use crate::error::MerkleTreeError;
-use crate::multi_sig::VerificationKey;
+use crate::multi_sig_blstrs::VerificationKey;
 use crate::stm::Stake;
 use digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
