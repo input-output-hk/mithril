@@ -1,5 +1,24 @@
 {-# LANGUAGE GADTs #-}
-module Mithril.Process.Network where
+module Mithril.Process.Network
+( Network
+, NetworkState
+, RNG
+, runScheduler
+, execute
+, mkPort
+, recvAll
+, empty
+, setRandomGen
+, withRandom
+, runNetwork
+, runNetwork'
+, evalProcess
+, runProcess
+) where
+
+-- TODO: the ideas here might be better expressed as a typeclass
+--       implementing an interpreter of sorts for the actions
+--       a Proc can take
 
 import qualified Control.Monad.State as State
 import Control.Monad ((>=>), ap, liftM, forever)
@@ -9,12 +28,8 @@ import qualified Data.List as List
 import Data.Sequence (Seq ((:|>)) )
 import qualified Data.Sequence as Seq
 import qualified Data.Foldable as F
-
-newtype SendPort a = SendPort Integer
-  deriving (Eq, Ord)
-
-newtype RecvPort a = RecvPort Integer
-  deriving (Eq, Ord)
+import Mithril.Process.Process
+    ( send, Proc(..), Recv(..), RecvPort(..), SendPort(..) )
 
 data NetworkSend where
   NetworkSend :: Typeable a => Integer -> SendPort a -> a -> NetworkSend
@@ -30,45 +45,32 @@ data NetworkRecv = NetworkRecv Integer [Recv ()]
 netRecvId :: NetworkRecv -> Integer
 netRecvId (NetworkRecv i _) = i
 
+-- |The state of the network
 data NetworkState = NetworkState
-  { netSends :: [NetworkSend]
-  , netRecvs :: [NetworkRecv]
-  , netIds :: Integer
-  , netLog :: Seq String
-  , netRandomGen :: Random.StdGen
+  { netSends :: [NetworkSend]     -- Unrecieved messages
+  , netRecvs :: [NetworkRecv]     -- Processes awaiting messages
+  , netIds :: Integer             -- Seed for unique identifiers
+  , netLog :: Seq String          -- Network log
+  , netRandomGen :: RNG           -- RNG
   }
 
+-- |Random number generator
+data RNG where
+  RNG :: Random.RandomGen g => g -> RNG
+
+instance Random.RandomGen RNG where
+  split (RNG f) =
+    let (s1, s2) = Random.split f
+    in (RNG s1, RNG s2)
+  genWord64 (RNG f) = RNG <$> Random.genWord64 f
+
+
+-- | A computation involving the network just stateful computation
+--   on the 'NetworkState'
 type Network = State.State NetworkState
 
-data Recv a where
-  Recv :: Typeable b => RecvPort b -> (b -> Proc a) -> Recv a
-
-data Proc a where
-  PRecv :: [Recv a] -> Proc a
-  Fork :: Proc () -> Proc a -> Proc a
-  Send :: Typeable b => SendPort b -> b -> Proc a -> Proc a
-  MkPort :: ((SendPort b, RecvPort b) -> Proc a) -> Proc a
-  Yield :: a -> Proc a
-  Log :: String -> Proc a -> Proc a
-
-instance Functor Proc where
-  fmap = liftM
-
-instance Applicative Proc where
-  (<*>) = ap
-  pure = Yield
-
-instance Monad Proc where
-  ma >>= fmb = case ma of
-    PRecv recs -> PRecv (doRecv <$> recs)
-    Fork forked main -> Fork forked (main >>= fmb)
-    Send port msg p -> Send port msg (p >>= fmb)
-    MkPort f -> MkPort (f >=> fmb)
-    Yield a -> fmb a
-    Log log p -> Log log (p >>= fmb)
-    where
-      doRecv (Recv p cont) = Recv p (cont >=> fmb)
-
+-- |Generate the possible next states of the network
+--  Each element is a new (unexecuted) process and network state
 interleavings :: NetworkState -> [(Proc (), NetworkState)]
 interleavings ns =
   [ (p, deliver sendId recvId)
@@ -84,18 +86,31 @@ interleavings ns =
          , netRecvs = [r | r <- netRecvs ns, netRecvId r /= recvId]
          }
 
+newId :: Network Integer
+newId =
+  do  pid <- State.gets netIds
+      State.modify (\s -> s { netIds = pid + 1})
+      pure pid
+
+-- * Network API
+
+-- |Run events in the network until no more remain
 runScheduler :: Network ()
 runScheduler =
   do  nextStates <- State.gets interleavings
       case nextStates of
         [] -> pure ()
         _ ->
-          do  idx <- netRandom (Random.randomR (0, length nextStates - 1))
+          do  idx <- withRandom (Random.randomR (0, length nextStates - 1))
               let (prc, ns') = nextStates !! idx
               State.put ns'
               execute prc
               runScheduler
 
+-- |Load a process into the network - the process will evolve until it requires input
+-- in the form of `recv` or similar, but no further -- even if there are sends avaliable
+-- that could allow it to make progress.  All such progress is deferred until a call
+-- to 'runScheduler' to allow for processes to be interleaved.
 execute :: Proc () -> Network ()
 execute p =
   case p of
@@ -105,16 +120,16 @@ execute p =
           execute m
 
     Send port msg p ->
-      do  sendId <- netNewId
+      do  sendId <- newId
           execute p
           State.modify (\s -> s { netSends = NetworkSend sendId port msg : netSends s})
 
     MkPort f ->
-      do  ports <- netMkPort
+      do  ports <- mkPort
           execute (f ports)
 
     PRecv recs ->
-      do  i <- netNewId
+      do  i <- newId
           let recs' = NetworkRecv i recs
           State.modify (\s -> s { netRecvs = recs' : netRecvs s})
 
@@ -122,22 +137,15 @@ execute p =
       do  State.modify (\s -> s { netLog = netLog s :|> msg  })
           execute p
 
-
-netNewId :: Network Integer
-netNewId =
-  do  pid <- State.gets netIds
-      State.modify (\s -> s { netIds = pid + 1})
-      pure pid
-
-
-
-netMkPort :: Network (SendPort a, RecvPort a)
-netMkPort =
-  do  pid <- netNewId
+-- | Create a pair of ports
+mkPort :: Network (SendPort a, RecvPort a)
+mkPort =
+  do  pid <- newId
       pure (SendPort pid, RecvPort pid)
 
-netRecvAll :: Typeable a => RecvPort a -> Network [a]
-netRecvAll (RecvPort rid) =
+-- | Recieve all the messages currently on a port
+recvAll :: Typeable a => RecvPort a -> Network [a]
+recvAll (RecvPort rid) =
   do  sends <- State.gets netSends
       let (recvs, rest) = List.partition (\s -> netSendPort s == rid) sends
       State.modify (\s -> s {netSends = rest})
@@ -149,44 +157,50 @@ netRecvAll (RecvPort rid) =
         Just b -> b
         Nothing -> error "netRecvAll: cast failed!"
 
-networkEmpty :: NetworkState
-networkEmpty =
+-- | An empty network
+empty :: NetworkState
+empty =
   NetworkState { netIds = 0
                , netRecvs = []
                , netSends = []
                , netLog = Seq.Empty
-               , netRandomGen = Random.mkStdGen 0
+               , netRandomGen = RNG $ Random.mkStdGen 0
                }
 
-netSetRandomGen :: Random.StdGen -> Network ()
-netSetRandomGen i = State.modify (\s -> s { netRandomGen = i })
+-- | Set the RNG for the network
+setRandomGen :: Random.RandomGen g => g -> Network ()
+setRandomGen i = State.modify (\s -> s { netRandomGen = RNG i })
 
-netRandom :: (Random.StdGen -> (a, Random.StdGen)) -> Network a
-netRandom r =
+-- | Access the network's source of randomness
+withRandom :: (RNG -> (a, RNG)) -> Network a
+withRandom r =
   do  (a, g') <- State.gets (r . netRandomGen)
       State.modify (\s -> s { netRandomGen = g' })
       pure a
 
+-- | Run a network computation
 runNetwork :: Network a -> NetworkState -> (a, NetworkState)
 runNetwork = State.runState
 
+-- | Run a network computation on an initially empty network
 runNetwork' :: Network a -> (a, NetworkState)
-runNetwork' = (`runNetwork` networkEmpty)
+runNetwork' = (`runNetwork` empty)
 
-eval :: Typeable a => Proc a -> Network (Maybe a)
-eval p =
-  do  (s, r) <- netMkPort
+-- | Execute and schedule a process immediately, returning a result if
+--   the process terminates
+evalProcess :: Typeable a => Proc a -> Network (Maybe a)
+evalProcess p =
+  do  (s, r) <- mkPort
       execute (p >>= send s)
       runScheduler
-      results <- netRecvAll r
+      results <- recvAll r
       case results of
         [a] -> pure $ Just a
         _ -> pure Nothing
 
 
-runProcessIO :: (Typeable a) => Proc a -> IO ([String], Either String a)
-runProcessIO p = runProcess p <$> Random.getStdGen
-
+-- | Run a process using Network, returning a result or an error
+--   (most likely the error being that the process did not complete)
 runProcess :: (Typeable a) => Proc a -> Random.StdGen -> ([String], Either String a)
 runProcess p g =
   let (result, ns) = runNetwork' net
@@ -194,56 +208,12 @@ runProcess p g =
   where
     p' sendP = p >>= send sendP
     net =
-      do  netSetRandomGen g
-          (sendP, recvP) <- netMkPort
+      do  setRandomGen g
+          (sendP, recvP) <- mkPort
           execute (p' sendP)
           runScheduler
-          recvs <- netRecvAll recvP
+          recvs <- recvAll recvP
           case recvs of
             [] -> pure $ Left "Process did not complete"
             [r] -> pure $ Right r
             _ -> pure $ Left "[BUG] Process returned more than one result?"
-
-----
-
-send :: Typeable a => SendPort a -> a -> Proc ()
-send port msg = Send port msg (pure ())
-
-recv :: Typeable a => RecvPort a -> Proc a
-recv port = PRecv [Recv port pure]
-
-mkPort :: Typeable a => Proc (SendPort a, RecvPort a)
-mkPort = MkPort pure
-
-fork :: Proc () -> Proc ()
-fork f = Fork f (pure ())
-
-(===>) :: Typeable a => RecvPort a -> (a -> Proc b) -> Recv b
-port ===> cont = Recv port cont
-
-choose :: [Recv a] -> Proc a
-choose = PRecv
-
-async :: Typeable a => Proc a -> Proc (Proc a)
-async p =
-  do  (sendP, recvP) <- mkPort
-      fork $ p >>= send sendP
-      pure $ recv recvP
-
-logmsg :: String -> Proc ()
-logmsg msg = Log msg (pure ())
-
-(<|*|>) :: (Typeable a, Typeable b) => Proc (a -> b) -> Proc a -> Proc b
-pf <|*|> pa =
-  do  pf' <- async pf
-      pa' <- async pa
-      pf' <*> pa'
-
-tryGetResult :: Proc a -> Maybe a
-tryGetResult p =
-  case p of
-    Yield a -> Just a
-    _ -> Nothing
-
-----
-

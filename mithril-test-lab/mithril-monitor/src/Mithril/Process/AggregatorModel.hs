@@ -2,6 +2,7 @@
 module Mithril.Process.AggregatorModel where
 
 import qualified Mithril.Process.Network as N
+import qualified Mithril.Process.Process as P
 import Data.Word (Word64)
 import Data.Map (Map)
 import Data.Sequence (Seq ((:|>)), (<|))
@@ -15,7 +16,7 @@ import qualified System.Random as Random
 import Data.Foldable (traverse_)
 
 data Request a b = Request
-  { reqResponsePort :: N.SendPort b
+  { reqResponsePort :: P.SendPort b
   , reqBody :: a
   }
 
@@ -126,22 +127,22 @@ aggInitialState stakes =
                         , regStateStakeDist = stakes
                         }
 
-aggregator :: StakeDist -> N.RecvPort AggregatorEvent -> N.Proc ()
+aggregator :: StakeDist -> P.RecvPort AggregatorEvent -> P.Proc ()
 aggregator stakes event = main (aggInitialState stakes)
   where
     main state =
-      do  e <- N.recv event
+      do  e <- P.recv event
           case e of
             AggRegisterParty (Request response regist) ->
               do  say "got register"
                   let (isSuccess, state') = run (register regist) state
-                  N.send response isSuccess
+                  P.send response isSuccess
                   main state'
 
             AggSign (Request response sig) ->
               do  say "got signature"
                   let (isSuccess, state') = run (partySign sig) state
-                  N.send response isSuccess
+                  P.send response isSuccess
                   main state'
 
             AggNewSnapshot snap ->
@@ -150,11 +151,11 @@ aggregator stakes event = main (aggInitialState stakes)
 
             AggGetCertificate (Request response mbId) ->
               do  let (mbCert, _) = run (getCert mbId) state
-                  N.send response mbCert
+                  P.send response mbCert
                   main state
 
     run = State.runState
-    say m = N.logmsg ("Aggregator: " ++ show m)
+    say m = P.logmsg ("Aggregator: " ++ show m)
 
 
 ----------------------------
@@ -335,13 +336,13 @@ getCert mbId =
 
 --
 
-request :: (Typeable a, Typeable b, Typeable c) => N.SendPort c -> a -> (Request a b -> c) -> N.Proc b
+request :: (Typeable a, Typeable b, Typeable c) => P.SendPort c -> a -> (Request a b -> c) -> P.Proc b
 request port a mkReq =
-  do  (respSend, respRecv) <- N.mkPort
-      N.send port (mkReq (Request respSend a))
-      N.recv respRecv
+  do  (respSend, respRecv) <- P.newPort
+      P.send port (mkReq (Request respSend a))
+      P.recv respRecv
 
-registerClient :: PartyId -> PrivateKey -> N.SendPort AggregatorEvent -> N.Proc ()
+registerClient :: PartyId -> PrivateKey -> P.SendPort AggregatorEvent -> P.Proc ()
 registerClient partyId privKey aggregator =
   do  say "Registering..."
       let registration = Registration { regMithrilRound = 1
@@ -352,11 +353,11 @@ registerClient partyId privKey aggregator =
       regSuccess <- request aggregator registration AggRegisterParty
       say ("Registration response: " ++ show regSuccess)
   where
-      say msg = N.logmsg ("Party " ++ show partyId ++ ": " ++ msg)
+      say msg = P.logmsg ("Party " ++ show partyId ++ ": " ++ msg)
 
 
 
-signClient :: PartyId -> PrivateKey -> N.SendPort AggregatorEvent -> N.Proc ()
+signClient :: PartyId -> PrivateKey -> P.SendPort AggregatorEvent -> P.Proc ()
 signClient partyId privKey aggregator =
   do  cert <- retry $ do say "Getting cert from aggregator..."
                          mbCert <- request aggregator (Just 1) AggGetCertificate
@@ -374,20 +375,20 @@ signClient partyId privKey aggregator =
       say ("Signature response: " ++ show sigSuccess)
 
   where
-    retry :: N.Proc (Maybe a) -> N.Proc a
+    retry :: P.Proc (Maybe a) -> P.Proc a
     retry p =
       do  mbr <- p
           case mbr of
             Nothing -> retry p
             Just r -> pure r
 
-    say msg = N.logmsg ("Party " ++ show partyId ++ ": " ++ msg)
+    say msg = P.logmsg ("Party " ++ show partyId ++ ": " ++ msg)
 
 
 scenario1 :: N.Network (Maybe GetCertResult)
 scenario1 =
   do  -- Phase 1: do setup
-      (aggSend, aggRecv) <- N.netMkPort
+      (aggSend, aggRecv) <- N.mkPort
       N.execute $ register aggSend aggRecv
       g' <- N.runScheduler
 
@@ -395,7 +396,7 @@ scenario1 =
       N.execute $ snapshotReady aggSend
       N.runScheduler
 
-      result <- N.eval (request aggSend (Just 1) AggGetCertificate)
+      result <- N.evalProcess (request aggSend (Just 1) AggGetCertificate)
       case result of
         Nothing -> pure Nothing
         Just Nothing -> pure Nothing
@@ -409,13 +410,13 @@ scenario1 =
                    ]
 
     register aggSend aggRecv =
-      do  N.fork (aggregator stakeDist aggRecv)
-          N.fork (registerClient 1 (PrivateKey 1) aggSend)
-          N.fork (registerClient 2 (PrivateKey 2) aggSend)
-          N.fork (registerClient 3 (PrivateKey 3) aggSend)
+      do  P.fork (aggregator stakeDist aggRecv)
+          P.fork (registerClient 1 (PrivateKey 1) aggSend)
+          P.fork (registerClient 2 (PrivateKey 2) aggSend)
+          P.fork (registerClient 3 (PrivateKey 3) aggSend)
 
     snapshotReady aggSend =
-      do  N.fork (signClient 1 (PrivateKey 1) aggSend)
-          N.fork (signClient 2 (PrivateKey 2) aggSend)
-          N.fork (signClient 3 (PrivateKey 3) aggSend)
-          N.send aggSend (AggNewSnapshot (Snapshot 1))
+      do  P.fork (signClient 1 (PrivateKey 1) aggSend)
+          P.fork (signClient 2 (PrivateKey 2) aggSend)
+          P.fork (signClient 3 (PrivateKey 3) aggSend)
+          P.send aggSend (AggNewSnapshot (Snapshot 1))

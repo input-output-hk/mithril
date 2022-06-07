@@ -1,6 +1,7 @@
 module NetworkTests where
 
 import Mithril.Process.Network
+import Mithril.Process.Process
 import qualified Test.Tasty.HUnit as HUnit
 import qualified System.Random as Random
 import qualified Test.Tasty as Tasty
@@ -42,7 +43,7 @@ intClient server output =
       send output (i1, i2, i3)
   where
     getInt =
-      do  (sendP, recvP) <- mkPort
+      do  (sendP, recvP) <- newPort
           send server (GetIntReq sendP)
           GetIntResp i <- recv recvP
           logmsg ("intClient: got response " ++ show i)
@@ -51,8 +52,8 @@ intClient server output =
 
 main :: Proc [[Integer]]
 main =
-  do  (svcSend, svcRecv) <- mkPort
-      (clientSend, clientRecv) <- mkPort
+  do  (svcSend, svcRecv) <- newPort
+      (clientSend, clientRecv) <- newPort
 
       logmsg "main: forked client 1"
       fork (intClient svcSend clientSend)

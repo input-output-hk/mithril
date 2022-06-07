@@ -23,6 +23,7 @@ library
                         Mithril.Monitor.Util
                         Mithril.Monitor.Aggregator
                         Mithril.Process.Network
+                        Mithril.Process.Process
                         Mithril.Process.AggregatorModel
 
   -- other-modules:
