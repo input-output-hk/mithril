@@ -1,6 +1,5 @@
-#![allow(dead_code, unused_imports)]
-use super::dependency::{BeaconStoreWrapper, MultiSignerWrapper, SnapshotStoreWrapper};
-use super::{BeaconStore, BeaconStoreError, ProtocolError, SnapshotError, Snapshotter};
+use crate::dependency::{BeaconStoreWrapper, MultiSignerWrapper, SnapshotStoreWrapper};
+use crate::{BeaconStore, BeaconStoreError, ProtocolError, SnapshotError, Snapshotter};
 
 use mithril_common::crypto_helper::Bytes;
 use mithril_common::digesters::{Digester, DigesterError, ImmutableDigester};
@@ -12,7 +11,6 @@ use crate::snapshot_stores::SnapshotStoreError;
 use crate::snapshot_uploaders::{SnapshotLocation, SnapshotUploader};
 use crate::DependencyManager;
 
-use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use hex::ToHex;
 use mithril_common::entities::Snapshot;
@@ -84,90 +82,14 @@ impl Display for AggregatorState {
         }
     }
 }
-pub struct AggregatorConfig {
-    /// Interval between each snapshot, in seconds
-    pub interval: u32,
-
-    /// Cardano network
-    pub network: String,
-
-    /// DB directory to snapshot
-    pub db_directory: PathBuf,
-
-    /// Directory to store snapshot
-    pub snapshot_directory: PathBuf,
-
-    pub dependencies: Arc<DependencyManager>,
-}
-
-impl AggregatorConfig {
-    pub fn new(
-        interval: u32,
-        network: &str,
-        db_directory: &Path,
-        snapshot_directory: &Path,
-        dependencies: Arc<DependencyManager>,
-    ) -> Self {
-        Self {
-            interval,
-            network: network.to_string(),
-            db_directory: db_directory.to_path_buf(),
-            snapshot_directory: snapshot_directory.to_path_buf(),
-            dependencies,
-        }
-    }
-}
-
-#[async_trait]
-pub trait AggregatorRunnerTrait: Sync + Send {
-    /// Return the current beacon if it is newer than the given one.
-    fn is_new_beacon(&self, beacon: Option<&Beacon>) -> Option<Beacon>;
-    async fn compute_digest(&self, new_beacon: &Beacon) -> Result<String, DigesterError>;
-    async fn create_pending_certificate(&self, message: &str)
-        -> Result<CertificatePending, String>;
-}
-
-pub struct AggregatorRunner {}
-
-impl AggregatorRunner {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
-
-#[cfg_attr(test, automock)]
-#[async_trait]
-impl AggregatorRunnerTrait for AggregatorRunner {
-    fn is_new_beacon<'a>(&self, beacon: Option<&'a Beacon>) -> Option<Beacon> {
-        info!("checking if there is a new beacon");
-        let current_beacon = mithril_common::fake_data::beacon();
-
-        if beacon.is_none() || current_beacon > *beacon.unwrap() {
-            Some(current_beacon)
-        } else {
-            None
-        }
-    }
-
-    async fn compute_digest(&self, new_beacon: &Beacon) -> Result<String, DigesterError> {
-        todo!()
-    }
-
-    async fn create_pending_certificate(
-        &self,
-        message: &str,
-    ) -> Result<CertificatePending, String> {
-        todo!()
-    }
-}
 
 /// AggregatorRuntime
 pub struct AggregatorRuntime {
     /// the internal state of the automate
     state: AggregatorState,
 
-    /// configuration handler, also owns the dependencies
-    config: AggregatorConfig,
+    /// time between each state machine execution
+    state_sleep: Duration,
 
     /// specific runner for this state machine
     runner: Arc<dyn AggregatorRunnerTrait>,
@@ -179,38 +101,24 @@ impl AggregatorRuntime {
     }
 
     pub async fn new(
-        config: AggregatorConfig,
+        state_sleep: Duration,
         init_state: Option<AggregatorState>,
         runner: Arc<dyn AggregatorRunnerTrait>,
     ) -> Result<Self, RuntimeError> {
         info!("initializing runtime");
 
         let state = if init_state.is_none() {
-            trace!("no initial state given");
-            if config.dependencies.beacon_store.is_none() {
-                trace!("idle state, no current beacon");
-                AggregatorState::Idle(IdleState {
-                    current_beacon: None,
-                })
-            } else {
-                let store = config.dependencies.beacon_store.as_ref().unwrap();
-                let current_beacon = store
-                    .read()
-                    .await
-                    .get_current_beacon()
-                    .await
-                    .map_err(|e| RuntimeError::General(e.to_string()))?;
-                trace!("idle state, got current beacon from store");
-
-                AggregatorState::Idle(IdleState { current_beacon })
-            }
+            trace!("idle state, no current beacon");
+            AggregatorState::Idle(IdleState {
+                current_beacon: None,
+            })
         } else {
             trace!("got initial state from caller");
             init_state.unwrap()
         };
 
         Ok::<Self, RuntimeError>(Self {
-            config,
+            state_sleep,
             state,
             runner,
         })
@@ -223,8 +131,8 @@ impl AggregatorRuntime {
                 error!("{:?}", e)
             }
 
-            info!("Sleeping for {}", self.config.interval);
-            sleep(Duration::from_millis(self.config.interval.into())).await;
+            info!("Sleeping…");
+            sleep(self.state_sleep).await;
         }
     }
 
@@ -454,7 +362,7 @@ fn build_new_snapshot(
 
 #[cfg(test)]
 mod tests {
-    use super::super::Config;
+    use crate::Config;
     use super::*;
     use mithril_common::fake_data;
 
@@ -463,32 +371,7 @@ mod tests {
         runner: MockAggregatorRunner,
     ) -> AggregatorRuntime {
         use crate::entities::{SnapshotStoreType, SnapshotUploaderType};
-
-        let config = Config {
-            network: "testnet".to_string(),
-            url_snapshot_manifest: "https://storage.googleapis.com/cardano-testnet/snapshots.json"
-                .to_string(),
-            snapshot_store_type: SnapshotStoreType::Local,
-            snapshot_uploader_type: SnapshotUploaderType::Local,
-            server_url: "http://0.0.0.0:8080".to_string(),
-            db_directory: Default::default(),
-            snapshot_directory: Default::default(),
-            pending_certificate_store_directory: std::env::temp_dir()
-                .join("mithril_test_pending_cert_db"),
-            certificate_store_directory: std::env::temp_dir().join("mithril_test_cert_db"),
-            verification_key_store_directory: std::env::temp_dir()
-                .join("mithril_test_verification_key_db"),
-        };
-        let dependencies = Arc::new(DependencyManager::new(config));
-        let config = AggregatorConfig::new(
-            100,
-            "dev",
-            Path::new("whatever"),
-            Path::new("whatever"),
-            dependencies,
-        );
-
-        AggregatorRuntime::new(config, init_state, Arc::new(runner))
+        AggregatorRuntime::new(Duration::from_millis(100), init_state, Arc::new(runner))
             .await
             .unwrap()
     }
