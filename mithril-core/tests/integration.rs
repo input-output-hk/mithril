@@ -94,5 +94,8 @@ fn test_full_protocol() {
             println!("Not enough signatures");
             assert!(n < params.k && k == params.k)
         }
+        Err(AggregationFailure::InvalidUsizeConversion) => {
+            println!("Invalid usize conversion");
+        }
     }
 }
