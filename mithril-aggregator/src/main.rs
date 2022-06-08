@@ -4,8 +4,8 @@ use clap::Parser;
 
 use config::{Map, Source, Value, ValueKind};
 use mithril_aggregator::{
-    AggregatorRuntime, BeaconStore, CertificatePendingStore, CertificateStore, Config,
-    DependencyManager, MemoryBeaconStore, MultiSigner, MultiSignerImpl, Server,
+    AggregatorConfig, AggregatorRuntime, BeaconStore, CertificatePendingStore, CertificateStore,
+    Config, DependencyManager, MemoryBeaconStore, MultiSigner, MultiSignerImpl, Server,
     VerificationKeyStore,
 };
 use mithril_common::crypto_helper::ProtocolStakeDistribution;
@@ -165,19 +165,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Start snapshot uploader
     let snapshot_directory = config.snapshot_directory.clone();
+    let runtime_dependencies = dependency_manager.clone();
     let handle = tokio::spawn(async move {
-        let runtime = AggregatorRuntime::new(
+        let config = AggregatorConfig::new(
             args.runtime_interval * 1000,
-            config.network.clone(),
-            config.db_directory.clone(),
-            snapshot_directory,
-            beacon_store.clone(),
-            multi_signer.clone(),
-            snapshot_store.clone(),
-            snapshot_uploader,
-            certificate_pending_store.clone(),
-            certificate_store.clone(),
+            &config.network.clone(),
+            &config.db_directory.clone(),
+            &snapshot_directory,
+            runtime_dependencies,
         );
+        let runtime = AggregatorRuntime::new(config, None, Arc::new(AggregatorRunner {}))
+            .await
+            .unwrap();
         runtime.run().await
     });
 

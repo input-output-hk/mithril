@@ -1,24 +1,32 @@
+#![allow(dead_code, unused_imports)]
 use super::dependency::{BeaconStoreWrapper, MultiSignerWrapper, SnapshotStoreWrapper};
-use super::{BeaconStoreError, ProtocolError, SnapshotError, Snapshotter};
+use super::{BeaconStore, BeaconStoreError, ProtocolError, SnapshotError, Snapshotter};
 
 use mithril_common::crypto_helper::Bytes;
 use mithril_common::digesters::{Digester, DigesterError, ImmutableDigester};
-use mithril_common::entities::{Beacon, Certificate};
+use mithril_common::entities::{Beacon, Certificate, CertificatePending};
 use mithril_common::fake_data;
 
 use crate::dependency::{CertificatePendingStoreWrapper, CertificateStoreWrapper};
 use crate::snapshot_stores::SnapshotStoreError;
 use crate::snapshot_uploaders::{SnapshotLocation, SnapshotUploader};
+use crate::DependencyManager;
+
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use hex::ToHex;
 use mithril_common::entities::Snapshot;
-use slog_scope::{debug, error, info, warn};
+use slog_scope::{debug, error, info, trace, warn};
 use std::fs::File;
 use std::io;
 use std::io::{Seek, SeekFrom};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use thiserror::Error;
 use tokio::time::{sleep, Duration};
+
+#[cfg(test)]
+use mockall::automock;
 
 #[derive(Error, Debug)]
 pub enum RuntimeError {
@@ -50,70 +58,169 @@ pub enum RuntimeError {
     General(String),
 }
 
-/// AggregatorRuntime
-pub struct AggregatorRuntime {
-    /// Interval between each snapshot, in seconds
-    interval: u32,
-
-    /// Cardano network
-    network: String,
-
-    /// DB directory to snapshot
-    db_directory: PathBuf,
-
-    /// Directory to store snapshot
-    snapshot_directory: PathBuf,
-
-    /// Beacon store
-    beacon_store: BeaconStoreWrapper,
-
-    /// Multi signer
-    multi_signer: MultiSignerWrapper,
-
-    /// Snapshot store
-    snapshot_store: SnapshotStoreWrapper,
-
-    /// Snapshot uploader
-    snapshot_uploader: Box<dyn SnapshotUploader>,
-
-    /// Pending certificate store
-    #[allow(dead_code)]
-    certificate_pending_store: CertificatePendingStoreWrapper,
-
-    /// Certificate store
-    certificate_store: CertificateStoreWrapper,
+pub struct IdleState {
+    current_beacon: Option<Beacon>,
 }
 
-impl AggregatorRuntime {
-    /// AggregatorRuntime factory
-    // TODO: Fix this by implementing an Aggregator Config that implements the From trait for a general Config
-    #[allow(clippy::too_many_arguments)]
+pub struct SigningState {
+    current_beacon: Beacon,
+    certificate_pending: CertificatePending,
+}
+
+pub enum AggregatorState {
+    Idle(IdleState),
+    Signing(SigningState),
+}
+
+pub struct AggregatorConfig {
+    /// Interval between each snapshot, in seconds
+    pub interval: u32,
+
+    /// Cardano network
+    pub network: String,
+
+    /// DB directory to snapshot
+    pub db_directory: PathBuf,
+
+    /// Directory to store snapshot
+    pub snapshot_directory: PathBuf,
+
+    pub dependencies: Arc<DependencyManager>,
+}
+
+impl AggregatorConfig {
     pub fn new(
         interval: u32,
-        network: String,
-        db_directory: PathBuf,
-        snapshot_directory: PathBuf,
-        beacon_store: BeaconStoreWrapper,
-        multi_signer: MultiSignerWrapper,
-        snapshot_store: SnapshotStoreWrapper,
-        snapshot_uploader: Box<dyn SnapshotUploader>,
-        certificate_pending_store: CertificatePendingStoreWrapper,
-        certificate_store: CertificateStoreWrapper,
+        network: &str,
+        db_directory: &Path,
+        snapshot_directory: &Path,
+        dependencies: Arc<DependencyManager>,
     ) -> Self {
         Self {
             interval,
-            network,
-            db_directory,
-            snapshot_directory,
-            beacon_store,
-            multi_signer,
-            snapshot_store,
-            snapshot_uploader,
-            certificate_pending_store,
-            certificate_store,
+            network: network.to_string(),
+            db_directory: db_directory.to_path_buf(),
+            snapshot_directory: snapshot_directory.to_path_buf(),
+            dependencies,
+        }
+    }
+}
+
+pub trait AggregatorRunnerTrait: Sync + Send {
+    fn is_new_beacon(&self) -> bool;
+}
+
+pub struct AggregatorRunner {}
+
+impl AggregatorRunner {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+#[cfg_attr(test, automock)]
+#[async_trait]
+impl AggregatorRunnerTrait for AggregatorRunner {
+    fn is_new_beacon(&self) -> bool {
+        todo!()
+    }
+}
+
+/// AggregatorRuntime
+pub struct AggregatorRuntime {
+    /// the internal state of the automate
+    state: AggregatorState,
+
+    /// configuration handler, also owns the dependencies
+    config: AggregatorConfig,
+
+    /// specific runner for this state machine
+    runner: Arc<dyn AggregatorRunnerTrait>,
+}
+
+impl AggregatorRuntime {
+    pub async fn new(
+        config: AggregatorConfig,
+        init_state: Option<AggregatorState>,
+        runner: Arc<dyn AggregatorRunnerTrait>,
+    ) -> Result<Self, RuntimeError> {
+        info!("initializing runtime");
+
+        let state = if init_state.is_none() {
+            trace!("no initial state given");
+            if config.dependencies.beacon_store.is_none() {
+                trace!("idle state, no current beacon");
+                AggregatorState::Idle(IdleState {
+                    current_beacon: None,
+                })
+            } else {
+                let store = config.dependencies.beacon_store.as_ref().unwrap();
+                let current_beacon = store
+                    .read()
+                    .await
+                    .get_current_beacon()
+                    .await
+                    .map_err(|e| RuntimeError::General(e.to_string()))?;
+                trace!("idle state, got current beacon from store");
+
+                AggregatorState::Idle(IdleState { current_beacon })
+            }
+        } else {
+            trace!("got initial state from caller");
+            init_state.unwrap()
+        };
+
+        Ok::<Self, RuntimeError>(Self {
+            config,
+            state,
+            runner,
+        })
+    }
+
+    pub async fn run(&self) {
+        info!("Starting runtime");
+        loop {
+            if let Err(e) = self.cycle().await {
+                error!("{:?}", e)
+            }
+
+            info!("Sleeping for {}", self.config.interval);
+            sleep(Duration::from_millis(self.config.interval.into())).await;
         }
     }
 
+    async fn cycle(&self) -> Result<(), RuntimeError> {
+        Ok(())
+    }
+}
+/// AggregatorRuntime factory
+// TODO: Fix this by implementing an Aggregator Config that implements the From trait for a general Config
+/*
+       pub fn new(
+           interval: u32,
+           network: String,
+           db_directory: PathBuf,
+           snapshot_directory: PathBuf,
+           beacon_store: BeaconStoreWrapper,
+           multi_signer: MultiSignerWrapper,
+           snapshot_store: SnapshotStoreWrapper,
+           snapshot_uploader: Box<dyn SnapshotUploader>,
+           certificate_pending_store: CertificatePendingStoreWrapper,
+           certificate_store: CertificateStoreWrapper,
+       ) -> Self {
+           Self {
+               interval,
+               network,
+               db_directory,
+               snapshot_directory,
+               beacon_store,
+               multi_signer,
+               snapshot_store,
+               snapshot_uploader,
+               certificate_pending_store,
+               certificate_store,
+           }
+       }
     /// Run snapshotter loop
     pub async fn run(&self) {
         info!("Starting runtime");
@@ -259,6 +366,7 @@ impl AggregatorRuntime {
         }
     }
 }
+    */
 
 fn build_new_snapshot(
     digest: String,
@@ -279,4 +387,35 @@ fn build_new_snapshot(
         created_at,
         vec![uploaded_snapshot_location],
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::Config;
+    use super::*;
+
+    async fn init_runtime(
+        init_state: Option<AggregatorState>,
+        runner: MockAggregatorRunner,
+    ) -> AggregatorRuntime {
+        let config: Config = config::Config::builder()
+            .build()
+            .map_err(|e| format!("configuration build error: {}", e))
+            .unwrap()
+            .try_deserialize()
+            .map_err(|e| format!("configuration deserialize error: {}", e))
+            .unwrap();
+        let dependencies = Arc::new(DependencyManager::new(config));
+        let config = AggregatorConfig::new(
+            100,
+            "test",
+            Path::new("whatever"),
+            Path::new("whatever"),
+            dependencies,
+        );
+
+        AggregatorRuntime::new(config, init_state, Arc::new(runner))
+            .await
+            .unwrap()
+    }
 }
