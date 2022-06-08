@@ -163,13 +163,14 @@ impl Sub for VerificationKey {
         use blst::{blst_bendian_from_fp, blst_fp, blst_fp_cneg, blst_fp_from_bendian};
         let mut rhs_bytes = rhs.0.serialize();
         unsafe {
-            let y_bytes: Vec<u8> = rhs_bytes[48..].to_vec();
+            let mut y_bytes: Vec<u8> = rhs_bytes[48..].to_vec();
             let mut y: blst_fp = blst_fp::default();
             let mut neg_y: blst_fp = blst_fp::default();
-            blst_fp_from_bendian(&mut y, &y_bytes[0]);
+            blst_fp_from_bendian(&mut y, y_bytes.as_ptr());
             blst_fp_cneg(&mut neg_y, &y, true);
 
-            blst_bendian_from_fp(&mut rhs_bytes[48], &neg_y);
+            blst_bendian_from_fp(y_bytes.as_mut_ptr(), &neg_y);
+            rhs_bytes[48..].copy_from_slice(&y_bytes);
         }
         let neg_rhs = BlstPk::deserialize(&rhs_bytes)
             .expect("The negative of a valid point is also a valid point.");
@@ -311,7 +312,7 @@ impl ProofOfPossession {
         pop_bytes[..48].copy_from_slice(&self.k1.to_bytes());
         let k2_bytes = unsafe {
             let mut bytes = [0u8; 48];
-            blst_p1_compress(&mut bytes[0], &self.k2);
+            blst_p1_compress(bytes.as_mut_ptr(), &self.k2);
             bytes
         };
         pop_bytes[48..].copy_from_slice(&k2_bytes);
@@ -331,7 +332,7 @@ impl ProofOfPossession {
         let k2 = unsafe {
             let mut point = blst_p1_affine::default();
             let mut out = blst_p1::default();
-            blst_p1_uncompress(&mut point, &bytes[48]);
+            blst_p1_uncompress(&mut point, bytes[48..].as_ptr());
             blst_p1_from_affine(&mut out, &point);
             out
         };
