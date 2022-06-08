@@ -6,7 +6,7 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 #[cfg(not(feature = "zcash"))]
-use crate::multi_sig::{VerificationKeyPoP, VerificationKey};
+use crate::multi_sig::{VerificationKey, VerificationKeyPoP};
 #[cfg(feature = "zcash")]
 use crate::multi_sig_zcash::{VerificationKey, VerificationKeyPoP};
 
@@ -75,7 +75,7 @@ impl KeyReg {
         pk: VerificationKeyPoP,
     ) -> Result<(), RegisterError> {
         if self.keys.contains(&pk.vk) {
-            return Err(RegisterError::KeyRegistered(pk.vk));
+            return Err(RegisterError::KeyRegistered(Box::new(pk.vk)));
         }
 
         if let Some(mut party) = self.parties.get_mut(&party_id) {
@@ -143,7 +143,8 @@ mod tests {
     use rand_core::SeedableRng;
 
     fn arb_participants(min: usize, max: usize) -> impl Strategy<Value = Vec<(PartyId, Stake)>> {
-        vec(1..1u64<<60, min..=max).prop_map(|v| { // 1<<60 to avoid overflows
+        vec(1..1u64 << 60, min..=max).prop_map(|v| {
+            // 1<<60 to avoid overflows
             v.into_iter()
                 .enumerate()
                 .map(|(index, value)| (index as u64, value))
@@ -193,7 +194,7 @@ mod tests {
                         assert!(parties.insert(p.0));
                     },
                     Err(RegisterError::KeyRegistered(pk1)) => {
-                        assert!(pk1 == pk.vk);
+                        assert!(pk1.as_ref() == &pk.vk);
                         assert!(keys.contains(&pk.vk));
                     }
                     Err(RegisterError::PartyRegistered(party)) => {

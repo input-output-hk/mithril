@@ -475,9 +475,11 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
     pub fn from_bytes(bytes: &[u8]) -> Result<StmAggrSig<D>, MultiSignatureError> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(&bytes[..8]);
-        let size = usize::try_from(u64::from_be_bytes(u64_bytes)).map_err(|_| MultiSignatureError::SerializationError)?;
+        let size = usize::try_from(u64::from_be_bytes(u64_bytes))
+            .map_err(|_| MultiSignatureError::SerializationError)?;
         u64_bytes.copy_from_slice(&bytes[8..16]);
-        let sig_size = usize::try_from(u64::from_be_bytes(u64_bytes)).map_err(|_| MultiSignatureError::SerializationError)?;
+        let sig_size = usize::try_from(u64::from_be_bytes(u64_bytes))
+            .map_err(|_| MultiSignatureError::SerializationError)?;
         let mut signatures = Vec::with_capacity(size);
         for i in 0..size {
             signatures.push(StmSig::from_bytes(
@@ -839,7 +841,12 @@ where
     ) -> Result<StmAggrSig<D>, AggregationFailure> {
         // todo: how come the dedup does not take the concatenated message
         // let msgp = concat_avk_with_msg(&self.avk.to_commitment(), msg);
-        let mut unique_sigs = Vec::with_capacity(self.params.k.try_into().map_err(|_| AggregationFailure::InvalidUsizeConversion)?);
+        let mut unique_sigs = Vec::with_capacity(
+            self.params
+                .k
+                .try_into()
+                .map_err(|_| AggregationFailure::InvalidUsizeConversion)?,
+        );
         for (_, sigs) in self.dedup_sigs_for_indices(msg, sigs)? {
             unique_sigs.push(sigs.clone())
         }

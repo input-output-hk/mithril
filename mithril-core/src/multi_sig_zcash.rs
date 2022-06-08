@@ -7,22 +7,18 @@ use super::stm::Index;
 use crate::error::MultiSignatureError;
 use blake2::{Blake2b, Digest};
 
+use bls12_381::hash_to_curve::{ExpandMsgXmd, HashToCurve};
 use bls12_381::*;
 use group::ff::Field;
-use group::prime::PrimeCurveAffine;
-use group::{Curve, GroupEncoding};
-use group::Group;
+use group::Curve;
 
 use rand_core::{CryptoRng, RngCore};
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
-use std::convert::TryInto;
 use std::{
     cmp::Ordering,
     hash::{Hash, Hasher},
     iter::Sum,
-    ops::Sub,
 };
-use bls12_381::hash_to_curve::{ExpandMsgXmd, HashToCurve, MapToCurve};
 
 /// String used to generate the proofs of possession.
 const POP: &[u8] = b"PoP";
@@ -154,11 +150,13 @@ impl Ord for VerificationKey {
 
 impl<'a> Sum<&'a Self> for VerificationKey {
     fn sum<I>(iter: I) -> Self
-        where
-            I: Iterator<Item = &'a Self>,
+    where
+        I: Iterator<Item = &'a Self>,
     {
         let mut start = G2Projective::identity();
-        iter.map(|x| start += x.0);
+        for val in iter {
+            start += val.0;
+        }
 
         Self(start)
     }
@@ -166,11 +164,13 @@ impl<'a> Sum<&'a Self> for VerificationKey {
 
 impl<'a> Sum<&'a Self> for Signature {
     fn sum<I>(iter: I) -> Self
-        where
-            I: Iterator<Item = &'a Self>,
+    where
+        I: Iterator<Item = &'a Self>,
     {
         let mut start = G1Projective::identity();
-        iter.map(|x| start += x.0);
+        for val in iter {
+            start += val.0;
+        }
 
         Self(start)
     }
@@ -212,7 +212,8 @@ impl From<&SigningKey> for ProofOfPossession {
     /// `k1 =  H_G1(b"PoP" || mvk) * sk` and `k2 = g1 * sk` where `H_G1` hashes into
     /// `G1` and `g1` is the generator in `G1`.
     fn from(sk: &SigningKey) -> Self {
-        let k1 = <G1Projective as HashToCurve<ExpandMsgXmd<Blake2b>>>::encode_to_curve(POP, &[]) * sk.0;
+        let k1 =
+            <G1Projective as HashToCurve<ExpandMsgXmd<Blake2b>>>::encode_to_curve(POP, &[]) * sk.0;
         let k2 = G1Affine::generator() * sk.0;
 
         Self { k1, k2 }
@@ -240,7 +241,8 @@ impl VerificationKeyPoP {
     pub fn check(&self) -> Result<(), MultiSignatureError> {
         let lhs_1 = pairing(&self.pop.k1.to_affine(), &G2Affine::generator());
         let rhs_1 = pairing(
-            &<G1Projective as HashToCurve<ExpandMsgXmd<Blake2b>>>::encode_to_curve(POP, &[]).to_affine(),
+            &<G1Projective as HashToCurve<ExpandMsgXmd<Blake2b>>>::encode_to_curve(POP, &[])
+                .to_affine(),
             &self.vk.0.to_affine(),
         );
 
@@ -315,7 +317,8 @@ impl Signature {
     pub fn verify(&self, msg: &[u8], mvk: &VerificationKey) -> Result<(), MultiSignatureError> {
         let lhs = pairing(&self.0.to_affine(), &G2Affine::generator());
         let rhs = pairing(
-            &<G1Projective as HashToCurve<ExpandMsgXmd<Blake2b>>>::encode_to_curve(msg, &[]).to_affine(),
+            &<G1Projective as HashToCurve<ExpandMsgXmd<Blake2b>>>::encode_to_curve(msg, &[])
+                .to_affine(),
             &mvk.0.to_affine(),
         );
         if lhs == rhs {
@@ -356,7 +359,9 @@ impl Signature {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
         let mut array_byte = [0u8; 48];
         array_byte.copy_from_slice(&bytes[..48]);
-        Ok(Self(G1Projective::from(G1Affine::from_compressed(&array_byte).unwrap())))
+        Ok(Self(G1Projective::from(
+            G1Affine::from_compressed(&array_byte).unwrap(),
+        )))
     }
 
     /// Compare two signatures. Used for PartialOrd impl, used to rank signatures. The comparison

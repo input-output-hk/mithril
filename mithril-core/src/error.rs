@@ -1,33 +1,33 @@
 //! Crate specific errors
 
 use crate::merkle_tree::Path;
+#[cfg(feature = "zcash")]
+use crate::multi_sig_zcash::{Signature, VerificationKey, VerificationKeyPoP};
+use crate::stm::PartyId;
+use digest::{Digest, FixedOutput};
 #[cfg(not(feature = "zcash"))]
 use {
     crate::multi_sig::{Signature, VerificationKey, VerificationKeyPoP},
     blst::BLST_ERROR,
 };
-#[cfg(feature = "zcash")]
-use crate::multi_sig_zcash::{Signature, VerificationKey, VerificationKeyPoP};
-use crate::stm::PartyId;
-use digest::{Digest, FixedOutput};
 
 // todo: better organise these errors.
 
 #[derive(Debug, thiserror::Error, Eq, PartialEq)]
 /// Error types for multi signatures
 pub enum MultiSignatureError {
-/// Invalid Multi signature
-#[error("Invalid multi signature")]
-InvalidSignature,
-/// This error occurs when the underlying function is passed infinity or an element outsize of the group
-#[error("Unexpected point")]
-UnexpectedBlstTypes,
-/// This error occurs when the the serialization of the raw bytes failed
-#[error("Invalid bytes")]
-SerializationError,
-/// Incorrect proof of possession
-#[error("Key with invalid PoP")]
-InvalidKey(Box<VerificationKeyPoP>),
+    /// Invalid Multi signature
+    #[error("Invalid multi signature")]
+    InvalidSignature,
+    /// This error occurs when the underlying function is passed infinity or an element outsize of the group
+    #[error("Unexpected point")]
+    UnexpectedBlstTypes,
+    /// This error occurs when the the serialization of the raw bytes failed
+    #[error("Invalid bytes")]
+    SerializationError,
+    /// Incorrect proof of possession
+    #[error("Key with invalid PoP")]
+    InvalidKey(Box<VerificationKeyPoP>),
 }
 
 /// Errors which can be output by Mithril verification.
@@ -88,7 +88,7 @@ pub enum AggregationFailure {
     NotEnoughSignatures(u64, u64),
     /// This error happens when we try to convert a u64 to a usize and it does not fit
     #[error("Invalid usize conversion")]
-    InvalidUsizeConversion
+    InvalidUsizeConversion,
 }
 
 /// Error types for single signature verification
@@ -124,7 +124,7 @@ pub enum MerkleTreeError {
 pub enum RegisterError {
     /// This key has already been registered by a participant
     #[error("This key has already been registered.")]
-    KeyRegistered(VerificationKey),
+    KeyRegistered(Box<VerificationKey>),
     /// This participant has already been registered
     #[error("Participant {0} has already been registered.")]
     PartyRegistered(PartyId),
