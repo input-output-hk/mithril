@@ -22,7 +22,6 @@ use std::{
     cmp::Ordering,
     hash::{Hash, Hasher},
     iter::Sum,
-    ops::Sub,
 };
 
 /// String used to generate the proofs of possession.
@@ -152,33 +151,6 @@ impl<'a> Sum<&'a Self> for VerificationKey {
             .to_public_key();
 
         Self(aggregate_key)
-    }
-}
-
-// We need some unsafe code here due to what is being exposed in the rust FFI.
-// todo: Take particular care reviewing this
-impl Sub for VerificationKey {
-    type Output = Self;
-    fn sub(self, rhs: Self) -> VerificationKey {
-        use blst::{blst_bendian_from_fp, blst_fp, blst_fp_cneg, blst_fp_from_bendian};
-        let mut rhs_bytes = rhs.0.serialize();
-        unsafe {
-            let mut y_bytes: Vec<u8> = rhs_bytes[48..].to_vec();
-            let mut y: blst_fp = blst_fp::default();
-            let mut neg_y: blst_fp = blst_fp::default();
-            blst_fp_from_bendian(&mut y, y_bytes.as_ptr());
-            blst_fp_cneg(&mut neg_y, &y, true);
-
-            blst_bendian_from_fp(y_bytes.as_mut_ptr(), &neg_y);
-            rhs_bytes[48..].copy_from_slice(&y_bytes);
-        }
-        let neg_rhs = BlstPk::deserialize(&rhs_bytes)
-            .expect("The negative of a valid point is also a valid point.");
-        VerificationKey(
-            AggregatePublicKey::aggregate(&[&neg_rhs, &self.0], false)
-                .expect("Points are valid")
-                .to_public_key(),
-        )
     }
 }
 
