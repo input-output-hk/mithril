@@ -1,9 +1,14 @@
 //! Crate specific errors
 
 use crate::merkle_tree::Path;
-use crate::multi_sig::{Signature, VerificationKey, VerificationKeyPoP};
+#[cfg(not(feature = "zcash"))]
+use {
+    crate::multi_sig::{Signature, VerificationKey, VerificationKeyPoP},
+    blst::BLST_ERROR,
+};
+#[cfg(feature = "zcash")]
+use crate::multi_sig_zcash::{Signature, VerificationKey, VerificationKeyPoP};
 use crate::stm::PartyId;
-use blst::BLST_ERROR;
 use digest::{Digest, FixedOutput};
 
 // todo: better organise these errors.
@@ -11,18 +16,18 @@ use digest::{Digest, FixedOutput};
 #[derive(Debug, thiserror::Error, Eq, PartialEq)]
 /// Error types for multi signatures
 pub enum MultiSignatureError {
-    /// Invalid Multi signature
-    #[error("Invalid multi signature")]
-    InvalidSignature,
-    /// This error occurs when the underlying function is passed infinity or an element outsize of the group
-    #[error("Unexpected point")]
-    UnexpectedBlstTypes,
-    /// This error occurs when the the serialization of the raw bytes failed
-    #[error("Invalid bytes")]
-    SerializationError,
-    /// Incorrect proof of possession
-    #[error("Key with invalid PoP")]
-    InvalidKey(Box<VerificationKeyPoP>),
+/// Invalid Multi signature
+#[error("Invalid multi signature")]
+InvalidSignature,
+/// This error occurs when the underlying function is passed infinity or an element outsize of the group
+#[error("Unexpected point")]
+UnexpectedBlstTypes,
+/// This error occurs when the the serialization of the raw bytes failed
+#[error("Invalid bytes")]
+SerializationError,
+/// Incorrect proof of possession
+#[error("Key with invalid PoP")]
+InvalidKey(Box<VerificationKeyPoP>),
 }
 
 /// Errors which can be output by Mithril verification.
@@ -168,6 +173,7 @@ impl<D: Digest + Clone + FixedOutput> From<VerificationFailure<D>> for MithrilWi
     }
 }
 
+#[cfg(not(feature = "zcash"))]
 pub(crate) fn blst_err_to_atms(e: BLST_ERROR) -> Result<(), MultiSignatureError> {
     match e {
         BLST_ERROR::BLST_SUCCESS => Ok(()),

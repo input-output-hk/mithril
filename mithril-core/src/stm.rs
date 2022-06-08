@@ -128,7 +128,10 @@ use crate::error::{
 };
 use crate::key_reg::ClosedKeyReg;
 use crate::merkle_tree::{MTLeaf, MerkleTreeCommitment, Path};
+#[cfg(not(feature = "zcash"))]
 use crate::multi_sig::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
+#[cfg(feature = "zcash")]
+use crate::multi_sig_zcash::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
 use digest::{Digest, FixedOutput};
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};

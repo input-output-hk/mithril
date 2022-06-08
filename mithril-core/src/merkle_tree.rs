@@ -1,6 +1,9 @@
 //! Creation and verification of Merkle Trees
 use crate::error::MerkleTreeError;
+#[cfg(not(feature = "zcash"))]
 use crate::multi_sig::VerificationKey;
+#[cfg(feature = "zcash")]
+use crate::multi_sig_zcash::VerificationKey;
 use crate::stm::Stake;
 use digest::{Digest, FixedOutput};
 use serde::{Deserialize, Serialize};
