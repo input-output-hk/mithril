@@ -620,7 +620,7 @@ impl StmInitializer {
         let party_id = u64::from_be_bytes(u64_bytes);
         u64_bytes.copy_from_slice(&bytes[8..16]);
         let stake = u64::from_be_bytes(u64_bytes);
-        let params = StmParameters::from_bytes(&bytes[16..])?;
+        let params = StmParameters::from_bytes(&bytes[16..40])?;
         let sk = SigningKey::from_bytes(&bytes[40..])?;
         let pk = StmVerificationKeyPoP::from_bytes(&bytes[72..])?;
 
@@ -1104,6 +1104,14 @@ mod tests {
 
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(10))]
+        #[test]
+        fn test_parameters_serialize_deserialize(m in any::<u64>(), k in any::<u64>(), phi_f in any::<f64>()) {
+            let params = StmParameters { m, k, phi_f };
+
+            let bytes = params.to_bytes();
+            let deserialised = StmParameters::from_bytes(&bytes);
+            assert!(deserialised.is_ok())
+        }
 
         #[test]
         fn test_initializer_serialize_deserialize(seed in any::<[u8;32]>()) {
@@ -1112,6 +1120,9 @@ mod tests {
             let pid = rng.next_u64();
             let stake = rng.next_u64();
             let initializer = StmInitializer::setup(params, pid, stake, &mut rng);
+
+            let bytes = initializer.to_bytes();
+            assert!(StmInitializer::from_bytes(&bytes).is_ok());
 
             let bytes = bincode::serialize(&initializer).unwrap();
             assert!(bincode::deserialize::<StmInitializer>(&bytes).is_ok())
