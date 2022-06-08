@@ -5,7 +5,7 @@ use sha2::{Digest, Sha256};
 pub type ImmutableFileNumber = u64;
 
 /// Beacon represents a point in the Cardano chain at which a Mithril certificate should be produced
-#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize, Hash, PartialOrd)]
 pub struct Beacon {
     /// Cardano network
     #[serde(rename = "network")]
@@ -39,7 +39,6 @@ impl Beacon {
         hex::encode(hasher.finalize())
     }
 }
-
 /// CertificatePending represents a pending certificate in the process of production
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct CertificatePending {

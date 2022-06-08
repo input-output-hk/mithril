@@ -17,6 +17,7 @@ use chrono::{DateTime, Utc};
 use hex::ToHex;
 use mithril_common::entities::Snapshot;
 use slog_scope::{debug, error, info, trace, warn};
+use std::fmt::Display;
 use std::fs::File;
 use std::io;
 use std::io::{Seek, SeekFrom};
@@ -58,20 +59,31 @@ pub enum RuntimeError {
     General(String),
 }
 
+#[derive(Clone, Debug)]
 pub struct IdleState {
     current_beacon: Option<Beacon>,
 }
 
+#[derive(Clone, Debug)]
 pub struct SigningState {
     current_beacon: Beacon,
     certificate_pending: CertificatePending,
 }
 
+#[derive(Clone, Debug)]
 pub enum AggregatorState {
     Idle(IdleState),
     Signing(SigningState),
 }
 
+impl Display for AggregatorState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            AggregatorState::Idle(_) => write!(f, "idle"),
+            AggregatorState::Signing(_) => write!(f, "signing"),
+        }
+    }
+}
 pub struct AggregatorConfig {
     /// Interval between each snapshot, in seconds
     pub interval: u32,
@@ -106,8 +118,13 @@ impl AggregatorConfig {
     }
 }
 
+#[async_trait]
 pub trait AggregatorRunnerTrait: Sync + Send {
-    fn is_new_beacon(&self) -> bool;
+    /// Return the current beacon if it is newer than the given one.
+    fn is_new_beacon(&self, beacon: Option<&Beacon>) -> Option<Beacon>;
+    async fn compute_digest(&self, new_beacon: &Beacon) -> Result<String, DigesterError>;
+    async fn create_pending_certificate(&self, message: &str)
+        -> Result<CertificatePending, String>;
 }
 
 pub struct AggregatorRunner {}
@@ -121,7 +138,25 @@ impl AggregatorRunner {
 #[cfg_attr(test, automock)]
 #[async_trait]
 impl AggregatorRunnerTrait for AggregatorRunner {
-    fn is_new_beacon(&self) -> bool {
+    fn is_new_beacon<'a>(&self, beacon: Option<&'a Beacon>) -> Option<Beacon> {
+        info!("checking if there is a new beacon");
+        let current_beacon = mithril_common::fake_data::beacon();
+
+        if beacon.is_none() || current_beacon > *beacon.unwrap() {
+            Some(current_beacon)
+        } else {
+            None
+        }
+    }
+
+    async fn compute_digest(&self, new_beacon: &Beacon) -> Result<String, DigesterError> {
+        todo!()
+    }
+
+    async fn create_pending_certificate(
+        &self,
+        message: &str,
+    ) -> Result<CertificatePending, String> {
         todo!()
     }
 }
@@ -139,6 +174,10 @@ pub struct AggregatorRuntime {
 }
 
 impl AggregatorRuntime {
+    pub fn get_state(&self) -> String {
+        self.state.to_string()
+    }
+
     pub async fn new(
         config: AggregatorConfig,
         init_state: Option<AggregatorState>,
@@ -177,7 +216,7 @@ impl AggregatorRuntime {
         })
     }
 
-    pub async fn run(&self) {
+    pub async fn run(&mut self) {
         info!("Starting runtime");
         loop {
             if let Err(e) = self.cycle().await {
@@ -189,7 +228,31 @@ impl AggregatorRuntime {
         }
     }
 
-    async fn cycle(&self) -> Result<(), RuntimeError> {
+    pub async fn cycle(&mut self) -> Result<(), RuntimeError> {
+        match self.state.clone() {
+            AggregatorState::Idle(state) => {
+                if let Some(beacon) = self.runner.is_new_beacon(state.current_beacon.as_ref()) {
+                    let _ = self.from_idle_to_signing(beacon).await?;
+                }
+            }
+            AggregatorState::Signing(_state) => {}
+        }
+        Ok(())
+    }
+
+    async fn from_idle_to_signing(&mut self, new_beacon: Beacon) -> Result<(), RuntimeError> {
+        info!("transiting from IDLE to SIGNING state");
+        let message = self.runner.compute_digest(&new_beacon).await?;
+        let certificate = self
+            .runner
+            .create_pending_certificate(&message)
+            .await
+            .map_err(|e| RuntimeError::General(e))?;
+        let state = SigningState {
+            current_beacon: new_beacon,
+            certificate_pending: certificate,
+        };
+        self.state = AggregatorState::Signing(state);
         Ok(())
     }
 }
@@ -393,22 +456,33 @@ fn build_new_snapshot(
 mod tests {
     use super::super::Config;
     use super::*;
+    use mithril_common::fake_data;
 
     async fn init_runtime(
         init_state: Option<AggregatorState>,
         runner: MockAggregatorRunner,
     ) -> AggregatorRuntime {
-        let config: Config = config::Config::builder()
-            .build()
-            .map_err(|e| format!("configuration build error: {}", e))
-            .unwrap()
-            .try_deserialize()
-            .map_err(|e| format!("configuration deserialize error: {}", e))
-            .unwrap();
+        use crate::entities::{SnapshotStoreType, SnapshotUploaderType};
+
+        let config = Config {
+            network: "testnet".to_string(),
+            url_snapshot_manifest: "https://storage.googleapis.com/cardano-testnet/snapshots.json"
+                .to_string(),
+            snapshot_store_type: SnapshotStoreType::Local,
+            snapshot_uploader_type: SnapshotUploaderType::Local,
+            server_url: "http://0.0.0.0:8080".to_string(),
+            db_directory: Default::default(),
+            snapshot_directory: Default::default(),
+            pending_certificate_store_directory: std::env::temp_dir()
+                .join("mithril_test_pending_cert_db"),
+            certificate_store_directory: std::env::temp_dir().join("mithril_test_cert_db"),
+            verification_key_store_directory: std::env::temp_dir()
+                .join("mithril_test_verification_key_db"),
+        };
         let dependencies = Arc::new(DependencyManager::new(config));
         let config = AggregatorConfig::new(
             100,
-            "test",
+            "dev",
             Path::new("whatever"),
             Path::new("whatever"),
             dependencies,
@@ -417,5 +491,48 @@ mod tests {
         AggregatorRuntime::new(config, init_state, Arc::new(runner))
             .await
             .unwrap()
+    }
+
+    #[tokio::test]
+    pub async fn idle_check_no_new_beacon_with_current_beacon() {
+        let mut runner = MockAggregatorRunner::new();
+        runner.expect_is_new_beacon().times(1).returning(|_| None);
+        let mut runtime = init_runtime(
+            Some(AggregatorState::Idle(IdleState {
+                current_beacon: Some(fake_data::beacon()),
+            })),
+            runner,
+        )
+        .await;
+
+        let _ = runtime.cycle().await.unwrap();
+        assert_eq!("idle".to_string(), runtime.get_state());
+    }
+
+    #[tokio::test]
+    pub async fn idle_check_no_new_beacon_with_no_current_beacon() {
+        let mut runner = MockAggregatorRunner::new();
+        runner
+            .expect_is_new_beacon()
+            .times(1)
+            .returning(|_| Some(fake_data::beacon()));
+        runner
+            .expect_compute_digest()
+            .times(1)
+            .returning(|_| Ok("whatever".to_string()));
+        runner
+            .expect_create_pending_certificate()
+            .times(1)
+            .returning(|_| Ok(fake_data::certificate_pending()));
+        let mut runtime = init_runtime(
+            Some(AggregatorState::Idle(IdleState {
+                current_beacon: None,
+            })),
+            runner,
+        )
+        .await;
+
+        let _ = runtime.cycle().await.unwrap();
+        assert_eq!("signing".to_string(), runtime.get_state());
     }
 }

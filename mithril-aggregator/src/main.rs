@@ -174,7 +174,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             &snapshot_directory,
             runtime_dependencies,
         );
-        let runtime = AggregatorRuntime::new(config, None, Arc::new(AggregatorRunner {}))
+        let mut runtime = AggregatorRuntime::new(config, None, Arc::new(AggregatorRunner {}))
             .await
             .unwrap();
         runtime.run().await
