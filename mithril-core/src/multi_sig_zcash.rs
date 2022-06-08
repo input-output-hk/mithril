@@ -4,17 +4,13 @@
 
 use super::stm::Index;
 
-use crate::error::{blst_err_to_atms, MultiSignatureError};
+use crate::error::MultiSignatureError;
 use blake2::{Blake2b, Digest};
 
-// We use `min_sig` resulting in signatures of 48 bytes and public keys of
-// 96. We can switch that around if desired by using `min_pk`.
-// todo: Maybe we want this as a compilation flag?
-use blst::min_sig::{
-    AggregatePublicKey, AggregateSignature, PublicKey as BlstPk, SecretKey as BlstSk,
-    Signature as BlstSig,
-};
-use blst::{blst_p1, blst_p1_affine, blst_p1_compress, blst_p1_from_affine, blst_p1_uncompress};
+use bls12_381::hash_to_curve::{ExpandMsgXmd, HashToCurve};
+use bls12_381::*;
+use group::ff::Field;
+use group::Curve;
 
 use rand_core::{CryptoRng, RngCore};
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
@@ -28,28 +24,24 @@ use std::{
 const POP: &[u8] = b"PoP";
 
 // ---------------------------------------------------------------------
-// Multi signature keys
+// Multi signature using blst
 // ---------------------------------------------------------------------
 
 /// MultiSig secret key, which is a wrapper over the BlstSk type from the blst
 /// library.
 #[derive(Debug, Clone)]
-pub struct SigningKey(BlstSk);
+pub struct SigningKey(Scalar);
 
 impl SigningKey {
     /// Generate a secret key
     pub fn gen(rng: &mut (impl RngCore + CryptoRng)) -> Self {
-        let mut ikm = [0u8; 32];
-        rng.fill_bytes(&mut ikm);
-        SigningKey(
-            BlstSk::key_gen(&ikm, &[])
-                .expect("Error occurs when the length of ikm < 32. This will not happen here."),
-        )
+        SigningKey(Scalar::random(rng))
     }
 
     /// Sign a message with the given secret key
     pub fn sign(&self, msg: &[u8]) -> Signature {
-        Signature(self.0.sign(msg, &[], &[]))
+        let point = <G1Projective as HashToCurve<ExpandMsgXmd<Blake2b>>>::encode_to_curve(msg, &[]);
+        Signature(point * self.0)
     }
 
     /// Convert the secret key into byte string.
@@ -61,18 +53,25 @@ impl SigningKey {
     /// # Error
     /// Fails if the byte string represents a scalar larger than the group order.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
-        match BlstSk::from_bytes(&bytes[..32]) {
-            Ok(sk) => Ok(Self(sk)),
-            Err(e) => Err(blst_err_to_atms(e)
-                .expect_err("If deserialisation is not successful, blst returns and error different to SUCCESS."))
+        if bytes.len() < 32 {
+            return Err(MultiSignatureError::SerializationError);
         }
+        let mut array_bytes = [0u8; 32];
+        array_bytes.copy_from_slice(&bytes[..32]);
+        Ok(Self(Scalar::from_bytes(&array_bytes).unwrap()))
     }
 }
 
 /// MultiSig verification key, which iss a wrapper over the BlstPk (element in G2)
 /// from the blst library.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct VerificationKey(BlstPk);
+#[derive(Debug, Clone, Copy)]
+pub struct VerificationKey(G2Projective);
+
+impl Default for VerificationKey {
+    fn default() -> Self {
+        VerificationKey(G2Projective::identity())
+    }
+}
 
 impl Hash for VerificationKey {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -92,7 +91,7 @@ impl Eq for VerificationKey {}
 impl VerificationKey {
     /// Convert an `VerificationKey` to its compressed byte representation.
     pub fn to_bytes(self) -> [u8; 96] {
-        self.0.to_bytes()
+        self.0.to_affine().to_compressed()
     }
 
     /// Convert a compressed byte string into a `VerificationKey`.
@@ -101,11 +100,22 @@ impl VerificationKey {
     /// This function fails if the bytes do not represent a compressed point of the curve.
     // todo: check that whether this checks that the point is in the prime order group.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
-        match BlstPk::from_bytes(&bytes[..96]) {
-            Ok(pk) => Ok(Self(pk)),
-            Err(e) => Err(blst_err_to_atms(e)
-                .expect_err("If deserialisation is not successful, blst returns and error different to SUCCESS."))
+        if bytes.len() < 96 {
+            return Err(MultiSignatureError::SerializationError);
         }
+        let mut array_bytes = [0u8; 96];
+        array_bytes.copy_from_slice(&bytes[..96]);
+        let key = if G2Affine::from_compressed(&array_bytes)
+            .is_some()
+            .unwrap_u8()
+            == 1u8
+        {
+            G2Affine::from_compressed(&array_bytes).unwrap()
+        } else {
+            return Err(MultiSignatureError::SerializationError);
+        };
+
+        Ok(Self(G2Projective::from(key)))
     }
 
     /// Compare two `VerificationKey`. Used for PartialOrd impl, used to order signatures. The comparison
@@ -143,14 +153,26 @@ impl<'a> Sum<&'a Self> for VerificationKey {
     where
         I: Iterator<Item = &'a Self>,
     {
-        let keys: Vec<&BlstPk> = iter.map(|x| &x.0).collect();
+        let mut start = G2Projective::identity();
+        for val in iter {
+            start += val.0;
+        }
 
-        assert!(!keys.is_empty(), "One cannot add an empty vector");
-        let aggregate_key = AggregatePublicKey::aggregate(&keys, false)
-            .expect("An MspMvk is always a valid key. This function only fails if keys is empty or if the keys are invalid, none of which can happen.")
-            .to_public_key();
+        Self(start)
+    }
+}
 
-        Self(aggregate_key)
+impl<'a> Sum<&'a Self> for Signature {
+    fn sum<I>(iter: I) -> Self
+    where
+        I: Iterator<Item = &'a Self>,
+    {
+        let mut start = G1Projective::identity();
+        for val in iter {
+            start += val.0;
+        }
+
+        Self(start)
     }
 }
 
@@ -161,8 +183,8 @@ impl<'a> Sum<&'a Self> for VerificationKey {
 /// the BLS signature, and we need to have an ad-hoc verification mechanism.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ProofOfPossession {
-    k1: BlstSig,
-    k2: blst_p1,
+    k1: G1Projective,
+    k2: G1Projective,
 }
 
 /// MultiSig public key, contains the verification key and the proof of possession.
@@ -179,7 +201,7 @@ impl From<&SigningKey> for VerificationKey {
     /// `MspMvk = g2 * sk`, where `g2` is the generator in G2. We can use the
     /// blst built-in function `sk_to_pk`.
     fn from(sk: &SigningKey) -> Self {
-        VerificationKey(sk.0.sk_to_pk())
+        VerificationKey(G2Affine::generator() * sk.0)
     }
 }
 
@@ -187,18 +209,12 @@ impl From<&SigningKey> for VerificationKey {
 // todo: particular care reviewing this (specially transmute)
 impl From<&SigningKey> for ProofOfPossession {
     /// Convert a secret key into an `MspPoP`. This is performed by computing
-    /// `k1 =  H_G1(b"PoP" || mvk)` and `k2 = g1 * sk` where `H_G1` hashes into
+    /// `k1 =  H_G1(b"PoP" || mvk) * sk` and `k2 = g1 * sk` where `H_G1` hashes into
     /// `G1` and `g1` is the generator in `G1`.
     fn from(sk: &SigningKey) -> Self {
-        use blst::{blst_scalar, blst_sk_to_pk_in_g1};
-        let k1 = sk.0.sign(POP, &[], &[]);
-        let k2 = unsafe {
-            let sk_scalar = std::mem::transmute::<&BlstSk, &blst_scalar>(&sk.0);
-
-            let mut out = blst_p1::default();
-            blst_sk_to_pk_in_g1(&mut out, sk_scalar);
-            out
-        };
+        let k1 =
+            <G1Projective as HashToCurve<ExpandMsgXmd<Blake2b>>>::encode_to_curve(POP, &[]) * sk.0;
+        let k2 = G1Affine::generator() * sk.0;
 
         Self { k1, k2 }
     }
@@ -222,29 +238,18 @@ impl VerificationKeyPoP {
     /// manually.
     // If we are really looking for performance improvements, we can combine the
     // two final exponantiations (for verifying k1 and k2) into a single one.
-    // todo: review carefully. Unsafe to use algebraic operations and transmute
     pub fn check(&self) -> Result<(), MultiSignatureError> {
-        use blst::{
-            blst_fp12, blst_fp12_finalverify, blst_p1_affine_generator, blst_p1_to_affine,
-            blst_p2_affine, blst_p2_affine_generator, BLST_ERROR,
-        };
-        let result = unsafe {
-            let g1_p = *blst_p1_affine_generator();
-            let mvk_p = std::mem::transmute::<&BlstPk, &blst_p2_affine>(&self.vk.0);
-            let ml_lhs = blst_fp12::miller_loop(mvk_p, &g1_p);
+        let lhs_1 = pairing(&self.pop.k1.to_affine(), &G2Affine::generator());
+        let rhs_1 = pairing(
+            &<G1Projective as HashToCurve<ExpandMsgXmd<Blake2b>>>::encode_to_curve(POP, &[])
+                .to_affine(),
+            &self.vk.0.to_affine(),
+        );
 
-            let mut k2_p = blst_p1_affine::default();
-            blst_p1_to_affine(&mut k2_p, &self.pop.k2);
-            let g2_p = *blst_p2_affine_generator();
-            let ml_rhs = blst_fp12::miller_loop(&g2_p, &k2_p);
+        let lhs_2 = pairing(&G1Affine::generator(), &self.vk.0.to_affine());
+        let rhs_2 = pairing(&self.pop.k2.to_affine(), &G2Affine::generator());
 
-            blst_fp12_finalverify(&ml_lhs, &ml_rhs)
-        };
-
-        if !(self.pop.k1.verify(false, POP, &[], &[], &self.vk.0, false)
-            == BLST_ERROR::BLST_SUCCESS
-            && result)
-        {
+        if !(lhs_1 == rhs_1 && lhs_2 == rhs_2) {
             return Err(MultiSignatureError::InvalidKey(Box::new(*self)));
         }
         Ok(())
@@ -281,33 +286,19 @@ impl ProofOfPossession {
     /// * K2 (G1 point)
     pub fn to_bytes(self) -> [u8; 96] {
         let mut pop_bytes = [0u8; 96];
-        pop_bytes[..48].copy_from_slice(&self.k1.to_bytes());
-        let k2_bytes = unsafe {
-            let mut bytes = [0u8; 48];
-            blst_p1_compress(bytes.as_mut_ptr(), &self.k2);
-            bytes
-        };
-        pop_bytes[48..].copy_from_slice(&k2_bytes);
+        pop_bytes[..48].copy_from_slice(&self.k1.to_affine().to_compressed());
+        pop_bytes[48..].copy_from_slice(&self.k2.to_affine().to_compressed());
         pop_bytes
     }
 
     /// Deserialise a byte string to a `PublicKeyPoP`.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
-        let k1 = match BlstSig::from_bytes(&bytes[..48]) {
-            Ok(key) => key,
-            Err(e) => {
-                return Err(blst_err_to_atms(e)
-                    .expect_err("If it passed, blst returns and error different to SUCCESS."))
-            }
-        };
+        let mut array_byte = [0u8; 48];
+        array_byte.copy_from_slice(&bytes[..48]);
+        let k1 = G1Projective::from(G1Affine::from_compressed(&array_byte).unwrap());
 
-        let k2 = unsafe {
-            let mut point = blst_p1_affine::default();
-            let mut out = blst_p1::default();
-            blst_p1_uncompress(&mut point, bytes[48..].as_ptr());
-            blst_p1_from_affine(&mut out, &point);
-            out
-        };
+        array_byte.copy_from_slice(&bytes[48..]);
+        let k2 = G1Projective::from(G1Affine::from_compressed(&array_byte).unwrap());
 
         Ok(Self { k1, k2 })
     }
@@ -319,27 +310,22 @@ impl ProofOfPossession {
 
 /// MultiSig signature, which is a wrapper over the `BlstSig` type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Signature(BlstSig);
-
-impl<'a> Sum<&'a Self> for Signature {
-    fn sum<I>(iter: I) -> Self
-    where
-        I: Iterator<Item = &'a Self>,
-    {
-        let signatures: Vec<&BlstSig> = iter.map(|x| &x.0).collect();
-        assert!(!signatures.is_empty(), "One cannot add an empty vector");
-        let aggregate = AggregateSignature::aggregate(&signatures, false)
-                .expect("An MspSig is always a valid signature. This function only fails if signatures is empty or if the signatures are invalid, none of which can happen.")
-                .to_signature();
-
-        Self(aggregate)
-    }
-}
+pub struct Signature(G1Projective);
 
 impl Signature {
     /// Verify a signature against a verification key.
     pub fn verify(&self, msg: &[u8], mvk: &VerificationKey) -> Result<(), MultiSignatureError> {
-        blst_err_to_atms(self.0.verify(false, msg, &[], &[], &mvk.0, false))
+        let lhs = pairing(&self.0.to_affine(), &G2Affine::generator());
+        let rhs = pairing(
+            &<G1Projective as HashToCurve<ExpandMsgXmd<Blake2b>>>::encode_to_curve(msg, &[])
+                .to_affine(),
+            &mvk.0.to_affine(),
+        );
+        if lhs == rhs {
+            return Ok(());
+        }
+
+        Err(MultiSignatureError::InvalidSignature)
     }
 
     /// Check if the signature is valid for the given index. We hash the signature to produce a
@@ -363,7 +349,7 @@ impl Signature {
 
     /// Convert an `Signature` to its compressed byte representation.
     pub fn to_bytes(self) -> [u8; 48] {
-        self.0.to_bytes()
+        self.0.to_affine().to_compressed()
     }
 
     /// Convert a string of bytes into a `MspSig`.
@@ -371,11 +357,11 @@ impl Signature {
     /// Returns an error if the byte string does not represent a point in the curve.
     // todo: check that whether this checks that the point is in the prime order group.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
-        match BlstSig::from_bytes(&bytes[..48]) {
-            Ok(sig) => Ok(Self(sig)),
-            Err(e) => Err(blst_err_to_atms(e)
-                .expect_err("If deserialisation is not successful, blst returns and error different to SUCCESS."))
-        }
+        let mut array_byte = [0u8; 48];
+        array_byte.copy_from_slice(&bytes[..48]);
+        Ok(Self(G1Projective::from(
+            G1Affine::from_compressed(&array_byte).unwrap(),
+        )))
     }
 
     /// Compare two signatures. Used for PartialOrd impl, used to rank signatures. The comparison

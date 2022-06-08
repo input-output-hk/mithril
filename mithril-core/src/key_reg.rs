@@ -5,11 +5,13 @@ use digest::{Digest, FixedOutput};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use super::multi_sig::VerificationKeyPoP;
-use super::stm::{PartyId, Stake};
+#[cfg(not(feature = "zcash"))]
+use crate::multi_sig::{VerificationKey, VerificationKeyPoP};
+#[cfg(feature = "zcash")]
+use crate::multi_sig_zcash::{VerificationKey, VerificationKeyPoP};
 
+use super::stm::{PartyId, Stake};
 use crate::merkle_tree::{MTLeaf, MerkleTree};
-use crate::multi_sig::VerificationKey;
 
 /// Struct that collects public keys and stakes of parties. Each participant (both the
 /// signers and the clerks) need to run their own instance of the key registration.
@@ -73,7 +75,7 @@ impl KeyReg {
         pk: VerificationKeyPoP,
     ) -> Result<(), RegisterError> {
         if self.keys.contains(&pk.vk) {
-            return Err(RegisterError::KeyRegistered(pk.vk));
+            return Err(RegisterError::KeyRegistered(Box::new(pk.vk)));
         }
 
         if let Some(mut party) = self.parties.get_mut(&party_id) {
@@ -95,13 +97,17 @@ impl KeyReg {
     where
         D: Digest + FixedOutput,
     {
-        let mut total_stake = 0;
+        let mut total_stake: Stake = 0;
         let mut reg_parties = self
             .parties
             .iter()
             .filter_map(|(_, party)| {
                 if let Some(vk) = party.vk {
-                    total_stake += party.stake;
+                    let (res, overflow) = total_stake.overflowing_add(party.stake);
+                    if overflow {
+                        panic!("Total stake overflow");
+                    }
+                    total_stake = res;
                     return Some(MTLeaf(vk, party.stake));
                 }
                 None
@@ -126,7 +132,10 @@ impl Default for KeyReg {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(not(feature = "zcash"))]
     use crate::multi_sig::SigningKey;
+    #[cfg(feature = "zcash")]
+    use crate::multi_sig_zcash::SigningKey;
     use blake2::Blake2b;
     use proptest::collection::vec;
     use proptest::prelude::*;
@@ -134,7 +143,8 @@ mod tests {
     use rand_core::SeedableRng;
 
     fn arb_participants(min: usize, max: usize) -> impl Strategy<Value = Vec<(PartyId, Stake)>> {
-        vec(any::<Stake>(), min..=max).prop_map(|v| {
+        vec(1..1u64 << 60, min..=max).prop_map(|v| {
+            // 1<<60 to avoid overflows
             v.into_iter()
                 .enumerate()
                 .map(|(index, value)| (index as u64, value))
@@ -184,7 +194,7 @@ mod tests {
                         assert!(parties.insert(p.0));
                     },
                     Err(RegisterError::KeyRegistered(pk1)) => {
-                        assert!(pk1 == pk.vk);
+                        assert!(pk1.as_ref() == &pk.vk);
                         assert!(keys.contains(&pk.vk));
                     }
                     Err(RegisterError::PartyRegistered(party)) => {

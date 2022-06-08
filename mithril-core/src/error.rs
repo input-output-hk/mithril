@@ -1,10 +1,15 @@
 //! Crate specific errors
 
 use crate::merkle_tree::Path;
-use crate::multi_sig::{Signature, VerificationKey, VerificationKeyPoP};
+#[cfg(feature = "zcash")]
+use crate::multi_sig_zcash::{Signature, VerificationKey, VerificationKeyPoP};
 use crate::stm::PartyId;
-use blst::BLST_ERROR;
 use digest::{Digest, FixedOutput};
+#[cfg(not(feature = "zcash"))]
+use {
+    crate::multi_sig::{Signature, VerificationKey, VerificationKeyPoP},
+    blst::BLST_ERROR,
+};
 
 // todo: better organise these errors.
 
@@ -81,6 +86,9 @@ pub enum AggregationFailure {
     /// Not enough signatures were collected, got this many instead.
     #[error("Not enough signatures. Got only {0} out of {1}.")]
     NotEnoughSignatures(u64, u64),
+    /// This error happens when we try to convert a u64 to a usize and it does not fit
+    #[error("Invalid usize conversion")]
+    InvalidUsizeConversion,
 }
 
 /// Error types for single signature verification
@@ -116,7 +124,7 @@ pub enum MerkleTreeError {
 pub enum RegisterError {
     /// This key has already been registered by a participant
     #[error("This key has already been registered.")]
-    KeyRegistered(VerificationKey),
+    KeyRegistered(Box<VerificationKey>),
     /// This participant has already been registered
     #[error("Participant {0} has already been registered.")]
     PartyRegistered(PartyId),
@@ -168,6 +176,7 @@ impl<D: Digest + Clone + FixedOutput> From<VerificationFailure<D>> for MithrilWi
     }
 }
 
+#[cfg(not(feature = "zcash"))]
 pub(crate) fn blst_err_to_atms(e: BLST_ERROR) -> Result<(), MultiSignatureError> {
     match e {
         BLST_ERROR::BLST_SUCCESS => Ok(()),

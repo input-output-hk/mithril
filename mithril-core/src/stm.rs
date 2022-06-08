@@ -128,7 +128,10 @@ use crate::error::{
 };
 use crate::key_reg::ClosedKeyReg;
 use crate::merkle_tree::{MTLeaf, MerkleTreeCommitment, Path};
+#[cfg(not(feature = "zcash"))]
 use crate::multi_sig::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
+#[cfg(feature = "zcash")]
+use crate::multi_sig_zcash::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
 use digest::{Digest, FixedOutput};
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
@@ -472,9 +475,11 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
     pub fn from_bytes(bytes: &[u8]) -> Result<StmAggrSig<D>, MultiSignatureError> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(&bytes[..8]);
-        let size = usize::try_from(u64::from_be_bytes(u64_bytes)).unwrap();
+        let size = usize::try_from(u64::from_be_bytes(u64_bytes))
+            .map_err(|_| MultiSignatureError::SerializationError)?;
         u64_bytes.copy_from_slice(&bytes[8..16]);
-        let sig_size = usize::try_from(u64::from_be_bytes(u64_bytes)).unwrap();
+        let sig_size = usize::try_from(u64::from_be_bytes(u64_bytes))
+            .map_err(|_| MultiSignatureError::SerializationError)?;
         let mut signatures = Vec::with_capacity(size);
         for i in 0..size {
             signatures.push(StmSig::from_bytes(
@@ -617,7 +622,7 @@ impl StmInitializer {
         let party_id = u64::from_be_bytes(u64_bytes);
         u64_bytes.copy_from_slice(&bytes[8..16]);
         let stake = u64::from_be_bytes(u64_bytes);
-        let params = StmParameters::from_bytes(&bytes[16..])?;
+        let params = StmParameters::from_bytes(&bytes[16..40])?;
         let sk = SigningKey::from_bytes(&bytes[40..])?;
         let pk = StmVerificationKeyPoP::from_bytes(&bytes[72..])?;
 
@@ -654,7 +659,7 @@ where
             let path = self
                 .closed_reg
                 .merkle_tree
-                .get_path(self.mt_index.try_into().unwrap());
+                .get_path(self.mt_index.try_into().ok()?);
             Some(StmSig {
                 sigma,
                 pk: self.vk,
@@ -836,7 +841,12 @@ where
     ) -> Result<StmAggrSig<D>, AggregationFailure> {
         // todo: how come the dedup does not take the concatenated message
         // let msgp = concat_avk_with_msg(&self.avk.to_commitment(), msg);
-        let mut unique_sigs = Vec::with_capacity(self.params.k.try_into().unwrap());
+        let mut unique_sigs = Vec::with_capacity(
+            self.params
+                .k
+                .try_into()
+                .map_err(|_| AggregationFailure::InvalidUsizeConversion)?,
+        );
         for (_, sigs) in self.dedup_sigs_for_indices(msg, sigs)? {
             unique_sigs.push(sigs.clone())
         }
@@ -1093,12 +1103,22 @@ mod tests {
                 }
                 Err(AggregationFailure::NotEnoughSignatures(n, k)) =>
                     assert!(n < params.k || k == params.k),
+                Err(AggregationFailure::InvalidUsizeConversion) =>
+                    unreachable!()
             }
         }
     }
 
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(10))]
+        #[test]
+        fn test_parameters_serialize_deserialize(m in any::<u64>(), k in any::<u64>(), phi_f in any::<f64>()) {
+            let params = StmParameters { m, k, phi_f };
+
+            let bytes = params.to_bytes();
+            let deserialised = StmParameters::from_bytes(&bytes);
+            assert!(deserialised.is_ok())
+        }
 
         #[test]
         fn test_initializer_serialize_deserialize(seed in any::<[u8;32]>()) {
@@ -1107,6 +1127,9 @@ mod tests {
             let pid = rng.next_u64();
             let stake = rng.next_u64();
             let initializer = StmInitializer::setup(params, pid, stake, &mut rng);
+
+            let bytes = initializer.to_bytes();
+            assert!(StmInitializer::from_bytes(&bytes).is_ok());
 
             let bytes = bincode::serialize(&initializer).unwrap();
             assert!(bincode::deserialize::<StmInitializer>(&bytes).is_ok())
