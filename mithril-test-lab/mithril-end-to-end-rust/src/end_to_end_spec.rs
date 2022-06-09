@@ -1,6 +1,8 @@
 use crate::MithrilInfrastructure;
+use async_recursion::async_recursion;
+use mithril_common::entities::Snapshot;
 use reqwest::StatusCode;
-use slog_scope::{info, warn};
+use slog_scope::info;
 use std::error::Error;
 use std::time::Duration;
 
@@ -17,8 +19,9 @@ impl Spec {
         let aggregator_endpoint = self.infrastructure.aggregator().endpoint();
 
         wait_for_pending_certificate(&aggregator_endpoint).await?;
-        let _digest = assert_node_producing_snapshot(&aggregator_endpoint).await?;
-        // let certificate_hash = await signer.assertIsSigningSnapshot()?;
+        let digest = assert_node_producing_snapshot(&aggregator_endpoint).await?;
+        let _certificate_hash =
+            assert_signer_is_signing_snapshot(&aggregator_endpoint, &digest).await?;
         // await aggregator.assertIsCreatingCertificate()?;
         //
         // await assertClientCanVerifySnapshot()?;
@@ -66,14 +69,97 @@ async fn wait_for_pending_certificate(aggregator_endpoint: &str) -> Result<(), S
     }
 
     Err(format!(
-        "Timeout waiting for aggregator to be up, no response from `{}`",
+        "Timeout exhausted for aggregator to be up, no response from `{}`",
         url
     ))
 }
 
 async fn assert_node_producing_snapshot(aggregator_endpoint: &str) -> Result<String, String> {
-    tokio::time::sleep(Duration::from_secs(4)).await;
-    warn!("todo: assert_node_producing_snapshot");
+    #[async_recursion]
+    async fn get_last_digest(
+        remaining_attempts: i32,
+        aggregator_endpoint: &str,
+    ) -> Result<String, String> {
+        let url = format!("{}/snapshots", aggregator_endpoint);
+        if remaining_attempts == 0 {
+            return Err(format!(
+                "Timeout exhausted assert_node_producing_snapshot, no response from `{}`",
+                url
+            ));
+        }
 
-    Ok("digest".to_string())
+        let res = match reqwest::get(url.clone()).await {
+            Ok(response) => match response.status() {
+                StatusCode::OK => match response.json::<Vec<Snapshot>>().await.as_deref() {
+                    Ok([snapshot, ..]) => Ok(Some(snapshot.digest.clone())),
+                    Ok(&[]) => Ok(None),
+                    Err(err) => Err(format!("invalid snapshot body : {}", err,)),
+                },
+                s => Err(format!("unexpected status code from Aggregator: {}", s)),
+            },
+            Err(err) => Err(format!(": {}", err)),
+        };
+
+        match res {
+            Ok(Some(digest)) => {
+                info!("aggregator produced a snapshot"; "digest" => &digest);
+                Ok(digest)
+            }
+            Ok(None) => {
+                tokio::time::sleep(Duration::from_millis(1000)).await;
+                get_last_digest(remaining_attempts - 1, aggregator_endpoint).await
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    get_last_digest(10, aggregator_endpoint).await
+}
+
+async fn assert_signer_is_signing_snapshot(
+    aggregator_endpoint: &str,
+    digest: &str,
+) -> Result<String, String> {
+    #[async_recursion]
+    async fn get_snapshot_from_aggregator(
+        remaining_attempts: i32,
+        aggregator_endpoint: &str,
+        digest: &str,
+    ) -> Result<String, String> {
+        let url = format!("{}/snapshot/{}", aggregator_endpoint, digest);
+        if remaining_attempts == 0 {
+            return Err(format!(
+                "Timeout exhausted assert_signer_is_signing_snapshot, no response from `{}`",
+                url
+            ));
+        }
+
+        let res = match reqwest::get(url.clone()).await {
+            Ok(response) => match response.status() {
+                StatusCode::OK => match response.json::<Snapshot>().await {
+                    Ok(snapshot) => Ok(Some(snapshot)),
+                    Err(err) => Err(format!("invalid snapshot body : {}", err,)),
+                },
+                StatusCode::NOT_FOUND => Ok(None),
+                s => Err(format!("unexpected status code from Aggregator: {}", s)),
+            },
+            Err(err) => Err(format!(": {}", err)),
+        };
+
+        match res {
+            Ok(Some(snapshot)) => {
+                // todo: assert that the snapshot is really signed
+                info!("signer signed a snapshot"; "certificate_hash" => &snapshot.certificate_hash);
+                Ok(snapshot.certificate_hash)
+            }
+            Ok(None) => {
+                tokio::time::sleep(Duration::from_millis(1000)).await;
+                get_snapshot_from_aggregator(remaining_attempts - 1, aggregator_endpoint, digest)
+                    .await
+            }
+            Err(e) => Err(e),
+        }
+    }
+
+    get_snapshot_from_aggregator(10, aggregator_endpoint, digest).await
 }

@@ -5,6 +5,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+async-recursion = "1.0.0"
 async-trait = "0.1.52"
 chrono = "0.4"
 clap = { version = "3.1.6", features = ["derive"] }
