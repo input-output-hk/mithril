@@ -2028,6 +2028,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "mithril-end-to-end"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "clap 3.1.18",
+ "clap-verbosity-flag",
+ "config",
+ "flate2",
+ "futures",
+ "glob",
+ "hex",
+ "mithril-common",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "slog",
+ "slog-async",
+ "slog-scope",
+ "slog-term",
+ "tar",
+ "thiserror",
+ "tokio",
+ "tokio-util 0.7.2",
+]
+
+[[package]]
 name = "mithril-signer"
 version = "0.1.0"
 dependencies = [
