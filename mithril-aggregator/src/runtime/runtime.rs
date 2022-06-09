@@ -14,7 +14,6 @@ use mithril_common::entities::Snapshot;
 use slog_scope::{debug, error, info, trace, warn};
 use std::fmt::Display;
 use std::fs::File;
-use std::io;
 use std::io::{Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -308,7 +307,6 @@ impl AggregatorRuntime {
         }
     }
 }
-    */
 
 fn build_new_snapshot(
     digest: String,
@@ -330,6 +328,7 @@ fn build_new_snapshot(
         vec![uploaded_snapshot_location],
     ))
 }
+    */
 
 #[cfg(test)]
 mod tests {

@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 
-use crate::DependencyManager;
+use crate::{multi_signer, DependencyManager};
 use async_trait::async_trait;
+use mithril::stm::StmVerificationKey;
 use mithril_common::digesters::{Digester, DigesterResult, ImmutableDigester};
 use mithril_common::entities::{Beacon, CertificatePending};
 
@@ -53,10 +54,18 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Return the current beacon if it is newer than the given one.
     fn is_new_beacon(&self, beacon: Option<&Beacon>) -> Result<Option<Beacon>, RuntimeError>;
     async fn compute_digest(&self, new_beacon: &Beacon) -> Result<DigesterResult, RuntimeError>;
-    async fn create_pending_certificate(
+    async fn update_message_in_multisigner(
         &self,
-        digester_result: DigesterResult,
+        digest_result: DigesterResult,
+    ) -> Result<(), RuntimeError>;
+    async fn create_new_pending_certificate_from_multisigner(
+        &self,
+        beacon: Beacon,
     ) -> Result<CertificatePending, RuntimeError>;
+    async fn save_pending_certificate(
+        &self,
+        pending_certificate: CertificatePending,
+    ) -> Result<(), RuntimeError>;
 }
 
 pub struct AggregatorRunner {
@@ -94,10 +103,17 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         let digester =
             ImmutableDigester::new(self.config.db_directory.clone(), slog_scope::logger());
         info!("Computing digest"; "db_directory" => self.config.db_directory.display());
+
+        // digest is done in a separate thread because it is blocking the whole task
+        debug!("launching digester thread");
         let digest_result = tokio::task::spawn_blocking(move || digester.compute_digest())
             .await
             .map_err(|e| RuntimeError::General(e.to_string()))??;
 
+        debug!(
+            "last immutable file number: {}",
+            digest_result.last_immutable_file_number
+        );
         if digest_result.last_immutable_file_number != new_beacon.immutable_file_number {
             error!("digest beacon is different than the given beacon");
             Err(RuntimeError::General(
@@ -109,10 +125,47 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         }
     }
 
-    async fn create_pending_certificate(
+    async fn create_new_pending_certificate_from_multisigner(
         &self,
-        digester_result: DigesterResult,
+        beacon: Beacon,
     ) -> Result<CertificatePending, RuntimeError> {
+        trace!("running runner::create_pending_certificate");
+        let mut multi_signer = self
+            .config
+            .dependencies
+            .multi_signer
+            .as_ref()
+            .ok_or(RuntimeError::General(format!("no multisigner registered")))?
+            .read()
+            .await;
+
+        debug!("creating certificate pending using multisigner");
+        warn!("pending certificate's previous hash is fake");
+        let pending_certificate = CertificatePending::new(
+            beacon,
+            multi_signer
+                .get_protocol_parameters()
+                .await
+                .ok_or_else(|| RuntimeError::General(format!("no protocol parameters")))?
+                .into(),
+            "123".to_string(),
+            multi_signer.get_signers().await?,
+        );
+
+        Ok(pending_certificate)
+    }
+
+    async fn save_pending_certificate(
+        &self,
+        pending_certificate: CertificatePending,
+    ) -> Result<(), RuntimeError> {
+        todo!()
+    }
+
+    async fn update_message_in_multisigner(
+        &self,
+        digest_result: DigesterResult,
+    ) -> Result<(), RuntimeError> {
         todo!()
     }
 }
