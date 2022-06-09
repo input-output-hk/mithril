@@ -19,6 +19,7 @@ use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tokio::time::Duration;
 
 /// Node args
 #[derive(Parser, Debug, Clone)]
@@ -174,9 +175,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
             &snapshot_directory,
             runtime_dependencies,
         );
-        let mut runtime = AggregatorRuntime::new(config, None, Arc::new(AggregatorRunner {}))
-            .await
-            .unwrap();
+        let mut runtime = AggregatorRuntime::new(
+            Duration::from_millis(config.interval.into()),
+            None,
+            Arc::new(AggregatorRunner::new(config)),
+        )
+        .await
+        .unwrap();
         runtime.run().await
     });
 

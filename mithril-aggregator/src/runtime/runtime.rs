@@ -1,16 +1,13 @@
-use crate::dependency::{BeaconStoreWrapper, MultiSignerWrapper, SnapshotStoreWrapper};
-use crate::{BeaconStore, BeaconStoreError, ProtocolError, SnapshotError, Snapshotter};
-
 use mithril_common::crypto_helper::Bytes;
-use mithril_common::digesters::{Digester, DigesterError, ImmutableDigester};
 use mithril_common::entities::{Beacon, Certificate, CertificatePending};
 use mithril_common::fake_data;
 
+use crate::dependency::{BeaconStoreWrapper, MultiSignerWrapper, SnapshotStoreWrapper};
 use crate::dependency::{CertificatePendingStoreWrapper, CertificateStoreWrapper};
-use crate::snapshot_stores::SnapshotStoreError;
 use crate::snapshot_uploaders::{SnapshotLocation, SnapshotUploader};
-use crate::DependencyManager;
+use crate::{BeaconStore, Snapshotter};
 
+use super::{AggregatorRunnerTrait, RuntimeError};
 use chrono::{DateTime, Utc};
 use hex::ToHex;
 use mithril_common::entities::Snapshot;
@@ -21,54 +18,23 @@ use std::io;
 use std::io::{Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use thiserror::Error;
 use tokio::time::{sleep, Duration};
 
 #[cfg(test)]
 use mockall::automock;
 
-#[derive(Error, Debug)]
-pub enum RuntimeError {
-    #[error("multi signer error")]
-    MultiSigner(#[from] ProtocolError),
-
-    #[error("beacon store error")]
-    BeaconStore(#[from] BeaconStoreError),
-
-    #[error("snapshotter error")]
-    Snapshotter(#[from] SnapshotError),
-
-    #[error("digester error")]
-    Digester(#[from] DigesterError),
-
-    #[error("snapshot store error")]
-    SnapshotStore(#[from] SnapshotStoreError),
-
-    #[error("certificate store error")]
-    CertificateStore(String),
-
-    #[error("snapshot uploader error: {0}")]
-    SnapshotUploader(String),
-
-    #[error("snapshot build error")]
-    SnapshotBuild(#[from] io::Error),
-
-    #[error("general error")]
-    General(String),
-}
-
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct IdleState {
     current_beacon: Option<Beacon>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SigningState {
     current_beacon: Beacon,
     certificate_pending: CertificatePending,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum AggregatorState {
     Idle(IdleState),
     Signing(SigningState),
@@ -139,8 +105,9 @@ impl AggregatorRuntime {
     pub async fn cycle(&mut self) -> Result<(), RuntimeError> {
         match self.state.clone() {
             AggregatorState::Idle(state) => {
-                if let Some(beacon) = self.runner.is_new_beacon(state.current_beacon.as_ref()) {
-                    let _ = self.from_idle_to_signing(beacon).await?;
+                if let Some(beacon) = self.runner.is_new_beacon(state.current_beacon.as_ref())? {
+                    let new_state = self.from_idle_to_signing(beacon).await?;
+                    self.state = AggregatorState::Signing(new_state);
                 }
             }
             AggregatorState::Signing(_state) => {}
@@ -148,20 +115,24 @@ impl AggregatorRuntime {
         Ok(())
     }
 
-    async fn from_idle_to_signing(&mut self, new_beacon: Beacon) -> Result<(), RuntimeError> {
+    /// transition
+    /// from IDLE state to SIGNING
+    async fn from_idle_to_signing(
+        &mut self,
+        new_beacon: Beacon,
+    ) -> Result<SigningState, RuntimeError> {
         info!("transiting from IDLE to SIGNING state");
-        let message = self.runner.compute_digest(&new_beacon).await?;
+        let digester_result = self.runner.compute_digest(&new_beacon).await?;
         let certificate = self
             .runner
-            .create_pending_certificate(&message)
-            .await
-            .map_err(|e| RuntimeError::General(e))?;
+            .create_pending_certificate(digester_result)
+            .await?;
         let state = SigningState {
             current_beacon: new_beacon,
             certificate_pending: certificate,
         };
-        self.state = AggregatorState::Signing(state);
-        Ok(())
+
+        Ok(state)
     }
 }
 /// AggregatorRuntime factory
@@ -362,15 +333,15 @@ fn build_new_snapshot(
 
 #[cfg(test)]
 mod tests {
-    use crate::Config;
+    use super::super::runner::MockAggregatorRunner;
     use super::*;
+    use mithril_common::digesters::DigesterResult;
     use mithril_common::fake_data;
 
     async fn init_runtime(
         init_state: Option<AggregatorState>,
         runner: MockAggregatorRunner,
     ) -> AggregatorRuntime {
-        use crate::entities::{SnapshotStoreType, SnapshotUploaderType};
         AggregatorRuntime::new(Duration::from_millis(100), init_state, Arc::new(runner))
             .await
             .unwrap()
@@ -379,7 +350,10 @@ mod tests {
     #[tokio::test]
     pub async fn idle_check_no_new_beacon_with_current_beacon() {
         let mut runner = MockAggregatorRunner::new();
-        runner.expect_is_new_beacon().times(1).returning(|_| None);
+        runner
+            .expect_is_new_beacon()
+            .times(1)
+            .returning(|_| Ok(None));
         let mut runtime = init_runtime(
             Some(AggregatorState::Idle(IdleState {
                 current_beacon: Some(fake_data::beacon()),
@@ -398,11 +372,13 @@ mod tests {
         runner
             .expect_is_new_beacon()
             .times(1)
-            .returning(|_| Some(fake_data::beacon()));
-        runner
-            .expect_compute_digest()
-            .times(1)
-            .returning(|_| Ok("whatever".to_string()));
+            .returning(|_| Ok(Some(fake_data::beacon())));
+        runner.expect_compute_digest().times(1).returning(|_| {
+            Ok(DigesterResult {
+                digest: "whatever".to_string(),
+                last_immutable_file_number: 123,
+            })
+        });
         runner
             .expect_create_pending_certificate()
             .times(1)
