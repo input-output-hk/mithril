@@ -31,26 +31,36 @@ where
         _key: &Self::Key,
         _record: &Self::Record,
     ) -> Result<(), AdapterError> {
-        Err(AdapterError::GeneralError("an error occurred".to_string()))
+        Err(AdapterError::GeneralError(
+            "Fail adapter always fails".to_string(),
+        ))
     }
 
     async fn get_record(&self, _key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
-        Err(AdapterError::GeneralError("an error occurred".to_string()))
+        Err(AdapterError::GeneralError(
+            "Fail adapter always fails".to_string(),
+        ))
     }
 
     async fn record_exists(&self, _key: &Self::Key) -> Result<bool, AdapterError> {
-        Err(AdapterError::GeneralError("an error occurred".to_string()))
+        Err(AdapterError::GeneralError(
+            "Fail adapter always fails".to_string(),
+        ))
     }
 
     async fn get_last_n_records(
         &self,
         _how_many: usize,
     ) -> Result<Vec<(Self::Key, Self::Record)>, AdapterError> {
-        Err(AdapterError::GeneralError("an error occurred".to_string()))
+        Err(AdapterError::GeneralError(
+            "Fail adapter always fails".to_string(),
+        ))
     }
 
-    async fn remove(&mut self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
-        todo!()
+    async fn remove(&mut self, _key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
+        Err(AdapterError::GeneralError(
+            "Fail adapter always fails".to_string(),
+        ))
     }
 }
 
@@ -103,5 +113,11 @@ mod tests {
     async fn test_list_with_last_zero() {
         let adapter: FailStoreAdapter<u64, String> = FailStoreAdapter::new();
         assert!(adapter.get_last_n_records(0).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_remove_existing_record() {
+        let mut adapter: FailStoreAdapter<u64, String> = FailStoreAdapter::new();
+        assert!(adapter.remove(&0).await.is_err());
     }
 }
