@@ -1,6 +1,6 @@
-use crate::MithrilInfrastructure;
-use async_recursion::async_recursion;
-use mithril_common::entities::Snapshot;
+use crate::spec_utils::AttemptResult;
+use crate::{attempt, MithrilInfrastructure};
+use mithril_common::entities::{Certificate, Snapshot};
 use reqwest::StatusCode;
 use slog_scope::info;
 use std::error::Error;
@@ -20,11 +20,10 @@ impl Spec {
 
         wait_for_pending_certificate(&aggregator_endpoint).await?;
         let digest = assert_node_producing_snapshot(&aggregator_endpoint).await?;
-        let _certificate_hash =
+        let certificate_hash =
             assert_signer_is_signing_snapshot(&aggregator_endpoint, &digest).await?;
-        // await aggregator.assertIsCreatingCertificate()?;
-        //
-        // await assertClientCanVerifySnapshot()?;
+        assert_is_creating_certificate(&aggregator_endpoint, &certificate_hash).await?;
+        // assertClientCanVerifySnapshot().await?;
 
         Ok(())
     }
@@ -46,120 +45,118 @@ impl Spec {
 async fn wait_for_pending_certificate(aggregator_endpoint: &str) -> Result<(), String> {
     let url = format!("{}/certificate-pending", aggregator_endpoint);
 
-    for _ in 1..10 {
-        let response = reqwest::get(url.clone()).await;
-
-        if let Ok(response) = response {
-            match response.status() {
+    match attempt!(10, Duration::from_millis(100), {
+        match reqwest::get(url.clone()).await {
+            Ok(response) => match response.status() {
                 StatusCode::OK => {
                     info!("Aggregator ready");
-                    return Ok(());
+                    Ok(Some(()))
                 }
-                s if s.is_server_error() => {
-                    return Err(format!(
-                        "server error while waiting for the Aggregator, http code: {}",
-                        s
-                    ));
-                }
-                _ => {}
-            }
+                s if s.is_server_error() => Err(format!(
+                    "Server error while waiting for the Aggregator, http code: {}",
+                    s
+                )),
+                _ => Ok(None),
+            },
+            Err(_) => Ok(None),
         }
-
-        tokio::time::sleep(Duration::from_millis(100)).await;
+    }) {
+        AttemptResult::Ok(_) => Ok(()),
+        AttemptResult::Err(error) => Err(error),
+        AttemptResult::Timeout() => Err(format!(
+            "Timeout exhausted for aggregator to be up, no response from `{}`",
+            url
+        )),
     }
-
-    Err(format!(
-        "Timeout exhausted for aggregator to be up, no response from `{}`",
-        url
-    ))
 }
 
 async fn assert_node_producing_snapshot(aggregator_endpoint: &str) -> Result<String, String> {
-    #[async_recursion]
-    async fn get_last_digest(
-        remaining_attempts: i32,
-        aggregator_endpoint: &str,
-    ) -> Result<String, String> {
-        let url = format!("{}/snapshots", aggregator_endpoint);
-        if remaining_attempts == 0 {
-            return Err(format!(
-                "Timeout exhausted assert_node_producing_snapshot, no response from `{}`",
-                url
-            ));
-        }
+    let url = format!("{}/snapshots", aggregator_endpoint);
 
-        let res = match reqwest::get(url.clone()).await {
+    match attempt!(10, Duration::from_millis(1000), {
+        match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<Vec<Snapshot>>().await.as_deref() {
                     Ok([snapshot, ..]) => Ok(Some(snapshot.digest.clone())),
                     Ok(&[]) => Ok(None),
-                    Err(err) => Err(format!("invalid snapshot body : {}", err,)),
+                    Err(err) => Err(format!("Invalid snapshot body : {}", err,)),
                 },
-                s => Err(format!("unexpected status code from Aggregator: {}", s)),
+                s => Err(format!("Unexpected status code from Aggregator: {}", s)),
             },
-            Err(err) => Err(format!(": {}", err)),
-        };
-
-        match res {
-            Ok(Some(digest)) => {
-                info!("aggregator produced a snapshot"; "digest" => &digest);
-                Ok(digest)
-            }
-            Ok(None) => {
-                tokio::time::sleep(Duration::from_millis(1000)).await;
-                get_last_digest(remaining_attempts - 1, aggregator_endpoint).await
-            }
-            Err(e) => Err(e),
+            Err(err) => Err(format!("Request to `{}` failed: {}", url, err)),
         }
+    }) {
+        AttemptResult::Ok(digest) => {
+            info!("Aggregator produced a snapshot"; "digest" => &digest);
+            Ok(digest)
+        }
+        AttemptResult::Err(error) => Err(error),
+        AttemptResult::Timeout() => Err(format!(
+            "Timeout exhausted assert_node_producing_snapshot, no response from `{}`",
+            url
+        )),
     }
-
-    get_last_digest(10, aggregator_endpoint).await
 }
 
 async fn assert_signer_is_signing_snapshot(
     aggregator_endpoint: &str,
     digest: &str,
 ) -> Result<String, String> {
-    #[async_recursion]
-    async fn get_snapshot_from_aggregator(
-        remaining_attempts: i32,
-        aggregator_endpoint: &str,
-        digest: &str,
-    ) -> Result<String, String> {
-        let url = format!("{}/snapshot/{}", aggregator_endpoint, digest);
-        if remaining_attempts == 0 {
-            return Err(format!(
-                "Timeout exhausted assert_signer_is_signing_snapshot, no response from `{}`",
-                url
-            ));
-        }
+    let url = format!("{}/snapshot/{}", aggregator_endpoint, digest);
 
-        let res = match reqwest::get(url.clone()).await {
+    match attempt!(10, Duration::from_millis(1000), {
+        match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<Snapshot>().await {
                     Ok(snapshot) => Ok(Some(snapshot)),
-                    Err(err) => Err(format!("invalid snapshot body : {}", err,)),
+                    Err(err) => Err(format!("Invalid snapshot body : {}", err,)),
                 },
                 StatusCode::NOT_FOUND => Ok(None),
-                s => Err(format!("unexpected status code from Aggregator: {}", s)),
+                s => Err(format!("Unexpected status code from Aggregator: {}", s)),
             },
-            Err(err) => Err(format!(": {}", err)),
-        };
-
-        match res {
-            Ok(Some(snapshot)) => {
-                // todo: assert that the snapshot is really signed
-                info!("signer signed a snapshot"; "certificate_hash" => &snapshot.certificate_hash);
-                Ok(snapshot.certificate_hash)
-            }
-            Ok(None) => {
-                tokio::time::sleep(Duration::from_millis(1000)).await;
-                get_snapshot_from_aggregator(remaining_attempts - 1, aggregator_endpoint, digest)
-                    .await
-            }
-            Err(e) => Err(e),
+            Err(err) => Err(format!("Request to `{}` failed: {}", url, err)),
         }
+    }) {
+        AttemptResult::Ok(snapshot) => {
+            // todo: assert that the snapshot is really signed
+            info!("Signer signed a snapshot"; "certificate_hash" => &snapshot.certificate_hash);
+            Ok(snapshot.certificate_hash)
+        }
+        AttemptResult::Err(error) => Err(error),
+        AttemptResult::Timeout() => Err(format!(
+            "Timeout exhausted assert_signer_is_signing_snapshot, no response from `{}`",
+            url
+        )),
     }
+}
 
-    get_snapshot_from_aggregator(10, aggregator_endpoint, digest).await
+async fn assert_is_creating_certificate(
+    aggregator_endpoint: &str,
+    certificate_hash: &str,
+) -> Result<(), String> {
+    let url = format!("{}/certificate/{}", aggregator_endpoint, certificate_hash);
+
+    match attempt!(10, Duration::from_millis(1000), {
+        match reqwest::get(url.clone()).await {
+            Ok(response) => match response.status() {
+                StatusCode::OK => match response.json::<Certificate>().await {
+                    Ok(certificate) => Ok(Some(certificate)),
+                    Err(err) => Err(format!("Invalid snapshot body : {}", err,)),
+                },
+                StatusCode::NOT_FOUND => Ok(None),
+                s => Err(format!("Unexpected status code from Aggregator: {}", s)),
+            },
+            Err(err) => Err(format!("Request to `{}` failed: {}", url, err)),
+        }
+    }) {
+        AttemptResult::Ok(certificate) => {
+            info!("Aggregator produced a certificate"; "certificate" => #?certificate);
+            Ok(())
+        }
+        AttemptResult::Err(error) => Err(error),
+        AttemptResult::Timeout() => Err(format!(
+            "Timeout exhausted assert_is_creating_certificate, no response from `{}`",
+            url
+        )),
+    }
 }
