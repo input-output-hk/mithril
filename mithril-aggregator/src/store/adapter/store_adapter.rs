@@ -11,6 +11,8 @@ pub enum AdapterError {
     OpeningStreamError(Box<dyn std::error::Error + Sync + Send>),
     #[error("problem parsing the IO stream: {0}")]
     ParsingDataError(Box<dyn std::error::Error + Sync + Send>),
+    #[error("problem writing on the adapter: {0}")]
+    MutationError(Box<dyn std::error::Error + Sync + Send>),
 }
 
 #[async_trait]
