@@ -11,7 +11,7 @@ pub use error::StoreError;
 pub use pending_certificate_store::CertificatePendingStore;
 pub use stake_store::{StakeStore, StakeStoreError, StakeStorer};
 pub use verification_key_store::{
-    VerificationKeyStore, VerificationKeyStoreError, VerificationKeyStoreTrait,
+    VerificationKeyStore, VerificationKeyStoreError, VerificationKeyStorer,
 };
 
 #[cfg(test)]

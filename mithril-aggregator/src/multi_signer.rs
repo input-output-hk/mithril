@@ -14,8 +14,10 @@ use mithril_common::crypto_helper::{
 use mithril_common::entities;
 
 use super::beacon_store::BeaconStoreError;
-use super::dependency::{BeaconStoreWrapper, VerificationKeyStoreWrapper};
-use super::store::{VerificationKeyStoreError, VerificationKeyStoreTrait};
+use super::dependency::{BeaconStoreWrapper, StakeStoreWrapper, VerificationKeyStoreWrapper};
+use super::store::{
+    StakeStoreError, StakeStorer, VerificationKeyStoreError, VerificationKeyStorer,
+};
 
 #[cfg(test)]
 use mockall::automock;
@@ -49,8 +51,11 @@ pub enum ProtocolError {
     #[error("beacon store error: '{0}'")]
     BeaconStore(#[from] BeaconStoreError),
 
-    #[error("verification store error: '{0}'")]
+    #[error("verification key store error: '{0}'")]
     VerificationKeyStore(#[from] VerificationKeyStoreError),
+
+    #[error("stake store error: '{0}'")]
+    StakeStore(#[from] StakeStoreError),
 }
 
 /// MultiSigner is the cryptographic engine in charge of producing multi signatures from individual signatures
@@ -147,6 +152,9 @@ pub struct MultiSignerImpl {
 
     /// Verification key store
     verification_key_store: VerificationKeyStoreWrapper,
+
+    /// Stake store
+    stake_store: StakeStoreWrapper,
 }
 
 impl MultiSignerImpl {
@@ -154,6 +162,7 @@ impl MultiSignerImpl {
     pub fn new(
         beacon_store: BeaconStoreWrapper,
         verification_key_store: VerificationKeyStoreWrapper,
+        stake_store: StakeStoreWrapper,
     ) -> Self {
         debug!("New MultiSignerImpl created");
         Self {
@@ -165,11 +174,13 @@ impl MultiSignerImpl {
             avk: None,
             beacon_store,
             verification_key_store,
+            stake_store,
         }
     }
 
     /// Creates a clerk
-    // TODO: The clerk should be a field of the MultiSignerImpl struct, but this is not possible now as the Clerk uses an unsafe 'Rc'
+    // TODO: The clerk should be a field of the MultiSignerImpl struct
+    // that is based on the epoch, possible to implement w/ real epoch store derivation is implemented
     pub async fn create_clerk(&self) -> Result<Option<ProtocolClerk>, ProtocolError> {
         debug!("Create clerk");
         let stakes = self.get_stake_distribution().await;
@@ -266,7 +277,7 @@ impl MultiSigner for MultiSignerImpl {
             .await
             .get_verification_keys(epoch)
             .await?
-            .unwrap_or(HashMap::new());
+            .unwrap_or_default();
         match signers.get(&party_id) {
             Some(signer) => Ok(Some(
                 key_decode_hex(&signer.verification_key).map_err(ProtocolError::Codec)?,
@@ -293,7 +304,7 @@ impl MultiSigner for MultiSignerImpl {
             .await
             .get_verification_keys(epoch)
             .await?
-            .unwrap_or(HashMap::new());
+            .unwrap_or_default();
         Ok(self
             .get_stake_distribution()
             .await
@@ -492,7 +503,7 @@ impl MultiSigner for MultiSignerImpl {
 mod tests {
     use super::super::beacon_store::{BeaconStore, MemoryBeaconStore};
     use super::super::store::adapter::MemoryAdapter;
-    use super::super::store::VerificationKeyStore;
+    use super::super::store::{StakeStore, VerificationKeyStore};
     use super::*;
 
     use mithril_common::crypto_helper::tests_setup::*;
@@ -507,9 +518,13 @@ mod tests {
         let verification_key_store = VerificationKeyStore::new(Box::new(
             MemoryAdapter::<u64, HashMap<u64, entities::Signer>>::new(None).unwrap(),
         ));
+        let stake_store = StakeStore::new(Box::new(
+            MemoryAdapter::<u64, HashMap<u64, entities::SignerWithStake>>::new(None).unwrap(),
+        ));
         let multi_signer = MultiSignerImpl::new(
             Arc::new(RwLock::new(beacon_store)),
             Arc::new(RwLock::new(verification_key_store)),
+            Arc::new(RwLock::new(stake_store)),
         );
         multi_signer
     }

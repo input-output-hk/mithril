@@ -145,6 +145,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let multi_signer = Arc::new(RwLock::new(MultiSignerImpl::new(
         beacon_store.clone(),
         verification_key_store.clone(),
+        stake_store.clone(),
     )));
     init_multi_signer(multi_signer.clone()).await;
 
