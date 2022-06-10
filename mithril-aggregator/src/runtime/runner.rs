@@ -65,6 +65,7 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         &self,
         pending_certificate: CertificatePending,
     ) -> Result<(), RuntimeError>;
+    async fn drop_pending_certificate(&self) -> Result<(), RuntimeError>;
 }
 
 pub struct AggregatorRunner {
@@ -183,5 +184,9 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .update_current_message(digest_result.digest.into_bytes())
             .await
             .map_err(|e| RuntimeError::MultiSigner(e))
+    }
+
+    async fn drop_pending_certificate(&self) -> Result<(), RuntimeError> {
+        todo!()
     }
 }

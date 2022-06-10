@@ -107,13 +107,35 @@ impl AggregatorRuntime {
                     trace!("no new beacon");
                 }
             }
-            AggregatorState::Signing(_state) => {
-                todo!()
+            AggregatorState::Signing(state) => {
+                info!("state SIGNING");
+                if let Some(beacon) = self
+                    .runner
+                    .is_new_beacon(Some(state.current_beacon.clone()))
+                    .await?
+                {
+                    trace!(
+                        "new beacon found, immutable file number = {}",
+                        beacon.immutable_file_number
+                    );
+                    let new_state = self.from_signing_to_idle(state).await?;
+                    self.state = AggregatorState::Idle(new_state);
+                } else {
+                    todo!()
+                }
             }
         }
         Ok(())
     }
 
+    /// transition
+    /// from SIGNIN to IDLE
+    async fn from_signing_to_idle(
+        &mut self,
+        state: SigningState,
+    ) -> Result<IdleState, RuntimeError> {
+        todo!()
+    }
     /// transition
     /// from IDLE state to SIGNING
     async fn from_idle_to_signing(
@@ -415,5 +437,30 @@ mod tests {
 
         let _ = runtime.cycle().await.unwrap();
         assert_eq!("signing".to_string(), runtime.get_state());
+    }
+
+    #[tokio::test]
+    async fn signing_changing_beacon_to_idle() {
+        let mut runner = MockAggregatorRunner::new();
+        runner
+            .expect_drop_pending_certificate()
+            .times(1)
+            .returning(|| Ok(()));
+
+        let state = SigningState {
+            // this current beacon must be outdated so the state machine will
+            // return to idle state
+            current_beacon: {
+                let mut beacon = fake_data::beacon();
+                beacon.immutable_file_number -= 1;
+
+                beacon
+            },
+            certificate_pending: fake_data::certificate_pending(),
+        };
+        let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
+
+        let _ = runtime.cycle().await.unwrap();
+        assert_eq!("idle".to_string(), runtime.get_state());
     }
 }
