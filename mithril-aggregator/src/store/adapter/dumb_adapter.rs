@@ -66,6 +66,17 @@ where
             Ok(Vec::new())
         }
     }
+
+    async fn remove(&mut self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
+        if let Some(record) = self.get_record(key).await? {
+            self.last_key = None;
+            self.last_certificate = None;
+
+            Ok(Some(record))
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -135,5 +146,30 @@ mod tests {
         let list = adapter.get_last_n_records(0).await.unwrap();
 
         assert_eq!(0, list.len());
+    }
+
+    #[tokio::test]
+    async fn test_remove_existing_record() {
+        let mut adapter: DumbStoreAdapter<u64, String> = DumbStoreAdapter::new();
+        let _res = adapter
+            .store_record(&1, &"record".to_string())
+            .await
+            .unwrap();
+        let value = adapter.remove(&1).await.unwrap().unwrap();
+
+        assert_eq!("record".to_string(), value);
+        assert!(!adapter.record_exists(&1).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_remove_non_existing_record() {
+        let mut adapter: DumbStoreAdapter<u64, String> = DumbStoreAdapter::new();
+        let _res = adapter
+            .store_record(&1, &"record".to_string())
+            .await
+            .unwrap();
+        let maybe_record = adapter.remove(&0).await.unwrap();
+
+        assert!(maybe_record.is_none());
     }
 }

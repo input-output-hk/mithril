@@ -90,9 +90,9 @@ where
     fn write_file(&self, filename: &str, msg: &str) -> Result<(), AdapterError> {
         let filepath = self.dirpath.join(filename);
         let mut file =
-            fs::File::create(filepath).map_err(|e| AdapterError::OpeningStreamError(e.into()))?;
+            fs::File::create(filepath).map_err(|e| AdapterError::MutationError(e.into()))?;
         file.write_fmt(format_args!("{}", msg))
-            .map_err(|e| AdapterError::OpeningStreamError(e.into()))?;
+            .map_err(|e| AdapterError::MutationError(e.into()))?;
 
         Ok(())
     }
@@ -102,7 +102,7 @@ where
         let key_filename = format!("{}.key", hash);
         self.write_file(
             &key_filename,
-            &serde_json::to_string(key).map_err(|e| AdapterError::ParsingDataError(e.into()))?,
+            &serde_json::to_string(key).map_err(|e| AdapterError::MutationError(e.into()))?,
         )?;
         self.update_record(key, value)?;
 
@@ -114,7 +114,7 @@ where
         let filename = format!("{}.json", hash);
         self.write_file(
             &filename,
-            &serde_json::to_string(value).map_err(|e| AdapterError::ParsingDataError(e.into()))?,
+            &serde_json::to_string(value).map_err(|e| AdapterError::MutationError(e.into()))?,
         )
     }
 }
@@ -194,6 +194,17 @@ where
         }
 
         Ok(records)
+    }
+
+    async fn remove(&mut self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
+        if let Some(value) = self.get_record(key).await? {
+            let path = self.get_filename_from_key(key);
+            std::fs::remove_file(path).map_err(|e| AdapterError::MutationError(e.into()))?;
+
+            Ok(Some(value))
+        } else {
+            Ok(None)
+        }
     }
 }
 
@@ -294,6 +305,29 @@ mod tests {
 
         assert!(adapter.store_record(&1, &record).await.is_ok());
         assert_eq!(record, adapter.get_record(&1).await.unwrap().unwrap());
+        rmdir(dir);
+    }
+
+    #[tokio::test]
+    async fn check_remove_existing_record() {
+        let dir = get_pathbuf().join("check_remove_existing_record");
+        let mut adapter = get_adapter(&dir);
+        init_dir(&dir);
+        let value = adapter.remove(&1).await.unwrap().unwrap();
+
+        assert_eq!("one".to_string(), value);
+        assert!(!adapter.record_exists(&1).await.unwrap());
+        rmdir(dir);
+    }
+
+    #[tokio::test]
+    async fn check_remove_non_existing_record() {
+        let dir = get_pathbuf().join("check_remove_non_existing_record");
+        let mut adapter = get_adapter(&dir);
+        init_dir(&dir);
+        let maybe_value = adapter.remove(&0).await.unwrap();
+
+        assert!(maybe_value.is_none());
         rmdir(dir);
     }
 }

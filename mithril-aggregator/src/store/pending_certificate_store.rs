@@ -2,15 +2,7 @@
 /// ↑ only until we plug this into main code
 use mithril_common::entities::{Beacon, CertificatePending};
 
-use thiserror::Error;
-
-use super::{AdapterError, StoreAdapter};
-
-#[derive(Debug, Error)]
-pub enum StoreError {
-    #[error("physical adapter returned an error: {0}")]
-    AdapterError(#[from] AdapterError),
-}
+use super::{StoreAdapter, StoreError};
 
 type Adapter = Box<dyn StoreAdapter<Key = Beacon, Record = CertificatePending>>;
 

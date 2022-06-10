@@ -88,6 +88,10 @@ where
             .map(|k| (k.clone(), self.values.get(k).unwrap().clone()))
             .collect())
     }
+
+    async fn remove(&mut self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
+        Ok(self.values.remove(key))
+    }
 }
 
 #[cfg(test)]
@@ -173,5 +177,22 @@ mod tests {
         let vals = adapter.get_last_n_records(1).await.unwrap();
 
         assert_eq!((1, "one".to_string()), vals[0]);
+    }
+
+    #[tokio::test]
+    async fn remove_existing_value() {
+        let mut adapter = init_adapter(2);
+        let record = adapter.remove(&1).await.unwrap().unwrap();
+
+        assert_eq!("value 1".to_string(), record);
+        assert!(!adapter.record_exists(&1).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn remove_non_existing_value() {
+        let mut adapter = init_adapter(2);
+        let maybe_record = adapter.remove(&0).await.unwrap();
+
+        assert!(maybe_record.is_none());
     }
 }
