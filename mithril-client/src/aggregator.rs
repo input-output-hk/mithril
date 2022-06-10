@@ -7,6 +7,7 @@ use std::env;
 use std::fs;
 use std::io::{self, Write};
 use std::path;
+use std::path::PathBuf;
 use tar::Archive;
 use thiserror::Error;
 
@@ -25,8 +26,10 @@ pub enum AggregatorHandlerError {
     RemoteServerUnreachable(String),
     #[error("json parsing failed: '{0}'")]
     JsonParseFailed(String),
-    #[error("io error:")]
+    #[error("io error: {0}")]
     IOError(#[from] io::Error),
+    #[error("archive not found, did you download it beforehand ? Expected path: '{0}'")]
+    ArchiveNotFound(PathBuf),
 }
 
 /// AggregatorHandler represents a read interactor with an aggregator
@@ -175,6 +178,11 @@ impl AggregatorHandler for AggregatorHTTPClient {
         debug!("Unpack snapshot {}", digest);
         println!("Unpacking snapshot...");
         let local_path = archive_file_path(digest, &self.network)?;
+        local_path
+            .exists()
+            .then(|| ())
+            .ok_or_else(|| AggregatorHandlerError::ArchiveNotFound(local_path.clone()))?;
+
         let snapshot_file_tar_gz = fs::File::open(local_path.clone())?;
         let snapshot_file_tar = GzDecoder::new(snapshot_file_tar_gz);
         let unpack_dir_path = local_path.parent().unwrap().join(path::Path::new("db"));

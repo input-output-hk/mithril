@@ -5,6 +5,7 @@ use clap_verbosity_flag::{InfoLevel, Verbosity};
 use cli_table::{print_stdout, WithTitle};
 use log::debug;
 use std::env;
+use std::error::Error;
 
 use mithril_client::{AggregatorHTTPClient, Config, Runtime, VerifierImpl};
 
@@ -101,21 +102,30 @@ async fn main() -> Result<(), String> {
     // Execute commands
     match &args.command {
         Commands::List {} => match runtime.list_snapshots().await {
-            Ok(snapshot_list_items) => print_stdout(snapshot_list_items.with_title()).unwrap(),
+            Ok(snapshot_list_items) => {
+                print_stdout(snapshot_list_items.with_title()).unwrap();
+                Ok(())
+            }
             Err(err) => pretty_print_error(err),
         },
         Commands::Show { digest } => match runtime.show_snapshot(digest).await {
-            Ok(snapshot_field_items) => print_stdout(snapshot_field_items.with_title()).unwrap(),
+            Ok(snapshot_field_items) => {
+                print_stdout(snapshot_field_items.with_title()).unwrap();
+                Ok(())
+            }
             Err(err) => pretty_print_error(err),
         },
         Commands::Download {
             digest,
             location_index,
         } => match runtime.download_snapshot(digest, *location_index).await {
-            Ok((from, to)) => println!(
-                "Download success {} #{}\nfrom {}\nto {}",
-                digest, location_index, from, to
-            ),
+            Ok((from, to)) => {
+                println!(
+                    "Download success {} #{}\nfrom {}\nto {}",
+                    digest, location_index, from, to
+                );
+                Ok(())
+            }
             Err(err) => pretty_print_error(err),
         },
         Commands::Restore { digest } => match runtime.restore_snapshot(digest).await {
@@ -130,16 +140,17 @@ docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind
 
 "###,
                     digest, to, to
-                )
+                );
+                Ok(())
             }
             Err(err) => pretty_print_error(err),
         },
     }
-    Ok(())
 }
 
 /// Pretty print error
-fn pretty_print_error(err: impl std::error::Error) {
-    println!("An error occurred:");
-    println!("{}", err);
+fn pretty_print_error(err: impl Error) -> Result<(), String> {
+    let message = format!("An error occurred: {}", err);
+
+    Err(message)
 }
