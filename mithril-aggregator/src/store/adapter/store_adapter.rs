@@ -32,4 +32,6 @@ pub trait StoreAdapter: Sync + Send {
         &self,
         how_many: usize,
     ) -> Result<Vec<(Self::Key, Self::Record)>, AdapterError>;
+
+    async fn remove(&mut self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError>;
 }

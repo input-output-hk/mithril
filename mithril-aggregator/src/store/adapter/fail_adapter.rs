@@ -48,6 +48,10 @@ where
     ) -> Result<Vec<(Self::Key, Self::Record)>, AdapterError> {
         Err(AdapterError::GeneralError("an error occurred".to_string()))
     }
+
+    async fn remove(&mut self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
+        todo!()
+    }
 }
 
 #[cfg(test)]
