@@ -1,5 +1,5 @@
 use crate::spec_utils::AttemptResult;
-use crate::{attempt, MithrilInfrastructure};
+use crate::{attempt, Client, ClientCommand, MithrilInfrastructure};
 use mithril_common::entities::{Certificate, Snapshot};
 use reqwest::StatusCode;
 use slog_scope::info;
@@ -15,7 +15,7 @@ impl Spec {
         Self { infrastructure }
     }
 
-    pub async fn run(&self) -> Result<(), Box<dyn Error>> {
+    pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
         let aggregator_endpoint = self.infrastructure.aggregator().endpoint();
 
         wait_for_pending_certificate(&aggregator_endpoint).await?;
@@ -23,7 +23,7 @@ impl Spec {
         let certificate_hash =
             assert_signer_is_signing_snapshot(&aggregator_endpoint, &digest).await?;
         assert_is_creating_certificate(&aggregator_endpoint, &certificate_hash).await?;
-        // assertClientCanVerifySnapshot().await?;
+        assert_client_can_verify_snapshot(self.infrastructure.client_mut(), &digest).await?;
 
         Ok(())
     }
@@ -159,4 +159,19 @@ async fn assert_is_creating_certificate(
             url
         )),
     }
+}
+
+async fn assert_client_can_verify_snapshot(
+    client: &mut Client,
+    digest: &str,
+) -> Result<(), String> {
+    client
+        .run(ClientCommand::Restore {
+            digest: digest.to_string(),
+        })
+        .await?;
+
+    info!("Client restored the snapshot"; "digest" => &digest);
+
+    Ok(())
 }

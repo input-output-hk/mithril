@@ -1,29 +1,23 @@
-use crate::mithril::MithrilProcess;
+use crate::mithril::MithrilCommand;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use tokio::process::Child;
 
 #[derive(Debug)]
 pub struct Aggregator {
     server_port: u64,
-    db_directory: PathBuf,
-    process: Option<MithrilProcess>,
+    command: MithrilCommand,
+    process: Option<Child>,
 }
 
 impl Aggregator {
-    pub fn new(server_port: u64, db_directory: &Path) -> Self {
-        Self {
-            server_port,
-            db_directory: db_directory.to_path_buf(),
-            process: None,
-        }
-    }
-
-    pub fn endpoint(&self) -> String {
-        format!("http://localhost:{}/aggregator", &self.server_port)
-    }
-
-    pub fn start(&mut self, work_dir: &Path, bin_dir: &Path) -> Result<(), String> {
-        let port = self.server_port.to_string();
+    pub fn new(
+        server_port: u64,
+        db_directory: &Path,
+        work_dir: &Path,
+        bin_dir: &Path,
+    ) -> Result<Self, String> {
+        let port = server_port.to_string();
         let env = HashMap::from([
             ("NETWORK", "testnet"),
             (
@@ -41,7 +35,7 @@ impl Aggregator {
         ]);
         let args = vec![
             "--db-directory",
-            self.db_directory.to_str().unwrap(),
+            db_directory.to_str().unwrap(),
             "--server-port",
             &port,
             "--runtime-interval",
@@ -49,22 +43,36 @@ impl Aggregator {
             "-vvv",
         ];
 
-        self.process = Some(MithrilProcess::start(
-            "mithril-aggregator",
-            work_dir,
-            bin_dir,
-            env,
-            &args,
-        )?);
+        let command = MithrilCommand::new("mithril-aggregator", work_dir, bin_dir, env, &args)?;
 
-        Ok(())
+        Ok(Self {
+            server_port,
+            command,
+            process: None,
+        })
+    }
+
+    pub fn endpoint(&self) -> String {
+        format!("http://localhost:{}/aggregator", &self.server_port)
+    }
+
+    pub fn start(&mut self) {
+        self.process = Some(self.command.start(&[]));
     }
 
     pub async fn dump_logs_if_crashed(&mut self) -> Result<(), String> {
-        if let Some(process) = self.process.as_mut() {
-            process.dump_logs_if_crashed().await?;
+        match self.process.as_mut() {
+            Some(child) => match child.try_wait() {
+                Ok(Some(status)) => {
+                    if !status.success() {
+                        self.command.dump_logs_to_stdout().await?;
+                    }
+                    Ok(())
+                }
+                Ok(None) => Ok(()),
+                Err(e) => Err(format!("failed get mithril-aggregator status: {}", e)),
+            },
+            None => Ok(()),
         }
-
-        Ok(())
     }
 }

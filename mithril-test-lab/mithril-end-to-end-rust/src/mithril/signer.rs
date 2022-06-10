@@ -1,49 +1,55 @@
-use crate::mithril::MithrilProcess;
+use crate::mithril::MithrilCommand;
 use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::path::Path;
+use tokio::process::Child;
 
 #[derive(Debug)]
 pub struct Signer {
-    aggregator_endpoint: String,
-    db_directory: PathBuf,
-    process: Option<MithrilProcess>,
+    command: MithrilCommand,
+    process: Option<Child>,
 }
 
 impl Signer {
-    pub fn new(aggregator_endpoint: String, db_directory: &Path) -> Self {
-        Self {
-            aggregator_endpoint,
-            db_directory: db_directory.to_path_buf(),
-            process: None,
-        }
-    }
-
-    pub fn start(&mut self, work_dir: &Path, bin_dir: &Path) -> Result<(), String> {
+    pub fn new(
+        aggregator_endpoint: String,
+        db_directory: &Path,
+        work_dir: &Path,
+        bin_dir: &Path,
+    ) -> Result<Self, String> {
         let env = HashMap::from([
             ("NETWORK", "testnet"),
             ("PARTY_ID", "0"),
             ("RUN_INTERVAL", "2000"),
-            ("AGGREGATOR_ENDPOINT", &self.aggregator_endpoint),
-            ("DB_DIRECTORY", self.db_directory.to_str().unwrap()),
+            ("AGGREGATOR_ENDPOINT", &aggregator_endpoint),
+            ("DB_DIRECTORY", db_directory.to_str().unwrap()),
         ]);
         let args = vec!["-vvv"];
 
-        self.process = Some(MithrilProcess::start(
-            "mithril-signer",
-            work_dir,
-            bin_dir,
-            env,
-            &args,
-        )?);
+        let command = MithrilCommand::new("mithril-signer", work_dir, bin_dir, env, &args)?;
 
-        Ok(())
+        Ok(Self {
+            command,
+            process: None,
+        })
+    }
+
+    pub fn start(&mut self) {
+        self.process = Some(self.command.start(&[]));
     }
 
     pub async fn dump_logs_if_crashed(&mut self) -> Result<(), String> {
-        if let Some(process) = self.process.as_mut() {
-            process.dump_logs_if_crashed().await?;
+        match self.process.as_mut() {
+            Some(child) => match child.try_wait() {
+                Ok(Some(status)) => {
+                    if !status.success() {
+                        self.command.dump_logs_to_stdout().await?;
+                    }
+                    Ok(())
+                }
+                Ok(None) => Ok(()),
+                Err(e) => Err(format!("failed get mithril-aggregator status: {}", e)),
+            },
+            None => Ok(()),
         }
-
-        Ok(())
     }
 }

@@ -1,9 +1,10 @@
-use crate::{Aggregator, Signer};
+use crate::{Aggregator, Client, Signer};
 use std::borrow::BorrowMut;
 use std::path::Path;
 
 pub struct MithrilInfrastructure {
     aggregator: Aggregator,
+    client: Client,
     signer: Signer,
 }
 
@@ -14,12 +15,18 @@ impl MithrilInfrastructure {
         work_dir: &Path,
         bin_dir: &Path,
     ) -> Result<Self, String> {
-        let mut aggregator = Aggregator::new(server_port, db_dir);
-        let mut signer = Signer::new(aggregator.endpoint(), db_dir);
-        aggregator.start(work_dir, bin_dir)?;
-        signer.start(work_dir, bin_dir)?;
+        let mut aggregator = Aggregator::new(server_port, db_dir, work_dir, bin_dir)?;
+        let client = Client::new(aggregator.endpoint(), work_dir, bin_dir)?;
+        let mut signer = Signer::new(aggregator.endpoint(), db_dir, work_dir, bin_dir)?;
 
-        Ok(Self { aggregator, signer })
+        aggregator.start();
+        signer.start();
+
+        Ok(Self {
+            aggregator,
+            client,
+            signer,
+        })
     }
 
     pub fn aggregator(&self) -> &Aggregator {
@@ -28,6 +35,14 @@ impl MithrilInfrastructure {
 
     pub fn aggregator_mut(&mut self) -> &mut Aggregator {
         self.aggregator.borrow_mut()
+    }
+
+    pub fn client(&self) -> &Client {
+        &self.client
+    }
+
+    pub fn client_mut(&mut self) -> &mut Client {
+        self.client.borrow_mut()
     }
 
     pub fn signer(&self) -> &Signer {
