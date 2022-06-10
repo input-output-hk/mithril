@@ -3,7 +3,7 @@ use crate::entities::ImmutableFileNumber;
 use std::io;
 use thiserror::Error;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DigesterResult {
     /// The computed digest
     pub digest: String,

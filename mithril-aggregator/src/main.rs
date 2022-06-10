@@ -169,14 +169,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let runtime_dependencies = dependency_manager.clone();
     let handle = tokio::spawn(async move {
         let config = AggregatorConfig::new(
-            args.runtime_interval * 1000,
+            args.runtime_interval,
             &config.network.clone(),
             &config.db_directory.clone(),
             &snapshot_directory,
             runtime_dependencies,
         );
         let mut runtime = AggregatorRuntime::new(
-            Duration::from_millis(config.interval.into()),
+            Duration::from_secs(config.interval.into()),
             None,
             Arc::new(AggregatorRunner::new(config)),
         )

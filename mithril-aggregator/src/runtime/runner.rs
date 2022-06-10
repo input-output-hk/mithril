@@ -1,8 +1,7 @@
 use std::path::PathBuf;
 
-use crate::{multi_signer, DependencyManager};
+use crate::DependencyManager;
 use async_trait::async_trait;
-use mithril::stm::StmVerificationKey;
 use mithril_common::digesters::{Digester, DigesterResult, ImmutableDigester};
 use mithril_common::entities::{Beacon, CertificatePending};
 
@@ -52,7 +51,7 @@ impl AggregatorConfig {
 #[async_trait]
 pub trait AggregatorRunnerTrait: Sync + Send {
     /// Return the current beacon if it is newer than the given one.
-    fn is_new_beacon(&self, beacon: Option<&Beacon>) -> Result<Option<Beacon>, RuntimeError>;
+    async fn is_new_beacon(&self, beacon: Option<Beacon>) -> Result<Option<Beacon>, RuntimeError>;
     async fn compute_digest(&self, new_beacon: &Beacon) -> Result<DigesterResult, RuntimeError>;
     async fn update_message_in_multisigner(
         &self,
@@ -83,18 +82,17 @@ impl AggregatorRunner {
 impl AggregatorRunnerTrait for AggregatorRunner {
     /// Is there a new beacon?
     /// returns a new beacon if there is one more recent than the given one
-    fn is_new_beacon<'a>(
+    async fn is_new_beacon(
         &self,
-        beacon: Option<&'a Beacon>,
+        maybe_beacon: Option<Beacon>,
     ) -> Result<Option<Beacon>, RuntimeError> {
         info!("checking if there is a new beacon");
         warn!("using fake data for the new beacon");
         let current_beacon = mithril_common::fake_data::beacon();
 
-        if beacon.is_none() || current_beacon > *beacon.unwrap() {
-            Ok(Some(current_beacon))
-        } else {
-            Ok(None)
+        match maybe_beacon {
+            Some(beacon) if current_beacon > beacon => Ok(Some(current_beacon)),
+            _ => Ok(None),
         }
     }
 
@@ -130,7 +128,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         beacon: Beacon,
     ) -> Result<CertificatePending, RuntimeError> {
         trace!("running runner::create_pending_certificate");
-        let mut multi_signer = self
+        let multi_signer = self
             .config
             .dependencies
             .multi_signer
@@ -159,13 +157,31 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         pending_certificate: CertificatePending,
     ) -> Result<(), RuntimeError> {
-        todo!()
+        self.config
+            .dependencies
+            .certificate_pending_store
+            .as_ref()
+            .ok_or(RuntimeError::General(format!("no multisigner registered")))?
+            .write()
+            .await
+            .save(pending_certificate)
+            .await
+            .map_err(|e| e.into())
     }
 
     async fn update_message_in_multisigner(
         &self,
         digest_result: DigesterResult,
     ) -> Result<(), RuntimeError> {
-        todo!()
+        self.config
+            .dependencies
+            .multi_signer
+            .as_ref()
+            .ok_or(RuntimeError::General(format!("no multisigner registered")))?
+            .write()
+            .await
+            .update_current_message(digest_result.digest.into_bytes())
+            .await
+            .map_err(|e| RuntimeError::MultiSigner(e))
     }
 }

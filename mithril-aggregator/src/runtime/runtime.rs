@@ -1,26 +1,10 @@
-use mithril_common::crypto_helper::Bytes;
 use mithril_common::entities::{Beacon, Certificate, CertificatePending};
-use mithril_common::fake_data;
-
-use crate::dependency::{BeaconStoreWrapper, MultiSignerWrapper, SnapshotStoreWrapper};
-use crate::dependency::{CertificatePendingStoreWrapper, CertificateStoreWrapper};
-use crate::snapshot_uploaders::{SnapshotLocation, SnapshotUploader};
-use crate::{BeaconStore, Snapshotter};
 
 use super::{AggregatorRunnerTrait, RuntimeError};
-use chrono::{DateTime, Utc};
-use hex::ToHex;
-use mithril_common::entities::Snapshot;
 use slog_scope::{debug, error, info, trace, warn};
 use std::fmt::Display;
-use std::fs::File;
-use std::io::{Seek, SeekFrom};
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
-
-#[cfg(test)]
-use mockall::automock;
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct IdleState {
@@ -91,25 +75,41 @@ impl AggregatorRuntime {
 
     pub async fn run(&mut self) {
         info!("Starting runtime");
+        debug!("current state: {}", self.state);
+
         loop {
             if let Err(e) = self.cycle().await {
                 error!("{:?}", e)
             }
 
-            info!("Sleeping…");
+            info!("Sleeping for {} seconds", self.state_sleep.as_secs());
             sleep(self.state_sleep).await;
         }
     }
 
     pub async fn cycle(&mut self) -> Result<(), RuntimeError> {
+        info!("new cycle");
         match self.state.clone() {
             AggregatorState::Idle(state) => {
-                if let Some(beacon) = self.runner.is_new_beacon(state.current_beacon.as_ref())? {
+                info!("state IDLE");
+                if let Some(beacon) = self
+                    .runner
+                    .is_new_beacon(state.current_beacon.clone())
+                    .await?
+                {
+                    trace!(
+                        "new beacon found, immutable file number = {}",
+                        beacon.immutable_file_number
+                    );
                     let new_state = self.from_idle_to_signing(beacon).await?;
                     self.state = AggregatorState::Signing(new_state);
+                } else {
+                    trace!("no new beacon");
                 }
             }
-            AggregatorState::Signing(_state) => {}
+            AggregatorState::Signing(_state) => {
+                todo!()
+            }
         }
         Ok(())
     }
@@ -120,11 +120,19 @@ impl AggregatorRuntime {
         &mut self,
         new_beacon: Beacon,
     ) -> Result<SigningState, RuntimeError> {
-        info!("transiting from IDLE to SIGNING state");
+        debug!("launching transition from IDLE to SIGNING state");
         let digester_result = self.runner.compute_digest(&new_beacon).await?;
+        let _ = self
+            .runner
+            .update_message_in_multisigner(digester_result)
+            .await?;
         let certificate = self
             .runner
-            .create_pending_certificate(digester_result)
+            .create_new_pending_certificate_from_multisigner(new_beacon.clone())
+            .await?;
+        let _ = self
+            .runner
+            .save_pending_certificate(certificate.clone())
             .await?;
         let state = SigningState {
             current_beacon: new_beacon,
@@ -336,6 +344,7 @@ mod tests {
     use super::*;
     use mithril_common::digesters::DigesterResult;
     use mithril_common::fake_data;
+    use mockall::predicate;
 
     async fn init_runtime(
         init_state: Option<AggregatorState>,
@@ -379,9 +388,23 @@ mod tests {
             })
         });
         runner
-            .expect_create_pending_certificate()
+            .expect_update_message_in_multisigner()
+            .with(predicate::eq(DigesterResult {
+                digest: "whatever".to_string(),
+                last_immutable_file_number: 123,
+            }))
+            .times(1)
+            .returning(|_| Ok(()));
+        runner
+            .expect_create_new_pending_certificate_from_multisigner()
+            .with(predicate::eq(fake_data::beacon()))
             .times(1)
             .returning(|_| Ok(fake_data::certificate_pending()));
+        runner
+            .expect_save_pending_certificate()
+            .times(1)
+            .returning(|_| Ok(()));
+
         let mut runtime = init_runtime(
             Some(AggregatorState::Idle(IdleState {
                 current_beacon: None,

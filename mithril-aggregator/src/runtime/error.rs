@@ -1,4 +1,5 @@
 use crate::snapshot_stores::SnapshotStoreError;
+use crate::store::StoreError;
 use crate::{BeaconStoreError, ProtocolError, SnapshotError};
 
 use mithril_common::digesters::DigesterError;
@@ -22,8 +23,8 @@ pub enum RuntimeError {
     #[error("snapshot store error")]
     SnapshotStore(#[from] SnapshotStoreError),
 
-    #[error("certificate store error")]
-    CertificateStore(String),
+    #[error("store error")]
+    StoreError(#[from] StoreError),
 
     #[error("snapshot uploader error: {0}")]
     SnapshotUploader(String),
