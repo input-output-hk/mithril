@@ -43,7 +43,7 @@ impl CertificatePendingStore {
         self.adapter
             .remove(beacon)
             .await
-            .map_err(|e| StoreError::AdapterError(e))
+            .map_err(StoreError::AdapterError)
     }
 }
 
