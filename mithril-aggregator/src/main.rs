@@ -4,9 +4,9 @@ use clap::Parser;
 
 use config::{Map, Source, Value, ValueKind};
 use mithril_aggregator::{
-    AggregatorRuntime, CertificatePendingStore, CertificateStore, Config, DependencyManager,
-    JsonFileStoreAdapter, MemoryBeaconStore, MultiSigner, MultiSignerImpl, Server, StakeStore,
-    VerificationKeyStore,
+    AggregatorRuntime, BeaconStore, CertificatePendingStore, CertificateStore, Config,
+    DependencyManager, JsonFileStoreAdapter, MemoryBeaconStore, MultiSigner, MultiSignerImpl,
+    Server, StakeStore, VerificationKeyStore,
 };
 use mithril_common::crypto_helper::ProtocolStakeDistribution;
 use mithril_common::fake_data;
@@ -147,7 +147,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         verification_key_store.clone(),
         stake_store.clone(),
     )));
-    init_multi_signer(multi_signer.clone()).await;
+    setup_dependencies_fake_data(multi_signer.clone(), beacon_store.clone()).await;
 
     // Init dependency manager
     let mut dependency_manager = DependencyManager::new(config.clone());
@@ -196,26 +196,43 @@ async fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-/// Init multi signer dependency
+/// Setup dependencies with fake data
 // TODO: remove this function when new runtime is implemented + remove protocol parameters from fake data
-async fn init_multi_signer(multi_signer: Arc<RwLock<dyn MultiSigner>>) {
-    let mut multi_signer = multi_signer.write().await;
+async fn setup_dependencies_fake_data(
+    multi_signer: Arc<RwLock<dyn MultiSigner>>,
+    beacon_store: Arc<RwLock<dyn BeaconStore>>,
+) {
+    // Set current beacon
+    {
+        let beacon = fake_data::beacon();
+        let mut beacon_store = beacon_store.write().await;
+        beacon_store
+            .set_current_beacon(beacon.clone())
+            .await
+            .expect("fake set current beacon failed");
+    }
 
     // Update protocol parameters
-    let protocol_parameters = fake_data::protocol_parameters();
-    multi_signer
-        .update_protocol_parameters(&protocol_parameters.into())
-        .await
-        .expect("update protocol parameters failed");
+    {
+        let mut multi_signer = multi_signer.write().await;
+        let protocol_parameters = fake_data::protocol_parameters();
+        multi_signer
+            .update_protocol_parameters(&protocol_parameters.into())
+            .await
+            .expect("fake update protocol parameters failed");
+    }
 
     // Update stake distribution
-    let total_signers = 5;
-    let stakes: ProtocolStakeDistribution = fake_data::signers_with_stakes(total_signers)
-        .into_iter()
-        .map(|signer| signer.into())
-        .collect::<_>();
-    multi_signer
-        .update_stake_distribution(&stakes)
-        .await
-        .expect("stake distribution update failed");
+    {
+        let mut multi_signer = multi_signer.write().await;
+        let total_signers = 5;
+        let stakes: ProtocolStakeDistribution = fake_data::signers_with_stakes(total_signers)
+            .into_iter()
+            .map(|signer| signer.into())
+            .collect::<_>();
+        multi_signer
+            .update_stake_distribution(&stakes)
+            .await
+            .expect("fake stake distribution update failed");
+    }
 }
