@@ -1,9 +1,10 @@
 use std::path::PathBuf;
 
-use crate::DependencyManager;
+use crate::{DependencyManager, SnapshotError, Snapshotter};
 use async_trait::async_trait;
+use chrono::Utc;
 use mithril_common::digesters::{Digester, DigesterResult, ImmutableDigester};
-use mithril_common::entities::{Beacon, CertificatePending};
+use mithril_common::entities::{Beacon, Certificate, CertificatePending, Snapshot};
 
 #[allow(unused_imports)]
 use slog_scope::{debug, error, info, trace, warn};
@@ -65,8 +66,24 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         &self,
         pending_certificate: CertificatePending,
     ) -> Result<(), RuntimeError>;
-    async fn drop_pending_certificate(&self, beacon: &Beacon) -> Result<(), RuntimeError>;
+    async fn drop_pending_certificate(
+        &self,
+        beacon: &Beacon,
+    ) -> Result<CertificatePending, RuntimeError>;
     async fn is_multisig_created(&self) -> Result<bool, RuntimeError>;
+    async fn create_snapshot_archive(&self) -> Result<PathBuf, RuntimeError>;
+    async fn upload_snapshot_archive(&self, path: &PathBuf) -> Result<(), RuntimeError>;
+    async fn create_and_save_certificate(
+        &self,
+        beacon: &Beacon,
+        certificate_pending: &CertificatePending,
+    ) -> Result<Certificate, RuntimeError>;
+    async fn save_snapshot(
+        &self,
+        certificate: Certificate,
+        file_path: &PathBuf,
+        remote_locations: Vec<String>,
+    ) -> Result<(), RuntimeError>;
 }
 
 pub struct AggregatorRunner {
@@ -210,10 +227,13 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .map_err(|e| RuntimeError::MultiSigner(e))
     }
 
-    async fn drop_pending_certificate(&self, beacon: &Beacon) -> Result<(), RuntimeError> {
+    async fn drop_pending_certificate(
+        &self,
+        beacon: &Beacon,
+    ) -> Result<CertificatePending, RuntimeError> {
         trace!("drop pending certificate");
 
-        let maybe_pending_certificate = self
+        let certificate_pending = self
             .config
             .dependencies
             .certificate_pending_store
@@ -224,14 +244,117 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .write()
             .await
             .remove(beacon)
-            .await?;
+            .await?
+            .ok_or(RuntimeError::General(
+                "no certificate pending for the given beacon".to_string(),
+            ))?;
 
-        if maybe_pending_certificate.is_none() {
-            warn!(
-                "no pending certificate for the given beacon {:?} this is not normal",
-                beacon
-            );
-        }
+        Ok(certificate_pending)
+    }
+
+    async fn create_snapshot_archive(&self) -> Result<PathBuf, RuntimeError> {
+        trace!("create snapshot archive");
+
+        let snapshotter = Snapshotter::new(
+            self.config.db_directory.clone(),
+            self.config.snapshot_directory.clone(),
+        );
+        let message = self
+            .config
+            .dependencies
+            .multi_signer
+            .as_ref()
+            .ok_or(RuntimeError::General(format!("no multisigner registered")))?
+            .read()
+            .await
+            .get_current_message()
+            .await
+            .ok_or(RuntimeError::General("no message found".to_string()))?;
+        let snapshot_name = format!(
+            "{}.{}.tar.gz",
+            self.config.network,
+            std::str::from_utf8(&message).map_err(|e| RuntimeError::General(e.to_string()))?
+        );
+        // spawn a separate thread to prevent blocking
+        let snapshot_path =
+            tokio::task::spawn_blocking(move || -> Result<PathBuf, SnapshotError> {
+                snapshotter.snapshot(&snapshot_name)
+            })
+            .await
+            .map_err(|e| RuntimeError::General(e.to_string()))??;
+
+        debug!("snapshot created at '{}'", snapshot_path.to_string_lossy());
+
+        Ok(snapshot_path)
+    }
+
+    async fn create_and_save_certificate(
+        &self,
+        beacon: &Beacon,
+        certificate_pending: &CertificatePending,
+    ) -> Result<Certificate, RuntimeError> {
+        trace!("create and save certificate");
+        let multisigner = self
+            .config
+            .dependencies
+            .multi_signer
+            .as_ref()
+            .ok_or(RuntimeError::General(format!("no multisigner registered")))?
+            .read()
+            .await;
+        let certificate = multisigner
+            .create_certificate(beacon.clone(), certificate_pending.previous_hash.clone())
+            .await?
+            .ok_or(RuntimeError::General(format!("no certificate generated")))?;
+        let _ = self
+            .config
+            .dependencies
+            .certificate_store
+            .as_ref()
+            .ok_or(RuntimeError::General(format!(
+                "no certificate store registered"
+            )))?
+            .write()
+            .await
+            .save(certificate.clone())
+            .await;
+
+        Ok(certificate)
+    }
+
+    async fn upload_snapshot_archive(&self, path: &PathBuf) -> Result<(), RuntimeError> {
+        trace!("upload snapshot archive");
+        todo!()
+    }
+
+    async fn save_snapshot(
+        &self,
+        certificate: Certificate,
+        file_path: &PathBuf,
+        remote_locations: Vec<String>,
+    ) -> Result<(), RuntimeError> {
+        let snapshot = Snapshot::new(
+            certificate.digest,
+            certificate.hash,
+            std::fs::metadata(file_path)
+                .map_err(|e| RuntimeError::General(e.to_string()))?
+                .len(),
+            format!("{:?}", Utc::now()),
+            remote_locations,
+        );
+
+        let _ = self
+            .config
+            .dependencies
+            .snapshot_store
+            .as_ref()
+            .ok_or(RuntimeError::General(format!(
+                "no snapshot store registered"
+            )))?
+            .write()
+            .await
+            .add_snapshot(snapshot)
+            .await?;
 
         Ok(())
     }
