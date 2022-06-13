@@ -166,6 +166,13 @@ async fn assert_client_can_verify_snapshot(
     digest: &str,
 ) -> Result<(), String> {
     client
+        .run(ClientCommand::Download {
+            digest: digest.to_string(),
+        })
+        .await?;
+    info!("Client downloaded the snapshot"; "digest" => &digest);
+
+    client
         .run(ClientCommand::Restore {
             digest: digest.to_string(),
         })
