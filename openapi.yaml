@@ -269,7 +269,7 @@ components:
         signers:
           type: array
           items:
-            $ref: "#/components/schemas/SignerWithStake"
+            $ref: "#/components/schemas/Signer"
 
     Stake:
       description: Stake represents the stakes of a participant in the Cardano chain

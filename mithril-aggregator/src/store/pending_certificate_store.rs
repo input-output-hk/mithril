@@ -62,7 +62,7 @@ mod test {
                 beacon.clone(),
                 fake_data::protocol_parameters(),
                 ix.to_string(),
-                fake_data::signers_with_stakes(5),
+                fake_data::signers(5),
             );
             adapter
                 .store_record(&beacon, &certificate_pending)
@@ -112,7 +112,7 @@ mod test {
             beacon,
             fake_data::protocol_parameters(),
             "0".to_string(),
-            fake_data::signers_with_stakes(1),
+            fake_data::signers(1),
         );
 
         assert!(store.save(certificate_pending).await.is_ok());

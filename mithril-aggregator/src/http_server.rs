@@ -557,7 +557,7 @@ mod tests {
     #[tokio::test]
     async fn test_certificate_pending_get_ok() {
         let fake_protocol_parameters = fake_data::protocol_parameters();
-        let fake_signers_with_stakes = fake_data::signers_with_stakes(5);
+        let fake_signers = fake_data::signers(5);
         let method = Method::GET.as_str();
         let path = "/certificate-pending";
         let mut beacon_store = MockBeaconStore::new();
@@ -570,7 +570,7 @@ mod tests {
             .return_once(|| Some(fake_protocol_parameters.into()));
         mock_multi_signer
             .expect_get_signers()
-            .return_once(|| Ok(fake_signers_with_stakes));
+            .return_once(|| Ok(fake_signers));
         mock_multi_signer
             .expect_get_multi_signature()
             .return_once(|| Ok(None));
