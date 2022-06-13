@@ -19,7 +19,7 @@ impl From<entities::ProtocolParameters> for types::ProtocolParameters {
 
 impl From<entities::SignerWithStake> for entities::Signer {
     fn from(other: entities::SignerWithStake) -> Self {
-        entities::Signer::new(other.party_id as types::ProtocolPartyId, "".to_string())
+        entities::Signer::new(other.party_id, other.verification_key)
     }
 }
 
@@ -79,5 +79,16 @@ pub mod tests {
 
         let stake_expected_from = stake_expected.into();
         assert_eq!(signer_with_stake_expected, stake_expected_from);
+    }
+
+    #[test]
+    fn test_stake_signers_from_into() {
+        let signer_expected = entities::Signer::new(1, "123456".to_string());
+        ();
+        let signer_with_stake = entities::SignerWithStake::new(1, "123456".to_string(), 100);
+        ();
+
+        let signer_into: entities::Signer = signer_with_stake.clone().into();
+        assert_eq!(signer_expected, signer_into);
     }
 }
