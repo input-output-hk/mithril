@@ -22,12 +22,11 @@ import Logging (ClusterLog (..))
 import Mithril.Aggregator
   ( Aggregator (..),
     Certificate (Certificate, signers),
-    Snapshot (Snapshot, digest),
-    Snapshot (Snapshot, certificate_hash),
-    withAggregator,
+    Snapshot (Snapshot, certificate_hash, digest),
   )
 import Mithril.Client (runClient)
-import Mithril.Signer (Signer, withSigner)
+import Mithril.Signer (Signer)
+import Mithril.TestRunner (runTestRunner)
 import Network.HTTP.Simple
   ( HttpException,
     getResponseBody,
@@ -56,16 +55,9 @@ spec =
             -- basic verification, we check the nodes are producing blocks
             assertNetworkIsProducingBlock tr cluster
             case cluster of
-              RunningCluster {clusterNodes = node@(RunningNode _ nodeSocket) : _} -> do
+              RunningCluster {clusterNodes = _node@(RunningNode _ nodeSocket) : _} -> do
                 waitForDBToBePopulated (takeDirectory nodeSocket)
-                -- Start aggregator service on some random port
-                withAggregator (takeDirectory nodeSocket) (contramap AggregatorLog tr) $ \aggregator@Aggregator {aggregatorPort} -> do
-                  waitForAggregator aggregatorPort
-                  withSigner (takeDirectory nodeSocket) (contramap SignerLog tr) aggregatorPort node $ \signer -> do
-                    digest <- assertNodeIsProducingSnapshot tr node aggregatorPort
-                    certificate_hash <- assertSignerIsSigningSnapshot signer aggregatorPort digest
-                    assertSignerIsCreatingCertificate signer aggregatorPort certificate_hash
-                    assertClientCanVerifySnapshot tmp aggregator digest
+                void $ runTestRunner (takeDirectory nodeSocket)
               _ -> failure "No nodes in the cluster"
 
 newtype Snapshots = Snapshots [Value]
@@ -133,7 +125,7 @@ assertNodeIsProducingSnapshot _tracer _cardanoNode aggregatorPort = go 10
         200 -> do
           let body = getResponseBody response
           case eitherDecode body of
-            Right (Snapshot {digest}:_) -> pure $ digest
+            Right (Snapshot {digest} : _) -> pure $ digest
             Right _ -> threadDelay 1 >> go (n -1)
             Left err -> failure $ "invalid snapshot body : " <> show err <> ", raw body: '" <> show body <> "'"
         other -> failure $ "unexpected status code: " <> show other
