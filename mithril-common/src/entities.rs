@@ -55,10 +55,9 @@ pub struct CertificatePending {
     #[serde(rename = "previous_hash")]
     pub previous_hash: String,
 
-    /// Current Signers with stakes
-    // TODO: Should return Vec<Signer> instead, will be updated when stake distribution is real
+    /// Current Signers
     #[serde(rename = "signers")]
-    pub signers: Vec<SignerWithStake>,
+    pub signers: Vec<Signer>,
 }
 
 impl CertificatePending {
@@ -67,7 +66,7 @@ impl CertificatePending {
         beacon: Beacon,
         protocol_parameters: ProtocolParameters,
         previous_hash: String,
-        signers: Vec<SignerWithStake>,
+        signers: Vec<Signer>,
     ) -> CertificatePending {
         CertificatePending {
             beacon,
