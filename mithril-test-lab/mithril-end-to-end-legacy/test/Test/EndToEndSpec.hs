@@ -1,5 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE NoImplicitPrelude #-}
 
 module Test.EndToEndSpec where
@@ -13,27 +11,10 @@ import CardanoCluster
 import CardanoNode (ChainTip (..), RunningNode (..), cliQueryTip)
 import Control.Monad.Class.MonadSTM (modifyTVar, newTVarIO, readTVarIO)
 import Control.Monad.Class.MonadSay (MonadSay, say)
-import Control.Monad.Class.MonadTimer (timeout)
 import Control.Tracer (Tracer (Tracer))
-import Data.Aeson (Value, eitherDecode)
-import qualified Data.Text as Text
 import Hydra.Prelude
 import Logging (ClusterLog (..))
-import Mithril.Aggregator
-  ( Aggregator (..),
-    Certificate (Certificate, signers),
-    Snapshot (Snapshot, certificate_hash, digest),
-  )
-import Mithril.Client (runClient)
-import Mithril.Signer (Signer)
 import Mithril.TestRunner (runTestRunner)
-import Network.HTTP.Simple
-  ( HttpException,
-    getResponseBody,
-    getResponseStatusCode,
-    httpLBS,
-    parseRequest,
-  )
 import System.Directory (listDirectory)
 import System.FilePath (takeDirectory, takeExtension, (</>))
 import Test.Hydra.Prelude
@@ -60,76 +41,6 @@ spec =
                 void $ runTestRunner (takeDirectory nodeSocket)
               _ -> failure "No nodes in the cluster"
 
-newtype Snapshots = Snapshots [Value]
-  deriving newtype (FromJSON)
-
-waitForAggregator :: Int -> IO ()
-waitForAggregator port = do
-  req <- parseRequest $ "http://localhost:" <> show port <> "/aggregator/certificate-pending"
-  timeout 5 (queryAggregator req) >>= \case
-    Nothing -> failure "Timeout waiting for aggregator to be up"
-    _ -> pure ()
-  where
-    queryAggregator req =
-      void (httpLBS req) `catch` \(_ :: HttpException) -> threadDelay 0.1 >> queryAggregator req
-
-assertSignerIsCreatingCertificate :: Signer -> Int -> Text -> IO ()
-assertSignerIsCreatingCertificate _signer aggregatorPort certificate_hash = go 10
-  where
-    go :: Int -> IO ()
-    go 0 = failure "Timeout exhausted assertSignerIsCreatingCertificate"
-    go n = do
-      request <- parseRequest $ "http://localhost:" <> show aggregatorPort <> "/aggregator/certificate/" <> Text.unpack certificate_hash
-      response <- httpLBS request
-      case getResponseStatusCode response of
-        404 -> threadDelay 1 >> go (n -1)
-        200 -> do
-          let body = getResponseBody response
-          case eitherDecode body of
-            Right Certificate {signers} ->
-              length signers `shouldBe` 1 -- FIXME: should be the number of registered signers but currently hardcoded
-            Left err -> failure $ "invalid certificate body : " <> show err <> ", raw body: '" <> show body <> "'"
-        other -> failure $ "unexpected status code: " <> show other
-
-assertSignerIsSigningSnapshot :: Signer -> Int -> Text -> IO Text
-assertSignerIsSigningSnapshot _signer aggregatorPort digest = go 10
-  where
-    go :: Int -> IO Text
-    go 0 = failure "Timeout exhausted assertSignerIsSigningSnapshot"
-    go n = do
-      request <- parseRequest $ "http://localhost:" <> show aggregatorPort <> "/aggregator/snapshot/" <> Text.unpack digest
-      response <- httpLBS request
-      case getResponseStatusCode response of
-        404 -> threadDelay 1 >> go (n -1)
-        200 -> do
-          let body = getResponseBody response
-          case eitherDecode body of
-            Right Snapshot {certificate_hash} -> pure $ certificate_hash
-            Left err -> failure $ "invalid snapshot body : " <> show err <> ", raw body: '" <> show body <> "'"
-        other -> failure $ "unexpected status code: " <> show other
-
-assertClientCanVerifySnapshot :: FilePath -> Aggregator -> Text -> IO ()
-assertClientCanVerifySnapshot workDir aggregator digest =
-  -- we only check the client exits with success
-  void $ runClient workDir aggregator ["restore", digest]
-
-assertNodeIsProducingSnapshot :: Tracer IO ClusterLog -> RunningNode -> Int -> IO Text
-assertNodeIsProducingSnapshot _tracer _cardanoNode aggregatorPort = go 10
-  where
-    go :: Int -> IO Text
-    go 0 = failure "Timeout exhausted assertNodeIsProducingSnapshot"
-    go n = do
-      request <- parseRequest $ "http://localhost:" <> show aggregatorPort <> "/aggregator/snapshots"
-      response <- httpLBS request
-      case getResponseStatusCode response of
-        200 -> do
-          let body = getResponseBody response
-          case eitherDecode body of
-            Right (Snapshot {digest} : _) -> pure $ digest
-            Right _ -> threadDelay 1 >> go (n -1)
-            Left err -> failure $ "invalid snapshot body : " <> show err <> ", raw body: '" <> show body <> "'"
-        other -> failure $ "unexpected status code: " <> show other
-
 assertNetworkIsProducingBlock :: Tracer IO ClusterLog -> RunningCluster -> IO ()
 assertNetworkIsProducingBlock tracer = failAfter 30 . go (-1)
   where
@@ -149,7 +60,7 @@ waitForNewBlock = threadDelay (2 * slotLength)
 waitForDBToBePopulated :: FilePath -> IO ()
 waitForDBToBePopulated nodeDirectory = do
   let immutableDir = nodeDirectory </> "db" </> "immutable"
-      isChunk = ((== ".chunk") . takeExtension)
+      isChunk = (== ".chunk") . takeExtension
   immutableFiles <- filter isChunk <$> listDirectory immutableDir
   when (length immutableFiles < 2) $ do
     putStrLn $ "waiting for immutable directory " <> immutableDir <> " to have at least 2 chunk files"
