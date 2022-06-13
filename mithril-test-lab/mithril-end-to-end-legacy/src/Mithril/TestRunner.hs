@@ -30,4 +30,4 @@ testRunnerProcess cwd = do
         Just $ []
             <> baseEnv
   unlessM (doesFileExist testRunner) $ failure $ "cannot find 'mithril-end-to-end' executable in expected location (" <> binDir <> ")"
-  pure $ (proc testRunner ["--db-directory", "db", "--bin-directory", ".", "-vvv"]) {cwd, env}
+  pure $ (proc testRunner ["--db-directory", "db", "--bin-directory", binDir]) {cwd, env}
