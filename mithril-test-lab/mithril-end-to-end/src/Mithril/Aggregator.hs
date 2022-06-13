@@ -23,6 +23,12 @@ data ProtocolParameters = ProtocolParameters
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
+data Signer = Signer
+  { party_id :: Word64,
+    verification_key :: Text
+  }
+  deriving (Eq, Show, Generic, ToJSON, FromJSON)
+
 data SignerWithStake = SignerWithStake
   { party_id :: Word64,
     verification_key :: Text,
@@ -48,7 +54,7 @@ data CertificatePending = CertificatePending
   { beacon :: Beacon,
     protocol :: ProtocolParameters,
     previous_hash :: Text,
-    signers :: [SignerWithStake]
+    signers :: [Signer]
   }
   deriving (Eq, Show, Generic, ToJSON, FromJSON)
 
