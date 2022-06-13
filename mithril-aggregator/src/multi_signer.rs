@@ -8,14 +8,16 @@ use thiserror::Error;
 use mithril_common::crypto_helper::{
     key_decode_hex, key_encode_hex, Bytes, ProtocolAggregateVerificationKey, ProtocolClerk,
     ProtocolKeyRegistration, ProtocolLotteryIndex, ProtocolMultiSignature, ProtocolParameters,
-    ProtocolPartyId, ProtocolSignerVerificationKey, ProtocolSingleSignature,
+    ProtocolPartyId, ProtocolSignerVerificationKey, ProtocolSingleSignature, ProtocolStake,
     ProtocolStakeDistribution,
 };
 use mithril_common::entities;
 
 use super::beacon_store::BeaconStoreError;
-use super::dependency::{BeaconStoreWrapper, VerificationKeyStoreWrapper};
-use super::store::{VerificationKeyStoreError, VerificationKeyStoreTrait};
+use super::dependency::{BeaconStoreWrapper, StakeStoreWrapper, VerificationKeyStoreWrapper};
+use super::store::{
+    StakeStoreError, StakeStorer, VerificationKeyStoreError, VerificationKeyStorer,
+};
 
 #[cfg(test)]
 use mockall::automock;
@@ -49,8 +51,11 @@ pub enum ProtocolError {
     #[error("beacon store error: '{0}'")]
     BeaconStore(#[from] BeaconStoreError),
 
-    #[error("verification store error: '{0}'")]
+    #[error("verification key store error: '{0}'")]
     VerificationKeyStore(#[from] VerificationKeyStoreError),
+
+    #[error("stake store error: '{0}'")]
+    StakeStore(#[from] StakeStoreError),
 }
 
 /// MultiSigner is the cryptographic engine in charge of producing multi signatures from individual signatures
@@ -73,7 +78,7 @@ pub trait MultiSigner: Sync + Send {
     ) -> Result<(), ProtocolError>;
 
     /// Get stake distribution
-    async fn get_stake_distribution(&self) -> ProtocolStakeDistribution;
+    async fn get_stake_distribution(&self) -> Result<ProtocolStakeDistribution, ProtocolError>;
 
     /// Update stake distribution
     async fn update_stake_distribution(
@@ -129,9 +134,6 @@ pub struct MultiSignerImpl {
     /// Protocol parameters used for signing
     protocol_parameters: Option<ProtocolParameters>,
 
-    /// Stake distribution used for signing
-    stakes: ProtocolStakeDistribution,
-
     /// Registered single signatures by party and lottery index
     single_signatures:
         HashMap<ProtocolPartyId, HashMap<ProtocolLotteryIndex, ProtocolSingleSignature>>,
@@ -147,6 +149,9 @@ pub struct MultiSignerImpl {
 
     /// Verification key store
     verification_key_store: VerificationKeyStoreWrapper,
+
+    /// Stake store
+    stake_store: StakeStoreWrapper,
 }
 
 impl MultiSignerImpl {
@@ -154,25 +159,27 @@ impl MultiSignerImpl {
     pub fn new(
         beacon_store: BeaconStoreWrapper,
         verification_key_store: VerificationKeyStoreWrapper,
+        stake_store: StakeStoreWrapper,
     ) -> Self {
         debug!("New MultiSignerImpl created");
         Self {
             current_message: None,
             protocol_parameters: None,
-            stakes: Vec::new(),
             single_signatures: HashMap::new(),
             multi_signature: None,
             avk: None,
             beacon_store,
             verification_key_store,
+            stake_store,
         }
     }
 
     /// Creates a clerk
-    // TODO: The clerk should be a field of the MultiSignerImpl struct, but this is not possible now as the Clerk uses an unsafe 'Rc'
+    // TODO: The clerk should be a field of the MultiSignerImpl struct
+    // that is based on the epoch, possible to implement w/ real epoch store derivation is implemented
     pub async fn create_clerk(&self) -> Result<Option<ProtocolClerk>, ProtocolError> {
         debug!("Create clerk");
-        let stakes = self.get_stake_distribution().await;
+        let stakes = self.get_stake_distribution().await?;
         let mut key_registration = ProtocolKeyRegistration::init(&stakes);
         let mut total_signers = 0;
         for (party_id, _stake) in &stakes {
@@ -230,8 +237,30 @@ impl MultiSigner for MultiSignerImpl {
     }
 
     /// Get stake distribution
-    async fn get_stake_distribution(&self) -> ProtocolStakeDistribution {
-        self.stakes.clone()
+    async fn get_stake_distribution(&self) -> Result<ProtocolStakeDistribution, ProtocolError> {
+        #[allow(unused_variables, clippy::identity_op)]
+        let epoch = self
+            .beacon_store
+            .read()
+            .await
+            .get_current_beacon()
+            .await?
+            .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .epoch
+            - 0; // TODO: Should be -1 or -2
+        let epoch = 0; // TODO: to remove once the runtime feeds the stake distribution
+        warn!("Epoch computation is not final and needs to be fixed");
+        let signers = self
+            .stake_store
+            .read()
+            .await
+            .get_stakes(epoch)
+            .await?
+            .unwrap_or_default();
+        Ok(signers
+            .iter()
+            .map(|(party_id, signer)| (*party_id as ProtocolPartyId, signer.stake as ProtocolStake))
+            .collect::<ProtocolStakeDistribution>())
     }
 
     /// Update stake distribution
@@ -240,7 +269,26 @@ impl MultiSigner for MultiSignerImpl {
         stakes: &ProtocolStakeDistribution,
     ) -> Result<(), ProtocolError> {
         debug!("Update stake distribution to {:?}", stakes);
-        self.stakes = stakes.to_owned();
+        #[allow(unused_variables)]
+        let epoch = self
+            .beacon_store
+            .read()
+            .await
+            .get_current_beacon()
+            .await?
+            .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .epoch;
+        let epoch = 0; // TODO: to remove once the runtime feeds the stake distribution
+        warn!("Epoch computation is not final and needs to be fixed");
+        let mut stake_store = self.stake_store.write().await;
+        for (party_id, stake) in stakes {
+            stake_store
+                .save_stake(
+                    epoch,
+                    entities::SignerWithStake::new(*party_id, "".to_string(), *stake),
+                )
+                .await?;
+        }
         Ok(())
     }
 
@@ -260,13 +308,14 @@ impl MultiSigner for MultiSignerImpl {
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
             - 0; // TODO: Should be -1 or -2
+        warn!("Epoch computation is not final and needs to be fixed");
         let signers = self
             .verification_key_store
             .read()
             .await
             .get_verification_keys(epoch)
             .await?
-            .unwrap_or(HashMap::new());
+            .unwrap_or_default();
         match signers.get(&party_id) {
             Some(signer) => Ok(Some(
                 key_decode_hex(&signer.verification_key).map_err(ProtocolError::Codec)?,
@@ -287,16 +336,17 @@ impl MultiSigner for MultiSignerImpl {
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
             - 0; // TODO: Should be -1 or -2
+        warn!("Epoch computation is not final and needs to be fixed");
         let signers = self
             .verification_key_store
             .read()
             .await
             .get_verification_keys(epoch)
             .await?
-            .unwrap_or(HashMap::new());
+            .unwrap_or_default();
         Ok(self
             .get_stake_distribution()
-            .await
+            .await?
             .iter()
             .filter_map(|(party_id, stake)| {
                 signers.get(party_id).map(|signer| {
@@ -492,7 +542,7 @@ impl MultiSigner for MultiSignerImpl {
 mod tests {
     use super::super::beacon_store::{BeaconStore, MemoryBeaconStore};
     use super::super::store::adapter::MemoryAdapter;
-    use super::super::store::VerificationKeyStore;
+    use super::super::store::{StakeStore, VerificationKeyStore};
     use super::*;
 
     use mithril_common::crypto_helper::tests_setup::*;
@@ -507,9 +557,13 @@ mod tests {
         let verification_key_store = VerificationKeyStore::new(Box::new(
             MemoryAdapter::<u64, HashMap<u64, entities::Signer>>::new(None).unwrap(),
         ));
+        let stake_store = StakeStore::new(Box::new(
+            MemoryAdapter::<u64, HashMap<u64, entities::SignerWithStake>>::new(None).unwrap(),
+        ));
         let multi_signer = MultiSignerImpl::new(
             Arc::new(RwLock::new(beacon_store)),
             Arc::new(RwLock::new(verification_key_store)),
+            Arc::new(RwLock::new(stake_store)),
         );
         multi_signer
     }
@@ -552,16 +606,21 @@ mod tests {
     async fn test_multi_signer_stake_distribution_ok() {
         let mut multi_signer = setup_multi_signer().await;
 
-        let stake_distribution_expected = setup_signers(5)
+        let mut stake_distribution_expected: ProtocolStakeDistribution = setup_signers(5)
             .iter()
             .map(|(party_id, stake, _, _, _)| (*party_id, *stake))
             .collect::<_>();
+        stake_distribution_expected.sort_by_key(|k| k.0);
         multi_signer
             .update_stake_distribution(&stake_distribution_expected)
             .await
             .expect("update stake distribution failed");
 
-        let stake_distribution = multi_signer.get_stake_distribution().await;
+        let mut stake_distribution = multi_signer
+            .get_stake_distribution()
+            .await
+            .expect("get state distribution failed");
+        stake_distribution.sort_by_key(|k| k.0);
         assert_eq!(stake_distribution_expected, stake_distribution)
     }
 
@@ -569,7 +628,9 @@ mod tests {
     async fn test_multi_signer_register_signer_ok() {
         let mut multi_signer = setup_multi_signer().await;
 
-        let stake_distribution_expected = setup_signers(5)
+        let signers = setup_signers(5);
+
+        let stake_distribution_expected: ProtocolStakeDistribution = signers
             .iter()
             .map(|(party_id, stake, _, _, _)| (*party_id, *stake))
             .collect::<_>();
@@ -578,7 +639,6 @@ mod tests {
             .await
             .expect("update stake distribution failed");
 
-        let signers = setup_signers(5);
         for (party_id, _, verification_key, _, _) in &signers {
             multi_signer
                 .register_signer(*party_id, &verification_key)
@@ -600,11 +660,14 @@ mod tests {
                 *stake,
             ));
         }
+        signers_all_expected.sort_by_key(|signer| signer.party_id);
 
-        let signers_all = multi_signer
+        let mut signers_all = multi_signer
             .get_signers()
             .await
             .expect("get signers should have been succeeded");
+        signers_all.sort_by_key(|signer| signer.party_id);
+
         assert_eq!(signers_all_expected, signers_all);
     }
 

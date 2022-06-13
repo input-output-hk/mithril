@@ -38,6 +38,7 @@ services:
       - PENDING_CERTIFICATE_STORE_DIRECTORY=/tmp/mithril/pending_cert_db
       - CERTIFICATE_STORE_DIRECTORY=/tmp/mithril/cert_db
       - VERIFICATION_KEY_STORE_DIRECTORY=/tmp/mithril/verification_key_db
+      - STAKE_STORE_DIRECTORY=/tmp/mithril/stake_db
     logging:
       driver: "json-file"
       options:

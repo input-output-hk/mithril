@@ -1,5 +1,5 @@
 use crate::beacon_store::BeaconStore;
-use crate::{CertificatePendingStore, CertificateStore, VerificationKeyStore};
+use crate::{CertificatePendingStore, CertificateStore, StakeStore, VerificationKeyStore};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -25,6 +25,9 @@ pub type CertificateStoreWrapper = Arc<RwLock<CertificateStore>>;
 ///  VerificationKeyStoreWrapper wraps a VerificationKeyStore
 pub type VerificationKeyStoreWrapper = Arc<RwLock<VerificationKeyStore>>;
 
+///  StakeStoreWrapper wraps a StakeStore
+pub type StakeStoreWrapper = Arc<RwLock<StakeStore>>;
+
 /// DependencyManager handles the dependencies
 pub struct DependencyManager {
     pub config: Config,
@@ -34,6 +37,7 @@ pub struct DependencyManager {
     pub certificate_pending_store: Option<CertificatePendingStoreWrapper>,
     pub certificate_store: Option<CertificateStoreWrapper>,
     pub verification_key_store: Option<VerificationKeyStoreWrapper>,
+    pub stake_store: Option<StakeStoreWrapper>,
 }
 
 impl DependencyManager {
@@ -47,6 +51,7 @@ impl DependencyManager {
             certificate_pending_store: None,
             certificate_store: None,
             verification_key_store: None,
+            stake_store: None,
         }
     }
 
@@ -92,6 +97,12 @@ impl DependencyManager {
         verification_key_store: VerificationKeyStoreWrapper,
     ) -> &mut Self {
         self.verification_key_store = Some(verification_key_store);
+        self
+    }
+
+    /// With StakeStore middleware
+    pub fn with_stake_store(&mut self, stake_store: StakeStoreWrapper) -> &mut Self {
+        self.stake_store = Some(stake_store);
         self
     }
 }

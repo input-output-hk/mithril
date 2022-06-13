@@ -3,46 +3,46 @@ use std::collections::HashMap;
 use thiserror::Error;
 
 use super::adapter::{AdapterError, StoreAdapter};
-use mithril_common::entities::Signer;
+use mithril_common::entities::SignerWithStake;
 
-type Adapter = Box<dyn StoreAdapter<Key = u64, Record = HashMap<u64, Signer>>>;
+type Adapter = Box<dyn StoreAdapter<Key = u64, Record = HashMap<u64, SignerWithStake>>>;
 
 #[derive(Debug, Error)]
-pub enum VerificationKeyStoreError {
+pub enum StakeStoreError {
     #[error("adapter error {0}")]
     AdapterError(#[from] AdapterError),
 }
 
 #[async_trait]
-pub trait VerificationKeyStorer {
-    async fn save_verification_key(
+pub trait StakeStorer {
+    async fn save_stake(
         &mut self,
         epoch: u64,
-        signer: Signer,
-    ) -> Result<Option<Signer>, VerificationKeyStoreError>;
+        signer: SignerWithStake,
+    ) -> Result<Option<SignerWithStake>, StakeStoreError>;
 
-    async fn get_verification_keys(
+    async fn get_stakes(
         &self,
         epoch: u64,
-    ) -> Result<Option<HashMap<u64, Signer>>, VerificationKeyStoreError>;
+    ) -> Result<Option<HashMap<u64, SignerWithStake>>, StakeStoreError>;
 }
-pub struct VerificationKeyStore {
+pub struct StakeStore {
     adapter: Adapter,
 }
 
-impl VerificationKeyStore {
+impl StakeStore {
     pub fn new(adapter: Adapter) -> Self {
         Self { adapter }
     }
 }
 
 #[async_trait]
-impl VerificationKeyStorer for VerificationKeyStore {
-    async fn save_verification_key(
+impl StakeStorer for StakeStore {
+    async fn save_stake(
         &mut self,
         epoch: u64,
-        signer: Signer,
-    ) -> Result<Option<Signer>, VerificationKeyStoreError> {
+        signer: SignerWithStake,
+    ) -> Result<Option<SignerWithStake>, StakeStoreError> {
         let mut signers = match self.adapter.get_record(&epoch).await? {
             Some(s) => s,
             None => HashMap::new(),
@@ -53,10 +53,10 @@ impl VerificationKeyStorer for VerificationKeyStore {
         Ok(prev_signer)
     }
 
-    async fn get_verification_keys(
+    async fn get_stakes(
         &self,
         epoch: u64,
-    ) -> Result<Option<HashMap<u64, Signer>>, VerificationKeyStoreError> {
+    ) -> Result<Option<HashMap<u64, SignerWithStake>>, StakeStoreError> {
         Ok(self.adapter.get_record(&epoch).await?)
     }
 }
@@ -66,18 +66,19 @@ mod tests {
     use super::super::MemoryAdapter;
     use super::*;
 
-    fn init_store(nb_epoch: u64, signers_per_epoch: u64) -> VerificationKeyStore {
-        let mut values: Vec<(u64, HashMap<u64, Signer>)> = Vec::new();
+    fn init_store(nb_epoch: u64, signers_per_epoch: u64) -> StakeStore {
+        let mut values: Vec<(u64, HashMap<u64, SignerWithStake>)> = Vec::new();
 
         for epoch in 1..=nb_epoch {
-            let mut signers: HashMap<u64, Signer> = HashMap::new();
+            let mut signers: HashMap<u64, SignerWithStake> = HashMap::new();
 
             for party_id in 1..=signers_per_epoch {
                 let _ = signers.insert(
                     party_id,
-                    Signer {
+                    SignerWithStake {
                         party_id: party_id,
-                        verification_key: format!("vkey {}", party_id),
+                        verification_key: "".to_string(),
+                        stake: 100 * party_id + 1,
                     },
                 );
             }
@@ -85,8 +86,9 @@ mod tests {
         }
 
         let values = if values.len() > 0 { Some(values) } else { None };
-        let adapter: MemoryAdapter<u64, HashMap<u64, Signer>> = MemoryAdapter::new(values).unwrap();
-        let store = VerificationKeyStore::new(Box::new(adapter));
+        let adapter: MemoryAdapter<u64, HashMap<u64, SignerWithStake>> =
+            MemoryAdapter::new(values).unwrap();
+        let store = StakeStore::new(Box::new(adapter));
 
         store
     }
@@ -95,11 +97,12 @@ mod tests {
     async fn save_key_in_empty_store() {
         let mut store = init_store(0, 0);
         let res = store
-            .save_verification_key(
+            .save_stake(
                 0,
-                Signer {
+                SignerWithStake {
                     party_id: 0,
-                    verification_key: "OK".to_string(),
+                    verification_key: "".to_string(),
+                    stake: 123,
                 },
             )
             .await
@@ -112,11 +115,12 @@ mod tests {
     async fn update_signer_in_store() {
         let mut store = init_store(1, 1);
         let res = store
-            .save_verification_key(
+            .save_stake(
                 1,
-                Signer {
+                SignerWithStake {
                     party_id: 1,
-                    verification_key: "test".to_string(),
+                    verification_key: "".to_string(),
+                    stake: 123,
                 },
             )
             .await
@@ -124,26 +128,27 @@ mod tests {
 
         assert!(res.is_some());
         assert_eq!(
-            Signer {
+            SignerWithStake {
                 party_id: 1,
-                verification_key: "vkey 1".to_string(),
+                verification_key: "".to_string(),
+                stake: 101,
             },
             res.unwrap(),
         );
     }
 
     #[tokio::test]
-    async fn get_verification_keys_for_empty_epoch() {
+    async fn get_stakes_for_empty_epoch() {
         let store = init_store(2, 1);
-        let res = store.get_verification_keys(0).await.unwrap();
+        let res = store.get_stakes(0).await.unwrap();
 
         assert!(res.is_none());
     }
 
     #[tokio::test]
-    async fn get_verification_keys_for_existing_epoch() {
+    async fn get_stakes_for_existing_epoch() {
         let store = init_store(2, 2);
-        let res = store.get_verification_keys(1).await.unwrap();
+        let res = store.get_stakes(1).await.unwrap();
 
         assert!(res.is_some());
         assert_eq!(2, res.unwrap().len());

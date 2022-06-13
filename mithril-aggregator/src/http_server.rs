@@ -549,6 +549,7 @@ mod tests {
             certificate_store_directory: std::env::temp_dir().join("mithril_test_cert_db"),
             verification_key_store_directory: std::env::temp_dir()
                 .join("mithril_test_verification_key_db"),
+            stake_store_directory: std::env::temp_dir().join("mithril_test_stake_db"),
         };
         DependencyManager::new(config)
     }
