@@ -98,8 +98,23 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         }
     }
 
+    /// Is a multisignature ready?
+    /// returns the multisignature if the signer is ready to sign or None otherwise
     async fn is_multisig_created(&self) -> Result<bool, RuntimeError> {
-        todo!()
+        trace!("running runner::is_multisig_created");
+        let has_multisig = self
+            .config
+            .dependencies
+            .multi_signer
+            .as_ref()
+            .ok_or(RuntimeError::General(format!("no multisigner registered")))?
+            .read()
+            .await
+            .get_multi_signature()
+            .await?
+            .is_some();
+
+        Ok(has_multisig)
     }
 
     async fn compute_digest(&self, new_beacon: &Beacon) -> Result<DigesterResult, RuntimeError> {

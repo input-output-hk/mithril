@@ -120,7 +120,7 @@ impl AggregatorRuntime {
                         "new beacon found, immutable file number = {}",
                         beacon.immutable_file_number
                     );
-                    let new_state = self.from_signing_to_idle(state, beacon).await?;
+                    let new_state = self.from_signing_to_idle_new_beacon(state, beacon).await?;
                     self.state = AggregatorState::Idle(new_state);
                 } else if self.runner.is_multisig_created().await? {
                     todo!()
@@ -133,8 +133,9 @@ impl AggregatorRuntime {
     }
 
     /// transition
-    /// from SIGNIN to IDLE
-    async fn from_signing_to_idle(
+    ///
+    /// from SIGNING to IDLE because NEW BEACON
+    async fn from_signing_to_idle_new_beacon(
         &mut self,
         state: SigningState,
         new_beacon: Beacon,
@@ -148,7 +149,7 @@ impl AggregatorRuntime {
         })
     }
     /// transition
-    /// from IDLE state to SIGNING
+    /// from IDLE state to SIGNING because NEW BEACON
     async fn from_idle_to_signing(
         &mut self,
         new_beacon: Beacon,
@@ -402,8 +403,8 @@ mod tests {
             runner,
         )
         .await;
-
         let _ = runtime.cycle().await.unwrap();
+
         assert_eq!("idle".to_string(), runtime.get_state());
     }
 
@@ -445,8 +446,8 @@ mod tests {
             runner,
         )
         .await;
-
         let _ = runtime.cycle().await.unwrap();
+
         assert_eq!("signing".to_string(), runtime.get_state());
     }
 
@@ -474,8 +475,8 @@ mod tests {
             certificate_pending: fake_data::certificate_pending(),
         };
         let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
-
         let _ = runtime.cycle().await.unwrap();
+
         assert_eq!("idle".to_string(), runtime.get_state());
     }
 
@@ -495,8 +496,29 @@ mod tests {
             certificate_pending: fake_data::certificate_pending(),
         };
         let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
-
         let _ = runtime.cycle().await.unwrap();
+
+        assert_eq!("signing".to_string(), runtime.get_state());
+    }
+
+    #[tokio::test]
+    async fn signing_multisig_ready_to_idle() {
+        let mut runner = MockAggregatorRunner::new();
+        runner
+            .expect_is_new_beacon()
+            .times(1)
+            .returning(|_| Ok(None));
+        runner
+            .expect_is_multisig_created()
+            .times(1)
+            .returning(|| Ok(true));
+        let state = SigningState {
+            current_beacon: fake_data::beacon(),
+            certificate_pending: fake_data::certificate_pending(),
+        };
+        let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
+        let _ = runtime.cycle().await.unwrap();
+
         assert_eq!("signing".to_string(), runtime.get_state());
     }
 }
