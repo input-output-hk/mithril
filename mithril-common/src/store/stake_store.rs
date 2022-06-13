@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use thiserror::Error;
 
+use super::super::entities::SignerWithStake;
 use super::adapter::{AdapterError, StoreAdapter};
-use mithril_common::entities::SignerWithStake;
 
 type Adapter = Box<dyn StoreAdapter<Key = u64, Record = HashMap<u64, SignerWithStake>>>;
 
@@ -63,7 +63,7 @@ impl StakeStorer for StakeStore {
 
 #[cfg(test)]
 mod tests {
-    use super::super::MemoryAdapter;
+    use super::super::adapter::MemoryAdapter;
     use super::*;
 
     fn init_store(nb_epoch: u64, signers_per_epoch: u64) -> StakeStore {
