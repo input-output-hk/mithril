@@ -26,11 +26,13 @@ impl MithrilCommand {
         let log_path = work_dir.join(format!("{}.log", name));
 
         // ugly but it's far easier for callers to manipulate string literals
-        let env_vars = env_vars
+        let mut env_vars: HashMap<String, String> = env_vars
             .iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect();
         let default_args = default_args.iter().map(|s| s.to_string()).collect();
+
+        env_vars.insert("RUST_BACKTRACE".to_string(), "1".to_string());
 
         if !process_path.exists() {
             return Err(format!(
