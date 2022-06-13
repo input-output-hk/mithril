@@ -54,8 +54,8 @@ pub fn certificate_pending() -> entities::CertificatePending {
     // Previous hash
     let previous_hash = "123".to_string();
 
-    // Signers with stakes
-    let signers = signers_with_stakes(5);
+    // Signers
+    let signers = signers(5);
 
     // Certificate pending
     entities::CertificatePending::new(beacon, protocol_parameters, previous_hash, signers)
