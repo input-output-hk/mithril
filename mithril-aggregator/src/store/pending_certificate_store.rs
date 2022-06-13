@@ -35,6 +35,16 @@ impl CertificatePendingStore {
 
         Ok(result)
     }
+
+    pub async fn remove(
+        &mut self,
+        beacon: &Beacon,
+    ) -> Result<Option<CertificatePending>, StoreError> {
+        self.adapter
+            .remove(beacon)
+            .await
+            .map_err(StoreError::AdapterError)
+    }
 }
 
 #[cfg(test)]
@@ -121,5 +131,15 @@ mod test {
         let certificate_pending = store.get_from_beacon(&beacon).await.unwrap().unwrap();
 
         assert_eq!("one".to_string(), certificate_pending.previous_hash);
+    }
+
+    #[tokio::test]
+    async fn remove_certificate_pending() {
+        let mut store = get_certificate_pending_store(1).await;
+        let beacon = Beacon::new("testnet".to_string(), 0, 0);
+        let certificate_pending = store.remove(&beacon).await.unwrap().unwrap();
+
+        assert_eq!(beacon, certificate_pending.beacon);
+        assert!(store.get_from_beacon(&beacon).await.unwrap().is_none());
     }
 }
