@@ -249,6 +249,7 @@ impl MultiSigner for MultiSignerImpl {
             .epoch
             - 0; // TODO: Should be -1 or -2
         let epoch = 0; // TODO: to remove once the runtime feeds the stake distribution
+        warn!("Epoch computation is not final and needs to be fixed");
         let signers = self
             .stake_store
             .read()
@@ -278,10 +279,10 @@ impl MultiSigner for MultiSignerImpl {
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch;
         let epoch = 0; // TODO: to remove once the runtime feeds the stake distribution
+        warn!("Epoch computation is not final and needs to be fixed");
+        let mut stake_store = self.stake_store.write().await;
         for (party_id, stake) in stakes {
-            self.stake_store
-                .write()
-                .await
+            stake_store
                 .save_stake(
                     epoch,
                     entities::SignerWithStake::new(*party_id, "".to_string(), *stake),
@@ -307,6 +308,7 @@ impl MultiSigner for MultiSignerImpl {
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
             - 0; // TODO: Should be -1 or -2
+        warn!("Epoch computation is not final and needs to be fixed");
         let signers = self
             .verification_key_store
             .read()
@@ -334,6 +336,7 @@ impl MultiSigner for MultiSignerImpl {
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
             - 0; // TODO: Should be -1 or -2
+        warn!("Epoch computation is not final and needs to be fixed");
         let signers = self
             .verification_key_store
             .read()
