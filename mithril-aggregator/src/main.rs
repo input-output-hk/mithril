@@ -5,11 +5,13 @@ use clap::Parser;
 use config::{Map, Source, Value, ValueKind};
 use mithril_aggregator::{
     AggregatorRuntime, BeaconStore, CertificatePendingStore, CertificateStore, Config,
-    DependencyManager, JsonFileStoreAdapter, MemoryBeaconStore, MultiSigner, MultiSignerImpl,
-    Server, StakeStore, VerificationKeyStore,
+    DependencyManager, MemoryBeaconStore, MultiSigner, MultiSignerImpl, Server,
+    VerificationKeyStore,
 };
 use mithril_common::crypto_helper::ProtocolStakeDistribution;
 use mithril_common::fake_data;
+use mithril_common::store::adapter::JsonFileStoreAdapter;
+use mithril_common::store::stake_store::StakeStore;
 use slog::{Drain, Level, Logger};
 use slog_scope::debug;
 use std::env;

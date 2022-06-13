@@ -12,12 +12,11 @@ use mithril_common::crypto_helper::{
     ProtocolStakeDistribution,
 };
 use mithril_common::entities;
+use mithril_common::store::stake_store::{StakeStoreError, StakeStorer};
 
 use super::beacon_store::BeaconStoreError;
 use super::dependency::{BeaconStoreWrapper, StakeStoreWrapper, VerificationKeyStoreWrapper};
-use super::store::{
-    StakeStoreError, StakeStorer, VerificationKeyStoreError, VerificationKeyStorer,
-};
+use super::store::{VerificationKeyStoreError, VerificationKeyStorer};
 
 #[cfg(test)]
 use mockall::automock;
@@ -554,12 +553,14 @@ impl MultiSigner for MultiSignerImpl {
 #[cfg(test)]
 mod tests {
     use super::super::beacon_store::{BeaconStore, MemoryBeaconStore};
-    use super::super::store::adapter::MemoryAdapter;
-    use super::super::store::{StakeStore, VerificationKeyStore};
+
+    use super::super::store::VerificationKeyStore;
     use super::*;
 
     use mithril_common::crypto_helper::tests_setup::*;
     use mithril_common::fake_data;
+    use mithril_common::store::adapter::MemoryAdapter;
+    use mithril_common::store::stake_store::StakeStore;
     use std::sync::Arc;
     use tokio::sync::RwLock;
 

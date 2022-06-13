@@ -1,8 +1,7 @@
-#![allow(dead_code)]
-/// ↑ only until we plug this into main code
-use mithril_common::entities::Certificate;
+use super::StoreError;
 
-use super::{StoreAdapter, StoreError};
+use mithril_common::entities::Certificate;
+use mithril_common::store::adapter::StoreAdapter;
 
 type Adapter = Box<dyn StoreAdapter<Key = String, Record = Certificate>>;
 
@@ -37,8 +36,9 @@ impl CertificateStore {
 #[cfg(test)]
 mod test {
     use super::*;
-    use crate::store::adapter::DumbStoreAdapter;
+
     use mithril_common::fake_data::{self};
+    use mithril_common::store::adapter::DumbStoreAdapter;
 
     async fn get_certificate_store(size: u64) -> CertificateStore {
         let mut adapter: DumbStoreAdapter<String, Certificate> = DumbStoreAdapter::new();

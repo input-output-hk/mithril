@@ -520,6 +520,8 @@ mod tests {
 
     use mithril_common::apispec::APISpec;
     use mithril_common::fake_data;
+    use mithril_common::store::adapter::DumbStoreAdapter;
+    use mithril_common::store::adapter::FailStoreAdapter;
     use serde_json::Value::Null;
     use tokio::sync::RwLock;
     use warp::test::request;
@@ -529,8 +531,6 @@ mod tests {
     use super::super::multi_signer::MockMultiSigner;
     use super::super::multi_signer::ProtocolError;
     use super::super::snapshot_stores::MockSnapshotStore;
-    use super::super::store::adapter::DumbStoreAdapter;
-    use super::super::store::adapter::FailStoreAdapter;
     use super::super::store::CertificateStore;
     use super::*;
 

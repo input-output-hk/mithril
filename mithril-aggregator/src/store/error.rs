@@ -1,4 +1,4 @@
-use super::AdapterError;
+use mithril_common::store::adapter::AdapterError;
 use thiserror::Error;
 
 #[derive(Debug, Error)]

@@ -2,8 +2,8 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use thiserror::Error;
 
-use super::adapter::{AdapterError, StoreAdapter};
 use mithril_common::entities::Signer;
+use mithril_common::store::adapter::{AdapterError, StoreAdapter};
 
 type Adapter = Box<dyn StoreAdapter<Key = u64, Record = HashMap<u64, Signer>>>;
 
@@ -63,8 +63,9 @@ impl VerificationKeyStorer for VerificationKeyStore {
 
 #[cfg(test)]
 mod tests {
-    use super::super::MemoryAdapter;
     use super::*;
+
+    use mithril_common::store::adapter::MemoryAdapter;
 
     fn init_store(nb_epoch: u64, signers_per_epoch: u64) -> VerificationKeyStore {
         let mut values: Vec<(u64, HashMap<u64, Signer>)> = Vec::new();
