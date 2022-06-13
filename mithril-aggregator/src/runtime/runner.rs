@@ -65,7 +65,8 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         &self,
         pending_certificate: CertificatePending,
     ) -> Result<(), RuntimeError>;
-    async fn drop_pending_certificate(&self) -> Result<(), RuntimeError>;
+    async fn drop_pending_certificate(&self, beacon: &Beacon) -> Result<(), RuntimeError>;
+    async fn is_multisig_created(&self) -> Result<bool, RuntimeError>;
 }
 
 pub struct AggregatorRunner {
@@ -95,6 +96,10 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             Some(beacon) if current_beacon > beacon => Ok(Some(current_beacon)),
             _ => Ok(None),
         }
+    }
+
+    async fn is_multisig_created(&self) -> Result<bool, RuntimeError> {
+        todo!()
     }
 
     async fn compute_digest(&self, new_beacon: &Beacon) -> Result<DigesterResult, RuntimeError> {
@@ -158,6 +163,8 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         pending_certificate: CertificatePending,
     ) -> Result<(), RuntimeError> {
+        trace!("saving pending certificate");
+
         self.config
             .dependencies
             .certificate_pending_store
@@ -174,6 +181,8 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         digest_result: DigesterResult,
     ) -> Result<(), RuntimeError> {
+        trace!("update message in multisigner");
+
         self.config
             .dependencies
             .multi_signer
@@ -186,7 +195,29 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .map_err(|e| RuntimeError::MultiSigner(e))
     }
 
-    async fn drop_pending_certificate(&self) -> Result<(), RuntimeError> {
-        todo!()
+    async fn drop_pending_certificate(&self, beacon: &Beacon) -> Result<(), RuntimeError> {
+        trace!("drop pending certificate");
+
+        let maybe_pending_certificate = self
+            .config
+            .dependencies
+            .certificate_pending_store
+            .as_ref()
+            .ok_or(RuntimeError::General(format!(
+                "no certificate pending store registered"
+            )))?
+            .write()
+            .await
+            .remove(beacon)
+            .await?;
+
+        if maybe_pending_certificate.is_none() {
+            warn!(
+                "no pending certificate for the given beacon {:?} this is not normal",
+                beacon
+            );
+        }
+
+        Ok(())
     }
 }

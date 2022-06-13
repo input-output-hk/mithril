@@ -92,6 +92,7 @@ impl AggregatorRuntime {
         match self.state.clone() {
             AggregatorState::Idle(state) => {
                 info!("state IDLE");
+
                 if let Some(beacon) = self
                     .runner
                     .is_new_beacon(state.current_beacon.clone())
@@ -104,11 +105,12 @@ impl AggregatorRuntime {
                     let new_state = self.from_idle_to_signing(beacon).await?;
                     self.state = AggregatorState::Signing(new_state);
                 } else {
-                    trace!("no new beacon");
+                    trace!("nothing to do in IDLE state")
                 }
             }
             AggregatorState::Signing(state) => {
                 info!("state SIGNING");
+
                 if let Some(beacon) = self
                     .runner
                     .is_new_beacon(Some(state.current_beacon.clone()))
@@ -118,10 +120,12 @@ impl AggregatorRuntime {
                         "new beacon found, immutable file number = {}",
                         beacon.immutable_file_number
                     );
-                    let new_state = self.from_signing_to_idle(state).await?;
+                    let new_state = self.from_signing_to_idle(state, beacon).await?;
                     self.state = AggregatorState::Idle(new_state);
-                } else {
+                } else if self.runner.is_multisig_created().await? {
                     todo!()
+                } else {
+                    trace!("nothing to do in SIGNING state")
                 }
             }
         }
@@ -133,8 +137,15 @@ impl AggregatorRuntime {
     async fn from_signing_to_idle(
         &mut self,
         state: SigningState,
+        new_beacon: Beacon,
     ) -> Result<IdleState, RuntimeError> {
-        todo!()
+        self.runner
+            .drop_pending_certificate(&state.current_beacon)
+            .await?;
+
+        Ok(IdleState {
+            current_beacon: Some(new_beacon),
+        })
     }
     /// transition
     /// from IDLE state to SIGNING
@@ -443,9 +454,13 @@ mod tests {
     async fn signing_changing_beacon_to_idle() {
         let mut runner = MockAggregatorRunner::new();
         runner
+            .expect_is_new_beacon()
+            .times(1)
+            .returning(|_| Ok(Some(fake_data::beacon())));
+        runner
             .expect_drop_pending_certificate()
             .times(1)
-            .returning(|| Ok(()));
+            .returning(|_| Ok(()));
 
         let state = SigningState {
             // this current beacon must be outdated so the state machine will
@@ -462,5 +477,26 @@ mod tests {
 
         let _ = runtime.cycle().await.unwrap();
         assert_eq!("idle".to_string(), runtime.get_state());
+    }
+
+    #[tokio::test]
+    async fn signing_same_beacon_to_signing() {
+        let mut runner = MockAggregatorRunner::new();
+        runner
+            .expect_is_new_beacon()
+            .times(1)
+            .returning(|_| Ok(None));
+        runner
+            .expect_is_multisig_created()
+            .times(1)
+            .returning(|| Ok(false));
+        let state = SigningState {
+            current_beacon: fake_data::beacon(),
+            certificate_pending: fake_data::certificate_pending(),
+        };
+        let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
+
+        let _ = runtime.cycle().await.unwrap();
+        assert_eq!("signing".to_string(), runtime.get_state());
     }
 }
