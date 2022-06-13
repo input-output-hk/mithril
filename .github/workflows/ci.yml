@@ -19,8 +19,14 @@ jobs:
         - project: mithril-aggregator
         - project: mithril-client
         - project: mithril-signer
+        - project: mithril-test-lab/mithril-end-to-end
+          cargo_project_name: mithril-end-to-end
+          artifacts_base_name: mithril-end-to-end
+          artifacts_pattern: mithril-end-to-end
+          skip_doc: true
     env:
       CARGO_PROJECT_NAME: ${{ matrix.project }}
+      ARTIFACTS_BASE_NAME: ${{ matrix.project }}
       ARTIFACTS_PATTERN: ${{ matrix.project }}
     
     steps:
@@ -30,6 +36,10 @@ jobs:
       - name: Overriding default $CARGO_PROJECT_NAME with matrix value
         if: ${{ matrix.cargo_project_name }}
         run: echo "CARGO_PROJECT_NAME=${{ matrix.cargo_project_name }}" >> $GITHUB_ENV
+      
+      - name: Overriding default $ARTIFACTS_BASE_NAME with matrix value
+        if: ${{ matrix.artifacts_base_name }}
+        run: echo "ARTIFACTS_BASE_NAME=${{ matrix.artifacts_base_name }}" >> $GITHUB_ENV
 
       - name: Overriding default $ARTIFACTS_PATTERN with matrix value
         if: ${{ matrix.artifacts_pattern }}
@@ -94,17 +104,18 @@ jobs:
       - name: Run tests
         shell: bash
         run: |
-          set -o pipefail && cargo test --release -p $CARGO_PROJECT_NAME -- -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-${{ matrix.project }}.xml)
+          set -o pipefail && cargo test --release -p $CARGO_PROJECT_NAME -- -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-${{ env.ARTIFACTS_PATTERN }}.xml)
 
       - name: Upload Tests Results
         if: always()
         uses: actions/upload-artifact@v3
         with:
-          name: test-results-${{ matrix.project }}
+          name: test-results-${{ env.ARTIFACTS_BASE_NAME }}
           path: |
             ./**/test-results-*.xml
       
       - name: Generate ${{ matrix.project }} doc
+        if: ${{ matrix.skip_doc != true }}
         uses: actions-rs/cargo@v1
         with:
           command: doc
@@ -113,15 +124,16 @@ jobs:
       - name: Publish ${{ matrix.project }}
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ matrix.project }}
+          name: ${{ env.ARTIFACTS_BASE_NAME }}
           path: |
             target/release/${{ env.ARTIFACTS_PATTERN }}*
           if-no-files-found: error
 
       - name: Publish ${{ matrix.project }}-doc
+        if: ${{ matrix.skip_doc != true }}
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ matrix.project }}-doc
+          name: ${{ env.ARTIFACTS_BASE_NAME }}-doc
           if-no-files-found: error
           path: |
             target/doc/
@@ -214,6 +226,12 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: test-results-mithril-signer
+
+      - name: Download mithril-end-to-end Tests Results
+        if: always()
+        uses: actions/download-artifact@v3
+        with:
+          name: test-results-mithril-end-to-end
       
       - name: Publish Unit Test Results
         if: always()
@@ -337,11 +355,17 @@ jobs:
           name: mithril-client
           path: ~/.cabal/bin/
 
+      - name: Download rust test runner
+        uses: actions/download-artifact@v3
+        with:
+          name: mithril-end-to-end
+          path: ~/.cabal/bin/
+
       - run: |
           chmod +x ~/.cabal/bin/mithril-aggregator
           chmod +x ~/.cabal/bin/mithril-client
           chmod +x ~/.cabal/bin/mithril-signer
-
+          chmod +x ~/.cabal/bin/mithril-end-to-end
 
       - name: Build
         run: nix-shell --run '.github/workflows/ci-build.sh'
