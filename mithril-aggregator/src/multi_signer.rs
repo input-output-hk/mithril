@@ -100,7 +100,18 @@ pub trait MultiSigner: Sync + Send {
     ) -> Result<Option<ProtocolSignerVerificationKey>, ProtocolError>;
 
     /// Get signers
-    async fn get_signers(&self) -> Result<Vec<entities::SignerWithStake>, ProtocolError>;
+    async fn get_signers(&self) -> Result<Vec<entities::Signer>, ProtocolError> {
+        Ok(self
+            .get_signers_with_stake()
+            .await?
+            .into_iter()
+            .map(|signer| signer.into())
+            .collect::<Vec<entities::Signer>>())
+    }
+
+    /// Get signers with stake
+    async fn get_signers_with_stake(&self)
+        -> Result<Vec<entities::SignerWithStake>, ProtocolError>;
 
     /// Registers a single signature
     async fn register_single_signature(
@@ -324,8 +335,10 @@ impl MultiSigner for MultiSignerImpl {
         }
     }
 
-    /// Get signers
-    async fn get_signers(&self) -> Result<Vec<entities::SignerWithStake>, ProtocolError> {
+    /// Get signers with stake
+    async fn get_signers_with_stake(
+        &self,
+    ) -> Result<Vec<entities::SignerWithStake>, ProtocolError> {
         #[allow(clippy::identity_op)]
         let epoch = self
             .beacon_store
@@ -516,7 +529,7 @@ impl MultiSigner for MultiSignerImpl {
                 let previous_hash = previous_hash;
                 let started_at = format!("{:?}", Utc::now());
                 let completed_at = started_at.clone();
-                let signers = self.get_signers().await?;
+                let signers = self.get_signers_with_stake().await?;
                 let aggregate_verification_key =
                     key_encode_hex(&self.avk.as_ref().unwrap()).map_err(ProtocolError::Codec)?;
                 let multi_signature =
@@ -646,7 +659,7 @@ mod tests {
                 .expect("register should have succeeded")
         }
 
-        let mut signers_all_expected = Vec::new();
+        let mut signers_with_stake_all_expected = Vec::new();
         for (party_id, stake, verification_key_expected, _, _) in &signers {
             let verification_key = multi_signer.get_signer(*party_id).await;
             assert!(verification_key.as_ref().unwrap().is_some());
@@ -654,13 +667,26 @@ mod tests {
                 *verification_key_expected,
                 verification_key.unwrap().unwrap()
             );
-            signers_all_expected.push(entities::SignerWithStake::new(
+            signers_with_stake_all_expected.push(entities::SignerWithStake::new(
                 *party_id,
                 key_encode_hex(verification_key_expected).unwrap(),
                 *stake,
             ));
         }
-        signers_all_expected.sort_by_key(|signer| signer.party_id);
+        signers_with_stake_all_expected.sort_by_key(|signer| signer.party_id);
+        let signers_all_expected = signers_with_stake_all_expected
+            .clone()
+            .into_iter()
+            .map(|signer| signer.into())
+            .collect::<Vec<entities::Signer>>();
+
+        let mut signers_with_stake_all = multi_signer
+            .get_signers_with_stake()
+            .await
+            .expect("get signers with stake should have been succeeded");
+        signers_with_stake_all.sort_by_key(|signer| signer.party_id);
+
+        assert_eq!(signers_with_stake_all_expected, signers_with_stake_all);
 
         let mut signers_all = multi_signer
             .get_signers()
