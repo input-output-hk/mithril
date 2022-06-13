@@ -6,4 +6,4 @@ import Test.Hspec.Runner
 import Test.Hydra.Prelude (dualFormatter)
 
 main :: IO ()
-main = hspecWith defaultConfig {configFormat = Just (dualFormatter "mithril-end-to-end")} Spec.spec
+main = hspecWith defaultConfig {configFormat = Just (dualFormatter "mithril-end-to-end-legacy")} Spec.spec

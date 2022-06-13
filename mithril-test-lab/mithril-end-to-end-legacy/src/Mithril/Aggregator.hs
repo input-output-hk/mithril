@@ -8,7 +8,7 @@ import Control.Tracer (Tracer, traceWith)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Base16 as Hex
 import Hydra.Prelude
-import qualified Paths_mithril_end_to_end as Pkg
+import qualified Paths_mithril_end_to_end_legacy as Pkg
 import System.Directory (doesFileExist)
 import System.Environment (getEnvironment)
 import System.FilePath ((</>))

@@ -7,5 +7,5 @@ members = [
   "mithril-common",
   "mithril-core",
   "mithril-signer",
-  "mithril-test-lab/mithril-end-to-end-rust"
+  "mithril-test-lab/mithril-end-to-end"
 ]

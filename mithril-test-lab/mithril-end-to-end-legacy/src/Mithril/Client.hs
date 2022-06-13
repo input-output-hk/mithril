@@ -6,7 +6,7 @@ module Mithril.Client where
 
 import Hydra.Prelude
 import Mithril.Aggregator (Aggregator (..))
-import qualified Paths_mithril_end_to_end as Pkg
+import qualified Paths_mithril_end_to_end_legacy as Pkg
 import System.Directory (doesFileExist)
 import System.Environment (getEnvironment)
 import System.Exit (ExitCode (..))
