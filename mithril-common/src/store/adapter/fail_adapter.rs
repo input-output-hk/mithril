@@ -7,13 +7,18 @@ pub struct FailStoreAdapter<K, R> {
     certificate: PhantomData<R>,
 }
 
-#[cfg(test)]
 impl<K, R> FailStoreAdapter<K, R> {
     pub fn new() -> Self {
         Self {
             key: PhantomData,
             certificate: PhantomData,
         }
+    }
+}
+
+impl<K, R> Default for FailStoreAdapter<K, R> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

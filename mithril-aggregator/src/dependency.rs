@@ -1,11 +1,13 @@
-use crate::beacon_store::BeaconStore;
-use crate::{CertificatePendingStore, CertificateStore, StakeStore, VerificationKeyStore};
 use std::sync::Arc;
 use tokio::sync::RwLock;
+
+use mithril_common::store::stake_store::StakeStore;
 
 use super::entities::*;
 use super::multi_signer::MultiSigner;
 use super::snapshot_stores::SnapshotStore;
+use crate::beacon_store::BeaconStore;
+use crate::{CertificatePendingStore, CertificateStore, VerificationKeyStore};
 
 /// BeaconStoreWrapper wraps a BeaconStore
 pub type BeaconStoreWrapper = Arc<RwLock<dyn BeaconStore>>;

@@ -1947,7 +1947,6 @@ dependencies = [
  "config",
  "flate2",
  "futures",
- "glob",
  "hex",
  "httpmock",
  "mithril",
@@ -2006,8 +2005,10 @@ dependencies = [
 name = "mithril-common"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "blake2",
  "fixed",
+ "glob",
  "hex",
  "http",
  "jsonschema",
@@ -2021,6 +2022,7 @@ dependencies = [
  "sha2 0.10.2",
  "slog",
  "thiserror",
+ "tokio",
  "walkdir",
  "warp",
 ]

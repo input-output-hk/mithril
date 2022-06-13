@@ -15,6 +15,12 @@ impl<K, R> DumbStoreAdapter<K, R> {
     }
 }
 
+impl<K, R> Default for DumbStoreAdapter<K, R> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[async_trait]
 impl<K, R> StoreAdapter for DumbStoreAdapter<K, R>
 where
