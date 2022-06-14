@@ -102,7 +102,7 @@ impl AggregatorRuntime {
                         "new beacon found, immutable file number = {}",
                         beacon.immutable_file_number
                     );
-                    let new_state = self.from_idle_to_signing(beacon).await?;
+                    let new_state = self.transition_from_idle_to_signing(beacon).await?;
                     self.state = AggregatorState::Signing(new_state);
                 } else {
                     trace!("nothing to do in IDLE state")
@@ -120,11 +120,15 @@ impl AggregatorRuntime {
                         "new beacon found, immutable file number = {}",
                         beacon.immutable_file_number
                     );
-                    let new_state = self.from_signing_to_idle_new_beacon(state, beacon).await?;
+                    let new_state = self
+                        .transition_from_signing_to_idle_new_beacon(state, beacon)
+                        .await?;
                     self.state = AggregatorState::Idle(new_state);
                 } else if self.runner.is_multisig_created().await? {
                     trace!("new multisignature found");
-                    let new_state = self.from_signing_to_idle_multisignature(state).await?;
+                    let new_state = self
+                        .transition_from_signing_to_idle_multisignature(state)
+                        .await?;
                     self.state = AggregatorState::Idle(new_state);
                 } else {
                     trace!("nothing to do in SIGNING state")
@@ -137,8 +141,8 @@ impl AggregatorRuntime {
     /// transition
     ///
     /// from SIGNING to IDLE because NEW MULTISIGNATURE
-    async fn from_signing_to_idle_multisignature(
-        &mut self,
+    async fn transition_from_signing_to_idle_multisignature(
+        &self,
         state: SigningState,
     ) -> Result<IdleState, RuntimeError> {
         let certificate_pending = self
@@ -153,7 +157,7 @@ impl AggregatorRuntime {
             .await?;
         let _ = self
             .runner
-            .save_snapshot(certificate, &path, Vec::new())
+            .create_and_save_snapshot(certificate, &path, Vec::new())
             .await?;
 
         Ok(IdleState {
@@ -163,8 +167,8 @@ impl AggregatorRuntime {
     /// transition
     ///
     /// from SIGNING to IDLE because NEW BEACON
-    async fn from_signing_to_idle_new_beacon(
-        &mut self,
+    async fn transition_from_signing_to_idle_new_beacon(
+        &self,
         state: SigningState,
         new_beacon: Beacon,
     ) -> Result<IdleState, RuntimeError> {
@@ -178,8 +182,8 @@ impl AggregatorRuntime {
     }
     /// transition
     /// from IDLE state to SIGNING because NEW BEACON
-    async fn from_idle_to_signing(
-        &mut self,
+    async fn transition_from_idle_to_signing(
+        &self,
         new_beacon: Beacon,
     ) -> Result<SigningState, RuntimeError> {
         debug!("launching transition from IDLE to SIGNING state");
@@ -343,13 +347,13 @@ mod tests {
             .times(1)
             .returning(|_| Ok(None));
         runner
-            .expect_drop_pending_certificate()
-            .times(1)
-            .returning(|_| Ok(fake_data::certificate_pending()));
-        runner
             .expect_is_multisig_created()
             .times(1)
             .returning(|| Ok(true));
+        runner
+            .expect_drop_pending_certificate()
+            .times(1)
+            .returning(|_| Ok(fake_data::certificate_pending()));
         runner
             .expect_create_snapshot_archive()
             .times(1)
@@ -357,15 +361,15 @@ mod tests {
         runner
             .expect_upload_snapshot_archive()
             .times(1)
-            .returning(|_path| Ok(()));
+            .returning(|_path| Ok(vec!["locA".to_string(), "locB".to_string()]));
         runner
             .expect_create_and_save_certificate()
             .times(1)
             .returning(|_, _| Ok(fake_data::certificate("whatever".to_string())));
         runner
-            .expect_save_snapshot()
+            .expect_create_and_save_snapshot()
             .times(1)
-            .returning(|_, _, _| Ok(()));
+            .returning(|_, _, _| Ok(fake_data::snapshots(1)[0].clone()));
 
         let state = SigningState {
             current_beacon: fake_data::beacon(),

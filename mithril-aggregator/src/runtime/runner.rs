@@ -72,18 +72,18 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     ) -> Result<CertificatePending, RuntimeError>;
     async fn is_multisig_created(&self) -> Result<bool, RuntimeError>;
     async fn create_snapshot_archive(&self) -> Result<PathBuf, RuntimeError>;
-    async fn upload_snapshot_archive(&self, path: &PathBuf) -> Result<(), RuntimeError>;
+    async fn upload_snapshot_archive(&self, path: &Path) -> Result<Vec<String>, RuntimeError>;
     async fn create_and_save_certificate(
         &self,
         beacon: &Beacon,
         certificate_pending: &CertificatePending,
     ) -> Result<Certificate, RuntimeError>;
-    async fn save_snapshot(
+    async fn create_and_save_snapshot(
         &self,
         certificate: Certificate,
-        file_path: &PathBuf,
+        file_path: &Path,
         remote_locations: Vec<String>,
-    ) -> Result<(), RuntimeError>;
+    ) -> Result<Snapshot, RuntimeError>;
 }
 
 pub struct AggregatorRunner {
@@ -124,10 +124,10 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .dependencies
             .multi_signer
             .as_ref()
-            .ok_or(RuntimeError::General(format!("no multisigner registered")))?
-            .read()
+            .ok_or_else(|| RuntimeError::General("no multisigner registered".to_string()))?
+            .write()
             .await
-            .get_multi_signature()
+            .create_multi_signature()
             .await?
             .is_some();
 
@@ -171,7 +171,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .dependencies
             .multi_signer
             .as_ref()
-            .ok_or(RuntimeError::General(format!("no multisigner registered")))?
+            .ok_or_else(|| RuntimeError::General("no multisigner registered".to_string()))?
             .read()
             .await;
 
@@ -182,7 +182,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             multi_signer
                 .get_protocol_parameters()
                 .await
-                .ok_or_else(|| RuntimeError::General(format!("no protocol parameters")))?
+                .ok_or_else(|| RuntimeError::General("no protocol parameters".to_string()))?
                 .into(),
             "123".to_string(),
             multi_signer.get_signers().await?,
@@ -201,7 +201,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .dependencies
             .certificate_pending_store
             .as_ref()
-            .ok_or(RuntimeError::General(format!("no multisigner registered")))?
+            .ok_or_else(|| RuntimeError::General("no multisigner registered".to_string()))?
             .write()
             .await
             .save(pending_certificate)
@@ -219,12 +219,12 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .dependencies
             .multi_signer
             .as_ref()
-            .ok_or(RuntimeError::General(format!("no multisigner registered")))?
+            .ok_or_else(|| RuntimeError::General("no multisigner registered".to_string()))?
             .write()
             .await
             .update_current_message(digest_result.digest.into_bytes())
             .await
-            .map_err(|e| RuntimeError::MultiSigner(e))
+            .map_err(RuntimeError::MultiSigner)
     }
 
     async fn drop_pending_certificate(
@@ -238,16 +238,16 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .dependencies
             .certificate_pending_store
             .as_ref()
-            .ok_or(RuntimeError::General(format!(
-                "no certificate pending store registered"
-            )))?
+            .ok_or_else(|| {
+                RuntimeError::General("no certificate pending store registered".to_string())
+            })?
             .write()
             .await
             .remove(beacon)
             .await?
-            .ok_or(RuntimeError::General(
-                "no certificate pending for the given beacon".to_string(),
-            ))?;
+            .ok_or_else(|| {
+                RuntimeError::General("no certificate pending for the given beacon".to_string())
+            })?;
 
         Ok(certificate_pending)
     }
@@ -264,12 +264,12 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .dependencies
             .multi_signer
             .as_ref()
-            .ok_or(RuntimeError::General(format!("no multisigner registered")))?
+            .ok_or_else(|| RuntimeError::General("no multisigner registered".to_string()))?
             .read()
             .await
             .get_current_message()
             .await
-            .ok_or(RuntimeError::General("no message found".to_string()))?;
+            .ok_or_else(|| RuntimeError::General("no message found".to_string()))?;
         let snapshot_name = format!(
             "{}.{}.tar.gz",
             self.config.network,
@@ -299,21 +299,19 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .dependencies
             .multi_signer
             .as_ref()
-            .ok_or(RuntimeError::General(format!("no multisigner registered")))?
+            .ok_or_else(|| RuntimeError::General("no multisigner registered".to_string()))?
             .read()
             .await;
         let certificate = multisigner
             .create_certificate(beacon.clone(), certificate_pending.previous_hash.clone())
             .await?
-            .ok_or(RuntimeError::General(format!("no certificate generated")))?;
+            .ok_or_else(|| RuntimeError::General("no certificate generated".to_string()))?;
         let _ = self
             .config
             .dependencies
             .certificate_store
             .as_ref()
-            .ok_or(RuntimeError::General(format!(
-                "no certificate store registered"
-            )))?
+            .ok_or_else(|| RuntimeError::General("no certificate store registered".to_string()))?
             .write()
             .await
             .save(certificate.clone())
@@ -322,17 +320,17 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(certificate)
     }
 
-    async fn upload_snapshot_archive(&self, path: &PathBuf) -> Result<(), RuntimeError> {
+    async fn upload_snapshot_archive(&self, path: &Path) -> Result<Vec<String>, RuntimeError> {
         trace!("upload snapshot archive");
         todo!()
     }
 
-    async fn save_snapshot(
+    async fn create_and_save_snapshot(
         &self,
         certificate: Certificate,
-        file_path: &PathBuf,
+        file_path: &Path,
         remote_locations: Vec<String>,
-    ) -> Result<(), RuntimeError> {
+    ) -> Result<Snapshot, RuntimeError> {
         let snapshot = Snapshot::new(
             certificate.digest,
             certificate.hash,
@@ -348,14 +346,12 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .dependencies
             .snapshot_store
             .as_ref()
-            .ok_or(RuntimeError::General(format!(
-                "no snapshot store registered"
-            )))?
+            .ok_or_else(|| RuntimeError::General("no snapshot store registered".to_string()))?
             .write()
             .await
-            .add_snapshot(snapshot)
+            .add_snapshot(snapshot.clone())
             .await?;
 
-        Ok(())
+        Ok(snapshot)
     }
 }
