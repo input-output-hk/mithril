@@ -151,7 +151,8 @@ mod tests {
             aggregator_endpoint: server.url(""),
             party_id: 0,
             run_interval: 100,
-            db_directory: Path::new("./").to_path_buf(),
+            db_directory: Path::new("./db").to_path_buf(),
+            stake_store_directory: Path::new("./stakes").to_path_buf(),
         };
         (server, config)
     }
