@@ -2,7 +2,7 @@ use crate::snapshot_stores::SnapshotStoreError;
 use crate::store::StoreError;
 use crate::{BeaconStoreError, ProtocolError, SnapshotError};
 
-use mithril_common::digesters::DigesterError;
+use mithril_common::digesters::{DigesterError, ImmutableFileListingError};
 use std::io;
 use thiserror::Error;
 
@@ -31,6 +31,9 @@ pub enum RuntimeError {
 
     #[error("snapshot build error")]
     SnapshotBuild(#[from] io::Error),
+
+    #[error("immutable file scanning error")]
+    ImmutableFileError(#[from] ImmutableFileListingError),
 
     #[error("general error")]
     General(String),

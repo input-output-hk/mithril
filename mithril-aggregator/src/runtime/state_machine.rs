@@ -73,6 +73,9 @@ impl AggregatorRuntime {
         })
     }
 
+    /// run
+    ///
+    /// launches an infinite loop ticking the state machine
     pub async fn run(&mut self) {
         info!("Starting runtime");
         debug!("current state: {}", self.state);
@@ -87,6 +90,9 @@ impl AggregatorRuntime {
         }
     }
 
+    /// cycle
+    ///
+    /// one tick of the state machine
     pub async fn cycle(&mut self) -> Result<(), RuntimeError> {
         info!("new cycle");
         match self.state.clone() {

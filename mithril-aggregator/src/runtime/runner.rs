@@ -4,7 +4,7 @@ use crate::snapshot_uploaders::SnapshotLocation;
 use crate::{DependencyManager, SnapshotError, Snapshotter};
 use async_trait::async_trait;
 use chrono::Utc;
-use mithril_common::digesters::{Digester, DigesterResult, ImmutableDigester};
+use mithril_common::digesters::{Digester, DigesterResult, ImmutableDigester, ImmutableFile};
 use mithril_common::entities::{Beacon, Certificate, CertificatePending, Snapshot};
 
 #[allow(unused_imports)]
@@ -110,11 +110,26 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         maybe_beacon: Option<Beacon>,
     ) -> Result<Option<Beacon>, RuntimeError> {
         info!("checking if there is a new beacon");
-        warn!("using fake data for the new beacon");
-        let current_beacon = mithril_common::fake_data::beacon();
+        debug!(
+            "checking immutables in directory {}",
+            self.config.db_directory.to_string_lossy()
+        );
+        let db_path: &Path = self.config.db_directory.as_path();
+        let immutable_file_number = ImmutableFile::list_completed_in_dir(db_path)
+            .map_err(RuntimeError::ImmutableFileError)?
+            .into_iter()
+            .last()
+            .ok_or_else(|| RuntimeError::General("no last immutable file".to_string()))?
+            .number;
+        let current_beacon = Beacon {
+            network: self.config.network.clone(),
+            epoch: 0,
+            immutable_file_number,
+        };
 
         match maybe_beacon {
             Some(beacon) if current_beacon > beacon => Ok(Some(current_beacon)),
+            None => Ok(Some(current_beacon)),
             _ => Ok(None),
         }
     }
@@ -122,7 +137,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     /// Is a multisignature ready?
     /// returns the multisignature if the signer is ready to sign or None otherwise
     async fn is_multisig_created(&self) -> Result<bool, RuntimeError> {
-        trace!("running runner::is_multisig_created");
+        info!("check if we can create a multisignature");
         let has_multisig = self
             .config
             .dependencies
@@ -135,25 +150,30 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .await?
             .is_some();
 
+        if has_multisig {
+            debug!("new MULTISIG created");
+        } else {
+            info!("no multisig created");
+        }
         Ok(has_multisig)
     }
 
     async fn compute_digest(&self, new_beacon: &Beacon) -> Result<DigesterResult, RuntimeError> {
-        trace!("running runner::compute_digester");
+        info!("running runner::compute_digester");
         let digester =
             ImmutableDigester::new(self.config.db_directory.clone(), slog_scope::logger());
-        info!("Computing digest"; "db_directory" => self.config.db_directory.display());
+        debug!("computing digest"; "db_directory" => self.config.db_directory.display());
 
         // digest is done in a separate thread because it is blocking the whole task
         debug!("launching digester thread");
         let digest_result = tokio::task::spawn_blocking(move || digester.compute_digest())
             .await
             .map_err(|e| RuntimeError::General(e.to_string()))??;
-
         debug!(
             "last immutable file number: {}",
             digest_result.last_immutable_file_number
         );
+
         if digest_result.last_immutable_file_number != new_beacon.immutable_file_number {
             error!("digest beacon is different than the given beacon");
             Err(RuntimeError::General(
@@ -169,7 +189,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         beacon: Beacon,
     ) -> Result<CertificatePending, RuntimeError> {
-        trace!("running runner::create_pending_certificate");
+        info!("running runner::create_pending_certificate");
         let multi_signer = self
             .config
             .dependencies
@@ -199,7 +219,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         pending_certificate: CertificatePending,
     ) -> Result<(), RuntimeError> {
-        trace!("saving pending certificate");
+        info!("saving pending certificate");
 
         self.config
             .dependencies
@@ -217,7 +237,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         digest_result: DigesterResult,
     ) -> Result<(), RuntimeError> {
-        trace!("update message in multisigner");
+        info!("update message in multisigner");
 
         self.config
             .dependencies
@@ -235,7 +255,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         beacon: &Beacon,
     ) -> Result<CertificatePending, RuntimeError> {
-        trace!("drop pending certificate");
+        info!("drop pending certificate");
 
         let certificate_pending = self
             .config
@@ -257,7 +277,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     async fn create_snapshot_archive(&self) -> Result<PathBuf, RuntimeError> {
-        trace!("create snapshot archive");
+        info!("create snapshot archive");
 
         let snapshotter = Snapshotter::new(
             self.config.db_directory.clone(),
@@ -297,7 +317,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         beacon: &Beacon,
         certificate_pending: &CertificatePending,
     ) -> Result<Certificate, RuntimeError> {
-        trace!("create and save certificate");
+        info!("create and save certificate");
         let multisigner = self
             .config
             .dependencies
@@ -328,7 +348,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         path: &Path,
     ) -> Result<Vec<SnapshotLocation>, RuntimeError> {
-        trace!("upload snapshot archive");
+        info!("upload snapshot archive");
         let location = self
             .config
             .dependencies
