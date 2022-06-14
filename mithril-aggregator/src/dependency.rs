@@ -7,6 +7,7 @@ use super::entities::*;
 use super::multi_signer::MultiSigner;
 use super::snapshot_stores::SnapshotStore;
 use crate::beacon_store::BeaconStore;
+use crate::snapshot_uploaders::SnapshotUploader;
 use crate::{CertificatePendingStore, CertificateStore, VerificationKeyStore};
 
 /// BeaconStoreWrapper wraps a BeaconStore
@@ -30,10 +31,14 @@ pub type VerificationKeyStoreWrapper = Arc<RwLock<VerificationKeyStore>>;
 ///  StakeStoreWrapper wraps a StakeStore
 pub type StakeStoreWrapper = Arc<RwLock<StakeStore>>;
 
+///  StakeStoreWrapper wraps a StakeStore
+pub type SnapshotUploaderWrapper = Arc<RwLock<dyn SnapshotUploader>>;
+
 /// DependencyManager handles the dependencies
 pub struct DependencyManager {
     pub config: Config,
     pub snapshot_store: Option<SnapshotStoreWrapper>,
+    pub snapshot_uploader: Option<SnapshotUploaderWrapper>,
     pub multi_signer: Option<MultiSignerWrapper>,
     pub beacon_store: Option<BeaconStoreWrapper>,
     pub certificate_pending_store: Option<CertificatePendingStoreWrapper>,
@@ -48,6 +53,7 @@ impl DependencyManager {
         Self {
             config,
             snapshot_store: None,
+            snapshot_uploader: None,
             multi_signer: None,
             beacon_store: None,
             certificate_pending_store: None,
@@ -60,6 +66,15 @@ impl DependencyManager {
     /// With SnapshotStore middleware
     pub fn with_snapshot_store(&mut self, snapshot_store: SnapshotStoreWrapper) -> &mut Self {
         self.snapshot_store = Some(snapshot_store);
+        self
+    }
+
+    /// With SnapshotUploader middleware
+    pub fn with_snapshot_uploader(
+        &mut self,
+        snapshot_uploader: SnapshotUploaderWrapper,
+    ) -> &mut Self {
+        self.snapshot_uploader = Some(snapshot_uploader);
         self
     }
 

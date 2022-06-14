@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use crate::snapshot_uploaders::SnapshotLocation;
 use crate::{DependencyManager, SnapshotError, Snapshotter};
 use async_trait::async_trait;
 use chrono::Utc;
@@ -72,7 +73,10 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     ) -> Result<CertificatePending, RuntimeError>;
     async fn is_multisig_created(&self) -> Result<bool, RuntimeError>;
     async fn create_snapshot_archive(&self) -> Result<PathBuf, RuntimeError>;
-    async fn upload_snapshot_archive(&self, path: &Path) -> Result<Vec<String>, RuntimeError>;
+    async fn upload_snapshot_archive(
+        &self,
+        path: &Path,
+    ) -> Result<Vec<SnapshotLocation>, RuntimeError>;
     async fn create_and_save_certificate(
         &self,
         beacon: &Beacon,
@@ -320,9 +324,26 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(certificate)
     }
 
-    async fn upload_snapshot_archive(&self, path: &Path) -> Result<Vec<String>, RuntimeError> {
+    async fn upload_snapshot_archive(
+        &self,
+        path: &Path,
+    ) -> Result<Vec<SnapshotLocation>, RuntimeError> {
         trace!("upload snapshot archive");
-        todo!()
+        let location = self
+            .config
+            .dependencies
+            .snapshot_uploader
+            .as_ref()
+            .ok_or_else(|| {
+                RuntimeError::SnapshotUploader("no snapshot uploader registered".to_string())
+            })?
+            .read()
+            .await
+            .upload_snapshot(path)
+            .await
+            .map_err(RuntimeError::SnapshotUploader)?;
+
+        Ok(vec![location])
     }
 
     async fn create_and_save_snapshot(

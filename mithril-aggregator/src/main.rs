@@ -4,9 +4,9 @@ use clap::Parser;
 
 use config::{Map, Source, Value, ValueKind};
 use mithril_aggregator::{
-    AggregatorConfig, AggregatorRuntime, BeaconStore, CertificatePendingStore, CertificateStore,
-    Config, DependencyManager, MemoryBeaconStore, MultiSigner, MultiSignerImpl, Server,
-    VerificationKeyStore,
+    AggregatorConfig, AggregatorRunner, AggregatorRuntime, BeaconStore, CertificatePendingStore,
+    CertificateStore, Config, DependencyManager, MemoryBeaconStore, MultiSigner, MultiSignerImpl,
+    Server, VerificationKeyStore,
 };
 use mithril_common::crypto_helper::ProtocolStakeDistribution;
 use mithril_common::fake_data;
@@ -156,6 +156,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut dependency_manager = DependencyManager::new(config.clone());
     dependency_manager
         .with_snapshot_store(snapshot_store.clone())
+        .with_snapshot_uploader(snapshot_uploader.clone())
         .with_multi_signer(multi_signer.clone())
         .with_beacon_store(beacon_store.clone())
         .with_certificate_pending_store(certificate_pending_store.clone())

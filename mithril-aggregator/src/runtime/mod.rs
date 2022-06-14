@@ -1,7 +1,7 @@
 mod error;
 mod runner;
-mod runtime;
+mod state_machine;
 
 pub use error::RuntimeError;
 pub use runner::{AggregatorConfig, AggregatorRunner, AggregatorRunnerTrait};
-pub use runtime::*;
+pub use state_machine::*;
