@@ -38,7 +38,7 @@ spec =
             case cluster of
               RunningCluster {clusterNodes = _node@(RunningNode _ nodeSocket) : _} -> do
                 waitForDBToBePopulated (takeDirectory nodeSocket)
-                void $ runTestRunner (takeDirectory nodeSocket)
+                void $ runTestRunner (takeDirectory nodeSocket) (takeDirectory nodeSocket </> "db")
               _ -> failure "No nodes in the cluster"
 
 assertNetworkIsProducingBlock :: Tracer IO ClusterLog -> RunningCluster -> IO ()
