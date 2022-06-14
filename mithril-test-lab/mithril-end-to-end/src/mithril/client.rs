@@ -49,7 +49,7 @@ impl Client {
 
                     Err(match status.code() {
                         Some(c) => format!("mithril-signer exited with code: {}", c),
-                        None => "mithril-signer was terminated with a signal".to_string(),
+                        None => "mithril-client was terminated with a signal".to_string(),
                     })
                 }
             }

@@ -43,8 +43,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     match spec.run().await {
         Ok(_) => Ok(()),
         Err(error) => {
+            spec.dump_processes_logs().await?;
             error!("Mithril End to End test failed: {}", error);
-            spec.dump_logs_of_failed_processes().await?;
             Err(error)
         }
     }

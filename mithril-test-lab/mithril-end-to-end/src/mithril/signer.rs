@@ -37,12 +37,16 @@ impl Signer {
         self.process = Some(self.command.start(&[]));
     }
 
+    pub async fn dump_logs(&self) -> Result<(), String> {
+        self.command.dump_logs_to_stdout().await
+    }
+
     pub async fn dump_logs_if_crashed(&mut self) -> Result<(), String> {
         match self.process.as_mut() {
             Some(child) => match child.try_wait() {
                 Ok(Some(status)) => {
                     if !status.success() {
-                        self.command.dump_logs_to_stdout().await?;
+                        self.dump_logs().await?;
                     }
                     Ok(())
                 }

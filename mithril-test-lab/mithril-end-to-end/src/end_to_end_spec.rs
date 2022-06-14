@@ -15,7 +15,7 @@ impl Spec {
         Self { infrastructure }
     }
 
-    pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
+    pub async fn run(&self) -> Result<(), Box<dyn Error>> {
         let aggregator_endpoint = self.infrastructure.aggregator().endpoint();
 
         wait_for_pending_certificate(&aggregator_endpoint).await?;
@@ -23,7 +23,16 @@ impl Spec {
         let certificate_hash =
             assert_signer_is_signing_snapshot(&aggregator_endpoint, &digest).await?;
         assert_is_creating_certificate(&aggregator_endpoint, &certificate_hash).await?;
-        assert_client_can_verify_snapshot(self.infrastructure.client_mut(), &digest).await?;
+
+        let mut client = self.infrastructure.build_client()?;
+        assert_client_can_verify_snapshot(&mut client, &digest).await?;
+
+        Ok(())
+    }
+
+    pub async fn dump_processes_logs(&mut self) -> Result<(), String> {
+        self.infrastructure.aggregator_mut().dump_logs().await?;
+        self.infrastructure.signer_mut().dump_logs().await?;
 
         Ok(())
     }

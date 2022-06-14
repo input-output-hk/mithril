@@ -1,7 +1,7 @@
 use slog_scope::info;
 use std::collections::HashMap;
+use std::io::Write;
 use std::path::{Path, PathBuf};
-use tokio::io::AsyncWriteExt;
 use tokio::process::{Child, Command};
 
 #[derive(Debug)]
@@ -95,9 +95,12 @@ impl MithrilCommand {
             )
         })?;
 
-        tokio::io::stdout()
+        println!("{:-^100}", "");
+        println!("{:^30}", format!("{} LOGS:", self.name.to_uppercase()));
+        println!("{:-^100}", "");
+
+        std::io::stdout()
             .write_all(&buffer)
-            .await
             .map_err(|e| format!("failed to dump {} logs: {}", &self.name, e))?;
 
         Ok(())
