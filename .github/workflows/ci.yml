@@ -332,6 +332,8 @@ jobs:
             mithril-test-lab/dist-newstyle
           key: |
             cabal-${{ runner.os }}-${{ hashFiles('mithril-test-lab/cabal.project', 'shell.nix') }}
+          restore-keys: |
+            cabal-${{ runner.os }}-
 
       - name: Prepare nix-shell
         run: |
