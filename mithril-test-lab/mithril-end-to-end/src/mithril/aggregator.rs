@@ -20,10 +20,7 @@ impl Aggregator {
         let port = server_port.to_string();
         let env = HashMap::from([
             ("NETWORK", "testnet"),
-            (
-                "URL_SNAPSHOT_MANIFEST",
-                "https://storage.googleapis.com/cardano-testnet/snapshots.json",
-            ),
+            ("URL_SNAPSHOT_MANIFEST", ""),
             ("SNAPSHOT_STORE_TYPE", "local"),
             ("SNAPSHOT_UPLOADER_TYPE", "local"),
             (
