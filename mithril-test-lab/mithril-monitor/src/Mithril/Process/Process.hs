@@ -17,11 +17,11 @@ future.
 
 -- * Process Types
 
--- |A port capable of sending values of type `a`
+-- |A port capable of sending values of type @a@
 newtype SendPort a = SendPort Integer
   deriving (Eq, Ord)
 
--- |A port capable of recieving values of type 'a'
+-- |A port capable of recieving values of type @a@
 newtype RecvPort a = RecvPort Integer
   deriving (Eq, Ord)
 
@@ -75,7 +75,7 @@ instance Monad Proc where
 
 -- * Process API   #API#
 
--- |'Asynchronously' send a message to a port - execution may continue without waiting
+-- |"Asynchronously" send a message to a port - execution may continue without waiting
 --  for the sent message to be recieved.
 send :: Typeable a => SendPort a -> a -> Proc ()
 send port msg = Send port msg (pure ())
@@ -93,7 +93,7 @@ fork :: Proc () -> Proc ()
 fork f = Fork f (pure ())
 
 -- |Defines an action to happen when a some port gets a message
---  - to be used with functions like `choose`
+--  - to be used with functions like 'choose'
 (===>) :: Typeable a => RecvPort a -> (a -> Proc b) -> Recv b
 port ===> cont = Recv port cont
 infixl 0 ===>
@@ -127,7 +127,7 @@ async p =
 logmsg :: String -> Proc ()
 logmsg msg = Log msg (pure ())
 
--- |Parallel version of `<*>`
+-- |Parallel version of '<*>'
 (<|*|>) :: (Typeable a, Typeable b) => Proc (a -> b) -> Proc a -> Proc b
 pf <|*|> pa =
   do  pf' <- async pf
