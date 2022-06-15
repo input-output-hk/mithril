@@ -122,4 +122,25 @@ impl DependencyManager {
         self.stake_store = Some(stake_store);
         self
     }
+
+    #[cfg(test)]
+    pub fn fake() -> DependencyManager {
+        let config = Config {
+            network: "testnet".to_string(),
+            url_snapshot_manifest: "https://storage.googleapis.com/cardano-testnet/snapshots.json"
+                .to_string(),
+            snapshot_store_type: SnapshotStoreType::Local,
+            snapshot_uploader_type: SnapshotUploaderType::Local,
+            server_url: "http://0.0.0.0:8080".to_string(),
+            db_directory: Default::default(),
+            snapshot_directory: Default::default(),
+            pending_certificate_store_directory: std::env::temp_dir()
+                .join("mithril_test_pending_cert_db"),
+            certificate_store_directory: std::env::temp_dir().join("mithril_test_cert_db"),
+            verification_key_store_directory: std::env::temp_dir()
+                .join("mithril_test_verification_key_db"),
+            stake_store_directory: std::env::temp_dir().join("mithril_test_stake_db"),
+        };
+        DependencyManager::new(config)
+    }
 }
