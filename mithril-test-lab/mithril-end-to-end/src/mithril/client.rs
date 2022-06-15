@@ -48,7 +48,7 @@ impl Client {
                     self.command.dump_logs_to_stdout().await?;
 
                     Err(match status.code() {
-                        Some(c) => format!("mithril-signer exited with code: {}", c),
+                        Some(c) => format!("mithril-client exited with code: {}", c),
                         None => "mithril-client was terminated with a signal".to_string(),
                     })
                 }

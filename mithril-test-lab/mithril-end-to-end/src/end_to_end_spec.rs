@@ -19,6 +19,8 @@ impl Spec {
         let aggregator_endpoint = self.infrastructure.aggregator().endpoint();
 
         wait_for_pending_certificate(&aggregator_endpoint).await?;
+        let _ = self.infrastructure.add_immutable();
+
         let digest = assert_node_producing_snapshot(&aggregator_endpoint).await?;
         let certificate_hash =
             assert_signer_is_signing_snapshot(&aggregator_endpoint, &digest).await?;
@@ -82,7 +84,7 @@ async fn wait_for_pending_certificate(aggregator_endpoint: &str) -> Result<(), S
 async fn assert_node_producing_snapshot(aggregator_endpoint: &str) -> Result<String, String> {
     let url = format!("{}/snapshots", aggregator_endpoint);
 
-    match attempt!(10, Duration::from_millis(1000), {
+    match attempt!(20, Duration::from_millis(1500), {
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<Vec<Snapshot>>().await.as_deref() {
