@@ -564,55 +564,73 @@ echo "====================================================================="
 echo
 
 cat >> query.sh <<EOF
+echo "====================================================================="
+echo "=== Cardano Network"
+echo "====================================================================="
 echo
-echo "#Query chain tip"
+echo ">> Query chain tip"
 CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip  \\
     --cardano-mode  \\
     --testnet-magic ${NETWORK_MAGIC}
 
 echo
-echo "#Query utxo1 utxo 'utxo1.addr'"
-CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query utxo  \\
-    --cardano-mode  \\
-    --testnet-magic ${NETWORK_MAGIC}  \\
-    --address \$(cat addresses/utxo1.addr)
-
-echo
-echo "#Query user1 utxo 'user1.addr'"
-CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query utxo  \\
-    --cardano-mode  \\
-    --testnet-magic ${NETWORK_MAGIC}  \\
-    --address \$(cat addresses/user1.addr)
-
-echo
-echo "#Query whole utxo"
+echo ">> Query whole utxo"
 CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query utxo  \\
     --cardano-mode  \\
     --testnet-magic ${NETWORK_MAGIC}   \\
     --whole-utxo
 echo
 
-echo "#Query stake pools"
+echo ">> Query stake pools"
 CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query stake-pools \\
     --cardano-mode  \\
     --testnet-magic ${NETWORK_MAGIC}
 echo
 
-echo "#Query stake distribution"
+echo ">> Query stake distribution"
 CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query stake-distribution \\
     --cardano-mode  \\
     --testnet-magic ${NETWORK_MAGIC}
 echo
 
+echo "====================================================================="
+echo "=== Mithril Network"
+echo "====================================================================="
+echo
 
-echo "#Query stake pool params"
+AGGREGATOR_API_ENDPOINT="http://0.0.0.0:8080/aggregator"
+
+echo ">> Query pending certificate"
+curl -s \${AGGREGATOR_API_ENDPOINT}/certificate-pending | jq .
+
+echo ">> Query snapshots"
+curl -s \${AGGREGATOR_API_ENDPOINT}/snapshots | jq .
+
+EOF
+
+cat >> query-unused.sh <<EOF
+echo
+echo ">> Query utxo1 utxo 'utxo1.addr'"
+CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query utxo  \\
+    --cardano-mode  \\
+    --testnet-magic ${NETWORK_MAGIC}  \\
+    --address \$(cat addresses/utxo1.addr)
+
+echo
+echo ">> Query user1 utxo 'user1.addr'"
+CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query utxo  \\
+    --cardano-mode  \\
+    --testnet-magic ${NETWORK_MAGIC}  \\
+    --address \$(cat addresses/user1.addr)
+
+echo ">> Query stake pool params"
 echo CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query pool-params \\
     --cardano-mode  \\
     --testnet-magic ${NETWORK_MAGIC} \\
     --stake-pool-id \${STAKE_POOL_ID}
 echo
 
-echo "#Query stake pool snapshot"
+echo ">> Query stake pool snapshot"
 echo CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query stake-snapshot \\
     --cardano-mode  \\
     --testnet-magic ${NETWORK_MAGIC} \\
@@ -938,7 +956,7 @@ chmod u+x stop.sh
 
 cat >> log.sh <<EOF
 LINES=\$1
-SEPARATOR="----------------------------------------------------------------------------------"
+SEPARATOR="====================================================================="
 
 find . -type f -print | grep "node.log" | sort -n | xargs -i  sh -c 'echo '\${SEPARATOR}' && echo tail -n '\${LINES}' {} && echo '\${SEPARATOR}' && tail -n '\${LINES}' {} && echo '\${SEPARATOR}' && echo'
 
