@@ -170,6 +170,7 @@ impl AggregatorRuntime {
             current_beacon: Some(state.current_beacon),
         })
     }
+
     /// transition
     ///
     /// from SIGNING to IDLE because NEW BEACON
@@ -186,7 +187,9 @@ impl AggregatorRuntime {
             current_beacon: Some(new_beacon),
         })
     }
+
     /// transition
+    ///
     /// from IDLE state to SIGNING because NEW BEACON
     async fn transition_from_idle_to_signing(
         &self,
@@ -214,6 +217,7 @@ impl AggregatorRuntime {
         Ok(state)
     }
 }
+
 #[cfg(test)]
 mod tests {
     use std::path::PathBuf;

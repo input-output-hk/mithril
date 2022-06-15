@@ -7,7 +7,6 @@ use chrono::Utc;
 use mithril_common::digesters::{Digester, DigesterResult, ImmutableDigester, ImmutableFile};
 use mithril_common::entities::{Beacon, Certificate, CertificatePending, Snapshot};
 
-#[allow(unused_imports)]
 use slog_scope::{debug, error, info, trace, warn};
 use std::path::Path;
 use std::sync::Arc;
@@ -54,34 +53,44 @@ impl AggregatorConfig {
 pub trait AggregatorRunnerTrait: Sync + Send {
     /// Return the current beacon if it is newer than the given one.
     async fn is_new_beacon(&self, beacon: Option<Beacon>) -> Result<Option<Beacon>, RuntimeError>;
+
     async fn compute_digest(&self, new_beacon: &Beacon) -> Result<DigesterResult, RuntimeError>;
+
     async fn update_message_in_multisigner(
         &self,
         digest_result: DigesterResult,
     ) -> Result<(), RuntimeError>;
+
     async fn create_new_pending_certificate_from_multisigner(
         &self,
         beacon: Beacon,
     ) -> Result<CertificatePending, RuntimeError>;
+
     async fn save_pending_certificate(
         &self,
         pending_certificate: CertificatePending,
     ) -> Result<(), RuntimeError>;
+
     async fn drop_pending_certificate(
         &self,
         beacon: &Beacon,
     ) -> Result<CertificatePending, RuntimeError>;
+
     async fn is_multisig_created(&self) -> Result<bool, RuntimeError>;
+
     async fn create_snapshot_archive(&self) -> Result<PathBuf, RuntimeError>;
+
     async fn upload_snapshot_archive(
         &self,
         path: &Path,
     ) -> Result<Vec<SnapshotLocation>, RuntimeError>;
+
     async fn create_and_save_certificate(
         &self,
         beacon: &Beacon,
         certificate_pending: &CertificatePending,
     ) -> Result<Certificate, RuntimeError>;
+
     async fn create_and_save_snapshot(
         &self,
         certificate: Certificate,
@@ -119,7 +128,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .map_err(RuntimeError::ImmutableFileError)?
             .into_iter()
             .last()
-            .ok_or_else(|| RuntimeError::General("no last immutable file".to_string()))?
+            .ok_or_else(|| RuntimeError::General("no immutable file was returned".to_string()))?
             .number;
         let current_beacon = Beacon {
             network: self.config.network.clone(),
@@ -225,7 +234,9 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .dependencies
             .certificate_pending_store
             .as_ref()
-            .ok_or_else(|| RuntimeError::General("no multisigner registered".to_string()))?
+            .ok_or_else(|| {
+                RuntimeError::General("no certificate pending store registered".to_string())
+            })?
             .write()
             .await
             .save(pending_certificate)
@@ -339,7 +350,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .write()
             .await
             .save(certificate.clone())
-            .await;
+            .await?;
 
         Ok(certificate)
     }
