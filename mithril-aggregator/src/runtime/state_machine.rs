@@ -94,6 +94,7 @@ impl AggregatorRuntime {
     ///
     /// one tick of the state machine
     pub async fn cycle(&mut self) -> Result<(), RuntimeError> {
+        info!("================================================================================");
         info!("new cycle");
         match self.state.clone() {
             AggregatorState::Idle(state) => {
@@ -127,7 +128,7 @@ impl AggregatorRuntime {
                         beacon.immutable_file_number
                     );
                     let new_state = self
-                        .transition_from_signing_to_idle_new_beacon(state, beacon)
+                        .transition_from_signing_to_idle_new_beacon(state)
                         .await?;
                     self.state = AggregatorState::Idle(new_state);
                 } else if self.runner.is_multisig_created().await? {
@@ -151,10 +152,7 @@ impl AggregatorRuntime {
         &self,
         state: SigningState,
     ) -> Result<IdleState, RuntimeError> {
-        let certificate_pending = self
-            .runner
-            .drop_pending_certificate(&state.current_beacon)
-            .await?;
+        let certificate_pending = self.runner.drop_pending_certificate().await?;
         let path = self.runner.create_snapshot_archive().await?;
         let _ = self.runner.upload_snapshot_archive(&path).await?;
         let certificate = self
@@ -177,14 +175,11 @@ impl AggregatorRuntime {
     async fn transition_from_signing_to_idle_new_beacon(
         &self,
         state: SigningState,
-        new_beacon: Beacon,
     ) -> Result<IdleState, RuntimeError> {
-        self.runner
-            .drop_pending_certificate(&state.current_beacon)
-            .await?;
+        self.runner.drop_pending_certificate().await?;
 
         Ok(IdleState {
-            current_beacon: Some(new_beacon),
+            current_beacon: Some(state.current_beacon),
         })
     }
 
@@ -309,7 +304,7 @@ mod tests {
         runner
             .expect_drop_pending_certificate()
             .times(1)
-            .returning(|_| Ok(fake_data::certificate_pending()));
+            .returning(|| Ok(fake_data::certificate_pending()));
 
         let state = SigningState {
             // this current beacon must be outdated so the state machine will
@@ -363,7 +358,7 @@ mod tests {
         runner
             .expect_drop_pending_certificate()
             .times(1)
-            .returning(|_| Ok(fake_data::certificate_pending()));
+            .returning(|| Ok(fake_data::certificate_pending()));
         runner
             .expect_create_snapshot_archive()
             .times(1)

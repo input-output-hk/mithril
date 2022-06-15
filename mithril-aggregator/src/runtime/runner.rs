@@ -28,6 +28,7 @@ pub struct AggregatorConfig {
     /// Directory to store snapshot
     pub snapshot_directory: PathBuf,
 
+    /// Services dependencies
     pub dependencies: Arc<DependencyManager>,
 }
 
@@ -71,10 +72,7 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         pending_certificate: CertificatePending,
     ) -> Result<(), RuntimeError>;
 
-    async fn drop_pending_certificate(
-        &self,
-        beacon: &Beacon,
-    ) -> Result<CertificatePending, RuntimeError>;
+    async fn drop_pending_certificate(&self) -> Result<CertificatePending, RuntimeError>;
 
     async fn is_multisig_created(&self) -> Result<bool, RuntimeError>;
 
@@ -144,7 +142,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     /// Is a multisignature ready?
-    /// returns the multisignature if the signer is ready to sign or None otherwise
+    /// Can we create a multisignature.
     async fn is_multisig_created(&self) -> Result<bool, RuntimeError> {
         info!("check if we can create a multisignature");
         let has_multisig = self
@@ -262,10 +260,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .map_err(RuntimeError::MultiSigner)
     }
 
-    async fn drop_pending_certificate(
-        &self,
-        beacon: &Beacon,
-    ) -> Result<CertificatePending, RuntimeError> {
+    async fn drop_pending_certificate(&self) -> Result<CertificatePending, RuntimeError> {
         info!("drop pending certificate");
 
         let certificate_pending = self
@@ -278,7 +273,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             })?
             .write()
             .await
-            .remove(beacon)
+            .remove()
             .await?
             .ok_or_else(|| {
                 RuntimeError::General("no certificate pending for the given beacon".to_string())
