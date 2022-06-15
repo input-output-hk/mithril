@@ -602,9 +602,11 @@ AGGREGATOR_API_ENDPOINT="http://0.0.0.0:8080/aggregator"
 
 echo ">> Query pending certificate"
 curl -s \${AGGREGATOR_API_ENDPOINT}/certificate-pending | jq .
+echo
 
 echo ">> Query snapshots"
 curl -s \${AGGREGATOR_API_ENDPOINT}/snapshots | jq .
+echo
 
 EOF
 
@@ -925,7 +927,19 @@ if [ -z "\${MITHRIL_IMAGE_ID}" ]; then
 fi
 
 echo ">>> Wait for Cardano network to be ready"
-sleep 30
+while true
+do
+    EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip  \\
+        --cardano-mode  \\
+        --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq .epoch | sed -e "s/null//" | sed -e "s/ //" | tr -d '\n')
+    if [ "\$EPOCH" != "" ] ; then
+        echo ">>>>>> Ready!"
+        break
+    else
+        echo ">>>>>> Not ready yet"
+        sleep 2
+    fi
+done
 
 echo ">>> Activate Cardano pools"
 ./activate.sh ${ROOT}
@@ -950,7 +964,16 @@ echo ">>> Stop Cardano network"
 killall cardano-node
 
 echo ">>> Stop Mithril network"
-docker-compose -f docker-compose.yaml --profile mithril down
+if [ -z "\${MITHRIL_IMAGE_ID}" ]; then 
+  MITHRIL_AGGREGATOR_IMAGE="mithril/mithril-aggregator"
+  MITHRIL_CLIENT_IMAGE="mithril/mithril-client"
+  MITHRIL_SIGNER_IMAGE="mithril/mithril-signer"
+else
+  MITHRIL_AGGREGATOR_IMAGE="ghcr.io/input-output-hk/mithril-aggregator:\${MITHRIL_IMAGE_ID}"
+  MITHRIL_CLIENT_IMAGE="ghcr.io/input-output-hk/mithril-client:\${MITHRIL_IMAGE_ID}"
+  MITHRIL_SIGNER_IMAGE="ghcr.io/input-output-hk/mithril-signer:\${MITHRIL_IMAGE_ID}"
+fi
+MITHRIL_AGGREGATOR_IMAGE=\${MITHRIL_AGGREGATOR_IMAGE} MITHRIL_CLIENT_IMAGE=\${MITHRIL_CLIENT_IMAGE} MITHRIL_SIGNER_IMAGE=\${MITHRIL_SIGNER_IMAGE} docker-compose -f docker-compose.yaml --profile mithril down
 EOF
 chmod u+x stop.sh
 
