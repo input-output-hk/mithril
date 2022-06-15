@@ -1,5 +1,5 @@
 cabal-version:      3.0
-name:               mithril-end-to-end
+name:               mithril-end-to-end-legacy
 version:            0.4.0
 synopsis:
   Integration test suite for Mithril using a local cluster of cardano nodes
@@ -110,10 +110,8 @@ library
     CardanoCluster
     CardanoNode
     Logging
-    Mithril.Aggregator
-    Mithril.Client
-    Mithril.Signer
-    Paths_mithril_end_to_end
+    Mithril.TestRunner
+    Paths_mithril_end_to_end_legacy
 
   build-depends:
     , aeson
@@ -166,7 +164,7 @@ test-suite integration
   main-is:            Main.hs
   type:               exitcode-stdio-1.0
   other-modules:
-    Paths_mithril_end_to_end
+    Paths_mithril_end_to_end_legacy
     Spec
     Test.EndToEndSpec
 
@@ -194,7 +192,7 @@ test-suite integration
     , io-classes
     , lens
     , lens-aeson
-    , mithril-end-to-end
+    , mithril-end-to-end-legacy
     , plutus-ledger
     , plutus-ledger-api
     , process
@@ -223,7 +221,7 @@ executable start-devnet
     , directory
     , filepath
     , hydra-prelude
-    , mithril-end-to-end
+    , mithril-end-to-end-legacy
     , optparse-applicative
 
   ghc-options:    -threaded -rtsopts -Werror

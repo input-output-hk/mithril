@@ -184,6 +184,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "async-recursion"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2cda8f4bcc10624c4e85bc66b3f452cca98cfa5ca002dc83a16aad2367641bea"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "async-std"
 version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2025,6 +2036,35 @@ dependencies = [
  "tokio",
  "walkdir",
  "warp",
+]
+
+[[package]]
+name = "mithril-end-to-end"
+version = "0.1.0"
+dependencies = [
+ "async-recursion",
+ "async-trait",
+ "chrono",
+ "clap 3.1.18",
+ "clap-verbosity-flag",
+ "config",
+ "flate2",
+ "futures",
+ "glob",
+ "hex",
+ "mithril-common",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "slog",
+ "slog-async",
+ "slog-scope",
+ "slog-term",
+ "tar",
+ "thiserror",
+ "tokio",
+ "tokio-util 0.7.2",
 ]
 
 [[package]]

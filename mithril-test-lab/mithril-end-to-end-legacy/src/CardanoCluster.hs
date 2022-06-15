@@ -21,7 +21,7 @@ import qualified Data.ByteString.Lazy as LBS
 import Hydra.Cardano.Api
 import Hydra.Prelude
 import Logging (ClusterLog (MsgFromNode, MsgNodeStarting))
-import qualified Paths_mithril_end_to_end as Pkg
+import qualified Paths_mithril_end_to_end_legacy as Pkg
 import System.Directory (createDirectoryIfMissing, doesFileExist)
 import System.FilePath ((<.>), (</>))
 import System.Posix.Files

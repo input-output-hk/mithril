@@ -50,7 +50,7 @@ You can also use `nix-build` to build the project and all executables. You will 
 
 ## Cardano devnet
 
-The `mithril-end-to-end` package provides a `start-devnet` executable that can be used to, well, start a _devnet_. This is a set of 3 interconnected cardano nodes running in BFT (_Byzantine Fault Tolerant_) mode (no pools).
+The `mithril-end-to-end-legacy` package provides a `start-devnet` executable that can be used to, well, start a _devnet_. This is a set of 3 interconnected cardano nodes running in BFT (_Byzantine Fault Tolerant_) mode (no pools).
 
 To run,
 
