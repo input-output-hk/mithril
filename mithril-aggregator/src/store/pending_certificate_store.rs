@@ -5,7 +5,7 @@ use mithril_common::store::adapter::StoreAdapter;
 
 type Adapter = Box<dyn StoreAdapter<Key = String, Record = CertificatePending>>;
 
-const KEY: &'static str = "certificate_pending";
+const KEY: &str = "certificate_pending";
 
 pub struct CertificatePendingStore {
     adapter: Adapter,

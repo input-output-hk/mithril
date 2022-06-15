@@ -75,7 +75,7 @@ mod router {
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("certificate-pending")
             .and(warp::get())
-            .and(with_certificate_pending_store(dependency_manager.clone()))
+            .and(with_certificate_pending_store(dependency_manager))
             .and_then(handlers::certificate_pending)
     }
 
@@ -480,7 +480,6 @@ mod tests {
 
     use crate::CertificatePendingStore;
 
-    use super::super::beacon_store::MockBeaconStore;
     use super::super::entities::*;
     use super::super::multi_signer::MockMultiSigner;
     use super::super::multi_signer::ProtocolError;
@@ -576,81 +575,6 @@ mod tests {
             .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::from_file(API_SPEC_FILE)
-            .method(method)
-            .path(path)
-            .validate_request(&Null)
-            .unwrap()
-            .validate_response(&response)
-            .expect("OpenAPI error");
-    }
-
-    #[tokio::test]
-    async fn test_certificate_pending_get_ko_signers_500() {
-        let fake_protocol_parameters = fake_data::protocol_parameters();
-        let mut beacon_store = MockBeaconStore::new();
-        beacon_store
-            .expect_get_current_beacon()
-            .return_once(|| Ok(Some(fake_data::beacon())));
-        let mut mock_multi_signer = MockMultiSigner::new();
-        mock_multi_signer
-            .expect_get_protocol_parameters()
-            .return_once(|| Some(fake_protocol_parameters.into()));
-        mock_multi_signer
-            .expect_get_signers()
-            .return_once(|| Err(ProtocolError::Codec("an error occurred".to_string())));
-        mock_multi_signer
-            .expect_get_multi_signature()
-            .return_once(|| Ok(None));
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager
-            .with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)))
-            .with_beacon_store(Arc::new(RwLock::new(beacon_store)));
-
-        let method = Method::GET.as_str();
-        let path = "/certificate-pending";
-
-        let response = request()
-            .method(method)
-            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .reply(&router::routes(Arc::new(dependency_manager)))
-            .await;
-
-        APISpec::from_file(API_SPEC_FILE)
-            .method(method)
-            .path(path)
-            .validate_request(&Null)
-            .unwrap()
-            .validate_response(&response)
-            .expect("OpenAPI error");
-    }
-
-    #[tokio::test]
-    async fn test_certificate_pending_get_ko_protocol_parameters_500() {
-        let mut beacon_store = MockBeaconStore::new();
-        beacon_store
-            .expect_get_current_beacon()
-            .return_once(|| Ok(Some(fake_data::beacon())));
-        let mut mock_multi_signer = MockMultiSigner::new();
-        mock_multi_signer
-            .expect_get_protocol_parameters()
-            .return_once(|| None);
-        mock_multi_signer
-            .expect_get_multi_signature()
-            .return_once(|| Ok(None));
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager
-            .with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)))
-            .with_beacon_store(Arc::new(RwLock::new(beacon_store)));
-
-        let method = Method::GET.as_str();
-        let path = "/certificate-pending";
-
-        let response = request()
-            .method(method)
-            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .reply(&router::routes(Arc::new(dependency_manager)))
-            .await;
         APISpec::from_file(API_SPEC_FILE)
             .method(method)
             .path(path)
