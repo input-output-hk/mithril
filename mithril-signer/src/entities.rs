@@ -27,6 +27,13 @@ pub struct Config {
         display_fn = "display_path"
     )]
     pub db_directory: PathBuf,
+
+    /// Directory to store stakes
+    #[table(
+        title = "Path to the stake store directory",
+        display_fn = "display_path"
+    )]
+    pub stake_store_directory: PathBuf,
 }
 
 fn display_path(path: &Path) -> Display<'_> {

@@ -2,3 +2,4 @@ data/
 target/
 mithril-signer
 .DS_Store
+stores

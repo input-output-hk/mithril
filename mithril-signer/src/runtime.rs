@@ -1,40 +1,57 @@
-use slog_scope::{error, info};
+use slog_scope::{error, info, warn};
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
 use thiserror::Error;
+use tokio::sync::RwLock;
 use tokio::time::sleep;
 
-use crate::certificate_handler::CertificateHandlerError;
-use crate::single_signer::SingleSignerError;
 use mithril_common::crypto_helper::{key_encode_hex, Bytes};
 use mithril_common::digesters::{Digester, DigesterError};
 use mithril_common::entities::{self, Beacon, CertificatePending, SignerWithStake};
-use mithril_common::fake_data;
+use mithril_common::store::stake_store::{StakeStore, StakeStoreError, StakeStorer};
 
 use super::certificate_handler::CertificateHandler;
 use super::single_signer::SingleSigner;
+use crate::certificate_handler::CertificateHandlerError;
+use crate::single_signer::SingleSignerError;
+
+///  StakeStoreWrapper wraps a StakeStore
+pub type StakeStoreWrapper = Arc<RwLock<StakeStore>>;
 
 pub struct Runtime {
     certificate_handler: Box<dyn CertificateHandler>,
     single_signer: Box<dyn SingleSigner>,
     digester: Box<dyn Digester>,
     current_beacon: Option<Beacon>,
+    stake_store: StakeStoreWrapper,
 }
 
 #[derive(Error, Debug)]
 pub enum RuntimeError {
     #[error("single signatures computation failed: `{0}`")]
     SingleSignaturesComputeFailed(#[from] SingleSignerError),
+
     #[error("could not retrieve pending certificate: `{0}`")]
     RetrievePendingCertificateFailed(#[from] CertificateHandlerError),
+
     #[error("could not retrieve protocol initializer")]
     RetrieveProtocolInitializerFailed(),
+
     #[error("register signer failed: `{0}`")]
     RegisterSignerFailed(String),
+
     #[error("codec error:`{0}`")]
     Codec(String),
+
     #[error("digest computation failed: `{0}`")]
     Digester(#[from] DigesterError),
+
+    #[error("stake store error: '{0}'")]
+    StakeStore(#[from] StakeStoreError),
+
+    #[error("no stakes available")]
+    UnavailableStakes(),
 }
 
 impl Runtime {
@@ -42,12 +59,14 @@ impl Runtime {
         certificate_handler: Box<dyn CertificateHandler>,
         single_signer: Box<dyn SingleSigner>,
         digester: Box<dyn Digester>,
+        stake_store: StakeStoreWrapper,
     ) -> Self {
         Self {
             certificate_handler,
             single_signer,
             digester,
             current_beacon: None,
+            stake_store,
         }
     }
 
@@ -70,10 +89,10 @@ impl Runtime {
         {
             self.register_to_aggregator_if_needed().await?;
 
-            if self.should_register_signature(&pending_certificate.beacon) {
+            if self.should_register_signatures(&pending_certificate.beacon) {
                 let message = self.digester.compute_digest()?;
                 info!("Signing digest"; "digester_result" => #?message);
-                self.register_signature(message.digest.into_bytes(), pending_certificate)
+                self.register_signatures(message.digest.into_bytes(), pending_certificate)
                     .await?;
             }
         }
@@ -81,7 +100,7 @@ impl Runtime {
         Ok(())
     }
 
-    fn should_register_signature(&self, new_beacon: &Beacon) -> bool {
+    fn should_register_signatures(&self, new_beacon: &Beacon) -> bool {
         match &self.current_beacon {
             None => {
                 info!("Unknown beacon, signatures will be registered ...");
@@ -121,7 +140,7 @@ impl Runtime {
         Ok(())
     }
 
-    async fn register_signature(
+    async fn register_signatures(
         &mut self,
         message: Bytes,
         pending_certificate: CertificatePending,
@@ -132,10 +151,18 @@ impl Runtime {
             .map(|signer| (signer.party_id, signer.verification_key.as_str()))
             .collect::<HashMap<u64, &str>>();
 
-        let stake_distribution = fake_data::signers_with_stakes(5);
+        #[allow(unused_variables)]
+        let epoch = pending_certificate.beacon.epoch;
+        let epoch = 0; // TODO: to remove once the runtime feeds the stake distribution
+        warn!("Epoch computation is not final and needs to be fixed");
+        let stake_store = self.stake_store.read().await;
+        let stake_distribution = stake_store
+            .get_stakes(epoch)
+            .await?
+            .ok_or_else(RuntimeError::UnavailableStakes)?;
         let stake_distribution_extended = stake_distribution
             .into_iter()
-            .map(|signer| {
+            .map(|(_, signer)| {
                 let verification_key = match verification_keys.get(&signer.party_id) {
                     Some(verification_key_found) => *verification_key_found,
                     None => "",
@@ -169,8 +196,10 @@ mod tests {
     use super::*;
 
     use mithril_common::crypto_helper::tests_setup::*;
+    use mithril_common::crypto_helper::ProtocolStakeDistribution;
     use mithril_common::digesters::{Digester, DigesterError, DigesterResult};
     use mithril_common::fake_data;
+    use mithril_common::store::adapter::MemoryAdapter;
     use mockall::mock;
 
     mock! {
@@ -180,11 +209,31 @@ mod tests {
         }
     }
 
+    async fn setup_stake_store() -> StakeStore {
+        let total_signers = 5;
+        let epoch = 0;
+        let mut stake_store = StakeStore::new(Box::new(
+            MemoryAdapter::<u64, HashMap<u64, entities::SignerWithStake>>::new(None).unwrap(),
+        ));
+        let stakes: ProtocolStakeDistribution = fake_data::signers_with_stakes(total_signers)
+            .into_iter()
+            .map(|signer| signer.into())
+            .collect::<_>();
+        for stake in stakes {
+            stake_store
+                .save_stake(epoch, stake.into())
+                .await
+                .expect("fake stake distribution update failed");
+        }
+        stake_store
+    }
+
     #[tokio::test]
     async fn signer_doesnt_sign_when_there_is_no_pending_certificate() {
         let current_signer = &setup_signers(1)[0];
         let party_id = current_signer.clone().0;
         let protocol_initializer = current_signer.4.clone();
+        let stake_store = setup_stake_store().await;
         let mut mock_certificate_handler = MockCertificateHandler::new();
         let mut mock_single_signer = MockSingleSigner::new();
         let mock_digester = MockDigesterImpl::new();
@@ -211,12 +260,14 @@ mod tests {
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
             Box::new(mock_digester),
+            Arc::new(RwLock::new(stake_store)),
         );
         assert!(signer.run().await.is_ok());
     }
 
     #[tokio::test]
     async fn signer_fails_when_pending_certificate_fails() {
+        let stake_store = setup_stake_store().await;
         let mut mock_certificate_handler = MockCertificateHandler::new();
         let mut mock_single_signer = MockSingleSigner::new();
         let mock_digester = MockDigesterImpl::new();
@@ -235,6 +286,7 @@ mod tests {
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
             Box::new(mock_digester),
+            Arc::new(RwLock::new(stake_store)),
         );
         assert_eq!(
             RuntimeError::RetrievePendingCertificateFailed(
@@ -250,6 +302,7 @@ mod tests {
         let current_signer = &setup_signers(1)[0];
         let party_id = current_signer.clone().0;
         let protocol_initializer = current_signer.4.clone();
+        let stake_store = setup_stake_store().await;
         let mut mock_certificate_handler = MockCertificateHandler::new();
         let mut mock_single_signer = MockSingleSigner::new();
         let mut mock_digester = MockDigesterImpl::new();
@@ -291,6 +344,7 @@ mod tests {
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
             Box::new(mock_digester),
+            Arc::new(RwLock::new(stake_store)),
         );
         assert!(signer.run().await.is_ok());
         assert!(signer.run().await.is_ok());
@@ -301,6 +355,7 @@ mod tests {
         let current_signer = &setup_signers(1)[0];
         let party_id = current_signer.clone().0;
         let protocol_initializer = current_signer.4.clone();
+        let stake_store = setup_stake_store().await;
         let mut mock_certificate_handler = MockCertificateHandler::new();
         let mut mock_single_signer = MockSingleSigner::new();
         let mut mock_digester = MockDigesterImpl::new();
@@ -345,6 +400,7 @@ mod tests {
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
             Box::new(mock_digester),
+            Arc::new(RwLock::new(stake_store)),
         );
         assert!(signer.run().await.is_ok());
         assert!(signer.run().await.is_ok());
@@ -355,6 +411,7 @@ mod tests {
         let current_signer = &setup_signers(1)[0];
         let party_id = current_signer.clone().0;
         let protocol_initializer = current_signer.4.clone();
+        let stake_store = setup_stake_store().await;
         let mut mock_certificate_handler = MockCertificateHandler::new();
         let mut mock_single_signer = MockSingleSigner::new();
         let mut mock_digester = MockDigesterImpl::new();
@@ -391,12 +448,14 @@ mod tests {
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
             Box::new(mock_digester),
+            Arc::new(RwLock::new(stake_store)),
         );
         assert!(signer.run().await.is_ok());
     }
 
     #[tokio::test]
     async fn signer_fails_if_signature_computation_fails() {
+        let stake_store = setup_stake_store().await;
         let mut mock_certificate_handler = MockCertificateHandler::new();
         let mut mock_single_signer = MockSingleSigner::new();
         let mut mock_digester = MockDigesterImpl::new();
@@ -421,6 +480,7 @@ mod tests {
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
             Box::new(mock_digester),
+            Arc::new(RwLock::new(stake_store)),
         );
         assert_eq!(
             RuntimeError::SingleSignaturesComputeFailed(
@@ -437,6 +497,7 @@ mod tests {
         let party_id = current_signer.clone().0;
         let protocol_initializer = current_signer.4.clone();
         let pending_certificate = fake_data::certificate_pending();
+        let stake_store = setup_stake_store().await;
         let mut mock_certificate_handler = MockCertificateHandler::new();
         let mut mock_single_signer = MockSingleSigner::new();
         let mock_digester = MockDigesterImpl::new();
@@ -467,6 +528,7 @@ mod tests {
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
             Box::new(mock_digester),
+            Arc::new(RwLock::new(stake_store)),
         );
         assert_eq!(
             RuntimeError::RegisterSignerFailed(
@@ -480,6 +542,7 @@ mod tests {
 
     #[tokio::test]
     async fn signer_fails_if_digest_computation_fails() {
+        let stake_store = setup_stake_store().await;
         let mut mock_certificate_handler = MockCertificateHandler::new();
         let mut mock_single_signer = MockSingleSigner::new();
         let mut mock_digester = MockDigesterImpl::new();
@@ -504,6 +567,7 @@ mod tests {
             Box::new(mock_certificate_handler),
             Box::new(mock_single_signer),
             Box::new(mock_digester),
+            Arc::new(RwLock::new(stake_store)),
         );
         assert_eq!(
             RuntimeError::Digester(DigesterError::NotEnoughImmutable()).to_string(),
