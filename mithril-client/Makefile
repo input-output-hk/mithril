@@ -34,3 +34,9 @@ help:
 
 doc:
 	${CARGO} doc --no-deps --open
+
+docker-build:
+	cd ../ && docker build -t mithril/mithril-client -f mithril-client/Dockerfile .
+
+docker-run:
+	docker run --rm --name='mithril-client' mithril/mithril-client

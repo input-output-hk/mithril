@@ -1,0 +1,9 @@
+tx
+logs
+ipc
+.log
+artifacts
+cardano-cli
+cardano-node
+tmp
+.tar.gz

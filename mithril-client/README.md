@@ -7,15 +7,16 @@
 * This cli implements a MVP version of a **Mithril Client**.
 
 ---
-## Pre-requisites:
+
+## Pre-requisites
 
 **Install Rust**
 
-- Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (version 1.58.0+).
-- Install Rust [Clippy](https://github.com/rust-lang/rust-clippy) component.
+* Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (version 1.58.0+).
+* Install Rust [Clippy](https://github.com/rust-lang/rust-clippy) component.
 
+## Download source code
 
-## Download source code:
 ```bash
 # Download sources from github
 git clone https://github.com/input-output-hk/mithril
@@ -24,7 +25,8 @@ git clone https://github.com/input-output-hk/mithril
 cd mithril-client
 ```
 
-## Development test and build:
+## Development test and build
+
 ```bash
 # Test
 make test
@@ -39,7 +41,8 @@ make doc
 make debug
 ```
 
-## Release build and run binary:
+## Release build and run binary
+
 ```bash
 # Build and run in release with default configuration
 make run list
@@ -62,13 +65,12 @@ make build
 NETWORK=testnet AGGREGATOR_ENDPOINT=http://aggregator.api.mithril.network/aggregator ./mithril-client
 ```
 
-## Build and run Docker container:
+## Build and run Docker container
 
 ```bash
 # Build Docker image
-cd ../
-docker build -t mithril/mithril-client -f mithril-client/Dockerfile .
+make docker-build
 
 # Run Docker container
-docker run --rm --name='mithril-client' mithril/mithril-client
+make docker-run
 ```
