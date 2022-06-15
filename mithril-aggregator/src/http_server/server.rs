@@ -8,12 +8,12 @@ use std::sync::Arc;
 use warp::Future;
 use warp::{http::Method, http::StatusCode, Filter};
 
-use super::dependency::{
-    CertificatePendingStoreWrapper, CertificateStoreWrapper, DependencyManager, MultiSignerWrapper,
+use crate::dependency::{
+    CertificatePendingStoreWrapper, CertificateStoreWrapper, MultiSignerWrapper,
     SnapshotStoreWrapper,
 };
-use super::multi_signer;
-use super::Config;
+use crate::Config;
+use crate::{multi_signer, DependencyManager};
 
 pub const SERVER_BASE_PATH: &str = "aggregator";
 
@@ -46,6 +46,7 @@ impl Server {
 
 mod router {
     use super::*;
+    use crate::http_server::middlewares;
 
     /// Routes
     pub fn routes(
@@ -75,7 +76,9 @@ mod router {
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("certificate-pending")
             .and(warp::get())
-            .and(with_certificate_pending_store(dependency_manager))
+            .and(middlewares::with_certificate_pending_store(
+                dependency_manager,
+            ))
             .and_then(handlers::certificate_pending)
     }
 
@@ -85,7 +88,7 @@ mod router {
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("certificate" / String)
             .and(warp::get())
-            .and(with_certificate_store(dependency_manager))
+            .and(middlewares::with_certificate_store(dependency_manager))
             .and_then(handlers::certificate_certificate_hash)
     }
 
@@ -95,7 +98,7 @@ mod router {
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("snapshots")
             .and(warp::get())
-            .and(with_snapshot_store(dependency_manager))
+            .and(middlewares::with_snapshot_store(dependency_manager))
             .and_then(handlers::snapshots)
     }
 
@@ -105,8 +108,8 @@ mod router {
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("snapshot" / String / "download")
             .and(warp::get())
-            .and(with_config(dependency_manager.clone()))
-            .and(with_snapshot_store(dependency_manager))
+            .and(middlewares::with_config(dependency_manager.clone()))
+            .and(middlewares::with_snapshot_store(dependency_manager))
             .and_then(handlers::snapshot_download)
     }
 
@@ -117,7 +120,7 @@ mod router {
 
         warp::path("snapshot_download")
             .and(warp::fs::dir(config.snapshot_directory))
-            .and(with_snapshot_store(dependency_manager))
+            .and(middlewares::with_snapshot_store(dependency_manager))
             .and_then(handlers::ensure_downloaded_file_is_a_snapshot)
     }
 
@@ -127,7 +130,7 @@ mod router {
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("snapshot" / String)
             .and(warp::get())
-            .and(with_snapshot_store(dependency_manager))
+            .and(middlewares::with_snapshot_store(dependency_manager))
             .and_then(handlers::snapshot_digest)
     }
 
@@ -138,7 +141,7 @@ mod router {
         warp::path!("register-signer")
             .and(warp::post())
             .and(warp::body::json())
-            .and(with_multi_signer(dependency_manager))
+            .and(middlewares::with_multi_signer(dependency_manager))
             .and_then(handlers::register_signer)
     }
 
@@ -149,60 +152,12 @@ mod router {
         warp::path!("register-signatures")
             .and(warp::post())
             .and(warp::body::json())
-            .and(with_multi_signer(dependency_manager))
+            .and(middlewares::with_multi_signer(dependency_manager))
             .and_then(handlers::register_signatures)
-    }
-
-    /// With snapshot store middleware
-    fn with_snapshot_store(
-        dependency_manager: Arc<DependencyManager>,
-    ) -> impl Filter<Extract = (SnapshotStoreWrapper,), Error = Infallible> + Clone {
-        warp::any().map(move || dependency_manager.snapshot_store.as_ref().unwrap().clone())
-    }
-
-    /// With certificate store middleware
-    fn with_certificate_store(
-        dependency_manager: Arc<DependencyManager>,
-    ) -> impl Filter<Extract = (CertificateStoreWrapper,), Error = Infallible> + Clone {
-        warp::any().map(move || {
-            dependency_manager
-                .certificate_store
-                .as_ref()
-                .unwrap()
-                .clone()
-        })
-    }
-
-    /// With certificate pending store
-    fn with_certificate_pending_store(
-        dependency_manager: Arc<DependencyManager>,
-    ) -> impl Filter<Extract = (CertificatePendingStoreWrapper,), Error = Infallible> + Clone {
-        warp::any().map(move || {
-            dependency_manager
-                .certificate_pending_store
-                .as_ref()
-                .unwrap()
-                .clone()
-        })
-    }
-
-    /// With multi signer middleware
-    fn with_multi_signer(
-        dependency_manager: Arc<DependencyManager>,
-    ) -> impl Filter<Extract = (MultiSignerWrapper,), Error = Infallible> + Clone {
-        warp::any().map(move || dependency_manager.multi_signer.as_ref().unwrap().clone())
-    }
-
-    /// With config middleware
-    fn with_config(
-        dependency_manager: Arc<DependencyManager>,
-    ) -> impl Filter<Extract = (Config,), Error = Infallible> + Clone {
-        warp::any().map(move || dependency_manager.config.clone())
     }
 }
 
 mod handlers {
-    use crate::dependency::CertificatePendingStoreWrapper;
 
     use super::*;
     use std::str::FromStr;
@@ -478,14 +433,14 @@ mod tests {
     use tokio::sync::RwLock;
     use warp::test::request;
 
-    use crate::CertificatePendingStore;
-
-    use super::super::entities::*;
-    use super::super::multi_signer::MockMultiSigner;
-    use super::super::multi_signer::ProtocolError;
-    use super::super::snapshot_stores::MockSnapshotStore;
-    use super::super::store::CertificateStore;
     use super::*;
+    use crate::entities::SnapshotStoreType;
+    use crate::entities::*;
+    use crate::multi_signer::MockMultiSigner;
+    use crate::multi_signer::ProtocolError;
+    use crate::snapshot_stores::MockSnapshotStore;
+    use crate::store::CertificateStore;
+    use crate::CertificatePendingStore;
 
     fn setup_dependency_manager() -> DependencyManager {
         let config = Config {
