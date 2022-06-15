@@ -26,3 +26,9 @@ help:
 
 doc:
 	${CARGO} doc --no-deps --open
+
+docker-build:
+	cd ../ && docker build -t mithril/mithril-aggregator -f mithril-aggregator/Dockerfile .
+
+docker-run:
+	docker run --rm -p 8080:8080 --name='mithril-aggregator' mithril/mithril-aggregator

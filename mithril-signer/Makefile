@@ -26,3 +26,9 @@ help:
 
 doc:
 	${CARGO} doc --no-deps --open
+
+docker-build:
+	cd ../ && docker build -t mithril/mithril-signer -f mithril-signer/Dockerfile .
+
+docker-run:
+	docker run --rm --name='mithril-signer' mithril/mithril-signer
