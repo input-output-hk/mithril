@@ -7,6 +7,9 @@ fi
 cd ${ROOT}
 
 # Query devnet
-echo "> Query Mithril/Cardano devnet"
+echo "====================================================================="
+echo " Query Mithril/Cardano devnet"
+echo "====================================================================="
+echo
 ./query.sh
 echo

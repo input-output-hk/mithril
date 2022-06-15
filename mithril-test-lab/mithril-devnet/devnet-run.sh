@@ -11,7 +11,10 @@ fi
 
 
 # Bootstrap devnet
-echo "> Bootstrap Mithril/Cardano devnet"
+echo "====================================================================="
+echo " Bootstrap Mithril/Cardano devnet"
+echo "====================================================================="
+echo
 echo ">> Directory: ${ROOT}"
 echo ">> Cardano BFT nodes: ${NUM_BFT_NODES}"
 echo ">> Cardano SPO nodes: ${NUM_POOL_NODES}"
@@ -24,12 +27,9 @@ echo
 cd ${ROOT}
 
 # Start devnet
-echo "> Start Mithril/Cardano devnet"
-./start.sh
+echo "====================================================================="
+echo " Start Mithril/Cardano devnet"
+echo "====================================================================="
 echo
-
-# Query devnet
-echo "> Query Mithril/Cardano devnet"
-sleep 10
-./query.sh
+./start.sh
 echo

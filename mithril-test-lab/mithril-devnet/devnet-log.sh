@@ -10,6 +10,9 @@ fi
 cd ${ROOT}
 
 # Logs devnet
-echo "> Start Mithril/Cardano devnet"
+echo "====================================================================="
+echo " Logs Mithril/Cardano devnet"
+echo "====================================================================="
+echo
 ./log.sh ${LINES}
 echo

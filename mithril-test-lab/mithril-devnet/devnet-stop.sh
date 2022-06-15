@@ -7,6 +7,9 @@ fi
 cd ${ROOT}
 
 # Stop devnet
-echo "> Start Mithril/Cardano devnet"
+echo "====================================================================="
+echo " Stop Mithril/Cardano devnet"
+echo "====================================================================="
+echo
 ./stop.sh
 echo

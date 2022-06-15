@@ -855,7 +855,7 @@ echo
 echo "To start the nodes, in separate terminals use:"
 echo
 cat >> start.sh <<EOF
-echo ">>> Start Cardano network"
+echo ">> Start Cardano network"
 killall cardano-node
 
 EOF
@@ -880,7 +880,7 @@ EOF
   chmod u+x ${NODE}/start-node.sh
 
   cat >> start.sh <<EOF
-echo ">>> Starting Cardano node '${NODE}'"
+echo ">> Starting Cardano node '${NODE}'"
 ./${NODE}/start-node.sh &
 
 EOF
@@ -905,7 +905,7 @@ EOF
   chmod u+x ${NODE}/start-node.sh
 
   cat >> start.sh <<EOF
-echo ">>> Starting Cardano node '${NODE}'"
+echo ">> Starting Cardano node '${NODE}'"
 ./${NODE}/start-node.sh &
 
 EOF
@@ -914,37 +914,37 @@ done
 
 cat >> start.sh <<EOF
 if [ -z "\${MITHRIL_IMAGE_ID}" ]; then 
-  echo ">>> Build Mithril node Docker images"
+  echo ">> Build Mithril node Docker images"
   PWD=$(pwd)
   cd ../../../
-  echo ">>>>>> Building Mithril Aggregator node Docker image"
+  echo ">>>> Building Mithril Aggregator node Docker image"
   cd mithril-aggregator && make docker-build > /dev/null && cd ..
-  echo ">>>>>> Building Mithril Client node Docker image"
+  echo ">>>> Building Mithril Client node Docker image"
   cd mithril-client && make docker-build > /dev/null && cd ..
-  echo ">>>>>> Building Mithril Signer node Docker image"
+  echo ">>>> Building Mithril Signer node Docker image"
   cd mithril-signer && make docker-build > /dev/null && cd ..
   cd $PWD
 fi
 
-echo ">>> Wait for Cardano network to be ready"
+echo ">> Wait for Cardano network to be ready"
 while true
 do
     EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip  \\
         --cardano-mode  \\
         --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq .epoch | sed -e "s/null//" | sed -e "s/ //" | tr -d '\n')
     if [ "\$EPOCH" != "" ] ; then
-        echo ">>>>>> Ready!"
+        echo ">>>> Ready!"
         break
     else
-        echo ">>>>>> Not ready yet"
+        echo ">>>> Not ready yet"
         sleep 2
     fi
 done
 
-echo ">>> Activate Cardano pools"
+echo ">> Activate Cardano pools"
 ./activate.sh ${ROOT}
 
-echo ">>> Start Mithril network"
+echo ">> Start Mithril network"
 docker-compose rm -f
 if [ -z "\${MITHRIL_IMAGE_ID}" ]; then 
   MITHRIL_AGGREGATOR_IMAGE="mithril/mithril-aggregator"
@@ -960,10 +960,10 @@ EOF
 chmod u+x start.sh
 
 cat >> stop.sh <<EOF
-echo ">>> Stop Cardano network"
+echo ">> Stop Cardano network"
 killall cardano-node
 
-echo ">>> Stop Mithril network"
+echo ">> Stop Mithril network"
 if [ -z "\${MITHRIL_IMAGE_ID}" ]; then 
   MITHRIL_AGGREGATOR_IMAGE="mithril/mithril-aggregator"
   MITHRIL_CLIENT_IMAGE="mithril/mithril-client"
