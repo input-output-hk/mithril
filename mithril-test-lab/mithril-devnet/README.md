@@ -18,11 +18,27 @@ This cli is inspired by this [script](https://github.com/input-output-hk/cardano
 * You need to run a Linux computer
 * You need to have a recent version of `jq` running (1.6+)
 
+## Download source code
+
+```bash
+# Download sources from github
+git clone https://github.com/input-output-hk/mithril
+
+# Go to sources directory
+cd mithril-test-lab/mitril-devnet
+
+# Chmod scripts
+chmod u+x *.sh
+```
+
 ## One step run with default configuration
 
 ```bash
-# Run devnet with 1 BFT node and 2 SPO nodes
+# Run devnet with 1 BFT node and 2 SPO nodes (with local docker images)
 ./devnet-run.sh
+
+# Run devnet with 1 BFT node and 2 SPO nodes (with remote docker images)
+MITHRIL_IMAGE_ID=main-c9213ca ./devnet-run.sh
 
 # Logs devnet
 ./devnet-log.sh
@@ -102,7 +118,7 @@ artifacts
 │   ├── user1.vkey
 │   ├── utxo1.addr
 │   ├── utxo1.skey
-│   ├── utxo1.vkey
+│   └── utxo1.vkey
 ├── cardano-cli
 ├── cardano-node
 ├── docker-compose.yaml
@@ -114,6 +130,7 @@ artifacts
 │   │   ├── genesis.json
 │   │   └── genesis.spec.json
 │   ├── configuration.yaml
+│   ├── ipc
 │   ├── shelley
 │   │   ├── genesis.alonzo.json
 │   │   ├── genesis.alonzo.spec.json
@@ -127,7 +144,7 @@ artifacts
 │   │   ├── operator.vkey
 │   │   ├── vrf.skey
 │   │   └── vrf.vkey
-│   ├── start.sh
+│   ├── start-node.sh
 │   ├── topology.docker.json
 │   ├── topology.json
 │   └── tx
@@ -136,6 +153,7 @@ artifacts
 │   │   ├── genesis.json
 │   │   └── genesis.spec.json
 │   ├── configuration.yaml
+│   ├── ipc
 │   ├── owner.skey
 │   ├── owner.vkey
 │   ├── registration.cert
@@ -152,12 +170,10 @@ artifacts
 │   │   ├── operator.vkey
 │   │   ├── vrf.skey
 │   │   └── vrf.vkey
-│   ├── start.sh
+│   ├── start-node.sh
 │   ├── topology.docker.json
 │   ├── topology.json
 │   └── tx
-│       ├── tx1.tx
-│       └── tx1.txbody
 ├── query.sh
 ├── start.sh
 └── stop.sh
@@ -166,22 +182,55 @@ artifacts
 ## Example utxo & stakes informations retrieved from the network
 
 ```bash
-#Query whole utxo
+> Query Mithril/Cardano devnet
+=====================================================================
+=== Cardano Network
+=====================================================================
+
+>> Query chain tip
+{
+    "era": "Alonzo",
+    "syncProgress": "100.00",
+    "hash": "b7fde5dea1a85879410c03c049f2ce199f9b1a17f22043e801ed7328a3a8f0ac",
+    "epoch": 4,
+    "slot": 400,
+    "block": 18
+}
+
+>> Query whole utxo
                            TxHash                                 TxIx        Amount
 --------------------------------------------------------------------------------------
-18985163fce6aadfe5f1d0948cca54486bd56056b4c2e6f2efc603f5207090ed     0        447999157 lovelace + TxOutDatumNone
-18985163fce6aadfe5f1d0948cca54486bd56056b4c2e6f2efc603f5207090ed     1        2000000 lovelace + TxOutDatumNone
-4a03ad5ad34bd2af65cc98d312fcf5c7e488f2a8129d8858fa7a0f4663df6fa7     0        1002000000 lovelace + TxOutDatumNone
-a3309948319c3e512857e8ff3d1921564344daf0b1bb2fa46e2c29e0fdc12beb     0        448999157 lovelace + TxOutDatumNone
-a3309948319c3e512857e8ff3d1921564344daf0b1bb2fa46e2c29e0fdc12beb     1        1000000 lovelace + TxOutDatumNone
+23f3844ba659a38da8d857ebd6ec93528adc603cc46f1605cdabdaaea57111d0     0        447999157 lovelace + TxOutDatumNone
+23f3844ba659a38da8d857ebd6ec93528adc603cc46f1605cdabdaaea57111d0     1        2000000 lovelace + TxOutDatumNone
+2c754076364cfc2a5279e97165f7d46b4035f7ff288ae41c407e1c3001ab895c     0        448999157 lovelace + TxOutDatumNone
+2c754076364cfc2a5279e97165f7d46b4035f7ff288ae41c407e1c3001ab895c     1        1000000 lovelace + TxOutDatumNone
+32ca53e1d9c33b221aff44f57f94b25f4523170912a5fa5ff32cd1c26b72a70d     0        1002000000 lovelace + TxOutDatumNone
 
-#Query stake pools
-pool16p2stm4les4jffzr87dljhelfdqh9cl4ccnkrvp0098xcs20acl
-pool1axjrjzexkcec782k0vpqfr0lsrc45fpwdjjm7vjvt94y2plyann
+>> Query stake pools
+pool1vqpavnczv7v2nrlx4l8f0prn4g4hmdyakrpfa8svkgls5clz5ck
+pool1s7rnz8hzkeu8fu62enc0x6smn2yzhnufrwxpxz0f4l2dk3vs4kc
 
-#Query stake distribution
+>> Query stake distribution
                            PoolId                                 Stake frac
 ------------------------------------------------------------------------------
-pool16p2stm4les4jffzr87dljhelfdqh9cl4ccnkrvp0098xcs20acl   1.052e-3
-pool1axjrjzexkcec782k0vpqfr0lsrc45fpwdjjm7vjvt94y2plyann   5.258e-4
+pool1vqpavnczv7v2nrlx4l8f0prn4g4hmdyakrpfa8svkgls5clz5ck   1.052e-3
+pool1s7rnz8hzkeu8fu62enc0x6smn2yzhnufrwxpxz0f4l2dk3vs4kc   5.258e-4
+
+=====================================================================
+=== Mithril Network
+=====================================================================
+
+>> Query pending certificate
+>> Query snapshots
+[
+  {
+    "digest": "d508794f186c2a6c75ccf71f13fccf37256fd01246b3ec74bcf456ee6ed8dddd",
+    "certificate_hash": "a0386153a88a52683fc2bb6f97914221445dee335858b15f023cbadc1166b103",
+    "size": 6212,
+    "created_at": "2022-06-15T11:36:29.362686957Z",
+    "locations": [
+      "http://0.0.0.0:8080/aggregator/snapshot/d508794f186c2a6c75ccf71f13fccf37256fd01246b3ec74bcf456ee6ed8dddd/download"
+    ]
+  }
+]
 ```
