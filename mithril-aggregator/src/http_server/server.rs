@@ -44,7 +44,7 @@ impl Server {
 
 mod router {
     use super::*;
-    use crate::http_server::{middlewares, signer_routes, snapshot_routes};
+    use crate::http_server::{middlewares, signatures_routes, signer_routes, snapshot_routes};
 
     /// Routes
     pub fn routes(
@@ -60,7 +60,7 @@ mod router {
                 .or(certificate_certificate_hash(dependency_manager.clone()))
                 .or(snapshot_routes::routes(dependency_manager.clone()))
                 .or(signer_routes::routes(dependency_manager.clone()))
-                .or(register_signatures(dependency_manager))
+                .or(signatures_routes::routes(dependency_manager))
                 .with(cors),
         )
     }
@@ -85,17 +85,6 @@ mod router {
             .and(warp::get())
             .and(middlewares::with_certificate_store(dependency_manager))
             .and_then(handlers::certificate_certificate_hash)
-    }
-
-    /// POST /register-signatures
-    pub fn register_signatures(
-        dependency_manager: Arc<DependencyManager>,
-    ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-        warp::path!("register-signatures")
-            .and(warp::post())
-            .and(warp::body::json())
-            .and(middlewares::with_multi_signer(dependency_manager))
-            .and_then(handlers::register_signatures)
     }
 }
 
@@ -154,57 +143,6 @@ mod handlers {
                 StatusCode::INTERNAL_SERVER_ERROR,
             )),
         }
-    }
-
-    /// Register Signatures
-    pub async fn register_signatures(
-        signatures: Vec<entities::SingleSignature>,
-        multi_signer: MultiSignerWrapper,
-    ) -> Result<impl warp::Reply, Infallible> {
-        debug!("register_signatures/{:?}", signatures);
-
-        let mut multi_signer = multi_signer.write().await;
-        for signature in &signatures {
-            match key_decode_hex(&signature.signature) {
-                Ok(single_signature) => {
-                    match multi_signer
-                        .register_single_signature(
-                            signature.party_id as ProtocolPartyId,
-                            &single_signature,
-                            signature.index as ProtocolLotteryIndex,
-                        )
-                        .await
-                    {
-                        Err(multi_signer::ProtocolError::ExistingSingleSignature(_)) => {
-                            return Ok(warp::reply::with_status(
-                                warp::reply::json(&Null),
-                                StatusCode::CONFLICT,
-                            ));
-                        }
-                        Err(err) => {
-                            return Ok(warp::reply::with_status(
-                                warp::reply::json(&entities::Error::new(
-                                    "MITHRIL-E0003".to_string(),
-                                    err.to_string(),
-                                )),
-                                StatusCode::INTERNAL_SERVER_ERROR,
-                            ));
-                        }
-                        _ => {}
-                    }
-                }
-                Err(_) => {
-                    return Ok(warp::reply::with_status(
-                        warp::reply::json(&Null),
-                        StatusCode::BAD_REQUEST,
-                    ));
-                }
-            }
-        }
-        Ok(warp::reply::with_status(
-            warp::reply::json(&Null),
-            StatusCode::CREATED,
-        ))
     }
 }
 
@@ -387,136 +325,6 @@ mod tests {
             .method(method)
             .path(path)
             .validate_request(&Null)
-            .unwrap()
-            .validate_response(&response)
-            .expect("OpenAPI error");
-    }
-
-    #[tokio::test]
-    async fn test_register_signatures_post_ok() {
-        let mut mock_multi_signer = MockMultiSigner::new();
-        mock_multi_signer
-            .expect_update_current_message()
-            .return_once(|_| Ok(()));
-        mock_multi_signer
-            .expect_register_single_signature()
-            .return_once(|_, _, _| Ok(()));
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
-
-        let signatures = &fake_data::single_signatures(1);
-
-        let method = Method::POST.as_str();
-        let path = "/register-signatures";
-
-        let response = request()
-            .method(method)
-            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .json(signatures)
-            .reply(&router::routes(Arc::new(dependency_manager)))
-            .await;
-
-        APISpec::from_file(API_SPEC_FILE)
-            .method(method)
-            .path(path)
-            .validate_request(&signatures)
-            .unwrap()
-            .validate_response(&response)
-            .expect("OpenAPI error");
-    }
-
-    #[tokio::test]
-    async fn test_register_signatures_post_ko_400() {
-        let mut mock_multi_signer = MockMultiSigner::new();
-        mock_multi_signer
-            .expect_update_current_message()
-            .return_once(|_| Ok(()));
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
-
-        let mut signatures = fake_data::single_signatures(1);
-        signatures[0].signature = "invalid-signature".to_string();
-
-        let method = Method::POST.as_str();
-        let path = "/register-signatures";
-
-        let response = request()
-            .method(method)
-            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .json(&signatures)
-            .reply(&router::routes(Arc::new(dependency_manager)))
-            .await;
-
-        APISpec::from_file(API_SPEC_FILE)
-            .method(method)
-            .path(path)
-            .validate_request(&signatures)
-            .unwrap()
-            .validate_response(&response)
-            .expect("OpenAPI error");
-    }
-
-    #[tokio::test]
-    async fn test_register_signatures_post_ko_409() {
-        let mut mock_multi_signer = MockMultiSigner::new();
-        mock_multi_signer
-            .expect_update_current_message()
-            .return_once(|_| Ok(()));
-        mock_multi_signer
-            .expect_register_single_signature()
-            .return_once(|_, _, _| Err(ProtocolError::ExistingSingleSignature(1)));
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
-
-        let signatures = &fake_data::single_signatures(1);
-
-        let method = Method::POST.as_str();
-        let path = "/register-signatures";
-
-        let response = request()
-            .method(method)
-            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .json(signatures)
-            .reply(&router::routes(Arc::new(dependency_manager)))
-            .await;
-
-        APISpec::from_file(API_SPEC_FILE)
-            .method(method)
-            .path(path)
-            .validate_request(&signatures)
-            .unwrap()
-            .validate_response(&response)
-            .expect("OpenAPI error");
-    }
-
-    #[tokio::test]
-    async fn test_register_signatures_post_ko_500() {
-        let mut mock_multi_signer = MockMultiSigner::new();
-        mock_multi_signer
-            .expect_update_current_message()
-            .return_once(|_| Ok(()));
-        mock_multi_signer
-            .expect_register_single_signature()
-            .return_once(|_, _, _| Err(ProtocolError::Core("an error occurred".to_string())));
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
-
-        let signatures = &fake_data::single_signatures(1);
-
-        let method = Method::POST.as_str();
-        let path = "/register-signatures";
-
-        let response = request()
-            .method(method)
-            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .json(signatures)
-            .reply(&router::routes(Arc::new(dependency_manager)))
-            .await;
-
-        APISpec::from_file(API_SPEC_FILE)
-            .method(method)
-            .path(path)
-            .validate_request(&signatures)
             .unwrap()
             .validate_response(&response)
             .expect("OpenAPI error");
