@@ -564,6 +564,22 @@ echo "====================================================================="
 echo
 
 cat >> query.sh <<EOF
+
+echo "====================================================================="
+echo "=== Mithril Network"
+echo "====================================================================="
+echo
+
+AGGREGATOR_API_ENDPOINT="http://0.0.0.0:8080/aggregator"
+
+echo ">> Query pending certificate"
+curl -s \${AGGREGATOR_API_ENDPOINT}/certificate-pending | jq .
+echo
+
+echo ">> Query snapshots"
+curl -s \${AGGREGATOR_API_ENDPOINT}/snapshots | jq .
+echo
+
 echo "====================================================================="
 echo "=== Cardano Network"
 echo "====================================================================="
@@ -591,21 +607,6 @@ echo ">> Query stake distribution"
 CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query stake-distribution \\
     --cardano-mode  \\
     --testnet-magic ${NETWORK_MAGIC}
-echo
-
-echo "====================================================================="
-echo "=== Mithril Network"
-echo "====================================================================="
-echo
-
-AGGREGATOR_API_ENDPOINT="http://0.0.0.0:8080/aggregator"
-
-echo ">> Query pending certificate"
-curl -s \${AGGREGATOR_API_ENDPOINT}/certificate-pending | jq .
-echo
-
-echo ">> Query snapshots"
-curl -s \${AGGREGATOR_API_ENDPOINT}/snapshots | jq .
 echo
 
 EOF
@@ -776,6 +777,8 @@ cat >> docker-compose.yaml <<EOF
       [
         "--db-directory",
         "/data/db",
+        "--snapshot-directory",
+        "/data/mithril/aggregator",
         "--server-port",
         "8080", 
         "--runtime-interval", 
@@ -806,7 +809,7 @@ cat >> docker-compose.yaml <<EOF
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
       - NETWORK=devnet
       - PARTY_ID=${NODE_IX}
-      - RUN_INTERVAL=10000
+      - RUN_INTERVAL=1000
       - DB_DIRECTORY=/data/db
     command:
       [
@@ -981,14 +984,18 @@ cat >> log.sh <<EOF
 LINES=\$1
 SEPARATOR="====================================================================="
 
-find . -type f -print | grep "node.log" | sort -n | xargs -i  sh -c 'echo '\${SEPARATOR}' && echo tail -n '\${LINES}' {} && echo '\${SEPARATOR}' && tail -n '\${LINES}' {} && echo '\${SEPARATOR}' && echo'
-
+# Mithril nodes logs
 echo \${SEPARATOR}
 echo '-- ' docker-compose logs --tail="\${LINES}"
 echo \${SEPARATOR}
 docker-compose logs --tail="\${LINES}"
 echo 
 echo \${SEPARATOR}
+
+# Cardano nodes logs
+find . -type f -print | grep "node.log" | sort -n | xargs -i  sh -c 'echo '\${SEPARATOR}' && echo tail -n '\${LINES}' {} && echo '\${SEPARATOR}' && tail -n '\${LINES}' {} && echo '\${SEPARATOR}' && echo'
+
+
 EOF
 chmod u+x log.sh
 echo "====================================================================="
