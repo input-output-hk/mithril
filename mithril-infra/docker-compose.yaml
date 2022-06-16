@@ -35,16 +35,17 @@ services:
       - URL_SNAPSHOT_MANIFEST=https://storage.googleapis.com/cardano-${NETWORK:-testnet}/snapshots.json
       - SNAPSHOT_STORE_TYPE=local
       - SNAPSHOT_UPLOADER_TYPE=gcp
-      - PENDING_CERTIFICATE_STORE_DIRECTORY=/tmp/mithril-aggregator/pending_cert_db
-      - CERTIFICATE_STORE_DIRECTORY=/tmp/mithril-aggregator/cert_db
-      - VERIFICATION_KEY_STORE_DIRECTORY=/tmp/mithril-aggregator/verification_key_db
-      - STAKE_STORE_DIRECTORY=/tmp/mithril-aggregator/stake_db
+      - PENDING_CERTIFICATE_STORE_DIRECTORY=/mithril-aggregator/pending_cert_db
+      - CERTIFICATE_STORE_DIRECTORY=/mithril-aggregator/cert_db
+      - VERIFICATION_KEY_STORE_DIRECTORY=/mithril-aggregator/verification_key_db
+      - STAKE_STORE_DIRECTORY=/mithril-aggregator/stake_db
     logging:
       driver: "json-file"
       options:
         max-size: "100m"
         max-file: "5"
     volumes:
+      - ./testnet/mithril-aggregator:/mithril-aggregator
       - ./testnet/node.db:/db
       - ./ipc:/ipc
     ports:
@@ -64,8 +65,9 @@ services:
       - PARTY_ID=0
       - RUN_INTERVAL=60000
       - DB_DIRECTORY=/db
-      - STAKE_STORE_DIRECTORY=/tmp/mithril-signer-0/stake_db
+      - STAKE_STORE_DIRECTORY=/mithril-signer-0/stake_db
     volumes:
+      - ./testnet/mithril-signer-0:/mithril-signer-0
       - ./testnet/node.db:/db
 
   mithril-signer-1:
@@ -82,8 +84,9 @@ services:
       - PARTY_ID=1
       - RUN_INTERVAL=60000
       - DB_DIRECTORY=/db
-      - STAKE_STORE_DIRECTORY=/tmp/mithril-signer-1/stake_db
+      - STAKE_STORE_DIRECTORY=/mithril-signer-1/stake_db
     volumes:
+      - ./testnet/mithril-signer-1:/mithril-signer-1
       - ./testnet/node.db:/db
 
   mithril-signer-2:
@@ -100,8 +103,9 @@ services:
       - PARTY_ID=2
       - RUN_INTERVAL=60000
       - DB_DIRECTORY=/db
-      - STAKE_STORE_DIRECTORY=/tmp/mithril-signer-2/stake_db
+      - STAKE_STORE_DIRECTORY=/mithril-signer-2/stake_db
     volumes:
+      - ./testnet/mithril-signer-2:/mithril-signer-2
       - ./testnet/node.db:/db
 
   mithril-signer-3:
@@ -118,8 +122,9 @@ services:
       - PARTY_ID=3
       - RUN_INTERVAL=60000
       - DB_DIRECTORY=/db
-      - STAKE_STORE_DIRECTORY=/tmp/mithril-signer-3/stake_db
+      - STAKE_STORE_DIRECTORY=/mithril-signer-3/stake_db
     volumes:
+      - ./testnet/mithril-signer-3:/mithril-signer-3
       - ./testnet/node.db:/db
 
   prometheus:
