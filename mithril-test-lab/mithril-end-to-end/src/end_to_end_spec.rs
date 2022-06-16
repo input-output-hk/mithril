@@ -56,7 +56,7 @@ impl Spec {
 async fn wait_for_pending_certificate(aggregator_endpoint: &str) -> Result<(), String> {
     let url = format!("{}/certificate-pending", aggregator_endpoint);
 
-    match attempt!(10, Duration::from_millis(100), {
+    match attempt!(10, Duration::from_millis(1000), {
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => {

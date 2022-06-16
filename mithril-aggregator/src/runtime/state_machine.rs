@@ -154,14 +154,14 @@ impl AggregatorRuntime {
     ) -> Result<IdleState, RuntimeError> {
         let certificate_pending = self.runner.drop_pending_certificate().await?;
         let path = self.runner.create_snapshot_archive().await?;
-        let _ = self.runner.upload_snapshot_archive(&path).await?;
+        let locations = self.runner.upload_snapshot_archive(&path).await?;
         let certificate = self
             .runner
             .create_and_save_certificate(&state.current_beacon, &certificate_pending)
             .await?;
         let _ = self
             .runner
-            .create_and_save_snapshot(certificate, &path, Vec::new())
+            .create_and_save_snapshot(certificate, &path, locations)
             .await?;
 
         Ok(IdleState {

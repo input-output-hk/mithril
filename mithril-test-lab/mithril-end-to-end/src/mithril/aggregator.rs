@@ -25,11 +25,14 @@ impl Aggregator {
             ("SNAPSHOT_UPLOADER_TYPE", "local"),
             (
                 "PENDING_CERTIFICATE_STORE_DIRECTORY",
-                "./store/pending-certs",
+                "./store/aggregator/pending-certs",
             ),
-            ("CERTIFICATE_STORE_DIRECTORY", "./store/certs"),
-            ("VERIFICATION_KEY_STORE_DIRECTORY", "./store/certs"),
-            ("STAKE_STORE_DIRECTORY", "./store/stakes"),
+            ("CERTIFICATE_STORE_DIRECTORY", "./store/aggregator/certs"),
+            (
+                "VERIFICATION_KEY_STORE_DIRECTORY",
+                "./store/aggregator/certs",
+            ),
+            ("STAKE_STORE_DIRECTORY", "./store/aggregator/stakes"),
         ]);
         let args = vec![
             "--db-directory",

@@ -4,6 +4,7 @@ use crate::snapshot_uploaders::SnapshotLocation;
 use crate::{DependencyManager, SnapshotError, Snapshotter};
 use async_trait::async_trait;
 use chrono::Utc;
+use hex::FromHex;
 use mithril_common::digesters::{Digester, DigesterResult, ImmutableDigester, ImmutableFile};
 use mithril_common::entities::{Beacon, Certificate, CertificatePending, Snapshot};
 
@@ -378,8 +379,9 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         file_path: &Path,
         remote_locations: Vec<String>,
     ) -> Result<Snapshot, RuntimeError> {
+        let digest_hex = Vec::from_hex(certificate.digest).unwrap();
         let snapshot = Snapshot::new(
-            certificate.digest,
+            String::from_utf8(digest_hex).map_err(|e| RuntimeError::General(e.to_string()))?,
             certificate.hash,
             std::fs::metadata(file_path)
                 .map_err(|e| RuntimeError::General(e.to_string()))?
