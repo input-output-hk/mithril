@@ -1,9 +1,9 @@
+use crate::http_server::routes::router;
 use crate::DependencyManager;
 use slog_scope::info;
 use std::net::IpAddr;
 use std::sync::Arc;
 use warp::Future;
-use warp::{http::Method, Filter};
 
 pub const SERVER_BASE_PATH: &str = "aggregator";
 
@@ -31,30 +31,5 @@ impl Server {
         let (_, server) =
             warp::serve(routes).bind_with_graceful_shutdown((self.ip, self.port), shutdown_signal);
         tokio::spawn(server).await.unwrap();
-    }
-}
-
-mod router {
-    use super::*;
-    use crate::http_server::{
-        certificate_routes, signatures_routes, signer_routes, snapshot_routes,
-    };
-
-    /// Routes
-    pub fn routes(
-        dependency_manager: Arc<DependencyManager>,
-    ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-        let cors = warp::cors()
-            .allow_any_origin()
-            .allow_headers(vec!["content-type"])
-            .allow_methods(vec![Method::GET, Method::POST, Method::OPTIONS]);
-
-        warp::any().and(warp::path(SERVER_BASE_PATH)).and(
-            certificate_routes::routes(dependency_manager.clone())
-                .or(snapshot_routes::routes(dependency_manager.clone()))
-                .or(signer_routes::routes(dependency_manager.clone()))
-                .or(signatures_routes::routes(dependency_manager))
-                .with(cors),
-        )
     }
 }

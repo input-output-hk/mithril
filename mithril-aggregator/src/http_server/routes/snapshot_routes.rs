@@ -1,4 +1,4 @@
-use crate::http_server::middlewares;
+use crate::http_server::routes::middlewares;
 use crate::DependencyManager;
 use std::sync::Arc;
 use warp::Filter;
