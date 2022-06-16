@@ -57,16 +57,14 @@ impl MithrilInfrastructure {
         let glob_expr = format!("{}/*.chunk", db_path.to_string_lossy());
 
         let mut filelist = glob::glob(&glob_expr)?
-            .map(|f| {
-                str::parse::<usize>(f.unwrap().file_stem().unwrap().to_str().unwrap()).unwrap()
-            })
-            .collect::<Vec<usize>>();
-        filelist.sort();
+            .map(|f| str::parse::<u32>(f.unwrap().file_stem().unwrap().to_str().unwrap()).unwrap())
+            .collect::<Vec<u32>>();
+        filelist.sort_unstable();
         let new_number = filelist.pop().unwrap() + 1;
-
         std::fs::File::create(db_path.join(format!("{:05}.chunk", new_number)))?;
         std::fs::File::create(db_path.join(format!("{:05}.primary", new_number)))?;
         std::fs::File::create(db_path.join(format!("{:05}.secondary", new_number)))?;
+
         Ok(())
     }
 }
