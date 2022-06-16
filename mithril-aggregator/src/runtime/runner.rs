@@ -4,7 +4,6 @@ use crate::snapshot_uploaders::SnapshotLocation;
 use crate::{DependencyManager, SnapshotError, Snapshotter};
 use async_trait::async_trait;
 use chrono::Utc;
-use hex::FromHex;
 use mithril_common::digesters::{Digester, DigesterResult, ImmutableDigester, ImmutableFile};
 use mithril_common::entities::{Beacon, Certificate, CertificatePending, Snapshot};
 
@@ -256,7 +255,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .ok_or_else(|| RuntimeError::General("no multisigner registered".to_string()))?
             .write()
             .await
-            .update_current_message(digest_result.digest.into_bytes())
+            .update_current_message(digest_result.digest)
             .await
             .map_err(RuntimeError::MultiSigner)
     }
@@ -301,11 +300,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .get_current_message()
             .await
             .ok_or_else(|| RuntimeError::General("no message found".to_string()))?;
-        let snapshot_name = format!(
-            "{}.{}.tar.gz",
-            self.config.network,
-            std::str::from_utf8(&message).map_err(|e| RuntimeError::General(e.to_string()))?
-        );
+        let snapshot_name = format!("{}.{}.tar.gz", self.config.network, &message);
         // spawn a separate thread to prevent blocking
         let snapshot_path =
             tokio::task::spawn_blocking(move || -> Result<PathBuf, SnapshotError> {
@@ -379,9 +374,8 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         file_path: &Path,
         remote_locations: Vec<String>,
     ) -> Result<Snapshot, RuntimeError> {
-        let digest_hex = Vec::from_hex(certificate.digest).unwrap();
         let snapshot = Snapshot::new(
-            String::from_utf8(digest_hex).map_err(|e| RuntimeError::General(e.to_string()))?,
+            certificate.digest,
             certificate.hash,
             std::fs::metadata(file_path)
                 .map_err(|e| RuntimeError::General(e.to_string()))?
