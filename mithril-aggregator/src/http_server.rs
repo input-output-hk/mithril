@@ -1,6 +1,5 @@
 use mithril_common::crypto_helper::{key_decode_hex, ProtocolLotteryIndex, ProtocolPartyId};
 use mithril_common::entities;
-use mithril_common::fake_data;
 use serde_json::Value::Null;
 use slog_scope::{debug, info};
 use std::convert::Infallible;
@@ -10,7 +9,7 @@ use warp::Future;
 use warp::{http::Method, http::StatusCode, Filter};
 
 use super::dependency::{
-    BeaconStoreWrapper, CertificateStoreWrapper, DependencyManager, MultiSignerWrapper,
+    CertificatePendingStoreWrapper, CertificateStoreWrapper, DependencyManager, MultiSignerWrapper,
     SnapshotStoreWrapper,
 };
 use super::multi_signer;
@@ -76,8 +75,7 @@ mod router {
     ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
         warp::path!("certificate-pending")
             .and(warp::get())
-            .and(with_beacon_store(dependency_manager.clone()))
-            .and(with_multi_signer(dependency_manager))
+            .and(with_certificate_pending_store(dependency_manager))
             .and_then(handlers::certificate_pending)
     }
 
@@ -155,13 +153,6 @@ mod router {
             .and_then(handlers::register_signatures)
     }
 
-    /// With beacon store middleware
-    fn with_beacon_store(
-        dependency_manager: Arc<DependencyManager>,
-    ) -> impl Filter<Extract = (BeaconStoreWrapper,), Error = Infallible> + Clone {
-        warp::any().map(move || dependency_manager.beacon_store.as_ref().unwrap().clone())
-    }
-
     /// With snapshot store middleware
     fn with_snapshot_store(
         dependency_manager: Arc<DependencyManager>,
@@ -176,6 +167,19 @@ mod router {
         warp::any().map(move || {
             dependency_manager
                 .certificate_store
+                .as_ref()
+                .unwrap()
+                .clone()
+        })
+    }
+
+    /// With certificate pending store
+    fn with_certificate_pending_store(
+        dependency_manager: Arc<DependencyManager>,
+    ) -> impl Filter<Extract = (CertificatePendingStoreWrapper,), Error = Infallible> + Clone {
+        warp::any().map(move || {
+            dependency_manager
+                .certificate_pending_store
                 .as_ref()
                 .unwrap()
                 .clone()
@@ -198,77 +202,25 @@ mod router {
 }
 
 mod handlers {
+    use crate::dependency::CertificatePendingStoreWrapper;
+
     use super::*;
     use std::str::FromStr;
     use warp::http::Uri;
 
     /// Certificate Pending
     pub async fn certificate_pending(
-        beacon_store: BeaconStoreWrapper,
-        multi_signer: MultiSignerWrapper,
+        certificate_pending_store: CertificatePendingStoreWrapper,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("certificate_pending");
 
-        let beacon_store = beacon_store.read().await;
-        match beacon_store.get_current_beacon().await {
-            Ok(Some(beacon)) => {
-                let multi_signer = multi_signer.read().await;
-                match multi_signer.get_multi_signature().await {
-                    Ok(None) => {
-                        let mut certificate_pending = fake_data::certificate_pending();
-                        certificate_pending.beacon = beacon.clone();
+        let certificate_pending_store = certificate_pending_store.read().await;
 
-                        let protocol_parameters = multi_signer.get_protocol_parameters().await;
-                        if protocol_parameters.is_none() {
-                            return Ok(warp::reply::with_status(
-                                warp::reply::json(&entities::Error::new(
-                                    "MITHRIL-E0004".to_string(),
-                                    "no protocol parameters available".to_string(),
-                                )),
-                                StatusCode::INTERNAL_SERVER_ERROR,
-                            ));
-                        }
-                        let protocol_parameters = protocol_parameters.unwrap().into();
-
-                        let previous_hash = certificate_pending.previous_hash;
-
-                        let signers = multi_signer.get_signers().await;
-                        if let Err(err) = signers {
-                            return Ok(warp::reply::with_status(
-                                warp::reply::json(&entities::Error::new(
-                                    "MITHRIL-E0007".to_string(),
-                                    err.to_string(),
-                                )),
-                                StatusCode::INTERNAL_SERVER_ERROR,
-                            ));
-                        }
-                        let signers = signers.unwrap();
-
-                        let certificate_pending = entities::CertificatePending::new(
-                            beacon,
-                            protocol_parameters,
-                            previous_hash,
-                            signers,
-                        );
-
-                        Ok(warp::reply::with_status(
-                            warp::reply::json(&certificate_pending),
-                            StatusCode::OK,
-                        ))
-                    }
-                    Ok(_) => Ok(warp::reply::with_status(
-                        warp::reply::json(&Null),
-                        StatusCode::NO_CONTENT,
-                    )),
-                    Err(err) => Ok(warp::reply::with_status(
-                        warp::reply::json(&entities::Error::new(
-                            "MITHRIL-E0008".to_string(),
-                            err.to_string(),
-                        )),
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                    )),
-                }
-            }
+        match certificate_pending_store.get().await {
+            Ok(Some(certificate_pending)) => Ok(warp::reply::with_status(
+                warp::reply::json(&certificate_pending),
+                StatusCode::OK,
+            )),
             Ok(None) => Ok(warp::reply::with_status(
                 warp::reply::json(&Null),
                 StatusCode::NO_CONTENT,
@@ -526,7 +478,8 @@ mod tests {
     use tokio::sync::RwLock;
     use warp::test::request;
 
-    use super::super::beacon_store::{BeaconStoreError, MockBeaconStore};
+    use crate::CertificatePendingStore;
+
     use super::super::entities::*;
     use super::super::multi_signer::MockMultiSigner;
     use super::super::multi_signer::ProtocolError;
@@ -556,29 +509,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_certificate_pending_get_ok() {
-        let fake_protocol_parameters = fake_data::protocol_parameters();
-        let fake_signers = fake_data::signers(5);
         let method = Method::GET.as_str();
         let path = "/certificate-pending";
-        let mut beacon_store = MockBeaconStore::new();
-        beacon_store
-            .expect_get_current_beacon()
-            .return_once(|| Ok(Some(fake_data::beacon())));
-        let mut mock_multi_signer = MockMultiSigner::new();
-        mock_multi_signer
-            .expect_get_protocol_parameters()
-            .return_once(|| Some(fake_protocol_parameters.into()));
-        mock_multi_signer
-            .expect_get_signers()
-            .return_once(|| Ok(fake_signers));
-        mock_multi_signer
-            .expect_get_multi_signature()
-            .return_once(|| Ok(None));
+        let certificate_pending_store =
+            CertificatePendingStore::new(Box::new(DumbStoreAdapter::new()));
         let mut dependency_manager = setup_dependency_manager();
 
         dependency_manager
-            .with_beacon_store(Arc::new(RwLock::new(beacon_store)))
-            .with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
+            .with_certificate_pending_store(Arc::new(RwLock::new(certificate_pending_store)));
 
         let response = request()
             .method(method)
@@ -597,19 +535,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_certificate_pending_get_ok_204() {
-        let fake_protocol_parameters = fake_data::protocol_parameters();
-        let mut beacon_store = MockBeaconStore::new();
-        beacon_store
-            .expect_get_current_beacon()
-            .return_once(|| Ok(None));
-        let mut mock_multi_signer = MockMultiSigner::new();
-        mock_multi_signer
-            .expect_get_protocol_parameters()
-            .return_once(|| Some(fake_protocol_parameters.into()));
+        let certificate_pending_store =
+            CertificatePendingStore::new(Box::new(DumbStoreAdapter::new()));
         let mut dependency_manager = setup_dependency_manager();
         dependency_manager
-            .with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)))
-            .with_beacon_store(Arc::new(RwLock::new(beacon_store)));
+            .with_certificate_pending_store(Arc::new(RwLock::new(certificate_pending_store)));
 
         let method = Method::GET.as_str();
         let path = "/certificate-pending";
@@ -630,22 +560,14 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_certificate_pending_get_ko_current_beacon_500() {
-        let fake_protocol_parameters = fake_data::protocol_parameters();
+    async fn test_certificate_pending_get_ko_500() {
         let method = Method::GET.as_str();
         let path = "/certificate-pending";
-        let mut beacon_store = MockBeaconStore::new();
-        beacon_store
-            .expect_get_current_beacon()
-            .return_once(|| Err(BeaconStoreError::GenericError()));
-        let mut mock_multi_signer = MockMultiSigner::new();
-        mock_multi_signer
-            .expect_get_protocol_parameters()
-            .return_once(|| Some(fake_protocol_parameters.into()));
+        let certificate_pending_store =
+            CertificatePendingStore::new(Box::new(DumbStoreAdapter::new()));
         let mut dependency_manager = setup_dependency_manager();
         dependency_manager
-            .with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)))
-            .with_beacon_store(Arc::new(RwLock::new(beacon_store)));
+            .with_certificate_pending_store(Arc::new(RwLock::new(certificate_pending_store)));
 
         let response = request()
             .method(method)
@@ -653,81 +575,6 @@ mod tests {
             .reply(&router::routes(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::from_file(API_SPEC_FILE)
-            .method(method)
-            .path(path)
-            .validate_request(&Null)
-            .unwrap()
-            .validate_response(&response)
-            .expect("OpenAPI error");
-    }
-
-    #[tokio::test]
-    async fn test_certificate_pending_get_ko_signers_500() {
-        let fake_protocol_parameters = fake_data::protocol_parameters();
-        let mut beacon_store = MockBeaconStore::new();
-        beacon_store
-            .expect_get_current_beacon()
-            .return_once(|| Ok(Some(fake_data::beacon())));
-        let mut mock_multi_signer = MockMultiSigner::new();
-        mock_multi_signer
-            .expect_get_protocol_parameters()
-            .return_once(|| Some(fake_protocol_parameters.into()));
-        mock_multi_signer
-            .expect_get_signers()
-            .return_once(|| Err(ProtocolError::Codec("an error occurred".to_string())));
-        mock_multi_signer
-            .expect_get_multi_signature()
-            .return_once(|| Ok(None));
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager
-            .with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)))
-            .with_beacon_store(Arc::new(RwLock::new(beacon_store)));
-
-        let method = Method::GET.as_str();
-        let path = "/certificate-pending";
-
-        let response = request()
-            .method(method)
-            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .reply(&router::routes(Arc::new(dependency_manager)))
-            .await;
-
-        APISpec::from_file(API_SPEC_FILE)
-            .method(method)
-            .path(path)
-            .validate_request(&Null)
-            .unwrap()
-            .validate_response(&response)
-            .expect("OpenAPI error");
-    }
-
-    #[tokio::test]
-    async fn test_certificate_pending_get_ko_protocol_parameters_500() {
-        let mut beacon_store = MockBeaconStore::new();
-        beacon_store
-            .expect_get_current_beacon()
-            .return_once(|| Ok(Some(fake_data::beacon())));
-        let mut mock_multi_signer = MockMultiSigner::new();
-        mock_multi_signer
-            .expect_get_protocol_parameters()
-            .return_once(|| None);
-        mock_multi_signer
-            .expect_get_multi_signature()
-            .return_once(|| Ok(None));
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager
-            .with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)))
-            .with_beacon_store(Arc::new(RwLock::new(beacon_store)));
-
-        let method = Method::GET.as_str();
-        let path = "/certificate-pending";
-
-        let response = request()
-            .method(method)
-            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .reply(&router::routes(Arc::new(dependency_manager)))
-            .await;
         APISpec::from_file(API_SPEC_FILE)
             .method(method)
             .path(path)

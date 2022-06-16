@@ -35,5 +35,8 @@ pub trait StoreAdapter: Sync + Send {
         how_many: usize,
     ) -> Result<Vec<(Self::Key, Self::Record)>, AdapterError>;
 
+    /// remove values from store
+    ///
+    /// if the value exists it is returned by the adapter otherwise None is returned
     async fn remove(&mut self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError>;
 }

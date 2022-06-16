@@ -4,9 +4,9 @@ use clap::Parser;
 
 use config::{Map, Source, Value, ValueKind};
 use mithril_aggregator::{
-    AggregatorRuntime, BeaconStore, CertificatePendingStore, CertificateStore, Config,
-    DependencyManager, MemoryBeaconStore, MultiSigner, MultiSignerImpl, Server,
-    VerificationKeyStore,
+    AggregatorConfig, AggregatorRunner, AggregatorRuntime, BeaconStore, CertificatePendingStore,
+    CertificateStore, Config, DependencyManager, MemoryBeaconStore, MultiSigner, MultiSignerImpl,
+    Server, VerificationKeyStore,
 };
 use mithril_common::crypto_helper::ProtocolStakeDistribution;
 use mithril_common::fake_data;
@@ -19,6 +19,7 @@ use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tokio::time::Duration;
 
 /// Node args
 #[derive(Parser, Debug, Clone)]
@@ -155,6 +156,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let mut dependency_manager = DependencyManager::new(config.clone());
     dependency_manager
         .with_snapshot_store(snapshot_store.clone())
+        .with_snapshot_uploader(snapshot_uploader.clone())
         .with_multi_signer(multi_signer.clone())
         .with_beacon_store(beacon_store.clone())
         .with_certificate_pending_store(certificate_pending_store.clone())
@@ -165,19 +167,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Start snapshot uploader
     let snapshot_directory = config.snapshot_directory.clone();
+    let runtime_dependencies = dependency_manager.clone();
     let handle = tokio::spawn(async move {
-        let runtime = AggregatorRuntime::new(
-            args.runtime_interval * 1000,
-            config.network.clone(),
-            config.db_directory.clone(),
-            snapshot_directory,
-            beacon_store.clone(),
-            multi_signer.clone(),
-            snapshot_store.clone(),
-            snapshot_uploader,
-            certificate_pending_store.clone(),
-            certificate_store.clone(),
+        let config = AggregatorConfig::new(
+            args.runtime_interval,
+            &config.network.clone(),
+            &config.db_directory.clone(),
+            &snapshot_directory,
+            runtime_dependencies,
         );
+        let mut runtime = AggregatorRuntime::new(
+            Duration::from_secs(config.interval.into()),
+            None,
+            Arc::new(AggregatorRunner::new(config)),
+        )
+        .await
+        .unwrap();
         runtime.run().await
     });
 

@@ -16,7 +16,7 @@ pub use crate::multi_signer::{MultiSigner, MultiSignerImpl, ProtocolError};
 pub use crate::snapshot_stores::{RemoteSnapshotStore, SnapshotStore};
 pub use beacon_store::{BeaconStore, BeaconStoreError, MemoryBeaconStore};
 pub use dependency::DependencyManager;
-pub use runtime::AggregatorRuntime;
+pub use runtime::{AggregatorConfig, AggregatorRunner, AggregatorRuntime};
 pub use snapshot_uploaders::{LocalSnapshotUploader, RemoteSnapshotUploader};
 pub use snapshotter::{SnapshotError, Snapshotter};
 pub use store::{

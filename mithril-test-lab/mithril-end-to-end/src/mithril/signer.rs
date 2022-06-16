@@ -22,7 +22,7 @@ impl Signer {
             ("RUN_INTERVAL", "2000"),
             ("AGGREGATOR_ENDPOINT", &aggregator_endpoint),
             ("DB_DIRECTORY", db_directory.to_str().unwrap()),
-            ("STAKE_STORE_DIRECTORY", "./store/stakes")
+            ("STAKE_STORE_DIRECTORY", "./store/signer/stakes"),
         ]);
         let args = vec!["-vvv"];
 

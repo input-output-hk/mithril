@@ -1,6 +1,5 @@
-use crate::dependency::SnapshotStoreWrapper;
+use crate::dependency::{SnapshotStoreWrapper, SnapshotUploaderWrapper};
 use crate::snapshot_stores::LocalSnapshotStore;
-use crate::snapshot_uploaders::SnapshotUploader;
 use crate::tools::GcpFileUploader;
 use crate::{LocalSnapshotUploader, RemoteSnapshotStore, RemoteSnapshotUploader};
 use serde::{Deserialize, Serialize};
@@ -70,14 +69,14 @@ impl Config {
         }
     }
 
-    pub fn build_snapshot_uploader(&self) -> Box<dyn SnapshotUploader> {
+    pub fn build_snapshot_uploader(&self) -> SnapshotUploaderWrapper {
         match self.snapshot_uploader_type {
-            SnapshotUploaderType::Gcp => Box::new(RemoteSnapshotUploader::new(Box::new(
-                GcpFileUploader::default(),
+            SnapshotUploaderType::Gcp => Arc::new(RwLock::new(RemoteSnapshotUploader::new(
+                Box::new(GcpFileUploader::default()),
             ))),
-            SnapshotUploaderType::Local => {
-                Box::new(LocalSnapshotUploader::new(self.server_url.clone()))
-            }
+            SnapshotUploaderType::Local => Arc::new(RwLock::new(LocalSnapshotUploader::new(
+                self.server_url.clone(),
+            ))),
         }
     }
 }
