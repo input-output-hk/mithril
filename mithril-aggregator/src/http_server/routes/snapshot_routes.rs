@@ -257,7 +257,7 @@ mod tests {
         let mut mock_snapshot_store = MockSnapshotStore::new();
         mock_snapshot_store
             .expect_list_snapshots()
-            .return_const(Err(SnapshotStoreError::ManifestError(
+            .return_const(Err(SnapshotStoreError::Manifest(
                 "an error occurred".to_string(),
             )))
             .once();
@@ -345,7 +345,7 @@ mod tests {
         let mut mock_snapshot_store = MockSnapshotStore::new();
         mock_snapshot_store
             .expect_get_snapshot_details()
-            .return_const(Err(SnapshotStoreError::ManifestError(
+            .return_const(Err(SnapshotStoreError::Manifest(
                 "an error occurred".to_string(),
             )))
             .once();
@@ -432,7 +432,7 @@ mod tests {
         let mut mock_snapshot_store = MockSnapshotStore::new();
         mock_snapshot_store
             .expect_get_snapshot_details()
-            .return_const(Err(SnapshotStoreError::ManifestError(
+            .return_const(Err(SnapshotStoreError::Manifest(
                 "an error occurred".to_string(),
             )))
             .once();

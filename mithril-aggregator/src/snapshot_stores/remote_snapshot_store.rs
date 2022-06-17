@@ -39,14 +39,14 @@ impl SnapshotStore for RemoteSnapshotStore {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<Vec<Snapshot>>().await {
                     Ok(snapshots) => Ok(snapshots),
-                    Err(err) => Err(SnapshotStoreError::ManifestError(err.to_string())),
+                    Err(err) => Err(SnapshotStoreError::Manifest(err.to_string())),
                 },
-                status_error => Err(SnapshotStoreError::ManifestError(format!(
+                status_error => Err(SnapshotStoreError::Manifest(format!(
                     "error {} received",
                     status_error
                 ))),
             },
-            Err(err) => Err(SnapshotStoreError::ManifestError(err.to_string())),
+            Err(err) => Err(SnapshotStoreError::Manifest(err.to_string())),
         }
     }
 
@@ -76,7 +76,7 @@ impl SnapshotStore for RemoteSnapshotStore {
         self.file_uploader
             .upload_file(manifest_to_upload_path)
             .await
-            .map_err(SnapshotStoreError::GcpError)?;
+            .map_err(SnapshotStoreError::Gcp)?;
 
         Ok(())
     }
@@ -205,7 +205,7 @@ mod tests {
 
         let result = snapshot_store.add_snapshot(snapshot).await;
         assert_eq!(
-            SnapshotStoreError::GcpError("unexpected error".to_string()).to_string(),
+            SnapshotStoreError::Gcp("unexpected error".to_string()).to_string(),
             result.unwrap_err().to_string()
         );
     }

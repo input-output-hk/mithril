@@ -31,7 +31,7 @@ impl SnapshotStore for LocalSnapshotStore {
             .adapter
             .get_last_n_records(self.list_snapshots_max_items)
             .await
-            .map_err(|e| SnapshotStoreError::StoreError(e.to_string()))?;
+            .map_err(|e| SnapshotStoreError::Store(e.to_string()))?;
         let result = vars.into_iter().map(|(_, y)| y).collect();
 
         Ok(result)
@@ -45,7 +45,7 @@ impl SnapshotStore for LocalSnapshotStore {
             .adapter
             .get_record(&digest.to_string())
             .await
-            .map_err(|e| SnapshotStoreError::StoreError(e.to_string()))?)
+            .map_err(|e| SnapshotStoreError::Store(e.to_string()))?)
     }
 
     async fn add_snapshot(&mut self, snapshot: Snapshot) -> Result<(), SnapshotStoreError> {
@@ -58,7 +58,7 @@ impl SnapshotStore for LocalSnapshotStore {
             .adapter
             .store_record(&snapshot.digest, &snapshot)
             .await
-            .map_err(|e| SnapshotStoreError::StoreError(e.to_string()))?)
+            .map_err(|e| SnapshotStoreError::Store(e.to_string()))?)
     }
 }
 

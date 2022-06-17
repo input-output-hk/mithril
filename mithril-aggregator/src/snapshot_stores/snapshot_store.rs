@@ -26,11 +26,11 @@ pub trait SnapshotStore: Sync + Send {
 #[derive(Error, Debug, Eq, PartialEq, Clone)]
 pub enum SnapshotStoreError {
     #[error("Error while adding new snapshot to GCP: `{0}`")]
-    GcpError(String),
+    Gcp(String),
 
     #[error("Manifest file error: `{0}`")]
-    ManifestError(String),
+    Manifest(String),
 
     #[error("Store error: `{0}`")]
-    StoreError(String),
+    Store(String),
 }
