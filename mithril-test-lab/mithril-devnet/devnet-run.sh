@@ -8,7 +8,9 @@ fi
 if [ -z "${NUM_POOL_NODES}" ]; then 
   NUM_POOL_NODES="2"
 fi
-
+if [ -z "${NODES}" ]; then 
+  NODES="*"
+fi
 
 # Bootstrap devnet
 echo "====================================================================="
@@ -26,10 +28,22 @@ echo
 # Change directory
 cd ${ROOT}
 
-# Start devnet
-echo "====================================================================="
-echo " Start Mithril/Cardano devnet"
-echo "====================================================================="
-echo
-./start.sh
-echo
+# Start devnet Mithril nodes
+if [ "${NODES}" = "mithril" ] || [ "${NODES}" = "*" ]; then 
+    echo "====================================================================="
+    echo " Start Mithril nodes"
+    echo "====================================================================="
+    echo
+    ./start-mithril.sh
+    echo
+fi
+
+# Start devnet Cardano nodes
+if [ "${NODES}" = "cardano" ] || [ "${NODES}" = "*" ]; then 
+    echo "====================================================================="
+    echo " Start Cardano nodes"
+    echo "====================================================================="
+    echo
+    ./start-cardano.sh
+    echo
+fi
