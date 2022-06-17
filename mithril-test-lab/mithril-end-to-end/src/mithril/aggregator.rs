@@ -33,6 +33,7 @@ impl Aggregator {
                 "./store/aggregator/certs",
             ),
             ("STAKE_STORE_DIRECTORY", "./store/aggregator/stakes"),
+            ("SNAPSHOT_STORE_DIRECTORY", "./store/aggregator/snapshots"),
         ]);
         let args = vec![
             "--db-directory",
