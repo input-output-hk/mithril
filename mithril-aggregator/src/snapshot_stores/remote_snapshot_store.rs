@@ -31,7 +31,7 @@ impl RemoteSnapshotStore {
 #[async_trait]
 impl SnapshotStore for RemoteSnapshotStore {
     /// List snapshots
-    async fn list_snapshots(&self) -> Result<Vec<Snapshot>, String> {
+    async fn list_snapshots(&self) -> Result<Vec<Snapshot>, SnapshotStoreError> {
         debug!("List snapshots from {}", self.url_manifest);
 
         let response = reqwest::get(&self.url_manifest).await;
@@ -39,16 +39,22 @@ impl SnapshotStore for RemoteSnapshotStore {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<Vec<Snapshot>>().await {
                     Ok(snapshots) => Ok(snapshots),
-                    Err(err) => Err(err.to_string()),
+                    Err(err) => Err(SnapshotStoreError::ManifestError(err.to_string())),
                 },
-                status_error => Err(format!("error {} received", status_error)),
+                status_error => Err(SnapshotStoreError::ManifestError(format!(
+                    "error {} received",
+                    status_error
+                ))),
             },
-            Err(err) => Err(err.to_string()),
+            Err(err) => Err(SnapshotStoreError::ManifestError(err.to_string())),
         }
     }
 
     /// Get snapshot details
-    async fn get_snapshot_details(&self, digest: String) -> Result<Option<Snapshot>, String> {
+    async fn get_snapshot_details(
+        &self,
+        digest: String,
+    ) -> Result<Option<Snapshot>, SnapshotStoreError> {
         for snapshot in self.list_snapshots().await? {
             if digest.eq(&snapshot.digest) {
                 return Ok(Some(snapshot));
