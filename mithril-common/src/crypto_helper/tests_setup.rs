@@ -1,11 +1,10 @@
 use super::types::*;
 
-use hex::FromHex;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
-pub fn setup_message() -> Bytes {
-    Vec::from_hex("7724e03fb8d84a376a43b8f41518a11c").unwrap()
+pub fn setup_message() -> String {
+    "message_to_sign_123".to_string()
 }
 
 pub fn setup_protocol_parameters() -> ProtocolParameters {

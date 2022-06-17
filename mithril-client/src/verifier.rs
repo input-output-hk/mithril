@@ -90,7 +90,7 @@ mod tests {
         let mut single_signatures = Vec::new();
         signers.iter().for_each(|(_, _, _, protocol_signer, _)| {
             for i in 1..=protocol_parameters.m {
-                if let Some(signature) = protocol_signer.sign(&message, i) {
+                if let Some(signature) = protocol_signer.sign(&message.as_bytes(), i) {
                     single_signatures.push(signature);
                 }
             }
@@ -99,11 +99,13 @@ mod tests {
         let first_signer = &signers.first().unwrap().3;
         let clerk = ProtocolClerk::from_signer(&first_signer);
         let aggregate_verification_key = clerk.compute_avk();
-        let multi_signature = clerk.aggregate(&single_signatures, &message).unwrap();
+        let multi_signature = clerk
+            .aggregate(&single_signatures, &message.as_bytes())
+            .unwrap();
 
         let verifier = VerifierImpl::new();
         let protocol_parameters = protocol_parameters.into();
-        let message_tampered = message[1..].to_vec();
+        let message_tampered = message.as_bytes()[1..].to_vec();
         assert!(
             verifier
                 .verify_multi_signature(
@@ -117,7 +119,7 @@ mod tests {
         );
         verifier
             .verify_multi_signature(
-                &message,
+                &message.as_bytes().to_vec(),
                 &key_encode_hex(&multi_signature).unwrap(),
                 &key_encode_hex(&aggregate_verification_key).unwrap(),
                 &protocol_parameters,

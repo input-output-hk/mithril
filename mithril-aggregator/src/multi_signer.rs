@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use thiserror::Error;
 
 use mithril_common::crypto_helper::{
-    key_decode_hex, key_encode_hex, Bytes, ProtocolAggregateVerificationKey, ProtocolClerk,
+    key_decode_hex, key_encode_hex, ProtocolAggregateVerificationKey, ProtocolClerk,
     ProtocolKeyRegistration, ProtocolLotteryIndex, ProtocolMultiSignature, ProtocolParameters,
     ProtocolPartyId, ProtocolSignerVerificationKey, ProtocolSingleSignature, ProtocolStake,
     ProtocolStakeDistribution,
@@ -62,10 +62,10 @@ pub enum ProtocolError {
 #[async_trait]
 pub trait MultiSigner: Sync + Send {
     /// Get current message
-    async fn get_current_message(&self) -> Option<Bytes>;
+    async fn get_current_message(&self) -> Option<String>;
 
     /// Update current message
-    async fn update_current_message(&mut self, message: Bytes) -> Result<(), ProtocolError>;
+    async fn update_current_message(&mut self, message: String) -> Result<(), ProtocolError>;
 
     /// Get protocol parameters
     async fn get_protocol_parameters(&self) -> Option<ProtocolParameters>;
@@ -139,7 +139,7 @@ pub trait MultiSigner: Sync + Send {
 /// MultiSignerImpl is an implementation of the MultiSigner
 pub struct MultiSignerImpl {
     /// Message that is currently signed
-    current_message: Option<Bytes>,
+    current_message: Option<String>,
 
     /// Protocol parameters used for signing
     protocol_parameters: Option<ProtocolParameters>,
@@ -217,12 +217,12 @@ impl MultiSignerImpl {
 #[async_trait]
 impl MultiSigner for MultiSignerImpl {
     /// Get current message
-    async fn get_current_message(&self) -> Option<Bytes> {
+    async fn get_current_message(&self) -> Option<String> {
         self.current_message.clone()
     }
 
     /// Update current message
-    async fn update_current_message(&mut self, message: Bytes) -> Result<(), ProtocolError> {
+    async fn update_current_message(&mut self, message: String) -> Result<(), ProtocolError> {
         if self.current_message.clone() != Some(message.clone()) {
             self.multi_signature = None;
             self.single_signatures.drain();
@@ -432,7 +432,7 @@ impl MultiSigner for MultiSignerImpl {
                 .as_ref()
                 .ok_or_else(ProtocolError::UnavailableClerk)?
                 .compute_avk(),
-            message,
+            message.as_bytes(),
         ) {
             Ok(_) => {
                 // Register single signature
@@ -493,7 +493,7 @@ impl MultiSigner for MultiSignerImpl {
             .create_clerk()
             .await?
             .ok_or_else(ProtocolError::UnavailableClerk)?;
-        match clerk.aggregate(&signatures, message) {
+        match clerk.aggregate(&signatures, message.as_bytes()) {
             Ok(multi_signature) => {
                 self.avk = Some(clerk.compute_avk());
                 self.multi_signature = Some(multi_signature.clone());
@@ -523,8 +523,7 @@ impl MultiSigner for MultiSignerImpl {
                 let digest = self
                     .get_current_message()
                     .await
-                    .ok_or_else(ProtocolError::UnavailableMessage)?
-                    .encode_hex::<String>();
+                    .ok_or_else(ProtocolError::UnavailableMessage)?;
                 let previous_hash = previous_hash;
                 let started_at = format!("{:?}", Utc::now());
                 let completed_at = started_at.clone();
@@ -736,7 +735,7 @@ mod tests {
         let mut signatures = Vec::new();
         for (party_id, _, _, protocol_signer, _) in &signers {
             for i in 1..=protocol_parameters.m {
-                if let Some(signature) = protocol_signer.sign(&message, i) {
+                if let Some(signature) = protocol_signer.sign(&message.as_bytes(), i) {
                     signatures.push((*party_id, signature, i as ProtocolLotteryIndex));
                 }
             }
