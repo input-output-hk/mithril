@@ -190,7 +190,7 @@ impl MultiSignerImpl {
     pub async fn create_clerk(&self) -> Result<Option<ProtocolClerk>, ProtocolError> {
         debug!("Create clerk");
         let stakes = self.get_stake_distribution().await?;
-        let mut key_registration = ProtocolKeyRegistration::init(&stakes);
+        let mut key_registration = ProtocolKeyRegistration::init();
         let mut total_signers = 0;
         for (party_id, _stake) in &stakes {
             if let Ok(Some(verification_key)) = self.get_signer(*party_id).await {

@@ -33,7 +33,6 @@ pub fn setup_signers(
             let stake = 1 + rng.next_u64() % 999;
             let protocol_initializer: ProtocolInitializer = ProtocolInitializer::setup(
                 protocol_parameters,
-                party_id as ProtocolPartyId,
                 stake,
                 &mut rng,
             );
@@ -45,12 +44,7 @@ pub fn setup_signers(
         })
         .collect::<Vec<(ProtocolPartyId, ProtocolStake, ProtocolInitializer)>>();
 
-    let mut key_registration = ProtocolKeyRegistration::init(
-        &signers
-            .iter()
-            .map(|(party_id, stake, _)| (*party_id, *stake))
-            .collect::<Vec<_>>(),
-    );
+    let mut key_registration = ProtocolKeyRegistration::init();
     signers
         .iter()
         .for_each(|(party_id, _, protocol_initializer)| {

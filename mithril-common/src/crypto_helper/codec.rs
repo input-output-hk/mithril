@@ -33,12 +33,11 @@ pub mod tests {
     #[test]
     fn test_key_encode_decode_hex() {
         let protocol_params = setup_protocol_parameters();
-        let party_id = 123;
         let stake = 100;
         let seed = [0u8; 32];
         let mut rng = ChaCha20Rng::from_seed(seed);
         let protocol_initializer: ProtocolInitializer =
-            ProtocolInitializer::setup(protocol_params, party_id, stake, &mut rng);
+            ProtocolInitializer::setup(protocol_params, stake, &mut rng);
         let verification_key: ProtocolSignerVerificationKey =
             protocol_initializer.verification_key();
         let verification_key_hex =

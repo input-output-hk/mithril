@@ -98,7 +98,7 @@ impl Party {
             self.party_id, players
         );
 
-        let mut key_reg = ProtocolKeyRegistration::init(&players);
+        let mut key_reg = ProtocolKeyRegistration::init();
         for (party_id, _stake, verification_key) in players_with_keys {
             key_reg.register(*party_id, *verification_key).unwrap();
         }
@@ -107,7 +107,7 @@ impl Party {
         let seed = [0u8; 32];
         let mut rng = ChaCha20Rng::from_seed(seed);
         let p =
-            ProtocolInitializer::setup(self.params.unwrap(), self.party_id, self.stake, &mut rng);
+            ProtocolInitializer::setup(self.params.unwrap(), self.stake, &mut rng);
         self.signer = Some(p.new_signer(closed_reg));
         self.clerk = Some(ProtocolClerk::from_signer(self.signer.as_ref().unwrap()));
     }
@@ -239,7 +239,7 @@ impl Verifier {
             .collect::<Vec<_>>();
         println!("Verifier: protocol keys registration from {:?}", players);
 
-        let mut key_reg = ProtocolKeyRegistration::init(&players);
+        let mut key_reg = ProtocolKeyRegistration::init();
         for (party_id, _stake, verification_key) in players_with_keys {
             key_reg.register(*party_id, *verification_key).unwrap();
         }
@@ -369,11 +369,11 @@ impl ProtocolDemonstrator for Demonstrator {
         let mut players_artifacts = Vec::new();
         for (party_id, stake) in players {
             let protocol_initializer =
-                ProtocolInitializer::setup(self.params.unwrap(), party_id, stake, &mut rng);
+                ProtocolInitializer::setup(self.params.unwrap(), stake, &mut rng);
             let verification_key: ProtocolSignerVerificationKey =
                 protocol_initializer.verification_key();
             players_artifacts.push(PlayerArtifact {
-                party_id: protocol_initializer.party_id(),
+                party_id,
                 stake: protocol_initializer.stake(),
                 verification_key: key_encode_hex(verification_key).unwrap(),
                 initializer: key_encode_hex(protocol_initializer).unwrap(),

@@ -1,5 +1,6 @@
 //! Key registration functionality.
 
+use std::collections::hash_map::Entry;
 use crate::error::RegisterError;
 use digest::{Digest, FixedOutput};
 use std::collections::HashMap;
@@ -59,14 +60,15 @@ impl KeyReg {
 
     /// Register the pubkey and stake for a particular party.
     pub fn register(&mut self, stake: Stake, pk: VerificationKeyPoP) -> Result<(), RegisterError> {
-        if self.keys.contains_key(&pk.vk) {
-            Err(RegisterError::KeyRegistered(Box::new(pk.vk)))
-        } else if pk.check().is_ok() {
-            self.keys.insert(pk.vk, stake);
-            Ok(())
-        } else {
-            Err(RegisterError::InvalidKey(Box::new(pk)))
+        if let Entry::Vacant(e) = self.keys.entry(pk.vk) {
+            if pk.check().is_ok() {
+                e.insert(stake);
+                return Ok(());
+            } else {
+                return Err(RegisterError::InvalidKey(Box::new(pk)));
+            }
         }
+        Err(RegisterError::KeyRegistered(Box::new(pk.vk)))
     }
 
     /// End registration. Disables `KeyReg::register`. Consumes the instance of `self` and returns
