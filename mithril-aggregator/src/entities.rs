@@ -1,11 +1,18 @@
+use serde::{Deserialize, Serialize};
+use std::error::Error;
+use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+
+use mithril_common::store::adapter::JsonFileStoreAdapter;
+
 use crate::dependency::{SnapshotStoreWrapper, SnapshotUploaderWrapper};
 use crate::snapshot_stores::LocalSnapshotStore;
 use crate::tools::GcpFileUploader;
 use crate::{LocalSnapshotUploader, RemoteSnapshotStore, RemoteSnapshotUploader};
-use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
-use std::sync::Arc;
-use tokio::sync::RwLock;
+
+// TODO: 'LIST_SNAPSHOTS_MAX_ITEMS' keep as const or in config, or add a parameter to `list_snapshots`?
+const LIST_SNAPSHOTS_MAX_ITEMS: usize = 5;
 
 /// Aggregator configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,6 +37,9 @@ pub struct Config {
 
     /// Directory to store snapshot
     pub snapshot_directory: PathBuf,
+
+    /// Directory to store snapshot records
+    pub snapshot_store_directory: PathBuf,
 
     /// Directory to store pending certificates
     pub pending_certificate_store_directory: PathBuf,
@@ -59,13 +69,18 @@ pub enum SnapshotUploaderType {
 }
 
 impl Config {
-    pub fn build_snapshot_store(&self) -> SnapshotStoreWrapper {
+    pub fn build_snapshot_store(&self) -> Result<SnapshotStoreWrapper, Box<dyn Error>> {
         match self.snapshot_store_type {
-            SnapshotStoreType::Gcp => Arc::new(RwLock::new(RemoteSnapshotStore::new(
+            SnapshotStoreType::Gcp => Ok(Arc::new(RwLock::new(RemoteSnapshotStore::new(
                 Box::new(GcpFileUploader::default()),
                 self.url_snapshot_manifest.clone(),
-            ))),
-            SnapshotStoreType::Local => Arc::new(RwLock::new(LocalSnapshotStore::new())),
+            )))),
+            SnapshotStoreType::Local => Ok(Arc::new(RwLock::new(LocalSnapshotStore::new(
+                Box::new(JsonFileStoreAdapter::new(
+                    self.snapshot_store_directory.clone(),
+                )?),
+                LIST_SNAPSHOTS_MAX_ITEMS,
+            )))),
         }
     }
 
