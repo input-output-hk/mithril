@@ -1,43 +1,51 @@
+use async_trait::async_trait;
+use slog_scope::info;
+
 use crate::snapshot_stores::SnapshotStoreError;
 use crate::SnapshotStore;
 
-use async_trait::async_trait;
 use mithril_common::entities::Snapshot;
-use slog_scope::info;
+use mithril_common::store::adapter::StoreAdapter;
+
+type Adapter = Box<dyn StoreAdapter<Key = String, Record = Snapshot>>;
 
 pub struct LocalSnapshotStore {
-    current_snapshot: Option<Snapshot>,
+    adapter: Adapter,
+    list_snapshots_max_items: usize,
 }
 
 impl LocalSnapshotStore {
     /// SnapshotStoreHTTPClient factory
-    pub fn new() -> Self {
+    pub fn new(adapter: Adapter, list_snapshots_max_items: usize) -> Self {
         Self {
-            current_snapshot: None,
+            list_snapshots_max_items,
+            adapter,
         }
     }
 }
 
 #[async_trait]
 impl SnapshotStore for LocalSnapshotStore {
-    async fn list_snapshots(&self) -> Result<Vec<Snapshot>, String> {
-        match &self.current_snapshot {
-            Some(snapshot) => Ok(vec![snapshot.clone()]),
-            None => Ok(vec![]),
-        }
+    async fn list_snapshots(&self) -> Result<Vec<Snapshot>, SnapshotStoreError> {
+        let vars = self
+            .adapter
+            .get_last_n_records(self.list_snapshots_max_items)
+            .await
+            .map_err(|e| SnapshotStoreError::StoreError(e.to_string()))?;
+        let result = vars.into_iter().map(|(_, y)| y).collect();
+
+        Ok(result)
     }
 
-    async fn get_snapshot_details(&self, digest: String) -> Result<Option<Snapshot>, String> {
-        match &self.current_snapshot {
-            Some(snapshot) => {
-                if snapshot.digest == digest {
-                    Ok(Some(snapshot.clone()))
-                } else {
-                    Ok(None)
-                }
-            }
-            None => Ok(None),
-        }
+    async fn get_snapshot_details(
+        &self,
+        digest: String,
+    ) -> Result<Option<Snapshot>, SnapshotStoreError> {
+        Ok(self
+            .adapter
+            .get_record(&digest.to_string())
+            .await
+            .map_err(|e| SnapshotStoreError::StoreError(e.to_string()))?)
     }
 
     async fn add_snapshot(&mut self, snapshot: Snapshot) -> Result<(), SnapshotStoreError> {
@@ -46,9 +54,11 @@ impl SnapshotStore for LocalSnapshotStore {
             serde_json::to_string(&snapshot).unwrap()
         );
 
-        self.current_snapshot = Some(snapshot);
-
-        Ok(())
+        Ok(self
+            .adapter
+            .store_record(&snapshot.digest, &snapshot)
+            .await
+            .map_err(|e| SnapshotStoreError::StoreError(e.to_string()))?)
     }
 }
 
@@ -56,7 +66,9 @@ impl SnapshotStore for LocalSnapshotStore {
 mod tests {
     use super::LocalSnapshotStore;
     use crate::SnapshotStore;
+
     use mithril_common::entities::Snapshot;
+    use mithril_common::store::adapter::DumbStoreAdapter;
 
     #[tokio::test]
     async fn can_list_added_snapshot() {
@@ -67,7 +79,9 @@ mod tests {
             created_at: "abc".to_string(),
             locations: vec!["abc".to_string()],
         };
-        let mut store = LocalSnapshotStore::new();
+        let list_snapshots_max_items = 5;
+        let adapter: DumbStoreAdapter<String, Snapshot> = DumbStoreAdapter::new();
+        let mut store = LocalSnapshotStore::new(Box::new(adapter), list_snapshots_max_items);
 
         store
             .add_snapshot(snapshot.clone())
@@ -85,7 +99,9 @@ mod tests {
             created_at: "abc".to_string(),
             locations: vec!["abc".to_string()],
         };
-        let mut store = LocalSnapshotStore::new();
+        let list_snapshots_max_items = 5;
+        let adapter: DumbStoreAdapter<String, Snapshot> = DumbStoreAdapter::new();
+        let mut store = LocalSnapshotStore::new(Box::new(adapter), list_snapshots_max_items);
 
         store
             .add_snapshot(snapshot.clone())
