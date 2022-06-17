@@ -129,7 +129,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     debug!("Started"; "run_mode" => &run_mode, "config" => format!("{:?}", config));
 
     // Init dependencies
-    let snapshot_store = config.build_snapshot_store();
+    let snapshot_store = config.build_snapshot_store()?;
 
     let beacon_store = Arc::new(RwLock::new(MemoryBeaconStore::new()));
     let snapshot_uploader = config.build_snapshot_uploader();

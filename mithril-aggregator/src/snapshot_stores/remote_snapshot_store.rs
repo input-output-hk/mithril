@@ -31,7 +31,7 @@ impl RemoteSnapshotStore {
 #[async_trait]
 impl SnapshotStore for RemoteSnapshotStore {
     /// List snapshots
-    async fn list_snapshots(&self) -> Result<Vec<Snapshot>, String> {
+    async fn list_snapshots(&self) -> Result<Vec<Snapshot>, SnapshotStoreError> {
         debug!("List snapshots from {}", self.url_manifest);
 
         let response = reqwest::get(&self.url_manifest).await;
@@ -39,16 +39,22 @@ impl SnapshotStore for RemoteSnapshotStore {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<Vec<Snapshot>>().await {
                     Ok(snapshots) => Ok(snapshots),
-                    Err(err) => Err(err.to_string()),
+                    Err(err) => Err(SnapshotStoreError::Manifest(err.to_string())),
                 },
-                status_error => Err(format!("error {} received", status_error)),
+                status_error => Err(SnapshotStoreError::Manifest(format!(
+                    "error {} received",
+                    status_error
+                ))),
             },
-            Err(err) => Err(err.to_string()),
+            Err(err) => Err(SnapshotStoreError::Manifest(err.to_string())),
         }
     }
 
     /// Get snapshot details
-    async fn get_snapshot_details(&self, digest: String) -> Result<Option<Snapshot>, String> {
+    async fn get_snapshot_details(
+        &self,
+        digest: String,
+    ) -> Result<Option<Snapshot>, SnapshotStoreError> {
         for snapshot in self.list_snapshots().await? {
             if digest.eq(&snapshot.digest) {
                 return Ok(Some(snapshot));
@@ -70,7 +76,7 @@ impl SnapshotStore for RemoteSnapshotStore {
         self.file_uploader
             .upload_file(manifest_to_upload_path)
             .await
-            .map_err(SnapshotStoreError::GcpError)?;
+            .map_err(SnapshotStoreError::Gcp)?;
 
         Ok(())
     }
@@ -199,7 +205,7 @@ mod tests {
 
         let result = snapshot_store.add_snapshot(snapshot).await;
         assert_eq!(
-            SnapshotStoreError::GcpError("unexpected error".to_string()).to_string(),
+            SnapshotStoreError::Gcp("unexpected error".to_string()).to_string(),
             result.unwrap_err().to_string()
         );
     }

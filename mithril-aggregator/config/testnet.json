@@ -6,5 +6,6 @@
     "pending_certificate_store_directory": "./mithril/pending_cert_db",
     "certificate_store_directory": "./mithril/cert_db",
     "verification_key_store_directory": "./mithril/verification_key_db",
-    "stake_store_directory": "./mithril/mithril/stake_db"
+    "stake_store_directory": "./mithril/mithril/stake_db",
+    "snapshot_store_directory": "./mithril/mithril/snapshot_db"
 }

@@ -773,6 +773,7 @@ cat >> docker-compose.yaml <<EOF
       - PENDING_CERTIFICATE_STORE_DIRECTORY=/data/mithril/aggregator/db/pending_cert_db
       - CERTIFICATE_STORE_DIRECTORY=/data/mithril/aggregator/db/cert_db
       - VERIFICATION_KEY_STORE_DIRECTORY=/data/mithril/aggregator/db/verification_key_db
+      - SNAPSHOT_STORE_DIRECTORY=/data/mithril/aggregator/db/snapshot_db
     command:
       [
         "--db-directory",

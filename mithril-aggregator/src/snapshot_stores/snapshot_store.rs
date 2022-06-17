@@ -1,6 +1,7 @@
 use async_trait::async_trait;
-use mithril_common::entities::Snapshot;
 use thiserror::Error;
+
+use mithril_common::entities::Snapshot;
 
 #[cfg(test)]
 use mockall::automock;
@@ -10,17 +11,26 @@ use mockall::automock;
 #[async_trait]
 pub trait SnapshotStore: Sync + Send {
     /// List snapshots
-    async fn list_snapshots(&self) -> Result<Vec<Snapshot>, String>;
+    async fn list_snapshots(&self) -> Result<Vec<Snapshot>, SnapshotStoreError>;
 
     /// Get snapshot details
-    async fn get_snapshot_details(&self, digest: String) -> Result<Option<Snapshot>, String>;
+    async fn get_snapshot_details(
+        &self,
+        digest: String,
+    ) -> Result<Option<Snapshot>, SnapshotStoreError>;
 
     /// Upload a snapshot & update the snapshot list
     async fn add_snapshot(&mut self, snapshot: Snapshot) -> Result<(), SnapshotStoreError>;
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Eq, PartialEq, Clone)]
 pub enum SnapshotStoreError {
     #[error("Error while adding new snapshot to GCP: `{0}`")]
-    GcpError(String),
+    Gcp(String),
+
+    #[error("Manifest file error: `{0}`")]
+    Manifest(String),
+
+    #[error("Store error: `{0}`")]
+    Store(String),
 }

@@ -134,6 +134,7 @@ impl DependencyManager {
             server_url: "http://0.0.0.0:8080".to_string(),
             db_directory: Default::default(),
             snapshot_directory: Default::default(),
+            snapshot_store_directory: std::env::temp_dir().join("mithril_test_snapshots_db"),
             pending_certificate_store_directory: std::env::temp_dir()
                 .join("mithril_test_pending_cert_db"),
             certificate_store_directory: std::env::temp_dir().join("mithril_test_cert_db"),
