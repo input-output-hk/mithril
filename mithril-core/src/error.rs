@@ -3,7 +3,6 @@
 use crate::merkle_tree::Path;
 #[cfg(feature = "zcash")]
 use crate::multi_sig_zcash::{Signature, VerificationKey, VerificationKeyPoP};
-use crate::stm::PartyId;
 use digest::{Digest, FixedOutput};
 #[cfg(not(feature = "zcash"))]
 use {
@@ -125,13 +124,6 @@ pub enum RegisterError {
     /// This key has already been registered by a participant
     #[error("This key has already been registered.")]
     KeyRegistered(Box<VerificationKey>),
-    /// This participant has already been registered
-    #[error("Participant {0} has already been registered.")]
-    PartyRegistered(PartyId),
-    /// The supplied participant id does not belong to the
-    /// participant list
-    #[error("Participant id {0} does not belong to the participants list.")]
-    UnknownPartyId(PartyId),
     /// The supplied key is not valid
     #[error("The verification of correctness of the supplied key is invalid.")]
     InvalidKey(Box<VerificationKeyPoP>),

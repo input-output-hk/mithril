@@ -39,23 +39,23 @@
 //! // Generate some arbitrary stake for each party
 //! // Stake is an integer.
 //! // Total stake of all parties is total stake in the system.
-//! let parties = (0..nparties)
+//! let stakes = (0..nparties)
 //!     .into_iter()
-//!     .map(|pid| (pid as u64, 1 + (rng.next_u64() % 9999)))
+//!     .map(|_| 1 + (rng.next_u64() % 9999))
 //!     .collect::<Vec<_>>();
 //!
 //! // Create a new key registry from the parties and their stake
-//! let mut key_reg = KeyReg::init(&parties);
+//! let mut key_reg = KeyReg::init();
 //!
 //! // For each party, crate a StmInitializer.
 //! // This struct can create keys for the party.
 //! let mut ps: Vec<StmInitializer> = Vec::with_capacity(nparties);
-//! for (pid, stake) in parties {
+//! for stake in stakes {
 //!     // Create keys for this party
-//!     let p = StmInitializer::setup(params, pid, stake, &mut rng);
+//!     let p = StmInitializer::setup(params, stake, &mut rng);
 //!     // Register keys with the KeyReg service
 //!     key_reg
-//!         .register(p.party_id(), p.verification_key())
+//!         .register(p.stake(), p.verification_key())
 //!         .unwrap();
 //!     ps.push(p);
 //! }
@@ -140,8 +140,6 @@ use std::convert::{From, TryFrom, TryInto};
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
-/// Party identifier, unique for each participant in the protocol.
-pub type PartyId = u64;
 /// Quorum index for signatures.
 /// An aggregate signature (`StmMultiSig`) must have at least `k` unique indices.
 pub type Index = u64;
@@ -208,8 +206,6 @@ pub type StmVerificationKey = VerificationKey;
 /// procedure. Once the latter is finished, this instance is consumed into an `StmSigner`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StmInitializer {
-    /// This participant's Id
-    pub(crate) party_id: PartyId,
     /// This participant's stake
     pub(crate) stake: Stake,
     /// Current protocol instantiation parameters
@@ -228,7 +224,6 @@ pub struct StmSigner<D>
 where
     D: Digest + FixedOutput,
 {
-    party_id: PartyId,
     mt_index: u64,
     stake: Stake,
     params: StmParameters,
@@ -494,14 +489,13 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
 impl StmInitializer {
     /// Builds an `StmInitializer` that is ready to register with the key registration service
     // todo: definitely don't like how the id is handled. To initialise one needs to be aware of the id?
-    pub fn setup<R>(params: StmParameters, party_id: PartyId, stake: Stake, rng: &mut R) -> Self
+    pub fn setup<R>(params: StmParameters, stake: Stake, rng: &mut R) -> Self
     where
         R: RngCore + CryptoRng,
     {
         let sk = SigningKey::gen(rng);
         let pk = StmVerificationKeyPoP::from(&sk);
         Self {
-            party_id,
             stake,
             params,
             sk,
@@ -543,11 +537,6 @@ impl StmInitializer {
         self.stake
     }
 
-    /// Get the party ID.
-    pub fn party_id(&self) -> PartyId {
-        self.party_id
-    }
-
     /// Set the StmParameters.
     pub fn set_params(&mut self, params: StmParameters) {
         self.params = params;
@@ -582,12 +571,8 @@ impl StmInitializer {
             }
         }
         StmSigner {
-            party_id: self.party_id,
             mt_index: my_index.unwrap_or_else(|| {
-                panic!(
-                    "Initializer not registered: {}. Cannot participate as a signer.",
-                    self.party_id
-                )
+                panic!("Initializer not registered. Cannot participate as a signer.",)
             }),
             stake: self.stake,
             params: self.params,
@@ -600,18 +585,16 @@ impl StmInitializer {
     /// Convert to bytes
     ///
     /// # Layout
-    /// * Party identifier (u64)
     /// * Stake (u64)
     /// * Params
     /// * Secret Key
     /// * Public key (including PoP)
-    pub fn to_bytes(&self) -> [u8; 264] {
-        let mut out = [0u8; 264];
-        out[..8].copy_from_slice(&self.party_id.to_be_bytes());
-        out[8..16].copy_from_slice(&self.stake.to_be_bytes());
-        out[16..40].copy_from_slice(&self.params.to_bytes());
-        out[40..72].copy_from_slice(&self.sk.to_bytes());
-        out[72..].copy_from_slice(&self.pk.to_bytes());
+    pub fn to_bytes(&self) -> [u8; 256] {
+        let mut out = [0u8; 256];
+        out[..8].copy_from_slice(&self.stake.to_be_bytes());
+        out[8..32].copy_from_slice(&self.params.to_bytes());
+        out[32..64].copy_from_slice(&self.sk.to_bytes());
+        out[64..].copy_from_slice(&self.pk.to_bytes());
         out
     }
 
@@ -619,15 +602,12 @@ impl StmInitializer {
     pub fn from_bytes(bytes: &[u8]) -> Result<StmInitializer, RegisterError> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(&bytes[..8]);
-        let party_id = u64::from_be_bytes(u64_bytes);
-        u64_bytes.copy_from_slice(&bytes[8..16]);
         let stake = u64::from_be_bytes(u64_bytes);
-        let params = StmParameters::from_bytes(&bytes[16..40])?;
-        let sk = SigningKey::from_bytes(&bytes[40..])?;
-        let pk = StmVerificationKeyPoP::from_bytes(&bytes[72..])?;
+        let params = StmParameters::from_bytes(&bytes[8..32])?;
+        let sk = SigningKey::from_bytes(&bytes[32..])?;
+        let pk = StmVerificationKeyPoP::from_bytes(&bytes[64..])?;
 
         Ok(Self {
-            party_id,
             stake,
             params,
             sk,
@@ -707,18 +687,18 @@ where
     ///
     ///     // We initialise the stake at epoch 1
     ///     let mut total_stake_e1: Stake = 0;
-    ///     let parties_e1 = (0..nparties_e1)
+    ///     let stakes_e1 = (0..nparties_e1)
     ///         .into_iter()
-    ///         .map(|pid| {
+    ///         .map(|_| {
     ///             let stake = rng.next_u64() % 999;
     ///             total_stake_e1 += stake;
-    ///             (pid, 1 + stake)
+    ///             1 + stake
     ///         })
     ///         .collect::<Vec<_>>();
     ///
     ///     // Each party generates their Stm keys
-    ///     let party_0_init_e1 = StmInitializer::setup(params, parties_e1[0].0, parties_e1[0].1, &mut rng);
-    ///     let party_1_init_e1 = StmInitializer::setup(params, parties_e1[1].0, parties_e1[1].1, &mut rng);
+    ///     let party_0_init_e1 = StmInitializer::setup(params, stakes_e1[0], &mut rng);
+    ///     let party_1_init_e1 = StmInitializer::setup(params, stakes_e1[1], &mut rng);
     ///
     ///     // The public keys are broadcast. All participants will have the same keys. We expect
     ///     // the keys to be persistent.
@@ -729,8 +709,8 @@ where
     ///
     ///     // Now, each party registers all other participating parties. Once all parties are registered, the key registration
     ///     // is closed.
-    ///     let party_0_key_reg_e1 = local_reg(&parties_e1, &parties_pks);
-    ///     let party_1_key_reg_e1 = local_reg(&parties_e1, &parties_pks);
+    ///     let party_0_key_reg_e1 = local_reg(&stakes_e1, &parties_pks);
+    ///     let party_1_key_reg_e1 = local_reg(&stakes_e1, &parties_pks);
     ///
     ///     // Now, with information of all participating parties, the
     ///     // signers can be initialised (we can create the Merkle Tree).
@@ -749,30 +729,30 @@ where
     ///
     ///     // We initialise the stake at epoch 2
     ///     let mut total_stake_e2: Stake = 0;
-    ///     let parties_e2 = (0..nparties_e2)
+    ///     let stakes_e2 = (0..nparties_e2)
     ///         .into_iter()
-    ///         .map(|pid| {
+    ///         .map(|_| {
     ///             let stake = rng.next_u64() % 999;
     ///             total_stake_e2 += stake;
-    ///             (pid, 1 + stake)
+    ///             1 + stake
     ///         })
     ///         .collect::<Vec<_>>();
     ///
     ///     // Now the `StmSigner`s are outdated with respect to the new stake, and participants.
     ///     // We allow a transition from `StmSigner` back to `StmInitializer`:
-    ///     let party_0_init_e2 = party_0.new_epoch(Some(parties_e2[0].1));
-    ///     let party_1_init_e2 = party_1.new_epoch(Some(parties_e2[1].1));
+    ///     let party_0_init_e2 = party_0.new_epoch(Some(stakes_e2[0]));
+    ///     let party_1_init_e2 = party_1.new_epoch(Some(stakes_e2[1]));
     ///
     ///     // The third party needs to generate from scratch and broadcast the key (which we represent
     ///     // by appending to the `pks` vector.
-    ///     let party_2_init_e2 = StmInitializer::setup(params, parties_e2[2].0, parties_e2[2].1, &mut rng);
+    ///     let party_2_init_e2 = StmInitializer::setup(params, stakes_e2[2], &mut rng);
     ///     parties_pks.push(party_2_init_e2.verification_key());
     ///
     ///     // The key reg of epoch 1 was consumed, so it cannot be used to generate a signer.
     ///     // This forces us to re-run the key registration (which is good).
-    ///     let key_reg_e2_0 = local_reg(&parties_e2, &parties_pks);
-    ///     let key_reg_e2_1 = local_reg(&parties_e2, &parties_pks);
-    ///     let key_reg_e2_2 = local_reg(&parties_e2, &parties_pks);
+    ///     let key_reg_e2_0 = local_reg(&stakes_e2, &parties_pks);
+    ///     let key_reg_e2_1 = local_reg(&stakes_e2, &parties_pks);
+    ///     let key_reg_e2_2 = local_reg(&stakes_e2, &parties_pks);
     ///
     ///     // And finally, new signers can be created to signe messages in epoch 2. Again, signers
     ///     // of epoch 1 are consumed, so they cannot be used to sign messages of this epoch (again,
@@ -782,10 +762,10 @@ where
     ///     let _party_2_e2 = party_2_init_e2.new_signer(key_reg_e2_2);
     /// # }
     ///
-    /// # fn local_reg(ids: &[(u64, u64)], pks: &[StmVerificationKeyPoP]) -> ClosedKeyReg<Blake2b> {
-    /// # let mut local_keyreg = KeyReg::init(ids);
-    /// #    for (&pk, id) in pks.iter().zip(ids.iter()) {
-    /// #        local_keyreg.register(id.0, pk).unwrap();
+    /// # fn local_reg(stakes: &[u64], pks: &[StmVerificationKeyPoP]) -> ClosedKeyReg<Blake2b> {
+    /// # let mut local_keyreg = KeyReg::init();
+    /// #    for (&pk, stake) in pks.iter().zip(stakes.iter()) {
+    /// #        local_keyreg.register(*stake, pk).unwrap();
     /// #    }
     /// #    local_keyreg.close()
     /// # }
@@ -797,7 +777,6 @@ where
         };
 
         StmInitializer {
-            party_id: self.party_id,
             stake,
             params: self.params,
             pk: StmVerificationKeyPoP::from(&self.sk),
@@ -921,21 +900,16 @@ mod tests {
     }
 
     fn setup_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<StmSigner<D>> {
-        let parties = stake
-            .into_iter()
-            .enumerate()
-            .map(|(index, stake)| (index as u64, stake))
-            .collect::<Vec<_>>();
-        let mut kr = KeyReg::init(&parties);
+        let mut kr = KeyReg::init();
         let mut trng = TestRng::deterministic_rng(ChaCha);
         let mut rng = ChaCha20Rng::from_seed(trng.gen());
         // The needless_collect lint is not correct here
         #[allow(clippy::needless_collect)]
-        let ps = parties
+        let ps = stake
             .into_iter()
-            .map(|(pid, stake)| {
-                let p = StmInitializer::setup(params, pid, stake, &mut rng);
-                kr.register(p.party_id(), p.verification_key()).unwrap();
+            .map(|stake| {
+                let p = StmInitializer::setup(params, stake, &mut rng);
+                kr.register(stake, p.verification_key()).unwrap();
                 p
             })
             .collect::<Vec<_>>();
@@ -1124,9 +1098,8 @@ mod tests {
         fn test_initializer_serialize_deserialize(seed in any::<[u8;32]>()) {
             let mut rng = ChaCha20Rng::from_seed(seed);
             let params = StmParameters { m: 1, k: 1, phi_f: 1.0 };
-            let pid = rng.next_u64();
             let stake = rng.next_u64();
-            let initializer = StmInitializer::setup(params, pid, stake, &mut rng);
+            let initializer = StmInitializer::setup(params, stake, &mut rng);
 
             let bytes = initializer.to_bytes();
             assert!(StmInitializer::from_bytes(&bytes).is_ok());
