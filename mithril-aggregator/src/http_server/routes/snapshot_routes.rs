@@ -79,7 +79,10 @@ mod handlers {
                 StatusCode::OK,
             )),
             Err(err) => Ok(warp::reply::with_status(
-                warp::reply::json(&entities::Error::new("MITHRIL-E0001".to_string(), err)),
+                warp::reply::json(&entities::Error::new(
+                    "MITHRIL-E0001".to_string(),
+                    err.to_string(),
+                )),
                 StatusCode::INTERNAL_SERVER_ERROR,
             )),
         }
@@ -147,7 +150,10 @@ mod handlers {
                 StatusCode::NOT_FOUND,
             ))),
             Err(err) => Ok(Box::new(warp::reply::with_status(
-                warp::reply::json(&entities::Error::new("MITHRIL-E0002".to_string(), err)),
+                warp::reply::json(&entities::Error::new(
+                    "MITHRIL-E0002".to_string(),
+                    err.to_string(),
+                )),
                 StatusCode::INTERNAL_SERVER_ERROR,
             ))),
         }
@@ -175,7 +181,10 @@ mod handlers {
                 None => result,
             },
             Err(err) => Ok(warp::reply::with_status(
-                warp::reply::json(&entities::Error::new("MITHRIL-E0002".to_string(), err)),
+                warp::reply::json(&entities::Error::new(
+                    "MITHRIL-E0002".to_string(),
+                    err.to_string(),
+                )),
                 StatusCode::INTERNAL_SERVER_ERROR,
             )),
         }
@@ -195,7 +204,7 @@ mod tests {
     use warp::test::request;
 
     use super::*;
-    use crate::snapshot_stores::MockSnapshotStore;
+    use crate::snapshot_stores::{MockSnapshotStore, SnapshotStoreError};
 
     fn setup_dependency_manager() -> DependencyManager {
         DependencyManager::fake()
@@ -248,7 +257,9 @@ mod tests {
         let mut mock_snapshot_store = MockSnapshotStore::new();
         mock_snapshot_store
             .expect_list_snapshots()
-            .return_const(Err("an error occurred".to_string()))
+            .return_const(Err(SnapshotStoreError::ManifestError(
+                "an error occurred".to_string(),
+            )))
             .once();
         let mut dependency_manager = setup_dependency_manager();
         dependency_manager.with_snapshot_store(Arc::new(RwLock::new(mock_snapshot_store)));
@@ -334,7 +345,9 @@ mod tests {
         let mut mock_snapshot_store = MockSnapshotStore::new();
         mock_snapshot_store
             .expect_get_snapshot_details()
-            .return_const(Err("an error occurred".to_string()))
+            .return_const(Err(SnapshotStoreError::ManifestError(
+                "an error occurred".to_string(),
+            )))
             .once();
         let mut dependency_manager = setup_dependency_manager();
         dependency_manager.with_snapshot_store(Arc::new(RwLock::new(mock_snapshot_store)));
@@ -419,7 +432,9 @@ mod tests {
         let mut mock_snapshot_store = MockSnapshotStore::new();
         mock_snapshot_store
             .expect_get_snapshot_details()
-            .return_const(Err("an error occurred".to_string()))
+            .return_const(Err(SnapshotStoreError::ManifestError(
+                "an error occurred".to_string(),
+            )))
             .once();
         let mut dependency_manager = setup_dependency_manager();
         dependency_manager.with_snapshot_store(Arc::new(RwLock::new(mock_snapshot_store)));
