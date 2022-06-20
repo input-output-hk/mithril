@@ -1,10 +1,12 @@
 use crate::entities::*;
 use async_trait::async_trait;
+use mockall::automock;
 use thiserror::Error;
 
 #[derive(Debug, Error, PartialEq)]
 pub enum ChainObserverError {}
 
+#[automock]
 #[async_trait]
 pub trait ChainObserver: Sync + Send {
     /// Retrieve the current epoch of the Cardano network
