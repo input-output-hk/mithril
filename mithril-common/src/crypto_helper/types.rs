@@ -1,10 +1,11 @@
 use mithril::key_reg::KeyReg;
 use mithril::stm::{
-    Index, PartyId, Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmInitializer,
-    StmParameters, StmSig, StmSigner, StmVerificationKeyPoP,
+    Index, Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmInitializer, StmParameters,
+    StmSig, StmSigner, StmVerificationKeyPoP,
 };
 
 pub type Bytes = Vec<u8>;
+pub type PartyId = u64;
 
 // Protocol types alias
 type D = blake2::Blake2b;

@@ -1,8 +1,9 @@
 //! Key registration functionality.
 
+use std::collections::hash_map::Entry;
 use crate::error::RegisterError;
 use digest::{Digest, FixedOutput};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 #[cfg(not(feature = "zcash"))]
@@ -10,17 +11,14 @@ use crate::multi_sig::{VerificationKey, VerificationKeyPoP};
 #[cfg(feature = "zcash")]
 use crate::multi_sig_zcash::{VerificationKey, VerificationKeyPoP};
 
-use super::stm::{PartyId, Stake};
+use super::stm::Stake;
 use crate::merkle_tree::{MTLeaf, MerkleTree};
 
 /// Struct that collects public keys and stakes of parties. Each participant (both the
 /// signers and the clerks) need to run their own instance of the key registration.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct KeyReg {
-    parties: HashMap<PartyId, Party>,
-    // `keys` is just the set of all of the keys that have been registered
-    // which allows us for a check check on whether the key already exists.
-    keys: HashSet<VerificationKey>,
+    keys: HashMap<VerificationKey, Stake>,
 }
 
 /// Structure generated out of a closed registration. One can only get a global `avk` out of
@@ -53,42 +51,24 @@ struct Party {
 pub type RegParty = MTLeaf;
 
 impl KeyReg {
-    /// Initialise a KeyReg with all eligible parties and stakes known.
-    pub fn init(players: &[(PartyId, Stake)]) -> Self {
-        let parties = players.iter().map(|(id, stake)| {
-            let party = Party {
-                stake: *stake,
-                vk: None,
-            };
-            (*id, party)
-        });
+    /// Initialise a KeyReg.
+    pub fn init() -> Self {
         Self {
-            parties: parties.collect(),
-            keys: HashSet::new(),
+            keys: HashMap::new(),
         }
     }
 
-    /// Register the pubkey for a particular party.
-    pub fn register(
-        &mut self,
-        party_id: PartyId,
-        pk: VerificationKeyPoP,
-    ) -> Result<(), RegisterError> {
-        if self.keys.contains(&pk.vk) {
-            return Err(RegisterError::KeyRegistered(Box::new(pk.vk)));
-        }
-
-        if let Some(mut party) = self.parties.get_mut(&party_id) {
+    /// Register the pubkey and stake for a particular party.
+    pub fn register(&mut self, stake: Stake, pk: VerificationKeyPoP) -> Result<(), RegisterError> {
+        if let Entry::Vacant(e) = self.keys.entry(pk.vk) {
             if pk.check().is_ok() {
-                party.vk = Some(pk.vk);
-                self.keys.insert(pk.vk);
-                Ok(())
+                e.insert(stake);
+                return Ok(());
             } else {
-                Err(RegisterError::InvalidKey(Box::new(pk)))
+                return Err(RegisterError::InvalidKey(Box::new(pk)));
             }
-        } else {
-            Err(RegisterError::UnknownPartyId(party_id))
         }
+        Err(RegisterError::KeyRegistered(Box::new(pk.vk)))
     }
 
     /// End registration. Disables `KeyReg::register`. Consumes the instance of `self` and returns
@@ -99,18 +79,15 @@ impl KeyReg {
     {
         let mut total_stake: Stake = 0;
         let mut reg_parties = self
-            .parties
+            .keys
             .iter()
-            .filter_map(|(_, party)| {
-                if let Some(vk) = party.vk {
-                    let (res, overflow) = total_stake.overflowing_add(party.stake);
-                    if overflow {
-                        panic!("Total stake overflow");
-                    }
-                    total_stake = res;
-                    return Some(MTLeaf(vk, party.stake));
+            .map(|(&vk, &stake)| {
+                let (res, overflow) = total_stake.overflowing_add(stake);
+                if overflow {
+                    panic!("Total stake overflow");
                 }
-                None
+                total_stake = res;
+                MTLeaf(vk, stake)
             })
             .collect::<Vec<RegParty>>();
         reg_parties.sort();
@@ -125,7 +102,7 @@ impl KeyReg {
 
 impl Default for KeyReg {
     fn default() -> Self {
-        Self::init(&[])
+        Self::init()
     }
 }
 
@@ -142,24 +119,14 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    fn arb_participants(min: usize, max: usize) -> impl Strategy<Value = Vec<(PartyId, Stake)>> {
-        vec(1..1u64 << 60, min..=max).prop_map(|v| {
-            // 1<<60 to avoid overflows
-            v.into_iter()
-                .enumerate()
-                .map(|(index, value)| (index as u64, value))
-                .collect()
-        })
-    }
-
     proptest! {
         #[test]
-        fn test_keyreg(ps in arb_participants(2, 10),
+        fn test_keyreg(stake in vec(1..1u64 << 60, 2..=10),
                        nkeys in 2..10_usize,
                        fake_it in 0..4usize,
                        seed in any::<[u8;32]>()) {
             let mut rng = ChaCha20Rng::from_seed(seed);
-            let mut kr = KeyReg::init(&ps);
+            let mut kr = KeyReg::init();
 
             let gen_keys = (1..nkeys).map(|_| {
                 let sk = SigningKey::gen(&mut rng);
@@ -172,58 +139,37 @@ mod tests {
             };
 
             // Record successful registrations
-            let mut keys = HashSet::new();
-            let mut parties = HashSet::new();
+            let mut keys = HashMap::new();
 
-            for (i, p) in ps.iter().enumerate() {
+            for (i, &stake) in stake.iter().enumerate() {
                 let mut pk = gen_keys[i % gen_keys.len()];
 
                 if fake_it == 0 {
-                   pk.pop = fake_key.pop;
+                    pk.pop = fake_key.pop;
                 }
 
-                let mut id = p.0;
-                if fake_it == 1 {
-                    id = 9999;
-                }
-
-                let reg = kr.register(id, pk);
+                let reg = kr.register(stake, pk);
                 match reg {
                     Ok(_) => {
-                        assert!(keys.insert(pk.vk));
-                        assert!(parties.insert(p.0));
+                        assert!(keys.insert(pk.vk, stake).is_none());
                     },
                     Err(RegisterError::KeyRegistered(pk1)) => {
                         assert!(pk1.as_ref() == &pk.vk);
-                        assert!(keys.contains(&pk.vk));
-                    }
-                    Err(RegisterError::PartyRegistered(party)) => {
-                        assert!(party == p.0);
-                        assert!(parties.contains(&party));
+                        assert!(keys.contains_key(&pk.vk));
                     }
                     Err(RegisterError::InvalidKey(a)) => {
                         assert_eq!(fake_it, 0);
                         assert!(a.check().is_err());
                     }
-                    Err(RegisterError::UnknownPartyId(_)) => assert_eq!(fake_it, 1),
                     Err(RegisterError::SerializationError) => unreachable!(),
                 }
             }
 
-            let retrieved_ids = kr.parties.iter().filter_map(|(key, value)| {
-                if value.vk.is_some() {
-                    return Some(*key);
-                }
-                None
-            } ).collect::<HashSet<_>>();
-            if !retrieved_ids.is_empty() {
+            if !kr.keys.is_empty() {
                 let closed = kr.close::<Blake2b>();
-                let retrieved_keys = closed.reg_parties.iter().map(|r| r.0).collect::<HashSet<_>>();
+                let retrieved_keys = closed.reg_parties.iter().map(|r| (r.0, r.1)).collect::<HashMap<_,_>>();
                 assert!(retrieved_keys == keys);
             }
-
-            assert!(retrieved_ids == parties);
-
         }
     }
 }

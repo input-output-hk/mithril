@@ -27,17 +27,15 @@ fn test_full_protocol() {
 
     let parties = (0..nparties)
         .into_iter()
-        .map(|pid| (pid, 1 + (rng.next_u64() % 9999)))
+        .map(|_| 1 + (rng.next_u64() % 9999))
         .collect::<Vec<_>>();
 
-    let mut key_reg = KeyReg::init(&parties);
+    let mut key_reg = KeyReg::init();
 
     let mut ps: Vec<StmInitializer> = Vec::with_capacity(nparties as usize);
-    for (pid, stake) in parties {
-        let p = StmInitializer::setup(params, pid, stake, &mut rng);
-        key_reg
-            .register(p.party_id(), p.verification_key())
-            .unwrap();
+    for stake in parties {
+        let p = StmInitializer::setup(params, stake, &mut rng);
+        key_reg.register(stake, p.verification_key()).unwrap();
         ps.push(p);
     }
 

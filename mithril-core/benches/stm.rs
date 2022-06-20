@@ -31,9 +31,9 @@ where
     let mut msg = [0u8; 16];
     rng.fill_bytes(&mut msg);
 
-    let parties = (0..NR_PARTIES[SIZE - 1])
+    let stakes = (0..NR_PARTIES[SIZE - 1])
         .into_iter()
-        .map(|pid| (pid as u64, 1 + (rng.next_u64() % 9999)))
+        .map(|_| 1 + (rng.next_u64() % 9999))
         .collect::<Vec<_>>();
 
     let mut k = 8;
@@ -47,19 +47,17 @@ where
     };
 
     let mut ps: Vec<StmInitializer> = Vec::with_capacity(NR_PARTIES[SIZE - 1]);
-    for (pid, stake) in parties.clone() {
-        ps.push(StmInitializer::setup(params, pid as u64, stake, &mut rng));
+    for stake in stakes.clone() {
+        ps.push(StmInitializer::setup(params, stake, &mut rng));
     }
-    let mut key_reg = KeyReg::init(&parties);
+    let mut key_reg = KeyReg::init();
     for &nr in NR_PARTIES.iter() {
         group.bench_with_input(BenchmarkId::new("Key registration", &nr), &nr, |b, &nr| {
             b.iter(|| {
                 // We need to initialise the key_reg at each iteration
-                key_reg = KeyReg::init(&parties[..nr]);
+                key_reg = KeyReg::init();
                 for p in ps[..nr].iter() {
-                    key_reg
-                        .register(p.party_id(), p.verification_key())
-                        .unwrap();
+                    key_reg.register(p.stake(), p.verification_key()).unwrap();
                 }
             })
         });
@@ -86,13 +84,11 @@ where
             phi_f: 1.0,
         };
 
-        let mut key_reg = KeyReg::init(&parties);
+        let mut key_reg = KeyReg::init();
         let mut ps: Vec<StmInitializer> = Vec::with_capacity(NR_PARTIES[SIZE - 1]);
-        for (pid, stake) in parties.clone() {
-            let p = StmInitializer::setup(params, pid, stake, &mut rng);
-            key_reg
-                .register(p.party_id(), p.verification_key())
-                .unwrap();
+        for stake in stakes.clone() {
+            let p = StmInitializer::setup(params, stake, &mut rng);
+            key_reg.register(stake, p.verification_key()).unwrap();
             ps.push(p);
         }
 
@@ -129,13 +125,11 @@ where
             phi_f: 1.0,
         };
 
-        let mut key_reg = KeyReg::init(&parties);
+        let mut key_reg = KeyReg::init();
         let mut ps: Vec<StmInitializer> = Vec::with_capacity(NR_PARTIES[SIZE - 1]);
-        for (pid, stake) in parties.clone() {
-            let p = StmInitializer::setup(params, pid, stake, &mut rng);
-            key_reg
-                .register(p.party_id(), p.verification_key())
-                .unwrap();
+        for stake in stakes.clone() {
+            let p = StmInitializer::setup(params, stake, &mut rng);
+            key_reg.register(stake, p.verification_key()).unwrap();
             ps.push(p);
         }
 

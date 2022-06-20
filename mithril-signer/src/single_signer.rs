@@ -71,17 +71,11 @@ impl MithrilSingleSigner {
         stake_distribution: &[SignerWithStake], // TODO : use a hmap to prevent party id duplication
         protocol_parameters: &entities::ProtocolParameters,
     ) -> Result<ProtocolSigner, SingleSignerError> {
-        let players = stake_distribution
-            .iter()
-            .map(|s| (s.party_id as ProtocolPartyId, s.stake as ProtocolStake))
-            .collect::<Vec<_>>();
-
         let protocol_initializer = match &self.protocol_initializer {
             None => {
                 let mut rng = rand_core::OsRng;
                 ProtocolInitializer::setup(
                     protocol_parameters.to_owned().into(),
-                    self.party_id as ProtocolPartyId,
                     current_player_stake,
                     &mut rng,
                 )
@@ -90,7 +84,7 @@ impl MithrilSingleSigner {
         };
         self.protocol_initializer = Some(protocol_initializer);
 
-        let mut key_reg = ProtocolKeyRegistration::init(&players);
+        let mut key_reg = ProtocolKeyRegistration::init();
         let signers = stake_distribution
             .iter()
             .filter(|signer| !signer.verification_key.is_empty())
@@ -104,11 +98,9 @@ impl MithrilSingleSigner {
                 for s in signers {
                     let decoded_key =
                         key_decode_hex(&s.verification_key).map_err(SingleSignerError::Codec)?;
-                    key_reg
-                        .register(s.party_id as ProtocolPartyId, decoded_key)
-                        .map_err(|e| {
-                            SingleSignerError::ProtocolSignerCreationFailure(e.to_string())
-                        })?;
+                    key_reg.register(s.stake, decoded_key).map_err(|e| {
+                        SingleSignerError::ProtocolSignerCreationFailure(e.to_string())
+                    })?;
                 }
                 let closed_reg = key_reg.close();
                 Ok(self
