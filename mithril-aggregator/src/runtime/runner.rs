@@ -5,8 +5,11 @@ use crate::{DependencyManager, SnapshotError, Snapshotter};
 use async_trait::async_trait;
 use chrono::Utc;
 use mithril_common::digesters::{Digester, DigesterResult, ImmutableDigester, ImmutableFile};
-use mithril_common::entities::{Beacon, Certificate, CertificatePending, Snapshot};
+use mithril_common::entities::{
+    Beacon, Certificate, CertificatePending, SignerWithStake, Snapshot,
+};
 
+use mithril_common::store::stake_store::StakeStorer;
 use slog_scope::{debug, error, info, trace, warn};
 use std::path::Path;
 use std::sync::Arc;
@@ -56,6 +59,10 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     async fn is_new_beacon(&self, beacon: Option<Beacon>) -> Result<Option<Beacon>, RuntimeError>;
 
     async fn compute_digest(&self, new_beacon: &Beacon) -> Result<DigesterResult, RuntimeError>;
+
+    async fn update_beacon(&self, new_beacon: &Beacon) -> Result<(), RuntimeError>;
+
+    async fn update_stake_distribution(&self, new_beacon: &Beacon) -> Result<(), RuntimeError>;
 
     async fn update_message_in_multisigner(
         &self,
@@ -123,16 +130,28 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         );
         let db_path: &Path = self.config.db_directory.as_path();
         let immutable_file_number = ImmutableFile::list_completed_in_dir(db_path)
-            .map_err(RuntimeError::ImmutableFileError)?
+            .map_err(RuntimeError::ImmutableFile)?
             .into_iter()
             .last()
             .ok_or_else(|| RuntimeError::General("no immutable file was returned".to_string()))?
             .number;
+        let epoch = self
+            .config
+            .dependencies
+            .chain_observer
+            .as_ref()
+            .ok_or_else(|| RuntimeError::General("no chain observer registered".to_string()))?
+            .read()
+            .await
+            .get_current_epoch()
+            .await?
+            .ok_or_else(|| RuntimeError::General("no epoch was returned".to_string()))?;
         let current_beacon = Beacon {
             network: self.config.network.clone(),
-            epoch: 0,
+            epoch,
             immutable_file_number,
         };
+        debug!("checking if there is a new beacon: {:?}", current_beacon);
 
         match maybe_beacon {
             Some(beacon) if current_beacon > beacon => Ok(Some(current_beacon)),
@@ -190,6 +209,53 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             trace!("digest last immutable file number and new beacon file number are consistent");
             Ok(digest_result)
         }
+    }
+
+    async fn update_beacon(&self, new_beacon: &Beacon) -> Result<(), RuntimeError> {
+        info!("update beacon"; "beacon" => #?new_beacon);
+        let _ = self
+            .config
+            .dependencies
+            .beacon_store
+            .as_ref()
+            .ok_or_else(|| RuntimeError::General("no beacon store registered".to_string()))?
+            .write()
+            .await
+            .set_current_beacon(new_beacon.to_owned())
+            .await?;
+        Ok(())
+    }
+
+    async fn update_stake_distribution(&self, new_beacon: &Beacon) -> Result<(), RuntimeError> {
+        info!("update stake distribution"; "beacon" => #?new_beacon);
+        let stake_distribution = self
+            .config
+            .dependencies
+            .chain_observer
+            .as_ref()
+            .ok_or_else(|| RuntimeError::General("no chain observer registered".to_string()))?
+            .read()
+            .await
+            .get_current_stake_distribution()
+            .await?
+            .ok_or_else(|| RuntimeError::General("no epoch was returned".to_string()))?;
+        let mut stake_store = self
+            .config
+            .dependencies
+            .stake_store
+            .as_ref()
+            .ok_or_else(|| RuntimeError::General("no stake store registered".to_string()))?
+            .write()
+            .await;
+        for (party_id, stake) in &stake_distribution {
+            stake_store
+                .save_stake(
+                    new_beacon.epoch,
+                    SignerWithStake::new(*party_id, "".to_string(), *stake),
+                )
+                .await?;
+        }
+        Ok(())
     }
 
     async fn create_new_pending_certificate_from_multisigner(
