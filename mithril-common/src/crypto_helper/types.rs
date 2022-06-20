@@ -1,7 +1,7 @@
 use mithril::key_reg::KeyReg;
 use mithril::stm::{
-    Index, Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmInitializer,
-    StmParameters, StmSig, StmSigner, StmVerificationKeyPoP,
+    Index, Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmInitializer, StmParameters,
+    StmSig, StmSigner, StmVerificationKeyPoP,
 };
 
 pub type Bytes = Vec<u8>;

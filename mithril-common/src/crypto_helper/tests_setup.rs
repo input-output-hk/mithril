@@ -31,11 +31,8 @@ pub fn setup_signers(
         .into_iter()
         .map(|party_id| {
             let stake = 1 + rng.next_u64() % 999;
-            let protocol_initializer: ProtocolInitializer = ProtocolInitializer::setup(
-                protocol_parameters,
-                stake,
-                &mut rng,
-            );
+            let protocol_initializer: ProtocolInitializer =
+                ProtocolInitializer::setup(protocol_parameters, stake, &mut rng);
             (
                 party_id as ProtocolPartyId,
                 stake as ProtocolStake,
@@ -45,13 +42,11 @@ pub fn setup_signers(
         .collect::<Vec<(ProtocolPartyId, ProtocolStake, ProtocolInitializer)>>();
 
     let mut key_registration = ProtocolKeyRegistration::init();
-    signers
-        .iter()
-        .for_each(|(party_id, _, protocol_initializer)| {
-            key_registration
-                .register(*party_id, protocol_initializer.verification_key())
-                .expect("key registration should have succeeded");
-        });
+    signers.iter().for_each(|(_, stake, protocol_initializer)| {
+        key_registration
+            .register(*stake, protocol_initializer.verification_key())
+            .expect("key registration should have succeeded");
+    });
     let closed_key_registration = key_registration.close();
     signers
         .into_iter()

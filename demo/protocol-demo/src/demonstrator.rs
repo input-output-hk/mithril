@@ -99,15 +99,14 @@ impl Party {
         );
 
         let mut key_reg = ProtocolKeyRegistration::init();
-        for (party_id, _stake, verification_key) in players_with_keys {
-            key_reg.register(*party_id, *verification_key).unwrap();
+        for (_party_id, stake, verification_key) in players_with_keys {
+            key_reg.register(*stake, *verification_key).unwrap();
         }
         let closed_reg = key_reg.close();
 
         let seed = [0u8; 32];
         let mut rng = ChaCha20Rng::from_seed(seed);
-        let p =
-            ProtocolInitializer::setup(self.params.unwrap(), self.stake, &mut rng);
+        let p = ProtocolInitializer::setup(self.params.unwrap(), self.stake, &mut rng);
         self.signer = Some(p.new_signer(closed_reg));
         self.clerk = Some(ProtocolClerk::from_signer(self.signer.as_ref().unwrap()));
     }
@@ -240,8 +239,8 @@ impl Verifier {
         println!("Verifier: protocol keys registration from {:?}", players);
 
         let mut key_reg = ProtocolKeyRegistration::init();
-        for (party_id, _stake, verification_key) in players_with_keys {
-            key_reg.register(*party_id, *verification_key).unwrap();
+        for (_party_id, stake, verification_key) in players_with_keys {
+            key_reg.register(*stake, *verification_key).unwrap();
         }
         let closed_reg = key_reg.close();
 

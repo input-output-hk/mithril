@@ -192,10 +192,10 @@ impl MultiSignerImpl {
         let stakes = self.get_stake_distribution().await?;
         let mut key_registration = ProtocolKeyRegistration::init();
         let mut total_signers = 0;
-        for (party_id, _stake) in &stakes {
+        for (party_id, stake) in &stakes {
             if let Ok(Some(verification_key)) = self.get_signer(*party_id).await {
                 key_registration
-                    .register(*party_id, verification_key)
+                    .register(*stake, verification_key)
                     .map_err(|e| ProtocolError::Core(e.to_string()))?;
                 total_signers += 1;
             }

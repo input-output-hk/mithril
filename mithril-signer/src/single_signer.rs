@@ -98,11 +98,9 @@ impl MithrilSingleSigner {
                 for s in signers {
                     let decoded_key =
                         key_decode_hex(&s.verification_key).map_err(SingleSignerError::Codec)?;
-                    key_reg
-                        .register(s.party_id as ProtocolPartyId, decoded_key)
-                        .map_err(|e| {
-                            SingleSignerError::ProtocolSignerCreationFailure(e.to_string())
-                        })?;
+                    key_reg.register(s.stake, decoded_key).map_err(|e| {
+                        SingleSignerError::ProtocolSignerCreationFailure(e.to_string())
+                    })?;
                 }
                 let closed_reg = key_reg.close();
                 Ok(self
