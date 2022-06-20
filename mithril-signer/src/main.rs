@@ -6,11 +6,10 @@ use std::error::Error;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use mithril_common::crypto_helper::ProtocolStakeDistribution;
+use mithril_common::chain_observer::FakeObserver;
 use mithril_common::digesters::ImmutableDigester;
-use mithril_common::fake_data;
 use mithril_common::store::adapter::JsonFileStoreAdapter;
-use mithril_common::store::stake_store::{StakeStore, StakeStorer};
+use mithril_common::store::stake_store::StakeStore;
 use mithril_signer::{CertificateHandlerHTTPClient, Config, MithrilSingleSigner, Runtime};
 
 /// CLI args
@@ -74,7 +73,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let stake_store = Arc::new(RwLock::new(StakeStore::new(Box::new(
         JsonFileStoreAdapter::new(config.stake_store_directory.clone())?,
     ))));
-    setup_dependencies_fake_data(stake_store.clone()).await;
+    let chain_observer = Arc::new(RwLock::new(FakeObserver::new()));
 
     // Should the runtime loop returns an error ? If yes should we abort the loop at the first error or is their some tolerance ?
     let mut runtime = Runtime::new(
@@ -82,27 +81,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         Box::new(single_signer),
         Box::new(digester),
         stake_store.clone(),
+        chain_observer.clone(),
     );
     runtime.infinite_loop(config.run_interval).await;
 
     Ok(())
-}
-
-/// Setup dependencies with fake data
-// TODO: remove this function when new runtime is implemented
-async fn setup_dependencies_fake_data(stake_store: Arc<RwLock<dyn StakeStorer>>) {
-    // Update stake distribution
-    let mut stake_store = stake_store.write().await;
-    let total_signers = 5;
-    let epoch = 0; // TODO: to remove once the runtime feeds the stake distribution
-    let stakes: ProtocolStakeDistribution = fake_data::signers_with_stakes(total_signers)
-        .into_iter()
-        .map(|signer| signer.into())
-        .collect::<_>();
-    for stake in stakes {
-        stake_store
-            .save_stake(epoch, stake.into())
-            .await
-            .expect("fake stake distribution update failed");
-    }
 }
