@@ -4,11 +4,11 @@ use clap::Parser;
 
 use config::{Map, Source, Value, ValueKind};
 use mithril_aggregator::{
-    AggregatorConfig, AggregatorRunner, AggregatorRuntime, BeaconStore, CertificatePendingStore,
+    AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
     CertificateStore, Config, DependencyManager, MemoryBeaconStore, MultiSigner, MultiSignerImpl,
     Server, VerificationKeyStore,
 };
-use mithril_common::crypto_helper::ProtocolStakeDistribution;
+use mithril_common::chain_observer::FakeObserver;
 use mithril_common::fake_data;
 use mithril_common::store::adapter::JsonFileStoreAdapter;
 use mithril_common::store::stake_store::StakeStore;
@@ -150,7 +150,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         verification_key_store.clone(),
         stake_store.clone(),
     )));
-    setup_dependencies_fake_data(multi_signer.clone(), beacon_store.clone()).await;
+    let chain_observer = Arc::new(RwLock::new(FakeObserver::new()));
+    setup_dependencies_fake_data(multi_signer.clone()).await;
 
     // Init dependency manager
     let mut dependency_manager = DependencyManager::new(config.clone());
@@ -162,7 +163,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .with_certificate_pending_store(certificate_pending_store.clone())
         .with_certificate_store(certificate_store.clone())
         .with_verification_key_store(verification_key_store.clone())
-        .with_stake_store(stake_store.clone());
+        .with_stake_store(stake_store.clone())
+        .with_chain_observer(chain_observer.clone());
     let dependency_manager = Arc::new(dependency_manager);
 
     // Start snapshot uploader
@@ -204,21 +206,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 }
 
 /// Setup dependencies with fake data
-// TODO: remove this function when new runtime is implemented + remove protocol parameters from fake data
-async fn setup_dependencies_fake_data(
-    multi_signer: Arc<RwLock<dyn MultiSigner>>,
-    beacon_store: Arc<RwLock<dyn BeaconStore>>,
-) {
-    // Set current beacon
-    {
-        let beacon = fake_data::beacon();
-        let mut beacon_store = beacon_store.write().await;
-        beacon_store
-            .set_current_beacon(beacon.clone())
-            .await
-            .expect("fake set current beacon failed");
-    }
-
+// TODO: remove this function when new protocol parameters are not fake anymore
+async fn setup_dependencies_fake_data(multi_signer: Arc<RwLock<dyn MultiSigner>>) {
     // Update protocol parameters
     {
         let mut multi_signer = multi_signer.write().await;
@@ -227,19 +216,5 @@ async fn setup_dependencies_fake_data(
             .update_protocol_parameters(&protocol_parameters.into())
             .await
             .expect("fake update protocol parameters failed");
-    }
-
-    // Update stake distribution
-    {
-        let mut multi_signer = multi_signer.write().await;
-        let total_signers = 5;
-        let stakes: ProtocolStakeDistribution = fake_data::signers_with_stakes(total_signers)
-            .into_iter()
-            .map(|signer| signer.into())
-            .collect::<_>();
-        multi_signer
-            .update_stake_distribution(&stakes)
-            .await
-            .expect("fake stake distribution update failed");
     }
 }
