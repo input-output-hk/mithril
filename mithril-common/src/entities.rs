@@ -1,8 +1,22 @@
 use fixed::types::U8F24;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::collections::HashMap;
 
+/// Epoch represents a Cardano epoch
+pub type Epoch = u64;
+
+/// ImmutableFileNumber represents the id of immutable files in the Cardano node database
 pub type ImmutableFileNumber = u64;
+
+/// PartyId represents a signing party in Mithril protocol
+pub type PartyId = u64;
+
+/// Stake represents the stakes of a participant in the Cardano chain
+pub type Stake = u64;
+
+/// StakeDistribution represents the stakes of multiple participants in the Cardano chain
+pub type StakeDistribution = HashMap<PartyId, Stake>;
 
 /// Beacon represents a point in the Cardano chain at which a Mithril certificate should be produced
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize, Hash, PartialOrd)]
@@ -13,7 +27,7 @@ pub struct Beacon {
 
     /// Cardano chain epoch number
     #[serde(rename = "epoch")]
-    pub epoch: u64,
+    pub epoch: Epoch,
 
     /// Number of the last included immutable files for the digest computation
     #[serde(rename = "immutable_file_number")]
@@ -22,7 +36,11 @@ pub struct Beacon {
 
 impl Beacon {
     /// Beacon factory
-    pub fn new(network: String, epoch: u64, immutable_file_number: u64) -> Beacon {
+    pub fn new(
+        network: String,
+        epoch: Epoch,
+        immutable_file_number: ImmutableFileNumber,
+    ) -> Beacon {
         Beacon {
             network,
             epoch,
@@ -237,7 +255,7 @@ impl PartialEq<ProtocolParameters> for ProtocolParameters {
 pub struct Signer {
     /// The unique identifier of the signer
     #[serde(rename = "party_id")]
-    pub party_id: u64,
+    pub party_id: PartyId,
 
     /// The public key used to authenticate signer signature
     #[serde(rename = "verification_key")]
@@ -246,7 +264,7 @@ pub struct Signer {
 
 impl Signer {
     /// Signer factory
-    pub fn new(party_id: u64, verification_key: String) -> Signer {
+    pub fn new(party_id: PartyId, verification_key: String) -> Signer {
         Signer {
             party_id,
             verification_key,
@@ -267,19 +285,19 @@ impl Signer {
 pub struct SignerWithStake {
     /// The unique identifier of the signer
     #[serde(rename = "party_id")]
-    pub party_id: u64,
+    pub party_id: PartyId,
 
     /// The public key used to authenticate signer signature
     #[serde(rename = "verification_key")]
     pub verification_key: String,
 
     #[serde(rename = "stake")]
-    pub stake: u64,
+    pub stake: Stake,
 }
 
 impl SignerWithStake {
     /// SignerWithStake factory
-    pub fn new(party_id: u64, verification_key: String, stake: u64) -> SignerWithStake {
+    pub fn new(party_id: PartyId, verification_key: String, stake: Stake) -> SignerWithStake {
         SignerWithStake {
             party_id,
             verification_key,
@@ -302,7 +320,7 @@ impl SignerWithStake {
 pub struct SingleSignature {
     /// The unique identifier of the signer
     #[serde(rename = "party_id")]
-    pub party_id: u64,
+    pub party_id: PartyId,
 
     /// The index of the lottery won that lead to the single signature
     #[serde(rename = "index")]
@@ -315,7 +333,7 @@ pub struct SingleSignature {
 
 impl SingleSignature {
     /// SingleSignature factory
-    pub fn new(party_id: u64, index: u64, signature: String) -> SingleSignature {
+    pub fn new(party_id: PartyId, index: u64, signature: String) -> SingleSignature {
         SingleSignature {
             party_id,
             index,
@@ -364,20 +382,6 @@ impl Snapshot {
             created_at,
             locations,
         }
-    }
-}
-
-/// Stake represents the stakes of a participant in the Cardano chain
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
-pub struct Stake {
-    #[serde(rename = "stake")]
-    pub stake: u64,
-}
-
-impl Stake {
-    /// Stake factory
-    pub fn new(stake: u64) -> Stake {
-        Stake { stake }
     }
 }
 
