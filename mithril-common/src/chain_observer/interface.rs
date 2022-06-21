@@ -1,10 +1,14 @@
 use crate::entities::*;
 use async_trait::async_trait;
 use mockall::automock;
+use std::error::Error as StdError;
 use thiserror::Error;
 
-#[derive(Debug, Error, PartialEq)]
-pub enum ChainObserverError {}
+#[derive(Debug, Error)]
+pub enum ChainObserverError {
+    #[error("general error {0}")]
+    General(Box<dyn StdError + Sync + Send>),
+}
 
 #[automock]
 #[async_trait]
