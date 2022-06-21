@@ -292,7 +292,6 @@ impl MultiSigner for MultiSignerImpl {
         stakes: &ProtocolStakeDistribution,
     ) -> Result<(), ProtocolError> {
         debug!("Update stake distribution to {:?}", stakes);
-        #[allow(unused_variables)]
         let epoch = self
             .beacon_store
             .read()
@@ -349,7 +348,6 @@ impl MultiSigner for MultiSignerImpl {
         &self,
     ) -> Result<Vec<entities::SignerWithStake>, ProtocolError> {
         debug!("Get signers with stake");
-        #[allow(clippy::identity_op)]
         let epoch = self
             .beacon_store
             .read()
@@ -359,7 +357,6 @@ impl MultiSigner for MultiSignerImpl {
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
             - 1;
-
         let signers = self
             .verification_key_store
             .read()
@@ -628,6 +625,14 @@ mod tests {
         )
     }
 
+    async fn offset_epoch(multi_signer: &MultiSignerImpl, offset: i64) {
+        let mut beacon_store = multi_signer.beacon_store.write().await;
+        let mut beacon = beacon_store.get_current_beacon().await.unwrap().unwrap();
+        let epoch_new = beacon.epoch as i64 + offset;
+        beacon.epoch = epoch_new as u64;
+        beacon_store.set_current_beacon(beacon).await.unwrap();
+    }
+
     #[tokio::test]
     async fn test_multi_signer_current_message_ok() {
         let mut multi_signer = setup_multi_signer().await;
@@ -676,6 +681,8 @@ mod tests {
             .await
             .expect("update stake distribution failed");
 
+        offset_epoch(&multi_signer, 1).await;
+
         let mut stake_distribution = multi_signer
             .get_stake_distribution()
             .await
@@ -711,6 +718,8 @@ mod tests {
                 .await
                 .expect("register should have succeeded")
         }
+
+        offset_epoch(&multi_signer, 1).await;
 
         let mut signers_with_stake_all_expected = Vec::new();
         for (party_id, stake, verification_key_expected, _, _) in &signers {
@@ -784,6 +793,8 @@ mod tests {
                 .await
                 .expect("register should have succeeded")
         }
+
+        offset_epoch(&multi_signer, 1).await;
 
         let mut signatures = Vec::new();
         for (party_id, _, _, protocol_signer, _) in &signers {
