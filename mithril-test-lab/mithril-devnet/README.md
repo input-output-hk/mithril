@@ -40,6 +40,12 @@ chmod u+x *.sh
 # Run devnet with 1 BFT node and 2 SPO nodes (with remote docker images)
 MITHRIL_IMAGE_ID=main-c9213ca ./devnet-run.sh
 
+# Run devnet with Cardano nodes only
+NODES=cardano ./devnet-run.sh
+
+# Run devnet with Mithril nodes only
+NODES=mithril ./devnet-run.sh
+
 # Logs devnet
 ./devnet-log.sh
 
@@ -49,8 +55,8 @@ MITHRIL_IMAGE_ID=main-c9213ca ./devnet-run.sh
 # Stop devnet
 ./devnet-stop.sh
 
-# Visusalize devnet
-./devnet-stop.sh
+# Visualize devnet
+./devnet-visualize.sh
 ```
 
 ## One step run with custom configuration
@@ -68,8 +74,8 @@ ROOT=artifacts ./devnet-query.sh
 # Stop devnet
 ROOT=artifacts ./devnet-stop.sh
 
-# Visusalize devnet
-ROOT=artifacts ./devnet-stop.sh
+# Visualize devnet
+ROOT=artifacts ./devnet-visualize.sh
 ```
 
 ## Step by step run with custom configuration
@@ -86,8 +92,11 @@ rm -rf ${ROOT} && ./devnet-mkfiles.sh ${ROOT} ${NUM_BFT_NODES} ${NUM_POOL_NODES}
 # Change directory
 cd ${ROOT}
 
-# Start devnet
-./start.sh
+# Start devnet Cardano nodes
+./start-cardano.sh
+
+# Start devnet Mithril nodes
+./start-mithril.sh
 
 # Query devnet
 ./query.sh
@@ -103,7 +112,6 @@ cd ${ROOT}
 
 ```bash
 # Example of artifacts
-tree artifacts
 artifacts
 ├── activate.sh
 ├── addresses
@@ -181,7 +189,8 @@ artifacts
 │   ├── topology.json
 │   └── tx
 ├── query.sh
-├── start.sh
+├── start-cardano.sh
+├── start-mithril.sh
 └── stop.sh
 ```
 

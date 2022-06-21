@@ -858,7 +858,7 @@ echo cd ${ROOT}
 echo
 echo "To start the nodes, in separate terminals use:"
 echo
-cat >> start.sh <<EOF
+cat >> start-cardano.sh <<EOF
 echo ">> Start Cardano network"
 killall cardano-node
 
@@ -883,7 +883,7 @@ for NODE in ${BFT_NODES}; do
 EOF
   chmod u+x ${NODE}/start-node.sh
 
-  cat >> start.sh <<EOF
+  cat >> start-cardano.sh <<EOF
 echo ">> Starting Cardano node '${NODE}'"
 ./${NODE}/start-node.sh &
 
@@ -908,7 +908,7 @@ for NODE in ${POOL_NODES}; do
 EOF
   chmod u+x ${NODE}/start-node.sh
 
-  cat >> start.sh <<EOF
+  cat >> start-cardano.sh <<EOF
 echo ">> Starting Cardano node '${NODE}'"
 ./${NODE}/start-node.sh &
 
@@ -916,20 +916,7 @@ EOF
 
 done
 
-cat >> start.sh <<EOF
-if [ -z "\${MITHRIL_IMAGE_ID}" ]; then 
-  echo ">> Build Mithril node Docker images"
-  PWD=$(pwd)
-  cd ../../../
-  echo ">>>> Building Mithril Aggregator node Docker image"
-  cd mithril-aggregator && make docker-build > /dev/null && cd ..
-  echo ">>>> Building Mithril Client node Docker image"
-  cd mithril-client && make docker-build > /dev/null && cd ..
-  echo ">>>> Building Mithril Signer node Docker image"
-  cd mithril-signer && make docker-build > /dev/null && cd ..
-  cd $PWD
-fi
-
+cat >> start-cardano.sh <<EOF
 echo ">> Wait for Cardano network to be ready"
 while true
 do
@@ -947,8 +934,23 @@ done
 
 echo ">> Activate Cardano pools"
 ./activate.sh ${ROOT}
+EOF
+chmod u+x start-cardano.sh
 
+cat >> start-mithril.sh <<EOF
 echo ">> Start Mithril network"
+if [ -z "\${MITHRIL_IMAGE_ID}" ]; then 
+  echo ">> Build Mithril node Docker images"
+  PWD=$(pwd)
+  cd ../../../
+  echo ">>>> Building Mithril Aggregator node Docker image"
+  cd mithril-aggregator && make docker-build > /dev/null && cd ..
+  echo ">>>> Building Mithril Client node Docker image"
+  cd mithril-client && make docker-build > /dev/null && cd ..
+  echo ">>>> Building Mithril Signer node Docker image"
+  cd mithril-signer && make docker-build > /dev/null && cd ..
+  cd $PWD
+fi
 docker-compose rm -f
 if [ -z "\${MITHRIL_IMAGE_ID}" ]; then 
   MITHRIL_AGGREGATOR_IMAGE="mithril/mithril-aggregator"
@@ -961,7 +963,7 @@ else
 fi
 MITHRIL_AGGREGATOR_IMAGE=\${MITHRIL_AGGREGATOR_IMAGE} MITHRIL_CLIENT_IMAGE=\${MITHRIL_CLIENT_IMAGE} MITHRIL_SIGNER_IMAGE=\${MITHRIL_SIGNER_IMAGE} docker-compose -f docker-compose.yaml --profile mithril up --remove-orphans --force-recreate -d --no-build
 EOF
-chmod u+x start.sh
+chmod u+x start-mithril.sh
 
 cat >> stop.sh <<EOF
 echo ">> Stop Cardano network"
@@ -1021,7 +1023,7 @@ echo ./activate.sh .
 echo
 echo "Or do all at once with:"
 echo
-echo ./start.sh
+echo "./start-cardano.sh && ./start-mithril.sh"
 echo
 echo "Then query the devnet:"
 echo
