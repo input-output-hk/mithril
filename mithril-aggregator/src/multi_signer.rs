@@ -259,7 +259,6 @@ impl MultiSigner for MultiSignerImpl {
     /// Get stake distribution
     async fn get_stake_distribution(&self) -> Result<ProtocolStakeDistribution, ProtocolError> {
         debug!("Get stake distribution");
-        #[allow(unused_variables, clippy::identity_op)]
         let epoch = self
             .beacon_store
             .read()
@@ -268,11 +267,7 @@ impl MultiSigner for MultiSignerImpl {
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
-            - 0; // TODO: Should be -1 or -2
-        warn!(
-            "Epoch computation is not final and needs to be fixed: {}",
-            epoch
-        );
+            - 1;
         let signers = self
             .stake_store
             .read()
@@ -325,7 +320,6 @@ impl MultiSigner for MultiSignerImpl {
         party_id: ProtocolPartyId,
     ) -> Result<Option<ProtocolSignerVerificationKey>, ProtocolError> {
         debug!("Get signer {}", party_id);
-        #[allow(clippy::identity_op)]
         let epoch = self
             .beacon_store
             .read()
@@ -334,11 +328,7 @@ impl MultiSigner for MultiSignerImpl {
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
-            - 0; // TODO: Should be -1 or -2
-        warn!(
-            "Epoch computation is not final and needs to be fixed: {}",
-            epoch
-        );
+            - 1;
         let signers = self
             .verification_key_store
             .read()
@@ -368,11 +358,8 @@ impl MultiSigner for MultiSignerImpl {
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
-            - 0; // TODO: Should be -1 or -2
-        warn!(
-            "Epoch computation is not final and needs to be fixed: {}",
-            epoch
-        );
+            - 1;
+
         let signers = self
             .verification_key_store
             .read()

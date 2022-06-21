@@ -1,4 +1,4 @@
-use slog_scope::{error, info, warn};
+use slog_scope::{error, info};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -201,12 +201,7 @@ impl Runtime {
             .iter()
             .map(|signer| (signer.party_id.to_owned(), signer.verification_key.as_str()))
             .collect::<HashMap<PartyId, &str>>();
-        #[allow(clippy::identity_op)]
-        let epoch = pending_certificate.beacon.epoch - 0; // TODO: Should be -1 or -2
-        warn!(
-            "Epoch computation is not final and needs to be fixed: {}",
-            epoch
-        );
+        let epoch = pending_certificate.beacon.epoch - 1;
         let stake_store = self.stake_store.read().await;
         let stake_distribution = stake_store
             .get_stakes(epoch)
