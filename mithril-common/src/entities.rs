@@ -172,10 +172,6 @@ impl Certificate {
 /// Internal error representation
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct Error {
-    /// error code
-    #[serde(rename = "code")]
-    pub code: String,
-
     /// error message
     #[serde(rename = "message")]
     pub message: String,
@@ -183,8 +179,8 @@ pub struct Error {
 
 impl Error {
     /// Error factory
-    pub fn new(code: String, message: String) -> Error {
-        Error { code, message }
+    pub fn new(message: String) -> Error {
+        Error { message }
     }
 }
 

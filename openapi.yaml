@@ -472,13 +472,8 @@ components:
       type: object
       additionalProperties: false
       required:
-        - code
         - message
       properties:
-        code:
-          description: error code
-          format: string
-          example: "MITHRIL-E0001"
         message:
           description: error message
           type: string

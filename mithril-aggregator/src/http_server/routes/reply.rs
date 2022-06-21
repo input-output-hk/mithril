@@ -17,8 +17,5 @@ pub fn empty(status_code: StatusCode) -> Box<dyn warp::Reply> {
 }
 
 pub fn internal_server_error(message: String) -> Box<dyn warp::Reply> {
-    json(
-        &Error::new("".to_string(), message),
-        StatusCode::INTERNAL_SERVER_ERROR,
-    )
+    json(&Error::new(message), StatusCode::INTERNAL_SERVER_ERROR)
 }
