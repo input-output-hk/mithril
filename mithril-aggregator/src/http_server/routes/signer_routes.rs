@@ -22,10 +22,10 @@ fn register_signer(
 
 mod handlers {
     use crate::dependency::MultiSignerWrapper;
+    use crate::http_server::routes::reply;
     use crate::ProtocolError;
     use mithril_common::crypto_helper::{key_decode_hex, ProtocolPartyId};
     use mithril_common::entities;
-    use serde_json::Value::Null;
     use slog_scope::debug;
     use std::convert::Infallible;
     use warp::http::StatusCode;
@@ -44,27 +44,12 @@ mod handlers {
                     .register_signer(signer.party_id as ProtocolPartyId, &verification_key)
                     .await
                 {
-                    Ok(()) => Ok(warp::reply::with_status(
-                        warp::reply::json(&Null),
-                        StatusCode::CREATED,
-                    )),
-                    Err(ProtocolError::ExistingSigner()) => Ok(warp::reply::with_status(
-                        warp::reply::json(&Null),
-                        StatusCode::CONFLICT,
-                    )),
-                    Err(err) => Ok(warp::reply::with_status(
-                        warp::reply::json(&entities::Error::new(
-                            "MITHRIL-E0006".to_string(),
-                            err.to_string(),
-                        )),
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                    )),
+                    Ok(()) => Ok(reply::empty(StatusCode::CREATED)),
+                    Err(ProtocolError::ExistingSigner()) => Ok(reply::empty(StatusCode::CONFLICT)),
+                    Err(err) => Ok(reply::internal_server_error(err.to_string())),
                 }
             }
-            Err(_) => Ok(warp::reply::with_status(
-                warp::reply::json(&Null),
-                StatusCode::BAD_REQUEST,
-            )),
+            Err(_) => Ok(reply::empty(StatusCode::BAD_REQUEST)),
         }
     }
 }

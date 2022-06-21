@@ -34,8 +34,7 @@ fn certificate_certificate_hash(
 
 mod handlers {
     use crate::dependency::{CertificatePendingStoreWrapper, CertificateStoreWrapper};
-    use mithril_common::entities;
-    use serde_json::Value::Null;
+    use crate::http_server::routes::reply;
     use slog_scope::debug;
     use std::convert::Infallible;
     use warp::http::StatusCode;
@@ -49,21 +48,9 @@ mod handlers {
         let certificate_pending_store = certificate_pending_store.read().await;
 
         match certificate_pending_store.get().await {
-            Ok(Some(certificate_pending)) => Ok(warp::reply::with_status(
-                warp::reply::json(&certificate_pending),
-                StatusCode::OK,
-            )),
-            Ok(None) => Ok(warp::reply::with_status(
-                warp::reply::json(&Null),
-                StatusCode::NO_CONTENT,
-            )),
-            Err(err) => Ok(warp::reply::with_status(
-                warp::reply::json(&entities::Error::new(
-                    "MITHRIL-E0006".to_string(),
-                    err.to_string(),
-                )),
-                StatusCode::INTERNAL_SERVER_ERROR,
-            )),
+            Ok(Some(certificate_pending)) => Ok(reply::json(&certificate_pending, StatusCode::OK)),
+            Ok(None) => Ok(reply::empty(StatusCode::NO_CONTENT)),
+            Err(err) => Ok(reply::internal_server_error(err.to_string())),
         }
     }
 
@@ -76,21 +63,9 @@ mod handlers {
 
         let certificate_store = certificate_store.read().await;
         match certificate_store.get_from_hash(&certificate_hash).await {
-            Ok(Some(certificate)) => Ok(warp::reply::with_status(
-                warp::reply::json(&certificate),
-                StatusCode::OK,
-            )),
-            Ok(None) => Ok(warp::reply::with_status(
-                warp::reply::json(&Null),
-                StatusCode::NOT_FOUND,
-            )),
-            Err(err) => Ok(warp::reply::with_status(
-                warp::reply::json(&entities::Error::new(
-                    "MITHRIL-E0005".to_string(),
-                    err.to_string(),
-                )),
-                StatusCode::INTERNAL_SERVER_ERROR,
-            )),
+            Ok(Some(certificate)) => Ok(reply::json(&certificate, StatusCode::OK)),
+            Ok(None) => Ok(reply::empty(StatusCode::NOT_FOUND)),
+            Err(err) => Ok(reply::internal_server_error(err.to_string())),
         }
     }
 }
