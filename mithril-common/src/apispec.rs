@@ -175,12 +175,9 @@ mod tests {
 
         // Route exists and matches default status code
         let mut response = Response::<Bytes>::new(Bytes::from(
-            json!(&entities::Error::new(
-                "MITHRIL-E0001".to_string(),
-                "an error occurred".to_string(),
-            ))
-            .to_string()
-            .into_bytes(),
+            json!(&entities::Error::new("an error occurred".to_string(),))
+                .to_string()
+                .into_bytes(),
         ));
         *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
         assert!(APISpec::from_file(API_SPEC_FILE)

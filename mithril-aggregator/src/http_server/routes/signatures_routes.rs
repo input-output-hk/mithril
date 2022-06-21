@@ -22,10 +22,10 @@ fn register_signatures(
 
 mod handlers {
     use crate::dependency::MultiSignerWrapper;
+    use crate::http_server::routes::reply;
     use crate::ProtocolError;
     use mithril_common::crypto_helper::{key_decode_hex, ProtocolLotteryIndex, ProtocolPartyId};
     use mithril_common::entities;
-    use serde_json::Value::Null;
     use slog_scope::debug;
     use std::convert::Infallible;
     use warp::http::StatusCode;
@@ -50,35 +50,20 @@ mod handlers {
                         .await
                     {
                         Err(ProtocolError::ExistingSingleSignature(_)) => {
-                            return Ok(warp::reply::with_status(
-                                warp::reply::json(&Null),
-                                StatusCode::CONFLICT,
-                            ));
+                            return Ok(reply::empty(StatusCode::CONFLICT));
                         }
                         Err(err) => {
-                            return Ok(warp::reply::with_status(
-                                warp::reply::json(&entities::Error::new(
-                                    "MITHRIL-E0003".to_string(),
-                                    err.to_string(),
-                                )),
-                                StatusCode::INTERNAL_SERVER_ERROR,
-                            ));
+                            return Ok(reply::internal_server_error(err.to_string()));
                         }
                         _ => {}
                     }
                 }
                 Err(_) => {
-                    return Ok(warp::reply::with_status(
-                        warp::reply::json(&Null),
-                        StatusCode::BAD_REQUEST,
-                    ));
+                    return Ok(reply::empty(StatusCode::BAD_REQUEST));
                 }
             }
         }
-        Ok(warp::reply::with_status(
-            warp::reply::json(&Null),
-            StatusCode::CREATED,
-        ))
+        Ok(reply::empty(StatusCode::CREATED))
     }
 }
 

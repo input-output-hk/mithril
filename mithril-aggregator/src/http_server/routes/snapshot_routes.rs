@@ -56,10 +56,9 @@ fn snapshot_digest(
 
 mod handlers {
     use crate::dependency::SnapshotStoreWrapper;
+    use crate::http_server::routes::reply;
     use crate::http_server::SERVER_BASE_PATH;
     use crate::Config;
-    use mithril_common::entities;
-    use serde_json::Value::Null;
     use slog_scope::debug;
     use std::convert::Infallible;
     use std::str::FromStr;
@@ -74,17 +73,8 @@ mod handlers {
         // Snapshots
         let snapshot_store = snapshot_store.read().await;
         match snapshot_store.list_snapshots().await {
-            Ok(snapshots) => Ok(warp::reply::with_status(
-                warp::reply::json(&snapshots),
-                StatusCode::OK,
-            )),
-            Err(err) => Ok(warp::reply::with_status(
-                warp::reply::json(&entities::Error::new(
-                    "MITHRIL-E0001".to_string(),
-                    err.to_string(),
-                )),
-                StatusCode::INTERNAL_SERVER_ERROR,
-            )),
+            Ok(snapshots) => Ok(reply::json(&snapshots, StatusCode::OK)),
+            Err(err) => Ok(reply::internal_server_error(err.to_string())),
         }
     }
 
@@ -111,16 +101,10 @@ mod handlers {
                             filepath.file_name().unwrap().to_str().unwrap()
                         ),
                     )) as Box<dyn warp::Reply>),
-                    _ => Ok(Box::new(warp::reply::with_status(
-                        warp::reply::reply(),
-                        StatusCode::NOT_FOUND,
-                    ))),
+                    _ => Ok(reply::empty(StatusCode::NOT_FOUND)),
                 }
             }
-            Err(_) => Ok(Box::new(warp::reply::with_status(
-                warp::reply::reply(),
-                StatusCode::NOT_FOUND,
-            ))),
+            Err(_) => Ok(reply::empty(StatusCode::NOT_FOUND)),
         }
     }
 
@@ -145,17 +129,8 @@ mod handlers {
 
                 Ok(Box::new(warp::redirect::found(snapshot_uri)) as Box<dyn warp::Reply>)
             }
-            Ok(None) => Ok(Box::new(warp::reply::with_status(
-                warp::reply::reply(),
-                StatusCode::NOT_FOUND,
-            ))),
-            Err(err) => Ok(Box::new(warp::reply::with_status(
-                warp::reply::json(&entities::Error::new(
-                    "MITHRIL-E0002".to_string(),
-                    err.to_string(),
-                )),
-                StatusCode::INTERNAL_SERVER_ERROR,
-            ))),
+            Ok(None) => Ok(reply::empty(StatusCode::NOT_FOUND)),
+            Err(err) => Ok(reply::internal_server_error(err.to_string())),
         }
     }
 
@@ -168,25 +143,12 @@ mod handlers {
 
         // Snapshot
         let snapshot_store = snapshot_store.read().await;
-        let result = Ok(warp::reply::with_status(
-            warp::reply::json(&Null),
-            StatusCode::NOT_FOUND,
-        ));
         match snapshot_store.get_snapshot_details(digest).await {
             Ok(snapshot) => match snapshot {
-                Some(snapshot) => Ok(warp::reply::with_status(
-                    warp::reply::json(&snapshot),
-                    StatusCode::OK,
-                )),
-                None => result,
+                Some(snapshot) => Ok(reply::json(&snapshot, StatusCode::OK)),
+                None => Ok(reply::empty(StatusCode::NOT_FOUND)),
             },
-            Err(err) => Ok(warp::reply::with_status(
-                warp::reply::json(&entities::Error::new(
-                    "MITHRIL-E0002".to_string(),
-                    err.to_string(),
-                )),
-                StatusCode::INTERNAL_SERVER_ERROR,
-            )),
+            Err(err) => Ok(reply::internal_server_error(err.to_string())),
         }
     }
 }
