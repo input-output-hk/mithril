@@ -1,4 +1,4 @@
-use crate::spec_utils::AttemptResult;
+use crate::utils::AttemptResult;
 use crate::{attempt, Client, ClientCommand, MithrilInfrastructure};
 use mithril_common::entities::{Certificate, Snapshot};
 use reqwest::StatusCode;

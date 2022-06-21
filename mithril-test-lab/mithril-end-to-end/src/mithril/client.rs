@@ -1,4 +1,4 @@
-use crate::mithril::MithrilCommand;
+use crate::utils::MithrilCommand;
 use std::collections::HashMap;
 use std::path::Path;
 
