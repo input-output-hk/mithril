@@ -1,6 +1,6 @@
 use clap::Parser;
-use mithril_end_to_end::MithrilInfrastructure;
 use mithril_end_to_end::Spec;
+use mithril_end_to_end::{Devnet, MithrilInfrastructure};
 use slog::{Drain, Logger};
 use slog_scope::error;
 use std::error::Error;
@@ -11,9 +11,9 @@ use std::sync::Arc;
 /// Tests args
 #[derive(Parser, Debug, Clone)]
 pub struct Args {
-    /// Directory to the cardano node db
-    #[clap(long, default_value = "./db")]
-    db_directory: PathBuf,
+    /// Directory containing scripts to boostrap a devnet
+    #[clap(long, default_value = "./devnet")]
+    devnet_scripts_directory: PathBuf,
 
     /// Directory to the mithril binaries
     ///
@@ -31,20 +31,24 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let work_dir = get_work_dir();
     let server_port = 8080;
 
-    let infrastructure = MithrilInfrastructure::start(
-        server_port,
-        &args.db_directory,
-        &work_dir,
-        &args.bin_directory,
-    )?;
+    let devnet =
+        Devnet::bootstrap(args.devnet_scripts_directory, work_dir.join("devnet"), 1, 2).await?;
+
+    let infrastructure =
+        MithrilInfrastructure::start(server_port, devnet.clone(), &work_dir, &args.bin_directory)
+            .await?;
 
     let mut spec = Spec::new(infrastructure);
 
     match spec.run().await {
-        Ok(_) => Ok(()),
+        Ok(_) => {
+            devnet.stop().await?;
+            Ok(())
+        }
         Err(error) => {
             spec.dump_processes_logs().await?;
             error!("Mithril End to End test failed: {}", error);
+            devnet.stop().await?;
             Err(error)
         }
     }

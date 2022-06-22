@@ -1,11 +1,12 @@
 use crate::utils::MithrilCommand;
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tokio::process::Child;
 
 #[derive(Debug)]
 pub struct Aggregator {
     server_port: u64,
+    db_directory: PathBuf,
     command: MithrilCommand,
     process: Option<Child>,
 }
@@ -19,12 +20,12 @@ impl Aggregator {
     ) -> Result<Self, String> {
         let port = server_port.to_string();
         let env = HashMap::from([
-            ("NETWORK", "testnet"),
+            ("NETWORK", "devnet"),
             ("RUN_INTERVAL", "5000"),
             ("URL_SNAPSHOT_MANIFEST", ""),
             ("SNAPSHOT_STORE_TYPE", "local"),
             ("SNAPSHOT_UPLOADER_TYPE", "local"),
-            ("NETWORK_MAGIC", "1097911063"),
+            ("NETWORK_MAGIC", "42"),
             (
                 "PENDING_CERTIFICATE_STORE_DIRECTORY",
                 "./store/aggregator/pending-certs",
@@ -53,6 +54,7 @@ impl Aggregator {
 
         Ok(Self {
             server_port,
+            db_directory: db_directory.to_path_buf(),
             command,
             process: None,
         })
@@ -60,6 +62,10 @@ impl Aggregator {
 
     pub fn endpoint(&self) -> String {
         format!("http://localhost:{}/aggregator", &self.server_port)
+    }
+
+    pub fn db_directory(&self) -> &Path {
+        &self.db_directory
     }
 
     pub fn start(&mut self) {

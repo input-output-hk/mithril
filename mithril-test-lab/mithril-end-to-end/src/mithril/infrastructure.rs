@@ -1,34 +1,51 @@
-use crate::{Aggregator, Client, Signer};
+use crate::{Aggregator, Client, Devnet, Signer};
 use std::borrow::BorrowMut;
 use std::path::{Path, PathBuf};
 
 pub struct MithrilInfrastructure {
     work_dir: PathBuf,
     bin_dir: PathBuf,
-    db_dir: PathBuf,
     aggregator: Aggregator,
-    signer: Signer,
+    signers: Vec<Signer>,
 }
 
 impl MithrilInfrastructure {
-    pub fn start(
+    pub async fn start(
         server_port: u64,
-        db_dir: &Path,
+        devnet: Devnet,
         work_dir: &Path,
         bin_dir: &Path,
     ) -> Result<Self, String> {
-        let mut aggregator = Aggregator::new(server_port, db_dir, work_dir, bin_dir)?;
-        let mut signer = Signer::new(aggregator.endpoint(), db_dir, work_dir, bin_dir)?;
+        let devnet_topology = devnet.topology();
+        let bft_node = devnet_topology
+            .bft_nodes
+            .first()
+            .ok_or_else(|| "No BFT node available for the aggregator".to_string())?;
 
+        let mut aggregator = Aggregator::new(server_port, &bft_node.db_path, work_dir, bin_dir)?;
         aggregator.start();
-        signer.start();
+
+        let mut signers: Vec<Signer> = vec![];
+        for (i, pool_node) in devnet_topology.pool_nodes.iter().enumerate() {
+            let mut signer = Signer::new(
+                aggregator.endpoint(),
+                i.to_string(),
+                &pool_node.db_path,
+                work_dir,
+                bin_dir,
+            )?;
+            signer.start();
+
+            signers.push(signer);
+        }
+
+        devnet.run().await?;
 
         Ok(Self {
             work_dir: work_dir.to_path_buf(),
             bin_dir: bin_dir.to_path_buf(),
-            db_dir: db_dir.to_path_buf(),
             aggregator,
-            signer,
+            signers,
         })
     }
 
@@ -40,31 +57,15 @@ impl MithrilInfrastructure {
         self.aggregator.borrow_mut()
     }
 
-    pub fn signer(&self) -> &Signer {
-        &self.signer
+    pub fn signers(&self) -> &[Signer] {
+        &self.signers
     }
 
-    pub fn signer_mut(&mut self) -> &mut Signer {
-        self.signer.borrow_mut()
+    pub fn signers_mut(&mut self) -> &mut [Signer] {
+        self.signers.as_mut_slice()
     }
 
     pub fn build_client(&self) -> Result<Client, String> {
         Client::new(self.aggregator.endpoint(), &self.work_dir, &self.bin_dir)
-    }
-
-    pub fn add_immutable(&self) -> Result<(), Box<dyn std::error::Error>> {
-        let db_path = self.db_dir.join("immutable");
-        let glob_expr = format!("{}/*.chunk", db_path.to_string_lossy());
-
-        let mut filelist = glob::glob(&glob_expr)?
-            .map(|f| str::parse::<u32>(f.unwrap().file_stem().unwrap().to_str().unwrap()).unwrap())
-            .collect::<Vec<u32>>();
-        filelist.sort_unstable();
-        let new_number = filelist.pop().unwrap() + 1;
-        std::fs::File::create(db_path.join(format!("{:05}.chunk", new_number)))?;
-        std::fs::File::create(db_path.join(format!("{:05}.primary", new_number)))?;
-        std::fs::File::create(db_path.join(format!("{:05}.secondary", new_number)))?;
-
-        Ok(())
     }
 }

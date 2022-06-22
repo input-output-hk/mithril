@@ -1,4 +1,5 @@
 use crate::utils::MithrilCommand;
+use mithril_common::entities::PartyId;
 use std::collections::HashMap;
 use std::path::Path;
 use tokio::process::Child;
@@ -12,13 +13,14 @@ pub struct Signer {
 impl Signer {
     pub fn new(
         aggregator_endpoint: String,
+        party_id: PartyId,
         db_directory: &Path,
         work_dir: &Path,
         bin_dir: &Path,
     ) -> Result<Self, String> {
         let env = HashMap::from([
-            ("NETWORK", "testnet"),
-            ("PARTY_ID", "0"),
+            ("NETWORK", "devnet"),
+            ("PARTY_ID", &party_id),
             ("RUN_INTERVAL", "2000"),
             ("AGGREGATOR_ENDPOINT", &aggregator_endpoint),
             ("DB_DIRECTORY", db_directory.to_str().unwrap()),
