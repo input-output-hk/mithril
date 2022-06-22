@@ -2,10 +2,10 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use thiserror::Error;
 
-use mithril_common::entities::Signer;
+use mithril_common::entities::{Epoch, PartyId, Signer};
 use mithril_common::store::adapter::{AdapterError, StoreAdapter};
 
-type Adapter = Box<dyn StoreAdapter<Key = u64, Record = HashMap<u64, Signer>>>;
+type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = HashMap<PartyId, Signer>>>;
 
 #[derive(Debug, Error)]
 pub enum VerificationKeyStoreError {
@@ -17,14 +17,14 @@ pub enum VerificationKeyStoreError {
 pub trait VerificationKeyStorer {
     async fn save_verification_key(
         &mut self,
-        epoch: u64,
+        epoch: Epoch,
         signer: Signer,
     ) -> Result<Option<Signer>, VerificationKeyStoreError>;
 
     async fn get_verification_keys(
         &self,
-        epoch: u64,
-    ) -> Result<Option<HashMap<u64, Signer>>, VerificationKeyStoreError>;
+        epoch: Epoch,
+    ) -> Result<Option<HashMap<PartyId, Signer>>, VerificationKeyStoreError>;
 }
 pub struct VerificationKeyStore {
     adapter: Adapter,
@@ -40,14 +40,14 @@ impl VerificationKeyStore {
 impl VerificationKeyStorer for VerificationKeyStore {
     async fn save_verification_key(
         &mut self,
-        epoch: u64,
+        epoch: Epoch,
         signer: Signer,
     ) -> Result<Option<Signer>, VerificationKeyStoreError> {
         let mut signers = match self.adapter.get_record(&epoch).await? {
             Some(s) => s,
             None => HashMap::new(),
         };
-        let prev_signer = signers.insert(signer.party_id, signer);
+        let prev_signer = signers.insert(signer.party_id.to_owned(), signer);
         let _ = self.adapter.store_record(&epoch, &signers).await?;
 
         Ok(prev_signer)
@@ -55,8 +55,8 @@ impl VerificationKeyStorer for VerificationKeyStore {
 
     async fn get_verification_keys(
         &self,
-        epoch: u64,
-    ) -> Result<Option<HashMap<u64, Signer>>, VerificationKeyStoreError> {
+        epoch: Epoch,
+    ) -> Result<Option<HashMap<PartyId, Signer>>, VerificationKeyStoreError> {
         Ok(self.adapter.get_record(&epoch).await?)
     }
 }
@@ -68,16 +68,17 @@ mod tests {
     use mithril_common::store::adapter::MemoryAdapter;
 
     fn init_store(nb_epoch: u64, signers_per_epoch: u64) -> VerificationKeyStore {
-        let mut values: Vec<(u64, HashMap<u64, Signer>)> = Vec::new();
+        let mut values: Vec<(Epoch, HashMap<PartyId, Signer>)> = Vec::new();
 
         for epoch in 1..=nb_epoch {
-            let mut signers: HashMap<u64, Signer> = HashMap::new();
+            let mut signers: HashMap<PartyId, Signer> = HashMap::new();
 
-            for party_id in 1..=signers_per_epoch {
+            for party_idx in 1..=signers_per_epoch {
+                let party_id = format!("{}", party_idx);
                 let _ = signers.insert(
-                    party_id,
+                    party_id.clone(),
                     Signer {
-                        party_id: party_id,
+                        party_id: party_id.clone(),
                         verification_key: format!("vkey {}", party_id),
                     },
                 );
@@ -86,7 +87,8 @@ mod tests {
         }
 
         let values = if values.len() > 0 { Some(values) } else { None };
-        let adapter: MemoryAdapter<u64, HashMap<u64, Signer>> = MemoryAdapter::new(values).unwrap();
+        let adapter: MemoryAdapter<Epoch, HashMap<PartyId, Signer>> =
+            MemoryAdapter::new(values).unwrap();
         let store = VerificationKeyStore::new(Box::new(adapter));
 
         store
@@ -99,7 +101,7 @@ mod tests {
             .save_verification_key(
                 0,
                 Signer {
-                    party_id: 0,
+                    party_id: "0".to_string(),
                     verification_key: "OK".to_string(),
                 },
             )
@@ -116,7 +118,7 @@ mod tests {
             .save_verification_key(
                 1,
                 Signer {
-                    party_id: 1,
+                    party_id: "1".to_string(),
                     verification_key: "test".to_string(),
                 },
             )
@@ -126,7 +128,7 @@ mod tests {
         assert!(res.is_some());
         assert_eq!(
             Signer {
-                party_id: 1,
+                party_id: "1".to_string(),
                 verification_key: "vkey 1".to_string(),
             },
             res.unwrap(),
