@@ -43,7 +43,7 @@ mod handlers {
                 Ok(single_signature) => {
                     match multi_signer
                         .register_single_signature(
-                            signature.party_id as ProtocolPartyId,
+                            signature.party_id.clone() as ProtocolPartyId,
                             &single_signature,
                             signature.index as ProtocolLotteryIndex,
                         )

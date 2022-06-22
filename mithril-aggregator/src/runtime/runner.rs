@@ -257,7 +257,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             stake_store
                 .save_stake(
                     new_beacon.epoch,
-                    SignerWithStake::new(*party_id, "".to_string(), *stake),
+                    SignerWithStake::new(party_id.to_owned(), "".to_string(), *stake),
                 )
                 .await?;
         }

@@ -62,7 +62,7 @@ impl Party {
     pub fn new(party_id: usize, stake: u64) -> Self {
         println!("Party #{}: party created with {} stakes", party_id, stake);
         Self {
-            party_id: party_id as ProtocolPartyId,
+            party_id: format!("{}", party_id) as ProtocolPartyId,
             stake: stake as ProtocolStake,
             params: None,
             signer: None,
@@ -91,7 +91,7 @@ impl Party {
     ) {
         let players = players_with_keys
             .iter()
-            .map(|(party_id, stake, _verification_key)| (*party_id, *stake))
+            .map(|(party_id, stake, _verification_key)| (party_id.to_owned(), *stake))
             .collect::<Vec<_>>();
         println!(
             "Party #{}: protocol keys registration from {:?}",
@@ -234,7 +234,7 @@ impl Verifier {
     ) {
         let players = players_with_keys
             .iter()
-            .map(|(party_id, stake, _verification_key)| (*party_id, *stake))
+            .map(|(party_id, stake, _verification_key)| (party_id.to_owned(), *stake))
             .collect::<Vec<_>>();
         println!("Verifier: protocol keys registration from {:?}", players);
 
@@ -363,7 +363,7 @@ impl ProtocolDemonstrator for Demonstrator {
         let players = self
             .parties
             .iter()
-            .map(|party| (party.party_id, party.stake))
+            .map(|party| (party.party_id.to_owned(), party.stake))
             .collect::<Vec<_>>();
         let mut players_artifacts = Vec::new();
         for (party_id, stake) in players {
@@ -382,12 +382,16 @@ impl ProtocolDemonstrator for Demonstrator {
             .iter()
             .map(|player| {
                 (
-                    player.party_id,
+                    player.party_id.to_owned(),
                     player.stake,
                     key_decode_hex(&player.verification_key).unwrap(),
                 )
             })
-            .collect::<Vec<(u64, u64, ProtocolSignerVerificationKey)>>();
+            .collect::<Vec<(
+                ProtocolPartyId,
+                ProtocolStake,
+                ProtocolSignerVerificationKey,
+            )>>();
         verifier.register_keys(&players_with_keys);
         for party in self.parties.iter_mut() {
             party.register_keys(&players_with_keys);
@@ -412,7 +416,7 @@ impl ProtocolDemonstrator for Demonstrator {
                     party_signatures
                         .iter()
                         .map(|sig| SingleSignatureArtifact {
-                            party_id: party.party_id,
+                            party_id: party.party_id.to_owned(),
                             message: message.encode_hex::<String>(),
                             lottery: sig.1,
                             signature: key_encode_hex(&sig.0).unwrap(),
@@ -422,7 +426,7 @@ impl ProtocolDemonstrator for Demonstrator {
                 signatures.extend(party_signatures);
             }
             for party in self.parties.iter_mut() {
-                let party_id = party.party_id;
+                let party_id = party.party_id.to_owned();
                 if let Some(multi_signature) = party.sign_aggregate(message, &signatures) {
                     multi_signature_artifacts.push(MultiSignatureArtifact {
                         party_id,

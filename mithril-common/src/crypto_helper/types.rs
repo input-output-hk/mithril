@@ -5,11 +5,10 @@ use mithril::stm::{
 };
 
 pub type Bytes = Vec<u8>;
-pub type PartyId = u64;
 
 // Protocol types alias
 type D = blake2::Blake2b;
-pub type ProtocolPartyId = PartyId;
+pub type ProtocolPartyId = String;
 pub type ProtocolStake = Stake;
 pub type ProtocolStakeDistribution = Vec<(ProtocolPartyId, ProtocolStake)>;
 pub type ProtocolParameters = StmParameters;

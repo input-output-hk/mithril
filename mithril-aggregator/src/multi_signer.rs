@@ -194,7 +194,7 @@ impl MultiSignerImpl {
         let mut key_registration = ProtocolKeyRegistration::init();
         let mut total_signers = 0;
         for (party_id, stake) in &stakes {
-            if let Ok(Some(verification_key)) = self.get_signer(*party_id).await {
+            if let Ok(Some(verification_key)) = self.get_signer(party_id.to_owned()).await {
                 key_registration
                     .register(*stake, verification_key)
                     .map_err(|e| ProtocolError::Core(e.to_string()))?;
@@ -273,7 +273,12 @@ impl MultiSigner for MultiSignerImpl {
             .unwrap_or_default();
         Ok(signers
             .iter()
-            .map(|(party_id, signer)| (*party_id as ProtocolPartyId, signer.stake as ProtocolStake))
+            .map(|(party_id, signer)| {
+                (
+                    party_id.to_owned() as ProtocolPartyId,
+                    signer.stake as ProtocolStake,
+                )
+            })
             .collect::<ProtocolStakeDistribution>())
     }
 
@@ -297,7 +302,7 @@ impl MultiSigner for MultiSignerImpl {
             stake_store
                 .save_stake(
                     epoch,
-                    entities::SignerWithStake::new(*party_id, "".to_string(), *stake),
+                    entities::SignerWithStake::new(party_id.to_owned(), "".to_string(), *stake),
                 )
                 .await?;
         }
@@ -372,7 +377,7 @@ impl MultiSigner for MultiSignerImpl {
             .filter_map(|(party_id, stake)| {
                 signers.get(party_id).map(|signer| {
                     entities::SignerWithStake::new(
-                        *party_id as u64,
+                        party_id.to_owned(),
                         signer.verification_key.clone(),
                         *stake as u64,
                     )
@@ -446,7 +451,7 @@ impl MultiSigner for MultiSignerImpl {
             Ok(_) => {
                 // Register single signature
                 self.single_signatures
-                    .entry(party_id)
+                    .entry(party_id.clone())
                     .or_insert_with(HashMap::new);
                 let signatures = self.single_signatures.get_mut(&party_id).unwrap();
                 match signatures.get(&index) {
@@ -566,6 +571,7 @@ mod tests {
     use super::*;
 
     use mithril_common::crypto_helper::tests_setup::*;
+    use mithril_common::entities::{Epoch, PartyId};
     use mithril_common::fake_data;
     use mithril_common::store::adapter::MemoryAdapter;
     use mithril_common::store::stake_store::StakeStore;
@@ -577,10 +583,10 @@ mod tests {
         let mut beacon_store = MemoryBeaconStore::new();
         beacon_store.set_current_beacon(beacon).await.unwrap();
         let verification_key_store = VerificationKeyStore::new(Box::new(
-            MemoryAdapter::<u64, HashMap<u64, entities::Signer>>::new(None).unwrap(),
+            MemoryAdapter::<Epoch, HashMap<PartyId, entities::Signer>>::new(None).unwrap(),
         ));
         let stake_store = StakeStore::new(Box::new(
-            MemoryAdapter::<u64, HashMap<u64, entities::SignerWithStake>>::new(None).unwrap(),
+            MemoryAdapter::<Epoch, HashMap<PartyId, entities::SignerWithStake>>::new(None).unwrap(),
         ));
         let multi_signer = MultiSignerImpl::new(
             Arc::new(RwLock::new(beacon_store)),
@@ -630,9 +636,9 @@ mod tests {
 
         let mut stake_distribution_expected: ProtocolStakeDistribution = setup_signers(5)
             .iter()
-            .map(|(party_id, stake, _, _, _)| (*party_id, *stake))
+            .map(|(party_id, stake, _, _, _)| (party_id.to_owned(), *stake))
             .collect::<_>();
-        stake_distribution_expected.sort_by_key(|k| k.0);
+        stake_distribution_expected.sort_by_key(|k| k.0.clone());
         multi_signer
             .update_stake_distribution(&stake_distribution_expected)
             .await
@@ -642,7 +648,7 @@ mod tests {
             .get_stake_distribution()
             .await
             .expect("get state distribution failed");
-        stake_distribution.sort_by_key(|k| k.0);
+        stake_distribution.sort_by_key(|k| k.0.clone());
         assert_eq!(stake_distribution_expected, stake_distribution)
     }
 
@@ -654,7 +660,7 @@ mod tests {
 
         let stake_distribution_expected: ProtocolStakeDistribution = signers
             .iter()
-            .map(|(party_id, stake, _, _, _)| (*party_id, *stake))
+            .map(|(party_id, stake, _, _, _)| (party_id.to_owned(), *stake))
             .collect::<_>();
         multi_signer
             .update_stake_distribution(&stake_distribution_expected)
@@ -663,26 +669,26 @@ mod tests {
 
         for (party_id, _, verification_key, _, _) in &signers {
             multi_signer
-                .register_signer(*party_id, &verification_key)
+                .register_signer(party_id.to_owned(), &verification_key)
                 .await
                 .expect("register should have succeeded")
         }
 
         let mut signers_with_stake_all_expected = Vec::new();
         for (party_id, stake, verification_key_expected, _, _) in &signers {
-            let verification_key = multi_signer.get_signer(*party_id).await;
+            let verification_key = multi_signer.get_signer(party_id.to_owned()).await;
             assert!(verification_key.as_ref().unwrap().is_some());
             assert_eq!(
                 *verification_key_expected,
                 verification_key.unwrap().unwrap()
             );
             signers_with_stake_all_expected.push(entities::SignerWithStake::new(
-                *party_id,
+                party_id.to_owned(),
                 key_encode_hex(verification_key_expected).unwrap(),
                 *stake,
             ));
         }
-        signers_with_stake_all_expected.sort_by_key(|signer| signer.party_id);
+        signers_with_stake_all_expected.sort_by_key(|signer| signer.party_id.to_owned());
         let signers_all_expected = signers_with_stake_all_expected
             .clone()
             .into_iter()
@@ -693,7 +699,7 @@ mod tests {
             .get_signers_with_stake()
             .await
             .expect("get signers with stake should have been succeeded");
-        signers_with_stake_all.sort_by_key(|signer| signer.party_id);
+        signers_with_stake_all.sort_by_key(|signer| signer.party_id.to_owned());
 
         assert_eq!(signers_with_stake_all_expected, signers_with_stake_all);
 
@@ -701,7 +707,7 @@ mod tests {
             .get_signers()
             .await
             .expect("get signers should have been succeeded");
-        signers_all.sort_by_key(|signer| signer.party_id);
+        signers_all.sort_by_key(|signer| signer.party_id.to_owned());
 
         assert_eq!(signers_all_expected, signers_all);
     }
@@ -728,7 +734,7 @@ mod tests {
         let signers = setup_signers(5);
         let stake_distribution = &signers
             .iter()
-            .map(|(party_id, stake, _, _, _)| (*party_id, *stake))
+            .map(|(party_id, stake, _, _, _)| (party_id.to_owned(), *stake))
             .collect::<_>();
         multi_signer
             .update_stake_distribution(&stake_distribution)
@@ -736,7 +742,7 @@ mod tests {
             .expect("update stake distribution failed");
         for (party_id, _, verification_key, _, _) in &signers {
             multi_signer
-                .register_signer(*party_id, verification_key)
+                .register_signer(party_id.to_owned(), verification_key)
                 .await
                 .expect("register should have succeeded")
         }
@@ -745,7 +751,7 @@ mod tests {
         for (party_id, _, _, protocol_signer, _) in &signers {
             for i in 1..=protocol_parameters.m {
                 if let Some(signature) = protocol_signer.sign(&message.as_bytes(), i) {
-                    signatures.push((*party_id, signature, i as ProtocolLotteryIndex));
+                    signatures.push((party_id.to_owned(), signature, i as ProtocolLotteryIndex));
                 }
             }
         }
@@ -768,7 +774,7 @@ mod tests {
             .is_none());
         for (party_id, signature, index) in &signatures[0..quorum_split] {
             multi_signer
-                .register_single_signature(*party_id, signature, *index)
+                .register_single_signature(party_id.to_owned(), signature, *index)
                 .await
                 .expect("register single signature should not fail");
         }
@@ -788,7 +794,7 @@ mod tests {
             .is_none());
         for (party_id, signature, index) in &signatures[quorum_split..] {
             multi_signer
-                .register_single_signature(*party_id, signature, *index)
+                .register_single_signature(party_id.to_owned(), signature, *index)
                 .await
                 .expect("register single signature should not fail");
         }
