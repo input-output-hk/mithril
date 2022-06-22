@@ -6,7 +6,7 @@ use mithril_common::crypto_helper::{
     key_decode_hex, key_encode_hex, Bytes, ProtocolInitializer, ProtocolKeyRegistration,
     ProtocolPartyId, ProtocolSigner,
 };
-use mithril_common::entities::{self, SignerWithStake, SingleSignature};
+use mithril_common::entities::{self, PartyId, SignerWithStake, SingleSignature};
 
 #[cfg(test)]
 use mockall::automock;
@@ -54,12 +54,12 @@ pub enum SingleSignerError {
 }
 
 pub struct MithrilSingleSigner {
-    party_id: u64,
+    party_id: PartyId,
     protocol_initializer: Option<ProtocolInitializer>,
 }
 
 impl MithrilSingleSigner {
-    pub fn new(party_id: u64, protocol_initializer_encoded: &str) -> Self {
+    pub fn new(party_id: PartyId, protocol_initializer_encoded: &str) -> Self {
         let protocol_initializer = key_decode_hex(protocol_initializer_encoded).ok();
         Self {
             party_id,
@@ -103,7 +103,7 @@ impl MithrilSingleSigner {
 
 impl SingleSigner for MithrilSingleSigner {
     fn get_party_id(&self) -> ProtocolPartyId {
-        self.party_id
+        self.party_id.to_owned()
     }
 
     fn get_protocol_initializer(&self) -> Option<ProtocolInitializer> {
@@ -175,7 +175,7 @@ impl SingleSigner for MithrilSingleSigner {
                 }
 
                 signatures.push(SingleSignature::new(
-                    self.party_id,
+                    self.party_id.to_owned(),
                     i,
                     encoded_signature.unwrap(),
                 ));
@@ -202,17 +202,17 @@ mod tests {
             .iter()
             .map(
                 |(party_id, stake, verification_key, _protocol_signer, _protocol_initializer)| {
-                    let verification_key = match party_id {
-                        0 => key_encode_hex(signer_unregistered.2).unwrap(),
+                    let verification_key = match party_id.as_str() {
+                        "0" => key_encode_hex(signer_unregistered.2).unwrap(),
                         _ => key_encode_hex(verification_key).unwrap(),
                     };
-                    SignerWithStake::new(*party_id, verification_key, *stake)
+                    SignerWithStake::new(party_id.to_owned(), verification_key, *stake)
                 },
             )
             .collect::<Vec<SignerWithStake>>();
         let current_signer = &signers[0];
         let mut single_signer = MithrilSingleSigner::new(
-            current_signer.0,
+            current_signer.0.to_owned(),
             &key_encode_hex(&current_signer.4).unwrap(),
         );
 
@@ -239,7 +239,7 @@ mod tests {
             .map(
                 |(party_id, stake, verification_key, _protocol_signer, _protocol_initializer)| {
                     SignerWithStake::new(
-                        *party_id,
+                        party_id.to_owned(),
                         key_encode_hex(verification_key).unwrap(),
                         *stake,
                     )
@@ -248,7 +248,7 @@ mod tests {
             .collect::<Vec<SignerWithStake>>();
         let current_signer = &signers[0];
         let mut single_signer = MithrilSingleSigner::new(
-            current_signer.0,
+            current_signer.0.to_owned(),
             &key_encode_hex(&current_signer.4).unwrap(),
         );
         let protocol_signer = &current_signer.3;

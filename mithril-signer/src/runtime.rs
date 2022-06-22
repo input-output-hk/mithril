@@ -9,7 +9,7 @@ use tokio::time::sleep;
 use mithril_common::chain_observer::{ChainObserver, ChainObserverError};
 use mithril_common::crypto_helper::{key_encode_hex, Bytes};
 use mithril_common::digesters::{Digester, DigesterError};
-use mithril_common::entities::{self, Beacon, CertificatePending, Epoch, SignerWithStake};
+use mithril_common::entities::{self, Beacon, CertificatePending, Epoch, PartyId, SignerWithStake};
 use mithril_common::store::stake_store::{StakeStore, StakeStoreError, StakeStorer};
 
 use super::certificate_handler::CertificateHandler;
@@ -199,8 +199,8 @@ impl Runtime {
         let verification_keys = pending_certificate
             .signers
             .iter()
-            .map(|signer| (signer.party_id, signer.verification_key.as_str()))
-            .collect::<HashMap<u64, &str>>();
+            .map(|signer| (signer.party_id.to_owned(), signer.verification_key.as_str()))
+            .collect::<HashMap<PartyId, &str>>();
         #[allow(clippy::identity_op)]
         let epoch = pending_certificate.beacon.epoch - 0; // TODO: Should be -1 or -2
         warn!(
@@ -257,7 +257,11 @@ impl Runtime {
                             stake_store
                                 .save_stake(
                                     epoch,
-                                    SignerWithStake::new(*party_id, "".to_string(), *stake),
+                                    SignerWithStake::new(
+                                        party_id.to_owned(),
+                                        "".to_string(),
+                                        *stake,
+                                    ),
                                 )
                                 .await?;
                         }
@@ -309,7 +313,7 @@ mod tests {
 
     async fn setup_stake_store(total_signers: u64) -> StakeStore {
         let mut stake_store = StakeStore::new(Box::new(
-            MemoryAdapter::<u64, HashMap<u64, entities::SignerWithStake>>::new(None).unwrap(),
+            MemoryAdapter::<Epoch, HashMap<PartyId, entities::SignerWithStake>>::new(None).unwrap(),
         ));
         let stakes: ProtocolStakeDistribution = fake_data::signers_with_stakes(total_signers)
             .into_iter()
@@ -331,7 +335,11 @@ mod tests {
     async fn signer_updates_stake_distribution_when_it_should() {
         let total_signers = 5;
         let epoch = 123;
-        let stake_distribution_expected = StakeDistribution::from([(0, 10), (1, 20), (2, 30)]);
+        let stake_distribution_expected = StakeDistribution::from([
+            ("0".to_string(), 10),
+            ("1".to_string(), 20),
+            ("2".to_string(), 30),
+        ]);
         let stake_distribution_expected_length = stake_distribution_expected.len();
         let current_signer = &setup_signers(1)[0];
         let party_id = current_signer.clone().0;
@@ -506,7 +514,7 @@ mod tests {
             .return_once(|_, _, _| Ok(fake_data::single_signatures(2)));
         mock_single_signer
             .expect_get_party_id()
-            .returning(move || party_id);
+            .returning(move || party_id.to_owned());
         mock_single_signer
             .expect_get_protocol_initializer()
             .returning(move || Some(protocol_initializer.clone()));
@@ -567,7 +575,7 @@ mod tests {
             .return_once(|_, _, _| Ok(fake_data::single_signatures(2)));
         mock_single_signer
             .expect_get_party_id()
-            .returning(move || party_id)
+            .returning(move || party_id.to_owned())
             .once();
         mock_single_signer
             .expect_get_protocol_initializer()
@@ -658,7 +666,7 @@ mod tests {
             .unwrap()
             .unwrap()
             .iter()
-            .map(|(_, signer)| (signer.party_id, signer.stake))
+            .map(|(_, signer)| (signer.party_id.to_owned(), signer.stake))
             .collect::<_>();
         let mut mock_certificate_handler = MockCertificateHandler::new();
         let mut mock_single_signer = MockSingleSigner::new();

@@ -2,6 +2,8 @@ use cli_table::Table;
 use serde::{Deserialize, Serialize};
 use std::path::{Display, Path, PathBuf};
 
+use mithril_common::entities::PartyId;
+
 /// Client configuration
 #[derive(Table, Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -15,7 +17,7 @@ pub struct Config {
 
     /// Party Id
     #[table(title = "Party Id")]
-    pub party_id: u64,
+    pub party_id: PartyId,
 
     /// Run Interval
     #[table(title = "Interval between two signatures attempts")]
