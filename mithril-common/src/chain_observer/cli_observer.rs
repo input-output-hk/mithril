@@ -149,7 +149,7 @@ impl ChainObserver for CardanoCliChainObserver {
                 // The position is num - 2 since we ignore the first two lines
                 // of the CLI output.
                 if stake > 0 {
-                    let _ = stake_distribution.insert(num as u64 - 2, stake);
+                    let _ = stake_distribution.insert(format!("{}", num as u64 - 2), stake);
                 }
             }
         }
@@ -207,9 +207,9 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
             .unwrap();
 
         assert_eq!(7, results.len());
-        assert_eq!(2_493_000, *results.get(&1).unwrap());
-        assert_eq!(1_051, *results.get(&8).unwrap());
-        assert!(results.get(&5).is_none());
+        assert_eq!(2_493_000, *results.get("1").unwrap());
+        assert_eq!(1_051, *results.get("8").unwrap());
+        assert!(results.get("5").is_none());
     }
 
     #[tokio::test]
