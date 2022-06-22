@@ -133,19 +133,23 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .map_err(RuntimeError::ImmutableFile)?
             .into_iter()
             .last()
-            .ok_or_else(|| RuntimeError::General("no immutable file was returned".to_string()))?
+            .ok_or_else(|| {
+                RuntimeError::General("no immutable file was returned".to_string().into())
+            })?
             .number;
         let epoch = self
             .config
             .dependencies
             .chain_observer
             .as_ref()
-            .ok_or_else(|| RuntimeError::General("no chain observer registered".to_string()))?
+            .ok_or_else(|| {
+                RuntimeError::General("no chain observer registered".to_string().into())
+            })?
             .read()
             .await
             .get_current_epoch()
             .await?
-            .ok_or_else(|| RuntimeError::General("no epoch was returned".to_string()))?;
+            .ok_or_else(|| RuntimeError::General("no epoch was returned".to_string().into()))?;
         let current_beacon = Beacon {
             network: self.config.network.clone(),
             epoch,
@@ -169,7 +173,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .dependencies
             .multi_signer
             .as_ref()
-            .ok_or_else(|| RuntimeError::General("no multisigner registered".to_string()))?
+            .ok_or_else(|| RuntimeError::General("no multisigner registered".to_string().into()))?
             .write()
             .await
             .create_multi_signature()
@@ -194,7 +198,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         debug!("launching digester thread");
         let digest_result = tokio::task::spawn_blocking(move || digester.compute_digest())
             .await
-            .map_err(|e| RuntimeError::General(e.to_string()))??;
+            .map_err(|e| RuntimeError::General(e.into()))??;
         debug!(
             "last immutable file number: {}",
             digest_result.last_immutable_file_number
@@ -203,7 +207,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         if digest_result.last_immutable_file_number != new_beacon.immutable_file_number {
             error!("digest beacon is different than the given beacon");
             Err(RuntimeError::General(
-                format!("The digest has been computed for a different immutable ({}) file than the one given in the beacon ({}).", digest_result.last_immutable_file_number, new_beacon.immutable_file_number)
+                format!("The digest has been computed for a different immutable ({}) file than the one given in the beacon ({}).", digest_result.last_immutable_file_number, new_beacon.immutable_file_number).into()
             ))
         } else {
             trace!("digest last immutable file number and new beacon file number are consistent");
@@ -218,7 +222,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .dependencies
             .beacon_store
             .as_ref()
-            .ok_or_else(|| RuntimeError::General("no beacon store registered".to_string()))?
+            .ok_or_else(|| RuntimeError::General("no beacon store registered".to_string().into()))?
             .write()
             .await
             .set_current_beacon(new_beacon.to_owned())
@@ -233,18 +237,20 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .dependencies
             .chain_observer
             .as_ref()
-            .ok_or_else(|| RuntimeError::General("no chain observer registered".to_string()))?
+            .ok_or_else(|| {
+                RuntimeError::General("no chain observer registered".to_string().into())
+            })?
             .read()
             .await
             .get_current_stake_distribution()
             .await?
-            .ok_or_else(|| RuntimeError::General("no epoch was returned".to_string()))?;
+            .ok_or_else(|| RuntimeError::General("no epoch was returned".to_string().into()))?;
         let mut stake_store = self
             .config
             .dependencies
             .stake_store
             .as_ref()
-            .ok_or_else(|| RuntimeError::General("no stake store registered".to_string()))?
+            .ok_or_else(|| RuntimeError::General("no stake store registered".to_string().into()))?
             .write()
             .await;
         for (party_id, stake) in &stake_distribution {
@@ -268,7 +274,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .dependencies
             .multi_signer
             .as_ref()
-            .ok_or_else(|| RuntimeError::General("no multisigner registered".to_string()))?
+            .ok_or_else(|| RuntimeError::General("no multisigner registered".to_string().into()))?
             .read()
             .await;
 
@@ -279,7 +285,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             multi_signer
                 .get_protocol_parameters()
                 .await
-                .ok_or_else(|| RuntimeError::General("no protocol parameters".to_string()))?
+                .ok_or_else(|| RuntimeError::General("no protocol parameters".to_string().into()))?
                 .into(),
             "123".to_string(),
             multi_signer.get_signers().await?,
@@ -299,7 +305,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .certificate_pending_store
             .as_ref()
             .ok_or_else(|| {
-                RuntimeError::General("no certificate pending store registered".to_string())
+                RuntimeError::General("no certificate pending store registered".to_string().into())
             })?
             .write()
             .await
@@ -318,7 +324,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .dependencies
             .multi_signer
             .as_ref()
-            .ok_or_else(|| RuntimeError::General("no multisigner registered".to_string()))?
+            .ok_or_else(|| RuntimeError::General("no multisigner registered".to_string().into()))?
             .write()
             .await
             .update_current_message(digest_result.digest)
@@ -335,14 +341,18 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .certificate_pending_store
             .as_ref()
             .ok_or_else(|| {
-                RuntimeError::General("no certificate pending store registered".to_string())
+                RuntimeError::General("no certificate pending store registered".to_string().into())
             })?
             .write()
             .await
             .remove()
             .await?
             .ok_or_else(|| {
-                RuntimeError::General("no certificate pending for the given beacon".to_string())
+                RuntimeError::General(
+                    "no certificate pending for the given beacon"
+                        .to_string()
+                        .into(),
+                )
             })?;
 
         Ok(certificate_pending)
@@ -360,12 +370,12 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .dependencies
             .multi_signer
             .as_ref()
-            .ok_or_else(|| RuntimeError::General("no multisigner registered".to_string()))?
+            .ok_or_else(|| RuntimeError::General("no multisigner registered".to_string().into()))?
             .read()
             .await
             .get_current_message()
             .await
-            .ok_or_else(|| RuntimeError::General("no message found".to_string()))?;
+            .ok_or_else(|| RuntimeError::General("no message found".to_string().into()))?;
         let snapshot_name = format!("{}.{}.tar.gz", self.config.network, &message);
         // spawn a separate thread to prevent blocking
         let snapshot_path =
@@ -373,7 +383,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                 snapshotter.snapshot(&snapshot_name)
             })
             .await
-            .map_err(|e| RuntimeError::General(e.to_string()))??;
+            .map_err(|e| RuntimeError::General(e.into()))??;
 
         debug!("snapshot created at '{}'", snapshot_path.to_string_lossy());
 
@@ -391,19 +401,21 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .dependencies
             .multi_signer
             .as_ref()
-            .ok_or_else(|| RuntimeError::General("no multisigner registered".to_string()))?
+            .ok_or_else(|| RuntimeError::General("no multisigner registered".to_string().into()))?
             .read()
             .await;
         let certificate = multisigner
             .create_certificate(beacon.clone(), certificate_pending.previous_hash.clone())
             .await?
-            .ok_or_else(|| RuntimeError::General("no certificate generated".to_string()))?;
+            .ok_or_else(|| RuntimeError::General("no certificate generated".to_string().into()))?;
         let _ = self
             .config
             .dependencies
             .certificate_store
             .as_ref()
-            .ok_or_else(|| RuntimeError::General("no certificate store registered".to_string()))?
+            .ok_or_else(|| {
+                RuntimeError::General("no certificate store registered".to_string().into())
+            })?
             .write()
             .await
             .save(certificate.clone())
@@ -444,7 +456,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             certificate.digest,
             certificate.hash,
             std::fs::metadata(file_path)
-                .map_err(|e| RuntimeError::General(e.to_string()))?
+                .map_err(|e| RuntimeError::General(e.into()))?
                 .len(),
             format!("{:?}", Utc::now()),
             remote_locations,
@@ -455,7 +467,9 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .dependencies
             .snapshot_store
             .as_ref()
-            .ok_or_else(|| RuntimeError::General("no snapshot store registered".to_string()))?
+            .ok_or_else(|| {
+                RuntimeError::General("no snapshot store registered".to_string().into())
+            })?
             .write()
             .await
             .add_snapshot(snapshot.clone())
