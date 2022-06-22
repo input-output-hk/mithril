@@ -1,3 +1,4 @@
+mod cli_observer;
 mod fake_observer;
 mod interface;
 

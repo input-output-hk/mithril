@@ -48,14 +48,16 @@ mod tests {
     async fn test_get_current_epoch() {
         let beacon = fake_data::beacon();
         let fake_observer = FakeObserver::new();
-        let current_epoch = fake_observer.get_current_epoch().await;
-        assert_eq!(Ok(Some(beacon.epoch)), current_epoch);
+        let current_epoch = fake_observer.get_current_epoch().await.unwrap();
+
+        assert_eq!(Some(beacon.epoch), current_epoch);
     }
 
     #[tokio::test]
     async fn test_get_current_stake_distribution() {
         let fake_observer = FakeObserver::new();
         let stake_distribution = fake_observer.get_current_stake_distribution().await;
+
         assert!(
             stake_distribution.unwrap().unwrap().len() > 0,
             "get current stake distribution should not fail and should not be empty"
