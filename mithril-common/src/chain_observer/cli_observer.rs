@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 use async_trait::async_trait;
 use nom::IResult;
+use serde_json::Value;
 use std::error::Error;
 use std::path::PathBuf;
 use tokio::process::Command;
@@ -51,7 +52,16 @@ impl CliRunner for CardanoCliRunner {
     }
 
     async fn launch_epoch(&self) -> Result<String, Box<dyn Error + Sync + Send>> {
-        todo!()
+        let output = self
+            .get_command()
+            .arg("query")
+            .arg("tip")
+            .arg("--cardano-mode")
+            .arg("--testnet-magic 42")
+            .output()
+            .await?;
+
+        Ok(std::str::from_utf8(&output.stdout)?.to_string())
     }
 }
 
@@ -74,7 +84,19 @@ impl CardanoCliChainObserver {
 #[async_trait]
 impl ChainObserver for CardanoCliChainObserver {
     async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError> {
-        todo!()
+        let output = self
+            .cli_runner
+            .launch_epoch()
+            .await
+            .map_err(ChainObserverError::General)?;
+        let v: Value =
+            serde_json::from_str(&output).map_err(|e| ChainObserverError::General(e.into()))?;
+
+        if let Value::Number(epoch) = &v["epoch"] {
+            Ok(epoch.as_u64())
+        } else {
+            Ok(None)
+        }
     }
 
     async fn get_current_stake_distribution(
@@ -137,7 +159,17 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
         }
 
         async fn launch_epoch(&self) -> Result<String, Box<dyn Error + Sync + Send>> {
-            todo!()
+            let output = r#"
+{
+    "era": "Alonzo",
+    "syncProgress": "100.00",
+    "hash": "f6d1b8c328697c7a4a8e7f718c79510acbcd411ff4ca19401ded13534d45a38d",
+    "epoch": 120,
+    "slot": 0,
+    "block": 0
+}"#;
+
+            Ok(output.to_string())
         }
     }
     #[tokio::test]
@@ -153,5 +185,13 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
         assert_eq!(2_493_000, *results.get(&1).unwrap());
         assert_eq!(1_051, *results.get(&8).unwrap());
         assert!(results.get(&5).is_none());
+    }
+
+    #[tokio::test]
+    async fn test_get_current_epoch() {
+        let observer = CardanoCliChainObserver::new(Box::new(TestCliRunner {}));
+        let epoch = observer.get_current_epoch().await.unwrap().unwrap();
+
+        assert_eq!(120, epoch);
     }
 }
