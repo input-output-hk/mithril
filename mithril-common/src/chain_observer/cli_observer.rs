@@ -30,7 +30,7 @@ impl CardanoCliRunner {
         let mut command = Command::new(&self.cli_path);
         command.env(
             "CARDANO_NODE_SOCKET_PATH",
-            &*self.socket_path.to_string_lossy(),
+            self.socket_path.to_string_lossy().as_ref(),
         );
 
         command
@@ -55,11 +55,11 @@ impl CliRunner for CardanoCliRunner {
     }
 }
 
-pub struct CliChainObserver {
+pub struct CardanoCliChainObserver {
     cli_runner: Box<dyn CliRunner + Send + Sync>,
 }
 
-impl CliChainObserver {
+impl CardanoCliChainObserver {
     pub fn new(cli_runner: Box<dyn CliRunner + Send + Sync>) -> Self {
         Self { cli_runner }
     }
@@ -72,7 +72,7 @@ impl CliChainObserver {
 }
 
 #[async_trait]
-impl ChainObserver for CliChainObserver {
+impl ChainObserver for CardanoCliChainObserver {
     async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError> {
         todo!()
     }
@@ -142,7 +142,7 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
     }
     #[tokio::test]
     async fn test_get_current_stake_distribution() {
-        let observer = CliChainObserver::new(Box::new(TestCliRunner {}));
+        let observer = CardanoCliChainObserver::new(Box::new(TestCliRunner {}));
         let results = observer
             .get_current_stake_distribution()
             .await
