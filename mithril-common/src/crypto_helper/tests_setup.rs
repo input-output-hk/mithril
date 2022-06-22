@@ -34,7 +34,7 @@ pub fn setup_signers(
             let protocol_initializer: ProtocolInitializer =
                 ProtocolInitializer::setup(protocol_parameters, stake, &mut rng);
             (
-                party_id as ProtocolPartyId,
+                format!("{}", party_id) as ProtocolPartyId,
                 stake as ProtocolStake,
                 protocol_initializer,
             )

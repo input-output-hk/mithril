@@ -10,13 +10,16 @@ pub type Epoch = u64;
 pub type ImmutableFileNumber = u64;
 
 /// PartyId represents a signing party in Mithril protocol
-pub type PartyId = u64;
+pub type PartyId = String;
 
 /// Stake represents the stakes of a participant in the Cardano chain
 pub type Stake = u64;
 
 /// StakeDistribution represents the stakes of multiple participants in the Cardano chain
 pub type StakeDistribution = HashMap<PartyId, Stake>;
+
+/// LotteryIndex represents the index of a Mithril single signature lottery
+type LotteryIndex = u64;
 
 /// Beacon represents a point in the Cardano chain at which a Mithril certificate should be produced
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize, Hash, PartialOrd)]
@@ -270,7 +273,7 @@ impl Signer {
     /// Computes the hash of Signer
     pub fn compute_hash(signer: &Self) -> String {
         let mut hasher = Sha256::new();
-        hasher.update(signer.party_id.to_be_bytes());
+        hasher.update(signer.party_id.as_bytes());
         hasher.update(signer.verification_key.as_bytes());
         hex::encode(hasher.finalize())
     }
@@ -304,7 +307,7 @@ impl SignerWithStake {
     /// Computes the hash of SignerWithStake
     pub fn compute_hash(signer_with_stake: &Self) -> String {
         let mut hasher = Sha256::new();
-        hasher.update(signer_with_stake.party_id.to_be_bytes());
+        hasher.update(signer_with_stake.party_id.as_bytes());
         hasher.update(signer_with_stake.verification_key.as_bytes());
         hasher.update(signer_with_stake.stake.to_be_bytes());
         hex::encode(hasher.finalize())
@@ -320,7 +323,7 @@ pub struct SingleSignature {
 
     /// The index of the lottery won that lead to the single signature
     #[serde(rename = "index")]
-    pub index: u64,
+    pub index: LotteryIndex,
 
     /// The single signature of the digest
     #[serde(rename = "signature")]
@@ -329,7 +332,7 @@ pub struct SingleSignature {
 
 impl SingleSignature {
     /// SingleSignature factory
-    pub fn new(party_id: PartyId, index: u64, signature: String) -> SingleSignature {
+    pub fn new(party_id: PartyId, index: LotteryIndex, signature: String) -> SingleSignature {
         SingleSignature {
             party_id,
             index,
@@ -455,30 +458,39 @@ mod tests {
 
     #[test]
     fn test_signer_compute_hash() {
-        let hash_expected = "e5b71e4fc8052671ec42ed7da3bed0f949ab376f89d843f5264a5acf4ee5f695";
+        let hash_expected = "1a71566d70060d38ed94cc7760b0c38d34dd2729a1a1ea70ef983d2c780a4d77";
 
         assert_eq!(
             hash_expected,
-            Signer::compute_hash(&Signer::new(1, "verification-key-123".to_string()))
+            Signer::compute_hash(&Signer::new(
+                "1".to_string(),
+                "verification-key-123".to_string()
+            ))
         );
         assert_ne!(
             hash_expected,
-            Signer::compute_hash(&Signer::new(0, "verification-key-123".to_string()))
+            Signer::compute_hash(&Signer::new(
+                "0".to_string(),
+                "verification-key-123".to_string()
+            ))
         );
         assert_ne!(
             hash_expected,
-            Signer::compute_hash(&Signer::new(1, "verification-key-456".to_string()))
+            Signer::compute_hash(&Signer::new(
+                "1".to_string(),
+                "verification-key-456".to_string()
+            ))
         );
     }
 
     #[test]
     fn test_signer_with_stake_compute_hash() {
-        let hash_expected = "7715aa991702ca996d1d0a5335435d23ed280038679de489c58f6550af262644";
+        let hash_expected = "16362ace34bdb40c10d79c08fcfa5b0b14c74b6681635723c89aee52d4134971";
 
         assert_eq!(
             hash_expected,
             SignerWithStake::compute_hash(&SignerWithStake::new(
-                1,
+                "1".to_string(),
                 "verification-key-123".to_string(),
                 10
             ))
@@ -486,7 +498,7 @@ mod tests {
         assert_ne!(
             hash_expected,
             SignerWithStake::compute_hash(&SignerWithStake::new(
-                0,
+                "0".to_string(),
                 "verification-key-123".to_string(),
                 10
             ))
@@ -494,7 +506,7 @@ mod tests {
         assert_ne!(
             hash_expected,
             SignerWithStake::compute_hash(&SignerWithStake::new(
-                1,
+                "1".to_string(),
                 "verification-key-456".to_string(),
                 10
             ))
@@ -502,7 +514,7 @@ mod tests {
         assert_ne!(
             hash_expected,
             SignerWithStake::compute_hash(&SignerWithStake::new(
-                1,
+                "1".to_string(),
                 "verification-key-123".to_string(),
                 20
             ))
@@ -511,7 +523,7 @@ mod tests {
 
     #[test]
     fn test_certificate_compute_hash() {
-        let hash_expected = "16393ea9ffcbd50dbd1cb3d2b44736870edbc8175116c0eb501ded50ea7ed114";
+        let hash_expected = "5d08129c86948f3082bc9ef3d0d2fbe628e907790db1fa58eadf13f0940c8d52";
 
         assert_eq!(
             hash_expected,
@@ -523,8 +535,8 @@ mod tests {
                 "started_at".to_string(),
                 "completed_at".to_string(),
                 vec![
-                    SignerWithStake::new(1, "verification-key-123".to_string(), 10),
-                    SignerWithStake::new(2, "verification-key-456".to_string(), 20)
+                    SignerWithStake::new("1".to_string(), "verification-key-123".to_string(), 10),
+                    SignerWithStake::new("2".to_string(), "verification-key-456".to_string(), 20)
                 ],
                 "aggregate_verification_key".to_string(),
                 "multisignature".to_string(),
@@ -541,8 +553,8 @@ mod tests {
                 "started_at".to_string(),
                 "completed_at".to_string(),
                 vec![
-                    SignerWithStake::new(1, "verification-key-123".to_string(), 10),
-                    SignerWithStake::new(2, "verification-key-456".to_string(), 20)
+                    SignerWithStake::new("1".to_string(), "verification-key-123".to_string(), 10),
+                    SignerWithStake::new("2".to_string(), "verification-key-456".to_string(), 20)
                 ],
                 "aggregate_verification_key".to_string(),
                 "multisignature".to_string(),
@@ -559,8 +571,8 @@ mod tests {
                 "started_at".to_string(),
                 "completed_at".to_string(),
                 vec![
-                    SignerWithStake::new(1, "verification-key-123".to_string(), 10),
-                    SignerWithStake::new(2, "verification-key-456".to_string(), 20)
+                    SignerWithStake::new("1".to_string(), "verification-key-123".to_string(), 10),
+                    SignerWithStake::new("2".to_string(), "verification-key-456".to_string(), 20)
                 ],
                 "aggregate_verification_key".to_string(),
                 "multisignature".to_string(),
@@ -577,8 +589,8 @@ mod tests {
                 "started_at".to_string(),
                 "completed_at".to_string(),
                 vec![
-                    SignerWithStake::new(1, "verification-key-123".to_string(), 10),
-                    SignerWithStake::new(2, "verification-key-456".to_string(), 20)
+                    SignerWithStake::new("1".to_string(), "verification-key-123".to_string(), 10),
+                    SignerWithStake::new("2".to_string(), "verification-key-456".to_string(), 20)
                 ],
                 "aggregate_verification_key".to_string(),
                 "multisignature".to_string(),
@@ -595,8 +607,8 @@ mod tests {
                 "started_at".to_string(),
                 "completed_at".to_string(),
                 vec![
-                    SignerWithStake::new(1, "verification-key-123".to_string(), 10),
-                    SignerWithStake::new(2, "verification-key-456".to_string(), 20)
+                    SignerWithStake::new("1".to_string(), "verification-key-123".to_string(), 10),
+                    SignerWithStake::new("2".to_string(), "verification-key-456".to_string(), 20)
                 ],
                 "aggregate_verification_key".to_string(),
                 "multisignature".to_string(),
@@ -613,8 +625,8 @@ mod tests {
                 "modified-started_at".to_string(),
                 "completed_at".to_string(),
                 vec![
-                    SignerWithStake::new(1, "verification-key-123".to_string(), 10),
-                    SignerWithStake::new(2, "verification-key-456".to_string(), 20)
+                    SignerWithStake::new("1".to_string(), "verification-key-123".to_string(), 10),
+                    SignerWithStake::new("2".to_string(), "verification-key-456".to_string(), 20)
                 ],
                 "aggregate_verification_key".to_string(),
                 "multisignature".to_string(),
@@ -631,8 +643,8 @@ mod tests {
                 "started_at".to_string(),
                 "modified-completed_at".to_string(),
                 vec![
-                    SignerWithStake::new(1, "verification-key-123".to_string(), 10),
-                    SignerWithStake::new(2, "verification-key-456".to_string(), 20)
+                    SignerWithStake::new("1".to_string(), "verification-key-123".to_string(), 10),
+                    SignerWithStake::new("2".to_string(), "verification-key-456".to_string(), 20)
                 ],
                 "aggregate_verification_key".to_string(),
                 "multisignature".to_string(),
@@ -649,8 +661,12 @@ mod tests {
                 "started_at".to_string(),
                 "completed_at".to_string(),
                 vec![
-                    SignerWithStake::new(1, "modified-verification-key-123".to_string(), 10),
-                    SignerWithStake::new(2, "verification-key-456".to_string(), 20)
+                    SignerWithStake::new(
+                        "1".to_string(),
+                        "modified-verification-key-123".to_string(),
+                        10
+                    ),
+                    SignerWithStake::new("2".to_string(), "verification-key-456".to_string(), 20)
                 ],
                 "aggregate_verification_key".to_string(),
                 "multisignature".to_string(),
@@ -667,8 +683,8 @@ mod tests {
                 "started_at".to_string(),
                 "completed_at".to_string(),
                 vec![
-                    SignerWithStake::new(1, "verification-key-123".to_string(), 10),
-                    SignerWithStake::new(2, "verification-key-456".to_string(), 20)
+                    SignerWithStake::new("1".to_string(), "verification-key-123".to_string(), 10),
+                    SignerWithStake::new("2".to_string(), "verification-key-456".to_string(), 20)
                 ],
                 "modified-aggregate_verification_key".to_string(),
                 "multisignature".to_string(),
@@ -685,8 +701,8 @@ mod tests {
                 "started_at".to_string(),
                 "completed_at".to_string(),
                 vec![
-                    SignerWithStake::new(1, "verification-key-123".to_string(), 10),
-                    SignerWithStake::new(2, "verification-key-456".to_string(), 20)
+                    SignerWithStake::new("1".to_string(), "verification-key-123".to_string(), 10),
+                    SignerWithStake::new("2".to_string(), "verification-key-456".to_string(), 20)
                 ],
                 "aggregate_verification_key".to_string(),
                 "modified-multisignature".to_string(),

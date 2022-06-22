@@ -34,7 +34,7 @@ impl ChainObserver for FakeObserver {
         Ok(Some(
             stakes
                 .iter()
-                .map(|signer| (signer.party_id as PartyId, signer.stake as Stake))
+                .map(|signer| (signer.party_id.clone() as PartyId, signer.stake as Stake))
                 .collect::<StakeDistribution>(),
         ))
     }
