@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use mithril_common::crypto_helper::{
     key_decode_hex, key_encode_hex, Bytes, ProtocolInitializer, ProtocolKeyRegistration,
-    ProtocolPartyId, ProtocolSigner, ProtocolStake,
+    ProtocolPartyId, ProtocolSigner,
 };
 use mithril_common::entities::{self, SignerWithStake, SingleSignature};
 
@@ -19,17 +19,18 @@ pub trait SingleSigner {
     /// Get currently setup protocol initializer
     fn get_protocol_initializer(&self) -> Option<ProtocolInitializer>;
 
-    /// Get is registered signer
-    fn get_is_registered(&self) -> bool;
-
-    /// Update is registered signer
-    fn update_is_registered(&mut self, is_registered: bool) -> Result<(), SingleSignerError>;
+    /// Init the protocol initializer
+    fn init_protocol_initializer(
+        &mut self,
+        stakes: &[SignerWithStake],
+        protocol_parameters: &entities::ProtocolParameters,
+    ) -> Result<(), SingleSignerError>;
 
     /// Computes single signatures
     fn compute_single_signatures(
         &mut self,
         message: Bytes,
-        stake_distribution: Vec<SignerWithStake>,
+        stakes: Vec<SignerWithStake>,
         protocol_parameters: &entities::ProtocolParameters,
     ) -> Result<Vec<SingleSignature>, SingleSignerError>;
 }
@@ -45,6 +46,9 @@ pub enum SingleSignerError {
     #[error("the protocol signer creation failed: `{0}`")]
     ProtocolSignerCreationFailure(String),
 
+    #[error("the protocol initializer is missing")]
+    ProtocolInitializerMissing(),
+
     #[error("codec error: '{0}'")]
     Codec(String),
 }
@@ -52,7 +56,6 @@ pub enum SingleSignerError {
 pub struct MithrilSingleSigner {
     party_id: u64,
     protocol_initializer: Option<ProtocolInitializer>,
-    is_registered: bool,
 }
 
 impl MithrilSingleSigner {
@@ -61,31 +64,15 @@ impl MithrilSingleSigner {
         Self {
             party_id,
             protocol_initializer,
-            is_registered: false,
         }
     }
 
     fn create_protocol_signer(
         &mut self,
-        current_player_stake: ProtocolStake,
-        stake_distribution: &[SignerWithStake], // TODO : use a hmap to prevent party id duplication
-        protocol_parameters: &entities::ProtocolParameters,
+        stakes: &[SignerWithStake], // TODO : use a hmap to prevent party id duplication
     ) -> Result<ProtocolSigner, SingleSignerError> {
-        let protocol_initializer = match &self.protocol_initializer {
-            None => {
-                let mut rng = rand_core::OsRng;
-                ProtocolInitializer::setup(
-                    protocol_parameters.to_owned().into(),
-                    current_player_stake,
-                    &mut rng,
-                )
-            }
-            Some(protocol_initializer) => protocol_initializer.to_owned(),
-        };
-        self.protocol_initializer = Some(protocol_initializer);
-
         let mut key_reg = ProtocolKeyRegistration::init();
-        let signers = stake_distribution
+        let signers = stakes
             .iter()
             .filter(|signer| !signer.verification_key.is_empty())
             .collect::<Vec<&SignerWithStake>>();
@@ -106,7 +93,7 @@ impl MithrilSingleSigner {
                 Ok(self
                     .protocol_initializer
                     .as_ref()
-                    .unwrap()
+                    .ok_or_else(SingleSignerError::ProtocolInitializerMissing)?
                     .clone()
                     .new_signer(closed_reg))
             }
@@ -123,22 +110,37 @@ impl SingleSigner for MithrilSingleSigner {
         self.protocol_initializer.clone()
     }
 
-    fn get_is_registered(&self) -> bool {
-        self.is_registered
-    }
-
-    fn update_is_registered(&mut self, is_registered: bool) -> Result<(), SingleSignerError> {
-        self.is_registered = is_registered;
+    fn init_protocol_initializer(
+        &mut self,
+        stakes: &[SignerWithStake],
+        protocol_parameters: &entities::ProtocolParameters,
+    ) -> Result<(), SingleSignerError> {
+        let protocol_initializer = match &self.protocol_initializer {
+            None => {
+                let current_signer_with_stake = stakes
+                    .iter()
+                    .find(|s| s.party_id == self.party_id)
+                    .ok_or(SingleSignerError::UnregisteredPartyId())?;
+                let mut rng = rand_core::OsRng;
+                ProtocolInitializer::setup(
+                    protocol_parameters.to_owned().into(),
+                    current_signer_with_stake.stake,
+                    &mut rng,
+                )
+            }
+            Some(protocol_initializer) => protocol_initializer.to_owned(),
+        };
+        self.protocol_initializer = Some(protocol_initializer);
         Ok(())
     }
 
     fn compute_single_signatures(
         &mut self,
         message: Bytes,
-        stake_distribution: Vec<SignerWithStake>, // TODO : use a hmap to prevent party id duplication
+        stakes: Vec<SignerWithStake>, // TODO : use a hmap to prevent party id duplication
         protocol_parameters: &entities::ProtocolParameters,
     ) -> Result<Vec<SingleSignature>, SingleSignerError> {
-        let current_signer_with_stake = stake_distribution
+        let current_signer_with_stake = stakes
             .iter()
             .find(|s| s.party_id == self.party_id)
             .ok_or(SingleSignerError::UnregisteredPartyId())?;
@@ -151,11 +153,9 @@ impl SingleSigner for MithrilSingleSigner {
             }
         }
 
-        let protocol_signer = self.create_protocol_signer(
-            current_signer_with_stake.stake,
-            &stake_distribution,
-            protocol_parameters,
-        )?;
+        self.init_protocol_initializer(&stakes, protocol_parameters)?;
+
+        let protocol_signer = self.create_protocol_signer(&stakes)?;
 
         trace!(
             "Party #{}: sign message {}",
@@ -198,7 +198,7 @@ mod tests {
         let protocol_parameters = setup_protocol_parameters();
         let signers = setup_signers(5);
         let signer_unregistered = &signers[4];
-        let stake_distribution = signers[..4]
+        let stakes = signers[..4]
             .iter()
             .map(
                 |(party_id, stake, verification_key, _protocol_signer, _protocol_initializer)| {
@@ -218,7 +218,7 @@ mod tests {
 
         let sign_result = single_signer.compute_single_signatures(
             message.as_bytes().to_vec(),
-            stake_distribution,
+            stakes,
             &protocol_parameters.into(),
         );
 
@@ -234,7 +234,7 @@ mod tests {
         let message = setup_message();
         let protocol_parameters = setup_protocol_parameters();
         let signers = setup_signers(5);
-        let stake_distribution = signers
+        let stakes = signers
             .iter()
             .map(
                 |(party_id, stake, verification_key, _protocol_signer, _protocol_initializer)| {
@@ -257,7 +257,7 @@ mod tests {
 
         let sign_result = single_signer.compute_single_signatures(
             message.as_bytes().to_vec(),
-            stake_distribution,
+            stakes,
             &protocol_parameters.into(),
         );
 

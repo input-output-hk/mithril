@@ -774,6 +774,7 @@ cat >> docker-compose.yaml <<EOF
       - CERTIFICATE_STORE_DIRECTORY=/data/mithril/aggregator/db/cert_db
       - VERIFICATION_KEY_STORE_DIRECTORY=/data/mithril/aggregator/db/verification_key_db
       - SNAPSHOT_STORE_DIRECTORY=/data/mithril/aggregator/db/snapshot_db
+      - STAKE_STORE_DIRECTORY=/data/mithril/aggregator/db/stake_db
     command:
       [
         "--db-directory",
@@ -812,6 +813,7 @@ cat >> docker-compose.yaml <<EOF
       - PARTY_ID=${NODE_IX}
       - RUN_INTERVAL=1000
       - DB_DIRECTORY=/data/db
+      - STAKE_STORE_DIRECTORY=/data/mithril/signer/db/stake_db
     command:
       [
         "-vvv"

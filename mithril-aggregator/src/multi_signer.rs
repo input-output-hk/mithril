@@ -100,6 +100,7 @@ pub trait MultiSigner: Sync + Send {
 
     /// Get signers
     async fn get_signers(&self) -> Result<Vec<entities::Signer>, ProtocolError> {
+        debug!("Get signers");
         Ok(self
             .get_signers_with_stake()
             .await?
@@ -248,6 +249,7 @@ impl MultiSigner for MultiSignerImpl {
 
     /// Get stake distribution
     async fn get_stake_distribution(&self) -> Result<ProtocolStakeDistribution, ProtocolError> {
+        debug!("Get stake distribution");
         #[allow(unused_variables, clippy::identity_op)]
         let epoch = self
             .beacon_store
@@ -258,8 +260,10 @@ impl MultiSigner for MultiSignerImpl {
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
             - 0; // TODO: Should be -1 or -2
-        let epoch = 0; // TODO: to remove once the runtime feeds the stake distribution
-        warn!("Epoch computation is not final and needs to be fixed");
+        warn!(
+            "Epoch computation is not final and needs to be fixed: {}",
+            epoch
+        );
         let signers = self
             .stake_store
             .read()
@@ -288,8 +292,6 @@ impl MultiSigner for MultiSignerImpl {
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch;
-        let epoch = 0; // TODO: to remove once the runtime feeds the stake distribution
-        warn!("Epoch computation is not final and needs to be fixed");
         let mut stake_store = self.stake_store.write().await;
         for (party_id, stake) in stakes {
             stake_store
@@ -318,7 +320,10 @@ impl MultiSigner for MultiSignerImpl {
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
             - 0; // TODO: Should be -1 or -2
-        warn!("Epoch computation is not final and needs to be fixed");
+        warn!(
+            "Epoch computation is not final and needs to be fixed: {}",
+            epoch
+        );
         let signers = self
             .verification_key_store
             .read()
@@ -338,6 +343,7 @@ impl MultiSigner for MultiSignerImpl {
     async fn get_signers_with_stake(
         &self,
     ) -> Result<Vec<entities::SignerWithStake>, ProtocolError> {
+        debug!("Get signers with stake");
         #[allow(clippy::identity_op)]
         let epoch = self
             .beacon_store
@@ -348,7 +354,10 @@ impl MultiSigner for MultiSignerImpl {
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
             - 0; // TODO: Should be -1 or -2
-        warn!("Epoch computation is not final and needs to be fixed");
+        warn!(
+            "Epoch computation is not final and needs to be fixed: {}",
+            epoch
+        );
         let signers = self
             .verification_key_store
             .read()

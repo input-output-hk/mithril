@@ -191,6 +191,8 @@ impl AggregatorRuntime {
         new_beacon: Beacon,
     ) -> Result<SigningState, RuntimeError> {
         debug!("launching transition from IDLE to SIGNING state");
+        let _ = self.runner.update_beacon(&new_beacon).await?;
+        let _ = self.runner.update_stake_distribution(&new_beacon).await?; // TODO: This should happen only when the epoch is changing. This requires to modify the state machine by keeping track of the previous beacon in the state
         let digester_result = self.runner.compute_digest(&new_beacon).await?;
         let _ = self
             .runner
@@ -264,6 +266,16 @@ mod tests {
                 last_immutable_file_number: 123,
             })
         });
+        runner
+            .expect_update_beacon()
+            .with(predicate::eq(fake_data::beacon()))
+            .times(1)
+            .returning(|_| Ok(()));
+        runner
+            .expect_update_stake_distribution()
+            .with(predicate::eq(fake_data::beacon()))
+            .times(1)
+            .returning(|_| Ok(()));
         runner
             .expect_update_message_in_multisigner()
             .with(predicate::eq(DigesterResult {

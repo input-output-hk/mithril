@@ -1,6 +1,7 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use mithril_common::chain_observer::ChainObserver;
 use mithril_common::store::stake_store::StakeStore;
 
 use super::entities::*;
@@ -15,6 +16,9 @@ pub type BeaconStoreWrapper = Arc<RwLock<dyn BeaconStore>>;
 
 ///  SnapshotStoreWrapper wraps a SnapshotStore
 pub type SnapshotStoreWrapper = Arc<RwLock<dyn SnapshotStore>>;
+
+///  SnapshotUploaderWrapper wraps a SnapshotUploader
+pub type SnapshotUploaderWrapper = Arc<RwLock<dyn SnapshotUploader>>;
 
 /// MultiSignerWrapper wraps a MultiSigner
 pub type MultiSignerWrapper = Arc<RwLock<dyn MultiSigner>>;
@@ -31,8 +35,8 @@ pub type VerificationKeyStoreWrapper = Arc<RwLock<VerificationKeyStore>>;
 ///  StakeStoreWrapper wraps a StakeStore
 pub type StakeStoreWrapper = Arc<RwLock<StakeStore>>;
 
-///  StakeStoreWrapper wraps a StakeStore
-pub type SnapshotUploaderWrapper = Arc<RwLock<dyn SnapshotUploader>>;
+///  ChainObserverWrapper wraps a ChainObserver
+pub type ChainObserverWrapper = Arc<RwLock<dyn ChainObserver>>;
 
 /// DependencyManager handles the dependencies
 pub struct DependencyManager {
@@ -45,6 +49,7 @@ pub struct DependencyManager {
     pub certificate_store: Option<CertificateStoreWrapper>,
     pub verification_key_store: Option<VerificationKeyStoreWrapper>,
     pub stake_store: Option<StakeStoreWrapper>,
+    pub chain_observer: Option<ChainObserverWrapper>,
 }
 
 impl DependencyManager {
@@ -60,6 +65,7 @@ impl DependencyManager {
             certificate_store: None,
             verification_key_store: None,
             stake_store: None,
+            chain_observer: None,
         }
     }
 
@@ -120,6 +126,12 @@ impl DependencyManager {
     /// With StakeStore middleware
     pub fn with_stake_store(&mut self, stake_store: StakeStoreWrapper) -> &mut Self {
         self.stake_store = Some(stake_store);
+        self
+    }
+
+    /// With ChainObserver middleware
+    pub fn with_chain_observer(&mut self, chain_observer: ChainObserverWrapper) -> &mut Self {
+        self.chain_observer = Some(chain_observer);
         self
     }
 

@@ -1,4 +1,5 @@
 pub mod apispec;
+pub mod chain_observer;
 pub mod crypto_helper;
 pub mod digesters;
 pub mod entities;
