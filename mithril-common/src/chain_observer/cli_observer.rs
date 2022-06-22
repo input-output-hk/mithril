@@ -14,17 +14,46 @@ pub trait CliRunner {
     async fn launch_stake_distribution(&self) -> Result<String, Box<dyn Error + Sync + Send>>;
     async fn launch_epoch(&self) -> Result<String, Box<dyn Error + Sync + Send>>;
 }
+
+/// Cardano Network identifier
+///
+/// Clippy is unhappy when all variant names have the same suffix
+/// `MainNet` has therefor been renamed to `Main`, `DevNet` to `Dev` etc.
+enum CardanoCliNetwork {
+    Main,
+    Dev(u64),
+    Test(u64),
+}
+
 struct CardanoCliRunner {
     cli_path: PathBuf,
     socket_path: PathBuf,
+    network: CardanoCliNetwork,
 }
 
 impl CardanoCliRunner {
-    pub fn new(cli_path: PathBuf, socket_path: PathBuf) -> Self {
+    pub fn new(cli_path: PathBuf, socket_path: PathBuf, network: CardanoCliNetwork) -> Self {
         Self {
             cli_path,
             socket_path,
+            network,
         }
+    }
+
+    pub fn command_for_stake_distribution(&self) -> Command {
+        let mut command = self.get_command();
+        command.arg("query").arg("stake-distribution");
+        self.post_config_command(&mut command);
+
+        command
+    }
+
+    pub fn command_for_epoch(&self) -> Command {
+        let mut command = self.get_command();
+        command.arg("query").arg("tip");
+        self.post_config_command(&mut command);
+
+        command
     }
 
     fn get_command(&self) -> Command {
@@ -36,30 +65,28 @@ impl CardanoCliRunner {
 
         command
     }
+
+    fn post_config_command<'a>(&'a self, command: &'a mut Command) -> &mut Command {
+        match self.network {
+            CardanoCliNetwork::Main => command.arg("--mainnet"),
+            CardanoCliNetwork::Dev(magic) => command
+                .arg(format!("--testnet-magic {}", magic))
+                .arg("--cardano-mode"),
+            CardanoCliNetwork::Test(magic) => command.arg(format!("--testnet-magic {}", magic)),
+        }
+    }
 }
 
 #[async_trait]
 impl CliRunner for CardanoCliRunner {
     async fn launch_stake_distribution(&self) -> Result<String, Box<dyn Error + Sync + Send>> {
-        let output = self
-            .get_command()
-            .arg("query")
-            .arg("stake-distribution")
-            .output()
-            .await?;
+        let output = self.command_for_stake_distribution().output().await?;
 
         Ok(std::str::from_utf8(&output.stdout)?.to_string())
     }
 
     async fn launch_epoch(&self) -> Result<String, Box<dyn Error + Sync + Send>> {
-        let output = self
-            .get_command()
-            .arg("query")
-            .arg("tip")
-            .arg("--cardano-mode")
-            .arg("--testnet-magic 42")
-            .output()
-            .await?;
+        let output = self.command_for_epoch().output().await?;
 
         Ok(std::str::from_utf8(&output.stdout)?.to_string())
     }
@@ -193,5 +220,47 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
         let epoch = observer.get_current_epoch().await.unwrap().unwrap();
 
         assert_eq!(120, epoch);
+    }
+
+    #[tokio::test]
+    async fn test_cli_testnet_runner() {
+        let runner = CardanoCliRunner::new(
+            PathBuf::new().join("cardano-cli"),
+            PathBuf::new().join("/tmp/whatever.sock"),
+            CardanoCliNetwork::Test(10),
+        );
+
+        assert_eq!("Command { std: \"cardano-cli\" \"query\" \"tip\" \"--testnet-magic 10\", kill_on_drop: false }", format!("{:?}", runner.command_for_epoch()));
+        assert_eq!("Command { std: \"cardano-cli\" \"query\" \"stake-distribution\" \"--testnet-magic 10\", kill_on_drop: false }", format!("{:?}", runner.command_for_stake_distribution()));
+    }
+
+    #[tokio::test]
+    async fn test_cli_devnet_runner() {
+        let runner = CardanoCliRunner::new(
+            PathBuf::new().join("cardano-cli"),
+            PathBuf::new().join("/tmp/whatever.sock"),
+            CardanoCliNetwork::Dev(25),
+        );
+
+        assert_eq!("Command { std: \"cardano-cli\" \"query\" \"tip\" \"--testnet-magic 25\" \"--cardano-mode\", kill_on_drop: false }", format!("{:?}", runner.command_for_epoch()));
+        assert_eq!("Command { std: \"cardano-cli\" \"query\" \"stake-distribution\" \"--testnet-magic 25\" \"--cardano-mode\", kill_on_drop: false }", format!("{:?}", runner.command_for_stake_distribution()));
+    }
+
+    #[tokio::test]
+    async fn test_cli_mainnet_runner() {
+        let runner = CardanoCliRunner::new(
+            PathBuf::new().join("cardano-cli"),
+            PathBuf::new().join("/tmp/whatever.sock"),
+            CardanoCliNetwork::Main,
+        );
+
+        assert_eq!(
+            "Command { std: \"cardano-cli\" \"query\" \"tip\" \"--mainnet\", kill_on_drop: false }",
+            format!("{:?}", runner.command_for_epoch())
+        );
+        assert_eq!(
+            "Command { std: \"cardano-cli\" \"query\" \"stake-distribution\" \"--mainnet\", kill_on_drop: false }",
+            format!("{:?}", runner.command_for_stake_distribution())
+        );
     }
 }
