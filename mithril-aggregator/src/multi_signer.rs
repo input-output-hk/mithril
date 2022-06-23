@@ -12,6 +12,7 @@ use mithril_common::crypto_helper::{
 };
 use mithril_common::entities;
 use mithril_common::store::stake_store::{StakeStoreError, StakeStorer};
+use mithril_common::SIGNER_EPOCH_RETRIEVAL_OFFSET;
 
 use super::beacon_store::BeaconStoreError;
 use super::dependency::{
@@ -267,7 +268,7 @@ impl MultiSigner for MultiSignerImpl {
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
-            - 1;
+            - SIGNER_EPOCH_RETRIEVAL_OFFSET;
         let signers = self
             .stake_store
             .read()
@@ -327,7 +328,7 @@ impl MultiSigner for MultiSignerImpl {
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
-            - 1;
+            - SIGNER_EPOCH_RETRIEVAL_OFFSET;
         let signers = self
             .verification_key_store
             .read()
@@ -356,7 +357,7 @@ impl MultiSigner for MultiSignerImpl {
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
-            - 1;
+            - SIGNER_EPOCH_RETRIEVAL_OFFSET;
         let signers = self
             .verification_key_store
             .read()

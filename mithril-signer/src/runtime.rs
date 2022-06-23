@@ -11,6 +11,7 @@ use mithril_common::crypto_helper::{key_encode_hex, Bytes};
 use mithril_common::digesters::{Digester, DigesterError};
 use mithril_common::entities::{self, Beacon, CertificatePending, Epoch, PartyId, SignerWithStake};
 use mithril_common::store::stake_store::{StakeStore, StakeStoreError, StakeStorer};
+use mithril_common::SIGNER_EPOCH_RETRIEVAL_OFFSET;
 
 use super::certificate_handler::CertificateHandler;
 use super::single_signer::SingleSigner;
@@ -201,7 +202,7 @@ impl Runtime {
             .iter()
             .map(|signer| (signer.party_id.to_owned(), signer.verification_key.as_str()))
             .collect::<HashMap<PartyId, &str>>();
-        let epoch = pending_certificate.beacon.epoch - 1;
+        let epoch = pending_certificate.beacon.epoch - SIGNER_EPOCH_RETRIEVAL_OFFSET;
         let stake_store = self.stake_store.read().await;
         let stake_distribution = stake_store
             .get_stakes(epoch)
