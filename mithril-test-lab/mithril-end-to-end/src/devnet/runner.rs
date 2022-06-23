@@ -11,19 +11,19 @@ pub struct Devnet {
     number_of_pool_nodes: u8,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct BftNode {
     pub db_path: PathBuf,
     pub socket_path: PathBuf,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PoolNode {
     pub db_path: PathBuf,
     pub socket_path: PathBuf,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DevnetTopology {
     pub bft_nodes: Vec<BftNode>,
     pub pool_nodes: Vec<PoolNode>,
@@ -80,6 +80,16 @@ impl Devnet {
             number_of_bft_nodes,
             number_of_pool_nodes,
         })
+    }
+
+    /// Factory for test purposes
+    #[cfg(test)]
+    pub fn new(artifacts_dir: PathBuf, number_of_bft_nodes: u8, number_of_pool_nodes: u8) -> Self {
+        Self {
+            artifacts_dir,
+            number_of_bft_nodes,
+            number_of_pool_nodes,
+        }
     }
 
     pub fn topology(&self) -> DevnetTopology {
@@ -144,5 +154,53 @@ impl Devnet {
             .await
             .map_err(|e| format!("Error while stopping the devnet: {}", e))?;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::devnet::runner::{BftNode, Devnet, PoolNode};
+    use crate::devnet::DevnetTopology;
+    use std::path::PathBuf;
+
+    #[test]
+    pub fn yield_empty_topology_with_0_nodes() {
+        let devnet = Devnet::new(PathBuf::new(), 0, 0);
+        let topology = devnet.topology();
+
+        assert_eq!(
+            (0, 0),
+            (topology.bft_nodes.len(), topology.pool_nodes.len())
+        );
+    }
+
+    #[test]
+    pub fn yield_complete_topology_with_2_bft_and_12_pool_nodes() {
+        let devnet = Devnet::new(PathBuf::new(), 2, 12);
+        let topology = devnet.topology();
+
+        assert_eq!(
+            (2, 12),
+            (topology.bft_nodes.len(), topology.pool_nodes.len())
+        );
+    }
+
+    #[test]
+    pub fn topology_path_leads_to_artifacts_subfolders() {
+        let devnet = Devnet::new(PathBuf::from(r"test/path/"), 1, 1);
+
+        assert_eq!(
+            DevnetTopology {
+                bft_nodes: vec![BftNode {
+                    db_path: PathBuf::from(r"test/path/node-bft1/db"),
+                    socket_path: PathBuf::from(r"test/path/node-bft1/ipc/node.sock")
+                }],
+                pool_nodes: vec![PoolNode {
+                    db_path: PathBuf::from(r"test/path/node-pool1/db"),
+                    socket_path: PathBuf::from(r"test/path/node-pool1/ipc/node.sock")
+                },],
+            },
+            devnet.topology()
+        );
     }
 }
