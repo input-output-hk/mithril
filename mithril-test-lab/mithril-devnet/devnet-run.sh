@@ -28,16 +28,6 @@ echo
 # Change directory
 cd ${ROOT}
 
-# Start devnet Mithril nodes
-if [ "${NODES}" = "mithril" ] || [ "${NODES}" = "*" ]; then 
-    echo "====================================================================="
-    echo " Start Mithril nodes"
-    echo "====================================================================="
-    echo
-    ./start-mithril.sh
-    echo
-fi
-
 # Start devnet Cardano nodes
 if [ "${NODES}" = "cardano" ] || [ "${NODES}" = "*" ]; then 
     echo "====================================================================="
@@ -45,5 +35,15 @@ if [ "${NODES}" = "cardano" ] || [ "${NODES}" = "*" ]; then
     echo "====================================================================="
     echo
     ./start-cardano.sh
+    echo
+fi
+
+# Start devnet Mithril nodes
+if [ "${NODES}" = "mithril" ] || [ "${NODES}" = "*" ]; then 
+    echo "====================================================================="
+    echo " Start Mithril nodes"
+    echo "====================================================================="
+    echo
+    ./start-mithril.sh
     echo
 fi
