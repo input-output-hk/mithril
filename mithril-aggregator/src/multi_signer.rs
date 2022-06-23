@@ -152,6 +152,9 @@ pub struct MultiSignerImpl {
     /// Protocol parameters used for signing
     protocol_parameters: Option<ProtocolParameters>,
 
+    /// Clerk used for verifying the single signatures
+    clerk: Option<ProtocolClerk>,
+
     /// Created multi signature for message signed
     multi_signature: Option<ProtocolMultiSignature>,
 
@@ -183,6 +186,7 @@ impl MultiSignerImpl {
         Self {
             current_message: None,
             protocol_parameters: None,
+            clerk: None,
             multi_signature: None,
             avk: None,
             beacon_store,
@@ -193,8 +197,6 @@ impl MultiSignerImpl {
     }
 
     /// Creates a clerk
-    // TODO: The clerk should be a field of the MultiSignerImpl struct
-    // that is based on the epoch, possible to implement w/ real epoch store derivation is implemented
     pub async fn create_clerk(&self) -> Result<Option<ProtocolClerk>, ProtocolError> {
         debug!("Create clerk");
         let stakes = self.get_stake_distribution().await?;
@@ -233,6 +235,7 @@ impl MultiSigner for MultiSignerImpl {
     async fn update_current_message(&mut self, message: String) -> Result<(), ProtocolError> {
         if self.current_message.clone() != Some(message.clone()) {
             self.multi_signature = None;
+            self.clerk = self.create_clerk().await?;
         }
         self.current_message = Some(message);
         Ok(())
@@ -312,6 +315,7 @@ impl MultiSigner for MultiSignerImpl {
                 )
                 .await?;
         }
+
         Ok(())
     }
 
@@ -408,7 +412,7 @@ impl MultiSigner for MultiSignerImpl {
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch;
-        match self
+        let result = match self
             .verification_key_store
             .write()
             .await
@@ -423,7 +427,12 @@ impl MultiSigner for MultiSignerImpl {
         {
             Some(_) => Err(ProtocolError::ExistingSigner()),
             None => Ok(()),
+        };
+        // TODO: to remove once epoch offset is activated
+        if result.as_ref().ok().is_some() {
+            self.clerk = self.create_clerk().await?;
         }
+        result
     }
 
     /// Registers a single signature
@@ -447,8 +456,7 @@ impl MultiSigner for MultiSignerImpl {
                 .protocol_parameters
                 .ok_or_else(ProtocolError::UnavailableProtocolParameters)?,
             &self
-                .create_clerk()
-                .await?
+                .clerk
                 .as_ref()
                 .ok_or_else(ProtocolError::UnavailableClerk)?
                 .compute_avk(),
@@ -532,8 +540,8 @@ impl MultiSigner for MultiSignerImpl {
             return Ok(None);
         }
         let clerk = self
-            .create_clerk()
-            .await?
+            .clerk
+            .as_ref()
             .ok_or_else(ProtocolError::UnavailableClerk)?;
         match clerk.aggregate(&signatures, message.as_bytes()) {
             Ok(multi_signature) => {
@@ -608,7 +616,7 @@ mod tests {
     use std::sync::Arc;
     use tokio::sync::RwLock;
 
-    async fn setup_multi_signer() -> impl MultiSigner {
+    async fn setup_multi_signer() -> MultiSignerImpl {
         let beacon = fake_data::beacon();
         let mut beacon_store = MemoryBeaconStore::new();
         beacon_store.set_current_beacon(beacon).await.unwrap();
@@ -693,6 +701,12 @@ mod tests {
     #[tokio::test]
     async fn test_multi_signer_register_signer_ok() {
         let mut multi_signer = setup_multi_signer().await;
+
+        let protocol_parameters_expected = setup_protocol_parameters();
+        multi_signer
+            .update_protocol_parameters(&protocol_parameters_expected)
+            .await
+            .expect("update protocol parameters failed");
 
         let signers = setup_signers(5);
 
