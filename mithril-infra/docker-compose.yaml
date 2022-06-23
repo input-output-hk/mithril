@@ -42,6 +42,7 @@ services:
       - VERIFICATION_KEY_STORE_DIRECTORY=/mithril-aggregator/verification_key_db
       - STAKE_STORE_DIRECTORY=/mithril-aggregator/stake_db
       - SNAPSHOT_STORE_DIRECTORY=/mithril-aggregator/snapshot_db
+      - SINGLE_SIGNATURE_STORE_DIRECTORY=/mithril-aggregator/single_signature_db
     logging:
       driver: "json-file"
       options:
