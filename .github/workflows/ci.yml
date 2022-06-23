@@ -369,67 +369,49 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
 
-      - name: Prepare nix
-        uses: cachix/install-nix-action@v13
-        with:
-          extra_nix_config: |
-            trusted-public-keys = iohk.cachix.org-1:DpRUyj7h7V830dp/i6Nti+NEO2/nhblbov/8MW7Rqoo= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=
-            substituters = https://cache.nixos.org https://hydra.iohk.io https://iohk.cachix.org
-
-      - name: Github cache ~/.cabal/packages, ~/.cabal/store and dist-newstyle
-        uses: actions/cache@v3
-        with:
-          path: |
-            ~/.cabal/packages
-            ~/.cabal/store
-            mithril-test-lab/dist-newstyle
-          key: |
-            cabal-${{ runner.os }}-${{ hashFiles('mithril-test-lab/cabal.project', 'shell.nix') }}
-          restore-keys: |
-            cabal-${{ runner.os }}-
-
-      - name: Prepare nix-shell
-        run: |
-          nix-build shell.nix
-
       - name: Download aggregator
         uses: actions/download-artifact@v3
         with:
           name: mithril-aggregator
-          path: ~/.cabal/bin/
+          path: ./bin
 
       - name: Download signer
         uses: actions/download-artifact@v3
         with:
           name: mithril-signer
-          path: ~/.cabal/bin/
+          path: ./bin
 
       - name: Download client
         uses: actions/download-artifact@v3
         with:
           name: mithril-client
-          path: ~/.cabal/bin/
+          path: ./bin
 
       - name: Download rust test runner
         uses: actions/download-artifact@v3
         with:
           name: mithril-end-to-end
-          path: ~/.cabal/bin/
+          path: ./
 
       - run: |
-          chmod +x ~/.cabal/bin/mithril-aggregator
-          chmod +x ~/.cabal/bin/mithril-client
-          chmod +x ~/.cabal/bin/mithril-signer
-          chmod +x ~/.cabal/bin/mithril-end-to-end
-
-      - name: Build
-        run: nix-shell --run '.github/workflows/ci-build.sh'
+          chmod +x ./bin/mithril-aggregator
+          chmod +x ./bin/mithril-client
+          chmod +x ./bin/mithril-signer
+          chmod +x ./mithril-end-to-end
+          mkdir artifacts
 
       - name: Test
-        env:
-          NETWORK: testnet
-          URL_SNAPSHOT_MANIFEST: https://storage.googleapis.com/cardano-testnet/snapshots.json
-        run: nix-shell --run '.github/workflows/ci-test.sh'
+        run: ./mithril-end-to-end --bin-directory ./bin --work-directory=./artifacts --devnet-scripts-directory=./mithril-test-lab/mithril-devnet
+      - name: Upload E2E Tests Artifacts
+        if:  ${{ failure() }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: mithril-e2e-tests-artifacts 
+          path: |
+            ./artifacts/*
+            # including node.sock makes the upload fails so exclude them:
+            !./artifacts/**/node.sock
+          if-no-files-found: error
 
   terraform:
     runs-on: ubuntu-latest
