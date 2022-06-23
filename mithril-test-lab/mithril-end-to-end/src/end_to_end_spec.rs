@@ -65,7 +65,7 @@ async fn wait_for_enough_immutable(db_directory: &Path) -> Result<(), String> {
                 format!(
                     "Immutable file listing failed in dir `{}`: {}",
                     db_directory.display(),
-                    e.to_string()
+                    e
                 )
             })?
             .last()

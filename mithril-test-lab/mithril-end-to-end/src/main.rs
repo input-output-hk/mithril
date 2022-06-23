@@ -5,12 +5,19 @@ use slog::{Drain, Logger};
 use slog_scope::error;
 use std::error::Error;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 /// Tests args
 #[derive(Parser, Debug, Clone)]
 pub struct Args {
+    /// A directory where all logs, generated devnet artefacts, snapshots and store folder
+    /// will be located.
+    ///
+    /// Optional: if not set it will default to `{system_temp_folder}/mithril-end-to-end`
+    #[clap(long)]
+    work_directory: Option<PathBuf>,
+
     /// Directory containing scripts to boostrap a devnet
     #[clap(long, default_value = "./devnet")]
     devnet_scripts_directory: PathBuf,
@@ -36,8 +43,18 @@ pub struct Args {
 async fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
     let _guard = slog_scope::set_global_logger(build_logger());
-    let work_dir = get_work_dir();
     let server_port = 8080;
+    let work_dir = match args.work_directory {
+        Some(path) => {
+            create_workdir_if_not_exist_clean_otherwise(&path);
+            path.canonicalize().unwrap()
+        }
+        None => {
+            let work_dir = std::env::temp_dir().join("mithril_end_to_end");
+            create_workdir_if_not_exist_clean_otherwise(&work_dir);
+            work_dir.canonicalize().unwrap()
+        }
+    };
 
     let devnet = Devnet::bootstrap(
         args.devnet_scripts_directory,
@@ -76,13 +93,9 @@ fn build_logger() -> Logger {
     Logger::root(Arc::new(drain), slog::o!())
 }
 
-fn get_work_dir() -> PathBuf {
-    let work_dir = std::env::temp_dir().join("mithril_end_to_end");
-
+fn create_workdir_if_not_exist_clean_otherwise(work_dir: &Path) {
     if work_dir.exists() {
         fs::remove_dir_all(&work_dir).expect("Previous work dir removal failed");
     }
     fs::create_dir(&work_dir).expect("Work dir creation failure");
-
-    work_dir
 }

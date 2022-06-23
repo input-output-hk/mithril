@@ -51,7 +51,7 @@ impl Devnet {
 
         if artifacts_target_dir.exists() {
             fs::remove_dir_all(&artifacts_target_dir)
-                .map_err(|e| format!("Previous artifacts dir removal failed: {}", e.to_string()))?;
+                .map_err(|e| format!("Previous artifacts dir removal failed: {}", e))?;
         }
 
         let mut bootstrap_command = Command::new(&bootstrap_script_path);
