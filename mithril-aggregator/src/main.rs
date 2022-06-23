@@ -6,7 +6,7 @@ use config::{Map, Source, Value, ValueKind};
 use mithril_aggregator::{
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
     CertificateStore, Config, DependencyManager, MemoryBeaconStore, MultiSigner, MultiSignerImpl,
-    Server, VerificationKeyStore,
+    Server, SingleSignatureStore, VerificationKeyStore,
 };
 use mithril_common::chain_observer::FakeObserver;
 use mithril_common::fake_data;
@@ -140,10 +140,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let stake_store = Arc::new(RwLock::new(StakeStore::new(Box::new(
         JsonFileStoreAdapter::new(config.stake_store_directory.clone())?,
     ))));
+    let single_signature_store = Arc::new(RwLock::new(SingleSignatureStore::new(Box::new(
+        JsonFileStoreAdapter::new(config.single_signature_store_directory.clone())?,
+    ))));
     let multi_signer = Arc::new(RwLock::new(MultiSignerImpl::new(
         beacon_store.clone(),
         verification_key_store.clone(),
         stake_store.clone(),
+        single_signature_store.clone(),
     )));
     let chain_observer = Arc::new(RwLock::new(FakeObserver::new()));
     setup_dependencies_fake_data(multi_signer.clone()).await;
@@ -159,6 +163,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .with_certificate_store(certificate_store.clone())
         .with_verification_key_store(verification_key_store.clone())
         .with_stake_store(stake_store.clone())
+        .with_single_signature_store(single_signature_store.clone())
         .with_chain_observer(chain_observer.clone());
     let dependency_manager = Arc::new(dependency_manager);
 
