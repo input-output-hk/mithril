@@ -1,5 +1,6 @@
 {
     "network": "testnet",
+    "run_interval": 30000,
     "url_snapshot_manifest": "https://storage.googleapis.com/cardano-testnet/snapshots.json",
     "snapshot_store_type": "local",
     "snapshot_uploader_type": "local",

@@ -40,11 +40,6 @@ pub struct Args {
     #[clap(short, long, default_value = "dev")]
     run_mode: String,
 
-    /// Runtime interval, in seconds
-    /// Defaults to 10 minutes
-    #[clap(long, default_value_t = 600)]
-    runtime_interval: u32,
-
     /// Directory to snapshot
     #[clap(long, default_value = "/db")]
     db_directory: PathBuf,
@@ -172,14 +167,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let runtime_dependencies = dependency_manager.clone();
     let handle = tokio::spawn(async move {
         let config = AggregatorConfig::new(
-            args.runtime_interval,
+            config.run_interval,
             &config.network.clone(),
             &config.db_directory.clone(),
             &snapshot_directory,
             runtime_dependencies,
         );
         let mut runtime = AggregatorRuntime::new(
-            Duration::from_secs(config.interval.into()),
+            Duration::from_millis(config.interval),
             None,
             Arc::new(AggregatorRunner::new(config)),
         )

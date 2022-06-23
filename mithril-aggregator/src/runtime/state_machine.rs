@@ -85,7 +85,7 @@ impl AggregatorRuntime {
                 error!("{:?}", e)
             }
 
-            info!("Sleeping for {} seconds", self.state_sleep.as_secs());
+            info!("Sleeping for {} ms", self.state_sleep.as_millis());
             sleep(self.state_sleep).await;
         }
     }
