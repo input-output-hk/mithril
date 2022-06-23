@@ -80,13 +80,13 @@ impl CliRunner for CardanoCliRunner {
     async fn launch_stake_distribution(&self) -> Result<String, Box<dyn Error + Sync + Send>> {
         let output = self.command_for_stake_distribution().output().await?;
 
-        Ok(std::str::from_utf8(&output.stdout)?.to_string())
+        Ok(std::str::from_utf8(&output.stdout)?.trim().to_string())
     }
 
     async fn launch_epoch(&self) -> Result<String, Box<dyn Error + Sync + Send>> {
         let output = self.command_for_epoch().output().await?;
 
-        Ok(std::str::from_utf8(&output.stdout)?.to_string())
+        Ok(std::str::from_utf8(&output.stdout)?.trim().to_string())
     }
 }
 
@@ -114,8 +114,8 @@ impl ChainObserver for CardanoCliChainObserver {
             .launch_epoch()
             .await
             .map_err(ChainObserverError::General)?;
-        let v: Value =
-            serde_json::from_str(&output).map_err(|e| ChainObserverError::General(e.into()))?;
+        let v: Value = serde_json::from_str(&output)
+            .map_err(|e| ChainObserverError::InvalidContent(e.into()))?;
 
         if let Value::Number(epoch) = &v["epoch"] {
             Ok(epoch.as_u64())
@@ -137,20 +137,20 @@ impl ChainObserver for CardanoCliChainObserver {
         for (num, line) in output.lines().enumerate() {
             let words: Vec<&str> = line.split_ascii_whitespace().collect();
 
-            if num < 3 || words.len() != 2 {
+            if num < 2 || words.len() != 2 {
                 continue;
             }
 
             if let Ok((_, f)) = self.parse_string(words[1]) {
                 let stake: u64 = (f * 1_000_000_000.0).round() as u64;
-                // TODO: the stake distribution shall not be indexed by position
-                // use the real poolId instead, for now this must be a u32.
-                //
-                // The position is num - 2 since we ignore the first two lines
-                // of the CLI output.
+
                 if stake > 0 {
-                    let _ = stake_distribution.insert(format!("{}", num as u64 - 2), stake);
+                    let _ = stake_distribution.insert(words[0].to_string(), stake);
                 }
+            } else {
+                return Err(ChainObserverError::InvalidContent(
+                    format!("could not parse stake from '{}'", words[1]).into(),
+                ));
             }
         }
 
@@ -178,7 +178,7 @@ pool1qpqvz90w7qsex2al2ejjej0rfgrwsguch307w8fraw7a7adf6g8   2.474e-11
 pool1qptl80vq84xm28pt3t2lhpfzqag28csjhktxz5k6a74n260clmt   5.600e-7
 pool1qpuckgzxwgdru9vvq3ydmuqa077ur783yn2uywz7zq2c29p506e   5.161e-5
 pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
-            "#;
+"#;
 
             Ok(output.to_string())
         }
@@ -207,9 +207,21 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
             .unwrap();
 
         assert_eq!(7, results.len());
-        assert_eq!(2_493_000, *results.get("1").unwrap());
-        assert_eq!(1_051, *results.get("8").unwrap());
-        assert!(results.get("5").is_none());
+        assert_eq!(
+            2_493_000,
+            *results
+                .get("pool1qqyjr9pcrv97gwrueunug829fs5znw6p2wxft3fvqkgu5f4qlrg")
+                .unwrap()
+        );
+        assert_eq!(
+            1_051,
+            *results
+                .get("pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w")
+                .unwrap()
+        );
+        assert!(results
+            .get("pool1qpqvz90w7qsex2al2ejjej0rfgrwsguch307w8fraw7a7adf6g8")
+            .is_none());
     }
 
     #[tokio::test]
