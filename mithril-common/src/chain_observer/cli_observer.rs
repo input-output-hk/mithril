@@ -130,7 +130,7 @@ impl ChainObserver for CardanoCliChainObserver {
         let stake_distribution: HashMap<String, u64> = [
             (
                 "pool1qqyjr9pcrv97gwrueunug829fs5znw6p2wxft3fvqkgu5f4qlrg".to_string(),
-                2_493_000 as u64,
+                2_493_000_u64,
             ),
             (
                 "pool1qqfnw2fwajdnam7xsqhhrje5cgd8jcltzfrx655rd23eqlxjfef".to_string(),

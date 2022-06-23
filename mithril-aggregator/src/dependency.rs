@@ -10,7 +10,8 @@ use super::snapshot_stores::SnapshotStore;
 use crate::beacon_store::BeaconStore;
 use crate::snapshot_uploaders::SnapshotUploader;
 use crate::{
-    CertificatePendingStore, CertificateStore, SingleSignatureStore, VerificationKeyStore,
+    BeaconProvider, CertificatePendingStore, CertificateStore, SingleSignatureStore,
+    VerificationKeyStore,
 };
 
 /// BeaconStoreWrapper wraps a BeaconStore
@@ -43,6 +44,9 @@ pub type SingleSignatureStoreWrapper = Arc<RwLock<SingleSignatureStore>>;
 ///  ChainObserverWrapper wraps a ChainObserver
 pub type ChainObserverWrapper = Arc<RwLock<dyn ChainObserver>>;
 
+/// BeaconProviderWrapper wraps a BeaconProvider
+pub type BeaconProviderWrapper = Arc<RwLock<dyn BeaconProvider>>;
+
 /// DependencyManager handles the dependencies
 pub struct DependencyManager {
     pub config: Config,
@@ -56,6 +60,7 @@ pub struct DependencyManager {
     pub stake_store: Option<StakeStoreWrapper>,
     pub single_signature_store: Option<SingleSignatureStoreWrapper>,
     pub chain_observer: Option<ChainObserverWrapper>,
+    pub beacon_provider: Option<BeaconProviderWrapper>,
 }
 
 impl DependencyManager {
@@ -73,7 +78,14 @@ impl DependencyManager {
             stake_store: None,
             single_signature_store: None,
             chain_observer: None,
+            beacon_provider: None,
         }
+    }
+
+    /// With BeaconProvider middleware
+    pub fn with_beacon_provider(&mut self, beacon_provider: BeaconProviderWrapper) -> &mut Self {
+        self.beacon_provider = Some(beacon_provider);
+        self
     }
 
     /// With SnapshotStore middleware

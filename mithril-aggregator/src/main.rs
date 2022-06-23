@@ -4,9 +4,9 @@ use clap::Parser;
 
 use config::{Map, Source, Value, ValueKind};
 use mithril_aggregator::{
-    AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
-    CertificateStore, Config, DependencyManager, MemoryBeaconStore, MultiSigner, MultiSignerImpl,
-    Server, SingleSignatureStore, VerificationKeyStore,
+    AggregatorConfig, AggregatorRunner, AggregatorRuntime, BeaconProviderImpl,
+    CertificatePendingStore, CertificateStore, Config, DependencyManager, MemoryBeaconStore,
+    MultiSigner, MultiSignerImpl, Server, SingleSignatureStore, VerificationKeyStore,
 };
 use mithril_common::chain_observer::FakeObserver;
 use mithril_common::fake_data;
@@ -164,7 +164,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .with_verification_key_store(verification_key_store.clone())
         .with_stake_store(stake_store.clone())
         .with_single_signature_store(single_signature_store.clone())
-        .with_chain_observer(chain_observer.clone());
+        .with_chain_observer(chain_observer.clone())
+        .with_beacon_provider(Arc::new(RwLock::new(BeaconProviderImpl::new(
+            chain_observer.clone(),
+            config.db_directory.to_path_buf(),
+            &config.network,
+        ))));
     let dependency_manager = Arc::new(dependency_manager);
 
     // Start snapshot uploader
