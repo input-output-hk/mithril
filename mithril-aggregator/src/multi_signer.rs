@@ -2,7 +2,6 @@ use async_trait::async_trait;
 use chrono::prelude::*;
 use hex::ToHex;
 use slog_scope::{debug, warn};
-use std::collections::HashMap;
 use thiserror::Error;
 
 use mithril_common::crypto_helper::{
@@ -15,8 +14,13 @@ use mithril_common::entities;
 use mithril_common::store::stake_store::{StakeStoreError, StakeStorer};
 
 use super::beacon_store::BeaconStoreError;
-use super::dependency::{BeaconStoreWrapper, StakeStoreWrapper, VerificationKeyStoreWrapper};
-use super::store::{VerificationKeyStoreError, VerificationKeyStorer};
+use super::dependency::{
+    BeaconStoreWrapper, SingleSignatureStoreWrapper, StakeStoreWrapper, VerificationKeyStoreWrapper,
+};
+use super::store::{
+    SingleSignatureStoreError, SingleSignatureStorer, VerificationKeyStoreError,
+    VerificationKeyStorer,
+};
 
 #[cfg(test)]
 use mockall::automock;
@@ -55,6 +59,9 @@ pub enum ProtocolError {
 
     #[error("stake store error: '{0}'")]
     StakeStore(#[from] StakeStoreError),
+
+    #[error("single signature store error: '{0}'")]
+    SingleSignatureStore(#[from] SingleSignatureStoreError),
 }
 
 /// MultiSigner is the cryptographic engine in charge of producing multi signatures from individual signatures
@@ -145,10 +152,6 @@ pub struct MultiSignerImpl {
     /// Protocol parameters used for signing
     protocol_parameters: Option<ProtocolParameters>,
 
-    /// Registered single signatures by party and lottery index
-    single_signatures:
-        HashMap<ProtocolPartyId, HashMap<ProtocolLotteryIndex, ProtocolSingleSignature>>,
-
     /// Created multi signature for message signed
     multi_signature: Option<ProtocolMultiSignature>,
 
@@ -163,6 +166,9 @@ pub struct MultiSignerImpl {
 
     /// Stake store
     stake_store: StakeStoreWrapper,
+
+    /// Single signature store
+    single_signature_store: SingleSignatureStoreWrapper,
 }
 
 impl MultiSignerImpl {
@@ -171,17 +177,18 @@ impl MultiSignerImpl {
         beacon_store: BeaconStoreWrapper,
         verification_key_store: VerificationKeyStoreWrapper,
         stake_store: StakeStoreWrapper,
+        single_signature_store: SingleSignatureStoreWrapper,
     ) -> Self {
         debug!("New MultiSignerImpl created");
         Self {
             current_message: None,
             protocol_parameters: None,
-            single_signatures: HashMap::new(),
             multi_signature: None,
             avk: None,
             beacon_store,
             verification_key_store,
             stake_store,
+            single_signature_store,
         }
     }
 
@@ -226,7 +233,6 @@ impl MultiSigner for MultiSignerImpl {
     async fn update_current_message(&mut self, message: String) -> Result<(), ProtocolError> {
         if self.current_message.clone() != Some(message.clone()) {
             self.multi_signature = None;
-            self.single_signatures.drain();
         }
         self.current_message = Some(message);
         Ok(())
@@ -450,24 +456,30 @@ impl MultiSigner for MultiSignerImpl {
         ) {
             Ok(_) => {
                 // Register single signature
-                self.single_signatures
-                    .entry(party_id.clone())
-                    .or_insert_with(HashMap::new);
-                let signatures = self.single_signatures.get_mut(&party_id).unwrap();
-                match signatures.get(&index) {
-                    Some(_signature) => {
-                        warn!(
-                            "Signature already registered from {} at index {}",
-                            party_id, index
-                        );
-                        return Err(ProtocolError::ExistingSingleSignature(index));
-                    }
-                    None => {
-                        signatures.insert(index, signature.to_owned());
-                    }
-                };
-
-                Ok(())
+                let beacon = self
+                    .beacon_store
+                    .read()
+                    .await
+                    .get_current_beacon()
+                    .await?
+                    .ok_or_else(ProtocolError::UnavailableBeacon)?;
+                match self
+                    .single_signature_store
+                    .write()
+                    .await
+                    .save_single_signature(
+                        &beacon,
+                        &entities::SingleSignature::new(
+                            party_id.clone(),
+                            index,
+                            key_encode_hex(signature.to_owned()).map_err(ProtocolError::Codec)?,
+                        ),
+                    )
+                    .await?
+                {
+                    Some(_) => Err(ProtocolError::ExistingSingleSignature(index)),
+                    None => Ok(()),
+                }
             }
             Err(e) => Err(ProtocolError::Core(e.to_string())),
         }
@@ -489,16 +501,32 @@ impl MultiSigner for MultiSignerImpl {
             .ok_or_else(ProtocolError::UnavailableMessage)?;
 
         debug!("Create multi signature"; "message" => message.encode_hex::<String>());
+
+        let beacon = self
+            .beacon_store
+            .read()
+            .await
+            .get_current_beacon()
+            .await?
+            .ok_or_else(ProtocolError::UnavailableBeacon)?;
         let signatures: Vec<ProtocolSingleSignature> = self
-            .single_signatures
+            .single_signature_store
+            .read()
+            .await
+            .get_single_signatures(&beacon)
+            .await?
+            .unwrap_or_default()
             .iter()
             .flat_map(|(_party_id, h)| {
                 h.iter()
-                    .map(|(_idx, sig)| sig.to_owned())
+                    .filter_map(|(_idx, single_signature)| {
+                        key_decode_hex(&single_signature.signature)
+                            .map_err(ProtocolError::Codec)
+                            .ok()
+                    })
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
-
         if self.protocol_parameters.unwrap().k > signatures.len() as u64 {
             // Quorum is not reached
             return Ok(None);
@@ -511,7 +539,6 @@ impl MultiSigner for MultiSignerImpl {
             Ok(multi_signature) => {
                 self.avk = Some(clerk.compute_avk());
                 self.multi_signature = Some(multi_signature.clone());
-                self.single_signatures.drain();
                 Ok(Some(multi_signature))
             }
             Err(err) => Err(ProtocolError::Core(err.to_string())),
@@ -566,15 +593,18 @@ impl MultiSigner for MultiSignerImpl {
 #[cfg(test)]
 mod tests {
     use super::super::beacon_store::{BeaconStore, MemoryBeaconStore};
-
-    use super::super::store::VerificationKeyStore;
+    use super::super::store::{SingleSignatureStore, VerificationKeyStore};
     use super::*;
 
     use mithril_common::crypto_helper::tests_setup::*;
-    use mithril_common::entities::{Epoch, PartyId};
+    use mithril_common::entities::{
+        Epoch, ImmutableFileNumber, LotteryIndex, PartyId, SingleSignature,
+    };
     use mithril_common::fake_data;
     use mithril_common::store::adapter::MemoryAdapter;
     use mithril_common::store::stake_store::StakeStore;
+
+    use std::collections::HashMap;
     use std::sync::Arc;
     use tokio::sync::RwLock;
 
@@ -588,10 +618,18 @@ mod tests {
         let stake_store = StakeStore::new(Box::new(
             MemoryAdapter::<Epoch, HashMap<PartyId, entities::SignerWithStake>>::new(None).unwrap(),
         ));
+        let single_signature_store = SingleSignatureStore::new(Box::new(
+            MemoryAdapter::<
+                ImmutableFileNumber,
+                HashMap<PartyId, HashMap<LotteryIndex, SingleSignature>>,
+            >::new(None)
+            .unwrap(),
+        ));
         let multi_signer = MultiSignerImpl::new(
             Arc::new(RwLock::new(beacon_store)),
             Arc::new(RwLock::new(verification_key_store)),
             Arc::new(RwLock::new(stake_store)),
+            Arc::new(RwLock::new(single_signature_store)),
         );
         multi_signer
     }
