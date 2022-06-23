@@ -2,6 +2,7 @@
 use async_trait::async_trait;
 use nom::IResult;
 use serde_json::Value;
+use std::collections::HashMap;
 use std::error::Error;
 use std::path::PathBuf;
 use tokio::process::Command;
@@ -123,7 +124,47 @@ impl ChainObserver for CardanoCliChainObserver {
             Ok(None)
         }
     }
+    async fn get_current_stake_distribution(
+        &self,
+    ) -> Result<Option<StakeDistribution>, ChainObserverError> {
+        let stake_distribution: HashMap<String, u64> = [
+            (
+                "pool1qqyjr9pcrv97gwrueunug829fs5znw6p2wxft3fvqkgu5f4qlrg".to_string(),
+                2_493_000 as u64,
+            ),
+            (
+                "pool1qqfnw2fwajdnam7xsqhhrje5cgd8jcltzfrx655rd23eqlxjfef".to_string(),
+                21_640,
+            ),
+            (
+                "pool1qqnjh80kudcjphrxftj74x22q3a4uvw8wknlxptgs7gdqtstqad".to_string(),
+                80,
+            ),
+            (
+                "pool1qquwwu6680fr72y4779r2kpc7mxtch8rp2uhuqcc7v9p6q4f7ph".to_string(),
+                70,
+            ),
+            (
+                "pool1qptl80vq84xm28pt3t2lhpfzqag28csjhktxz5k6a74n260clmt".to_string(),
+                56,
+            ),
+            (
+                "pool1qpuckgzxwgdru9vvq3ydmuqa077ur783yn2uywz7zq2c29p506e".to_string(),
+                51_610,
+            ),
+            (
+                "pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w".to_string(),
+                1_051,
+            ),
+        ]
+        .into_iter()
+        .collect();
 
+        Ok(Some(stake_distribution))
+    }
+
+    /* This is temporarily discarded and replaced by a fake method
+    TODO: remove this comment block
     async fn get_current_stake_distribution(
         &self,
     ) -> Result<Option<StakeDistribution>, ChainObserverError> {
@@ -156,6 +197,7 @@ impl ChainObserver for CardanoCliChainObserver {
 
         Ok(Some(stake_distribution))
     }
+    */
 }
 
 #[cfg(test)]
