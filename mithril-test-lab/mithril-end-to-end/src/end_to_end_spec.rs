@@ -85,6 +85,7 @@ async fn wait_for_enough_immutable(db_directory: &Path) -> Result<(), String> {
 
 async fn wait_for_pending_certificate(aggregator_endpoint: &str) -> Result<(), String> {
     let url = format!("{}/certificate-pending", aggregator_endpoint);
+    info!("Waiting for the aggregator to produce a pending certificate");
 
     match attempt!(10, Duration::from_millis(1000), {
         match reqwest::get(url.clone()).await {
@@ -113,6 +114,7 @@ async fn wait_for_pending_certificate(aggregator_endpoint: &str) -> Result<(), S
 
 async fn assert_node_producing_snapshot(aggregator_endpoint: &str) -> Result<String, String> {
     let url = format!("{}/snapshots", aggregator_endpoint);
+    info!("Waiting for the aggregator to produce a snapshot");
 
     match attempt!(20, Duration::from_millis(1500), {
         match reqwest::get(url.clone()).await {
@@ -144,6 +146,10 @@ async fn assert_signer_is_signing_snapshot(
     digest: &str,
 ) -> Result<String, String> {
     let url = format!("{}/snapshot/{}", aggregator_endpoint, digest);
+    info!(
+        "Waiting for the aggregator to produce sign the snapshot `{}`",
+        digest
+    );
 
     match attempt!(10, Duration::from_millis(1000), {
         match reqwest::get(url.clone()).await {
@@ -218,7 +224,6 @@ async fn assert_client_can_verify_snapshot(
             digest: digest.to_string(),
         })
         .await?;
-
     info!("Client restored the snapshot"; "digest" => &digest);
 
     Ok(())
