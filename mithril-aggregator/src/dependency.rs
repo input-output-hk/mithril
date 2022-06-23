@@ -139,6 +139,7 @@ impl DependencyManager {
     pub fn fake() -> DependencyManager {
         let config = Config {
             network: "testnet".to_string(),
+            run_interval: 1000,
             url_snapshot_manifest: "https://storage.googleapis.com/cardano-testnet/snapshots.json"
                 .to_string(),
             snapshot_store_type: SnapshotStoreType::Local,

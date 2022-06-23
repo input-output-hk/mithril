@@ -30,8 +30,10 @@ services:
     image: ghcr.io/input-output-hk/mithril-aggregator:${IMAGE_ID:-latest}
     restart: always
     environment:
+      - RUST_BACKTRACE=1
       - GOOGLE_APPLICATION_CREDENTIALS_JSON=${GOOGLE_APPLICATION_CREDENTIALS_JSON}
       - NETWORK=${NETWORK:-testnet}
+      - RUN_INTERVAL=60000
       - URL_SNAPSHOT_MANIFEST=https://storage.googleapis.com/cardano-${NETWORK:-testnet}/snapshots.json
       - SNAPSHOT_STORE_TYPE=local
       - SNAPSHOT_UPLOADER_TYPE=gcp
@@ -61,6 +63,7 @@ services:
         max-size: "100m"
         max-file: "5"
     environment:
+      - RUST_BACKTRACE=1
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
       - NETWORK=testnet
       - PARTY_ID=0
@@ -80,6 +83,7 @@ services:
         max-size: "100m"
         max-file: "5"
     environment:
+      - RUST_BACKTRACE=1
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
       - NETWORK=testnet
       - PARTY_ID=1
@@ -99,6 +103,7 @@ services:
         max-size: "100m"
         max-file: "5"
     environment:
+      - RUST_BACKTRACE=1
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
       - NETWORK=testnet
       - PARTY_ID=2
@@ -118,6 +123,7 @@ services:
         max-size: "100m"
         max-file: "5"
     environment:
+      - RUST_BACKTRACE=1
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
       - NETWORK=testnet
       - PARTY_ID=3

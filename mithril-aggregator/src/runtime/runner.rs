@@ -19,8 +19,8 @@ use mockall::automock;
 
 use super::RuntimeError;
 pub struct AggregatorConfig {
-    /// Interval between each snapshot, in seconds
-    pub interval: u32,
+    /// Interval between each snapshot, in ms
+    pub interval: u64,
 
     /// Cardano network
     pub network: String,
@@ -37,7 +37,7 @@ pub struct AggregatorConfig {
 
 impl AggregatorConfig {
     pub fn new(
-        interval: u32,
+        interval: u64,
         network: &str,
         db_directory: &Path,
         snapshot_directory: &Path,

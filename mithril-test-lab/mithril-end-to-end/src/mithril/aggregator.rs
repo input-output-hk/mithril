@@ -20,6 +20,7 @@ impl Aggregator {
         let port = server_port.to_string();
         let env = HashMap::from([
             ("NETWORK", "testnet"),
+            ("RUN_INTERVAL", "5000"),
             ("URL_SNAPSHOT_MANIFEST", ""),
             ("SNAPSHOT_STORE_TYPE", "local"),
             ("SNAPSHOT_UPLOADER_TYPE", "local"),
@@ -40,8 +41,6 @@ impl Aggregator {
             db_directory.to_str().unwrap(),
             "--server-port",
             &port,
-            "--runtime-interval",
-            "5",
             "-vvv",
         ];
 

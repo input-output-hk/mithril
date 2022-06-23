@@ -767,6 +767,7 @@ cat >> docker-compose.yaml <<EOF
       - RUST_BACKTRACE=1
       - GOOGLE_APPLICATION_CREDENTIALS_JSON=
       - NETWORK=devnet
+      - RUN_INTERVAL=5000
       - URL_SNAPSHOT_MANIFEST=
       - SNAPSHOT_STORE_TYPE=local
       - SNAPSHOT_UPLOADER_TYPE=local
@@ -783,8 +784,6 @@ cat >> docker-compose.yaml <<EOF
         "/data/mithril/aggregator",
         "--server-port",
         "8080", 
-        "--runtime-interval", 
-        "5", 
         "-vvv"
       ]
     

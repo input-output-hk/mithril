@@ -32,6 +32,9 @@ pub struct Config {
     /// Server listening IP
     pub server_url: String,
 
+    /// Run Interval is the interval between two runtime cycles in ms
+    pub run_interval: u64,
+
     /// Directory to snapshot
     pub db_directory: PathBuf,
 

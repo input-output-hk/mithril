@@ -20,7 +20,7 @@ pub struct Config {
     pub party_id: PartyId,
 
     /// Run Interval
-    #[table(title = "Interval between two signatures attempts")]
+    #[table(title = "Interval between two runtime cycles in ms")]
     pub run_interval: u64,
 
     /// Directory to snapshot
