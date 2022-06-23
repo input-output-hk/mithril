@@ -52,6 +52,10 @@ impl MithrilCommand {
         })
     }
 
+    pub fn set_log_name(&mut self, name: &str) {
+        self.log_path = self.work_dir.join(format!("{}.log", name));
+    }
+
     pub fn start(&mut self, args: &[String]) -> Child {
         let args = [&self.default_args, args].concat();
 

@@ -22,6 +22,14 @@ pub struct Args {
     /// Defaults to current folder
     #[clap(long, default_value = ".")]
     bin_directory: PathBuf,
+
+    /// Number of BFT nodes in the devnet
+    #[clap(long, default_value_t = 1)]
+    number_of_bft_nodes: u8,
+
+    /// Number of Pool nodes in the devnet
+    #[clap(long, default_value_t = 2)]
+    number_of_pool_nodes: u8,
 }
 
 #[tokio::main]
@@ -31,8 +39,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let work_dir = get_work_dir();
     let server_port = 8080;
 
-    let devnet =
-        Devnet::bootstrap(args.devnet_scripts_directory, work_dir.join("devnet"), 1, 2).await?;
+    let devnet = Devnet::bootstrap(
+        args.devnet_scripts_directory,
+        work_dir.join("devnet"),
+        args.number_of_bft_nodes,
+        args.number_of_pool_nodes,
+    )
+    .await?;
 
     let infrastructure =
         MithrilInfrastructure::start(server_port, devnet.clone(), &work_dir, &args.bin_directory)
@@ -46,9 +59,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
             Ok(())
         }
         Err(error) => {
-            spec.dump_processes_logs().await?;
+            let has_written_logs = spec.dump_processes_logs().await;
             error!("Mithril End to End test failed: {}", error);
             devnet.stop().await?;
+            has_written_logs?;
             Err(error)
         }
     }

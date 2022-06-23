@@ -18,17 +18,19 @@ impl Signer {
         work_dir: &Path,
         bin_dir: &Path,
     ) -> Result<Self, String> {
+        let stake_store_path = format!("./store/signer-{}/stakes", party_id);
         let env = HashMap::from([
             ("NETWORK", "devnet"),
             ("PARTY_ID", &party_id),
             ("RUN_INTERVAL", "2000"),
             ("AGGREGATOR_ENDPOINT", &aggregator_endpoint),
             ("DB_DIRECTORY", db_directory.to_str().unwrap()),
-            ("STAKE_STORE_DIRECTORY", "./store/signer/stakes"),
+            ("STAKE_STORE_DIRECTORY", &stake_store_path),
         ]);
         let args = vec!["-vvv"];
 
-        let command = MithrilCommand::new("mithril-signer", work_dir, bin_dir, env, &args)?;
+        let mut command = MithrilCommand::new("mithril-signer", work_dir, bin_dir, env, &args)?;
+        command.set_log_name(format!("mithril-signer-{}", party_id).as_str());
 
         Ok(Self {
             command,
