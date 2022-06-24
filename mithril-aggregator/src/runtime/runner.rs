@@ -4,7 +4,7 @@ use crate::snapshot_uploaders::SnapshotLocation;
 use crate::{DependencyManager, SnapshotError, Snapshotter};
 use async_trait::async_trait;
 use chrono::Utc;
-use mithril_common::digesters::{Digester, DigesterResult, ImmutableDigester, ImmutableFile};
+use mithril_common::digesters::{Digester, DigesterResult, ImmutableDigester};
 use mithril_common::entities::{
     Beacon, Certificate, CertificatePending, SignerWithStake, Snapshot,
 };
@@ -124,37 +124,20 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         maybe_beacon: Option<Beacon>,
     ) -> Result<Option<Beacon>, RuntimeError> {
         info!("checking if there is a new beacon");
-        debug!(
-            "checking immutables in directory {}",
-            self.config.db_directory.to_string_lossy()
-        );
-        let db_path: &Path = self.config.db_directory.as_path();
-        let immutable_file_number = ImmutableFile::list_completed_in_dir(db_path)
-            .map_err(RuntimeError::ImmutableFile)?
-            .into_iter()
-            .last()
-            .ok_or_else(|| {
-                RuntimeError::General("no immutable file was returned".to_string().into())
-            })?
-            .number;
-        let epoch = self
+        let current_beacon = self
             .config
             .dependencies
-            .chain_observer
+            .beacon_provider
             .as_ref()
             .ok_or_else(|| {
-                RuntimeError::General("no chain observer registered".to_string().into())
+                RuntimeError::General("no beacon provider registered".to_string().into())
             })?
             .read()
             .await
-            .get_current_epoch()
-            .await?
-            .ok_or_else(|| RuntimeError::General("no epoch was returned".to_string().into()))?;
-        let current_beacon = Beacon {
-            network: self.config.network.clone(),
-            epoch,
-            immutable_file_number,
-        };
+            .get_current_beacon()
+            .await
+            .map_err(RuntimeError::General)?;
+
         debug!("checking if there is a new beacon: {:?}", current_beacon);
 
         match maybe_beacon {

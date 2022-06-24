@@ -8,6 +8,8 @@ use thiserror::Error;
 pub enum ChainObserverError {
     #[error("general error {0}")]
     General(Box<dyn StdError + Sync + Send>),
+    #[error("could not parse content: {0}")]
+    InvalidContent(Box<dyn StdError + Sync + Send>),
 }
 
 #[automock]

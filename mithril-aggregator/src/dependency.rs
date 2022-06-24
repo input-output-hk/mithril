@@ -7,10 +7,12 @@ use mithril_common::store::stake_store::StakeStore;
 use super::entities::*;
 use super::multi_signer::MultiSigner;
 use super::snapshot_stores::SnapshotStore;
+use crate::beacon_provider::ImmutableFileObserver;
 use crate::beacon_store::BeaconStore;
 use crate::snapshot_uploaders::SnapshotUploader;
 use crate::{
-    CertificatePendingStore, CertificateStore, SingleSignatureStore, VerificationKeyStore,
+    BeaconProvider, CertificatePendingStore, CertificateStore, SingleSignatureStore,
+    VerificationKeyStore,
 };
 
 /// BeaconStoreWrapper wraps a BeaconStore
@@ -43,6 +45,12 @@ pub type SingleSignatureStoreWrapper = Arc<RwLock<SingleSignatureStore>>;
 ///  ChainObserverWrapper wraps a ChainObserver
 pub type ChainObserverWrapper = Arc<RwLock<dyn ChainObserver>>;
 
+/// BeaconProviderWrapper wraps a BeaconProvider
+pub type BeaconProviderWrapper = Arc<RwLock<dyn BeaconProvider>>;
+
+/// BeaconProviderWrapper wraps a BeaconProvider
+pub type ImmutableFileObserverWrapper = Arc<RwLock<dyn ImmutableFileObserver>>;
+
 /// DependencyManager handles the dependencies
 pub struct DependencyManager {
     pub config: Config,
@@ -56,6 +64,8 @@ pub struct DependencyManager {
     pub stake_store: Option<StakeStoreWrapper>,
     pub single_signature_store: Option<SingleSignatureStoreWrapper>,
     pub chain_observer: Option<ChainObserverWrapper>,
+    pub beacon_provider: Option<BeaconProviderWrapper>,
+    pub immutable_file_observer: Option<ImmutableFileObserverWrapper>,
 }
 
 impl DependencyManager {
@@ -73,7 +83,15 @@ impl DependencyManager {
             stake_store: None,
             single_signature_store: None,
             chain_observer: None,
+            beacon_provider: None,
+            immutable_file_observer: None,
         }
+    }
+
+    /// With BeaconProvider middleware
+    pub fn with_beacon_provider(&mut self, beacon_provider: BeaconProviderWrapper) -> &mut Self {
+        self.beacon_provider = Some(beacon_provider);
+        self
     }
 
     /// With SnapshotStore middleware
@@ -148,6 +166,14 @@ impl DependencyManager {
     /// With ChainObserver middleware
     pub fn with_chain_observer(&mut self, chain_observer: ChainObserverWrapper) -> &mut Self {
         self.chain_observer = Some(chain_observer);
+        self
+    }
+
+    pub fn with_immutable_file_observer(
+        &mut self,
+        immutable_file_observer: ImmutableFileObserverWrapper,
+    ) -> &mut Self {
+        self.immutable_file_observer = Some(immutable_file_observer);
         self
     }
 
