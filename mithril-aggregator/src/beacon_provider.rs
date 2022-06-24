@@ -1,7 +1,8 @@
 use async_trait::async_trait;
-use mithril_common::{chain_observer::ChainObserver, digesters::ImmutableFile, entities::Beacon};
 use std::{error::Error, path::PathBuf, sync::Arc};
 use tokio::sync::RwLock;
+
+use mithril_common::{chain_observer::ChainObserver, digesters::ImmutableFile, entities::Beacon};
 
 use crate::runtime::RuntimeError;
 
@@ -40,6 +41,7 @@ impl ImmutableFileObserver for ImmutableFileSystemObserver {
         Ok(immutable_file_number)
     }
 }
+
 #[async_trait]
 pub trait BeaconProvider
 where
@@ -47,6 +49,7 @@ where
 {
     async fn get_current_beacon(&self) -> Result<Beacon, Box<dyn Error + Sync + Send>>;
 }
+
 pub struct BeaconProviderImpl {
     chain_observer: Arc<RwLock<dyn ChainObserver>>,
     immutable_observer: Arc<RwLock<dyn ImmutableFileObserver>>,
@@ -100,11 +103,11 @@ impl BeaconProvider for BeaconProviderImpl {
 mod tests {
     use std::io::ErrorKind;
 
-    use super::*;
-
     use mithril_common::chain_observer::{ChainObserver, ChainObserverError};
     use mithril_common::digesters::ImmutableFileListingError;
     use mithril_common::entities::{Epoch, StakeDistribution};
+
+    use super::*;
 
     struct TestChainObserver {}
 
@@ -141,6 +144,7 @@ mod tests {
             self
         }
     }
+
     #[async_trait]
     impl ImmutableFileObserver for TestImmutableFileObserver {
         async fn get_last_immutable_number(&self) -> Result<u64, Box<dyn Error + Sync + Send>> {
@@ -152,6 +156,7 @@ mod tests {
             }
         }
     }
+
     #[tokio::test]
     async fn test_beacon_ok() {
         let beacon_provider = BeaconProviderImpl::new(

@@ -134,42 +134,6 @@ impl ChainObserver for CardanoCliChainObserver {
 
         Ok(Some(stake_distribution))
     }
-
-    /* This is temporarily discarded and replaced by a fake method
-    TODO: remove this comment block
-    async fn get_current_stake_distribution(
-        &self,
-    ) -> Result<Option<StakeDistribution>, ChainObserverError> {
-        let output = self
-            .cli_runner
-            .launch_stake_distribution()
-            .await
-            .map_err(ChainObserverError::General)?;
-        let mut stake_distribution = StakeDistribution::new();
-
-        for (num, line) in output.lines().enumerate() {
-            let words: Vec<&str> = line.split_ascii_whitespace().collect();
-
-            if num < 2 || words.len() != 2 {
-                continue;
-            }
-
-            if let Ok((_, f)) = self.parse_string(words[1]) {
-                let stake: u64 = (f * 1_000_000_000.0).round() as u64;
-
-                if stake > 0 {
-                    let _ = stake_distribution.insert(words[0].to_string(), stake);
-                }
-            } else {
-                return Err(ChainObserverError::InvalidContent(
-                    format!("could not parse stake from '{}'", words[1]).into(),
-                ));
-            }
-        }
-
-        Ok(Some(stake_distribution))
-    }
-    */
 }
 
 #[cfg(test)]
@@ -211,34 +175,7 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
             Ok(output.to_string())
         }
     }
-    /*
-       #[tokio::test]
-       async fn test_get_current_stake_distribution() {
-           let observer = CardanoCliChainObserver::new(Box::new(TestCliRunner {}));
-           let results = observer
-               .get_current_stake_distribution()
-               .await
-               .unwrap()
-               .unwrap();
 
-           assert_eq!(7, results.len());
-           assert_eq!(
-               2_493_000,
-               *results
-                   .get("pool1qqyjr9pcrv97gwrueunug829fs5znw6p2wxft3fvqkgu5f4qlrg")
-                   .unwrap()
-           );
-           assert_eq!(
-               1_051,
-               *results
-                   .get("pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w")
-                   .unwrap()
-           );
-           assert!(results
-               .get("pool1qpqvz90w7qsex2al2ejjej0rfgrwsguch307w8fraw7a7adf6g8")
-               .is_none());
-       }
-    */
     #[tokio::test]
     async fn test_get_current_epoch() {
         let observer = CardanoCliChainObserver::new(Box::new(TestCliRunner {}));
