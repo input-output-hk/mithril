@@ -2,7 +2,9 @@ use async_trait::async_trait;
 use std::{error::Error, path::PathBuf, sync::Arc};
 use tokio::sync::RwLock;
 
-use mithril_common::{chain_observer::ChainObserver, digesters::ImmutableFile, entities::Beacon};
+use mithril_common::{
+    chain_observer::ChainObserver, digesters::ImmutableFile, entities::Beacon, CardanoNetwork,
+};
 
 use crate::runtime::RuntimeError;
 
@@ -53,17 +55,15 @@ where
 pub struct BeaconProviderImpl {
     chain_observer: Arc<RwLock<dyn ChainObserver>>,
     immutable_observer: Arc<RwLock<dyn ImmutableFileObserver>>,
-    network: String,
+    network: CardanoNetwork,
 }
 
 impl BeaconProviderImpl {
     pub fn new(
         chain_observer: Arc<RwLock<dyn ChainObserver>>,
         immutable_observer: Arc<RwLock<dyn ImmutableFileObserver>>,
-        network: &str,
+        network: CardanoNetwork,
     ) -> Self {
-        let network = network.to_string();
-
         Self {
             chain_observer,
             immutable_observer,
@@ -90,7 +90,7 @@ impl BeaconProvider for BeaconProviderImpl {
             .await?;
 
         let beacon = Beacon {
-            network: self.network.clone(),
+            network: self.network.to_string(),
             epoch,
             immutable_file_number,
         };
@@ -162,7 +162,7 @@ mod tests {
         let beacon_provider = BeaconProviderImpl::new(
             Arc::new(RwLock::new(TestChainObserver {})),
             Arc::new(RwLock::new(TestImmutableFileObserver::new())),
-            "whatever",
+            CardanoNetwork::TestNet(42),
         );
         let beacon = beacon_provider.get_current_beacon().await.unwrap();
 
@@ -177,7 +177,7 @@ mod tests {
         let beacon_provider = BeaconProviderImpl::new(
             Arc::new(RwLock::new(TestChainObserver {})),
             Arc::new(RwLock::new(immutable_observer)),
-            "whatever",
+            CardanoNetwork::TestNet(42),
         );
 
         let result = beacon_provider.get_current_beacon().await;

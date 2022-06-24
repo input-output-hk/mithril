@@ -8,8 +8,8 @@ use mithril_common::digesters::{Digester, DigesterResult, ImmutableDigester};
 use mithril_common::entities::{
     Beacon, Certificate, CertificatePending, SignerWithStake, Snapshot,
 };
+use mithril_common::{store::stake_store::StakeStorer, CardanoNetwork};
 
-use mithril_common::store::stake_store::StakeStorer;
 use slog_scope::{debug, error, info, trace, warn};
 use std::path::Path;
 use std::sync::Arc;
@@ -23,7 +23,7 @@ pub struct AggregatorConfig {
     pub interval: u64,
 
     /// Cardano network
-    pub network: String,
+    pub network: CardanoNetwork,
 
     /// DB directory to snapshot
     pub db_directory: PathBuf,
@@ -38,14 +38,14 @@ pub struct AggregatorConfig {
 impl AggregatorConfig {
     pub fn new(
         interval: u64,
-        network: &str,
+        network: CardanoNetwork,
         db_directory: &Path,
         snapshot_directory: &Path,
         dependencies: Arc<DependencyManager>,
     ) -> Self {
         Self {
             interval,
-            network: network.to_string(),
+            network,
             db_directory: db_directory.to_path_buf(),
             snapshot_directory: snapshot_directory.to_path_buf(),
             dependencies,

@@ -157,7 +157,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let beacon_provider = Arc::new(RwLock::new(BeaconProviderImpl::new(
         chain_observer.clone(),
         immutable_file_observer.clone(),
-        &config.network,
+        config.get_network()?,
     )));
     setup_dependencies_fake_data(multi_signer.clone()).await;
 
@@ -177,6 +177,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .with_beacon_provider(beacon_provider.clone())
         .with_immutable_file_observer(immutable_file_observer);
     let dependency_manager = Arc::new(dependency_manager);
+    let network = config.get_network()?;
 
     // Start snapshot uploader
     let snapshot_directory = config.snapshot_directory.clone();
@@ -184,7 +185,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let handle = tokio::spawn(async move {
         let config = AggregatorConfig::new(
             config.run_interval,
-            &config.network.clone(),
+            network,
             &config.db_directory.clone(),
             &snapshot_directory,
             runtime_dependencies,
