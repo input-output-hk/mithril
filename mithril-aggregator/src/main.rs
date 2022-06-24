@@ -5,8 +5,9 @@ use clap::Parser;
 use config::{Map, Source, Value, ValueKind};
 use mithril_aggregator::{
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, BeaconProviderImpl,
-    CertificatePendingStore, CertificateStore, Config, DependencyManager, MemoryBeaconStore,
-    MultiSigner, MultiSignerImpl, Server, SingleSignatureStore, VerificationKeyStore,
+    CertificatePendingStore, CertificateStore, Config, DependencyManager,
+    ImmutableFileSystemObserver, MemoryBeaconStore, MultiSigner, MultiSignerImpl, Server,
+    SingleSignatureStore, VerificationKeyStore,
 };
 use mithril_common::chain_observer::FakeObserver;
 use mithril_common::fake_data;
@@ -150,6 +151,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
         single_signature_store.clone(),
     )));
     let chain_observer = Arc::new(RwLock::new(FakeObserver::new()));
+    let immutable_file_observer = Arc::new(RwLock::new(ImmutableFileSystemObserver::new(
+        &config.db_directory,
+    )));
+    let beacon_provider = Arc::new(RwLock::new(BeaconProviderImpl::new(
+        chain_observer.clone(),
+        immutable_file_observer.clone(),
+        &config.network,
+    )));
     setup_dependencies_fake_data(multi_signer.clone()).await;
 
     // Init dependency manager
@@ -165,11 +174,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .with_stake_store(stake_store.clone())
         .with_single_signature_store(single_signature_store.clone())
         .with_chain_observer(chain_observer.clone())
-        .with_beacon_provider(Arc::new(RwLock::new(BeaconProviderImpl::new(
-            chain_observer.clone(),
-            config.db_directory.to_path_buf(),
-            &config.network,
-        ))));
+        .with_beacon_provider(beacon_provider.clone())
+        .with_immutable_file_observer(immutable_file_observer);
     let dependency_manager = Arc::new(dependency_manager);
 
     // Start snapshot uploader
