@@ -1,3 +1,3 @@
 mod runner;
 
-pub use runner::{Devnet, DevnetTopology};
+pub use runner::{BftNode, Devnet, DevnetTopology, PoolNode};

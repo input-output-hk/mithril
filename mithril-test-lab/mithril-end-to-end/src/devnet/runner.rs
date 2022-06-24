@@ -92,6 +92,10 @@ impl Devnet {
         }
     }
 
+    pub fn cardano_cli_path(&self) -> PathBuf {
+        self.artifacts_dir.join("cardano-cli")
+    }
+
     pub fn topology(&self) -> DevnetTopology {
         let bft_nodes = (1..=self.number_of_bft_nodes)
             .into_iter()

@@ -1,3 +1,4 @@
+use crate::devnet::BftNode;
 use crate::utils::MithrilCommand;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -14,7 +15,8 @@ pub struct Aggregator {
 impl Aggregator {
     pub fn new(
         server_port: u64,
-        db_directory: &Path,
+        bft_node: &BftNode,
+        cardano_cli_path: &Path,
         work_dir: &Path,
         bin_dir: &Path,
     ) -> Result<Self, String> {
@@ -41,10 +43,15 @@ impl Aggregator {
                 "SINGLE_SIGNATURE_STORE_DIRECTORY",
                 "./store/aggregator/single_signatures",
             ),
+            (
+                "CARDANO_NODE_SOCKET_PATH",
+                bft_node.socket_path.to_str().unwrap(),
+            ),
+            ("CARDANO_CLI_PATH", cardano_cli_path.to_str().unwrap()),
         ]);
         let args = vec![
             "--db-directory",
-            db_directory.to_str().unwrap(),
+            bft_node.db_path.to_str().unwrap(),
             "--server-port",
             &port,
             "-vvv",
@@ -54,7 +61,7 @@ impl Aggregator {
 
         Ok(Self {
             server_port,
-            db_directory: db_directory.to_path_buf(),
+            db_directory: bft_node.db_path.clone(),
             command,
             process: None,
         })

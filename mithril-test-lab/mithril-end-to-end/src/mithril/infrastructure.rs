@@ -22,7 +22,13 @@ impl MithrilInfrastructure {
             .first()
             .ok_or_else(|| "No BFT node available for the aggregator".to_string())?;
 
-        let mut aggregator = Aggregator::new(server_port, &bft_node.db_path, work_dir, bin_dir)?;
+        let mut aggregator = Aggregator::new(
+            server_port,
+            bft_node,
+            &devnet.cardano_cli_path(),
+            work_dir,
+            bin_dir,
+        )?;
         aggregator.start();
 
         let mut signers: Vec<Signer> = vec![];
@@ -30,7 +36,8 @@ impl MithrilInfrastructure {
             let mut signer = Signer::new(
                 aggregator.endpoint(),
                 i.to_string(),
-                &pool_node.db_path,
+                pool_node,
+                &devnet.cardano_cli_path(),
                 work_dir,
                 bin_dir,
             )?;

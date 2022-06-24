@@ -1,3 +1,4 @@
+use crate::devnet::PoolNode;
 use crate::utils::MithrilCommand;
 use mithril_common::entities::PartyId;
 use std::collections::HashMap;
@@ -15,7 +16,8 @@ impl Signer {
     pub fn new(
         aggregator_endpoint: String,
         party_id: PartyId,
-        db_directory: &Path,
+        pool_node: &PoolNode,
+        cardano_cli_path: &Path,
         work_dir: &Path,
         bin_dir: &Path,
     ) -> Result<Self, String> {
@@ -25,8 +27,14 @@ impl Signer {
             ("PARTY_ID", &party_id),
             ("RUN_INTERVAL", "2000"),
             ("AGGREGATOR_ENDPOINT", &aggregator_endpoint),
-            ("DB_DIRECTORY", db_directory.to_str().unwrap()),
+            ("DB_DIRECTORY", pool_node.db_path.to_str().unwrap()),
             ("STAKE_STORE_DIRECTORY", &stake_store_path),
+            ("NETWORK_MAGIC", "42"),
+            (
+                "CARDANO_NODE_SOCKET_PATH",
+                pool_node.socket_path.to_str().unwrap(),
+            ),
+            ("CARDANO_CLI_PATH", cardano_cli_path.to_str().unwrap()),
         ]);
         let args = vec!["-vvv"];
 
