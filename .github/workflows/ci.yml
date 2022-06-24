@@ -14,6 +14,7 @@ jobs:
         - project: mithril-core
           cargo_project_name: mithril
           artifacts_pattern: libmithril
+          skip_tests: true
         - project: mithril-common
           artifacts_pattern: libmithril_common
         - project: mithril-aggregator
@@ -102,12 +103,13 @@ jobs:
           cargo sort -c ${{ matrix.project }}/Cargo.toml
 
       - name: Run tests
+        if: ${{ matrix.skip_tests != true }}
         shell: bash
         run: |
           set -o pipefail && cargo test --release -p $CARGO_PROJECT_NAME -- -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-${{ env.ARTIFACTS_PATTERN }}.xml)
 
       - name: Upload Tests Results
-        if: always()
+        if: ${{ always() && matrix.skip_tests != true }}
         uses: actions/upload-artifact@v3
         with:
           name: test-results-${{ env.ARTIFACTS_BASE_NAME }}
@@ -138,10 +140,63 @@ jobs:
           path: |
             target/doc/
 
-  docker-mithril:
+  test-mithril-core:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'push' }}
     needs: [ build ]
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v2
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: clippy, rustfmt
+          override: true
+
+      # Get the matrix build cache for mithril-core
+      # Note: cargo tools will be included so there's no need to install them
+      - uses: actions/cache@v3
+        name: Cache Cargo.lock
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/
+            ~/.cargo/git/
+            target/
+          key: cargo-${{ runner.os }}-mithril-core-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-mithril-core
+            cargo-${{ runner.os }}-
+
+      - name: Cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --tests -p mithril
+
+      - name: Run tests
+        if: ${{ matrix.skip_test != true }}
+        shell: bash
+        run: |
+          set -o pipefail && cargo test --release -p mithril -- -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-libmithril.xml)
+
+      - name: Upload Tests Results
+        if: ${{ always() && matrix.skip_test != true }}
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-results-mithril-core
+          path: |
+            ./**/test-results-*.xml
+
+  docker-mithril:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' }}
+    needs:
+      - test-mithril-core
+      - run-test-lab
     strategy:
       fail-fast: false
       matrix:
@@ -191,11 +246,11 @@ jobs:
           file: ${{ env.DOCKER_FILE }}
           push: ${{ env.PUSH_PACKAGES }}
           tags: ${{ steps.meta.outputs.tags }}
-          
+  
   publish-tests-results:
     if: github.event.pull_request.draft == false && ${{ always() }}
     runs-on: ubuntu-latest
-    needs: [ build ]
+    needs: [ test-mithril-core ]
     steps:
       - name: Download mithril-core Tests Results
         if: always()
@@ -243,9 +298,7 @@ jobs:
     if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     needs:
-      - build
       - docker-mithril
-      - run-test-lab
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -381,9 +434,7 @@ jobs:
   terraform:
     runs-on: ubuntu-latest
     needs:
-      - build
       - docker-mithril
-      - run-test-lab
     env:
       # Contains a JSON-formatted service account key
       GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
