@@ -55,6 +55,9 @@ pub struct Config {
 
     /// Directory to store stakes
     pub stake_store_directory: PathBuf,
+
+    /// Directory to single signatures
+    pub single_signature_store_directory: PathBuf,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

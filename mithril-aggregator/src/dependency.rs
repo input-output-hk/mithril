@@ -9,7 +9,9 @@ use super::multi_signer::MultiSigner;
 use super::snapshot_stores::SnapshotStore;
 use crate::beacon_store::BeaconStore;
 use crate::snapshot_uploaders::SnapshotUploader;
-use crate::{CertificatePendingStore, CertificateStore, VerificationKeyStore};
+use crate::{
+    CertificatePendingStore, CertificateStore, SingleSignatureStore, VerificationKeyStore,
+};
 
 /// BeaconStoreWrapper wraps a BeaconStore
 pub type BeaconStoreWrapper = Arc<RwLock<dyn BeaconStore>>;
@@ -35,6 +37,9 @@ pub type VerificationKeyStoreWrapper = Arc<RwLock<VerificationKeyStore>>;
 ///  StakeStoreWrapper wraps a StakeStore
 pub type StakeStoreWrapper = Arc<RwLock<StakeStore>>;
 
+///  SingleSignatureStoreWrapper wraps a SingleSignatureStore
+pub type SingleSignatureStoreWrapper = Arc<RwLock<SingleSignatureStore>>;
+
 ///  ChainObserverWrapper wraps a ChainObserver
 pub type ChainObserverWrapper = Arc<RwLock<dyn ChainObserver>>;
 
@@ -49,6 +54,7 @@ pub struct DependencyManager {
     pub certificate_store: Option<CertificateStoreWrapper>,
     pub verification_key_store: Option<VerificationKeyStoreWrapper>,
     pub stake_store: Option<StakeStoreWrapper>,
+    pub single_signature_store: Option<SingleSignatureStoreWrapper>,
     pub chain_observer: Option<ChainObserverWrapper>,
 }
 
@@ -65,6 +71,7 @@ impl DependencyManager {
             certificate_store: None,
             verification_key_store: None,
             stake_store: None,
+            single_signature_store: None,
             chain_observer: None,
         }
     }
@@ -129,6 +136,15 @@ impl DependencyManager {
         self
     }
 
+    /// With SingleSignatureStore middleware
+    pub fn with_single_signature_store(
+        &mut self,
+        single_signature_store: SingleSignatureStoreWrapper,
+    ) -> &mut Self {
+        self.single_signature_store = Some(single_signature_store);
+        self
+    }
+
     /// With ChainObserver middleware
     pub fn with_chain_observer(&mut self, chain_observer: ChainObserverWrapper) -> &mut Self {
         self.chain_observer = Some(chain_observer);
@@ -154,6 +170,8 @@ impl DependencyManager {
             verification_key_store_directory: std::env::temp_dir()
                 .join("mithril_test_verification_key_db"),
             stake_store_directory: std::env::temp_dir().join("mithril_test_stake_db"),
+            single_signature_store_directory: std::env::temp_dir()
+                .join("mithril_test_single_signature_db"),
         };
         DependencyManager::new(config)
     }

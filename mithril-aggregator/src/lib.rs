@@ -20,6 +20,6 @@ pub use runtime::{AggregatorConfig, AggregatorRunner, AggregatorRuntime};
 pub use snapshot_uploaders::{LocalSnapshotUploader, RemoteSnapshotUploader};
 pub use snapshotter::{SnapshotError, Snapshotter};
 pub use store::{
-    CertificatePendingStore, CertificateStore, VerificationKeyStore, VerificationKeyStoreError,
-    VerificationKeyStorer,
+    CertificatePendingStore, CertificateStore, SingleSignatureStore, VerificationKeyStore,
+    VerificationKeyStoreError, VerificationKeyStorer,
 };

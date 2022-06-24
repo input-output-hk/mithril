@@ -19,7 +19,7 @@ pub type Stake = u64;
 pub type StakeDistribution = HashMap<PartyId, Stake>;
 
 /// LotteryIndex represents the index of a Mithril single signature lottery
-type LotteryIndex = u64;
+pub type LotteryIndex = u64;
 
 /// Beacon represents a point in the Cardano chain at which a Mithril certificate should be produced
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize, Hash, PartialOrd)]
