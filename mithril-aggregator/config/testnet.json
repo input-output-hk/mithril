@@ -1,6 +1,6 @@
 {
     "network": "testnet",
-    "network_magic": 42,
+    "network_magic": 1097911063,
     "run_interval": 60000,
     "url_snapshot_manifest": "https://storage.googleapis.com/cardano-testnet/snapshots.json",
     "snapshot_store_type": "local",
