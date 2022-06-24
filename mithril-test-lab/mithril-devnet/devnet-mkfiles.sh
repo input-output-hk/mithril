@@ -776,6 +776,8 @@ cat >> docker-compose.yaml <<EOF
       - VERIFICATION_KEY_STORE_DIRECTORY=/data/mithril/aggregator/db/verification_key_db
       - SNAPSHOT_STORE_DIRECTORY=/data/mithril/aggregator/db/snapshot_db
       - STAKE_STORE_DIRECTORY=/data/mithril/aggregator/db/stake_db
+      - CARDANO_NODE_SOCKET_PATH=/data/ipc/node.sock
+      - CARDANO_CLI_PATH=/app/bin/cardano-cli
     command:
       [
         "--db-directory",
@@ -813,6 +815,8 @@ cat >> docker-compose.yaml <<EOF
       - RUN_INTERVAL=1000
       - DB_DIRECTORY=/data/db
       - STAKE_STORE_DIRECTORY=/data/mithril/signer/db/stake_db
+      - CARDANO_NODE_SOCKET_PATH=/data/ipc/node.sock
+      - CARDANO_CLI_PATH=/app/bin/cardano-cli
     command:
       [
         "-vvv"
