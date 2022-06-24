@@ -43,6 +43,8 @@ services:
       - STAKE_STORE_DIRECTORY=/mithril-aggregator/stake_db
       - SNAPSHOT_STORE_DIRECTORY=/mithril-aggregator/snapshot_db
       - SINGLE_SIGNATURE_STORE_DIRECTORY=/mithril-aggregator/single_signature_db
+      - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
+      - CARDANO_CLI_PATH=/app/bin/cardano-cli
     logging:
       driver: "json-file"
       options:
@@ -71,9 +73,12 @@ services:
       - RUN_INTERVAL=60000
       - DB_DIRECTORY=/db
       - STAKE_STORE_DIRECTORY=/mithril-signer-0/stake_db
+      - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
+      - CARDANO_CLI_PATH=/app/bin/cardano-cli
     volumes:
       - ./testnet/mithril-signer-0:/mithril-signer-0
       - ./testnet/node.db:/db
+      - ./ipc:/ipc
 
   mithril-signer-1:
     image: ghcr.io/input-output-hk/mithril-signer:${IMAGE_ID:-latest}
@@ -91,9 +96,12 @@ services:
       - RUN_INTERVAL=60000
       - DB_DIRECTORY=/db
       - STAKE_STORE_DIRECTORY=/mithril-signer-1/stake_db
+      - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
+      - CARDANO_CLI_PATH=/app/bin/cardano-cli
     volumes:
       - ./testnet/mithril-signer-1:/mithril-signer-1
       - ./testnet/node.db:/db
+      - ./ipc:/ipc
 
   mithril-signer-2:
     image: ghcr.io/input-output-hk/mithril-signer:${IMAGE_ID:-latest}
@@ -111,9 +119,12 @@ services:
       - RUN_INTERVAL=60000
       - DB_DIRECTORY=/db
       - STAKE_STORE_DIRECTORY=/mithril-signer-2/stake_db
+      - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
+      - CARDANO_CLI_PATH=/app/bin/cardano-cli
     volumes:
       - ./testnet/mithril-signer-2:/mithril-signer-2
       - ./testnet/node.db:/db
+      - ./ipc:/ipc
 
   mithril-signer-3:
     image: ghcr.io/input-output-hk/mithril-signer:${IMAGE_ID:-latest}
@@ -131,9 +142,12 @@ services:
       - RUN_INTERVAL=60000
       - DB_DIRECTORY=/db
       - STAKE_STORE_DIRECTORY=/mithril-signer-3/stake_db
+      - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
+      - CARDANO_CLI_PATH=/app/bin/cardano-cli
     volumes:
       - ./testnet/mithril-signer-3:/mithril-signer-3
       - ./testnet/node.db:/db
+      - ./ipc:/ipc
 
   prometheus:
     image: prom/prometheus:latest
