@@ -72,23 +72,7 @@ impl Aggregator {
         self.process = Some(self.command.start(&[]));
     }
 
-    pub async fn dump_logs(&self) -> Result<(), String> {
-        self.command.dump_logs_to_stdout().await
-    }
-
-    pub async fn dump_logs_if_crashed(&mut self) -> Result<(), String> {
-        match self.process.as_mut() {
-            Some(child) => match child.try_wait() {
-                Ok(Some(status)) => {
-                    if !status.success() {
-                        self.dump_logs().await?;
-                    }
-                    Ok(())
-                }
-                Ok(None) => Ok(()),
-                Err(e) => Err(format!("failed get mithril-aggregator status: {}", e)),
-            },
-            None => Ok(()),
-        }
+    pub async fn tail_logs(&self, number_of_line: u64) -> Result<(), String> {
+        self.command.tail_logs(None, number_of_line).await
     }
 }

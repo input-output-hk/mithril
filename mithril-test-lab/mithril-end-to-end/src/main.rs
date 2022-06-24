@@ -68,7 +68,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         MithrilInfrastructure::start(server_port, devnet.clone(), &work_dir, &args.bin_directory)
             .await?;
 
-    let mut spec = Spec::new(infrastructure);
+    let spec = Spec::new(infrastructure);
 
     match spec.run().await {
         Ok(_) => {
@@ -76,7 +76,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             Ok(())
         }
         Err(error) => {
-            let has_written_logs = spec.dump_processes_logs().await;
+            let has_written_logs = spec.tail_logs(20).await;
             error!("Mithril End to End test failed: {}", error);
             devnet.stop().await?;
             has_written_logs?;

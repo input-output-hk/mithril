@@ -34,22 +34,13 @@ impl Spec {
         Ok(())
     }
 
-    pub async fn dump_processes_logs(&mut self) -> Result<(), String> {
-        self.infrastructure.aggregator_mut().dump_logs().await?;
-        for signer in self.infrastructure.signers_mut() {
-            signer.dump_logs().await?;
-        }
-
-        Ok(())
-    }
-
-    pub async fn dump_logs_of_failed_processes(&mut self) -> Result<(), String> {
+    pub async fn tail_logs(&self, number_of_line: u64) -> Result<(), String> {
         self.infrastructure
-            .aggregator_mut()
-            .dump_logs_if_crashed()
+            .aggregator()
+            .tail_logs(number_of_line)
             .await?;
-        for signer in self.infrastructure.signers_mut() {
-            signer.dump_logs_if_crashed().await?;
+        for signer in self.infrastructure.signers() {
+            signer.tail_logs(number_of_line).await?;
         }
 
         Ok(())
