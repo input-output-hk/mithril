@@ -111,7 +111,8 @@ async fn assert_node_producing_snapshot(aggregator_endpoint: &str) -> Result<Str
     let url = format!("{}/snapshots", aggregator_endpoint);
     info!("Waiting for the aggregator to produce a snapshot");
 
-    match attempt!(20, Duration::from_millis(1500), {
+    // todo: reduce the number of attempts if we can reduce the delay between two immutables
+    match attempt!(30, Duration::from_millis(1500), {
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<Vec<Snapshot>>().await.as_deref() {
