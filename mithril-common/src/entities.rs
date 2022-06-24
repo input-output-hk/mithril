@@ -1,7 +1,7 @@
 use fixed::types::U8F24;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
+use std::{collections::HashMap, fmt::Display};
 
 /// Epoch represents a Cardano epoch
 pub type Epoch = u64;
@@ -20,6 +20,27 @@ pub type StakeDistribution = HashMap<PartyId, Stake>;
 
 /// LotteryIndex represents the index of a Mithril single signature lottery
 pub type LotteryIndex = u64;
+
+/// Cardano Network magic identifier
+pub type MagicId = u64;
+
+#[allow(clippy::enum_variant_names)]
+#[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize, Hash, Eq, PartialOrd)]
+pub enum CardanoNetwork {
+    MainNet,
+    DevNet(MagicId),
+    TestNet(MagicId),
+}
+
+impl Display for CardanoNetwork {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            CardanoNetwork::MainNet => write!(f, "mainnet"),
+            CardanoNetwork::DevNet(_) => write!(f, "devnet"),
+            CardanoNetwork::TestNet(_) => write!(f, "testnet"),
+        }
+    }
+}
 
 /// Beacon represents a point in the Cardano chain at which a Mithril certificate should be produced
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize, Hash, PartialOrd)]
