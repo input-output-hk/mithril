@@ -8,7 +8,7 @@ use tokio::process::Command;
 
 use crate::chain_observer::interface::*;
 use crate::entities::{Epoch, PartyId, Stake, StakeDistribution};
-use crate::fake_data;
+use crate::{fake_data, CardanoNetwork};
 
 #[async_trait]
 pub trait CliRunner {
@@ -16,22 +16,14 @@ pub trait CliRunner {
     async fn launch_epoch(&self) -> Result<String, Box<dyn Error + Sync + Send>>;
 }
 
-/// Cardano Network identifier
-#[allow(clippy::enum_variant_names)]
-pub enum CardanoCliNetwork {
-    MainNet,
-    DevNet(u64),
-    TestNet(u64),
-}
-
 pub struct CardanoCliRunner {
     cli_path: PathBuf,
     socket_path: PathBuf,
-    network: CardanoCliNetwork,
+    network: CardanoNetwork,
 }
 
 impl CardanoCliRunner {
-    pub fn new(cli_path: PathBuf, socket_path: PathBuf, network: CardanoCliNetwork) -> Self {
+    pub fn new(cli_path: PathBuf, socket_path: PathBuf, network: CardanoNetwork) -> Self {
         Self {
             cli_path,
             socket_path,
@@ -67,11 +59,11 @@ impl CardanoCliRunner {
 
     fn post_config_command<'a>(&'a self, command: &'a mut Command) -> &mut Command {
         match self.network {
-            CardanoCliNetwork::MainNet => command.arg("--mainnet"),
-            CardanoCliNetwork::DevNet(magic) => command
+            CardanoNetwork::MainNet => command.arg("--mainnet"),
+            CardanoNetwork::DevNet(magic) => command
                 .arg(format!("--testnet-magic {}", magic))
                 .arg("--cardano-mode"),
-            CardanoCliNetwork::TestNet(magic) => command.arg(format!("--testnet-magic {}", magic)),
+            CardanoNetwork::TestNet(magic) => command.arg(format!("--testnet-magic {}", magic)),
         }
     }
 }
@@ -189,7 +181,7 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
         let runner = CardanoCliRunner::new(
             PathBuf::new().join("cardano-cli"),
             PathBuf::new().join("/tmp/whatever.sock"),
-            CardanoCliNetwork::TestNet(10),
+            CardanoNetwork::TestNet(10),
         );
 
         assert_eq!("Command { std: \"cardano-cli\" \"query\" \"tip\" \"--testnet-magic 10\", kill_on_drop: false }", format!("{:?}", runner.command_for_epoch()));
@@ -201,7 +193,7 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
         let runner = CardanoCliRunner::new(
             PathBuf::new().join("cardano-cli"),
             PathBuf::new().join("/tmp/whatever.sock"),
-            CardanoCliNetwork::DevNet(25),
+            CardanoNetwork::DevNet(25),
         );
 
         assert_eq!("Command { std: \"cardano-cli\" \"query\" \"tip\" \"--testnet-magic 25\" \"--cardano-mode\", kill_on_drop: false }", format!("{:?}", runner.command_for_epoch()));
@@ -213,7 +205,7 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
         let runner = CardanoCliRunner::new(
             PathBuf::new().join("cardano-cli"),
             PathBuf::new().join("/tmp/whatever.sock"),
-            CardanoCliNetwork::MainNet,
+            CardanoNetwork::MainNet,
         );
 
         assert_eq!(
