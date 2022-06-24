@@ -82,7 +82,11 @@ async fn wait_for_pending_certificate(aggregator_endpoint: &str) -> Result<(), S
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => {
-                    info!("Aggregator ready");
+                    let text = response
+                        .text()
+                        .await
+                        .unwrap_or_else(|_| "could not unwrap pending certificate".to_string());
+                    info!("Aggregator ready"; "pending_certificate" => text);
                     Ok(Some(()))
                 }
                 s if s.is_server_error() => Err(format!(
