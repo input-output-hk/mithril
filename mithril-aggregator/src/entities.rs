@@ -5,8 +5,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use mithril_common::store::adapter::JsonFileStoreAdapter;
-use mithril_common::{CardanoNetwork, MagicId};
+use mithril_common::{store::adapter::JsonFileStoreAdapter, CardanoNetwork};
 
 use crate::dependency::{SnapshotStoreWrapper, SnapshotUploaderWrapper};
 use crate::snapshot_stores::LocalSnapshotStore;
