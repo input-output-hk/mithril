@@ -14,64 +14,67 @@ import Data.Typeable (Typeable)
 import Control.Monad (when)
 import qualified System.Random as Random
 import Data.Foldable (traverse_)
+import qualified Data.Foldable as Foldable
 
-data Request a b = Request
-  { reqResponsePort :: P.SendPort b
-  , reqBody :: a
-  }
+-- This module implements a simplified version of the aggregator protocol as well
+-- as a simple scenario in which the model proceeds through the signing of a snapshot.
+--
+-- The implementation is split into two major parts:
+--  * `aggregator` is a model of the service layer of the protocol written as a `Proc`
+--  * Functions called by `aggregator` that model the state transitions of the system
+--    ex. `register` and `partySign` as ordinary Haskell in the state monad
+--
+-- Currently it is simplified in that:
+--  * it doesn't do any real crypto
+--  * it doesn't implement the lottery / validate signers wrt the lottery -
+--    instead it produces a signature when a simple majority of registered
+--    signers provide a signature
+--
+-- Additionally, it should theoretically be possible for pure Procs to interact with
+-- code that does IO to actual implementations but this kind of 'simulator' hasn't
+-- been written yet.  The idea would be to allow the comparison of the model's behavior
+-- with the behavior of an actual implementation.
 
-type SnapshotId = Word64
-type PartyId = Word64
-type MithrilRoundId = Word64
-type Stake = Word64
+-------------------------------------------------------------------------------
+-- Aggregator Protocol
 
-newtype PublicKey = PublicKey Integer
-  deriving (Eq, Show)
-newtype PrivateKey = PrivateKey Integer
-  deriving (Eq, Show)
+-- Events of interest to the aggregator
+data AggregatorEvent =
+    AggRegisterParty (Request Registration Bool)
+  | AggSign (Request PartySignature Bool)
+  | AggNewSnapshot Snapshot
+  | AggGetCertificate (Request (Maybe MithrilRoundId) (Maybe GetCertResult))
 
-pubKeyFor :: PrivateKey -> PublicKey
-pubKeyFor (PrivateKey i) = PublicKey i
+-- Model of the aggregator process as a protocol
+aggregator :: StakeDist -> P.RecvPort AggregatorEvent -> P.Proc ()
+aggregator stakes event = main (aggInitialState stakes)
+  where
+    main state =
+      do  e <- P.recv event
+          case e of
+            AggRegisterParty (Request response regist) ->
+              do  say "got register"
+                  let (isSuccess, state') = run (register regist) state
+                  P.send response isSuccess
+                  main state'
 
-data Signature a = Signature PublicKey a
-  deriving (Eq, Show)
+            AggSign (Request response sig) ->
+              do  say "got signature"
+                  let (isSuccess, state') = run (partySign sig) state
+                  P.send response isSuccess
+                  main state'
 
-mkSig :: PrivateKey -> a -> Signature  a
-mkSig pk = Signature (pubKeyFor pk)
+            AggNewSnapshot snap ->
+              let (_, state') = run (newSnapshot snap) state
+              in main state'
 
-validateSig :: Eq a => PublicKey -> a -> Signature a -> Bool
-validateSig pubKey a sig = Signature pubKey a == sig
+            AggGetCertificate (Request response mbId) ->
+              do  let (mbCert, _) = run (getCert mbId) state
+                  P.send response mbCert
+                  main state
 
-newtype Snapshot = Snapshot Integer
-  deriving Show
-
-data Certificate = Certificate
-  { certSigningDist :: StakeDist
-  , certResultDist :: StakeDist
-  , certSnapshot :: Snapshot
-  , certEligibleSigners :: Map PartyId Registration
-  , certRoundId :: MithrilRoundId
-  }
-  deriving Show
-
-data SignedCertificate =
-  SignedCertificate (Map PartyId (Signature Certificate)) Certificate
-  deriving Show
-type StakeDist = Map PartyId Stake
-
-data Registration = Registration
-  { regKey :: PublicKey
-  , regPartyId :: PartyId
-  , regMithrilRound :: MithrilRoundId
-  }
-  deriving Show
-
-data PartySignature = PartySignature
-  { sigMithrilRound :: MithrilRoundId
-  , sigPartyId :: PartyId
-  , sigSignature :: Signature Certificate
-  }
-  deriving Show
+    run = State.runState
+    say m = P.logmsg ("Aggregator: " ++ show m)
 
 data GetCertResult = GetCertResult
   { getCertCertificate :: Certificate
@@ -79,14 +82,21 @@ data GetCertResult = GetCertResult
   }
   deriving Show
 
-data AggregatorEvent =
-    AggRegisterParty (Request Registration Bool)
-  | AggSign (Request PartySignature Bool)
-  | AggNewSnapshot Snapshot
-  | AggGetCertificate (Request (Maybe MithrilRoundId) (Maybe GetCertResult))
 
 -------------------------------------------------------------------------------
--- Aggregator Service as a traditional stateful implementation
+-- Useful abstractions
+
+-- This is the general form of things like HTTP requests
+-- `Request a b` is an interaction which has a message `a`
+-- and is expecting to get a response of `b`
+data Request a b = Request
+  { reqResponsePort :: P.SendPort b
+  , reqBody :: a
+  }
+
+
+-------------------------------------------------------------------------------
+-- Aggregator Implementation
 
 data RoundState = RoundState
   { rsCurrentRound :: MithrilRoundId
@@ -126,40 +136,6 @@ aggInitialState stakes =
                         , regStateRegistrations = Map.empty
                         , regStateStakeDist = stakes
                         }
-
-aggregator :: StakeDist -> P.RecvPort AggregatorEvent -> P.Proc ()
-aggregator stakes event = main (aggInitialState stakes)
-  where
-    main state =
-      do  e <- P.recv event
-          case e of
-            AggRegisterParty (Request response regist) ->
-              do  say "got register"
-                  let (isSuccess, state') = run (register regist) state
-                  P.send response isSuccess
-                  main state'
-
-            AggSign (Request response sig) ->
-              do  say "got signature"
-                  let (isSuccess, state') = run (partySign sig) state
-                  P.send response isSuccess
-                  main state'
-
-            AggNewSnapshot snap ->
-              let (_, state') = run (newSnapshot snap) state
-              in main state'
-
-            AggGetCertificate (Request response mbId) ->
-              do  let (mbCert, _) = run (getCert mbId) state
-                  P.send response mbCert
-                  main state
-
-    run = State.runState
-    say m = P.logmsg ("Aggregator: " ++ show m)
-
-
-----------------------------
--- aggregator implementation
 
 type Agg = State.State AggregatorState
 
@@ -384,6 +360,82 @@ signClient partyId privKey aggregator =
 
     say msg = P.logmsg ("Party " ++ show partyId ++ ": " ++ msg)
 
+-------------------------------------------------------------------------------
+-- Basic types
+
+type SnapshotId = Word64      -- surrogate for a snapshot
+type PartyId = Word64         -- party identifier
+type MithrilRoundId = Word64  -- mithril round id
+type Stake = Word64           -- amount of stake
+
+-- Fake crypto version of a public key
+newtype PublicKey = PublicKey Integer
+  deriving (Eq, Show)
+
+-- Fake crypto version of a private key
+newtype PrivateKey = PrivateKey Integer
+  deriving (Eq, Show)
+
+-- Derive the public key for a particular private key
+pubKeyFor :: PrivateKey -> PublicKey
+pubKeyFor (PrivateKey i) = PublicKey i
+
+-- A fake crypto signature of an `a`
+data Signature a = Signature PublicKey a
+  deriving (Eq, Show)
+
+-- Sign an `a` using a fake private key
+mkSig :: PrivateKey -> a -> Signature  a
+mkSig pk = Signature (pubKeyFor pk)
+
+-- Validate a fake signature
+validateSig :: Eq a => PublicKey -> a -> Signature a -> Bool
+validateSig pubKey a sig = Signature pubKey a == sig
+
+newtype Snapshot = Snapshot Integer
+  deriving Show
+
+data Certificate = Certificate
+  { certSigningDist :: StakeDist
+  , certResultDist :: StakeDist
+  , certSnapshot :: Snapshot
+  , certEligibleSigners :: Map PartyId Registration
+  , certRoundId :: MithrilRoundId
+  }
+  deriving Show
+
+data SignedCertificate =
+  SignedCertificate (Map PartyId (Signature Certificate)) Certificate
+  deriving Show
+type StakeDist = Map PartyId Stake
+
+data Registration = Registration
+  { regKey :: PublicKey
+  , regPartyId :: PartyId
+  , regMithrilRound :: MithrilRoundId
+  }
+  deriving Show
+
+data PartySignature = PartySignature
+  { sigMithrilRound :: MithrilRoundId
+  , sigPartyId :: PartyId
+  , sigSignature :: Signature Certificate
+  }
+  deriving Show
+
+-------------------------------------------------------------------------------
+-- Scenarios
+
+-- Run a scenario, yielding the log and the result
+runScenario :: N.Network a -> ([String], a)
+runScenario n =
+  let (a, ns) = N.runNetwork' n
+  in (Foldable.toList $ N.netLog ns, a)
+
+-- Set the seed before doing a computation
+-- ex: `runScenario . withSeed 42 $ scenario1
+withSeed :: Int -> N.Network a -> N.Network a
+withSeed i n = N.setRandomGen (Random.mkStdGen i) >> n
 
 scenario1 :: N.Network (Maybe GetCertResult)
 scenario1 =

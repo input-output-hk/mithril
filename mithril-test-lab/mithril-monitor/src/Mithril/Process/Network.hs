@@ -1,7 +1,7 @@
 {-# LANGUAGE GADTs #-}
 module Mithril.Process.Network
 ( Network
-, NetworkState
+, NetworkState(..)
 , RNG
 , runScheduler
 , execute
@@ -47,11 +47,11 @@ netRecvId (NetworkRecv i _) = i
 
 -- |The state of the network
 data NetworkState = NetworkState
-  { netSends :: [NetworkSend]     -- Unrecieved messages
-  , netRecvs :: [NetworkRecv]     -- Processes awaiting messages
-  , netIds :: Integer             -- Seed for unique identifiers
-  , netLog :: Seq String          -- Network log
-  , netRandomGen :: RNG           -- RNG
+  { netSends :: [NetworkSend]     -- ^ Unrecieved messages
+  , netRecvs :: [NetworkRecv]     -- ^ Processes awaiting messages
+  , netIds :: Integer             -- ^ Seed for unique identifiers
+  , netLog :: Seq String          -- ^ Network log
+  , netRandomGen :: RNG           -- ^ RNG
   }
 
 -- |Random number generator
