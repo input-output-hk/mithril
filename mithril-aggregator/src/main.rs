@@ -9,7 +9,7 @@ use mithril_aggregator::{
     ImmutableFileSystemObserver, MemoryBeaconStore, MultiSigner, MultiSignerImpl, Server,
     SingleSignatureStore, VerificationKeyStore,
 };
-use mithril_common::chain_observer::FakeObserver;
+use mithril_common::chain_observer::CardanoCliRunner;
 use mithril_common::fake_data;
 use mithril_common::store::adapter::JsonFileStoreAdapter;
 use mithril_common::store::stake_store::StakeStore;
@@ -150,7 +150,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
         stake_store.clone(),
         single_signature_store.clone(),
     )));
-    let chain_observer = Arc::new(RwLock::new(FakeObserver::new()));
+    let chain_observer = Arc::new(RwLock::new(
+        mithril_common::chain_observer::CardanoCliChainObserver::new(Box::new(
+            CardanoCliRunner::new(
+                config.cardano_cli_path.clone(),
+                config.cardano_cli_socket_path.clone(),
+                config.get_network()?,
+            ),
+        )),
+    ));
     let immutable_file_observer = Arc::new(RwLock::new(ImmutableFileSystemObserver::new(
         &config.db_directory,
     )));
