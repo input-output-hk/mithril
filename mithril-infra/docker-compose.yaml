@@ -2,7 +2,11 @@ version: "3.9"
 
 services:
   cardano-node:
-    image: inputoutput/cardano-node:latest
+    image: cardano-node/latest-modified
+    build:
+      context: .
+      dockerfile: Dockerfile.cardano
+    user: ${CURRENT_UID}
     logging:
       driver: "json-file"
       options:
