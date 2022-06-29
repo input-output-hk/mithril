@@ -1,43 +1,68 @@
-use cli_table::Table;
+use config::ConfigError;
 use serde::{Deserialize, Serialize};
-use std::path::{Display, Path, PathBuf};
+use std::path::PathBuf;
 
-use mithril_common::entities::PartyId;
+use mithril_common::{entities::PartyId, CardanoNetwork};
 
 /// Client configuration
-#[derive(Table, Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
+    /// Cardano CLI tool path
+    pub cardano_cli_path: PathBuf,
+
+    /// Path of the socket used by the Cardano CLI tool
+    /// to communicate with the Cardano node
+    pub cardano_node_socket_path: PathBuf,
+
+    /// Cardano Network Magic number
+    /// useful for TestNet & DevNet
+    pub network_magic: Option<u64>,
+
     /// Cardano network
-    #[table(title = "Network")]
     pub network: String,
 
     /// Aggregator endpoint
-    #[table(title = "Aggregator Endpoint")]
     pub aggregator_endpoint: String,
 
     /// Party Id
-    #[table(title = "Party Id")]
     pub party_id: PartyId,
 
     /// Run Interval
-    #[table(title = "Interval between two runtime cycles in ms")]
     pub run_interval: u64,
 
     /// Directory to snapshot
-    #[table(
-        title = "Path to the Cardano Node db directory",
-        display_fn = "display_path"
-    )]
     pub db_directory: PathBuf,
 
     /// Directory to store stakes
-    #[table(
-        title = "Path to the stake store directory",
-        display_fn = "display_path"
-    )]
     pub stake_store_directory: PathBuf,
 }
 
-fn display_path(path: &Path) -> Display<'_> {
-    path.display()
+impl Config {
+    pub fn get_network(&self) -> Result<CardanoNetwork, ConfigError> {
+        match self.network.to_lowercase().as_str() {
+            "mainnet" => Ok(CardanoNetwork::MainNet),
+            "testnet" => {
+                if let Some(magic) = self.network_magic {
+                    Ok(CardanoNetwork::TestNet(magic))
+                } else {
+                    Err(ConfigError::Message(
+                        "no NETWORK MAGIC number given for testnet network".to_string(),
+                    ))
+                }
+            }
+            "devnet" => {
+                if let Some(magic) = self.network_magic {
+                    Ok(CardanoNetwork::DevNet(magic))
+                } else {
+                    Err(ConfigError::Message(
+                        "no NETWORK MAGIC number given for devnet network".to_string(),
+                    ))
+                }
+            }
+            what => Err(ConfigError::Message(format!(
+                "could not parse network '{}', the only recognized networks are: mainnet, devnet, testnet",
+                what
+            ))),
+        }
+    }
 }
