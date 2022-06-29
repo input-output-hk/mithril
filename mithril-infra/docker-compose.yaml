@@ -7,6 +7,8 @@ services:
       context: .
       dockerfile: Dockerfile.cardano
     user: ${CURRENT_UID}
+    profiles:
+      - cardano
     logging:
       driver: "json-file"
       options:
@@ -33,6 +35,9 @@ services:
   mithril-aggregator:
     image: ghcr.io/input-output-hk/mithril-aggregator:${IMAGE_ID:-latest}
     restart: always
+    user: ${CURRENT_UID}
+    profiles:
+      - mithril
     environment:
       - RUST_BACKTRACE=1
       - NETWORK_MAGIC=1097911063
@@ -50,26 +55,24 @@ services:
       - SINGLE_SIGNATURE_STORE_DIRECTORY=/mithril-aggregator/single_signature_db
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "5"
     volumes:
       - ./testnet/mithril-aggregator:/mithril-aggregator
       - ./testnet/node.db:/db
       - ./ipc:/ipc
     ports:
       - "80:8080"
-
-  mithril-signer-0:
-    image: ghcr.io/input-output-hk/mithril-signer:${IMAGE_ID:-latest}
-    restart: always
     logging:
       driver: "json-file"
       options:
         max-size: "100m"
         max-file: "5"
+
+  mithril-signer-0:
+    image: ghcr.io/input-output-hk/mithril-signer:${IMAGE_ID:-latest}
+    restart: always
+    user: ${CURRENT_UID}
+    profiles:
+      - mithril
     environment:
       - RUST_BACKTRACE=1
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
@@ -85,15 +88,18 @@ services:
       - ./testnet/mithril-signer-0:/mithril-signer-0
       - ./testnet/node.db:/db
       - ./ipc:/ipc
-
-  mithril-signer-1:
-    image: ghcr.io/input-output-hk/mithril-signer:${IMAGE_ID:-latest}
-    restart: always
     logging:
       driver: "json-file"
       options:
         max-size: "100m"
         max-file: "5"
+
+  mithril-signer-1:
+    image: ghcr.io/input-output-hk/mithril-signer:${IMAGE_ID:-latest}
+    restart: always
+    user: ${CURRENT_UID}
+    profiles:
+      - mithril
     environment:
       - RUST_BACKTRACE=1
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
@@ -109,15 +115,18 @@ services:
       - ./testnet/mithril-signer-1:/mithril-signer-1
       - ./testnet/node.db:/db
       - ./ipc:/ipc
-
-  mithril-signer-2:
-    image: ghcr.io/input-output-hk/mithril-signer:${IMAGE_ID:-latest}
-    restart: always
     logging:
       driver: "json-file"
       options:
         max-size: "100m"
         max-file: "5"
+
+  mithril-signer-2:
+    image: ghcr.io/input-output-hk/mithril-signer:${IMAGE_ID:-latest}
+    restart: always
+    user: ${CURRENT_UID}
+    profiles:
+      - mithril
     environment:
       - RUST_BACKTRACE=1
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
@@ -133,15 +142,18 @@ services:
       - ./testnet/mithril-signer-2:/mithril-signer-2
       - ./testnet/node.db:/db
       - ./ipc:/ipc
-
-  mithril-signer-3:
-    image: ghcr.io/input-output-hk/mithril-signer:${IMAGE_ID:-latest}
-    restart: always
     logging:
       driver: "json-file"
       options:
         max-size: "100m"
         max-file: "5"
+
+  mithril-signer-3:
+    image: ghcr.io/input-output-hk/mithril-signer:${IMAGE_ID:-latest}
+    restart: always
+    user: ${CURRENT_UID}
+    profiles:
+      - mithril
     environment:
       - RUST_BACKTRACE=1
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
@@ -157,10 +169,17 @@ services:
       - ./testnet/mithril-signer-3:/mithril-signer-3
       - ./testnet/node.db:/db
       - ./ipc:/ipc
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
 
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
+    profiles:
+      - tools
     ports:
       - "9090:9090"
     command:
@@ -170,6 +189,8 @@ services:
 
   promtail:
     image: grafana/promtail:1.4.1
+    profiles:
+      - tools
     volumes:
       - /var/lib/docker/containers:/var/lib/docker/containers
       - ./promtail-config.yml:/etc/promtail/promtail-config.yml
