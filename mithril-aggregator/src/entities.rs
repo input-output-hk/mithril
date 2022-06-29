@@ -23,7 +23,7 @@ pub struct Config {
 
     /// Path of the socket used by the Cardano CLI tool
     /// to communicate with the Cardano node
-    pub cardano_cli_socket_path: PathBuf,
+    pub cardano_node_socket_path: PathBuf,
 
     /// Cardano Network Magic number
     ///

@@ -154,7 +154,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         mithril_common::chain_observer::CardanoCliChainObserver::new(Box::new(
             CardanoCliRunner::new(
                 config.cardano_cli_path.clone(),
-                config.cardano_cli_socket_path.clone(),
+                config.cardano_node_socket_path.clone(),
                 config.get_network()?,
             ),
         )),
