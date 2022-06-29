@@ -1,10 +1,11 @@
+use config::ConfigError;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use mithril_common::store::adapter::JsonFileStoreAdapter;
+use mithril_common::{store::adapter::JsonFileStoreAdapter, CardanoNetwork};
 
 use crate::dependency::{SnapshotStoreWrapper, SnapshotUploaderWrapper};
 use crate::snapshot_stores::LocalSnapshotStore;
@@ -17,6 +18,11 @@ const LIST_SNAPSHOTS_MAX_ITEMS: usize = 5;
 /// Aggregator configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
+    /// Cardano Network Magic number
+    ///
+    /// useful for TestNet & DevNet
+    pub network_magic: Option<u64>,
+
     /// Cardano network
     pub network: String,
 
@@ -97,6 +103,34 @@ impl Config {
             ))),
             SnapshotUploaderType::Local => Arc::new(RwLock::new(LocalSnapshotUploader::new(
                 self.server_url.clone(),
+            ))),
+        }
+    }
+
+    pub fn get_network(&self) -> Result<CardanoNetwork, ConfigError> {
+        match self.network.to_lowercase().as_str() {
+            "mainnet" => Ok(CardanoNetwork::MainNet),
+            "testnet" => {
+                if let Some(magic) = self.network_magic {
+                    Ok(CardanoNetwork::TestNet(magic))
+                } else {
+                    Err(ConfigError::Message(
+                        "no NETWORK MAGIC number given for testnet network".to_string(),
+                    ))
+                }
+            }
+            "devnet" => {
+                if let Some(magic) = self.network_magic {
+                    Ok(CardanoNetwork::DevNet(magic))
+                } else {
+                    Err(ConfigError::Message(
+                        "no NETWORK MAGIC number given for devnet network".to_string(),
+                    ))
+                }
+            }
+            what => Err(ConfigError::Message(format!(
+                "could not parse network '{}', the only recognized networks are: mainnet, devnet, testnet",
+                what
             ))),
         }
     }

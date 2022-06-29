@@ -24,6 +24,7 @@ impl Aggregator {
             ("URL_SNAPSHOT_MANIFEST", ""),
             ("SNAPSHOT_STORE_TYPE", "local"),
             ("SNAPSHOT_UPLOADER_TYPE", "local"),
+            ("NETWORK_MAGIC", "1097911063"),
             (
                 "PENDING_CERTIFICATE_STORE_DIRECTORY",
                 "./store/aggregator/pending-certs",
