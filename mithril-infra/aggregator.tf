@@ -18,6 +18,11 @@ resource "null_resource" "mithril-aggregator" {
     destination = "/home/curry/docker-compose.yaml"
   }
 
+  provisioner "file" {
+    source      = "Dockerfile.cardano"
+    destination = "/home/curry/Dockerfile.cardano"
+  }
+
   # logs shipment to grafana cloud
   provisioner "file" {
     source      = "promtail-config.yml"
