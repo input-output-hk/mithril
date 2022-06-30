@@ -107,8 +107,11 @@ impl ChainObserver for CardanoCliChainObserver {
             .launch_epoch()
             .await
             .map_err(ChainObserverError::General)?;
-        let v: Value = serde_json::from_str(&output)
-            .map_err(|e| ChainObserverError::InvalidContent(e.into()))?;
+        let v: Value = serde_json::from_str(&output).map_err(|e| {
+            ChainObserverError::InvalidContent(
+                format!("Error: {:?}, output was = {}", e, output).into(),
+            )
+        })?;
 
         if let Value::Number(epoch) = &v["epoch"] {
             Ok(epoch.as_u64())
