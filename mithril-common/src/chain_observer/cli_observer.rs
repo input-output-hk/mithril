@@ -60,10 +60,14 @@ impl CardanoCliRunner {
     fn post_config_command<'a>(&'a self, command: &'a mut Command) -> &mut Command {
         match self.network {
             CardanoNetwork::MainNet => command.arg("--mainnet"),
-            CardanoNetwork::DevNet(magic) => command
-                .arg(format!("--testnet-magic {}", magic))
-                .arg("--cardano-mode"),
-            CardanoNetwork::TestNet(magic) => command.arg(format!("--testnet-magic {}", magic)),
+            CardanoNetwork::DevNet(magic) => command.args(vec![
+                "--cardano-mode",
+                "--testnet-magic",
+                &magic.to_string(),
+            ]),
+            CardanoNetwork::TestNet(magic) => {
+                command.args(vec!["--testnet-magic", &magic.to_string()])
+            }
         }
     }
 }
