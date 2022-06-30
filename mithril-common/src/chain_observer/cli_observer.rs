@@ -80,10 +80,12 @@ impl CliRunner for CardanoCliRunner {
         if output.status.success() {
             Ok(std::str::from_utf8(&output.stdout)?.trim().to_string())
         } else {
+            let message = String::from_utf8_lossy(&output.stderr);
+
             Err(format!(
-                "Error launching command {:?}, error = '{:?}'",
+                "Error launching command {:?}, error = '{}'",
                 self.command_for_stake_distribution(),
-                output.stderr
+                message
             )
             .into())
         }
@@ -95,10 +97,12 @@ impl CliRunner for CardanoCliRunner {
         if output.status.success() {
             Ok(std::str::from_utf8(&output.stdout)?.trim().to_string())
         } else {
+            let message = String::from_utf8_lossy(&output.stderr);
+
             Err(format!(
-                "Error launching command {:?}, error = '{:?}'",
+                "Error launching command {:?}, error = '{}'",
                 self.command_for_epoch(),
-                output.stderr
+                message
             )
             .into())
         }
@@ -209,8 +213,8 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
             CardanoNetwork::TestNet(10),
         );
 
-        assert_eq!("Command { std: \"cardano-cli\" \"query\" \"tip\" \"--testnet-magic 10\", kill_on_drop: false }", format!("{:?}", runner.command_for_epoch()));
-        assert_eq!("Command { std: \"cardano-cli\" \"query\" \"stake-distribution\" \"--testnet-magic 10\", kill_on_drop: false }", format!("{:?}", runner.command_for_stake_distribution()));
+        assert_eq!("Command { std: \"cardano-cli\" \"query\" \"tip\" \"--testnet-magic\" \"10\", kill_on_drop: false }", format!("{:?}", runner.command_for_epoch()));
+        assert_eq!("Command { std: \"cardano-cli\" \"query\" \"stake-distribution\" \"--testnet-magic\" \"10\", kill_on_drop: false }", format!("{:?}", runner.command_for_stake_distribution()));
     }
 
     #[tokio::test]
@@ -221,8 +225,8 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
             CardanoNetwork::DevNet(25),
         );
 
-        assert_eq!("Command { std: \"cardano-cli\" \"query\" \"tip\" \"--testnet-magic 25\" \"--cardano-mode\", kill_on_drop: false }", format!("{:?}", runner.command_for_epoch()));
-        assert_eq!("Command { std: \"cardano-cli\" \"query\" \"stake-distribution\" \"--testnet-magic 25\" \"--cardano-mode\", kill_on_drop: false }", format!("{:?}", runner.command_for_stake_distribution()));
+        assert_eq!("Command { std: \"cardano-cli\" \"query\" \"tip\" \"--cardano-mode\" \"--testnet-magic\" \"25\", kill_on_drop: false }", format!("{:?}", runner.command_for_epoch()));
+        assert_eq!("Command { std: \"cardano-cli\" \"query\" \"stake-distribution\" \"--cardano-mode\" \"--testnet-magic\" \"25\", kill_on_drop: false }", format!("{:?}", runner.command_for_stake_distribution()));
     }
 
     #[tokio::test]
