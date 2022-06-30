@@ -97,15 +97,23 @@ const config = {
                         items: [
                             {
                                 to: 'https://mithril.network/mithril-aggregator/doc/mithril_aggregator/index.html',
-                                label: 'Aggregator Node Rust documentation'
+                                label: 'Aggregator Node - Rust documentation'
                             },
                             {
                                 to: 'https://mithril.network/mithril-signer/doc/mithril_signer/index.html',
-                                label: 'Signer Node Rust documentation'
+                                label: 'Signer Node - Rust documentation'
                             },
                             {
                                 to: 'https://mithril.network/mithril-client/doc/mithril_client/index.html',
-                                label: 'Client Node Rust documentation'
+                                label: 'Client Node - Rust documentation'
+                            },
+                            {
+                                to: 'https://mithril.network/mithril-core/doc/mithril/index.html',
+                                label: 'Cryptographic Core Library - Rust documentation'
+                            },
+                            {
+                                to: 'https://mithril.network/mithril-common/doc/mithril_common/index.html',
+                                label: 'Common Node Library - Rust documentation'
                             },
                             {
                                 to: '/aggregator-api',
