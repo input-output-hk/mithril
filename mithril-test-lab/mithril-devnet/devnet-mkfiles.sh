@@ -823,6 +823,7 @@ cat >> docker-compose.yaml <<EOF
       - RUST_BACKTRACE=1
       - GOOGLE_APPLICATION_CREDENTIALS_JSON=
       - NETWORK=devnet
+      - NETWORK_MAGIC=${NETWORK_MAGIC}
       - RUN_INTERVAL=5000
       - URL_SNAPSHOT_MANIFEST=
       - SNAPSHOT_STORE_TYPE=local
@@ -869,6 +870,7 @@ cat >> docker-compose.yaml <<EOF
       - RUST_BACKTRACE=1
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
       - NETWORK=devnet
+      - NETWORK_MAGIC=${NETWORK_MAGIC}
       - RUN_INTERVAL=1000
       - DB_DIRECTORY=/data/db
       - STAKE_STORE_DIRECTORY=/data/mithril/signer/db/stake_db
