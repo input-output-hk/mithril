@@ -42,7 +42,7 @@ resource "null_resource" "mithril-aggregator" {
 
   provisioner "remote-exec" {
     inline = [
-      "IMAGE_ID=${var.image_id} GOOGLE_APPLICATION_CREDENTIALS_JSON='${var.google_application_credentials_json}' CURRENT_UID=$(id -u)  docker-compose -f /home/curry/docker-compose.yaml up -d"
+      "IMAGE_ID=${var.image_id} GOOGLE_APPLICATION_CREDENTIALS_JSON='${var.google_application_credentials_json}' CURRENT_UID=$(id -u)  docker-compose -f /home/curry/docker-compose.yaml --profile all up -d"
     ]
   }
 }
