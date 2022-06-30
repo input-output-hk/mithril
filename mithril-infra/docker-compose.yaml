@@ -9,6 +9,7 @@ services:
     user: ${CURRENT_UID}
     profiles:
       - cardano
+      - all
     logging:
       driver: "json-file"
       options:
@@ -38,6 +39,7 @@ services:
     user: ${CURRENT_UID}
     profiles:
       - mithril
+      - all
     environment:
       - RUST_BACKTRACE=1
       - NETWORK_MAGIC=1097911063
@@ -73,6 +75,7 @@ services:
     user: ${CURRENT_UID}
     profiles:
       - mithril
+      - all
     environment:
       - RUST_BACKTRACE=1
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
@@ -100,6 +103,7 @@ services:
     user: ${CURRENT_UID}
     profiles:
       - mithril
+      - all
     environment:
       - RUST_BACKTRACE=1
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
@@ -127,6 +131,7 @@ services:
     user: ${CURRENT_UID}
     profiles:
       - mithril
+      - all
     environment:
       - RUST_BACKTRACE=1
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
@@ -154,6 +159,7 @@ services:
     user: ${CURRENT_UID}
     profiles:
       - mithril
+      - all
     environment:
       - RUST_BACKTRACE=1
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
@@ -180,6 +186,7 @@ services:
     container_name: prometheus
     profiles:
       - tools
+      - all
     ports:
       - "9090:9090"
     command:
@@ -191,6 +198,7 @@ services:
     image: grafana/promtail:1.4.1
     profiles:
       - tools
+      - all
     volumes:
       - /var/lib/docker/containers:/var/lib/docker/containers
       - ./promtail-config.yml:/etc/promtail/promtail-config.yml
