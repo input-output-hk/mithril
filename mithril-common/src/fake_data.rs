@@ -13,7 +13,7 @@ pub fn beacon() -> entities::Beacon {
         .unwrap()
         .as_secs();
     let immutable_file_number = (seconds_since_unix_epoch / (20)) as u64; // 1 immutable_file_number every 20s
-    let epoch = (immutable_file_number / 3) as u64; // 1 epoch every 3 immutable_file_number
+    let epoch = (immutable_file_number / 9) as u64; // 1 epoch every 9 immutable_file_number
 
     entities::Beacon::new(network, epoch, immutable_file_number)
 }

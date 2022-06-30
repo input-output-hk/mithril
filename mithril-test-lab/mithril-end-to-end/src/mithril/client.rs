@@ -1,4 +1,4 @@
-use crate::mithril::MithrilCommand;
+use crate::utils::MithrilCommand;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -22,7 +22,7 @@ impl Client {
         bin_dir: &Path,
     ) -> Result<Self, String> {
         let env = HashMap::from([
-            ("NETWORK", "testnet"),
+            ("NETWORK", "devnet"),
             ("AGGREGATOR_ENDPOINT", &aggregator_endpoint),
         ]);
         let args = vec!["-vvv"];

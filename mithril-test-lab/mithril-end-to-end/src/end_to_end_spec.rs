@@ -1,9 +1,11 @@
-use crate::spec_utils::AttemptResult;
+use crate::utils::AttemptResult;
 use crate::{attempt, Client, ClientCommand, MithrilInfrastructure};
+use mithril_common::digesters::ImmutableFile;
 use mithril_common::entities::{Certificate, Snapshot};
 use reqwest::StatusCode;
 use slog_scope::info;
 use std::error::Error;
+use std::path::Path;
 use std::time::Duration;
 
 pub struct Spec {
@@ -18,8 +20,8 @@ impl Spec {
     pub async fn run(&self) -> Result<(), Box<dyn Error>> {
         let aggregator_endpoint = self.infrastructure.aggregator().endpoint();
 
+        wait_for_enough_immutable(self.infrastructure.aggregator().db_directory()).await?;
         wait_for_pending_certificate(&aggregator_endpoint).await?;
-        let _ = self.infrastructure.add_immutable();
 
         let digest = assert_node_producing_snapshot(&aggregator_endpoint).await?;
         let certificate_hash =
@@ -32,35 +34,59 @@ impl Spec {
         Ok(())
     }
 
-    pub async fn dump_processes_logs(&mut self) -> Result<(), String> {
-        self.infrastructure.aggregator_mut().dump_logs().await?;
-        self.infrastructure.signer_mut().dump_logs().await?;
-
-        Ok(())
-    }
-
-    pub async fn dump_logs_of_failed_processes(&mut self) -> Result<(), String> {
+    pub async fn tail_logs(&self, number_of_line: u64) -> Result<(), String> {
         self.infrastructure
-            .aggregator_mut()
-            .dump_logs_if_crashed()
+            .aggregator()
+            .tail_logs(number_of_line)
             .await?;
-        self.infrastructure
-            .signer_mut()
-            .dump_logs_if_crashed()
-            .await?;
+        for signer in self.infrastructure.signers() {
+            signer.tail_logs(number_of_line).await?;
+        }
 
         Ok(())
     }
 }
 
+async fn wait_for_enough_immutable(db_directory: &Path) -> Result<(), String> {
+    info!("Waiting that enough immutable have been written in the devnet");
+
+    match attempt!(24, Duration::from_secs(5), {
+        match ImmutableFile::list_completed_in_dir(db_directory)
+            .map_err(|e| {
+                format!(
+                    "Immutable file listing failed in dir `{}`: {}",
+                    db_directory.display(),
+                    e
+                )
+            })?
+            .last()
+        {
+            Some(_) => Ok(Some(())),
+            None => Ok(None),
+        }
+    }) {
+        AttemptResult::Ok(_) => Ok(()),
+        AttemptResult::Err(error) => Err(error),
+        AttemptResult::Timeout() => Err(format!(
+            "Timeout exhausted for enough immutable to be written in `{}`",
+            db_directory.display()
+        )),
+    }
+}
+
 async fn wait_for_pending_certificate(aggregator_endpoint: &str) -> Result<(), String> {
     let url = format!("{}/certificate-pending", aggregator_endpoint);
+    info!("Waiting for the aggregator to produce a pending certificate");
 
     match attempt!(10, Duration::from_millis(1000), {
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => {
-                    info!("Aggregator ready");
+                    let text = response
+                        .text()
+                        .await
+                        .unwrap_or_else(|_| "could not unwrap pending certificate".to_string());
+                    info!("Aggregator ready"; "pending_certificate" => text);
                     Ok(Some(()))
                 }
                 s if s.is_server_error() => Err(format!(
@@ -83,8 +109,10 @@ async fn wait_for_pending_certificate(aggregator_endpoint: &str) -> Result<(), S
 
 async fn assert_node_producing_snapshot(aggregator_endpoint: &str) -> Result<String, String> {
     let url = format!("{}/snapshots", aggregator_endpoint);
+    info!("Waiting for the aggregator to produce a snapshot");
 
-    match attempt!(20, Duration::from_millis(1500), {
+    // todo: reduce the number of attempts if we can reduce the delay between two immutables
+    match attempt!(30, Duration::from_millis(1500), {
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<Vec<Snapshot>>().await.as_deref() {
@@ -114,6 +142,10 @@ async fn assert_signer_is_signing_snapshot(
     digest: &str,
 ) -> Result<String, String> {
     let url = format!("{}/snapshot/{}", aggregator_endpoint, digest);
+    info!(
+        "Waiting for the aggregator to produce sign the snapshot `{}`",
+        digest
+    );
 
     match attempt!(10, Duration::from_millis(1000), {
         match reqwest::get(url.clone()).await {
@@ -188,7 +220,6 @@ async fn assert_client_can_verify_snapshot(
             digest: digest.to_string(),
         })
         .await?;
-
     info!("Client restored the snapshot"; "digest" => &digest);
 
     Ok(())

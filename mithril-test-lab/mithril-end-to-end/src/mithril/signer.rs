@@ -1,10 +1,13 @@
-use crate::mithril::MithrilCommand;
+use crate::devnet::PoolNode;
+use crate::utils::MithrilCommand;
+use mithril_common::entities::PartyId;
 use std::collections::HashMap;
 use std::path::Path;
 use tokio::process::Child;
 
 #[derive(Debug)]
 pub struct Signer {
+    party_id: PartyId,
     command: MithrilCommand,
     process: Option<Child>,
 }
@@ -12,23 +15,34 @@ pub struct Signer {
 impl Signer {
     pub fn new(
         aggregator_endpoint: String,
-        db_directory: &Path,
+        party_id: PartyId,
+        pool_node: &PoolNode,
+        cardano_cli_path: &Path,
         work_dir: &Path,
         bin_dir: &Path,
     ) -> Result<Self, String> {
+        let stake_store_path = format!("./store/signer-{}/stakes", party_id);
         let env = HashMap::from([
-            ("NETWORK", "testnet"),
-            ("PARTY_ID", "0"),
+            ("NETWORK", "devnet"),
+            ("PARTY_ID", &party_id),
             ("RUN_INTERVAL", "2000"),
             ("AGGREGATOR_ENDPOINT", &aggregator_endpoint),
-            ("DB_DIRECTORY", db_directory.to_str().unwrap()),
-            ("STAKE_STORE_DIRECTORY", "./store/signer/stakes"),
+            ("DB_DIRECTORY", pool_node.db_path.to_str().unwrap()),
+            ("STAKE_STORE_DIRECTORY", &stake_store_path),
+            ("NETWORK_MAGIC", "42"),
+            (
+                "CARDANO_NODE_SOCKET_PATH",
+                pool_node.socket_path.to_str().unwrap(),
+            ),
+            ("CARDANO_CLI_PATH", cardano_cli_path.to_str().unwrap()),
         ]);
         let args = vec!["-vvv"];
 
-        let command = MithrilCommand::new("mithril-signer", work_dir, bin_dir, env, &args)?;
+        let mut command = MithrilCommand::new("mithril-signer", work_dir, bin_dir, env, &args)?;
+        command.set_log_name(format!("mithril-signer-{}", party_id).as_str());
 
         Ok(Self {
+            party_id,
             command,
             process: None,
         })
@@ -38,23 +52,12 @@ impl Signer {
         self.process = Some(self.command.start(&[]));
     }
 
-    pub async fn dump_logs(&self) -> Result<(), String> {
-        self.command.dump_logs_to_stdout().await
-    }
-
-    pub async fn dump_logs_if_crashed(&mut self) -> Result<(), String> {
-        match self.process.as_mut() {
-            Some(child) => match child.try_wait() {
-                Ok(Some(status)) => {
-                    if !status.success() {
-                        self.dump_logs().await?;
-                    }
-                    Ok(())
-                }
-                Ok(None) => Ok(()),
-                Err(e) => Err(format!("failed get mithril-aggregator status: {}", e)),
-            },
-            None => Ok(()),
-        }
+    pub async fn tail_logs(&self, number_of_line: u64) -> Result<(), String> {
+        self.command
+            .tail_logs(
+                Some(format!("mithril-signer-{}", self.party_id).as_str()),
+                number_of_line,
+            )
+            .await
     }
 }

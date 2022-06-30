@@ -500,6 +500,11 @@ echo "Generated stake pool registration certs:"
 ls -1 node-*/registration.cert
 echo "====================================================================="
 
+cat >> activate.sh <<EOF
+#!/bin/bash
+
+EOF
+
 # Prepare transactions for activating stake pools
 for N in ${POOL_NODES_N}; do
 
@@ -564,6 +569,8 @@ echo "====================================================================="
 echo
 
 cat >> query.sh <<EOF
+#!/bin/bash
+
 
 echo "====================================================================="
 echo "=== Mithril Network"
@@ -612,6 +619,8 @@ echo
 EOF
 
 cat >> query-unused.sh <<EOF
+#!/bin/bash
+
 echo
 echo ">> Query utxo1 utxo 'utxo1.addr'"
 CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query utxo  \\
@@ -864,6 +873,8 @@ echo
 echo "To start the nodes, in separate terminals use:"
 echo
 cat >> start-cardano.sh <<EOF
+#!/bin/bash
+
 echo ">> Start Cardano network"
 killall cardano-node
 
@@ -873,6 +884,8 @@ for NODE in ${BFT_NODES}; do
   echo ./${ROOT}/${NODE}/start-node.sh
 
   cat >> ${NODE}/start-node.sh <<EOF
+#!/bin/bash
+
 ./cardano-node run \\
   --config                          ${NODE}/configuration.yaml \\
   --topology                        ${NODE}/topology.json \\
@@ -900,6 +913,8 @@ for NODE in ${POOL_NODES}; do
   echo ./${ROOT}/${NODE}/start-node.sh
 
   cat >> ${NODE}/start-node.sh <<EOF
+#!/bin/bash
+
 ./cardano-node run \\
   --config                          ${NODE}/configuration.yaml \\
   --topology                        ${NODE}/topology.json \\
@@ -943,6 +958,8 @@ EOF
 chmod u+x start-cardano.sh
 
 cat >> start-mithril.sh <<EOF
+#!/bin/bash
+
 echo ">> Start Mithril network"
 if [ -z "\${MITHRIL_IMAGE_ID}" ]; then 
   echo ">> Build Mithril node Docker images"
@@ -958,39 +975,53 @@ if [ -z "\${MITHRIL_IMAGE_ID}" ]; then
 fi
 docker-compose rm -f
 if [ -z "\${MITHRIL_IMAGE_ID}" ]; then 
-  MITHRIL_AGGREGATOR_IMAGE="mithril/mithril-aggregator"
-  MITHRIL_CLIENT_IMAGE="mithril/mithril-client"
-  MITHRIL_SIGNER_IMAGE="mithril/mithril-signer"
+  export MITHRIL_AGGREGATOR_IMAGE="mithril/mithril-aggregator"
+  export MITHRIL_CLIENT_IMAGE="mithril/mithril-client"
+  export MITHRIL_SIGNER_IMAGE="mithril/mithril-signer"
 else
-  MITHRIL_AGGREGATOR_IMAGE="ghcr.io/input-output-hk/mithril-aggregator:\${MITHRIL_IMAGE_ID}"
-  MITHRIL_CLIENT_IMAGE="ghcr.io/input-output-hk/mithril-client:\${MITHRIL_IMAGE_ID}"
-  MITHRIL_SIGNER_IMAGE="ghcr.io/input-output-hk/mithril-signer:\${MITHRIL_IMAGE_ID}"
+  export MITHRIL_AGGREGATOR_IMAGE="ghcr.io/input-output-hk/mithril-aggregator:\${MITHRIL_IMAGE_ID}"
+  export MITHRIL_CLIENT_IMAGE="ghcr.io/input-output-hk/mithril-client:\${MITHRIL_IMAGE_ID}"
+  export MITHRIL_SIGNER_IMAGE="ghcr.io/input-output-hk/mithril-signer:\${MITHRIL_IMAGE_ID}"
 fi
-MITHRIL_AGGREGATOR_IMAGE=\${MITHRIL_AGGREGATOR_IMAGE} MITHRIL_CLIENT_IMAGE=\${MITHRIL_CLIENT_IMAGE} MITHRIL_SIGNER_IMAGE=\${MITHRIL_SIGNER_IMAGE} docker-compose -f docker-compose.yaml --profile mithril up --remove-orphans --force-recreate -d --no-build
+docker-compose -f docker-compose.yaml --profile mithril up --remove-orphans --force-recreate -d --no-build
 EOF
 chmod u+x start-mithril.sh
 
 cat >> stop.sh <<EOF
+#!/bin/bash
+
 echo ">> Stop Cardano network"
 killall cardano-node
 
 echo ">> Stop Mithril network"
 if [ -z "\${MITHRIL_IMAGE_ID}" ]; then 
-  MITHRIL_AGGREGATOR_IMAGE="mithril/mithril-aggregator"
-  MITHRIL_CLIENT_IMAGE="mithril/mithril-client"
-  MITHRIL_SIGNER_IMAGE="mithril/mithril-signer"
+  export MITHRIL_AGGREGATOR_IMAGE="mithril/mithril-aggregator"
+  export MITHRIL_CLIENT_IMAGE="mithril/mithril-client"
+  export MITHRIL_SIGNER_IMAGE="mithril/mithril-signer"
 else
-  MITHRIL_AGGREGATOR_IMAGE="ghcr.io/input-output-hk/mithril-aggregator:\${MITHRIL_IMAGE_ID}"
-  MITHRIL_CLIENT_IMAGE="ghcr.io/input-output-hk/mithril-client:\${MITHRIL_IMAGE_ID}"
-  MITHRIL_SIGNER_IMAGE="ghcr.io/input-output-hk/mithril-signer:\${MITHRIL_IMAGE_ID}"
+  export MITHRIL_AGGREGATOR_IMAGE="ghcr.io/input-output-hk/mithril-aggregator:\${MITHRIL_IMAGE_ID}"
+  export MITHRIL_CLIENT_IMAGE="ghcr.io/input-output-hk/mithril-client:\${MITHRIL_IMAGE_ID}"
+  export MITHRIL_SIGNER_IMAGE="ghcr.io/input-output-hk/mithril-signer:\${MITHRIL_IMAGE_ID}"
 fi
-MITHRIL_AGGREGATOR_IMAGE=\${MITHRIL_AGGREGATOR_IMAGE} MITHRIL_CLIENT_IMAGE=\${MITHRIL_CLIENT_IMAGE} MITHRIL_SIGNER_IMAGE=\${MITHRIL_SIGNER_IMAGE} docker-compose -f docker-compose.yaml --profile mithril down
+docker-compose -f docker-compose.yaml --profile mithril down
 EOF
 chmod u+x stop.sh
 
 cat >> log.sh <<EOF
+#!/bin/bash
+
 LINES=\$1
 SEPARATOR="====================================================================="
+
+if [ -z "\${MITHRIL_IMAGE_ID}" ]; then 
+  export MITHRIL_AGGREGATOR_IMAGE="mithril/mithril-aggregator"
+  export MITHRIL_CLIENT_IMAGE="mithril/mithril-client"
+  export MITHRIL_SIGNER_IMAGE="mithril/mithril-signer"
+else
+  export MITHRIL_AGGREGATOR_IMAGE="ghcr.io/input-output-hk/mithril-aggregator:\${MITHRIL_IMAGE_ID}"
+  export MITHRIL_CLIENT_IMAGE="ghcr.io/input-output-hk/mithril-client:\${MITHRIL_IMAGE_ID}"
+  export MITHRIL_SIGNER_IMAGE="ghcr.io/input-output-hk/mithril-signer:\${MITHRIL_IMAGE_ID}"
+fi
 
 # Mithril nodes logs
 echo \${SEPARATOR}

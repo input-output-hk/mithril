@@ -1,3 +1,4 @@
+use crate::utils::file_utils;
 use slog_scope::info;
 use std::collections::HashMap;
 use std::io::Write;
@@ -52,6 +53,10 @@ impl MithrilCommand {
         })
     }
 
+    pub fn set_log_name(&mut self, name: &str) {
+        self.log_path = self.work_dir.join(format!("{}.log", name));
+    }
+
     pub fn start(&mut self, args: &[String]) -> Child {
         let args = [&self.default_args, args].concat();
 
@@ -76,6 +81,46 @@ impl MithrilCommand {
         command
             .spawn()
             .unwrap_or_else(|_| panic!("{} failed to start", self.name))
+    }
+
+    /// Tail the command log
+    ///
+    /// You can override the title with the name parameter.
+    pub(crate) async fn tail_logs(
+        &self,
+        name: Option<&str>,
+        number_of_line: u64,
+    ) -> Result<(), String> {
+        if !self.log_path.exists() {
+            return Err(format!(
+                "No log for {}, did you run the command at least once ? expected path: {}",
+                self.name,
+                self.log_path.display()
+            ));
+        }
+
+        let name = match name {
+            Some(n) => n,
+            None => &self.name,
+        };
+
+        println!("{:-^100}", "");
+        println!(
+            "{:^30}",
+            format!(
+                "{} LOGS - LAST {} LINES:",
+                name.to_uppercase(),
+                number_of_line
+            )
+        );
+        println!("{:-^100}", "");
+
+        println!(
+            "{}",
+            file_utils::tail(&self.log_path, number_of_line).await?
+        );
+
+        Ok(())
     }
 
     pub(crate) async fn dump_logs_to_stdout(&self) -> Result<(), String> {
