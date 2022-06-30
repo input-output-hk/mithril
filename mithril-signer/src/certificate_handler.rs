@@ -138,7 +138,7 @@ mod tests {
     use super::*;
     use httpmock::prelude::*;
     use serde_json::json;
-    use std::path::Path;
+    use std::path::{Path, PathBuf};
 
     use mithril_common::fake_data;
 
@@ -147,6 +147,9 @@ mod tests {
     fn setup_test() -> (MockServer, Config) {
         let server = MockServer::start();
         let config = Config {
+            cardano_cli_path: PathBuf::new().join("cardano-cli"),
+            cardano_node_socket_path: PathBuf::new().join("whatever"),
+            network_magic: Some(42),
             network: "testnet".to_string(),
             aggregator_endpoint: server.url(""),
             party_id: "0".to_string(),

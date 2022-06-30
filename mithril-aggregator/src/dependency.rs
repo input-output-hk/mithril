@@ -179,7 +179,11 @@ impl DependencyManager {
 
     #[cfg(test)]
     pub fn fake() -> DependencyManager {
+        use std::path::PathBuf;
+
         let config = Config {
+            cardano_node_socket_path: PathBuf::new().join("/tmp/cardano.sock"),
+            cardano_cli_path: PathBuf::new().join("cardano-cli"),
             network_magic: Some(42),
             network: "testnet".to_string(),
             run_interval: 1000,

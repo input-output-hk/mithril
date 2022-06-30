@@ -39,15 +39,15 @@ impl Devnet {
         let bootstrap_script = "devnet-mkfiles.sh";
         let bootstrap_script_path = devnet_scripts_dir
             .canonicalize()
-            .unwrap()
+            .map_err(|e| {
+                format!(
+                    "Can't find bootstrap script '{}' in {}: {}",
+                    bootstrap_script,
+                    devnet_scripts_dir.display(),
+                    e
+                )
+            })?
             .join(bootstrap_script);
-        if !bootstrap_script_path.exists() {
-            return Err(format!(
-                "Can't find bootstrap script '{}' in {}",
-                bootstrap_script,
-                devnet_scripts_dir.display()
-            ));
-        }
 
         if artifacts_target_dir.exists() {
             fs::remove_dir_all(&artifacts_target_dir)

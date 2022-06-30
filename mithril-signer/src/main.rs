@@ -6,7 +6,7 @@ use std::error::Error;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use mithril_common::chain_observer::FakeObserver;
+use mithril_common::chain_observer::{CardanoCliChainObserver, CardanoCliRunner};
 use mithril_common::digesters::ImmutableDigester;
 use mithril_common::store::adapter::JsonFileStoreAdapter;
 use mithril_common::store::stake_store::StakeStore;
@@ -67,13 +67,20 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // TODO: Use serialized ProtocolInitializer here, loaded e.g. from filesystem
     let protocol_initializer_encoded = "";
-    let single_signer = MithrilSingleSigner::new(config.party_id, protocol_initializer_encoded);
+    let single_signer =
+        MithrilSingleSigner::new(config.party_id.clone(), protocol_initializer_encoded);
     let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint.clone());
-    let digester = ImmutableDigester::new(config.db_directory, slog_scope::logger());
+    let digester = ImmutableDigester::new(config.db_directory.clone(), slog_scope::logger());
     let stake_store = Arc::new(RwLock::new(StakeStore::new(Box::new(
         JsonFileStoreAdapter::new(config.stake_store_directory.clone())?,
     ))));
-    let chain_observer = Arc::new(RwLock::new(FakeObserver::new()));
+    let chain_observer = Arc::new(RwLock::new(CardanoCliChainObserver::new(Box::new(
+        CardanoCliRunner::new(
+            config.cardano_cli_path.clone(),
+            config.cardano_node_socket_path.clone(),
+            config.get_network()?,
+        ),
+    ))));
 
     // Should the runtime loop returns an error ? If yes should we abort the loop at the first error or is their some tolerance ?
     let mut runtime = Runtime::new(

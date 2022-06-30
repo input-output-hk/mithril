@@ -18,6 +18,13 @@ const LIST_SNAPSHOTS_MAX_ITEMS: usize = 5;
 /// Aggregator configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
+    /// Cardano CLI tool path
+    pub cardano_cli_path: PathBuf,
+
+    /// Path of the socket used by the Cardano CLI tool
+    /// to communicate with the Cardano node
+    pub cardano_node_socket_path: PathBuf,
+
     /// Cardano Network Magic number
     ///
     /// useful for TestNet & DevNet

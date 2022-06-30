@@ -57,15 +57,27 @@ impl MithrilCommand {
         self.log_path = self.work_dir.join(format!("{}.log", name));
     }
 
-    pub fn start(&mut self, args: &[String]) -> Child {
+    pub fn start(&mut self, args: &[String]) -> Result<Child, String> {
         let args = [&self.default_args, args].concat();
 
         let log_file_stdout = std::fs::File::options()
             .create(true)
             .append(true)
             .open(&self.log_path)
-            .unwrap();
-        let log_file_stderr = log_file_stdout.try_clone().unwrap();
+            .map_err(|e| {
+                format!(
+                    "failed to use file `{}` for logging: {}",
+                    self.log_path.display(),
+                    e
+                )
+            })?;
+        let log_file_stderr = log_file_stdout.try_clone().map_err(|e| {
+            format!(
+                "failed to use file `{}` for logging: {}",
+                self.log_path.display(),
+                e
+            )
+        })?;
 
         let mut command = Command::new(&self.process_path);
         command
@@ -80,7 +92,7 @@ impl MithrilCommand {
 
         command
             .spawn()
-            .unwrap_or_else(|_| panic!("{} failed to start", self.name))
+            .map_err(|e| format!("{} failed to start: {}", self.name, e))
     }
 
     /// Tail the command log

@@ -60,10 +60,14 @@ impl CardanoCliRunner {
     fn post_config_command<'a>(&'a self, command: &'a mut Command) -> &mut Command {
         match self.network {
             CardanoNetwork::MainNet => command.arg("--mainnet"),
-            CardanoNetwork::DevNet(magic) => command
-                .arg(format!("--testnet-magic {}", magic))
-                .arg("--cardano-mode"),
-            CardanoNetwork::TestNet(magic) => command.arg(format!("--testnet-magic {}", magic)),
+            CardanoNetwork::DevNet(magic) => command.args(vec![
+                "--cardano-mode",
+                "--testnet-magic",
+                &magic.to_string(),
+            ]),
+            CardanoNetwork::TestNet(magic) => {
+                command.args(vec!["--testnet-magic", &magic.to_string()])
+            }
         }
     }
 }
@@ -73,13 +77,35 @@ impl CliRunner for CardanoCliRunner {
     async fn launch_stake_distribution(&self) -> Result<String, Box<dyn Error + Sync + Send>> {
         let output = self.command_for_stake_distribution().output().await?;
 
-        Ok(std::str::from_utf8(&output.stdout)?.trim().to_string())
+        if output.status.success() {
+            Ok(std::str::from_utf8(&output.stdout)?.trim().to_string())
+        } else {
+            let message = String::from_utf8_lossy(&output.stderr);
+
+            Err(format!(
+                "Error launching command {:?}, error = '{}'",
+                self.command_for_stake_distribution(),
+                message
+            )
+            .into())
+        }
     }
 
     async fn launch_epoch(&self) -> Result<String, Box<dyn Error + Sync + Send>> {
         let output = self.command_for_epoch().output().await?;
 
-        Ok(std::str::from_utf8(&output.stdout)?.trim().to_string())
+        if output.status.success() {
+            Ok(std::str::from_utf8(&output.stdout)?.trim().to_string())
+        } else {
+            let message = String::from_utf8_lossy(&output.stderr);
+
+            Err(format!(
+                "Error launching command {:?}, error = '{}'",
+                self.command_for_epoch(),
+                message
+            )
+            .into())
+        }
     }
 }
 
@@ -107,8 +133,11 @@ impl ChainObserver for CardanoCliChainObserver {
             .launch_epoch()
             .await
             .map_err(ChainObserverError::General)?;
-        let v: Value = serde_json::from_str(&output)
-            .map_err(|e| ChainObserverError::InvalidContent(e.into()))?;
+        let v: Value = serde_json::from_str(&output).map_err(|e| {
+            ChainObserverError::InvalidContent(
+                format!("Error: {:?}, output was = '{}'", e, output).into(),
+            )
+        })?;
 
         if let Value::Number(epoch) = &v["epoch"] {
             Ok(epoch.as_u64())
@@ -184,8 +213,8 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
             CardanoNetwork::TestNet(10),
         );
 
-        assert_eq!("Command { std: \"cardano-cli\" \"query\" \"tip\" \"--testnet-magic 10\", kill_on_drop: false }", format!("{:?}", runner.command_for_epoch()));
-        assert_eq!("Command { std: \"cardano-cli\" \"query\" \"stake-distribution\" \"--testnet-magic 10\", kill_on_drop: false }", format!("{:?}", runner.command_for_stake_distribution()));
+        assert_eq!("Command { std: \"cardano-cli\" \"query\" \"tip\" \"--testnet-magic\" \"10\", kill_on_drop: false }", format!("{:?}", runner.command_for_epoch()));
+        assert_eq!("Command { std: \"cardano-cli\" \"query\" \"stake-distribution\" \"--testnet-magic\" \"10\", kill_on_drop: false }", format!("{:?}", runner.command_for_stake_distribution()));
     }
 
     #[tokio::test]
@@ -196,8 +225,8 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
             CardanoNetwork::DevNet(25),
         );
 
-        assert_eq!("Command { std: \"cardano-cli\" \"query\" \"tip\" \"--testnet-magic 25\" \"--cardano-mode\", kill_on_drop: false }", format!("{:?}", runner.command_for_epoch()));
-        assert_eq!("Command { std: \"cardano-cli\" \"query\" \"stake-distribution\" \"--testnet-magic 25\" \"--cardano-mode\", kill_on_drop: false }", format!("{:?}", runner.command_for_stake_distribution()));
+        assert_eq!("Command { std: \"cardano-cli\" \"query\" \"tip\" \"--cardano-mode\" \"--testnet-magic\" \"25\", kill_on_drop: false }", format!("{:?}", runner.command_for_epoch()));
+        assert_eq!("Command { std: \"cardano-cli\" \"query\" \"stake-distribution\" \"--cardano-mode\" \"--testnet-magic\" \"25\", kill_on_drop: false }", format!("{:?}", runner.command_for_stake_distribution()));
     }
 
     #[tokio::test]

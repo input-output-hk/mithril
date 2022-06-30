@@ -1,4 +1,6 @@
 {
+    "cardano_cli_path": "cardano-cli",
+    "cardano_cli_socket_path": "/tmp/cardano.sock",
     "network": "devnet",
     "network_magic": 42,
     "run_interval": 30000,
