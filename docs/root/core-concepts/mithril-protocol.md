@@ -41,6 +41,8 @@ certificate. In which case the parameters can be adapted.
 
 > Question: How is this set defined? How are parties identified by all other parties? Should be some known set of parties identified by their keys?
 
+![](images/mithril_signature.png)
+
 ## Protocol Establishment Phase
 
 * Select/fix a prime order group to be used as basis for multi-signature scheme
