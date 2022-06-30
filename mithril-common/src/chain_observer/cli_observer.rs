@@ -73,13 +73,31 @@ impl CliRunner for CardanoCliRunner {
     async fn launch_stake_distribution(&self) -> Result<String, Box<dyn Error + Sync + Send>> {
         let output = self.command_for_stake_distribution().output().await?;
 
-        Ok(std::str::from_utf8(&output.stdout)?.trim().to_string())
+        if output.status.success() {
+            Ok(std::str::from_utf8(&output.stdout)?.trim().to_string())
+        } else {
+            Err(format!(
+                "Error launching command {:?}, error = '{:?}'",
+                self.command_for_stake_distribution(),
+                output.stderr
+            )
+            .into())
+        }
     }
 
     async fn launch_epoch(&self) -> Result<String, Box<dyn Error + Sync + Send>> {
         let output = self.command_for_epoch().output().await?;
 
-        Ok(std::str::from_utf8(&output.stdout)?.trim().to_string())
+        if output.status.success() {
+            Ok(std::str::from_utf8(&output.stdout)?.trim().to_string())
+        } else {
+            Err(format!(
+                "Error launching command {:?}, error = '{:?}'",
+                self.command_for_epoch(),
+                output.stderr
+            )
+            .into())
+        }
     }
 }
 
@@ -109,7 +127,7 @@ impl ChainObserver for CardanoCliChainObserver {
             .map_err(ChainObserverError::General)?;
         let v: Value = serde_json::from_str(&output).map_err(|e| {
             ChainObserverError::InvalidContent(
-                format!("Error: {:?}, output was = {}", e, output).into(),
+                format!("Error: {:?}, output was = '{}'", e, output).into(),
             )
         })?;
 
