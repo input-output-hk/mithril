@@ -39,7 +39,7 @@ impl Client {
             ClientCommand::Restore { digest } => vec!["restore".to_string(), digest],
         };
 
-        let mut child = self.command.start(&args);
+        let mut child = self.command.start(&args)?;
         match child.wait().await {
             Ok(status) => {
                 if status.success() {

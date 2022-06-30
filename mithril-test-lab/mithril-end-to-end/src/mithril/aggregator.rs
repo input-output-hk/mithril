@@ -75,8 +75,9 @@ impl Aggregator {
         &self.db_directory
     }
 
-    pub fn start(&mut self) {
-        self.process = Some(self.command.start(&[]));
+    pub fn start(&mut self) -> Result<(), String> {
+        self.process = Some(self.command.start(&[])?);
+        Ok(())
     }
 
     pub async fn tail_logs(&self, number_of_line: u64) -> Result<(), String> {

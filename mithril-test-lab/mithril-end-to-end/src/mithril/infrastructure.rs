@@ -29,7 +29,7 @@ impl MithrilInfrastructure {
             work_dir,
             bin_dir,
         )?;
-        aggregator.start();
+        aggregator.start()?;
 
         let mut signers: Vec<Signer> = vec![];
         for (i, pool_node) in devnet_topology.pool_nodes.iter().enumerate() {
@@ -41,7 +41,7 @@ impl MithrilInfrastructure {
                 work_dir,
                 bin_dir,
             )?;
-            signer.start();
+            signer.start()?;
 
             signers.push(signer);
         }
