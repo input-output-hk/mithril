@@ -50,9 +50,7 @@ mod test {
                 .await
                 .unwrap();
         }
-        let store = CertificateStore::new(Box::new(adapter));
-
-        store
+        CertificateStore::new(Box::new(adapter))
     }
 
     #[tokio::test]
@@ -86,7 +84,7 @@ mod test {
     #[tokio::test]
     async fn save_certificate_once() {
         let mut store = get_certificate_store(1).await;
-        let certificate = fake_data::certificate(format!("{}", "123".to_string()));
+        let certificate = fake_data::certificate("123".to_string());
 
         assert!(store.save(certificate).await.is_ok());
     }

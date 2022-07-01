@@ -59,9 +59,7 @@ mod test {
                 .await
                 .unwrap();
         }
-        let store = CertificatePendingStore::new(Box::new(adapter));
-
-        store
+        CertificatePendingStore::new(Box::new(adapter))
     }
 
     #[tokio::test]

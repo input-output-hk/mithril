@@ -116,12 +116,14 @@ mod tests {
             values.push((immutable_file_number, single_signatures));
         }
 
-        let values = if values.len() > 0 { Some(values) } else { None };
+        let values = if !values.is_empty() {
+            Some(values)
+        } else {
+            None
+        };
         let adapter: MemoryAdapter<ImmutableFileNumber, HashMap<PartyId, SingleSignaturesMap>> =
             MemoryAdapter::new(values).unwrap();
-        let store = SingleSignatureStore::new(Box::new(adapter));
-
-        store
+        SingleSignatureStore::new(Box::new(adapter))
     }
 
     #[tokio::test]
