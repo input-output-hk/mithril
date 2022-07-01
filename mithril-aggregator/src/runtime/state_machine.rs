@@ -191,19 +191,17 @@ impl AggregatorRuntime {
         new_beacon: Beacon,
     ) -> Result<SigningState, RuntimeError> {
         debug!("launching transition from IDLE to SIGNING state");
-        let _ = self.runner.update_beacon(&new_beacon).await?;
-        let _ = self.runner.update_stake_distribution(&new_beacon).await?; // TODO: This should happen only when the epoch is changing. This requires to modify the state machine by keeping track of the previous beacon in the state
+        self.runner.update_beacon(&new_beacon).await?;
+        self.runner.update_stake_distribution(&new_beacon).await?; // TODO: This should happen only when the epoch is changing. This requires to modify the state machine by keeping track of the previous beacon in the state
         let digester_result = self.runner.compute_digest(&new_beacon).await?;
-        let _ = self
-            .runner
+        self.runner
             .update_message_in_multisigner(digester_result)
             .await?;
         let certificate = self
             .runner
             .create_new_pending_certificate_from_multisigner(new_beacon.clone())
             .await?;
-        let _ = self
-            .runner
+        self.runner
             .save_pending_certificate(certificate.clone())
             .await?;
         let state = SigningState {
