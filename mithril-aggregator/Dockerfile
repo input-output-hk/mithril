@@ -1,7 +1,7 @@
 ###############################
 # STEP 1: build rust executable
 ###############################
-FROM rust:1.61 AS rustbuilder
+FROM rust:buster AS rustbuilder
 
 # Upgrade and install build base
 RUN apt-get update && apt-get install -y libssl-dev
