@@ -35,3 +35,9 @@
     height: 24px;
     width: 24px;
 }
+
+@media screen and (max-width: 996px) {
+    .footer {
+        text-align: center;
+    }
+}
