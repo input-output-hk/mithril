@@ -59,6 +59,14 @@ const config = {
     themeConfig:
         /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
         ({
+            announcementBar: {
+                id: 'announcement',
+                content:
+                    'We are actively looking for SPO to test Mithril on the Cardano testnet. Contact us  <a rel="noopener noreferrer" href="mailto:spo-mithirl@iohk.io">here</a> if you are interested!',
+                backgroundColor: '#2e8555',
+                textColor: '#f1f1f1',
+                isCloseable: true,
+            },
             navbar: {
                 title: 'Mithril',
                 logo: {
