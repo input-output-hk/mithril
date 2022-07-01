@@ -68,26 +68,14 @@ const config = {
                 items: [
                     {
                         type: 'doc',
-                        docId: 'intro',
+                        docId: 'manual/getting-started/welcome',
                         position: 'left',
-                        label: 'Getting Started',
+                        label: 'User Manual',
                     },
                     {
                         type: 'doc',
-                        docId: 'core-concepts/index',
-                        label: 'Core Concepts',
-                        position: 'left',
-                    },
-                    {
-                        type: 'doc',
-                        docId: 'topologies/index',
-                        label: 'Topologies',
-                        position: 'left',
-                    },
-                    {
-                        type: 'doc',
-                        docId: 'test-lab/index',
-                        label: 'Test Lab',
+                        docId: 'mithril/intro',
+                        label: 'About Mithril',
                         position: 'left',
                     },
                     {
@@ -96,28 +84,28 @@ const config = {
                         position: 'left',
                         items: [
                             {
-                                to: 'https://mithril.network/mithril-aggregator/doc/mithril_aggregator/index.html',
+                                to: '/aggregator-api',
+                                label: 'Aggregator Node - API Reference'
+                            },
+                            {
+                                href: 'https://mithril.network/mithril-aggregator/doc/mithril_aggregator/index.html',
                                 label: 'Aggregator Node - Rust documentation'
                             },
                             {
-                                to: 'https://mithril.network/mithril-signer/doc/mithril_signer/index.html',
+                                href: 'https://mithril.network/mithril-signer/doc/mithril_signer/index.html',
                                 label: 'Signer Node - Rust documentation'
                             },
                             {
-                                to: 'https://mithril.network/mithril-client/doc/mithril_client/index.html',
+                                href: 'https://mithril.network/mithril-client/doc/mithril_client/index.html',
                                 label: 'Client Node - Rust documentation'
                             },
                             {
-                                to: 'https://mithril.network/mithril-core/doc/mithril/index.html',
+                                href: 'https://mithril.network/mithril-core/doc/mithril/index.html',
                                 label: 'Cryptographic Core Library - Rust documentation'
                             },
                             {
-                                to: 'https://mithril.network/mithril-common/doc/mithril_common/index.html',
+                                href: 'https://mithril.network/mithril-common/doc/mithril_common/index.html',
                                 label: 'Common Node Library - Rust documentation'
-                            },
-                            {
-                                to: '/aggregator-api',
-                                label: 'Aggregator Node API Reference'
                             },
                         ]
                     },
@@ -143,7 +131,7 @@ const config = {
                         items: [
                             {
                                 label: 'Project Charter',
-                                to: 'https://github.com/input-output-hk/mithril/wiki/Project-Charter',
+                                href: 'https://github.com/input-output-hk/mithril/wiki/Project-Charter',
                             },
                             {
                                 label: 'Architectural Decision Records',
@@ -169,11 +157,11 @@ const config = {
                         items: [
                             {
                                 label: 'Logbook',
-                                to: 'https://github.com/input-output-hk/mithril/wiki/Logbook'
+                                href: 'https://github.com/input-output-hk/mithril/wiki/Logbook'
                             },
                             {
                                 label: 'Input Output (Blog)',
-                                to: 'https://iohk.io/en/blog'
+                                href: 'https://iohk.io/en/blog'
                             },
                         ],
                     },

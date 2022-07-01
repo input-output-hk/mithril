@@ -12,7 +12,7 @@ const FeatureList = [
                 Find components description in Topologies.
             </>
         ),
-        link: '/doc/topologies',
+        link: '/doc/category/topologies',
     },
     {
         title: 'How it works',
@@ -23,7 +23,7 @@ const FeatureList = [
                 Find how the Mithril multisignature works in Core Concepts.
             </>
         ),
-        link: '/doc/core-concepts',
+        link: '/doc/category/core-concepts',
     },
     {
         title: 'Get started',
@@ -33,7 +33,7 @@ const FeatureList = [
                 Quick instructions to build it.
             </>
         ),
-        link: '/doc/intro',
+        link: '/doc/manual/getting-started/welcome',
     },
 ];
 
