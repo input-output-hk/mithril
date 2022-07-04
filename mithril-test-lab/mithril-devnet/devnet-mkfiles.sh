@@ -99,11 +99,7 @@ fi
 
 # download cardano-cli & cardano-node
 curl -s ${CARDANO_BINARY_URL} --output cardano-bin.tar.gz
-mkdir tmp
-tar xzf cardano-bin.tar.gz -C tmp
-cp tmp/cardano-cli .
-cp tmp/cardano-node .
-rm -rf tmp
+tar xzf cardano-bin.tar.gz ./cardano-cli ./cardano-node 
 rm -f cardano-bin.tar.gz
 
 # and copy cardano-cli & cardano-node
@@ -480,10 +476,9 @@ echo "stake address regitration certs, and stake address delegatation certs"
 echo
 ls -1 addresses/
 echo "====================================================================="
-
+echo
 
 # Next is to make the stake pool registration cert
-
 for NODE in ${POOL_NODES}; do
 
   ./cardano-cli stake-pool registration-certificate \
@@ -494,10 +489,25 @@ for NODE in ${POOL_NODES}; do
     --reward-account-verification-key-file   ${NODE}/owner.vkey \
     --pool-owner-stake-verification-key-file ${NODE}/owner.vkey \
     --out-file                               ${NODE}/registration.cert
+
 done
 
 echo "Generated stake pool registration certs:"
 ls -1 node-*/registration.cert
+echo "====================================================================="
+echo
+
+# Next is to prepare the pool env files
+POOL_IDX=0
+for NODE in ${POOL_NODES}; do
+
+    echo PARTY_ID=${POOL_IDX} > ${NODE}/pool.env
+    POOL_IDX=$(( $POOL_IDX + 1))
+
+done
+
+echo "Generated pool env files:"
+ls -1 node-*/pool.env
 echo "====================================================================="
 
 cat >> activate.sh <<EOF
@@ -561,6 +571,29 @@ CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli transaction s
 EOF
 
 done
+
+    # Wait until pools are activated on the Cardano network
+    cat >> activate.sh <<EOF
+    echo ">> Wait for Cardano pools to be activated"
+while true
+do
+    POOLS=\$(./pools.sh 2> /dev/null)
+    if [ "\$POOLS" != "" ] ; then
+        echo ">>>> Activated!"
+        POOL_IDX=1
+        ./pools.sh | while read POOL_ID ; do
+            echo ">>>> Found PoolId: \$POOL_ID"
+            echo PARTY_ID=\${POOL_ID} > node-pool\${POOL_IDX}/pool.env
+            POOL_IDX=\$(( \$POOL_IDX + 1))
+        done
+        break
+    else
+        echo ">>>> Not activated yet"
+        sleep 2
+    fi
+done
+
+EOF
 
 chmod u+x activate.sh
 
@@ -654,6 +687,20 @@ EOF
 chmod u+x query.sh
 
 echo "Generated query.sh script"
+echo "====================================================================="
+echo
+
+cat >> pools.sh <<EOF
+#!/bin/bash
+
+CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query stake-pools \\
+    --cardano-mode  \\
+    --testnet-magic ${NETWORK_MAGIC}
+EOF
+
+chmod u+x pools.sh
+
+echo "Generated pools.sh script"
 echo "====================================================================="
 echo
 
@@ -776,6 +823,7 @@ cat >> docker-compose.yaml <<EOF
       - RUST_BACKTRACE=1
       - GOOGLE_APPLICATION_CREDENTIALS_JSON=
       - NETWORK=devnet
+      - NETWORK_MAGIC=${NETWORK_MAGIC}
       - RUN_INTERVAL=5000
       - URL_SNAPSHOT_MANIFEST=
       - SNAPSHOT_STORE_TYPE=local
@@ -816,11 +864,13 @@ cat >> docker-compose.yaml <<EOF
       - ./${NODE}:/data
     networks:
     - mithril_network
+    env_file:
+    - ./${NODE}/pool.env
     environment:
       - RUST_BACKTRACE=1
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
       - NETWORK=devnet
-      - PARTY_ID=${NODE_IX}
+      - NETWORK_MAGIC=${NETWORK_MAGIC}
       - RUN_INTERVAL=1000
       - DB_DIRECTORY=/data/db
       - STAKE_STORE_DIRECTORY=/data/mithril/signer/db/stake_db
