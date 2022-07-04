@@ -81,7 +81,7 @@ services:
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
       - NETWORK=testnet
       - NETWORK_MAGIC=1097911063
-      - PARTY_ID=0
+      - PARTY_ID=pool1frevxe70aqw2ce58c0muyesnahl88nfjjsp25h85jwakzgd2g2l # IOG1 / https://testnet.cardanoscan.io/pool/48f2c367cfe81cac6687c3f7c26613edfe73cd329402aa5cf493bb61
       - RUN_INTERVAL=60000
       - DB_DIRECTORY=/db
       - STAKE_STORE_DIRECTORY=/mithril-signer-0/stake_db
@@ -109,7 +109,7 @@ services:
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
       - NETWORK=testnet
       - NETWORK_MAGIC=1097911063
-      - PARTY_ID=1
+      - PARTY_ID=pool1987uhrx7pt5rea26sqsdrlenfclm2wxafd4rpspvz3qyqshnuyy # IOG2 / https://testnet.cardanoscan.io/pool/29fdcb8cde0ae83cf55a8020d1ff334e3fb538dd4b6a30c02c144040
       - RUN_INTERVAL=60000
       - DB_DIRECTORY=/db
       - STAKE_STORE_DIRECTORY=/mithril-signer-1/stake_db
@@ -137,7 +137,7 @@ services:
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
       - NETWORK=testnet
       - NETWORK_MAGIC=1097911063
-      - PARTY_ID=2
+      - PARTY_ID=pool12luf5ysaxajd0g8dvtpuyxdchln363dhed8637psyx2eqzatmcv # Random unnamed pool / https://testnet.cardanoscan.io/pool/57f89a121d3764d7a0ed62c3c219b8bfe71d45b7cb4fa8f830219590
       - RUN_INTERVAL=60000
       - DB_DIRECTORY=/db
       - STAKE_STORE_DIRECTORY=/mithril-signer-2/stake_db
@@ -165,7 +165,7 @@ services:
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
       - NETWORK=testnet
       - NETWORK_MAGIC=1097911063
-      - PARTY_ID=3
+      - PARTY_ID=pool17vmenrzf2ylr92t390wwhk3jn0ursx00sy92cfa807s3whyknrc # PIPE / https://testnet.cardanoscan.io/pool/f337998c49513e32a9712bdcebda329bf83819ef810aac27a77fa117
       - RUN_INTERVAL=60000
       - DB_DIRECTORY=/db
       - STAKE_STORE_DIRECTORY=/mithril-signer-3/stake_db
