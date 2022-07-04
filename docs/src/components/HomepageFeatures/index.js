@@ -12,6 +12,7 @@ const FeatureList = [
         Find components description in Topologies.
       </>
     ),
+    link: '/doc/category/topologies',
   },
   {
     title: 'How it works',
@@ -22,6 +23,7 @@ const FeatureList = [
         Find how the Mithril multisignature works in Core Concepts.
       </>
     ),
+    link: '/doc/category/core-concepts',
   },
   {
     title: 'Get started',
@@ -31,14 +33,15 @@ const FeatureList = [
         Quick instructions to build it.
       </>
     ),
+    link: '/doc/manual/getting-started/welcome',
   },
 ];
 
-function Feature({ Svg, title, description }) {
+function Feature({ Svg, title, description, link }) {
   return (
     <div className={clsx('col col--4')}>
       <div className="text--center">
-        <Svg className={styles.featureSvg} role="img" />
+        <a href={link}><Svg className={styles.featureSvg} role="img" /></a>
       </div>
       <div className="text--center padding-horiz--md">
         <h3>{title}</h3>
