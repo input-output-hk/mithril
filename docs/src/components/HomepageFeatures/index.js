@@ -33,7 +33,7 @@ const FeatureList = [
         Quick instructions to build it.
       </>
     ),
-    link: '/doc/manual/getting-started/welcome',
+    link: '/doc/manual/welcome',
   },
 ];
 
