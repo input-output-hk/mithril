@@ -17,7 +17,7 @@ impl MithrilInfrastructure {
         bin_dir: &Path,
     ) -> Result<Self, String> {
         devnet.run().await?;
-        let devnet_topology = devnet.topology()?;
+        let devnet_topology = devnet.topology();
         let bft_node = devnet_topology
             .bft_nodes
             .first()

@@ -20,7 +20,7 @@ impl Signer {
         work_dir: &Path,
         bin_dir: &Path,
     ) -> Result<Self, String> {
-        let party_id = pool_node.party_id.clone();
+        let party_id = pool_node.party_id()?;
         let stake_store_path = format!("./store/signer-{}/stakes", party_id);
         let env = HashMap::from([
             ("NETWORK", "devnet"),
