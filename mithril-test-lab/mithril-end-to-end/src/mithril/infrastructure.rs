@@ -16,7 +16,8 @@ impl MithrilInfrastructure {
         work_dir: &Path,
         bin_dir: &Path,
     ) -> Result<Self, String> {
-        let devnet_topology = devnet.topology();
+        devnet.run().await?;
+        let devnet_topology = devnet.topology()?;
         let bft_node = devnet_topology
             .bft_nodes
             .first()
@@ -32,11 +33,10 @@ impl MithrilInfrastructure {
         aggregator.start()?;
 
         let mut signers: Vec<Signer> = vec![];
-        for (i, pool_node) in devnet_topology.pool_nodes.iter().enumerate() {
+        for pool_node in devnet_topology.pool_nodes {
             let mut signer = Signer::new(
                 aggregator.endpoint(),
-                i.to_string(),
-                pool_node,
+                &pool_node,
                 &devnet.cardano_cli_path(),
                 work_dir,
                 bin_dir,
@@ -45,8 +45,6 @@ impl MithrilInfrastructure {
 
             signers.push(signer);
         }
-
-        devnet.run().await?;
 
         Ok(Self {
             work_dir: work_dir.to_path_buf(),

@@ -1,3 +1,5 @@
+use futures::future::UnwrapOrElse;
+use mithril_common::entities::PartyId;
 use slog_scope::info;
 use std::fs;
 use std::path::PathBuf;
@@ -21,6 +23,7 @@ pub struct BftNode {
 pub struct PoolNode {
     pub db_path: PathBuf,
     pub socket_path: PathBuf,
+    pub party_id: PartyId,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -96,7 +99,22 @@ impl Devnet {
         self.artifacts_dir.join("cardano-cli")
     }
 
-    pub fn topology(&self) -> DevnetTopology {
+    fn get_party_id(&self, node_no: u8) -> Result<PartyId, String> {
+        let filepath = self
+            .artifacts_dir
+            .join(format!("node-pool{}/pool.env", node_no));
+        let content = fs::read_to_string(&filepath)
+            .map_err(|e| format!("error while reading file '{}': {}", filepath.display(), e))?;
+        let party_id = content
+            .split("=")
+            .skip(1)
+            .next()
+            .ok_or(format!("could not get party_id from string '{}'", content))?;
+
+        Ok(party_id.to_string())
+    }
+
+    pub fn topology(&self) -> Result<DevnetTopology, String> {
         let bft_nodes = (1..=self.number_of_bft_nodes)
             .into_iter()
             .map(|n| BftNode {
@@ -106,6 +124,7 @@ impl Devnet {
                     .join(format!("node-bft{}/ipc/node.sock", n)),
             })
             .collect::<Vec<_>>();
+
         let pool_nodes = (1..=self.number_of_pool_nodes)
             .into_iter()
             .map(|n| PoolNode {
@@ -113,13 +132,14 @@ impl Devnet {
                 socket_path: self
                     .artifacts_dir
                     .join(format!("node-pool{}/ipc/node.sock", n)),
+                party_id: self.get_party_id(n).unwrap(),
             })
             .collect::<Vec<_>>();
 
-        DevnetTopology {
+        Ok(DevnetTopology {
             bft_nodes,
             pool_nodes,
-        }
+        })
     }
 
     pub async fn run(&self) -> Result<(), String> {
@@ -170,7 +190,7 @@ mod tests {
     #[test]
     pub fn yield_empty_topology_with_0_nodes() {
         let devnet = Devnet::new(PathBuf::new(), 0, 0);
-        let topology = devnet.topology();
+        let topology = devnet.topology().unwrap();
 
         assert_eq!(
             (0, 0),
@@ -181,7 +201,7 @@ mod tests {
     #[test]
     pub fn yield_complete_topology_with_2_bft_and_12_pool_nodes() {
         let devnet = Devnet::new(PathBuf::new(), 2, 12);
-        let topology = devnet.topology();
+        let topology = devnet.topology().unwrap();
 
         assert_eq!(
             (2, 12),
@@ -197,14 +217,15 @@ mod tests {
             DevnetTopology {
                 bft_nodes: vec![BftNode {
                     db_path: PathBuf::from(r"test/path/node-bft1/db"),
-                    socket_path: PathBuf::from(r"test/path/node-bft1/ipc/node.sock")
+                    socket_path: PathBuf::from(r"test/path/node-bft1/ipc/node.sock"),
                 }],
                 pool_nodes: vec![PoolNode {
                     db_path: PathBuf::from(r"test/path/node-pool1/db"),
-                    socket_path: PathBuf::from(r"test/path/node-pool1/ipc/node.sock")
+                    socket_path: PathBuf::from(r"test/path/node-pool1/ipc/node.sock"),
+                    party_id: "".to_string(),
                 },],
             },
-            devnet.topology()
+            devnet.topology().unwrap()
         );
     }
 }
