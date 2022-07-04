@@ -633,13 +633,12 @@ mod tests {
             >::new(None)
             .unwrap(),
         ));
-        let multi_signer = MultiSignerImpl::new(
+        MultiSignerImpl::new(
             Arc::new(RwLock::new(beacon_store)),
             Arc::new(RwLock::new(verification_key_store)),
             Arc::new(RwLock::new(stake_store)),
             Arc::new(RwLock::new(single_signature_store)),
-        );
-        multi_signer
+        )
     }
 
     #[tokio::test]
@@ -721,7 +720,7 @@ mod tests {
 
         for (party_id, _, verification_key, _, _) in &signers {
             multi_signer
-                .register_signer(party_id.to_owned(), &verification_key)
+                .register_signer(party_id.to_owned(), verification_key)
                 .await
                 .expect("register should have succeeded")
         }
@@ -789,7 +788,7 @@ mod tests {
             .map(|(party_id, stake, _, _, _)| (party_id.to_owned(), *stake))
             .collect::<_>();
         multi_signer
-            .update_stake_distribution(&stake_distribution)
+            .update_stake_distribution(stake_distribution)
             .await
             .expect("update stake distribution failed");
         for (party_id, _, verification_key, _, _) in &signers {
@@ -802,7 +801,7 @@ mod tests {
         let mut signatures = Vec::new();
         for (party_id, _, _, protocol_signer, _) in &signers {
             for i in 1..=protocol_parameters.m {
-                if let Some(signature) = protocol_signer.sign(&message.as_bytes(), i) {
+                if let Some(signature) = protocol_signer.sign(message.as_bytes(), i) {
                     signatures.push((party_id.to_owned(), signature, i as ProtocolLotteryIndex));
                 }
             }

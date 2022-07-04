@@ -86,12 +86,14 @@ mod tests {
             values.push((epoch, signers));
         }
 
-        let values = if values.len() > 0 { Some(values) } else { None };
+        let values = if !values.is_empty() {
+            Some(values)
+        } else {
+            None
+        };
         let adapter: MemoryAdapter<Epoch, HashMap<PartyId, Signer>> =
             MemoryAdapter::new(values).unwrap();
-        let store = VerificationKeyStore::new(Box::new(adapter));
-
-        store
+        VerificationKeyStore::new(Box::new(adapter))
     }
 
     #[tokio::test]
