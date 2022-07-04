@@ -8,7 +8,7 @@ Let's discover **Mithril in less than 5 minutes**.
 
 ## Getting Started
 
-A Mithril Network is composed of 3 main components:
+A **Mithril Network** is composed of 3 main components:
 
 * **Mithril Aggregator**:
 
@@ -22,9 +22,9 @@ This node is in charge of **producing single signatures that are then combined i
 
 This node is in charge of **verifying and restoring a snapshot** that will allow a lightning fast boostrapping of a Cardano full node.
 
-:::info
+:::tip
 
-For more information about the **Mithril Protocol** or the **Mithril Network**, please refer to the [About Mithril](../mithril/intro.md) section.
+For more information about the **Mithril Protocol**, please refer to the [About Mithril](../mithril/intro.md) section.
 
 :::
 
