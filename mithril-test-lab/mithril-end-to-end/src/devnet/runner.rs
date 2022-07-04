@@ -1,4 +1,3 @@
-use futures::future::UnwrapOrElse;
 use mithril_common::entities::PartyId;
 use slog_scope::info;
 use std::fs;
@@ -111,7 +110,7 @@ impl Devnet {
             .next()
             .ok_or(format!("could not get party_id from string '{}'", content))?;
 
-        Ok(party_id.to_string())
+        Ok(party_id.trim().to_string())
     }
 
     pub fn topology(&self) -> Result<DevnetTopology, String> {
