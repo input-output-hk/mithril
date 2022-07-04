@@ -1,3 +1,4 @@
+use mithril_common::entities::PartyId;
 use slog_scope::info;
 use std::fs;
 use std::path::PathBuf;
@@ -21,6 +22,25 @@ pub struct BftNode {
 pub struct PoolNode {
     pub db_path: PathBuf,
     pub socket_path: PathBuf,
+    pool_env_path: PathBuf,
+}
+
+impl PoolNode {
+    pub fn party_id(&self) -> Result<PartyId, String> {
+        let content = fs::read_to_string(&self.pool_env_path).map_err(|e| {
+            format!(
+                "error while reading party_id from file '{}': {}",
+                self.pool_env_path.display(),
+                e
+            )
+        })?;
+        let party_id = content
+            .split('=')
+            .nth(1)
+            .ok_or(format!("could not get party_id from string '{}'", content))?;
+
+        Ok(party_id.trim().to_string())
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -106,6 +126,7 @@ impl Devnet {
                     .join(format!("node-bft{}/ipc/node.sock", n)),
             })
             .collect::<Vec<_>>();
+
         let pool_nodes = (1..=self.number_of_pool_nodes)
             .into_iter()
             .map(|n| PoolNode {
@@ -113,6 +134,7 @@ impl Devnet {
                 socket_path: self
                     .artifacts_dir
                     .join(format!("node-pool{}/ipc/node.sock", n)),
+                pool_env_path: self.artifacts_dir.join(format!("node-pool{}/pool.env", n)),
             })
             .collect::<Vec<_>>();
 
@@ -197,11 +219,12 @@ mod tests {
             DevnetTopology {
                 bft_nodes: vec![BftNode {
                     db_path: PathBuf::from(r"test/path/node-bft1/db"),
-                    socket_path: PathBuf::from(r"test/path/node-bft1/ipc/node.sock")
+                    socket_path: PathBuf::from(r"test/path/node-bft1/ipc/node.sock"),
                 }],
                 pool_nodes: vec![PoolNode {
                     db_path: PathBuf::from(r"test/path/node-pool1/db"),
-                    socket_path: PathBuf::from(r"test/path/node-pool1/ipc/node.sock")
+                    socket_path: PathBuf::from(r"test/path/node-pool1/ipc/node.sock"),
+                    pool_env_path: PathBuf::from(r"test/path/node-pool1/pool.env"),
                 },],
             },
             devnet.topology()

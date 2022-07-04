@@ -236,6 +236,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .ok_or_else(|| RuntimeError::General("no stake store registered".to_string().into()))?
             .write()
             .await;
+
         for (party_id, stake) in &stake_distribution {
             stake_store
                 .save_stake(

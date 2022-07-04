@@ -15,12 +15,12 @@ pub struct Signer {
 impl Signer {
     pub fn new(
         aggregator_endpoint: String,
-        party_id: PartyId,
         pool_node: &PoolNode,
         cardano_cli_path: &Path,
         work_dir: &Path,
         bin_dir: &Path,
     ) -> Result<Self, String> {
+        let party_id = pool_node.party_id()?;
         let stake_store_path = format!("./store/signer-{}/stakes", party_id);
         let env = HashMap::from([
             ("NETWORK", "devnet"),
