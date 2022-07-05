@@ -62,7 +62,7 @@ const config = {
       announcementBar: {
         id: 'announcement',
         content:
-          'We are actively looking for SPO to test Mithril on the Cardano testnet. Contact us  <a rel="noopener noreferrer" href="mailto:spo-mithirl@iohk.io">here</a> if you are interested!',
+          'We are actively looking for SPO candidates to test Mithril on the Cardano testnet. Contact us  <a rel="noopener noreferrer" href="#">here</a> if you are interested!',
         backgroundColor: '#2e8555',
         textColor: '#f1f1f1',
         isCloseable: true,
@@ -76,7 +76,7 @@ const config = {
         items: [
           {
             type: 'doc',
-            docId: 'manual/getting-started/welcome',
+            docId: 'manual/welcome',
             position: 'left',
             label: 'User Manual',
           },
