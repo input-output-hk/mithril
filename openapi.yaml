@@ -163,8 +163,6 @@ paths:
       responses:
         "201":
           description: signer registration succeeded
-        "409":
-          description: signer registration already done
         "400":
           description: signer registration bad request
         default:

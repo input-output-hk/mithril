@@ -23,7 +23,7 @@ impl Aggregator {
         let port = server_port.to_string();
         let env = HashMap::from([
             ("NETWORK", "devnet"),
-            ("RUN_INTERVAL", "5000"),
+            ("RUN_INTERVAL", "2000"),
             ("URL_SNAPSHOT_MANIFEST", ""),
             ("SNAPSHOT_STORE_TYPE", "local"),
             ("SNAPSHOT_UPLOADER_TYPE", "local"),
@@ -35,7 +35,7 @@ impl Aggregator {
             ("CERTIFICATE_STORE_DIRECTORY", "./store/aggregator/certs"),
             (
                 "VERIFICATION_KEY_STORE_DIRECTORY",
-                "./store/aggregator/certs",
+                "./store/aggregator/verification_keys",
             ),
             ("STAKE_STORE_DIRECTORY", "./store/aggregator/stakes"),
             ("SNAPSHOT_STORE_DIRECTORY", "./store/aggregator/snapshots"),

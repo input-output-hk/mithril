@@ -45,7 +45,7 @@ mod handlers {
                     .await
                 {
                     Ok(()) => Ok(reply::empty(StatusCode::CREATED)),
-                    Err(ProtocolError::ExistingSigner()) => Ok(reply::empty(StatusCode::CONFLICT)),
+                    Err(ProtocolError::ExistingSigner()) => Ok(reply::empty(StatusCode::CREATED)),
                     Err(err) => Ok(reply::internal_server_error(err.to_string())),
                 }
             }
@@ -117,35 +117,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signer_post_ko_400() {
-        let mock_multi_signer = MockMultiSigner::new();
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
-
-        let mut signer = fake_data::signers(1)[0].clone();
-        signer.verification_key = "invalid-key".to_string();
-
-        let method = Method::POST.as_str();
-        let path = "/register-signer";
-
-        let response = request()
-            .method(method)
-            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .json(&signer)
-            .reply(&setup_router(Arc::new(dependency_manager)))
-            .await;
-
-        APISpec::from_file(API_SPEC_FILE)
-            .method(method)
-            .path(path)
-            .validate_request(&signer)
-            .unwrap()
-            .validate_response(&response)
-            .expect("OpenAPI error");
-    }
-
-    #[tokio::test]
-    async fn test_register_signer_post_ko_409() {
+    async fn test_register_signer_post_ok_existing() {
         let mut mock_multi_signer = MockMultiSigner::new();
         mock_multi_signer
             .expect_register_signer()
@@ -162,6 +134,34 @@ mod tests {
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
             .json(signer)
+            .reply(&setup_router(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::from_file(API_SPEC_FILE)
+            .method(method)
+            .path(path)
+            .validate_request(&signer)
+            .unwrap()
+            .validate_response(&response)
+            .expect("OpenAPI error");
+    }
+
+    #[tokio::test]
+    async fn test_register_signer_post_ko_400() {
+        let mock_multi_signer = MockMultiSigner::new();
+        let mut dependency_manager = setup_dependency_manager();
+        dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
+
+        let mut signer = fake_data::signers(1)[0].clone();
+        signer.verification_key = "invalid-key".to_string();
+
+        let method = Method::POST.as_str();
+        let path = "/register-signer";
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
+            .json(&signer)
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 

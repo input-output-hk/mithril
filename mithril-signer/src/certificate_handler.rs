@@ -13,12 +13,16 @@ use mockall::automock;
 pub enum CertificateHandlerError {
     #[error("remote server technical error: '{0}'")]
     RemoteServerTechnical(String),
+
     #[error("remote server logical error: '{0}'")]
     RemoteServerLogical(String),
+
     #[error("remote server unreachable: '{0}'")]
     RemoteServerUnreachable(String),
+
     #[error("json parsing failed: '{0}'")]
     JsonParseFailed(String),
+
     #[error("io error:")]
     IOError(#[from] io::Error),
 }
@@ -91,9 +95,6 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
                 StatusCode::CREATED => Ok(()),
                 StatusCode::BAD_REQUEST => Err(CertificateHandlerError::RemoteServerLogical(
                     "bad request".to_string(),
-                )),
-                StatusCode::CONFLICT => Err(CertificateHandlerError::RemoteServerLogical(
-                    "already registered signer".to_string(),
                 )),
                 status_error => Err(CertificateHandlerError::RemoteServerTechnical(
                     status_error.to_string(),
@@ -233,24 +234,6 @@ mod tests {
         let register_signer = certificate_handler.register_signer(&single_signer).await;
         assert_eq!(
             CertificateHandlerError::RemoteServerLogical("bad request".to_string()).to_string(),
-            register_signer.unwrap_err().to_string()
-        );
-    }
-
-    #[tokio::test]
-    async fn test_register_signer_ok_409() {
-        let single_signers = fake_data::signers(1);
-        let single_signer = single_signers.first().unwrap();
-        let (server, config) = setup_test();
-        let _snapshots_mock = server.mock(|when, then| {
-            when.method(POST).path("/register-signer");
-            then.status(409);
-        });
-        let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
-        let register_signer = certificate_handler.register_signer(&single_signer).await;
-        assert_eq!(
-            CertificateHandlerError::RemoteServerLogical("already registered signer".to_string())
-                .to_string(),
             register_signer.unwrap_err().to_string()
         );
     }
