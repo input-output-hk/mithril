@@ -1,8 +1,3 @@
----
-sidebar_label: Design
-sidebar_position: 2
----
-
 # Mithril Test Lab Design
 
 ## Summary
@@ -123,14 +118,14 @@ violate data-structure invariants.
 
 This exposes another requirement of a useful "reference implementation" which is to make it as controllable as possible.
 That is, it should not only be useable as a correct reference, but it should be able to simulate almost any attacker
-needed when required, either by generating subtly incorrect messages, or generating correct messages with *meaninguflly*
+needed when required, either by generating subtly incorrect messages, or generating correct messages with _meaninguflly_
 incorrect contents. In the case of Mithril, this could constitute dishonest state representations or cryptograpically
 difficult values.
 
 An open design question is if this kind of behavior should be built into a controllable reference node or if it can be
 built as a powerful transformation layer on top of a correct reference node. Keeping them separate results in a more
 purely correct reference node, which is valuable if it will be used as an implementation reference. Keeping the layers
-separate *might* result in a less powerful attack capability, or at least higher difficulty in coordinating more
+separate _might_ result in a less powerful attack capability, or at least higher difficulty in coordinating more
 sophisticated attacks on the protocol under test.
 
 ## Heterogeneous Nodes
