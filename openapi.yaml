@@ -182,9 +182,7 @@ paths:
         content:
           application/json:
             schema:
-              type: array
-              items:
-                $ref: "#/components/schemas/SingleSignature"
+              $ref: "#/components/schemas/SingleSignatures"
       responses:
         "201":
           description: signatures registration succeeded
@@ -304,26 +302,30 @@ components:
         - $ref: "#/components/schemas/Signer"
         - $ref: "#/components/schemas/Stake"
 
-    SingleSignature:
-      description: SingleSignature represents a single signature originating from a participant in the network for a digest at a specific lottery index
+    SingleSignatures:
+      description: |
+        SingleSignatures represents a single signature originating from a participant in the network for a digest 
+        associated with the list of its won indexes in the lottery
       type: object
       additionalProperties: false
       required:
         - party_id
-        - index
         - signature
+        - indexes
       properties:
         party_id:
           description: The unique identifier of the signer
           type: string
-        index:
-          description: The index of the lottery won that lead to the single signature
-          type: integer
-          format: int64
         signature:
           description: The single signature of the digest
           type: string
           format: byte
+        indexes:
+          description: The indexes of the lottery won that lead to the single signature
+          type: array
+          items:
+            type: integer
+            format: int64
       example:
         {
           "party_id": "1234567890",

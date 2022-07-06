@@ -6,8 +6,8 @@ use thiserror::Error;
 
 use mithril_common::crypto_helper::{
     key_decode_hex, key_encode_hex, ProtocolAggregateVerificationKey, ProtocolClerk,
-    ProtocolKeyRegistration, ProtocolLotteryIndex, ProtocolMultiSignature, ProtocolParameters,
-    ProtocolPartyId, ProtocolSignerVerificationKey, ProtocolSingleSignature, ProtocolStake,
+    ProtocolKeyRegistration, ProtocolMultiSignature, ProtocolParameters, ProtocolPartyId,
+    ProtocolSignerVerificationKey, ProtocolSingleSignature, ProtocolStake,
     ProtocolStakeDistribution,
 };
 use mithril_common::entities;
@@ -23,6 +23,7 @@ use super::store::{
     VerificationKeyStorer,
 };
 
+use mithril_common::entities::PartyId;
 #[cfg(test)]
 use mockall::automock;
 
@@ -32,7 +33,7 @@ pub enum ProtocolError {
     ExistingSigner(),
 
     #[error("single signature already recorded")]
-    ExistingSingleSignature(ProtocolLotteryIndex),
+    ExistingSingleSignature(PartyId),
 
     #[error("codec error: '{0}'")]
     Codec(String),
@@ -124,9 +125,7 @@ pub trait MultiSigner: Sync + Send {
     /// Registers a single signature
     async fn register_single_signature(
         &mut self,
-        party_id: ProtocolPartyId,
-        signature: &ProtocolSingleSignature,
-        index: ProtocolLotteryIndex,
+        signatures: &entities::SingleSignatures,
     ) -> Result<(), ProtocolError>;
 
     /// Retrieves a multi signature from a message
@@ -420,13 +419,11 @@ impl MultiSigner for MultiSignerImpl {
     /// Registers a single signature
     async fn register_single_signature(
         &mut self,
-        party_id: ProtocolPartyId,
-        signature: &ProtocolSingleSignature,
-        index: ProtocolLotteryIndex,
+        signatures: &entities::SingleSignatures,
     ) -> Result<(), ProtocolError> {
         debug!(
-            "Register single signature from {} at index {}",
-            party_id, index
+            "Register single signature from {} at indexes {:?}",
+            signatures.party_id, signatures.won_indexes
         );
 
         // TODO: to remove once epoch offset is activated
@@ -438,45 +435,43 @@ impl MultiSigner for MultiSignerImpl {
             .get_current_message()
             .await
             .ok_or_else(ProtocolError::UnavailableMessage)?;
-        match signature.verify(
-            &self
-                .protocol_parameters
-                .ok_or_else(ProtocolError::UnavailableProtocolParameters)?,
-            &self
-                .clerk
-                .as_ref()
-                .ok_or_else(ProtocolError::UnavailableClerk)?
-                .compute_avk(),
-            message.as_bytes(),
-        ) {
-            Ok(_) => {
-                // Register single signature
-                let beacon = self
-                    .beacon_store
-                    .read()
-                    .await
-                    .get_current_beacon()
-                    .await?
-                    .ok_or_else(ProtocolError::UnavailableBeacon)?;
-                match self
-                    .single_signature_store
-                    .write()
-                    .await
-                    .save_single_signature(
-                        &beacon,
-                        &entities::SingleSignature::new(
-                            party_id.clone(),
-                            index,
-                            key_encode_hex(signature.to_owned()).map_err(ProtocolError::Codec)?,
-                        ),
-                    )
-                    .await?
-                {
-                    Some(_) => Err(ProtocolError::ExistingSingleSignature(index)),
-                    None => Ok(()),
-                }
-            }
-            Err(e) => Err(ProtocolError::Core(e.to_string())),
+        let protocol_parameters = &self
+            .protocol_parameters
+            .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
+        let avk = &self
+            .clerk
+            .as_ref()
+            .ok_or_else(ProtocolError::UnavailableClerk)?
+            .compute_avk();
+
+        for sig in signatures
+            .to_protocol_signatures()
+            .map_err(ProtocolError::Codec)?
+        {
+            sig.verify(protocol_parameters, avk, message.as_bytes())
+                .map_err(|e| ProtocolError::Core(e.to_string()))?;
+        }
+
+        // Register single signature
+        let beacon = self
+            .beacon_store
+            .read()
+            .await
+            .get_current_beacon()
+            .await?
+            .ok_or_else(ProtocolError::UnavailableBeacon)?;
+
+        match self
+            .single_signature_store
+            .write()
+            .await
+            .save_single_signatures(&beacon, signatures)
+            .await?
+        {
+            Some(_) => Err(ProtocolError::ExistingSingleSignature(
+                signatures.party_id.clone(),
+            )),
+            None => Ok(()),
         }
     }
 
@@ -512,15 +507,13 @@ impl MultiSigner for MultiSignerImpl {
             .await?
             .unwrap_or_default()
             .iter()
-            .flat_map(|(_party_id, h)| {
-                h.iter()
-                    .filter_map(|(_idx, single_signature)| {
-                        key_decode_hex(&single_signature.signature)
-                            .map_err(ProtocolError::Codec)
-                            .ok()
-                    })
-                    .collect::<Vec<_>>()
+            .flat_map(|(_party_id, single_signature)| {
+                single_signature
+                    .to_protocol_signatures()
+                    .map_err(ProtocolError::Codec)
+                    .ok()
             })
+            .flatten()
             .collect::<Vec<_>>();
         if self.protocol_parameters.unwrap().k > signatures.len() as u64 {
             // Quorum is not reached
@@ -592,9 +585,7 @@ mod tests {
     use super::*;
 
     use mithril_common::crypto_helper::tests_setup::*;
-    use mithril_common::entities::{
-        Epoch, ImmutableFileNumber, LotteryIndex, PartyId, SingleSignature,
-    };
+    use mithril_common::entities::{Epoch, ImmutableFileNumber, PartyId, SingleSignatures};
     use mithril_common::fake_data;
     use mithril_common::store::adapter::MemoryAdapter;
     use mithril_common::store::stake_store::StakeStore;
@@ -614,11 +605,8 @@ mod tests {
             MemoryAdapter::<Epoch, HashMap<PartyId, entities::SignerWithStake>>::new(None).unwrap(),
         ));
         let single_signature_store = SingleSignatureStore::new(Box::new(
-            MemoryAdapter::<
-                ImmutableFileNumber,
-                HashMap<PartyId, HashMap<LotteryIndex, SingleSignature>>,
-            >::new(None)
-            .unwrap(),
+            MemoryAdapter::<ImmutableFileNumber, HashMap<PartyId, SingleSignatures>>::new(None)
+                .unwrap(),
         ));
         MultiSignerImpl::new(
             Arc::new(RwLock::new(beacon_store)),
@@ -634,6 +622,26 @@ mod tests {
         let epoch_new = beacon.epoch as i64 + offset;
         beacon.epoch = epoch_new as u64;
         beacon_store.set_current_beacon(beacon).await.unwrap();
+    }
+
+    fn take_signatures_until_quorum_is_almost_reached(
+        signatures: &mut Vec<SingleSignatures>,
+        quorum: usize,
+    ) -> Vec<SingleSignatures> {
+        signatures.sort_by(|l, r| l.won_indexes.len().cmp(&r.won_indexes.len()));
+
+        let mut result = vec![];
+        let mut nb_won_indexes = 0;
+
+        while let Some(signature) = signatures.first() {
+            if signature.won_indexes.len() + nb_won_indexes >= quorum {
+                break;
+            }
+            nb_won_indexes += signature.won_indexes.len();
+            result.push(signatures.remove(0));
+        }
+
+        result
     }
 
     #[tokio::test]
@@ -801,19 +809,40 @@ mod tests {
 
         let mut signatures = Vec::new();
         for (party_id, _, _, protocol_signer, _) in &signers {
+            let mut first_sig = None;
+            let mut won_indexes = vec![];
             for i in 1..=protocol_parameters.m {
                 if let Some(signature) = protocol_signer.sign(message.as_bytes(), i) {
-                    signatures.push((party_id.to_owned(), signature, i as ProtocolLotteryIndex));
+                    if first_sig.is_none() {
+                        first_sig = Some(key_encode_hex(signature).unwrap());
+                    }
+                    won_indexes.push(i);
                 }
+            }
+
+            if let Some(signature) = first_sig {
+                signatures.push(SingleSignatures::new(
+                    party_id.to_owned(),
+                    signature,
+                    won_indexes,
+                ));
             }
         }
 
-        let quorum_split = protocol_parameters.k as usize - 1;
-        assert!(quorum_split > 1, "quorum should be greater");
+        let signatures_to_almost_reach_quorum = take_signatures_until_quorum_is_almost_reached(
+            &mut signatures,
+            protocol_parameters.k as usize,
+        );
+        assert!(
+            !signatures_to_almost_reach_quorum.is_empty(),
+            "they should be at least one signature that can be registered without reaching the quorum"
+        );
+
+        // No signatures registered: multi-signer can't create the multi-signature
         multi_signer
             .create_multi_signature()
             .await
-            .expect("create multi sgnature should not fail");
+            .expect("create multi signature should not fail");
         assert!(multi_signer
             .get_multi_signature()
             .await
@@ -824,16 +853,18 @@ mod tests {
             .await
             .expect("create_certificate should not fail")
             .is_none());
-        for (party_id, signature, index) in &signatures[0..quorum_split] {
+        for signature in signatures_to_almost_reach_quorum {
             multi_signer
-                .register_single_signature(party_id.to_owned(), signature, *index)
+                .register_single_signature(&signature)
                 .await
                 .expect("register single signature should not fail");
         }
+
+        // Some signatures but quorum still not reached: multi-signer can't create the multi-signature
         multi_signer
             .create_multi_signature()
             .await
-            .expect("create multi sgnature should not fail");
+            .expect("create multi signature should not fail");
         assert!(multi_signer
             .get_multi_signature()
             .await
@@ -844,21 +875,26 @@ mod tests {
             .await
             .expect("create_certificate should not fail")
             .is_none());
-        for (party_id, signature, index) in &signatures[quorum_split..] {
+        for signature in &signatures {
             multi_signer
-                .register_single_signature(party_id.to_owned(), signature, *index)
+                .register_single_signature(signature)
                 .await
                 .expect("register single signature should not fail");
         }
+
+        // Enough signatures to reach the quorum: multi-signer should create a multi-signature
         multi_signer
             .create_multi_signature()
             .await
-            .expect("create multi sgnature should not fail");
-        assert!(multi_signer
-            .get_multi_signature()
-            .await
-            .expect("get multi signature should not fail")
-            .is_some());
+            .expect("create multi signature should not fail");
+        assert!(
+            multi_signer
+                .get_multi_signature()
+                .await
+                .expect("get multi signature should not fail")
+                .is_some(),
+            "no multi-signature were computed"
+        );
         assert!(multi_signer
             .create_certificate(beacon.clone(), previous_hash.clone())
             .await

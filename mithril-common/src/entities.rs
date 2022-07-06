@@ -1,3 +1,4 @@
+use crate::crypto_helper::{key_decode_hex, ProtocolSingleSignature};
 use fixed::types::U8F24;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -346,27 +347,49 @@ impl SignerWithStake {
 
 /// SingleSignature represents a single signature originating from a participant in the network for a digest at a specific lottery index
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
-pub struct SingleSignature {
+pub struct SingleSignatures {
     /// The unique identifier of the signer
     #[serde(rename = "party_id")]
     pub party_id: PartyId,
 
-    /// The index of the lottery won that lead to the single signature
-    #[serde(rename = "index")]
-    pub index: LotteryIndex,
-
     /// The single signature of the digest
     #[serde(rename = "signature")]
     pub signature: String,
+
+    /// The index of the won lottery that lead to the single signature
+    #[serde(rename = "indexes")]
+    pub won_indexes: Vec<LotteryIndex>,
 }
 
-impl SingleSignature {
+impl SingleSignatures {
     /// SingleSignature factory
-    pub fn new(party_id: PartyId, index: LotteryIndex, signature: String) -> SingleSignature {
-        SingleSignature {
+    pub fn new(
+        party_id: PartyId,
+        signature: String,
+        won_indexes: Vec<LotteryIndex>,
+    ) -> SingleSignatures {
+        SingleSignatures {
             party_id,
-            index,
             signature,
+            won_indexes,
+        }
+    }
+
+    pub fn to_protocol_signatures(&self) -> Result<Vec<ProtocolSingleSignature>, String> {
+        match key_decode_hex::<ProtocolSingleSignature>(&self.signature) {
+            Ok(signature) => Ok(self
+                .won_indexes
+                .iter()
+                .map(|idx| {
+                    let mut sig = signature.clone();
+                    sig.index = *idx;
+                    sig
+                })
+                .collect()),
+            Err(error) => Err(format!(
+                "Could not decode signature: {}, signature: {}",
+                error, self.signature
+            )),
         }
     }
 }

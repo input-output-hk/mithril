@@ -1,12 +1,12 @@
 use hex::ToHex;
-use slog_scope::{trace, warn};
+use slog_scope::trace;
 use thiserror::Error;
 
 use mithril_common::crypto_helper::{
     key_decode_hex, key_encode_hex, Bytes, ProtocolInitializer, ProtocolKeyRegistration,
     ProtocolPartyId, ProtocolSigner,
 };
-use mithril_common::entities::{self, PartyId, SignerWithStake, SingleSignature};
+use mithril_common::entities::{self, PartyId, SignerWithStake, SingleSignatures};
 
 #[cfg(test)]
 use mockall::automock;
@@ -32,7 +32,7 @@ pub trait SingleSigner {
         message: Bytes,
         stakes: Vec<SignerWithStake>,
         protocol_parameters: &entities::ProtocolParameters,
-    ) -> Result<Vec<SingleSignature>, SingleSignerError>;
+    ) -> Result<Option<SingleSignatures>, SingleSignerError>;
 }
 
 #[derive(Error, Debug, PartialEq)]
@@ -139,7 +139,7 @@ impl SingleSigner for MithrilSingleSigner {
         message: Bytes,
         stakes: Vec<SignerWithStake>, // TODO : use a hmap to prevent party id duplication
         protocol_parameters: &entities::ProtocolParameters,
-    ) -> Result<Vec<SingleSignature>, SingleSignerError> {
+    ) -> Result<Option<SingleSignatures>, SingleSignerError> {
         let current_signer_with_stake = stakes
             .iter()
             .find(|s| s.party_id == self.party_id)
@@ -163,25 +163,32 @@ impl SingleSigner for MithrilSingleSigner {
             message.encode_hex::<String>()
         );
 
-        let mut signatures = Vec::new();
+        // todo: update this when mithril core SingleSignature store all the won indexes
+        let mut first_won_signature = None;
+        let mut won_indexes = Vec::new();
+
         for i in 1..=protocol_parameters.m {
             if let Some(signature) = protocol_signer.sign(&message, i) {
                 trace!("Party #{}: lottery #{} won", self.party_id, i,);
-                let encoded_signature = key_encode_hex(&signature);
 
-                if encoded_signature.is_err() {
-                    warn!("couldn't compute signature: `{:?}`", encoded_signature); // TODO: structured log
-                    continue;
+                if first_won_signature.is_none() {
+                    let encoded_signature =
+                        key_encode_hex(&signature).map_err(SingleSignerError::Codec)?;
+                    first_won_signature = Some(encoded_signature);
                 }
 
-                signatures.push(SingleSignature::new(
-                    self.party_id.to_owned(),
-                    i,
-                    encoded_signature.unwrap(),
-                ));
+                won_indexes.push(i);
             }
         }
-        Ok(signatures)
+
+        match first_won_signature {
+            Some(encoded_signature) => Ok(Some(SingleSignatures::new(
+                self.party_id.clone(),
+                encoded_signature,
+                won_indexes,
+            ))),
+            None => Ok(None),
+        }
     }
 }
 
@@ -262,14 +269,13 @@ mod tests {
         );
 
         assert!(&single_signer.get_protocol_initializer().is_some());
-        assert!(!sign_result.as_ref().unwrap().is_empty());
-        for sig in sign_result.unwrap() {
-            let decoded_sig: ProtocolSingleSignature = key_decode_hex(&sig.signature).unwrap();
-            assert!(decoded_sig
-                .verify(&protocol_parameters, &avk, &message.as_bytes())
-                .is_ok());
-            //TODO: decoded_sig.pk should probably be a StmVerificationKeyPoP, uncomment once fixed
-            //assert_eq!(current_signer.2, decoded_sig.pk);
-        }
+        assert!(sign_result.as_ref().unwrap().is_some());
+        let decoded_sig: ProtocolSingleSignature =
+            key_decode_hex(&sign_result.unwrap().unwrap().signature).unwrap();
+        assert!(decoded_sig
+            .verify(&protocol_parameters, &avk, &message.as_bytes())
+            .is_ok());
+        //TODO: decoded_sig.pk should probably be a StmVerificationKeyPoP, uncomment once fixed
+        //assert_eq!(current_signer.2, decoded_sig.pk);
     }
 }

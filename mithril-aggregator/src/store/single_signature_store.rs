@@ -2,16 +2,11 @@ use async_trait::async_trait;
 use std::collections::HashMap;
 use thiserror::Error;
 
-use mithril_common::entities::{
-    Beacon, ImmutableFileNumber, LotteryIndex, PartyId, SingleSignature,
-};
+use mithril_common::entities::{Beacon, ImmutableFileNumber, PartyId, SingleSignatures};
 use mithril_common::store::adapter::{AdapterError, StoreAdapter};
 
-type SingleSignaturesMap = HashMap<LotteryIndex, SingleSignature>;
-
-type Adapter = Box<
-    dyn StoreAdapter<Key = ImmutableFileNumber, Record = HashMap<PartyId, SingleSignaturesMap>>,
->;
+type Adapter =
+    Box<dyn StoreAdapter<Key = ImmutableFileNumber, Record = HashMap<PartyId, SingleSignatures>>>;
 
 #[derive(Debug, Error)]
 pub enum SingleSignatureStoreError {
@@ -21,16 +16,16 @@ pub enum SingleSignatureStoreError {
 
 #[async_trait]
 pub trait SingleSignatureStorer {
-    async fn save_single_signature(
+    async fn save_single_signatures(
         &mut self,
         beacon: &Beacon,
-        single_signature: &SingleSignature,
-    ) -> Result<Option<SingleSignature>, SingleSignatureStoreError>;
+        single_signature: &SingleSignatures,
+    ) -> Result<Option<SingleSignatures>, SingleSignatureStoreError>;
 
     async fn get_single_signatures(
         &self,
         beacon: &Beacon,
-    ) -> Result<Option<HashMap<PartyId, SingleSignaturesMap>>, SingleSignatureStoreError>;
+    ) -> Result<Option<HashMap<PartyId, SingleSignatures>>, SingleSignatureStoreError>;
 }
 pub struct SingleSignatureStore {
     adapter: Adapter,
@@ -44,12 +39,12 @@ impl SingleSignatureStore {
 
 #[async_trait]
 impl SingleSignatureStorer for SingleSignatureStore {
-    async fn save_single_signature(
+    async fn save_single_signatures(
         &mut self,
         beacon: &Beacon,
-        single_signature: &SingleSignature,
-    ) -> Result<Option<SingleSignature>, SingleSignatureStoreError> {
-        let mut single_signatures = match self
+        single_signatures: &SingleSignatures,
+    ) -> Result<Option<SingleSignatures>, SingleSignatureStoreError> {
+        let mut single_signatures_per_party_id = match self
             .adapter
             .get_record(&beacon.immutable_file_number)
             .await?
@@ -58,14 +53,16 @@ impl SingleSignatureStorer for SingleSignatureStore {
             None => HashMap::new(),
         };
 
-        let single_signatures_map = single_signatures
-            .entry(single_signature.party_id.clone())
-            .or_insert_with(HashMap::new);
-        let prev_single_signature =
-            single_signatures_map.insert(single_signature.index, single_signature.to_owned());
+        let prev_single_signature = single_signatures_per_party_id.insert(
+            single_signatures.party_id.clone(),
+            single_signatures.to_owned(),
+        );
         let _ = self
             .adapter
-            .store_record(&beacon.immutable_file_number, &single_signatures)
+            .store_record(
+                &beacon.immutable_file_number,
+                &single_signatures_per_party_id,
+            )
             .await?;
 
         Ok(prev_single_signature)
@@ -74,7 +71,7 @@ impl SingleSignatureStorer for SingleSignatureStore {
     async fn get_single_signatures(
         &self,
         beacon: &Beacon,
-    ) -> Result<Option<HashMap<PartyId, SingleSignaturesMap>>, SingleSignatureStoreError> {
+    ) -> Result<Option<HashMap<PartyId, SingleSignatures>>, SingleSignatureStoreError> {
         Ok(self
             .adapter
             .get_record(&beacon.immutable_file_number)
@@ -93,25 +90,21 @@ mod tests {
         single_signers_per_epoch: u64,
         single_signatures_per_signers: u64,
     ) -> SingleSignatureStore {
-        let mut values: Vec<(ImmutableFileNumber, HashMap<PartyId, SingleSignaturesMap>)> =
-            Vec::new();
+        let mut values: Vec<(ImmutableFileNumber, HashMap<PartyId, SingleSignatures>)> = Vec::new();
 
         for immutable_file_number in 1..=nb_immutable_file_numbers {
-            let mut single_signatures: HashMap<PartyId, SingleSignaturesMap> = HashMap::new();
+            let mut single_signatures: HashMap<PartyId, SingleSignatures> = HashMap::new();
             for party_idx in 1..=single_signers_per_epoch {
-                let mut single_signatures_map: SingleSignaturesMap = HashMap::new();
                 let party_id = format!("{}", party_idx);
-                for lottery_idx in 1..=single_signatures_per_signers {
-                    let _ = single_signatures_map.insert(
-                        lottery_idx,
-                        SingleSignature {
-                            party_id: party_id.clone(),
-                            index: lottery_idx,
-                            signature: format!("single-signature {} {}", party_idx, lottery_idx),
-                        },
-                    );
-                }
-                single_signatures.insert(party_id, single_signatures_map);
+                let lottery_idx = (1..=single_signatures_per_signers).collect();
+                single_signatures.insert(
+                    party_id.clone(),
+                    SingleSignatures {
+                        party_id,
+                        signature: format!("single-signature {} {:?}", party_idx, lottery_idx),
+                        won_indexes: lottery_idx,
+                    },
+                );
             }
             values.push((immutable_file_number, single_signatures));
         }
@@ -121,7 +114,7 @@ mod tests {
         } else {
             None
         };
-        let adapter: MemoryAdapter<ImmutableFileNumber, HashMap<PartyId, SingleSignaturesMap>> =
+        let adapter: MemoryAdapter<ImmutableFileNumber, HashMap<PartyId, SingleSignatures>> =
             MemoryAdapter::new(values).unwrap();
         SingleSignatureStore::new(Box::new(adapter))
     }
@@ -130,12 +123,12 @@ mod tests {
     async fn save_key_in_empty_store() {
         let mut store = init_store(0, 0, 0);
         let res = store
-            .save_single_signature(
+            .save_single_signatures(
                 &Beacon::new("devnet".to_string(), 1, 0),
-                &SingleSignature {
+                &SingleSignatures {
                     party_id: "0".to_string(),
-                    index: 0,
                     signature: "OK".to_string(),
+                    won_indexes: vec![1, 5],
                 },
             )
             .await
@@ -145,28 +138,36 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn update_single_signature_in_store() {
+    async fn add_signature_for_new_party_id() {
         let mut store = init_store(1, 1, 5);
-        let res = store
-            .save_single_signature(
-                &Beacon::new("devnet".to_string(), 1, 1),
-                &SingleSignature {
-                    party_id: "1".to_string(),
-                    index: 1,
-                    signature: "test".to_string(),
-                },
-            )
-            .await
-            .unwrap();
+        let beacon = Beacon::new("devnet".to_string(), 1, 1);
 
-        assert!(res.is_some());
         assert_eq!(
-            SingleSignature {
-                party_id: "1".to_string(),
-                index: 1,
-                signature: "single-signature 1 1".to_string(),
-            },
-            res.unwrap(),
+            None,
+            store
+                .save_single_signatures(
+                    &beacon,
+                    &SingleSignatures {
+                        party_id: "10".to_string(),
+                        signature: "test".to_string(),
+                        won_indexes: (1..5).collect(),
+                    },
+                )
+                .await
+                .unwrap()
+        );
+        assert_eq!(
+            Some(&SingleSignatures {
+                party_id: "10".to_string(),
+                signature: "test".to_string(),
+                won_indexes: (1..5).collect(),
+            }),
+            store
+                .get_single_signatures(&beacon)
+                .await
+                .unwrap()
+                .unwrap()
+                .get("10")
         );
     }
 

@@ -24,7 +24,6 @@ mod handlers {
     use crate::dependency::MultiSignerWrapper;
     use crate::http_server::routes::reply;
     use crate::ProtocolError;
-    use mithril_common::crypto_helper::{key_decode_hex, ProtocolLotteryIndex, ProtocolPartyId};
     use mithril_common::entities;
     use slog_scope::debug;
     use std::convert::Infallible;
@@ -32,38 +31,21 @@ mod handlers {
 
     /// Register Signatures
     pub async fn register_signatures(
-        signatures: Vec<entities::SingleSignature>,
+        signature: entities::SingleSignatures,
         multi_signer: MultiSignerWrapper,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("register_signatures/{:?}", signatures);
+        debug!("register_signatures/{:?}", signature);
 
         let mut multi_signer = multi_signer.write().await;
-        for signature in &signatures {
-            match key_decode_hex(&signature.signature) {
-                Ok(single_signature) => {
-                    match multi_signer
-                        .register_single_signature(
-                            signature.party_id.clone() as ProtocolPartyId,
-                            &single_signature,
-                            signature.index as ProtocolLotteryIndex,
-                        )
-                        .await
-                    {
-                        Err(ProtocolError::ExistingSingleSignature(_)) => {
-                            return Ok(reply::empty(StatusCode::CONFLICT));
-                        }
-                        Err(err) => {
-                            return Ok(reply::internal_server_error(err.to_string()));
-                        }
-                        _ => {}
-                    }
-                }
-                Err(_) => {
-                    return Ok(reply::empty(StatusCode::BAD_REQUEST));
-                }
+        match multi_signer.register_single_signature(&signature).await {
+            Err(ProtocolError::ExistingSingleSignature(_)) => {
+                return Ok(reply::empty(StatusCode::CONFLICT));
             }
+            Err(err) => {
+                return Ok(reply::internal_server_error(err.to_string()));
+            }
+            Ok(_) => Ok(reply::empty(StatusCode::CREATED)),
         }
-        Ok(reply::empty(StatusCode::CREATED))
     }
 }
 
@@ -107,11 +89,11 @@ mod tests {
             .return_once(|_| Ok(()));
         mock_multi_signer
             .expect_register_single_signature()
-            .return_once(|_, _, _| Ok(()));
+            .return_once(|_| Ok(()));
         let mut dependency_manager = setup_dependency_manager();
         dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
 
-        let signatures = &fake_data::single_signatures(1);
+        let signatures = &fake_data::single_signatures(vec![1]);
 
         let method = Method::POST.as_str();
         let path = "/register-signatures";
@@ -136,13 +118,13 @@ mod tests {
     async fn test_register_signatures_post_ko_400() {
         let mut mock_multi_signer = MockMultiSigner::new();
         mock_multi_signer
-            .expect_update_current_message()
+            .expect_register_single_signature()
             .return_once(|_| Ok(()));
         let mut dependency_manager = setup_dependency_manager();
         dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
 
-        let mut signatures = fake_data::single_signatures(1);
-        signatures[0].signature = "invalid-signature".to_string();
+        let mut signatures = fake_data::single_signatures(vec![1]);
+        signatures.signature = "invalid-signature".to_string();
 
         let method = Method::POST.as_str();
         let path = "/register-signatures";
@@ -165,17 +147,17 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_signatures_post_ko_409() {
+        let signatures = fake_data::single_signatures(vec![1]);
+        let party_id = signatures.party_id.clone();
         let mut mock_multi_signer = MockMultiSigner::new();
         mock_multi_signer
             .expect_update_current_message()
             .return_once(|_| Ok(()));
         mock_multi_signer
             .expect_register_single_signature()
-            .return_once(|_, _, _| Err(ProtocolError::ExistingSingleSignature(1)));
+            .return_once(move |_| Err(ProtocolError::ExistingSingleSignature(party_id)));
         let mut dependency_manager = setup_dependency_manager();
         dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
-
-        let signatures = &fake_data::single_signatures(1);
 
         let method = Method::POST.as_str();
         let path = "/register-signatures";
@@ -183,7 +165,7 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .json(signatures)
+            .json(&signatures)
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
@@ -204,11 +186,11 @@ mod tests {
             .return_once(|_| Ok(()));
         mock_multi_signer
             .expect_register_single_signature()
-            .return_once(|_, _, _| Err(ProtocolError::Core("an error occurred".to_string())));
+            .return_once(|_| Err(ProtocolError::Core("an error occurred".to_string())));
         let mut dependency_manager = setup_dependency_manager();
         dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
 
-        let signatures = &fake_data::single_signatures(1);
+        let signatures = &fake_data::single_signatures(vec![1]);
 
         let method = Method::POST.as_str();
         let path = "/register-signatures";
