@@ -99,20 +99,42 @@ impl BeaconProvider for BeaconProviderImpl {
     }
 }
 
+pub struct DumbImmutableFileObserver {
+    shall_return: Option<u64>,
+}
+
+impl DumbImmutableFileObserver {
+    pub fn new() -> Self {
+        Self {
+            shall_return: Some(119827),
+        }
+    }
+
+    pub fn shall_return(&mut self, what: Option<u64>) -> &mut Self {
+        self.shall_return = what;
+        self
+    }
+}
+
+#[async_trait]
+impl ImmutableFileObserver for DumbImmutableFileObserver {
+    async fn get_last_immutable_number(&self) -> Result<u64, Box<dyn Error + Sync + Send>> {
+        self.shall_return
+            .ok_or_else(|| "fake immutable error".into())
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use std::io::ErrorKind;
-
     use mithril_common::chain_observer::{ChainObserver, ChainObserverError};
-    use mithril_common::digesters::ImmutableFileListingError;
     use mithril_common::entities::{Epoch, StakeDistribution};
 
     use super::*;
 
-    struct TestChainObserver {}
+    struct DumbChainObserver {}
 
     #[async_trait]
-    impl ChainObserver for TestChainObserver {
+    impl ChainObserver for DumbChainObserver {
         async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError> {
             Ok(Some(42))
         }
@@ -128,40 +150,11 @@ mod tests {
         }
     }
 
-    struct TestImmutableFileObserver {
-        shall_return: Option<u64>,
-    }
-
-    impl TestImmutableFileObserver {
-        pub fn new() -> Self {
-            Self {
-                shall_return: Some(119827),
-            }
-        }
-
-        pub fn shall_return(&mut self, what: Option<u64>) -> &mut Self {
-            self.shall_return = what;
-            self
-        }
-    }
-
-    #[async_trait]
-    impl ImmutableFileObserver for TestImmutableFileObserver {
-        async fn get_last_immutable_number(&self) -> Result<u64, Box<dyn Error + Sync + Send>> {
-            match self.shall_return {
-                Some(n) => Ok(n),
-                None => Err(Box::new(ImmutableFileListingError::MetadataParsing(
-                    std::io::Error::new(ErrorKind::Unsupported, "test error"),
-                ))),
-            }
-        }
-    }
-
     #[tokio::test]
     async fn test_beacon_ok() {
         let beacon_provider = BeaconProviderImpl::new(
-            Arc::new(RwLock::new(TestChainObserver {})),
-            Arc::new(RwLock::new(TestImmutableFileObserver::new())),
+            Arc::new(RwLock::new(DumbChainObserver {})),
+            Arc::new(RwLock::new(DumbImmutableFileObserver::new())),
             CardanoNetwork::TestNet(42),
         );
         let beacon = beacon_provider.get_current_beacon().await.unwrap();
@@ -172,10 +165,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_beacon_error() {
-        let mut immutable_observer = TestImmutableFileObserver::new();
+        let mut immutable_observer = DumbImmutableFileObserver::new();
         immutable_observer.shall_return(None);
         let beacon_provider = BeaconProviderImpl::new(
-            Arc::new(RwLock::new(TestChainObserver {})),
+            Arc::new(RwLock::new(DumbChainObserver {})),
             Arc::new(RwLock::new(immutable_observer)),
             CardanoNetwork::TestNet(42),
         );

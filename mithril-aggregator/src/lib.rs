@@ -1,17 +1,17 @@
-mod beacon_provider;
+pub mod beacon_provider;
 mod beacon_store;
 mod dependency;
 mod entities;
 mod http_server;
 mod multi_signer;
-mod runtime;
+pub mod runtime;
 mod snapshot_stores;
 mod snapshot_uploaders;
 mod snapshotter;
 pub mod store;
 mod tools;
 
-pub use crate::entities::Config;
+pub use crate::entities::{Config, SnapshotStoreType, SnapshotUploaderType};
 pub use crate::multi_signer::{MultiSigner, MultiSignerImpl, ProtocolError};
 pub use crate::snapshot_stores::{RemoteSnapshotStore, SnapshotStore};
 pub use beacon_provider::{
