@@ -87,37 +87,6 @@ const config = {
             position: 'left',
           },
           {
-            type: 'dropdown',
-            label: 'Developer Docs',
-            position: 'left',
-            items: [
-              {
-                to: '/aggregator-api',
-                label: 'Aggregator Node - API Reference'
-              },
-              {
-                href: 'https://mithril.network/mithril-aggregator/doc/mithril_aggregator/index.html',
-                label: 'Aggregator Node - Rust documentation'
-              },
-              {
-                href: 'https://mithril.network/mithril-signer/doc/mithril_signer/index.html',
-                label: 'Signer Node - Rust documentation'
-              },
-              {
-                href: 'https://mithril.network/mithril-client/doc/mithril_client/index.html',
-                label: 'Client Node - Rust documentation'
-              },
-              {
-                href: 'https://mithril.network/mithril-core/doc/mithril/index.html',
-                label: 'Cryptographic Core Library - Rust documentation'
-              },
-              {
-                href: 'https://mithril.network/mithril-common/doc/mithril_common/index.html',
-                label: 'Common Node Library - Rust documentation'
-              },
-            ]
-          },
-          {
             to: '/glossary',
             label: 'Glossary',
             position: 'right',
