@@ -152,12 +152,12 @@ impl AggregatorRuntime {
         &self,
         state: SigningState,
     ) -> Result<IdleState, RuntimeError> {
-        let certificate_pending = self.runner.drop_pending_certificate().await?;
+        self.runner.drop_pending_certificate().await?;
         let path = self.runner.create_snapshot_archive().await?;
         let locations = self.runner.upload_snapshot_archive(&path).await?;
         let certificate = self
             .runner
-            .create_and_save_certificate(&state.current_beacon, &certificate_pending)
+            .create_and_save_certificate(&state.current_beacon)
             .await?;
         let _ = self
             .runner
@@ -380,7 +380,7 @@ mod tests {
         runner
             .expect_create_and_save_certificate()
             .times(1)
-            .returning(|_, _| Ok(fake_data::certificate("whatever".to_string())));
+            .returning(|_| Ok(fake_data::certificate("whatever".to_string())));
         runner
             .expect_create_and_save_snapshot()
             .times(1)
