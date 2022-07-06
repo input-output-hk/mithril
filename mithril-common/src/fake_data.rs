@@ -52,14 +52,11 @@ pub fn certificate_pending() -> entities::CertificatePending {
     // Protocol parameters
     let protocol_parameters = protocol_parameters();
 
-    // Previous hash
-    let previous_hash = "123".to_string();
-
     // Signers
     let signers = signers(5);
 
     // Certificate pending
-    entities::CertificatePending::new(beacon, protocol_parameters, previous_hash, signers)
+    entities::CertificatePending::new(beacon, protocol_parameters, signers)
 }
 
 /// Fake Certificate
