@@ -10,7 +10,10 @@ use mithril_aggregator::{
 use mithril_common::{
     chain_observer::FakeObserver,
     entities::Beacon,
-    store::{adapter::MemoryAdapter, stake_store::StakeStore},
+    store::{
+        adapter::MemoryAdapter,
+        stake_store::{StakeStore, StakeStorer},
+    },
     CardanoNetwork,
 };
 use tokio::sync::RwLock;
@@ -144,4 +147,45 @@ async fn test_update_beacon() {
         .unwrap();
 
     assert_eq!(beacon, stored_beacon);
+}
+#[tokio::test]
+async fn test_update_stake_distribution() {
+    let (deps, config) = initialize_dependencies();
+    let runner = AggregatorRunner::new(config);
+    let beacon = runner.is_new_beacon(None).await.unwrap().unwrap();
+    let res = runner.update_stake_distribution(&beacon).await;
+
+    assert!(res.is_ok());
+
+    let current_stake_distribution = deps
+        .chain_observer
+        .as_ref()
+        .unwrap()
+        .read()
+        .await
+        .get_current_stake_distribution()
+        .await
+        .unwrap()
+        .unwrap();
+
+    let saved_stake_distribution = deps
+        .stake_store
+        .as_ref()
+        .unwrap()
+        .read()
+        .await
+        .get_stakes(beacon.epoch)
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(
+        current_stake_distribution.len(),
+        saved_stake_distribution.len()
+    );
+
+    for (party_id, stake) in current_stake_distribution.iter() {
+        let signer_with_stake = saved_stake_distribution.get(party_id).unwrap();
+        assert_eq!(stake, &signer_with_stake.stake);
+    }
 }
