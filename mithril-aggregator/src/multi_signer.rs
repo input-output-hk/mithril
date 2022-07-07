@@ -413,10 +413,7 @@ impl MultiSigner for MultiSignerImpl {
             Some(_) => Err(ProtocolError::ExistingSigner()),
             None => Ok(()),
         };
-        // TODO: to remove once epoch offset is activated
-        if result.as_ref().ok().is_some() {
-            self.clerk = self.create_clerk().await?;
-        }
+
         result
     }
 
@@ -431,6 +428,11 @@ impl MultiSigner for MultiSignerImpl {
             "Register single signature from {} at index {}",
             party_id, index
         );
+
+        // TODO: to remove once epoch offset is activated
+        if self.clerk.as_ref().is_none() {
+            self.clerk = self.create_clerk().await?;
+        }
 
         let message = &self
             .get_current_message()
@@ -682,7 +684,7 @@ mod tests {
             .await
             .expect("update stake distribution failed");
 
-        offset_epoch(&multi_signer, 1).await;
+        offset_epoch(&multi_signer, SIGNER_EPOCH_RETRIEVAL_OFFSET as i64).await;
 
         let mut stake_distribution = multi_signer
             .get_stake_distribution()
@@ -720,7 +722,7 @@ mod tests {
                 .expect("register should have succeeded")
         }
 
-        offset_epoch(&multi_signer, 1).await;
+        offset_epoch(&multi_signer, SIGNER_EPOCH_RETRIEVAL_OFFSET as i64).await;
 
         let mut signers_with_stake_all_expected = Vec::new();
         for (party_id, stake, verification_key_expected, _, _) in &signers {
@@ -795,7 +797,7 @@ mod tests {
                 .expect("register should have succeeded")
         }
 
-        offset_epoch(&multi_signer, 1).await;
+        offset_epoch(&multi_signer, SIGNER_EPOCH_RETRIEVAL_OFFSET as i64).await;
 
         let mut signatures = Vec::new();
         for (party_id, _, _, protocol_signer, _) in &signers {
