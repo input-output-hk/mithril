@@ -105,11 +105,10 @@ impl AggregatorRuntime {
                     .is_new_beacon(state.current_beacon.clone())
                     .await?
                 {
-                    trace!(
-                        "new beacon found, immutable file number = {}",
-                        beacon.immutable_file_number
-                    );
-                    let new_state = self.transition_from_idle_to_signing(beacon).await?;
+                    trace!("new beacon found = {:?}", beacon);
+                    let new_state = self
+                        .transition_from_idle_to_signing(state.current_beacon.clone(), beacon)
+                        .await?;
                     self.state = AggregatorState::Signing(new_state);
                 } else {
                     trace!("nothing to do in IDLE state")
@@ -188,11 +187,16 @@ impl AggregatorRuntime {
     /// from IDLE state to SIGNING because NEW BEACON
     async fn transition_from_idle_to_signing(
         &self,
+        maybe_current_beacon: Option<Beacon>,
         new_beacon: Beacon,
     ) -> Result<SigningState, RuntimeError> {
         debug!("launching transition from IDLE to SIGNING state");
         self.runner.update_beacon(&new_beacon).await?;
-        self.runner.update_stake_distribution(&new_beacon).await?; // TODO: This should happen only when the epoch is changing. This requires to modify the state machine by keeping track of the previous beacon in the state
+
+        if maybe_current_beacon.is_none() || maybe_current_beacon.unwrap().epoch < new_beacon.epoch
+        {
+            self.runner.update_stake_distribution(&new_beacon).await?; // TODO: This should happen only when the epoch is changing. This requires to modify the state machine by keeping track of the previous beacon in the state
+        }
         let digester_result = self.runner.compute_digest(&new_beacon).await?;
         self.runner
             .update_message_in_multisigner(digester_result)
