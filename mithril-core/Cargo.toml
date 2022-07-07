@@ -48,10 +48,10 @@ sha2 = "0.9"
 name = "stm"
 harness = false
 
-# todo: until we have serialization
-[[bench]]
-name = "size_benches"
-harness = false
+## todo: until we have serialization
+#[[bench]]
+#name = "size_benches"
+#harness = false
 
 [features]
 default = ["rug", "zcash"]

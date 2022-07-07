@@ -17,10 +17,10 @@ use std::fmt::Debug;
 /// * Verification is independent from the parameters.
 ///
 
-const SIZE: usize = 8;
-static NR_PARTIES: [usize; SIZE] = [32, 64, 128, 256, 512, 1024, 2048, 4096];
-static NR_M: [u64; SIZE] = [50, 100, 150, 200, 250, 300, 350, 400];
-static NR_K: [u64; SIZE] = [8, 16, 32, 64, 128, 256, 512, 1024];
+const SIZE: usize = 3;
+static NR_PARTIES: [usize; SIZE] = [32, 64, 128];
+static NR_M: [u64; SIZE] = [50, 100, 150];
+static NR_K: [u64; SIZE] = [8, 16, 32];
 
 fn stm_benches<H>(c: &mut Criterion, curve: &str)
 where
