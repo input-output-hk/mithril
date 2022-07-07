@@ -4,12 +4,13 @@ use mithril_aggregator::{
     beacon_provider::DumbImmutableFileObserver,
     runtime::{AggregatorRunner, AggregatorRunnerTrait},
     AggregatorConfig, BeaconProviderImpl, CertificatePendingStore, CertificateStore, Config,
-    DependencyManager, MemoryBeaconStore, MultiSignerImpl, SingleSignatureStore, SnapshotStoreType,
-    SnapshotUploaderType, VerificationKeyStore,
+    DependencyManager, MemoryBeaconStore, MultiSigner, MultiSignerImpl, SingleSignatureStore,
+    SnapshotStoreType, SnapshotUploaderType, VerificationKeyStore,
 };
 use mithril_common::{
     chain_observer::FakeObserver,
     entities::Beacon,
+    fake_data,
     store::{
         adapter::MemoryAdapter,
         stake_store::{StakeStore, StakeStorer},
@@ -18,7 +19,7 @@ use mithril_common::{
 };
 use tokio::sync::RwLock;
 
-fn initialize_dependencies() -> (Arc<DependencyManager>, AggregatorConfig) {
+async fn initialize_dependencies() -> (Arc<DependencyManager>, AggregatorConfig) {
     let config: Config = Config {
         cardano_cli_path: PathBuf::new(),
         cardano_node_socket_path: PathBuf::new(),
@@ -55,12 +56,22 @@ fn initialize_dependencies() -> (Arc<DependencyManager>, AggregatorConfig) {
         MemoryAdapter::new(None).unwrap(),
     ))));
     let beacon_store = Arc::new(RwLock::new(MemoryBeaconStore::new()));
-    let multi_signer = Arc::new(RwLock::new(MultiSignerImpl::new(
-        beacon_store.clone(),
-        verification_key_store.clone(),
-        stake_store.clone(),
-        single_signature_store.clone(),
-    )));
+    let multi_signer = async {
+        let protocol_parameters = fake_data::protocol_parameters();
+        let mut multi_signer = MultiSignerImpl::new(
+            beacon_store.clone(),
+            verification_key_store.clone(),
+            stake_store.clone(),
+            single_signature_store.clone(),
+        );
+        multi_signer
+            .update_protocol_parameters(&protocol_parameters.into())
+            .await
+            .expect("fake update protocol parameters failed");
+
+        multi_signer
+    };
+    let multi_signer = Arc::new(RwLock::new(multi_signer.await));
     let immutable_file_observer = Arc::new(RwLock::new(DumbImmutableFileObserver::default()));
     let chain_observer = Arc::new(RwLock::new(FakeObserver::new()));
     let beacon_provider = Arc::new(RwLock::new(BeaconProviderImpl::new(
@@ -101,7 +112,7 @@ fn initialize_dependencies() -> (Arc<DependencyManager>, AggregatorConfig) {
 
 #[tokio::test]
 async fn test_is_new_beacon() {
-    let (_, config) = initialize_dependencies();
+    let (_, config) = initialize_dependencies().await;
     let runner = AggregatorRunner::new(config);
 
     // No beacon means the current beacon is newer
@@ -129,7 +140,7 @@ async fn test_is_new_beacon() {
 
 #[tokio::test]
 async fn test_update_beacon() {
-    let (deps, config) = initialize_dependencies();
+    let (deps, config) = initialize_dependencies().await;
     let runner = AggregatorRunner::new(config);
     let beacon = runner.is_new_beacon(None).await.unwrap().unwrap();
     let res = runner.update_beacon(&beacon).await;
@@ -150,7 +161,7 @@ async fn test_update_beacon() {
 }
 #[tokio::test]
 async fn test_update_stake_distribution() {
-    let (deps, config) = initialize_dependencies();
+    let (deps, config) = initialize_dependencies().await;
     let runner = AggregatorRunner::new(config);
     let beacon = runner.is_new_beacon(None).await.unwrap().unwrap();
     let res = runner.update_stake_distribution(&beacon).await;
@@ -188,4 +199,18 @@ async fn test_update_stake_distribution() {
         let signer_with_stake = saved_stake_distribution.get(party_id).unwrap();
         assert_eq!(stake, &signer_with_stake.stake);
     }
+}
+
+#[tokio::test]
+async fn test_create_new_pending_certificate_from_multisigner() {
+    let (_deps, config) = initialize_dependencies().await;
+    let runner = AggregatorRunner::new(config);
+    let beacon = runner.is_new_beacon(None).await.unwrap().unwrap();
+    runner.update_beacon(&beacon).await.unwrap();
+    let certificate = runner
+        .create_new_pending_certificate_from_multisigner(beacon.clone())
+        .await
+        .unwrap();
+
+    assert_eq!(beacon, certificate.beacon);
 }
