@@ -230,7 +230,8 @@ jobs:
         uses: docker/metadata-action@v3
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags:
+          tags: |
+            latest
             type=raw,value={{branch}}-{{sha}}
 
       - name: Download ${{ matrix.project }} executable
