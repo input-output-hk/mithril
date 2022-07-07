@@ -43,7 +43,7 @@ impl Display for CardanoNetwork {
 }
 
 /// Beacon represents a point in the Cardano chain at which a Mithril certificate should be produced
-#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize, Hash, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize, Hash)]
 pub struct Beacon {
     /// Cardano network
     #[serde(rename = "network")]
@@ -56,6 +56,21 @@ pub struct Beacon {
     /// Number of the last included immutable files for the digest computation
     #[serde(rename = "immutable_file_number")]
     pub immutable_file_number: ImmutableFileNumber,
+}
+
+impl PartialOrd for Beacon {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match self.network.partial_cmp(&other.network) {
+            Some(core::cmp::Ordering::Equal) => {}
+            _ord => return None,
+        };
+        match self.epoch.partial_cmp(&other.epoch) {
+            Some(core::cmp::Ordering::Equal) => {}
+            ord => return ord,
+        }
+        self.immutable_file_number
+            .partial_cmp(&other.immutable_file_number)
+    }
 }
 
 impl Beacon {
@@ -401,7 +416,84 @@ impl Snapshot {
 
 #[cfg(test)]
 mod tests {
+    use std::cmp::Ordering;
+
     use super::*;
+
+    #[test]
+    fn test_beacon_partial_ord_different_network() {
+        let beacon1: Beacon = Beacon {
+            network: "A".to_string(),
+            epoch: 0,
+            immutable_file_number: 0,
+        };
+        let beacon2: Beacon = Beacon {
+            network: "B".to_string(),
+            epoch: 0,
+            immutable_file_number: 0,
+        };
+
+        assert!(beacon1.partial_cmp(&beacon2).is_none());
+    }
+
+    #[test]
+    fn test_beacon_partial_ord_equal() {
+        let beacon1: Beacon = Beacon {
+            network: "A".to_string(),
+            epoch: 0,
+            immutable_file_number: 0,
+        };
+
+        assert_eq!(Some(Ordering::Equal), beacon1.partial_cmp(&beacon1));
+    }
+
+    #[test]
+    fn test_beacon_partial_ord_same_epoch_less() {
+        let beacon1: Beacon = Beacon {
+            network: "A".to_string(),
+            epoch: 0,
+            immutable_file_number: 0,
+        };
+        let beacon2: Beacon = Beacon {
+            network: "A".to_string(),
+            epoch: 0,
+            immutable_file_number: 1,
+        };
+
+        assert_eq!(Some(Ordering::Less), beacon1.partial_cmp(&beacon2));
+    }
+
+    #[test]
+    fn test_beacon_partial_ord_same_epoch_greater() {
+        let beacon1: Beacon = Beacon {
+            network: "A".to_string(),
+            epoch: 0,
+            immutable_file_number: 1,
+        };
+        let beacon2: Beacon = Beacon {
+            network: "A".to_string(),
+            epoch: 0,
+            immutable_file_number: 0,
+        };
+
+        assert_eq!(Some(Ordering::Greater), beacon1.partial_cmp(&beacon2));
+    }
+
+    #[test]
+    fn test_beacon_partial_ord_cmp_epochs_less() {
+        let beacon1: Beacon = Beacon {
+            network: "A".to_string(),
+            epoch: 0,
+            immutable_file_number: 99,
+        };
+        let beacon2: Beacon = Beacon {
+            network: "A".to_string(),
+            epoch: 1,
+            immutable_file_number: 99,
+        };
+
+        assert_eq!(Some(Ordering::Less), beacon1.partial_cmp(&beacon2));
+    }
 
     #[test]
     fn test_protocol_parameters_partialeq() {
