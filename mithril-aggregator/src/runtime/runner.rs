@@ -10,7 +10,7 @@ use mithril_common::entities::{
 };
 use mithril_common::{store::stake_store::StakeStorer, CardanoNetwork};
 
-use slog_scope::{debug, error, info, trace, warn};
+use slog_scope::{debug, error, info, trace};
 use std::path::Path;
 use std::sync::Arc;
 
@@ -262,7 +262,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .await;
 
         debug!("creating certificate pending using multisigner");
-        warn!("pending certificate's previous hash is fake");
         let pending_certificate = CertificatePending::new(
             beacon,
             multi_signer
