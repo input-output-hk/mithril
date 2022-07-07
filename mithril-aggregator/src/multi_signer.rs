@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use chrono::prelude::*;
 use hex::ToHex;
-use slog_scope::{debug, warn};
+use slog_scope::debug;
 use thiserror::Error;
 
 use mithril_common::crypto_helper::{
@@ -12,6 +12,7 @@ use mithril_common::crypto_helper::{
 };
 use mithril_common::entities;
 use mithril_common::store::stake_store::{StakeStoreError, StakeStorer};
+use mithril_common::SIGNER_EPOCH_RETRIEVAL_OFFSET;
 
 use super::beacon_store::BeaconStoreError;
 use super::dependency::{
@@ -259,7 +260,6 @@ impl MultiSigner for MultiSignerImpl {
     /// Get stake distribution
     async fn get_stake_distribution(&self) -> Result<ProtocolStakeDistribution, ProtocolError> {
         debug!("Get stake distribution");
-        #[allow(unused_variables, clippy::identity_op)]
         let epoch = self
             .beacon_store
             .read()
@@ -268,11 +268,7 @@ impl MultiSigner for MultiSignerImpl {
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
-            - 0; // TODO: Should be -1 or -2
-        warn!(
-            "Epoch computation is not final and needs to be fixed: {}",
-            epoch
-        );
+            - SIGNER_EPOCH_RETRIEVAL_OFFSET;
         let signers = self
             .stake_store
             .read()
@@ -297,7 +293,6 @@ impl MultiSigner for MultiSignerImpl {
         stakes: &ProtocolStakeDistribution,
     ) -> Result<(), ProtocolError> {
         debug!("Update stake distribution to {:?}", stakes);
-        #[allow(unused_variables)]
         let epoch = self
             .beacon_store
             .read()
@@ -325,7 +320,6 @@ impl MultiSigner for MultiSignerImpl {
         party_id: ProtocolPartyId,
     ) -> Result<Option<ProtocolSignerVerificationKey>, ProtocolError> {
         debug!("Get signer {}", party_id);
-        #[allow(clippy::identity_op)]
         let epoch = self
             .beacon_store
             .read()
@@ -334,11 +328,7 @@ impl MultiSigner for MultiSignerImpl {
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
-            - 0; // TODO: Should be -1 or -2
-        warn!(
-            "Epoch computation is not final and needs to be fixed: {}",
-            epoch
-        );
+            - SIGNER_EPOCH_RETRIEVAL_OFFSET;
         let signers = self
             .verification_key_store
             .read()
@@ -359,7 +349,6 @@ impl MultiSigner for MultiSignerImpl {
         &self,
     ) -> Result<Vec<entities::SignerWithStake>, ProtocolError> {
         debug!("Get signers with stake");
-        #[allow(clippy::identity_op)]
         let epoch = self
             .beacon_store
             .read()
@@ -368,11 +357,7 @@ impl MultiSigner for MultiSignerImpl {
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
-            - 0; // TODO: Should be -1 or -2
-        warn!(
-            "Epoch computation is not final and needs to be fixed: {}",
-            epoch
-        );
+            - SIGNER_EPOCH_RETRIEVAL_OFFSET;
         let signers = self
             .verification_key_store
             .read()
@@ -428,10 +413,7 @@ impl MultiSigner for MultiSignerImpl {
             Some(_) => Err(ProtocolError::ExistingSigner()),
             None => Ok(()),
         };
-        // TODO: to remove once epoch offset is activated
-        if result.as_ref().ok().is_some() {
-            self.clerk = self.create_clerk().await?;
-        }
+
         result
     }
 
@@ -446,6 +428,11 @@ impl MultiSigner for MultiSignerImpl {
             "Register single signature from {} at index {}",
             party_id, index
         );
+
+        // TODO: to remove once epoch offset is activated
+        if self.clerk.as_ref().is_none() {
+            self.clerk = self.create_clerk().await?;
+        }
 
         let message = &self
             .get_current_message()
@@ -641,6 +628,14 @@ mod tests {
         )
     }
 
+    async fn offset_epoch(multi_signer: &MultiSignerImpl, offset: i64) {
+        let mut beacon_store = multi_signer.beacon_store.write().await;
+        let mut beacon = beacon_store.get_current_beacon().await.unwrap().unwrap();
+        let epoch_new = beacon.epoch as i64 + offset;
+        beacon.epoch = epoch_new as u64;
+        beacon_store.set_current_beacon(beacon).await.unwrap();
+    }
+
     #[tokio::test]
     async fn test_multi_signer_current_message_ok() {
         let mut multi_signer = setup_multi_signer().await;
@@ -689,6 +684,8 @@ mod tests {
             .await
             .expect("update stake distribution failed");
 
+        offset_epoch(&multi_signer, SIGNER_EPOCH_RETRIEVAL_OFFSET as i64).await;
+
         let mut stake_distribution = multi_signer
             .get_stake_distribution()
             .await
@@ -724,6 +721,8 @@ mod tests {
                 .await
                 .expect("register should have succeeded")
         }
+
+        offset_epoch(&multi_signer, SIGNER_EPOCH_RETRIEVAL_OFFSET as i64).await;
 
         let mut signers_with_stake_all_expected = Vec::new();
         for (party_id, stake, verification_key_expected, _, _) in &signers {
@@ -797,6 +796,8 @@ mod tests {
                 .await
                 .expect("register should have succeeded")
         }
+
+        offset_epoch(&multi_signer, SIGNER_EPOCH_RETRIEVAL_OFFSET as i64).await;
 
         let mut signatures = Vec::new();
         for (party_id, _, _, protocol_signer, _) in &signers {
