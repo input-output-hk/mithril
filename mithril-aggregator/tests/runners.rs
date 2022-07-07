@@ -243,3 +243,32 @@ async fn test_update_message_in_multisigner() {
 
     assert_eq!("1+2+3+4=10".to_string(), message);
 }
+
+#[tokio::test]
+async fn test_save_pending_certificate() {
+    let (deps, config) = initialize_dependencies().await;
+    let runner = AggregatorRunner::new(config);
+    let beacon = runner.is_new_beacon(None).await.unwrap().unwrap();
+    runner.update_beacon(&beacon).await.unwrap();
+    let pending_certificate = runner
+        .create_new_pending_certificate_from_multisigner(beacon.clone())
+        .await
+        .unwrap();
+    let res = runner
+        .save_pending_certificate(pending_certificate.clone())
+        .await;
+    assert!(res.is_ok());
+
+    let saved_cert = deps
+        .certificate_pending_store
+        .as_ref()
+        .unwrap()
+        .read()
+        .await
+        .get()
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(pending_certificate, saved_cert);
+}
