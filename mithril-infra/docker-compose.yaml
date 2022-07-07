@@ -63,6 +63,16 @@ services:
       - ./ipc:/ipc
     ports:
       - "80:8080"
+    command:
+      [
+        "--db-directory",
+        "/db",
+        "--snapshot-directory",
+        "/mithril-aggregator/snapshots",
+        "--server-port",
+        "8080",
+        "-vvv"
+      ]
     logging:
       driver: "json-file"
       options:
