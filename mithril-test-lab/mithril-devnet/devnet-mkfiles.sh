@@ -45,7 +45,7 @@ NETWORK_MAGIC=42
 SECURITY_PARAM=2
 NODE_ADDR_PREFIX="172.16.238"
 NODE_ADDR_INCREMENT=10
-CARDANO_BINARY_URL="https://hydra.iohk.io/build/13065769/download/1/cardano-node-1.35.0-linux.tar.gz"
+CARDANO_BINARY_URL="https://hydra.iohk.io/build/13065769/download/1/cardano-node-1.34.1-linux.tar.gz"
 
 BFT_NODES=()
 BFT_NODES_N=()
@@ -926,7 +926,9 @@ cat >> start-cardano.sh <<EOF
 #!/bin/bash
 
 echo ">> Start Cardano network"
-killall cardano-node
+killall cardano-node 2&>1 /dev/null
+./cardano-cli --version
+./cardano-node --version
 
 EOF
 for NODE in ${BFT_NODES}; do
