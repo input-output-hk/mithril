@@ -272,3 +272,31 @@ async fn test_save_pending_certificate() {
 
     assert_eq!(pending_certificate, saved_cert);
 }
+
+#[tokio::test]
+async fn test_drop_pending_certificate() {
+    let (deps, config) = initialize_dependencies().await;
+    let runner = AggregatorRunner::new(config);
+    let beacon = runner.is_new_beacon(None).await.unwrap().unwrap();
+    runner.update_beacon(&beacon).await.unwrap();
+    let pending_certificate = runner
+        .create_new_pending_certificate_from_multisigner(beacon.clone())
+        .await
+        .unwrap();
+    runner
+        .save_pending_certificate(pending_certificate.clone())
+        .await
+        .unwrap();
+    let cert = runner.drop_pending_certificate().await.unwrap();
+    assert_eq!(pending_certificate, cert);
+    let maybe_saved_cert = deps
+        .certificate_pending_store
+        .as_ref()
+        .unwrap()
+        .read()
+        .await
+        .get()
+        .await
+        .unwrap();
+    assert!(maybe_saved_cert.is_none());
+}
