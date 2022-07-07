@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use chrono::prelude::*;
 use hex::ToHex;
-use slog_scope::{debug, warn};
+use slog_scope::debug;
 use thiserror::Error;
 
 use mithril_common::crypto_helper::{
