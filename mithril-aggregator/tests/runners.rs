@@ -58,7 +58,7 @@ fn initialize_dependencies() -> (Arc<DependencyManager>, AggregatorConfig) {
         stake_store.clone(),
         single_signature_store.clone(),
     )));
-    let immutable_file_observer = Arc::new(RwLock::new(DumbImmutableFileObserver::new()));
+    let immutable_file_observer = Arc::new(RwLock::new(DumbImmutableFileObserver::default()));
     let chain_observer = Arc::new(RwLock::new(FakeObserver::new()));
     let beacon_provider = Arc::new(RwLock::new(BeaconProviderImpl::new(
         chain_observer.clone(),
@@ -122,4 +122,26 @@ async fn test_is_new_beacon() {
     };
     let res = runner.is_new_beacon(Some(beacon)).await;
     assert!(res.unwrap().is_none());
+}
+
+#[tokio::test]
+async fn test_update_beacon() {
+    let (deps, config) = initialize_dependencies();
+    let runner = AggregatorRunner::new(config);
+    let beacon = runner.is_new_beacon(None).await.unwrap().unwrap();
+    let res = runner.update_beacon(&beacon).await;
+
+    assert!(res.is_ok());
+    let stored_beacon = deps
+        .beacon_store
+        .as_ref()
+        .unwrap()
+        .read()
+        .await
+        .get_current_beacon()
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(beacon, stored_beacon);
 }
