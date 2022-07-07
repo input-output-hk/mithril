@@ -9,6 +9,7 @@ use mithril_aggregator::{
 };
 use mithril_common::{
     chain_observer::FakeObserver,
+    digesters::DigesterResult,
     entities::Beacon,
     fake_data,
     store::{
@@ -213,4 +214,32 @@ async fn test_create_new_pending_certificate_from_multisigner() {
         .unwrap();
 
     assert_eq!(beacon, certificate.beacon);
+}
+
+#[tokio::test]
+async fn test_update_message_in_multisigner() {
+    let (deps, config) = initialize_dependencies().await;
+    let runner = AggregatorRunner::new(config);
+    let beacon = runner.is_new_beacon(None).await.unwrap().unwrap();
+    let digester_result = DigesterResult {
+        digest: "1+2+3+4=10".to_string(),
+        last_immutable_file_number: beacon.immutable_file_number,
+    };
+    runner.update_beacon(&beacon).await.unwrap();
+
+    assert!(runner
+        .update_message_in_multisigner(digester_result)
+        .await
+        .is_ok());
+    let message = deps
+        .multi_signer
+        .as_ref()
+        .unwrap()
+        .read()
+        .await
+        .get_current_message()
+        .await
+        .unwrap();
+
+    assert_eq!("1+2+3+4=10".to_string(), message);
 }
