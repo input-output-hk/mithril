@@ -51,7 +51,6 @@ mod test {
             let certificate_pending = CertificatePending::new(
                 beacon.clone(),
                 fake_data::protocol_parameters(),
-                "previous_hash".to_string(),
                 fake_data::signers(5),
             );
             adapter
@@ -85,7 +84,6 @@ mod test {
         let certificate_pending = CertificatePending::new(
             beacon,
             fake_data::protocol_parameters(),
-            "previous_hash".to_string(),
             fake_data::signers(1),
         );
 
@@ -96,18 +94,9 @@ mod test {
     #[tokio::test]
     async fn update_certificate_pending() {
         let mut store = get_certificate_pending_store(true).await;
-        let mut certificate_pending = store.get().await.unwrap().unwrap();
-
-        assert_eq!(
-            "previous_hash".to_string(),
-            certificate_pending.previous_hash
-        );
-        certificate_pending.previous_hash = "something".to_string();
-
-        assert!(store.save(certificate_pending).await.is_ok());
         let certificate_pending = store.get().await.unwrap().unwrap();
 
-        assert_eq!("something".to_string(), certificate_pending.previous_hash);
+        assert!(store.save(certificate_pending).await.is_ok());
     }
 
     #[tokio::test]

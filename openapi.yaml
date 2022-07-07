@@ -252,18 +252,12 @@ components:
       required:
         - beacon
         - protocol
-        - previous_hash
         - signers
       properties:
         beacon:
           $ref: "#/components/schemas/Beacon"
         protocol:
           $ref: "#/components/schemas/ProtocolParameters"
-        previous_hash:
-          description: Hash of the previous certificate
-          type: string
-          format: bytes
-          example: "wKgWw4mr5kRZL+IUA9XXu7RiCHSRem3MmHoKboAsB0vSvijo8FIfrG/FwBtdCNQVhBc9P24qQ"
         signers:
           type: array
           items:
@@ -277,7 +271,7 @@ components:
         - stake
       properties:
         stake:
-          description: Stake value in ADA #TODO: Check if ADA or Lovelace
+          description: Stake share as computed in the 'stake distribution' by the Cardano Node, multiplied by a billion (1.0e9)
           type: integer
           format: int64
       example: { "stake": "1234" }

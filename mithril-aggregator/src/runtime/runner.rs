@@ -93,7 +93,6 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     async fn create_and_save_certificate(
         &self,
         beacon: &Beacon,
-        certificate_pending: &CertificatePending,
     ) -> Result<Certificate, RuntimeError>;
 
     async fn create_and_save_snapshot(
@@ -271,7 +270,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                 .await
                 .ok_or_else(|| RuntimeError::General("no protocol parameters".to_string().into()))?
                 .into(),
-            "123".to_string(),
             multi_signer.get_signers().await?,
         );
 
@@ -377,7 +375,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     async fn create_and_save_certificate(
         &self,
         beacon: &Beacon,
-        certificate_pending: &CertificatePending,
     ) -> Result<Certificate, RuntimeError> {
         info!("create and save certificate");
         let multisigner = self
@@ -389,7 +386,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .read()
             .await;
         let certificate = multisigner
-            .create_certificate(beacon.clone(), certificate_pending.previous_hash.clone())
+            .create_certificate(beacon.clone(), "".to_string()) // TODO: The certificate will be created slightly differently in order to implement fully the certificate chain. In the mean time, just removed the unused reference to 'previous_hash' in pending certificate
             .await?
             .ok_or_else(|| RuntimeError::General("no certificate generated".to_string().into()))?;
         let _ = self
