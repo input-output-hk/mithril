@@ -220,16 +220,16 @@ impl Runtime {
             })
             .collect::<Vec<SignerWithStake>>();
 
-        let signature = self.single_signer.compute_single_signatures(
+        let signatures = self.single_signer.compute_single_signatures(
             message,
             stake_distribution_extended,
             &pending_certificate.protocol_parameters,
         )?;
 
-        if signature.is_some() {
+        if let Some(signatures) = signatures {
             let _ = self
                 .certificate_handler
-                .register_signatures(&signature.unwrap())
+                .register_signatures(&signatures)
                 .await;
         }
 

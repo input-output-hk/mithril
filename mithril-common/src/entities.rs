@@ -345,7 +345,8 @@ impl SignerWithStake {
     }
 }
 
-/// SingleSignature represents a single signature originating from a participant in the network for a digest at a specific lottery index
+/// SingleSignatures represent single signatures originating from a participant in the network
+/// for a digest at won lottery indexes
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct SingleSignatures {
     /// The unique identifier of the signer
@@ -356,7 +357,7 @@ pub struct SingleSignatures {
     #[serde(rename = "signature")]
     pub signature: String,
 
-    /// The index of the won lottery that lead to the single signature
+    /// The indexes of the won lotteries that lead to the single signatures
     #[serde(rename = "indexes")]
     pub won_indexes: Vec<LotteryIndex>,
 }
@@ -439,6 +440,8 @@ impl Snapshot {
 
 #[cfg(test)]
 mod tests {
+    use crate::crypto_helper::key_encode_hex;
+    use crate::crypto_helper::tests_setup::{setup_message, setup_signers};
     use std::cmp::Ordering;
 
     use super::*;
@@ -539,6 +542,38 @@ mod tests {
         assert_ne!(
             ProtocolParameters::new(1000, 101, 0.12300),
             ProtocolParameters::new(1000, 100, 0.12300)
+        );
+    }
+
+    #[test]
+    fn single_signatures_should_convert_to_protocol_signatures() {
+        let message = setup_message();
+        let signers = setup_signers(1);
+        let (party_id, _, _, signer, _) = signers.first().unwrap();
+        let protocol_sigs = (1..30)
+            .into_iter()
+            .filter_map(|i| signer.sign(message.as_bytes(), i))
+            .collect::<Vec<_>>();
+        assert!(!protocol_sigs.is_empty());
+
+        let signature = SingleSignatures::new(
+            party_id.to_owned(),
+            key_encode_hex(&protocol_sigs.first().unwrap()).unwrap(),
+            protocol_sigs.iter().map(|p| p.index).collect(),
+        );
+
+        // Note: the 'path' of the ProtocolSignature doesn't derive PartialCmp so we can't include it here:
+        assert_eq!(
+            protocol_sigs
+                .iter()
+                .map(|s| (s.index, s.stake, s.sigma, s.pk))
+                .collect::<Vec<_>>(),
+            signature
+                .to_protocol_signatures()
+                .unwrap()
+                .iter()
+                .map(|s| (s.index, s.stake, s.sigma, s.pk))
+                .collect::<Vec<_>>(),
         );
     }
 

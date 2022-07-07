@@ -304,8 +304,8 @@ components:
 
     SingleSignatures:
       description: |
-        SingleSignatures represents a single signature originating from a participant in the network for a digest 
-        associated with the list of its won indexes in the lottery
+        SingleSignatures represent single signatures originating from a participant in the network for a digest 
+        associated with the list of the won indexes in the lottery
       type: object
       additionalProperties: false
       required:
