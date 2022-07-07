@@ -1,8 +1,3 @@
----
-sidebar_label: Adversarial Events
-sidebar_position: 3
----
-
 # Mithril adversarial events
 
 This documents serves as a log of different adversarial events that we think of, and that we wish to include in our

@@ -41,8 +41,6 @@ certificate. In which case the parameters can be adapted.
 
 > Question: How is this set defined? How are parties identified by all other parties? Should be some known set of parties identified by their keys?
 
-![](images/mithril_signature.png)
-
 ## Protocol Establishment Phase
 
 * Select/fix a prime order group to be used as basis for multi-signature scheme
@@ -87,21 +85,21 @@ a quorum of `k` valid signatures must be submitted.
 * For every valid signature, it creates a proof (π) containing a signature of the message, verification key, stake and
   paths of party in the merkle-tree.
 * Then, multiple signatures can be aggregated together to form a certificate (τ) by:
-    * Verifying signatures from each party:
-        * Checking the party is authorised to sign for the given index (using the same procedure as the signing)
-        * Checking the proof is valid which means:
-            * Check the evaluation threshold is correct for party’s stake given the message, index and signature
-            * Check the provided path exists in the aggregate keys' Merkle-tree
-            * Verify the signature of the message is valid w.r.t to verification key
-    * Producing an aggregation key from all verification keys
-    * Producing an aggregate signature from all signatures μ
-    * Producing a proof using the aggregate keys, the message and the vector of individual proofs from each party:
-        * In the concatenation proof system all these values are simply packed together to form the proof,
-        * In the case of _bulletproof_ system, a more compact proof is generated.
+  * Verifying signatures from each party:
+    * Checking the party is authorised to sign for the given index (using the same procedure as the signing)
+    * Checking the proof is valid which means:
+      * Check the evaluation threshold is correct for party’s stake given the message, index and signature
+      * Check the provided path exists in the aggregate keys' Merkle-tree
+      * Verify the signature of the message is valid w.r.t to verification key
+  * Producing an aggregation key from all verification keys
+  * Producing an aggregate signature from all signatures μ
+  * Producing a proof using the aggregate keys, the message and the vector of individual proofs from each party:
+    * In the concatenation proof system all these values are simply packed together to form the proof,
+    * In the case of _bulletproof_ system, a more compact proof is generated.
 * Each certificate τ can be verified to be valid for some message, using the known setup parameters to verify the
   certificate’s proof and then verifying the aggregate signatures and verification keys.
 
 Note that if the individual signatures are broadcast to all parties, then each party can independently produce the
 certificates. In particular, the particular that performs aggregation is not required to have any particular knowledge,
 nor it is assumed to be honest. This means that _any_ third party that has access to the individual signatures can
-perform the signature aggregation. 
+perform the signature aggregation.
