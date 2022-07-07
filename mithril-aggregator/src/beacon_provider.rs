@@ -103,11 +103,18 @@ pub struct DumbImmutableFileObserver {
     shall_return: Option<u64>,
 }
 
+impl Default for DumbImmutableFileObserver {
+    fn default() -> Self {
+        let mut observer = Self::new();
+        observer.shall_return(Some(119827));
+
+        observer
+    }
+}
+
 impl DumbImmutableFileObserver {
     pub fn new() -> Self {
-        Self {
-            shall_return: Some(119827),
-        }
+        Self { shall_return: None }
     }
 
     pub fn shall_return(&mut self, what: Option<u64>) -> &mut Self {
@@ -160,7 +167,7 @@ mod tests {
     async fn test_beacon_ok() {
         let beacon_provider = BeaconProviderImpl::new(
             Arc::new(RwLock::new(DumbChainObserver {})),
-            Arc::new(RwLock::new(DumbImmutableFileObserver::new())),
+            Arc::new(RwLock::new(DumbImmutableFileObserver::default())),
             CardanoNetwork::TestNet(42),
         );
         let beacon = beacon_provider.get_current_beacon().await.unwrap();
@@ -171,7 +178,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_beacon_error() {
-        let mut immutable_observer = DumbImmutableFileObserver::new();
+        let mut immutable_observer = DumbImmutableFileObserver::default();
         immutable_observer.shall_return(None);
         let beacon_provider = BeaconProviderImpl::new(
             Arc::new(RwLock::new(DumbChainObserver {})),
