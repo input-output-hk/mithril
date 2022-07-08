@@ -7,7 +7,7 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: 'Mithril',
-  tagline: 'User Manual, Core Concepts and API Reference',
+  tagline: 'User Manual, Concepts and API Reference',
   url: 'https://input-output-hk.github.io',
   baseUrl: '/doc/',
   onBrokenLinks: 'throw',

@@ -4,36 +4,36 @@ import styles from './styles.module.css';
 
 const FeatureList = [
   {
-    title: 'Modular',
-    Svg: require('@site/static/img/card-operate-a-stake-pool.svg').default,
-    description: (
-      <>
-        Mithril is a modular set of tools to accelerate blockchain synchronization.
-        Find components description in Topologies.
-      </>
-    ),
-    link: '/doc/category/topologies',
-  },
-  {
-    title: 'How it works',
-    Svg: require('@site/static/img/card-native-tokens.svg').default,
-    description: (
-      <>
-        How does the heart of Mithril work?
-        Find how the Mithril multisignature works in Core Concepts.
-      </>
-    ),
-    link: '/doc/category/core-concepts',
-  },
-  {
-    title: 'Get started',
+    title: 'User Manual',
     Svg: require('@site/static/img/card-get-started.svg').default,
     description: (
       <>
-        Quick instructions to build it.
+        Get Started, guides, installation instructions and developer docs.
       </>
     ),
     link: '/doc/manual/welcome',
+  },
+  {
+    title: 'The Mithril Protocol',
+    Svg: require('@site/static/img/card-native-tokens.svg').default,
+    description: (
+      <>
+        How does the Mithril Protocol work?
+        Find more about the Mithril multi signature.
+      </>
+    ),
+    link: '/doc/mithril/intro',
+  },
+  {
+    title: 'The Mithril Network',
+    Svg: require('@site/static/img/card-operate-a-stake-pool.svg').default,
+    description: (
+      <>
+        What is the Mithril Network?
+        Find more about all the nodes involved the network and its architecture.
+      </>
+    ),
+    link: '/doc/manual/developer-docs/architecture/',
   },
 ];
 
