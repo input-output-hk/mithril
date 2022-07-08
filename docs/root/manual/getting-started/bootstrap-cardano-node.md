@@ -83,7 +83,7 @@ $ AGGREGATOR_ENDPOINT=http://aggregator.api.mithril.network/aggregator
 
 # Digest of the latest produced snapshot for convenience of the demo
 # You can also modify this variable and set it to the value of the digest of a snapshot that you can retrieve at step 2
-$ SNAPSHOT_DIGEST=$(curl -s $AGGREGATOR_ENDPOINT | jq -r '.[0].digest')
+$ SNAPSHOT_DIGEST=$(curl -s $AGGREGATOR_ENDPOINT/snapshots | jq -r '.[0].digest')
 ```
 
 ### Step 2: Select A Snapshot
