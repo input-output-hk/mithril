@@ -1,3 +1,4 @@
+use crate::crypto_helper::{key_decode_hex, ProtocolSingleSignature};
 use fixed::types::U8F24;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -344,29 +345,52 @@ impl SignerWithStake {
     }
 }
 
-/// SingleSignature represents a single signature originating from a participant in the network for a digest at a specific lottery index
+/// SingleSignatures represent single signatures originating from a participant in the network
+/// for a digest at won lottery indexes
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
-pub struct SingleSignature {
+pub struct SingleSignatures {
     /// The unique identifier of the signer
     #[serde(rename = "party_id")]
     pub party_id: PartyId,
 
-    /// The index of the lottery won that lead to the single signature
-    #[serde(rename = "index")]
-    pub index: LotteryIndex,
-
     /// The single signature of the digest
     #[serde(rename = "signature")]
     pub signature: String,
+
+    /// The indexes of the won lotteries that lead to the single signatures
+    #[serde(rename = "indexes")]
+    pub won_indexes: Vec<LotteryIndex>,
 }
 
-impl SingleSignature {
+impl SingleSignatures {
     /// SingleSignature factory
-    pub fn new(party_id: PartyId, index: LotteryIndex, signature: String) -> SingleSignature {
-        SingleSignature {
+    pub fn new(
+        party_id: PartyId,
+        signature: String,
+        won_indexes: Vec<LotteryIndex>,
+    ) -> SingleSignatures {
+        SingleSignatures {
             party_id,
-            index,
             signature,
+            won_indexes,
+        }
+    }
+
+    pub fn to_protocol_signatures(&self) -> Result<Vec<ProtocolSingleSignature>, String> {
+        match key_decode_hex::<ProtocolSingleSignature>(&self.signature) {
+            Ok(signature) => Ok(self
+                .won_indexes
+                .iter()
+                .map(|idx| {
+                    let mut sig = signature.clone();
+                    sig.index = *idx;
+                    sig
+                })
+                .collect()),
+            Err(error) => Err(format!(
+                "Could not decode signature: {}, signature: {}",
+                error, self.signature
+            )),
         }
     }
 }
@@ -416,6 +440,8 @@ impl Snapshot {
 
 #[cfg(test)]
 mod tests {
+    use crate::crypto_helper::key_encode_hex;
+    use crate::crypto_helper::tests_setup::{setup_message, setup_signers};
     use std::cmp::Ordering;
 
     use super::*;
@@ -516,6 +542,38 @@ mod tests {
         assert_ne!(
             ProtocolParameters::new(1000, 101, 0.12300),
             ProtocolParameters::new(1000, 100, 0.12300)
+        );
+    }
+
+    #[test]
+    fn single_signatures_should_convert_to_protocol_signatures() {
+        let message = setup_message();
+        let signers = setup_signers(1);
+        let (party_id, _, _, signer, _) = signers.first().unwrap();
+        let protocol_sigs = (1..30)
+            .into_iter()
+            .filter_map(|i| signer.sign(message.as_bytes(), i))
+            .collect::<Vec<_>>();
+        assert!(!protocol_sigs.is_empty());
+
+        let signature = SingleSignatures::new(
+            party_id.to_owned(),
+            key_encode_hex(&protocol_sigs.first().unwrap()).unwrap(),
+            protocol_sigs.iter().map(|p| p.index).collect(),
+        );
+
+        // Note: the 'path' of the ProtocolSignature doesn't derive PartialCmp so we can't include it here:
+        assert_eq!(
+            protocol_sigs
+                .iter()
+                .map(|s| (s.index, s.stake, s.sigma, s.pk))
+                .collect::<Vec<_>>(),
+            signature
+                .to_protocol_signatures()
+                .unwrap()
+                .iter()
+                .map(|s| (s.index, s.stake, s.sigma, s.pk))
+                .collect::<Vec<_>>(),
         );
     }
 

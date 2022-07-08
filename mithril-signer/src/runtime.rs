@@ -226,7 +226,7 @@ impl Runtime {
             &pending_certificate.protocol_parameters,
         )?;
 
-        if !signatures.is_empty() {
+        if let Some(signatures) = signatures {
             let _ = self
                 .certificate_handler
                 .register_signatures(&signatures)
@@ -357,7 +357,7 @@ mod tests {
             .return_once(|_| Ok(()));
         mock_single_signer
             .expect_compute_single_signatures()
-            .return_once(|_, _, _| Ok(fake_data::single_signatures(2)))
+            .return_once(|_, _, _| Ok(Some(fake_data::single_signatures(vec![2, 5, 13]))))
             .once();
         mock_single_signer
             .expect_get_party_id()
@@ -507,7 +507,7 @@ mod tests {
             .return_once(|_| Ok(()));
         mock_single_signer
             .expect_compute_single_signatures()
-            .return_once(|_, _, _| Ok(fake_data::single_signatures(2)));
+            .return_once(|_, _, _| Ok(Some(fake_data::single_signatures(vec![2, 5]))));
         mock_single_signer
             .expect_get_party_id()
             .returning(move || party_id.to_owned());
@@ -568,7 +568,7 @@ mod tests {
             .times(1);
         mock_single_signer
             .expect_compute_single_signatures()
-            .return_once(|_, _, _| Ok(fake_data::single_signatures(2)));
+            .return_once(|_, _, _| Ok(Some(fake_data::single_signatures(vec![2, 5]))));
         mock_single_signer
             .expect_get_party_id()
             .returning(move || party_id.to_owned())
@@ -624,7 +624,7 @@ mod tests {
             .return_once(|_| Ok(()));
         mock_single_signer
             .expect_compute_single_signatures()
-            .return_once(|_, _, _| Ok(fake_data::single_signatures(0)));
+            .return_once(|_, _, _| Ok(None));
         mock_single_signer
             .expect_get_party_id()
             .return_once(move || party_id);

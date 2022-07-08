@@ -4,7 +4,7 @@ use slog_scope::debug;
 use std::io;
 use thiserror::Error;
 
-use mithril_common::entities::{CertificatePending, Signer, SingleSignature};
+use mithril_common::entities::{CertificatePending, Signer, SingleSignatures};
 
 #[cfg(test)]
 use mockall::automock;
@@ -41,7 +41,7 @@ pub trait CertificateHandler {
     /// Registers single signatures with the aggregator
     async fn register_signatures(
         &self,
-        signatures: &[SingleSignature],
+        signatures: &SingleSignatures,
     ) -> Result<(), CertificateHandlerError>;
 }
 
@@ -108,7 +108,7 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
 
     async fn register_signatures(
         &self,
-        signatures: &[SingleSignature],
+        signatures: &SingleSignatures,
     ) -> Result<(), CertificateHandlerError> {
         debug!("Register signatures");
         let url = format!("{}/register-signatures", self.aggregator_endpoint);
@@ -258,7 +258,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_signatures_ok_201() {
-        let single_signatures = fake_data::single_signatures(5);
+        let single_signatures = fake_data::single_signatures((1..5).collect());
         let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
@@ -273,7 +273,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_signatures_ko_400() {
-        let single_signatures = fake_data::single_signatures(5);
+        let single_signatures = fake_data::single_signatures((1..5).collect());
         let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
@@ -291,7 +291,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_signatures_ko_409() {
-        let single_signatures = fake_data::single_signatures(5);
+        let single_signatures = fake_data::single_signatures((1..5).collect());
         let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
@@ -312,7 +312,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_signatures_ko_500() {
-        let single_signatures = fake_data::single_signatures(5);
+        let single_signatures = fake_data::single_signatures((1..5).collect());
         let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
