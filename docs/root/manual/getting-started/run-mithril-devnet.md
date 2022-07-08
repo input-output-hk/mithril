@@ -360,7 +360,7 @@ $ AGGREGATOR_ENDPOINT=http://localhost:8080/aggregator
 
 # Digest of the latest produced snapshot for convenience of the demo
 # You can also modify this variable and set it to the value of the digest of a snapshot that you can retrieve at step 2
-$ SNAPSHOT_DIGEST=$(curl -s $AGGREGATOR_ENDPOINT | jq -r '.[0].digest')
+$ SNAPSHOT_DIGEST=$(curl -s $AGGREGATOR_ENDPOINT/snapshots | jq -r '.[0].digest')
 ```
 
 ### Step 2: Select A Snapshot
@@ -413,7 +413,7 @@ $ NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client dow
 
 Download success 85f09b39b0b5a13cec9d8fe7ffb82b5e5f236f02ae896f4e47b77e5cd1f2a917 #1
 from http://0.0.0.0:8080/aggregator/snapshot/85f09b39b0b5a13cec9d8fe7ffb82b5e5f236f02ae896f4e47b77e5cd1f2a917/download
-to /home/jp/Works/Cardano/Mithril/mithril/mithril-client/data/devnet /85f09b39b0b5a13cec9d8fe7ffb82b5e5f236f02ae896f4e47b77e5cd1f2a917/snapshot.archive.tar.gz
+to /home/mithril/data/devnet /85f09b39b0b5a13cec9d8fe7ffb82b5e5f236f02ae896f4e47b77e5cd1f2a917/snapshot.archive.tar.gz
 ```
 
 ### Step 5: Restore Selected Snapshot
@@ -424,7 +424,7 @@ $ NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client res
 
 Unpacking snapshot...
 Unpack success 85f09b39b0b5a13cec9d8fe7ffb82b5e5f236f02ae896f4e47b77e5cd1f2a917
-to /home/jp/Works/Cardano/Mithril/mithril/mithril-client/data/devnet /85f09b39b0b5a13cec9d8fe7ffb82b5e5f236f02ae896f4e47b77e5cd1f2a917/db
+to /home/mithril/data/devnet /85f09b39b0b5a13cec9d8fe7ffb82b5e5f236f02ae896f4e47b77e5cd1f2a917/db
 
 Restore a Cardano Node with:
 

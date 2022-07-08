@@ -10,7 +10,7 @@ This is a first version of the Mithril Signer
 
 **Install Rust**
 
-- Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (version 1.58.0+).
+- Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (version 1.62.0+).
 
 ## Download source code
 
