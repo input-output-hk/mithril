@@ -4,7 +4,7 @@ use crate::snapshot_uploaders::SnapshotLocation;
 use crate::{DependencyManager, SnapshotError, Snapshotter};
 use async_trait::async_trait;
 use chrono::Utc;
-use mithril_common::digesters::{Digester, DigesterResult, ImmutableDigester};
+use mithril_common::digesters::DigesterResult;
 use mithril_common::entities::{
     Beacon, Certificate, CertificatePending, SignerWithStake, Snapshot,
 };

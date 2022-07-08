@@ -1,8 +1,5 @@
 #![doc = include_str!("../README.md")]
 
-use clap::Parser;
-
-use config::{Map, Source, Value, ValueKind};
 use mithril_aggregator::{
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, BeaconProviderImpl,
     CertificatePendingStore, CertificateStore, Config, DependencyManager,
@@ -14,6 +11,9 @@ use mithril_common::digesters::ImmutableDigester;
 use mithril_common::fake_data;
 use mithril_common::store::adapter::JsonFileStoreAdapter;
 use mithril_common::store::stake_store::StakeStore;
+
+use clap::Parser;
+use config::{Map, Source, Value, ValueKind};
 use slog::{Drain, Level, Logger};
 use slog_scope::debug;
 use std::env;
