@@ -418,6 +418,50 @@ jobs:
             !./artifacts/devnet/cardano-node
           if-no-files-found: error
 
+  deploy-nightly:
+#    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    needs:
+      - test-mithril-core
+      - run-test-lab
+    steps:
+      - name: Download mithril-core lib
+        uses: actions/download-artifact@v3
+        with:
+          name: mithril-core
+          path: ./build
+      
+      - name: Download aggregator
+        uses: actions/download-artifact@v3
+        with:
+          name: mithril-aggregator
+          path: ./build
+
+      - name: Download signer
+        uses: actions/download-artifact@v3
+        with:
+          name: mithril-signer
+          path: ./build
+
+      - name: Download client
+        uses: actions/download-artifact@v3
+        with:
+          name: mithril-client
+          path: ./build
+          
+#      - name: Create info file
+#        run: |
+#          echo -e "ref: $GITHUB_REF \ncommit: $GITHUB_SHA\nbuild: $(date +"%Y-%m-%dT%H:%M:%SZ")" > build/info.txt
+
+      - name: Update nightly release
+        uses: marvinpinto/action-automatic-releases@latest
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          automatic_release_tag: nightly
+          prerelease: true
+          title: Nightly Development Builds
+          files: build/*
+
   terraform:
     runs-on: ubuntu-latest
     needs:
