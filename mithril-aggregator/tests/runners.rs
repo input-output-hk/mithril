@@ -300,3 +300,18 @@ async fn test_drop_pending_certificate() {
         .unwrap();
     assert!(maybe_saved_cert.is_none());
 }
+
+#[tokio::test]
+async fn test_drop_pending_no_certificate() {
+    let (_deps, config) = initialize_dependencies().await;
+    let runner = AggregatorRunner::new(config);
+    let beacon = runner.is_new_beacon(None).await.unwrap().unwrap();
+    runner.update_beacon(&beacon).await.unwrap();
+    let res = runner.drop_pending_certificate().await;
+    assert!(res.is_err());
+    let err = res.unwrap_err();
+    assert_eq!(
+        "general error: no certificate pending for the given beacon".to_string(),
+        err.to_string()
+    );
+}
