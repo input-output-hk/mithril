@@ -47,6 +47,6 @@ pub enum DigesterError {
 ///     }
 /// }
 /// ```
-pub trait Digester {
+pub trait Digester: Sync + Send {
     fn compute_digest(&self) -> Result<DigesterResult, DigesterError>;
 }

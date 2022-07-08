@@ -1,3 +1,4 @@
+use mithril_common::digesters::Digester;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -51,6 +52,7 @@ pub type BeaconProviderWrapper = Arc<RwLock<dyn BeaconProvider>>;
 /// BeaconProviderWrapper wraps a BeaconProvider
 pub type ImmutableFileObserverWrapper = Arc<RwLock<dyn ImmutableFileObserver>>;
 
+pub type DigesterWrapper = Arc<dyn Digester>;
 /// DependencyManager handles the dependencies
 pub struct DependencyManager {
     pub config: Config,
@@ -66,6 +68,7 @@ pub struct DependencyManager {
     pub chain_observer: Option<ChainObserverWrapper>,
     pub beacon_provider: Option<BeaconProviderWrapper>,
     pub immutable_file_observer: Option<ImmutableFileObserverWrapper>,
+    pub digester: Option<DigesterWrapper>,
 }
 
 impl DependencyManager {
@@ -85,7 +88,14 @@ impl DependencyManager {
             chain_observer: None,
             beacon_provider: None,
             immutable_file_observer: None,
+            digester: None,
         }
+    }
+
+    /// With Digester
+    pub fn with_digester(&mut self, digester: DigesterWrapper) -> &mut Self {
+        self.digester = Some(digester);
+        self
     }
 
     /// With BeaconProvider middleware

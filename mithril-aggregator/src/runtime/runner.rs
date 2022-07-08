@@ -172,8 +172,14 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
     async fn compute_digest(&self, new_beacon: &Beacon) -> Result<DigesterResult, RuntimeError> {
         info!("running runner::compute_digester");
-        let digester =
-            ImmutableDigester::new(self.config.db_directory.clone(), slog_scope::logger());
+        let digester = self
+            .config
+            .dependencies
+            .digester
+            .as_ref()
+            .ok_or_else(|| RuntimeError::General("no digester registered".to_string().into()))?
+            .clone();
+
         debug!("computing digest"; "db_directory" => self.config.db_directory.display());
 
         // digest is done in a separate thread because it is blocking the whole task
