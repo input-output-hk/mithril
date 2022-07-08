@@ -10,7 +10,7 @@ This is a first version of the Mithril Aggregagator
 
 **Install Rust**
 
-- Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (version 1.58.0+).
+- Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (version 1.62.0+).
 - Install OpenSSL development libraries, for example on Ubuntu/Debian/Mint run `apt install libssl-dev`
 
 ## Download source code
