@@ -1,8 +1,5 @@
 #![doc = include_str!("../README.md")]
 
-use clap::Parser;
-
-use config::{Map, Source, Value, ValueKind};
 use mithril_aggregator::{
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, BeaconProviderImpl,
     CertificatePendingStore, CertificateStore, Config, DependencyManager,
@@ -10,9 +7,13 @@ use mithril_aggregator::{
     SingleSignatureStore, VerificationKeyStore,
 };
 use mithril_common::chain_observer::CardanoCliRunner;
+use mithril_common::digesters::ImmutableDigester;
 use mithril_common::fake_data;
 use mithril_common::store::adapter::JsonFileStoreAdapter;
 use mithril_common::store::stake_store::StakeStore;
+
+use clap::Parser;
+use config::{Map, Source, Value, ValueKind};
 use slog::{Drain, Level, Logger};
 use slog_scope::debug;
 use std::env;
@@ -167,6 +168,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         immutable_file_observer.clone(),
         config.get_network()?,
     )));
+    let digester = Arc::new(ImmutableDigester::new(
+        config.db_directory.clone(),
+        slog_scope::logger(),
+    ));
     setup_dependencies_fake_data(multi_signer.clone()).await;
 
     // Init dependency manager
@@ -183,7 +188,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .with_single_signature_store(single_signature_store.clone())
         .with_chain_observer(chain_observer.clone())
         .with_beacon_provider(beacon_provider.clone())
-        .with_immutable_file_observer(immutable_file_observer);
+        .with_immutable_file_observer(immutable_file_observer)
+        .with_digester(digester);
     let dependency_manager = Arc::new(dependency_manager);
     let network = config.get_network()?;
 
