@@ -1,0 +1,6 @@
+README.md
+Setup.hs
+lib/MithrilAggregatorServer/API.hs
+lib/MithrilAggregatorServer/Types.hs
+mithril-aggregator-server.cabal
+stack.yaml

@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Mithril.Util where
+module Mithril.Monitor.Util where
 
 import Control.Concurrent as Conc
 import Control.Monad(unless)
