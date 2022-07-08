@@ -403,6 +403,7 @@ jobs:
 
       - name: Test
         run: ./mithril-end-to-end --bin-directory ./bin --work-directory=./artifacts --devnet-scripts-directory=./mithril-test-lab/mithril-devnet
+      
       - name: Upload E2E Tests Artifacts
         if:  ${{ failure() }}
         uses: actions/upload-artifact@v3
@@ -412,6 +413,9 @@ jobs:
             ./artifacts/*
             # including node.sock makes the upload fails so exclude them:
             !./artifacts/**/node.sock
+            # exclude cardano tools, saving ~50mb of data:
+            !./artifacts/devnet/cardano-cli
+            !./artifacts/devnet/cardano-node
           if-no-files-found: error
 
   terraform:
