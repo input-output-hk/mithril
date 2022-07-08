@@ -52,7 +52,9 @@ pub type BeaconProviderWrapper = Arc<RwLock<dyn BeaconProvider>>;
 /// BeaconProviderWrapper wraps a BeaconProvider
 pub type ImmutableFileObserverWrapper = Arc<RwLock<dyn ImmutableFileObserver>>;
 
+/// DigesterWrapper wraps a Digester
 pub type DigesterWrapper = Arc<dyn Digester>;
+
 /// DependencyManager handles the dependencies
 pub struct DependencyManager {
     pub config: Config,
