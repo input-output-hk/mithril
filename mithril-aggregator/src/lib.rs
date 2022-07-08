@@ -1,14 +1,14 @@
-pub mod beacon_provider;
+mod beacon_provider;
 mod beacon_store;
 mod dependency;
 mod entities;
 mod http_server;
 mod multi_signer;
-pub mod runtime;
+mod runtime;
 mod snapshot_stores;
 mod snapshot_uploaders;
 mod snapshotter;
-pub mod store;
+mod store;
 mod tools;
 
 pub use crate::entities::{Config, SnapshotStoreType, SnapshotUploaderType};
@@ -27,3 +27,6 @@ pub use store::{
     CertificatePendingStore, CertificateStore, SingleSignatureStore, VerificationKeyStore,
     VerificationKeyStoreError, VerificationKeyStorer,
 };
+
+#[cfg(test)]
+pub use dependency::tests::initialize_dependencies;
