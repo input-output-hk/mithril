@@ -320,7 +320,7 @@ sed -i shelley/genesis.spec.json \
     -e 's/"slotLength": 1/"slotLength": 0.45/' \
     -e 's/"activeSlotsCoeff": 5.0e-2/"activeSlotsCoeff": 0.05/' \
     -e 's/"securityParam": 2160/"securityParam": '${SECURITY_PARAM}'/' \
-    -e 's/"epochLength": 432000/"epochLength": 100/' \
+    -e 's/"epochLength": 432000/"epochLength": 80/' \
     -e 's/"maxLovelaceSupply": 0/"maxLovelaceSupply": 1000000000/' \
     -e 's/"decentralisationParam": 1.0/"decentralisationParam": 0.7/' \
     -e 's/"major": 0/"major": 4/' \
