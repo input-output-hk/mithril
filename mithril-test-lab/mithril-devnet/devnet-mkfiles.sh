@@ -317,7 +317,7 @@ mkdir shelley
 # and K=10, but we'll keep long KES periods so we don't have to bother
 # cycling KES keys
 sed -i shelley/genesis.spec.json \
-    -e 's/"slotLength": 1/"slotLength": 0.75/' \
+    -e 's/"slotLength": 1/"slotLength": 0.45/' \
     -e 's/"activeSlotsCoeff": 5.0e-2/"activeSlotsCoeff": 0.05/' \
     -e 's/"securityParam": 2160/"securityParam": '${SECURITY_PARAM}'/' \
     -e 's/"epochLength": 432000/"epochLength": 100/' \
