@@ -19,6 +19,7 @@ use std::{
     hash::{Hash, Hasher},
     iter::Sum,
 };
+use std::fmt::{Display, Formatter};
 
 /// String used to generate the proofs of possession.
 const POP: &[u8] = b"PoP";
@@ -66,6 +67,13 @@ impl SigningKey {
 /// from the blst library.
 #[derive(Debug, Clone, Copy)]
 pub struct VerificationKey(G2Projective);
+
+// We implement Display as the byte representation to guarantee uniqueness of one point.
+impl Display for VerificationKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.to_bytes())
+    }
+}
 
 impl Default for VerificationKey {
     fn default() -> Self {
@@ -315,6 +323,13 @@ pub struct Signature(G1Projective);
 impl Default for Signature {
     fn default() -> Self {
         Signature(G1Projective::identity())
+    }
+}
+
+// We implement Display as the byte representation to guarantee uniqueness of one point.
+impl Display for Signature {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.to_bytes())
     }
 }
 
