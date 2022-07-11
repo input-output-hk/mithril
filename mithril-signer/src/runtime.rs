@@ -1,4 +1,4 @@
-use slog_scope::{error, info};
+use slog_scope::{error, info, warn};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -187,6 +187,7 @@ impl Runtime {
                 .map_err(|e| RuntimeError::RegisterSignerFailed(e.to_string()))?;
             Ok(true)
         } else {
+            warn!("No protocol initializer, signer won't be registered");
             Ok(false)
         }
     }
