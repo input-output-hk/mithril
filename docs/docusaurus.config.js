@@ -22,7 +22,8 @@ const config = {
       defer: true,
       'data-domain': 'mithril.network'
     }
-  ]
+  ],
+  
   presets: [
     [
       'classic',
