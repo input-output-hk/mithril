@@ -155,7 +155,7 @@ impl From<MerkleTreeError> for MultiSignatureError {
 }
 
 impl<D: Digest + Clone + FixedOutput> From<MultiSignatureError> for MithrilWitnessError<D> {
-    fn from(e: MultiSignatureError) -> Self {
+    fn from(_: MultiSignatureError) -> Self {
         // todo:
         Self::StakeInvalid
     }

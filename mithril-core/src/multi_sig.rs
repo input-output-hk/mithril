@@ -401,15 +401,21 @@ impl Signature {
         vks: &[VerificationKey],
         sigs: &[Signature],
     ) -> Result<(), MultiSignatureError> {
+        let mut hashed_sigs = Blake2b::new();
+        for sig in sigs {
+            hashed_sigs.update(&sig.to_bytes());
+        }
+
         // First we generate the scalars
         let mut scalar_bytes = [0u8; 32];
         let mut scalars = Vec::with_capacity(vks.len());
         let mut messages = Vec::with_capacity(vks.len());
         let mut signatures = Vec::with_capacity(vks.len());
-        for sig in sigs {
+        for (index, sig) in sigs.iter().enumerate() {
+            let mut hasher = hashed_sigs.clone();
+            hasher.update(&index.to_be_bytes());
             signatures.push(&sig.0);
-            scalar_bytes[..16]
-                .copy_from_slice(&blake2::Blake2b::digest(&sig.to_bytes()).as_slice()[..16]);
+            scalar_bytes[..16].copy_from_slice(&hasher.finalize().as_slice()[..16]);
             scalars.push(blst_scalar {
                 b: scalar_bytes.clone(),
             });

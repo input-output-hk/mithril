@@ -391,26 +391,33 @@ impl Signature {
         vks: &[VerificationKey],
         sigs: &[Signature],
     ) -> Result<(), MultiSignatureError> {
+        let mut hashed_sigs = Blake2b::new();
+        for sig in sigs {
+            hashed_sigs.update(&sig.to_bytes());
+        }
+
         let mut result_sig = Signature::default();
-        result_sig = sigs.iter().fold(result_sig, |acc, sig| {
-            let mut scalar_bytes = [0u8; 32];
-            scalar_bytes[..16]
-                .copy_from_slice(&blake2::Blake2b::digest(&sig.to_bytes()).as_slice()[..16]);
-            let scalars = Scalar::from_bytes(&scalar_bytes).unwrap();
-            Signature(acc.0 + sig.0 * scalars)
-        });
+        result_sig = sigs
+            .iter()
+            .enumerate()
+            .fold(result_sig, |acc, (index, sig)| {
+                let mut hasher = hashed_sigs.clone();
+                hasher.update(&index.to_be_bytes());
+                let mut scalar_bytes = [0u8; 32];
+                scalar_bytes[..16].copy_from_slice(&hasher.finalize().as_slice()[..16]);
+                let scalars = Scalar::from_bytes(&scalar_bytes).unwrap();
+                Signature(acc.0 + sig.0 * scalars)
+            });
 
         let mut result_pk = VerificationKey::default();
-        result_pk = vks
-            .iter()
-            .zip(sigs.iter())
-            .fold(result_pk, |acc, (pk, sig)| {
-                let mut scalar_bytes = [0u8; 32];
-                scalar_bytes[..16]
-                    .copy_from_slice(&blake2::Blake2b::digest(&sig.to_bytes()).as_slice()[..16]);
-                let scalars = Scalar::from_bytes(&scalar_bytes).unwrap();
-                VerificationKey(acc.0 + pk.0 * scalars)
-            });
+        result_pk = vks.iter().enumerate().fold(result_pk, |acc, (index, pk)| {
+            let mut hasher = hashed_sigs.clone();
+            hasher.update(&index.to_be_bytes());
+            let mut scalar_bytes = [0u8; 32];
+            scalar_bytes[..16].copy_from_slice(&hasher.finalize().as_slice()[..16]);
+            let scalars = Scalar::from_bytes(&scalar_bytes).unwrap();
+            VerificationKey(acc.0 + pk.0 * scalars)
+        });
 
         result_sig.verify(msg, &result_pk)
     }
