@@ -1,5 +1,6 @@
 use crate::devnet::PoolNode;
 use crate::utils::MithrilCommand;
+use crate::DEVNET_MAGIC_ID;
 use mithril_common::entities::PartyId;
 use std::collections::HashMap;
 use std::path::Path;
@@ -21,6 +22,7 @@ impl Signer {
         bin_dir: &Path,
     ) -> Result<Self, String> {
         let party_id = pool_node.party_id()?;
+        let magic_id = DEVNET_MAGIC_ID.to_string();
         let stake_store_path = format!("./store/signer-{}/stakes", party_id);
         let env = HashMap::from([
             ("NETWORK", "devnet"),
@@ -29,7 +31,7 @@ impl Signer {
             ("AGGREGATOR_ENDPOINT", &aggregator_endpoint),
             ("DB_DIRECTORY", pool_node.db_path.to_str().unwrap()),
             ("STAKE_STORE_DIRECTORY", &stake_store_path),
-            ("NETWORK_MAGIC", "42"),
+            ("NETWORK_MAGIC", &magic_id),
             (
                 "CARDANO_NODE_SOCKET_PATH",
                 pool_node.socket_path.to_str().unwrap(),
