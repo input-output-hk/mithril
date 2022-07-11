@@ -1,0 +1,10 @@
+{
+    "label": "Mithril Network",
+    "collapsible": true,
+    "collapsed": false,
+    "position": 1,
+    "link": {
+        "type": "generated-index",
+        "title": "Mithril Network Nodes"
+    }
+}

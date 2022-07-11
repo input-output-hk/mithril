@@ -9,13 +9,13 @@ Welcome to the Mithril Network Architecture!
 
 :::tip
 
-For more information about the **Mithril Protocol**, please refer to the [About Mithril](../../../mithril/intro.md) section.
+For more information about the **Mithril Protocol**, please refer to the [About Mithril](../mithril-protocol/protocol.md) section.
 
 :::
 
 ## Introduction
 
-In its current version, the **Mithril Network** is a network of node responsible for creating **Snapshots** and **Certificates** that enable fast bootstrap of a **Cardano Node**. It runs on top of the **Cardano Network**.
+In its current version, the **Mithril Network** is a network of nodes responsible for creating **Snapshots** and **Certificates** that enable fast bootstrap of a **Cardano Node**. It runs on top of the **Cardano Network**.
 
 :::info
 
@@ -25,9 +25,9 @@ The role of a Mithril Network is to enable end users to restore a full Cardano n
 
 It is basically composed of three nodes:
 
-* [**Mithril Aggregator**](aggregator.md):
+* [**Mithril Aggregator**](./aggregator.md):
 
-> The trust less node that orchestrates the work of the MIthril Signer nodes and that gathers their individual signatures to produce Mithril multi signatures and their associated certificates. It is also in charge of creating and storing the ledger state snapshot archive.
+> The trustless node that orchestrates the work of the Mithril Signer nodes and that gathers their individual signatures to produce Mithril multi signatures and their associated certificates. It is also in charge of creating and storing the ledger state snapshot archive.
 
 * [**Mithril Signer**](./signer.md):
 

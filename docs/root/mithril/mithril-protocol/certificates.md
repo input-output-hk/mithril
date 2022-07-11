@@ -1,9 +1,13 @@
 ---
-sidebar_position: 3
-sidebar_label: Mithril Certificates Chain
+sidebar_position: 2
+sidebar_label: Certificate Chain
 ---
 
-# Mithril Certificates Chain in depth
+# Mithril Certificate Chain in depth
+
+(To be completed)
+
+[![](images/certificate-chain.jpg)](images/certificate-chain.jpg)
 
 This document covers an open discussion on some important details required to
 build the certificates in general, and we give particular importance into how

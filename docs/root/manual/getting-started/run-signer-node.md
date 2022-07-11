@@ -44,33 +44,49 @@ At this point, secret keys from the Cardano Node will be needed as well.
 
 ### Download source
 
-```bash
-# Download from Github (HTTPS)
-$ git clone https://github.com/input-output-hk/mithril.git
+Download from Github (HTTPS)
 
-# or (SSH)
-$ git clone git@github.com:input-output-hk/mithril.git
+```bash
+git clone https://github.com/input-output-hk/mithril.git
+```
+
+Or (SSH)
+
+```bash
+git clone git@github.com:input-output-hk/mithril.git
 ```
 
 ### Build Mithril Signer binary
 
+Change directory
+
 ```bash
-# Change directory
-$ cd mithril/mithril-signer
+cd mithril/mithril-signer
+```
 
-# Run tests (Optional)
-$ make test
+Run tests (Optional)
 
-# Build executable
-$ make build
+```bash
+make test
+```
+
+Build executable
+
+```bash
+make build
 ```
 
 ### Verify build
 
-```bash
-# Check that the Mithril Signer binary is working fine by running its help
-$ ./mithril-signer -h
+Check that the Mithril Signer binary is working fine by running its help
 
+```bash
+./mithril-signer -h
+```
+
+You should see
+
+```bash
 mithril-signer 
 An implementation of a Mithril Signer
 
@@ -96,10 +112,11 @@ If you want to dig deeper, you can get access to several level of logs from the 
 
 ### Move executable
 
+Move executable to /opt/mithril
+
 ```bash
-# Move executable to /opt/mithril
-$ sudo mkdir -p /opt/mithril
-$ sudo mv mithril-signer /opt/mithril
+sudo mkdir -p /opt/mithril
+sudo mv mithril-signer /opt/mithril
 ```
 
 ### Setup the service
@@ -118,9 +135,10 @@ Replace this value with the correct user. We assume that the user used to run th
 
 :::
 
+First create an env file that will be used by the service
+
 ```bash
-# First we create an env file that will be used by the service
-$ sudo cat > /opt/mithril/mithril-signer.env << EOF
+sudo cat > /opt/mithril/mithril-signer.env << EOF
 PARTY_ID=YOUR_POOL_ID_BECH32
 NETWORK=testnet
 NETWORK_MAGIC=1097911063
@@ -130,9 +148,12 @@ CARDANO_NODE_SOCKET_PATH=/cardano/ipc/node.socket
 CARDANO_CLI_PATH=/app/bin/cardano-cli
 STAKE_STORE_DIRECTORY=/opt/mithril/mithril-signer/store/stake_db
 EOF
+```
 
-# Then we will create a `/etc/systemd/system/mithril-signer.service` description file for our service
-$ sudo cat > /etc/systemd/system/mithril-signer.service << EOF
+Then we will create a `/etc/systemd/system/mithril-signer.service` description file for our service
+
+```bash
+sudo cat > /etc/systemd/system/mithril-signer.service << EOF
 [Unit]
 Description=Mithril Signer service
 StartLimitIntervalSec=0
@@ -150,19 +171,32 @@ WantedBy=multi-user.target
 EOF
 ```
 
+Reload the service configuration (Optional)
+
 ```bash
-# Reload the service configuration (Optional)
-$ sudo systemctl daemon-reload
+sudo systemctl daemon-reload
+```
 
-# Then start the service
-$ sudo systemctl start mithril-signer
+Then start the service
 
-# Then register the service to start on boot
-$ sudo systemctl enable mithril-signer
+```bash
+sudo systemctl start mithril-signer
+```
 
-# Then monitor status of the service
-$ systemctl status mithril-signer.service
+Then register the service to start on boot
 
-# And monitor the logs of the service
-$ tail /var/log/syslog
+```bash
+sudo systemctl enable mithril-signer
+```
+
+Then monitor status of the service
+
+```bash
+systemctl status mithril-signer.service
+```
+
+And monitor the logs of the service
+
+```bash
+tail /var/log/syslog
 ```

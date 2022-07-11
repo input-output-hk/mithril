@@ -22,7 +22,7 @@ const FeatureList = [
         Find more about the Mithril multi signature.
       </>
     ),
-    link: '/doc/mithril/intro',
+    link: '/doc/mithril/mithril-protocol/protocol',
   },
   {
     title: 'The Mithril Network',
@@ -33,7 +33,7 @@ const FeatureList = [
         Find more about all the nodes involved the network and its architecture.
       </>
     ),
-    link: '/doc/manual/developer-docs/architecture/',
+    link: '/doc/mithril/mithril-network/architecture',
   },
 ];
 

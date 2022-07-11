@@ -1,6 +1,6 @@
 ---
-sidebar_position: 4
-sidebar_label: Mithril Simulation
+sidebar_position: 3
+sidebar_label: Simulation 
 ---
 
 # Mithril Protocol Simulation
@@ -67,7 +67,7 @@ Check that the Mithril Client binary is working fine by running its help
 
 You should see
 
-```
+```bash
 mithrildemo 
 Simple demonstration of the Mithril protocol
 
@@ -114,7 +114,7 @@ Run the simulation wih `5` participants
 
 The simulation should succeed and produce (or aggregate) a multi signature!
 
-```
+```bash
 >> Launch Mithril protocol demonstrator with configuration: 
 Config {
     m: 50,
@@ -236,7 +236,7 @@ Run the simulation wih `5` participants
 
 The simulation should fail and not produce (or aggregate) any multi signature!
 
-```
+```bash
 >> Launch Mithril protocol demonstrator with configuration: 
 Config {
     m: 5,
@@ -294,6 +294,6 @@ Party #0: aggregate signature not found 7724e03fb8d84a376a43b8f41518a11c
 
 :::tip
 
-For more information about the **Mithril Protocol**, please refer to the [About Mithril](../mithril/intro.md) section.
+For more information about the **Mithril Protocol**, please refer to the [About Mithril](../mithril-protocol/protocol.md) section.
 
 :::
