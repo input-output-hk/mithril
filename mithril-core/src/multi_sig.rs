@@ -14,7 +14,9 @@ use blst::min_sig::{
     AggregatePublicKey, AggregateSignature, PublicKey as BlstPk, SecretKey as BlstSk,
     Signature as BlstSig,
 };
-use blst::{blst_p1, blst_p1_affine, blst_p1_compress, blst_p1_from_affine, blst_p1_uncompress};
+use blst::{
+    blst_p1, blst_p1_affine, blst_p1_compress, blst_p1_from_affine, blst_p1_uncompress, blst_scalar,
+};
 
 use rand_core::{CryptoRng, RngCore};
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
@@ -190,7 +192,7 @@ impl From<&SigningKey> for ProofOfPossession {
     /// `k1 =  H_G1(b"PoP" || mvk)` and `k2 = g1 * sk` where `H_G1` hashes into
     /// `G1` and `g1` is the generator in `G1`.
     fn from(sk: &SigningKey) -> Self {
-        use blst::{blst_scalar, blst_sk_to_pk_in_g1};
+        use blst::blst_sk_to_pk_in_g1;
         let k1 = sk.0.sign(POP, &[], &[]);
         let k2 = unsafe {
             let sk_scalar = std::mem::transmute::<&BlstSk, &blst_scalar>(&sk.0);
@@ -392,6 +394,43 @@ impl Signature {
             }
         }
         result
+    }
+
+    pub(crate) fn verify_aggregate(
+        msg: &[u8],
+        vks: &[VerificationKey],
+        sigs: &[Signature],
+    ) -> Result<(), MultiSignatureError> {
+        // First we generate the scalars
+        let mut scalar_bytes = [0u8; 32];
+        let mut scalars = Vec::with_capacity(vks.len());
+        let mut messages = Vec::with_capacity(vks.len());
+        let mut signatures = Vec::with_capacity(vks.len());
+        for sig in sigs {
+            signatures.push(&sig.0);
+            scalar_bytes[..16]
+                .copy_from_slice(&blake2::Blake2b::digest(&sig.to_bytes()).as_slice()[..16]);
+            scalars.push(blst_scalar {
+                b: scalar_bytes.clone(),
+            });
+            messages.push(msg); // todo: can we do this for the same message??
+        }
+
+        let vks = vks
+            .iter()
+            .map(|pk| &pk.0)
+            .collect::<Vec<&blst::min_sig::PublicKey>>();
+
+        blst_err_to_atms(BlstSig::verify_multiple_aggregate_signatures(
+            &messages,
+            &[],
+            &vks,
+            false,
+            &signatures,
+            false,
+            &scalars,
+            128,
+        ))
     }
 }
 

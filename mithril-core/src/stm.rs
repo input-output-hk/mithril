@@ -427,13 +427,19 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
             }
         }
 
-        let signatures = self.signatures.iter().map(|sig| sig.sigma).collect::<Vec<Signature>>();
-        let vks = self.signatures.iter().map(|sig| sig.pk).collect::<Vec<VerificationKey>>();
+        let msg = avk.mt_commitment.concat_with_msg(msg);
+        let signatures = self
+            .signatures
+            .iter()
+            .map(|sig| sig.sigma)
+            .collect::<Vec<Signature>>();
+        let vks = self
+            .signatures
+            .iter()
+            .map(|sig| sig.pk)
+            .collect::<Vec<VerificationKey>>();
 
-        let aggr_sig = Signature::mithril_aggregation(&signatures);
-        let aggr_vk = VerificationKey::mithril_aggregation(&vks, &signatures);
-
-        aggr_sig.verify(&avk.mt_commitment.concat_with_msg(msg), &aggr_vk)?;
+        Signature::verify_aggregate(msg.as_slice(), &vks, &signatures)?;
         Ok(())
     }
 

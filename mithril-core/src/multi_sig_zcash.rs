@@ -134,20 +134,6 @@ impl VerificationKey {
 
         result
     }
-
-    /// This function computes the verification aggregation as specified in the paper, by hashing
-    /// each signature and using the resulting value as a coefficient in a multi scalar multiplication.
-    /// Therefore, this aggregation function takes as input a slice of keys and a slice of signatures
-    pub(crate) fn mithril_aggregation(pks: &[Self], sigs: &[Signature]) -> Self {
-        let result = VerificationKey::default();
-        pks.iter().zip(sigs.iter()).fold(result, |acc, (pk, sig)| {
-            let mut scalar_bytes = [0u8;32];
-            scalar_bytes[..16].copy_from_slice(&blake2::Blake2b::digest(&sig.to_bytes()).as_slice()[..16]);
-            println!("Scalar bytes 2: {:?}" ,scalar_bytes);
-            let scalars = Scalar::from_bytes(&scalar_bytes).unwrap();
-            VerificationKey(acc.0 + pk.0 * scalars)
-        })
-    }
 }
 
 impl PartialOrd for VerificationKey {
@@ -400,17 +386,33 @@ impl Signature {
         result
     }
 
-    /// This function computes the signature aggregation as specified in the paper, by hashing
-    /// each signature and using the resulting value as a coefficient in a multi scalar multiplication.
-    pub(crate) fn mithril_aggregation(sigs: &[Self]) -> Self {
-        let result = Signature::default();
-        sigs.iter().fold(result, |acc, sig| {
-            let mut scalar_bytes = [0u8;32];
-            scalar_bytes[..16].copy_from_slice(&blake2::Blake2b::digest(&sig.to_bytes()).as_slice()[..16]);
-            println!("Scalar bytes 3: {:?}" ,scalar_bytes);
+    pub(crate) fn verify_aggregate(
+        msg: &[u8],
+        vks: &[VerificationKey],
+        sigs: &[Signature],
+    ) -> Result<(), MultiSignatureError> {
+        let mut result_sig = Signature::default();
+        result_sig = sigs.iter().fold(result_sig, |acc, sig| {
+            let mut scalar_bytes = [0u8; 32];
+            scalar_bytes[..16]
+                .copy_from_slice(&blake2::Blake2b::digest(&sig.to_bytes()).as_slice()[..16]);
             let scalars = Scalar::from_bytes(&scalar_bytes).unwrap();
             Signature(acc.0 + sig.0 * scalars)
-        })
+        });
+
+        let mut result_pk = VerificationKey::default();
+        result_pk = vks
+            .iter()
+            .zip(sigs.iter())
+            .fold(result_pk, |acc, (pk, sig)| {
+                let mut scalar_bytes = [0u8; 32];
+                scalar_bytes[..16]
+                    .copy_from_slice(&blake2::Blake2b::digest(&sig.to_bytes()).as_slice()[..16]);
+                let scalars = Scalar::from_bytes(&scalar_bytes).unwrap();
+                VerificationKey(acc.0 + pk.0 * scalars)
+            });
+
+        result_sig.verify(msg, &result_pk)
     }
 }
 
