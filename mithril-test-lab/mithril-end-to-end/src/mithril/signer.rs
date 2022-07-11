@@ -27,7 +27,7 @@ impl Signer {
         let env = HashMap::from([
             ("NETWORK", "devnet"),
             ("PARTY_ID", &party_id),
-            ("RUN_INTERVAL", "2000"),
+            ("RUN_INTERVAL", "800"),
             ("AGGREGATOR_ENDPOINT", &aggregator_endpoint),
             ("DB_DIRECTORY", pool_node.db_path.to_str().unwrap()),
             ("STAKE_STORE_DIRECTORY", &stake_store_path),
