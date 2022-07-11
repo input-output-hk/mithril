@@ -312,6 +312,12 @@ impl ProofOfPossession {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Signature(G1Projective);
 
+impl Default for Signature {
+    fn default() -> Self {
+        Signature(G1Projective::identity())
+    }
+}
+
 impl Signature {
     /// Verify a signature against a verification key.
     pub fn verify(&self, msg: &[u8], mvk: &VerificationKey) -> Result<(), MultiSignatureError> {
@@ -378,6 +384,42 @@ impl Signature {
             }
         }
         result
+    }
+
+    pub(crate) fn verify_aggregate(
+        msg: &[u8],
+        vks: &[VerificationKey],
+        sigs: &[Signature],
+    ) -> Result<(), MultiSignatureError> {
+        let mut hashed_sigs = Blake2b::new();
+        for sig in sigs {
+            hashed_sigs.update(&sig.to_bytes());
+        }
+
+        let mut result_sig = Signature::default();
+        result_sig = sigs
+            .iter()
+            .enumerate()
+            .fold(result_sig, |acc, (index, sig)| {
+                let mut hasher = hashed_sigs.clone();
+                hasher.update(&index.to_be_bytes());
+                let mut scalar_bytes = [0u8; 32];
+                scalar_bytes[..16].copy_from_slice(&hasher.finalize().as_slice()[..16]);
+                let scalars = Scalar::from_bytes(&scalar_bytes).unwrap();
+                Signature(acc.0 + sig.0 * scalars)
+            });
+
+        let mut result_pk = VerificationKey::default();
+        result_pk = vks.iter().enumerate().fold(result_pk, |acc, (index, pk)| {
+            let mut hasher = hashed_sigs.clone();
+            hasher.update(&index.to_be_bytes());
+            let mut scalar_bytes = [0u8; 32];
+            scalar_bytes[..16].copy_from_slice(&hasher.finalize().as_slice()[..16]);
+            let scalars = Scalar::from_bytes(&scalar_bytes).unwrap();
+            VerificationKey(acc.0 + pk.0 * scalars)
+        });
+
+        result_sig.verify(msg, &result_pk)
     }
 }
 

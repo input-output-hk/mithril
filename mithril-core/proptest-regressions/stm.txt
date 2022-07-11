@@ -5,3 +5,11 @@
 # It is recommended to check this file in to source control so that
 # everyone who runs the test benefits from these saved cases.
 cc 31b06535674c5a44ff216443cbd6d1b7a694cc79aa89c394aa189e1c1fea061d # shrinks to msg = [0, 0, 4, 8, 1, 1, 0, 2, 7, 3, 22, 62, 62, 38, 23, 0], misbehaving_parties = 2
+cc cb4b3a7459ce307a8fb6787d3f519e7b2550f98f3946ab9bcc34eccc223ff711 # shrinks to nparties = 2, m = 10, k = 1, msg = [66, 58, 3, 0, 0, 0, 1, 4, 4, 0, 0, 0, 0, 0, 1, 23]
+cc 9b826e51d51496639b281bc21b0f69b611ce4c5119c4c88be311dc8924690f9d # shrinks to nparties = 3, m = 10, k = 1, msg = [33, 6, 1, 70, 122, 7, 171, 159, 147, 219, 41, 145, 0, 91, 247, 233]
+cc 73f51d1333c9186412e269d87739c2a232a62f75e3801883d6974c018b8bf4c5 # shrinks to nparties = 2, m = 10, k = 1, msg = [2, 7, 0, 0, 0, 0, 0, 8, 11, 0, 0, 0, 0, 4, 2, 2]
+cc 1b897e9f9fe52b1165214cdc9253da73bd15e4bae5b9ccb5b40ddad0a4aeb800 # shrinks to nparties = 8, m = 10, k = 1, msg = [22, 41, 0, 0, 21, 0, 0, 1, 5, 7, 2, 0, 51, 60, 0, 2]
+cc bfe6fbad028ad86d75df7c75d29ee8f3279a81acbf50ef971b3dae92d529eeeb # shrinks to nparties = 6, m = 13, k = 2, msg = [96, 125, 5, 45, 35, 116, 166, 125, 33, 57, 5, 226, 31, 152, 83, 69]
+cc 9ef4bbf885dd054e2e54c85d0a54ef324d5ef7af232157c50bd55986640c6cab # shrinks to nparties = 7, m = 11, k = 1, msg = [16, 197, 45, 60, 228, 119, 173, 69, 2, 156, 57, 238, 34, 178, 228, 198]
+cc 533659c456e216b566b35d413e0b505c6e4d8d04ab402d79343e46a5a32c7c9d # shrinks to nparties = 18, m = 11, k = 1, msg = [78, 114, 142, 29, 122, 86, 154, 181, 170, 165, 114, 115, 234, 82, 143, 36]
+cc f2c14c2a2d3f02a4d98028f41effa69c153529df611e2206e9cbf540e7a99079 # shrinks to nparties = 2, m = 14, k = 1, msg = [69, 0, 87, 0, 53, 5, 58, 203, 42, 90, 66, 244, 89, 95, 198, 22]

@@ -1,8 +1,8 @@
 //! Key registration functionality.
 
-use std::collections::hash_map::Entry;
 use crate::error::RegisterError;
 use digest::{Digest, FixedOutput};
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::Arc;
 
