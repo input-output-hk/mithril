@@ -245,7 +245,7 @@ where
 }
 
 /// Signature created by a single party who has won the lottery.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(bound(
     serialize = "Path<D>: Serialize",
     deserialize = "Path<D>: Deserialize<'de>"
