@@ -1,6 +1,6 @@
 ---
-sidebar_position: 2
-sidebar_label: Mithril Protocol
+sidebar_position: 1
+sidebar_label: Protocol in depth
 ---
 
 # Mithril Protocol in depth
@@ -13,7 +13,13 @@ The research paper `Mithril: Stake-based Threshold Multisignatures` is downloada
 
 :::info New
 
-:new: Interact with the **Mithril Simulation** by experiencing with our [protocol demo](mithril-simulation.md). This will help you understand how the participants interact to create a multi signature and what's the impact of the protocol parameters.
+:new: Interact with the **Mithril Protocol** by experiencing with our [protocol simulation](./simulation.md). This will help you understand how the participants interact to create a multi signature and what's the impact of the protocol parameters.
+
+:::
+
+:::tip
+
+For more information about the **Mithril Network**, please refer to the [Architecture](../mithril-network/architecture.md) page.
 
 :::
 
@@ -126,6 +132,6 @@ Note that if the individual signatures are broadcast to all parties, then each p
 
 :::tip
 
-For more information about the **Mithril Network**, please refer to the [Architecture](../manual/developer-docs/architecture/architecture.md) page.
+For more information about the **Mithril Network**, please refer to the [Architecture](../mithril-network/architecture.md) page.
 
 :::

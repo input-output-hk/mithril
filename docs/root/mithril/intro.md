@@ -7,7 +7,7 @@ sidebar_label: Introduction
 
 :::info New
 
-:new: Interact with the **Mithril Simulation** by experiencing with our [protocol demo](mithril-simulation.md). This will help you understand how the participants interact to create a multi signature and what's the impact of the protocol parameters.
+:new: Interact with the **Mithril Protocol** by experiencing with our [protocol simulation](./mithril-protocol/simulation.md). This will help you understand how the participants interact to create a multi signature and what's the impact of the protocol parameters.
 
 :::
 
@@ -21,21 +21,27 @@ In a nutshell, **Mithril** can be summarized as:
 
 In other words, an adversarial participant with less than this share of the total stakes will not be able to produce valid multi signatures :closed_lock_with_key:.
 
-:::tip
-
-For more information about the **Mithril Network**, please refer to the [Architecture](../manual/developer-docs/architecture/architecture.md) page.
-
-:::
-
 ## What you'll find in this guide
 
 In this **About Mithril** guide, you will find:
 
-* Documentation on the [Mithril Protocol in depth](./mithril-protocol.md)
+* Documentation on the **Mithril Protocol**:
 
-* Documentation on the [Mithril Certificates Chain in depth](./mithril-certificates.md)
+  * The [Mithril Protocol in depth](./mithril-protocol/protocol.md)
 
-* :new: An interactive discovery of the protocol with the [Mithril Simulation](./mithril-simulation.md)
+  * The [Mithril Certificate Chain in depth](./mithril-protocol/certificates.md)
+
+  * :new: An interactive discovery of the protocol with the [Mithril Simulation](./mithril-protocol/simulation.md)
+
+* Documentation on the **Mithril Network**:
+
+  * The [Mithril Network architecture](./mithril-network/architecture.md)
+
+  * The [Mithril Aggregator node](./mithril-network/aggregator.md)
+
+  * The [Mithril Signer node](./mithril-network/signer.md)
+
+  * The [Mithril Client node](./mithril-network/client.md)
 
 :::tip
 
