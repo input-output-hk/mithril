@@ -15,7 +15,14 @@ const config = {
   favicon: 'img/favicon.ico',
   organizationName: 'Input Output',
   projectName: 'Mithril',
-
+  
+  scripts: [
+    {
+      src: 'https://plausible.io/js/script.js',
+      defer: true,
+      'data-domain': 'mithril.network'
+    }
+  ]
   presets: [
     [
       'classic',
