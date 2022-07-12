@@ -140,6 +140,8 @@ impl SingleSigner for MithrilSingleSigner {
         stakes: Vec<SignerWithStake>, // TODO : use a hmap to prevent party id duplication
         protocol_parameters: &entities::ProtocolParameters,
     ) -> Result<Option<SingleSignatures>, SingleSignerError> {
+        self.init_protocol_initializer(&stakes, protocol_parameters)?;
+
         let current_signer_with_stake = stakes
             .iter()
             .find(|s| s.party_id == self.party_id)
@@ -152,8 +154,6 @@ impl SingleSigner for MithrilSingleSigner {
                 return Err(SingleSignerError::UnregisteredVerificationKey());
             }
         }
-
-        self.init_protocol_initializer(&stakes, protocol_parameters)?;
 
         let protocol_signer = self.create_protocol_signer(&stakes)?;
 
