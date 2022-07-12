@@ -35,7 +35,7 @@ pub struct Args {
     number_of_bft_nodes: u8,
 
     /// Number of Pool nodes in the devnet
-    #[clap(long, default_value_t = 1)]
+    #[clap(long, default_value_t = 2)]
     number_of_pool_nodes: u8,
 }
 

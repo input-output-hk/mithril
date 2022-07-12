@@ -1,5 +1,6 @@
 use crate::devnet::BftNode;
 use crate::utils::MithrilCommand;
+use crate::DEVNET_MAGIC_ID;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tokio::process::Child;
@@ -21,13 +22,14 @@ impl Aggregator {
         bin_dir: &Path,
     ) -> Result<Self, String> {
         let port = server_port.to_string();
+        let magic_id = DEVNET_MAGIC_ID.to_string();
         let env = HashMap::from([
             ("NETWORK", "devnet"),
-            ("RUN_INTERVAL", "2000"),
+            ("RUN_INTERVAL", "600"),
             ("URL_SNAPSHOT_MANIFEST", ""),
             ("SNAPSHOT_STORE_TYPE", "local"),
             ("SNAPSHOT_UPLOADER_TYPE", "local"),
-            ("NETWORK_MAGIC", "42"),
+            ("NETWORK_MAGIC", &magic_id),
             (
                 "PENDING_CERTIFICATE_STORE_DIRECTORY",
                 "./store/aggregator/pending-certs",

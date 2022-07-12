@@ -1,12 +1,16 @@
-use crate::{Aggregator, Client, Devnet, Signer};
+use crate::{Aggregator, Client, Devnet, Signer, DEVNET_MAGIC_ID};
+use mithril_common::chain_observer::{CardanoCliChainObserver, CardanoCliRunner};
+use mithril_common::CardanoNetwork;
 use std::borrow::BorrowMut;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 pub struct MithrilInfrastructure {
     work_dir: PathBuf,
     bin_dir: PathBuf,
     aggregator: Aggregator,
     signers: Vec<Signer>,
+    cardano_chain_observer: Arc<CardanoCliChainObserver>,
 }
 
 impl MithrilInfrastructure {
@@ -51,6 +55,13 @@ impl MithrilInfrastructure {
             bin_dir: bin_dir.to_path_buf(),
             aggregator,
             signers,
+            cardano_chain_observer: Arc::new(CardanoCliChainObserver::new(Box::new(
+                CardanoCliRunner::new(
+                    devnet.cardano_cli_path(),
+                    bft_node.socket_path.clone(),
+                    CardanoNetwork::DevNet(DEVNET_MAGIC_ID),
+                ),
+            ))),
         })
     }
 
@@ -68,6 +79,10 @@ impl MithrilInfrastructure {
 
     pub fn signers_mut(&mut self) -> &mut [Signer] {
         self.signers.as_mut_slice()
+    }
+
+    pub fn chain_observer(&self) -> Arc<CardanoCliChainObserver> {
+        self.cardano_chain_observer.clone()
     }
 
     pub fn build_client(&self) -> Result<Client, String> {

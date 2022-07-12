@@ -236,7 +236,7 @@ jobs:
         if:  ${{ failure() }}
         uses: actions/upload-artifact@v3
         with:
-          name: mithril-e2e-tests-artifacts
+          name: mithril-e2e-tests-artifacts-run_${{ env.GITHUB_RUN_NUMBER }}-attempt_${{ env.GITHUB_RUN_ATTEMPT }}
           path: |
             ./artifacts/*
             # including node.sock makes the upload fails so exclude them:

@@ -1,11 +1,14 @@
 use crate::utils::AttemptResult;
 use crate::{attempt, Client, ClientCommand, MithrilInfrastructure};
+use mithril_common::chain_observer::{CardanoCliChainObserver, ChainObserver};
 use mithril_common::digesters::ImmutableFile;
-use mithril_common::entities::{Certificate, Snapshot};
+use mithril_common::entities::{Certificate, CertificatePending, Snapshot};
+use mithril_common::SIGNER_EPOCH_RETRIEVAL_OFFSET;
 use reqwest::StatusCode;
 use slog_scope::info;
 use std::error::Error;
 use std::path::Path;
+use std::sync::Arc;
 use std::time::Duration;
 
 pub struct Spec {
@@ -21,6 +24,7 @@ impl Spec {
         let aggregator_endpoint = self.infrastructure.aggregator().endpoint();
 
         wait_for_enough_immutable(self.infrastructure.aggregator().db_directory()).await?;
+        wait_for_minimal_epoch(self.infrastructure.chain_observer()).await?;
         wait_for_pending_certificate(&aggregator_endpoint).await?;
 
         let digest = assert_node_producing_snapshot(&aggregator_endpoint).await?;
@@ -74,7 +78,9 @@ async fn wait_for_enough_immutable(db_directory: &Path) -> Result<(), String> {
     }
 }
 
-async fn wait_for_pending_certificate(aggregator_endpoint: &str) -> Result<(), String> {
+async fn wait_for_pending_certificate(
+    aggregator_endpoint: &str,
+) -> Result<CertificatePending, String> {
     let url = format!("{}/certificate-pending", aggregator_endpoint);
     info!("Waiting for the aggregator to produce a pending certificate");
 
@@ -82,12 +88,12 @@ async fn wait_for_pending_certificate(aggregator_endpoint: &str) -> Result<(), S
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => {
-                    let text = response
-                        .text()
+                    let certificate = response
+                        .json::<CertificatePending>()
                         .await
-                        .unwrap_or_else(|_| "could not unwrap pending certificate".to_string());
-                    info!("Aggregator ready"; "pending_certificate" => text);
-                    Ok(Some(()))
+                        .map_err(|e| format!("Invalid CertificatePending body : {}", e))?;
+                    info!("Aggregator ready"; "pending_certificate"  => #?certificate);
+                    Ok(Some(certificate))
                 }
                 s if s.is_server_error() => Err(format!(
                     "Server error while waiting for the Aggregator, http code: {}",
@@ -98,7 +104,7 @@ async fn wait_for_pending_certificate(aggregator_endpoint: &str) -> Result<(), S
             Err(_) => Ok(None),
         }
     }) {
-        AttemptResult::Ok(_) => Ok(()),
+        AttemptResult::Ok(certificate) => Ok(certificate),
         AttemptResult::Err(error) => Err(error),
         AttemptResult::Timeout() => Err(format!(
             "Timeout exhausted for aggregator to be up, no response from `{}`",
@@ -107,12 +113,48 @@ async fn wait_for_pending_certificate(aggregator_endpoint: &str) -> Result<(), S
     }
 }
 
+async fn wait_for_minimal_epoch(
+    chain_observer: Arc<CardanoCliChainObserver>,
+) -> Result<(), String> {
+    info!(
+        "Waiting for the cardano network to be at the minimal epoch for signer to be able to sign snapshots";
+        "min_epoch" => SIGNER_EPOCH_RETRIEVAL_OFFSET
+    );
+
+    match attempt!(60, Duration::from_millis(1000), {
+        match chain_observer.get_current_epoch().await {
+            Ok(Some(epoch)) =>
+            {
+                #[allow(clippy::absurd_extreme_comparisons)]
+                if epoch >= SIGNER_EPOCH_RETRIEVAL_OFFSET {
+                    Ok(Some(()))
+                } else {
+                    Ok(None)
+                }
+            }
+            Ok(None) => Ok(None),
+            Err(err) => Err(format!("Could not query current epoch: {}", err)),
+        }
+    }) {
+        AttemptResult::Ok(_) => {
+            info!("Minimal epoch reached !"; "min_epoch" => SIGNER_EPOCH_RETRIEVAL_OFFSET);
+            Ok(())
+        }
+        AttemptResult::Err(error) => Err(error),
+        AttemptResult::Timeout() => {
+            Err("Timeout exhausted for minimum epoch to be reached".to_string())
+        }
+    }?;
+
+    Ok(())
+}
+
 async fn assert_node_producing_snapshot(aggregator_endpoint: &str) -> Result<String, String> {
     let url = format!("{}/snapshots", aggregator_endpoint);
     info!("Waiting for the aggregator to produce a snapshot");
 
     // todo: reduce the number of attempts if we can reduce the delay between two immutables
-    match attempt!(30, Duration::from_millis(2500), {
+    match attempt!(45, Duration::from_millis(2000), {
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<Vec<Snapshot>>().await.as_deref() {

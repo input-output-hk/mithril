@@ -7,3 +7,5 @@ pub use aggregator::Aggregator;
 pub use client::{Client, ClientCommand};
 pub use infrastructure::MithrilInfrastructure;
 pub use signer::Signer;
+
+pub const DEVNET_MAGIC_ID: mithril_common::MagicId = 42;

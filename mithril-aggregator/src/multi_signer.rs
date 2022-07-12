@@ -266,8 +266,15 @@ impl MultiSigner for MultiSignerImpl {
             .get_current_beacon()
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?
-            .epoch
-            - SIGNER_EPOCH_RETRIEVAL_OFFSET;
+            .epoch;
+
+        // TODO: move this on the beacon (or even the epoch ?)
+        #[allow(clippy::absurd_extreme_comparisons)]
+        if epoch < SIGNER_EPOCH_RETRIEVAL_OFFSET {
+            Err(ProtocolError::Core("Epoch below offset".to_string()))?;
+        }
+        let epoch = epoch - SIGNER_EPOCH_RETRIEVAL_OFFSET;
+
         let signers = self
             .stake_store
             .read()
@@ -311,6 +318,42 @@ impl MultiSigner for MultiSignerImpl {
         }
 
         Ok(())
+    }
+
+    /// Register a signer
+    async fn register_signer(
+        &mut self,
+        party_id: ProtocolPartyId,
+        verification_key: &ProtocolSignerVerificationKey,
+    ) -> Result<(), ProtocolError> {
+        debug!("Register signer {}", party_id);
+
+        let epoch = self
+            .beacon_store
+            .read()
+            .await
+            .get_current_beacon()
+            .await?
+            .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .epoch;
+        let result = match self
+            .verification_key_store
+            .write()
+            .await
+            .save_verification_key(
+                epoch,
+                entities::Signer::new(
+                    party_id,
+                    key_encode_hex(*verification_key).map_err(ProtocolError::Codec)?,
+                ),
+            )
+            .await?
+        {
+            Some(_) => Err(ProtocolError::ExistingSigner()),
+            None => Ok(()),
+        };
+
+        result
     }
 
     /// Get signer verification key
@@ -378,42 +421,6 @@ impl MultiSigner for MultiSignerImpl {
                 })
             })
             .collect())
-    }
-
-    /// Register a signer
-    async fn register_signer(
-        &mut self,
-        party_id: ProtocolPartyId,
-        verification_key: &ProtocolSignerVerificationKey,
-    ) -> Result<(), ProtocolError> {
-        debug!("Register signer {}", party_id);
-
-        let epoch = self
-            .beacon_store
-            .read()
-            .await
-            .get_current_beacon()
-            .await?
-            .ok_or_else(ProtocolError::UnavailableBeacon)?
-            .epoch;
-        let result = match self
-            .verification_key_store
-            .write()
-            .await
-            .save_verification_key(
-                epoch,
-                entities::Signer::new(
-                    party_id,
-                    key_encode_hex(*verification_key).map_err(ProtocolError::Codec)?,
-                ),
-            )
-            .await?
-        {
-            Some(_) => Err(ProtocolError::ExistingSigner()),
-            None => Ok(()),
-        };
-
-        result
     }
 
     /// Registers a single signature
