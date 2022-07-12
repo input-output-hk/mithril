@@ -1,5 +1,5 @@
 use mithril::key_reg::KeyReg;
-use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner};
+use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
 use rayon::prelude::*;
 
 use mithril::error::AggregationFailure;
@@ -50,27 +50,13 @@ fn test_full_protocol() {
     // operation phase //
     /////////////////////
 
-    let p_results = ps
+    let sigs = ps
         .par_iter()
-        .map(|p| {
-            let mut sigs = Vec::new();
-            let mut ixs = Vec::new();
-            for ix in 1..params.m {
-                if let Some(sig) = p.sign(&msg, ix) {
-                    sigs.push(sig);
-                    ixs.push(ix);
-                }
-            }
-
-            (ixs, sigs)
+        .filter_map(|p| {
+            p.sign(&msg)
         })
-        .collect::<Vec<_>>();
-    let mut sigs = Vec::new();
-    let mut ixs = Vec::new();
-    for res in p_results {
-        ixs.extend(res.0);
-        sigs.extend(res.1);
-    }
+        .collect::<Vec<StmSig<H>>>();
+
 
     let clerk = StmClerk::from_signer(&ps[0]);
     let avk = clerk.compute_avk();

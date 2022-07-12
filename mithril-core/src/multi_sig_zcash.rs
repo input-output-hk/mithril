@@ -559,26 +559,26 @@ mod tests {
             assert!(fake_sig.verify(&msg, &pk1).is_err());
         }
 
-        #[test]
-        fn test_aggregate_sig(msg in prop::collection::vec(any::<u8>(), 1..128),
-                              num_sigs in 1..16,
-                              seed in any::<[u8;32]>(),
-        ) {
-            let mut rng = ChaCha20Rng::from_seed(seed);
-            let mut mvks = Vec::new();
-            let mut sigs = Vec::new();
-            for _ in 0..num_sigs {
-                let sk = SigningKey::gen(&mut rng);
-                let pk = VerificationKey::from(&sk);
-                let sig = sk.sign(&msg);
-                assert!(sig.verify(&msg, &pk).is_ok());
-                sigs.push(sig);
-                mvks.push(pk);
-            }
-            let ivk = mvks.iter().sum();
-            let mu: Signature = sigs.iter().sum();
-            assert!(mu.verify(&msg, &ivk).is_ok());
-        }
+        // #[test]
+        // fn test_aggregate_sig(msg in prop::collection::vec(any::<u8>(), 1..128),
+        //                       num_sigs in 1..16,
+        //                       seed in any::<[u8;32]>(),
+        // ) {
+        //     let mut rng = ChaCha20Rng::from_seed(seed);
+        //     let mut mvks = Vec::new();
+        //     let mut sigs = Vec::new();
+        //     for _ in 0..num_sigs {
+        //         let sk = SigningKey::gen(&mut rng);
+        //         let pk = VerificationKey::from(&sk);
+        //         let sig = sk.sign(&msg);
+        //         assert!(sig.verify(&msg, &pk).is_ok());
+        //         sigs.push(sig);
+        //         mvks.push(pk);
+        //     }
+        //     let ivk = mvks.iter().sum();
+        //     let mu: Signature = sigs.iter().sum();
+        //     assert!(mu.verify(&msg, &ivk).is_ok());
+        // }
 
         #[test]
         fn test_eval_sanity_check(msg in prop::collection::vec(any::<u8>(), 1..128),
