@@ -46,6 +46,10 @@ const config = {
         theme: {
           customCss: require.resolve('./src/css/custom.css'),
         },
+        gtag: {
+          trackingID: 'G-4MB41WL2Z2',
+          anonymizeIP: true,
+        },
       }),
     ],
     [
@@ -103,7 +107,6 @@ const config = {
           { to: '/adr', label: 'ADRs', position: 'right' },
           {
             className: 'header-github-link',
-            html: ':before',
             href: 'https://github.com/input-output-hk/mithril/',
             position: 'right',
           },

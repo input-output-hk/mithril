@@ -13,3 +13,5 @@ clean:
 	rm package-lock.json || true
 	rm yarn.lock || true
 
+upgrade: clean install
+	yarn upgrade @docusaurus/core@latest @docusaurus/preset-classic@latest redocusaurus@latest
