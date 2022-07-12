@@ -269,6 +269,7 @@ impl MultiSigner for MultiSignerImpl {
             .epoch;
 
         // TODO: move this on the beacon (or even the epoch ?)
+        #[allow(clippy::absurd_extreme_comparisons)]
         if epoch < SIGNER_EPOCH_RETRIEVAL_OFFSET {
             Err(ProtocolError::Core("Epoch below offset".to_string()))?;
         }
