@@ -5,6 +5,8 @@ sidebar_label: Mithril Signer
 
 # Mithril Signer Node
 
+Welcome to the Mithril Signer Node guide!
+
 ## Introduction
 
 :::info

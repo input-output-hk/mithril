@@ -2,13 +2,13 @@
 sidebar_position: 2
 ---
 
-# API References
+# API Reference
 
-Welcome to the Mithril references docs!
+Welcome to the Mithril API references doc!
 
 :::info
 
-This page gathers the developer documentations available for Mithril. They are intended for a technical audience only.
+This page gathers the exernal developer documentations available for Mithril. They are intended for a technical audience only.
 
 :::
 
@@ -18,7 +18,7 @@ For more information about the **Mithril Protocol**, please refer to the [About 
 
 :::
 
-## Dependencies References
+## Dependencies List
 
 | Dependency | Description | Source Repository | Rust Documentation | REST API
 |------------|-------------|:-----------------:|:------------------:|:------------:|

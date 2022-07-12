@@ -8,7 +8,7 @@ const FeatureList = [
     Svg: require('@site/static/img/card-get-started.svg').default,
     description: (
       <>
-        Get Started, guides, installation instructions and developer docs.
+        Read about how to get started and explore guides, installation instructions, and developer docs.
       </>
     ),
     link: '/doc/manual/welcome',
@@ -18,8 +18,7 @@ const FeatureList = [
     Svg: require('@site/static/img/card-native-tokens.svg').default,
     description: (
       <>
-        How does the Mithril Protocol work?
-        Find more about the Mithril multi signature.
+        Discover how the Mithril protocol works and find more about the Mithril multi signature.
       </>
     ),
     link: '/doc/mithril/mithril-protocol/protocol',
@@ -29,8 +28,7 @@ const FeatureList = [
     Svg: require('@site/static/img/card-operate-a-stake-pool.svg').default,
     description: (
       <>
-        What is the Mithril Network?
-        Find more about all the nodes involved the network and its architecture.
+        Learn about the Mithril network and find more about its nodes and architecture.
       </>
     ),
     link: '/doc/mithril/mithril-network/architecture',
@@ -44,7 +42,7 @@ function Feature({ Svg, title, description, link }) {
         <a href={link}><Svg className={styles.featureSvg} role="img" /></a>
       </div>
       <div className="text--center padding-horiz--md">
-        <h3>{title}</h3>
+        <h3><a href={link}>{title}</a></h3>
         <p>{description}</p>
       </div>
     </div>

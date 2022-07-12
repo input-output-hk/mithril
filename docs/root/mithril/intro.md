@@ -45,7 +45,7 @@ In this **About Mithril** guide, you will find:
 
 :::tip
 
-If you need help, feel free to reach the Mithril team:
+If you need help, feel free to reach the **Mithril** team:
 
 * [Github Discussions](https://github.com/input-output-hk/mithril/discussions)
 
