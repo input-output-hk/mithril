@@ -6,16 +6,16 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'Mithril',
-  tagline: 'User Manual, Concepts and API Reference',
+  title: 'Mithril. A complete guide.',
+  tagline: 'Explore the user manual, key concepts, and API reference',
   url: 'https://input-output-hk.github.io',
   baseUrl: '/doc/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
   favicon: 'img/favicon.ico',
-  organizationName: 'Input Output',
+  organizationName: 'Input Output Global',
   projectName: 'Mithril',
-  
+
   scripts: [
     {
       src: 'https://plausible.io/js/script.js',
@@ -23,7 +23,7 @@ const config = {
       'data-domain': 'mithril.network'
     }
   ],
-  
+
   presets: [
     [
       'classic',
