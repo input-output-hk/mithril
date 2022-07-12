@@ -5,6 +5,8 @@ sidebar_label: Mithril Aggregator
 
 # Mithril Aggregator Node
 
+Welcome to the Mithril Aggregator Node guide!
+
 ## Introduction
 
 :::info

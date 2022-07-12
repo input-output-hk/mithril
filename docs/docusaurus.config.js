@@ -8,7 +8,7 @@ const darkCodeTheme = require('prism-react-renderer/themes/dracula');
 const config = {
   title: 'Mithril. A complete guide.',
   tagline: 'Explore the user manual, key concepts, and API reference',
-  url: 'https://input-output-hk.github.io',
+  url: 'https://mithril.network',
   baseUrl: '/doc/',
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
@@ -67,6 +67,7 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
+      metadata: [{ name: 'og:image', content: 'https://mithril.network/doc/img/logo.png' }],
       announcementBar: {
         id: 'announcement',
         content:
@@ -78,7 +79,7 @@ const config = {
       navbar: {
         title: 'Mithril',
         logo: {
-          alt: 'Mithril Logo',
+          alt: 'Mithril. A complete guide.',
           src: 'img/logo.png',
         },
         items: [

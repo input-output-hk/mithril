@@ -5,7 +5,7 @@ sidebar_label: Architecture
 
 # Mithril Network Architecture
 
-Welcome to the Mithril Network Architecture!
+Welcome to the Mithril Network Architecture guide!
 
 :::tip
 

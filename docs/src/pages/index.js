@@ -29,8 +29,8 @@ export default function Home() {
   const { siteConfig } = useDocusaurusContext();
   return (
     <Layout
-      title={`Hello from ${siteConfig.title}`}
-      description="Description will go into a meta tag in <head />">
+      title="Welcome"
+      description="Mithril, a protocol that allows stakeholders in a Proof-of-Stake blockchain network to individually sign messages that are aggregated into a multi signature which guarantees that they represent a minimum share of the total stakes.">
       <HomepageHeader />
       <main>
         <HomepageFeatures />

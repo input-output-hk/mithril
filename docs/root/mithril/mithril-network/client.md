@@ -5,6 +5,8 @@ sidebar_label: Mithril Client
 
 # Mithril Client Node
 
+Welcome to the Mithril Client Node guide!
+
 ## Introduction
 
 :::info
