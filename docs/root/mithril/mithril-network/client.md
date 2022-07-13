@@ -11,7 +11,7 @@ Welcome to the Mithril Client Node guide!
 
 :::info
 
-The **Mithril Client** node is used to restore a **Cardano full node** by retrieving, from a Mithril Aggregator, a remote snapshot, its certificate chain and by verifying their validity thanks to the Mithril cryptographic primitives.
+The **Mithril Client** node is used to restore a **Cardano full node** by retrieving, from a **Mithril Aggregator**, a remote snapshot, its certificate chain and by verifying their validity thanks to the Mithril cryptographic primitives.
 
 :::
 
@@ -57,7 +57,7 @@ The **Mithril Aggregator** is used as a provider for the **Certificate Chain**.
 
 :::tip
 
-For more information about the **Mithril Certificate Chain**, please refer to the [Cerificate Chain](../mithril-protocol/certificates.md) page.
+For more information about the **Mithril Certificate Chain**, please refer to the [Certificate Chain](../mithril-protocol/certificates.md) page.
 
 :::
 

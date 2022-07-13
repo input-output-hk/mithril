@@ -88,12 +88,12 @@ This phase includes both the actual initialisation phase of each party, and the 
 
 * Party retrieves the protocol parameters
 * It uses the parameters to generate a new key pair of a verification key and a signing key, plus a Proof-of-possession
-  κ. The verification key and PoP are broadcast to all other parties for registration, which is expected to last for
+  `κ`. The verification key and PoP are broadcast to all other parties for registration, which is expected to last for
   some limited period of time. An important difference with the paper is that registration is not centralised in the "
   idealised" manner described in the paper. Instead, all signers will register against all other signers. Meaning that
   each signer will trace it's own registration procedure. Together with other participants' keys, the stake of each
   party is stored.
-* Then an aggregate verification key (AVK in the paper) is created from the registration material, in the form of a
+* Then an aggregate verification key (`AVK` in the paper) is created from the registration material, in the form of a
   Merkle-tree.
 
 The key dissemination process can also happen on-chain, which makes sense as the parties need to have some guarantees about the validity of keys and stakes of each other party.
@@ -105,13 +105,13 @@ This phase happens once for each _instance_ of the protocol running.
 Operations run in cycles, where each cycle is triggered by a message (eg. a snapshot of the UTxO set) to sign for which
 a quorum of `k` valid signatures must be submitted.
 
-* Each party needs to check for eligibility to sign the message. It may be eligible to sign the same message more than once. This check is performed for `m` distinct indices. For every index, the signer evaluates a function (parametrised with `phi_f`) that takes its stake as input. If the result of the function is `SUCCESS`, then the signer is eligible to sign this message for the given index.
+* Each party needs to check for eligibility to sign the message. It may be eligible to sign the same message more than once. This check is performed for `m` distinct indices. For every index, the signer evaluates a function (parameterized with `phi_f`) that takes its stake as input. If the result of the function is `SUCCESS`, then the signer is eligible to sign this message for the given index.
 
-* For every valid signature, it creates a proof (`π`) containing a signature of the message, verification key, stake and paths of party in the merkle-tree.
+* For every valid signature, it creates a proof (`π`) containing a signature of the message, verification key, stake and paths of party in the Merkle-tree.
 
 * Then, multiple signatures can be aggregated together to form a certificate (`τ`) by:
   * Verifying signatures from each party:
-    * Checking the party is authorised to sign for the given index (using the same procedure as the signing)
+    * Checking the party is authorized to sign for the given index (using the same procedure as the signing)
     * Checking the proof is valid which means:
       * Check the evaluation threshold is correct for party’s stake given the message, index and signature
       * Check the provided path exists in the aggregate keys' Merkle-tree
@@ -126,7 +126,7 @@ a quorum of `k` valid signatures must be submitted.
 
 :::note Note
 
-Note that if the individual signatures are broadcast to all parties, then each party can independently produce the certificates. In particular, the particular that performs aggregation is not required to have any particular knowledge, nor it is assumed to be honest. This means that _any_ third party that has access to the individual signatures can perform the signature aggregation.
+Note that if the individual signatures are broadcast to all parties, then each party can independently produce the certificates. In particular, the party that performs aggregation is not required to have any specific knowledge, nor it is assumed to be honest. This means that _any_ third party that has access to the individual signatures can perform the signature aggregation.
 
 :::
 
