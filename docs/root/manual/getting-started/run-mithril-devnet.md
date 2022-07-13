@@ -15,7 +15,7 @@ The network will be launched with the following topology:
 * `2` **Cardano Nodes** configured as **Stake Pool Operators (SPO)** with a **Mithril Signer** on top
 * `1` **Cardano Node** configured as **BFT node** with a **Mithril Aggregator** on top
 
-![](images/devnet-topology.png)
+![Devnet Topology](images/devnet-topology.png)
 
 :::danger
 
@@ -55,7 +55,7 @@ cd mithril-test-lab/mithril-devnet
 
 ### Step 1: Launch the devnet
 
-*In a first terminal window*
+Open a first terminal window.
 
 Run a devnet with 1 BTF and 2 SPO Cardano nodes.
 
@@ -162,7 +162,7 @@ Creating artifacts_mithril-signer-node-pool2_1 ... done
 
 ### Step 2: Query the devnet
 
-*In a second terminal window*
+Open a second terminal window.
 
 Watch the state queried from the devnet
 
@@ -267,7 +267,7 @@ pool1c56jqj5qsala8c24829sxqp0fcrtrrtcmezgrs6w60hl2nwsvav   5.258e-4
 
 ### Step 3: Observe the devnet
 
-*In a third terminal window*
+Open a third terminal window.
 
 Watch the logs of each node of the devnet
 

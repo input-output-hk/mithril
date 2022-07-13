@@ -108,4 +108,4 @@ The documentation of the REST API of the **Mitril Aggregator** is available [her
   * The runtime handles state transitions.
   * The runtime is summarized in the diagram below:
 
-![](images/aggregator-runtime.jpg)
+![Aggregator Runtime](images/aggregator-runtime.jpg)

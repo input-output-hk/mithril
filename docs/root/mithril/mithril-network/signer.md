@@ -53,7 +53,7 @@ The **Mithril Signer** connects to the **Mithril Aggregator**:
 
 This process is summarized in the following diagram:
 
-![](images/signer-workflow.png)
+![Signer Workflow](images/signer-workflow.png)
 
 ## Under the hood
 
@@ -65,4 +65,4 @@ In its first version, the **Mithril Signer** is composed of a main component:
   * The runtime handles state transitions.
   * The runtime is summarized in the diagram below:
 
-![](images/signer-runtime.jpg)
+![Signer Runtime](images/signer-runtime.jpg)

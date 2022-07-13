@@ -46,4 +46,4 @@ It is basically composed of three nodes:
 
 :::
 
-[![](images/architecture.jpg)](images/architecture.jpg)
+[![Architecture](images/architecture.jpg)](images/architecture.jpg)
