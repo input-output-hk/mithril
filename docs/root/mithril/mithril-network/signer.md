@@ -25,7 +25,7 @@ The **Mithril Signer** is a node that works transparently on top of the **Stake 
 
 ## Individual Signatures Production
 
-The **Mithril Signer** is a node that represents a share of the total stake of the **Cardano Network** which entitles it to participate in the **Mithril multi signature** creation (with respect to its share of total stakes). The rule is simple, the more stake shares, the more contribution to the production of the muti signatures.
+The **Mithril Signer** is a node that represents a share of the total stake of the **Cardano Network** which entitles it to participate in the **Mithril multi signature** creation (with respect to its share of total stakes). The rule is simple, the more stake shares, the more contribution to the production of the multi signatures.
 
 In order to produce an **Individual Signature** a **Mithril Signer** must also be aware of all the other **Mithril Signers** that may contribute.
 
@@ -53,7 +53,7 @@ The **Mithril Signer** connects to the **Mithril Aggregator**:
 
 This process is summarized in the following diagram:
 
-![](images/signer-workflow.png)
+![Signer Workflow](images/signer-workflow.png)
 
 ## Under the hood
 
@@ -65,4 +65,4 @@ In its first version, the **Mithril Signer** is composed of a main component:
   * The runtime handles state transitions.
   * The runtime is summarized in the diagram below:
 
-![](images/signer-runtime.jpg)
+![Signer Runtime](images/signer-runtime.jpg)

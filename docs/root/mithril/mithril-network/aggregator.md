@@ -11,7 +11,7 @@ Welcome to the Mithril Aggregator Node guide!
 
 :::info
 
-The **Mithril Aggregator** is trustless node that orchestrates the work of the **Mithril Signer** nodes and that gathers their individual signatures to produce **Mithril** multi signatures and their associated certificates. It is also in charge of creating and storing the ledger state snapshot archive.
+The **Mithril Aggregator** is a trustless node that orchestrates the work of the **Mithril Signer** nodes and that gathers their individual signatures to produce **Mithril** multi signatures and their associated certificates. It is also in charge of creating and storing the ledger state snapshot archive.
 
 :::
 
@@ -51,11 +51,11 @@ The **Mithril Aggregator** is in charge of producing the **Mithril multi signatu
 
 * Once the **quorum** of individual signatures has been reached, the **Mithril Aggregator** is able to produce a multi signature.
 
-* The **Mithril Aggregator** combines the muti signature and some metadata into a **Mithril Certificate** that will be later used by the **Mithril Client** to verify the authenticity of a snapshot.
+* The **Mithril Aggregator** combines the multi signature and some metadata into a **Mithril Certificate** that will be later used by the **Mithril Client** to verify the authenticity of a snapshot.
 
 :::tip
 
-For more information about the **Mithril Certificate Chain**, please refer to the [Cerificate Chain](../mithril-protocol/certificates.md) page.
+For more information about the **Mithril Certificate Chain**, please refer to the [Certificate Chain](../mithril-protocol/certificates.md) page.
 
 :::
 
@@ -108,4 +108,4 @@ The documentation of the REST API of the **Mitril Aggregator** is available [her
   * The runtime handles state transitions.
   * The runtime is summarized in the diagram below:
 
-![](images/aggregator-runtime.jpg)
+![Aggregator Runtime](images/aggregator-runtime.jpg)
