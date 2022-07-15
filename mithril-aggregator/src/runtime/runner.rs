@@ -6,7 +6,8 @@ use async_trait::async_trait;
 use chrono::Utc;
 use mithril_common::digesters::DigesterResult;
 use mithril_common::entities::{
-    Beacon, Certificate, CertificatePending, SignerWithStake, Snapshot,
+    Beacon, Certificate, CertificatePending, ProtocolMessage, ProtocolMessagePartKey,
+    SignerWithStake, Snapshot,
 };
 use mithril_common::{store::stake_store::StakeStorer, CardanoNetwork};
 
@@ -307,6 +308,14 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     ) -> Result<(), RuntimeError> {
         info!("update message in multisigner");
 
+        let next_aggregate_verification_key = "next-avk-123".to_string(); // TODO: Add next avk when available
+        let mut protocol_message = ProtocolMessage::new();
+        protocol_message
+            .set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest_result.digest);
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::NextAggregateVerificationKey,
+            next_aggregate_verification_key,
+        );
         self.config
             .dependencies
             .multi_signer
@@ -314,7 +323,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .ok_or_else(|| RuntimeError::General("no multisigner registered".to_string().into()))?
             .write()
             .await
-            .update_current_message(digest_result.digest)
+            .update_current_message(protocol_message)
             .await
             .map_err(RuntimeError::MultiSigner)
     }
@@ -352,7 +361,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             self.config.db_directory.clone(),
             self.config.snapshot_directory.clone(),
         );
-        let message = self
+        let protocol_message = self
             .config
             .dependencies
             .multi_signer
@@ -363,7 +372,10 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .get_current_message()
             .await
             .ok_or_else(|| RuntimeError::General("no message found".to_string().into()))?;
-        let snapshot_name = format!("{}.{}.tar.gz", self.config.network, &message);
+        let snapshot_digest = protocol_message
+            .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
+            .ok_or_else(|| RuntimeError::General("message part not found".to_string().into()))?;
+        let snapshot_name = format!("{}.{}.tar.gz", self.config.network, snapshot_digest);
         // spawn a separate thread to prevent blocking
         let snapshot_path =
             tokio::task::spawn_blocking(move || -> Result<PathBuf, SnapshotError> {
@@ -438,8 +450,13 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         file_path: &Path,
         remote_locations: Vec<String>,
     ) -> Result<Snapshot, RuntimeError> {
+        let snapshot_digest = certificate
+            .protocol_message
+            .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
+            .ok_or_else(|| RuntimeError::General("message part not found".to_string().into()))?
+            .to_owned();
         let snapshot = Snapshot::new(
-            certificate.digest,
+            snapshot_digest,
             certificate.beacon,
             certificate.hash,
             std::fs::metadata(file_path)

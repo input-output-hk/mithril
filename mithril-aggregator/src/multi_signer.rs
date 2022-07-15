@@ -8,9 +8,10 @@ use mithril_common::crypto_helper::{
     key_decode_hex, key_encode_hex, ProtocolAggregateVerificationKey, ProtocolClerk,
     ProtocolKeyRegistration, ProtocolMultiSignature, ProtocolParameters, ProtocolPartyId,
     ProtocolSignerVerificationKey, ProtocolSingleSignature, ProtocolStake,
-    ProtocolStakeDistribution,
+    ProtocolStakeDistribution, PROTOCOL_VERSION,
 };
 use mithril_common::entities;
+use mithril_common::entities::{PartyId, ProtocolMessage};
 use mithril_common::store::stake_store::{StakeStoreError, StakeStorer};
 use mithril_common::SIGNER_EPOCH_RETRIEVAL_OFFSET;
 
@@ -23,7 +24,6 @@ use super::store::{
     VerificationKeyStorer,
 };
 
-use mithril_common::entities::PartyId;
 #[cfg(test)]
 use mockall::automock;
 
@@ -71,10 +71,13 @@ pub enum ProtocolError {
 #[async_trait]
 pub trait MultiSigner: Sync + Send {
     /// Get current message
-    async fn get_current_message(&self) -> Option<String>;
+    async fn get_current_message(&self) -> Option<ProtocolMessage>;
 
     /// Update current message
-    async fn update_current_message(&mut self, message: String) -> Result<(), ProtocolError>;
+    async fn update_current_message(
+        &mut self,
+        message: ProtocolMessage,
+    ) -> Result<(), ProtocolError>;
 
     /// Get protocol parameters
     async fn get_protocol_parameters(&self) -> Option<ProtocolParameters>;
@@ -147,7 +150,10 @@ pub trait MultiSigner: Sync + Send {
 /// MultiSignerImpl is an implementation of the MultiSigner
 pub struct MultiSignerImpl {
     /// Message that is currently signed
-    current_message: Option<String>,
+    current_message: Option<ProtocolMessage>,
+
+    /// Signing start datetime of current message
+    current_initiated_at: Option<DateTime<Utc>>,
 
     /// Protocol parameters used for signing
     protocol_parameters: Option<ProtocolParameters>,
@@ -185,6 +191,7 @@ impl MultiSignerImpl {
         debug!("New MultiSignerImpl created");
         Self {
             current_message: None,
+            current_initiated_at: None,
             protocol_parameters: None,
             clerk: None,
             multi_signature: None,
@@ -227,15 +234,19 @@ impl MultiSignerImpl {
 #[async_trait]
 impl MultiSigner for MultiSignerImpl {
     /// Get current message
-    async fn get_current_message(&self) -> Option<String> {
+    async fn get_current_message(&self) -> Option<ProtocolMessage> {
         self.current_message.clone()
     }
 
     /// Update current message
-    async fn update_current_message(&mut self, message: String) -> Result<(), ProtocolError> {
+    async fn update_current_message(
+        &mut self,
+        message: ProtocolMessage,
+    ) -> Result<(), ProtocolError> {
         if self.current_message.clone() != Some(message.clone()) {
             self.multi_signature = None;
             self.clerk = self.create_clerk().await?;
+            self.current_initiated_at = Some(Utc::now());
         }
         self.current_message = Some(message);
         Ok(())
@@ -455,7 +466,7 @@ impl MultiSigner for MultiSignerImpl {
             .to_protocol_signatures()
             .map_err(ProtocolError::Codec)?
         {
-            sig.verify(protocol_parameters, avk, message.as_bytes())
+            sig.verify(protocol_parameters, avk, message.compute_hash().as_bytes())
                 .map_err(|e| ProtocolError::Core(e.to_string()))?;
         }
 
@@ -497,7 +508,7 @@ impl MultiSigner for MultiSignerImpl {
             .await
             .ok_or_else(ProtocolError::UnavailableMessage)?;
 
-        debug!("Create multi signature"; "message" => message.encode_hex::<String>());
+        debug!("Create multi signature"; "message" => message.compute_hash().encode_hex::<String>());
 
         let beacon = self
             .beacon_store
@@ -530,7 +541,7 @@ impl MultiSigner for MultiSignerImpl {
             .clerk
             .as_ref()
             .ok_or_else(ProtocolError::UnavailableClerk)?;
-        match clerk.aggregate(&signatures, message.as_bytes()) {
+        match clerk.aggregate(&signatures, message.compute_hash().as_bytes()) {
             Ok(multi_signature) => {
                 self.avk = Some(clerk.compute_avk());
                 self.multi_signature = Some(multi_signature.clone());
@@ -541,7 +552,6 @@ impl MultiSigner for MultiSignerImpl {
     }
 
     /// Creates a certificate from a multi signature
-    // TODO: Clarify what started/completed date represents
     async fn create_certificate(
         &self,
         beacon: entities::Beacon,
@@ -551,33 +561,41 @@ impl MultiSigner for MultiSignerImpl {
 
         match self.get_multi_signature().await? {
             Some(multi_signature) => {
+                let protocol_version = PROTOCOL_VERSION.to_string();
                 let protocol_parameters = self
                     .get_protocol_parameters()
                     .await
                     .ok_or_else(ProtocolError::UnavailableProtocolParameters)?
                     .into();
-                let digest = self
+                let previous_hash = previous_hash;
+                let initiated_at =
+                    format!("{:?}", self.current_initiated_at.unwrap_or_else(Utc::now));
+                let sealed_at = format!("{:?}", Utc::now());
+                let signers = self.get_signers_with_stake().await?; // TODO: Filter with actual signers only?
+                let metadata = entities::CertificateMetadata::new(
+                    protocol_version,
+                    protocol_parameters,
+                    initiated_at,
+                    sealed_at,
+                    signers,
+                );
+                let protocol_message = self
                     .get_current_message()
                     .await
                     .ok_or_else(ProtocolError::UnavailableMessage)?;
-                let previous_hash = previous_hash;
-                let started_at = format!("{:?}", Utc::now());
-                let completed_at = started_at.clone();
-                let signers = self.get_signers_with_stake().await?;
                 let aggregate_verification_key =
                     key_encode_hex(&self.avk.as_ref().unwrap()).map_err(ProtocolError::Codec)?;
                 let multi_signature =
                     key_encode_hex(&multi_signature).map_err(ProtocolError::Codec)?;
+                let genesis_signature = "".to_string();
                 Ok(Some(entities::Certificate::new(
                     previous_hash,
                     beacon,
-                    protocol_parameters,
-                    digest,
-                    started_at,
-                    completed_at,
-                    signers,
+                    metadata,
+                    protocol_message,
                     aggregate_verification_key,
                     multi_signature,
+                    genesis_signature,
                 )))
             }
             None => Ok(None),
@@ -819,7 +837,8 @@ mod tests {
             let mut first_sig = None;
             let mut won_indexes = vec![];
             for i in 1..=protocol_parameters.m {
-                if let Some(signature) = protocol_signer.sign(message.as_bytes(), i) {
+                if let Some(signature) = protocol_signer.sign(message.compute_hash().as_bytes(), i)
+                {
                     if first_sig.is_none() {
                         first_sig = Some(key_encode_hex(signature).unwrap());
                     }
