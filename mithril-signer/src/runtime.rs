@@ -9,7 +9,10 @@ use tokio::time::sleep;
 use mithril_common::chain_observer::{ChainObserver, ChainObserverError};
 use mithril_common::crypto_helper::{key_encode_hex, Bytes};
 use mithril_common::digesters::{Digester, DigesterError};
-use mithril_common::entities::{self, Beacon, CertificatePending, Epoch, PartyId, SignerWithStake};
+use mithril_common::entities::{
+    self, Beacon, CertificatePending, Epoch, PartyId, ProtocolMessage, ProtocolMessagePartKey,
+    SignerWithStake,
+};
 use mithril_common::store::stake_store::{StakeStore, StakeStoreError, StakeStorer};
 use mithril_common::SIGNER_EPOCH_RETRIEVAL_OFFSET;
 
@@ -123,10 +126,22 @@ impl Runtime {
 
             let beacon = &pending_certificate.clone().beacon;
             if self.is_new_beacon(beacon) {
-                let message = self.digester.compute_digest()?;
-                info!("Signing digest"; "digester_result" => #?message);
-                self.register_signatures(message.digest.into_bytes(), pending_certificate)
-                    .await?;
+                let next_aggregate_verification_key = "next-avk-123".to_string(); // TODO: Add next avk when available
+                let mut protocol_message = ProtocolMessage::new();
+                protocol_message.set_message_part(
+                    ProtocolMessagePartKey::SnapshotDigest,
+                    self.digester.compute_digest()?.digest,
+                );
+                protocol_message.set_message_part(
+                    ProtocolMessagePartKey::NextAggregateVerificationKey,
+                    next_aggregate_verification_key,
+                );
+                info!("Signing message"; "protocol_message" => #?protocol_message);
+                self.register_signatures(
+                    protocol_message.compute_hash().as_bytes().to_vec(),
+                    pending_certificate,
+                )
+                .await?;
                 self.current_beacon = Some(beacon.to_owned());
             }
         }

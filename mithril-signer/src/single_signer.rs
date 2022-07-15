@@ -224,7 +224,7 @@ mod tests {
         );
 
         let sign_result = single_signer.compute_single_signatures(
-            message.as_bytes().to_vec(),
+            message.compute_hash().as_bytes().to_vec(),
             stakes,
             &protocol_parameters.into(),
         );
@@ -263,7 +263,7 @@ mod tests {
         let avk = clerk.compute_avk();
 
         let sign_result = single_signer.compute_single_signatures(
-            message.as_bytes().to_vec(),
+            message.compute_hash().as_bytes().to_vec(),
             stakes,
             &protocol_parameters.into(),
         );
@@ -273,7 +273,11 @@ mod tests {
         let decoded_sig: ProtocolSingleSignature =
             key_decode_hex(&sign_result.unwrap().unwrap().signature).unwrap();
         assert!(decoded_sig
-            .verify(&protocol_parameters, &avk, &message.as_bytes())
+            .verify(
+                &protocol_parameters,
+                &avk,
+                &message.compute_hash().as_bytes()
+            )
             .is_ok());
         //TODO: decoded_sig.pk should probably be a StmVerificationKeyPoP, uncomment once fixed
         //assert_eq!(current_signer.2, decoded_sig.pk);
