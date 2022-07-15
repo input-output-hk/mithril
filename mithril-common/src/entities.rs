@@ -3,6 +3,7 @@ use fixed::types::U8F24;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, collections::HashMap, fmt::Display};
+use thiserror::Error;
 
 /// Epoch represents a Cardano epoch
 pub type Epoch = u64;
@@ -105,7 +106,26 @@ impl Beacon {
         hasher.update(self.immutable_file_number.to_be_bytes());
         hex::encode(hasher.finalize())
     }
+
+    /// Computes a new Beacon by applying an epoch offset
+    pub fn compute_beacon_with_epoch_offset(&self, epoch_offset: i64) -> Result<Self, BeaconError> {
+        let mut beacon = self.clone();
+        let epoch_new = beacon.epoch as i64 + epoch_offset;
+        if epoch_new < 0 {
+            return Err(BeaconError::EpochOffset(beacon.epoch, epoch_offset));
+        }
+        beacon.epoch = epoch_new as u64;
+        Ok(beacon)
+    }
 }
+
+/// BeaconError is an error triggerred by a Beacon
+#[derive(Error, Debug)]
+pub enum BeaconError {
+    #[error("epoch offset error")]
+    EpochOffset(u64, i64),
+}
+
 /// CertificatePending represents a pending certificate in the process of production
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct CertificatePending {

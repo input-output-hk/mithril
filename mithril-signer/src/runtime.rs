@@ -10,8 +10,8 @@ use mithril_common::chain_observer::{ChainObserver, ChainObserverError};
 use mithril_common::crypto_helper::{key_encode_hex, Bytes};
 use mithril_common::digesters::{Digester, DigesterError};
 use mithril_common::entities::{
-    self, Beacon, CertificatePending, Epoch, PartyId, ProtocolMessage, ProtocolMessagePartKey,
-    SignerWithStake,
+    self, Beacon, BeaconError, CertificatePending, Epoch, PartyId, ProtocolMessage,
+    ProtocolMessagePartKey, SignerWithStake,
 };
 use mithril_common::store::stake_store::{StakeStore, StakeStoreError, StakeStorer};
 use mithril_common::SIGNER_EPOCH_RETRIEVAL_OFFSET;
@@ -78,6 +78,9 @@ pub enum RuntimeError {
 
     #[error("chain observer failed: `{0}`")]
     ChainObserver(#[from] ChainObserverError),
+
+    #[error("beacon error: '{0}'")]
+    Beacon(#[from] BeaconError),
 }
 
 impl Runtime {
@@ -218,7 +221,10 @@ impl Runtime {
             .iter()
             .map(|signer| (signer.party_id.to_owned(), signer.verification_key.as_str()))
             .collect::<HashMap<PartyId, &str>>();
-        let epoch = pending_certificate.beacon.epoch - SIGNER_EPOCH_RETRIEVAL_OFFSET;
+        let epoch = pending_certificate
+            .beacon
+            .compute_beacon_with_epoch_offset(SIGNER_EPOCH_RETRIEVAL_OFFSET)?
+            .epoch;
         let stake_store = self.stake_store.read().await;
         let stake_distribution = stake_store
             .get_stakes(epoch)

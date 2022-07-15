@@ -11,7 +11,6 @@ use mithril_common::crypto_helper::{
     ProtocolStakeDistribution, PROTOCOL_VERSION,
 };
 use mithril_common::entities;
-use mithril_common::entities::{PartyId, ProtocolMessage};
 use mithril_common::store::stake_store::{StakeStoreError, StakeStorer};
 use mithril_common::SIGNER_EPOCH_RETRIEVAL_OFFSET;
 
@@ -33,7 +32,7 @@ pub enum ProtocolError {
     ExistingSigner(),
 
     #[error("single signature already recorded")]
-    ExistingSingleSignature(PartyId),
+    ExistingSingleSignature(entities::PartyId),
 
     #[error("codec error: '{0}'")]
     Codec(String),
@@ -64,6 +63,9 @@ pub enum ProtocolError {
 
     #[error("single signature store error: '{0}'")]
     SingleSignatureStore(#[from] SingleSignatureStoreError),
+
+    #[error("beacon error: '{0}'")]
+    Beacon(#[from] entities::BeaconError),
 }
 
 /// MultiSigner is the cryptographic engine in charge of producing multi signatures from individual signatures
@@ -71,12 +73,12 @@ pub enum ProtocolError {
 #[async_trait]
 pub trait MultiSigner: Sync + Send {
     /// Get current message
-    async fn get_current_message(&self) -> Option<ProtocolMessage>;
+    async fn get_current_message(&self) -> Option<entities::ProtocolMessage>;
 
     /// Update current message
     async fn update_current_message(
         &mut self,
-        message: ProtocolMessage,
+        message: entities::ProtocolMessage,
     ) -> Result<(), ProtocolError>;
 
     /// Get protocol parameters
@@ -150,7 +152,7 @@ pub trait MultiSigner: Sync + Send {
 /// MultiSignerImpl is an implementation of the MultiSigner
 pub struct MultiSignerImpl {
     /// Message that is currently signed
-    current_message: Option<ProtocolMessage>,
+    current_message: Option<entities::ProtocolMessage>,
 
     /// Signing start datetime of current message
     current_initiated_at: Option<DateTime<Utc>>,
@@ -234,14 +236,14 @@ impl MultiSignerImpl {
 #[async_trait]
 impl MultiSigner for MultiSignerImpl {
     /// Get current message
-    async fn get_current_message(&self) -> Option<ProtocolMessage> {
+    async fn get_current_message(&self) -> Option<entities::ProtocolMessage> {
         self.current_message.clone()
     }
 
     /// Update current message
     async fn update_current_message(
         &mut self,
-        message: ProtocolMessage,
+        message: entities::ProtocolMessage,
     ) -> Result<(), ProtocolError> {
         if self.current_message.clone() != Some(message.clone()) {
             self.multi_signature = None;
@@ -277,14 +279,8 @@ impl MultiSigner for MultiSignerImpl {
             .get_current_beacon()
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .compute_beacon_with_epoch_offset(SIGNER_EPOCH_RETRIEVAL_OFFSET)?
             .epoch;
-
-        // TODO: move this on the beacon (or even the epoch ?)
-        #[allow(clippy::absurd_extreme_comparisons)]
-        if epoch < SIGNER_EPOCH_RETRIEVAL_OFFSET {
-            Err(ProtocolError::Core("Epoch below offset".to_string()))?;
-        }
-        let epoch = epoch - SIGNER_EPOCH_RETRIEVAL_OFFSET;
 
         let signers = self
             .stake_store
@@ -380,8 +376,8 @@ impl MultiSigner for MultiSignerImpl {
             .get_current_beacon()
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?
-            .epoch
-            - SIGNER_EPOCH_RETRIEVAL_OFFSET;
+            .compute_beacon_with_epoch_offset(SIGNER_EPOCH_RETRIEVAL_OFFSET)?
+            .epoch;
         let signers = self
             .verification_key_store
             .read()
@@ -409,8 +405,8 @@ impl MultiSigner for MultiSignerImpl {
             .get_current_beacon()
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?
-            .epoch
-            - SIGNER_EPOCH_RETRIEVAL_OFFSET;
+            .compute_beacon_with_epoch_offset(SIGNER_EPOCH_RETRIEVAL_OFFSET)?
+            .epoch;
         let signers = self
             .verification_key_store
             .read()
@@ -610,7 +606,6 @@ mod tests {
     use super::*;
 
     use mithril_common::crypto_helper::tests_setup::*;
-    use mithril_common::entities::{Epoch, ImmutableFileNumber, PartyId, SingleSignatures};
     use mithril_common::fake_data;
     use mithril_common::store::adapter::MemoryAdapter;
     use mithril_common::store::stake_store::StakeStore;
@@ -624,14 +619,25 @@ mod tests {
         let mut beacon_store = MemoryBeaconStore::new();
         beacon_store.set_current_beacon(beacon).await.unwrap();
         let verification_key_store = VerificationKeyStore::new(Box::new(
-            MemoryAdapter::<Epoch, HashMap<PartyId, entities::Signer>>::new(None).unwrap(),
+            MemoryAdapter::<entities::Epoch, HashMap<entities::PartyId, entities::Signer>>::new(
+                None,
+            )
+            .unwrap(),
         ));
-        let stake_store = StakeStore::new(Box::new(
-            MemoryAdapter::<Epoch, HashMap<PartyId, entities::SignerWithStake>>::new(None).unwrap(),
-        ));
-        let single_signature_store = SingleSignatureStore::new(Box::new(
-            MemoryAdapter::<ImmutableFileNumber, HashMap<PartyId, SingleSignatures>>::new(None)
+        let stake_store =
+            StakeStore::new(Box::new(
+                MemoryAdapter::<
+                    entities::Epoch,
+                    HashMap<entities::PartyId, entities::SignerWithStake>,
+                >::new(None)
                 .unwrap(),
+            ));
+        let single_signature_store = SingleSignatureStore::new(Box::new(
+            MemoryAdapter::<
+                entities::ImmutableFileNumber,
+                HashMap<entities::PartyId, entities::SingleSignatures>,
+            >::new(None)
+            .unwrap(),
         ));
         MultiSignerImpl::new(
             Arc::new(RwLock::new(beacon_store)),
@@ -650,9 +656,9 @@ mod tests {
     }
 
     fn take_signatures_until_quorum_is_almost_reached(
-        signatures: &mut Vec<SingleSignatures>,
+        signatures: &mut Vec<entities::SingleSignatures>,
         quorum: usize,
-    ) -> Vec<SingleSignatures> {
+    ) -> Vec<entities::SingleSignatures> {
         signatures.sort_by(|l, r| l.won_indexes.len().cmp(&r.won_indexes.len()));
 
         let mut result = vec![];
@@ -717,7 +723,7 @@ mod tests {
             .await
             .expect("update stake distribution failed");
 
-        offset_epoch(&multi_signer, SIGNER_EPOCH_RETRIEVAL_OFFSET as i64).await;
+        offset_epoch(&multi_signer, -SIGNER_EPOCH_RETRIEVAL_OFFSET as i64).await;
 
         let mut stake_distribution = multi_signer
             .get_stake_distribution()
@@ -755,7 +761,7 @@ mod tests {
                 .expect("register should have succeeded")
         }
 
-        offset_epoch(&multi_signer, SIGNER_EPOCH_RETRIEVAL_OFFSET as i64).await;
+        offset_epoch(&multi_signer, -SIGNER_EPOCH_RETRIEVAL_OFFSET as i64).await;
 
         let mut signers_with_stake_all_expected = Vec::new();
         for (party_id, stake, verification_key_expected, _, _) in &signers {
@@ -830,7 +836,7 @@ mod tests {
                 .expect("register should have succeeded")
         }
 
-        offset_epoch(&multi_signer, SIGNER_EPOCH_RETRIEVAL_OFFSET as i64).await;
+        offset_epoch(&multi_signer, -SIGNER_EPOCH_RETRIEVAL_OFFSET as i64).await;
 
         let mut signatures = Vec::new();
         for (party_id, _, _, protocol_signer, _) in &signers {
@@ -847,7 +853,7 @@ mod tests {
             }
 
             if let Some(signature) = first_sig {
-                signatures.push(SingleSignatures::new(
+                signatures.push(entities::SingleSignatures::new(
                     party_id.to_owned(),
                     signature,
                     won_indexes,

@@ -10,5 +10,5 @@ pub use entities::{CardanoNetwork, MagicId};
 
 /// The epoch offset used for signers stake distribution and verification keys retrieval
 /// TODO: Reactivate proper epoch offset with deployment of new certificate chain
-/// TODO: Investigate as why signers can't sign until epoch 3 (in the e2e) when set to 1
-pub const SIGNER_EPOCH_RETRIEVAL_OFFSET: u64 = 0;
+/// TODO: Investigate as why signers can't sign until epoch 3 (in the e2e) when set to -1
+pub const SIGNER_EPOCH_RETRIEVAL_OFFSET: i64 = 0;

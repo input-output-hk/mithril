@@ -123,10 +123,8 @@ async fn wait_for_minimal_epoch(
 
     match attempt!(60, Duration::from_millis(1000), {
         match chain_observer.get_current_epoch().await {
-            Ok(Some(epoch)) =>
-            {
-                #[allow(clippy::absurd_extreme_comparisons)]
-                if epoch >= SIGNER_EPOCH_RETRIEVAL_OFFSET {
+            Ok(Some(epoch)) => {
+                if epoch as i64 + SIGNER_EPOCH_RETRIEVAL_OFFSET >= 0 {
                     Ok(Some(()))
                 } else {
                     Ok(None)
