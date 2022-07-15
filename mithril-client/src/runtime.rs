@@ -8,7 +8,7 @@ use crate::entities::*;
 use crate::verifier::{ProtocolError, Verifier};
 
 use mithril_common::digesters::{Digester, DigesterError, ImmutableDigester};
-use mithril_common::entities::{Certificate, Snapshot};
+use mithril_common::entities::{ProtocolMessage, ProtocolMessagePartKey, Snapshot};
 
 /// AggregatorHandlerWrapper wraps an AggregatorHandler
 pub type AggregatorHandlerWrapper = Box<dyn AggregatorHandler>;
@@ -182,15 +182,15 @@ impl Runtime {
             .map_err(RuntimeError::AggregatorHandler)?;
         certificate
             .hash
-            .eq(&Certificate::compute_hash(certificate))
+            .eq(&certificate.compute_hash())
             .then(|| certificate.hash.clone())
             .ok_or(RuntimeError::CertificateHashUnmatch)?;
         self.get_verifier()?
             .verify_multi_signature(
-                &digest.as_bytes().to_vec(),
-                &certificate.multisignature,
+                &certificate.signed_message.as_bytes().to_vec(),
+                &certificate.multi_signature,
                 &certificate.aggregate_verification_key,
-                &certificate.protocol_parameters,
+                &certificate.metadata.protocol_parameters,
             )
             .map_err(RuntimeError::Verifier)?;
         let unpacked_path = &self
@@ -204,14 +204,25 @@ impl Runtime {
                 slog_scope::logger(),
             )));
         }
-        let unpacked_digest = self
+        let unpacked_snapshot_digest = self
             .get_digester()?
             .compute_digest()
             .map_err(RuntimeError::ImmutableDigester)?
             .digest;
-        match unpacked_digest == digest {
+        // TODO: Logic is not final below
+        let next_aggregate_verification_key = "next-avk-123".to_string(); // TODO: Add next avk when available
+        let mut protocol_message = ProtocolMessage::new();
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::SnapshotDigest,
+            unpacked_snapshot_digest.to_string(),
+        );
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::NextAggregateVerificationKey,
+            next_aggregate_verification_key,
+        );
+        match protocol_message.compute_hash() == certificate.signed_message {
             true => Ok(unpacked_path.to_owned()),
-            false => Err(RuntimeError::DigestUnmatch(unpacked_digest)),
+            false => Err(RuntimeError::DigestUnmatch(unpacked_snapshot_digest)),
         }
     }
 }
@@ -353,7 +364,11 @@ mod tests {
         let digest = "digest123";
         let certificate_hash = "certhash123";
         let mut fake_certificate = fake_data::certificate(certificate_hash.to_string());
-        fake_certificate.hash = Certificate::compute_hash(&fake_certificate);
+        fake_certificate
+            .protocol_message
+            .set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest.to_string());
+        fake_certificate.signed_message = fake_certificate.protocol_message.compute_hash();
+        fake_certificate.hash = fake_certificate.compute_hash();
         let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
         let mut mock_aggregator_handler = MockAggregatorHandler::new();
         let mut mock_verifier = MockVerifier::new();
