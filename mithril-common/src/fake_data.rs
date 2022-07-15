@@ -1,10 +1,10 @@
-#![allow(dead_code)]
-
 use crate::digesters::DigesterResult;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::entities;
-use crate::entities::{LotteryIndex, SingleSignatures};
+use crate::entities::{
+    CertificateMetadata, LotteryIndex, ProtocolMessage, ProtocolMessagePartKey, SingleSignatures,
+};
+use crate::{crypto_helper, entities};
 
 /// Fake Beacon
 pub fn beacon() -> entities::Beacon {
@@ -71,23 +71,41 @@ pub fn certificate(certificate_hash: String) -> entities::Certificate {
     // Signers with stakes
     let signers = signers_with_stakes(5);
 
+    // Certificate metadata
+    let protocol_version = crypto_helper::PROTOCOL_VERSION.to_string();
+    let initiated_at = "2006-01-02T15:04:05Z".to_string();
+    let sealed_at = "2006-01-02T15:04:05Z".to_string();
+    let metadata = CertificateMetadata::new(
+        protocol_version,
+        protocol_parameters,
+        initiated_at,
+        sealed_at,
+        signers,
+    );
+
+    // Protocol message
+    let next_aggregate_verification_key = "next-avk-123".to_string();
+    let mut protocol_message = ProtocolMessage::new();
+    let snapshot_digest = format!("1{}", beacon.immutable_file_number).repeat(20);
+    protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, snapshot_digest);
+    protocol_message.set_message_part(
+        ProtocolMessagePartKey::NextAggregateVerificationKey,
+        next_aggregate_verification_key,
+    );
+
     // Certificate
     let previous_hash = format!("{}0", certificate_hash);
-    let digest = format!("1{}", beacon.immutable_file_number).repeat(20);
-    let started_at = "2006-01-02T15:04:05Z".to_string();
-    let completed_at = "2006-01-02T15:04:05Z".to_string();
     let aggregate_verification_key = format!("AVK{}", beacon.immutable_file_number).repeat(5);
-    let multisignature = format!("MSIG{}", beacon.immutable_file_number).repeat(200);
+    let multi_signature = format!("MSIG{}", beacon.immutable_file_number).repeat(200);
+    let genesis_signature = "".to_string();
     let mut certificate = entities::Certificate::new(
         previous_hash,
         beacon,
-        protocol_parameters,
-        digest,
-        started_at,
-        completed_at,
-        signers,
+        metadata,
+        protocol_message,
         aggregate_verification_key,
-        multisignature,
+        multi_signature,
+        genesis_signature,
     );
     certificate.hash = certificate_hash;
     certificate
