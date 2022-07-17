@@ -394,6 +394,31 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         beacon: &Beacon,
     ) -> Result<Certificate, RuntimeError> {
         info!("create and save certificate");
+        let mut certificate_store = self
+            .config
+            .dependencies
+            .certificate_store
+            .as_ref()
+            .ok_or_else(|| {
+                RuntimeError::General("no certificate store registered".to_string().into())
+            })?
+            .write()
+            .await;
+        let latest_certificates = certificate_store.get_list(2).await?;
+        let last_certificate = latest_certificates.get(0);
+        let penultimate_certificate = latest_certificates.get(1);
+        let previous_hash = match (penultimate_certificate, last_certificate) {
+            (Some(penultimate_certificate), Some(last_certificate)) => {
+                // Check if last certificate is first certificate of its epoch
+                if penultimate_certificate.beacon.epoch != last_certificate.beacon.epoch {
+                    &last_certificate.hash
+                } else {
+                    &last_certificate.previous_hash
+                }
+            }
+            (None, Some(last_certificate)) => &last_certificate.hash,
+            _ => "",
+        };
         let multisigner = self
             .config
             .dependencies
@@ -403,21 +428,10 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .read()
             .await;
         let certificate = multisigner
-            .create_certificate(beacon.clone(), "".to_string()) // TODO: The certificate will be created slightly differently in order to implement fully the certificate chain. In the mean time, just removed the unused reference to 'previous_hash' in pending certificate
+            .create_certificate(beacon.clone(), previous_hash.to_owned())
             .await?
             .ok_or_else(|| RuntimeError::General("no certificate generated".to_string().into()))?;
-        let _ = self
-            .config
-            .dependencies
-            .certificate_store
-            .as_ref()
-            .ok_or_else(|| {
-                RuntimeError::General("no certificate store registered".to_string().into())
-            })?
-            .write()
-            .await
-            .save(certificate.clone())
-            .await?;
+        let _ = certificate_store.save(certificate.clone()).await?;
 
         Ok(certificate)
     }

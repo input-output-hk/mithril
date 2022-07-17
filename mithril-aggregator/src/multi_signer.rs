@@ -563,7 +563,6 @@ impl MultiSigner for MultiSignerImpl {
                     .await
                     .ok_or_else(ProtocolError::UnavailableProtocolParameters)?
                     .into();
-                let previous_hash = previous_hash;
                 let initiated_at =
                     format!("{:?}", self.current_initiated_at.unwrap_or_else(Utc::now));
                 let sealed_at = format!("{:?}", Utc::now());
