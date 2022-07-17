@@ -38,11 +38,14 @@ set -e
 ROOT=$1
 NUM_BFT_NODES=$2
 NUM_POOL_NODES=$3
+SLOT_LENGTH=$4
+EPOCH_LENGTH=$5
 
-NODE_PORT_START=3000
 SUPPLY=1000000000
 NETWORK_MAGIC=42
 SECURITY_PARAM=2
+
+NODE_PORT_START=3000
 NODE_ADDR_PREFIX="172.16.238"
 NODE_ADDR_INCREMENT=10
 CARDANO_BINARY_URL="https://hydra.iohk.io/build/13065769/download/1/cardano-node-1.34.1-linux.tar.gz"
@@ -317,10 +320,10 @@ mkdir shelley
 # and K=10, but we'll keep long KES periods so we don't have to bother
 # cycling KES keys
 sed -i shelley/genesis.spec.json \
-    -e 's/"slotLength": 1/"slotLength": 0.45/' \
+    -e 's/"slotLength": 1/"slotLength": '${SLOT_LENGTH}'/' \
     -e 's/"activeSlotsCoeff": 5.0e-2/"activeSlotsCoeff": 0.05/' \
     -e 's/"securityParam": 2160/"securityParam": '${SECURITY_PARAM}'/' \
-    -e 's/"epochLength": 432000/"epochLength": 80/' \
+    -e 's/"epochLength": 432000/"epochLength": '${EPOCH_LENGTH}'/' \
     -e 's/"maxLovelaceSupply": 0/"maxLovelaceSupply": 1000000000/' \
     -e 's/"decentralisationParam": 1.0/"decentralisationParam": 0.7/' \
     -e 's/"major": 0/"major": 4/' \
@@ -824,7 +827,7 @@ cat >> docker-compose.yaml <<EOF
       - GOOGLE_APPLICATION_CREDENTIALS_JSON=
       - NETWORK=devnet
       - NETWORK_MAGIC=${NETWORK_MAGIC}
-      - RUN_INTERVAL=5000
+      - RUN_INTERVAL=1000
       - URL_SNAPSHOT_MANIFEST=
       - SNAPSHOT_STORE_TYPE=local
       - SNAPSHOT_UPLOADER_TYPE=local
@@ -871,7 +874,7 @@ cat >> docker-compose.yaml <<EOF
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
       - NETWORK=devnet
       - NETWORK_MAGIC=${NETWORK_MAGIC}
-      - RUN_INTERVAL=1000
+      - RUN_INTERVAL=700
       - DB_DIRECTORY=/data/db
       - STAKE_STORE_DIRECTORY=/data/mithril/signer/db/stake_db
       - CARDANO_NODE_SOCKET_PATH=/data/ipc/node.sock
@@ -926,7 +929,7 @@ cat >> start-cardano.sh <<EOF
 #!/bin/bash
 
 echo ">> Start Cardano network"
-killall cardano-node 2&>1 /dev/null
+killall cardano-node 2>&1 /dev/null
 ./cardano-cli --version
 ./cardano-node --version
 

@@ -56,6 +56,8 @@ impl Devnet {
         number_of_bft_nodes: u8,
         number_of_pool_nodes: u8,
     ) -> Result<Devnet, String> {
+        let cardano_slot_length = 0.25;
+        let cardano_epoch_length = 45;
         let bootstrap_script = "devnet-mkfiles.sh";
         let bootstrap_script_path = devnet_scripts_dir
             .canonicalize()
@@ -79,6 +81,8 @@ impl Devnet {
             artifacts_target_dir.to_str().unwrap(),
             &number_of_bft_nodes.to_string(),
             &number_of_pool_nodes.to_string(),
+            &cardano_slot_length.to_string(),
+            &cardano_epoch_length.to_string(),
         ];
         bootstrap_command
             .current_dir(devnet_scripts_dir)

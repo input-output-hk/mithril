@@ -11,6 +11,12 @@ fi
 if [ -z "${NODES}" ]; then 
   NODES="*"
 fi
+if [ -z "${SLOT_LENGTH}" ]; then 
+  SLOT_LENGTH="0.75"
+fi
+if [ -z "${EPOCH_LENGTH}" ]; then 
+  EPOCH_LENGTH="100"
+fi
 
 # Bootstrap devnet
 echo "====================================================================="
@@ -20,9 +26,11 @@ echo
 echo ">> Directory: ${ROOT}"
 echo ">> Cardano BFT nodes: ${NUM_BFT_NODES}"
 echo ">> Cardano SPO nodes: ${NUM_POOL_NODES}"
+echo ">> Cardano Slot Length: ${SLOT_LENGTH}s"
+echo ">> Cardano Epoch Length: ${EPOCH_LENGTH}s"
 echo ">> Info: Mithril Aggregator will be attached to the first Cardano BFT node"
 echo ">> Info: Mithril Signers will be attached to each Cardano SPO node"
-rm -rf ${ROOT} && ./devnet-mkfiles.sh ${ROOT} ${NUM_BFT_NODES} ${NUM_POOL_NODES} > /dev/null
+rm -rf ${ROOT} && ./devnet-mkfiles.sh ${ROOT} ${NUM_BFT_NODES} ${NUM_POOL_NODES} ${SLOT_LENGTH} ${EPOCH_LENGTH}> /dev/null
 echo
 
 # Change directory
