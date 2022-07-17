@@ -12,7 +12,7 @@ use mithril_common::crypto_helper::{
 };
 use mithril_common::entities;
 use mithril_common::store::stake_store::{StakeStoreError, StakeStorer};
-use mithril_common::SIGNER_EPOCH_RETRIEVAL_OFFSET;
+use mithril_common::{SIGNER_EPOCH_RECORDING_OFFSET, SIGNER_EPOCH_RETRIEVAL_OFFSET};
 
 use super::beacon_store::BeaconStoreError;
 use super::dependency::{
@@ -247,7 +247,11 @@ impl MultiSigner for MultiSignerImpl {
     ) -> Result<(), ProtocolError> {
         if self.current_message.clone() != Some(message.clone()) {
             self.multi_signature = None;
-            self.clerk = self.create_clerk().await?;
+            match self.create_clerk().await {
+                Ok(clerk) => self.clerk = clerk,
+                Err(ProtocolError::Beacon(_)) => {}
+                Err(e) => return Err(e),
+            }
             self.current_initiated_at = Some(Utc::now());
         }
         self.current_message = Some(message);
@@ -313,6 +317,7 @@ impl MultiSigner for MultiSignerImpl {
             .get_current_beacon()
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .compute_beacon_with_epoch_offset(SIGNER_EPOCH_RECORDING_OFFSET)?
             .epoch;
         let mut stake_store = self.stake_store.write().await;
         for (party_id, stake) in stakes {
@@ -342,6 +347,7 @@ impl MultiSigner for MultiSignerImpl {
             .get_current_beacon()
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .compute_beacon_with_epoch_offset(SIGNER_EPOCH_RECORDING_OFFSET)?
             .epoch;
         let result = match self
             .verification_key_store
@@ -722,7 +728,11 @@ mod tests {
             .await
             .expect("update stake distribution failed");
 
-        offset_epoch(&multi_signer, -SIGNER_EPOCH_RETRIEVAL_OFFSET as i64).await;
+        offset_epoch(
+            &multi_signer,
+            (SIGNER_EPOCH_RECORDING_OFFSET - SIGNER_EPOCH_RETRIEVAL_OFFSET) as i64,
+        )
+        .await;
 
         let mut stake_distribution = multi_signer
             .get_stake_distribution()
@@ -760,7 +770,11 @@ mod tests {
                 .expect("register should have succeeded")
         }
 
-        offset_epoch(&multi_signer, -SIGNER_EPOCH_RETRIEVAL_OFFSET as i64).await;
+        offset_epoch(
+            &multi_signer,
+            (SIGNER_EPOCH_RECORDING_OFFSET - SIGNER_EPOCH_RETRIEVAL_OFFSET) as i64,
+        )
+        .await;
 
         let mut signers_with_stake_all_expected = Vec::new();
         for (party_id, stake, verification_key_expected, _, _) in &signers {
@@ -835,7 +849,11 @@ mod tests {
                 .expect("register should have succeeded")
         }
 
-        offset_epoch(&multi_signer, -SIGNER_EPOCH_RETRIEVAL_OFFSET as i64).await;
+        offset_epoch(
+            &multi_signer,
+            (SIGNER_EPOCH_RECORDING_OFFSET - SIGNER_EPOCH_RETRIEVAL_OFFSET) as i64,
+        )
+        .await;
 
         let mut signatures = Vec::new();
         for (party_id, _, _, protocol_signer, _) in &signers {

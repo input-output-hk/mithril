@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use crate::snapshot_uploaders::SnapshotLocation;
-use crate::{DependencyManager, SnapshotError, Snapshotter};
+use crate::{DependencyManager, ProtocolError, SnapshotError, Snapshotter};
 use async_trait::async_trait;
 use chrono::Utc;
 use mithril_common::digesters::DigesterResult;
@@ -269,6 +269,11 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .await;
 
         debug!("creating certificate pending using multisigner");
+        let signers = match multi_signer.get_signers().await {
+            Ok(signers) => signers,
+            Err(ProtocolError::Beacon(_)) => vec![],
+            Err(e) => return Err(e.into()),
+        };
         let pending_certificate = CertificatePending::new(
             beacon,
             multi_signer
@@ -276,7 +281,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                 .await
                 .ok_or_else(|| RuntimeError::General("no protocol parameters".to_string().into()))?
                 .into(),
-            multi_signer.get_signers().await?,
+            signers,
         );
 
         Ok(pending_certificate)

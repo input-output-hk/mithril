@@ -195,7 +195,7 @@ impl AggregatorRuntime {
 
         if maybe_current_beacon.is_none() || maybe_current_beacon.unwrap().epoch < new_beacon.epoch
         {
-            self.runner.update_stake_distribution(&new_beacon).await?; // TODO: This should happen only when the epoch is changing. This requires to modify the state machine by keeping track of the previous beacon in the state
+            self.runner.update_stake_distribution(&new_beacon).await?;
         }
         let digester_result = self.runner.compute_digest(&new_beacon).await?;
         self.runner
