@@ -222,7 +222,6 @@ artifacts
     "m": 100,
     "phi_f": 0.65
   },
-  "previous_hash": "123",
   "signers": [
     {
       "party_id": 0,

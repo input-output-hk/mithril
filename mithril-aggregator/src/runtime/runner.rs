@@ -383,7 +383,9 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .ok_or_else(|| RuntimeError::General("no message found".to_string().into()))?;
         let snapshot_digest = protocol_message
             .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
-            .ok_or_else(|| RuntimeError::General("message part not found".to_string().into()))?;
+            .ok_or_else(|| {
+                RuntimeError::General("no snapshot digest message part found".to_string().into())
+            })?;
         let snapshot_name = format!("{}.{}.tar.gz", self.config.network, snapshot_digest);
         // spawn a separate thread to prevent blocking
         let snapshot_path =

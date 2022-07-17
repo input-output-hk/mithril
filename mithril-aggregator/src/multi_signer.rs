@@ -94,6 +94,7 @@ pub trait MultiSigner: Sync + Send {
     async fn get_stake_distribution(&self) -> Result<ProtocolStakeDistribution, ProtocolError>;
 
     /// Get next stake distribution
+    /// i.e. the stake distribution that will be used at the next epoch
     async fn get_next_stake_distribution(&self)
         -> Result<ProtocolStakeDistribution, ProtocolError>;
 
@@ -576,7 +577,7 @@ impl MultiSigner for MultiSignerImpl {
             .await
             .ok_or_else(ProtocolError::UnavailableMessage)?;
 
-        debug!("Create multi signature"; "message" => message.compute_hash().encode_hex::<String>());
+        debug!("Create multi signature"; "protocol_message" =>  #?message, "message" => message.compute_hash().encode_hex::<String>());
 
         let beacon = self
             .beacon_store
@@ -603,6 +604,11 @@ impl MultiSigner for MultiSignerImpl {
             .collect::<Vec<_>>();
         if self.protocol_parameters.unwrap().k > signatures.len() as u64 {
             // Quorum is not reached
+            debug!(
+                "Quorum is not reached {} signatures vs {} needed",
+                signatures.len(),
+                self.protocol_parameters.unwrap().k
+            );
             return Ok(None);
         }
         let clerk = self

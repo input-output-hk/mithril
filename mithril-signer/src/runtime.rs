@@ -1,3 +1,4 @@
+use hex::ToHex;
 use slog_scope::{error, info, warn};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -237,7 +238,7 @@ impl Runtime {
                 .compute_aggregate_verification_key(&stake_distribution_extended)?
                 .unwrap_or_default(),
         );
-        info!("Signing protocol message"; "protocol_message" =>  #?protocol_message);
+        info!("Signing protocol message"; "protocol_message" =>  #?protocol_message, "message" => protocol_message.compute_hash().encode_hex::<String>());
 
         let signatures = self.single_signer.compute_single_signatures(
             protocol_message.compute_hash().as_bytes().to_vec(),
