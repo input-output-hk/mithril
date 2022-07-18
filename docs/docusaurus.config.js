@@ -75,7 +75,7 @@ const config = {
       announcementBar: {
         id: 'announcement',
         content:
-          'We are actively looking for SPO candidates to test Mithril on the Cardano testnet. Contact us  <a rel="noopener noreferrer" href="#">here</a> if you are interested!',
+          'We are actively looking for SPO candidates to test Mithril on the Cardano testnet. Contact us  <a rel="noopener noreferrer" href="https://contact.mithril.network/" target="_blank">here</a> if you are interested!',
         backgroundColor: '#2e8555',
         textColor: '#f1f1f1',
         isCloseable: true,
