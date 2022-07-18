@@ -312,22 +312,26 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         digest_result: DigesterResult,
     ) -> Result<(), RuntimeError> {
         info!("update message in multisigner");
-
-        let next_aggregate_verification_key = "next-avk-123".to_string(); // TODO: Add next avk when available
-        let mut protocol_message = ProtocolMessage::new();
-        protocol_message
-            .set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest_result.digest);
-        protocol_message.set_message_part(
-            ProtocolMessagePartKey::NextAggregateVerificationKey,
-            next_aggregate_verification_key,
-        );
-        self.config
+        let mut multi_signer = self
+            .config
             .dependencies
             .multi_signer
             .as_ref()
             .ok_or_else(|| RuntimeError::General("no multisigner registered".to_string().into()))?
             .write()
-            .await
+            .await;
+        let mut protocol_message = ProtocolMessage::new();
+        protocol_message
+            .set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest_result.digest);
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::NextAggregateVerificationKey,
+            multi_signer
+                .compute_next_stake_distribution_aggregate_verification_key()
+                .await
+                .map_err(RuntimeError::MultiSigner)?
+                .unwrap_or_default(),
+        );
+        multi_signer
             .update_current_message(protocol_message)
             .await
             .map_err(RuntimeError::MultiSigner)

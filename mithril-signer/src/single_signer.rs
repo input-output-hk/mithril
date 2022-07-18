@@ -3,8 +3,8 @@ use slog_scope::trace;
 use thiserror::Error;
 
 use mithril_common::crypto_helper::{
-    key_decode_hex, key_encode_hex, Bytes, ProtocolInitializer, ProtocolKeyRegistration,
-    ProtocolPartyId, ProtocolSigner,
+    key_decode_hex, key_encode_hex, Bytes, ProtocolClerk, ProtocolInitializer,
+    ProtocolKeyRegistration, ProtocolPartyId, ProtocolSigner,
 };
 use mithril_common::entities::{self, PartyId, SignerWithStake, SingleSignatures};
 
@@ -33,6 +33,12 @@ pub trait SingleSigner {
         stakes: Vec<SignerWithStake>,
         protocol_parameters: &entities::ProtocolParameters,
     ) -> Result<Option<SingleSignatures>, SingleSignerError>;
+
+    /// Compute aggregate verification key from stake distribution
+    fn compute_aggregate_verification_key(
+        &mut self,
+        stakes: &[SignerWithStake],
+    ) -> Result<Option<String>, SingleSignerError>;
 }
 
 #[derive(Error, Debug, PartialEq)]
@@ -188,6 +194,23 @@ impl SingleSigner for MithrilSingleSigner {
                 won_indexes,
             ))),
             None => Ok(None),
+        }
+    }
+
+    /// Compute aggregate verification key from stake distribution
+    fn compute_aggregate_verification_key(
+        &mut self,
+        stakes: &[SignerWithStake],
+    ) -> Result<Option<String>, SingleSignerError> {
+        match self.create_protocol_signer(stakes) {
+            Ok(protocol_signer) => {
+                let clerk = ProtocolClerk::from_signer(&protocol_signer);
+                Ok(Some(
+                    key_encode_hex(clerk.compute_avk()).map_err(SingleSignerError::Codec)?,
+                ))
+            }
+            Err(SingleSignerError::ProtocolSignerCreationFailure(_)) => Ok(None),
+            Err(e) => Err(e),
         }
     }
 }

@@ -8,7 +8,7 @@ use crate::entities::*;
 use crate::verifier::{ProtocolError, Verifier};
 
 use mithril_common::digesters::{Digester, DigesterError, ImmutableDigester};
-use mithril_common::entities::{ProtocolMessage, ProtocolMessagePartKey, Snapshot};
+use mithril_common::entities::{ProtocolMessagePartKey, Snapshot};
 
 /// AggregatorHandlerWrapper wraps an AggregatorHandler
 pub type AggregatorHandlerWrapper = Box<dyn AggregatorHandler>;
@@ -210,15 +210,10 @@ impl Runtime {
             .map_err(RuntimeError::ImmutableDigester)?
             .digest;
         // TODO: Logic is not final below
-        let next_aggregate_verification_key = "next-avk-123".to_string(); // TODO: Add next avk when available
-        let mut protocol_message = ProtocolMessage::new();
+        let mut protocol_message = certificate.protocol_message.clone();
         protocol_message.set_message_part(
             ProtocolMessagePartKey::SnapshotDigest,
             unpacked_snapshot_digest.to_string(),
-        );
-        protocol_message.set_message_part(
-            ProtocolMessagePartKey::NextAggregateVerificationKey,
-            next_aggregate_verification_key,
         );
         match protocol_message.compute_hash() == certificate.signed_message {
             true => Ok(unpacked_path.to_owned()),

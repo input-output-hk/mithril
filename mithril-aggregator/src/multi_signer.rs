@@ -93,11 +93,43 @@ pub trait MultiSigner: Sync + Send {
     /// Get stake distribution
     async fn get_stake_distribution(&self) -> Result<ProtocolStakeDistribution, ProtocolError>;
 
+    /// Get next stake distribution
+    async fn get_next_stake_distribution(&self)
+        -> Result<ProtocolStakeDistribution, ProtocolError>;
+
     /// Update stake distribution
     async fn update_stake_distribution(
         &mut self,
         stakes: &ProtocolStakeDistribution,
     ) -> Result<(), ProtocolError>;
+
+    /// Compute aggregate verification key from stake distribution
+    async fn compute_aggregate_verification_key(
+        &self,
+        stakes: &ProtocolStakeDistribution,
+    ) -> Result<Option<ProtocolAggregateVerificationKey>, ProtocolError>;
+
+    /// Compute stake distribution aggregate verification key
+    async fn compute_stake_distribution_aggregate_verification_key(
+        &self,
+    ) -> Result<Option<String>, ProtocolError> {
+        let stakes = self.get_stake_distribution().await?;
+        match self.compute_aggregate_verification_key(&stakes).await? {
+            Some(avk) => Ok(Some(key_encode_hex(avk).map_err(ProtocolError::Codec)?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Compute next stake distribution aggregate verification key
+    async fn compute_next_stake_distribution_aggregate_verification_key(
+        &self,
+    ) -> Result<Option<String>, ProtocolError> {
+        let stakes = self.get_next_stake_distribution().await?;
+        match self.compute_aggregate_verification_key(&stakes).await? {
+            Some(avk) => Ok(Some(key_encode_hex(avk).map_err(ProtocolError::Codec)?)),
+            None => Ok(None),
+        }
+    }
 
     /// Register a signer
     async fn register_signer(
@@ -206,12 +238,14 @@ impl MultiSignerImpl {
     }
 
     /// Creates a clerk
-    pub async fn create_clerk(&self) -> Result<Option<ProtocolClerk>, ProtocolError> {
+    pub async fn create_clerk(
+        &self,
+        stakes: &ProtocolStakeDistribution,
+    ) -> Result<Option<ProtocolClerk>, ProtocolError> {
         debug!("Create clerk");
-        let stakes = self.get_stake_distribution().await?;
         let mut key_registration = ProtocolKeyRegistration::init();
         let mut total_signers = 0;
-        for (party_id, stake) in &stakes {
+        for (party_id, stake) in stakes {
             if let Ok(Some(verification_key)) = self.get_signer(party_id.to_owned()).await {
                 key_registration
                     .register(*stake, verification_key)
@@ -231,6 +265,40 @@ impl MultiSignerImpl {
             }
         }
     }
+
+    /// Get stake distribution with epoch offset
+    async fn get_stake_distribution_with_epoch_offset(
+        &self,
+        epoch_offset: i64,
+    ) -> Result<ProtocolStakeDistribution, ProtocolError> {
+        debug!("Get stake distribution with epoch offset"; "epoch_offset"=>epoch_offset);
+        let epoch = self
+            .beacon_store
+            .read()
+            .await
+            .get_current_beacon()
+            .await?
+            .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .compute_beacon_with_epoch_offset(epoch_offset)?
+            .epoch;
+
+        let signers = self
+            .stake_store
+            .read()
+            .await
+            .get_stakes(epoch)
+            .await?
+            .unwrap_or_default();
+        Ok(signers
+            .iter()
+            .map(|(party_id, signer)| {
+                (
+                    party_id.to_owned() as ProtocolPartyId,
+                    signer.stake as ProtocolStake,
+                )
+            })
+            .collect::<ProtocolStakeDistribution>())
+    }
 }
 
 #[async_trait]
@@ -247,7 +315,8 @@ impl MultiSigner for MultiSignerImpl {
     ) -> Result<(), ProtocolError> {
         if self.current_message.clone() != Some(message.clone()) {
             self.multi_signature = None;
-            match self.create_clerk().await {
+            let stakes = self.get_stake_distribution().await?;
+            match self.create_clerk(&stakes).await {
                 Ok(clerk) => self.clerk = clerk,
                 Err(ProtocolError::Beacon(_)) => {}
                 Err(e) => return Err(e),
@@ -276,32 +345,17 @@ impl MultiSigner for MultiSignerImpl {
     /// Get stake distribution
     async fn get_stake_distribution(&self) -> Result<ProtocolStakeDistribution, ProtocolError> {
         debug!("Get stake distribution");
-        let epoch = self
-            .beacon_store
-            .read()
+        self.get_stake_distribution_with_epoch_offset(SIGNER_EPOCH_RETRIEVAL_OFFSET)
             .await
-            .get_current_beacon()
-            .await?
-            .ok_or_else(ProtocolError::UnavailableBeacon)?
-            .compute_beacon_with_epoch_offset(SIGNER_EPOCH_RETRIEVAL_OFFSET)?
-            .epoch;
+    }
 
-        let signers = self
-            .stake_store
-            .read()
+    /// Get next stake distribution
+    async fn get_next_stake_distribution(
+        &self,
+    ) -> Result<ProtocolStakeDistribution, ProtocolError> {
+        debug!("Get next stake distribution");
+        self.get_stake_distribution_with_epoch_offset(SIGNER_EPOCH_RETRIEVAL_OFFSET + 1)
             .await
-            .get_stakes(epoch)
-            .await?
-            .unwrap_or_default();
-        Ok(signers
-            .iter()
-            .map(|(party_id, signer)| {
-                (
-                    party_id.to_owned() as ProtocolPartyId,
-                    signer.stake as ProtocolStake,
-                )
-            })
-            .collect::<ProtocolStakeDistribution>())
     }
 
     /// Update stake distribution
@@ -330,6 +384,17 @@ impl MultiSigner for MultiSignerImpl {
         }
 
         Ok(())
+    }
+
+    /// Compute aggregate verification key from stake distribution
+    async fn compute_aggregate_verification_key(
+        &self,
+        stakes: &ProtocolStakeDistribution,
+    ) -> Result<Option<ProtocolAggregateVerificationKey>, ProtocolError> {
+        match self.create_clerk(stakes).await? {
+            Some(clerk) => Ok(Some(clerk.compute_avk())),
+            None => Ok(None),
+        }
     }
 
     /// Register a signer
@@ -448,7 +513,8 @@ impl MultiSigner for MultiSignerImpl {
 
         // TODO: to remove once epoch offset is activated
         if self.clerk.as_ref().is_none() {
-            self.clerk = self.create_clerk().await?;
+            let stakes = self.get_stake_distribution().await?;
+            self.clerk = self.create_clerk(&stakes).await?;
         }
 
         let message = &self
@@ -739,7 +805,20 @@ mod tests {
             .await
             .expect("get state distribution failed");
         stake_distribution.sort_by_key(|k| k.0.clone());
-        assert_eq!(stake_distribution_expected, stake_distribution)
+        let stake_distribution_next_expected = multi_signer
+            .get_next_stake_distribution()
+            .await
+            .expect("get next state distribution failed");
+        assert_eq!(stake_distribution_expected, stake_distribution);
+
+        offset_epoch(&multi_signer, 1).await;
+
+        let mut stake_distribution = multi_signer
+            .get_stake_distribution()
+            .await
+            .expect("get state distribution failed");
+        stake_distribution.sort_by_key(|k| k.0.clone());
+        assert_eq!(stake_distribution_next_expected, stake_distribution);
     }
 
     #[tokio::test]
@@ -944,10 +1023,19 @@ mod tests {
                 .is_some(),
             "no multi-signature were computed"
         );
-        assert!(multi_signer
+
+        // A certificate should also be produced with valid AVK
+        let certificate = multi_signer
             .create_certificate(beacon.clone(), previous_hash.clone())
             .await
-            .expect("create_certificate should not fail")
-            .is_some());
+            .expect("create_certificate should not fail");
+        assert!(certificate.is_some());
+        let avk_expected = certificate.unwrap().aggregate_verification_key;
+        let avk_computed = multi_signer
+            .compute_stake_distribution_aggregate_verification_key()
+            .await
+            .expect("compute stake distribution aggregate verification key should not fail");
+        assert!(avk_computed.is_some());
+        assert_eq!(avk_expected, avk_computed.unwrap());
     }
 }
