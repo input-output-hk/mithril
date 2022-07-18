@@ -15,7 +15,8 @@ pub use crate::entities::{Config, SnapshotStoreType, SnapshotUploaderType};
 pub use crate::multi_signer::{MultiSigner, MultiSignerImpl, ProtocolError};
 pub use crate::snapshot_stores::{RemoteSnapshotStore, SnapshotStore};
 pub use beacon_provider::{
-    BeaconProvider, BeaconProviderImpl, ImmutableFileObserver, ImmutableFileSystemObserver,
+    BeaconProvider, BeaconProviderImpl, DumbImmutableFileObserver, ImmutableFileObserver,
+    ImmutableFileSystemObserver,
 };
 pub use beacon_store::{BeaconStore, BeaconStoreError, MemoryBeaconStore};
 pub use dependency::DependencyManager;

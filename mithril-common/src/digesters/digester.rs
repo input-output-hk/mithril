@@ -71,7 +71,7 @@ impl DumbDigester {
 
 impl Default for DumbDigester {
     fn default() -> Self {
-        Self::new("1234", 99, true)
+        Self::new("1234", 119827, true)
     }
 }
 

@@ -123,12 +123,6 @@ impl DumbImmutableFileObserver {
     }
 }
 
-impl Default for DumbImmutableFileObserver {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[async_trait]
 impl ImmutableFileObserver for DumbImmutableFileObserver {
     async fn get_last_immutable_number(&self) -> Result<u64, Box<dyn Error + Sync + Send>> {
