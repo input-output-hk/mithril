@@ -418,6 +418,7 @@ components:
       additionalProperties: false
       required:
         - digest
+        - beacon
         - certificate_hash
         - size
         - created_at
@@ -427,6 +428,8 @@ components:
           description: Digest that is signed by the signer participants
           type: string
           format: bytes
+        beacon:
+          $ref: "#/components/schemas/Beacon"
         certificate_hash:
           description: Hash of the associated certificate
           type: string
@@ -447,6 +450,12 @@ components:
       example:
         {
           "digest": "24qQwKgWw4mr5kRZLIUA9XAsB0vSvijo8FIfrGFwBtdCNQVhBc9PXu7RiCHSRem3MmHoKbo",
+          "beacon":
+            {
+              "network": "mainnet",
+              "epoch": 329,
+              "immutable_file_number": 7060000,
+            },
           "certificate_hash": "AsB0vSvijo8FIfrG/FwBtdCNQVhBc9P24qQwKgWw4mr5kRZL+IUA9XXu7RiCHSRem3MmHoKbo",
           "size": 26058531636,
           "created_at": "2022-07-21T17:32:28Z",
