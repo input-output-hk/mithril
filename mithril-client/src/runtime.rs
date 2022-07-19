@@ -347,11 +347,11 @@ pub(crate) fn convert_to_field_items(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use async_trait::async_trait;
     use mockall::mock;
 
     use crate::aggregator::{AggregatorHandlerError, MockAggregatorHandler};
     use crate::verifier::{MockVerifier, ProtocolError};
-    use async_trait::async_trait;
     use mithril_common::digesters::{Digester, DigesterError, DigesterResult};
     use mithril_common::fake_data;
 
