@@ -3,7 +3,7 @@ use crate::{attempt, Client, ClientCommand, MithrilInfrastructure};
 use mithril_common::chain_observer::{CardanoCliChainObserver, ChainObserver};
 use mithril_common::digesters::ImmutableFile;
 use mithril_common::entities::{Certificate, CertificatePending, Snapshot};
-use mithril_common::SIGNER_EPOCH_RETRIEVAL_OFFSET;
+use mithril_common::{SIGNER_EPOCH_RECORDING_OFFSET, SIGNER_EPOCH_RETRIEVAL_OFFSET};
 use reqwest::StatusCode;
 use slog_scope::info;
 use std::error::Error;
@@ -24,9 +24,27 @@ impl Spec {
         let aggregator_endpoint = self.infrastructure.aggregator().endpoint();
 
         wait_for_enough_immutable(self.infrastructure.aggregator().db_directory()).await?;
-        wait_for_minimal_epoch(self.infrastructure.chain_observer()).await?;
+        let min_epoch = (SIGNER_EPOCH_RECORDING_OFFSET - SIGNER_EPOCH_RETRIEVAL_OFFSET) as u64;
+        wait_for_target_epoch(
+            self.infrastructure.chain_observer(),
+            min_epoch,
+            "minimal epoch for the signer to be able to sign snapshots".to_string(),
+        )
+        .await?;
         wait_for_pending_certificate(&aggregator_endpoint).await?;
-
+        wait_for_target_epoch(
+            self.infrastructure.chain_observer(),
+            min_epoch + 4,
+            "epoch after which the stake distribution will change".to_string(),
+        )
+        .await?; // TODO: This value should be lower: min_epoch+2, but keep it like that until we find out why some epochs don't record signers
+                 // TODO: Add a transaction that updates the stake distribution here
+        wait_for_target_epoch(
+            self.infrastructure.chain_observer(),
+            min_epoch + 7,
+            "epoch after which thecertificate chain will be long enough".to_string(),
+        )
+        .await?; // TODO: This value should be lower: min_epoch+4, but keep it like that until we find out why some epochs don't record signers
         let digest = assert_node_producing_snapshot(&aggregator_endpoint).await?;
         let certificate_hash =
             assert_signer_is_signing_snapshot(&aggregator_endpoint, &digest).await?;
@@ -113,18 +131,20 @@ async fn wait_for_pending_certificate(
     }
 }
 
-async fn wait_for_minimal_epoch(
+async fn wait_for_target_epoch(
     chain_observer: Arc<CardanoCliChainObserver>,
+    target_epoch: u64,
+    wait_reason: String,
 ) -> Result<(), String> {
     info!(
-        "Waiting for the cardano network to be at the minimal epoch for signer to be able to sign snapshots";
-        "min_epoch" => SIGNER_EPOCH_RETRIEVAL_OFFSET
+        "Waiting for the cardano network to be at the target epoch: {}", wait_reason;
+        "target_epoch" => target_epoch
     );
 
-    match attempt!(60, Duration::from_millis(1000), {
+    match attempt!(90, Duration::from_millis(1000), {
         match chain_observer.get_current_epoch().await {
             Ok(Some(epoch)) => {
-                if epoch as i64 + SIGNER_EPOCH_RETRIEVAL_OFFSET >= 0 {
+                if epoch >= target_epoch {
                     Ok(Some(()))
                 } else {
                     Ok(None)
@@ -135,12 +155,12 @@ async fn wait_for_minimal_epoch(
         }
     }) {
         AttemptResult::Ok(_) => {
-            info!("Minimal epoch reached !"; "min_epoch" => SIGNER_EPOCH_RETRIEVAL_OFFSET);
+            info!("Target epoch reached !"; "target_epoch" => target_epoch);
             Ok(())
         }
         AttemptResult::Err(error) => Err(error),
         AttemptResult::Timeout() => {
-            Err("Timeout exhausted for minimum epoch to be reached".to_string())
+            Err("Timeout exhausted for target epoch to be reached".to_string())
         }
     }?;
 

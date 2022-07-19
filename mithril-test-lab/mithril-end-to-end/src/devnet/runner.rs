@@ -55,9 +55,9 @@ impl Devnet {
         artifacts_target_dir: PathBuf,
         number_of_bft_nodes: u8,
         number_of_pool_nodes: u8,
+        cardano_slot_length: f64,
+        cardano_epoch_length: f64,
     ) -> Result<Devnet, String> {
-        let cardano_slot_length = 0.25;
-        let cardano_epoch_length = 45;
         let bootstrap_script = "devnet-mkfiles.sh";
         let bootstrap_script_path = devnet_scripts_dir
             .canonicalize()
