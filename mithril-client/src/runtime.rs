@@ -220,6 +220,8 @@ impl Runtime {
 pub(crate) fn convert_to_list_item(snapshot: &Snapshot, network: String) -> SnapshotListItem {
     SnapshotListItem::new(
         network,
+        snapshot.beacon.epoch,
+        snapshot.beacon.immutable_file_number,
         snapshot.digest.clone(),
         snapshot.size,
         snapshot.locations.len() as u16,
@@ -234,6 +236,11 @@ pub(crate) fn convert_to_field_items(
 ) -> Vec<SnapshotFieldItem> {
     let mut field_items = vec![
         SnapshotFieldItem::new("Network".to_string(), network),
+        SnapshotFieldItem::new("Epoch".to_string(), format!("{}", snapshot.beacon.epoch)),
+        SnapshotFieldItem::new(
+            "Immutable File Number".to_string(),
+            format!("{}", snapshot.beacon.immutable_file_number),
+        ),
         SnapshotFieldItem::new("Digest".to_string(), snapshot.digest.to_string()),
         SnapshotFieldItem::new("Size".to_string(), format!("{}", snapshot.size)),
     ];

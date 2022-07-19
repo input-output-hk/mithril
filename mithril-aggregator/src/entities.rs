@@ -13,7 +13,7 @@ use crate::tools::GcpFileUploader;
 use crate::{LocalSnapshotUploader, RemoteSnapshotStore, RemoteSnapshotUploader};
 
 // TODO: 'LIST_SNAPSHOTS_MAX_ITEMS' keep as const or in config, or add a parameter to `list_snapshots`?
-const LIST_SNAPSHOTS_MAX_ITEMS: usize = 5;
+const LIST_SNAPSHOTS_MAX_ITEMS: usize = 20;
 
 /// Aggregator configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]

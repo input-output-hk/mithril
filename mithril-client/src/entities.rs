@@ -21,6 +21,14 @@ pub struct SnapshotListItem {
     #[table(title = "Network")]
     pub network: String,
 
+    /// Cardano epoch
+    #[table(title = "Epoch")]
+    pub epoch: u64,
+
+    /// Cardano immutable file number
+    #[table(title = "Immutable")]
+    pub immutable_file_number: u64,
+
     /// Digest that is signed by the signer participants
     #[table(title = "Digest")]
     pub digest: String,
@@ -42,6 +50,8 @@ impl SnapshotListItem {
     /// SnapshotListItem factory
     pub fn new(
         network: String,
+        epoch: u64,
+        immutable_file_number: u64,
         digest: String,
         size: u64,
         total_locations: u16,
@@ -49,6 +59,8 @@ impl SnapshotListItem {
     ) -> SnapshotListItem {
         SnapshotListItem {
             network,
+            epoch,
+            immutable_file_number,
             digest,
             size,
             created_at,
