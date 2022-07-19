@@ -124,13 +124,21 @@ pub fn snapshots(total: u64) -> Vec<entities::Snapshot> {
     (1..total + 1)
         .map(|snapshot_id| {
             let digest = format!("1{}", snapshot_id).repeat(20);
+            let beacon = beacon();
             let certificate_hash = "123".to_string();
             let size = snapshot_id * 100000;
             let created_at = "2006-01-02T15:04:05Z".to_string();
             let mut locations = Vec::new();
             locations.push(format!("http://{}", certificate_hash));
             locations.push(format!("http2://{}", certificate_hash));
-            entities::Snapshot::new(digest, certificate_hash, size, created_at, locations)
+            entities::Snapshot::new(
+                digest,
+                beacon,
+                certificate_hash,
+                size,
+                created_at,
+                locations,
+            )
         })
         .collect::<Vec<entities::Snapshot>>()
 }

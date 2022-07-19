@@ -440,6 +440,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     ) -> Result<Snapshot, RuntimeError> {
         let snapshot = Snapshot::new(
             certificate.digest,
+            certificate.beacon,
             certificate.hash,
             std::fs::metadata(file_path)
                 .map_err(|e| RuntimeError::General(e.into()))?

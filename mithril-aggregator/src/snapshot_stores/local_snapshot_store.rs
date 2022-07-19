@@ -68,12 +68,14 @@ mod tests {
     use crate::SnapshotStore;
 
     use mithril_common::entities::Snapshot;
+    use mithril_common::fake_data;
     use mithril_common::store::adapter::DumbStoreAdapter;
 
     #[tokio::test]
     async fn can_list_added_snapshot() {
         let snapshot = Snapshot {
             digest: "abc".to_string(),
+            beacon: fake_data::beacon(),
             certificate_hash: "abc".to_string(),
             size: 0,
             created_at: "abc".to_string(),
@@ -94,6 +96,7 @@ mod tests {
     async fn can_get_added_snapshot_details() {
         let snapshot = Snapshot {
             digest: "abc".to_string(),
+            beacon: fake_data::beacon(),
             certificate_hash: "abc".to_string(),
             size: 0,
             created_at: "abc".to_string(),
