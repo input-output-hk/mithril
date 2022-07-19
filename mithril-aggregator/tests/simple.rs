@@ -7,11 +7,11 @@ use tokio::time::Duration;
 
 #[tokio::test]
 async fn simple_scenario() {
-    let (_deps, config) = initialize_dependencies().await;
+    let (deps, config) = initialize_dependencies().await;
     let mut runtime = AggregatorRuntime::new(
         Duration::from_millis(config.interval),
         None,
-        Arc::new(AggregatorRunner::new(config)),
+        Arc::new(AggregatorRunner::new(config, Arc::new(deps))),
     )
     .await
     .unwrap();

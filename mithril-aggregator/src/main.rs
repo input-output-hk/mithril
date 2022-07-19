@@ -202,12 +202,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
             network,
             &config.db_directory.clone(),
             &snapshot_directory,
-            runtime_dependencies,
         );
         let mut runtime = AggregatorRuntime::new(
             Duration::from_millis(config.interval),
             None,
-            Arc::new(AggregatorRunner::new(config)),
+            Arc::new(AggregatorRunner::new(config, runtime_dependencies.clone())),
         )
         .await
         .unwrap();

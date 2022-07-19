@@ -323,7 +323,6 @@ pub mod tests {
                 .snapshot_directory
                 .as_path()
                 .as_ref(),
-            dependency_manager.clone(),
         );
 
         (dependency_manager, config)

@@ -21,7 +21,7 @@ pub use beacon_provider::{
 pub use beacon_store::{BeaconStore, BeaconStoreError, MemoryBeaconStore};
 pub use dependency::DependencyManager;
 pub use http_server::Server;
-pub use runtime::{AggregatorConfig, AggregatorRunner, AggregatorRuntime};
+pub use runtime::{AggregatorConfig, AggregatorRunner, AggregatorRunnerTrait, AggregatorRuntime};
 pub use snapshot_uploaders::{LocalSnapshotUploader, RemoteSnapshotUploader};
 pub use snapshotter::{SnapshotError, Snapshotter};
 pub use store::{

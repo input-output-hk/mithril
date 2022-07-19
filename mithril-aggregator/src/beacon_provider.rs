@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use std::{error::Error, path::PathBuf, sync::Arc};
+use std::{error::Error, ops::Add, path::PathBuf, sync::Arc};
 use tokio::sync::RwLock;
 
 use mithril_common::{
@@ -100,7 +100,7 @@ impl BeaconProvider for BeaconProviderImpl {
 }
 
 pub struct DumbImmutableFileObserver {
-    shall_return: Option<u64>,
+    pub shall_return: Option<u64>,
 }
 
 impl Default for DumbImmutableFileObserver {
@@ -121,13 +121,23 @@ impl DumbImmutableFileObserver {
         self.shall_return = what;
         self
     }
+
+    pub fn increase(&mut self) -> Result<u64, Box<dyn Error + Sync + Send>> {
+        let new_number = self
+            .shall_return
+            .unwrap() // I do not understand why ok_or_else does not work here, TODO: fix this
+            .add(1);
+        self.shall_return = Some(new_number);
+
+        Ok(new_number)
+    }
 }
 
 #[async_trait]
 impl ImmutableFileObserver for DumbImmutableFileObserver {
     async fn get_last_immutable_number(&self) -> Result<u64, Box<dyn Error + Sync + Send>> {
         self.shall_return
-            .ok_or_else(|| "fake immutable error".into())
+            .ok_or_else(|| "fake immutable error, immutable number undefined".into())
     }
 }
 

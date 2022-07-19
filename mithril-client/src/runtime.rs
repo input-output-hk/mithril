@@ -203,6 +203,7 @@ impl Runtime {
         let unpacked_snapshot_digest = self
             .get_digester()?
             .compute_digest()
+            .await
             .map_err(RuntimeError::ImmutableDigester)?
             .digest;
         let mut protocol_message = certificate.protocol_message.clone();
@@ -350,14 +351,17 @@ mod tests {
 
     use crate::aggregator::{AggregatorHandlerError, MockAggregatorHandler};
     use crate::verifier::{MockVerifier, ProtocolError};
+    use async_trait::async_trait;
     use mithril_common::digesters::{Digester, DigesterError, DigesterResult};
     use mithril_common::fake_data;
 
     mock! {
        pub DigesterImpl { }
-        impl Digester for DigesterImpl {
-            fn compute_digest(&self) -> Result<DigesterResult, DigesterError>;
-        }
+
+       #[async_trait]
+       impl Digester for DigesterImpl {
+           async fn compute_digest(&self) -> Result<DigesterResult, DigesterError>;
+       }
     }
 
     fn create_fake_certificate_chain(total_certificates: u64) -> Vec<Certificate> {

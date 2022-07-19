@@ -14,7 +14,7 @@ use mithril_common::{
 };
 use tokio::sync::RwLock;
 
-pub async fn initialize_dependencies() -> (Arc<DependencyManager>, AggregatorConfig) {
+pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) {
     let config: Config = Config {
         cardano_cli_path: PathBuf::new(),
         cardano_node_socket_path: PathBuf::new(),
@@ -91,7 +91,6 @@ pub async fn initialize_dependencies() -> (Arc<DependencyManager>, AggregatorCon
         .with_immutable_file_observer(immutable_file_observer)
         .with_digester(digester);
 
-    let dependency_manager = Arc::new(dependency_manager);
     let config = AggregatorConfig::new(
         dependency_manager.config.run_interval,
         CardanoNetwork::TestNet(42),
@@ -101,7 +100,6 @@ pub async fn initialize_dependencies() -> (Arc<DependencyManager>, AggregatorCon
             .snapshot_directory
             .as_path()
             .as_ref(),
-        dependency_manager.clone(),
     );
 
     (dependency_manager, config)
