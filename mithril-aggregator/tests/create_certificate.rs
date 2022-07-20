@@ -1,10 +1,10 @@
 mod init;
 use init::initialize_dependencies;
-use mithril::stm::StmVerificationKeyPoP;
 use mithril_aggregator::{
     AggregatorRunner, AggregatorRuntime, BeaconProviderImpl, DumbImmutableFileObserver,
 };
 use mithril_common::chain_observer::FakeObserver;
+use mithril_common::crypto_helper::ProtocolSignerVerificationKey;
 use mithril_common::crypto_helper::{key_decode_hex, ProtocolPartyId};
 use mithril_common::digesters::DumbDigester;
 use mithril_common::fake_data;
@@ -42,44 +42,47 @@ async fn create_certificate() {
     assert_eq!("signing", runtime.get_state());
 
     // register two signers
+    let signers = fake_data::signers(2);
+
     {
         let mut multisigner = deps.multi_signer.as_ref().unwrap().write().await;
 
-        for signer in fake_data::signers(2) {
-            let signer_key =
-                key_decode_hex::<StmVerificationKeyPoP>(signer.verification_key.as_ref()).unwrap();
+        for signer in &signers {
+            let signer_key: ProtocolSignerVerificationKey =
+                key_decode_hex(signer.verification_key.as_ref()).unwrap();
             multisigner
-                .register_signer(signer.party_id as ProtocolPartyId, &signer_key)
+                .register_signer(signer.party_id.to_owned() as ProtocolPartyId, &signer_key)
                 .await
                 .unwrap();
         }
     }
 
     runtime.cycle().await.unwrap();
-
     assert_eq!("signing", runtime.get_state());
 
     // change the immutable number to alter the beacon
-    let new_immutable_number = immutable_file_observer.write().await.increase().unwrap();
-    digester
-        .set_immutable_file_number(new_immutable_number)
-        .await;
-    assert_eq!(
-        new_immutable_number,
-        deps.beacon_provider
-            .as_ref()
-            .unwrap()
-            .read()
-            .await
-            .get_current_beacon()
-            .await
-            .unwrap()
-            .immutable_file_number
-    );
+    {
+        let new_immutable_number = immutable_file_observer.write().await.increase().unwrap();
+        digester
+            .set_immutable_file_number(new_immutable_number)
+            .await;
+        assert_eq!(
+            new_immutable_number,
+            deps.beacon_provider
+                .as_ref()
+                .unwrap()
+                .read()
+                .await
+                .get_current_beacon()
+                .await
+                .unwrap()
+                .immutable_file_number
+        );
+    }
     runtime.cycle().await.unwrap();
     assert_eq!("idle", runtime.get_state());
-
-    // change the immutable number to switch to signing state
+    runtime.cycle().await.unwrap();
+    assert_eq!("signing", runtime.get_state());
     runtime.cycle().await.unwrap();
     assert_eq!("signing", runtime.get_state());
 }
