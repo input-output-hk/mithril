@@ -175,6 +175,7 @@ mod tests {
             RemoteSnapshotStore::new(Box::new(file_uploader), "http123://unreachable".to_string());
         let snapshot = Snapshot {
             digest: "abc".to_string(),
+            beacon: fake_data::beacon(),
             certificate_hash: "abc".to_string(),
             size: 0,
             created_at: "abc".to_string(),
@@ -197,6 +198,7 @@ mod tests {
             RemoteSnapshotStore::new(Box::new(file_uploader), "http123://unreachable".to_string());
         let snapshot = Snapshot {
             digest: "abc".to_string(),
+            beacon: fake_data::beacon(),
             certificate_hash: "abc".to_string(),
             size: 0,
             created_at: "abc".to_string(),

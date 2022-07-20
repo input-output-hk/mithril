@@ -35,7 +35,7 @@ RUN cargo build --release
 FROM debian:buster-slim
 
 # Upgrade
-RUN apt-get update && apt-get install -y libssl1.1 ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y libssl1.1 ca-certificates wget && rm -rf /var/lib/apt/lists/*
 
 # Import the user and group files from the builder
 COPY --from=rustbuilder /etc/passwd /etc/passwd

@@ -402,6 +402,10 @@ pub struct Snapshot {
     #[serde(rename = "digest")]
     pub digest: String,
 
+    /// Mithril beacon on the Cardano chain
+    #[serde(rename = "beacon")]
+    pub beacon: Beacon,
+
     /// Hash of the associated certificate
     #[serde(rename = "certificate_hash")]
     pub certificate_hash: String,
@@ -423,6 +427,7 @@ impl Snapshot {
     /// Snapshot factory
     pub fn new(
         digest: String,
+        beacon: Beacon,
         certificate_hash: String,
         size: u64,
         created_at: String,
@@ -430,6 +435,7 @@ impl Snapshot {
     ) -> Snapshot {
         Snapshot {
             digest,
+            beacon,
             certificate_hash,
             size,
             created_at,
