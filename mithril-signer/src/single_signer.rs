@@ -121,7 +121,18 @@ impl SingleSigner for MithrilSingleSigner {
                     .iter()
                     .find(|s| s.party_id == self.party_id)
                     .ok_or(SingleSignerError::UnregisteredPartyId())?;
-                let mut rng = rand_core::OsRng;
+
+                // TODO: Uncomment next line and remove the 4 following lines with deterministic random generator when the protocol initializer store is created
+                //let mut rng = rand_core::OsRng;
+                use rand_chacha::ChaCha20Rng;
+                use rand_core::SeedableRng;
+                let seed: [u8; 32] = self.party_id.as_bytes()[..32].try_into().map_err(|_| {
+                    SingleSignerError::ProtocolSignerCreationFailure(
+                        "impossible to generate a seed".to_string(),
+                    )
+                })?;
+                let mut rng = ChaCha20Rng::from_seed(seed);
+                //
                 ProtocolInitializer::setup(
                     protocol_parameters.to_owned().into(),
                     current_signer_with_stake.stake,

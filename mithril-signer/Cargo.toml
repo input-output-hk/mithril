@@ -15,6 +15,7 @@ flate2 = "1.0.23"
 hex = "0.4.3"
 mithril = { path = "../mithril-core" }
 mithril-common = { path = "../mithril-common" }
+rand_chacha = "0.3.1"
 rand_core   = "0.6.3"
 reqwest = { version = "0.11", features = ["json", "stream"] }
 serde = { version = "1.0", features = ["derive"] }
