@@ -4,6 +4,10 @@ export default function PendingCertificate(props) {
   const [pendingCertificate, setPendingCertificate] = useState({});
 
   useEffect(() => {
+    if (!props.updateInterval) {
+      return;
+    }
+    
     let fetchPendingCertificate = () => {
       fetch(`${props.apiPath}/certificate-pending`)
         .then(response => response.status === 200 ? response.json() : {})
@@ -21,7 +25,7 @@ export default function PendingCertificate(props) {
   }, [props.apiPath, props.updateInterval]);
 
   return (
-    <div className="margin--lg">
+    <div className={props.className}>
       <h2>Pending Certificate</h2>
       
       {Object.entries(pendingCertificate).length === 0
