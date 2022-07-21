@@ -24,11 +24,11 @@ export default function SnapshotsList(props) {
     }
     
     let fetchSnapshots = () => {
-      fetch(`${props.apiPath}/snapshots`)
+      fetch(`${props.aggregator}/snapshots`)
         .then(response => response.json())
         .then(data => setSnapshots(data))
         .catch(error => {
-          console.error(error);
+          console.error("Fetch snapshots error:", error);
         });
     };
     
@@ -37,7 +37,7 @@ export default function SnapshotsList(props) {
     
     const interval = setInterval(fetchSnapshots, props.updateInterval);
     return () => clearInterval(interval);
-  }, [props.apiPath, props.updateInterval]);
+  }, [props.aggregator, props.updateInterval]);
 
   return (
     <div className={props.className}>

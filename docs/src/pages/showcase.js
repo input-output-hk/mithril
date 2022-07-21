@@ -3,8 +3,10 @@ import PendingCertificate from '@site/src/components/Showcase/PendingCertificate
 import SnapshotsList from '@site/src/components/Showcase/SnapshotsList';
 import Layout from '@theme/Layout';
 
-const api_path = "http://localhost:8080/aggregator";
-// const api_path = "http://aggregator.api.mithril.network/aggregator";
+const available_aggregators = [
+  "http://localhost:8080/aggregator",
+  "http://aggregator.api.mithril.network/aggregator"
+];
 
 function IntervalSetter(props) {
   function handleChange(event) {
@@ -12,23 +14,43 @@ function IntervalSetter(props) {
   }
   
   return (
-    <form>
-      <label>
-        Update Interval:
-        <select value={props.interval} onChange={handleChange}>
-          <option value={0}>Stop</option>
-          <option value={1000}>1 seconds</option>
-          <option value={5000}>5 seconds</option>
-          <option value={10000}>10 seconds</option>
-        </select>
-      </label>
-    </form>
+    <label className={props.className}>
+      Update Interval:
+      <select value={props.interval} onChange={handleChange} className="margin-left--sm">
+        <option value={0}>Stop</option>
+        <option value={1000}>1 seconds</option>
+        <option value={5000}>5 seconds</option>
+        <option value={10000}>10 seconds</option>
+      </select>
+    </label>
+  );
+}
+
+function AggregatorSetter(props) {
+  function handleChange(event) {
+    props.onAggregatorChange(event.target.value);
+  }
+
+  return (
+    <label className={props.className}>
+      Aggregator:
+      <select value={props.aggregator} onChange={handleChange} className="margin-left--sm">
+        {props.availableAggregators.map((aggregator, index) =>
+          <option key={"agg-" + index} value={aggregator}>{aggregator}</option>
+        )}
+      </select>
+    </label>
   );
 }
 
 export default function Showcase() {
+  const [aggregator, setAggregator] = useState(available_aggregators[0]);
   const [interval, setInterval] = useState(10000);
-  
+
+  function handleApiChange(api) {
+    setAggregator(api);
+  }
+
   function handleIntervalChange(interval) {
     setInterval(interval);
   }
@@ -39,11 +61,12 @@ export default function Showcase() {
       description="Showcase of a Mithril Network">
       <main className="padding--md">
         <h1>Mithril Showcase</h1>
-        <div className="margin--md">
-          <IntervalSetter interval={interval} onIntervalChange={handleIntervalChange} />
-        </div>
-        <PendingCertificate apiPath={api_path} updateInterval={interval} className="margin--md" />
-        <SnapshotsList apiPath={api_path} updateInterval={interval} className="margin--md" />
+        <form className="margin--md">
+          <AggregatorSetter aggregator={aggregator} onAggregatorChange={handleApiChange} availableAggregators={available_aggregators}  />
+          <IntervalSetter interval={interval} onIntervalChange={handleIntervalChange} className="margin-left--sm" />
+        </form>
+        <PendingCertificate aggregator={aggregator} updateInterval={interval} className="margin--md" />
+        <SnapshotsList aggregator={aggregator} updateInterval={interval} className="margin--md" />
       </main>
     </Layout>
   );

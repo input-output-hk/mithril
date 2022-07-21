@@ -9,11 +9,11 @@ export default function PendingCertificate(props) {
     }
     
     let fetchPendingCertificate = () => {
-      fetch(`${props.apiPath}/certificate-pending`)
+      fetch(`${props.aggregator}/certificate-pending`)
         .then(response => response.status === 200 ? response.json() : {})
         .then(data => setPendingCertificate(data))
         .catch(error => {
-          console.error(error);
+          console.error("Fetch certificate-pending error:", error);
         });
     };
     
@@ -22,7 +22,7 @@ export default function PendingCertificate(props) {
     
     const interval = setInterval(fetchPendingCertificate, props.updateInterval);
     return () => clearInterval(interval);
-  }, [props.apiPath, props.updateInterval]);
+  }, [props.aggregator, props.updateInterval]);
 
   return (
     <div className={props.className}>
