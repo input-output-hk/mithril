@@ -96,6 +96,7 @@ async fn create_certificate() {
     runtime.cycle().await.unwrap();
     assert_eq!("signing", runtime.get_state());
 
+    // signers send their single signature
     {
         let multisigner = deps.multi_signer.as_ref().unwrap().write().await;
         let _protocol_parameters = deps
@@ -130,8 +131,6 @@ async fn create_certificate() {
             }
         }
     }
-    /* to be uncommented once requirements are faked
     runtime.cycle().await.unwrap();
     assert_eq!("idle", runtime.get_state());
-     */
 }

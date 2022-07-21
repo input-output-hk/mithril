@@ -2,9 +2,9 @@ use std::{path::PathBuf, sync::Arc};
 
 use mithril_aggregator::{
     AggregatorConfig, BeaconProviderImpl, CertificatePendingStore, CertificateStore, Config,
-    DependencyManager, DumbImmutableFileObserver, DumbSnapshotter, MemoryBeaconStore, MultiSigner,
-    MultiSignerImpl, SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType,
-    VerificationKeyStore,
+    DependencyManager, DumbImmutableFileObserver, DumbSnapshotUploader, DumbSnapshotter,
+    LocalSnapshotStore, MemoryBeaconStore, MultiSigner, MultiSignerImpl, SingleSignatureStore,
+    SnapshotStoreType, SnapshotUploaderType, VerificationKeyStore,
 };
 use mithril_common::{
     chain_observer::FakeObserver,
@@ -77,10 +77,15 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
     )));
     let digester = Arc::new(DumbDigester::default());
     let snapshotter = Arc::new(DumbSnapshotter::new());
+    let snapshot_uploader = Arc::new(RwLock::new(DumbSnapshotUploader::new()));
+    let snapshot_store = Arc::new(RwLock::new(LocalSnapshotStore::new(
+        Box::new(MemoryAdapter::new(None).expect("memory adapter init should not fail")),
+        5,
+    )));
     let mut dependency_manager = DependencyManager::new(config.clone());
     dependency_manager
-        //.with_snapshot_store(snapshot_store.clone())
-        //.with_snapshot_uploader(snapshot_uploader.clone())
+        .with_snapshot_store(snapshot_store.clone())
+        .with_snapshot_uploader(snapshot_uploader.clone())
         .with_multi_signer(multi_signer.clone())
         .with_beacon_store(beacon_store.clone())
         .with_certificate_pending_store(certificate_pending_store.clone())

@@ -13,7 +13,7 @@ mod tools;
 
 pub use crate::entities::{Config, SnapshotStoreType, SnapshotUploaderType};
 pub use crate::multi_signer::{MultiSigner, MultiSignerImpl, ProtocolError};
-pub use crate::snapshot_stores::{RemoteSnapshotStore, SnapshotStore};
+pub use crate::snapshot_stores::{LocalSnapshotStore, RemoteSnapshotStore, SnapshotStore};
 pub use beacon_provider::{
     BeaconProvider, BeaconProviderImpl, DumbImmutableFileObserver, ImmutableFileObserver,
     ImmutableFileSystemObserver,
@@ -22,7 +22,9 @@ pub use beacon_store::{BeaconStore, BeaconStoreError, MemoryBeaconStore};
 pub use dependency::DependencyManager;
 pub use http_server::Server;
 pub use runtime::{AggregatorConfig, AggregatorRunner, AggregatorRunnerTrait, AggregatorRuntime};
-pub use snapshot_uploaders::{LocalSnapshotUploader, RemoteSnapshotUploader};
+pub use snapshot_uploaders::{
+    DumbSnapshotUploader, LocalSnapshotUploader, RemoteSnapshotUploader, SnapshotUploader,
+};
 pub use snapshotter::{DumbSnapshotter, SnapshotError, Snapshotter, SnapshotterTrait};
 pub use store::{
     CertificatePendingStore, CertificateStore, SingleSignatureStore, VerificationKeyStore,
