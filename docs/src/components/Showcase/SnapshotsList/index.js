@@ -4,13 +4,21 @@ export default function SnapshotsList(props) {
   const [snapshots, setSnapshots] = useState([]);
 
   useEffect(() => {
-    fetch(`${props.apiPath}/snapshots`)
-      .then(response => response.json())
-      .then(data => setSnapshots(data))
-      .catch(error => {
-        console.error(error);
-      });
-  });
+    let fetchSnapshots = () => {
+      fetch(`${props.apiPath}/snapshots`)
+        .then(response => response.json())
+        .then(data => setSnapshots(data))
+        .catch(error => {
+          console.error(error);
+        });
+    };
+    
+    // Fetch them once without waiting
+    fetchSnapshots(); 
+    
+    const interval = setInterval(fetchSnapshots, props.updateInterval);
+    return () => clearInterval(interval);
+  }, [props.apiPath, props.updateInterval]);
 
   return (
     <div className="margin--lg">
@@ -20,7 +28,7 @@ export default function SnapshotsList(props) {
         :
         <div className="row">
           {snapshots.map((snapshot, index) =>
-            <div key={snapshot.digest} className="card margin-right--md">
+            <div key={snapshot.digest} className="card margin-right--md margin-bottom--md shadow--md">
               <div className="card__header">
                 <h3>
                   Snapshot {snapshot.digest.slice(0, 12)}

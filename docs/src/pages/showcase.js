@@ -12,8 +12,8 @@ export default function Showcase() {
       title="Mithril Showcase"
       description="Showcase of a Mithril Network">
       <main>
-        <PendingCertificate apiPath={api_path} />
-        <SnapshotsList apiPath={api_path} />
+        <PendingCertificate apiPath={api_path} updateInterval="10000" />
+        <SnapshotsList apiPath={api_path} updateInterval="10000" />
       </main>
     </Layout>
   );

@@ -4,13 +4,21 @@ export default function PendingCertificate(props) {
   const [pendingCertificate, setPendingCertificate] = useState({});
 
   useEffect(() => {
-    fetch(`${props.apiPath}/certificate-pending`)
-      .then(response => response.status === 200 ? response.json() : {})
-      .then(data => setPendingCertificate(data))
-      .catch(error => {
-        console.error(error);
-      });
-  });
+    let fetchPendingCertificate = () => {
+      fetch(`${props.apiPath}/certificate-pending`)
+        .then(response => response.status === 200 ? response.json() : {})
+        .then(data => setPendingCertificate(data))
+        .catch(error => {
+          console.error(error);
+        });
+    };
+    
+    // Fetch it once without waiting
+    fetchPendingCertificate();
+    
+    const interval = setInterval(fetchPendingCertificate, props.updateInterval);
+    return () => clearInterval(interval);
+  }, [props.apiPath, props.updateInterval]);
 
   return (
     <div className="margin--lg">
@@ -20,7 +28,7 @@ export default function PendingCertificate(props) {
         ? <p>No pending certificate available</p>
         :
         <div className="row">
-          <div className="card margin-right--md">
+          <div className="card margin-right--md shadow--md">
             <div className="card__header">
               <h3>Beacon</h3>
             </div>
@@ -30,7 +38,7 @@ export default function PendingCertificate(props) {
               <div>Immutable File Number: {pendingCertificate.beacon.immutable_file_number}</div>
             </div>
           </div>
-          <div className="card margin-right--md">
+          <div className="card margin-right--md shadow--md">
             <div className="card__header">
               <h3>Protocol Parameters</h3>
             </div>
@@ -40,7 +48,7 @@ export default function PendingCertificate(props) {
               <div>Phi: {pendingCertificate.protocol.phi_f}</div>
             </div>
           </div>
-          <div className="card margin-right--md">
+          <div className="card margin-right--md shadow--md">
             <div className="card__header">
               <h3>Signers</h3>
             </div>
