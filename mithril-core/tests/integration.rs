@@ -52,11 +52,8 @@ fn test_full_protocol() {
 
     let sigs = ps
         .par_iter()
-        .filter_map(|p| {
-            p.sign(&msg)
-        })
+        .filter_map(|p| p.sign(&msg))
         .collect::<Vec<StmSig<H>>>();
-
 
     let clerk = StmClerk::from_signer(&ps[0]);
     let avk = clerk.compute_avk();

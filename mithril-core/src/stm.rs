@@ -7,7 +7,7 @@
 //! ```rust
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! use mithril::key_reg::KeyReg; // Import key registration functionality
-//! use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner};
+//! use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
 //! use mithril::error::AggregationFailure;
 //! use rayon::prelude::*; // We use par_iter to speed things up
 //!
@@ -76,34 +76,18 @@
 //!
 //! // Next, each party tries to sign the message for each index available.
 //! // We collect the successful signatures into a vec.
-//! let p_results = ps
+//! let sigs = ps
 //!     .par_iter()
-//!     .map(|p| {
-//!         // Now for party p we try to sign the msg with each index.
-//!         let mut sigs = Vec::new();
-//!         let mut ixs = Vec::new();
-//!         for ix in 1..params.m {
-//!             // If party p wins the lottery for index ix, then sign the message
-//!             if let Some(sig) = p.sign(&msg, ix) {
-//!                 sigs.push(sig);
-//!                 ixs.push(ix);
-//!             }
-//!         }
-//!         (ixs, sigs)
+//!     .filter_map(|p| {
+//!         return p.sign(&msg);
 //!     })
-//!     .collect::<Vec<_>>();
-//! let mut sigs = Vec::new();
-//! let mut ixs = Vec::new();
-//! for res in p_results {
-//!     ixs.extend(res.0);
-//!     sigs.extend(res.1);
-//! }
+//!     .collect::<Vec<StmSig<D>>>();
 //!
 //! // StmClerk can aggregate and verify signatures.
 //! let clerk = StmClerk::from_signer(&ps[0]);
 //!
 //! // Aggregate and verify the signatures
-//! let msig = clerk.aggregate(&sigs,&msg);
+//! let msig = clerk.aggregate(&sigs, &msg);
 //! match msig {
 //!     Ok(aggr) => {
 //!         println!("Aggregate ok");
@@ -135,8 +119,9 @@ use crate::multi_sig_zcash::{Signature, SigningKey, VerificationKey, Verificatio
 use digest::{Digest, FixedOutput};
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::convert::{From, TryFrom, TryInto};
+use std::hash::{Hash, Hasher};
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
@@ -245,7 +230,7 @@ where
 }
 
 /// Signature created by a single party who has won the lottery.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound(
     serialize = "Path<D>: Serialize",
     deserialize = "Path<D>: Deserialize<'de>"
@@ -262,6 +247,21 @@ pub struct StmSig<D: Clone + Digest + FixedOutput> {
     /// The path through the MerkleTree for this party.
     pub path: Path<D>,
 }
+
+impl<D: Clone + Digest + FixedOutput> Hash for StmSig<D> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        Hash::hash_slice(&self.to_bytes(), state)
+    }
+}
+
+// We need to implement PartialEq instead of deriving it because we are implementing Hash.
+impl<D: Clone + Digest + FixedOutput> PartialEq for StmSig<D> {
+    fn eq(&self, other: &Self) -> bool {
+        self.to_bytes() == other.to_bytes()
+    }
+}
+
+impl<D: Clone + Digest + FixedOutput> Eq for StmSig<D> {}
 
 impl<D: Clone + Digest + FixedOutput> StmSig<D> {
     /// Verify an stm signature by checking that the lottery was won, the merkle path is correct,
@@ -288,14 +288,18 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
         }
     }
 
-    pub(crate) fn check_indices(&self, params: &StmParameters, msgp: &[u8],
-                                avk: &StmAggrVerificationKey<D>) -> Result<(), VerificationFailure<D>> {
+    pub(crate) fn check_indices(
+        &self,
+        params: &StmParameters,
+        msgp: &[u8],
+        avk: &StmAggrVerificationKey<D>,
+    ) -> Result<(), VerificationFailure<D>> {
         for &index in &self.indexes {
             if index > params.m {
                 return Err(VerificationFailure::IndexBoundFailed(index, params.m));
             }
 
-            let ev = self.sigma.eval(&msgp, index);
+            let ev = self.sigma.eval(msgp, index);
 
             if !ev_lt_phi(params.phi_f, ev, self.stake, avk.total_stake) {
                 return Err(VerificationFailure::LotteryLost);
@@ -341,9 +345,9 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
             u64_bytes.copy_from_slice(&bytes[16 + i * 8..24 + i * 8]);
             index.push(u64::from_be_bytes(u64_bytes));
         }
-        let pk = StmVerificationKey::from_bytes(&bytes[24 + nr_indexes * 8..])?;
-        let sigma = Signature::from_bytes(&bytes[120 + nr_indexes * 8..])?;
-        let path = Path::from_bytes(&bytes[168 + nr_indexes * 8..])?;
+        let pk = StmVerificationKey::from_bytes(&bytes[16 + nr_indexes * 8..])?;
+        let sigma = Signature::from_bytes(&bytes[112 + nr_indexes * 8..])?;
+        let path = Path::from_bytes(&bytes[160 + nr_indexes * 8..])?;
 
         Ok(StmSig {
             sigma,
@@ -409,10 +413,8 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
         for sig in &self.signatures {
             for &index in &sig.indexes {
                 if index > parameters.m {
-                    return Err(MithrilWitnessError::IndexBoundFailed(
-                        index,
-                        parameters.m,
-                    ));
+                    println!("one");
+                    return Err(MithrilWitnessError::IndexBoundFailed(index, parameters.m));
                 }
                 unique_indices.insert(index);
                 nr_indices += 1;
@@ -420,18 +422,20 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
         }
 
         if nr_indices != unique_indices.len() {
+            println!("two");
             return Err(MithrilWitnessError::IndexNotUnique);
         }
 
         // Check that there are sufficient signatures
-        if (self.signatures.len() as u64) < parameters.k {
+        if (nr_indices as u64) < parameters.k {
+            println!("three");
             return Err(MithrilWitnessError::NoQuorum);
         }
 
         // Check that all signatures did win the lottery
         for sig in self.signatures.iter() {
             let msgp = avk.mt_commitment.concat_with_msg(msg);
-            sig.check_indices(parameters, &msgp, &avk)?;
+            sig.check_indices(parameters, &msgp, avk)?;
 
             // Check that merkle paths are valid
             if avk
@@ -439,6 +443,7 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
                 .check(&MTLeaf(sig.pk, sig.stake), &sig.path)
                 .is_err()
             {
+                println!("four");
                 return Err(MithrilWitnessError::PathInvalid(sig.path.clone()));
             }
         }
@@ -663,7 +668,7 @@ where
                 sigma,
                 pk: self.vk,
                 stake: self.stake,
-                indexes: indexes,
+                indexes,
                 path,
             })
         } else {
@@ -839,56 +844,83 @@ where
     ) -> Result<StmAggrSig<D>, AggregationFailure> {
         // todo: how come the dedup does not take the concatenated message
         // let msgp = concat_avk_with_msg(&self.avk.to_commitment(), msg);
-        let mut unique_sigs = sigs.clone().to_vec();
-        self.dedup_sigs_for_indices(msg, &mut unique_sigs)?;
+        let unique_sigs = self.dedup_sigs_for_indices(msg, sigs)?;
 
         Ok(StmAggrSig {
             signatures: unique_sigs,
         })
     }
 
-    /// Given a slice of `sigs`, this functions selects only valid indices from existing signatures,
-    /// by taking a mutable reference to the original list.
+    /// Given a slice of `sigs`, this functions returns a new list of signatures with only
+    /// valid indices.
     /// In case of conflict (having several signatures for the same index) it selects the
-    /// smallest signature (i.e. takes the signature with the smallest scalar). The function only
-    /// selects `self.k` indexes. If there is no sufficient, then returns an error.
+    /// smallest signature (i.e. takes the signature with the smallest scalar). The function
+    /// selects at least `self.k` indexes. If there is no sufficient, then returns an error.
+    /// todo: We need to agree on a criteria to dedup
     pub fn dedup_sigs_for_indices(
         &self,
         msg: &[u8],
-        sigs: &mut [StmSig<D>],
-    ) -> Result<(), AggregationFailure> {
+        sigs: &[StmSig<D>],
+    ) -> Result<Vec<StmSig<D>>, AggregationFailure> {
         let avk = StmAggrVerificationKey::from(&self.closed_reg);
-        let mut sigs_by_index: HashMap<Index, &mut StmSig<D>> = HashMap::new();
-        let mut count = 0;
-        for sig in sigs.iter_mut() {
+        let mut sig_by_index: HashMap<Index, &StmSig<D>> = HashMap::new();
+        let mut removal_idx_by_vk: HashMap<&StmSig<D>, Vec<Index>> = HashMap::new();
+
+        for sig in sigs.iter() {
             if sig.verify(&self.params, &avk, msg).is_err() {
                 continue;
             }
 
-            let sig_copy = sig.clone();
-            for index in sig_copy.indexes.iter() {
-                let mut insert = false;
-                if let Some(old_sig) = sigs_by_index.get(index) {
-                    if sig_copy.sigma < old_sig.sigma {
-                        insert = true;
+            for index in sig.indexes.iter() {
+                let mut insert_this_sig = false;
+                if let Some(&previous_sigma) = sig_by_index.get(index) {
+                    let sig_to_remove_index = if sig.sigma < previous_sigma.sigma {
+                        insert_this_sig = true;
+                        previous_sigma
+                    } else {
+                        sig
+                    };
+
+                    if let Some(indexes) = removal_idx_by_vk.get_mut(sig_to_remove_index)
+                    {
+                        indexes.push(*index);
+                    } else {
+                        removal_idx_by_vk.insert(&sig_to_remove_index, vec![*index]);
                     }
                 } else {
-                    count += 1;
-                    insert = true;
+                    insert_this_sig = true;
                 }
 
-                if insert { sigs_by_index.insert(*index, sig); }
-                // todo: we break when we have enough signatures. Not yet decided.
-                if count == self.params.k {
-                    break;
+                if insert_this_sig {
+                    sig_by_index.insert(*index, sig);
                 }
             }
-
-            sig.indexes = Vec::new();
         }
 
-        for (index, sig) in sigs_by_index {
-            sig.indexes.push(index);
+        let mut dedup_sigs: HashSet<StmSig<D>> = HashSet::new();
+        let mut count: u64 = 0;
+
+        for (_, &sig) in sig_by_index.iter() {
+            let mut deduped_sig = sig.clone();
+            if let Some(indexes) = removal_idx_by_vk.get(sig) {
+                deduped_sig.indexes = deduped_sig
+                    .indexes
+                    .clone()
+                    .into_iter()
+                    .filter(|i| !indexes.contains(i))
+                    .collect();
+            }
+
+            let size: Result<u64, _> = deduped_sig.indexes.len().try_into();
+            if let Ok(size) = size {
+                if dedup_sigs.insert(deduped_sig) {
+                    count += size;
+                }
+
+                if count >= self.params.k {
+                    return Ok(dedup_sigs.into_iter().collect());
+                }
+            }
         }
 
         Err(AggregationFailure::NotEnoughSignatures(
@@ -912,7 +944,6 @@ mod tests {
     use proptest::collection::{hash_map, vec};
     use proptest::prelude::*;
     use proptest::test_runner::{RngAlgorithm::ChaCha, TestRng};
-    use rayon::prelude::*;
     use std::collections::{HashMap, HashSet};
 
     use rand_chacha::ChaCha20Rng;
@@ -1006,14 +1037,14 @@ mod tests {
         )
     }
 
-    fn find_signatures(m: u64, msg: &[u8], ps: &[StmSigner<D>], is: &[usize]) -> Vec<StmSig<D>> {
-            let mut sigs = Vec::new();
-            for i in is {
-                if let Some(sig) = ps[*i].sign(msg) {
-                    sigs.push(sig);
-                }
+    fn find_signatures(msg: &[u8], ps: &[StmSigner<D>], is: &[usize]) -> Vec<StmSig<D>> {
+        let mut sigs = Vec::new();
+        for i in is {
+            if let Some(sig) = ps[*i].sign(msg) {
+                sigs.push(sig);
             }
-            sigs
+        }
+        sigs
     }
 
     proptest! {
@@ -1021,7 +1052,7 @@ mod tests {
 
         #[test]
         /// Test that `dedup_sigs_for_indices` only takes valid signatures.
-        fn test_dedup(msg in any::<[u8; 16]>(), misbehaving_parties in 2usize..5) {
+        fn test_dedup(msg in any::<[u8; 16]>()) {
             let nparties = 10usize;
             let false_msg = [1u8; 20];
             let params = StmParameters { m: (nparties as u64), k: 1, phi_f: 1.0 };
@@ -1040,9 +1071,11 @@ mod tests {
                 sigs.push(sig);
             }
 
-            assert!(clerk.dedup_sigs_for_indices(&msg, &mut sigs).is_ok());
-            for passed_sigs in sigs {
-                assert!(passed_sigs.verify(&params, &avk, &msg).is_ok());
+            let dedup_result = clerk.dedup_sigs_for_indices(&msg, &sigs);
+            assert!(dedup_result.is_ok(), "dedup failure {:?}", dedup_result);
+            for passed_sigs in dedup_result.unwrap() {
+                let verify_result = passed_sigs.verify(&params, &avk, &msg);
+                assert!(verify_result.is_ok(), "verify {:?}", verify_result);
             }
         }
     }
@@ -1079,12 +1112,13 @@ mod tests {
             let clerk = StmClerk::from_signer(&ps[0]);
 
             let all_ps: Vec<usize> = (0..nparties).collect();
-            let sigs = find_signatures(m, &msg, &ps, &all_ps);
+            let sigs = find_signatures(&msg, &ps, &all_ps);
             let msig = clerk.aggregate(&sigs, &msg);
 
             match msig {
                 Ok(aggr) => {
-                    assert!(aggr.verify(&msg, &clerk.compute_avk(), &params).is_ok());
+                    let verify_result = aggr.verify(&msg, &clerk.compute_avk(), &params);
+                    assert!(verify_result.is_ok(), "{:?}", verify_result);
                 }
                 Err(AggregationFailure::NotEnoughSignatures(n, k)) =>
                     assert!(n < params.k || k == params.k),
@@ -1147,7 +1181,7 @@ mod tests {
             let clerk = StmClerk::from_signer(&ps[0]);
 
             let all_ps: Vec<usize> = (0..nparties).collect();
-            let sigs = find_signatures(10, &msg, &ps, &all_ps);
+            let sigs = find_signatures(&msg, &ps, &all_ps);
             let msig = clerk.aggregate(&sigs, &msg);
             if let Ok(aggr) = msig {
                     let bytes: Vec<u8> = aggr.to_bytes();
@@ -1201,10 +1235,7 @@ mod tests {
             let params = StmParameters { m: 2642, k: 357, phi_f: 0.2 }; // From Table 1
             let ps = setup_parties(params, parties);
 
-            let sigs = find_signatures(params.m,
-                                              &msg,
-                                              &ps,
-                                              &adversaries.into_iter().collect::<Vec<_>>());
+            let sigs =  find_signatures(&msg, &ps, &adversaries.into_iter().collect::<Vec<_>>());
 
             assert!(sigs.len() < params.k as usize);
 
@@ -1242,7 +1273,7 @@ mod tests {
                 let clerk = StmClerk::from_signer(&ps[0]);
 
                 let all_ps: Vec<usize> = (0..n).collect();
-                let sigs = find_signatures(params.m, &msg, &ps, &all_ps);
+                let sigs = find_signatures(&msg, &ps, &all_ps);
 
                 let msig = clerk.aggregate(&sigs, &msg);
                 ProofTest {
@@ -1299,8 +1330,8 @@ mod tests {
         #[test]
         fn test_invalid_proof_path(tc in arb_proof_setup(10), i in any::<usize>()) {
             let n = tc.n;
-            with_proof_mod(tc, |aggr, clerk, _msg| {
-                let pi = i % clerk.params.k as usize;
+            with_proof_mod(tc, |aggr, _, _msg| {
+                let pi = i % aggr.signatures.len();
                 aggr.signatures[pi].path.index = (aggr.signatures[pi].path.index + 1) % n;
             })
         }

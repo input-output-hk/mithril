@@ -3,9 +3,7 @@
 //! run presented in `tests/integration.rs`, we explicitly treat each party individually.
 
 use mithril::key_reg::{ClosedKeyReg, KeyReg};
-use mithril::stm::{
-    Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner, StmVerificationKeyPoP,
-};
+use mithril::stm::{Stake, StmClerk, StmInitializer, StmParameters, StmVerificationKeyPoP};
 
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
@@ -73,10 +71,18 @@ fn main() {
     // Now an asynchronous phase begins. The signers no longer need to communicate among themselves
     // Given the parameters we've chosen, the signers will be eligible for all indices.
     // todo: what if we have a structure that contains a signature and the index for which its valid?
-    let mut party_0_sigs = party_0.sign(&msg).expect("Signers can sign all indices in this example");
-    let mut party_1_sigs = party_1.sign(&msg).expect("Signers can sign all indices in this example");
-    let mut party_2_sigs = party_2.sign(&msg).expect("Signers can sign all indices in this example");
-    let mut party_3_sigs = party_3.sign(&msg).expect("Signers can sign all indices in this example");
+    let mut party_0_sigs = party_0
+        .sign(&msg)
+        .expect("Signers can sign all indices in this example");
+    let mut party_1_sigs = party_1
+        .sign(&msg)
+        .expect("Signers can sign all indices in this example");
+    let mut party_2_sigs = party_2
+        .sign(&msg)
+        .expect("Signers can sign all indices in this example");
+    let mut party_3_sigs = party_3
+        .sign(&msg)
+        .expect("Signers can sign all indices in this example");
 
     // Parties must have signed all indices
     assert_eq!(party_0_sigs.indexes.len(), 10);
@@ -87,29 +93,21 @@ fn main() {
     // Different combinations of signatures. Recall that we only need 3 signatures
     party_0_sigs.indexes = party_0_sigs.indexes[..2].to_vec();
     party_3_sigs.indexes = party_3_sigs.indexes[..2].to_vec();
-    let complete_sigs_1 = vec![
-        party_0_sigs.clone(),
-        party_3_sigs.clone(),
-    ];
+    let complete_sigs_1 = vec![party_0_sigs.clone(), party_3_sigs.clone()];
     party_1_sigs.indexes = party_1_sigs.indexes[..5].to_vec();
     party_2_sigs.indexes = party_2_sigs.indexes[..5].to_vec();
     let complete_sigs_2 = vec![
         party_0_sigs.clone(),
         party_1_sigs.clone(),
         party_2_sigs.clone(),
-        party_3_sigs.clone()
+        party_3_sigs.clone(),
     ];
 
     // The following is incomplete. While it has more than 3, it has a lot for the same index.
     party_1_sigs.indexes = party_1_sigs.indexes[..1].to_vec();
     party_2_sigs.indexes = party_2_sigs.indexes[..1].to_vec();
     party_3_sigs.indexes = party_3_sigs.indexes[..1].to_vec();
-    let incomplete_sigs_3 = vec![
-        party_0_sigs.clone(),
-        party_1_sigs.clone(),
-        party_2_sigs.clone(),
-        party_3_sigs.clone(),
-    ];
+    let incomplete_sigs_3 = vec![party_0_sigs, party_1_sigs, party_2_sigs, party_3_sigs];
 
     let closed_registration = local_reg(&stakes, &parties_pks);
     let clerk = StmClerk::from_registration(params, closed_registration);

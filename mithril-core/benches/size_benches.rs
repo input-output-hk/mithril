@@ -55,27 +55,10 @@ where
             .map(|p| p.new_signer(closed_reg.clone()))
             .collect::<Vec<StmSigner<H>>>();
 
-        let p_results = ps
+        let sigs = ps
             .par_iter()
-            .map(|p| {
-                let mut sigs = Vec::new();
-                let mut ixs = Vec::new();
-                for ix in 1..params.m {
-                    if let Some(sig) = p.sign(&msg, ix) {
-                        sigs.push(sig);
-                        ixs.push(ix);
-                    }
-                }
-
-                (ixs, sigs)
-            })
+            .filter_map(|p| p.sign(&msg))
             .collect::<Vec<_>>();
-        let mut sigs = Vec::new();
-        let mut ixs = Vec::new();
-        for res in p_results {
-            ixs.extend(res.0);
-            sigs.extend(res.1);
-        }
 
         let clerk = StmClerk::from_signer(&ps[0]);
         if let Ok(msig) = clerk.aggregate(&sigs, &msg) {

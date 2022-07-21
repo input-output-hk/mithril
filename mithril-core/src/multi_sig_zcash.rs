@@ -14,12 +14,12 @@ use group::Curve;
 
 use rand_core::{CryptoRng, RngCore};
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
+use std::fmt::{Display, Formatter};
 use std::{
     cmp::Ordering,
     hash::{Hash, Hasher},
     iter::Sum,
 };
-use std::fmt::{Display, Formatter};
 
 /// String used to generate the proofs of possession.
 const POP: &[u8] = b"PoP";
