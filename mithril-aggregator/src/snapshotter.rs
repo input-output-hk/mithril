@@ -1,12 +1,14 @@
 use flate2::write::GzEncoder;
 use flate2::Compression;
 use slog_scope::info;
+use std::error::Error as StdError;
 use std::fs::File;
 use std::io;
 use std::path::PathBuf;
+use std::sync::RwLock;
 use thiserror::Error;
 
-pub trait SnapshotterTrait {
+pub trait SnapshotterTrait: Sync + Send {
     fn snapshot(&self, archive_name: &str) -> Result<PathBuf, SnapshotError>;
 }
 
@@ -67,5 +69,61 @@ impl Snapshotter {
     }
 }
 
+struct DumbSnapshotter {
+    last_snapshot: RwLock<Option<String>>,
+}
+
+impl DumbSnapshotter {
+    pub fn new() -> Self {
+        Self {
+            last_snapshot: RwLock::new(None),
+        }
+    }
+
+    pub fn get_last_snapshot(&self) -> Result<Option<String>, Box<dyn StdError + Sync + Send>> {
+        let value = self
+            .last_snapshot
+            .read()
+            .map_err(|e| SnapshotError::UploadFileError(e.to_string()))?
+            .as_ref()
+            .map(|v| v.clone());
+
+        Ok(value)
+    }
+}
+
+impl SnapshotterTrait for DumbSnapshotter {
+    fn snapshot(&self, archive_name: &str) -> Result<PathBuf, SnapshotError> {
+        let mut value = self
+            .last_snapshot
+            .write()
+            .map_err(|e| SnapshotError::UploadFileError(e.to_string()))?;
+        *value = Some(archive_name.to_string());
+
+        Ok(PathBuf::new())
+    }
+}
+
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_dumb_snapshotter() {
+        let snapshotter = DumbSnapshotter::new();
+        assert!(snapshotter
+            .get_last_snapshot()
+            .expect("Dumb snapshotter::get_last_snapshot should not fail when no last snapshot.")
+            .is_none());
+
+        let _res = snapshotter
+            .snapshot("whatever")
+            .expect("Dumb snapshotter::snapshot should not fail.");
+        assert_eq!(
+            Some("whatever".to_string()),
+            snapshotter.get_last_snapshot().expect(
+                "Dumb snapshotter::get_last_snapshot should not fail when some last snapshot."
+            )
+        );
+    }
+}
