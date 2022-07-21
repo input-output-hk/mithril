@@ -17,6 +17,9 @@ fi
 if [ -z "${EPOCH_LENGTH}" ]; then 
   EPOCH_LENGTH="100"
 fi
+if [ -z "${DELEGATE_PERIOD}" ]; then 
+  DELEGATE_PERIOD="180"
+fi
 
 # Bootstrap devnet
 echo "====================================================================="
@@ -55,3 +58,20 @@ if [ "${NODES}" = "mithril" ] || [ "${NODES}" = "*" ]; then
     ./start-mithril.sh
     echo
 fi
+
+# Schedule stake delegation
+echo "====================================================================="
+echo " Schedule Cardano Stake Delegation"
+echo "====================================================================="
+echo
+DELEGATION_ROUND=0
+echo ">> Begin scheduled delegation"
+while true
+do
+    echo ">> Wait ${DELEGATE_PERIOD}s until next delegation round..."
+    sleep ${DELEGATE_PERIOD}
+    DELEGATION_ROUND=$(( $DELEGATION_ROUND + 1 ))
+    echo ">> Run delegation round #${DELEGATION_ROUND}!"
+    DELEGATION_ROUND=${DELEGATION_ROUND} ./delegate.sh
+done
+echo

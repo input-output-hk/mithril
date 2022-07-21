@@ -1,5 +1,5 @@
 use crate::utils::AttemptResult;
-use crate::{attempt, Client, ClientCommand, MithrilInfrastructure};
+use crate::{attempt, Client, ClientCommand, Devnet, MithrilInfrastructure};
 use mithril_common::chain_observer::{CardanoCliChainObserver, ChainObserver};
 use mithril_common::digesters::ImmutableFile;
 use mithril_common::entities::{Certificate, CertificatePending, Snapshot};
@@ -32,22 +32,25 @@ impl Spec {
         )
         .await?;
         wait_for_pending_certificate(&aggregator_endpoint).await?;
+        let target_epoch = min_epoch + 4; // TODO: This value should be lower: min_epoch+2, but keep it like that until we find out why some epochs don't record signers
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
-            min_epoch + 4,
+            target_epoch,
             "epoch after which the stake distribution will change".to_string(),
         )
-        .await?; // TODO: This value should be lower: min_epoch+2, but keep it like that until we find out why some epochs don't record signers
-                 // TODO: Add a transaction that updates the stake distribution here
+        .await?;
+        delegate_stakes_to_pools(self.infrastructure.devnet()).await?;
+        let target_epoch = min_epoch + 8; // TODO: This value should be lower: min_epoch+4, but keep it like that until we find out why some epochs don't record signers
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
-            min_epoch + 7,
-            "epoch after which thecertificate chain will be long enough".to_string(),
+            target_epoch,
+            "epoch after which the certificate chain will be long enough".to_string(),
         )
-        .await?; // TODO: This value should be lower: min_epoch+4, but keep it like that until we find out why some epochs don't record signers
+        .await?;
         let digest = assert_node_producing_snapshot(&aggregator_endpoint).await?;
         let certificate_hash =
-            assert_signer_is_signing_snapshot(&aggregator_endpoint, &digest).await?;
+            assert_signer_is_signing_snapshot(&aggregator_endpoint, &digest, target_epoch - 2)
+                .await?;
         assert_is_creating_certificate(&aggregator_endpoint, &certificate_hash).await?;
 
         let mut client = self.infrastructure.build_client()?;
@@ -167,6 +170,14 @@ async fn wait_for_target_epoch(
     Ok(())
 }
 
+async fn delegate_stakes_to_pools(devnet: &Devnet) -> Result<(), String> {
+    info!("Delegate stakes to the cardano pools");
+
+    devnet.delegate_stakes().await?;
+
+    Ok(())
+}
+
 async fn assert_node_producing_snapshot(aggregator_endpoint: &str) -> Result<String, String> {
     let url = format!("{}/snapshots", aggregator_endpoint);
     info!("Waiting for the aggregator to produce a snapshot");
@@ -200,18 +211,26 @@ async fn assert_node_producing_snapshot(aggregator_endpoint: &str) -> Result<Str
 async fn assert_signer_is_signing_snapshot(
     aggregator_endpoint: &str,
     digest: &str,
+    expected_epoch_min: u64,
 ) -> Result<String, String> {
     let url = format!("{}/snapshot/{}", aggregator_endpoint, digest);
     info!(
-        "Waiting for the aggregator to produce sign the snapshot `{}`",
-        digest
+        "Waiting for the aggregator to produce sign the snapshot `{}` with an expected min epoch of `{}`",
+        digest,
+        expected_epoch_min
     );
 
     match attempt!(10, Duration::from_millis(1000), {
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<Snapshot>().await {
-                    Ok(snapshot) => Ok(Some(snapshot)),
+                    Ok(snapshot) => match snapshot.beacon.epoch {
+                        epoch if epoch >= expected_epoch_min => Ok(Some(snapshot)),
+                        epoch => Err(format!(
+                            "Minimum expected snapshot epoch not reached : {} < {}",
+                            epoch, expected_epoch_min
+                        )),
+                    },
                     Err(err) => Err(format!("Invalid snapshot body : {}", err,)),
                 },
                 StatusCode::NOT_FOUND => Ok(None),

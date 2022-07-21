@@ -185,6 +185,25 @@ impl Devnet {
             .map_err(|e| format!("Error while stopping the devnet: {}", e))?;
         Ok(())
     }
+
+    pub async fn delegate_stakes(&self) -> Result<(), String> {
+        let run_script = "delegate.sh";
+        let run_script_path = self.artifacts_dir.join(run_script);
+        let mut run_command = Command::new(&run_script_path);
+        run_command
+            .current_dir(&self.artifacts_dir)
+            .kill_on_drop(true);
+
+        info!("Delegating stakes to the pools"; "script" => &run_script_path.display());
+
+        run_command
+            .spawn()
+            .map_err(|e| format!("Failed to delegate stakes to the pools: {}", e))?
+            .wait()
+            .await
+            .map_err(|e| format!("Error while delegating stakes to the pools: {}", e))?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
