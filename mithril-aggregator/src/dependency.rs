@@ -13,7 +13,7 @@ use crate::beacon_store::BeaconStore;
 use crate::snapshot_uploaders::SnapshotUploader;
 use crate::{
     BeaconProvider, CertificatePendingStore, CertificateStore, SingleSignatureStore,
-    VerificationKeyStore,
+    SnapshotterTrait, VerificationKeyStore,
 };
 
 /// BeaconStoreWrapper wraps a BeaconStore
@@ -56,7 +56,7 @@ pub type ImmutableFileObserverWrapper = Arc<RwLock<dyn ImmutableFileObserver>>;
 pub type DigesterWrapper = Arc<dyn Digester>;
 
 // DigesterWrapper wraps a Digester
-//pub type SnapshoterWrapper = Arc<dyn Sn>;
+pub type SnapshotterWrapper = Arc<dyn SnapshotterTrait>;
 
 /// DependencyManager handles the dependencies
 pub struct DependencyManager {
@@ -74,6 +74,7 @@ pub struct DependencyManager {
     pub beacon_provider: Option<BeaconProviderWrapper>,
     pub immutable_file_observer: Option<ImmutableFileObserverWrapper>,
     pub digester: Option<DigesterWrapper>,
+    pub snapshotter: Option<SnapshotterWrapper>,
 }
 
 impl DependencyManager {
@@ -94,7 +95,14 @@ impl DependencyManager {
             beacon_provider: None,
             immutable_file_observer: None,
             digester: None,
+            snapshotter: None,
         }
+    }
+
+    /// With Snapshotter
+    pub fn with_snapshotter(&mut self, snapshotter: SnapshotterWrapper) -> &mut Self {
+        self.snapshotter = Some(snapshotter);
+        self
     }
 
     /// With Digester

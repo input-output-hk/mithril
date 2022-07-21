@@ -2,8 +2,9 @@ use std::{path::PathBuf, sync::Arc};
 
 use mithril_aggregator::{
     AggregatorConfig, BeaconProviderImpl, CertificatePendingStore, CertificateStore, Config,
-    DependencyManager, DumbImmutableFileObserver, MemoryBeaconStore, MultiSigner, MultiSignerImpl,
-    SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType, VerificationKeyStore,
+    DependencyManager, DumbImmutableFileObserver, DumbSnapshotter, MemoryBeaconStore, MultiSigner,
+    MultiSignerImpl, SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType,
+    VerificationKeyStore,
 };
 use mithril_common::{
     chain_observer::FakeObserver,
@@ -75,6 +76,7 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
         mithril_common::CardanoNetwork::TestNet(42),
     )));
     let digester = Arc::new(DumbDigester::default());
+    let snapshotter = Arc::new(DumbSnapshotter::new());
     let mut dependency_manager = DependencyManager::new(config.clone());
     dependency_manager
         //.with_snapshot_store(snapshot_store.clone())
@@ -88,8 +90,9 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
         .with_single_signature_store(single_signature_store.clone())
         .with_chain_observer(chain_observer.clone())
         .with_beacon_provider(beacon_provider.clone())
-        .with_immutable_file_observer(immutable_file_observer)
-        .with_digester(digester);
+        .with_immutable_file_observer(immutable_file_observer.clone())
+        .with_digester(digester.clone())
+        .with_snapshotter(snapshotter.clone());
 
     let config = AggregatorConfig::new(
         dependency_manager.config.run_interval,

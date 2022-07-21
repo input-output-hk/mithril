@@ -130,4 +130,8 @@ async fn create_certificate() {
             }
         }
     }
+    /* to be uncommented once requirements are faked
+    runtime.cycle().await.unwrap();
+    assert_eq!("idle", runtime.get_state());
+     */
 }

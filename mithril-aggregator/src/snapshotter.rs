@@ -69,7 +69,7 @@ impl Snapshotter {
     }
 }
 
-struct DumbSnapshotter {
+pub struct DumbSnapshotter {
     last_snapshot: RwLock<Option<String>>,
 }
 

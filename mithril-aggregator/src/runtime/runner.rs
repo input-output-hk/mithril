@@ -1,9 +1,10 @@
-use std::path::PathBuf;
-
-use crate::snapshot_uploaders::SnapshotLocation;
-use crate::{DependencyManager, ProtocolError, SnapshotError, Snapshotter, SnapshotterTrait};
 use async_trait::async_trait;
 use chrono::Utc;
+use slog_scope::{debug, error, info, trace};
+use std::path::Path;
+use std::path::PathBuf;
+use std::sync::Arc;
+
 use mithril_common::crypto_helper::ProtocolStakeDistribution;
 use mithril_common::digesters::DigesterResult;
 use mithril_common::entities::{
@@ -11,9 +12,8 @@ use mithril_common::entities::{
 };
 use mithril_common::CardanoNetwork;
 
-use slog_scope::{debug, error, info, trace};
-use std::path::Path;
-use std::sync::Arc;
+use crate::snapshot_uploaders::SnapshotLocation;
+use crate::{DependencyManager, ProtocolError, SnapshotError};
 
 #[cfg(test)]
 use mockall::automock;
@@ -354,10 +354,10 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     async fn create_snapshot_archive(&self) -> Result<PathBuf, RuntimeError> {
         info!("create snapshot archive");
 
-        let snapshotter = Snapshotter::new(
-            self.config.db_directory.clone(),
-            self.config.snapshot_directory.clone(),
-        );
+        let snapshotter =
+            self.dependencies.snapshotter.clone().ok_or_else(|| {
+                RuntimeError::General("no snapshotter registered".to_string().into())
+            })?;
         let protocol_message = self
             .dependencies
             .multi_signer
