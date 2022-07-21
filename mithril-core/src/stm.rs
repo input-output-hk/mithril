@@ -873,10 +873,10 @@ where
 
             for index in sig.indexes.iter() {
                 let mut insert_this_sig = false;
-                if let Some(&previous_sigma) = sig_by_index.get(index) {
-                    let sig_to_remove_index = if sig.sigma < previous_sigma.sigma {
+                if let Some(&previous_sig) = sig_by_index.get(index) {
+                    let sig_to_remove_index = if sig.sigma < previous_sig.sigma {
                         insert_this_sig = true;
-                        previous_sigma
+                        previous_sig
                     } else {
                         sig
                     };
