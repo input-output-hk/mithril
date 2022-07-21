@@ -239,6 +239,7 @@ impl MultiSignerImpl {
     }
 
     /// Creates a clerk
+    /// TODO: The clerk should use specific signers here (depending on epoch) and needs to be updated works here because the verification keys are the same for each epoch)
     pub async fn create_clerk(
         &self,
         stakes: &ProtocolStakeDistribution,
@@ -364,7 +365,7 @@ impl MultiSigner for MultiSignerImpl {
         &mut self,
         stakes: &ProtocolStakeDistribution,
     ) -> Result<(), ProtocolError> {
-        debug!("Update stake distribution to {:?}", stakes);
+        debug!("Update stake distribution"; "stakes" => #?stakes);
         let epoch = self
             .beacon_store
             .read()

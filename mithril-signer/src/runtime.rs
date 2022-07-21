@@ -204,6 +204,8 @@ impl Runtime {
         pending_certificate: CertificatePending,
     ) -> Result<(), RuntimeError> {
         info!("Register signatures");
+        let stake_store = self.stake_store.read().await;
+
         let verification_keys = pending_certificate
             .signers
             .iter()
@@ -213,7 +215,6 @@ impl Runtime {
             .beacon
             .compute_beacon_with_epoch_offset(SIGNER_EPOCH_RETRIEVAL_OFFSET)?
             .epoch;
-        let stake_store = self.stake_store.read().await;
         let stake_distribution = stake_store
             .get_stakes(epoch)
             .await?
@@ -230,12 +231,30 @@ impl Runtime {
             })
             .collect::<Vec<SignerWithStake>>();
 
+        let next_verification_keys = verification_keys.clone(); // TODO: Retrieve a new 'next_signers' field from the pending certificate (works now only because the verification keys is the same for each epoch)
+        let next_epoch = epoch + 1;
+        let next_stake_distribution = stake_store
+            .get_stakes(next_epoch)
+            .await?
+            .ok_or_else(RuntimeError::UnavailableStakes)?;
+
+        let next_stake_distribution_extended = next_stake_distribution
+            .into_iter()
+            .map(|(_, signer)| {
+                let verification_key = match next_verification_keys.get(&signer.party_id) {
+                    Some(verification_key_found) => *verification_key_found,
+                    None => "",
+                };
+                SignerWithStake::new(signer.party_id, verification_key.to_string(), signer.stake)
+            })
+            .collect::<Vec<SignerWithStake>>();
+
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, snapshot_digest);
         protocol_message.set_message_part(
             ProtocolMessagePartKey::NextAggregateVerificationKey,
             self.single_signer
-                .compute_aggregate_verification_key(&stake_distribution_extended)?
+                .compute_aggregate_verification_key(&next_stake_distribution_extended)?
                 .unwrap_or_default(),
         );
         info!("Signing protocol message"; "protocol_message" =>  #?protocol_message, "message" => protocol_message.compute_hash().encode_hex::<String>());
