@@ -250,14 +250,14 @@ pub struct StmSig<D: Clone + Digest + FixedOutput> {
 
 impl<D: Clone + Digest + FixedOutput> Hash for StmSig<D> {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        Hash::hash_slice(&self.to_bytes(), state)
+        Hash::hash_slice(&self.sigma.to_bytes(), state)
     }
 }
 
 // We need to implement PartialEq instead of deriving it because we are implementing Hash.
 impl<D: Clone + Digest + FixedOutput> PartialEq for StmSig<D> {
     fn eq(&self, other: &Self) -> bool {
-        self.to_bytes() == other.to_bytes()
+        self.sigma == other.sigma
     }
 }
 
@@ -901,6 +901,9 @@ where
         let mut count: u64 = 0;
 
         for (_, &sig) in sig_by_index.iter() {
+            if dedup_sigs.contains(sig) {
+                continue;
+            }
             let mut deduped_sig = sig.clone();
             if let Some(indexes) = removal_idx_by_vk.get(sig) {
                 deduped_sig.indexes = deduped_sig
@@ -913,9 +916,11 @@ where
 
             let size: Result<u64, _> = deduped_sig.indexes.len().try_into();
             if let Ok(size) = size {
-                if dedup_sigs.insert(deduped_sig) {
-                    count += size;
+                if dedup_sigs.contains(&deduped_sig) {
+                    panic!("Should not reach!");
                 }
+                dedup_sigs.insert(deduped_sig);
+                count += size;
 
                 if count >= self.params.k {
                     return Ok(dedup_sigs.into_iter().collect());
