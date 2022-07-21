@@ -65,6 +65,9 @@ pub enum RuntimeError {
     #[error("register signer failed: `{0}`")]
     RegisterSignerFailed(String),
 
+    #[error("register signature failed: `{0}`")]
+    RegisterSignatureFailed(String),
+
     #[error("codec error:`{0}`")]
     Codec(String),
 
@@ -266,10 +269,10 @@ impl Runtime {
         )?;
 
         if let Some(signatures) = signatures {
-            let _ = self
-                .certificate_handler
+            self.certificate_handler
                 .register_signatures(&signatures)
-                .await;
+                .await
+                .map_err(|e| RuntimeError::RegisterSignatureFailed(e.to_string()))?;
         }
 
         Ok(())
