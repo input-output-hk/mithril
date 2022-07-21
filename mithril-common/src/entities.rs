@@ -376,17 +376,9 @@ impl SingleSignatures {
         }
     }
 
-    pub fn to_protocol_signatures(&self) -> Result<Vec<ProtocolSingleSignature>, String> {
+    pub fn to_protocol_signature(&self) -> Result<ProtocolSingleSignature, String> {
         match key_decode_hex::<ProtocolSingleSignature>(&self.signature) {
-            Ok(signature) => Ok(self
-                .won_indexes
-                .iter()
-                .map(|idx| {
-                    let mut sig = signature.clone();
-                    sig.index = *idx;
-                    sig
-                })
-                .collect()),
+            Ok(signature) => Ok(signature),
             Err(error) => Err(format!(
                 "Could not decode signature: {}, signature: {}",
                 error, self.signature
@@ -556,31 +548,15 @@ mod tests {
         let message = setup_message();
         let signers = setup_signers(1);
         let (party_id, _, _, signer, _) = signers.first().unwrap();
-        let protocol_sigs = (1..30)
-            .into_iter()
-            .filter_map(|i| signer.sign(message.as_bytes(), i))
-            .collect::<Vec<_>>();
-        assert!(!protocol_sigs.is_empty());
+        let protocol_sigs = signer.sign(message.as_bytes()).unwrap();
 
         let signature = SingleSignatures::new(
             party_id.to_owned(),
-            key_encode_hex(&protocol_sigs.first().unwrap()).unwrap(),
-            protocol_sigs.iter().map(|p| p.index).collect(),
+            key_encode_hex(&protocol_sigs).unwrap(),
+            protocol_sigs.indexes.clone(),
         );
 
-        // Note: the 'path' of the ProtocolSignature doesn't derive PartialCmp so we can't include it here:
-        assert_eq!(
-            protocol_sigs
-                .iter()
-                .map(|s| (s.index, s.stake, s.sigma, s.pk))
-                .collect::<Vec<_>>(),
-            signature
-                .to_protocol_signatures()
-                .unwrap()
-                .iter()
-                .map(|s| (s.index, s.stake, s.sigma, s.pk))
-                .collect::<Vec<_>>(),
-        );
+        assert_eq!(protocol_sigs, signature.to_protocol_signature().unwrap());
     }
 
     #[test]
