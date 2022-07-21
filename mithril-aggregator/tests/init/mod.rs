@@ -7,8 +7,8 @@ use mithril_aggregator::{
 };
 use mithril_common::{
     chain_observer::FakeObserver,
+    crypto_helper::tests_setup::setup_protocol_parameters,
     digesters::DumbDigester,
-    fake_data,
     store::{adapter::MemoryAdapter, stake_store::StakeStore},
     CardanoNetwork,
 };
@@ -52,7 +52,7 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
     ))));
     let beacon_store = Arc::new(RwLock::new(MemoryBeaconStore::new()));
     let multi_signer = async {
-        let protocol_parameters = fake_data::protocol_parameters();
+        let protocol_parameters = setup_protocol_parameters();
         let mut multi_signer = MultiSignerImpl::new(
             beacon_store.clone(),
             verification_key_store.clone(),
@@ -68,7 +68,7 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
     };
     let multi_signer = Arc::new(RwLock::new(multi_signer.await));
     let immutable_file_observer = Arc::new(RwLock::new(DumbImmutableFileObserver::default()));
-    let chain_observer = Arc::new(RwLock::new(FakeObserver::new()));
+    let chain_observer = Arc::new(RwLock::new(FakeObserver::default()));
     let beacon_provider = Arc::new(RwLock::new(BeaconProviderImpl::new(
         chain_observer.clone(),
         immutable_file_observer.clone(),

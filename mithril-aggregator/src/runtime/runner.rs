@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use crate::snapshot_uploaders::SnapshotLocation;
-use crate::{DependencyManager, ProtocolError, SnapshotError, Snapshotter};
+use crate::{DependencyManager, ProtocolError, SnapshotError, Snapshotter, SnapshotterTrait};
 use async_trait::async_trait;
 use chrono::Utc;
 use mithril_common::crypto_helper::ProtocolStakeDistribution;
@@ -572,7 +572,7 @@ pub mod tests {
             .get_current_stake_distribution()
             .await
             .unwrap()
-            .unwrap();
+            .expect("The stake distribution should not be None.");
 
         // TODO: check why to fetch EPOCH+1
         let saved_stake_distribution = deps
@@ -583,8 +583,14 @@ pub mod tests {
             .await
             .get_stakes(beacon.epoch + 1)
             .await
-            .expect("getting stake distribution should not return an error")
-            .expect("we are expecting some values from this call");
+            .unwrap()
+            .expect(
+                format!(
+                    "I should have a stake distribution for the epoch {:?}",
+                    beacon.epoch
+                )
+                .as_str(),
+            );
 
         assert_eq!(
             current_stake_distribution.len(),

@@ -1,20 +1,29 @@
 use async_trait::async_trait;
 
 use crate::chain_observer::interface::*;
-use crate::entities::*;
-use crate::fake_data;
+use crate::{entities::*, fake_data};
 
-pub struct FakeObserver {}
+pub struct FakeObserver {
+    pub signers: Vec<SignerWithStake>,
+    pub current_beacon: Option<Beacon>,
+}
 
 impl FakeObserver {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            signers: vec![],
+            current_beacon: None,
+        }
     }
 }
 
 impl Default for FakeObserver {
     fn default() -> Self {
-        Self::new()
+        let mut observer = Self::new();
+        observer.current_beacon = Some(fake_data::beacon());
+        observer.signers = fake_data::signers_with_stakes(2);
+
+        observer
     }
 }
 
@@ -22,17 +31,15 @@ impl Default for FakeObserver {
 impl ChainObserver for FakeObserver {
     /// Retrieve the current epoch of the Cardano network
     async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError> {
-        let beacon = fake_data::beacon();
-        Ok(Some(beacon.epoch))
+        Ok(self.current_beacon.as_ref().map(|beacon| beacon.epoch))
     }
 
     /// Retrieve the current stake distribution of the Cardano network
     async fn get_current_stake_distribution(
         &self,
     ) -> Result<Option<StakeDistribution>, ChainObserverError> {
-        let stakes = fake_data::signers_with_stakes(5);
         Ok(Some(
-            stakes
+            self.signers
                 .iter()
                 .map(|signer| (signer.party_id.clone() as PartyId, signer.stake as Stake))
                 .collect::<StakeDistribution>(),
@@ -42,12 +49,15 @@ impl ChainObserver for FakeObserver {
 
 #[cfg(test)]
 mod tests {
+    use crate::fake_data;
+
     use super::*;
 
     #[tokio::test]
     async fn test_get_current_epoch() {
         let beacon = fake_data::beacon();
-        let fake_observer = FakeObserver::new();
+        let mut fake_observer = FakeObserver::new();
+        fake_observer.current_beacon = Some(beacon.clone());
         let current_epoch = fake_observer.get_current_epoch().await.unwrap();
 
         assert_eq!(Some(beacon.epoch), current_epoch);
@@ -55,11 +65,13 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_current_stake_distribution() {
-        let fake_observer = FakeObserver::new();
+        let mut fake_observer = FakeObserver::new();
+        fake_observer.signers = fake_data::signers_with_stakes(2);
         let stake_distribution = fake_observer.get_current_stake_distribution().await;
 
-        assert!(
-            stake_distribution.unwrap().unwrap().len() > 0,
+        assert_eq!(
+            2,
+            stake_distribution.unwrap().unwrap().len(),
             "get current stake distribution should not fail and should not be empty"
         );
     }

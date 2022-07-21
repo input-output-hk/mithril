@@ -4,9 +4,9 @@ use mithril_aggregator::{
     AggregatorRunner, AggregatorRuntime, BeaconProviderImpl, DumbImmutableFileObserver,
 };
 use mithril_common::chain_observer::FakeObserver;
-use mithril_common::crypto_helper::ProtocolSignerVerificationKey;
-use mithril_common::crypto_helper::{key_decode_hex, ProtocolPartyId};
+use mithril_common::crypto_helper::{key_encode_hex, tests_setup};
 use mithril_common::digesters::DumbDigester;
+use mithril_common::entities::{SignerWithStake, SingleSignatures};
 use mithril_common::fake_data;
 use std::sync::Arc;
 use std::time::Duration;
@@ -18,6 +18,7 @@ async fn create_certificate() {
     let (mut deps, config) = initialize_dependencies().await;
     let immutable_file_observer = Arc::new(RwLock::new(DumbImmutableFileObserver::default()));
     let chain_observer = Arc::new(RwLock::new(FakeObserver::new()));
+    let _ = chain_observer.write().await.current_beacon = Some(fake_data::beacon());
     let beacon_provider = Arc::new(RwLock::new(BeaconProviderImpl::new(
         chain_observer.clone(),
         immutable_file_observer.clone(),
@@ -26,7 +27,7 @@ async fn create_certificate() {
     let digester = Arc::new(DumbDigester::default());
     deps.with_immutable_file_observer(immutable_file_observer.clone())
         .with_beacon_provider(beacon_provider)
-        .with_chain_observer(chain_observer)
+        .with_chain_observer(chain_observer.clone())
         .with_digester(digester.clone());
     let deps = Arc::new(deps);
     let runner = Arc::new(AggregatorRunner::new(config.clone(), deps.clone()));
@@ -35,23 +36,32 @@ async fn create_certificate() {
             .await
             .unwrap();
 
+    // create signers & declare stake distribution
+    let signers = tests_setup::setup_signers(2);
+    let _ = chain_observer.write().await.signers = signers
+        .iter()
+        .map(|(party_id, stake, verification_key, _, _)| {
+            SignerWithStake::new(
+                party_id.to_owned(),
+                key_encode_hex(verification_key).unwrap(),
+                *stake,
+            )
+        })
+        .collect();
+
     // start the runtime state machine
     runtime.cycle().await.unwrap();
     assert_eq!("signing", runtime.get_state());
     runtime.cycle().await.unwrap();
     assert_eq!("signing", runtime.get_state());
 
-    // register two signers
-    let signers = fake_data::signers(2);
-
+    // register signers
     {
         let mut multisigner = deps.multi_signer.as_ref().unwrap().write().await;
 
-        for signer in &signers {
-            let signer_key: ProtocolSignerVerificationKey =
-                key_decode_hex(signer.verification_key.as_ref()).unwrap();
+        for (party_id, _stakes, verification_key, _signer, _initializer) in &signers {
             multisigner
-                .register_signer(signer.party_id.to_owned() as ProtocolPartyId, &signer_key)
+                .register_signer(party_id.to_owned(), verification_key)
                 .await
                 .unwrap();
         }
@@ -85,4 +95,39 @@ async fn create_certificate() {
     assert_eq!("signing", runtime.get_state());
     runtime.cycle().await.unwrap();
     assert_eq!("signing", runtime.get_state());
+
+    {
+        let multisigner = deps.multi_signer.as_ref().unwrap().write().await;
+        let _protocol_parameters = deps
+            .certificate_pending_store
+            .as_ref()
+            .unwrap()
+            .read()
+            .await
+            .get()
+            .await
+            .unwrap()
+            .unwrap()
+            .protocol_parameters;
+        let message = multisigner.get_current_message().await.unwrap();
+
+        for (party_id, _stakes, _verification_key, protocol_signer, _initializer) in &signers {
+            if let Some(signature) = protocol_signer.sign(message.compute_hash().as_bytes()) {
+                let _single_signatures = SingleSignatures::new(
+                    party_id.to_string(),
+                    signature.sigma.to_string(),
+                    signature.indexes,
+                );
+                /* TODO: fix why there is no available clerk
+                * it sounds there is not stake distribution
+                * have to find out why
+
+                    let _res = multisigner
+                        .register_single_signature(&single_signatures)
+                        .await
+                        .expect("registering a winning lottery signature should not fail");
+                */
+            }
+        }
+    }
 }

@@ -23,7 +23,7 @@ pub use dependency::DependencyManager;
 pub use http_server::Server;
 pub use runtime::{AggregatorConfig, AggregatorRunner, AggregatorRunnerTrait, AggregatorRuntime};
 pub use snapshot_uploaders::{LocalSnapshotUploader, RemoteSnapshotUploader};
-pub use snapshotter::{SnapshotError, Snapshotter};
+pub use snapshotter::{SnapshotError, Snapshotter, SnapshotterTrait};
 pub use store::{
     CertificatePendingStore, CertificateStore, SingleSignatureStore, VerificationKeyStore,
     VerificationKeyStoreError, VerificationKeyStorer,

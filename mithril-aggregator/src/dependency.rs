@@ -55,6 +55,9 @@ pub type ImmutableFileObserverWrapper = Arc<RwLock<dyn ImmutableFileObserver>>;
 /// DigesterWrapper wraps a Digester
 pub type DigesterWrapper = Arc<dyn Digester>;
 
+// DigesterWrapper wraps a Digester
+//pub type SnapshoterWrapper = Arc<dyn Sn>;
+
 /// DependencyManager handles the dependencies
 pub struct DependencyManager {
     pub config: Config,
@@ -292,7 +295,7 @@ pub mod tests {
         };
         let multi_signer = Arc::new(RwLock::new(multi_signer.await));
         let immutable_file_observer = Arc::new(RwLock::new(DumbImmutableFileObserver::default()));
-        let chain_observer = Arc::new(RwLock::new(FakeObserver::new()));
+        let chain_observer = Arc::new(RwLock::new(FakeObserver::default()));
         let beacon_provider = Arc::new(RwLock::new(BeaconProviderImpl::new(
             chain_observer.clone(),
             immutable_file_observer.clone(),

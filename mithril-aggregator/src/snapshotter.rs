@@ -6,6 +6,10 @@ use std::io;
 use std::path::PathBuf;
 use thiserror::Error;
 
+pub trait SnapshotterTrait {
+    fn snapshot(&self, archive_name: &str) -> Result<PathBuf, SnapshotError>;
+}
+
 /// Snapshotter
 pub struct Snapshotter {
     /// DB directory to snapshot
@@ -24,6 +28,12 @@ pub enum SnapshotError {
     UploadFileError(String),
 }
 
+impl SnapshotterTrait for Snapshotter {
+    fn snapshot(&self, archive_name: &str) -> Result<PathBuf, SnapshotError> {
+        self.create_archive(archive_name)
+    }
+}
+
 impl Snapshotter {
     /// Snapshotter factory
     pub fn new(db_directory: PathBuf, snapshot_directory: PathBuf) -> Self {
@@ -31,10 +41,6 @@ impl Snapshotter {
             db_directory,
             snapshot_directory,
         }
-    }
-
-    pub fn snapshot(&self, archive_name: &str) -> Result<PathBuf, SnapshotError> {
-        self.create_archive(archive_name)
     }
 
     fn create_archive(&self, archive_name: &str) -> Result<PathBuf, SnapshotError> {
