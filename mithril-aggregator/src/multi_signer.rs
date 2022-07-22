@@ -532,13 +532,11 @@ impl MultiSigner for MultiSignerImpl {
             .ok_or_else(ProtocolError::UnavailableClerk)?
             .compute_avk();
 
-        for sig in signatures
-            .to_protocol_signatures()
+        signatures
+            .to_protocol_signature()
             .map_err(ProtocolError::Codec)?
-        {
-            sig.verify(protocol_parameters, avk, message.compute_hash().as_bytes())
-                .map_err(|e| ProtocolError::Core(e.to_string()))?;
-        }
+            .verify(protocol_parameters, avk, message.compute_hash().as_bytes())
+            .map_err(|e| ProtocolError::Core(e.to_string()))?;
 
         // Register single signature
         let beacon = self
@@ -595,15 +593,20 @@ impl MultiSigner for MultiSignerImpl {
             .await?
             .unwrap_or_default()
             .iter()
-            .flat_map(|(_party_id, single_signature)| {
+            .filter_map(|(_party_id, single_signature)| {
                 single_signature
-                    .to_protocol_signatures()
+                    .to_protocol_signature()
                     .map_err(ProtocolError::Codec)
                     .ok()
             })
-            .flatten()
             .collect::<Vec<_>>();
-        if self.protocol_parameters.unwrap().k > signatures.len() as u64 {
+        if self.protocol_parameters.unwrap().k
+            > signatures
+                .iter()
+                .map(|s| s.indexes.len())
+                .reduce(|s1, s2| s1 + s2)
+                .unwrap_or(0) as u64
+        {
             // Quorum is not reached
             debug!(
                 "Quorum is not reached {} signatures vs {} needed",
@@ -943,22 +946,12 @@ mod tests {
 
         let mut signatures = Vec::new();
         for (party_id, _, _, protocol_signer, _) in &signers {
-            let mut first_sig = None;
-            let mut won_indexes = vec![];
-            for i in 1..=protocol_parameters.m {
-                if let Some(signature) = protocol_signer.sign(message.compute_hash().as_bytes(), i)
-                {
-                    if first_sig.is_none() {
-                        first_sig = Some(key_encode_hex(signature).unwrap());
-                    }
-                    won_indexes.push(i);
-                }
-            }
+            if let Some(signature) = protocol_signer.sign(message.compute_hash().as_bytes()) {
+                let won_indexes = signature.indexes.clone();
 
-            if let Some(signature) = first_sig {
                 signatures.push(entities::SingleSignatures::new(
                     party_id.to_owned(),
-                    signature,
+                    key_encode_hex(signature).unwrap(),
                     won_indexes,
                 ));
             }
@@ -988,14 +981,14 @@ mod tests {
             .await
             .expect("create_certificate should not fail")
             .is_none());
+
+        // Add some signatures but not enough to reach the quorum: multi-signer should not create the multi-signature
         for signature in signatures_to_almost_reach_quorum {
             multi_signer
                 .register_single_signature(&signature)
                 .await
                 .expect("register single signature should not fail");
         }
-
-        // Some signatures but quorum still not reached: multi-signer can't create the multi-signature
         multi_signer
             .create_multi_signature()
             .await
@@ -1010,14 +1003,14 @@ mod tests {
             .await
             .expect("create_certificate should not fail")
             .is_none());
+
+        // Add the remaining signatures to reach the quorum: multi-signer should create a multi-signature
         for signature in &signatures {
             multi_signer
                 .register_single_signature(signature)
                 .await
                 .expect("register single signature should not fail");
         }
-
-        // Enough signatures to reach the quorum: multi-signer should create a multi-signature
         multi_signer
             .create_multi_signature()
             .await

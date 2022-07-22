@@ -99,20 +99,14 @@ where
             .map(|p| p.new_signer(closed_reg.clone()))
             .collect::<Vec<StmSigner<H>>>();
 
-        group.bench_with_input(
-            BenchmarkId::new("Play all lotteries", &param_string),
-            &m,
-            |b, &m| {
-                b.iter(|| {
-                    for ix in 1..m {
-                        ps[0].sign(&msg, ix);
-                    }
-                })
-            },
-        );
+        group.bench_function(BenchmarkId::new("Play all lotteries", &param_string), |b| {
+            b.iter(|| {
+                ps[0].sign(&msg);
+            })
+        });
     }
 
-    let mut sigs = Vec::new();
+    let sigs = Vec::new();
 
     for &k in NR_K.iter() {
         m = 50;
@@ -140,26 +134,10 @@ where
             .map(|p| p.new_signer(closed_reg.clone()))
             .collect::<Vec<StmSigner<H>>>();
 
-        let p_results = ps
+        let sigs = ps
             .par_iter()
-            .map(|p| {
-                let mut sigs = Vec::new();
-                for ix in 1..params.m {
-                    if let Some(sig) = p.sign(&msg, ix) {
-                        sigs.push(sig);
-                    }
-                }
-
-                sigs
-            })
+            .filter_map(|p| p.sign(&msg))
             .collect::<Vec<_>>();
-
-        sigs = Vec::new();
-
-        // todo: probably can be optimized
-        for res in p_results {
-            sigs.extend(res);
-        }
 
         party_dummy = ps[0].clone();
         let clerk = StmClerk::from_signer(&party_dummy);

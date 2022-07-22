@@ -28,7 +28,7 @@ struct PlayerArtifact {
 struct SingleSignatureArtifact {
     party_id: ProtocolPartyId,
     message: String,
-    lottery: u64,
+    lotteries: Vec<u64>,
     signature: String,
 }
 
@@ -112,34 +112,27 @@ impl Party {
     }
 
     /// Individually sign a message through lottery
-    pub fn sign_message(&mut self, message: &Bytes) -> Vec<(ProtocolSingleSignature, u64)> {
-        let mut signatures = Vec::new();
+    pub fn sign_message(&mut self, message: &Bytes) -> ProtocolSingleSignature {
         println!(
             "Party #{}: sign message {}",
             self.party_id,
             message.encode_hex::<String>()
         );
-        for i in 1..self.params.unwrap().m {
-            if let Some(signature) = self.signer.as_ref().unwrap().sign(message, i) {
-                println!("Party #{}: lottery #{} won", self.party_id, i,);
-                signatures.push((signature, i));
-            }
-        }
-        signatures
+        let signature = self.signer.as_ref().unwrap().sign(message).unwrap();
+        println!(
+            "Party #{}: lottery #{:?} won",
+            self.party_id, &signature.indexes
+        );
+        signature
     }
 
     /// Aggregate signatures
     pub fn sign_aggregate(
         &mut self,
         message: &Bytes,
-        signatures: &[(ProtocolSingleSignature, u64)],
+        signatures: &[ProtocolSingleSignature],
     ) -> Option<&ProtocolMultiSignature> {
-        let unzipped_signatures: (Vec<_>, Vec<_>) = signatures.iter().cloned().unzip();
-        let msig = self
-            .clerk
-            .as_ref()
-            .unwrap()
-            .aggregate(&unzipped_signatures.0, message);
+        let msig = self.clerk.as_ref().unwrap().aggregate(signatures, message);
         match msig {
             Ok(aggregate_signature) => {
                 println!("Party #{}: aggregate signature computed", self.party_id);
@@ -409,21 +402,16 @@ impl ProtocolDemonstrator for Demonstrator {
         for (i, message) in self.messages.iter().enumerate() {
             // Issue certificates
             println!("Message #{} to sign: {:?}", i, message);
-            let mut signatures = Vec::<(ProtocolSingleSignature, u64)>::new();
+            let mut signatures = Vec::<ProtocolSingleSignature>::new();
             for party in self.parties.iter_mut() {
-                let party_signatures = party.sign_message(message);
-                single_signature_artifacts.extend(
-                    party_signatures
-                        .iter()
-                        .map(|sig| SingleSignatureArtifact {
-                            party_id: party.party_id.to_owned(),
-                            message: message.encode_hex::<String>(),
-                            lottery: sig.1,
-                            signature: key_encode_hex(&sig.0).unwrap(),
-                        })
-                        .collect::<Vec<SingleSignatureArtifact>>(),
-                );
-                signatures.extend(party_signatures);
+                let party_signature = party.sign_message(message);
+                single_signature_artifacts.push(SingleSignatureArtifact {
+                    party_id: party.party_id.to_owned(),
+                    message: message.encode_hex::<String>(),
+                    lotteries: party_signature.indexes.clone(),
+                    signature: key_encode_hex(&party_signature).unwrap(),
+                });
+                signatures.push(party_signature);
             }
             for party in self.parties.iter_mut() {
                 let party_id = party.party_id.to_owned();

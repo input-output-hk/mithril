@@ -180,30 +180,23 @@ impl SingleSigner for MithrilSingleSigner {
             message.encode_hex::<String>()
         );
 
-        // todo: update this when mithril core SingleSignature store all the won indexes
-        let mut first_won_signature = None;
-        let mut won_indexes = Vec::new();
+        match protocol_signer.sign(&message) {
+            Some(signature) => {
+                trace!(
+                    "Party #{}: lottery #{:?} won",
+                    self.party_id,
+                    &signature.indexes
+                );
+                let encoded_signature =
+                    key_encode_hex(&signature).map_err(SingleSignerError::Codec)?;
+                let won_indexes = signature.indexes;
 
-        for i in 1..=protocol_parameters.m {
-            if let Some(signature) = protocol_signer.sign(&message, i) {
-                trace!("Party #{}: lottery #{} won", self.party_id, i,);
-
-                if first_won_signature.is_none() {
-                    let encoded_signature =
-                        key_encode_hex(&signature).map_err(SingleSignerError::Codec)?;
-                    first_won_signature = Some(encoded_signature);
-                }
-
-                won_indexes.push(i);
+                Ok(Some(SingleSignatures::new(
+                    self.party_id.clone(),
+                    encoded_signature,
+                    won_indexes,
+                )))
             }
-        }
-
-        match first_won_signature {
-            Some(encoded_signature) => Ok(Some(SingleSignatures::new(
-                self.party_id.clone(),
-                encoded_signature,
-                won_indexes,
-            ))),
             None => Ok(None),
         }
     }
