@@ -881,11 +881,10 @@ where
                         sig
                     };
 
-                    if let Some(indexes) = removal_idx_by_vk.get_mut(sig_to_remove_index)
-                    {
+                    if let Some(indexes) = removal_idx_by_vk.get_mut(sig_to_remove_index) {
                         indexes.push(*index);
                     } else {
-                        removal_idx_by_vk.insert(&sig_to_remove_index, vec![*index]);
+                        removal_idx_by_vk.insert(sig_to_remove_index, vec![*index]);
                     }
                 } else {
                     insert_this_sig = true;
