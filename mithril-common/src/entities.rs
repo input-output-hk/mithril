@@ -443,8 +443,7 @@ impl ProtocolParameters {
 
 impl PartialEq<ProtocolParameters> for ProtocolParameters {
     fn eq(&self, other: &ProtocolParameters) -> bool {
-        self.k 
-        other.k && self.m == other.m && self.phi_f_fixed() == other.phi_f_fixed()
+        self.k == other.k && self.m == other.m && self.phi_f_fixed() == other.phi_f_fixed()
     }
 }
 
