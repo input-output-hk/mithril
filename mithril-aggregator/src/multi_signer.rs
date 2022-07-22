@@ -949,7 +949,7 @@ mod tests {
             if let Some(signature) = protocol_signer.sign(message.compute_hash().as_bytes()) {
                 let won_indexes = signature.indexes.clone();
 
-                signatures.push(SingleSignatures::new(
+                signatures.push(entities::SingleSignatures::new(
                     party_id.to_owned(),
                     key_encode_hex(signature).unwrap(),
                     won_indexes,
