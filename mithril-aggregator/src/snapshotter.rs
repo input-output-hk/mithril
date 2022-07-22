@@ -4,12 +4,12 @@ use slog_scope::info;
 use std::error::Error as StdError;
 use std::fs::File;
 use std::io;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::RwLock;
 use thiserror::Error;
 
 pub trait SnapshotterTrait: Sync + Send {
-    fn snapshot(&self, archive_name: &str) -> Result<PathBuf, SnapshotError>;
+    fn snapshot(&self, archive_name: &str) -> Result<OngoingSnapshot, SnapshotError>;
 }
 
 /// Snapshotter
@@ -21,6 +21,25 @@ pub struct Snapshotter {
     snapshot_directory: PathBuf,
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct OngoingSnapshot {
+    filepath: PathBuf,
+    filesize: u64,
+}
+
+impl OngoingSnapshot {
+    pub fn new(filepath: PathBuf, filesize: u64) -> Self {
+        Self { filepath, filesize }
+    }
+    pub fn get_file_path(&self) -> &PathBuf {
+        &self.filepath
+    }
+
+    pub fn get_file_size(&self) -> &u64 {
+        &self.filesize
+    }
+}
+
 #[derive(Error, Debug)]
 pub enum SnapshotError {
     #[error("Create archive error: ")]
@@ -28,11 +47,19 @@ pub enum SnapshotError {
 
     #[error("Upload file error: `{0}`")]
     UploadFileError(String),
+
+    #[error("Snapshot General Error: `{0}`")]
+    GeneralError(String),
 }
 
 impl SnapshotterTrait for Snapshotter {
-    fn snapshot(&self, archive_name: &str) -> Result<PathBuf, SnapshotError> {
-        self.create_archive(archive_name)
+    fn snapshot(&self, archive_name: &str) -> Result<OngoingSnapshot, SnapshotError> {
+        let filepath = self.create_archive(archive_name)?;
+        let filesize = std::fs::metadata(&filepath)
+            .map_err(|e| SnapshotError::GeneralError(e.to_string()))?
+            .len();
+
+        Ok(OngoingSnapshot { filepath, filesize })
     }
 }
 
@@ -70,7 +97,7 @@ impl Snapshotter {
 }
 
 pub struct DumbSnapshotter {
-    last_snapshot: RwLock<Option<String>>,
+    last_snapshot: RwLock<Option<OngoingSnapshot>>,
 }
 
 impl DumbSnapshotter {
@@ -80,27 +107,39 @@ impl DumbSnapshotter {
         }
     }
 
-    pub fn get_last_snapshot(&self) -> Result<Option<String>, Box<dyn StdError + Sync + Send>> {
+    pub fn get_last_snapshot(
+        &self,
+    ) -> Result<Option<OngoingSnapshot>, Box<dyn StdError + Sync + Send>> {
         let value = self
             .last_snapshot
             .read()
             .map_err(|e| SnapshotError::UploadFileError(e.to_string()))?
             .as_ref()
-            .map(|v| v.clone());
+            .cloned();
 
         Ok(value)
     }
 }
 
+impl Default for DumbSnapshotter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl SnapshotterTrait for DumbSnapshotter {
-    fn snapshot(&self, archive_name: &str) -> Result<PathBuf, SnapshotError> {
+    fn snapshot(&self, archive_name: &str) -> Result<OngoingSnapshot, SnapshotError> {
         let mut value = self
             .last_snapshot
             .write()
             .map_err(|e| SnapshotError::UploadFileError(e.to_string()))?;
-        *value = Some(archive_name.to_string());
+        let snapshot = OngoingSnapshot {
+            filepath: Path::new(archive_name).to_path_buf(),
+            filesize: 0,
+        };
+        *value = Some(snapshot.clone());
 
-        Ok(PathBuf::new())
+        Ok(snapshot)
     }
 }
 
@@ -116,11 +155,11 @@ mod tests {
             .expect("Dumb snapshotter::get_last_snapshot should not fail when no last snapshot.")
             .is_none());
 
-        let _res = snapshotter
+        let snapshot = snapshotter
             .snapshot("whatever")
             .expect("Dumb snapshotter::snapshot should not fail.");
         assert_eq!(
-            Some("whatever".to_string()),
+            Some(snapshot),
             snapshotter.get_last_snapshot().expect(
                 "Dumb snapshotter::get_last_snapshot should not fail when some last snapshot."
             )

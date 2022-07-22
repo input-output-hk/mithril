@@ -13,6 +13,7 @@ use mithril_common::entities::{
 use mithril_common::CardanoNetwork;
 
 use crate::snapshot_uploaders::SnapshotLocation;
+use crate::snapshotter::OngoingSnapshot;
 use crate::{DependencyManager, ProtocolError, SnapshotError};
 
 #[cfg(test)]
@@ -80,11 +81,11 @@ pub trait AggregatorRunnerTrait: Sync + Send {
 
     async fn is_multisig_created(&self) -> Result<bool, RuntimeError>;
 
-    async fn create_snapshot_archive(&self) -> Result<PathBuf, RuntimeError>;
+    async fn create_snapshot_archive(&self) -> Result<OngoingSnapshot, RuntimeError>;
 
     async fn upload_snapshot_archive(
         &self,
-        path: &Path,
+        ongoing_snapshot: &OngoingSnapshot,
     ) -> Result<Vec<SnapshotLocation>, RuntimeError>;
 
     async fn create_and_save_certificate(
@@ -95,7 +96,7 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     async fn create_and_save_snapshot(
         &self,
         certificate: Certificate,
-        file_path: &Path,
+        ongoing_snapshot: &OngoingSnapshot,
         remote_locations: Vec<String>,
     ) -> Result<Snapshot, RuntimeError>;
 }
@@ -351,7 +352,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(certificate_pending)
     }
 
-    async fn create_snapshot_archive(&self) -> Result<PathBuf, RuntimeError> {
+    async fn create_snapshot_archive(&self) -> Result<OngoingSnapshot, RuntimeError> {
         info!("create snapshot archive");
 
         let snapshotter =
@@ -375,16 +376,16 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             })?;
         let snapshot_name = format!("{}.{}.tar.gz", self.config.network, snapshot_digest);
         // spawn a separate thread to prevent blocking
-        let snapshot_path =
-            tokio::task::spawn_blocking(move || -> Result<PathBuf, SnapshotError> {
+        let ongoing_snapshot =
+            tokio::task::spawn_blocking(move || -> Result<OngoingSnapshot, SnapshotError> {
                 snapshotter.snapshot(&snapshot_name)
             })
             .await
             .map_err(|e| RuntimeError::General(e.into()))??;
 
-        debug!("snapshot created at '{}'", snapshot_path.to_string_lossy());
+        debug!("snapshot created: '{:?}'", ongoing_snapshot);
 
-        Ok(snapshot_path)
+        Ok(ongoing_snapshot)
     }
 
     async fn create_and_save_certificate(
@@ -434,7 +435,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
     async fn upload_snapshot_archive(
         &self,
-        path: &Path,
+        ongoing_snapshot: &OngoingSnapshot,
     ) -> Result<Vec<SnapshotLocation>, RuntimeError> {
         info!("upload snapshot archive");
         let location = self
@@ -446,7 +447,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             })?
             .read()
             .await
-            .upload_snapshot(path)
+            .upload_snapshot(ongoing_snapshot.get_file_path())
             .await
             .map_err(RuntimeError::SnapshotUploader)?;
 
@@ -456,7 +457,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     async fn create_and_save_snapshot(
         &self,
         certificate: Certificate,
-        file_path: &Path,
+        ongoing_snapshot: &OngoingSnapshot,
         remote_locations: Vec<String>,
     ) -> Result<Snapshot, RuntimeError> {
         let snapshot_digest = certificate
@@ -468,9 +469,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             snapshot_digest,
             certificate.beacon,
             certificate.hash,
-            std::fs::metadata(file_path)
-                .map_err(|e| RuntimeError::General(e.into()))?
-                .len(),
+            *ongoing_snapshot.get_file_size(),
             format!("{:?}", Utc::now()),
             remote_locations,
         );

@@ -152,15 +152,18 @@ impl AggregatorRuntime {
         state: SigningState,
     ) -> Result<IdleState, RuntimeError> {
         self.runner.drop_pending_certificate().await?;
-        let path = self.runner.create_snapshot_archive().await?;
-        let locations = self.runner.upload_snapshot_archive(&path).await?;
+        let ongoing_snapshot = self.runner.create_snapshot_archive().await?;
+        let locations = self
+            .runner
+            .upload_snapshot_archive(&ongoing_snapshot)
+            .await?;
         let certificate = self
             .runner
             .create_and_save_certificate(&state.current_beacon)
             .await?;
         let _ = self
             .runner
-            .create_and_save_snapshot(certificate, &path, locations)
+            .create_and_save_snapshot(certificate, &ongoing_snapshot, locations)
             .await?;
 
         Ok(IdleState {
@@ -219,7 +222,9 @@ impl AggregatorRuntime {
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::path::Path;
+
+    use crate::snapshotter::OngoingSnapshot;
 
     use super::super::runner::MockAggregatorRunner;
     use super::*;
@@ -376,7 +381,12 @@ mod tests {
         runner
             .expect_create_snapshot_archive()
             .times(1)
-            .returning(|| Ok(PathBuf::new().join("/tmp/archive.zip")));
+            .returning(|| {
+                Ok(OngoingSnapshot::new(
+                    Path::new("/tmp/archive.zip").to_path_buf(),
+                    1234,
+                ))
+            });
         runner
             .expect_upload_snapshot_archive()
             .times(1)
