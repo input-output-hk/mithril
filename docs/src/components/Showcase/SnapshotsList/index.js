@@ -19,7 +19,7 @@ export default function SnapshotsList(props) {
   const [snapshots, setSnapshots] = useState([]);
 
   useEffect(() => {
-    if (!props.updateInterval) {
+    if (!props.autoUpdate) {
       return;
     }
     
@@ -28,6 +28,7 @@ export default function SnapshotsList(props) {
         .then(response => response.json())
         .then(data => setSnapshots(data))
         .catch(error => {
+          setSnapshots([]);
           console.error("Fetch snapshots error:", error);
         });
     };
@@ -37,7 +38,7 @@ export default function SnapshotsList(props) {
     
     const interval = setInterval(fetchSnapshots, props.updateInterval);
     return () => clearInterval(interval);
-  }, [props.aggregator, props.updateInterval]);
+  }, [props.aggregator, props.updateInterval, props.autoUpdate]);
 
   return (
     <div className={props.className}>
@@ -54,15 +55,18 @@ export default function SnapshotsList(props) {
                 </h3>
               </div>
               <div className="card__body">
+                <div>Epoch: {snapshot.beacon.epoch}</div>
+                <div>Immutable File Number: {snapshot.beacon.immutable_file_number}</div>
                 <div>Certificate hash: <br/> {snapshot.certificate_hash.slice(0, 30)}</div>
                 <div>Created at: <br/> {new Date(snapshot.created_at).toLocaleString()}</div>
                 <div>Size: {formatBytes(snapshot.size)}</div>
               </div>
-              { index === 0 &&
-                <div className="card__footer text--right">
+              <div className="card__footer text--right">
+                { index === 0 &&
                   <span className="badge badge--primary margin-left--sm">Latest</span>
-                </div>
-              }
+                }
+                <span className="badge badge--secondary margin-left--sm">{snapshot.beacon.network}</span>
+              </div>
             </div>
           )}
         </div>

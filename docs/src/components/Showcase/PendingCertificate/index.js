@@ -4,7 +4,7 @@ export default function PendingCertificate(props) {
   const [pendingCertificate, setPendingCertificate] = useState({});
 
   useEffect(() => {
-    if (!props.updateInterval) {
+    if (!props.autoUpdate) {
       return;
     }
     
@@ -13,6 +13,7 @@ export default function PendingCertificate(props) {
         .then(response => response.status === 200 ? response.json() : {})
         .then(data => setPendingCertificate(data))
         .catch(error => {
+          setPendingCertificate({});
           console.error("Fetch certificate-pending error:", error);
         });
     };
@@ -22,7 +23,7 @@ export default function PendingCertificate(props) {
     
     const interval = setInterval(fetchPendingCertificate, props.updateInterval);
     return () => clearInterval(interval);
-  }, [props.aggregator, props.updateInterval]);
+  }, [props.aggregator, props.updateInterval, props.autoUpdate]);
 
   return (
     <div className={props.className}>

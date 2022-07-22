@@ -17,7 +17,6 @@ function IntervalSetter(props) {
     <label className={props.className}>
       Update Interval:
       <select value={props.interval} onChange={handleChange} className="margin-left--sm">
-        <option value={0}>Stop</option>
         <option value={1000}>1 seconds</option>
         <option value={5000}>5 seconds</option>
         <option value={10000}>10 seconds</option>
@@ -43,12 +42,39 @@ function AggregatorSetter(props) {
   );
 }
 
+function StartStopButton(props) {
+  function handleClick() {
+    props.onPress(!props.isPressed);
+  }
+  
+  let buttonClasses =
+    "margin-left--sm button "
+    + props.isPressed ? "button--primary" : "button--success";
+
+  return (
+    <label className={props.className}>
+      <button
+        type="button"
+        onClick={handleClick}
+        className={"margin-left--sm button button--sm ".concat(props.isPressed ? "button--primary" : "button--success")}
+      >
+        {props.isPressed ? "Pause ⏸" : "Resume ▶"}
+      </button>
+    </label>
+  );
+}
+
 export default function Showcase() {
   const [aggregator, setAggregator] = useState(available_aggregators[0]);
   const [interval, setInterval] = useState(10000);
+  const [autoUpdate, setAutoUpdate] = useState(true);
 
   function handleApiChange(api) {
     setAggregator(api);
+  }
+  
+  function handleStartStopButtonPress(isPressed) {
+    setAutoUpdate(isPressed);
   }
 
   function handleIntervalChange(interval) {
@@ -64,9 +90,10 @@ export default function Showcase() {
         <form className="margin--md">
           <AggregatorSetter aggregator={aggregator} onAggregatorChange={handleApiChange} availableAggregators={available_aggregators}  />
           <IntervalSetter interval={interval} onIntervalChange={handleIntervalChange} className="margin-left--sm" />
+          <StartStopButton isPressed={autoUpdate} onPress={handleStartStopButtonPress} className="margin-left--sm" />
         </form>
-        <PendingCertificate aggregator={aggregator} updateInterval={interval} className="margin--md" />
-        <SnapshotsList aggregator={aggregator} updateInterval={interval} className="margin--md" />
+        <PendingCertificate aggregator={aggregator} updateInterval={interval} autoUpdate={autoUpdate} className="margin--md" />
+        <SnapshotsList aggregator={aggregator} updateInterval={interval} autoUpdate={autoUpdate} className="margin--md" />
       </main>
     </Layout>
   );
