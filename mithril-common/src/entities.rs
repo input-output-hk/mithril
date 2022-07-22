@@ -2,7 +2,8 @@ use crate::crypto_helper::{key_decode_hex, ProtocolSingleSignature};
 use fixed::types::U8F24;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::{collections::HashMap, fmt::Display};
+use std::{collections::BTreeMap, collections::HashMap, fmt::Display};
+use thiserror::Error;
 
 /// Epoch represents a Cardano epoch
 pub type Epoch = u64;
@@ -25,12 +26,21 @@ pub type LotteryIndex = u64;
 /// Cardano Network magic identifier
 pub type MagicId = u64;
 
+/// Protocol version
+pub type ProtocolVersion = String;
+
+/// The Cardano Network that is being targeted
 #[allow(clippy::enum_variant_names)]
 #[derive(Debug, Copy, Clone, PartialEq, Serialize, Deserialize, Hash, Eq, PartialOrd)]
 pub enum CardanoNetwork {
+    /// The Cardano mainnet
     MainNet,
-    DevNet(MagicId),
+
+    /// The Cardano testnet
     TestNet(MagicId),
+
+    /// A Cardano private devnet
+    DevNet(MagicId),
 }
 
 impl Display for CardanoNetwork {
@@ -89,14 +99,33 @@ impl Beacon {
     }
 
     /// Computes the hash of a Beacon
-    pub fn compute_hash(beacon: &Self) -> String {
+    pub fn compute_hash(&self) -> String {
         let mut hasher = Sha256::new();
-        hasher.update(beacon.network.as_bytes());
-        hasher.update(beacon.epoch.to_be_bytes());
-        hasher.update(beacon.immutable_file_number.to_be_bytes());
+        hasher.update(self.network.as_bytes());
+        hasher.update(self.epoch.to_be_bytes());
+        hasher.update(self.immutable_file_number.to_be_bytes());
         hex::encode(hasher.finalize())
     }
+
+    /// Computes a new Beacon by applying an epoch offset
+    pub fn compute_beacon_with_epoch_offset(&self, epoch_offset: i64) -> Result<Self, BeaconError> {
+        let mut beacon = self.clone();
+        let epoch_new = beacon.epoch as i64 + epoch_offset;
+        if epoch_new < 0 {
+            return Err(BeaconError::EpochOffset(beacon.epoch, epoch_offset));
+        }
+        beacon.epoch = epoch_new as u64;
+        Ok(beacon)
+    }
 }
+
+/// BeaconError is an error triggerred by a Beacon
+#[derive(Error, Debug)]
+pub enum BeaconError {
+    #[error("epoch offset error")]
+    EpochOffset(u64, i64),
+}
+
 /// CertificatePending represents a pending certificate in the process of production
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct CertificatePending {
@@ -128,95 +157,233 @@ impl CertificatePending {
     }
 }
 
+/// The key of a ProtocolMessage
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ProtocolMessagePartKey {
+    /// The ProtocolMessage part key associated to the Snapshot Digest
+    #[serde(rename = "snapshot_digest")]
+    SnapshotDigest,
+
+    /// The ProtocolMessage part key associated to the Next epoch aggregate verification key
+    /// The AVK that will be allowed to be used to sign during the next epoch
+    /// aka AVK(n-1)
+    #[serde(rename = "next_aggregate_verification_key")]
+    NextAggregateVerificationKey,
+}
+
+impl Display for ProtocolMessagePartKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::SnapshotDigest => write!(f, "snapshot_digest"),
+            Self::NextAggregateVerificationKey => write!(f, "next_aggregate_verification_key"),
+        }
+    }
+}
+
+/// The value of a ProtocolMessage
+pub type ProtocolMessagePartValue = String;
+
+/// ProtocolMessage represents a message that is signed (or verified) by the Mithril protocol
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+pub struct ProtocolMessage {
+    /// Map of the messages combined into the digest
+    /// aka MSG(p,n)
+    #[serde(rename = "message_parts")]
+    pub message_parts: BTreeMap<ProtocolMessagePartKey, ProtocolMessagePartValue>,
+}
+
+impl ProtocolMessage {
+    /// ProtocolMessage factory
+    pub fn new() -> ProtocolMessage {
+        ProtocolMessage {
+            message_parts: BTreeMap::new(),
+        }
+    }
+
+    /// Set the message part associated with a key
+    /// Returns previously set value if it exists
+    pub fn set_message_part(
+        &mut self,
+        key: ProtocolMessagePartKey,
+        value: ProtocolMessagePartValue,
+    ) -> Option<ProtocolMessagePartValue> {
+        self.message_parts.insert(key, value)
+    }
+
+    /// Get the message part associated with a key
+    pub fn get_message_part(
+        &self,
+        key: &ProtocolMessagePartKey,
+    ) -> Option<&ProtocolMessagePartValue> {
+        self.message_parts.get(key)
+    }
+
+    /// Computes the hash of the protocol message
+    pub fn compute_hash(&self) -> String {
+        let mut hasher = Sha256::new();
+        self.message_parts.iter().for_each(|(k, v)| {
+            hasher.update(k.to_string().as_bytes());
+            hasher.update(v.as_bytes());
+        });
+        hex::encode(hasher.finalize())
+    }
+}
+
+/// CertificateMetadata represents the metadata associated to a Certificate
+#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+pub struct CertificateMetadata {
+    /// Protocol Version (semver)
+    /// Useful to achieve backward compatibility of the certificates (including of the multi signature)
+    /// part of METADATA(p,n)
+    #[serde(rename = "version")]
+    pub protocol_version: ProtocolVersion,
+
+    /// Protocol parameters
+    /// part of METADATA(p,n)
+    #[serde(rename = "parameters")]
+    pub protocol_parameters: ProtocolParameters,
+
+    /// Date and time when the certificate was initiated
+    /// Represents the time at which the single signatures registration is opened
+    /// part of METADATA(p,n)
+    #[serde(rename = "initiated_at")]
+    pub initiated_at: String,
+
+    /// Date and time when the certificate was sealed
+    /// Represents the time at which the quorum of single signatures was reached so that they were aggregated into a multi signature
+    /// part of METADATA(p,n)
+    #[serde(rename = "sealed_at")]
+    pub sealed_at: String,
+
+    /// The list of the active signers with their stakes and verification keys
+    /// part of METADATA(p,n)
+    #[serde(rename = "signers")]
+    pub signers: Vec<SignerWithStake>,
+}
+
+impl CertificateMetadata {
+    /// CertificateMetadata factory
+    pub fn new(
+        protocol_version: ProtocolVersion,
+        protocol_parameters: ProtocolParameters,
+        initiated_at: String,
+        sealed_at: String,
+        signers: Vec<SignerWithStake>,
+    ) -> CertificateMetadata {
+        CertificateMetadata {
+            protocol_version,
+            protocol_parameters,
+            initiated_at,
+            sealed_at,
+            signers,
+        }
+    }
+
+    /// Computes the hash of the certificate metadata
+    pub fn compute_hash(&self) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(self.protocol_version.as_bytes());
+        hasher.update(&self.protocol_parameters.compute_hash().as_bytes());
+        hasher.update(self.initiated_at.as_bytes());
+        hasher.update(self.sealed_at.as_bytes());
+        self.signers
+            .iter()
+            .for_each(|signer| hasher.update(signer.compute_hash().as_bytes()));
+        hex::encode(hasher.finalize())
+    }
+}
+
 /// Certificate represents a Mithril certificate embedding a Mithril STM multisignature
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct Certificate {
     /// Hash of the current certificate
+    /// Computed from the other fields of the certificate
+    /// aka H(Cp,n))
     #[serde(rename = "hash")]
     pub hash: String,
 
-    /// Hash of the previous certificate
+    /// Hash of the previous certificate in the chain
+    /// This is either the hash of the first certificate of the epoch in the chain
+    /// Or the first certificate of the previous epoch in the chain (if the certificate is the first of its epoch)
+    /// aka H(FC(n))
     #[serde(rename = "previous_hash")]
     pub previous_hash: String,
 
-    /// Cardano chain beacon
+    /// Mithril beacon on the Cardano chain
+    /// aka BEACON(p,n)
     #[serde(rename = "beacon")]
     pub beacon: Beacon,
 
-    /// Protocol parameters
-    #[serde(rename = "protocol")]
-    pub protocol_parameters: ProtocolParameters,
+    /// Certificate metadata
+    /// aka METADATA(p,n)
+    #[serde(rename = "metadata")]
+    pub metadata: CertificateMetadata,
 
-    /// Digest that is signed by the signer participants
-    #[serde(rename = "digest")]
-    pub digest: String,
+    /// Structured message that is used to created the signed message
+    /// aka MSG(p,n) U AVK(n-1)
+    #[serde(rename = "protocol_message")]
+    pub protocol_message: ProtocolMessage,
 
-    /// Date and time at which the certificate was initialized and ready to accept single signatures from signers
-    #[serde(rename = "started_at")]
-    pub started_at: String,
-
-    /// Date and time at which the certificate was completed (when the quorum of single signatures was reached so that a multisignature could be aggregated from them)
-    #[serde(rename = "completed_at")]
-    pub completed_at: String,
-
-    /// The list of the signers with their stakes and verification keys
-    #[serde(rename = "signers")]
-    pub signers: Vec<SignerWithStake>,
+    /// Message that is signed by the signers
+    /// aka H(MSG(p,n) || AVK(n-1))
+    #[serde(rename = "signed_message")]
+    pub signed_message: String,
 
     /// Aggregate verification key
+    /// The AVK used to sign during the current epoch
+    /// aka AVK(n-2)
     #[serde(rename = "aggregate_verification_key")]
     pub aggregate_verification_key: String,
 
-    /// STM multisignature created from a quorum of single signatures from the signers
-    #[serde(rename = "multisignature")]
-    pub multisignature: String,
+    /// STM multi signature created from a quorum of single signatures from the signers
+    /// aka MULTI_SIG(H(MSG(p,n) || AVK(n-1)))
+    #[serde(rename = "multi_signature")]
+    pub multi_signature: String,
+
+    /// Genesis signature created from the original stake distribution
+    /// aka GENESIS_SIG(AVK(-1))
+    #[serde(rename = "genesis_signature")]
+    pub genesis_signature: String,
 }
 
 impl Certificate {
     /// Certificate factory
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         previous_hash: String,
         beacon: Beacon,
-        protocol_parameters: ProtocolParameters,
-        digest: String,
-        started_at: String,
-        completed_at: String,
-        signers: Vec<SignerWithStake>,
+        metadata: CertificateMetadata,
+        protocol_message: ProtocolMessage,
         aggregate_verification_key: String,
-        multisignature: String,
+        multi_signature: String,
+        genesis_signature: String,
     ) -> Certificate {
+        let signed_message = (&protocol_message.compute_hash()).to_owned();
         let mut certificate = Certificate {
             hash: "".to_string(),
             previous_hash,
             beacon,
-            protocol_parameters,
-            digest,
-            started_at,
-            completed_at,
-            signers,
+            metadata,
+            protocol_message,
+            signed_message,
             aggregate_verification_key,
-            multisignature,
+            multi_signature,
+            genesis_signature,
         };
-        certificate.hash = Self::compute_hash(&certificate);
+        certificate.hash = certificate.compute_hash();
         certificate
     }
 
-    /// Computes the hash of a certificate
-    pub fn compute_hash(certificate: &Self) -> String {
+    /// Computes the hash of a Certificate
+    pub fn compute_hash(&self) -> String {
         let mut hasher = Sha256::new();
-        hasher.update(certificate.previous_hash.as_bytes());
-        hasher.update(Beacon::compute_hash(&certificate.beacon).as_bytes());
-        hasher
-            .update(ProtocolParameters::compute_hash(&certificate.protocol_parameters).as_bytes());
-        hasher.update(certificate.digest.as_bytes());
-        hasher.update(certificate.started_at.as_bytes());
-        hasher.update(certificate.completed_at.as_bytes());
-        certificate.signers.iter().for_each(|s| {
-            hasher.update(SignerWithStake::compute_hash(s));
-        });
-        hasher.update(certificate.aggregate_verification_key.as_bytes());
-        hasher.update(certificate.multisignature.as_bytes());
+        hasher.update(self.previous_hash.as_bytes());
+        hasher.update(self.beacon.compute_hash().as_bytes());
+        hasher.update(self.metadata.compute_hash().as_bytes());
+        hasher.update(self.protocol_message.compute_hash().as_bytes());
+        hasher.update(self.signed_message.as_bytes());
+        hasher.update(self.aggregate_verification_key.as_bytes());
+        hasher.update(self.multi_signature.as_bytes());
+        hasher.update(self.genesis_signature.as_bytes());
         hex::encode(hasher.finalize())
     }
 }
@@ -265,11 +432,11 @@ impl ProtocolParameters {
     }
 
     /// Computes the hash of ProtocolParameters
-    pub fn compute_hash(protocol_parameters: &Self) -> String {
+    pub fn compute_hash(&self) -> String {
         let mut hasher = Sha256::new();
-        hasher.update(protocol_parameters.k.to_be_bytes());
-        hasher.update(protocol_parameters.m.to_be_bytes());
-        hasher.update(protocol_parameters.phi_f_fixed().to_be_bytes());
+        hasher.update(self.k.to_be_bytes());
+        hasher.update(self.m.to_be_bytes());
+        hasher.update(self.phi_f_fixed().to_be_bytes());
         hex::encode(hasher.finalize())
     }
 }
@@ -302,10 +469,10 @@ impl Signer {
     }
 
     /// Computes the hash of Signer
-    pub fn compute_hash(signer: &Self) -> String {
+    pub fn compute_hash(&self) -> String {
         let mut hasher = Sha256::new();
-        hasher.update(signer.party_id.as_bytes());
-        hasher.update(signer.verification_key.as_bytes());
+        hasher.update(self.party_id.as_bytes());
+        hasher.update(self.verification_key.as_bytes());
         hex::encode(hasher.finalize())
     }
 }
@@ -336,11 +503,11 @@ impl SignerWithStake {
     }
 
     /// Computes the hash of SignerWithStake
-    pub fn compute_hash(signer_with_stake: &Self) -> String {
+    pub fn compute_hash(&self) -> String {
         let mut hasher = Sha256::new();
-        hasher.update(signer_with_stake.party_id.as_bytes());
-        hasher.update(signer_with_stake.verification_key.as_bytes());
-        hasher.update(signer_with_stake.stake.to_be_bytes());
+        hasher.update(self.party_id.as_bytes());
+        hasher.update(self.verification_key.as_bytes());
+        hasher.update(self.stake.to_be_bytes());
         hex::encode(hasher.finalize())
     }
 }
@@ -558,7 +725,7 @@ mod tests {
         let (party_id, _, _, signer, _) = signers.first().unwrap();
         let protocol_sigs = (1..30)
             .into_iter()
-            .filter_map(|i| signer.sign(message.as_bytes(), i))
+            .filter_map(|i| signer.sign(message.compute_hash().as_bytes(), i))
             .collect::<Vec<_>>();
         assert!(!protocol_sigs.is_empty());
 
@@ -589,19 +756,19 @@ mod tests {
 
         assert_eq!(
             hash_expected,
-            Beacon::compute_hash(&Beacon::new("testnet".to_string(), 10, 100))
+            Beacon::new("testnet".to_string(), 10, 100).compute_hash()
         );
         assert_ne!(
             hash_expected,
-            Beacon::compute_hash(&Beacon::new("mainnet".to_string(), 10, 100))
+            Beacon::new("mainnet".to_string(), 10, 100).compute_hash()
         );
         assert_ne!(
             hash_expected,
-            Beacon::compute_hash(&Beacon::new("testnet".to_string(), 20, 100))
+            Beacon::new("testnet".to_string(), 20, 100).compute_hash()
         );
         assert_ne!(
             hash_expected,
-            Beacon::compute_hash(&Beacon::new("testnet".to_string(), 10, 200))
+            Beacon::new("testnet".to_string(), 10, 200).compute_hash()
         );
     }
 
@@ -611,19 +778,19 @@ mod tests {
 
         assert_eq!(
             hash_expected,
-            ProtocolParameters::compute_hash(&ProtocolParameters::new(1000, 100, 0.123))
+            ProtocolParameters::new(1000, 100, 0.123).compute_hash()
         );
         assert_ne!(
             hash_expected,
-            ProtocolParameters::compute_hash(&ProtocolParameters::new(2000, 100, 0.123))
+            ProtocolParameters::new(2000, 100, 0.123).compute_hash()
         );
         assert_ne!(
             hash_expected,
-            ProtocolParameters::compute_hash(&ProtocolParameters::new(1000, 200, 0.123))
+            ProtocolParameters::new(1000, 200, 0.123).compute_hash()
         );
         assert_ne!(
             hash_expected,
-            ProtocolParameters::compute_hash(&ProtocolParameters::new(1000, 100, 0.124))
+            ProtocolParameters::new(1000, 100, 0.124).compute_hash()
         );
     }
 
@@ -633,24 +800,15 @@ mod tests {
 
         assert_eq!(
             hash_expected,
-            Signer::compute_hash(&Signer::new(
-                "1".to_string(),
-                "verification-key-123".to_string()
-            ))
+            Signer::new("1".to_string(), "verification-key-123".to_string()).compute_hash()
         );
         assert_ne!(
             hash_expected,
-            Signer::compute_hash(&Signer::new(
-                "0".to_string(),
-                "verification-key-123".to_string()
-            ))
+            Signer::new("0".to_string(), "verification-key-123".to_string()).compute_hash()
         );
         assert_ne!(
             hash_expected,
-            Signer::compute_hash(&Signer::new(
-                "1".to_string(),
-                "verification-key-456".to_string()
-            ))
+            Signer::new("1".to_string(), "verification-key-456".to_string()).compute_hash()
         );
     }
 
@@ -660,224 +818,435 @@ mod tests {
 
         assert_eq!(
             hash_expected,
-            SignerWithStake::compute_hash(&SignerWithStake::new(
-                "1".to_string(),
-                "verification-key-123".to_string(),
-                10
-            ))
+            SignerWithStake::new("1".to_string(), "verification-key-123".to_string(), 10)
+                .compute_hash()
         );
         assert_ne!(
             hash_expected,
-            SignerWithStake::compute_hash(&SignerWithStake::new(
-                "0".to_string(),
-                "verification-key-123".to_string(),
-                10
-            ))
+            SignerWithStake::new("0".to_string(), "verification-key-123".to_string(), 10)
+                .compute_hash()
         );
         assert_ne!(
             hash_expected,
-            SignerWithStake::compute_hash(&SignerWithStake::new(
-                "1".to_string(),
-                "verification-key-456".to_string(),
-                10
-            ))
+            SignerWithStake::new("1".to_string(), "verification-key-456".to_string(), 10)
+                .compute_hash()
         );
         assert_ne!(
             hash_expected,
-            SignerWithStake::compute_hash(&SignerWithStake::new(
-                "1".to_string(),
-                "verification-key-123".to_string(),
-                20
-            ))
+            SignerWithStake::new("1".to_string(), "verification-key-123".to_string(), 20)
+                .compute_hash()
         );
     }
 
     #[test]
-    fn test_certificate_compute_hash() {
-        let hash_expected = "5d08129c86948f3082bc9ef3d0d2fbe628e907790db1fa58eadf13f0940c8d52";
+    fn test_certificate_metadata_compute_hash() {
+        let hash_expected = "512632ae13b4527486303a78b500fb328b9f353b8a635a32f74fe1d899439ae8";
 
         assert_eq!(
             hash_expected,
-            Certificate::compute_hash(&Certificate::new(
-                "previous_hash".to_string(),
-                Beacon::new("testnet".to_string(), 10, 100),
+            CertificateMetadata::new(
+                "0.1.0".to_string(),
                 ProtocolParameters::new(1000, 100, 0.123),
-                "digest".to_string(),
-                "started_at".to_string(),
-                "completed_at".to_string(),
+                "initiated_at".to_string(),
+                "sealed_at".to_string(),
                 vec![
                     SignerWithStake::new("1".to_string(), "verification-key-123".to_string(), 10),
                     SignerWithStake::new("2".to_string(), "verification-key-456".to_string(), 20)
                 ],
-                "aggregate_verification_key".to_string(),
-                "multisignature".to_string(),
-            ))
+            )
+            .compute_hash()
         );
 
         assert_ne!(
             hash_expected,
-            Certificate::compute_hash(&Certificate::new(
-                "modified-previous_hash".to_string(),
-                Beacon::new("testnet".to_string(), 10, 100),
+            CertificateMetadata::new(
+                "0.1.0-modified".to_string(),
                 ProtocolParameters::new(1000, 100, 0.123),
-                "digest".to_string(),
-                "started_at".to_string(),
-                "completed_at".to_string(),
+                "initiated_at".to_string(),
+                "sealed_at".to_string(),
                 vec![
                     SignerWithStake::new("1".to_string(), "verification-key-123".to_string(), 10),
                     SignerWithStake::new("2".to_string(), "verification-key-456".to_string(), 20)
                 ],
-                "aggregate_verification_key".to_string(),
-                "multisignature".to_string(),
-            ))
+            )
+            .compute_hash()
         );
 
         assert_ne!(
             hash_expected,
-            Certificate::compute_hash(&Certificate::new(
-                "previous_hash".to_string(),
-                Beacon::new("modified-testnet".to_string(), 10, 100),
-                ProtocolParameters::new(1000, 100, 0.123),
-                "digest".to_string(),
-                "started_at".to_string(),
-                "completed_at".to_string(),
-                vec![
-                    SignerWithStake::new("1".to_string(), "verification-key-123".to_string(), 10),
-                    SignerWithStake::new("2".to_string(), "verification-key-456".to_string(), 20)
-                ],
-                "aggregate_verification_key".to_string(),
-                "multisignature".to_string(),
-            ))
-        );
-
-        assert_ne!(
-            hash_expected,
-            Certificate::compute_hash(&Certificate::new(
-                "previous_hash".to_string(),
-                Beacon::new("testnet".to_string(), 10, 100),
+            CertificateMetadata::new(
+                "0.1.0".to_string(),
                 ProtocolParameters::new(2000, 100, 0.123),
-                "digest".to_string(),
-                "started_at".to_string(),
-                "completed_at".to_string(),
+                "initiated_at".to_string(),
+                "sealed_at".to_string(),
                 vec![
                     SignerWithStake::new("1".to_string(), "verification-key-123".to_string(), 10),
                     SignerWithStake::new("2".to_string(), "verification-key-456".to_string(), 20)
                 ],
-                "aggregate_verification_key".to_string(),
-                "multisignature".to_string(),
-            ))
+            )
+            .compute_hash()
         );
 
         assert_ne!(
             hash_expected,
-            Certificate::compute_hash(&Certificate::new(
-                "previous_hash".to_string(),
-                Beacon::new("testnet".to_string(), 10, 100),
+            CertificateMetadata::new(
+                "0.1.0".to_string(),
                 ProtocolParameters::new(1000, 100, 0.123),
-                "modified-digest".to_string(),
-                "started_at".to_string(),
-                "completed_at".to_string(),
+                "initiated_at-modified".to_string(),
+                "sealed_at".to_string(),
                 vec![
                     SignerWithStake::new("1".to_string(), "verification-key-123".to_string(), 10),
                     SignerWithStake::new("2".to_string(), "verification-key-456".to_string(), 20)
                 ],
-                "aggregate_verification_key".to_string(),
-                "multisignature".to_string(),
-            ))
+            )
+            .compute_hash()
         );
 
         assert_ne!(
             hash_expected,
-            Certificate::compute_hash(&Certificate::new(
-                "previous_hash".to_string(),
-                Beacon::new("testnet".to_string(), 10, 100),
+            CertificateMetadata::new(
+                "0.1.0".to_string(),
                 ProtocolParameters::new(1000, 100, 0.123),
-                "digest".to_string(),
-                "modified-started_at".to_string(),
-                "completed_at".to_string(),
+                "initiated_at".to_string(),
+                "sealed_at-modified".to_string(),
                 vec![
                     SignerWithStake::new("1".to_string(), "verification-key-123".to_string(), 10),
                     SignerWithStake::new("2".to_string(), "verification-key-456".to_string(), 20)
                 ],
-                "aggregate_verification_key".to_string(),
-                "multisignature".to_string(),
-            ))
+            )
+            .compute_hash()
         );
 
         assert_ne!(
             hash_expected,
-            Certificate::compute_hash(&Certificate::new(
-                "previous_hash".to_string(),
-                Beacon::new("testnet".to_string(), 10, 100),
+            CertificateMetadata::new(
+                "0.1.0".to_string(),
                 ProtocolParameters::new(1000, 100, 0.123),
-                "digest".to_string(),
-                "started_at".to_string(),
-                "modified-completed_at".to_string(),
-                vec![
-                    SignerWithStake::new("1".to_string(), "verification-key-123".to_string(), 10),
-                    SignerWithStake::new("2".to_string(), "verification-key-456".to_string(), 20)
-                ],
-                "aggregate_verification_key".to_string(),
-                "multisignature".to_string(),
-            ))
-        );
-
-        assert_ne!(
-            hash_expected,
-            Certificate::compute_hash(&Certificate::new(
-                "previous_hash".to_string(),
-                Beacon::new("testnet".to_string(), 10, 100),
-                ProtocolParameters::new(1000, 100, 0.123),
-                "digest".to_string(),
-                "started_at".to_string(),
-                "completed_at".to_string(),
+                "initiated_at".to_string(),
+                "sealed_at".to_string(),
                 vec![
                     SignerWithStake::new(
-                        "1".to_string(),
-                        "modified-verification-key-123".to_string(),
+                        "1-modified".to_string(),
+                        "verification-key-123".to_string(),
                         10
                     ),
                     SignerWithStake::new("2".to_string(), "verification-key-456".to_string(), 20)
                 ],
-                "aggregate_verification_key".to_string(),
-                "multisignature".to_string(),
-            ))
+            )
+            .compute_hash()
         );
 
         assert_ne!(
             hash_expected,
-            Certificate::compute_hash(&Certificate::new(
+            CertificateMetadata::new(
+                "0.1.0".to_string(),
+                ProtocolParameters::new(1000, 100, 0.123),
+                "initiated_at".to_string(),
+                "sealed_at".to_string(),
+                vec![SignerWithStake::new(
+                    "1".to_string(),
+                    "verification-key-123".to_string(),
+                    10
+                ),],
+            )
+            .compute_hash()
+        );
+    }
+
+    #[test]
+    fn test_protocol_message_compute_hash() {
+        let hash_expected = "71dee1e558cd647cdbc219a24b766940f568e7e8287c30a8292209ef11666e03";
+
+        let mut protocol_message = ProtocolMessage::new();
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::SnapshotDigest,
+            "snapshot-digest-123".to_string(),
+        );
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::NextAggregateVerificationKey,
+            "next-avk-123".to_string(),
+        );
+        assert_eq!(hash_expected, protocol_message.compute_hash());
+
+        let mut protocol_message_modified = protocol_message.clone();
+        protocol_message_modified.set_message_part(
+            ProtocolMessagePartKey::NextAggregateVerificationKey,
+            "next-avk-456".to_string(),
+        );
+        assert_ne!(hash_expected, protocol_message_modified.compute_hash());
+
+        let mut protocol_message_modified = protocol_message.clone();
+        protocol_message_modified.set_message_part(
+            ProtocolMessagePartKey::SnapshotDigest,
+            "snapshot-digest-456".to_string(),
+        );
+        assert_ne!(hash_expected, protocol_message_modified.compute_hash());
+    }
+
+    #[test]
+    fn test_certificate_compute_hash() {
+        let hash_expected = "7d714a2005ceb4778efe8805c9efe139a65aa5c607b38befeee97a4518928a0c";
+
+        let mut protocol_message = ProtocolMessage::new();
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::SnapshotDigest,
+            "snapshot-digest-123".to_string(),
+        );
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::NextAggregateVerificationKey,
+            "next-avk-123".to_string(),
+        );
+        assert_eq!(
+            hash_expected,
+            Certificate::new(
                 "previous_hash".to_string(),
                 Beacon::new("testnet".to_string(), 10, 100),
-                ProtocolParameters::new(1000, 100, 0.123),
-                "digest".to_string(),
-                "started_at".to_string(),
-                "completed_at".to_string(),
-                vec![
-                    SignerWithStake::new("1".to_string(), "verification-key-123".to_string(), 10),
-                    SignerWithStake::new("2".to_string(), "verification-key-456".to_string(), 20)
-                ],
-                "modified-aggregate_verification_key".to_string(),
-                "multisignature".to_string(),
-            ))
+                CertificateMetadata::new(
+                    "0.1.0".to_string(),
+                    ProtocolParameters::new(1000, 100, 0.123),
+                    "initiated_at".to_string(),
+                    "sealed_at".to_string(),
+                    vec![
+                        SignerWithStake::new(
+                            "1".to_string(),
+                            "verification-key-123".to_string(),
+                            10
+                        ),
+                        SignerWithStake::new(
+                            "2".to_string(),
+                            "verification-key-456".to_string(),
+                            20
+                        )
+                    ],
+                ),
+                protocol_message.clone(),
+                "aggregate_verification_key".to_string(),
+                "multi_signature".to_string(),
+                "genesis_signature".to_string(),
+            )
+            .compute_hash()
         );
 
         assert_ne!(
             hash_expected,
-            Certificate::compute_hash(&Certificate::new(
+            Certificate::new(
+                "previous_hash-modified".to_string(),
+                Beacon::new("testnet".to_string(), 10, 100),
+                CertificateMetadata::new(
+                    "0.1.0".to_string(),
+                    ProtocolParameters::new(1000, 100, 0.123),
+                    "initiated_at".to_string(),
+                    "sealed_at".to_string(),
+                    vec![
+                        SignerWithStake::new(
+                            "1".to_string(),
+                            "verification-key-123".to_string(),
+                            10
+                        ),
+                        SignerWithStake::new(
+                            "2".to_string(),
+                            "verification-key-456".to_string(),
+                            20
+                        )
+                    ],
+                ),
+                protocol_message.clone(),
+                "aggregate_verification_key".to_string(),
+                "multi_signature".to_string(),
+                "genesis_signature".to_string(),
+            )
+            .compute_hash()
+        );
+
+        assert_ne!(
+            hash_expected,
+            Certificate::new(
+                "previous_hash".to_string(),
+                Beacon::new("testnet-modified".to_string(), 10, 100),
+                CertificateMetadata::new(
+                    "0.1.0".to_string(),
+                    ProtocolParameters::new(1000, 100, 0.123),
+                    "initiated_at".to_string(),
+                    "sealed_at".to_string(),
+                    vec![
+                        SignerWithStake::new(
+                            "1".to_string(),
+                            "verification-key-123".to_string(),
+                            10
+                        ),
+                        SignerWithStake::new(
+                            "2".to_string(),
+                            "verification-key-456".to_string(),
+                            20
+                        )
+                    ],
+                ),
+                protocol_message.clone(),
+                "aggregate_verification_key".to_string(),
+                "multi_signature".to_string(),
+                "genesis_signature".to_string(),
+            )
+            .compute_hash()
+        );
+
+        assert_ne!(
+            hash_expected,
+            Certificate::new(
                 "previous_hash".to_string(),
                 Beacon::new("testnet".to_string(), 10, 100),
-                ProtocolParameters::new(1000, 100, 0.123),
-                "digest".to_string(),
-                "started_at".to_string(),
-                "completed_at".to_string(),
-                vec![
-                    SignerWithStake::new("1".to_string(), "verification-key-123".to_string(), 10),
-                    SignerWithStake::new("2".to_string(), "verification-key-456".to_string(), 20)
-                ],
+                CertificateMetadata::new(
+                    "0.1.0-modified".to_string(),
+                    ProtocolParameters::new(1000, 100, 0.123),
+                    "initiated_at".to_string(),
+                    "sealed_at".to_string(),
+                    vec![
+                        SignerWithStake::new(
+                            "1".to_string(),
+                            "verification-key-123".to_string(),
+                            10
+                        ),
+                        SignerWithStake::new(
+                            "2".to_string(),
+                            "verification-key-456".to_string(),
+                            20
+                        )
+                    ],
+                ),
+                protocol_message.clone(),
                 "aggregate_verification_key".to_string(),
-                "modified-multisignature".to_string(),
-            ))
+                "multi_signature".to_string(),
+                "genesis_signature".to_string(),
+            )
+            .compute_hash()
+        );
+
+        let mut protocol_message_modified = protocol_message.clone();
+        protocol_message_modified.set_message_part(
+            ProtocolMessagePartKey::NextAggregateVerificationKey,
+            "next-avk-456".to_string(),
+        );
+        assert_ne!(
+            hash_expected,
+            Certificate::new(
+                "previous_hash".to_string(),
+                Beacon::new("testnet".to_string(), 10, 100),
+                CertificateMetadata::new(
+                    "0.1.0".to_string(),
+                    ProtocolParameters::new(1000, 100, 0.123),
+                    "initiated_at".to_string(),
+                    "sealed_at".to_string(),
+                    vec![
+                        SignerWithStake::new(
+                            "1".to_string(),
+                            "verification-key-123".to_string(),
+                            10
+                        ),
+                        SignerWithStake::new(
+                            "2".to_string(),
+                            "verification-key-456".to_string(),
+                            20
+                        )
+                    ],
+                ),
+                protocol_message_modified.clone(),
+                "aggregate_verification_key".to_string(),
+                "multi_signature".to_string(),
+                "genesis_signature".to_string(),
+            )
+            .compute_hash()
+        );
+
+        assert_ne!(
+            hash_expected,
+            Certificate::new(
+                "previous_hash".to_string(),
+                Beacon::new("testnet".to_string(), 10, 100),
+                CertificateMetadata::new(
+                    "0.1.0".to_string(),
+                    ProtocolParameters::new(1000, 100, 0.123),
+                    "initiated_at".to_string(),
+                    "sealed_at".to_string(),
+                    vec![
+                        SignerWithStake::new(
+                            "1".to_string(),
+                            "verification-key-123".to_string(),
+                            10
+                        ),
+                        SignerWithStake::new(
+                            "2".to_string(),
+                            "verification-key-456".to_string(),
+                            20
+                        )
+                    ],
+                ),
+                protocol_message.clone(),
+                "aggregate_verification_key-modified".to_string(),
+                "multi_signature".to_string(),
+                "genesis_signature".to_string(),
+            )
+            .compute_hash()
+        );
+
+        assert_ne!(
+            hash_expected,
+            Certificate::new(
+                "previous_hash".to_string(),
+                Beacon::new("testnet".to_string(), 10, 100),
+                CertificateMetadata::new(
+                    "0.1.0".to_string(),
+                    ProtocolParameters::new(1000, 100, 0.123),
+                    "initiated_at".to_string(),
+                    "sealed_at".to_string(),
+                    vec![
+                        SignerWithStake::new(
+                            "1".to_string(),
+                            "verification-key-123".to_string(),
+                            10
+                        ),
+                        SignerWithStake::new(
+                            "2".to_string(),
+                            "verification-key-456".to_string(),
+                            20
+                        )
+                    ],
+                ),
+                protocol_message.clone(),
+                "aggregate_verification_key".to_string(),
+                "multi_signature-modified".to_string(),
+                "genesis_signature".to_string(),
+            )
+            .compute_hash()
+        );
+
+        assert_ne!(
+            hash_expected,
+            Certificate::new(
+                "previous_hash".to_string(),
+                Beacon::new("testnet".to_string(), 10, 100),
+                CertificateMetadata::new(
+                    "0.1.0".to_string(),
+                    ProtocolParameters::new(1000, 100, 0.123),
+                    "initiated_at".to_string(),
+                    "sealed_at".to_string(),
+                    vec![
+                        SignerWithStake::new(
+                            "1".to_string(),
+                            "verification-key-123".to_string(),
+                            10
+                        ),
+                        SignerWithStake::new(
+                            "2".to_string(),
+                            "verification-key-456".to_string(),
+                            20
+                        )
+                    ],
+                ),
+                protocol_message.clone(),
+                "aggregate_verification_key".to_string(),
+                "multi_signature".to_string(),
+                "genesis_signature-modified".to_string(),
+            )
+            .compute_hash()
         );
     }
 }

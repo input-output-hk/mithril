@@ -55,6 +55,8 @@ impl Devnet {
         artifacts_target_dir: PathBuf,
         number_of_bft_nodes: u8,
         number_of_pool_nodes: u8,
+        cardano_slot_length: f64,
+        cardano_epoch_length: f64,
     ) -> Result<Devnet, String> {
         let bootstrap_script = "devnet-mkfiles.sh";
         let bootstrap_script_path = devnet_scripts_dir
@@ -79,6 +81,8 @@ impl Devnet {
             artifacts_target_dir.to_str().unwrap(),
             &number_of_bft_nodes.to_string(),
             &number_of_pool_nodes.to_string(),
+            &cardano_slot_length.to_string(),
+            &cardano_epoch_length.to_string(),
         ];
         bootstrap_command
             .current_dir(devnet_scripts_dir)
@@ -179,6 +183,25 @@ impl Devnet {
             .wait()
             .await
             .map_err(|e| format!("Error while stopping the devnet: {}", e))?;
+        Ok(())
+    }
+
+    pub async fn delegate_stakes(&self) -> Result<(), String> {
+        let run_script = "delegate.sh";
+        let run_script_path = self.artifacts_dir.join(run_script);
+        let mut run_command = Command::new(&run_script_path);
+        run_command
+            .current_dir(&self.artifacts_dir)
+            .kill_on_drop(true);
+
+        info!("Delegating stakes to the pools"; "script" => &run_script_path.display());
+
+        run_command
+            .spawn()
+            .map_err(|e| format!("Failed to delegate stakes to the pools: {}", e))?
+            .wait()
+            .await
+            .map_err(|e| format!("Error while delegating stakes to the pools: {}", e))?;
         Ok(())
     }
 }

@@ -75,8 +75,8 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
                     Err(err) => Err(CertificateHandlerError::JsonParseFailed(err.to_string())),
                 },
                 StatusCode::NO_CONTENT => Ok(None),
-                status_error => Err(CertificateHandlerError::RemoteServerTechnical(
-                    status_error.to_string(),
+                _ => Err(CertificateHandlerError::RemoteServerTechnical(
+                    response.text().await.unwrap_or_default(),
                 )),
             },
             Err(err) => Err(CertificateHandlerError::RemoteServerUnreachable(
@@ -96,8 +96,8 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
                 StatusCode::BAD_REQUEST => Err(CertificateHandlerError::RemoteServerLogical(
                     "bad request".to_string(),
                 )),
-                status_error => Err(CertificateHandlerError::RemoteServerTechnical(
-                    status_error.to_string(),
+                _ => Err(CertificateHandlerError::RemoteServerTechnical(
+                    response.text().await.unwrap_or_default(),
                 )),
             },
             Err(err) => Err(CertificateHandlerError::RemoteServerUnreachable(
@@ -123,8 +123,8 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
                 StatusCode::CONFLICT => Err(CertificateHandlerError::RemoteServerLogical(
                     "already registered single signatures".to_string(),
                 )),
-                status_error => Err(CertificateHandlerError::RemoteServerTechnical(
-                    status_error.to_string(),
+                _ => Err(CertificateHandlerError::RemoteServerTechnical(
+                    response.text().await.unwrap_or_default(),
                 )),
             },
             Err(err) => Err(CertificateHandlerError::RemoteServerUnreachable(
@@ -196,12 +196,12 @@ mod tests {
         let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.path("/certificate-pending");
-            then.status(500);
+            then.status(500).body("an error occurred");
         });
         let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
         let pending_certificate = certificate_handler.retrieve_pending_certificate().await;
         assert_eq!(
-            CertificateHandlerError::RemoteServerTechnical("500 Internal Server Error".to_string())
+            CertificateHandlerError::RemoteServerTechnical("an error occurred".to_string())
                 .to_string(),
             pending_certificate.unwrap_err().to_string()
         );
@@ -245,12 +245,12 @@ mod tests {
         let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signer");
-            then.status(500);
+            then.status(500).body("an error occurred");
         });
         let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
         let register_signer = certificate_handler.register_signer(&single_signer).await;
         assert_eq!(
-            CertificateHandlerError::RemoteServerTechnical("500 Internal Server Error".to_string())
+            CertificateHandlerError::RemoteServerTechnical("an error occurred".to_string())
                 .to_string(),
             register_signer.unwrap_err().to_string()
         );
@@ -316,14 +316,14 @@ mod tests {
         let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
-            then.status(500);
+            then.status(500).body("an error occurred");
         });
         let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
         let register_signatures = certificate_handler
             .register_signatures(&single_signatures)
             .await;
         assert_eq!(
-            CertificateHandlerError::RemoteServerTechnical("500 Internal Server Error".to_string())
+            CertificateHandlerError::RemoteServerTechnical("an error occurred".to_string())
                 .to_string(),
             register_signatures.unwrap_err().to_string()
         );

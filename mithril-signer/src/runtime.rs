@@ -1,3 +1,4 @@
+use hex::ToHex;
 use slog_scope::{error, info, warn};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -7,11 +8,14 @@ use tokio::sync::RwLock;
 use tokio::time::sleep;
 
 use mithril_common::chain_observer::{ChainObserver, ChainObserverError};
-use mithril_common::crypto_helper::{key_encode_hex, Bytes};
+use mithril_common::crypto_helper::key_encode_hex;
 use mithril_common::digesters::{Digester, DigesterError};
-use mithril_common::entities::{self, Beacon, CertificatePending, Epoch, PartyId, SignerWithStake};
+use mithril_common::entities::{
+    self, Beacon, BeaconError, CertificatePending, Epoch, PartyId, ProtocolMessage,
+    ProtocolMessagePartKey, SignerWithStake,
+};
 use mithril_common::store::stake_store::{StakeStore, StakeStoreError, StakeStorer};
-use mithril_common::SIGNER_EPOCH_RETRIEVAL_OFFSET;
+use mithril_common::{SIGNER_EPOCH_RECORDING_OFFSET, SIGNER_EPOCH_RETRIEVAL_OFFSET};
 
 use super::certificate_handler::CertificateHandler;
 use super::single_signer::SingleSigner;
@@ -61,6 +65,9 @@ pub enum RuntimeError {
     #[error("register signer failed: `{0}`")]
     RegisterSignerFailed(String),
 
+    #[error("register signature failed: `{0}`")]
+    RegisterSignatureFailed(String),
+
     #[error("codec error:`{0}`")]
     Codec(String),
 
@@ -75,6 +82,9 @@ pub enum RuntimeError {
 
     #[error("chain observer failed: `{0}`")]
     ChainObserver(#[from] ChainObserverError),
+
+    #[error("beacon error: '{0}'")]
+    Beacon(#[from] BeaconError),
 }
 
 impl Runtime {
@@ -123,9 +133,8 @@ impl Runtime {
 
             let beacon = &pending_certificate.clone().beacon;
             if self.is_new_beacon(beacon) {
-                let message = self.digester.compute_digest()?;
-                info!("Signing digest"; "digester_result" => #?message);
-                self.register_signatures(message.digest.into_bytes(), pending_certificate)
+                let snapshot_digest = self.digester.compute_digest()?.digest;
+                self.register_signatures(snapshot_digest, pending_certificate)
                     .await?;
                 self.current_beacon = Some(beacon.to_owned());
             }
@@ -194,17 +203,21 @@ impl Runtime {
 
     async fn register_signatures(
         &mut self,
-        message: Bytes,
+        snapshot_digest: String,
         pending_certificate: CertificatePending,
     ) -> Result<(), RuntimeError> {
         info!("Register signatures");
+        let stake_store = self.stake_store.read().await;
+
         let verification_keys = pending_certificate
             .signers
             .iter()
             .map(|signer| (signer.party_id.to_owned(), signer.verification_key.as_str()))
             .collect::<HashMap<PartyId, &str>>();
-        let epoch = pending_certificate.beacon.epoch - SIGNER_EPOCH_RETRIEVAL_OFFSET;
-        let stake_store = self.stake_store.read().await;
+        let epoch = pending_certificate
+            .beacon
+            .compute_beacon_with_epoch_offset(SIGNER_EPOCH_RETRIEVAL_OFFSET)?
+            .epoch;
         let stake_distribution = stake_store
             .get_stakes(epoch)
             .await?
@@ -221,17 +234,45 @@ impl Runtime {
             })
             .collect::<Vec<SignerWithStake>>();
 
+        let next_verification_keys = verification_keys.clone(); // TODO: Retrieve a new 'next_signers' field from the pending certificate (works now only because the verification keys is the same for each epoch)
+        let next_epoch = epoch + 1;
+        let next_stake_distribution = stake_store
+            .get_stakes(next_epoch)
+            .await?
+            .ok_or_else(RuntimeError::UnavailableStakes)?;
+
+        let next_stake_distribution_extended = next_stake_distribution
+            .into_iter()
+            .map(|(_, signer)| {
+                let verification_key = match next_verification_keys.get(&signer.party_id) {
+                    Some(verification_key_found) => *verification_key_found,
+                    None => "",
+                };
+                SignerWithStake::new(signer.party_id, verification_key.to_string(), signer.stake)
+            })
+            .collect::<Vec<SignerWithStake>>();
+
+        let mut protocol_message = ProtocolMessage::new();
+        protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, snapshot_digest);
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::NextAggregateVerificationKey,
+            self.single_signer
+                .compute_aggregate_verification_key(&next_stake_distribution_extended)?
+                .unwrap_or_default(),
+        );
+        info!("Signing protocol message"; "protocol_message" =>  #?protocol_message, "message" => protocol_message.compute_hash().encode_hex::<String>());
+
         let signatures = self.single_signer.compute_single_signatures(
-            message,
+            protocol_message.compute_hash().as_bytes().to_vec(),
             stake_distribution_extended,
             &pending_certificate.protocol_parameters,
         )?;
 
         if let Some(signatures) = signatures {
-            let _ = self
-                .certificate_handler
+            self.certificate_handler
                 .register_signatures(&signatures)
-                .await;
+                .await
+                .map_err(|e| RuntimeError::RegisterSignatureFailed(e.to_string()))?;
         }
 
         Ok(())
@@ -253,7 +294,7 @@ impl Runtime {
                         for (party_id, stake) in &stake_distribution {
                             stake_store
                                 .save_stake(
-                                    epoch,
+                                    (epoch as i64 + SIGNER_EPOCH_RECORDING_OFFSET) as u64,
                                     SignerWithStake::new(
                                         party_id.to_owned(),
                                         "".to_string(),
@@ -357,6 +398,9 @@ mod tests {
             .expect_register_signatures()
             .return_once(|_| Ok(()));
         mock_single_signer
+            .expect_compute_aggregate_verification_key()
+            .return_once(|_| Ok(Some("avk-123".to_string())));
+        mock_single_signer
             .expect_compute_single_signatures()
             .return_once(|_, _, _| Ok(Some(fake_data::single_signatures(vec![2, 5, 13]))))
             .once();
@@ -391,7 +435,7 @@ mod tests {
                 .stake_store
                 .read()
                 .await
-                .get_stakes(epoch)
+                .get_stakes((epoch as i64 + SIGNER_EPOCH_RECORDING_OFFSET) as u64)
                 .await
                 .unwrap()
                 .unwrap()
@@ -507,6 +551,9 @@ mod tests {
             .expect_register_signatures()
             .return_once(|_| Ok(()));
         mock_single_signer
+            .expect_compute_aggregate_verification_key()
+            .return_once(|_| Ok(Some("avk-123".to_string())));
+        mock_single_signer
             .expect_compute_single_signatures()
             .return_once(|_, _, _| Ok(Some(fake_data::single_signatures(vec![2, 5]))));
         mock_single_signer
@@ -568,6 +615,9 @@ mod tests {
             .returning(|_| Ok(()))
             .times(1);
         mock_single_signer
+            .expect_compute_aggregate_verification_key()
+            .return_once(|_| Ok(Some("avk-123".to_string())));
+        mock_single_signer
             .expect_compute_single_signatures()
             .return_once(|_, _, _| Ok(Some(fake_data::single_signatures(vec![2, 5]))));
         mock_single_signer
@@ -624,6 +674,9 @@ mod tests {
             .expect_register_signer()
             .return_once(|_| Ok(()));
         mock_single_signer
+            .expect_compute_aggregate_verification_key()
+            .return_once(|_| Ok(Some("avk-123".to_string())));
+        mock_single_signer
             .expect_compute_single_signatures()
             .return_once(|_, _, _| Ok(None));
         mock_single_signer
@@ -673,6 +726,9 @@ mod tests {
         mock_certificate_handler
             .expect_retrieve_pending_certificate()
             .return_once(|| Ok(Some(pending_certificate)));
+        mock_single_signer
+            .expect_compute_aggregate_verification_key()
+            .return_once(|_| Ok(Some("avk-123".to_string())));
         mock_single_signer
             .expect_compute_single_signatures()
             .return_once(|_, _, _| Err(SingleSignerError::UnregisteredVerificationKey()));

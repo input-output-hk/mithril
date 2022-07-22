@@ -4,6 +4,8 @@ use mithril::stm::{
     StmSig, StmSigner, StmVerificationKeyPoP,
 };
 
+pub type ProtocolVersion<'a> = &'a str;
+
 pub type Bytes = Vec<u8>;
 
 // Protocol types alias

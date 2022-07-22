@@ -38,11 +38,14 @@ set -e
 ROOT=$1
 NUM_BFT_NODES=$2
 NUM_POOL_NODES=$3
+SLOT_LENGTH=$4
+EPOCH_LENGTH=$5
 
-NODE_PORT_START=3000
-SUPPLY=1000000000
+SUPPLY=10000000000
 NETWORK_MAGIC=42
 SECURITY_PARAM=2
+
+NODE_PORT_START=3000
 NODE_ADDR_PREFIX="172.16.238"
 NODE_ADDR_INCREMENT=10
 CARDANO_BINARY_URL="https://hydra.iohk.io/build/13065769/download/1/cardano-node-1.34.1-linux.tar.gz"
@@ -317,10 +320,10 @@ mkdir shelley
 # and K=10, but we'll keep long KES periods so we don't have to bother
 # cycling KES keys
 sed -i shelley/genesis.spec.json \
-    -e 's/"slotLength": 1/"slotLength": 0.45/' \
+    -e 's/"slotLength": 1/"slotLength": '${SLOT_LENGTH}'/' \
     -e 's/"activeSlotsCoeff": 5.0e-2/"activeSlotsCoeff": 0.05/' \
     -e 's/"securityParam": 2160/"securityParam": '${SECURITY_PARAM}'/' \
-    -e 's/"epochLength": 432000/"epochLength": 80/' \
+    -e 's/"epochLength": 432000/"epochLength": '${EPOCH_LENGTH}'/' \
     -e 's/"maxLovelaceSupply": 0/"maxLovelaceSupply": 1000000000/' \
     -e 's/"decentralisationParam": 1.0/"decentralisationParam": 0.7/' \
     -e 's/"major": 0/"major": 4/' \
@@ -520,7 +523,7 @@ for N in ${POOL_NODES_N}; do
 
   AMOUNT_STAKED=$(( N*1000000 ))
   
-  # We'll transfer all the funds to the user1, which delegates to pool1
+  # We'll transfer funds to the user1, which delegates to pool1
   # We'll register certs to:
   #  1. register the pool-owner1 stake address
   #  2. register the stake pool 1
@@ -534,7 +537,7 @@ CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli transaction b
                 --verification-key-file addresses/utxo${N}.vkey) \\
     --tx-out \$(cat addresses/user${N}.addr)+${AMOUNT_STAKED} \\
     --change-address \$(cat addresses/utxo${N}.addr) \\
-    --testnet-magic ${NETWORK_MAGIC}  \\
+    --testnet-magic ${NETWORK_MAGIC} \\
     --certificate-file addresses/pool-owner${N}-stake.reg.cert \\
     --certificate-file node-pool${N}/registration.cert \\
     --certificate-file addresses/user${N}-stake.reg.cert \\
@@ -601,6 +604,63 @@ echo "Generated activate.sh script"
 echo "====================================================================="
 echo
 
+cat >> delegate.sh <<EOF
+#!/bin/bash
+    
+EOF
+
+# Prepare transactions for activating stake pools
+for N in ${POOL_NODES_N}; do
+
+  # We'll transfer funds to the user1, which delegates to pool1
+  # We'll register certs to:
+  #  1. delegate from the user1 stake address to the stake pool
+  cat >> delegate.sh <<EOF
+    AMOUNT_STAKED=\$(( $N*1000000 +  DELEGATION_ROUND*1 ))
+
+    CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli transaction build \\
+        --alonzo-era \\
+        --tx-in \$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query utxo  \\
+                    --testnet-magic ${NETWORK_MAGIC}  \\
+                    --address \$(cat addresses/utxo${N}.addr) | tail -n 1  | awk '{print \$1;}')#0 \\
+        --tx-out \$(cat addresses/user${N}.addr)+\${AMOUNT_STAKED} \\
+        --change-address \$(cat addresses/utxo${N}.addr) \\
+        --testnet-magic ${NETWORK_MAGIC} \\
+        --certificate-file addresses/user${N}-stake.deleg.cert \\
+        --invalid-hereafter 100000 \\
+        --out-file node-pool${N}/tx/tx${N}-\${DELEGATION_ROUND}.txbody \\
+        --witness-override 2
+
+EOF
+
+  # So we'll need to sign this with a the following keys:
+  # 1. the user1 stake address key, due to the delegation cert
+  cat >> delegate.sh <<EOF
+    CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli transaction sign \\
+        --signing-key-file addresses/utxo${N}.skey \\
+        --signing-key-file addresses/user${N}-stake.skey \\
+        --testnet-magic ${NETWORK_MAGIC} \\
+        --tx-body-file  node-pool${N}/tx/tx${N}-\${DELEGATION_ROUND}.txbody \\
+        --out-file      node-pool${N}/tx/tx${N}-\${DELEGATION_ROUND}.tx
+
+EOF
+
+  # Copy submit transaction to delegate.sh script
+  cat >> delegate.sh <<EOF
+    CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli transaction submit \\
+        --tx-file node-pool${N}/tx/tx${N}-\${DELEGATION_ROUND}.tx \\
+        --testnet-magic ${NETWORK_MAGIC}
+
+EOF
+
+done
+
+chmod u+x delegate.sh
+
+echo "Generated delegate.sh script"
+echo "====================================================================="
+echo
+
 cat >> query.sh <<EOF
 #!/bin/bash
 
@@ -617,7 +677,7 @@ curl -s \${AGGREGATOR_API_ENDPOINT}/certificate-pending | jq .
 echo
 
 echo ">> Query snapshots"
-curl -s \${AGGREGATOR_API_ENDPOINT}/snapshots | jq .
+curl -s \${AGGREGATOR_API_ENDPOINT}/snapshots | jq '.[:2]'
 echo
 
 echo "====================================================================="
@@ -824,7 +884,7 @@ cat >> docker-compose.yaml <<EOF
       - GOOGLE_APPLICATION_CREDENTIALS_JSON=
       - NETWORK=devnet
       - NETWORK_MAGIC=${NETWORK_MAGIC}
-      - RUN_INTERVAL=5000
+      - RUN_INTERVAL=1000
       - URL_SNAPSHOT_MANIFEST=
       - SNAPSHOT_STORE_TYPE=local
       - SNAPSHOT_UPLOADER_TYPE=local
@@ -871,7 +931,7 @@ cat >> docker-compose.yaml <<EOF
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
       - NETWORK=devnet
       - NETWORK_MAGIC=${NETWORK_MAGIC}
-      - RUN_INTERVAL=1000
+      - RUN_INTERVAL=700
       - DB_DIRECTORY=/data/db
       - STAKE_STORE_DIRECTORY=/data/mithril/signer/db/stake_db
       - CARDANO_NODE_SOCKET_PATH=/data/ipc/node.sock
@@ -926,7 +986,7 @@ cat >> start-cardano.sh <<EOF
 #!/bin/bash
 
 echo ">> Start Cardano network"
-killall cardano-node 2&>1 /dev/null
+killall cardano-node 2>&1 /dev/null
 ./cardano-cli --version
 ./cardano-node --version
 

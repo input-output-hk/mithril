@@ -1,10 +1,20 @@
 use super::types::*;
+use crate::entities::{ProtocolMessage, ProtocolMessagePartKey};
 
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
-pub fn setup_message() -> String {
-    "message_to_sign_123".to_string()
+pub fn setup_message() -> ProtocolMessage {
+    let mut protocol_message = ProtocolMessage::new();
+    protocol_message.set_message_part(
+        ProtocolMessagePartKey::SnapshotDigest,
+        "message_to_sign_123".to_string(),
+    );
+    protocol_message.set_message_part(
+        ProtocolMessagePartKey::NextAggregateVerificationKey,
+        "next-avk-123".to_string(),
+    );
+    protocol_message
 }
 
 pub fn setup_protocol_parameters() -> ProtocolParameters {

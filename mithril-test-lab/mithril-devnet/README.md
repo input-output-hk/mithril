@@ -65,6 +65,11 @@ NODES=mithril ./devnet-run.sh
 # Run devnet with 2 BFT nodes and 5 SPO nodes
 ROOT=artifacts NUM_BFT_NODES=2 NUM_POOL_NODES=5 ./devnet-run.sh
 
+# Run devnet custom slot length (0.5s) and custom epoch length (120s)
+# Slot length: the duration of a Cardano Eslot (can help modulate the immutables creation rate)
+# Epoch Length: the duration of a Cardano Epoch
+ROOT=artifacts SLOT_LENGTH=0.5 EPOCH_LENGTH=120 ./devnet-run.sh
+
 # Logs devnet
 ROOT=artifacts LINES=10 ./devnet-log.sh
 
@@ -217,7 +222,6 @@ artifacts
     "m": 100,
     "phi_f": 0.65
   },
-  "previous_hash": "123",
   "signers": [
     {
       "party_id": 0,

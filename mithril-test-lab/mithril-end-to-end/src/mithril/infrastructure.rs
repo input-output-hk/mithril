@@ -8,6 +8,7 @@ use std::sync::Arc;
 pub struct MithrilInfrastructure {
     work_dir: PathBuf,
     bin_dir: PathBuf,
+    devnet: Devnet,
     aggregator: Aggregator,
     signers: Vec<Signer>,
     cardano_chain_observer: Arc<CardanoCliChainObserver>,
@@ -50,19 +51,26 @@ impl MithrilInfrastructure {
             signers.push(signer);
         }
 
+        let cardano_chain_observer = Arc::new(CardanoCliChainObserver::new(Box::new(
+            CardanoCliRunner::new(
+                devnet.cardano_cli_path(),
+                bft_node.socket_path.clone(),
+                CardanoNetwork::DevNet(DEVNET_MAGIC_ID),
+            ),
+        )));
+
         Ok(Self {
             work_dir: work_dir.to_path_buf(),
             bin_dir: bin_dir.to_path_buf(),
+            devnet,
             aggregator,
             signers,
-            cardano_chain_observer: Arc::new(CardanoCliChainObserver::new(Box::new(
-                CardanoCliRunner::new(
-                    devnet.cardano_cli_path(),
-                    bft_node.socket_path.clone(),
-                    CardanoNetwork::DevNet(DEVNET_MAGIC_ID),
-                ),
-            ))),
+            cardano_chain_observer,
         })
+    }
+
+    pub fn devnet(&self) -> &Devnet {
+        &self.devnet
     }
 
     pub fn aggregator(&self) -> &Aggregator {
