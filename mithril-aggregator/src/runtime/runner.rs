@@ -4,12 +4,12 @@ use crate::snapshot_uploaders::SnapshotLocation;
 use crate::{DependencyManager, ProtocolError, SnapshotError, Snapshotter};
 use async_trait::async_trait;
 use chrono::Utc;
+use mithril_common::crypto_helper::ProtocolStakeDistribution;
 use mithril_common::digesters::DigesterResult;
 use mithril_common::entities::{
-    Beacon, Certificate, CertificatePending, ProtocolMessage, ProtocolMessagePartKey,
-    SignerWithStake, Snapshot,
+    Beacon, Certificate, CertificatePending, ProtocolMessage, ProtocolMessagePartKey, Snapshot,
 };
-use mithril_common::{store::stake_store::StakeStorer, CardanoNetwork};
+use mithril_common::CardanoNetwork;
 
 use slog_scope::{debug, error, info, trace};
 use std::path::Path;
@@ -234,24 +234,20 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .get_current_stake_distribution()
             .await?
             .ok_or_else(|| RuntimeError::General("no epoch was returned".to_string().into()))?;
-        let mut stake_store = self
+        let stake_distribution = stake_distribution
+            .iter()
+            .map(|(party_id, stake)| (party_id.to_owned(), *stake))
+            .collect::<ProtocolStakeDistribution>();
+        Ok(self
             .config
             .dependencies
-            .stake_store
+            .multi_signer
             .as_ref()
-            .ok_or_else(|| RuntimeError::General("no stake store registered".to_string().into()))?
+            .ok_or_else(|| RuntimeError::General("no multisigner registered".to_string().into()))?
             .write()
-            .await;
-
-        for (party_id, stake) in &stake_distribution {
-            stake_store
-                .save_stake(
-                    new_beacon.epoch,
-                    SignerWithStake::new(party_id.to_owned(), "".to_string(), *stake),
-                )
-                .await?;
-        }
-        Ok(())
+            .await
+            .update_stake_distribution(&stake_distribution)
+            .await?)
     }
 
     async fn create_new_pending_certificate_from_multisigner(
