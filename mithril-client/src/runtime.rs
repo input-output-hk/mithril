@@ -273,12 +273,27 @@ impl Runtime {
                         {
                             Some(next_aggregate_verification_key)
                                 if *next_aggregate_verification_key
-                                    == &certificate.aggregate_verification_key =>
+                                    == &certificate.aggregate_verification_key
+                                    && previous_certificate.beacon.epoch
+                                        != certificate.beacon.epoch =>
                             {
+                                // Certificate has not the same epoch as previous certificate
+                                Ok(Some(previous_certificate.to_owned()))
+                            }
+                            Some(_)
+                                if previous_certificate.aggregate_verification_key
+                                    == certificate.aggregate_verification_key
+                                    && previous_certificate.beacon.epoch
+                                        == certificate.beacon.epoch =>
+                            {
+                                // Certificate has the same epoch as previous certificate
                                 Ok(Some(previous_certificate.to_owned()))
                             }
                             None => Ok(None),
-                            _ => Err(RuntimeError::CertificateChainAVKUnmatch),
+                            _ => {
+                                debug!("Previous certificate {:#?}", previous_certificate);
+                                Err(RuntimeError::CertificateChainAVKUnmatch)
+                            }
                         }
                     }
                 }
