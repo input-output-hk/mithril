@@ -8,11 +8,11 @@ use mithril_common::crypto_helper::{
     key_decode_hex, key_encode_hex, ProtocolAggregateVerificationKey, ProtocolClerk,
     ProtocolKeyRegistration, ProtocolMultiSignature, ProtocolParameters, ProtocolPartyId,
     ProtocolSignerVerificationKey, ProtocolSingleSignature, ProtocolStake,
-    ProtocolStakeDistribution,
+    ProtocolStakeDistribution, PROTOCOL_VERSION,
 };
 use mithril_common::entities;
 use mithril_common::store::stake_store::{StakeStoreError, StakeStorer};
-use mithril_common::SIGNER_EPOCH_RETRIEVAL_OFFSET;
+use mithril_common::{SIGNER_EPOCH_RECORDING_OFFSET, SIGNER_EPOCH_RETRIEVAL_OFFSET};
 
 use super::beacon_store::BeaconStoreError;
 use super::dependency::{
@@ -23,7 +23,6 @@ use super::store::{
     VerificationKeyStorer,
 };
 
-use mithril_common::entities::PartyId;
 #[cfg(test)]
 use mockall::automock;
 
@@ -33,7 +32,7 @@ pub enum ProtocolError {
     ExistingSigner(),
 
     #[error("single signature already recorded")]
-    ExistingSingleSignature(PartyId),
+    ExistingSingleSignature(entities::PartyId),
 
     #[error("codec error: '{0}'")]
     Codec(String),
@@ -64,6 +63,9 @@ pub enum ProtocolError {
 
     #[error("single signature store error: '{0}'")]
     SingleSignatureStore(#[from] SingleSignatureStoreError),
+
+    #[error("beacon error: '{0}'")]
+    Beacon(#[from] entities::BeaconError),
 }
 
 /// MultiSigner is the cryptographic engine in charge of producing multi signatures from individual signatures
@@ -71,10 +73,13 @@ pub enum ProtocolError {
 #[async_trait]
 pub trait MultiSigner: Sync + Send {
     /// Get current message
-    async fn get_current_message(&self) -> Option<String>;
+    async fn get_current_message(&self) -> Option<entities::ProtocolMessage>;
 
     /// Update current message
-    async fn update_current_message(&mut self, message: String) -> Result<(), ProtocolError>;
+    async fn update_current_message(
+        &mut self,
+        message: entities::ProtocolMessage,
+    ) -> Result<(), ProtocolError>;
 
     /// Get protocol parameters
     async fn get_protocol_parameters(&self) -> Option<ProtocolParameters>;
@@ -88,11 +93,44 @@ pub trait MultiSigner: Sync + Send {
     /// Get stake distribution
     async fn get_stake_distribution(&self) -> Result<ProtocolStakeDistribution, ProtocolError>;
 
+    /// Get next stake distribution
+    /// i.e. the stake distribution that will be used at the next epoch
+    async fn get_next_stake_distribution(&self)
+        -> Result<ProtocolStakeDistribution, ProtocolError>;
+
     /// Update stake distribution
     async fn update_stake_distribution(
         &mut self,
         stakes: &ProtocolStakeDistribution,
     ) -> Result<(), ProtocolError>;
+
+    /// Compute aggregate verification key from stake distribution
+    async fn compute_aggregate_verification_key(
+        &self,
+        stakes: &ProtocolStakeDistribution,
+    ) -> Result<Option<ProtocolAggregateVerificationKey>, ProtocolError>;
+
+    /// Compute stake distribution aggregate verification key
+    async fn compute_stake_distribution_aggregate_verification_key(
+        &self,
+    ) -> Result<Option<String>, ProtocolError> {
+        let stakes = self.get_stake_distribution().await?;
+        match self.compute_aggregate_verification_key(&stakes).await? {
+            Some(avk) => Ok(Some(key_encode_hex(avk).map_err(ProtocolError::Codec)?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Compute next stake distribution aggregate verification key
+    async fn compute_next_stake_distribution_aggregate_verification_key(
+        &self,
+    ) -> Result<Option<String>, ProtocolError> {
+        let stakes = self.get_next_stake_distribution().await?;
+        match self.compute_aggregate_verification_key(&stakes).await? {
+            Some(avk) => Ok(Some(key_encode_hex(avk).map_err(ProtocolError::Codec)?)),
+            None => Ok(None),
+        }
+    }
 
     /// Register a signer
     async fn register_signer(
@@ -147,7 +185,10 @@ pub trait MultiSigner: Sync + Send {
 /// MultiSignerImpl is an implementation of the MultiSigner
 pub struct MultiSignerImpl {
     /// Message that is currently signed
-    current_message: Option<String>,
+    current_message: Option<entities::ProtocolMessage>,
+
+    /// Signing start datetime of current message
+    current_initiated_at: Option<DateTime<Utc>>,
 
     /// Protocol parameters used for signing
     protocol_parameters: Option<ProtocolParameters>,
@@ -185,6 +226,7 @@ impl MultiSignerImpl {
         debug!("New MultiSignerImpl created");
         Self {
             current_message: None,
+            current_initiated_at: None,
             protocol_parameters: None,
             clerk: None,
             multi_signature: None,
@@ -197,12 +239,15 @@ impl MultiSignerImpl {
     }
 
     /// Creates a clerk
-    pub async fn create_clerk(&self) -> Result<Option<ProtocolClerk>, ProtocolError> {
+    /// TODO: The clerk should use specific signers here (depending on epoch) and needs to be updated works here because the verification keys are the same for each epoch)
+    pub async fn create_clerk(
+        &self,
+        stakes: &ProtocolStakeDistribution,
+    ) -> Result<Option<ProtocolClerk>, ProtocolError> {
         debug!("Create clerk");
-        let stakes = self.get_stake_distribution().await?;
         let mut key_registration = ProtocolKeyRegistration::init();
         let mut total_signers = 0;
-        for (party_id, stake) in &stakes {
+        for (party_id, stake) in stakes {
             if let Ok(Some(verification_key)) = self.get_signer(party_id.to_owned()).await {
                 key_registration
                     .register(*stake, verification_key)
@@ -222,20 +267,63 @@ impl MultiSignerImpl {
             }
         }
     }
+
+    /// Get stake distribution with epoch offset
+    async fn get_stake_distribution_with_epoch_offset(
+        &self,
+        epoch_offset: i64,
+    ) -> Result<ProtocolStakeDistribution, ProtocolError> {
+        debug!("Get stake distribution with epoch offset"; "epoch_offset"=>epoch_offset);
+        let epoch = self
+            .beacon_store
+            .read()
+            .await
+            .get_current_beacon()
+            .await?
+            .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .compute_beacon_with_epoch_offset(epoch_offset)?
+            .epoch;
+
+        let signers = self
+            .stake_store
+            .read()
+            .await
+            .get_stakes(epoch)
+            .await?
+            .unwrap_or_default();
+        Ok(signers
+            .iter()
+            .map(|(party_id, signer)| {
+                (
+                    party_id.to_owned() as ProtocolPartyId,
+                    signer.stake as ProtocolStake,
+                )
+            })
+            .collect::<ProtocolStakeDistribution>())
+    }
 }
 
 #[async_trait]
 impl MultiSigner for MultiSignerImpl {
     /// Get current message
-    async fn get_current_message(&self) -> Option<String> {
+    async fn get_current_message(&self) -> Option<entities::ProtocolMessage> {
         self.current_message.clone()
     }
 
     /// Update current message
-    async fn update_current_message(&mut self, message: String) -> Result<(), ProtocolError> {
+    async fn update_current_message(
+        &mut self,
+        message: entities::ProtocolMessage,
+    ) -> Result<(), ProtocolError> {
         if self.current_message.clone() != Some(message.clone()) {
             self.multi_signature = None;
-            self.clerk = self.create_clerk().await?;
+            let stakes = self.get_stake_distribution().await?;
+            match self.create_clerk(&stakes).await {
+                Ok(clerk) => self.clerk = clerk,
+                Err(ProtocolError::Beacon(_)) => {}
+                Err(e) => return Err(e),
+            }
+            self.current_initiated_at = Some(Utc::now());
         }
         self.current_message = Some(message);
         Ok(())
@@ -259,38 +347,17 @@ impl MultiSigner for MultiSignerImpl {
     /// Get stake distribution
     async fn get_stake_distribution(&self) -> Result<ProtocolStakeDistribution, ProtocolError> {
         debug!("Get stake distribution");
-        let epoch = self
-            .beacon_store
-            .read()
+        self.get_stake_distribution_with_epoch_offset(SIGNER_EPOCH_RETRIEVAL_OFFSET)
             .await
-            .get_current_beacon()
-            .await?
-            .ok_or_else(ProtocolError::UnavailableBeacon)?
-            .epoch;
+    }
 
-        // TODO: move this on the beacon (or even the epoch ?)
-        #[allow(clippy::absurd_extreme_comparisons)]
-        if epoch < SIGNER_EPOCH_RETRIEVAL_OFFSET {
-            Err(ProtocolError::Core("Epoch below offset".to_string()))?;
-        }
-        let epoch = epoch - SIGNER_EPOCH_RETRIEVAL_OFFSET;
-
-        let signers = self
-            .stake_store
-            .read()
+    /// Get next stake distribution
+    async fn get_next_stake_distribution(
+        &self,
+    ) -> Result<ProtocolStakeDistribution, ProtocolError> {
+        debug!("Get next stake distribution");
+        self.get_stake_distribution_with_epoch_offset(SIGNER_EPOCH_RETRIEVAL_OFFSET + 1)
             .await
-            .get_stakes(epoch)
-            .await?
-            .unwrap_or_default();
-        Ok(signers
-            .iter()
-            .map(|(party_id, signer)| {
-                (
-                    party_id.to_owned() as ProtocolPartyId,
-                    signer.stake as ProtocolStake,
-                )
-            })
-            .collect::<ProtocolStakeDistribution>())
     }
 
     /// Update stake distribution
@@ -298,7 +365,7 @@ impl MultiSigner for MultiSignerImpl {
         &mut self,
         stakes: &ProtocolStakeDistribution,
     ) -> Result<(), ProtocolError> {
-        debug!("Update stake distribution to {:?}", stakes);
+        debug!("Update stake distribution"; "stakes" => #?stakes);
         let epoch = self
             .beacon_store
             .read()
@@ -306,6 +373,7 @@ impl MultiSigner for MultiSignerImpl {
             .get_current_beacon()
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .compute_beacon_with_epoch_offset(SIGNER_EPOCH_RECORDING_OFFSET)?
             .epoch;
         let mut stake_store = self.stake_store.write().await;
         for (party_id, stake) in stakes {
@@ -318,6 +386,17 @@ impl MultiSigner for MultiSignerImpl {
         }
 
         Ok(())
+    }
+
+    /// Compute aggregate verification key from stake distribution
+    async fn compute_aggregate_verification_key(
+        &self,
+        stakes: &ProtocolStakeDistribution,
+    ) -> Result<Option<ProtocolAggregateVerificationKey>, ProtocolError> {
+        match self.create_clerk(stakes).await? {
+            Some(clerk) => Ok(Some(clerk.compute_avk())),
+            None => Ok(None),
+        }
     }
 
     /// Register a signer
@@ -335,6 +414,7 @@ impl MultiSigner for MultiSignerImpl {
             .get_current_beacon()
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .compute_beacon_with_epoch_offset(SIGNER_EPOCH_RECORDING_OFFSET)?
             .epoch;
         let result = match self
             .verification_key_store
@@ -369,8 +449,8 @@ impl MultiSigner for MultiSignerImpl {
             .get_current_beacon()
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?
-            .epoch
-            - SIGNER_EPOCH_RETRIEVAL_OFFSET;
+            .compute_beacon_with_epoch_offset(SIGNER_EPOCH_RETRIEVAL_OFFSET)?
+            .epoch;
         let signers = self
             .verification_key_store
             .read()
@@ -398,8 +478,8 @@ impl MultiSigner for MultiSignerImpl {
             .get_current_beacon()
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?
-            .epoch
-            - SIGNER_EPOCH_RETRIEVAL_OFFSET;
+            .compute_beacon_with_epoch_offset(SIGNER_EPOCH_RETRIEVAL_OFFSET)?
+            .epoch;
         let signers = self
             .verification_key_store
             .read()
@@ -435,7 +515,8 @@ impl MultiSigner for MultiSignerImpl {
 
         // TODO: to remove once epoch offset is activated
         if self.clerk.as_ref().is_none() {
-            self.clerk = self.create_clerk().await?;
+            let stakes = self.get_stake_distribution().await?;
+            self.clerk = self.create_clerk(&stakes).await?;
         }
 
         let message = &self
@@ -454,7 +535,7 @@ impl MultiSigner for MultiSignerImpl {
         signatures
             .to_protocol_signature()
             .map_err(ProtocolError::Codec)?
-            .verify(protocol_parameters, avk, message.as_bytes())
+            .verify(protocol_parameters, avk, message.compute_hash().as_bytes())
             .map_err(|e| ProtocolError::Core(e.to_string()))?;
 
         // Register single signature
@@ -495,7 +576,7 @@ impl MultiSigner for MultiSignerImpl {
             .await
             .ok_or_else(ProtocolError::UnavailableMessage)?;
 
-        debug!("Create multi signature"; "message" => message.encode_hex::<String>());
+        debug!("Create multi signature"; "protocol_message" =>  #?message, "message" => message.compute_hash().encode_hex::<String>());
 
         let beacon = self
             .beacon_store
@@ -527,13 +608,18 @@ impl MultiSigner for MultiSignerImpl {
                 .unwrap_or(0) as u64
         {
             // Quorum is not reached
+            debug!(
+                "Quorum is not reached {} signatures vs {} needed",
+                signatures.len(),
+                self.protocol_parameters.unwrap().k
+            );
             return Ok(None);
         }
         let clerk = self
             .clerk
             .as_ref()
             .ok_or_else(ProtocolError::UnavailableClerk)?;
-        match clerk.aggregate(&signatures, message.as_bytes()) {
+        match clerk.aggregate(&signatures, message.compute_hash().as_bytes()) {
             Ok(multi_signature) => {
                 self.avk = Some(clerk.compute_avk());
                 self.multi_signature = Some(multi_signature.clone());
@@ -544,7 +630,6 @@ impl MultiSigner for MultiSignerImpl {
     }
 
     /// Creates a certificate from a multi signature
-    // TODO: Clarify what started/completed date represents
     async fn create_certificate(
         &self,
         beacon: entities::Beacon,
@@ -554,33 +639,40 @@ impl MultiSigner for MultiSignerImpl {
 
         match self.get_multi_signature().await? {
             Some(multi_signature) => {
+                let protocol_version = PROTOCOL_VERSION.to_string();
                 let protocol_parameters = self
                     .get_protocol_parameters()
                     .await
                     .ok_or_else(ProtocolError::UnavailableProtocolParameters)?
                     .into();
-                let digest = self
+                let initiated_at =
+                    format!("{:?}", self.current_initiated_at.unwrap_or_else(Utc::now));
+                let sealed_at = format!("{:?}", Utc::now());
+                let signers = self.get_signers_with_stake().await?; // TODO: Filter with actual signers only?
+                let metadata = entities::CertificateMetadata::new(
+                    protocol_version,
+                    protocol_parameters,
+                    initiated_at,
+                    sealed_at,
+                    signers,
+                );
+                let protocol_message = self
                     .get_current_message()
                     .await
                     .ok_or_else(ProtocolError::UnavailableMessage)?;
-                let previous_hash = previous_hash;
-                let started_at = format!("{:?}", Utc::now());
-                let completed_at = started_at.clone();
-                let signers = self.get_signers_with_stake().await?;
                 let aggregate_verification_key =
                     key_encode_hex(&self.avk.as_ref().unwrap()).map_err(ProtocolError::Codec)?;
                 let multi_signature =
                     key_encode_hex(&multi_signature).map_err(ProtocolError::Codec)?;
+                let genesis_signature = "".to_string();
                 Ok(Some(entities::Certificate::new(
                     previous_hash,
                     beacon,
-                    protocol_parameters,
-                    digest,
-                    started_at,
-                    completed_at,
-                    signers,
+                    metadata,
+                    protocol_message,
                     aggregate_verification_key,
                     multi_signature,
+                    genesis_signature,
                 )))
             }
             None => Ok(None),
@@ -595,7 +687,6 @@ mod tests {
     use super::*;
 
     use mithril_common::crypto_helper::tests_setup::*;
-    use mithril_common::entities::{Epoch, ImmutableFileNumber, PartyId, SingleSignatures};
     use mithril_common::fake_data;
     use mithril_common::store::adapter::MemoryAdapter;
     use mithril_common::store::stake_store::StakeStore;
@@ -609,14 +700,25 @@ mod tests {
         let mut beacon_store = MemoryBeaconStore::new();
         beacon_store.set_current_beacon(beacon).await.unwrap();
         let verification_key_store = VerificationKeyStore::new(Box::new(
-            MemoryAdapter::<Epoch, HashMap<PartyId, entities::Signer>>::new(None).unwrap(),
+            MemoryAdapter::<entities::Epoch, HashMap<entities::PartyId, entities::Signer>>::new(
+                None,
+            )
+            .unwrap(),
         ));
-        let stake_store = StakeStore::new(Box::new(
-            MemoryAdapter::<Epoch, HashMap<PartyId, entities::SignerWithStake>>::new(None).unwrap(),
-        ));
-        let single_signature_store = SingleSignatureStore::new(Box::new(
-            MemoryAdapter::<ImmutableFileNumber, HashMap<PartyId, SingleSignatures>>::new(None)
+        let stake_store =
+            StakeStore::new(Box::new(
+                MemoryAdapter::<
+                    entities::Epoch,
+                    HashMap<entities::PartyId, entities::SignerWithStake>,
+                >::new(None)
                 .unwrap(),
+            ));
+        let single_signature_store = SingleSignatureStore::new(Box::new(
+            MemoryAdapter::<
+                entities::ImmutableFileNumber,
+                HashMap<entities::PartyId, entities::SingleSignatures>,
+            >::new(None)
+            .unwrap(),
         ));
         MultiSignerImpl::new(
             Arc::new(RwLock::new(beacon_store)),
@@ -635,9 +737,9 @@ mod tests {
     }
 
     fn take_signatures_until_quorum_is_almost_reached(
-        signatures: &mut Vec<SingleSignatures>,
+        signatures: &mut Vec<entities::SingleSignatures>,
         quorum: usize,
-    ) -> Vec<SingleSignatures> {
+    ) -> Vec<entities::SingleSignatures> {
         signatures.sort_by(|l, r| l.won_indexes.len().cmp(&r.won_indexes.len()));
 
         let mut result = vec![];
@@ -702,14 +804,31 @@ mod tests {
             .await
             .expect("update stake distribution failed");
 
-        offset_epoch(&multi_signer, SIGNER_EPOCH_RETRIEVAL_OFFSET as i64).await;
+        offset_epoch(
+            &multi_signer,
+            (SIGNER_EPOCH_RECORDING_OFFSET - SIGNER_EPOCH_RETRIEVAL_OFFSET) as i64,
+        )
+        .await;
 
         let mut stake_distribution = multi_signer
             .get_stake_distribution()
             .await
             .expect("get state distribution failed");
         stake_distribution.sort_by_key(|k| k.0.clone());
-        assert_eq!(stake_distribution_expected, stake_distribution)
+        let stake_distribution_next_expected = multi_signer
+            .get_next_stake_distribution()
+            .await
+            .expect("get next state distribution failed");
+        assert_eq!(stake_distribution_expected, stake_distribution);
+
+        offset_epoch(&multi_signer, 1).await;
+
+        let mut stake_distribution = multi_signer
+            .get_stake_distribution()
+            .await
+            .expect("get state distribution failed");
+        stake_distribution.sort_by_key(|k| k.0.clone());
+        assert_eq!(stake_distribution_next_expected, stake_distribution);
     }
 
     #[tokio::test]
@@ -740,7 +859,11 @@ mod tests {
                 .expect("register should have succeeded")
         }
 
-        offset_epoch(&multi_signer, SIGNER_EPOCH_RETRIEVAL_OFFSET as i64).await;
+        offset_epoch(
+            &multi_signer,
+            (SIGNER_EPOCH_RECORDING_OFFSET - SIGNER_EPOCH_RETRIEVAL_OFFSET) as i64,
+        )
+        .await;
 
         let mut signers_with_stake_all_expected = Vec::new();
         for (party_id, stake, verification_key_expected, _, _) in &signers {
@@ -815,11 +938,15 @@ mod tests {
                 .expect("register should have succeeded")
         }
 
-        offset_epoch(&multi_signer, SIGNER_EPOCH_RETRIEVAL_OFFSET as i64).await;
+        offset_epoch(
+            &multi_signer,
+            (SIGNER_EPOCH_RECORDING_OFFSET - SIGNER_EPOCH_RETRIEVAL_OFFSET) as i64,
+        )
+        .await;
 
         let mut signatures = Vec::new();
         for (party_id, _, _, protocol_signer, _) in &signers {
-            if let Some(signature) = protocol_signer.sign(message.as_bytes()) {
+            if let Some(signature) = protocol_signer.sign(message.compute_hash().as_bytes()) {
                 let won_indexes = signature.indexes.clone();
 
                 signatures.push(SingleSignatures::new(
@@ -896,10 +1023,19 @@ mod tests {
                 .is_some(),
             "no multi-signature were computed"
         );
-        assert!(multi_signer
+
+        // A certificate should also be produced with valid AVK
+        let certificate = multi_signer
             .create_certificate(beacon.clone(), previous_hash.clone())
             .await
-            .expect("create_certificate should not fail")
-            .is_some());
+            .expect("create_certificate should not fail");
+        assert!(certificate.is_some());
+        let avk_expected = certificate.unwrap().aggregate_verification_key;
+        let avk_computed = multi_signer
+            .compute_stake_distribution_aggregate_verification_key()
+            .await
+            .expect("compute stake distribution aggregate verification key should not fail");
+        assert!(avk_computed.is_some());
+        assert_eq!(avk_expected, avk_computed.unwrap());
     }
 }

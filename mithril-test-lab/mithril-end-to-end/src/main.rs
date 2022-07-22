@@ -37,6 +37,14 @@ pub struct Args {
     /// Number of Pool nodes in the devnet
     #[clap(long, default_value_t = 2)]
     number_of_pool_nodes: u8,
+
+    /// Length of a Cardano slot in the devnet (in s)
+    #[clap(long, default_value_t = 0.25)]
+    cardano_slot_length: f64,
+
+    /// Length of a Cardano epoch in the devnet (in s)
+    #[clap(long, default_value_t = 45.0)]
+    cardano_epoch_length: f64,
 }
 
 #[tokio::main]
@@ -61,6 +69,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         work_dir.join("devnet"),
         args.number_of_bft_nodes,
         args.number_of_pool_nodes,
+        args.cardano_slot_length,
+        args.cardano_epoch_length,
     )
     .await?;
 

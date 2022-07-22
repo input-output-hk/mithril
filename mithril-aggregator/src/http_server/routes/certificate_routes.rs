@@ -188,7 +188,7 @@ mod tests {
             entities::Certificate,
         >::new()));
         certificate_store
-            .save(fake_data::certificate("cert-hash-123".to_string()))
+            .save(fake_data::certificate("{certificate_hash}".to_string()))
             .await
             .expect("certificate store save should have succeeded");
         let mut dependency_manager = setup_dependency_manager();

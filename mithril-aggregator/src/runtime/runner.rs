@@ -1,14 +1,15 @@
 use std::path::PathBuf;
 
 use crate::snapshot_uploaders::SnapshotLocation;
-use crate::{DependencyManager, SnapshotError, Snapshotter};
+use crate::{DependencyManager, ProtocolError, SnapshotError, Snapshotter};
 use async_trait::async_trait;
 use chrono::Utc;
+use mithril_common::crypto_helper::ProtocolStakeDistribution;
 use mithril_common::digesters::DigesterResult;
 use mithril_common::entities::{
-    Beacon, Certificate, CertificatePending, SignerWithStake, Snapshot,
+    Beacon, Certificate, CertificatePending, ProtocolMessage, ProtocolMessagePartKey, Snapshot,
 };
-use mithril_common::{store::stake_store::StakeStorer, CardanoNetwork};
+use mithril_common::CardanoNetwork;
 
 use slog_scope::{debug, error, info, trace};
 use std::path::Path;
@@ -233,24 +234,20 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .get_current_stake_distribution()
             .await?
             .ok_or_else(|| RuntimeError::General("no epoch was returned".to_string().into()))?;
-        let mut stake_store = self
+        let stake_distribution = stake_distribution
+            .iter()
+            .map(|(party_id, stake)| (party_id.to_owned(), *stake))
+            .collect::<ProtocolStakeDistribution>();
+        Ok(self
             .config
             .dependencies
-            .stake_store
+            .multi_signer
             .as_ref()
-            .ok_or_else(|| RuntimeError::General("no stake store registered".to_string().into()))?
+            .ok_or_else(|| RuntimeError::General("no multisigner registered".to_string().into()))?
             .write()
-            .await;
-
-        for (party_id, stake) in &stake_distribution {
-            stake_store
-                .save_stake(
-                    new_beacon.epoch,
-                    SignerWithStake::new(party_id.to_owned(), "".to_string(), *stake),
-                )
-                .await?;
-        }
-        Ok(())
+            .await
+            .update_stake_distribution(&stake_distribution)
+            .await?)
     }
 
     async fn create_new_pending_certificate_from_multisigner(
@@ -268,6 +265,11 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .await;
 
         debug!("creating certificate pending using multisigner");
+        let signers = match multi_signer.get_signers().await {
+            Ok(signers) => signers,
+            Err(ProtocolError::Beacon(_)) => vec![],
+            Err(e) => return Err(e.into()),
+        };
         let pending_certificate = CertificatePending::new(
             beacon,
             multi_signer
@@ -275,7 +277,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                 .await
                 .ok_or_else(|| RuntimeError::General("no protocol parameters".to_string().into()))?
                 .into(),
-            multi_signer.get_signers().await?,
+            signers,
         );
 
         Ok(pending_certificate)
@@ -306,15 +308,27 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         digest_result: DigesterResult,
     ) -> Result<(), RuntimeError> {
         info!("update message in multisigner");
-
-        self.config
+        let mut multi_signer = self
+            .config
             .dependencies
             .multi_signer
             .as_ref()
             .ok_or_else(|| RuntimeError::General("no multisigner registered".to_string().into()))?
             .write()
-            .await
-            .update_current_message(digest_result.digest)
+            .await;
+        let mut protocol_message = ProtocolMessage::new();
+        protocol_message
+            .set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest_result.digest);
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::NextAggregateVerificationKey,
+            multi_signer
+                .compute_next_stake_distribution_aggregate_verification_key()
+                .await
+                .map_err(RuntimeError::MultiSigner)?
+                .unwrap_or_default(),
+        );
+        multi_signer
+            .update_current_message(protocol_message)
             .await
             .map_err(RuntimeError::MultiSigner)
     }
@@ -352,7 +366,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             self.config.db_directory.clone(),
             self.config.snapshot_directory.clone(),
         );
-        let message = self
+        let protocol_message = self
             .config
             .dependencies
             .multi_signer
@@ -363,7 +377,12 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .get_current_message()
             .await
             .ok_or_else(|| RuntimeError::General("no message found".to_string().into()))?;
-        let snapshot_name = format!("{}.{}.tar.gz", self.config.network, &message);
+        let snapshot_digest = protocol_message
+            .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
+            .ok_or_else(|| {
+                RuntimeError::General("no snapshot digest message part found".to_string().into())
+            })?;
+        let snapshot_name = format!("{}.{}.tar.gz", self.config.network, snapshot_digest);
         // spawn a separate thread to prevent blocking
         let snapshot_path =
             tokio::task::spawn_blocking(move || -> Result<PathBuf, SnapshotError> {
@@ -382,6 +401,31 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         beacon: &Beacon,
     ) -> Result<Certificate, RuntimeError> {
         info!("create and save certificate");
+        let mut certificate_store = self
+            .config
+            .dependencies
+            .certificate_store
+            .as_ref()
+            .ok_or_else(|| {
+                RuntimeError::General("no certificate store registered".to_string().into())
+            })?
+            .write()
+            .await;
+        let latest_certificates = certificate_store.get_list(2).await?;
+        let last_certificate = latest_certificates.get(0);
+        let penultimate_certificate = latest_certificates.get(1);
+        let previous_hash = match (penultimate_certificate, last_certificate) {
+            (Some(penultimate_certificate), Some(last_certificate)) => {
+                // Check if last certificate is first certificate of its epoch
+                if penultimate_certificate.beacon.epoch != last_certificate.beacon.epoch {
+                    &last_certificate.hash
+                } else {
+                    &last_certificate.previous_hash
+                }
+            }
+            (None, Some(last_certificate)) => &last_certificate.hash,
+            _ => "",
+        };
         let multisigner = self
             .config
             .dependencies
@@ -391,21 +435,10 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .read()
             .await;
         let certificate = multisigner
-            .create_certificate(beacon.clone(), "".to_string()) // TODO: The certificate will be created slightly differently in order to implement fully the certificate chain. In the mean time, just removed the unused reference to 'previous_hash' in pending certificate
+            .create_certificate(beacon.clone(), previous_hash.to_owned())
             .await?
             .ok_or_else(|| RuntimeError::General("no certificate generated".to_string().into()))?;
-        let _ = self
-            .config
-            .dependencies
-            .certificate_store
-            .as_ref()
-            .ok_or_else(|| {
-                RuntimeError::General("no certificate store registered".to_string().into())
-            })?
-            .write()
-            .await
-            .save(certificate.clone())
-            .await?;
+        let _ = certificate_store.save(certificate.clone()).await?;
 
         Ok(certificate)
     }
@@ -438,8 +471,13 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         file_path: &Path,
         remote_locations: Vec<String>,
     ) -> Result<Snapshot, RuntimeError> {
+        let snapshot_digest = certificate
+            .protocol_message
+            .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
+            .ok_or_else(|| RuntimeError::General("message part not found".to_string().into()))?
+            .to_owned();
         let snapshot = Snapshot::new(
-            certificate.digest,
+            snapshot_digest,
             certificate.beacon,
             certificate.hash,
             std::fs::metadata(file_path)

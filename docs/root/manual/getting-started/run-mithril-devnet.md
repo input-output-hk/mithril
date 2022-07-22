@@ -196,7 +196,6 @@ The networks will be queried every `1s` and will display:
     "m": 100,
     "phi_f": 0.65
   },
-  "previous_hash": "123",
   "signers": []
 }
 

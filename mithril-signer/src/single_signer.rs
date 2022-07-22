@@ -3,8 +3,8 @@ use slog_scope::trace;
 use thiserror::Error;
 
 use mithril_common::crypto_helper::{
-    key_decode_hex, key_encode_hex, Bytes, ProtocolInitializer, ProtocolKeyRegistration,
-    ProtocolPartyId, ProtocolSigner,
+    key_decode_hex, key_encode_hex, Bytes, ProtocolClerk, ProtocolInitializer,
+    ProtocolKeyRegistration, ProtocolPartyId, ProtocolSigner,
 };
 use mithril_common::entities::{self, PartyId, SignerWithStake, SingleSignatures};
 
@@ -33,6 +33,12 @@ pub trait SingleSigner {
         stakes: Vec<SignerWithStake>,
         protocol_parameters: &entities::ProtocolParameters,
     ) -> Result<Option<SingleSignatures>, SingleSignerError>;
+
+    /// Compute aggregate verification key from stake distribution
+    fn compute_aggregate_verification_key(
+        &mut self,
+        stakes: &[SignerWithStake],
+    ) -> Result<Option<String>, SingleSignerError>;
 }
 
 #[derive(Error, Debug, PartialEq)]
@@ -194,6 +200,23 @@ impl SingleSigner for MithrilSingleSigner {
             None => Ok(None),
         }
     }
+
+    /// Compute aggregate verification key from stake distribution
+    fn compute_aggregate_verification_key(
+        &mut self,
+        stakes: &[SignerWithStake],
+    ) -> Result<Option<String>, SingleSignerError> {
+        match self.create_protocol_signer(stakes) {
+            Ok(protocol_signer) => {
+                let clerk = ProtocolClerk::from_signer(&protocol_signer);
+                Ok(Some(
+                    key_encode_hex(clerk.compute_avk()).map_err(SingleSignerError::Codec)?,
+                ))
+            }
+            Err(SingleSignerError::ProtocolSignerCreationFailure(_)) => Ok(None),
+            Err(e) => Err(e),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -228,7 +251,7 @@ mod tests {
         );
 
         let sign_result = single_signer.compute_single_signatures(
-            message.as_bytes().to_vec(),
+            message.compute_hash().as_bytes().to_vec(),
             stakes,
             &protocol_parameters.into(),
         );
@@ -267,7 +290,7 @@ mod tests {
         let avk = clerk.compute_avk();
 
         let sign_result = single_signer.compute_single_signatures(
-            message.as_bytes().to_vec(),
+            message.compute_hash().as_bytes().to_vec(),
             stakes,
             &protocol_parameters.into(),
         );
@@ -277,7 +300,11 @@ mod tests {
         let decoded_sig: ProtocolSingleSignature =
             key_decode_hex(&sign_result.unwrap().unwrap().signature).unwrap();
         assert!(decoded_sig
-            .verify(&protocol_parameters, &avk, &message.as_bytes())
+            .verify(
+                &protocol_parameters,
+                &avk,
+                &message.compute_hash().as_bytes()
+            )
             .is_ok());
         //TODO: decoded_sig.pk should probably be a StmVerificationKeyPoP, uncomment once fixed
         //assert_eq!(current_signer.2, decoded_sig.pk);
