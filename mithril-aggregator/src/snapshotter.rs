@@ -17,8 +17,8 @@ pub struct GzipSnapshotter {
     /// DB directory to snapshot
     db_directory: PathBuf,
 
-    /// Directory to store snapshot
-    snapshot_directory: PathBuf,
+    /// Directory to store ongoing snapshot
+    ongoing_snapshot_directory: PathBuf,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -65,15 +65,15 @@ impl Snapshotter for GzipSnapshotter {
 
 impl GzipSnapshotter {
     /// Snapshotter factory
-    pub fn new(db_directory: PathBuf, snapshot_directory: PathBuf) -> Self {
+    pub fn new(db_directory: PathBuf, ongoing_snapshot_directory: PathBuf) -> Self {
         Self {
             db_directory,
-            snapshot_directory,
+            ongoing_snapshot_directory,
         }
     }
 
     fn create_archive(&self, archive_name: &str) -> Result<PathBuf, SnapshotError> {
-        let path = self.snapshot_directory.join(archive_name);
+        let path = self.ongoing_snapshot_directory.join(archive_name);
         info!(
             "compressing {} into {}",
             self.db_directory.display(),

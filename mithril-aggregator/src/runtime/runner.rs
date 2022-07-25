@@ -30,9 +30,6 @@ pub struct AggregatorConfig {
 
     /// DB directory to snapshot
     pub db_directory: PathBuf,
-
-    /// Directory to store snapshot
-    pub snapshot_directory: PathBuf,
 }
 
 impl AggregatorConfig {
@@ -40,13 +37,11 @@ impl AggregatorConfig {
         interval: u64,
         network: CardanoNetwork,
         db_directory: &Path,
-        snapshot_directory: &Path,
     ) -> Self {
         Self {
             interval,
             network,
             db_directory: db_directory.to_path_buf(),
-            snapshot_directory: snapshot_directory.to_path_buf(),
         }
     }
 }

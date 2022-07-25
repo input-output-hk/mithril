@@ -103,11 +103,6 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
         dependency_manager.config.run_interval,
         CardanoNetwork::TestNet(42),
         dependency_manager.config.db_directory.as_path(),
-        dependency_manager
-            .config
-            .snapshot_directory
-            .as_path()
-            .as_ref(),
     );
 
     (dependency_manager, config)

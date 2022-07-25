@@ -172,9 +172,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
         config.db_directory.clone(),
         slog_scope::logger(),
     ));
+
+    // Snapshotter - Ensure its ongoing snapshot directory exist
+    let ongoing_snapshot_directory = config.snapshot_directory.join("pending_snapshot");
+    if !ongoing_snapshot_directory.exists() {
+        fs::create_dir(&ongoing_snapshot_directory)
+            .expect("Pending snapshot directory creation failure");
+    }
     let snapshotter = Arc::new(GzipSnapshotter::new(
         config.db_directory.clone(),
-        config.snapshot_directory.clone(),
+        ongoing_snapshot_directory,
     ));
     setup_dependencies_fake_data(multi_signer.clone()).await;
 
@@ -198,22 +205,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let dependency_manager = Arc::new(dependency_manager);
     let network = config.get_network()?;
 
-    // Ensure pending snapshot directory exist
-    let pending_snapshot_directory = config.snapshot_directory.join("pending_snapshot");
-    if !pending_snapshot_directory.exists() {
-        fs::create_dir(&pending_snapshot_directory)
-            .expect("Pending snapshot directory creation failure");
-    }
-
     // Start snapshot uploader
     let runtime_dependencies = dependency_manager.clone();
     let handle = tokio::spawn(async move {
-        let config = AggregatorConfig::new(
-            config.run_interval,
-            network,
-            &config.db_directory.clone(),
-            &pending_snapshot_directory,
-        );
+        let config =
+            AggregatorConfig::new(config.run_interval, network, &config.db_directory.clone());
         let mut runtime = AggregatorRuntime::new(
             Duration::from_millis(config.interval),
             None,
