@@ -110,6 +110,7 @@ impl Config {
             ))),
             SnapshotUploaderType::Local => Arc::new(RwLock::new(LocalSnapshotUploader::new(
                 self.server_url.clone(),
+                &self.snapshot_directory,
             ))),
         }
     }

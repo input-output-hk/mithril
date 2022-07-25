@@ -199,14 +199,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let network = config.get_network()?;
 
     // Start snapshot uploader
-    let snapshot_directory = config.snapshot_directory.clone();
+    let pending_snapshot_directory = config.snapshot_directory.join("pending_snapshot");
     let runtime_dependencies = dependency_manager.clone();
     let handle = tokio::spawn(async move {
         let config = AggregatorConfig::new(
             config.run_interval,
             network,
             &config.db_directory.clone(),
-            &snapshot_directory,
+            &pending_snapshot_directory,
         );
         let mut runtime = AggregatorRuntime::new(
             Duration::from_millis(config.interval),
