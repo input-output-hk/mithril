@@ -42,7 +42,7 @@ impl OngoingSnapshot {
 
 #[derive(Error, Debug)]
 pub enum SnapshotError {
-    #[error("Create archive error: ")]
+    #[error("Create archive error: {0}")]
     CreateArchiveError(#[from] io::Error),
 
     #[error("Upload file error: `{0}`")]
@@ -74,15 +74,15 @@ impl GzipSnapshotter {
 
     fn create_archive(&self, archive_name: &str) -> Result<PathBuf, SnapshotError> {
         let path = self.snapshot_directory.join(archive_name);
-        let tar_gz = File::create(&path).map_err(SnapshotError::CreateArchiveError)?;
-        let enc = GzEncoder::new(tar_gz, Compression::default());
-        let mut tar = tar::Builder::new(enc);
-
         info!(
             "compressing {} into {}",
             self.db_directory.display(),
             path.display()
         );
+
+        let tar_gz = File::create(&path).map_err(SnapshotError::CreateArchiveError)?;
+        let enc = GzEncoder::new(tar_gz, Compression::default());
+        let mut tar = tar::Builder::new(enc);
 
         tar.append_dir_all(".", &self.db_directory)
             .map_err(SnapshotError::CreateArchiveError)?;

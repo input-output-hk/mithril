@@ -16,10 +16,10 @@ use clap::Parser;
 use config::{Map, Source, Value, ValueKind};
 use slog::{Drain, Level, Logger};
 use slog_scope::debug;
-use std::env;
 use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::{env, fs};
 use tokio::sync::RwLock;
 use tokio::time::Duration;
 
@@ -198,8 +198,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let dependency_manager = Arc::new(dependency_manager);
     let network = config.get_network()?;
 
-    // Start snapshot uploader
+    // Ensure pending snapshot directory exist
     let pending_snapshot_directory = config.snapshot_directory.join("pending_snapshot");
+    if !pending_snapshot_directory.exists() {
+        fs::create_dir(&pending_snapshot_directory)
+            .expect("Pending snapshot directory creation failure");
+    }
+
+    // Start snapshot uploader
     let runtime_dependencies = dependency_manager.clone();
     let handle = tokio::spawn(async move {
         let config = AggregatorConfig::new(

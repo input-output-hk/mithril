@@ -81,8 +81,14 @@ pub trait AggregatorRunnerTrait: Sync + Send {
 
     async fn is_multisig_created(&self) -> Result<bool, RuntimeError>;
 
+    /// Create an archive of the cardano node db directory.
+    ///
+    /// Returns the path of the created archive and the archive size as byte.
     async fn create_snapshot_archive(&self) -> Result<OngoingSnapshot, RuntimeError>;
 
+    /// Upload the snapshot at the given location using the configured uploader(s).
+    ///
+    /// Important: the snapshot is removed after the upload succeeded.
     async fn upload_snapshot_archive(
         &self,
         ongoing_snapshot: &OngoingSnapshot,
@@ -451,6 +457,14 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .await
             .map_err(RuntimeError::SnapshotUploader)?;
 
+        tokio::fs::remove_file(ongoing_snapshot.get_file_path())
+            .await
+            .map_err(|e| {
+                RuntimeError::General(
+                    format!("Post upload local snapshot removal failure: {}", e).into(),
+                )
+            })?;
+
         Ok(vec![location])
     }
 
@@ -474,8 +488,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             remote_locations,
         );
 
-        let _ = self
-            .dependencies
+        self.dependencies
             .snapshot_store
             .as_ref()
             .ok_or_else(|| {
