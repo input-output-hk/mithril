@@ -33,11 +33,7 @@ pub struct AggregatorConfig {
 }
 
 impl AggregatorConfig {
-    pub fn new(
-        interval: u64,
-        network: CardanoNetwork,
-        db_directory: &Path,
-    ) -> Self {
+    pub fn new(interval: u64, network: CardanoNetwork, db_directory: &Path) -> Self {
         Self {
             interval,
             network,
@@ -500,12 +496,14 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
 #[cfg(test)]
 pub mod tests {
+    use crate::snapshotter::OngoingSnapshot;
     use crate::{
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
     };
     use mithril_common::{digesters::DigesterResult, entities::Beacon};
     use mithril_common::{entities::ProtocolMessagePartKey, store::stake_store::StakeStorer};
+    use tempfile::NamedTempFile;
 
     #[tokio::test]
     async fn test_is_new_beacon() {
@@ -556,16 +554,17 @@ pub mod tests {
 
         assert_eq!(beacon, stored_beacon);
     }
+
     #[tokio::test]
     async fn test_update_stake_distribution() {
         let (deps, config) = initialize_dependencies().await;
         let runner = AggregatorRunner::new(config, deps.clone());
         let beacon = runner.is_new_beacon(None).await.unwrap().unwrap();
-        let _res = runner
+        runner
             .update_beacon(&beacon)
             .await
             .expect("setting the beacon should not fail");
-        let _res = runner
+        runner
             .update_stake_distribution(&beacon)
             .await
             .expect("updating stake distribution should not return an error");
@@ -591,13 +590,12 @@ pub mod tests {
             .get_stakes(beacon.epoch + 1)
             .await
             .unwrap()
-            .expect(
-                format!(
+            .unwrap_or_else(|| {
+                panic!(
                     "I should have a stake distribution for the epoch {:?}",
                     beacon.epoch
                 )
-                .as_str(),
-            );
+            });
 
         assert_eq!(
             current_stake_distribution.len(),
@@ -725,6 +723,25 @@ pub mod tests {
         assert_eq!(
             "general error: no certificate pending for the given beacon".to_string(),
             err.to_string()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_remove_snapshot_archive_after_upload() {
+        let (deps, config) = initialize_dependencies().await;
+        let runner = AggregatorRunner::new(config, deps.clone());
+        let file = NamedTempFile::new().unwrap();
+        let file_path = file.path();
+        let snapshot = OngoingSnapshot::new(file_path.to_path_buf(), 7331);
+
+        runner
+            .upload_snapshot_archive(&snapshot)
+            .await
+            .expect("Snapshot upload should not fail");
+
+        assert!(
+            !file_path.exists(),
+            "Ongoing snapshot file should have been removed after upload"
         );
     }
 }

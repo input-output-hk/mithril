@@ -237,8 +237,8 @@ pub mod tests {
 
     use crate::{
         beacon_provider::DumbImmutableFileObserver, AggregatorConfig, BeaconProviderImpl,
-        CertificatePendingStore, CertificateStore, Config, DependencyManager, MemoryBeaconStore,
-        MultiSigner, MultiSignerImpl, SingleSignatureStore, SnapshotStoreType,
+        CertificatePendingStore, CertificateStore, Config, DependencyManager, DumbSnapshotUploader,
+        MemoryBeaconStore, MultiSigner, MultiSignerImpl, SingleSignatureStore, SnapshotStoreType,
         SnapshotUploaderType, VerificationKeyStore,
     };
     use mithril_common::{
@@ -309,6 +309,7 @@ pub mod tests {
             immutable_file_observer.clone(),
             mithril_common::CardanoNetwork::TestNet(42),
         )));
+        let snapshot_uploader = Arc::new(RwLock::new(DumbSnapshotUploader::new()));
         let mut dependency_manager = DependencyManager::new(config.clone());
         dependency_manager
             //.with_snapshot_store(snapshot_store.clone())
@@ -322,7 +323,8 @@ pub mod tests {
             .with_single_signature_store(single_signature_store.clone())
             .with_chain_observer(chain_observer.clone())
             .with_beacon_provider(beacon_provider.clone())
-            .with_immutable_file_observer(immutable_file_observer);
+            .with_immutable_file_observer(immutable_file_observer)
+            .with_snapshot_uploader(snapshot_uploader);
 
         let dependency_manager = Arc::new(dependency_manager);
         let config = AggregatorConfig::new(
