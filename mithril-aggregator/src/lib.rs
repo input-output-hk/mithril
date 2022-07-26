@@ -25,7 +25,7 @@ pub use runtime::{AggregatorConfig, AggregatorRunner, AggregatorRunnerTrait, Agg
 pub use snapshot_uploaders::{
     DumbSnapshotUploader, LocalSnapshotUploader, RemoteSnapshotUploader, SnapshotUploader,
 };
-pub use snapshotter::{DumbSnapshotter, SnapshotError, Snapshotter, SnapshotterTrait};
+pub use snapshotter::{DumbSnapshotter, GzipSnapshotter, SnapshotError, Snapshotter};
 pub use store::{
     CertificatePendingStore, CertificateStore, SingleSignatureStore, VerificationKeyStore,
     VerificationKeyStoreError, VerificationKeyStorer,

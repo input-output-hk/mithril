@@ -8,12 +8,12 @@ use std::path::{Path, PathBuf};
 use std::sync::RwLock;
 use thiserror::Error;
 
-pub trait SnapshotterTrait: Sync + Send {
+pub trait Snapshotter: Sync + Send {
     fn snapshot(&self, archive_name: &str) -> Result<OngoingSnapshot, SnapshotError>;
 }
 
 /// Snapshotter
-pub struct Snapshotter {
+pub struct GzipSnapshotter {
     /// DB directory to snapshot
     db_directory: PathBuf,
 
@@ -52,7 +52,7 @@ pub enum SnapshotError {
     GeneralError(String),
 }
 
-impl SnapshotterTrait for Snapshotter {
+impl Snapshotter for GzipSnapshotter {
     fn snapshot(&self, archive_name: &str) -> Result<OngoingSnapshot, SnapshotError> {
         let filepath = self.create_archive(archive_name)?;
         let filesize = std::fs::metadata(&filepath)
@@ -63,7 +63,7 @@ impl SnapshotterTrait for Snapshotter {
     }
 }
 
-impl Snapshotter {
+impl GzipSnapshotter {
     /// Snapshotter factory
     pub fn new(db_directory: PathBuf, snapshot_directory: PathBuf) -> Self {
         Self {
@@ -127,7 +127,7 @@ impl Default for DumbSnapshotter {
     }
 }
 
-impl SnapshotterTrait for DumbSnapshotter {
+impl Snapshotter for DumbSnapshotter {
     fn snapshot(&self, archive_name: &str) -> Result<OngoingSnapshot, SnapshotError> {
         let mut value = self
             .last_snapshot

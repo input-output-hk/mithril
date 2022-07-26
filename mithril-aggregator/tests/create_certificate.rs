@@ -12,9 +12,30 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 
+/// Simple struct to give a more helpful error message when ticking the state machine
+struct TickErrorMessage {
+    tick_no: u64,
+}
+
+impl TickErrorMessage {
+    pub fn new() -> Self {
+        Self { tick_no: 0 }
+    }
+
+    pub fn get_message(&mut self) -> String {
+        self.tick_no += 1;
+
+        format!(
+            "Ticking the state machine should not fail (tick n° {})",
+            self.tick_no
+        )
+    }
+}
+
 #[tokio::test]
 async fn create_certificate() {
     // initialization
+    let mut tick_error_msg = TickErrorMessage::new();
     let (mut deps, config) = initialize_dependencies().await;
     let immutable_file_observer = Arc::new(RwLock::new(DumbImmutableFileObserver::default()));
     let chain_observer = Arc::new(RwLock::new(FakeObserver::new()));
@@ -34,7 +55,7 @@ async fn create_certificate() {
     let mut runtime =
         AggregatorRuntime::new(Duration::from_millis(config.interval), None, runner.clone())
             .await
-            .unwrap();
+            .expect("Instantiating the Runtime should not fail.");
 
     // create signers & declare stake distribution
     let signers = tests_setup::setup_signers(2);
@@ -50,24 +71,29 @@ async fn create_certificate() {
         .collect();
 
     // start the runtime state machine
-    runtime.cycle().await.unwrap();
+    runtime.cycle().await.expect(&tick_error_msg.get_message());
     assert_eq!("signing", runtime.get_state());
-    runtime.cycle().await.unwrap();
+    runtime.cycle().await.expect(&tick_error_msg.get_message());
     assert_eq!("signing", runtime.get_state());
 
     // register signers
     {
-        let mut multisigner = deps.multi_signer.as_ref().unwrap().write().await;
+        let mut multisigner = deps
+            .multi_signer
+            .as_ref()
+            .expect("A multisigner should be registered.")
+            .write()
+            .await;
 
         for (party_id, _stakes, verification_key, _signer, _initializer) in &signers {
             multisigner
                 .register_signer(party_id.to_owned(), verification_key)
                 .await
-                .unwrap();
+                .expect("Registering a signer should not fail.");
         }
     }
 
-    runtime.cycle().await.unwrap();
+    runtime.cycle().await.expect(&tick_error_msg.get_message());
     assert_eq!("signing", runtime.get_state());
 
     // change the immutable number to alter the beacon
@@ -80,37 +106,45 @@ async fn create_certificate() {
             new_immutable_number,
             deps.beacon_provider
                 .as_ref()
-                .unwrap()
+                .expect("There should be a Beacon provider registered.")
                 .read()
                 .await
                 .get_current_beacon()
                 .await
-                .unwrap()
+                .expect("Querying the current beacon should not fail.")
                 .immutable_file_number
         );
     }
-    runtime.cycle().await.unwrap();
+    runtime.cycle().await.expect(&tick_error_msg.get_message());
     assert_eq!("idle", runtime.get_state());
-    runtime.cycle().await.unwrap();
+    runtime.cycle().await.expect(&tick_error_msg.get_message());
     assert_eq!("signing", runtime.get_state());
-    runtime.cycle().await.unwrap();
+    runtime.cycle().await.expect(&tick_error_msg.get_message());
     assert_eq!("signing", runtime.get_state());
 
     // signers send their single signature
     {
-        let multisigner = deps.multi_signer.as_ref().unwrap().write().await;
+        let multisigner = deps
+            .multi_signer
+            .as_ref()
+            .expect("Multisigner should be registered.")
+            .write()
+            .await;
         let _protocol_parameters = deps
             .certificate_pending_store
             .as_ref()
-            .unwrap()
+            .expect("There should be a certificate pending store registered.")
             .read()
             .await
             .get()
             .await
-            .unwrap()
-            .unwrap()
+            .expect("Getting from a memory certificate pending store should not fail.")
+            .expect("Getting the last pending certificate should not return empty.")
             .protocol_parameters;
-        let message = multisigner.get_current_message().await.unwrap();
+        let message = multisigner
+            .get_current_message()
+            .await
+            .expect("There should be a message to be signed.");
 
         for (party_id, _stakes, _verification_key, protocol_signer, _initializer) in &signers {
             if let Some(signature) = protocol_signer.sign(message.compute_hash().as_bytes()) {
@@ -120,7 +154,7 @@ async fn create_certificate() {
                     signature.indexes,
                 );
                 /* TODO: fix why there is no available clerk
-                * it sounds there is not stake distribution
+                * it sounds there is no stake distribution
                 * have to find out why
 
                     let _res = multisigner
@@ -133,6 +167,6 @@ async fn create_certificate() {
     }
 
     // run one more cycle to create a multisignature
-    // runtime.cycle().await.unwrap();
+    // runtime.cycle().await.expect(&tick_error_msg.get_message());
     // assert_eq!("idle", runtime.get_state());
 }

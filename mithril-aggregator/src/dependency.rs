@@ -12,8 +12,8 @@ use crate::beacon_provider::ImmutableFileObserver;
 use crate::beacon_store::BeaconStore;
 use crate::snapshot_uploaders::SnapshotUploader;
 use crate::{
-    BeaconProvider, CertificatePendingStore, CertificateStore, SingleSignatureStore,
-    SnapshotterTrait, VerificationKeyStore,
+    BeaconProvider, CertificatePendingStore, CertificateStore, SingleSignatureStore, Snapshotter,
+    VerificationKeyStore,
 };
 
 /// BeaconStoreWrapper wraps a BeaconStore
@@ -56,7 +56,7 @@ pub type ImmutableFileObserverWrapper = Arc<RwLock<dyn ImmutableFileObserver>>;
 pub type DigesterWrapper = Arc<dyn Digester>;
 
 // DigesterWrapper wraps a Digester
-pub type SnapshotterWrapper = Arc<dyn SnapshotterTrait>;
+pub type SnapshotterWrapper = Arc<dyn Snapshotter>;
 
 /// DependencyManager handles the dependencies
 pub struct DependencyManager {

@@ -2,9 +2,9 @@
 
 use mithril_aggregator::{
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, BeaconProviderImpl,
-    CertificatePendingStore, CertificateStore, Config, DependencyManager,
+    CertificatePendingStore, CertificateStore, Config, DependencyManager, GzipSnapshotter,
     ImmutableFileSystemObserver, MemoryBeaconStore, MultiSigner, MultiSignerImpl, Server,
-    SingleSignatureStore, Snapshotter, VerificationKeyStore,
+    SingleSignatureStore, VerificationKeyStore,
 };
 use mithril_common::chain_observer::CardanoCliRunner;
 use mithril_common::digesters::ImmutableDigester;
@@ -172,7 +172,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         config.db_directory.clone(),
         slog_scope::logger(),
     ));
-    let snapshotter = Arc::new(Snapshotter::new(
+    let snapshotter = Arc::new(GzipSnapshotter::new(
         config.db_directory.clone(),
         config.snapshot_directory.clone(),
     ));
