@@ -57,7 +57,7 @@ where
                 // We need to initialise the key_reg at each iteration
                 key_reg = KeyReg::init();
                 for p in ps[..nr].iter() {
-                    key_reg.register(p.stake(), p.verification_key()).unwrap();
+                    key_reg.register(p.stake, p.verification_key()).unwrap();
                 }
             })
         });

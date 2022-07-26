@@ -1,15 +1,16 @@
 //! Base multisignature scheme, used as a primitive for STM.
 //! See Section 2.4 of [the paper](https://eprint.iacr.org/2021/916).
-//!
+//! This module uses the `blst` library as a backend for pairings
+//! and can be activated by using the feature `blast`. This feature
+//! is not chosen by default due to some flaky tests, as exposed in the
+//! [issue](https://github.com/input-output-hk/mithril/issues/207)
 
-use super::stm::Index;
-
+use crate::stm::Index;
 use crate::error::{blst_err_to_atms, MultiSignatureError};
 use blake2::{Blake2b, Digest};
 
 // We use `min_sig` resulting in signatures of 48 bytes and public keys of
 // 96. We can switch that around if desired by using `min_pk`.
-// todo: Maybe we want this as a compilation flag?
 use blst::min_sig::{
     AggregatePublicKey, AggregateSignature, PublicKey as BlstPk, SecretKey as BlstSk,
     Signature as BlstSig,
@@ -60,6 +61,7 @@ impl SigningKey {
     }
 
     /// Convert a string of bytes into a `SigningKey`.
+    ///
     /// # Error
     /// Fails if the byte string represents a scalar larger than the group order.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
@@ -71,10 +73,16 @@ impl SigningKey {
     }
 }
 
-/// MultiSig verification key, which iss a wrapper over the BlstPk (element in G2)
+/// MultiSig verification key, which is a wrapper over the BlstPk (element in G2)
 /// from the blst library.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct VerificationKey(BlstPk);
+
+impl Display for VerificationKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.to_bytes())
+    }
+}
 
 impl Hash for VerificationKey {
     fn hash<H: Hasher>(&self, state: &mut H) {
@@ -82,7 +90,6 @@ impl Hash for VerificationKey {
     }
 }
 
-// We need to implement PartialEq instead of deriving it because we are implementing Hash.
 impl PartialEq for VerificationKey {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
@@ -100,10 +107,10 @@ impl VerificationKey {
     /// Convert a compressed byte string into a `VerificationKey`.
     ///
     /// # Error
-    /// This function fails if the bytes do not represent a compressed point of the curve.
-    // todo: check that whether this checks that the point is in the prime order group.
+    /// This function fails if the bytes do not represent a compressed point of the prime
+    /// order subgroup of the curve Bls12-381.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
-        match BlstPk::from_bytes(&bytes[..96]) {
+        match BlstPk::key_validate(&bytes[..96]) {
             Ok(pk) => Ok(Self(pk)),
             Err(e) => Err(blst_err_to_atms(e)
                 .expect_err("If deserialisation is not successful, blst returns and error different to SUCCESS."))
@@ -185,8 +192,6 @@ impl From<&SigningKey> for VerificationKey {
     }
 }
 
-// Again, unsafe code to access the algebraic operations.
-// todo: particular care reviewing this (specially transmute)
 impl From<&SigningKey> for ProofOfPossession {
     /// Convert a secret key into an `MspPoP`. This is performed by computing
     /// `k1 =  H_G1(b"PoP" || mvk)` and `k2 = g1 * sk` where `H_G1` hashes into
@@ -224,7 +229,6 @@ impl VerificationKeyPoP {
     /// manually.
     // If we are really looking for performance improvements, we can combine the
     // two final exponantiations (for verifying k1 and k2) into a single one.
-    // todo: review carefully. Unsafe to use algebraic operations and transmute
     pub fn check(&self) -> Result<(), MultiSignatureError> {
         use blst::{
             blst_fp12, blst_fp12_finalverify, blst_p1_affine_generator, blst_p1_to_affine,
@@ -348,7 +352,6 @@ impl Signature {
     /// 64 bytes integer. We follow the same mechanism as Shelley
     /// for the lottery (i.e., we follow the VRF lottery mechanism as described in Section 16 of
     /// <https://hydra.iohk.io/build/8201171/download/1/ledger-spec.pdf>).
-    // todo: if we are generic over the hash function, shouldn't we use the instance here?
     pub fn eval(&self, msg: &[u8], index: Index) -> [u8; 64] {
         let hasher = Blake2b::new()
             .chain(b"map")
@@ -369,11 +372,11 @@ impl Signature {
     }
 
     /// Convert a string of bytes into a `MspSig`.
+    ///
     /// # Error
     /// Returns an error if the byte string does not represent a point in the curve.
-    // todo: check that whether this checks that the point is in the prime order group.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
-        match BlstSig::from_bytes(&bytes[..48]) {
+        match BlstSig::sig_validate(&bytes[..48], true) {
             Ok(sig) => Ok(Self(sig)),
             Err(e) => Err(blst_err_to_atms(e)
                 .expect_err("If deserialisation is not successful, blst returns and error different to SUCCESS."))
@@ -396,6 +399,9 @@ impl Signature {
         result
     }
 
+    /// Verify a set of signatures with their corresponding verification keys by first hashing the
+    /// signatures into random scalars, and multiplying the signature and verification key with
+    /// the resulting value. This follows the steps defined in Figure 6, `Aggregate` step.
     pub(crate) fn verify_aggregate(
         msg: &[u8],
         vks: &[VerificationKey],

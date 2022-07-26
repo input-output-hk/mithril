@@ -1,6 +1,8 @@
 //! Base multisignature scheme, used as a primitive for STM.
 //! See Section 2.4 of [the paper](https://eprint.iacr.org/2021/916).
-//!
+//! This module uses the `zkcrypto/bls12-381` library as a backend for pairings
+//! and can be activated by using the feature `zcash`. This feature
+//! is chosen by default.
 
 use super::stm::Index;
 
@@ -51,6 +53,7 @@ impl SigningKey {
     }
 
     /// Convert a string of bytes into a `SigningKey`.
+    ///
     /// # Error
     /// Fails if the byte string represents a scalar larger than the group order.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
@@ -68,7 +71,6 @@ impl SigningKey {
 #[derive(Debug, Clone, Copy)]
 pub struct VerificationKey(G2Projective);
 
-// We implement Display as the byte representation to guarantee uniqueness of one point.
 impl Display for VerificationKey {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.to_bytes())
@@ -87,7 +89,6 @@ impl Hash for VerificationKey {
     }
 }
 
-// We need to implement PartialEq instead of deriving it because we are implementing Hash.
 impl PartialEq for VerificationKey {
     fn eq(&self, other: &Self) -> bool {
         self.0 == other.0
@@ -97,7 +98,7 @@ impl PartialEq for VerificationKey {
 impl Eq for VerificationKey {}
 
 impl VerificationKey {
-    /// Convert an `VerificationKey` to its compressed byte representation.
+    /// Convert a `VerificationKey` to its compressed byte representation.
     pub fn to_bytes(self) -> [u8; 96] {
         self.0.to_affine().to_compressed()
     }
@@ -106,7 +107,6 @@ impl VerificationKey {
     ///
     /// # Error
     /// This function fails if the bytes do not represent a compressed point of the curve.
-    // todo: check that whether this checks that the point is in the prime order group.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
         if bytes.len() < 96 {
             return Err(MultiSignatureError::SerializationError);
@@ -213,8 +213,6 @@ impl From<&SigningKey> for VerificationKey {
     }
 }
 
-// Again, unsafe code to access the algebraic operations.
-// todo: particular care reviewing this (specially transmute)
 impl From<&SigningKey> for ProofOfPossession {
     /// Convert a secret key into an `MspPoP`. This is performed by computing
     /// `k1 =  H_G1(b"PoP" || mvk) * sk` and `k2 = g1 * sk` where `H_G1` hashes into
@@ -244,8 +242,6 @@ impl VerificationKeyPoP {
     /// are both true, return 1. The first part is a signature verification
     /// of message "PoP", while the second we need to compute the pairing
     /// manually.
-    // If we are really looking for performance improvements, we can combine the
-    // two final exponantiations (for verifying k1 and k2) into a single one.
     pub fn check(&self) -> Result<(), MultiSignatureError> {
         let lhs_1 = pairing(&self.pop.k1.to_affine(), &G2Affine::generator());
         let rhs_1 = pairing(
@@ -326,7 +322,6 @@ impl Default for Signature {
     }
 }
 
-// We implement Display as the byte representation to guarantee uniqueness of one point.
 impl Display for Signature {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}", self.to_bytes())
@@ -353,7 +348,6 @@ impl Signature {
     /// 64 bytes integer. We follow the same mechanism as Shelley
     /// for the lottery (i.e., we follow the VRF lottery mechanism as described in Section 16 of
     /// <https://hydra.iohk.io/build/8201171/download/1/ledger-spec.pdf>).
-    // todo: if we are generic over the hash function, shouldn't we use the instance here?
     pub fn eval(&self, msg: &[u8], index: Index) -> [u8; 64] {
         let hasher = Blake2b::new()
             .chain(b"map")
@@ -376,7 +370,6 @@ impl Signature {
     /// Convert a string of bytes into a `MspSig`.
     /// # Error
     /// Returns an error if the byte string does not represent a point in the curve.
-    // todo: check that whether this checks that the point is in the prime order group.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
         let mut array_byte = [0u8; 48];
         array_byte.copy_from_slice(&bytes[..48]);
@@ -401,6 +394,9 @@ impl Signature {
         result
     }
 
+    /// Verify a set of signatures with their corresponding verification keys by first hashing the
+    /// signatures into random scalars, and multiplying the signature and verification key with
+    /// the resulting value. This follows the steps defined in Figure 6, `Aggregate` step.
     pub(crate) fn verify_aggregate(
         msg: &[u8],
         vks: &[VerificationKey],

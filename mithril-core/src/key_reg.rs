@@ -16,7 +16,7 @@ use crate::merkle_tree::{MTLeaf, MerkleTree};
 
 /// Struct that collects public keys and stakes of parties. Each participant (both the
 /// signers and the clerks) need to run their own instance of the key registration.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct KeyReg {
     keys: HashMap<VerificationKey, Stake>,
 }
@@ -36,29 +36,19 @@ where
     pub merkle_tree: Arc<MerkleTree<D>>,
 }
 
-/// Represents the status of a known participant in the protocol who is allowed
-/// to register their key. `RegParty` values will be produced from mappings
-/// (id |-> Party { stake, Some(key) }) in key_reg.parties
-#[derive(Clone, Debug, PartialEq, Eq)]
-struct Party {
-    /// The stake of of the party.
-    stake: Stake,
-    /// The public key of the party.
-    vk: Option<VerificationKey>,
-}
-
 /// A registered party, a stake associated with its public key
 pub type RegParty = MTLeaf;
 
 impl KeyReg {
-    /// Initialise a KeyReg.
+    /// Initialise an empty `KeyReg`.
     pub fn init() -> Self {
         Self {
             keys: HashMap::new(),
         }
     }
 
-    /// Register the pubkey and stake for a particular party.
+    /// Register the pubkey and stake for a particular party. These are store in a
+    /// mapping `key |-> stake`
     pub fn register(&mut self, stake: Stake, pk: VerificationKeyPoP) -> Result<(), RegisterError> {
         if let Entry::Vacant(e) = self.keys.entry(pk.vk) {
             if pk.check().is_ok() {
@@ -90,19 +80,12 @@ impl KeyReg {
                 MTLeaf(vk, stake)
             })
             .collect::<Vec<RegParty>>();
-        reg_parties.sort();
 
         ClosedKeyReg {
             merkle_tree: Arc::new(MerkleTree::create(&reg_parties)),
             reg_parties,
             total_stake,
         }
-    }
-}
-
-impl Default for KeyReg {
-    fn default() -> Self {
-        Self::init()
     }
 }
 

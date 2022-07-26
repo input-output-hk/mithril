@@ -10,7 +10,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 [dependencies]
 blake2      = "0.9.2"
 bls12_381 = { version = "0.7.0", features = ["experimental"], optional = true }
-blst = { version = "0.3.7", optional = true }
+blst = { version = "0.3.10", optional = true }
 bytes = "1"
 digest      = { version = "0.9.0", features = ["alloc"] }
 generic-array = "0.14"
@@ -39,10 +39,6 @@ rand_chacha = "0.3.1"
 rayon       = "1.5.1"
 serde_json = "1"
 sha2 = "0.9"
-# todo: decide if we want o have merkle trees public
-#[[bench]]
-#name = "merkle_tree_create"
-#harness = false
 
 [[bench]]
 name = "stm"
@@ -56,5 +52,6 @@ harness = false
 default = ["rug", "zcash"]
 rug-backend = ["rug/default"]
 num-integer-backend = ["num-integer/default"]
+pure-rust = ["num-integer-backend", "zcash"]
 zcash = ["bls12_381", "group"]
 blast = ["blst"]

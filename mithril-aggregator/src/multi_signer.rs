@@ -260,9 +260,9 @@ impl MultiSignerImpl {
             _ => {
                 let closed_registration = key_registration.close();
                 Ok(Some(ProtocolClerk::from_registration(
-                    self.protocol_parameters
+                    &self.protocol_parameters
                         .ok_or_else(ProtocolError::UnavailableProtocolParameters)?,
-                    closed_registration,
+                    &closed_registration,
                 )))
             }
         }
