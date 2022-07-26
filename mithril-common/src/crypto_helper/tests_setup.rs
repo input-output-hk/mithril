@@ -34,17 +34,20 @@ pub fn setup_signers(
     ProtocolSigner,
     ProtocolInitializer,
 )> {
-    let seed = [0u8; 32];
-    let mut rng = ChaCha20Rng::from_seed(seed);
     let protocol_parameters = setup_protocol_parameters();
     let signers = (0..total)
         .into_iter()
         .map(|party_id| {
+            let seed = [0u8; 32];
+            let mut rng = ChaCha20Rng::from_seed(seed);
             let stake = 1 + rng.next_u64() % 999;
+            let party_id = format!("{:<032}", party_id);
+            let seed: [u8; 32] = party_id.as_bytes()[..32].try_into().unwrap();
+            let mut rng = ChaCha20Rng::from_seed(seed);
             let protocol_initializer: ProtocolInitializer =
                 ProtocolInitializer::setup(protocol_parameters, stake, &mut rng);
             (
-                format!("{}", party_id) as ProtocolPartyId,
+                party_id as ProtocolPartyId,
                 stake as ProtocolStake,
                 protocol_initializer,
             )

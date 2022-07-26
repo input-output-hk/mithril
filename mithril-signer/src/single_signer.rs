@@ -121,31 +121,32 @@ impl SingleSigner for MithrilSingleSigner {
         stakes: &[SignerWithStake],
         protocol_parameters: &entities::ProtocolParameters,
     ) -> Result<(), SingleSignerError> {
-        let protocol_initializer = match &self.protocol_initializer {
-            None => {
-                let current_signer_with_stake = stakes
-                    .iter()
-                    .find(|s| s.party_id == self.party_id)
-                    .ok_or(SingleSignerError::UnregisteredPartyId())?;
+        // TODO: Since the stake distribution is now updated, we can't cache only one protocol initializer
+        // When the protocol initalizer store is implemented, we should get the protocol initializer based on its associated epoch
+        // The use of this cache leads to 'The path of the Merkle Tree is invalid.' error when the signer creates a single signature
+        // and is source of flakiness of the CI
+        let protocol_initializer = {
+            let current_signer_with_stake = stakes
+                .iter()
+                .find(|s| s.party_id == self.party_id)
+                .ok_or(SingleSignerError::UnregisteredPartyId())?;
 
-                // TODO: Uncomment next line and remove the 4 following lines with deterministic random generator when the protocol initializer store is created
-                //let mut rng = rand_core::OsRng;
-                use rand_chacha::ChaCha20Rng;
-                use rand_core::SeedableRng;
-                let seed: [u8; 32] = self.party_id.as_bytes()[..32].try_into().map_err(|_| {
-                    SingleSignerError::ProtocolSignerCreationFailure(
-                        "impossible to generate a seed".to_string(),
-                    )
-                })?;
-                let mut rng = ChaCha20Rng::from_seed(seed);
-                //
-                ProtocolInitializer::setup(
-                    protocol_parameters.to_owned().into(),
-                    current_signer_with_stake.stake,
-                    &mut rng,
+            // TODO: Uncomment next line and remove the 4 following lines with deterministic random generator when the protocol initializer store is created
+            //let mut rng = rand_core::OsRng;
+            use rand_chacha::ChaCha20Rng;
+            use rand_core::SeedableRng;
+            let seed: [u8; 32] = self.party_id.as_bytes()[..32].try_into().map_err(|_| {
+                SingleSignerError::ProtocolSignerCreationFailure(
+                    "impossible to generate a seed".to_string(),
                 )
-            }
-            Some(protocol_initializer) => protocol_initializer.to_owned(),
+            })?;
+            let mut rng = ChaCha20Rng::from_seed(seed);
+            //
+            ProtocolInitializer::setup(
+                protocol_parameters.to_owned().into(),
+                current_signer_with_stake.stake,
+                &mut rng,
+            )
         };
         self.protocol_initializer = Some(protocol_initializer);
         Ok(())
@@ -234,10 +235,14 @@ mod tests {
         let signer_unregistered = &signers[4];
         let stakes = signers[..4]
             .iter()
+            .enumerate()
             .map(
-                |(party_id, stake, verification_key, _protocol_signer, _protocol_initializer)| {
-                    let verification_key = match party_id.as_str() {
-                        "0" => key_encode_hex(signer_unregistered.2).unwrap(),
+                |(
+                    idx,
+                    (party_id, stake, verification_key, _protocol_signer, _protocol_initializer),
+                )| {
+                    let verification_key = match idx {
+                        0 => key_encode_hex(signer_unregistered.2).unwrap(),
                         _ => key_encode_hex(verification_key).unwrap(),
                     };
                     SignerWithStake::new(party_id.to_owned(), verification_key, *stake)
