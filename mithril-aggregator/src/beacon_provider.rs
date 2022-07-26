@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use std::{error::Error, path::PathBuf, sync::Arc};
+use std::{error::Error, ops::Add, path::PathBuf, sync::Arc};
 use tokio::sync::RwLock;
 
 use mithril_common::{
@@ -100,25 +100,36 @@ impl BeaconProvider for BeaconProviderImpl {
 }
 
 pub struct DumbImmutableFileObserver {
-    shall_return: Option<u64>,
+    pub shall_return: Option<u64>,
+}
+
+impl Default for DumbImmutableFileObserver {
+    fn default() -> Self {
+        let mut observer = Self::new();
+        observer.shall_return(Some(119827));
+
+        observer
+    }
 }
 
 impl DumbImmutableFileObserver {
     pub fn new() -> Self {
-        Self {
-            shall_return: Some(119827),
-        }
+        Self { shall_return: None }
     }
 
     pub fn shall_return(&mut self, what: Option<u64>) -> &mut Self {
         self.shall_return = what;
         self
     }
-}
 
-impl Default for DumbImmutableFileObserver {
-    fn default() -> Self {
-        Self::new()
+    pub fn increase(&mut self) -> Result<u64, Box<dyn Error + Sync + Send>> {
+        let new_number = self
+            .shall_return
+            .unwrap() // I do not understand why ok_or_else does not work here, TODO: fix this
+            .add(1);
+        self.shall_return = Some(new_number);
+
+        Ok(new_number)
     }
 }
 
@@ -126,7 +137,7 @@ impl Default for DumbImmutableFileObserver {
 impl ImmutableFileObserver for DumbImmutableFileObserver {
     async fn get_last_immutable_number(&self) -> Result<u64, Box<dyn Error + Sync + Send>> {
         self.shall_return
-            .ok_or_else(|| "fake immutable error".into())
+            .ok_or_else(|| "fake immutable error, immutable number undefined".into())
     }
 }
 
@@ -160,7 +171,7 @@ mod tests {
     async fn test_beacon_ok() {
         let beacon_provider = BeaconProviderImpl::new(
             Arc::new(RwLock::new(DumbChainObserver {})),
-            Arc::new(RwLock::new(DumbImmutableFileObserver::new())),
+            Arc::new(RwLock::new(DumbImmutableFileObserver::default())),
             CardanoNetwork::TestNet(42),
         );
         let beacon = beacon_provider.get_current_beacon().await.unwrap();
@@ -171,7 +182,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_beacon_error() {
-        let mut immutable_observer = DumbImmutableFileObserver::new();
+        let mut immutable_observer = DumbImmutableFileObserver::default();
         immutable_observer.shall_return(None);
         let beacon_provider = BeaconProviderImpl::new(
             Arc::new(RwLock::new(DumbChainObserver {})),

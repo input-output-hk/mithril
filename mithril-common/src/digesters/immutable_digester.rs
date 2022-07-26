@@ -1,6 +1,7 @@
 use crate::digesters::immutable_file::ImmutableFile;
 use crate::digesters::{Digester, DigesterError, DigesterResult};
 
+use async_trait::async_trait;
 use sha2::{Digest, Sha256};
 use slog::{debug, info, Logger};
 use std::fs::File;
@@ -46,8 +47,9 @@ impl ImmutableDigester {
     }
 }
 
+#[async_trait]
 impl Digester for ImmutableDigester {
-    fn compute_digest(&self) -> Result<DigesterResult, DigesterError> {
+    async fn compute_digest(&self) -> Result<DigesterResult, DigesterError> {
         let immutables = ImmutableFile::list_completed_in_dir(&*self.db_directory)?;
         let last_immutable = immutables
             .last()

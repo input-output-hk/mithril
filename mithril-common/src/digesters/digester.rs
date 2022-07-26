@@ -1,7 +1,9 @@
 use crate::digesters::ImmutableFileListingError;
 use crate::entities::ImmutableFileNumber;
+use async_trait::async_trait;
 use std::io;
 use thiserror::Error;
+use tokio::sync::RwLock;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct DigesterResult {
@@ -31,11 +33,15 @@ pub enum DigesterError {
 /// mod test {
 ///     use mithril_common::digesters::{Digester, DigesterError, DigesterResult};
 ///     use mockall::mock;
+///     use async_trait::async_trait;
+///
 ///
 ///     mock! {
 ///         pub DigesterImpl { }
+///
+///         #[async_trait]
 ///         impl Digester for DigesterImpl {
-///             fn compute_digest(&self) -> Result<DigesterResult, DigesterError>;
+///             async fn compute_digest(&self) -> Result<DigesterResult, DigesterError>;
 ///         }
 ///     }
 ///
@@ -47,13 +53,14 @@ pub enum DigesterError {
 ///     }
 /// }
 /// ```
+#[async_trait]
 pub trait Digester: Sync + Send {
-    fn compute_digest(&self) -> Result<DigesterResult, DigesterError>;
+    async fn compute_digest(&self) -> Result<DigesterResult, DigesterError>;
 }
 
 pub struct DumbDigester {
     digest: String,
-    last_immutable_number: u64,
+    last_immutable_number: RwLock<u64>,
     is_success: bool,
 }
 
@@ -63,24 +70,29 @@ impl DumbDigester {
 
         Self {
             digest,
-            last_immutable_number,
+            last_immutable_number: RwLock::new(last_immutable_number),
             is_success,
         }
+    }
+
+    pub async fn set_immutable_file_number(&self, immutable_file_number: u64) {
+        let mut value = self.last_immutable_number.write().await;
+        *value = immutable_file_number;
     }
 }
 
 impl Default for DumbDigester {
     fn default() -> Self {
-        Self::new("1234", 99, true)
+        Self::new("1234", 119827, true)
     }
 }
-
+#[async_trait]
 impl Digester for DumbDigester {
-    fn compute_digest(&self) -> Result<DigesterResult, DigesterError> {
+    async fn compute_digest(&self) -> Result<DigesterResult, DigesterError> {
         if self.is_success {
             Ok(DigesterResult {
                 digest: self.digest.clone(),
-                last_immutable_file_number: self.last_immutable_number,
+                last_immutable_file_number: *self.last_immutable_number.read().await,
             })
         } else {
             Err(DigesterError::NotEnoughImmutable())

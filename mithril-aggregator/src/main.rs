@@ -2,7 +2,7 @@
 
 use mithril_aggregator::{
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, BeaconProviderImpl,
-    CertificatePendingStore, CertificateStore, Config, DependencyManager,
+    CertificatePendingStore, CertificateStore, Config, DependencyManager, GzipSnapshotter,
     ImmutableFileSystemObserver, MemoryBeaconStore, MultiSigner, MultiSignerImpl, Server,
     SingleSignatureStore, VerificationKeyStore,
 };
@@ -172,6 +172,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         config.db_directory.clone(),
         slog_scope::logger(),
     ));
+    let snapshotter = Arc::new(GzipSnapshotter::new(
+        config.db_directory.clone(),
+        config.snapshot_directory.clone(),
+    ));
     setup_dependencies_fake_data(multi_signer.clone()).await;
 
     // Init dependency manager
@@ -189,7 +193,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .with_chain_observer(chain_observer.clone())
         .with_beacon_provider(beacon_provider.clone())
         .with_immutable_file_observer(immutable_file_observer)
-        .with_digester(digester);
+        .with_digester(digester)
+        .with_snapshotter(snapshotter);
     let dependency_manager = Arc::new(dependency_manager);
     let network = config.get_network()?;
 
@@ -202,12 +207,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
             network,
             &config.db_directory.clone(),
             &snapshot_directory,
-            runtime_dependencies,
         );
         let mut runtime = AggregatorRuntime::new(
             Duration::from_millis(config.interval),
             None,
-            Arc::new(AggregatorRunner::new(config)),
+            Arc::new(AggregatorRunner::new(config, runtime_dependencies.clone())),
         )
         .await
         .unwrap();

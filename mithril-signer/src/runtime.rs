@@ -133,7 +133,7 @@ impl Runtime {
 
             let beacon = &pending_certificate.clone().beacon;
             if self.is_new_beacon(beacon) {
-                let snapshot_digest = self.digester.compute_digest()?.digest;
+                let snapshot_digest = self.digester.compute_digest().await?.digest;
                 self.register_signatures(snapshot_digest, pending_certificate)
                     .await?;
                 self.current_beacon = Some(beacon.to_owned());
@@ -331,8 +331,9 @@ mod tests {
 
     mock! {
         pub DigesterImpl { }
+        #[async_trait]
         impl Digester for DigesterImpl {
-            fn compute_digest(&self) -> Result<DigesterResult, DigesterError>;
+            async fn compute_digest(&self) -> Result<DigesterResult, DigesterError>;
         }
     }
 
