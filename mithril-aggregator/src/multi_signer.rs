@@ -905,11 +905,6 @@ mod tests {
         let mut multi_signer = setup_multi_signer().await;
 
         let message = setup_message();
-        multi_signer
-            .update_current_message(message.clone())
-            .await
-            .expect("update current message failed");
-
         let protocol_parameters = setup_protocol_parameters();
         multi_signer
             .update_protocol_parameters(&protocol_parameters)
@@ -937,8 +932,16 @@ mod tests {
             (SIGNER_EPOCH_RECORDING_OFFSET - SIGNER_EPOCH_RETRIEVAL_OFFSET) as i64,
         )
         .await;
-
+        // We have to update the current message AFTER we reached the epoch for
+        // which the signers registered for the stake distribution to be valid
+        // hence the multisigner be able to create a Clerk and being able to
+        // register single signatures
+        multi_signer
+            .update_current_message(message.clone())
+            .await
+            .expect("update current message failed");
         let mut signatures = Vec::new();
+
         for (party_id, _, _, protocol_signer, _) in &signers {
             if let Some(signature) = protocol_signer.sign(message.compute_hash().as_bytes()) {
                 let won_indexes = signature.indexes.clone();
