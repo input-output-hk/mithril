@@ -127,20 +127,17 @@ impl<D> MerkleTree<D>
 where
     D: Digest + FixedOutput,
 {
-    /// Provided a non-empty list of leaves, `create` generates its corresponding `MerkleTree` by first
-    /// ordering the leaves and then hashing its values.
+    /// Provided a non-empty list of leaves, `create` generates its corresponding `MerkleTree`.
     pub fn create(leaves: &[MTLeaf]) -> MerkleTree<D> {
         let n = leaves.len();
         assert!(n > 0, "MerkleTree::create() called with no leaves");
 
         let num_nodes = n + n.next_power_of_two() - 1;
-        let mut ordered_leaves = leaves.to_vec();
-        ordered_leaves.sort_unstable();
 
         let mut nodes = vec![vec![0u8]; num_nodes];
 
-        for i in 0..ordered_leaves.len() {
-            nodes[num_nodes - n + i] = D::digest(&ordered_leaves[i].to_bytes()).to_vec();
+        for i in 0..leaves.len() {
+            nodes[num_nodes - n + i] = D::digest(&leaves[i].to_bytes()).to_vec();
         }
 
         for i in (0..num_nodes - n).rev() {
