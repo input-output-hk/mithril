@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use chrono::Utc;
-use slog_scope::{debug, error, info, trace};
+use slog_scope::{debug, error, info, trace, warn};
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -30,23 +30,14 @@ pub struct AggregatorConfig {
 
     /// DB directory to snapshot
     pub db_directory: PathBuf,
-
-    /// Directory to store snapshot
-    pub snapshot_directory: PathBuf,
 }
 
 impl AggregatorConfig {
-    pub fn new(
-        interval: u64,
-        network: CardanoNetwork,
-        db_directory: &Path,
-        snapshot_directory: &Path,
-    ) -> Self {
+    pub fn new(interval: u64, network: CardanoNetwork, db_directory: &Path) -> Self {
         Self {
             interval,
             network,
             db_directory: db_directory.to_path_buf(),
-            snapshot_directory: snapshot_directory.to_path_buf(),
         }
     }
 }
@@ -81,8 +72,14 @@ pub trait AggregatorRunnerTrait: Sync + Send {
 
     async fn is_multisig_created(&self) -> Result<bool, RuntimeError>;
 
+    /// Create an archive of the cardano node db directory.
+    ///
+    /// Returns the path of the created archive and the archive size as byte.
     async fn create_snapshot_archive(&self) -> Result<OngoingSnapshot, RuntimeError>;
 
+    /// Upload the snapshot at the given location using the configured uploader(s).
+    ///
+    /// Important: the snapshot is removed after the upload succeeded.
     async fn upload_snapshot_archive(
         &self,
         ongoing_snapshot: &OngoingSnapshot,
@@ -451,6 +448,13 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .await
             .map_err(RuntimeError::SnapshotUploader)?;
 
+        if let Err(error) = tokio::fs::remove_file(ongoing_snapshot.get_file_path()).await {
+            warn!(
+                "Post upload ongoing snapshot file removal failure: {}",
+                error
+            );
+        }
+
         Ok(vec![location])
     }
 
@@ -474,8 +478,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             remote_locations,
         );
 
-        let _ = self
-            .dependencies
+        self.dependencies
             .snapshot_store
             .as_ref()
             .ok_or_else(|| {
@@ -492,12 +495,14 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
 #[cfg(test)]
 pub mod tests {
+    use crate::snapshotter::OngoingSnapshot;
     use crate::{
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
     };
     use mithril_common::{digesters::DigesterResult, entities::Beacon};
     use mithril_common::{entities::ProtocolMessagePartKey, store::stake_store::StakeStorer};
+    use tempfile::NamedTempFile;
 
     #[tokio::test]
     async fn test_is_new_beacon() {
@@ -548,16 +553,17 @@ pub mod tests {
 
         assert_eq!(beacon, stored_beacon);
     }
+
     #[tokio::test]
     async fn test_update_stake_distribution() {
         let (deps, config) = initialize_dependencies().await;
         let runner = AggregatorRunner::new(config, deps.clone());
         let beacon = runner.is_new_beacon(None).await.unwrap().unwrap();
-        let _res = runner
+        runner
             .update_beacon(&beacon)
             .await
             .expect("setting the beacon should not fail");
-        let _res = runner
+        runner
             .update_stake_distribution(&beacon)
             .await
             .expect("updating stake distribution should not return an error");
@@ -583,13 +589,12 @@ pub mod tests {
             .get_stakes(beacon.epoch + 1)
             .await
             .unwrap()
-            .expect(
-                format!(
+            .unwrap_or_else(|| {
+                panic!(
                     "I should have a stake distribution for the epoch {:?}",
                     beacon.epoch
                 )
-                .as_str(),
-            );
+            });
 
         assert_eq!(
             current_stake_distribution.len(),
@@ -717,6 +722,25 @@ pub mod tests {
         assert_eq!(
             "general error: no certificate pending for the given beacon".to_string(),
             err.to_string()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_remove_snapshot_archive_after_upload() {
+        let (deps, config) = initialize_dependencies().await;
+        let runner = AggregatorRunner::new(config, deps.clone());
+        let file = NamedTempFile::new().unwrap();
+        let file_path = file.path();
+        let snapshot = OngoingSnapshot::new(file_path.to_path_buf(), 7331);
+
+        runner
+            .upload_snapshot_archive(&snapshot)
+            .await
+            .expect("Snapshot upload should not fail");
+
+        assert!(
+            !file_path.exists(),
+            "Ongoing snapshot file should have been removed after upload"
         );
     }
 }

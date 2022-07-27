@@ -1,4 +1,3 @@
-use hex::ToHex;
 use slog_scope::{error, info, warn};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -11,8 +10,7 @@ use mithril_common::chain_observer::{ChainObserver, ChainObserverError};
 use mithril_common::crypto_helper::key_encode_hex;
 use mithril_common::digesters::{Digester, DigesterError};
 use mithril_common::entities::{
-    self, Beacon, BeaconError, CertificatePending, Epoch, PartyId, ProtocolMessage,
-    ProtocolMessagePartKey, SignerWithStake,
+    self, Beacon, BeaconError, CertificatePending, Epoch, PartyId, SignerWithStake,
 };
 use mithril_common::store::stake_store::{StakeStore, StakeStoreError, StakeStorer};
 use mithril_common::{SIGNER_EPOCH_RECORDING_OFFSET, SIGNER_EPOCH_RETRIEVAL_OFFSET};
@@ -241,7 +239,7 @@ impl Runtime {
             .await?
             .ok_or_else(RuntimeError::UnavailableStakes)?;
 
-        let next_stake_distribution_extended = next_stake_distribution
+        let _next_stake_distribution_extended = next_stake_distribution
             .into_iter()
             .map(|(_, signer)| {
                 let verification_key = match next_verification_keys.get(&signer.party_id) {
@@ -252,18 +250,8 @@ impl Runtime {
             })
             .collect::<Vec<SignerWithStake>>();
 
-        let mut protocol_message = ProtocolMessage::new();
-        protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, snapshot_digest);
-        protocol_message.set_message_part(
-            ProtocolMessagePartKey::NextAggregateVerificationKey,
-            self.single_signer
-                .compute_aggregate_verification_key(&next_stake_distribution_extended)?
-                .unwrap_or_default(),
-        );
-        info!("Signing protocol message"; "protocol_message" =>  #?protocol_message, "message" => protocol_message.compute_hash().encode_hex::<String>());
-
         let signatures = self.single_signer.compute_single_signatures(
-            protocol_message.compute_hash().as_bytes().to_vec(),
+            snapshot_digest,
             stake_distribution_extended,
             &pending_certificate.protocol_parameters,
         )?;
@@ -352,7 +340,7 @@ mod tests {
 
     async fn setup_stake_store(total_signers: u64) -> StakeStore {
         let mut stake_store = StakeStore::new(Box::new(
-            MemoryAdapter::<Epoch, HashMap<PartyId, entities::SignerWithStake>>::new(None).unwrap(),
+            MemoryAdapter::<Epoch, HashMap<PartyId, SignerWithStake>>::new(None).unwrap(),
         ));
         let stakes: ProtocolStakeDistribution = fake_data::signers_with_stakes(total_signers)
             .into_iter()
@@ -420,7 +408,7 @@ mod tests {
             .times(2);
         mock_chain_observer
             .expect_get_current_stake_distribution()
-            .return_once(move || Ok(Some(stake_distribution_expected.clone())));
+            .return_once(move || Ok(Some(stake_distribution_expected)));
 
         let mut signer = Runtime::new(
             Box::new(mock_certificate_handler),
@@ -627,7 +615,7 @@ mod tests {
             .once();
         mock_single_signer
             .expect_get_protocol_initializer()
-            .return_once(move || Some(protocol_initializer.clone()));
+            .return_once(move || Some(protocol_initializer));
         mock_digester
             .expect_compute_digest()
             .return_once(|| Ok(fake_data::digester_result("digest")));

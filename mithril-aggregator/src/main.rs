@@ -16,10 +16,10 @@ use clap::Parser;
 use config::{Map, Source, Value, ValueKind};
 use slog::{Drain, Level, Logger};
 use slog_scope::debug;
-use std::env;
 use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::{env, fs};
 use tokio::sync::RwLock;
 use tokio::time::Duration;
 
@@ -172,9 +172,16 @@ async fn main() -> Result<(), Box<dyn Error>> {
         config.db_directory.clone(),
         slog_scope::logger(),
     ));
+
+    // Snapshotter - Ensure its ongoing snapshot directory exist
+    let ongoing_snapshot_directory = config.snapshot_directory.join("pending_snapshot");
+    if !ongoing_snapshot_directory.exists() {
+        fs::create_dir(&ongoing_snapshot_directory)
+            .expect("Pending snapshot directory creation failure");
+    }
     let snapshotter = Arc::new(GzipSnapshotter::new(
         config.db_directory.clone(),
-        config.snapshot_directory.clone(),
+        ongoing_snapshot_directory,
     ));
     setup_dependencies_fake_data(multi_signer.clone()).await;
 
@@ -199,15 +206,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let network = config.get_network()?;
 
     // Start snapshot uploader
-    let snapshot_directory = config.snapshot_directory.clone();
     let runtime_dependencies = dependency_manager.clone();
     let handle = tokio::spawn(async move {
-        let config = AggregatorConfig::new(
-            config.run_interval,
-            network,
-            &config.db_directory.clone(),
-            &snapshot_directory,
-        );
+        let config =
+            AggregatorConfig::new(config.run_interval, network, &config.db_directory.clone());
         let mut runtime = AggregatorRuntime::new(
             Duration::from_millis(config.interval),
             None,

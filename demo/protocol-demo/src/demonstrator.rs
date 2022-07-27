@@ -112,16 +112,22 @@ impl Party {
     }
 
     /// Individually sign a message through lottery
-    pub fn sign_message(&mut self, message: &Bytes) -> ProtocolSingleSignature {
+    pub fn sign_message(&mut self, message: &Bytes) -> Option<ProtocolSingleSignature> {
         println!(
             "Party #{}: sign message {}",
             self.party_id,
             message.encode_hex::<String>()
         );
-        let signature = self.signer.as_ref().unwrap().sign(message).unwrap();
+
+        let signature = self.signer.as_ref().unwrap().sign(message);
         println!(
-            "Party #{}: lottery #{:?} won",
-            self.party_id, &signature.indexes
+            "Party #{}: {}",
+            self.party_id,
+            if signature.is_some() {
+                format!("lottery #{:?} won", signature.as_ref().unwrap().indexes)
+            } else {
+                "lost all lotteries".to_string()
+            }
         );
         signature
     }
@@ -404,14 +410,15 @@ impl ProtocolDemonstrator for Demonstrator {
             println!("Message #{} to sign: {:?}", i, message);
             let mut signatures = Vec::<ProtocolSingleSignature>::new();
             for party in self.parties.iter_mut() {
-                let party_signature = party.sign_message(message);
-                single_signature_artifacts.push(SingleSignatureArtifact {
-                    party_id: party.party_id.to_owned(),
-                    message: message.encode_hex::<String>(),
-                    lotteries: party_signature.indexes.clone(),
-                    signature: key_encode_hex(&party_signature).unwrap(),
-                });
-                signatures.push(party_signature);
+                if let Some(party_signature) = party.sign_message(message) {
+                    single_signature_artifacts.push(SingleSignatureArtifact {
+                        party_id: party.party_id.to_owned(),
+                        message: message.encode_hex::<String>(),
+                        lotteries: party_signature.indexes.clone(),
+                        signature: key_encode_hex(&party_signature).unwrap(),
+                    });
+                    signatures.push(party_signature);
+                }
             }
             for party in self.parties.iter_mut() {
                 let party_id = party.party_id.to_owned();
