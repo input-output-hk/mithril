@@ -39,7 +39,7 @@ async fn create_certificate() {
     let (mut deps, config) = initialize_dependencies().await;
     let immutable_file_observer = Arc::new(RwLock::new(DumbImmutableFileObserver::default()));
     let chain_observer = Arc::new(RwLock::new(FakeObserver::new()));
-    let _ = chain_observer.write().await.current_beacon = Some(fake_data::beacon());
+    chain_observer.write().await.current_beacon = Some(fake_data::beacon());
     let beacon_provider = Arc::new(RwLock::new(BeaconProviderImpl::new(
         chain_observer.clone(),
         immutable_file_observer.clone(),
@@ -59,7 +59,7 @@ async fn create_certificate() {
 
     // create signers & declare stake distribution
     let signers = tests_setup::setup_signers(2);
-    let _ = chain_observer.write().await.signers = signers
+    chain_observer.write().await.signers = signers
         .iter()
         .map(|(party_id, stake, verification_key, _, _)| {
             SignerWithStake::new(
@@ -122,25 +122,42 @@ async fn create_certificate() {
     runtime.cycle().await.expect(&tick_error_msg.get_message());
     assert_eq!("signing", runtime.get_state());
 
+    // change the EPOCH 2 times to get the first valid stake distribution
+
+    // first EPOCH change
+    let _epoch = chain_observer
+        .write()
+        .await
+        .next_epoch()
+        .expect("we should get a new epoch");
+    runtime.cycle().await.expect(&tick_error_msg.get_message());
+    assert_eq!("idle", runtime.get_state());
+    runtime.cycle().await.expect(&tick_error_msg.get_message());
+    assert_eq!("signing", runtime.get_state());
+    runtime.cycle().await.expect(&tick_error_msg.get_message());
+    assert_eq!("signing", runtime.get_state());
+
+    // second EPOCH change
+    let _epoch = chain_observer
+        .write()
+        .await
+        .next_epoch()
+        .expect("we should get a new epoch");
+    runtime.cycle().await.expect(&tick_error_msg.get_message());
+    assert_eq!("idle", runtime.get_state());
+    runtime.cycle().await.expect(&tick_error_msg.get_message());
+    assert_eq!("signing", runtime.get_state());
+    runtime.cycle().await.expect(&tick_error_msg.get_message());
+    assert_eq!("signing", runtime.get_state());
+
     // signers send their single signature
     {
-        let multisigner = deps
+        let mut multisigner = deps
             .multi_signer
             .as_ref()
             .expect("Multisigner should be registered.")
             .write()
             .await;
-        let _protocol_parameters = deps
-            .certificate_pending_store
-            .as_ref()
-            .expect("There should be a certificate pending store registered.")
-            .read()
-            .await
-            .get()
-            .await
-            .expect("Getting from a memory certificate pending store should not fail.")
-            .expect("Getting the last pending certificate should not return empty.")
-            .protocol_parameters;
         let message = multisigner
             .get_current_message()
             .await
@@ -148,25 +165,34 @@ async fn create_certificate() {
 
         for (party_id, _stakes, _verification_key, protocol_signer, _initializer) in &signers {
             if let Some(signature) = protocol_signer.sign(message.compute_hash().as_bytes()) {
-                let _single_signatures = SingleSignatures::new(
+                let single_signatures = SingleSignatures::new(
                     party_id.to_string(),
-                    signature.sigma.to_string(),
+                    key_encode_hex(&signature).expect("hex encoding should not fail"),
                     signature.indexes,
                 );
-                /* TODO: fix why there is no available clerk
-                * it sounds there is no stake distribution
-                * have to find out why
 
-                    let _res = multisigner
-                        .register_single_signature(&single_signatures)
-                        .await
-                        .expect("registering a winning lottery signature should not fail");
-                */
+                multisigner
+                    .register_single_signature(&single_signatures)
+                    .await
+                    .expect("registering a winning lottery signature should not fail");
             }
         }
     }
 
-    // run one more cycle to create a multisignature
-    // runtime.cycle().await.expect(&tick_error_msg.get_message());
-    // assert_eq!("idle", runtime.get_state());
+    // The state machine should issue a multisignature
+    runtime.cycle().await.expect(&tick_error_msg.get_message());
+    assert_eq!("idle", runtime.get_state());
+    let last_certificates = deps
+        .certificate_store
+        .as_ref()
+        .expect("A certificate store should be registered.")
+        .read()
+        .await
+        .get_list(5)
+        .await
+        .expect("Querying certificate store should not fail");
+
+    assert_eq!(1, last_certificates.len());
+    runtime.cycle().await.expect(&tick_error_msg.get_message());
+    assert_eq!("idle", runtime.get_state());
 }

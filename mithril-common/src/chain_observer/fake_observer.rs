@@ -15,6 +15,15 @@ impl FakeObserver {
             current_beacon: None,
         }
     }
+
+    pub fn next_epoch(&mut self) -> Option<Epoch> {
+        self.current_beacon = self.current_beacon.as_ref().map(|beacon| Beacon {
+            epoch: beacon.epoch + 1,
+            ..beacon.clone()
+        });
+
+        self.current_beacon.as_ref().map(|beacon| beacon.epoch)
+    }
 }
 
 impl Default for FakeObserver {

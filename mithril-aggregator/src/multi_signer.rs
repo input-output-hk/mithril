@@ -513,12 +513,6 @@ impl MultiSigner for MultiSignerImpl {
             signatures.party_id, signatures.won_indexes
         );
 
-        // TODO: to remove once epoch offset is activated
-        if self.clerk.as_ref().is_none() {
-            let stakes = self.get_stake_distribution().await?;
-            self.clerk = self.create_clerk(&stakes).await?;
-        }
-
         let message = &self
             .get_current_message()
             .await
