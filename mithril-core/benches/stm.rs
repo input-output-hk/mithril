@@ -64,7 +64,7 @@ where
     //     });
     // }
 
-    key_reg = KeyReg::init();
+    // key_reg = KeyReg::init();
     for p in ps[..NR_PARTIES[2]].iter() {
         key_reg.register(p.stake, p.verification_key()).unwrap();
     }
@@ -81,7 +81,7 @@ where
     for &m in NR_M.iter() {
         k = 8;
 
-        let param_string = format!("k: {}, m: {}", k, m);
+        // let param_string = format!("k: {}, m: {}", k, m);
 
         let params = StmParameters {
             k,
@@ -98,12 +98,12 @@ where
             ps.push(p);
         }
 
-        let closed_reg = key_reg.close();
+        // let closed_reg = key_reg.close::<H>();
 
-        let ps = ps
-            .into_par_iter()
-            .map(|p| p.new_signer(closed_reg.clone()))
-            .collect::<Vec<StmSigner<H>>>();
+        // let ps = ps
+        //     .into_par_iter()
+        //     .map(|p| p.new_signer(closed_reg.clone()))
+        //     .collect::<Vec<StmSigner<H>>>();
 
         // group.bench_function(BenchmarkId::new("Play all lotteries", &param_string), |b| {
         //     b.iter(|| {
