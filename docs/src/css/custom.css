@@ -58,3 +58,16 @@
         text-align: center;
     }
 }
+
+a.menu__link:hover {
+    text-decoration: underline;
+}
+
+/* "hack" to makes the announcement bar bigger since it doesn't have "public" css classes */
+div[role=banner] {
+    height: 2.3em;
+}
+
+div[role=banner] div {
+    font-size: 90%;
+}
