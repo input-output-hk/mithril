@@ -3,6 +3,7 @@ mod entities;
 mod protocol_initializer_store;
 mod runtime;
 mod single_signer;
+mod state_machine;
 
 pub use certificate_handler::CertificateHandlerHTTPClient;
 pub use entities::Config;
