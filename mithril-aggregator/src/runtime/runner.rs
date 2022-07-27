@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use chrono::Utc;
-use slog_scope::{debug, error, info, trace};
+use slog_scope::{debug, error, info, trace, warn};
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -448,13 +448,12 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .await
             .map_err(RuntimeError::SnapshotUploader)?;
 
-        tokio::fs::remove_file(ongoing_snapshot.get_file_path())
-            .await
-            .map_err(|e| {
-                RuntimeError::General(
-                    format!("Post upload local snapshot removal failure: {}", e).into(),
-                )
-            })?;
+        if let Err(error) = tokio::fs::remove_file(ongoing_snapshot.get_file_path()).await {
+            warn!(
+                "Post upload ongoing snapshot file removal failure: {}",
+                error
+            );
+        }
 
         Ok(vec![location])
     }
