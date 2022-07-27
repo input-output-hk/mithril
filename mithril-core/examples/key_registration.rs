@@ -70,7 +70,6 @@ fn main() {
 
     // Now an asynchronous phase begins. The signers no longer need to communicate among themselves
     // Given the parameters we've chosen, the signers will be eligible for all indices.
-    // todo: what if we have a structure that contains a signature and the index for which its valid?
     let mut party_0_sigs = party_0
         .sign(&msg)
         .expect("Signers can sign all indices in this example");
@@ -135,7 +134,6 @@ fn main() {
 
 fn local_reg(ids: &[u64], pks: &[StmVerificationKeyPoP]) -> ClosedKeyReg<H> {
     let mut local_keyreg = KeyReg::init();
-    // todo: maybe its cleaner to have a `StmPublic` instance that covers the "shareable"
     // data, such as the public key, stake and id.
     for (&pk, id) in pks.iter().zip(ids.iter()) {
         local_keyreg.register(*id, pk).unwrap();

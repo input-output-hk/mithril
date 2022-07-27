@@ -1,5 +1,7 @@
 #![warn(missing_docs)]
 
+//! Implementation of Stake-based Threshold Multisignatures
+
 mod dense_mapping;
 mod error;
 pub mod key_reg;
