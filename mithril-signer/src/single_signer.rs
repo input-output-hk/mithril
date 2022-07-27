@@ -1,12 +1,14 @@
 use hex::ToHex;
-use slog_scope::trace;
+use slog_scope::{info, trace};
 use thiserror::Error;
 
 use mithril_common::crypto_helper::{
-    key_decode_hex, key_encode_hex, Bytes, ProtocolClerk, ProtocolInitializer,
-    ProtocolKeyRegistration, ProtocolPartyId, ProtocolSigner,
+    key_decode_hex, key_encode_hex, ProtocolClerk, ProtocolInitializer, ProtocolKeyRegistration,
+    ProtocolPartyId, ProtocolSigner,
 };
-use mithril_common::entities::{self, PartyId, SignerWithStake, SingleSignatures};
+use mithril_common::entities::{
+    self, PartyId, ProtocolMessage, ProtocolMessagePartKey, SignerWithStake, SingleSignatures,
+};
 
 #[cfg(test)]
 use mockall::automock;
@@ -29,7 +31,7 @@ pub trait SingleSigner {
     /// Computes single signatures
     fn compute_single_signatures(
         &mut self,
-        message: Bytes,
+        digest: String,
         stakes: Vec<SignerWithStake>,
         protocol_parameters: &entities::ProtocolParameters,
     ) -> Result<Option<SingleSignatures>, SingleSignerError>;
@@ -154,7 +156,7 @@ impl SingleSigner for MithrilSingleSigner {
 
     fn compute_single_signatures(
         &mut self,
-        message: Bytes,
+        snapshot_digest: String,
         stakes: Vec<SignerWithStake>, // TODO : use a hmap to prevent party id duplication
         protocol_parameters: &entities::ProtocolParameters,
     ) -> Result<Option<SingleSignatures>, SingleSignerError> {
@@ -174,6 +176,16 @@ impl SingleSigner for MithrilSingleSigner {
         }
 
         let protocol_signer = self.create_protocol_signer(&stakes)?;
+        let mut protocol_message = ProtocolMessage::new();
+        protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, snapshot_digest);
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::NextAggregateVerificationKey,
+            self.compute_aggregate_verification_key(&stakes)?
+                .unwrap_or_default(),
+        );
+        let message = protocol_message.compute_hash().as_bytes().to_vec();
+
+        info!("Signing protocol message"; "protocol_message" =>  #?protocol_message, "snapshot_digest" => protocol_message.compute_hash().encode_hex::<String>());
 
         trace!(
             "Party #{}: sign message {}",
@@ -229,7 +241,7 @@ mod tests {
 
     #[test]
     fn cant_compute_if_signer_verification_key_is_not_registered() {
-        let message = setup_message();
+        let snapshot_digest = "digest".to_string();
         let protocol_parameters = setup_protocol_parameters();
         let signers = setup_signers(5);
         let signer_unregistered = &signers[4];
@@ -256,7 +268,7 @@ mod tests {
         );
 
         let sign_result = single_signer.compute_single_signatures(
-            message.compute_hash().as_bytes().to_vec(),
+            snapshot_digest,
             stakes,
             &protocol_parameters.into(),
         );
@@ -270,7 +282,7 @@ mod tests {
 
     #[test]
     fn should_produce_a_single_signature() {
-        let message = setup_message();
+        let snapshot_digest = "digest".to_string();
         let protocol_parameters = setup_protocol_parameters();
         let signers = setup_signers(5);
         let stakes = signers
@@ -291,11 +303,24 @@ mod tests {
             &key_encode_hex(&current_signer.4).unwrap(),
         );
         let protocol_signer = &current_signer.3;
-        let clerk = ProtocolClerk::from_signer(&protocol_signer);
+        let clerk = ProtocolClerk::from_signer(protocol_signer);
         let avk = clerk.compute_avk();
+        let mut protocol_message = ProtocolMessage::new();
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::SnapshotDigest,
+            snapshot_digest.clone(),
+        );
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::NextAggregateVerificationKey,
+            single_signer
+                .compute_aggregate_verification_key(&stakes)
+                .unwrap()
+                .unwrap_or_default(),
+        );
+        let expected_message = protocol_message.compute_hash().as_bytes().to_vec();
 
         let sign_result = single_signer.compute_single_signatures(
-            message.compute_hash().as_bytes().to_vec(),
+            snapshot_digest,
             stakes,
             &protocol_parameters.into(),
         );
@@ -305,11 +330,7 @@ mod tests {
         let decoded_sig: ProtocolSingleSignature =
             key_decode_hex(&sign_result.unwrap().unwrap().signature).unwrap();
         assert!(decoded_sig
-            .verify(
-                &protocol_parameters,
-                &avk,
-                &message.compute_hash().as_bytes()
-            )
+            .verify(&protocol_parameters, &avk, &expected_message)
             .is_ok());
         //TODO: decoded_sig.pk should probably be a StmVerificationKeyPoP, uncomment once fixed
         //assert_eq!(current_signer.2, decoded_sig.pk);
