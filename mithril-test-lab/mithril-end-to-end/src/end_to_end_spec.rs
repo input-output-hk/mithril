@@ -32,7 +32,7 @@ impl Spec {
         )
         .await?;
         wait_for_pending_certificate(&aggregator_endpoint).await?;
-        let target_epoch = min_epoch + 4; // TODO: This value should be lower: min_epoch+2, but keep it like that until we find out why some epochs don't record signers
+        let target_epoch = min_epoch + 2;
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
             target_epoch,
@@ -40,7 +40,7 @@ impl Spec {
         )
         .await?;
         delegate_stakes_to_pools(self.infrastructure.devnet()).await?;
-        let target_epoch = min_epoch + 8; // TODO: This value should be lower: min_epoch+4, but keep it like that until we find out why some epochs don't record signers
+        let target_epoch = min_epoch + 4;
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
             target_epoch,
@@ -215,7 +215,7 @@ async fn assert_signer_is_signing_snapshot(
 ) -> Result<String, String> {
     let url = format!("{}/snapshot/{}", aggregator_endpoint, digest);
     info!(
-        "Waiting for the aggregator to produce sign the snapshot `{}` with an expected min epoch of `{}`",
+        "Asserting the aggregator is signing the snapshot message `{}` with an expected min epoch of `{}`",
         digest,
         expected_epoch_min
     );
