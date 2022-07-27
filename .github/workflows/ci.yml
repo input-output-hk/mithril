@@ -25,6 +25,11 @@ jobs:
           artifacts_base_name: mithril-end-to-end
           artifacts_pattern: mithril-end-to-end
           skip_doc: true
+        - project: demo/protocol-demo
+          cargo_project_name: mithrildemo
+          artifacts_base_name: mithrildemo
+          artifacts_pattern: mithrildemo
+          skip_doc: true
     env:
       CARGO_PROJECT_NAME: ${{ matrix.project }}
       ARTIFACTS_BASE_NAME: ${{ matrix.project }}
@@ -286,6 +291,12 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: test-results-mithril-end-to-end
+
+      - name: Download mithril-demo Tests Results
+        if: always()
+        uses: actions/download-artifact@v3
+        with:
+          name: test-results-mithrildemo
       
       - name: Publish Unit Test Results
         if: always()
