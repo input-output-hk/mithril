@@ -55,7 +55,7 @@
 //!     let p = StmInitializer::setup(params, stake, &mut rng);
 //!     // Register keys with the KeyReg service
 //!     key_reg
-//!         .register(p.stake(), p.verification_key())
+//!         .register(p.stake, p.verification_key())
 //!         .unwrap();
 //!     ps.push(p);
 //! }
