@@ -268,9 +268,11 @@ impl<D: Digest + Clone + FixedOutput> Path<D> {
     pub fn from_bytes(bytes: &[u8]) -> Result<Path<D>, MerkleTreeError> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(&bytes[..8]);
-        let index = usize::try_from(u64::from_be_bytes(u64_bytes)).map_err(|_| MerkleTreeError::SerializationError)?;
+        let index = usize::try_from(u64::from_be_bytes(u64_bytes))
+            .map_err(|_| MerkleTreeError::SerializationError)?;
         u64_bytes.copy_from_slice(&bytes[8..16]);
-        let len = usize::try_from(u64::from_be_bytes(u64_bytes)).map_err(|_| MerkleTreeError::SerializationError)?;
+        let len = usize::try_from(u64::from_be_bytes(u64_bytes))
+            .map_err(|_| MerkleTreeError::SerializationError)?;
         let mut values = Vec::with_capacity(len);
         for i in 0..len {
             values.push(bytes[16 + i * D::output_size()..16 + (i + 1) * D::output_size()].to_vec());
@@ -320,7 +322,6 @@ fn sibling(i: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bincode;
     use blake2::Blake2b;
     use proptest::collection::vec;
     use proptest::prelude::*;

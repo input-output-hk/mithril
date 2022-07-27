@@ -5,8 +5,8 @@
 //! is not chosen by default due to some flaky tests, as exposed in the
 //! [issue](https://github.com/input-output-hk/mithril/issues/207)
 
-use crate::stm::Index;
 use crate::error::{blst_err_to_atms, MultiSignatureError};
+use crate::stm::Index;
 use blake2::{Blake2b, Digest};
 
 // We use `min_sig` resulting in signatures of 48 bytes and public keys of

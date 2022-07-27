@@ -273,7 +273,8 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
         let msgp = avk.mt_commitment.concat_with_msg(msg);
 
         self.check_indices(params, &msgp, avk)?;
-        avk.mt_commitment.check(&MTLeaf(self.pk, self.stake), &self.path)?;
+        avk.mt_commitment
+            .check(&MTLeaf(self.pk, self.stake), &self.path)?;
         self.sigma.verify(&msgp, &self.pk)?;
         Ok(())
     }
@@ -776,7 +777,10 @@ where
 {
     /// Create a new `Clerk` from a closed registration instance.
     pub fn from_registration(params: &StmParameters, closed_reg: &ClosedKeyReg<D>) -> Self {
-        Self { params: params.clone(), closed_reg: closed_reg.clone() }
+        Self {
+            params: *params,
+            closed_reg: closed_reg.clone(),
+        }
     }
 
     /// Creates a Clerk from a Signer.
@@ -809,6 +813,7 @@ where
     /// smallest signature (i.e. takes the signature with the smallest scalar). The function
     /// selects at least `self.k` indexes. If there is no sufficient, then returns an error.
     /// todo: We need to agree on a criteria to dedup
+    /// todo: not good, because it only removes index if there is a conflict (see benches)
     pub fn dedup_sigs_for_indices(
         &self,
         msg: &[u8],

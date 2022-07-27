@@ -15,7 +15,8 @@ use std::fmt::Debug;
 /// * Signing depends on the parameter `m`, as it defines the number of lotteries a user can play
 /// * Aggregation depends on `k`.
 /// * Verification is independent from the parameters.
-///
+/// todo: benchmarks do not work properly (and with the new fix of one signature several indices we
+/// should carefully choose the parameters so that they are representative of the reality)
 
 const SIZE: usize = 3;
 static NR_PARTIES: [usize; SIZE] = [32, 64, 128];
@@ -51,16 +52,21 @@ where
         ps.push(StmInitializer::setup(params, stake, &mut rng));
     }
     let mut key_reg = KeyReg::init();
-    for &nr in NR_PARTIES.iter() {
-        group.bench_with_input(BenchmarkId::new("Key registration", &nr), &nr, |b, &nr| {
-            b.iter(|| {
-                // We need to initialise the key_reg at each iteration
-                key_reg = KeyReg::init();
-                for p in ps[..nr].iter() {
-                    key_reg.register(p.stake, p.verification_key()).unwrap();
-                }
-            })
-        });
+    // for &nr in NR_PARTIES.iter() {
+    //     group.bench_with_input(BenchmarkId::new("Key registration", &nr), &nr, |b, &nr| {
+    //         b.iter(|| {
+    //             // We need to initialise the key_reg at each iteration
+    //             key_reg = KeyReg::init();
+    //             for p in ps[..nr].iter() {
+    //                 key_reg.register(p.stake, p.verification_key()).unwrap();
+    //             }
+    //         })
+    //     });
+    // }
+
+    key_reg = KeyReg::init();
+    for p in ps[..NR_PARTIES[2]].iter() {
+        key_reg.register(p.stake, p.verification_key()).unwrap();
     }
 
     let closed_reg = key_reg.close();
@@ -99,11 +105,11 @@ where
             .map(|p| p.new_signer(closed_reg.clone()))
             .collect::<Vec<StmSigner<H>>>();
 
-        group.bench_function(BenchmarkId::new("Play all lotteries", &param_string), |b| {
-            b.iter(|| {
-                ps[0].sign(&msg);
-            })
-        });
+        // group.bench_function(BenchmarkId::new("Play all lotteries", &param_string), |b| {
+        //     b.iter(|| {
+        //         ps[0].sign(&msg);
+        //     })
+        // });
     }
 
     let sigs = Vec::new();
@@ -143,7 +149,7 @@ where
         let clerk = StmClerk::from_signer(&party_dummy);
 
         group.bench_function(BenchmarkId::new("Aggregation", &param_string), |b| {
-            b.iter(|| clerk.aggregate(&sigs, &msg))
+            b.iter(|| clerk.aggregate(&sigs, &msg).unwrap())
         });
     }
 
@@ -154,15 +160,11 @@ where
     });
 }
 
-fn stm_benches_bls12_377_blake(c: &mut Criterion) {
-    stm_benches::<Blake2b>(c, "Bls12_381");
-}
-
 fn stm_benches_bls12_381_blake(c: &mut Criterion) {
     stm_benches::<Blake2b>(c, "Bls12_381");
 }
 
 criterion_group!(name = benches;
                  config = Criterion::default().nresamples(5);
-                 targets = stm_benches_bls12_377_blake, stm_benches_bls12_381_blake);
+                 targets = stm_benches_bls12_381_blake);
 criterion_main!(benches);
