@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {Badge, Row, Col, Card, Container} from "react-bootstrap";
+import Link from "next/link";
 
 /*
  * Code from: https://stackoverflow.com/a/18650828
@@ -57,10 +58,16 @@ export default function SnapshotsList(props) {
                     <div>
                       <div>Epoch: {snapshot.beacon.epoch}</div>
                       <div>Immutable File Number: {snapshot.beacon.immutable_file_number}</div>
-                      <div>Certificate hash: <br/> {snapshot.certificate_hash}</div>
+                      <div>Certificate hash: <br/>
+                        <Link href={"/certificate/" + snapshot.certificate_hash + "?aggregator=" + props.aggregator }>
+                          {snapshot.certificate_hash}
+                        </Link>
+                      </div>
                       <div>Created at: <br/> {new Date(snapshot.created_at).toLocaleString()}</div>
                       <div>Size: {formatBytes(snapshot.size)}</div>
                     </div>
+                    <Card.Text>
+                    </Card.Text>
                   </Card.Body>
                   <Card.Footer>
                     {index === 0 &&
