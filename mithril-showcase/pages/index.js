@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState  } from 'react';
 import PendingCertificate from '../components/PendingCertificate';
 import SnapshotsList from '../components/SnapshotsList';
-import styles from "../styles/Home.module.css";
 import Head from "next/head";
-import {Form, Stack, Button, Row, Col, InputGroup, Navbar, Container, Nav} from "react-bootstrap";
 import Image from "next/image";
+import {Form, Stack, Button, Row, Col, InputGroup} from "react-bootstrap";
+import styles from "../styles/Home.module.css";
 
 const available_aggregators = [
   "http://aggregator.api.mithril.network/aggregator",
@@ -78,19 +78,6 @@ export default function Showcase() {
         <meta name="description" content="Showcase of a Mithril Network" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
-
-      {/*<Navbar className="border" fixed="bottom" bg="light">*/}
-      {/*  <Container style={{margin: "unset"}}>*/}
-      {/*    <Navbar.Brand href="#home">*/}
-      {/*      <img src="/logo.png" width="32" height="32" alt="Mithril Logo" />{' '}*/}
-      {/*    </Navbar.Brand>*/}
-      {/*    <Navbar.Collapse className="">*/}
-      {/*      <Navbar.Text>*/}
-      {/*        <a href="https://mithril.network/doc">Back to mithril documentation</a>*/}
-      {/*      </Navbar.Text>*/}
-      {/*    </Navbar.Collapse>*/}
-      {/*  </Container>*/}
-      {/*</Navbar>*/}
       
       <div className={styles.container}>
         <main className={styles.main}>
@@ -114,7 +101,7 @@ export default function Showcase() {
       
       <footer className={styles.footer}>
         <span className={styles.logo}>
-          <Image src="/logo.png" alt="Mithril Logo" width={32} height={32} />
+          <Image src="/showcase/logo.png" alt="Mithril Logo" width={32} height={32} />
         </span>{' '}
         <a href="https://mithril.network/doc">
           Go back to mithril documentation
