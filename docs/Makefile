@@ -6,7 +6,13 @@ yarn.lock:
 install: yarn.lock
 
 build: yarn.lock
-	yarn build
+	yarn && yarn run build
+
+serve: build
+	yarn run serve
+
+dev:
+	yarn run start
 
 clean:
 	rm -rf build
