@@ -9,10 +9,13 @@ build: yarn.lock
 	yarn && yarn run build
 
 serve: build
-	yarn run serve
+	yarn run start
 
 dev:
-	yarn run start
+	yarn run dev
+
+lint:
+	yarn run lint
 
 clean:
 	rm -rf build
@@ -20,4 +23,4 @@ clean:
 	rm yarn.lock || true
 
 upgrade: clean install
-	yarn upgrade @docusaurus/core@latest @docusaurus/preset-classic@latest redocusaurus@latest
+	yarn upgrade
