@@ -2,12 +2,14 @@ use super::{AdapterError, StoreAdapter};
 use async_trait::async_trait;
 use std::marker::PhantomData;
 
+/// A [StoreAdapter] which always fails, for testing purpose.
 pub struct FailStoreAdapter<K, R> {
     key: PhantomData<K>,
     certificate: PhantomData<R>,
 }
 
 impl<K, R> FailStoreAdapter<K, R> {
+    /// FailStoreAdapter factory
     pub fn new() -> Self {
         Self {
             key: PhantomData,
