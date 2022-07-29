@@ -53,7 +53,7 @@ The **Mithril Signer** connects to the **Mithril Aggregator**:
 
 This process is summarized in the following diagram:
 
-![Signer Workflow](images/signer-workflow.png)
+<img src={require('./images/signer-workflow.png').default} style={{background: 'white'}} alt="signer workflow" />
 
 ## Under the hood
 

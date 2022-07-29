@@ -53,6 +53,10 @@
     width: 24px;
 }
 
+[data-theme='dark'] .header-github-link {
+    filter: invert(1);
+}
+
 @media screen and (max-width: 996px) {
     .footer {
         text-align: center;
