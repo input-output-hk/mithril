@@ -4,14 +4,19 @@ use mockall::automock;
 use std::error::Error as StdError;
 use thiserror::Error;
 
+/// [ChainObserver] related errors.
 #[derive(Debug, Error)]
 pub enum ChainObserverError {
+    /// Generic [ChainObserver] error.
     #[error("general error {0}")]
     General(Box<dyn StdError + Sync + Send>),
+
+    /// Error raised when the content could not be parsed.
     #[error("could not parse content: {0}")]
     InvalidContent(Box<dyn StdError + Sync + Send>),
 }
 
+/// Retrieve data from the cardano network
 #[automock]
 #[async_trait]
 pub trait ChainObserver: Sync + Send {

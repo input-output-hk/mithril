@@ -16,6 +16,8 @@ pub trait CliRunner {
     async fn launch_epoch(&self) -> Result<String, Box<dyn Error + Sync + Send>>;
 }
 
+/// A runner able to request data from a Cardano node using the
+/// [Cardano Cli](https://docs.cardano.org/getting-started/use-cli).
 pub struct CardanoCliRunner {
     cli_path: PathBuf,
     socket_path: PathBuf,
@@ -23,6 +25,7 @@ pub struct CardanoCliRunner {
 }
 
 impl CardanoCliRunner {
+    /// CardanoCliRunner factory
     pub fn new(cli_path: PathBuf, socket_path: PathBuf, network: CardanoNetwork) -> Self {
         Self {
             cli_path,
@@ -31,7 +34,7 @@ impl CardanoCliRunner {
         }
     }
 
-    pub fn command_for_stake_distribution(&self) -> Command {
+    fn command_for_stake_distribution(&self) -> Command {
         let mut command = self.get_command();
         command.arg("query").arg("stake-distribution");
         self.post_config_command(&mut command);
@@ -39,7 +42,7 @@ impl CardanoCliRunner {
         command
     }
 
-    pub fn command_for_epoch(&self) -> Command {
+    fn command_for_epoch(&self) -> Command {
         let mut command = self.get_command();
         command.arg("query").arg("tip");
         self.post_config_command(&mut command);
@@ -109,11 +112,13 @@ impl CliRunner for CardanoCliRunner {
     }
 }
 
+/// A [ChainObserver] pulling it's data using a [CardanoCliRunner].
 pub struct CardanoCliChainObserver {
     cli_runner: Box<dyn CliRunner + Send + Sync>,
 }
 
 impl CardanoCliChainObserver {
+    /// CardanoCliChainObserver factory
     pub fn new(cli_runner: Box<dyn CliRunner + Send + Sync>) -> Self {
         Self { cli_runner }
     }
