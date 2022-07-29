@@ -1,3 +1,5 @@
+//! Fake data builders for Mithril Core types, for testing purpose.
+
 use super::types::*;
 use crate::entities::{ProtocolMessage, ProtocolMessagePartKey};
 

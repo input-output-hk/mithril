@@ -1,3 +1,5 @@
+//! Fake data builders for testing.
+
 use crate::digesters::DigesterResult;
 use std::time::{SystemTime, UNIX_EPOCH};
 
