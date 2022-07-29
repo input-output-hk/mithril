@@ -5,6 +5,7 @@ use std::io;
 use thiserror::Error;
 use tokio::sync::RwLock;
 
+/// Result a [Digester] computation.
 #[derive(Debug, Clone, PartialEq)]
 pub struct DigesterResult {
     /// The computed digest
@@ -14,14 +15,18 @@ pub struct DigesterResult {
     pub last_immutable_file_number: ImmutableFileNumber,
 }
 
+/// [Digester] related Errors.
 #[derive(Error, Debug)]
 pub enum DigesterError {
+    /// Error raised when the files listing failed.
     #[error("Immutable files listing failed")]
     ListImmutablesError(#[from] ImmutableFileListingError),
 
+    /// Error raised when there's less than two immutables files available.
     #[error("At least two immutables chunk should exists")]
     NotEnoughImmutable(),
 
+    /// Error raised when the digest computation failed.
     #[error("Digest computation failed:")]
     DigestComputationError(#[from] io::Error),
 }
@@ -55,9 +60,11 @@ pub enum DigesterError {
 /// ```
 #[async_trait]
 pub trait Digester: Sync + Send {
+    /// Compute the digest
     async fn compute_digest(&self) -> Result<DigesterResult, DigesterError>;
 }
 
+/// A [Digester] returning configurable result for testing purpose.
 pub struct DumbDigester {
     digest: String,
     last_immutable_number: RwLock<u64>,
@@ -65,6 +72,7 @@ pub struct DumbDigester {
 }
 
 impl DumbDigester {
+    /// DumbDigester factory
     pub fn new(digest: &str, last_immutable_number: u64, is_success: bool) -> Self {
         let digest = String::from(digest);
 
@@ -75,6 +83,7 @@ impl DumbDigester {
         }
     }
 
+    /// Set the stored immutable_file_number, changing the digest 'computation' result.
     pub async fn set_immutable_file_number(&self, immutable_file_number: u64) {
         let mut value = self.last_immutable_number.write().await;
         *value = immutable_file_number;
@@ -86,6 +95,7 @@ impl Default for DumbDigester {
         Self::new("1234", 119827, true)
     }
 }
+
 #[async_trait]
 impl Digester for DumbDigester {
     async fn compute_digest(&self) -> Result<DigesterResult, DigesterError> {

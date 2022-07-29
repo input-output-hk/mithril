@@ -13,31 +13,52 @@ fn is_immutable(path: &Path) -> bool {
     path.iter().any(|component| component == immutable)
 }
 
+/// Represent an immutable file in a Cardano node database directory
 #[derive(Debug, PartialEq, Eq)]
 pub struct ImmutableFile {
+    /// The path to the immutable file
     pub path: PathBuf,
+
+    /// The immutable file number
     pub number: ImmutableFileNumber,
 }
 
+/// [ImmutableFile::new] related errors.
 #[derive(Error, Debug)]
 pub enum ImmutableFileCreationError {
+    /// Raised when the immutable file stem extraction fails.
     #[error("Couldn't extract the file stem for '{path:?}'")]
-    FileStemExtraction { path: PathBuf },
+    FileStemExtraction {
+        /// Path for which file stem extraction failed.
+        path: PathBuf,
+    },
+
+    /// Raised when the immutable file filename extraction fails.
     #[error("Couldn't extract the filename as string for '{path:?}'")]
-    FileNameExtraction { path: PathBuf },
+    FileNameExtraction {
+        /// Path for which filename extraction failed.
+        path: PathBuf,
+    },
+
+    /// Raised when the immutable file number parsing, from the filename, fails.
     #[error("Error while parsing immutable file number")]
     FileNumberParsing(#[from] ParseIntError),
 }
 
+/// [ImmutableFile::list_completed_in_dir] related errors.
 #[derive(Error, Debug)]
 pub enum ImmutableFileListingError {
+    /// Raised when the metadata of a file could not be read.
     #[error("metadata parsing failed")]
     MetadataParsing(#[from] io::Error),
+
+    /// Raised when [ImmutableFile::new] fails.
     #[error("immutable file creation error")]
     ImmutableFileCreation(#[from] ImmutableFileCreationError),
 }
 
 impl ImmutableFile {
+    /// ImmutableFile factory
     pub fn new(path: PathBuf) -> Result<Self, ImmutableFileCreationError> {
         let filename = path
             .file_stem()
