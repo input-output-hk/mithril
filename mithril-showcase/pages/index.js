@@ -76,7 +76,7 @@ export default function Showcase() {
       <Head>
         <title>Mithril Showcase</title>
         <meta name="description" content="Showcase of a Mithril Network" />
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" href="/showcase/favicon.ico" />
       </Head>
       
       <div className={styles.container}>
