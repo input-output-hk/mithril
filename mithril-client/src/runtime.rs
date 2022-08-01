@@ -19,35 +19,57 @@ pub type VerifierWrapper = Box<dyn Verifier>;
 /// DigesterWrapper wraps a Digester
 pub type DigesterWrapper = Box<dyn Digester>;
 
+/// [Runtime] related errors.
 #[derive(Error, Debug)]
 pub enum RuntimeError {
+    /// Error raised when accessing a missing dependency.
     #[error("a dependency is missing: '{0}'")]
     MissingDependency(String),
 
+    /// Error raised when the user provided an invalid input.
     #[error("an input is invalid: '{0}'")]
     InvalidInput(String),
 
+    /// Error raised when an [AggregatorHandlerError] is caught when querying the aggregator using
+    /// a [AggregatorHandler].
     #[error("aggregator handler error: '{0}'")]
     AggregatorHandler(#[from] AggregatorHandlerError),
 
+    /// Error raised when the [signature verifier][Verifier] fails.
     #[error("verifier error: '{0}'")]
     Verifier(#[from] ProtocolError),
 
+    /// Error raised when the digest computation fails.
     #[error("immutale digester error: '{0}'")]
     ImmutableDigester(#[from] DigesterError),
 
+    /// Error raised when the digest stored in the signed message doesn't match the
+    /// [certificate](https://mithril.network/mithril-common/doc/mithril_common/entities/struct.Certificate.html)
+    /// hash.
     #[error("digest unmatch error: '{0}'")]
     DigestUnmatch(String),
 
+    /// Error raised when the hash stored in a
+    /// [certificate](https://mithril.network/mithril-common/doc/mithril_common/entities/struct.Certificate.html)
+    /// doesn't match a recomputed hash.
     #[error("certificate hash unmatch error")]
     CertificateHashUnmatch,
 
+    /// Error raised when validating the certificate chain if a previous
+    /// [certificate](https://mithril.network/mithril-common/doc/mithril_common/entities/struct.Certificate.html)
+    /// hash isn't equal to the current certificate `previous_hash`.
     #[error("certificate chain previous hash unmatch error")]
     CertificateChainPreviousHashUnmatch,
 
+    /// Error raised when validating the certificate chain if the current
+    /// [certificate](https://mithril.network/mithril-common/doc/mithril_common/entities/struct.Certificate.html)
+    /// `aggregate_verification_key` doesn't match the previous `aggregate_verification_key` (if
+    /// the certificates are on the same epoch) or the previous `next_aggregate_verification_key`
+    /// (if the certificates are on different epoch).
     #[error("certificate chain AVK unmatch error")]
     CertificateChainAVKUnmatch,
 
+    /// Error raised when validating the certificate chain if the chain loops.
     #[error("certificate chain infinite loop error")]
     CertificateChainInfiniteLoop,
 }
