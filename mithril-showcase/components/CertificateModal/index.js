@@ -29,10 +29,11 @@ export default function CertificateModal(props) {
   return (
     <Modal
       show={props.hash !== undefined}
+      onHide={close}
       size="xl"
       aria-labelledby="contained-modal-title-vcenter"
       centered>
-      <Modal.Header onHide={close} closeButton>
+      <Modal.Header className="text-break" closeButton>
         <Modal.Title id="contained-modal-title-vcenter">
           Certificate {certificate.hash}
         </Modal.Title>
@@ -82,7 +83,7 @@ export default function CertificateModal(props) {
         {certificate.previous_hash === ""
           ? <Badge bg="warning">Genesis</Badge>
           : <>
-            <Button size="sm" onClick={showPrevious}>Previous hash: {certificate.previous_hash}</Button>
+            <Button size="sm" onClick={showPrevious} className="text-break">Previous hash: {certificate.previous_hash}</Button>
           </>
         }
       </Modal.Footer>
