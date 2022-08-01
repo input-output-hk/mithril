@@ -7,9 +7,6 @@ use mithril::stm::{
 /// A protocol version
 pub type ProtocolVersion<'a> = &'a str;
 
-/// A vector of [u8].
-pub type Bytes = Vec<u8>;
-
 // Protocol types alias
 type D = blake2::Blake2b;
 /// The id of a mithril party.
