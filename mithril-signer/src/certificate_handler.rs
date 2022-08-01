@@ -29,7 +29,7 @@ pub enum CertificateHandlerError {
 
 #[cfg_attr(test, automock)]
 #[async_trait]
-pub trait CertificateHandler {
+pub trait CertificateHandler: Sync + Send {
     /// Retrieves a pending certificate from the aggregator
     async fn retrieve_pending_certificate(
         &self,

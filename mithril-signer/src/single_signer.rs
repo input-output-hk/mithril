@@ -14,7 +14,7 @@ use mithril_common::entities::{
 use mockall::automock;
 
 #[cfg_attr(test, automock)]
-pub trait SingleSigner {
+pub trait SingleSigner: Sync + Send {
     /// Get party id
     fn get_party_id(&self) -> ProtocolPartyId;
 

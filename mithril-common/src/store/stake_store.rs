@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use thiserror::Error;
+use tokio::sync::RwLock;
 
 use crate::entities::{Epoch, StakeDistribution};
 
@@ -20,7 +21,7 @@ pub enum StakeStoreError {
 pub trait StakeStorer {
     /// Save the stakes in the store for a given `epoch`.
     async fn save_stakes(
-        &mut self,
+        &self,
         epoch: Epoch,
         stakes: StakeDistribution,
     ) -> Result<Option<StakeDistribution>, StakeStoreError>;
@@ -31,31 +32,34 @@ pub trait StakeStorer {
 
 /// A [StakeStorer] that use a [StoreAdapter] to store data.
 pub struct StakeStore {
-    adapter: Adapter,
+    adapter: RwLock<Adapter>,
 }
 
 impl StakeStore {
     /// StakeStore factory
     pub fn new(adapter: Adapter) -> Self {
-        Self { adapter }
+        Self {
+            adapter: RwLock::new(adapter),
+        }
     }
 }
 
 #[async_trait]
 impl StakeStorer for StakeStore {
     async fn save_stakes(
-        &mut self,
+        &self,
         epoch: Epoch,
         stakes: StakeDistribution,
     ) -> Result<Option<StakeDistribution>, StakeStoreError> {
-        let signers = self.adapter.get_record(&epoch).await?;
-        self.adapter.store_record(&epoch, &stakes).await?;
+        let mut adapter = self.adapter.write().await;
+        let signers = adapter.get_record(&epoch).await?;
+        adapter.store_record(&epoch, &stakes).await?;
 
         Ok(signers)
     }
 
     async fn get_stakes(&self, epoch: Epoch) -> Result<Option<StakeDistribution>, StakeStoreError> {
-        Ok(self.adapter.get_record(&epoch).await?)
+        Ok(self.adapter.read().await.get_record(&epoch).await?)
     }
 }
 
@@ -86,31 +90,36 @@ mod tests {
 
     #[tokio::test]
     async fn save_key_in_empty_store() {
-        let mut store = init_store(0, 0);
+        let store = init_store(0, 0);
         let res = store
             .save_stakes(1, HashMap::from([("1".to_string(), 123)]))
             .await
-            .unwrap();
+            .expect("Test adapter should not fail.");
 
         assert!(res.is_none());
     }
 
     #[tokio::test]
     async fn update_signer_in_store() {
-        let mut store = init_store(1, 1);
+        let store = init_store(1, 1);
         let res = store
             .save_stakes(1, HashMap::from([("1".to_string(), 123)]))
             .await
-            .unwrap();
+            .expect("Test adapter should not fail.");
 
-        assert!(res.is_some());
-        assert_eq!(HashMap::from([("1".to_string(), 101)]), res.unwrap(),);
+        assert_eq!(
+            HashMap::from([("1".to_string(), 101)]),
+            res.expect("the result should not be empty"),
+        );
     }
 
     #[tokio::test]
     async fn get_stakes_for_empty_epoch() {
         let store = init_store(2, 1);
-        let res = store.get_stakes(0).await.unwrap();
+        let res = store
+            .get_stakes(0)
+            .await
+            .expect("Test adapter should not fail.");
 
         assert!(res.is_none());
     }
@@ -118,9 +127,12 @@ mod tests {
     #[tokio::test]
     async fn get_stakes_for_existing_epoch() {
         let store = init_store(2, 2);
-        let res = store.get_stakes(1).await.unwrap();
+        let res = store
+            .get_stakes(1)
+            .await
+            .expect("Test adapter should not fail.");
 
         assert!(res.is_some());
-        assert_eq!(2, res.unwrap().len());
+        assert_eq!(2, res.expect("Query result should not be empty.").len());
     }
 }
