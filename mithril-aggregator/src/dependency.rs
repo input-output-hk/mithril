@@ -17,7 +17,7 @@ use crate::{
 };
 
 /// BeaconStoreWrapper wraps a BeaconStore
-pub type BeaconStoreWrapper = Arc<RwLock<dyn BeaconStore>>;
+pub type BeaconStoreWrapper = Arc<dyn BeaconStore>;
 
 ///  SnapshotStoreWrapper wraps a SnapshotStore
 pub type SnapshotStoreWrapper = Arc<RwLock<dyn SnapshotStore>>;
@@ -285,7 +285,7 @@ pub mod tests {
         let single_signature_store = Arc::new(RwLock::new(SingleSignatureStore::new(Box::new(
             MemoryAdapter::new(None).unwrap(),
         ))));
-        let beacon_store = Arc::new(RwLock::new(MemoryBeaconStore::new()));
+        let beacon_store = Arc::new(MemoryBeaconStore::new());
         let multi_signer = async {
             let protocol_parameters = fake_data::protocol_parameters();
             let mut multi_signer = MultiSignerImpl::new(
@@ -314,15 +314,15 @@ pub mod tests {
         dependency_manager
             //.with_snapshot_store(snapshot_store.clone())
             //.with_snapshot_uploader(snapshot_uploader.clone())
-            .with_multi_signer(multi_signer.clone())
+            .with_multi_signer(multi_signer)
             .with_beacon_store(beacon_store.clone())
             .with_certificate_pending_store(certificate_pending_store.clone())
             .with_certificate_store(certificate_store.clone())
             .with_verification_key_store(verification_key_store.clone())
             .with_stake_store(stake_store.clone())
             .with_single_signature_store(single_signature_store.clone())
-            .with_chain_observer(chain_observer.clone())
-            .with_beacon_provider(beacon_provider.clone())
+            .with_chain_observer(chain_observer)
+            .with_beacon_provider(beacon_provider)
             .with_immutable_file_observer(immutable_file_observer)
             .with_snapshot_uploader(snapshot_uploader);
 

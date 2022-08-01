@@ -207,8 +207,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .beacon_store
             .as_ref()
             .ok_or_else(|| RuntimeError::General("no beacon store registered".to_string().into()))?
-            .write()
-            .await
             .set_current_beacon(new_beacon.to_owned())
             .await?;
         Ok(())
@@ -544,8 +542,6 @@ pub mod tests {
             .beacon_store
             .as_ref()
             .unwrap()
-            .read()
-            .await
             .get_current_beacon()
             .await
             .unwrap()
