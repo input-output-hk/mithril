@@ -3,6 +3,7 @@ use std::{collections::HashMap, hash::Hash};
 
 use super::{AdapterError, StoreAdapter};
 
+/// A [StoreAdapter] that store data in memory.
 pub struct MemoryAdapter<K, V> {
     index: Vec<K>,
     values: HashMap<K, V>,
@@ -13,7 +14,7 @@ where
     K: Hash + Eq + Send + Sync + Clone,
     V: Send + Sync + Clone,
 {
-    #[allow(dead_code)]
+    /// MemoryAdapter factory
     pub fn new(data: Option<Vec<(K, V)>>) -> Result<Self, AdapterError> {
         let data = match data {
             None => Vec::new(),

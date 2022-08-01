@@ -4,7 +4,7 @@ use crate::{BeaconStoreError, ProtocolError, SnapshotError};
 
 use mithril_common::chain_observer::ChainObserverError;
 use mithril_common::digesters::{DigesterError, ImmutableFileListingError};
-use mithril_common::store::stake_store::StakeStoreError;
+use mithril_common::store::StakeStoreError;
 use std::error::Error as StdError;
 use std::io;
 use thiserror::Error;

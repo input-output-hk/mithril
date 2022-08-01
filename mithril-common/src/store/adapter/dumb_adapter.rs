@@ -1,12 +1,14 @@
 use super::{AdapterError, StoreAdapter};
 use async_trait::async_trait;
 
+/// A [StoreAdapter] that store one fixed data record, for testing purpose.
 pub struct DumbStoreAdapter<K, R> {
     last_key: Option<K>,
     last_certificate: Option<R>,
 }
 
 impl<K, R> DumbStoreAdapter<K, R> {
+    /// DumbStoreAdapter factory
     pub fn new() -> Self {
         Self {
             last_key: None,

@@ -12,7 +12,7 @@ use mithril_common::digesters::{Digester, DigesterError};
 use mithril_common::entities::{
     self, Beacon, BeaconError, CertificatePending, Epoch, PartyId, SignerWithStake,
 };
-use mithril_common::store::stake_store::{StakeStore, StakeStoreError, StakeStorer};
+use mithril_common::store::{StakeStore, StakeStoreError, StakeStorer};
 use mithril_common::{SIGNER_EPOCH_RECORDING_OFFSET, SIGNER_EPOCH_RETRIEVAL_OFFSET};
 
 use super::certificate_handler::CertificateHandler;

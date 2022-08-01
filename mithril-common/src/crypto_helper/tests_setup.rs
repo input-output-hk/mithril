@@ -1,9 +1,12 @@
+//! Fake data builders for Mithril Core types, for testing purpose.
+
 use super::types::*;
 use crate::entities::{ProtocolMessage, ProtocolMessagePartKey};
 
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
+/// Instantiate a [ProtocolMessage] using fake data, use this for tests only.
 pub fn setup_message() -> ProtocolMessage {
     let mut protocol_message = ProtocolMessage::new();
     protocol_message.set_message_part(
@@ -17,6 +20,7 @@ pub fn setup_message() -> ProtocolMessage {
     protocol_message
 }
 
+/// Instantiate a [ProtocolParameters] using fake data, use this for tests only.
 pub fn setup_protocol_parameters() -> ProtocolParameters {
     ProtocolParameters {
         m: 10,
@@ -25,6 +29,7 @@ pub fn setup_protocol_parameters() -> ProtocolParameters {
     }
 }
 
+/// Instantiate a list of signers using fake data, use this for tests only.
 pub fn setup_signers(
     total: u64,
 ) -> Vec<(

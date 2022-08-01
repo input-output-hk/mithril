@@ -1,3 +1,5 @@
+//! Tools and types to abstract the use of the [Mithril Core library](https://mithril.network/mithril-core/doc/mithril/index.html)
+
 mod codec;
 mod conversions;
 pub mod tests_setup;

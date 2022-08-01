@@ -1,3 +1,5 @@
+//! The entities used by, and exchanged between, the aggregator, signers and client.
+
 use crate::crypto_helper::{key_decode_hex, ProtocolSingleSignature};
 use fixed::types::U8F24;
 use serde::{Deserialize, Serialize};
@@ -122,6 +124,7 @@ impl Beacon {
 /// BeaconError is an error triggerred by a Beacon
 #[derive(Error, Debug)]
 pub enum BeaconError {
+    /// Error raised when the computation of an epoch using an offset fails.
     #[error("epoch offset error")]
     EpochOffset(u64, i64),
 }
@@ -488,6 +491,7 @@ pub struct SignerWithStake {
     #[serde(rename = "verification_key")]
     pub verification_key: String,
 
+    /// The signer stake
     #[serde(rename = "stake")]
     pub stake: Stake,
 }
@@ -543,6 +547,7 @@ impl SingleSignatures {
         }
     }
 
+    /// Convert this [SingleSignatures] to its corresponding [MithrilCore Signature][ProtocolSingleSignature].
     pub fn to_protocol_signature(&self) -> Result<ProtocolSingleSignature, String> {
         match key_decode_hex::<ProtocolSingleSignature>(&self.signature) {
             Ok(signature) => Ok(signature),

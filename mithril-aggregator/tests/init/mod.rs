@@ -10,7 +10,7 @@ use mithril_common::{
     chain_observer::FakeObserver,
     crypto_helper::tests_setup::setup_protocol_parameters,
     digesters::DumbDigester,
-    store::{adapter::MemoryAdapter, stake_store::StakeStore},
+    store::{adapter::MemoryAdapter, StakeStore},
     CardanoNetwork,
 };
 use tokio::sync::RwLock;

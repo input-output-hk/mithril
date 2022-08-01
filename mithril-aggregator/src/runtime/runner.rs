@@ -501,7 +501,7 @@ pub mod tests {
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
     };
     use mithril_common::{digesters::DigesterResult, entities::Beacon};
-    use mithril_common::{entities::ProtocolMessagePartKey, store::stake_store::StakeStorer};
+    use mithril_common::{entities::ProtocolMessagePartKey, store::StakeStorer};
     use tempfile::NamedTempFile;
 
     #[tokio::test]

@@ -11,7 +11,7 @@ use mithril_common::crypto_helper::{
     ProtocolStakeDistribution, PROTOCOL_VERSION,
 };
 use mithril_common::entities;
-use mithril_common::store::stake_store::{StakeStoreError, StakeStorer};
+use mithril_common::store::{StakeStoreError, StakeStorer};
 use mithril_common::{SIGNER_EPOCH_RECORDING_OFFSET, SIGNER_EPOCH_RETRIEVAL_OFFSET};
 
 use super::beacon_store::BeaconStoreError;
@@ -683,7 +683,7 @@ mod tests {
     use mithril_common::crypto_helper::tests_setup::*;
     use mithril_common::fake_data;
     use mithril_common::store::adapter::MemoryAdapter;
-    use mithril_common::store::stake_store::StakeStore;
+    use mithril_common::store::StakeStore;
 
     use std::collections::HashMap;
     use std::sync::Arc;

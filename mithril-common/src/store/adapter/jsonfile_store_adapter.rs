@@ -13,6 +13,7 @@ use serde::{de::DeserializeOwned, Serialize};
 
 use super::{AdapterError, StoreAdapter};
 
+/// A [StoreAdapter] storing data on disk serialized as json.
 #[derive(Debug)]
 pub struct JsonFileStoreAdapter<K, V> {
     dirpath: PathBuf,
@@ -25,6 +26,7 @@ where
     K: Hash + PartialEq + Serialize + DeserializeOwned,
     V: Serialize + DeserializeOwned,
 {
+    /// JsonFileStoreAdapter factory
     pub fn new(dirpath: PathBuf) -> Result<Self, AdapterError> {
         if !dirpath.exists() {
             Self::create_dir(&dirpath)?;

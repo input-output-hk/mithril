@@ -10,7 +10,7 @@ use mithril_common::chain_observer::CardanoCliRunner;
 use mithril_common::digesters::ImmutableDigester;
 use mithril_common::fake_data;
 use mithril_common::store::adapter::JsonFileStoreAdapter;
-use mithril_common::store::stake_store::StakeStore;
+use mithril_common::store::StakeStore;
 
 use clap::Parser;
 use config::{Map, Source, Value, ValueKind};

@@ -9,30 +9,38 @@ use super::adapter::{AdapterError, StoreAdapter};
 
 type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = HashMap<PartyId, SignerWithStake>>>;
 
+/// [StakeStorer] related errors.
 #[derive(Debug, Error)]
 pub enum StakeStoreError {
+    /// Error raised when the underlying [adapter][StoreAdapter] raise an error.
     #[error("adapter error {0}")]
     AdapterError(#[from] AdapterError),
 }
 
+/// Represent a way to store the stake of mithril party members.
 #[async_trait]
 pub trait StakeStorer {
+    /// Save the stake of a party in the store for a given `epoch`.
     async fn save_stake(
         &mut self,
         epoch: Epoch,
         signer: SignerWithStake,
     ) -> Result<Option<SignerWithStake>, StakeStoreError>;
 
+    /// Get the stakes of all party at a given `epoch`.
     async fn get_stakes(
         &self,
         epoch: Epoch,
     ) -> Result<Option<HashMap<PartyId, SignerWithStake>>, StakeStoreError>;
 }
+
+/// A [StakeStorer] that use a [StoreAdapter] to store data.
 pub struct StakeStore {
     adapter: Adapter,
 }
 
 impl StakeStore {
+    /// StakeStore factory
     pub fn new(adapter: Adapter) -> Self {
         Self { adapter }
     }

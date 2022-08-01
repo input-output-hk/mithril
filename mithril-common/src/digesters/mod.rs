@@ -1,3 +1,5 @@
+//! Tools to compute mithril digest from a Cardano node database.
+
 mod digester;
 mod immutable_digester;
 mod immutable_file;

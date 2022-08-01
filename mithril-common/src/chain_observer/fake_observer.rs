@@ -3,12 +3,21 @@ use async_trait::async_trait;
 use crate::chain_observer::interface::*;
 use crate::{entities::*, fake_data};
 
+/// A Fake [ChainObserver] for testing purpose using fixed data.
 pub struct FakeObserver {
+    /// A list of [SignerWithStake], used for [get_current_stake_distribution].
+    ///
+    /// [get_current_stake_distribution]: ChainObserver::get_current_stake_distribution
     pub signers: Vec<SignerWithStake>,
+
+    /// A [Beacon], used by [get_current_epoch]
+    ///
+    /// [get_current_epoch]: ChainObserver::get_current_epoch
     pub current_beacon: Option<Beacon>,
 }
 
 impl FakeObserver {
+    /// FakeObserver factory
     pub fn new() -> Self {
         Self {
             signers: vec![],
@@ -16,6 +25,7 @@ impl FakeObserver {
         }
     }
 
+    /// Increase by one the epoch of [`FakeObserver::current_beacon`].
     pub fn next_epoch(&mut self) -> Option<Epoch> {
         self.current_beacon = self.current_beacon.as_ref().map(|beacon| Beacon {
             epoch: beacon.epoch + 1,
@@ -38,12 +48,10 @@ impl Default for FakeObserver {
 
 #[async_trait]
 impl ChainObserver for FakeObserver {
-    /// Retrieve the current epoch of the Cardano network
     async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError> {
         Ok(self.current_beacon.as_ref().map(|beacon| beacon.epoch))
     }
 
-    /// Retrieve the current stake distribution of the Cardano network
     async fn get_current_stake_distribution(
         &self,
     ) -> Result<Option<StakeDistribution>, ChainObserverError> {

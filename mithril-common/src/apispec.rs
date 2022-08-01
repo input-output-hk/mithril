@@ -1,3 +1,5 @@
+//! Tools to helps validate conformity to an OpenAPI specification
+
 use http::response::Response;
 use jsonschema::JSONSchema;
 use serde::Serialize;

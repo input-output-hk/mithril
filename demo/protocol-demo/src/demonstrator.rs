@@ -9,9 +9,9 @@ use std::io::Write;
 use std::path;
 
 use mithril_common::crypto_helper::{
-    key_decode_hex, key_encode_hex, Bytes, ProtocolClerk, ProtocolInitializer,
-    ProtocolKeyRegistration, ProtocolMultiSignature, ProtocolParameters, ProtocolPartyId,
-    ProtocolSigner, ProtocolSignerVerificationKey, ProtocolSingleSignature, ProtocolStake,
+    key_decode_hex, key_encode_hex, ProtocolClerk, ProtocolInitializer, ProtocolKeyRegistration,
+    ProtocolMultiSignature, ProtocolParameters, ProtocolPartyId, ProtocolSigner,
+    ProtocolSignerVerificationKey, ProtocolSingleSignature, ProtocolStake,
 };
 
 /// Player artifacts
@@ -54,7 +54,7 @@ pub struct Party {
     /// Protocol clerk
     clerk: Option<ProtocolClerk>,
     /// Multi signatures
-    msigs: HashMap<Bytes, ProtocolMultiSignature>,
+    msigs: HashMap<Vec<u8>, ProtocolMultiSignature>,
 }
 
 impl Party {
@@ -112,7 +112,7 @@ impl Party {
     }
 
     /// Individually sign a message through lottery
-    pub fn sign_message(&mut self, message: &Bytes) -> Option<ProtocolSingleSignature> {
+    pub fn sign_message(&mut self, message: &[u8]) -> Option<ProtocolSingleSignature> {
         println!(
             "Party #{}: sign message {}",
             self.party_id,
@@ -135,7 +135,7 @@ impl Party {
     /// Aggregate signatures
     pub fn sign_aggregate(
         &mut self,
-        message: &Bytes,
+        message: &Vec<u8>,
         signatures: &[ProtocolSingleSignature],
     ) -> Option<&ProtocolMultiSignature> {
         let msig = self.clerk.as_ref().unwrap().aggregate(signatures, message);
@@ -156,12 +156,12 @@ impl Party {
     }
 
     /// Retrieve agreggate signature associated to a message
-    pub fn get_aggregate(&self, message: &Bytes) -> Option<&ProtocolMultiSignature> {
+    pub fn get_aggregate(&self, message: &Vec<u8>) -> Option<&ProtocolMultiSignature> {
         self.msigs.get(message)
     }
 
     /// Verify a certificate
-    pub fn verify_message(&self, message: &Bytes) -> Result<(), String> {
+    pub fn verify_message(&self, message: &Vec<u8>) -> Result<(), String> {
         match self.get_aggregate(message) {
             Some(msig) => match msig.verify(
                 message,
@@ -252,7 +252,7 @@ impl Verifier {
     /// Verify a message
     pub fn verify_message(
         &self,
-        message: &Bytes,
+        message: &Vec<u8>,
         msig: &ProtocolMultiSignature,
     ) -> Result<(), String> {
         match msig.verify(
@@ -288,7 +288,7 @@ pub struct Demonstrator {
     /// Protocol external verifier
     verifier: Option<Verifier>,
     /// List of messages to sign
-    messages: Vec<Bytes>,
+    messages: Vec<Vec<u8>>,
     /// Protocol parameters
     params: Option<ProtocolParameters>,
 }
@@ -311,7 +311,7 @@ impl Demonstrator {
                 rng.fill_bytes(&mut msg);
                 msg.to_vec()
             })
-            .collect::<Vec<Bytes>>();
+            .collect::<Vec<Vec<u8>>>();
         Self {
             config: *config,
             parties,

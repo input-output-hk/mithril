@@ -2,7 +2,7 @@ use hex::ToHex;
 use log::debug;
 use thiserror::Error;
 
-use mithril_common::crypto_helper::{key_decode_hex, Bytes, ProtocolMultiSignature};
+use mithril_common::crypto_helper::{key_decode_hex, ProtocolMultiSignature};
 use mithril_common::entities::ProtocolParameters;
 
 #[cfg(test)]
@@ -23,7 +23,7 @@ pub trait Verifier {
     /// Verify a multi signature
     fn verify_multi_signature(
         &self,
-        message: &Bytes,
+        message: &Vec<u8>,
         multi_signature: &str,
         aggregate_verification_key: &str,
         protocol_parameters: &ProtocolParameters,
@@ -51,7 +51,7 @@ impl Verifier for VerifierImpl {
     /// Verify a multi signature
     fn verify_multi_signature(
         &self,
-        message: &Bytes,
+        message: &Vec<u8>,
         multi_signature: &str,
         aggregate_verification_key: &str,
         protocol_parameters: &ProtocolParameters,

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use mithril_common::chain_observer::ChainObserver;
-use mithril_common::store::stake_store::StakeStore;
+use mithril_common::store::StakeStore;
 
 use super::entities::*;
 use super::multi_signer::MultiSigner;
@@ -244,7 +244,7 @@ pub mod tests {
     use mithril_common::{
         chain_observer::FakeObserver,
         fake_data,
-        store::{adapter::MemoryAdapter, stake_store::StakeStore},
+        store::{adapter::MemoryAdapter, StakeStore},
         CardanoNetwork,
     };
     use tokio::sync::RwLock;
