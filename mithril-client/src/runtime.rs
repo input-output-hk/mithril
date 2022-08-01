@@ -262,7 +262,7 @@ impl Runtime {
             .ok_or(RuntimeError::CertificateHashUnmatch)?;
         self.get_verifier()?
             .verify_multi_signature(
-                &certificate.signed_message.as_bytes().to_vec(),
+                certificate.signed_message.as_bytes(),
                 &certificate.multi_signature,
                 &certificate.aggregate_verification_key,
                 &certificate.metadata.protocol_parameters,

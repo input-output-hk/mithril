@@ -26,7 +26,7 @@ pub trait Verifier {
     /// Verify a multi signature
     fn verify_multi_signature(
         &self,
-        message: &Vec<u8>,
+        message: &[u8],
         multi_signature: &str,
         aggregate_verification_key: &str,
         protocol_parameters: &ProtocolParameters,
@@ -54,7 +54,7 @@ impl Verifier for VerifierImpl {
     /// Verify a multi signature
     fn verify_multi_signature(
         &self,
-        message: &Vec<u8>,
+        message: &[u8],
         multi_signature: &str,
         aggregate_verification_key: &str,
         protocol_parameters: &ProtocolParameters,
