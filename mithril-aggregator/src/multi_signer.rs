@@ -412,8 +412,6 @@ impl MultiSigner for MultiSignerImpl {
             .epoch;
         let result = match self
             .verification_key_store
-            .write()
-            .await
             .save_verification_key(
                 epoch,
                 entities::Signer::new(
@@ -445,8 +443,6 @@ impl MultiSigner for MultiSignerImpl {
             .epoch;
         let signers = self
             .verification_key_store
-            .read()
-            .await
             .get_verification_keys(epoch)
             .await?
             .unwrap_or_default();
@@ -472,8 +468,6 @@ impl MultiSigner for MultiSignerImpl {
             .epoch;
         let signers = self
             .verification_key_store
-            .read()
-            .await
             .get_verification_keys(epoch)
             .await?
             .unwrap_or_default();
@@ -698,7 +692,7 @@ mod tests {
         ));
         MultiSignerImpl::new(
             Arc::new(beacon_store),
-            Arc::new(RwLock::new(verification_key_store)),
+            Arc::new(verification_key_store),
             Arc::new(RwLock::new(stake_store)),
             Arc::new(single_signature_store),
         )

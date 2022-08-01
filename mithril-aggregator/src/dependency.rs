@@ -35,7 +35,7 @@ pub type CertificatePendingStoreWrapper = Arc<CertificatePendingStore>;
 pub type CertificateStoreWrapper = Arc<RwLock<CertificateStore>>;
 
 ///  VerificationKeyStoreWrapper wraps a VerificationKeyStore
-pub type VerificationKeyStoreWrapper = Arc<RwLock<VerificationKeyStore>>;
+pub type VerificationKeyStoreWrapper = Arc<VerificationKeyStore>;
 
 ///  StakeStoreWrapper wraps a StakeStore
 pub type StakeStoreWrapper = Arc<RwLock<StakeStore>>;
@@ -276,9 +276,9 @@ pub mod tests {
         let certificate_store = Arc::new(RwLock::new(CertificateStore::new(Box::new(
             MemoryAdapter::new(None).unwrap(),
         ))));
-        let verification_key_store = Arc::new(RwLock::new(VerificationKeyStore::new(Box::new(
+        let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(
             MemoryAdapter::new(None).unwrap(),
-        ))));
+        )));
         let stake_store = Arc::new(RwLock::new(StakeStore::new(Box::new(
             MemoryAdapter::new(None).unwrap(),
         ))));

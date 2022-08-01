@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use std::collections::HashMap;
 use thiserror::Error;
+use tokio::sync::RwLock;
 
 use mithril_common::entities::{Epoch, PartyId, Signer};
 use mithril_common::store::adapter::{AdapterError, StoreAdapter};
@@ -16,7 +17,7 @@ pub enum VerificationKeyStoreError {
 #[async_trait]
 pub trait VerificationKeyStorer {
     async fn save_verification_key(
-        &mut self,
+        &self,
         epoch: Epoch,
         signer: Signer,
     ) -> Result<Option<Signer>, VerificationKeyStoreError>;
@@ -27,28 +28,34 @@ pub trait VerificationKeyStorer {
     ) -> Result<Option<HashMap<PartyId, Signer>>, VerificationKeyStoreError>;
 }
 pub struct VerificationKeyStore {
-    adapter: Adapter,
+    adapter: RwLock<Adapter>,
 }
 
 impl VerificationKeyStore {
     pub fn new(adapter: Adapter) -> Self {
-        Self { adapter }
+        Self {
+            adapter: RwLock::new(adapter),
+        }
     }
 }
 
 #[async_trait]
 impl VerificationKeyStorer for VerificationKeyStore {
     async fn save_verification_key(
-        &mut self,
+        &self,
         epoch: Epoch,
         signer: Signer,
     ) -> Result<Option<Signer>, VerificationKeyStoreError> {
-        let mut signers = match self.adapter.get_record(&epoch).await? {
+        let mut signers = match self.adapter.read().await.get_record(&epoch).await? {
             Some(s) => s,
             None => HashMap::new(),
         };
         let prev_signer = signers.insert(signer.party_id.to_owned(), signer);
-        let _ = self.adapter.store_record(&epoch, &signers).await?;
+        self.adapter
+            .write()
+            .await
+            .store_record(&epoch, &signers)
+            .await?;
 
         Ok(prev_signer)
     }
@@ -57,7 +64,8 @@ impl VerificationKeyStorer for VerificationKeyStore {
         &self,
         epoch: Epoch,
     ) -> Result<Option<HashMap<PartyId, Signer>>, VerificationKeyStoreError> {
-        Ok(self.adapter.get_record(&epoch).await?)
+        let record = self.adapter.read().await.get_record(&epoch).await?;
+        Ok(record)
     }
 }
 
@@ -75,7 +83,7 @@ mod tests {
 
             for party_idx in 1..=signers_per_epoch {
                 let party_id = format!("{}", party_idx);
-                let _ = signers.insert(
+                signers.insert(
                     party_id.clone(),
                     Signer {
                         party_id: party_id.clone(),
@@ -98,7 +106,7 @@ mod tests {
 
     #[tokio::test]
     async fn save_key_in_empty_store() {
-        let mut store = init_store(0, 0);
+        let store = init_store(0, 0);
         let res = store
             .save_verification_key(
                 0,
@@ -115,7 +123,7 @@ mod tests {
 
     #[tokio::test]
     async fn update_signer_in_store() {
-        let mut store = init_store(1, 1);
+        let store = init_store(1, 1);
         let res = store
             .save_verification_key(
                 1,

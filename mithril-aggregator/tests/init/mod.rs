@@ -42,9 +42,9 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
     let certificate_store = Arc::new(RwLock::new(CertificateStore::new(Box::new(
         MemoryAdapter::new(None).unwrap(),
     ))));
-    let verification_key_store = Arc::new(RwLock::new(VerificationKeyStore::new(Box::new(
+    let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(
         MemoryAdapter::new(None).unwrap(),
-    ))));
+    )));
     let stake_store = Arc::new(RwLock::new(StakeStore::new(Box::new(
         MemoryAdapter::new(None).unwrap(),
     ))));

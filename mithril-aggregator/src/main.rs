@@ -136,9 +136,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let certificate_store = Arc::new(RwLock::new(CertificateStore::new(Box::new(
         JsonFileStoreAdapter::new(config.certificate_store_directory.clone())?,
     ))));
-    let verification_key_store = Arc::new(RwLock::new(VerificationKeyStore::new(Box::new(
+    let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(
         JsonFileStoreAdapter::new(config.verification_key_store_directory.clone())?,
-    ))));
+    )));
     let stake_store = Arc::new(RwLock::new(StakeStore::new(Box::new(
         JsonFileStoreAdapter::new(config.stake_store_directory.clone())?,
     ))));
