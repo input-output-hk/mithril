@@ -29,7 +29,7 @@ pub type SnapshotUploaderWrapper = Arc<dyn SnapshotUploader>;
 pub type MultiSignerWrapper = Arc<RwLock<dyn MultiSigner>>;
 
 /// CertificatePendingStoreWrapper wraps a CertificatePendingStore
-pub type CertificatePendingStoreWrapper = Arc<RwLock<CertificatePendingStore>>;
+pub type CertificatePendingStoreWrapper = Arc<CertificatePendingStore>;
 
 ///  CertificateStoreWrapper wraps a CertificateStore
 pub type CertificateStoreWrapper = Arc<RwLock<CertificateStore>>;
@@ -270,8 +270,8 @@ pub mod tests {
             stake_store_directory: PathBuf::new(),
             single_signature_store_directory: PathBuf::new(),
         };
-        let certificate_pending_store = Arc::new(RwLock::new(CertificatePendingStore::new(
-            Box::new(MemoryAdapter::new(None).unwrap()),
+        let certificate_pending_store = Arc::new(CertificatePendingStore::new(Box::new(
+            MemoryAdapter::new(None).unwrap(),
         )));
         let certificate_store = Arc::new(RwLock::new(CertificateStore::new(Box::new(
             MemoryAdapter::new(None).unwrap(),

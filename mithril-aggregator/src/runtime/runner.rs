@@ -286,8 +286,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .ok_or_else(|| {
                 RuntimeError::General("no certificate pending store registered".to_string().into())
             })?
-            .write()
-            .await
             .save(pending_certificate)
             .await
             .map_err(|e| e.into())
@@ -332,8 +330,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .ok_or_else(|| {
                 RuntimeError::General("no certificate pending store registered".to_string().into())
             })?
-            .write()
-            .await
             .remove()
             .await?
             .ok_or_else(|| {
@@ -664,8 +660,6 @@ pub mod tests {
             .certificate_pending_store
             .as_ref()
             .unwrap()
-            .read()
-            .await
             .get()
             .await
             .unwrap()
@@ -694,8 +688,6 @@ pub mod tests {
             .certificate_pending_store
             .as_ref()
             .unwrap()
-            .read()
-            .await
             .get()
             .await
             .unwrap();

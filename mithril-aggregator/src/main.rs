@@ -130,9 +130,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let beacon_store = Arc::new(MemoryBeaconStore::new());
     let snapshot_uploader = config.build_snapshot_uploader();
-    let certificate_pending_store = Arc::new(RwLock::new(CertificatePendingStore::new(Box::new(
+    let certificate_pending_store = Arc::new(CertificatePendingStore::new(Box::new(
         JsonFileStoreAdapter::new(config.pending_certificate_store_directory.clone())?,
-    ))));
+    )));
     let certificate_store = Arc::new(RwLock::new(CertificateStore::new(Box::new(
         JsonFileStoreAdapter::new(config.certificate_store_directory.clone())?,
     ))));

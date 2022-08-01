@@ -36,9 +36,9 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
         stake_store_directory: PathBuf::new(),
         single_signature_store_directory: PathBuf::new(),
     };
-    let certificate_pending_store = Arc::new(RwLock::new(CertificatePendingStore::new(Box::new(
+    let certificate_pending_store = Arc::new(CertificatePendingStore::new(Box::new(
         MemoryAdapter::new(None).unwrap(),
-    ))));
+    )));
     let certificate_store = Arc::new(RwLock::new(CertificateStore::new(Box::new(
         MemoryAdapter::new(None).unwrap(),
     ))));

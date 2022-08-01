@@ -45,8 +45,6 @@ mod handlers {
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("certificate_pending");
 
-        let certificate_pending_store = certificate_pending_store.read().await;
-
         match certificate_pending_store.get().await {
             Ok(Some(certificate_pending)) => Ok(reply::json(&certificate_pending, StatusCode::OK)),
             Ok(None) => Ok(reply::empty(StatusCode::NO_CONTENT)),
@@ -112,8 +110,7 @@ mod tests {
             CertificatePendingStore::new(Box::new(DumbStoreAdapter::new()));
         let mut dependency_manager = setup_dependency_manager();
 
-        dependency_manager
-            .with_certificate_pending_store(Arc::new(RwLock::new(certificate_pending_store)));
+        dependency_manager.with_certificate_pending_store(Arc::new(certificate_pending_store));
 
         let response = request()
             .method(method)
@@ -135,8 +132,7 @@ mod tests {
         let certificate_pending_store =
             CertificatePendingStore::new(Box::new(DumbStoreAdapter::new()));
         let mut dependency_manager = setup_dependency_manager();
-        dependency_manager
-            .with_certificate_pending_store(Arc::new(RwLock::new(certificate_pending_store)));
+        dependency_manager.with_certificate_pending_store(Arc::new(certificate_pending_store));
 
         let method = Method::GET.as_str();
         let path = "/certificate-pending";
@@ -163,8 +159,7 @@ mod tests {
         let certificate_pending_store =
             CertificatePendingStore::new(Box::new(DumbStoreAdapter::new()));
         let mut dependency_manager = setup_dependency_manager();
-        dependency_manager
-            .with_certificate_pending_store(Arc::new(RwLock::new(certificate_pending_store)));
+        dependency_manager.with_certificate_pending_store(Arc::new(certificate_pending_store));
 
         let response = request()
             .method(method)
