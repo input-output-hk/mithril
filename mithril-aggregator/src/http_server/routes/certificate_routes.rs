@@ -59,7 +59,6 @@ mod handlers {
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("certificate_certificate_hash/{}", certificate_hash);
 
-        let certificate_store = certificate_store.read().await;
         match certificate_store.get_from_hash(&certificate_hash).await {
             Ok(Some(certificate)) => Ok(reply::json(&certificate, StatusCode::OK)),
             Ok(None) => Ok(reply::empty(StatusCode::NOT_FOUND)),
@@ -77,7 +76,6 @@ mod tests {
     use mithril_common::store::adapter::{DumbStoreAdapter, FailStoreAdapter};
     use mithril_common::{entities, fake_data};
     use serde_json::Value::Null;
-    use tokio::sync::RwLock;
     use warp::http::Method;
     use warp::test::request;
 
@@ -178,7 +176,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_certificate_certificate_hash_get_ok() {
-        let mut certificate_store = CertificateStore::new(Box::new(DumbStoreAdapter::<
+        let certificate_store = CertificateStore::new(Box::new(DumbStoreAdapter::<
             String,
             entities::Certificate,
         >::new()));
@@ -187,7 +185,7 @@ mod tests {
             .await
             .expect("certificate store save should have succeeded");
         let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_certificate_store(Arc::new(RwLock::new(certificate_store)));
+        dependency_manager.with_certificate_store(Arc::new(certificate_store));
 
         let method = Method::GET.as_str();
         let path = "/certificate/{certificate_hash}";
@@ -214,7 +212,7 @@ mod tests {
             entities::Certificate,
         >::new()));
         let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_certificate_store(Arc::new(RwLock::new(certificate_store)));
+        dependency_manager.with_certificate_store(Arc::new(certificate_store));
 
         let method = Method::GET.as_str();
         let path = "/certificate/{certificate_hash}";
@@ -241,7 +239,7 @@ mod tests {
             entities::Certificate,
         >::new()));
         let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_certificate_store(Arc::new(RwLock::new(certificate_store)));
+        dependency_manager.with_certificate_store(Arc::new(certificate_store));
 
         let method = Method::GET.as_str();
         let path = "/certificate/{certificate_hash}";

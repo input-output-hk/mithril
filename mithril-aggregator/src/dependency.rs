@@ -32,7 +32,7 @@ pub type MultiSignerWrapper = Arc<RwLock<dyn MultiSigner>>;
 pub type CertificatePendingStoreWrapper = Arc<CertificatePendingStore>;
 
 ///  CertificateStoreWrapper wraps a CertificateStore
-pub type CertificateStoreWrapper = Arc<RwLock<CertificateStore>>;
+pub type CertificateStoreWrapper = Arc<CertificateStore>;
 
 ///  VerificationKeyStoreWrapper wraps a VerificationKeyStore
 pub type VerificationKeyStoreWrapper = Arc<VerificationKeyStore>;
@@ -273,9 +273,9 @@ pub mod tests {
         let certificate_pending_store = Arc::new(CertificatePendingStore::new(Box::new(
             MemoryAdapter::new(None).unwrap(),
         )));
-        let certificate_store = Arc::new(RwLock::new(CertificateStore::new(Box::new(
+        let certificate_store = Arc::new(CertificateStore::new(Box::new(
             MemoryAdapter::new(None).unwrap(),
-        ))));
+        )));
         let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(
             MemoryAdapter::new(None).unwrap(),
         )));

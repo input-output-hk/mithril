@@ -1,4 +1,5 @@
 use super::StoreError;
+use tokio::sync::RwLock;
 
 use mithril_common::entities::Certificate;
 use mithril_common::store::adapter::StoreAdapter;
@@ -6,27 +7,37 @@ use mithril_common::store::adapter::StoreAdapter;
 type Adapter = Box<dyn StoreAdapter<Key = String, Record = Certificate>>;
 
 pub struct CertificateStore {
-    adapter: Adapter,
+    adapter: RwLock<Adapter>,
 }
 
 impl CertificateStore {
     pub fn new(adapter: Adapter) -> Self {
-        Self { adapter }
+        Self {
+            adapter: RwLock::new(adapter),
+        }
     }
 
     pub async fn get_from_hash(&self, hash: &str) -> Result<Option<Certificate>, StoreError> {
-        Ok(self.adapter.get_record(&hash.to_string()).await?)
+        let record = self
+            .adapter
+            .read()
+            .await
+            .get_record(&hash.to_string())
+            .await?;
+        Ok(record)
     }
 
-    pub async fn save(&mut self, certificate: Certificate) -> Result<(), StoreError> {
-        Ok(self
-            .adapter
+    pub async fn save(&self, certificate: Certificate) -> Result<(), StoreError> {
+        self.adapter
+            .write()
+            .await
             .store_record(&certificate.hash, &certificate)
-            .await?)
+            .await?;
+        Ok(())
     }
 
     pub async fn get_list(&self, last_n: usize) -> Result<Vec<Certificate>, StoreError> {
-        let vars = self.adapter.get_last_n_records(last_n).await?;
+        let vars = self.adapter.read().await.get_last_n_records(last_n).await?;
         let result = vars.into_iter().map(|(_, y)| y).collect();
 
         Ok(result)
@@ -83,7 +94,7 @@ mod test {
 
     #[tokio::test]
     async fn save_certificate_once() {
-        let mut store = get_certificate_store(1).await;
+        let store = get_certificate_store(1).await;
         let certificate = fake_data::certificate("123".to_string());
 
         assert!(store.save(certificate).await.is_ok());
@@ -91,7 +102,7 @@ mod test {
 
     #[tokio::test]
     async fn update_certificate() {
-        let mut store = get_certificate_store(1).await;
+        let store = get_certificate_store(1).await;
         let mut certificate = store.get_from_hash("cert_00").await.unwrap().unwrap();
 
         certificate.previous_hash = "whatever".to_string();

@@ -144,29 +144,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         }
     }
 
-    /// Is a multisignature ready?
-    /// Can we create a multisignature.
-    async fn is_multisig_created(&self) -> Result<bool, RuntimeError> {
-        info!("check if we can create a multisignature");
-        let has_multisig = self
-            .dependencies
-            .multi_signer
-            .as_ref()
-            .ok_or_else(|| RuntimeError::General("no multisigner registered".to_string().into()))?
-            .write()
-            .await
-            .create_multi_signature()
-            .await?
-            .is_some();
-
-        if has_multisig {
-            debug!("new MULTISIG created");
-        } else {
-            info!("no multisig created");
-        }
-        Ok(has_multisig)
-    }
-
     async fn compute_digest(&self, new_beacon: &Beacon) -> Result<DigesterResult, RuntimeError> {
         info!("running runner::compute_digester");
         let digester = self
@@ -242,6 +219,35 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .await?)
     }
 
+    async fn update_message_in_multisigner(
+        &self,
+        digest_result: DigesterResult,
+    ) -> Result<(), RuntimeError> {
+        info!("update message in multisigner");
+        let mut multi_signer = self
+            .dependencies
+            .multi_signer
+            .as_ref()
+            .ok_or_else(|| RuntimeError::General("no multisigner registered".to_string().into()))?
+            .write()
+            .await;
+        let mut protocol_message = ProtocolMessage::new();
+        protocol_message
+            .set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest_result.digest);
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::NextAggregateVerificationKey,
+            multi_signer
+                .compute_next_stake_distribution_aggregate_verification_key()
+                .await
+                .map_err(RuntimeError::MultiSigner)?
+                .unwrap_or_default(),
+        );
+        multi_signer
+            .update_current_message(protocol_message)
+            .await
+            .map_err(RuntimeError::MultiSigner)
+    }
+
     async fn create_new_pending_certificate_from_multisigner(
         &self,
         beacon: Beacon,
@@ -291,35 +297,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .map_err(|e| e.into())
     }
 
-    async fn update_message_in_multisigner(
-        &self,
-        digest_result: DigesterResult,
-    ) -> Result<(), RuntimeError> {
-        info!("update message in multisigner");
-        let mut multi_signer = self
-            .dependencies
-            .multi_signer
-            .as_ref()
-            .ok_or_else(|| RuntimeError::General("no multisigner registered".to_string().into()))?
-            .write()
-            .await;
-        let mut protocol_message = ProtocolMessage::new();
-        protocol_message
-            .set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest_result.digest);
-        protocol_message.set_message_part(
-            ProtocolMessagePartKey::NextAggregateVerificationKey,
-            multi_signer
-                .compute_next_stake_distribution_aggregate_verification_key()
-                .await
-                .map_err(RuntimeError::MultiSigner)?
-                .unwrap_or_default(),
-        );
-        multi_signer
-            .update_current_message(protocol_message)
-            .await
-            .map_err(RuntimeError::MultiSigner)
-    }
-
     async fn drop_pending_certificate(&self) -> Result<CertificatePending, RuntimeError> {
         info!("drop pending certificate");
 
@@ -341,6 +318,29 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             })?;
 
         Ok(certificate_pending)
+    }
+
+    /// Is a multisignature ready?
+    /// Can we create a multisignature.
+    async fn is_multisig_created(&self) -> Result<bool, RuntimeError> {
+        info!("check if we can create a multisignature");
+        let has_multisig = self
+            .dependencies
+            .multi_signer
+            .as_ref()
+            .ok_or_else(|| RuntimeError::General("no multisigner registered".to_string().into()))?
+            .write()
+            .await
+            .create_multi_signature()
+            .await?
+            .is_some();
+
+        if has_multisig {
+            debug!("new MULTISIG created");
+        } else {
+            info!("no multisig created");
+        }
+        Ok(has_multisig)
     }
 
     async fn create_snapshot_archive(&self) -> Result<OngoingSnapshot, RuntimeError> {
@@ -379,20 +379,44 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(ongoing_snapshot)
     }
 
+    async fn upload_snapshot_archive(
+        &self,
+        ongoing_snapshot: &OngoingSnapshot,
+    ) -> Result<Vec<SnapshotLocation>, RuntimeError> {
+        info!("upload snapshot archive");
+        let location = self
+            .dependencies
+            .snapshot_uploader
+            .as_ref()
+            .ok_or_else(|| {
+                RuntimeError::SnapshotUploader("no snapshot uploader registered".to_string())
+            })?
+            .upload_snapshot(ongoing_snapshot.get_file_path())
+            .await
+            .map_err(RuntimeError::SnapshotUploader)?;
+
+        if let Err(error) = tokio::fs::remove_file(ongoing_snapshot.get_file_path()).await {
+            warn!(
+                "Post upload ongoing snapshot file removal failure: {}",
+                error
+            );
+        }
+
+        Ok(vec![location])
+    }
+
     async fn create_and_save_certificate(
         &self,
         beacon: &Beacon,
     ) -> Result<Certificate, RuntimeError> {
         info!("create and save certificate");
-        let mut certificate_store = self
+        let certificate_store = self
             .dependencies
             .certificate_store
             .as_ref()
             .ok_or_else(|| {
                 RuntimeError::General("no certificate store registered".to_string().into())
-            })?
-            .write()
-            .await;
+            })?;
         let latest_certificates = certificate_store.get_list(2).await?;
         let last_certificate = latest_certificates.get(0);
         let penultimate_certificate = latest_certificates.get(1);
@@ -422,32 +446,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         let _ = certificate_store.save(certificate.clone()).await?;
 
         Ok(certificate)
-    }
-
-    async fn upload_snapshot_archive(
-        &self,
-        ongoing_snapshot: &OngoingSnapshot,
-    ) -> Result<Vec<SnapshotLocation>, RuntimeError> {
-        info!("upload snapshot archive");
-        let location = self
-            .dependencies
-            .snapshot_uploader
-            .as_ref()
-            .ok_or_else(|| {
-                RuntimeError::SnapshotUploader("no snapshot uploader registered".to_string())
-            })?
-            .upload_snapshot(ongoing_snapshot.get_file_path())
-            .await
-            .map_err(RuntimeError::SnapshotUploader)?;
-
-        if let Err(error) = tokio::fs::remove_file(ongoing_snapshot.get_file_path()).await {
-            warn!(
-                "Post upload ongoing snapshot file removal failure: {}",
-                error
-            );
-        }
-
-        Ok(vec![location])
     }
 
     async fn create_and_save_snapshot(

@@ -133,9 +133,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let certificate_pending_store = Arc::new(CertificatePendingStore::new(Box::new(
         JsonFileStoreAdapter::new(config.pending_certificate_store_directory.clone())?,
     )));
-    let certificate_store = Arc::new(RwLock::new(CertificateStore::new(Box::new(
-        JsonFileStoreAdapter::new(config.certificate_store_directory.clone())?,
-    ))));
+    let certificate_store = Arc::new(CertificateStore::new(Box::new(JsonFileStoreAdapter::new(
+        config.certificate_store_directory.clone(),
+    )?)));
     let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(
         JsonFileStoreAdapter::new(config.verification_key_store_directory.clone())?,
     )));

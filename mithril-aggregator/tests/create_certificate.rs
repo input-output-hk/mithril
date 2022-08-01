@@ -186,8 +186,6 @@ async fn create_certificate() {
         .certificate_store
         .as_ref()
         .expect("A certificate store should be registered.")
-        .read()
-        .await
         .get_list(5)
         .await
         .expect("Querying certificate store should not fail");
