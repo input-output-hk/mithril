@@ -70,8 +70,6 @@ mod handlers {
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("snapshots");
 
-        // Snapshots
-        let snapshot_store = snapshot_store.read().await;
         match snapshot_store.list_snapshots().await {
             Ok(snapshots) => Ok(reply::json(&snapshots, StatusCode::OK)),
             Err(err) => Ok(reply::internal_server_error(err.to_string())),
@@ -90,20 +88,17 @@ mod handlers {
         );
 
         match crate::tools::extract_digest_from_path(&filepath) {
-            Ok(digest) => {
-                let snapshot_store = snapshot_store.read().await;
-                match snapshot_store.get_snapshot_details(digest).await {
-                    Ok(Some(_)) => Ok(Box::new(warp::reply::with_header(
-                        reply,
-                        "Content-Disposition",
-                        format!(
-                            "attachment; filename=\"{}\"",
-                            filepath.file_name().unwrap().to_str().unwrap()
-                        ),
-                    )) as Box<dyn warp::Reply>),
-                    _ => Ok(reply::empty(StatusCode::NOT_FOUND)),
-                }
-            }
+            Ok(digest) => match snapshot_store.get_snapshot_details(digest).await {
+                Ok(Some(_)) => Ok(Box::new(warp::reply::with_header(
+                    reply,
+                    "Content-Disposition",
+                    format!(
+                        "attachment; filename=\"{}\"",
+                        filepath.file_name().unwrap().to_str().unwrap()
+                    ),
+                )) as Box<dyn warp::Reply>),
+                _ => Ok(reply::empty(StatusCode::NOT_FOUND)),
+            },
             Err(_) => Ok(reply::empty(StatusCode::NOT_FOUND)),
         }
     }
@@ -116,8 +111,6 @@ mod handlers {
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("snapshot_download/{}", digest);
 
-        // Snapshot
-        let snapshot_store = snapshot_store.read().await;
         match snapshot_store.get_snapshot_details(digest).await {
             Ok(Some(snapshot)) => {
                 let filename = format!("{}.{}.tar.gz", config.network, snapshot.digest);
@@ -141,8 +134,6 @@ mod handlers {
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("snapshot_digest/{}", digest);
 
-        // Snapshot
-        let snapshot_store = snapshot_store.read().await;
         match snapshot_store.get_snapshot_details(digest).await {
             Ok(snapshot) => match snapshot {
                 Some(snapshot) => Ok(reply::json(&snapshot, StatusCode::OK)),
@@ -161,7 +152,7 @@ mod tests {
     use mithril_common::apispec::APISpec;
     use mithril_common::fake_data;
     use serde_json::Value::Null;
-    use tokio::sync::RwLock;
+    
     use warp::http::Method;
     use warp::test::request;
 
@@ -194,7 +185,7 @@ mod tests {
             .return_const(Ok(fake_snapshots))
             .once();
         let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_snapshot_store(Arc::new(RwLock::new(mock_snapshot_store)));
+        dependency_manager.with_snapshot_store(Arc::new(mock_snapshot_store));
 
         let method = Method::GET.as_str();
         let path = "/snapshots";
@@ -224,7 +215,7 @@ mod tests {
             )))
             .once();
         let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_snapshot_store(Arc::new(RwLock::new(mock_snapshot_store)));
+        dependency_manager.with_snapshot_store(Arc::new(mock_snapshot_store));
 
         let method = Method::GET.as_str();
         let path = "/snapshots";
@@ -253,7 +244,7 @@ mod tests {
             .return_const(Ok(Some(fake_snapshot)))
             .once();
         let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_snapshot_store(Arc::new(RwLock::new(mock_snapshot_store)));
+        dependency_manager.with_snapshot_store(Arc::new(mock_snapshot_store));
 
         let method = Method::GET.as_str();
         let path = "/snapshot/{digest}/download";
@@ -282,7 +273,7 @@ mod tests {
             .return_const(Ok(None))
             .once();
         let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_snapshot_store(Arc::new(RwLock::new(mock_snapshot_store)));
+        dependency_manager.with_snapshot_store(Arc::new(mock_snapshot_store));
 
         let method = Method::GET.as_str();
         let path = "/snapshot/{digest}/download";
@@ -312,7 +303,7 @@ mod tests {
             )))
             .once();
         let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_snapshot_store(Arc::new(RwLock::new(mock_snapshot_store)));
+        dependency_manager.with_snapshot_store(Arc::new(mock_snapshot_store));
 
         let method = Method::GET.as_str();
         let path = "/snapshot/{digest}/download";
@@ -341,7 +332,7 @@ mod tests {
             .return_const(Ok(Some(fake_snapshot)))
             .once();
         let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_snapshot_store(Arc::new(RwLock::new(mock_snapshot_store)));
+        dependency_manager.with_snapshot_store(Arc::new(mock_snapshot_store));
 
         let method = Method::GET.as_str();
         let path = "/snapshot/{digest}";
@@ -369,7 +360,7 @@ mod tests {
             .return_const(Ok(None))
             .once();
         let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_snapshot_store(Arc::new(RwLock::new(mock_snapshot_store)));
+        dependency_manager.with_snapshot_store(Arc::new(mock_snapshot_store));
 
         let method = Method::GET.as_str();
         let path = "/snapshot/{digest}";
@@ -399,7 +390,7 @@ mod tests {
             )))
             .once();
         let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_snapshot_store(Arc::new(RwLock::new(mock_snapshot_store)));
+        dependency_manager.with_snapshot_store(Arc::new(mock_snapshot_store));
 
         let method = Method::GET.as_str();
         let path = "/snapshot/{digest}";

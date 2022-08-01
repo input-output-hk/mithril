@@ -20,7 +20,7 @@ use crate::{
 pub type BeaconStoreWrapper = Arc<dyn BeaconStore>;
 
 ///  SnapshotStoreWrapper wraps a SnapshotStore
-pub type SnapshotStoreWrapper = Arc<RwLock<dyn SnapshotStore>>;
+pub type SnapshotStoreWrapper = Arc<dyn SnapshotStore>;
 
 ///  SnapshotUploaderWrapper wraps a SnapshotUploader
 pub type SnapshotUploaderWrapper = Arc<dyn SnapshotUploader>;

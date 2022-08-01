@@ -480,8 +480,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .ok_or_else(|| {
                 RuntimeError::General("no snapshot store registered".to_string().into())
             })?
-            .write()
-            .await
             .add_snapshot(snapshot.clone())
             .await?;
 

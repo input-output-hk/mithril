@@ -61,7 +61,7 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
             single_signature_store.clone(),
         );
         multi_signer
-            .update_protocol_parameters(&protocol_parameters.into())
+            .update_protocol_parameters(&protocol_parameters)
             .await
             .expect("fake update protocol parameters failed");
 
@@ -78,26 +78,26 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
     let digester = Arc::new(DumbDigester::default());
     let snapshotter = Arc::new(DumbSnapshotter::new());
     let snapshot_uploader = Arc::new(DumbSnapshotUploader::new());
-    let snapshot_store = Arc::new(RwLock::new(LocalSnapshotStore::new(
+    let snapshot_store = Arc::new(LocalSnapshotStore::new(
         Box::new(MemoryAdapter::new(None).expect("memory adapter init should not fail")),
         5,
-    )));
+    ));
     let mut dependency_manager = DependencyManager::new(config.clone());
     dependency_manager
-        .with_snapshot_store(snapshot_store.clone())
-        .with_snapshot_uploader(snapshot_uploader.clone())
-        .with_multi_signer(multi_signer.clone())
+        .with_snapshot_store(snapshot_store)
+        .with_snapshot_uploader(snapshot_uploader)
+        .with_multi_signer(multi_signer)
         .with_beacon_store(beacon_store.clone())
         .with_certificate_pending_store(certificate_pending_store.clone())
         .with_certificate_store(certificate_store.clone())
         .with_verification_key_store(verification_key_store.clone())
         .with_stake_store(stake_store.clone())
         .with_single_signature_store(single_signature_store.clone())
-        .with_chain_observer(chain_observer.clone())
-        .with_beacon_provider(beacon_provider.clone())
-        .with_immutable_file_observer(immutable_file_observer.clone())
-        .with_digester(digester.clone())
-        .with_snapshotter(snapshotter.clone());
+        .with_chain_observer(chain_observer)
+        .with_beacon_provider(beacon_provider)
+        .with_immutable_file_observer(immutable_file_observer)
+        .with_digester(digester)
+        .with_snapshotter(snapshotter);
 
     let config = AggregatorConfig::new(
         dependency_manager.config.run_interval,
