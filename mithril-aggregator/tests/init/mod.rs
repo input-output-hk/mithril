@@ -48,9 +48,9 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
     let stake_store = Arc::new(RwLock::new(StakeStore::new(Box::new(
         MemoryAdapter::new(None).unwrap(),
     ))));
-    let single_signature_store = Arc::new(RwLock::new(SingleSignatureStore::new(Box::new(
+    let single_signature_store = Arc::new(SingleSignatureStore::new(Box::new(
         MemoryAdapter::new(None).unwrap(),
-    ))));
+    )));
     let beacon_store = Arc::new(MemoryBeaconStore::new());
     let multi_signer = async {
         let protocol_parameters = setup_protocol_parameters();

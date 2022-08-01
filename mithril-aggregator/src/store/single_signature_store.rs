@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use std::collections::HashMap;
 use thiserror::Error;
+use tokio::sync::RwLock;
 
 use mithril_common::entities::{Beacon, ImmutableFileNumber, PartyId, SingleSignatures};
 use mithril_common::store::adapter::{AdapterError, StoreAdapter};
@@ -17,7 +18,7 @@ pub enum SingleSignatureStoreError {
 #[async_trait]
 pub trait SingleSignatureStorer {
     async fn save_single_signatures(
-        &mut self,
+        &self,
         beacon: &Beacon,
         single_signature: &SingleSignatures,
     ) -> Result<Option<SingleSignatures>, SingleSignatureStoreError>;
@@ -27,25 +28,30 @@ pub trait SingleSignatureStorer {
         beacon: &Beacon,
     ) -> Result<Option<HashMap<PartyId, SingleSignatures>>, SingleSignatureStoreError>;
 }
+
 pub struct SingleSignatureStore {
-    adapter: Adapter,
+    adapter: RwLock<Adapter>,
 }
 
 impl SingleSignatureStore {
     pub fn new(adapter: Adapter) -> Self {
-        Self { adapter }
+        Self {
+            adapter: RwLock::new(adapter),
+        }
     }
 }
 
 #[async_trait]
 impl SingleSignatureStorer for SingleSignatureStore {
     async fn save_single_signatures(
-        &mut self,
+        &self,
         beacon: &Beacon,
         single_signatures: &SingleSignatures,
     ) -> Result<Option<SingleSignatures>, SingleSignatureStoreError> {
         let mut single_signatures_per_party_id = match self
             .adapter
+            .read()
+            .await
             .get_record(&beacon.immutable_file_number)
             .await?
         {
@@ -57,8 +63,9 @@ impl SingleSignatureStorer for SingleSignatureStore {
             single_signatures.party_id.clone(),
             single_signatures.to_owned(),
         );
-        let _ = self
-            .adapter
+        self.adapter
+            .write()
+            .await
             .store_record(
                 &beacon.immutable_file_number,
                 &single_signatures_per_party_id,
@@ -72,10 +79,13 @@ impl SingleSignatureStorer for SingleSignatureStore {
         &self,
         beacon: &Beacon,
     ) -> Result<Option<HashMap<PartyId, SingleSignatures>>, SingleSignatureStoreError> {
-        Ok(self
+        let record = self
             .adapter
+            .read()
+            .await
             .get_record(&beacon.immutable_file_number)
-            .await?)
+            .await?;
+        Ok(record)
     }
 }
 
@@ -121,7 +131,7 @@ mod tests {
 
     #[tokio::test]
     async fn save_key_in_empty_store() {
-        let mut store = init_store(0, 0, 0);
+        let store = init_store(0, 0, 0);
         let res = store
             .save_single_signatures(
                 &Beacon::new("devnet".to_string(), 1, 0),
@@ -139,7 +149,7 @@ mod tests {
 
     #[tokio::test]
     async fn add_signature_for_new_party_id() {
-        let mut store = init_store(1, 1, 5);
+        let store = init_store(1, 1, 5);
         let beacon = Beacon::new("devnet".to_string(), 1, 1);
 
         assert_eq!(

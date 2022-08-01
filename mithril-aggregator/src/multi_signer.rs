@@ -531,8 +531,6 @@ impl MultiSigner for MultiSignerImpl {
 
         match self
             .single_signature_store
-            .write()
-            .await
             .save_single_signatures(&beacon, signatures)
             .await?
         {
@@ -567,8 +565,6 @@ impl MultiSigner for MultiSignerImpl {
             .ok_or_else(ProtocolError::UnavailableBeacon)?;
         let signatures: Vec<ProtocolSingleSignature> = self
             .single_signature_store
-            .read()
-            .await
             .get_single_signatures(&beacon)
             .await?
             .unwrap_or_default()
@@ -665,7 +661,6 @@ mod tests {
     use super::super::beacon_store::{BeaconStore, MemoryBeaconStore};
     use super::super::store::{SingleSignatureStore, VerificationKeyStore};
     use super::*;
-    
 
     use mithril_common::crypto_helper::tests_setup::*;
     use mithril_common::fake_data;
@@ -705,7 +700,7 @@ mod tests {
             Arc::new(beacon_store),
             Arc::new(RwLock::new(verification_key_store)),
             Arc::new(RwLock::new(stake_store)),
-            Arc::new(RwLock::new(single_signature_store)),
+            Arc::new(single_signature_store),
         )
     }
 

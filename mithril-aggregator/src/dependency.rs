@@ -41,7 +41,7 @@ pub type VerificationKeyStoreWrapper = Arc<RwLock<VerificationKeyStore>>;
 pub type StakeStoreWrapper = Arc<RwLock<StakeStore>>;
 
 ///  SingleSignatureStoreWrapper wraps a SingleSignatureStore
-pub type SingleSignatureStoreWrapper = Arc<RwLock<SingleSignatureStore>>;
+pub type SingleSignatureStoreWrapper = Arc<SingleSignatureStore>;
 
 ///  ChainObserverWrapper wraps a ChainObserver
 pub type ChainObserverWrapper = Arc<RwLock<dyn ChainObserver>>;
@@ -282,9 +282,9 @@ pub mod tests {
         let stake_store = Arc::new(RwLock::new(StakeStore::new(Box::new(
             MemoryAdapter::new(None).unwrap(),
         ))));
-        let single_signature_store = Arc::new(RwLock::new(SingleSignatureStore::new(Box::new(
+        let single_signature_store = Arc::new(SingleSignatureStore::new(Box::new(
             MemoryAdapter::new(None).unwrap(),
-        ))));
+        )));
         let beacon_store = Arc::new(MemoryBeaconStore::new());
         let multi_signer = async {
             let protocol_parameters = fake_data::protocol_parameters();
