@@ -23,7 +23,7 @@ pub type BeaconStoreWrapper = Arc<dyn BeaconStore>;
 pub type SnapshotStoreWrapper = Arc<RwLock<dyn SnapshotStore>>;
 
 ///  SnapshotUploaderWrapper wraps a SnapshotUploader
-pub type SnapshotUploaderWrapper = Arc<RwLock<dyn SnapshotUploader>>;
+pub type SnapshotUploaderWrapper = Arc<dyn SnapshotUploader>;
 
 /// MultiSignerWrapper wraps a MultiSigner
 pub type MultiSignerWrapper = Arc<RwLock<dyn MultiSigner>>;
@@ -309,7 +309,7 @@ pub mod tests {
             immutable_file_observer.clone(),
             mithril_common::CardanoNetwork::TestNet(42),
         )));
-        let snapshot_uploader = Arc::new(RwLock::new(DumbSnapshotUploader::new()));
+        let snapshot_uploader = Arc::new(DumbSnapshotUploader::new());
         let mut dependency_manager = DependencyManager::new(config.clone());
         dependency_manager
             //.with_snapshot_store(snapshot_store.clone())

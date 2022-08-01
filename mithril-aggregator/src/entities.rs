@@ -105,13 +105,13 @@ impl Config {
 
     pub fn build_snapshot_uploader(&self) -> SnapshotUploaderWrapper {
         match self.snapshot_uploader_type {
-            SnapshotUploaderType::Gcp => Arc::new(RwLock::new(RemoteSnapshotUploader::new(
-                Box::new(GcpFileUploader::default()),
+            SnapshotUploaderType::Gcp => Arc::new(RemoteSnapshotUploader::new(Box::new(
+                GcpFileUploader::default(),
             ))),
-            SnapshotUploaderType::Local => Arc::new(RwLock::new(LocalSnapshotUploader::new(
+            SnapshotUploaderType::Local => Arc::new(LocalSnapshotUploader::new(
                 self.server_url.clone(),
                 &self.snapshot_directory,
-            ))),
+            )),
         }
     }
 

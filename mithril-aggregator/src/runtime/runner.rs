@@ -440,8 +440,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .ok_or_else(|| {
                 RuntimeError::SnapshotUploader("no snapshot uploader registered".to_string())
             })?
-            .read()
-            .await
             .upload_snapshot(ongoing_snapshot.get_file_path())
             .await
             .map_err(RuntimeError::SnapshotUploader)?;

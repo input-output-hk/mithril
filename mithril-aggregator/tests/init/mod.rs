@@ -77,7 +77,7 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
     )));
     let digester = Arc::new(DumbDigester::default());
     let snapshotter = Arc::new(DumbSnapshotter::new());
-    let snapshot_uploader = Arc::new(RwLock::new(DumbSnapshotUploader::new()));
+    let snapshot_uploader = Arc::new(DumbSnapshotUploader::new());
     let snapshot_store = Arc::new(RwLock::new(LocalSnapshotStore::new(
         Box::new(MemoryAdapter::new(None).expect("memory adapter init should not fail")),
         5,
