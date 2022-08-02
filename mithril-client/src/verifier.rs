@@ -8,11 +8,14 @@ use mithril_common::entities::ProtocolParameters;
 #[cfg(test)]
 use mockall::automock;
 
+/// [Verifier::verify_multi_signature] related errors.
 #[derive(Error, Debug)]
 pub enum ProtocolError {
+    /// Error raised when the multi signatures verification fails.
     #[error("multi signature verification failed: '{0}'")]
     VerifyMultiSignature(String),
 
+    /// Error raised when encoding or decoding of data to hex fails.
     #[error("codec error: '{0}'")]
     Codec(String),
 }
@@ -23,7 +26,7 @@ pub trait Verifier {
     /// Verify a multi signature
     fn verify_multi_signature(
         &self,
-        message: &Vec<u8>,
+        message: &[u8],
         multi_signature: &str,
         aggregate_verification_key: &str,
         protocol_parameters: &ProtocolParameters,
@@ -51,7 +54,7 @@ impl Verifier for VerifierImpl {
     /// Verify a multi signature
     fn verify_multi_signature(
         &self,
-        message: &Vec<u8>,
+        message: &[u8],
         multi_signature: &str,
         aggregate_verification_key: &str,
         protocol_parameters: &ProtocolParameters,

@@ -16,18 +16,31 @@ use mithril_common::entities::{Certificate, Snapshot};
 #[cfg(test)]
 use mockall::automock;
 
+/// [AggregatorHandler] related errors.
 #[derive(Error, Debug)]
 pub enum AggregatorHandlerError {
+    /// Error raised when querying the aggregator returned a 5XX error.
     #[error("remote server technical error: '{0}'")]
     RemoteServerTechnical(String),
+
+    /// Error raised when querying the aggregator returned a 4XX error.
     #[error("remote server logical error: '{0}'")]
     RemoteServerLogical(String),
+
+    /// Error raised when the aggregator can't be reached.
     #[error("remote server unreachable: '{0}'")]
     RemoteServerUnreachable(String),
+
+    /// Error raised when the json parsing of the aggregator response fails.
     #[error("json parsing failed: '{0}'")]
     JsonParseFailed(String),
+
+    /// Error raised when an IO error occured (ie: snapshot writting on disk fails).
     #[error("io error: {0}")]
     IOError(#[from] io::Error),
+
+    /// Error raised when [AggregatorHandler::unpack_snapshot] is called without calling
+    /// [AggregatorHandler::download_snapshot] beforehand.
     #[error("archive not found, did you download it beforehand ? Expected path: '{0}'")]
     ArchiveNotFound(PathBuf),
 }
@@ -223,7 +236,7 @@ impl AggregatorHandler for AggregatorHTTPClient {
 }
 
 /// Computes local archive filepath
-fn archive_file_path(digest: &str, network: &str) -> Result<path::PathBuf, AggregatorHandlerError> {
+fn archive_file_path(digest: &str, network: &str) -> Result<PathBuf, AggregatorHandlerError> {
     Ok(env::current_dir()?.join(path::Path::new(&format!(
         "data/{}/{}/snapshot.archive.tar.gz",
         network, digest
