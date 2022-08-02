@@ -68,13 +68,13 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
         multi_signer
     };
     let multi_signer = Arc::new(RwLock::new(multi_signer.await));
-    let immutable_file_observer = Arc::new(RwLock::new(DumbImmutableFileObserver::default()));
-    let chain_observer = Arc::new(RwLock::new(FakeObserver::default()));
-    let beacon_provider = Arc::new(RwLock::new(BeaconProviderImpl::new(
+    let immutable_file_observer = Arc::new(DumbImmutableFileObserver::default());
+    let chain_observer = Arc::new(FakeObserver::default());
+    let beacon_provider = Arc::new(BeaconProviderImpl::new(
         chain_observer.clone(),
         immutable_file_observer.clone(),
         mithril_common::CardanoNetwork::TestNet(42),
-    )));
+    ));
     let digester = Arc::new(DumbDigester::default());
     let snapshotter = Arc::new(DumbSnapshotter::new());
     let snapshot_uploader = Arc::new(DumbSnapshotUploader::new());

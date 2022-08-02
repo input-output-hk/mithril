@@ -129,8 +129,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .ok_or_else(|| {
                 RuntimeError::General("no beacon provider registered".to_string().into())
             })?
-            .read()
-            .await
             .get_current_beacon()
             .await
             .map_err(RuntimeError::General)?;
@@ -198,8 +196,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .ok_or_else(|| {
                 RuntimeError::General("no chain observer registered".to_string().into())
             })?
-            .read()
-            .await
             .get_current_stake_distribution()
             .await?
             .ok_or_else(|| RuntimeError::General("no epoch was returned".to_string().into()))?;
@@ -558,8 +554,6 @@ pub mod tests {
             .chain_observer
             .as_ref()
             .unwrap()
-            .read()
-            .await
             .get_current_stake_distribution()
             .await
             .unwrap()

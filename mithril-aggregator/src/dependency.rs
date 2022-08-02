@@ -44,13 +44,13 @@ pub type StakeStoreWrapper = Arc<RwLock<StakeStore>>;
 pub type SingleSignatureStoreWrapper = Arc<SingleSignatureStore>;
 
 ///  ChainObserverWrapper wraps a ChainObserver
-pub type ChainObserverWrapper = Arc<RwLock<dyn ChainObserver>>;
+pub type ChainObserverWrapper = Arc<dyn ChainObserver>;
 
 /// BeaconProviderWrapper wraps a BeaconProvider
-pub type BeaconProviderWrapper = Arc<RwLock<dyn BeaconProvider>>;
+pub type BeaconProviderWrapper = Arc<dyn BeaconProvider>;
 
 /// BeaconProviderWrapper wraps a BeaconProvider
-pub type ImmutableFileObserverWrapper = Arc<RwLock<dyn ImmutableFileObserver>>;
+pub type ImmutableFileObserverWrapper = Arc<dyn ImmutableFileObserver>;
 
 /// DigesterWrapper wraps a Digester
 pub type DigesterWrapper = Arc<dyn Digester>;
@@ -302,13 +302,13 @@ pub mod tests {
             multi_signer
         };
         let multi_signer = Arc::new(RwLock::new(multi_signer.await));
-        let immutable_file_observer = Arc::new(RwLock::new(DumbImmutableFileObserver::default()));
-        let chain_observer = Arc::new(RwLock::new(FakeObserver::default()));
-        let beacon_provider = Arc::new(RwLock::new(BeaconProviderImpl::new(
+        let immutable_file_observer = Arc::new(DumbImmutableFileObserver::default());
+        let chain_observer = Arc::new(FakeObserver::default());
+        let beacon_provider = Arc::new(BeaconProviderImpl::new(
             chain_observer.clone(),
             immutable_file_observer.clone(),
             mithril_common::CardanoNetwork::TestNet(42),
-        )));
+        ));
         let snapshot_uploader = Arc::new(DumbSnapshotUploader::new());
         let mut dependency_manager = DependencyManager::new(config.clone());
         dependency_manager

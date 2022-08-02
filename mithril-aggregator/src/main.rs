@@ -151,7 +151,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         stake_store.clone(),
         single_signature_store.clone(),
     )));
-    let chain_observer = Arc::new(RwLock::new(
+    let chain_observer = Arc::new(
         mithril_common::chain_observer::CardanoCliChainObserver::new(Box::new(
             CardanoCliRunner::new(
                 config.cardano_cli_path.clone(),
@@ -159,15 +159,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 config.get_network()?,
             ),
         )),
-    ));
-    let immutable_file_observer = Arc::new(RwLock::new(ImmutableFileSystemObserver::new(
-        &config.db_directory,
-    )));
-    let beacon_provider = Arc::new(RwLock::new(BeaconProviderImpl::new(
+    );
+    let immutable_file_observer = Arc::new(ImmutableFileSystemObserver::new(&config.db_directory));
+    let beacon_provider = Arc::new(BeaconProviderImpl::new(
         chain_observer.clone(),
         immutable_file_observer.clone(),
         config.get_network()?,
-    )));
+    ));
     let digester = Arc::new(ImmutableDigester::new(
         config.db_directory.clone(),
         slog_scope::logger(),
