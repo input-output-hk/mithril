@@ -67,11 +67,7 @@ mod tests {
     use super::*;
     use crate::http_server::SERVER_BASE_PATH;
     use crate::multi_signer::MockMultiSigner;
-    use crate::ProtocolError;
-
-    fn setup_dependency_manager() -> DependencyManager {
-        DependencyManager::fake()
-    }
+    use crate::{initialize_dependencies, ProtocolError};
 
     fn setup_router(
         dependency_manager: Arc<DependencyManager>,
@@ -92,8 +88,8 @@ mod tests {
         mock_multi_signer
             .expect_register_signer()
             .return_once(|_, _| Ok(()));
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
+        let (mut dependency_manager, _) = initialize_dependencies().await;
+        dependency_manager.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
 
         let signer = &fake_data::signers(1)[0];
 
@@ -122,8 +118,8 @@ mod tests {
         mock_multi_signer
             .expect_register_signer()
             .return_once(|_, _| Err(ProtocolError::ExistingSigner()));
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
+        let (mut dependency_manager, _) = initialize_dependencies().await;
+        dependency_manager.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
 
         let signer = &fake_data::signers(1)[0];
 
@@ -149,8 +145,8 @@ mod tests {
     #[tokio::test]
     async fn test_register_signer_post_ko_400() {
         let mock_multi_signer = MockMultiSigner::new();
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
+        let (mut dependency_manager, _) = initialize_dependencies().await;
+        dependency_manager.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
 
         let mut signer = fake_data::signers(1)[0].clone();
         signer.verification_key = "invalid-key".to_string();
@@ -180,8 +176,8 @@ mod tests {
         mock_multi_signer
             .expect_register_signer()
             .return_once(|_, _| Err(ProtocolError::Core("an error occurred".to_string())));
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
+        let (mut dependency_manager, _) = initialize_dependencies().await;
+        dependency_manager.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
 
         let signer = &fake_data::signers(1)[0];
 

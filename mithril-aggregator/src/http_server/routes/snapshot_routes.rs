@@ -152,16 +152,13 @@ mod tests {
     use mithril_common::apispec::APISpec;
     use mithril_common::fake_data;
     use serde_json::Value::Null;
-    
+
+    use crate::initialize_dependencies;
     use warp::http::Method;
     use warp::test::request;
 
     use super::*;
     use crate::snapshot_stores::{MockSnapshotStore, SnapshotStoreError};
-
-    fn setup_dependency_manager() -> DependencyManager {
-        DependencyManager::fake()
-    }
 
     fn setup_router(
         dependency_manager: Arc<DependencyManager>,
@@ -184,8 +181,8 @@ mod tests {
             .expect_list_snapshots()
             .return_const(Ok(fake_snapshots))
             .once();
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_snapshot_store(Arc::new(mock_snapshot_store));
+        let (mut dependency_manager, _) = initialize_dependencies().await;
+        dependency_manager.snapshot_store = Arc::new(mock_snapshot_store);
 
         let method = Method::GET.as_str();
         let path = "/snapshots";
@@ -214,8 +211,8 @@ mod tests {
                 "an error occurred".to_string(),
             )))
             .once();
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_snapshot_store(Arc::new(mock_snapshot_store));
+        let (mut dependency_manager, _) = initialize_dependencies().await;
+        dependency_manager.snapshot_store = Arc::new(mock_snapshot_store);
 
         let method = Method::GET.as_str();
         let path = "/snapshots";
@@ -243,8 +240,8 @@ mod tests {
             .expect_get_snapshot_details()
             .return_const(Ok(Some(fake_snapshot)))
             .once();
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_snapshot_store(Arc::new(mock_snapshot_store));
+        let (mut dependency_manager, _) = initialize_dependencies().await;
+        dependency_manager.snapshot_store = Arc::new(mock_snapshot_store);
 
         let method = Method::GET.as_str();
         let path = "/snapshot/{digest}/download";
@@ -272,8 +269,8 @@ mod tests {
             .expect_get_snapshot_details()
             .return_const(Ok(None))
             .once();
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_snapshot_store(Arc::new(mock_snapshot_store));
+        let (mut dependency_manager, _) = initialize_dependencies().await;
+        dependency_manager.snapshot_store = Arc::new(mock_snapshot_store);
 
         let method = Method::GET.as_str();
         let path = "/snapshot/{digest}/download";
@@ -302,8 +299,8 @@ mod tests {
                 "an error occurred".to_string(),
             )))
             .once();
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_snapshot_store(Arc::new(mock_snapshot_store));
+        let (mut dependency_manager, _) = initialize_dependencies().await;
+        dependency_manager.snapshot_store = Arc::new(mock_snapshot_store);
 
         let method = Method::GET.as_str();
         let path = "/snapshot/{digest}/download";
@@ -331,8 +328,8 @@ mod tests {
             .expect_get_snapshot_details()
             .return_const(Ok(Some(fake_snapshot)))
             .once();
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_snapshot_store(Arc::new(mock_snapshot_store));
+        let (mut dependency_manager, _) = initialize_dependencies().await;
+        dependency_manager.snapshot_store = Arc::new(mock_snapshot_store);
 
         let method = Method::GET.as_str();
         let path = "/snapshot/{digest}";
@@ -359,8 +356,8 @@ mod tests {
             .expect_get_snapshot_details()
             .return_const(Ok(None))
             .once();
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_snapshot_store(Arc::new(mock_snapshot_store));
+        let (mut dependency_manager, _) = initialize_dependencies().await;
+        dependency_manager.snapshot_store = Arc::new(mock_snapshot_store);
 
         let method = Method::GET.as_str();
         let path = "/snapshot/{digest}";
@@ -389,8 +386,8 @@ mod tests {
                 "an error occurred".to_string(),
             )))
             .once();
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_snapshot_store(Arc::new(mock_snapshot_store));
+        let (mut dependency_manager, _) = initialize_dependencies().await;
+        dependency_manager.snapshot_store = Arc::new(mock_snapshot_store);
 
         let method = Method::GET.as_str();
         let path = "/snapshot/{digest}";

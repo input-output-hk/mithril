@@ -44,10 +44,10 @@ async fn create_certificate() {
         mithril_common::CardanoNetwork::TestNet(42),
     ));
     let digester = Arc::new(DumbDigester::default());
-    deps.with_immutable_file_observer(immutable_file_observer.clone())
-        .with_beacon_provider(beacon_provider)
-        .with_chain_observer(chain_observer.clone())
-        .with_digester(digester.clone());
+    deps.immutable_file_observer = immutable_file_observer.clone();
+    deps.beacon_provider = beacon_provider;
+    deps.chain_observer = chain_observer.clone();
+    deps.digester = digester.clone();
     let deps = Arc::new(deps);
     let runner = Arc::new(AggregatorRunner::new(config.clone(), deps.clone()));
     let mut runtime =
@@ -80,12 +80,7 @@ async fn create_certificate() {
 
     // register signers
     {
-        let mut multisigner = deps
-            .multi_signer
-            .as_ref()
-            .expect("A multisigner should be registered.")
-            .write()
-            .await;
+        let mut multisigner = deps.multi_signer.write().await;
 
         for (party_id, _stakes, verification_key, _signer, _initializer) in &signers {
             multisigner
@@ -107,8 +102,6 @@ async fn create_certificate() {
         assert_eq!(
             new_immutable_number,
             deps.beacon_provider
-                .as_ref()
-                .expect("There should be a Beacon provider registered.")
                 .get_current_beacon()
                 .await
                 .expect("Querying the current beacon should not fail.")
@@ -150,12 +143,7 @@ async fn create_certificate() {
 
     // signers send their single signature
     {
-        let mut multisigner = deps
-            .multi_signer
-            .as_ref()
-            .expect("Multisigner should be registered.")
-            .write()
-            .await;
+        let mut multisigner = deps.multi_signer.write().await;
         let message = multisigner
             .get_current_message()
             .await
@@ -182,8 +170,6 @@ async fn create_certificate() {
     assert_eq!("idle", runtime.get_state());
     let last_certificates = deps
         .certificate_store
-        .as_ref()
-        .expect("A certificate store should be registered.")
         .get_list(5)
         .await
         .expect("Querying certificate store should not fail");

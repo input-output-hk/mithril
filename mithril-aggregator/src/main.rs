@@ -184,22 +184,23 @@ async fn main() -> Result<(), Box<dyn Error>> {
     setup_dependencies_fake_data(multi_signer.clone()).await;
 
     // Init dependency manager
-    let mut dependency_manager = DependencyManager::new(config.clone());
-    dependency_manager
-        .with_snapshot_store(snapshot_store.clone())
-        .with_snapshot_uploader(snapshot_uploader.clone())
-        .with_multi_signer(multi_signer.clone())
-        .with_beacon_store(beacon_store.clone())
-        .with_certificate_pending_store(certificate_pending_store.clone())
-        .with_certificate_store(certificate_store.clone())
-        .with_verification_key_store(verification_key_store.clone())
-        .with_stake_store(stake_store.clone())
-        .with_single_signature_store(single_signature_store.clone())
-        .with_chain_observer(chain_observer.clone())
-        .with_beacon_provider(beacon_provider.clone())
-        .with_immutable_file_observer(immutable_file_observer)
-        .with_digester(digester)
-        .with_snapshotter(snapshotter);
+    let dependency_manager = DependencyManager {
+        config: config.clone(),
+        snapshot_store: snapshot_store.clone(),
+        snapshot_uploader: snapshot_uploader.clone(),
+        multi_signer: multi_signer.clone(),
+        beacon_store: beacon_store.clone(),
+        certificate_pending_store: certificate_pending_store.clone(),
+        certificate_store: certificate_store.clone(),
+        verification_key_store: verification_key_store.clone(),
+        stake_store: stake_store.clone(),
+        single_signature_store: single_signature_store.clone(),
+        chain_observer: chain_observer.clone(),
+        beacon_provider: beacon_provider.clone(),
+        immutable_file_observer,
+        digester,
+        snapshotter,
+    };
     let dependency_manager = Arc::new(dependency_manager);
     let network = config.get_network()?;
 

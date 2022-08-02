@@ -73,19 +73,15 @@ mod tests {
 
     use crate::http_server::SERVER_BASE_PATH;
     use mithril_common::apispec::APISpec;
-    use mithril_common::store::adapter::{DumbStoreAdapter, FailStoreAdapter};
+    use mithril_common::store::adapter::FailStoreAdapter;
     use mithril_common::{entities, fake_data};
     use serde_json::Value::Null;
     use warp::http::Method;
     use warp::test::request;
 
     use super::*;
+    use crate::initialize_dependencies;
     use crate::store::CertificateStore;
-    use crate::CertificatePendingStore;
-
-    fn setup_dependency_manager() -> DependencyManager {
-        DependencyManager::fake()
-    }
 
     fn setup_router(
         dependency_manager: Arc<DependencyManager>,
@@ -104,11 +100,7 @@ mod tests {
     async fn test_certificate_pending_get_ok() {
         let method = Method::GET.as_str();
         let path = "/certificate-pending";
-        let certificate_pending_store =
-            CertificatePendingStore::new(Box::new(DumbStoreAdapter::new()));
-        let mut dependency_manager = setup_dependency_manager();
-
-        dependency_manager.with_certificate_pending_store(Arc::new(certificate_pending_store));
+        let (dependency_manager, _) = initialize_dependencies().await;
 
         let response = request()
             .method(method)
@@ -127,10 +119,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_certificate_pending_get_ok_204() {
-        let certificate_pending_store =
-            CertificatePendingStore::new(Box::new(DumbStoreAdapter::new()));
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_certificate_pending_store(Arc::new(certificate_pending_store));
+        let (dependency_manager, _) = initialize_dependencies().await;
 
         let method = Method::GET.as_str();
         let path = "/certificate-pending";
@@ -154,10 +143,7 @@ mod tests {
     async fn test_certificate_pending_get_ko_500() {
         let method = Method::GET.as_str();
         let path = "/certificate-pending";
-        let certificate_pending_store =
-            CertificatePendingStore::new(Box::new(DumbStoreAdapter::new()));
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_certificate_pending_store(Arc::new(certificate_pending_store));
+        let (dependency_manager, _) = initialize_dependencies().await;
 
         let response = request()
             .method(method)
@@ -176,16 +162,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_certificate_certificate_hash_get_ok() {
-        let certificate_store = CertificateStore::new(Box::new(DumbStoreAdapter::<
-            String,
-            entities::Certificate,
-        >::new()));
-        certificate_store
+        let (dependency_manager, _) = initialize_dependencies().await;
+        dependency_manager
+            .certificate_store
             .save(fake_data::certificate("{certificate_hash}".to_string()))
             .await
             .expect("certificate store save should have succeeded");
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_certificate_store(Arc::new(certificate_store));
 
         let method = Method::GET.as_str();
         let path = "/certificate/{certificate_hash}";
@@ -207,12 +189,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_certificate_certificate_hash_get_ok_404() {
-        let certificate_store = CertificateStore::new(Box::new(DumbStoreAdapter::<
-            String,
-            entities::Certificate,
-        >::new()));
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_certificate_store(Arc::new(certificate_store));
+        let (dependency_manager, _) = initialize_dependencies().await;
 
         let method = Method::GET.as_str();
         let path = "/certificate/{certificate_hash}";
@@ -234,12 +211,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_certificate_certificate_hash_get_ko() {
+        let (mut dependency_manager, _) = initialize_dependencies().await;
         let certificate_store = CertificateStore::new(Box::new(FailStoreAdapter::<
             String,
             entities::Certificate,
         >::new()));
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_certificate_store(Arc::new(certificate_store));
+        dependency_manager.certificate_store = Arc::new(certificate_store);
 
         let method = Method::GET.as_str();
         let path = "/certificate/{certificate_hash}";
