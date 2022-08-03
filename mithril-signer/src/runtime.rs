@@ -8,7 +8,7 @@ use tokio::time::sleep;
 
 use mithril_common::chain_observer::{ChainObserver, ChainObserverError};
 use mithril_common::crypto_helper::key_encode_hex;
-use mithril_common::digesters::{Digester, DigesterError};
+use mithril_common::digesters::{ImmutableDigester, ImmutableDigesterError};
 use mithril_common::entities::{
     self, Beacon, BeaconError, CertificatePending, Epoch, PartyId, SignerWithStake,
 };
@@ -34,7 +34,7 @@ pub struct Runtime {
     single_signer: Box<dyn SingleSigner>,
 
     /// Digester takes care of computing the snapshots digests
-    digester: Box<dyn Digester>,
+    digester: Box<dyn ImmutableDigester>,
 
     /// Local epoch represents the epoch computed locally to the signer
     local_epoch: Option<Epoch>,
@@ -70,7 +70,7 @@ pub enum RuntimeError {
     Codec(String),
 
     #[error("digest computation failed: `{0}`")]
-    Digester(#[from] DigesterError),
+    Digester(#[from] ImmutableDigesterError),
 
     #[error("stake store error: '{0}'")]
     StakeStore(#[from] StakeStoreError),
@@ -89,7 +89,7 @@ impl Runtime {
     pub fn new(
         certificate_handler: Box<dyn CertificateHandler>,
         single_signer: Box<dyn SingleSigner>,
-        digester: Box<dyn Digester>,
+        digester: Box<dyn ImmutableDigester>,
         stake_store: StakeStoreWrapper,
         chain_observer: ChainObserverWrapper,
     ) -> Self {
@@ -131,7 +131,10 @@ impl Runtime {
 
             let beacon = &pending_certificate.clone().beacon;
             if self.is_new_beacon(beacon) {
-                let snapshot_digest = self.digester.compute_digest().await?.digest;
+                let snapshot_digest = self
+                    .digester
+                    .compute_digest(beacon.immutable_file_number)
+                    .await?;
                 self.register_signatures(snapshot_digest, pending_certificate)
                     .await?;
                 self.current_beacon = Some(beacon.to_owned());
@@ -309,8 +312,8 @@ mod tests {
 
     use mithril_common::crypto_helper::tests_setup::*;
     use mithril_common::crypto_helper::ProtocolStakeDistribution;
-    use mithril_common::digesters::{Digester, DigesterError, DigesterResult};
-    use mithril_common::entities::{Epoch, StakeDistribution};
+    use mithril_common::digesters::{ImmutableDigester, ImmutableDigesterError};
+    use mithril_common::entities::{Epoch, ImmutableFileNumber, StakeDistribution};
     use mithril_common::fake_data;
     use mithril_common::store::adapter::MemoryAdapter;
 
@@ -319,9 +322,13 @@ mod tests {
 
     mock! {
         pub DigesterImpl { }
+
         #[async_trait]
-        impl Digester for DigesterImpl {
-            async fn compute_digest(&self) -> Result<DigesterResult, DigesterError>;
+        impl ImmutableDigester for DigesterImpl {
+            async fn compute_digest(
+                &self,
+                up_to_file_number: ImmutableFileNumber,
+            ) -> Result<String, ImmutableDigesterError>;
         }
     }
 
@@ -401,7 +408,7 @@ mod tests {
             .return_once(move || Some(protocol_initializer));
         mock_digester
             .expect_compute_digest()
-            .return_once(|| Ok(fake_data::digester_result("digest")));
+            .return_once(|_| Ok("digest".to_string()));
         mock_chain_observer
             .expect_get_current_epoch()
             .returning(move || Ok(Some(epoch)))
@@ -553,7 +560,7 @@ mod tests {
             .returning(move || Some(protocol_initializer.clone()));
         mock_digester
             .expect_compute_digest()
-            .return_once(|| Ok(fake_data::digester_result("digest")));
+            .return_once(|_| Ok("digest".to_string()));
         mock_chain_observer
             .expect_get_current_epoch()
             .returning(move || Ok(Some(1)))
@@ -618,7 +625,7 @@ mod tests {
             .return_once(move || Some(protocol_initializer));
         mock_digester
             .expect_compute_digest()
-            .return_once(|| Ok(fake_data::digester_result("digest")));
+            .return_once(|_| Ok("digest".to_string()));
         mock_chain_observer
             .expect_get_current_epoch()
             .returning(|| Ok(Some(1)))
@@ -676,7 +683,7 @@ mod tests {
             .return_once(move || Some(protocol_initializer));
         mock_digester
             .expect_compute_digest()
-            .return_once(|| Ok(fake_data::digester_result("digest")));
+            .return_once(|_| Ok("digest".to_string()));
         mock_chain_observer
             .expect_get_current_epoch()
             .returning(move || Ok(Some(1)))
@@ -726,7 +733,7 @@ mod tests {
             .return_once(move || None);
         mock_digester
             .expect_compute_digest()
-            .return_once(|| Ok(fake_data::digester_result("digest")));
+            .return_once(|_| Ok("digest".to_string()));
         mock_chain_observer
             .expect_get_current_epoch()
             .returning(move || Ok(Some(1)))
@@ -823,9 +830,12 @@ mod tests {
         mock_single_signer
             .expect_get_protocol_initializer()
             .return_once(move || None);
-        mock_digester
-            .expect_compute_digest()
-            .return_once(|| Err(DigesterError::NotEnoughImmutable()));
+        mock_digester.expect_compute_digest().return_once(|_| {
+            Err(ImmutableDigesterError::NotEnoughImmutable {
+                found_number: None,
+                expected_number: 2,
+            })
+        });
         mock_chain_observer
             .expect_get_current_epoch()
             .returning(move || Ok(Some(1)))
@@ -842,7 +852,11 @@ mod tests {
             Arc::new(RwLock::new(mock_chain_observer)),
         );
         assert_eq!(
-            RuntimeError::Digester(DigesterError::NotEnoughImmutable()).to_string(),
+            RuntimeError::Digester(ImmutableDigesterError::NotEnoughImmutable {
+                found_number: None,
+                expected_number: 2,
+            })
+            .to_string(),
             signer.run().await.unwrap_err().to_string()
         );
     }

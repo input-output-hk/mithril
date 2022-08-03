@@ -228,7 +228,6 @@ mod tests {
 
     use super::super::runner::MockAggregatorRunner;
     use super::*;
-    use mithril_common::digesters::DigesterResult;
     use mithril_common::fake_data;
     use mockall::predicate;
 
@@ -267,12 +266,10 @@ mod tests {
             .expect_is_new_beacon()
             .times(1)
             .returning(|_| Ok(Some(fake_data::beacon())));
-        runner.expect_compute_digest().times(1).returning(|_| {
-            Ok(DigesterResult {
-                digest: "whatever".to_string(),
-                last_immutable_file_number: 123,
-            })
-        });
+        runner
+            .expect_compute_digest()
+            .times(1)
+            .returning(|_| Ok("whatever".to_string()));
         runner
             .expect_update_beacon()
             .with(predicate::eq(fake_data::beacon()))
@@ -285,10 +282,7 @@ mod tests {
             .returning(|_| Ok(()));
         runner
             .expect_update_message_in_multisigner()
-            .with(predicate::eq(DigesterResult {
-                digest: "whatever".to_string(),
-                last_immutable_file_number: 123,
-            }))
+            .with(predicate::eq("whatever".to_string()))
             .times(1)
             .returning(|_| Ok(()));
         runner

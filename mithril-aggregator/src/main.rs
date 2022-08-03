@@ -6,7 +6,7 @@ use mithril_aggregator::{
     MultiSignerImpl, Server, SingleSignatureStore, VerificationKeyStore,
 };
 use mithril_common::chain_observer::CardanoCliRunner;
-use mithril_common::digesters::{ImmutableDigester, ImmutableFileSystemObserver};
+use mithril_common::digesters::{CardanoImmutableDigester, ImmutableFileSystemObserver};
 use mithril_common::store::adapter::JsonFileStoreAdapter;
 use mithril_common::store::StakeStore;
 use mithril_common::{fake_data, BeaconProviderImpl};
@@ -165,7 +165,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         immutable_file_observer.clone(),
         config.get_network()?,
     ));
-    let digester = Arc::new(ImmutableDigester::new(
+    let digester = Arc::new(CardanoImmutableDigester::new(
         config.db_directory.clone(),
         slog_scope::logger(),
     ));

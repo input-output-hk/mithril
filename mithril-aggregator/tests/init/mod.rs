@@ -10,7 +10,7 @@ use mithril_common::digesters::DumbImmutableFileObserver;
 use mithril_common::{
     chain_observer::FakeObserver,
     crypto_helper::tests_setup::setup_protocol_parameters,
-    digesters::DumbDigester,
+    digesters::DumbImmutableDigester,
     store::{adapter::MemoryAdapter, StakeStore},
     BeaconProviderImpl, CardanoNetwork,
 };
@@ -76,7 +76,7 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
         immutable_file_observer.clone(),
         mithril_common::CardanoNetwork::TestNet(42),
     ));
-    let digester = Arc::new(DumbDigester::default());
+    let digester = Arc::new(DumbImmutableDigester::default());
     let snapshotter = Arc::new(DumbSnapshotter::new());
     let snapshot_uploader = Arc::new(DumbSnapshotUploader::new());
     let snapshot_store = Arc::new(LocalSnapshotStore::new(

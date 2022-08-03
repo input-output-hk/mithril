@@ -7,7 +7,9 @@ use crate::aggregator::{AggregatorHandler, AggregatorHandlerError};
 use crate::entities::*;
 use crate::verifier::{ProtocolError, Verifier};
 
-use mithril_common::digesters::{Digester, DigesterError, ImmutableDigester};
+use mithril_common::digesters::{
+    CardanoImmutableDigester, ImmutableDigester, ImmutableDigesterError,
+};
 use mithril_common::entities::{Certificate, ProtocolMessagePartKey, Snapshot};
 
 /// AggregatorHandlerWrapper wraps an AggregatorHandler
@@ -17,7 +19,7 @@ pub type AggregatorHandlerWrapper = Box<dyn AggregatorHandler>;
 pub type VerifierWrapper = Box<dyn Verifier>;
 
 /// DigesterWrapper wraps a Digester
-pub type DigesterWrapper = Box<dyn Digester>;
+pub type DigesterWrapper = Box<dyn ImmutableDigester>;
 
 /// [Runtime] related errors.
 #[derive(Error, Debug)]
@@ -41,7 +43,7 @@ pub enum RuntimeError {
 
     /// Error raised when the digest computation fails.
     #[error("immutale digester error: '{0}'")]
-    ImmutableDigester(#[from] DigesterError),
+    ImmutableDigester(#[from] ImmutableDigesterError),
 
     /// Error raised when the digest stored in the signed message doesn't match the
     /// [certificate](https://mithril.network/mithril-common/doc/mithril_common/entities/struct.Certificate.html)
@@ -217,17 +219,16 @@ impl Runtime {
             .await
             .map_err(RuntimeError::AggregatorHandler)?;
         if self.get_digester().is_err() {
-            self.with_digester(Box::new(ImmutableDigester::new(
+            self.with_digester(Box::new(CardanoImmutableDigester::new(
                 Path::new(unpacked_path).into(),
                 slog_scope::logger(),
             )));
         }
         let unpacked_snapshot_digest = self
             .get_digester()?
-            .compute_digest()
+            .compute_digest(certificate.beacon.immutable_file_number)
             .await
-            .map_err(RuntimeError::ImmutableDigester)?
-            .digest;
+            .map_err(RuntimeError::ImmutableDigester)?;
         let mut protocol_message = certificate.protocol_message.clone();
         protocol_message.set_message_part(
             ProtocolMessagePartKey::SnapshotDigest,
@@ -374,16 +375,20 @@ mod tests {
 
     use crate::aggregator::{AggregatorHandlerError, MockAggregatorHandler};
     use crate::verifier::{MockVerifier, ProtocolError};
-    use mithril_common::digesters::{Digester, DigesterError, DigesterResult};
+    use mithril_common::digesters::{ImmutableDigester, ImmutableDigesterError};
+    use mithril_common::entities::ImmutableFileNumber;
     use mithril_common::fake_data;
 
     mock! {
-       pub DigesterImpl { }
+        pub DigesterImpl { }
 
-       #[async_trait]
-       impl Digester for DigesterImpl {
-           async fn compute_digest(&self) -> Result<DigesterResult, DigesterError>;
-       }
+        #[async_trait]
+        impl ImmutableDigester for DigesterImpl {
+            async fn compute_digest(
+                &self,
+                up_to_file_number: ImmutableFileNumber,
+            ) -> Result<String, ImmutableDigesterError>;
+        }
     }
 
     fn create_fake_certificate_chain(total_certificates: u64) -> Vec<Certificate> {
@@ -547,12 +552,9 @@ mod tests {
             .expect_verify_multi_signature()
             .returning(|_, _, _, _| Ok(()))
             .times(mockall::TimesRange::from(total_certificates as usize));
-        mock_digester.expect_compute_digest().return_once(move || {
-            Ok(DigesterResult {
-                digest: digest_compute,
-                last_immutable_file_number: 0,
-            })
-        });
+        mock_digester
+            .expect_compute_digest()
+            .return_once(move |_| Ok(digest_compute));
         let mut client = Runtime::new("testnet".to_string());
         client
             .with_aggregator_handler(Box::new(mock_aggregator_handler))
@@ -597,12 +599,9 @@ mod tests {
             .expect_verify_multi_signature()
             .returning(|_, _, _, _| Ok(()))
             .times(1);
-        mock_digester.expect_compute_digest().return_once(move || {
-            Ok(DigesterResult {
-                digest: digest_compute,
-                last_immutable_file_number: 0,
-            })
-        });
+        mock_digester
+            .expect_compute_digest()
+            .return_once(move |_| Ok(digest_compute));
         let mut client = Runtime::new("testnet".to_string());
         client
             .with_aggregator_handler(Box::new(mock_aggregator_handler))
@@ -656,12 +655,9 @@ mod tests {
             .expect_verify_multi_signature()
             .returning(|_, _, _, _| Ok(()))
             .times(1);
-        mock_digester.expect_compute_digest().return_once(move || {
-            Ok(DigesterResult {
-                digest: digest_compute,
-                last_immutable_file_number: 0,
-            })
-        });
+        mock_digester
+            .expect_compute_digest()
+            .return_once(move |_| Ok(digest_compute));
         let mut client = Runtime::new("testnet".to_string());
         client
             .with_aggregator_handler(Box::new(mock_aggregator_handler))
@@ -699,12 +695,9 @@ mod tests {
         mock_aggregator_handler
             .expect_unpack_snapshot()
             .return_once(move |_| Ok("./target-dir".to_string()));
-        mock_digester.expect_compute_digest().return_once(move || {
-            Ok(DigesterResult {
-                digest: digest_compute,
-                last_immutable_file_number: 0,
-            })
-        });
+        mock_digester
+            .expect_compute_digest()
+            .return_once(move |_| Ok(digest_compute));
         let mut client = Runtime::new("testnet".to_string());
         client
             .with_aggregator_handler(Box::new(mock_aggregator_handler))
@@ -742,12 +735,9 @@ mod tests {
         mock_aggregator_handler
             .expect_unpack_snapshot()
             .return_once(move |_| Ok("./target-dir".to_string()));
-        mock_digester.expect_compute_digest().return_once(move || {
-            Ok(DigesterResult {
-                digest: digest_compute,
-                last_immutable_file_number: 0,
-            })
-        });
+        mock_digester
+            .expect_compute_digest()
+            .return_once(move |_| Ok(digest_compute));
         let mut client = Runtime::new("testnet".to_string());
         client
             .with_aggregator_handler(Box::new(mock_aggregator_handler))
@@ -785,9 +775,12 @@ mod tests {
         mock_aggregator_handler
             .expect_unpack_snapshot()
             .return_once(move |_| Ok("./target-dir".to_string()));
-        mock_digester
-            .expect_compute_digest()
-            .return_once(|| Err(DigesterError::NotEnoughImmutable()));
+        mock_digester.expect_compute_digest().return_once(|_| {
+            Err(ImmutableDigesterError::NotEnoughImmutable {
+                found_number: None,
+                expected_number: 3,
+            })
+        });
         let mut client = Runtime::new("testnet".to_string());
         client
             .with_aggregator_handler(Box::new(mock_aggregator_handler))
@@ -878,12 +871,9 @@ mod tests {
         mock_aggregator_handler
             .expect_unpack_snapshot()
             .return_once(move |_| Ok("./target-dir".to_string()));
-        mock_digester.expect_compute_digest().return_once(move || {
-            Ok(DigesterResult {
-                digest: digest_compute,
-                last_immutable_file_number: 0,
-            })
-        });
+        mock_digester
+            .expect_compute_digest()
+            .return_once(move |_| Ok(digest_compute));
         mock_verifier
             .expect_verify_multi_signature()
             .return_once(move |_, _, _, _| {

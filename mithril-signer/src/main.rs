@@ -7,7 +7,7 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use mithril_common::chain_observer::{CardanoCliChainObserver, CardanoCliRunner};
-use mithril_common::digesters::ImmutableDigester;
+use mithril_common::digesters::CardanoImmutableDigester;
 use mithril_common::store::adapter::JsonFileStoreAdapter;
 use mithril_common::store::StakeStore;
 use mithril_signer::{CertificateHandlerHTTPClient, Config, MithrilSingleSigner, Runtime};
@@ -70,7 +70,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let single_signer =
         MithrilSingleSigner::new(config.party_id.clone(), protocol_initializer_encoded);
     let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint.clone());
-    let digester = ImmutableDigester::new(config.db_directory.clone(), slog_scope::logger());
+    let digester = CardanoImmutableDigester::new(config.db_directory.clone(), slog_scope::logger());
     let stake_store = Arc::new(RwLock::new(StakeStore::new(Box::new(
         JsonFileStoreAdapter::new(config.stake_store_directory.clone())?,
     ))));

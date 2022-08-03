@@ -3,7 +3,7 @@ use init::initialize_dependencies;
 use mithril_aggregator::{AggregatorRunner, AggregatorRuntime};
 use mithril_common::chain_observer::FakeObserver;
 use mithril_common::crypto_helper::{key_encode_hex, tests_setup};
-use mithril_common::digesters::{DumbDigester, DumbImmutableFileObserver};
+use mithril_common::digesters::{DumbImmutableDigester, DumbImmutableFileObserver};
 use mithril_common::entities::{SignerWithStake, SingleSignatures};
 use mithril_common::{fake_data, BeaconProviderImpl};
 use std::sync::Arc;
@@ -41,7 +41,7 @@ async fn create_certificate() {
         immutable_file_observer.clone(),
         mithril_common::CardanoNetwork::TestNet(42),
     ));
-    let digester = Arc::new(DumbDigester::default());
+    let digester = Arc::new(DumbImmutableDigester::default());
     deps.immutable_file_observer = immutable_file_observer.clone();
     deps.beacon_provider = beacon_provider;
     deps.chain_observer = chain_observer.clone();
@@ -94,9 +94,6 @@ async fn create_certificate() {
     // change the immutable number to alter the beacon
     {
         let new_immutable_number = immutable_file_observer.increase().await.unwrap();
-        digester
-            .set_immutable_file_number(new_immutable_number)
-            .await;
         assert_eq!(
             new_immutable_number,
             deps.beacon_provider

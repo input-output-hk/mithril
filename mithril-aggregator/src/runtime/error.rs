@@ -3,7 +3,7 @@ use crate::store::StoreError;
 use crate::{BeaconStoreError, ProtocolError, SnapshotError};
 
 use mithril_common::chain_observer::ChainObserverError;
-use mithril_common::digesters::{DigesterError, ImmutableFileListingError};
+use mithril_common::digesters::{ImmutableDigesterError, ImmutableFileListingError};
 use mithril_common::store::StakeStoreError;
 use mithril_common::BeaconProviderError;
 use std::error::Error as StdError;
@@ -22,7 +22,7 @@ pub enum RuntimeError {
     Snapshotter(#[from] SnapshotError),
 
     #[error("digester error: {0}")]
-    Digester(#[from] DigesterError),
+    Digester(#[from] ImmutableDigesterError),
 
     #[error("snapshot store error: {0}")]
     SnapshotStore(#[from] SnapshotStoreError),
