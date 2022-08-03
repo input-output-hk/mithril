@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use async_trait::async_trait;
 use chrono::prelude::*;
 use hex::ToHex;
@@ -7,8 +9,8 @@ use thiserror::Error;
 use mithril_common::crypto_helper::{
     key_decode_hex, key_encode_hex, ProtocolAggregateVerificationKey, ProtocolClerk,
     ProtocolKeyRegistration, ProtocolMultiSignature, ProtocolParameters, ProtocolPartyId,
-    ProtocolSignerVerificationKey, ProtocolSingleSignature, ProtocolStake,
-    ProtocolStakeDistribution, PROTOCOL_VERSION,
+    ProtocolSignerVerificationKey, ProtocolSingleSignature, ProtocolStakeDistribution,
+    PROTOCOL_VERSION,
 };
 use mithril_common::entities;
 use mithril_common::store::{StakeStoreError, StakeStorer};
@@ -283,22 +285,14 @@ impl MultiSignerImpl {
             .compute_beacon_with_epoch_offset(epoch_offset)?
             .epoch;
 
-        let signers = self
+        let stakes = self
             .stake_store
             .read()
             .await
             .get_stakes(epoch)
             .await?
             .unwrap_or_default();
-        Ok(signers
-            .iter()
-            .map(|(party_id, signer)| {
-                (
-                    party_id.to_owned() as ProtocolPartyId,
-                    signer.stake as ProtocolStake,
-                )
-            })
-            .collect::<ProtocolStakeDistribution>())
+        Ok(stakes.into_iter().collect::<ProtocolStakeDistribution>())
     }
 }
 
@@ -373,14 +367,8 @@ impl MultiSigner for MultiSignerImpl {
             .compute_beacon_with_epoch_offset(SIGNER_EPOCH_RECORDING_OFFSET)?
             .epoch;
         let mut stake_store = self.stake_store.write().await;
-        for (party_id, stake) in stakes {
-            stake_store
-                .save_stake(
-                    epoch,
-                    entities::SignerWithStake::new(party_id.to_owned(), "".to_string(), *stake),
-                )
-                .await?;
-        }
+        let stakes = HashMap::from_iter(stakes.iter().cloned());
+        stake_store.save_stakes(epoch, stakes).await?;
 
         Ok(())
     }
@@ -676,14 +664,12 @@ mod tests {
             )
             .unwrap(),
         ));
-        let stake_store =
-            StakeStore::new(Box::new(
-                MemoryAdapter::<
-                    entities::Epoch,
-                    HashMap<entities::PartyId, entities::SignerWithStake>,
-                >::new(None)
-                .unwrap(),
-            ));
+        let stake_store = StakeStore::new(Box::new(
+            MemoryAdapter::<entities::Epoch, HashMap<entities::PartyId, entities::Stake>>::new(
+                None,
+            )
+            .unwrap(),
+        ));
         let single_signature_store = SingleSignatureStore::new(Box::new(
             MemoryAdapter::<
                 entities::ImmutableFileNumber,

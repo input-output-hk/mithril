@@ -493,8 +493,7 @@ pub mod tests {
             saved_stake_distribution.len()
         );
         for (party_id, stake) in current_stake_distribution.iter() {
-            let signer_with_stake = saved_stake_distribution.get(party_id).unwrap();
-            assert_eq!(stake, &signer_with_stake.stake);
+            assert_eq!(stake, saved_stake_distribution.get(party_id).unwrap());
         }
     }
 
