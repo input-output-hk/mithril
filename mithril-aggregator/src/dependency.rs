@@ -1,4 +1,5 @@
-use mithril_common::digesters::Digester;
+use mithril_common::digesters::{Digester, ImmutableFileObserver};
+use mithril_common::BeaconProvider;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -8,11 +9,10 @@ use mithril_common::store::StakeStore;
 use super::entities::*;
 use super::multi_signer::MultiSigner;
 use super::snapshot_stores::SnapshotStore;
-use crate::beacon_provider::ImmutableFileObserver;
 use crate::beacon_store::BeaconStore;
 use crate::snapshot_uploaders::SnapshotUploader;
 use crate::{
-    BeaconProvider, CertificatePendingStore, CertificateStore, SingleSignatureStore, Snapshotter,
+    CertificatePendingStore, CertificateStore, SingleSignatureStore, Snapshotter,
     VerificationKeyStore,
 };
 
@@ -80,17 +80,17 @@ pub struct DependencyManager {
 #[cfg(test)]
 pub mod tests {
     use crate::{
-        beacon_provider::DumbImmutableFileObserver, AggregatorConfig, BeaconProviderImpl,
-        CertificatePendingStore, CertificateStore, Config, DependencyManager, DumbSnapshotUploader,
-        DumbSnapshotter, LocalSnapshotStore, MemoryBeaconStore, MultiSigner, MultiSignerImpl,
-        SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType, VerificationKeyStore,
+        AggregatorConfig, CertificatePendingStore, CertificateStore, Config, DependencyManager,
+        DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore, MemoryBeaconStore, MultiSigner,
+        MultiSignerImpl, SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType,
+        VerificationKeyStore,
     };
-    use mithril_common::digesters::DumbDigester;
+    use mithril_common::digesters::{DumbDigester, DumbImmutableFileObserver};
     use mithril_common::{
         chain_observer::FakeObserver,
         fake_data,
         store::{adapter::MemoryAdapter, StakeStore},
-        CardanoNetwork,
+        BeaconProviderImpl, CardanoNetwork,
     };
     use std::{path::PathBuf, sync::Arc};
     use tokio::sync::RwLock;

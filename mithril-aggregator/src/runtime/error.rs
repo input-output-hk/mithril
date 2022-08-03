@@ -5,6 +5,7 @@ use crate::{BeaconStoreError, ProtocolError, SnapshotError};
 use mithril_common::chain_observer::ChainObserverError;
 use mithril_common::digesters::{DigesterError, ImmutableFileListingError};
 use mithril_common::store::StakeStoreError;
+use mithril_common::BeaconProviderError;
 use std::error::Error as StdError;
 use std::io;
 use thiserror::Error;
@@ -43,6 +44,9 @@ pub enum RuntimeError {
 
     #[error("chain observer error")]
     ChainObserver(#[from] ChainObserverError),
+
+    #[error("beacon provider error: {0}")]
+    BeaconProvider(#[from] BeaconProviderError),
 
     #[error("general error: {0}")]
     General(Box<dyn StdError + Sync + Send>),

@@ -1,13 +1,11 @@
 mod init;
 use init::initialize_dependencies;
-use mithril_aggregator::{
-    AggregatorRunner, AggregatorRuntime, BeaconProviderImpl, DumbImmutableFileObserver,
-};
+use mithril_aggregator::{AggregatorRunner, AggregatorRuntime};
 use mithril_common::chain_observer::FakeObserver;
 use mithril_common::crypto_helper::{key_encode_hex, tests_setup};
-use mithril_common::digesters::DumbDigester;
+use mithril_common::digesters::{DumbDigester, DumbImmutableFileObserver};
 use mithril_common::entities::{SignerWithStake, SingleSignatures};
-use mithril_common::fake_data;
+use mithril_common::{fake_data, BeaconProviderImpl};
 use std::sync::Arc;
 use std::time::Duration;
 

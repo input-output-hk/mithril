@@ -1,17 +1,18 @@
 use std::{path::PathBuf, sync::Arc};
 
 use mithril_aggregator::{
-    AggregatorConfig, BeaconProviderImpl, CertificatePendingStore, CertificateStore, Config,
-    DependencyManager, DumbImmutableFileObserver, DumbSnapshotUploader, DumbSnapshotter,
-    LocalSnapshotStore, MemoryBeaconStore, MultiSigner, MultiSignerImpl, SingleSignatureStore,
-    SnapshotStoreType, SnapshotUploaderType, VerificationKeyStore,
+    AggregatorConfig, CertificatePendingStore, CertificateStore, Config, DependencyManager,
+    DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore, MemoryBeaconStore, MultiSigner,
+    MultiSignerImpl, SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType,
+    VerificationKeyStore,
 };
+use mithril_common::digesters::DumbImmutableFileObserver;
 use mithril_common::{
     chain_observer::FakeObserver,
     crypto_helper::tests_setup::setup_protocol_parameters,
     digesters::DumbDigester,
     store::{adapter::MemoryAdapter, StakeStore},
-    CardanoNetwork,
+    BeaconProviderImpl, CardanoNetwork,
 };
 use tokio::sync::RwLock;
 

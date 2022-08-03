@@ -126,8 +126,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .dependencies
             .beacon_provider
             .get_current_beacon()
-            .await
-            .map_err(RuntimeError::General)?;
+            .await?;
 
         debug!("checking if there is a new beacon: {:?}", current_beacon);
 
