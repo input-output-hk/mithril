@@ -1,13 +1,11 @@
 use async_trait::async_trait;
-use std::collections::HashMap;
 use thiserror::Error;
 
-use crate::entities::{Epoch, PartyId};
+use crate::entities::{Epoch, StakeDistribution};
 
-use super::super::entities::SignerWithStake;
 use super::adapter::{AdapterError, StoreAdapter};
 
-type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = HashMap<PartyId, SignerWithStake>>>;
+type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = StakeDistribution>>;
 
 /// [StakeStorer] related errors.
 #[derive(Debug, Error)]
@@ -20,18 +18,15 @@ pub enum StakeStoreError {
 /// Represent a way to store the stake of mithril party members.
 #[async_trait]
 pub trait StakeStorer {
-    /// Save the stake of a party in the store for a given `epoch`.
-    async fn save_stake(
+    /// Save the stakes in the store for a given `epoch`.
+    async fn save_stakes(
         &mut self,
         epoch: Epoch,
-        signer: SignerWithStake,
-    ) -> Result<Option<SignerWithStake>, StakeStoreError>;
+        stakes: StakeDistribution,
+    ) -> Result<Option<StakeDistribution>, StakeStoreError>;
 
     /// Get the stakes of all party at a given `epoch`.
-    async fn get_stakes(
-        &self,
-        epoch: Epoch,
-    ) -> Result<Option<HashMap<PartyId, SignerWithStake>>, StakeStoreError>;
+    async fn get_stakes(&self, epoch: Epoch) -> Result<Option<StakeDistribution>, StakeStoreError>;
 }
 
 /// A [StakeStorer] that use a [StoreAdapter] to store data.
@@ -48,59 +43,44 @@ impl StakeStore {
 
 #[async_trait]
 impl StakeStorer for StakeStore {
-    async fn save_stake(
+    async fn save_stakes(
         &mut self,
         epoch: Epoch,
-        signer: SignerWithStake,
-    ) -> Result<Option<SignerWithStake>, StakeStoreError> {
-        let mut signers = match self.adapter.get_record(&epoch).await? {
-            Some(s) => s,
-            None => HashMap::new(),
-        };
-        let prev_signer = signers.insert(signer.party_id.clone(), signer);
-        let _ = self.adapter.store_record(&epoch, &signers).await?;
+        stakes: StakeDistribution,
+    ) -> Result<Option<StakeDistribution>, StakeStoreError> {
+        let signers = self.adapter.get_record(&epoch).await?;
+        self.adapter.store_record(&epoch, &stakes).await?;
 
-        Ok(prev_signer)
+        Ok(signers)
     }
 
-    async fn get_stakes(
-        &self,
-        epoch: Epoch,
-    ) -> Result<Option<HashMap<PartyId, SignerWithStake>>, StakeStoreError> {
+    async fn get_stakes(&self, epoch: Epoch) -> Result<Option<StakeDistribution>, StakeStoreError> {
         Ok(self.adapter.get_record(&epoch).await?)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use super::super::adapter::MemoryAdapter;
     use super::*;
 
     fn init_store(nb_epoch: u64, signers_per_epoch: u64) -> StakeStore {
-        let mut values: Vec<(Epoch, HashMap<PartyId, SignerWithStake>)> = Vec::new();
+        let mut values: Vec<(Epoch, StakeDistribution)> = Vec::new();
 
         for epoch in 1..=nb_epoch {
-            let mut signers: HashMap<PartyId, SignerWithStake> = HashMap::new();
+            let mut signers: StakeDistribution = HashMap::new();
 
             for party_idx in 1..=signers_per_epoch {
                 let party_id = format!("{}", party_idx);
-                let _ = signers.insert(
-                    party_id.clone(),
-                    SignerWithStake {
-                        party_id,
-                        verification_key: "".to_string(),
-                        stake: 100 * party_idx + 1,
-                    },
-                );
+                signers.insert(party_id.clone(), 100 * party_idx + 1);
             }
             values.push((epoch, signers));
         }
 
-        let values = if !values.is_empty() { Some(values) } else { None };
-        let adapter: MemoryAdapter<u64, HashMap<PartyId, SignerWithStake>> =
-            MemoryAdapter::new(values).unwrap();
-        
-
+        let values = if values.len() > 0 { Some(values) } else { None };
+        let adapter: MemoryAdapter<u64, StakeDistribution> = MemoryAdapter::new(values).unwrap();
         StakeStore::new(Box::new(adapter))
     }
 
@@ -108,14 +88,7 @@ mod tests {
     async fn save_key_in_empty_store() {
         let mut store = init_store(0, 0);
         let res = store
-            .save_stake(
-                0,
-                SignerWithStake {
-                    party_id: "0".to_string(),
-                    verification_key: "".to_string(),
-                    stake: 123,
-                },
-            )
+            .save_stakes(1, HashMap::from([("1".to_string(), 123)]))
             .await
             .unwrap();
 
@@ -126,26 +99,12 @@ mod tests {
     async fn update_signer_in_store() {
         let mut store = init_store(1, 1);
         let res = store
-            .save_stake(
-                1,
-                SignerWithStake {
-                    party_id: "1".to_string(),
-                    verification_key: "".to_string(),
-                    stake: 123,
-                },
-            )
+            .save_stakes(1, HashMap::from([("1".to_string(), 123)]))
             .await
             .unwrap();
 
         assert!(res.is_some());
-        assert_eq!(
-            SignerWithStake {
-                party_id: "1".to_string(),
-                verification_key: "".to_string(),
-                stake: 101,
-            },
-            res.unwrap(),
-        );
+        assert_eq!(HashMap::from([("1".to_string(), 101)]), res.unwrap(),);
     }
 
     #[tokio::test]
