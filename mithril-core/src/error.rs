@@ -14,7 +14,7 @@ use {
 
 #[derive(Debug, thiserror::Error, Eq, PartialEq)]
 /// Error types for multi signatures
-pub enum MultiSignatureError {
+pub(crate) enum MultiSignatureError {
     /// Invalid Multi signature
     #[error("Invalid multi signature")]
     InvalidSignature,
@@ -31,7 +31,7 @@ pub enum MultiSignatureError {
 
 /// Errors which can be output by Mithril verification.
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum MithrilWitnessError<D: Digest + FixedOutput> {
+pub enum StmVerificationError<D: Digest + FixedOutput> {
     /// No quorum was found
     #[error("No Quorum was found.")]
     NoQuorum,
@@ -61,27 +61,9 @@ pub enum MithrilWitnessError<D: Digest + FixedOutput> {
     InvalidSignature(Signature),
 }
 
-#[allow(clippy::from_over_into)]
-impl<D: Digest + FixedOutput> Into<i64> for MithrilWitnessError<D> {
-    fn into(self) -> i64 {
-        // -1 is reserved to the function failing.
-        match self {
-            MithrilWitnessError::NoQuorum => -2,
-            MithrilWitnessError::IvkInvalid(_) => -3,
-            MithrilWitnessError::SumInvalid(_) => -4,
-            MithrilWitnessError::IndexBoundFailed(_, _) => -5,
-            MithrilWitnessError::IndexNotUnique => -6,
-            MithrilWitnessError::PathInvalid(_) => -7,
-            MithrilWitnessError::EvalInvalid(_) => -8,
-            MithrilWitnessError::StakeInvalid => -9,
-            MithrilWitnessError::InvalidSignature(_) => -10,
-        }
-    }
-}
-
 /// Error types for aggregation.
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum AggregationFailure {
+pub enum AggregationError {
     /// Not enough signatures were collected, got this many instead.
     #[error("Not enough signatures. Got only {0} out of {1}.")]
     NotEnoughSignatures(u64, u64),
@@ -92,7 +74,7 @@ pub enum AggregationFailure {
 
 /// Error types for single signature verification
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum VerificationFailure<D: Digest + FixedOutput> {
+pub enum StmSingleVerificationError<D: Digest + FixedOutput> {
     /// The signature index is out of bounds
     #[error("Received index, {0}, is higher than what the security parameter allows, {1}.")]
     IndexBoundFailed(u64, u64),
@@ -154,15 +136,15 @@ impl From<MerkleTreeError> for MultiSignatureError {
     }
 }
 
-impl<D: Digest + Clone + FixedOutput> From<MultiSignatureError> for MithrilWitnessError<D> {
+impl<D: Digest + Clone + FixedOutput> From<MultiSignatureError> for StmVerificationError<D> {
     fn from(_: MultiSignatureError) -> Self {
         // todo:
         Self::StakeInvalid
     }
 }
 
-impl<D: Digest + Clone + FixedOutput> From<VerificationFailure<D>> for MithrilWitnessError<D> {
-    fn from(_: VerificationFailure<D>) -> Self {
+impl<D: Digest + Clone + FixedOutput> From<StmSingleVerificationError<D>> for StmVerificationError<D> {
+    fn from(_: StmSingleVerificationError<D>) -> Self {
         // todo:
         Self::StakeInvalid
     }

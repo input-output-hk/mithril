@@ -2,7 +2,7 @@ use mithril::key_reg::KeyReg;
 use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
 use rayon::prelude::*;
 
-use mithril::error::AggregationFailure;
+use mithril::error::AggregationError;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
@@ -71,11 +71,11 @@ fn test_full_protocol() {
             println!("Aggregate ok");
             assert!(aggr.verify(&msg, &clerk.compute_avk(), &params).is_ok());
         }
-        Err(AggregationFailure::NotEnoughSignatures(n, k)) => {
+        Err(AggregationError::NotEnoughSignatures(n, k)) => {
             println!("Not enough signatures");
             assert!(n < params.k && k == params.k)
         }
-        Err(AggregationFailure::InvalidUsizeConversion) => {
+        Err(AggregationError::InvalidUsizeConversion) => {
             println!("Invalid usize conversion");
         }
     }

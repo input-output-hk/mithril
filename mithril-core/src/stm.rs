@@ -8,7 +8,7 @@
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! use mithril::key_reg::KeyReg; // Import key registration functionality
 //! use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
-//! use mithril::error::AggregationFailure;
+//! use mithril::error::AggregationError;
 //! use rayon::prelude::*; // We use par_iter to speed things up
 //!
 //! use rand_chacha::ChaCha20Rng;
@@ -95,7 +95,7 @@
 //!             .verify(&msg, &clerk.compute_avk(), &params)
 //!             .is_ok());
 //!     }
-//!     Err(AggregationFailure::NotEnoughSignatures(n, k)) => {
+//!     Err(AggregationError::NotEnoughSignatures(n, k)) => {
 //!         println!("Not enough signatures");
 //!         assert!(n < params.k && k == params.k)
 //!     }
@@ -107,8 +107,8 @@
 
 use crate::dense_mapping::ev_lt_phi;
 use crate::error::{
-    AggregationFailure, MithrilWitnessError, MultiSignatureError, RegisterError,
-    VerificationFailure,
+    AggregationError, StmVerificationError, MultiSignatureError, RegisterError,
+    StmSingleVerificationError,
 };
 use crate::key_reg::ClosedKeyReg;
 use crate::merkle_tree::{MTLeaf, MerkleTreeCommitment, Path};
@@ -271,7 +271,7 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
         params: &StmParameters,
         avk: &StmAggrVerificationKey<D>,
         msg: &[u8],
-    ) -> Result<(), VerificationFailure<D>> {
+    ) -> Result<(), StmSingleVerificationError<D>> {
         let msgp = avk.mt_commitment.concat_with_msg(msg);
 
         self.check_indices(params, &msgp, avk)?;
@@ -280,9 +280,9 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
             .check(&MTLeaf(self.pk, self.stake), &self.path)
             .is_err()
         {
-            Err(VerificationFailure::InvalidMerkleTree(self.path.clone()))
+            Err(StmSingleVerificationError::InvalidMerkleTree(self.path.clone()))
         } else if self.sigma.verify(&msgp, &self.pk).is_err() {
-            Err(VerificationFailure::InvalidSignature(self.sigma))
+            Err(StmSingleVerificationError::InvalidSignature(self.sigma))
         } else {
             Ok(())
         }
@@ -293,16 +293,16 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
         params: &StmParameters,
         msgp: &[u8],
         avk: &StmAggrVerificationKey<D>,
-    ) -> Result<(), VerificationFailure<D>> {
+    ) -> Result<(), StmSingleVerificationError<D>> {
         for &index in &self.indexes {
             if index > params.m {
-                return Err(VerificationFailure::IndexBoundFailed(index, params.m));
+                return Err(StmSingleVerificationError::IndexBoundFailed(index, params.m));
             }
 
             let ev = self.sigma.eval(msgp, index);
 
             if !ev_lt_phi(params.phi_f, ev, self.stake, avk.total_stake) {
-                return Err(VerificationFailure::LotteryLost);
+                return Err(StmSingleVerificationError::LotteryLost);
             }
         }
 
@@ -406,7 +406,7 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
         msg: &[u8],
         avk: &StmAggrVerificationKey<D>,
         parameters: &StmParameters,
-    ) -> Result<(), MithrilWitnessError<D>> {
+    ) -> Result<(), StmVerificationError<D>> {
         // Check that indices are all smaller than `m` and they are unique
         let mut nr_indices = 0;
         let mut unique_indices = HashSet::new();
@@ -414,7 +414,7 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
             for &index in &sig.indexes {
                 if index > parameters.m {
                     println!("one");
-                    return Err(MithrilWitnessError::IndexBoundFailed(index, parameters.m));
+                    return Err(StmVerificationError::IndexBoundFailed(index, parameters.m));
                 }
                 unique_indices.insert(index);
                 nr_indices += 1;
@@ -423,13 +423,13 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
 
         if nr_indices != unique_indices.len() {
             println!("two");
-            return Err(MithrilWitnessError::IndexNotUnique);
+            return Err(StmVerificationError::IndexNotUnique);
         }
 
         // Check that there are sufficient signatures
         if (nr_indices as u64) < parameters.k {
             println!("three");
-            return Err(MithrilWitnessError::NoQuorum);
+            return Err(StmVerificationError::NoQuorum);
         }
 
         // Check that all signatures did win the lottery
@@ -444,7 +444,7 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
                 .is_err()
             {
                 println!("four");
-                return Err(MithrilWitnessError::PathInvalid(sig.path.clone()));
+                return Err(StmVerificationError::PathInvalid(sig.path.clone()));
             }
         }
 
@@ -841,7 +841,7 @@ where
         &self,
         sigs: &[StmSig<D>],
         msg: &[u8],
-    ) -> Result<StmAggrSig<D>, AggregationFailure> {
+    ) -> Result<StmAggrSig<D>, AggregationError> {
         // todo: how come the dedup does not take the concatenated message
         // let msgp = concat_avk_with_msg(&self.avk.to_commitment(), msg);
         let unique_sigs = self.dedup_sigs_for_indices(msg, sigs)?;
@@ -861,7 +861,7 @@ where
         &self,
         msg: &[u8],
         sigs: &[StmSig<D>],
-    ) -> Result<Vec<StmSig<D>>, AggregationFailure> {
+    ) -> Result<Vec<StmSig<D>>, AggregationError> {
         let avk = StmAggrVerificationKey::from(&self.closed_reg);
         let mut sig_by_index: HashMap<Index, &StmSig<D>> = HashMap::new();
         let mut removal_idx_by_vk: HashMap<&StmSig<D>, Vec<Index>> = HashMap::new();
@@ -927,7 +927,7 @@ where
             }
         }
 
-        Err(AggregationFailure::NotEnoughSignatures(
+        Err(AggregationError::NotEnoughSignatures(
             count,
             self.params.k,
         ))
@@ -1124,9 +1124,9 @@ mod tests {
                     let verify_result = aggr.verify(&msg, &clerk.compute_avk(), &params);
                     assert!(verify_result.is_ok(), "{:?}", verify_result);
                 }
-                Err(AggregationFailure::NotEnoughSignatures(n, k)) =>
+                Err(AggregationError::NotEnoughSignatures(n, k)) =>
                     assert!(n < params.k || k == params.k),
-                Err(AggregationFailure::InvalidUsizeConversion) =>
+                Err(AggregationError::InvalidUsizeConversion) =>
                     unreachable!()
             }
         }
@@ -1247,7 +1247,7 @@ mod tests {
 
             let msig = clerk.aggregate(&sigs, &msg);
             match msig {
-                Err(AggregationFailure::NotEnoughSignatures(n, k)) =>
+                Err(AggregationError::NotEnoughSignatures(n, k)) =>
                     assert!(n < params.k && params.k == k),
                 _ =>
                     unreachable!(),
@@ -1258,7 +1258,7 @@ mod tests {
     #[derive(Debug)]
     struct ProofTest {
         n: usize,
-        msig: Result<Sig, AggregationFailure>,
+        msig: Result<Sig, AggregationError>,
         clerk: StmClerk<D>,
         msg: [u8; 16],
     }
