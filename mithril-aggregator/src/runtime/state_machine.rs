@@ -189,7 +189,7 @@ impl AggregatorRuntime {
     ///
     /// from IDLE state to SIGNING because NEW BEACON
     async fn transition_from_idle_to_signing(
-        &self,
+        &mut self,
         maybe_current_beacon: Option<Beacon>,
         new_beacon: Beacon,
     ) -> Result<SigningState, RuntimeError> {
@@ -255,7 +255,7 @@ mod tests {
             runner,
         )
         .await;
-        let _ = runtime.cycle().await.unwrap();
+        runtime.cycle().await.unwrap();
 
         assert_eq!("idle".to_string(), runtime.get_state());
     }
@@ -308,7 +308,7 @@ mod tests {
             runner,
         )
         .await;
-        let _ = runtime.cycle().await.unwrap();
+        runtime.cycle().await.unwrap();
 
         assert_eq!("signing".to_string(), runtime.get_state());
     }
@@ -337,7 +337,7 @@ mod tests {
             certificate_pending: fake_data::certificate_pending(),
         };
         let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
-        let _ = runtime.cycle().await.unwrap();
+        runtime.cycle().await.unwrap();
 
         assert_eq!("idle".to_string(), runtime.get_state());
     }
@@ -358,7 +358,7 @@ mod tests {
             certificate_pending: fake_data::certificate_pending(),
         };
         let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
-        let _ = runtime.cycle().await.unwrap();
+        runtime.cycle().await.unwrap();
 
         assert_eq!("signing".to_string(), runtime.get_state());
     }
@@ -405,7 +405,7 @@ mod tests {
             certificate_pending: fake_data::certificate_pending(),
         };
         let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
-        let _ = runtime.cycle().await.unwrap();
+        runtime.cycle().await.unwrap();
 
         assert_eq!("idle".to_string(), runtime.get_state());
     }

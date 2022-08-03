@@ -276,8 +276,6 @@ impl MultiSignerImpl {
         debug!("Get stake distribution with epoch offset"; "epoch_offset"=>epoch_offset);
         let epoch = self
             .beacon_store
-            .read()
-            .await
             .get_current_beacon()
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?
@@ -368,8 +366,6 @@ impl MultiSigner for MultiSignerImpl {
         debug!("Update stake distribution"; "stakes" => #?stakes);
         let epoch = self
             .beacon_store
-            .read()
-            .await
             .get_current_beacon()
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?
@@ -409,8 +405,6 @@ impl MultiSigner for MultiSignerImpl {
 
         let epoch = self
             .beacon_store
-            .read()
-            .await
             .get_current_beacon()
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?
@@ -418,8 +412,6 @@ impl MultiSigner for MultiSignerImpl {
             .epoch;
         let result = match self
             .verification_key_store
-            .write()
-            .await
             .save_verification_key(
                 epoch,
                 entities::Signer::new(
@@ -444,8 +436,6 @@ impl MultiSigner for MultiSignerImpl {
         debug!("Get signer {}", party_id);
         let epoch = self
             .beacon_store
-            .read()
-            .await
             .get_current_beacon()
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?
@@ -453,8 +443,6 @@ impl MultiSigner for MultiSignerImpl {
             .epoch;
         let signers = self
             .verification_key_store
-            .read()
-            .await
             .get_verification_keys(epoch)
             .await?
             .unwrap_or_default();
@@ -473,8 +461,6 @@ impl MultiSigner for MultiSignerImpl {
         debug!("Get signers with stake");
         let epoch = self
             .beacon_store
-            .read()
-            .await
             .get_current_beacon()
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?
@@ -482,8 +468,6 @@ impl MultiSigner for MultiSignerImpl {
             .epoch;
         let signers = self
             .verification_key_store
-            .read()
-            .await
             .get_verification_keys(epoch)
             .await?
             .unwrap_or_default();
@@ -535,16 +519,12 @@ impl MultiSigner for MultiSignerImpl {
         // Register single signature
         let beacon = self
             .beacon_store
-            .read()
-            .await
             .get_current_beacon()
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?;
 
         match self
             .single_signature_store
-            .write()
-            .await
             .save_single_signatures(&beacon, signatures)
             .await?
         {
@@ -574,15 +554,11 @@ impl MultiSigner for MultiSignerImpl {
 
         let beacon = self
             .beacon_store
-            .read()
-            .await
             .get_current_beacon()
             .await?
             .ok_or_else(ProtocolError::UnavailableBeacon)?;
         let signatures: Vec<ProtocolSingleSignature> = self
             .single_signature_store
-            .read()
-            .await
             .get_single_signatures(&beacon)
             .await?
             .unwrap_or_default()
@@ -691,7 +667,7 @@ mod tests {
 
     async fn setup_multi_signer() -> MultiSignerImpl {
         let beacon = fake_data::beacon();
-        let mut beacon_store = MemoryBeaconStore::new();
+        let beacon_store = MemoryBeaconStore::new();
         beacon_store.set_current_beacon(beacon).await.unwrap();
         let verification_key_store = VerificationKeyStore::new(Box::new(
             MemoryAdapter::<entities::Epoch, HashMap<entities::PartyId, entities::Signer>>::new(
@@ -715,15 +691,15 @@ mod tests {
             .unwrap(),
         ));
         MultiSignerImpl::new(
-            Arc::new(RwLock::new(beacon_store)),
-            Arc::new(RwLock::new(verification_key_store)),
+            Arc::new(beacon_store),
+            Arc::new(verification_key_store),
             Arc::new(RwLock::new(stake_store)),
-            Arc::new(RwLock::new(single_signature_store)),
+            Arc::new(single_signature_store),
         )
     }
 
     async fn offset_epoch(multi_signer: &MultiSignerImpl, offset: i64) {
-        let mut beacon_store = multi_signer.beacon_store.write().await;
+        let beacon_store = multi_signer.beacon_store.clone();
         let mut beacon = beacon_store.get_current_beacon().await.unwrap().unwrap();
         let epoch_new = beacon.epoch as i64 + offset;
         beacon.epoch = epoch_new as u64;

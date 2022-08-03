@@ -63,7 +63,7 @@ impl SnapshotStore for RemoteSnapshotStore {
         Ok(None)
     }
 
-    async fn add_snapshot(&mut self, snapshot: Snapshot) -> Result<(), SnapshotStoreError> {
+    async fn add_snapshot(&self, snapshot: Snapshot) -> Result<(), SnapshotStoreError> {
         info!(
             "Adding snapshot to GCP: {}",
             serde_json::to_string(&snapshot).unwrap()
@@ -171,7 +171,7 @@ mod tests {
     async fn test_add_snapshot_ok() {
         let mut file_uploader = MockRemoteFileUploader::new();
         file_uploader.expect_upload_file().return_const(Ok(()));
-        let mut snapshot_store =
+        let snapshot_store =
             RemoteSnapshotStore::new(Box::new(file_uploader), "http123://unreachable".to_string());
         let snapshot = Snapshot {
             digest: "abc".to_string(),
@@ -194,7 +194,7 @@ mod tests {
         file_uploader
             .expect_upload_file()
             .return_const(Err("unexpected error".to_string()));
-        let mut snapshot_store =
+        let snapshot_store =
             RemoteSnapshotStore::new(Box::new(file_uploader), "http123://unreachable".to_string());
         let snapshot = Snapshot {
             digest: "abc".to_string(),

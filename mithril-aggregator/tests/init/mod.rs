@@ -36,22 +36,22 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
         stake_store_directory: PathBuf::new(),
         single_signature_store_directory: PathBuf::new(),
     };
-    let certificate_pending_store = Arc::new(RwLock::new(CertificatePendingStore::new(Box::new(
+    let certificate_pending_store = Arc::new(CertificatePendingStore::new(Box::new(
         MemoryAdapter::new(None).unwrap(),
-    ))));
-    let certificate_store = Arc::new(RwLock::new(CertificateStore::new(Box::new(
+    )));
+    let certificate_store = Arc::new(CertificateStore::new(Box::new(
         MemoryAdapter::new(None).unwrap(),
-    ))));
-    let verification_key_store = Arc::new(RwLock::new(VerificationKeyStore::new(Box::new(
+    )));
+    let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(
         MemoryAdapter::new(None).unwrap(),
-    ))));
+    )));
     let stake_store = Arc::new(RwLock::new(StakeStore::new(Box::new(
         MemoryAdapter::new(None).unwrap(),
     ))));
-    let single_signature_store = Arc::new(RwLock::new(SingleSignatureStore::new(Box::new(
+    let single_signature_store = Arc::new(SingleSignatureStore::new(Box::new(
         MemoryAdapter::new(None).unwrap(),
-    ))));
-    let beacon_store = Arc::new(RwLock::new(MemoryBeaconStore::new()));
+    )));
+    let beacon_store = Arc::new(MemoryBeaconStore::new());
     let multi_signer = async {
         let protocol_parameters = setup_protocol_parameters();
         let mut multi_signer = MultiSignerImpl::new(
@@ -61,43 +61,44 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
             single_signature_store.clone(),
         );
         multi_signer
-            .update_protocol_parameters(&protocol_parameters.into())
+            .update_protocol_parameters(&protocol_parameters)
             .await
             .expect("fake update protocol parameters failed");
 
         multi_signer
     };
     let multi_signer = Arc::new(RwLock::new(multi_signer.await));
-    let immutable_file_observer = Arc::new(RwLock::new(DumbImmutableFileObserver::default()));
-    let chain_observer = Arc::new(RwLock::new(FakeObserver::default()));
-    let beacon_provider = Arc::new(RwLock::new(BeaconProviderImpl::new(
+    let immutable_file_observer = Arc::new(DumbImmutableFileObserver::default());
+    let chain_observer = Arc::new(FakeObserver::default());
+    let beacon_provider = Arc::new(BeaconProviderImpl::new(
         chain_observer.clone(),
         immutable_file_observer.clone(),
         mithril_common::CardanoNetwork::TestNet(42),
-    )));
+    ));
     let digester = Arc::new(DumbDigester::default());
     let snapshotter = Arc::new(DumbSnapshotter::new());
-    let snapshot_uploader = Arc::new(RwLock::new(DumbSnapshotUploader::new()));
-    let snapshot_store = Arc::new(RwLock::new(LocalSnapshotStore::new(
+    let snapshot_uploader = Arc::new(DumbSnapshotUploader::new());
+    let snapshot_store = Arc::new(LocalSnapshotStore::new(
         Box::new(MemoryAdapter::new(None).expect("memory adapter init should not fail")),
         5,
-    )));
-    let mut dependency_manager = DependencyManager::new(config.clone());
-    dependency_manager
-        .with_snapshot_store(snapshot_store.clone())
-        .with_snapshot_uploader(snapshot_uploader.clone())
-        .with_multi_signer(multi_signer.clone())
-        .with_beacon_store(beacon_store.clone())
-        .with_certificate_pending_store(certificate_pending_store.clone())
-        .with_certificate_store(certificate_store.clone())
-        .with_verification_key_store(verification_key_store.clone())
-        .with_stake_store(stake_store.clone())
-        .with_single_signature_store(single_signature_store.clone())
-        .with_chain_observer(chain_observer.clone())
-        .with_beacon_provider(beacon_provider.clone())
-        .with_immutable_file_observer(immutable_file_observer.clone())
-        .with_digester(digester.clone())
-        .with_snapshotter(snapshotter.clone());
+    ));
+    let dependency_manager = DependencyManager {
+        config,
+        snapshot_store,
+        snapshot_uploader,
+        multi_signer,
+        beacon_store: beacon_store.clone(),
+        certificate_pending_store: certificate_pending_store.clone(),
+        certificate_store: certificate_store.clone(),
+        verification_key_store: verification_key_store.clone(),
+        stake_store: stake_store.clone(),
+        single_signature_store: single_signature_store.clone(),
+        chain_observer,
+        beacon_provider,
+        immutable_file_observer,
+        digester,
+        snapshotter,
+    };
 
     let config = AggregatorConfig::new(
         dependency_manager.config.run_interval,

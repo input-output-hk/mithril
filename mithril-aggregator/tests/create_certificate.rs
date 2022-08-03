@@ -10,7 +10,6 @@ use mithril_common::entities::{SignerWithStake, SingleSignatures};
 use mithril_common::fake_data;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::RwLock;
 
 /// Simple struct to give a more helpful error message when ticking the state machine
 struct TickErrorMessage {
@@ -37,19 +36,18 @@ async fn create_certificate() {
     // initialization
     let mut tick_error_msg = TickErrorMessage::new();
     let (mut deps, config) = initialize_dependencies().await;
-    let immutable_file_observer = Arc::new(RwLock::new(DumbImmutableFileObserver::default()));
-    let chain_observer = Arc::new(RwLock::new(FakeObserver::new()));
-    chain_observer.write().await.current_beacon = Some(fake_data::beacon());
-    let beacon_provider = Arc::new(RwLock::new(BeaconProviderImpl::new(
+    let immutable_file_observer = Arc::new(DumbImmutableFileObserver::default());
+    let chain_observer = Arc::new(FakeObserver::new(Some(fake_data::beacon())));
+    let beacon_provider = Arc::new(BeaconProviderImpl::new(
         chain_observer.clone(),
         immutable_file_observer.clone(),
         mithril_common::CardanoNetwork::TestNet(42),
-    )));
+    ));
     let digester = Arc::new(DumbDigester::default());
-    deps.with_immutable_file_observer(immutable_file_observer.clone())
-        .with_beacon_provider(beacon_provider)
-        .with_chain_observer(chain_observer.clone())
-        .with_digester(digester.clone());
+    deps.immutable_file_observer = immutable_file_observer.clone();
+    deps.beacon_provider = beacon_provider;
+    deps.chain_observer = chain_observer.clone();
+    deps.digester = digester.clone();
     let deps = Arc::new(deps);
     let runner = Arc::new(AggregatorRunner::new(config.clone(), deps.clone()));
     let mut runtime =
@@ -59,16 +57,20 @@ async fn create_certificate() {
 
     // create signers & declare stake distribution
     let signers = tests_setup::setup_signers(2);
-    chain_observer.write().await.signers = signers
-        .iter()
-        .map(|(party_id, stake, verification_key, _, _)| {
-            SignerWithStake::new(
-                party_id.to_owned(),
-                key_encode_hex(verification_key).unwrap(),
-                *stake,
-            )
-        })
-        .collect();
+    chain_observer
+        .set_signers(
+            signers
+                .iter()
+                .map(|(party_id, stake, verification_key, _, _)| {
+                    SignerWithStake::new(
+                        party_id.to_owned(),
+                        key_encode_hex(verification_key).unwrap(),
+                        *stake,
+                    )
+                })
+                .collect(),
+        )
+        .await;
 
     // start the runtime state machine
     runtime.cycle().await.expect(&tick_error_msg.get_message());
@@ -78,12 +80,7 @@ async fn create_certificate() {
 
     // register signers
     {
-        let mut multisigner = deps
-            .multi_signer
-            .as_ref()
-            .expect("A multisigner should be registered.")
-            .write()
-            .await;
+        let mut multisigner = deps.multi_signer.write().await;
 
         for (party_id, _stakes, verification_key, _signer, _initializer) in &signers {
             multisigner
@@ -98,17 +95,13 @@ async fn create_certificate() {
 
     // change the immutable number to alter the beacon
     {
-        let new_immutable_number = immutable_file_observer.write().await.increase().unwrap();
+        let new_immutable_number = immutable_file_observer.increase().await.unwrap();
         digester
             .set_immutable_file_number(new_immutable_number)
             .await;
         assert_eq!(
             new_immutable_number,
             deps.beacon_provider
-                .as_ref()
-                .expect("There should be a Beacon provider registered.")
-                .read()
-                .await
                 .get_current_beacon()
                 .await
                 .expect("Querying the current beacon should not fail.")
@@ -126,9 +119,8 @@ async fn create_certificate() {
 
     // first EPOCH change
     let _epoch = chain_observer
-        .write()
-        .await
         .next_epoch()
+        .await
         .expect("we should get a new epoch");
     runtime.cycle().await.expect(&tick_error_msg.get_message());
     assert_eq!("idle", runtime.get_state());
@@ -139,9 +131,8 @@ async fn create_certificate() {
 
     // second EPOCH change
     let _epoch = chain_observer
-        .write()
-        .await
         .next_epoch()
+        .await
         .expect("we should get a new epoch");
     runtime.cycle().await.expect(&tick_error_msg.get_message());
     assert_eq!("idle", runtime.get_state());
@@ -152,12 +143,7 @@ async fn create_certificate() {
 
     // signers send their single signature
     {
-        let mut multisigner = deps
-            .multi_signer
-            .as_ref()
-            .expect("Multisigner should be registered.")
-            .write()
-            .await;
+        let mut multisigner = deps.multi_signer.write().await;
         let message = multisigner
             .get_current_message()
             .await
@@ -184,10 +170,6 @@ async fn create_certificate() {
     assert_eq!("idle", runtime.get_state());
     let last_certificates = deps
         .certificate_store
-        .as_ref()
-        .expect("A certificate store should be registered.")
-        .read()
-        .await
         .get_list(5)
         .await
         .expect("Querying certificate store should not fail");

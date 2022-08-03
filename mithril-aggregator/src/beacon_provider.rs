@@ -53,15 +53,15 @@ where
 }
 
 pub struct BeaconProviderImpl {
-    chain_observer: Arc<RwLock<dyn ChainObserver>>,
-    immutable_observer: Arc<RwLock<dyn ImmutableFileObserver>>,
+    chain_observer: Arc<dyn ChainObserver>,
+    immutable_observer: Arc<dyn ImmutableFileObserver>,
     network: CardanoNetwork,
 }
 
 impl BeaconProviderImpl {
     pub fn new(
-        chain_observer: Arc<RwLock<dyn ChainObserver>>,
-        immutable_observer: Arc<RwLock<dyn ImmutableFileObserver>>,
+        chain_observer: Arc<dyn ChainObserver>,
+        immutable_observer: Arc<dyn ImmutableFileObserver>,
         network: CardanoNetwork,
     ) -> Self {
         Self {
@@ -77,17 +77,10 @@ impl BeaconProvider for BeaconProviderImpl {
     async fn get_current_beacon(&self) -> Result<Beacon, Box<dyn Error + Sync + Send>> {
         let epoch = self
             .chain_observer
-            .read()
-            .await
             .get_current_epoch()
             .await?
             .ok_or_else(|| RuntimeError::General("could not get Epoch".to_string().into()))?;
-        let immutable_file_number = self
-            .immutable_observer
-            .read()
-            .await
-            .get_last_immutable_number()
-            .await?;
+        let immutable_file_number = self.immutable_observer.get_last_immutable_number().await?;
 
         let beacon = Beacon {
             network: self.network.to_string(),
@@ -100,13 +93,13 @@ impl BeaconProvider for BeaconProviderImpl {
 }
 
 pub struct DumbImmutableFileObserver {
-    pub shall_return: Option<u64>,
+    pub shall_return: RwLock<Option<u64>>,
 }
 
 impl Default for DumbImmutableFileObserver {
     fn default() -> Self {
         let mut observer = Self::new();
-        observer.shall_return(Some(119827));
+        observer.shall_return = RwLock::new(Some(119827));
 
         observer
     }
@@ -114,20 +107,25 @@ impl Default for DumbImmutableFileObserver {
 
 impl DumbImmutableFileObserver {
     pub fn new() -> Self {
-        Self { shall_return: None }
+        Self {
+            shall_return: RwLock::new(None),
+        }
     }
 
-    pub fn shall_return(&mut self, what: Option<u64>) -> &mut Self {
-        self.shall_return = what;
+    pub async fn shall_return(&self, what: Option<u64>) -> &Self {
+        let mut shall_return = self.shall_return.write().await;
+        *shall_return = what;
         self
     }
 
-    pub fn increase(&mut self) -> Result<u64, Box<dyn Error + Sync + Send>> {
+    pub async fn increase(&self) -> Result<u64, Box<dyn Error + Sync + Send>> {
         let new_number = self
             .shall_return
+            .read()
+            .await
             .unwrap() // I do not understand why ok_or_else does not work here, TODO: fix this
             .add(1);
-        self.shall_return = Some(new_number);
+        self.shall_return(Some(new_number)).await;
 
         Ok(new_number)
     }
@@ -137,6 +135,8 @@ impl DumbImmutableFileObserver {
 impl ImmutableFileObserver for DumbImmutableFileObserver {
     async fn get_last_immutable_number(&self) -> Result<u64, Box<dyn Error + Sync + Send>> {
         self.shall_return
+            .read()
+            .await
             .ok_or_else(|| "fake immutable error, immutable number undefined".into())
     }
 }
@@ -170,8 +170,8 @@ mod tests {
     #[tokio::test]
     async fn test_beacon_ok() {
         let beacon_provider = BeaconProviderImpl::new(
-            Arc::new(RwLock::new(DumbChainObserver {})),
-            Arc::new(RwLock::new(DumbImmutableFileObserver::default())),
+            Arc::new(DumbChainObserver {}),
+            Arc::new(DumbImmutableFileObserver::default()),
             CardanoNetwork::TestNet(42),
         );
         let beacon = beacon_provider.get_current_beacon().await.unwrap();
@@ -182,11 +182,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_beacon_error() {
-        let mut immutable_observer = DumbImmutableFileObserver::default();
-        immutable_observer.shall_return(None);
+        let immutable_observer = DumbImmutableFileObserver::default();
+        immutable_observer.shall_return(None).await;
         let beacon_provider = BeaconProviderImpl::new(
-            Arc::new(RwLock::new(DumbChainObserver {})),
-            Arc::new(RwLock::new(immutable_observer)),
+            Arc::new(DumbChainObserver {}),
+            Arc::new(immutable_observer),
             CardanoNetwork::TestNet(42),
         );
 

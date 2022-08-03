@@ -20,7 +20,7 @@ pub trait SnapshotStore: Sync + Send {
     ) -> Result<Option<Snapshot>, SnapshotStoreError>;
 
     /// Upload a snapshot & update the snapshot list
-    async fn add_snapshot(&mut self, snapshot: Snapshot) -> Result<(), SnapshotStoreError>;
+    async fn add_snapshot(&self, snapshot: Snapshot) -> Result<(), SnapshotStoreError>;
 }
 
 #[derive(Error, Debug, Eq, PartialEq, Clone)]

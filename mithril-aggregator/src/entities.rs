@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+
 
 use mithril_common::{store::adapter::JsonFileStoreAdapter, CardanoNetwork};
 
@@ -90,28 +90,28 @@ pub enum SnapshotUploaderType {
 impl Config {
     pub fn build_snapshot_store(&self) -> Result<SnapshotStoreWrapper, Box<dyn Error>> {
         match self.snapshot_store_type {
-            SnapshotStoreType::Gcp => Ok(Arc::new(RwLock::new(RemoteSnapshotStore::new(
+            SnapshotStoreType::Gcp => Ok(Arc::new(RemoteSnapshotStore::new(
                 Box::new(GcpFileUploader::default()),
                 self.url_snapshot_manifest.clone(),
-            )))),
-            SnapshotStoreType::Local => Ok(Arc::new(RwLock::new(LocalSnapshotStore::new(
+            ))),
+            SnapshotStoreType::Local => Ok(Arc::new(LocalSnapshotStore::new(
                 Box::new(JsonFileStoreAdapter::new(
                     self.snapshot_store_directory.clone(),
                 )?),
                 LIST_SNAPSHOTS_MAX_ITEMS,
-            )))),
+            ))),
         }
     }
 
     pub fn build_snapshot_uploader(&self) -> SnapshotUploaderWrapper {
         match self.snapshot_uploader_type {
-            SnapshotUploaderType::Gcp => Arc::new(RwLock::new(RemoteSnapshotUploader::new(
-                Box::new(GcpFileUploader::default()),
+            SnapshotUploaderType::Gcp => Arc::new(RemoteSnapshotUploader::new(Box::new(
+                GcpFileUploader::default(),
             ))),
-            SnapshotUploaderType::Local => Arc::new(RwLock::new(LocalSnapshotUploader::new(
+            SnapshotUploaderType::Local => Arc::new(LocalSnapshotUploader::new(
                 self.server_url.clone(),
                 &self.snapshot_directory,
-            ))),
+            )),
         }
     }
 

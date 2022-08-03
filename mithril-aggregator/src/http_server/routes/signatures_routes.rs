@@ -62,11 +62,7 @@ mod tests {
 
     use super::*;
     use crate::multi_signer::MockMultiSigner;
-    use crate::ProtocolError;
-
-    fn setup_dependency_manager() -> DependencyManager {
-        DependencyManager::fake()
-    }
+    use crate::{initialize_dependencies, ProtocolError};
 
     fn setup_router(
         dependency_manager: Arc<DependencyManager>,
@@ -90,8 +86,8 @@ mod tests {
         mock_multi_signer
             .expect_register_single_signature()
             .return_once(|_| Ok(()));
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
+        let (mut dependency_manager, _) = initialize_dependencies().await;
+        dependency_manager.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
 
         let signatures = &fake_data::single_signatures(vec![1]);
 
@@ -120,8 +116,8 @@ mod tests {
         mock_multi_signer
             .expect_register_single_signature()
             .return_once(|_| Ok(()));
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
+        let (mut dependency_manager, _) = initialize_dependencies().await;
+        dependency_manager.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
 
         let mut signatures = fake_data::single_signatures(vec![1]);
         signatures.signature = "invalid-signature".to_string();
@@ -156,8 +152,8 @@ mod tests {
         mock_multi_signer
             .expect_register_single_signature()
             .return_once(move |_| Err(ProtocolError::ExistingSingleSignature(party_id)));
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
+        let (mut dependency_manager, _) = initialize_dependencies().await;
+        dependency_manager.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
 
         let method = Method::POST.as_str();
         let path = "/register-signatures";
@@ -187,8 +183,8 @@ mod tests {
         mock_multi_signer
             .expect_register_single_signature()
             .return_once(|_| Err(ProtocolError::Core("an error occurred".to_string())));
-        let mut dependency_manager = setup_dependency_manager();
-        dependency_manager.with_multi_signer(Arc::new(RwLock::new(mock_multi_signer)));
+        let (mut dependency_manager, _) = initialize_dependencies().await;
+        dependency_manager.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
 
         let signatures = &fake_data::single_signatures(vec![1]);
 
