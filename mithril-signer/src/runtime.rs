@@ -226,12 +226,12 @@ impl Runtime {
 
         let stake_distribution_extended = stake_distribution
             .into_iter()
-            .map(|(_, signer)| {
-                let verification_key = match verification_keys.get(&signer.party_id) {
+            .map(|(party_id, stake)| {
+                let verification_key = match verification_keys.get(&party_id) {
                     Some(verification_key_found) => *verification_key_found,
                     None => "",
                 };
-                SignerWithStake::new(signer.party_id, verification_key.to_string(), signer.stake)
+                SignerWithStake::new(party_id, verification_key.to_string(), stake)
             })
             .collect::<Vec<SignerWithStake>>();
 
@@ -244,12 +244,12 @@ impl Runtime {
 
         let _next_stake_distribution_extended = next_stake_distribution
             .into_iter()
-            .map(|(_, signer)| {
-                let verification_key = match next_verification_keys.get(&signer.party_id) {
+            .map(|(party_id, stake)| {
+                let verification_key = match next_verification_keys.get(&party_id) {
                     Some(verification_key_found) => *verification_key_found,
                     None => "",
                 };
-                SignerWithStake::new(signer.party_id, verification_key.to_string(), signer.stake)
+                SignerWithStake::new(party_id, verification_key.to_string(), stake)
             })
             .collect::<Vec<SignerWithStake>>();
 
@@ -282,18 +282,12 @@ impl Runtime {
                 match self.chain_observer.read().await.get_current_epoch().await? {
                     Some(epoch) => {
                         let mut stake_store = self.stake_store.as_ref().write().await;
-                        for (party_id, stake) in &stake_distribution {
-                            stake_store
-                                .save_stake(
-                                    (epoch as i64 + SIGNER_EPOCH_RECORDING_OFFSET) as u64,
-                                    SignerWithStake::new(
-                                        party_id.to_owned(),
-                                        "".to_string(),
-                                        *stake,
-                                    ),
-                                )
-                                .await?;
-                        }
+                        stake_store
+                            .save_stakes(
+                                (epoch as i64 + SIGNER_EPOCH_RECORDING_OFFSET) as u64,
+                                stake_distribution,
+                            )
+                            .await?;
                         Ok(true)
                     }
                     None => Ok(false),
@@ -313,7 +307,7 @@ mod tests {
     use mithril_common::crypto_helper::tests_setup::*;
     use mithril_common::crypto_helper::ProtocolStakeDistribution;
     use mithril_common::digesters::{ImmutableDigester, ImmutableDigesterError};
-    use mithril_common::entities::{Epoch, ImmutableFileNumber, StakeDistribution};
+    use mithril_common::entities::{Epoch, ImmutableFileNumber, Stake, StakeDistribution};
     use mithril_common::fake_data;
     use mithril_common::store::adapter::MemoryAdapter;
 
@@ -347,20 +341,18 @@ mod tests {
 
     async fn setup_stake_store(total_signers: u64) -> StakeStore {
         let mut stake_store = StakeStore::new(Box::new(
-            MemoryAdapter::<Epoch, HashMap<PartyId, SignerWithStake>>::new(None).unwrap(),
+            MemoryAdapter::<Epoch, HashMap<PartyId, Stake>>::new(None).unwrap(),
         ));
         let stakes: ProtocolStakeDistribution = fake_data::signers_with_stakes(total_signers)
             .into_iter()
-            .map(|signer| signer.into())
+            .map(|signer| (signer.party_id, signer.stake))
             .collect::<_>();
         let current_epoch = fake_data::beacon().epoch;
         for epoch in current_epoch - 2..current_epoch + 2 {
-            for stake in &stakes {
-                stake_store
-                    .save_stake(epoch, stake.to_owned().into())
-                    .await
-                    .expect("fake stake distribution update failed");
-            }
+            stake_store
+                .save_stakes(epoch, HashMap::from_iter(stakes.to_owned().into_iter()))
+                .await
+                .expect("fake stake distribution update failed");
         }
         stake_store
     }
@@ -712,7 +704,7 @@ mod tests {
             .unwrap()
             .unwrap()
             .iter()
-            .map(|(_, signer)| (signer.party_id.to_owned(), signer.stake))
+            .map(|(party_id, stake)| (party_id.to_owned(), *stake))
             .collect::<_>();
         let mut mock_certificate_handler = MockCertificateHandler::new();
         let mut mock_single_signer = MockSingleSigner::new();
