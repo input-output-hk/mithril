@@ -5,8 +5,8 @@ use slog_scope::info;
 use std::error::Error as StdError;
 use thiserror::Error;
 
-use mithril_common::entities::{Beacon, CertificatePending, Epoch, SignerWithStake};
-use mithril_common::store::stake_store::StakeStorer;
+use mithril_common::entities::{Beacon, CertificatePending, SignerWithStake};
+use mithril_common::store::StakeStorer;
 
 use crate::Config;
 
@@ -116,9 +116,9 @@ mod tests {
     use std::{path::PathBuf, sync::Arc};
 
     use mithril_common::chain_observer::FakeObserver;
-    use mithril_common::digesters::DumbDigester;
+    use mithril_common::digesters::DumbImmutableDigester;
     use mithril_common::store::adapter::DumbStoreAdapter;
-    use mithril_common::store::stake_store::StakeStore;
+    use mithril_common::store::StakeStore;
 
     use crate::{CertificateHandlerHTTPClient, MithrilSingleSigner};
 
@@ -139,11 +139,7 @@ mod tests {
                 "whatever".to_string(),
             ))),
             chain_observer: Arc::new(Box::new(FakeObserver::default())),
-            digester: Arc::new(Box::new(DumbDigester::new(
-                "whatever",
-                get_current_beacon().immutable_file_number,
-                true,
-            ))),
+            digester: Arc::new(Box::new(DumbImmutableDigester::new("whatever", true))),
             single_signer: Arc::new(Box::new(MithrilSingleSigner::new(
                 "PARTY_01".to_string(),
                 "whatever",
@@ -189,7 +185,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_update_distribution() {
-        let mut services = init_services();
+        let services = init_services();
         let stake_store = services.stake_store.clone();
         let _certificate_store = services.certificate_handler.clone();
         let current_epoch = services

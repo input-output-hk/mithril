@@ -2,7 +2,7 @@ use std::sync::Arc;
 use thiserror::Error;
 
 use mithril_common::{
-    chain_observer::ChainObserver, digesters::Digester, store::stake_store::StakeStore,
+    chain_observer::ChainObserver, digesters::ImmutableDigester, store::StakeStore,
 };
 
 use crate::{certificate_handler::CertificateHandler, single_signer::SingleSigner};
@@ -10,7 +10,7 @@ use crate::{certificate_handler::CertificateHandler, single_signer::SingleSigner
 type StakeStoreService = Arc<StakeStore>;
 type CertificateHandlerService = Arc<Box<dyn CertificateHandler>>;
 type ChainObserverService = Arc<Box<dyn ChainObserver>>;
-type DigesterService = Arc<Box<dyn Digester>>;
+type DigesterService = Arc<Box<dyn ImmutableDigester>>;
 type SingleSignerService = Arc<Box<dyn SingleSigner>>;
 
 #[derive(Error, Debug)]
