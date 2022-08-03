@@ -15,154 +15,99 @@ use std::fmt::Debug;
 /// * Signing depends on the parameter `m`, as it defines the number of lotteries a user can play
 /// * Aggregation depends on `k`.
 /// * Verification is independent from the parameters.
-///
 
-const SIZE: usize = 3;
-static NR_PARTIES: [usize; SIZE] = [32, 64, 128];
-static NR_M: [u64; SIZE] = [50, 100, 150];
-static NR_K: [u64; SIZE] = [8, 16, 32];
-
-fn stm_benches<H>(c: &mut Criterion, curve: &str)
+fn stm_benches<H>(c: &mut Criterion, nr_parties: usize, params: StmParameters, hashing_alg: &str)
 where
     H: Clone + Debug + Digest + FixedOutput + Send + Sync,
 {
-    let mut group = c.benchmark_group(format!("STM/{:?}", curve));
+    let mut group = c.benchmark_group(format!("STM/{}", hashing_alg));
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
     let mut msg = [0u8; 16];
     rng.fill_bytes(&mut msg);
 
-    let stakes = (0..NR_PARTIES[SIZE - 1])
+    let param_string = format!(
+        "k: {}, m: {}, nr_parties: {}",
+        params.k, params.m, nr_parties
+    );
+
+    let stakes = (0..nr_parties)
         .into_iter()
         .map(|_| 1 + (rng.next_u64() % 9999))
         .collect::<Vec<_>>();
 
-    let mut k = 8;
-    let mut m = 50;
-
-    let params = StmParameters {
-        k,
-        m,
-        // equal to 1, to win all loteries. This will give us an upper bound on how long it takes to play `m` lotteries
-        phi_f: 1.0,
-    };
-
-    let mut ps: Vec<StmInitializer> = Vec::with_capacity(NR_PARTIES[SIZE - 1]);
-    for stake in stakes.clone() {
-        ps.push(StmInitializer::setup(params, stake, &mut rng));
+    let mut initializers: Vec<StmInitializer> = Vec::with_capacity(nr_parties);
+    for stake in stakes {
+        initializers.push(StmInitializer::setup(params, stake, &mut rng));
     }
     let mut key_reg = KeyReg::init();
-    for &nr in NR_PARTIES.iter() {
-        group.bench_with_input(BenchmarkId::new("Key registration", &nr), &nr, |b, &nr| {
-            b.iter(|| {
-                // We need to initialise the key_reg at each iteration
-                key_reg = KeyReg::init();
-                for p in ps[..nr].iter() {
-                    key_reg.register(p.stake(), p.verification_key()).unwrap();
-                }
-            })
-        });
-    }
+
+    group.bench_function(BenchmarkId::new("Key registration", &param_string), |b| {
+        b.iter(|| {
+            // We need to initialise the key_reg at each iteration
+            key_reg = KeyReg::init();
+            for p in initializers.iter() {
+                key_reg.register(p.stake, p.verification_key()).unwrap();
+            }
+        })
+    });
 
     let closed_reg = key_reg.close();
 
-    let ps = ps
+    let signers = initializers
         .into_par_iter()
         .map(|p| p.new_signer(closed_reg.clone()))
         .collect::<Vec<StmSigner<H>>>();
 
-    let mut party_dummy = ps[0].clone();
+    group.bench_function(BenchmarkId::new("Play all lotteries", &param_string), |b| {
+        b.iter(|| {
+            signers[0].sign(&msg);
+        })
+    });
 
-    for &m in NR_M.iter() {
-        k = 8;
+    let sigs = signers
+        .par_iter()
+        .filter_map(|p| p.sign(&msg))
+        .collect::<Vec<_>>();
 
-        let param_string = format!("k: {}, m: {}", k, m);
-
-        let params = StmParameters {
-            k,
-            m,
-            // equal to 1, to win all loteries. This will give us an upper bound on how long it takes to play `m` lotteries
-            phi_f: 1.0,
-        };
-
-        let mut key_reg = KeyReg::init();
-        let mut ps: Vec<StmInitializer> = Vec::with_capacity(NR_PARTIES[SIZE - 1]);
-        for stake in stakes.clone() {
-            let p = StmInitializer::setup(params, stake, &mut rng);
-            key_reg.register(stake, p.verification_key()).unwrap();
-            ps.push(p);
-        }
-
-        let closed_reg = key_reg.close();
-
-        let ps = ps
-            .into_par_iter()
-            .map(|p| p.new_signer(closed_reg.clone()))
-            .collect::<Vec<StmSigner<H>>>();
-
-        group.bench_function(BenchmarkId::new("Play all lotteries", &param_string), |b| {
-            b.iter(|| {
-                ps[0].sign(&msg);
-            })
-        });
-    }
-
-    let sigs = Vec::new();
-
-    for &k in NR_K.iter() {
-        m = 50;
-        let param_string = format!("k: {}, m: {}", k, m);
-
-        let params = StmParameters {
-            k,
-            m,
-            // equal to 1, to win all loteries. This will give us an upper bound on how long it takes to play `m` lotteries
-            phi_f: 1.0,
-        };
-
-        let mut key_reg = KeyReg::init();
-        let mut ps: Vec<StmInitializer> = Vec::with_capacity(NR_PARTIES[SIZE - 1]);
-        for stake in stakes.clone() {
-            let p = StmInitializer::setup(params, stake, &mut rng);
-            key_reg.register(stake, p.verification_key()).unwrap();
-            ps.push(p);
-        }
-
-        let closed_reg = key_reg.close();
-
-        let ps = ps
-            .into_par_iter()
-            .map(|p| p.new_signer(closed_reg.clone()))
-            .collect::<Vec<StmSigner<H>>>();
-
-        let sigs = ps
-            .par_iter()
-            .filter_map(|p| p.sign(&msg))
-            .collect::<Vec<_>>();
-
-        party_dummy = ps[0].clone();
-        let clerk = StmClerk::from_signer(&party_dummy);
-
-        group.bench_function(BenchmarkId::new("Aggregation", &param_string), |b| {
-            b.iter(|| clerk.aggregate(&sigs, &msg))
-        });
-    }
-
-    let clerk = StmClerk::from_signer(&party_dummy);
+    let clerk = StmClerk::from_signer(&signers[0]);
     let msig = clerk.aggregate(&sigs, &msg).unwrap();
-    group.bench_function("Verification", |b| {
+
+    group.bench_function(BenchmarkId::new("Aggregation", &param_string), |b| {
+        b.iter(|| clerk.aggregate(&sigs, &msg))
+    });
+
+    group.bench_function(BenchmarkId::new("Verification", &param_string), |b| {
         b.iter(|| msig.verify(&msg, &clerk.compute_avk(), &params).is_ok())
     });
 }
 
-fn stm_benches_bls12_377_blake(c: &mut Criterion) {
-    stm_benches::<Blake2b>(c, "Bls12_381");
+fn stm_benches_blake_300(c: &mut Criterion) {
+    stm_benches::<Blake2b>(
+        c,
+        300,
+        StmParameters {
+            m: 150,
+            k: 25,
+            phi_f: 0.2,
+        },
+        "Blake2b",
+    );
 }
 
-fn stm_benches_bls12_381_blake(c: &mut Criterion) {
-    stm_benches::<Blake2b>(c, "Bls12_381");
+fn stm_benches_blake_2000(c: &mut Criterion) {
+    stm_benches::<Blake2b>(
+        c,
+        2000,
+        StmParameters {
+            m: 1523,
+            k: 250,
+            phi_f: 0.2,
+        },
+        "Blake2b",
+    );
 }
 
 criterion_group!(name = benches;
-                 config = Criterion::default().nresamples(5);
-                 targets = stm_benches_bls12_377_blake, stm_benches_bls12_381_blake);
+                 config = Criterion::default().nresamples(1000);
+                 targets = stm_benches_blake_300, stm_benches_blake_2000);
 criterion_main!(benches);

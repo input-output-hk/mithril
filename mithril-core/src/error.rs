@@ -154,6 +154,20 @@ impl From<MerkleTreeError> for MultiSignatureError {
     }
 }
 
+impl<D: Digest + Clone + FixedOutput> From<MerkleTreeError> for VerificationFailure<D> {
+    fn from(_: MerkleTreeError) -> Self {
+        // todo:
+        Self::LotteryLost
+    }
+}
+
+impl<D: Digest + Clone + FixedOutput> From<MultiSignatureError> for VerificationFailure<D> {
+    fn from(_: MultiSignatureError) -> Self {
+        // todo:
+        Self::LotteryLost
+    }
+}
+
 impl<D: Digest + Clone + FixedOutput> From<MultiSignatureError> for MithrilWitnessError<D> {
     fn from(_: MultiSignatureError) -> Self {
         // todo:

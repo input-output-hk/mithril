@@ -12,7 +12,8 @@ use std::convert::TryFrom;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-/// The values that are represented in the Merkle Tree.
+/// The values that are committed in the Merkle Tree. Namely, a verified `VerificationKey`
+/// and its corresponding stake.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MTLeaf(pub VerificationKey, pub Stake);
 
@@ -25,7 +26,10 @@ impl MTLeaf {
     }
 }
 
-/// Ordering of MT Values. First we order by stake, then by key.
+/// Ordering of MT Values. First we order by stake, then by key. By having this ordering,
+/// we have the players with higher stake close together, meaning that the probability of
+/// having several signatures in the same side of the tree, is higher. This allows us
+/// to produce a more efficient batch opening of the merkle tree.
 impl PartialOrd for MTLeaf {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.1.cmp(&other.1).then(self.0.cmp(&other.0)))
@@ -39,8 +43,7 @@ impl Ord for MTLeaf {
 }
 
 /// Path of hashes from root to leaf in a Merkle Tree. Contains all hashes on the path, and the index
-/// of the leaf.
-/// Used to verify the credentials of users and signatures.
+/// of the leaf. Used to verify that signatures come from eligible signers.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Path<D: Digest + FixedOutput> {
     pub(crate) values: Vec<Vec<u8>>,
@@ -49,13 +52,11 @@ pub struct Path<D: Digest + FixedOutput> {
 }
 
 /// MerkleTree commitment. This structure differs from `MerkleTree` in that it does not contain
-/// all elements, which are not always necessary.
+/// all elements, which are not always necessary. Instead, it only contains the root of the tree.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MerkleTreeCommitment<D: Digest + FixedOutput> {
     /// Root of the merkle commitment
     pub root: Vec<u8>,
-    /// Number of leaves committed in the commitment
-    pub nr_leaves: usize,
     hasher: PhantomData<D>,
 }
 
@@ -68,29 +69,6 @@ where
     ///
     /// # Error
     /// Returns an error if the path is invalid.
-    ///
-    /// # Example
-    /// ```
-    /// # use rand_core::{OsRng, RngCore};
-    /// # use mithril::merkle_tree::{MerkleTree, MTLeaf};
-    /// # use blake2::Blake2b;
-    /// # fn main() {
-    /// let mut rng = OsRng::default();
-    /// // We generate the keys.
-    /// let mut keys = Vec::with_capacity(32);
-    /// for _ in 0..32 {
-    ///     let mut mt_leaf = MTLeaf::default();
-    ///     mt_leaf.1 = rng.next_u64();
-    ///     keys.push(mt_leaf);
-    /// }
-    /// // Compute the Merkle tree of the keys.
-    /// let mt = MerkleTree::<Blake2b>::create(&keys);
-    /// // Compute the path of key in position 3.
-    /// let path = mt.get_path(3);
-    /// // Verify the proof of membership with respect to the merkle commitment.
-    /// assert!(mt.to_commitment().check(&keys[3], &path).is_ok());
-    ///
-    /// # }
     pub fn check(&self, val: &MTLeaf, proof: &Path<D>) -> Result<(), MerkleTreeError> {
         let mut idx = proof.index;
 
@@ -136,11 +114,11 @@ where
     /// the children of `nodes[i]` are `{nodes[2i + 1], nodes[2i + 2]}`
     /// All nodes have size `Output<D>::output_size()`, even leafs (which are
     /// hashed before committing them).
-    pub(crate) nodes: Vec<Vec<u8>>,
+    nodes: Vec<Vec<u8>>,
     /// The leaves begin at `nodes[leaf_off]`
     leaf_off: usize,
     /// Number of leaves cached in the merkle tree
-    pub(crate) n: usize,
+    n: usize,
     /// Phantom type to link the tree with its hasher
     hasher: PhantomData<D>,
 }
@@ -150,7 +128,6 @@ where
     D: Digest + FixedOutput,
 {
     /// Provided a non-empty list of leaves, `create` generates its corresponding `MerkleTree`.
-    // todo: probably we can order in this function
     pub fn create(leaves: &[MTLeaf]) -> MerkleTree<D> {
         let n = leaves.len();
         assert!(n > 0, "MerkleTree::create() called with no leaves");
@@ -190,7 +167,6 @@ where
     pub fn to_commitment(&self) -> MerkleTreeCommitment<D> {
         MerkleTreeCommitment {
             root: self.nodes[0].clone(),
-            nr_leaves: self.n,
             hasher: self.hasher,
         }
     }
@@ -234,12 +210,12 @@ where
         self.leaf_off + i
     }
 
-    /// Convert a `MerkleTree` into a byte string, containing $4 + n * S$ where $n$ is the
+    /// Convert a `MerkleTree` into a byte string, containing $4 + n * S$ bytes where $n$ is the
     /// number of nodes and $S$ the output size of the hash function.
     ///
     /// # Layout
     /// The layout of a `MerkleTree` is:
-    /// * Number of leaves committed in the Merkle Tree
+    /// * Number of leaves committed in the Merkle Tree (as u64)
     /// * All nodes of the merkle tree (starting with the root)
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut result = Vec::with_capacity(8 + self.nodes.len() * D::output_size());
@@ -290,14 +266,15 @@ impl<D: Digest + Clone + FixedOutput> Path<D> {
 
     /// Convert a byte slice into a Path
     pub fn from_bytes(bytes: &[u8]) -> Result<Path<D>, MerkleTreeError> {
-        // todo: handle conversions
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(&bytes[..8]);
-        let index = usize::try_from(u64::from_be_bytes(u64_bytes)).unwrap();
+        let index = usize::try_from(u64::from_be_bytes(u64_bytes))
+            .map_err(|_| MerkleTreeError::SerializationError)?;
         u64_bytes.copy_from_slice(&bytes[8..16]);
-        let len = usize::try_from(u64::from_be_bytes(u64_bytes)).unwrap();
+        let len = usize::try_from(u64::from_be_bytes(u64_bytes))
+            .map_err(|_| MerkleTreeError::SerializationError)?;
         let mut values = Vec::with_capacity(len);
-        for i in 0..(len as usize) {
+        for i in 0..len {
             values.push(bytes[16 + i * D::output_size()..16 + (i + 1) * D::output_size()].to_vec());
         }
 
@@ -345,7 +322,6 @@ fn sibling(i: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use bincode;
     use blake2::Blake2b;
     use proptest::collection::vec;
     use proptest::prelude::*;

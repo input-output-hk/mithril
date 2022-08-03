@@ -1,8 +1,9 @@
 use mithril::key_reg::KeyReg;
 use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
+use mithril::AggregationFailure;
+
 use rayon::prelude::*;
 
-use mithril::error::AggregationFailure;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 

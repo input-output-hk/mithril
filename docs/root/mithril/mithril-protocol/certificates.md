@@ -116,7 +116,7 @@ What would happen if some **Mithril Aggregator** claims that not enough signatur
 
 Similarly, different **Mithril Aggregators** might have different views of the **individual signatures** submitted (one aggregator might receive 10 signatures, and a different one could receive 11), which would result in different **Certificates** signing the same message.
 
-This would result in different **Certificate Chains** that would all link back to the **Genesis Certificate**. Indeed they would be represented by a tree of certificates where each traversal path from the root to a leave represent a valid **Certificate Chain**.
+This would result in different **Certificate Chains** that would all link back to the **Genesis Certificate**. Indeed they would be represented by a tree of certificates where each traversal path from the root to a leaf represent a valid **Certificate Chain**.
 
 ## The need of backward compatibility
 

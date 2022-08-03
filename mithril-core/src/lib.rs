@@ -1,14 +1,16 @@
 #![warn(missing_docs)]
 
-//! Implementation of Mithril Threshold Stake-Based Signatures
-//! [[paper](https://eprint.iacr.org/2021/916)].
+//! Implementation of Stake-based Threshold Multisignatures
 
 mod dense_mapping;
-pub mod error;
+mod error;
 pub mod key_reg;
-pub mod merkle_tree;
+mod merkle_tree;
+pub mod stm;
+
 #[cfg(not(feature = "zcash"))]
 mod multi_sig;
 #[cfg(feature = "zcash")]
 mod multi_sig_zcash;
-pub mod stm;
+
+pub use crate::error::AggregationFailure;

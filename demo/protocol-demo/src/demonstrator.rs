@@ -244,8 +244,8 @@ impl Verifier {
         let closed_reg = key_reg.close();
 
         self.clerk = Some(ProtocolClerk::from_registration(
-            self.params.unwrap(),
-            closed_reg,
+            &self.params.unwrap(),
+            &closed_reg,
         ));
     }
 
@@ -372,7 +372,7 @@ impl ProtocolDemonstrator for Demonstrator {
                 protocol_initializer.verification_key();
             players_artifacts.push(PlayerArtifact {
                 party_id,
-                stake: protocol_initializer.stake(),
+                stake: protocol_initializer.stake,
                 verification_key: key_encode_hex(verification_key).unwrap(),
                 initializer: key_encode_hex(protocol_initializer).unwrap(),
             })
