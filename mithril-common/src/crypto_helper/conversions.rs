@@ -75,7 +75,6 @@ pub mod tests {
         );
         let signer_with_stake_expected =
             entities::SignerWithStake::new("1".to_string(), "".to_string(), 100);
-        ();
 
         let signer_with_stake_expected_into: (types::ProtocolPartyId, types::ProtocolStake) =
             signer_with_stake_expected.clone().into();
@@ -88,12 +87,10 @@ pub mod tests {
     #[test]
     fn test_stake_signers_from_into() {
         let signer_expected = entities::Signer::new("1".to_string(), "123456".to_string());
-        ();
         let signer_with_stake =
             entities::SignerWithStake::new("1".to_string(), "123456".to_string(), 100);
-        ();
 
-        let signer_into: entities::Signer = signer_with_stake.clone().into();
+        let signer_into: entities::Signer = signer_with_stake.into();
         assert_eq!(signer_expected, signer_into);
     }
 }
