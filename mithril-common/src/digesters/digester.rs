@@ -19,7 +19,7 @@ pub struct DigesterResult {
 #[derive(Error, Debug)]
 pub enum DigesterError {
     /// Error raised when the files listing failed.
-    #[error("Immutable files listing failed")]
+    #[error("Immutable files listing failed: {0}")]
     ListImmutablesError(#[from] ImmutableFileListingError),
 
     /// Error raised when there's less than two immutables files available.
@@ -27,7 +27,7 @@ pub enum DigesterError {
     NotEnoughImmutable(),
 
     /// Error raised when the digest computation failed.
-    #[error("Digest computation failed:")]
+    #[error("Digest computation failed: {0}")]
     DigestComputationError(#[from] io::Error),
 }
 

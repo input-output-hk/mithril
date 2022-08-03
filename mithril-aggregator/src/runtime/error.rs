@@ -12,37 +12,37 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum RuntimeError {
-    #[error("multi signer error")]
+    #[error("multi signer error: {0}")]
     MultiSigner(#[from] ProtocolError),
 
-    #[error("beacon store error")]
+    #[error("beacon store error: {0}")]
     BeaconStore(#[from] BeaconStoreError),
 
-    #[error("snapshotter error")]
+    #[error("snapshotter error: {0}")]
     Snapshotter(#[from] SnapshotError),
 
-    #[error("digester error")]
+    #[error("digester error: {0}")]
     Digester(#[from] DigesterError),
 
-    #[error("snapshot store error")]
+    #[error("snapshot store error: {0}")]
     SnapshotStore(#[from] SnapshotStoreError),
 
-    #[error("stake store error")]
+    #[error("stake store error: {0}")]
     StakeStore(#[from] StakeStoreError),
 
-    #[error("store error")]
+    #[error("store error: {0}")]
     StoreError(#[from] StoreError),
 
     #[error("snapshot uploader error: {0}")]
     SnapshotUploader(String),
 
-    #[error("snapshot build error")]
+    #[error("snapshot build error: {0}")]
     SnapshotBuild(#[from] io::Error),
 
-    #[error("immutable file scanning error")]
+    #[error("immutable file scanning error: {0}")]
     ImmutableFile(#[from] ImmutableFileListingError),
 
-    #[error("chain observer error")]
+    #[error("chain observer error: {0}")]
     ChainObserver(#[from] ChainObserverError),
 
     #[error("beacon provider error: {0}")]
