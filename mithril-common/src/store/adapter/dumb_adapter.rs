@@ -130,7 +130,7 @@ mod tests {
     #[tokio::test]
     async fn test_list_with_records() {
         let mut adapter: DumbStoreAdapter<u64, String> = DumbStoreAdapter::new();
-        let _res = adapter
+        adapter
             .store_record(&1, &"record".to_string())
             .await
             .unwrap();
@@ -147,7 +147,7 @@ mod tests {
     #[tokio::test]
     async fn test_list_with_last_zero() {
         let mut adapter: DumbStoreAdapter<u64, String> = DumbStoreAdapter::new();
-        let _res = adapter
+        adapter
             .store_record(&1, &"record".to_string())
             .await
             .unwrap();
@@ -159,7 +159,7 @@ mod tests {
     #[tokio::test]
     async fn test_remove_existing_record() {
         let mut adapter: DumbStoreAdapter<u64, String> = DumbStoreAdapter::new();
-        let _res = adapter
+        adapter
             .store_record(&1, &"record".to_string())
             .await
             .unwrap();
@@ -172,7 +172,7 @@ mod tests {
     #[tokio::test]
     async fn test_remove_non_existing_record() {
         let mut adapter: DumbStoreAdapter<u64, String> = DumbStoreAdapter::new();
-        let _res = adapter
+        adapter
             .store_record(&1, &"record".to_string())
             .await
             .unwrap();

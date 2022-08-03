@@ -1,12 +1,11 @@
 use async_trait::async_trait;
 use chrono::Utc;
-use slog_scope::{debug, error, info, trace, warn};
+use slog_scope::{debug, info, warn};
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use mithril_common::crypto_helper::ProtocolStakeDistribution;
-use mithril_common::digesters::DigesterResult;
 use mithril_common::entities::{
     Beacon, Certificate, CertificatePending, ProtocolMessage, ProtocolMessagePartKey, Snapshot,
 };
@@ -47,16 +46,13 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Return the current beacon if it is newer than the given one.
     async fn is_new_beacon(&self, beacon: Option<Beacon>) -> Result<Option<Beacon>, RuntimeError>;
 
-    async fn compute_digest(&self, new_beacon: &Beacon) -> Result<DigesterResult, RuntimeError>;
+    async fn compute_digest(&self, new_beacon: &Beacon) -> Result<String, RuntimeError>;
 
     async fn update_beacon(&self, new_beacon: &Beacon) -> Result<(), RuntimeError>;
 
     async fn update_stake_distribution(&self, new_beacon: &Beacon) -> Result<(), RuntimeError>;
 
-    async fn update_message_in_multisigner(
-        &self,
-        digest_result: DigesterResult,
-    ) -> Result<(), RuntimeError>;
+    async fn update_message_in_multisigner(&self, digest: String) -> Result<(), RuntimeError>;
 
     async fn create_new_pending_certificate_from_multisigner(
         &self,
@@ -126,8 +122,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .dependencies
             .beacon_provider
             .get_current_beacon()
-            .await
-            .map_err(RuntimeError::General)?;
+            .await?;
 
         debug!("checking if there is a new beacon: {:?}", current_beacon);
 
@@ -138,32 +133,21 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         }
     }
 
-    async fn compute_digest(&self, new_beacon: &Beacon) -> Result<DigesterResult, RuntimeError> {
-        info!("running runner::compute_digester");
+    async fn compute_digest(&self, new_beacon: &Beacon) -> Result<String, RuntimeError> {
+        info!("running runner::compute_digest");
         let digester = self.dependencies.digester.clone();
 
         debug!("computing digest"; "db_directory" => self.config.db_directory.display());
 
         // digest is done in a separate thread because it is blocking the whole task
         debug!("launching digester thread");
-        let digest_result = digester
-            .compute_digest()
+        let digest = digester
+            .compute_digest(new_beacon.immutable_file_number)
             .await
             .map_err(|e| RuntimeError::General(e.into()))?;
-        debug!(
-            "last immutable file number: {}",
-            digest_result.last_immutable_file_number
-        );
+        debug!("computed digest: {}", digest);
 
-        if digest_result.last_immutable_file_number != new_beacon.immutable_file_number {
-            error!("digest beacon is different than the given beacon");
-            Err(RuntimeError::General(
-                format!("The digest has been computed for a different immutable ({}) file than the one given in the beacon ({}).", digest_result.last_immutable_file_number, new_beacon.immutable_file_number).into()
-            ))
-        } else {
-            trace!("digest last immutable file number and new beacon file number are consistent");
-            Ok(digest_result)
-        }
+        Ok(digest)
     }
 
     async fn update_beacon(&self, new_beacon: &Beacon) -> Result<(), RuntimeError> {
@@ -198,15 +182,11 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .await?)
     }
 
-    async fn update_message_in_multisigner(
-        &self,
-        digest_result: DigesterResult,
-    ) -> Result<(), RuntimeError> {
+    async fn update_message_in_multisigner(&self, digest: String) -> Result<(), RuntimeError> {
         info!("update message in multisigner");
         let mut multi_signer = self.dependencies.multi_signer.write().await;
         let mut protocol_message = ProtocolMessage::new();
-        protocol_message
-            .set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest_result.digest);
+        protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
         protocol_message.set_message_part(
             ProtocolMessagePartKey::NextAggregateVerificationKey,
             multi_signer
@@ -420,8 +400,7 @@ pub mod tests {
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
     };
-    use mithril_common::{digesters::DigesterResult, entities::Beacon};
-    use mithril_common::{entities::ProtocolMessagePartKey, store::StakeStorer};
+    use mithril_common::{entities::Beacon, entities::ProtocolMessagePartKey, store::StakeStorer};
     use std::sync::Arc;
     use tempfile::NamedTempFile;
 
@@ -539,16 +518,10 @@ pub mod tests {
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(config, deps.clone());
         let beacon = runner.is_new_beacon(None).await.unwrap().unwrap();
-        let digester_result = DigesterResult {
-            digest: "1+2+3+4=10".to_string(),
-            last_immutable_file_number: beacon.immutable_file_number,
-        };
+        let digest = "1+2+3+4=10".to_string();
         runner.update_beacon(&beacon).await.unwrap();
 
-        assert!(runner
-            .update_message_in_multisigner(digester_result)
-            .await
-            .is_ok());
+        assert!(runner.update_message_in_multisigner(digest).await.is_ok());
         let message = deps
             .multi_signer
             .read()

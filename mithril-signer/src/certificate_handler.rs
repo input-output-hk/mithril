@@ -23,7 +23,7 @@ pub enum CertificateHandlerError {
     #[error("json parsing failed: '{0}'")]
     JsonParseFailed(String),
 
-    #[error("io error:")]
+    #[error("io error: {0}")]
     IOError(#[from] io::Error),
 }
 

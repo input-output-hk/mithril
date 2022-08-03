@@ -1,16 +1,15 @@
 #![doc = include_str!("../README.md")]
 
 use mithril_aggregator::{
-    AggregatorConfig, AggregatorRunner, AggregatorRuntime, BeaconProviderImpl,
-    CertificatePendingStore, CertificateStore, Config, DependencyManager, GzipSnapshotter,
-    ImmutableFileSystemObserver, MemoryBeaconStore, MultiSigner, MultiSignerImpl, Server,
-    SingleSignatureStore, VerificationKeyStore,
+    AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
+    CertificateStore, Config, DependencyManager, GzipSnapshotter, MemoryBeaconStore, MultiSigner,
+    MultiSignerImpl, Server, SingleSignatureStore, VerificationKeyStore,
 };
 use mithril_common::chain_observer::CardanoCliRunner;
-use mithril_common::digesters::ImmutableDigester;
-use mithril_common::fake_data;
+use mithril_common::digesters::{CardanoImmutableDigester, ImmutableFileSystemObserver};
 use mithril_common::store::adapter::JsonFileStoreAdapter;
 use mithril_common::store::StakeStore;
+use mithril_common::{fake_data, BeaconProviderImpl};
 
 use clap::Parser;
 use config::{Map, Source, Value, ValueKind};
@@ -166,7 +165,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         immutable_file_observer.clone(),
         config.get_network()?,
     ));
-    let digester = Arc::new(ImmutableDigester::new(
+    let digester = Arc::new(CardanoImmutableDigester::new(
         config.db_directory.clone(),
         slog_scope::logger(),
     ));

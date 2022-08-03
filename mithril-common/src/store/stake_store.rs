@@ -87,7 +87,7 @@ mod tests {
                 let _ = signers.insert(
                     party_id.clone(),
                     SignerWithStake {
-                        party_id: party_id,
+                        party_id,
                         verification_key: "".to_string(),
                         stake: 100 * party_idx + 1,
                     },
@@ -96,12 +96,12 @@ mod tests {
             values.push((epoch, signers));
         }
 
-        let values = if values.len() > 0 { Some(values) } else { None };
+        let values = if !values.is_empty() { Some(values) } else { None };
         let adapter: MemoryAdapter<u64, HashMap<PartyId, SignerWithStake>> =
             MemoryAdapter::new(values).unwrap();
-        let store = StakeStore::new(Box::new(adapter));
+        
 
-        store
+        StakeStore::new(Box::new(adapter))
     }
 
     #[tokio::test]

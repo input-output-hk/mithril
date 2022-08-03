@@ -12,6 +12,7 @@
 //! conformity to an open api specification ([apispec]).
 
 pub mod apispec;
+mod beacon_provider;
 pub mod chain_observer;
 pub mod crypto_helper;
 pub mod digesters;
@@ -19,6 +20,7 @@ pub mod entities;
 pub mod fake_data;
 pub mod store;
 
+pub use beacon_provider::{BeaconProvider, BeaconProviderError, BeaconProviderImpl};
 pub use entities::{CardanoNetwork, MagicId};
 
 // TODO: Investigate as why signers can't sign until epoch 3 (in the e2e) when set to -1
