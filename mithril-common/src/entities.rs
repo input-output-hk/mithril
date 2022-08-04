@@ -161,7 +161,7 @@ impl CertificatePending {
 }
 
 /// The key of a ProtocolMessage
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ProtocolMessagePartKey {
     /// The ProtocolMessage part key associated to the Snapshot Digest
     #[serde(rename = "snapshot_digest")]

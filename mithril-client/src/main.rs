@@ -6,6 +6,7 @@ use cli_table::{print_stdout, WithTitle};
 use log::debug;
 use std::env;
 use std::error::Error;
+use std::sync::Arc;
 
 use mithril_client::{AggregatorHTTPClient, Config, Runtime, VerifierImpl};
 
@@ -87,11 +88,11 @@ async fn main() -> Result<(), String> {
     debug!("{:?}", config);
 
     // Init dependencies
-    let aggregator_handler = Box::new(AggregatorHTTPClient::new(
+    let aggregator_handler = Arc::new(AggregatorHTTPClient::new(
         config.network.clone(),
         config.aggregator_endpoint.clone(),
     ));
-    let verifier = Box::new(VerifierImpl::new());
+    let verifier = Box::new(VerifierImpl::new(aggregator_handler.clone()));
 
     // Init runtime
     let mut runtime = Runtime::new(config.network.clone());

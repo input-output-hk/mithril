@@ -48,7 +48,7 @@ pub enum AggregatorHandlerError {
 /// AggregatorHandler represents a read interactor with an aggregator
 #[cfg_attr(test, automock)]
 #[async_trait]
-pub trait AggregatorHandler {
+pub trait AggregatorHandler: Sync + Send {
     /// List snapshots
     async fn list_snapshots(&self) -> Result<Vec<Snapshot>, AggregatorHandlerError>;
 
