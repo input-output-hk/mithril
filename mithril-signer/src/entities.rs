@@ -35,6 +35,9 @@ pub struct Config {
 
     /// Directory to store stakes
     pub stake_store_directory: PathBuf,
+
+    /// Directory to store protocol initializer
+    pub protocol_initializer_store_directory: PathBuf,
 }
 
 impl Config {
