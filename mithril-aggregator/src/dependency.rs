@@ -6,18 +6,14 @@ use tokio::sync::RwLock;
 use mithril_common::chain_observer::ChainObserver;
 use mithril_common::store::StakeStore;
 
-use super::entities::*;
-use super::multi_signer::MultiSigner;
-use super::snapshot_stores::SnapshotStore;
-use crate::beacon_store::BeaconStore;
+use crate::entities::*;
+use crate::multi_signer::MultiSigner;
+use crate::snapshot_stores::SnapshotStore;
 use crate::snapshot_uploaders::SnapshotUploader;
 use crate::{
     CertificatePendingStore, CertificateStore, SingleSignatureStore, Snapshotter,
     VerificationKeyStore,
 };
-
-/// BeaconStoreWrapper wraps a BeaconStore
-pub type BeaconStoreWrapper = Arc<dyn BeaconStore>;
 
 ///  SnapshotStoreWrapper wraps a SnapshotStore
 pub type SnapshotStoreWrapper = Arc<dyn SnapshotStore>;
@@ -64,7 +60,6 @@ pub struct DependencyManager {
     pub snapshot_store: SnapshotStoreWrapper,
     pub snapshot_uploader: SnapshotUploaderWrapper,
     pub multi_signer: MultiSignerWrapper,
-    pub beacon_store: BeaconStoreWrapper,
     pub certificate_pending_store: CertificatePendingStoreWrapper,
     pub certificate_store: CertificateStoreWrapper,
     pub verification_key_store: VerificationKeyStoreWrapper,
@@ -81,9 +76,8 @@ pub struct DependencyManager {
 pub mod tests {
     use crate::{
         AggregatorConfig, CertificatePendingStore, CertificateStore, Config, DependencyManager,
-        DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore, MemoryBeaconStore, MultiSigner,
-        MultiSignerImpl, SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType,
-        VerificationKeyStore,
+        DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore, MultiSigner, MultiSignerImpl,
+        SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType, VerificationKeyStore,
     };
     use mithril_common::digesters::{DumbImmutableDigester, DumbImmutableFileObserver};
     use mithril_common::{
@@ -136,11 +130,9 @@ pub mod tests {
         let single_signature_store = Arc::new(SingleSignatureStore::new(Box::new(
             MemoryAdapter::new(None).unwrap(),
         )));
-        let beacon_store = Arc::new(MemoryBeaconStore::new());
         let multi_signer = async {
             let protocol_parameters = fake_data::protocol_parameters();
             let mut multi_signer = MultiSignerImpl::new(
-                beacon_store.clone(),
                 verification_key_store.clone(),
                 stake_store.clone(),
                 single_signature_store.clone(),
@@ -165,7 +157,6 @@ pub mod tests {
             snapshot_store: snapshot_store.clone(),
             snapshot_uploader: snapshot_uploader.clone(),
             multi_signer,
-            beacon_store: beacon_store.clone(),
             certificate_pending_store: certificate_pending_store.clone(),
             certificate_store: certificate_store.clone(),
             verification_key_store: verification_key_store.clone(),

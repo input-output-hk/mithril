@@ -2,8 +2,8 @@
 
 use mithril_aggregator::{
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
-    CertificateStore, Config, DependencyManager, GzipSnapshotter, MemoryBeaconStore, MultiSigner,
-    MultiSignerImpl, Server, SingleSignatureStore, VerificationKeyStore,
+    CertificateStore, Config, DependencyManager, GzipSnapshotter, MultiSigner, MultiSignerImpl,
+    Server, SingleSignatureStore, VerificationKeyStore,
 };
 use mithril_common::chain_observer::CardanoCliRunner;
 use mithril_common::digesters::{CardanoImmutableDigester, ImmutableFileSystemObserver};
@@ -127,7 +127,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     // Init dependencies
     let snapshot_store = config.build_snapshot_store()?;
 
-    let beacon_store = Arc::new(MemoryBeaconStore::new());
     let snapshot_uploader = config.build_snapshot_uploader();
     let certificate_pending_store = Arc::new(CertificatePendingStore::new(Box::new(
         JsonFileStoreAdapter::new(config.pending_certificate_store_directory.clone())?,
@@ -145,7 +144,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         JsonFileStoreAdapter::new(config.single_signature_store_directory.clone())?,
     )));
     let multi_signer = Arc::new(RwLock::new(MultiSignerImpl::new(
-        beacon_store.clone(),
         verification_key_store.clone(),
         stake_store.clone(),
         single_signature_store.clone(),
@@ -188,7 +186,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         snapshot_store: snapshot_store.clone(),
         snapshot_uploader: snapshot_uploader.clone(),
         multi_signer: multi_signer.clone(),
-        beacon_store: beacon_store.clone(),
         certificate_pending_store: certificate_pending_store.clone(),
         certificate_store: certificate_store.clone(),
         verification_key_store: verification_key_store.clone(),

@@ -2,9 +2,8 @@ use std::{path::PathBuf, sync::Arc};
 
 use mithril_aggregator::{
     AggregatorConfig, CertificatePendingStore, CertificateStore, Config, DependencyManager,
-    DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore, MemoryBeaconStore, MultiSigner,
-    MultiSignerImpl, SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType,
-    VerificationKeyStore,
+    DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore, MultiSigner, MultiSignerImpl,
+    SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType, VerificationKeyStore,
 };
 use mithril_common::digesters::DumbImmutableFileObserver;
 use mithril_common::{
@@ -52,11 +51,9 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
     let single_signature_store = Arc::new(SingleSignatureStore::new(Box::new(
         MemoryAdapter::new(None).unwrap(),
     )));
-    let beacon_store = Arc::new(MemoryBeaconStore::new());
     let multi_signer = async {
         let protocol_parameters = setup_protocol_parameters();
         let mut multi_signer = MultiSignerImpl::new(
-            beacon_store.clone(),
             verification_key_store.clone(),
             stake_store.clone(),
             single_signature_store.clone(),
@@ -88,7 +85,6 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
         snapshot_store,
         snapshot_uploader,
         multi_signer,
-        beacon_store: beacon_store.clone(),
         certificate_pending_store: certificate_pending_store.clone(),
         certificate_store: certificate_store.clone(),
         verification_key_store: verification_key_store.clone(),
