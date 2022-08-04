@@ -10,9 +10,13 @@ use mithril_common::chain_observer::{CardanoCliChainObserver, CardanoCliRunner};
 use mithril_common::digesters::CardanoImmutableDigester;
 use mithril_common::store::adapter::JsonFileStoreAdapter;
 use mithril_common::store::StakeStore;
+<<<<<<< HEAD
 use mithril_signer::{
     CertificateHandlerHTTPClient, Config, MithrilSingleSigner, ProtocolInitializerStore, Runtime,
 };
+=======
+use mithril_signer::{CertificateHandlerHTTPClient, Config, MithrilSingleSigner};
+>>>>>>> [wip] refactor single signer
 
 /// CLI args
 #[derive(Parser)]
@@ -69,8 +73,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // TODO: Use serialized ProtocolInitializer here, loaded e.g. from filesystem
     let protocol_initializer_encoded = "";
-    let single_signer =
-        MithrilSingleSigner::new(config.party_id.clone(), protocol_initializer_encoded);
+    let single_signer = MithrilSingleSigner::new(config.party_id.clone());
     let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint.clone());
     let digester = CardanoImmutableDigester::new(config.db_directory.clone(), slog_scope::logger());
     let stake_store = Arc::new(RwLock::new(StakeStore::new(Box::new(
@@ -88,6 +91,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         ),
     ))));
 
+<<<<<<< HEAD
     // Should the runtime loop returns an error ? If yes should we abort the loop at the first error or is their some tolerance ?
     let mut runtime = Runtime::new(
         Box::new(certificate_handler),
@@ -99,5 +103,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
     );
     runtime.infinite_loop(config.run_interval).await;
 
+=======
+    /*
+       // Should the runtime loop returns an error ? If yes should we abort the loop at the first error or is their some tolerance ?
+       let mut runtime = Runtime::new(
+           Box::new(certificate_handler),
+           Box::new(single_signer),
+           Box::new(digester),
+           stake_store.clone(),
+           chain_observer.clone(),
+       );
+       runtime.infinite_loop(config.run_interval).await;
+    */
+>>>>>>> [wip] refactor single signer
     Ok(())
 }
