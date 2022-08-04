@@ -53,7 +53,7 @@ pub enum ProtocolError {
     CertificateChainInfiniteLoop,
 }
 
-/// Verifier is the cryptographic engine in charge of verifying multi signatures and certificatess
+/// Verifier is the cryptographic engine in charge of verifying multi signatures and certificates
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait Verifier: Send + Sync {
@@ -139,10 +139,10 @@ impl VerifierImpl {
         if previous_certificate.hash != certificate.previous_hash {
             return Err(ProtocolError::CertificateChainPreviousHashUnmatch);
         }
-        let avk_message_part = ProtocolMessagePartKey::NextAggregateVerificationKey;
+
         match &previous_certificate
             .protocol_message
-            .get_message_part(&avk_message_part)
+            .get_message_part(&ProtocolMessagePartKey::NextAggregateVerificationKey)
         {
             Some(next_aggregate_verification_key)
                 if valid_certificate_has_different_epoch_as_previous(
