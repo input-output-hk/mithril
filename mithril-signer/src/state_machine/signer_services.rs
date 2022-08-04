@@ -2,22 +2,17 @@ use std::sync::Arc;
 use thiserror::Error;
 
 use mithril_common::{
-    chain_observer::ChainObserver, digesters::ImmutableDigester, store::StakeStore,
+    chain_observer::ChainObserver, digesters::ImmutableDigester, store::StakeStore, BeaconProvider,
 };
 
 use crate::{certificate_handler::CertificateHandler, single_signer::SingleSigner};
 
 type StakeStoreService = Arc<StakeStore>;
-type CertificateHandlerService = Arc<Box<dyn CertificateHandler>>;
-type ChainObserverService = Arc<Box<dyn ChainObserver>>;
-type DigesterService = Arc<Box<dyn ImmutableDigester>>;
-type SingleSignerService = Arc<Box<dyn SingleSigner>>;
-
-#[derive(Error, Debug)]
-pub enum ServiceError {
-    #[error("Service not found: {0}")]
-    ServiceNotRegistered(String),
-}
+type CertificateHandlerService = Arc<dyn CertificateHandler>;
+type ChainObserverService = Arc<dyn ChainObserver>;
+type DigesterService = Arc<dyn ImmutableDigester>;
+type SingleSignerService = Arc<dyn SingleSigner>;
+type BeaconProviderService = Arc<dyn BeaconProvider>;
 
 pub trait ServiceBuilder {
     fn build(&self) -> SignerServices;
@@ -31,6 +26,7 @@ impl ServiceBuilder for ProductionServiceBuilder {
     }
 }
 pub struct SignerServices {
+    pub beacon_provider: BeaconProviderService,
     pub stake_store: StakeStoreService,
     pub certificate_handler: CertificateHandlerService,
     pub chain_observer: ChainObserverService,

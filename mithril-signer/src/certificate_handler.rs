@@ -1,10 +1,14 @@
 use async_trait::async_trait;
 use reqwest::{self, StatusCode};
 use slog_scope::debug;
-use std::io;
+use std::{borrow::Borrow, io};
 use thiserror::Error;
+use tokio::sync::RwLock;
 
-use mithril_common::entities::{CertificatePending, Signer, SingleSignatures};
+use mithril_common::{
+    entities::{CertificatePending, Signer, SingleSignatures},
+    fake_data,
+};
 
 #[cfg(test)]
 use mockall::automock;
@@ -131,6 +135,70 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
                 err.to_string(),
             )),
         }
+    }
+}
+
+pub struct DumbCertificateHandler {
+    certificate_pending: RwLock<Option<CertificatePending>>,
+    last_registered_signer: RwLock<Option<Signer>>,
+}
+
+impl DumbCertificateHandler {
+    pub fn new() -> Self {
+        Self {
+            certificate_pending: RwLock::new(None),
+            last_registered_signer: RwLock::new(None),
+        }
+    }
+
+    /// this method pilots the certificate pending handler
+    /// calling this method unsets the last registered signer
+    pub async fn set_certificate_pending(&self, certificate_pending: Option<CertificatePending>) {
+        let mut cert = self.certificate_pending.write().await;
+        *cert = certificate_pending;
+        let mut signer = self.last_registered_signer.write().await;
+        *signer = None;
+    }
+
+    pub async fn get_last_registered_signer(&self) -> Option<Signer> {
+        self.last_registered_signer.read().await.clone()
+    }
+}
+
+impl Default for DumbCertificateHandler {
+    fn default() -> Self {
+        Self {
+            certificate_pending: RwLock::new(Some(fake_data::certificate_pending())),
+            last_registered_signer: RwLock::new(None),
+        }
+    }
+}
+
+#[async_trait]
+impl CertificateHandler for DumbCertificateHandler {
+    async fn retrieve_pending_certificate(
+        &self,
+    ) -> Result<Option<CertificatePending>, CertificateHandlerError> {
+        let cert = self.certificate_pending.read().await.clone();
+
+        Ok(cert)
+    }
+
+    /// Registers signer with the aggregator
+    async fn register_signer(&self, signer: &Signer) -> Result<(), CertificateHandlerError> {
+        let mut last_registered_signer = self.last_registered_signer.write().await;
+        let signer = signer.clone();
+        *last_registered_signer = Some(signer);
+
+        Ok(())
+    }
+
+    /// Registers single signatures with the aggregator
+    async fn register_signatures(
+        &self,
+        _signatures: &SingleSignatures,
+    ) -> Result<(), CertificateHandlerError> {
+        Ok(())
     }
 }
 
