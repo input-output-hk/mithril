@@ -174,3 +174,4 @@ Here is a list of the available parameters:
 | `run_interval` | - | - | `RUN_INTERVAL` | Interval between two runtime cycles in ms | - | `60000` | :heavy_check_mark: |
 | `aggregator_endpoint` | - | - | `AGGREGATOR_ENDPOINT` | Aggregator node endpoint | - | `http://aggregator.api.mithril.network/aggregator` | :heavy_check_mark: |
 | `stake_store_directory` | - | - | `STAKE_STORE_DIRECTORY` | Directory to store stakes | - | `./mithril/stake_db` | :heavy_check_mark: |
+| `protocol_initializer_store_directory` | - | - | `PROTOCOL_INITIALIZER_STORE_DIRECTORY` | Directory to store protocol initializers | - | `./mithril/protocol_initializer_db` | :heavy_check_mark: |
