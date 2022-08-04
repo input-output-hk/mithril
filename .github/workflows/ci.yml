@@ -67,10 +67,10 @@ jobs:
             ~/.cargo/registry/
             ~/.cargo/git/
             target/
-          key: cargo-${{ runner.os }}-${{ matrix.project }}-${{ hashFiles('Cargo.lock') }}
+          key: cargo-${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}-${{ matrix.project }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
-            cargo-${{ runner.os }}-${{ matrix.project }}-
-            cargo-${{ runner.os }}-
+            cargo-${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}-${{ matrix.project }}-
+            cargo-${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}-
 
       - name: Install cargo tools
         if: ${{ steps.cargo-cache.outputs.cache-hit == false }}
@@ -171,10 +171,10 @@ jobs:
             ~/.cargo/registry/
             ~/.cargo/git/
             target/
-          key: cargo-${{ runner.os }}-mithril-core-${{ hashFiles('Cargo.lock') }}
+          key: cargo-${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}-mithril-core-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
-            cargo-${{ runner.os }}-mithril-core
-            cargo-${{ runner.os }}-
+            cargo-${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}-mithril-core
+            cargo-${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}-
 
       - name: Cargo build
         uses: actions-rs/cargo@v1
