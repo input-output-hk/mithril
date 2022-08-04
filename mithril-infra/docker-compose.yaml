@@ -95,6 +95,7 @@ services:
       - RUN_INTERVAL=60000
       - DB_DIRECTORY=/db
       - STAKE_STORE_DIRECTORY=/mithril-signer-0/stake_db
+      - PROTOCOL_INITIALIZER_STORE_DIRECTORY=/mithril-signer-0/protocol_initializer_db
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
     volumes:
@@ -123,6 +124,7 @@ services:
       - RUN_INTERVAL=60000
       - DB_DIRECTORY=/db
       - STAKE_STORE_DIRECTORY=/mithril-signer-1/stake_db
+      - PROTOCOL_INITIALIZER_STORE_DIRECTORY=/mithril-signer-1/protocol_initializer_db
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
     volumes:
@@ -151,6 +153,7 @@ services:
       - RUN_INTERVAL=60000
       - DB_DIRECTORY=/db
       - STAKE_STORE_DIRECTORY=/mithril-signer-2/stake_db
+      - PROTOCOL_INITIALIZER_STORE_DIRECTORY=/mithril-signer-2/protocol_initializer_db
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
     volumes:
@@ -179,6 +182,7 @@ services:
       - RUN_INTERVAL=60000
       - DB_DIRECTORY=/db
       - STAKE_STORE_DIRECTORY=/mithril-signer-3/stake_db
+      - PROTOCOL_INITIALIZER_STORE_DIRECTORY=/mithril-signer-3/protocol_initializer_db
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
     volumes:
