@@ -164,6 +164,11 @@ impl CertificatePending {
             next_signers,
         }
     }
+
+    /// get a signer from the certificate pending if it has registered
+    pub fn get_signer(&self, party_id: PartyId) -> Option<&Signer> {
+        self.signers.iter().find(|s| s.party_id == party_id)
+    }
 }
 
 /// The key of a ProtocolMessage
@@ -618,9 +623,17 @@ impl Snapshot {
 mod tests {
     use crate::crypto_helper::key_encode_hex;
     use crate::crypto_helper::tests_setup::{setup_message, setup_signers};
+    use crate::fake_data;
     use std::cmp::Ordering;
 
     use super::*;
+
+    #[test]
+    fn certificate_pending_get_signers() {
+        let certificate_pending = fake_data::certificate_pending();
+        assert!(certificate_pending.get_signer("1".to_string()).is_some());
+        assert!(certificate_pending.get_signer("5".to_string()).is_none());
+    }
 
     #[test]
     fn test_beacon_partial_ord_different_network() {

@@ -1,13 +1,13 @@
 use async_trait::async_trait;
 #[cfg(test)]
 use mockall::automock;
-use slog_scope::info;
+use slog_scope::debug;
 use std::error::Error as StdError;
 use thiserror::Error;
 
 use mithril_common::{
     crypto_helper::key_encode_hex,
-    entities::{Beacon, CertificatePending, Signer},
+    entities::{Beacon, CertificatePending, Epoch, Signer},
     store::StakeStorer,
 };
 
@@ -28,7 +28,12 @@ pub trait Runner {
         pending_certificate: &CertificatePending,
     ) -> Result<(), Box<dyn StdError + Sync + Send>>;
 
-    async fn update_stake_distribution(&self) -> Result<(), Box<dyn StdError + Sync + Send>>;
+    async fn update_stake_distribution(
+        &self,
+        epoch: Epoch,
+    ) -> Result<(), Box<dyn StdError + Sync + Send>>;
+
+    fn can_i_sign(&self, pending_certificate: &CertificatePending) -> Option<Signer>;
 }
 
 #[derive(Debug, Clone, PartialEq, Error)]
@@ -58,7 +63,7 @@ impl Runner for SignerRunner {
     async fn get_pending_certificate(
         &self,
     ) -> Result<Option<CertificatePending>, Box<dyn StdError + Sync + Send>> {
-        info!("runner: get_pending_certificate");
+        debug!("runner: get_pending_certificate");
         self.services
             .certificate_handler
             .retrieve_pending_certificate()
@@ -67,14 +72,19 @@ impl Runner for SignerRunner {
     }
 
     async fn get_current_beacon(&self) -> Result<Beacon, Box<dyn StdError + Sync + Send>> {
-        info!("runner: get_current_epoch");
-        todo!()
+        debug!("runner: get_current_epoch");
+        self.services
+            .beacon_provider
+            .get_current_beacon()
+            .await
+            .map_err(|e| e.into())
     }
 
     async fn register_signer_to_aggregator(
         &self,
         pending_certificate: &CertificatePending,
     ) -> Result<(), Box<dyn StdError + Sync + Send>> {
+        debug!("runner: register_signer_to_aggregator");
         let stake_distribution = self
             .services
             .chain_observer
@@ -97,14 +107,11 @@ impl Runner for SignerRunner {
         Ok(())
     }
 
-    async fn update_stake_distribution(&self) -> Result<(), Box<dyn StdError + Sync + Send>> {
-        info!("runner: update_stake_distribution");
-        let current_epoch = self
-            .services
-            .chain_observer
-            .get_current_epoch()
-            .await?
-            .ok_or_else(|| RuntimeError::NoValueError)?;
+    async fn update_stake_distribution(
+        &self,
+        epoch: Epoch,
+    ) -> Result<(), Box<dyn StdError + Sync + Send>> {
+        debug!("runner: update_stake_distribution");
         let stake_distribution = self
             .services
             .chain_observer
@@ -113,10 +120,16 @@ impl Runner for SignerRunner {
             .ok_or_else(|| RuntimeError::NoValueError)?;
         self.services
             .stake_store
-            .save_stakes(current_epoch, stake_distribution)
+            .save_stakes(epoch, stake_distribution)
             .await?;
 
         Ok(())
+    }
+
+    fn can_i_sign(&self, pending_certificate: &CertificatePending) -> Option<Signer> {
+        pending_certificate
+            .get_signer(self.config.party_id.to_owned())
+            .map(|s| s.clone())
     }
 }
 
@@ -205,7 +218,6 @@ mod tests {
     async fn test_update_stake_distribution() {
         let services = init_services();
         let stake_store = services.stake_store.clone();
-        let _certificate_store = services.certificate_handler.clone();
         let current_epoch = services
             .chain_observer
             .get_current_epoch()
@@ -220,7 +232,7 @@ mod tests {
             .is_none());
 
         runner
-            .update_stake_distribution()
+            .update_stake_distribution(current_epoch)
             .await
             .expect("update_stake_distribution should not fail.");
 
