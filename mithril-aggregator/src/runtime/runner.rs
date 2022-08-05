@@ -139,7 +139,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
         debug!("computing digest"; "db_directory" => self.config.db_directory.display());
 
-        // digest is done in a separate thread because it is blocking the whole task
         debug!("launching digester thread");
         let digest = digester
             .compute_digest(new_beacon.immutable_file_number)
