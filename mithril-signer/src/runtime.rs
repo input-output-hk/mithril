@@ -19,9 +19,13 @@ use super::certificate_handler::CertificateHandler;
 use super::single_signer::SingleSigner;
 use crate::certificate_handler::CertificateHandlerError;
 use crate::single_signer::SingleSignerError;
+use crate::ProtocolInitializerStore;
 
 ///  StakeStoreWrapper wraps a StakeStore
 pub type StakeStoreWrapper = Arc<RwLock<StakeStore>>;
+
+///  ProtocolInitializerStoreWrapper wraps a ProtocolInitializerStore
+pub type ProtocolInitializerStoreWrapper = Arc<RwLock<ProtocolInitializerStore>>;
 
 ///  ChainObserverWrapper wraps a ChainObserver
 pub type ChainObserverWrapper = Arc<RwLock<dyn ChainObserver>>;
@@ -44,6 +48,11 @@ pub struct Runtime {
 
     /// Stake store stores the stake distribution
     stake_store: StakeStoreWrapper,
+
+    /// Protocol initializer store stores the protocol initializers
+    #[allow(dead_code)]
+    // TODO: to remove this annotation once the store is used
+    protocol_initializer_store: ProtocolInitializerStoreWrapper,
 
     /// Chain observer observes the Cardano chain and helps retrieving epoch and stake distribution
     chain_observer: ChainObserverWrapper,
@@ -91,6 +100,7 @@ impl Runtime {
         single_signer: Box<dyn SingleSigner>,
         digester: Box<dyn ImmutableDigester>,
         stake_store: StakeStoreWrapper,
+        protocol_initializer_store: ProtocolInitializerStoreWrapper,
         chain_observer: ChainObserverWrapper,
     ) -> Self {
         Self {
@@ -100,6 +110,7 @@ impl Runtime {
             local_epoch: None,
             current_beacon: None,
             stake_store,
+            protocol_initializer_store,
             chain_observer,
         }
     }
@@ -303,9 +314,10 @@ mod tests {
     use super::super::certificate_handler::{CertificateHandlerError, MockCertificateHandler};
     use super::super::single_signer::{MockSingleSigner, SingleSignerError};
     use super::*;
+    use crate::ProtocolInitializerStorer;
 
-    use mithril_common::crypto_helper::tests_setup::*;
     use mithril_common::crypto_helper::ProtocolStakeDistribution;
+    use mithril_common::crypto_helper::{tests_setup::*, ProtocolInitializer};
     use mithril_common::digesters::{ImmutableDigester, ImmutableDigesterError};
     use mithril_common::entities::{Epoch, ImmutableFileNumber, Stake, StakeDistribution};
     use mithril_common::fake_data;
@@ -313,6 +325,8 @@ mod tests {
 
     use async_trait::async_trait;
     use mockall::mock;
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
 
     mock! {
         pub DigesterImpl { }
@@ -357,6 +371,27 @@ mod tests {
         stake_store
     }
 
+    async fn setup_protocol_initializer_store() -> ProtocolInitializerStore {
+        let protocol_initializer_store = ProtocolInitializerStore::new(Box::new(
+            MemoryAdapter::<Epoch, ProtocolInitializer>::new(None).unwrap(),
+        ));
+        let current_epoch = fake_data::beacon().epoch;
+        for epoch in current_epoch - 2..current_epoch + 2 {
+            let protocol_parameters = fake_data::protocol_parameters();
+            let party_id = format!("{:<032}", 1);
+            let stake = (epoch + 1) * 100;
+            let seed: [u8; 32] = party_id.as_bytes()[..32].try_into().unwrap();
+            let mut rng = ChaCha20Rng::from_seed(seed);
+            let protocol_initializer =
+                ProtocolInitializer::setup(protocol_parameters.into(), stake, &mut rng);
+            protocol_initializer_store
+                .save_protocol_initializer(epoch, protocol_initializer)
+                .await
+                .expect("fake protocol initializer update failed");
+        }
+        protocol_initializer_store
+    }
+
     #[tokio::test]
     async fn signer_updates_stake_distribution_when_it_should() {
         let total_signers = 5;
@@ -372,6 +407,7 @@ mod tests {
         let protocol_initializer = current_signer.4.clone();
         let pending_certificate = fake_data::certificate_pending();
         let stake_store = setup_stake_store(total_signers).await;
+        let protocol_initializer_store = setup_protocol_initializer_store().await;
         let mut mock_certificate_handler = MockCertificateHandler::new();
         let mut mock_single_signer = MockSingleSigner::new();
         let mut mock_digester = MockDigesterImpl::new();
@@ -414,6 +450,7 @@ mod tests {
             Box::new(mock_single_signer),
             Box::new(mock_digester),
             Arc::new(RwLock::new(stake_store)),
+            Arc::new(RwLock::new(protocol_initializer_store)),
             Arc::new(RwLock::new(mock_chain_observer)),
         );
         assert!(signer.run().await.is_ok());
@@ -437,6 +474,7 @@ mod tests {
         let party_id = current_signer.clone().0;
         let protocol_initializer = current_signer.4.clone();
         let stake_store = setup_stake_store(5).await;
+        let protocol_initializer_store = setup_protocol_initializer_store().await;
         let mut mock_certificate_handler = MockCertificateHandler::new();
         let mut mock_single_signer = MockSingleSigner::new();
         let mock_digester = MockDigesterImpl::new();
@@ -468,6 +506,7 @@ mod tests {
             Box::new(mock_single_signer),
             Box::new(mock_digester),
             Arc::new(RwLock::new(stake_store)),
+            Arc::new(RwLock::new(protocol_initializer_store)),
             Arc::new(RwLock::new(mock_chain_observer)),
         );
         assert!(signer.run().await.is_ok());
@@ -476,6 +515,7 @@ mod tests {
     #[tokio::test]
     async fn signer_fails_when_pending_certificate_fails() {
         let stake_store = setup_stake_store(5).await;
+        let protocol_initializer_store = setup_protocol_initializer_store().await;
         let mut mock_certificate_handler = MockCertificateHandler::new();
         let mut mock_single_signer = MockSingleSigner::new();
         let mock_digester = MockDigesterImpl::new();
@@ -502,6 +542,7 @@ mod tests {
             Box::new(mock_single_signer),
             Box::new(mock_digester),
             Arc::new(RwLock::new(stake_store)),
+            Arc::new(RwLock::new(protocol_initializer_store)),
             Arc::new(RwLock::new(mock_chain_observer)),
         );
         assert_eq!(
@@ -519,6 +560,7 @@ mod tests {
         let party_id = current_signer.clone().0;
         let protocol_initializer = current_signer.4.clone();
         let stake_store = setup_stake_store(5).await;
+        let protocol_initializer_store = setup_protocol_initializer_store().await;
         let mut mock_certificate_handler = MockCertificateHandler::new();
         let mut mock_single_signer = MockSingleSigner::new();
         let mut mock_digester = MockDigesterImpl::new();
@@ -574,6 +616,7 @@ mod tests {
             Box::new(mock_single_signer),
             Box::new(mock_digester),
             Arc::new(RwLock::new(stake_store)),
+            Arc::new(RwLock::new(protocol_initializer_store)),
             Arc::new(RwLock::new(mock_chain_observer)),
         );
         assert!(signer.run().await.is_ok());
@@ -586,6 +629,7 @@ mod tests {
         let party_id = current_signer.clone().0;
         let protocol_initializer = current_signer.4.clone();
         let stake_store = setup_stake_store(5).await;
+        let protocol_initializer_store = setup_protocol_initializer_store().await;
         let mut mock_certificate_handler = MockCertificateHandler::new();
         let mut mock_single_signer = MockSingleSigner::new();
         let mut mock_digester = MockDigesterImpl::new();
@@ -635,6 +679,7 @@ mod tests {
             Box::new(mock_single_signer),
             Box::new(mock_digester),
             Arc::new(RwLock::new(stake_store)),
+            Arc::new(RwLock::new(protocol_initializer_store)),
             Arc::new(RwLock::new(mock_chain_observer)),
         );
         assert!(signer.run().await.is_ok());
@@ -647,6 +692,7 @@ mod tests {
         let party_id = current_signer.clone().0;
         let protocol_initializer = current_signer.4.clone();
         let stake_store = setup_stake_store(5).await;
+        let protocol_initializer_store = setup_protocol_initializer_store().await;
         let mut mock_certificate_handler = MockCertificateHandler::new();
         let mut mock_single_signer = MockSingleSigner::new();
         let mut mock_digester = MockDigesterImpl::new();
@@ -689,6 +735,7 @@ mod tests {
             Box::new(mock_single_signer),
             Box::new(mock_digester),
             Arc::new(RwLock::new(stake_store)),
+            Arc::new(RwLock::new(protocol_initializer_store)),
             Arc::new(RwLock::new(mock_chain_observer)),
         );
         assert!(signer.run().await.is_ok());
@@ -698,6 +745,7 @@ mod tests {
     async fn signer_fails_if_signature_computation_fails() {
         let epoch = fake_data::beacon().epoch;
         let stake_store = setup_stake_store(5).await;
+        let protocol_initializer_store = setup_protocol_initializer_store().await;
         let stake_distribution_expected: StakeDistribution = stake_store
             .get_stakes(epoch)
             .await
@@ -739,6 +787,7 @@ mod tests {
             Box::new(mock_single_signer),
             Box::new(mock_digester),
             Arc::new(RwLock::new(stake_store)),
+            Arc::new(RwLock::new(protocol_initializer_store)),
             Arc::new(RwLock::new(mock_chain_observer)),
         );
         assert_eq!(
@@ -757,6 +806,7 @@ mod tests {
         let protocol_initializer = current_signer.4.clone();
         let pending_certificate = fake_data::certificate_pending();
         let stake_store = setup_stake_store(5).await;
+        let protocol_initializer_store = setup_protocol_initializer_store().await;
         let mut mock_certificate_handler = MockCertificateHandler::new();
         let mut mock_single_signer = MockSingleSigner::new();
         let mock_digester = MockDigesterImpl::new();
@@ -793,6 +843,7 @@ mod tests {
             Box::new(mock_single_signer),
             Box::new(mock_digester),
             Arc::new(RwLock::new(stake_store)),
+            Arc::new(RwLock::new(protocol_initializer_store)),
             Arc::new(RwLock::new(mock_chain_observer)),
         );
         assert_eq!(
@@ -808,6 +859,7 @@ mod tests {
     #[tokio::test]
     async fn signer_fails_if_digest_computation_fails() {
         let stake_store = setup_stake_store(5).await;
+        let protocol_initializer_store = setup_protocol_initializer_store().await;
         let mut mock_certificate_handler = MockCertificateHandler::new();
         let mut mock_single_signer = MockSingleSigner::new();
         let mut mock_digester = MockDigesterImpl::new();
@@ -841,6 +893,7 @@ mod tests {
             Box::new(mock_single_signer),
             Box::new(mock_digester),
             Arc::new(RwLock::new(stake_store)),
+            Arc::new(RwLock::new(protocol_initializer_store)),
             Arc::new(RwLock::new(mock_chain_observer)),
         );
         assert_eq!(

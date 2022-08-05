@@ -157,6 +157,8 @@ mod tests {
             run_interval: 100,
             db_directory: Path::new("./db").to_path_buf(),
             stake_store_directory: Path::new("./stakes").to_path_buf(),
+            protocol_initializer_store_directory: Path::new("./protocol_initializers")
+                .to_path_buf(),
         };
         (server, config)
     }

@@ -10,7 +10,9 @@ use mithril_common::chain_observer::{CardanoCliChainObserver, CardanoCliRunner};
 use mithril_common::digesters::CardanoImmutableDigester;
 use mithril_common::store::adapter::JsonFileStoreAdapter;
 use mithril_common::store::StakeStore;
-use mithril_signer::{CertificateHandlerHTTPClient, Config, MithrilSingleSigner, Runtime};
+use mithril_signer::{
+    CertificateHandlerHTTPClient, Config, MithrilSingleSigner, ProtocolInitializerStore, Runtime,
+};
 
 /// CLI args
 #[derive(Parser)]
@@ -74,6 +76,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let stake_store = Arc::new(RwLock::new(StakeStore::new(Box::new(
         JsonFileStoreAdapter::new(config.stake_store_directory.clone())?,
     ))));
+    let protocol_initializer_store =
+        Arc::new(RwLock::new(ProtocolInitializerStore::new(Box::new(
+            JsonFileStoreAdapter::new(config.protocol_initializer_store_directory.clone())?,
+        ))));
     let chain_observer = Arc::new(RwLock::new(CardanoCliChainObserver::new(Box::new(
         CardanoCliRunner::new(
             config.cardano_cli_path.clone(),
@@ -88,6 +94,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         Box::new(single_signer),
         Box::new(digester),
         stake_store.clone(),
+        protocol_initializer_store.clone(),
         chain_observer.clone(),
     );
     runtime.infinite_loop(config.run_interval).await;

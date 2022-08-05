@@ -24,6 +24,8 @@ impl Signer {
         let party_id = pool_node.party_id()?;
         let magic_id = DEVNET_MAGIC_ID.to_string();
         let stake_store_path = format!("./store/signer-{}/stakes", party_id);
+        let protocol_initializer_store_path =
+            format!("./store/signer-{}/protocol_initializers", party_id);
         let env = HashMap::from([
             ("NETWORK", "devnet"),
             ("PARTY_ID", &party_id),
@@ -31,6 +33,10 @@ impl Signer {
             ("AGGREGATOR_ENDPOINT", &aggregator_endpoint),
             ("DB_DIRECTORY", pool_node.db_path.to_str().unwrap()),
             ("STAKE_STORE_DIRECTORY", &stake_store_path),
+            (
+                "PROTOCOL_INITIALIZER_STORE_DIRECTORY",
+                &protocol_initializer_store_path,
+            ),
             ("NETWORK_MAGIC", &magic_id),
             (
                 "CARDANO_NODE_SOCKET_PATH",
