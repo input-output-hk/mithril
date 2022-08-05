@@ -4,7 +4,6 @@ use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-
 use mithril_common::{store::adapter::JsonFileStoreAdapter, CardanoNetwork};
 
 use crate::dependency::{SnapshotStoreWrapper, SnapshotUploaderWrapper};

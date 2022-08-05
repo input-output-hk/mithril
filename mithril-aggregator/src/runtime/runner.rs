@@ -152,10 +152,11 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
     async fn update_beacon(&self, new_beacon: &Beacon) -> Result<(), RuntimeError> {
         info!("update beacon"; "beacon" => #?new_beacon);
-        let _ = self
-            .dependencies
-            .beacon_store
-            .set_current_beacon(new_beacon.to_owned())
+        self.dependencies
+            .multi_signer
+            .write()
+            .await
+            .update_current_beacon(new_beacon.to_owned())
             .await?;
         Ok(())
     }
@@ -442,10 +443,11 @@ pub mod tests {
 
         assert!(res.is_ok());
         let stored_beacon = deps
-            .beacon_store
+            .multi_signer
+            .read()
+            .await
             .get_current_beacon()
             .await
-            .unwrap()
             .unwrap();
 
         assert_eq!(beacon, stored_beacon);
