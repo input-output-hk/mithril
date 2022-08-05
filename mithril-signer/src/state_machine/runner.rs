@@ -7,11 +7,14 @@ use thiserror::Error;
 
 use mithril_common::{
     crypto_helper::key_encode_hex,
-    entities::{Beacon, CertificatePending, Epoch, Signer},
+    entities::{
+        Beacon, CertificatePending, Epoch, ProtocolMessage, ProtocolMessagePartKey,
+        ProtocolMessagePartValue, Signer, SingleSignatures,
+    },
     store::StakeStorer,
 };
 
-use crate::{Config, MithrilProtocolInitializerBuilder};
+use crate::{protocol_initializer_store, Config, MithrilProtocolInitializerBuilder};
 
 use super::signer_services::SignerServices;
 
@@ -34,6 +37,21 @@ pub trait Runner {
     ) -> Result<(), Box<dyn StdError + Sync + Send>>;
 
     fn can_i_sign(&self, pending_certificate: &CertificatePending) -> Option<Signer>;
+
+    async fn compute_message(
+        &self,
+        certificate_pending: &CertificatePending,
+    ) -> Result<ProtocolMessage, Box<dyn StdError + Sync + Send>>;
+
+    async fn compute_single_signature(
+        &self,
+        message: &ProtocolMessage,
+    ) -> Result<Option<SingleSignatures>, Box<dyn StdError + Sync + Send>>;
+
+    async fn send_single_signature(
+        &self,
+        maybe_signature: Option<SingleSignatures>,
+    ) -> Result<(), Box<dyn StdError + Sync + Send>>;
 }
 
 #[derive(Debug, Clone, PartialEq, Error)]
@@ -130,6 +148,49 @@ impl Runner for SignerRunner {
         pending_certificate
             .get_signer(self.config.party_id.to_owned())
             .map(|s| s.clone())
+    }
+
+    async fn compute_message(
+        &self,
+        certificate_pending: &CertificatePending,
+    ) -> Result<ProtocolMessage, Box<dyn StdError + Sync + Send>> {
+        let mut message = ProtocolMessage::new();
+        let digest = self
+            .services
+            .digester
+            .compute_digest(certificate_pending.beacon.immutable_file_number)
+            .await?;
+        message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
+        let protocol_initializer = self
+            .services
+            .protocol_initializer_store
+            .get_protocol_initializer(certificate_pending.beacon.epoch - 1)
+            .await?
+            .ok_or_else(|| RuntimeError::NoValueError)?;
+        let signers = todo!();
+        /*
+               let avk = self
+                   .services
+                   .single_signer
+                   .compute_aggregate_verification_key(signers, &protocol_initializer)
+                   .await?
+                   .ok_or_else(|| RuntimeError::NoValueError)?;
+        */
+        Ok(message)
+    }
+
+    async fn compute_single_signature(
+        &self,
+        message: &ProtocolMessage,
+    ) -> Result<Option<SingleSignatures>, Box<dyn StdError + Sync + Send>> {
+        todo!()
+    }
+
+    async fn send_single_signature(
+        &self,
+        maybe_signature: Option<SingleSignatures>,
+    ) -> Result<(), Box<dyn StdError + Sync + Send>> {
+        todo!()
     }
 }
 
@@ -267,4 +328,7 @@ mod tests {
             .await
             .is_some());
     }
+
+    #[tokio::test]
+    async fn test_compute_message() {}
 }
