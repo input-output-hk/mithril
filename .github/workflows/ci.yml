@@ -101,7 +101,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: fmt
-          args: --all -p ${{ env.CARGO_PROJECT_NAME }}
+          args: --check -p ${{ env.CARGO_PROJECT_NAME }}
       
       - name: Cargo sort
         run: |
