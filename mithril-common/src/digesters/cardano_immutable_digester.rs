@@ -25,26 +25,6 @@ impl CardanoImmutableDigester {
             logger,
         }
     }
-
-    fn compute_hash(&self, entries: &[ImmutableFile]) -> Result<[u8; 32], io::Error> {
-        let mut hasher = Sha256::new();
-        let mut progress = Progress {
-            index: 0,
-            total: entries.len(),
-        };
-
-        for (ix, entry) in entries.iter().enumerate() {
-            let mut file = File::open(&entry.path)?;
-
-            io::copy(&mut file, &mut hasher)?;
-
-            if progress.report(ix) {
-                info!(self.logger, "hashing: {}", &progress);
-            }
-        }
-
-        Ok(hasher.finalize().into())
-    }
 }
 
 #[async_trait]
@@ -72,9 +52,13 @@ impl ImmutableDigester for CardanoImmutableDigester {
             Some(_) => {
                 info!(self.logger, "#immutables: {}", immutables.len());
 
-                let hash = self
-                    .compute_hash(&immutables)
-                    .map_err(ImmutableDigesterError::DigestComputationError)?;
+                // digest is done in a separate thread because it is blocking the whole task
+                let logger = self.logger.clone();
+                let hash = tokio::task::spawn_blocking(move || -> Result<[u8; 32], io::Error> {
+                    compute_hash(logger, &immutables)
+                })
+                .await
+                .map_err(|e| ImmutableDigesterError::DigestComputationError(e.into()))??;
                 let digest = hex::encode(hash);
 
                 debug!(self.logger, "#computed digest: {:?}", digest);
@@ -83,6 +67,26 @@ impl ImmutableDigester for CardanoImmutableDigester {
             }
         }
     }
+}
+
+fn compute_hash(logger: Logger, entries: &[ImmutableFile]) -> Result<[u8; 32], io::Error> {
+    let mut hasher = Sha256::new();
+    let mut progress = Progress {
+        index: 0,
+        total: entries.len(),
+    };
+
+    for (ix, entry) in entries.iter().enumerate() {
+        let mut file = File::open(&entry.path)?;
+
+        io::copy(&mut file, &mut hasher)?;
+
+        if progress.report(ix) {
+            info!(logger, "hashing: {}", &progress);
+        }
+    }
+
+    Ok(hasher.finalize().into())
 }
 
 struct Progress {
