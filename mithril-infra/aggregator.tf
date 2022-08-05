@@ -22,10 +22,22 @@ resource "null_resource" "mithril-aggregator" {
     source      = "Dockerfile.cardano"
     destination = "/home/curry/Dockerfile.cardano"
   }
-
   provisioner "file" {
     source      = ".dockerignore"
     destination = "/home/curry/.dockerignore"
+  }
+
+  # traefik setup
+  provisioner "remote-exec" {
+    inline = [
+      "mkdir -p /home/curry/traefik",
+      "touch /home/curry/traefik/acme.json && chmod 600 /home/curry/traefik/acme.json"
+    ]
+  }
+
+  provisioner "file" {
+    source      = "traefik/"
+    destination = "/home/curry/traefik"
   }
 
   # logs shipment to grafana cloud

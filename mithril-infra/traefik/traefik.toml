@@ -1,0 +1,20 @@
+[log]
+  level = "WARN"
+
+[providers]
+  [providers.docker]
+    exposedByDefault = false
+  [providers.file]
+    directory = "/etc/traefik/dynamic"
+
+[entryPoints]
+  [entryPoints.http]
+    address = ":80"
+  [entryPoints.https]
+    address = ":443"
+
+[certificatesResolvers.lets-encrypt.acme]
+  storage = "/etc/traefik/acme.json"
+  email = "admin@mithril.network"
+  [certificatesResolvers.lets-encrypt.acme.tlsChallenge]
+
