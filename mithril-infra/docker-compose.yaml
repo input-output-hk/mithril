@@ -33,6 +33,20 @@ services:
         "/db"
       ]
 
+  mithril-aggregator-reverse-proxy:
+    image: traefik:2.8
+    restart: always
+    user: ${CURRENT_UID}
+    profiles:
+      - reverse-proxy
+      - all
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./traefik:/etc/traefik
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
   mithril-aggregator:
     image: ghcr.io/input-output-hk/mithril-aggregator:${IMAGE_ID:-latest}
     restart: always
@@ -62,7 +76,7 @@ services:
       - ./testnet/node.db:/db
       - ./ipc:/ipc
     ports:
-      - "80:8080"
+      - "8080:8080"
     command:
       [
         "--db-directory",
@@ -78,6 +92,11 @@ services:
       options:
         max-size: "100m"
         max-file: "5"
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.my-app.rule=Host(`mithril.network`)'
+      - 'traefik.http.routers.my-app.tls=true'
+      - 'traefik.http.routers.my-app.tls.certresolver=lets-encrypt'
 
   mithril-signer-0:
     image: ghcr.io/input-output-hk/mithril-signer:${IMAGE_ID:-latest}
