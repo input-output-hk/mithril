@@ -1,22 +1,20 @@
 use clap::Parser;
+use mithril_common::BeaconProviderImpl;
 use slog::{o, Drain, Level, Logger};
 use slog_scope::debug;
 use std::env;
 use std::error::Error;
 use std::sync::Arc;
-use tokio::sync::RwLock;
+use std::time::Duration;
 
 use mithril_common::chain_observer::{CardanoCliChainObserver, CardanoCliRunner};
-use mithril_common::digesters::CardanoImmutableDigester;
+use mithril_common::digesters::{CardanoImmutableDigester, ImmutableFileSystemObserver};
 use mithril_common::store::adapter::JsonFileStoreAdapter;
 use mithril_common::store::StakeStore;
-<<<<<<< HEAD
 use mithril_signer::{
-    CertificateHandlerHTTPClient, Config, MithrilSingleSigner, ProtocolInitializerStore, Runtime,
+    CertificateHandlerHTTPClient, Config, MithrilSingleSigner, ProtocolInitializerStore,
+    SignerRunner, SignerServices, SignerState, StateMachine,
 };
-=======
-use mithril_signer::{CertificateHandlerHTTPClient, Config, MithrilSingleSigner};
->>>>>>> [wip] refactor single signer
 
 /// CLI args
 #[derive(Parser)]
@@ -71,50 +69,48 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .map_err(|e| format!("configuration deserialize error: {}", e))?;
     debug!("Started"; "run_mode" => &run_mode, "config" => format!("{:?}", config));
 
-    // TODO: Use serialized ProtocolInitializer here, loaded e.g. from filesystem
-    let protocol_initializer_encoded = "";
-    let single_signer = MithrilSingleSigner::new(config.party_id.clone());
-    let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint.clone());
-    let digester = CardanoImmutableDigester::new(config.db_directory.clone(), slog_scope::logger());
-    let stake_store = Arc::new(RwLock::new(StakeStore::new(Box::new(
-        JsonFileStoreAdapter::new(config.stake_store_directory.clone())?,
-    ))));
-    let protocol_initializer_store =
-        Arc::new(RwLock::new(ProtocolInitializerStore::new(Box::new(
-            JsonFileStoreAdapter::new(config.protocol_initializer_store_directory.clone())?,
-        ))));
-    let chain_observer = Arc::new(RwLock::new(CardanoCliChainObserver::new(Box::new(
+    let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(Box::new(
+        JsonFileStoreAdapter::new(config.protocol_initializer_store_directory.clone())?,
+    )));
+    let single_signer = Arc::new(MithrilSingleSigner::new(config.party_id.clone()));
+    let certificate_handler = Arc::new(CertificateHandlerHTTPClient::new(
+        config.aggregator_endpoint.clone(),
+    ));
+    let digester = Arc::new(CardanoImmutableDigester::new(
+        config.db_directory.clone(),
+        slog_scope::logger(),
+    ));
+    let stake_store = Arc::new(StakeStore::new(Box::new(JsonFileStoreAdapter::new(
+        config.stake_store_directory.clone(),
+    )?)));
+    let chain_observer = Arc::new(CardanoCliChainObserver::new(Box::new(
         CardanoCliRunner::new(
             config.cardano_cli_path.clone(),
             config.cardano_node_socket_path.clone(),
             config.get_network()?,
         ),
-    ))));
-
-<<<<<<< HEAD
-    // Should the runtime loop returns an error ? If yes should we abort the loop at the first error or is their some tolerance ?
-    let mut runtime = Runtime::new(
-        Box::new(certificate_handler),
-        Box::new(single_signer),
-        Box::new(digester),
-        stake_store.clone(),
-        protocol_initializer_store.clone(),
+    )));
+    let beacon_provider = Arc::new(BeaconProviderImpl::new(
         chain_observer.clone(),
-    );
-    runtime.infinite_loop(config.run_interval).await;
+        Arc::new(ImmutableFileSystemObserver::new(&config.db_directory)),
+        config.get_network()?.to_owned(),
+    ));
 
-=======
-    /*
-       // Should the runtime loop returns an error ? If yes should we abort the loop at the first error or is their some tolerance ?
-       let mut runtime = Runtime::new(
-           Box::new(certificate_handler),
-           Box::new(single_signer),
-           Box::new(digester),
-           stake_store.clone(),
-           chain_observer.clone(),
-       );
-       runtime.infinite_loop(config.run_interval).await;
-    */
->>>>>>> [wip] refactor single signer
+    let services = SignerServices {
+        beacon_provider,
+        certificate_handler,
+        chain_observer,
+        digester,
+        single_signer,
+        stake_store,
+        protocol_initializer_store,
+    };
+    let mut state_machine = StateMachine::new(
+        SignerState::Unregistered,
+        Box::new(SignerRunner::new(config.clone(), services)),
+        Duration::from_millis(config.run_interval),
+    );
+    let _ = state_machine.run().await;
+
     Ok(())
 }

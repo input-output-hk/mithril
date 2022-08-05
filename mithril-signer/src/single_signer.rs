@@ -15,14 +15,19 @@ use mockall::automock;
 
 use crate::AsyncError;
 
-struct MithrilProtocolInitializerBuilder;
+pub struct MithrilProtocolInitializerBuilder {
+    party_id: PartyId,
+}
 
 impl MithrilProtocolInitializerBuilder {
-    fn build(
+    pub fn new(party_id: PartyId) -> Self {
+        Self { party_id }
+    }
+
+    pub fn build(
         &self,
-        party_id: PartyId,
-        stake: Stake,
-        protocol_parameters: ProtocolParameters,
+        stake: &Stake,
+        protocol_parameters: &ProtocolParameters,
     ) -> Result<ProtocolInitializer, AsyncError> {
         // TODO: Since the stake distribution is now updated, we can't cache only one protocol initializer
         // When the protocol initalizer store is implemented, we should get the protocol initializer based on its associated epoch
@@ -33,11 +38,17 @@ impl MithrilProtocolInitializerBuilder {
         //let mut rng = rand_core::OsRng;
         use rand_chacha::ChaCha20Rng;
         use rand_core::SeedableRng;
-        let seed: [u8; 32] = party_id.as_bytes()[..32].try_into()?;
+        // 32 chars are appended after the party ID to ensure the length is at least 32 while still grants some uniqueness
+        let seed: [u8; 32] = format!("{}azerazerazerazerazerazerazerazer", self.party_id)
+            .as_bytes()[..32]
+            .try_into()?;
         let mut rng = ChaCha20Rng::from_seed(seed);
         //
-        let protocol_initializer =
-            ProtocolInitializer::setup(protocol_parameters.to_owned().into(), stake, &mut rng);
+        let protocol_initializer = ProtocolInitializer::setup(
+            protocol_parameters.to_owned().into(),
+            stake.to_owned(),
+            &mut rng,
+        );
 
         Ok(protocol_initializer)
     }
@@ -125,14 +136,6 @@ impl SingleSigner for MithrilSingleSigner {
         signers_with_stake: &Vec<SignerWithStake>,
         protocol_initializer: &ProtocolInitializer,
     ) -> Result<Option<SingleSignatures>, SingleSignerError> {
-        let current_signer_with_stake = signers_with_stake
-            .iter()
-            .find(|s| s.party_id == self.party_id)
-            .ok_or_else(SingleSignerError::UnregisteredPartyId)?;
-
-        let verification_key = key_encode_hex(protocol_initializer.verification_key())
-            .map_err(SingleSignerError::Codec)?;
-
         let protocol_signer =
             self.create_protocol_signer(signers_with_stake, protocol_initializer)?;
         let message = protocol_message.compute_hash().as_bytes().to_vec();

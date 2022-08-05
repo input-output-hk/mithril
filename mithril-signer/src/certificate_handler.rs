@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use reqwest::{self, StatusCode};
 use slog_scope::debug;
-use std::{borrow::Borrow, io};
+use std::io;
 use thiserror::Error;
 use tokio::sync::RwLock;
 

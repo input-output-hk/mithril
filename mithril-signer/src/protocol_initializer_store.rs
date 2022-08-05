@@ -15,7 +15,7 @@ pub enum ProtocolInitializerStoreError {
 }
 
 #[async_trait]
-pub trait ProtocolInitializerStorer {
+pub trait ProtocolInitializerStorer: Sync + Send {
     async fn save_protocol_initializer(
         &self,
         epoch: Epoch,

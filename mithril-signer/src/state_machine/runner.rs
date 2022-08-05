@@ -7,11 +7,11 @@ use thiserror::Error;
 
 use mithril_common::{
     crypto_helper::key_encode_hex,
-    entities::{self, Beacon, CertificatePending, Signer},
+    entities::{Beacon, CertificatePending, Signer},
     store::StakeStorer,
 };
 
-use crate::Config;
+use crate::{Config, MithrilProtocolInitializerBuilder};
 
 use super::signer_services::SignerServices;
 
@@ -23,7 +23,10 @@ pub trait Runner {
 
     async fn get_current_beacon(&self) -> Result<Beacon, Box<dyn StdError + Sync + Send>>;
 
-    async fn register_signer_to_aggregator(&self) -> Result<(), Box<dyn StdError + Sync + Send>>;
+    async fn register_signer_to_aggregator(
+        &self,
+        pending_certificate: &CertificatePending,
+    ) -> Result<(), Box<dyn StdError + Sync + Send>>;
 
     async fn update_stake_distribution(&self) -> Result<(), Box<dyn StdError + Sync + Send>>;
 }
@@ -66,27 +69,26 @@ impl Runner for SignerRunner {
     async fn get_current_beacon(&self) -> Result<Beacon, Box<dyn StdError + Sync + Send>> {
         info!("runner: get_current_epoch");
         todo!()
-        /*
-        self.services
-            .chain_observer
-            .get_current_beacon()
-            .await?
-            .ok_or_else(|| RuntimeError::NoValueError.into())
-        */
     }
 
-    async fn register_signer_to_aggregator(&self) -> Result<(), Box<dyn StdError + Sync + Send>> {
-        let protocol_initializer = self
+    async fn register_signer_to_aggregator(
+        &self,
+        pending_certificate: &CertificatePending,
+    ) -> Result<(), Box<dyn StdError + Sync + Send>> {
+        let stake_distribution = self
             .services
-            .single_signer
-            .get_protocol_initializer()
-            .ok_or_else(|| {
-                RuntimeError::SusbsystemUnavailable(
-                    "could not get protocol initializer".to_string(),
-                )
-            })?;
+            .chain_observer
+            .get_current_stake_distribution()
+            .await?
+            .ok_or_else(|| RuntimeError::NoValueError)?;
+        let stake = stake_distribution
+            .get(&self.config.party_id)
+            .ok_or_else(|| RuntimeError::NoStake)?;
+        let protocol_initializer =
+            MithrilProtocolInitializerBuilder::new(self.config.party_id.to_owned())
+                .build(stake, &pending_certificate.protocol_parameters)?;
         let verification_key = key_encode_hex(protocol_initializer.verification_key())?;
-        let signer = Signer::new(self.services.single_signer.get_party_id(), verification_key);
+        let signer = Signer::new(self.config.party_id.to_owned(), verification_key);
         self.services
             .certificate_handler
             .register_signer(&signer)
@@ -122,13 +124,17 @@ impl Runner for SignerRunner {
 mod tests {
     use std::{path::PathBuf, sync::Arc};
 
+    use mithril_common::crypto_helper::ProtocolInitializer;
     use mithril_common::digesters::{DumbImmutableDigester, DumbImmutableFileObserver};
-    use mithril_common::store::adapter::DumbStoreAdapter;
+    use mithril_common::entities::Epoch;
+    use mithril_common::store::adapter::{DumbStoreAdapter, MemoryAdapter};
     use mithril_common::store::{StakeStore, StakeStorer};
     use mithril_common::CardanoNetwork;
     use mithril_common::{chain_observer::FakeObserver, BeaconProviderImpl};
 
-    use crate::{CertificateHandlerHTTPClient, DumbCertificateHandler, MithrilSingleSigner};
+    use crate::{
+        CertificateHandler, DumbCertificateHandler, MithrilSingleSigner, ProtocolInitializerStore,
+    };
 
     use super::*;
 
@@ -141,20 +147,20 @@ mod tests {
     }
 
     fn init_services() -> SignerServices {
+        let adapter: MemoryAdapter<Epoch, ProtocolInitializer> = MemoryAdapter::new(None).unwrap();
         let chain_observer = Arc::new(FakeObserver::default());
         SignerServices {
             stake_store: Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()))),
-            certificate_handler: Arc::new(CertificateHandlerHTTPClient::new(
-                "whatever".to_string(),
-            )),
+            certificate_handler: Arc::new(DumbCertificateHandler::default()),
             chain_observer: chain_observer.clone(),
             digester: Arc::new(DumbImmutableDigester::new("whatever", true)),
-            single_signer: Arc::new(MithrilSingleSigner::new("PARTY_01".to_string(), "whatever")),
+            single_signer: Arc::new(MithrilSingleSigner::new("1".to_string())),
             beacon_provider: Arc::new(BeaconProviderImpl::new(
                 chain_observer,
                 Arc::new(DumbImmutableFileObserver::default()),
                 CardanoNetwork::TestNet(42),
             )),
+            protocol_initializer_store: Arc::new(ProtocolInitializerStore::new(Box::new(adapter))),
         }
     }
 
@@ -170,9 +176,10 @@ mod tests {
             db_directory: PathBuf::new(),
             network: "whatever".to_string(),
             network_magic: None,
-            party_id: "PARTY_01".to_string(),
+            party_id: "1".to_string(),
             run_interval: 100,
             stake_store_directory: PathBuf::new(),
+            protocol_initializer_store_directory: PathBuf::new(),
         };
 
         SignerRunner {
@@ -232,8 +239,14 @@ mod tests {
         let certificate_handler = Arc::new(DumbCertificateHandler::default());
         services.certificate_handler = certificate_handler.clone();
         let runner = init_runner(Some(services), None);
+
+        let pending_certificate = certificate_handler
+            .retrieve_pending_certificate()
+            .await
+            .expect("getting pending certificate should not fail")
+            .expect("there should be a pending certificate, None returned");
         runner
-            .register_signer_to_aggregator()
+            .register_signer_to_aggregator(&pending_certificate)
             .await
             .expect("registering a signer to the aggregator should not fail");
 
