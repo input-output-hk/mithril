@@ -36,7 +36,7 @@ services:
   mithril-aggregator-reverse-proxy:
     image: traefik:2.8
     restart: always
-    user: "${CURRENT_UID}:${CURRENT_GID}"
+    user: "${CURRENT_UID}:${DOCKER_GID}"
     profiles:
       - reverse-proxy
       - all
