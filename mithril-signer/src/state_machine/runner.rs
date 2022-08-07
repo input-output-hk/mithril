@@ -8,13 +8,13 @@ use thiserror::Error;
 use mithril_common::{
     crypto_helper::key_encode_hex,
     entities::{
-        Beacon, CertificatePending, Epoch, ProtocolMessage, ProtocolMessagePartKey,
-        ProtocolMessagePartValue, Signer, SingleSignatures,
+        Beacon, CertificatePending, Epoch, ProtocolMessage, ProtocolMessagePartKey, Signer,
+        SignerWithStake, SingleSignatures,
     },
     store::StakeStorer,
 };
 
-use crate::{protocol_initializer_store, Config, MithrilProtocolInitializerBuilder};
+use crate::{Config, MithrilProtocolInitializerBuilder};
 
 use super::signer_services::SignerServices;
 
@@ -41,11 +41,13 @@ pub trait Runner {
     async fn compute_message(
         &self,
         certificate_pending: &CertificatePending,
-    ) -> Result<ProtocolMessage, Box<dyn StdError + Sync + Send>>;
+    ) -> Result<(ProtocolMessage, Vec<SignerWithStake>), Box<dyn StdError + Sync + Send>>;
 
     async fn compute_single_signature(
         &self,
         message: &ProtocolMessage,
+        signers: &Vec<SignerWithStake>,
+        epoch: Epoch,
     ) -> Result<Option<SingleSignatures>, Box<dyn StdError + Sync + Send>>;
 
     async fn send_single_signature(
@@ -121,6 +123,11 @@ impl Runner for SignerRunner {
             .certificate_handler
             .register_signer(&signer)
             .await?;
+        let _res = self
+            .services
+            .protocol_initializer_store
+            .save_protocol_initializer(pending_certificate.beacon.epoch, protocol_initializer)
+            .await?;
 
         Ok(())
     }
@@ -153,44 +160,85 @@ impl Runner for SignerRunner {
     async fn compute_message(
         &self,
         certificate_pending: &CertificatePending,
-    ) -> Result<ProtocolMessage, Box<dyn StdError + Sync + Send>> {
+    ) -> Result<(ProtocolMessage, Vec<SignerWithStake>), Box<dyn StdError + Sync + Send>> {
         let mut message = ProtocolMessage::new();
+        // 1 set the digest in the message
         let digest = self
             .services
             .digester
             .compute_digest(certificate_pending.beacon.immutable_file_number)
             .await?;
         message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
+
+        // 2 set the next signers keys and stakes in the message
         let protocol_initializer = self
             .services
             .protocol_initializer_store
-            .get_protocol_initializer(certificate_pending.beacon.epoch - 1)
+            .get_protocol_initializer(certificate_pending.beacon.epoch)
             .await?
             .ok_or_else(|| RuntimeError::NoValueError)?;
-        let signers = todo!();
-        /*
-               let avk = self
-                   .services
-                   .single_signer
-                   .compute_aggregate_verification_key(signers, &protocol_initializer)
-                   .await?
-                   .ok_or_else(|| RuntimeError::NoValueError)?;
-        */
-        Ok(message)
+        let stakes = self
+            .services
+            .stake_store
+            .get_stakes(certificate_pending.beacon.epoch)
+            .await?
+            .ok_or_else(|| RuntimeError::NoStake)?;
+        let mut signers: Vec<SignerWithStake> = vec![];
+
+        // TODO: this should not be here
+        for signer in &certificate_pending.signers[..] {
+            if let Some(stake) = stakes.get(&signer.party_id) {
+                signers.push(SignerWithStake::new(
+                    signer.party_id.to_owned(),
+                    signer.verification_key.to_owned(),
+                    *stake,
+                ));
+            }
+        }
+        let avk = self
+            .services
+            .single_signer
+            .compute_aggregate_verification_key(&signers, &protocol_initializer)?
+            .ok_or_else(|| RuntimeError::NoValueError)?;
+        message.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
+
+        Ok((message, signers))
     }
 
     async fn compute_single_signature(
         &self,
         message: &ProtocolMessage,
+        signers: &Vec<SignerWithStake>,
+        epoch: Epoch,
     ) -> Result<Option<SingleSignatures>, Box<dyn StdError + Sync + Send>> {
-        todo!()
+        let protocol_initializer = self
+            .services
+            .protocol_initializer_store
+            .get_protocol_initializer(epoch)
+            .await?
+            .ok_or_else(|| RuntimeError::NoValueError)?;
+        let signature = self.services.single_signer.compute_single_signatures(
+            &message,
+            signers,
+            &protocol_initializer,
+        )?;
+
+        Ok(signature)
     }
 
     async fn send_single_signature(
         &self,
         maybe_signature: Option<SingleSignatures>,
     ) -> Result<(), Box<dyn StdError + Sync + Send>> {
-        todo!()
+        if let Some(single_signatures) = maybe_signature {
+            self.services
+                .certificate_handler
+                .register_signatures(&single_signatures)
+                .await
+                .map_err(|e| e.into())
+        } else {
+            Ok(())
+        }
     }
 }
 
@@ -330,5 +378,32 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_compute_message() {}
+    async fn test_compute_message() {
+        let services = init_services();
+        let current_epoch = services
+            .chain_observer
+            .get_current_epoch()
+            .await
+            .expect("chain observer should not fail")
+            .expect("the observer should return an epoch");
+        let certificate_handler = services.certificate_handler.clone();
+        let runner = init_runner(Some(services), None);
+        runner
+            .update_stake_distribution(current_epoch)
+            .await
+            .expect("update_stake_distribution should not fail.");
+        let certificate_pending = certificate_handler
+            .retrieve_pending_certificate()
+            .await
+            .expect("certificate handler should not fail")
+            .expect("there should be a certificate pending at this stage");
+        runner
+            .register_signer_to_aggregator(&certificate_pending)
+            .await
+            .expect("register signer should not fail");
+        let _message = runner
+            .compute_message(&certificate_pending)
+            .await
+            .expect("compute_message should not fail");
+    }
 }

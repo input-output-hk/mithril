@@ -59,26 +59,27 @@ impl StateMachine {
                         .await?;
                     self.state = SignerState::Registered(state);
                 }
-
-                Ok(())
             }
             SignerState::Registered(state) => {
-                let current_beacon = self.runner.get_current_beacon().await?;
-
-                if current_beacon.epoch > state.beacon.epoch {
+                if let Some(_new_beacon) = self.has_beacon_changed(&state.beacon).await? {
                     self.state = SignerState::Unregistered;
                 } else if let Some(pending_certificate) =
                     self.runner.get_pending_certificate().await?
                 {
-                    if let Some(signer) = self.runner.can_i_sign(&pending_certificate) {
-                        let state = self.from_registered_to_signed(signer).await?;
+                    if let Some(_signer) = self.runner.can_i_sign(&pending_certificate) {
+                        let state = self.from_registered_to_signed(&pending_certificate).await?;
                         self.state = SignerState::Signed(state)
                     }
                 }
-                Ok(())
             }
-            SignerState::Signed(state) => Ok(()),
-        }
+            SignerState::Signed(state) => {
+                if let Some(_new_beacon) = self.has_beacon_changed(&state.beacon).await? {
+                    self.state = SignerState::Unregistered;
+                }
+            }
+        };
+
+        Ok(())
     }
 
     /// launch the state machine until an error occures or it is interrupted
@@ -93,6 +94,19 @@ impl StateMachine {
             }
             info!("Sleeping for {} ms", self.state_sleep.as_millis());
             sleep(self.state_sleep);
+        }
+    }
+
+    async fn has_beacon_changed(
+        &self,
+        beacon: &Beacon,
+    ) -> Result<Option<Beacon>, Box<dyn Error + Sync + Send>> {
+        let current_beacon = self.runner.get_current_beacon().await?;
+
+        if current_beacon.epoch > beacon.epoch {
+            Ok(Some(current_beacon))
+        } else {
+            Ok(None)
         }
     }
 
@@ -111,9 +125,18 @@ impl StateMachine {
 
     async fn from_registered_to_signed(
         &self,
-        signer: Signer,
+        pending_certificate: &CertificatePending,
     ) -> Result<SignedState, Box<dyn Error + Sync + Send>> {
-        todo!()
+        let (message, signers) = self.runner.compute_message(pending_certificate).await?;
+        let single_signatures = self
+            .runner
+            .compute_single_signature(&message, &signers, pending_certificate.beacon.epoch)
+            .await?;
+        self.runner.send_single_signature(single_signatures).await?;
+
+        Ok(SignedState {
+            beacon: pending_certificate.beacon.clone(),
+        })
     }
 }
 
