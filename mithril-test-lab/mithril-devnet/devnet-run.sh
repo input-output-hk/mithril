@@ -68,7 +68,7 @@ DELEGATION_ROUND=0
 echo ">> Begin scheduled delegation"
 while true
 do
-    echo ">> Wait ${DELEGATE_PERIOD}s until next delegation round..."
+    echo ">> $(date +"%T"): Wait ${DELEGATE_PERIOD}s until next delegation round..."
     sleep ${DELEGATE_PERIOD}
     DELEGATION_ROUND=$(( $DELEGATION_ROUND + 1 ))
     echo ">> Run delegation round #${DELEGATION_ROUND}!"
