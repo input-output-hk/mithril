@@ -606,7 +606,11 @@ echo
 
 cat >> delegate.sh <<EOF
 #!/bin/bash
-    
+
+CURRENT_EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query tip  \\
+                    --cardano-mode  \\
+                    --testnet-magic ${NETWORK_MAGIC} | jq .epoch)
+echo ">>>> Current Epoch: \${CURRENT_EPOCH}"
 EOF
 
 # Prepare transactions for activating stake pools
@@ -616,6 +620,7 @@ for N in ${POOL_NODES_N}; do
   # We'll register certs to:
   #  1. delegate from the user1 stake address to the stake pool
   cat >> delegate.sh <<EOF
+    
     AMOUNT_STAKED=\$(( $N*1000000 +  DELEGATION_ROUND*1 ))
 
     CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli transaction build \\
