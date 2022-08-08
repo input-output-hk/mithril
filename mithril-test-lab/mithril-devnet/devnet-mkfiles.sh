@@ -898,6 +898,8 @@ cat >> docker-compose.yaml <<EOF
       - VERIFICATION_KEY_STORE_DIRECTORY=/data/mithril/aggregator/db/verification_key_db
       - SNAPSHOT_STORE_DIRECTORY=/data/mithril/aggregator/db/snapshot_db
       - STAKE_STORE_DIRECTORY=/data/mithril/aggregator/db/stake_db
+      - SINGLE_SIGNATURE_STORE_DIRECTORY=/data/mithril/aggregator/db/single_signature_db
+      - PROTOCOL_PARAMETERS_STORE_DIRECTORY=/data/mithril/aggregator/db/protocol_parameters_db
       - CARDANO_NODE_SOCKET_PATH=/data/ipc/node.sock
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
     command:
