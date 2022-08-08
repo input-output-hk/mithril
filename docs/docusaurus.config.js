@@ -100,6 +100,11 @@ const config = {
             position: 'left',
           },
           {
+            label: 'Showcase',
+            to: 'https://mithril.network/showcase',
+            position: 'right',
+          },
+          {
             to: '/glossary',
             label: 'Glossary',
             position: 'right',
