@@ -36,7 +36,7 @@ services:
   mithril-aggregator-reverse-proxy:
     image: traefik:2.8
     restart: always
-    user: "${CURRENT_UID}:${CURRENT_GID}"
+    user: "${CURRENT_UID}:${DOCKER_GID}"
     profiles:
       - reverse-proxy
       - all
@@ -94,7 +94,7 @@ services:
         max-file: "5"
     labels:
       - 'traefik.enable=true'
-      - 'traefik.http.routers.my-app.rule=Host(`mithril.network`)'
+      - 'traefik.http.routers.my-app.rule=Host(`aggregator.api.mithril.network`)'
       - 'traefik.http.routers.my-app.tls=true'
       - 'traefik.http.routers.my-app.tls.certresolver=lets-encrypt'
 
