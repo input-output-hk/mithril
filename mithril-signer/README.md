@@ -58,7 +58,7 @@ make build
 ./mithril-signer -r testnet
 
 # Run with custom configuration with env vars
-NETWORK=testnet AGGREGATOR_ENDPOINT=http://aggregator.api.mithril.network/aggregator ./mithril-signer
+NETWORK=testnet AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator ./mithril-signer
 ```
 
 ## Build and run Docker container

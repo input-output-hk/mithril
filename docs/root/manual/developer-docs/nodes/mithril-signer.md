@@ -126,7 +126,7 @@ Run in release with a specific mode
 Run in release with a custom configuration via env vars
 
 ```bash
-NETWORK=testnet AGGREGATOR_ENDPOINT=http://aggregator.api.mithril.network/aggregator ./mithril-signer
+NETWORK=testnet AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator ./mithril-signer
 ```
 
 :::tip
@@ -172,6 +172,6 @@ Here is a list of the available parameters:
 `network_magic` | - | - | `NETWORK_MAGIC` | Cardano Network Magic number (for `testnet` and `devnet`) | - | `1097911063` or `42` | - |
 | `party_id` | - | - | `PARTY_ID` | Party Id of the signer, usually the `PoolId` of the SPO | - | `pool1pxaqe80sqpde7902er5kf6v0c7y0sv6d5g676766v2h829fvs3x` | :heavy_check_mark: |
 | `run_interval` | - | - | `RUN_INTERVAL` | Interval between two runtime cycles in ms | - | `60000` | :heavy_check_mark: |
-| `aggregator_endpoint` | - | - | `AGGREGATOR_ENDPOINT` | Aggregator node endpoint | - | `http://aggregator.api.mithril.network/aggregator` | :heavy_check_mark: |
+| `aggregator_endpoint` | - | - | `AGGREGATOR_ENDPOINT` | Aggregator node endpoint | - | `https://aggregator.api.mithril.network/aggregator` | :heavy_check_mark: |
 | `stake_store_directory` | - | - | `STAKE_STORE_DIRECTORY` | Directory to store stakes | - | `./mithril/stake_db` | :heavy_check_mark: |
 | `protocol_initializer_store_directory` | - | - | `PROTOCOL_INITIALIZER_STORE_DIRECTORY` | Directory to store protocol initializers | - | `./mithril/protocol_initializer_db` | :heavy_check_mark: |

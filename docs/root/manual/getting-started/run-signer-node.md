@@ -142,7 +142,7 @@ sudo cat > /opt/mithril/mithril-signer.env << EOF
 PARTY_ID=YOUR_POOL_ID_BECH32
 NETWORK=testnet
 NETWORK_MAGIC=1097911063
-AGGREGATOR_ENDPOINT=http://aggregator.api.mithril.network/aggregator
+AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator
 RUN_INTERVAL=60000 DB_DIRECTORY=/cardano/db
 CARDANO_NODE_SOCKET_PATH=/cardano/ipc/node.socket
 CARDANO_CLI_PATH=/app/bin/cardano-cli

@@ -4,7 +4,7 @@ import SnapshotsList from '@site/src/components/Showcase/SnapshotsList';
 import Layout from '@theme/Layout';
 
 const available_aggregators = [
-  "http://aggregator.api.mithril.network/aggregator",
+  "https://aggregator.api.mithril.network/aggregator",
   "http://localhost:8080/aggregator"
 ];
 

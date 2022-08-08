@@ -95,7 +95,7 @@ If you want to dig deeper, you can get access to several level of logs from the 
 NETWORK=testnet
 
 # Aggregator API endpoint URL
-AGGREGATOR_ENDPOINT=http://aggregator.api.mithril.network/aggregator
+AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator
 
 # Digest of the latest produced snapshot for convenience of the demo
 # You can also modify this variable and set it to the value of the digest of a snapshot that you can retrieve at step 2

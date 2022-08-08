@@ -7,7 +7,7 @@ import {Form, Stack, Button, Row, Col, InputGroup} from "react-bootstrap";
 import styles from "../styles/Home.module.css";
 
 const available_aggregators = [
-  "http://aggregator.api.mithril.network/aggregator",
+  "https://aggregator.api.mithril.network/aggregator",
   "http://localhost:8080/aggregator"
 ];
 

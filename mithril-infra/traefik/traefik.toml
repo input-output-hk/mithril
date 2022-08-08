@@ -8,9 +8,14 @@
     directory = "/etc/traefik/dynamic"
 
 [entryPoints]
-  [entryPoints.http]
+  [entryPoints.web]
     address = ":80"
-  [entryPoints.https]
+
+  [entryPoints.web.http.redirections.entryPoint]
+    to = "websecure"
+    scheme = "https"
+
+  [entryPoints.websecure]
     address = ":443"
 
 [certificatesResolvers.lets-encrypt.acme]

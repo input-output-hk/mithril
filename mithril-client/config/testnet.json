@@ -1,4 +1,4 @@
 {
     "network": "testnet",
-    "aggregator_endpoint": "http://aggregator.api.mithril.network/aggregator"
+    "aggregator_endpoint": "https://aggregator.api.mithril.network/aggregator"
 }
