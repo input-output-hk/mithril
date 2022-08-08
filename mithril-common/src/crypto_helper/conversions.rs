@@ -23,6 +23,12 @@ impl From<entities::SignerWithStake> for entities::Signer {
     }
 }
 
+impl From<&entities::SignerWithStake> for entities::Signer {
+    fn from(other: &entities::SignerWithStake) -> Self {
+        entities::Signer::new(other.party_id.clone(), other.verification_key.clone())
+    }
+}
+
 impl From<entities::SignerWithStake> for (types::ProtocolPartyId, types::ProtocolStake) {
     fn from(other: entities::SignerWithStake) -> Self {
         (

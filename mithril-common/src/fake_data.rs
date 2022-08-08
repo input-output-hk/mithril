@@ -48,9 +48,11 @@ pub fn certificate_pending() -> entities::CertificatePending {
 
     // Signers
     let signers = signers(5);
+    let current_signers = signers[1..3].to_vec();
+    let next_signers = signers[2..5].to_vec();
 
     // Certificate pending
-    entities::CertificatePending::new(beacon, protocol_parameters, signers)
+    entities::CertificatePending::new(beacon, protocol_parameters, current_signers, next_signers)
 }
 
 /// Fake Certificate
@@ -116,10 +118,8 @@ pub fn signers_with_stakes(total: u64) -> Vec<entities::SignerWithStake> {
 /// Fake Signers
 pub fn signers(total: u64) -> Vec<entities::Signer> {
     signers_with_stakes(total)
-        .iter()
-        .map(|signer| {
-            entities::Signer::new(signer.party_id.clone(), signer.verification_key.clone())
-        })
+        .into_iter()
+        .map(|signer| signer.into())
         .collect::<Vec<entities::Signer>>()
 }
 

@@ -14,7 +14,10 @@ use mithril_common::crypto_helper::{
 };
 use mithril_common::entities;
 use mithril_common::store::{StakeStoreError, StakeStorer};
-use mithril_common::{SIGNER_EPOCH_RECORDING_OFFSET, SIGNER_EPOCH_RETRIEVAL_OFFSET};
+use mithril_common::{
+    NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET, SIGNER_EPOCH_RECORDING_OFFSET,
+    SIGNER_EPOCH_RETRIEVAL_OFFSET,
+};
 
 use crate::dependency::{
     SingleSignatureStoreWrapper, StakeStoreWrapper, VerificationKeyStoreWrapper,
@@ -24,7 +27,6 @@ use crate::store::{
     VerificationKeyStorer,
 };
 
-use mithril_common::entities::Beacon;
 #[cfg(test)]
 use mockall::automock;
 
@@ -167,6 +169,11 @@ pub trait MultiSigner: Sync + Send {
     /// Get signers with stake
     async fn get_signers_with_stake(&self)
         -> Result<Vec<entities::SignerWithStake>, ProtocolError>;
+
+    /// Get signers for the next epoch with their stake
+    async fn get_next_signers_with_stake(
+        &self,
+    ) -> Result<Vec<entities::SignerWithStake>, ProtocolError>;
 
     /// Registers a single signature
     async fn register_single_signature(
@@ -326,11 +333,14 @@ impl MultiSigner for MultiSignerImpl {
         Ok(())
     }
 
-    async fn get_current_beacon(&self) -> Option<Beacon> {
+    async fn get_current_beacon(&self) -> Option<entities::Beacon> {
         self.current_beacon.clone()
     }
 
-    async fn update_current_beacon(&mut self, beacon: Beacon) -> Result<(), ProtocolError> {
+    async fn update_current_beacon(
+        &mut self,
+        beacon: entities::Beacon,
+    ) -> Result<(), ProtocolError> {
         self.current_beacon = Some(beacon);
         Ok(())
     }
@@ -362,7 +372,7 @@ impl MultiSigner for MultiSignerImpl {
         &self,
     ) -> Result<ProtocolStakeDistribution, ProtocolError> {
         debug!("Get next stake distribution");
-        self.get_stake_distribution_with_epoch_offset(SIGNER_EPOCH_RETRIEVAL_OFFSET + 1)
+        self.get_stake_distribution_with_epoch_offset(NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET)
             .await
     }
 
@@ -453,7 +463,6 @@ impl MultiSigner for MultiSignerImpl {
         }
     }
 
-    /// Get signers with stake
     async fn get_signers_with_stake(
         &self,
     ) -> Result<Vec<entities::SignerWithStake>, ProtocolError> {
@@ -471,6 +480,37 @@ impl MultiSigner for MultiSignerImpl {
             .unwrap_or_default();
         Ok(self
             .get_stake_distribution()
+            .await?
+            .iter()
+            .filter_map(|(party_id, stake)| {
+                signers.get(party_id).map(|signer| {
+                    entities::SignerWithStake::new(
+                        party_id.to_owned(),
+                        signer.verification_key.clone(),
+                        *stake as u64,
+                    )
+                })
+            })
+            .collect())
+    }
+
+    async fn get_next_signers_with_stake(
+        &self,
+    ) -> Result<Vec<entities::SignerWithStake>, ProtocolError> {
+        debug!("Get next signers with stake");
+        let epoch = self
+            .current_beacon
+            .as_ref()
+            .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .compute_beacon_with_epoch_offset(NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET)?
+            .epoch;
+        let signers = self
+            .verification_key_store
+            .get_verification_keys(epoch)
+            .await?
+            .unwrap_or_default();
+        Ok(self
+            .get_next_stake_distribution()
             .await?
             .iter()
             .filter_map(|(party_id, stake)| {

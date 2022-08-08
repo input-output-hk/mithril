@@ -64,6 +64,7 @@ mod test {
             let certificate_pending = CertificatePending::new(
                 beacon.clone(),
                 fake_data::protocol_parameters(),
+                fake_data::signers(4),
                 fake_data::signers(5),
             );
             adapter
@@ -98,6 +99,7 @@ mod test {
             beacon,
             fake_data::protocol_parameters(),
             fake_data::signers(1),
+            fake_data::signers(2),
         );
 
         assert!(store.save(certificate_pending).await.is_ok());
