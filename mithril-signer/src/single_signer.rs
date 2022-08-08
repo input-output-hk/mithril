@@ -60,14 +60,14 @@ pub trait SingleSigner: Sync + Send {
     fn compute_single_signatures(
         &self,
         protocol_message: &ProtocolMessage,
-        signers_with_stake: &Vec<SignerWithStake>,
+        signers_with_stake: &[SignerWithStake],
         protocol_initializer: &ProtocolInitializer,
     ) -> Result<Option<SingleSignatures>, SingleSignerError>;
 
     /// Compute aggregate verification key from stake distribution
     fn compute_aggregate_verification_key(
         &self,
-        signers_with_stake: &Vec<SignerWithStake>,
+        signers_with_stake: &[SignerWithStake],
         protocol_initializer: &ProtocolInitializer,
     ) -> Result<Option<String>, SingleSignerError>;
 }
@@ -101,12 +101,12 @@ impl MithrilSingleSigner {
 
     fn create_protocol_signer(
         &self,
-        signers_with_stake: &Vec<SignerWithStake>,
+        signers_with_stake: &[SignerWithStake],
         protocol_initializer: &ProtocolInitializer,
     ) -> Result<ProtocolSigner, SingleSignerError> {
         let mut key_reg = ProtocolKeyRegistration::init();
         let signers = signers_with_stake
-            .iter()
+            .into_iter()
             .filter(|signer| !signer.verification_key.is_empty())
             .collect::<Vec<&SignerWithStake>>();
 
@@ -133,7 +133,7 @@ impl SingleSigner for MithrilSingleSigner {
     fn compute_single_signatures(
         &self,
         protocol_message: &ProtocolMessage,
-        signers_with_stake: &Vec<SignerWithStake>,
+        signers_with_stake: &[SignerWithStake],
         protocol_initializer: &ProtocolInitializer,
     ) -> Result<Option<SingleSignatures>, SingleSignerError> {
         let protocol_signer =
@@ -166,7 +166,7 @@ impl SingleSigner for MithrilSingleSigner {
     /// Compute aggregate verification key from stake distribution
     fn compute_aggregate_verification_key(
         &self,
-        signers_with_stake: &Vec<SignerWithStake>,
+        signers_with_stake: &[SignerWithStake],
         protocol_initializer: &ProtocolInitializer,
     ) -> Result<Option<String>, SingleSignerError> {
         match self.create_protocol_signer(signers_with_stake, protocol_initializer) {

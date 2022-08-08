@@ -46,7 +46,7 @@ pub trait Runner {
     async fn compute_single_signature(
         &self,
         message: &ProtocolMessage,
-        signers: &Vec<SignerWithStake>,
+        signers: &[SignerWithStake],
         epoch: Epoch,
     ) -> Result<Option<SingleSignatures>, Box<dyn StdError + Sync + Send>>;
 
@@ -110,10 +110,10 @@ impl Runner for SignerRunner {
             .chain_observer
             .get_current_stake_distribution()
             .await?
-            .ok_or_else(|| RuntimeError::NoValueError)?;
+            .ok_or(RuntimeError::NoValueError)?;
         let stake = stake_distribution
             .get(&self.config.party_id)
-            .ok_or_else(|| RuntimeError::NoStake)?;
+            .ok_or(RuntimeError::NoStake)?;
         let protocol_initializer =
             MithrilProtocolInitializerBuilder::new(self.config.party_id.to_owned())
                 .build(stake, &pending_certificate.protocol_parameters)?;
@@ -142,7 +142,7 @@ impl Runner for SignerRunner {
             .chain_observer
             .get_current_stake_distribution()
             .await?
-            .ok_or_else(|| RuntimeError::NoValueError)?;
+            .ok_or(RuntimeError::NoValueError)?;
         self.services
             .stake_store
             .save_stakes(epoch, stake_distribution)
@@ -154,7 +154,7 @@ impl Runner for SignerRunner {
     fn can_i_sign(&self, pending_certificate: &CertificatePending) -> Option<Signer> {
         pending_certificate
             .get_signer(self.config.party_id.to_owned())
-            .map(|s| s.clone())
+            .cloned()
     }
 
     async fn compute_message(
@@ -176,13 +176,13 @@ impl Runner for SignerRunner {
             .protocol_initializer_store
             .get_protocol_initializer(certificate_pending.beacon.epoch)
             .await?
-            .ok_or_else(|| RuntimeError::NoValueError)?;
+            .ok_or(RuntimeError::NoValueError)?;
         let stakes = self
             .services
             .stake_store
             .get_stakes(certificate_pending.beacon.epoch)
             .await?
-            .ok_or_else(|| RuntimeError::NoStake)?;
+            .ok_or(RuntimeError::NoStake)?;
         let mut signers: Vec<SignerWithStake> = vec![];
 
         // TODO: this should not be here
@@ -199,7 +199,7 @@ impl Runner for SignerRunner {
             .services
             .single_signer
             .compute_aggregate_verification_key(&signers, &protocol_initializer)?
-            .ok_or_else(|| RuntimeError::NoValueError)?;
+            .ok_or(RuntimeError::NoValueError)?;
         message.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
 
         Ok((message, signers))
@@ -208,7 +208,7 @@ impl Runner for SignerRunner {
     async fn compute_single_signature(
         &self,
         message: &ProtocolMessage,
-        signers: &Vec<SignerWithStake>,
+        signers: &[SignerWithStake],
         epoch: Epoch,
     ) -> Result<Option<SingleSignatures>, Box<dyn StdError + Sync + Send>> {
         let protocol_initializer = self
@@ -216,9 +216,9 @@ impl Runner for SignerRunner {
             .protocol_initializer_store
             .get_protocol_initializer(epoch)
             .await?
-            .ok_or_else(|| RuntimeError::NoValueError)?;
+            .ok_or(RuntimeError::NoValueError)?;
         let signature = self.services.single_signer.compute_single_signatures(
-            &message,
+            message,
             signers,
             &protocol_initializer,
         )?;

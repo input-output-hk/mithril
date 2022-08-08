@@ -55,7 +55,7 @@ impl StateMachine {
                 if let Some(pending_certificate) = self.runner.get_pending_certificate().await? {
                     debug!("Pending certificate found, launching registration.");
                     let state = self
-                        .from_unregistered_to_registered(&pending_certificate)
+                        .transition_from_unregistered_to_registered(&pending_certificate)
                         .await?;
                     self.state = SignerState::Registered(state);
                 }
@@ -67,7 +67,9 @@ impl StateMachine {
                     self.runner.get_pending_certificate().await?
                 {
                     if let Some(_signer) = self.runner.can_i_sign(&pending_certificate) {
-                        let state = self.from_registered_to_signed(&pending_certificate).await?;
+                        let state = self
+                            .transition_from_registered_to_signed(&pending_certificate)
+                            .await?;
                         self.state = SignerState::Signed(state)
                     }
                 }
@@ -110,7 +112,7 @@ impl StateMachine {
         }
     }
 
-    async fn from_unregistered_to_registered(
+    async fn transition_from_unregistered_to_registered(
         &self,
         pending_certificate: &CertificatePending,
     ) -> Result<RegisteredState, Box<dyn Error + Sync + Send>> {
@@ -123,7 +125,7 @@ impl StateMachine {
         Ok(RegisteredState { beacon })
     }
 
-    async fn from_registered_to_signed(
+    async fn transition_from_registered_to_signed(
         &self,
         pending_certificate: &CertificatePending,
     ) -> Result<SignedState, Box<dyn Error + Sync + Send>> {
