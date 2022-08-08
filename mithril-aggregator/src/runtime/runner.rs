@@ -214,6 +214,12 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             Err(ProtocolError::Beacon(_)) => vec![],
             Err(e) => return Err(e.into()),
         };
+        let next_signer = match multi_signer.get_next_signers_with_stake().await {
+            Ok(signers) => signers,
+            Err(ProtocolError::Beacon(_)) => vec![],
+            Err(e) => return Err(e.into()),
+        };
+
         let pending_certificate = CertificatePending::new(
             beacon,
             multi_signer
@@ -222,6 +228,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                 .ok_or_else(|| RuntimeError::General("no protocol parameters".to_string().into()))?
                 .into(),
             signers,
+            next_signer,
         );
 
         Ok(pending_certificate)
@@ -395,14 +402,53 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
 #[cfg(test)]
 pub mod tests {
+    use crate::dependency::{StakeStoreWrapper, VerificationKeyStoreWrapper};
     use crate::snapshotter::OngoingSnapshot;
     use crate::{
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
+        VerificationKeyStorer,
     };
-    use mithril_common::{entities::Beacon, entities::ProtocolMessagePartKey, store::StakeStorer};
+    use mithril_common::entities::{
+        Beacon, CertificatePending, Signer, SignerWithStake, StakeDistribution,
+    };
+    use mithril_common::{
+        entities::ProtocolMessagePartKey, fake_data, store::StakeStorer,
+        SIGNER_EPOCH_RETRIEVAL_OFFSET, SIGNER_EPOCH_SIGNING_OFFSET,
+    };
+    use std::collections::HashSet;
     use std::sync::Arc;
     use tempfile::NamedTempFile;
+
+    async fn save_verification_keys_and_stake_distribution(
+        signers: Vec<SignerWithStake>,
+        beacon: &Beacon,
+        epoch_offset: i64,
+        key_store: VerificationKeyStoreWrapper,
+        stake_store: StakeStoreWrapper,
+    ) {
+        let epoch = beacon
+            .compute_beacon_with_epoch_offset(epoch_offset)
+            .expect("compute_beacon_with_epoch_offset should not fail")
+            .epoch;
+        for signer in signers.iter().map(|s| s.into()).collect::<Vec<_>>() {
+            key_store
+                .save_verification_key(epoch, signer)
+                .await
+                .expect("save_verification_key should not fail");
+        }
+        let mut stake_store = stake_store.write().await;
+        stake_store
+            .save_stakes(
+                epoch,
+                signers
+                    .into_iter()
+                    .map(|s| s.into())
+                    .collect::<StakeDistribution>(),
+            )
+            .await
+            .expect("save_stakes should not fail");
+    }
 
     #[tokio::test]
     async fn test_is_new_beacon() {
@@ -501,15 +547,47 @@ pub mod tests {
     #[tokio::test]
     async fn test_create_new_pending_certificate_from_multisigner() {
         let (deps, config) = initialize_dependencies().await;
-        let runner = AggregatorRunner::new(config, Arc::new(deps));
+        let deps = Arc::new(deps);
+        let runner = AggregatorRunner::new(config, deps.clone());
         let beacon = runner.is_new_beacon(None).await.unwrap().unwrap();
         runner.update_beacon(&beacon).await.unwrap();
-        let certificate = runner
+
+        let signers = fake_data::signers_with_stakes(5);
+        let current_signers = signers[1..3].to_vec();
+        let next_signers = signers[2..5].to_vec();
+        save_verification_keys_and_stake_distribution(
+            current_signers.clone(),
+            &beacon,
+            SIGNER_EPOCH_RETRIEVAL_OFFSET,
+            deps.verification_key_store.clone(),
+            deps.stake_store.clone(),
+        )
+        .await;
+        save_verification_keys_and_stake_distribution(
+            next_signers.clone(),
+            &beacon,
+            SIGNER_EPOCH_SIGNING_OFFSET,
+            deps.verification_key_store.clone(),
+            deps.stake_store.clone(),
+        )
+        .await;
+
+        let mut certificate = runner
             .create_new_pending_certificate_from_multisigner(beacon.clone())
             .await
             .unwrap();
+        certificate.signers.sort_by_key(|s| s.party_id.clone());
+        certificate.next_signers.sort_by_key(|s| s.party_id.clone());
+        let mut expected = CertificatePending::new(
+            beacon,
+            fake_data::protocol_parameters(),
+            current_signers.into_iter().map(|s| s.into()).collect(),
+            next_signers,
+        );
+        expected.signers.sort_by_key(|s| s.party_id.clone());
+        expected.next_signers.sort_by_key(|s| s.party_id.clone());
 
-        assert_eq!(beacon, certificate.beacon);
+        assert_eq!(expected, certificate);
     }
 
     #[tokio::test]

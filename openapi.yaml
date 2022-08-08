@@ -19,9 +19,9 @@ servers:
 paths:
   /certificate-pending:
     get:
-      summary: Get current pending certificate informations
+      summary: Get current pending certificate information
       description: |
-        Returns the informations related to the current pending certificate:
+        Returns the information related to the current pending certificate:
           * protocol parameters (to setup cryptography)
           * beacon information (where on the chain the pending certificate should be triggered)
           * verification keys of the signers
@@ -121,9 +121,9 @@ paths:
                 $ref: "#/components/schemas/Error"
   /snapshot/{digest}:
     get:
-      summary: Get snapshot informations
+      summary: Get snapshot information
       description: |
-        Returns the informations of a snapshot and where to retrieve its binary content
+        Returns the information of a snapshot and where to retrieve its binary content
       parameters:
         - name: digest
           in: path
@@ -154,7 +154,7 @@ paths:
       description: |
         Registers a signer for the next certificate production
       requestBody:
-        description: Signer informations to register
+        description: Signer information to register
         required: true
         content:
           application/json:
@@ -245,13 +245,14 @@ components:
         { "network": "mainnet", "epoch": 329, "immutable_file_number": 7060000 }
 
     CertificatePending:
-      description: CertificatePending represents all the informations related to the certificate currently expecting to receive quorum of single signatures
+      description: CertificatePending represents all the information related to the certificate currently expecting to receive quorum of single signatures
       type: object
       additionalProperties: false
       required:
         - beacon
         - protocol
         - signers
+        - next_signers
       properties:
         beacon:
           $ref: "#/components/schemas/Beacon"
@@ -261,6 +262,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/Signer"
+        next_signers:
+          type: array
+          items:
+            $ref: "#/components/schemas/SignerWithStake"
 
     Stake:
       description: Stake represents the stakes of a participant in the Cardano chain

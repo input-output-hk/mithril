@@ -59,6 +59,13 @@ export default function PendingCertificate(props) {
                     <ListGroup.Item key={signer.party_id}>Party id: {signer.party_id}</ListGroup.Item>
                 )}</ListGroup> 
               }
+              <Card.Title>Next Signers</Card.Title>
+              {pendingCertificate.next_signers.length === 0
+                ? <div>No Signers registered</div>
+                : <ListGroup>{pendingCertificate.next_signers.map(signer =>
+                  <ListGroup.Item key={signer.party_id}>Party id: {signer.party_id}</ListGroup.Item>
+                )}</ListGroup>
+              }
             </Card.Body>
           </Card>
         </CardGroup>
