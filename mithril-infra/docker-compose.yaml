@@ -69,6 +69,7 @@ services:
       - STAKE_STORE_DIRECTORY=/mithril-aggregator/stake_db
       - SNAPSHOT_STORE_DIRECTORY=/mithril-aggregator/snapshot_db
       - SINGLE_SIGNATURE_STORE_DIRECTORY=/mithril-aggregator/single_signature_db
+      - PROTOCOL_PARAMETERS_STORE_DIRECTORY=/mithril-aggregator/protocol_parameters_db
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
     volumes:
