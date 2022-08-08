@@ -46,6 +46,10 @@ impl Aggregator {
                 "./store/aggregator/single_signatures",
             ),
             (
+                "PROTOCOL_PARAMETERS_STORE_DIRECTORY",
+                "./store/aggregator/protocol_parameters",
+            ),
+            (
                 "CARDANO_NODE_SOCKET_PATH",
                 bft_node.socket_path.to_str().unwrap(),
             ),
