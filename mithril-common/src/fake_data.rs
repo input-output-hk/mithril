@@ -47,8 +47,8 @@ pub fn certificate_pending() -> entities::CertificatePending {
     let protocol_parameters = protocol_parameters();
 
     // Signers
-    let signers = signers_with_stakes(5);
-    let current_signers: Vec<entities::Signer> = signers[1..3].iter().map(|s| s.into()).collect();
+    let signers = signers(5);
+    let current_signers = signers[1..3].to_vec();
     let next_signers = signers[2..5].to_vec();
 
     // Certificate pending

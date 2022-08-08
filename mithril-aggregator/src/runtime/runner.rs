@@ -228,7 +228,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                 .ok_or_else(|| RuntimeError::General("no protocol parameters".to_string().into()))?
                 .into(),
             signers,
-            next_signer,
+            next_signer.into_iter().map(|s| s.into()).collect(),
         );
 
         Ok(pending_certificate)
@@ -410,13 +410,12 @@ pub mod tests {
         VerificationKeyStorer,
     };
     use mithril_common::entities::{
-        Beacon, CertificatePending, Signer, SignerWithStake, StakeDistribution,
+        Beacon, CertificatePending, SignerWithStake, StakeDistribution,
     };
     use mithril_common::{
         entities::ProtocolMessagePartKey, fake_data, store::StakeStorer,
-        SIGNER_EPOCH_RETRIEVAL_OFFSET, SIGNER_EPOCH_SIGNING_OFFSET,
+        NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET, SIGNER_EPOCH_RETRIEVAL_OFFSET,
     };
-    use std::collections::HashSet;
     use std::sync::Arc;
     use tempfile::NamedTempFile;
 
@@ -566,7 +565,7 @@ pub mod tests {
         save_verification_keys_and_stake_distribution(
             next_signers.clone(),
             &beacon,
-            SIGNER_EPOCH_SIGNING_OFFSET,
+            NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET,
             deps.verification_key_store.clone(),
             deps.stake_store.clone(),
         )
@@ -582,7 +581,7 @@ pub mod tests {
             beacon,
             fake_data::protocol_parameters(),
             current_signers.into_iter().map(|s| s.into()).collect(),
-            next_signers,
+            next_signers.into_iter().map(|s| s.into()).collect(),
         );
         expected.signers.sort_by_key(|s| s.party_id.clone());
         expected.next_signers.sort_by_key(|s| s.party_id.clone());

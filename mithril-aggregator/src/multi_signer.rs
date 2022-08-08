@@ -15,7 +15,8 @@ use mithril_common::crypto_helper::{
 use mithril_common::entities;
 use mithril_common::store::{StakeStoreError, StakeStorer};
 use mithril_common::{
-    SIGNER_EPOCH_RECORDING_OFFSET, SIGNER_EPOCH_RETRIEVAL_OFFSET, SIGNER_EPOCH_SIGNING_OFFSET,
+    NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET, SIGNER_EPOCH_RECORDING_OFFSET,
+    SIGNER_EPOCH_RETRIEVAL_OFFSET,
 };
 
 use crate::dependency::{
@@ -371,7 +372,7 @@ impl MultiSigner for MultiSignerImpl {
         &self,
     ) -> Result<ProtocolStakeDistribution, ProtocolError> {
         debug!("Get next stake distribution");
-        self.get_stake_distribution_with_epoch_offset(SIGNER_EPOCH_SIGNING_OFFSET)
+        self.get_stake_distribution_with_epoch_offset(NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET)
             .await
     }
 
@@ -501,7 +502,7 @@ impl MultiSigner for MultiSignerImpl {
             .current_beacon
             .as_ref()
             .ok_or_else(ProtocolError::UnavailableBeacon)?
-            .compute_beacon_with_epoch_offset(SIGNER_EPOCH_SIGNING_OFFSET)?
+            .compute_beacon_with_epoch_offset(NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET)?
             .epoch;
         let signers = self
             .verification_key_store

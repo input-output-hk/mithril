@@ -29,7 +29,7 @@ pub const SIGNER_EPOCH_RETRIEVAL_OFFSET: i64 = -1;
 
 /// The epoch offset used to retrieve the signers stake distribution and verification keys that's
 /// currently being signed so it can be used in the next epoch.
-pub const SIGNER_EPOCH_SIGNING_OFFSET: i64 = 0;
+pub const NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET: i64 = 0;
 
 /// The epoch offset used for signers stake distribution and verification keys recording.
 pub const SIGNER_EPOCH_RECORDING_OFFSET: i64 = 1;

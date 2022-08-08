@@ -146,7 +146,7 @@ pub struct CertificatePending {
 
     /// Signers that will be able to sign on the next epoch
     #[serde(rename = "next_signers")]
-    pub next_signers: Vec<SignerWithStake>,
+    pub next_signers: Vec<Signer>,
 }
 
 impl CertificatePending {
@@ -155,7 +155,7 @@ impl CertificatePending {
         beacon: Beacon,
         protocol_parameters: ProtocolParameters,
         signers: Vec<Signer>,
-        next_signers: Vec<SignerWithStake>,
+        next_signers: Vec<Signer>,
     ) -> CertificatePending {
         CertificatePending {
             beacon,
