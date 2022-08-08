@@ -25,6 +25,9 @@ impl Aggregator {
         let magic_id = DEVNET_MAGIC_ID.to_string();
         let env = HashMap::from([
             ("NETWORK", "devnet"),
+            ("PROTOCOL_PARAMETERS__K", "5"),
+            ("PROTOCOL_PARAMETERS__M", "100"),
+            ("PROTOCOL_PARAMETERS__PHI_F", "0.65"),
             ("RUN_INTERVAL", "600"),
             ("URL_SNAPSHOT_MANIFEST", ""),
             ("SNAPSHOT_STORE_TYPE", "local"),
