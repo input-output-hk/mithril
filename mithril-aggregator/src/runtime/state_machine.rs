@@ -199,21 +199,24 @@ impl AggregatorRuntime {
         if maybe_current_beacon.is_none() || maybe_current_beacon.unwrap().epoch < new_beacon.epoch
         {
             self.runner.update_stake_distribution(&new_beacon).await?;
+            self.runner
+                .update_protocol_parameters_in_multisigner(&new_beacon)
+                .await?;
         }
         let digester_result = self.runner.compute_digest(&new_beacon).await?;
         self.runner
             .update_message_in_multisigner(digester_result)
             .await?;
-        let certificate = self
+        let certificate_pending = self
             .runner
             .create_new_pending_certificate_from_multisigner(new_beacon.clone())
             .await?;
         self.runner
-            .save_pending_certificate(certificate.clone())
+            .save_pending_certificate(certificate_pending.clone())
             .await?;
         let state = SigningState {
             current_beacon: new_beacon,
-            certificate_pending: certificate,
+            certificate_pending,
         };
 
         Ok(state)
@@ -277,6 +280,11 @@ mod tests {
             .returning(|_| Ok(()));
         runner
             .expect_update_stake_distribution()
+            .with(predicate::eq(fake_data::beacon()))
+            .times(1)
+            .returning(|_| Ok(()));
+        runner
+            .expect_update_protocol_parameters_in_multisigner()
             .with(predicate::eq(fake_data::beacon()))
             .times(1)
             .returning(|_| Ok(()));

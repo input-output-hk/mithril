@@ -2,7 +2,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use mithril_aggregator::{
     AggregatorConfig, CertificatePendingStore, CertificateStore, Config, DependencyManager,
-    DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore, MultiSigner, MultiSignerImpl,
+    DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore, MultiSignerImpl,
     ProtocolParametersStore, SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType,
     VerificationKeyStore,
 };
@@ -10,7 +10,6 @@ use mithril_common::digesters::DumbImmutableFileObserver;
 use mithril_common::fake_data;
 use mithril_common::{
     chain_observer::FakeObserver,
-    crypto_helper::tests_setup::setup_protocol_parameters,
     digesters::DumbImmutableDigester,
     store::{adapter::MemoryAdapter, StakeStore},
     BeaconProviderImpl, CardanoNetwork,
@@ -56,21 +55,13 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
     let protocol_parameters_store = Arc::new(ProtocolParametersStore::new(Box::new(
         MemoryAdapter::new(None).unwrap(),
     )));
-    let multi_signer = async {
-        let protocol_parameters = setup_protocol_parameters();
-        let mut multi_signer = MultiSignerImpl::new(
-            verification_key_store.clone(),
-            stake_store.clone(),
-            single_signature_store.clone(),
-        );
-        multi_signer
-            .update_protocol_parameters(&protocol_parameters)
-            .await
-            .expect("fake update protocol parameters failed");
-
-        multi_signer
-    };
-    let multi_signer = Arc::new(RwLock::new(multi_signer.await));
+    let multi_signer = MultiSignerImpl::new(
+        verification_key_store.clone(),
+        stake_store.clone(),
+        single_signature_store.clone(),
+        protocol_parameters_store.clone(),
+    );
+    let multi_signer = Arc::new(RwLock::new(multi_signer));
     let immutable_file_observer = Arc::new(DumbImmutableFileObserver::default());
     let chain_observer = Arc::new(FakeObserver::default());
     let beacon_provider = Arc::new(BeaconProviderImpl::new(

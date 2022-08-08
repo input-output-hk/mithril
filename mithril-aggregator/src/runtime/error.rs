@@ -1,6 +1,6 @@
 use crate::snapshot_stores::SnapshotStoreError;
 use crate::store::StoreError;
-use crate::{ProtocolError, SnapshotError};
+use crate::{ProtocolError, ProtocolParametersStoreError, SnapshotError};
 
 use mithril_common::chain_observer::ChainObserverError;
 use mithril_common::digesters::{ImmutableDigesterError, ImmutableFileListingError};
@@ -27,6 +27,9 @@ pub enum RuntimeError {
 
     #[error("stake store error: {0}")]
     StakeStore(#[from] StakeStoreError),
+
+    #[error("protocol parameters store error: {0}")]
+    ProtocolParametersStore(#[from] ProtocolParametersStoreError),
 
     #[error("store error: {0}")]
     StoreError(#[from] StoreError),

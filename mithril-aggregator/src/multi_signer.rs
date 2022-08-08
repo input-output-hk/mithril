@@ -20,12 +20,14 @@ use mithril_common::{
 };
 
 use crate::dependency::{
-    SingleSignatureStoreWrapper, StakeStoreWrapper, VerificationKeyStoreWrapper,
+    ProtocolParametersStoreWrapper, SingleSignatureStoreWrapper, StakeStoreWrapper,
+    VerificationKeyStoreWrapper,
 };
 use crate::store::{
     SingleSignatureStoreError, SingleSignatureStorer, VerificationKeyStoreError,
     VerificationKeyStorer,
 };
+use crate::{ProtocolParametersStoreError, ProtocolParametersStorer};
 
 #[cfg(test)]
 use mockall::automock;
@@ -65,6 +67,9 @@ pub enum ProtocolError {
     #[error("single signature store error: '{0}'")]
     SingleSignatureStore(#[from] SingleSignatureStoreError),
 
+    #[error("protocol parameters store error: '{0}'")]
+    ProtocolParametersStore(#[from] ProtocolParametersStoreError),
+
     #[error("beacon error: '{0}'")]
     Beacon(#[from] entities::EpochError),
 }
@@ -92,13 +97,18 @@ pub trait MultiSigner: Sync + Send {
     ) -> Result<(), ProtocolError>;
 
     /// Get protocol parameters
-    async fn get_protocol_parameters(&self) -> Option<ProtocolParameters>;
+    async fn get_protocol_parameters(&self) -> Result<Option<ProtocolParameters>, ProtocolError>;
 
     /// Update protocol parameters
     async fn update_protocol_parameters(
         &mut self,
         protocol_parameters: &ProtocolParameters,
     ) -> Result<(), ProtocolError>;
+
+    /// Get next protocol parameters
+    async fn get_next_protocol_parameters(
+        &self,
+    ) -> Result<Option<ProtocolParameters>, ProtocolError>;
 
     /// Get stake distribution
     async fn get_stake_distribution(&self) -> Result<ProtocolStakeDistribution, ProtocolError>;
@@ -117,16 +127,21 @@ pub trait MultiSigner: Sync + Send {
     /// Compute aggregate verification key from stake distribution
     async fn compute_aggregate_verification_key(
         &self,
-        signers_with_stake: &[SignerWithStake],
+        stakes: &ProtocolStakeDistribution,
+        protocol_parameters: &ProtocolParameters,
     ) -> Result<Option<ProtocolAggregateVerificationKey>, ProtocolError>;
 
     /// Compute stake distribution aggregate verification key
     async fn compute_stake_distribution_aggregate_verification_key(
         &self,
     ) -> Result<Option<String>, ProtocolError> {
-        let signers_with_stake = self.get_signers_with_stake().await?;
+        let stakes = self.get_stake_distribution().await?;
+        let protocol_parameters = self
+            .get_protocol_parameters()
+            .await?
+            .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
         match self
-            .compute_aggregate_verification_key(&signers_with_stake)
+            .compute_aggregate_verification_key(&stakes, &protocol_parameters)
             .await?
         {
             Some(avk) => Ok(Some(key_encode_hex(avk).map_err(ProtocolError::Codec)?)),
@@ -138,9 +153,13 @@ pub trait MultiSigner: Sync + Send {
     async fn compute_next_stake_distribution_aggregate_verification_key(
         &self,
     ) -> Result<Option<String>, ProtocolError> {
-        let next_signers_with_stake = self.get_next_signers_with_stake().await?;
+        let stakes = self.get_next_stake_distribution().await?;
+        let protocol_parameters = self
+            .get_next_protocol_parameters()
+            .await?
+            .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
         match self
-            .compute_aggregate_verification_key(&next_signers_with_stake)
+            .compute_aggregate_verification_key(&stakes, &protocol_parameters)
             .await?
         {
             Some(avk) => Ok(Some(key_encode_hex(avk).map_err(ProtocolError::Codec)?)),
@@ -214,9 +233,6 @@ pub struct MultiSignerImpl {
     /// Signing start datetime of current message
     current_initiated_at: Option<DateTime<Utc>>,
 
-    /// Protocol parameters used for signing
-    protocol_parameters: Option<ProtocolParameters>,
-
     /// Clerk used for verifying the single signatures
     clerk: Option<ProtocolClerk>,
 
@@ -234,6 +250,9 @@ pub struct MultiSignerImpl {
 
     /// Single signature store
     single_signature_store: SingleSignatureStoreWrapper,
+
+    /// Protocol parameters store
+    protocol_parameters_store: ProtocolParametersStoreWrapper,
 }
 
 impl MultiSignerImpl {
@@ -242,26 +261,28 @@ impl MultiSignerImpl {
         verification_key_store: VerificationKeyStoreWrapper,
         stake_store: StakeStoreWrapper,
         single_signature_store: SingleSignatureStoreWrapper,
+        protocol_parameters_store: ProtocolParametersStoreWrapper,
     ) -> Self {
         debug!("New MultiSignerImpl created");
         Self {
             current_message: None,
             current_beacon: None,
             current_initiated_at: None,
-            protocol_parameters: None,
             clerk: None,
             multi_signature: None,
             avk: None,
             verification_key_store,
             stake_store,
             single_signature_store,
+            protocol_parameters_store,
         }
     }
 
     /// Creates a clerk
     pub async fn create_clerk(
         &self,
-        signers_with_stake: &[SignerWithStake],
+        stakes: &ProtocolStakeDistribution,
+        protocol_parameters: &ProtocolParameters,
     ) -> Result<Option<ProtocolClerk>, ProtocolError> {
         debug!("Create clerk");
         let mut key_registration = ProtocolKeyRegistration::init();
@@ -279,9 +300,7 @@ impl MultiSignerImpl {
             _ => {
                 let closed_registration = key_registration.close();
                 Ok(Some(ProtocolClerk::from_registration(
-                    &self
-                        .protocol_parameters
-                        .ok_or_else(ProtocolError::UnavailableProtocolParameters)?,
+                    protocol_parameters,
                     &closed_registration,
                 )))
             }
@@ -308,6 +327,28 @@ impl MultiSignerImpl {
             .unwrap_or_default();
         Ok(stakes.into_iter().collect::<ProtocolStakeDistribution>())
     }
+
+    /// Get protocol parameters with epoch offset
+    async fn get_protocol_parameters_with_epoch_offset(
+        &self,
+        epoch_offset: i64,
+    ) -> Result<Option<ProtocolParameters>, ProtocolError> {
+        debug!("Get protocol parameters with epoch offset"; "epoch_offset"=>epoch_offset);
+        let epoch = self
+            .current_beacon
+            .as_ref()
+            .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .compute_beacon_with_epoch_offset(epoch_offset)?
+            .epoch;
+
+        Ok(Some(
+            self.protocol_parameters_store
+                .get_protocol_parameters(epoch)
+                .await?
+                .unwrap_or_default()
+                .into(),
+        ))
+    }
 }
 
 #[async_trait]
@@ -326,8 +367,12 @@ impl MultiSigner for MultiSignerImpl {
         debug!("Update current_message to {:?}", message);
         if self.current_message.clone() != Some(message.clone()) {
             self.multi_signature = None;
-            let signers_with_stake = self.get_signers_with_stake().await?;
-            match self.create_clerk(&signers_with_stake).await {
+            let stakes = self.get_stake_distribution().await?;
+            let protocol_parameters = self
+                .get_protocol_parameters()
+                .await?
+                .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
+            match self.create_clerk(&stakes, &protocol_parameters).await {
                 Ok(clerk) => self.clerk = clerk,
                 Err(ProtocolError::Beacon(_)) => {}
                 Err(e) => return Err(e),
@@ -352,9 +397,19 @@ impl MultiSigner for MultiSignerImpl {
     }
 
     /// Get protocol parameters
-    async fn get_protocol_parameters(&self) -> Option<ProtocolParameters> {
+    async fn get_protocol_parameters(&self) -> Result<Option<ProtocolParameters>, ProtocolError> {
         debug!("Get protocol parameters");
-        self.protocol_parameters
+        self.get_protocol_parameters_with_epoch_offset(SIGNER_EPOCH_RETRIEVAL_OFFSET)
+            .await
+    }
+
+    /// Get next protocol parameters
+    async fn get_next_protocol_parameters(
+        &self,
+    ) -> Result<Option<ProtocolParameters>, ProtocolError> {
+        debug!("Get protocol parameters");
+        self.get_protocol_parameters_with_epoch_offset(NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET)
+            .await
     }
 
     /// Update protocol parameters
@@ -363,7 +418,16 @@ impl MultiSigner for MultiSignerImpl {
         protocol_parameters: &ProtocolParameters,
     ) -> Result<(), ProtocolError> {
         debug!("Update protocol parameters to {:?}", protocol_parameters);
-        self.protocol_parameters = Some(protocol_parameters.to_owned());
+        let epoch = self
+            .current_beacon
+            .as_ref()
+            .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .compute_beacon_with_epoch_offset(SIGNER_EPOCH_RECORDING_OFFSET)?
+            .epoch;
+
+        self.protocol_parameters_store
+            .save_protocol_parameters(epoch, protocol_parameters.to_owned().into())
+            .await?;
         Ok(())
     }
 
@@ -404,10 +468,10 @@ impl MultiSigner for MultiSignerImpl {
     /// Compute aggregate verification key from stake distribution
     async fn compute_aggregate_verification_key(
         &self,
-        signers_with_stake: &[SignerWithStake],
+        stakes: &ProtocolStakeDistribution,
+        protocol_parameters: &ProtocolParameters,
     ) -> Result<Option<ProtocolAggregateVerificationKey>, ProtocolError> {
-        debug!("Compute avk");
-        match self.create_clerk(signers_with_stake).await? {
+        match self.create_clerk(stakes, protocol_parameters).await? {
             Some(clerk) => Ok(Some(clerk.compute_avk())),
             None => Ok(None),
         }
@@ -546,8 +610,9 @@ impl MultiSigner for MultiSignerImpl {
             .get_current_message()
             .await
             .ok_or_else(ProtocolError::UnavailableMessage)?;
-        let protocol_parameters = &self
-            .protocol_parameters
+        let protocol_parameters = self
+            .get_protocol_parameters()
+            .await?
             .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
         let avk = &self
             .clerk
@@ -558,7 +623,7 @@ impl MultiSigner for MultiSignerImpl {
         signatures
             .to_protocol_signature()
             .map_err(ProtocolError::Codec)?
-            .verify(protocol_parameters, avk, message.compute_hash().as_bytes())
+            .verify(&protocol_parameters, avk, message.compute_hash().as_bytes())
             .map_err(|e| ProtocolError::Core(e.to_string()))?;
 
         // Register single signature
@@ -613,7 +678,11 @@ impl MultiSigner for MultiSignerImpl {
                     .ok()
             })
             .collect::<Vec<_>>();
-        if self.protocol_parameters.unwrap().k
+        let protocol_parameters = self
+            .get_protocol_parameters()
+            .await?
+            .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
+        if protocol_parameters.k
             > signatures
                 .iter()
                 .map(|s| s.indexes.len())
@@ -624,7 +693,7 @@ impl MultiSigner for MultiSignerImpl {
             debug!(
                 "Quorum is not reached {} signatures vs {} needed",
                 signatures.len(),
-                self.protocol_parameters.unwrap().k
+                protocol_parameters.k
             );
             return Ok(None);
         }
@@ -655,7 +724,7 @@ impl MultiSigner for MultiSignerImpl {
                 let protocol_version = PROTOCOL_VERSION.to_string();
                 let protocol_parameters = self
                     .get_protocol_parameters()
-                    .await
+                    .await?
                     .ok_or_else(ProtocolError::UnavailableProtocolParameters)?
                     .into();
                 let initiated_at =
@@ -697,6 +766,7 @@ impl MultiSigner for MultiSignerImpl {
 mod tests {
     use super::*;
     use crate::store::{SingleSignatureStore, VerificationKeyStore};
+    use crate::ProtocolParametersStore;
 
     use mithril_common::crypto_helper::tests_setup::*;
     use mithril_common::fake_data;
@@ -726,10 +796,14 @@ mod tests {
             >::new(None)
             .unwrap(),
         ));
+        let protocol_parameters_store = ProtocolParametersStore::new(Box::new(
+            MemoryAdapter::<entities::Epoch, entities::ProtocolParameters>::new(None).unwrap(),
+        ));
         let mut multi_signer = MultiSignerImpl::new(
             Arc::new(verification_key_store),
             Arc::new(stake_store),
             Arc::new(single_signature_store),
+            Arc::new(protocol_parameters_store),
         );
 
         multi_signer
@@ -793,11 +867,20 @@ mod tests {
             .await
             .expect("update protocol parameters failed");
 
+        offset_epoch(
+            &mut multi_signer,
+            (SIGNER_EPOCH_RECORDING_OFFSET - SIGNER_EPOCH_RETRIEVAL_OFFSET) as i64,
+        )
+        .await;
+
         let protocol_parameters = multi_signer
             .get_protocol_parameters()
             .await
             .expect("protocol parameters should have been retrieved");
-        assert_eq!(protocol_parameters_expected, protocol_parameters)
+        let protocol_parameters: entities::ProtocolParameters = protocol_parameters.unwrap().into();
+        let protocol_parameters_expected: entities::ProtocolParameters =
+            protocol_parameters_expected.into();
+        assert_eq!(protocol_parameters_expected, protocol_parameters);
     }
 
     #[tokio::test]

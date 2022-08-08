@@ -80,7 +80,7 @@ pub struct DependencyManager {
 pub mod tests {
     use crate::{
         AggregatorConfig, CertificatePendingStore, CertificateStore, Config, DependencyManager,
-        DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore, MultiSigner, MultiSignerImpl,
+        DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore, MultiSignerImpl,
         ProtocolParametersStore, SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType,
         VerificationKeyStore,
     };
@@ -138,21 +138,13 @@ pub mod tests {
         let protocol_parameters_store = Arc::new(ProtocolParametersStore::new(Box::new(
             MemoryAdapter::new(None).unwrap(),
         )));
-        let multi_signer = async {
-            let protocol_parameters = fake_data::protocol_parameters();
-            let mut multi_signer = MultiSignerImpl::new(
-                verification_key_store.clone(),
-                stake_store.clone(),
-                single_signature_store.clone(),
-            );
-            multi_signer
-                .update_protocol_parameters(&protocol_parameters.into())
-                .await
-                .expect("fake update protocol parameters failed");
-
-            multi_signer
-        };
-        let multi_signer = Arc::new(RwLock::new(multi_signer.await));
+        let multi_signer = MultiSignerImpl::new(
+            verification_key_store.clone(),
+            stake_store.clone(),
+            single_signature_store.clone(),
+            protocol_parameters_store.clone(),
+        );
+        let multi_signer = Arc::new(RwLock::new(multi_signer));
         let immutable_file_observer = Arc::new(DumbImmutableFileObserver::default());
         let chain_observer = Arc::new(FakeObserver::default());
         let beacon_provider = Arc::new(BeaconProviderImpl::new(
