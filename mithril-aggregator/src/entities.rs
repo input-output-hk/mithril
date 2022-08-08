@@ -68,8 +68,11 @@ pub struct Config {
     /// Directory to store stakes
     pub stake_store_directory: PathBuf,
 
-    /// Directory to single signatures
+    /// Directory to store single signatures
     pub single_signature_store_directory: PathBuf,
+
+    /// Directory to store protocol parameters
+    pub protocol_parameters_store_directory: PathBuf,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

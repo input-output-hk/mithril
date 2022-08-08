@@ -3,7 +3,7 @@
 use mithril_aggregator::{
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
     CertificateStore, Config, DependencyManager, GzipSnapshotter, MultiSigner, MultiSignerImpl,
-    Server, SingleSignatureStore, VerificationKeyStore,
+    ProtocolParametersStore, Server, SingleSignatureStore, VerificationKeyStore,
 };
 use mithril_common::chain_observer::CardanoCliRunner;
 use mithril_common::digesters::{CardanoImmutableDigester, ImmutableFileSystemObserver};
@@ -143,6 +143,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let single_signature_store = Arc::new(SingleSignatureStore::new(Box::new(
         JsonFileStoreAdapter::new(config.single_signature_store_directory.clone())?,
     )));
+    let protocol_parameters_store = Arc::new(ProtocolParametersStore::new(Box::new(
+        JsonFileStoreAdapter::new(config.protocol_parameters_store_directory.clone())?,
+    )));
     let multi_signer = Arc::new(RwLock::new(MultiSignerImpl::new(
         verification_key_store.clone(),
         stake_store.clone(),
@@ -191,6 +194,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         verification_key_store: verification_key_store.clone(),
         stake_store: stake_store.clone(),
         single_signature_store: single_signature_store.clone(),
+        protocol_parameters_store: protocol_parameters_store.clone(),
         chain_observer: chain_observer.clone(),
         beacon_provider: beacon_provider.clone(),
         immutable_file_observer,

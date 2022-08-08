@@ -11,8 +11,8 @@ use crate::multi_signer::MultiSigner;
 use crate::snapshot_stores::SnapshotStore;
 use crate::snapshot_uploaders::SnapshotUploader;
 use crate::{
-    CertificatePendingStore, CertificateStore, SingleSignatureStore, Snapshotter,
-    VerificationKeyStore,
+    CertificatePendingStore, CertificateStore, ProtocolParametersStore, SingleSignatureStore,
+    Snapshotter, VerificationKeyStore,
 };
 
 ///  SnapshotStoreWrapper wraps a SnapshotStore
@@ -38,6 +38,9 @@ pub type StakeStoreWrapper = Arc<StakeStore>;
 
 ///  SingleSignatureStoreWrapper wraps a SingleSignatureStore
 pub type SingleSignatureStoreWrapper = Arc<SingleSignatureStore>;
+
+///  ProtocolParametersStoreWrapper wraps ProtocolParameters
+pub type ProtocolParametersStoreWrapper = Arc<ProtocolParametersStore>;
 
 ///  ChainObserverWrapper wraps a ChainObserver
 pub type ChainObserverWrapper = Arc<dyn ChainObserver>;
@@ -65,6 +68,7 @@ pub struct DependencyManager {
     pub verification_key_store: VerificationKeyStoreWrapper,
     pub stake_store: StakeStoreWrapper,
     pub single_signature_store: SingleSignatureStoreWrapper,
+    pub protocol_parameters_store: ProtocolParametersStoreWrapper,
     pub chain_observer: ChainObserverWrapper,
     pub beacon_provider: BeaconProviderWrapper,
     pub immutable_file_observer: ImmutableFileObserverWrapper,
@@ -77,7 +81,8 @@ pub mod tests {
     use crate::{
         AggregatorConfig, CertificatePendingStore, CertificateStore, Config, DependencyManager,
         DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore, MultiSigner, MultiSignerImpl,
-        SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType, VerificationKeyStore,
+        ProtocolParametersStore, SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType,
+        VerificationKeyStore,
     };
     use mithril_common::digesters::{DumbImmutableDigester, DumbImmutableFileObserver};
     use mithril_common::{
@@ -109,6 +114,7 @@ pub mod tests {
             verification_key_store_directory: PathBuf::new(),
             stake_store_directory: PathBuf::new(),
             single_signature_store_directory: PathBuf::new(),
+            protocol_parameters_store_directory: PathBuf::new(),
         };
         let snapshot_store = Arc::new(LocalSnapshotStore::new(
             Box::new(MemoryAdapter::new(None).unwrap()),
@@ -126,6 +132,9 @@ pub mod tests {
         )));
         let stake_store = Arc::new(StakeStore::new(Box::new(MemoryAdapter::new(None).unwrap())));
         let single_signature_store = Arc::new(SingleSignatureStore::new(Box::new(
+            MemoryAdapter::new(None).unwrap(),
+        )));
+        let protocol_parameters_store = Arc::new(ProtocolParametersStore::new(Box::new(
             MemoryAdapter::new(None).unwrap(),
         )));
         let multi_signer = async {
@@ -160,6 +169,7 @@ pub mod tests {
             verification_key_store: verification_key_store.clone(),
             stake_store: stake_store.clone(),
             single_signature_store: single_signature_store.clone(),
+            protocol_parameters_store: protocol_parameters_store.clone(),
             chain_observer,
             beacon_provider,
             immutable_file_observer,

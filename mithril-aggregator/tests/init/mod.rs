@@ -3,7 +3,8 @@ use std::{path::PathBuf, sync::Arc};
 use mithril_aggregator::{
     AggregatorConfig, CertificatePendingStore, CertificateStore, Config, DependencyManager,
     DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore, MultiSigner, MultiSignerImpl,
-    SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType, VerificationKeyStore,
+    ProtocolParametersStore, SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType,
+    VerificationKeyStore,
 };
 use mithril_common::digesters::DumbImmutableFileObserver;
 use mithril_common::{
@@ -35,6 +36,7 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
         verification_key_store_directory: PathBuf::new(),
         stake_store_directory: PathBuf::new(),
         single_signature_store_directory: PathBuf::new(),
+        protocol_parameters_store_directory: PathBuf::new(),
     };
     let certificate_pending_store = Arc::new(CertificatePendingStore::new(Box::new(
         MemoryAdapter::new(None).unwrap(),
@@ -47,6 +49,9 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
     )));
     let stake_store = Arc::new(StakeStore::new(Box::new(MemoryAdapter::new(None).unwrap())));
     let single_signature_store = Arc::new(SingleSignatureStore::new(Box::new(
+        MemoryAdapter::new(None).unwrap(),
+    )));
+    let protocol_parameters_store = Arc::new(ProtocolParametersStore::new(Box::new(
         MemoryAdapter::new(None).unwrap(),
     )));
     let multi_signer = async {
@@ -88,6 +93,7 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
         verification_key_store: verification_key_store.clone(),
         stake_store: stake_store.clone(),
         single_signature_store: single_signature_store.clone(),
+        protocol_parameters_store: protocol_parameters_store.clone(),
         chain_observer,
         beacon_provider,
         immutable_file_observer,
