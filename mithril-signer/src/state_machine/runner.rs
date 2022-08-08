@@ -279,7 +279,7 @@ mod tests {
     fn get_current_beacon() -> Beacon {
         Beacon {
             network: "whatever".to_string(),
-            epoch: 9,
+            epoch: Epoch(9),
             immutable_file_number: 999,
         }
     }

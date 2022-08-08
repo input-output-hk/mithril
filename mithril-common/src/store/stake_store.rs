@@ -80,11 +80,11 @@ mod tests {
                 let party_id = format!("{}", party_idx);
                 signers.insert(party_id.clone(), 100 * party_idx + 1);
             }
-            values.push((epoch, signers));
+            values.push((Epoch(epoch), signers));
         }
 
         let values = if values.len() > 0 { Some(values) } else { None };
-        let adapter: MemoryAdapter<u64, StakeDistribution> = MemoryAdapter::new(values).unwrap();
+        let adapter: MemoryAdapter<Epoch, StakeDistribution> = MemoryAdapter::new(values).unwrap();
         StakeStore::new(Box::new(adapter))
     }
 
@@ -92,7 +92,7 @@ mod tests {
     async fn save_key_in_empty_store() {
         let store = init_store(0, 0);
         let res = store
-            .save_stakes(1, HashMap::from([("1".to_string(), 123)]))
+            .save_stakes(Epoch(1), HashMap::from([("1".to_string(), 123)]))
             .await
             .expect("Test adapter should not fail.");
 
@@ -103,7 +103,7 @@ mod tests {
     async fn update_signer_in_store() {
         let store = init_store(1, 1);
         let res = store
-            .save_stakes(1, HashMap::from([("1".to_string(), 123)]))
+            .save_stakes(Epoch(1), HashMap::from([("1".to_string(), 123)]))
             .await
             .expect("Test adapter should not fail.");
 
@@ -117,7 +117,7 @@ mod tests {
     async fn get_stakes_for_empty_epoch() {
         let store = init_store(2, 1);
         let res = store
-            .get_stakes(0)
+            .get_stakes(Epoch(0))
             .await
             .expect("Test adapter should not fail.");
 
@@ -128,7 +128,7 @@ mod tests {
     async fn get_stakes_for_existing_epoch() {
         let store = init_store(2, 2);
         let res = store
-            .get_stakes(1)
+            .get_stakes(Epoch(1))
             .await
             .expect("Test adapter should not fail.");
 

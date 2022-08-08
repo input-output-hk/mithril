@@ -91,7 +91,7 @@ mod tests {
                     },
                 );
             }
-            values.push((epoch, signers));
+            values.push((Epoch(epoch), signers));
         }
 
         let values = if !values.is_empty() {
@@ -109,7 +109,7 @@ mod tests {
         let store = init_store(0, 0);
         let res = store
             .save_verification_key(
-                0,
+                Epoch(0),
                 Signer {
                     party_id: "0".to_string(),
                     verification_key: "OK".to_string(),
@@ -126,7 +126,7 @@ mod tests {
         let store = init_store(1, 1);
         let res = store
             .save_verification_key(
-                1,
+                Epoch(1),
                 Signer {
                     party_id: "1".to_string(),
                     verification_key: "test".to_string(),
@@ -148,7 +148,7 @@ mod tests {
     #[tokio::test]
     async fn get_verification_keys_for_empty_epoch() {
         let store = init_store(2, 1);
-        let res = store.get_verification_keys(0).await.unwrap();
+        let res = store.get_verification_keys(Epoch(0)).await.unwrap();
 
         assert!(res.is_none());
     }
@@ -156,7 +156,7 @@ mod tests {
     #[tokio::test]
     async fn get_verification_keys_for_existing_epoch() {
         let store = init_store(2, 2);
-        let res = store.get_verification_keys(1).await.unwrap();
+        let res = store.get_verification_keys(Epoch(1)).await.unwrap();
 
         assert!(res.is_some());
         assert_eq!(2, res.unwrap().len());

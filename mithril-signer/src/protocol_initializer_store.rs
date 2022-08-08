@@ -84,7 +84,7 @@ mod tests {
             let mut rng = ChaCha20Rng::from_seed(seed);
             let protocol_initializer =
                 ProtocolInitializer::setup(protocol_parameters.into(), stake, &mut rng);
-            values.push((epoch, protocol_initializer));
+            values.push((Epoch(epoch), protocol_initializer));
         }
         values
     }
@@ -136,7 +136,7 @@ mod tests {
     #[tokio::test]
     async fn get_protocol_initializer_for_empty_epoch() {
         let store = init_store(2);
-        let res = store.get_protocol_initializer(0).await.unwrap();
+        let res = store.get_protocol_initializer(Epoch(0)).await.unwrap();
 
         assert!(res.is_none());
     }
@@ -144,7 +144,7 @@ mod tests {
     #[tokio::test]
     async fn get_protocol_initializer_for_existing_epoch() {
         let store = init_store(2);
-        let res = store.get_protocol_initializer(1).await.unwrap();
+        let res = store.get_protocol_initializer(Epoch(1)).await.unwrap();
 
         assert!(res.is_some());
     }

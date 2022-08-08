@@ -42,7 +42,7 @@ async fn using_services() {
     let stake_store_service = services.stake_store;
     stake_store
         .save_stakes(
-            1,
+            Epoch(1),
             HashMap::from_iter(
                 fake_data::signers_with_stakes(1)
                     .into_iter()
@@ -52,7 +52,7 @@ async fn using_services() {
         .await
         .expect("saving a signer should not fail");
     let signers = stake_store_service
-        .get_stakes(1)
+        .get_stakes(Epoch(1))
         .await
         .expect("test adapter should not fail")
         .expect("query should not return empty set");

@@ -293,8 +293,8 @@ impl MultiSignerImpl {
             .current_beacon
             .as_ref()
             .ok_or_else(ProtocolError::UnavailableBeacon)?
-            .compute_beacon_with_epoch_offset(epoch_offset)?
-            .epoch;
+            .epoch
+            .offset_by(epoch_offset)?;
 
         let stakes = self
             .stake_store
@@ -386,8 +386,8 @@ impl MultiSigner for MultiSignerImpl {
             .current_beacon
             .as_ref()
             .ok_or_else(ProtocolError::UnavailableBeacon)?
-            .compute_beacon_with_epoch_offset(SIGNER_EPOCH_RECORDING_OFFSET)?
-            .epoch;
+            .epoch
+            .offset_by(SIGNER_EPOCH_RECORDING_OFFSET)?;
         let mut stake_store = self.stake_store.write().await;
         let stakes = HashMap::from_iter(stakes.iter().cloned());
         stake_store.save_stakes(epoch, stakes).await?;
@@ -418,8 +418,8 @@ impl MultiSigner for MultiSignerImpl {
             .current_beacon
             .as_ref()
             .ok_or_else(ProtocolError::UnavailableBeacon)?
-            .compute_beacon_with_epoch_offset(SIGNER_EPOCH_RECORDING_OFFSET)?
-            .epoch;
+            .epoch
+            .offset_by(SIGNER_EPOCH_RECORDING_OFFSET)?;
         let result = match self
             .verification_key_store
             .save_verification_key(
@@ -448,8 +448,8 @@ impl MultiSigner for MultiSignerImpl {
             .current_beacon
             .as_ref()
             .ok_or_else(ProtocolError::UnavailableBeacon)?
-            .compute_beacon_with_epoch_offset(SIGNER_EPOCH_RETRIEVAL_OFFSET)?
-            .epoch;
+            .epoch
+            .offset_by(SIGNER_EPOCH_RETRIEVAL_OFFSET)?;
         let signers = self
             .verification_key_store
             .get_verification_keys(epoch)
@@ -471,8 +471,8 @@ impl MultiSigner for MultiSignerImpl {
             .current_beacon
             .as_ref()
             .ok_or_else(ProtocolError::UnavailableBeacon)?
-            .compute_beacon_with_epoch_offset(SIGNER_EPOCH_RETRIEVAL_OFFSET)?
-            .epoch;
+            .epoch
+            .offset_by(SIGNER_EPOCH_RETRIEVAL_OFFSET)?;
         let signers = self
             .verification_key_store
             .get_verification_keys(epoch)
@@ -502,8 +502,8 @@ impl MultiSigner for MultiSignerImpl {
             .current_beacon
             .as_ref()
             .ok_or_else(ProtocolError::UnavailableBeacon)?
-            .compute_beacon_with_epoch_offset(NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET)?
-            .epoch;
+            .epoch
+            .offset_by(NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET)?;
         let signers = self
             .verification_key_store
             .get_verification_keys(epoch)
@@ -735,8 +735,8 @@ mod tests {
 
     async fn offset_epoch(multi_signer: &mut MultiSignerImpl, offset: i64) {
         let mut beacon = multi_signer.get_current_beacon().await.unwrap();
-        let epoch_new = beacon.epoch as i64 + offset;
-        beacon.epoch = epoch_new as u64;
+        let epoch_new = beacon.epoch.offset_by(offset).unwrap();
+        beacon.epoch = epoch_new;
         multi_signer.update_current_beacon(beacon).await.unwrap();
     }
 

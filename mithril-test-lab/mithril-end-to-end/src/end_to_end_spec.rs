@@ -2,7 +2,7 @@ use crate::utils::AttemptResult;
 use crate::{attempt, Client, ClientCommand, Devnet, MithrilInfrastructure};
 use mithril_common::chain_observer::{CardanoCliChainObserver, ChainObserver};
 use mithril_common::digesters::ImmutableFile;
-use mithril_common::entities::{Certificate, CertificatePending, Snapshot};
+use mithril_common::entities::{Certificate, CertificatePending, Epoch, Snapshot};
 use mithril_common::{SIGNER_EPOCH_RECORDING_OFFSET, SIGNER_EPOCH_RETRIEVAL_OFFSET};
 use reqwest::StatusCode;
 use slog_scope::info;
@@ -24,7 +24,8 @@ impl Spec {
         let aggregator_endpoint = self.infrastructure.aggregator().endpoint();
 
         wait_for_enough_immutable(self.infrastructure.aggregator().db_directory()).await?;
-        let min_epoch = (SIGNER_EPOCH_RECORDING_OFFSET - SIGNER_EPOCH_RETRIEVAL_OFFSET) as u64;
+        let min_epoch =
+            Epoch((SIGNER_EPOCH_RECORDING_OFFSET - SIGNER_EPOCH_RETRIEVAL_OFFSET) as u64);
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
             min_epoch,
@@ -136,12 +137,12 @@ async fn wait_for_pending_certificate(
 
 async fn wait_for_target_epoch(
     chain_observer: Arc<CardanoCliChainObserver>,
-    target_epoch: u64,
+    target_epoch: Epoch,
     wait_reason: String,
 ) -> Result<(), String> {
     info!(
         "Waiting for the cardano network to be at the target epoch: {}", wait_reason;
-        "target_epoch" => target_epoch
+        "target_epoch" => ?target_epoch
     );
 
     match attempt!(90, Duration::from_millis(1000), {
@@ -158,7 +159,7 @@ async fn wait_for_target_epoch(
         }
     }) {
         AttemptResult::Ok(_) => {
-            info!("Target epoch reached !"; "target_epoch" => target_epoch);
+            info!("Target epoch reached !"; "target_epoch" => ?target_epoch);
             Ok(())
         }
         AttemptResult::Err(error) => Err(error),
@@ -211,7 +212,7 @@ async fn assert_node_producing_snapshot(aggregator_endpoint: &str) -> Result<Str
 async fn assert_signer_is_signing_snapshot(
     aggregator_endpoint: &str,
     digest: &str,
-    expected_epoch_min: u64,
+    expected_epoch_min: Epoch,
 ) -> Result<String, String> {
     let url = format!("{}/snapshot/{}", aggregator_endpoint, digest);
     info!(

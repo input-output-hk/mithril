@@ -4,11 +4,10 @@ use crate::crypto_helper::{key_decode_hex, ProtocolSingleSignature};
 use fixed::types::U8F24;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use std::fmt::Formatter;
+use std::ops::{Add, Sub};
 use std::{collections::BTreeMap, collections::HashMap, fmt::Display};
 use thiserror::Error;
-
-/// Epoch represents a Cardano epoch
-pub type Epoch = u64;
 
 /// ImmutableFileNumber represents the id of immutable files in the Cardano node database
 pub type ImmutableFileNumber = u64;
@@ -30,6 +29,79 @@ pub type MagicId = u64;
 
 /// Protocol version
 pub type ProtocolVersion = String;
+
+/// Epoch represents a Cardano epoch
+#[derive(Debug, Copy, Clone, Default, PartialEq, Serialize, Deserialize, Hash, Eq, PartialOrd)]
+pub struct Epoch(pub u64);
+
+impl Epoch {
+    /// Computes a new Epoch by applying an epoch offset
+    pub fn offset_by(&self, epoch_offset: i64) -> Result<Self, BeaconError> {
+        let epoch_new = self.0 as i64 + epoch_offset;
+        if epoch_new < 0 {
+            return Err(BeaconError::EpochOffset(self.0, epoch_offset));
+        }
+        Ok(Epoch(epoch_new as u64))
+    }
+}
+
+impl Add for Epoch {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Epoch(self.0 + rhs.0)
+    }
+}
+
+impl Add<u64> for Epoch {
+    type Output = Self;
+
+    fn add(self, rhs: u64) -> Self::Output {
+        Epoch(self.0 + rhs)
+    }
+}
+
+impl Sub<u64> for Epoch {
+    type Output = Self;
+
+    fn sub(self, rhs: u64) -> Self::Output {
+        Epoch(self.0 - rhs)
+    }
+}
+
+impl Add<i64> for Epoch {
+    type Output = Self;
+
+    fn add(self, rhs: i64) -> Self::Output {
+        Epoch(self.0 + rhs as u64)
+    }
+}
+
+impl Add<i32> for Epoch {
+    type Output = Self;
+
+    fn add(self, rhs: i32) -> Self::Output {
+        Epoch(self.0 + rhs as u64)
+    }
+}
+
+impl PartialEq<u64> for Epoch {
+    fn eq(&self, other: &u64) -> bool {
+        self.0.eq(other)
+    }
+}
+
+impl PartialEq<Epoch> for u64 {
+    fn eq(&self, other: &Epoch) -> bool {
+        other.0.eq(self)
+    }
+}
+
+impl Display for Epoch {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
 
 /// The Cardano Network that is being targeted
 #[allow(clippy::enum_variant_names)]
@@ -88,14 +160,10 @@ impl PartialOrd for Beacon {
 
 impl Beacon {
     /// Beacon factory
-    pub fn new(
-        network: String,
-        epoch: Epoch,
-        immutable_file_number: ImmutableFileNumber,
-    ) -> Beacon {
+    pub fn new(network: String, epoch: u64, immutable_file_number: ImmutableFileNumber) -> Beacon {
         Beacon {
             network,
-            epoch,
+            epoch: Epoch(epoch),
             immutable_file_number,
         }
     }
@@ -104,20 +172,9 @@ impl Beacon {
     pub fn compute_hash(&self) -> String {
         let mut hasher = Sha256::new();
         hasher.update(self.network.as_bytes());
-        hasher.update(self.epoch.to_be_bytes());
+        hasher.update(self.epoch.0.to_be_bytes());
         hasher.update(self.immutable_file_number.to_be_bytes());
         hex::encode(hasher.finalize())
-    }
-
-    /// Computes a new Beacon by applying an epoch offset
-    pub fn compute_beacon_with_epoch_offset(&self, epoch_offset: i64) -> Result<Self, BeaconError> {
-        let mut beacon = self.clone();
-        let epoch_new = beacon.epoch as i64 + epoch_offset;
-        if epoch_new < 0 {
-            return Err(BeaconError::EpochOffset(beacon.epoch, epoch_offset));
-        }
-        beacon.epoch = epoch_new as u64;
-        Ok(beacon)
     }
 }
 
@@ -639,12 +696,12 @@ mod tests {
     fn test_beacon_partial_ord_different_network() {
         let beacon1: Beacon = Beacon {
             network: "A".to_string(),
-            epoch: 0,
+            epoch: Epoch(0),
             immutable_file_number: 0,
         };
         let beacon2: Beacon = Beacon {
             network: "B".to_string(),
-            epoch: 0,
+            epoch: Epoch(0),
             immutable_file_number: 0,
         };
 
@@ -655,7 +712,7 @@ mod tests {
     fn test_beacon_partial_ord_equal() {
         let beacon1: Beacon = Beacon {
             network: "A".to_string(),
-            epoch: 0,
+            epoch: Epoch(0),
             immutable_file_number: 0,
         };
 
@@ -666,12 +723,12 @@ mod tests {
     fn test_beacon_partial_ord_same_epoch_less() {
         let beacon1: Beacon = Beacon {
             network: "A".to_string(),
-            epoch: 0,
+            epoch: Epoch(0),
             immutable_file_number: 0,
         };
         let beacon2: Beacon = Beacon {
             network: "A".to_string(),
-            epoch: 0,
+            epoch: Epoch(0),
             immutable_file_number: 1,
         };
 
@@ -682,12 +739,12 @@ mod tests {
     fn test_beacon_partial_ord_same_epoch_greater() {
         let beacon1: Beacon = Beacon {
             network: "A".to_string(),
-            epoch: 0,
+            epoch: Epoch(0),
             immutable_file_number: 1,
         };
         let beacon2: Beacon = Beacon {
             network: "A".to_string(),
-            epoch: 0,
+            epoch: Epoch(0),
             immutable_file_number: 0,
         };
 
@@ -698,12 +755,12 @@ mod tests {
     fn test_beacon_partial_ord_cmp_epochs_less() {
         let beacon1: Beacon = Beacon {
             network: "A".to_string(),
-            epoch: 0,
+            epoch: Epoch(0),
             immutable_file_number: 99,
         };
         let beacon2: Beacon = Beacon {
             network: "A".to_string(),
-            epoch: 1,
+            epoch: Epoch(1),
             immutable_file_number: 99,
         };
 

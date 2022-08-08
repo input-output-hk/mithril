@@ -145,7 +145,7 @@ impl ChainObserver for CardanoCliChainObserver {
         })?;
 
         if let Value::Number(epoch) = &v["epoch"] {
-            Ok(epoch.as_u64())
+            Ok(epoch.as_u64().map(Epoch))
         } else {
             Ok(None)
         }
@@ -229,7 +229,7 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
         let observer = CardanoCliChainObserver::new(Box::new(TestCliRunner {}));
         let epoch = observer.get_current_epoch().await.unwrap().unwrap();
 
-        assert_eq!(120, epoch);
+        assert_eq!(Epoch(120), epoch);
     }
 
     #[tokio::test]

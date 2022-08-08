@@ -6,6 +6,7 @@ use crate::{
     fake_data,
 };
 
+use crate::entities::Epoch;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use std::cmp::min;
@@ -96,14 +97,14 @@ pub fn setup_certificate_chain(
         .into_iter()
         .map(|i| match certificates_per_epoch {
             0 => panic!("expected at least 1 certificate per epoch"),
-            1 => i,
-            _ => i / certificates_per_epoch + 1,
+            1 => Epoch(i),
+            _ => Epoch(i / certificates_per_epoch + 1),
         })
-        .collect::<Vec<u64>>();
+        .collect::<Vec<_>>();
     let signers_by_epoch = epochs
         .clone()
         .into_iter()
-        .map(|epoch| (epoch, setup_signers(min(2 + epoch, 5))))
+        .map(|epoch| (epoch, setup_signers(min(2 + epoch.0, 5))))
         .collect::<HashMap<_, _>>();
     let clerk_for_signers = |signers: &[(_, _, _, ProtocolSigner, _)]| -> ProtocolClerk {
         let first_signer = &signers.first().unwrap().3;

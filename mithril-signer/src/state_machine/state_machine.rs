@@ -165,6 +165,7 @@ impl StateMachine {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::entities::Epoch;
     use mithril_common::{entities::ProtocolMessage, fake_data};
 
     use super::*;
@@ -236,7 +237,7 @@ mod tests {
         let mut state_machine = init_state_machine(
             SignerState::Registered(RegisteredState {
                 beacon: Beacon {
-                    epoch: 0,
+                    epoch: Epoch(0),
                     immutable_file_number: 0,
                     ..Default::default()
                 },
@@ -254,7 +255,7 @@ mod tests {
     async fn registered_to_registered() {
         let beacon = Beacon {
             immutable_file_number: 99,
-            epoch: 9,
+            epoch: Epoch(9),
             ..Default::default()
         };
         let state = RegisteredState {
@@ -283,7 +284,7 @@ mod tests {
         assert_eq!(
             SignerState::Registered(RegisteredState {
                 beacon: Beacon {
-                    epoch: 9,
+                    epoch: Epoch(9),
                     immutable_file_number: 99,
                     ..Default::default()
                 }
@@ -298,7 +299,7 @@ mod tests {
     async fn registered_to_signed() {
         let beacon = Beacon {
             immutable_file_number: 99,
-            epoch: 9,
+            epoch: Epoch(9),
             ..Default::default()
         };
         let state = RegisteredState {
@@ -310,10 +311,10 @@ mod tests {
         let mut runner = MockSignerRunner::new();
         runner
             .expect_get_current_beacon()
-            .return_once(move || Ok(beacon.to_owned()));
+            .return_once(move || Ok(beacon));
         runner
             .expect_get_pending_certificate()
-            .return_once(move || Ok(Some(certificate_pending.to_owned())));
+            .return_once(move || Ok(Some(certificate_pending)));
         runner.expect_can_i_sign().return_once(|_| true);
         runner
             .expect_associate_signers_with_stake()
@@ -337,7 +338,7 @@ mod tests {
         assert_eq!(
             SignerState::Signed(SignedState {
                 beacon: Beacon {
-                    epoch: 9,
+                    epoch: Epoch(9),
                     immutable_file_number: 99,
                     ..Default::default()
                 }
@@ -352,7 +353,7 @@ mod tests {
     async fn signed_to_registered() {
         let beacon = Beacon {
             immutable_file_number: 99,
-            epoch: 9,
+            epoch: Epoch(9),
             ..Default::default()
         };
         let new_beacon = Beacon {
