@@ -189,6 +189,7 @@ Here is a list of the available parameters:
 | `snapshot_directory` | `--snapshot-directory` | - | `SNAPSHOT_DIRECTORY` | Directory to store local snapshots of the **Cardano Node** | `.` | - | :heavy_check_mark: |
 | `network` | - | - | `NETWORK` | Cardano network | - | `testnet` or `mainnet` or `devnet` | :heavy_check_mark: |
 `network_magic` | - | - | `NETWORK_MAGIC` | Cardano Network Magic number (for `testnet` and `devnet`) | - | `1097911063` or `42` | - |
+| `protocol_parameters` | - | - | `PROTOCOL_PARAMETERS__K`, `PROTOCOL_PARAMETERS__M`, and `PROTOCOL_PARAMETERS__PHI_F` | Mithril Protocol Parameters | - | `{ k: 5, m: 100, phi_f: 0.65 }` | :heavy_check_mark: |
 | `snapshot_store_type` | - | - | `SNAPSHOT_STORE_TYPE` | Type of snapshot store to use | - | `gcp` or `local` | :heavy_check_mark: |
 | `snapshot_uploader_type` | - | - | `SNAPSHOT_UPLOADER_TYPE` | Type of snapshot uploader to use | - | `gcp` or `local` | :heavy_check_mark: |
 | `run_interval` | - | - | `RUN_INTERVAL` | Interval between two runtime cycles in ms | - | `60000` | :heavy_check_mark: |
