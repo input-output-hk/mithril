@@ -3,6 +3,11 @@
     "cardano_cli_socket_path": "/tmp/cardano.sock",
     "network": "devnet",
     "network_magic": 42,
+    "protocol_parameters": {
+        "k": 5,
+        "m": 100,
+        "phi_f": 0.65
+    },
     "run_interval": 30000,
     "url_snapshot_manifest": "https://storage.googleapis.com/cardano-testnet/snapshots.json",
     "snapshot_store_type": "local",

@@ -100,6 +100,7 @@ pub mod tests {
             cardano_node_socket_path: PathBuf::new(),
             network_magic: Some(42),
             network: "whatever".to_string(),
+            protocol_parameters: fake_data::protocol_parameters(),
             url_snapshot_manifest: "https://storage.googleapis.com/cardano-testnet/snapshots.json"
                 .to_string(),
             snapshot_store_type: SnapshotStoreType::Local,

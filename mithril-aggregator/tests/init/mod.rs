@@ -7,6 +7,7 @@ use mithril_aggregator::{
     VerificationKeyStore,
 };
 use mithril_common::digesters::DumbImmutableFileObserver;
+use mithril_common::fake_data;
 use mithril_common::{
     chain_observer::FakeObserver,
     crypto_helper::tests_setup::setup_protocol_parameters,
@@ -22,6 +23,7 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
         cardano_node_socket_path: PathBuf::new(),
         network_magic: Some(42),
         network: "whatever".to_string(),
+        protocol_parameters: fake_data::protocol_parameters(),
         url_snapshot_manifest: "https://storage.googleapis.com/cardano-testnet/snapshots.json"
             .to_string(),
         snapshot_store_type: SnapshotStoreType::Local,

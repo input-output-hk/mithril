@@ -1,4 +1,5 @@
 use config::ConfigError;
+use mithril_common::entities::ProtocolParameters;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::path::PathBuf;
@@ -31,6 +32,9 @@ pub struct Config {
 
     /// Cardano network
     pub network: String,
+
+    /// Protocol parameters
+    pub protocol_parameters: ProtocolParameters,
 
     /// Snapshots manifest location
     pub url_snapshot_manifest: String,

@@ -116,7 +116,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let run_mode = env::var("RUN_MODE").unwrap_or_else(|_| args.run_mode.clone());
     let config: Config = config::Config::builder()
         .add_source(config::File::with_name(&format!("./config/{}.json", run_mode)).required(false))
-        .add_source(config::Environment::default())
+        .add_source(config::Environment::default().separator("__"))
         .add_source(args.clone())
         .build()
         .map_err(|e| format!("configuration build error: {}", e))?
