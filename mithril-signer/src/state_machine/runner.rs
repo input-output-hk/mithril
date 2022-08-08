@@ -12,6 +12,7 @@ use mithril_common::{
         SignerWithStake, SingleSignatures,
     },
     store::StakeStorer,
+    SIGNER_EPOCH_RECORDING_OFFSET,
 };
 
 use crate::{Config, MithrilProtocolInitializerBuilder};
@@ -117,6 +118,13 @@ impl Runner for SignerRunner {
             .get_current_stake_distribution()
             .await?
             .ok_or(RuntimeError::NoValueError)?;
+        let epoch = self
+            .services
+            .chain_observer
+            .get_current_epoch()
+            .await?
+            // todo: Dedicated error ?
+            .ok_or(RuntimeError::NoValueError)?;
         let stake = stake_distribution
             .get(&self.config.party_id)
             .ok_or(RuntimeError::NoStake)?;
@@ -129,10 +137,12 @@ impl Runner for SignerRunner {
             .certificate_handler
             .register_signer(&signer)
             .await?;
-        let _res = self
-            .services
+        self.services
             .protocol_initializer_store
-            .save_protocol_initializer(pending_certificate.beacon.epoch, protocol_initializer)
+            .save_protocol_initializer(
+                epoch.offset_by(SIGNER_EPOCH_RECORDING_OFFSET)?,
+                protocol_initializer,
+            )
             .await?;
 
         Ok(())
@@ -262,13 +272,14 @@ impl Runner for SignerRunner {
 mod tests {
     use std::{path::PathBuf, sync::Arc};
 
+    use mithril_common::chain_observer::ChainObserver;
     use mithril_common::crypto_helper::ProtocolInitializer;
     use mithril_common::digesters::{DumbImmutableDigester, DumbImmutableFileObserver};
     use mithril_common::entities::Epoch;
     use mithril_common::store::adapter::{DumbStoreAdapter, MemoryAdapter};
     use mithril_common::store::{StakeStore, StakeStorer};
-    use mithril_common::CardanoNetwork;
     use mithril_common::{chain_observer::FakeObserver, BeaconProviderImpl};
+    use mithril_common::{CardanoNetwork, SIGNER_EPOCH_RECORDING_OFFSET};
 
     use crate::{
         CertificateHandler, DumbCertificateHandler, MithrilSingleSigner, ProtocolInitializerStore,
@@ -375,7 +386,19 @@ mod tests {
         let mut services = init_services();
         let certificate_handler = Arc::new(DumbCertificateHandler::default());
         services.certificate_handler = certificate_handler.clone();
+        let protocol_initializer_store = services.protocol_initializer_store.clone();
+        let chain_observer = Arc::new(FakeObserver::default());
+        services.chain_observer = chain_observer.clone();
         let runner = init_runner(Some(services), None);
+        let epoch = chain_observer
+            .current_beacon
+            .read()
+            .await
+            .clone()
+            .expect("chain_observer should have a current_beacon")
+            .epoch
+            .offset_by(SIGNER_EPOCH_RECORDING_OFFSET)
+            .expect("epoch.offset_by should not fail");
 
         let pending_certificate = certificate_handler
             .retrieve_pending_certificate()
@@ -391,6 +414,14 @@ mod tests {
             .get_last_registered_signer()
             .await
             .is_some());
+        let maybe_protocol_initializer = protocol_initializer_store
+            .get_protocol_initializer(epoch)
+            .await
+            .expect("get_protocol_initializer should not fail");
+        assert!(
+            maybe_protocol_initializer.is_some(),
+            "A protocol initializer should have been registered at the 'Recording' epoch"
+        );
     }
 
     #[tokio::test]
