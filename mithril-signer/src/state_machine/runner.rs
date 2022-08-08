@@ -36,12 +36,18 @@ pub trait Runner {
         epoch: Epoch,
     ) -> Result<(), Box<dyn StdError + Sync + Send>>;
 
-    fn can_i_sign(&self, pending_certificate: &CertificatePending) -> Option<Signer>;
+    fn can_i_sign(&self, pending_certificate: &CertificatePending) -> bool;
+
+    async fn associate_signers_with_stake(
+        &self,
+        epoch: Epoch,
+        signers: &[Signer],
+    ) -> Result<Vec<SignerWithStake>, Box<dyn StdError + Sync + Send>>;
 
     async fn compute_message(
         &self,
         certificate_pending: &CertificatePending,
-    ) -> Result<(ProtocolMessage, Vec<SignerWithStake>), Box<dyn StdError + Sync + Send>>;
+    ) -> Result<ProtocolMessage, Box<dyn StdError + Sync + Send>>;
 
     async fn compute_single_signature(
         &self,
@@ -151,16 +157,26 @@ impl Runner for SignerRunner {
         Ok(())
     }
 
-    fn can_i_sign(&self, pending_certificate: &CertificatePending) -> Option<Signer> {
-        pending_certificate
-            .get_signer(self.config.party_id.to_owned())
-            .cloned()
+    fn can_i_sign(&self, pending_certificate: &CertificatePending) -> bool {
+        // todo: check that the verification key is the same as the one registered in the store
+        let signer = pending_certificate.get_signer(self.config.party_id.to_owned());
+
+        signer.is_some()
+    }
+
+    async fn associate_signers_with_stake(
+        &self,
+        epoch: Epoch,
+        signers: &[Signer],
+    ) -> Result<Vec<SignerWithStake>, Box<dyn StdError + Sync + Send>> {
+        // Note: raise an error if we can't find the stake for a signer
+        todo!()
     }
 
     async fn compute_message(
         &self,
         certificate_pending: &CertificatePending,
-    ) -> Result<(ProtocolMessage, Vec<SignerWithStake>), Box<dyn StdError + Sync + Send>> {
+    ) -> Result<ProtocolMessage, Box<dyn StdError + Sync + Send>> {
         let mut message = ProtocolMessage::new();
         // 1 set the digest in the message
         let digest = self
@@ -186,7 +202,7 @@ impl Runner for SignerRunner {
         let mut signers: Vec<SignerWithStake> = vec![];
 
         // TODO: this should not be here
-        for signer in &certificate_pending.signers[..] {
+        for signer in &certificate_pending.next_signers[..] {
             if let Some(stake) = stakes.get(&signer.party_id) {
                 signers.push(SignerWithStake::new(
                     signer.party_id.to_owned(),
@@ -202,7 +218,7 @@ impl Runner for SignerRunner {
             .ok_or(RuntimeError::NoValueError)?;
         message.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
 
-        Ok((message, signers))
+        Ok(message)
     }
 
     async fn compute_single_signature(
