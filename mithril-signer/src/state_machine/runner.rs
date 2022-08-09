@@ -5,6 +5,7 @@ use slog_scope::debug;
 use std::error::Error as StdError;
 use thiserror::Error;
 
+use mithril_common::crypto_helper::{key_decode_hex, ProtocolSignerVerificationKey};
 use mithril_common::entities::ProtocolParameters;
 use mithril_common::{
     crypto_helper::key_encode_hex,
@@ -38,7 +39,10 @@ pub trait Runner {
         epoch: Epoch,
     ) -> Result<(), Box<dyn StdError + Sync + Send>>;
 
-    fn can_i_sign(&self, pending_certificate: &CertificatePending) -> bool;
+    async fn can_i_sign(
+        &self,
+        pending_certificate: &CertificatePending,
+    ) -> Result<bool, Box<dyn StdError + Sync + Send>>;
 
     async fn associate_signers_with_stake(
         &self,
@@ -159,11 +163,29 @@ impl Runner for SignerRunner {
         Ok(())
     }
 
-    fn can_i_sign(&self, pending_certificate: &CertificatePending) -> bool {
-        // todo: check that the verification key is the same as the one registered in the store
-        let signer = pending_certificate.get_signer(self.config.party_id.to_owned());
+    async fn can_i_sign(
+        &self,
+        pending_certificate: &CertificatePending,
+    ) -> Result<bool, Box<dyn StdError + Sync + Send>> {
+        if let Some(signer) = pending_certificate.get_signer(self.config.party_id.to_owned()) {
+            let protocol_initializer = self
+                .services
+                .protocol_initializer_store
+                .get_protocol_initializer(
+                    pending_certificate
+                        .beacon
+                        .epoch
+                        .offset_to_signer_retrieval_epoch()?,
+                )
+                .await?;
+            let recorded_verification_key =
+                key_decode_hex::<ProtocolSignerVerificationKey>(&signer.verification_key)?;
 
-        signer.is_some()
+            Ok(protocol_initializer.is_some()
+                && recorded_verification_key == protocol_initializer.unwrap().verification_key())
+        } else {
+            Ok(false)
+        }
     }
 
     async fn associate_signers_with_stake(
@@ -270,8 +292,8 @@ mod tests {
     use mithril_common::entities::Epoch;
     use mithril_common::store::adapter::{DumbStoreAdapter, MemoryAdapter};
     use mithril_common::store::{StakeStore, StakeStorer};
-    use mithril_common::CardanoNetwork;
     use mithril_common::{chain_observer::FakeObserver, BeaconProviderImpl};
+    use mithril_common::{fake_data, CardanoNetwork};
 
     use crate::{
         CertificateHandler, DumbCertificateHandler, MithrilSingleSigner, ProtocolInitializerStore,
@@ -420,6 +442,33 @@ mod tests {
             maybe_protocol_initializer.is_some(),
             "A protocol initializer should have been registered at the 'Recording' epoch"
         );
+    }
+
+    #[tokio::test]
+    async fn test_can_i_sign() {
+        let services = init_services();
+        let protocol_initializer_store = services.protocol_initializer_store.clone();
+        let runner = init_runner(Some(services), None);
+        let mut pending_certificate = fake_data::certificate_pending();
+        let epoch = pending_certificate.beacon.epoch;
+        let mut signer = &mut pending_certificate.signers[0];
+
+        let protocol_initializer = MithrilProtocolInitializerBuilder::new(signer.party_id.clone())
+            .build(&100, &fake_data::protocol_parameters())
+            .expect("build protocol initializer should not fail");
+        signer.verification_key = key_encode_hex(protocol_initializer.verification_key()).unwrap();
+        protocol_initializer_store
+            .save_protocol_initializer(
+                epoch
+                    .offset_to_signer_retrieval_epoch()
+                    .expect("offset_to_signer_retrieval_epoch should not fail"),
+                protocol_initializer,
+            )
+            .await
+            .expect("save_protocol_initializer should not fail");
+
+        let can_i_sign_result = runner.can_i_sign(&pending_certificate).await.unwrap();
+        assert!(can_i_sign_result);
     }
 
     #[tokio::test]

@@ -66,7 +66,7 @@ impl StateMachine {
                 } else if let Some(pending_certificate) =
                     self.runner.get_pending_certificate().await?
                 {
-                    if self.runner.can_i_sign(&pending_certificate) {
+                    if self.runner.can_i_sign(&pending_certificate).await? {
                         let state = self
                             .transition_from_registered_to_signed(
                                 &pending_certificate,
@@ -277,7 +277,7 @@ mod tests {
             .expect_get_pending_certificate()
             .once()
             .returning(move || Ok(Some(certificate_pending.to_owned())));
-        runner.expect_can_i_sign().once().returning(|_| false);
+        runner.expect_can_i_sign().once().returning(|_| Ok(false));
 
         let mut state_machine = init_state_machine(SignerState::Registered(state), runner);
         state_machine
@@ -321,7 +321,7 @@ mod tests {
             .expect_get_pending_certificate()
             .once()
             .returning(move || Ok(Some(certificate_pending.clone())));
-        runner.expect_can_i_sign().once().returning(|_| true);
+        runner.expect_can_i_sign().once().returning(|_| Ok(true));
         runner
             .expect_associate_signers_with_stake()
             .once()
