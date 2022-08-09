@@ -44,6 +44,7 @@ pub fn certificate_pending() -> entities::CertificatePending {
     let beacon = beacon();
 
     // Protocol parameters
+    let next_protocol_parameters = protocol_parameters();
     let protocol_parameters = protocol_parameters();
 
     // Signers
@@ -52,7 +53,13 @@ pub fn certificate_pending() -> entities::CertificatePending {
     let next_signers = signers[2..5].to_vec();
 
     // Certificate pending
-    entities::CertificatePending::new(beacon, protocol_parameters, current_signers, next_signers)
+    entities::CertificatePending::new(
+        beacon,
+        protocol_parameters,
+        next_protocol_parameters,
+        current_signers,
+        next_signers,
+    )
 }
 
 /// Fake Certificate

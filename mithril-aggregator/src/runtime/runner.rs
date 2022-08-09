@@ -241,13 +241,21 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             Err(e) => return Err(e.into()),
         };
 
+        let protocol_parameters = multi_signer
+            .get_protocol_parameters()
+            .await?
+            .ok_or_else(|| RuntimeError::General("no protocol parameters".to_string().into()))?;
+        let next_protocol_parameters = multi_signer
+            .get_next_protocol_parameters()
+            .await?
+            .ok_or_else(|| {
+                RuntimeError::General("no next protocol parameters".to_string().into())
+            })?;
+
         let pending_certificate = CertificatePending::new(
             beacon,
-            multi_signer
-                .get_protocol_parameters()
-                .await?
-                .ok_or_else(|| RuntimeError::General("no protocol parameters".to_string().into()))?
-                .into(),
+            protocol_parameters.into(),
+            next_protocol_parameters.into(),
             signers,
             next_signer.into_iter().map(|s| s.into()).collect(),
         );
@@ -655,6 +663,7 @@ pub mod tests {
         certificate.next_signers.sort_by_key(|s| s.party_id.clone());
         let mut expected = CertificatePending::new(
             beacon,
+            fake_data::protocol_parameters(),
             fake_data::protocol_parameters(),
             current_signers.into_iter().map(|s| s.into()).collect(),
             next_signers.into_iter().map(|s| s.into()).collect(),

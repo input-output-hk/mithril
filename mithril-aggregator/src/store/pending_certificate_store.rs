@@ -64,6 +64,7 @@ mod test {
             let certificate_pending = CertificatePending::new(
                 beacon.clone(),
                 fake_data::protocol_parameters(),
+                fake_data::protocol_parameters(),
                 fake_data::signers(4),
                 fake_data::signers(5),
             );
@@ -97,6 +98,7 @@ mod test {
         let beacon = Beacon::new("testnet".to_string(), 0, 1);
         let certificate_pending = CertificatePending::new(
             beacon,
+            fake_data::protocol_parameters(),
             fake_data::protocol_parameters(),
             fake_data::signers(1),
             fake_data::signers(2),
