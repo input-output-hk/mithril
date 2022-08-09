@@ -45,9 +45,7 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
     let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(
         MemoryAdapter::new(None).unwrap(),
     )));
-    let stake_store = Arc::new(RwLock::new(StakeStore::new(Box::new(
-        MemoryAdapter::new(None).unwrap(),
-    ))));
+    let stake_store = Arc::new(StakeStore::new(Box::new(MemoryAdapter::new(None).unwrap())));
     let single_signature_store = Arc::new(SingleSignatureStore::new(Box::new(
         MemoryAdapter::new(None).unwrap(),
     )));

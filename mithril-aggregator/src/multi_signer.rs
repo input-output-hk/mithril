@@ -298,8 +298,6 @@ impl MultiSignerImpl {
 
         let stakes = self
             .stake_store
-            .read()
-            .await
             .get_stakes(epoch)
             .await?
             .unwrap_or_default();
@@ -392,9 +390,8 @@ impl MultiSigner for MultiSignerImpl {
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
             .offset_by(SIGNER_EPOCH_RECORDING_OFFSET)?;
-        let mut stake_store = self.stake_store.write().await;
         let stakes = HashMap::from_iter(stakes.iter().cloned());
-        stake_store.save_stakes(epoch, stakes).await?;
+        self.stake_store.save_stakes(epoch, stakes).await?;
 
         Ok(())
     }
@@ -703,7 +700,6 @@ mod tests {
 
     use std::collections::HashMap;
     use std::sync::Arc;
-    use tokio::sync::RwLock;
 
     async fn setup_multi_signer() -> MultiSignerImpl {
         let verification_key_store = VerificationKeyStore::new(Box::new(
@@ -727,7 +723,7 @@ mod tests {
         ));
         let mut multi_signer = MultiSignerImpl::new(
             Arc::new(verification_key_store),
-            Arc::new(RwLock::new(stake_store)),
+            Arc::new(stake_store),
             Arc::new(single_signature_store),
         );
 

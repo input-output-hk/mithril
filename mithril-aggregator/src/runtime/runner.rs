@@ -436,7 +436,6 @@ pub mod tests {
                 .await
                 .expect("save_verification_key should not fail");
         }
-        let mut stake_store = stake_store.write().await;
         stake_store
             .save_stakes(
                 epoch,
@@ -519,12 +518,14 @@ pub mod tests {
             .unwrap()
             .expect("The stake distribution should not be None.");
 
-        // TODO: check why to fetch EPOCH+1
         let saved_stake_distribution = deps
             .stake_store
-            .read()
-            .await
-            .get_stakes(beacon.epoch + 1)
+            .get_stakes(
+                beacon
+                    .epoch
+                    .offset_to_recording_epoch()
+                    .expect("offset_to_recording_epoch should not fail"),
+            )
             .await
             .unwrap()
             .unwrap_or_else(|| {
