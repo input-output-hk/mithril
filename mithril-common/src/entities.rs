@@ -1,6 +1,10 @@
 //! The entities used by, and exchanged between, the aggregator, signers and client.
 
 use crate::crypto_helper::{key_decode_hex, ProtocolSingleSignature};
+use crate::{
+    NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET, SIGNER_EPOCH_RECORDING_OFFSET,
+    SIGNER_EPOCH_RETRIEVAL_OFFSET,
+};
 use fixed::types::U8F24;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -36,12 +40,27 @@ pub struct Epoch(pub u64);
 
 impl Epoch {
     /// Computes a new Epoch by applying an epoch offset
-    pub fn offset_by(&self, epoch_offset: i64) -> Result<Self, BeaconError> {
+    pub fn offset_by(&self, epoch_offset: i64) -> Result<Self, EpochError> {
         let epoch_new = self.0 as i64 + epoch_offset;
         if epoch_new < 0 {
-            return Err(BeaconError::EpochOffset(self.0, epoch_offset));
+            return Err(EpochError::EpochOffset(self.0, epoch_offset));
         }
         Ok(Epoch(epoch_new as u64))
+    }
+
+    /// Apply the [SIGNER_EPOCH_RETRIEVAL_OFFSET] to this epoch
+    pub fn offset_to_signer_retrieval_epoch(&self) -> Result<Self, EpochError> {
+        self.offset_by(SIGNER_EPOCH_RETRIEVAL_OFFSET)
+    }
+
+    /// Apply the [NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET] to this epoch
+    pub fn offset_to_next_signer_retrieval_epoch(&self) -> Result<Self, EpochError> {
+        self.offset_by(NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET)
+    }
+
+    /// Apply the [SIGNER_EPOCH_RECORDING_OFFSET] to this epoch
+    pub fn offset_to_recording_epoch(&self) -> Result<Self, EpochError> {
+        self.offset_by(SIGNER_EPOCH_RECORDING_OFFSET)
     }
 }
 
@@ -101,6 +120,14 @@ impl Display for Epoch {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
+}
+
+/// EpochError is an error triggerred by an [Epoch]
+#[derive(Error, Debug)]
+pub enum EpochError {
+    /// Error raised when the [computation of an epoch using an offset][Epoch::offset_by] fails.
+    #[error("epoch offset error")]
+    EpochOffset(u64, i64),
 }
 
 /// The Cardano Network that is being targeted
@@ -176,14 +203,6 @@ impl Beacon {
         hasher.update(self.immutable_file_number.to_be_bytes());
         hex::encode(hasher.finalize())
     }
-}
-
-/// BeaconError is an error triggerred by a Beacon
-#[derive(Error, Debug)]
-pub enum BeaconError {
-    /// Error raised when the computation of an epoch using an offset fails.
-    #[error("epoch offset error")]
-    EpochOffset(u64, i64),
 }
 
 /// CertificatePending represents a pending certificate in the process of production

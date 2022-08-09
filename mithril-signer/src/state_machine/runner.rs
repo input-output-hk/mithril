@@ -12,7 +12,6 @@ use mithril_common::{
         SignerWithStake, SingleSignatures,
     },
     store::StakeStorer,
-    SIGNER_EPOCH_RECORDING_OFFSET,
 };
 
 use crate::{Config, MithrilProtocolInitializerBuilder};
@@ -139,10 +138,7 @@ impl Runner for SignerRunner {
             .await?;
         self.services
             .protocol_initializer_store
-            .save_protocol_initializer(
-                epoch.offset_by(SIGNER_EPOCH_RECORDING_OFFSET)?,
-                protocol_initializer,
-            )
+            .save_protocol_initializer(epoch.offset_to_recording_epoch()?, protocol_initializer)
             .await?;
 
         Ok(())
@@ -278,8 +274,8 @@ mod tests {
     use mithril_common::entities::Epoch;
     use mithril_common::store::adapter::{DumbStoreAdapter, MemoryAdapter};
     use mithril_common::store::{StakeStore, StakeStorer};
+    use mithril_common::CardanoNetwork;
     use mithril_common::{chain_observer::FakeObserver, BeaconProviderImpl};
-    use mithril_common::{CardanoNetwork, SIGNER_EPOCH_RECORDING_OFFSET};
 
     use crate::{
         CertificateHandler, DumbCertificateHandler, MithrilSingleSigner, ProtocolInitializerStore,
@@ -397,7 +393,7 @@ mod tests {
             .clone()
             .expect("chain_observer should have a current_beacon")
             .epoch
-            .offset_by(SIGNER_EPOCH_RECORDING_OFFSET)
+            .offset_to_recording_epoch()
             .expect("epoch.offset_by should not fail");
 
         let pending_certificate = certificate_handler

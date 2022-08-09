@@ -66,7 +66,7 @@ pub enum ProtocolError {
     SingleSignatureStore(#[from] SingleSignatureStoreError),
 
     #[error("beacon error: '{0}'")]
-    Beacon(#[from] entities::BeaconError),
+    Beacon(#[from] entities::EpochError),
 }
 
 /// MultiSigner is the cryptographic engine in charge of producing multi signatures from individual signatures
