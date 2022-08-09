@@ -189,7 +189,7 @@ mod tests {
     use mithril_common::{entities::ProtocolMessage, fake_data};
 
     use super::*;
-    use crate::state_machine::runner::MockSignerRunner;
+    use crate::runtime::runner::MockSignerRunner;
 
     fn init_state_machine(init_state: SignerState, runner: MockSignerRunner) -> StateMachine {
         StateMachine {
