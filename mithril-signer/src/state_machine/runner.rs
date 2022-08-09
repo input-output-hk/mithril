@@ -544,7 +544,7 @@ mod tests {
 
         let next_signers = signers
             .iter()
-            .map(|(p, s, vk, ps, _)| {
+            .map(|(p, s, vk, _, _)| {
                 SignerWithStake::new(p.to_string(), key_encode_hex(vk).unwrap(), *s)
             })
             .collect::<Vec<_>>();
@@ -594,7 +594,7 @@ mod tests {
             .expect("save_protocol_initializer should not fail");
         let signers = signers
             .iter()
-            .map(|(p, s, vk, ps, _)| {
+            .map(|(p, s, vk, _, _)| {
                 SignerWithStake::new(p.to_string(), key_encode_hex(vk).unwrap(), *s)
             })
             .collect::<Vec<_>>();

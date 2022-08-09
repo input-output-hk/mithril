@@ -110,7 +110,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         Box::new(SignerRunner::new(config.clone(), services)),
         Duration::from_millis(config.run_interval),
     );
-    let _ = state_machine.run().await;
+    state_machine.run().await;
 
     Ok(())
 }

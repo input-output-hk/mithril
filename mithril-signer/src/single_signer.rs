@@ -106,11 +106,11 @@ impl MithrilSingleSigner {
     ) -> Result<ProtocolSigner, SingleSignerError> {
         let mut key_reg = ProtocolKeyRegistration::init();
         let signers = signers_with_stake
-            .into_iter()
+            .iter()
             .filter(|signer| !signer.verification_key.is_empty())
             .collect::<Vec<&SignerWithStake>>();
 
-        if signers.len() == 0 {
+        if signers.is_empty() {
             return Err(SingleSignerError::ProtocolSignerCreationFailure(
                 "no signer".to_string(),
             ));

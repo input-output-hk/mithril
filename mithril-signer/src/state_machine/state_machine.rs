@@ -1,7 +1,7 @@
 use slog_scope::{debug, error, info};
 use std::{error::Error, thread::sleep, time::Duration};
 
-use mithril_common::entities::{Beacon, CertificatePending, Signer, SignerWithStake};
+use mithril_common::entities::{Beacon, CertificatePending, SignerWithStake};
 
 use super::Runner;
 
@@ -174,7 +174,7 @@ impl StateMachine {
         self.runner.send_single_signature(single_signatures).await?;
 
         Ok(SignedState {
-            beacon: pending_certificate.beacon.clone(),
+            beacon: current_beacon.clone(),
         })
     }
 }
