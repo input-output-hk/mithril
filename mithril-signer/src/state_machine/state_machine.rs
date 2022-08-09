@@ -132,7 +132,7 @@ impl StateMachine {
         &self,
         pending_certificate: &CertificatePending,
     ) -> Result<RegisteredState, Box<dyn Error + Sync + Send>> {
-        let beacon = pending_certificate.beacon.clone();
+        let beacon = self.runner.get_current_beacon().await?;
         self.runner.update_stake_distribution(beacon.epoch).await?;
         self.runner
             .register_signer_to_aggregator(pending_certificate)
@@ -184,7 +184,7 @@ mod tests {
         let mut runner = MockSignerRunner::new();
         runner
             .expect_get_pending_certificate()
-            .times(1)
+            .once()
             .returning(|| Ok(None));
         let mut state_machine = init_state_machine(SignerState::Unregistered, runner);
         state_machine
@@ -200,15 +200,19 @@ mod tests {
         let mut runner = MockSignerRunner::new();
         runner
             .expect_get_pending_certificate()
-            .times(1)
+            .once()
             .returning(|| Ok(Some(fake_data::certificate_pending())));
         runner
+            .expect_get_current_beacon()
+            .once()
+            .returning(|| Ok(fake_data::beacon()));
+        runner
             .expect_update_stake_distribution()
-            .times(1)
+            .once()
             .returning(|_| Ok(()));
         runner
             .expect_register_signer_to_aggregator()
-            .times(1)
+            .once()
             .returning(|_| Ok(()));
 
         let mut state_machine = init_state_machine(SignerState::Unregistered, runner);
@@ -232,7 +236,7 @@ mod tests {
         let mut runner = MockSignerRunner::new();
         runner
             .expect_get_current_beacon()
-            .times(1)
+            .once()
             .returning(|| Ok(fake_data::beacon()));
         let mut state_machine = init_state_machine(
             SignerState::Registered(RegisteredState {
@@ -267,13 +271,13 @@ mod tests {
         let mut runner = MockSignerRunner::new();
         runner
             .expect_get_current_beacon()
-            .times(1)
+            .once()
             .returning(move || Ok(beacon.to_owned()));
         runner
             .expect_get_pending_certificate()
-            .times(1)
+            .once()
             .returning(move || Ok(Some(certificate_pending.to_owned())));
-        runner.expect_can_i_sign().return_once(|_| false);
+        runner.expect_can_i_sign().once().returning(|_| false);
 
         let mut state_machine = init_state_machine(SignerState::Registered(state), runner);
         state_machine
@@ -311,23 +315,29 @@ mod tests {
         let mut runner = MockSignerRunner::new();
         runner
             .expect_get_current_beacon()
-            .return_once(move || Ok(beacon));
+            .once()
+            .returning(move || Ok(beacon.clone()));
         runner
             .expect_get_pending_certificate()
-            .return_once(move || Ok(Some(certificate_pending)));
-        runner.expect_can_i_sign().return_once(|_| true);
+            .once()
+            .returning(move || Ok(Some(certificate_pending.clone())));
+        runner.expect_can_i_sign().once().returning(|_| true);
         runner
             .expect_associate_signers_with_stake()
-            .return_once(|_, _| Ok(fake_data::signers_with_stakes(4)));
+            .once()
+            .returning(|_, _| Ok(fake_data::signers_with_stakes(4)));
         runner
             .expect_compute_single_signature()
-            .return_once(|_, _, _| Ok(Some(fake_data::single_signatures(vec![1, 5, 23]))));
+            .once()
+            .returning(|_, _, _| Ok(Some(fake_data::single_signatures(vec![1, 5, 23]))));
         runner
             .expect_compute_message()
-            .return_once(|_| Ok(ProtocolMessage::new()));
+            .once()
+            .returning(|_| Ok(ProtocolMessage::new()));
         runner
             .expect_send_single_signature()
-            .return_once(|_| Ok(()));
+            .once()
+            .returning(|_| Ok(()));
 
         let mut state_machine = init_state_machine(SignerState::Registered(state), runner);
         state_machine
@@ -367,7 +377,7 @@ mod tests {
         let mut runner = MockSignerRunner::new();
         runner
             .expect_get_current_beacon()
-            .times(1)
+            .once()
             .returning(move || Ok(new_beacon.to_owned()));
 
         let mut state_machine = init_state_machine(SignerState::Signed(state), runner);
