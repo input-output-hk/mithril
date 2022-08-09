@@ -153,7 +153,7 @@ impl Runner for SignerRunner {
             .ok_or(RuntimeError::NoValueError)?;
         self.services
             .stake_store
-            .save_stakes(epoch, stake_distribution)
+            .save_stakes(epoch.offset_to_recording_epoch()?, stake_distribution)
             .await?;
 
         Ok(())
@@ -365,7 +365,11 @@ mod tests {
             .expect("update_stake_distribution should not fail.");
 
         let stake_distribution = stake_store
-            .get_stakes(current_epoch)
+            .get_stakes(
+                current_epoch
+                    .offset_to_recording_epoch()
+                    .expect("offset_to_recording_epoch should not fail"),
+            )
             .await
             .expect("getting stakes from store should not fail")
             .expect("there should be stakes for this epoch");
