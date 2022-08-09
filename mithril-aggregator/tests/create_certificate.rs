@@ -73,7 +73,10 @@ async fn create_certificate() {
     // start the runtime state machine
     runtime.cycle().await.expect(&tick_error_msg.get_message());
     assert_eq!("signing", runtime.get_state());
-    runtime.cycle().await.expect(&tick_error_msg.get_message());
+    runtime
+        .cycle()
+        .await
+        .expect_err(&tick_error_msg.get_message());
     assert_eq!("signing", runtime.get_state());
 
     // register signers
@@ -88,7 +91,10 @@ async fn create_certificate() {
         }
     }
 
-    runtime.cycle().await.expect(&tick_error_msg.get_message());
+    runtime
+        .cycle()
+        .await
+        .expect_err(&tick_error_msg.get_message());
     assert_eq!("signing", runtime.get_state());
 
     // change the immutable number to alter the beacon
@@ -107,7 +113,10 @@ async fn create_certificate() {
     assert_eq!("idle", runtime.get_state());
     runtime.cycle().await.expect(&tick_error_msg.get_message());
     assert_eq!("signing", runtime.get_state());
-    runtime.cycle().await.expect(&tick_error_msg.get_message());
+    runtime
+        .cycle()
+        .await
+        .expect_err(&tick_error_msg.get_message());
     assert_eq!("signing", runtime.get_state());
 
     // change the EPOCH 2 times to get the first valid stake distribution
@@ -121,7 +130,10 @@ async fn create_certificate() {
     assert_eq!("idle", runtime.get_state());
     runtime.cycle().await.expect(&tick_error_msg.get_message());
     assert_eq!("signing", runtime.get_state());
-    runtime.cycle().await.expect(&tick_error_msg.get_message());
+    runtime
+        .cycle()
+        .await
+        .expect_err(&tick_error_msg.get_message());
     assert_eq!("signing", runtime.get_state());
 
     // second EPOCH change
