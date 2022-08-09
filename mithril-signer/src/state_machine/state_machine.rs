@@ -79,7 +79,12 @@ impl StateMachine {
             }
             SignerState::Signed(state) => {
                 if let Some(new_beacon) = self.has_beacon_changed(&state.beacon).await? {
-                    self.state = SignerState::Registered(RegisteredState { beacon: new_beacon });
+                    if new_beacon.epoch > state.beacon.epoch {
+                        self.state = SignerState::Unregistered;
+                    } else {
+                        self.state =
+                            SignerState::Registered(RegisteredState { beacon: new_beacon });
+                    }
                 }
             }
         };
@@ -410,5 +415,35 @@ mod tests {
             }),
             *state_machine.get_state()
         );
+    }
+
+    #[tokio::test]
+    async fn signed_to_unregistered() {
+        let beacon = Beacon {
+            immutable_file_number: 99,
+            epoch: Epoch(9),
+            ..Default::default()
+        };
+        let new_beacon = Beacon {
+            epoch: Epoch(10),
+            ..beacon.clone()
+        };
+        let state = SignedState {
+            beacon: beacon.clone(),
+        };
+
+        let mut runner = MockSignerRunner::new();
+        runner
+            .expect_get_current_beacon()
+            .once()
+            .returning(move || Ok(new_beacon.to_owned()));
+
+        let mut state_machine = init_state_machine(SignerState::Signed(state), runner);
+        state_machine
+            .cycle()
+            .await
+            .expect("Cycling the state machine should not fail");
+
+        assert_eq!(SignerState::Unregistered, *state_machine.get_state());
     }
 }
