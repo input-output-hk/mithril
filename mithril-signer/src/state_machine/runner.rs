@@ -97,6 +97,7 @@ impl Runner for SignerRunner {
         &self,
     ) -> Result<Option<CertificatePending>, Box<dyn StdError + Sync + Send>> {
         debug!("runner: get_pending_certificate");
+
         self.services
             .certificate_handler
             .retrieve_pending_certificate()
@@ -106,6 +107,7 @@ impl Runner for SignerRunner {
 
     async fn get_current_beacon(&self) -> Result<Beacon, Box<dyn StdError + Sync + Send>> {
         debug!("runner: get_current_epoch");
+
         self.services
             .beacon_provider
             .get_current_beacon()
@@ -119,6 +121,7 @@ impl Runner for SignerRunner {
         protocol_parameters: &ProtocolParameters,
     ) -> Result<(), Box<dyn StdError + Sync + Send>> {
         debug!("runner: register_signer_to_aggregator");
+
         let stake_distribution = self
             .services
             .chain_observer
@@ -150,6 +153,7 @@ impl Runner for SignerRunner {
         epoch: Epoch,
     ) -> Result<(), Box<dyn StdError + Sync + Send>> {
         debug!("runner: update_stake_distribution");
+
         let stake_distribution = self
             .services
             .chain_observer
@@ -168,6 +172,8 @@ impl Runner for SignerRunner {
         &self,
         pending_certificate: &CertificatePending,
     ) -> Result<bool, Box<dyn StdError + Sync + Send>> {
+        debug!("runner: can_i_sign");
+
         if let Some(signer) = pending_certificate.get_signer(self.config.party_id.to_owned()) {
             let protocol_initializer = self
                 .services
@@ -194,6 +200,8 @@ impl Runner for SignerRunner {
         epoch: Epoch,
         signers: &[Signer],
     ) -> Result<Vec<SignerWithStake>, Box<dyn StdError + Sync + Send>> {
+        debug!("runner: associate_signers_with_stake");
+
         // todo: dedicated error
         let stakes = self
             .services
@@ -221,6 +229,8 @@ impl Runner for SignerRunner {
         beacon: &Beacon,
         next_signers: &[SignerWithStake],
     ) -> Result<ProtocolMessage, Box<dyn StdError + Sync + Send>> {
+        debug!("runner: compute_message");
+
         let mut message = ProtocolMessage::new();
         // 1 set the digest in the message
         let digest = self
@@ -254,6 +264,8 @@ impl Runner for SignerRunner {
         message: &ProtocolMessage,
         signers: &[SignerWithStake],
     ) -> Result<Option<SingleSignatures>, Box<dyn StdError + Sync + Send>> {
+        debug!("runner: compute_single_signature");
+
         let protocol_initializer = self
             .services
             .protocol_initializer_store
@@ -273,6 +285,8 @@ impl Runner for SignerRunner {
         &self,
         maybe_signature: Option<SingleSignatures>,
     ) -> Result<(), Box<dyn StdError + Sync + Send>> {
+        debug!("runner: send_single_signature");
+
         if let Some(single_signatures) = maybe_signature {
             self.services
                 .certificate_handler

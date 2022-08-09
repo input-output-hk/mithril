@@ -311,6 +311,7 @@ impl MultiSignerImpl {
 impl MultiSigner for MultiSignerImpl {
     /// Get current message
     async fn get_current_message(&self) -> Option<entities::ProtocolMessage> {
+        debug!("Get current message");
         self.current_message.clone()
     }
 
@@ -319,6 +320,7 @@ impl MultiSigner for MultiSignerImpl {
         &mut self,
         message: entities::ProtocolMessage,
     ) -> Result<(), ProtocolError> {
+        debug!("Update current_message to {:?}", message);
         if self.current_message.clone() != Some(message.clone()) {
             self.multi_signature = None;
             let stakes = self.get_stake_distribution().await?;
@@ -341,12 +343,14 @@ impl MultiSigner for MultiSignerImpl {
         &mut self,
         beacon: entities::Beacon,
     ) -> Result<(), ProtocolError> {
+        debug!("Update current_beacon to {:?}", beacon);
         self.current_beacon = Some(beacon);
         Ok(())
     }
 
     /// Get protocol parameters
     async fn get_protocol_parameters(&self) -> Option<ProtocolParameters> {
+        debug!("Get protocol parameters");
         self.protocol_parameters
     }
 
@@ -400,6 +404,7 @@ impl MultiSigner for MultiSignerImpl {
         &self,
         stakes: &ProtocolStakeDistribution,
     ) -> Result<Option<ProtocolAggregateVerificationKey>, ProtocolError> {
+        debug!("Compute avk");
         match self.create_clerk(stakes).await? {
             Some(clerk) => Ok(Some(clerk.compute_avk())),
             None => Ok(None),

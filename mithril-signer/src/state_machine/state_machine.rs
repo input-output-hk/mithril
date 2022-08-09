@@ -48,7 +48,7 @@ impl StateMachine {
     /// perform a cycle of the state machine
     pub async fn cycle(&mut self) -> Result<(), Box<dyn Error + Sync + Send>> {
         info!("================================================================================");
-        info!("New state machine cycle.");
+        info!("New state machine cycle."; "current_state" => ?self.state);
 
         match &self.state {
             SignerState::Unregistered => {
@@ -87,16 +87,15 @@ impl StateMachine {
         Ok(())
     }
 
-    /// launch the state machine until an error occures or it is interrupted
-    pub async fn run(&mut self) -> Box<dyn Error> {
+    /// launch the state machine until an error occurs or it is interrupted
+    pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
         info!("state machine: launching");
 
         loop {
             if let Err(e) = self.cycle().await {
-                error!("state machine: an error occured");
-
-                return e;
+                error!("state machine: an error occured: "; "error" => ?e);
             }
+
             info!("Sleeping for {} ms", self.state_sleep.as_millis());
             sleep(self.state_sleep);
         }
