@@ -135,7 +135,7 @@ impl StateMachine {
         let beacon = self.runner.get_current_beacon().await?;
         self.runner.update_stake_distribution(beacon.epoch).await?;
         self.runner
-            .register_signer_to_aggregator(pending_certificate)
+            .register_signer_to_aggregator(beacon.epoch, &pending_certificate.protocol_parameters)
             .await?;
 
         Ok(RegisteredState { beacon })
@@ -213,7 +213,7 @@ mod tests {
         runner
             .expect_register_signer_to_aggregator()
             .once()
-            .returning(|_| Ok(()));
+            .returning(|_, _| Ok(()));
 
         let mut state_machine = init_state_machine(SignerState::Unregistered, runner);
 

@@ -5,6 +5,7 @@ use slog_scope::debug;
 use std::error::Error as StdError;
 use thiserror::Error;
 
+use mithril_common::entities::ProtocolParameters;
 use mithril_common::{
     crypto_helper::key_encode_hex,
     entities::{
@@ -28,7 +29,8 @@ pub trait Runner {
 
     async fn register_signer_to_aggregator(
         &self,
-        pending_certificate: &CertificatePending,
+        epoch: Epoch,
+        protocol_parameters: &ProtocolParameters,
     ) -> Result<(), Box<dyn StdError + Sync + Send>>;
 
     async fn update_stake_distribution(
@@ -108,7 +110,8 @@ impl Runner for SignerRunner {
 
     async fn register_signer_to_aggregator(
         &self,
-        pending_certificate: &CertificatePending,
+        epoch: Epoch,
+        protocol_parameters: &ProtocolParameters,
     ) -> Result<(), Box<dyn StdError + Sync + Send>> {
         debug!("runner: register_signer_to_aggregator");
         let stake_distribution = self
@@ -117,19 +120,12 @@ impl Runner for SignerRunner {
             .get_current_stake_distribution()
             .await?
             .ok_or(RuntimeError::NoValueError)?;
-        let epoch = self
-            .services
-            .chain_observer
-            .get_current_epoch()
-            .await?
-            // todo: Dedicated error ?
-            .ok_or(RuntimeError::NoValueError)?;
         let stake = stake_distribution
             .get(&self.config.party_id)
             .ok_or(RuntimeError::NoStake)?;
         let protocol_initializer =
             MithrilProtocolInitializerBuilder::new(self.config.party_id.to_owned())
-                .build(stake, &pending_certificate.protocol_parameters)?;
+                .build(stake, protocol_parameters)?;
         let verification_key = key_encode_hex(protocol_initializer.verification_key())?;
         let signer = Signer::new(self.config.party_id.to_owned(), verification_key);
         self.services
@@ -392,9 +388,7 @@ mod tests {
             .await
             .clone()
             .expect("chain_observer should have a current_beacon")
-            .epoch
-            .offset_to_recording_epoch()
-            .expect("epoch.offset_by should not fail");
+            .epoch;
 
         let pending_certificate = certificate_handler
             .retrieve_pending_certificate()
@@ -402,7 +396,7 @@ mod tests {
             .expect("getting pending certificate should not fail")
             .expect("there should be a pending certificate, None returned");
         runner
-            .register_signer_to_aggregator(&pending_certificate)
+            .register_signer_to_aggregator(epoch, &pending_certificate.protocol_parameters)
             .await
             .expect("registering a signer to the aggregator should not fail");
 
@@ -411,7 +405,11 @@ mod tests {
             .await
             .is_some());
         let maybe_protocol_initializer = protocol_initializer_store
-            .get_protocol_initializer(epoch)
+            .get_protocol_initializer(
+                epoch
+                    .offset_to_recording_epoch()
+                    .expect("offset_to_recording_epoch should not fail"),
+            )
             .await
             .expect("get_protocol_initializer should not fail");
         assert!(
@@ -441,7 +439,7 @@ mod tests {
             .expect("certificate handler should not fail")
             .expect("there should be a certificate pending at this stage");
         runner
-            .register_signer_to_aggregator(&certificate_pending)
+            .register_signer_to_aggregator(current_epoch, &certificate_pending.protocol_parameters)
             .await
             .expect("register signer should not fail");
         let _message = runner
