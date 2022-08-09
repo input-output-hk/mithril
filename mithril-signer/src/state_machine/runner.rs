@@ -302,8 +302,8 @@ mod tests {
     use mithril_common::{fake_data, CardanoNetwork};
 
     use crate::{
-        CertificateHandler, DumbCertificateHandler, MithrilSingleSigner, ProtocolInitializerStore,
-        SingleSigner,
+        CertificateHandler, DumbCertificateHandler, MithrilSingleSigner, MockCertificateHandler,
+        ProtocolInitializerStore, SingleSigner,
     };
 
     use super::*;
@@ -619,5 +619,22 @@ mod tests {
             .await
             .expect("compute_message should not fail");
         assert_eq!(expected, single_signature);
+    }
+
+    #[tokio::test]
+    async fn test_send_single_signature() {
+        let mut services = init_services();
+        let mut certificate_handler = MockCertificateHandler::new();
+        certificate_handler
+            .expect_register_signatures()
+            .once()
+            .returning(|_| Ok(()));
+        services.certificate_handler = Arc::new(certificate_handler);
+        let runner = init_runner(Some(services), None);
+
+        runner
+            .send_single_signature(Some(fake_data::single_signatures(vec![2, 5, 12])))
+            .await
+            .expect("send_single_signature should not fail");
     }
 }
