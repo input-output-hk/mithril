@@ -340,7 +340,7 @@ mod tests {
         runner.expect_can_i_sign().once().returning(|_| Ok(true));
         runner
             .expect_associate_signers_with_stake()
-            .once()
+            .times(2)
             .returning(|_, _| Ok(fake_data::signers_with_stakes(4)));
         runner
             .expect_compute_single_signature()

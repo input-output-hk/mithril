@@ -287,6 +287,7 @@ impl Runner for SignerRunner {
 
 #[cfg(test)]
 mod tests {
+    use mockall::mock;
     use std::{path::PathBuf, sync::Arc};
 
     use mithril_common::crypto_helper::tests_setup::setup_signers;
@@ -295,7 +296,9 @@ mod tests {
     use mithril_common::entities::{Epoch, StakeDistribution};
     use mithril_common::store::adapter::{DumbStoreAdapter, MemoryAdapter};
     use mithril_common::store::{StakeStore, StakeStorer};
-    use mithril_common::{chain_observer::FakeObserver, BeaconProviderImpl};
+    use mithril_common::{
+        chain_observer::FakeObserver, BeaconProvider, BeaconProviderError, BeaconProviderImpl,
+    };
     use mithril_common::{fake_data, CardanoNetwork};
 
     use crate::{
@@ -307,11 +310,12 @@ mod tests {
 
     const DIGESTER_RESULT: &str = "a digest";
 
-    fn get_current_beacon() -> Beacon {
-        Beacon {
-            network: "whatever".to_string(),
-            epoch: Epoch(9),
-            immutable_file_number: 999,
+    mock! {
+        pub FakeBeaconProvider { }
+
+        #[async_trait]
+        impl BeaconProvider for FakeBeaconProvider {
+            async fn get_current_beacon(&self) -> Result<Beacon, BeaconProviderError>;
         }
     }
 
@@ -358,11 +362,18 @@ mod tests {
     }
     #[tokio::test]
     async fn test_get_current_beacon() {
-        let runner = init_runner(None, None);
-        let beacon = get_current_beacon();
+        let mut services = init_services();
+        let expected = fake_data::beacon();
+        let mut beacon_provider = MockFakeBeaconProvider::new();
+        beacon_provider
+            .expect_get_current_beacon()
+            .once()
+            .returning(|| Ok(fake_data::beacon()));
+        services.beacon_provider = Arc::new(beacon_provider);
+        let runner = init_runner(Some(services), None);
 
         assert_eq!(
-            beacon,
+            expected,
             runner
                 .get_current_beacon()
                 .await
