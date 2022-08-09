@@ -58,9 +58,9 @@ pub trait Runner {
 
     async fn compute_single_signature(
         &self,
+        epoch: Epoch,
         message: &ProtocolMessage,
         signers: &[SignerWithStake],
-        epoch: Epoch,
     ) -> Result<Option<SingleSignatures>, Box<dyn StdError + Sync + Send>>;
 
     async fn send_single_signature(
@@ -250,14 +250,14 @@ impl Runner for SignerRunner {
 
     async fn compute_single_signature(
         &self,
+        epoch: Epoch,
         message: &ProtocolMessage,
         signers: &[SignerWithStake],
-        epoch: Epoch,
     ) -> Result<Option<SingleSignatures>, Box<dyn StdError + Sync + Send>> {
         let protocol_initializer = self
             .services
             .protocol_initializer_store
-            .get_protocol_initializer(epoch)
+            .get_protocol_initializer(epoch.offset_to_signer_retrieval_epoch()?)
             .await?
             .ok_or(RuntimeError::NoValueError)?;
         let signature = self.services.single_signer.compute_single_signatures(
@@ -300,6 +300,7 @@ mod tests {
 
     use crate::{
         CertificateHandler, DumbCertificateHandler, MithrilSingleSigner, ProtocolInitializerStore,
+        SingleSigner,
     };
 
     use super::*;
@@ -555,5 +556,57 @@ mod tests {
             .expect("compute_message should not fail");
 
         assert_eq!(expected, message);
+    }
+
+    #[tokio::test]
+    async fn test_compute_single_signature() {
+        let mut services = init_services();
+        let current_beacon = services
+            .beacon_provider
+            .get_current_beacon()
+            .await
+            .expect("get_current_beacon should not fail");
+        let signers = setup_signers(5);
+        let (party_id, _, _, _, protocol_initializer) = signers.first().unwrap();
+        let single_signer = Arc::new(MithrilSingleSigner::new(party_id.to_string()));
+        services.single_signer = single_signer.clone();
+        services
+            .protocol_initializer_store
+            .save_protocol_initializer(
+                current_beacon
+                    .epoch
+                    .offset_to_signer_retrieval_epoch()
+                    .expect("offset_to_signer_retrieval_epoch should not fail"),
+                protocol_initializer.clone(),
+            )
+            .await
+            .expect("save_protocol_initializer should not fail");
+        let signers = signers
+            .iter()
+            .map(|(p, s, vk, ps, _)| {
+                SignerWithStake::new(p.to_string(), key_encode_hex(vk).unwrap(), *s)
+            })
+            .collect::<Vec<_>>();
+
+        let mut message = ProtocolMessage::new();
+        message.set_message_part(
+            ProtocolMessagePartKey::SnapshotDigest,
+            "a message".to_string(),
+        );
+        message.set_message_part(
+            ProtocolMessagePartKey::NextAggregateVerificationKey,
+            "an avk".to_string(),
+        );
+
+        let expected = single_signer
+            .compute_single_signatures(&message, &signers, protocol_initializer)
+            .expect("compute_single_signatures should not fail");
+
+        let runner = init_runner(Some(services), None);
+        let single_signature = runner
+            .compute_single_signature(current_beacon.epoch, &message, &signers)
+            .await
+            .expect("compute_message should not fail");
+        assert_eq!(expected, single_signature);
     }
 }

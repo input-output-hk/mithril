@@ -169,7 +169,7 @@ impl StateMachine {
             .await?;
         let single_signatures = self
             .runner
-            .compute_single_signature(&message, &signers, pending_certificate.beacon.epoch)
+            .compute_single_signature(current_beacon.epoch, &message, &signers)
             .await?;
         self.runner.send_single_signature(single_signatures).await?;
 
