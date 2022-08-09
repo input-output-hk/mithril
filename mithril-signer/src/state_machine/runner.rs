@@ -193,8 +193,26 @@ impl Runner for SignerRunner {
         epoch: Epoch,
         signers: &[Signer],
     ) -> Result<Vec<SignerWithStake>, Box<dyn StdError + Sync + Send>> {
-        // Note: raise an error if we can't find the stake for a signer
-        todo!()
+        // todo: dedicated error
+        let stakes = self
+            .services
+            .stake_store
+            .get_stakes(epoch)
+            .await?
+            .ok_or(RuntimeError::NoValueError)?;
+        let mut signers_with_stake = vec![];
+
+        for signer in signers {
+            // todo: dedicated error
+            let stake = stakes.get(&*signer.party_id).ok_or(RuntimeError::NoStake)?;
+
+            signers_with_stake.push(SignerWithStake::new(
+                signer.party_id.to_owned(),
+                signer.verification_key.to_owned(),
+                *stake,
+            ));
+        }
+        Ok(signers_with_stake)
     }
 
     async fn compute_message(
@@ -284,12 +302,13 @@ impl Runner for SignerRunner {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use std::{path::PathBuf, sync::Arc};
 
     use mithril_common::chain_observer::ChainObserver;
     use mithril_common::crypto_helper::ProtocolInitializer;
     use mithril_common::digesters::{DumbImmutableDigester, DumbImmutableFileObserver};
-    use mithril_common::entities::Epoch;
+    use mithril_common::entities::{Epoch, StakeDistribution};
     use mithril_common::store::adapter::{DumbStoreAdapter, MemoryAdapter};
     use mithril_common::store::{StakeStore, StakeStorer};
     use mithril_common::{chain_observer::FakeObserver, BeaconProviderImpl};
@@ -469,6 +488,36 @@ mod tests {
 
         let can_i_sign_result = runner.can_i_sign(&pending_certificate).await.unwrap();
         assert!(can_i_sign_result);
+    }
+
+    #[tokio::test]
+    async fn test_associate_signers_with_stake() {
+        let services = init_services();
+        let stake_store = services.stake_store.clone();
+        let runner = init_runner(Some(services), None);
+        let epoch = Epoch(12);
+        let expected = fake_data::signers_with_stakes(5);
+        let signers = expected
+            .clone()
+            .into_iter()
+            .map(|s| s.into())
+            .collect::<Vec<_>>();
+        let stake_distribution = expected
+            .clone()
+            .into_iter()
+            .map(|s| s.into())
+            .collect::<StakeDistribution>();
+
+        stake_store
+            .save_stakes(epoch, stake_distribution)
+            .await
+            .expect("save_stakes should not fail");
+
+        let result = runner
+            .associate_signers_with_stake(epoch, &signers)
+            .await
+            .expect("associate_signers_with_stake should not fail");
+        assert_eq!(expected, result);
     }
 
     #[tokio::test]
