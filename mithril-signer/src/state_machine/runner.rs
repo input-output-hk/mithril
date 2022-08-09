@@ -52,7 +52,8 @@ pub trait Runner {
 
     async fn compute_message(
         &self,
-        certificate_pending: &CertificatePending,
+        beacon: &Beacon,
+        next_signers: &[SignerWithStake],
     ) -> Result<ProtocolMessage, Box<dyn StdError + Sync + Send>>;
 
     async fn compute_single_signature(
@@ -217,14 +218,15 @@ impl Runner for SignerRunner {
 
     async fn compute_message(
         &self,
-        certificate_pending: &CertificatePending,
+        beacon: &Beacon,
+        next_signers: &[SignerWithStake],
     ) -> Result<ProtocolMessage, Box<dyn StdError + Sync + Send>> {
         let mut message = ProtocolMessage::new();
         // 1 set the digest in the message
         let digest = self
             .services
             .digester
-            .compute_digest(certificate_pending.beacon.immutable_file_number)
+            .compute_digest(beacon.immutable_file_number)
             .await?;
         message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
 
@@ -232,31 +234,14 @@ impl Runner for SignerRunner {
         let protocol_initializer = self
             .services
             .protocol_initializer_store
-            .get_protocol_initializer(certificate_pending.beacon.epoch)
+            .get_protocol_initializer(beacon.epoch.offset_to_signer_retrieval_epoch()?)
             .await?
             .ok_or(RuntimeError::NoValueError)?;
-        let stakes = self
-            .services
-            .stake_store
-            .get_stakes(certificate_pending.beacon.epoch)
-            .await?
-            .ok_or(RuntimeError::NoStake)?;
-        let mut signers: Vec<SignerWithStake> = vec![];
 
-        // TODO: this should not be here
-        for signer in &certificate_pending.next_signers[..] {
-            if let Some(stake) = stakes.get(&signer.party_id) {
-                signers.push(SignerWithStake::new(
-                    signer.party_id.to_owned(),
-                    signer.verification_key.to_owned(),
-                    *stake,
-                ));
-            }
-        }
         let avk = self
             .services
             .single_signer
-            .compute_aggregate_verification_key(&signers, &protocol_initializer)?
+            .compute_aggregate_verification_key(next_signers, &protocol_initializer)?
             .ok_or(RuntimeError::NoValueError)?;
         message.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
 
@@ -302,10 +287,9 @@ impl Runner for SignerRunner {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
     use std::{path::PathBuf, sync::Arc};
 
-    use mithril_common::chain_observer::ChainObserver;
+    use mithril_common::crypto_helper::tests_setup::setup_signers;
     use mithril_common::crypto_helper::ProtocolInitializer;
     use mithril_common::digesters::{DumbImmutableDigester, DumbImmutableFileObserver};
     use mithril_common::entities::{Epoch, StakeDistribution};
@@ -319,6 +303,8 @@ mod tests {
     };
 
     use super::*;
+
+    const DIGESTER_RESULT: &str = "a digest";
 
     fn get_current_beacon() -> Beacon {
         Beacon {
@@ -335,7 +321,7 @@ mod tests {
             stake_store: Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()))),
             certificate_handler: Arc::new(DumbCertificateHandler::default()),
             chain_observer: chain_observer.clone(),
-            digester: Arc::new(DumbImmutableDigester::new("whatever", true)),
+            digester: Arc::new(DumbImmutableDigester::new(DIGESTER_RESULT, true)),
             single_signer: Arc::new(MithrilSingleSigner::new("1".to_string())),
             beacon_provider: Arc::new(BeaconProviderImpl::new(
                 chain_observer,
@@ -522,31 +508,52 @@ mod tests {
 
     #[tokio::test]
     async fn test_compute_message() {
-        let services = init_services();
-        let current_epoch = services
-            .chain_observer
-            .get_current_epoch()
+        let mut services = init_services();
+        let current_beacon = services
+            .beacon_provider
+            .get_current_beacon()
             .await
-            .expect("chain observer should not fail")
-            .expect("the observer should return an epoch");
-        let certificate_handler = services.certificate_handler.clone();
+            .expect("get_current_beacon should not fail");
+        let signers = setup_signers(5);
+        let (party_id, _, _, _, protocol_initializer) = signers.first().unwrap();
+        let single_signer = Arc::new(MithrilSingleSigner::new(party_id.to_string()));
+        services.single_signer = single_signer.clone();
+        services
+            .protocol_initializer_store
+            .save_protocol_initializer(
+                current_beacon
+                    .epoch
+                    .offset_to_signer_retrieval_epoch()
+                    .expect("offset_to_signer_retrieval_epoch should not fail"),
+                protocol_initializer.clone(),
+            )
+            .await
+            .expect("save_protocol_initializer should not fail");
+
+        let next_signers = signers
+            .iter()
+            .map(|(p, s, vk, ps, _)| {
+                SignerWithStake::new(p.to_string(), key_encode_hex(vk).unwrap(), *s)
+            })
+            .collect::<Vec<_>>();
+        let mut expected = ProtocolMessage::new();
+        expected.set_message_part(
+            ProtocolMessagePartKey::SnapshotDigest,
+            DIGESTER_RESULT.to_string(),
+        );
+        let avk = services
+            .single_signer
+            .compute_aggregate_verification_key(&next_signers, protocol_initializer)
+            .expect("compute_aggregate_verification_key should not fail")
+            .expect("an avk should have been computed");
+        expected.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
+
         let runner = init_runner(Some(services), None);
-        runner
-            .update_stake_distribution(current_epoch)
-            .await
-            .expect("update_stake_distribution should not fail.");
-        let certificate_pending = certificate_handler
-            .retrieve_pending_certificate()
-            .await
-            .expect("certificate handler should not fail")
-            .expect("there should be a certificate pending at this stage");
-        runner
-            .register_signer_to_aggregator(current_epoch, &certificate_pending.protocol_parameters)
-            .await
-            .expect("register signer should not fail");
-        let _message = runner
-            .compute_message(&certificate_pending)
+        let message = runner
+            .compute_message(&current_beacon, &next_signers)
             .await
             .expect("compute_message should not fail");
+
+        assert_eq!(expected, message);
     }
 }

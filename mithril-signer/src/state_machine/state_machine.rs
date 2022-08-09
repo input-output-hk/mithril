@@ -148,9 +148,25 @@ impl StateMachine {
     ) -> Result<SignedState, Box<dyn Error + Sync + Send>> {
         let signers: Vec<SignerWithStake> = self
             .runner
-            .associate_signers_with_stake(current_beacon.epoch, &pending_certificate.signers)
+            .associate_signers_with_stake(
+                current_beacon.epoch.offset_to_signer_retrieval_epoch()?,
+                &pending_certificate.signers,
+            )
             .await?;
-        let message = self.runner.compute_message(pending_certificate).await?;
+        let next_signers: Vec<SignerWithStake> = self
+            .runner
+            .associate_signers_with_stake(
+                current_beacon
+                    .epoch
+                    .offset_to_next_signer_retrieval_epoch()?,
+                &pending_certificate.next_signers,
+            )
+            .await?;
+
+        let message = self
+            .runner
+            .compute_message(current_beacon, &next_signers)
+            .await?;
         let single_signatures = self
             .runner
             .compute_single_signature(&message, &signers, pending_certificate.beacon.epoch)
@@ -333,7 +349,7 @@ mod tests {
         runner
             .expect_compute_message()
             .once()
-            .returning(|_| Ok(ProtocolMessage::new()));
+            .returning(|_, _| Ok(ProtocolMessage::new()));
         runner
             .expect_send_single_signature()
             .once()
