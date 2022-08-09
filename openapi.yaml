@@ -5,7 +5,7 @@ info:
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
 
-    You can play with it [here](https://input-output-hk.github.io/mithril/openapi-ui/).
+    You can play with it [here](https://mithril.network/openapi-ui/).
   termsOfService: http://swagger.io/terms/
   contact:
     name: Mithril Team
