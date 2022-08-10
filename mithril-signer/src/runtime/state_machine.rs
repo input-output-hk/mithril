@@ -1,5 +1,5 @@
 use slog_scope::{debug, error, info};
-use std::{error::Error, thread::sleep, time::Duration};
+use std::{error::Error, fmt::Display, thread::sleep, time::Duration};
 
 use mithril_common::entities::{Beacon, CertificatePending, SignerWithStake};
 
@@ -20,6 +20,26 @@ pub enum SignerState {
     Unregistered,
     Registered(RegisteredState),
     Signed(SignedState),
+}
+
+impl SignerState {
+    pub fn is_unregistered(&self) -> bool {
+        *self == SignerState::Unregistered
+    }
+
+    pub fn is_registered(&self) -> bool {
+        match *self {
+            SignerState::Registered(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_signed(&self) -> bool {
+        match *self {
+            SignerState::Signed(_) => true,
+            _ => false,
+        }
+    }
 }
 
 pub struct StateMachine {

@@ -71,13 +71,13 @@ pub trait Runner {
 
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum RuntimeError {
-    #[error("No value returned by the subsystem for `{0}`")]
+    #[error("No value returned by the subsystem for `{0}`.")]
     NoValueError(String),
-    #[error("No stake associated with this signer")]
+    #[error("No stake associated with myself.")]
     NoStakeForSelf(),
-    #[error("No stake associated with this signer, party_id: {0}")]
+    #[error("No stake associated with this signer, party_id: {0}.")]
     NoStakeForSigner(PartyId),
-    #[error("Subsystem unavailable: {0}")]
+    #[error("Subsystem unavailable: {0}.")]
     SubsystemUnavailable(String),
 }
 
