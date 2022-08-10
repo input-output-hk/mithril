@@ -125,9 +125,16 @@ use std::hash::{Hash, Hasher};
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
+
 /// Quorum index for signatures.
 /// An aggregate signature (`StmMultiSig`) must have at least `k` unique indices.
 pub type Index = u64;
+
+/// Wrapper of the MultiSignature Verification key with proof of possession
+pub type StmVerificationKeyPoP = VerificationKeyPoP;
+
+/// Wrapper of the MultiSignature Verification key
+pub type StmVerificationKey = VerificationKey;
 
 /// Used to set protocol parameters.
 // todo: this is the criteria to consider parameters valid:
@@ -138,76 +145,34 @@ pub type Index = u64;
 // The latter turns to 1 - BinomialCDF(k-1,m,p)
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct StmParameters {
-    /// Security parameter, upper bound on indices
+    /// Security parameter, upper bound on indices.
     pub m: u64,
-
-    /// Quorum parameter
+    /// Quorum parameter.
     pub k: u64,
-
-    /// `f` in phi(w) = 1 - (1 - f)^w, where w is the stake of a participant.
+    /// `f` in phi(w) = 1 - (1 - f)^w, where w is the stake of a participant..
     pub phi_f: f64,
 }
 
-impl StmParameters {
-    /// Convert to bytes
-    ///
-    /// # Layout
-    /// * Security parameter, m (as u64)
-    /// * Quorum parameter, k (as u64)
-    /// * Phi f, as (f64)
-    pub fn to_bytes(&self) -> [u8; 24] {
-        let mut out = [0; 24];
-        out[..8].copy_from_slice(&self.m.to_be_bytes());
-        out[8..16].copy_from_slice(&self.k.to_be_bytes());
-        out[16..].copy_from_slice(&self.phi_f.to_be_bytes());
-        out
-    }
-
-    /// Convert `StmParameters` from a byte slice
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, RegisterError> {
-        if bytes.len() != 24 {
-            return Err(RegisterError::SerializationError);
-        }
-
-        let mut u64_bytes = [0u8; 8];
-        u64_bytes.copy_from_slice(&bytes[..8]);
-        let m = u64::from_be_bytes(u64_bytes);
-        u64_bytes.copy_from_slice(&bytes[8..16]);
-        let k = u64::from_be_bytes(u64_bytes);
-        u64_bytes.copy_from_slice(&bytes[16..]);
-        let phi_f = f64::from_be_bytes(u64_bytes);
-
-        Ok(Self { m, k, phi_f })
-    }
-}
-
-/// Wrapper of the MultiSignature Verification key with proof of possession
-pub type StmVerificationKeyPoP = VerificationKeyPoP;
-/// Wrapper of the MultiSignature Verification key
-pub type StmVerificationKey = VerificationKey;
-
-/// Initializer for `StmSigner`. This is the data that is used during the key registration
-/// procedure. Once the latter is finished, this instance is consumed into an `StmSigner`.
+/// Initializer for `StmSigner`.
+/// This is the data that is used during the key registration procedure.
+/// Once the latter is finished, this instance is consumed into an `StmSigner`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StmInitializer {
-    /// This participant's stake
+    /// This participant's stake.
     pub stake: Stake,
-    /// Current protocol instantiation parameters
+    /// Current protocol instantiation parameters.
     pub params: StmParameters,
-    /// Secret key
+    /// Secret key.
     pub(crate) sk: SigningKey,
-    /// Verification (public) key + proof of possession
+    /// Verification (public) key + proof of possession.
     pub(crate) pk: StmVerificationKeyPoP,
 }
 
-/// Participant in the protocol can sign messages. This instance can only be generated out of
-/// an `StmInitializer` and a `ClosedKeyReg`. This ensures that a `MerkleTree` root is not
-/// computed before all participants have registered.
+/// Participant in the protocol can sign messages.
+/// This instance can only be generated out of an `StmInitializer` and a `ClosedKeyReg`.
+/// This ensures that a `MerkleTree` root is not computed before all participants have registered.
 #[derive(Debug, Clone)]
-pub struct StmSigner<D>
-where
-    D: Digest + FixedOutput,
-{
+pub struct StmSigner<D: Digest + FixedOutput> {
     mt_index: u64,
     stake: Stake,
     params: StmParameters,
@@ -216,14 +181,11 @@ where
     closed_reg: ClosedKeyReg<D>,
 }
 
-/// `StmClerk` can verify and aggregate `StmSig`s and verify `StmMultiSig`s. Clerks can only be
-/// generated with the registration closed. This avoids that a Merkle Tree is computed before
-/// all parties have registered.
+/// `StmClerk` can verify and aggregate `StmSig`s and verify `StmMultiSig`s.
+/// Clerks can only be generated with the registration closed.
+/// This avoids that a Merkle Tree is computed before all parties have registered.
 #[derive(Debug, Clone)]
-pub struct StmClerk<D>
-where
-    D: Clone + Digest + FixedOutput,
-{
+pub struct StmClerk<D: Clone + Digest + FixedOutput> {
     pub(crate) closed_reg: ClosedKeyReg<D>,
     pub(crate) params: StmParameters,
 }
@@ -247,263 +209,66 @@ pub struct StmSig<D: Clone + Digest + FixedOutput> {
     pub path: Path<D>,
 }
 
-impl<D: Clone + Digest + FixedOutput> Hash for StmSig<D> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        Hash::hash_slice(&self.sigma.to_bytes(), state)
-    }
-}
-
-impl<D: Clone + Digest + FixedOutput> PartialEq for StmSig<D> {
-    fn eq(&self, other: &Self) -> bool {
-        self.sigma == other.sigma
-    }
-}
-
-impl<D: Clone + Digest + FixedOutput> Eq for StmSig<D> {}
-
-impl<D: Clone + Digest + FixedOutput> StmSig<D> {
-    /// Verify an stm signature by checking that the lottery was won, the merkle path is correct,
-    /// the indexes are in the desired range and the underlying multi signature validates.
-    pub fn verify(
-        &self,
-        params: &StmParameters,
-        avk: &StmAggrVerificationKey<D>,
-        msg: &[u8],
-    ) -> Result<(), VerificationFailure<D>> {
-        let msgp = avk.mt_commitment.concat_with_msg(msg);
-
-        self.check_indices(params, &msgp, avk)?;
-        avk.mt_commitment
-            .check(&MTLeaf(self.pk, self.stake), &self.path)?;
-        self.sigma.verify(&msgp, &self.pk)?;
-        Ok(())
-    }
-
-    /// Verify that all indices of a signature are valid
-    pub(crate) fn check_indices(
-        &self,
-        params: &StmParameters,
-        msgp: &[u8],
-        avk: &StmAggrVerificationKey<D>,
-    ) -> Result<(), VerificationFailure<D>> {
-        for &index in &self.indexes {
-            if index > params.m {
-                return Err(VerificationFailure::IndexBoundFailed(index, params.m));
-            }
-
-            let ev = self.sigma.eval(msgp, index);
-
-            if !ev_lt_phi(params.phi_f, ev, self.stake, avk.total_stake) {
-                return Err(VerificationFailure::LotteryLost);
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Convert an `StmSig` into bytes
-    ///
-    /// # Layout
-    ///
-    /// * Party id
-    /// * Stake
-    /// * Number of valid indexes (as u64)
-    /// * Indexes of the signature
-    /// * Public Key
-    /// * Signature
-    /// * Merkle Tree path
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut output = Vec::new();
-        output.extend_from_slice(&self.stake.to_be_bytes());
-        output.extend_from_slice(&(self.indexes.len() as u64).to_be_bytes());
-        for index in &self.indexes {
-            output.extend_from_slice(&index.to_be_bytes());
-        }
-        output.extend_from_slice(&self.pk.to_bytes());
-        output.extend_from_slice(&self.sigma.to_bytes());
-        output.extend_from_slice(&self.path.to_bytes());
-        output
-    }
-
-    /// Convert an `StmSig` from a byte slice
-    pub fn from_bytes(bytes: &[u8]) -> Result<StmSig<D>, MultiSignatureError> {
-        let mut u64_bytes = [0u8; 8];
-        u64_bytes.copy_from_slice(&bytes[..8]);
-        let stake = u64::from_be_bytes(u64_bytes);
-        u64_bytes.copy_from_slice(&bytes[8..16]);
-        let nr_indexes = u64::from_be_bytes(u64_bytes) as usize;
-        let mut index = Vec::new();
-        for i in 0..nr_indexes {
-            u64_bytes.copy_from_slice(&bytes[16 + i * 8..24 + i * 8]);
-            index.push(u64::from_be_bytes(u64_bytes));
-        }
-        let pk = StmVerificationKey::from_bytes(&bytes[16 + nr_indexes * 8..])?;
-        let sigma = Signature::from_bytes(&bytes[112 + nr_indexes * 8..])?;
-        let path = Path::from_bytes(&bytes[160 + nr_indexes * 8..])?;
-
-        Ok(StmSig {
-            sigma,
-            pk,
-            stake,
-            indexes: index,
-            path,
-        })
-    }
-}
-
-/// Stm aggregate key, which contains the merkle tree root, and the total stake of the system.
+/// Stm aggregate key, which contains the merkle tree root and the total stake of the system.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound(
     serialize = "Path<D>: Serialize",
     deserialize = "Path<D>: Deserialize<'de>"
 ))]
-pub struct StmAggrVerificationKey<D>
-where
-    D: Clone + Digest + FixedOutput,
-{
+pub struct StmAggrVerificationKey<D: Clone + Digest + FixedOutput> {
     mt_commitment: MerkleTreeCommitment<D>,
     total_stake: Stake,
 }
 
-impl<D> From<&ClosedKeyReg<D>> for StmAggrVerificationKey<D>
-where
-    D: Clone + Digest + FixedOutput,
-{
-    fn from(reg: &ClosedKeyReg<D>) -> Self {
-        Self {
-            mt_commitment: reg.merkle_tree.to_commitment(),
-            total_stake: reg.total_stake,
-        }
-    }
-}
-
-/// `StmMultiSig` uses the "concatenation" proving system (as described in Section 4.3 of the
-/// original paper. This means that the aggregated signature contains a vector with all individual
-/// signatures.
+/// `StmMultiSig` uses the "concatenation" proving system (as described in Section 4.3 of the original paper.)
+/// This means that the aggregated signature contains a vector with all individual signatures.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound(
     serialize = "Path<D>: Serialize",
     deserialize = "Path<D>: Deserialize<'de>"
 ))]
-pub struct StmAggrSig<D>
-where
-    D: Clone + Digest + FixedOutput,
-{
+pub struct StmAggrSig<D: Clone + Digest + FixedOutput> {
     pub(crate) signatures: Vec<StmSig<D>>,
 }
 
-impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
-    /// Verify aggregate signature, by checking that each signature contains only
-    /// valid indices, that the lottery is indeed won by each one of them, the merkle
-    /// tree path is valid, and the aggregate signature validates with respect to the
-    /// aggregate verification key (aggregation is computed using functions `MSP.BKey`
-    /// and `MSP.BSig` as described in Section 2.4 of the paper.
-    pub fn verify(
-        &self,
-        msg: &[u8],
-        avk: &StmAggrVerificationKey<D>,
-        parameters: &StmParameters,
-    ) -> Result<(), MithrilWitnessError<D>> {
-        // Check that indices are all smaller than `m` and they are unique
-        let mut nr_indices = 0;
-        let mut unique_indices = HashSet::new();
-        for sig in &self.signatures {
-            for &index in &sig.indexes {
-                if index > parameters.m {
-                    return Err(MithrilWitnessError::IndexBoundFailed(index, parameters.m));
-                }
-                unique_indices.insert(index);
-                nr_indices += 1;
-            }
-        }
-
-        if nr_indices != unique_indices.len() {
-            return Err(MithrilWitnessError::IndexNotUnique);
-        }
-
-        // Check that there are sufficient signatures
-        if (nr_indices as u64) < parameters.k {
-            return Err(MithrilWitnessError::NoQuorum);
-        }
-
-        // Check that all signatures did win the lottery
-        for sig in self.signatures.iter() {
-            let msgp = avk.mt_commitment.concat_with_msg(msg);
-            sig.check_indices(parameters, &msgp, avk)?;
-
-            // Check that merkle paths are valid
-            if avk
-                .mt_commitment
-                .check(&MTLeaf(sig.pk, sig.stake), &sig.path)
-                .is_err()
-            {
-                return Err(MithrilWitnessError::PathInvalid(sig.path.clone()));
-            }
-        }
-
-        let msg = avk.mt_commitment.concat_with_msg(msg);
-        let signatures = self
-            .signatures
-            .iter()
-            .map(|sig| sig.sigma)
-            .collect::<Vec<Signature>>();
-        let vks = self
-            .signatures
-            .iter()
-            .map(|sig| sig.pk)
-            .collect::<Vec<VerificationKey>>();
-
-        Signature::verify_aggregate(msg.as_slice(), &vks, &signatures)?;
-        Ok(())
-    }
-
-    /// Convert multi signature to bytes
-    ///
+impl StmParameters {
+    /// Convert to bytes
     /// # Layout
-    /// * Number of signatures (as u64)
-    /// * Size of a signature
-    /// * Signatures
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut out = Vec::new();
-        out.extend_from_slice(&u64::try_from(self.signatures.len()).unwrap().to_be_bytes());
-        out.extend_from_slice(
-            &u64::try_from(self.signatures[0].to_bytes().len())
-                .unwrap()
-                .to_be_bytes(),
-        );
-        for sig in &self.signatures {
-            out.extend_from_slice(&sig.to_bytes())
-        }
+    /// * Security parameter, `m` (as u64)
+    /// * Quorum parameter, `k` (as u64)
+    /// * Phi f, as (f64)
+    pub fn to_bytes(&self) -> [u8; 24] {
+        let mut out = [0; 24];
+        out[..8].copy_from_slice(&self.m.to_be_bytes());
+        out[8..16].copy_from_slice(&self.k.to_be_bytes());
+        out[16..].copy_from_slice(&self.phi_f.to_be_bytes());
         out
     }
 
-    /// Convert a `StmMultiSig` from a byte slice
-    pub fn from_bytes(bytes: &[u8]) -> Result<StmAggrSig<D>, MultiSignatureError> {
-        let mut u64_bytes = [0u8; 8];
-        u64_bytes.copy_from_slice(&bytes[..8]);
-        let size = usize::try_from(u64::from_be_bytes(u64_bytes))
-            .map_err(|_| MultiSignatureError::SerializationError)?;
-        u64_bytes.copy_from_slice(&bytes[8..16]);
-        let sig_size = usize::try_from(u64::from_be_bytes(u64_bytes))
-            .map_err(|_| MultiSignatureError::SerializationError)?;
-        let mut signatures = Vec::with_capacity(size);
-        for i in 0..size {
-            signatures.push(StmSig::from_bytes(
-                &bytes[16 + i * sig_size..16 + (i + 1) * sig_size],
-            )?);
+    /// Extract the `StmParameters` from a byte slice.
+    /// # Error
+    /// The function fails if the given string of bytes is not of required size.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, RegisterError> {
+        if bytes.len() != 24 {
+            return Err(RegisterError::SerializationError);
         }
 
-        Ok(StmAggrSig { signatures })
+        let mut u64_bytes = [0u8; 8];
+        u64_bytes.copy_from_slice(&bytes[..8]);
+        let m = u64::from_be_bytes(u64_bytes);
+        u64_bytes.copy_from_slice(&bytes[8..16]);
+        let k = u64::from_be_bytes(u64_bytes);
+        u64_bytes.copy_from_slice(&bytes[16..]);
+        let phi_f = f64::from_be_bytes(u64_bytes);
+
+        Ok(Self { m, k, phi_f })
     }
 }
 
 impl StmInitializer {
-    /// Builds an `StmInitializer` that is ready to register with the key registration service. This
-    /// function generates the signing and verification key with a PoP, and initialises the structure.
-    pub fn setup<R>(params: StmParameters, stake: Stake, rng: &mut R) -> Self
-    where
-        R: RngCore + CryptoRng,
-    {
+    /// Builds an `StmInitializer` that is ready to register with the key registration service.
+    /// This function generates the signing and verification key with a PoP, and initialises the structure.
+    pub fn setup<R: RngCore + CryptoRng>(params: StmParameters, stake: Stake, rng: &mut R) -> Self {
         let sk = SigningKey::gen(rng);
         let pk = StmVerificationKeyPoP::from(&sk);
         Self {
@@ -519,20 +284,22 @@ impl StmInitializer {
         self.pk
     }
 
-    /// Build the avk for the given list of parties.
+    /// Build the `avk` for the given list of parties.
     ///
     /// Note that if this StmInitializer was modified *between* the last call to `register`,
     /// then the resulting `StmSigner` may not be able to produce valid signatures.
     ///
-    /// Returns an StmSigner specialized to
-    /// (1) this StmSigner's ID and current stake
-    /// (2) this StmSigner's parameter valuation
-    /// (3) the avk as built from the current registered parties (according to the registration service)
-    /// (4) the current total stake (according to the registration service)
-    pub fn new_signer<D>(self, closed_reg: ClosedKeyReg<D>) -> StmSigner<D>
-    where
-        D: Digest + FixedOutput + Clone,
-    {
+    /// Returns an `StmSigner` specialized to
+    /// * this `StmSigner`'s ID and current stake
+    /// * this `StmSigner`'s parameter valuation
+    /// * the `avk` as built from the current registered parties (according to the registration service)
+    /// * the current total stake (according to the registration service)
+    /// # Panics
+    /// If the initializer is not registered.
+    pub fn new_signer<D: Digest + FixedOutput + Clone>(
+        self,
+        closed_reg: ClosedKeyReg<D>,
+    ) -> StmSigner<D> {
         let mut my_index = None;
         for (i, rp) in closed_reg.reg_parties.iter().enumerate() {
             if rp.0 == self.pk.vk {
@@ -553,7 +320,6 @@ impl StmInitializer {
     }
 
     /// Convert to bytes
-    ///
     /// # Layout
     /// * Stake (u64)
     /// * Params
@@ -569,6 +335,8 @@ impl StmInitializer {
     }
 
     /// Convert a slice of bytes to an `StmInitializer`
+    /// # Error
+    /// The function fails if the given string of bytes is not of required size.
     pub fn from_bytes(bytes: &[u8]) -> Result<StmInitializer, RegisterError> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(&bytes[..8]);
@@ -586,15 +354,12 @@ impl StmInitializer {
     }
 }
 
-impl<D> StmSigner<D>
-where
-    D: Clone + Digest + FixedOutput,
-{
-    /// This function produces a signature following the description of Section 2.4. Once the
-    /// signature is produced, this function checks whether any index in `[0,..,self.params.m]`
-    /// wins the lottery by evaluating the dense mapping. It records all the winning indexes
-    /// in `Self.indexes`. If it wins at least one lottery, it produces the merkle path for
-    /// its corresponding `(VerificationKey, Stake)`.
+impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
+    /// This function produces a signature following the description of Section 2.4.
+    /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
+    /// wins the lottery by evaluating the dense mapping.
+    /// It records all the winning indexes in `Self.indexes`.
+    /// If it wins at least one lottery, it produces the merkle path for its corresponding `(VerificationKey, Stake)`.
     pub fn sign(&self, msg: &[u8]) -> Option<StmSig<D>> {
         let msgp = self
             .closed_reg
@@ -771,10 +536,7 @@ where
     }
 }
 
-impl<D> StmClerk<D>
-where
-    D: Digest + FixedOutput + Clone,
-{
+impl<D: Digest + FixedOutput + Clone> StmClerk<D> {
     /// Create a new `Clerk` from a closed registration instance.
     pub fn from_registration(params: &StmParameters, closed_reg: &ClosedKeyReg<D>) -> Self {
         Self {
@@ -783,7 +545,7 @@ where
         }
     }
 
-    /// Creates a Clerk from a Signer.
+    /// Create a Clerk from a signer.
     pub fn from_signer(signer: &StmSigner<D>) -> Self {
         Self {
             params: signer.params,
@@ -807,13 +569,14 @@ where
         })
     }
 
-    /// Given a slice of `sigs`, this function returns a new list of signatures with only
-    /// valid indices.
-    /// In case of conflict (having several signatures for the same index) it selects the
-    /// smallest signature (i.e. takes the signature with the smallest scalar). The function
-    /// selects at least `self.k` indexes. If there is no sufficient, then returns an error.
-    /// todo: We need to agree on a criteria to dedup
-    /// todo: not good, because it only removes index if there is a conflict (see benches)
+    /// Given a slice of `sigs`, this function returns a new list of signatures with only  valid indices.
+    /// In case of conflict (having several signatures for the same index)
+    /// it selects the smallest signature (i.e. takes the signature with the smallest scalar).
+    /// The function selects at least `self.k` indexes.
+    ///  # Error
+    /// If there is no sufficient signatures, then the function fails.s
+    // todo: We need to agree on a criteria to dedup
+    // todo: not good, because it only removes index if there is a conflict (see benches)
     pub fn dedup_sigs_for_indices(
         &self,
         msg: &[u8],
@@ -890,9 +653,226 @@ where
         ))
     }
 
-    /// Compute the `StmAggrVerificationKey` related to the used registration
+    /// Compute the `StmAggrVerificationKey` related to the used registration.
     pub fn compute_avk(&self) -> StmAggrVerificationKey<D> {
         StmAggrVerificationKey::from(&self.closed_reg)
+    }
+}
+
+impl<D: Clone + Digest + FixedOutput> StmSig<D> {
+    /// Verify an stm signature by checking that the lottery was won, the merkle path is correct,
+    /// the indexes are in the desired range and the underlying multi signature validates.
+    pub fn verify(
+        &self,
+        params: &StmParameters,
+        avk: &StmAggrVerificationKey<D>,
+        msg: &[u8],
+    ) -> Result<(), VerificationFailure<D>> {
+        let msgp = avk.mt_commitment.concat_with_msg(msg);
+
+        self.check_indices(params, &msgp, avk)?;
+        avk.mt_commitment
+            .check(&MTLeaf(self.pk, self.stake), &self.path)?;
+        self.sigma.verify(&msgp, &self.pk)?;
+        Ok(())
+    }
+
+    /// Verify that all indices of a signature are valid.
+    pub(crate) fn check_indices(
+        &self,
+        params: &StmParameters,
+        msgp: &[u8],
+        avk: &StmAggrVerificationKey<D>,
+    ) -> Result<(), VerificationFailure<D>> {
+        for &index in &self.indexes {
+            if index > params.m {
+                return Err(VerificationFailure::IndexBoundFailed(index, params.m));
+            }
+
+            let ev = self.sigma.eval(msgp, index);
+
+            if !ev_lt_phi(params.phi_f, ev, self.stake, avk.total_stake) {
+                return Err(VerificationFailure::LotteryLost);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Convert an `StmSig` into bytes
+    ///
+    /// # Layout
+    /// * Party id
+    /// * Stake
+    /// * Number of valid indexes (as u64)
+    /// * Indexes of the signature
+    /// * Public Key
+    /// * Signature
+    /// * Merkle Tree path
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut output = Vec::new();
+        output.extend_from_slice(&self.stake.to_be_bytes());
+        output.extend_from_slice(&(self.indexes.len() as u64).to_be_bytes());
+        for index in &self.indexes {
+            output.extend_from_slice(&index.to_be_bytes());
+        }
+        output.extend_from_slice(&self.pk.to_bytes());
+        output.extend_from_slice(&self.sigma.to_bytes());
+        output.extend_from_slice(&self.path.to_bytes());
+        output
+    }
+
+    /// Extract an `StmSig` from a byte slice.
+    pub fn from_bytes(bytes: &[u8]) -> Result<StmSig<D>, MultiSignatureError> {
+        let mut u64_bytes = [0u8; 8];
+        u64_bytes.copy_from_slice(&bytes[..8]);
+        let stake = u64::from_be_bytes(u64_bytes);
+        u64_bytes.copy_from_slice(&bytes[8..16]);
+        let nr_indexes = u64::from_be_bytes(u64_bytes) as usize;
+        let mut index = Vec::new();
+        for i in 0..nr_indexes {
+            u64_bytes.copy_from_slice(&bytes[16 + i * 8..24 + i * 8]);
+            index.push(u64::from_be_bytes(u64_bytes));
+        }
+        let pk = StmVerificationKey::from_bytes(&bytes[16 + nr_indexes * 8..])?;
+        let sigma = Signature::from_bytes(&bytes[112 + nr_indexes * 8..])?;
+        let path = Path::from_bytes(&bytes[160 + nr_indexes * 8..])?;
+
+        Ok(StmSig {
+            sigma,
+            pk,
+            stake,
+            indexes: index,
+            path,
+        })
+    }
+}
+
+impl<D: Clone + Digest + FixedOutput> Hash for StmSig<D> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        Hash::hash_slice(&self.sigma.to_bytes(), state)
+    }
+}
+
+impl<D: Clone + Digest + FixedOutput> PartialEq for StmSig<D> {
+    fn eq(&self, other: &Self) -> bool {
+        self.sigma == other.sigma
+    }
+}
+
+impl<D: Clone + Digest + FixedOutput> Eq for StmSig<D> {}
+
+impl<D: Clone + Digest + FixedOutput> From<&ClosedKeyReg<D>> for StmAggrVerificationKey<D> {
+    fn from(reg: &ClosedKeyReg<D>) -> Self {
+        Self {
+            mt_commitment: reg.merkle_tree.to_commitment(),
+            total_stake: reg.total_stake,
+        }
+    }
+}
+
+impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
+    /// Verify aggregate signature, by checking that
+    /// * each signature contains only valid indices,
+    /// * the lottery is indeed won by each one of them,
+    /// * the merkle tree path is valid,
+    /// * the aggregate signature validates with respect to the aggregate verification key
+    /// (aggregation is computed using functions `MSP.BKey` and `MSP.BSig` as described in Section 2.4 of the paper).
+    pub fn verify(
+        &self,
+        msg: &[u8],
+        avk: &StmAggrVerificationKey<D>,
+        parameters: &StmParameters,
+    ) -> Result<(), MithrilWitnessError<D>> {
+        // Check that indices are all smaller than `m` and they are unique
+        let mut nr_indices = 0;
+        let mut unique_indices = HashSet::new();
+        for sig in &self.signatures {
+            for &index in &sig.indexes {
+                if index > parameters.m {
+                    return Err(MithrilWitnessError::IndexBoundFailed(index, parameters.m));
+                }
+                unique_indices.insert(index);
+                nr_indices += 1;
+            }
+        }
+
+        if nr_indices != unique_indices.len() {
+            return Err(MithrilWitnessError::IndexNotUnique);
+        }
+
+        // Check that there are sufficient signatures
+        if (nr_indices as u64) < parameters.k {
+            return Err(MithrilWitnessError::NoQuorum);
+        }
+
+        // Check that all signatures did win the lottery
+        for sig in self.signatures.iter() {
+            let msgp = avk.mt_commitment.concat_with_msg(msg);
+            sig.check_indices(parameters, &msgp, avk)?;
+
+            // Check that merkle paths are valid
+            if avk
+                .mt_commitment
+                .check(&MTLeaf(sig.pk, sig.stake), &sig.path)
+                .is_err()
+            {
+                return Err(MithrilWitnessError::PathInvalid(sig.path.clone()));
+            }
+        }
+
+        let msg = avk.mt_commitment.concat_with_msg(msg);
+        let signatures = self
+            .signatures
+            .iter()
+            .map(|sig| sig.sigma)
+            .collect::<Vec<Signature>>();
+        let vks = self
+            .signatures
+            .iter()
+            .map(|sig| sig.pk)
+            .collect::<Vec<VerificationKey>>();
+
+        Signature::verify_aggregate(msg.as_slice(), &vks, &signatures)?;
+        Ok(())
+    }
+
+    /// Convert multi signature to bytes
+    /// # Layout
+    /// * Number of signatures (as u64)
+    /// * Size of a signature
+    /// * Signatures
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut out = Vec::new();
+        out.extend_from_slice(&u64::try_from(self.signatures.len()).unwrap().to_be_bytes());
+        out.extend_from_slice(
+            &u64::try_from(self.signatures[0].to_bytes().len())
+                .unwrap()
+                .to_be_bytes(),
+        );
+        for sig in &self.signatures {
+            out.extend_from_slice(&sig.to_bytes())
+        }
+        out
+    }
+
+    /// Extract a `StmMultiSig` from a byte slice.
+    pub fn from_bytes(bytes: &[u8]) -> Result<StmAggrSig<D>, MultiSignatureError> {
+        let mut u64_bytes = [0u8; 8];
+        u64_bytes.copy_from_slice(&bytes[..8]);
+        let size = usize::try_from(u64::from_be_bytes(u64_bytes))
+            .map_err(|_| MultiSignatureError::SerializationError)?;
+        u64_bytes.copy_from_slice(&bytes[8..16]);
+        let sig_size = usize::try_from(u64::from_be_bytes(u64_bytes))
+            .map_err(|_| MultiSignatureError::SerializationError)?;
+        let mut signatures = Vec::with_capacity(size);
+        for i in 0..size {
+            signatures.push(StmSig::from_bytes(
+                &bytes[16 + i * sig_size..16 + (i + 1) * sig_size],
+            )?);
+        }
+
+        Ok(StmAggrSig { signatures })
     }
 }
 

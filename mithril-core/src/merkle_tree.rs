@@ -12,10 +12,47 @@ use std::convert::TryFrom;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 
-/// The values that are committed in the Merkle Tree. Namely, a verified `VerificationKey`
-/// and its corresponding stake.
+/// The values that are committed in the Merkle Tree.
+/// Namely, a verified `VerificationKey` and its corresponding stake.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MTLeaf(pub VerificationKey, pub Stake);
+
+/// Path of hashes from root to leaf in a Merkle Tree.
+/// Contains all hashes on the path, and the index of the leaf.
+/// Used to verify that signatures come from eligible signers.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Path<D: Digest + FixedOutput> {
+    pub(crate) values: Vec<Vec<u8>>,
+    pub(crate) index: usize,
+    hasher: PhantomData<D>,
+}
+
+/// `MerkleTree` commitment.
+/// This structure differs from `MerkleTree` in that it does not contain all elements, which are not always necessary.
+/// Instead, it only contains the root of the tree.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MerkleTreeCommitment<D: Digest + FixedOutput> {
+    /// Root of the merkle commitment.
+    pub root: Vec<u8>,
+    hasher: PhantomData<D>,
+}
+
+/// Tree of hashes, providing a commitment of data and its ordering.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MerkleTree<D: Digest + FixedOutput> {
+    /// The nodes are stored in an array heap:
+    /// * `nodes[0]` is the root,
+    /// * the parent of `nodes[i]` is `nodes[(i-1)/2]`
+    /// * the children of `nodes[i]` are `{nodes[2i + 1], nodes[2i + 2]}`
+    /// * All nodes have size `Output<D>::output_size()`, even leafs (which are hashed before committing them).
+    nodes: Vec<Vec<u8>>,
+    /// The leaves begin at `nodes[leaf_off]`.
+    leaf_off: usize,
+    /// Number of leaves cached in the merkle tree.
+    n: usize,
+    /// Phantom type to link the tree with its hasher
+    hasher: PhantomData<D>,
+}
 
 impl MTLeaf {
     pub(crate) fn to_bytes(self) -> [u8; 104] {
@@ -26,11 +63,13 @@ impl MTLeaf {
     }
 }
 
-/// Ordering of MT Values. First we order by stake, then by key. By having this ordering,
-/// we have the players with higher stake close together, meaning that the probability of
-/// having several signatures in the same side of the tree, is higher. This allows us
-/// to produce a more efficient batch opening of the merkle tree.
 impl PartialOrd for MTLeaf {
+    /// Ordering of MT Values.
+    ///
+    /// First we order by stake, then by key. By having this ordering,
+    /// we have the players with higher stake close together,
+    /// meaning that the probability of having several signatures in the same side of the tree, is higher.
+    /// This allows us to produce a more efficient batch opening of the merkle tree.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.1.cmp(&other.1).then(self.0.cmp(&other.0)))
     }
@@ -42,33 +81,51 @@ impl Ord for MTLeaf {
     }
 }
 
-/// Path of hashes from root to leaf in a Merkle Tree. Contains all hashes on the path, and the index
-/// of the leaf. Used to verify that signatures come from eligible signers.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Path<D: Digest + FixedOutput> {
-    pub(crate) values: Vec<Vec<u8>>,
-    pub(crate) index: usize,
-    hasher: PhantomData<D>,
-}
+impl<D: Digest + Clone + FixedOutput> Path<D> {
+    /// Convert to bytes
+    /// # Layout
+    /// * Index representing the position in the Merkle Tree
+    /// * Size of the Path
+    /// * Path of hashes
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut output = Vec::new();
+        output.extend_from_slice(&u64::try_from(self.index).unwrap().to_be_bytes());
+        output.extend_from_slice(&u64::try_from(self.values.len()).unwrap().to_be_bytes());
+        for value in &self.values {
+            output.extend_from_slice(value)
+        }
 
-/// MerkleTree commitment. This structure differs from `MerkleTree` in that it does not contain
-/// all elements, which are not always necessary. Instead, it only contains the root of the tree.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MerkleTreeCommitment<D: Digest + FixedOutput> {
-    /// Root of the merkle commitment
-    pub root: Vec<u8>,
-    hasher: PhantomData<D>,
-}
+        output
+    }
 
-impl<D> MerkleTreeCommitment<D>
-where
-    D: Digest + FixedOutput,
-{
-    /// Check an inclusion proof that `val` is part of the tree by traveling the whole path
-    /// until the root.
-    ///
+    /// Extract a `Path` from a byte slice.
     /// # Error
-    /// Returns an error if the path is invalid.
+    /// This function fails if the bytes cannot retrieve path.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Path<D>, MerkleTreeError> {
+        let mut u64_bytes = [0u8; 8];
+        u64_bytes.copy_from_slice(&bytes[..8]);
+        let index = usize::try_from(u64::from_be_bytes(u64_bytes))
+            .map_err(|_| MerkleTreeError::SerializationError)?;
+        u64_bytes.copy_from_slice(&bytes[8..16]);
+        let len = usize::try_from(u64::from_be_bytes(u64_bytes))
+            .map_err(|_| MerkleTreeError::SerializationError)?;
+        let mut values = Vec::with_capacity(len);
+        for i in 0..len {
+            values.push(bytes[16 + i * D::output_size()..16 + (i + 1) * D::output_size()].to_vec());
+        }
+
+        Ok(Path {
+            values,
+            index,
+            hasher: Default::default(),
+        })
+    }
+}
+
+impl<D: Digest + FixedOutput> MerkleTreeCommitment<D> {
+    /// Check an inclusion proof that `val` is part of the tree by traveling the whole path until the root.
+    /// # Error
+    /// If the merkle tree path is invalid, then the function fails.
     pub fn check(&self, val: &MTLeaf, proof: &Path<D>) -> Result<(), MerkleTreeError> {
         let mut idx = proof.index;
 
@@ -89,7 +146,7 @@ where
     }
 
     /// Serializes the Merkle Tree commitment together with a message in a single vector of bytes.
-    /// Outputs msg || self as a vector of bytes.
+    /// Outputs `msg || self` as a vector of bytes.
     pub fn concat_with_msg(&self, msg: &[u8]) -> Vec<u8>
     where
         D: Digest + FixedOutput,
@@ -102,31 +159,7 @@ where
     }
 }
 
-/// Tree of hashes, providing a commitment of data and its ordering.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MerkleTree<D>
-where
-    D: Digest + FixedOutput,
-{
-    /// The nodes are stored in an array heap:
-    /// `nodes[0]` is the root,
-    /// the parent of `nodes[i]` is `nodes[(i-1)/2]`
-    /// the children of `nodes[i]` are `{nodes[2i + 1], nodes[2i + 2]}`
-    /// All nodes have size `Output<D>::output_size()`, even leafs (which are
-    /// hashed before committing them).
-    nodes: Vec<Vec<u8>>,
-    /// The leaves begin at `nodes[leaf_off]`
-    leaf_off: usize,
-    /// Number of leaves cached in the merkle tree
-    n: usize,
-    /// Phantom type to link the tree with its hasher
-    hasher: PhantomData<D>,
-}
-
-impl<D> MerkleTree<D>
-where
-    D: Digest + FixedOutput,
-{
+impl<D: Digest + FixedOutput> MerkleTree<D> {
     /// Provided a non-empty list of leaves, `create` generates its corresponding `MerkleTree`.
     pub fn create(leaves: &[MTLeaf]) -> MerkleTree<D> {
         let n = leaves.len();
@@ -163,7 +196,7 @@ where
         }
     }
 
-    /// Convert merkle tree to a commitment. This function simply returns the root
+    /// Convert merkle tree to a commitment. This function simply returns the root.
     pub fn to_commitment(&self) -> MerkleTreeCommitment<D> {
         MerkleTreeCommitment {
             root: self.nodes[0].clone(),
@@ -171,7 +204,7 @@ where
         }
     }
 
-    /// Get the root of the tree
+    /// Get the root of the tree.
     pub fn root(&self) -> &Vec<u8> {
         &self.nodes[0]
     }
@@ -206,15 +239,14 @@ where
         }
     }
 
+    /// Return the index of the leaf.
     fn idx_of_leaf(&self, i: usize) -> usize {
         self.leaf_off + i
     }
 
     /// Convert a `MerkleTree` into a byte string, containing $4 + n * S$ bytes where $n$ is the
     /// number of nodes and $S$ the output size of the hash function.
-    ///
     /// # Layout
-    /// The layout of a `MerkleTree` is:
     /// * Number of leaves committed in the Merkle Tree (as u64)
     /// * All nodes of the merkle tree (starting with the root)
     pub fn to_bytes(&self) -> Vec<u8> {
@@ -227,6 +259,8 @@ where
     }
 
     /// Try to convert a byte string into a `MerkleTree`.
+    /// # Error
+    /// It returns error if conversion fails.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MerkleTreeError> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(&bytes[..8]);
@@ -242,46 +276,6 @@ where
             leaf_off: num_nodes - n,
             n,
             hasher: PhantomData::default(),
-        })
-    }
-}
-
-impl<D: Digest + Clone + FixedOutput> Path<D> {
-    /// Convert to bytes
-    ///
-    /// # Layout
-    /// * Index representing the position in the Merkle Tree
-    /// * Size of the Path
-    /// * Path of hashes
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut output = Vec::new();
-        output.extend_from_slice(&u64::try_from(self.index).unwrap().to_be_bytes());
-        output.extend_from_slice(&u64::try_from(self.values.len()).unwrap().to_be_bytes());
-        for value in &self.values {
-            output.extend_from_slice(value)
-        }
-
-        output
-    }
-
-    /// Convert a byte slice into a Path
-    pub fn from_bytes(bytes: &[u8]) -> Result<Path<D>, MerkleTreeError> {
-        let mut u64_bytes = [0u8; 8];
-        u64_bytes.copy_from_slice(&bytes[..8]);
-        let index = usize::try_from(u64::from_be_bytes(u64_bytes))
-            .map_err(|_| MerkleTreeError::SerializationError)?;
-        u64_bytes.copy_from_slice(&bytes[8..16]);
-        let len = usize::try_from(u64::from_be_bytes(u64_bytes))
-            .map_err(|_| MerkleTreeError::SerializationError)?;
-        let mut values = Vec::with_capacity(len);
-        for i in 0..len {
-            values.push(bytes[16 + i * D::output_size()..16 + (i + 1) * D::output_size()].to_vec());
-        }
-
-        Ok(Path {
-            values,
-            index,
-            hasher: Default::default(),
         })
     }
 }
