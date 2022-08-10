@@ -13,4 +13,4 @@ mod multi_sig;
 #[cfg(feature = "zcash")]
 mod multi_sig_zcash;
 
-pub use crate::error::AggregationFailure;
+pub use crate::error::AggregationError;

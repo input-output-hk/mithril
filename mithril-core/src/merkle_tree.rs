@@ -101,7 +101,7 @@ impl<D: Digest + Clone + FixedOutput> Path<D> {
     /// Extract a `Path` from a byte slice.
     /// # Error
     /// This function fails if the bytes cannot retrieve path.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Path<D>, MerkleTreeError> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Path<D>, MerkleTreeError<D>> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(&bytes[..8]);
         let index = usize::try_from(u64::from_be_bytes(u64_bytes))
@@ -122,11 +122,11 @@ impl<D: Digest + Clone + FixedOutput> Path<D> {
     }
 }
 
-impl<D: Digest + FixedOutput> MerkleTreeCommitment<D> {
+impl<D: Clone + Digest + FixedOutput> MerkleTreeCommitment<D> {
     /// Check an inclusion proof that `val` is part of the tree by traveling the whole path until the root.
     /// # Error
     /// If the merkle tree path is invalid, then the function fails.
-    pub fn check(&self, val: &MTLeaf, proof: &Path<D>) -> Result<(), MerkleTreeError> {
+    pub fn check(&self, val: &MTLeaf, proof: &Path<D>) -> Result<(), MerkleTreeError<D>> {
         let mut idx = proof.index;
 
         let mut h = D::digest(&val.to_bytes()).to_vec();
@@ -142,7 +142,7 @@ impl<D: Digest + FixedOutput> MerkleTreeCommitment<D> {
         if h == self.root {
             return Ok(());
         }
-        Err(MerkleTreeError::InvalidPath)
+        Err(MerkleTreeError::PathInvalid(Path::clone(proof)))
     }
 
     /// Serializes the Merkle Tree commitment together with a message in a single vector of bytes.
@@ -261,7 +261,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
     /// Try to convert a byte string into a `MerkleTree`.
     /// # Error
     /// It returns error if conversion fails.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MerkleTreeError> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, MerkleTreeError<D>> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(&bytes[..8]);
         let n = usize::try_from(u64::from_be_bytes(u64_bytes))

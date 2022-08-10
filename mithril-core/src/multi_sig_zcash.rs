@@ -252,7 +252,7 @@ impl VerificationKeyPoP {
         let rhs_2 = pairing(&self.pop.k2.to_affine(), &G2Affine::generator());
 
         if !(lhs_1 == rhs_1 && lhs_2 == rhs_2) {
-            return Err(MultiSignatureError::InvalidKey(Box::new(*self)));
+            return Err(MultiSignatureError::KeyInvalid(Box::new(*self)));
         }
         Ok(())
     }
@@ -304,7 +304,7 @@ impl Signature {
             return Ok(());
         }
 
-        Err(MultiSignatureError::InvalidSignature)
+        Err(MultiSignatureError::SignatureInvalid(*self))
     }
 
     /// Check if the signature is valid for the given index.
