@@ -12,8 +12,8 @@ use {
 
 // todo: better organise these errors.
 
-#[derive(Debug, thiserror::Error, Eq, PartialEq)]
 /// Error types for multi signatures
+#[derive(Debug, thiserror::Error, Eq, PartialEq)]
 pub enum MultiSignatureError {
     /// Invalid Multi signature
     #[error("Invalid multi signature")]
@@ -59,24 +59,6 @@ pub enum MithrilWitnessError<D: Digest + FixedOutput> {
     /// A party submitted an invalid signature
     #[error("A provided signature is invalid")]
     InvalidSignature(Signature),
-}
-
-#[allow(clippy::from_over_into)]
-impl<D: Digest + FixedOutput> Into<i64> for MithrilWitnessError<D> {
-    fn into(self) -> i64 {
-        // -1 is reserved to the function failing.
-        match self {
-            MithrilWitnessError::NoQuorum => -2,
-            MithrilWitnessError::IvkInvalid(_) => -3,
-            MithrilWitnessError::SumInvalid(_) => -4,
-            MithrilWitnessError::IndexBoundFailed(_, _) => -5,
-            MithrilWitnessError::IndexNotUnique => -6,
-            MithrilWitnessError::PathInvalid(_) => -7,
-            MithrilWitnessError::EvalInvalid(_) => -8,
-            MithrilWitnessError::StakeInvalid => -9,
-            MithrilWitnessError::InvalidSignature(_) => -10,
-        }
-    }
 }
 
 /// Error types for aggregation.
@@ -132,16 +114,6 @@ pub enum RegisterError {
     SerializationError,
 }
 
-impl From<MultiSignatureError> for RegisterError {
-    fn from(e: MultiSignatureError) -> Self {
-        match e {
-            MultiSignatureError::SerializationError => Self::SerializationError,
-            MultiSignatureError::InvalidKey(k) => Self::InvalidKey(k),
-            _ => todo!(),
-        }
-    }
-}
-
 impl From<RegisterError> for MultiSignatureError {
     fn from(_: RegisterError) -> Self {
         todo!()
@@ -151,6 +123,38 @@ impl From<RegisterError> for MultiSignatureError {
 impl From<MerkleTreeError> for MultiSignatureError {
     fn from(_: MerkleTreeError) -> Self {
         todo!()
+    }
+}
+
+#[allow(clippy::from_over_into)]
+impl<D: Digest + FixedOutput> Into<i64> for MithrilWitnessError<D> {
+    fn into(self) -> i64 {
+        // -1 is reserved to the function failing.
+        match self {
+            MithrilWitnessError::NoQuorum => -2,
+            MithrilWitnessError::IvkInvalid(_) => -3,
+            MithrilWitnessError::SumInvalid(_) => -4,
+            MithrilWitnessError::IndexBoundFailed(_, _) => -5,
+            MithrilWitnessError::IndexNotUnique => -6,
+            MithrilWitnessError::PathInvalid(_) => -7,
+            MithrilWitnessError::EvalInvalid(_) => -8,
+            MithrilWitnessError::StakeInvalid => -9,
+            MithrilWitnessError::InvalidSignature(_) => -10,
+        }
+    }
+}
+
+impl<D: Digest + Clone + FixedOutput> From<MultiSignatureError> for MithrilWitnessError<D> {
+    fn from(_: MultiSignatureError) -> Self {
+        // todo:
+        Self::StakeInvalid
+    }
+}
+
+impl<D: Digest + Clone + FixedOutput> From<VerificationFailure<D>> for MithrilWitnessError<D> {
+    fn from(_: VerificationFailure<D>) -> Self {
+        // todo:
+        Self::StakeInvalid
     }
 }
 
@@ -168,17 +172,13 @@ impl<D: Digest + Clone + FixedOutput> From<MultiSignatureError> for Verification
     }
 }
 
-impl<D: Digest + Clone + FixedOutput> From<MultiSignatureError> for MithrilWitnessError<D> {
-    fn from(_: MultiSignatureError) -> Self {
-        // todo:
-        Self::StakeInvalid
-    }
-}
-
-impl<D: Digest + Clone + FixedOutput> From<VerificationFailure<D>> for MithrilWitnessError<D> {
-    fn from(_: VerificationFailure<D>) -> Self {
-        // todo:
-        Self::StakeInvalid
+impl From<MultiSignatureError> for RegisterError {
+    fn from(e: MultiSignatureError) -> Self {
+        match e {
+            MultiSignatureError::SerializationError => Self::SerializationError,
+            MultiSignatureError::InvalidKey(k) => Self::InvalidKey(k),
+            _ => todo!(),
+        }
     }
 }
 

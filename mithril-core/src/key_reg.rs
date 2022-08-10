@@ -14,30 +14,27 @@ use crate::multi_sig_zcash::{VerificationKey, VerificationKeyPoP};
 use super::stm::Stake;
 use crate::merkle_tree::{MTLeaf, MerkleTree};
 
-/// Struct that collects public keys and stakes of parties. Each participant (both the
-/// signers and the clerks) need to run their own instance of the key registration.
+/// Stores a registered party with its public key and the associated stake.
+pub type RegParty = MTLeaf;
+
+/// Struct that collects public keys and stakes of parties.
+/// Each participant (both the signers and the clerks) need to run their own instance of the key registration.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct KeyReg {
     keys: HashMap<VerificationKey, Stake>,
 }
 
-/// Structure generated out of a closed registration. One can only get a global `avk` out of
-/// a closed key registration.
+/// Structure generated out of a closed registration containing the registered parties, total stake, and the merkle tree.
+/// One can only get a global `avk` out of a closed key registration.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ClosedKeyReg<D>
-where
-    D: Digest + FixedOutput,
-{
-    /// Ordered list of registered parties
+pub struct ClosedKeyReg<D: Digest + FixedOutput> {
+    /// Ordered list of registered parties.
     pub reg_parties: Vec<RegParty>,
     /// Total stake of the registered parties.
     pub total_stake: Stake,
     /// Unique public key out of the key registration instance.
     pub merkle_tree: Arc<MerkleTree<D>>,
 }
-
-/// A registered party, a stake associated with its public key
-pub type RegParty = MTLeaf;
 
 impl KeyReg {
     /// Initialise an empty `KeyReg`.
@@ -47,8 +44,9 @@ impl KeyReg {
         }
     }
 
-    /// Register the pubkey and stake for a particular party. These are store in a
-    /// mapping `key |-> stake`
+    /// Verify and register a public key and stake for a particular party.
+    /// # Error
+    /// The function fails when the proof of possession is invalid or when the key is already registered.
     pub fn register(&mut self, stake: Stake, pk: VerificationKeyPoP) -> Result<(), RegisterError> {
         if let Entry::Vacant(e) = self.keys.entry(pk.vk) {
             if pk.check().is_ok() {
@@ -61,12 +59,9 @@ impl KeyReg {
         Err(RegisterError::KeyRegistered(Box::new(pk.vk)))
     }
 
-    /// End registration. Disables `KeyReg::register`. Consumes the instance of `self` and returns
-    /// a `ClosedKeyReg`.
-    pub fn close<D>(self) -> ClosedKeyReg<D>
-    where
-        D: Digest + FixedOutput,
-    {
+    /// Finalize the key registration.
+    /// This function disables `KeyReg::register`, consumes the instance of `self`, and returns a `ClosedKeyReg`.
+    pub fn close<D: Digest + FixedOutput>(self) -> ClosedKeyReg<D> {
         let mut total_stake: Stake = 0;
         let mut reg_parties = self
             .keys
