@@ -213,6 +213,7 @@ where
 #[cfg(test)]
 mod tests {
     use serde_json::json;
+    use std::path::Path;
     use std::time::Duration;
 
     use super::*;
@@ -225,7 +226,7 @@ mod tests {
         std::env::temp_dir().join("mithril_test")
     }
 
-    fn init_dir(dir: &PathBuf) {
+    fn init_dir(dir: &Path) {
         for (idx, hash, msg) in [
             (1, "1E9F734161D62DD9", "one"),
             (2, "A4D31070D122B816", "two"),
