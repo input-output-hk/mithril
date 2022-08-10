@@ -1,4 +1,5 @@
 use cli_table::{format::Justify, Table};
+use mithril_common::entities::Epoch;
 use serde::{Deserialize, Serialize};
 
 /// Client configuration
@@ -23,7 +24,7 @@ pub struct SnapshotListItem {
 
     /// Cardano epoch
     #[table(title = "Epoch")]
-    pub epoch: u64,
+    pub epoch: Epoch,
 
     /// Cardano immutable file number
     #[table(title = "Immutable")]
@@ -50,7 +51,7 @@ impl SnapshotListItem {
     /// SnapshotListItem factory
     pub fn new(
         network: String,
-        epoch: u64,
+        epoch: Epoch,
         immutable_file_number: u64,
         digest: String,
         size: u64,

@@ -90,7 +90,7 @@ mod tests {
     #[async_trait]
     impl ChainObserver for DumbChainObserver {
         async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError> {
-            Ok(Some(42))
+            Ok(Some(Epoch(42)))
         }
 
         async fn get_current_stake_distribution(

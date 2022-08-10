@@ -410,7 +410,7 @@ pub mod tests {
         VerificationKeyStorer,
     };
     use mithril_common::entities::{
-        Beacon, CertificatePending, SignerWithStake, StakeDistribution,
+        Beacon, CertificatePending, Epoch, SignerWithStake, StakeDistribution,
     };
     use mithril_common::{
         entities::ProtocolMessagePartKey, fake_data, store::StakeStorer,
@@ -427,16 +427,15 @@ pub mod tests {
         stake_store: StakeStoreWrapper,
     ) {
         let epoch = beacon
-            .compute_beacon_with_epoch_offset(epoch_offset)
-            .expect("compute_beacon_with_epoch_offset should not fail")
-            .epoch;
+            .epoch
+            .offset_by(epoch_offset)
+            .expect("epoch.offset_by should not fail");
         for signer in signers.iter().map(|s| s.into()).collect::<Vec<_>>() {
             key_store
                 .save_verification_key(epoch, signer)
                 .await
                 .expect("save_verification_key should not fail");
         }
-        let mut stake_store = stake_store.write().await;
         stake_store
             .save_stakes(
                 epoch,
@@ -461,7 +460,7 @@ pub mod tests {
         // old beacon means the current beacon is newer
         let beacon = Beacon {
             network: "testnet".to_string(),
-            epoch: 0,
+            epoch: Epoch(0),
             immutable_file_number: 0,
         };
         let res = runner.is_new_beacon(Some(beacon)).await;
@@ -470,7 +469,7 @@ pub mod tests {
         // new beacon mens the current beacon is not new
         let beacon = Beacon {
             network: "whatever".to_string(),
-            epoch: 9206230,
+            epoch: Epoch(9206230),
             immutable_file_number: 10000,
         };
         let res = runner.is_new_beacon(Some(beacon)).await;
@@ -519,12 +518,14 @@ pub mod tests {
             .unwrap()
             .expect("The stake distribution should not be None.");
 
-        // TODO: check why to fetch EPOCH+1
         let saved_stake_distribution = deps
             .stake_store
-            .read()
-            .await
-            .get_stakes(beacon.epoch + 1)
+            .get_stakes(
+                beacon
+                    .epoch
+                    .offset_to_recording_epoch()
+                    .expect("offset_to_recording_epoch should not fail"),
+            )
             .await
             .unwrap()
             .unwrap_or_else(|| {
