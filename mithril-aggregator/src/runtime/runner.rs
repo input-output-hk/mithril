@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use chrono::Utc;
+use mithril_common::entities::Epoch;
 use slog_scope::{debug, info, warn};
 use std::path::Path;
 use std::path::PathBuf;
@@ -351,6 +352,13 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         let penultimate_certificate = latest_certificates.get(1);
         let previous_hash = match (penultimate_certificate, last_certificate) {
             (Some(penultimate_certificate), Some(last_certificate)) => {
+                // Check if last certificate is exactly at most one epoch before current epoch
+                if beacon.epoch - last_certificate.beacon.epoch > Epoch(1) {
+                    return Err(RuntimeError::CertificateChainEpochGap(
+                        beacon.epoch,
+                        last_certificate.beacon.epoch,
+                    ));
+                }
                 // Check if last certificate is first certificate of its epoch
                 if penultimate_certificate.beacon.epoch != last_certificate.beacon.epoch {
                     &last_certificate.hash
@@ -403,12 +411,15 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 #[cfg(test)]
 pub mod tests {
     use crate::dependency::{StakeStoreWrapper, VerificationKeyStoreWrapper};
+    use crate::multi_signer::MockMultiSigner;
+    use crate::runtime::RuntimeError;
     use crate::snapshotter::OngoingSnapshot;
     use crate::{
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
         VerificationKeyStorer,
     };
+    use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
     use mithril_common::entities::{
         Beacon, CertificatePending, Epoch, SignerWithStake, StakeDistribution,
     };
@@ -418,6 +429,7 @@ pub mod tests {
     };
     use std::sync::Arc;
     use tempfile::NamedTempFile;
+    use tokio::sync::RwLock;
 
     async fn save_verification_keys_and_stake_distribution(
         signers: Vec<SignerWithStake>,
@@ -669,6 +681,58 @@ pub mod tests {
         let err = res.unwrap_err();
         assert_eq!(
             "general error: no certificate pending for the given beacon".to_string(),
+            err.to_string()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_create_and_save_certificate_ok() {
+        let certificate_chain = setup_certificate_chain(5, 1);
+        let first_certificate = certificate_chain[0].clone();
+        let beacon = first_certificate.beacon.clone();
+        let (mut deps, config) = initialize_dependencies().await;
+        let mut mock_multi_signer = MockMultiSigner::new();
+        mock_multi_signer
+            .expect_create_certificate()
+            .return_once(move |_, _| Ok(Some(first_certificate.to_owned())));
+        deps.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
+        let certificate_store = deps.certificate_store.clone();
+        let runner = AggregatorRunner::new(config, Arc::new(deps));
+        for certificate in certificate_chain[1..].iter().rev() {
+            certificate_store
+                .as_ref()
+                .save(certificate.to_owned())
+                .await
+                .expect("save certificate to store should not fail");
+        }
+
+        let certificate = runner.create_and_save_certificate(&beacon).await;
+        certificate.expect("a certificate should have been created and saved");
+    }
+
+    #[tokio::test]
+    async fn test_create_and_save_certificate_ko_epoch_gap() {
+        let (deps, config) = initialize_dependencies().await;
+        let certificate_store = deps.certificate_store.clone();
+        let runner = AggregatorRunner::new(config, Arc::new(deps));
+        let total_certificates = 5;
+        let certificate_chain = setup_certificate_chain(5, 1);
+        let mut beacon = certificate_chain.first().unwrap().beacon.clone();
+        beacon.epoch = beacon.epoch + 2;
+        for certificate in certificate_chain.into_iter().rev() {
+            certificate_store
+                .as_ref()
+                .save(certificate)
+                .await
+                .expect("save certificate to store should not fail");
+        }
+
+        let certificate = runner.create_and_save_certificate(&beacon).await;
+        assert!(certificate.is_err());
+        let err = certificate.unwrap_err();
+        assert_eq!(
+            RuntimeError::CertificateChainEpochGap(beacon.epoch, Epoch(total_certificates))
+                .to_string(),
             err.to_string()
         );
     }
