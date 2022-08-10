@@ -134,8 +134,7 @@ impl Runner for SignerRunner {
             .get(&self.config.party_id)
             .ok_or(RuntimeError::NoStakeForSelf())?;
         let protocol_initializer =
-            MithrilProtocolInitializerBuilder::new(self.config.party_id.to_owned())
-                .build(stake, protocol_parameters)?;
+            MithrilProtocolInitializerBuilder::new().build(stake, protocol_parameters)?;
         let verification_key = key_encode_hex(protocol_initializer.verification_key())?;
         let signer = Signer::new(self.config.party_id.to_owned(), verification_key);
         self.services
@@ -243,16 +242,16 @@ impl Runner for SignerRunner {
         message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
 
         // 2 set the next signers keys and stakes in the message
-        let signer_retrieval_epoch = beacon.epoch.offset_to_signer_retrieval_epoch()?;
+        let next_signer_retrieval_epoch = beacon.epoch.offset_to_next_signer_retrieval_epoch()?;
         let protocol_initializer = self
             .services
             .protocol_initializer_store
-            .get_protocol_initializer(signer_retrieval_epoch)
+            .get_protocol_initializer(next_signer_retrieval_epoch)
             .await?
             .ok_or_else(|| {
                 RuntimeError::NoValueError(format!(
                     "protocol_initializer at epoch {}",
-                    signer_retrieval_epoch
+                    next_signer_retrieval_epoch
                 ))
             })?;
 
@@ -498,7 +497,7 @@ mod tests {
         let epoch = pending_certificate.beacon.epoch;
         let mut signer = &mut pending_certificate.signers[0];
 
-        let protocol_initializer = MithrilProtocolInitializerBuilder::new(signer.party_id.clone())
+        let protocol_initializer = MithrilProtocolInitializerBuilder::new()
             .build(&100, &fake_data::protocol_parameters())
             .expect("build protocol initializer should not fail");
         signer.verification_key = key_encode_hex(protocol_initializer.verification_key()).unwrap();
@@ -563,7 +562,7 @@ mod tests {
             .save_protocol_initializer(
                 current_beacon
                     .epoch
-                    .offset_to_signer_retrieval_epoch()
+                    .offset_to_next_signer_retrieval_epoch()
                     .expect("offset_to_signer_retrieval_epoch should not fail"),
                 protocol_initializer.clone(),
             )

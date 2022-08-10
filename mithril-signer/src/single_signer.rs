@@ -15,13 +15,12 @@ use mockall::automock;
 
 use crate::AsyncError;
 
-pub struct MithrilProtocolInitializerBuilder {
-    party_id: PartyId,
-}
+#[derive(Default)]
+pub struct MithrilProtocolInitializerBuilder {}
 
 impl MithrilProtocolInitializerBuilder {
-    pub fn new(party_id: PartyId) -> Self {
-        Self { party_id }
+    pub fn new() -> Self {
+        Self {}
     }
 
     pub fn build(
@@ -29,21 +28,7 @@ impl MithrilProtocolInitializerBuilder {
         stake: &Stake,
         protocol_parameters: &ProtocolParameters,
     ) -> Result<ProtocolInitializer, AsyncError> {
-        // TODO: Since the stake distribution is now updated, we can't cache only one protocol initializer
-        // When the protocol initalizer store is implemented, we should get the protocol initializer based on its associated epoch
-        // The use of this cache leads to 'The path of the Merkle Tree is invalid.' error when the signer creates a single signature
-        // and is source of flakiness of the CI
-
-        // TODO: Uncomment next line and remove the 4 following lines with deterministic random generator when the protocol initializer store is created
-        //let mut rng = rand_core::OsRng;
-        use rand_chacha::ChaCha20Rng;
-        use rand_core::SeedableRng;
-        // 32 chars are appended after the party ID to ensure the length is at least 32 while still grants some uniqueness
-        let seed: [u8; 32] = format!("{}azerazerazerazerazerazerazerazer", self.party_id)
-            .as_bytes()[..32]
-            .try_into()?;
-        let mut rng = ChaCha20Rng::from_seed(seed);
-        //
+        let mut rng = rand_core::OsRng;
         let protocol_initializer = ProtocolInitializer::setup(
             protocol_parameters.to_owned().into(),
             stake.to_owned(),
