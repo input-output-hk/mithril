@@ -40,8 +40,13 @@ impl Spec {
             "epoch after which the stake distribution will change".to_string(),
         )
         .await?;
+        let digest = assert_node_producing_snapshot(&aggregator_endpoint).await?;
+        let certificate_hash =
+            assert_signer_is_signing_snapshot(&aggregator_endpoint, &digest, target_epoch - 1)
+                .await?;
+        assert_is_creating_certificate(&aggregator_endpoint, &certificate_hash).await?;
         delegate_stakes_to_pools(self.infrastructure.devnet()).await?;
-        let target_epoch = min_epoch + 4;
+        let target_epoch = min_epoch + 8;
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
             target_epoch,
@@ -50,7 +55,7 @@ impl Spec {
         .await?;
         let digest = assert_node_producing_snapshot(&aggregator_endpoint).await?;
         let certificate_hash =
-            assert_signer_is_signing_snapshot(&aggregator_endpoint, &digest, target_epoch - 2)
+            assert_signer_is_signing_snapshot(&aggregator_endpoint, &digest, target_epoch - 1)
                 .await?;
         assert_is_creating_certificate(&aggregator_endpoint, &certificate_hash).await?;
 
@@ -145,7 +150,7 @@ async fn wait_for_target_epoch(
         "target_epoch" => ?target_epoch
     );
 
-    match attempt!(90, Duration::from_millis(1000), {
+    match attempt!(120, Duration::from_millis(1000), {
         match chain_observer.get_current_epoch().await {
             Ok(Some(epoch)) => {
                 if epoch >= target_epoch {
