@@ -12,7 +12,7 @@ use mithril_common::crypto_helper::{
     ProtocolSignerVerificationKey, ProtocolSingleSignature, ProtocolStakeDistribution,
     PROTOCOL_VERSION,
 };
-use mithril_common::entities;
+use mithril_common::entities::{self, SignerWithStake};
 use mithril_common::store::{StakeStoreError, StakeStorer};
 use mithril_common::{
     NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET, SIGNER_EPOCH_RECORDING_OFFSET,
@@ -117,15 +117,18 @@ pub trait MultiSigner: Sync + Send {
     /// Compute aggregate verification key from stake distribution
     async fn compute_aggregate_verification_key(
         &self,
-        stakes: &ProtocolStakeDistribution,
+        signers_with_stake: &[SignerWithStake],
     ) -> Result<Option<ProtocolAggregateVerificationKey>, ProtocolError>;
 
     /// Compute stake distribution aggregate verification key
     async fn compute_stake_distribution_aggregate_verification_key(
         &self,
     ) -> Result<Option<String>, ProtocolError> {
-        let stakes = self.get_stake_distribution().await?;
-        match self.compute_aggregate_verification_key(&stakes).await? {
+        let signers_with_stake = self.get_signers_with_stake().await?;
+        match self
+            .compute_aggregate_verification_key(&signers_with_stake)
+            .await?
+        {
             Some(avk) => Ok(Some(key_encode_hex(avk).map_err(ProtocolError::Codec)?)),
             None => Ok(None),
         }
@@ -135,8 +138,11 @@ pub trait MultiSigner: Sync + Send {
     async fn compute_next_stake_distribution_aggregate_verification_key(
         &self,
     ) -> Result<Option<String>, ProtocolError> {
-        let stakes = self.get_next_stake_distribution().await?;
-        match self.compute_aggregate_verification_key(&stakes).await? {
+        let next_signers_with_stake = self.get_next_signers_with_stake().await?;
+        match self
+            .compute_aggregate_verification_key(&next_signers_with_stake)
+            .await?
+        {
             Some(avk) => Ok(Some(key_encode_hex(avk).map_err(ProtocolError::Codec)?)),
             None => Ok(None),
         }
@@ -253,18 +259,17 @@ impl MultiSignerImpl {
     }
 
     /// Creates a clerk
-    /// TODO: The clerk should use specific signers here (depending on epoch) and needs to be updated works here because the verification keys are the same for each epoch)
     pub async fn create_clerk(
         &self,
-        stakes: &ProtocolStakeDistribution,
+        signers_with_stake: &[SignerWithStake],
     ) -> Result<Option<ProtocolClerk>, ProtocolError> {
         debug!("Create clerk");
         let mut key_registration = ProtocolKeyRegistration::init();
         let mut total_signers = 0;
-        for (party_id, stake) in stakes {
-            if let Ok(Some(verification_key)) = self.get_signer(party_id.to_owned()).await {
+        for signer in signers_with_stake {
+            if let Ok(Some(verification_key)) = key_decode_hex(&signer.verification_key) {
                 key_registration
-                    .register(*stake, verification_key)
+                    .register(signer.stake, verification_key)
                     .map_err(|e| ProtocolError::Core(e.to_string()))?;
                 total_signers += 1;
             }
@@ -321,8 +326,8 @@ impl MultiSigner for MultiSignerImpl {
         debug!("Update current_message to {:?}", message);
         if self.current_message.clone() != Some(message.clone()) {
             self.multi_signature = None;
-            let stakes = self.get_stake_distribution().await?;
-            match self.create_clerk(&stakes).await {
+            let signers_with_stake = self.get_signers_with_stake().await?;
+            match self.create_clerk(&signers_with_stake).await {
                 Ok(clerk) => self.clerk = clerk,
                 Err(ProtocolError::Beacon(_)) => {}
                 Err(e) => return Err(e),
@@ -399,10 +404,10 @@ impl MultiSigner for MultiSignerImpl {
     /// Compute aggregate verification key from stake distribution
     async fn compute_aggregate_verification_key(
         &self,
-        stakes: &ProtocolStakeDistribution,
+        signers_with_stake: &[SignerWithStake],
     ) -> Result<Option<ProtocolAggregateVerificationKey>, ProtocolError> {
         debug!("Compute avk");
-        match self.create_clerk(stakes).await? {
+        match self.create_clerk(signers_with_stake).await? {
             Some(clerk) => Ok(Some(clerk.compute_avk())),
             None => Ok(None),
         }
