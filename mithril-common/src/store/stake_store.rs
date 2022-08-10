@@ -83,7 +83,11 @@ mod tests {
             values.push((Epoch(epoch), signers));
         }
 
-        let values = if values.len() > 0 { Some(values) } else { None };
+        let values = if !values.is_empty() {
+            Some(values)
+        } else {
+            None
+        };
         let adapter: MemoryAdapter<Epoch, StakeDistribution> = MemoryAdapter::new(values).unwrap();
         StakeStore::new(Box::new(adapter))
     }
