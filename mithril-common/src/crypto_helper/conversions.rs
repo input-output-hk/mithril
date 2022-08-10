@@ -1,5 +1,9 @@
 use super::super::entities;
 use super::types;
+use crate::crypto_helper::{
+    key_encode_hex, ProtocolInitializer, ProtocolPartyId, ProtocolSigner,
+    ProtocolSignerVerificationKey, ProtocolStake,
+};
 
 impl From<types::ProtocolParameters> for entities::ProtocolParameters {
     fn from(other: types::ProtocolParameters) -> Self {
@@ -32,15 +36,38 @@ impl From<&entities::SignerWithStake> for entities::Signer {
 impl From<entities::SignerWithStake> for (types::ProtocolPartyId, types::ProtocolStake) {
     fn from(other: entities::SignerWithStake) -> Self {
         (
-            other.party_id as types::ProtocolPartyId,
-            other.stake as types::ProtocolStake,
+            other.party_id as ProtocolPartyId,
+            other.stake as ProtocolStake,
         )
     }
 }
 
-impl From<(types::ProtocolPartyId, types::ProtocolStake)> for entities::SignerWithStake {
-    fn from(other: (types::ProtocolPartyId, types::ProtocolStake)) -> Self {
+impl From<(ProtocolPartyId, ProtocolStake)> for entities::SignerWithStake {
+    fn from(other: (ProtocolPartyId, ProtocolStake)) -> Self {
         entities::SignerWithStake::new(other.0, "".to_string(), other.1)
+    }
+}
+
+impl
+    From<(
+        ProtocolPartyId,
+        ProtocolStake,
+        ProtocolSignerVerificationKey,
+        ProtocolSigner,
+        ProtocolInitializer,
+    )> for entities::SignerWithStake
+{
+    fn from(
+        other: (
+            ProtocolPartyId,
+            ProtocolStake,
+            ProtocolSignerVerificationKey,
+            ProtocolSigner,
+            ProtocolInitializer,
+        ),
+    ) -> Self {
+        let (party_id, stake, verification_key, _, _) = other;
+        entities::SignerWithStake::new(party_id, key_encode_hex(verification_key).unwrap(), stake)
     }
 }
 
