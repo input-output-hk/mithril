@@ -54,6 +54,14 @@ impl Add<u64> for Epoch {
     }
 }
 
+impl Sub for Epoch {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Epoch(self.0 - rhs.0)
+    }
+}
+
 impl Sub<u64> for Epoch {
     type Output = Self;
 
