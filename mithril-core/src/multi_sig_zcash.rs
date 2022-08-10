@@ -38,10 +38,7 @@ pub struct SigningKey(Scalar);
 #[derive(Debug, Clone, Copy)]
 pub struct VerificationKey(G2Projective);
 
-/// MultiSig proof of possession, which contains two elements from G1. However,
-/// the two elements have different types: `k1` is represented as a BlstSig
-/// as it has the same structure, and this facilitates its verification. On
-/// the other hand, `k2` is a G1 point, as it does not share structure with
+/// MultiSig proof of possession, which contains two `G1Projective` points.
 /// the BLS signature, and we need to have an ad-hoc verification mechanism.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ProofOfPossession {
