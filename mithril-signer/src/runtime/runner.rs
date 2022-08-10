@@ -6,7 +6,7 @@ use std::error::Error as StdError;
 use thiserror::Error;
 
 use mithril_common::crypto_helper::{key_decode_hex, ProtocolSignerVerificationKey};
-use mithril_common::entities::ProtocolParameters;
+use mithril_common::entities::{PartyId, ProtocolParameters};
 use mithril_common::{
     crypto_helper::key_encode_hex,
     entities::{
@@ -71,12 +71,14 @@ pub trait Runner {
 
 #[derive(Debug, Clone, PartialEq, Error)]
 pub enum RuntimeError {
-    #[error("No value returned by the subsystem.")]
-    NoValueError,
-    #[error("No stake associated with this signer.")]
-    NoStake,
+    #[error("No value returned by the subsystem for `{0}`")]
+    NoValueError(String),
+    #[error("No stake associated with this signer")]
+    NoStakeForSelf(),
+    #[error("No stake associated with this signer, party_id: {0}")]
+    NoStakeForSigner(PartyId),
     #[error("Subsystem unavailable: {0}")]
-    SusbsystemUnavailable(String),
+    SubsystemUnavailable(String),
 }
 
 pub struct SignerRunner {
@@ -127,10 +129,10 @@ impl Runner for SignerRunner {
             .chain_observer
             .get_current_stake_distribution()
             .await?
-            .ok_or(RuntimeError::NoValueError)?;
+            .ok_or_else(|| RuntimeError::NoValueError("current_stake_distribution".to_string()))?;
         let stake = stake_distribution
             .get(&self.config.party_id)
-            .ok_or(RuntimeError::NoStake)?;
+            .ok_or(RuntimeError::NoStakeForSelf())?;
         let protocol_initializer =
             MithrilProtocolInitializerBuilder::new(self.config.party_id.to_owned())
                 .build(stake, protocol_parameters)?;
@@ -159,7 +161,7 @@ impl Runner for SignerRunner {
             .chain_observer
             .get_current_stake_distribution()
             .await?
-            .ok_or(RuntimeError::NoValueError)?;
+            .ok_or_else(|| RuntimeError::NoValueError("current_stake_distribution".to_string()))?;
         self.services
             .stake_store
             .save_stakes(epoch.offset_to_recording_epoch()?, stake_distribution)
@@ -202,18 +204,18 @@ impl Runner for SignerRunner {
     ) -> Result<Vec<SignerWithStake>, Box<dyn StdError + Sync + Send>> {
         debug!("runner: associate_signers_with_stake");
 
-        // todo: dedicated error
         let stakes = self
             .services
             .stake_store
             .get_stakes(epoch)
             .await?
-            .ok_or(RuntimeError::NoValueError)?;
+            .ok_or_else(|| RuntimeError::NoValueError(format!("stakes at epoch {}", epoch)))?;
         let mut signers_with_stake = vec![];
 
         for signer in signers {
-            // todo: dedicated error
-            let stake = stakes.get(&*signer.party_id).ok_or(RuntimeError::NoStake)?;
+            let stake = stakes
+                .get(&*signer.party_id)
+                .ok_or_else(|| RuntimeError::NoStakeForSigner(signer.party_id.to_string()))?;
 
             signers_with_stake.push(SignerWithStake::new(
                 signer.party_id.to_owned(),
@@ -241,18 +243,24 @@ impl Runner for SignerRunner {
         message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
 
         // 2 set the next signers keys and stakes in the message
+        let signer_retrieval_epoch = beacon.epoch.offset_to_signer_retrieval_epoch()?;
         let protocol_initializer = self
             .services
             .protocol_initializer_store
-            .get_protocol_initializer(beacon.epoch.offset_to_signer_retrieval_epoch()?)
+            .get_protocol_initializer(signer_retrieval_epoch)
             .await?
-            .ok_or(RuntimeError::NoValueError)?;
+            .ok_or_else(|| {
+                RuntimeError::NoValueError(format!(
+                    "protocol_initializer at epoch {}",
+                    signer_retrieval_epoch
+                ))
+            })?;
 
         let avk = self
             .services
             .single_signer
             .compute_aggregate_verification_key(next_signers, &protocol_initializer)?
-            .ok_or(RuntimeError::NoValueError)?;
+            .ok_or_else(|| RuntimeError::NoValueError("next_signers avk".to_string()))?;
         message.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
 
         Ok(message)
@@ -266,12 +274,18 @@ impl Runner for SignerRunner {
     ) -> Result<Option<SingleSignatures>, Box<dyn StdError + Sync + Send>> {
         debug!("runner: compute_single_signature");
 
+        let signer_retrieval_epoch = epoch.offset_to_signer_retrieval_epoch()?;
         let protocol_initializer = self
             .services
             .protocol_initializer_store
-            .get_protocol_initializer(epoch.offset_to_signer_retrieval_epoch()?)
+            .get_protocol_initializer(signer_retrieval_epoch)
             .await?
-            .ok_or(RuntimeError::NoValueError)?;
+            .ok_or_else(|| {
+                RuntimeError::NoValueError(format!(
+                    "protocol_initializer at epoch {}",
+                    signer_retrieval_epoch
+                ))
+            })?;
         let signature = self.services.single_signer.compute_single_signatures(
             message,
             signers,
