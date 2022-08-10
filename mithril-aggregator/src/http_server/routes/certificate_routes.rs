@@ -35,7 +35,7 @@ fn certificate_certificate_hash(
 mod handlers {
     use crate::dependency::{CertificatePendingStoreWrapper, CertificateStoreWrapper};
     use crate::http_server::routes::reply;
-    use slog_scope::debug;
+    use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use warp::http::StatusCode;
 
@@ -48,7 +48,10 @@ mod handlers {
         match certificate_pending_store.get().await {
             Ok(Some(certificate_pending)) => Ok(reply::json(&certificate_pending, StatusCode::OK)),
             Ok(None) => Ok(reply::empty(StatusCode::NO_CONTENT)),
-            Err(err) => Ok(reply::internal_server_error(err.to_string())),
+            Err(err) => {
+                warn!("certificate_pending::error"; "error" => ?err);
+                Ok(reply::internal_server_error(err.to_string()))
+            }
         }
     }
 
@@ -62,7 +65,10 @@ mod handlers {
         match certificate_store.get_from_hash(&certificate_hash).await {
             Ok(Some(certificate)) => Ok(reply::json(&certificate, StatusCode::OK)),
             Ok(None) => Ok(reply::empty(StatusCode::NOT_FOUND)),
-            Err(err) => Ok(reply::internal_server_error(err.to_string())),
+            Err(err) => {
+                warn!("certificate_certificate_hash::error"; "error" => ?err);
+                Ok(reply::internal_server_error(err.to_string()))
+            }
         }
     }
 }

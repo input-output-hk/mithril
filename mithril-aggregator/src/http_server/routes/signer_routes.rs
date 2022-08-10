@@ -26,7 +26,7 @@ mod handlers {
     use crate::ProtocolError;
     use mithril_common::crypto_helper::{key_decode_hex, ProtocolPartyId};
     use mithril_common::entities;
-    use slog_scope::debug;
+    use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use warp::http::StatusCode;
 
@@ -45,11 +45,20 @@ mod handlers {
                     .await
                 {
                     Ok(()) => Ok(reply::empty(StatusCode::CREATED)),
-                    Err(ProtocolError::ExistingSigner()) => Ok(reply::empty(StatusCode::CREATED)),
-                    Err(err) => Ok(reply::internal_server_error(err.to_string())),
+                    Err(ProtocolError::ExistingSigner()) => {
+                        debug!("register_signer::already_registered");
+                        Ok(reply::empty(StatusCode::CREATED))
+                    }
+                    Err(err) => {
+                        warn!("register_signer::error"; "error" => ?err);
+                        Ok(reply::internal_server_error(err.to_string()))
+                    }
                 }
             }
-            Err(_) => Ok(reply::empty(StatusCode::BAD_REQUEST)),
+            Err(err) => {
+                warn!("register_signer::key_decode_hex::error"; "error" => ?err);
+                Ok(reply::empty(StatusCode::BAD_REQUEST))
+            }
         }
     }
 }
