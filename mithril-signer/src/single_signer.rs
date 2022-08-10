@@ -1,5 +1,5 @@
 use hex::ToHex;
-use slog_scope::{info, trace};
+use slog_scope::{info, trace, warn};
 use thiserror::Error;
 
 use mithril_common::crypto_helper::{
@@ -159,7 +159,10 @@ impl SingleSigner for MithrilSingleSigner {
                     won_indexes,
                 )))
             }
-            None => Ok(None),
+            None => {
+                warn!("no signature computed, all lotteries were lost");
+                Ok(None)
+            }
         }
     }
 
@@ -176,7 +179,10 @@ impl SingleSigner for MithrilSingleSigner {
                     key_encode_hex(clerk.compute_avk()).map_err(SingleSignerError::Codec)?,
                 ))
             }
-            Err(SingleSignerError::ProtocolSignerCreationFailure(_)) => Ok(None),
+            Err(SingleSignerError::ProtocolSignerCreationFailure(err)) => {
+                warn!("compute_aggregate_verification_key::protocol_signer_creation_failure"; "error" => err);
+                Ok(None)
+            }
             Err(e) => Err(e),
         }
     }

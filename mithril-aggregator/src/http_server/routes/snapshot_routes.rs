@@ -59,7 +59,7 @@ mod handlers {
     use crate::http_server::routes::reply;
     use crate::http_server::SERVER_BASE_PATH;
     use crate::Config;
-    use slog_scope::debug;
+    use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use std::str::FromStr;
     use warp::http::{StatusCode, Uri};
@@ -72,7 +72,10 @@ mod handlers {
 
         match snapshot_store.list_snapshots().await {
             Ok(snapshots) => Ok(reply::json(&snapshots, StatusCode::OK)),
-            Err(err) => Ok(reply::internal_server_error(err.to_string())),
+            Err(err) => {
+                warn!("snapshots::error"; "error" => ?err);
+                Ok(reply::internal_server_error(err.to_string()))
+            }
         }
     }
 
@@ -99,7 +102,10 @@ mod handlers {
                 )) as Box<dyn warp::Reply>),
                 _ => Ok(reply::empty(StatusCode::NOT_FOUND)),
             },
-            Err(_) => Ok(reply::empty(StatusCode::NOT_FOUND)),
+            Err(err) => {
+                warn!("ensure_downloaded_file_is_a_snapshot::error"; "error" => ?err);
+                Ok(reply::empty(StatusCode::NOT_FOUND))
+            }
         }
     }
 
@@ -122,8 +128,14 @@ mod handlers {
 
                 Ok(Box::new(warp::redirect::found(snapshot_uri)) as Box<dyn warp::Reply>)
             }
-            Ok(None) => Ok(reply::empty(StatusCode::NOT_FOUND)),
-            Err(err) => Ok(reply::internal_server_error(err.to_string())),
+            Ok(None) => {
+                warn!("snapshot_download::not_found");
+                Ok(reply::empty(StatusCode::NOT_FOUND))
+            }
+            Err(err) => {
+                warn!("snapshot_download::error"; "error" => ?err);
+                Ok(reply::internal_server_error(err.to_string()))
+            }
         }
     }
 

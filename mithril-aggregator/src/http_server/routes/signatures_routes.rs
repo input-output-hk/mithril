@@ -25,7 +25,7 @@ mod handlers {
     use crate::http_server::routes::reply;
     use crate::ProtocolError;
     use mithril_common::entities;
-    use slog_scope::debug;
+    use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use warp::http::StatusCode;
 
@@ -38,13 +38,15 @@ mod handlers {
 
         let mut multi_signer = multi_signer.write().await;
         match multi_signer.register_single_signature(&signature).await {
-            Err(ProtocolError::ExistingSingleSignature(_)) => {
-                return Ok(reply::empty(StatusCode::CONFLICT));
+            Err(ProtocolError::ExistingSingleSignature(party_id)) => {
+                debug!("register_signatures::already_exist"; "party_id" => ?party_id);
+                Ok(reply::empty(StatusCode::CONFLICT))
             }
             Err(err) => {
-                return Ok(reply::internal_server_error(err.to_string()));
+                warn!("register_signatures::error"; "error" => ?err);
+                Ok(reply::internal_server_error(err.to_string()))
             }
-            Ok(_) => Ok(reply::empty(StatusCode::CREATED)),
+            Ok(()) => Ok(reply::empty(StatusCode::CREATED)),
         }
     }
 }
