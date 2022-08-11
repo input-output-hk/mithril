@@ -666,14 +666,8 @@ echo "Generated delegate.sh script"
 echo "====================================================================="
 echo
 
-cat >> query.sh <<EOF
+cat >> query-mithril.sh <<EOF
 #!/bin/bash
-
-
-echo "====================================================================="
-echo "=== Mithril Network"
-echo "====================================================================="
-echo
 
 AGGREGATOR_API_ENDPOINT="http://0.0.0.0:8080/aggregator"
 
@@ -685,10 +679,11 @@ echo ">> Query snapshots"
 curl -s \${AGGREGATOR_API_ENDPOINT}/snapshots | jq '.[:2]'
 echo
 
-echo "====================================================================="
-echo "=== Cardano Network"
-echo "====================================================================="
-echo
+EOF
+
+cat >> query-cardano.sh <<EOF
+#!/bin/bash
+
 echo ">> Query chain tip"
 CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip  \\
     --cardano-mode  \\
@@ -749,9 +744,11 @@ echo
 
 EOF
 
-chmod u+x query.sh
+chmod u+x query-mithril.sh
+chmod u+x query-cardano.sh
 
-echo "Generated query.sh script"
+echo "Generated query-mithril.sh script"
+echo "Generated query-cardano.sh script"
 echo "====================================================================="
 echo
 
@@ -1125,10 +1122,9 @@ docker-compose -f docker-compose.yaml --profile mithril down
 EOF
 chmod u+x stop.sh
 
-cat >> log.sh <<EOF
+cat >> log-mithril.sh <<EOF
 #!/bin/bash
 
-LINES=\$1
 SEPARATOR="====================================================================="
 
 if [ -z "\${MITHRIL_IMAGE_ID}" ]; then 
@@ -1149,12 +1145,19 @@ docker-compose logs --tail="\${LINES}"
 echo 
 echo \${SEPARATOR}
 
+EOF
+chmod u+x log-mithril.sh
+
+cat >> log-cardano.sh <<EOF
+#!/bin/bash
+
+SEPARATOR="====================================================================="
+
 # Cardano nodes logs
 find . -type f -print | grep "node.log" | sort -n | xargs -i  sh -c 'echo '\${SEPARATOR}' && echo tail -n '\${LINES}' {} && echo '\${SEPARATOR}' && tail -n '\${LINES}' {} && echo '\${SEPARATOR}' && echo'
 
-
 EOF
-chmod u+x log.sh
+chmod u+x log-cardano.sh
 echo "====================================================================="
 echo
 
