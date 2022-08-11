@@ -22,9 +22,9 @@ paths:
       summary: Get current pending certificate information
       description: |
         Returns the information related to the current pending certificate:
-          * protocol parameters (to setup cryptography)
+          * protocol parameters, for current and next epoch (to setup cryptography)
           * beacon information (where on the chain the pending certificate should be triggered)
-          * verification keys of the signers
+          * verification keys of the signers, for current and next epoch
       responses:
         "200":
           description: pending certificate found
@@ -251,12 +251,15 @@ components:
       required:
         - beacon
         - protocol
+        - next_protocol
         - signers
         - next_signers
       properties:
         beacon:
           $ref: "#/components/schemas/Beacon"
         protocol:
+          $ref: "#/components/schemas/ProtocolParameters"
+        next_protocol:
           $ref: "#/components/schemas/ProtocolParameters"
         signers:
           type: array

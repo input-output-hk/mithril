@@ -12,6 +12,10 @@ pub struct CertificatePending {
     #[serde(rename = "protocol")]
     pub protocol_parameters: ProtocolParameters,
 
+    /// Next Protocol parameters
+    #[serde(rename = "next_protocol")]
+    pub next_protocol_parameters: ProtocolParameters,
+
     /// Current Signers
     #[serde(rename = "signers")]
     pub signers: Vec<Signer>,
@@ -26,12 +30,14 @@ impl CertificatePending {
     pub fn new(
         beacon: Beacon,
         protocol_parameters: ProtocolParameters,
+        next_protocol_parameters: ProtocolParameters,
         signers: Vec<Signer>,
         next_signers: Vec<Signer>,
     ) -> CertificatePending {
         CertificatePending {
             beacon,
             protocol_parameters,
+            next_protocol_parameters,
             signers,
             next_signers,
         }

@@ -59,6 +59,9 @@ services:
       - NETWORK_MAGIC=1097911063
       - GOOGLE_APPLICATION_CREDENTIALS_JSON=${GOOGLE_APPLICATION_CREDENTIALS_JSON}
       - NETWORK=${NETWORK:-testnet}
+      - PROTOCOL_PARAMETERS__K=5
+      - PROTOCOL_PARAMETERS__M=100
+      - PROTOCOL_PARAMETERS__PHI_F=0.65
       - RUN_INTERVAL=60000
       - URL_SNAPSHOT_MANIFEST=https://storage.googleapis.com/cardano-${NETWORK:-testnet}/snapshots.json
       - SNAPSHOT_STORE_TYPE=local
@@ -69,6 +72,7 @@ services:
       - STAKE_STORE_DIRECTORY=/mithril-aggregator/stake_db
       - SNAPSHOT_STORE_DIRECTORY=/mithril-aggregator/snapshot_db
       - SINGLE_SIGNATURE_STORE_DIRECTORY=/mithril-aggregator/single_signature_db
+      - PROTOCOL_PARAMETERS_STORE_DIRECTORY=/mithril-aggregator/protocol_parameters_db
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
     volumes:

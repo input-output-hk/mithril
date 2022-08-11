@@ -53,6 +53,11 @@ pub trait AggregatorRunnerTrait: Sync + Send {
 
     async fn update_stake_distribution(&self, new_beacon: &Beacon) -> Result<(), RuntimeError>;
 
+    async fn update_protocol_parameters_in_multisigner(
+        &self,
+        new_beacon: &Beacon,
+    ) -> Result<(), RuntimeError>;
+
     async fn update_message_in_multisigner(&self, digest: String) -> Result<(), RuntimeError>;
 
     async fn create_new_pending_certificate_from_multisigner(
@@ -183,6 +188,21 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .await?)
     }
 
+    async fn update_protocol_parameters_in_multisigner(
+        &self,
+        new_beacon: &Beacon,
+    ) -> Result<(), RuntimeError> {
+        info!("update protocol parameters"; "beacon" => #?new_beacon);
+        let protocol_parameters = self.dependencies.config.protocol_parameters.clone();
+        Ok(self
+            .dependencies
+            .multi_signer
+            .write()
+            .await
+            .update_protocol_parameters(&protocol_parameters.into())
+            .await?)
+    }
+
     async fn update_message_in_multisigner(&self, digest: String) -> Result<(), RuntimeError> {
         info!("update message in multisigner");
         let mut multi_signer = self.dependencies.multi_signer.write().await;
@@ -221,13 +241,21 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             Err(e) => return Err(e.into()),
         };
 
+        let protocol_parameters = multi_signer
+            .get_protocol_parameters()
+            .await?
+            .ok_or_else(|| RuntimeError::General("no protocol parameters".to_string().into()))?;
+        let next_protocol_parameters = multi_signer
+            .get_next_protocol_parameters()
+            .await?
+            .ok_or_else(|| {
+                RuntimeError::General("no next protocol parameters".to_string().into())
+            })?;
+
         let pending_certificate = CertificatePending::new(
             beacon,
-            multi_signer
-                .get_protocol_parameters()
-                .await
-                .ok_or_else(|| RuntimeError::General("no protocol parameters".to_string().into()))?
-                .into(),
+            protocol_parameters.into(),
+            next_protocol_parameters.into(),
             signers,
             next_signer.into_iter().map(|s| s.into()).collect(),
         );
@@ -410,10 +438,13 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::dependency::{StakeStoreWrapper, VerificationKeyStoreWrapper};
+    use crate::dependency::{
+        ProtocolParametersStoreWrapper, StakeStoreWrapper, VerificationKeyStoreWrapper,
+    };
     use crate::multi_signer::MockMultiSigner;
     use crate::runtime::RuntimeError;
     use crate::snapshotter::OngoingSnapshot;
+    use crate::ProtocolParametersStorer;
     use crate::{
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
@@ -431,12 +462,13 @@ pub mod tests {
     use tempfile::NamedTempFile;
     use tokio::sync::RwLock;
 
-    async fn save_verification_keys_and_stake_distribution(
+    async fn save_verification_keys_and_stake_distribution_and_protocol_parameters(
         signers: Vec<SignerWithStake>,
         beacon: &Beacon,
         epoch_offset: i64,
         key_store: VerificationKeyStoreWrapper,
         stake_store: StakeStoreWrapper,
+        protocol_parameters_store: ProtocolParametersStoreWrapper,
     ) {
         let epoch = beacon
             .epoch
@@ -458,6 +490,11 @@ pub mod tests {
             )
             .await
             .expect("save_stakes should not fail");
+        let protocol_parameters = fake_data::protocol_parameters();
+        protocol_parameters_store
+            .save_protocol_parameters(epoch, protocol_parameters)
+            .await
+            .expect("save_protocol_parameters should not fail");
     }
 
     #[tokio::test]
@@ -557,6 +594,38 @@ pub mod tests {
     }
 
     #[tokio::test]
+    async fn test_update_protocol_parameters_in_multisigner() {
+        let (deps, config) = initialize_dependencies().await;
+        let deps = Arc::new(deps);
+        let runner = AggregatorRunner::new(config, deps.clone());
+        let beacon = runner.is_new_beacon(None).await.unwrap().unwrap();
+        runner
+            .update_beacon(&beacon)
+            .await
+            .expect("setting the beacon should not fail");
+        runner
+            .update_protocol_parameters_in_multisigner(&beacon)
+            .await
+            .expect("updating protocol parameters should not return an error");
+
+        let current_protocol_parameters = deps.config.protocol_parameters.clone();
+
+        let saved_protocol_parameters = deps
+            .protocol_parameters_store
+            .get_protocol_parameters(beacon.epoch + 1)
+            .await
+            .unwrap()
+            .unwrap_or_else(|| {
+                panic!(
+                    "should have protocol parameters for the epoch {:?}",
+                    beacon.epoch
+                )
+            });
+
+        assert_eq!(current_protocol_parameters, saved_protocol_parameters);
+    }
+
+    #[tokio::test]
     async fn test_create_new_pending_certificate_from_multisigner() {
         let (deps, config) = initialize_dependencies().await;
         let deps = Arc::new(deps);
@@ -567,20 +636,22 @@ pub mod tests {
         let signers = fake_data::signers_with_stakes(5);
         let current_signers = signers[1..3].to_vec();
         let next_signers = signers[2..5].to_vec();
-        save_verification_keys_and_stake_distribution(
+        save_verification_keys_and_stake_distribution_and_protocol_parameters(
             current_signers.clone(),
             &beacon,
             SIGNER_EPOCH_RETRIEVAL_OFFSET,
             deps.verification_key_store.clone(),
             deps.stake_store.clone(),
+            deps.protocol_parameters_store.clone(),
         )
         .await;
-        save_verification_keys_and_stake_distribution(
+        save_verification_keys_and_stake_distribution_and_protocol_parameters(
             next_signers.clone(),
             &beacon,
             NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET,
             deps.verification_key_store.clone(),
             deps.stake_store.clone(),
+            deps.protocol_parameters_store.clone(),
         )
         .await;
 
@@ -592,6 +663,7 @@ pub mod tests {
         certificate.next_signers.sort_by_key(|s| s.party_id.clone());
         let mut expected = CertificatePending::new(
             beacon,
+            fake_data::protocol_parameters(),
             fake_data::protocol_parameters(),
             current_signers.into_iter().map(|s| s.into()).collect(),
             next_signers.into_iter().map(|s| s.into()).collect(),

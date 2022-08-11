@@ -2,13 +2,14 @@ use std::{path::PathBuf, sync::Arc};
 
 use mithril_aggregator::{
     AggregatorConfig, CertificatePendingStore, CertificateStore, Config, DependencyManager,
-    DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore, MultiSigner, MultiSignerImpl,
-    SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType, VerificationKeyStore,
+    DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore, MultiSignerImpl,
+    ProtocolParametersStore, SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType,
+    VerificationKeyStore,
 };
 use mithril_common::digesters::DumbImmutableFileObserver;
+use mithril_common::fake_data;
 use mithril_common::{
     chain_observer::FakeObserver,
-    crypto_helper::tests_setup::setup_protocol_parameters,
     digesters::DumbImmutableDigester,
     store::{adapter::MemoryAdapter, StakeStore},
     BeaconProviderImpl, CardanoNetwork,
@@ -21,6 +22,7 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
         cardano_node_socket_path: PathBuf::new(),
         network_magic: Some(42),
         network: "whatever".to_string(),
+        protocol_parameters: fake_data::protocol_parameters(),
         url_snapshot_manifest: "https://storage.googleapis.com/cardano-testnet/snapshots.json"
             .to_string(),
         snapshot_store_type: SnapshotStoreType::Local,
@@ -35,6 +37,7 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
         verification_key_store_directory: PathBuf::new(),
         stake_store_directory: PathBuf::new(),
         single_signature_store_directory: PathBuf::new(),
+        protocol_parameters_store_directory: PathBuf::new(),
     };
     let certificate_pending_store = Arc::new(CertificatePendingStore::new(Box::new(
         MemoryAdapter::new(None).unwrap(),
@@ -49,21 +52,16 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
     let single_signature_store = Arc::new(SingleSignatureStore::new(Box::new(
         MemoryAdapter::new(None).unwrap(),
     )));
-    let multi_signer = async {
-        let protocol_parameters = setup_protocol_parameters();
-        let mut multi_signer = MultiSignerImpl::new(
-            verification_key_store.clone(),
-            stake_store.clone(),
-            single_signature_store.clone(),
-        );
-        multi_signer
-            .update_protocol_parameters(&protocol_parameters)
-            .await
-            .expect("fake update protocol parameters failed");
-
-        multi_signer
-    };
-    let multi_signer = Arc::new(RwLock::new(multi_signer.await));
+    let protocol_parameters_store = Arc::new(ProtocolParametersStore::new(Box::new(
+        MemoryAdapter::new(None).unwrap(),
+    )));
+    let multi_signer = MultiSignerImpl::new(
+        verification_key_store.clone(),
+        stake_store.clone(),
+        single_signature_store.clone(),
+        protocol_parameters_store.clone(),
+    );
+    let multi_signer = Arc::new(RwLock::new(multi_signer));
     let immutable_file_observer = Arc::new(DumbImmutableFileObserver::default());
     let chain_observer = Arc::new(FakeObserver::default());
     let beacon_provider = Arc::new(BeaconProviderImpl::new(
@@ -88,6 +86,7 @@ pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) 
         verification_key_store: verification_key_store.clone(),
         stake_store: stake_store.clone(),
         single_signature_store: single_signature_store.clone(),
+        protocol_parameters_store: protocol_parameters_store.clone(),
         chain_observer,
         beacon_provider,
         immutable_file_observer,

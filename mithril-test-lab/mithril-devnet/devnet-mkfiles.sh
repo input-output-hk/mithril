@@ -886,6 +886,9 @@ cat >> docker-compose.yaml <<EOF
       - GOOGLE_APPLICATION_CREDENTIALS_JSON=
       - NETWORK=devnet
       - NETWORK_MAGIC=${NETWORK_MAGIC}
+      - PROTOCOL_PARAMETERS__K=5
+      - PROTOCOL_PARAMETERS__M=100
+      - PROTOCOL_PARAMETERS__PHI_F=0.65
       - RUN_INTERVAL=1000
       - URL_SNAPSHOT_MANIFEST=
       - SNAPSHOT_STORE_TYPE=local
@@ -895,6 +898,8 @@ cat >> docker-compose.yaml <<EOF
       - VERIFICATION_KEY_STORE_DIRECTORY=/data/mithril/aggregator/db/verification_key_db
       - SNAPSHOT_STORE_DIRECTORY=/data/mithril/aggregator/db/snapshot_db
       - STAKE_STORE_DIRECTORY=/data/mithril/aggregator/db/stake_db
+      - SINGLE_SIGNATURE_STORE_DIRECTORY=/data/mithril/aggregator/db/single_signature_db
+      - PROTOCOL_PARAMETERS_STORE_DIRECTORY=/data/mithril/aggregator/db/protocol_parameters_db
       - CARDANO_NODE_SOCKET_PATH=/data/ipc/node.sock
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
     command:

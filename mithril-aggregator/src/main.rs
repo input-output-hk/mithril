@@ -2,14 +2,14 @@
 
 use mithril_aggregator::{
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
-    CertificateStore, Config, DependencyManager, GzipSnapshotter, MultiSigner, MultiSignerImpl,
-    Server, SingleSignatureStore, VerificationKeyStore,
+    CertificateStore, Config, DependencyManager, GzipSnapshotter, MultiSignerImpl,
+    ProtocolParametersStore, Server, SingleSignatureStore, VerificationKeyStore,
 };
 use mithril_common::chain_observer::CardanoCliRunner;
 use mithril_common::digesters::{CardanoImmutableDigester, ImmutableFileSystemObserver};
 use mithril_common::store::adapter::JsonFileStoreAdapter;
 use mithril_common::store::StakeStore;
-use mithril_common::{fake_data, BeaconProviderImpl};
+use mithril_common::BeaconProviderImpl;
 
 use clap::Parser;
 use config::{Map, Source, Value, ValueKind};
@@ -116,7 +116,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let run_mode = env::var("RUN_MODE").unwrap_or_else(|_| args.run_mode.clone());
     let config: Config = config::Config::builder()
         .add_source(config::File::with_name(&format!("./config/{}.json", run_mode)).required(false))
-        .add_source(config::Environment::default())
+        .add_source(config::Environment::default().separator("__"))
         .add_source(args.clone())
         .build()
         .map_err(|e| format!("configuration build error: {}", e))?
@@ -143,10 +143,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let single_signature_store = Arc::new(SingleSignatureStore::new(Box::new(
         JsonFileStoreAdapter::new(config.single_signature_store_directory.clone())?,
     )));
+    let protocol_parameters_store = Arc::new(ProtocolParametersStore::new(Box::new(
+        JsonFileStoreAdapter::new(config.protocol_parameters_store_directory.clone())?,
+    )));
     let multi_signer = Arc::new(RwLock::new(MultiSignerImpl::new(
         verification_key_store.clone(),
         stake_store.clone(),
         single_signature_store.clone(),
+        protocol_parameters_store.clone(),
     )));
     let chain_observer = Arc::new(
         mithril_common::chain_observer::CardanoCliChainObserver::new(Box::new(
@@ -178,7 +182,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
         config.db_directory.clone(),
         ongoing_snapshot_directory,
     ));
-    setup_dependencies_fake_data(multi_signer.clone()).await;
 
     // Init dependency manager
     let dependency_manager = DependencyManager {
@@ -191,6 +194,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         verification_key_store: verification_key_store.clone(),
         stake_store: stake_store.clone(),
         single_signature_store: single_signature_store.clone(),
+        protocol_parameters_store: protocol_parameters_store.clone(),
         chain_observer: chain_observer.clone(),
         beacon_provider: beacon_provider.clone(),
         immutable_file_observer,
@@ -230,18 +234,4 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     println!("Exiting...");
     Ok(())
-}
-
-/// Setup dependencies with fake data
-// TODO: remove this function when new protocol parameters are not fake anymore
-async fn setup_dependencies_fake_data(multi_signer: Arc<RwLock<dyn MultiSigner>>) {
-    // Update protocol parameters
-    {
-        let mut multi_signer = multi_signer.write().await;
-        let protocol_parameters = fake_data::protocol_parameters();
-        multi_signer
-            .update_protocol_parameters(&protocol_parameters.into())
-            .await
-            .expect("fake update protocol parameters failed");
-    }
 }
