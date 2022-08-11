@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use async_trait::async_trait;
 use chrono::prelude::*;
 use hex::ToHex;
-use slog_scope::debug;
+use slog_scope::{debug, trace, warn};
 use thiserror::Error;
 
 use mithril_common::crypto_helper::{
@@ -365,23 +365,26 @@ impl MultiSigner for MultiSignerImpl {
         message: entities::ProtocolMessage,
     ) -> Result<(), ProtocolError> {
         debug!("Update current_message to {:?}", message);
-        if self.current_message.clone() != Some(message.clone()) {
-            self.multi_signature = None;
-            let signers_with_stake = self.get_signers_with_stake().await?;
-            let protocol_parameters = self
-                .get_protocol_parameters()
-                .await?
-                .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
-            match self
-                .create_clerk(&signers_with_stake, &protocol_parameters)
-                .await
-            {
-                Ok(clerk) => self.clerk = clerk,
-                Err(ProtocolError::Beacon(_)) => {}
-                Err(e) => return Err(e),
+        self.multi_signature = None;
+        let signers_with_stake = self.get_signers_with_stake().await?;
+        let protocol_parameters = self
+            .get_protocol_parameters()
+            .await?
+            .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
+        match self
+            .create_clerk(&signers_with_stake, &protocol_parameters)
+            .await
+        {
+            Ok(clerk) => {
+                trace!("update_current_message::new_clerk_created");
+                self.clerk = clerk
             }
-            self.current_initiated_at = Some(Utc::now());
+            Err(ProtocolError::Beacon(err)) => {
+                warn!("update_current_message::error"; "error" => ?err);
+            }
+            Err(e) => return Err(e),
         }
+        self.current_initiated_at = Some(Utc::now());
         self.current_message = Some(message);
         Ok(())
     }
