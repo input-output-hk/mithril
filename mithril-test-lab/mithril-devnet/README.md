@@ -49,8 +49,21 @@ NODES=mithril ./devnet-run.sh
 # Logs devnet
 ./devnet-log.sh
 
+# Logs Cardano nodes only on devnet
+NODES=cardano ./devnet-log.sh
+
+# Logs Mithril nodes only on devnet
+NODES=mithril ./devnet-log.sh
+
 # Query devnet
 ./devnet-query.sh
+
+# Query Cardano nodes only on devnet
+.NODES=cardano /devnet-query.sh
+
+# Query Mithril nodes only on devnet
+.NODES=mithril /devnet-query.sh
+
 
 # Stop devnet
 ./devnet-stop.sh
