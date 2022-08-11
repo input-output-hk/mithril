@@ -8,7 +8,7 @@
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! use mithril::key_reg::KeyReg; // Import key registration functionality
 //! use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
-//! use mithril::AggregationFailure;
+//! use mithril::AggregationError;
 //! use rayon::prelude::*; // We use par_iter to speed things up
 //!
 //! use rand_chacha::ChaCha20Rng;
@@ -95,7 +95,7 @@
 //!             .verify(&msg, &clerk.compute_avk(), &params)
 //!             .is_ok());
 //!     }
-//!     Err(AggregationFailure::NotEnoughSignatures(n, k)) => {
+//!     Err(AggregationError::NotEnoughSignatures(n, k)) => {
 //!         println!("Not enough signatures");
 //!         assert!(n < params.k && k == params.k)
 //!     }
@@ -106,10 +106,7 @@
 //! ```
 
 use crate::dense_mapping::ev_lt_phi;
-use crate::error::{
-    AggregationFailure, MithrilWitnessError, MultiSignatureError, RegisterError,
-    VerificationFailure,
-};
+use crate::error::{AggregationError, RegisterError, StmSignatureError, StmSingleSignatureError};
 use crate::key_reg::ClosedKeyReg;
 use crate::merkle_tree::{MTLeaf, MerkleTreeCommitment, Path};
 #[cfg(not(feature = "zcash"))]
@@ -561,7 +558,7 @@ impl<D: Digest + FixedOutput + Clone> StmClerk<D> {
         &self,
         sigs: &[StmSig<D>],
         msg: &[u8],
-    ) -> Result<StmAggrSig<D>, AggregationFailure> {
+    ) -> Result<StmAggrSig<D>, AggregationError> {
         let unique_sigs = self.dedup_sigs_for_indices(msg, sigs)?;
 
         Ok(StmAggrSig {
@@ -581,7 +578,7 @@ impl<D: Digest + FixedOutput + Clone> StmClerk<D> {
         &self,
         msg: &[u8],
         sigs: &[StmSig<D>],
-    ) -> Result<Vec<StmSig<D>>, AggregationFailure> {
+    ) -> Result<Vec<StmSig<D>>, AggregationError> {
         let avk = StmAggrVerificationKey::from(&self.closed_reg);
         let mut sig_by_index: HashMap<Index, &StmSig<D>> = HashMap::new();
         let mut removal_idx_by_vk: HashMap<&StmSig<D>, Vec<Index>> = HashMap::new();
@@ -647,10 +644,7 @@ impl<D: Digest + FixedOutput + Clone> StmClerk<D> {
             }
         }
 
-        Err(AggregationFailure::NotEnoughSignatures(
-            count,
-            self.params.k,
-        ))
+        Err(AggregationError::NotEnoughSignatures(count, self.params.k))
     }
 
     /// Compute the `StmAggrVerificationKey` related to the used registration.
@@ -667,7 +661,7 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
         params: &StmParameters,
         avk: &StmAggrVerificationKey<D>,
         msg: &[u8],
-    ) -> Result<(), VerificationFailure<D>> {
+    ) -> Result<(), StmSingleSignatureError<D>> {
         let msgp = avk.mt_commitment.concat_with_msg(msg);
 
         self.check_indices(params, &msgp, avk)?;
@@ -683,16 +677,16 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
         params: &StmParameters,
         msgp: &[u8],
         avk: &StmAggrVerificationKey<D>,
-    ) -> Result<(), VerificationFailure<D>> {
+    ) -> Result<(), StmSingleSignatureError<D>> {
         for &index in &self.indexes {
             if index > params.m {
-                return Err(VerificationFailure::IndexBoundFailed(index, params.m));
+                return Err(StmSingleSignatureError::IndexBoundFailed(index, params.m));
             }
 
             let ev = self.sigma.eval(msgp, index);
 
             if !ev_lt_phi(params.phi_f, ev, self.stake, avk.total_stake) {
-                return Err(VerificationFailure::LotteryLost);
+                return Err(StmSingleSignatureError::LotteryLost);
             }
         }
 
@@ -723,7 +717,7 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
     }
 
     /// Extract an `StmSig` from a byte slice.
-    pub fn from_bytes(bytes: &[u8]) -> Result<StmSig<D>, MultiSignatureError> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<StmSig<D>, StmSingleSignatureError<D>> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(&bytes[..8]);
         let stake = u64::from_be_bytes(u64_bytes);
@@ -783,14 +777,14 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
         msg: &[u8],
         avk: &StmAggrVerificationKey<D>,
         parameters: &StmParameters,
-    ) -> Result<(), MithrilWitnessError<D>> {
+    ) -> Result<(), StmSignatureError<D>> {
         // Check that indices are all smaller than `m` and they are unique
         let mut nr_indices = 0;
         let mut unique_indices = HashSet::new();
         for sig in &self.signatures {
             for &index in &sig.indexes {
                 if index > parameters.m {
-                    return Err(MithrilWitnessError::IndexBoundFailed(index, parameters.m));
+                    return Err(StmSignatureError::IndexBoundFailed(index, parameters.m));
                 }
                 unique_indices.insert(index);
                 nr_indices += 1;
@@ -798,12 +792,12 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
         }
 
         if nr_indices != unique_indices.len() {
-            return Err(MithrilWitnessError::IndexNotUnique);
+            return Err(StmSignatureError::IndexNotUnique);
         }
 
         // Check that there are sufficient signatures
         if (nr_indices as u64) < parameters.k {
-            return Err(MithrilWitnessError::NoQuorum);
+            return Err(StmSignatureError::NoQuorum);
         }
 
         // Check that all signatures did win the lottery
@@ -817,7 +811,7 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
                 .check(&MTLeaf(sig.pk, sig.stake), &sig.path)
                 .is_err()
             {
-                return Err(MithrilWitnessError::PathInvalid(sig.path.clone()));
+                return Err(StmSignatureError::PathInvalid(sig.path.clone()));
             }
         }
 
@@ -857,14 +851,14 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
     }
 
     /// Extract a `StmMultiSig` from a byte slice.
-    pub fn from_bytes(bytes: &[u8]) -> Result<StmAggrSig<D>, MultiSignatureError> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<StmAggrSig<D>, StmSignatureError<D>> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(&bytes[..8]);
         let size = usize::try_from(u64::from_be_bytes(u64_bytes))
-            .map_err(|_| MultiSignatureError::SerializationError)?;
+            .map_err(|_| StmSignatureError::SerializationError)?;
         u64_bytes.copy_from_slice(&bytes[8..16]);
         let sig_size = usize::try_from(u64::from_be_bytes(u64_bytes))
-            .map_err(|_| MultiSignatureError::SerializationError)?;
+            .map_err(|_| StmSignatureError::SerializationError)?;
         let mut signatures = Vec::with_capacity(size);
         for i in 0..size {
             signatures.push(StmSig::from_bytes(
@@ -1061,9 +1055,9 @@ mod tests {
                     let verify_result = aggr.verify(&msg, &clerk.compute_avk(), &params);
                     assert!(verify_result.is_ok(), "{:?}", verify_result);
                 }
-                Err(AggregationFailure::NotEnoughSignatures(n, k)) =>
+                Err(AggregationError::NotEnoughSignatures(n, k)) =>
                     assert!(n < params.k || k == params.k),
-                Err(AggregationFailure::InvalidUsizeConversion) =>
+                Err(AggregationError::UsizeConversionInvalid) =>
                     unreachable!()
             }
         }
@@ -1184,7 +1178,7 @@ mod tests {
 
             let msig = clerk.aggregate(&sigs, &msg);
             match msig {
-                Err(AggregationFailure::NotEnoughSignatures(n, k)) =>
+                Err(AggregationError::NotEnoughSignatures(n, k)) =>
                     assert!(n < params.k && params.k == k),
                 _ =>
                     unreachable!(),
@@ -1195,7 +1189,7 @@ mod tests {
     #[derive(Debug)]
     struct ProofTest {
         n: usize,
-        msig: Result<Sig, AggregationFailure>,
+        msig: Result<Sig, AggregationError>,
         clerk: StmClerk<D>,
         msg: [u8; 16],
     }

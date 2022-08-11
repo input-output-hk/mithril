@@ -53,7 +53,7 @@ impl KeyReg {
                 e.insert(stake);
                 return Ok(());
             } else {
-                return Err(RegisterError::InvalidKey(Box::new(pk)));
+                return Err(RegisterError::KeyInvalid(Box::new(pk)));
             }
         }
         Err(RegisterError::KeyRegistered(Box::new(pk.vk)))
@@ -136,7 +136,7 @@ mod tests {
                         assert!(pk1.as_ref() == &pk.vk);
                         assert!(keys.contains_key(&pk.vk));
                     }
-                    Err(RegisterError::InvalidKey(a)) => {
+                    Err(RegisterError::KeyInvalid(a)) => {
                         assert_eq!(fake_it, 0);
                         assert!(a.check().is_err());
                     }

@@ -12,92 +12,116 @@ use {
 
 // todo: better organise these errors.
 
-/// Error types for multi signatures
+/// Error types for multi signatures.
 #[derive(Debug, thiserror::Error, Eq, PartialEq)]
 pub enum MultiSignatureError {
     /// Invalid Multi signature
     #[error("Invalid multi signature")]
-    InvalidSignature,
-    /// This error occurs when the underlying function is passed infinity or an element outsize of the group
-    #[error("Unexpected point")]
-    UnexpectedBlstTypes,
+    SignatureInvalid(Signature),
+
     /// This error occurs when the the serialization of the raw bytes failed
     #[error("Invalid bytes")]
     SerializationError,
+
     /// Incorrect proof of possession
     #[error("Key with invalid PoP")]
-    InvalidKey(Box<VerificationKeyPoP>),
+    KeyInvalid(Box<VerificationKeyPoP>),
 }
 
 /// Errors which can be output by Mithril verification.
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum MithrilWitnessError<D: Digest + FixedOutput> {
+pub enum StmSignatureError<D: Digest + FixedOutput> {
     /// No quorum was found
     #[error("No Quorum was found.")]
     NoQuorum,
+
     /// The IVK is invalid after aggregating the keys
     #[error("Aggregated key does not correspond to the expected key.")]
     IvkInvalid(VerificationKey),
+
     /// Mu is not the sum of the signatures
     #[error("Aggregated signature does not correspond to the expected signature.")]
     SumInvalid(Signature),
+
     /// There is an index out of bounds
     #[error("Received index, {0}, is higher than what the security parameter allows, {1}.")]
     IndexBoundFailed(u64, u64),
+
     /// There is a duplicate index
     #[error("Indeces are not unique.")]
     IndexNotUnique,
+
     /// The path is not valid for the Merkle Tree
     #[error("The path of the Merkle Tree is invalid.")]
     PathInvalid(Path<D>),
+
     /// MSP.Eval was computed incorrectly
     #[error("The claimed evaluation of function phi is incorrect.")]
     EvalInvalid([u8; 64]),
+
     /// A party did not actually win the lottery
     #[error("The current party did not win the lottery.")]
     StakeInvalid,
+
     /// A party submitted an invalid signature
     #[error("A provided signature is invalid")]
-    InvalidSignature(Signature),
+    SignatureInvalid(Signature),
+
+    /// This error occurs when the the serialization of the raw bytes failed
+    #[error("Invalid bytes")]
+    SerializationError,
 }
 
 /// Error types for aggregation.
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum AggregationFailure {
+pub enum AggregationError {
     /// Not enough signatures were collected, got this many instead.
     #[error("Not enough signatures. Got only {0} out of {1}.")]
     NotEnoughSignatures(u64, u64),
+
     /// This error happens when we try to convert a u64 to a usize and it does not fit
     #[error("Invalid usize conversion")]
-    InvalidUsizeConversion,
+    UsizeConversionInvalid,
 }
 
-/// Error types for single signature verification
+/// Error types for single signature verification.
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum VerificationFailure<D: Digest + FixedOutput> {
+pub enum StmSingleSignatureError<D: Digest + FixedOutput> {
     /// The signature index is out of bounds
     #[error("Received index, {0}, is higher than what the security parameter allows, {1}.")]
     IndexBoundFailed(u64, u64),
+
     /// The lottery was actually lost for the signature
     #[error("Lottery for this epoch was lost.")]
     LotteryLost,
+
     /// The Merkle Tree is invalid
     #[error("The path of the Merkle Tree is invalid.")]
-    InvalidMerkleTree(Path<D>),
+    PathInvalid(Path<D>),
+
     /// The MSP signature is invalid
     #[error("Invalid Signature.")]
-    InvalidSignature(Signature),
+    SignatureInvalid(Signature),
+
+    /// This error occurs when the the serialization of the raw bytes failed
+    #[error("Invalid bytes")]
+    SerializationError,
+
+    /// Incorrect proof of possession
+    #[error("Key with invalid PoP")]
+    KeyInvalid(Box<VerificationKeyPoP>),
 }
 
-/// Error types related to merkle trees
+/// Error types related to merkle trees.
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum MerkleTreeError {
+pub enum MerkleTreeError<D: Digest + FixedOutput> {
     /// Serialization error
     #[error("Serialization of a merkle tree failed")]
     SerializationError,
+
     /// Invalid merkle path
     #[error("Path does not verify against root")]
-    InvalidPath,
+    PathInvalid(Path<D>),
 }
 
 /// Errors which can be outputted by key registration.
@@ -106,69 +130,70 @@ pub enum RegisterError {
     /// This key has already been registered by a participant
     #[error("This key has already been registered.")]
     KeyRegistered(Box<VerificationKey>),
+
     /// The supplied key is not valid
     #[error("The verification of correctness of the supplied key is invalid.")]
-    InvalidKey(Box<VerificationKeyPoP>),
+    KeyInvalid(Box<VerificationKeyPoP>),
+
     /// Serialization error
     #[error("Serialization error")]
     SerializationError,
 }
 
-impl From<RegisterError> for MultiSignatureError {
-    fn from(_: RegisterError) -> Self {
-        todo!()
+impl<D: Digest + FixedOutput> From<RegisterError> for StmSignatureError<D> {
+    fn from(e: RegisterError) -> Self {
+        match e {
+            RegisterError::SerializationError => Self::SerializationError,
+            RegisterError::KeyInvalid(e) => Self::IvkInvalid(e.vk),
+            RegisterError::KeyRegistered(_) => unreachable!(),
+        }
     }
 }
-
-impl From<MerkleTreeError> for MultiSignatureError {
-    fn from(_: MerkleTreeError) -> Self {
-        todo!()
+impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmSignatureError<D> {
+    fn from(e: MerkleTreeError<D>) -> Self {
+        match e {
+            MerkleTreeError::PathInvalid(e) => Self::PathInvalid(e),
+            MerkleTreeError::SerializationError => Self::SerializationError,
+        }
     }
 }
-
-#[allow(clippy::from_over_into)]
-impl<D: Digest + FixedOutput> Into<i64> for MithrilWitnessError<D> {
-    fn into(self) -> i64 {
-        // -1 is reserved to the function failing.
-        match self {
-            MithrilWitnessError::NoQuorum => -2,
-            MithrilWitnessError::IvkInvalid(_) => -3,
-            MithrilWitnessError::SumInvalid(_) => -4,
-            MithrilWitnessError::IndexBoundFailed(_, _) => -5,
-            MithrilWitnessError::IndexNotUnique => -6,
-            MithrilWitnessError::PathInvalid(_) => -7,
-            MithrilWitnessError::EvalInvalid(_) => -8,
-            MithrilWitnessError::StakeInvalid => -9,
-            MithrilWitnessError::InvalidSignature(_) => -10,
+impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmSignatureError<D> {
+    fn from(e: MultiSignatureError) -> Self {
+        match e {
+            MultiSignatureError::SerializationError => Self::SerializationError,
+            MultiSignatureError::KeyInvalid(e) => Self::IvkInvalid(e.vk),
+            MultiSignatureError::SignatureInvalid(e) => Self::SignatureInvalid(e),
+        }
+    }
+}
+impl<D: Digest + FixedOutput> From<StmSingleSignatureError<D>> for StmSignatureError<D> {
+    fn from(e: StmSingleSignatureError<D>) -> Self {
+        match e {
+            StmSingleSignatureError::SignatureInvalid(e) => Self::SignatureInvalid(e),
+            StmSingleSignatureError::PathInvalid(e) => Self::PathInvalid(e),
+            StmSingleSignatureError::IndexBoundFailed(e, ..) => Self::IndexBoundFailed(e, e),
+            StmSingleSignatureError::LotteryLost => Self::StakeInvalid,
+            StmSingleSignatureError::SerializationError => Self::SerializationError,
+            StmSingleSignatureError::KeyInvalid(e) => Self::IvkInvalid(e.vk),
         }
     }
 }
 
-impl<D: Digest + Clone + FixedOutput> From<MultiSignatureError> for MithrilWitnessError<D> {
-    fn from(_: MultiSignatureError) -> Self {
-        // todo:
-        Self::StakeInvalid
+impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmSingleSignatureError<D> {
+    fn from(e: MerkleTreeError<D>) -> Self {
+        match e {
+            MerkleTreeError::PathInvalid(e) => Self::PathInvalid(e),
+            MerkleTreeError::SerializationError => Self::SerializationError,
+        }
     }
 }
-
-impl<D: Digest + Clone + FixedOutput> From<VerificationFailure<D>> for MithrilWitnessError<D> {
-    fn from(_: VerificationFailure<D>) -> Self {
-        // todo:
-        Self::StakeInvalid
-    }
-}
-
-impl<D: Digest + Clone + FixedOutput> From<MerkleTreeError> for VerificationFailure<D> {
-    fn from(_: MerkleTreeError) -> Self {
-        // todo:
-        Self::LotteryLost
-    }
-}
-
-impl<D: Digest + Clone + FixedOutput> From<MultiSignatureError> for VerificationFailure<D> {
-    fn from(_: MultiSignatureError) -> Self {
-        // todo:
-        Self::LotteryLost
+impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmSingleSignatureError<D> {
+    fn from(e: MultiSignatureError) -> Self {
+        match e {
+            MultiSignatureError::SerializationError => Self::SerializationError,
+            MultiSignatureError::SignatureInvalid(e) => Self::SignatureInvalid(e),
+            MultiSignatureError::KeyInvalid(e) => Self::KeyInvalid(e),
+        }
     }
 }
 
@@ -176,8 +201,8 @@ impl From<MultiSignatureError> for RegisterError {
     fn from(e: MultiSignatureError) -> Self {
         match e {
             MultiSignatureError::SerializationError => Self::SerializationError,
-            MultiSignatureError::InvalidKey(k) => Self::InvalidKey(k),
-            _ => todo!(),
+            MultiSignatureError::KeyInvalid(e) => Self::KeyInvalid(e),
+            MultiSignatureError::SignatureInvalid(_) => unreachable!(),
         }
     }
 }
@@ -186,9 +211,7 @@ impl From<MultiSignatureError> for RegisterError {
 pub(crate) fn blst_err_to_atms(e: BLST_ERROR) -> Result<(), MultiSignatureError> {
     match e {
         BLST_ERROR::BLST_SUCCESS => Ok(()),
-        BLST_ERROR::BLST_VERIFY_FAIL => Err(MultiSignatureError::InvalidSignature),
-        BLST_ERROR::BLST_AGGR_TYPE_MISMATCH => Err(MultiSignatureError::UnexpectedBlstTypes),
-        BLST_ERROR::BLST_PK_IS_INFINITY => Err(MultiSignatureError::UnexpectedBlstTypes),
+        BLST_ERROR::BLST_VERIFY_FAIL => Err(MultiSignatureError::SignatureInvalid),
         _ => Err(MultiSignatureError::SerializationError),
     }
 }
