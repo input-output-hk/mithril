@@ -142,7 +142,7 @@ impl<D: Clone + Digest + FixedOutput> MerkleTreeCommitment<D> {
         if h == self.root {
             return Ok(());
         }
-        Err(MerkleTreeError::PathInvalid(Path::clone(proof)))
+        Err(MerkleTreeError::PathInvalid(proof.clone()))
     }
 
     /// Serializes the Merkle Tree commitment together with a message in a single vector of bytes.
