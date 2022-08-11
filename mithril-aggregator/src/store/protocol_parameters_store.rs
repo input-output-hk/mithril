@@ -75,7 +75,7 @@ mod tests {
         for epoch in 1..=nb_epoch {
             let mut protocol_parameters = fake_data::protocol_parameters();
             protocol_parameters.k += epoch;
-            values.push((epoch, protocol_parameters));
+            values.push((Epoch(epoch), protocol_parameters));
         }
         values
     }
@@ -125,7 +125,7 @@ mod tests {
     #[tokio::test]
     async fn get_protocol_parameters_for_empty_epoch() {
         let store = init_store(2);
-        let res = store.get_protocol_parameters(0).await.unwrap();
+        let res = store.get_protocol_parameters(Epoch(0)).await.unwrap();
 
         assert!(res.is_none());
     }
@@ -133,7 +133,7 @@ mod tests {
     #[tokio::test]
     async fn get_protocol_parameters_for_existing_epoch() {
         let store = init_store(2);
-        let res = store.get_protocol_parameters(1).await.unwrap();
+        let res = store.get_protocol_parameters(Epoch(1)).await.unwrap();
 
         assert!(res.is_some());
     }

@@ -127,7 +127,7 @@ pub trait MultiSigner: Sync + Send {
     /// Compute aggregate verification key from stake distribution
     async fn compute_aggregate_verification_key(
         &self,
-        stakes: &ProtocolStakeDistribution,
+        signers_with_stakes: &[SignerWithStake],
         protocol_parameters: &ProtocolParameters,
     ) -> Result<Option<ProtocolAggregateVerificationKey>, ProtocolError>;
 
@@ -135,13 +135,13 @@ pub trait MultiSigner: Sync + Send {
     async fn compute_stake_distribution_aggregate_verification_key(
         &self,
     ) -> Result<Option<String>, ProtocolError> {
-        let stakes = self.get_stake_distribution().await?;
+        let signers_with_stake = self.get_signers_with_stake().await?;
         let protocol_parameters = self
             .get_protocol_parameters()
             .await?
             .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
         match self
-            .compute_aggregate_verification_key(&stakes, &protocol_parameters)
+            .compute_aggregate_verification_key(&signers_with_stake, &protocol_parameters)
             .await?
         {
             Some(avk) => Ok(Some(key_encode_hex(avk).map_err(ProtocolError::Codec)?)),
@@ -153,13 +153,13 @@ pub trait MultiSigner: Sync + Send {
     async fn compute_next_stake_distribution_aggregate_verification_key(
         &self,
     ) -> Result<Option<String>, ProtocolError> {
-        let stakes = self.get_next_stake_distribution().await?;
+        let next_signers_with_stake = self.get_next_signers_with_stake().await?;
         let protocol_parameters = self
             .get_next_protocol_parameters()
             .await?
             .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
         match self
-            .compute_aggregate_verification_key(&stakes, &protocol_parameters)
+            .compute_aggregate_verification_key(&next_signers_with_stake, &protocol_parameters)
             .await?
         {
             Some(avk) => Ok(Some(key_encode_hex(avk).map_err(ProtocolError::Codec)?)),
@@ -281,7 +281,7 @@ impl MultiSignerImpl {
     /// Creates a clerk
     pub async fn create_clerk(
         &self,
-        stakes: &ProtocolStakeDistribution,
+        signers_with_stake: &[SignerWithStake],
         protocol_parameters: &ProtocolParameters,
     ) -> Result<Option<ProtocolClerk>, ProtocolError> {
         debug!("Create clerk");
@@ -338,8 +338,8 @@ impl MultiSignerImpl {
             .current_beacon
             .as_ref()
             .ok_or_else(ProtocolError::UnavailableBeacon)?
-            .compute_beacon_with_epoch_offset(epoch_offset)?
-            .epoch;
+            .epoch
+            .offset_by(epoch_offset)?;
 
         Ok(Some(
             self.protocol_parameters_store
@@ -367,12 +367,15 @@ impl MultiSigner for MultiSignerImpl {
         debug!("Update current_message to {:?}", message);
         if self.current_message.clone() != Some(message.clone()) {
             self.multi_signature = None;
-            let stakes = self.get_stake_distribution().await?;
+            let signers_with_stake = self.get_signers_with_stake().await?;
             let protocol_parameters = self
                 .get_protocol_parameters()
                 .await?
                 .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
-            match self.create_clerk(&stakes, &protocol_parameters).await {
+            match self
+                .create_clerk(&signers_with_stake, &protocol_parameters)
+                .await
+            {
                 Ok(clerk) => self.clerk = clerk,
                 Err(ProtocolError::Beacon(_)) => {}
                 Err(e) => return Err(e),
@@ -422,8 +425,8 @@ impl MultiSigner for MultiSignerImpl {
             .current_beacon
             .as_ref()
             .ok_or_else(ProtocolError::UnavailableBeacon)?
-            .compute_beacon_with_epoch_offset(SIGNER_EPOCH_RECORDING_OFFSET)?
-            .epoch;
+            .epoch
+            .offset_by(SIGNER_EPOCH_RECORDING_OFFSET)?;
 
         self.protocol_parameters_store
             .save_protocol_parameters(epoch, protocol_parameters.to_owned().into())
@@ -468,10 +471,13 @@ impl MultiSigner for MultiSignerImpl {
     /// Compute aggregate verification key from stake distribution
     async fn compute_aggregate_verification_key(
         &self,
-        stakes: &ProtocolStakeDistribution,
+        signers_with_stakes: &[SignerWithStake],
         protocol_parameters: &ProtocolParameters,
     ) -> Result<Option<ProtocolAggregateVerificationKey>, ProtocolError> {
-        match self.create_clerk(stakes, protocol_parameters).await? {
+        match self
+            .create_clerk(signers_with_stakes, protocol_parameters)
+            .await?
+        {
             Some(clerk) => Ok(Some(clerk.compute_avk())),
             None => Ok(None),
         }

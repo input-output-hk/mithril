@@ -439,12 +439,12 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 #[cfg(test)]
 pub mod tests {
     use crate::dependency::{
-        ProtocolParametersStoreWrapper, ProtocolParametersStorer, StakeStoreWrapper,
-        VerificationKeyStoreWrapper,
+        ProtocolParametersStoreWrapper, StakeStoreWrapper, VerificationKeyStoreWrapper,
     };
     use crate::multi_signer::MockMultiSigner;
     use crate::runtime::RuntimeError;
     use crate::snapshotter::OngoingSnapshot;
+    use crate::ProtocolParametersStorer;
     use crate::{
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
