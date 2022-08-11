@@ -3,11 +3,10 @@ use std::collections::HashMap;
 use thiserror::Error;
 use tokio::sync::RwLock;
 
-use mithril_common::entities::{Beacon, ImmutableFileNumber, PartyId, SingleSignatures};
+use mithril_common::entities::{Beacon, PartyId, SingleSignatures};
 use mithril_common::store::adapter::{AdapterError, StoreAdapter};
 
-type Adapter =
-    Box<dyn StoreAdapter<Key = ImmutableFileNumber, Record = HashMap<PartyId, SingleSignatures>>>;
+type Adapter = Box<dyn StoreAdapter<Key = Beacon, Record = HashMap<PartyId, SingleSignatures>>>;
 
 #[derive(Debug, Error)]
 pub enum SingleSignatureStoreError {
@@ -48,16 +47,11 @@ impl SingleSignatureStorer for SingleSignatureStore {
         beacon: &Beacon,
         single_signatures: &SingleSignatures,
     ) -> Result<Option<SingleSignatures>, SingleSignatureStoreError> {
-        let mut single_signatures_per_party_id = match self
-            .adapter
-            .read()
-            .await
-            .get_record(&beacon.immutable_file_number)
-            .await?
-        {
-            Some(s) => s,
-            None => HashMap::new(),
-        };
+        let mut single_signatures_per_party_id =
+            match self.adapter.read().await.get_record(beacon).await? {
+                Some(s) => s,
+                None => HashMap::new(),
+            };
 
         let prev_single_signature = single_signatures_per_party_id.insert(
             single_signatures.party_id.clone(),
@@ -66,10 +60,7 @@ impl SingleSignatureStorer for SingleSignatureStore {
         self.adapter
             .write()
             .await
-            .store_record(
-                &beacon.immutable_file_number,
-                &single_signatures_per_party_id,
-            )
+            .store_record(beacon, &single_signatures_per_party_id)
             .await?;
 
         Ok(prev_single_signature)
@@ -79,12 +70,7 @@ impl SingleSignatureStorer for SingleSignatureStore {
         &self,
         beacon: &Beacon,
     ) -> Result<Option<HashMap<PartyId, SingleSignatures>>, SingleSignatureStoreError> {
-        let record = self
-            .adapter
-            .read()
-            .await
-            .get_record(&beacon.immutable_file_number)
-            .await?;
+        let record = self.adapter.read().await.get_record(beacon).await?;
         Ok(record)
     }
 }
@@ -92,7 +78,6 @@ impl SingleSignatureStorer for SingleSignatureStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-
     use mithril_common::store::adapter::MemoryAdapter;
 
     fn init_store(
@@ -100,7 +85,7 @@ mod tests {
         single_signers_per_epoch: u64,
         single_signatures_per_signers: u64,
     ) -> SingleSignatureStore {
-        let mut values: Vec<(ImmutableFileNumber, HashMap<PartyId, SingleSignatures>)> = Vec::new();
+        let mut values: Vec<(Beacon, HashMap<PartyId, SingleSignatures>)> = Vec::new();
 
         for immutable_file_number in 1..=nb_immutable_file_numbers {
             let mut single_signatures: HashMap<PartyId, SingleSignatures> = HashMap::new();
@@ -116,7 +101,10 @@ mod tests {
                     },
                 );
             }
-            values.push((immutable_file_number, single_signatures));
+            values.push((
+                Beacon::new("devnet".to_string(), 1, immutable_file_number),
+                single_signatures,
+            ));
         }
 
         let values = if !values.is_empty() {
@@ -124,7 +112,7 @@ mod tests {
         } else {
             None
         };
-        let adapter: MemoryAdapter<ImmutableFileNumber, HashMap<PartyId, SingleSignatures>> =
+        let adapter: MemoryAdapter<Beacon, HashMap<PartyId, SingleSignatures>> =
             MemoryAdapter::new(values).unwrap();
         SingleSignatureStore::new(Box::new(adapter))
     }

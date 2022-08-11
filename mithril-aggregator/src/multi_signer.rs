@@ -795,13 +795,14 @@ mod tests {
             )
             .unwrap(),
         ));
-        let single_signature_store = SingleSignatureStore::new(Box::new(
-            MemoryAdapter::<
-                entities::ImmutableFileNumber,
-                HashMap<entities::PartyId, entities::SingleSignatures>,
-            >::new(None)
-            .unwrap(),
-        ));
+        let single_signature_store =
+            SingleSignatureStore::new(Box::new(
+                MemoryAdapter::<
+                    entities::Beacon,
+                    HashMap<entities::PartyId, entities::SingleSignatures>,
+                >::new(None)
+                .unwrap(),
+            ));
         let protocol_parameters_store = ProtocolParametersStore::new(Box::new(
             MemoryAdapter::<entities::Epoch, entities::ProtocolParameters>::new(None).unwrap(),
         ));
