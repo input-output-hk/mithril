@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 /// Signer represents a signing participant in the network
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Signer {
     /// The unique identifier of the signer
     #[serde(rename = "party_id")]
@@ -33,7 +33,7 @@ impl Signer {
 }
 
 /// Signer represents a signing party in the network (including its stakes)
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct SignerWithStake {
     /// The unique identifier of the signer
     #[serde(rename = "party_id")]

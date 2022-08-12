@@ -69,7 +69,7 @@ pub trait Runner {
     ) -> Result<(), Box<dyn StdError + Sync + Send>>;
 }
 
-#[derive(Debug, Clone, PartialEq, Error)]
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum RuntimeError {
     #[error("No value returned by the subsystem for `{0}`")]
     NoValueError(String),
