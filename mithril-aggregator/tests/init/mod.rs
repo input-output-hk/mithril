@@ -11,12 +11,15 @@ use mithril_aggregator::{
     LocalSnapshotStore, MultiSigner, MultiSignerImpl, ProtocolParametersStore,
     SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType, VerificationKeyStore,
 };
+use mithril_common::crypto_helper::tests_setup::setup_signers_from_parties;
 use mithril_common::crypto_helper::{
     key_encode_hex, ProtocolInitializer, ProtocolPartyId, ProtocolSigner,
     ProtocolSignerVerificationKey, ProtocolStake,
 };
 use mithril_common::digesters::DumbImmutableFileObserver;
-use mithril_common::entities::{Certificate, ImmutableFileNumber, SingleSignatures};
+use mithril_common::entities::{
+    Certificate, ImmutableFileNumber, SignerWithStake, SingleSignatures,
+};
 use mithril_common::{
     chain_observer::FakeObserver,
     digesters::DumbImmutableDigester,
@@ -185,6 +188,23 @@ impl RuntimeTester {
             .get_list(number_of_cert_to_fetch)
             .await
             .map_err(|e| format!("Querying certificate store should not fail {:?}", e))
+    }
+
+    pub async fn update_stake_distribution(
+        &self,
+        signers_with_stake: Vec<SignerWithStake>,
+    ) -> Vec<TestSigner> {
+        self.chain_observer
+            .set_signers(signers_with_stake.clone())
+            .await;
+
+        setup_signers_from_parties(
+            &signers_with_stake
+                .clone()
+                .into_iter()
+                .map(|s| (s.party_id, s.stake))
+                .collect::<Vec<_>>(),
+        )
     }
 }
 
