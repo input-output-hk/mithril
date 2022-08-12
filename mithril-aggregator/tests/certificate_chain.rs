@@ -3,6 +3,7 @@ mod init;
 use mithril_aggregator::VerificationKeyStorer;
 use mithril_common::crypto_helper::tests_setup;
 use mithril_common::entities::SignerWithStake;
+use mithril_common::fake_data;
 
 #[tokio::test]
 async fn certificate_chain() {
@@ -17,32 +18,19 @@ async fn certificate_chain() {
         .chain_observer
         .set_signers(signers_with_stake.clone())
         .await;
+    tester
+        .deps
+        .simulate_genesis(
+            signers_with_stake.clone(),
+            signers_with_stake.clone(),
+            fake_data::protocol_parameters(),
+        )
+        .await;
 
     // start the runtime state machine
     cycle!(tester, "signing");
     tester.register_signers(&signers).await.unwrap();
     cycle!(tester, "signing");
-
-    // change the EPOCH 2 times to get the first valid stake distribution
-    // first EPOCH change
-    let _epoch = tester
-        .chain_observer
-        .next_epoch()
-        .await
-        .expect("we should get a new epoch");
-    cycle!(tester, "idle");
-    cycle!(tester, "signing");
-    tester.register_signers(&signers).await.unwrap();
-
-    // second EPOCH change
-    let _epoch = tester
-        .chain_observer
-        .next_epoch()
-        .await
-        .expect("we should get a new epoch");
-    cycle!(tester, "idle");
-    cycle!(tester, "signing");
-    tester.register_signers(&signers).await.unwrap();
 
     // signers send their single signature
     tester.send_single_signatures(&signers).await.unwrap();
@@ -124,12 +112,11 @@ async fn certificate_chain() {
     assert_eq!(
         &last_certificates[0].metadata.get_stake_distribution(),
         &last_certificates[2].metadata.get_stake_distribution(),
-        "The stake distribution update should only be take in account in the next epoch, stake_distribution: \n{:?}",
-        &last_certificates[0].metadata.get_stake_distribution(),
+        "The stake distribution update should only be take in account in the next epoch",
     );
 
-    // Increase epoch & immutable, stake distribution updated previously should be used now
-    // todo: why do I need a third epoch to use the new stake distribution ???
+    // Increase epoch & immutable, stake distribution updated previously should be signed in the
+    // new certificate
     tester
         .chain_observer
         .next_epoch()
@@ -140,6 +127,7 @@ async fn certificate_chain() {
     tester.send_single_signatures(&signers).await.unwrap();
     cycle!(tester, "idle");
 
+    // todo: why do we need a third epoch to use the new stake distribution ?
     tester
         .chain_observer
         .next_epoch()
@@ -149,8 +137,8 @@ async fn certificate_chain() {
     cycle!(tester, "signing");
     tester.send_single_signatures(&new_signers).await.unwrap();
     cycle!(tester, "idle");
-    let last_certificates = tester.get_last_certificates(5).await.unwrap();
 
+    let last_certificates = tester.get_last_certificates(5).await.unwrap();
     assert_eq!(5, last_certificates.len());
     assert_eq!(
         (
@@ -170,7 +158,6 @@ async fn certificate_chain() {
     assert_ne!(
         &last_certificates[0].metadata.get_stake_distribution(),
         &last_certificates[2].metadata.get_stake_distribution(),
-        "The stake distribution update should have been applied for this epoch, stake_distribution: \n{:?}",
-        &last_certificates[0].metadata.get_stake_distribution(),
+        "The stake distribution update should have been applied for this epoch",
     );
 }

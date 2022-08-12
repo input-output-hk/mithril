@@ -438,9 +438,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::dependency::{
-        ProtocolParametersStoreWrapper, StakeStoreWrapper, VerificationKeyStoreWrapper,
-    };
     use crate::multi_signer::MockMultiSigner;
     use crate::runtime::RuntimeError;
     use crate::snapshotter::OngoingSnapshot;
@@ -448,54 +445,13 @@ pub mod tests {
     use crate::{
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
-        VerificationKeyStorer,
     };
     use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
-    use mithril_common::entities::{
-        Beacon, CertificatePending, Epoch, SignerWithStake, StakeDistribution,
-    };
-    use mithril_common::{
-        entities::ProtocolMessagePartKey, fake_data, store::StakeStorer,
-        NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET, SIGNER_EPOCH_RETRIEVAL_OFFSET,
-    };
+    use mithril_common::entities::{Beacon, CertificatePending, Epoch};
+    use mithril_common::{entities::ProtocolMessagePartKey, fake_data, store::StakeStorer};
     use std::sync::Arc;
     use tempfile::NamedTempFile;
     use tokio::sync::RwLock;
-
-    async fn save_verification_keys_and_stake_distribution_and_protocol_parameters(
-        signers: Vec<SignerWithStake>,
-        beacon: &Beacon,
-        epoch_offset: i64,
-        key_store: VerificationKeyStoreWrapper,
-        stake_store: StakeStoreWrapper,
-        protocol_parameters_store: ProtocolParametersStoreWrapper,
-    ) {
-        let epoch = beacon
-            .epoch
-            .offset_by(epoch_offset)
-            .expect("epoch.offset_by should not fail");
-        for signer in signers.iter().map(|s| s.into()).collect::<Vec<_>>() {
-            key_store
-                .save_verification_key(epoch, signer)
-                .await
-                .expect("save_verification_key should not fail");
-        }
-        stake_store
-            .save_stakes(
-                epoch,
-                signers
-                    .into_iter()
-                    .map(|s| s.into())
-                    .collect::<StakeDistribution>(),
-            )
-            .await
-            .expect("save_stakes should not fail");
-        let protocol_parameters = fake_data::protocol_parameters();
-        protocol_parameters_store
-            .save_protocol_parameters(epoch, protocol_parameters)
-            .await
-            .expect("save_protocol_parameters should not fail");
-    }
 
     #[tokio::test]
     async fn test_is_new_beacon() {
@@ -636,22 +592,11 @@ pub mod tests {
         let signers = fake_data::signers_with_stakes(5);
         let current_signers = signers[1..3].to_vec();
         let next_signers = signers[2..5].to_vec();
-        save_verification_keys_and_stake_distribution_and_protocol_parameters(
+        let protocol_parameters = fake_data::protocol_parameters();
+        deps.simulate_genesis(
             current_signers.clone(),
-            &beacon,
-            SIGNER_EPOCH_RETRIEVAL_OFFSET,
-            deps.verification_key_store.clone(),
-            deps.stake_store.clone(),
-            deps.protocol_parameters_store.clone(),
-        )
-        .await;
-        save_verification_keys_and_stake_distribution_and_protocol_parameters(
             next_signers.clone(),
-            &beacon,
-            NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET,
-            deps.verification_key_store.clone(),
-            deps.stake_store.clone(),
-            deps.protocol_parameters_store.clone(),
+            protocol_parameters.clone(),
         )
         .await;
 
@@ -663,8 +608,8 @@ pub mod tests {
         certificate.next_signers.sort_by_key(|s| s.party_id.clone());
         let mut expected = CertificatePending::new(
             beacon,
-            fake_data::protocol_parameters(),
-            fake_data::protocol_parameters(),
+            protocol_parameters.clone(),
+            protocol_parameters,
             current_signers.into_iter().map(|s| s.into()).collect(),
             next_signers.into_iter().map(|s| s.into()).collect(),
         );
@@ -682,8 +627,23 @@ pub mod tests {
         let beacon = runner.is_new_beacon(None).await.unwrap().unwrap();
         let digest = "1+2+3+4=10".to_string();
         runner.update_beacon(&beacon).await.unwrap();
+        for epoch in [
+            beacon.epoch.offset_to_signer_retrieval_epoch().unwrap(),
+            beacon
+                .epoch
+                .offset_to_next_signer_retrieval_epoch()
+                .unwrap(),
+        ] {
+            deps.protocol_parameters_store
+                .save_protocol_parameters(epoch, fake_data::protocol_parameters())
+                .await
+                .unwrap();
+        }
 
-        assert!(runner.update_message_in_multisigner(digest).await.is_ok());
+        runner
+            .update_message_in_multisigner(digest)
+            .await
+            .expect("update_message_in_multisigner should not fail");
         let message = deps
             .multi_signer
             .read()
@@ -707,17 +667,14 @@ pub mod tests {
         let runner = AggregatorRunner::new(config, deps.clone());
         let beacon = runner.is_new_beacon(None).await.unwrap().unwrap();
         runner.update_beacon(&beacon).await.unwrap();
-        let pending_certificate = runner
-            .create_new_pending_certificate_from_multisigner(beacon.clone())
-            .await
-            .unwrap();
-        let res = runner
+        let pending_certificate = fake_data::certificate_pending();
+
+        runner
             .save_pending_certificate(pending_certificate.clone())
-            .await;
-        assert!(res.is_ok());
+            .await
+            .expect("save_pending_certificate should not fail");
 
         let saved_cert = deps.certificate_pending_store.get().await.unwrap().unwrap();
-
         assert_eq!(pending_certificate, saved_cert);
     }
 
@@ -728,18 +685,16 @@ pub mod tests {
         let runner = AggregatorRunner::new(config, deps.clone());
         let beacon = runner.is_new_beacon(None).await.unwrap().unwrap();
         runner.update_beacon(&beacon).await.unwrap();
-        let pending_certificate = runner
-            .create_new_pending_certificate_from_multisigner(beacon.clone())
+        let pending_certificate = fake_data::certificate_pending();
+        deps.certificate_pending_store
+            .save(pending_certificate.clone())
             .await
             .unwrap();
-        runner
-            .save_pending_certificate(pending_certificate.clone())
-            .await
-            .unwrap();
+
         let cert = runner.drop_pending_certificate().await.unwrap();
         assert_eq!(pending_certificate, cert);
         let maybe_saved_cert = deps.certificate_pending_store.get().await.unwrap();
-        assert!(maybe_saved_cert.is_none());
+        assert_eq!(None, maybe_saved_cert);
     }
 
     #[tokio::test]
@@ -766,7 +721,7 @@ pub mod tests {
         let mut mock_multi_signer = MockMultiSigner::new();
         mock_multi_signer
             .expect_create_certificate()
-            .return_once(move |_, _| Ok(Some(first_certificate.to_owned())));
+            .return_once(move |_, _| Ok(Some(first_certificate)));
         deps.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
         let certificate_store = deps.certificate_store.clone();
         let runner = AggregatorRunner::new(config, Arc::new(deps));

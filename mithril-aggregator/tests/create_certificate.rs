@@ -1,6 +1,8 @@
 mod init;
 
 use mithril_common::crypto_helper::tests_setup;
+use mithril_common::entities::SignerWithStake;
+use mithril_common::fake_data;
 
 #[tokio::test]
 async fn create_certificate() {
@@ -10,8 +12,20 @@ async fn create_certificate() {
 
     // create signers & declare stake distribution
     let signers = tests_setup::setup_signers(2);
-    let signers_with_stake = signers.clone().into_iter().map(|s| s.into()).collect();
-    tester.chain_observer.set_signers(signers_with_stake).await;
+    let signers_with_stake: Vec<SignerWithStake> =
+        signers.clone().into_iter().map(|s| s.into()).collect();
+    tester
+        .chain_observer
+        .set_signers(signers_with_stake.clone())
+        .await;
+    tester
+        .deps
+        .simulate_genesis(
+            signers_with_stake.clone(),
+            signers_with_stake,
+            fake_data::protocol_parameters(),
+        )
+        .await;
 
     // start the runtime state machine
     cycle!(tester, "signing");
@@ -23,28 +37,6 @@ async fn create_certificate() {
 
     // change the immutable number to alter the beacon
     tester.increase_immutable_number().await.unwrap();
-    cycle!(tester, "idle");
-    cycle!(tester, "signing");
-    cycle!(tester, "signing");
-
-    // change the EPOCH 2 times to get the first valid stake distribution
-
-    // first EPOCH change
-    let _epoch = tester
-        .chain_observer
-        .next_epoch()
-        .await
-        .expect("we should get a new epoch");
-    cycle!(tester, "idle");
-    cycle!(tester, "signing");
-    cycle!(tester, "signing");
-
-    // second EPOCH change
-    let _epoch = tester
-        .chain_observer
-        .next_epoch()
-        .await
-        .expect("we should get a new epoch");
     cycle!(tester, "idle");
     cycle!(tester, "signing");
     cycle!(tester, "signing");

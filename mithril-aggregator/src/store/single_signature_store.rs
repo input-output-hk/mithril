@@ -47,11 +47,13 @@ impl SingleSignatureStorer for SingleSignatureStore {
         beacon: &Beacon,
         single_signatures: &SingleSignatures,
     ) -> Result<Option<SingleSignatures>, SingleSignatureStoreError> {
-        let mut single_signatures_per_party_id =
-            match self.adapter.read().await.get_record(beacon).await? {
-                Some(s) => s,
-                None => HashMap::new(),
-            };
+        let mut single_signatures_per_party_id = self
+            .adapter
+            .read()
+            .await
+            .get_record(beacon)
+            .await?
+            .unwrap_or_default();
 
         let prev_single_signature = single_signatures_per_party_id.insert(
             single_signatures.party_id.clone(),

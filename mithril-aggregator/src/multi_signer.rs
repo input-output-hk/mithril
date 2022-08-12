@@ -341,13 +341,15 @@ impl MultiSignerImpl {
             .epoch
             .offset_by(epoch_offset)?;
 
-        Ok(Some(
-            self.protocol_parameters_store
-                .get_protocol_parameters(epoch)
-                .await?
-                .unwrap_or_default()
-                .into(),
-        ))
+        match self
+            .protocol_parameters_store
+            .get_protocol_parameters(epoch)
+            .await
+        {
+            Ok(Some(protocol_parameters)) => Ok(Some(protocol_parameters.into())),
+            Ok(None) => Ok(None),
+            Err(e) => Err(e.into()),
+        }
     }
 }
 
@@ -409,6 +411,7 @@ impl MultiSigner for MultiSignerImpl {
         Ok(())
     }
 
+    // TODO: protocol parameters should ALWAYS be available
     /// Get protocol parameters
     async fn get_protocol_parameters(&self) -> Result<Option<ProtocolParameters>, ProtocolError> {
         debug!("Get protocol parameters");
@@ -420,7 +423,7 @@ impl MultiSigner for MultiSignerImpl {
     async fn get_next_protocol_parameters(
         &self,
     ) -> Result<Option<ProtocolParameters>, ProtocolError> {
-        debug!("Get protocol parameters");
+        debug!("Get next protocol parameters");
         self.get_protocol_parameters_with_epoch_offset(NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET)
             .await
     }
@@ -507,7 +510,8 @@ impl MultiSigner for MultiSignerImpl {
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
             .offset_by(SIGNER_EPOCH_RECORDING_OFFSET)?;
-        let result = match self
+
+        match self
             .verification_key_store
             .save_verification_key(
                 epoch,
@@ -520,9 +524,7 @@ impl MultiSigner for MultiSignerImpl {
         {
             Some(_) => Err(ProtocolError::ExistingSigner()),
             None => Ok(()),
-        };
-
-        result
+        }
     }
 
     /// Get signer verification key
@@ -693,10 +695,17 @@ impl MultiSigner for MultiSignerImpl {
                     .ok()
             })
             .collect::<Vec<_>>();
-        let protocol_parameters = self
-            .get_protocol_parameters()
-            .await?
-            .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
+
+        let protocol_parameters = self.get_protocol_parameters().await?;
+        if protocol_parameters.is_none() {
+            warn!(
+                "no protocol parameters available, can't produce multi-signature";
+                "beacon" =>  #?beacon,
+            );
+            return Ok(None);
+        }
+
+        let quorum = protocol_parameters.unwrap().k;
         trace!(
             "Create multi signature";
             "beacon" =>  #?beacon,
@@ -704,7 +713,7 @@ impl MultiSigner for MultiSignerImpl {
             "protocol_parameters" =>  #?protocol_parameters,
             "message" => message.compute_hash().encode_hex::<String>()
         );
-        if protocol_parameters.k
+        if quorum
             > signatures
                 .iter()
                 .map(|s| s.indexes.len())
@@ -715,10 +724,11 @@ impl MultiSigner for MultiSignerImpl {
             debug!(
                 "Quorum is not reached {} signatures vs {} needed",
                 signatures.len(),
-                protocol_parameters.k
+                quorum
             );
             return Ok(None);
         }
+
         let clerk = self
             .clerk
             .as_ref()
@@ -799,6 +809,7 @@ mod tests {
     use std::sync::Arc;
 
     async fn setup_multi_signer() -> MultiSignerImpl {
+        let beacon = fake_data::beacon();
         let verification_key_store = VerificationKeyStore::new(Box::new(
             MemoryAdapter::<entities::Epoch, HashMap<entities::PartyId, entities::Signer>>::new(
                 None,
@@ -820,7 +831,20 @@ mod tests {
                 .unwrap(),
             ));
         let protocol_parameters_store = ProtocolParametersStore::new(Box::new(
-            MemoryAdapter::<entities::Epoch, entities::ProtocolParameters>::new(None).unwrap(),
+            MemoryAdapter::<entities::Epoch, entities::ProtocolParameters>::new(Some(vec![
+                (
+                    beacon.epoch.offset_to_signer_retrieval_epoch().unwrap(),
+                    fake_data::protocol_parameters(),
+                ),
+                (
+                    beacon
+                        .epoch
+                        .offset_to_next_signer_retrieval_epoch()
+                        .unwrap(),
+                    fake_data::protocol_parameters(),
+                ),
+            ]))
+            .unwrap(),
         ));
         let mut multi_signer = MultiSignerImpl::new(
             Arc::new(verification_key_store),
@@ -830,7 +854,7 @@ mod tests {
         );
 
         multi_signer
-            .update_current_beacon(fake_data::beacon())
+            .update_current_beacon(beacon)
             .await
             .expect("update_current_beacon should not fail");
         multi_signer
