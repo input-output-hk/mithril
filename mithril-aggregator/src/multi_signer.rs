@@ -375,9 +375,16 @@ impl MultiSigner for MultiSignerImpl {
             .create_clerk(&signers_with_stake, &protocol_parameters)
             .await
         {
-            Ok(clerk) => {
+            Ok(Some(clerk)) => {
                 trace!("update_current_message::new_clerk_created");
-                self.clerk = clerk
+                self.clerk = Some(clerk)
+            }
+            Ok(None) => {
+                warn!(
+                    "update_current_message::no_clerk_created: probably not enough signers with valid verification keys";
+                    "signers" => ?signers_with_stake
+                );
+                self.clerk = None
             }
             Err(ProtocolError::Beacon(err)) => {
                 warn!("update_current_message::error"; "error" => ?err);
@@ -663,12 +670,11 @@ impl MultiSigner for MultiSignerImpl {
     async fn create_multi_signature(
         &mut self,
     ) -> Result<Option<ProtocolMultiSignature>, ProtocolError> {
+        debug!("Create multi signature");
         let message = &self
             .get_current_message()
             .await
             .ok_or_else(ProtocolError::UnavailableMessage)?;
-
-        debug!("Create multi signature"; "protocol_message" =>  #?message, "message" => message.compute_hash().encode_hex::<String>());
 
         let beacon = self
             .current_beacon
@@ -691,6 +697,13 @@ impl MultiSigner for MultiSignerImpl {
             .get_protocol_parameters()
             .await?
             .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
+        trace!(
+            "Create multi signature";
+            "beacon" =>  #?beacon,
+            "protocol_message" =>  #?message,
+            "protocol_parameters" =>  #?protocol_parameters,
+            "message" => message.compute_hash().encode_hex::<String>()
+        );
         if protocol_parameters.k
             > signatures
                 .iter()

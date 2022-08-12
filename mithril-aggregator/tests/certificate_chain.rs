@@ -5,7 +5,7 @@ use mithril_common::crypto_helper::tests_setup;
 use mithril_common::entities::SignerWithStake;
 
 #[tokio::test]
-async fn create_certificate_chain() {
+async fn certificate_chain() {
     // initialization
     let mut tester = init::RuntimeTester::build().await;
 
@@ -19,9 +19,9 @@ async fn create_certificate_chain() {
         .await;
 
     // start the runtime state machine
-    tester.cycle("signing").await;
+    cycle!(tester, "signing");
     tester.register_signers(&signers).await.unwrap();
-    tester.cycle("signing").await;
+    cycle!(tester, "signing");
 
     // change the EPOCH 2 times to get the first valid stake distribution
     // first EPOCH change
@@ -30,8 +30,8 @@ async fn create_certificate_chain() {
         .next_epoch()
         .await
         .expect("we should get a new epoch");
-    tester.cycle("idle").await;
-    tester.cycle("signing").await;
+    cycle!(tester, "idle");
+    cycle!(tester, "signing");
     tester.register_signers(&signers).await.unwrap();
 
     // second EPOCH change
@@ -40,24 +40,24 @@ async fn create_certificate_chain() {
         .next_epoch()
         .await
         .expect("we should get a new epoch");
-    tester.cycle("idle").await;
-    tester.cycle("signing").await;
+    cycle!(tester, "idle");
+    cycle!(tester, "signing");
     tester.register_signers(&signers).await.unwrap();
 
     // signers send their single signature
     tester.send_single_signatures(&signers).await.unwrap();
 
     // The state machine should issue a multisignature
-    tester.cycle("idle").await;
+    cycle!(tester, "idle");
     let last_certificates = tester.get_last_certificates(5).await.unwrap();
     assert_eq!(1, last_certificates.len());
-    tester.cycle("idle").await;
+    cycle!(tester, "idle");
 
     // Increase immutable number to do a second certificate for this epoch
     tester.increase_immutable_number().await.unwrap();
-    tester.cycle("signing").await;
+    cycle!(tester, "signing");
     tester.send_single_signatures(&signers).await.unwrap();
-    tester.cycle("idle").await;
+    cycle!(tester, "idle");
     let last_certificates = tester.get_last_certificates(5).await.unwrap();
     assert_eq!(2, last_certificates.len());
     assert_eq!(
@@ -88,7 +88,7 @@ async fn create_certificate_chain() {
         .next_epoch()
         .await
         .expect("a new epoch should have been issued");
-    tester.cycle("signing").await;
+    cycle!(tester, "signing");
 
     let next_epoch_verification_keys = tester
         .deps
@@ -102,7 +102,7 @@ async fn create_certificate_chain() {
     );
     tester.register_signers(&new_signers).await.unwrap();
     tester.send_single_signatures(&signers).await.unwrap();
-    tester.cycle("idle").await;
+    cycle!(tester, "idle");
 
     let last_certificates = tester.get_last_certificates(5).await.unwrap();
     assert_eq!(3, last_certificates.len());
@@ -136,9 +136,9 @@ async fn create_certificate_chain() {
         .await
         .expect("a new epoch should have been issued");
     tester.increase_immutable_number().await.unwrap();
-    tester.cycle("signing").await;
+    cycle!(tester, "signing");
     tester.send_single_signatures(&signers).await.unwrap();
-    tester.cycle("idle").await;
+    cycle!(tester, "idle");
 
     tester
         .chain_observer
@@ -146,9 +146,9 @@ async fn create_certificate_chain() {
         .await
         .expect("a new epoch should have been issued");
     tester.increase_immutable_number().await.unwrap();
-    tester.cycle("signing").await;
+    cycle!(tester, "signing");
     tester.send_single_signatures(&new_signers).await.unwrap();
-    tester.cycle("idle").await;
+    cycle!(tester, "idle");
     let last_certificates = tester.get_last_certificates(5).await.unwrap();
 
     assert_eq!(5, last_certificates.len());

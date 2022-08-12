@@ -8,8 +8,8 @@ use std::{path::PathBuf, sync::Arc};
 use mithril_aggregator::{
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
     CertificateStore, Config, DependencyManager, DumbSnapshotUploader, DumbSnapshotter,
-    LocalSnapshotStore, MultiSigner, MultiSignerImpl, ProtocolParametersStore,
-    SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType, VerificationKeyStore,
+    LocalSnapshotStore, MultiSignerImpl, ProtocolParametersStore, SingleSignatureStore,
+    SnapshotStoreType, SnapshotUploaderType, VerificationKeyStore,
 };
 use mithril_common::crypto_helper::tests_setup::setup_signers_from_parties;
 use mithril_common::crypto_helper::{
@@ -55,6 +55,14 @@ impl TickCounter {
             self.tick_no
         )
     }
+}
+
+#[macro_export]
+macro_rules! cycle {
+    ( $tester:expr, $expected_state:expr ) => {{
+        $tester.cycle().await.unwrap();
+        assert_eq!($expected_state, $tester.runtime.get_state());
+    }};
 }
 
 pub struct RuntimeTester {
@@ -109,12 +117,12 @@ impl RuntimeTester {
     }
 
     /// cycle the runtime once
-    pub async fn cycle(&mut self, expected_state: &str) {
+    pub async fn cycle(&mut self) -> Result<(), String> {
         self.runtime
             .cycle()
             .await
-            .unwrap_or_else(|_| panic!("{}", self.tick_counter.get_message()));
-        assert_eq!(expected_state, self.runtime.get_state());
+            .map_err(|e| format!("{}, error: {:?}", self.tick_counter.get_message(), e))?;
+        Ok(())
     }
 
     /// Increase the immutable file number of the beacon, returns the new number.
