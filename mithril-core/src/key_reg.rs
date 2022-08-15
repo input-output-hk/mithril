@@ -6,9 +6,9 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-#[cfg(not(feature = "zcash"))]
+#[cfg(feature = "blast")]
 use crate::multi_sig::{VerificationKey, VerificationKeyPoP};
-#[cfg(feature = "zcash")]
+#[cfg(not(feature = "blast"))]
 use crate::multi_sig_zcash::{VerificationKey, VerificationKeyPoP};
 
 use super::stm::Stake;
@@ -88,9 +88,9 @@ impl KeyReg {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[cfg(not(feature = "zcash"))]
+    #[cfg(feature = "blast")]
     use crate::multi_sig::SigningKey;
-    #[cfg(feature = "zcash")]
+    #[cfg(not(feature = "blast"))]
     use crate::multi_sig_zcash::SigningKey;
     use blake2::Blake2b;
     use proptest::collection::vec;

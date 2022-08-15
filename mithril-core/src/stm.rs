@@ -106,12 +106,12 @@
 //! ```
 
 use crate::dense_mapping::ev_lt_phi;
-use crate::error::{AggregationError, RegisterError, StmSignatureError, StmSingleSignatureError};
+use crate::error::{AggregationError, RegisterError, StmSignatureError};
 use crate::key_reg::ClosedKeyReg;
 use crate::merkle_tree::{MTLeaf, MerkleTreeCommitment, Path};
-#[cfg(not(feature = "zcash"))]
+#[cfg(feature = "blast")]
 use crate::multi_sig::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
-#[cfg(feature = "zcash")]
+#[cfg(not(feature = "blast"))]
 use crate::multi_sig_zcash::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
 use digest::{Digest, FixedOutput};
 use rand_core::{CryptoRng, RngCore};
@@ -305,7 +305,8 @@ impl StmInitializer {
             }
         }
         StmSigner {
-            mt_index: my_index.expect("Initializer not registered. Cannot participate as a signer."),
+            mt_index: my_index
+                .expect("Initializer not registered. Cannot participate as a signer."),
             stake: self.stake,
             params: self.params,
             sk: self.sk,
@@ -659,7 +660,7 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
         params: &StmParameters,
         avk: &StmAggrVerificationKey<D>,
         msg: &[u8],
-    ) -> Result<(), StmSingleSignatureError<D>> {
+    ) -> Result<(), StmSignatureError<D>> {
         let msgp = avk.mt_commitment.concat_with_msg(msg);
 
         self.check_indices(params, &msgp, avk)?;
@@ -675,16 +676,16 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
         params: &StmParameters,
         msgp: &[u8],
         avk: &StmAggrVerificationKey<D>,
-    ) -> Result<(), StmSingleSignatureError<D>> {
+    ) -> Result<(), StmSignatureError<D>> {
         for &index in &self.indexes {
             if index > params.m {
-                return Err(StmSingleSignatureError::IndexBoundFailed(index, params.m));
+                return Err(StmSignatureError::IndexBoundFailed(index, params.m));
             }
 
             let ev = self.sigma.eval(msgp, index);
 
             if !ev_lt_phi(params.phi_f, ev, self.stake, avk.total_stake) {
-                return Err(StmSingleSignatureError::LotteryLost);
+                return Err(StmSignatureError::LotteryLost);
             }
         }
 
@@ -715,7 +716,7 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
     }
 
     /// Extract an `StmSig` from a byte slice.
-    pub fn from_bytes(bytes: &[u8]) -> Result<StmSig<D>, StmSingleSignatureError<D>> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<StmSig<D>, StmSignatureError<D>> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(&bytes[..8]);
         let stake = u64::from_be_bytes(u64_bytes);

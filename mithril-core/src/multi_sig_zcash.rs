@@ -107,8 +107,7 @@ impl VerificationKey {
         let mut array_bytes = [0u8; 96];
         array_bytes.copy_from_slice(&bytes[..96]);
         let affine = G2Affine::from_compressed(&array_bytes);
-        if bool::from(affine.is_some())
-        {
+        if bool::from(affine.is_some()) {
             return Ok(Self(G2Projective::from(affine.unwrap())));
         }
 

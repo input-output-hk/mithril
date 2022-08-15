@@ -1,23 +1,25 @@
 //! Crate specific errors
 
 use crate::merkle_tree::Path;
-#[cfg(feature = "zcash")]
+#[cfg(not(feature = "blast"))]
 use crate::multi_sig_zcash::{Signature, VerificationKey, VerificationKeyPoP};
 use digest::{Digest, FixedOutput};
-#[cfg(not(feature = "zcash"))]
+#[cfg(feature = "blast")]
 use {
     crate::multi_sig::{Signature, VerificationKey, VerificationKeyPoP},
     blst::BLST_ERROR,
 };
 
-// todo: better organise these errors.
-
 /// Error types for multi signatures.
 #[derive(Debug, thiserror::Error, Eq, PartialEq)]
 pub enum MultiSignatureError {
-    /// Invalid Multi signature
-    #[error("Invalid multi signature")]
+    /// Invalid Single signature
+    #[error("Invalid single signature")]
     SignatureInvalid(Signature),
+
+    /// Invalid aggregate signature
+    #[error("Invalid aggregated signature")]
+    AggregateSignatureInvalid,
 
     /// This error occurs when the the serialization of the raw bytes failed
     #[error("Invalid bytes")]
@@ -59,13 +61,17 @@ pub enum StmSignatureError<D: Digest + FixedOutput> {
     #[error("The claimed evaluation of function phi is incorrect.")]
     EvalInvalid([u8; 64]),
 
-    /// A party did not actually win the lottery
-    #[error("The current party did not win the lottery.")]
-    StakeInvalid,
+    /// The lottery was actually lost for the signature
+    #[error("Lottery for this epoch was lost.")]
+    LotteryLost,
 
     /// A party submitted an invalid signature
     #[error("A provided signature is invalid")]
-    SignatureInvalid(Signature),
+    SingleSignatureInvalid(Signature),
+
+    /// The aggregated signature is invalid
+    #[error("Aggregate signature is invalid")]
+    SignatureInvalid,
 
     /// This error occurs when the the serialization of the raw bytes failed
     #[error("Invalid bytes")]
@@ -82,34 +88,6 @@ pub enum AggregationError {
     /// This error happens when we try to convert a u64 to a usize and it does not fit
     #[error("Invalid usize conversion")]
     UsizeConversionInvalid,
-}
-
-/// Error types for single signature verification.
-#[derive(Debug, Clone, thiserror::Error)]
-pub enum StmSingleSignatureError<D: Digest + FixedOutput> {
-    /// The signature index is out of bounds
-    #[error("Received index, {0}, is higher than what the security parameter allows, {1}.")]
-    IndexBoundFailed(u64, u64),
-
-    /// The lottery was actually lost for the signature
-    #[error("Lottery for this epoch was lost.")]
-    LotteryLost,
-
-    /// The Merkle Tree is invalid
-    #[error("The path of the Merkle Tree is invalid.")]
-    PathInvalid(Path<D>),
-
-    /// The MSP signature is invalid
-    #[error("Invalid Signature.")]
-    SignatureInvalid(Signature),
-
-    /// This error occurs when the the serialization of the raw bytes failed
-    #[error("Invalid bytes")]
-    SerializationError,
-
-    /// Incorrect proof of possession
-    #[error("Key with invalid PoP")]
-    KeyInvalid(Box<VerificationKeyPoP>),
 }
 
 /// Error types related to merkle trees.
@@ -149,6 +127,7 @@ impl<D: Digest + FixedOutput> From<RegisterError> for StmSignatureError<D> {
         }
     }
 }
+
 impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmSignatureError<D> {
     fn from(e: MerkleTreeError<D>) -> Self {
         match e {
@@ -157,42 +136,14 @@ impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmSignatureError<D> 
         }
     }
 }
+
 impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmSignatureError<D> {
     fn from(e: MultiSignatureError) -> Self {
         match e {
             MultiSignatureError::SerializationError => Self::SerializationError,
             MultiSignatureError::KeyInvalid(e) => Self::IvkInvalid(e.vk),
-            MultiSignatureError::SignatureInvalid(e) => Self::SignatureInvalid(e),
-        }
-    }
-}
-impl<D: Digest + FixedOutput> From<StmSingleSignatureError<D>> for StmSignatureError<D> {
-    fn from(e: StmSingleSignatureError<D>) -> Self {
-        match e {
-            StmSingleSignatureError::SignatureInvalid(e) => Self::SignatureInvalid(e),
-            StmSingleSignatureError::PathInvalid(e) => Self::PathInvalid(e),
-            StmSingleSignatureError::IndexBoundFailed(e, ..) => Self::IndexBoundFailed(e, e),
-            StmSingleSignatureError::LotteryLost => Self::StakeInvalid,
-            StmSingleSignatureError::SerializationError => Self::SerializationError,
-            StmSingleSignatureError::KeyInvalid(e) => Self::IvkInvalid(e.vk),
-        }
-    }
-}
-
-impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmSingleSignatureError<D> {
-    fn from(e: MerkleTreeError<D>) -> Self {
-        match e {
-            MerkleTreeError::PathInvalid(e) => Self::PathInvalid(e),
-            MerkleTreeError::SerializationError => Self::SerializationError,
-        }
-    }
-}
-impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmSingleSignatureError<D> {
-    fn from(e: MultiSignatureError) -> Self {
-        match e {
-            MultiSignatureError::SerializationError => Self::SerializationError,
-            MultiSignatureError::SignatureInvalid(e) => Self::SignatureInvalid(e),
-            MultiSignatureError::KeyInvalid(e) => Self::KeyInvalid(e),
+            MultiSignatureError::SignatureInvalid(e) => Self::SingleSignatureInvalid(e),
+            MultiSignatureError::AggregateSignatureInvalid => Self::SignatureInvalid,
         }
     }
 }
@@ -203,15 +154,27 @@ impl From<MultiSignatureError> for RegisterError {
             MultiSignatureError::SerializationError => Self::SerializationError,
             MultiSignatureError::KeyInvalid(e) => Self::KeyInvalid(e),
             MultiSignatureError::SignatureInvalid(_) => unreachable!(),
+            MultiSignatureError::AggregateSignatureInvalid => unreachable!(),
         }
     }
 }
 
-#[cfg(not(feature = "zcash"))]
-pub(crate) fn blst_err_to_atms(e: BLST_ERROR) -> Result<(), MultiSignatureError> {
+#[cfg(feature = "blast")]
+/// If verifying a single signature, the signature should be provided. If verifying a multi-sig,
+/// no need to provide the signature
+pub(crate) fn blst_err_to_atms(
+    e: BLST_ERROR,
+    sig: Option<Signature>,
+) -> Result<(), MultiSignatureError> {
     match e {
         BLST_ERROR::BLST_SUCCESS => Ok(()),
-        BLST_ERROR::BLST_VERIFY_FAIL => Err(MultiSignatureError::SignatureInvalid),
+        BLST_ERROR::BLST_VERIFY_FAIL => {
+            if let Some(s) = sig {
+                return Err(MultiSignatureError::SignatureInvalid(s));
+            } else {
+                return Err(MultiSignatureError::AggregateSignatureInvalid);
+            }
+        }
         _ => Err(MultiSignatureError::SerializationError),
     }
 }
