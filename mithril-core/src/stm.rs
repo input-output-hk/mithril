@@ -305,9 +305,7 @@ impl StmInitializer {
             }
         }
         StmSigner {
-            mt_index: my_index.unwrap_or_else(|| {
-                panic!("Initializer not registered. Cannot participate as a signer.",)
-            }),
+            mt_index: my_index.expect("Initializer not registered. Cannot participate as a signer."),
             stake: self.stake,
             params: self.params,
             sk: self.sk,
