@@ -1,9 +1,10 @@
 use mithril_common::digesters::ImmutableFileObserver;
 use mithril_common::entities::SignerWithStake;
 use slog::Drain;
+use slog_scope::{debug};
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
-use mithril_common::crypto_helper::{key_encode_hex, tests_setup};
+use mithril_common::crypto_helper::{key_encode_hex, tests_setup, ProtocolParameters};
 use mithril_common::{
     chain_observer::FakeObserver,
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
@@ -25,8 +26,9 @@ struct StateMachineTester {
     certificate_handler: Arc<DumbCertificateHandler>,
     protocol_initializer_store: Arc<ProtocolInitializerStore>,
     stake_store: Arc<StakeStore>,
-    cycle_no: u32,
+    comment_no: u32,
     next_signers_with_stake: Vec<SignerWithStake>,
+    current_certificate_pending: Option<CertificatePending>,
 }
 
 impl StateMachineTester {
@@ -38,7 +40,7 @@ impl StateMachineTester {
             db_directory: PathBuf::new(),
             network: "devnet".to_string(),
             network_magic: Some(42),
-            party_id: "00000000000000000000000000000001".to_string(),
+            party_id: "99999999999999999999999999999999".to_string(),
             protocol_initializer_store_directory: PathBuf::new(),
             run_interval: 5000,
             stake_store_directory: PathBuf::new(),
@@ -75,18 +77,21 @@ impl StateMachineTester {
         };
         let next_signers_with_stake = Vec::new();
         // set up stake distribution
-        chain_observer
-            .set_signers(
-                tests_setup::setup_signers(10)
-                    .into_iter()
-                    .map(|(party_id, stake, key, _, _)| SignerWithStake {
-                        party_id,
-                        stake,
-                        verification_key: key_encode_hex(key).unwrap(),
-                    })
-                    .collect(),
-            )
-            .await;
+        let mut signers: Vec<SignerWithStake> = tests_setup::setup_signers(10)
+            .into_iter()
+            .map(|(party_id, stake, key, _, _)| SignerWithStake {
+                party_id,
+                stake,
+                verification_key: key_encode_hex(key).unwrap(),
+            })
+            .collect();
+        signers.push(SignerWithStake {
+            party_id: "99999999999999999999999999999999".to_string(),
+            stake: 999,
+            verification_key: "".to_string(),
+        });
+
+        chain_observer.set_signers(signers).await;
 
         let runner = Box::new(SignerRunner::new(config, services));
 
@@ -101,17 +106,17 @@ impl StateMachineTester {
             certificate_handler,
             protocol_initializer_store,
             stake_store,
-            cycle_no: 0,
+            comment_no: 0,
             next_signers_with_stake,
+            current_certificate_pending: None,
         }
     }
 
     async fn cycle(&mut self) -> &mut Self {
-        self.cycle_no += 1;
-        self.state_machine.cycle().await.expect(&format!(
-            "cycling the state machine should not fail, iteration n°{}",
-            self.cycle_no
-        ));
+        self.state_machine
+            .cycle()
+            .await
+            .expect(&format!("cycling the state machine should not fail",));
 
         self
     }
@@ -191,7 +196,8 @@ impl StateMachineTester {
     }
 
     fn comment(&mut self, comment: &str) -> &mut Self {
-        println!("{}", comment);
+        self.comment_no += 1;
+        debug!("COMMENT {:02} 💬 {}", self.comment_no, comment);
 
         self
     }
@@ -200,11 +206,9 @@ impl StateMachineTester {
         let mut cert = CertificatePending::default();
         cert.beacon = self.beacon_provider.get_current_beacon().await.unwrap();
         let mut signers: Vec<SignerWithStake> = Vec::new();
-
         for (party_id, stake, verification_key, _signer, protocol_initializer) in
             tests_setup::setup_signers(total_signers)
         {
-            println!("signer id={}, stake={}", party_id, stake);
             let verification_key = key_encode_hex(verification_key).unwrap();
             cert.next_signers.push(Signer {
                 party_id: party_id.clone(),
@@ -217,6 +221,15 @@ impl StateMachineTester {
                 stake,
             })
         }
+
+        if let Some(signer) = self.certificate_handler.get_last_registered_signer().await {
+            signers.push(SignerWithStake {
+                party_id: signer.party_id,
+                verification_key: signer.verification_key,
+                stake: 999,
+            });
+        }
+
         cert.signers = self
             .next_signers_with_stake
             .iter()
@@ -225,10 +238,23 @@ impl StateMachineTester {
                 verification_key: s.verification_key.clone(),
             })
             .collect();
+        cert.protocol_parameters = ProtocolParameters {
+            m: 10,
+            k: 5,
+            phi_f: 0.6499999761581421,
+        }
+        .into();
+        cert.next_protocol_parameters = ProtocolParameters {
+            m: 10,
+            k: 5,
+            phi_f: 0.6499999761581421,
+        }
+        .into();
         self.next_signers_with_stake = signers;
         self.certificate_handler
             .set_certificate_pending(Some(cert.clone()))
             .await;
+        self.current_certificate_pending = Some(cert);
 
         self
     }
@@ -244,79 +270,81 @@ async fn test_create_single_signature() {
     let mut tester = StateMachineTester::init().await;
 
     tester
-        .comment("1 - the state machine is and remains in UNREGISTERED state until a certificate pending is got")
+        .comment("state machine starts and remains in Unregistered state until a certificate pending is got")
         .cycle_unregistered().await
         .cycle_unregistered().await
-        .comment("increasing immutable files should not change the state")
+
+        .comment("increasing immutable files does not change the state = Unregistered")
         .increase_immutable(1, 2).await
         .cycle_unregistered().await
-        .comment("changing the epoch should not change the state")
+
+        .comment("changing the epoch does not change the state = Unregistered")
         .increase_epoch(2).await
         .cycle_unregistered().await
-        .comment("getting a certificate pending changes the state")
-        .generate_new_pending_certificate(5)
-        .await
-        .cycle_registered()
-        .await
-        .check_protocol_initializer(Epoch(3))
-        .await
-        .check_stake_store(Epoch(3))
-        .await
-        .comment("2 - more cycles, the state machine remains in REGISTERED state")
-        .cycle_registered()
-        .await
-        .comment("changing immutable should not change the state")
-        .increase_immutable(1, 3)
-        .await
-        .cycle_registered()
-        .await
+
+        .comment("getting a certificate pending changes the state → Registered")
+        .generate_new_pending_certificate(1).await
+        .cycle_registered().await
+        .check_protocol_initializer(Epoch(3)).await
+        .check_stake_store(Epoch(3)).await
+
+        .comment("more cycles does not change the state = Registered")
+        .cycle_registered().await
+
+        .comment("changing immutable does not change the state = Registered")
+        .increase_immutable(1, 3).await
+        .cycle_registered().await
+        
         .comment("changing Epoch changes the state → Unregistered")
-        .increase_epoch(3)
-        .await
-        .cycle_unregistered()
-        .await
-        .comment("creating a new certificate pending with new signers and new beacon")
-        .generate_new_pending_certificate(5)
-        .await
-        .comment("next cycle returns to REGISTERED state")
-        .cycle_registered()
-        .await
-        .check_protocol_initializer(Epoch(4))
-        .await
-        .check_stake_store(Epoch(4))
-        .await
-        .comment("3 - since it still cannot be signed, more cycles do not change the state")
-        .cycle_registered()
-        .await
-        .comment("increment immutable, the state should not change")
-        .increase_immutable(5, 8)
-        .await
-        .cycle_registered()
-        .await
-        .comment("change Epoch one more time")
-        .increase_epoch(4)
-        .await
-        .cycle_unregistered()
-        .await
-        .generate_new_pending_certificate(5)
-        .await
-        .cycle_registered()
-        .await
-        .comment("The signer can now create a single signature");
+        .increase_epoch(3).await
+        .cycle_unregistered().await
 
-    println!("STATE = {:?}", tester.state_machine.get_state());
-    println!(
-        "STAKE STORE = {:?}",
-        tester.stake_store.get_last_stakes(5).await.unwrap()
-    );
-    println!(
-        "PRINITIALIZER = {:?}",
-        tester
-            .protocol_initializer_store
-            .dump_last_protocol_initializer(5)
-            .await
-            .unwrap()
-    );
+        .comment("creating a new certificate pending with new signers and new beacon → Registered")
+        .generate_new_pending_certificate(1).await
+        .cycle_registered().await
+        .check_protocol_initializer(Epoch(4)).await
+        .check_stake_store(Epoch(4)).await
 
-    tester.cycle_signed().await;
+        .comment("more cycles do not change the state → Registered")
+        .cycle_registered().await
+        .cycle_registered().await
+
+        .comment("increment immutable, the state does not change = Registered")
+        .increase_immutable(5, 8).await
+        .cycle_registered().await
+
+        .comment("changing epoch changes the state → Unregistered")
+        .increase_epoch(4).await
+        .cycle_unregistered().await
+
+        .comment("creating a new certificate pending with new signers and new beacon → Registered")
+        .generate_new_pending_certificate(1).await
+        .cycle_registered().await
+        .check_protocol_initializer(Epoch(4)).await
+
+        .comment("signer can now create a single signature → Signed")
+        .cycle_signed().await
+
+        .comment("more cycles do not change the state = Signed")
+        .cycle_signed().await
+        .cycle_signed().await
+
+        .comment("new immutable means a new signature with the same stake distribution → Signed")
+        .increase_immutable(1, 9).await
+        .cycle_registered().await
+        .cycle_signed().await
+
+        .comment("changing epoch changes the state → Unregistered")
+        .increase_epoch(5).await
+        .cycle_unregistered().await
+        .generate_new_pending_certificate(1).await
+        .cycle_registered().await
+        .check_protocol_initializer(Epoch(5)).await
+;
+
+println!("INITIALIZER => {:?}", tester.protocol_initializer_store.get_protocol_initializer(Epoch(5)).await);
+tester
+
+        .comment("signer should be able to create a single signature → Signed")
+        .cycle_signed().await;
 }
