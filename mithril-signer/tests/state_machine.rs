@@ -3,9 +3,7 @@ use mithril_common::entities::SignerWithStake;
 use slog::Drain;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
-use mithril_common::crypto_helper::{
-    key_encode_hex, tests_setup, ProtocolClerk, ProtocolSingleSignature,
-};
+use mithril_common::crypto_helper::{key_encode_hex, tests_setup};
 use mithril_common::{
     chain_observer::FakeObserver,
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
@@ -26,7 +24,6 @@ struct StateMachineTester {
     beacon_provider: Arc<BeaconProviderImpl>,
     certificate_handler: Arc<DumbCertificateHandler>,
     protocol_initializer_store: Arc<ProtocolInitializerStore>,
-    single_signer: Arc<MithrilSingleSigner>,
     stake_store: Arc<StakeStore>,
     cycle_no: u32,
     next_signers_with_stake: Vec<SignerWithStake>,
@@ -54,18 +51,6 @@ impl StateMachineTester {
             immutable_file_number: 1,
             network: "devnet".to_string(),
         })));
-        chain_observer
-            .set_signers(
-                tests_setup::setup_signers(2)
-                    .into_iter()
-                    .map(|(party_id, stake, key, _, _)| SignerWithStake {
-                        party_id,
-                        stake,
-                        verification_key: key_encode_hex(key).unwrap(),
-                    })
-                    .collect(),
-            )
-            .await;
         let beacon_provider = Arc::new(BeaconProviderImpl::new(
             chain_observer.clone(),
             immutable_observer.clone(),
@@ -88,6 +73,20 @@ impl StateMachineTester {
             single_signer: single_signer.clone(),
             stake_store: stake_store.clone(),
         };
+        let next_signers_with_stake = Vec::new();
+        // set up stake distribution
+        chain_observer
+            .set_signers(
+                tests_setup::setup_signers(10)
+                    .into_iter()
+                    .map(|(party_id, stake, key, _, _)| SignerWithStake {
+                        party_id,
+                        stake,
+                        verification_key: key_encode_hex(key).unwrap(),
+                    })
+                    .collect(),
+            )
+            .await;
 
         let runner = Box::new(SignerRunner::new(config, services));
 
@@ -101,10 +100,9 @@ impl StateMachineTester {
             beacon_provider,
             certificate_handler,
             protocol_initializer_store,
-            single_signer,
             stake_store,
             cycle_no: 0,
-            next_signers_with_stake: Vec::new(),
+            next_signers_with_stake,
         }
     }
 
@@ -227,9 +225,6 @@ impl StateMachineTester {
                 verification_key: s.verification_key.clone(),
             })
             .collect();
-        self.chain_observer
-            .set_signers(self.next_signers_with_stake.to_owned())
-            .await;
         self.next_signers_with_stake = signers;
         self.certificate_handler
             .set_certificate_pending(Some(cert.clone()))

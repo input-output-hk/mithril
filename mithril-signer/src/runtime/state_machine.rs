@@ -68,7 +68,7 @@ impl StateMachine {
     /// perform a cycle of the state machine
     pub async fn cycle(&mut self) -> Result<(), Box<dyn Error + Sync + Send>> {
         info!("================================================================================");
-        debug!("STATE MACHINE: new cycle."; "current_state" => ?self.state);
+        debug!("STATE MACHINE: new cycle"; "current_state" => ?self.state);
 
         match &self.state {
             SignerState::Unregistered => {
