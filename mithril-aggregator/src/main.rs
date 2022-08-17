@@ -14,6 +14,7 @@ use mithril_common::BeaconProviderImpl;
 
 use clap::Parser;
 use config::{Map, Source, Value, ValueKind};
+use mithril_common::entities::Epoch;
 use slog::{Drain, Level, Logger};
 use slog_scope::debug;
 use std::error::Error;
@@ -251,12 +252,18 @@ async fn do_first_launch_initialization_if_needed(
     config: Config,
 ) -> Result<(), Box<dyn Error>> {
     // TODO: Remove that when we hande genesis certificate
-    let current_epoch = chain_observer
+    let (work_epoch, epoch_to_sign) = match chain_observer
         .get_current_epoch()
         .await?
-        .ok_or("Can't retrieve current epoch")?;
-    let work_epoch = current_epoch.offset_to_signer_retrieval_epoch()?;
-    let epoch_to_sign = current_epoch.offset_to_next_signer_retrieval_epoch()?;
+        .ok_or("Can't retrieve current epoch")?
+    {
+        Epoch(0) => (Epoch(0), Epoch(1)),
+        epoch => (
+            epoch.offset_to_signer_retrieval_epoch()?,
+            epoch.offset_to_next_signer_retrieval_epoch()?,
+        ),
+    };
+
     if protocol_parameters_store
         .get_protocol_parameters(work_epoch)
         .await?
