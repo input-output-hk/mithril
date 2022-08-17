@@ -12,5 +12,5 @@
     "url_snapshot_manifest": "https://storage.googleapis.com/cardano-testnet/snapshots.json",
     "snapshot_store_type": "local",
     "snapshot_uploader_type": "local",
-    "data_stores_directory": "/tmp/mithril/"
+    "data_stores_directory": "/tmp/mithril-aggregator/stores"
 }

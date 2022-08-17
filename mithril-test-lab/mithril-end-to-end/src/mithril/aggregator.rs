@@ -33,7 +33,7 @@ impl Aggregator {
             ("SNAPSHOT_STORE_TYPE", "local"),
             ("SNAPSHOT_UPLOADER_TYPE", "local"),
             ("NETWORK_MAGIC", &magic_id),
-            ("DATA_STORES_DIRECTORY", "./store/aggregator"),
+            ("DATA_STORES_DIRECTORY", "./stores/aggregator"),
             (
                 "CARDANO_NODE_SOCKET_PATH",
                 bft_node.socket_path.to_str().unwrap(),

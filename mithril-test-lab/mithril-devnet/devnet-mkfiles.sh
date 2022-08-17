@@ -893,7 +893,7 @@ cat >> docker-compose.yaml <<EOF
       - URL_SNAPSHOT_MANIFEST=
       - SNAPSHOT_STORE_TYPE=local
       - SNAPSHOT_UPLOADER_TYPE=local
-      - DATA_STORES_DIRECTORY=/data/mithril/aggregator/db
+      - DATA_STORES_DIRECTORY=/data/mithril/aggregator/stores
       - CARDANO_NODE_SOCKET_PATH=/data/ipc/node.sock
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
     command:
@@ -934,7 +934,7 @@ cat >> docker-compose.yaml <<EOF
       - NETWORK_MAGIC=${NETWORK_MAGIC}
       - RUN_INTERVAL=700
       - DB_DIRECTORY=/data/db
-      - DATA_STORES_DIRECTORY=/data/mithril/signer/db
+      - DATA_STORES_DIRECTORY=/data/mithril/signer-${NODE}/stores
       - CARDANO_NODE_SOCKET_PATH=/data/ipc/node.sock
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
     command:

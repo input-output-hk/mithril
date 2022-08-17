@@ -33,7 +33,7 @@ pub struct Config {
     /// Directory to snapshot
     pub db_directory: PathBuf,
 
-    /// Directory to store signer data (stakes, protocol initializers, ...)
+    /// Directory to store signer data (Stakes, Protocol initializers, ...)
     pub data_stores_directory: PathBuf,
 }
 

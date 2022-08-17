@@ -23,7 +23,7 @@ impl Signer {
     ) -> Result<Self, String> {
         let party_id = pool_node.party_id()?;
         let magic_id = DEVNET_MAGIC_ID.to_string();
-        let data_stores_path = format!("./store/signer-{}", party_id);
+        let data_stores_path = format!("./stores/signer-{}", party_id);
         let env = HashMap::from([
             ("NETWORK", "devnet"),
             ("PARTY_ID", &party_id),

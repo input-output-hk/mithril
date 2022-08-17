@@ -173,4 +173,4 @@ Here is a list of the available parameters:
 | `party_id` | - | - | `PARTY_ID` | Party Id of the signer, usually the `PoolId` of the SPO | - | `pool1pxaqe80sqpde7902er5kf6v0c7y0sv6d5g676766v2h829fvs3x` | :heavy_check_mark: |
 | `run_interval` | - | - | `RUN_INTERVAL` | Interval between two runtime cycles in ms | - | `60000` | :heavy_check_mark: |
 | `aggregator_endpoint` | - | - | `AGGREGATOR_ENDPOINT` | Aggregator node endpoint | - | `https://aggregator.api.mithril.network/aggregator` | :heavy_check_mark: |
-| `data_stores_directory` | - | - | `DATA_STORES_DIRECTORY` | Directory to store signer data (stakes, protocol initializers, ...) | - | `./mithril` | :heavy_check_mark: |
+| `data_stores_directory` | - | - | `DATA_STORES_DIRECTORY` | Directory to store signer data (Stakes, Protocol initializers, ...) | - | `./mithril-signer/stores` | :heavy_check_mark: |
