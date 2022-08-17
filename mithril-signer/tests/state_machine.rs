@@ -113,7 +113,7 @@ impl StateMachineTester {
         self.state_machine
             .cycle()
             .await
-            .expect(&format!("cycling the state machine should not fail",));
+            .expect("cycling the state machine should not fail");
 
         self
     }
@@ -292,6 +292,7 @@ async fn test_create_single_signature() {
         .cycle_unregistered().await
         .cycle_registered().await
         .check_protocol_initializer(Epoch(5)).await
+        
         .comment("signer should be able to create a single signature → Signed")
         .cycle_signed().await;
 }

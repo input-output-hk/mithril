@@ -27,15 +27,14 @@ impl FakeAggregator {
         store.get(epoch).map(|s| s.clone())
     }
 
-    async fn get_epoch(&self) -> Result<Epoch, CertificateHandlerError> {
-        let epoch = self
+    async fn get_beacon(&self) -> Result<Beacon, CertificateHandlerError> {
+        let beacon = self
             .beacon_provider
             .get_current_beacon()
             .await
-            .map_err(|e| CertificateHandlerError::RemoteServerTechnical(e.to_string()))?
-            .epoch;
+            .map_err(|e| CertificateHandlerError::RemoteServerTechnical(e.to_string()))?;
 
-        Ok(epoch)
+        Ok(beacon)
     }
 }
 
@@ -49,18 +48,24 @@ impl CertificateHandler for FakeAggregator {
         if store.is_empty() {
             return Ok(None);
         }
-        let epoch = self.get_epoch().await?;
+        let beacon = self.get_beacon().await?;
         let mut certificate_pending = CertificatePending {
+            beacon: beacon.clone(),
             ..Default::default()
         };
 
         let store = self.registered_signers.read().await;
         certificate_pending.signers = store
-            .get(&epoch.offset_to_signer_retrieval_epoch().unwrap())
+            .get(&beacon.epoch.offset_to_signer_retrieval_epoch().unwrap())
             .map(|s| s.clone())
             .unwrap_or_else(|| Vec::new());
         certificate_pending.next_signers = store
-            .get(&epoch.offset_to_next_signer_retrieval_epoch().unwrap())
+            .get(
+                &beacon
+                    .epoch
+                    .offset_to_next_signer_retrieval_epoch()
+                    .unwrap(),
+            )
             .map(|s| s.clone())
             .unwrap_or_else(|| Vec::new());
 
@@ -69,7 +74,12 @@ impl CertificateHandler for FakeAggregator {
 
     /// Registers signer with the aggregator
     async fn register_signer(&self, signer: &Signer) -> Result<(), CertificateHandlerError> {
-        let epoch = self.get_epoch().await?.offset_to_recording_epoch().unwrap();
+        let epoch = self
+            .get_beacon()
+            .await?
+            .epoch
+            .offset_to_recording_epoch()
+            .unwrap();
 
         let mut store = self.registered_signers.write().await;
         let mut signers = store
@@ -171,6 +181,7 @@ mod tests {
 
         assert_eq!(0, cert.signers.len());
         assert_eq!(0, cert.next_signers.len());
+        assert_eq!(1, cert.beacon.epoch);
 
         chain_observer.next_epoch().await;
 
@@ -182,6 +193,7 @@ mod tests {
 
         assert_eq!(0, cert.signers.len());
         assert_eq!(3, cert.next_signers.len());
+        assert_eq!(2, cert.beacon.epoch);
 
         for signer in fake_data::signers(2) {
             fake_aggregator.register_signer(&signer).await.unwrap();
@@ -197,5 +209,6 @@ mod tests {
 
         assert_eq!(3, cert.signers.len());
         assert_eq!(2, cert.next_signers.len());
+        assert_eq!(3, cert.beacon.epoch);
     }
 }
