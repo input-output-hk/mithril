@@ -16,9 +16,9 @@ use group::Curve;
 
 use rand_core::{CryptoRng, RngCore};
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
-use std::fmt::{Display, Formatter};
 use std::{
     cmp::Ordering,
+    fmt::{Display, Formatter},
     hash::{Hash, Hasher},
     iter::Sum,
 };

@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 #[cfg(feature = "blast")]
-use crate::multi_sig::{VerificationKey, VerificationKeyPoP};
+use crate::multi_sig_blast::{VerificationKey, VerificationKeyPoP};
 #[cfg(not(feature = "blast"))]
 use crate::multi_sig_zcash::{VerificationKey, VerificationKeyPoP};
 

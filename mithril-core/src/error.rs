@@ -6,7 +6,7 @@ use crate::multi_sig_zcash::{Signature, VerificationKey, VerificationKeyPoP};
 use digest::{Digest, FixedOutput};
 #[cfg(feature = "blast")]
 use {
-    crate::multi_sig::{Signature, VerificationKey, VerificationKeyPoP},
+    crate::multi_sig_blast::{Signature, VerificationKey, VerificationKeyPoP},
     blst::BLST_ERROR,
 };
 
@@ -170,9 +170,9 @@ pub(crate) fn blst_err_to_atms(
         BLST_ERROR::BLST_SUCCESS => Ok(()),
         BLST_ERROR::BLST_VERIFY_FAIL => {
             if let Some(s) = sig {
-                return Err(MultiSignatureError::SignatureInvalid(s));
+                Err(MultiSignatureError::SignatureInvalid(s))
             } else {
-                return Err(MultiSignatureError::AggregateSignatureInvalid);
+                Err(MultiSignatureError::AggregateSignatureInvalid)
             }
         }
         _ => Err(MultiSignatureError::SerializationError),

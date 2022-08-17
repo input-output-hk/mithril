@@ -426,9 +426,7 @@ impl Signature {
             hasher.update(&index.to_be_bytes());
             signatures.push(&sig.0);
             scalar_bytes[..16].copy_from_slice(&hasher.finalize().as_slice()[..16]);
-            scalars.push(blst_scalar {
-                b: scalar_bytes.clone(),
-            });
+            scalars.push(blst_scalar { b: scalar_bytes });
             messages.push(msg); // todo: can we do this for the same message??
         }
 

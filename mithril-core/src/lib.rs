@@ -9,7 +9,7 @@ mod merkle_tree;
 pub mod stm;
 
 #[cfg(feature = "blast")]
-mod multi_sig;
+mod multi_sig_blast;
 #[cfg(not(feature = "blast"))]
 mod multi_sig_zcash;
 

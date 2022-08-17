@@ -1,7 +1,7 @@
 //! Creation and verification of Merkle Trees
 use crate::error::MerkleTreeError;
 #[cfg(feature = "blast")]
-use crate::multi_sig::VerificationKey;
+use crate::multi_sig_blast::VerificationKey;
 #[cfg(not(feature = "blast"))]
 use crate::multi_sig_zcash::VerificationKey;
 use crate::stm::Stake;
