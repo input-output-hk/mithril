@@ -45,12 +45,12 @@ pub fn setup_signers(
     ProtocolSigner,
     ProtocolInitializer,
 )> {
+    let stake_seed = [0u8; 32];
+    let mut stake_rng = ChaCha20Rng::from_seed(stake_seed);
     let signers = (0..total)
         .into_iter()
         .map(|party_id| {
-            let seed = [0u8; 32];
-            let mut rng = ChaCha20Rng::from_seed(seed);
-            let stake = 1 + rng.next_u64() % 999;
+            let stake = 1 + stake_rng.next_u64() % 999;
             let party_id = format!("{:<032}", party_id);
             (party_id as PartyId, stake as Stake)
         })
@@ -72,10 +72,13 @@ pub fn setup_signers_from_parties(
     let signers = party_with_stake
         .iter()
         .map(|(party_id, stake)| {
-            let seed: [u8; 32] = party_id.clone().as_bytes()[..32].try_into().unwrap();
-            let mut rng = ChaCha20Rng::from_seed(seed);
-            let protocol_initializer: ProtocolInitializer =
-                ProtocolInitializer::setup(protocol_parameters, *stake, &mut rng);
+            let protocol_initializer_seed: [u8; 32] = party_id.as_bytes()[..32].try_into().unwrap();
+            let mut protocol_initializer_rng = ChaCha20Rng::from_seed(protocol_initializer_seed);
+            let protocol_initializer: ProtocolInitializer = ProtocolInitializer::setup(
+                protocol_parameters,
+                *stake,
+                &mut protocol_initializer_rng,
+            );
             (
                 party_id.clone() as ProtocolPartyId,
                 *stake as ProtocolStake,
