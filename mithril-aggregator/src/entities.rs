@@ -57,26 +57,8 @@ pub struct Config {
     /// Directory to store snapshot
     pub snapshot_directory: PathBuf,
 
-    /// Directory to store snapshot records
-    pub snapshot_store_directory: PathBuf,
-
-    /// Directory to store pending certificates
-    pub pending_certificate_store_directory: PathBuf,
-
-    /// Directory to store certificates
-    pub certificate_store_directory: PathBuf,
-
-    /// Directory to store verification keys
-    pub verification_key_store_directory: PathBuf,
-
-    /// Directory to store stakes
-    pub stake_store_directory: PathBuf,
-
-    /// Directory to store single signatures
-    pub single_signature_store_directory: PathBuf,
-
-    /// Directory to store protocol parameters
-    pub protocol_parameters_store_directory: PathBuf,
+    /// Directory to store aggregator data (Certificates, Snapshots, Protocol Parameters, ...)
+    pub data_stores_directory: PathBuf,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -102,7 +84,7 @@ impl Config {
             ))),
             SnapshotStoreType::Local => Ok(Arc::new(LocalSnapshotStore::new(
                 Box::new(JsonFileStoreAdapter::new(
-                    self.snapshot_store_directory.clone(),
+                    self.data_stores_directory.join("snapshot_db"),
                 )?),
                 LIST_SNAPSHOTS_MAX_ITEMS,
             ))),

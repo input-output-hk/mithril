@@ -130,22 +130,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let snapshot_uploader = config.build_snapshot_uploader();
     let certificate_pending_store = Arc::new(CertificatePendingStore::new(Box::new(
-        JsonFileStoreAdapter::new(config.pending_certificate_store_directory.clone())?,
+        JsonFileStoreAdapter::new(config.data_stores_directory.join("pending_cert_db"))?,
     )));
     let certificate_store = Arc::new(CertificateStore::new(Box::new(JsonFileStoreAdapter::new(
-        config.certificate_store_directory.clone(),
+        config.data_stores_directory.join("cert_db"),
     )?)));
     let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(
-        JsonFileStoreAdapter::new(config.verification_key_store_directory.clone())?,
+        JsonFileStoreAdapter::new(config.data_stores_directory.join("verification_key_db"))?,
     )));
     let stake_store = Arc::new(StakeStore::new(Box::new(JsonFileStoreAdapter::new(
-        config.stake_store_directory.clone(),
+        config.data_stores_directory.join("stake_db"),
     )?)));
     let single_signature_store = Arc::new(SingleSignatureStore::new(Box::new(
-        JsonFileStoreAdapter::new(config.single_signature_store_directory.clone())?,
+        JsonFileStoreAdapter::new(config.data_stores_directory.join("single_signature_db"))?,
     )));
     let protocol_parameters_store = Arc::new(ProtocolParametersStore::new(Box::new(
-        JsonFileStoreAdapter::new(config.protocol_parameters_store_directory.clone())?,
+        JsonFileStoreAdapter::new(config.data_stores_directory.join("protocol_parameters_db"))?,
     )));
     let multi_signer = Arc::new(RwLock::new(MultiSignerImpl::new(
         verification_key_store.clone(),

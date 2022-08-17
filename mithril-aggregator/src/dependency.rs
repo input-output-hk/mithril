@@ -194,13 +194,7 @@ pub mod tests {
             run_interval: 5000,
             db_directory: PathBuf::new(),
             snapshot_directory: PathBuf::new(),
-            snapshot_store_directory: PathBuf::new(),
-            pending_certificate_store_directory: PathBuf::new(),
-            certificate_store_directory: PathBuf::new(),
-            verification_key_store_directory: PathBuf::new(),
-            stake_store_directory: PathBuf::new(),
-            single_signature_store_directory: PathBuf::new(),
-            protocol_parameters_store_directory: PathBuf::new(),
+            data_stores_directory: PathBuf::new(),
         };
         let snapshot_store = Arc::new(LocalSnapshotStore::new(
             Box::new(MemoryAdapter::new(None).unwrap()),
