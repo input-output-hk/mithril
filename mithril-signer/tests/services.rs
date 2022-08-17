@@ -1,3 +1,5 @@
+mod test_extensions;
+
 use std::collections::HashMap;
 use std::sync::Arc;
 

@@ -1,34 +1,35 @@
+mod test_extensions;
+
 use mithril_common::digesters::ImmutableFileObserver;
-use mithril_common::entities::SignerWithStake;
+use mithril_common::entities::{SignerWithStake, Signer};
 use slog::Drain;
 use slog_scope::{debug};
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
-use mithril_common::crypto_helper::{key_encode_hex, tests_setup, ProtocolParameters};
+use mithril_common::crypto_helper::{key_encode_hex, tests_setup, };
 use mithril_common::{
     chain_observer::FakeObserver,
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
-    entities::{Beacon, CertificatePending, Epoch, Signer},
+    entities::{Beacon, Epoch, },
     store::{adapter::MemoryAdapter, StakeStore, StakeStorer},
-    BeaconProvider, BeaconProviderImpl,
+     BeaconProviderImpl,
 };
 
 use mithril_signer::{
-    Config, DumbCertificateHandler, MithrilSingleSigner, ProtocolInitializerStore,
-    ProtocolInitializerStorer, SignerRunner, SignerServices, SignerState, StateMachine,
+    Config, MithrilSingleSigner, ProtocolInitializerStore,
+    ProtocolInitializerStorer, SignerRunner, SignerServices, SignerState, StateMachine, CertificateHandler,
 };
+
+use test_extensions::FakeAggregator;
 
 struct StateMachineTester {
     state_machine: StateMachine,
     immutable_observer: Arc<DumbImmutableFileObserver>,
     chain_observer: Arc<FakeObserver>,
-    beacon_provider: Arc<BeaconProviderImpl>,
-    certificate_handler: Arc<DumbCertificateHandler>,
+    certificate_handler: Arc<FakeAggregator>,
     protocol_initializer_store: Arc<ProtocolInitializerStore>,
     stake_store: Arc<StakeStore>,
     comment_no: u32,
-    next_signers_with_stake: Vec<SignerWithStake>,
-    current_certificate_pending: Option<CertificatePending>,
 }
 
 impl StateMachineTester {
@@ -58,7 +59,7 @@ impl StateMachineTester {
             immutable_observer.clone(),
             config.get_network().unwrap(),
         ));
-        let certificate_handler = Arc::new(DumbCertificateHandler::new());
+        let certificate_handler = Arc::new(FakeAggregator::new(beacon_provider.clone()));
         let digester = Arc::new(DumbImmutableDigester::new("DIGEST", true));
         let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(Box::new(
             MemoryAdapter::new(None).unwrap(),
@@ -67,15 +68,14 @@ impl StateMachineTester {
         let stake_store = Arc::new(StakeStore::new(Box::new(MemoryAdapter::new(None).unwrap())));
 
         let services = SignerServices {
-            beacon_provider: beacon_provider.clone(),
             certificate_handler: certificate_handler.clone(),
+            beacon_provider: beacon_provider.clone(),
             chain_observer: chain_observer.clone(),
             digester: digester.clone(),
             protocol_initializer_store: protocol_initializer_store.clone(),
             single_signer: single_signer.clone(),
             stake_store: stake_store.clone(),
         };
-        let next_signers_with_stake = Vec::new();
         // set up stake distribution
         let mut signers: Vec<SignerWithStake> = tests_setup::setup_signers(10)
             .into_iter()
@@ -102,13 +102,10 @@ impl StateMachineTester {
             state_machine,
             immutable_observer,
             chain_observer,
-            beacon_provider,
             certificate_handler,
             protocol_initializer_store,
             stake_store,
             comment_no: 0,
-            next_signers_with_stake,
-            current_certificate_pending: None,
         }
     }
 
@@ -202,62 +199,20 @@ impl StateMachineTester {
         self
     }
 
-    async fn generate_new_pending_certificate(&mut self, total_signers: u64) -> &mut Self {
-        let mut cert = CertificatePending::default();
-        cert.beacon = self.beacon_provider.get_current_beacon().await.unwrap();
-        let mut signers: Vec<SignerWithStake> = Vec::new();
-        for (party_id, stake, verification_key, _signer, protocol_initializer) in
-            tests_setup::setup_signers(total_signers)
-        {
-            let verification_key = key_encode_hex(verification_key).unwrap();
-            cert.next_signers.push(Signer {
-                party_id: party_id.clone(),
-                verification_key: verification_key.clone(),
-            });
-            cert.protocol_parameters = protocol_initializer.params.into();
-            signers.push(SignerWithStake {
+    async fn register_signers(&mut self, count: u64) -> &mut Self {
+        for (party_id, _stake, verification_key, _signer, _protocol_initializer) in
+            tests_setup::setup_signers(count) {
+            let signer = Signer {
                 party_id,
-                verification_key,
-                stake,
-            })
+                verification_key: key_encode_hex(verification_key).unwrap()
+            };
+            self.certificate_handler.register_signer(&signer).await
+                .unwrap();
         }
-
-        if let Some(signer) = self.certificate_handler.get_last_registered_signer().await {
-            signers.push(SignerWithStake {
-                party_id: signer.party_id,
-                verification_key: signer.verification_key,
-                stake: 999,
-            });
-        }
-
-        cert.signers = self
-            .next_signers_with_stake
-            .iter()
-            .map(|s| Signer {
-                party_id: s.party_id.clone(),
-                verification_key: s.verification_key.clone(),
-            })
-            .collect();
-        cert.protocol_parameters = ProtocolParameters {
-            m: 10,
-            k: 5,
-            phi_f: 0.6499999761581421,
-        }
-        .into();
-        cert.next_protocol_parameters = ProtocolParameters {
-            m: 10,
-            k: 5,
-            phi_f: 0.6499999761581421,
-        }
-        .into();
-        self.next_signers_with_stake = signers;
-        self.certificate_handler
-            .set_certificate_pending(Some(cert.clone()))
-            .await;
-        self.current_certificate_pending = Some(cert);
 
         self
     }
+
 }
 
 #[tokio::test]
@@ -283,7 +238,7 @@ async fn test_create_single_signature() {
         .cycle_unregistered().await
 
         .comment("getting a certificate pending changes the state → Registered")
-        .generate_new_pending_certificate(1).await
+        .register_signers(2).await
         .cycle_registered().await
         .check_protocol_initializer(Epoch(3)).await
         .check_stake_store(Epoch(3)).await
@@ -300,7 +255,6 @@ async fn test_create_single_signature() {
         .cycle_unregistered().await
 
         .comment("creating a new certificate pending with new signers and new beacon → Registered")
-        .generate_new_pending_certificate(1).await
         .cycle_registered().await
         .check_protocol_initializer(Epoch(4)).await
         .check_stake_store(Epoch(4)).await
@@ -318,7 +272,6 @@ async fn test_create_single_signature() {
         .cycle_unregistered().await
 
         .comment("creating a new certificate pending with new signers and new beacon → Registered")
-        .generate_new_pending_certificate(1).await
         .cycle_registered().await
         .check_protocol_initializer(Epoch(4)).await
 
@@ -337,14 +290,8 @@ async fn test_create_single_signature() {
         .comment("changing epoch changes the state → Unregistered")
         .increase_epoch(5).await
         .cycle_unregistered().await
-        .generate_new_pending_certificate(1).await
         .cycle_registered().await
         .check_protocol_initializer(Epoch(5)).await
-;
-
-println!("INITIALIZER => {:?}", tester.protocol_initializer_store.get_protocol_initializer(Epoch(5)).await);
-tester
-
         .comment("signer should be able to create a single signature → Signed")
         .cycle_signed().await;
 }
