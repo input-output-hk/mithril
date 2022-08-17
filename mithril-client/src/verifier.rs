@@ -242,7 +242,7 @@ mod tests {
         let clerk = ProtocolClerk::from_signer(first_signer);
         let aggregate_verification_key = clerk.compute_avk();
         let multi_signature = clerk
-            .aggregate(&single_signatures, &message.compute_hash().as_bytes())
+            .aggregate(&single_signatures, message.compute_hash().as_bytes())
             .unwrap();
 
         let verifier = VerifierImpl::new(Arc::new(mock_aggregator_handler));
@@ -261,7 +261,7 @@ mod tests {
         );
         verifier
             .verify_multi_signature(
-                &message.compute_hash().as_bytes().to_vec(),
+                message.compute_hash().as_bytes(),
                 &key_encode_hex(&multi_signature).unwrap(),
                 &key_encode_hex(&aggregate_verification_key).unwrap(),
                 &protocol_parameters,

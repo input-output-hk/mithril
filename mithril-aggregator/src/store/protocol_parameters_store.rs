@@ -98,7 +98,7 @@ mod tests {
         let store = init_store(0);
         let res = store
             .save_protocol_parameters(
-                protocol_parameters[0].0.clone(),
+                protocol_parameters[0].0,
                 (&protocol_parameters[0].1).to_owned(),
             )
             .await
@@ -113,7 +113,7 @@ mod tests {
         let store = init_store(1);
         let res = store
             .save_protocol_parameters(
-                protocol_parameters[0].0.clone(),
+                protocol_parameters[0].0,
                 (&protocol_parameters[1].1).to_owned(),
             )
             .await

@@ -29,7 +29,7 @@ impl Display for ProtocolMessagePartKey {
 pub type ProtocolMessagePartValue = String;
 
 /// ProtocolMessage represents a message that is signed (or verified) by the Mithril protocol
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct ProtocolMessage {
     /// Map of the messages combined into the digest
     /// aka MSG(p,n)

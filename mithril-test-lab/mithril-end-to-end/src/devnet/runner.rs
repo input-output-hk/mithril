@@ -12,13 +12,13 @@ pub struct Devnet {
     number_of_pool_nodes: u8,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BftNode {
     pub db_path: PathBuf,
     pub socket_path: PathBuf,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PoolNode {
     pub db_path: PathBuf,
     pub socket_path: PathBuf,
@@ -43,7 +43,7 @@ impl PoolNode {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DevnetTopology {
     pub bft_nodes: Vec<BftNode>,
     pub pool_nodes: Vec<PoolNode>,

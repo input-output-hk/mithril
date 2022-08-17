@@ -16,7 +16,7 @@ pub struct Config {
 
 /// SnapshotListItem represents a snapshot list item from an aggregator
 /// for the purpose of tabular display
-#[derive(Table, Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Table, Debug, Clone, PartialEq, Eq, PartialOrd)]
 pub struct SnapshotListItem {
     /// Cardano network
     #[table(title = "Network")]
@@ -72,7 +72,7 @@ impl SnapshotListItem {
 
 /// SnapshotFieldItem represents a field of a snapshot item from an aggregator
 /// for the purpose of tabular display
-#[derive(Table, Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Table, Debug, Clone, PartialEq, Eq, PartialOrd)]
 pub struct SnapshotFieldItem {
     /// Field name
     #[table(title = "Info")]

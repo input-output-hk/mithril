@@ -57,7 +57,7 @@ pub trait SingleSigner: Sync + Send {
     ) -> Result<Option<String>, SingleSignerError>;
 }
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum SingleSignerError {
     #[error("the signer verification key is not registered in the stake distribution")]
     UnregisteredVerificationKey(),
@@ -204,10 +204,7 @@ mod tests {
         let clerk = ProtocolClerk::from_signer(protocol_signer);
         let avk = clerk.compute_avk();
         let mut protocol_message = ProtocolMessage::new();
-        protocol_message.set_message_part(
-            ProtocolMessagePartKey::SnapshotDigest,
-            snapshot_digest.clone(),
-        );
+        protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, snapshot_digest);
         let expected_message = protocol_message.compute_hash().as_bytes().to_vec();
 
         let sign_result = single_signer

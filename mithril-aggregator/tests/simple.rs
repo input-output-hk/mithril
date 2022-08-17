@@ -1,24 +1,19 @@
 mod init;
-use std::sync::Arc;
 
-use init::initialize_dependencies;
-use mithril_aggregator::{AggregatorRunner, AggregatorRuntime};
-use tokio::time::Duration;
+use crate::init::RuntimeTester;
+use mithril_common::fake_data;
 
 #[tokio::test]
 async fn simple_scenario() {
-    let (deps, config) = initialize_dependencies().await;
-    let mut runtime = AggregatorRuntime::new(
-        Duration::from_millis(config.interval),
-        None,
-        Arc::new(AggregatorRunner::new(config, Arc::new(deps))),
-    )
-    .await
-    .unwrap();
+    let mut tester = RuntimeTester::build().await;
+    tester
+        .deps
+        .init_protocol_parameter_store(fake_data::protocol_parameters())
+        .await;
 
-    if let Err(e) = runtime.cycle().await {
+    if let Err(e) = tester.runtime.cycle().await {
         panic!("FIRST CYCLE FAILED: {:?}", e);
     }
 
-    assert_eq!("signing", runtime.get_state());
+    assert_eq!("signing", tester.runtime.get_state());
 }

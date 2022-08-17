@@ -5,17 +5,17 @@ use mithril_common::entities::{Beacon, CertificatePending, SignerWithStake};
 
 use super::Runner;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct RegisteredState {
     beacon: Beacon,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct SignedState {
     beacon: Beacon,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum SignerState {
     Unregistered,
     Registered(RegisteredState),

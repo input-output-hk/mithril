@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Representation of a Internal Server Error raised by an http server
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct InternalServerError {
     /// error message
     #[serde(rename = "message")]

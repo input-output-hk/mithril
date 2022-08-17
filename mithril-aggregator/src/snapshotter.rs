@@ -21,7 +21,7 @@ pub struct GzipSnapshotter {
     ongoing_snapshot_directory: PathBuf,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OngoingSnapshot {
     filepath: PathBuf,
     filesize: u64,

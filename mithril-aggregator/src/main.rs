@@ -3,9 +3,10 @@
 use mithril_aggregator::{
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
     CertificateStore, Config, DependencyManager, GzipSnapshotter, MultiSignerImpl,
-    ProtocolParametersStore, Server, SingleSignatureStore, VerificationKeyStore,
+    ProtocolParametersStore, ProtocolParametersStorer, Server, SingleSignatureStore,
+    VerificationKeyStore,
 };
-use mithril_common::chain_observer::CardanoCliRunner;
+use mithril_common::chain_observer::{CardanoCliRunner, ChainObserver};
 use mithril_common::digesters::{CardanoImmutableDigester, ImmutableFileSystemObserver};
 use mithril_common::store::adapter::JsonFileStoreAdapter;
 use mithril_common::store::StakeStore;
@@ -204,6 +205,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let dependency_manager = Arc::new(dependency_manager);
     let network = config.get_network()?;
 
+    // todo: Genesis ?
+    do_first_launch_initialization_if_needed(
+        chain_observer,
+        protocol_parameters_store,
+        config.clone(),
+    )
+    .await?;
+
     // Start snapshot uploader
     let runtime_dependencies = dependency_manager.clone();
     let handle = tokio::spawn(async move {
@@ -233,5 +242,34 @@ async fn main() -> Result<(), Box<dyn Error>> {
     handle.abort();
 
     println!("Exiting...");
+    Ok(())
+}
+
+async fn do_first_launch_initialization_if_needed(
+    chain_observer: Arc<dyn ChainObserver>,
+    protocol_parameters_store: Arc<ProtocolParametersStore>,
+    config: Config,
+) -> Result<(), Box<dyn Error>> {
+    // TODO: Remove that when we hande genesis certificate
+    let current_epoch = chain_observer
+        .get_current_epoch()
+        .await?
+        .ok_or("Can't retrieve current epoch")?;
+    let work_epoch = current_epoch.offset_to_signer_retrieval_epoch()?;
+    let epoch_to_sign = current_epoch.offset_to_next_signer_retrieval_epoch()?;
+    if protocol_parameters_store
+        .get_protocol_parameters(work_epoch)
+        .await?
+        .is_none()
+    {
+        debug!("First launch, will use the configured protocol parameters for the current and next epoch certificate");
+
+        for epoch in [work_epoch, epoch_to_sign] {
+            protocol_parameters_store
+                .save_protocol_parameters(epoch, config.protocol_parameters.clone())
+                .await?;
+        }
+    }
+
     Ok(())
 }

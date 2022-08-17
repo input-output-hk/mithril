@@ -6,7 +6,7 @@ use crate::{
     fake_data,
 };
 
-use crate::entities::Epoch;
+use crate::entities::{Epoch, PartyId, Stake};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use std::cmp::min;
@@ -35,7 +35,7 @@ pub fn setup_protocol_parameters() -> ProtocolParameters {
     }
 }
 
-/// Instantiate a list of signers, use this for tests only.
+/// Instantiate a list of protocol signers, use this for tests only.
 pub fn setup_signers(
     total: u64,
 ) -> Vec<(
@@ -45,7 +45,6 @@ pub fn setup_signers(
     ProtocolSigner,
     ProtocolInitializer,
 )> {
-    let protocol_parameters = setup_protocol_parameters();
     let signers = (0..total)
         .into_iter()
         .map(|party_id| {
@@ -53,17 +52,37 @@ pub fn setup_signers(
             let mut rng = ChaCha20Rng::from_seed(seed);
             let stake = 1 + rng.next_u64() % 999;
             let party_id = format!("{:<032}", party_id);
-            let seed: [u8; 32] = party_id.as_bytes()[..32].try_into().unwrap();
+            (party_id as PartyId, stake as Stake)
+        })
+        .collect::<Vec<_>>();
+    setup_signers_from_parties(&signers)
+}
+
+/// Instantiate a list of protocol signers based on the given [PartyId] / [Stake] pairs, use this for tests only.
+pub fn setup_signers_from_parties(
+    party_with_stake: &[(PartyId, Stake)],
+) -> Vec<(
+    ProtocolPartyId,
+    ProtocolStake,
+    ProtocolSignerVerificationKey,
+    ProtocolSigner,
+    ProtocolInitializer,
+)> {
+    let protocol_parameters = setup_protocol_parameters();
+    let signers = party_with_stake
+        .iter()
+        .map(|(party_id, stake)| {
+            let seed: [u8; 32] = party_id.clone().as_bytes()[..32].try_into().unwrap();
             let mut rng = ChaCha20Rng::from_seed(seed);
             let protocol_initializer: ProtocolInitializer =
-                ProtocolInitializer::setup(protocol_parameters, stake, &mut rng);
+                ProtocolInitializer::setup(protocol_parameters, *stake, &mut rng);
             (
-                party_id as ProtocolPartyId,
-                stake as ProtocolStake,
+                party_id.clone() as ProtocolPartyId,
+                *stake as ProtocolStake,
                 protocol_initializer,
             )
         })
-        .collect::<Vec<(ProtocolPartyId, ProtocolStake, ProtocolInitializer)>>();
+        .collect::<Vec<_>>();
 
     let mut key_registration = ProtocolKeyRegistration::init();
     signers.iter().for_each(|(_, stake, protocol_initializer)| {

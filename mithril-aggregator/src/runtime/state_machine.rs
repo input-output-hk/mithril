@@ -6,7 +6,7 @@ use std::fmt::Display;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IdleState {
     current_beacon: Option<Beacon>,
 }

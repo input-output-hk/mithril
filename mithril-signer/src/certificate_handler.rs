@@ -287,7 +287,7 @@ mod tests {
             then.status(201);
         });
         let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
-        let register_signer = certificate_handler.register_signer(&single_signer).await;
+        let register_signer = certificate_handler.register_signer(single_signer).await;
         register_signer.expect("unexpected error");
     }
 
@@ -301,7 +301,7 @@ mod tests {
             then.status(400);
         });
         let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
-        let register_signer = certificate_handler.register_signer(&single_signer).await;
+        let register_signer = certificate_handler.register_signer(single_signer).await;
         assert_eq!(
             CertificateHandlerError::RemoteServerLogical("bad request".to_string()).to_string(),
             register_signer.unwrap_err().to_string()
@@ -318,7 +318,7 @@ mod tests {
             then.status(500).body("an error occurred");
         });
         let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
-        let register_signer = certificate_handler.register_signer(&single_signer).await;
+        let register_signer = certificate_handler.register_signer(single_signer).await;
         assert_eq!(
             CertificateHandlerError::RemoteServerTechnical("an error occurred".to_string())
                 .to_string(),

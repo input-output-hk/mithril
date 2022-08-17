@@ -1,7 +1,7 @@
 use std::path::Path;
 use thiserror::Error;
 
-#[derive(Error, Debug, PartialEq)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum DigestExtractError {
     #[error("Could not extract file stem from path: `{0}`")]
     FileStemExtractFailed(String),
