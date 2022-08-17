@@ -33,25 +33,7 @@ impl Aggregator {
             ("SNAPSHOT_STORE_TYPE", "local"),
             ("SNAPSHOT_UPLOADER_TYPE", "local"),
             ("NETWORK_MAGIC", &magic_id),
-            (
-                "PENDING_CERTIFICATE_STORE_DIRECTORY",
-                "./store/aggregator/pending-certs",
-            ),
-            ("CERTIFICATE_STORE_DIRECTORY", "./store/aggregator/certs"),
-            (
-                "VERIFICATION_KEY_STORE_DIRECTORY",
-                "./store/aggregator/verification_keys",
-            ),
-            ("STAKE_STORE_DIRECTORY", "./store/aggregator/stakes"),
-            ("SNAPSHOT_STORE_DIRECTORY", "./store/aggregator/snapshots"),
-            (
-                "SINGLE_SIGNATURE_STORE_DIRECTORY",
-                "./store/aggregator/single_signatures",
-            ),
-            (
-                "PROTOCOL_PARAMETERS_STORE_DIRECTORY",
-                "./store/aggregator/protocol_parameters",
-            ),
+            ("DATA_STORES_DIRECTORY", "./stores/aggregator"),
             (
                 "CARDANO_NODE_SOCKET_PATH",
                 bft_node.socket_path.to_str().unwrap(),

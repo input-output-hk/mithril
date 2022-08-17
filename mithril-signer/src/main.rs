@@ -70,7 +70,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     debug!("Started"; "run_mode" => &run_mode, "config" => format!("{:?}", config));
 
     let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(Box::new(
-        JsonFileStoreAdapter::new(config.protocol_initializer_store_directory.clone())?,
+        JsonFileStoreAdapter::new(config.data_stores_directory.join("protocol_initializer_db"))?,
     )));
     let single_signer = Arc::new(MithrilSingleSigner::new(config.party_id.clone()));
     let certificate_handler = Arc::new(CertificateHandlerHTTPClient::new(
@@ -81,7 +81,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         slog_scope::logger(),
     ));
     let stake_store = Arc::new(StakeStore::new(Box::new(JsonFileStoreAdapter::new(
-        config.stake_store_directory.clone(),
+        config.data_stores_directory.join("stake_db"),
     )?)));
     let chain_observer = Arc::new(CardanoCliChainObserver::new(Box::new(
         CardanoCliRunner::new(

@@ -893,13 +893,7 @@ cat >> docker-compose.yaml <<EOF
       - URL_SNAPSHOT_MANIFEST=
       - SNAPSHOT_STORE_TYPE=local
       - SNAPSHOT_UPLOADER_TYPE=local
-      - PENDING_CERTIFICATE_STORE_DIRECTORY=/data/mithril/aggregator/db/pending_cert_db
-      - CERTIFICATE_STORE_DIRECTORY=/data/mithril/aggregator/db/cert_db
-      - VERIFICATION_KEY_STORE_DIRECTORY=/data/mithril/aggregator/db/verification_key_db
-      - SNAPSHOT_STORE_DIRECTORY=/data/mithril/aggregator/db/snapshot_db
-      - STAKE_STORE_DIRECTORY=/data/mithril/aggregator/db/stake_db
-      - SINGLE_SIGNATURE_STORE_DIRECTORY=/data/mithril/aggregator/db/single_signature_db
-      - PROTOCOL_PARAMETERS_STORE_DIRECTORY=/data/mithril/aggregator/db/protocol_parameters_db
+      - DATA_STORES_DIRECTORY=/data/mithril/aggregator/stores
       - CARDANO_NODE_SOCKET_PATH=/data/ipc/node.sock
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
     command:
@@ -940,8 +934,7 @@ cat >> docker-compose.yaml <<EOF
       - NETWORK_MAGIC=${NETWORK_MAGIC}
       - RUN_INTERVAL=700
       - DB_DIRECTORY=/data/db
-      - STAKE_STORE_DIRECTORY=/data/mithril/signer/db/stake_db
-      - PROTOCOL_INITIALIZER_STORE_DIRECTORY=/data/mithril/signer/db/protocol_initializer_db
+      - DATA_STORES_DIRECTORY=/data/mithril/signer-${NODE}/stores
       - CARDANO_NODE_SOCKET_PATH=/data/ipc/node.sock
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
     command:

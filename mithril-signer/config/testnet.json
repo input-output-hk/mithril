@@ -4,6 +4,5 @@
     "party_id": 0,
     "run_interval": 20000,
     "db_directory": "/db",
-    "stake_store_directory": "./mithril/mithril/stake_db",
-    "protocol_initializer_store_directory": "./mithril/mithril/protocol_initializer_db"
+    "data_stores_directory": "./mithril-signer/stores"
 }

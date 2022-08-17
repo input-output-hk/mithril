@@ -14,6 +14,7 @@ use mithril_common::BeaconProviderImpl;
 
 use clap::Parser;
 use config::{Map, Source, Value, ValueKind};
+use mithril_common::entities::Epoch;
 use slog::{Drain, Level, Logger};
 use slog_scope::debug;
 use std::error::Error;
@@ -130,22 +131,22 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let snapshot_uploader = config.build_snapshot_uploader();
     let certificate_pending_store = Arc::new(CertificatePendingStore::new(Box::new(
-        JsonFileStoreAdapter::new(config.pending_certificate_store_directory.clone())?,
+        JsonFileStoreAdapter::new(config.data_stores_directory.join("pending_cert_db"))?,
     )));
     let certificate_store = Arc::new(CertificateStore::new(Box::new(JsonFileStoreAdapter::new(
-        config.certificate_store_directory.clone(),
+        config.data_stores_directory.join("cert_db"),
     )?)));
     let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(
-        JsonFileStoreAdapter::new(config.verification_key_store_directory.clone())?,
+        JsonFileStoreAdapter::new(config.data_stores_directory.join("verification_key_db"))?,
     )));
     let stake_store = Arc::new(StakeStore::new(Box::new(JsonFileStoreAdapter::new(
-        config.stake_store_directory.clone(),
+        config.data_stores_directory.join("stake_db"),
     )?)));
     let single_signature_store = Arc::new(SingleSignatureStore::new(Box::new(
-        JsonFileStoreAdapter::new(config.single_signature_store_directory.clone())?,
+        JsonFileStoreAdapter::new(config.data_stores_directory.join("single_signature_db"))?,
     )));
     let protocol_parameters_store = Arc::new(ProtocolParametersStore::new(Box::new(
-        JsonFileStoreAdapter::new(config.protocol_parameters_store_directory.clone())?,
+        JsonFileStoreAdapter::new(config.data_stores_directory.join("protocol_parameters_db"))?,
     )));
     let multi_signer = Arc::new(RwLock::new(MultiSignerImpl::new(
         verification_key_store.clone(),
@@ -251,12 +252,18 @@ async fn do_first_launch_initialization_if_needed(
     config: Config,
 ) -> Result<(), Box<dyn Error>> {
     // TODO: Remove that when we hande genesis certificate
-    let current_epoch = chain_observer
+    let (work_epoch, epoch_to_sign) = match chain_observer
         .get_current_epoch()
         .await?
-        .ok_or("Can't retrieve current epoch")?;
-    let work_epoch = current_epoch.offset_to_signer_retrieval_epoch()?;
-    let epoch_to_sign = current_epoch.offset_to_next_signer_retrieval_epoch()?;
+        .ok_or("Can't retrieve current epoch")?
+    {
+        Epoch(0) => (Epoch(0), Epoch(1)),
+        epoch => (
+            epoch.offset_to_signer_retrieval_epoch()?,
+            epoch.offset_to_next_signer_retrieval_epoch()?,
+        ),
+    };
+
     if protocol_parameters_store
         .get_protocol_parameters(work_epoch)
         .await?

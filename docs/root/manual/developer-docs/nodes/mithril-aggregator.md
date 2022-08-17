@@ -193,13 +193,7 @@ Here is a list of the available parameters:
 | `snapshot_store_type` | - | - | `SNAPSHOT_STORE_TYPE` | Type of snapshot store to use | - | `gcp` or `local` | :heavy_check_mark: |
 | `snapshot_uploader_type` | - | - | `SNAPSHOT_UPLOADER_TYPE` | Type of snapshot uploader to use | - | `gcp` or `local` | :heavy_check_mark: |
 | `run_interval` | - | - | `RUN_INTERVAL` | Interval between two runtime cycles in ms | - | `60000` | :heavy_check_mark: |
-| `snapshot_store_directory` | - | - | `SNAPSHOT_STORE_DIRECTORY` | Directory to store snapshot records | - | `./mithril/snapshots_db` | :heavy_check_mark: |
-| `pending_certificate_store_directory` | - | - | `PENDING_CERTIFICATE_STORE_DIRECTORY` | Directory to store pending certificates | - | `./mithril/pending_cert_db` | :heavy_check_mark: |
-| `certificate_store_directory` | - | - | `CERTIFICATE_STORE_DIRECTORY` | Directory to store certificates | - | `./mithril/cert_db` | :heavy_check_mark: |
-| `verification_key_store_directory` | - | - | `VERIFICATION_KEY_STORE_DIRECTORY` | Directory to store verification keys | - | `./mithril/verification_key_db` | :heavy_check_mark: |
-| `stake_store_directory` | - | - | `STAKE_STORE_DIRECTORY` | Directory to store stakes | - | `./mithril/stake_db` | :heavy_check_mark: |
-| `single_signature_store_directory` | - | - | `SINGLE_SIGNATURE_STORE_DIRECTORY` | Directory to store single signatures | - | `./mithril/single_signature_db` | :heavy_check_mark: |
-| `protocol_parameters_store_directory` | - | - | `PROTOCOL_PARAMETERS_STORE_DIRECTORY` | Directory to store protocol parameters | - | `./mithril/protocol_parameters_db` | :heavy_check_mark: |
+| `data_stores_directory` | - | - | `data_stores_directory` | Directory to store aggregator data (Certificates, Snapshots, Protocol Parameters, ...) | - | `./mithril-aggregator/stores` | :heavy_check_mark: |
 | `cardano_cli_path` | - | - | `CARDANO_CLI_PATH` | Cardano CLI tool path | - | `cardano-cli` | :heavy_check_mark: |
 | `cardano_node_socket_path` | - | - | `CARDANO_NODE_SOCKET_PATH` | Path of the socket used by the Cardano CLI tool to communicate with the Cardano node | - | `/tmp/cardano.sock` | :heavy_check_mark: |
 | `url_snapshot_manifest` | - | - | `URL_SNAPSHOT_MANIFEST` | Snapshots manifest location | - | Only if `snapshot_store_type` is `gcp`, else it should be `` | :heavy_check_mark: |

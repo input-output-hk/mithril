@@ -378,8 +378,7 @@ mod tests {
             network_magic: None,
             party_id: "1".to_string(),
             run_interval: 100,
-            stake_store_directory: PathBuf::new(),
-            protocol_initializer_store_directory: PathBuf::new(),
+            data_stores_directory: PathBuf::new(),
         };
 
         SignerRunner {

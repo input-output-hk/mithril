@@ -66,13 +66,7 @@ services:
       - URL_SNAPSHOT_MANIFEST=https://storage.googleapis.com/cardano-${NETWORK:-testnet}/snapshots.json
       - SNAPSHOT_STORE_TYPE=local
       - SNAPSHOT_UPLOADER_TYPE=gcp
-      - PENDING_CERTIFICATE_STORE_DIRECTORY=/mithril-aggregator/pending_cert_db
-      - CERTIFICATE_STORE_DIRECTORY=/mithril-aggregator/cert_db
-      - VERIFICATION_KEY_STORE_DIRECTORY=/mithril-aggregator/verification_key_db
-      - STAKE_STORE_DIRECTORY=/mithril-aggregator/stake_db
-      - SNAPSHOT_STORE_DIRECTORY=/mithril-aggregator/snapshot_db
-      - SINGLE_SIGNATURE_STORE_DIRECTORY=/mithril-aggregator/single_signature_db
-      - PROTOCOL_PARAMETERS_STORE_DIRECTORY=/mithril-aggregator/protocol_parameters_db
+      - DATA_STORES_DIRECTORY=/mithril-aggregator
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
     volumes:
@@ -117,8 +111,7 @@ services:
       - PARTY_ID=pool1frevxe70aqw2ce58c0muyesnahl88nfjjsp25h85jwakzgd2g2l # IOG1 / https://testnet.cardanoscan.io/pool/48f2c367cfe81cac6687c3f7c26613edfe73cd329402aa5cf493bb61
       - RUN_INTERVAL=60000
       - DB_DIRECTORY=/db
-      - STAKE_STORE_DIRECTORY=/mithril-signer-0/stake_db
-      - PROTOCOL_INITIALIZER_STORE_DIRECTORY=/mithril-signer-0/protocol_initializer_db
+      - DATA_STORES_DIRECTORY=/mithril-signer-0
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
     volumes:
@@ -146,8 +139,7 @@ services:
       - PARTY_ID=pool1987uhrx7pt5rea26sqsdrlenfclm2wxafd4rpspvz3qyqshnuyy # IOG2 / https://testnet.cardanoscan.io/pool/29fdcb8cde0ae83cf55a8020d1ff334e3fb538dd4b6a30c02c144040
       - RUN_INTERVAL=60000
       - DB_DIRECTORY=/db
-      - STAKE_STORE_DIRECTORY=/mithril-signer-1/stake_db
-      - PROTOCOL_INITIALIZER_STORE_DIRECTORY=/mithril-signer-1/protocol_initializer_db
+      - DATA_STORES_DIRECTORY=/mithril-signer-1
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
     volumes:
@@ -175,8 +167,7 @@ services:
       - PARTY_ID=pool12luf5ysaxajd0g8dvtpuyxdchln363dhed8637psyx2eqzatmcv # Random unnamed pool / https://testnet.cardanoscan.io/pool/57f89a121d3764d7a0ed62c3c219b8bfe71d45b7cb4fa8f830219590
       - RUN_INTERVAL=60000
       - DB_DIRECTORY=/db
-      - STAKE_STORE_DIRECTORY=/mithril-signer-2/stake_db
-      - PROTOCOL_INITIALIZER_STORE_DIRECTORY=/mithril-signer-2/protocol_initializer_db
+      - DATA_STORES_DIRECTORY=/mithril-signer-2
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
     volumes:
@@ -204,8 +195,7 @@ services:
       - PARTY_ID=pool17vmenrzf2ylr92t390wwhk3jn0ursx00sy92cfa807s3whyknrc # PIPE / https://testnet.cardanoscan.io/pool/f337998c49513e32a9712bdcebda329bf83819ef810aac27a77fa117
       - RUN_INTERVAL=60000
       - DB_DIRECTORY=/db
-      - STAKE_STORE_DIRECTORY=/mithril-signer-3/stake_db
-      - PROTOCOL_INITIALIZER_STORE_DIRECTORY=/mithril-signer-3/protocol_initializer_db
+      - DATA_STORES_DIRECTORY=/mithril-signer-3
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
     volumes:
