@@ -934,8 +934,7 @@ cat >> docker-compose.yaml <<EOF
       - NETWORK_MAGIC=${NETWORK_MAGIC}
       - RUN_INTERVAL=700
       - DB_DIRECTORY=/data/db
-      - STAKE_STORE_DIRECTORY=/data/mithril/signer/db/stake_db
-      - PROTOCOL_INITIALIZER_STORE_DIRECTORY=/data/mithril/signer/db/protocol_initializer_db
+      - DATA_STORES_DIRECTORY=/data/mithril/signer/db
       - CARDANO_NODE_SOCKET_PATH=/data/ipc/node.sock
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
     command:

@@ -224,9 +224,7 @@ mod tests {
             party_id: "0".to_string(),
             run_interval: 100,
             db_directory: Path::new("./db").to_path_buf(),
-            stake_store_directory: Path::new("./stakes").to_path_buf(),
-            protocol_initializer_store_directory: Path::new("./protocol_initializers")
-                .to_path_buf(),
+            data_stores_directory: Path::new("./stores").to_path_buf(),
         };
         (server, config)
     }
