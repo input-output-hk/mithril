@@ -1,23 +1,23 @@
 mod test_extensions;
 
 use mithril_common::digesters::ImmutableFileObserver;
-use mithril_common::entities::{SignerWithStake, Signer};
+use mithril_common::entities::{Signer, SignerWithStake};
 use slog::Drain;
-use slog_scope::{debug};
+use slog_scope::debug;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 
-use mithril_common::crypto_helper::{key_encode_hex, tests_setup, };
+use mithril_common::crypto_helper::{key_encode_hex, tests_setup};
 use mithril_common::{
     chain_observer::FakeObserver,
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
-    entities::{Beacon, Epoch, },
+    entities::{Beacon, Epoch},
     store::{adapter::MemoryAdapter, StakeStore, StakeStorer},
-     BeaconProviderImpl,
+    BeaconProviderImpl,
 };
 
 use mithril_signer::{
-    Config, MithrilSingleSigner, ProtocolInitializerStore,
-    ProtocolInitializerStorer, SignerRunner, SignerServices, SignerState, StateMachine, CertificateHandler,
+    CertificateHandler, Config, MithrilSingleSigner, ProtocolInitializerStore,
+    ProtocolInitializerStorer, SignerRunner, SignerServices, SignerState, StateMachine,
 };
 
 use test_extensions::FakeAggregator;
@@ -42,9 +42,8 @@ impl StateMachineTester {
             network: "devnet".to_string(),
             network_magic: Some(42),
             party_id: "99999999999999999999999999999999".to_string(),
-            protocol_initializer_store_directory: PathBuf::new(),
             run_interval: 5000,
-            stake_store_directory: PathBuf::new(),
+            data_stores_directory: PathBuf::new(),
         };
 
         let immutable_observer = Arc::new(DumbImmutableFileObserver::new());
@@ -201,18 +200,20 @@ impl StateMachineTester {
 
     async fn register_signers(&mut self, count: u64) -> &mut Self {
         for (party_id, _stake, verification_key, _signer, _protocol_initializer) in
-            tests_setup::setup_signers(count) {
+            tests_setup::setup_signers(count)
+        {
             let signer = Signer {
                 party_id,
-                verification_key: key_encode_hex(verification_key).unwrap()
+                verification_key: key_encode_hex(verification_key).unwrap(),
             };
-            self.certificate_handler.register_signer(&signer).await
+            self.certificate_handler
+                .register_signer(&signer)
+                .await
                 .unwrap();
         }
 
         self
     }
-
 }
 
 #[tokio::test]
@@ -249,7 +250,7 @@ async fn test_create_single_signature() {
         .comment("changing immutable does not change the state = Registered")
         .increase_immutable(1, 3).await
         .cycle_registered().await
-        
+
         .comment("changing Epoch changes the state → Unregistered")
         .increase_epoch(3).await
         .cycle_unregistered().await
@@ -292,7 +293,7 @@ async fn test_create_single_signature() {
         .cycle_unregistered().await
         .cycle_registered().await
         .check_protocol_initializer(Epoch(5)).await
-        
+
         .comment("signer should be able to create a single signature → Signed")
         .cycle_signed().await;
 }
