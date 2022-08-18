@@ -37,8 +37,9 @@ async fn certificate_chain() {
 
     // The state machine should issue a multisignature
     cycle!(tester, "idle");
-    let last_certificates = tester.get_last_certificates(5).await.unwrap();
-    assert_eq!(1, last_certificates.len());
+    let (last_certificates, snapshots) =
+        tester.get_last_certificates_and_snapshots().await.unwrap();
+    assert_eq!((1, 1), (last_certificates.len(), snapshots.len()));
     cycle!(tester, "idle");
 
     // Increase immutable number to do a second certificate for this epoch
@@ -46,8 +47,9 @@ async fn certificate_chain() {
     cycle!(tester, "signing");
     tester.send_single_signatures(&signers).await.unwrap();
     cycle!(tester, "idle");
-    let last_certificates = tester.get_last_certificates(5).await.unwrap();
-    assert_eq!(2, last_certificates.len());
+    let (last_certificates, snapshots) =
+        tester.get_last_certificates_and_snapshots().await.unwrap();
+    assert_eq!((2, 2), (last_certificates.len(), snapshots.len()));
     assert_eq!(
         (
             last_certificates[0].beacon.immutable_file_number,
@@ -71,11 +73,7 @@ async fn certificate_chain() {
     let new_signers = tester.update_stake_distribution(signers_with_stake).await;
 
     // Increase epoch, triggering stake distribution update
-    let new_epoch = tester
-        .chain_observer
-        .next_epoch()
-        .await
-        .expect("a new epoch should have been issued");
+    let new_epoch = tester.increase_epoch().await.unwrap();
     cycle!(tester, "signing");
 
     let next_epoch_verification_keys = tester
@@ -92,8 +90,9 @@ async fn certificate_chain() {
     tester.send_single_signatures(&signers).await.unwrap();
     cycle!(tester, "idle");
 
-    let last_certificates = tester.get_last_certificates(5).await.unwrap();
-    assert_eq!(3, last_certificates.len());
+    let (last_certificates, snapshots) =
+        tester.get_last_certificates_and_snapshots().await.unwrap();
+    assert_eq!((3, 3), (last_certificates.len(), snapshots.len()));
     assert_eq!(
         (
             last_certificates[0].beacon.immutable_file_number,
@@ -117,29 +116,22 @@ async fn certificate_chain() {
 
     // Increase epoch & immutable, stake distribution updated previously should be signed in the
     // new certificate
-    tester
-        .chain_observer
-        .next_epoch()
-        .await
-        .expect("a new epoch should have been issued");
+    tester.increase_epoch().await.unwrap();
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "signing");
     tester.send_single_signatures(&signers).await.unwrap();
     cycle!(tester, "idle");
 
     // todo: why do we need a third epoch to use the new stake distribution ?
-    tester
-        .chain_observer
-        .next_epoch()
-        .await
-        .expect("a new epoch should have been issued");
+    tester.increase_epoch().await.unwrap();
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "signing");
     tester.send_single_signatures(&new_signers).await.unwrap();
     cycle!(tester, "idle");
 
-    let last_certificates = tester.get_last_certificates(5).await.unwrap();
-    assert_eq!(5, last_certificates.len());
+    let (last_certificates, snapshots) =
+        tester.get_last_certificates_and_snapshots().await.unwrap();
+    assert_eq!((5, 5), (last_certificates.len(), snapshots.len()));
     assert_eq!(
         (
             last_certificates[0].beacon.immutable_file_number,

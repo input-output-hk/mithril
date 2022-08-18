@@ -119,7 +119,13 @@ mod handlers {
 
         match snapshot_store.get_snapshot_details(digest).await {
             Ok(Some(snapshot)) => {
-                let filename = format!("{}.{}.tar.gz", config.network, snapshot.digest);
+                let filename = format!(
+                    "{}-e{}-i{}.{}.tar.gz",
+                    snapshot.beacon.network,
+                    snapshot.beacon.epoch,
+                    snapshot.beacon.immutable_file_number,
+                    snapshot.digest
+                );
                 let snapshot_uri = format!(
                     "{}{}/snapshot_download/{}",
                     config.server_url, SERVER_BASE_PATH, filename

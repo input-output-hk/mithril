@@ -1,8 +1,9 @@
 use crate::digesters::ImmutableFileListingError;
-use crate::entities::ImmutableFileNumber;
+use crate::entities::{Beacon, ImmutableFileNumber};
 use async_trait::async_trait;
 use std::io;
 use thiserror::Error;
+use tokio::sync::RwLock;
 
 /// A digester than can compute the digest used for mithril signatures
 ///
@@ -11,7 +12,7 @@ use thiserror::Error;
 /// mod test {
 ///     use async_trait::async_trait;
 ///     use mithril_common::digesters::{ImmutableDigester, ImmutableDigesterError};
-///     use mithril_common::entities::ImmutableFileNumber;
+///     use mithril_common::entities::Beacon;
 ///     use mockall::mock;
 ///
 ///     mock! {
@@ -21,7 +22,7 @@ use thiserror::Error;
 ///         impl ImmutableDigester for ImmutableDigesterImpl {
 ///             async fn compute_digest(
 ///               &self,
-///               up_to_file_number: ImmutableFileNumber,
+///               beacon: &Beacon,
 ///             ) -> Result<String, ImmutableDigesterError>;
 ///         }
 ///     }
@@ -41,10 +42,7 @@ use thiserror::Error;
 #[async_trait]
 pub trait ImmutableDigester: Sync + Send {
     /// Compute the digest
-    async fn compute_digest(
-        &self,
-        up_to_file_number: ImmutableFileNumber,
-    ) -> Result<String, ImmutableDigesterError>;
+    async fn compute_digest(&self, beacon: &Beacon) -> Result<String, ImmutableDigesterError>;
 }
 
 /// [ImmutableDigester] related Errors.
@@ -71,16 +69,22 @@ pub enum ImmutableDigesterError {
 
 /// A [ImmutableDigester] returning configurable result for testing purpose.
 pub struct DumbImmutableDigester {
-    digest: String,
+    digest: RwLock<String>,
     is_success: bool,
 }
 
 impl DumbImmutableDigester {
     /// DumbDigester factory
     pub fn new(digest: &str, is_success: bool) -> Self {
-        let digest = String::from(digest);
+        let digest = RwLock::new(String::from(digest));
 
         Self { digest, is_success }
+    }
+
+    /// Update digest returned by [compute_digest][DumbImmutableDigester::compute_digest]
+    pub async fn update_digest(&self, new_digest: String) {
+        let mut digest = self.digest.write().await;
+        *digest = new_digest;
     }
 }
 
@@ -92,15 +96,12 @@ impl Default for DumbImmutableDigester {
 
 #[async_trait]
 impl ImmutableDigester for DumbImmutableDigester {
-    async fn compute_digest(
-        &self,
-        up_to_file_number: ImmutableFileNumber,
-    ) -> Result<String, ImmutableDigesterError> {
+    async fn compute_digest(&self, beacon: &Beacon) -> Result<String, ImmutableDigesterError> {
         if self.is_success {
-            Ok(self.digest.clone())
+            Ok(self.digest.read().await.clone())
         } else {
             Err(ImmutableDigesterError::NotEnoughImmutable {
-                expected_number: up_to_file_number,
+                expected_number: beacon.immutable_file_number,
                 found_number: None,
             })
         }

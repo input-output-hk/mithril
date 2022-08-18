@@ -1,6 +1,7 @@
 mod init;
 
 use mithril_common::crypto_helper::tests_setup;
+use mithril_common::entities::ProtocolMessagePartKey;
 use mithril_common::entities::SignerWithStake;
 use mithril_common::fake_data;
 
@@ -8,7 +9,6 @@ use mithril_common::fake_data;
 async fn create_certificate() {
     // initialization
     let mut tester = init::RuntimeTester::build().await;
-    let deps = tester.deps.clone();
 
     // create signers & declare stake distribution
     let signers = tests_setup::setup_signers(2);
@@ -46,12 +46,19 @@ async fn create_certificate() {
 
     // The state machine should issue a multisignature
     cycle!(tester, "idle");
-    let last_certificates = deps
-        .certificate_store
-        .get_list(5)
-        .await
-        .expect("Querying certificate store should not fail");
+    let (last_certificates, snapshots) =
+        tester.get_last_certificates_and_snapshots().await.unwrap();
 
-    assert_eq!(1, last_certificates.len());
+    assert_eq!((1, 1), (last_certificates.len(), snapshots.len()));
+    assert_eq!(
+        (
+            &last_certificates[0].hash,
+            last_certificates[0]
+                .protocol_message
+                .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
+                .unwrap()
+        ),
+        (&snapshots[0].certificate_hash, &snapshots[0].digest)
+    );
     cycle!(tester, "idle");
 }

@@ -126,7 +126,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         maybe_beacon: Option<Beacon>,
     ) -> Result<Option<Beacon>, RuntimeError> {
-        info!("checking if there is a new beacon");
+        info!("RUNNER: checking if there is a new beacon");
         let current_beacon = self
             .dependencies
             .beacon_provider
@@ -147,14 +147,14 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     async fn compute_digest(&self, new_beacon: &Beacon) -> Result<String, RuntimeError> {
-        info!("running runner::compute_digest");
+        info!("RUNNER: running runner::compute_digest");
         let digester = self.dependencies.digester.clone();
 
         debug!("computing digest"; "db_directory" => self.config.db_directory.display());
 
         debug!("launching digester thread");
         let digest = digester
-            .compute_digest(new_beacon.immutable_file_number)
+            .compute_digest(new_beacon)
             .await
             .map_err(|e| RuntimeError::General(e.into()))?;
         debug!("computed digest: {}", digest);
@@ -163,7 +163,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     async fn update_beacon(&self, new_beacon: &Beacon) -> Result<(), RuntimeError> {
-        info!("update beacon"; "beacon" => #?new_beacon);
+        info!("RUNNER: update beacon"; "beacon" => #?new_beacon);
         self.dependencies
             .multi_signer
             .write()
@@ -174,7 +174,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     async fn update_stake_distribution(&self, new_beacon: &Beacon) -> Result<(), RuntimeError> {
-        info!("update stake distribution"; "beacon" => #?new_beacon);
+        info!("RUNNER: update stake distribution"; "beacon" => #?new_beacon);
         let stake_distribution = self
             .dependencies
             .chain_observer
@@ -199,7 +199,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         new_beacon: &Beacon,
     ) -> Result<(), RuntimeError> {
-        info!("update protocol parameters"; "beacon" => #?new_beacon);
+        info!("RUNNER: update protocol parameters"; "beacon" => #?new_beacon);
         let protocol_parameters = self.dependencies.config.protocol_parameters.clone();
         Ok(self
             .dependencies
@@ -211,7 +211,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     async fn update_message_in_multisigner(&self, digest: String) -> Result<(), RuntimeError> {
-        info!("update message in multisigner");
+        info!("RUNNER: update message in multisigner");
         let mut multi_signer = self.dependencies.multi_signer.write().await;
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
@@ -233,10 +233,9 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         beacon: Beacon,
     ) -> Result<CertificatePending, RuntimeError> {
-        info!("running runner::create_pending_certificate");
+        info!("RUNNER: create new pending certificate from multisigner");
         let multi_signer = self.dependencies.multi_signer.read().await;
 
-        debug!("creating certificate pending using multisigner");
         let signers = match multi_signer.get_signers().await {
             Ok(signers) => signers,
             Err(ProtocolError::Beacon(_)) => vec![],
@@ -274,7 +273,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         pending_certificate: CertificatePending,
     ) -> Result<(), RuntimeError> {
-        info!("saving pending certificate");
+        info!("RUNNER: saving pending certificate");
 
         self.dependencies
             .certificate_pending_store
@@ -284,7 +283,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     async fn drop_pending_certificate(&self) -> Result<Option<CertificatePending>, RuntimeError> {
-        info!("drop pending certificate");
+        info!("RUNNER: drop pending certificate");
 
         let certificate_pending = self.dependencies.certificate_pending_store.remove().await?;
         if certificate_pending.is_none() {
@@ -297,7 +296,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     /// Is a multisignature ready?
     /// Can we create a multisignature.
     async fn is_multisig_created(&self) -> Result<bool, RuntimeError> {
-        info!("check if we can create a multisignature");
+        info!("RUNNER: check if we can create a multisignature");
         let has_multisig = self
             .dependencies
             .multi_signer
@@ -319,7 +318,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         beacon: &Beacon,
     ) -> Result<OngoingSnapshot, RuntimeError> {
-        info!("create snapshot archive");
+        info!("RUNNER: create snapshot archive");
 
         let snapshotter = self.dependencies.snapshotter.clone();
         let protocol_message = self
@@ -356,7 +355,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         ongoing_snapshot: &OngoingSnapshot,
     ) -> Result<Vec<SnapshotLocation>, RuntimeError> {
-        info!("upload snapshot archive");
+        info!("RUNNER: upload snapshot archive");
         let location = self
             .dependencies
             .snapshot_uploader
@@ -378,7 +377,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         beacon: &Beacon,
     ) -> Result<Certificate, RuntimeError> {
-        info!("create and save certificate");
+        info!("RUNNER: create and save certificate");
         let certificate_store = self.dependencies.certificate_store.clone();
         let latest_certificates = certificate_store.get_list(2).await?;
         let last_certificate = latest_certificates.get(0);
@@ -418,6 +417,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         ongoing_snapshot: &OngoingSnapshot,
         remote_locations: Vec<String>,
     ) -> Result<Snapshot, RuntimeError> {
+        info!("RUNNER: create and save snapshot");
         let snapshot_digest = certificate
             .protocol_message
             .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)

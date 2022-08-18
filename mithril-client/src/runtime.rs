@@ -203,7 +203,7 @@ impl Runtime {
         }
         let unpacked_snapshot_digest = self
             .get_digester()?
-            .compute_digest(certificate.beacon.immutable_file_number)
+            .compute_digest(&certificate.beacon)
             .await
             .map_err(RuntimeError::ImmutableDigester)?;
         let mut protocol_message = certificate.protocol_message.clone();
@@ -272,7 +272,7 @@ mod tests {
     use crate::aggregator::{AggregatorHandlerError, MockAggregatorHandler};
     use crate::verifier::{MockVerifier, ProtocolError};
     use mithril_common::digesters::{ImmutableDigester, ImmutableDigesterError};
-    use mithril_common::entities::ImmutableFileNumber;
+    use mithril_common::entities::Beacon;
     use mithril_common::fake_data;
 
     mock! {
@@ -282,7 +282,7 @@ mod tests {
         impl ImmutableDigester for DigesterImpl {
             async fn compute_digest(
                 &self,
-                up_to_file_number: ImmutableFileNumber,
+                beacon: &Beacon,
             ) -> Result<String, ImmutableDigesterError>;
         }
     }
