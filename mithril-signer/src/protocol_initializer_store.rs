@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use mithril::stm::StmInitializer;
 use thiserror::Error;
 use tokio::sync::RwLock;
 
@@ -28,10 +27,10 @@ pub trait ProtocolInitializerStorer: Sync + Send {
         epoch: Epoch,
     ) -> Result<Option<ProtocolInitializer>, ProtocolInitializerStoreError>;
 
-    async fn dump_last_protocol_initializer(
+    async fn get_last_protocol_initializer(
         &self,
         last: usize,
-    ) -> Result<Vec<(Epoch, StmInitializer)>, ProtocolInitializerStoreError>;
+    ) -> Result<Vec<(Epoch, ProtocolInitializer)>, ProtocolInitializerStoreError>;
 }
 pub struct ProtocolInitializerStore {
     adapter: RwLock<Adapter>,
@@ -70,10 +69,10 @@ impl ProtocolInitializerStorer for ProtocolInitializerStore {
         Ok(record)
     }
 
-    async fn dump_last_protocol_initializer(
+    async fn get_last_protocol_initializer(
         &self,
         last: usize,
-    ) -> Result<Vec<(Epoch, StmInitializer)>, ProtocolInitializerStoreError> {
+    ) -> Result<Vec<(Epoch, ProtocolInitializer)>, ProtocolInitializerStoreError> {
         let records = self.adapter.read().await.get_last_n_records(last).await?;
 
         Ok(records)

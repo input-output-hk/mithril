@@ -314,11 +314,14 @@ impl Runner for SignerRunner {
             signers,
             &protocol_initializer,
         )?;
-        if signature.is_some() {
-            info!(" > could compute a single signature!");
-        } else {
-            info!(" > NO single signature was computed.");
-        }
+        info!(
+            " > {}",
+            if signature.is_some() {
+                "could compute a single signature!"
+            } else {
+                "NO single signature was computed."
+            }
+        );
 
         Ok(signature)
     }

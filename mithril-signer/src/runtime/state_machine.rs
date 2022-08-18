@@ -28,17 +28,11 @@ impl SignerState {
     }
 
     pub fn is_registered(&self) -> bool {
-        match *self {
-            SignerState::Registered(_) => true,
-            _ => false,
-        }
+        matches!(*self, SignerState::Registered(_))
     }
 
     pub fn is_signed(&self) -> bool {
-        match *self {
-            SignerState::Signed(_) => true,
-            _ => false,
-        }
+        matches!(*self, SignerState::Signed(_))
     }
 }
 

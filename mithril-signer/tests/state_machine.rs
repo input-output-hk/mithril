@@ -147,7 +147,7 @@ impl StateMachineTester {
                 "there should be a protocol intializer in store for Epoch {}, here is the last 3 in store: {:?}",
                 epoch,
                 self.protocol_initializer_store
-                    .dump_last_protocol_initializer(2)
+                    .get_last_protocol_initializer(2)
                     .await
                     .unwrap(),
             ));
