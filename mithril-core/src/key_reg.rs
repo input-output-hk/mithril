@@ -213,7 +213,7 @@ mod tests {
                         assert!(a.check().is_err());
                     }
                     Err(RegisterError::SerializationError) => unreachable!(),
-                    Err(RegisterError::UnregisteredInitializer) => unreachable!(),
+                    _ => unreachable!(),
                 }
             }
 
