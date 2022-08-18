@@ -1,5 +1,5 @@
 use slog_scope::{debug, error, info};
-use std::{error::Error, thread::sleep, time::Duration};
+use std::{error::Error, fmt::Display, thread::sleep, time::Duration};
 
 use mithril_common::entities::{Beacon, CertificatePending, SignerWithStake};
 
@@ -33,6 +33,16 @@ impl SignerState {
 
     pub fn is_signed(&self) -> bool {
         matches!(*self, SignerState::Signed(_))
+    }
+}
+
+impl Display for SignerState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::Unregistered => write!(f, "unregistered"),
+            Self::Registered(_) => write!(f, "registered"),
+            Self::Signed(_) => write!(f, "signed"),
+        }
     }
 }
 
