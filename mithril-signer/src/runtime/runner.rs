@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 #[cfg(test)]
 use mockall::automock;
-use slog_scope::{debug, info, warn};
+use slog_scope::{debug, info, trace, warn};
 use std::error::Error as StdError;
 use thiserror::Error;
 
@@ -240,9 +240,10 @@ impl Runner for SignerRunner {
                 signer.verification_key.to_owned(),
                 *stake,
             ));
-            info!(
+            trace!(
                 " > associating signer_id {} with stake {}",
-                signer.party_id, *stake
+                signer.party_id,
+                *stake
             );
         }
         Ok(signers_with_stake)
