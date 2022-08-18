@@ -28,7 +28,7 @@ impl Aggregator {
             ("PROTOCOL_PARAMETERS__K", "5"),
             ("PROTOCOL_PARAMETERS__M", "100"),
             ("PROTOCOL_PARAMETERS__PHI_F", "0.65"),
-            ("RUN_INTERVAL", "600"),
+            ("RUN_INTERVAL", "100"),
             ("URL_SNAPSHOT_MANIFEST", ""),
             ("SNAPSHOT_STORE_TYPE", "local"),
             ("SNAPSHOT_UPLOADER_TYPE", "local"),
