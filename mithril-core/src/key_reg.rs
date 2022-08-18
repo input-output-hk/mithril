@@ -5,16 +5,39 @@ use crate::multi_sig::{VerificationKey, VerificationKeyPoP};
 use blake2::digest::Digest;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::iter::FromIterator;
 use std::sync::Arc;
 
 use super::stm::Stake;
 use crate::merkle_tree::{MTLeaf, MerkleTree};
+use ed25519_dalek::{PublicKey as EdPublicKey, Signature as EdSignature, Verifier};
+use kes_summed_ed25519::common::PublicKey as KesPublicKey;
+use kes_summed_ed25519::kes::Sum6KesSig;
+use kes_summed_ed25519::traits::KesSig;
 
 /// Stores a registered party with its public key and the associated stake.
 pub type RegParty = MTLeaf;
 
+/// Representation of the PoolID
+pub type PoolId = [u8; 32];
+
+/// Parsed Operational Certificate
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct OpCert {
+    kes_vk: KesPublicKey,
+    cert_sig: EdSignature,
+}
+
+/// NewKeyReg that is set to eventually replace `KeyReg`
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct NewKeyReg {
+    stake_distribution: HashMap<PoolId, Stake>,
+    keys: HashMap<VerificationKey, Stake>,
+}
+
 /// Struct that collects public keys and stakes of parties.
 /// Each participant (both the signers and the clerks) need to run their own instance of the key registration.
+// todo: replace with KeyReg
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct KeyReg {
     keys: HashMap<VerificationKey, Stake>,
@@ -32,8 +55,64 @@ pub struct ClosedKeyReg<D: Digest> {
     pub merkle_tree: Arc<MerkleTree<D>>,
 }
 
+impl OpCert {
+    /// Parse raw bytes into an Operational Certificate
+    fn parse(_bytes: &[u8]) -> Self {
+        todo!()
+    }
+}
+
+impl NewKeyReg {
+    /// New Initialisation function. We temporarily keep the other init function,
+    /// but we should eventually transition to only use this one.
+    pub fn init(stake_dist: &[(PoolId, Stake)]) -> Self {
+        Self {
+            stake_distribution: HashMap::from_iter(stake_dist.to_vec()),
+            keys: HashMap::new(),
+        }
+    }
+
+    /// Register a new party. For a successful registration, the registrar needs to
+    /// provide the OpCert (in cbor form), the cold VK, a KES signature, and a
+    /// Mithril key (with its corresponding Proof of Possession).
+    pub fn register(
+        &mut self,
+        opcert: &[u8],
+        cold_vk: EdPublicKey,
+        kes_sig: Sum6KesSig,
+        kes_period: usize,
+        pk: VerificationKeyPoP,
+    ) -> Result<(), RegisterError> {
+        let cert = OpCert::parse(opcert);
+
+        cold_vk
+            .verify(opcert, &cert.cert_sig)
+            .map_err(|_| RegisterError::InvalidOpCert)?;
+        kes_sig
+            .verify(kes_period, &cert.kes_vk, &pk.to_bytes())
+            .map_err(|_| RegisterError::KesSignatureInvalid)?;
+
+        let mut pool_id = [0u8; 32];
+        pool_id.copy_from_slice(&blake2::Blake2b::digest(cold_vk.as_bytes()).as_slice()[..32]);
+
+        if let Some(&stake) = self.stake_distribution.get(&pool_id) {
+            if let Entry::Vacant(e) = self.keys.entry(pk.vk) {
+                if pk.check().is_ok() {
+                    e.insert(stake);
+                    return Ok(());
+                } else {
+                    return Err(RegisterError::KeyInvalid(Box::new(pk)));
+                }
+            }
+            return Err(RegisterError::KeyRegistered(Box::new(pk.vk)));
+        }
+        Err(RegisterError::KeyNonExisting)
+    }
+}
+
 impl KeyReg {
     /// Initialise an empty `KeyReg`.
+    /// todo: remove this init function
     pub fn init() -> Self {
         Self {
             keys: HashMap::new(),
