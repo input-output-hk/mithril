@@ -325,7 +325,7 @@ mod tests {
         runner
             .expect_drop_pending_certificate()
             .times(1)
-            .returning(|| Ok(fake_data::certificate_pending()));
+            .returning(|| Ok(Some(fake_data::certificate_pending())));
 
         let state = SigningState {
             // this current beacon must be outdated so the state machine will
@@ -379,7 +379,7 @@ mod tests {
         runner
             .expect_drop_pending_certificate()
             .times(1)
-            .returning(|| Ok(fake_data::certificate_pending()));
+            .returning(|| Ok(Some(fake_data::certificate_pending())));
         runner
             .expect_create_snapshot_archive()
             .times(1)

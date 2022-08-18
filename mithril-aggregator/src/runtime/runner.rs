@@ -70,7 +70,7 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         pending_certificate: CertificatePending,
     ) -> Result<(), RuntimeError>;
 
-    async fn drop_pending_certificate(&self) -> Result<CertificatePending, RuntimeError>;
+    async fn drop_pending_certificate(&self) -> Result<Option<CertificatePending>, RuntimeError>;
 
     async fn is_multisig_created(&self) -> Result<bool, RuntimeError>;
 
@@ -130,7 +130,11 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .get_current_beacon()
             .await?;
 
-        debug!("checking if there is a new beacon: {:?}", current_beacon);
+        debug!(
+            "checking if there is a new beacon";
+            "known_beacon" => #?maybe_beacon,
+            "up_to_date_beacon" => #?current_beacon,
+        );
 
         match maybe_beacon {
             Some(beacon) if current_beacon > beacon => Ok(Some(current_beacon)),
@@ -276,21 +280,13 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .map_err(|e| e.into())
     }
 
-    async fn drop_pending_certificate(&self) -> Result<CertificatePending, RuntimeError> {
+    async fn drop_pending_certificate(&self) -> Result<Option<CertificatePending>, RuntimeError> {
         info!("drop pending certificate");
 
-        let certificate_pending = self
-            .dependencies
-            .certificate_pending_store
-            .remove()
-            .await?
-            .ok_or_else(|| {
-                RuntimeError::General(
-                    "no certificate pending for the given beacon"
-                        .to_string()
-                        .into(),
-                )
-            })?;
+        let certificate_pending = self.dependencies.certificate_pending_store.remove().await?;
+        if certificate_pending.is_none() {
+            warn!("drop_pending_certificate::no certificate pending in store, did the previous loop crashed ?");
+        }
 
         Ok(certificate_pending)
     }
@@ -692,7 +688,7 @@ pub mod tests {
             .unwrap();
 
         let cert = runner.drop_pending_certificate().await.unwrap();
-        assert_eq!(pending_certificate, cert);
+        assert_eq!(Some(pending_certificate), cert);
         let maybe_saved_cert = deps.certificate_pending_store.get().await.unwrap();
         assert_eq!(None, maybe_saved_cert);
     }
@@ -700,16 +696,15 @@ pub mod tests {
     #[tokio::test]
     async fn test_drop_pending_no_certificate() {
         let (deps, config) = initialize_dependencies().await;
-        let runner = AggregatorRunner::new(config, Arc::new(deps));
+        let deps = Arc::new(deps);
+        let runner = AggregatorRunner::new(config, deps.clone());
         let beacon = runner.is_new_beacon(None).await.unwrap().unwrap();
         runner.update_beacon(&beacon).await.unwrap();
-        let res = runner.drop_pending_certificate().await;
-        assert!(res.is_err());
-        let err = res.unwrap_err();
-        assert_eq!(
-            "general error: no certificate pending for the given beacon".to_string(),
-            err.to_string()
-        );
+
+        let cert = runner.drop_pending_certificate().await.unwrap();
+        assert_eq!(None, cert);
+        let maybe_saved_cert = deps.certificate_pending_store.get().await.unwrap();
+        assert_eq!(None, maybe_saved_cert);
     }
 
     #[tokio::test]
