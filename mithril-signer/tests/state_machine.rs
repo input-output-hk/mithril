@@ -30,6 +30,7 @@ struct StateMachineTester {
     protocol_initializer_store: Arc<ProtocolInitializerStore>,
     stake_store: Arc<StakeStore>,
     comment_no: u32,
+    _logs_guard: slog_scope::GlobalLoggerGuard,
 }
 
 impl StateMachineTester {
@@ -45,6 +46,12 @@ impl StateMachineTester {
             run_interval: 5000,
             data_stores_directory: PathBuf::new(),
         };
+
+        let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
+        let drain = slog_term::CompactFormat::new(decorator).build().fuse();
+        let drain = slog_async::Async::new(drain).build().fuse();
+        let logs_guard =
+            slog_scope::set_global_logger(slog::Logger::root(Arc::new(drain), slog::o!()));
 
         let immutable_observer = Arc::new(DumbImmutableFileObserver::new());
         immutable_observer.shall_return(Some(1)).await;
@@ -105,6 +112,7 @@ impl StateMachineTester {
             protocol_initializer_store,
             stake_store,
             comment_no: 0,
+            _logs_guard: logs_guard,
         }
     }
 
@@ -218,11 +226,6 @@ impl StateMachineTester {
 
 #[tokio::test]
 async fn test_create_single_signature() {
-    let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
-    let drain = slog_term::CompactFormat::new(decorator).build().fuse();
-    let drain = slog_async::Async::new(drain).build().fuse();
-    let _guard = slog_scope::set_global_logger(slog::Logger::root(Arc::new(drain), slog::o!()));
-
     let mut tester = StateMachineTester::init().await;
 
     tester
