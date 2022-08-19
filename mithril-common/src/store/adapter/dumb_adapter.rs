@@ -4,7 +4,7 @@ use async_trait::async_trait;
 /// A [StoreAdapter] that store one fixed data record, for testing purpose.
 pub struct DumbStoreAdapter<K, R> {
     last_key: Option<K>,
-    last_certificate: Option<R>,
+    last_value: Option<R>,
 }
 
 impl<K, R> DumbStoreAdapter<K, R> {
@@ -12,7 +12,7 @@ impl<K, R> DumbStoreAdapter<K, R> {
     pub fn new() -> Self {
         Self {
             last_key: None,
-            last_certificate: None,
+            last_value: None,
         }
     }
 }
@@ -41,14 +41,14 @@ where
         let record = record.clone();
 
         self.last_key = Some(key);
-        self.last_certificate = Some(record);
+        self.last_value = Some(record);
 
         Ok(())
     }
 
     async fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
         if self.record_exists(key).await? {
-            Ok(self.last_certificate.as_ref().cloned())
+            Ok(self.last_value.as_ref().cloned())
         } else {
             Ok(None)
         }
@@ -66,7 +66,7 @@ where
             match &self.last_key {
                 Some(_key) => Ok(vec![(
                     self.last_key.as_ref().cloned().unwrap(),
-                    self.last_certificate.as_ref().cloned().unwrap(),
+                    self.last_value.as_ref().cloned().unwrap(),
                 )]),
                 None => Ok(Vec::new()),
             }
@@ -78,12 +78,20 @@ where
     async fn remove(&mut self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
         if let Some(record) = self.get_record(key).await? {
             self.last_key = None;
-            self.last_certificate = None;
+            self.last_value = None;
 
             Ok(Some(record))
         } else {
             Ok(None)
         }
+    }
+
+    async fn get_iter(&self) -> Result<Box<dyn Iterator<Item = Self::Record> + '_>, AdapterError> {
+        let mut values = vec![];
+        if let Some(value) = &self.last_value {
+            values.push(value.clone());
+        }
+        Ok(Box::new(values.into_iter()))
     }
 }
 
@@ -179,5 +187,25 @@ mod tests {
         let maybe_record = adapter.remove(&0).await.unwrap();
 
         assert!(maybe_record.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_iter_record() {
+        let mut adapter: DumbStoreAdapter<u64, String> = DumbStoreAdapter::new();
+        adapter
+            .store_record(&1, &"record".to_string())
+            .await
+            .unwrap();
+        let records: Vec<String> = adapter.get_iter().await.unwrap().collect();
+
+        assert_eq!(vec!["record"], records);
+    }
+
+    #[tokio::test]
+    async fn test_iter_without_record() {
+        let adapter: DumbStoreAdapter<u64, String> = DumbStoreAdapter::new();
+        let records: Vec<String> = adapter.get_iter().await.unwrap().collect();
+
+        assert!(records.is_empty());
     }
 }

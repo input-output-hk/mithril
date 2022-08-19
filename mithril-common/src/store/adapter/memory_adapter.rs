@@ -93,6 +93,15 @@ where
     async fn remove(&mut self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
         Ok(self.values.remove(key))
     }
+
+    async fn get_iter(&self) -> Result<Box<dyn Iterator<Item = Self::Record> + '_>, AdapterError> {
+        Ok(Box::new(
+            self.index
+                .iter()
+                .rev()
+                .map(|k| self.values.get(k).unwrap().clone()),
+        ))
+    }
 }
 
 #[cfg(test)]
@@ -195,5 +204,24 @@ mod tests {
         let maybe_record = adapter.remove(&0).await.unwrap();
 
         assert!(maybe_record.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_iter_record() {
+        let adapter = init_adapter(5);
+        let records: Vec<String> = adapter.get_iter().await.unwrap().collect();
+
+        assert_eq!(
+            vec!["value 5", "value 4", "value 3", "value 2", "value 1"],
+            records
+        );
+    }
+
+    #[tokio::test]
+    async fn test_iter_without_record() {
+        let adapter = init_adapter(0);
+        let records = adapter.get_iter().await.unwrap();
+
+        assert_eq!(0, records.count());
     }
 }

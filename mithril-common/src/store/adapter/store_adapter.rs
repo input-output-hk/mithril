@@ -57,4 +57,7 @@ pub trait StoreAdapter: Sync + Send {
     ///
     /// if the value exists it is returned by the adapter otherwise None is returned
     async fn remove(&mut self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError>;
+
+    /// Get an iterator over the stored values, from the latest to the oldest.
+    async fn get_iter(&self) -> Result<Box<dyn Iterator<Item = Self::Record> + '_>, AdapterError>;
 }

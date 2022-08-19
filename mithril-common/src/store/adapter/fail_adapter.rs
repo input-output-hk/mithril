@@ -69,6 +69,12 @@ where
             "Fail adapter always fails".to_string(),
         ))
     }
+
+    async fn get_iter(&self) -> Result<Box<dyn Iterator<Item = Self::Record> + '_>, AdapterError> {
+        Err(AdapterError::GeneralError(
+            "Fail adapter always fails".to_string(),
+        ))
+    }
 }
 
 #[cfg(test)]
@@ -126,5 +132,11 @@ mod tests {
     async fn test_remove_existing_record() {
         let mut adapter: FailStoreAdapter<u64, String> = FailStoreAdapter::new();
         assert!(adapter.remove(&0).await.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_get_iter() {
+        let adapter: FailStoreAdapter<u64, String> = FailStoreAdapter::new();
+        assert!(adapter.get_iter().await.is_err());
     }
 }
