@@ -10,7 +10,7 @@ use mithril_common::entities::{Certificate, ProtocolMessagePartKey, ProtocolPara
 #[cfg(test)]
 use mockall::automock;
 
-use crate::{AggregatorHandler, AggregatorHandlerError};
+use crate::AggregatorHandlerError;
 
 /// [Verifier::verify_multi_signature] related errors.
 #[derive(Error, Debug)]
@@ -53,6 +53,16 @@ pub enum ProtocolError {
     CertificateChainInfiniteLoop,
 }
 
+#[cfg_attr(test, automock)]
+#[async_trait]
+pub trait CertificateRetriever: Sync + Send {
+    /// Get certificate details
+    async fn get_certificate_details(
+        &self,
+        certificate_hash: &str,
+    ) -> Result<Certificate, AggregatorHandlerError>;
+}
+
 /// Verifier is the cryptographic engine in charge of verifying multi signatures and certificates
 #[cfg_attr(test, automock)]
 #[async_trait]
@@ -66,6 +76,19 @@ pub trait Verifier: Send + Sync {
         protocol_parameters: &ProtocolParameters,
     ) -> Result<(), ProtocolError>;
 
+    /// Verify Genesis certificate
+    async fn verify_genesis_certificate(
+        &self,
+        _certificate: &Certificate,
+    ) -> Result<Option<Certificate>, ProtocolError>;
+
+    /// Verify Standard certificate
+    async fn verify_standard_certificate(
+        &self,
+        certificate: &Certificate,
+        certificate_retriever: Arc<dyn CertificateRetriever>,
+    ) -> Result<Option<Certificate>, ProtocolError>;
+
     /// Verify if a Certificate is valid and returns the previous Certificate in the chain if exists
     /// Step 1: Check if the hash is valid (i.e. the Certificate has not been tampered by modifying its content)
     /// Step 2: Check that the multi signature is valid if it is a Standard Certificate (i.e verifiction of the Mithril multi signature)
@@ -73,15 +96,20 @@ pub trait Verifier: Send + Sync {
     async fn verify_certificate(
         &self,
         certificate: &Certificate,
+        certificate_retriever: Arc<dyn CertificateRetriever>,
     ) -> Result<Option<Certificate>, ProtocolError>;
 
     /// Verify that the Certificate Chain associated to a Certificate is valid
     async fn verify_certificate_chain(
         &self,
         certificate: Certificate,
+        certificate_retriever: Arc<dyn CertificateRetriever>,
     ) -> Result<(), ProtocolError> {
         let mut certificate = certificate;
-        while let Some(previous_certificate) = self.verify_certificate(&certificate).await? {
+        while let Some(previous_certificate) = self
+            .verify_certificate(&certificate, certificate_retriever.clone())
+            .await?
+        {
             certificate = previous_certificate;
         }
         Ok(())
@@ -89,15 +117,47 @@ pub trait Verifier: Send + Sync {
 }
 
 /// VerifierImpl is an implementation of the Verifier
-pub struct VerifierImpl {
-    aggregator_handler: Arc<dyn AggregatorHandler>,
-}
+pub struct VerifierImpl {}
 
 impl VerifierImpl {
     /// VerifierImpl factory
-    pub fn new(aggregator_handler: Arc<dyn AggregatorHandler>) -> Self {
+    pub fn new() -> Self {
         debug!("New VerifierImpl created");
-        Self { aggregator_handler }
+        Self {}
+    }
+}
+
+impl Default for VerifierImpl {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[async_trait]
+impl Verifier for VerifierImpl {
+    /// Verify a multi signature
+    fn verify_multi_signature(
+        &self,
+        message: &[u8],
+        multi_signature: &str,
+        aggregate_verification_key: &str,
+        protocol_parameters: &ProtocolParameters,
+    ) -> Result<(), ProtocolError> {
+        debug!(
+            "Verify multi signature for {:?}",
+            message.encode_hex::<String>()
+        );
+        let multi_signature: ProtocolMultiSignature =
+            key_decode_hex(multi_signature).map_err(ProtocolError::Codec)?;
+        let aggregate_verification_key =
+            key_decode_hex(aggregate_verification_key).map_err(ProtocolError::Codec)?;
+        multi_signature
+            .verify(
+                message,
+                &aggregate_verification_key,
+                &protocol_parameters.to_owned().into(),
+            )
+            .map_err(|e| ProtocolError::VerifyMultiSignature(e.to_string()))
     }
 
     /// Verify Genesis certificate
@@ -114,6 +174,7 @@ impl VerifierImpl {
     async fn verify_standard_certificate(
         &self,
         certificate: &Certificate,
+        certificate_retriever: Arc<dyn CertificateRetriever>,
     ) -> Result<Option<Certificate>, ProtocolError> {
         self.verify_multi_signature(
             certificate.signed_message.as_bytes(),
@@ -121,8 +182,7 @@ impl VerifierImpl {
             &certificate.aggregate_verification_key,
             &certificate.metadata.protocol_parameters,
         )?;
-        let previous_certificate = &self
-            .aggregator_handler
+        let previous_certificate = certificate_retriever
             .get_certificate_details(&certificate.previous_hash)
             .await
             .map_err(ProtocolError::AggregatorHandler)?;
@@ -161,39 +221,12 @@ impl VerifierImpl {
             }
         }
     }
-}
-
-#[async_trait]
-impl Verifier for VerifierImpl {
-    /// Verify a multi signature
-    fn verify_multi_signature(
-        &self,
-        message: &[u8],
-        multi_signature: &str,
-        aggregate_verification_key: &str,
-        protocol_parameters: &ProtocolParameters,
-    ) -> Result<(), ProtocolError> {
-        debug!(
-            "Verify multi signature for {:?}",
-            message.encode_hex::<String>()
-        );
-        let multi_signature: ProtocolMultiSignature =
-            key_decode_hex(multi_signature).map_err(ProtocolError::Codec)?;
-        let aggregate_verification_key =
-            key_decode_hex(aggregate_verification_key).map_err(ProtocolError::Codec)?;
-        multi_signature
-            .verify(
-                message,
-                &aggregate_verification_key,
-                &protocol_parameters.to_owned().into(),
-            )
-            .map_err(|e| ProtocolError::VerifyMultiSignature(e.to_string()))
-    }
 
     /// Verify a certificate
     async fn verify_certificate(
         &self,
         certificate: &Certificate,
+        certificate_retriever: Arc<dyn CertificateRetriever>,
     ) -> Result<Option<Certificate>, ProtocolError> {
         debug!("Verify certificate {:#?}", certificate);
         println!(
@@ -210,26 +243,62 @@ impl Verifier for VerifierImpl {
             previous_hash if previous_hash == certificate.hash => {
                 Err(ProtocolError::CertificateChainInfiniteLoop)
             }
-            _ => self.verify_standard_certificate(certificate).await,
+            _ => {
+                self.verify_standard_certificate(certificate, certificate_retriever)
+                    .await
+            }
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use async_trait::async_trait;
+    use mockall::mock;
 
+    use super::CertificateRetriever;
     use super::*;
+    use crate::AggregatorHandler;
 
-    use crate::aggregator::MockAggregatorHandler;
     use mithril_common::crypto_helper::tests_setup::*;
     use mithril_common::crypto_helper::{key_encode_hex, ProtocolClerk};
+    use mithril_common::entities::Snapshot;
+
+    mock! {
+        pub AggregatorHandlerImpl { }
+
+        #[async_trait]
+        impl CertificateRetriever for AggregatorHandlerImpl {
+
+            async fn get_certificate_details(
+                &self,
+                certificate_hash: &str,
+            ) -> Result<Certificate, AggregatorHandlerError>;
+        }
+
+        #[async_trait]
+        impl AggregatorHandler for AggregatorHandlerImpl {
+            async fn list_snapshots(&self) -> Result<Vec<Snapshot>, AggregatorHandlerError>;
+
+            async fn get_snapshot_details(&self, digest: &str) -> Result<Snapshot, AggregatorHandlerError>;
+
+            async fn download_snapshot(
+                &self,
+                digest: &str,
+                location: &str,
+            ) -> Result<String, AggregatorHandlerError>;
+
+            async fn unpack_snapshot(&self, digest: &str) -> Result<String, AggregatorHandlerError>;
+
+            fn as_certificate_retriever(&self) -> Arc<dyn CertificateRetriever>;
+        }
+    }
 
     #[test]
     fn test_verify_multi_signature_ok() {
         let protocol_parameters = setup_protocol_parameters();
         let signers = setup_signers(5);
         let message = setup_message();
-        let mock_aggregator_handler = MockAggregatorHandler::new();
 
         let mut single_signatures = Vec::new();
         signers.iter().for_each(|(_, _, _, protocol_signer, _)| {
@@ -245,7 +314,7 @@ mod tests {
             .aggregate(&single_signatures, message.compute_hash().as_bytes())
             .unwrap();
 
-        let verifier = VerifierImpl::new(Arc::new(mock_aggregator_handler));
+        let verifier = VerifierImpl::new();
         let protocol_parameters = protocol_parameters.into();
         let message_tampered = message.compute_hash().as_bytes()[1..].to_vec();
         assert!(
@@ -276,13 +345,15 @@ mod tests {
         let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
         let fake_certificate1 = fake_certificates[0].clone();
         let fake_certificate2 = fake_certificates[1].clone();
-        let mut mock_aggregator_handler = MockAggregatorHandler::new();
+        let mut mock_aggregator_handler = MockAggregatorHandlerImpl::new();
         mock_aggregator_handler
             .expect_get_certificate_details()
             .returning(move |_| Ok(fake_certificate2.clone()))
             .times(1);
-        let verifier = VerifierImpl::new(Arc::new(mock_aggregator_handler));
-        let verify = verifier.verify_certificate(&fake_certificate1).await;
+        let verifier = VerifierImpl::new();
+        let verify = verifier
+            .verify_certificate(&fake_certificate1, Arc::new(mock_aggregator_handler))
+            .await;
         verify.expect("unexpected error");
     }
 
@@ -293,13 +364,15 @@ mod tests {
         let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
         let fake_certificate1 = fake_certificates[0].clone();
         let fake_certificate2 = fake_certificates[1].clone();
-        let mut mock_aggregator_handler = MockAggregatorHandler::new();
+        let mut mock_aggregator_handler = MockAggregatorHandlerImpl::new();
         mock_aggregator_handler
             .expect_get_certificate_details()
             .returning(move |_| Ok(fake_certificate2.clone()))
             .times(1);
-        let verifier = VerifierImpl::new(Arc::new(mock_aggregator_handler));
-        let verify = verifier.verify_certificate(&fake_certificate1).await;
+        let verifier = VerifierImpl::new();
+        let verify = verifier
+            .verify_certificate(&fake_certificate1, Arc::new(mock_aggregator_handler))
+            .await;
         verify.expect("unexpected error");
     }
 
@@ -312,13 +385,15 @@ mod tests {
         let mut fake_certificate2 = fake_certificates[1].clone();
         fake_certificate2.previous_hash = "another-hash".to_string();
         fake_certificate2.hash = fake_certificate2.compute_hash();
-        let mut mock_aggregator_handler = MockAggregatorHandler::new();
+        let mut mock_aggregator_handler = MockAggregatorHandlerImpl::new();
         mock_aggregator_handler
             .expect_get_certificate_details()
             .returning(move |_| Ok(fake_certificate2.clone()))
             .times(1);
-        let verifier = VerifierImpl::new(Arc::new(mock_aggregator_handler));
-        let verify = verifier.verify_certificate(&fake_certificate1).await;
+        let verifier = VerifierImpl::new();
+        let verify = verifier
+            .verify_certificate(&fake_certificate1, Arc::new(mock_aggregator_handler))
+            .await;
         assert!(
             matches!(
                 verify,
@@ -343,13 +418,15 @@ mod tests {
         fake_certificate2.hash = fake_certificate2.compute_hash();
         fake_certificate1.previous_hash = fake_certificate2.hash.clone();
         fake_certificate1.hash = fake_certificate1.compute_hash();
-        let mut mock_aggregator_handler = MockAggregatorHandler::new();
+        let mut mock_aggregator_handler = MockAggregatorHandlerImpl::new();
         mock_aggregator_handler
             .expect_get_certificate_details()
             .returning(move |_| Ok(fake_certificate2.clone()))
             .times(1);
-        let verifier = VerifierImpl::new(Arc::new(mock_aggregator_handler));
-        let verify = verifier.verify_certificate(&fake_certificate1).await;
+        let verifier = VerifierImpl::new();
+        let verify = verifier
+            .verify_certificate(&fake_certificate1, Arc::new(mock_aggregator_handler))
+            .await;
         assert!(
             matches!(verify, Err(ProtocolError::CertificateChainAVKUnmatch)),
             "unexpected error type: {:?}",
@@ -364,9 +441,11 @@ mod tests {
         let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
         let mut fake_certificate1 = fake_certificates[0].clone();
         fake_certificate1.hash = "another-hash".to_string();
-        let mock_aggregator_handler = MockAggregatorHandler::new();
-        let verifier = VerifierImpl::new(Arc::new(mock_aggregator_handler));
-        let verify = verifier.verify_certificate(&fake_certificate1).await;
+        let mock_aggregator_handler = MockAggregatorHandlerImpl::new();
+        let verifier = VerifierImpl::new();
+        let verify = verifier
+            .verify_certificate(&fake_certificate1, Arc::new(mock_aggregator_handler))
+            .await;
         assert!(
             matches!(verify, Err(ProtocolError::CertificateHashUnmatch)),
             "unexpected error type: {:?}",
@@ -379,7 +458,7 @@ mod tests {
         let total_certificates = 15;
         let certificates_per_epoch = 2;
         let fake_certificates = setup_certificate_chain(total_certificates, certificates_per_epoch);
-        let mut mock_aggregator_handler = MockAggregatorHandler::new();
+        let mut mock_aggregator_handler = MockAggregatorHandlerImpl::new();
         let certificate_to_verify = fake_certificates[0].clone();
         for fake_certificate in fake_certificates.into_iter().skip(1) {
             mock_aggregator_handler
@@ -387,9 +466,9 @@ mod tests {
                 .returning(move |_| Ok(fake_certificate.clone()))
                 .times(1);
         }
-        let verifier = VerifierImpl::new(Arc::new(mock_aggregator_handler));
+        let verifier = VerifierImpl::new();
         let verify = verifier
-            .verify_certificate_chain(certificate_to_verify)
+            .verify_certificate_chain(certificate_to_verify, Arc::new(mock_aggregator_handler))
             .await;
         verify.expect("unexpected error");
     }
@@ -402,7 +481,7 @@ mod tests {
             setup_certificate_chain(total_certificates, certificates_per_epoch);
         let index_certificate_fail = (total_certificates / 2) as usize;
         fake_certificates[index_certificate_fail].hash = "tampered-hash".to_string();
-        let mut mock_aggregator_handler = MockAggregatorHandler::new();
+        let mut mock_aggregator_handler = MockAggregatorHandlerImpl::new();
         let certificate_to_verify = fake_certificates[0].clone();
         for fake_certificate in fake_certificates
             .into_iter()
@@ -414,9 +493,9 @@ mod tests {
                 .returning(move |_| Ok(fake_certificate.clone()))
                 .times(1);
         }
-        let verifier = VerifierImpl::new(Arc::new(mock_aggregator_handler));
+        let verifier = VerifierImpl::new();
         let verify = verifier
-            .verify_certificate_chain(certificate_to_verify)
+            .verify_certificate_chain(certificate_to_verify, Arc::new(mock_aggregator_handler))
             .await;
         assert!(
             matches!(

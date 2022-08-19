@@ -8,13 +8,13 @@ use std::fs;
 use std::io::{self, Write};
 use std::path;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tar::Archive;
 use thiserror::Error;
 
 use mithril_common::entities::{Certificate, Snapshot};
 
-#[cfg(test)]
-use mockall::automock;
+use crate::verifier::CertificateRetriever;
 
 /// [AggregatorHandler] related errors.
 #[derive(Error, Debug)]
@@ -46,9 +46,8 @@ pub enum AggregatorHandlerError {
 }
 
 /// AggregatorHandler represents a read interactor with an aggregator
-#[cfg_attr(test, automock)]
 #[async_trait]
-pub trait AggregatorHandler: Sync + Send {
+pub trait AggregatorHandler: CertificateRetriever + Sync + Send {
     /// List snapshots
     async fn list_snapshots(&self) -> Result<Vec<Snapshot>, AggregatorHandlerError>;
 
@@ -65,14 +64,12 @@ pub trait AggregatorHandler: Sync + Send {
     /// Unpack snapshot
     async fn unpack_snapshot(&self, digest: &str) -> Result<String, AggregatorHandlerError>;
 
-    /// Get certificate details
-    async fn get_certificate_details(
-        &self,
-        certificate_hash: &str,
-    ) -> Result<Certificate, AggregatorHandlerError>;
+    /// Upcast to a CertificateRetriever
+    fn as_certificate_retriever(&self) -> Arc<dyn CertificateRetriever>;
 }
 
 /// AggregatorHTTPClient is a http client for an aggregator
+#[derive(Clone)]
 pub struct AggregatorHTTPClient {
     network: String,
     aggregator_endpoint: String,
@@ -204,6 +201,14 @@ impl AggregatorHandler for AggregatorHTTPClient {
         Ok(unpack_dir_path.into_os_string().into_string().unwrap())
     }
 
+    /// Upcast to a CertificateRetriever
+    fn as_certificate_retriever(&self) -> Arc<dyn CertificateRetriever> {
+        Arc::new(self.clone())
+    }
+}
+
+#[async_trait]
+impl CertificateRetriever for AggregatorHTTPClient {
     /// Get certificate details
     async fn get_certificate_details(
         &self,

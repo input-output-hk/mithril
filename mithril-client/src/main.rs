@@ -92,7 +92,7 @@ async fn main() -> Result<(), String> {
         config.network.clone(),
         config.aggregator_endpoint.clone(),
     ));
-    let verifier = Box::new(VerifierImpl::new(aggregator_handler.clone()));
+    let verifier = Box::new(VerifierImpl::new());
 
     // Init runtime
     let mut runtime = Runtime::new(config.network.clone());
