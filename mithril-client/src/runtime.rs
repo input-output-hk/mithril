@@ -6,7 +6,7 @@ use thiserror::Error;
 
 use crate::aggregator::{AggregatorHandler, AggregatorHandlerError};
 use crate::entities::*;
-use crate::verifier::{ProtocolError, Verifier};
+use crate::verifier::{CertificateRetrieverError, ProtocolError, Verifier};
 
 use mithril_common::digesters::{
     CardanoImmutableDigester, ImmutableDigester, ImmutableDigesterError,
@@ -37,6 +37,11 @@ pub enum RuntimeError {
     /// a [AggregatorHandler].
     #[error("aggregator handler error: '{0}'")]
     AggregatorHandler(#[from] AggregatorHandlerError),
+
+    /// Error raised when a CertificateRetrieverError tries to retrieve a
+    /// [certificate](https://mithril.network/mithril-common/doc/mithril_common/entities/struct.Certificate.html)
+    #[error("certificate retriever error: '{0}'")]
+    CertificateRetriever(#[from] CertificateRetrieverError),
 
     /// Error raised when the digest computation fails.
     #[error("immutale digester error: '{0}'")]
@@ -127,8 +132,7 @@ impl Runtime {
         Ok(self
             .get_aggregator_handler()?
             .list_snapshots()
-            .await
-            .map_err(RuntimeError::AggregatorHandler)?
+            .await?
             .iter()
             .map(|snapshot| convert_to_list_item(snapshot, self.network.clone()))
             .collect::<Vec<SnapshotListItem>>())
@@ -144,8 +148,7 @@ impl Runtime {
             &self
                 .get_aggregator_handler()?
                 .get_snapshot_details(digest)
-                .await
-                .map_err(RuntimeError::AggregatorHandler)?,
+                .await?,
             self.network.clone(),
         ))
     }
@@ -160,8 +163,7 @@ impl Runtime {
         let snapshot = self
             .get_aggregator_handler()?
             .get_snapshot_details(digest)
-            .await
-            .map_err(RuntimeError::AggregatorHandler)?;
+            .await?;
         let from = snapshot
             .locations
             .get((location_index - 1) as usize)
@@ -183,18 +185,15 @@ impl Runtime {
         let snapshot = &self
             .get_aggregator_handler()?
             .get_snapshot_details(digest)
-            .await
-            .map_err(RuntimeError::AggregatorHandler)?;
+            .await?;
         let certificate = self
             .get_aggregator_handler()?
             .get_certificate_details(&snapshot.certificate_hash)
-            .await
-            .map_err(RuntimeError::AggregatorHandler)?;
+            .await?;
         let unpacked_path = &self
             .get_aggregator_handler()?
             .unpack_snapshot(digest)
-            .await
-            .map_err(RuntimeError::AggregatorHandler)?;
+            .await?;
         if self.get_digester().is_err() {
             self.with_digester(Box::new(CardanoImmutableDigester::new(
                 Path::new(unpacked_path).into(),
@@ -204,8 +203,7 @@ impl Runtime {
         let unpacked_snapshot_digest = self
             .get_digester()?
             .compute_digest(&certificate.beacon)
-            .await
-            .map_err(RuntimeError::ImmutableDigester)?;
+            .await?;
         let mut protocol_message = certificate.protocol_message.clone();
         protocol_message.set_message_part(
             ProtocolMessagePartKey::SnapshotDigest,
@@ -273,7 +271,9 @@ mod tests {
     use mockall::mock;
 
     use crate::aggregator::AggregatorHandlerError;
-    use crate::verifier::{CertificateRetriever, MockVerifier, ProtocolError};
+    use crate::verifier::{
+        CertificateRetriever, CertificateRetrieverError, MockVerifier, ProtocolError,
+    };
     use mithril_common::digesters::{ImmutableDigester, ImmutableDigesterError};
     use mithril_common::entities::{Beacon, Certificate};
     use mithril_common::fake_data;
@@ -299,7 +299,7 @@ mod tests {
             async fn get_certificate_details(
                 &self,
                 certificate_hash: &str,
-            ) -> Result<Certificate, AggregatorHandlerError>;
+            ) -> Result<Certificate, CertificateRetrieverError>;
         }
 
         #[async_trait]
@@ -567,8 +567,9 @@ mod tests {
         mock_aggregator_handler
             .expect_get_certificate_details()
             .return_once(move |_| {
-                Err(AggregatorHandlerError::RemoteServerTechnical(
-                    "error occurred".to_string(),
+                Err(CertificateRetrieverError::General(
+                    AggregatorHandlerError::RemoteServerTechnical("error occurred".to_string())
+                        .to_string(),
                 ))
             });
 
@@ -578,7 +579,7 @@ mod tests {
             .with_verifier(Box::new(mock_verifier));
         let restore = client.restore_snapshot(digest).await;
         assert!(
-            matches!(restore, Err(RuntimeError::AggregatorHandler(_))),
+            matches!(restore, Err(RuntimeError::CertificateRetriever(_))),
             "unexpected error type: {:?}",
             restore
         );

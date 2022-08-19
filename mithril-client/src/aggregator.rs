@@ -15,6 +15,7 @@ use thiserror::Error;
 use mithril_common::entities::{Certificate, Snapshot};
 
 use crate::verifier::CertificateRetriever;
+use crate::verifier::CertificateRetrieverError;
 
 /// [AggregatorHandler] related errors.
 #[derive(Error, Debug)]
@@ -82,6 +83,36 @@ impl AggregatorHTTPClient {
         Self {
             network,
             aggregator_endpoint,
+        }
+    }
+
+    /// Download certificate details
+    async fn download_certificate_details(
+        &self,
+        certificate_hash: &str,
+    ) -> Result<Certificate, AggregatorHandlerError> {
+        debug!("Details certificate {}", certificate_hash);
+        let url = format!(
+            "{}/certificate/{}",
+            self.aggregator_endpoint, certificate_hash
+        );
+        let response = reqwest::get(url.clone()).await;
+        match response {
+            Ok(response) => match response.status() {
+                StatusCode::OK => match response.json::<Certificate>().await {
+                    Ok(certificate) => Ok(certificate),
+                    Err(err) => Err(AggregatorHandlerError::JsonParseFailed(err.to_string())),
+                },
+                StatusCode::NOT_FOUND => Err(AggregatorHandlerError::RemoteServerLogical(
+                    "certificate not found".to_string(),
+                )),
+                status_error => Err(AggregatorHandlerError::RemoteServerTechnical(
+                    status_error.to_string(),
+                )),
+            },
+            Err(err) => Err(AggregatorHandlerError::RemoteServerUnreachable(
+                err.to_string(),
+            )),
         }
     }
 }
@@ -213,30 +244,10 @@ impl CertificateRetriever for AggregatorHTTPClient {
     async fn get_certificate_details(
         &self,
         certificate_hash: &str,
-    ) -> Result<Certificate, AggregatorHandlerError> {
-        debug!("Details certificate {}", certificate_hash);
-        let url = format!(
-            "{}/certificate/{}",
-            self.aggregator_endpoint, certificate_hash
-        );
-        let response = reqwest::get(url.clone()).await;
-        match response {
-            Ok(response) => match response.status() {
-                StatusCode::OK => match response.json::<Certificate>().await {
-                    Ok(certificate) => Ok(certificate),
-                    Err(err) => Err(AggregatorHandlerError::JsonParseFailed(err.to_string())),
-                },
-                StatusCode::NOT_FOUND => Err(AggregatorHandlerError::RemoteServerLogical(
-                    "certificate not found".to_string(),
-                )),
-                status_error => Err(AggregatorHandlerError::RemoteServerTechnical(
-                    status_error.to_string(),
-                )),
-            },
-            Err(err) => Err(AggregatorHandlerError::RemoteServerUnreachable(
-                err.to_string(),
-            )),
-        }
+    ) -> Result<Certificate, CertificateRetrieverError> {
+        self.download_certificate_details(certificate_hash)
+            .await
+            .map_err(|e| CertificateRetrieverError::General(e.to_string()))
     }
 }
 

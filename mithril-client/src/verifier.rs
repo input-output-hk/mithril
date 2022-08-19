@@ -10,9 +10,7 @@ use mithril_common::entities::{Certificate, ProtocolMessagePartKey, ProtocolPara
 #[cfg(test)]
 use mockall::automock;
 
-use crate::AggregatorHandlerError;
-
-/// [Verifier::verify_multi_signature] related errors.
+/// [Verifier] related errors.
 #[derive(Error, Debug)]
 pub enum ProtocolError {
     /// Error raised when the multi signatures verification fails.
@@ -23,10 +21,10 @@ pub enum ProtocolError {
     #[error("codec error: '{0}'")]
     Codec(String),
 
-    /// Error raised when an [AggregatorHandlerError] is caught when querying the aggregator using
-    /// a [AggregatorHandler].
-    #[error("aggregator handler error: '{0}'")]
-    AggregatorHandler(#[from] AggregatorHandlerError),
+    /// Error raised when a CertificateRetriever tries to retrieve
+    /// a [certificate](https://mithril.network/mithril-common/doc/mithril_common/entities/struct.Certificate.html)
+    #[error("certificate retriever error: '{0}'")]
+    CertificateRetriever(#[from] CertificateRetrieverError),
 
     /// Error raised when the hash stored in a
     /// [certificate](https://mithril.network/mithril-common/doc/mithril_common/entities/struct.Certificate.html)
@@ -53,6 +51,14 @@ pub enum ProtocolError {
     CertificateChainInfiniteLoop,
 }
 
+/// [CertificateRetriever] related errors.
+#[derive(Error, Debug)]
+pub enum CertificateRetrieverError {
+    /// Error raised when a [CertificateRetriever] tries to retrieve a [certificate](https://mithril.network/mithril-common/doc/mithril_common/entities/struct.Certificate.html)
+    #[error("general error: '{0}'")]
+    General(String),
+}
+
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait CertificateRetriever: Sync + Send {
@@ -60,7 +66,7 @@ pub trait CertificateRetriever: Sync + Send {
     async fn get_certificate_details(
         &self,
         certificate_hash: &str,
-    ) -> Result<Certificate, AggregatorHandlerError>;
+    ) -> Result<Certificate, CertificateRetrieverError>;
 }
 
 /// Verifier is the cryptographic engine in charge of verifying multi signatures and certificates
@@ -184,8 +190,7 @@ impl Verifier for VerifierImpl {
         )?;
         let previous_certificate = certificate_retriever
             .get_certificate_details(&certificate.previous_hash)
-            .await
-            .map_err(ProtocolError::AggregatorHandler)?;
+            .await?;
         let valid_certificate_has_different_epoch_as_previous =
             |next_aggregate_verification_key: &String| -> bool {
                 next_aggregate_verification_key == &certificate.aggregate_verification_key
@@ -259,6 +264,7 @@ mod tests {
     use super::CertificateRetriever;
     use super::*;
     use crate::AggregatorHandler;
+    use crate::AggregatorHandlerError;
 
     use mithril_common::crypto_helper::tests_setup::*;
     use mithril_common::crypto_helper::{key_encode_hex, ProtocolClerk};
@@ -273,7 +279,7 @@ mod tests {
             async fn get_certificate_details(
                 &self,
                 certificate_hash: &str,
-            ) -> Result<Certificate, AggregatorHandlerError>;
+            ) -> Result<Certificate, CertificateRetrieverError>;
         }
 
         #[async_trait]
