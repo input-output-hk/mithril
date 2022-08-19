@@ -34,8 +34,6 @@ jobs:
       CARGO_PROJECT_NAME: ${{ matrix.project }}
       ARTIFACTS_BASE_NAME: ${{ matrix.project }}
       ARTIFACTS_PATTERN: ${{ matrix.project }}
-      CGO_CFLAGS_ALLOW: "-D__BLST_PORTABLE__"
-      CGO_CFLAGS: "-D__BLST_PORTABLE__"
     
     steps:
       - name: Checkout sources
@@ -154,9 +152,6 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'push' }}
     needs: [ build ]
-    env:
-      CGO_CFLAGS_ALLOW: "-D__BLST_PORTABLE__"
-      CGO_CFLAGS: "-D__BLST_PORTABLE__"
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
