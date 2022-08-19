@@ -26,6 +26,11 @@ pub trait ProtocolInitializerStorer: Sync + Send {
         &self,
         epoch: Epoch,
     ) -> Result<Option<ProtocolInitializer>, ProtocolInitializerStoreError>;
+
+    async fn get_last_protocol_initializer(
+        &self,
+        last: usize,
+    ) -> Result<Vec<(Epoch, ProtocolInitializer)>, ProtocolInitializerStoreError>;
 }
 pub struct ProtocolInitializerStore {
     adapter: RwLock<Adapter>,
@@ -62,6 +67,15 @@ impl ProtocolInitializerStorer for ProtocolInitializerStore {
     ) -> Result<Option<ProtocolInitializer>, ProtocolInitializerStoreError> {
         let record = self.adapter.read().await.get_record(&epoch).await?;
         Ok(record)
+    }
+
+    async fn get_last_protocol_initializer(
+        &self,
+        last: usize,
+    ) -> Result<Vec<(Epoch, ProtocolInitializer)>, ProtocolInitializerStoreError> {
+        let records = self.adapter.read().await.get_last_n_records(last).await?;
+
+        Ok(records)
     }
 }
 

@@ -28,6 +28,13 @@ pub trait StakeStorer {
 
     /// Get the stakes of all party at a given `epoch`.
     async fn get_stakes(&self, epoch: Epoch) -> Result<Option<StakeDistribution>, StakeStoreError>;
+
+    /// Return the last stakes recorded in the store
+    /// This is mainly used for testing right now
+    async fn get_last_stakes(
+        &self,
+        last: usize,
+    ) -> Result<Vec<(Epoch, StakeDistribution)>, StakeStoreError>;
 }
 
 /// A [StakeStorer] that use a [StoreAdapter] to store data.
@@ -60,6 +67,15 @@ impl StakeStorer for StakeStore {
 
     async fn get_stakes(&self, epoch: Epoch) -> Result<Option<StakeDistribution>, StakeStoreError> {
         Ok(self.adapter.read().await.get_record(&epoch).await?)
+    }
+
+    async fn get_last_stakes(
+        &self,
+        last: usize,
+    ) -> Result<Vec<(Epoch, StakeDistribution)>, StakeStoreError> {
+        let results = self.adapter.read().await.get_last_n_records(last).await?;
+
+        Ok(results)
     }
 }
 

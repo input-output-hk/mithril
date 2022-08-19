@@ -1,5 +1,5 @@
 use slog_scope::{debug, error, info};
-use std::{error::Error, thread::sleep, time::Duration};
+use std::{error::Error, fmt::Display, thread::sleep, time::Duration};
 
 use mithril_common::entities::{Beacon, CertificatePending, SignerWithStake};
 
@@ -20,6 +20,30 @@ pub enum SignerState {
     Unregistered,
     Registered(RegisteredState),
     Signed(SignedState),
+}
+
+impl SignerState {
+    pub fn is_unregistered(&self) -> bool {
+        *self == SignerState::Unregistered
+    }
+
+    pub fn is_registered(&self) -> bool {
+        matches!(*self, SignerState::Registered(_))
+    }
+
+    pub fn is_signed(&self) -> bool {
+        matches!(*self, SignerState::Signed(_))
+    }
+}
+
+impl Display for SignerState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::Unregistered => write!(f, "unregistered"),
+            Self::Registered(_) => write!(f, "registered"),
+            Self::Signed(_) => write!(f, "signed"),
+        }
+    }
 }
 
 pub struct StateMachine {
@@ -48,25 +72,31 @@ impl StateMachine {
     /// perform a cycle of the state machine
     pub async fn cycle(&mut self) -> Result<(), Box<dyn Error + Sync + Send>> {
         info!("================================================================================");
-        info!("New state machine cycle."; "current_state" => ?self.state);
+        debug!("STATE MACHINE: new cycle"; "current_state" => ?self.state);
 
         match &self.state {
             SignerState::Unregistered => {
                 if let Some(pending_certificate) = self.runner.get_pending_certificate().await? {
-                    debug!("Pending certificate found, launching registration.");
+                    debug!("→ Pending certificate found, transiting to REGISTERED");
                     let state = self
                         .transition_from_unregistered_to_registered(&pending_certificate)
                         .await?;
                     self.state = SignerState::Registered(state);
+                } else {
+                    debug!("⋅ Still no pending certificate, waiting…");
                 }
             }
             SignerState::Registered(state) => {
                 if let Some(_new_beacon) = self.has_epoch_changed(&state.beacon).await? {
+                    debug!("→ Epoch has changed, transiting to UNREGISTERED");
                     self.state = SignerState::Unregistered;
                 } else if let Some(pending_certificate) =
                     self.runner.get_pending_certificate().await?
                 {
+                    debug!("  Epoch has NOT changed but there is a pending certificate");
+
                     if self.runner.can_i_sign(&pending_certificate).await? {
+                        debug!(" → we can sign this certificate, transiting to SIGNED");
                         let state = self
                             .transition_from_registered_to_signed(
                                 &pending_certificate,
@@ -74,17 +104,27 @@ impl StateMachine {
                             )
                             .await?;
                         self.state = SignerState::Signed(state)
+                    } else {
+                        debug!(" ⋅ cannot sign this pending certificate, waiting…");
                     }
+                } else {
+                    debug!(" ⋅ no pending certificate, waiting…");
                 }
             }
             SignerState::Signed(state) => {
                 if let Some(new_beacon) = self.has_beacon_changed(&state.beacon).await? {
+                    info!("  New beacon detected: {:?}", new_beacon);
+
                     if new_beacon.epoch > state.beacon.epoch {
+                        debug!(" → new Epoch detected, transiting to UNREGISTERED");
                         self.state = SignerState::Unregistered;
                     } else {
+                        debug!(" → new immutable file detected, transiting to REGISTERED");
                         self.state =
                             SignerState::Registered(RegisteredState { beacon: new_beacon });
                     }
+                } else {
+                    debug!(" ⋅ NO new beacon detected, waiting");
                 }
             }
         };

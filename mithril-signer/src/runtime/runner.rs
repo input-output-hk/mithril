@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 #[cfg(test)]
 use mockall::automock;
-use slog_scope::debug;
+use slog_scope::{debug, info, trace, warn};
 use std::error::Error as StdError;
 use thiserror::Error;
 
@@ -71,13 +71,13 @@ pub trait Runner {
 
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum RuntimeError {
-    #[error("No value returned by the subsystem for `{0}`")]
+    #[error("No value returned by the subsystem for `{0}`.")]
     NoValueError(String),
-    #[error("No stake associated with this signer")]
+    #[error("No stake associated with myself.")]
     NoStakeForSelf(),
-    #[error("No stake associated with this signer, party_id: {0}")]
+    #[error("No stake associated with this signer, party_id: {0}.")]
     NoStakeForSigner(PartyId),
-    #[error("Subsystem unavailable: {0}")]
+    #[error("Subsystem unavailable: {0}.")]
     SubsystemUnavailable(String),
 }
 
@@ -98,7 +98,7 @@ impl Runner for SignerRunner {
     async fn get_pending_certificate(
         &self,
     ) -> Result<Option<CertificatePending>, Box<dyn StdError + Sync + Send>> {
-        debug!("runner: get_pending_certificate");
+        debug!("RUNNER: get_pending_certificate");
 
         self.services
             .certificate_handler
@@ -108,7 +108,7 @@ impl Runner for SignerRunner {
     }
 
     async fn get_current_beacon(&self) -> Result<Beacon, Box<dyn StdError + Sync + Send>> {
-        debug!("runner: get_current_epoch");
+        debug!("RUNNER: get_current_epoch");
 
         self.services
             .beacon_provider
@@ -122,7 +122,7 @@ impl Runner for SignerRunner {
         epoch: Epoch,
         protocol_parameters: &ProtocolParameters,
     ) -> Result<(), Box<dyn StdError + Sync + Send>> {
-        debug!("runner: register_signer_to_aggregator");
+        debug!("RUNNER: register_signer_to_aggregator");
 
         let stake_distribution = self
             .services
@@ -153,7 +153,7 @@ impl Runner for SignerRunner {
         &self,
         epoch: Epoch,
     ) -> Result<(), Box<dyn StdError + Sync + Send>> {
-        debug!("runner: update_stake_distribution");
+        debug!("RUNNER: update_stake_distribution");
 
         let stake_distribution = self
             .services
@@ -173,10 +173,12 @@ impl Runner for SignerRunner {
         &self,
         pending_certificate: &CertificatePending,
     ) -> Result<bool, Box<dyn StdError + Sync + Send>> {
-        debug!("runner: can_i_sign");
+        debug!("RUNNER: can_i_sign");
 
         if let Some(signer) = pending_certificate.get_signer(self.config.party_id.to_owned()) {
-            let protocol_initializer = self
+            debug!(" > got a Signer from pending certificate");
+
+            if let Some(protocol_initializer) = self
                 .services
                 .protocol_initializer_store
                 .get_protocol_initializer(
@@ -185,15 +187,32 @@ impl Runner for SignerRunner {
                         .epoch
                         .offset_to_signer_retrieval_epoch()?,
                 )
-                .await?;
-            let recorded_verification_key =
-                key_decode_hex::<ProtocolSignerVerificationKey>(&signer.verification_key)?;
+                .await?
+            {
+                debug!(
+                    " > got protocol initializer for this epoch ({})",
+                    pending_certificate.beacon.epoch
+                );
+                let recorded_verification_key =
+                    key_decode_hex::<ProtocolSignerVerificationKey>(&signer.verification_key)?;
 
-            Ok(protocol_initializer.is_some()
-                && recorded_verification_key == protocol_initializer.unwrap().verification_key())
+                if recorded_verification_key == protocol_initializer.verification_key() {
+                    debug!("verification keys match, we can sign");
+
+                    return Ok(true);
+                }
+                debug!(" > verification key do not match, can NOT sign");
+            } else {
+                warn!(
+                    " > NO protocol initializer found for this epoch ({})",
+                    pending_certificate.beacon.epoch
+                );
+            }
         } else {
-            Ok(false)
+            debug!(" > Signer not found in the certificate pending");
         }
+
+        Ok(false)
     }
 
     async fn associate_signers_with_stake(
@@ -201,7 +220,7 @@ impl Runner for SignerRunner {
         epoch: Epoch,
         signers: &[Signer],
     ) -> Result<Vec<SignerWithStake>, Box<dyn StdError + Sync + Send>> {
-        debug!("runner: associate_signers_with_stake");
+        debug!("RUNNER: associate_signers_with_stake");
 
         let stakes = self
             .services
@@ -221,6 +240,11 @@ impl Runner for SignerRunner {
                 signer.verification_key.to_owned(),
                 *stake,
             ));
+            trace!(
+                " > associating signer_id {} with stake {}",
+                signer.party_id,
+                *stake
+            );
         }
         Ok(signers_with_stake)
     }
@@ -230,7 +254,7 @@ impl Runner for SignerRunner {
         beacon: &Beacon,
         next_signers: &[SignerWithStake],
     ) -> Result<ProtocolMessage, Box<dyn StdError + Sync + Send>> {
-        debug!("runner: compute_message");
+        debug!("RUNNER: compute_message");
 
         let mut message = ProtocolMessage::new();
         // 1 set the digest in the message
@@ -239,6 +263,7 @@ impl Runner for SignerRunner {
             .digester
             .compute_digest(beacon.immutable_file_number)
             .await?;
+        info!(" > set message digest: {}", digest);
         message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
 
         // 2 set the next signers keys and stakes in the message
@@ -271,7 +296,7 @@ impl Runner for SignerRunner {
         message: &ProtocolMessage,
         signers: &[SignerWithStake],
     ) -> Result<Option<SingleSignatures>, Box<dyn StdError + Sync + Send>> {
-        debug!("runner: compute_single_signature");
+        debug!("RUNNER: compute_single_signature");
 
         let signer_retrieval_epoch = epoch.offset_to_signer_retrieval_epoch()?;
         let protocol_initializer = self
@@ -290,6 +315,14 @@ impl Runner for SignerRunner {
             signers,
             &protocol_initializer,
         )?;
+        info!(
+            " > {}",
+            if signature.is_some() {
+                "could compute a single signature!"
+            } else {
+                "NO single signature was computed."
+            }
+        );
 
         Ok(signature)
     }
@@ -298,15 +331,18 @@ impl Runner for SignerRunner {
         &self,
         maybe_signature: Option<SingleSignatures>,
     ) -> Result<(), Box<dyn StdError + Sync + Send>> {
-        debug!("runner: send_single_signature");
+        debug!("RUNNER: send_single_signature");
 
         if let Some(single_signatures) = maybe_signature {
+            debug!(" > there is a single signature to send");
             self.services
                 .certificate_handler
                 .register_signatures(&single_signatures)
                 .await
                 .map_err(|e| e.into())
         } else {
+            debug!(" > NO single signature to send, doing nothing");
+
             Ok(())
         }
     }
