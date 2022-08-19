@@ -1,11 +1,11 @@
 //! Key registration functionality.
 
 use crate::error::RegisterError;
+use crate::multi_sig_blast::{VerificationKey, VerificationKeyPoP};
 use digest::{Digest, FixedOutput};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::Arc;
-use crate::multi_sig_blast::{VerificationKey, VerificationKeyPoP};
 
 use super::stm::Stake;
 use crate::merkle_tree::{MTLeaf, MerkleTree};
