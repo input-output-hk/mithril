@@ -112,13 +112,13 @@ use crate::key_reg::ClosedKeyReg;
 use crate::merkle_tree::{MTLeaf, MerkleTreeCommitment, Path};
 use crate::multi_sig::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
 use blake2::digest::Digest;
+use kes_summed_ed25519::kes::{Sum6Kes, Sum6KesSig};
+use kes_summed_ed25519::traits::KesSk;
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::convert::{From, TryFrom, TryInto};
 use std::hash::{Hash, Hasher};
-use kes_summed_ed25519::kes::{Sum6Kes, Sum6KesSig};
-use kes_summed_ed25519::traits::KesSk;
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
@@ -268,7 +268,13 @@ impl StmInitializer {
     /// Builds an `StmInitializer` that is ready to register with the key registration service.
     /// This function generates the signing and verification key with a PoP, signs the verification
     /// key with a provided KES signing key, and initialises the structure.
-    pub fn setup_new<R: RngCore + CryptoRng>(params: StmParameters, kes_sk: &[u8], kes_period: usize, stake: Stake, rng: &mut R) -> Self {
+    pub fn setup_new<R: RngCore + CryptoRng>(
+        params: StmParameters,
+        kes_sk: &[u8],
+        kes_period: usize,
+        stake: Stake,
+        rng: &mut R,
+    ) -> Self {
         let sk = SigningKey::gen(rng);
         let pk = StmVerificationKeyPoP::from(&sk);
         let kes_sk = Sum6Kes::from_bytes(kes_sk).expect("Invalid KES key provided"); // todo: handle this
@@ -279,7 +285,7 @@ impl StmInitializer {
             params,
             sk,
             pk,
-            kes_sig
+            kes_sig,
         }
     }
     /// Builds an `StmInitializer` that is ready to register with the key registration service.
@@ -292,7 +298,7 @@ impl StmInitializer {
             params,
             sk,
             pk,
-            kes_sig: None
+            kes_sig: None,
         }
     }
 
@@ -369,7 +375,7 @@ impl StmInitializer {
             params,
             sk,
             pk,
-            kes_sig: None
+            kes_sig: None,
         })
     }
 }
@@ -546,7 +552,7 @@ impl<D: Clone + Digest> StmSigner<D> {
             params: self.params,
             pk: StmVerificationKeyPoP::from(&self.sk),
             sk: self.sk,
-            kes_sig: None
+            kes_sig: None,
         }
     }
 
