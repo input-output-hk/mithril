@@ -8,9 +8,6 @@ pub mod key_reg;
 mod merkle_tree;
 pub mod stm;
 
-#[cfg(feature = "blast")]
 mod multi_sig_blast;
-#[cfg(not(feature = "blast"))]
-mod multi_sig_zcash;
 
 pub use crate::error::AggregationError;
