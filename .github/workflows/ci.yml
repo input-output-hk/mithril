@@ -154,6 +154,9 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'push' }}
     needs: [ build ]
+    env:
+      CGO_CFLAGS_ALLOW: "-D__BLST_PORTABLE__"
+      CGO_CFLAGS: "-D__BLST_PORTABLE__"
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -338,8 +341,6 @@ jobs:
       DOCKER_FILE: ./${{ matrix.project }}/Dockerfile.ci
       CONTEXT: .
       GITHUB_REF: ${{ github.ref}}
-      CGO_CFLAGS_ALLOW: "-D__BLST_PORTABLE__"
-      CGO_CFLAGS: "-D__BLST_PORTABLE__"
 
     steps:
       - name: Checkout
