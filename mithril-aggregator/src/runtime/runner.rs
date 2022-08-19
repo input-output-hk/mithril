@@ -70,14 +70,17 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         pending_certificate: CertificatePending,
     ) -> Result<(), RuntimeError>;
 
-    async fn drop_pending_certificate(&self) -> Result<CertificatePending, RuntimeError>;
+    async fn drop_pending_certificate(&self) -> Result<Option<CertificatePending>, RuntimeError>;
 
     async fn is_multisig_created(&self) -> Result<bool, RuntimeError>;
 
-    /// Create an archive of the cardano node db directory.
+    /// Create an archive of the cardano node db directory naming it after the given beacon.
     ///
     /// Returns the path of the created archive and the archive size as byte.
-    async fn create_snapshot_archive(&self) -> Result<OngoingSnapshot, RuntimeError>;
+    async fn create_snapshot_archive(
+        &self,
+        beacon: &Beacon,
+    ) -> Result<OngoingSnapshot, RuntimeError>;
 
     /// Upload the snapshot at the given location using the configured uploader(s).
     ///
@@ -123,14 +126,18 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         maybe_beacon: Option<Beacon>,
     ) -> Result<Option<Beacon>, RuntimeError> {
-        info!("checking if there is a new beacon");
+        info!("RUNNER: checking if there is a new beacon");
         let current_beacon = self
             .dependencies
             .beacon_provider
             .get_current_beacon()
             .await?;
 
-        debug!("checking if there is a new beacon: {:?}", current_beacon);
+        debug!(
+            "checking if there is a new beacon";
+            "known_beacon" => #?maybe_beacon,
+            "up_to_date_beacon" => #?current_beacon,
+        );
 
         match maybe_beacon {
             Some(beacon) if current_beacon > beacon => Ok(Some(current_beacon)),
@@ -140,14 +147,14 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     async fn compute_digest(&self, new_beacon: &Beacon) -> Result<String, RuntimeError> {
-        info!("running runner::compute_digest");
+        info!("RUNNER: running runner::compute_digest");
         let digester = self.dependencies.digester.clone();
 
         debug!("computing digest"; "db_directory" => self.config.db_directory.display());
 
         debug!("launching digester thread");
         let digest = digester
-            .compute_digest(new_beacon.immutable_file_number)
+            .compute_digest(new_beacon)
             .await
             .map_err(|e| RuntimeError::General(e.into()))?;
         debug!("computed digest: {}", digest);
@@ -156,7 +163,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     async fn update_beacon(&self, new_beacon: &Beacon) -> Result<(), RuntimeError> {
-        info!("update beacon"; "beacon" => #?new_beacon);
+        info!("RUNNER: update beacon"; "beacon" => #?new_beacon);
         self.dependencies
             .multi_signer
             .write()
@@ -167,7 +174,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     async fn update_stake_distribution(&self, new_beacon: &Beacon) -> Result<(), RuntimeError> {
-        info!("update stake distribution"; "beacon" => #?new_beacon);
+        info!("RUNNER: update stake distribution"; "beacon" => #?new_beacon);
         let stake_distribution = self
             .dependencies
             .chain_observer
@@ -192,7 +199,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         new_beacon: &Beacon,
     ) -> Result<(), RuntimeError> {
-        info!("update protocol parameters"; "beacon" => #?new_beacon);
+        info!("RUNNER: update protocol parameters"; "beacon" => #?new_beacon);
         let protocol_parameters = self.dependencies.config.protocol_parameters.clone();
         Ok(self
             .dependencies
@@ -204,7 +211,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     async fn update_message_in_multisigner(&self, digest: String) -> Result<(), RuntimeError> {
-        info!("update message in multisigner");
+        info!("RUNNER: update message in multisigner");
         let mut multi_signer = self.dependencies.multi_signer.write().await;
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
@@ -226,10 +233,9 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         beacon: Beacon,
     ) -> Result<CertificatePending, RuntimeError> {
-        info!("running runner::create_pending_certificate");
+        info!("RUNNER: create new pending certificate from multisigner");
         let multi_signer = self.dependencies.multi_signer.read().await;
 
-        debug!("creating certificate pending using multisigner");
         let signers = match multi_signer.get_signers().await {
             Ok(signers) => signers,
             Err(ProtocolError::Beacon(_)) => vec![],
@@ -267,7 +273,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         pending_certificate: CertificatePending,
     ) -> Result<(), RuntimeError> {
-        info!("saving pending certificate");
+        info!("RUNNER: saving pending certificate");
 
         self.dependencies
             .certificate_pending_store
@@ -276,21 +282,13 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .map_err(|e| e.into())
     }
 
-    async fn drop_pending_certificate(&self) -> Result<CertificatePending, RuntimeError> {
-        info!("drop pending certificate");
+    async fn drop_pending_certificate(&self) -> Result<Option<CertificatePending>, RuntimeError> {
+        info!("RUNNER: drop pending certificate");
 
-        let certificate_pending = self
-            .dependencies
-            .certificate_pending_store
-            .remove()
-            .await?
-            .ok_or_else(|| {
-                RuntimeError::General(
-                    "no certificate pending for the given beacon"
-                        .to_string()
-                        .into(),
-                )
-            })?;
+        let certificate_pending = self.dependencies.certificate_pending_store.remove().await?;
+        if certificate_pending.is_none() {
+            warn!("drop_pending_certificate::no certificate pending in store, did the previous loop crashed ?");
+        }
 
         Ok(certificate_pending)
     }
@@ -298,7 +296,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     /// Is a multisignature ready?
     /// Can we create a multisignature.
     async fn is_multisig_created(&self) -> Result<bool, RuntimeError> {
-        info!("check if we can create a multisignature");
+        info!("RUNNER: check if we can create a multisignature");
         let has_multisig = self
             .dependencies
             .multi_signer
@@ -316,8 +314,11 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(has_multisig)
     }
 
-    async fn create_snapshot_archive(&self) -> Result<OngoingSnapshot, RuntimeError> {
-        info!("create snapshot archive");
+    async fn create_snapshot_archive(
+        &self,
+        beacon: &Beacon,
+    ) -> Result<OngoingSnapshot, RuntimeError> {
+        info!("RUNNER: create snapshot archive");
 
         let snapshotter = self.dependencies.snapshotter.clone();
         let protocol_message = self
@@ -333,7 +334,10 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .ok_or_else(|| {
                 RuntimeError::General("no snapshot digest message part found".to_string().into())
             })?;
-        let snapshot_name = format!("{}.{}.tar.gz", self.config.network, snapshot_digest);
+        let snapshot_name = format!(
+            "{}-e{}-i{}.{}.tar.gz",
+            beacon.network, beacon.epoch.0, beacon.immutable_file_number, snapshot_digest
+        );
         // spawn a separate thread to prevent blocking
         let ongoing_snapshot =
             tokio::task::spawn_blocking(move || -> Result<OngoingSnapshot, SnapshotError> {
@@ -351,7 +355,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         ongoing_snapshot: &OngoingSnapshot,
     ) -> Result<Vec<SnapshotLocation>, RuntimeError> {
-        info!("upload snapshot archive");
+        info!("RUNNER: upload snapshot archive");
         let location = self
             .dependencies
             .snapshot_uploader
@@ -373,7 +377,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         beacon: &Beacon,
     ) -> Result<Certificate, RuntimeError> {
-        info!("create and save certificate");
+        info!("RUNNER: create and save certificate");
         let certificate_store = self.dependencies.certificate_store.clone();
         let latest_certificates = certificate_store.get_list(2).await?;
         let last_certificate = latest_certificates.get(0);
@@ -413,6 +417,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         ongoing_snapshot: &OngoingSnapshot,
         remote_locations: Vec<String>,
     ) -> Result<Snapshot, RuntimeError> {
+        info!("RUNNER: create and save snapshot");
         let snapshot_digest = certificate
             .protocol_message
             .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
@@ -447,8 +452,9 @@ pub mod tests {
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
     };
     use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
-    use mithril_common::entities::{Beacon, CertificatePending, Epoch};
+    use mithril_common::entities::{Beacon, CertificatePending, Epoch, ProtocolMessage};
     use mithril_common::{entities::ProtocolMessagePartKey, fake_data, store::StakeStorer};
+    use std::path::Path;
     use std::sync::Arc;
     use tempfile::NamedTempFile;
     use tokio::sync::RwLock;
@@ -692,7 +698,7 @@ pub mod tests {
             .unwrap();
 
         let cert = runner.drop_pending_certificate().await.unwrap();
-        assert_eq!(pending_certificate, cert);
+        assert_eq!(Some(pending_certificate), cert);
         let maybe_saved_cert = deps.certificate_pending_store.get().await.unwrap();
         assert_eq!(None, maybe_saved_cert);
     }
@@ -700,16 +706,15 @@ pub mod tests {
     #[tokio::test]
     async fn test_drop_pending_no_certificate() {
         let (deps, config) = initialize_dependencies().await;
-        let runner = AggregatorRunner::new(config, Arc::new(deps));
+        let deps = Arc::new(deps);
+        let runner = AggregatorRunner::new(config, deps.clone());
         let beacon = runner.is_new_beacon(None).await.unwrap().unwrap();
         runner.update_beacon(&beacon).await.unwrap();
-        let res = runner.drop_pending_certificate().await;
-        assert!(res.is_err());
-        let err = res.unwrap_err();
-        assert_eq!(
-            "general error: no certificate pending for the given beacon".to_string(),
-            err.to_string()
-        );
+
+        let cert = runner.drop_pending_certificate().await.unwrap();
+        assert_eq!(None, cert);
+        let maybe_saved_cert = deps.certificate_pending_store.get().await.unwrap();
+        assert_eq!(None, maybe_saved_cert);
     }
 
     #[tokio::test]
@@ -780,6 +785,39 @@ pub mod tests {
         assert!(
             !file_path.exists(),
             "Ongoing snapshot file should have been removed after upload"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_create_snapshot_archive_name_archive_after_beacon() {
+        let beacon = Beacon::new("network".to_string(), 20, 145);
+        let mut message = ProtocolMessage::new();
+        message.set_message_part(
+            ProtocolMessagePartKey::SnapshotDigest,
+            "test+digest".to_string(),
+        );
+        let mut mock_multi_signer = MockMultiSigner::new();
+        mock_multi_signer
+            .expect_get_current_message()
+            .return_once(move || Some(message));
+        let (mut deps, config) = initialize_dependencies().await;
+        deps.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
+        let runner = AggregatorRunner::new(config, Arc::new(deps));
+
+        let ongoing_snapshot = runner
+            .create_snapshot_archive(&beacon)
+            .await
+            .expect("create_snapshot_archive should not fail");
+
+        assert_eq!(
+            Path::new(
+                format!(
+                    "{}-e{}-i{}.{}.tar.gz",
+                    beacon.network, beacon.epoch.0, beacon.immutable_file_number, "test+digest"
+                )
+                .as_str()
+            ),
+            ongoing_snapshot.get_file_path()
         );
     }
 }

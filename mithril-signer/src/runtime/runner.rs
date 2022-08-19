@@ -258,11 +258,7 @@ impl Runner for SignerRunner {
 
         let mut message = ProtocolMessage::new();
         // 1 set the digest in the message
-        let digest = self
-            .services
-            .digester
-            .compute_digest(beacon.immutable_file_number)
-            .await?;
+        let digest = self.services.digester.compute_digest(beacon).await?;
         info!(" > set message digest: {}", digest);
         message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
 

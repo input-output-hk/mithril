@@ -111,7 +111,10 @@ jobs:
         if: ${{ matrix.skip_tests != true }}
         shell: bash
         run: |
-          set -o pipefail && cargo test --release -p $CARGO_PROJECT_NAME -- -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-${{ env.ARTIFACTS_PATTERN }}.xml)
+          set -o pipefail && \
+          cargo test --release -p $CARGO_PROJECT_NAME --no-fail-fast \
+              -- -Z unstable-options --format json --report-time \
+              | tee >(cargo2junit > test-results-${{ env.ARTIFACTS_PATTERN }}.xml)
 
       - name: Upload Tests Results
         if: ${{ always() && matrix.skip_tests != true }}
@@ -186,7 +189,10 @@ jobs:
         if: ${{ matrix.skip_test != true }}
         shell: bash
         run: |
-          set -o pipefail && cargo test --release -p mithril -- -Z unstable-options --format json --report-time | tee >(cargo2junit > test-results-libmithril.xml)
+          set -o pipefail && \
+          cargo test --release -p mithril --no-fail-fast \
+              -- -Z unstable-options --format json --report-time \
+              | tee >(cargo2junit > test-results-libmithril.xml)
 
       - name: Upload Tests Results
         if: ${{ always() && matrix.skip_test != true }}

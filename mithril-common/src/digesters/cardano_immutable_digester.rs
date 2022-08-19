@@ -1,5 +1,5 @@
 use crate::digesters::{ImmutableDigester, ImmutableDigesterError, ImmutableFile};
-use crate::entities::ImmutableFileNumber;
+use crate::entities::Beacon;
 
 use async_trait::async_trait;
 use sha2::{Digest, Sha256};
@@ -29,10 +29,8 @@ impl CardanoImmutableDigester {
 
 #[async_trait]
 impl ImmutableDigester for CardanoImmutableDigester {
-    async fn compute_digest(
-        &self,
-        up_to_file_number: ImmutableFileNumber,
-    ) -> Result<String, ImmutableDigesterError> {
+    async fn compute_digest(&self, beacon: &Beacon) -> Result<String, ImmutableDigesterError> {
+        let up_to_file_number = beacon.immutable_file_number;
         let immutables = ImmutableFile::list_completed_in_dir(&*self.db_directory)?
             .into_iter()
             .filter(|f| f.number <= up_to_file_number)
@@ -50,12 +48,13 @@ impl ImmutableDigester for CardanoImmutableDigester {
                 })
             }
             Some(_) => {
-                info!(self.logger, "#immutables: {}", immutables.len());
+                info!(self.logger, "#compute_digest"; "beacon" => #?beacon, "nb_of_immutables" => immutables.len());
 
                 // digest is done in a separate thread because it is blocking the whole task
                 let logger = self.logger.clone();
+                let thread_beacon = beacon.clone();
                 let hash = tokio::task::spawn_blocking(move || -> Result<[u8; 32], io::Error> {
-                    compute_hash(logger, &immutables)
+                    compute_hash(logger, &thread_beacon, &immutables)
                 })
                 .await
                 .map_err(|e| ImmutableDigesterError::DigestComputationError(e.into()))??;
@@ -69,12 +68,18 @@ impl ImmutableDigester for CardanoImmutableDigester {
     }
 }
 
-fn compute_hash(logger: Logger, entries: &[ImmutableFile]) -> Result<[u8; 32], io::Error> {
+fn compute_hash(
+    logger: Logger,
+    beacon: &Beacon,
+    entries: &Vec<ImmutableFile>,
+) -> Result<[u8; 32], io::Error> {
     let mut hasher = Sha256::new();
     let mut progress = Progress {
         index: 0,
         total: entries.len(),
     };
+
+    hasher.update(beacon.compute_hash().as_bytes());
 
     for (ix, entry) in entries.iter().enumerate() {
         let mut file = File::open(&entry.path)?;

@@ -18,7 +18,7 @@ use mithril_common::crypto_helper::{
 };
 use mithril_common::digesters::DumbImmutableFileObserver;
 use mithril_common::entities::{
-    Certificate, ImmutableFileNumber, SignerWithStake, SingleSignatures,
+    Certificate, Epoch, ImmutableFileNumber, SignerWithStake, SingleSignatures, Snapshot,
 };
 use mithril_common::{
     chain_observer::FakeObserver,
@@ -128,17 +128,36 @@ impl RuntimeTester {
     /// Increase the immutable file number of the beacon, returns the new number.
     pub async fn increase_immutable_number(&self) -> Result<ImmutableFileNumber, String> {
         let new_immutable_number = self.immutable_file_observer.increase().await.unwrap();
-        assert_eq!(
-            new_immutable_number,
-            self.deps
-                .beacon_provider
-                .get_current_beacon()
-                .await
-                .map_err(|e| format!("Querying the current beacon should not fail: {:?}", e))?
-                .immutable_file_number
-        );
+        self.update_digester_digest().await?;
 
-        Ok(new_immutable_number)
+        let updated_number = self
+            .deps
+            .beacon_provider
+            .get_current_beacon()
+            .await
+            .map_err(|e| format!("Querying the current beacon should not fail: {:?}", e))?
+            .immutable_file_number;
+
+        if new_immutable_number == updated_number {
+            Ok(new_immutable_number)
+        } else {
+            Err(format!(
+                "beacon_provider immutable file number should've increased, expected:{} / actual:{}",
+                new_immutable_number,
+                updated_number))
+        }
+    }
+
+    /// Increase the epoch of the beacon, returns the new epoch.
+    pub async fn increase_epoch(&self) -> Result<Epoch, String> {
+        let new_epoch = self
+            .chain_observer
+            .next_epoch()
+            .await
+            .ok_or("a new epoch should have been issued")?;
+        self.update_digester_digest().await?;
+
+        Ok(new_epoch)
     }
 
     /// Register the given signers in the multi-signers
@@ -186,16 +205,24 @@ impl RuntimeTester {
         Ok(())
     }
 
-    /// Get the last 'n' certificates from the certificate store
-    pub async fn get_last_certificates(
+    /// List the certificates and snapshots from their respective stores.
+    pub async fn get_last_certificates_and_snapshots(
         &self,
-        number_of_cert_to_fetch: usize,
-    ) -> Result<Vec<Certificate>, String> {
-        self.deps
+    ) -> Result<(Vec<Certificate>, Vec<Snapshot>), String> {
+        let certificates = self
+            .deps
             .certificate_store
-            .get_list(number_of_cert_to_fetch)
+            .get_list(1000) // Arbitrary high number to get all of them in store
             .await
-            .map_err(|e| format!("Querying certificate store should not fail {:?}", e))
+            .map_err(|e| format!("Querying certificate store should not fail {:?}", e))?;
+        let snapshots = self
+            .deps
+            .snapshot_store
+            .list_snapshots()
+            .await
+            .map_err(|e| format!("Querying snapshot store should not fail {:?}", e))?;
+
+        Ok((certificates, snapshots))
     }
 
     pub async fn update_stake_distribution(
@@ -213,6 +240,25 @@ impl RuntimeTester {
                 .map(|s| (s.party_id, s.stake))
                 .collect::<Vec<_>>(),
         )
+    }
+
+    // Update the digester result using the current beacon
+    pub async fn update_digester_digest(&self) -> Result<(), String> {
+        let beacon = self
+            .deps
+            .beacon_provider
+            .get_current_beacon()
+            .await
+            .map_err(|e| format!("Querying the current beacon should not fail: {:?}", e))?;
+
+        self.digester
+            .update_digest(format!(
+                "n{}-e{}-i{}",
+                beacon.network, beacon.epoch, beacon.immutable_file_number
+            ))
+            .await;
+
+        Ok(())
     }
 }
 

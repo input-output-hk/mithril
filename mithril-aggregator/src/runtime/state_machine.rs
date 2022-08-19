@@ -152,7 +152,10 @@ impl AggregatorRuntime {
         state: SigningState,
     ) -> Result<IdleState, RuntimeError> {
         self.runner.drop_pending_certificate().await?;
-        let ongoing_snapshot = self.runner.create_snapshot_archive().await?;
+        let ongoing_snapshot = self
+            .runner
+            .create_snapshot_archive(&state.current_beacon)
+            .await?;
         let locations = self
             .runner
             .upload_snapshot_archive(&ongoing_snapshot)
@@ -325,7 +328,7 @@ mod tests {
         runner
             .expect_drop_pending_certificate()
             .times(1)
-            .returning(|| Ok(fake_data::certificate_pending()));
+            .returning(|| Ok(Some(fake_data::certificate_pending())));
 
         let state = SigningState {
             // this current beacon must be outdated so the state machine will
@@ -379,11 +382,11 @@ mod tests {
         runner
             .expect_drop_pending_certificate()
             .times(1)
-            .returning(|| Ok(fake_data::certificate_pending()));
+            .returning(|| Ok(Some(fake_data::certificate_pending())));
         runner
             .expect_create_snapshot_archive()
             .times(1)
-            .returning(|| {
+            .returning(|_| {
                 Ok(OngoingSnapshot::new(
                     Path::new("/tmp/archive.zip").to_path_buf(),
                     1234,
