@@ -1,6 +1,6 @@
 //! Test data builders for Mithril Core types, for testing purpose.
 
-use super::{key_encode_hex, types::*};
+use super::{genesis::*, key_encode_hex, types::*};
 use crate::{
     entities::{Certificate, ProtocolMessage, ProtocolMessagePartKey},
     fake_data,
@@ -110,6 +110,13 @@ pub fn setup_signers_from_parties(
             )
         })
         .collect::<_>()
+}
+
+/// Instantiate a Genesis Signer and its associated Verifier
+pub fn setup_genesis() -> (ProtocolGenesisSigner, ProtocolGenesisVerifier) {
+    let genesis_signer = ProtocolGenesisSigner::create_test_genesis_signer();
+    let genesis_verifier = genesis_signer.create_genesis_verifier();
+    (genesis_signer, genesis_verifier)
 }
 
 /// Instantiate a certificate chain, use this for tests only.
