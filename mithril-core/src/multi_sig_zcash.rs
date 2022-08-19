@@ -16,9 +16,9 @@ use group::Curve;
 
 use rand_core::{CryptoRng, RngCore};
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
-use std::fmt::{Display, Formatter};
 use std::{
     cmp::Ordering,
+    fmt::{Display, Formatter},
     hash::{Hash, Hasher},
     iter::Sum,
 };
@@ -83,7 +83,11 @@ impl SigningKey {
         }
         let mut array_bytes = [0u8; 32];
         array_bytes.copy_from_slice(&bytes[..32]);
-        Ok(Self(Scalar::from_bytes(&array_bytes).unwrap()))
+        let scalar = Scalar::from_bytes(&array_bytes);
+        if bool::from(scalar.is_some()) {
+            return Ok(Self(scalar.unwrap()));
+        }
+        Err(MultiSignatureError::SerializationError)
     }
 }
 
@@ -102,17 +106,12 @@ impl VerificationKey {
         }
         let mut array_bytes = [0u8; 96];
         array_bytes.copy_from_slice(&bytes[..96]);
-        let key = if G2Affine::from_compressed(&array_bytes)
-            .is_some()
-            .unwrap_u8()
-            == 1u8
-        {
-            G2Affine::from_compressed(&array_bytes).unwrap()
-        } else {
-            return Err(MultiSignatureError::SerializationError);
-        };
+        let affine = G2Affine::from_compressed(&array_bytes);
+        if bool::from(affine.is_some()) {
+            return Ok(Self(G2Projective::from(affine.unwrap())));
+        }
 
-        Ok(Self(G2Projective::from(key)))
+        Err(MultiSignatureError::SerializationError)
     }
 
     /// Compare two `VerificationKey`.
@@ -213,10 +212,20 @@ impl ProofOfPossession {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
         let mut array_byte = [0u8; 48];
         array_byte.copy_from_slice(&bytes[..48]);
-        let k1 = G1Projective::from(G1Affine::from_compressed(&array_byte).unwrap());
+        let k1_affine = G1Affine::from_compressed(&array_byte);
+        let k1 = if k1_affine.is_some().into() {
+            G1Projective::from(k1_affine.unwrap())
+        } else {
+            return Err(MultiSignatureError::SerializationError);
+        };
 
         array_byte.copy_from_slice(&bytes[48..]);
-        let k2 = G1Projective::from(G1Affine::from_compressed(&array_byte).unwrap());
+        let k2_affine = G1Affine::from_compressed(&array_byte);
+        let k2 = if k2_affine.is_some().into() {
+            G1Projective::from(k2_affine.unwrap())
+        } else {
+            return Err(MultiSignatureError::SerializationError);
+        };
 
         Ok(Self { k1, k2 })
     }
@@ -336,9 +345,12 @@ impl Signature {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
         let mut array_byte = [0u8; 48];
         array_byte.copy_from_slice(&bytes[..48]);
-        Ok(Self(G1Projective::from(
-            G1Affine::from_compressed(&array_byte).unwrap(),
-        )))
+        let affine = G1Affine::from_compressed(&array_byte);
+        if affine.is_some().into() {
+            return Ok(Self(G1Projective::from(affine.unwrap())));
+        }
+
+        Err(MultiSignatureError::SerializationError)
     }
 
     /// Compares the `Signature` with the given `Signature` (other).

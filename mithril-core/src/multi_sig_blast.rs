@@ -23,6 +23,7 @@ use rand_core::{CryptoRng, RngCore};
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
 use std::{
     cmp::Ordering,
+    fmt::{Display, Formatter},
     hash::{Hash, Hasher},
     iter::Sum,
 };
@@ -67,7 +68,7 @@ impl SigningKey {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
         match BlstSk::from_bytes(&bytes[..32]) {
             Ok(sk) => Ok(Self(sk)),
-            Err(e) => Err(blst_err_to_atms(e)
+            Err(e) => Err(blst_err_to_atms(e, None)
                 .expect_err("If deserialisation is not successful, blst returns and error different to SUCCESS."))
         }
     }
@@ -112,7 +113,7 @@ impl VerificationKey {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
         match BlstPk::key_validate(&bytes[..96]) {
             Ok(pk) => Ok(Self(pk)),
-            Err(e) => Err(blst_err_to_atms(e)
+            Err(e) => Err(blst_err_to_atms(e, None)
                 .expect_err("If deserialisation is not successful, blst returns and error different to SUCCESS."))
         }
     }
@@ -251,7 +252,7 @@ impl VerificationKeyPoP {
             == BLST_ERROR::BLST_SUCCESS
             && result)
         {
-            return Err(MultiSignatureError::InvalidKey(Box::new(*self)));
+            return Err(MultiSignatureError::KeyInvalid(Box::new(*self)));
         }
         Ok(())
     }
@@ -302,7 +303,7 @@ impl ProofOfPossession {
         let k1 = match BlstSig::from_bytes(&bytes[..48]) {
             Ok(key) => key,
             Err(e) => {
-                return Err(blst_err_to_atms(e)
+                return Err(blst_err_to_atms(e, None)
                     .expect_err("If it passed, blst returns and error different to SUCCESS."))
             }
         };
@@ -345,7 +346,10 @@ impl<'a> Sum<&'a Self> for Signature {
 impl Signature {
     /// Verify a signature against a verification key.
     pub fn verify(&self, msg: &[u8], mvk: &VerificationKey) -> Result<(), MultiSignatureError> {
-        blst_err_to_atms(self.0.verify(false, msg, &[], &[], &mvk.0, false))
+        blst_err_to_atms(
+            self.0.verify(false, msg, &[], &[], &mvk.0, false),
+            Some(*self),
+        )
     }
 
     /// Check if the signature is valid for the given index. We hash the signature to produce a
@@ -378,7 +382,7 @@ impl Signature {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
         match BlstSig::sig_validate(&bytes[..48], true) {
             Ok(sig) => Ok(Self(sig)),
-            Err(e) => Err(blst_err_to_atms(e)
+            Err(e) => Err(blst_err_to_atms(e, None)
                 .expect_err("If deserialisation is not successful, blst returns and error different to SUCCESS."))
         }
     }
@@ -422,27 +426,25 @@ impl Signature {
             hasher.update(&index.to_be_bytes());
             signatures.push(&sig.0);
             scalar_bytes[..16].copy_from_slice(&hasher.finalize().as_slice()[..16]);
-            scalars.push(blst_scalar {
-                b: scalar_bytes.clone(),
-            });
+            scalars.push(blst_scalar { b: scalar_bytes });
             messages.push(msg); // todo: can we do this for the same message??
         }
 
-        let vks = vks
-            .iter()
-            .map(|pk| &pk.0)
-            .collect::<Vec<&blst::min_sig::PublicKey>>();
+        let vks = vks.iter().map(|pk| &pk.0).collect::<Vec<&BlstPk>>();
 
-        blst_err_to_atms(BlstSig::verify_multiple_aggregate_signatures(
-            &messages,
-            &[],
-            &vks,
-            false,
-            &signatures,
-            false,
-            &scalars,
-            128,
-        ))
+        blst_err_to_atms(
+            BlstSig::verify_multiple_aggregate_signatures(
+                &messages,
+                &[],
+                &vks,
+                false,
+                &signatures,
+                false,
+                &scalars,
+                128,
+            ),
+            None,
+        )
     }
 }
 
