@@ -12,9 +12,9 @@ use crate::entities::{Certificate, ProtocolMessagePartKey, ProtocolParameters};
 #[cfg(test)]
 use mockall::automock;
 
-/// [Verifier] related errors.
+/// [CertificateVerifier] related errors.
 #[derive(Error, Debug)]
-pub enum ProtocolError {
+pub enum CertificateVerifierError {
     /// Error raised when the multi signatures verification fails.
     #[error("multi signature verification failed: '{0}'")]
     VerifyMultiSignature(String),
@@ -72,10 +72,10 @@ pub trait CertificateRetriever: Sync + Send {
     ) -> Result<Certificate, CertificateRetrieverError>;
 }
 
-/// Verifier is the cryptographic engine in charge of verifying multi signatures and certificates
+/// CertificateVerifier is the cryptographic engine in charge of verifying multi signatures and certificates
 #[cfg_attr(test, automock)]
 #[async_trait]
-pub trait Verifier: Send + Sync {
+pub trait CertificateVerifier: Send + Sync {
     /// Verify a multi signature
     fn verify_multi_signature(
         &self,
@@ -83,20 +83,20 @@ pub trait Verifier: Send + Sync {
         multi_signature: &str,
         aggregate_verification_key: &str,
         protocol_parameters: &ProtocolParameters,
-    ) -> Result<(), ProtocolError>;
+    ) -> Result<(), CertificateVerifierError>;
 
     /// Verify Genesis certificate
     async fn verify_genesis_certificate(
         &self,
         _certificate: &Certificate,
-    ) -> Result<Option<Certificate>, ProtocolError>;
+    ) -> Result<Option<Certificate>, CertificateVerifierError>;
 
     /// Verify Standard certificate
     async fn verify_standard_certificate(
         &self,
         certificate: &Certificate,
         certificate_retriever: Arc<dyn CertificateRetriever>,
-    ) -> Result<Option<Certificate>, ProtocolError>;
+    ) -> Result<Option<Certificate>, CertificateVerifierError>;
 
     /// Verify if a Certificate is valid and returns the previous Certificate in the chain if exists
     /// Step 1: Check if the hash is valid (i.e. the Certificate has not been tampered by modifying its content)
@@ -106,14 +106,14 @@ pub trait Verifier: Send + Sync {
         &self,
         certificate: &Certificate,
         certificate_retriever: Arc<dyn CertificateRetriever>,
-    ) -> Result<Option<Certificate>, ProtocolError>;
+    ) -> Result<Option<Certificate>, CertificateVerifierError>;
 
     /// Verify that the Certificate Chain associated to a Certificate is valid
     async fn verify_certificate_chain(
         &self,
         certificate: Certificate,
         certificate_retriever: Arc<dyn CertificateRetriever>,
-    ) -> Result<(), ProtocolError> {
+    ) -> Result<(), CertificateVerifierError> {
         let mut certificate = certificate;
         while let Some(previous_certificate) = self
             .verify_certificate(&certificate, certificate_retriever.clone())
@@ -125,22 +125,22 @@ pub trait Verifier: Send + Sync {
     }
 }
 
-/// VerifierImpl is an implementation of the Verifier
-pub struct VerifierImpl {
+/// MithrilCertificateVerifier is an implementation of the CertificateVerifier
+pub struct MithrilCertificateVerifier {
     /// The logger where the logs should be written
     logger: Logger,
 }
 
-impl VerifierImpl {
-    /// VerifierImpl factory
+impl MithrilCertificateVerifier {
+    /// MithrilCertificateVerifier factory
     pub fn new(logger: Logger) -> Self {
-        debug!(logger, "New VerifierImpl created");
+        debug!(logger, "New MithrilCertificateVerifier created");
         Self { logger }
     }
 }
 
 #[async_trait]
-impl Verifier for VerifierImpl {
+impl CertificateVerifier for MithrilCertificateVerifier {
     /// Verify a multi signature
     fn verify_multi_signature(
         &self,
@@ -148,30 +148,30 @@ impl Verifier for VerifierImpl {
         multi_signature: &str,
         aggregate_verification_key: &str,
         protocol_parameters: &ProtocolParameters,
-    ) -> Result<(), ProtocolError> {
+    ) -> Result<(), CertificateVerifierError> {
         debug!(
             self.logger,
             "Verify multi signature for {:?}",
             message.encode_hex::<String>()
         );
         let multi_signature: ProtocolMultiSignature =
-            key_decode_hex(multi_signature).map_err(ProtocolError::Codec)?;
+            key_decode_hex(multi_signature).map_err(CertificateVerifierError::Codec)?;
         let aggregate_verification_key =
-            key_decode_hex(aggregate_verification_key).map_err(ProtocolError::Codec)?;
+            key_decode_hex(aggregate_verification_key).map_err(CertificateVerifierError::Codec)?;
         multi_signature
             .verify(
                 message,
                 &aggregate_verification_key,
                 &protocol_parameters.to_owned().into(),
             )
-            .map_err(|e| ProtocolError::VerifyMultiSignature(e.to_string()))
+            .map_err(|e| CertificateVerifierError::VerifyMultiSignature(e.to_string()))
     }
 
     /// Verify Genesis certificate
     async fn verify_genesis_certificate(
         &self,
         _certificate: &Certificate,
-    ) -> Result<Option<Certificate>, ProtocolError> {
+    ) -> Result<Option<Certificate>, CertificateVerifierError> {
         // TODO: Verify the validity of the genesis certificate
         println!("Genesis certificate found and automatically considered as valid");
         Ok(None)
@@ -182,7 +182,7 @@ impl Verifier for VerifierImpl {
         &self,
         certificate: &Certificate,
         certificate_retriever: Arc<dyn CertificateRetriever>,
-    ) -> Result<Option<Certificate>, ProtocolError> {
+    ) -> Result<Option<Certificate>, CertificateVerifierError> {
         self.verify_multi_signature(
             certificate.signed_message.as_bytes(),
             &certificate.multi_signature,
@@ -203,7 +203,7 @@ impl Verifier for VerifierImpl {
                 && previous_certificate.beacon.epoch == certificate.beacon.epoch
         };
         if previous_certificate.hash != certificate.previous_hash {
-            return Err(ProtocolError::CertificateChainPreviousHashUnmatch);
+            return Err(CertificateVerifierError::CertificateChainPreviousHashUnmatch);
         }
 
         match &previous_certificate
@@ -226,7 +226,7 @@ impl Verifier for VerifierImpl {
                     self.logger,
                     "Previous certificate {:#?}", previous_certificate
                 );
-                Err(ProtocolError::CertificateChainAVKUnmatch)
+                Err(CertificateVerifierError::CertificateChainAVKUnmatch)
             }
         }
     }
@@ -236,7 +236,7 @@ impl Verifier for VerifierImpl {
         &self,
         certificate: &Certificate,
         certificate_retriever: Arc<dyn CertificateRetriever>,
-    ) -> Result<Option<Certificate>, ProtocolError> {
+    ) -> Result<Option<Certificate>, CertificateVerifierError> {
         debug!(self.logger, "Verify certificate {:#?}", certificate);
         println!(
             "Verify certificate #{} @ epoch #{}",
@@ -246,11 +246,11 @@ impl Verifier for VerifierImpl {
             .hash
             .eq(&certificate.compute_hash())
             .then(|| certificate.hash.clone())
-            .ok_or(ProtocolError::CertificateHashUnmatch)?;
+            .ok_or(CertificateVerifierError::CertificateHashUnmatch)?;
         match certificate.previous_hash.as_str() {
             "" => self.verify_genesis_certificate(certificate).await,
             previous_hash if previous_hash == certificate.hash => {
-                Err(ProtocolError::CertificateChainInfiniteLoop)
+                Err(CertificateVerifierError::CertificateChainInfiniteLoop)
             }
             _ => {
                 self.verify_standard_certificate(certificate, certificate_retriever)
@@ -305,7 +305,7 @@ mod tests {
             .aggregate(&single_signatures, message.compute_hash().as_bytes())
             .unwrap();
 
-        let verifier = VerifierImpl::new(slog_scope::logger());
+        let verifier = MithrilCertificateVerifier::new(slog_scope::logger());
         let protocol_parameters = protocol_parameters.into();
         let message_tampered = message.compute_hash().as_bytes()[1..].to_vec();
         assert!(
@@ -341,7 +341,7 @@ mod tests {
             .expect_get_certificate_details()
             .returning(move |_| Ok(fake_certificate2.clone()))
             .times(1);
-        let verifier = VerifierImpl::new(slog_scope::logger());
+        let verifier = MithrilCertificateVerifier::new(slog_scope::logger());
         let verify = verifier
             .verify_certificate(&fake_certificate1, Arc::new(mock_certificate_retriever))
             .await;
@@ -360,7 +360,7 @@ mod tests {
             .expect_get_certificate_details()
             .returning(move |_| Ok(fake_certificate2.clone()))
             .times(1);
-        let verifier = VerifierImpl::new(slog_scope::logger());
+        let verifier = MithrilCertificateVerifier::new(slog_scope::logger());
         let verify = verifier
             .verify_certificate(&fake_certificate1, Arc::new(mock_certificate_retriever))
             .await;
@@ -381,14 +381,14 @@ mod tests {
             .expect_get_certificate_details()
             .returning(move |_| Ok(fake_certificate2.clone()))
             .times(1);
-        let verifier = VerifierImpl::new(slog_scope::logger());
+        let verifier = MithrilCertificateVerifier::new(slog_scope::logger());
         let verify = verifier
             .verify_certificate(&fake_certificate1, Arc::new(mock_certificate_retriever))
             .await;
         assert!(
             matches!(
                 verify,
-                Err(ProtocolError::CertificateChainPreviousHashUnmatch)
+                Err(CertificateVerifierError::CertificateChainPreviousHashUnmatch)
             ),
             "unexpected error type: {:?}",
             verify
@@ -414,12 +414,15 @@ mod tests {
             .expect_get_certificate_details()
             .returning(move |_| Ok(fake_certificate2.clone()))
             .times(1);
-        let verifier = VerifierImpl::new(slog_scope::logger());
+        let verifier = MithrilCertificateVerifier::new(slog_scope::logger());
         let verify = verifier
             .verify_certificate(&fake_certificate1, Arc::new(mock_certificate_retriever))
             .await;
         assert!(
-            matches!(verify, Err(ProtocolError::CertificateChainAVKUnmatch)),
+            matches!(
+                verify,
+                Err(CertificateVerifierError::CertificateChainAVKUnmatch)
+            ),
             "unexpected error type: {:?}",
             verify
         );
@@ -433,12 +436,15 @@ mod tests {
         let mut fake_certificate1 = fake_certificates[0].clone();
         fake_certificate1.hash = "another-hash".to_string();
         let mock_certificate_retriever = MockCertificateRetrieverImpl::new();
-        let verifier = VerifierImpl::new(slog_scope::logger());
+        let verifier = MithrilCertificateVerifier::new(slog_scope::logger());
         let verify = verifier
             .verify_certificate(&fake_certificate1, Arc::new(mock_certificate_retriever))
             .await;
         assert!(
-            matches!(verify, Err(ProtocolError::CertificateHashUnmatch)),
+            matches!(
+                verify,
+                Err(CertificateVerifierError::CertificateHashUnmatch)
+            ),
             "unexpected error type: {:?}",
             verify
         );
@@ -457,7 +463,7 @@ mod tests {
                 .returning(move |_| Ok(fake_certificate.clone()))
                 .times(1);
         }
-        let verifier = VerifierImpl::new(slog_scope::logger());
+        let verifier = MithrilCertificateVerifier::new(slog_scope::logger());
         let verify = verifier
             .verify_certificate_chain(certificate_to_verify, Arc::new(mock_certificate_retriever))
             .await;
@@ -484,14 +490,14 @@ mod tests {
                 .returning(move |_| Ok(fake_certificate.clone()))
                 .times(1);
         }
-        let verifier = VerifierImpl::new(slog_scope::logger());
+        let verifier = MithrilCertificateVerifier::new(slog_scope::logger());
         let verify = verifier
             .verify_certificate_chain(certificate_to_verify, Arc::new(mock_certificate_retriever))
             .await;
         assert!(
             matches!(
                 verify,
-                Err(ProtocolError::CertificateChainPreviousHashUnmatch)
+                Err(CertificateVerifierError::CertificateChainPreviousHashUnmatch)
             ),
             "unexpected error type: {:?}",
             verify

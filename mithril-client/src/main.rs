@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use mithril_client::{AggregatorHTTPClient, Config, Runtime};
 
-use mithril_common::certificate_chain::VerifierImpl;
+use mithril_common::certificate_chain::MithrilCertificateVerifier;
 
 /// CLI args
 #[derive(Parser)]
@@ -109,7 +109,7 @@ async fn main() -> Result<(), String> {
         config.network.clone(),
         config.aggregator_endpoint.clone(),
     ));
-    let verifier = Box::new(VerifierImpl::new(slog_scope::logger()));
+    let verifier = Box::new(MithrilCertificateVerifier::new(slog_scope::logger()));
 
     // Init runtime
     let mut runtime = Runtime::new(config.network.clone());
