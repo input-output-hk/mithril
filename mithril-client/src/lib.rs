@@ -16,9 +16,7 @@
 mod aggregator;
 mod entities;
 mod runtime;
-mod verifier;
 
 pub use crate::aggregator::{AggregatorHTTPClient, AggregatorHandler, AggregatorHandlerError};
 pub use crate::entities::Config;
 pub use crate::runtime::{Runtime, RuntimeError};
-pub use crate::verifier::{ProtocolError, Verifier, VerifierImpl};

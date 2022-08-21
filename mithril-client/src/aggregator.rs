@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use flate2::read::GzDecoder;
 use futures::StreamExt;
-use log::debug;
 use reqwest::{self, StatusCode};
+use slog_scope::debug;
 use std::env;
 use std::fs;
 use std::io::{self, Write};
@@ -14,8 +14,8 @@ use thiserror::Error;
 
 use mithril_common::entities::{Certificate, Snapshot};
 
-use crate::verifier::CertificateRetriever;
-use crate::verifier::CertificateRetrieverError;
+use mithril_common::certificate_chain::CertificateRetriever;
+use mithril_common::certificate_chain::CertificateRetrieverError;
 
 /// [AggregatorHandler] related errors.
 #[derive(Error, Debug)]

@@ -1,4 +1,4 @@
-use log::debug;
+use slog_scope::debug;
 use std::path::Path;
 use std::str;
 use std::sync::Arc;
@@ -6,8 +6,8 @@ use thiserror::Error;
 
 use crate::aggregator::{AggregatorHandler, AggregatorHandlerError};
 use crate::entities::*;
-use crate::verifier::{CertificateRetrieverError, ProtocolError, Verifier};
 
+use mithril_common::certificate_chain::{CertificateRetrieverError, ProtocolError, Verifier};
 use mithril_common::digesters::{
     CardanoImmutableDigester, ImmutableDigester, ImmutableDigesterError,
 };
@@ -271,11 +271,11 @@ mod tests {
     use mockall::mock;
 
     use crate::aggregator::AggregatorHandlerError;
-    use crate::verifier::{
-        CertificateRetriever, CertificateRetrieverError, MockVerifier, ProtocolError,
+    use mithril_common::certificate_chain::{
+        CertificateRetriever, CertificateRetrieverError, ProtocolError,
     };
     use mithril_common::digesters::{ImmutableDigester, ImmutableDigesterError};
-    use mithril_common::entities::{Beacon, Certificate};
+    use mithril_common::entities::{Beacon, Certificate, ProtocolParameters};
     use mithril_common::fake_data;
 
     mock! {
@@ -291,11 +291,48 @@ mod tests {
     }
 
     mock! {
+        pub VerifierImpl { }
+
+        #[async_trait]
+        impl Verifier for VerifierImpl {
+            fn verify_multi_signature(
+                &self,
+                message: &[u8],
+                multi_signature: &str,
+                aggregate_verification_key: &str,
+                protocol_parameters: &ProtocolParameters,
+            ) -> Result<(), ProtocolError>;
+
+            async fn verify_genesis_certificate(
+                &self,
+                _certificate: &Certificate,
+            ) -> Result<Option<Certificate>, ProtocolError>;
+
+            async fn verify_standard_certificate(
+                &self,
+                certificate: &Certificate,
+                certificate_retriever: Arc<dyn CertificateRetriever>,
+            ) -> Result<Option<Certificate>, ProtocolError>;
+
+            async fn verify_certificate(
+                &self,
+                certificate: &Certificate,
+                certificate_retriever: Arc<dyn CertificateRetriever>,
+            ) -> Result<Option<Certificate>, ProtocolError>;
+
+            async fn verify_certificate_chain(
+                &self,
+                certificate: Certificate,
+                certificate_retriever: Arc<dyn CertificateRetriever>,
+            ) -> Result<(), ProtocolError>;
+        }
+    }
+
+    mock! {
         pub AggregatorHandlerImpl { }
 
         #[async_trait]
         impl CertificateRetriever for AggregatorHandlerImpl {
-
             async fn get_certificate_details(
                 &self,
                 certificate_hash: &str,
@@ -410,7 +447,7 @@ mod tests {
         let digest_restore = digest_compute.clone();
         let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
         let mut mock_aggregator_handler = MockAggregatorHandlerImpl::new();
-        let mut mock_verifier = MockVerifier::new();
+        let mut mock_verifier = MockVerifierImpl::new();
         let mut mock_digester = MockDigesterImpl::new();
         mock_aggregator_handler
             .expect_as_certificate_retriever()
@@ -452,7 +489,7 @@ mod tests {
         let digest_restore = digest_compute.clone();
         let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
         let mut mock_aggregator_handler = MockAggregatorHandlerImpl::new();
-        let mut mock_verifier = MockVerifier::new();
+        let mut mock_verifier = MockVerifierImpl::new();
         let mut mock_digester = MockDigesterImpl::new();
         mock_aggregator_handler
             .expect_as_certificate_retriever()
@@ -500,7 +537,7 @@ mod tests {
         fake_certificate1.hash = "another-hash".to_string();
         let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
         let mut mock_aggregator_handler = MockAggregatorHandlerImpl::new();
-        let mock_verifier = MockVerifier::new();
+        let mock_verifier = MockVerifierImpl::new();
         let mut mock_digester = MockDigesterImpl::new();
         mock_aggregator_handler
             .expect_get_snapshot_details()
@@ -534,7 +571,7 @@ mod tests {
     async fn test_restore_snapshot_ko_get_snapshot_details() {
         let digest = "digest123";
         let mut mock_aggregator_handler = MockAggregatorHandlerImpl::new();
-        let mock_verifier = MockVerifier::new();
+        let mock_verifier = MockVerifierImpl::new();
         mock_aggregator_handler
             .expect_get_snapshot_details()
             .return_once(move |_| {
@@ -560,7 +597,7 @@ mod tests {
         let digest = "digest123";
         let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
         let mut mock_aggregator_handler = MockAggregatorHandlerImpl::new();
-        let mock_verifier = MockVerifier::new();
+        let mock_verifier = MockVerifierImpl::new();
         mock_aggregator_handler
             .expect_get_snapshot_details()
             .return_once(move |_| Ok(fake_snapshot));
@@ -592,7 +629,7 @@ mod tests {
         let fake_certificate = fake_data::certificate(certificate_hash.to_string());
         let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
         let mut mock_aggregator_handler = MockAggregatorHandlerImpl::new();
-        let mut mock_verifier = MockVerifier::new();
+        let mut mock_verifier = MockVerifierImpl::new();
         mock_aggregator_handler
             .expect_get_snapshot_details()
             .return_once(move |_| Ok(fake_snapshot));
