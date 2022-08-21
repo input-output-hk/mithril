@@ -6,6 +6,7 @@ use slog::{debug, Logger};
 use std::sync::Arc;
 use thiserror::Error;
 
+use super::{CertificateRetriever, CertificateRetrieverError};
 use crate::crypto_helper::{key_decode_hex, ProtocolMultiSignature};
 use crate::entities::{Certificate, ProtocolMessagePartKey, ProtocolParameters};
 
@@ -51,25 +52,6 @@ pub enum CertificateVerifierError {
     /// Error raised when validating the certificate chain if the chain loops.
     #[error("certificate chain infinite loop error")]
     CertificateChainInfiniteLoop,
-}
-
-/// [CertificateRetriever] related errors.
-#[derive(Error, Debug)]
-pub enum CertificateRetrieverError {
-    /// Error raised when a [CertificateRetriever] tries to retrieve a [certificate](https://mithril.network/mithril-common/doc/mithril_common/entities/struct.Certificate.html)
-    #[error("general error: '{0}'")]
-    General(String),
-}
-
-/// CertificateRetriever is in charge of retrieving a Certificate given its hash
-#[cfg_attr(test, automock)]
-#[async_trait]
-pub trait CertificateRetriever: Sync + Send {
-    /// Get certificate details
-    async fn get_certificate_details(
-        &self,
-        certificate_hash: &str,
-    ) -> Result<Certificate, CertificateRetrieverError>;
 }
 
 /// CertificateVerifier is the cryptographic engine in charge of verifying multi signatures and certificates
