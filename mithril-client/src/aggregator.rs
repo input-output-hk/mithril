@@ -276,6 +276,7 @@ mod tests {
         let config = Config {
             network: "testnet".to_string(),
             aggregator_endpoint: server.url(""),
+            genesis_verification_key: "genesis-vkey".to_string(),
         };
         (server, config)
     }

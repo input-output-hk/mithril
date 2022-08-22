@@ -12,6 +12,9 @@ pub struct Config {
     /// Aggregator endpoint
     #[table(title = "Aggregator Endpoint")]
     pub aggregator_endpoint: String,
+
+    /// Genesis verification key
+    pub genesis_verification_key: String,
 }
 
 /// SnapshotListItem represents a snapshot list item from an aggregator
