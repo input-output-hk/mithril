@@ -54,7 +54,7 @@ function AggregatorSetter(props) {
   );
 }
 
-export default function Showcase() {
+export default function Explorer() {
   const [aggregator, setAggregator] = useState(available_aggregators[0]);
   const [interval, setInterval] = useState(10000);
   const [autoUpdate, setAutoUpdate] = useState(true);
@@ -74,14 +74,14 @@ export default function Showcase() {
   return (
     <>
       <Head>
-        <title>Mithril Showcase</title>
-        <meta name="description" content="Showcase of a Mithril Network" />
-        <link rel="icon" href="/showcase/favicon.ico" />
+        <title>Mithril Explorer</title>
+        <meta name="description" content="Explore a Mithril Network" />
+        <link rel="icon" href="/explorer/favicon.ico" />
       </Head>
       
       <div className={styles.container}>
         <main className={styles.main}>
-          <h1 className={styles.title}>Mithril Showcase</h1>
+          <h1 className={styles.title}>Mithril Explorer</h1>
           <Stack gap={3}>
             <Form>
               <Row xs={1} sm={2}>
@@ -101,7 +101,7 @@ export default function Showcase() {
       
       <footer className={styles.footer}>
         <span className={styles.logo}>
-          <Image src="/showcase/logo.png" alt="Mithril Logo" width={32} height={32} />
+          <Image src="/explorer/logo.png" alt="Mithril Logo" width={32} height={32} />
         </span>{' '}
         <a href="https://mithril.network/doc">
           Go back to mithril documentation

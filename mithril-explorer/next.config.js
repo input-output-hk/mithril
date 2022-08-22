@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  basePath: "/showcase",
+  basePath: "/explorer",
   reactStrictMode: true,
   swcMinify: true,
   experimental: {

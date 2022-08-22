@@ -100,8 +100,8 @@ const config = {
             position: 'left',
           },
           {
-            label: 'Showcase',
-            to: 'https://mithril.network/showcase',
+            label: 'Explorer',
+            to: 'https://mithril.network/explorer',
             position: 'right',
           },
           {
