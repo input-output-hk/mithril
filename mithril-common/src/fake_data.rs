@@ -1,7 +1,5 @@
 //! Fake data builders for testing.
 
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use crate::entities::{
     CertificateMetadata, LotteryIndex, ProtocolMessage, ProtocolMessagePartKey, SingleSignatures,
 };
@@ -10,13 +8,8 @@ use crate::{crypto_helper, entities};
 /// Fake Beacon
 pub fn beacon() -> entities::Beacon {
     let network = "testnet".to_string();
-    let seconds_since_unix_epoch = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap()
-        .as_secs();
-    let immutable_file_number = (seconds_since_unix_epoch / (20)) as u64; // 1 immutable_file_number every 20s
-    let epoch = (immutable_file_number / 9) as u64; // 1 epoch every 9 immutable_file_number
-
+    let immutable_file_number = 100;
+    let epoch = 10;
     entities::Beacon::new(network, epoch, immutable_file_number)
 }
 
