@@ -37,7 +37,7 @@ struct RawOpCert(RawFields, EdPublicKey);
 /// Parsed Operational Certificate
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct OpCert {
-    pub kes_vk: KesPublicKey,
+    kes_vk: KesPublicKey,
     issue_number: u64,
     start_kes_period: u64, // this is not the kes period used in signing/verifying
     cert_sig: EdSignature,
@@ -205,7 +205,6 @@ mod tests {
     use crate::stm::{StmInitializer, StmParameters};
     use blake2::{digest::consts::U32, Blake2b};
     use hex::FromHex;
-    use kes_summed_ed25519::kes::Sum6Kes;
     use proptest::collection::vec;
     use proptest::prelude::*;
     use rand_chacha::ChaCha20Rng;
@@ -289,8 +288,9 @@ mod tests {
         ];
         let mut key_reg = NewKeyReg::init(&[(fake_pool_id, 10)]);
 
-        let cbor_sk_bytes = Vec::from_hex("78c158ae1edb8b4a2f1866f61e2a69a4595167be8cbdf57bab2361cd47ba7a0ee137ed17b49e5e9cd2674a451fadc87933cdd0473e4c38c1e0faca4f6c9cb482b854d25266877abb2a5bd8e111db383699aacac7049945d2f893403f65a4d8b34d1d9807dfe57b9a207c9d2c08d0d3478d292b2b8cdd9c7d1eb4225581bd12ad5d2c1ad357a0eba6bf2761787ff78fd97813d9287a57762c1710bd7b6a0b237fc875868e4218d0f703097bd89c776717a7461b2dcd8aac7095f0d68b065eccedd433f643903750b98349249a5c3ced7a0dc0e21af54c7da1be010ef6da6dc3209dea6e1f0ffaf1706b914d3bd94255b67b36f5150a3490d731863621f2edd3bb320a0ce737a83895b6ed80684542b70690db2e1efbaefe8e6cd0cd3a0fd84e0f37524ffd5f4647bc15dc9f3efa4f3ec53d1ff8fdd47179498e6d5661521c064810ab1e2af98737f7d79ec1b21faf98a5d0eef6b6152223dc0aaf3599979e6932c18ec18f58fd6bfc055d8fe3f4932f6edf64a40d3bcc466a77c598a8498d1d206c79eb6172cba9f4e724c80487df559bacc51941ee9c0025de3b98256ef4f54f776e575a926a90a1b68cea5856ea92d95dd7d2088a8ee8c6d042cb9bc454301317a29e15b49a0ceddbbe8097cdf230df64220ead235b6c6c125ffef36b4f8fda6742dd850af8271a7a9df84a240dc5fdd137f720e8c47618e5ea9e9ab9803cc8d50238a88261af94ebca082e8a5920b4a98356fc942b19b5091efa0a09323f4cf1b9f456f52cd19bb1c95fd1ecaae8548a51427fa0eeb7555204318da248ad429ac73a797749069681f349eda3941f216c74bbbae5f0dc77ffcc00e714639d7d").unwrap();
-        let initializer = StmInitializer::setup_new(params, &cbor_sk_bytes, 0, 10, &mut rng);
+        // todo: have cbor working here
+        let sk_bytes = Vec::from_hex("78c158ae1edb8b4a2f1866f61e2a69a4595167be8cbdf57bab2361cd47ba7a0ee137ed17b49e5e9cd2674a451fadc87933cdd0473e4c38c1e0faca4f6c9cb482b854d25266877abb2a5bd8e111db383699aacac7049945d2f893403f65a4d8b34d1d9807dfe57b9a207c9d2c08d0d3478d292b2b8cdd9c7d1eb4225581bd12ad5d2c1ad357a0eba6bf2761787ff78fd97813d9287a57762c1710bd7b6a0b237fc875868e4218d0f703097bd89c776717a7461b2dcd8aac7095f0d68b065eccedd433f643903750b98349249a5c3ced7a0dc0e21af54c7da1be010ef6da6dc3209dea6e1f0ffaf1706b914d3bd94255b67b36f5150a3490d731863621f2edd3bb320a0ce737a83895b6ed80684542b70690db2e1efbaefe8e6cd0cd3a0fd84e0f37524ffd5f4647bc15dc9f3efa4f3ec53d1ff8fdd47179498e6d5661521c064810ab1e2af98737f7d79ec1b21faf98a5d0eef6b6152223dc0aaf3599979e6932c18ec18f58fd6bfc055d8fe3f4932f6edf64a40d3bcc466a77c598a8498d1d206c79eb6172cba9f4e724c80487df559bacc51941ee9c0025de3b98256ef4f54f776e575a926a90a1b68cea5856ea92d95dd7d2088a8ee8c6d042cb9bc454301317a29e15b49a0ceddbbe8097cdf230df64220ead235b6c6c125ffef36b4f8fda6742dd850af8271a7a9df84a240dc5fdd137f720e8c47618e5ea9e9ab9803cc8d50238a88261af94ebca082e8a5920b4a98356fc942b19b5091efa0a09323f4cf1b9f456f52cd19bb1c95fd1ecaae8548a51427fa0eeb7555204318da248ad429ac73a797749069681f349eda3941f216c74bbbae5f0dc77ffcc00e714639d7d").unwrap();
+        let initializer = StmInitializer::setup_new(params, &sk_bytes, 0, 10, &mut rng);
 
         let cbor_bytes = Vec::from_hex("8284582067fd5ccf770c0182a34d2b3d2011ca3a853ba947e17cae7543e668bc7687eb6a0000584050592bef1c630f2df499161d78bfadb44cc76cfd24048993ace4a45dade37b4f29e95172fde4e63581a93552f6986985616b70f61062a1db2ee0d3d8e671440e58202abf3ff537a2080f53fa38615906fa6094d44860902f2b2dffdbb41b811ff39f").expect("Invalid Hex String");
         assert!(key_reg
