@@ -204,8 +204,8 @@ mod tests {
     #[tokio::test]
     async fn test_iter_without_record() {
         let adapter: DumbStoreAdapter<u64, String> = DumbStoreAdapter::new();
-        let records: Vec<String> = adapter.get_iter().await.unwrap().collect();
+        let records = adapter.get_iter().await.unwrap();
 
-        assert!(records.is_empty());
+        assert_eq!(0, records.count());
     }
 }

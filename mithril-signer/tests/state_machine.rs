@@ -80,6 +80,4 @@ async fn test_create_single_signature() {
         .comment("signer should be able to create a single signature → Signed")
         .cycle_signed().await.unwrap()
         ;
-
-    ()
 }
