@@ -1,3 +1,4 @@
+use mithril_common::crypto_helper::ProtocolGenesisSigner;
 use slog_scope::debug;
 use std::path::Path;
 use std::str;
@@ -208,10 +209,14 @@ impl Runtime {
         if protocol_message.compute_hash() != certificate.signed_message {
             return Err(RuntimeError::DigestUnmatch(unpacked_snapshot_digest));
         }
+        // TODO: Only for code to compile. Replace with genesis verifier created from externally retrieved verification key
+        let genesis_signer = ProtocolGenesisSigner::create_test_genesis_signer();
+        let genesis_verifier = genesis_signer.create_genesis_verifier();
         self.get_verifier()?
             .verify_certificate_chain(
                 certificate,
                 self.get_aggregator_handler()?.as_certificate_retriever(),
+                &genesis_verifier,
             )
             .await?;
         Ok(unpacked_path.to_owned())
@@ -261,6 +266,7 @@ mod tests {
     use super::*;
     use async_trait::async_trait;
 
+    use mithril_common::crypto_helper::ProtocolGenesisVerifier;
     use mockall::mock;
 
     use crate::aggregator::AggregatorHandlerError;
@@ -298,7 +304,8 @@ mod tests {
 
             async fn verify_genesis_certificate(
                 &self,
-                _certificate: &Certificate,
+                certificate: &Certificate,
+                genesis_verifier: &ProtocolGenesisVerifier,
             ) -> Result<Option<Certificate>, CertificateVerifierError>;
 
             async fn verify_standard_certificate(
@@ -311,12 +318,14 @@ mod tests {
                 &self,
                 certificate: &Certificate,
                 certificate_retriever: Arc<dyn CertificateRetriever>,
+                genesis_verifier: &ProtocolGenesisVerifier,
             ) -> Result<Option<Certificate>, CertificateVerifierError>;
 
             async fn verify_certificate_chain(
                 &self,
                 certificate: Certificate,
                 certificate_retriever: Arc<dyn CertificateRetriever>,
+                genesis_verifier: &ProtocolGenesisVerifier,
             ) -> Result<(), CertificateVerifierError>;
         }
     }
@@ -457,7 +466,7 @@ mod tests {
             .return_once(move |_| Ok("./target-dir".to_string()));
         mock_verifier
             .expect_verify_certificate_chain()
-            .returning(|_, _| Ok(()))
+            .returning(|_, _, _| Ok(()))
             .times(1);
         mock_digester
             .expect_compute_digest()
@@ -499,7 +508,7 @@ mod tests {
             .return_once(move |_| Ok("./target-dir".to_string()));
         mock_verifier
             .expect_verify_certificate_chain()
-            .returning(|_, _| Err(CertificateVerifierError::CertificateChainAVKUnmatch))
+            .returning(|_, _, _| Err(CertificateVerifierError::CertificateChainAVKUnmatch))
             .times(1);
         mock_digester
             .expect_compute_digest()

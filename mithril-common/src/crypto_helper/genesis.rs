@@ -6,7 +6,9 @@ use thiserror::Error;
 use super::{ProtocolGenesisSecretKey, ProtocolGenesisSignature, ProtocolGenesisVerificationKey};
 
 #[derive(Error, Debug)]
-pub enum GenesisError {
+/// [ProtocolGenesisSigner] and [ProtocolGenesisVerifier] related errors.
+pub enum ProtocolGenesisError {
+    /// Error raised when a Genesis Signature verification fail
     #[error("genesis signature verification error: '{0}'")]
     SignatureVerification(#[from] SignatureError),
 }
@@ -76,8 +78,8 @@ impl ProtocolGenesisVerifier {
         &self,
         message: &[u8],
         signature: &ProtocolGenesisSignature,
-    ) -> Result<(), GenesisError> {
-        Ok(self.verification_key.verify_strict(message, &signature)?)
+    ) -> Result<(), ProtocolGenesisError> {
+        Ok(self.verification_key.verify_strict(message, signature)?)
     }
 }
 
