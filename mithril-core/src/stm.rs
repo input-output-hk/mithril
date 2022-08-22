@@ -116,7 +116,7 @@ use crate::multi_sig_zcash::{Signature, SigningKey, VerificationKey, Verificatio
 use digest::{Digest, FixedOutput};
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::convert::{From, TryFrom, TryInto};
 use std::hash::{Hash, Hasher};
 
@@ -571,7 +571,7 @@ impl<D: Digest + FixedOutput + Clone> StmClerk<D> {
     /// The function selects at least `self.k` indexes.
     ///  # Error
     /// If there is no sufficient signatures, then the function fails.s
-    // todo: We need to agree on a criteria to dedup
+    // todo: We need to agree on a criteria to dedup (by defaut we use a BTreeMap that guarantees keys order)
     // todo: not good, because it only removes index if there is a conflict (see benches)
     pub fn dedup_sigs_for_indices(
         &self,
@@ -579,7 +579,7 @@ impl<D: Digest + FixedOutput + Clone> StmClerk<D> {
         sigs: &[StmSig<D>],
     ) -> Result<Vec<StmSig<D>>, AggregationError> {
         let avk = StmAggrVerificationKey::from(&self.closed_reg);
-        let mut sig_by_index: HashMap<Index, &StmSig<D>> = HashMap::new();
+        let mut sig_by_index: BTreeMap<Index, &StmSig<D>> = BTreeMap::new();
         let mut removal_idx_by_vk: HashMap<&StmSig<D>, Vec<Index>> = HashMap::new();
 
         for sig in sigs.iter() {
