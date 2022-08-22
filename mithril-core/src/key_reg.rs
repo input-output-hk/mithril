@@ -19,7 +19,7 @@ use kes_summed_ed25519::traits::KesSig;
 pub type RegParty = MTLeaf;
 
 /// Representation of the PoolID
-pub type PoolId = [u8; 32];
+pub type PoolId = [u8; 28];
 
 /// Raw Fields of the operational certificates (without incluiding the cold VK)
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
@@ -130,8 +130,8 @@ impl NewKeyReg {
             .verify(kes_period, &cert.kes_vk, &pk.to_bytes())
             .map_err(|_| RegisterError::KesSignatureInvalid)?;
 
-        let mut pool_id = [0u8; 32];
-        pool_id.copy_from_slice(&blake2::Blake2b::digest(cert.cold_vk.as_bytes()).as_slice()[..32]);
+        let mut pool_id = [0u8; 28];
+        pool_id.copy_from_slice(&blake2::Blake2b::digest(cert.cold_vk.as_bytes()).as_slice()[..28]);
 
         if let Some(&stake) = self.stake_distribution.get(&pool_id) {
             if let Entry::Vacant(e) = self.keys.entry(pk.vk) {
@@ -283,10 +283,9 @@ mod tests {
         };
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
 
-        // todo: get the expected poolID
         let fake_pool_id = [
             134, 128, 179, 254, 245, 165, 179, 39, 71, 156, 226, 254, 129, 15, 231, 1, 142, 176,
-            236, 148, 207, 175, 146, 72, 222, 186, 20, 75, 111, 34, 204, 43,
+            236, 148, 207, 175, 146, 72, 222, 186, 20, 75,
         ];
         let mut key_reg = NewKeyReg::init(&[(fake_pool_id, 10)]);
 
