@@ -38,6 +38,7 @@ pub struct Config {
 }
 
 impl Config {
+    /// Return the CardanoNetwork value from the configuration.
     pub fn get_network(&self) -> Result<CardanoNetwork, ConfigError> {
         match self.network.to_lowercase().as_str() {
             "mainnet" => Ok(CardanoNetwork::MainNet),

@@ -20,42 +20,52 @@ use crate::{Config, MithrilProtocolInitializerBuilder};
 
 use super::signer_services::SignerServices;
 
+/// This trait is mainly intended for mocking.
 #[async_trait]
 pub trait Runner {
+    /// Fetch the current pending certificate if any.
     async fn get_pending_certificate(
         &self,
     ) -> Result<Option<CertificatePending>, Box<dyn StdError + Sync + Send>>;
 
+    /// Fetch the current beacon from the Cardano node.
     async fn get_current_beacon(&self) -> Result<Beacon, Box<dyn StdError + Sync + Send>>;
 
+    /// Register the signer verification key to the aggregator.
     async fn register_signer_to_aggregator(
         &self,
         epoch: Epoch,
         protocol_parameters: &ProtocolParameters,
     ) -> Result<(), Box<dyn StdError + Sync + Send>>;
 
+    /// Read the stake distribution and store it.
     async fn update_stake_distribution(
         &self,
         epoch: Epoch,
     ) -> Result<(), Box<dyn StdError + Sync + Send>>;
 
+    /// Check if all prerequisites for signing are met.
     async fn can_i_sign(
         &self,
         pending_certificate: &CertificatePending,
     ) -> Result<bool, Box<dyn StdError + Sync + Send>>;
 
+    /// From a list of signers, associate them with the stake read on the
+    /// Cardano node.
     async fn associate_signers_with_stake(
         &self,
         epoch: Epoch,
         signers: &[Signer],
     ) -> Result<Vec<SignerWithStake>, Box<dyn StdError + Sync + Send>>;
 
+    /// Create the message to be signed with the single signature.
     async fn compute_message(
         &self,
         beacon: &Beacon,
         next_signers: &[SignerWithStake],
     ) -> Result<ProtocolMessage, Box<dyn StdError + Sync + Send>>;
 
+    /// Create the single signature.
     async fn compute_single_signature(
         &self,
         epoch: Epoch,
@@ -63,30 +73,38 @@ pub trait Runner {
         signers: &[SignerWithStake],
     ) -> Result<Option<SingleSignatures>, Box<dyn StdError + Sync + Send>>;
 
+    /// Send the single signature to the aggregator in order to be aggregated.
     async fn send_single_signature(
         &self,
         maybe_signature: Option<SingleSignatures>,
     ) -> Result<(), Box<dyn StdError + Sync + Send>>;
 }
 
+/// This type represents the errors thrown from the Runner.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum RuntimeError {
+    /// Value was expected from a subsystem but None was returned.
     #[error("No value returned by the subsystem for `{0}`.")]
     NoValueError(String),
+    /// Could not associate my node with a stake.
     #[error("No stake associated with myself.")]
     NoStakeForSelf(),
+    /// Could not find the stake for one of the signers.
     #[error("No stake associated with this signer, party_id: {0}.")]
     NoStakeForSigner(PartyId),
+    /// General subsystem error
     #[error("Subsystem unavailable: {0}.")]
     SubsystemUnavailable(String),
 }
 
+/// Controller methods for the Signer's state machine.
 pub struct SignerRunner {
     config: Config,
     services: SignerServices,
 }
 
 impl SignerRunner {
+    /// Create a new Runner instance.
     pub fn new(config: Config, services: SignerServices) -> Self {
         Self { services, config }
     }

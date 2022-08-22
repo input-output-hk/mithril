@@ -15,28 +15,35 @@ pub enum ProtocolInitializerStoreError {
 }
 
 #[async_trait]
+/// Store the ProtocolInitializer used for each Epoch. This is useful because
+/// protocol parameters and stake distribution change over time.
 pub trait ProtocolInitializerStorer: Sync + Send {
+    /// Save a protocol initializer for the given Epoch.
     async fn save_protocol_initializer(
         &self,
         epoch: Epoch,
         protocol_initializer: ProtocolInitializer,
     ) -> Result<Option<ProtocolInitializer>, ProtocolInitializerStoreError>;
 
+    /// Fetch a protocol initializer if any saved for the given Epoch.
     async fn get_protocol_initializer(
         &self,
         epoch: Epoch,
     ) -> Result<Option<ProtocolInitializer>, ProtocolInitializerStoreError>;
 
+    /// Return the list of the N last saved protocol initializers if any.
     async fn get_last_protocol_initializer(
         &self,
         last: usize,
     ) -> Result<Vec<(Epoch, ProtocolInitializer)>, ProtocolInitializerStoreError>;
 }
+/// Implementation of the ProtocolInitializerStorer
 pub struct ProtocolInitializerStore {
     adapter: RwLock<Adapter>,
 }
 
 impl ProtocolInitializerStore {
+    /// Create a new ProtocolInitializerStore.
     pub fn new(adapter: Adapter) -> Self {
         Self {
             adapter: RwLock::new(adapter),

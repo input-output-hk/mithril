@@ -13,24 +13,31 @@ use mithril_common::{
 #[cfg(test)]
 use mockall::automock;
 
+/// Error structure for the Certificate Handler.
 #[derive(Error, Debug)]
 pub enum CertificateHandlerError {
+    /// The aggregator host has returned a technical error.
     #[error("remote server technical error: '{0}'")]
     RemoteServerTechnical(String),
 
+    /// The aggregator host responded it cannot fulfill our request.
     #[error("remote server logical error: '{0}'")]
     RemoteServerLogical(String),
 
+    /// Could not reach aggregator.
     #[error("remote server unreachable: '{0}'")]
     RemoteServerUnreachable(String),
 
+    /// Could not parse response.
     #[error("json parsing failed: '{0}'")]
     JsonParseFailed(String),
 
+    /// Mostly network errors.
     #[error("io error: {0}")]
     IOError(#[from] io::Error),
 }
 
+/// Trait for mocking and testing a `CertificateHandler`
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait CertificateHandler: Sync + Send {
@@ -39,10 +46,10 @@ pub trait CertificateHandler: Sync + Send {
         &self,
     ) -> Result<Option<CertificatePending>, CertificateHandlerError>;
 
-    /// Registers signer with the aggregator
+    /// Registers signer with the aggregator.
     async fn register_signer(&self, signer: &Signer) -> Result<(), CertificateHandlerError>;
 
-    /// Registers single signatures with the aggregator
+    /// Registers single signatures with the aggregator.
     async fn register_signatures(
         &self,
         signatures: &SingleSignatures,
@@ -138,12 +145,16 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
     }
 }
 
+/// This certificate handler is intended to be used by test services.
+/// It actually does not communicate with an aggregator host but mimics this behavior.
+/// It is driven by a Tester that controls the CertificatePending it can return and it can return its internal state for testing.
 pub struct DumbCertificateHandler {
     certificate_pending: RwLock<Option<CertificatePending>>,
     last_registered_signer: RwLock<Option<Signer>>,
 }
 
 impl DumbCertificateHandler {
+    /// Instanciate a new DumbCertificateHandler.
     pub fn new() -> Self {
         Self {
             certificate_pending: RwLock::new(None),
@@ -160,6 +171,7 @@ impl DumbCertificateHandler {
         *signer = None;
     }
 
+    /// Return the last signer that called with the `register` method.
     pub async fn get_last_registered_signer(&self) -> Option<Signer> {
         self.last_registered_signer.read().await.clone()
     }

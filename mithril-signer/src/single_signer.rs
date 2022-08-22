@@ -15,14 +15,17 @@ use mockall::automock;
 
 use crate::AsyncError;
 
+/// This is responsible of creating new instances of ProtocolInitializer.
 #[derive(Default)]
 pub struct MithrilProtocolInitializerBuilder {}
 
 impl MithrilProtocolInitializerBuilder {
+    /// Create a new MithrilProtocolInitializerBuilder instance.
     pub fn new() -> Self {
         Self {}
     }
 
+    /// Create a ProtocolInitializer instance.
     pub fn build(
         &self,
         stake: &Stake,
@@ -39,6 +42,7 @@ impl MithrilProtocolInitializerBuilder {
     }
 }
 
+/// The SingleSigner is the structure responsible of issuing SingleSignatures.
 #[cfg_attr(test, automock)]
 pub trait SingleSigner: Sync + Send {
     /// Computes single signatures
@@ -57,33 +61,42 @@ pub trait SingleSigner: Sync + Send {
     ) -> Result<Option<String>, SingleSignerError>;
 }
 
+/// SingleSigner error structure.
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum SingleSignerError {
+    /// This signer has not registered for this Epoch hence cannot participate to the signature.
     #[error("the signer verification key is not registered in the stake distribution")]
     UnregisteredVerificationKey(),
 
+    /// No stake is associated with this signer.
     #[error("the signer party id is not registered in the stake distribution")]
     UnregisteredPartyId(),
 
+    /// Cryptographic Signer creation error.
     #[error("the protocol signer creation failed: `{0}`")]
     ProtocolSignerCreationFailure(String),
 
+    /// Could not fetch a protocol initializer for this Epoch.
     #[error("the protocol initializer is missing")]
     ProtocolInitializerMissing(),
 
+    /// Encoding / Decoding error.
     #[error("codec error: '{0}'")]
     Codec(String),
 }
 
+/// Implementation of the SingleSigner.
 pub struct MithrilSingleSigner {
     party_id: PartyId,
 }
 
 impl MithrilSingleSigner {
+    /// Create a new instance of the MithrilSingleSigner.
     pub fn new(party_id: PartyId) -> Self {
         Self { party_id }
     }
 
+    /// Create a cryptographic signer.
     fn create_protocol_signer(
         &self,
         signers_with_stake: &[SignerWithStake],
