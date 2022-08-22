@@ -1,5 +1,4 @@
 use clap::Parser;
-use mithril_common::BeaconProviderImpl;
 use slog::{o, Drain, Level, Logger};
 use slog_scope::debug;
 use std::env;
@@ -7,13 +6,8 @@ use std::error::Error;
 use std::sync::Arc;
 use std::time::Duration;
 
-use mithril_common::chain_observer::{CardanoCliChainObserver, CardanoCliRunner};
-use mithril_common::digesters::{CardanoImmutableDigester, ImmutableFileSystemObserver};
-use mithril_common::store::adapter::JsonFileStoreAdapter;
-use mithril_common::store::StakeStore;
 use mithril_signer::{
-    CertificateHandlerHTTPClient, Config, MithrilSingleSigner, ProtocolInitializerStore,
-    SignerRunner, SignerServices, SignerState, StateMachine,
+    Config, ProductionServiceBuilder, ServiceBuilder, SignerRunner, SignerState, StateMachine,
 };
 
 /// CLI args
@@ -69,45 +63,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .map_err(|e| format!("configuration deserialize error: {}", e))?;
     debug!("Started"; "run_mode" => &run_mode, "config" => format!("{:?}", config));
 
-    let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(Box::new(
-        JsonFileStoreAdapter::new(config.data_stores_directory.join("protocol_initializer_db"))?,
-    )));
-    let single_signer = Arc::new(MithrilSingleSigner::new(config.party_id.clone()));
-    let certificate_handler = Arc::new(CertificateHandlerHTTPClient::new(
-        config.aggregator_endpoint.clone(),
-    ));
-    let digester = Arc::new(CardanoImmutableDigester::new(
-        config.db_directory.clone(),
-        slog_scope::logger(),
-    ));
-    let stake_store = Arc::new(StakeStore::new(Box::new(JsonFileStoreAdapter::new(
-        config.data_stores_directory.join("stake_db"),
-    )?)));
-    let chain_observer = Arc::new(CardanoCliChainObserver::new(Box::new(
-        CardanoCliRunner::new(
-            config.cardano_cli_path.clone(),
-            config.cardano_node_socket_path.clone(),
-            config.get_network()?,
-        ),
-    )));
-    let beacon_provider = Arc::new(BeaconProviderImpl::new(
-        chain_observer.clone(),
-        Arc::new(ImmutableFileSystemObserver::new(&config.db_directory)),
-        config.get_network()?.to_owned(),
-    ));
-
-    let services = SignerServices {
-        beacon_provider,
-        certificate_handler,
-        chain_observer,
-        digester,
-        single_signer,
-        stake_store,
-        protocol_initializer_store,
-    };
     let mut state_machine = StateMachine::new(
         SignerState::Unregistered,
-        Box::new(SignerRunner::new(config.clone(), services)),
+        Box::new(SignerRunner::new(
+            config.clone(),
+            ProductionServiceBuilder::new(&config).build()?,
+        )),
         Duration::from_millis(config.run_interval),
     );
     state_machine.run().await

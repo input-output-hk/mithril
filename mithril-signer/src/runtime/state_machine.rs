@@ -5,32 +5,43 @@ use mithril_common::entities::{Beacon, CertificatePending, SignerWithStake};
 
 use super::Runner;
 
+/// Structure to hold `Registered` state information.
 #[derive(Debug, PartialEq, Eq)]
 pub struct RegisteredState {
     beacon: Beacon,
 }
 
+/// Structure to hold `Signed` state information.
 #[derive(Debug, PartialEq, Eq)]
 pub struct SignedState {
     beacon: Beacon,
 }
 
+/// Different possible states of the state machine.
 #[derive(Debug, PartialEq, Eq)]
 pub enum SignerState {
+    /// starting state, no data hold
     Unregistered,
+
+    /// `Registered` state
     Registered(RegisteredState),
+
+    /// `Signed` state
     Signed(SignedState),
 }
 
 impl SignerState {
+    /// Returns `true` if the state in `Unregistered`
     pub fn is_unregistered(&self) -> bool {
         *self == SignerState::Unregistered
     }
 
+    /// Returns `true` if the state in `Registered`
     pub fn is_registered(&self) -> bool {
         matches!(*self, SignerState::Registered(_))
     }
 
+    /// Returns `true` if the state in `Signed`
     pub fn is_signed(&self) -> bool {
         matches!(*self, SignerState::Signed(_))
     }
@@ -46,6 +57,7 @@ impl Display for SignerState {
     }
 }
 
+/// The state machine is responsible of the execution of the signer automate.
 pub struct StateMachine {
     state: SignerState,
     runner: Box<dyn Runner>,
@@ -53,6 +65,7 @@ pub struct StateMachine {
 }
 
 impl StateMachine {
+    /// Instanciate a new StateMachine instance.
     pub fn new(
         starting_state: SignerState,
         runner: Box<dyn Runner>,
@@ -65,11 +78,12 @@ impl StateMachine {
         }
     }
 
+    /// Return the current state of the state machine.
     pub fn get_state(&self) -> &SignerState {
         &self.state
     }
 
-    /// perform a cycle of the state machine
+    /// Perform a cycle of the state machine.
     pub async fn cycle(&mut self) -> Result<(), Box<dyn Error + Sync + Send>> {
         info!("================================================================================");
         debug!("STATE MACHINE: new cycle"; "current_state" => ?self.state);
@@ -132,7 +146,7 @@ impl StateMachine {
         Ok(())
     }
 
-    /// launch the state machine until an error occurs or it is interrupted
+    /// Launch the state machine until an error occurs or it is interrupted.
     pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
         info!("state machine: launching");
 
@@ -146,6 +160,7 @@ impl StateMachine {
         }
     }
 
+    /// Return true if the epoch is different than the one in the given beacon.
     async fn has_epoch_changed(
         &self,
         beacon: &Beacon,
@@ -159,6 +174,7 @@ impl StateMachine {
         }
     }
 
+    /// Return true if the current beacon is different than the given beacon.
     async fn has_beacon_changed(
         &self,
         beacon: &Beacon,
@@ -172,6 +188,7 @@ impl StateMachine {
         }
     }
 
+    /// Launch the transition process from tge `Unregistered` to the `Registered` state.
     async fn transition_from_unregistered_to_registered(
         &self,
         pending_certificate: &CertificatePending,
@@ -185,6 +202,7 @@ impl StateMachine {
         Ok(RegisteredState { beacon })
     }
 
+    /// Launch the transition process from the `Registered` to the `Signed` state.
     async fn transition_from_registered_to_signed(
         &self,
         pending_certificate: &CertificatePending,
