@@ -1,7 +1,7 @@
-mod init;
+mod test_extensions;
 
-use crate::init::RuntimeTester;
 use mithril_common::fake_data;
+use test_extensions::RuntimeTester;
 
 #[tokio::test]
 async fn simple_scenario() {

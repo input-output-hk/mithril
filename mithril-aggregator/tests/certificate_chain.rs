@@ -1,13 +1,14 @@
-mod init;
+mod test_extensions;
 
 use mithril_aggregator::VerificationKeyStorer;
 use mithril_common::crypto_helper::tests_setup;
 use mithril_common::entities::{ProtocolParameters, SignerWithStake};
+use test_extensions::RuntimeTester;
 
 #[tokio::test]
 async fn certificate_chain() {
     // initialization
-    let mut tester = init::RuntimeTester::build().await;
+    let mut tester = RuntimeTester::build().await;
 
     // create signers & declare stake distribution
     let signers = tests_setup::setup_signers(10);
