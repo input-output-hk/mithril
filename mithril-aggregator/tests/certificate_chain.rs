@@ -2,8 +2,7 @@ mod init;
 
 use mithril_aggregator::VerificationKeyStorer;
 use mithril_common::crypto_helper::tests_setup;
-use mithril_common::entities::SignerWithStake;
-use mithril_common::fake_data;
+use mithril_common::entities::{ProtocolParameters, SignerWithStake};
 
 #[tokio::test]
 async fn certificate_chain() {
@@ -11,7 +10,7 @@ async fn certificate_chain() {
     let mut tester = init::RuntimeTester::build().await;
 
     // create signers & declare stake distribution
-    let signers = tests_setup::setup_signers(5);
+    let signers = tests_setup::setup_signers(10);
     let mut signers_with_stake: Vec<SignerWithStake> =
         signers.clone().into_iter().map(|s| s.into()).collect();
     tester
@@ -23,7 +22,11 @@ async fn certificate_chain() {
         .simulate_genesis(
             signers_with_stake.clone(),
             signers_with_stake.clone(),
-            fake_data::protocol_parameters(),
+            ProtocolParameters {
+                k: 5,
+                m: 100,
+                phi_f: 0.75,
+            },
         )
         .await;
 

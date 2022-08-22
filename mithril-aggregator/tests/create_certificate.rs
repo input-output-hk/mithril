@@ -1,9 +1,8 @@
 mod init;
 
 use mithril_common::crypto_helper::tests_setup;
-use mithril_common::entities::ProtocolMessagePartKey;
 use mithril_common::entities::SignerWithStake;
-use mithril_common::fake_data;
+use mithril_common::entities::{ProtocolMessagePartKey, ProtocolParameters};
 
 #[tokio::test]
 async fn create_certificate() {
@@ -23,7 +22,11 @@ async fn create_certificate() {
         .simulate_genesis(
             signers_with_stake.clone(),
             signers_with_stake,
-            fake_data::protocol_parameters(),
+            ProtocolParameters {
+                k: 5,
+                m: 100,
+                phi_f: 0.75,
+            },
         )
         .await;
 
