@@ -1,7 +1,7 @@
 use super::StoreError;
 use tokio::sync::RwLock;
 
-use mithril_common::entities::Certificate;
+use mithril_common::entities::{Beacon, Certificate};
 use mithril_common::store::adapter::StoreAdapter;
 
 type Adapter = Box<dyn StoreAdapter<Key = String, Record = Certificate>>;
@@ -27,6 +27,15 @@ impl CertificateStore {
         Ok(record)
     }
 
+    pub async fn get_from_beacon(
+        &self,
+        beacon: &Beacon,
+    ) -> Result<Option<Certificate>, StoreError> {
+        let adapter = self.adapter.read().await;
+        let mut iterator = adapter.get_iter().await?;
+        Ok(iterator.find(|cert| beacon == &cert.beacon))
+    }
+
     pub async fn save(&self, certificate: Certificate) -> Result<(), StoreError> {
         self.adapter
             .write()
@@ -49,18 +58,23 @@ mod test {
     use super::*;
 
     use mithril_common::fake_data::{self};
-    use mithril_common::store::adapter::DumbStoreAdapter;
+    use mithril_common::store::adapter::MemoryAdapter;
 
     async fn get_certificate_store(size: u64) -> CertificateStore {
-        let mut adapter: DumbStoreAdapter<String, Certificate> = DumbStoreAdapter::new();
+        let mut beacon = Beacon::new("devnet".to_string(), 1, 1);
+        let mut certificates = vec![];
 
         for ix in 0..size {
-            let certificate = fake_data::certificate(format!("cert_{:0>2}", ix));
-            adapter
-                .store_record(&certificate.hash, &certificate)
-                .await
-                .unwrap();
+            let mut certificate = fake_data::certificate(format!("cert_{:0>2}", ix));
+            // Change the beacon to properly test [CertificateStore::get_from_beacon]
+            certificate.beacon = beacon.clone();
+            beacon.immutable_file_number += 1;
+
+            certificates.push((certificate.hash.clone(), certificate));
         }
+
+        let adapter: MemoryAdapter<String, Certificate> =
+            MemoryAdapter::new(Some(certificates)).unwrap();
         CertificateStore::new(Box::new(adapter))
     }
 
@@ -110,5 +124,26 @@ mod test {
         let certificate = store.get_from_hash("cert_00").await.unwrap().unwrap();
 
         assert_eq!("whatever".to_string(), certificate.previous_hash);
+    }
+
+    #[tokio::test]
+    async fn get_from_beacon() {
+        let store = get_certificate_store(12).await;
+
+        let beacon = Beacon::new("devnet".to_string(), 1, 9);
+        let certificate = store
+            .get_from_beacon(&beacon)
+            .await
+            .unwrap()
+            .expect("a certificate should have been found");
+        assert_eq!(beacon, certificate.beacon);
+    }
+
+    #[tokio::test]
+    async fn get_from_beacon_not_exist() {
+        let store = get_certificate_store(4).await;
+
+        let beacon = Beacon::new("devnet".to_string(), 1, 9);
+        assert_eq!(None, store.get_from_beacon(&beacon).await.unwrap());
     }
 }

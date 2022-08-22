@@ -47,6 +47,9 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Return the current beacon if it is newer than the given one.
     async fn is_new_beacon(&self, beacon: Option<Beacon>) -> Result<Option<Beacon>, RuntimeError>;
 
+    /// Check if a certificate already have been issued for a given beacon.
+    async fn certificate_exist_for_beacon(&self, beacon: &Beacon) -> Result<bool, RuntimeError>;
+
     async fn compute_digest(&self, new_beacon: &Beacon) -> Result<String, RuntimeError>;
 
     async fn update_beacon(&self, new_beacon: &Beacon) -> Result<(), RuntimeError>;
@@ -146,8 +149,19 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         }
     }
 
+    async fn certificate_exist_for_beacon(&self, beacon: &Beacon) -> Result<bool, RuntimeError> {
+        info!("RUNNER: certificate_exist_for_beacon");
+        let certificate_exist = self
+            .dependencies
+            .certificate_store
+            .get_from_beacon(beacon)
+            .await?
+            .is_some();
+        Ok(certificate_exist)
+    }
+
     async fn compute_digest(&self, new_beacon: &Beacon) -> Result<String, RuntimeError> {
-        info!("RUNNER: running runner::compute_digest");
+        info!("RUNNER: compute_digest");
         let digester = self.dependencies.digester.clone();
 
         debug!("computing digest"; "db_directory" => self.config.db_directory.display());
@@ -485,6 +499,21 @@ pub mod tests {
         };
         let res = runner.is_new_beacon(Some(beacon)).await;
         assert!(res.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn test_certificate_exist_for_beacon() {
+        let (dependencies, config) = initialize_dependencies().await;
+        let certificate_store = dependencies.certificate_store.clone();
+        let runner = AggregatorRunner::new(config, Arc::new(dependencies));
+
+        let beacon = fake_data::beacon();
+        let mut certificate = fake_data::certificate("certificate_hash".to_string());
+        certificate.beacon = beacon.clone();
+
+        assert!(!runner.certificate_exist_for_beacon(&beacon).await.unwrap());
+        certificate_store.save(certificate).await.unwrap();
+        assert!(runner.certificate_exist_for_beacon(&beacon).await.unwrap());
     }
 
     #[tokio::test]

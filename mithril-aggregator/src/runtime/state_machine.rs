@@ -106,10 +106,15 @@ impl AggregatorRuntime {
                     .await?
                 {
                     trace!("new beacon found = {:?}", beacon);
-                    let new_state = self
-                        .transition_from_idle_to_signing(state.current_beacon.clone(), beacon)
-                        .await?;
-                    self.state = AggregatorState::Signing(new_state);
+
+                    if self.runner.certificate_exist_for_beacon(&beacon).await? {
+                        info!("a certificate already exist for this beacon"; "beacon" => ?beacon);
+                    } else {
+                        let new_state = self
+                            .transition_from_idle_to_signing(state.current_beacon.clone(), beacon)
+                            .await?;
+                        self.state = AggregatorState::Signing(new_state);
+                    }
                 } else {
                     trace!("nothing to do in IDLE state")
                 }
@@ -249,10 +254,30 @@ mod tests {
     #[tokio::test]
     pub async fn idle_check_no_new_beacon_with_current_beacon() {
         let mut runner = MockAggregatorRunner::new();
+        runner.expect_is_new_beacon().once().returning(|_| Ok(None));
+        let mut runtime = init_runtime(
+            Some(AggregatorState::Idle(IdleState {
+                current_beacon: Some(fake_data::beacon()),
+            })),
+            runner,
+        )
+        .await;
+        runtime.cycle().await.unwrap();
+
+        assert_eq!("idle".to_string(), runtime.get_state());
+    }
+
+    #[tokio::test]
+    pub async fn idle_certificate_already_exist_for_beacon() {
+        let mut runner = MockAggregatorRunner::new();
         runner
             .expect_is_new_beacon()
-            .times(1)
-            .returning(|_| Ok(None));
+            .once()
+            .returning(|_| Ok(Some(fake_data::beacon())));
+        runner
+            .expect_certificate_exist_for_beacon()
+            .once()
+            .returning(|_| Ok(true));
         let mut runtime = init_runtime(
             Some(AggregatorState::Idle(IdleState {
                 current_beacon: Some(fake_data::beacon()),
@@ -270,40 +295,44 @@ mod tests {
         let mut runner = MockAggregatorRunner::new();
         runner
             .expect_is_new_beacon()
-            .times(1)
+            .once()
             .returning(|_| Ok(Some(fake_data::beacon())));
         runner
+            .expect_certificate_exist_for_beacon()
+            .once()
+            .returning(|_| Ok(false));
+        runner
             .expect_compute_digest()
-            .times(1)
+            .once()
             .returning(|_| Ok("whatever".to_string()));
         runner
             .expect_update_beacon()
             .with(predicate::eq(fake_data::beacon()))
-            .times(1)
+            .once()
             .returning(|_| Ok(()));
         runner
             .expect_update_stake_distribution()
             .with(predicate::eq(fake_data::beacon()))
-            .times(1)
+            .once()
             .returning(|_| Ok(()));
         runner
             .expect_update_protocol_parameters_in_multisigner()
             .with(predicate::eq(fake_data::beacon()))
-            .times(1)
+            .once()
             .returning(|_| Ok(()));
         runner
             .expect_update_message_in_multisigner()
             .with(predicate::eq("whatever".to_string()))
-            .times(1)
+            .once()
             .returning(|_| Ok(()));
         runner
             .expect_create_new_pending_certificate_from_multisigner()
             .with(predicate::eq(fake_data::beacon()))
-            .times(1)
+            .once()
             .returning(|_| Ok(fake_data::certificate_pending()));
         runner
             .expect_save_pending_certificate()
-            .times(1)
+            .once()
             .returning(|_| Ok(()));
 
         let mut runtime = init_runtime(
@@ -323,11 +352,11 @@ mod tests {
         let mut runner = MockAggregatorRunner::new();
         runner
             .expect_is_new_beacon()
-            .times(1)
+            .once()
             .returning(|_| Ok(Some(fake_data::beacon())));
         runner
             .expect_drop_pending_certificate()
-            .times(1)
+            .once()
             .returning(|| Ok(Some(fake_data::certificate_pending())));
 
         let state = SigningState {
@@ -350,13 +379,10 @@ mod tests {
     #[tokio::test]
     async fn signing_same_beacon_to_signing() {
         let mut runner = MockAggregatorRunner::new();
-        runner
-            .expect_is_new_beacon()
-            .times(1)
-            .returning(|_| Ok(None));
+        runner.expect_is_new_beacon().once().returning(|_| Ok(None));
         runner
             .expect_is_multisig_created()
-            .times(1)
+            .once()
             .returning(|| Ok(false));
         let state = SigningState {
             current_beacon: fake_data::beacon(),
@@ -371,21 +397,18 @@ mod tests {
     #[tokio::test]
     async fn signing_multisig_ready_to_idle() {
         let mut runner = MockAggregatorRunner::new();
-        runner
-            .expect_is_new_beacon()
-            .times(1)
-            .returning(|_| Ok(None));
+        runner.expect_is_new_beacon().once().returning(|_| Ok(None));
         runner
             .expect_is_multisig_created()
-            .times(1)
+            .once()
             .returning(|| Ok(true));
         runner
             .expect_drop_pending_certificate()
-            .times(1)
+            .once()
             .returning(|| Ok(Some(fake_data::certificate_pending())));
         runner
             .expect_create_snapshot_archive()
-            .times(1)
+            .once()
             .returning(|_| {
                 Ok(OngoingSnapshot::new(
                     Path::new("/tmp/archive.zip").to_path_buf(),
@@ -394,15 +417,15 @@ mod tests {
             });
         runner
             .expect_upload_snapshot_archive()
-            .times(1)
+            .once()
             .returning(|_path| Ok(vec!["locA".to_string(), "locB".to_string()]));
         runner
             .expect_create_and_save_certificate()
-            .times(1)
+            .once()
             .returning(|_| Ok(fake_data::certificate("whatever".to_string())));
         runner
             .expect_create_and_save_snapshot()
-            .times(1)
+            .once()
             .returning(|_, _, _| Ok(fake_data::snapshots(1)[0].clone()));
 
         let state = SigningState {

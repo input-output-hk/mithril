@@ -1,16 +1,15 @@
-mod init;
+mod test_extensions;
 
 use mithril_common::crypto_helper::tests_setup;
-use mithril_common::entities::ProtocolMessagePartKey;
 use mithril_common::entities::SignerWithStake;
-use mithril_common::fake_data;
+use mithril_common::entities::{ProtocolMessagePartKey, ProtocolParameters};
+use test_extensions::RuntimeTester;
 
 #[tokio::test]
 async fn create_certificate() {
-    // initialization
-    let mut tester = init::RuntimeTester::build().await;
+    let mut tester = RuntimeTester::build().await;
 
-    // create signers & declare stake distribution
+    comment!("create signers & declare stake distribution");
     let signers = tests_setup::setup_signers(2);
     let signers_with_stake: Vec<SignerWithStake> =
         signers.clone().into_iter().map(|s| s.into()).collect();
@@ -23,28 +22,32 @@ async fn create_certificate() {
         .simulate_genesis(
             signers_with_stake.clone(),
             signers_with_stake,
-            fake_data::protocol_parameters(),
+            ProtocolParameters {
+                k: 5,
+                m: 100,
+                phi_f: 0.75,
+            },
         )
         .await;
 
-    // start the runtime state machine
+    comment!("start the runtime state machine");
     cycle!(tester, "signing");
     cycle!(tester, "signing");
 
-    // register signers
+    comment!("register signers");
     tester.register_signers(&signers).await.unwrap();
     cycle!(tester, "signing");
 
-    // change the immutable number to alter the beacon
+    comment!("change the immutable number to alter the beacon");
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "idle");
     cycle!(tester, "signing");
     cycle!(tester, "signing");
 
-    // signers send their single signature
+    comment!("signers send their single signature");
     tester.send_single_signatures(&signers).await.unwrap();
 
-    // The state machine should issue a multisignature
+    comment!("The state machine should issue a multisignature");
     cycle!(tester, "idle");
     let (last_certificates, snapshots) =
         tester.get_last_certificates_and_snapshots().await.unwrap();
