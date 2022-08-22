@@ -24,7 +24,7 @@ impl FakeAggregator {
     pub async fn get_registered_signers(&self, epoch: &Epoch) -> Option<Vec<Signer>> {
         let store = self.registered_signers.read().await;
 
-        store.get(epoch).map(|s| s.clone())
+        store.get(epoch).cloned()
     }
 
     async fn get_beacon(&self) -> Result<Beacon, CertificateHandlerError> {
@@ -57,8 +57,8 @@ impl CertificateHandler for FakeAggregator {
         let store = self.registered_signers.read().await;
         certificate_pending.signers = store
             .get(&beacon.epoch.offset_to_signer_retrieval_epoch().unwrap())
-            .map(|s| s.clone())
-            .unwrap_or_else(|| Vec::new());
+            .cloned()
+            .unwrap_or_default();
         certificate_pending.next_signers = store
             .get(
                 &beacon
@@ -66,8 +66,8 @@ impl CertificateHandler for FakeAggregator {
                     .offset_to_next_signer_retrieval_epoch()
                     .unwrap(),
             )
-            .map(|s| s.clone())
-            .unwrap_or_else(|| Vec::new());
+            .cloned()
+            .unwrap_or_default();
 
         Ok(Some(certificate_pending))
     }
@@ -82,10 +82,7 @@ impl CertificateHandler for FakeAggregator {
             .unwrap();
 
         let mut store = self.registered_signers.write().await;
-        let mut signers = store
-            .get(&epoch)
-            .map(|s| s.clone())
-            .unwrap_or_else(|| Vec::new());
+        let mut signers = store.get(&epoch).cloned().unwrap_or_default();
         signers.push(signer.clone());
         let _ = store.insert(epoch, signers);
 

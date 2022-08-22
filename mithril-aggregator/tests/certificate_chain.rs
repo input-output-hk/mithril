@@ -8,9 +8,14 @@ use test_extensions::RuntimeTester;
 #[tokio::test]
 async fn certificate_chain() {
     let mut tester = RuntimeTester::build().await;
+    let protocol_parameters = ProtocolParameters {
+        k: 5,
+        m: 100,
+        phi_f: 0.65,
+    };
 
     comment!("create signers & declare stake distribution");
-    let signers = tests_setup::setup_signers(10);
+    let signers = tests_setup::setup_signers(5, &protocol_parameters.clone().into());
     let mut signers_with_stake: Vec<SignerWithStake> =
         signers.clone().into_iter().map(|s| s.into()).collect();
     tester
@@ -22,11 +27,7 @@ async fn certificate_chain() {
         .simulate_genesis(
             signers_with_stake.clone(),
             signers_with_stake.clone(),
-            ProtocolParameters {
-                k: 5,
-                m: 100,
-                phi_f: 0.75,
-            },
+            &protocol_parameters,
         )
         .await;
 
@@ -71,7 +72,10 @@ async fn certificate_chain() {
     for (i, signer) in signers_with_stake.iter_mut().enumerate() {
         signer.stake += (i * 1000) as u64;
     }
-    let new_signers = tester.update_stake_distribution(signers_with_stake).await;
+    let new_signers = tester
+        .update_stake_distribution(signers_with_stake)
+        .await
+        .unwrap();
 
     comment!("Increase epoch, triggering stake distribution update");
     let new_epoch = tester.increase_epoch().await.unwrap();

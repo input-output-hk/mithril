@@ -49,12 +49,14 @@ impl SingleSignatures {
 mod tests {
     use super::*;
     use crate::crypto_helper::key_encode_hex;
-    use crate::crypto_helper::tests_setup::{setup_message, setup_signers};
+    use crate::crypto_helper::tests_setup::{
+        setup_message, setup_protocol_parameters, setup_signers,
+    };
 
     #[test]
     fn single_signatures_should_convert_to_protocol_signatures() {
         let message = setup_message();
-        let signers = setup_signers(1);
+        let signers = setup_signers(1, &setup_protocol_parameters());
         let (party_id, _, _, signer, _) = signers.first().unwrap();
         let protocol_sigs = signer.sign(message.compute_hash().as_bytes()).unwrap();
 

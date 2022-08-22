@@ -114,7 +114,7 @@ mod tests {
         let beacon = beacon_provider.get_current_beacon().await.unwrap();
 
         assert_eq!(42, beacon.epoch);
-        assert_eq!(119_827, beacon.immutable_file_number);
+        assert_eq!(500, beacon.immutable_file_number);
     }
 
     #[tokio::test]

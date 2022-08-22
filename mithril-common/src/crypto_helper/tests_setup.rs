@@ -38,6 +38,7 @@ pub fn setup_protocol_parameters() -> ProtocolParameters {
 /// Instantiate a list of protocol signers, use this for tests only.
 pub fn setup_signers(
     total: u64,
+    protocol_parameters: &ProtocolParameters,
 ) -> Vec<(
     ProtocolPartyId,
     ProtocolStake,
@@ -55,12 +56,13 @@ pub fn setup_signers(
             (party_id as PartyId, stake as Stake)
         })
         .collect::<Vec<_>>();
-    setup_signers_from_parties(&signers)
+    setup_signers_from_parties(&signers, protocol_parameters)
 }
 
 /// Instantiate a list of protocol signers based on the given [PartyId] / [Stake] pairs, use this for tests only.
 pub fn setup_signers_from_parties(
     party_with_stake: &[(PartyId, Stake)],
+    protocol_parameters: &ProtocolParameters,
 ) -> Vec<(
     ProtocolPartyId,
     ProtocolStake,
@@ -68,14 +70,13 @@ pub fn setup_signers_from_parties(
     ProtocolSigner,
     ProtocolInitializer,
 )> {
-    let protocol_parameters = setup_protocol_parameters();
     let signers = party_with_stake
         .iter()
         .map(|(party_id, stake)| {
             let protocol_initializer_seed: [u8; 32] = party_id.as_bytes()[..32].try_into().unwrap();
             let mut protocol_initializer_rng = ChaCha20Rng::from_seed(protocol_initializer_seed);
             let protocol_initializer: ProtocolInitializer = ProtocolInitializer::setup(
-                protocol_parameters,
+                *protocol_parameters,
                 *stake,
                 &mut protocol_initializer_rng,
             );
@@ -115,6 +116,7 @@ pub fn setup_certificate_chain(
     total_certificates: u64,
     certificates_per_epoch: u64,
 ) -> Vec<Certificate> {
+    let protocol_parameters = setup_protocol_parameters();
     let mut epochs = (1..total_certificates + 2)
         .into_iter()
         .map(|i| match certificates_per_epoch {
@@ -126,7 +128,12 @@ pub fn setup_certificate_chain(
     let signers_by_epoch = epochs
         .clone()
         .into_iter()
-        .map(|epoch| (epoch, setup_signers(min(2 + epoch.0, 5))))
+        .map(|epoch| {
+            (
+                epoch,
+                setup_signers(min(2 + epoch.0, 5), &protocol_parameters),
+            )
+        })
         .collect::<HashMap<_, _>>();
     let clerk_for_signers = |signers: &[(_, _, _, ProtocolSigner, _)]| -> ProtocolClerk {
         let first_signer = &signers.first().unwrap().3;

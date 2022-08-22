@@ -367,7 +367,7 @@ mod tests {
     use mockall::mock;
     use std::{path::PathBuf, sync::Arc};
 
-    use mithril_common::crypto_helper::tests_setup::setup_signers;
+    use mithril_common::crypto_helper::tests_setup::{setup_protocol_parameters, setup_signers};
     use mithril_common::crypto_helper::ProtocolInitializer;
     use mithril_common::digesters::{DumbImmutableDigester, DumbImmutableFileObserver};
     use mithril_common::entities::{Epoch, StakeDistribution};
@@ -602,7 +602,7 @@ mod tests {
             .get_current_beacon()
             .await
             .expect("get_current_beacon should not fail");
-        let signers = setup_signers(5);
+        let signers = setup_signers(5, &setup_protocol_parameters());
         let (party_id, _, _, _, protocol_initializer) = signers.first().unwrap();
         let single_signer = Arc::new(MithrilSingleSigner::new(party_id.to_string()));
         services.single_signer = single_signer.clone();
@@ -653,7 +653,7 @@ mod tests {
             .get_current_beacon()
             .await
             .expect("get_current_beacon should not fail");
-        let signers = setup_signers(5);
+        let signers = setup_signers(5, &setup_protocol_parameters());
         let (party_id, _, _, _, protocol_initializer) = signers.first().unwrap();
         let single_signer = Arc::new(MithrilSingleSigner::new(party_id.to_string()));
         services.single_signer = single_signer.clone();

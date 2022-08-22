@@ -270,7 +270,7 @@ mod tests {
     #[test]
     fn test_verify_multi_signature_ok() {
         let protocol_parameters = setup_protocol_parameters();
-        let signers = setup_signers(5);
+        let signers = setup_signers(5, &protocol_parameters);
         let message = setup_message();
 
         let mut single_signatures = Vec::new();

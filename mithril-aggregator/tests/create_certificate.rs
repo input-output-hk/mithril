@@ -8,9 +8,14 @@ use test_extensions::RuntimeTester;
 #[tokio::test]
 async fn create_certificate() {
     let mut tester = RuntimeTester::build().await;
+    let protocol_parameters = ProtocolParameters {
+        k: 5,
+        m: 100,
+        phi_f: 0.65,
+    };
 
     comment!("create signers & declare stake distribution");
-    let signers = tests_setup::setup_signers(10);
+    let signers = tests_setup::setup_signers(10, &protocol_parameters.clone().into());
     let signers_with_stake: Vec<SignerWithStake> =
         signers.clone().into_iter().map(|s| s.into()).collect();
     tester
@@ -22,11 +27,7 @@ async fn create_certificate() {
         .simulate_genesis(
             signers_with_stake.clone(),
             signers_with_stake,
-            ProtocolParameters {
-                k: 5,
-                m: 100,
-                phi_f: 0.75,
-            },
+            &protocol_parameters,
         )
         .await;
 

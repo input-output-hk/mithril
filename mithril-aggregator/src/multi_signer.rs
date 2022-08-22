@@ -905,10 +905,11 @@ mod tests {
     async fn test_multi_signer_stake_distribution_ok() {
         let mut multi_signer = setup_multi_signer().await;
 
-        let mut stake_distribution_expected: ProtocolStakeDistribution = setup_signers(5)
-            .iter()
-            .map(|(party_id, stake, _, _, _)| (party_id.to_owned(), *stake))
-            .collect::<_>();
+        let mut stake_distribution_expected: ProtocolStakeDistribution =
+            setup_signers(5, &setup_protocol_parameters())
+                .iter()
+                .map(|(party_id, stake, _, _, _)| (party_id.to_owned(), *stake))
+                .collect::<_>();
         stake_distribution_expected.sort_by_key(|k| k.0.clone());
         multi_signer
             .update_stake_distribution(&stake_distribution_expected)
@@ -952,7 +953,7 @@ mod tests {
             .await
             .expect("update protocol parameters failed");
 
-        let signers = setup_signers(5);
+        let signers = setup_signers(5, &protocol_parameters_expected);
 
         let stake_distribution_expected: ProtocolStakeDistribution = signers
             .iter()
@@ -1028,7 +1029,7 @@ mod tests {
             .await
             .expect("update protocol parameters failed");
 
-        let signers = setup_signers(5);
+        let signers = setup_signers(5, &protocol_parameters);
         let stake_distribution = &signers
             .iter()
             .map(|(party_id, stake, _, _, _)| (party_id.to_owned(), *stake))

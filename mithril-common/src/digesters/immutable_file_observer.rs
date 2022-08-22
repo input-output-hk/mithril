@@ -66,7 +66,7 @@ pub struct DumbImmutableFileObserver {
 impl Default for DumbImmutableFileObserver {
     fn default() -> Self {
         let mut observer = Self::new();
-        observer.shall_return = RwLock::new(Some(119827));
+        observer.shall_return = RwLock::new(Some(500));
 
         observer
     }

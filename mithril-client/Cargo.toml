@@ -9,10 +9,8 @@ description = "A Mithril Client"
 async-trait = "0.1.52"
 blake2      = "0.9.2"
 clap = { version = "3.1.6", features = ["derive"] }
-clap-verbosity-flag = "1.0.0"
 cli-table = "0.4"
 config = "0.13.1"
-env_logger = "0.8.4"
 flate2 = "1.0.23"
 futures = "0.3"
 hex = "0.4.3"
@@ -23,7 +21,6 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 slog = { version = "2.7.0", features = ["max_level_trace", "release_max_level_debug"] }
 slog-async = "2.7.0"
-slog-bunyan = "2.4.0"
 slog-scope = "4.4.0"
 slog-term = "2.9.0"
 tar = "0.4.38"
