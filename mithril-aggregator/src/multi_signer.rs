@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use chrono::prelude::*;
-use hex::ToHex;
 use slog_scope::{debug, trace, warn};
 use thiserror::Error;
 
+use mithril::AggregationError;
 use mithril_common::crypto_helper::{
     key_decode_hex, key_encode_hex, ProtocolAggregateVerificationKey, ProtocolClerk,
     ProtocolKeyRegistration, ProtocolMultiSignature, ProtocolParameters, ProtocolPartyId,
@@ -696,39 +696,6 @@ impl MultiSigner for MultiSignerImpl {
             })
             .collect::<Vec<_>>();
 
-        let protocol_parameters = self.get_protocol_parameters().await?;
-        if protocol_parameters.is_none() {
-            warn!(
-                "no protocol parameters available, can't produce multi-signature";
-                "beacon" =>  #?beacon,
-            );
-            return Ok(None);
-        }
-
-        let quorum = protocol_parameters.unwrap().k;
-        trace!(
-            "Create multi signature";
-            "beacon" =>  #?beacon,
-            "protocol_message" =>  #?message,
-            "protocol_parameters" =>  #?protocol_parameters,
-            "message" => message.compute_hash().encode_hex::<String>()
-        );
-        if quorum
-            > signatures
-                .iter()
-                .map(|s| s.indexes.len())
-                .reduce(|s1, s2| s1 + s2)
-                .unwrap_or(0) as u64
-        {
-            // Quorum is not reached
-            debug!(
-                "Quorum is not reached {} signatures vs {} needed",
-                signatures.len(),
-                quorum
-            );
-            return Ok(None);
-        }
-
         let clerk = self
             .clerk
             .as_ref()
@@ -738,6 +705,10 @@ impl MultiSigner for MultiSignerImpl {
                 self.avk = Some(clerk.compute_avk());
                 self.multi_signature = Some(multi_signature.clone());
                 Ok(Some(multi_signature))
+            }
+            Err(AggregationError::NotEnoughSignatures(actual, expected)) => {
+                warn!("Could not compute multi-signature: Not enough signatures. Got only {} out of {}.", actual, expected);
+                Ok(None)
             }
             Err(err) => Err(ProtocolError::Core(err.to_string())),
         }
