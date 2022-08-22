@@ -1,8 +1,8 @@
 //! Key registration functionality.
-
 use crate::error::RegisterError;
 use crate::multi_sig::{VerificationKey, VerificationKeyPoP};
 use blake2::digest::Digest;
+use serde::{Deserialize, Serialize};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::iter::FromIterator;
@@ -21,11 +21,27 @@ pub type RegParty = MTLeaf;
 /// Representation of the PoolID
 pub type PoolId = [u8; 32];
 
+/// Raw Fields of the operational certificates (without incluiding the cold VK)
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+struct RawFields(
+    #[serde(with = "serde_bytes")] Vec<u8>,
+    u64,
+    u64,
+    #[serde(with = "serde_bytes")] Vec<u8>,
+);
+
+/// Raw Operational Certificate
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+struct RawOpCert(RawFields, EdPublicKey);
+
 /// Parsed Operational Certificate
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct OpCert {
+pub struct OpCert {
     kes_vk: KesPublicKey,
+    issue_number: u64,
+    start_kes_period: u64, // this is not the kes period used in signing/verifying
     cert_sig: EdSignature,
+    cold_vk: EdPublicKey,
 }
 
 /// NewKeyReg that is set to eventually replace `KeyReg`
@@ -57,8 +73,33 @@ pub struct ClosedKeyReg<D: Digest> {
 
 impl OpCert {
     /// Parse raw bytes into an Operational Certificate
-    fn parse(_bytes: &[u8]) -> Self {
-        todo!()
+    pub fn parse(bytes: &[u8]) -> Result<Self, RegisterError> {
+        let a: RawOpCert =
+            serde_cbor::from_slice(bytes).map_err(|_| RegisterError::SerializationError)?;
+
+        Ok(Self {
+            kes_vk: KesPublicKey::from_bytes(&a.0 .0)
+                .map_err(|_| RegisterError::SerializationError)?,
+            issue_number: a.0 .1,
+            start_kes_period: a.0 .2,
+            cert_sig: EdSignature::from_bytes(&a.0 .3)
+                .map_err(|_| RegisterError::SerializationError)?,
+            cold_vk: a.1,
+        })
+    }
+
+    /// Validate a certificate
+    pub fn validate(&self) -> Result<(), RegisterError> {
+        let mut msg = [0u8; 48];
+        msg[..32].copy_from_slice(self.kes_vk.as_bytes());
+        msg[32..40].copy_from_slice(&self.issue_number.to_be_bytes());
+        msg[40..48].copy_from_slice(&self.start_kes_period.to_be_bytes());
+
+        if self.cold_vk.verify(&msg, &self.cert_sig).is_ok() {
+            return Ok(());
+        }
+
+        Err(RegisterError::InvalidOpCert)
     }
 }
 
@@ -78,22 +119,19 @@ impl NewKeyReg {
     pub fn register(
         &mut self,
         opcert: &[u8],
-        cold_vk: EdPublicKey,
         kes_sig: Sum6KesSig,
         kes_period: usize,
         pk: VerificationKeyPoP,
     ) -> Result<(), RegisterError> {
-        let cert = OpCert::parse(opcert);
+        let cert = OpCert::parse(opcert)?;
 
-        cold_vk
-            .verify(opcert, &cert.cert_sig)
-            .map_err(|_| RegisterError::InvalidOpCert)?;
+        cert.validate().map_err(|_| RegisterError::InvalidOpCert)?;
         kes_sig
             .verify(kes_period, &cert.kes_vk, &pk.to_bytes())
             .map_err(|_| RegisterError::KesSignatureInvalid)?;
 
         let mut pool_id = [0u8; 32];
-        pool_id.copy_from_slice(&blake2::Blake2b::digest(cold_vk.as_bytes()).as_slice()[..32]);
+        pool_id.copy_from_slice(&blake2::Blake2b::digest(cert.cold_vk.as_bytes()).as_slice()[..32]);
 
         if let Some(&stake) = self.stake_distribution.get(&pool_id) {
             if let Entry::Vacant(e) = self.keys.entry(pk.vk) {
@@ -164,7 +202,12 @@ impl KeyReg {
 mod tests {
     use super::*;
     use crate::multi_sig::SigningKey;
+<<<<<<< HEAD
     use blake2::{digest::consts::U32, Blake2b};
+=======
+    use blake2::Blake2b;
+    use hex::FromHex;
+>>>>>>> a8dd20439 (Serialisation and verification of OpCert)
     use proptest::collection::vec;
     use proptest::prelude::*;
     use rand_chacha::ChaCha20Rng;
@@ -223,5 +266,13 @@ mod tests {
                 assert!(retrieved_keys == keys);
             }
         }
+    }
+
+    #[test]
+    fn test_vector_op_cert() {
+        let cbor_bytes = Vec::from_hex("8284582067fd5ccf770c0182a34d2b3d2011ca3a853ba947e17cae7543e668bc7687eb6a0000584050592bef1c630f2df499161d78bfadb44cc76cfd24048993ace4a45dade37b4f29e95172fde4e63581a93552f6986985616b70f61062a1db2ee0d3d8e671440e58202abf3ff537a2080f53fa38615906fa6094d44860902f2b2dffdbb41b811ff39f").expect("Invalid Hex String");
+        let cert = OpCert::parse(&cbor_bytes).unwrap();
+
+        assert!(cert.validate().is_ok())
     }
 }

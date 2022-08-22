@@ -830,9 +830,9 @@ dependencies = [
 
 [[package]]
 name = "curve25519-dalek"
-version = "3.2.1"
+version = "3.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90f9d052967f590a76e62eb387bd0bbb1b000182c3cefe5364db6b7211651bc0"
+checksum = "0b9fdf9972b2bd6af2d913799d9ebc165ea4d2e65878e329d9c6b372c4491b61"
 dependencies = [
  "byteorder",
  "digest 0.9.0",
@@ -1814,6 +1814,7 @@ dependencies = [
  "criterion",
  "digest 0.9.0",
  "ed25519-dalek",
+ "hex",
  "kes-summed-ed25519",
  "num-bigint 0.4.3",
  "num-rational 0.4.1",
@@ -1824,6 +1825,8 @@ dependencies = [
  "rayon",
  "rug",
  "serde",
+ "serde_bytes",
+ "serde_cbor",
  "thiserror",
 ]
 
@@ -1901,12 +1904,13 @@ dependencies = [
  "mithril",
  "mockall",
  "nom",
+ "rand_chacha 0.2.2",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
  "serde",
  "serde_json",
  "serde_yaml",
- "sha2 0.10.5",
+ "sha2 0.10.6",
  "slog",
  "slog-scope",
  "sqlite",
@@ -2925,6 +2929,17 @@ version = "0.11.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cfc50e8183eeeb6178dcb167ae34a8051d63535023ae38b5d8d12beae193d37b"
 dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "serde_cbor"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f7081ed758ec726a6ed8ee7e92f5d3f6e6f8c3901b1f972e3a4a2f2599fad14f"
+dependencies = [
+ "byteorder",
+ "half 1.8.2",
  "serde",
 ]
 
