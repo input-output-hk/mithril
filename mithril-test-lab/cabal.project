@@ -2,15 +2,11 @@ index-state: 2021-09-15T00:00:00Z
 
 packages:
   mithril-monitor
-  mithril-end-to-end-legacy
   mithril-aggregator-server
 
 tests: False
 
 package mithril-monitor
-  tests: True
-
-package mithril-end-to-end-legacy
   tests: True
 
 -- Always show detailed output for tests
