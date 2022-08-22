@@ -10,7 +10,7 @@ async fn create_certificate() {
     let mut tester = RuntimeTester::build().await;
 
     comment!("create signers & declare stake distribution");
-    let signers = tests_setup::setup_signers(2);
+    let signers = tests_setup::setup_signers(10);
     let signers_with_stake: Vec<SignerWithStake> =
         signers.clone().into_iter().map(|s| s.into()).collect();
     tester
