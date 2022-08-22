@@ -7,10 +7,9 @@ use test_extensions::RuntimeTester;
 
 #[tokio::test]
 async fn create_certificate() {
-    // initialization
     let mut tester = RuntimeTester::build().await;
 
-    // create signers & declare stake distribution
+    comment!("create signers & declare stake distribution");
     let signers = tests_setup::setup_signers(2);
     let signers_with_stake: Vec<SignerWithStake> =
         signers.clone().into_iter().map(|s| s.into()).collect();
@@ -31,24 +30,24 @@ async fn create_certificate() {
         )
         .await;
 
-    // start the runtime state machine
+    comment!("start the runtime state machine");
     cycle!(tester, "signing");
     cycle!(tester, "signing");
 
-    // register signers
+    comment!("register signers");
     tester.register_signers(&signers).await.unwrap();
     cycle!(tester, "signing");
 
-    // change the immutable number to alter the beacon
+    comment!("change the immutable number to alter the beacon");
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "idle");
     cycle!(tester, "signing");
     cycle!(tester, "signing");
 
-    // signers send their single signature
+    comment!("signers send their single signature");
     tester.send_single_signatures(&signers).await.unwrap();
 
-    // The state machine should issue a multisignature
+    comment!("The state machine should issue a multisignature");
     cycle!(tester, "idle");
     let (last_certificates, snapshots) =
         tester.get_last_certificates_and_snapshots().await.unwrap();

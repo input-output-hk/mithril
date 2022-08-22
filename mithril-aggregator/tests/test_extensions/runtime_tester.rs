@@ -1,4 +1,4 @@
-use crate::test_extensions::{initialize_dependencies, TestSigner, TickCounter};
+use crate::test_extensions::{initialize_dependencies, TestSigner};
 use slog::Drain;
 use std::sync::Arc;
 use std::time::Duration;
@@ -30,7 +30,6 @@ pub struct RuntimeTester {
     pub snapshotter: Arc<DumbSnapshotter>,
     pub deps: Arc<DependencyManager>,
     pub runtime: AggregatorRuntime,
-    tick_counter: TickCounter,
     _logs_guard: slog_scope::GlobalLoggerGuard,
 }
 
@@ -68,18 +67,16 @@ impl RuntimeTester {
             snapshotter,
             deps,
             runtime,
-            tick_counter: TickCounter::new(),
             _logs_guard: log,
         }
     }
 
     /// cycle the runtime once
     pub async fn cycle(&mut self) -> Result<(), String> {
-        self.tick_counter.increase();
         self.runtime
             .cycle()
             .await
-            .map_err(|e| format!("{}, error: {:?}", self.tick_counter.get_message(), e))?;
+            .map_err(|e| format!("Ticking the state machine should not fail, error: {:?}", e))?;
         Ok(())
     }
 

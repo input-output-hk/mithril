@@ -5,8 +5,9 @@
 #[macro_use]
 pub mod runtime_tester;
 mod dependency;
+#[macro_use]
 pub mod utilities;
 
 pub use dependency::initialize_dependencies;
 pub use runtime_tester::RuntimeTester;
-pub use utilities::{TestSigner, TickCounter};
+pub use utilities::TestSigner;

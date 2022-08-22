@@ -7,10 +7,9 @@ use test_extensions::RuntimeTester;
 
 #[tokio::test]
 async fn certificate_chain() {
-    // initialization
     let mut tester = RuntimeTester::build().await;
 
-    // create signers & declare stake distribution
+    comment!("create signers & declare stake distribution");
     let signers = tests_setup::setup_signers(10);
     let mut signers_with_stake: Vec<SignerWithStake> =
         signers.clone().into_iter().map(|s| s.into()).collect();
@@ -31,22 +30,20 @@ async fn certificate_chain() {
         )
         .await;
 
-    // start the runtime state machine
+    comment!("start the runtime state machine & send send first single signatures");
     cycle!(tester, "signing");
     tester.register_signers(&signers).await.unwrap();
     cycle!(tester, "signing");
-
-    // signers send their single signature
     tester.send_single_signatures(&signers).await.unwrap();
 
-    // The state machine should issue a multisignature
+    comment!("The state machine should have issued a multisignature");
     cycle!(tester, "idle");
     let (last_certificates, snapshots) =
         tester.get_last_certificates_and_snapshots().await.unwrap();
     assert_eq!((1, 1), (last_certificates.len(), snapshots.len()));
     cycle!(tester, "idle");
 
-    // Increase immutable number to do a second certificate for this epoch
+    comment!("Increase immutable number to do a second certificate for this epoch");
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "signing");
     tester.send_single_signatures(&signers).await.unwrap();
@@ -70,16 +67,19 @@ async fn certificate_chain() {
         "A new certificate on the same epoch should be linked to the first certificate of the current epoch"
     );
 
-    // Change stake distribution
+    comment!("Change stake distribution");
     for (i, signer) in signers_with_stake.iter_mut().enumerate() {
         signer.stake += (i * 1000) as u64;
     }
     let new_signers = tester.update_stake_distribution(signers_with_stake).await;
 
-    // Increase epoch, triggering stake distribution update
+    comment!("Increase epoch, triggering stake distribution update");
     let new_epoch = tester.increase_epoch().await.unwrap();
     cycle!(tester, "signing");
 
+    comment!(
+        "Checking that no signers are registered for the next epoch since they did not register"
+    );
     let next_epoch_verification_keys = tester
         .deps
         .verification_key_store
@@ -90,10 +90,13 @@ async fn certificate_chain() {
         None, next_epoch_verification_keys,
         "After a new epoch no signers should be registered for the next epoch"
     );
+
+    comment!(
+        "Signers register & send signatures, the new certificate should be link to the fist of the previous epoch"
+    );
     tester.register_signers(&new_signers).await.unwrap();
     tester.send_single_signatures(&signers).await.unwrap();
     cycle!(tester, "idle");
-
     let (last_certificates, snapshots) =
         tester.get_last_certificates_and_snapshots().await.unwrap();
     assert_eq!((3, 3), (last_certificates.len(), snapshots.len()));
@@ -118,15 +121,17 @@ async fn certificate_chain() {
         "The stake distribution update should only be take in account in the next epoch",
     );
 
-    // Increase epoch & immutable, stake distribution updated previously should be signed in the
-    // new certificate
+    comment!(
+        "Increase epoch & immutable, stake distribution updated previously should be signed in the new certificate"
+    );
     tester.increase_epoch().await.unwrap();
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "signing");
     tester.send_single_signatures(&signers).await.unwrap();
     cycle!(tester, "idle");
 
-    // todo: why do we need a third epoch to use the new stake distribution ?
+    // @todo:
+    comment!("Why do we need a third epoch to use the new stake distribution ?");
     tester.increase_epoch().await.unwrap();
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "signing");

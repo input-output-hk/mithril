@@ -2,6 +2,8 @@ use mithril_common::crypto_helper::{
     ProtocolInitializer, ProtocolPartyId, ProtocolSigner, ProtocolSignerVerificationKey,
     ProtocolStake,
 };
+use slog_scope::debug;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 pub type TestSigner = (
     ProtocolPartyId,
@@ -11,24 +13,16 @@ pub type TestSigner = (
     ProtocolInitializer,
 );
 
-/// Simple struct to give a more helpful error message when ticking the state machine
-pub struct TickCounter {
-    tick_no: u64,
+pub static COMMENT_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+pub fn comment(comment: &str) {
+    let old_count = COMMENT_COUNT.fetch_add(1, Ordering::SeqCst);
+    debug!("COMMENT {:02} 💬 {}", old_count + 1, comment);
 }
 
-impl TickCounter {
-    pub fn new() -> Self {
-        Self { tick_no: 0 }
-    }
-
-    pub fn increase(&mut self) {
-        self.tick_no += 1;
-    }
-
-    pub fn get_message(&self) -> String {
-        format!(
-            "Ticking the state machine should not fail (tick n° {})",
-            self.tick_no
-        )
-    }
+#[macro_export]
+macro_rules! comment {
+    ( $comment:expr ) => {{
+        test_extensions::utilities::comment($comment);
+    }};
 }
