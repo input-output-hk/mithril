@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use mithril_aggregator::{
     AggregatorRunner, AggregatorRuntime, DependencyManager, DumbSnapshotUploader, DumbSnapshotter,
+    ProtocolParametersStorer,
 };
 use mithril_common::crypto_helper::key_encode_hex;
 use mithril_common::crypto_helper::tests_setup::setup_signers_from_parties;
@@ -183,18 +184,39 @@ impl RuntimeTester {
     pub async fn update_stake_distribution(
         &self,
         signers_with_stake: Vec<SignerWithStake>,
-    ) -> Vec<TestSigner> {
+    ) -> Result<Vec<TestSigner>, String> {
         self.chain_observer
             .set_signers(signers_with_stake.clone())
             .await;
+        let beacon = self
+            .deps
+            .beacon_provider
+            .get_current_beacon()
+            .await
+            .map_err(|e| format!("Querying the current beacon should not fail: {:?}", e))?;
+        let protocol_parameters =
+            self.deps
+                .protocol_parameters_store
+                .get_protocol_parameters(beacon.epoch.offset_to_recording_epoch().map_err(|e| {
+                    format!("Offsetting to recording epoch should not fail: {:?}", e)
+                })?)
+                .await
+                .map_err(|e| {
+                    format!(
+                        "Querying the recording epoch protocol_parameters should not fail: {:?}",
+                        e
+                    )
+                })?
+                .ok_or("A protocol parameters for the recording epoch should be available")?;
 
-        setup_signers_from_parties(
+        Ok(setup_signers_from_parties(
             &signers_with_stake
                 .clone()
                 .into_iter()
                 .map(|s| (s.party_id, s.stake))
                 .collect::<Vec<_>>(),
-        )
+            &protocol_parameters.into(),
+        ))
     }
 
     // Update the digester result using the current beacon

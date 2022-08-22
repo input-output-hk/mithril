@@ -94,14 +94,16 @@ impl StateMachineTester {
             stake_store: stake_store.clone(),
         };
         // set up stake distribution
-        let mut signers: Vec<SignerWithStake> = tests_setup::setup_signers(10)
-            .into_iter()
-            .map(|(party_id, stake, key, _, _)| SignerWithStake {
-                party_id,
-                stake,
-                verification_key: key_encode_hex(key).unwrap(),
-            })
-            .collect();
+        let protocol_parameters = tests_setup::setup_protocol_parameters();
+        let mut signers: Vec<SignerWithStake> =
+            tests_setup::setup_signers(10, &protocol_parameters)
+                .into_iter()
+                .map(|(party_id, stake, key, _, _)| SignerWithStake {
+                    party_id,
+                    stake,
+                    verification_key: key_encode_hex(key).unwrap(),
+                })
+                .collect();
         signers.push(SignerWithStake {
             party_id: "99999999999999999999999999999999".to_string(),
             stake: 999,
@@ -261,8 +263,9 @@ impl StateMachineTester {
 
     /// register the signer in the certificate handler
     pub async fn register_signers(&mut self, count: u64) -> Result<&mut Self> {
+        let protocol_parameters = tests_setup::setup_protocol_parameters();
         for (party_id, _stake, verification_key, _signer, _protocol_initializer) in
-            tests_setup::setup_signers(count)
+            tests_setup::setup_signers(count, &protocol_parameters)
         {
             let signer = Signer {
                 party_id,

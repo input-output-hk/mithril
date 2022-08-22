@@ -631,7 +631,7 @@ pub mod tests {
         deps.simulate_genesis(
             current_signers.clone(),
             next_signers.clone(),
-            protocol_parameters.clone(),
+            &protocol_parameters.clone(),
         )
         .await;
 

@@ -198,7 +198,7 @@ mod tests {
     fn compute_single_signature_success() {
         let snapshot_digest = "digest".to_string();
         let protocol_parameters = setup_protocol_parameters();
-        let signers = setup_signers(5);
+        let signers = setup_signers(5, &protocol_parameters);
         let signers_with_stake = signers
             .iter()
             .map(
@@ -238,7 +238,7 @@ mod tests {
 
     #[test]
     fn compute_aggregate_verification_key_success() {
-        let signers = setup_signers(5);
+        let signers = setup_signers(5, &setup_protocol_parameters());
         let signers_with_stake = signers
             .iter()
             .map(

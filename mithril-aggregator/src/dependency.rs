@@ -111,7 +111,7 @@ impl DependencyManager {
         &self,
         genesis_signers: Vec<SignerWithStake>,
         second_epoch_signers: Vec<SignerWithStake>,
-        genesis_protocol_parameters: ProtocolParameters,
+        genesis_protocol_parameters: &ProtocolParameters,
     ) {
         let (work_epoch, epoch_to_sign) = self.get_genesis_epochs().await;
         for (epoch, signers) in [
@@ -150,7 +150,7 @@ impl DependencyManager {
     /// `TEST METHOD ONLY`
     ///
     /// Fill the first two epoch of the [ProtocolParametersStore] with the given value.
-    pub async fn init_protocol_parameter_store(&self, protocol_parameters: ProtocolParameters) {
+    pub async fn init_protocol_parameter_store(&self, protocol_parameters: &ProtocolParameters) {
         let (work_epoch, epoch_to_sign) = self.get_genesis_epochs().await;
         for epoch in [work_epoch, epoch_to_sign] {
             self.protocol_parameters_store
