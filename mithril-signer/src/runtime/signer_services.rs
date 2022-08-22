@@ -35,7 +35,7 @@ pub struct ProductionServiceBuilder<'a> {
 }
 
 impl<'a> ProductionServiceBuilder<'a> {
-    /// Instanciate a new production service builder.
+    /// Create a new production service builder.
     pub fn new(config: &'a Config) -> Self {
         Self { config }
     }

@@ -65,7 +65,7 @@ pub struct StateMachine {
 }
 
 impl StateMachine {
-    /// Instanciate a new StateMachine instance.
+    /// Create a new StateMachine instance.
     pub fn new(
         starting_state: SignerState,
         runner: Box<dyn Runner>,
@@ -188,7 +188,7 @@ impl StateMachine {
         }
     }
 
-    /// Launch the transition process from tge `Unregistered` to the `Registered` state.
+    /// Launch the transition process from the `Unregistered` to the `Registered` state.
     async fn transition_from_unregistered_to_registered(
         &self,
         pending_certificate: &CertificatePending,

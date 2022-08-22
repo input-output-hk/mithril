@@ -44,7 +44,7 @@ pub trait Runner {
         epoch: Epoch,
     ) -> Result<(), Box<dyn StdError + Sync + Send>>;
 
-    /// Check if all prerequisite for signing are met.
+    /// Check if all prerequisites for signing are met.
     async fn can_i_sign(
         &self,
         pending_certificate: &CertificatePending,
@@ -104,7 +104,7 @@ pub struct SignerRunner {
 }
 
 impl SignerRunner {
-    /// Instanciate a new Runner instance.
+    /// Create a new Runner instance.
     pub fn new(config: Config, services: SignerServices) -> Self {
         Self { services, config }
     }

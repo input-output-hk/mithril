@@ -15,7 +15,7 @@ use mockall::automock;
 
 use crate::AsyncError;
 
-/// Structure to ease ProtocolInitializer instanciation.
+/// This is responsible of creating new instances of ProtocolInitializer.
 #[derive(Default)]
 pub struct MithrilProtocolInitializerBuilder {}
 
