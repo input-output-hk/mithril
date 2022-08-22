@@ -1,14 +1,16 @@
 #![doc = include_str!("../README.md")]
 
 use clap::{Parser, Subcommand};
-use clap_verbosity_flag::{InfoLevel, Verbosity};
 use cli_table::{print_stdout, WithTitle};
-use log::debug;
+use slog::{Drain, Level, Logger};
+use slog_scope::debug;
 use std::env;
 use std::error::Error;
 use std::sync::Arc;
 
-use mithril_client::{AggregatorHTTPClient, Config, Runtime, VerifierImpl};
+use mithril_client::{AggregatorHTTPClient, Config, Runtime};
+
+use mithril_common::certificate_chain::MithrilCertificateVerifier;
 
 /// CLI args
 #[derive(Parser)]
@@ -24,8 +26,28 @@ pub struct Args {
     run_mode: String,
 
     /// Verbosity level
-    #[clap(flatten)]
-    verbose: Verbosity<InfoLevel>,
+    #[clap(short, long, parse(from_occurrences))]
+    verbose: usize,
+}
+
+impl Args {
+    fn log_level(&self) -> Level {
+        match self.verbose {
+            0 => Level::Warning,
+            1 => Level::Info,
+            2 => Level::Debug,
+            _ => Level::Trace,
+        }
+    }
+
+    fn build_logger(&self) -> Logger {
+        let decorator = slog_term::PlainDecorator::new(std::io::stdout());
+        let drain = slog_term::CompactFormat::new(decorator).build().fuse();
+        let drain = slog::LevelFilter::new(drain, self.log_level()).fuse();
+        let drain = slog_async::Async::new(drain).build().fuse();
+
+        Logger::root(Arc::new(drain), slog::o!())
+    }
 }
 
 /// CLI command list
@@ -68,12 +90,7 @@ enum Commands {
 async fn main() -> Result<(), String> {
     // Load args
     let args = Args::parse();
-
-    // Init logger
-    env_logger::Builder::new()
-        .target(env_logger::Target::Stdout)
-        .filter_level(args.verbose.log_level_filter())
-        .init();
+    let _guard = slog_scope::set_global_logger(args.build_logger());
 
     // Load config
     let run_mode = env::var("RUN_MODE").unwrap_or(args.run_mode);
@@ -92,7 +109,7 @@ async fn main() -> Result<(), String> {
         config.network.clone(),
         config.aggregator_endpoint.clone(),
     ));
-    let verifier = Box::new(VerifierImpl::new(aggregator_handler.clone()));
+    let verifier = Box::new(MithrilCertificateVerifier::new(slog_scope::logger()));
 
     // Init runtime
     let mut runtime = Runtime::new(config.network.clone());

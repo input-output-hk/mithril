@@ -1,20 +1,21 @@
 use async_trait::async_trait;
 use flate2::read::GzDecoder;
 use futures::StreamExt;
-use log::debug;
 use reqwest::{self, StatusCode};
+use slog_scope::debug;
 use std::env;
 use std::fs;
 use std::io::{self, Write};
 use std::path;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tar::Archive;
 use thiserror::Error;
 
 use mithril_common::entities::{Certificate, Snapshot};
 
-#[cfg(test)]
-use mockall::automock;
+use mithril_common::certificate_chain::CertificateRetriever;
+use mithril_common::certificate_chain::CertificateRetrieverError;
 
 /// [AggregatorHandler] related errors.
 #[derive(Error, Debug)]
@@ -46,9 +47,8 @@ pub enum AggregatorHandlerError {
 }
 
 /// AggregatorHandler represents a read interactor with an aggregator
-#[cfg_attr(test, automock)]
 #[async_trait]
-pub trait AggregatorHandler: Sync + Send {
+pub trait AggregatorHandler: CertificateRetriever + Sync + Send {
     /// List snapshots
     async fn list_snapshots(&self) -> Result<Vec<Snapshot>, AggregatorHandlerError>;
 
@@ -65,14 +65,12 @@ pub trait AggregatorHandler: Sync + Send {
     /// Unpack snapshot
     async fn unpack_snapshot(&self, digest: &str) -> Result<String, AggregatorHandlerError>;
 
-    /// Get certificate details
-    async fn get_certificate_details(
-        &self,
-        certificate_hash: &str,
-    ) -> Result<Certificate, AggregatorHandlerError>;
+    /// Upcast to a CertificateRetriever
+    fn as_certificate_retriever(&self) -> Arc<dyn CertificateRetriever>;
 }
 
 /// AggregatorHTTPClient is a http client for an aggregator
+#[derive(Clone)]
 pub struct AggregatorHTTPClient {
     network: String,
     aggregator_endpoint: String,
@@ -85,6 +83,36 @@ impl AggregatorHTTPClient {
         Self {
             network,
             aggregator_endpoint,
+        }
+    }
+
+    /// Download certificate details
+    async fn download_certificate_details(
+        &self,
+        certificate_hash: &str,
+    ) -> Result<Certificate, AggregatorHandlerError> {
+        debug!("Details certificate {}", certificate_hash);
+        let url = format!(
+            "{}/certificate/{}",
+            self.aggregator_endpoint, certificate_hash
+        );
+        let response = reqwest::get(url.clone()).await;
+        match response {
+            Ok(response) => match response.status() {
+                StatusCode::OK => match response.json::<Certificate>().await {
+                    Ok(certificate) => Ok(certificate),
+                    Err(err) => Err(AggregatorHandlerError::JsonParseFailed(err.to_string())),
+                },
+                StatusCode::NOT_FOUND => Err(AggregatorHandlerError::RemoteServerLogical(
+                    "certificate not found".to_string(),
+                )),
+                status_error => Err(AggregatorHandlerError::RemoteServerTechnical(
+                    status_error.to_string(),
+                )),
+            },
+            Err(err) => Err(AggregatorHandlerError::RemoteServerUnreachable(
+                err.to_string(),
+            )),
         }
     }
 }
@@ -204,34 +232,22 @@ impl AggregatorHandler for AggregatorHTTPClient {
         Ok(unpack_dir_path.into_os_string().into_string().unwrap())
     }
 
+    /// Upcast to a CertificateRetriever
+    fn as_certificate_retriever(&self) -> Arc<dyn CertificateRetriever> {
+        Arc::new(self.clone())
+    }
+}
+
+#[async_trait]
+impl CertificateRetriever for AggregatorHTTPClient {
     /// Get certificate details
     async fn get_certificate_details(
         &self,
         certificate_hash: &str,
-    ) -> Result<Certificate, AggregatorHandlerError> {
-        debug!("Details certificate {}", certificate_hash);
-        let url = format!(
-            "{}/certificate/{}",
-            self.aggregator_endpoint, certificate_hash
-        );
-        let response = reqwest::get(url.clone()).await;
-        match response {
-            Ok(response) => match response.status() {
-                StatusCode::OK => match response.json::<Certificate>().await {
-                    Ok(certificate) => Ok(certificate),
-                    Err(err) => Err(AggregatorHandlerError::JsonParseFailed(err.to_string())),
-                },
-                StatusCode::NOT_FOUND => Err(AggregatorHandlerError::RemoteServerLogical(
-                    "certificate not found".to_string(),
-                )),
-                status_error => Err(AggregatorHandlerError::RemoteServerTechnical(
-                    status_error.to_string(),
-                )),
-            },
-            Err(err) => Err(AggregatorHandlerError::RemoteServerUnreachable(
-                err.to_string(),
-            )),
-        }
+    ) -> Result<Certificate, CertificateRetrieverError> {
+        self.download_certificate_details(certificate_hash)
+            .await
+            .map_err(|e| CertificateRetrieverError::General(e.to_string()))
     }
 }
 

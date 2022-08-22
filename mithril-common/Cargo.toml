@@ -30,3 +30,5 @@ tokio = { version = "1.17.0", features = ["full"] }
 walkdir = "2"
 warp = "0.3"
 
+[dev-dependencies]
+slog-scope = "4.4.0"
