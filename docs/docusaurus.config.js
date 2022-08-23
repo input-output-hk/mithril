@@ -33,7 +33,7 @@ const config = {
           path: 'root',
           routeBasePath: '/',
           sidebarPath: require.resolve('./sidebars.js'),
-          editUrl: 'https://github.com/input-output-hk/mithril/tree/main/docs/root/',
+          editUrl: 'https://github.com/input-output-hk/mithril/edit/main/docs',
         },
         blog: {
           path: 'adr',
@@ -100,8 +100,8 @@ const config = {
             position: 'left',
           },
           {
-            label: 'Showcase',
-            to: 'https://mithril.network/showcase',
+            label: 'Explorer',
+            to: 'https://mithril.network/explorer',
             position: 'right',
           },
           {

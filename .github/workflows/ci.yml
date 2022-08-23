@@ -468,13 +468,12 @@ jobs:
           echo "mithril.network" > ../github-pages/CNAME
           echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://mithril.network/doc"></head></html>' > ../github-pages/index.html
 
-      - name: Showcase
-        working-directory: mithril-showcase
+      - name: Explorer
+        working-directory: mithril-explorer
         run: |
           make build
-          mkdir -p ../github-pages/showcase
-          mv out/* ../github-pages/showcase
-          echo "mithril.network" > ../github-pages/CNAME
+          mkdir -p ../github-pages/explorer
+          mv out/* ../github-pages/explorer
 
       - name: Mithril / Publish Github Pages
         uses: peaceiris/actions-gh-pages@v3

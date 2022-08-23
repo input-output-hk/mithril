@@ -1,4 +1,4 @@
-# Mithril Showcase
+# Mithril Explorer
 
 **This is a work in progress** :hammer_and_wrench:
 
@@ -18,4 +18,4 @@ First, run the development server:
 make dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000/showcase) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000/explorer) with your browser to see the result.
