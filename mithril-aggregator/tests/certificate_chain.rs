@@ -31,18 +31,14 @@ async fn certificate_chain() {
         )
         .await;
 
-    comment!("Increase epoch");
-    tester.increase_epoch().await.unwrap();
-    cycle!(tester, "idle");
-
     comment!("Boostrap the genesis certificate");
     tester.register_genesis_certificate(&signers).await.unwrap();
 
-    comment!("Increase epoch");
-    tester.increase_epoch().await.unwrap();
-    cycle!(tester, "signing");
+    comment!("Increase immutable number");
+    tester.increase_immutable_number().await.unwrap();
 
     comment!("Start the runtime state machine & send send first single signatures");
+    cycle!(tester, "ready");
     cycle!(tester, "signing");
     tester.register_signers(&signers).await.unwrap();
     cycle!(tester, "signing");
@@ -52,17 +48,18 @@ async fn certificate_chain() {
     cycle!(tester, "idle");
     let (last_certificates, snapshots) =
         tester.get_last_certificates_and_snapshots().await.unwrap();
-    assert_eq!((1, 1), (last_certificates.len(), snapshots.len()));
+    assert_eq!((2, 1), (last_certificates.len(), snapshots.len()));
     cycle!(tester, "idle");
 
     comment!("Increase immutable number to do a second certificate for this epoch");
     tester.increase_immutable_number().await.unwrap();
+    cycle!(tester, "ready");
     cycle!(tester, "signing");
     tester.send_single_signatures(&signers).await.unwrap();
     cycle!(tester, "idle");
     let (last_certificates, snapshots) =
         tester.get_last_certificates_and_snapshots().await.unwrap();
-    assert_eq!((2, 2), (last_certificates.len(), snapshots.len()));
+    assert_eq!((3, 2), (last_certificates.len(), snapshots.len()));
     assert_eq!(
         (
             last_certificates[0].beacon.immutable_file_number,
@@ -75,7 +72,7 @@ async fn certificate_chain() {
         "Only the immutable_file_number should have changed"
     );
     assert_eq!(
-        &last_certificates[0].previous_hash, &last_certificates[1].hash,
+        &last_certificates[0].previous_hash, &last_certificates[2].hash,
         "A new certificate on the same epoch should be linked to the first certificate of the current epoch"
     );
 
@@ -90,6 +87,7 @@ async fn certificate_chain() {
 
     comment!("Increase epoch, triggering stake distribution update");
     let new_epoch = tester.increase_epoch().await.unwrap();
+    cycle!(tester, "ready");
     cycle!(tester, "signing");
 
     comment!(
@@ -114,7 +112,7 @@ async fn certificate_chain() {
     cycle!(tester, "idle");
     let (last_certificates, snapshots) =
         tester.get_last_certificates_and_snapshots().await.unwrap();
-    assert_eq!((3, 3), (last_certificates.len(), snapshots.len()));
+    assert_eq!((4, 3), (last_certificates.len(), snapshots.len()));
     assert_eq!(
         (
             last_certificates[0].beacon.immutable_file_number,
@@ -127,7 +125,7 @@ async fn certificate_chain() {
         "Only the epoch should have changed"
     );
     assert_eq!(
-        &last_certificates[0].previous_hash, &last_certificates[2].hash,
+        &last_certificates[0].previous_hash, &last_certificates[3].hash,
         "The new epoch certificate should be linked to the first certificate of the previous epoch"
     );
     assert_eq!(
@@ -141,6 +139,7 @@ async fn certificate_chain() {
     );
     tester.increase_epoch().await.unwrap();
     tester.increase_immutable_number().await.unwrap();
+    cycle!(tester, "ready");
     cycle!(tester, "signing");
     tester.send_single_signatures(&signers).await.unwrap();
     cycle!(tester, "idle");
@@ -149,13 +148,14 @@ async fn certificate_chain() {
     comment!("Why do we need a third epoch to use the new stake distribution ?");
     tester.increase_epoch().await.unwrap();
     tester.increase_immutable_number().await.unwrap();
+    cycle!(tester, "ready");
     cycle!(tester, "signing");
     tester.send_single_signatures(&new_signers).await.unwrap();
     cycle!(tester, "idle");
 
     let (last_certificates, snapshots) =
         tester.get_last_certificates_and_snapshots().await.unwrap();
-    assert_eq!((5, 5), (last_certificates.len(), snapshots.len()));
+    assert_eq!((6, 5), (last_certificates.len(), snapshots.len()));
     assert_eq!(
         (
             last_certificates[0].beacon.immutable_file_number,

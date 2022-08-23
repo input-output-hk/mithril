@@ -114,7 +114,11 @@ pub struct DependencyManager {
 
     /// Snapshotter service.
     pub snapshotter: SnapshotterWrapper,
+
+    /// Certificate verifier service.
     pub certificate_verifier: CertificateVerifierWrapper,
+
+    /// Genesis signature verifier service.
     pub genesis_verifier: ProtocolGenesisVerifierWrapper,
 }
 

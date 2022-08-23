@@ -3,6 +3,7 @@ use crate::{ProtocolError, SnapshotError};
 
 use mithril_common::chain_observer::ChainObserverError;
 use mithril_common::digesters::{ImmutableDigesterError, ImmutableFileListingError};
+use mithril_common::entities::BeaconComparisonError;
 use mithril_common::entities::Epoch;
 use mithril_common::store::StoreError;
 use mithril_common::BeaconProviderError;
@@ -44,6 +45,9 @@ pub enum RuntimeError {
 
     #[error("snapshot store error: {0}")]
     SnapshotStore(#[from] SnapshotStoreError),
+
+    #[error("beacon comparison error: {0}")]
+    BeaconComparisonError(#[from] BeaconComparisonError),
 
     #[error("general error: {0}")]
     General(Box<dyn StdError + Sync + Send>),

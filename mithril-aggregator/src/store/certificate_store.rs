@@ -74,9 +74,7 @@ impl CertificateRetriever for CertificateStore {
             .get_from_hash(certificate_hash)
             .await
             .map_err(|e| CertificateRetrieverError::General(e.to_string()))?
-            .ok_or(CertificateRetrieverError::General(
-                "missing certificate".to_string(),
-            ))?)
+            .ok_or_else(|| CertificateRetrieverError::General("missing certificate".to_string()))?)
     }
 }
 

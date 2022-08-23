@@ -49,8 +49,8 @@ impl AggregatorConfig {
 /// It exposes all the methods needed by the state machine.
 #[async_trait]
 pub trait AggregatorRunnerTrait: Sync + Send {
-    /// Return the current beacon if it is newer than the given one.
-    async fn is_new_beacon(&self, beacon: Option<Beacon>) -> Result<Option<Beacon>, RuntimeError>;
+    /// Return the current beacon from the chain
+    async fn get_beacon_from_chain(&self) -> Result<Beacon, RuntimeError>;
 
     /// Check if a certificate already have been issued for a given beacon.
     async fn does_certificate_exist_for_beacon(
@@ -150,28 +150,14 @@ impl AggregatorRunner {
 #[cfg_attr(test, automock)]
 #[async_trait]
 impl AggregatorRunnerTrait for AggregatorRunner {
-    async fn is_new_beacon(
-        &self,
-        maybe_beacon: Option<Beacon>,
-    ) -> Result<Option<Beacon>, RuntimeError> {
-        info!("RUNNER: checking if there is a new beacon");
-        let current_beacon = self
+    /// Return the current beacon from the chain
+    async fn get_beacon_from_chain(&self) -> Result<Beacon, RuntimeError> {
+        info!("RUNNER: get beacon from chain");
+        Ok(self
             .dependencies
             .beacon_provider
             .get_current_beacon()
-            .await?;
-
-        debug!(
-            "checking if there is a new beacon";
-            "known_beacon" => #?maybe_beacon,
-            "up_to_date_beacon" => #?current_beacon,
-        );
-
-        match maybe_beacon {
-            Some(beacon) if current_beacon > beacon => Ok(Some(current_beacon)),
-            None => Ok(Some(current_beacon)),
-            _ => Ok(None),
-        }
+            .await?)
     }
 
     async fn is_certificate_chain_valid(&self) -> Result<bool, RuntimeError> {
@@ -515,40 +501,36 @@ pub mod tests {
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
     };
+    use mithril_common::chain_observer::FakeObserver;
     use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
+    use mithril_common::digesters::DumbImmutableFileObserver;
     use mithril_common::entities::{Beacon, CertificatePending, Epoch, ProtocolMessage};
     use mithril_common::{entities::ProtocolMessagePartKey, fake_data, store::StakeStorer};
+    use mithril_common::{BeaconProviderImpl, CardanoNetwork};
     use std::path::Path;
     use std::sync::Arc;
     use tempfile::NamedTempFile;
     use tokio::sync::RwLock;
 
     #[tokio::test]
-    async fn test_is_new_beacon() {
-        let (dependencies, config) = initialize_dependencies().await;
+    async fn test_get_beacon_from_chain() {
+        let expected_beacon = Beacon::new("private".to_string(), 2, 17);
+        let (mut dependencies, config) = initialize_dependencies().await;
+        let immutable_file_observer = Arc::new(DumbImmutableFileObserver::default());
+        immutable_file_observer
+            .shall_return(Some(expected_beacon.immutable_file_number))
+            .await;
+        let beacon_provider = Arc::new(BeaconProviderImpl::new(
+            Arc::new(FakeObserver::new(Some(expected_beacon.clone()))),
+            immutable_file_observer,
+            CardanoNetwork::TestNet(42),
+        ));
+        dependencies.beacon_provider = beacon_provider;
         let runner = AggregatorRunner::new(config, Arc::new(dependencies));
 
-        // No beacon means the current beacon is newer
-        let res = runner.is_new_beacon(None).await;
-        assert!(res.unwrap().is_some());
-
-        // old beacon means the current beacon is newer
-        let beacon = Beacon {
-            network: "private".to_string(),
-            epoch: Epoch(0),
-            immutable_file_number: 0,
-        };
-        let res = runner.is_new_beacon(Some(beacon)).await;
-        assert!(res.unwrap().is_some());
-
-        // new beacon mens the current beacon is not new
-        let beacon = Beacon {
-            network: "whatever".to_string(),
-            epoch: Epoch(9206230),
-            immutable_file_number: 10000,
-        };
-        let res = runner.is_new_beacon(Some(beacon)).await;
-        assert!(res.unwrap().is_none());
+        // Retrieves the expected beacon
+        let res = runner.get_beacon_from_chain().await;
+        assert_eq!(expected_beacon, res.unwrap());
     }
 
     #[tokio::test]
@@ -577,7 +559,7 @@ pub mod tests {
         let (deps, config) = initialize_dependencies().await;
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(config, deps.clone());
-        let beacon = runner.is_new_beacon(None).await.unwrap().unwrap();
+        let beacon = runner.get_beacon_from_chain().await.unwrap();
         let res = runner.update_beacon(&beacon).await;
 
         assert!(res.is_ok());
@@ -597,7 +579,7 @@ pub mod tests {
         let (deps, config) = initialize_dependencies().await;
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(config, deps.clone());
-        let beacon = runner.is_new_beacon(None).await.unwrap().unwrap();
+        let beacon = runner.get_beacon_from_chain().await.unwrap();
         runner
             .update_beacon(&beacon)
             .await
@@ -645,7 +627,7 @@ pub mod tests {
         let (deps, config) = initialize_dependencies().await;
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(config, deps.clone());
-        let beacon = runner.is_new_beacon(None).await.unwrap().unwrap();
+        let beacon = runner.get_beacon_from_chain().await.unwrap();
         runner
             .update_beacon(&beacon)
             .await
@@ -677,7 +659,7 @@ pub mod tests {
         let (deps, config) = initialize_dependencies().await;
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(config, deps.clone());
-        let beacon = runner.is_new_beacon(None).await.unwrap().unwrap();
+        let beacon = runner.get_beacon_from_chain().await.unwrap();
         runner.update_beacon(&beacon).await.unwrap();
 
         let signers = fake_data::signers_with_stakes(5);
@@ -715,7 +697,7 @@ pub mod tests {
         let (deps, config) = initialize_dependencies().await;
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(config, deps.clone());
-        let beacon = runner.is_new_beacon(None).await.unwrap().unwrap();
+        let beacon = runner.get_beacon_from_chain().await.unwrap();
         let digest = "1+2+3+4=10".to_string();
         runner.update_beacon(&beacon).await.unwrap();
         for epoch in [
@@ -756,7 +738,7 @@ pub mod tests {
         let (deps, config) = initialize_dependencies().await;
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(config, deps.clone());
-        let beacon = runner.is_new_beacon(None).await.unwrap().unwrap();
+        let beacon = runner.get_beacon_from_chain().await.unwrap();
         runner.update_beacon(&beacon).await.unwrap();
         let pending_certificate = fake_data::certificate_pending();
 
@@ -774,7 +756,7 @@ pub mod tests {
         let (deps, config) = initialize_dependencies().await;
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(config, deps.clone());
-        let beacon = runner.is_new_beacon(None).await.unwrap().unwrap();
+        let beacon = runner.get_beacon_from_chain().await.unwrap();
         runner.update_beacon(&beacon).await.unwrap();
         let pending_certificate = fake_data::certificate_pending();
         deps.certificate_pending_store
@@ -793,7 +775,7 @@ pub mod tests {
         let (deps, config) = initialize_dependencies().await;
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(config, deps.clone());
-        let beacon = runner.is_new_beacon(None).await.unwrap().unwrap();
+        let beacon = runner.get_beacon_from_chain().await.unwrap();
         runner.update_beacon(&beacon).await.unwrap();
 
         let cert = runner.drop_pending_certificate().await.unwrap();

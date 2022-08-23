@@ -31,8 +31,14 @@ async fn create_certificate() {
         )
         .await;
 
+    comment!("Boostrap the genesis certificate");
+    tester.register_genesis_certificate(&signers).await.unwrap();
+
+    comment!("Increase immutable number");
+    tester.increase_immutable_number().await.unwrap();
+
     comment!("start the runtime state machine");
-    cycle!(tester, "signing");
+    cycle!(tester, "ready");
     cycle!(tester, "signing");
 
     comment!("register signers");
@@ -42,7 +48,7 @@ async fn create_certificate() {
     comment!("change the immutable number to alter the beacon");
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "idle");
-    cycle!(tester, "signing");
+    cycle!(tester, "ready");
     cycle!(tester, "signing");
 
     comment!("signers send their single signature");
@@ -53,7 +59,7 @@ async fn create_certificate() {
     let (last_certificates, snapshots) =
         tester.get_last_certificates_and_snapshots().await.unwrap();
 
-    assert_eq!((1, 1), (last_certificates.len(), snapshots.len()));
+    assert_eq!((2, 1), (last_certificates.len(), snapshots.len()));
     assert_eq!(
         (
             &last_certificates[0].hash,

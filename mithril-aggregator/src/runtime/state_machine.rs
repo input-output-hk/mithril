@@ -1,7 +1,7 @@
 use super::{AggregatorRunnerTrait, RuntimeError};
 
 use mithril_common::entities::{Beacon, CertificatePending};
-use slog_scope::{debug, error, info, trace};
+use slog_scope::{debug, error, info, trace, warn};
 use std::fmt::Display;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
@@ -9,6 +9,11 @@ use tokio::time::{sleep, Duration};
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct IdleState {
     current_beacon: Option<Beacon>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ReadyState {
+    current_beacon: Beacon,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -20,6 +25,7 @@ pub struct SigningState {
 #[derive(Clone, Debug, PartialEq)]
 pub enum AggregatorState {
     Idle(IdleState),
+    Ready(ReadyState),
     Signing(SigningState),
 }
 
@@ -27,6 +33,7 @@ impl Display for AggregatorState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match *self {
             AggregatorState::Idle(_) => write!(f, "idle"),
+            AggregatorState::Ready(_) => write!(f, "ready"),
             AggregatorState::Signing(_) => write!(f, "signing"),
         }
     }
@@ -99,43 +106,74 @@ impl AggregatorRuntime {
         match self.state.clone() {
             AggregatorState::Idle(state) => {
                 info!("state IDLE");
+                let chain_beacon: Beacon = self.runner.get_beacon_from_chain().await?;
 
-                if let Some(beacon) = self
-                    .runner
-                    .is_new_beacon(state.current_beacon.clone())
-                    .await?
+                if state.current_beacon.is_none()
+                    || chain_beacon
+                        .compare_to_older(state.current_beacon.as_ref().unwrap())?
+                        .is_new_beacon()
                 {
-                    trace!("new beacon found = {:?}", beacon);
+                    trace!("new beacon found = {:?}", chain_beacon);
 
-                    if !self.runner.is_certificate_chain_valid().await? {
-                        info!("the certificate chain is invalid");
-                    } else if self
-                        .runner
-                        .does_certificate_exist_for_beacon(&beacon)
+                    if self
+                        .try_transition_from_idle_to_ready(
+                            state.current_beacon,
+                            chain_beacon.clone(),
+                        )
                         .await?
                     {
-                        info!("a certificate already exist for this beacon"; "beacon" => ?beacon);
+                        self.state = AggregatorState::Ready(ReadyState {
+                            current_beacon: chain_beacon,
+                        });
                     } else {
-                        let new_state = self
-                            .transition_from_idle_to_signing(state.current_beacon.clone(), beacon)
-                            .await?;
-                        self.state = AggregatorState::Signing(new_state);
+                        trace!("Could not transition from IDLE to READY");
                     }
                 } else {
                     trace!("nothing to do in IDLE state")
                 }
             }
+            AggregatorState::Ready(state) => {
+                info!("state READY");
+                let chain_beacon: Beacon = self.runner.get_beacon_from_chain().await?;
+
+                if chain_beacon
+                    .compare_to_older(&state.current_beacon)?
+                    .is_new_epoch()
+                {
+                    // transition READY > IDLE
+                    trace!("new epoch found = {:?}", chain_beacon);
+                    self.state = AggregatorState::Idle(IdleState {
+                        current_beacon: Some(chain_beacon),
+                    });
+                } else if self
+                    .runner
+                    .does_certificate_exist_for_beacon(&state.current_beacon)
+                    .await?
+                {
+                    // READY > READY
+                    info!("a certificate already exist for this beacon"; "beacon" => ?state.current_beacon);
+                    self.state = AggregatorState::Ready(ReadyState {
+                        current_beacon: chain_beacon,
+                    });
+                } else {
+                    // transition READY > SIGNING
+                    let new_state = self
+                        .transition_from_ready_to_signing(state.current_beacon)
+                        .await?;
+                    self.state = AggregatorState::Signing(new_state);
+                }
+            }
             AggregatorState::Signing(state) => {
                 info!("state SIGNING");
+                let chain_beacon: Beacon = self.runner.get_beacon_from_chain().await?;
 
-                if let Some(beacon) = self
-                    .runner
-                    .is_new_beacon(Some(state.current_beacon.clone()))
-                    .await?
+                if chain_beacon
+                    .compare_to_older(&state.current_beacon)?
+                    .is_new_beacon()
                 {
                     trace!(
                         "new beacon found, immutable file number = {}",
-                        beacon.immutable_file_number
+                        chain_beacon.immutable_file_number
                     );
                     let new_state = self
                         .transition_from_signing_to_idle_new_beacon(state)
@@ -155,12 +193,39 @@ impl AggregatorRuntime {
         Ok(())
     }
 
+    /// Perform a transition from `IDLE` state to `READY` state when
+    /// the certificate chain is valid.
+    async fn try_transition_from_idle_to_ready(
+        &mut self,
+        maybe_current_beacon: Option<Beacon>,
+        new_beacon: Beacon,
+    ) -> Result<bool, RuntimeError> {
+        debug!("trying transition from IDLE to READY state");
+
+        self.runner.update_beacon(&new_beacon).await?;
+
+        if maybe_current_beacon.is_none() || maybe_current_beacon.unwrap().epoch < new_beacon.epoch
+        {
+            self.runner.update_stake_distribution(&new_beacon).await?;
+            self.runner
+                .update_protocol_parameters_in_multisigner(&new_beacon)
+                .await?;
+        }
+
+        let is_chain_valid = self.runner.is_certificate_chain_valid().await?;
+        if !is_chain_valid {
+            warn!("the certificate chain is invalid");
+        }
+        Ok(is_chain_valid)
+    }
+
     /// Perform a transition from `SIGNING` state to `IDLE` state when a new
     /// multi-signature is issued.
     async fn transition_from_signing_to_idle_multisignature(
         &self,
         state: SigningState,
     ) -> Result<IdleState, RuntimeError> {
+        debug!("launching transition from SIGNING to IDLE state");
         self.runner.drop_pending_certificate().await?;
         let ongoing_snapshot = self
             .runner
@@ -190,6 +255,7 @@ impl AggregatorRuntime {
         &self,
         state: SigningState,
     ) -> Result<IdleState, RuntimeError> {
+        debug!("launching transition from SIGNING to IDLE state");
         self.runner.drop_pending_certificate().await?;
 
         Ok(IdleState {
@@ -197,23 +263,15 @@ impl AggregatorRuntime {
         })
     }
 
-    /// Perform a transition from `IDLE` state to `SIGNING` state when a new
+    /// Perform a transition from `READY` state to `SIGNING` state when a new
     /// beacon is detected.
-    async fn transition_from_idle_to_signing(
+    async fn transition_from_ready_to_signing(
         &mut self,
-        maybe_current_beacon: Option<Beacon>,
         new_beacon: Beacon,
     ) -> Result<SigningState, RuntimeError> {
-        debug!("launching transition from IDLE to SIGNING state");
+        debug!("launching transition from READY to SIGNING state");
         self.runner.update_beacon(&new_beacon).await?;
 
-        if maybe_current_beacon.is_none() || maybe_current_beacon.unwrap().epoch < new_beacon.epoch
-        {
-            self.runner.update_stake_distribution(&new_beacon).await?;
-            self.runner
-                .update_protocol_parameters_in_multisigner(&new_beacon)
-                .await?;
-        }
         let digester_result = self.runner.compute_digest(&new_beacon).await?;
         self.runner
             .update_message_in_multisigner(digester_result)
@@ -257,7 +315,10 @@ mod tests {
     #[tokio::test]
     pub async fn idle_check_no_new_beacon_with_current_beacon() {
         let mut runner = MockAggregatorRunner::new();
-        runner.expect_is_new_beacon().once().returning(|_| Ok(None));
+        runner
+            .expect_get_beacon_from_chain()
+            .once()
+            .returning(|| Ok(fake_data::beacon()));
         let mut runtime = init_runtime(
             Some(AggregatorState::Idle(IdleState {
                 current_beacon: Some(fake_data::beacon()),
@@ -274,9 +335,24 @@ mod tests {
     pub async fn idle_check_certificate_chain_is_not_valid() {
         let mut runner = MockAggregatorRunner::new();
         runner
-            .expect_is_new_beacon()
+            .expect_get_beacon_from_chain()
             .once()
-            .returning(|_| Ok(Some(fake_data::beacon())));
+            .returning(|| Ok(fake_data::beacon()));
+        runner
+            .expect_update_stake_distribution()
+            .with(predicate::eq(fake_data::beacon()))
+            .once()
+            .returning(|_| Ok(()));
+        runner
+            .expect_update_protocol_parameters_in_multisigner()
+            .with(predicate::eq(fake_data::beacon()))
+            .once()
+            .returning(|_| Ok(()));
+        runner
+            .expect_update_beacon()
+            .with(predicate::eq(fake_data::beacon()))
+            .once()
+            .returning(|_| Ok(()));
         runner
             .expect_is_certificate_chain_valid()
             .once()
@@ -295,23 +371,59 @@ mod tests {
     }
 
     #[tokio::test]
-    pub async fn idle_certificate_already_exist_for_beacon() {
+    pub async fn idle_check_certificate_chain_is_valid() {
         let mut runner = MockAggregatorRunner::new();
         runner
-            .expect_is_new_beacon()
+            .expect_get_beacon_from_chain()
             .once()
-            .returning(|_| Ok(Some(fake_data::beacon())));
+            .returning(|| Ok(fake_data::beacon()));
+        runner
+            .expect_update_stake_distribution()
+            .with(predicate::eq(fake_data::beacon()))
+            .once()
+            .returning(|_| Ok(()));
+        runner
+            .expect_update_protocol_parameters_in_multisigner()
+            .with(predicate::eq(fake_data::beacon()))
+            .once()
+            .returning(|_| Ok(()));
+        runner
+            .expect_update_beacon()
+            .with(predicate::eq(fake_data::beacon()))
+            .once()
+            .returning(|_| Ok(()));
         runner
             .expect_is_certificate_chain_valid()
             .once()
             .returning(|| Ok(true));
-        runner
-            .expect_does_certificate_exist_for_beacon()
-            .once()
-            .returning(|_| Ok(true));
+
         let mut runtime = init_runtime(
             Some(AggregatorState::Idle(IdleState {
-                current_beacon: Some(fake_data::beacon()),
+                current_beacon: None,
+            })),
+            runner,
+        )
+        .await;
+        runtime.cycle().await.unwrap();
+
+        assert_eq!("ready".to_string(), runtime.get_state());
+    }
+
+    #[tokio::test]
+    pub async fn ready_new_epoch_detected() {
+        let mut runner = MockAggregatorRunner::new();
+        let beacon = fake_data::beacon();
+        let new_beacon = Beacon {
+            epoch: beacon.epoch + 1,
+            ..beacon.clone()
+        };
+        runner
+            .expect_get_beacon_from_chain()
+            .once()
+            .returning(move || Ok(new_beacon.clone()));
+        let mut runtime = init_runtime(
+            Some(AggregatorState::Ready(ReadyState {
+                current_beacon: beacon,
             })),
             runner,
         )
@@ -322,16 +434,47 @@ mod tests {
     }
 
     #[tokio::test]
-    pub async fn idle_check_no_new_beacon_with_no_current_beacon() {
+    pub async fn ready_certificate_already_exist_for_beacon() {
+        let mut runner = MockAggregatorRunner::new();
+        let beacon = fake_data::beacon();
+        let next_beacon = Beacon {
+            immutable_file_number: beacon.immutable_file_number + 1,
+            ..beacon.clone()
+        };
+        let expected_beacon = next_beacon.clone();
+        runner
+            .expect_get_beacon_from_chain()
+            .once()
+            .returning(move || Ok(next_beacon.clone()));
+        runner
+            .expect_does_certificate_exist_for_beacon()
+            .once()
+            .returning(|_| Ok(true));
+        let mut runtime = init_runtime(
+            Some(AggregatorState::Ready(ReadyState {
+                current_beacon: beacon.clone(),
+            })),
+            runner,
+        )
+        .await;
+        runtime.cycle().await.unwrap();
+
+        assert_eq!("ready".to_string(), runtime.get_state());
+        assert_eq!(
+            AggregatorState::Ready(ReadyState {
+                current_beacon: expected_beacon,
+            }),
+            runtime.state
+        );
+    }
+
+    #[tokio::test]
+    pub async fn ready_certificate_does_not_exist_for_beacon() {
         let mut runner = MockAggregatorRunner::new();
         runner
-            .expect_is_new_beacon()
+            .expect_get_beacon_from_chain()
             .once()
-            .returning(|_| Ok(Some(fake_data::beacon())));
-        runner
-            .expect_is_certificate_chain_valid()
-            .once()
-            .returning(|| Ok(true));
+            .returning(|| Ok(fake_data::beacon()));
         runner
             .expect_does_certificate_exist_for_beacon()
             .once()
@@ -342,16 +485,6 @@ mod tests {
             .returning(|_| Ok("whatever".to_string()));
         runner
             .expect_update_beacon()
-            .with(predicate::eq(fake_data::beacon()))
-            .once()
-            .returning(|_| Ok(()));
-        runner
-            .expect_update_stake_distribution()
-            .with(predicate::eq(fake_data::beacon()))
-            .once()
-            .returning(|_| Ok(()));
-        runner
-            .expect_update_protocol_parameters_in_multisigner()
             .with(predicate::eq(fake_data::beacon()))
             .once()
             .returning(|_| Ok(()));
@@ -371,8 +504,8 @@ mod tests {
             .returning(|_| Ok(()));
 
         let mut runtime = init_runtime(
-            Some(AggregatorState::Idle(IdleState {
-                current_beacon: None,
+            Some(AggregatorState::Ready(ReadyState {
+                current_beacon: fake_data::beacon(),
             })),
             runner,
         )
@@ -386,9 +519,9 @@ mod tests {
     async fn signing_changing_beacon_to_idle() {
         let mut runner = MockAggregatorRunner::new();
         runner
-            .expect_is_new_beacon()
+            .expect_get_beacon_from_chain()
             .once()
-            .returning(|_| Ok(Some(fake_data::beacon())));
+            .returning(|| Ok(fake_data::beacon()));
         runner
             .expect_drop_pending_certificate()
             .once()
@@ -412,9 +545,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn signing_same_beacon_to_signing() {
+    async fn signing_multisig_is_not_created() {
         let mut runner = MockAggregatorRunner::new();
-        runner.expect_is_new_beacon().once().returning(|_| Ok(None));
+        runner
+            .expect_get_beacon_from_chain()
+            .once()
+            .returning(|| Ok(fake_data::beacon()));
         runner
             .expect_is_multisig_created()
             .once()
@@ -430,9 +566,12 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn signing_multisig_ready_to_idle() {
+    async fn signing_multisig_is_created() {
         let mut runner = MockAggregatorRunner::new();
-        runner.expect_is_new_beacon().once().returning(|_| Ok(None));
+        runner
+            .expect_get_beacon_from_chain()
+            .once()
+            .returning(|| Ok(fake_data::beacon()));
         runner
             .expect_is_multisig_created()
             .once()
