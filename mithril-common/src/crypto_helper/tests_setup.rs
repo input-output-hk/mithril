@@ -29,7 +29,7 @@ pub fn setup_message() -> ProtocolMessage {
 /// Instantiate a [ProtocolParameters], use this for tests only.
 pub fn setup_protocol_parameters() -> ProtocolParameters {
     ProtocolParameters {
-        m: 10,
+        m: 100,
         k: 5,
         phi_f: 0.65,
     }
