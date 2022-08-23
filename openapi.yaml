@@ -218,7 +218,7 @@ components:
         phi_f:
           description: f in phi(w) = 1 - (1 - f)^w, where w is the stake of a participant
           type: number
-          format: float
+          format: double
       example: { "k": 857, "m": 6172, "phi_f": 0.2 }
 
     Beacon:

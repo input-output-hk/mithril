@@ -7,7 +7,7 @@ use crate::crypto_helper::{
 
 impl From<types::ProtocolParameters> for entities::ProtocolParameters {
     fn from(other: types::ProtocolParameters) -> Self {
-        entities::ProtocolParameters::new(other.k, other.m, other.phi_f as f32)
+        entities::ProtocolParameters::new(other.k, other.m, other.phi_f)
     }
 }
 
@@ -85,7 +85,7 @@ pub mod tests {
         let protocol_initializer_entities_expected = entities::ProtocolParameters::new(
             protocol_parameters_expected.k,
             protocol_parameters_expected.m,
-            protocol_parameters_expected.phi_f as f32,
+            protocol_parameters_expected.phi_f,
         );
 
         let protocol_initializer_entities_into: entities::ProtocolParameters =

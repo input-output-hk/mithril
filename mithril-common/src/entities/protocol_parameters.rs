@@ -15,12 +15,12 @@ pub struct ProtocolParameters {
 
     /// f in phi(w) = 1 - (1 - f)^w, where w is the stake of a participant
     #[serde(rename = "phi_f")]
-    pub phi_f: f32,
+    pub phi_f: f64,
 }
 
 impl ProtocolParameters {
     /// ProtocolParameters factory
-    pub fn new(k: u64, m: u64, phi_f: f32) -> ProtocolParameters {
+    pub fn new(k: u64, m: u64, phi_f: f64) -> ProtocolParameters {
         ProtocolParameters { k, m, phi_f }
     }
 
