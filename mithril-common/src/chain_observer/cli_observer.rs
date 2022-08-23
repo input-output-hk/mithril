@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use async_trait::async_trait;
 use nom::IResult;
 use serde_json::Value;

@@ -5,6 +5,7 @@
 
 mod jsonfile_store_adapter;
 mod memory_adapter;
+mod sqlite_adapter;
 mod store_adapter;
 
 pub use jsonfile_store_adapter::JsonFileStoreAdapter;
