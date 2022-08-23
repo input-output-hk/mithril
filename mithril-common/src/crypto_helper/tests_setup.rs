@@ -9,8 +9,8 @@ use crate::{
 use crate::certificate_chain::CertificateGenesisProducer;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
-use std::cmp::min;
 use std::collections::HashMap;
+use std::{cmp::min, sync::Arc};
 
 /// Instantiate a [ProtocolMessage] using fake data, use this for tests only.
 pub fn setup_message() -> ProtocolMessage {
@@ -126,7 +126,7 @@ pub fn setup_certificate_chain(
 ) -> (Vec<Certificate>, ProtocolGenesisVerifier) {
     let genesis_signer = ProtocolGenesisSigner::create_test_genesis_signer();
     let genesis_verifier = genesis_signer.create_genesis_verifier();
-    let genesis_producer = CertificateGenesisProducer::new(genesis_signer);
+    let genesis_producer = CertificateGenesisProducer::new(Arc::new(genesis_signer));
     let protocol_parameters = setup_protocol_parameters();
     let mut epochs = (1..total_certificates + 2)
         .into_iter()

@@ -1,5 +1,7 @@
 //! A module used to create a Genesis Certificate
 //!
+use std::sync::Arc;
+
 use chrono::prelude::*;
 use hex::ToHex;
 use thiserror::Error;
@@ -25,12 +27,12 @@ pub enum CertificateGenesisProducerError {
 /// CertificateGenesisProducer is in charge of producing a Genesis Certificate
 #[derive(Debug)]
 pub struct CertificateGenesisProducer {
-    genesis_signer: ProtocolGenesisSigner,
+    genesis_signer: Arc<ProtocolGenesisSigner>,
 }
 
 impl CertificateGenesisProducer {
     /// CertificateGenesisProducer factory
-    pub fn new(genesis_signer: ProtocolGenesisSigner) -> Self {
+    pub fn new(genesis_signer: Arc<ProtocolGenesisSigner>) -> Self {
         Self { genesis_signer }
     }
 

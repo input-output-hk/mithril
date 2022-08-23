@@ -107,7 +107,13 @@ impl AggregatorRuntime {
                 {
                     trace!("new beacon found = {:?}", beacon);
 
-                    if self.runner.certificate_exist_for_beacon(&beacon).await? {
+                    if !self.runner.is_certificate_chain_valid().await? {
+                        info!("the certificate chain is invalid");
+                    } else if self
+                        .runner
+                        .does_certificate_exist_for_beacon(&beacon)
+                        .await?
+                    {
                         info!("a certificate already exist for this beacon"; "beacon" => ?beacon);
                     } else {
                         let new_state = self
@@ -265,6 +271,30 @@ mod tests {
     }
 
     #[tokio::test]
+    pub async fn idle_check_certificate_chain_is_not_valid() {
+        let mut runner = MockAggregatorRunner::new();
+        runner
+            .expect_is_new_beacon()
+            .once()
+            .returning(|_| Ok(Some(fake_data::beacon())));
+        runner
+            .expect_is_certificate_chain_valid()
+            .once()
+            .returning(|| Ok(false));
+
+        let mut runtime = init_runtime(
+            Some(AggregatorState::Idle(IdleState {
+                current_beacon: None,
+            })),
+            runner,
+        )
+        .await;
+        runtime.cycle().await.unwrap();
+
+        assert_eq!("idle".to_string(), runtime.get_state());
+    }
+
+    #[tokio::test]
     pub async fn idle_certificate_already_exist_for_beacon() {
         let mut runner = MockAggregatorRunner::new();
         runner
@@ -272,7 +302,11 @@ mod tests {
             .once()
             .returning(|_| Ok(Some(fake_data::beacon())));
         runner
-            .expect_certificate_exist_for_beacon()
+            .expect_is_certificate_chain_valid()
+            .once()
+            .returning(|| Ok(true));
+        runner
+            .expect_does_certificate_exist_for_beacon()
             .once()
             .returning(|_| Ok(true));
         let mut runtime = init_runtime(
@@ -295,7 +329,11 @@ mod tests {
             .once()
             .returning(|_| Ok(Some(fake_data::beacon())));
         runner
-            .expect_certificate_exist_for_beacon()
+            .expect_is_certificate_chain_valid()
+            .once()
+            .returning(|| Ok(true));
+        runner
+            .expect_does_certificate_exist_for_beacon()
             .once()
             .returning(|_| Ok(false));
         runner

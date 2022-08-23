@@ -73,6 +73,11 @@ impl ProtocolGenesisVerifier {
         ProtocolGenesisVerifier { verification_key }
     }
 
+    /// ProtocolGenesisVerifier to ProtocolGenesisVerificationKey
+    pub fn to_verification_key(&self) -> ProtocolGenesisVerificationKey {
+        self.verification_key
+    }
+
     /// Verifies the signature of a message
     pub fn verify(
         &self,

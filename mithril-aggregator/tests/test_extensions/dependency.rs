@@ -4,7 +4,9 @@ use mithril_aggregator::{
     ProtocolParametersStore, SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType,
     VerificationKeyStore,
 };
+use mithril_common::certificate_chain::MithrilCertificateVerifier;
 use mithril_common::chain_observer::FakeObserver;
+use mithril_common::crypto_helper::{key_encode_hex, ProtocolGenesisSigner};
 use mithril_common::digesters::{DumbImmutableDigester, DumbImmutableFileObserver};
 use mithril_common::entities::ProtocolParameters;
 use mithril_common::store::adapter::MemoryAdapter;
@@ -21,7 +23,10 @@ pub async fn initialize_dependencies(
     immutable_file_observer: Arc<DumbImmutableFileObserver>,
     digester: Arc<DumbImmutableDigester>,
     snapshotter: Arc<DumbSnapshotter>,
+    genesis_signer: Arc<ProtocolGenesisSigner>,
 ) -> (Arc<DependencyManager>, AggregatorConfig) {
+    let genesis_verifier = Arc::new(genesis_signer.create_genesis_verifier());
+    let genesis_verification_key = genesis_verifier.to_verification_key();
     let config: Config = Config {
         cardano_cli_path: PathBuf::new(),
         cardano_node_socket_path: PathBuf::new(),
@@ -37,6 +42,7 @@ pub async fn initialize_dependencies(
         db_directory: PathBuf::new(),
         snapshot_directory: PathBuf::new(),
         data_stores_directory: PathBuf::new(),
+        genesis_verification_key: key_encode_hex(&genesis_verification_key).unwrap(),
     };
     let certificate_pending_store = Arc::new(CertificatePendingStore::new(Box::new(
         MemoryAdapter::new(None).unwrap(),
@@ -70,6 +76,7 @@ pub async fn initialize_dependencies(
         Box::new(MemoryAdapter::new(None).expect("memory adapter init should not fail")),
         5,
     ));
+    let certificate_verifier = Arc::new(MithrilCertificateVerifier::new(slog_scope::logger()));
     let dependency_manager = DependencyManager {
         config,
         snapshot_store,
@@ -86,6 +93,8 @@ pub async fn initialize_dependencies(
         immutable_file_observer,
         digester,
         snapshotter,
+        certificate_verifier,
+        genesis_verifier,
     };
 
     let config = AggregatorConfig::new(

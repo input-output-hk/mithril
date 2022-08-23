@@ -6,7 +6,9 @@ use mithril_aggregator::{
     ProtocolParametersStore, ProtocolParametersStorer, Server, SingleSignatureStore,
     VerificationKeyStore,
 };
+use mithril_common::certificate_chain::MithrilCertificateVerifier;
 use mithril_common::chain_observer::{CardanoCliRunner, ChainObserver};
+use mithril_common::crypto_helper::{key_decode_hex, ProtocolGenesisVerifier};
 use mithril_common::digesters::{CardanoImmutableDigester, ImmutableFileSystemObserver};
 use mithril_common::store::adapter::JsonFileStoreAdapter;
 use mithril_common::store::StakeStore;
@@ -173,6 +175,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
         config.db_directory.clone(),
         slog_scope::logger(),
     ));
+    let certificate_verifier = Arc::new(MithrilCertificateVerifier::new(slog_scope::logger()));
+    let genesis_verification_key = key_decode_hex(&config.genesis_verification_key)?;
+    let genesis_verifier = Arc::new(ProtocolGenesisVerifier::from_verification_key(
+        genesis_verification_key,
+    ));
 
     // Snapshotter - Ensure its ongoing snapshot directory exist
     let ongoing_snapshot_directory = config.snapshot_directory.join("pending_snapshot");
@@ -202,6 +209,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
         immutable_file_observer,
         digester,
         snapshotter,
+        certificate_verifier,
+        genesis_verifier,
     };
     let dependency_manager = Arc::new(dependency_manager);
     let network = config.get_network()?;

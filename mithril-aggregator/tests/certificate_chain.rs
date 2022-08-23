@@ -14,7 +14,7 @@ async fn certificate_chain() {
     };
     let mut tester = RuntimeTester::build(protocol_parameters.clone()).await;
 
-    comment!("create signers & declare stake distribution");
+    comment!("Create signers & declare stake distribution");
     let signers = tests_setup::setup_signers(5, &protocol_parameters.clone().into());
     let mut signers_with_stake: Vec<SignerWithStake> =
         signers.clone().into_iter().map(|s| s.into()).collect();
@@ -31,7 +31,18 @@ async fn certificate_chain() {
         )
         .await;
 
-    comment!("start the runtime state machine & send send first single signatures");
+    comment!("Increase epoch");
+    tester.increase_epoch().await.unwrap();
+    cycle!(tester, "idle");
+
+    comment!("Boostrap the genesis certificate");
+    tester.register_genesis_certificate(&signers).await.unwrap();
+
+    comment!("Increase epoch");
+    tester.increase_epoch().await.unwrap();
+    cycle!(tester, "signing");
+
+    comment!("Start the runtime state machine & send send first single signatures");
     cycle!(tester, "signing");
     tester.register_signers(&signers).await.unwrap();
     cycle!(tester, "signing");
