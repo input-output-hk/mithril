@@ -1,7 +1,7 @@
 use std::{collections::HashMap, marker::PhantomData, path::PathBuf};
 
 use async_trait::async_trait;
-use rusqlite::{Connection, ToSql};
+use rusqlite::{types::FromSql, Connection, Row, ToSql};
 
 use super::{AdapterError, StoreAdapter};
 
@@ -38,8 +38,8 @@ impl<K, V> SQLiteAdapter<K, V> {
 #[async_trait]
 impl<K, V> StoreAdapter for SQLiteAdapter<K, V>
 where
-    K: Send + Sync + ToSql,
-    V: Send + Sync + ToSql,
+    K: Send + Sync + ToSql + FromSql,
+    V: Send + Sync + ToSql + FromSql + Clone,
 {
     type Key = K;
     type Record = V;
@@ -54,12 +54,32 @@ where
         );
         connection
             .execute(&sql, (key, record))
-            .map(|v| ())
+            .map(|_| ())
             .map_err(|e| AdapterError::MutationError(e.into()))
     }
 
     async fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>> {
-        todo!()
+        let connection = self.init_connection()?;
+        let sql = format!(
+            "select {} from {} where {} = ?1",
+            self.structure.get_record_field(),
+            self.structure.get_table_name(),
+            self.structure.get_key_field()
+        );
+        let mut statement = connection
+            .prepare(&sql)
+            .map_err(|e| AdapterError::OpeningStreamError(e.into()))?;
+        let mut res = statement
+            .query([key])
+            .map_err(|e| AdapterError::QueryError(e.into()))?;
+
+        res.next()
+            .map(|option| {
+                option
+                    .map(|row| row.get::<usize, V>(0).iter().next().cloned())
+                    .flatten()
+            })
+            .map_err(|e| AdapterError::QueryError(e.into()))
     }
 
     async fn record_exists(&self, key: &Self::Key) -> Result<bool> {
@@ -80,14 +100,17 @@ where
 }
 /// SqlProjection allow structures to be stored and fetched from a SQL database.
 trait SqlTableDescription {
-    /// Return the table name for queries
+    /// Return the table name for queries.
     fn get_table_name(&self) -> &String;
 
-    /// Return the field name of the Key
+    /// Return the field name of the Key.
     fn get_key_field(&self) -> &String;
 
-    /// Return the field name of the Record
+    /// Return the field name of the Record.
     fn get_record_field(&self) -> &String;
+
+    /// Return the field name where the timestamp of record creation is.
+    fn get_created_at_field(&self) -> &String;
 }
 
 #[cfg(test)]
@@ -104,17 +127,16 @@ mod tests {
         table_name: String,
         key_field: String,
         record_field: String,
+        created_at_field: String,
     }
 
     impl TestSqlStructure {
         pub fn new() -> Self {
-            let key_field = "row_id".to_string();
-            let record_field = "row_data".to_string();
-
             Self {
                 table_name: "test_adapter".to_string(),
-                key_field,
-                record_field,
+                key_field: "row_id".to_string(),
+                record_field: "row_data".to_string(),
+                created_at_field: "created_at".to_string(),
             }
         }
     }
@@ -130,6 +152,10 @@ mod tests {
 
         fn get_record_field(&self) -> &String {
             &self.record_field
+        }
+
+        fn get_created_at_field(&self) -> &String {
+            &self.created_at_field
         }
     }
 
@@ -161,7 +187,7 @@ mod tests {
         ));
         connection
             .execute(
-                "create table test_adapter (row_id integer primary key, row_data text not null)",
+                "create table test_adapter (row_id integer primary key, row_data text not null, created_at text default CURRENT_TIMESTAMP)",
                 (),
             )
             .unwrap();
@@ -194,5 +220,36 @@ mod tests {
             .unwrap();
 
         assert_eq!((1, "one".to_string()), result);
+    }
+
+    #[tokio::test]
+    async fn test_get_record() {
+        let test_name = "test_get_record";
+        let mut adapter = init_db(test_name);
+        adapter
+            .store_record(&1, "one".to_string().borrow())
+            .await
+            .unwrap();
+        adapter
+            .store_record(&2, "two".to_string().borrow())
+            .await
+            .unwrap();
+        adapter
+            .store_record(&3, "three".to_string().borrow())
+            .await
+            .unwrap();
+        assert_eq!(
+            Some("one".to_string()),
+            adapter.get_record(&1).await.unwrap()
+        );
+        assert_eq!(
+            Some("three".to_string()),
+            adapter.get_record(&3).await.unwrap()
+        );
+        assert_eq!(
+            Some("two".to_string()),
+            adapter.get_record(&2).await.unwrap()
+        );
+        assert_eq!(None, adapter.get_record(&4).await.unwrap());
     }
 }
