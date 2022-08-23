@@ -5,7 +5,7 @@ use test_extensions::RuntimeTester;
 
 #[tokio::test]
 async fn simple_scenario() {
-    let mut tester = RuntimeTester::build().await;
+    let mut tester = RuntimeTester::build(fake_data::protocol_parameters()).await;
     tester
         .deps
         .init_protocol_parameter_store(&fake_data::protocol_parameters())

@@ -6,14 +6,16 @@ use mithril_aggregator::{
 };
 use mithril_common::chain_observer::FakeObserver;
 use mithril_common::digesters::{DumbImmutableDigester, DumbImmutableFileObserver};
+use mithril_common::entities::ProtocolParameters;
 use mithril_common::store::adapter::MemoryAdapter;
 use mithril_common::store::StakeStore;
-use mithril_common::{fake_data, BeaconProviderImpl, CardanoNetwork};
+use mithril_common::{BeaconProviderImpl, CardanoNetwork};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
 pub async fn initialize_dependencies(
+    default_protocol_parameters: ProtocolParameters,
     snapshot_uploader: Arc<DumbSnapshotUploader>,
     chain_observer: Arc<FakeObserver>,
     immutable_file_observer: Arc<DumbImmutableFileObserver>,
@@ -25,7 +27,7 @@ pub async fn initialize_dependencies(
         cardano_node_socket_path: PathBuf::new(),
         network_magic: Some(42),
         network: "whatever".to_string(),
-        protocol_parameters: fake_data::protocol_parameters(),
+        protocol_parameters: default_protocol_parameters,
         url_snapshot_manifest: "https://storage.googleapis.com/cardano-testnet/snapshots.json"
             .to_string(),
         snapshot_store_type: SnapshotStoreType::Local,

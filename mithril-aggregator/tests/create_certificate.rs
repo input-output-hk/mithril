@@ -7,12 +7,12 @@ use test_extensions::RuntimeTester;
 
 #[tokio::test]
 async fn create_certificate() {
-    let mut tester = RuntimeTester::build().await;
     let protocol_parameters = ProtocolParameters {
         k: 5,
         m: 100,
         phi_f: 0.65,
     };
+    let mut tester = RuntimeTester::build(protocol_parameters.clone()).await;
 
     comment!("create signers & declare stake distribution");
     let signers = tests_setup::setup_signers(10, &protocol_parameters.clone().into());

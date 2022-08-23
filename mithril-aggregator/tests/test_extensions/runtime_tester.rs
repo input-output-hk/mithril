@@ -11,7 +11,8 @@ use mithril_common::crypto_helper::key_encode_hex;
 use mithril_common::crypto_helper::tests_setup::setup_signers_from_parties;
 use mithril_common::digesters::DumbImmutableFileObserver;
 use mithril_common::entities::{
-    Certificate, Epoch, ImmutableFileNumber, SignerWithStake, SingleSignatures, Snapshot,
+    Certificate, Epoch, ImmutableFileNumber, ProtocolParameters, SignerWithStake, SingleSignatures,
+    Snapshot,
 };
 use mithril_common::{chain_observer::FakeObserver, digesters::DumbImmutableDigester};
 
@@ -35,13 +36,14 @@ pub struct RuntimeTester {
 }
 
 impl RuntimeTester {
-    pub async fn build() -> Self {
+    pub async fn build(default_protocol_parameters: ProtocolParameters) -> Self {
         let snapshot_uploader = Arc::new(DumbSnapshotUploader::new());
         let chain_observer = Arc::new(FakeObserver::default());
         let immutable_file_observer = Arc::new(DumbImmutableFileObserver::default());
         let digester = Arc::new(DumbImmutableDigester::default());
         let snapshotter = Arc::new(DumbSnapshotter::new());
         let (deps, config) = initialize_dependencies(
+            default_protocol_parameters,
             snapshot_uploader.clone(),
             chain_observer.clone(),
             immutable_file_observer.clone(),
