@@ -14,7 +14,7 @@ mod single_signatures;
 mod snapshot;
 mod type_alias;
 
-pub use beacon::Beacon;
+pub use beacon::{Beacon, BeaconComparison, BeaconComparisonError};
 pub use cardano_network::CardanoNetwork;
 pub use certificate::Certificate;
 pub use certificate_metadata::CertificateMetadata;

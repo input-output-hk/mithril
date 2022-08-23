@@ -9,7 +9,9 @@ use std::ops::{Add, Sub};
 use thiserror::Error;
 
 /// Epoch represents a Cardano epoch
-#[derive(Debug, Copy, Clone, Default, PartialEq, Serialize, Deserialize, Hash, Eq, PartialOrd)]
+#[derive(
+    Debug, Copy, Clone, Default, PartialEq, Serialize, Deserialize, Hash, Eq, PartialOrd, Ord,
+)]
 pub struct Epoch(pub u64);
 
 impl Epoch {
