@@ -5,6 +5,7 @@ use chrono::prelude::*;
 use slog_scope::{debug, trace, warn};
 use thiserror::Error;
 
+use mithril::AggregationError;
 use mithril_common::crypto_helper::{
     key_decode_hex, key_encode_hex, ProtocolAggregateVerificationKey, ProtocolClerk,
     ProtocolKeyRegistration, ProtocolMultiSignature, ProtocolParameters, ProtocolPartyId,
@@ -12,7 +13,6 @@ use mithril_common::crypto_helper::{
     PROTOCOL_VERSION,
 };
 use mithril_common::entities::{self, SignerWithStake};
-use mithril_common::mithril::AggregationError;
 use mithril_common::store::{StakeStoreError, StakeStorer};
 use mithril_common::{
     NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET, SIGNER_EPOCH_RECORDING_OFFSET,
