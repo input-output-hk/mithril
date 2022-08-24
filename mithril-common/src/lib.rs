@@ -25,6 +25,8 @@ pub mod store;
 pub use beacon_provider::{BeaconProvider, BeaconProviderError, BeaconProviderImpl};
 pub use entities::{CardanoNetwork, MagicId};
 
+pub use mithril;
+
 // TODO: Investigate as why signers can't sign until epoch 3 (in the e2e) when set to -1
 /// The epoch offset used for signers stake distribution and verification keys retrieval.
 pub const SIGNER_EPOCH_RETRIEVAL_OFFSET: i64 = -1;

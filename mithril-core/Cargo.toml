@@ -9,7 +9,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 
 [dependencies]
 blake2      = "0.9.2"
-blst = { version = "0.3.10", features = ["portable"] }
+blst = { version = "0.3.10" }
 bytes = "1"
 digest      = { version = "0.9.0", features = ["alloc"] }
 generic-array = "0.14"
@@ -50,3 +50,4 @@ harness = false
 default = ["rug-backend"]
 rug-backend = ["rug/default"]
 num-integer-backend = ["num-integer/default"]
+portable = ["blst/portable"]

@@ -32,3 +32,6 @@ warp = "0.3"
 
 [dev-dependencies]
 slog-scope = "4.4.0"
+
+[features]
+portable = ["mithril/portable"]

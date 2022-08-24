@@ -10,7 +10,6 @@ blake2      = "0.9.2"
 clap = { version = "3.1.6", features = ["derive"] }
 hex = "0.4.3"
 log = "0.4.14"
-mithril = { path = "../../mithril-core" }
 mithril-common = { path = "../../mithril-common" }
 rand_chacha = "0.3.1"
 rand_core   = "0.6.3"

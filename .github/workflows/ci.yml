@@ -82,7 +82,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --all-targets -p ${{ env.CARGO_PROJECT_NAME }}
+          args: --release --all-targets --features portable -p ${{ env.CARGO_PROJECT_NAME }}
       
       - name: Cargo check
         uses: actions-rs/cargo@v1
@@ -112,7 +112,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail && \
-          cargo test --release -p $CARGO_PROJECT_NAME --no-fail-fast \
+          cargo test --release --features portable -p $CARGO_PROJECT_NAME --no-fail-fast \
               -- -Z unstable-options --format json --report-time \
               | tee >(cargo2junit > test-results-${{ env.ARTIFACTS_PATTERN }}.xml)
 
@@ -183,14 +183,14 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --tests -p mithril
+          args: --release --tests --features portable -p mithril
 
       - name: Run tests
         if: ${{ matrix.skip_test != true }}
         shell: bash
         run: |
           set -o pipefail && \
-          cargo test --release -p mithril --no-fail-fast \
+          cargo test --release --features portable -p mithril --no-fail-fast \
               -- -Z unstable-options --format json --report-time \
               | tee >(cargo2junit > test-results-libmithril.xml)
 
@@ -205,10 +205,6 @@ jobs:
   run-test-lab:
     runs-on: ubuntu-latest
     needs: [ build ]
-    strategy:
-      fail-fast: false
-      matrix:
-        run_id: [ 0,1,2,3,4,5,6,7,8,9 ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
@@ -251,7 +247,7 @@ jobs:
         if:  ${{ failure() }}
         uses: actions/upload-artifact@v3
         with:
-          name: mithril-e2e-tests-artifacts-run_run_id_${{ matrix.run_id }}_${{ github.run_number }}-attempt_${{ github.run_attempt }}
+          name: mithril-e2e-tests-artifacts-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}
           path: |
             ./artifacts/*
             # including node.sock makes the upload fails so exclude them:
