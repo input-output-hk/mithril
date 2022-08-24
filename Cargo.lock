@@ -413,25 +413,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a2698f953def977c68f935bb0dfa959375ad4638570e969e2f1e9f433cbf1af6"
 
 [[package]]
-name = "cbindgen"
-version = "0.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b6d248e3ca02f3fbfabcb9284464c596baec223a26d91bbf44a5a62ddb0d900"
-dependencies = [
- "clap 3.2.17",
- "heck 0.4.0",
- "indexmap",
- "log",
- "proc-macro2",
- "quote",
- "serde",
- "serde_json",
- "syn",
- "tempfile",
- "toml",
-]
-
-[[package]]
 name = "cc"
 version = "1.0.73"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1716,14 +1697,9 @@ dependencies = [
  "bincode",
  "blake2",
  "blst",
- "bytes",
- "cbindgen",
  "criterion",
  "digest 0.9.0",
- "generic-array",
- "libc",
  "num-bigint 0.4.3",
- "num-integer",
  "num-rational 0.4.1",
  "num-traits",
  "proptest",
@@ -1736,7 +1712,6 @@ dependencies = [
  "serde_json",
  "sha2 0.9.9",
  "thiserror",
- "typenum",
 ]
 
 [[package]]
