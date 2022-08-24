@@ -462,7 +462,7 @@ mod tests {
     async fn test_restore_snapshot_ok() {
         let fake_certificate = fake_data::certificate("cert-hash-123".to_string());
         let genesis_verifier =
-            ProtocolGenesisSigner::create_test_genesis_signer().create_genesis_verifier();
+            ProtocolGenesisSigner::create_deterministic_genesis_signer().create_genesis_verifier();
         let digest_compute = fake_certificate
             .protocol_message
             .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
@@ -507,7 +507,7 @@ mod tests {
     async fn test_restore_snapshot_ko_certificate_chain_fail() {
         let fake_certificate = fake_data::certificate("cert-hash-123".to_string());
         let genesis_verifier =
-            ProtocolGenesisSigner::create_test_genesis_signer().create_genesis_verifier();
+            ProtocolGenesisSigner::create_deterministic_genesis_signer().create_genesis_verifier();
         let digest_compute = fake_certificate
             .protocol_message
             .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)

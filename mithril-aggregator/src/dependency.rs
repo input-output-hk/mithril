@@ -225,7 +225,7 @@ pub mod tests {
     use tokio::sync::RwLock;
 
     pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) {
-        let genesis_signer = ProtocolGenesisSigner::create_test_genesis_signer();
+        let genesis_signer = ProtocolGenesisSigner::create_deterministic_genesis_signer();
         let genesis_verifier = Arc::new(genesis_signer.create_genesis_verifier());
         let genesis_verification_key = genesis_verifier.to_verification_key();
         let config: Config = Config {

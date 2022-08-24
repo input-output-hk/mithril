@@ -114,7 +114,7 @@ pub fn setup_signers_from_parties(
 
 /// Instantiate a Genesis Signer and its associated Verifier
 pub fn setup_genesis() -> (ProtocolGenesisSigner, ProtocolGenesisVerifier) {
-    let genesis_signer = ProtocolGenesisSigner::create_test_genesis_signer();
+    let genesis_signer = ProtocolGenesisSigner::create_deterministic_genesis_signer();
     let genesis_verifier = genesis_signer.create_genesis_verifier();
     (genesis_signer, genesis_verifier)
 }
@@ -124,9 +124,9 @@ pub fn setup_certificate_chain(
     total_certificates: u64,
     certificates_per_epoch: u64,
 ) -> (Vec<Certificate>, ProtocolGenesisVerifier) {
-    let genesis_signer = ProtocolGenesisSigner::create_test_genesis_signer();
+    let genesis_signer = ProtocolGenesisSigner::create_deterministic_genesis_signer();
     let genesis_verifier = genesis_signer.create_genesis_verifier();
-    let genesis_producer = CertificateGenesisProducer::new(Arc::new(genesis_signer));
+    let genesis_producer = CertificateGenesisProducer::new(Some(Arc::new(genesis_signer)));
     let protocol_parameters = setup_protocol_parameters();
     let mut epochs = (1..total_certificates + 2)
         .into_iter()
@@ -184,11 +184,18 @@ pub fn setup_certificate_chain(
             fake_certificate.previous_hash = "".to_string();
             match i {
                 0 => {
+                    let genesis_protocol_message =
+                        CertificateGenesisProducer::create_genesis_protocol_message(&next_avk)
+                            .unwrap();
+                    let genesis_signature = genesis_producer
+                        .sign_genesis_protocol_message(genesis_protocol_message)
+                        .unwrap();
                     fake_certificate = genesis_producer
                         .create_genesis_certificate(
                             fake_certificate.metadata.protocol_parameters,
                             fake_certificate.beacon,
                             next_avk,
+                            genesis_signature,
                         )
                         .unwrap()
                 }

@@ -1,5 +1,6 @@
 use ed25519_dalek::{ExpandedSecretKey, SignatureError};
-use rand_chacha_dalek_compat::rand_core;
+use rand_chacha_dalek_compat::rand_core::{self, CryptoRng, RngCore, SeedableRng};
+use rand_chacha_dalek_compat::ChaCha20Rng;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -21,15 +22,29 @@ pub struct ProtocolGenesisSigner {
 
 impl ProtocolGenesisSigner {
     /// ProtocolGenesisSigner factory
-    pub fn create_test_genesis_signer() -> Self {
-        let mut rng = rand_core::OsRng;
+    pub fn create_test_genesis_signer<R>(mut rng: R) -> Self
+    where
+        R: CryptoRng + RngCore,
+    {
         let secret_key = ProtocolGenesisSecretKey::generate(&mut rng);
         Self::from_secret_key(secret_key)
     }
 
+    /// ProtocolGenesisSigner deterministic
+    pub fn create_deterministic_genesis_signer() -> Self {
+        let rng = ChaCha20Rng::from_seed([0u8; 32]);
+        Self::create_test_genesis_signer(rng)
+    }
+
+    /// ProtocolGenesisSigner non deterministic
+    pub fn create_non_deterministic_genesis_signer() -> Self {
+        let rng = rand_core::OsRng;
+        Self::create_test_genesis_signer(rng)
+    }
+
     /// ProtocolGenesisSigner from ProtocolGenesisSecretKey
     pub fn from_secret_key(secret_key: ProtocolGenesisSecretKey) -> Self {
-        ProtocolGenesisSigner { secret_key }
+        Self { secret_key }
     }
 
     /// Create a an expanded secret key
@@ -70,7 +85,7 @@ pub struct ProtocolGenesisVerifier {
 impl ProtocolGenesisVerifier {
     /// ProtocolGenesisVerifier from ProtocolGenesisVerificationKey
     pub fn from_verification_key(verification_key: ProtocolGenesisVerificationKey) -> Self {
-        ProtocolGenesisVerifier { verification_key }
+        Self { verification_key }
     }
 
     /// ProtocolGenesisVerifier to ProtocolGenesisVerificationKey
@@ -94,20 +109,48 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_generate_test_genesis_keypair() {
-        let genesis_signer = ProtocolGenesisSigner::create_test_genesis_signer();
+    fn test_generate_test_deterministic_genesis_keypair() {
+        let genesis_signer = ProtocolGenesisSigner::create_deterministic_genesis_signer();
         let genesis_verifier = genesis_signer.create_genesis_verifier();
-        let secret_key_encoded = key_encode_hex(genesis_signer.secret_key.as_bytes()).unwrap();
-        let verification_key_encoded =
-            key_encode_hex(genesis_verifier.verification_key.as_bytes()).unwrap();
+        let genesis_signer_2 = ProtocolGenesisSigner::create_deterministic_genesis_signer();
+        let genesis_verifier_2 = genesis_signer.create_genesis_verifier();
+        assert_eq!(
+            genesis_signer.secret_key.as_bytes(),
+            genesis_signer_2.secret_key.as_bytes()
+        );
+        assert_eq!(
+            genesis_verifier.verification_key.as_bytes(),
+            genesis_verifier_2.verification_key.as_bytes()
+        );
 
-        println!("Genesis Verification Key={}", verification_key_encoded);
-        println!("Genesis Secret Key=={}", secret_key_encoded);
+        println!(
+            "Deterministic Genesis Verification Key={}",
+            key_encode_hex(genesis_verifier.verification_key.as_bytes()).unwrap()
+        );
+        println!(
+            "Deterministic Genesis Secret Key=={}",
+            key_encode_hex(genesis_signer.secret_key.as_bytes()).unwrap()
+        );
+    }
+
+    #[test]
+    fn test_generate_test_non_deterministic_genesis_keypair() {
+        let genesis_signer = ProtocolGenesisSigner::create_non_deterministic_genesis_signer();
+        let genesis_verifier = genesis_signer.create_genesis_verifier();
+
+        println!(
+            "Non Deterministic Genesis Verification Key={}",
+            key_encode_hex(genesis_verifier.verification_key.as_bytes()).unwrap()
+        );
+        println!(
+            "Non Deterministic Genesis Secret Key=={}",
+            key_encode_hex(genesis_signer.secret_key.as_bytes()).unwrap()
+        );
     }
 
     #[test]
     fn test_codec_genesis_keypair() {
-        let genesis_signer = ProtocolGenesisSigner::create_test_genesis_signer();
+        let genesis_signer = ProtocolGenesisSigner::create_deterministic_genesis_signer();
         let genesis_verifier = genesis_signer.create_genesis_verifier();
         let secret_key_encoded = key_encode_hex(genesis_signer.secret_key.as_bytes()).unwrap();
         let verification_key_encoded =

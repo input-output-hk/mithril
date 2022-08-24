@@ -44,7 +44,7 @@ impl RuntimeTester {
         let immutable_file_observer = Arc::new(DumbImmutableFileObserver::default());
         let digester = Arc::new(DumbImmutableDigester::default());
         let snapshotter = Arc::new(DumbSnapshotter::new());
-        let genesis_signer = Arc::new(ProtocolGenesisSigner::create_test_genesis_signer());
+        let genesis_signer = Arc::new(ProtocolGenesisSigner::create_deterministic_genesis_signer());
         let (deps, config) = initialize_dependencies(
             default_protocol_parameters,
             snapshot_uploader.clone(),
@@ -110,13 +110,30 @@ impl RuntimeTester {
             .ok_or("A protocol parameters for the epoch should be available")?;
         let first_signer = &signers
             .first()
-            .ok_or("Signers list should not be empty".to_string())?
+            .ok_or_else(|| "Signers list should not be empty".to_string())?
             .3;
         let clerk = ProtocolClerk::from_signer(first_signer);
         let genesis_avk = clerk.compute_avk();
-        let genesis_producer = CertificateGenesisProducer::new(self.genesis_signer.clone());
+        let genesis_producer = CertificateGenesisProducer::new(Some(self.genesis_signer.clone()));
+        let genesis_protocol_message = CertificateGenesisProducer::create_genesis_protocol_message(
+            &genesis_avk,
+        )
+        .map_err(|e| {
+            format!(
+                "Creating the genesis protocol message should not fail: {:?}",
+                e
+            )
+        })?;
+        let genesis_signature = genesis_producer
+            .sign_genesis_protocol_message(genesis_protocol_message)
+            .map_err(|e| {
+                format!(
+                    "Signing the genesis protocol message should not fail: {:?}",
+                    e
+                )
+            })?;
         let genesis_certificate = genesis_producer
-            .create_genesis_certificate(protocol_parameters, beacon, genesis_avk)
+            .create_genesis_certificate(protocol_parameters, beacon, genesis_avk, genesis_signature)
             .map_err(|e| format!("Creating the genesis certificate should not fail: {:?}", e))?;
         self.deps
             .certificate_store
