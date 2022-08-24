@@ -3,7 +3,7 @@
 use crate::merkle_tree::Path;
 use digest::{Digest, FixedOutput};
 use {
-    crate::multi_sig_blast::{Signature, VerificationKey, VerificationKeyPoP},
+    crate::multi_sig::{Signature, VerificationKey, VerificationKeyPoP},
     blst::BLST_ERROR,
 };
 

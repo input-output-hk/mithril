@@ -1,7 +1,7 @@
 //! Key registration functionality.
 
 use crate::error::RegisterError;
-use crate::multi_sig_blast::{VerificationKey, VerificationKeyPoP};
+use crate::multi_sig::{VerificationKey, VerificationKeyPoP};
 use digest::{Digest, FixedOutput};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -84,7 +84,7 @@ impl KeyReg {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::multi_sig_blast::SigningKey;
+    use crate::multi_sig::SigningKey;
     use blake2::Blake2b;
     use proptest::collection::vec;
     use proptest::prelude::*;
