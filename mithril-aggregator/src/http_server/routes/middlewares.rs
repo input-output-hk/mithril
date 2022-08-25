@@ -2,7 +2,7 @@ use crate::dependency::{
     CertificatePendingStoreWrapper, CertificateStoreWrapper, MultiSignerWrapper,
     SnapshotStoreWrapper,
 };
-use crate::{Config, DependencyManager};
+use crate::{Configuration, DependencyManager};
 use std::convert::Infallible;
 use std::sync::Arc;
 use warp::Filter;
@@ -38,6 +38,6 @@ pub fn with_multi_signer(
 /// With config middleware
 pub fn with_config(
     dependency_manager: Arc<DependencyManager>,
-) -> impl Filter<Extract = (Config,), Error = Infallible> + Clone {
+) -> impl Filter<Extract = (Configuration,), Error = Infallible> + Clone {
     warp::any().map(move || dependency_manager.config.clone())
 }

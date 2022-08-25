@@ -1,5 +1,5 @@
 use mithril_aggregator::{
-    AggregatorConfig, CertificatePendingStore, CertificateStore, Config, DependencyManager,
+    AggregatorConfig, CertificatePendingStore, CertificateStore, Configuration, DependencyManager,
     DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore, MultiSignerImpl,
     ProtocolParametersStore, SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType,
     VerificationKeyStore,
@@ -27,7 +27,7 @@ pub async fn initialize_dependencies(
 ) -> (Arc<DependencyManager>, AggregatorConfig) {
     let genesis_verifier = Arc::new(genesis_signer.create_genesis_verifier());
     let genesis_verification_key = genesis_verifier.to_verification_key();
-    let config: Config = Config {
+    let config: Configuration = Configuration {
         cardano_cli_path: PathBuf::new(),
         cardano_node_socket_path: PathBuf::new(),
         network_magic: Some(42),
