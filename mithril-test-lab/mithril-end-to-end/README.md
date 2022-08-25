@@ -6,8 +6,6 @@
 
 ## Pre-requisites
 
-* A local cluster of Cardano nodes, right now handled by the legacy end to end suite (see `../mithril-end-to-end-legacy``).
-
 **Install Rust**
 
 * Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (version 1.62.0+).
