@@ -2,7 +2,6 @@
 
 <div align="center">
   <a href='https://github.com/input-output-hk/mithril/actions'>
-    <img src="https://github.com/input-output-hk/mithril/actions/workflows/ci.yml/badge.svg" />
     <img src="https://img.shields.io/github/workflow/status/input-output-hk/mithril/CI?label=Tests&style=for-the-badge">
     <img src="https://img.shields.io/github/issues/input-output-hk/mithril?label=Issues&style=for-the-badge">
      <img src="https://img.shields.io/github/forks/input-output-hk/mithril?label=Forks&style=for-the-badge">
@@ -25,9 +24,11 @@ We have worked on a first implementation of the protocol with the **Mithril Netw
 
 ## :construction: Under construction
 
-**Mithril** is currently a work in progress and is still a prototype.
-
-It is **not** yet ready for production and mainnet.
+> :warning: :warning: :warning:
+>
+> **Mithril** is currently a work in progress and is still a prototype.
+>
+> It is **NOT** yet ready for production and mainnet.
 
 ## :satellite: Getting Started with Mithril
 
@@ -47,6 +48,8 @@ This repository is sliced in the following parts:
 
 * [**Mithril Core**](./mithril-core): the **core** library that implements **Mithril** protocol cryptographic engine.
 
+* [**Mithril Explorer**](./mithril-explorer): the **explorer** website that connects to a **Mithril Aggregator** and displays its **Certificate Chain**.
+
 * [**Mithril Infra**](./mithril-infra): the infrastructure used to host a **Mithril Aggregator** in the cloud.
 
 * [**Mithril Signer**](./mithril-signer): the node of the **Mithril Network** responsible for producing individual signatures that are collected and aggregated by the **Mithril Aggregator**.
@@ -63,8 +66,8 @@ The best way to contribute right now is to provide feedback. Start by giving a l
 
 Should you have any questions, ideas or issues, we would like to hear from you:
 
-* Create a Github [Discussion](https://github.com/input-output-hk/mithril/discussions)-
+* Create a Github [Discussion](https://github.com/input-output-hk/mithril/discussions)
 * Create a Github [Issue](https://github.com/input-output-hk/mithril/issues/new)
 * Ask on Cardano [StackExchange](https://cardano.stackexchange.com/questions/tagged/mithril) using the `mihril` tag
 
-When contributing to this project and interacting with others, please follow our [Code of Conduct](./CODE-OF-CONDUCT.md).
+When contributing to this project and interacting with others, please follow our [Code of Conduct](./CODE-OF-CONDUCT.md) and our [Contributing Guidelines](./CONTRIBUTING.md).
