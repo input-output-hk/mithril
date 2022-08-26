@@ -109,10 +109,7 @@ use crate::dense_mapping::ev_lt_phi;
 use crate::error::{AggregationError, RegisterError, StmSignatureError};
 use crate::key_reg::ClosedKeyReg;
 use crate::merkle_tree::{MTLeaf, MerkleTreeCommitment, Path};
-#[cfg(feature = "blast")]
-use crate::multi_sig_blast::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
-#[cfg(not(feature = "blast"))]
-use crate::multi_sig_zcash::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
+use crate::multi_sig::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
 use digest::{Digest, FixedOutput};
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};

@@ -21,3 +21,6 @@ slog-term = "2.9.0"
 thiserror = "1.0.31"
 tokio = { version = "1.17.0", features = ["full"] }
 tokio-util = { version = "0.7.1", features = ["codec"] }
+
+[features]
+portable = ["mithril-common/portable"]

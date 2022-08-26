@@ -1,15 +1,11 @@
 //! Key registration functionality.
 
 use crate::error::RegisterError;
+use crate::multi_sig::{VerificationKey, VerificationKeyPoP};
 use digest::{Digest, FixedOutput};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::Arc;
-
-#[cfg(feature = "blast")]
-use crate::multi_sig_blast::{VerificationKey, VerificationKeyPoP};
-#[cfg(not(feature = "blast"))]
-use crate::multi_sig_zcash::{VerificationKey, VerificationKeyPoP};
 
 use super::stm::Stake;
 use crate::merkle_tree::{MTLeaf, MerkleTree};
@@ -88,10 +84,7 @@ impl KeyReg {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[cfg(feature = "blast")]
     use crate::multi_sig::SigningKey;
-    #[cfg(not(feature = "blast"))]
-    use crate::multi_sig_zcash::SigningKey;
     use blake2::Blake2b;
     use proptest::collection::vec;
     use proptest::prelude::*;

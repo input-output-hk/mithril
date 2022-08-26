@@ -1,12 +1,9 @@
 //! Crate specific errors
 
 use crate::merkle_tree::Path;
-#[cfg(not(feature = "blast"))]
-use crate::multi_sig_zcash::{Signature, VerificationKey, VerificationKeyPoP};
 use digest::{Digest, FixedOutput};
-#[cfg(feature = "blast")]
 use {
-    crate::multi_sig_blast::{Signature, VerificationKey, VerificationKeyPoP},
+    crate::multi_sig::{Signature, VerificationKey, VerificationKeyPoP},
     blst::BLST_ERROR,
 };
 
@@ -159,7 +156,6 @@ impl From<MultiSignatureError> for RegisterError {
     }
 }
 
-#[cfg(feature = "blast")]
 /// If verifying a single signature, the signature should be provided. If verifying a multi-sig,
 /// no need to provide the signature
 pub(crate) fn blst_err_to_atms(
