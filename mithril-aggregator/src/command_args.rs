@@ -1,11 +1,6 @@
 use clap::{Parser, Subcommand};
 use config::{Map, Source, Value, ValueKind};
-use mithril_common::{
-    certificate_chain::CertificateGenesisProducer,
-    chain_observer::ChainObserver,
-    crypto_helper::{key_decode_hex, ProtocolAggregateVerificationKey},
-    entities::Epoch,
-};
+use mithril_common::{chain_observer::ChainObserver, entities::Epoch};
 use slog::{Drain, Level, Logger};
 use slog_scope::debug;
 use std::error::Error;
@@ -14,8 +9,8 @@ use std::sync::Arc;
 use tokio::time::Duration;
 
 use crate::{
-    AggregatorConfig, AggregatorRunner, AggregatorRuntime, Configuration, DependencyManager,
-    ProtocolParametersStore, ProtocolParametersStorer, Server,
+    tools::GenesisTools, AggregatorConfig, AggregatorRunner, AggregatorRuntime, Configuration,
+    DependencyManager, ProtocolParametersStore, ProtocolParametersStorer, Server,
 };
 
 /// Node args
@@ -72,21 +67,24 @@ pub enum Commands {
 pub enum GenesisCommands {
     /// Export payload to sign with genesis secret key
     #[clap(arg_required_else_help = false)]
-    Export {},
+    Export {
+        /// Target Path
+        #[clap(long, default_value = "./mithril-genesis-payload.txt")]
+        target_path: PathBuf,
+    },
 
     /// Import payload signed with genesis secret key and create & import a genesis certificate
     #[clap(arg_required_else_help = false)]
-    Import {},
+    Import {
+        /// Signed Payload Path
+        #[clap(long, default_value = "./mithril-genesis-signed-payload.txt")]
+        signed_payload_path: PathBuf,
+    },
 
     /// Bootstrap a genesis certificate
     /// Test only usage
     #[clap(arg_required_else_help = false)]
     Bootstrap {},
-
-    /// Create/Export a genesis key pair
-    /// Test only usage
-    #[clap(arg_required_else_help = false)]
-    CreateTestKeys {},
 }
 
 impl Args {
@@ -121,31 +119,33 @@ impl Args {
         match self.command.clone() {
             Commands::Serve {} => self.serve(dependency_manager, config).await?,
             Commands::Genesis { genesis_command } => match genesis_command {
-                GenesisCommands::Export {} => {
-                    println!("Genesis Export");
-                    let multi_signer = dependency_manager.multi_signer.read().await;
-                    let genesis_avk = multi_signer
-                        .compute_stake_distribution_aggregate_verification_key()
-                        .await?
-                        .ok_or_else(|| "Genesis AVK computation failed".to_string())?;
-                    let genesis_avk: ProtocolAggregateVerificationKey =
-                        key_decode_hex(&genesis_avk)?;
-                    let genesis_protocol_message =
-                        CertificateGenesisProducer::create_genesis_protocol_message(&genesis_avk)
-                            .unwrap();
+                GenesisCommands::Export { target_path } => {
                     println!(
-                        "Genesis Payload: {:?}",
-                        genesis_protocol_message.compute_hash().as_bytes().to_vec()
+                        "Genesis export payload to sign to {}",
+                        target_path.to_string_lossy()
                     );
+
+                    let genesis_tools = GenesisTools::from_dependencies(dependency_manager).await?;
+                    genesis_tools.export_payload_to_sign(&target_path)?;
                 }
-                GenesisCommands::Import {} => {
-                    todo!()
+                GenesisCommands::Import {
+                    signed_payload_path,
+                } => {
+                    println!(
+                        "Genesis import signed payload from {}",
+                        signed_payload_path.to_string_lossy()
+                    );
+
+                    let genesis_tools = GenesisTools::from_dependencies(dependency_manager).await?;
+                    genesis_tools
+                        .import_payload_signature(&signed_payload_path)
+                        .await?;
                 }
                 GenesisCommands::Bootstrap {} => {
-                    todo!()
-                }
-                GenesisCommands::CreateTestKeys {} => {
-                    todo!()
+                    println!("Genesis bootstrap for test only");
+
+                    let genesis_tools = GenesisTools::from_dependencies(dependency_manager).await?;
+                    genesis_tools.bootstrap_test_genesis_certificate().await?;
                 }
             },
         }

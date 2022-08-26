@@ -132,9 +132,13 @@ impl RuntimeTester {
                     e
                 )
             })?;
-        let genesis_certificate = genesis_producer
-            .create_genesis_certificate(protocol_parameters, beacon, genesis_avk, genesis_signature)
-            .map_err(|e| format!("Creating the genesis certificate should not fail: {:?}", e))?;
+        let genesis_certificate = CertificateGenesisProducer::create_genesis_certificate(
+            protocol_parameters,
+            beacon,
+            genesis_avk,
+            genesis_signature,
+        )
+        .map_err(|e| format!("Creating the genesis certificate should not fail: {:?}", e))?;
         self.deps
             .certificate_store
             .save(genesis_certificate)

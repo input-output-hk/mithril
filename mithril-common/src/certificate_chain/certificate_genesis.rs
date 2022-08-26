@@ -69,7 +69,6 @@ impl CertificateGenesisProducer {
 
     /// Create a Genesis Certificate
     pub fn create_genesis_certificate(
-        &self,
         protocol_parameters: ProtocolParameters,
         beacon: Beacon,
         genesis_avk: ProtocolAggregateVerificationKey,

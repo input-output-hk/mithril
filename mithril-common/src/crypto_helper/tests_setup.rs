@@ -190,14 +190,13 @@ pub fn setup_certificate_chain(
                     let genesis_signature = genesis_producer
                         .sign_genesis_protocol_message(genesis_protocol_message)
                         .unwrap();
-                    fake_certificate = genesis_producer
-                        .create_genesis_certificate(
-                            fake_certificate.metadata.protocol_parameters,
-                            fake_certificate.beacon,
-                            next_avk,
-                            genesis_signature,
-                        )
-                        .unwrap()
+                    fake_certificate = CertificateGenesisProducer::create_genesis_certificate(
+                        fake_certificate.metadata.protocol_parameters,
+                        fake_certificate.beacon,
+                        next_avk,
+                        genesis_signature,
+                    )
+                    .unwrap()
                 }
                 _ => {
                     let mut single_signatures = Vec::new();

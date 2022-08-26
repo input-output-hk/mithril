@@ -326,7 +326,7 @@ mod tests {
                 &self,
                 certificate: &Certificate,
                 genesis_verifier: &ProtocolGenesisVerifier,
-            ) -> Result<Option<Certificate>, CertificateVerifierError>;
+            ) -> Result<(), CertificateVerifierError>;
 
             async fn verify_standard_certificate(
                 &self,

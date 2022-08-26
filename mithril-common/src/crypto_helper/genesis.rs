@@ -77,7 +77,7 @@ impl ProtocolGenesisSigner {
 }
 
 /// A protocol Genesis Verifier that is responsible for verifying the [Genesis Certificate](https://mithril.network/doc/mithril/mithril-protocol/certificates#the-certificate-chain-design)
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ProtocolGenesisVerifier {
     pub(crate) verification_key: ProtocolGenesisVerificationKey,
 }

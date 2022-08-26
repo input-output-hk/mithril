@@ -85,7 +85,7 @@ pub trait CertificateVerifier: Send + Sync {
         &self,
         certificate: &Certificate,
         genesis_verifier: &ProtocolGenesisVerifier,
-    ) -> Result<Option<Certificate>, CertificateVerifierError>;
+    ) -> Result<(), CertificateVerifierError>;
 
     /// Verify Standard certificate
     async fn verify_standard_certificate(
@@ -174,7 +174,7 @@ impl CertificateVerifier for MithrilCertificateVerifier {
         &self,
         certificate: &Certificate,
         genesis_verifier: &ProtocolGenesisVerifier,
-    ) -> Result<Option<Certificate>, CertificateVerifierError> {
+    ) -> Result<(), CertificateVerifierError> {
         println!(
             "Verify genesis certificate #{} @ epoch #{}",
             certificate.hash, certificate.beacon.epoch
@@ -185,7 +185,7 @@ impl CertificateVerifier for MithrilCertificateVerifier {
         )
         .map_err(|e| CertificateVerifierError::CodecGenesis(e.to_string()))?;
         genesis_verifier.verify(certificate.signed_message.as_bytes(), &genesis_signature)?;
-        Ok(None)
+        Ok(())
     }
 
     /// Verify Standard certificate
@@ -262,7 +262,8 @@ impl CertificateVerifier for MithrilCertificateVerifier {
         match certificate.previous_hash.as_str() {
             "" => {
                 self.verify_genesis_certificate(certificate, genesis_verifier)
-                    .await
+                    .await?;
+                Ok(None)
             }
             previous_hash if previous_hash == certificate.hash => {
                 Err(CertificateVerifierError::CertificateChainInfiniteLoop)

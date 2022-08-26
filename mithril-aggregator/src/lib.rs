@@ -14,7 +14,6 @@
 mod command_args;
 mod configuration;
 mod dependency;
-mod genesis_tools;
 mod http_server;
 mod multi_signer;
 mod runtime;
