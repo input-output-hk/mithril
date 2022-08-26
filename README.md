@@ -3,9 +3,17 @@
 <div align="center">
   <a href='https://github.com/input-output-hk/mithril/actions'>
     <img src="https://img.shields.io/github/workflow/status/input-output-hk/mithril/CI?label=Tests&style=for-the-badge">
+  </a>
+  <a href='https://github.com/input-output-hk/mithril/issues'>
     <img src="https://img.shields.io/github/issues/input-output-hk/mithril?label=Issues&style=for-the-badge">
+  </a>
+  <a href='https://github.com/input-output-hk/mithril/fork'>
      <img src="https://img.shields.io/github/forks/input-output-hk/mithril?label=Forks&style=for-the-badge">
+  </a>
+  <a href='https://github.com/input-output-hk/mithril/stargazers'>
     <img src="https://img.shields.io/github/stars/input-output-hk/mithril?label=Stars&style=for-the-badge">
+  </a>
+  <a href='https://github.com/input-output-hk/mithril/blob/main/LICENSE'>
     <img src="https://img.shields.io/github/license/input-output-hk/mithril?label=License&style=for-the-badge">
   </a>
 </div>
@@ -68,6 +76,6 @@ Should you have any questions, ideas or issues, we would like to hear from you:
 
 * Create a Github [Discussion](https://github.com/input-output-hk/mithril/discussions)
 * Create a Github [Issue](https://github.com/input-output-hk/mithril/issues/new)
-* Ask on Cardano [StackExchange](https://cardano.stackexchange.com/questions/tagged/mithril) using the `mihril` tag
+* Ask on Cardano [StackExchange](https://cardano.stackexchange.com/questions/tagged/mithril) using the `mithril` tag
 
 When contributing to this project and interacting with others, please follow our [Code of Conduct](./CODE-OF-CONDUCT.md) and our [Contributing Guidelines](./CONTRIBUTING.md).
