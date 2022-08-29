@@ -1,10 +1,10 @@
 use async_trait::async_trait;
 use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
-use sqlite::Connection;
-use tokio::sync::Mutex;
+use sqlite::{Connection, Cursor};
+use tokio::sync::{Mutex, MutexGuard};
 
-use std::{marker::PhantomData, path::PathBuf, sync::Arc};
+use std::{marker::PhantomData, mem::take, path::PathBuf, sync::Arc};
 
 use super::{AdapterError, StoreAdapter};
 
@@ -91,8 +91,8 @@ where
 #[async_trait]
 impl<K, V> StoreAdapter for SQLiteAdapter<K, V>
 where
-    K: Send + Sync + Serialize,
-    V: Send + Sync + Serialize,
+    K: Send + Sync + Serialize + DeserializeOwned,
+    V: Send + Sync + Serialize + DeserializeOwned,
 {
     type Key = K;
     type Record = V;
@@ -141,23 +141,47 @@ where
     }
 
     async fn get_iter(&self) -> Result<Box<dyn Iterator<Item = Self::Record> + '_>> {
-        todo!()
+        let iterator = SQLiteResultIterator::new(self.connection.lock().await)?;
+
+        Ok(Box::new(iterator))
     }
 }
 
-/// SqlProjection allow structures to be stored and fetched from a SQL database.
-trait SqlTableDescription {
-    /// Return the table name for queries.
-    fn get_table_name(&self) -> &String;
+struct SQLiteResultIterator<V> {
+    results: Vec<V>,
+}
 
-    /// Return the field name of the Key.
-    fn get_key_field(&self) -> &String;
+impl<V> SQLiteResultIterator<V>
+where
+    V: DeserializeOwned,
+{
+    pub fn new(connection: MutexGuard<Connection>) -> Result<SQLiteResultIterator<V>> {
+        let sql = format!("select value from {} order by ROWID desc", TABLE_NAME);
 
-    /// Return the field name of the Record.
-    fn get_record_field(&self) -> &String;
+        let cursor = connection
+            .prepare(sql)
+            .map_err(|e| AdapterError::QueryError(e.into()))?
+            .into_cursor();
 
-    /// Return the field name where the timestamp of record creation is.
-    fn get_created_at_field(&self) -> &String;
+        let results = cursor
+            .map(|row| {
+                let row = row.unwrap();
+                let res: V = serde_json::from_str(&row.get::<String, _>(0)).unwrap();
+
+                res
+            })
+            .collect();
+
+        Ok(Self { results })
+    }
+}
+
+impl<V> Iterator for SQLiteResultIterator<V> {
+    type Item = V;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.results.pop()
+    }
 }
 
 #[cfg(test)]
@@ -262,5 +286,33 @@ mod tests {
             adapter.get_record(&2).await.unwrap()
         );
         assert_eq!(None, adapter.get_record(&4).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_get_iterator() {
+        let test_name = "test_get_iterator";
+        let mut adapter = init_db(test_name);
+        adapter
+            .store_record(&1, "one".to_string().borrow())
+            .await
+            .unwrap();
+        adapter
+            .store_record(&2, "two".to_string().borrow())
+            .await
+            .unwrap();
+        adapter
+            .store_record(&3, "three".to_string().borrow())
+            .await
+            .unwrap();
+        let iterator = adapter.get_iter().await.unwrap();
+
+        for (index, element) in iterator.enumerate() {
+            match index {
+                0 => assert_eq!("one", element),
+                1 => assert_eq!("two", element),
+                2 => assert_eq!("three", element),
+                i => panic!("unexpected result index {} with data = '{:?}'.", i, element),
+            }
+        }
     }
 }
