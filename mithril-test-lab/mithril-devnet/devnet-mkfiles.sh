@@ -50,6 +50,8 @@ NODE_ADDR_PREFIX="172.16.238"
 NODE_ADDR_INCREMENT=10
 CARDANO_BINARY_URL="https://hydra.iohk.io/build/13065769/download/1/cardano-node-1.34.1-linux.tar.gz"
 
+GENESIS_VERIFICATION_KEY=5b33322c3235332c3138362c3230312c3137372c31312c3131372c3133352c3138372c3136372c3138312c3138382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c3235322c3138302c37322c3133342c3133372c3234372c3136312c36385d
+
 BFT_NODES=()
 BFT_NODES_N=()
 for (( i=1; i<=${NUM_BFT_NODES}; i++ ))
@@ -896,6 +898,7 @@ cat >> docker-compose.yaml <<EOF
       - DATA_STORES_DIRECTORY=/data/mithril/aggregator/stores
       - CARDANO_NODE_SOCKET_PATH=/data/ipc/node.sock
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
+      - GENESIS_VERIFICATION_KEY=${GENESIS_VERIFICATION_KEY}
     command:
       [
         "--db-directory",
@@ -904,7 +907,47 @@ cat >> docker-compose.yaml <<EOF
         "/data/mithril/aggregator",
         "--server-port",
         "8080", 
-        "-vvv"
+        "-vvv",
+        "serve"
+      ]
+
+  mithril-aggregator-genesis:
+    image: \${MITHRIL_AGGREGATOR_IMAGE}
+    profiles:
+      - mithril-genesis
+    volumes:
+      - ./${NODE}:/data
+    networks:
+    - mithril_network
+    ports:
+      - "8080:8080"
+    environment:
+      - RUST_BACKTRACE=1
+      - GOOGLE_APPLICATION_CREDENTIALS_JSON=
+      - NETWORK=devnet
+      - NETWORK_MAGIC=${NETWORK_MAGIC}
+      - PROTOCOL_PARAMETERS__K=5
+      - PROTOCOL_PARAMETERS__M=100
+      - PROTOCOL_PARAMETERS__PHI_F=0.65
+      - RUN_INTERVAL=1000
+      - URL_SNAPSHOT_MANIFEST=
+      - SNAPSHOT_STORE_TYPE=local
+      - SNAPSHOT_UPLOADER_TYPE=local
+      - DATA_STORES_DIRECTORY=/data/mithril/aggregator/stores
+      - CARDANO_NODE_SOCKET_PATH=/data/ipc/node.sock
+      - CARDANO_CLI_PATH=/app/bin/cardano-cli
+      - GENESIS_VERIFICATION_KEY=${GENESIS_VERIFICATION_KEY}
+    command:
+      [
+        "--db-directory",
+        "/data/db",
+        "--snapshot-directory",
+        "/data/mithril/aggregator",
+        "--server-port",
+        "8080", 
+        "-vvv",
+        "genesis",
+        "bootstrap"
       ]
     
 EOF
@@ -958,6 +1001,7 @@ cat >> docker-compose.yaml <<EOF
       - RUST_BACKTRACE=1
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
       - NETWORK=devnet
+      - GENESIS_VERIFICATION_KEY=${GENESIS_VERIFICATION_KEY}
     
 EOF
 
@@ -1097,6 +1141,23 @@ else
   export MITHRIL_SIGNER_IMAGE="ghcr.io/input-output-hk/mithril-signer:\${MITHRIL_IMAGE_ID}"
 fi
 docker-compose -f docker-compose.yaml --profile mithril up --remove-orphans --force-recreate -d --no-build
+
+echo ">> Wait for Mithril signers to be registered"
+while true
+do
+    EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip  \\
+        --cardano-mode  \\
+        --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq .epoch | sed -e "s/null//" | sed -e "s/ //" | tr -d '\n')
+    if [ \$EPOCH -ge 2 ] ; then
+        echo ">>>> Ready!"
+        break
+    else
+        echo ">>>> Not ready yet"
+        sleep 2
+    fi
+done
+docker-compose -f docker-compose.yaml --profile mithril-genesis run mithril-aggregator-genesis
+
 EOF
 chmod u+x start-mithril.sh
 
