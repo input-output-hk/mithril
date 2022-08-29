@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
-use sqlite::{Connection, Cursor, State};
+use sqlite::{Connection, Cursor, State, Statement};
 use tokio::sync::{Mutex, MutexGuard};
 
 use std::{marker::PhantomData, mem::take, path::PathBuf, sync::Arc};
@@ -86,6 +86,21 @@ where
             )
         })
     }
+
+    fn get_statement_for_key<'a>(
+        &'a self,
+        connection: &'a MutexGuard<Connection>,
+        sql: String,
+        key: &K,
+    ) -> Result<Statement> {
+        let mut statement = connection
+            .prepare(sql)
+            .map_err(|e| AdapterError::InitializationError(e.into()))?
+            .bind::<&str>(1, self.get_hash_from_key(key)?.as_str())
+            .map_err(|e| AdapterError::InitializationError(e.into()))?;
+
+        Ok(statement)
+    }
 }
 
 #[async_trait]
@@ -127,11 +142,7 @@ where
     async fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>> {
         let sql = format!("select value from {} where key_hash = ?1", TABLE_NAME);
         let connection = self.connection.lock().await;
-        let mut statement = connection
-            .prepare(sql)
-            .map_err(|e| AdapterError::InitializationError(e.into()))?
-            .bind::<&str>(1, self.get_hash_from_key(key)?.as_str())
-            .map_err(|e| AdapterError::InitializationError(e.into()))?;
+        let mut statement = self.get_statement_for_key(&connection, sql, key)?;
 
         if State::Done
             == statement
@@ -151,7 +162,25 @@ where
     }
 
     async fn record_exists(&self, key: &Self::Key) -> Result<bool> {
-        todo!()
+        let connection = self.connection.lock().await;
+        let sql = format!(
+            "select exists(select 1 from {} where key_hash = ?1) as record_exists",
+            TABLE_NAME
+        );
+        let mut statement = self.get_statement_for_key(&connection, sql, key)?;
+        statement
+            .next()
+            .map_err(|e| AdapterError::QueryError(e.into()))?;
+
+        statement
+            .read::<i64>(0)
+            .map_err(|e| {
+                AdapterError::GeneralError(format!(
+                    "There should be a result in this case ! {:?}",
+                    e
+                ))
+            })
+            .map(|res| res == 1)
     }
 
     async fn get_last_n_records(&self, how_many: usize) -> Result<Vec<(Self::Key, Self::Record)>> {
@@ -336,5 +365,23 @@ mod tests {
                 i => panic!("unexpected result index {} with data = '{:?}'.", i, element),
             }
         }
+    }
+
+    #[tokio::test]
+    async fn test_record_exists() {
+        let test_name = "test_record_exists";
+        let mut adapter = init_db(test_name);
+        adapter
+            .store_record(&1, "one".to_string().borrow())
+            .await
+            .unwrap();
+        adapter
+            .store_record(&2, "two".to_string().borrow())
+            .await
+            .unwrap();
+
+        assert!(adapter.record_exists(&1).await.unwrap());
+        assert!(adapter.record_exists(&2).await.unwrap());
+        assert!(!adapter.record_exists(&3).await.unwrap());
     }
 }
