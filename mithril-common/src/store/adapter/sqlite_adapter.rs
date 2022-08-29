@@ -1,85 +1,131 @@
-use std::{collections::HashMap, marker::PhantomData, path::PathBuf};
-
 use async_trait::async_trait;
-use rusqlite::{types::FromSql, Connection, Row, ToSql};
+use serde::{de::DeserializeOwned, Serialize};
+use sha2::{Digest, Sha256};
+use sqlite::Connection;
+use tokio::sync::Mutex;
+
+use std::{marker::PhantomData, path::PathBuf, sync::Arc};
 
 use super::{AdapterError, StoreAdapter};
 
 type Result<T> = std::result::Result<T, AdapterError>;
 
+const TABLE_NAME: &str = "key_value_store";
+
 /// Store adapter for SQLite3
 struct SQLiteAdapter<K, V> {
-    file: PathBuf,
-    structure: Box<dyn SqlTableDescription + Sync + Send>,
+    connection: Arc<Mutex<Connection>>,
     key: PhantomData<K>,
     value: PhantomData<V>,
 }
 
-impl<K, V> SQLiteAdapter<K, V> {
+impl<K, V> SQLiteAdapter<K, V>
+where
+    K: Serialize,
+{
     /// Create a new SQLiteAdapter instance.
-    pub fn new(file: PathBuf, structure: Box<dyn SqlTableDescription + Sync + Send>) -> Self {
-        Self {
-            file,
-            structure,
+    pub fn new(file: PathBuf) -> Result<Self> {
+        let connection =
+            Connection::open(file).map_err(|e| AdapterError::InitializationError(e.into()))?;
+        Self::check_table_exists(&connection)?;
+        let connection = Arc::new(Mutex::new(connection));
+
+        Ok(Self {
+            connection,
             key: PhantomData,
             value: PhantomData,
-        }
+        })
     }
 
-    /// Open a new connection to the database backend. If the file does not exist, it will be created.
-    fn init_connection(&self) -> Result<Connection> {
-        let connection = Connection::open(self.file.clone())
-            .map_err(|e| AdapterError::InitializationError(e.into()))?;
+    fn check_table_exists(connection: &Connection) -> Result<()> {
+        let sql = format!(
+            "select exists(select 1 from sqlite_master where type='table' and name='{}')",
+            TABLE_NAME
+        );
+        let mut statement = connection
+            .prepare(sql)
+            .map_err(|e| AdapterError::OpeningStreamError(e.into()))?;
+        statement
+            .next()
+            .map_err(|e| AdapterError::QueryError(e.into()))?;
+        let table_exists = statement
+            .read::<i64>(0)
+            .map_err(|e| AdapterError::ParsingDataError(e.into()))?;
 
-        Ok(connection)
+        if table_exists != 1 {
+            Self::create_table(connection)?;
+        }
+
+        Ok(())
+    }
+
+    fn create_table(connection: &Connection) -> Result<()> {
+        let sql = format!(
+            "create table {} (key_hash text primary key, key text, value text, created_at text default CURRENT_TIMESTAMP)",
+            TABLE_NAME
+        );
+        connection
+            .execute(sql)
+            .map_err(|e| AdapterError::QueryError(e.into()))?;
+
+        Ok(())
+    }
+
+    fn get_hash_from_key(&self, key: &K) -> Result<String> {
+        let mut hasher = Sha256::new();
+        hasher.update(self.serialize_key(key)?);
+        let checksum = hasher.finalize();
+
+        Ok(hex::encode(checksum))
+    }
+
+    fn serialize_key(&self, key: &K) -> Result<String> {
+        serde_json::to_string(&key).map_err(|e| {
+            AdapterError::GeneralError(
+                "SQLite adapter: Serde error while serializing store key".to_string(),
+            )
+        })
     }
 }
 
 #[async_trait]
 impl<K, V> StoreAdapter for SQLiteAdapter<K, V>
 where
-    K: Send + Sync + ToSql + FromSql,
-    V: Send + Sync + ToSql + FromSql + Clone,
+    K: Send + Sync + Serialize,
+    V: Send + Sync + Serialize,
 {
     type Key = K;
     type Record = V;
 
     async fn store_record(&mut self, key: &Self::Key, record: &Self::Record) -> Result<()> {
-        let connection = self.init_connection()?;
+        let connection = self.connection.lock().await;
         let sql = format!(
-            "insert into {} ({}, {}) values (?1, ?2)",
-            self.structure.get_table_name(),
-            self.structure.get_key_field(),
-            self.structure.get_record_field()
+            "insert into {} (key_hash, key, value) values (?1, ?2, ?3)",
+            TABLE_NAME
         );
-        connection
-            .execute(&sql, (key, record))
-            .map(|_| ())
-            .map_err(|e| AdapterError::MutationError(e.into()))
+        let value = serde_json::to_string(record).map_err(|e| {
+            AdapterError::GeneralError(
+                "SQLite adapter error: could not serialize value before insertion".to_string(),
+            )
+        })?;
+        let mut statement = connection
+            .prepare(sql)
+            .map_err(|e| AdapterError::InitializationError(e.into()))?
+            .bind::<&str>(1, self.get_hash_from_key(key)?.as_str())
+            .map_err(|e| AdapterError::InitializationError(e.into()))?
+            .bind::<&str>(2, self.serialize_key(key)?.as_str())
+            .map_err(|e| AdapterError::InitializationError(e.into()))?
+            .bind::<&str>(3, value.as_str())
+            .map_err(|e| AdapterError::InitializationError(e.into()))?;
+        let _ = statement
+            .next()
+            .map_err(|e| AdapterError::ParsingDataError(e.into()))?;
+
+        Ok(())
     }
 
     async fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>> {
-        let connection = self.init_connection()?;
-        let sql = format!(
-            "select {} from {} where {} = ?1",
-            self.structure.get_record_field(),
-            self.structure.get_table_name(),
-            self.structure.get_key_field()
-        );
-        let mut statement = connection
-            .prepare(&sql)
-            .map_err(|e| AdapterError::OpeningStreamError(e.into()))?;
-        let mut res = statement
-            .query([key])
-            .map_err(|e| AdapterError::QueryError(e.into()))?;
-
-        res.next()
-            .map(|option| {
-                option
-                    .map(|row| row.get::<usize, V>(0).iter().next().cloned())
-                    .flatten()
-            })
-            .map_err(|e| AdapterError::QueryError(e.into()))
+        todo!()
     }
 
     async fn record_exists(&self, key: &Self::Key) -> Result<bool> {
@@ -98,6 +144,7 @@ where
         todo!()
     }
 }
+
 /// SqlProjection allow structures to be stored and fetched from a SQL database.
 trait SqlTableDescription {
     /// Return the table name for queries.
@@ -123,42 +170,6 @@ mod tests {
 
     use super::*;
 
-    struct TestSqlStructure {
-        table_name: String,
-        key_field: String,
-        record_field: String,
-        created_at_field: String,
-    }
-
-    impl TestSqlStructure {
-        pub fn new() -> Self {
-            Self {
-                table_name: "test_adapter".to_string(),
-                key_field: "row_id".to_string(),
-                record_field: "row_data".to_string(),
-                created_at_field: "created_at".to_string(),
-            }
-        }
-    }
-
-    impl SqlTableDescription for TestSqlStructure {
-        fn get_table_name(&self) -> &String {
-            &self.table_name
-        }
-
-        fn get_key_field(&self) -> &String {
-            &self.key_field
-        }
-
-        fn get_record_field(&self) -> &String {
-            &self.record_field
-        }
-
-        fn get_created_at_field(&self) -> &String {
-            &self.created_at_field
-        }
-    }
-
     fn get_file_path(test_name: &str) -> PathBuf {
         let dirpath = std::env::temp_dir().join("mithril_test");
 
@@ -181,21 +192,11 @@ mod tests {
                 filepath.to_string_lossy()
             ));
         }
-        let connection = Connection::open(&filepath).expect(&format!(
-            "Expecting to be able to open SQLite file '{}'.",
-            filepath.to_string_lossy()
-        ));
-        connection
-            .execute(
-                "create table test_adapter (row_id integer primary key, row_data text not null, created_at text default CURRENT_TIMESTAMP)",
-                (),
-            )
-            .unwrap();
-
-        let adapter = SQLiteAdapter::new(filepath, Box::new(TestSqlStructure::new()));
+        let adapter = SQLiteAdapter::new(filepath).unwrap();
 
         adapter
     }
+
     #[tokio::test]
     async fn test_store_record() {
         let test_name = "test_store_record";
@@ -209,17 +210,27 @@ mod tests {
             "Expecting to be able to open SQLite file '{}'.",
             filepath.to_string_lossy()
         ));
-        let mut stmt = connection.prepare("select * from test_adapter").unwrap();
-        let result = stmt
-            .query_row([], |row| {
-                Ok((
-                    row.get::<usize, u64>(0).unwrap(),
-                    row.get::<usize, String>(1).unwrap(),
-                ))
-            })
-            .unwrap();
+        let mut statement = connection
+            .prepare(format!("select * from {}", TABLE_NAME))
+            .unwrap()
+            .into_cursor();
+        let row = statement
+            .try_next()
+            .unwrap()
+            .expect("Expecting at least one row in the result set.");
 
-        assert_eq!((1, "one".to_string()), result);
+        assert_eq!(
+            "1",
+            row[1]
+                .as_string()
+                .expect("Expecting to have a field 1 (key).")
+        );
+        assert_eq!(
+            "\"one\"".to_string(),
+            row[2]
+                .as_string()
+                .expect("Expecting to have a field 2 (value).")
+        );
     }
 
     #[tokio::test]

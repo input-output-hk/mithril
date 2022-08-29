@@ -29,6 +29,10 @@ pub enum AdapterError {
     /// Error while querying the subsystem.
     #[error("problem when querying the adapter: {0}")]
     QueryError(SubError),
+
+    /// Type conversion cannot be performed by this adapter.
+    #[error("type conversion error, this adapter does not know how to handle this: {0}")]
+    TypeError(SubError),
 }
 
 /// Represent a way to store Key/Value pair data.
