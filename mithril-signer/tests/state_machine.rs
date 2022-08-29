@@ -4,12 +4,13 @@ use mithril_common::entities::Epoch;
 
 use test_extensions::StateMachineTester;
 
+#[rustfmt::skip]
 #[tokio::test]
 async fn test_create_single_signature() {
     let mut tester = StateMachineTester::init().await;
 
     tester
-        .comment("state machine starts and remains in Unregistered state until a certificate pending is got")
+        .comment("state machine starts and remains in Unregistered state until a epoch settings is got")
         .cycle_unregistered().await.unwrap()
         .cycle_unregistered().await.unwrap()
 
@@ -21,9 +22,10 @@ async fn test_create_single_signature() {
         .increase_epoch(2).await.unwrap()
         .cycle_unregistered().await.unwrap()
 
-        .comment("getting a certificate pending changes the state → Registered")
-        .register_signers(2).await.unwrap()
+        .comment("getting an epoch settings changes the state → Registered")
+        .aggregator_send_epoch_settings().await
         .cycle_registered().await.unwrap()
+        .register_signers(2).await.unwrap()
         .check_protocol_initializer(Epoch(3)).await.unwrap()
         .check_stake_store(Epoch(3)).await.unwrap()
 

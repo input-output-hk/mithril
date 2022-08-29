@@ -31,6 +31,21 @@ pub fn protocol_parameters() -> entities::ProtocolParameters {
     entities::ProtocolParameters::new(k, m, phi_f)
 }
 
+/// Fake EpochSettings
+pub fn epoch_settings() -> entities::EpochSettings {
+    // Beacon
+    let beacon = beacon();
+
+    // Protocol parameters
+    let protocol_parameters = protocol_parameters();
+
+    // Epoch settings
+    entities::EpochSettings {
+        epoch: beacon.epoch,
+        protocol_parameters,
+    }
+}
+
 /// Fake CertificatePending
 pub fn certificate_pending() -> entities::CertificatePending {
     // Beacon

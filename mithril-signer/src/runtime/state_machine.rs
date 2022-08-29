@@ -1,7 +1,7 @@
 use slog_scope::{debug, error, info};
 use std::{error::Error, fmt::Display, thread::sleep, time::Duration};
 
-use mithril_common::entities::{Beacon, CertificatePending, SignerWithStake};
+use mithril_common::entities::{Beacon, CertificatePending, EpochSettings, SignerWithStake};
 
 use super::Runner;
 
@@ -90,10 +90,10 @@ impl StateMachine {
 
         match &self.state {
             SignerState::Unregistered => {
-                if let Some(pending_certificate) = self.runner.get_pending_certificate().await? {
-                    debug!("→ Pending certificate found, transiting to REGISTERED");
+                if let Some(epoch_settings) = self.runner.get_epoch_settings().await? {
+                    debug!("→ Epoch settings found, transiting to REGISTERED");
                     let state = self
-                        .transition_from_unregistered_to_registered(&pending_certificate)
+                        .transition_from_unregistered_to_registered(&epoch_settings)
                         .await?;
                     self.state = SignerState::Registered(state);
                 } else {
@@ -191,12 +191,12 @@ impl StateMachine {
     /// Launch the transition process from the `Unregistered` to the `Registered` state.
     async fn transition_from_unregistered_to_registered(
         &self,
-        pending_certificate: &CertificatePending,
+        epoch_settings: &EpochSettings,
     ) -> Result<RegisteredState, Box<dyn Error + Sync + Send>> {
         let beacon = self.runner.get_current_beacon().await?;
         self.runner.update_stake_distribution(beacon.epoch).await?;
         self.runner
-            .register_signer_to_aggregator(beacon.epoch, &pending_certificate.protocol_parameters)
+            .register_signer_to_aggregator(beacon.epoch, &epoch_settings.protocol_parameters)
             .await?;
 
         Ok(RegisteredState { beacon })
@@ -261,7 +261,7 @@ mod tests {
     async fn unregistered_no_transition() {
         let mut runner = MockSignerRunner::new();
         runner
-            .expect_get_pending_certificate()
+            .expect_get_epoch_settings()
             .once()
             .returning(|| Ok(None));
         let mut state_machine = init_state_machine(SignerState::Unregistered, runner);
@@ -277,9 +277,9 @@ mod tests {
     async fn unregistered_to_registered() {
         let mut runner = MockSignerRunner::new();
         runner
-            .expect_get_pending_certificate()
+            .expect_get_epoch_settings()
             .once()
-            .returning(|| Ok(Some(fake_data::certificate_pending())));
+            .returning(|| Ok(Some(fake_data::epoch_settings())));
         runner
             .expect_get_current_beacon()
             .once()

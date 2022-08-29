@@ -25,7 +25,7 @@ impl Spec {
 
         wait_for_enough_immutable(self.infrastructure.aggregator().db_directory()).await?;
         let min_epoch =
-            Epoch((SIGNER_EPOCH_RECORDING_OFFSET - SIGNER_EPOCH_RETRIEVAL_OFFSET) as u64);
+            Epoch((SIGNER_EPOCH_RECORDING_OFFSET - SIGNER_EPOCH_RETRIEVAL_OFFSET) as u64) + 1;
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
             min_epoch,

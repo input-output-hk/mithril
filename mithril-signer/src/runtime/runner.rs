@@ -10,8 +10,8 @@ use mithril_common::entities::{PartyId, ProtocolParameters};
 use mithril_common::{
     crypto_helper::key_encode_hex,
     entities::{
-        Beacon, CertificatePending, Epoch, ProtocolMessage, ProtocolMessagePartKey, Signer,
-        SignerWithStake, SingleSignatures,
+        Beacon, CertificatePending, Epoch, EpochSettings, ProtocolMessage, ProtocolMessagePartKey,
+        Signer, SignerWithStake, SingleSignatures,
     },
     store::StakeStorer,
 };
@@ -23,6 +23,11 @@ use super::signer_services::SignerServices;
 /// This trait is mainly intended for mocking.
 #[async_trait]
 pub trait Runner {
+    /// Fetch the current epoch settings if any.
+    async fn get_epoch_settings(
+        &self,
+    ) -> Result<Option<EpochSettings>, Box<dyn StdError + Sync + Send>>;
+
     /// Fetch the current pending certificate if any.
     async fn get_pending_certificate(
         &self,
@@ -113,6 +118,18 @@ impl SignerRunner {
 #[cfg_attr(test, automock)]
 #[async_trait]
 impl Runner for SignerRunner {
+    async fn get_epoch_settings(
+        &self,
+    ) -> Result<Option<EpochSettings>, Box<dyn StdError + Sync + Send>> {
+        debug!("RUNNER: get_epoch_settings");
+
+        self.services
+            .certificate_handler
+            .retrieve_epoch_settings()
+            .await
+            .map_err(|e| e.into())
+    }
+
     async fn get_pending_certificate(
         &self,
     ) -> Result<Option<CertificatePending>, Box<dyn StdError + Sync + Send>> {
@@ -436,6 +453,7 @@ mod tests {
             services: maybe_services.unwrap_or(services),
         }
     }
+
     #[tokio::test]
     async fn test_get_current_beacon() {
         let mut services = init_services();

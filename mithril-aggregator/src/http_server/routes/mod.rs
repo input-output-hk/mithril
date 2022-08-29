@@ -1,4 +1,5 @@
 mod certificate_routes;
+mod epoch_routes;
 mod middlewares;
 mod reply;
 pub mod router;

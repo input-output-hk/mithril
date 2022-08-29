@@ -181,6 +181,12 @@ impl StateMachineTester {
         )
     }
 
+    /// make the aggregator send the epoch settings from now on
+    pub async fn aggregator_send_epoch_settings(&mut self) -> &mut Self {
+        self.certificate_handler.release_epoch_settings().await;
+        self
+    }
+
     /// check there is a protocol initializer for the given Epoch
     pub async fn check_protocol_initializer(&mut self, epoch: Epoch) -> Result<&mut Self> {
         let maybe_protocol_initializer = self
