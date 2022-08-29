@@ -47,7 +47,6 @@ impl Aggregator {
             "--server-port",
             &port,
             "-vvv",
-            "serve",
         ];
 
         let command = MithrilCommand::new("mithril-aggregator", work_dir, bin_dir, env, &args)?;
@@ -68,8 +67,44 @@ impl Aggregator {
         &self.db_directory
     }
 
-    pub fn start(&mut self) -> Result<(), String> {
-        self.process = Some(self.command.start(&[])?);
+    pub fn serve(&mut self) -> Result<(), String> {
+        self.process = Some(self.command.start(&["serve".to_string()])?);
+        Ok(())
+    }
+
+    pub async fn bootstrap_genesis(&mut self) -> Result<(), String> {
+        let mut child = self
+            .command
+            .start(&["genesis".to_string(), "bootstrap".to_string()])?;
+
+        match child.wait().await {
+            Ok(status) => {
+                if status.success() {
+                    Ok(())
+                } else {
+                    Err(match status.code() {
+                        Some(c) => format!(
+                            "`mithril-aggregator genesis bootstrap` exited with code: {}",
+                            c
+                        ),
+                        None => {
+                            "`mithril-aggregator genesis bootstrap` was terminated with a signal"
+                                .to_string()
+                        }
+                    })
+                }
+            }
+            Err(error) => Err(error.to_string()),
+        }
+    }
+
+    pub async fn stop(&mut self) -> Result<(), String> {
+        if let Some(process) = self.process.as_mut() {
+            process
+                .kill()
+                .await
+                .map_err(|e| format!("Could not kill aggregator: {:?}", e))?;
+        }
         Ok(())
     }
 

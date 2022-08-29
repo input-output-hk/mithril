@@ -35,7 +35,7 @@ impl MithrilInfrastructure {
             work_dir,
             bin_dir,
         )?;
-        aggregator.start()?;
+        aggregator.serve()?;
 
         let mut signers: Vec<Signer> = vec![];
         for pool_node in devnet_topology.pool_nodes {

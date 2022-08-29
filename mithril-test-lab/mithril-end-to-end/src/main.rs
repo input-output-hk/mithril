@@ -78,7 +78,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         MithrilInfrastructure::start(server_port, devnet.clone(), &work_dir, &args.bin_directory)
             .await?;
 
-    let spec = Spec::new(infrastructure);
+    let mut spec = Spec::new(infrastructure);
 
     match spec.run().await {
         Ok(_) => {

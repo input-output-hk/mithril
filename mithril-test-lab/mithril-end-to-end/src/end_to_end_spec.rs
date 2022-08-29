@@ -1,5 +1,5 @@
 use crate::utils::AttemptResult;
-use crate::{attempt, Client, ClientCommand, Devnet, MithrilInfrastructure};
+use crate::{attempt, Aggregator, Client, ClientCommand, Devnet, MithrilInfrastructure};
 use mithril_common::chain_observer::{CardanoCliChainObserver, ChainObserver};
 use mithril_common::digesters::ImmutableFile;
 use mithril_common::entities::{Certificate, CertificatePending, Epoch, Snapshot};
@@ -20,7 +20,7 @@ impl Spec {
         Self { infrastructure }
     }
 
-    pub async fn run(&self) -> Result<(), Box<dyn Error>> {
+    pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
         let aggregator_endpoint = self.infrastructure.aggregator().endpoint();
 
         wait_for_enough_immutable(self.infrastructure.aggregator().db_directory()).await?;
@@ -29,9 +29,12 @@ impl Spec {
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
             min_epoch,
-            "minimal epoch for the signer to be able to sign snapshots".to_string(),
+            "minimal epoch for the aggregator to be able to bootstrap genesis certificate"
+                .to_string(),
         )
         .await?;
+        bootstrap_genesis_certificate(self.infrastructure.aggregator_mut()).await?;
+
         wait_for_pending_certificate(&aggregator_endpoint).await?;
         let target_epoch = min_epoch + 2;
         wait_for_target_epoch(
@@ -41,6 +44,7 @@ impl Spec {
         )
         .await?;
         delegate_stakes_to_pools(self.infrastructure.devnet()).await?;
+
         let target_epoch = min_epoch + 4;
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
@@ -48,6 +52,7 @@ impl Spec {
             "epoch after which the certificate chain will be long enough".to_string(),
         )
         .await?;
+
         let digest = assert_node_producing_snapshot(&aggregator_endpoint).await?;
         let certificate_hash =
             assert_signer_is_signing_snapshot(&aggregator_endpoint, &digest, target_epoch - 2)
@@ -167,6 +172,19 @@ async fn wait_for_target_epoch(
             Err("Timeout exhausted for target epoch to be reached".to_string())
         }
     }?;
+
+    Ok(())
+}
+
+async fn bootstrap_genesis_certificate(aggregator: &mut Aggregator) -> Result<(), String> {
+    info!("Bootstrap genesis certificate");
+
+    info!("> stopping aggregator");
+    aggregator.stop().await?;
+    info!("> bootstrapping genesis using signers registered two epochs ago ...");
+    aggregator.bootstrap_genesis().await?;
+    info!("> done, restarting aggregator");
+    aggregator.serve()?;
 
     Ok(())
 }

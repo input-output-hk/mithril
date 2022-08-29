@@ -1,7 +1,6 @@
 use crate::utils::file_utils;
 use slog_scope::info;
 use std::collections::HashMap;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 use tokio::process::{Child, Command};
 
@@ -131,34 +130,6 @@ impl MithrilCommand {
             "{}",
             file_utils::tail(&self.log_path, number_of_line).await?
         );
-
-        Ok(())
-    }
-
-    pub(crate) async fn dump_logs_to_stdout(&self) -> Result<(), String> {
-        if !self.log_path.exists() {
-            return Err(format!(
-                "No log for {}, did you run the command at least once ? expected path: {}",
-                self.name,
-                self.log_path.display()
-            ));
-        }
-
-        let buffer = tokio::fs::read(&self.log_path).await.map_err(|e| {
-            format!(
-                "failed to read logfile `{}`: {}",
-                self.log_path.display(),
-                e
-            )
-        })?;
-
-        println!("{:-^100}", "");
-        println!("{:^30}", format!("{} LOGS:", self.name.to_uppercase()));
-        println!("{:-^100}", "");
-
-        std::io::stdout()
-            .write_all(&buffer)
-            .map_err(|e| format!("failed to dump {} logs: {}", &self.name, e))?;
 
         Ok(())
     }

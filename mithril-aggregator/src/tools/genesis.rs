@@ -44,24 +44,26 @@ impl GenesisTools {
     pub async fn from_dependencies(
         dependencies: Arc<DependencyManager>,
     ) -> GenesisToolsResult<Self> {
-        let multi_signer = dependencies.multi_signer.read().await;
-        let genesis_avk = multi_signer
-            .compute_stake_distribution_aggregate_verification_key()
-            .await?
-            .ok_or_else(|| "Genesis AVK computation failed".to_string())?;
-        let genesis_avk: ProtocolAggregateVerificationKey = key_decode_hex(&genesis_avk)?;
+        let mut multi_signer = dependencies.multi_signer.write().await;
+        let beacon_provider = dependencies.beacon_provider.clone();
+        let beacon = beacon_provider.get_current_beacon().await?;
+        multi_signer.update_current_beacon(beacon.clone()).await?;
 
         let genesis_verifier = dependencies.genesis_verifier.clone();
         let certificate_verifier = dependencies.certificate_verifier.clone();
         let certificate_store = dependencies.certificate_store.clone();
         let protocol_parameters_store = dependencies.protocol_parameters_store.clone();
-        let beacon_provider = dependencies.beacon_provider.clone();
 
-        let beacon = beacon_provider.get_current_beacon().await?;
         let protocol_parameters = protocol_parameters_store
             .get_protocol_parameters(beacon.epoch)
             .await?
             .ok_or_else(|| "Missing protocol parameters".to_string())?;
+
+        let genesis_avk = multi_signer
+            .compute_next_stake_distribution_aggregate_verification_key()
+            .await?
+            .ok_or_else(|| "Genesis AVK computation failed".to_string())?;
+        let genesis_avk: ProtocolAggregateVerificationKey = key_decode_hex(&genesis_avk)?;
 
         Ok(Self::new(
             protocol_parameters,
