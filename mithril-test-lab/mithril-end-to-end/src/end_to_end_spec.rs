@@ -3,7 +3,6 @@ use crate::{attempt, Aggregator, Client, ClientCommand, Devnet, MithrilInfrastru
 use mithril_common::chain_observer::{CardanoCliChainObserver, ChainObserver};
 use mithril_common::digesters::ImmutableFile;
 use mithril_common::entities::{Certificate, CertificatePending, Epoch, Snapshot};
-use mithril_common::{SIGNER_EPOCH_RECORDING_OFFSET, SIGNER_EPOCH_RETRIEVAL_OFFSET};
 use reqwest::StatusCode;
 use slog_scope::info;
 use std::error::Error;
@@ -24,19 +23,23 @@ impl Spec {
         let aggregator_endpoint = self.infrastructure.aggregator().endpoint();
 
         wait_for_enough_immutable(self.infrastructure.aggregator().db_directory()).await?;
-        let min_epoch =
-            Epoch((SIGNER_EPOCH_RECORDING_OFFSET - SIGNER_EPOCH_RETRIEVAL_OFFSET) as u64) + 1;
+        // Epoch 3 since:
+        // * Epoch(0) won't produce anything since the Cardano network is still booting up.
+        // * It needs signers from the previous epoch.
+        // * Epoch(2) is still too early for some environements (ie: CI) to have the aggregator
+        // waiting for signatures long enough for signers to register.
+        let mut target_epoch = Epoch(3);
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
-            min_epoch,
+            target_epoch,
             "minimal epoch for the aggregator to be able to bootstrap genesis certificate"
                 .to_string(),
         )
         .await?;
         bootstrap_genesis_certificate(self.infrastructure.aggregator_mut()).await?;
-
         wait_for_pending_certificate(&aggregator_endpoint).await?;
-        let target_epoch = min_epoch + 2;
+
+        target_epoch += 2;
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
             target_epoch,
@@ -45,7 +48,7 @@ impl Spec {
         .await?;
         delegate_stakes_to_pools(self.infrastructure.devnet()).await?;
 
-        let target_epoch = min_epoch + 4;
+        target_epoch += 4;
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
             target_epoch,
@@ -111,7 +114,7 @@ async fn wait_for_pending_certificate(
     let url = format!("{}/certificate-pending", aggregator_endpoint);
     info!("Waiting for the aggregator to produce a pending certificate");
 
-    match attempt!(10, Duration::from_millis(1000), {
+    match attempt!(20, Duration::from_millis(1000), {
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => {

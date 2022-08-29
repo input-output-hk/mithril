@@ -7,7 +7,7 @@
 //! the [AggregatorHandler] trait.
 //!
 //! To list, download, and validate snapshots use the [Runtime].
-//! You must initialize it by giving it a [CertificateVerifier], a [ProtocolGenesisVerifier] and a [AggregatorHandler], and a
+//! You must initialize it by giving it a CertificateVerifier, a ProtocolGenesisVerifier and a [AggregatorHandler], and a
 //! [Digester](https://mithril.network/mithril-common/doc/mithril_common/digesters/trait.Digester.html)
 //! implementations using the `with_xxx` methods.
 

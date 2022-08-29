@@ -817,7 +817,7 @@ pub mod tests {
         let total_certificates = 5;
         let (certificate_chain, _) = setup_certificate_chain(5, 1);
         let mut beacon = certificate_chain.first().unwrap().beacon.clone();
-        beacon.epoch = beacon.epoch + 2;
+        beacon.epoch += 2;
         for certificate in certificate_chain.into_iter().rev() {
             certificate_store
                 .as_ref()

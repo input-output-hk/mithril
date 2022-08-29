@@ -102,7 +102,7 @@ impl Beacon {
         hex::encode(hasher.finalize())
     }
 
-    /// This method returns and [BeaconOrdering] between self and the other beacon.
+    /// This method returns a BeaconOrdering between self and the other beacon.
     ///
     /// This method should be called using the newest beacon available as it will fails if
     /// the current beacon have data older than the other beacon.
