@@ -1,10 +1,10 @@
 use async_trait::async_trait;
 use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
-use sqlite::{Connection, Cursor, State, Statement};
+use sqlite::{Connection, State, Statement};
 use tokio::sync::{Mutex, MutexGuard};
 
-use std::{marker::PhantomData, mem::take, path::PathBuf, sync::Arc};
+use std::{marker::PhantomData, path::PathBuf, sync::Arc};
 
 use super::{AdapterError, StoreAdapter};
 
@@ -22,6 +22,7 @@ struct SQLiteAdapter<K, V> {
 impl<K, V> SQLiteAdapter<K, V>
 where
     K: Serialize,
+    V: DeserializeOwned,
 {
     /// Create a new SQLiteAdapter instance.
     pub fn new(file: PathBuf) -> Result<Self> {
@@ -81,9 +82,10 @@ where
 
     fn serialize_key(&self, key: &K) -> Result<String> {
         serde_json::to_string(&key).map_err(|e| {
-            AdapterError::GeneralError(
-                "SQLite adapter: Serde error while serializing store key".to_string(),
-            )
+            AdapterError::GeneralError(format!(
+                "SQLite adapter: Serde error while serializing store key: {:?}",
+                e
+            ))
         })
     }
 
@@ -93,13 +95,31 @@ where
         sql: String,
         key: &K,
     ) -> Result<Statement> {
-        let mut statement = connection
+        let statement = connection
             .prepare(sql)
             .map_err(|e| AdapterError::InitializationError(e.into()))?
             .bind::<&str>(1, self.get_hash_from_key(key)?.as_str())
             .map_err(|e| AdapterError::InitializationError(e.into()))?;
 
         Ok(statement)
+    }
+
+    fn fetch_maybe_one_value(&self, mut statement: Statement) -> Result<Option<V>> {
+        if State::Done
+            == statement
+                .next()
+                .map_err(|e| AdapterError::ParsingDataError(e.into()))?
+        {
+            return Ok(None);
+        }
+        let maybe_value: Option<V> = statement
+            .read::<String>(0)
+            .map_err(|e| AdapterError::QueryError(e.into()))
+            .and_then(|v| {
+                serde_json::from_str(&v).map_err(|e| AdapterError::ParsingDataError(e.into()))
+            })?;
+
+        Ok(maybe_value)
     }
 }
 
@@ -119,9 +139,10 @@ where
             TABLE_NAME
         );
         let value = serde_json::to_string(record).map_err(|e| {
-            AdapterError::GeneralError(
-                "SQLite adapter error: could not serialize value before insertion".to_string(),
-            )
+            AdapterError::GeneralError(format!(
+                "SQLite adapter error: could not serialize value before insertion: {:?}",
+                e
+            ))
         })?;
         let mut statement = connection
             .prepare(sql)
@@ -142,23 +163,9 @@ where
     async fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>> {
         let sql = format!("select value from {} where key_hash = ?1", TABLE_NAME);
         let connection = self.connection.lock().await;
-        let mut statement = self.get_statement_for_key(&connection, sql, key)?;
+        let statement = self.get_statement_for_key(&connection, sql, key)?;
 
-        if State::Done
-            == statement
-                .next()
-                .map_err(|e| AdapterError::ParsingDataError(e.into()))?
-        {
-            return Ok(None);
-        }
-        let maybe_value: Option<V> = statement
-            .read::<String>(0)
-            .map_err(|e| AdapterError::QueryError(e.into()))
-            .and_then(|v| {
-                serde_json::from_str(&v).map_err(|e| AdapterError::ParsingDataError(e.into()))
-            })?;
-
-        Ok(maybe_value)
+        self.fetch_maybe_one_value(statement)
     }
 
     async fn record_exists(&self, key: &Self::Key) -> Result<bool> {
@@ -184,11 +191,40 @@ where
     }
 
     async fn get_last_n_records(&self, how_many: usize) -> Result<Vec<(Self::Key, Self::Record)>> {
-        todo!()
+        let connection = self.connection.lock().await;
+        let sql = format!(
+            "select key, value from {} order by ROWID asc limit ?1",
+            TABLE_NAME
+        );
+        let cursor = connection
+            .prepare(sql)
+            .map_err(|e| AdapterError::InitializationError(e.into()))?
+            .bind::<i64>(1, how_many as i64)
+            .map_err(|e| AdapterError::InitializationError(e.into()))?
+            .into_cursor();
+
+        let results = cursor
+            .map(|row| {
+                let row = row.unwrap();
+                let key: K = serde_json::from_str(&row.get::<String, _>(0)).unwrap();
+                let value: V = serde_json::from_str(&row.get::<String, _>(1)).unwrap();
+
+                (key, value)
+            })
+            .collect();
+
+        Ok(results)
     }
 
     async fn remove(&mut self, key: &Self::Key) -> Result<Option<Self::Record>> {
-        todo!()
+        let connection = self.connection.lock().await;
+        let sql = format!(
+            "delete from {} where key_hash = ?1 returning value",
+            TABLE_NAME
+        );
+        let statement = self.get_statement_for_key(&connection, sql, key)?;
+
+        self.fetch_maybe_one_value(statement)
     }
 
     async fn get_iter(&self) -> Result<Box<dyn Iterator<Item = Self::Record> + '_>> {
@@ -383,5 +419,66 @@ mod tests {
         assert!(adapter.record_exists(&1).await.unwrap());
         assert!(adapter.record_exists(&2).await.unwrap());
         assert!(!adapter.record_exists(&3).await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_remove() {
+        let test_name = "test_remove";
+        let mut adapter = init_db(test_name);
+        adapter
+            .store_record(&1, "one".to_string().borrow())
+            .await
+            .unwrap();
+        adapter
+            .store_record(&2, "two".to_string().borrow())
+            .await
+            .unwrap();
+        let record = adapter
+            .remove(&1)
+            .await
+            .expect("removing an existing record should not fail")
+            .expect("removing an existing record should return the deleted record");
+        assert_eq!("one".to_string(), record);
+        let empty = adapter
+            .remove(&1)
+            .await
+            .expect("removing a non existing record should not fail");
+        assert!(empty.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_get_last_n_records() {
+        let test_name = "test_get_last_n_records";
+        let mut adapter = init_db(test_name);
+        adapter
+            .store_record(&1, "one".to_string().borrow())
+            .await
+            .unwrap();
+        adapter
+            .store_record(&2, "two".to_string().borrow())
+            .await
+            .unwrap();
+        adapter
+            .store_record(&3, "three".to_string().borrow())
+            .await
+            .unwrap();
+        assert_eq!(
+            vec![(1_u64, "one".to_string())],
+            adapter
+                .get_last_n_records(1)
+                .await
+                .expect("get last N records should not fail")
+        );
+        assert_eq!(
+            vec![
+                (1_u64, "one".to_string()),
+                (2_u64, "two".to_string()),
+                (3_u64, "three".to_string())
+            ],
+            adapter
+                .get_last_n_records(5)
+                .await
+                .expect("get last N records should not fail")
+        );
     }
 }
