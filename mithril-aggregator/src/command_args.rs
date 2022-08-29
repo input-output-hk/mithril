@@ -1,6 +1,10 @@
 use clap::{Parser, Subcommand};
 use config::{Map, Source, Value, ValueKind};
-use mithril_common::{chain_observer::ChainObserver, entities::Epoch};
+use mithril_common::{
+    chain_observer::ChainObserver,
+    crypto_helper::{key_decode_hex, ProtocolGenesisSigner},
+    entities::Epoch,
+};
 use slog::{Drain, Level, Logger};
 use slog_scope::debug;
 use std::error::Error;
@@ -84,7 +88,11 @@ pub enum GenesisCommands {
     /// Bootstrap a genesis certificate
     /// Test only usage
     #[clap(arg_required_else_help = false)]
-    Bootstrap {},
+    Bootstrap {
+        /// Genesis Secret Key (test only)
+        #[clap(long, required = true, env = "GENESIS_SECRET_KEY")]
+        genesis_secret_key: String,
+    },
 }
 
 impl Args {
@@ -141,11 +149,15 @@ impl Args {
                         .import_payload_signature(&signed_payload_path)
                         .await?;
                 }
-                GenesisCommands::Bootstrap {} => {
+                GenesisCommands::Bootstrap { genesis_secret_key } => {
                     println!("Genesis bootstrap for test only");
 
+                    let genesis_secret_key = key_decode_hex(&genesis_secret_key)?;
+                    let genesis_signer = ProtocolGenesisSigner::from_secret_key(genesis_secret_key);
                     let genesis_tools = GenesisTools::from_dependencies(dependency_manager).await?;
-                    genesis_tools.bootstrap_test_genesis_certificate().await?;
+                    genesis_tools
+                        .bootstrap_test_genesis_certificate(genesis_signer)
+                        .await?;
                 }
             },
         }

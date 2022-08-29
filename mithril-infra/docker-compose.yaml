@@ -119,6 +119,7 @@ services:
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
       - GENESIS_VERIFICATION_KEY=${GENESIS_VERIFICATION_KEY}
+      - GENESIS_SECRET_KEY=${GENESIS_SECRET_KEY}
     volumes:
       - ./testnet/mithril-aggregator:/mithril-aggregator
       - ./testnet/node.db:/db

@@ -99,8 +99,10 @@ impl GenesisTools {
     }
 
     /// Automatic bootstrap of the genesis certificate (test only)
-    pub async fn bootstrap_test_genesis_certificate(&self) -> GenesisToolsResult<()> {
-        let genesis_signer = ProtocolGenesisSigner::create_deterministic_genesis_signer();
+    pub async fn bootstrap_test_genesis_certificate(
+        &self,
+        genesis_signer: ProtocolGenesisSigner,
+    ) -> GenesisToolsResult<()> {
         let genesis_producer = CertificateGenesisProducer::new(Some(Arc::new(genesis_signer)));
         let genesis_protocol_message =
             CertificateGenesisProducer::create_genesis_protocol_message(&self.genesis_avk)?;
@@ -244,7 +246,7 @@ mod tests {
             build_tools(&genesis_signer);
 
         genesis_tools
-            .bootstrap_test_genesis_certificate()
+            .bootstrap_test_genesis_certificate(genesis_signer)
             .await
             .expect("bootstrap test genesis certificate should not fail");
 
