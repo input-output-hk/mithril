@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
-use sqlite::{Connection, Cursor};
+use sqlite::{Connection, Cursor, State};
 use tokio::sync::{Mutex, MutexGuard};
 
 use std::{marker::PhantomData, mem::take, path::PathBuf, sync::Arc};
@@ -125,7 +125,29 @@ where
     }
 
     async fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>> {
-        todo!()
+        let sql = format!("select value from {} where key_hash = ?1", TABLE_NAME);
+        let connection = self.connection.lock().await;
+        let mut statement = connection
+            .prepare(sql)
+            .map_err(|e| AdapterError::InitializationError(e.into()))?
+            .bind::<&str>(1, self.get_hash_from_key(key)?.as_str())
+            .map_err(|e| AdapterError::InitializationError(e.into()))?;
+
+        if State::Done
+            == statement
+                .next()
+                .map_err(|e| AdapterError::ParsingDataError(e.into()))?
+        {
+            return Ok(None);
+        }
+        let maybe_value: Option<V> = statement
+            .read::<String>(0)
+            .map_err(|e| AdapterError::QueryError(e.into()))
+            .and_then(|v| {
+                serde_json::from_str(&v).map_err(|e| AdapterError::ParsingDataError(e.into()))
+            })?;
+
+        Ok(maybe_value)
     }
 
     async fn record_exists(&self, key: &Self::Key) -> Result<bool> {
