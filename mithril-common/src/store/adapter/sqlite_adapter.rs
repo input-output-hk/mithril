@@ -11,7 +11,7 @@ use super::{AdapterError, StoreAdapter};
 type Result<T> = std::result::Result<T, AdapterError>;
 
 /// Store adapter for SQLite3
-struct SQLiteAdapter<K, V> {
+pub struct SQLiteAdapter<K, V> {
     connection: Arc<Mutex<Connection>>,
     table: String,
     key: PhantomData<K>,
@@ -25,11 +25,11 @@ where
 {
     /// Create a new SQLiteAdapter instance.
     pub fn new(table_name: &str, file: Option<PathBuf>) -> Result<Self> {
-        let file = file
-            .map(|v| v.to_string_lossy().to_string())
-            .unwrap_or_else(|| ":memory:".to_string());
-        let connection =
-            Connection::open(file).map_err(|e| AdapterError::InitializationError(e.into()))?;
+        let connection = match file {
+            Some(filepath) => Connection::open(filepath),
+            None => Connection::open(":memory:"),
+        }
+        .map_err(|e| AdapterError::InitializationError(e.into()))?;
         Self::check_table_exists(&connection, table_name)?;
         let connection = Arc::new(Mutex::new(connection));
 
@@ -248,7 +248,8 @@ where
     }
 }
 
-struct SQLiteResultIterator<V> {
+/// Iterator over SQLite adapter results.
+pub struct SQLiteResultIterator<V> {
     results: Vec<V>,
 }
 
@@ -256,6 +257,7 @@ impl<V> SQLiteResultIterator<V>
 where
     V: DeserializeOwned,
 {
+    /// Create a new instance of the iterator.
     pub fn new(
         connection: MutexGuard<Connection>,
         table_name: &str,
@@ -306,7 +308,7 @@ mod tests {
         if !dirpath.exists() {
             create_dir_all(&dirpath).expect(&format!(
                 "Expecting to be able to create the test directory '{}'.",
-                dirpath.to_string_lossy()
+                dirpath.display()
             ));
         }
 

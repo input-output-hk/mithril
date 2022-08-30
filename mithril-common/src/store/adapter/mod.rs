@@ -10,6 +10,7 @@ mod store_adapter;
 
 pub use jsonfile_store_adapter::JsonFileStoreAdapter;
 pub use memory_adapter::MemoryAdapter;
+pub use sqlite_adapter::{SQLiteAdapter, SQLiteResultIterator};
 pub use store_adapter::*;
 
 mod dumb_adapter;
