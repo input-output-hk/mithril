@@ -10,11 +10,10 @@ use super::{AdapterError, StoreAdapter};
 
 type Result<T> = std::result::Result<T, AdapterError>;
 
-const TABLE_NAME: &str = "key_value_store";
-
 /// Store adapter for SQLite3
 struct SQLiteAdapter<K, V> {
     connection: Arc<Mutex<Connection>>,
+    table: String,
     key: PhantomData<K>,
     value: PhantomData<V>,
 }
@@ -25,23 +24,27 @@ where
     V: DeserializeOwned,
 {
     /// Create a new SQLiteAdapter instance.
-    pub fn new(file: PathBuf) -> Result<Self> {
+    pub fn new(table_name: &str, file: Option<PathBuf>) -> Result<Self> {
+        let file = file
+            .map(|v| v.to_string_lossy().to_string())
+            .unwrap_or_else(|| ":memory:".to_string());
         let connection =
             Connection::open(file).map_err(|e| AdapterError::InitializationError(e.into()))?;
-        Self::check_table_exists(&connection)?;
+        Self::check_table_exists(&connection, table_name)?;
         let connection = Arc::new(Mutex::new(connection));
 
         Ok(Self {
             connection,
+            table: table_name.to_owned(),
             key: PhantomData,
             value: PhantomData,
         })
     }
 
-    fn check_table_exists(connection: &Connection) -> Result<()> {
+    fn check_table_exists(connection: &Connection, table_name: &str) -> Result<()> {
         let sql = format!(
             "select exists(select 1 from sqlite_master where type='table' and name='{}')",
-            TABLE_NAME
+            table_name
         );
         let mut statement = connection
             .prepare(sql)
@@ -54,16 +57,16 @@ where
             .map_err(|e| AdapterError::ParsingDataError(e.into()))?;
 
         if table_exists != 1 {
-            Self::create_table(connection)?;
+            Self::create_table(connection, table_name)?;
         }
 
         Ok(())
     }
 
-    fn create_table(connection: &Connection) -> Result<()> {
+    fn create_table(connection: &Connection, table_name: &str) -> Result<()> {
         let sql = format!(
-            "create table {} (key_hash text primary key, key text, value text, created_at text default CURRENT_TIMESTAMP)",
-            TABLE_NAME
+            "create table {} (key_hash text primary key, key json not null, value json not null)",
+            table_name
         );
         connection
             .execute(sql)
@@ -136,7 +139,7 @@ where
         let connection = self.connection.lock().await;
         let sql = format!(
             "insert into {} (key_hash, key, value) values (?1, ?2, ?3)",
-            TABLE_NAME
+            self.table
         );
         let value = serde_json::to_string(record).map_err(|e| {
             AdapterError::GeneralError(format!(
@@ -161,7 +164,7 @@ where
     }
 
     async fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>> {
-        let sql = format!("select value from {} where key_hash = ?1", TABLE_NAME);
+        let sql = format!("select value from {} where key_hash = ?1", self.table);
         let connection = self.connection.lock().await;
         let statement = self.get_statement_for_key(&connection, sql, key)?;
 
@@ -172,7 +175,7 @@ where
         let connection = self.connection.lock().await;
         let sql = format!(
             "select exists(select 1 from {} where key_hash = ?1) as record_exists",
-            TABLE_NAME
+            self.table
         );
         let mut statement = self.get_statement_for_key(&connection, sql, key)?;
         statement
@@ -193,8 +196,8 @@ where
     async fn get_last_n_records(&self, how_many: usize) -> Result<Vec<(Self::Key, Self::Record)>> {
         let connection = self.connection.lock().await;
         let sql = format!(
-            "select key, value from {} order by ROWID asc limit ?1",
-            TABLE_NAME
+            "select cast(key as text) as key, cast(value as text) as value from {} order by ROWID asc limit ?1",
+            self.table
         );
         let cursor = connection
             .prepare(sql)
@@ -220,7 +223,7 @@ where
         let connection = self.connection.lock().await;
         let sql = format!(
             "delete from {} where key_hash = ?1 returning value",
-            TABLE_NAME
+            self.table
         );
         let statement = self.get_statement_for_key(&connection, sql, key)?;
 
@@ -228,7 +231,7 @@ where
     }
 
     async fn get_iter(&self) -> Result<Box<dyn Iterator<Item = Self::Record> + '_>> {
-        let iterator = SQLiteResultIterator::new(self.connection.lock().await)?;
+        let iterator = SQLiteResultIterator::new(self.connection.lock().await, &self.table)?;
 
         Ok(Box::new(iterator))
     }
@@ -242,8 +245,11 @@ impl<V> SQLiteResultIterator<V>
 where
     V: DeserializeOwned,
 {
-    pub fn new(connection: MutexGuard<Connection>) -> Result<SQLiteResultIterator<V>> {
-        let sql = format!("select value from {} order by ROWID desc", TABLE_NAME);
+    pub fn new(
+        connection: MutexGuard<Connection>,
+        table_name: &str,
+    ) -> Result<SQLiteResultIterator<V>> {
+        let sql = format!("select value from {} order by ROWID desc", table_name);
 
         let cursor = connection
             .prepare(sql)
@@ -281,6 +287,8 @@ mod tests {
 
     use super::*;
 
+    const TABLE_NAME: &str = "key_value_store";
+
     fn get_file_path(test_name: &str) -> PathBuf {
         let dirpath = std::env::temp_dir().join("mithril_test");
 
@@ -303,9 +311,7 @@ mod tests {
                 filepath.to_string_lossy()
             ));
         }
-        let adapter = SQLiteAdapter::new(filepath).unwrap();
-
-        adapter
+        SQLiteAdapter::new(TABLE_NAME, Some(filepath)).unwrap()
     }
 
     #[tokio::test]
@@ -322,25 +328,24 @@ mod tests {
             filepath.to_string_lossy()
         ));
         let mut statement = connection
-            .prepare(format!("select * from {}", TABLE_NAME))
+            .prepare(format!("select key_hash, key, value from {}", TABLE_NAME))
             .unwrap()
             .into_cursor();
         let row = statement
             .try_next()
             .unwrap()
             .expect("Expecting at least one row in the result set.");
-
         assert_eq!(
-            "1",
+            1,
             row[1]
-                .as_string()
-                .expect("Expecting to have a field 1 (key).")
+                .as_integer()
+                .expect("expecting field 1 to be an integer")
         );
         assert_eq!(
             "\"one\"".to_string(),
             row[2]
                 .as_string()
-                .expect("Expecting to have a field 2 (value).")
+                .expect("expecting field 2 to be a string")
         );
     }
 
