@@ -169,7 +169,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             return Ok(false);
         }
 
-        let is_certificate_chain_valid = self
+        match self
             .dependencies
             .certificate_verifier
             .verify_certificate_chain(
@@ -178,8 +178,13 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                 &self.dependencies.genesis_verifier,
             )
             .await
-            .is_ok();
-        Ok(is_certificate_chain_valid)
+        {
+            Ok(()) => Ok(true),
+            Err(error) => {
+                warn!("Invalid certificate chain"; "error" => ?error);
+                Ok(false)
+            }
+        }
     }
 
     async fn does_certificate_exist_for_beacon(
@@ -456,6 +461,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .create_certificate(beacon.clone(), previous_hash.to_owned())
             .await?
             .ok_or_else(|| RuntimeError::General("no certificate generated".to_string().into()))?;
+
         let _ = certificate_store.save(certificate.clone()).await?;
 
         Ok(certificate)

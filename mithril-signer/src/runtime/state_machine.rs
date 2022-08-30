@@ -107,7 +107,10 @@ impl StateMachine {
                 } else if let Some(pending_certificate) =
                     self.runner.get_pending_certificate().await?
                 {
-                    debug!("  Epoch has NOT changed but there is a pending certificate");
+                    debug!(
+                        "  Epoch has NOT changed but there is a pending certificate";
+                        "pending_certificate" => ?pending_certificate
+                    );
 
                     if self.runner.can_i_sign(&pending_certificate).await? {
                         debug!(" → we can sign this certificate, transiting to SIGNED");

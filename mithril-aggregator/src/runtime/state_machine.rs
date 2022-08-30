@@ -102,10 +102,10 @@ impl AggregatorRuntime {
     /// Perform one tick of the state machine.
     pub async fn cycle(&mut self) -> Result<(), RuntimeError> {
         info!("================================================================================");
-        info!("new cycle");
+        info!("STATE MACHINE: new cycle"; "current_state" => ?self.state);
+
         match self.state.clone() {
             AggregatorState::Idle(state) => {
-                info!("state IDLE");
                 let chain_beacon: Beacon = self.runner.get_beacon_from_chain().await?;
 
                 if state.current_beacon.is_none()
@@ -133,7 +133,6 @@ impl AggregatorRuntime {
                 }
             }
             AggregatorState::Ready(state) => {
-                info!("state READY");
                 let chain_beacon: Beacon = self.runner.get_beacon_from_chain().await?;
 
                 if chain_beacon
@@ -164,7 +163,6 @@ impl AggregatorRuntime {
                 }
             }
             AggregatorState::Signing(state) => {
-                info!("state SIGNING");
                 let chain_beacon: Beacon = self.runner.get_beacon_from_chain().await?;
 
                 if chain_beacon
