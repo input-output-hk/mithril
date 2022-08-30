@@ -299,7 +299,7 @@ impl Runner for SignerRunner {
 
         // 2 set the next signers keys and stakes in the message
         let next_signer_retrieval_epoch = beacon.epoch.offset_to_next_signer_retrieval_epoch()?;
-        let protocol_initializer = self
+        let next_protocol_initializer = self
             .services
             .protocol_initializer_store
             .get_protocol_initializer(next_signer_retrieval_epoch)
@@ -314,7 +314,7 @@ impl Runner for SignerRunner {
         let avk = self
             .services
             .single_signer
-            .compute_aggregate_verification_key(next_signers, &protocol_initializer)?
+            .compute_aggregate_verification_key(next_signers, &next_protocol_initializer)?
             .ok_or_else(|| RuntimeError::NoValueError("next_signers avk".to_string()))?;
         message.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
 

@@ -461,7 +461,14 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .create_certificate(beacon.clone(), previous_hash.to_owned())
             .await?
             .ok_or_else(|| RuntimeError::General("no certificate generated".to_string().into()))?;
-
+        self.dependencies
+            .certificate_verifier
+            .verify_certificate(
+                &certificate,
+                certificate_store.clone(),
+                &self.dependencies.genesis_verifier,
+            )
+            .await?;
         let _ = certificate_store.save(certificate.clone()).await?;
 
         Ok(certificate)
