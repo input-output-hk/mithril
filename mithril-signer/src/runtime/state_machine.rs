@@ -112,10 +112,7 @@ impl StateMachine {
                     if self.runner.can_i_sign(&pending_certificate).await? {
                         debug!(" → we can sign this certificate, transiting to SIGNED");
                         let state = self
-                            .transition_from_registered_to_signed(
-                                &pending_certificate,
-                                &state.beacon,
-                            )
+                            .transition_from_registered_to_signed(&pending_certificate)
                             .await?;
                         self.state = SignerState::Signed(state)
                     } else {
@@ -206,8 +203,8 @@ impl StateMachine {
     async fn transition_from_registered_to_signed(
         &self,
         pending_certificate: &CertificatePending,
-        current_beacon: &Beacon,
     ) -> Result<SignedState, Box<dyn Error + Sync + Send>> {
+        let current_beacon = &pending_certificate.beacon;
         let signers: Vec<SignerWithStake> = self
             .runner
             .associate_signers_with_stake(
