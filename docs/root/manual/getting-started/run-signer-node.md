@@ -132,6 +132,7 @@ Replace this value with the correct user. We assume that the user used to run th
   * `CARDANO_NODE_SOCKET_PATH=/cardano/ipc/node.socket`: replace with the path to the IPC file (`CARDANO_NODE_SOCKET_PATH` env var)
   * `CARDANO_CLI_PATH=/app/bin/cardano-cli`: replace with the path to the `cardano-cli` executable
   * `STAKE_STORE_DIRECTORY=/opt/mithril/mithril-signer/store/stake_db`: replace with the path to a folder where the **Mithril Signer** will store its data (`/opt/mithril/mithril-signer/store` e.g.)
+  * * `DATA_STORE_DIRECTORY=/opt/mithril/mithril-signer/store`: replace with the path to a folder where the **Mithril Signer** will store its data (`/opt/mithril/mithril-signer/store` e.g.)
 
 :::
 
@@ -147,6 +148,7 @@ RUN_INTERVAL=60000 DB_DIRECTORY=/cardano/db
 CARDANO_NODE_SOCKET_PATH=/cardano/ipc/node.socket
 CARDANO_CLI_PATH=/app/bin/cardano-cli
 STAKE_STORE_DIRECTORY=/opt/mithril/mithril-signer/store/stake_db
+DATA_STORE_DIRECTORY=/opt/mithril/mithril-signer/store
 EOF
 ```
 
