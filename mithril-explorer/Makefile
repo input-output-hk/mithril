@@ -23,4 +23,4 @@ clean:
 	rm yarn.lock || true
 
 upgrade: clean install
-	yarn upgrade
+	yarn upgrade next@latest react@latest react-bootstrap@latest react-dom@latest bootstrap@latest eslint@latest eslint-config-next@latest
