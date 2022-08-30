@@ -15,14 +15,14 @@ pub type TestSigner = (
 
 pub static COMMENT_COUNT: AtomicUsize = AtomicUsize::new(0);
 
-pub fn comment(comment: &str) {
+pub fn comment(comment: String) {
     let old_count = COMMENT_COUNT.fetch_add(1, Ordering::SeqCst);
     debug!("COMMENT {:02} 💬 {}", old_count + 1, comment);
 }
 
 #[macro_export]
 macro_rules! comment {
-    ( $comment:expr ) => {{
-        test_extensions::utilities::comment($comment);
+    ( $($comment:tt)* ) => {{
+        test_extensions::utilities::comment(format!($($comment)*));
     }};
 }

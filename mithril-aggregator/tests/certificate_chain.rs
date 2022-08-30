@@ -1,6 +1,7 @@
 mod test_extensions;
 
 use mithril_aggregator::VerificationKeyStorer;
+use mithril_common::chain_observer::ChainObserver;
 use mithril_common::crypto_helper::tests_setup;
 use mithril_common::entities::{ProtocolParameters, SignerWithStake};
 use test_extensions::RuntimeTester;
@@ -30,8 +31,14 @@ async fn certificate_chain() {
             &protocol_parameters,
         )
         .await;
+    let mut current_epoch = tester
+        .chain_observer
+        .get_current_epoch()
+        .await
+        .unwrap()
+        .unwrap();
 
-    comment!("Boostrap the genesis certificate");
+    comment!("Boostrap the genesis certificate, {:?}", current_epoch);
     tester.register_genesis_certificate(&signers).await.unwrap();
 
     comment!("Increase immutable number");
@@ -51,7 +58,10 @@ async fn certificate_chain() {
     assert_eq!((2, 1), (last_certificates.len(), snapshots.len()));
     cycle!(tester, "idle");
 
-    comment!("Increase immutable number to do a second certificate for this epoch");
+    comment!(
+        "Increase immutable number to do a second certificate for this epoch, {:?}",
+        current_epoch
+    );
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "ready");
     cycle!(tester, "signing");
@@ -85,8 +95,12 @@ async fn certificate_chain() {
         .await
         .unwrap();
 
-    comment!("Increase epoch, triggering stake distribution update");
+    comment!(
+        "Increase epoch, triggering stake distribution update, Next epoch: {:?}",
+        current_epoch + 1
+    );
     let new_epoch = tester.increase_epoch().await.unwrap();
+    current_epoch = new_epoch;
     cycle!(tester, "ready");
     cycle!(tester, "signing");
 
@@ -105,7 +119,7 @@ async fn certificate_chain() {
     );
 
     comment!(
-        "Signers register & send signatures, the new certificate should be link to the fist of the previous epoch"
+        "Signers register & send signatures, the new certificate should be link to the first of the previous epoch"
     );
     tester.register_signers(&new_signers).await.unwrap();
     tester.send_single_signatures(&signers).await.unwrap();
@@ -131,21 +145,26 @@ async fn certificate_chain() {
     assert_eq!(
         &last_certificates[0].metadata.get_stake_distribution(),
         &last_certificates[2].metadata.get_stake_distribution(),
-        "The stake distribution update should only be take in account in the next epoch",
+        "The stake distribution update should only be taken into account at the next epoch",
     );
 
     comment!(
-        "Increase epoch & immutable, stake distribution updated previously should be signed in the new certificate"
+        "Increase epoch & immutable, stake distribution updated at {} will now be signed into the certificate chain, allowing it to be used in the next epoch, Next epoch: {:?}",
+        current_epoch,
+        current_epoch + 1
     );
-    tester.increase_epoch().await.unwrap();
+    current_epoch = tester.increase_epoch().await.unwrap();
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "ready");
     cycle!(tester, "signing");
     tester.send_single_signatures(&signers).await.unwrap();
     cycle!(tester, "idle");
 
-    // @todo:
-    comment!("Why do we need a third epoch to use the new stake distribution ?");
+    comment!(
+        "Increase epoch & immutable, stake distribution updated at {} should be signed in the new certificate, Next epoch: {:?}",
+        current_epoch - 1,
+        current_epoch + 1
+    );
     tester.increase_epoch().await.unwrap();
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "ready");
@@ -165,8 +184,9 @@ async fn certificate_chain() {
             last_certificates[1].beacon.immutable_file_number + 1,
             last_certificates[1].beacon.epoch + 1,
         ),
-        "Both the epoch & immutable file number should have changed"
+        "Both the epoch & immutable file number should have change"
     );
+
     assert_eq!(
         &last_certificates[0].previous_hash, &last_certificates[1].hash,
         "The new epoch certificate should be linked to the first certificate of the previous epoch"
