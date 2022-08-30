@@ -12,6 +12,7 @@ serve: build
 	yarn run start
 
 dev:
+	@echo "Serving dev build at: http://localhost:3000/explorer"
 	yarn run dev
 
 lint:
