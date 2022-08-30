@@ -15,6 +15,7 @@ Should you have any questions or need some help in getting set up, you can use
 these communication channels to reach the Mithril team and get answers in a way
 where others can benefit from it as well:
 
+- #moria on the IOG [Discord server](https://discord.gg/beku2fg4)
 - Github [Discussions](https://github.com/input-output-hk/mithril/discussions)
 - Cardano [StackExchange](https://cardano.stackexchange.com/) using the `mithril` tag
 
