@@ -262,7 +262,7 @@ where
         connection: MutexGuard<Connection>,
         table_name: &str,
     ) -> Result<SQLiteResultIterator<V>> {
-        let sql = format!("select value from {} order by ROWID desc", table_name);
+        let sql = format!("select value from {} order by ROWID asc", table_name);
 
         let cursor = connection
             .prepare(sql)
@@ -413,9 +413,9 @@ mod tests {
 
         for (index, element) in iterator.enumerate() {
             match index {
-                0 => assert_eq!("one", element),
+                2 => assert_eq!("one", element),
                 1 => assert_eq!("two", element),
-                2 => assert_eq!("three", element),
+                0 => assert_eq!("three", element),
                 i => panic!("unexpected result index {} with data = '{:?}'.", i, element),
             }
         }
