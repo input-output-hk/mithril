@@ -32,7 +32,9 @@ impl Display for AggregatorState {
     }
 }
 
-/// AggregatorRuntime
+/// The AggregatorRuntime responsibility is to create a state machine to handle
+/// all actions required by the process of getting multisignatures.
+/// See the [documentation](https://mithril.network/doc/mithril/mithril-network/aggregator#under-the-hood) for more explanations about the Aggregator state machine.
 pub struct AggregatorRuntime {
     /// the internal state of the automate
     state: AggregatorState,
@@ -45,10 +47,12 @@ pub struct AggregatorRuntime {
 }
 
 impl AggregatorRuntime {
+    /// Return the actual state of the state machine.
     pub fn get_state(&self) -> String {
         self.state.to_string()
     }
 
+    /// Create a new instance of the state machine.
     pub async fn new(
         state_sleep: Duration,
         init_state: Option<AggregatorState>,
@@ -73,9 +77,7 @@ impl AggregatorRuntime {
         })
     }
 
-    /// run
-    ///
-    /// launches an infinite loop ticking the state machine
+    /// Launches an infinite loop ticking the state machine.
     pub async fn run(&mut self) {
         info!("Starting runtime");
         debug!("current state: {}", self.state);
@@ -90,9 +92,7 @@ impl AggregatorRuntime {
         }
     }
 
-    /// cycle
-    ///
-    /// one tick of the state machine
+    /// Perform one tick of the state machine.
     pub async fn cycle(&mut self) -> Result<(), RuntimeError> {
         info!("================================================================================");
         info!("new cycle");
@@ -149,9 +149,8 @@ impl AggregatorRuntime {
         Ok(())
     }
 
-    /// transition
-    ///
-    /// from SIGNING to IDLE because NEW MULTISIGNATURE
+    /// Perform a transition from `SIGNING` state to `IDLE` state when a new
+    /// multisignature is issued.
     async fn transition_from_signing_to_idle_multisignature(
         &self,
         state: SigningState,
@@ -179,9 +178,8 @@ impl AggregatorRuntime {
         })
     }
 
-    /// transition
-    ///
-    /// from SIGNING to IDLE because NEW BEACON
+    /// Perform a transition from `SIGNING` state to `IDLE` state when a new
+    /// beacon is detected.
     async fn transition_from_signing_to_idle_new_beacon(
         &self,
         state: SigningState,
@@ -193,9 +191,8 @@ impl AggregatorRuntime {
         })
     }
 
-    /// transition
-    ///
-    /// from IDLE state to SIGNING because NEW BEACON
+    /// Perform a transition from `IDLE` state to `SIGNING` state when a new
+    /// beacon is detected.
     async fn transition_from_idle_to_signing(
         &mut self,
         maybe_current_beacon: Option<Beacon>,

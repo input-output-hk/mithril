@@ -1,3 +1,15 @@
+#![warn(missing_docs)]
+//! Mithril aggregator
+//! The Aggregator is responsible of
+//! * registering signers
+//! * producing aggregate multisignatures
+//! * creating and storing certified snapshots
+//!
+//! This crate is divided in two parts: a HTTP server that exposes an API to
+//! communicate with signers and a Runtime that tracks the blockchain to provide
+//! signed certificates.
+//! You can find more information on how it works reading the [documentation website](https://mithril.network/doc/mithril/mithril-network/aggregator).
+
 mod dependency;
 mod entities;
 mod http_server;
