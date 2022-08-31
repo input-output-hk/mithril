@@ -111,8 +111,18 @@ jobs:
         if: ${{ matrix.skip_tests != true }}
         shell: bash
         run: |
-          set -o pipefail && \
-          cargo test --release --features portable -p $CARGO_PROJECT_NAME --no-fail-fast \
+          set -o pipefail
+          get_features() {
+            local features='portable'
+          
+            if [[ "${{ matrix.project }}" == "mithril-common" ]]; then
+              features="$features test-utils"
+            fi
+          
+            echo $features
+          }
+          
+          cargo test --release --features "$(get_features)" -p $CARGO_PROJECT_NAME --no-fail-fast \
               -- -Z unstable-options --format json --report-time \
               | tee >(cargo2junit > test-results-${{ env.ARTIFACTS_PATTERN }}.xml)
 
