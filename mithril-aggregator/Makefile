@@ -20,6 +20,7 @@ test:
 check:
 	${CARGO} check --release --all-features --all-targets
 	${CARGO} clippy --release --all-features
+	${CARGO} fmt --check
 
 help:
 	@${CARGO} run -- -h
