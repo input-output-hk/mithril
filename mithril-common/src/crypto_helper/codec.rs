@@ -21,7 +21,7 @@ where
     serde_json::from_slice(from_vec.as_slice()).map_err(|e| format!("can't deserialize: {}", e))
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "test-utils"))]
 pub mod tests {
     use super::super::tests_setup::*;
     use super::super::types::*;

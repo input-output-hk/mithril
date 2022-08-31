@@ -45,7 +45,7 @@ impl SingleSignatures {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "test-utils"))]
 mod tests {
     use super::*;
     use crate::crypto_helper::key_encode_hex;

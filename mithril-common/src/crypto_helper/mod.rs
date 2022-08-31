@@ -2,6 +2,7 @@
 
 mod codec;
 mod conversions;
+#[cfg(feature = "test-utils")]
 pub mod tests_setup;
 mod types;
 

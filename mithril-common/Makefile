@@ -8,7 +8,7 @@ build:
 	${CARGO} build --release
 
 test:
-	${CARGO} test
+	${CARGO} test --features test-utils
 
 check:
 	${CARGO} check --release --all-features --all-targets

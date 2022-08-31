@@ -12,6 +12,7 @@
 //! - useful test utilities including stubs, [fake data][fake_data] builders, a tool validate
 //! conformity to an open api specification ([apispec]).
 
+#[cfg(feature = "test-utils")]
 pub mod apispec;
 mod beacon_provider;
 pub mod certificate_chain;
@@ -19,6 +20,7 @@ pub mod chain_observer;
 pub mod crypto_helper;
 pub mod digesters;
 pub mod entities;
+#[cfg(feature = "test-utils")]
 pub mod fake_data;
 pub mod store;
 

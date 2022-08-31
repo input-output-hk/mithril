@@ -242,7 +242,7 @@ impl CertificateVerifier for MithrilCertificateVerifier {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "test-utils"))]
 mod tests {
     use async_trait::async_trait;
     use mockall::mock;

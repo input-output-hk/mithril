@@ -49,7 +49,7 @@ impl CertificatePending {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "test-utils"))]
 mod tests {
     use crate::fake_data;
 
