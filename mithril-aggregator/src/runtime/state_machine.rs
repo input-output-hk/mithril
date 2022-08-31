@@ -142,7 +142,7 @@ impl AggregatorRuntime {
                     // transition READY > IDLE
                     trace!("new epoch found = {:?}", chain_beacon);
                     self.state = AggregatorState::Idle(IdleState {
-                        current_beacon: Some(chain_beacon),
+                        current_beacon: Some(state.current_beacon),
                     });
                 } else if self
                     .runner
