@@ -6,7 +6,7 @@ use mithril_common::store::{adapter::StoreAdapter, StoreError};
 
 type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = ProtocolParameters>>;
 
-/// Trait for mocjing [ProtocolParameterStore].
+/// Trait for mocking [ProtocolParameterStore].
 #[async_trait]
 pub trait ProtocolParametersStorer {
     /// Save the given [ProtocolParameterStore] for the given [Epoch].

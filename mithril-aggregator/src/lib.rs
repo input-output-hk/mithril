@@ -1,9 +1,10 @@
 #![warn(missing_docs)]
 //! Mithril aggregator
-//! The Aggregator is responsible of
+//! The Aggregator is responsible for:
 //! * registering signers
-//! * producing aggregate multisignatures
-//! * creating and storing certified snapshots
+//! * producing aggregate multi-signatures
+//! * creating, storing & serving the certificate chain
+//! * creating, storing & serving certified snapshots
 //!
 //! This crate is divided in two parts: a HTTP server that exposes an API to
 //! communicate with signers and a Runtime that tracks the blockchain to provide

@@ -102,7 +102,7 @@ impl GzipSnapshotter {
     }
 }
 
-/// Snapshotter that does nothing. It is mainly used for test puroposes.
+/// Snapshotter that does nothing. It is mainly used for test purposes.
 pub struct DumbSnapshotter {
     last_snapshot: RwLock<Option<OngoingSnapshot>>,
 }
