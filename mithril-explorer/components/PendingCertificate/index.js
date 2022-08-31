@@ -37,17 +37,17 @@ export default function PendingCertificate(props) {
           <Card>
             <Card.Body>
               <Card.Title>Beacon</Card.Title>
-              <div>Network: {pendingCertificate.beacon.network}</div>
-              <div>Epoch: {pendingCertificate.beacon.epoch}</div>
-              <div>Immutable File Number: {pendingCertificate.beacon.immutable_file_number}</div>
-            </Card.Body>
-          </Card>
-          <Card>
-            <Card.Body>
+              <ListGroup className="margin-bottom--md" variant="flush">
+                <ListGroup.Item>Network: {pendingCertificate.beacon.network}</ListGroup.Item>
+                <ListGroup.Item>Epoch: {pendingCertificate.beacon.epoch}</ListGroup.Item>
+                <ListGroup.Item>Immutable File Number: {pendingCertificate.beacon.immutable_file_number}</ListGroup.Item>
+              </ListGroup>
               <Card.Title>Protocol Parameters</Card.Title>
-              <div>K: {pendingCertificate.protocol.k}</div>
-              <div>M: {pendingCertificate.protocol.m}</div>
-              <div>Phi: {pendingCertificate.protocol.phi_f}</div>
+              <ListGroup horizontal>
+                <ListGroup.Item>K: {pendingCertificate.protocol.k}</ListGroup.Item>
+                <ListGroup.Item>M: {pendingCertificate.protocol.m}</ListGroup.Item>
+                <ListGroup.Item>Phi: {pendingCertificate.protocol.phi_f}</ListGroup.Item>
+              </ListGroup>
             </Card.Body>
           </Card>
           <Card>
@@ -55,16 +55,30 @@ export default function PendingCertificate(props) {
               <Card.Title>Signers</Card.Title>
               {pendingCertificate.signers.length === 0
                 ? <div>No Signers registered</div>
-                : <ListGroup>{pendingCertificate.signers.map(signer =>
-                    <ListGroup.Item key={signer.party_id}>Party id: {signer.party_id}</ListGroup.Item>
-                )}</ListGroup> 
+                : <>
+                  <ListGroup variant="flush">
+                    <ListGroup.Item><b>Party id</b></ListGroup.Item>
+                    {pendingCertificate.signers.map(signer =>
+                      <ListGroup.Item key={signer.party_id}>{signer.party_id}</ListGroup.Item>
+                    )}
+                  </ListGroup>
+                </>
               }
+            </Card.Body>
+          </Card>
+          <Card>
+            <Card.Body>
               <Card.Title>Next Signers</Card.Title>
               {pendingCertificate.next_signers.length === 0
-                ? <div>No Signers registered</div>
-                : <ListGroup>{pendingCertificate.next_signers.map(signer =>
-                  <ListGroup.Item key={signer.party_id}>Party id: {signer.party_id}</ListGroup.Item>
-                )}</ListGroup>
+                ? <div>No Signers registered for next epoch</div>
+                : <>
+                  <ListGroup variant="flush">
+                    <ListGroup.Item><b>Party id</b></ListGroup.Item>
+                    {pendingCertificate.next_signers.map(signer =>
+                      <ListGroup.Item key={signer.party_id}>{signer.party_id}</ListGroup.Item>
+                    )}
+                  </ListGroup>
+                </>
               }
             </Card.Body>
           </Card>
