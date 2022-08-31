@@ -1,6 +1,8 @@
 use async_trait::async_trait;
 use thiserror::Error;
 
+type SubError = Box<dyn std::error::Error + Sync + Send>;
+
 /// [StoreAdapter] related errors
 #[derive(Debug, Error)]
 pub enum AdapterError {
@@ -10,19 +12,27 @@ pub enum AdapterError {
 
     /// Error raised when the store initialization fails.
     #[error("problem creating the repository: {0}")]
-    InitializationError(Box<dyn std::error::Error + Sync + Send>),
+    InitializationError(SubError),
 
     /// Error raised when the opening of a IO stream fails.
     #[error("problem opening the IO stream: {0}")]
-    OpeningStreamError(Box<dyn std::error::Error + Sync + Send>),
+    OpeningStreamError(SubError),
 
     /// Error raised when the parsing of a IO stream fails.
     #[error("problem parsing the IO stream: {0}")]
-    ParsingDataError(Box<dyn std::error::Error + Sync + Send>),
+    ParsingDataError(SubError),
 
     /// Error raised if a writting operation fails.
     #[error("problem writing on the adapter: {0}")]
-    MutationError(Box<dyn std::error::Error + Sync + Send>),
+    MutationError(SubError),
+
+    /// Error while querying the subsystem.
+    #[error("problem when querying the adapter: {0}")]
+    QueryError(SubError),
+
+    /// Type conversion cannot be performed by this adapter.
+    #[error("type conversion error, this adapter does not know how to handle this: {0}")]
+    TypeError(SubError),
 }
 
 /// Represent a way to store Key/Value pair data.
