@@ -25,6 +25,7 @@ test:
 check:
 	${CARGO} check --release --all-features --all-targets
 	${CARGO} clippy --release --all-features
+	${CARGO} fmt --check
 
 clean:
 	${CARGO} clean

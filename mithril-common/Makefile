@@ -13,6 +13,7 @@ test:
 check:
 	${CARGO} check --release --all-features --all-targets
 	${CARGO} clippy --release --all-features
+	${CARGO} fmt --check
 
 doc:
 	${CARGO} doc --no-deps --open
