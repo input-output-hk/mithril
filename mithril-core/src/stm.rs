@@ -277,7 +277,7 @@ impl StmInitializer {
     ) -> Self {
         let sk = SigningKey::gen(rng);
         let pk = StmVerificationKeyPoP::from(&sk);
-        let kes_sk = Sum6Kes::from_bytes(kes_sk).expect("Invalid KES key provided"); // todo: handle this
+        let kes_sk: Sum6Kes = serde_cbor::from_slice(&kes_sk).expect("Invalid KES key provided"); // todo: handle this
         let kes_sig = Some(kes_sk.sign(kes_period, &pk.to_bytes()));
 
         Self {

@@ -41,7 +41,7 @@ pub struct OpCert {
     issue_number: u64,
     start_kes_period: u64, // this is not the kes period used in signing/verifying
     cert_sig: EdSignature,
-    pub cold_vk: EdPublicKey,
+    cold_vk: EdPublicKey,
 }
 
 /// NewKeyReg that is set to eventually replace `KeyReg`
