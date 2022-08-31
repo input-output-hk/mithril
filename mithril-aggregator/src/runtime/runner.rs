@@ -71,8 +71,8 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     ) -> Result<(), RuntimeError>;
 
     /// Set the message to sign in the multisigner. The digest is only one part
-    /// of the message, the last stake distribution and signers key must also be
-    /// signed hence are part of the message.
+    /// of the message, the next signing stake distribution must also be signed
+    /// as part of the message.
     async fn update_message_in_multisigner(&self, digest: String) -> Result<(), RuntimeError>;
 
     /// Return the actual pending certificate from the multisigner.
@@ -87,10 +87,10 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         pending_certificate: CertificatePending,
     ) -> Result<(), RuntimeError>;
 
-    /// Drop the multisigner's acutal pending certificate.
+    /// Drop the multisigner's actual pending certificate.
     async fn drop_pending_certificate(&self) -> Result<Option<CertificatePending>, RuntimeError>;
 
-    /// Check if the multisigner has issued a multisignature.
+    /// Check if the multisigner has issued a multi-signature.
     async fn is_multisig_created(&self) -> Result<bool, RuntimeError>;
 
     /// Create an archive of the cardano node db directory naming it after the given beacon.
@@ -326,10 +326,10 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(certificate_pending)
     }
 
-    /// Is a multisignature ready?
-    /// Can we create a multisignature.
+    /// Is a multi-signature ready?
+    /// Can we create a multi-signature.
     async fn is_multisig_created(&self) -> Result<bool, RuntimeError> {
-        info!("RUNNER: check if we can create a multisignature");
+        info!("RUNNER: check if we can create a multi-signature");
         let has_multisig = self
             .dependencies
             .multi_signer

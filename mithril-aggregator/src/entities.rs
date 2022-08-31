@@ -61,7 +61,7 @@ pub struct Config {
     pub data_stores_directory: PathBuf,
 }
 
-/// Snapshot store type enumerate the different kinds of snapshot stores.
+/// Snapshot store type enumerates the different kinds of snapshot stores.
 /// Local storage is mainly used by development and test environements while GCP
 /// is intended for production use.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]

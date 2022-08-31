@@ -20,8 +20,8 @@ pub trait StakeStorer {
     /// Get the stakes of all party at a given `epoch`.
     async fn get_stakes(&self, epoch: Epoch) -> Result<Option<StakeDistribution>, StoreError>;
 
-    /// Return the last stakes recorded in the store
-    /// This is mainly used for testing right now
+    /// Return the last stakes recorded in the store.
+    /// This is mainly used for testing right now.
     async fn get_last_stakes(
         &self,
         last: usize,

@@ -49,7 +49,7 @@ pub enum SnapshotError {
     #[error("Create archive error: {0}")]
     CreateArchiveError(#[from] io::Error),
 
-    /// Set when the snappshotter fails at uploading the snapshot.
+    /// Set when the snapshotter fails at uploading the snapshot.
     #[error("Upload file error: `{0}`")]
     UploadFileError(String),
 

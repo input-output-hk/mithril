@@ -40,7 +40,7 @@ pub enum ProtocolError {
     #[error("single signature already recorded")]
     ExistingSingleSignature(entities::PartyId),
 
-    /// Codec error
+    /// Codec error.
     #[error("codec error: '{0}'")]
     Codec(String),
 

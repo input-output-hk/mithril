@@ -33,7 +33,7 @@ impl Display for AggregatorState {
 }
 
 /// The AggregatorRuntime responsibility is to create a state machine to handle
-/// all actions required by the process of getting multisignatures.
+/// all actions required by the process of getting multi-signatures.
 /// See the [documentation](https://mithril.network/doc/mithril/mithril-network/aggregator#under-the-hood) for more explanations about the Aggregator state machine.
 pub struct AggregatorRuntime {
     /// the internal state of the automate
@@ -136,7 +136,7 @@ impl AggregatorRuntime {
                         .await?;
                     self.state = AggregatorState::Idle(new_state);
                 } else if self.runner.is_multisig_created().await? {
-                    trace!("new multisignature found");
+                    trace!("new multi-signature found");
                     let new_state = self
                         .transition_from_signing_to_idle_multisignature(state)
                         .await?;
@@ -150,7 +150,7 @@ impl AggregatorRuntime {
     }
 
     /// Perform a transition from `SIGNING` state to `IDLE` state when a new
-    /// multisignature is issued.
+    /// multi-signature is issued.
     async fn transition_from_signing_to_idle_multisignature(
         &self,
         state: SigningState,
