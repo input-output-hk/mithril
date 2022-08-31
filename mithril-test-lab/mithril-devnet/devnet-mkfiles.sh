@@ -783,7 +783,7 @@ cat >> docker-compose.yaml <<EOF
     profiles:
       - cardano
     volumes:
-    - ./${NODE}:/data
+    - ./${NODE}:/data:z
     environment:
     - CARDANO_NODE_SOCKET_PATH=/data/ipc/node.sock
     networks:
@@ -832,7 +832,7 @@ cat >> docker-compose.yaml <<EOF
     profiles:
       - cardano
     volumes:
-    - ./${NODE}:/data
+    - ./${NODE}:/data:z
     environment:
     - CARDANO_NODE_SOCKET_PATH=/data/ipc/node.sock
     networks:
@@ -876,7 +876,7 @@ cat >> docker-compose.yaml <<EOF
     profiles:
       - mithril
     volumes:
-      - ./${NODE}:/data
+      - ./${NODE}:/data:z
     networks:
     - mithril_network
     ports:
@@ -922,7 +922,7 @@ cat >> docker-compose.yaml <<EOF
     profiles:
       - mithril
     volumes:
-      - ./${NODE}:/data
+      - ./${NODE}:/data:z
     networks:
     - mithril_network
     env_file:
