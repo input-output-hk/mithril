@@ -128,6 +128,10 @@ const config = {
                 href: 'https://github.com/input-output-hk/mithril/wiki/Project-Charter',
               },
               {
+                label: 'Contributing Guidelines',
+                href: 'https://github.com/input-output-hk/mithril/blob/main/CONTRIBUTING.md',
+              },
+              {
                 label: 'Architectural Decision Records',
                 to: '/adr',
               }
@@ -136,6 +140,10 @@ const config = {
           {
             title: 'Community',
             items: [
+              {
+                label: 'Discord (#moria)',
+                href: 'https://discord.gg/beku2fg4',
+              },
               {
                 label: 'Github Discussions',
                 href: 'https://github.com/input-output-hk/mithril/discussions',

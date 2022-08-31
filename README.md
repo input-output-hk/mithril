@@ -7,7 +7,7 @@
   <a href='https://github.com/input-output-hk/mithril/issues'>
     <img src="https://img.shields.io/github/issues/input-output-hk/mithril?label=Issues&style=for-the-badge">
   </a>
-  <a href='https://github.com/input-output-hk/mithril/fork'>
+  <a href='https://github.com/input-output-hk/mithril/network/members'>
      <img src="https://img.shields.io/github/forks/input-output-hk/mithril?label=Forks&style=for-the-badge">
   </a>
   <a href='https://github.com/input-output-hk/mithril/stargazers'>
@@ -74,6 +74,7 @@ The best way to contribute right now is to provide feedback. Start by giving a l
 
 Should you have any questions, ideas or issues, we would like to hear from you:
 
+* #moria on the IOG [Discord server](https://discord.gg/beku2fg4)
 * Create a Github [Discussion](https://github.com/input-output-hk/mithril/discussions)
 * Create a Github [Issue](https://github.com/input-output-hk/mithril/issues/new)
 * Ask on Cardano [StackExchange](https://cardano.stackexchange.com/questions/tagged/mithril) using the `mithril` tag
