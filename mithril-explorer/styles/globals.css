@@ -14,3 +14,8 @@ a {
 * {
   box-sizing: border-box;
 }
+
+.data-list-group .list-group-item {
+    padding-top: 0.3rem;
+    padding-bottom: 0.3rem;
+}

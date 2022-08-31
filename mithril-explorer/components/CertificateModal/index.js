@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import {Badge, Button, Card, CardGroup, ListGroup, Modal} from "react-bootstrap";
+import {Badge, Button, Container, Col, ListGroup, Modal, Row, Table} from "react-bootstrap";
 
 export default function CertificateModal(props) {
   const [certificate, setCertificate] = useState({});
@@ -43,40 +43,51 @@ export default function CertificateModal(props) {
         {Object.entries(certificate).length === 0
           ? <p>Not found</p>
           :
-          <CardGroup>
-            <Card>
-              <Card.Body>
-                <Card.Title>Beacon</Card.Title>
-                <div>Network: {certificate.beacon.network}</div>
-                <div>Epoch: {certificate.beacon.epoch}</div>
-                <div>Immutable File Number: {certificate.beacon.immutable_file_number}</div>
-              </Card.Body>
-            </Card>
-            <Card>
-              <Card.Body>
-                <Card.Title>Protocol Parameters</Card.Title>
-                <div>K: {certificate.metadata.parameters.k}</div>
-                <div>M: {certificate.metadata.parameters.m}</div>
-                <div>Phi: {certificate.metadata.parameters.phi_f}</div>
-              </Card.Body>
-            </Card>
-            <Card>
-              <Card.Body>
-                <Card.Title>Signers</Card.Title>
+          <Container>
+            <Row md={1} xl="auto">
+              <Col xl={4}>
+                <h4>Beacon</h4>
+                <ListGroup className="margin-bottom--md" variant="flush">
+                  <ListGroup.Item>Network: {certificate.beacon.network}</ListGroup.Item>
+                  <ListGroup.Item>Epoch: {certificate.beacon.epoch}</ListGroup.Item>
+                  <ListGroup.Item>Immutable File Number: {certificate.beacon.immutable_file_number}</ListGroup.Item>
+                </ListGroup>
+                <h4>Protocol Parameters</h4>
+                <ListGroup horizontal>
+                  <ListGroup.Item>K: {certificate.metadata.parameters.k}</ListGroup.Item>
+                  <ListGroup.Item>M: {certificate.metadata.parameters.m}</ListGroup.Item>
+                  <ListGroup.Item>Phi: {certificate.metadata.parameters.phi_f}</ListGroup.Item>
+                </ListGroup>
+              </Col>
+              <Col xl={8}>
+                <h4>Signers</h4>
                 {certificate.metadata.signers.length === 0
                   ?
                   <div>
                     No Signers for this certificate, something went wrong either with the data retrieval or the signing process
                   </div>
-                  :
-                  <ListGroup>{certificate.metadata.signers.map(signer =>
-                    <ListGroup.Item key={signer.party_id}>Party id: {signer.party_id} - stake: {signer.stake}</ListGroup.Item>
-                  )}
-                  </ListGroup>
+                  : <>
+                    <Table responsive>
+                      <thead>
+                      <tr>
+                        <th>Party id</th>
+                        <th>Stake</th>
+                      </tr>
+                      </thead>
+                      <tbody>
+                      {certificate.metadata.signers.map(signer =>
+                        <tr key={signer.party_id}>
+                          <td>{signer.party_id}</td>
+                          <td>{signer.stake}</td>
+                        </tr>
+                      )}
+                      </tbody>
+                    </Table>
+                  </>
                 }
-              </Card.Body>
-            </Card>
-          </CardGroup>
+              </Col>
+            </Row>
+          </Container>
         }
       </Modal.Body>
       <Modal.Footer>
