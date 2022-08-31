@@ -6,24 +6,29 @@ use mithril_common::store::{adapter::StoreAdapter, StoreError};
 
 type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = ProtocolParameters>>;
 
+/// Trait for mocjing [ProtocolParameterStore].
 #[async_trait]
 pub trait ProtocolParametersStorer {
+    /// Save the given [ProtocolParameterStore] for the given [Epoch].
     async fn save_protocol_parameters(
         &self,
         epoch: Epoch,
         protocol_parameters: ProtocolParameters,
     ) -> Result<Option<ProtocolParameters>, StoreError>;
 
+    /// Get the saved [ProtocolParameterStore] for the given [Epoch] if any.
     async fn get_protocol_parameters(
         &self,
         epoch: Epoch,
     ) -> Result<Option<ProtocolParameters>, StoreError>;
 }
+/// [ProtocolParameter] store.
 pub struct ProtocolParametersStore {
     adapter: RwLock<Adapter>,
 }
 
 impl ProtocolParametersStore {
+    /// Create an instance of [ProtocolParameterStore].
     pub fn new(adapter: Adapter) -> Self {
         Self {
             adapter: RwLock::new(adapter),

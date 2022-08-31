@@ -7,24 +7,29 @@ use mithril_common::store::{adapter::StoreAdapter, StoreError};
 
 type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = HashMap<PartyId, Signer>>>;
 
+/// Mocking trait for [VerificationKeyStore].
 #[async_trait]
 pub trait VerificationKeyStorer {
+    /// Save the verification key, for the given [Signer] for the given [Epoch].
     async fn save_verification_key(
         &self,
         epoch: Epoch,
         signer: Signer,
     ) -> Result<Option<Signer>, StoreError>;
 
+    /// Returns a HashMap of [Signer] indexed by [PartyId] for the given [Beacon].
     async fn get_verification_keys(
         &self,
         epoch: Epoch,
     ) -> Result<Option<HashMap<PartyId, Signer>>, StoreError>;
 }
+/// Store for the [VerificationKey]
 pub struct VerificationKeyStore {
     adapter: RwLock<Adapter>,
 }
 
 impl VerificationKeyStore {
+    /// Create a new instance.
     pub fn new(adapter: Adapter) -> Self {
         Self {
             adapter: RwLock::new(adapter),

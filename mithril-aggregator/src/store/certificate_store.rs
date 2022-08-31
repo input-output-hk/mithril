@@ -5,17 +5,20 @@ use mithril_common::store::{adapter::StoreAdapter, StoreError};
 
 type Adapter = Box<dyn StoreAdapter<Key = String, Record = Certificate>>;
 
+/// Store for issued certificates.
 pub struct CertificateStore {
     adapter: RwLock<Adapter>,
 }
 
 impl CertificateStore {
+    /// Create a new instance.
     pub fn new(adapter: Adapter) -> Self {
         Self {
             adapter: RwLock::new(adapter),
         }
     }
 
+    /// Fetch a saved certificate from its hash signature.
     pub async fn get_from_hash(&self, hash: &str) -> Result<Option<Certificate>, StoreError> {
         let record = self
             .adapter
@@ -23,27 +26,34 @@ impl CertificateStore {
             .await
             .get_record(&hash.to_string())
             .await?;
+
         Ok(record)
     }
 
+    /// Fetch a saved certificate that was issued for the given beacon if any.
     pub async fn get_from_beacon(
         &self,
         beacon: &Beacon,
     ) -> Result<Option<Certificate>, StoreError> {
         let adapter = self.adapter.read().await;
         let mut iterator = adapter.get_iter().await?;
+
         Ok(iterator.find(|cert| beacon == &cert.beacon))
     }
 
+    /// Save the given certificate.
     pub async fn save(&self, certificate: Certificate) -> Result<(), StoreError> {
         self.adapter
             .write()
             .await
             .store_record(&certificate.hash, &certificate)
             .await?;
+
         Ok(())
     }
 
+    /// Return the list of the `last_n` saved certificates sorted by creation
+    /// time the most recent first.
     pub async fn get_list(&self, last_n: usize) -> Result<Vec<Certificate>, StoreError> {
         let vars = self.adapter.read().await.get_last_n_records(last_n).await?;
         let result = vars.into_iter().map(|(_, y)| y).collect();

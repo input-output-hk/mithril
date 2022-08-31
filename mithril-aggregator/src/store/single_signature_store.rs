@@ -7,25 +7,30 @@ use mithril_common::store::{adapter::StoreAdapter, StoreError};
 
 type Adapter = Box<dyn StoreAdapter<Key = Beacon, Record = HashMap<PartyId, SingleSignatures>>>;
 
+/// Trait for mocking [SingleSignatureStore].
 #[async_trait]
 pub trait SingleSignatureStorer {
+    /// Save the given [SingleSignatures] for the given [Beacon].
     async fn save_single_signatures(
         &self,
         beacon: &Beacon,
         single_signature: &SingleSignatures,
     ) -> Result<Option<SingleSignatures>, StoreError>;
 
+    /// Get the [SingleSignatures] for the given [Beacon] if any.
     async fn get_single_signatures(
         &self,
         beacon: &Beacon,
     ) -> Result<Option<HashMap<PartyId, SingleSignatures>>, StoreError>;
 }
 
+/// Store for [SingleSignatures].
 pub struct SingleSignatureStore {
     adapter: RwLock<Adapter>,
 }
 
 impl SingleSignatureStore {
+    /// Create a new instance.
     pub fn new(adapter: Adapter) -> Self {
         Self {
             adapter: RwLock::new(adapter),
