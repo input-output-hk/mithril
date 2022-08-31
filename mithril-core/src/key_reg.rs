@@ -1,19 +1,23 @@
 //! Key registration functionality.
+use super::stm::Stake;
 use crate::error::RegisterError;
+use crate::merkle_tree::{MTLeaf, MerkleTree};
 use crate::multi_sig::{VerificationKey, VerificationKeyPoP};
+<<<<<<< HEAD
 use blake2::digest::Digest;
+=======
+use blake2::VarBlake2b;
+use digest::{Digest, FixedOutput, Update, VariableOutput};
+use ed25519_dalek::{PublicKey as EdPublicKey, Signature as EdSignature, Verifier};
+use kes_summed_ed25519::common::PublicKey as KesPublicKey;
+use kes_summed_ed25519::kes::Sum6KesSig;
+use kes_summed_ed25519::traits::KesSig;
+>>>>>>> be47ea5e6 (PoolID working with the node)
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::iter::FromIterator;
 use std::sync::Arc;
-
-use super::stm::Stake;
-use crate::merkle_tree::{MTLeaf, MerkleTree};
-use ed25519_dalek::{PublicKey as EdPublicKey, Signature as EdSignature, Verifier};
-use kes_summed_ed25519::common::PublicKey as KesPublicKey;
-use kes_summed_ed25519::kes::Sum6KesSig;
-use kes_summed_ed25519::traits::KesSig;
 
 /// Stores a registered party with its public key and the associated stake.
 pub type RegParty = MTLeaf;
@@ -130,8 +134,12 @@ impl NewKeyReg {
             .verify(kes_period, &cert.kes_vk, &pk.to_bytes())
             .map_err(|_| RegisterError::KesSignatureInvalid)?;
 
+        let mut hasher = VarBlake2b::new(28).unwrap();
+        hasher.update(cert.cold_vk.as_bytes());
         let mut pool_id = [0u8; 28];
-        pool_id.copy_from_slice(&blake2::Blake2b::digest(cert.cold_vk.as_bytes()).as_slice()[..28]);
+        hasher.finalize_variable(|res| {
+            pool_id.copy_from_slice(res);
+        });
 
         if let Some(&stake) = self.stake_distribution.get(&pool_id) {
             if let Entry::Vacant(e) = self.keys.entry(pk.vk) {
@@ -203,7 +211,11 @@ mod tests {
     use super::*;
     use crate::multi_sig::SigningKey;
     use crate::stm::{StmInitializer, StmParameters};
+<<<<<<< HEAD
     use blake2::{digest::consts::U32, Blake2b};
+=======
+    use blake2::Blake2b;
+>>>>>>> be47ea5e6 (PoolID working with the node)
     use hex::FromHex;
     use proptest::collection::vec;
     use proptest::prelude::*;
@@ -282,19 +294,49 @@ mod tests {
         };
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
 
+<<<<<<< HEAD
         let fake_pool_id = [
             134, 128, 179, 254, 245, 165, 179, 39, 71, 156, 226, 254, 129, 15, 231, 1, 142, 176,
             236, 148, 207, 175, 146, 72, 222, 186, 20, 75,
         ];
         let mut key_reg = NewKeyReg::init(&[(fake_pool_id, 10)]);
+=======
+        let mut pool_id_1 = [0; 28];
+        pool_id_1.copy_from_slice(
+            &Vec::from_hex("290de5c13d3d1e05255895915eff06331f546e9239be6b37767f5ae2").unwrap(),
+        );
+>>>>>>> be47ea5e6 (PoolID working with the node)
 
-        // todo: have cbor working here
-        let sk_bytes = Vec::from_hex("78c158ae1edb8b4a2f1866f61e2a69a4595167be8cbdf57bab2361cd47ba7a0ee137ed17b49e5e9cd2674a451fadc87933cdd0473e4c38c1e0faca4f6c9cb482b854d25266877abb2a5bd8e111db383699aacac7049945d2f893403f65a4d8b34d1d9807dfe57b9a207c9d2c08d0d3478d292b2b8cdd9c7d1eb4225581bd12ad5d2c1ad357a0eba6bf2761787ff78fd97813d9287a57762c1710bd7b6a0b237fc875868e4218d0f703097bd89c776717a7461b2dcd8aac7095f0d68b065eccedd433f643903750b98349249a5c3ced7a0dc0e21af54c7da1be010ef6da6dc3209dea6e1f0ffaf1706b914d3bd94255b67b36f5150a3490d731863621f2edd3bb320a0ce737a83895b6ed80684542b70690db2e1efbaefe8e6cd0cd3a0fd84e0f37524ffd5f4647bc15dc9f3efa4f3ec53d1ff8fdd47179498e6d5661521c064810ab1e2af98737f7d79ec1b21faf98a5d0eef6b6152223dc0aaf3599979e6932c18ec18f58fd6bfc055d8fe3f4932f6edf64a40d3bcc466a77c598a8498d1d206c79eb6172cba9f4e724c80487df559bacc51941ee9c0025de3b98256ef4f54f776e575a926a90a1b68cea5856ea92d95dd7d2088a8ee8c6d042cb9bc454301317a29e15b49a0ceddbbe8097cdf230df64220ead235b6c6c125ffef36b4f8fda6742dd850af8271a7a9df84a240dc5fdd137f720e8c47618e5ea9e9ab9803cc8d50238a88261af94ebca082e8a5920b4a98356fc942b19b5091efa0a09323f4cf1b9f456f52cd19bb1c95fd1ecaae8548a51427fa0eeb7555204318da248ad429ac73a797749069681f349eda3941f216c74bbbae5f0dc77ffcc00e714639d7d").unwrap();
-        let initializer = StmInitializer::setup_new(params, &sk_bytes, 0, 10, &mut rng);
+        let mut pool_id_2 = [0; 28];
+        pool_id_2.copy_from_slice(
+            &Vec::from_hex("d8b8d8fea0d08c4e2d4c1120ba746ad951ee62a5929d5fe90ee20e4d").unwrap(),
+        );
+        let mut key_reg = NewKeyReg::init(&[(pool_id_1, 10), (pool_id_2, 3)]);
 
-        let cbor_bytes = Vec::from_hex("8284582067fd5ccf770c0182a34d2b3d2011ca3a853ba947e17cae7543e668bc7687eb6a0000584050592bef1c630f2df499161d78bfadb44cc76cfd24048993ace4a45dade37b4f29e95172fde4e63581a93552f6986985616b70f61062a1db2ee0d3d8e671440e58202abf3ff537a2080f53fa38615906fa6094d44860902f2b2dffdbb41b811ff39f").expect("Invalid Hex String");
+        let sk_bytes_1 = Vec::from_hex("590260fe77acdfa56281e4b05198f5136018057a65f425411f0990cac4aca0f2917aa00a3d51e191f6f425d870aca3c6a2a41833621f5729d7bc0e3dfc3ae77d057e5e1253b71def7a54157b9f98973ca3c49edd9f311e5f4b23ac268b56a6ac040c14c6d2217925492e42f00dc89a2a01ff363571df0ca0db5ba37001cee56790cc01cd69c6aa760fca55a65a110305ea3c11da0a27be345a589329a584ebfc499c43c55e8c6db5d9c0b014692533ee78abd7ac1e79f7ec9335c7551d31668369b4d5111db78072f010043e35e5ca7f11acc3c05b26b9c7fe56f02aa41544f00cb7685e87f34c73b617260ade3c7b8d8c4df46693694998f85ad80d2cbab0b575b6ccd65d90574e84368169578bff57f751bc94f7eec5c0d7055ec88891a69545eedbfbd3c5f1b1c1fe09c14099f6b052aa215efdc5cb6cdc84aa810db41dbe8cb7d28f7c4beb75cc53915d3ac75fc9d0bf1c734a46e401e15150c147d013a938b7e07cc4f25a582b914e94783d15896530409b8acbe31ef471de8a1988ac78dfb7510729eff008084885f07df870b65e4f382ca15908e1dcda77384b5c724350de90cec22b1dcbb1cdaed88da08bb4772a82266ec154f5887f89860d0920dba705c45957ef6d93e42f6c9509c966277d368dd0eefa67c8147aa15d40a222f7953a4f34616500b310d00aa1b5b73eb237dc4f76c0c16813d321b2fc5ac97039be25b22509d1201d61f4ccc11cd4ff40fffe39f0e937b4722074d8e073a775d7283b715d46f79ce128e3f1362f35615fa72364d20b6db841193d96e58d9d8e86b516bbd1f05e45b39823a93f6e9f29d9e01acf2c12c072d1c64e0afbbabf6903ef542e").unwrap();
+        let initializer_1 = StmInitializer::setup_new(params, &sk_bytes_1, 0, 10, &mut rng);
+
+        let cbor_bytes_1 = Vec::from_hex("82845820f89d3fa14cabafa151638743b297379d3c3767902e36ae53b02b3a64bddda19d00005840e472042f7e78e3cfc4c2ac99a658a626be0e9d69e7072dc300cb28ce8178c329beb1d2cf4c7a7ce30d6c528ffad9e8d685fd9d58379758924a010ef317290b0e58207acec462970b819f5f7951e5c84eb87c8e7c4f1aceac01e1c1d97f2e25eb6005").expect("Invalid Hex String");
         assert!(key_reg
-            .register(&cbor_bytes, initializer.kes_sig.unwrap(), 0, initializer.pk)
+            .register(
+                &cbor_bytes_1,
+                initializer_1.kes_sig.unwrap(),
+                0,
+                initializer_1.pk
+            )
+            .is_ok());
+
+        let sk_bytes_2 = Vec::from_hex("590260d12460c331c7b978887899e2ccb119df7c4fa1e6f396778518f64a58f3d2232bf6481fba48fef9dc796f604b622cf0b41230c1662c221b448142bfddf8170865f1deec4232322acffb7d9001f21a4985c4acb4ca6af8906aefd9a7de6bc360acb59812a12ebd5b36a5603b497061f983921cdce59c836ccd2172f40dd62902809316c9a10cf8c44d5a22606fbdea4e210ec1540c6f5c9c1269b2af47d76aae7b009936bf4b62d0716bedf39e589b82381013c5dd68bae7496c4c726b4ae3992c188f1055ab61ef4ce9858958040147d02cec38b058919f0fcebbb9e48c25561634b58dc2d168994e2e22926f4d9d073d0c333db92d19a0c08617e03091b66f7574275db8f2fed75c21a539afedb85b1f163589eb8950ceeb6fb06f022fe544329df46fee5eb495e514846e341f0dafb8cf0d216c0ef3f18ceba6cad155694b74ae39d05a0a4729e595c1bfefa110199ec90a62e79a69c7dca595088e1a9fa1dd4f12be8e6f9e69178478d857d18f1abfc6bf567f5fcfd19bdfcb41c9a65879940a336d41a22ca66c84ccee0afd88aa237e48cb4f6115847eff96c095a7a6672e7b712d9acb8eb59dd9a1ce0ca1bc720ee1613b6e159d8b903694621f095319ba2292760ea0b975f17b3a48fb251b722ef190aa23385d05de93b3a21ef563f64e6e66e6e199267141e417e5b8a74a80f8ae6e69a4d9e778e9b7ca79f04d992b3851dbf703cd69829c837339d831b60273610d002454060bc9e1637358cd1a593166fe328dad39b8fa412b81841429ae022e26c452dce5bcd6500d48bd22af4ff94264978c1874946ce4ad53afcf9bde71973ef744823179dd98e24cd40d9498c1").unwrap();
+        let initializer_2 = StmInitializer::setup_new(params, &sk_bytes_2, 0, 10, &mut rng);
+
+        let cbor_bytes_2 = Vec::from_hex("82845820485981d05d157875fb5a69bbea8f6fc0c09c3da1754fb42a313d6f7a485ae2070000584024d23fed6746db342232e0ddab087879ade2bd936842af00b9c02f563d752cde583df1763283973ce527d118e79ae184c83a3a60a35898f23e9a441a2948240c5820ec91c9db4c0ffc5f39548b1eda07930b7a47510a0e1ce3cc621c6a3f9e899eda").expect("Invalid Hex String");
+        assert!(key_reg
+            .register(
+                &cbor_bytes_2,
+                initializer_2.kes_sig.unwrap(),
+                0,
+                initializer_2.pk
+            )
             .is_ok());
     }
 }
