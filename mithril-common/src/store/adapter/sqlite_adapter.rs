@@ -249,6 +249,9 @@ where
 }
 
 /// Iterator over SQLite adapter results.
+///
+/// **important:** For now all the results are loaded in memory, it would be better to
+/// consume the cursor but this is a quick solution.
 pub struct SQLiteResultIterator<V> {
     results: Vec<V>,
 }
@@ -409,16 +412,16 @@ mod tests {
             .store_record(&3, "three".to_string().borrow())
             .await
             .unwrap();
-        let iterator = adapter.get_iter().await.unwrap();
-
-        for (index, element) in iterator.enumerate() {
-            match index {
-                2 => assert_eq!("one", element),
-                1 => assert_eq!("two", element),
-                0 => assert_eq!("three", element),
-                i => panic!("unexpected result index {} with data = '{:?}'.", i, element),
-            }
-        }
+        let collection: Vec<(usize, String)> =
+            adapter.get_iter().await.unwrap().enumerate().collect();
+        assert_eq!(
+            vec![
+                (0, "three".to_string()),
+                (1, "two".to_string()),
+                (2, "one".to_string()),
+            ],
+            collection
+        );
     }
 
     #[tokio::test]
