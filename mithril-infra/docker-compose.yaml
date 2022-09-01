@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   cardano-node:
-    image: cardano-node/1.35.2-modified
+    image: cardano-node/1.35.3-modified
     build:
       context: .
       dockerfile: Dockerfile.cardano
