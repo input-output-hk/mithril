@@ -486,5 +486,8 @@ to /home/mithril/data/devnet /85f09b39b0b5a13cec9d8fe7ffb82b5e5f236f02ae896f4e47
 
 Restore a Cardano Node with:
 
-docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="./data/devnet /85f09b39b0b5a13cec9d8fe7ffb82b5e5f236f02ae896f4e47b77e5cd1f2a917/db",target=/data/db/ -e NETWORK=devnet  inputoutput/cardano-node
+docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data \
+  --mount type=bind,source="./data/devnet/85f09b39b0b5a13cec9d8fe7ffb82b5e5f236f02ae896f4e47b77e5cd1f2a917/db",target=/data/db/ \
+  -e NETWORK=devnet \
+  inputoutput/cardano-node
 ```
