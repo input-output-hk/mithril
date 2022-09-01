@@ -6,7 +6,3 @@ extra-deps:
 - servant-client-core-0.16
 packages:
 - '.'
-nix:
-  enable: false
-  packages:
-    - zlib
