@@ -44,7 +44,7 @@ fn test_full_protocol() {
 
     let ps = ps
         .into_par_iter()
-        .map(|p| p.new_signer(closed_reg.clone()))
+        .map(|p| p.new_signer(closed_reg.clone()).unwrap())
         .collect::<Vec<StmSigner<H>>>();
 
     /////////////////////

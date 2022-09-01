@@ -39,7 +39,7 @@ where
 
     let closed_reg = key_reg.close::<H>();
 
-    let signer = ps[0].clone().new_signer(closed_reg);
+    let signer = ps[0].clone().new_signer(closed_reg).unwrap();
     let sig = signer.sign(&msg).unwrap();
 
     println!(

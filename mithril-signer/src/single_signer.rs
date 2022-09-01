@@ -2,6 +2,7 @@ use hex::ToHex;
 use slog_scope::{info, trace, warn};
 use thiserror::Error;
 
+use mithril::RegisterError;
 use mithril_common::crypto_helper::{
     key_decode_hex, key_encode_hex, ProtocolClerk, ProtocolInitializer, ProtocolKeyRegistration,
     ProtocolSigner,
@@ -80,6 +81,10 @@ pub enum SingleSignerError {
     #[error("the protocol initializer is missing")]
     ProtocolInitializerMissing(),
 
+    /// Could not fetch a signer from a protocol initializer.
+    #[error("the protocol initializer is not registered")]
+    ProtocolInitializerNotRegistered(#[from] RegisterError),
+
     /// Encoding / Decoding error.
     #[error("codec error: '{0}'")]
     Codec(String),
@@ -123,7 +128,7 @@ impl MithrilSingleSigner {
         }
         let closed_reg = key_reg.close();
 
-        Ok(protocol_initializer.to_owned().new_signer(closed_reg))
+        Ok(protocol_initializer.to_owned().new_signer(closed_reg)?)
     }
 }
 

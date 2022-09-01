@@ -59,10 +59,10 @@ fn main() {
 
     // Now, with information of all participating parties (we can create the Merkle Tree), the
     // signers can be initialised.
-    let party_0 = party_0_init.new_signer(key_reg_0);
-    let party_1 = party_1_init.new_signer(key_reg_1);
-    let party_2 = party_2_init.new_signer(key_reg_2);
-    let party_3 = party_3_init.new_signer(key_reg_3);
+    let party_0 = party_0_init.new_signer(key_reg_0).unwrap();
+    let party_1 = party_1_init.new_signer(key_reg_1).unwrap();
+    let party_2 = party_2_init.new_signer(key_reg_2).unwrap();
+    let party_3 = party_3_init.new_signer(key_reg_3).unwrap();
 
     /////////////////////
     // operation phase //

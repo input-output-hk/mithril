@@ -107,7 +107,7 @@ impl Party {
         let seed = [0u8; 32];
         let mut rng = ChaCha20Rng::from_seed(seed);
         let p = ProtocolInitializer::setup(self.params.unwrap(), self.stake, &mut rng);
-        self.signer = Some(p.new_signer(closed_reg));
+        self.signer = Some(p.new_signer(closed_reg).unwrap());
         self.clerk = Some(ProtocolClerk::from_signer(self.signer.as_ref().unwrap()));
     }
 

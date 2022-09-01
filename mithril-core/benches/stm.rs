@@ -55,7 +55,7 @@ where
 
     let signers = initializers
         .into_par_iter()
-        .map(|p| p.new_signer(closed_reg.clone()))
+        .map(|p| p.new_signer(closed_reg.clone()).unwrap())
         .collect::<Vec<StmSigner<H>>>();
 
     group.bench_function(BenchmarkId::new("Play all lotteries", &param_string), |b| {

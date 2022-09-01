@@ -63,11 +63,11 @@
 //! // Close the key registration.
 //! let closed_reg = key_reg.close();
 //!
-//! // Finialize the StmInitializer and turn it into a StmSigner, which can execute the
+//! // Finalize the StmInitializer and turn it into a StmSigner, which can execute the
 //! // rest of the protocol.
 //! let ps = ps
 //!     .into_par_iter()
-//!     .map(|p| p.new_signer(closed_reg.clone()))
+//!     .map(|p| p.new_signer(closed_reg.clone()).unwrap())
 //!     .collect::<Vec<StmSigner<D>>>();
 //!
 //! /////////////////////
@@ -288,12 +288,12 @@ impl StmInitializer {
     /// * this `StmSigner`'s parameter valuation
     /// * the `avk` as built from the current registered parties (according to the registration service)
     /// * the current total stake (according to the registration service)
-    /// # Panics
+    /// Returns an error
     /// If the initializer is not registered.
     pub fn new_signer<D: Digest + FixedOutput + Clone>(
         self,
         closed_reg: ClosedKeyReg<D>,
-    ) -> StmSigner<D> {
+    ) -> Result<StmSigner<D>, RegisterError> {
         let mut my_index = None;
         for (i, rp) in closed_reg.reg_parties.iter().enumerate() {
             if rp.0 == self.pk.vk {
@@ -301,15 +301,18 @@ impl StmInitializer {
                 break;
             }
         }
-        StmSigner {
-            mt_index: my_index
-                .expect("Initializer not registered. Cannot participate as a signer."),
+        if my_index.is_none() {
+            return Err(RegisterError::UnregisteredInitializer);
+        }
+
+        Ok(StmSigner {
+            mt_index: my_index.unwrap(),
             stake: self.stake,
             params: self.params,
             sk: self.sk,
             vk: self.pk.vk,
             closed_reg,
-        }
+        })
     }
 
     /// Convert to bytes
@@ -454,8 +457,8 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     ///     // signers can be initialised (we can create the Merkle Tree).
     ///     // The (closed) key registration is consumed, to ensure that it
     ///     // is not used to initialise a signer at a different epoch.
-    ///     let party_0 = party_0_init_e1.new_signer(party_0_key_reg_e1);
-    ///     let party_1 = party_1_init_e1.new_signer(party_1_key_reg_e1);
+    ///     let party_0 = party_0_init_e1.new_signer(party_0_key_reg_e1).unwrap();
+    ///     let party_1 = party_1_init_e1.new_signer(party_1_key_reg_e1).unwrap();
     ///
     ///     ////////////////////////////////
     ///     //////// EPOCH 2 ///////////////
@@ -904,7 +907,7 @@ mod tests {
             .collect::<Vec<_>>();
         let closed_reg = kr.close();
         ps.into_iter()
-            .map(|p| p.new_signer(closed_reg.clone()))
+            .map(|p| p.new_signer(closed_reg.clone()).unwrap())
             .collect()
     }
 
