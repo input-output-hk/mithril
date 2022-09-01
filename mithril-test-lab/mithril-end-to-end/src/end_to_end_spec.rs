@@ -2,7 +2,7 @@ use crate::utils::AttemptResult;
 use crate::{attempt, Aggregator, Client, ClientCommand, Devnet, MithrilInfrastructure};
 use mithril_common::chain_observer::{CardanoCliChainObserver, ChainObserver};
 use mithril_common::digesters::ImmutableFile;
-use mithril_common::entities::{Certificate, CertificatePending, Epoch, Snapshot};
+use mithril_common::entities::{Certificate, Epoch, EpochSettings, Snapshot};
 use reqwest::StatusCode;
 use slog_scope::info;
 use std::error::Error;
@@ -37,7 +37,7 @@ impl Spec {
         )
         .await?;
         bootstrap_genesis_certificate(self.infrastructure.aggregator_mut()).await?;
-        wait_for_pending_certificate(&aggregator_endpoint).await?;
+        wait_for_epoch_settings(&aggregator_endpoint).await?;
 
         target_epoch += 2;
         wait_for_target_epoch(
@@ -108,22 +108,20 @@ async fn wait_for_enough_immutable(db_directory: &Path) -> Result<(), String> {
     }
 }
 
-async fn wait_for_pending_certificate(
-    aggregator_endpoint: &str,
-) -> Result<CertificatePending, String> {
-    let url = format!("{}/certificate-pending", aggregator_endpoint);
-    info!("Waiting for the aggregator to produce a pending certificate");
+async fn wait_for_epoch_settings(aggregator_endpoint: &str) -> Result<EpochSettings, String> {
+    let url = format!("{}/epoch-settings", aggregator_endpoint);
+    info!("Waiting for the aggregator to expose epoch settings");
 
     match attempt!(20, Duration::from_millis(1000), {
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => {
-                    let certificate = response
-                        .json::<CertificatePending>()
+                    let epoch_settings = response
+                        .json::<EpochSettings>()
                         .await
-                        .map_err(|e| format!("Invalid CertificatePending body : {}", e))?;
-                    info!("Aggregator ready"; "pending_certificate"  => #?certificate);
-                    Ok(Some(certificate))
+                        .map_err(|e| format!("Invalid EpochSettings body : {}", e))?;
+                    info!("Aggregator ready"; "epoch_settings"  => #?epoch_settings);
+                    Ok(Some(epoch_settings))
                 }
                 s if s.is_server_error() => Err(format!(
                     "Server error while waiting for the Aggregator, http code: {}",
@@ -134,7 +132,7 @@ async fn wait_for_pending_certificate(
             Err(_) => Ok(None),
         }
     }) {
-        AttemptResult::Ok(certificate) => Ok(certificate),
+        AttemptResult::Ok(epoch_settings) => Ok(epoch_settings),
         AttemptResult::Err(error) => Err(error),
         AttemptResult::Timeout() => Err(format!(
             "Timeout exhausted for aggregator to be up, no response from `{}`",
