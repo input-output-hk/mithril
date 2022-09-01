@@ -16,8 +16,8 @@ services:
         max-size: "100m"
         max-file: "5"
     volumes:
-      - ./cardano-configurations/network/testnet:/config
-      - ./testnet/node.db:/db
+      - ./cardano-configurations/network/${NETWORK}:/config
+      - ./${NETWORK}/node.db:/db
       - ./ipc:/ipc
     environment:
       - CARDANO_SOCKET_PATH=/ipc/node.socket # used by cardano-node
@@ -56,22 +56,21 @@ services:
       - all
     environment:
       - RUST_BACKTRACE=1
-      - NETWORK_MAGIC=1097911063
       - GOOGLE_APPLICATION_CREDENTIALS_JSON=${GOOGLE_APPLICATION_CREDENTIALS_JSON}
-      - NETWORK=${NETWORK:-testnet}
+      - NETWORK=${NETWORK}
       - PROTOCOL_PARAMETERS__K=5
       - PROTOCOL_PARAMETERS__M=100
       - PROTOCOL_PARAMETERS__PHI_F=0.65
       - RUN_INTERVAL=60000
-      - URL_SNAPSHOT_MANIFEST=https://storage.googleapis.com/cardano-${NETWORK:-testnet}/snapshots.json
+      - URL_SNAPSHOT_MANIFEST=https://storage.googleapis.com/cardano-${NETWORK}/snapshots.json
       - SNAPSHOT_STORE_TYPE=local
       - SNAPSHOT_UPLOADER_TYPE=gcp
       - DATA_STORES_DIRECTORY=/mithril-aggregator
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
     volumes:
-      - ./testnet/mithril-aggregator:/mithril-aggregator
-      - ./testnet/node.db:/db
+      - ./${NETWORK}/mithril-aggregator:/mithril-aggregator
+      - ./${NETWORK}/node.db:/db
       - ./ipc:/ipc
     ports:
       - "8080:8080"
@@ -106,17 +105,16 @@ services:
     environment:
       - RUST_BACKTRACE=1
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
-      - NETWORK=testnet
-      - NETWORK_MAGIC=1097911063
-      - PARTY_ID=pool1frevxe70aqw2ce58c0muyesnahl88nfjjsp25h85jwakzgd2g2l # IOG1 / https://testnet.cardanoscan.io/pool/48f2c367cfe81cac6687c3f7c26613edfe73cd329402aa5cf493bb61
+      - NETWORK=${NETWORK}
+      - PARTY_ID=pool10g0tvpyc3phkym8r6hamdulyzd6shzjldpahyvdkljl7ur2adfe # ADA Capital / https://preview.cexplorer.io/pool/pool10g0tvpyc3phkym8r6hamdulyzd6shzjldpahyvdkljl7ur2adfe
       - RUN_INTERVAL=60000
       - DB_DIRECTORY=/db
       - DATA_STORES_DIRECTORY=/mithril-signer-0
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
     volumes:
-      - ./testnet/mithril-signer-0:/mithril-signer-0
-      - ./testnet/node.db:/db
+      - ./${NETWORK}/mithril-signer-0:/mithril-signer-0
+      - ./${NETWORK}/node.db:/db
       - ./ipc:/ipc
     logging:
       driver: "json-file"
@@ -134,73 +132,16 @@ services:
     environment:
       - RUST_BACKTRACE=1
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
-      - NETWORK=testnet
-      - NETWORK_MAGIC=1097911063
-      - PARTY_ID=pool1987uhrx7pt5rea26sqsdrlenfclm2wxafd4rpspvz3qyqshnuyy # IOG2 / https://testnet.cardanoscan.io/pool/29fdcb8cde0ae83cf55a8020d1ff334e3fb538dd4b6a30c02c144040
+      - NETWORK=${NETWORK}
+      - PARTY_ID=pool1t2zfh44yjhgxxrmt563k0wjw9v7vc7jn29vpyyz4vrq4yk8k4m6 # APEX / https://preview.cexplorer.io/pool/pool1t2zfh44yjhgxxrmt563k0wjw9v7vc7jn29vpyyz4vrq4yk8k4m6
       - RUN_INTERVAL=60000
       - DB_DIRECTORY=/db
       - DATA_STORES_DIRECTORY=/mithril-signer-1
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
     volumes:
-      - ./testnet/mithril-signer-1:/mithril-signer-1
-      - ./testnet/node.db:/db
-      - ./ipc:/ipc
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "5"
-
-  mithril-signer-2:
-    image: ghcr.io/input-output-hk/mithril-signer:${IMAGE_ID:-latest}
-    restart: always
-    user: ${CURRENT_UID}
-    profiles:
-      - mithril
-      - all
-    environment:
-      - RUST_BACKTRACE=1
-      - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
-      - NETWORK=testnet
-      - NETWORK_MAGIC=1097911063
-      - PARTY_ID=pool12luf5ysaxajd0g8dvtpuyxdchln363dhed8637psyx2eqzatmcv # Random unnamed pool / https://testnet.cardanoscan.io/pool/57f89a121d3764d7a0ed62c3c219b8bfe71d45b7cb4fa8f830219590
-      - RUN_INTERVAL=60000
-      - DB_DIRECTORY=/db
-      - DATA_STORES_DIRECTORY=/mithril-signer-2
-      - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
-      - CARDANO_CLI_PATH=/app/bin/cardano-cli
-    volumes:
-      - ./testnet/mithril-signer-2:/mithril-signer-2
-      - ./testnet/node.db:/db
-      - ./ipc:/ipc
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "5"
-
-  mithril-signer-3:
-    image: ghcr.io/input-output-hk/mithril-signer:${IMAGE_ID:-latest}
-    restart: always
-    user: ${CURRENT_UID}
-    profiles:
-      - mithril
-      - all
-    environment:
-      - RUST_BACKTRACE=1
-      - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
-      - NETWORK=testnet
-      - NETWORK_MAGIC=1097911063
-      - PARTY_ID=pool17vmenrzf2ylr92t390wwhk3jn0ursx00sy92cfa807s3whyknrc # PIPE / https://testnet.cardanoscan.io/pool/f337998c49513e32a9712bdcebda329bf83819ef810aac27a77fa117
-      - RUN_INTERVAL=60000
-      - DB_DIRECTORY=/db
-      - DATA_STORES_DIRECTORY=/mithril-signer-3
-      - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
-      - CARDANO_CLI_PATH=/app/bin/cardano-cli
-    volumes:
-      - ./testnet/mithril-signer-3:/mithril-signer-3
-      - ./testnet/node.db:/db
+      - ./${NETWORK}/mithril-signer-1:/mithril-signer-1
+      - ./${NETWORK}/node.db:/db
       - ./ipc:/ipc
     logging:
       driver: "json-file"
