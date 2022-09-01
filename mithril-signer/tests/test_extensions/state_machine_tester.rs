@@ -114,8 +114,11 @@ impl StateMachineTester {
 
         let runner = Box::new(SignerRunner::new(config, services));
 
-        let state_machine =
-            StateMachine::new(SignerState::Unregistered, runner, Duration::from_secs(5));
+        let state_machine = StateMachine::new(
+            SignerState::Unregistered(None),
+            runner,
+            Duration::from_secs(5),
+        );
 
         StateMachineTester {
             state_machine,

@@ -18,12 +18,12 @@ fn epoch_settings(
         .and(middlewares::with_protocol_parameters_store(
             dependency_manager.clone(),
         ))
-        .and(middlewares::with_chain_observer(dependency_manager))
+        .and(middlewares::with_multi_signer(dependency_manager))
         .and_then(handlers::epoch_settings)
 }
 
 mod handlers {
-    use crate::dependency::{ChainObserverWrapper, ProtocolParametersStoreWrapper};
+    use crate::dependency::{MultiSignerWrapper, ProtocolParametersStoreWrapper};
     use crate::http_server::routes::reply;
     use crate::ProtocolParametersStorer;
     use mithril_common::entities::EpochSettings;
@@ -34,18 +34,18 @@ mod handlers {
     /// Epoch Settings
     pub async fn epoch_settings(
         protocol_parameters_store: ProtocolParametersStoreWrapper,
-        chain_observer: ChainObserverWrapper,
+        multi_signer: MultiSignerWrapper,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("epoch_settings");
 
-        match chain_observer.get_current_epoch().await {
-            Ok(Some(epoch)) => match protocol_parameters_store
-                .get_protocol_parameters(epoch)
+        match multi_signer.read().await.get_current_beacon().await {
+            Some(beacon) => match protocol_parameters_store
+                .get_protocol_parameters(beacon.epoch)
                 .await
             {
                 Ok(Some(protocol_parameters)) => Ok(reply::json(
                     &EpochSettings {
-                        epoch,
+                        epoch: beacon.epoch,
                         protocol_parameters,
                     },
                     StatusCode::OK,
@@ -61,15 +61,11 @@ mod handlers {
                     Ok(reply::internal_server_error(err.to_string()))
                 }
             },
-            Ok(None) => {
+            None => {
                 warn!("epoch_settings::could_not_retrieve_epoch");
                 Ok(reply::internal_server_error(
                     "could_not_retrieve_epoch".to_string(),
                 ))
-            }
-            Err(err) => {
-                warn!("epoch_settings::error"; "error" => ?err);
-                Ok(reply::internal_server_error(err.to_string()))
             }
         }
     }

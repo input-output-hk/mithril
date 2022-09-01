@@ -1,6 +1,6 @@
 use crate::dependency::{
-    CertificatePendingStoreWrapper, CertificateStoreWrapper, ChainObserverWrapper,
-    MultiSignerWrapper, ProtocolParametersStoreWrapper, SnapshotStoreWrapper,
+    CertificatePendingStoreWrapper, CertificateStoreWrapper, MultiSignerWrapper,
+    ProtocolParametersStoreWrapper, SnapshotStoreWrapper,
 };
 use crate::{Configuration, DependencyManager};
 use std::convert::Infallible;
@@ -33,13 +33,6 @@ pub(crate) fn with_protocol_parameters_store(
     dependency_manager: Arc<DependencyManager>,
 ) -> impl Filter<Extract = (ProtocolParametersStoreWrapper,), Error = Infallible> + Clone {
     warp::any().map(move || dependency_manager.protocol_parameters_store.clone())
-}
-
-/// With chain observer
-pub(crate) fn with_chain_observer(
-    dependency_manager: Arc<DependencyManager>,
-) -> impl Filter<Extract = (ChainObserverWrapper,), Error = Infallible> + Clone {
-    warp::any().map(move || dependency_manager.chain_observer.clone())
 }
 
 /// With multi signer middleware
