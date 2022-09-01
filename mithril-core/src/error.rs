@@ -100,7 +100,7 @@ pub enum MerkleTreeError<D: Digest + FixedOutput> {
 }
 
 /// Errors which can be outputted by key registration.
-#[derive(Debug, Clone, thiserror::Error)]
+#[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
 pub enum RegisterError {
     /// This key has already been registered by a participant
     #[error("This key has already been registered.")]
@@ -113,14 +113,10 @@ pub enum RegisterError {
     /// Serialization error
     #[error("Serialization error")]
     SerializationError,
-}
 
-/// Errors which can be outputted by an initializer.
-#[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
-pub enum StmInitializerError {
-    /// NotRegistered error
+    /// UnregisteredInitializer error
     #[error("Initializer not registered. Cannot participate as a signer.")]
-    NotRegistered,
+    UnregisteredInitializer,
 }
 
 impl<D: Digest + FixedOutput> From<RegisterError> for StmSignatureError<D> {
@@ -129,6 +125,7 @@ impl<D: Digest + FixedOutput> From<RegisterError> for StmSignatureError<D> {
             RegisterError::SerializationError => Self::SerializationError,
             RegisterError::KeyInvalid(e) => Self::IvkInvalid(e.vk),
             RegisterError::KeyRegistered(_) => unreachable!(),
+            RegisterError::UnregisteredInitializer => unreachable!(),
         }
     }
 }

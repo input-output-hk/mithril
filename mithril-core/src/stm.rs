@@ -106,7 +106,7 @@
 //! ```
 
 use crate::dense_mapping::ev_lt_phi;
-use crate::error::{AggregationError, RegisterError, StmInitializerError, StmSignatureError};
+use crate::error::{AggregationError, RegisterError, StmSignatureError};
 use crate::key_reg::ClosedKeyReg;
 use crate::merkle_tree::{MTLeaf, MerkleTreeCommitment, Path};
 use crate::multi_sig::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
@@ -293,7 +293,7 @@ impl StmInitializer {
     pub fn new_signer<D: Digest + FixedOutput + Clone>(
         self,
         closed_reg: ClosedKeyReg<D>,
-    ) -> Result<StmSigner<D>, StmInitializerError> {
+    ) -> Result<StmSigner<D>, RegisterError> {
         let mut my_index = None;
         for (i, rp) in closed_reg.reg_parties.iter().enumerate() {
             if rp.0 == self.pk.vk {
@@ -302,7 +302,7 @@ impl StmInitializer {
             }
         }
         if my_index.is_none() {
-            return Err(StmInitializerError::NotRegistered);
+            return Err(RegisterError::UnregisteredInitializer);
         }
 
         Ok(StmSigner {
