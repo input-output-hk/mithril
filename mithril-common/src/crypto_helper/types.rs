@@ -1,14 +1,14 @@
+use blake2::{digest::consts::U32, Blake2b};
 use mithril::key_reg::KeyReg;
 use mithril::stm::{
     Index, Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmInitializer, StmParameters,
     StmSig, StmSigner, StmVerificationKeyPoP,
 };
-
 /// A protocol version
 pub type ProtocolVersion<'a> = &'a str;
 
 // Protocol types alias
-type D = blake2::Blake2b;
+type D = Blake2b<U32>;
 /// The id of a mithril party.
 pub type ProtocolPartyId = String;
 /// Alias of [MithrilCore:Stake](https://mithril.network/mithril-core/doc/mithril/stm/type.Stake.html).
