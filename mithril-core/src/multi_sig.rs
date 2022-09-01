@@ -7,7 +7,7 @@
 
 use crate::error::{blst_err_to_atms, MultiSignatureError};
 use crate::stm::Index;
-use blake2::{Blake2b, Digest};
+use blake2::{digest::consts::U16, Blake2b, Blake2b512, Digest};
 
 // We use `min_sig` resulting in signatures of 48 bytes and public keys of
 // 96. We can switch that around if desired by using `min_pk`.
@@ -357,11 +357,11 @@ impl Signature {
     /// for the lottery (i.e., we follow the VRF lottery mechanism as described in Section 16 of
     /// <https://hydra.iohk.io/build/8201171/download/1/ledger-spec.pdf>).
     pub fn eval(&self, msg: &[u8], index: Index) -> [u8; 64] {
-        let hasher = Blake2b::new()
-            .chain(b"map")
-            .chain(msg)
-            .chain(&index.to_le_bytes())
-            .chain(&self.to_bytes())
+        let hasher = Blake2b512::new()
+            .chain_update(b"map")
+            .chain_update(msg)
+            .chain_update(&index.to_le_bytes())
+            .chain_update(&self.to_bytes())
             .finalize();
 
         let mut output = [0u8; 64];
@@ -411,7 +411,7 @@ impl Signature {
         vks: &[VerificationKey],
         sigs: &[Signature],
     ) -> Result<(), MultiSignatureError> {
-        let mut hashed_sigs = Blake2b::new();
+        let mut hashed_sigs = Blake2b::<U16>::new();
         for sig in sigs {
             hashed_sigs.update(&sig.to_bytes());
         }
@@ -425,7 +425,7 @@ impl Signature {
             let mut hasher = hashed_sigs.clone();
             hasher.update(&index.to_be_bytes());
             signatures.push(&sig.0);
-            scalar_bytes[..16].copy_from_slice(&hasher.finalize().as_slice()[..16]);
+            scalar_bytes[..16].copy_from_slice(hasher.finalize().as_slice());
             scalars.push(blst_scalar { b: scalar_bytes });
             messages.push(msg); // todo: can we do this for the same message??
         }

@@ -1,14 +1,15 @@
-use blake2::Blake2b;
-use digest::{Digest, FixedOutput};
+use blake2::{
+    digest::consts::{U32, U64},
+    Blake2b, Digest,
+};
 use mithril::key_reg::KeyReg;
 use mithril::stm::{StmInitializer, StmParameters};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
-use sha2::Sha256;
 
 fn size<H>(k: u64, nparties: usize, hash_name: &str)
 where
-    H: Digest + Clone + FixedOutput + Sync + Send,
+    H: Digest + Clone + Sync + Send,
 {
     println!("+-------------------+");
     println!("| Hash: {} |", hash_name);
@@ -65,7 +66,7 @@ fn main() {
 
     let params: [(u64, usize); 2] = [(25, 300), (250, 2000)];
     for (k, nparties) in params {
-        size::<Blake2b>(k, nparties, "Blake2b 512");
-        size::<Sha256>(k, nparties, "   SHA256  ");
+        size::<Blake2b<U64>>(k, nparties, "Blake2b 512");
+        size::<Blake2b<U32>>(k, nparties, "Blake2b 256");
     }
 }

@@ -1,6 +1,6 @@
-use blake2::Blake2b;
+use blake2::digest::Digest;
+use blake2::{digest::consts::U32, Blake2b};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use digest::{Digest, FixedOutput};
 use mithril::key_reg::KeyReg;
 use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner};
 use rand_chacha::ChaCha20Rng;
@@ -18,7 +18,7 @@ use std::fmt::Debug;
 
 fn stm_benches<H>(c: &mut Criterion, nr_parties: usize, params: StmParameters, hashing_alg: &str)
 where
-    H: Clone + Debug + Digest + FixedOutput + Send + Sync,
+    H: Clone + Debug + Digest + Send + Sync,
 {
     let mut group = c.benchmark_group(format!("STM/{}", hashing_alg));
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
@@ -82,7 +82,7 @@ where
 }
 
 fn stm_benches_blake_300(c: &mut Criterion) {
-    stm_benches::<Blake2b>(
+    stm_benches::<Blake2b<U32>>(
         c,
         300,
         StmParameters {
@@ -95,7 +95,7 @@ fn stm_benches_blake_300(c: &mut Criterion) {
 }
 
 fn stm_benches_blake_2000(c: &mut Criterion) {
-    stm_benches::<Blake2b>(
+    stm_benches::<Blake2b<U32>>(
         c,
         2000,
         StmParameters {
