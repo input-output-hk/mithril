@@ -1835,6 +1835,7 @@ dependencies = [
  "config",
  "hex",
  "httpmock",
+ "mithril",
  "mithril-common",
  "mockall",
  "rand_chacha 0.3.1",

@@ -104,7 +104,8 @@ pub fn setup_signers_from_parties(
                 protocol_initializer.verification_key(),
                 protocol_initializer
                     .clone()
-                    .new_signer(closed_key_registration.clone()),
+                    .new_signer(closed_key_registration.clone())
+                    .unwrap(),
                 protocol_initializer,
             )
         })

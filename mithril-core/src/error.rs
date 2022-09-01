@@ -115,6 +115,14 @@ pub enum RegisterError {
     SerializationError,
 }
 
+/// Errors which can be outputted by an initializer.
+#[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
+pub enum StmInitializerError {
+    /// NotRegistered error
+    #[error("Initializer not registered. Cannot participate as a signer.")]
+    NotRegistered,
+}
+
 impl<D: Digest + FixedOutput> From<RegisterError> for StmSignatureError<D> {
     fn from(e: RegisterError) -> Self {
         match e {

@@ -10,4 +10,4 @@ pub mod stm;
 
 mod multi_sig;
 
-pub use crate::error::AggregationError;
+pub use crate::error::{AggregationError, StmInitializerError};
