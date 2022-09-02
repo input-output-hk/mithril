@@ -217,21 +217,27 @@ impl StateMachine {
         pending_certificate: &CertificatePending,
     ) -> Result<SignedState, Box<dyn Error + Sync + Send>> {
         let current_beacon = &pending_certificate.beacon;
+        let (retrieval_epoch, next_retrieval_epoch) = (
+            current_beacon.epoch.offset_to_signer_retrieval_epoch()?,
+            current_beacon
+                .epoch
+                .offset_to_next_signer_retrieval_epoch()?,
+        );
+
+        debug!(
+            " ⋅ transition_from_registered_to_signed";
+            "current_epoch" => ?current_beacon.epoch,
+            "retrieval_epoch" => ?retrieval_epoch,
+            "next_retrieval_epoch" => ?next_retrieval_epoch,
+        );
+
         let signers: Vec<SignerWithStake> = self
             .runner
-            .associate_signers_with_stake(
-                current_beacon.epoch.offset_to_signer_retrieval_epoch()?,
-                &pending_certificate.signers,
-            )
+            .associate_signers_with_stake(retrieval_epoch, &pending_certificate.signers)
             .await?;
         let next_signers: Vec<SignerWithStake> = self
             .runner
-            .associate_signers_with_stake(
-                current_beacon
-                    .epoch
-                    .offset_to_next_signer_retrieval_epoch()?,
-                &pending_certificate.next_signers,
-            )
+            .associate_signers_with_stake(next_retrieval_epoch, &pending_certificate.next_signers)
             .await?;
 
         let message = self

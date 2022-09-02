@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use chrono::prelude::*;
+use hex::ToHex;
 use slog_scope::{debug, trace, warn};
 use thiserror::Error;
 
@@ -365,7 +366,8 @@ impl MultiSigner for MultiSignerImpl {
         &mut self,
         message: entities::ProtocolMessage,
     ) -> Result<(), ProtocolError> {
-        debug!("Update current_message to {:?}", message);
+        debug!("Update current_message"; "protocol_message" =>  #?message, "signed message" => message.compute_hash().encode_hex::<String>());
+
         self.multi_signature = None;
         let signers_with_stake = self.get_signers_with_stake().await?;
         let protocol_parameters = self
