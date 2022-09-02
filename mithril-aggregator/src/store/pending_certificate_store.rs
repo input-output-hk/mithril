@@ -1,8 +1,7 @@
-use super::StoreError;
 use tokio::sync::RwLock;
 
 use mithril_common::entities::CertificatePending;
-use mithril_common::store::adapter::StoreAdapter;
+use mithril_common::store::{adapter::StoreAdapter, StoreError};
 
 type Adapter = Box<dyn StoreAdapter<Key = String, Record = CertificatePending>>;
 

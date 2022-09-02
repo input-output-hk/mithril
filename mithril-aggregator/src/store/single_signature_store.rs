@@ -1,18 +1,11 @@
 use async_trait::async_trait;
 use std::collections::HashMap;
-use thiserror::Error;
 use tokio::sync::RwLock;
 
 use mithril_common::entities::{Beacon, PartyId, SingleSignatures};
-use mithril_common::store::adapter::{AdapterError, StoreAdapter};
+use mithril_common::store::{adapter::StoreAdapter, StoreError};
 
 type Adapter = Box<dyn StoreAdapter<Key = Beacon, Record = HashMap<PartyId, SingleSignatures>>>;
-
-#[derive(Debug, Error)]
-pub enum SingleSignatureStoreError {
-    #[error("adapter error {0}")]
-    AdapterError(#[from] AdapterError),
-}
 
 #[async_trait]
 pub trait SingleSignatureStorer {
@@ -20,12 +13,12 @@ pub trait SingleSignatureStorer {
         &self,
         beacon: &Beacon,
         single_signature: &SingleSignatures,
-    ) -> Result<Option<SingleSignatures>, SingleSignatureStoreError>;
+    ) -> Result<Option<SingleSignatures>, StoreError>;
 
     async fn get_single_signatures(
         &self,
         beacon: &Beacon,
-    ) -> Result<Option<HashMap<PartyId, SingleSignatures>>, SingleSignatureStoreError>;
+    ) -> Result<Option<HashMap<PartyId, SingleSignatures>>, StoreError>;
 }
 
 pub struct SingleSignatureStore {
@@ -46,7 +39,7 @@ impl SingleSignatureStorer for SingleSignatureStore {
         &self,
         beacon: &Beacon,
         single_signatures: &SingleSignatures,
-    ) -> Result<Option<SingleSignatures>, SingleSignatureStoreError> {
+    ) -> Result<Option<SingleSignatures>, StoreError> {
         let mut single_signatures_per_party_id = self
             .adapter
             .read()
@@ -71,7 +64,7 @@ impl SingleSignatureStorer for SingleSignatureStore {
     async fn get_single_signatures(
         &self,
         beacon: &Beacon,
-    ) -> Result<Option<HashMap<PartyId, SingleSignatures>>, SingleSignatureStoreError> {
+    ) -> Result<Option<HashMap<PartyId, SingleSignatures>>, StoreError> {
         let record = self.adapter.read().await.get_record(beacon).await?;
         Ok(record)
     }

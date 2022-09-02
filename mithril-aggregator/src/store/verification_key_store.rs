@@ -1,18 +1,11 @@
 use async_trait::async_trait;
 use std::collections::HashMap;
-use thiserror::Error;
 use tokio::sync::RwLock;
 
 use mithril_common::entities::{Epoch, PartyId, Signer};
-use mithril_common::store::adapter::{AdapterError, StoreAdapter};
+use mithril_common::store::{adapter::StoreAdapter, StoreError};
 
 type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = HashMap<PartyId, Signer>>>;
-
-#[derive(Debug, Error)]
-pub enum VerificationKeyStoreError {
-    #[error("adapter error {0}")]
-    AdapterError(#[from] AdapterError),
-}
 
 #[async_trait]
 pub trait VerificationKeyStorer {
@@ -20,12 +13,12 @@ pub trait VerificationKeyStorer {
         &self,
         epoch: Epoch,
         signer: Signer,
-    ) -> Result<Option<Signer>, VerificationKeyStoreError>;
+    ) -> Result<Option<Signer>, StoreError>;
 
     async fn get_verification_keys(
         &self,
         epoch: Epoch,
-    ) -> Result<Option<HashMap<PartyId, Signer>>, VerificationKeyStoreError>;
+    ) -> Result<Option<HashMap<PartyId, Signer>>, StoreError>;
 }
 pub struct VerificationKeyStore {
     adapter: RwLock<Adapter>,
@@ -45,7 +38,7 @@ impl VerificationKeyStorer for VerificationKeyStore {
         &self,
         epoch: Epoch,
         signer: Signer,
-    ) -> Result<Option<Signer>, VerificationKeyStoreError> {
+    ) -> Result<Option<Signer>, StoreError> {
         let mut signers = match self.adapter.read().await.get_record(&epoch).await? {
             Some(s) => s,
             None => HashMap::new(),
@@ -63,7 +56,7 @@ impl VerificationKeyStorer for VerificationKeyStore {
     async fn get_verification_keys(
         &self,
         epoch: Epoch,
-    ) -> Result<Option<HashMap<PartyId, Signer>>, VerificationKeyStoreError> {
+    ) -> Result<Option<HashMap<PartyId, Signer>>, StoreError> {
         let record = self.adapter.read().await.get_record(&epoch).await?;
         Ok(record)
     }

@@ -1,17 +1,10 @@
 use async_trait::async_trait;
-use thiserror::Error;
 use tokio::sync::RwLock;
 
 use mithril_common::entities::{Epoch, ProtocolParameters};
-use mithril_common::store::adapter::{AdapterError, StoreAdapter};
+use mithril_common::store::{adapter::StoreAdapter, StoreError};
 
 type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = ProtocolParameters>>;
-
-#[derive(Debug, Error)]
-pub enum ProtocolParametersStoreError {
-    #[error("adapter error {0}")]
-    AdapterError(#[from] AdapterError),
-}
 
 #[async_trait]
 pub trait ProtocolParametersStorer {
@@ -19,12 +12,12 @@ pub trait ProtocolParametersStorer {
         &self,
         epoch: Epoch,
         protocol_parameters: ProtocolParameters,
-    ) -> Result<Option<ProtocolParameters>, ProtocolParametersStoreError>;
+    ) -> Result<Option<ProtocolParameters>, StoreError>;
 
     async fn get_protocol_parameters(
         &self,
         epoch: Epoch,
-    ) -> Result<Option<ProtocolParameters>, ProtocolParametersStoreError>;
+    ) -> Result<Option<ProtocolParameters>, StoreError>;
 }
 pub struct ProtocolParametersStore {
     adapter: RwLock<Adapter>,
@@ -44,7 +37,7 @@ impl ProtocolParametersStorer for ProtocolParametersStore {
         &self,
         epoch: Epoch,
         protocol_parameters: ProtocolParameters,
-    ) -> Result<Option<ProtocolParameters>, ProtocolParametersStoreError> {
+    ) -> Result<Option<ProtocolParameters>, StoreError> {
         let previous_protocol_parameters = self.adapter.read().await.get_record(&epoch).await?;
         self.adapter
             .write()
@@ -58,8 +51,9 @@ impl ProtocolParametersStorer for ProtocolParametersStore {
     async fn get_protocol_parameters(
         &self,
         epoch: Epoch,
-    ) -> Result<Option<ProtocolParameters>, ProtocolParametersStoreError> {
+    ) -> Result<Option<ProtocolParameters>, StoreError> {
         let record = self.adapter.read().await.get_record(&epoch).await?;
+
         Ok(record)
     }
 }

@@ -13,7 +13,7 @@ use mithril_common::crypto_helper::{
     PROTOCOL_VERSION,
 };
 use mithril_common::entities::{self, SignerWithStake};
-use mithril_common::store::{StakeStoreError, StakeStorer};
+use mithril_common::store::{StakeStorer, StoreError};
 use mithril_common::{
     NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET, SIGNER_EPOCH_RECORDING_OFFSET,
     SIGNER_EPOCH_RETRIEVAL_OFFSET,
@@ -23,11 +23,8 @@ use crate::dependency::{
     ProtocolParametersStoreWrapper, SingleSignatureStoreWrapper, StakeStoreWrapper,
     VerificationKeyStoreWrapper,
 };
-use crate::store::{
-    SingleSignatureStoreError, SingleSignatureStorer, VerificationKeyStoreError,
-    VerificationKeyStorer,
-};
-use crate::{ProtocolParametersStoreError, ProtocolParametersStorer};
+use crate::store::{SingleSignatureStorer, VerificationKeyStorer};
+use crate::ProtocolParametersStorer;
 
 #[cfg(test)]
 use mockall::automock;
@@ -58,17 +55,8 @@ pub enum ProtocolError {
     #[error("no beacon available")]
     UnavailableBeacon(),
 
-    #[error("verification key store error: '{0}'")]
-    VerificationKeyStore(#[from] VerificationKeyStoreError),
-
-    #[error("stake store error: '{0}'")]
-    StakeStore(#[from] StakeStoreError),
-
-    #[error("single signature store error: '{0}'")]
-    SingleSignatureStore(#[from] SingleSignatureStoreError),
-
-    #[error("protocol parameters store error: '{0}'")]
-    ProtocolParametersStore(#[from] ProtocolParametersStoreError),
+    #[error("store error: {0}")]
+    StoreError(#[from] StoreError),
 
     #[error("beacon error: '{0}'")]
     Beacon(#[from] entities::EpochError),

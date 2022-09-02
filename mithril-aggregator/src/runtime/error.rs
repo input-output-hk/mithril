@@ -1,11 +1,10 @@
 use crate::snapshot_stores::SnapshotStoreError;
-use crate::store::StoreError;
-use crate::{ProtocolError, ProtocolParametersStoreError, SnapshotError};
+use crate::{ProtocolError, SnapshotError};
 
 use mithril_common::chain_observer::ChainObserverError;
 use mithril_common::digesters::{ImmutableDigesterError, ImmutableFileListingError};
 use mithril_common::entities::Epoch;
-use mithril_common::store::StakeStoreError;
+use mithril_common::store::StoreError;
 use mithril_common::BeaconProviderError;
 use std::error::Error as StdError;
 use std::io;
@@ -21,15 +20,6 @@ pub enum RuntimeError {
 
     #[error("digester error: {0}")]
     Digester(#[from] ImmutableDigesterError),
-
-    #[error("snapshot store error: {0}")]
-    SnapshotStore(#[from] SnapshotStoreError),
-
-    #[error("stake store error: {0}")]
-    StakeStore(#[from] StakeStoreError),
-
-    #[error("protocol parameters store error: {0}")]
-    ProtocolParametersStore(#[from] ProtocolParametersStoreError),
 
     #[error("store error: {0}")]
     StoreError(#[from] StoreError),
@@ -51,6 +41,9 @@ pub enum RuntimeError {
 
     #[error("certificate chain gap error: {0} vs {1}")]
     CertificateChainEpochGap(Epoch, Epoch),
+
+    #[error("snapshot store error: {0}")]
+    SnapshotStore(#[from] SnapshotStoreError),
 
     #[error("general error: {0}")]
     General(Box<dyn StdError + Sync + Send>),

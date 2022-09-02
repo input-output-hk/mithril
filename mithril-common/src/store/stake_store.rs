@@ -1,20 +1,11 @@
 use async_trait::async_trait;
-use thiserror::Error;
 use tokio::sync::RwLock;
 
 use crate::entities::{Epoch, StakeDistribution};
 
-use super::adapter::{AdapterError, StoreAdapter};
+use super::{adapter::StoreAdapter, StoreError};
 
 type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = StakeDistribution>>;
-
-/// [StakeStorer] related errors.
-#[derive(Debug, Error)]
-pub enum StakeStoreError {
-    /// Error raised when the underlying [adapter][StoreAdapter] raise an error.
-    #[error("adapter error {0}")]
-    AdapterError(#[from] AdapterError),
-}
 
 /// Represent a way to store the stake of mithril party members.
 #[async_trait]
@@ -24,17 +15,17 @@ pub trait StakeStorer {
         &self,
         epoch: Epoch,
         stakes: StakeDistribution,
-    ) -> Result<Option<StakeDistribution>, StakeStoreError>;
+    ) -> Result<Option<StakeDistribution>, StoreError>;
 
     /// Get the stakes of all party at a given `epoch`.
-    async fn get_stakes(&self, epoch: Epoch) -> Result<Option<StakeDistribution>, StakeStoreError>;
+    async fn get_stakes(&self, epoch: Epoch) -> Result<Option<StakeDistribution>, StoreError>;
 
     /// Return the last stakes recorded in the store
     /// This is mainly used for testing right now
     async fn get_last_stakes(
         &self,
         last: usize,
-    ) -> Result<Vec<(Epoch, StakeDistribution)>, StakeStoreError>;
+    ) -> Result<Vec<(Epoch, StakeDistribution)>, StoreError>;
 }
 
 /// A [StakeStorer] that use a [StoreAdapter] to store data.
@@ -57,7 +48,7 @@ impl StakeStorer for StakeStore {
         &self,
         epoch: Epoch,
         stakes: StakeDistribution,
-    ) -> Result<Option<StakeDistribution>, StakeStoreError> {
+    ) -> Result<Option<StakeDistribution>, StoreError> {
         let mut adapter = self.adapter.write().await;
         let signers = adapter.get_record(&epoch).await?;
         adapter.store_record(&epoch, &stakes).await?;
@@ -65,14 +56,14 @@ impl StakeStorer for StakeStore {
         Ok(signers)
     }
 
-    async fn get_stakes(&self, epoch: Epoch) -> Result<Option<StakeDistribution>, StakeStoreError> {
+    async fn get_stakes(&self, epoch: Epoch) -> Result<Option<StakeDistribution>, StoreError> {
         Ok(self.adapter.read().await.get_record(&epoch).await?)
     }
 
     async fn get_last_stakes(
         &self,
         last: usize,
-    ) -> Result<Vec<(Epoch, StakeDistribution)>, StakeStoreError> {
+    ) -> Result<Vec<(Epoch, StakeDistribution)>, StoreError> {
         let results = self.adapter.read().await.get_last_n_records(last).await?;
 
         Ok(results)
