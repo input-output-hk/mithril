@@ -104,30 +104,7 @@ impl Config {
     }
 
     pub fn get_network(&self) -> Result<CardanoNetwork, ConfigError> {
-        match self.network.to_lowercase().as_str() {
-            "mainnet" => Ok(CardanoNetwork::MainNet),
-            "testnet" => {
-                if let Some(magic) = self.network_magic {
-                    Ok(CardanoNetwork::TestNet(magic))
-                } else {
-                    Err(ConfigError::Message(
-                        "no NETWORK MAGIC number given for testnet network".to_string(),
-                    ))
-                }
-            }
-            "devnet" => {
-                if let Some(magic) = self.network_magic {
-                    Ok(CardanoNetwork::DevNet(magic))
-                } else {
-                    Err(ConfigError::Message(
-                        "no NETWORK MAGIC number given for devnet network".to_string(),
-                    ))
-                }
-            }
-            what => Err(ConfigError::Message(format!(
-                "could not parse network '{}', the only recognized networks are: mainnet, devnet, testnet",
-                what
-            ))),
-        }
+        CardanoNetwork::from_code(self.network.clone(), self.network_magic)
+            .map_err(|e| ConfigError::Message(e.to_string()))
     }
 }

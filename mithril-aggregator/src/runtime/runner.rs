@@ -484,7 +484,7 @@ pub mod tests {
 
         // old beacon means the current beacon is newer
         let beacon = Beacon {
-            network: "testnet".to_string(),
+            network: "private".to_string(),
             epoch: Epoch(0),
             immutable_file_number: 0,
         };
