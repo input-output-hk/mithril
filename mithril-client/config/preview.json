@@ -1,0 +1,4 @@
+{
+    "network": "preview",
+    "aggregator_endpoint": "https://aggregator.api.mithril.network/aggregator"
+}
