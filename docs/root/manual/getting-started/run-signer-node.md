@@ -10,6 +10,18 @@ In this guide, you will learn how to setup a **Mithril Signer** on top of a **Ca
 
 :::
 
+:::tip
+
+The Mithril test networks are:
+
+* `preview`: Test network with magic id `2`, implemented on the IOG hosted Mitril Aggregator
+* `preprod`: Test network with magic id `1`, not implemented yet on the IOG hosted Mithril Aggregator
+* `testnet`: Legacy test network with magic id `1097911063`, used to be on the IOG hosted Mitril Aggregator, now deprecated
+
+In this documentation, we use the generic `testnet` identifier, but you need to replace it with the identifier of the network that runs on your Cardano node
+
+:::
+
 :::danger
 
 This guide is working only on a Linux machine.
@@ -141,7 +153,6 @@ First create an env file that will be used by the service
 sudo cat > /opt/mithril/mithril-signer.env << EOF
 PARTY_ID=YOUR_POOL_ID_BECH32
 NETWORK=testnet
-NETWORK_MAGIC=1097911063
 AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator
 RUN_INTERVAL=60000 DB_DIRECTORY=/cardano/db
 CARDANO_NODE_SOCKET_PATH=/cardano/ipc/node.socket
