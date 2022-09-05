@@ -1,3 +1,5 @@
+use blake2::{digest::consts::U32, Blake2b};
+
 use mithril::key_reg::KeyReg;
 use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
 use mithril::AggregationError;
@@ -7,7 +9,7 @@ use rayon::prelude::*;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
-type H = blake2::Blake2b;
+type H = Blake2b<U32>;
 
 #[test]
 fn test_full_protocol() {

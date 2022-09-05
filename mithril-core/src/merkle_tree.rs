@@ -2,7 +2,7 @@
 use crate::error::MerkleTreeError;
 use crate::multi_sig::VerificationKey;
 use crate::stm::Stake;
-use digest::{Digest, FixedOutput};
+use blake2::digest::Digest;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::convert::TryFrom;
@@ -18,7 +18,7 @@ pub struct MTLeaf(pub VerificationKey, pub Stake);
 /// Contains all hashes on the path, and the index of the leaf.
 /// Used to verify that signatures come from eligible signers.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Path<D: Digest + FixedOutput> {
+pub struct Path<D: Digest> {
     pub(crate) values: Vec<Vec<u8>>,
     pub(crate) index: usize,
     hasher: PhantomData<D>,
@@ -28,7 +28,7 @@ pub struct Path<D: Digest + FixedOutput> {
 /// This structure differs from `MerkleTree` in that it does not contain all elements, which are not always necessary.
 /// Instead, it only contains the root of the tree.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MerkleTreeCommitment<D: Digest + FixedOutput> {
+pub struct MerkleTreeCommitment<D: Digest> {
     /// Root of the merkle commitment.
     pub root: Vec<u8>,
     hasher: PhantomData<D>,
@@ -36,7 +36,7 @@ pub struct MerkleTreeCommitment<D: Digest + FixedOutput> {
 
 /// Tree of hashes, providing a commitment of data and its ordering.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MerkleTree<D: Digest + FixedOutput> {
+pub struct MerkleTree<D: Digest> {
     /// The nodes are stored in an array heap:
     /// * `nodes[0]` is the root,
     /// * the parent of `nodes[i]` is `nodes[(i-1)/2]`
@@ -78,7 +78,7 @@ impl Ord for MTLeaf {
     }
 }
 
-impl<D: Digest + Clone + FixedOutput> Path<D> {
+impl<D: Digest + Clone> Path<D> {
     /// Convert to bytes
     /// # Layout
     /// * Index representing the position in the Merkle Tree
@@ -108,7 +108,11 @@ impl<D: Digest + Clone + FixedOutput> Path<D> {
             .map_err(|_| MerkleTreeError::SerializationError)?;
         let mut values = Vec::with_capacity(len);
         for i in 0..len {
-            values.push(bytes[16 + i * D::output_size()..16 + (i + 1) * D::output_size()].to_vec());
+            values.push(
+                bytes[16 + i * <D as Digest>::output_size()
+                    ..16 + (i + 1) * <D as Digest>::output_size()]
+                    .to_vec(),
+            );
         }
 
         Ok(Path {
@@ -119,7 +123,7 @@ impl<D: Digest + Clone + FixedOutput> Path<D> {
     }
 }
 
-impl<D: Clone + Digest + FixedOutput> MerkleTreeCommitment<D> {
+impl<D: Clone + Digest> MerkleTreeCommitment<D> {
     /// Check an inclusion proof that `val` is part of the tree by traveling the whole path until the root.
     /// # Error
     /// If the merkle tree path is invalid, then the function fails.
@@ -129,9 +133,9 @@ impl<D: Clone + Digest + FixedOutput> MerkleTreeCommitment<D> {
         let mut h = D::digest(&val.to_bytes()).to_vec();
         for p in &proof.values {
             if (idx & 0b1) == 0 {
-                h = D::new().chain(h).chain(p).finalize().to_vec();
+                h = D::new().chain_update(h).chain_update(p).finalize().to_vec();
             } else {
-                h = D::new().chain(p).chain(h).finalize().to_vec();
+                h = D::new().chain_update(p).chain_update(h).finalize().to_vec();
             }
             idx >>= 1;
         }
@@ -146,7 +150,7 @@ impl<D: Clone + Digest + FixedOutput> MerkleTreeCommitment<D> {
     /// Outputs `msg || self` as a vector of bytes.
     pub fn concat_with_msg(&self, msg: &[u8]) -> Vec<u8>
     where
-        D: Digest + FixedOutput,
+        D: Digest,
     {
         let mut msgp = msg.to_vec();
         let mut bytes = self.root.clone();
@@ -156,7 +160,7 @@ impl<D: Clone + Digest + FixedOutput> MerkleTreeCommitment<D> {
     }
 }
 
-impl<D: Digest + FixedOutput> MerkleTree<D> {
+impl<D: Digest> MerkleTree<D> {
     /// Provided a non-empty list of leaves, `create` generates its corresponding `MerkleTree`.
     pub fn create(leaves: &[MTLeaf]) -> MerkleTree<D> {
         let n = leaves.len();
@@ -182,7 +186,11 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
             } else {
                 &z
             };
-            nodes[i] = D::new().chain(left).chain(right).finalize().to_vec();
+            nodes[i] = D::new()
+                .chain_update(left)
+                .chain_update(right)
+                .finalize()
+                .to_vec();
         }
 
         Self {
@@ -247,7 +255,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
     /// * Number of leaves committed in the Merkle Tree (as u64)
     /// * All nodes of the merkle tree (starting with the root)
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut result = Vec::with_capacity(8 + self.nodes.len() * D::output_size());
+        let mut result = Vec::with_capacity(8 + self.nodes.len() * <D as Digest>::output_size());
         result.extend_from_slice(&u64::try_from(self.n).unwrap().to_be_bytes());
         for node in self.nodes.iter() {
             result.extend_from_slice(node);
@@ -266,7 +274,11 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
         let num_nodes = n + n.next_power_of_two() - 1;
         let mut nodes = Vec::with_capacity(num_nodes);
         for i in 0..num_nodes {
-            nodes.push(bytes[8 + i * D::output_size()..8 + (i + 1) * D::output_size()].to_vec());
+            nodes.push(
+                bytes[8 + i * <D as Digest>::output_size()
+                    ..8 + (i + 1) * <D as Digest>::output_size()]
+                    .to_vec(),
+            );
         }
         Ok(Self {
             nodes,
@@ -313,16 +325,16 @@ fn sibling(i: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use blake2::Blake2b;
+    use blake2::{digest::consts::U32, Blake2b};
     use proptest::collection::vec;
     use proptest::prelude::*;
 
     prop_compose! {
         fn arb_tree(max_size: u32)
-                   (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<Blake2b>, Vec<MTLeaf>) {
+                   (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<Blake2b<U32>>, Vec<MTLeaf>) {
             let pks = vec![VerificationKey::default(); v.len()];
             let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MTLeaf(key, stake)).collect::<Vec<MTLeaf>>();
-             (MerkleTree::<Blake2b>::create(&leaves), leaves)
+             (MerkleTree::<Blake2b<U32>>::create(&leaves), leaves)
         }
     }
 
@@ -347,7 +359,7 @@ mod tests {
                 assert!(t.to_commitment().check(&values[i], &deserialised).is_ok());
 
                 let encoded = bincode::serialize(&pf).unwrap();
-                let decoded: Path<Blake2b> = bincode::deserialize(&encoded).unwrap();
+                let decoded: Path<Blake2b<U32>> = bincode::deserialize(&encoded).unwrap();
                 assert!(t.to_commitment().check(&values[i], &decoded).is_ok());
             })
         }
@@ -355,20 +367,20 @@ mod tests {
         #[test]
         fn test_bytes_tree((t, values) in arb_tree(5)) {
             let bytes = t.to_bytes();
-            let deserialised = MerkleTree::<Blake2b>::from_bytes(&bytes).unwrap();
-            let tree = MerkleTree::<Blake2b>::create(&values);
+            let deserialised = MerkleTree::<Blake2b<U32>>::from_bytes(&bytes).unwrap();
+            let tree = MerkleTree::<Blake2b<U32>>::create(&values);
             assert_eq!(tree.nodes, deserialised.nodes);
 
             let encoded = bincode::serialize(&t).unwrap();
-            let decoded: MerkleTree::<Blake2b> = bincode::deserialize(&encoded).unwrap();
+            let decoded: MerkleTree::<Blake2b<U32>> = bincode::deserialize(&encoded).unwrap();
             assert_eq!(tree.nodes, decoded.nodes);
         }
 
         #[test]
         fn test_bytes_tree_commitment((t, values) in arb_tree(5)) {
             let encoded = bincode::serialize(&t.to_commitment()).unwrap();
-            let decoded: MerkleTreeCommitment::<Blake2b> = bincode::deserialize(&encoded).unwrap();
-            let tree_commitment = MerkleTree::<Blake2b>::create(&values).to_commitment();
+            let decoded: MerkleTreeCommitment::<Blake2b<U32>> = bincode::deserialize(&encoded).unwrap();
+            let tree_commitment = MerkleTree::<Blake2b<U32>>::create(&values).to_commitment();
             assert_eq!(tree_commitment.root, decoded.root);
         }
     }
@@ -395,14 +407,14 @@ mod tests {
             i in any::<usize>(),
             (values, proof) in values_with_invalid_proof(10)
         ) {
-            let t = MerkleTree::<Blake2b>::create(&values[1..]);
+            let t = MerkleTree::<Blake2b<U32>>::create(&values[1..]);
             let index = i % (values.len() - 1);
             let path = Path{values: proof
                             .iter()
-                            .map(|x|  Blake2b::digest(x).to_vec())
+                            .map(|x|  Blake2b::<U32>::digest(x).to_vec())
                             .collect(),
                 index,
-                hasher: PhantomData::<Blake2b>::default()
+                hasher: PhantomData::<Blake2b<U32>>::default()
                 };
             assert!(t.to_commitment().check(&values[0], &path).is_err());
         }

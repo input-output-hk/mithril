@@ -7,7 +7,6 @@ description = "A Mithril Client"
 
 [dependencies]
 async-trait = "0.1.52"
-blake2      = "0.9.2"
 clap = { version = "3.1.6", features = ["derive"] }
 cli-table = "0.4"
 config = "0.13.1"

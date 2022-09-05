@@ -6,6 +6,7 @@
 //!
 //! ```rust
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! use blake2::{Blake2b, digest::consts::U32};
 //! use mithril::key_reg::KeyReg; // Import key registration functionality
 //! use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
 //! use mithril::AggregationError;
@@ -15,7 +16,7 @@
 //! use rand_core::{RngCore, SeedableRng};
 //!
 //! let nparties = 4; // Use a small number of parties for this example
-//! type D = blake2::Blake2b; // Setting the hash function for convenience
+//! type D = Blake2b<U32>; // Setting the hash function for convenience
 //!
 //! let mut rng = ChaCha20Rng::from_seed([0u8; 32]); // create and initialize rng
 //! let mut msg = [0u8; 16]; // setting an arbitrary message
@@ -110,7 +111,7 @@ use crate::error::{AggregationError, RegisterError, StmSignatureError};
 use crate::key_reg::ClosedKeyReg;
 use crate::merkle_tree::{MTLeaf, MerkleTreeCommitment, Path};
 use crate::multi_sig::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
-use digest::{Digest, FixedOutput};
+use blake2::digest::Digest;
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -166,7 +167,7 @@ pub struct StmInitializer {
 /// This instance can only be generated out of an `StmInitializer` and a `ClosedKeyReg`.
 /// This ensures that a `MerkleTree` root is not computed before all participants have registered.
 #[derive(Debug, Clone)]
-pub struct StmSigner<D: Digest + FixedOutput> {
+pub struct StmSigner<D: Digest> {
     mt_index: u64,
     stake: Stake,
     params: StmParameters,
@@ -179,7 +180,7 @@ pub struct StmSigner<D: Digest + FixedOutput> {
 /// Clerks can only be generated with the registration closed.
 /// This avoids that a Merkle Tree is computed before all parties have registered.
 #[derive(Debug, Clone)]
-pub struct StmClerk<D: Clone + Digest + FixedOutput> {
+pub struct StmClerk<D: Clone + Digest> {
     pub(crate) closed_reg: ClosedKeyReg<D>,
     pub(crate) params: StmParameters,
 }
@@ -190,7 +191,7 @@ pub struct StmClerk<D: Clone + Digest + FixedOutput> {
     serialize = "Path<D>: Serialize",
     deserialize = "Path<D>: Deserialize<'de>"
 ))]
-pub struct StmSig<D: Clone + Digest + FixedOutput> {
+pub struct StmSig<D: Clone + Digest> {
     /// The signature from the underlying MSP scheme.
     pub sigma: Signature,
     /// The Stm verification Key.
@@ -209,7 +210,7 @@ pub struct StmSig<D: Clone + Digest + FixedOutput> {
     serialize = "Path<D>: Serialize",
     deserialize = "Path<D>: Deserialize<'de>"
 ))]
-pub struct StmAggrVerificationKey<D: Clone + Digest + FixedOutput> {
+pub struct StmAggrVerificationKey<D: Clone + Digest> {
     mt_commitment: MerkleTreeCommitment<D>,
     total_stake: Stake,
 }
@@ -221,7 +222,7 @@ pub struct StmAggrVerificationKey<D: Clone + Digest + FixedOutput> {
     serialize = "Path<D>: Serialize",
     deserialize = "Path<D>: Deserialize<'de>"
 ))]
-pub struct StmAggrSig<D: Clone + Digest + FixedOutput> {
+pub struct StmAggrSig<D: Clone + Digest> {
     pub(crate) signatures: Vec<StmSig<D>>,
 }
 
@@ -288,9 +289,9 @@ impl StmInitializer {
     /// * this `StmSigner`'s parameter valuation
     /// * the `avk` as built from the current registered parties (according to the registration service)
     /// * the current total stake (according to the registration service)
-    /// Returns an error
-    /// If the initializer is not registered.
-    pub fn new_signer<D: Digest + FixedOutput + Clone>(
+    /// # Error
+    /// This function fails if the initializer is not registered.
+    pub fn new_signer<D: Digest + Clone>(
         self,
         closed_reg: ClosedKeyReg<D>,
     ) -> Result<StmSigner<D>, RegisterError> {
@@ -350,7 +351,7 @@ impl StmInitializer {
     }
 }
 
-impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
+impl<D: Clone + Digest> StmSigner<D> {
     /// This function produces a signature following the description of Section 2.4.
     /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
     /// wins the lottery by evaluating the dense mapping.
@@ -406,7 +407,7 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     /// # use mithril::stm::{Stake, StmInitializer, StmParameters, StmVerificationKeyPoP};
     /// # use rand_chacha::ChaCha20Rng;
     /// # use rand_core::{RngCore, SeedableRng};
-    /// # use blake2::{Blake2b, Digest};
+    /// # use blake2::{Blake2b, Digest, digest::consts::U32};
     ///
     /// # fn main() {
     ///     // Parameter. This information is broadcast (or known) to all
@@ -503,7 +504,7 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     ///     let _party_2_e2 = party_2_init_e2.new_signer(key_reg_e2_2);
     /// # }
     ///
-    /// # fn local_reg(stakes: &[u64], pks: &[StmVerificationKeyPoP]) -> ClosedKeyReg<Blake2b> {
+    /// # fn local_reg(stakes: &[u64], pks: &[StmVerificationKeyPoP]) -> ClosedKeyReg<Blake2b<U32>> {
     /// # let mut local_keyreg = KeyReg::init();
     /// #    for (&pk, stake) in pks.iter().zip(stakes.iter()) {
     /// #        local_keyreg.register(*stake, pk).unwrap();
@@ -532,7 +533,7 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     }
 }
 
-impl<D: Digest + FixedOutput + Clone> StmClerk<D> {
+impl<D: Digest + Clone> StmClerk<D> {
     /// Create a new `Clerk` from a closed registration instance.
     pub fn from_registration(params: &StmParameters, closed_reg: &ClosedKeyReg<D>) -> Self {
         Self {
@@ -652,7 +653,7 @@ impl<D: Digest + FixedOutput + Clone> StmClerk<D> {
     }
 }
 
-impl<D: Clone + Digest + FixedOutput> StmSig<D> {
+impl<D: Clone + Digest> StmSig<D> {
     /// Verify an stm signature by checking that the lottery was won, the merkle path is correct,
     /// the indexes are in the desired range and the underlying multi signature validates.
     pub fn verify(
@@ -741,21 +742,21 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
     }
 }
 
-impl<D: Clone + Digest + FixedOutput> Hash for StmSig<D> {
+impl<D: Clone + Digest> Hash for StmSig<D> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         Hash::hash_slice(&self.sigma.to_bytes(), state)
     }
 }
 
-impl<D: Clone + Digest + FixedOutput> PartialEq for StmSig<D> {
+impl<D: Clone + Digest> PartialEq for StmSig<D> {
     fn eq(&self, other: &Self) -> bool {
         self.sigma == other.sigma
     }
 }
 
-impl<D: Clone + Digest + FixedOutput> Eq for StmSig<D> {}
+impl<D: Clone + Digest> Eq for StmSig<D> {}
 
-impl<D: Clone + Digest + FixedOutput> From<&ClosedKeyReg<D>> for StmAggrVerificationKey<D> {
+impl<D: Clone + Digest> From<&ClosedKeyReg<D>> for StmAggrVerificationKey<D> {
     fn from(reg: &ClosedKeyReg<D>) -> Self {
         Self {
             mt_commitment: reg.merkle_tree.to_commitment(),
@@ -764,7 +765,7 @@ impl<D: Clone + Digest + FixedOutput> From<&ClosedKeyReg<D>> for StmAggrVerifica
     }
 }
 
-impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
+impl<D: Clone + Digest> StmAggrSig<D> {
     /// Verify aggregate signature, by checking that
     /// * each signature contains only valid indices,
     /// * the lottery is indeed won by each one of them,
@@ -874,7 +875,7 @@ mod tests {
     use super::*;
     use crate::key_reg::*;
     use bincode;
-    use blake2::Blake2b;
+    use blake2::{digest::consts::U32, Blake2b};
     use proptest::collection::{hash_map, vec};
     use proptest::prelude::*;
     use proptest::test_runner::{RngAlgorithm::ChaCha, TestRng};
@@ -884,7 +885,7 @@ mod tests {
     use rand_core::SeedableRng;
 
     type Sig = StmAggrSig<D>;
-    type D = Blake2b;
+    type D = Blake2b<U32>;
 
     fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmSigner<D>> {
         let stake = vec![1; nparties];

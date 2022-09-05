@@ -1,7 +1,7 @@
 //! Crate specific errors
 
 use crate::merkle_tree::Path;
-use digest::{Digest, FixedOutput};
+use blake2::digest::Digest;
 use {
     crate::multi_sig::{Signature, VerificationKey, VerificationKeyPoP},
     blst::BLST_ERROR,
@@ -29,7 +29,7 @@ pub enum MultiSignatureError {
 
 /// Errors which can be output by Mithril verification.
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum StmSignatureError<D: Digest + FixedOutput> {
+pub enum StmSignatureError<D: Digest> {
     /// No quorum was found
     #[error("No Quorum was found.")]
     NoQuorum,
@@ -89,7 +89,7 @@ pub enum AggregationError {
 
 /// Error types related to merkle trees.
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum MerkleTreeError<D: Digest + FixedOutput> {
+pub enum MerkleTreeError<D: Digest> {
     /// Serialization error
     #[error("Serialization of a merkle tree failed")]
     SerializationError,
@@ -119,7 +119,7 @@ pub enum RegisterError {
     UnregisteredInitializer,
 }
 
-impl<D: Digest + FixedOutput> From<RegisterError> for StmSignatureError<D> {
+impl<D: Digest> From<RegisterError> for StmSignatureError<D> {
     fn from(e: RegisterError) -> Self {
         match e {
             RegisterError::SerializationError => Self::SerializationError,
@@ -130,7 +130,7 @@ impl<D: Digest + FixedOutput> From<RegisterError> for StmSignatureError<D> {
     }
 }
 
-impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmSignatureError<D> {
+impl<D: Digest> From<MerkleTreeError<D>> for StmSignatureError<D> {
     fn from(e: MerkleTreeError<D>) -> Self {
         match e {
             MerkleTreeError::PathInvalid(e) => Self::PathInvalid(e),
@@ -139,7 +139,7 @@ impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmSignatureError<D> 
     }
 }
 
-impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmSignatureError<D> {
+impl<D: Digest> From<MultiSignatureError> for StmSignatureError<D> {
     fn from(e: MultiSignatureError) -> Self {
         match e {
             MultiSignatureError::SerializationError => Self::SerializationError,
