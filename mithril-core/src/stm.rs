@@ -112,8 +112,6 @@ use crate::key_reg::ClosedKeyReg;
 use crate::merkle_tree::{MTLeaf, MerkleTreeCommitment, Path};
 use crate::multi_sig::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
 use blake2::digest::Digest;
-use kes_summed_ed25519::kes::{Sum6Kes, Sum6KesSig};
-use kes_summed_ed25519::traits::KesSk;
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -163,8 +161,6 @@ pub struct StmInitializer {
     pub(crate) sk: SigningKey,
     /// Verification (public) key + proof of possession.
     pub(crate) pk: StmVerificationKeyPoP,
-    /// KES signature of `pk`
-    pub(crate) kes_sig: Option<Sum6KesSig>,
 }
 
 /// Participant in the protocol can sign messages.
@@ -270,22 +266,17 @@ impl StmInitializer {
     /// key with a provided KES signing key, and initialises the structure.
     pub fn setup_new<R: RngCore + CryptoRng>(
         params: StmParameters,
-        kes_sk: &[u8],
-        kes_period: usize,
         stake: Stake,
         rng: &mut R,
     ) -> Self {
         let sk = SigningKey::gen(rng);
         let pk = StmVerificationKeyPoP::from(&sk);
-        let kes_sk: Sum6Kes = serde_cbor::from_slice(kes_sk).expect("Invalid KES key provided"); // todo: handle this
-        let kes_sig = Some(kes_sk.sign(kes_period, &pk.to_bytes()));
 
         Self {
             stake,
             params,
             sk,
             pk,
-            kes_sig,
         }
     }
     /// Builds an `StmInitializer` that is ready to register with the key registration service.
@@ -298,7 +289,6 @@ impl StmInitializer {
             params,
             sk,
             pk,
-            kes_sig: None,
         }
     }
 
@@ -375,7 +365,6 @@ impl StmInitializer {
             params,
             sk,
             pk,
-            kes_sig: None,
         })
     }
 }
@@ -552,7 +541,6 @@ impl<D: Clone + Digest> StmSigner<D> {
             params: self.params,
             pk: StmVerificationKeyPoP::from(&self.sk),
             sk: self.sk,
-            kes_sig: None,
         }
     }
 

@@ -164,7 +164,7 @@ mod tests {
             .unwrap();
 
         assert!(res.is_some());
-        assert_eq!(protocol_initializers[0].1.stake, res.unwrap().stake);
+        assert_eq!(protocol_initializers[0].1.get_stake(), res.unwrap().get_stake());
     }
 
     #[tokio::test]
