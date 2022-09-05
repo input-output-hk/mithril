@@ -3,16 +3,11 @@ use super::stm::Stake;
 use crate::error::RegisterError;
 use crate::merkle_tree::{MTLeaf, MerkleTree};
 use crate::multi_sig::{VerificationKey, VerificationKeyPoP};
-<<<<<<< HEAD
-use blake2::digest::Digest;
-=======
-use blake2::VarBlake2b;
-use digest::{Digest, FixedOutput, Update, VariableOutput};
+use blake2::{digest::consts::U28, digest::Digest, Blake2b};
 use ed25519_dalek::{PublicKey as EdPublicKey, Signature as EdSignature, Verifier};
 use kes_summed_ed25519::common::PublicKey as KesPublicKey;
 use kes_summed_ed25519::kes::Sum6KesSig;
 use kes_summed_ed25519::traits::KesSig;
->>>>>>> be47ea5e6 (PoolID working with the node)
 use serde::{Deserialize, Serialize};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
@@ -134,12 +129,10 @@ impl NewKeyReg {
             .verify(kes_period, &cert.kes_vk, &pk.to_bytes())
             .map_err(|_| RegisterError::KesSignatureInvalid)?;
 
-        let mut hasher = VarBlake2b::new(28).unwrap();
+        let mut hasher = Blake2b::<U28>::new();
         hasher.update(cert.cold_vk.as_bytes());
         let mut pool_id = [0u8; 28];
-        hasher.finalize_variable(|res| {
-            pool_id.copy_from_slice(res);
-        });
+        pool_id.copy_from_slice(hasher.finalize().as_slice());
 
         if let Some(&stake) = self.stake_distribution.get(&pool_id) {
             if let Entry::Vacant(e) = self.keys.entry(pk.vk) {
@@ -211,11 +204,7 @@ mod tests {
     use super::*;
     use crate::multi_sig::SigningKey;
     use crate::stm::{StmInitializer, StmParameters};
-<<<<<<< HEAD
-    use blake2::{digest::consts::U32, Blake2b};
-=======
-    use blake2::Blake2b;
->>>>>>> be47ea5e6 (PoolID working with the node)
+    use blake2::digest::consts::U32;
     use hex::FromHex;
     use proptest::collection::vec;
     use proptest::prelude::*;
@@ -294,18 +283,10 @@ mod tests {
         };
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
 
-<<<<<<< HEAD
-        let fake_pool_id = [
-            134, 128, 179, 254, 245, 165, 179, 39, 71, 156, 226, 254, 129, 15, 231, 1, 142, 176,
-            236, 148, 207, 175, 146, 72, 222, 186, 20, 75,
-        ];
-        let mut key_reg = NewKeyReg::init(&[(fake_pool_id, 10)]);
-=======
         let mut pool_id_1 = [0; 28];
         pool_id_1.copy_from_slice(
             &Vec::from_hex("290de5c13d3d1e05255895915eff06331f546e9239be6b37767f5ae2").unwrap(),
         );
->>>>>>> be47ea5e6 (PoolID working with the node)
 
         let mut pool_id_2 = [0; 28];
         pool_id_2.copy_from_slice(
