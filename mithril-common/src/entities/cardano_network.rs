@@ -79,3 +79,49 @@ impl Display for CardanoNetwork {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_cardano_network_from_code() {
+        assert_eq!(
+            CardanoNetwork::from_code("mainnet".to_string(), None).unwrap(),
+            CardanoNetwork::MainNet
+        );
+        assert_eq!(
+            CardanoNetwork::from_code("mainnet".to_string(), Some(123)).unwrap(),
+            CardanoNetwork::MainNet
+        );
+        assert_eq!(
+            CardanoNetwork::from_code("preview".to_string(), None).unwrap(),
+            CardanoNetwork::TestNet(PREVIEW_MAGIC_ID)
+        );
+        assert_eq!(
+            CardanoNetwork::from_code("preview".to_string(), Some(123)).unwrap(),
+            CardanoNetwork::TestNet(PREVIEW_MAGIC_ID)
+        );
+        assert_eq!(
+            CardanoNetwork::from_code("preprod".to_string(), None).unwrap(),
+            CardanoNetwork::TestNet(PREPROD_MAGIC_ID)
+        );
+        assert_eq!(
+            CardanoNetwork::from_code("preprod".to_string(), Some(123)).unwrap(),
+            CardanoNetwork::TestNet(PREPROD_MAGIC_ID)
+        );
+        assert_eq!(
+            CardanoNetwork::from_code("testnet".to_string(), None).unwrap(),
+            CardanoNetwork::TestNet(TESTNET_MAGIC_ID)
+        );
+        assert_eq!(
+            CardanoNetwork::from_code("testnet".to_string(), Some(123)).unwrap(),
+            CardanoNetwork::TestNet(TESTNET_MAGIC_ID)
+        );
+        assert_eq!(
+            CardanoNetwork::from_code("private".to_string(), Some(123)).unwrap(),
+            CardanoNetwork::TestNet(123)
+        );
+        assert!(CardanoNetwork::from_code("private".to_string(), None).is_err());
+    }
+}
