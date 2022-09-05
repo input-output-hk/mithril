@@ -8,7 +8,7 @@ use std::env;
 use std::error::Error;
 use std::sync::Arc;
 
-use mithril_client::{AggregatorHTTPClient, Config, Runtime};
+use mithril_client::{convert_to_field_items, AggregatorHTTPClient, Config, Runtime};
 
 use mithril_common::certificate_chain::MithrilCertificateVerifier;
 
@@ -55,7 +55,11 @@ impl Args {
 enum Commands {
     /// List available snapshots
     #[clap(arg_required_else_help = false)]
-    List {},
+    List {
+        /// JSON output mode
+        #[clap(long)]
+        json: bool,
+    },
 
     /// Infos about a snapshot
     #[clap(arg_required_else_help = false)]
@@ -63,6 +67,10 @@ enum Commands {
         /// Snapshot digest
         #[clap(required = true)]
         digest: String,
+
+        /// JSON output mode
+        #[clap(long)]
+        json: bool,
     },
 
     /// Download a snapshot
@@ -119,16 +127,28 @@ async fn main() -> Result<(), String> {
 
     // Execute commands
     match &args.command {
-        Commands::List {} => match runtime.list_snapshots().await {
+        Commands::List { json } => match runtime.list_snapshots().await {
             Ok(snapshot_list_items) => {
-                print_stdout(snapshot_list_items.with_title()).unwrap();
+                if *json {
+                    println!("{}", serde_json::to_string(&snapshot_list_items).unwrap());
+                } else {
+                    print_stdout(snapshot_list_items.with_title()).unwrap();
+                }
                 Ok(())
             }
             Err(err) => pretty_print_error(err),
         },
-        Commands::Show { digest } => match runtime.show_snapshot(digest).await {
+        Commands::Show { digest, json } => match runtime.show_snapshot(digest).await {
             Ok(snapshot_field_items) => {
-                print_stdout(snapshot_field_items.with_title()).unwrap();
+                if *json {
+                    println!("{}", serde_json::to_string(&snapshot_field_items).unwrap());
+                } else {
+                    print_stdout(
+                        convert_to_field_items(&snapshot_field_items, config.network.clone())
+                            .with_title(),
+                    )
+                    .unwrap();
+                }
                 Ok(())
             }
             Err(err) => pretty_print_error(err),

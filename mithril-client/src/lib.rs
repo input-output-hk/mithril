@@ -20,3 +20,5 @@ mod runtime;
 pub use crate::aggregator::{AggregatorHTTPClient, AggregatorHandler, AggregatorHandlerError};
 pub use crate::entities::Config;
 pub use crate::runtime::{Runtime, RuntimeError};
+
+pub use crate::runtime::convert_to_field_items;
