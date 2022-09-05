@@ -7,17 +7,20 @@ type Adapter = Box<dyn StoreAdapter<Key = String, Record = CertificatePending>>;
 
 const KEY: &str = "certificate_pending";
 
+/// Store for [CertificatePending].
 pub struct CertificatePendingStore {
     adapter: RwLock<Adapter>,
 }
 
 impl CertificatePendingStore {
+    /// Create a new instance.
     pub fn new(adapter: Adapter) -> Self {
         Self {
             adapter: RwLock::new(adapter),
         }
     }
 
+    /// Fetch the current [CertificatePending] if any.
     pub async fn get(&self) -> Result<Option<CertificatePending>, StoreError> {
         let record = self
             .adapter
@@ -28,6 +31,7 @@ impl CertificatePendingStore {
         Ok(record)
     }
 
+    /// Save the given [CertificatePending].
     pub async fn save(&self, certificate: CertificatePending) -> Result<(), StoreError> {
         Ok(self
             .adapter
@@ -37,6 +41,7 @@ impl CertificatePendingStore {
             .await?)
     }
 
+    /// Remove and return the current [CertificatePending] if any.
     pub async fn remove(&self) -> Result<Option<CertificatePending>, StoreError> {
         self.adapter
             .write()

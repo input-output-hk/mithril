@@ -3,17 +3,23 @@ use std::{error::Error, path::Path, sync::RwLock};
 
 use super::{SnapshotLocation, SnapshotUploader};
 
+/// Dummy uploader for test purposes.
+///
+/// It actually does NOT upload any snapshot but remembers the last snapshot it
+/// was asked to upload. This is intended to by used by integration tests.
 pub struct DumbSnapshotUploader {
     last_uploaded: RwLock<Option<String>>,
 }
 
 impl DumbSnapshotUploader {
+    /// Create a new instance.
     pub fn new() -> Self {
         Self {
             last_uploaded: RwLock::new(None),
         }
     }
 
+    /// Return the last upload that was triggered.
     pub fn get_last_upload(&self) -> Result<Option<String>, Box<dyn Error + Sync + Send>> {
         let value = self
             .last_uploaded

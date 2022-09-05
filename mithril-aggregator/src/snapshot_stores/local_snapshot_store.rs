@@ -10,6 +10,7 @@ use mithril_common::store::adapter::StoreAdapter;
 
 type Adapter = Box<dyn StoreAdapter<Key = String, Record = Snapshot>>;
 
+/// Store for local snapshots.
 pub struct LocalSnapshotStore {
     adapter: RwLock<Adapter>,
     list_snapshots_max_items: usize,

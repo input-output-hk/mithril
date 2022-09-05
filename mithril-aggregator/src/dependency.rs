@@ -62,20 +62,49 @@ pub type SnapshotterWrapper = Arc<dyn Snapshotter>;
 
 /// DependencyManager handles the dependencies
 pub struct DependencyManager {
+    /// Configuration structure.
     pub config: Config,
+
+    /// Snapshot store.
     pub snapshot_store: SnapshotStoreWrapper,
+
+    /// Snapshot uploader service.
     pub snapshot_uploader: SnapshotUploaderWrapper,
+
+    /// Multisigner service.
     pub multi_signer: MultiSignerWrapper,
+
+    /// Certificate pending store.
     pub certificate_pending_store: CertificatePendingStoreWrapper,
+
+    /// Certificate store.
     pub certificate_store: CertificateStoreWrapper,
+
+    /// Verification key store.
     pub verification_key_store: VerificationKeyStoreWrapper,
+
+    /// Stake store.
     pub stake_store: StakeStoreWrapper,
+
+    /// Signer single signature store.
     pub single_signature_store: SingleSignatureStoreWrapper,
+
+    /// Protocol parameter store.
     pub protocol_parameters_store: ProtocolParametersStoreWrapper,
+
+    /// Chain observer service.
     pub chain_observer: ChainObserverWrapper,
+
+    /// Beacon provider service.
     pub beacon_provider: BeaconProviderWrapper,
+
+    /// Immutable file observer service.
     pub immutable_file_observer: ImmutableFileObserverWrapper,
+
+    /// Digester service.
     pub digester: DigesterWrapper,
+
+    /// Snapshotter service.
     pub snapshotter: SnapshotterWrapper,
 }
 

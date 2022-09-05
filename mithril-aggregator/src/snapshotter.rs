@@ -8,11 +8,13 @@ use std::path::{Path, PathBuf};
 use std::sync::RwLock;
 use thiserror::Error;
 
+/// Define the ability to create snapshots.
 pub trait Snapshotter: Sync + Send {
+    /// Create a new snapshot with the given archive name.
     fn snapshot(&self, archive_name: &str) -> Result<OngoingSnapshot, SnapshotError>;
 }
 
-/// Snapshotter
+/// Gzip Snapshotter create a compressed file.
 pub struct GzipSnapshotter {
     /// DB directory to snapshot
     db_directory: PathBuf,
@@ -40,14 +42,18 @@ impl OngoingSnapshot {
     }
 }
 
+/// Snapshotter error type.
 #[derive(Error, Debug)]
 pub enum SnapshotError {
+    /// Set when the snapshotter fails at creating a snapshot.
     #[error("Create archive error: {0}")]
     CreateArchiveError(#[from] io::Error),
 
+    /// Set when the snapshotter fails at uploading the snapshot.
     #[error("Upload file error: `{0}`")]
     UploadFileError(String),
 
+    /// General error.
     #[error("Snapshot General Error: `{0}`")]
     GeneralError(String),
 }
@@ -96,17 +102,20 @@ impl GzipSnapshotter {
     }
 }
 
+/// Snapshotter that does nothing. It is mainly used for test purposes.
 pub struct DumbSnapshotter {
     last_snapshot: RwLock<Option<OngoingSnapshot>>,
 }
 
 impl DumbSnapshotter {
+    /// Create a new instance of DumbSnapshotter.
     pub fn new() -> Self {
         Self {
             last_snapshot: RwLock::new(None),
         }
     }
 
+    /// Return the last fake snapshot produced.
     pub fn get_last_snapshot(
         &self,
     ) -> Result<Option<OngoingSnapshot>, Box<dyn StdError + Sync + Send>> {

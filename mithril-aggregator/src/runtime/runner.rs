@@ -20,6 +20,8 @@ use crate::{DependencyManager, ProtocolError, SnapshotError};
 use mockall::automock;
 
 use super::RuntimeError;
+
+/// Configuration structure dedicated to the AggregatorRuntime.
 #[derive(Debug, Clone)]
 pub struct AggregatorConfig {
     /// Interval between each snapshot, in ms
@@ -33,6 +35,7 @@ pub struct AggregatorConfig {
 }
 
 impl AggregatorConfig {
+    /// Create a new instance of AggregatorConfig.
     pub fn new(interval: u64, network: CardanoNetwork, db_directory: &Path) -> Self {
         Self {
             interval,
@@ -42,6 +45,8 @@ impl AggregatorConfig {
     }
 }
 
+/// This trait is intended to allow mocking the AggregatorRunner in tests.
+/// It exposes all the methods needed by the state machine.
 #[async_trait]
 pub trait AggregatorRunnerTrait: Sync + Send {
     /// Return the current beacon if it is newer than the given one.
@@ -50,31 +55,42 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Check if a certificate already have been issued for a given beacon.
     async fn certificate_exist_for_beacon(&self, beacon: &Beacon) -> Result<bool, RuntimeError>;
 
+    /// Compute the digest of the last immutable file of the node.
     async fn compute_digest(&self, new_beacon: &Beacon) -> Result<String, RuntimeError>;
 
+    /// Update the multisigner with the given beacon.
     async fn update_beacon(&self, new_beacon: &Beacon) -> Result<(), RuntimeError>;
 
+    /// Read the stake distribution from the blockchain and store it.
     async fn update_stake_distribution(&self, new_beacon: &Beacon) -> Result<(), RuntimeError>;
 
+    /// Update the multisigner with the protocol parameters from configuration.
     async fn update_protocol_parameters_in_multisigner(
         &self,
         new_beacon: &Beacon,
     ) -> Result<(), RuntimeError>;
 
+    /// Set the message to sign in the multisigner. The digest is only one part
+    /// of the message, the next signing stake distribution must also be signed
+    /// as part of the message.
     async fn update_message_in_multisigner(&self, digest: String) -> Result<(), RuntimeError>;
 
+    /// Return the actual pending certificate from the multisigner.
     async fn create_new_pending_certificate_from_multisigner(
         &self,
         beacon: Beacon,
     ) -> Result<CertificatePending, RuntimeError>;
 
+    /// Store the given pending certificate.
     async fn save_pending_certificate(
         &self,
         pending_certificate: CertificatePending,
     ) -> Result<(), RuntimeError>;
 
+    /// Drop the multisigner's actual pending certificate.
     async fn drop_pending_certificate(&self) -> Result<Option<CertificatePending>, RuntimeError>;
 
+    /// Check if the multisigner has issued a multi-signature.
     async fn is_multisig_created(&self) -> Result<bool, RuntimeError>;
 
     /// Create an archive of the cardano node db directory naming it after the given beacon.
@@ -87,17 +103,19 @@ pub trait AggregatorRunnerTrait: Sync + Send {
 
     /// Upload the snapshot at the given location using the configured uploader(s).
     ///
-    /// Important: the snapshot is removed after the upload succeeded.
+    /// **Important**: the snapshot is removed after the upload succeeded.
     async fn upload_snapshot_archive(
         &self,
         ongoing_snapshot: &OngoingSnapshot,
     ) -> Result<Vec<SnapshotLocation>, RuntimeError>;
 
+    /// Create a signed certificate.
     async fn create_and_save_certificate(
         &self,
         beacon: &Beacon,
     ) -> Result<Certificate, RuntimeError>;
 
+    /// Create a snapshot and save it to the given locations.
     async fn create_and_save_snapshot(
         &self,
         certificate: Certificate,
@@ -106,12 +124,15 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     ) -> Result<Snapshot, RuntimeError>;
 }
 
+/// The runner responsibility is to expose a code API for the state machine. It
+/// holds services and configuration.
 pub struct AggregatorRunner {
     config: AggregatorConfig,
     dependencies: Arc<DependencyManager>,
 }
 
 impl AggregatorRunner {
+    /// Create a new instance of the Aggrergator Runner.
     pub fn new(config: AggregatorConfig, dependencies: Arc<DependencyManager>) -> Self {
         Self {
             config,
@@ -123,8 +144,6 @@ impl AggregatorRunner {
 #[cfg_attr(test, automock)]
 #[async_trait]
 impl AggregatorRunnerTrait for AggregatorRunner {
-    /// Is there a new beacon?
-    /// returns a new beacon if there is one more recent than the given one
     async fn is_new_beacon(
         &self,
         maybe_beacon: Option<Beacon>,
@@ -307,10 +326,10 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(certificate_pending)
     }
 
-    /// Is a multisignature ready?
-    /// Can we create a multisignature.
+    /// Is a multi-signature ready?
+    /// Can we create a multi-signature.
     async fn is_multisig_created(&self) -> Result<bool, RuntimeError> {
-        info!("RUNNER: check if we can create a multisignature");
+        info!("RUNNER: check if we can create a multi-signature");
         let has_multisig = self
             .dependencies
             .multi_signer

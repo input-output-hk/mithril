@@ -29,35 +29,46 @@ use crate::ProtocolParametersStorer;
 #[cfg(test)]
 use mockall::automock;
 
+/// Error type for multi signer service.
 #[derive(Error, Debug)]
 pub enum ProtocolError {
+    /// Signer is already registered.
     #[error("signer already registered")]
     ExistingSigner(),
 
+    /// Single signature already recorded.
     #[error("single signature already recorded")]
     ExistingSingleSignature(entities::PartyId),
 
+    /// Codec error.
     #[error("codec error: '{0}'")]
     Codec(String),
 
+    /// Mithril Core library returned an error.
     #[error("core error: '{0}'")]
     Core(String),
 
+    /// No message available.
     #[error("no message available")]
     UnavailableMessage(),
 
+    /// No protocol parameters available.
     #[error("no protocol parameters available")]
     UnavailableProtocolParameters(),
 
+    /// No clerk available.
     #[error("no clerk available")]
     UnavailableClerk(),
 
+    /// No beacon available.
     #[error("no beacon available")]
     UnavailableBeacon(),
 
+    /// Store error.
     #[error("store error: {0}")]
     StoreError(#[from] StoreError),
 
+    /// Beacon error.
     #[error("beacon error: '{0}'")]
     Beacon(#[from] entities::EpochError),
 }
