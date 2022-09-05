@@ -154,10 +154,13 @@ to {}
 
 Restore a Cardano Node with:
 
-docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="{}",target=/data/db/ -e NETWORK=testnet inputoutput/cardano-node
+docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="{}",target=/data/db/ -e NETWORK={} inputoutput/cardano-node
 
 "###,
-                    digest, to, to
+                    digest,
+                    to,
+                    to,
+                    config.network.clone()
                 );
                 Ok(())
             }
