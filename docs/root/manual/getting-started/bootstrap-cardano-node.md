@@ -14,9 +14,9 @@ Thanks to a **Mithril Client** connected to a **Mithril Aggregator**, you will r
 
 The Mithril test networks are:
 
-* `preview`: Test network with magic id `2`, implemented on the IOG hosted Mitril Aggregator
+* `preview`: Test network with magic id `2`, implemented on the IOG hosted Mithril Aggregator
 * `preprod`: Test network with magic id `1`, not implemented yet on the IOG hosted Mithril Aggregator
-* `testnet`: Legacy test network with magic id `1097911063`, used to be on the IOG hosted Mitril Aggregator, now deprecated
+* `testnet`: Legacy test network with magic id `1097911063`, used to be on the IOG hosted Mithril Aggregator, now deprecated
 
 In this documentation, we use the generic `testnet` identifier, but you need to replace it with the identifier of the network that runs on your Cardano node
 
@@ -189,7 +189,7 @@ Verify the Certificate of the snapshot and unpack its content in order to feed t
 NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client restore $SNAPSHOT_DIGEST
 ```
 
-You will see that the snapshot archive is unpacked and that the associcated certificate is valid
+You will see that the snapshot archive is unpacked and that the associated certificate is valid
 
 ```bash
 Unpacking snapshot...

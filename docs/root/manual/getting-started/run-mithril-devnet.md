@@ -477,7 +477,7 @@ Verify the Certificate of the snapshot and unpack its content in order to feed t
 NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client restore $SNAPSHOT_DIGEST
 ```
 
-You will see that the snapshot archive is unpacked and that the associcated certificate is valid
+You will see that the snapshot archive is unpacked and that the associated certificate is valid
 
 ```bash
 Unpacking snapshot...

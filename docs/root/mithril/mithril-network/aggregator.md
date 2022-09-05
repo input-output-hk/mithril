@@ -98,7 +98,7 @@ In its first version, the **Mithril Aggregator** is composed of two main compone
 
 :::tip
 
-The documentation of the REST API of the **Mitril Aggregator** is available [here](/aggregator-api).
+The documentation of the REST API of the **Mithril Aggregator** is available [here](/aggregator-api).
 
 :::
 
