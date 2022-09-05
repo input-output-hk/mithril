@@ -25,7 +25,7 @@ This cli is inspired by this [script](https://github.com/input-output-hk/cardano
 git clone https://github.com/input-output-hk/mithril
 
 # Go to sources directory
-cd mithril-test-lab/mitril-devnet
+cd mithril-test-lab/mithril-devnet
 
 # Chmod scripts
 chmod u+x *.sh

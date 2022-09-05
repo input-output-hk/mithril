@@ -14,9 +14,9 @@ In this guide, you will learn how to setup a **Mithril Signer** on top of a **Ca
 
 The Mithril test networks are:
 
-* `preview`: Test network with magic id `2`, implemented on the IOG hosted Mitril Aggregator
+* `preview`: Test network with magic id `2`, implemented on the IOG hosted Mithril Aggregator
 * `preprod`: Test network with magic id `1`, not implemented yet on the IOG hosted Mithril Aggregator
-* `testnet`: Legacy test network with magic id `1097911063`, used to be on the IOG hosted Mitril Aggregator, now deprecated
+* `testnet`: Legacy test network with magic id `1097911063`, used to be on the IOG hosted Mithril Aggregator, now deprecated
 
 In this documentation, we use the generic `testnet` identifier, but you need to replace it with the identifier of the network that runs on your Cardano node
 
@@ -136,7 +136,7 @@ sudo mv mithril-signer /opt/mithril
 :::caution
 
 * `User=cardano`:
-Replace this value with the correct user. We assume that the user used to run the **Cardano Node** is `cardano`. The **Mitril Signer** must imperatively run with the same user.
+Replace this value with the correct user. We assume that the user used to run the **Cardano Node** is `cardano`. The **Mithril Signer** must imperatively run with the same user.
 
 * in the `/opt/mithril/mithril-signer/service.env` env file:
   * `PARTY_ID=YOUR_POOL_ID_BECH32`: replace `YOUR_POOL_ID_BECH32` with your BECH32 `Pool Id`
