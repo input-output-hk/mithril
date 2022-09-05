@@ -2,10 +2,9 @@ use hex::ToHex;
 use slog_scope::{info, trace, warn};
 use thiserror::Error;
 
-use mithril::RegisterError;
 use mithril_common::crypto_helper::{
     key_decode_hex, key_encode_hex, ProtocolClerk, ProtocolInitializer, ProtocolKeyRegistration,
-    ProtocolSigner,
+    ProtocolRegistrationError, ProtocolSigner,
 };
 use mithril_common::entities::{
     PartyId, ProtocolMessage, ProtocolParameters, SignerWithStake, SingleSignatures, Stake,
@@ -83,7 +82,7 @@ pub enum SingleSignerError {
 
     /// Could not fetch a signer from a protocol initializer.
     #[error("the protocol initializer is not registered")]
-    ProtocolInitializerNotRegistered(#[from] RegisterError),
+    ProtocolInitializerNotRegistered(#[from] ProtocolRegistrationError),
 
     /// Encoding / Decoding error.
     #[error("codec error: '{0}'")]

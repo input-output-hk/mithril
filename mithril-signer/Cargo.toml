@@ -14,7 +14,6 @@ async-trait = "0.1.52"
 clap = { version = "3.1.6", features = ["derive", "env"] }
 config = "0.13.1"
 hex = "0.4.3"
-mithril = { path = "../mithril-core" }
 mithril-common = { path = "../mithril-common" }
 rand_chacha = "0.3.1"
 rand_core   = "0.6.3"

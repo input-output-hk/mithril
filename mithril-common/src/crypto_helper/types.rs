@@ -5,6 +5,7 @@ use mithril::stm::{
     Index, Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmInitializer, StmParameters,
     StmSig, StmSigner, StmVerificationKeyPoP,
 };
+use mithril::{AggregationError, RegisterError};
 /// A protocol version
 pub type ProtocolVersion<'a> = &'a str;
 
@@ -42,3 +43,9 @@ pub type ProtocolGenesisVerificationKey = ed25519_dalek::PublicKey;
 pub type ProtocolGenesisSecretKey = ed25519_dalek::SecretKey;
 /// Alias of [Ed25519:Signature](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.Signature.html).
 pub type ProtocolGenesisSignature = ed25519_dalek::Signature;
+
+// Error alias
+/// Alias of [MithrilCore:RegisterError](https://mithril.network/mithril-core/doc/mithril/error/enum.RegisterError.html).
+pub type ProtocolRegistrationError = RegisterError;
+/// Alias of [MithrilCore:AggregationError](https://mithril.network/mithril-core/doc/mithril/error/enum.AggregationError.html).
+pub type ProtocolAggregationError = AggregationError;

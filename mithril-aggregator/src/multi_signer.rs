@@ -7,12 +7,11 @@ use hex::ToHex;
 use slog_scope::{debug, trace, warn};
 use thiserror::Error;
 
-use mithril::AggregationError;
 use mithril_common::crypto_helper::{
-    key_decode_hex, key_encode_hex, ProtocolAggregateVerificationKey, ProtocolClerk,
-    ProtocolKeyRegistration, ProtocolMultiSignature, ProtocolParameters, ProtocolPartyId,
-    ProtocolSignerVerificationKey, ProtocolSingleSignature, ProtocolStakeDistribution,
-    PROTOCOL_VERSION,
+    key_decode_hex, key_encode_hex, ProtocolAggregateVerificationKey, ProtocolAggregationError,
+    ProtocolClerk, ProtocolKeyRegistration, ProtocolMultiSignature, ProtocolParameters,
+    ProtocolPartyId, ProtocolSignerVerificationKey, ProtocolSingleSignature,
+    ProtocolStakeDistribution, PROTOCOL_VERSION,
 };
 use mithril_common::entities::{self, PartyId, SignerWithStake};
 use mithril_common::store::{StakeStore, StakeStorer, StoreError};
@@ -706,7 +705,7 @@ impl MultiSigner for MultiSignerImpl {
                 self.multi_signature = Some(multi_signature.clone());
                 Ok(Some(multi_signature))
             }
-            Err(AggregationError::NotEnoughSignatures(actual, expected)) => {
+            Err(ProtocolAggregationError::NotEnoughSignatures(actual, expected)) => {
                 warn!("Could not compute multi-signature: Not enough signatures. Got only {} out of {}.", actual, expected);
                 Ok(None)
             }

@@ -1886,7 +1886,6 @@ dependencies = [
  "flate2",
  "hex",
  "httpmock",
- "mithril",
  "mithril-common",
  "mockall",
  "reqwest",
@@ -1911,7 +1910,7 @@ name = "mithril-client"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "clap 3.2.22",
+ "clap 3.2.20",
  "cli-table",
  "config",
  "flate2",
@@ -1991,11 +1990,10 @@ name = "mithril-signer"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "clap 3.2.22",
+ "clap 3.2.20",
  "config",
  "hex",
  "httpmock",
- "mithril",
  "mithril-common",
  "mockall",
  "rand_chacha 0.3.1",
@@ -2017,7 +2015,7 @@ name = "mithrildemo"
 version = "0.1.0"
 dependencies = [
  "base64 0.13.0",
- "clap 3.2.22",
+ "clap 3.2.20",
  "hex",
  "log",
  "mithril-common",
@@ -2983,6 +2981,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f7081ed758ec726a6ed8ee7e92f5d3f6e6f8c3901b1f972e3a4a2f2599fad14f"
 dependencies = [
  "byteorder",
+ "half 1.8.2",
+ "serde",
+]
+
+[[package]]
+name = "serde_cbor"
+version = "0.10.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f7081ed758ec726a6ed8ee7e92f5d3f6e6f8c3901b1f972e3a4a2f2599fad14f"
+dependencies = [
  "half 1.8.2",
  "serde",
 ]
