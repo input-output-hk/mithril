@@ -141,18 +141,12 @@ impl Runtime {
     }
 
     /// Show a snapshot
-    pub async fn show_snapshot(
-        &self,
-        digest: &str,
-    ) -> Result<Vec<SnapshotFieldItem>, RuntimeError> {
+    pub async fn show_snapshot(&self, digest: &str) -> Result<Snapshot, RuntimeError> {
         debug!("Show snapshot {}", digest);
-        Ok(convert_to_field_items(
-            &self
-                .get_aggregator_handler()?
-                .get_snapshot_details(digest)
-                .await?,
-            self.network.clone(),
-        ))
+        Ok(self
+            .get_aggregator_handler()?
+            .get_snapshot_details(digest)
+            .await?)
     }
 
     /// Download a snapshot by digest
@@ -238,10 +232,7 @@ pub(crate) fn convert_to_list_item(snapshot: &Snapshot, network: String) -> Snap
 }
 
 /// Convert Snapshot to SnapshotFieldItems routine
-pub(crate) fn convert_to_field_items(
-    snapshot: &Snapshot,
-    network: String,
-) -> Vec<SnapshotFieldItem> {
+pub fn convert_to_field_items(snapshot: &Snapshot, network: String) -> Vec<SnapshotFieldItem> {
     let mut field_items = vec![
         SnapshotFieldItem::new("Network".to_string(), network),
         SnapshotFieldItem::new("Epoch".to_string(), format!("{}", snapshot.beacon.epoch)),
@@ -405,7 +396,7 @@ mod tests {
     async fn test_show_snapshot_ok() {
         let digest = "digest123";
         let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
-        let snapshot_item_expected = convert_to_field_items(&fake_snapshot, "testnet".to_string());
+        let snapshot_item_expected = fake_snapshot.clone();
         let mut mock_aggregator_handler = MockAggregatorHandlerImpl::new();
         mock_aggregator_handler
             .expect_get_snapshot_details()
