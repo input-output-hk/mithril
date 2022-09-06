@@ -38,14 +38,14 @@ pub enum RuntimeError {
     CertificateRetriever(#[from] CertificateRetrieverError),
 
     /// Error raised when the digest computation fails.
-    #[error("immutale digester error: '{0}'")]
+    #[error("immutable digester error: '{0}'")]
     ImmutableDigester(#[from] ImmutableDigesterError),
 
     /// Error raised when the digest stored in the signed message doesn't match the
     /// [certificate](https://mithril.network/mithril-common/doc/mithril_common/entities/struct.Certificate.html)
     /// hash.
-    #[error("digest unmatch error: '{0}'")]
-    DigestUnmatch(String),
+    #[error("digest doesn't match error: '{0}'")]
+    DigestDoesntMatch(String),
 
     /// Error raised when verification fails.
     #[error("verification error: '{0}'")]
@@ -66,7 +66,7 @@ pub struct Runtime {
     /// Genesis verifier dependency that verifies the genesis signatures
     genesis_verifier: ProtocolGenesisVerifier,
 
-    /// Digester dependency that computes the digest used as the message ot be signed and embedded in the multisignature
+    /// Digester dependency that computes the digest used as the message ot be signed and embedded in the multi-signature
     digester: Option<Box<dyn ImmutableDigester>>,
 }
 
@@ -167,7 +167,7 @@ impl Runtime {
             unpacked_snapshot_digest.clone(),
         );
         if protocol_message.compute_hash() != certificate.signed_message {
-            return Err(RuntimeError::DigestUnmatch(unpacked_snapshot_digest));
+            return Err(RuntimeError::DigestDoesntMatch(unpacked_snapshot_digest));
         }
         self.certificate_verifier
             .verify_certificate_chain(
@@ -631,7 +631,7 @@ mod tests {
     #[tokio::test]
     async fn test_restore_snapshot_ko_restore_unpack_snapshot() {
         let digest = "digest123";
-        let certificate_hash = "certhash123";
+        let certificate_hash = "cert_hash123";
         let fake_certificate = fake_data::certificate(certificate_hash.to_string());
         let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
         let (mut mock_aggregator_handler, mut mock_verifier, _mock_digester, genesis_verifier) =
