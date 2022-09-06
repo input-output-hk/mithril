@@ -77,7 +77,7 @@ pub enum StmSignatureError<D: Digest> {
 
 /// Error types for aggregation.
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum AggregationError {
+pub enum AggregationError{
     /// Not enough signatures were collected, got this many instead.
     #[error("Not enough signatures. Got only {0} out of {1}.")]
     NotEnoughSignatures(u64, u64),
@@ -85,6 +85,27 @@ pub enum AggregationError {
     /// This error happens when we try to convert a u64 to a usize and it does not fit
     #[error("Invalid usize conversion")]
     UsizeConversionInvalid,
+
+}
+
+/// Error types for aggregation.
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum AggregationError1 <D: Digest>{
+    /// Not enough signatures were collected, got this many instead.
+    #[error("Not enough signatures. Got only {0} out of {1}.")]
+    NotEnoughSignatures(u64, u64),
+
+    /// This error happens when we try to convert a u64 to a usize and it does not fit
+    #[error("Invalid usize conversion")]
+    UsizeConversionInvalid,
+
+    /// Serialization error
+    #[error("Serialization of a merkle tree failed")]
+    SerializationError,
+
+    /// Invalid merkle path
+    #[error("Path does not verify against root")]
+    PathInvalid(Path<D>),
 }
 
 /// Error types related to merkle trees.
@@ -160,6 +181,19 @@ impl From<MultiSignatureError> for RegisterError {
         }
     }
 }
+
+
+
+impl<D: Digest> From<MerkleTreeError<D>> for AggregationError1<D> {
+    fn from(e: MerkleTreeError<D>) -> Self {
+        match e {
+            MerkleTreeError::PathInvalid(e) => Self::PathInvalid(e),
+            MerkleTreeError::SerializationError => Self::SerializationError,
+        }
+    }
+}
+
+
 
 /// If verifying a single signature, the signature should be provided. If verifying a multi-sig,
 /// no need to provide the signature

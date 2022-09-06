@@ -6,6 +6,7 @@ mod error;
 pub mod key_reg;
 mod merkle_tree;
 pub mod stm;
+pub mod stm1;
 
 mod multi_sig;
 
