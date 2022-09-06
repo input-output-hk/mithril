@@ -8,7 +8,7 @@ use mithril_aggregator::{
 };
 use mithril_common::chain_observer::{CardanoCliRunner, ChainObserver};
 use mithril_common::digesters::{CardanoImmutableDigester, ImmutableFileSystemObserver};
-use mithril_common::store::adapter::JsonFileStoreAdapter;
+use mithril_common::store::adapter::{JsonFileStoreAdapter, SQLiteAdapter};
 use mithril_common::store::StakeStore;
 use mithril_common::BeaconProviderImpl;
 
@@ -128,25 +128,28 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Init dependencies
     let snapshot_store = config.build_snapshot_store()?;
-
+    let database_file = config.data_stores_directory.join("aggregator.sqllite3");
     let snapshot_uploader = config.build_snapshot_uploader();
     let certificate_pending_store = Arc::new(CertificatePendingStore::new(Box::new(
-        JsonFileStoreAdapter::new(config.data_stores_directory.join("pending_cert_db"))?,
+        SQLiteAdapter::new("certificate_pending", Some(database_file.clone()))?,
     )));
     let certificate_store = Arc::new(CertificateStore::new(Box::new(JsonFileStoreAdapter::new(
         config.data_stores_directory.join("cert_db"),
     )?)));
-    let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(
-        JsonFileStoreAdapter::new(config.data_stores_directory.join("verification_key_db"))?,
-    )));
-    let stake_store = Arc::new(StakeStore::new(Box::new(JsonFileStoreAdapter::new(
-        config.data_stores_directory.join("stake_db"),
+    let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(SQLiteAdapter::new(
+        "verification_key",
+        Some(database_file.clone()),
     )?)));
-    let single_signature_store = Arc::new(SingleSignatureStore::new(Box::new(
-        JsonFileStoreAdapter::new(config.data_stores_directory.join("single_signature_db"))?,
-    )));
+    let stake_store = Arc::new(StakeStore::new(Box::new(SQLiteAdapter::new(
+        "stake",
+        Some(database_file.clone()),
+    )?)));
+    let single_signature_store = Arc::new(SingleSignatureStore::new(Box::new(SQLiteAdapter::new(
+        "single_signature",
+        Some(database_file.clone()),
+    )?)));
     let protocol_parameters_store = Arc::new(ProtocolParametersStore::new(Box::new(
-        JsonFileStoreAdapter::new(config.data_stores_directory.join("protocol_parameters_db"))?,
+        SQLiteAdapter::new("protocol_parameters", Some(database_file.clone()))?,
     )));
     let multi_signer = Arc::new(RwLock::new(MultiSignerImpl::new(
         verification_key_store.clone(),
