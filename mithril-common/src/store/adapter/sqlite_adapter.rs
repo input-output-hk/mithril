@@ -138,7 +138,7 @@ where
     async fn store_record(&mut self, key: &Self::Key, record: &Self::Record) -> Result<()> {
         let connection = self.connection.lock().await;
         let sql = format!(
-            "insert into {} (key_hash, key, value) values (?1, ?2, ?3)",
+            "insert into {} (key_hash, key, value) values (?1, ?2, ?3) on conflict (key_hash) do update set value = excluded.value",
             self.table
         );
         let value = serde_json::to_string(record).map_err(|e| {
@@ -365,6 +365,24 @@ mod tests {
         );
         assert_eq!(
             "\"one\"".to_string(),
+            row[2]
+                .as_string()
+                .expect("expecting field 2 to be a string")
+        );
+        adapter
+            .store_record(&1, "zwei".to_string().borrow())
+            .await
+            .unwrap();
+        let mut statement = connection
+            .prepare(format!("select key_hash, key, value from {}", TABLE_NAME))
+            .unwrap()
+            .into_cursor();
+        let row = statement
+            .try_next()
+            .unwrap()
+            .expect("Expecting at least one row in the result set.");
+        assert_eq!(
+            "\"zwei\"".to_string(),
             row[2]
                 .as_string()
                 .expect("expecting field 2 to be a string")
