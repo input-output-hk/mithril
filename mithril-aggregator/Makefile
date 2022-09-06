@@ -9,10 +9,10 @@ build:
 	cp ../target/release/mithril-aggregator .
 
 run: build
-	./mithril-aggregator
+	./mithril-aggregator serve
 
 debug:
-	${CARGO} run -- -vvv
+	${CARGO} run -- -vvv serve 
 
 test:
 	${CARGO} test
@@ -31,4 +31,4 @@ docker-build:
 	cd ../ && docker build -t mithril/mithril-aggregator -f mithril-aggregator/Dockerfile .
 
 docker-run:
-	docker run --rm -p 8080:8080 --name='mithril-aggregator' mithril/mithril-aggregator
+	docker run --rm -p 8080:8080 --name='mithril-aggregator' mithril/mithril-aggregator serve

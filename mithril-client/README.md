@@ -15,6 +15,16 @@
 * Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (latest stable version).
 * Install Rust [Clippy](https://github.com/rust-lang/rust-clippy) component.
 
+## Mithril test networks
+
+The Mithril test networks are:
+
+* `preview`: Test network with magic id `2`, implemented on the IOG hosted Mitril Aggregator
+* `preprod`: Test network with magic id `1`, not implemented yet on the IOG hosted Mithril Aggregator
+* `testnet`: Legacy test network with magic id `1097911063`, used to be on the IOG hosted Mitril Aggregator, now deprecated
+
+In this documentation, we use the generic `testnet` identifier, but you need to replace it with the identifier of the network that runs on your Cardano node
+
 ## Download source code
 
 ```bash
@@ -62,7 +72,7 @@ make build
 ./mithril-client -r testnet list
 
 # Run with custom configuration with env vars
-NETWORK=testnet AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator ./mithril-client
+GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) NETWORK=testnet AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator ./mithril-client
 ```
 
 You can use the `--json` option in order to display results in `JSON` format for the `list` and `show` commands:
