@@ -16,15 +16,6 @@ use mithril_common::digesters::{
 };
 use mithril_common::entities::{ProtocolMessagePartKey, Snapshot};
 
-/// AggregatorHandlerWrapper wraps an AggregatorHandler
-pub type AggregatorHandlerWrapper = Arc<dyn AggregatorHandler>;
-
-/// CertificateVerifierWrapper wraps a CertificateVerifier
-pub type CertificateVerifierWrapper = Box<dyn CertificateVerifier>;
-
-/// DigesterWrapper wraps a Digester
-pub type DigesterWrapper = Box<dyn ImmutableDigester>;
-
 /// [Runtime] related errors.
 #[derive(Error, Debug)]
 pub enum RuntimeError {
@@ -61,22 +52,22 @@ pub enum RuntimeError {
     Protocol(#[from] CertificateVerifierError),
 }
 
-/// Mithril client wrapper
+/// Mithril client runtime
 pub struct Runtime {
     /// Cardano network
     pub network: String,
 
     /// Aggregator handler dependency that interacts with an aggregator
-    aggregator_handler: Option<AggregatorHandlerWrapper>,
+    aggregator_handler: Option<Arc<dyn AggregatorHandler>>,
 
     /// Certificate verifier dependency that verifies certificates and their multi signatures
-    certificate_verifier: Option<CertificateVerifierWrapper>,
+    certificate_verifier: Option<Box<dyn CertificateVerifier>>,
 
     /// Genesis verifier dependency that verifies the genesis signatures
     genesis_verifier: Option<ProtocolGenesisVerifier>,
 
     /// Digester dependency that computes the digest used as the message ot be signed and embedded in the multisignature
-    digester: Option<DigesterWrapper>,
+    digester: Option<Box<dyn ImmutableDigester>>,
 }
 
 impl Runtime {
@@ -94,7 +85,7 @@ impl Runtime {
     /// With AggregatorHandler
     pub fn with_aggregator_handler(
         &mut self,
-        aggregator_handler: AggregatorHandlerWrapper,
+        aggregator_handler: Arc<dyn AggregatorHandler>,
     ) -> &mut Self {
         self.aggregator_handler = Some(aggregator_handler);
         self
@@ -103,7 +94,7 @@ impl Runtime {
     /// With Certificate Verifier
     pub fn with_certificate_verifier(
         &mut self,
-        certificate_verifier: CertificateVerifierWrapper,
+        certificate_verifier: Box<dyn CertificateVerifier>,
     ) -> &mut Self {
         self.certificate_verifier = Some(certificate_verifier);
         self
@@ -119,20 +110,20 @@ impl Runtime {
     }
 
     /// With Digester
-    pub fn with_digester(&mut self, digester: DigesterWrapper) -> &mut Self {
+    pub fn with_digester(&mut self, digester: Box<dyn ImmutableDigester>) -> &mut Self {
         self.digester = Some(digester);
         self
     }
 
     /// Get AggregatorHandler
-    fn get_aggregator_handler(&self) -> Result<&AggregatorHandlerWrapper, RuntimeError> {
+    fn get_aggregator_handler(&self) -> Result<&Arc<dyn AggregatorHandler>, RuntimeError> {
         self.aggregator_handler
             .as_ref()
             .ok_or_else(|| RuntimeError::MissingDependency("aggregator handler".to_string()))
     }
 
     /// Get Certificate Verifier
-    fn get_certificate_verifier(&self) -> Result<&CertificateVerifierWrapper, RuntimeError> {
+    fn get_certificate_verifier(&self) -> Result<&Box<dyn CertificateVerifier>, RuntimeError> {
         self.certificate_verifier
             .as_ref()
             .ok_or_else(|| RuntimeError::MissingDependency("certificate verifier".to_string()))
@@ -146,7 +137,7 @@ impl Runtime {
     }
 
     /// Get Digester
-    fn get_digester(&self) -> Result<&DigesterWrapper, RuntimeError> {
+    fn get_digester(&self) -> Result<&Box<dyn ImmutableDigester>, RuntimeError> {
         self.digester
             .as_ref()
             .ok_or_else(|| RuntimeError::MissingDependency("digester".to_string()))
