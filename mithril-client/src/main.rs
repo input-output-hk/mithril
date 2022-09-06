@@ -124,11 +124,12 @@ async fn main() -> Result<(), String> {
     let genesis_verifier = ProtocolGenesisVerifier::from_verification_key(genesis_verification_key);
 
     // Init runtime
-    let mut runtime = Runtime::new(config.network.clone());
-    runtime
-        .with_aggregator_handler(aggregator_handler)
-        .with_certificate_verifier(certificate_verifier)
-        .with_genesis_verifier(genesis_verifier);
+    let mut runtime = Runtime::new(
+        config.network.clone(),
+        aggregator_handler,
+        certificate_verifier,
+        genesis_verifier,
+    );
 
     // Execute commands
     match &args.command {
