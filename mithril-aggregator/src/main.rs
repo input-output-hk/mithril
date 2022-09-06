@@ -128,7 +128,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Init dependencies
     let snapshot_store = config.build_snapshot_store()?;
-    let database_file = config.data_stores_directory.join("aggregator.sqllite3");
+    let database_file = config.data_stores_directory.join("aggregator.sqlite3");
     let snapshot_uploader = config.build_snapshot_uploader();
     let certificate_pending_store = Arc::new(CertificatePendingStore::new(Box::new(
         SQLiteAdapter::new("certificate_pending", Some(database_file.clone()))?,
