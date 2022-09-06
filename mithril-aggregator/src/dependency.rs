@@ -20,53 +20,8 @@ use crate::{
     SingleSignatureStore, Snapshotter, VerificationKeyStore, VerificationKeyStorer,
 };
 
-///  SnapshotStoreWrapper wraps a SnapshotStore
-pub type SnapshotStoreWrapper = Arc<dyn SnapshotStore>;
-
-///  SnapshotUploaderWrapper wraps a SnapshotUploader
-pub type SnapshotUploaderWrapper = Arc<dyn SnapshotUploader>;
-
 /// MultiSignerWrapper wraps a MultiSigner
 pub type MultiSignerWrapper = Arc<RwLock<dyn MultiSigner>>;
-
-/// CertificatePendingStoreWrapper wraps a CertificatePendingStore
-pub type CertificatePendingStoreWrapper = Arc<CertificatePendingStore>;
-
-///  CertificateStoreWrapper wraps a CertificateStore
-pub type CertificateStoreWrapper = Arc<CertificateStore>;
-
-///  VerificationKeyStoreWrapper wraps a VerificationKeyStore
-pub type VerificationKeyStoreWrapper = Arc<VerificationKeyStore>;
-
-///  StakeStoreWrapper wraps a StakeStore
-pub type StakeStoreWrapper = Arc<StakeStore>;
-
-///  SingleSignatureStoreWrapper wraps a SingleSignatureStore
-pub type SingleSignatureStoreWrapper = Arc<SingleSignatureStore>;
-
-///  ProtocolParametersStoreWrapper wraps ProtocolParameters
-pub type ProtocolParametersStoreWrapper = Arc<ProtocolParametersStore>;
-
-///  ChainObserverWrapper wraps a ChainObserver
-pub type ChainObserverWrapper = Arc<dyn ChainObserver>;
-
-/// BeaconProviderWrapper wraps a BeaconProvider
-pub type BeaconProviderWrapper = Arc<dyn BeaconProvider>;
-
-/// BeaconProviderWrapper wraps a BeaconProvider
-pub type ImmutableFileObserverWrapper = Arc<dyn ImmutableFileObserver>;
-
-/// DigesterWrapper wraps a Digester
-pub type DigesterWrapper = Arc<dyn ImmutableDigester>;
-
-/// SnapshotterWrapper wraps a Snapshotter
-pub type SnapshotterWrapper = Arc<dyn Snapshotter>;
-
-/// CertificateVerifierWrapper wraps a CertificateVerifier
-pub type CertificateVerifierWrapper = Arc<dyn CertificateVerifier>;
-
-/// ProtocolGenesisVerifierWrapper wraps a ProtocolGenesisVerifier
-pub type ProtocolGenesisVerifierWrapper = Arc<ProtocolGenesisVerifier>;
 
 /// DependencyManager handles the dependencies
 pub struct DependencyManager {
@@ -74,52 +29,52 @@ pub struct DependencyManager {
     pub config: Configuration,
 
     /// Snapshot store.
-    pub snapshot_store: SnapshotStoreWrapper,
+    pub snapshot_store: Arc<dyn SnapshotStore>,
 
     /// Snapshot uploader service.
-    pub snapshot_uploader: SnapshotUploaderWrapper,
+    pub snapshot_uploader: Arc<dyn SnapshotUploader>,
 
     /// Multisigner service.
     pub multi_signer: MultiSignerWrapper,
 
     /// Certificate pending store.
-    pub certificate_pending_store: CertificatePendingStoreWrapper,
+    pub certificate_pending_store: Arc<CertificatePendingStore>,
 
     /// Certificate store.
-    pub certificate_store: CertificateStoreWrapper,
+    pub certificate_store: Arc<CertificateStore>,
 
     /// Verification key store.
-    pub verification_key_store: VerificationKeyStoreWrapper,
+    pub verification_key_store: Arc<VerificationKeyStore>,
 
     /// Stake store.
-    pub stake_store: StakeStoreWrapper,
+    pub stake_store: Arc<StakeStore>,
 
     /// Signer single signature store.
-    pub single_signature_store: SingleSignatureStoreWrapper,
+    pub single_signature_store: Arc<SingleSignatureStore>,
 
     /// Protocol parameter store.
-    pub protocol_parameters_store: ProtocolParametersStoreWrapper,
+    pub protocol_parameters_store: Arc<ProtocolParametersStore>,
 
     /// Chain observer service.
-    pub chain_observer: ChainObserverWrapper,
+    pub chain_observer: Arc<dyn ChainObserver>,
 
     /// Beacon provider service.
-    pub beacon_provider: BeaconProviderWrapper,
+    pub beacon_provider: Arc<dyn BeaconProvider>,
 
     /// Immutable file observer service.
-    pub immutable_file_observer: ImmutableFileObserverWrapper,
+    pub immutable_file_observer: Arc<dyn ImmutableFileObserver>,
 
     /// Digester service.
-    pub digester: DigesterWrapper,
+    pub digester: Arc<dyn ImmutableDigester>,
 
     /// Snapshotter service.
-    pub snapshotter: SnapshotterWrapper,
+    pub snapshotter: Arc<dyn Snapshotter>,
 
     /// Certificate verifier service.
-    pub certificate_verifier: CertificateVerifierWrapper,
+    pub certificate_verifier: Arc<dyn CertificateVerifier>,
 
     /// Genesis signature verifier service.
-    pub genesis_verifier: ProtocolGenesisVerifierWrapper,
+    pub genesis_verifier: Arc<ProtocolGenesisVerifier>,
 }
 
 #[doc(hidden)]

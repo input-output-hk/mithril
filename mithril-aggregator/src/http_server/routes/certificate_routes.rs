@@ -33,15 +33,16 @@ fn certificate_certificate_hash(
 }
 
 mod handlers {
-    use crate::dependency::{CertificatePendingStoreWrapper, CertificateStoreWrapper};
     use crate::http_server::routes::reply;
+    use crate::{CertificatePendingStore, CertificateStore};
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
+    use std::sync::Arc;
     use warp::http::StatusCode;
 
     /// Certificate Pending
     pub async fn certificate_pending(
-        certificate_pending_store: CertificatePendingStoreWrapper,
+        certificate_pending_store: Arc<CertificatePendingStore>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("certificate_pending");
 
@@ -58,7 +59,7 @@ mod handlers {
     /// Certificate by certificate hash
     pub async fn certificate_certificate_hash(
         certificate_hash: String,
-        certificate_store: CertificateStoreWrapper,
+        certificate_store: Arc<CertificateStore>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("certificate_certificate_hash/{}", certificate_hash);
 

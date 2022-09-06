@@ -55,18 +55,18 @@ fn snapshot_digest(
 }
 
 mod handlers {
-    use crate::dependency::SnapshotStoreWrapper;
     use crate::http_server::routes::reply;
     use crate::http_server::SERVER_BASE_PATH;
-    use crate::Configuration;
+    use crate::{Configuration, SnapshotStore};
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use std::str::FromStr;
+    use std::sync::Arc;
     use warp::http::{StatusCode, Uri};
 
     /// Snapshots
     pub async fn snapshots(
-        snapshot_store: SnapshotStoreWrapper,
+        snapshot_store: Arc<dyn SnapshotStore>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("snapshots");
 
@@ -82,7 +82,7 @@ mod handlers {
     /// Download a file if and only if it's a snapshot archive
     pub async fn ensure_downloaded_file_is_a_snapshot(
         reply: warp::fs::File,
-        snapshot_store: SnapshotStoreWrapper,
+        snapshot_store: Arc<dyn SnapshotStore>,
     ) -> Result<impl warp::Reply, Infallible> {
         let filepath = reply.path().to_path_buf();
         debug!(
@@ -113,7 +113,7 @@ mod handlers {
     pub async fn snapshot_download(
         digest: String,
         config: Configuration,
-        snapshot_store: SnapshotStoreWrapper,
+        snapshot_store: Arc<dyn SnapshotStore>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("snapshot_download/{}", digest);
 
@@ -148,7 +148,7 @@ mod handlers {
     /// Snapshot by digest
     pub async fn snapshot_digest(
         digest: String,
-        snapshot_store: SnapshotStoreWrapper,
+        snapshot_store: Arc<dyn SnapshotStore>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("snapshot_digest/{}", digest);
 

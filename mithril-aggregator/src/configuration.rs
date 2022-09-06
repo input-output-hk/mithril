@@ -7,10 +7,12 @@ use std::sync::Arc;
 
 use mithril_common::{store::adapter::JsonFileStoreAdapter, CardanoNetwork};
 
-use crate::dependency::{SnapshotStoreWrapper, SnapshotUploaderWrapper};
 use crate::snapshot_stores::LocalSnapshotStore;
 use crate::tools::GcpFileUploader;
-use crate::{LocalSnapshotUploader, RemoteSnapshotStore, RemoteSnapshotUploader};
+use crate::{
+    LocalSnapshotUploader, RemoteSnapshotStore, RemoteSnapshotUploader, SnapshotStore,
+    SnapshotUploader,
+};
 
 // TODO: 'LIST_SNAPSHOTS_MAX_ITEMS' keep as const or in config, or add a parameter to `list_snapshots`?
 const LIST_SNAPSHOTS_MAX_ITEMS: usize = 20;
@@ -88,7 +90,7 @@ pub enum SnapshotUploaderType {
 
 impl Configuration {
     /// Create a snapshot store from the configuration settings.
-    pub fn build_snapshot_store(&self) -> Result<SnapshotStoreWrapper, Box<dyn Error>> {
+    pub fn build_snapshot_store(&self) -> Result<Arc<dyn SnapshotStore>, Box<dyn Error>> {
         match self.snapshot_store_type {
             SnapshotStoreType::Gcp => Ok(Arc::new(RemoteSnapshotStore::new(
                 Box::new(GcpFileUploader::default()),
@@ -104,7 +106,7 @@ impl Configuration {
     }
 
     /// Create a snapshot uploader from configuration settings.
-    pub fn build_snapshot_uploader(&self) -> SnapshotUploaderWrapper {
+    pub fn build_snapshot_uploader(&self) -> Arc<dyn SnapshotUploader> {
         match self.snapshot_uploader_type {
             SnapshotUploaderType::Gcp => Arc::new(RemoteSnapshotUploader::new(Box::new(
                 GcpFileUploader::default(),
