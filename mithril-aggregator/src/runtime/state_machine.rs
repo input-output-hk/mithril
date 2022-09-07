@@ -31,10 +31,10 @@ pub enum AggregatorState {
 
 impl Display for AggregatorState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match *self {
-            AggregatorState::Idle(_) => write!(f, "idle"),
-            AggregatorState::Ready(_) => write!(f, "ready"),
-            AggregatorState::Signing(_) => write!(f, "signing"),
+        match self {
+            AggregatorState::Idle(state) => write!(f, "Idle - {:?}", state.current_beacon),
+            AggregatorState::Ready(state) => write!(f, "Ready - {:?}", state.current_beacon),
+            AggregatorState::Signing(state) => write!(f, "Signing - {:?}", state.current_beacon),
         }
     }
 }
@@ -81,7 +81,11 @@ impl AggregatorRuntime {
 
     /// Return the actual state of the state machine.
     pub fn get_state(&self) -> String {
-        self.state.to_string()
+        match self.state {
+            AggregatorState::Idle(_) => "idle".to_string(),
+            AggregatorState::Ready(_) => "ready".to_string(),
+            AggregatorState::Signing(_) => "signing".to_string(),
+        }
     }
 
     /// Launches an infinite loop ticking the state machine.
@@ -101,7 +105,7 @@ impl AggregatorRuntime {
     /// Perform one tick of the state machine.
     pub async fn cycle(&mut self) -> Result<(), RuntimeError> {
         info!("================================================================================");
-        info!("STATE MACHINE: new cycle"; "current_state" => ?self.state);
+        info!("STATE MACHINE: new cycle"; "current_state" => self.state.to_string());
 
         match self.state.clone() {
             AggregatorState::Idle(state) => {
