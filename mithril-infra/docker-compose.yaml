@@ -69,6 +69,7 @@ services:
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
       - GENESIS_VERIFICATION_KEY=${GENESIS_VERIFICATION_KEY}
+      - GENESIS_SECRET_KEY=${GENESIS_SECRET_KEY}
     volumes:
       - ./${NETWORK}/mithril-aggregator:/mithril-aggregator
       - ./${NETWORK}/node.db:/db
@@ -96,53 +97,6 @@ services:
       - 'traefik.http.routers.my-app.rule=Host(`aggregator.api.mithril.network`)'
       - 'traefik.http.routers.my-app.tls=true'
       - 'traefik.http.routers.my-app.tls.certresolver=lets-encrypt'
-
-  mithril-aggregator-genesis:
-    image: ghcr.io/input-output-hk/mithril-aggregator:${IMAGE_ID:-latest}
-    restart: always
-    user: ${CURRENT_UID}
-    profiles:
-      - mithril-genesis
-    environment:
-      - RUST_BACKTRACE=1
-      - NETWORK_MAGIC=1097911063
-      - GOOGLE_APPLICATION_CREDENTIALS_JSON=${GOOGLE_APPLICATION_CREDENTIALS_JSON}
-      - NETWORK=${NETWORK:-testnet}
-      - PROTOCOL_PARAMETERS__K=5
-      - PROTOCOL_PARAMETERS__M=100
-      - PROTOCOL_PARAMETERS__PHI_F=0.65
-      - RUN_INTERVAL=60000
-      - URL_SNAPSHOT_MANIFEST=https://storage.googleapis.com/cardano-${NETWORK:-testnet}/snapshots.json
-      - SNAPSHOT_STORE_TYPE=local
-      - SNAPSHOT_UPLOADER_TYPE=gcp
-      - DATA_STORES_DIRECTORY=/mithril-aggregator
-      - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
-      - CARDANO_CLI_PATH=/app/bin/cardano-cli
-      - GENESIS_VERIFICATION_KEY=${GENESIS_VERIFICATION_KEY}
-      - GENESIS_SECRET_KEY=${GENESIS_SECRET_KEY}
-    volumes:
-      - ./testnet/mithril-aggregator:/mithril-aggregator
-      - ./testnet/node.db:/db
-      - ./ipc:/ipc
-    ports:
-      - "8080:8080"
-    command:
-      [
-        "--db-directory",
-        "/db",
-        "--snapshot-directory",
-        "/mithril-aggregator/snapshots",
-        "--server-port",
-        "8080",
-        "-vvv",
-        "genesis",
-        "bootstrap"
-      ]
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "5"
 
   mithril-signer-0:
     image: ghcr.io/input-output-hk/mithril-signer:${IMAGE_ID:-latest}
