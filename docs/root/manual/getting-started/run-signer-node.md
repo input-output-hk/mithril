@@ -34,6 +34,8 @@ For more information about the **Mithril Protocol**, please refer to the [About 
 
 :::
 
+## Pre-requisites
+
 ## What you'll need
 
 * Operating a **Cardano Node** as a **Stake Pool**:
@@ -43,7 +45,11 @@ For more information about the **Mithril Protocol**, please refer to the [About 
   * Read rights on the `Database` folder (`--database-path` setting of the **Cardano Node**)
   * Read/Write rights on the `Inter Process Communication` file (usually `CARDANO_NODE_SOCKET_PATH` env var used to launch the **Cardano Node**)
 
-* An installed recent version of the [`cardano-cli`](https://hydra.iohk.io/job/Cardano/cardano-node/linux.native.cardano-cli)
+* Install a recent version of the [`cardano-cli`](https://hydra.iohk.io/job/Cardano/cardano-node/linux.native.cardano-cli) (version 1.35.3+)
+
+* Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (version 1.62.0+).
+
+* Install OpenSSL development libraries, for example on Ubuntu/Debian/Mint run `apt install libssl-dev`
 
 :::danger
 
