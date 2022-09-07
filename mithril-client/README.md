@@ -65,6 +65,12 @@ make build
 NETWORK=testnet AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator ./mithril-client
 ```
 
+You can use the `--json` option in order to display results in `JSON` format for the `list` and `show` commands:
+
+```bash
+./mithril-client list --json
+```
+
 ## Build and run Docker container
 
 ```bash

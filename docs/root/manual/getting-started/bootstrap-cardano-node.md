@@ -95,6 +95,16 @@ SUBCOMMANDS:
 
 :::tip
 
+You can use the `--json` option in order to display results in `JSON` format for the `list` and `show` commands:
+
+```bash
+./mithril-client list --json
+```
+
+:::
+
+:::tip
+
 If you want to dig deeper, you can get access to several level of logs from the Mithril Client:
 
 * Add `-v` for some logs (WARN)
