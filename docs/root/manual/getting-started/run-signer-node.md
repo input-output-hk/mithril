@@ -47,7 +47,7 @@ For more information about the **Mithril Protocol**, please refer to the [About 
 
 * Install a recent version of the [`cardano-cli`](https://hydra.iohk.io/job/Cardano/cardano-node/linux.native.cardano-cli) (version 1.35.3+)
 
-* Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (version 1.62.0+).
+* Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (latest stable version).
 
 * Install OpenSSL development libraries, for example on Ubuntu/Debian/Mint run `apt install libssl-dev`
 

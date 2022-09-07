@@ -24,7 +24,7 @@ In this documentation, we use the generic `testnet` identifier, but you need to 
 
 ## Pre-requisites
 
-* Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (version 1.62.0+).
+* Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (latest stable version).
 
 * Install OpenSSL development libraries, for example on Ubuntu/Debian/Mint run `apt install libssl-dev`
 

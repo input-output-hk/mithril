@@ -10,7 +10,7 @@ This cli implements a very simple version of the Mithril protocol for demonstrat
 
 **Install Rust**
 
-- Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (version 1.62.0+).
+- Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (latest stable version).
 
 ## Download source code
 
