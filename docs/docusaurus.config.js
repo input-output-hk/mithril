@@ -36,11 +36,11 @@ const config = {
           editUrl: 'https://github.com/input-output-hk/mithril/edit/main/docs',
         },
         blog: {
-          path: 'adr',
-          routeBasePath: 'adr/',
-          blogTitle: "ADR",
-          blogSidebarTitle: "ADR",
-          sortPosts: 'ascending',
+          path: 'blog/',
+          routeBasePath: 'dev-blog',
+          blogTitle: "Dev Blog",
+          blogSidebarTitle: "Dev blog",
+          sortPosts: 'descending',
           showReadingTime: true,
         },
         theme: {
@@ -66,6 +66,20 @@ const config = {
         },
       },
     ],
+  ],
+
+  plugins: [
+    [
+      '@docusaurus/plugin-content-blog',
+      {
+        id: 'adr_blog',
+        path: 'adr',
+        routeBasePath: 'adr/',
+        blogTitle: "ADR",
+        blogSidebarTitle: "ADR",
+        sortPosts: 'descending',
+      }
+    ]
   ],
 
   themeConfig:
@@ -109,6 +123,7 @@ const config = {
             label: 'Glossary',
             position: 'right',
           },
+          { to: '/dev-blog', label: 'Dev Blog', position: 'right' },
           { to: '/adr', label: 'ADRs', position: 'right' },
           {
             className: 'header-github-link',
@@ -142,7 +157,7 @@ const config = {
             items: [
               {
                 label: 'Discord (#moria)',
-                href: 'https://discord.gg/beku2fg4',
+                href: 'https://discord.gg/5kaErDKDRq',
               },
               {
                 label: 'Github Discussions',

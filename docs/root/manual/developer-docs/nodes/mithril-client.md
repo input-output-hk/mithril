@@ -28,7 +28,9 @@ This is the node of the **Mithril Network** responsible for restoring the **Card
 
 ## Pre-requisites
 
-* Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (version 1.62.0+).
+* Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (latest stable version)
+
+* Install OpenSSL development libraries, for example on Ubuntu/Debian/Mint run `apt install libssl-dev`
 
 ## Download source
 
@@ -136,6 +138,16 @@ Run in release with a custom configuration via env vars
 ```bash
 NETWORK=testnet AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator ./mithril-client
 ```
+
+:::tip
+
+You can use the `--json` option in order to display results in `JSON` format for the `list` and `show` commands:
+
+```bash
+./mithril-client list --json
+```
+
+:::
 
 :::tip
 

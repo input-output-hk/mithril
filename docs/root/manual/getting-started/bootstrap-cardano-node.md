@@ -22,6 +22,12 @@ In this documentation, we use the generic `testnet` identifier, but you need to 
 
 :::
 
+## Pre-requisites
+
+* Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (latest stable version).
+
+* Install OpenSSL development libraries, for example on Ubuntu/Debian/Mint run `apt install libssl-dev`
+
 ## Download source
 
 Download from Github (HTTPS)
@@ -86,6 +92,16 @@ SUBCOMMANDS:
     restore     Restore a snapshot
     show        Infos about a snapshot
 ```
+
+:::tip
+
+You can use the `--json` option in order to display results in `JSON` format for the `list` and `show` commands:
+
+```bash
+./mithril-client list --json
+```
+
+:::
 
 :::tip
 

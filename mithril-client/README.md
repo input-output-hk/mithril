@@ -12,7 +12,7 @@
 
 **Install Rust**
 
-* Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (version 1.62.0+).
+* Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (latest stable version).
 * Install Rust [Clippy](https://github.com/rust-lang/rust-clippy) component.
 
 ## Download source code
@@ -63,6 +63,12 @@ make build
 
 # Run with custom configuration with env vars
 NETWORK=testnet AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator ./mithril-client
+```
+
+You can use the `--json` option in order to display results in `JSON` format for the `list` and `show` commands:
+
+```bash
+./mithril-client list --json
 ```
 
 ## Build and run Docker container

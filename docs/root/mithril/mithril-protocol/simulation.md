@@ -21,7 +21,7 @@ sidebar_label: Simulation
 
 * A Linux (preferred) or a macOS computer.
 
-* A [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (version 1.62.0+).
+* A [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (latest stable version).
 
 ## Download source
 

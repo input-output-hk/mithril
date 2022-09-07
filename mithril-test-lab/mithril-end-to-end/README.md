@@ -8,7 +8,7 @@
 
 **Install Rust**
 
-* Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (version 1.62.0+).
+* Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (latest stable version).
 * Install Rust [Clippy](https://github.com/rust-lang/rust-clippy) component.
 
 ## Download source code
