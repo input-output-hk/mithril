@@ -17,6 +17,25 @@ servers:
   - url: https://aggregator.api.mithril.network/aggregator
   - url: http://localhost:8080/aggregator
 paths:
+  /epoch-settings:
+    get:
+      summary: Get current epoch settings
+      description: |
+        Returns the information related to the current epoch:
+          * protocol parameters for current epoch (to setup cryptography, allowing signers to register)
+      responses:
+        "200":
+          description: epoch settings found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EpochSettings"
+        default:
+          description: epoch settings error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
   /certificate-pending:
     get:
       summary: Get current pending certificate information
@@ -198,6 +217,25 @@ paths:
                 $ref: "#/components/schemas/Error"
 components:
   schemas:
+    EpochSettings:
+      description: Epoch settings
+      type: object
+      additionalProperties: false
+      required:
+        - epoch
+        - protocol
+      properties:
+        epoch:
+          description: Cardano chain epoch number
+          type: integer
+          format: int64
+        protocol:
+          $ref: "#/components/schemas/ProtocolParameters"
+      example: 
+        { 
+          "epoch": 329,
+          "protocol": { "k": 857, "m": 6172, "phi_f": 0.2 }
+        }
     ProtocolParameters:
       description: Protocol cryptographic parameters
       type: object

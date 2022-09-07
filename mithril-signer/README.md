@@ -22,6 +22,16 @@ git clone https://github.com/input-output-hk/mithril
 cd mithril-signer
 ```
 
+## Mithril test networks
+
+The Mithril test networks are:
+
+- `preview`: Test network with magic id `2`, implemented on the IOG hosted Mitril Aggregator
+- `preprod`: Test network with magic id `1`, not implemented yet on the IOG hosted Mithril Aggregator
+- `testnet`: Legacy test network with magic id `1097911063`, used to be on the IOG hosted Mitril Aggregator, now deprecated
+
+In this documentation, we use the generic `testnet` identifier, but you need to replace it with the identifier of the network that runs on your Cardano node
+
 ## Development test and build
 
 ```bash

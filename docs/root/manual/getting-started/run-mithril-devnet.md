@@ -164,6 +164,41 @@ Creating network "artifacts_mithril_network" with driver "bridge"
 Creating artifacts_mithril-aggregator_1        ... done
 Creating artifacts_mithril-signer-node-pool1_1 ... done
 Creating artifacts_mithril-signer-node-pool2_1 ... done
+Creating artifacts_mithril-aggregator-genesis_run ... done
+{"msg":"Started","v":0,"name":"slog-rs","level":20,"time":"2022-09-06T09:24:31.925641527Z","hostname":"e932dff845aa","pid":1,"config":"Configuration { cardano_cli_path: \"/app/bin/cardano-cli\", cardano_node_socket_path: \"/data/ipc/node.sock\", network_magic: Some(42), network: \"devnet\", protocol_parameters: ProtocolParameters { k: 5, m: 100, phi_f: 0.65 }, url_snapshot_manifest: \"\", snapshot_store_type: Local, snapshot_uploader_type: Local, server_url: \"http://0.0.0.0:8080/\", run_interval: 1000, db_directory: \"/data/db\", snapshot_directory: \"/data/mithril/aggregator\", data_stores_directory: \"/data/mithril/aggregator/stores\", genesis_verification_key: \"5b33322c3235332c3138362c3230312c3137372c31312c3131372c3133352c3138372c3136372c3138312c3138382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c3235322c3138302c37322c3133342c3133372c3234372c3136312c36385d\" }","run_mode":"dev"}
+{"msg":"New LocalSnapshotUploader created","v":0,"name":"slog-rs","level":20Genesis bootstrap for test only
+,"time":"2022-09-06T09:24:31.925683285Z","hostname":"e932dff845aa","pid":1,"snapshot_server_url":"http://0.0.0.0:8080/"}
+{"msg":"New MultiSignerImpl created","v":0,"name":"slog-rs","level":20,"time":"2022-09-06T09:24:31.925711468Z","hostname":"e932dff845aa","pid":1}
+{"msg":"New MithrilCertificateVerifier created","v":0,"name":"slog-rs","level":20,"time":"2022-09-06T09:24:31.925736796Z","hostname":"e932dff845aa","pid":1}
+{"msg":"Update current_beacon to Beacon { network: \"devnet\", epoch: Epoch(10), immutable_file_number: 47 }","v":0,"name":"slog-rs","level":20,"time":"2022-09-06T09:24:31.938337155Z","hostname":"e932dff845aa","pid":1}
+{"msg":"Get next signers with stake","v":0,"name":"slog-rs","level":20,"time":"2022-09-06T09:24:31.938384324Z","hostname":"e932dff845aa","pid":1}
+{"msg":"Get next stake distribution","v":0,"name":"slog-rs","level":20,"time":"2022-09-06T09:24:31.938422585Z","hostname":"e932dff845aa","pid":1}
+{"msg":"Get stake distribution with epoch offset","v":0,"name":"slog-rs","level":20,"time":"2022-09-06T09:24:31.938459565Z","hostname":"e932dff845aa","pid":1,"epoch_offset":0}
+{"msg":"Get next protocol parameters","v":0,"name":"slog-rs","level":20,"time":"2022-09-06T09:24:31.938500461Z","hostname":"e932dff845aa","pid":1}
+{"msg":"Get protocol parameters with epoch offset","v":0,"name":"slog-rs","level":20,"time":"2022-09-06T09:24:31.938535367Z","hostname":"e932dff845aa","pid":1,"epoch_offset":0}
+{"msg":"Create clerk","v":0,"name":"slog-rs","level":20,"time":"2022-09-06T09:24:31.93856896Z","hostname":"e932dff845aa","pid":1}
+Verify genesis certificate #86a4c56d957636740a75c250fdd9d3b9a9f1539dc93449b1f80fcab49e279d6d @ epoch #10
+
+=====================================================================
+ Schedule Cardano Stake Delegation
+=====================================================================
+
+>> Begin scheduled delegation
+>> 11:24:32: Wait 180s until next delegation round...
+>> Run delegation round #1!
+>>>> Current Epoch: 12
+Estimated transaction fee: Lovelace 436
+Transaction successfully submitted.
+Estimated transaction fee: Lovelace 436
+Transaction successfully submitted.
+>> 11:27:32: Wait 180s until next delegation round...
+>> Run delegation round #2!
+>>>> Current Epoch: 14
+Estimated transaction fee: Lovelace 436
+Transaction successfully submitted.
+Estimated transaction fee: Lovelace 436
+Transaction successfully submitted.
+>> 11:30:32: Wait 180s until next delegation round...
 ```
 
 ### Step 2: Query the devnet

@@ -6,7 +6,7 @@ use thiserror::Error;
 use tokio::sync::RwLock;
 
 use mithril_common::{
-    entities::{CertificatePending, Signer, SingleSignatures},
+    entities::{CertificatePending, EpochSettings, Signer, SingleSignatures},
     fake_data,
 };
 
@@ -41,6 +41,11 @@ pub enum CertificateHandlerError {
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait CertificateHandler: Sync + Send {
+    /// Retrieves epoch settings from the aggregator
+    async fn retrieve_epoch_settings(
+        &self,
+    ) -> Result<Option<EpochSettings>, CertificateHandlerError>;
+
     /// Retrieves a pending certificate from the aggregator
     async fn retrieve_pending_certificate(
         &self,
@@ -73,6 +78,28 @@ impl CertificateHandlerHTTPClient {
 
 #[async_trait]
 impl CertificateHandler for CertificateHandlerHTTPClient {
+    async fn retrieve_epoch_settings(
+        &self,
+    ) -> Result<Option<EpochSettings>, CertificateHandlerError> {
+        debug!("Retrieve epoch settings");
+        let url = format!("{}/epoch-settings", self.aggregator_endpoint);
+        let response = reqwest::get(url.clone()).await;
+        match response {
+            Ok(response) => match response.status() {
+                StatusCode::OK => match response.json::<EpochSettings>().await {
+                    Ok(epoch_settings) => Ok(Some(epoch_settings)),
+                    Err(err) => Err(CertificateHandlerError::JsonParseFailed(err.to_string())),
+                },
+                _ => Err(CertificateHandlerError::RemoteServerTechnical(
+                    response.text().await.unwrap_or_default(),
+                )),
+            },
+            Err(err) => Err(CertificateHandlerError::RemoteServerUnreachable(
+                err.to_string(),
+            )),
+        }
+    }
+
     async fn retrieve_pending_certificate(
         &self,
     ) -> Result<Option<CertificatePending>, CertificateHandlerError> {
@@ -149,6 +176,7 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
 /// It actually does not communicate with an aggregator host but mimics this behavior.
 /// It is driven by a Tester that controls the CertificatePending it can return and it can return its internal state for testing.
 pub struct DumbCertificateHandler {
+    epoch_settings: RwLock<Option<EpochSettings>>,
     certificate_pending: RwLock<Option<CertificatePending>>,
     last_registered_signer: RwLock<Option<Signer>>,
 }
@@ -157,9 +185,16 @@ impl DumbCertificateHandler {
     /// Instanciate a new DumbCertificateHandler.
     pub fn new() -> Self {
         Self {
+            epoch_settings: RwLock::new(None),
             certificate_pending: RwLock::new(None),
             last_registered_signer: RwLock::new(None),
         }
+    }
+
+    /// this method pilots the epoch settings handler
+    pub async fn set_epoch_settings(&self, epoch_settings: Option<EpochSettings>) {
+        let mut epoch_settings_writer = self.epoch_settings.write().await;
+        *epoch_settings_writer = epoch_settings;
     }
 
     /// this method pilots the certificate pending handler
@@ -180,6 +215,7 @@ impl DumbCertificateHandler {
 impl Default for DumbCertificateHandler {
     fn default() -> Self {
         Self {
+            epoch_settings: RwLock::new(Some(fake_data::epoch_settings())),
             certificate_pending: RwLock::new(Some(fake_data::certificate_pending())),
             last_registered_signer: RwLock::new(None),
         }
@@ -188,6 +224,14 @@ impl Default for DumbCertificateHandler {
 
 #[async_trait]
 impl CertificateHandler for DumbCertificateHandler {
+    async fn retrieve_epoch_settings(
+        &self,
+    ) -> Result<Option<EpochSettings>, CertificateHandlerError> {
+        let epoch_settings = self.epoch_settings.read().await.clone();
+
+        Ok(epoch_settings)
+    }
+
     async fn retrieve_pending_certificate(
         &self,
     ) -> Result<Option<CertificatePending>, CertificateHandlerError> {
@@ -239,6 +283,37 @@ mod tests {
             data_stores_directory: Path::new("./stores").to_path_buf(),
         };
         (server, config)
+    }
+
+    #[tokio::test]
+    async fn test_epoch_settings_ok_200() {
+        let (server, config) = setup_test();
+        let epoch_settings_expected = fake_data::epoch_settings();
+        let _snapshots_mock = server.mock(|when, then| {
+            when.path("/epoch-settings");
+            then.status(200)
+                .body(json!(epoch_settings_expected).to_string());
+        });
+        let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
+        let epoch_settings = certificate_handler.retrieve_epoch_settings().await;
+        epoch_settings.as_ref().expect("unexpected error");
+        assert_eq!(epoch_settings_expected, epoch_settings.unwrap().unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_epoch_settings_ko_500() {
+        let (server, config) = setup_test();
+        let _snapshots_mock = server.mock(|when, then| {
+            when.path("/epoch-settings");
+            then.status(500).body("an error occurred");
+        });
+        let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
+        let epoch_settings = certificate_handler.retrieve_epoch_settings().await;
+        assert_eq!(
+            CertificateHandlerError::RemoteServerTechnical("an error occurred".to_string())
+                .to_string(),
+            epoch_settings.unwrap_err().to_string()
+        );
     }
 
     #[tokio::test]

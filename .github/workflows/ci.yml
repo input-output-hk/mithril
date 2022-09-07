@@ -491,6 +491,7 @@ jobs:
       GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
       # Contains a RSA private key
       GCLOUD_PRIVATE_KEY: ${{ secrets.GCLOUD_PRIVATE_KEY }}
+      GENESIS_SECRET_KEY: ${{ secrets.TEST_ONLY_GENESIS_SECRET_KEY }}
       BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
 
     defaults:
@@ -519,7 +520,7 @@ jobs:
 
     - name: Terraform Plan
       run: |
-        terraform plan -var "image_id=${{ env.BRANCH_NAME }}-${{ steps.slug.outputs.sha8 }}" -var 'private_key=${{ env.GCLOUD_PRIVATE_KEY }}' -var 'google_application_credentials_json=${{ env.GOOGLE_CREDENTIALS }}'
+        terraform plan -var "image_id=${{ env.BRANCH_NAME }}-${{ steps.slug.outputs.sha8 }}" -var 'private_key=${{ env.GCLOUD_PRIVATE_KEY }}' -var 'google_application_credentials_json=${{ env.GOOGLE_CREDENTIALS }}' -var 'genesis_secret_key=${{ env.GENESIS_SECRET_KEY }}'
 
     - name: Update Pull Request
       uses: actions/github-script@v6
@@ -554,4 +555,4 @@ jobs:
     - name: Terraform Apply
       if: github.ref == 'refs/heads/main' && github.event_name == 'push'
       run: |
-        terraform apply -auto-approve -var "image_id=${{ env.BRANCH_NAME }}-${{ steps.slug.outputs.sha8 }}" -var 'private_key=${{ env.GCLOUD_PRIVATE_KEY }}' -var 'google_application_credentials_json=${{ env.GOOGLE_CREDENTIALS }}'
+        terraform apply -auto-approve -var "image_id=${{ env.BRANCH_NAME }}-${{ steps.slug.outputs.sha8 }}" -var 'private_key=${{ env.GCLOUD_PRIVATE_KEY }}' -var 'google_application_credentials_json=${{ env.GOOGLE_CREDENTIALS }}' -var 'genesis_secret_key=${{ env.GENESIS_SECRET_KEY }}'

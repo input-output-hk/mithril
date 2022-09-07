@@ -9,8 +9,10 @@ use std::error::Error;
 use std::sync::Arc;
 
 use mithril_client::{convert_to_field_items, AggregatorHTTPClient, Config, Runtime};
-
-use mithril_common::certificate_chain::MithrilCertificateVerifier;
+use mithril_common::{
+    certificate_chain::MithrilCertificateVerifier,
+    crypto_helper::{key_decode_hex, ProtocolGenesisVerifier},
+};
 
 /// CLI args
 #[derive(Parser)]
@@ -41,7 +43,7 @@ impl Args {
     }
 
     fn build_logger(&self) -> Logger {
-        let decorator = slog_term::PlainDecorator::new(std::io::stdout());
+        let decorator = slog_term::TermDecorator::new().build();
         let drain = slog_term::CompactFormat::new(decorator).build().fuse();
         let drain = slog::LevelFilter::new(drain, self.log_level()).fuse();
         let drain = slog_async::Async::new(drain).build().fuse();
@@ -117,13 +119,16 @@ async fn main() -> Result<(), String> {
         config.network.clone(),
         config.aggregator_endpoint.clone(),
     ));
-    let verifier = Box::new(MithrilCertificateVerifier::new(slog_scope::logger()));
+    let certificate_verifier = Box::new(MithrilCertificateVerifier::new(slog_scope::logger()));
+    let genesis_verification_key = key_decode_hex(&config.genesis_verification_key)?;
+    let genesis_verifier = ProtocolGenesisVerifier::from_verification_key(genesis_verification_key);
 
     // Init runtime
     let mut runtime = Runtime::new(config.network.clone());
     runtime
         .with_aggregator_handler(aggregator_handler)
-        .with_verifier(verifier);
+        .with_certificate_verifier(certificate_verifier)
+        .with_genesis_verifier(genesis_verifier);
 
     // Execute commands
     match &args.command {

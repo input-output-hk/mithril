@@ -39,6 +39,8 @@ impl Aggregator {
                 bft_node.socket_path.to_str().unwrap(),
             ),
             ("CARDANO_CLI_PATH", cardano_cli_path.to_str().unwrap()),
+            ("GENESIS_VERIFICATION_KEY", "5b33322c3235332c3138362c3230312c3137372c31312c3131372c3133352c3138372c3136372c3138312c3138382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c3235322c3138302c37322c3133342c3133372c3234372c3136312c36385d"),
+            ("GENESIS_SECRET_KEY", "5b3131382c3138342c3232342c3137332c3136302c3234312c36312c3134342c36342c39332c3130362c3232392c38332c3133342c3138392c34302c3138392c3231302c32352c3138342c3136302c3134312c3233372c32362c3136382c35342c3233392c3230342c3133392c3131392c31332c3139395d"),
         ]);
         let args = vec![
             "--db-directory",
@@ -66,8 +68,44 @@ impl Aggregator {
         &self.db_directory
     }
 
-    pub fn start(&mut self) -> Result<(), String> {
-        self.process = Some(self.command.start(&[])?);
+    pub fn serve(&mut self) -> Result<(), String> {
+        self.process = Some(self.command.start(&["serve".to_string()])?);
+        Ok(())
+    }
+
+    pub async fn bootstrap_genesis(&mut self) -> Result<(), String> {
+        let mut child = self
+            .command
+            .start(&["genesis".to_string(), "bootstrap".to_string()])?;
+
+        match child.wait().await {
+            Ok(status) => {
+                if status.success() {
+                    Ok(())
+                } else {
+                    Err(match status.code() {
+                        Some(c) => format!(
+                            "`mithril-aggregator genesis bootstrap` exited with code: {}",
+                            c
+                        ),
+                        None => {
+                            "`mithril-aggregator genesis bootstrap` was terminated with a signal"
+                                .to_string()
+                        }
+                    })
+                }
+            }
+            Err(error) => Err(error.to_string()),
+        }
+    }
+
+    pub async fn stop(&mut self) -> Result<(), String> {
+        if let Some(process) = self.process.as_mut() {
+            process
+                .kill()
+                .await
+                .map_err(|e| format!("Could not kill aggregator: {:?}", e))?;
+        }
         Ok(())
     }
 

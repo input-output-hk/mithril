@@ -1,4 +1,5 @@
 use blake2::{digest::consts::U32, Blake2b};
+use ed25519_dalek;
 use mithril::key_reg::KeyReg;
 use mithril::stm::{
     Index, Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmInitializer, StmParameters,
@@ -35,3 +36,9 @@ pub type ProtocolMultiSignature = StmAggrSig<D>;
 pub type ProtocolSignerVerificationKey = StmVerificationKeyPoP;
 /// Alias of [MithrilCore:StmAggrVerificationKey](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmAggrVerificationKey.html).
 pub type ProtocolAggregateVerificationKey = StmAggrVerificationKey<D>;
+/// Alias of [Ed25519:PublicKey](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.PublicKey.html).
+pub type ProtocolGenesisVerificationKey = ed25519_dalek::PublicKey;
+/// Alias of [Ed25519:SecretKey](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.SecretKey.html).
+pub type ProtocolGenesisSecretKey = ed25519_dalek::SecretKey;
+/// Alias of [Ed25519:Signature](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.Signature.html).
+pub type ProtocolGenesisSignature = ed25519_dalek::Signature;

@@ -58,7 +58,7 @@ mod handlers {
     use crate::dependency::SnapshotStoreWrapper;
     use crate::http_server::routes::reply;
     use crate::http_server::SERVER_BASE_PATH;
-    use crate::Config;
+    use crate::Configuration;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use std::str::FromStr;
@@ -112,7 +112,7 @@ mod handlers {
     /// Snapshot download
     pub async fn snapshot_download(
         digest: String,
-        config: Config,
+        config: Configuration,
         snapshot_store: SnapshotStoreWrapper,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("snapshot_download/{}", digest);

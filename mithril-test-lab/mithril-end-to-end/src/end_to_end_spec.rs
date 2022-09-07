@@ -1,9 +1,8 @@
 use crate::utils::AttemptResult;
-use crate::{attempt, Client, ClientCommand, Devnet, MithrilInfrastructure};
+use crate::{attempt, Aggregator, Client, ClientCommand, Devnet, MithrilInfrastructure};
 use mithril_common::chain_observer::{CardanoCliChainObserver, ChainObserver};
 use mithril_common::digesters::ImmutableFile;
-use mithril_common::entities::{Certificate, CertificatePending, Epoch, Snapshot};
-use mithril_common::{SIGNER_EPOCH_RECORDING_OFFSET, SIGNER_EPOCH_RETRIEVAL_OFFSET};
+use mithril_common::entities::{Certificate, Epoch, EpochSettings, Snapshot};
 use reqwest::StatusCode;
 use slog_scope::info;
 use std::error::Error;
@@ -20,20 +19,27 @@ impl Spec {
         Self { infrastructure }
     }
 
-    pub async fn run(&self) -> Result<(), Box<dyn Error>> {
+    pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
         let aggregator_endpoint = self.infrastructure.aggregator().endpoint();
 
         wait_for_enough_immutable(self.infrastructure.aggregator().db_directory()).await?;
-        let min_epoch =
-            Epoch((SIGNER_EPOCH_RECORDING_OFFSET - SIGNER_EPOCH_RETRIEVAL_OFFSET) as u64);
+        // Epoch 3 since:
+        // * Epoch(0) won't produce anything since the Cardano network is still booting up.
+        // * It needs signers from the previous epoch.
+        // * Epoch(2) is still too early for some environements (ie: CI) to have the aggregator
+        // waiting for signatures long enough for signers to register.
+        let mut target_epoch = Epoch(3);
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
-            min_epoch,
-            "minimal epoch for the signer to be able to sign snapshots".to_string(),
+            target_epoch,
+            "minimal epoch for the aggregator to be able to bootstrap genesis certificate"
+                .to_string(),
         )
         .await?;
-        wait_for_pending_certificate(&aggregator_endpoint).await?;
-        let target_epoch = min_epoch + 2;
+        bootstrap_genesis_certificate(self.infrastructure.aggregator_mut()).await?;
+        wait_for_epoch_settings(&aggregator_endpoint).await?;
+
+        target_epoch += 2;
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
             target_epoch,
@@ -41,13 +47,15 @@ impl Spec {
         )
         .await?;
         delegate_stakes_to_pools(self.infrastructure.devnet()).await?;
-        let target_epoch = min_epoch + 4;
+
+        target_epoch += 4;
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
             target_epoch,
             "epoch after which the certificate chain will be long enough".to_string(),
         )
         .await?;
+
         let digest = assert_node_producing_snapshot(&aggregator_endpoint).await?;
         let certificate_hash =
             assert_signer_is_signing_snapshot(&aggregator_endpoint, &digest, target_epoch - 2)
@@ -100,22 +108,20 @@ async fn wait_for_enough_immutable(db_directory: &Path) -> Result<(), String> {
     }
 }
 
-async fn wait_for_pending_certificate(
-    aggregator_endpoint: &str,
-) -> Result<CertificatePending, String> {
-    let url = format!("{}/certificate-pending", aggregator_endpoint);
-    info!("Waiting for the aggregator to produce a pending certificate");
+async fn wait_for_epoch_settings(aggregator_endpoint: &str) -> Result<EpochSettings, String> {
+    let url = format!("{}/epoch-settings", aggregator_endpoint);
+    info!("Waiting for the aggregator to expose epoch settings");
 
-    match attempt!(10, Duration::from_millis(1000), {
+    match attempt!(20, Duration::from_millis(1000), {
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => {
-                    let certificate = response
-                        .json::<CertificatePending>()
+                    let epoch_settings = response
+                        .json::<EpochSettings>()
                         .await
-                        .map_err(|e| format!("Invalid CertificatePending body : {}", e))?;
-                    info!("Aggregator ready"; "pending_certificate"  => #?certificate);
-                    Ok(Some(certificate))
+                        .map_err(|e| format!("Invalid EpochSettings body : {}", e))?;
+                    info!("Aggregator ready"; "epoch_settings"  => #?epoch_settings);
+                    Ok(Some(epoch_settings))
                 }
                 s if s.is_server_error() => Err(format!(
                     "Server error while waiting for the Aggregator, http code: {}",
@@ -126,7 +132,7 @@ async fn wait_for_pending_certificate(
             Err(_) => Ok(None),
         }
     }) {
-        AttemptResult::Ok(certificate) => Ok(certificate),
+        AttemptResult::Ok(epoch_settings) => Ok(epoch_settings),
         AttemptResult::Err(error) => Err(error),
         AttemptResult::Timeout() => Err(format!(
             "Timeout exhausted for aggregator to be up, no response from `{}`",
@@ -167,6 +173,19 @@ async fn wait_for_target_epoch(
             Err("Timeout exhausted for target epoch to be reached".to_string())
         }
     }?;
+
+    Ok(())
+}
+
+async fn bootstrap_genesis_certificate(aggregator: &mut Aggregator) -> Result<(), String> {
+    info!("Bootstrap genesis certificate");
+
+    info!("> stopping aggregator");
+    aggregator.stop().await?;
+    info!("> bootstrapping genesis using signers registered two epochs ago ...");
+    aggregator.bootstrap_genesis().await?;
+    info!("> done, restarting aggregator");
+    aggregator.serve()?;
 
     Ok(())
 }

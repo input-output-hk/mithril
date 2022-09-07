@@ -104,7 +104,7 @@ The documentation of the REST API of the **Mithril Aggregator** is available [he
 
 * A runtime that is powered by a state machine:
   * The runtime is synchronous and is scheduled to execute at regular intervals.
-  * There are two possible states: **IDLE** and **SIGNING**.
+  * There are three possible states: **IDLE** , **READY** and **SIGNING**.
   * The runtime handles state transitions.
   * The runtime is summarized in the diagram below:
 

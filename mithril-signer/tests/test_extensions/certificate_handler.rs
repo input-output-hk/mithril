@@ -2,7 +2,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 use mithril_common::{
-    entities::{Beacon, CertificatePending, Epoch, Signer, SingleSignatures},
+    entities::{Beacon, CertificatePending, Epoch, EpochSettings, Signer, SingleSignatures},
     BeaconProvider, BeaconProviderImpl,
 };
 use mithril_signer::{CertificateHandler, CertificateHandlerError};
@@ -11,11 +11,13 @@ use tokio::sync::RwLock;
 pub struct FakeAggregator {
     registered_signers: RwLock<HashMap<Epoch, Vec<Signer>>>,
     beacon_provider: Arc<BeaconProviderImpl>,
+    withhold_epoch_settings: RwLock<bool>,
 }
 
 impl FakeAggregator {
     pub fn new(beacon_provider: Arc<BeaconProviderImpl>) -> Self {
         Self {
+            withhold_epoch_settings: RwLock::new(true),
             registered_signers: RwLock::new(HashMap::new()),
             beacon_provider,
         }
@@ -25,6 +27,11 @@ impl FakeAggregator {
         let store = self.registered_signers.read().await;
 
         store.get(epoch).cloned()
+    }
+
+    pub async fn release_epoch_settings(&self) {
+        let mut settings = self.withhold_epoch_settings.write().await;
+        *settings = false;
     }
 
     async fn get_beacon(&self) -> Result<Beacon, CertificateHandlerError> {
@@ -40,6 +47,20 @@ impl FakeAggregator {
 
 #[async_trait]
 impl CertificateHandler for FakeAggregator {
+    async fn retrieve_epoch_settings(
+        &self,
+    ) -> Result<Option<EpochSettings>, CertificateHandlerError> {
+        if *self.withhold_epoch_settings.read().await {
+            Ok(None)
+        } else {
+            let beacon = self.get_beacon().await?;
+            Ok(Some(EpochSettings {
+                epoch: beacon.epoch,
+                ..Default::default()
+            }))
+        }
+    }
+
     async fn retrieve_pending_certificate(
         &self,
     ) -> Result<Option<CertificatePending>, CertificateHandlerError> {

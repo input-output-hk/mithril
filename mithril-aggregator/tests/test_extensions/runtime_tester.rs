@@ -1,4 +1,5 @@
 use crate::test_extensions::{initialize_dependencies, TestSigner};
+use mithril_common::certificate_chain::CertificateGenesisProducer;
 use slog::Drain;
 use std::sync::Arc;
 use std::time::Duration;
@@ -7,8 +8,8 @@ use mithril_aggregator::{
     AggregatorRunner, AggregatorRuntime, DependencyManager, DumbSnapshotUploader, DumbSnapshotter,
     ProtocolParametersStorer,
 };
-use mithril_common::crypto_helper::key_encode_hex;
 use mithril_common::crypto_helper::tests_setup::setup_signers_from_parties;
+use mithril_common::crypto_helper::{key_encode_hex, ProtocolClerk, ProtocolGenesisSigner};
 use mithril_common::digesters::DumbImmutableFileObserver;
 use mithril_common::entities::{
     Certificate, Epoch, ImmutableFileNumber, ProtocolParameters, SignerWithStake, SingleSignatures,
@@ -30,6 +31,7 @@ pub struct RuntimeTester {
     pub immutable_file_observer: Arc<DumbImmutableFileObserver>,
     pub digester: Arc<DumbImmutableDigester>,
     pub snapshotter: Arc<DumbSnapshotter>,
+    pub genesis_signer: Arc<ProtocolGenesisSigner>,
     pub deps: Arc<DependencyManager>,
     pub runtime: AggregatorRuntime,
     _logs_guard: slog_scope::GlobalLoggerGuard,
@@ -42,6 +44,7 @@ impl RuntimeTester {
         let immutable_file_observer = Arc::new(DumbImmutableFileObserver::default());
         let digester = Arc::new(DumbImmutableDigester::default());
         let snapshotter = Arc::new(DumbSnapshotter::new());
+        let genesis_signer = Arc::new(ProtocolGenesisSigner::create_deterministic_genesis_signer());
         let (deps, config) = initialize_dependencies(
             default_protocol_parameters,
             snapshot_uploader.clone(),
@@ -49,6 +52,7 @@ impl RuntimeTester {
             immutable_file_observer.clone(),
             digester.clone(),
             snapshotter.clone(),
+            genesis_signer.clone(),
         )
         .await;
         let runner = Arc::new(AggregatorRunner::new(config.clone(), deps.clone()));
@@ -68,6 +72,7 @@ impl RuntimeTester {
             immutable_file_observer,
             digester,
             snapshotter,
+            genesis_signer,
             deps,
             runtime,
             _logs_guard: log,
@@ -80,6 +85,65 @@ impl RuntimeTester {
             .cycle()
             .await
             .map_err(|e| format!("Ticking the state machine should not fail, error: {:?}", e))?;
+        Ok(())
+    }
+
+    /// Registers the genesis certificate
+    pub async fn register_genesis_certificate(&self, signers: &[TestSigner]) -> Result<(), String> {
+        let beacon = self
+            .deps
+            .beacon_provider
+            .get_current_beacon()
+            .await
+            .map_err(|e| format!("Querying the current beacon should not fail: {:?}", e))?;
+        let protocol_parameters = self
+            .deps
+            .protocol_parameters_store
+            .get_protocol_parameters(beacon.epoch)
+            .await
+            .map_err(|e| {
+                format!(
+                    "Querying the recording epoch protocol_parameters should not fail: {:?}",
+                    e
+                )
+            })?
+            .ok_or("A protocol parameters for the epoch should be available")?;
+        let first_signer = &signers
+            .first()
+            .ok_or_else(|| "Signers list should not be empty".to_string())?
+            .3;
+        let clerk = ProtocolClerk::from_signer(first_signer);
+        let genesis_avk = clerk.compute_avk();
+        let genesis_producer = CertificateGenesisProducer::new(Some(self.genesis_signer.clone()));
+        let genesis_protocol_message = CertificateGenesisProducer::create_genesis_protocol_message(
+            &genesis_avk,
+        )
+        .map_err(|e| {
+            format!(
+                "Creating the genesis protocol message should not fail: {:?}",
+                e
+            )
+        })?;
+        let genesis_signature = genesis_producer
+            .sign_genesis_protocol_message(genesis_protocol_message)
+            .map_err(|e| {
+                format!(
+                    "Signing the genesis protocol message should not fail: {:?}",
+                    e
+                )
+            })?;
+        let genesis_certificate = CertificateGenesisProducer::create_genesis_certificate(
+            protocol_parameters,
+            beacon,
+            genesis_avk,
+            genesis_signature,
+        )
+        .map_err(|e| format!("Creating the genesis certificate should not fail: {:?}", e))?;
+        self.deps
+            .certificate_store
+            .save(genesis_certificate)
+            .await
+            .map_err(|e| format!("Saving the genesis certificate should not fail: {:?}", e))?;
         Ok(())
     }
 
@@ -183,6 +247,7 @@ impl RuntimeTester {
         Ok((certificates, snapshots))
     }
 
+    /// Updates the stake distribution given a vector of signers with stakes
     pub async fn update_stake_distribution(
         &self,
         signers_with_stake: Vec<SignerWithStake>,

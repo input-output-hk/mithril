@@ -1,5 +1,7 @@
+use async_trait::async_trait;
 use tokio::sync::RwLock;
 
+use mithril_common::certificate_chain::{CertificateRetriever, CertificateRetrieverError};
 use mithril_common::entities::{Beacon, Certificate};
 use mithril_common::store::{adapter::StoreAdapter, StoreError};
 
@@ -59,6 +61,20 @@ impl CertificateStore {
         let result = vars.into_iter().map(|(_, y)| y).collect();
 
         Ok(result)
+    }
+}
+
+#[async_trait]
+impl CertificateRetriever for CertificateStore {
+    async fn get_certificate_details(
+        &self,
+        certificate_hash: &str,
+    ) -> Result<Certificate, CertificateRetrieverError> {
+        Ok(self
+            .get_from_hash(certificate_hash)
+            .await
+            .map_err(|e| CertificateRetrieverError::General(e.to_string()))?
+            .ok_or_else(|| CertificateRetrieverError::General("missing certificate".to_string()))?)
     }
 }
 

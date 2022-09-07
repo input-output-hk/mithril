@@ -64,7 +64,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     debug!("Started"; "run_mode" => &run_mode, "config" => format!("{:?}", config));
 
     let mut state_machine = StateMachine::new(
-        SignerState::Unregistered,
+        SignerState::Unregistered(None),
         Box::new(SignerRunner::new(
             config.clone(),
             ProductionServiceBuilder::new(&config).build()?,

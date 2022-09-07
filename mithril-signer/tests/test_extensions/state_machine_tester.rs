@@ -114,8 +114,11 @@ impl StateMachineTester {
 
         let runner = Box::new(SignerRunner::new(config, services));
 
-        let state_machine =
-            StateMachine::new(SignerState::Unregistered, runner, Duration::from_secs(5));
+        let state_machine = StateMachine::new(
+            SignerState::Unregistered(None),
+            runner,
+            Duration::from_secs(5),
+        );
 
         StateMachineTester {
             state_machine,
@@ -179,6 +182,12 @@ impl StateMachineTester {
                 self.state_machine.get_state()
             ),
         )
+    }
+
+    /// make the aggregator send the epoch settings from now on
+    pub async fn aggregator_send_epoch_settings(&mut self) -> &mut Self {
+        self.certificate_handler.release_epoch_settings().await;
+        self
     }
 
     /// check there is a protocol initializer for the given Epoch

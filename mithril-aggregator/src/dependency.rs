@@ -1,3 +1,5 @@
+use mithril_common::certificate_chain::CertificateVerifier;
+use mithril_common::crypto_helper::ProtocolGenesisVerifier;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -9,7 +11,7 @@ use mithril_common::entities::{
 use mithril_common::store::{StakeStore, StakeStorer};
 use mithril_common::BeaconProvider;
 
-use crate::entities::*;
+use crate::configuration::*;
 use crate::multi_signer::MultiSigner;
 use crate::snapshot_stores::SnapshotStore;
 use crate::snapshot_uploaders::SnapshotUploader;
@@ -57,13 +59,19 @@ pub type ImmutableFileObserverWrapper = Arc<dyn ImmutableFileObserver>;
 /// DigesterWrapper wraps a Digester
 pub type DigesterWrapper = Arc<dyn ImmutableDigester>;
 
-// DigesterWrapper wraps a Digester
+/// SnapshotterWrapper wraps a Snapshotter
 pub type SnapshotterWrapper = Arc<dyn Snapshotter>;
+
+/// CertificateVerifierWrapper wraps a CertificateVerifier
+pub type CertificateVerifierWrapper = Arc<dyn CertificateVerifier>;
+
+/// ProtocolGenesisVerifierWrapper wraps a ProtocolGenesisVerifier
+pub type ProtocolGenesisVerifierWrapper = Arc<ProtocolGenesisVerifier>;
 
 /// DependencyManager handles the dependencies
 pub struct DependencyManager {
     /// Configuration structure.
-    pub config: Config,
+    pub config: Configuration,
 
     /// Snapshot store.
     pub snapshot_store: SnapshotStoreWrapper,
@@ -106,6 +114,12 @@ pub struct DependencyManager {
 
     /// Snapshotter service.
     pub snapshotter: SnapshotterWrapper,
+
+    /// Certificate verifier service.
+    pub certificate_verifier: CertificateVerifierWrapper,
+
+    /// Genesis signature verifier service.
+    pub genesis_verifier: ProtocolGenesisVerifierWrapper,
 }
 
 #[doc(hidden)]
@@ -193,11 +207,13 @@ impl DependencyManager {
 #[cfg(test)]
 pub mod tests {
     use crate::{
-        AggregatorConfig, CertificatePendingStore, CertificateStore, Config, DependencyManager,
-        DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore, MultiSignerImpl,
-        ProtocolParametersStore, SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType,
-        VerificationKeyStore,
+        AggregatorConfig, CertificatePendingStore, CertificateStore, Configuration,
+        DependencyManager, DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore,
+        MultiSignerImpl, ProtocolParametersStore, SingleSignatureStore, SnapshotStoreType,
+        SnapshotUploaderType, VerificationKeyStore,
     };
+    use mithril_common::certificate_chain::MithrilCertificateVerifier;
+    use mithril_common::crypto_helper::{key_encode_hex, ProtocolGenesisSigner};
     use mithril_common::digesters::{DumbImmutableDigester, DumbImmutableFileObserver};
     use mithril_common::{
         chain_observer::FakeObserver,
@@ -209,7 +225,10 @@ pub mod tests {
     use tokio::sync::RwLock;
 
     pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) {
-        let config: Config = Config {
+        let genesis_signer = ProtocolGenesisSigner::create_deterministic_genesis_signer();
+        let genesis_verifier = Arc::new(genesis_signer.create_genesis_verifier());
+        let genesis_verification_key = genesis_verifier.to_verification_key();
+        let config = Configuration {
             cardano_cli_path: PathBuf::new(),
             cardano_node_socket_path: PathBuf::new(),
             network_magic: Some(42),
@@ -224,6 +243,7 @@ pub mod tests {
             db_directory: PathBuf::new(),
             snapshot_directory: PathBuf::new(),
             data_stores_directory: PathBuf::new(),
+            genesis_verification_key: key_encode_hex(&genesis_verification_key).unwrap(),
         };
         let snapshot_store = Arc::new(LocalSnapshotStore::new(
             Box::new(MemoryAdapter::new(None).unwrap()),
@@ -260,6 +280,7 @@ pub mod tests {
             immutable_file_observer.clone(),
             CardanoNetwork::TestNet(42),
         ));
+        let certificate_verifier = Arc::new(MithrilCertificateVerifier::new(slog_scope::logger()));
         let dependency_manager = DependencyManager {
             config,
             snapshot_store,
@@ -276,6 +297,8 @@ pub mod tests {
             immutable_file_observer,
             digester: Arc::new(DumbImmutableDigester::new("digest", true)),
             snapshotter: Arc::new(DumbSnapshotter::new()),
+            certificate_verifier,
+            genesis_verifier,
         };
 
         let config = AggregatorConfig::new(

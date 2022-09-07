@@ -5,11 +5,13 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use std::fmt::Display;
 use std::fmt::Formatter;
-use std::ops::{Add, Sub};
+use std::ops::{Add, AddAssign, Sub, SubAssign};
 use thiserror::Error;
 
 /// Epoch represents a Cardano epoch
-#[derive(Debug, Copy, Clone, Default, PartialEq, Serialize, Deserialize, Hash, Eq, PartialOrd)]
+#[derive(
+    Debug, Copy, Clone, Default, PartialEq, Serialize, Deserialize, Hash, Eq, PartialOrd, Ord,
+)]
 pub struct Epoch(pub u64);
 
 impl Epoch {
@@ -50,31 +52,7 @@ impl Add<u64> for Epoch {
     type Output = Self;
 
     fn add(self, rhs: u64) -> Self::Output {
-        Epoch(self.0 + rhs)
-    }
-}
-
-impl Sub for Epoch {
-    type Output = Self;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        Epoch(self.0 - rhs.0)
-    }
-}
-
-impl Sub<u64> for Epoch {
-    type Output = Self;
-
-    fn sub(self, rhs: u64) -> Self::Output {
-        Epoch(self.0 - rhs)
-    }
-}
-
-impl Add<i64> for Epoch {
-    type Output = Self;
-
-    fn add(self, rhs: i64) -> Self::Output {
-        Epoch(self.0 + rhs as u64)
+        Self(self.0 + rhs)
     }
 }
 
@@ -82,7 +60,95 @@ impl Add<i32> for Epoch {
     type Output = Self;
 
     fn add(self, rhs: i32) -> Self::Output {
-        Epoch(self.0 + rhs as u64)
+        Self(self.0 + rhs as u64)
+    }
+}
+
+impl Add<i64> for Epoch {
+    type Output = Self;
+
+    fn add(self, rhs: i64) -> Self::Output {
+        Self(self.0 + rhs as u64)
+    }
+}
+
+impl AddAssign for Epoch {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = self.add(rhs);
+    }
+}
+
+impl AddAssign<u64> for Epoch {
+    fn add_assign(&mut self, rhs: u64) {
+        *self = self.add(rhs);
+    }
+}
+
+impl AddAssign<i32> for Epoch {
+    fn add_assign(&mut self, rhs: i32) {
+        *self = self.add(rhs);
+    }
+}
+
+impl AddAssign<i64> for Epoch {
+    fn add_assign(&mut self, rhs: i64) {
+        *self = self.add(rhs);
+    }
+}
+
+impl Sub for Epoch {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self(self.0 - rhs.0)
+    }
+}
+
+impl Sub<u64> for Epoch {
+    type Output = Self;
+
+    fn sub(self, rhs: u64) -> Self::Output {
+        Self(self.0 - rhs)
+    }
+}
+
+impl Sub<i32> for Epoch {
+    type Output = Self;
+
+    fn sub(self, rhs: i32) -> Self::Output {
+        Self(self.0 - rhs as u64)
+    }
+}
+
+impl Sub<i64> for Epoch {
+    type Output = Self;
+
+    fn sub(self, rhs: i64) -> Self::Output {
+        Self(self.0 - rhs as u64)
+    }
+}
+
+impl SubAssign for Epoch {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = self.sub(rhs);
+    }
+}
+
+impl SubAssign<u64> for Epoch {
+    fn sub_assign(&mut self, rhs: u64) {
+        *self = self.sub(rhs);
+    }
+}
+
+impl SubAssign<i32> for Epoch {
+    fn sub_assign(&mut self, rhs: i32) {
+        *self = self.sub(rhs);
+    }
+}
+
+impl SubAssign<i64> for Epoch {
+    fn sub_assign(&mut self, rhs: i64) {
+        *self = self.sub(rhs);
     }
 }
 
@@ -110,4 +176,57 @@ pub enum EpochError {
     /// Error raised when the [computation of an epoch using an offset][Epoch::offset_by] fails.
     #[error("epoch offset error")]
     EpochOffset(u64, i64),
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_add() {
+        assert_eq!(Epoch(4), Epoch(1) + Epoch(3));
+        assert_eq!(Epoch(4), Epoch(1) + 3_u64);
+        assert_eq!(Epoch(4), Epoch(1) + 3_i32);
+        assert_eq!(Epoch(4), Epoch(1) + 3_i64);
+
+        let mut epoch = Epoch(1);
+        epoch += Epoch(3);
+        assert_eq!(Epoch(4), epoch);
+
+        let mut epoch = Epoch(1);
+        epoch += 3_u64;
+        assert_eq!(Epoch(4), epoch);
+
+        let mut epoch = Epoch(1);
+        epoch += 3_i32;
+        assert_eq!(Epoch(4), epoch);
+
+        let mut epoch = Epoch(1);
+        epoch += 3_i64;
+        assert_eq!(Epoch(4), epoch);
+    }
+
+    #[test]
+    fn test_sub() {
+        assert_eq!(Epoch(8), Epoch(14) - Epoch(6));
+        assert_eq!(Epoch(8), Epoch(14) - 6_u64);
+        assert_eq!(Epoch(8), Epoch(14) - 6_i32);
+        assert_eq!(Epoch(8), Epoch(14) - 6_i64);
+
+        let mut epoch = Epoch(14);
+        epoch -= Epoch(6);
+        assert_eq!(Epoch(8), epoch);
+
+        let mut epoch = Epoch(14);
+        epoch -= 6_u64;
+        assert_eq!(Epoch(8), epoch);
+
+        let mut epoch = Epoch(14);
+        epoch -= 6_i32;
+        assert_eq!(Epoch(8), epoch);
+
+        let mut epoch = Epoch(14);
+        epoch -= 6_i64;
+        assert_eq!(Epoch(8), epoch);
+    }
 }

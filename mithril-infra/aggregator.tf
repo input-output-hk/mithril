@@ -54,7 +54,7 @@ resource "null_resource" "mithril-aggregator" {
 
   provisioner "remote-exec" {
     inline = [
-      "NETWORK=preview IMAGE_ID=${var.image_id} GOOGLE_APPLICATION_CREDENTIALS_JSON='${var.google_application_credentials_json}' CURRENT_UID=$(id -u) DOCKER_GID=$(getent group docker | cut -d: -f3)  docker-compose -f /home/curry/docker-compose.yaml --profile all up -d"
+      "NETWORK=preview IMAGE_ID=${var.image_id} GOOGLE_APPLICATION_CREDENTIALS_JSON='${var.google_application_credentials_json}' GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) GENESIS_SECRET_KEY='${var.genesis_secret_key}' CURRENT_UID=$(id -u) DOCKER_GID=$(getent group docker | cut -d: -f3)  docker-compose -f /home/curry/docker-compose.yaml --profile all up -d"
     ]
   }
 }

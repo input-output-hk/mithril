@@ -42,3 +42,8 @@ variable "google_application_credentials_json" {
   type        = string
   description = "Service account JSON key file used by aggregator to upload files to gcloud storage"
 }
+
+variable "genesis_secret_key" {
+  type        = string
+  description = "The genesis secret key used by the aggregator to bootstrap a genesis certificate (test only)"
+}

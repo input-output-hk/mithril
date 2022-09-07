@@ -17,7 +17,7 @@ const LIST_SNAPSHOTS_MAX_ITEMS: usize = 20;
 
 /// Aggregator configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Config {
+pub struct Configuration {
     /// Cardano CLI tool path
     pub cardano_cli_path: PathBuf,
 
@@ -59,6 +59,9 @@ pub struct Config {
 
     /// Directory to store aggregator data (Certificates, Snapshots, Protocol Parameters, ...)
     pub data_stores_directory: PathBuf,
+
+    /// Genesis verification key
+    pub genesis_verification_key: String,
 }
 
 /// Snapshot store type enumerates the different kinds of snapshot stores.
@@ -83,7 +86,7 @@ pub enum SnapshotUploaderType {
     Local,
 }
 
-impl Config {
+impl Configuration {
     /// Create a snapshot store from the configuration settings.
     pub fn build_snapshot_store(&self) -> Result<SnapshotStoreWrapper, Box<dyn Error>> {
         match self.snapshot_store_type {

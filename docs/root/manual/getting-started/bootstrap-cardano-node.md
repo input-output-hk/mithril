@@ -12,7 +12,7 @@ Thanks to a **Mithril Client** connected to a **Mithril Aggregator**, you will r
 
 :::tip
 
-The Mithril test networks are:
+The [Mithril test networks](../../manual/developer-docs/references.md#mithril-networks) are:
 
 * `preview`: Test network with magic id `2`, implemented on the IOG hosted Mithril Aggregator
 * `preprod`: Test network with magic id `1`, not implemented yet on the IOG hosted Mithril Aggregator

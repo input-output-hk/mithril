@@ -1,16 +1,16 @@
 //! Test data builders for Mithril Core types, for testing purpose.
 
-use super::{key_encode_hex, types::*};
+use super::{genesis::*, key_encode_hex, types::*};
 use crate::{
-    entities::{Certificate, ProtocolMessage, ProtocolMessagePartKey},
+    entities::{Certificate, Epoch, PartyId, ProtocolMessage, ProtocolMessagePartKey, Stake},
     fake_data,
 };
 
-use crate::entities::{Epoch, PartyId, Stake};
+use crate::certificate_chain::CertificateGenesisProducer;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
-use std::cmp::min;
 use std::collections::HashMap;
+use std::{cmp::min, sync::Arc};
 
 /// Instantiate a [ProtocolMessage] using fake data, use this for tests only.
 pub fn setup_message() -> ProtocolMessage {
@@ -112,11 +112,21 @@ pub fn setup_signers_from_parties(
         .collect::<_>()
 }
 
+/// Instantiate a Genesis Signer and its associated Verifier
+pub fn setup_genesis() -> (ProtocolGenesisSigner, ProtocolGenesisVerifier) {
+    let genesis_signer = ProtocolGenesisSigner::create_deterministic_genesis_signer();
+    let genesis_verifier = genesis_signer.create_genesis_verifier();
+    (genesis_signer, genesis_verifier)
+}
+
 /// Instantiate a certificate chain, use this for tests only.
 pub fn setup_certificate_chain(
     total_certificates: u64,
     certificates_per_epoch: u64,
-) -> Vec<Certificate> {
+) -> (Vec<Certificate>, ProtocolGenesisVerifier) {
+    let genesis_signer = ProtocolGenesisSigner::create_deterministic_genesis_signer();
+    let genesis_verifier = genesis_signer.create_genesis_verifier();
+    let genesis_producer = CertificateGenesisProducer::new(Some(Arc::new(genesis_signer)));
     let protocol_parameters = setup_protocol_parameters();
     let mut epochs = (1..total_certificates + 2)
         .into_iter()
@@ -140,11 +150,13 @@ pub fn setup_certificate_chain(
         let first_signer = &signers.first().unwrap().3;
         ProtocolClerk::from_signer(first_signer)
     };
-    let avk_for_signers = |signers: &[(_, _, _, ProtocolSigner, _)]| -> String {
-        let clerk = clerk_for_signers(signers);
-        let aggregate_verification_key = clerk.compute_avk();
-        key_encode_hex(&aggregate_verification_key).unwrap()
-    };
+    let avk_for_signers =
+        |signers: &[(_, _, _, ProtocolSigner, _)]| -> ProtocolAggregateVerificationKey {
+            let clerk = clerk_for_signers(signers);
+            clerk.compute_avk()
+        };
+    let avk_encode =
+        |avk: &ProtocolAggregateVerificationKey| -> String { key_encode_hex(avk).unwrap() };
     epochs.pop();
     let certificates = epochs
         .into_iter()
@@ -165,15 +177,26 @@ pub fn setup_certificate_chain(
                 .set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
             fake_certificate.protocol_message.set_message_part(
                 ProtocolMessagePartKey::NextAggregateVerificationKey,
-                next_avk,
+                avk_encode(&next_avk),
             );
-            fake_certificate.aggregate_verification_key = avk;
+            fake_certificate.aggregate_verification_key = avk_encode(&avk);
             fake_certificate.signed_message = fake_certificate.protocol_message.compute_hash();
             fake_certificate.previous_hash = "".to_string();
             match i {
                 0 => {
-                    fake_certificate.multi_signature = "".to_string();
-                    fake_certificate.genesis_signature = "genesis-signature".to_string()
+                    let genesis_protocol_message =
+                        CertificateGenesisProducer::create_genesis_protocol_message(&next_avk)
+                            .unwrap();
+                    let genesis_signature = genesis_producer
+                        .sign_genesis_protocol_message(genesis_protocol_message)
+                        .unwrap();
+                    fake_certificate = CertificateGenesisProducer::create_genesis_certificate(
+                        fake_certificate.metadata.protocol_parameters,
+                        fake_certificate.beacon,
+                        next_avk,
+                        genesis_signature,
+                    )
+                    .unwrap()
                 }
                 _ => {
                     let mut single_signatures = Vec::new();
@@ -213,5 +236,5 @@ pub fn setup_certificate_chain(
             certificates_new.push(certificate_new);
         });
     certificates_new.reverse();
-    certificates_new
+    (certificates_new, genesis_verifier)
 }

@@ -1,8 +1,8 @@
 use crate::dependency::{
     CertificatePendingStoreWrapper, CertificateStoreWrapper, MultiSignerWrapper,
-    SnapshotStoreWrapper,
+    ProtocolParametersStoreWrapper, SnapshotStoreWrapper,
 };
-use crate::{Config, DependencyManager};
+use crate::{Configuration, DependencyManager};
 use std::convert::Infallible;
 use std::sync::Arc;
 use warp::Filter;
@@ -28,6 +28,13 @@ pub(crate) fn with_certificate_pending_store(
     warp::any().map(move || dependency_manager.certificate_pending_store.clone())
 }
 
+/// With protocol parameters store
+pub(crate) fn with_protocol_parameters_store(
+    dependency_manager: Arc<DependencyManager>,
+) -> impl Filter<Extract = (ProtocolParametersStoreWrapper,), Error = Infallible> + Clone {
+    warp::any().map(move || dependency_manager.protocol_parameters_store.clone())
+}
+
 /// With multi signer middleware
 pub fn with_multi_signer(
     dependency_manager: Arc<DependencyManager>,
@@ -38,6 +45,6 @@ pub fn with_multi_signer(
 /// With config middleware
 pub fn with_config(
     dependency_manager: Arc<DependencyManager>,
-) -> impl Filter<Extract = (Config,), Error = Infallible> + Clone {
+) -> impl Filter<Extract = (Configuration,), Error = Infallible> + Clone {
     warp::any().map(move || dependency_manager.config.clone())
 }
