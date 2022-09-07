@@ -67,7 +67,7 @@ const config = {
       },
     ],
   ],
-  
+
   plugins: [
     [
       '@docusaurus/plugin-content-blog',
@@ -157,7 +157,7 @@ const config = {
             items: [
               {
                 label: 'Discord (#moria)',
-                href: 'https://discord.gg/beku2fg4',
+                href: 'https://discord.gg/5kaErDKDRq',
               },
               {
                 label: 'Github Discussions',

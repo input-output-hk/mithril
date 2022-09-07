@@ -20,4 +20,4 @@ The SPOs that are currently running a Mithril Signer will have to recompile thei
 
 In order to restore a Mithril Snapshot, a Mithril Client will now need access to the `Genesis Verification Key` by adding an environment variable when running: `GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey)`.
 
-Feel free to reach out to us on the [Discord channel](https://discord.gg/beku2fg4) for questions and/or help.
+Feel free to reach out to us on the [Discord channel](https://discord.gg/5kaErDKDRq) for questions and/or help.
