@@ -266,6 +266,18 @@ Run a local Docker container
 make docker-run
 ```
 
+## Subcommands
+
+Here are the subcommands available:
+
+| Subcommand | Performed action |
+|------------|------------------|
+| **serve** | Aggregator runs its HTTP server in nominal mode and orchestrates multi signatures production |
+| **help** | Print this message or the help of the given subcommand(s) |
+| **genesis export** | Export genesis payload to sign with genesis secret key |
+| **genesis import** | Import genesis signature (paylod signed with genesis secret key) and create & import a genesis certificate in the store |
+| **genesis bootstrap** | Bootstrap a genesis certificate (test only usage) |
+
 ## Configuration parameters
 
 The configuration parameters are set either:

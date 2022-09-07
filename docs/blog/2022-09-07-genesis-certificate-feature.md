@@ -4,6 +4,9 @@ authors:
 - name: Mithril Team
 tags: [genesis, breaking-change]
 ---
+
+**Update**: The PR has been merged and the feature is being deployed on the GCP Mithril Aggregator.
+
 ### This afternoon, we plan to merge the PR that activates the Genesis Certificate feature on the GCP Mithril Aggregator
 
 **PR**: `Implement Real Genesis Certificate` [#438](https://github.com/input-output-hk/mithril/pull/438)
