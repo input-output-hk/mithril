@@ -37,3 +37,8 @@ tempfile = "3.3.0"
 
 [features]
 portable = ["mithril-common/portable"]
+
+[[bin]]
+name = "sqlite_migration"
+bench = false
+
