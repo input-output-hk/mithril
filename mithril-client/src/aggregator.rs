@@ -36,7 +36,7 @@ pub enum AggregatorHandlerError {
     #[error("json parsing failed: '{0}'")]
     JsonParseFailed(String),
 
-    /// Error raised when an IO error occured (ie: snapshot writting on disk fails).
+    /// Error raised when an IO error occured (ie: snapshot writing on disk fails).
     #[error("io error: {0}")]
     IOError(#[from] io::Error),
 

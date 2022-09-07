@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::prelude::*;
@@ -14,18 +15,16 @@ use mithril_common::crypto_helper::{
     PROTOCOL_VERSION,
 };
 use mithril_common::entities::{self, SignerWithStake};
-use mithril_common::store::{StakeStorer, StoreError};
+use mithril_common::store::{StakeStore, StakeStorer, StoreError};
 use mithril_common::{
     NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET, SIGNER_EPOCH_RECORDING_OFFSET,
     SIGNER_EPOCH_RETRIEVAL_OFFSET,
 };
 
-use crate::dependency::{
-    ProtocolParametersStoreWrapper, SingleSignatureStoreWrapper, StakeStoreWrapper,
-    VerificationKeyStoreWrapper,
-};
 use crate::store::{SingleSignatureStorer, VerificationKeyStorer};
-use crate::ProtocolParametersStorer;
+use crate::{
+    ProtocolParametersStore, ProtocolParametersStorer, SingleSignatureStore, VerificationKeyStore,
+};
 
 #[cfg(test)]
 use mockall::automock;
@@ -243,25 +242,25 @@ pub struct MultiSignerImpl {
     avk: Option<ProtocolAggregateVerificationKey>,
 
     /// Verification key store
-    verification_key_store: VerificationKeyStoreWrapper,
+    verification_key_store: Arc<VerificationKeyStore>,
 
     /// Stake store
-    stake_store: StakeStoreWrapper,
+    stake_store: Arc<StakeStore>,
 
     /// Single signature store
-    single_signature_store: SingleSignatureStoreWrapper,
+    single_signature_store: Arc<SingleSignatureStore>,
 
     /// Protocol parameters store
-    protocol_parameters_store: ProtocolParametersStoreWrapper,
+    protocol_parameters_store: Arc<ProtocolParametersStore>,
 }
 
 impl MultiSignerImpl {
     /// MultiSignerImpl factory
     pub fn new(
-        verification_key_store: VerificationKeyStoreWrapper,
-        stake_store: StakeStoreWrapper,
-        single_signature_store: SingleSignatureStoreWrapper,
-        protocol_parameters_store: ProtocolParametersStoreWrapper,
+        verification_key_store: Arc<VerificationKeyStore>,
+        stake_store: Arc<StakeStore>,
+        single_signature_store: Arc<SingleSignatureStore>,
+        protocol_parameters_store: Arc<ProtocolParametersStore>,
     ) -> Self {
         debug!("New MultiSignerImpl created");
         Self {
