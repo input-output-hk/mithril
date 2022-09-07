@@ -106,7 +106,7 @@ impl StateMachine {
                         );
                     }
                 } else {
-                    debug!("⋅ Still no pending certificate, waiting…");
+                    debug!("⋅ No epoch settings found yet, waiting…");
                 }
             }
             SignerState::Registered(state) => {

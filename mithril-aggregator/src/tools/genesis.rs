@@ -84,7 +84,7 @@ impl GenesisTools {
         Ok(())
     }
 
-    /// Import signature of the AVK of the genesis stake distribution fom a file
+    /// Import signature of the AVK of the genesis stake distribution from a file
     pub async fn import_payload_signature(
         &self,
         signed_payload_path: &Path,
