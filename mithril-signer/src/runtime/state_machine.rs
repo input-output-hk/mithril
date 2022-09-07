@@ -84,10 +84,24 @@ impl StateMachine {
         &self.state
     }
 
+    /// Launch the state machine until an error occurs or it is interrupted.
+    pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
+        info!("state machine: launching");
+
+        loop {
+            if let Err(e) = self.cycle().await {
+                error!("state machine: an error occured: "; "error" => ?e);
+            }
+
+            info!("Sleeping for {} ms", self.state_sleep.as_millis());
+            sleep(self.state_sleep);
+        }
+    }
+
     /// Perform a cycle of the state machine.
     pub async fn cycle(&mut self) -> Result<(), Box<dyn Error + Sync + Send>> {
         info!("================================================================================");
-        debug!("STATE MACHINE: new cycle"; "current_state" => ?self.state);
+        info!("STATE MACHINE: new cycle"; "current_state" => ?self.state);
 
         match &self.state {
             SignerState::Unregistered(maybe_epoch) => {
@@ -100,13 +114,13 @@ impl StateMachine {
                         self.state = SignerState::Registered(state);
                     } else {
                         debug!(
-                            "⋅ Epoch settings found, but it's epoch is behind the known epoch, waiting…";
+                            " ⋅ Epoch settings found, but it's epoch is behind the known epoch, waiting…";
                             "epoch_settings" => ?epoch_settings,
                             "known_epoch" => ?maybe_epoch,
                         );
                     }
                 } else {
-                    debug!("⋅ No epoch settings found yet, waiting…");
+                    debug!(" ⋅ No epoch settings found yet, waiting…");
                 }
             }
             SignerState::Registered(state) => {
@@ -117,7 +131,7 @@ impl StateMachine {
                     self.runner.get_pending_certificate().await?
                 {
                     debug!(
-                        "  Epoch has NOT changed but there is a pending certificate";
+                        " ⋅ Epoch has NOT changed but there is a pending certificate";
                         "pending_certificate" => ?pending_certificate
                     );
 
@@ -153,20 +167,6 @@ impl StateMachine {
         };
 
         Ok(())
-    }
-
-    /// Launch the state machine until an error occurs or it is interrupted.
-    pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
-        info!("state machine: launching");
-
-        loop {
-            if let Err(e) = self.cycle().await {
-                error!("state machine: an error occured: "; "error" => ?e);
-            }
-
-            info!("Sleeping for {} ms", self.state_sleep.as_millis());
-            sleep(self.state_sleep);
-        }
     }
 
     /// Return true if the epoch is different than the one in the given beacon.
@@ -225,7 +225,7 @@ impl StateMachine {
         );
 
         debug!(
-            " ⋅ transition_from_registered_to_signed";
+            " > transition_from_registered_to_signed";
             "current_epoch" => ?current_beacon.epoch,
             "retrieval_epoch" => ?retrieval_epoch,
             "next_retrieval_epoch" => ?next_retrieval_epoch,

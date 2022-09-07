@@ -54,11 +54,6 @@ pub struct AggregatorRuntime {
 }
 
 impl AggregatorRuntime {
-    /// Return the actual state of the state machine.
-    pub fn get_state(&self) -> String {
-        self.state.to_string()
-    }
-
     /// Create a new instance of the state machine.
     pub async fn new(
         state_sleep: Duration,
@@ -84,14 +79,18 @@ impl AggregatorRuntime {
         })
     }
 
+    /// Return the actual state of the state machine.
+    pub fn get_state(&self) -> String {
+        self.state.to_string()
+    }
+
     /// Launches an infinite loop ticking the state machine.
     pub async fn run(&mut self) {
-        info!("Starting runtime");
-        debug!("current state: {}", self.state);
+        info!("state machine: launching");
 
         loop {
             if let Err(e) = self.cycle().await {
-                error!("{:?}", e)
+                error!("state machine: an error occured: "; "error" => ?e);
             }
 
             info!("Sleeping for {} ms", self.state_sleep.as_millis());
@@ -106,14 +105,17 @@ impl AggregatorRuntime {
 
         match self.state.clone() {
             AggregatorState::Idle(state) => {
-                let chain_beacon: Beacon = self.runner.get_beacon_from_chain().await?;
+                let chain_beacon = self.runner.get_beacon_from_chain().await?;
 
                 if state.current_beacon.is_none()
                     || chain_beacon
                         .compare_to_older(state.current_beacon.as_ref().unwrap())?
                         .is_new_beacon()
                 {
-                    trace!("new beacon found = {:?}", chain_beacon);
+                    debug!(
+                        "→ new Beacon settings found, trying to transition to READY";
+                        "new_beacon" => ?chain_beacon
+                    );
 
                     if self
                         .try_transition_from_idle_to_ready(
@@ -126,10 +128,10 @@ impl AggregatorRuntime {
                             current_beacon: chain_beacon,
                         });
                     } else {
-                        trace!("Could not transition from IDLE to READY");
+                        debug!(" ⋅ could not transition from IDLE to READY");
                     }
                 } else {
-                    trace!("nothing to do in IDLE state")
+                    debug!(" ⋅ Beacon didn't change, waiting…")
                 }
             }
             AggregatorState::Ready(state) => {
@@ -140,7 +142,7 @@ impl AggregatorRuntime {
                     .is_new_epoch()
                 {
                     // transition READY > IDLE
-                    trace!("new epoch found = {:?}", chain_beacon);
+                    debug!("→ Epoch has changed, transitioning to IDLE"; "new_beacon" => ?chain_beacon);
                     self.state = AggregatorState::Idle(IdleState {
                         current_beacon: Some(state.current_beacon),
                     });
@@ -150,12 +152,13 @@ impl AggregatorRuntime {
                     .await?
                 {
                     // READY > READY
-                    info!("a certificate already exist for this beacon"; "beacon" => ?state.current_beacon);
+                    info!(" ⋅ a certificate already exist for this beacon, waiting…"; "beacon" => ?state.current_beacon);
                     self.state = AggregatorState::Ready(ReadyState {
                         current_beacon: chain_beacon,
                     });
                 } else {
                     // transition READY > SIGNING
+                    debug!("→ transitioning to SIGNING");
                     let new_state = self
                         .transition_from_ready_to_signing(state.current_beacon)
                         .await?;
@@ -169,22 +172,19 @@ impl AggregatorRuntime {
                     .compare_to_older(&state.current_beacon)?
                     .is_new_beacon()
                 {
-                    trace!(
-                        "new beacon found, immutable file number = {}",
-                        chain_beacon.immutable_file_number
-                    );
+                    debug!("→ Beacon changed, transitioning to IDLE"; "new_beacon" => ?chain_beacon);
                     let new_state = self
                         .transition_from_signing_to_idle_new_beacon(state)
                         .await?;
                     self.state = AggregatorState::Idle(new_state);
                 } else if self.runner.is_multisig_created().await? {
-                    trace!("new multi-signature found");
+                    debug!("→ a multi-signature have been created, build a snapshot & a certificate and transitioning back to IDLE");
                     let new_state = self
                         .transition_from_signing_to_idle_multisignature(state)
                         .await?;
                     self.state = AggregatorState::Idle(new_state);
                 } else {
-                    trace!("nothing to do in SIGNING state")
+                    debug!(" ⋅ not enough signature yet to aggregate a mult-signature, waiting…");
                 }
             }
         }
@@ -198,7 +198,7 @@ impl AggregatorRuntime {
         maybe_current_beacon: Option<Beacon>,
         new_beacon: Beacon,
     ) -> Result<bool, RuntimeError> {
-        debug!("trying transition from IDLE to READY state");
+        trace!("trying transition from IDLE to READY state");
 
         self.runner.update_beacon(&new_beacon).await?;
 
@@ -212,7 +212,7 @@ impl AggregatorRuntime {
 
         let is_chain_valid = self.runner.is_certificate_chain_valid().await?;
         if !is_chain_valid {
-            warn!("the certificate chain is invalid");
+            warn!(" > the certificate chain is invalid");
         }
         Ok(is_chain_valid)
     }
@@ -223,7 +223,7 @@ impl AggregatorRuntime {
         &self,
         state: SigningState,
     ) -> Result<IdleState, RuntimeError> {
-        debug!("launching transition from SIGNING to IDLE state");
+        trace!("launching transition from SIGNING to IDLE state");
         self.runner.drop_pending_certificate().await?;
         let ongoing_snapshot = self
             .runner
@@ -253,7 +253,7 @@ impl AggregatorRuntime {
         &self,
         state: SigningState,
     ) -> Result<IdleState, RuntimeError> {
-        debug!("launching transition from SIGNING to IDLE state");
+        trace!("launching transition from SIGNING to IDLE state");
         self.runner.drop_pending_certificate().await?;
 
         Ok(IdleState {
@@ -267,7 +267,7 @@ impl AggregatorRuntime {
         &mut self,
         new_beacon: Beacon,
     ) -> Result<SigningState, RuntimeError> {
-        debug!("launching transition from READY to SIGNING state");
+        trace!("launching transition from READY to SIGNING state");
         self.runner.update_beacon(&new_beacon).await?;
 
         let digester_result = self.runner.compute_digest(&new_beacon).await?;
