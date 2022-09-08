@@ -1,6 +1,9 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::hash::Hash;
@@ -16,18 +19,29 @@ use mithril_common::{
 };
 type ApplicationResult<T> = Result<T, Box<dyn std::error::Error>>;
 
-async fn migrate<
+async fn migrate(
+    base_dir: &Path,
+    store_name: &str,
+    store_type: StoreType,
+) -> ApplicationResult<()> {
+    let sqlite_file = base_dir.join("aggregator.sqlite3");
+    store_type
+        .migrate(&base_dir.join(format!("{}_db", store_name)), &sqlite_file)
+        .await
+}
+
+async fn migrate_one<
     K: PartialEq + Clone + Serialize + DeserializeOwned + Sync + Send + Hash,
     V: Clone + Serialize + DeserializeOwned + Sync + Send,
 >(
-    base_dir: &PathBuf,
+    source_file: &Path,
+    target_file: &Path,
     store_name: &str,
 ) -> ApplicationResult<()> {
-    let sqlite_file = base_dir.join("aggregator.sqlite3");
     let source_adapter: JsonFileStoreAdapter<K, V> =
-        JsonFileStoreAdapter::new(base_dir.join(format!("{}_db", store_name)))?;
+        JsonFileStoreAdapter::new(source_file.to_path_buf())?;
     let target_adapter: SQLiteAdapter<K, V> =
-        SQLiteAdapter::new(store_name, Some(sqlite_file.clone()))?;
+        SQLiteAdapter::new(store_name, Some(target_file.to_path_buf()))?;
     let mut migrator = AdapterMigration::new(source_adapter, target_adapter);
 
     migrator.migrate().await?;
@@ -35,52 +49,162 @@ async fn migrate<
     if migrator.check().await? {
         Ok(())
     } else {
-        Err(format!("Data consistency check failed!").into())
+        Err("Data consistency check failed!".into())
+    }
+}
+
+#[derive(Debug, Clone, Parser)]
+enum MigrationCommand {
+    #[clap(about = "Automatic aggregator stores migration (preferred).")]
+    Automatic(AutomaticMigrationCommand),
+    #[clap(about = "Allow store migration one at the time.")]
+    Manual(ManualMigrationCommand),
+}
+
+impl MigrationCommand {
+    pub async fn execute(&self) -> ApplicationResult<()> {
+        match self {
+            Self::Automatic(command) => command.execute().await,
+            Self::Manual(command) => command.execute().await,
+        }
     }
 }
 
 #[derive(Debug, Clone, Parser)]
 struct Args {
+    #[clap(subcommand)]
+    command: MigrationCommand,
+}
+
+#[derive(Debug, Clone, Parser)]
+struct ManualMigrationCommand {
+    #[clap(long, short, help = "File where source JSON lines are stored.")]
+    input_file: PathBuf,
+
+    #[clap(long, short, help = "Destination SQLite format file.")]
+    output_file: PathBuf,
+
+    #[clap(value_enum, long, short = 't', help = "What kind of values are there.")]
+    store_type: StoreType,
+}
+
+impl ManualMigrationCommand {
+    pub async fn execute(&self) -> ApplicationResult<()> {
+        self.store_type
+            .migrate(&self.input_file, &self.output_file)
+            .await
+    }
+}
+
+#[derive(Debug, ValueEnum, Clone)]
+enum StoreType {
+    CertificatePending,
+    Certificate,
+    VerificationKey,
+    Stake,
+    SingleSignature,
+    ProtocolParameters,
+}
+
+impl StoreType {
+    pub async fn migrate(&self, input_file: &Path, output_file: &Path) -> ApplicationResult<()> {
+        match self {
+            StoreType::CertificatePending => {
+                println!("Migrating certificate_pending_store data…");
+                migrate_one::<String, CertificatePending>(
+                    input_file,
+                    output_file,
+                    "certificate_pending",
+                )
+                .await?;
+            }
+            StoreType::Certificate => {
+                println!("Migrating certificate_store data…");
+                migrate_one::<String, Certificate>(input_file, output_file, "certificate").await?;
+            }
+
+            StoreType::ProtocolParameters => {
+                println!("Migrating protocol_parameters_store data…");
+                migrate_one::<Epoch, ProtocolParameters>(
+                    input_file,
+                    output_file,
+                    "protocol_parameters",
+                )
+                .await?;
+            }
+
+            StoreType::VerificationKey => {
+                println!("Migrating verification_key_store data…");
+                migrate_one::<Beacon, HashMap<PartyId, Signer>>(
+                    input_file,
+                    output_file,
+                    "verification_key",
+                )
+                .await?;
+            }
+            StoreType::Stake => {
+                println!("Migrating stake_store data…");
+                migrate_one::<Epoch, StakeDistribution>(input_file, output_file, "stake").await?;
+            }
+
+            StoreType::SingleSignature => {
+                println!("Migrating single_signature_store data…");
+                migrate_one::<Beacon, HashMap<PartyId, SingleSignatures>>(
+                    input_file,
+                    output_file,
+                    "single_signature",
+                )
+                .await?;
+            }
+        }
+        println!("OK ✓");
+
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone, Parser)]
+struct AutomaticMigrationCommand {
     #[clap(long, short, env = "MITHRIL_STORE_DIR")]
     db_dir: PathBuf,
 }
+
+impl AutomaticMigrationCommand {
+    pub async fn execute(&self) -> ApplicationResult<()> {
+        if !self.db_dir.exists() {
+            return Err(format!(
+                "Base store directory '{}' does not exist… quitting!",
+                self.db_dir.display()
+            )
+            .into());
+        }
+        let base_dir = &self.db_dir;
+
+        migrate(base_dir, "certificate", StoreType::Certificate).await?;
+        migrate(
+            base_dir,
+            "pending_certificate",
+            StoreType::CertificatePending,
+        )
+        .await?;
+        migrate(
+            base_dir,
+            "protocol_parameters",
+            StoreType::ProtocolParameters,
+        )
+        .await?;
+        migrate(base_dir, "single_signature", StoreType::SingleSignature).await?;
+        migrate(base_dir, "verification_key", StoreType::VerificationKey).await?;
+        migrate(base_dir, "stake", StoreType::Stake).await?;
+
+        Ok(())
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
     println!("Mithril Aggregator JSON → SQLite migration tool.");
 
-    if !args.db_dir.exists() {
-        return Err(format!(
-            "Base store directory '{}' does not exist… quitting!",
-            args.db_dir.display()
-        )
-        .into());
-    }
-    let base_dir = args.db_dir;
-
-    println!("Migrating certificate_store data…");
-    migrate::<String, Certificate>(&base_dir, "certificate").await?;
-    println!("OK ✓");
-
-    println!("Migrating pending_certificate_store data…");
-    migrate::<String, CertificatePending>(&base_dir, "pending_certificate").await?;
-    println!("OK ✓");
-
-    println!("Migrating protocol_parameters_store data…");
-    migrate::<Epoch, ProtocolParameters>(&base_dir, "protocol_parameters").await?;
-    println!("OK ✓");
-
-    println!("Migrating single_signature_store data…");
-    migrate::<Beacon, HashMap<PartyId, SingleSignatures>>(&base_dir, "single_signature").await?;
-    println!("OK ✓");
-
-    println!("Migrating verification_key_store data…");
-    migrate::<Beacon, HashMap<PartyId, Signer>>(&base_dir, "verification_key").await?;
-    println!("OK ✓");
-
-    println!("Migrating stake_store data…");
-    migrate::<Epoch, StakeDistribution>(&base_dir, "stake").await?;
-    println!("OK ✓");
-
-    Ok(())
+    args.command.execute().await
 }
