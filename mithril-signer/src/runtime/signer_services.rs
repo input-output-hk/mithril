@@ -1,4 +1,5 @@
 use std::error::Error as StdError;
+use std::fs;
 use std::sync::Arc;
 
 use mithril_common::{
@@ -44,6 +45,11 @@ impl<'a> ProductionServiceBuilder<'a> {
 impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
     /// Build a Services for the Production environment.
     fn build(&self) -> Result<SignerServices, Box<dyn StdError>> {
+        if !self.config.data_stores_directory.exists() {
+            fs::create_dir_all(self.config.data_stores_directory.clone())
+                .map_err(|e| format!("Could not create data stores directory: {:?}", e))?;
+        }
+
         let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(Box::new(
             JsonFileStoreAdapter::new(
                 self.config
@@ -111,4 +117,45 @@ pub struct SignerServices {
 
     /// ProtocolInitializer store
     pub protocol_initializer_store: ProtocolInitializerStoreService,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::path::PathBuf;
+
+    fn get_test_dir() -> PathBuf {
+        let test_dir = std::env::temp_dir().join("mithril_test");
+
+        if test_dir.exists() {
+            fs::remove_dir_all(&test_dir).expect(&*format!("Could not remove dir {:?}", test_dir));
+        }
+        fs::create_dir_all(&test_dir).expect(&*format!("Could not create dir {:?}", test_dir));
+
+        test_dir
+    }
+
+    #[test]
+    fn test_auto_create_stores_directory() {
+        let stores_dir = get_test_dir().join("stores");
+        let config = Config {
+            cardano_cli_path: PathBuf::new(),
+            cardano_node_socket_path: PathBuf::new(),
+            network_magic: None,
+            network: "preview".to_string(),
+            aggregator_endpoint: "".to_string(),
+            party_id: "party-123456".to_string(),
+            run_interval: 1000,
+            db_directory: PathBuf::new(),
+            data_stores_directory: stores_dir.clone(),
+        };
+
+        assert!(!stores_dir.clone().exists());
+        let service_builder = ProductionServiceBuilder::new(&config);
+        service_builder
+            .build()
+            .expect("service builder build should not fail");
+        assert!(stores_dir.exists());
+    }
 }
