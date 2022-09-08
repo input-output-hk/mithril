@@ -2,6 +2,7 @@
 //! to store stakes.
 
 pub mod adapter;
+pub mod adapter_migration;
 mod error;
 mod stake_store;
 
