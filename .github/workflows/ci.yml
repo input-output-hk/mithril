@@ -95,7 +95,7 @@ jobs:
         with:
           name: clippy-${{ matrix.project }}
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --release --all-features --all-targets -p ${{ env.CARGO_PROJECT_NAME }}
+          args: --release --all-features --all-targets  --no-deps -p ${{ env.CARGO_PROJECT_NAME }}
 
       - name: Cargo fmt
         uses: actions-rs/cargo@v1
