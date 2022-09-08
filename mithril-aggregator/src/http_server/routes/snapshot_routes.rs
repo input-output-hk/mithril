@@ -68,7 +68,7 @@ mod handlers {
     pub async fn snapshots(
         snapshot_store: Arc<dyn SnapshotStore>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("snapshots");
+        debug!("⇄ HTTP SERVER: snapshots");
 
         match snapshot_store.list_snapshots().await {
             Ok(snapshots) => Ok(reply::json(&snapshots, StatusCode::OK)),
@@ -86,7 +86,7 @@ mod handlers {
     ) -> Result<impl warp::Reply, Infallible> {
         let filepath = reply.path().to_path_buf();
         debug!(
-            "ensure_downloaded_file_is_a_snapshot / file: `{}`",
+            "⇄ HTTP SERVER: ensure_downloaded_file_is_a_snapshot / file: `{}`",
             filepath.display()
         );
 
@@ -115,7 +115,7 @@ mod handlers {
         config: Configuration,
         snapshot_store: Arc<dyn SnapshotStore>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("snapshot_download/{}", digest);
+        debug!("⇄ HTTP SERVER: snapshot_download/{}", digest);
 
         match snapshot_store.get_snapshot_details(digest).await {
             Ok(Some(snapshot)) => {
@@ -150,7 +150,7 @@ mod handlers {
         digest: String,
         snapshot_store: Arc<dyn SnapshotStore>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("snapshot_digest/{}", digest);
+        debug!("⇄ HTTP SERVER: snapshot_digest/{}", digest);
 
         match snapshot_store.get_snapshot_details(digest).await {
             Ok(snapshot) => match snapshot {

@@ -2,6 +2,7 @@ use crate::entities::{Epoch, ImmutableFileNumber};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::cmp::Ordering;
+use std::fmt::{Display, Formatter};
 use thiserror::Error;
 
 /// Beacon represents a point in the Cardano chain at which a Mithril certificate should be produced
@@ -80,6 +81,16 @@ impl PartialOrd for Beacon {
         }
         self.immutable_file_number
             .partial_cmp(&other.immutable_file_number)
+    }
+}
+
+impl Display for Beacon {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Beacon (network: {}, epoch: {}, immutable_file_number: {})",
+            self.network, self.epoch, self.immutable_file_number
+        )
     }
 }
 

@@ -253,7 +253,14 @@ impl CertificateVerifier for MithrilCertificateVerifier {
         certificate_retriever: Arc<dyn CertificateRetriever>,
         genesis_verifier: &ProtocolGenesisVerifier,
     ) -> Result<Option<Certificate>, CertificateVerifierError> {
-        debug!(self.logger, "Verify certificate {:#?}", certificate);
+        debug!(
+            self.logger,
+            "Verifying certificate";
+            "certificate_hash" => &certificate.hash,
+            "certificate_previous_hash" => &certificate.previous_hash,
+            "certificate_beacon" => ?certificate.beacon
+        );
+
         certificate
             .hash
             .eq(&certificate.compute_hash())

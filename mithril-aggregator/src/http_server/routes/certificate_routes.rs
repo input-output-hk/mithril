@@ -44,7 +44,7 @@ mod handlers {
     pub async fn certificate_pending(
         certificate_pending_store: Arc<CertificatePendingStore>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("certificate_pending");
+        debug!("⇄ HTTP SERVER: certificate_pending");
 
         match certificate_pending_store.get().await {
             Ok(Some(certificate_pending)) => Ok(reply::json(&certificate_pending, StatusCode::OK)),
@@ -61,7 +61,10 @@ mod handlers {
         certificate_hash: String,
         certificate_store: Arc<CertificateStore>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("certificate_certificate_hash/{}", certificate_hash);
+        debug!(
+            "⇄ HTTP SERVER: certificate_certificate_hash/{}",
+            certificate_hash
+        );
 
         match certificate_store.get_from_hash(&certificate_hash).await {
             Ok(Some(certificate)) => Ok(reply::json(&certificate, StatusCode::OK)),

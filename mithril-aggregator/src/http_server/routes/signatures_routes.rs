@@ -34,7 +34,7 @@ mod handlers {
         signature: entities::SingleSignatures,
         multi_signer: MultiSignerWrapper,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("register_signatures/{:?}", signature);
+        debug!("⇄ HTTP SERVER: register_signatures/{:?}", signature);
 
         let mut multi_signer = multi_signer.write().await;
         match multi_signer.register_single_signature(&signature).await {

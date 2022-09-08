@@ -50,10 +50,17 @@ impl SignerState {
 
 impl Display for SignerState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match *self {
-            Self::Unregistered(_) => write!(f, "unregistered"),
-            Self::Registered(_) => write!(f, "registered"),
-            Self::Signed(_) => write!(f, "signed"),
+        match self {
+            Self::Unregistered(state) => write!(
+                f,
+                "Unregistered - {}",
+                match state {
+                    None => "No Epoch".to_string(),
+                    Some(e) => format!("Epoch({})", e),
+                }
+            ),
+            Self::Registered(state) => write!(f, "Registered - {}", state.beacon),
+            Self::Signed(state) => write!(f, "Signed - {}", state.beacon),
         }
     }
 }
@@ -84,54 +91,71 @@ impl StateMachine {
         &self.state
     }
 
+    /// Launch the state machine until an error occurs or it is interrupted.
+    pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
+        info!("STATE MACHINE: launching");
+
+        loop {
+            if let Err(e) = self.cycle().await {
+                error!("STATE MACHINE: an error occured: "; "error" => ?e);
+            }
+
+            info!(
+                "… Cycle finished, Sleeping for {} ms",
+                self.state_sleep.as_millis()
+            );
+            sleep(self.state_sleep);
+        }
+    }
+
     /// Perform a cycle of the state machine.
     pub async fn cycle(&mut self) -> Result<(), Box<dyn Error + Sync + Send>> {
         info!("================================================================================");
-        debug!("STATE MACHINE: new cycle"; "current_state" => ?self.state);
+        info!("STATE MACHINE: new cycle: {}", self.state);
 
         match &self.state {
             SignerState::Unregistered(maybe_epoch) => {
                 if let Some(epoch_settings) = self.runner.get_epoch_settings().await? {
                     if maybe_epoch.map_or_else(|| true, |e| epoch_settings.epoch >= e) {
-                        debug!("→ Epoch settings found, transiting to REGISTERED");
+                        info!("→ Epoch settings found, transiting to REGISTERED");
                         let state = self
                             .transition_from_unregistered_to_registered(&epoch_settings)
                             .await?;
                         self.state = SignerState::Registered(state);
                     } else {
-                        debug!(
-                            "⋅ Epoch settings found, but it's epoch is behind the known epoch, waiting…";
+                        info!(
+                            " ⋅ Epoch settings found, but it's epoch is behind the known epoch, waiting…";
                             "epoch_settings" => ?epoch_settings,
                             "known_epoch" => ?maybe_epoch,
                         );
                     }
                 } else {
-                    debug!("⋅ No epoch settings found yet, waiting…");
+                    info!(" ⋅ No epoch settings found yet, waiting…");
                 }
             }
             SignerState::Registered(state) => {
                 if let Some(new_beacon) = self.has_epoch_changed(&state.beacon).await? {
-                    debug!("→ Epoch has changed, transiting to UNREGISTERED");
+                    info!("→ Epoch has changed, transiting to UNREGISTERED");
                     self.state = SignerState::Unregistered(Some(new_beacon.epoch));
                 } else if let Some(pending_certificate) =
                     self.runner.get_pending_certificate().await?
                 {
-                    debug!(
-                        "  Epoch has NOT changed but there is a pending certificate";
+                    info!(
+                        " ⋅ Epoch has NOT changed but there is a pending certificate";
                         "pending_certificate" => ?pending_certificate
                     );
 
                     if self.runner.can_i_sign(&pending_certificate).await? {
-                        debug!(" → we can sign this certificate, transiting to SIGNED");
+                        info!(" → we can sign this certificate, transiting to SIGNED");
                         let state = self
                             .transition_from_registered_to_signed(&pending_certificate)
                             .await?;
                         self.state = SignerState::Signed(state)
                     } else {
-                        debug!(" ⋅ cannot sign this pending certificate, waiting…");
+                        info!(" ⋅ cannot sign this pending certificate, waiting…");
                     }
                 } else {
-                    debug!(" ⋅ no pending certificate, waiting…");
+                    info!(" ⋅ no pending certificate, waiting…");
                 }
             }
             SignerState::Signed(state) => {
@@ -139,34 +163,20 @@ impl StateMachine {
                     info!("  New beacon detected: {:?}", new_beacon);
 
                     if new_beacon.epoch > state.beacon.epoch {
-                        debug!(" → new Epoch detected, transiting to UNREGISTERED");
+                        info!(" → new Epoch detected, transiting to UNREGISTERED");
                         self.state = SignerState::Unregistered(Some(new_beacon.epoch));
                     } else {
-                        debug!(" → new immutable file detected, transiting to REGISTERED");
+                        info!(" → new immutable file detected, transiting to REGISTERED");
                         self.state =
                             SignerState::Registered(RegisteredState { beacon: new_beacon });
                     }
                 } else {
-                    debug!(" ⋅ NO new beacon detected, waiting");
+                    info!(" ⋅ NO new beacon detected, waiting");
                 }
             }
         };
 
         Ok(())
-    }
-
-    /// Launch the state machine until an error occurs or it is interrupted.
-    pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
-        info!("state machine: launching");
-
-        loop {
-            if let Err(e) = self.cycle().await {
-                error!("state machine: an error occured: "; "error" => ?e);
-            }
-
-            info!("Sleeping for {} ms", self.state_sleep.as_millis());
-            sleep(self.state_sleep);
-        }
     }
 
     /// Return true if the epoch is different than the one in the given beacon.
@@ -225,7 +235,7 @@ impl StateMachine {
         );
 
         debug!(
-            " ⋅ transition_from_registered_to_signed";
+            " > transition_from_registered_to_signed";
             "current_epoch" => ?current_beacon.epoch,
             "retrieval_epoch" => ?retrieval_epoch,
             "next_retrieval_epoch" => ?next_retrieval_epoch,
