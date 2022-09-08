@@ -35,6 +35,7 @@ where
             .get_last_n_records(usize::MAX)
             .await?
             .into_iter()
+            .rev()
         {
             self.adapter_to.store_record(&key, &record).await?;
         }
@@ -52,45 +53,6 @@ enum StoreType {
     SingleSignatureStore,
     ProtocolParametersStore,
 }
-
-/*
-impl ArgEnum for StoreType {
-    fn from_str(input: &str, ignore_case: bool) -> Result<Self, String> {
-        let input = if ignore_case {
-            input.to_lowercase()
-        } else {
-            input.to_string()
-        };
-
-        match input.as_str() {
-            "certificate_pending" => Ok(Self::CertificatePendingStore),
-            "certificate" => Ok(Self::CertificateStore),
-            "verification_key" => Ok(Self::VerificationKeyStore),
-            "stake" => Ok(Self::StakeStore),
-            "single_signature" => Ok(Self::SingleSignatureStore),
-            "protocol_parameters" => Ok(Self::ProtocolParametersStore),
-            "all" => (Ok(Self::All)),
-            s => Err(format!("unknown store type '{}'", s)),
-        }
-    }
-
-    fn to_possible_value<'a>(&self) -> Option<clap::PossibleValue<'a>> {
-        match self {
-            Self::CertificatePendingStore => Some("certificate_pending"),
-            Self::CertificateStore => Some("certificate"),
-            Self::VerificationKeyStore => Some("verification_key"),
-            Self::StakeStore => Some("stake"),
-            Self::SingleSignatureStore => Some("single_signature"),
-            Self::ProtocolParametersStore => Some("protocol_parameters"),
-            Self::All => Some("all"),
-        }
-    }
-
-    fn value_variants<'a>() -> &'a [Self] {
-
-    }
-}
- */
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -152,5 +114,59 @@ async fn main() -> Result<(), Box<dyn Error>> {
                 );
             migration.migrate().await
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{fs, time::Duration};
+
+    use tokio::time::sleep;
+
+    use super::*;
+
+    fn get_adapter(dir_name: &str) -> (PathBuf, JsonFileStoreAdapter<u64, String>) {
+        let dir = std::env::temp_dir().join("mithril_test").join(dir_name);
+
+        if dir.exists() {
+            let _ = fs::remove_dir_all(&dir);
+        }
+
+        (dir.clone(), JsonFileStoreAdapter::new(dir).unwrap())
+    }
+
+    #[tokio::test]
+    async fn test_migration() {
+        let (dir, mut json_adapter) = get_adapter("test_sqlite_migration");
+        let sqlite_file = dir.clone().join("test.sqlite3");
+        let expected = vec![
+            (1_u64, "one".to_string()),
+            (2, "two".to_string()),
+            (3, "three".to_string()),
+            (4, "four".to_string()),
+        ];
+
+        for (key, record) in expected.iter() {
+            json_adapter.store_record(key, record).await.unwrap();
+            sleep(Duration::from_millis(100)).await;
+        }
+        {
+            let sqlite_adapter =
+                SQLiteAdapter::new("test_migration", Some(sqlite_file.clone())).unwrap();
+            let mut migration = Migration::new(json_adapter, sqlite_adapter);
+            migration.migrate().await.unwrap();
+        }
+
+        let sqlite_adapter: SQLiteAdapter<u64, String> =
+            SQLiteAdapter::new("test_migration", Some(sqlite_file.clone())).unwrap();
+        let collected: Vec<(u64, String)> = sqlite_adapter
+            .get_last_n_records(usize::MAX)
+            .await
+            .unwrap()
+            .into_iter()
+            .rev()
+            .collect();
+
+        assert_eq!(expected, collected);
     }
 }
