@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import {Badge, Row, Col, Card, Container, Button, ListGroup, Stack} from "react-bootstrap";
 import CertificateModal from '../CertificateModal';
-import {Badge, Row, Col, Card, Container, Button, ListGroup} from "react-bootstrap";
+import RawJsonButton from "../RawJsonButton";
 
 /*
  * Code from: https://stackoverflow.com/a/18650828
@@ -59,7 +60,7 @@ export default function SnapshotsList(props) {
         onHashChange={handleCertificateHashChange} />
       
       <div className={props.className}>
-        <h2>Snapshots</h2>
+        <h2>Snapshots <RawJsonButton href={`${props.aggregator}/snapshots`} variant="outline-light" size="sm" /></h2>
         {Object.entries(snapshots).length === 0
           ? <p>No snapshot available</p>
           :
@@ -82,10 +83,14 @@ export default function SnapshotsList(props) {
                       </ListGroup>
                     </Card.Body>
                     <Card.Footer>
-                      {index === 0 &&
-                        <><Badge bg="primary">Latest</Badge>{' '}</>
-                      }
-                      <Badge bg="secondary">{snapshot.beacon.network}</Badge>
+                      <Stack direction="horizontal" gap={1}>
+                        {index === 0 &&
+                          <><Badge bg="primary">Latest</Badge>{' '}</>
+                        }
+                        <Badge bg="secondary">{snapshot.beacon.network}</Badge>
+                        
+                        <RawJsonButton href={`${props.aggregator}/snapshot/${snapshot.digest}`} size="sm" className="ms-auto" />
+                      </Stack>
                     </Card.Footer>
                   </Card>
                 </Col>
