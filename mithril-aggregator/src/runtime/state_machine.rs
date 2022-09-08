@@ -94,7 +94,7 @@ impl AggregatorRuntime {
 
         loop {
             if let Err(e) = self.cycle().await {
-                error!("state machine: an error occured: "; "error" => ?e);
+                error!("state machine: an error occurred: "; "error" => ?e);
             }
 
             info!("Sleeping for {} ms", self.state_sleep.as_millis());
@@ -116,7 +116,7 @@ impl AggregatorRuntime {
                         .compare_to_older(state.current_beacon.as_ref().unwrap())?
                         .is_new_beacon()
                 {
-                    debug!(
+                    info!(
                         "→ new Beacon settings found, trying to transition to READY";
                         "new_beacon" => ?chain_beacon
                     );
@@ -132,10 +132,10 @@ impl AggregatorRuntime {
                             current_beacon: chain_beacon,
                         });
                     } else {
-                        debug!(" ⋅ could not transition from IDLE to READY");
+                        info!(" ⋅ could not transition from IDLE to READY");
                     }
                 } else {
-                    debug!(" ⋅ Beacon didn't change, waiting…")
+                    info!(" ⋅ Beacon didn't change, waiting…")
                 }
             }
             AggregatorState::Ready(state) => {
@@ -146,7 +146,7 @@ impl AggregatorRuntime {
                     .is_new_epoch()
                 {
                     // transition READY > IDLE
-                    debug!("→ Epoch has changed, transitioning to IDLE"; "new_beacon" => ?chain_beacon);
+                    info!("→ Epoch has changed, transitioning to IDLE"; "new_beacon" => ?chain_beacon);
                     self.state = AggregatorState::Idle(IdleState {
                         current_beacon: Some(state.current_beacon),
                     });
@@ -156,13 +156,16 @@ impl AggregatorRuntime {
                     .await?
                 {
                     // READY > READY
-                    info!(" ⋅ a certificate already exist for this beacon, waiting…"; "beacon" => ?state.current_beacon);
+                    info!(
+                        " ⋅ a certificate already exists for this beacon, waiting…";
+                        "beacon" => ?state.current_beacon
+                    );
                     self.state = AggregatorState::Ready(ReadyState {
                         current_beacon: chain_beacon,
                     });
                 } else {
                     // transition READY > SIGNING
-                    debug!("→ transitioning to SIGNING");
+                    info!("→ transitioning to SIGNING");
                     let new_state = self
                         .transition_from_ready_to_signing(state.current_beacon)
                         .await?;
@@ -176,19 +179,19 @@ impl AggregatorRuntime {
                     .compare_to_older(&state.current_beacon)?
                     .is_new_beacon()
                 {
-                    debug!("→ Beacon changed, transitioning to IDLE"; "new_beacon" => ?chain_beacon);
+                    info!("→ Beacon changed, transitioning to IDLE"; "new_beacon" => ?chain_beacon);
                     let new_state = self
                         .transition_from_signing_to_idle_new_beacon(state)
                         .await?;
                     self.state = AggregatorState::Idle(new_state);
                 } else if self.runner.is_multisig_created().await? {
-                    debug!("→ a multi-signature have been created, build a snapshot & a certificate and transitioning back to IDLE");
+                    info!("→ a multi-signature have been created, build a snapshot & a certificate and transitioning back to IDLE");
                     let new_state = self
                         .transition_from_signing_to_idle_multisignature(state)
                         .await?;
                     self.state = AggregatorState::Idle(new_state);
                 } else {
-                    debug!(" ⋅ not enough signature yet to aggregate a mult-signature, waiting…");
+                    info!(" ⋅ not enough signature yet to aggregate a multi-signature, waiting…");
                 }
             }
         }

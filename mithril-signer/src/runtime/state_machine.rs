@@ -107,45 +107,45 @@ impl StateMachine {
             SignerState::Unregistered(maybe_epoch) => {
                 if let Some(epoch_settings) = self.runner.get_epoch_settings().await? {
                     if maybe_epoch.map_or_else(|| true, |e| epoch_settings.epoch >= e) {
-                        debug!("→ Epoch settings found, transiting to REGISTERED");
+                        info!("→ Epoch settings found, transiting to REGISTERED");
                         let state = self
                             .transition_from_unregistered_to_registered(&epoch_settings)
                             .await?;
                         self.state = SignerState::Registered(state);
                     } else {
-                        debug!(
+                        info!(
                             " ⋅ Epoch settings found, but it's epoch is behind the known epoch, waiting…";
                             "epoch_settings" => ?epoch_settings,
                             "known_epoch" => ?maybe_epoch,
                         );
                     }
                 } else {
-                    debug!(" ⋅ No epoch settings found yet, waiting…");
+                    info!(" ⋅ No epoch settings found yet, waiting…");
                 }
             }
             SignerState::Registered(state) => {
                 if let Some(new_beacon) = self.has_epoch_changed(&state.beacon).await? {
-                    debug!("→ Epoch has changed, transiting to UNREGISTERED");
+                    info!("→ Epoch has changed, transiting to UNREGISTERED");
                     self.state = SignerState::Unregistered(Some(new_beacon.epoch));
                 } else if let Some(pending_certificate) =
                     self.runner.get_pending_certificate().await?
                 {
-                    debug!(
+                    info!(
                         " ⋅ Epoch has NOT changed but there is a pending certificate";
                         "pending_certificate" => ?pending_certificate
                     );
 
                     if self.runner.can_i_sign(&pending_certificate).await? {
-                        debug!(" → we can sign this certificate, transiting to SIGNED");
+                        info!(" → we can sign this certificate, transiting to SIGNED");
                         let state = self
                             .transition_from_registered_to_signed(&pending_certificate)
                             .await?;
                         self.state = SignerState::Signed(state)
                     } else {
-                        debug!(" ⋅ cannot sign this pending certificate, waiting…");
+                        info!(" ⋅ cannot sign this pending certificate, waiting…");
                     }
                 } else {
-                    debug!(" ⋅ no pending certificate, waiting…");
+                    info!(" ⋅ no pending certificate, waiting…");
                 }
             }
             SignerState::Signed(state) => {
@@ -153,15 +153,15 @@ impl StateMachine {
                     info!("  New beacon detected: {:?}", new_beacon);
 
                     if new_beacon.epoch > state.beacon.epoch {
-                        debug!(" → new Epoch detected, transiting to UNREGISTERED");
+                        info!(" → new Epoch detected, transiting to UNREGISTERED");
                         self.state = SignerState::Unregistered(Some(new_beacon.epoch));
                     } else {
-                        debug!(" → new immutable file detected, transiting to REGISTERED");
+                        info!(" → new immutable file detected, transiting to REGISTERED");
                         self.state =
                             SignerState::Registered(RegisteredState { beacon: new_beacon });
                     }
                 } else {
-                    debug!(" ⋅ NO new beacon detected, waiting");
+                    info!(" ⋅ NO new beacon detected, waiting");
                 }
             }
         };
