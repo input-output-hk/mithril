@@ -196,7 +196,7 @@ where
     async fn get_last_n_records(&self, how_many: usize) -> Result<Vec<(Self::Key, Self::Record)>> {
         let connection = self.connection.lock().await;
         let sql = format!(
-            "select cast(key as text) as key, cast(value as text) as value from {} order by ROWID asc limit ?1",
+            "select cast(key as text) as key, cast(value as text) as value from {} order by ROWID desc limit ?1",
             self.table
         );
         let cursor = connection
@@ -508,7 +508,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(
-            vec![(1_u64, "one".to_string())],
+            vec![(3_u64, "three".to_string())],
             adapter
                 .get_last_n_records(1)
                 .await
@@ -516,9 +516,9 @@ mod tests {
         );
         assert_eq!(
             vec![
-                (1_u64, "one".to_string()),
+                (3_u64, "three".to_string()),
                 (2_u64, "two".to_string()),
-                (3_u64, "three".to_string())
+                (1_u64, "one".to_string()),
             ],
             adapter
                 .get_last_n_records(5)
