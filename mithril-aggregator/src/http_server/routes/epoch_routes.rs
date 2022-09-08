@@ -37,7 +37,7 @@ mod handlers {
         protocol_parameters_store: Arc<ProtocolParametersStore>,
         multi_signer: MultiSignerWrapper,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("epoch_settings");
+        debug!("⇄ HTTP SERVER: epoch_settings");
 
         match multi_signer.read().await.get_current_beacon().await {
             Some(beacon) => match protocol_parameters_store

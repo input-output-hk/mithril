@@ -35,7 +35,7 @@ mod handlers {
         signer: entities::Signer,
         multi_signer: MultiSignerWrapper,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("register_signer/{:?}", signer);
+        debug!("⇄ HTTP SERVER: register_signer/{:?}", signer);
 
         let mut multi_signer = multi_signer.write().await;
         match key_decode_hex(&signer.verification_key) {
