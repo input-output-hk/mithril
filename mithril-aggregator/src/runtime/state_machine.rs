@@ -1,7 +1,7 @@
 use super::{AggregatorRunnerTrait, RuntimeError};
 
 use mithril_common::entities::{Beacon, CertificatePending};
-use slog_scope::{debug, error, info, trace, warn};
+use slog_scope::{error, info, trace, warn};
 use std::fmt::Display;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
@@ -32,9 +32,16 @@ pub enum AggregatorState {
 impl Display for AggregatorState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AggregatorState::Idle(state) => write!(f, "Idle - {:?}", state.current_beacon),
-            AggregatorState::Ready(state) => write!(f, "Ready - {:?}", state.current_beacon),
-            AggregatorState::Signing(state) => write!(f, "Signing - {:?}", state.current_beacon),
+            AggregatorState::Idle(state) => write!(
+                f,
+                "Idle - {}",
+                match &state.current_beacon {
+                    None => "No Beacon".to_string(),
+                    Some(b) => b.to_string(),
+                }
+            ),
+            AggregatorState::Ready(state) => write!(f, "Ready - {}", state.current_beacon),
+            AggregatorState::Signing(state) => write!(f, "Signing - {}", state.current_beacon),
         }
     }
 }
@@ -90,11 +97,11 @@ impl AggregatorRuntime {
 
     /// Launches an infinite loop ticking the state machine.
     pub async fn run(&mut self) {
-        info!("state machine: launching");
+        info!("STATE MACHINE: launching");
 
         loop {
             if let Err(e) = self.cycle().await {
-                error!("state machine: an error occurred: "; "error" => ?e);
+                error!("STATE MACHINE: an error occurred: "; "error" => ?e);
             }
 
             info!("Sleeping for {} ms", self.state_sleep.as_millis());
@@ -105,7 +112,7 @@ impl AggregatorRuntime {
     /// Perform one tick of the state machine.
     pub async fn cycle(&mut self) -> Result<(), RuntimeError> {
         info!("================================================================================");
-        info!("STATE MACHINE: new cycle"; "current_state" => self.state.to_string());
+        info!("STATE MACHINE: new cycle: {}", self.state);
 
         match self.state.clone() {
             AggregatorState::Idle(state) => {

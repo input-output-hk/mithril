@@ -50,10 +50,17 @@ impl SignerState {
 
 impl Display for SignerState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match *self {
-            Self::Unregistered(_) => write!(f, "unregistered"),
-            Self::Registered(_) => write!(f, "registered"),
-            Self::Signed(_) => write!(f, "signed"),
+        match self {
+            Self::Unregistered(state) => write!(
+                f,
+                "Unregistered - {}",
+                match state {
+                    None => "No Epoch".to_string(),
+                    Some(e) => format!("Epoch({})", e),
+                }
+            ),
+            Self::Registered(state) => write!(f, "Registered - {}", state.beacon),
+            Self::Signed(state) => write!(f, "Signed - {}", state.beacon),
         }
     }
 }
@@ -86,11 +93,11 @@ impl StateMachine {
 
     /// Launch the state machine until an error occurs or it is interrupted.
     pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
-        info!("state machine: launching");
+        info!("STATE MACHINE: launching");
 
         loop {
             if let Err(e) = self.cycle().await {
-                error!("state machine: an error occured: "; "error" => ?e);
+                error!("STATE MACHINE: an error occured: "; "error" => ?e);
             }
 
             info!("Sleeping for {} ms", self.state_sleep.as_millis());
@@ -101,7 +108,7 @@ impl StateMachine {
     /// Perform a cycle of the state machine.
     pub async fn cycle(&mut self) -> Result<(), Box<dyn Error + Sync + Send>> {
         info!("================================================================================");
-        info!("STATE MACHINE: new cycle"; "current_state" => ?self.state);
+        info!("STATE MACHINE: new cycle: {}", self.state);
 
         match &self.state {
             SignerState::Unregistered(maybe_epoch) => {
