@@ -5,6 +5,14 @@ edition = "2021"
 description = "A Mithril Aggregator server"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[[bin]]
+name = "sqlite_migration"
+bench = false
+
+[[bin]]
+name = "migrate_json_stores"
+bench = false
+
 [dependencies]
 async-trait = "0.1.52"
 chrono = "0.4"
@@ -37,8 +45,4 @@ tempfile = "3.3.0"
 
 [features]
 portable = ["mithril-common/portable"]
-
-[[bin]]
-name = "sqlite_migration"
-bench = false
 
