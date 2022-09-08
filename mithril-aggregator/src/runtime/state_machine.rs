@@ -104,7 +104,10 @@ impl AggregatorRuntime {
                 error!("STATE MACHINE: an error occurred: "; "error" => ?e);
             }
 
-            info!("Sleeping for {} ms", self.state_sleep.as_millis());
+            info!(
+                "… Cycle finished, Sleeping for {} ms",
+                self.state_sleep.as_millis()
+            );
             sleep(self.state_sleep).await;
         }
     }
