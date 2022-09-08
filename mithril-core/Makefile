@@ -20,7 +20,7 @@ test:
 
 check:
 	${CARGO} check --release --all-features --all-targets
-	${CARGO} clippy --release --all-features
+	${CARGO} clippy --release --all-features --all-targets
 	${CARGO} fmt --check
 
 clean:
