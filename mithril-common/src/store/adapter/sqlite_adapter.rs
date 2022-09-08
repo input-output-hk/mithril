@@ -309,10 +309,12 @@ mod tests {
         let dirpath = std::env::temp_dir().join("mithril_test");
 
         if !dirpath.exists() {
-            create_dir_all(&dirpath).expect(&format!(
-                "Expecting to be able to create the test directory '{}'.",
-                dirpath.display()
-            ));
+            create_dir_all(&dirpath).unwrap_or_else(|_| {
+                panic!(
+                    "Expecting to be able to create the test directory '{}'.",
+                    dirpath.display()
+                )
+            });
         }
 
         dirpath.join(format!("{}.sqlite3", test_name))
@@ -322,10 +324,12 @@ mod tests {
         let filepath = get_file_path(test_name);
 
         if filepath.exists() {
-            remove_file(&filepath).expect(&format!(
-                "Expecting to be able to remove the database file '{}'.",
-                filepath.to_string_lossy()
-            ));
+            remove_file(&filepath).unwrap_or_else(|_| {
+                panic!(
+                    "Expecting to be able to remove the database file '{}'.",
+                    filepath.display()
+                )
+            });
         }
         SQLiteAdapter::new(TABLE_NAME, Some(filepath)).unwrap()
     }
@@ -339,10 +343,12 @@ mod tests {
             .await
             .unwrap();
         let filepath = get_file_path(test_name);
-        let connection = Connection::open(&filepath).expect(&format!(
-            "Expecting to be able to open SQLite file '{}'.",
-            filepath.to_string_lossy()
-        ));
+        let connection = Connection::open(&filepath).unwrap_or_else(|_| {
+            panic!(
+                "Expecting to be able to open SQLite file '{}'.",
+                filepath.display()
+            )
+        });
         let mut statement = connection
             .prepare(format!("select key_hash, key, value from {}", TABLE_NAME))
             .unwrap()

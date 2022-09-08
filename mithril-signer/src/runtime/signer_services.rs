@@ -151,7 +151,7 @@ mod tests {
             data_stores_directory: stores_dir.clone(),
         };
 
-        assert!(!stores_dir.clone().exists());
+        assert!(!stores_dir.exists());
         let service_builder = ProductionServiceBuilder::new(&config);
         service_builder
             .build()
