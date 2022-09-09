@@ -6,6 +6,7 @@ use std::{
 use clap::{Parser, ValueEnum};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use std::fmt::Debug;
 use std::hash::Hash;
 
 use mithril_common::{
@@ -31,7 +32,7 @@ async fn migrate(
 }
 
 async fn migrate_one<
-    K: PartialEq + Clone + Serialize + DeserializeOwned + Sync + Send + Hash,
+    K: Eq + Clone + Serialize + DeserializeOwned + Sync + Send + Hash + Debug,
     V: Clone + Serialize + DeserializeOwned + Sync + Send,
 >(
     source_file: &Path,
@@ -45,11 +46,12 @@ async fn migrate_one<
     let mut migrator = AdapterMigration::new(source_adapter, target_adapter);
 
     migrator.migrate().await?;
+    let migration_result = migrator.check().await?;
 
-    if migrator.check().await? {
+    if migration_result.is_ok() {
         Ok(())
     } else {
-        Err("Data consistency check failed!".into())
+        Err(format!("Data consistency check failed: {}", migration_result).into())
     }
 }
 
