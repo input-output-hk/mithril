@@ -33,7 +33,7 @@ async fn migrate(
 
 async fn migrate_one<
     K: Eq + Clone + Serialize + DeserializeOwned + Sync + Send + Hash + Debug,
-    V: Clone + Serialize + DeserializeOwned + Sync + Send,
+    V: Clone + Serialize + DeserializeOwned + PartialEq + Sync + Send,
 >(
     source_file: &Path,
     target_file: &Path,
@@ -46,7 +46,7 @@ async fn migrate_one<
     let mut migrator = AdapterMigration::new(source_adapter, target_adapter);
 
     migrator.migrate().await?;
-    let migration_result = migrator.check().await?;
+    let migration_result = migrator.check(|right, left| right.eq(&left)).await?;
 
     if migration_result.is_ok() {
         Ok(())

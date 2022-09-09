@@ -55,7 +55,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         sqlite_db_path.clone(),
     )?)));
     let stake_store = Arc::new(StakeStore::new(Box::new(SQLiteAdapter::new(
-        "Stake",
+        "stake",
         sqlite_db_path.clone(),
     )?)));
     let single_signature_store = Arc::new(SingleSignatureStore::new(Box::new(SQLiteAdapter::new(

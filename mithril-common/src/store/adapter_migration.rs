@@ -11,7 +11,7 @@ use crate::store::adapter::{JsonFileStoreAdapter, SQLiteAdapter, StoreAdapter};
 use serde::{de::DeserializeOwned, Serialize};
 
 /// Migration check outcome.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum MigrationCheckOutcome<K, V> {
     /// Values and keys are equal and key order is preserved.
     Equal,
@@ -123,7 +123,10 @@ where
     }
 
     /// Check if data are the same in both source & destination adapters.
-    pub async fn check(&self) -> Result<MigrationCheckOutcome<K, V>, Box<dyn Error>> {
+    pub async fn check(
+        &self,
+        entry_comparer: fn((&K, &V), (&K, &V)) -> bool,
+    ) -> Result<MigrationCheckOutcome<K, V>, Box<dyn Error>> {
         let from_data: Vec<(K, V)> = self.adapter_from.get_last_n_records(usize::MAX).await?;
         let to_data: Vec<(K, V)> = self.adapter_to.get_last_n_records(usize::MAX).await?;
         {
@@ -132,7 +135,7 @@ where
             let source_diff: Vec<K> = from_data.difference(&to_data).cloned().collect();
             let target_diff: Vec<K> = to_data.difference(&from_data).cloned().collect();
 
-            if source_diff.len() > 0 || target_diff.len() > 0 {
+            if !source_diff.is_empty() || !target_diff.is_empty() {
                 return Ok(MigrationCheckOutcome::KeysMismatch {
                     source: source_diff,
                     target: target_diff,
@@ -140,11 +143,18 @@ where
             }
         }
 
-        for ((k_from, _v_from), (k_to, _v_to)) in from_data.into_iter().zip(to_data.into_iter()) {
+        for ((k_from, v_from), (k_to, v_to)) in from_data.into_iter().zip(to_data.into_iter()) {
             if k_from != k_to {
                 return Ok(MigrationCheckOutcome::KeyNotAligned {
                     source: k_from,
                     target: k_to,
+                });
+            }
+            if !(entry_comparer)((&k_from, &v_from), (&k_to, &v_to)) {
+                return Ok(MigrationCheckOutcome::ValueNotEqualInTarget {
+                    key: k_from,
+                    source: v_from,
+                    target: v_to,
                 });
             }
         }
@@ -162,7 +172,10 @@ mod tests {
     use super::*;
 
     fn get_adapter(dir_name: &str) -> (PathBuf, JsonFileStoreAdapter<u64, String>) {
-        let dir = std::env::temp_dir().join("mithril_test").join(dir_name);
+        let dir = std::env::temp_dir()
+            .join("mithril_test")
+            .join("adapter_migration")
+            .join(dir_name);
 
         if dir.exists() {
             let _ = fs::remove_dir_all(&dir);
@@ -183,7 +196,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_migration() {
-        let (dir, mut json_adapter) = get_adapter("test_sqlite_migration");
+        let (dir, mut json_adapter) = get_adapter("test_migration");
         let sqlite_file = dir.clone().join("test.sqlite3");
         let expected = vec![
             (1_u64, "one".to_string()),
@@ -222,14 +235,18 @@ mod tests {
             (3, "three".to_string()),
             (4, "four".to_string()),
         ];
-        let (_dir, mut json_adapter) = get_adapter("test_sqlite_migration");
+        let (_dir, mut json_adapter) = get_adapter("test_check_ok");
         let mut sqlite_adapter = SQLiteAdapter::new("test_migration", None).unwrap();
 
         fill_adapter(&mut json_adapter, &expected).await;
         fill_adapter(&mut sqlite_adapter, &expected).await;
 
         let migration = AdapterMigration::new(json_adapter, sqlite_adapter);
-        assert!(migration.check().await.unwrap().is_ok());
+        assert!(migration
+            .check(|left, right| left.eq(&right))
+            .await
+            .unwrap()
+            .is_ok());
     }
 
     #[tokio::test]
@@ -240,14 +257,17 @@ mod tests {
             (3, "three".to_string()),
             (4, "four".to_string()),
         ];
-        let (_dir, mut json_adapter) = get_adapter("test_sqlite_migration");
+        let (_dir, mut json_adapter) = get_adapter("test_check_key_not_exist");
         let mut sqlite_adapter = SQLiteAdapter::new("test_migration", None).unwrap();
 
         fill_adapter(&mut json_adapter, &expected).await;
         fill_adapter(&mut sqlite_adapter, &expected[..3]).await;
 
         let migration = AdapterMigration::new(json_adapter, sqlite_adapter);
-        let outcome = migration.check().await.unwrap();
+        let outcome = migration
+            .check(|left, right| left.eq(&right))
+            .await
+            .unwrap();
         assert!(!outcome.is_ok());
 
         assert_eq!(
@@ -267,7 +287,7 @@ mod tests {
             (3, "three".to_string()),
             (4, "four".to_string()),
         ];
-        let (_dir, mut json_adapter) = get_adapter("test_sqlite_migration");
+        let (_dir, mut json_adapter) = get_adapter("test_check_keys_unaligned");
         let mut sqlite_adapter = SQLiteAdapter::new("test_migration", None).unwrap();
 
         fill_adapter(&mut json_adapter, &expected).await;
@@ -278,7 +298,10 @@ mod tests {
         )
         .await;
         let migration = AdapterMigration::new(json_adapter, sqlite_adapter);
-        let outcome = migration.check().await.unwrap();
+        let outcome = migration
+            .check(|left, right| left.eq(&right))
+            .await
+            .unwrap();
         assert!(!outcome.is_ok());
 
         assert_eq!(
@@ -298,7 +321,7 @@ mod tests {
             (3, "three".to_string()),
             (4, "four".to_string()),
         ];
-        let (_dir, mut json_adapter) = get_adapter("test_sqlite_migration");
+        let (_dir, mut json_adapter) = get_adapter("test_check_different_values");
         let mut sqlite_adapter = SQLiteAdapter::new("test_migration", None).unwrap();
 
         fill_adapter(&mut json_adapter, &expected).await;
@@ -309,7 +332,10 @@ mod tests {
             .await
             .unwrap();
         let migration = AdapterMigration::new(json_adapter, sqlite_adapter);
-        let outcome = migration.check().await.unwrap();
+        let outcome = migration
+            .check(|left, right| left.eq(&right))
+            .await
+            .unwrap();
         assert!(!outcome.is_ok());
 
         assert_eq!(
