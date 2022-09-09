@@ -216,6 +216,7 @@ where
 #[cfg(test)]
 mod tests {
     use serde_json::json;
+    use std::borrow::Borrow;
     use std::path::Path;
     use std::time::Duration;
 
@@ -279,6 +280,21 @@ mod tests {
     async fn check_get_last_n() {
         let (dir, adapter) = get_adapter("check_get_last_n");
         init_dir(&dir);
+        let values = adapter.get_last_n_records(2).await.unwrap();
+        assert_eq!(
+            vec![(6, "six".to_string()), (5, "five".to_string())],
+            values
+        );
+    }
+
+    #[tokio::test]
+    async fn check_get_last_n_modified_records() {
+        let (dir, mut adapter) = get_adapter("check_get_last_n");
+        init_dir(&dir);
+        adapter
+            .store_record(&4, "updated record".to_string().borrow())
+            .await
+            .unwrap();
         let values = adapter.get_last_n_records(2).await.unwrap();
         assert_eq!(
             vec![(6, "six".to_string()), (5, "five".to_string())],
