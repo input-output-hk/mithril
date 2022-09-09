@@ -297,28 +297,24 @@ mod test {
         let initializer_1 = ProtocolInitializer::setup_new(params, &sk_bytes_1, 0, 10, &mut rng);
 
         let cbor_bytes_1 = Vec::from_hex("82845820f89d3fa14cabafa151638743b297379d3c3767902e36ae53b02b3a64bddda19d00005840e472042f7e78e3cfc4c2ac99a658a626be0e9d69e7072dc300cb28ce8178c329beb1d2cf4c7a7ce30d6c528ffad9e8d685fd9d58379758924a010ef317290b0e58207acec462970b819f5f7951e5c84eb87c8e7c4f1aceac01e1c1d97f2e25eb6005").expect("Invalid Hex String");
-        let key_registration_1 = key_reg
-            .register(
-                &cbor_bytes_1,
-                initializer_1.kes_signature.unwrap(),
-                0,
-                initializer_1.stm_initializer.verification_key(),
-            )
-            .unwrap();
-        // assert!(key_registration_1.is_ok());
+        let key_registration_1 = key_reg.register(
+            &cbor_bytes_1,
+            initializer_1.kes_signature.unwrap(),
+            0,
+            initializer_1.stm_initializer.verification_key(),
+        );
+        assert!(key_registration_1.is_ok());
 
         let sk_bytes_2 = Vec::from_hex("590260d12460c331c7b978887899e2ccb119df7c4fa1e6f396778518f64a58f3d2232bf6481fba48fef9dc796f604b622cf0b41230c1662c221b448142bfddf8170865f1deec4232322acffb7d9001f21a4985c4acb4ca6af8906aefd9a7de6bc360acb59812a12ebd5b36a5603b497061f983921cdce59c836ccd2172f40dd62902809316c9a10cf8c44d5a22606fbdea4e210ec1540c6f5c9c1269b2af47d76aae7b009936bf4b62d0716bedf39e589b82381013c5dd68bae7496c4c726b4ae3992c188f1055ab61ef4ce9858958040147d02cec38b058919f0fcebbb9e48c25561634b58dc2d168994e2e22926f4d9d073d0c333db92d19a0c08617e03091b66f7574275db8f2fed75c21a539afedb85b1f163589eb8950ceeb6fb06f022fe544329df46fee5eb495e514846e341f0dafb8cf0d216c0ef3f18ceba6cad155694b74ae39d05a0a4729e595c1bfefa110199ec90a62e79a69c7dca595088e1a9fa1dd4f12be8e6f9e69178478d857d18f1abfc6bf567f5fcfd19bdfcb41c9a65879940a336d41a22ca66c84ccee0afd88aa237e48cb4f6115847eff96c095a7a6672e7b712d9acb8eb59dd9a1ce0ca1bc720ee1613b6e159d8b903694621f095319ba2292760ea0b975f17b3a48fb251b722ef190aa23385d05de93b3a21ef563f64e6e66e6e199267141e417e5b8a74a80f8ae6e69a4d9e778e9b7ca79f04d992b3851dbf703cd69829c837339d831b60273610d002454060bc9e1637358cd1a593166fe328dad39b8fa412b81841429ae022e26c452dce5bcd6500d48bd22af4ff94264978c1874946ce4ad53afcf9bde71973ef744823179dd98e24cd40d9498c1").unwrap();
         let initializer_2 = ProtocolInitializer::setup_new(params, &sk_bytes_2, 0, 10, &mut rng);
 
         let cbor_bytes_2 = Vec::from_hex("82845820485981d05d157875fb5a69bbea8f6fc0c09c3da1754fb42a313d6f7a485ae2070000584024d23fed6746db342232e0ddab087879ade2bd936842af00b9c02f563d752cde583df1763283973ce527d118e79ae184c83a3a60a35898f23e9a441a2948240c5820ec91c9db4c0ffc5f39548b1eda07930b7a47510a0e1ce3cc621c6a3f9e899eda").expect("Invalid Hex String");
-        let key_registration_2 = key_reg
-            .register(
-                &cbor_bytes_2,
-                initializer_2.kes_signature.unwrap(),
-                0,
-                initializer_2.stm_initializer.verification_key(),
-            )
-            .unwrap();
-        // assert!(key_registration.is_ok())
+        let key_registration_2 = key_reg.register(
+            &cbor_bytes_2,
+            initializer_2.kes_signature.unwrap(),
+            0,
+            initializer_2.stm_initializer.verification_key(),
+        );
+        assert!(key_registration_2.is_ok())
     }
 }
