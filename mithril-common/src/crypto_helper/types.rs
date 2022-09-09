@@ -29,15 +29,11 @@ pub type ProtocolPartyId = String;
 /// Alias of [MithrilCore:Stake](https://mithril.network/mithril-core/doc/mithril/stm/type.Stake.html).
 pub type ProtocolStake = Stake;
 /// A list of [Party Id][ProtocolPartyId] associated with its [Stake][ProtocolStake].
-pub type ProtocolStakeDistribution = Vec<(ProtocolPartyId, ProtocolStake)>;
+pub type ProtocolStakeDistribution = Vec<(ProtocolPartyId, ProtocolStake)>; // todo: should eventually be Vec<(PoolId, ProtocolStake)>
 /// Alias of [MithrilCore::StmParameters](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmParameters.html).
 pub type ProtocolParameters = StmParameters;
 /// Alias of [MithrilCore::Index](https://mithril.network/mithril-core/doc/mithril/stm/type.Index.html).
 pub type ProtocolLotteryIndex = Index;
-/// Alias of [MithrilCore:StmSigner](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmSigner.html).
-pub type ProtocolSigner = StmSigner<D>;
-/// Alias of [MithrilCore:StmClerk](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmClerk.html).
-pub type ProtocolClerk = StmClerk<D>;
 /// Alias of [MithrilCore:KeyReg](https://mithril.network/mithril-core/doc/mithril/key_reg/struct.KeyReg.html).
 pub type ProtocolKeyRegistration = KeyReg;
 /// Alias of [MithrilCore:StmSig](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmSig.html).
@@ -74,6 +70,40 @@ pub struct ProtocolInitializer {
 pub struct NewProtocolKeyRegistration {
     stm_key_reg: KeyReg,
     stake_distribution: HashMap<PoolId, Stake>,
+}
+
+/// Wrapper structure for [MithrilCore:StmSigner](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmSigner.html).
+#[derive(Debug, Clone)]
+pub struct ProtocolSigner(StmSigner<D>);
+
+/// Wrapper structure fo [MithrilCore:StmClerk](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmClerk.html).
+#[derive(Debug, Clone)]
+pub struct ProtocolClerk(StmClerk<D>);
+
+impl ProtocolClerk {
+    /// Create a new `Clerk` from a closed registration instance.
+    pub fn from_registration(params: &StmParameters, closed_reg: &ClosedKeyReg<D>) -> Self {
+        Self(StmClerk::from_registration(params, closed_reg))
+    }
+
+    /// Create a Clerk from a signer.
+    pub fn from_signer(signer: &ProtocolSigner) -> Self {
+        Self(StmClerk::from_signer(&signer.0))
+    }
+
+    /// Aggregate a set of signatures for their corresponding indices.
+    pub fn aggregate(
+        &self,
+        sigs: &[StmSig<D>],
+        msg: &[u8],
+    ) -> Result<StmAggrSig<D>, AggregationError> {
+        self.0.aggregate(sigs, msg)
+    }
+
+    /// Compute the `StmAggrVerificationKey` related to the used registration.
+    pub fn compute_avk(&self) -> StmAggrVerificationKey<D> {
+        self.0.compute_avk()
+    }
 }
 
 impl ProtocolInitializer {
@@ -126,11 +156,8 @@ impl ProtocolInitializer {
     /// * the current total stake (according to the registration service)
     /// # Error
     /// This function fails if the initializer is not registered.
-    pub fn new_signer<D: Digest + Clone>(
-        self,
-        closed_reg: ClosedKeyReg<D>,
-    ) -> Result<StmSigner<D>, RegisterError> {
-        self.stm_initializer.new_signer(closed_reg)
+    pub fn new_signer(self, closed_reg: ClosedKeyReg<D>) -> Result<ProtocolSigner, RegisterError> {
+        Ok(ProtocolSigner(self.stm_initializer.new_signer(closed_reg)?))
     }
 
     /// Convert to bytes
@@ -196,6 +223,46 @@ impl NewProtocolKeyRegistration {
         }
 
         Err(RegisterError::KeyNonExisting)
+    }
+}
+
+impl ProtocolSigner {
+    /// This function produces an STM signature
+    pub fn sign(&self, msg: &[u8]) -> Option<StmSig<D>> {
+        self.0.sign(msg)
+    }
+
+    /// This function should be called when a signing epoch is finished (or when a new one starts).
+    /// It consumes `self` and turns it back to an `StmInitializer`, which allows for an update in
+    /// the dynamic parameters (such as stake distribution, participants or KES signature). To ensure
+    /// that the `StmInitializer` will not be used for the previous registration, this function also
+    /// consumes the `ClosedKeyReg` instance. In case the stake of the current party has changed, it
+    /// includes it as input.
+    pub fn new_epoch(
+        self,
+        new_kes_key: &[u8],
+        new_kes_period: usize,
+        new_stake: Option<Stake>,
+    ) -> ProtocolInitializer {
+        let stm_initializer = self.0.new_epoch(new_stake);
+
+        let kes_sk: Sum6Kes =
+            serde_cbor::from_slice(new_kes_key).expect("Invalid KES key provided"); // todo: handle this
+        let kes_signature = kes_sk.sign(
+            new_kes_period,
+            &stm_initializer.verification_key().to_bytes(),
+        );
+
+        ProtocolInitializer {
+            stm_initializer,
+            kes_signature: Some(kes_signature),
+        }
+    }
+
+    /// Compute the `StmAggrVerificationKey` related to the used registration, which consists of
+    /// the merkle tree root and the total stake.
+    pub fn compute_avk(&self) -> ProtocolAggregateVerificationKey {
+        ProtocolAggregateVerificationKey::from(&self.0.get_closed_reg())
     }
 }
 

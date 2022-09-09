@@ -549,6 +549,11 @@ impl<D: Clone + Digest> StmSigner<D> {
     pub fn compute_avk(&self) -> StmAggrVerificationKey<D> {
         StmAggrVerificationKey::from(&self.closed_reg)
     }
+
+    /// Return the closed registration instance
+    pub fn get_closed_reg(&self) -> ClosedKeyReg<D> {
+        self.closed_reg.clone()
+    }
 }
 
 impl<D: Digest + Clone> StmClerk<D> {
