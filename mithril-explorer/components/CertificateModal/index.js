@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {Badge, Button, Container, Col, ListGroup, Modal, Row, Table} from "react-bootstrap";
+import RawJsonButton from "../RawJsonButton";
 
 export default function CertificateModal(props) {
   const [certificate, setCertificate] = useState({});
@@ -61,7 +62,12 @@ export default function CertificateModal(props) {
               </Col>
               <Col xl={8}>
                 <h4>Signers</h4>
-                {certificate.metadata.signers.length === 0
+                {certificate.genesis_signature !== ""
+                  ?
+                  <div>
+                    This is the chain Genesis Certificate, since it&aops;s manually created it doesn&apos;t contain any Signers.
+                  </div>
+                  : certificate.metadata.signers.length === 0
                   ?
                   <div>
                     No Signers for this certificate, something went wrong either with the data retrieval or the signing process
@@ -91,12 +97,13 @@ export default function CertificateModal(props) {
         }
       </Modal.Body>
       <Modal.Footer>
-        {certificate.previous_hash === ""
+        {certificate.genesis_signature !== ""
           ? <Badge bg="warning">Genesis</Badge>
           : <>
             <Button size="sm" onClick={showPrevious} className="text-break">Previous hash: {certificate.previous_hash}</Button>
           </>
         }
+        <RawJsonButton href={`${props.aggregator}/certificate/${props.hash}`} size="sm" />
       </Modal.Footer>
     </Modal>
   );

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {Card, CardGroup, ListGroup} from "react-bootstrap";
+import RawJsonButton from "../RawJsonButton";
 
 export default function PendingCertificate(props) {
   const [pendingCertificate, setPendingCertificate] = useState({});
@@ -28,7 +29,15 @@ export default function PendingCertificate(props) {
 
   return (
     <div className={props.className}>
-      <h2>Pending Certificate</h2>
+      <h2>
+        Pending Certificate 
+        {Object.entries(pendingCertificate).length !== 0 &&
+          <RawJsonButton
+            href={`${props.aggregator}/certificate-pending`}
+            variant="outline-light"
+            size="sm" />
+        }
+      </h2>
       
       {Object.entries(pendingCertificate).length === 0
         ? <p>No pending certificate available</p>
