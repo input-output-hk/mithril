@@ -664,10 +664,10 @@ impl<D: Clone + Digest> StmSig<D> {
     ) -> Result<(), StmSignatureError<D>> {
         let msgp = avk.mt_commitment.concat_with_msg(msg);
 
+        self.sigma.verify(&msgp, &self.pk)?;
         self.check_indices(params, &msgp, avk)?;
         avk.mt_commitment
             .check(&MTLeaf(self.pk, self.stake), &self.path)?;
-        self.sigma.verify(&msgp, &self.pk)?;
         Ok(())
     }
 
