@@ -2,7 +2,7 @@
 title: Genesis Certificate support added
 authors:
 - name: Mithril Team
-tags: [genesis, breaking-change]
+tags: [genesis, certificate, breaking-change]
 ---
 
 **Update**: The PR has been merged and the feature is being deployed on the GCP Mithril Aggregator.
