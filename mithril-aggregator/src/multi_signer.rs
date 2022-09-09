@@ -14,7 +14,7 @@ use mithril_common::crypto_helper::{
     ProtocolSignerVerificationKey, ProtocolSingleSignature, ProtocolStakeDistribution,
     PROTOCOL_VERSION,
 };
-use mithril_common::entities::{self, SignerWithStake};
+use mithril_common::entities::{self, PartyId, SignerWithStake};
 use mithril_common::store::{StakeStore, StakeStorer, StoreError};
 use mithril_common::{
     NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET, SIGNER_EPOCH_RECORDING_OFFSET,
@@ -733,7 +733,20 @@ impl MultiSigner for MultiSignerImpl {
                 let initiated_at =
                     format!("{:?}", self.current_initiated_at.unwrap_or_else(Utc::now));
                 let sealed_at = format!("{:?}", Utc::now());
-                let signers = self.get_signers_with_stake().await?; // TODO: Filter with actual signers only?
+                let signatures_party_ids: Vec<PartyId> = self
+                    .single_signature_store
+                    .get_single_signatures(&beacon)
+                    .await?
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|(party_id, _single_signature)| party_id)
+                    .collect::<Vec<_>>();
+                let signers = self
+                    .get_signers_with_stake()
+                    .await?
+                    .into_iter()
+                    .filter(|signer| signatures_party_ids.contains(&signer.party_id))
+                    .collect::<Vec<_>>();
                 let metadata = entities::CertificateMetadata::new(
                     protocol_version,
                     protocol_parameters,
@@ -1060,7 +1073,8 @@ mod tests {
             .expect("update current message failed");
         let mut signatures = Vec::new();
 
-        for (party_id, _, _, protocol_signer, _) in &signers {
+        let mut expected_certificate_signers = Vec::new();
+        for (party_id, stake, _, protocol_signer, protocol_initializer) in &signers {
             if let Some(signature) = protocol_signer.sign(message.compute_hash().as_bytes()) {
                 let won_indexes = signature.indexes.clone();
 
@@ -1069,6 +1083,12 @@ mod tests {
                     key_encode_hex(signature).unwrap(),
                     won_indexes,
                 ));
+
+                expected_certificate_signers.push(entities::SignerWithStake::new(
+                    party_id.to_owned(),
+                    key_encode_hex(protocol_initializer.verification_key()).unwrap(),
+                    *stake,
+                ))
             }
         }
 
@@ -1139,18 +1159,38 @@ mod tests {
             "no multi-signature were computed"
         );
 
-        // A certificate should also be produced with valid AVK
+        // A certificate should also be produced with valid AVK and valid signers list
+        let beacon = multi_signer.get_current_beacon().await.unwrap();
         let certificate = multi_signer
-            .create_certificate(beacon.clone(), previous_hash.clone())
+            .create_certificate(beacon, previous_hash.clone())
             .await
-            .expect("create_certificate should not fail");
-        assert!(certificate.is_some());
-        let avk_expected = certificate.unwrap().aggregate_verification_key;
+            .expect("create_certificate should not fail")
+            .expect("create_certificate should return something");
+        let mut expected_certificate_signers_party_ids = expected_certificate_signers
+            .iter()
+            .map(|s| s.party_id.clone())
+            .collect::<Vec<ProtocolPartyId>>();
+        expected_certificate_signers_party_ids.sort();
+        let mut found_certificate_signers_party_ids = certificate
+            .clone()
+            .metadata
+            .signers
+            .iter()
+            .map(|s| s.party_id.clone())
+            .collect::<Vec<ProtocolPartyId>>();
+        found_certificate_signers_party_ids.sort();
+        assert_eq!(
+            expected_certificate_signers_party_ids,
+            found_certificate_signers_party_ids
+        );
+        let avk_expected = certificate.aggregate_verification_key;
         let avk_computed = multi_signer
             .compute_stake_distribution_aggregate_verification_key()
             .await
-            .expect("compute stake distribution aggregate verification key should not fail");
-        assert!(avk_computed.is_some());
-        assert_eq!(avk_expected, avk_computed.unwrap());
+            .expect("compute stake distribution aggregate verification key should not fail")
+            .expect(
+                "compute stake distribution aggregate verification key should return something",
+            );
+        assert_eq!(avk_expected, avk_computed);
     }
 }
