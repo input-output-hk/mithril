@@ -5,9 +5,13 @@ edition = "2021"
 description = "A Mithril Signer"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[[bin]]
+name = "migrate_json_stores"
+bench = false
+
 [dependencies]
 async-trait = "0.1.52"
-clap = { version = "3.1.6", features = ["derive"] }
+clap = { version = "3.1.6", features = ["derive", "env"] }
 config = "0.13.1"
 hex = "0.4.3"
 mithril = { path = "../mithril-core" }
