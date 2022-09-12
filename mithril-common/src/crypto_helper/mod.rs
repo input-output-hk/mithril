@@ -3,7 +3,7 @@
 mod codec;
 mod conversions;
 mod genesis;
-mod opcerts;
+mod shelley_types;
 pub mod tests_setup;
 mod types;
 

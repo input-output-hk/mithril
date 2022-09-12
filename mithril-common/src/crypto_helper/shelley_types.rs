@@ -1,7 +1,43 @@
 use ed25519_dalek::{PublicKey as EdPublicKey, Signature as EdSignature, Verifier};
+use hex::FromHex;
 use kes_summed_ed25519::common::PublicKey as KesPublicKey;
 use mithril::RegisterError;
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::Path;
+
+/// Parse error
+#[derive(Debug)]
+pub enum ParseError {
+    Path(std::io::Error),
+    JsonFormat(serde_json::Error),
+    CborData,
+}
+
+/// Fields for a shelley formatted file (holds for vkeys, skeys or certs)
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+struct ShelleyFileFormat {
+    #[serde(rename = "type")]
+    file_type: String,
+    description: String,
+    #[serde(rename = "cborHex")]
+    cbor_hex: String,
+}
+
+pub(crate) trait FromShelleyFile {
+    fn from_file<R: DeserializeOwned, P: AsRef<Path>>(path: P) -> Result<R, ParseError> {
+        let data = fs::read_to_string(path).map_err(ParseError::Path)?;
+
+        let file: ShelleyFileFormat =
+            serde_json::from_str(&data).map_err(ParseError::JsonFormat)?;
+
+        let hex_vector = Vec::from_hex(file.cbor_hex).map_err(|_| ParseError::CborData)?;
+
+        let a: R = serde_cbor::from_slice(&hex_vector).map_err(|_| ParseError::CborData)?;
+        Ok(a)
+    }
+}
 
 /// Raw Fields of the operational certificates (without incluiding the cold VK)
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
@@ -16,6 +52,8 @@ struct RawFields(
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 struct RawOpCert(RawFields, EdPublicKey);
 
+impl FromShelleyFile for RawOpCert {}
+
 /// Parsed Operational Certificate
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct OpCert {
@@ -28,9 +66,9 @@ pub struct OpCert {
 
 impl OpCert {
     /// Parse raw bytes into an Operational Certificate
-    pub fn parse(bytes: &[u8]) -> Result<Self, RegisterError> {
+    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, RegisterError> {
         let a: RawOpCert =
-            serde_cbor::from_slice(bytes).map_err(|_| RegisterError::SerializationError)?;
+            RawOpCert::from_file(path).map_err(|_| RegisterError::SerializationError)?;
 
         Ok(Self {
             kes_vk: KesPublicKey::from_bytes(&a.0 .0)
@@ -61,12 +99,10 @@ impl OpCert {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use hex::FromHex;
 
     #[test]
     fn test_vector_op_cert() {
-        let cbor_bytes = Vec::from_hex("8284582067fd5ccf770c0182a34d2b3d2011ca3a853ba947e17cae7543e668bc7687eb6a0000584050592bef1c630f2df499161d78bfadb44cc76cfd24048993ace4a45dade37b4f29e95172fde4e63581a93552f6986985616b70f61062a1db2ee0d3d8e671440e58202abf3ff537a2080f53fa38615906fa6094d44860902f2b2dffdbb41b811ff39f").expect("Invalid Hex String");
-        let cert = OpCert::parse(&cbor_bytes).unwrap();
+        let cert = OpCert::from_file("./test-data/node1.cert").unwrap();
 
         assert!(cert.validate().is_ok())
     }
