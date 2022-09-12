@@ -125,6 +125,9 @@ NETWORK=testnet
 # Aggregator API endpoint URL
 AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator
 
+# Genesis verification key
+GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey)
+
 # Digest of the latest produced snapshot for convenience of the demo
 # You can also modify this variable and set it to the value of the digest of a snapshot that you can retrieve at step 2
 SNAPSHOT_DIGEST=$(curl -s $AGGREGATOR_ENDPOINT/snapshots | jq -r '.[0].digest')
@@ -202,7 +205,7 @@ to /home/mithril/data/testnet/cd587611b5ff2445c714bef083d9455ed3e42e9304ae0ad38b
 Verify the Certificate of the snapshot and unpack its content in order to feed the Cardano node database
 
 ```bash
-NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client restore $SNAPSHOT_DIGEST
+GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client restore $SNAPSHOT_DIGEST
 ```
 
 You will see that the snapshot archive is unpacked and that the associated certificate is valid
