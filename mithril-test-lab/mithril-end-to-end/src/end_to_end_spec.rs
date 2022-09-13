@@ -4,7 +4,7 @@ use mithril_common::chain_observer::{CardanoCliChainObserver, ChainObserver};
 use mithril_common::digesters::ImmutableFile;
 use mithril_common::entities::{Certificate, Epoch, EpochSettings, Snapshot};
 use reqwest::StatusCode;
-use slog_scope::info;
+use slog_scope::{info, warn};
 use std::error::Error;
 use std::path::Path;
 use std::sync::Arc;
@@ -21,14 +21,16 @@ impl Spec {
 
     pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
         let aggregator_endpoint = self.infrastructure.aggregator().endpoint();
-
         wait_for_enough_immutable(self.infrastructure.aggregator().db_directory()).await?;
-        // Epoch 3 since:
-        // * Epoch(0) won't produce anything since the Cardano network is still booting up.
-        // * It needs signers from the previous epoch.
-        // * Epoch(2) is still too early for some environements (ie: CI) to have the aggregator
-        // waiting for signatures long enough for signers to register.
-        let mut target_epoch = Epoch(3);
+        let start_epoch = self
+            .infrastructure
+            .chain_observer()
+            .get_current_epoch()
+            .await?
+            .unwrap_or_default();
+
+        // Wait 1 epoch after start epoch for the aggregator to be able to bootstrap a genesis certificate
+        let mut target_epoch = start_epoch + 1;
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
             target_epoch,
@@ -123,10 +125,13 @@ async fn wait_for_epoch_settings(aggregator_endpoint: &str) -> Result<EpochSetti
                     info!("Aggregator ready"; "epoch_settings"  => #?epoch_settings);
                     Ok(Some(epoch_settings))
                 }
-                s if s.is_server_error() => Err(format!(
-                    "Server error while waiting for the Aggregator, http code: {}",
-                    s
-                )),
+                s if s.is_server_error() => {
+                    warn!(
+                        "Server error while waiting for the Aggregator, http code: {}",
+                        s
+                    );
+                    Ok(None)
+                }
                 _ => Ok(None),
             },
             Err(_) => Ok(None),

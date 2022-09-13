@@ -12,6 +12,10 @@ use crate::CardanoNetwork;
 #[async_trait]
 pub trait CliRunner {
     async fn launch_stake_distribution(&self) -> Result<String, Box<dyn Error + Sync + Send>>;
+    async fn launch_stake_snapshot(
+        &self,
+        stake_pool_id: &str,
+    ) -> Result<String, Box<dyn Error + Sync + Send>>;
     async fn launch_epoch(&self) -> Result<String, Box<dyn Error + Sync + Send>>;
 }
 
@@ -36,6 +40,18 @@ impl CardanoCliRunner {
     fn command_for_stake_distribution(&self) -> Command {
         let mut command = self.get_command();
         command.arg("query").arg("stake-distribution");
+        self.post_config_command(&mut command);
+
+        command
+    }
+
+    fn command_for_stake_snapshot(&self, stake_pool_id: &str) -> Command {
+        let mut command = self.get_command();
+        command
+            .arg("query")
+            .arg("stake-snapshot")
+            .arg("--stake-pool-id")
+            .arg(stake_pool_id);
         self.post_config_command(&mut command);
 
         command
@@ -93,6 +109,29 @@ impl CliRunner for CardanoCliRunner {
         }
     }
 
+    async fn launch_stake_snapshot(
+        &self,
+        stake_pool_id: &str,
+    ) -> Result<String, Box<dyn Error + Sync + Send>> {
+        let output = self
+            .command_for_stake_snapshot(stake_pool_id)
+            .output()
+            .await?;
+
+        if output.status.success() {
+            Ok(std::str::from_utf8(&output.stdout)?.trim().to_string())
+        } else {
+            let message = String::from_utf8_lossy(&output.stderr);
+
+            Err(format!(
+                "Error launching command {:?}, error = '{}'",
+                self.command_for_stake_snapshot(stake_pool_id),
+                message
+            )
+            .into())
+        }
+    }
+
     async fn launch_epoch(&self) -> Result<String, Box<dyn Error + Sync + Send>> {
         let output = self.command_for_epoch().output().await?;
 
@@ -127,6 +166,45 @@ impl CardanoCliChainObserver {
     fn parse_string<'a>(&'a self, string: &'a str) -> IResult<&str, f64> {
         nom::number::complete::double(string)
     }
+
+    async fn get_current_stake_value(
+        &self,
+        stake_pool_id: &str,
+    ) -> Result<u64, ChainObserverError> {
+        let stake_pool_snapshot_output = self
+            .cli_runner
+            .launch_stake_snapshot(stake_pool_id)
+            .await
+            .map_err(ChainObserverError::General)?;
+        let stake_pool_snapshot: Value = serde_json::from_str(&stake_pool_snapshot_output)
+            .map_err(|e| {
+                ChainObserverError::InvalidContent(
+                    format!(
+                        "Error: {:?}, output was = '{}'",
+                        e, stake_pool_snapshot_output
+                    )
+                    .into(),
+                )
+            })?;
+        if let Value::Number(stake_pool_stake) = &stake_pool_snapshot["poolStakeMark"] {
+            return stake_pool_stake.as_u64().ok_or_else(|| {
+                ChainObserverError::InvalidContent(
+                    format!(
+                        "Error: could not parse stake pool value as u64 {:?}",
+                        stake_pool_stake
+                    )
+                    .into(),
+                )
+            });
+        }
+        Err(ChainObserverError::InvalidContent(
+            format!(
+                "Error: could not parse stake pool snapshot {:?}",
+                stake_pool_snapshot
+            )
+            .into(),
+        ))
+    }
 }
 
 #[async_trait]
@@ -149,6 +227,7 @@ impl ChainObserver for CardanoCliChainObserver {
             Ok(None)
         }
     }
+
     async fn get_current_stake_distribution(
         &self,
     ) -> Result<Option<StakeDistribution>, ChainObserverError> {
@@ -166,11 +245,17 @@ impl ChainObserver for CardanoCliChainObserver {
                 continue;
             }
 
-            if let Ok((_, f)) = self.parse_string(words[1]) {
-                let stake: u64 = (f * 1_000_000_000.0).round() as u64;
+            let stake_pool_id = words[0];
+            let stake_fraction = words[1];
+
+            if let Ok((_, _f)) = self.parse_string(stake_fraction) {
+                // This block is a fix:
+                // the stake retrieved was computed on the current epoch, when we need a value computed on the previous epoch
+                // in 'let stake: u64 = (f * 1_000_000_000.0).round() as u64;'
+                let stake: u64 = self.get_current_stake_value(stake_pool_id).await?;
 
                 if stake > 0 {
-                    let _ = stake_distribution.insert(words[0].to_string(), stake);
+                    let _ = stake_distribution.insert(stake_pool_id.to_string(), stake);
                 }
             } else {
                 return Err(ChainObserverError::InvalidContent(
@@ -204,6 +289,36 @@ pool1qptl80vq84xm28pt3t2lhpfzqag28csjhktxz5k6a74n260clmt   5.600e-7
 pool1qpuckgzxwgdru9vvq3ydmuqa077ur783yn2uywz7zq2c29p506e   5.161e-5
 pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
 "#;
+
+            Ok(output.to_string())
+        }
+
+        async fn launch_stake_snapshot(
+            &self,
+            stake_pool_id: &str,
+        ) -> Result<String, Box<dyn Error + Sync + Send>> {
+            let mut output = r#"
+{
+    "poolStakeGo": 1000000,
+    "poolStakeSet": 2000000,
+    "poolStakeMark": 3000000,
+    "activeStakeGo": 5000000,
+    "activeStakeSet": 7000000,
+    "activeStakeMark": 9000000
+}
+"#;
+            if stake_pool_id == "pool1qpqvz90w7qsex2al2ejjej0rfgrwsguch307w8fraw7a7adf6g8" {
+                output = r#"
+                {
+                    "poolStakeGo": 0,
+                    "poolStakeSet": 0,
+                    "poolStakeMark": 0,
+                    "activeStakeGo": 5000000,
+                    "activeStakeSet": 7000000,
+                    "activeStakeMark": 9000000
+                }
+                "#
+            }
 
             Ok(output.to_string())
         }
@@ -274,6 +389,22 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
     }
 
     #[tokio::test]
+    async fn test_get_current_stake_value() {
+        let observer = CardanoCliChainObserver::new(Box::new(TestCliRunner {}));
+        let stake = observer
+            .get_current_stake_value("pool1qqyjr9pcrv97gwrueunug829fs5znw6p2wxft3fvqkgu5f4qlrg")
+            .await
+            .expect("get current stake value should not fail");
+        assert_eq!(3_000_000, stake);
+
+        let stake = observer
+            .get_current_stake_value("pool1qpqvz90w7qsex2al2ejjej0rfgrwsguch307w8fraw7a7adf6g8")
+            .await
+            .expect("get current stake value should not fail");
+        assert_eq!(0, stake);
+    }
+
+    #[tokio::test]
     async fn test_get_current_stake_distribution() {
         let observer = CardanoCliChainObserver::new(Box::new(TestCliRunner {}));
         let results = observer
@@ -281,16 +412,15 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
             .await
             .unwrap()
             .unwrap();
-
         assert_eq!(7, results.len());
         assert_eq!(
-            2_493_000,
+            3_000_000,
             *results
                 .get("pool1qqyjr9pcrv97gwrueunug829fs5znw6p2wxft3fvqkgu5f4qlrg")
                 .unwrap()
         );
         assert_eq!(
-            1_051,
+            3_000_000,
             *results
                 .get("pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w")
                 .unwrap()

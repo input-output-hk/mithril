@@ -588,9 +588,25 @@ do
         echo ">>>> Activated!"
         POOL_IDX=1
         ./pools.sh | while read POOL_ID ; do
-            echo ">>>> Found PoolId: \$POOL_ID"
+            echo ">>>> Detected PoolId: \$POOL_ID"
             echo PARTY_ID=\${POOL_ID} > node-pool\${POOL_IDX}/pool.env
             POOL_IDX=\$(( \$POOL_IDX + 1))
+        done
+        ./pools.sh | while read POOL_ID ; do
+            echo ">>>> Retrieve stakes PoolId: \$POOL_ID"
+            while true
+            do
+                POOL_STAKE_PREVIOUS_EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query stake-snapshot \\
+                    --stake-pool-id \$POOL_ID \\
+                    --testnet-magic ${NETWORK_MAGIC} | jq .poolStakeMark)
+                if [ "\$POOL_STAKE_PREVIOUS_EPOCH" != "0" ] ; then
+                    break
+                else
+                    echo ">>>> Not retrievable yet"
+                    sleep 2
+                fi
+            done
+            echo ">>>> Stakes retrieved PoolId: \$POOL_ID / \$POOL_STAKE_PREVIOUS_EPOCH"
         done
         break
     else
