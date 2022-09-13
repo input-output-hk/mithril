@@ -7,7 +7,6 @@ description = "A Mithril Signer"
 
 [[bin]]
 name = "mithril-signer-migrate"
-path = "src/bin/migrate_json_stores.rs"
 bench = false
 
 [dependencies]

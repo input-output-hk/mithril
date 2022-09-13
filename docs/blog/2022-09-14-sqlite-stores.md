@@ -7,9 +7,9 @@ tags: [store, sqlite, breaking-change]
 
 ## What is that?
 
-Since almost the begining of the Mithril project, the software used to rely on a store mechanism to save its different states allowing signers and aggregators to resume on correct state when switched on and off. This internal store mechanism used to be a bunch of JSON files saved in a given directory. Even though this does the job, it still presents flaws: data are hard to query when debugging especially when crossing data (which signers have participated in this multisignature?). Also, data are stored in different places which can be a problem when moving these files from one place to another. We also had to imagine what would be a migration scenario in case of a structure change. Switching to a file based SQL database solves these issues.
+Since almost the beginning of the Mithril project, the software used to rely on a store mechanism to save its different states allowing Signers and Aggregators to resume on correct state when switched on and off. This internal store mechanism used to be a bunch of JSON files saved in a given directory. Even though this does the job it still presents flaws: data are hard to query when debugging especially when crossing data (which signers have participated in this multi-signature?). Also, data are stored in different places which can be a problem when moving these files from one place to another. We also had to imagine what would be a migration scenario in case of a structure change. Switching to a file based SQL database solves these issues.
 
-The new release now uses SQLite stores in place of JSON file storage. This means that to continue running a signer or an aggregator node it is necessary to migrate from the old storage system to SQLite. This release comes with a tool to perform such migration which should be as straightforward as launching a command line (read below). The migration tool will be available only for a limited time in order to make Mithril beta testers able to migrate their existing data.
+The new release now uses SQLite stores in place of JSON file storage. This means that to continue running a Signer or an Aggregator node it is necessary to migrate from the old storage system to SQLite. This release comes with a tool to perform the migration which should be as straightforward as launching a command line (read below). The migration tool will be available only for a limited time in order to make Mithril beta testers able to migrate their existing data.
 
 ## How to migrate data from old storage system to SQLite stores?
 
@@ -46,10 +46,10 @@ $> ls -1F ../target/release/mithril-signer*
 
 ### Running the migration
 
-The first step is to stop the running Mithril node if any. The `mithril-signer-migrate` executable can perform the migration automatically once you know where your actual JSON files are located. Have a look in your configuration file, check the value assiociated with the `data_stores_directory` key and copy the path indicated here.
+The first step is to stop the running Mithril node if any. The `mithril-signer-migrate` executable can perform the migration automatically once you know where your actual JSON files are located. Have a look in your configuration file (default `/opt/mithril/mithril-signer/service.env`), check the value associated with the `DATA_STORES_DIRECTORY` key (default to `/opt/mithril/mithril-signer/stores`) and copy the path indicated here. Copy this path after the `--db-dir` option on the following command line:
 
 ```
-$> ./mithril-signer-migrate automatic --db-dir /path/to/json/stores/base/dir
+$> ./mithril-signer-migrate automatic --db-dir /paste/the/data/stores/directory/here
 Mithril Aggregator JSON → SQLite migration tool.
 Migrating protocol_initializer_store data…
 OK ✓
@@ -57,20 +57,20 @@ Migrating stake_store data…
 OK ✓
 ```
 
-At the end of this command, a file `signer.sqlite3` (or `aggregator.sqlite3` if you run an aggregator) should be present in the specified base directory. 
+At the end of this command, a file `signer.sqlite3` (or `aggregator.sqlite3` if you run an Aggregator) should be present in the specified base directory. 
 
-If you are a Mithril user, that should be enough, launch your upgraded mithril node as usual.
+That should be enough, launch your upgraded mithril node.
 
 **Note:** The migration executable does not remove the old JSON files from the disk. 
 
-## Manual migration process
+### Manual migration process
 
-The executable also provides a `manual` switch for migrating Mithril JSON store directories placed in custom directories. 
+The executable also provides a `manual` switch for migrating Mithril JSON store directories placed in custom directories. This is mainly intended for developers who work on tweaked environments. Each internal store has its own data structure. In order to correctly migrate and process data, the type of the store has to be given on the command line.
 
 ```
 $> ./mithril-signer-migrate manual --help
 ```
 
-The command above should give you all informations needed to run a custom store migration.
+The command above should give you all informations needed to run a custom store migration. 
 
 Feel free to reach out to us on the [Discord channel](https://discord.gg/5kaErDKDRq) for questions and/or help.
