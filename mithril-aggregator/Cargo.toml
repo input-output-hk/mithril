@@ -6,7 +6,8 @@ description = "A Mithril Aggregator server"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [[bin]]
-name = "migrate_json_stores"
+name = "mithril-aggregator-migrate"
+path = "src/bin/migrate_json_stores.rs"
 bench = false
 
 [dependencies]

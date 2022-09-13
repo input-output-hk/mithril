@@ -15,15 +15,17 @@ The new release now uses SQLite stores in place of JSON file storage. This means
 
 ## How to migrate data from old storage system to SQLite stores?
 
-This new release crafts an executable that can perform the migration automatically. It can be compiled apart from the main software in the Aggregator and the Signer:
+The first step is to stop the running Mithril node if any. Then download the new `mithril-signer` and `mithril-signer-migrate` from the [builds page](https://github.com/input-output-hk/mithril/releases).
+
+The `mithril-signer-migrate` executable can perform the migration automatically once you know where your actual JSON files are located. Have a look in your configuration file user the `data_stores_directory` key and copy the path indicated here.
 
 ```
-$> cargo run --bin migrate_json_stores -- automatic --db-dir /path/to/json/stores/base/dir
+$> ./mithril-signer-migrate automatic --db-dir /path/to/json/stores/base/dir
 ```
 
-If you are unsure of what the `--db-dir` is with your configuration, have a look in your configuration file user the `data_stores_directory` key. At the end of this command, a file `aggregator.sqlite3` (or `signer.sqlite3`) should be present in the specified base directory. 
+At the end of this command, a file `signer.sqlite3` (or `aggregator.sqlite3` if you run an aggrgator) should be present in the specified base directory. 
 
-If you are a Mithril user, that should be enough.
+If you are a Mithril user, that should be enough, launch your upgraded mithril node.
 
 **Note:** The migration executable does not remove the old JSON files from the disk. 
 
@@ -32,7 +34,7 @@ If you are a Mithril user, that should be enough.
 The executable also provides a `manual` switch for migrating Mithril JSON store directories placed in custom directories. 
 
 ```
-$> cargo run --bin migrate_json_store -- manual --help
+$> ./mithril-signer-migrate manual --help
 ```
 
-The command above should give you all information needed to run a custom store migration.
+The command above should give you all informations needed to run a custom store migration. Feel free to reach out to us on the [Discord channel](https://discord.gg/5kaErDKDRq) for questions and/or help.
