@@ -182,7 +182,7 @@ impl AutomaticMigrationCommand {
         }
         let base_dir = &self.db_dir;
 
-        migrate(base_dir, "certificate", StoreType::Certificate).await?;
+        migrate(base_dir, "cert", StoreType::Certificate).await?;
         migrate(
             base_dir,
             "pending_certificate",
