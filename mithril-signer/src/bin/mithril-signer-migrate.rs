@@ -160,7 +160,7 @@ where
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    println!("Mithril Aggregator JSON → SQLite migration tool.");
+    println!("Mithril Signer JSON → SQLite migration tool.");
 
     args.command.execute().await
 }
