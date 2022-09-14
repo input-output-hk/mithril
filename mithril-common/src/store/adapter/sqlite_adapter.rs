@@ -138,7 +138,7 @@ where
     async fn store_record(&mut self, key: &Self::Key, record: &Self::Record) -> Result<()> {
         let connection = self.connection.lock().await;
         let sql = format!(
-            "insert into {} (key_hash, key, value) values (?1, ?2, ?3)",
+            "insert into {} (key_hash, key, value) values (?1, ?2, ?3) on conflict (key_hash) do update set value = excluded.value",
             self.table
         );
         let value = serde_json::to_string(record).map_err(|e| {
@@ -196,7 +196,7 @@ where
     async fn get_last_n_records(&self, how_many: usize) -> Result<Vec<(Self::Key, Self::Record)>> {
         let connection = self.connection.lock().await;
         let sql = format!(
-            "select cast(key as text) as key, cast(value as text) as value from {} order by ROWID asc limit ?1",
+            "select cast(key as text) as key, cast(value as text) as value from {} order by ROWID desc limit ?1",
             self.table
         );
         let cursor = connection
@@ -369,6 +369,24 @@ mod tests {
                 .as_string()
                 .expect("expecting field 2 to be a string")
         );
+        adapter
+            .store_record(&1, "zwei".to_string().borrow())
+            .await
+            .unwrap();
+        let mut statement = connection
+            .prepare(format!("select key_hash, key, value from {}", TABLE_NAME))
+            .unwrap()
+            .into_cursor();
+        let row = statement
+            .try_next()
+            .unwrap()
+            .expect("Expecting at least one row in the result set.");
+        assert_eq!(
+            "\"zwei\"".to_string(),
+            row[2]
+                .as_string()
+                .expect("expecting field 2 to be a string")
+        );
     }
 
     #[tokio::test]
@@ -490,7 +508,7 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(
-            vec![(1_u64, "one".to_string())],
+            vec![(3_u64, "three".to_string())],
             adapter
                 .get_last_n_records(1)
                 .await
@@ -498,9 +516,9 @@ mod tests {
         );
         assert_eq!(
             vec![
-                (1_u64, "one".to_string()),
+                (3_u64, "three".to_string()),
                 (2_u64, "two".to_string()),
-                (3_u64, "three".to_string())
+                (1_u64, "one".to_string()),
             ],
             adapter
                 .get_last_n_records(5)

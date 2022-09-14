@@ -5,7 +5,7 @@ use std::sync::Arc;
 use mithril_common::{
     chain_observer::{CardanoCliChainObserver, CardanoCliRunner, ChainObserver},
     digesters::{CardanoImmutableDigester, ImmutableDigester, ImmutableFileSystemObserver},
-    store::{adapter::JsonFileStoreAdapter, StakeStore},
+    store::{adapter::SQLiteAdapter, StakeStore},
     BeaconProvider, BeaconProviderImpl,
 };
 
@@ -50,12 +50,9 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
                 .map_err(|e| format!("Could not create data stores directory: {:?}", e))?;
         }
 
+        let sqlite_db_path = Some(self.config.data_stores_directory.join("signer.sqlite3"));
         let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(Box::new(
-            JsonFileStoreAdapter::new(
-                self.config
-                    .data_stores_directory
-                    .join("protocol_initializer_db"),
-            )?,
+            SQLiteAdapter::new("protocol_initializer", sqlite_db_path.clone())?,
         )));
         let single_signer = Arc::new(MithrilSingleSigner::new(self.config.party_id.clone()));
         let certificate_handler = Arc::new(CertificateHandlerHTTPClient::new(
@@ -65,8 +62,9 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             self.config.db_directory.clone(),
             slog_scope::logger(),
         ));
-        let stake_store = Arc::new(StakeStore::new(Box::new(JsonFileStoreAdapter::new(
-            self.config.data_stores_directory.join("stake_db"),
+        let stake_store = Arc::new(StakeStore::new(Box::new(SQLiteAdapter::new(
+            "stake",
+            sqlite_db_path,
         )?)));
         let chain_observer = Arc::new(CardanoCliChainObserver::new(Box::new(
             CardanoCliRunner::new(
