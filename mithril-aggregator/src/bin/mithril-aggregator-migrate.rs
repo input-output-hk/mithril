@@ -137,7 +137,7 @@ impl StoreType {
 
             StoreType::VerificationKey => {
                 println!("Migrating verification_key_store data…");
-                migrate_one::<Beacon, HashMap<PartyId, Signer>>(
+                migrate_one::<Epoch, HashMap<PartyId, Signer>>(
                     input_file,
                     output_file,
                     "verification_key",
