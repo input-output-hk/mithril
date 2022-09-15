@@ -1,11 +1,3 @@
----
-name: Pull Request Standard
-about: You want to include modifications to the code base
-title: ''
-labels: 'Pull Request'
-assignees: ''
----
-
 ## Content
 <!-- Explain the reason for this change, if a feature is added, a bug is fixed, ... -->
 This PR includes...
