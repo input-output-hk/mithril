@@ -526,4 +526,31 @@ mod tests {
                 .expect("get last N records should not fail")
         );
     }
+
+    #[tokio::test]
+    async fn check_get_last_n_modified_records() {
+        let test_name = "check_get_last_n_modified_records";
+        let mut adapter = init_db(test_name);
+        adapter
+            .store_record(&1, "one".to_string().borrow())
+            .await
+            .unwrap();
+        adapter
+            .store_record(&2, "two".to_string().borrow())
+            .await
+            .unwrap();
+        adapter
+            .store_record(&3, "three".to_string().borrow())
+            .await
+            .unwrap();
+        adapter
+            .store_record(&1, "updated record".to_string().borrow())
+            .await
+            .unwrap();
+        let values = adapter.get_last_n_records(2).await.unwrap();
+        assert_eq!(
+            vec![(3, "three".to_string()), (2, "two".to_string())],
+            values
+        );
+    }
 }
