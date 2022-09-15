@@ -26,6 +26,14 @@ use std::path::Path;
 // Protocol types alias
 type D = Blake2b<U32>;
 
+/// New registration error
+#[derive(Debug)]
+pub enum ProtocolRegistrationError {
+    InvalidOpCert,
+    KesSignatureInvalid,
+    RegisterError(RegisterError),
+}
+
 // Wrapper structures to reduce library misuse in the Cardano context
 /// Wrapper structure for [MithrilCore:StmInitializer](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmInitializer.html).
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -179,30 +187,37 @@ impl KeyRegWrapper {
         kes_sig: ProtocolSignerVerificationKeySignature,
         kes_period: usize,
         pk: ProtocolSignerVerificationKey,
-    ) -> Result<(), RegisterError> {
-        let cert = OpCert::from_file(opcert_path)?;
+    ) -> Result<(), ProtocolRegistrationError> {
+        let cert =
+            OpCert::from_file(opcert_path).map_err(ProtocolRegistrationError::RegisterError)?;
 
-        cert.validate().map_err(|_| RegisterError::InvalidOpCert)?;
+        cert.validate()
+            .map_err(|_| ProtocolRegistrationError::InvalidOpCert)?;
 
         #[cfg(feature = "skip_signer_certification")]
         println!("WARNING: Signer certification is skipped!!!");
         #[cfg(feature = "skip_signer_certification")]
         kes_sig
             .verify(kes_period, &cert.kes_vk, &pk.to_bytes())
-            .map_err(|_| RegisterError::KesSignatureInvalid)?;
+            .map_err(|_| ProtocolRegistrationError::KesSignatureInvalid)?;
 
         let mut hasher = Blake2b::<U28>::new();
         hasher.update(cert.cold_vk.as_bytes());
         let mut pool_id = [0u8; 28];
         pool_id.copy_from_slice(hasher.finalize().as_slice());
         let pool_id_bech32 = bech32::encode("pool", pool_id.to_base32(), Variant::Bech32)
-            .map_err(|_| RegisterError::InvalidOpCert)?; // TODO: maybe this should be a different error type like `RegisterError::InvalidPoolAddress`
+            .map_err(|_| ProtocolRegistrationError::InvalidOpCert)?; // TODO: maybe this should be a different error type like `RegisterError::InvalidPoolAddress`
 
         if let Some(&stake) = self.stake_distribution.get(&pool_id_bech32) {
-            return self.stm_key_reg.register(stake, pk);
+            return self
+                .stm_key_reg
+                .register(stake, pk)
+                .map_err(ProtocolRegistrationError::RegisterError);
         }
 
-        Err(RegisterError::KeyNonExisting)
+        Err(ProtocolRegistrationError::RegisterError(
+            RegisterError::KeyNonExisting,
+        ))
     }
 }
 

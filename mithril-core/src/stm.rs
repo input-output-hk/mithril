@@ -530,6 +530,7 @@ impl<D: Clone + Digest> StmSigner<D> {
     /// #    local_keyreg.close()
     /// # }
     /// ```
+    /// todo: do we really need this function??
     pub fn new_epoch(self, new_stake: Option<Stake>) -> StmInitializer {
         let stake = match new_stake {
             None => self.stake,

@@ -106,14 +106,6 @@ pub enum RegisterError {
     #[error("Key not available in Cardano stake distribution.")]
     KeyNonExisting,
 
-    /// Invalid Operational Certificate
-    #[error("The submitted Operational Certificate is Invalid")]
-    InvalidOpCert,
-
-    /// Invalid KES signature of Mithril key
-    #[error("The submitted KES signature is invalid")]
-    KesSignatureInvalid,
-
     /// This key has already been registered by a participant
     #[error("This key has already been registered.")]
     KeyRegistered(Box<VerificationKey>),
@@ -139,8 +131,6 @@ impl<D: Digest> From<RegisterError> for StmSignatureError<D> {
             RegisterError::KeyRegistered(_) => unreachable!(),
             RegisterError::UnregisteredInitializer => unreachable!(),
             RegisterError::KeyNonExisting => todo!(),
-            RegisterError::InvalidOpCert => todo!(),
-            RegisterError::KesSignatureInvalid => todo!(),
         }
     }
 }
