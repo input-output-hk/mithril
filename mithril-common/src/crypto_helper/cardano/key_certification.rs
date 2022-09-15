@@ -227,33 +227,6 @@ impl StmSignerWrapper {
         self.0.sign(msg)
     }
 
-    /// This function should be called when a signing epoch is finished (or when a new one starts).
-    /// It consumes `self` and turns it back to an `StmInitializer`, which allows for an update in
-    /// the dynamic parameters (such as stake distribution, participants or KES signature). To ensure
-    /// that the `StmInitializer` will not be used for the previous registration, this function also
-    /// consumes the `ClosedKeyReg` instance. In case the stake of the current party has changed, it
-    /// includes it as input.
-    pub fn new_epoch(
-        self,
-        new_kes_key: &[u8],
-        new_kes_period: usize,
-        new_stake: Option<Stake>,
-    ) -> StmInitializerWrapper {
-        let stm_initializer = self.0.new_epoch(new_stake);
-
-        let kes_sk: Sum6Kes =
-            serde_cbor::from_slice(new_kes_key).expect("Invalid KES key provided"); // todo: handle this
-        let kes_signature = kes_sk.sign(
-            new_kes_period,
-            &stm_initializer.verification_key().to_bytes(),
-        );
-
-        StmInitializerWrapper {
-            stm_initializer,
-            kes_signature: Some(kes_signature),
-        }
-    }
-
     /// Compute the `StmAggrVerificationKey` related to the used registration, which consists of
     /// the merkle tree root and the total stake.
     pub fn compute_avk(&self) -> ProtocolAggregateVerificationKey {
