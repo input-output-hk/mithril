@@ -9,6 +9,7 @@ crate-type = ["lib", "cdylib", "staticlib"]
 
 [dependencies]
 async-trait = "0.1.52"
+bech32 = "0.9.1"
 blake2 = "0.10.4"
 chrono = "0.4"
 ed25519-dalek = { version = "1.0.1", features = ["serde"] }

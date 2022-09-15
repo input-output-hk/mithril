@@ -1,5 +1,8 @@
 use crate::crypto_helper::cardano::{FromShelleyFile, OpCert, ParseError};
-use crate::crypto_helper::types::*;
+use crate::crypto_helper::types::{
+    ProtocolAggregateVerificationKey, ProtocolPartyId, ProtocolSignerVerificationKey,
+    ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
+};
 
 use mithril::key_reg::{ClosedKeyReg, KeyReg};
 use mithril::stm::{
@@ -8,6 +11,7 @@ use mithril::stm::{
 };
 use mithril::{AggregationError, RegisterError};
 
+use bech32::{self, ToBase32, Variant};
 use blake2::{
     digest::consts::{U28, U32},
     Blake2b, Digest,
@@ -22,22 +26,19 @@ use std::path::Path;
 // Protocol types alias
 type D = Blake2b<U32>;
 
-/// Representation of the PoolID
-pub type PoolId = [u8; 28];
-
 // Wrapper structures to reduce library misuse in the Cardano context
 /// Wrapper structure for [MithrilCore:StmInitializer](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmInitializer.html).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StmInitializerWrapper {
     stm_initializer: StmInitializer,
-    kes_signature: Option<Sum6KesSig>, // todo: The option is ONLY for a smooth transition. We have to remove this.
+    kes_signature: Option<ProtocolSignerVerificationKeySignature>, // todo: The option is ONLY for a smooth transition. We have to remove this.
 }
 
 /// Wrapper structure for [MithrilCore:KeyReg](https://mithril.network/mithril-core/doc/mithril/key_reg/struct.KeyReg.html).
 #[derive(Debug, Clone)]
 pub struct KeyRegWrapper {
     stm_key_reg: KeyReg,
-    stake_distribution: HashMap<PoolId, Stake>,
+    stake_distribution: HashMap<ProtocolPartyId, Stake>,
 }
 
 /// Wrapper structure for [MithrilCore:StmSigner](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmSigner.html).
@@ -162,7 +163,7 @@ impl StmInitializerWrapper {
 impl KeyRegWrapper {
     /// New Initialisation function. We temporarily keep the other init function,
     /// but we should eventually transition to only use this one.
-    pub fn init(stake_dist: &[(PoolId, Stake)]) -> Self {
+    pub fn init(stake_dist: &ProtocolStakeDistribution) -> Self {
         Self {
             stm_key_reg: KeyReg::init(),
             stake_distribution: HashMap::from_iter(stake_dist.to_vec()),
@@ -175,7 +176,7 @@ impl KeyRegWrapper {
     pub fn register<P: AsRef<Path>>(
         &mut self,
         opcert_path: P,
-        kes_sig: Sum6KesSig,
+        kes_sig: ProtocolSignerVerificationKeySignature,
         kes_period: usize,
         pk: ProtocolSignerVerificationKey,
     ) -> Result<(), RegisterError> {
@@ -190,8 +191,10 @@ impl KeyRegWrapper {
         hasher.update(cert.cold_vk.as_bytes());
         let mut pool_id = [0u8; 28];
         pool_id.copy_from_slice(hasher.finalize().as_slice());
+        let pool_id_bech32 = bech32::encode("pool", pool_id.to_base32(), Variant::Bech32)
+            .map_err(|_| RegisterError::InvalidOpCert)?; // TODO: maybe this should be a different error type like `RegisterError::InvalidPoolAddress`
 
-        if let Some(&stake) = self.stake_distribution.get(&pool_id) {
+        if let Some(&stake) = self.stake_distribution.get(&pool_id_bech32) {
             return self.stm_key_reg.register(stake, pk);
         }
 
@@ -242,7 +245,6 @@ impl StmSignerWrapper {
 #[cfg(test)]
 mod test {
     use super::*;
-    use hex::FromHex;
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
@@ -254,17 +256,9 @@ mod test {
             phi_f: 1.0,
         };
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-
-        let mut pool_id_1 = [0; 28];
-        pool_id_1.copy_from_slice(
-            &Vec::from_hex("290de5c13d3d1e05255895915eff06331f546e9239be6b37767f5ae2").unwrap(),
-        );
-
-        let mut pool_id_2 = [0; 28];
-        pool_id_2.copy_from_slice(
-            &Vec::from_hex("d8b8d8fea0d08c4e2d4c1120ba746ad951ee62a5929d5fe90ee20e4d").unwrap(),
-        );
-        let mut key_reg = KeyRegWrapper::init(&[(pool_id_1, 10), (pool_id_2, 3)]);
+        let pool_id_1 = "pool19yx7tsfa850q2f2cjkg4alcxxv04gm5j8xlxkdmk0adwylsdrta".to_string();
+        let pool_id_2 = "pool1mzud3l4q6zxyut2vzyst5ar2m9g7uc49j2w4l6gwug8y6h3s7k4".to_string();
+        let mut key_reg = KeyRegWrapper::init(&vec![(pool_id_1, 10), (pool_id_2, 3)]);
 
         let initializer_1 =
             StmInitializerWrapper::setup_new(params, "./test-data/kes1.skey", 0, 10, &mut rng)

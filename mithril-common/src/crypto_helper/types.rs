@@ -10,6 +10,7 @@ use mithril::{AggregationError, RegisterError};
 
 use blake2::{digest::consts::U32, Blake2b};
 use ed25519_dalek;
+use kes_summed_ed25519::kes::Sum6KesSig;
 
 /// A protocol version
 pub type ProtocolVersion<'a> = &'a str;
@@ -52,6 +53,9 @@ pub type ProtocolMultiSignature = StmAggrSig<D>;
 
 /// Alias of [MithrilCore:StmVerificationKeyPoP](https://mithril.network/mithril-core/doc/mithril/stm/type.StmVerificationKeyPoP.html).
 pub type ProtocolSignerVerificationKey = StmVerificationKeyPoP;
+
+/// Alias of [KES:Sum6KesSig](https://github.com/input-output-hk/kes/blob/master/src/kes.rs).
+pub type ProtocolSignerVerificationKeySignature = Sum6KesSig;
 
 /// Alias of [MithrilCore:StmAggrVerificationKey](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmAggrVerificationKey.html).
 pub type ProtocolAggregateVerificationKey = StmAggrVerificationKey<D>;
