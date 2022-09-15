@@ -183,6 +183,10 @@ impl KeyRegWrapper {
         let cert = OpCert::from_file(opcert_path)?;
 
         cert.validate().map_err(|_| RegisterError::InvalidOpCert)?;
+
+        #[cfg(feature = "skip_signer_certification")]
+        println!("WARNING: Signer certification is skipped!!!");
+        #[cfg(feature = "skip_signer_certification")]
         kes_sig
             .verify(kes_period, &cert.kes_vk, &pk.to_bytes())
             .map_err(|_| RegisterError::KesSignatureInvalid)?;

@@ -42,4 +42,6 @@ warp = "0.3"
 slog-scope = "4.4.0"
 
 [features]
+default = ["skip_signer_certification"] # TODO: remove 'skip_signer_certification' from default features to activate full signer certification
 portable = ["mithril/portable"]
+skip_signer_certification = []
