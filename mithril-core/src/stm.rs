@@ -9,7 +9,6 @@
 //! use blake2::{Blake2b, digest::consts::U32};
 //! use mithril::key_reg::KeyReg; // Import key registration functionality
 //! use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
-//! use mithril::AggregationError;
 //! use rayon::prelude::*; // We use par_iter to speed things up
 //!
 //! use rand_chacha::ChaCha20Rng;
@@ -96,10 +95,6 @@
 //!             .verify(&msg, &clerk.compute_avk(), &params)
 //!             .is_ok());
 //!     }
-//!     Err(AggregationError::NotEnoughSignatures(n, k)) => {
-//!         println!("Not enough signatures");
-//!         assert!(n < params.k && k == params.k)
-//!     }
 //!     Err(_) => unreachable!(),
 //! }
 //! # Ok(())
@@ -109,7 +104,7 @@
 use crate::dense_mapping::ev_lt_phi;
 use crate::error::{AggregationError, RegisterError, StmSignatureError};
 use crate::key_reg::ClosedKeyReg;
-use crate::merkle_tree::{MTLeaf, MerkleTreeCommitment, Path};
+use crate::merkle_tree::{MTLeaf, MerkleTreeCommitment, Path, ProofList};
 use crate::multi_sig::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
 use blake2::digest::Digest;
 use rand_core::{CryptoRng, RngCore};
@@ -117,6 +112,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::convert::{From, TryFrom, TryInto};
 use std::hash::{Hash, Hasher};
+use std::marker::PhantomData;
+
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
@@ -187,10 +184,6 @@ pub struct StmClerk<D: Clone + Digest> {
 
 /// Signature created by a single party who has won the lottery.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(bound(
-    serialize = "Path<D>: Serialize",
-    deserialize = "Path<D>: Deserialize<'de>"
-))]
 pub struct StmSig<D: Clone + Digest> {
     /// The signature from the underlying MSP scheme.
     pub sigma: Signature,
@@ -200,30 +193,35 @@ pub struct StmSig<D: Clone + Digest> {
     pub stake: Stake,
     /// The index(es) for which the signature is valid
     pub indexes: Vec<Index>,
-    /// The path through the MerkleTree for this party.
-    pub path: Path<D>,
+    /// The list of indexes of the path values
+    pub mt_index_path: Vec<usize>,
+    /// The index of signer
+    pub signer_index: Index,
+    hasher: PhantomData<D>,
 }
 
 /// Stm aggregate key, which contains the merkle tree root and the total stake of the system.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound(
-    serialize = "Path<D>: Serialize",
-    deserialize = "Path<D>: Deserialize<'de>"
+serialize = "Path<D>: Serialize",
+deserialize = "Path<D>: Deserialize<'de>"
 ))]
 pub struct StmAggrVerificationKey<D: Clone + Digest> {
     mt_commitment: MerkleTreeCommitment<D>,
     total_stake: Stake,
 }
 
-/// `StmMultiSig` uses the "concatenation" proving system (as described in Section 4.3 of the original paper.)
+/// `StmAggrSig` uses the "concatenation" proving system (as described in Section 4.3 of the original paper.)
 /// This means that the aggregated signature contains a vector with all individual signatures.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound(
-    serialize = "Path<D>: Serialize",
-    deserialize = "Path<D>: Deserialize<'de>"
+serialize = "ProofList<D>: Serialize",
+deserialize = "ProofList<D>: Deserialize<'de>"
 ))]
 pub struct StmAggrSig<D: Clone + Digest> {
     pub(crate) signatures: Vec<StmSig<D>>,
+    /// The list of unique merkle tree nodes that covers path for all signatures.
+    pub(crate) proof_list: ProofList<D>,
 }
 
 impl StmParameters {
@@ -356,7 +354,7 @@ impl<D: Clone + Digest> StmSigner<D> {
     /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
     /// wins the lottery by evaluating the dense mapping.
     /// It records all the winning indexes in `Self.indexes`.
-    /// If it wins at least one lottery, it produces the merkle path for its corresponding `(VerificationKey, Stake)`.
+    /// If it wins at least one lottery, it produces a list of indexes of merkle path for its corresponding `(VerificationKey, Stake)`.
     pub fn sign(&self, msg: &[u8]) -> Option<StmSig<D>> {
         let msgp = self
             .closed_reg
@@ -364,6 +362,11 @@ impl<D: Clone + Digest> StmSigner<D> {
             .to_commitment()
             .concat_with_msg(msg);
         let sigma = self.sk.sign(&msgp);
+
+        let mt_index_path = self
+            .closed_reg
+            .merkle_tree
+            .get_mt_index_path(self.mt_index.try_into().ok()?);
 
         // Check which lotteries are won
         let mut indexes = Vec::new();
@@ -378,16 +381,14 @@ impl<D: Clone + Digest> StmSigner<D> {
             }
         }
         if !indexes.is_empty() {
-            let path = self
-                .closed_reg
-                .merkle_tree
-                .get_path(self.mt_index.try_into().ok()?);
             Some(StmSig {
                 sigma,
                 pk: self.vk,
                 stake: self.stake,
                 indexes,
-                path,
+                mt_index_path,
+                signer_index: self.mt_index,
+                hasher: Default::default(),
             })
         } else {
             None
@@ -432,10 +433,30 @@ impl<D: Digest + Clone> StmClerk<D> {
         sigs: &[StmSig<D>],
         msg: &[u8],
     ) -> Result<StmAggrSig<D>, AggregationError> {
+        let m_tree = &self.closed_reg.merkle_tree;
+        let mut values = Vec::new();
+        let mut indexes = Vec::new();
+
+        for sig in sigs{
+            let path = m_tree
+                .generate_proof_list(sig.signer_index.try_into().unwrap());
+            let mut cnt = 0;
+            for ind in path.indexes {
+                if !indexes.contains(&ind){
+                    indexes.push(ind);
+                    values.push(path.values[cnt].clone())
+                }
+                cnt = cnt + 1;
+            }
+        }
+
+        let proof_list = ProofList::create(values, indexes);
+
         let unique_sigs = self.dedup_sigs_for_indices(msg, sigs)?;
 
         Ok(StmAggrSig {
             signatures: unique_sigs,
+            proof_list
         })
     }
 
@@ -580,37 +601,66 @@ impl<D: Clone + Digest> StmSig<D> {
         let mut output = Vec::new();
         output.extend_from_slice(&self.stake.to_be_bytes());
         output.extend_from_slice(&(self.indexes.len() as u64).to_be_bytes());
+
         for index in &self.indexes {
             output.extend_from_slice(&index.to_be_bytes());
         }
+
         output.extend_from_slice(&self.pk.to_bytes());
         output.extend_from_slice(&self.sigma.to_bytes());
-        output.extend_from_slice(&self.path.to_bytes());
+        output.extend_from_slice(&(self.mt_index_path.len() as u64).to_be_bytes());
+
+        for index in &self.mt_index_path {
+            output.extend_from_slice(&index.to_be_bytes());
+        }
+
+        output.extend_from_slice(&self.signer_index.to_be_bytes());
         output
     }
 
     /// Extract an `StmSig` from a byte slice.
     pub fn from_bytes(bytes: &[u8]) -> Result<StmSig<D>, StmSignatureError<D>> {
+
         let mut u64_bytes = [0u8; 8];
+
         u64_bytes.copy_from_slice(&bytes[..8]);
         let stake = u64::from_be_bytes(u64_bytes);
+
         u64_bytes.copy_from_slice(&bytes[8..16]);
         let nr_indexes = u64::from_be_bytes(u64_bytes) as usize;
-        let mut index = Vec::new();
+
+        let mut indexes = Vec::new();
         for i in 0..nr_indexes {
             u64_bytes.copy_from_slice(&bytes[16 + i * 8..24 + i * 8]);
-            index.push(u64::from_be_bytes(u64_bytes));
+            indexes.push(u64::from_be_bytes(u64_bytes));
         }
-        let pk = StmVerificationKey::from_bytes(&bytes[16 + nr_indexes * 8..])?;
-        let sigma = Signature::from_bytes(&bytes[112 + nr_indexes * 8..])?;
-        let path = Path::from_bytes(&bytes[160 + nr_indexes * 8..])?;
+
+        let offset = 16 + nr_indexes * 8;
+        let pk = StmVerificationKey::from_bytes(&bytes[offset..offset + 96])?;
+        let sigma = Signature::from_bytes(&bytes[offset + 96..offset + 144])?;
+
+        u64_bytes.copy_from_slice(&bytes[offset + 144..offset + 152]);
+        let nr_path_indexes = u64::from_be_bytes(u64_bytes) as usize;
+
+        let mut mt_index_path = Vec::new();
+
+        for i in 0..nr_path_indexes {
+            u64_bytes.copy_from_slice(&bytes[offset + 152 + i * 8..offset + 160 + i * 8]);
+            mt_index_path.push(usize::from_be_bytes(u64_bytes));
+        }
+
+        u64_bytes.copy_from_slice(&bytes[offset + 152 + nr_path_indexes * 8..]);
+        let mt_index = u64::from_be_bytes(u64_bytes) ;
 
         Ok(StmSig {
             sigma,
             pk,
             stake,
-            indexes: index,
-            path,
+            indexes,
+            mt_index_path,
+            signer_index: mt_index,
+            hasher: Default::default(),
+
         })
     }
 }
@@ -678,13 +728,21 @@ impl<D: Clone + Digest> StmAggrSig<D> {
             let msgp = avk.mt_commitment.concat_with_msg(msg);
             sig.check_indices(parameters, &msgp, avk)?;
 
-            // Check that merkle paths are valid
+            let values = sig.mt_index_path
+                .iter()
+                .map(|p|
+                    self.proof_list.values[self.proof_list.match_val_ind(p)].clone()
+                )
+                .collect::<Vec<_>>();
+
+            let path = Path::create(values, sig.signer_index.try_into().unwrap());
+
             if avk
                 .mt_commitment
-                .check(&MTLeaf(sig.pk, sig.stake), &sig.path)
+                .check(&MTLeaf(sig.pk, sig.stake), &path)
                 .is_err()
             {
-                return Err(StmSignatureError::PathInvalid(sig.path.clone()));
+                return Err(StmSignatureError::PathInvalid(path.clone()));
             }
         }
 
@@ -720,18 +778,23 @@ impl<D: Clone + Digest> StmAggrSig<D> {
         for sig in &self.signatures {
             out.extend_from_slice(&sig.to_bytes())
         }
+        out.extend_from_slice(&self.proof_list.to_bytes());
         out
     }
 
-    /// Extract a `StmMultiSig` from a byte slice.
+    ///Extract a `StmMultiSig` from a byte slice.
     pub fn from_bytes(bytes: &[u8]) -> Result<StmAggrSig<D>, StmSignatureError<D>> {
+
         let mut u64_bytes = [0u8; 8];
+
         u64_bytes.copy_from_slice(&bytes[..8]);
         let size = usize::try_from(u64::from_be_bytes(u64_bytes))
             .map_err(|_| StmSignatureError::SerializationError)?;
+
         u64_bytes.copy_from_slice(&bytes[8..16]);
         let sig_size = usize::try_from(u64::from_be_bytes(u64_bytes))
             .map_err(|_| StmSignatureError::SerializationError)?;
+
         let mut signatures = Vec::with_capacity(size);
         for i in 0..size {
             signatures.push(StmSig::from_bytes(
@@ -739,7 +802,10 @@ impl<D: Clone + Digest> StmAggrSig<D> {
             )?);
         }
 
-        Ok(StmAggrSig { signatures })
+        let offset = 16 + sig_size * size;
+        let proof_list = ProofList::from_bytes(&bytes[offset..])?;
+
+        Ok(StmAggrSig { signatures, proof_list })
     }
 }
 
@@ -756,6 +822,8 @@ mod tests {
 
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
+    use crate::error::AggregationError;
+
 
     type Sig = StmAggrSig<D>;
     type D = Blake2b<U32>;
@@ -771,7 +839,7 @@ mod tests {
         let mut rng = ChaCha20Rng::from_seed(trng.gen());
 
         #[allow(clippy::needless_collect)]
-        let ps = stake
+            let ps = stake
             .into_iter()
             .map(|stake| {
                 let p = StmInitializer::setup(params, stake, &mut rng);
@@ -931,7 +999,7 @@ mod tests {
                 Err(AggregationError::NotEnoughSignatures(n, k)) =>
                     assert!(n < params.k || k == params.k),
                 Err(AggregationError::UsizeConversionInvalid) =>
-                    unreachable!()
+                    unreachable!(),
             }
         }
     }
@@ -1061,7 +1129,7 @@ mod tests {
 
     #[derive(Debug)]
     struct ProofTest {
-        n: usize,
+        n: u64,
         msig: Result<Sig, AggregationError>,
         clerk: StmClerk<D>,
         msg: [u8; 16],
@@ -1085,7 +1153,7 @@ mod tests {
 
                 let msig = clerk.aggregate(&sigs, &msg);
                 ProofTest {
-                    n,
+                    n: n.try_into().unwrap(),
                     msig,
                     clerk,
                     msg,
@@ -1095,8 +1163,8 @@ mod tests {
     }
 
     fn with_proof_mod<F>(mut tc: ProofTest, f: F)
-    where
-        F: Fn(&mut Sig, &mut StmClerk<D>, &mut [u8; 16]),
+        where
+            F: Fn(&mut Sig, &mut StmClerk<D>, &mut [u8; 16]),
     {
         match tc.msig {
             Ok(mut aggr) => {
@@ -1140,7 +1208,7 @@ mod tests {
             let n = tc.n;
             with_proof_mod(tc, |aggr, _, _msg| {
                 let pi = i % aggr.signatures.len();
-                aggr.signatures[pi].path.index = (aggr.signatures[pi].path.index + 1) % n;
+                aggr.signatures[pi].signer_index = (aggr.signatures[pi].signer_index + 1) % n;
             })
         }
     }

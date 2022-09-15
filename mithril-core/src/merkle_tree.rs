@@ -51,6 +51,85 @@ pub struct MerkleTree<D: Digest> {
     hasher: PhantomData<D>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ProofList<D: Digest> {
+    pub(crate) values: Vec<Vec<u8>>,
+    pub(crate) indexes: Vec<usize>,
+    hasher: PhantomData<D>,
+}
+
+impl<D: Digest + Clone>  ProofList<D> {
+    pub fn create (values: Vec<Vec<u8>>, indexes: Vec<usize>)-> Self {
+        Self {
+            values,
+            indexes,
+            hasher:PhantomData::default(),
+        }
+    }
+
+    pub fn match_val_ind (&self, ind: &usize)-> usize {
+        let offset = self
+            .indexes
+            .iter()
+            .position(|&x| x.eq(ind))
+            .unwrap();
+        offset
+    }
+
+    /// Convert to bytes
+    /// # Layout
+    /// * Index representing the position in the Merkle Tree
+    /// * Size of the Path
+    /// * Path of hashes
+    pub fn to_bytes(&self) -> Vec<u8> {
+
+        let mut out = Vec::new();
+        out.extend_from_slice(&u64::try_from(self.values.len()).unwrap().to_be_bytes());
+        for val in &self.values {
+            out.extend_from_slice(val)
+        }
+        for ind in &self.indexes {
+            out.extend_from_slice(&ind.to_be_bytes())
+        }
+        out
+    }
+
+    /// Extract a `Path` from a byte slice.
+    /// # Error
+    /// This function fails if the bytes cannot retrieve path.
+    pub fn from_bytes(bytes: &[u8]) -> Result<ProofList<D>, MerkleTreeError<D>> {
+
+        let mut u64_bytes = [0u8; 8];
+
+        u64_bytes.copy_from_slice(&bytes[..8]);
+        let len = usize::try_from(u64::from_be_bytes(u64_bytes))
+            .map_err(|_| MerkleTreeError::SerializationError)?;
+
+        let mut values = Vec::with_capacity(len);
+        for i in 0..len {
+            values.push(
+                bytes[8 + i * <D as Digest>::output_size()
+                    ..8 + (i + 1) * <D as Digest>::output_size()]
+                    .to_vec(),
+            );
+        }
+
+        let offset = 8 + len * <D as Digest>::output_size();
+
+        let mut indexes = Vec::with_capacity(len);
+        for i in 0..len {
+            u64_bytes.copy_from_slice(&bytes[offset + i * 8..offset + (i + 1) * 8]);
+            indexes.push(usize::try_from(u64::from_be_bytes(u64_bytes))
+                .map_err(|_| MerkleTreeError::SerializationError)?)
+        }
+        Ok(ProofList {
+            values,
+            indexes,
+            hasher: Default::default(),
+        })
+    }
+}
+
 impl MTLeaf {
     pub(crate) fn to_bytes(self) -> [u8; 104] {
         let mut result = [0u8; 104];
@@ -79,6 +158,14 @@ impl Ord for MTLeaf {
 }
 
 impl<D: Digest + Clone> Path<D> {
+    pub fn create (values: Vec<Vec<u8>>, index: usize)-> Self {
+        Self {
+            values,
+            index,
+            hasher:PhantomData::default(),
+        }
+    }
+
     /// Convert to bytes
     /// # Layout
     /// * Index representing the position in the Merkle Tree
@@ -91,7 +178,6 @@ impl<D: Digest + Clone> Path<D> {
         for value in &self.values {
             output.extend_from_slice(value)
         }
-
         output
     }
 
@@ -242,6 +328,52 @@ impl<D: Digest> MerkleTree<D> {
             index: i,
             hasher: Default::default(),
         }
+    }
+
+    pub fn generate_proof_list(&self, i: usize) -> ProofList<D> {
+        assert!(
+            i < self.n,
+            "Proof index out of bounds: asked for {} out of {}",
+            i,
+            self.n
+        );
+        let mut idx = self.idx_of_leaf(i);
+        let mut values = Vec::new();
+        let mut indexes = Vec::new();
+
+        while idx > 0 {
+            let h = if sibling(idx) < self.nodes.len() {
+                self.nodes[sibling(idx)].clone()
+            } else {
+                D::digest(&[0u8]).to_vec()
+            };
+
+            values.push(h.clone());
+            indexes.push(sibling(idx));
+            idx = parent(idx);
+        }
+
+        ProofList {
+            values,
+            indexes,
+            hasher: PhantomData::default(),
+        }
+    }
+
+    pub fn get_mt_index_path(&self, i: usize) -> Vec<usize> {
+        assert!(
+            i < self.n,
+            "Proof index out of bounds: asked for {} out of {}",
+            i,
+            self.n
+        );
+        let mut idx = self.idx_of_leaf(i);
+        let mut index_path = Vec::new();
+        while idx > 0 {
+            index_path.push(sibling(idx));
+            idx = parent(idx);
+        }
+        index_path
     }
 
     /// Return the index of the leaf.
