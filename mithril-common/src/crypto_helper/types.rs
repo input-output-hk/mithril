@@ -1,6 +1,4 @@
-use crate::crypto_helper::cardano::{
-    KeyRegWrapper, StmClerkWrapper, StmInitializerWrapper, StmSignerWrapper,
-};
+use crate::crypto_helper::cardano::{StmClerkWrapper, StmInitializerWrapper, StmSignerWrapper};
 
 use mithril::key_reg::KeyReg;
 use mithril::stm::{

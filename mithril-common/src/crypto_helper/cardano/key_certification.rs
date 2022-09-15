@@ -17,7 +17,7 @@ use blake2::{
     Blake2b, Digest,
 };
 use kes_summed_ed25519::kes::{Sum6Kes, Sum6KesSig};
-use kes_summed_ed25519::traits::{KesSig, KesSk};
+use kes_summed_ed25519::traits::KesSk;
 use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
