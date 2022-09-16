@@ -43,6 +43,7 @@ pub async fn initialize_dependencies(
         snapshot_directory: PathBuf::new(),
         data_stores_directory: PathBuf::new(),
         genesis_verification_key: key_encode_hex(&genesis_verification_key).unwrap(),
+        limit_keys_in_stores: None,
     };
     let certificate_pending_store = Arc::new(CertificatePendingStore::new(Box::new(
         MemoryAdapter::new(None).unwrap(),
@@ -57,9 +58,10 @@ pub async fn initialize_dependencies(
     let single_signature_store = Arc::new(SingleSignatureStore::new(Box::new(
         MemoryAdapter::new(None).unwrap(),
     )));
-    let protocol_parameters_store = Arc::new(ProtocolParametersStore::new(Box::new(
-        MemoryAdapter::new(None).unwrap(),
-    )));
+    let protocol_parameters_store = Arc::new(ProtocolParametersStore::new(
+        Box::new(MemoryAdapter::new(None).unwrap()),
+        None,
+    ));
     let multi_signer = MultiSignerImpl::new(
         verification_key_store.clone(),
         stake_store.clone(),

@@ -64,6 +64,9 @@ pub struct Configuration {
 
     /// Genesis verification key
     pub genesis_verification_key: String,
+
+    /// Max number of keys in stores.
+    pub limit_keys_in_stores: Option<usize>,
 }
 
 /// Snapshot store type enumerates the different kinds of snapshot stores.

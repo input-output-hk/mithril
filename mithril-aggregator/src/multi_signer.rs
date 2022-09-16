@@ -814,22 +814,25 @@ mod tests {
                 >::new(None)
                 .unwrap(),
             ));
-        let protocol_parameters_store = ProtocolParametersStore::new(Box::new(
-            MemoryAdapter::<entities::Epoch, entities::ProtocolParameters>::new(Some(vec![
-                (
-                    beacon.epoch.offset_to_signer_retrieval_epoch().unwrap(),
-                    fake_data::protocol_parameters(),
-                ),
-                (
-                    beacon
-                        .epoch
-                        .offset_to_next_signer_retrieval_epoch()
-                        .unwrap(),
-                    fake_data::protocol_parameters(),
-                ),
-            ]))
-            .unwrap(),
-        ));
+        let protocol_parameters_store = ProtocolParametersStore::new(
+            Box::new(
+                MemoryAdapter::<entities::Epoch, entities::ProtocolParameters>::new(Some(vec![
+                    (
+                        beacon.epoch.offset_to_signer_retrieval_epoch().unwrap(),
+                        fake_data::protocol_parameters(),
+                    ),
+                    (
+                        beacon
+                            .epoch
+                            .offset_to_next_signer_retrieval_epoch()
+                            .unwrap(),
+                        fake_data::protocol_parameters(),
+                    ),
+                ]))
+                .unwrap(),
+            ),
+            None,
+        );
         let mut multi_signer = MultiSignerImpl::new(
             Arc::new(verification_key_store),
             Arc::new(stake_store),
