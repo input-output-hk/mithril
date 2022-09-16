@@ -35,6 +35,9 @@ pub struct Config {
 
     /// Directory to store signer data (Stakes, Protocol initializers, ...)
     pub data_stores_directory: PathBuf,
+
+    /// Store retention limit. If set to None, no limit will be set.
+    pub store_retention_limit: Option<usize>,
 }
 
 impl Config {

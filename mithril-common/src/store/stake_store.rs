@@ -3,7 +3,7 @@ use tokio::sync::RwLock;
 
 use crate::entities::{Epoch, StakeDistribution};
 
-use super::{adapter::StoreAdapter, StoreError};
+use super::{adapter::StoreAdapter, LimitKeyStore, StoreError};
 
 type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = StakeDistribution>>;
 
@@ -31,14 +31,32 @@ pub trait StakeStorer {
 /// A [StakeStorer] that use a [StoreAdapter] to store data.
 pub struct StakeStore {
     adapter: RwLock<Adapter>,
+    retention_limit: Option<usize>,
 }
 
 impl StakeStore {
     /// StakeStore factory
-    pub fn new(adapter: Adapter) -> Self {
+    pub fn new(adapter: Adapter, retention_limit: Option<usize>) -> Self {
         Self {
             adapter: RwLock::new(adapter),
+            retention_limit,
         }
+    }
+}
+
+#[async_trait]
+impl LimitKeyStore for StakeStore {
+    type Key = Epoch;
+    type Record = StakeDistribution;
+
+    fn get_adapter(
+        &self,
+    ) -> &RwLock<Box<dyn StoreAdapter<Key = Self::Key, Record = Self::Record>>> {
+        &self.adapter
+    }
+
+    fn get_max_records(&self) -> Option<usize> {
+        self.retention_limit
     }
 }
 
@@ -49,9 +67,16 @@ impl StakeStorer for StakeStore {
         epoch: Epoch,
         stakes: StakeDistribution,
     ) -> Result<Option<StakeDistribution>, StoreError> {
-        let mut adapter = self.adapter.write().await;
-        let signers = adapter.get_record(&epoch).await?;
-        adapter.store_record(&epoch, &stakes).await?;
+        let signers = {
+            let mut adapter = self.adapter.write().await;
+            let signers = adapter.get_record(&epoch).await?;
+            adapter.store_record(&epoch, &stakes).await?;
+
+            signers
+        };
+        // it is important the adapter gets out of the scope to free the write lock it holds.
+        // Otherwise the method below will hang forever waiting for the lock.
+        self.apply_retention().await?;
 
         Ok(signers)
     }
@@ -77,7 +102,11 @@ mod tests {
     use super::super::adapter::MemoryAdapter;
     use super::*;
 
-    fn init_store(nb_epoch: u64, signers_per_epoch: u64) -> StakeStore {
+    fn init_store(
+        nb_epoch: u64,
+        signers_per_epoch: u64,
+        retention_limit: Option<usize>,
+    ) -> StakeStore {
         let mut values: Vec<(Epoch, StakeDistribution)> = Vec::new();
 
         for epoch in 1..=nb_epoch {
@@ -96,12 +125,12 @@ mod tests {
             None
         };
         let adapter: MemoryAdapter<Epoch, StakeDistribution> = MemoryAdapter::new(values).unwrap();
-        StakeStore::new(Box::new(adapter))
+        StakeStore::new(Box::new(adapter), retention_limit)
     }
 
     #[tokio::test]
     async fn save_key_in_empty_store() {
-        let store = init_store(0, 0);
+        let store = init_store(0, 0, None);
         let res = store
             .save_stakes(Epoch(1), HashMap::from([("1".to_string(), 123)]))
             .await
@@ -112,7 +141,7 @@ mod tests {
 
     #[tokio::test]
     async fn update_signer_in_store() {
-        let store = init_store(1, 1);
+        let store = init_store(1, 1, None);
         let res = store
             .save_stakes(Epoch(1), HashMap::from([("1".to_string(), 123)]))
             .await
@@ -126,7 +155,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_stakes_for_empty_epoch() {
-        let store = init_store(2, 1);
+        let store = init_store(2, 1, None);
         let res = store
             .get_stakes(Epoch(0))
             .await
@@ -137,7 +166,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_stakes_for_existing_epoch() {
-        let store = init_store(2, 2);
+        let store = init_store(2, 2, None);
         let res = store
             .get_stakes(Epoch(1))
             .await
@@ -145,5 +174,15 @@ mod tests {
 
         assert!(res.is_some());
         assert_eq!(2, res.expect("Query result should not be empty.").len());
+    }
+
+    #[tokio::test]
+    async fn check_retention_limit() {
+        let store = init_store(2, 2, Some(2));
+        let _res = store
+            .save_stakes(Epoch(3), HashMap::from([("1".to_string(), 123)]))
+            .await
+            .unwrap();
+        assert!(store.get_stakes(Epoch(1)).await.unwrap().is_none());
     }
 }

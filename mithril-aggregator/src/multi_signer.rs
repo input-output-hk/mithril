@@ -800,12 +800,15 @@ mod tests {
             )
             .unwrap(),
         ));
-        let stake_store = StakeStore::new(Box::new(
-            MemoryAdapter::<entities::Epoch, HashMap<entities::PartyId, entities::Stake>>::new(
-                None,
-            )
-            .unwrap(),
-        ));
+        let stake_store = StakeStore::new(
+            Box::new(
+                MemoryAdapter::<entities::Epoch, HashMap<entities::PartyId, entities::Stake>>::new(
+                    None,
+                )
+                .unwrap(),
+            ),
+            None,
+        );
         let single_signature_store =
             SingleSignatureStore::new(Box::new(
                 MemoryAdapter::<

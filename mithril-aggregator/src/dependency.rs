@@ -215,7 +215,10 @@ pub mod tests {
         let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(
             MemoryAdapter::new(None).unwrap(),
         )));
-        let stake_store = Arc::new(StakeStore::new(Box::new(MemoryAdapter::new(None).unwrap())));
+        let stake_store = Arc::new(StakeStore::new(
+            Box::new(MemoryAdapter::new(None).unwrap()),
+            config.store_retention_limit,
+        ));
         let single_signature_store = Arc::new(SingleSignatureStore::new(Box::new(
             MemoryAdapter::new(None).unwrap(),
         )));

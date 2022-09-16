@@ -417,7 +417,7 @@ mod tests {
         let adapter: MemoryAdapter<Epoch, ProtocolInitializer> = MemoryAdapter::new(None).unwrap();
         let chain_observer = Arc::new(FakeObserver::default());
         SignerServices {
-            stake_store: Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()))),
+            stake_store: Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None)),
             certificate_handler: Arc::new(DumbCertificateHandler::default()),
             chain_observer: chain_observer.clone(),
             digester: Arc::new(DumbImmutableDigester::new(DIGESTER_RESULT, true)),
@@ -446,6 +446,7 @@ mod tests {
             party_id: "1".to_string(),
             run_interval: 100,
             data_stores_directory: PathBuf::new(),
+            store_retention_limit: None,
         };
 
         SignerRunner {
