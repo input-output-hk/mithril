@@ -199,7 +199,7 @@ pub mod tests {
             snapshot_directory: PathBuf::new(),
             data_stores_directory: PathBuf::new(),
             genesis_verification_key: key_encode_hex(&genesis_verification_key).unwrap(),
-            limit_keys_in_stores: None,
+            store_retention_limit: None,
         };
         let snapshot_store = Arc::new(LocalSnapshotStore::new(
             Box::new(MemoryAdapter::new(None).unwrap()),

@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use tokio::sync::RwLock;
 
 use mithril_common::entities::{Epoch, ProtocolParameters};
-use mithril_common::store::{adapter::StoreAdapter, StoreError};
+use mithril_common::store::{adapter::StoreAdapter, LimitKeyStore, StoreError};
 
 type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = ProtocolParameters>>;
 
@@ -36,21 +36,21 @@ impl ProtocolParametersStore {
             retention_len,
         }
     }
+}
 
-    async fn apply_retention(&self) -> Result<(), StoreError> {
-        let retention_len = self.retention_len.unwrap_or(usize::MAX);
-        let mut adapter = self.adapter.write().await;
+#[async_trait]
+impl LimitKeyStore for ProtocolParametersStore {
+    type Key = Epoch;
+    type Record = ProtocolParameters;
 
-        for (epoch, _record) in adapter
-            .get_last_n_records(usize::MAX)
-            .await?
-            .into_iter()
-            .skip(retention_len)
-        {
-            adapter.remove(&epoch).await?;
-        }
+    fn get_adapter(
+        &self,
+    ) -> &RwLock<Box<dyn StoreAdapter<Key = Self::Key, Record = Self::Record>>> {
+        &self.adapter
+    }
 
-        Ok(())
+    fn get_max_records(&self) -> Option<usize> {
+        self.retention_len
     }
 }
 
@@ -159,7 +159,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_retention_lenght() {
+    async fn test_retention_length() {
         let store = init_store(2, Some(2));
         let protocol_parameters = setup_protocol_parameters(3);
         let _ = store
@@ -172,7 +172,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_retention_lenght_on_update() {
+    async fn test_retention_length_on_update() {
         let store = init_store(4, Some(2));
         let mut protocol_parameters = store
             .get_protocol_parameters(Epoch(1))

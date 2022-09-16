@@ -85,6 +85,8 @@ where
     }
 
     async fn remove(&mut self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
+        self.index.retain(|k| *k != *key);
+
         Ok(self.values.remove(key))
     }
 
@@ -195,6 +197,7 @@ mod tests {
 
         assert_eq!("value 1".to_string(), record);
         assert!(!adapter.record_exists(&1).await.unwrap());
+        assert_eq!(1, adapter.index.len())
     }
 
     #[tokio::test]
@@ -203,6 +206,7 @@ mod tests {
         let maybe_record = adapter.remove(&0).await.unwrap();
 
         assert!(maybe_record.is_none());
+        assert_eq!(2, adapter.index.len())
     }
 
     #[tokio::test]

@@ -64,7 +64,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     )?)));
     let protocol_parameters_store = Arc::new(ProtocolParametersStore::new(
         Box::new(SQLiteAdapter::new("protocol_parameters", sqlite_db_path)?),
-        config.limit_keys_in_stores,
+        config.store_retention_limit,
     ));
     let multi_signer = Arc::new(RwLock::new(MultiSignerImpl::new(
         verification_key_store.clone(),
