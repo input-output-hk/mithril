@@ -427,7 +427,10 @@ mod tests {
                 Arc::new(DumbImmutableFileObserver::default()),
                 CardanoNetwork::TestNet(42),
             )),
-            protocol_initializer_store: Arc::new(ProtocolInitializerStore::new(Box::new(adapter))),
+            protocol_initializer_store: Arc::new(ProtocolInitializerStore::new(
+                Box::new(adapter),
+                None,
+            )),
         }
     }
 
