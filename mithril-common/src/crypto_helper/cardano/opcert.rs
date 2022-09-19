@@ -26,7 +26,7 @@ impl FromShelleyFile for RawOpCert {
 }
 
 /// Parsed Operational Certificate
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OpCert {
     pub(crate) kes_vk: KesPublicKey,
     pub(crate) issue_number: u64,
@@ -77,7 +77,7 @@ impl OpCert {
             return Ok(());
         }
 
-        Err(ProtocolRegistrationError::InvalidOpCert)
+        Err(ProtocolRegistrationError::OpCertInvalid)
     }
 }
 

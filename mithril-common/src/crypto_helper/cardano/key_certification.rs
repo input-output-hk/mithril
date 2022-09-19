@@ -22,16 +22,29 @@ use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::Path;
+use thiserror::Error;
 
 // Protocol types alias
 type D = Blake2b<U32>;
 
 /// New registration error
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum ProtocolRegistrationError {
-    InvalidOpCert,
+    /// Error raised when an operational certificate is invalid
+    #[error("invalid operational certificate")]
+    OpCertInvalid,
+
+    /// Error raised when a KES Signature verification fails
+    #[error("KES signature verification error")]
     KesSignatureInvalid,
-    RegisterError(RegisterError),
+
+    /// Error raised when a pool address encoding fails
+    #[error("pool address encoding error")]
+    PoolAddressEncoding,
+
+    /// Error raised when a core registration error occurs
+    #[error("genesis signature verification error: '{0}'")]
+    CoreRegister(#[from] RegisterError),
 }
 
 // Wrapper structures to reduce library misuse in the Cardano context
@@ -39,7 +52,7 @@ pub enum ProtocolRegistrationError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StmInitializerWrapper {
     stm_initializer: StmInitializer,
-    kes_signature: Option<ProtocolSignerVerificationKeySignature>, // todo: The option is ONLY for a smooth transition. We have to remove this.
+    pub kes_signature: Option<ProtocolSignerVerificationKeySignature>, // todo: The option is ONLY for a smooth transition. We have to remove this.
 }
 
 /// Wrapper structure for [MithrilCore:KeyReg](https://mithril.network/mithril-core/doc/mithril/key_reg/struct.KeyReg.html).
@@ -181,43 +194,55 @@ impl KeyRegWrapper {
     /// Register a new party. For a successful registration, the registrar needs to
     /// provide the OpCert (in cbor form), the cold VK, a KES signature, and a
     /// Mithril key (with its corresponding Proof of Possession).
-    pub fn register<P: AsRef<Path>>(
+    pub fn register(
         &mut self,
-        opcert_path: P,
-        kes_sig: ProtocolSignerVerificationKeySignature,
+        party_id: Option<ProtocolPartyId>, // TODO: Parameter should be removed once the signer certification is fully deployed
+        opcert: Option<OpCert>, // TODO: Option should be removed once the signer certification is fully deployed
+        kes_sig: Option<ProtocolSignerVerificationKeySignature>, // TODO: Option should be removed once the signer certification is fully deployed
         kes_period: usize,
         pk: ProtocolSignerVerificationKey,
     ) -> Result<(), ProtocolRegistrationError> {
-        let cert =
-            OpCert::from_file(opcert_path).map_err(ProtocolRegistrationError::RegisterError)?;
-
-        cert.validate()
-            .map_err(|_| ProtocolRegistrationError::InvalidOpCert)?;
-
+        #[cfg(not(feature = "skip_signer_certification"))]
+        let skip_signer_certification = false;
         #[cfg(feature = "skip_signer_certification")]
-        println!("WARNING: Signer certification is skipped!!!");
-        #[cfg(feature = "skip_signer_certification")]
-        kes_sig
-            .verify(kes_period, &cert.kes_vk, &pk.to_bytes())
-            .map_err(|_| ProtocolRegistrationError::KesSignatureInvalid)?;
+        let skip_signer_certification = true;
 
-        let mut hasher = Blake2b::<U28>::new();
-        hasher.update(cert.cold_vk.as_bytes());
-        let mut pool_id = [0u8; 28];
-        pool_id.copy_from_slice(hasher.finalize().as_slice());
-        let pool_id_bech32 = bech32::encode("pool", pool_id.to_base32(), Variant::Bech32)
-            .map_err(|_| ProtocolRegistrationError::InvalidOpCert)?; // TODO: maybe this should be a different error type like `RegisterError::InvalidPoolAddress`
+        let pool_id_bech32: ProtocolPartyId = if skip_signer_certification {
+            println!("WARNING: Signer certification is skipped!");
+            party_id.unwrap()
+        } else {
+            let cert = opcert.unwrap();
+            cert.validate()
+                .map_err(|_| ProtocolRegistrationError::OpCertInvalid)?;
+            kes_sig
+                .unwrap()
+                .verify(kes_period, &cert.kes_vk, &pk.to_bytes())
+                .map_err(|_| ProtocolRegistrationError::KesSignatureInvalid)?;
+
+            let mut hasher = Blake2b::<U28>::new();
+            hasher.update(cert.cold_vk.as_bytes());
+            let mut pool_id = [0u8; 28];
+            pool_id.copy_from_slice(hasher.finalize().as_slice());
+            bech32::encode("pool", pool_id.to_base32(), Variant::Bech32)
+                .map_err(|_| ProtocolRegistrationError::PoolAddressEncoding)?
+        };
 
         if let Some(&stake) = self.stake_distribution.get(&pool_id_bech32) {
             return self
                 .stm_key_reg
                 .register(stake, pk)
-                .map_err(ProtocolRegistrationError::RegisterError);
+                .map_err(ProtocolRegistrationError::CoreRegister);
         }
 
-        Err(ProtocolRegistrationError::RegisterError(
+        Err(ProtocolRegistrationError::CoreRegister(
             RegisterError::KeyNonExisting,
         ))
+    }
+
+    /// Finalize the key registration.
+    /// This function disables `KeyReg::register`, consumes the instance of `self`, and returns a `ClosedKeyReg`.
+    pub fn close<D: Digest>(self) -> ClosedKeyReg<D> {
+        self.stm_key_reg.close()
     }
 }
 
@@ -235,6 +260,7 @@ impl StmSignerWrapper {
 }
 
 #[cfg(test)]
+#[cfg(not(feature = "skip_signer_certification"))]
 mod test {
     use super::*;
     use rand_chacha::ChaCha20Rng;
@@ -256,9 +282,13 @@ mod test {
             StmInitializerWrapper::setup_new(params, "./test-data/kes1.skey", 0, 10, &mut rng)
                 .unwrap();
 
+        let opcert1 = OpCert::from_file("./test-data/node1.cert")
+            .expect("opcert deserialization should not fail");
+
         let key_registration_1 = key_reg.register(
-            "./test-data/node1.cert",
-            initializer_1.kes_signature.unwrap(),
+            None,
+            Some(opcert1),
+            initializer_1.kes_signature,
             0,
             initializer_1.stm_initializer.verification_key(),
         );
@@ -268,9 +298,13 @@ mod test {
             StmInitializerWrapper::setup_new(params, "./test-data/kes2.skey", 0, 10, &mut rng)
                 .unwrap();
 
+        let opcert2 = OpCert::from_file("./test-data/node2.cert")
+            .expect("opcert deserialization should not fail");
+
         let key_registration_2 = key_reg.register(
-            "./test-data/node2.cert",
-            initializer_2.kes_signature.unwrap(),
+            None,
+            Some(opcert1),
+            initializer_2.kes_signature,
             0,
             initializer_2.stm_initializer.verification_key(),
         );
