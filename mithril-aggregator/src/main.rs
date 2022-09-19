@@ -50,10 +50,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
         "certificate",
         sqlite_db_path.clone(),
     )?)));
-    let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(SQLiteAdapter::new(
-        "verification_key",
-        sqlite_db_path.clone(),
-    )?)));
+    let verification_key_store = Arc::new(VerificationKeyStore::new(
+        Box::new(SQLiteAdapter::new(
+            "verification_key",
+            sqlite_db_path.clone(),
+        )?),
+        config.store_retention_limit,
+    ));
     let stake_store = Arc::new(StakeStore::new(
         Box::new(SQLiteAdapter::new("stake", sqlite_db_path.clone())?),
         config.store_retention_limit,

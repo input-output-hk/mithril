@@ -799,7 +799,7 @@ mod tests {
                 None,
             )
             .unwrap(),
-        ));
+        ), None);
         let stake_store = StakeStore::new(
             Box::new(
                 MemoryAdapter::<entities::Epoch, HashMap<entities::PartyId, entities::Stake>>::new(

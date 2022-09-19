@@ -51,9 +51,10 @@ pub async fn initialize_dependencies(
     let certificate_store = Arc::new(CertificateStore::new(Box::new(
         MemoryAdapter::new(None).unwrap(),
     )));
-    let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(
-        MemoryAdapter::new(None).unwrap(),
-    )));
+    let verification_key_store = Arc::new(VerificationKeyStore::new(
+        Box::new(MemoryAdapter::new(None).unwrap()),
+        config.store_retention_limit,
+    ));
     let stake_store = Arc::new(StakeStore::new(
         Box::new(MemoryAdapter::new(None).unwrap()),
         config.store_retention_limit,
