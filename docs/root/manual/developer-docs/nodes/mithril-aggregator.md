@@ -6,7 +6,7 @@ sidebar_position: 1
 
 :::info
 
-This is the node of the **Mithril Network** responsible for collecting individual signatures from the **Mithril Signers** and aggregate them into a multisignature. The **Mithril Aggregator** uses this ability to provide certified snapshots of the **Cardano** blockchain.
+This is the node of the **Mithril Network** responsible for collecting individual signatures from the **Mithril Signers** and aggregate them into a multi-signature. The **Mithril Aggregator** uses this ability to provide certified snapshots of the **Cardano** blockchain.
 
 :::
 
@@ -22,9 +22,9 @@ This is the node of the **Mithril Network** responsible for collecting individua
 
 The [Mithril test networks](../../../manual/developer-docs/references.md#mithril-networks) are:
 
-* `preview`: Test network with magic id `2`, implemented on the IOG hosted Mitril Aggregator
+* `preview`: Test network with magic id `2`, implemented on the IOG hosted Mithril Aggregator
 * `preprod`: Test network with magic id `1`, not implemented yet on the IOG hosted Mithril Aggregator
-* `testnet`: Legacy test network with magic id `1097911063`, used to be on the IOG hosted Mitril Aggregator, now deprecated
+* `testnet`: Legacy test network with magic id `1097911063`, used to be on the IOG hosted Mithril Aggregator, now deprecated
 
 In this documentation, we use the generic `testnet` identifier, but you need to replace it with the identifier of the network that runs on your Cardano node
 
@@ -275,7 +275,7 @@ Here are the subcommands available:
 | **serve** | Aggregator runs its HTTP server in nominal mode and orchestrates multi signatures production |
 | **help** | Print this message or the help of the given subcommand(s) |
 | **genesis export** | Export genesis payload to sign with genesis secret key |
-| **genesis import** | Import genesis signature (paylod signed with genesis secret key) and create & import a genesis certificate in the store |
+| **genesis import** | Import genesis signature (payload signed with genesis secret key) and create & import a genesis certificate in the store |
 | **genesis bootstrap** | Bootstrap a genesis certificate (test only usage) |
 
 ## Configuration parameters
@@ -283,7 +283,7 @@ Here are the subcommands available:
 The configuration parameters are set either:
 
 * In a configuration file (depending on the `--run-mode` parameter). If runtime mode is `testnet` the file is located in `./conf/testnet.json`.
-* The value can be overriden by an environment variable whose name is the parameter name uppercased.
+* The value can be overridden by an environment variable whose name is the parameter name uppercased.
 
 Here is a list of the available parameters:
 
@@ -291,7 +291,7 @@ Here is a list of the available parameters:
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `server_ip` | `--server-ip` | - | `SERVER_IP` | Listening server IP | `0.0.0.0` | - | :heavy_check_mark: |  
 | `server_port` | `--server-port` | - | `SERVER_PORT` | Listening server port | `8080` | - | :heavy_check_mark: |
-| `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level | - | Parsed from number of occurences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace` | :heavy_check_mark: |
+| `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level | - | Parsed from number of occurrences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace` | :heavy_check_mark: |
 | `run_mode` | `--run-mode` | `-r` | `RUN_MODE` | Runtime mode | `dev` | - | :heavy_check_mark: |
 | `db_directory` | `--db-directory` | - | `DB_DIRECTORY` | Directory to snapshot from the **Cardano Node** | `/db` | - | :heavy_check_mark: |
 | `snapshot_directory` | `--snapshot-directory` | - | `SNAPSHOT_DIRECTORY` | Directory to store local snapshots of the **Cardano Node** | `.` | - | :heavy_check_mark: |
@@ -301,9 +301,10 @@ Here is a list of the available parameters:
 | `snapshot_store_type` | - | - | `SNAPSHOT_STORE_TYPE` | Type of snapshot store to use | - | `gcp` or `local` | :heavy_check_mark: |
 | `snapshot_uploader_type` | - | - | `SNAPSHOT_UPLOADER_TYPE` | Type of snapshot uploader to use | - | `gcp` or `local` | :heavy_check_mark: |
 | `run_interval` | - | - | `RUN_INTERVAL` | Interval between two runtime cycles in ms | - | `60000` | :heavy_check_mark: |
-| `data_stores_directory` | - | - | `data_stores_directory` | Directory to store aggregator data (Certificates, Snapshots, Protocol Parameters, ...) | - | `./mithril-aggregator/stores` | :heavy_check_mark: |
+| `data_stores_directory` | - | - | `data_stores_directory` | Directory to store Aggregator data (Certificates, Snapshots, Protocol Parameters, ...) | - | `./mithril-aggregator/stores` | :heavy_check_mark: |
 | `cardano_cli_path` | - | - | `CARDANO_CLI_PATH` | Cardano CLI tool path | - | `cardano-cli` | :heavy_check_mark: |
 | `cardano_node_socket_path` | - | - | `CARDANO_NODE_SOCKET_PATH` | Path of the socket used by the Cardano CLI tool to communicate with the Cardano node | - | `/tmp/cardano.sock` | :heavy_check_mark: |
 | `url_snapshot_manifest` | - | - | `URL_SNAPSHOT_MANIFEST` | Snapshots manifest location | - | Only if `snapshot_store_type` is `gcp`, else it should be `` | :heavy_check_mark: |
 | `genesis_verification_key` | - | - | `GENESIS_VERIFICATION_KEY` | Genesis verification key | - | - | :heavy_check_mark: |
 | `genesis_secret_key` | - | - | `GENESIS_SECRET_KEY` | Genesis secret key, :warning: for test only | - | - | - |
+| `store_retention_limit` | - | - | `STORE_RETENTION_LIMIT` | Maximum number of records in stores. If not set, no limit is set. | - | - | - |
