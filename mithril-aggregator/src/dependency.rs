@@ -219,9 +219,10 @@ pub mod tests {
             Box::new(MemoryAdapter::new(None).unwrap()),
             config.store_retention_limit,
         ));
-        let single_signature_store = Arc::new(SingleSignatureStore::new(Box::new(
-            MemoryAdapter::new(None).unwrap(),
-        )));
+        let single_signature_store = Arc::new(SingleSignatureStore::new(
+            Box::new(MemoryAdapter::new(None).unwrap()),
+            config.store_retention_limit,
+        ));
         let protocol_parameters_store = Arc::new(ProtocolParametersStore::new(
             Box::new(MemoryAdapter::new(None).unwrap()),
             None,

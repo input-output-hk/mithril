@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use mithril_common::store::LimitKeyStore;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
 
@@ -27,14 +28,32 @@ pub trait SingleSignatureStorer {
 /// Store for [SingleSignatures].
 pub struct SingleSignatureStore {
     adapter: RwLock<Adapter>,
+    retention_limit: Option<usize>,
 }
 
 impl SingleSignatureStore {
     /// Create a new instance.
-    pub fn new(adapter: Adapter) -> Self {
+    pub fn new(adapter: Adapter, retention_limit: Option<usize>) -> Self {
         Self {
             adapter: RwLock::new(adapter),
+            retention_limit,
         }
+    }
+}
+
+#[async_trait]
+impl LimitKeyStore for SingleSignatureStore {
+    type Key = Beacon;
+    type Record = HashMap<PartyId, SingleSignatures>;
+
+    fn get_adapter(
+        &self,
+    ) -> &RwLock<Box<dyn StoreAdapter<Key = Self::Key, Record = Self::Record>>> {
+        &self.adapter
+    }
+
+    fn get_max_records(&self) -> Option<usize> {
+        self.retention_limit
     }
 }
 
@@ -62,6 +81,7 @@ impl SingleSignatureStorer for SingleSignatureStore {
             .await
             .store_record(beacon, &single_signatures_per_party_id)
             .await?;
+        self.apply_retention().await?;
 
         Ok(prev_single_signature)
     }
@@ -84,6 +104,7 @@ mod tests {
         nb_immutable_file_numbers: u64,
         single_signers_per_epoch: u64,
         single_signatures_per_signers: u64,
+        retention_limit: Option<usize>,
     ) -> SingleSignatureStore {
         let mut values: Vec<(Beacon, HashMap<PartyId, SingleSignatures>)> = Vec::new();
 
@@ -114,12 +135,12 @@ mod tests {
         };
         let adapter: MemoryAdapter<Beacon, HashMap<PartyId, SingleSignatures>> =
             MemoryAdapter::new(values).unwrap();
-        SingleSignatureStore::new(Box::new(adapter))
+        SingleSignatureStore::new(Box::new(adapter), retention_limit)
     }
 
     #[tokio::test]
     async fn save_key_in_empty_store() {
-        let store = init_store(0, 0, 0);
+        let store = init_store(0, 0, 0, None);
         let res = store
             .save_single_signatures(
                 &Beacon::new("devnet".to_string(), 1, 0),
@@ -137,7 +158,7 @@ mod tests {
 
     #[tokio::test]
     async fn add_signature_for_new_party_id() {
-        let store = init_store(1, 1, 5);
+        let store = init_store(1, 1, 5, None);
         let beacon = Beacon::new("devnet".to_string(), 1, 1);
 
         assert_eq!(
@@ -171,7 +192,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_single_signatures_for_empty_epoch() {
-        let store = init_store(2, 1, 1);
+        let store = init_store(2, 1, 1, None);
         let res = store
             .get_single_signatures(&Beacon::new("devnet".to_string(), 1, 0))
             .await
@@ -182,7 +203,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_single_signatures_for_existing_epoch() {
-        let store = init_store(2, 2, 2);
+        let store = init_store(2, 2, 2, None);
         let res = store
             .get_single_signatures(&Beacon::new("devnet".to_string(), 1, 1))
             .await
@@ -190,5 +211,34 @@ mod tests {
 
         assert!(res.is_some());
         assert_eq!(2, res.unwrap().len());
+    }
+
+    #[tokio::test]
+    async fn using_retention_limit() {
+        let store = init_store(2, 2, 2, Some(2));
+        let beacon = Beacon::new("devnet".to_string(), 1, 1);
+
+        assert!(store
+            .get_single_signatures(&beacon)
+            .await
+            .unwrap()
+            .is_some());
+        let _ = store
+            .save_single_signatures(
+                &Beacon::new("devnet".to_string(), 2, 3),
+                &SingleSignatures {
+                    party_id: "0".to_string(),
+                    signature: "OK".to_string(),
+                    won_indexes: vec![1, 5],
+                },
+            )
+            .await
+            .unwrap();
+
+        assert!(store
+            .get_single_signatures(&beacon)
+            .await
+            .unwrap()
+            .is_none());
     }
 }

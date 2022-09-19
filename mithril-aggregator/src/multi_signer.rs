@@ -809,14 +809,16 @@ mod tests {
             ),
             None,
         );
-        let single_signature_store =
-            SingleSignatureStore::new(Box::new(
+        let single_signature_store = SingleSignatureStore::new(
+            Box::new(
                 MemoryAdapter::<
                     entities::Beacon,
                     HashMap<entities::PartyId, entities::SingleSignatures>,
                 >::new(None)
                 .unwrap(),
-            ));
+            ),
+            None,
+        );
         let protocol_parameters_store = ProtocolParametersStore::new(
             Box::new(
                 MemoryAdapter::<entities::Epoch, entities::ProtocolParameters>::new(Some(vec![
