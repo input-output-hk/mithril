@@ -33,17 +33,17 @@ impl From<&entities::SignerWithStake> for entities::Signer {
     }
 }
 
-impl From<entities::SignerWithStake> for (types::ProtocolPartyId, types::ProtocolStake) {
-    fn from(other: entities::SignerWithStake) -> Self {
+impl From<&entities::SignerWithStake> for (types::ProtocolPartyId, types::ProtocolStake) {
+    fn from(other: &entities::SignerWithStake) -> Self {
         (
-            other.party_id as ProtocolPartyId,
+            other.party_id.clone() as ProtocolPartyId,
             other.stake as ProtocolStake,
         )
     }
 }
 
-impl From<(ProtocolPartyId, ProtocolStake)> for entities::SignerWithStake {
-    fn from(other: (ProtocolPartyId, ProtocolStake)) -> Self {
+impl From<(types::ProtocolPartyId, types::ProtocolStake)> for entities::SignerWithStake {
+    fn from(other: (types::ProtocolPartyId, types::ProtocolStake)) -> Self {
         entities::SignerWithStake::new(other.0, "".to_string(), other.1)
     }
 }
@@ -107,14 +107,14 @@ pub mod tests {
             100 as types::ProtocolStake,
         );
         let signer_with_stake_expected =
-            entities::SignerWithStake::new("1".to_string(), "".to_string(), 100);
+            &entities::SignerWithStake::new("1".to_string(), "".to_string(), 100);
 
         let signer_with_stake_expected_into: (types::ProtocolPartyId, types::ProtocolStake) =
-            signer_with_stake_expected.clone().into();
+            signer_with_stake_expected.into();
         assert_eq!(stake_expected, signer_with_stake_expected_into);
 
-        let stake_expected_from = stake_expected.into();
-        assert_eq!(signer_with_stake_expected, stake_expected_from);
+        let stake_expected_from: entities::SignerWithStake = stake_expected.into();
+        assert_eq!(signer_with_stake_expected, &stake_expected_from);
     }
 
     #[test]

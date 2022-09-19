@@ -7,10 +7,27 @@ use sha2::{Digest, Sha256};
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Signer {
     /// The unique identifier of the signer
+    // TODO: Should be removed once the signer certification is fully deployed
     pub party_id: PartyId,
 
     /// The public key used to authenticate signer signature
     pub verification_key: HexEncodedKey,
+
+    /// The encoded signer 'Mithril verification key' signature (signed by the Cardano node KES secret key)
+    // TODO: Option should be removed once the signer certification is fully deployed
+    #[serde(
+        rename = "verification_key_signature",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub verification_key_signature: Option<HexEncodedKey>,
+
+    /// The encoded operational certificate of stake pool operator attached to the signer node
+    // TODO: Option should be removed once the signer certification is fully deployed
+    #[serde(
+        rename = "operational_certificate",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub operational_certificate: Option<HexEncodedKey>,
 }
 
 impl Signer {
@@ -19,6 +36,8 @@ impl Signer {
         Signer {
             party_id,
             verification_key,
+            verification_key_signature: None,
+            operational_certificate: None,
         }
     }
 
@@ -27,6 +46,12 @@ impl Signer {
         let mut hasher = Sha256::new();
         hasher.update(self.party_id.as_bytes());
         hasher.update(self.verification_key.as_bytes());
+        if let Some(verification_key_signature) = &self.verification_key_signature {
+            hasher.update(verification_key_signature.as_bytes());
+        }
+        if let Some(operational_certificate) = &self.operational_certificate {
+            hasher.update(operational_certificate.as_bytes());
+        }
         hex::encode(hasher.finalize())
     }
 }
@@ -35,10 +60,27 @@ impl Signer {
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct SignerWithStake {
     /// The unique identifier of the signer
+    // TODO: Should be removed once the signer certification is fully deployed
     pub party_id: PartyId,
 
     /// The public key used to authenticate signer signature
     pub verification_key: HexEncodedKey,
+
+    /// The encoded signer 'Mithril verification key' signature (signed by the Cardano node KES secret key)
+    // TODO: Option should be removed once the signer certification is fully deployed
+    #[serde(
+        rename = "verification_key_signature",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub verification_key_signature: Option<HexEncodedKey>,
+
+    /// The encoded operational certificate of stake pool operator attached to the signer node
+    // TODO: Option should be removed once the signer certification is fully deployed
+    #[serde(
+        rename = "operational_certificate",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub operational_certificate: Option<HexEncodedKey>,
 
     /// The signer stake
     pub stake: Stake,
@@ -54,6 +96,8 @@ impl SignerWithStake {
         SignerWithStake {
             party_id,
             verification_key,
+            verification_key_signature: None,
+            operational_certificate: None,
             stake,
         }
     }
@@ -63,6 +107,12 @@ impl SignerWithStake {
         let mut hasher = Sha256::new();
         hasher.update(self.party_id.as_bytes());
         hasher.update(self.verification_key.as_bytes());
+        if let Some(verification_key_signature) = &self.verification_key_signature {
+            hasher.update(verification_key_signature.as_bytes());
+        }
+        if let Some(operational_certificate) = &self.operational_certificate {
+            hasher.update(operational_certificate.as_bytes());
+        }
         hasher.update(self.stake.to_be_bytes());
         hex::encode(hasher.finalize())
     }

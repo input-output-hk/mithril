@@ -133,7 +133,7 @@ impl DependencyManager {
                     epoch,
                     signers
                         .clone()
-                        .into_iter()
+                        .iter()
                         .map(|s| s.into())
                         .collect::<StakeDistribution>(),
                 )

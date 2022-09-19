@@ -51,7 +51,7 @@ impl CertificateMetadata {
 
     /// Deduce the stake distribution from the metadata [signers][CertificateMetadata::signers]
     pub fn get_stake_distribution(&self) -> StakeDistribution {
-        self.signers.clone().into_iter().map(|s| s.into()).collect()
+        self.signers.clone().iter().map(|s| s.into()).collect()
     }
 
     /// Computes the hash of the certificate metadata

@@ -600,7 +600,7 @@ mod tests {
             .collect::<Vec<_>>();
         let stake_distribution = expected
             .clone()
-            .into_iter()
+            .iter()
             .map(|s| s.into())
             .collect::<StakeDistribution>();
 

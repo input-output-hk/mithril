@@ -107,12 +107,16 @@ impl StateMachineTester {
                     party_id,
                     stake,
                     verification_key: key_encode_hex(key).unwrap(),
+                    verification_key_signature: None,
+                    operational_certificate: None,
                 })
                 .collect();
         signers.push(SignerWithStake {
             party_id: "99999999999999999999999999999999".to_string(),
             stake: 999,
             verification_key: "".to_string(),
+            verification_key_signature: None,
+            operational_certificate: None,
         });
 
         chain_observer.set_signers(signers).await;
@@ -285,6 +289,8 @@ impl StateMachineTester {
                 party_id,
                 verification_key: key_encode_hex(verification_key)
                     .map_err(|e| TestError::SubsystemError(e.into()))?,
+                verification_key_signature: None,
+                operational_certificate: None,
             };
             self.certificate_handler
                 .register_signer(&signer)
