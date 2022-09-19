@@ -1,4 +1,5 @@
-use crate::entities::{PartyId, Stake};
+use crate::entities::{HexEncodedKey, PartyId, Stake};
+
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -9,7 +10,7 @@ pub struct Signer {
     pub party_id: PartyId,
 
     /// The public key used to authenticate signer signature
-    pub verification_key: String,
+    pub verification_key: HexEncodedKey,
 }
 
 impl Signer {
@@ -37,7 +38,7 @@ pub struct SignerWithStake {
     pub party_id: PartyId,
 
     /// The public key used to authenticate signer signature
-    pub verification_key: String,
+    pub verification_key: HexEncodedKey,
 
     /// The signer stake
     pub stake: Stake,
@@ -45,7 +46,11 @@ pub struct SignerWithStake {
 
 impl SignerWithStake {
     /// SignerWithStake factory
-    pub fn new(party_id: PartyId, verification_key: String, stake: Stake) -> SignerWithStake {
+    pub fn new(
+        party_id: PartyId,
+        verification_key: HexEncodedKey,
+        stake: Stake,
+    ) -> SignerWithStake {
         SignerWithStake {
             party_id,
             verification_key,

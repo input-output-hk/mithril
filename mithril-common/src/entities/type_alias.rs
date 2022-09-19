@@ -20,3 +20,6 @@ pub type MagicId = u64;
 
 /// Protocol version
 pub type ProtocolVersion = String;
+
+/// Hex encoded key
+pub type HexEncodedKey = String;

@@ -1,4 +1,5 @@
-use crate::entities::{Beacon, CertificateMetadata, ProtocolMessage};
+use crate::entities::{Beacon, CertificateMetadata, HexEncodedKey, ProtocolMessage};
+
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
@@ -35,7 +36,7 @@ pub struct Certificate {
     /// Aggregate verification key
     /// The AVK used to sign during the current epoch
     /// aka AVK(n-2)
-    pub aggregate_verification_key: String,
+    pub aggregate_verification_key: HexEncodedKey,
 
     /// STM multi signature created from a quorum of single signatures from the signers
     /// aka MULTI_SIG(H(MSG(p,n) || AVK(n-1)))
@@ -53,7 +54,7 @@ impl Certificate {
         beacon: Beacon,
         metadata: CertificateMetadata,
         protocol_message: ProtocolMessage,
-        aggregate_verification_key: String,
+        aggregate_verification_key: HexEncodedKey,
         multi_signature: String,
         genesis_signature: String,
     ) -> Certificate {

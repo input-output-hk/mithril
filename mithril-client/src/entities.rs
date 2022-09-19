@@ -1,5 +1,5 @@
 use cli_table::{format::Justify, Table};
-use mithril_common::entities::Epoch;
+use mithril_common::entities::{Epoch, HexEncodedKey};
 use serde::{Deserialize, Serialize};
 
 /// Client configuration
@@ -14,7 +14,7 @@ pub struct Config {
     pub aggregator_endpoint: String,
 
     /// Genesis verification key
-    pub genesis_verification_key: String,
+    pub genesis_verification_key: HexEncodedKey,
 }
 
 /// SnapshotListItem represents a snapshot list item from an aggregator

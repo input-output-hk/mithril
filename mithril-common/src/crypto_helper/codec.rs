@@ -1,9 +1,11 @@
+use crate::entities::HexEncodedKey;
+
 use hex::{FromHex, ToHex};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 /// Encode key to hex helper
-pub fn key_encode_hex<T>(from: T) -> Result<String, String>
+pub fn key_encode_hex<T>(from: T) -> Result<HexEncodedKey, String>
 where
     T: Serialize,
 {
@@ -13,7 +15,7 @@ where
 }
 
 /// Decode key from hex helper
-pub fn key_decode_hex<T>(from: &str) -> Result<T, String>
+pub fn key_decode_hex<T>(from: &HexEncodedKey) -> Result<T, String>
 where
     T: DeserializeOwned,
 {

@@ -29,5 +29,6 @@ pub use signer::{Signer, SignerWithStake};
 pub use single_signatures::SingleSignatures;
 pub use snapshot::Snapshot;
 pub use type_alias::{
-    ImmutableFileNumber, LotteryIndex, MagicId, PartyId, ProtocolVersion, Stake, StakeDistribution,
+    HexEncodedKey, ImmutableFileNumber, LotteryIndex, MagicId, PartyId, ProtocolVersion, Stake,
+    StakeDistribution,
 };
