@@ -9,9 +9,9 @@ use std::io::Write;
 use std::path;
 
 use mithril_common::crypto_helper::{
-    key_decode_hex, key_encode_hex, ProtocolClerk, ProtocolInitializer, ProtocolKeyRegistration,
-    ProtocolMultiSignature, ProtocolParameters, ProtocolPartyId, ProtocolSigner,
-    ProtocolSignerVerificationKey, ProtocolSingleSignature, ProtocolStake,
+    key_decode_hex, key_encode_hex, ProtocolClerk, ProtocolInitializer,
+    ProtocolKeyRegistrationTestOnly, ProtocolMultiSignature, ProtocolParameters, ProtocolPartyId,
+    ProtocolSigner, ProtocolSignerVerificationKey, ProtocolSingleSignature, ProtocolStake,
 };
 
 /// Player artifacts
@@ -98,7 +98,7 @@ impl Party {
             self.party_id, players
         );
 
-        let mut key_reg = ProtocolKeyRegistration::init();
+        let mut key_reg = ProtocolKeyRegistrationTestOnly::init();
         for (_party_id, stake, verification_key) in players_with_keys {
             key_reg.register(*stake, *verification_key).unwrap();
         }
@@ -237,7 +237,7 @@ impl Verifier {
             .collect::<Vec<_>>();
         println!("Verifier: protocol keys registration from {:?}", players);
 
-        let mut key_reg = ProtocolKeyRegistration::init();
+        let mut key_reg = ProtocolKeyRegistrationTestOnly::init();
         for (_party_id, stake, verification_key) in players_with_keys {
             key_reg.register(*stake, *verification_key).unwrap();
         }

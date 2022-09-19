@@ -1,4 +1,6 @@
-use crate::crypto_helper::cardano::{StmClerkWrapper, StmInitializerWrapper, StmSignerWrapper};
+use crate::crypto_helper::cardano::{
+    KeyRegWrapper, StmClerkWrapper, StmInitializerWrapper, StmSignerWrapper,
+};
 
 use mithril::key_reg::KeyReg;
 use mithril::stm::{
@@ -40,8 +42,12 @@ pub type ProtocolInitializer = StmInitializerWrapper;
 /// Alias of [MithrilCore:StmClerk](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmClerk.html).
 pub type ProtocolClerk = StmClerkWrapper;
 
-/// Alias of [MithrilCore:KeyReg](https://mithril.network/mithril-core/doc/mithril/key_reg/struct.KeyReg.html).
-pub type ProtocolKeyRegistration = KeyReg;
+/// Alias of [MithrilCore:KeyReg](https://mithril.network/mithril-core/doc/mithril/key_reg/struct.KeyReg.html). (Test only)
+#[cfg(feature = "skip_signer_certification")]
+pub type ProtocolKeyRegistrationTestOnly = KeyReg;
+
+/// Alias of Cardano:KeyRegWrapper.
+pub type ProtocolKeyRegistration = KeyRegWrapper;
 
 /// Alias of [MithrilCore:StmSig](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmSig.html).
 pub type ProtocolSingleSignature = StmSig<D>;
