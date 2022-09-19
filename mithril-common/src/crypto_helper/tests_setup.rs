@@ -88,12 +88,28 @@ pub fn setup_signers_from_parties(
         })
         .collect::<Vec<_>>();
 
-    let mut key_registration = ProtocolKeyRegistration::init();
-    signers.iter().for_each(|(_, stake, protocol_initializer)| {
-        key_registration
-            .register(*stake, protocol_initializer.verification_key())
-            .expect("key registration should have succeeded");
-    });
+    let stake_distribution = signers
+        .iter()
+        .map(|(party_id, stake, _)| (party_id.to_owned(), *stake))
+        .collect::<ProtocolStakeDistribution>();
+    let mut key_registration = ProtocolKeyRegistration::init(&stake_distribution);
+    signers
+        .iter()
+        .for_each(|(party_id, _stake, protocol_initializer)| {
+            let opcert = None; // TODO: compute the fake opcert
+            let verification_key = protocol_initializer.verification_key();
+            let kes_signature = protocol_initializer.kes_signature.to_owned();
+            let kes_period = 0; // TODO: compute the kes period from opcert
+            key_registration
+                .register(
+                    Some(party_id.to_owned()),
+                    opcert,
+                    kes_signature,
+                    kes_period,
+                    verification_key,
+                )
+                .expect("key registration should have succeeded");
+        });
     let closed_key_registration = key_registration.close();
     signers
         .into_iter()

@@ -283,15 +283,38 @@ impl MultiSignerImpl {
         protocol_parameters: &ProtocolParameters,
     ) -> Result<Option<ProtocolClerk>, ProtocolError> {
         debug!("Create clerk");
-        let mut key_registration = ProtocolKeyRegistration::init();
+        let stake_distribution = signers_with_stake
+            .iter()
+            .map(|s| s.into())
+            .collect::<ProtocolStakeDistribution>();
+        let mut key_registration = ProtocolKeyRegistration::init(&stake_distribution);
         let mut total_signers = 0;
         for signer in signers_with_stake {
-            if let Ok(Some(verification_key)) = key_decode_hex(&signer.verification_key) {
-                key_registration
-                    .register(signer.stake, verification_key)
-                    .map_err(|e| ProtocolError::Core(e.to_string()))?;
-                total_signers += 1;
-            }
+            let opcert = match &signer.operational_certificate {
+                Some(operational_certificate) => {
+                    key_decode_hex(operational_certificate).unwrap_or(None)
+                }
+                _ => None,
+            };
+            let verification_key =
+                key_decode_hex(&signer.verification_key).map_err(ProtocolError::Codec)?;
+            let kes_signature = match &signer.verification_key_signature {
+                Some(verification_key_signature) => {
+                    Some(key_decode_hex(verification_key_signature).map_err(ProtocolError::Codec)?)
+                }
+                _ => None,
+            };
+            let kes_period = 0; // TODO: compute the kes period from opcert
+            key_registration
+                .register(
+                    Some(signer.party_id.to_owned()),
+                    opcert,
+                    kes_signature,
+                    kes_period,
+                    verification_key,
+                )
+                .map_err(|e| ProtocolError::Core(e.to_string()))?;
+            total_signers += 1;
         }
         match total_signers {
             0 => Ok(None),

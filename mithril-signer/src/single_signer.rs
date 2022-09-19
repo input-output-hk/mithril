@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use mithril_common::crypto_helper::{
     key_decode_hex, key_encode_hex, ProtocolClerk, ProtocolInitializer, ProtocolKeyRegistration,
-    ProtocolRegistrationError, ProtocolSigner,
+    ProtocolRegistrationError, ProtocolSigner, ProtocolStakeDistribution,
 };
 use mithril_common::entities::{
     PartyId, ProtocolMessage, ProtocolParameters, SignerWithStake, SingleSignatures, Stake,
@@ -106,7 +106,6 @@ impl MithrilSingleSigner {
         signers_with_stake: &[SignerWithStake],
         protocol_initializer: &ProtocolInitializer,
     ) -> Result<ProtocolSigner, SingleSignerError> {
-        let mut key_reg = ProtocolKeyRegistration::init();
         let signers = signers_with_stake
             .iter()
             .filter(|signer| !signer.verification_key.is_empty())
@@ -118,11 +117,35 @@ impl MithrilSingleSigner {
             ));
         }
 
+        let stake_distribution = signers
+            .iter()
+            .map(|&s| s.into())
+            .collect::<ProtocolStakeDistribution>();
+        let mut key_reg = ProtocolKeyRegistration::init(&stake_distribution);
         for s in signers {
-            let decoded_key =
+            let opcert = match &s.operational_certificate {
+                Some(operational_certificate) => {
+                    key_decode_hex(operational_certificate).unwrap_or(None)
+                }
+                _ => None,
+            };
+            let verification_key =
                 key_decode_hex(&s.verification_key).map_err(SingleSignerError::Codec)?;
+            let kes_signature = match &s.verification_key_signature {
+                Some(verification_key_signature) => Some(
+                    key_decode_hex(verification_key_signature).map_err(SingleSignerError::Codec)?,
+                ),
+                _ => None,
+            };
+            let kes_period = 0; // TODO: compute the kes period from opcert
             key_reg
-                .register(s.stake, decoded_key)
+                .register(
+                    Some(s.party_id.to_owned()),
+                    opcert,
+                    kes_signature,
+                    kes_period,
+                    verification_key,
+                )
                 .map_err(|e| SingleSignerError::ProtocolSignerCreationFailure(e.to_string()))?;
         }
         let closed_reg = key_reg.close();
