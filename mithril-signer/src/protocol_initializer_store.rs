@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use mithril_common::store::{LimitKeyStore, StoreError};
+use mithril_common::store::{StoreError, StorePruner};
 use tokio::sync::RwLock;
 
 use mithril_common::crypto_helper::ProtocolInitializer;
@@ -48,7 +48,7 @@ impl ProtocolInitializerStore {
 }
 
 #[async_trait]
-impl LimitKeyStore for ProtocolInitializerStore {
+impl StorePruner for ProtocolInitializerStore {
     type Key = Epoch;
     type Record = ProtocolInitializer;
 
@@ -76,7 +76,7 @@ impl ProtocolInitializerStorer for ProtocolInitializerStore {
             .await
             .store_record(&epoch, &protocol_initializer)
             .await?;
-        self.apply_retention().await?;
+        self.prune().await?;
 
         Ok(previous_protocol_initializer)
     }

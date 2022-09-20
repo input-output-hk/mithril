@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use tokio::sync::RwLock;
 
 use mithril_common::entities::{Epoch, ProtocolParameters};
-use mithril_common::store::{adapter::StoreAdapter, LimitKeyStore, StoreError};
+use mithril_common::store::{adapter::StoreAdapter, StoreError, StorePruner};
 
 type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = ProtocolParameters>>;
 
@@ -39,7 +39,7 @@ impl ProtocolParametersStore {
 }
 
 #[async_trait]
-impl LimitKeyStore for ProtocolParametersStore {
+impl StorePruner for ProtocolParametersStore {
     type Key = Epoch;
     type Record = ProtocolParameters;
 
@@ -67,7 +67,7 @@ impl ProtocolParametersStorer for ProtocolParametersStore {
             .await
             .store_record(&epoch, &protocol_parameters)
             .await?;
-        self.apply_retention().await?;
+        self.prune().await?;
 
         Ok(previous_protocol_parameters)
     }

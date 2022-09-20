@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use mithril_common::store::LimitKeyStore;
+use mithril_common::store::StorePruner;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
 
@@ -42,7 +42,7 @@ impl SingleSignatureStore {
 }
 
 #[async_trait]
-impl LimitKeyStore for SingleSignatureStore {
+impl StorePruner for SingleSignatureStore {
     type Key = Beacon;
     type Record = HashMap<PartyId, SingleSignatures>;
 
@@ -81,7 +81,7 @@ impl SingleSignatureStorer for SingleSignatureStore {
             .await
             .store_record(beacon, &single_signatures_per_party_id)
             .await?;
-        self.apply_retention().await?;
+        self.prune().await?;
 
         Ok(prev_single_signature)
     }

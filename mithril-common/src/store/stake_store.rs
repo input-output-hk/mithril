@@ -3,7 +3,7 @@ use tokio::sync::RwLock;
 
 use crate::entities::{Epoch, StakeDistribution};
 
-use super::{adapter::StoreAdapter, LimitKeyStore, StoreError};
+use super::{adapter::StoreAdapter, StoreError, StorePruner};
 
 type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = StakeDistribution>>;
 
@@ -45,7 +45,7 @@ impl StakeStore {
 }
 
 #[async_trait]
-impl LimitKeyStore for StakeStore {
+impl StorePruner for StakeStore {
     type Key = Epoch;
     type Record = StakeDistribution;
 
@@ -76,7 +76,7 @@ impl StakeStorer for StakeStore {
         };
         // it is important the adapter gets out of the scope to free the write lock it holds.
         // Otherwise the method below will hang forever waiting for the lock.
-        self.apply_retention().await?;
+        self.prune().await?;
 
         Ok(signers)
     }

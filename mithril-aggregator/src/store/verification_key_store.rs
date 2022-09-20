@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use mithril_common::store::LimitKeyStore;
+use mithril_common::store::StorePruner;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
 
@@ -41,7 +41,7 @@ impl VerificationKeyStore {
 }
 
 #[async_trait]
-impl LimitKeyStore for VerificationKeyStore {
+impl StorePruner for VerificationKeyStore {
     type Key = Epoch;
     type Record = HashMap<PartyId, Signer>;
 
@@ -73,7 +73,7 @@ impl VerificationKeyStorer for VerificationKeyStore {
             .await
             .store_record(&epoch, &signers)
             .await?;
-        self.apply_retention().await?;
+        self.prune().await?;
 
         Ok(prev_signer)
     }

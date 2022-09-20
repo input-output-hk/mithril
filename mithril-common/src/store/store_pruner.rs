@@ -4,9 +4,9 @@ use tokio::sync::RwLock;
 use super::{adapter::StoreAdapter, StoreError};
 
 /// Implementing this trait will make store able to limit the number of the
-/// stored records by pruning them &if a limit is set.
+/// stored records by pruning them if a limit is set.
 #[async_trait]
-pub trait LimitKeyStore {
+pub trait StorePruner {
     /// The key type
     type Key: Sync + Send;
 
@@ -17,11 +17,11 @@ pub trait LimitKeyStore {
     fn get_adapter(&self)
         -> &RwLock<Box<dyn StoreAdapter<Key = Self::Key, Record = Self::Record>>>;
 
-    /// Return the limit of maximum elements that can be in this store. If None, there is no limit.
+    /// Return the maximum number of elements that can exist in this store. If None, there is no limit.
     fn get_max_records(&self) -> Option<usize>;
 
     /// Prune elements exceeding the specified limit.
-    async fn apply_retention(&self) -> Result<(), StoreError> {
+    async fn prune(&self) -> Result<(), StoreError> {
         let retention_len = self.get_max_records().unwrap_or(usize::MAX);
         let lock = self.get_adapter();
         let mut adapter = lock.write().await;
@@ -52,7 +52,7 @@ mod tests {
         record_limit: Option<usize>,
     }
 
-    impl LimitKeyStore for TestStore {
+    impl StorePruner for TestStore {
         type Key = u64;
         type Record = String;
 
@@ -97,7 +97,7 @@ mod tests {
                 record_limit: None,
             };
 
-            store.apply_retention().await.unwrap();
+            store.prune().await.unwrap();
             assert_eq!(
                 data_len as usize,
                 store.adapter.read().await.get_iter().await.unwrap().count(),
@@ -114,7 +114,7 @@ mod tests {
                 record_limit: Some(data_len as usize),
             };
 
-            store.apply_retention().await.unwrap();
+            store.prune().await.unwrap();
             assert_eq!(
                 data_len as usize,
                 store.adapter.read().await.get_iter().await.unwrap().count(),
