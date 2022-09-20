@@ -66,6 +66,7 @@ services:
       - SNAPSHOT_STORE_TYPE=local
       - SNAPSHOT_UPLOADER_TYPE=gcp
       - DATA_STORES_DIRECTORY=/mithril-aggregator
+      - STORE_RETENTION_LIMIT=5
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
       - GENESIS_VERIFICATION_KEY=${GENESIS_VERIFICATION_KEY}
@@ -113,6 +114,7 @@ services:
       - RUN_INTERVAL=240000
       - DB_DIRECTORY=/db
       - DATA_STORES_DIRECTORY=/mithril-signer-0
+      - STORE_RETENTION_LIMIT=5
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
     volumes:
@@ -140,6 +142,7 @@ services:
       - RUN_INTERVAL=240000
       - DB_DIRECTORY=/db
       - DATA_STORES_DIRECTORY=/mithril-signer-1
+      - STORE_RETENTION_LIMIT=5
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
     volumes:
