@@ -4,7 +4,8 @@ use crate::crypto_helper::cardano::{
 
 use mithril::key_reg::KeyReg;
 use mithril::stm::{
-    Index, Stake, StmAggrSig, StmAggrVerificationKey, StmParameters, StmSig, StmVerificationKeyPoP,
+    Index, Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmInitializer, StmParameters,
+    StmSig, StmSigner, StmVerificationKeyPoP,
 };
 use mithril::{AggregationError, RegisterError};
 
@@ -33,20 +34,16 @@ pub type ProtocolParameters = StmParameters;
 /// Alias of [MithrilCore::Index](https://mithril.network/mithril-core/doc/mithril/stm/type.Index.html).
 pub type ProtocolLotteryIndex = Index;
 
-/// Alias of [MithrilCore:StmSigner](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmSigner.html).
+/// Alias of a wrapper of [MithrilCore:StmSigner](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmSigner.html).
 pub type ProtocolSigner = StmSignerWrapper;
 
-/// Alias of [MithrilCore:StmInitializer](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmInitializer.html).
+/// Alias of a wrapper of [MithrilCore:StmInitializer](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmInitializer.html).
 pub type ProtocolInitializer = StmInitializerWrapper;
 
-/// Alias of [MithrilCore:StmClerk](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmClerk.html).
+/// Alias of a wrapper of [MithrilCore:StmClerk](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmClerk.html).
 pub type ProtocolClerk = StmClerkWrapper;
 
-/// Alias of [MithrilCore:KeyReg](https://mithril.network/mithril-core/doc/mithril/key_reg/struct.KeyReg.html). (Test only)
-#[cfg(feature = "skip_signer_certification")]
-pub type ProtocolKeyRegistrationTestOnly = KeyReg;
-
-/// Alias of Cardano:KeyRegWrapper.
+/// Alias of a wrapper of [MithrilCore:KeyReg](https://mithril.network/mithril-core/doc/mithril/key_reg/struct.KeyReg.html).
 pub type ProtocolKeyRegistration = KeyRegWrapper;
 
 /// Alias of [MithrilCore:StmSig](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmSig.html).
@@ -79,3 +76,20 @@ pub type ProtocolRegistrationError = RegisterError;
 
 /// Alias of [MithrilCore:AggregationError](https://mithril.network/mithril-core/doc/mithril/error/enum.AggregationError.html).
 pub type ProtocolAggregationError = AggregationError;
+
+// Test only
+/// (Test only) Alias of [MithrilCore:StmSigner](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmSigner.html).
+#[cfg(any(test, feature = "skip_signer_certification"))]
+pub type ProtocolSignerNotCertified = StmSigner<D>;
+
+/// (Test only) Alias of [MithrilCore:StmInitializer](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmInitializer.html).
+#[cfg(any(test, feature = "skip_signer_certification"))]
+pub type ProtocolInitializerNotCertified = StmInitializer;
+
+/// (Test only) Alias of [MithrilCore:StmClerk](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmClerk.html).
+#[cfg(any(test, feature = "skip_signer_certification"))]
+pub type ProtocolClerkNotCertified = StmClerk<D>;
+
+/// (Test only) Alias of [MithrilCore:KeyReg](https://mithril.network/mithril-core/doc/mithril/key_reg/struct.KeyReg.html). (Test only)
+#[cfg(any(test, feature = "skip_signer_certification"))]
+pub type ProtocolKeyRegistrationNotCertified = KeyReg;

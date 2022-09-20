@@ -9,9 +9,10 @@ use std::io::Write;
 use std::path;
 
 use mithril_common::crypto_helper::{
-    key_decode_hex, key_encode_hex, ProtocolClerk, ProtocolInitializer,
-    ProtocolKeyRegistrationTestOnly, ProtocolMultiSignature, ProtocolParameters, ProtocolPartyId,
-    ProtocolSigner, ProtocolSignerVerificationKey, ProtocolSingleSignature, ProtocolStake,
+    key_decode_hex, key_encode_hex, ProtocolClerkNotCertified, ProtocolInitializerNotCertified,
+    ProtocolKeyRegistrationNotCertified, ProtocolMultiSignature, ProtocolParameters,
+    ProtocolPartyId, ProtocolSignerNotCertified, ProtocolSignerVerificationKey,
+    ProtocolSingleSignature, ProtocolStake,
 };
 
 /// Player artifacts
@@ -50,9 +51,9 @@ pub struct Party {
     /// Protocol parameters
     params: Option<ProtocolParameters>,
     /// Protocol signer
-    signer: Option<ProtocolSigner>,
+    signer: Option<ProtocolSignerNotCertified>,
     /// Protocol clerk
-    clerk: Option<ProtocolClerk>,
+    clerk: Option<ProtocolClerkNotCertified>,
     /// Multi signatures
     msigs: HashMap<Vec<u8>, ProtocolMultiSignature>,
 }
@@ -98,7 +99,7 @@ impl Party {
             self.party_id, players
         );
 
-        let mut key_reg = ProtocolKeyRegistrationTestOnly::init();
+        let mut key_reg = ProtocolKeyRegistrationNotCertified::init();
         for (_party_id, stake, verification_key) in players_with_keys {
             key_reg.register(*stake, *verification_key).unwrap();
         }
@@ -106,9 +107,11 @@ impl Party {
 
         let seed = [0u8; 32];
         let mut rng = ChaCha20Rng::from_seed(seed);
-        let p = ProtocolInitializer::setup(self.params.unwrap(), self.stake, &mut rng);
+        let p = ProtocolInitializerNotCertified::setup(self.params.unwrap(), self.stake, &mut rng);
         self.signer = Some(p.new_signer(closed_reg).unwrap());
-        self.clerk = Some(ProtocolClerk::from_signer(self.signer.as_ref().unwrap()));
+        self.clerk = Some(ProtocolClerkNotCertified::from_signer(
+            self.signer.as_ref().unwrap(),
+        ));
     }
 
     /// Individually sign a message through lottery
@@ -203,7 +206,7 @@ pub struct Verifier {
     /// Protocol parameters
     params: Option<ProtocolParameters>,
     /// Protocol clerk
-    clerk: Option<ProtocolClerk>,
+    clerk: Option<ProtocolClerkNotCertified>,
 }
 
 impl Verifier {
@@ -237,13 +240,13 @@ impl Verifier {
             .collect::<Vec<_>>();
         println!("Verifier: protocol keys registration from {:?}", players);
 
-        let mut key_reg = ProtocolKeyRegistrationTestOnly::init();
+        let mut key_reg = ProtocolKeyRegistrationNotCertified::init();
         for (_party_id, stake, verification_key) in players_with_keys {
             key_reg.register(*stake, *verification_key).unwrap();
         }
         let closed_reg = key_reg.close();
 
-        self.clerk = Some(ProtocolClerk::from_registration(
+        self.clerk = Some(ProtocolClerkNotCertified::from_registration(
             &self.params.unwrap(),
             &closed_reg,
         ));
@@ -367,7 +370,7 @@ impl ProtocolDemonstrator for Demonstrator {
         let mut players_artifacts = Vec::new();
         for (party_id, stake) in players {
             let protocol_initializer =
-                ProtocolInitializer::setup(self.params.unwrap(), stake, &mut rng);
+                ProtocolInitializerNotCertified::setup(self.params.unwrap(), stake, &mut rng);
             let verification_key: ProtocolSignerVerificationKey =
                 protocol_initializer.verification_key();
             players_artifacts.push(PlayerArtifact {

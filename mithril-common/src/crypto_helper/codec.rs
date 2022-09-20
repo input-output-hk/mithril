@@ -39,7 +39,7 @@ pub mod tests {
         let seed = [0u8; 32];
         let mut rng = ChaCha20Rng::from_seed(seed);
         let protocol_initializer: ProtocolInitializer =
-            ProtocolInitializer::setup(protocol_params, stake, &mut rng);
+            ProtocolInitializerNotCertified::setup(protocol_params, stake, &mut rng);
         let verification_key: ProtocolSignerVerificationKey =
             protocol_initializer.verification_key();
         let verification_key_hex =
