@@ -26,7 +26,7 @@ impl Signer {
         let data_stores_path = format!("./stores/signer-{}", party_id);
         let env = HashMap::from([
             ("NETWORK", "devnet"),
-            ("PARTY_ID", &party_id),
+            ("PARTY_ID", &party_id), // TODO: Should be removed once the signer certification is fully deployed
             ("RUN_INTERVAL", "800"),
             ("AGGREGATOR_ENDPOINT", &aggregator_endpoint),
             ("DB_DIRECTORY", pool_node.db_path.to_str().unwrap()),
@@ -37,6 +37,14 @@ impl Signer {
                 pool_node.socket_path.to_str().unwrap(),
             ),
             ("CARDANO_CLI_PATH", cardano_cli_path.to_str().unwrap()),
+            (
+                "KES_SECRET_KEY_PATH",
+                pool_node.kes_secret_key_path.to_str().unwrap(),
+            ),
+            (
+                "OPERATIONAL_CERTIFICATE_PATH",
+                pool_node.operational_certificate_path.to_str().unwrap(),
+            ),
         ]);
         let args = vec!["-vvv"];
 
