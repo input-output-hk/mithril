@@ -282,7 +282,7 @@ mod test {
             StmInitializerWrapper::setup_new(params, "./test-data/kes1.skey", 0, 10, &mut rng)
                 .unwrap();
 
-        let opcert1 = OpCert::from_file("./test-data/node1.cert")
+        let opcert1: OpCert = OpCert::from_file("./test-data/node1.cert")
             .expect("opcert deserialization should not fail");
 
         let key_registration_1 = key_reg.register(
@@ -298,12 +298,12 @@ mod test {
             StmInitializerWrapper::setup_new(params, "./test-data/kes2.skey", 0, 10, &mut rng)
                 .unwrap();
 
-        let opcert2 = OpCert::from_file("./test-data/node2.cert")
+        let opcert2: OpCert = OpCert::from_file("./test-data/node2.cert")
             .expect("opcert deserialization should not fail");
 
         let key_registration_2 = key_reg.register(
             None,
-            Some(opcert1),
+            Some(opcert2),
             initializer_2.kes_signature,
             0,
             initializer_2.stm_initializer.verification_key(),
