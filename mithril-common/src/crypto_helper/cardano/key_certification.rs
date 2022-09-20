@@ -55,7 +55,7 @@ pub enum ProtocolRegistrationError {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StmInitializerWrapper {
     stm_initializer: StmInitializer,
-    pub kes_signature: Option<ProtocolSignerVerificationKeySignature>, // todo: The option is ONLY for a smooth transition. We have to remove this.
+    kes_signature: Option<ProtocolSignerVerificationKeySignature>, // todo: The option is ONLY for a smooth transition. We have to remove this.
 }
 
 /// Wrapper structure for [MithrilCore:KeyReg](https://mithril.network/mithril-core/doc/mithril/key_reg/struct.KeyReg.html).
@@ -130,6 +130,11 @@ impl StmInitializerWrapper {
     /// Extract the verification key.
     pub fn verification_key(&self) -> StmVerificationKeyPoP {
         self.stm_initializer.verification_key()
+    }
+
+    /// Extract the verification key signature.
+    pub fn verification_key_signature(&self) -> Option<ProtocolSignerVerificationKeySignature> {
+        self.kes_signature.clone()
     }
 
     /// Extract the stake of the party
@@ -257,8 +262,7 @@ impl StmSignerWrapper {
     }
 }
 
-#[cfg(test)]
-#[cfg(not(feature = "skip_signer_certification"))]
+#[cfg(all(test, not(feature = "skip_signer_certification")))]
 mod test {
     use super::*;
     use rand_chacha::ChaCha20Rng;
@@ -276,9 +280,14 @@ mod test {
         let pool_id_2 = "pool1mzud3l4q6zxyut2vzyst5ar2m9g7uc49j2w4l6gwug8y6h3s7k4".to_string();
         let mut key_reg = KeyRegWrapper::init(&vec![(pool_id_1, 10), (pool_id_2, 3)]);
 
-        let initializer_1 =
-            StmInitializerWrapper::setup_new(params, "./test-data/kes1.skey", 0, 10, &mut rng)
-                .unwrap();
+        let initializer_1 = StmInitializerWrapper::setup(
+            params,
+            Some("./test-data/kes1.skey"),
+            Some(0),
+            10,
+            &mut rng,
+        )
+        .unwrap();
 
         let opcert1: OpCert = OpCert::from_file("./test-data/node1.cert")
             .expect("opcert deserialization should not fail");
@@ -292,9 +301,14 @@ mod test {
         );
         assert!(key_registration_1.is_ok());
 
-        let initializer_2 =
-            StmInitializerWrapper::setup_new(params, "./test-data/kes2.skey", 0, 10, &mut rng)
-                .unwrap();
+        let initializer_2 = StmInitializerWrapper::setup(
+            params,
+            Some("./test-data/kes2.skey"),
+            Some(0),
+            10,
+            &mut rng,
+        )
+        .unwrap();
 
         let opcert2: OpCert = OpCert::from_file("./test-data/node2.cert")
             .expect("opcert deserialization should not fail");

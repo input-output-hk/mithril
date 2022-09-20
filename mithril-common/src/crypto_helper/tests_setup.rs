@@ -103,7 +103,7 @@ pub fn setup_signers_from_parties(
         .for_each(|(party_id, _stake, protocol_initializer)| {
             let opcert = None; // TODO: compute the fake opcert
             let verification_key = protocol_initializer.verification_key();
-            let kes_signature = protocol_initializer.kes_signature.to_owned();
+            let kes_signature = protocol_initializer.verification_key_signature();
             let kes_period = 0; // TODO: compute the kes period from opcert
             key_registration
                 .register(

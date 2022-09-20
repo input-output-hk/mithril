@@ -26,9 +26,14 @@ struct ShelleyFileFormat {
 
 /// Trait that allows any structure that implements serialize to be formatted following
 /// the Shelly json format.
-pub(crate) trait FromShelleyFile: serde::Serialize {
+pub trait FromShelleyFile: serde::Serialize {
+    /// The type of Cardano key
     const TYPE: &'static str;
+
+    /// The description of the Cardano key
     const DESCRIPTION: &'static str;
+
+    /// Deserialize a Cardano key from file
     fn from_file<R: DeserializeOwned, P: AsRef<Path>>(path: P) -> Result<R, ParseError> {
         let data = fs::read_to_string(path).map_err(ParseError::Path)?;
 
@@ -41,6 +46,7 @@ pub(crate) trait FromShelleyFile: serde::Serialize {
         Ok(a)
     }
 
+    /// Serialize a Cardano Key to file
     fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), ParseError> {
         let cbor_string =
             hex::encode(&serde_cbor::to_vec(&self).map_err(|_| ParseError::CborData)?);

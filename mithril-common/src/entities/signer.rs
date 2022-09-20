@@ -32,12 +32,17 @@ pub struct Signer {
 
 impl Signer {
     /// Signer factory
-    pub fn new(party_id: PartyId, verification_key: String) -> Signer {
+    pub fn new(
+        party_id: PartyId,
+        verification_key: String,
+        verification_key_signature: Option<HexEncodedKey>,
+        operational_certificate: Option<HexEncodedKey>,
+    ) -> Signer {
         Signer {
             party_id,
             verification_key,
-            verification_key_signature: None,
-            operational_certificate: None,
+            verification_key_signature,
+            operational_certificate,
         }
     }
 
@@ -128,15 +133,33 @@ mod tests {
 
         assert_eq!(
             hash_expected,
-            Signer::new("1".to_string(), "verification-key-123".to_string()).compute_hash()
+            Signer::new(
+                "1".to_string(),
+                "verification-key-123".to_string(),
+                None,
+                None
+            )
+            .compute_hash()
         );
         assert_ne!(
             hash_expected,
-            Signer::new("0".to_string(), "verification-key-123".to_string()).compute_hash()
+            Signer::new(
+                "0".to_string(),
+                "verification-key-123".to_string(),
+                None,
+                None
+            )
+            .compute_hash()
         );
         assert_ne!(
             hash_expected,
-            Signer::new("1".to_string(), "verification-key-456".to_string()).compute_hash()
+            Signer::new(
+                "1".to_string(),
+                "verification-key-456".to_string(),
+                None,
+                None
+            )
+            .compute_hash()
         );
     }
 

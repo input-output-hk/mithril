@@ -540,6 +540,8 @@ impl MultiSigner for MultiSignerImpl {
                 entities::Signer::new(
                     party_id,
                     key_encode_hex(*verification_key).map_err(ProtocolError::Codec)?,
+                    None,
+                    None,
                 ),
             )
             .await?

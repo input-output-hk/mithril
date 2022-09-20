@@ -1,11 +1,14 @@
 use async_trait::async_trait;
-#[cfg(test)]
-use mockall::automock;
 use slog_scope::{debug, info, trace, warn};
 use std::error::Error as StdError;
 use thiserror::Error;
 
-use mithril_common::crypto_helper::{key_decode_hex, ProtocolSignerVerificationKey};
+#[cfg(test)]
+use mockall::automock;
+
+use mithril_common::crypto_helper::{
+    key_decode_hex, FromShelleyFile, OpCert, ProtocolSignerVerificationKey,
+};
 use mithril_common::entities::{PartyId, ProtocolParameters};
 use mithril_common::{
     crypto_helper::key_encode_hex,
@@ -97,6 +100,9 @@ pub enum RuntimeError {
     /// Could not find the stake for one of the signers.
     #[error("No stake associated with this signer, party_id: {0}.")]
     NoStakeForSigner(PartyId),
+    /// Parse file error
+    #[error("File parse failed: {0}.")]
+    FileParse(String),
     /// General subsystem error
     #[error("Subsystem unavailable: {0}.")]
     SubsystemUnavailable(String),
@@ -176,7 +182,27 @@ impl Runner for SignerRunner {
             Some(kes_period),
         )?;
         let verification_key = key_encode_hex(protocol_initializer.verification_key())?;
-        let signer = Signer::new(self.config.party_id.to_owned(), verification_key);
+        let verification_key_signature = match protocol_initializer.verification_key_signature() {
+            Some(verification_signature) => Some(key_encode_hex(verification_signature)?),
+            _ => None,
+        };
+        let operational_certificate = match &self.config.operational_certificate_path {
+            Some(operational_certificate_path) => {
+                let opcert: OpCert =
+                    OpCert::from_file(operational_certificate_path).map_err(|_| {
+                        RuntimeError::FileParse("operational_certificate_path".to_string())
+                    })?;
+                Some(key_encode_hex(opcert)?)
+            }
+            _ => None,
+        };
+
+        let signer = Signer::new(
+            self.config.party_id.to_owned(),
+            verification_key,
+            verification_key_signature,
+            operational_certificate,
+        );
         self.services
             .certificate_handler
             .register_signer(&signer)

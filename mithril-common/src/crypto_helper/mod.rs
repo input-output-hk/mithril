@@ -7,6 +7,7 @@ mod genesis;
 pub mod tests_setup;
 mod types;
 
+pub use cardano::{FromShelleyFile, OpCert};
 pub use codec::*;
 pub use genesis::{ProtocolGenesisError, ProtocolGenesisSigner, ProtocolGenesisVerifier};
 pub use types::*;
