@@ -25,6 +25,7 @@ pub struct Config {
     pub aggregator_endpoint: String,
 
     /// Party Id
+    // TODO: Field should be removed once the signer certification is fully deployed
     pub party_id: PartyId,
 
     /// Run Interval
@@ -38,6 +39,12 @@ pub struct Config {
 
     /// Store retention limit. If set to None, no limit will be set.
     pub store_retention_limit: Option<usize>,
+
+    /// File path to the KES secret key of the pool
+    pub kes_secret_key_path: Option<PathBuf>,
+
+    /// File path to the operational certificate of the pool
+    pub operational_certificate_path: Option<PathBuf>,
 }
 
 impl Config {

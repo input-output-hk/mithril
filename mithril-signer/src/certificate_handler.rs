@@ -282,6 +282,8 @@ mod tests {
             db_directory: Path::new("./db").to_path_buf(),
             data_stores_directory: Path::new("./stores").to_path_buf(),
             store_retention_limit: None,
+            kes_secret_key_path: None,
+            operational_certificate_path: None,
         };
         (server, config)
     }

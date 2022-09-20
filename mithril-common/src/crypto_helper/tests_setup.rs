@@ -9,8 +9,8 @@ use crate::{
 use crate::certificate_chain::CertificateGenesisProducer;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
-use std::collections::HashMap;
 use std::{cmp::min, sync::Arc};
+use std::{collections::HashMap, path::PathBuf};
 
 /// Instantiate a [ProtocolMessage] using fake data, use this for tests only.
 pub fn setup_message() -> ProtocolMessage {
@@ -75,11 +75,16 @@ pub fn setup_signers_from_parties(
         .map(|(party_id, stake)| {
             let protocol_initializer_seed: [u8; 32] = party_id.as_bytes()[..32].try_into().unwrap();
             let mut protocol_initializer_rng = ChaCha20Rng::from_seed(protocol_initializer_seed);
+            let kes_secret_key_path: Option<PathBuf> = None;
+            let kes_period = Some(0);
             let protocol_initializer: ProtocolInitializer = ProtocolInitializer::setup(
                 *protocol_parameters,
+                kes_secret_key_path,
+                kes_period,
                 *stake,
                 &mut protocol_initializer_rng,
-            );
+            )
+            .expect("protocol initializer setup should not fail");
             (
                 party_id.clone() as ProtocolPartyId,
                 *stake as ProtocolStake,

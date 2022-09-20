@@ -5,8 +5,6 @@
 //! It proposes tools to communicate with Mithril aggregators and to issue Single Signatures.
 //! See the [Mithril documentation](https://mithril.network/doc/manual/developer-docs/nodes/mithril-signer) for more information on how it works.
 
-use std::error::Error as StdError;
-
 mod certificate_handler;
 mod entities;
 mod protocol_initializer_store;
@@ -18,5 +16,3 @@ pub use entities::Config;
 pub use protocol_initializer_store::{ProtocolInitializerStore, ProtocolInitializerStorer};
 pub use runtime::*;
 pub use single_signer::*;
-
-type AsyncError = Box<dyn StdError + Sync + Send>;

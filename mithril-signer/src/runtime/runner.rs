@@ -168,8 +168,13 @@ impl Runner for SignerRunner {
         let stake = stake_distribution
             .get(&self.config.party_id)
             .ok_or(RuntimeError::NoStakeForSelf())?;
-        let protocol_initializer =
-            MithrilProtocolInitializerBuilder::new().build(stake, protocol_parameters)?;
+        let kes_period = 0; // TODO: compute the kes period from opcert
+        let protocol_initializer = MithrilProtocolInitializerBuilder::new().build(
+            stake,
+            protocol_parameters,
+            self.config.kes_secret_key_path.clone(),
+            Some(kes_period),
+        )?;
         let verification_key = key_encode_hex(protocol_initializer.verification_key())?;
         let signer = Signer::new(self.config.party_id.to_owned(), verification_key);
         self.services
@@ -449,6 +454,8 @@ mod tests {
             party_id: "1".to_string(),
             run_interval: 100,
             data_stores_directory: PathBuf::new(),
+            kes_secret_key_path: None,
+            operational_certificate_path: None,
             store_retention_limit: None,
         };
 
@@ -569,7 +576,12 @@ mod tests {
         let mut signer = &mut pending_certificate.signers[0];
 
         let protocol_initializer = MithrilProtocolInitializerBuilder::new()
-            .build(&100, &fake_data::protocol_parameters())
+            .build(
+                &100,
+                &fake_data::protocol_parameters(),
+                Some(PathBuf::new()),
+                Some(0),
+            )
             .expect("build protocol initializer should not fail");
         signer.verification_key = key_encode_hex(protocol_initializer.verification_key()).unwrap();
         protocol_initializer_store

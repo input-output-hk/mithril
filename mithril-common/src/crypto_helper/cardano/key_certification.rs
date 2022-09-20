@@ -27,6 +27,9 @@ use thiserror::Error;
 // Protocol types alias
 type D = Blake2b<U32>;
 
+/// The KES period that is used to check if the KES keys is expired
+pub type KESPeriod = usize;
+
 /// New registration error
 #[derive(Error, Debug)]
 pub enum ProtocolRegistrationError {
@@ -97,30 +100,30 @@ impl StmClerkWrapper {
 }
 
 impl StmInitializerWrapper {
-    /// Old setup. todo: remove
-    pub fn setup<R: RngCore + CryptoRng>(params: StmParameters, stake: Stake, rng: &mut R) -> Self {
-        Self {
-            stm_initializer: StmInitializer::setup(params, stake, rng),
-            kes_signature: None,
-        }
-    }
     /// Builds an `StmInitializer` that is ready to register with the key registration service.
     /// This function generates the signing and verification key with a PoP, signs the verification
-    /// key with a provided KES signing key, and initialises the structure.
-    pub fn setup_new<R: RngCore + CryptoRng, P: AsRef<Path>>(
+    /// key with a provided KES signing key, and initializes the structure.
+    pub fn setup<R: RngCore + CryptoRng, P: AsRef<Path>>(
         params: StmParameters,
-        kes_sk_path: P,
-        kes_period: usize,
+        kes_sk_path: Option<P>,
+        kes_period: Option<KESPeriod>,
         stake: Stake,
         rng: &mut R,
     ) -> Result<Self, ParseError> {
         let stm_initializer = StmInitializer::setup(params, stake, rng);
-        let kes_sk: Sum6Kes = Sum6Kes::from_file(kes_sk_path)?;
-        let kes_signature = kes_sk.sign(kes_period, &stm_initializer.verification_key().to_bytes());
+        let kes_signature = if cfg!(feature = "skip_signer_certification") {
+            None
+        } else {
+            let kes_sk: Sum6Kes = Sum6Kes::from_file(kes_sk_path.unwrap())?;
+            Some(kes_sk.sign(
+                kes_period.unwrap(),
+                &stm_initializer.verification_key().to_bytes(),
+            ))
+        };
 
         Ok(Self {
             stm_initializer,
-            kes_signature: Some(kes_signature),
+            kes_signature,
         })
     }
 
@@ -199,15 +202,10 @@ impl KeyRegWrapper {
         party_id: Option<ProtocolPartyId>, // TODO: Parameter should be removed once the signer certification is fully deployed
         opcert: Option<OpCert>, // TODO: Option should be removed once the signer certification is fully deployed
         kes_sig: Option<ProtocolSignerVerificationKeySignature>, // TODO: Option should be removed once the signer certification is fully deployed
-        kes_period: usize,
+        kes_period: KESPeriod,
         pk: ProtocolSignerVerificationKey,
     ) -> Result<(), ProtocolRegistrationError> {
-        #[cfg(not(feature = "skip_signer_certification"))]
-        let skip_signer_certification = false;
-        #[cfg(feature = "skip_signer_certification")]
-        let skip_signer_certification = true;
-
-        let pool_id_bech32: ProtocolPartyId = if skip_signer_certification {
+        let pool_id_bech32: ProtocolPartyId = if cfg!(feature = "skip_signer_certification") {
             println!("WARNING: Signer certification is skipped!");
             party_id.unwrap()
         } else {

@@ -1,5 +1,6 @@
 use hex::ToHex;
 use slog_scope::{info, trace, warn};
+use std::path::PathBuf;
 use thiserror::Error;
 
 use mithril_common::crypto_helper::{
@@ -13,7 +14,13 @@ use mithril_common::entities::{
 #[cfg(test)]
 use mockall::automock;
 
-use crate::AsyncError;
+/// MithrilProtocolInitializerBuilder error structure.
+#[derive(Error, Debug)]
+pub enum MithrilProtocolInitializerBuilderError {
+    /// Could not parse a Cardano crypto file
+    #[error("the cardano cryptographic file could not be parsed.")]
+    CardanoCryptoParse,
+}
 
 /// This is responsible of creating new instances of ProtocolInitializer.
 #[derive(Default)]
@@ -30,13 +37,18 @@ impl MithrilProtocolInitializerBuilder {
         &self,
         stake: &Stake,
         protocol_parameters: &ProtocolParameters,
-    ) -> Result<ProtocolInitializer, AsyncError> {
+        kes_secret_key_path: Option<PathBuf>,
+        kes_period: Option<usize>,
+    ) -> Result<ProtocolInitializer, MithrilProtocolInitializerBuilderError> {
         let mut rng = rand_core::OsRng;
         let protocol_initializer = ProtocolInitializer::setup(
             protocol_parameters.to_owned().into(),
+            kes_secret_key_path,
+            kes_period,
             stake.to_owned(),
             &mut rng,
-        );
+        )
+        .map_err(|_| MithrilProtocolInitializerBuilderError::CardanoCryptoParse)?;
 
         Ok(protocol_initializer)
     }

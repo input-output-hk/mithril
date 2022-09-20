@@ -152,6 +152,8 @@ mod tests {
             db_directory: PathBuf::new(),
             data_stores_directory: stores_dir.clone(),
             store_retention_limit: None,
+            kes_secret_key_path: None,
+            operational_certificate_path: None,
         };
 
         assert!(!stores_dir.exists());

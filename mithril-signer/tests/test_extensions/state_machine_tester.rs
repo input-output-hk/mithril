@@ -57,6 +57,8 @@ impl StateMachineTester {
             run_interval: 5000,
             data_stores_directory: PathBuf::new(),
             store_retention_limit: None,
+            kes_secret_key_path: None,
+            operational_certificate_path: None,
         };
 
         let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);

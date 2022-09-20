@@ -101,6 +101,8 @@ impl ProtocolInitializerStorer for ProtocolInitializerStore {
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use super::*;
 
     use mithril_common::{fake_data, store::adapter::MemoryAdapter};
@@ -116,8 +118,16 @@ mod tests {
             let stake = (epoch + 1) * 100;
             let seed: [u8; 32] = party_id.as_bytes()[..32].try_into().unwrap();
             let mut rng = ChaCha20Rng::from_seed(seed);
-            let protocol_initializer =
-                ProtocolInitializer::setup(protocol_parameters.into(), stake, &mut rng);
+            let kes_secret_key_path: Option<PathBuf> = None;
+            let kes_period = Some(0);
+            let protocol_initializer = ProtocolInitializer::setup(
+                protocol_parameters.into(),
+                kes_secret_key_path,
+                kes_period,
+                stake,
+                &mut rng,
+            )
+            .expect("protocol initializer should not fail");
             values.push((Epoch(epoch), protocol_initializer));
         }
         values
