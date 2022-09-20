@@ -53,15 +53,9 @@ where
         let key = (*key).clone();
         let record = (*record).clone();
 
-        if self.values.insert(key.clone(), record).is_some() {
-            if let Some(ix) = self.index.iter().position(|k| k == &key) {
-                let _ = self.index.remove(ix);
-            } else {
-                // the index was corrupted
-                // doing nothing will repair it.
-            }
+        if self.values.insert(key.clone(), record).is_none() {
+            self.index.push(key);
         }
-        self.index.push(key);
 
         Ok(())
     }
@@ -91,6 +85,8 @@ where
     }
 
     async fn remove(&mut self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
+        self.index.retain(|k| *k != *key);
+
         Ok(self.values.remove(key))
     }
 
@@ -106,6 +102,8 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::borrow::Borrow;
+
     use super::*;
 
     fn init_adapter(nb: u64) -> MemoryAdapter<u64, String> {
@@ -184,9 +182,12 @@ mod tests {
         let mut adapter = init_adapter(2);
 
         assert!(adapter.store_record(&1, &"one".to_string()).await.is_ok());
-        let vals = adapter.get_last_n_records(1).await.unwrap();
+        let vals = adapter.get_last_n_records(2).await.unwrap();
 
-        assert_eq!((1, "one".to_string()), vals[0]);
+        assert_eq!(
+            vec![(2, "value 2".to_string()), (1, "one".to_string())],
+            vals
+        );
     }
 
     #[tokio::test]
@@ -196,6 +197,7 @@ mod tests {
 
         assert_eq!("value 1".to_string(), record);
         assert!(!adapter.record_exists(&1).await.unwrap());
+        assert_eq!(1, adapter.index.len())
     }
 
     #[tokio::test]
@@ -204,6 +206,7 @@ mod tests {
         let maybe_record = adapter.remove(&0).await.unwrap();
 
         assert!(maybe_record.is_none());
+        assert_eq!(2, adapter.index.len())
     }
 
     #[tokio::test]
@@ -223,5 +226,19 @@ mod tests {
         let records = adapter.get_iter().await.unwrap();
 
         assert_eq!(0, records.count());
+    }
+
+    #[tokio::test]
+    async fn check_get_last_n_modified_records() {
+        let mut adapter = init_adapter(3);
+        adapter
+            .store_record(&1, "updated record".to_string().borrow())
+            .await
+            .unwrap();
+        let values = adapter.get_last_n_records(2).await.unwrap();
+        assert_eq!(
+            vec![(3, "value 3".to_string()), (2, "value 2".to_string())],
+            values
+        );
     }
 }

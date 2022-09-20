@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use mithril_common::store::StorePruner;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
 
@@ -26,14 +27,32 @@ pub trait VerificationKeyStorer {
 /// Store for the `VerificationKey`.
 pub struct VerificationKeyStore {
     adapter: RwLock<Adapter>,
+    retention_limit: Option<usize>,
 }
 
 impl VerificationKeyStore {
     /// Create a new instance.
-    pub fn new(adapter: Adapter) -> Self {
+    pub fn new(adapter: Adapter, retention_limit: Option<usize>) -> Self {
         Self {
             adapter: RwLock::new(adapter),
+            retention_limit,
         }
+    }
+}
+
+#[async_trait]
+impl StorePruner for VerificationKeyStore {
+    type Key = Epoch;
+    type Record = HashMap<PartyId, Signer>;
+
+    fn get_adapter(
+        &self,
+    ) -> &RwLock<Box<dyn StoreAdapter<Key = Self::Key, Record = Self::Record>>> {
+        &self.adapter
+    }
+
+    fn get_max_records(&self) -> Option<usize> {
+        self.retention_limit
     }
 }
 
@@ -54,6 +73,7 @@ impl VerificationKeyStorer for VerificationKeyStore {
             .await
             .store_record(&epoch, &signers)
             .await?;
+        self.prune().await?;
 
         Ok(prev_signer)
     }
@@ -73,7 +93,11 @@ mod tests {
 
     use mithril_common::store::adapter::MemoryAdapter;
 
-    fn init_store(nb_epoch: u64, signers_per_epoch: u64) -> VerificationKeyStore {
+    fn init_store(
+        nb_epoch: u64,
+        signers_per_epoch: u64,
+        retention_limit: Option<usize>,
+    ) -> VerificationKeyStore {
         let mut values: Vec<(Epoch, HashMap<PartyId, Signer>)> = Vec::new();
 
         for epoch in 1..=nb_epoch {
@@ -99,12 +123,12 @@ mod tests {
         };
         let adapter: MemoryAdapter<Epoch, HashMap<PartyId, Signer>> =
             MemoryAdapter::new(values).unwrap();
-        VerificationKeyStore::new(Box::new(adapter))
+        VerificationKeyStore::new(Box::new(adapter), retention_limit)
     }
 
     #[tokio::test]
     async fn save_key_in_empty_store() {
-        let store = init_store(0, 0);
+        let store = init_store(0, 0, None);
         let res = store
             .save_verification_key(
                 Epoch(0),
@@ -121,7 +145,7 @@ mod tests {
 
     #[tokio::test]
     async fn update_signer_in_store() {
-        let store = init_store(1, 1);
+        let store = init_store(1, 1, None);
         let res = store
             .save_verification_key(
                 Epoch(1),
@@ -145,7 +169,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_verification_keys_for_empty_epoch() {
-        let store = init_store(2, 1);
+        let store = init_store(2, 1, None);
         let res = store.get_verification_keys(Epoch(0)).await.unwrap();
 
         assert!(res.is_none());
@@ -153,10 +177,35 @@ mod tests {
 
     #[tokio::test]
     async fn get_verification_keys_for_existing_epoch() {
-        let store = init_store(2, 2);
+        let store = init_store(2, 2, None);
         let res = store.get_verification_keys(Epoch(1)).await.unwrap();
 
         assert!(res.is_some());
         assert_eq!(2, res.unwrap().len());
+    }
+
+    #[tokio::test]
+    async fn check_retention_limit() {
+        let store = init_store(2, 2, Some(2));
+        assert!(store
+            .get_verification_keys(Epoch(1))
+            .await
+            .unwrap()
+            .is_some());
+        let _ = store
+            .save_verification_key(
+                Epoch(3),
+                Signer {
+                    party_id: "party_id".to_string(),
+                    verification_key: "whatever".to_string(),
+                },
+            )
+            .await
+            .unwrap();
+        assert!(store
+            .get_verification_keys(Epoch(1))
+            .await
+            .unwrap()
+            .is_none());
     }
 }

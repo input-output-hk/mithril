@@ -199,6 +199,7 @@ pub mod tests {
             snapshot_directory: PathBuf::new(),
             data_stores_directory: PathBuf::new(),
             genesis_verification_key: key_encode_hex(&genesis_verification_key).unwrap(),
+            store_retention_limit: None,
         };
         let snapshot_store = Arc::new(LocalSnapshotStore::new(
             Box::new(MemoryAdapter::new(None).unwrap()),
@@ -211,16 +212,22 @@ pub mod tests {
         let certificate_store = Arc::new(CertificateStore::new(Box::new(
             MemoryAdapter::new(None).unwrap(),
         )));
-        let verification_key_store = Arc::new(VerificationKeyStore::new(Box::new(
-            MemoryAdapter::new(None).unwrap(),
-        )));
-        let stake_store = Arc::new(StakeStore::new(Box::new(MemoryAdapter::new(None).unwrap())));
-        let single_signature_store = Arc::new(SingleSignatureStore::new(Box::new(
-            MemoryAdapter::new(None).unwrap(),
-        )));
-        let protocol_parameters_store = Arc::new(ProtocolParametersStore::new(Box::new(
-            MemoryAdapter::new(None).unwrap(),
-        )));
+        let verification_key_store = Arc::new(VerificationKeyStore::new(
+            Box::new(MemoryAdapter::new(None).unwrap()),
+            config.store_retention_limit,
+        ));
+        let stake_store = Arc::new(StakeStore::new(
+            Box::new(MemoryAdapter::new(None).unwrap()),
+            config.store_retention_limit,
+        ));
+        let single_signature_store = Arc::new(SingleSignatureStore::new(
+            Box::new(MemoryAdapter::new(None).unwrap()),
+            config.store_retention_limit,
+        ));
+        let protocol_parameters_store = Arc::new(ProtocolParametersStore::new(
+            Box::new(MemoryAdapter::new(None).unwrap()),
+            None,
+        ));
         let multi_signer = MultiSignerImpl::new(
             verification_key_store.clone(),
             stake_store.clone(),

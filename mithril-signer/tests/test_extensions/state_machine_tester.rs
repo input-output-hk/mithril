@@ -56,6 +56,7 @@ impl StateMachineTester {
             party_id: "99999999999999999999999999999999".to_string(),
             run_interval: 5000,
             data_stores_directory: PathBuf::new(),
+            store_retention_limit: None,
         };
 
         let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
@@ -78,11 +79,15 @@ impl StateMachineTester {
         ));
         let certificate_handler = Arc::new(FakeAggregator::new(beacon_provider.clone()));
         let digester = Arc::new(DumbImmutableDigester::new("DIGEST", true));
-        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(Box::new(
-            MemoryAdapter::new(None).unwrap(),
-        )));
+        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
+            Box::new(MemoryAdapter::new(None).unwrap()),
+            config.store_retention_limit,
+        ));
         let single_signer = Arc::new(MithrilSingleSigner::new(config.party_id.clone()));
-        let stake_store = Arc::new(StakeStore::new(Box::new(MemoryAdapter::new(None).unwrap())));
+        let stake_store = Arc::new(StakeStore::new(
+            Box::new(MemoryAdapter::new(None).unwrap()),
+            config.store_retention_limit,
+        ));
 
         let services = SignerServices {
             certificate_handler: certificate_handler.clone(),

@@ -64,6 +64,12 @@ pub struct Configuration {
 
     /// Genesis verification key
     pub genesis_verification_key: String,
+
+    /// Max number of records in stores.
+    /// When new records are added, oldest records are automatically deleted so
+    /// there can always be at max the number of records specified by this
+    /// setting.
+    pub store_retention_limit: Option<usize>,
 }
 
 /// Snapshot store type enumerates the different kinds of snapshot stores.

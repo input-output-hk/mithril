@@ -51,9 +51,13 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         }
 
         let sqlite_db_path = Some(self.config.data_stores_directory.join("signer.sqlite3"));
-        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(Box::new(
-            SQLiteAdapter::new("protocol_initializer", sqlite_db_path.clone())?,
-        )));
+        let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
+            Box::new(SQLiteAdapter::new(
+                "protocol_initializer",
+                sqlite_db_path.clone(),
+            )?),
+            self.config.store_retention_limit,
+        ));
         let single_signer = Arc::new(MithrilSingleSigner::new(self.config.party_id.clone()));
         let certificate_handler = Arc::new(CertificateHandlerHTTPClient::new(
             self.config.aggregator_endpoint.clone(),
@@ -62,10 +66,10 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             self.config.db_directory.clone(),
             slog_scope::logger(),
         ));
-        let stake_store = Arc::new(StakeStore::new(Box::new(SQLiteAdapter::new(
-            "stake",
-            sqlite_db_path,
-        )?)));
+        let stake_store = Arc::new(StakeStore::new(
+            Box::new(SQLiteAdapter::new("stake", sqlite_db_path)?),
+            self.config.store_retention_limit,
+        ));
         let chain_observer = Arc::new(CardanoCliChainObserver::new(Box::new(
             CardanoCliRunner::new(
                 self.config.cardano_cli_path.clone(),
@@ -147,6 +151,7 @@ mod tests {
             run_interval: 1000,
             db_directory: PathBuf::new(),
             data_stores_directory: stores_dir.clone(),
+            store_retention_limit: None,
         };
 
         assert!(!stores_dir.exists());

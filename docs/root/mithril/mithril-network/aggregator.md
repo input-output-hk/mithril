@@ -39,7 +39,7 @@ An important fact is that the **Mithril Aggregator** is trustless:
 
 * Anyone could run an aggregator on the network.
 
-* It does not brodcast any _sensitive_ information (such as the _message_ that needs to be signed). The signer nodes are responsible for computing these information directy from a **Cardano Node** on top of which they run.
+* It does not broadcast any _sensitive_ information (such as the _message_ that needs to be signed). The signer nodes are responsible for computing these information directy from a **Cardano Node** on top of which they run.
 
 Also, in order to aggregate single signatures into **Mithril multi signatures**, the *_Mithril Aggregator_ does not need to represent any share of the total stakes of the **Cardano Network**.
 
@@ -47,7 +47,7 @@ Also, in order to aggregate single signatures into **Mithril multi signatures**,
 
 The **Mithril Aggregator** is in charge of producing the **Mithril multi signatures** and their associated certificates for a part and/or all of the ledger state (the snapshots):
 
-* The previously registered **Mithril Signers** are able to produce individual signatures. They send these individual signatures to the **Mithril Aggregator** that checks their validaty and then store them.
+* The previously registered **Mithril Signers** are able to produce individual signatures. They send these individual signatures to the **Mithril Aggregator** that checks their validity and then store them.
 
 * Once the **quorum** of individual signatures has been reached, the **Mithril Aggregator** is able to produce a multi signature.
 

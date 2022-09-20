@@ -8,7 +8,7 @@ Welcome to the Mithril API references doc!
 
 :::info
 
-This page gathers the exernal developer documentations available for Mithril. They are intended for a technical audience only.
+This page gathers the external developer documentations available for Mithril. They are intended for a technical audience only.
 
 :::
 

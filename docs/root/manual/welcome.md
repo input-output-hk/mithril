@@ -23,7 +23,7 @@ This node is in charge of **producing single signatures that are then combined i
 
 * **Mithril Client**:
 
-This node is in charge of **verifying and restoring a snapshot** that will allow a lightning fast boostrapping of a Cardano full node.
+This node is in charge of **verifying and restoring a snapshot** that will allow a lightning fast bootstrapping of a Cardano full node.
 
 :::tip
 

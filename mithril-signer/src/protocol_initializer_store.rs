@@ -1,18 +1,12 @@
 use async_trait::async_trait;
-use thiserror::Error;
+use mithril_common::store::{StoreError, StorePruner};
 use tokio::sync::RwLock;
 
 use mithril_common::crypto_helper::ProtocolInitializer;
 use mithril_common::entities::Epoch;
-use mithril_common::store::adapter::{AdapterError, StoreAdapter};
+use mithril_common::store::adapter::StoreAdapter;
 
 type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = ProtocolInitializer>>;
-
-#[derive(Debug, Error)]
-pub enum ProtocolInitializerStoreError {
-    #[error("adapter error {0}")]
-    AdapterError(#[from] AdapterError),
-}
 
 #[async_trait]
 /// Store the ProtocolInitializer used for each Epoch. This is useful because
@@ -23,31 +17,49 @@ pub trait ProtocolInitializerStorer: Sync + Send {
         &self,
         epoch: Epoch,
         protocol_initializer: ProtocolInitializer,
-    ) -> Result<Option<ProtocolInitializer>, ProtocolInitializerStoreError>;
+    ) -> Result<Option<ProtocolInitializer>, StoreError>;
 
     /// Fetch a protocol initializer if any saved for the given Epoch.
     async fn get_protocol_initializer(
         &self,
         epoch: Epoch,
-    ) -> Result<Option<ProtocolInitializer>, ProtocolInitializerStoreError>;
+    ) -> Result<Option<ProtocolInitializer>, StoreError>;
 
     /// Return the list of the N last saved protocol initializers if any.
     async fn get_last_protocol_initializer(
         &self,
         last: usize,
-    ) -> Result<Vec<(Epoch, ProtocolInitializer)>, ProtocolInitializerStoreError>;
+    ) -> Result<Vec<(Epoch, ProtocolInitializer)>, StoreError>;
 }
 /// Implementation of the ProtocolInitializerStorer
 pub struct ProtocolInitializerStore {
     adapter: RwLock<Adapter>,
+    retention_limit: Option<usize>,
 }
 
 impl ProtocolInitializerStore {
     /// Create a new ProtocolInitializerStore.
-    pub fn new(adapter: Adapter) -> Self {
+    pub fn new(adapter: Adapter, retention_limit: Option<usize>) -> Self {
         Self {
             adapter: RwLock::new(adapter),
+            retention_limit,
         }
+    }
+}
+
+#[async_trait]
+impl StorePruner for ProtocolInitializerStore {
+    type Key = Epoch;
+    type Record = ProtocolInitializer;
+
+    fn get_adapter(
+        &self,
+    ) -> &RwLock<Box<dyn StoreAdapter<Key = Self::Key, Record = Self::Record>>> {
+        &self.adapter
+    }
+
+    fn get_max_records(&self) -> Option<usize> {
+        self.retention_limit
     }
 }
 
@@ -57,13 +69,14 @@ impl ProtocolInitializerStorer for ProtocolInitializerStore {
         &self,
         epoch: Epoch,
         protocol_initializer: ProtocolInitializer,
-    ) -> Result<Option<ProtocolInitializer>, ProtocolInitializerStoreError> {
+    ) -> Result<Option<ProtocolInitializer>, StoreError> {
         let previous_protocol_initializer = self.adapter.read().await.get_record(&epoch).await?;
         self.adapter
             .write()
             .await
             .store_record(&epoch, &protocol_initializer)
             .await?;
+        self.prune().await?;
 
         Ok(previous_protocol_initializer)
     }
@@ -71,7 +84,7 @@ impl ProtocolInitializerStorer for ProtocolInitializerStore {
     async fn get_protocol_initializer(
         &self,
         epoch: Epoch,
-    ) -> Result<Option<ProtocolInitializer>, ProtocolInitializerStoreError> {
+    ) -> Result<Option<ProtocolInitializer>, StoreError> {
         let record = self.adapter.read().await.get_record(&epoch).await?;
         Ok(record)
     }
@@ -79,7 +92,7 @@ impl ProtocolInitializerStorer for ProtocolInitializerStore {
     async fn get_last_protocol_initializer(
         &self,
         last: usize,
-    ) -> Result<Vec<(Epoch, ProtocolInitializer)>, ProtocolInitializerStoreError> {
+    ) -> Result<Vec<(Epoch, ProtocolInitializer)>, StoreError> {
         let records = self.adapter.read().await.get_last_n_records(last).await?;
 
         Ok(records)
@@ -110,7 +123,7 @@ mod tests {
         values
     }
 
-    fn init_store(nb_epoch: u64) -> ProtocolInitializerStore {
+    fn init_store(nb_epoch: u64, retention_limit: Option<usize>) -> ProtocolInitializerStore {
         let values = setup_protocol_initializers(nb_epoch);
 
         let values = if !values.is_empty() {
@@ -120,13 +133,13 @@ mod tests {
         };
         let adapter: MemoryAdapter<Epoch, ProtocolInitializer> =
             MemoryAdapter::new(values).unwrap();
-        ProtocolInitializerStore::new(Box::new(adapter))
+        ProtocolInitializerStore::new(Box::new(adapter), retention_limit)
     }
 
     #[tokio::test]
     async fn save_key_in_empty_store() {
         let protocol_initializers = setup_protocol_initializers(1);
-        let store = init_store(0);
+        let store = init_store(0, None);
         let res = store
             .save_protocol_initializer(
                 protocol_initializers[0].0,
@@ -141,7 +154,7 @@ mod tests {
     #[tokio::test]
     async fn update_protocol_initializer_in_store() {
         let protocol_initializers = setup_protocol_initializers(2);
-        let store = init_store(1);
+        let store = init_store(1, None);
         let res = store
             .save_protocol_initializer(
                 protocol_initializers[0].0,
@@ -156,7 +169,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_protocol_initializer_for_empty_epoch() {
-        let store = init_store(2);
+        let store = init_store(2, None);
         let res = store.get_protocol_initializer(Epoch(0)).await.unwrap();
 
         assert!(res.is_none());
@@ -164,9 +177,28 @@ mod tests {
 
     #[tokio::test]
     async fn get_protocol_initializer_for_existing_epoch() {
-        let store = init_store(2);
+        let store = init_store(2, None);
         let res = store.get_protocol_initializer(Epoch(1)).await.unwrap();
 
         assert!(res.is_some());
+    }
+
+    #[tokio::test]
+    async fn check_retention_limit() {
+        let store = init_store(4, Some(2));
+        let protocol_initializers = setup_protocol_initializers(1);
+        let _ = store
+            .save_protocol_initializer(
+                protocol_initializers[0].0,
+                (&protocol_initializers[0].1).to_owned(),
+            )
+            .await
+            .unwrap();
+
+        assert!(store
+            .get_protocol_initializer(Epoch(1))
+            .await
+            .unwrap()
+            .is_none());
     }
 }

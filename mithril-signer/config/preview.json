@@ -4,5 +4,6 @@
     "party_id": 0,
     "run_interval": 20000,
     "db_directory": "/db",
-    "data_stores_directory": "./mithril-signer/stores"
+    "data_stores_directory": "./mithril-signer/stores",
+    "store_retention_limit": 5
 }

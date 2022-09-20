@@ -281,6 +281,7 @@ mod tests {
             run_interval: 100,
             db_directory: Path::new("./db").to_path_buf(),
             data_stores_directory: Path::new("./stores").to_path_buf(),
+            store_retention_limit: None,
         };
         (server, config)
     }

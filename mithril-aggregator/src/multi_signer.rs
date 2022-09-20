@@ -799,37 +799,45 @@ mod tests {
                 None,
             )
             .unwrap(),
-        ));
-        let stake_store = StakeStore::new(Box::new(
-            MemoryAdapter::<entities::Epoch, HashMap<entities::PartyId, entities::Stake>>::new(
-                None,
-            )
-            .unwrap(),
-        ));
-        let single_signature_store =
-            SingleSignatureStore::new(Box::new(
+        ), None);
+        let stake_store = StakeStore::new(
+            Box::new(
+                MemoryAdapter::<entities::Epoch, HashMap<entities::PartyId, entities::Stake>>::new(
+                    None,
+                )
+                .unwrap(),
+            ),
+            None,
+        );
+        let single_signature_store = SingleSignatureStore::new(
+            Box::new(
                 MemoryAdapter::<
                     entities::Beacon,
                     HashMap<entities::PartyId, entities::SingleSignatures>,
                 >::new(None)
                 .unwrap(),
-            ));
-        let protocol_parameters_store = ProtocolParametersStore::new(Box::new(
-            MemoryAdapter::<entities::Epoch, entities::ProtocolParameters>::new(Some(vec![
-                (
-                    beacon.epoch.offset_to_signer_retrieval_epoch().unwrap(),
-                    fake_data::protocol_parameters(),
-                ),
-                (
-                    beacon
-                        .epoch
-                        .offset_to_next_signer_retrieval_epoch()
-                        .unwrap(),
-                    fake_data::protocol_parameters(),
-                ),
-            ]))
-            .unwrap(),
-        ));
+            ),
+            None,
+        );
+        let protocol_parameters_store = ProtocolParametersStore::new(
+            Box::new(
+                MemoryAdapter::<entities::Epoch, entities::ProtocolParameters>::new(Some(vec![
+                    (
+                        beacon.epoch.offset_to_signer_retrieval_epoch().unwrap(),
+                        fake_data::protocol_parameters(),
+                    ),
+                    (
+                        beacon
+                            .epoch
+                            .offset_to_next_signer_retrieval_epoch()
+                            .unwrap(),
+                        fake_data::protocol_parameters(),
+                    ),
+                ]))
+                .unwrap(),
+            ),
+            None,
+        );
         let mut multi_signer = MultiSignerImpl::new(
             Arc::new(verification_key_store),
             Arc::new(stake_store),
