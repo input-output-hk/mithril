@@ -150,6 +150,7 @@ Replace this value with the correct user. We assume that the user used to run th
   * `CARDANO_NODE_SOCKET_PATH=/cardano/ipc/node.socket`: replace with the path to the IPC file (`CARDANO_NODE_SOCKET_PATH` env var)
   * `CARDANO_CLI_PATH=/app/bin/cardano-cli`: replace with the path to the `cardano-cli` executable
   * `DATA_STORES_DIRECTORY=/opt/mithril/mithril-signer/stores`: replace with the path to a folder where the **Mithril Signer** will store its data (`/opt/mithril/mithril-signer/stores` e.g.)
+  * `STORE_RETENTION_LIMIT`: if set, this will limit the number of records in some internal stores (5 is a good fit).
 
 :::
 
@@ -160,10 +161,12 @@ sudo cat > /opt/mithril/mithril-signer.env << EOF
 PARTY_ID=YOUR_POOL_ID_BECH32
 NETWORK=testnet
 AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator
-RUN_INTERVAL=60000 DB_DIRECTORY=/cardano/db
+RUN_INTERVAL=60000
+DB_DIRECTORY=/cardano/db
 CARDANO_NODE_SOCKET_PATH=/cardano/ipc/node.socket
 CARDANO_CLI_PATH=/app/bin/cardano-cli
 DATA_STORES_DIRECTORY=/opt/mithril/mithril-signer/stores
+STORE_RETENTION_LIMIT=5
 EOF
 ```
 
