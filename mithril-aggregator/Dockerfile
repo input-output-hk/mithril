@@ -20,7 +20,8 @@ COPY Cargo.lock /mithril-common/
 # Build the app using a dummy main in order to cache dependencies
 COPY mithril-aggregator/Cargo.toml /app
 COPY Cargo.lock /app/
-RUN mkdir -p /app/src/ && echo "fn  main () {}" > /app/src/main.rs
+COPY ./mithril-aggregator /app/
+RUN rm -f /app/src/main.rs && echo "fn  main () {}" > /app/src/main.rs
 RUN cargo build --release --manifest-path /app/Cargo.toml
 
 # Copy the rest of the files into the container
