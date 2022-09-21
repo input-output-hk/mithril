@@ -2,7 +2,7 @@
 //! See Section 2.4 of [the paper](https://eprint.iacr.org/2021/916).
 //! This module uses the `blst` library as a backend for pairings.
 
-use crate::error::{blst_err_to_atms, MultiSignatureError};
+use crate::error::{blst_err_to_mithril, MultiSignatureError};
 use crate::stm::Index;
 use blake2::{digest::consts::U16, Blake2b, Blake2b512, Digest};
 
@@ -13,7 +13,9 @@ use blst::min_sig::{
     Signature as BlstSig,
 };
 use blst::{
-    blst_p1, blst_p1_affine, blst_p1_compress, blst_p1_from_affine, blst_p1_uncompress, blst_scalar,
+    blst_p1, blst_p1_affine, blst_p1_compress, blst_p1_from_affine, blst_p1_to_affine,
+    blst_p1_uncompress, blst_p2, blst_p2_affine, blst_p2_from_affine, blst_p2_to_affine,
+    blst_scalar, p1_affines, p2_affines,
 };
 
 use rand_core::{CryptoRng, RngCore};
@@ -65,7 +67,7 @@ impl SigningKey {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
         match BlstSk::from_bytes(&bytes[..32]) {
             Ok(sk) => Ok(Self(sk)),
-            Err(e) => Err(blst_err_to_atms(e, None)
+            Err(e) => Err(blst_err_to_mithril(e, None)
                 .expect_err("If deserialisation is not successful, blst returns and error different to SUCCESS."))
         }
     }
@@ -110,7 +112,7 @@ impl VerificationKey {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
         match BlstPk::key_validate(&bytes[..96]) {
             Ok(pk) => Ok(Self(pk)),
-            Err(e) => Err(blst_err_to_atms(e, None)
+            Err(e) => Err(blst_err_to_mithril(e, None)
                 .expect_err("If deserialisation is not successful, blst returns and error different to SUCCESS."))
         }
     }
@@ -229,8 +231,8 @@ impl VerificationKeyPoP {
     // two final exponantiations (for verifying k1 and k2) into a single one.
     pub fn check(&self) -> Result<(), MultiSignatureError> {
         use blst::{
-            blst_fp12, blst_fp12_finalverify, blst_p1_affine_generator, blst_p1_to_affine,
-            blst_p2_affine, blst_p2_affine_generator, BLST_ERROR,
+            blst_fp12, blst_fp12_finalverify, blst_p1_affine_generator, blst_p2_affine_generator,
+            BLST_ERROR,
         };
         let result = unsafe {
             let g1_p = *blst_p1_affine_generator();
@@ -300,7 +302,7 @@ impl ProofOfPossession {
         let k1 = match BlstSig::from_bytes(&bytes[..48]) {
             Ok(key) => key,
             Err(e) => {
-                return Err(blst_err_to_atms(e, None)
+                return Err(blst_err_to_mithril(e, None)
                     .expect_err("If it passed, blst returns and error different to SUCCESS."))
             }
         };
@@ -343,7 +345,7 @@ impl<'a> Sum<&'a Self> for Signature {
 impl Signature {
     /// Verify a signature against a verification key.
     pub fn verify(&self, msg: &[u8], mvk: &VerificationKey) -> Result<(), MultiSignatureError> {
-        blst_err_to_atms(
+        blst_err_to_mithril(
             self.0.verify(false, msg, &[], &[], &mvk.0, false),
             Some(*self),
         )
@@ -379,7 +381,7 @@ impl Signature {
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
         match BlstSig::sig_validate(&bytes[..48], true) {
             Ok(sig) => Ok(Self(sig)),
-            Err(e) => Err(blst_err_to_atms(e, None)
+            Err(e) => Err(blst_err_to_mithril(e, None)
                 .expect_err("If deserialisation is not successful, blst returns and error different to SUCCESS."))
         }
     }
@@ -408,39 +410,65 @@ impl Signature {
         vks: &[VerificationKey],
         sigs: &[Signature],
     ) -> Result<(), MultiSignatureError> {
+        if vks.len() != sigs.len() || vks.len() < 2 {
+            return Err(MultiSignatureError::AggregateSignatureInvalid);
+        }
         let mut hashed_sigs = Blake2b::<U16>::new();
         for sig in sigs {
             hashed_sigs.update(sig.to_bytes());
         }
 
         // First we generate the scalars
-        let mut scalar_bytes = [0u8; 32];
-        let mut scalars = Vec::with_capacity(vks.len());
-        let mut messages = Vec::with_capacity(vks.len());
+        let mut scalars = Vec::with_capacity(vks.len() * 128);
         let mut signatures = Vec::with_capacity(vks.len());
         for (index, sig) in sigs.iter().enumerate() {
             let mut hasher = hashed_sigs.clone();
-            hasher.update(index.to_be_bytes());
-            signatures.push(&sig.0);
-            scalar_bytes[..16].copy_from_slice(hasher.finalize().as_slice());
-            scalars.push(blst_scalar { b: scalar_bytes });
-            messages.push(msg); // todo: can we do this for the same message??
+            hasher.update(&index.to_be_bytes());
+            signatures.push(sig.0);
+            scalars.extend_from_slice(hasher.finalize().as_slice());
         }
 
-        let vks = vks.iter().map(|pk| &pk.0).collect::<Vec<&BlstPk>>();
+        let transmuted_vks: Vec<blst_p2> = vks
+            .iter()
+            .map(|pk| unsafe {
+                let mut projective_p2 = blst_p2::default();
+                blst_p2_from_affine(
+                    &mut projective_p2,
+                    &std::mem::transmute::<BlstPk, blst_p2_affine>(pk.0),
+                );
+                projective_p2
+            })
+            .collect();
 
-        blst_err_to_atms(
-            BlstSig::verify_multiple_aggregate_signatures(
-                &messages,
-                &[],
-                &vks,
-                false,
-                &signatures,
-                false,
-                &scalars,
-                128,
-            ),
-            None,
+        let transmuted_sigs: Vec<blst_p1> = signatures
+            .iter()
+            .map(|&sig| unsafe {
+                let mut projective_p1 = blst_p1::default();
+                blst_p1_from_affine(
+                    &mut projective_p1,
+                    &std::mem::transmute::<BlstSig, blst_p1_affine>(sig),
+                );
+                projective_p1
+            })
+            .collect();
+
+        let grouped_pks = p2_affines::from(transmuted_vks.as_slice());
+        let grouped_sigs = p1_affines::from(transmuted_sigs.as_slice());
+
+        let aggr_pk: BlstPk = unsafe {
+            let mut affine_p2 = blst_p2_affine::default();
+            blst_p2_to_affine(&mut affine_p2, &grouped_pks.mult(scalars.as_slice(), 128));
+            std::mem::transmute::<blst_p2_affine, BlstPk>(affine_p2)
+        };
+        let aggr_sig: BlstSig = unsafe {
+            let mut affine_p1 = blst_p1_affine::default();
+            blst_p1_to_affine(&mut affine_p1, &grouped_sigs.mult(scalars.as_slice(), 128));
+            std::mem::transmute::<blst_p1_affine, BlstSig>(affine_p1)
+        };
+
+        blst_err_to_mithril(
+            aggr_sig.verify(false, msg, &[], &[], &aggr_pk, false),
+            Some(Signature(aggr_sig)),
         )
     }
 }
@@ -568,7 +596,7 @@ mod tests {
 
         #[test]
         fn test_aggregate_sig(msg in prop::collection::vec(any::<u8>(), 1..128),
-                              num_sigs in 1..16,
+                              num_sigs in 2..16,
                               seed in any::<[u8;32]>(),
         ) {
             let mut rng = ChaCha20Rng::from_seed(seed);
@@ -582,9 +610,8 @@ mod tests {
                 sigs.push(sig);
                 mvks.push(pk);
             }
-            let ivk = mvks.iter().sum();
-            let mu: Signature = sigs.iter().sum();
-            assert!(mu.verify(&msg, &ivk).is_ok());
+
+            assert!(Signature::verify_aggregate(&msg, &mvks, &sigs).is_ok());
         }
 
         #[test]

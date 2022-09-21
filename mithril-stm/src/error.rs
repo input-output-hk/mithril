@@ -182,7 +182,7 @@ impl From<MultiSignatureError> for RegisterError {
 
 /// If verifying a single signature, the signature should be provided. If verifying a multi-sig,
 /// no need to provide the signature
-pub(crate) fn blst_err_to_atms(
+pub(crate) fn blst_err_to_mithril(
     e: BLST_ERROR,
     sig: Option<Signature>,
 ) -> Result<(), MultiSignatureError> {
