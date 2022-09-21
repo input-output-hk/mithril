@@ -998,6 +998,8 @@ cat >> docker-compose.yaml <<EOF
       - DATA_STORES_DIRECTORY=/data/mithril/signer-${NODE}/stores
       - CARDANO_NODE_SOCKET_PATH=/data/ipc/node.sock
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
+      - KES_SECRET_KEY_PATH=/data/shelley/kes.skey
+      - OPERATIONAL_CERTIFICATE_PATH=/data/shelley/node.cert
     command:
       [
         "-vvv"
