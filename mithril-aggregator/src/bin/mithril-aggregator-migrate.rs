@@ -13,7 +13,7 @@ use mithril_common::{
     crypto_helper::ProtocolParameters,
     entities::{
         Beacon, Certificate, CertificatePending, Epoch, PartyId, Signer, SingleSignatures,
-        StakeDistribution,
+        Snapshot, StakeDistribution,
     },
     store::adapter::{JsonFileStoreAdapter, SQLiteAdapter},
     store::adapter_migration::AdapterMigration,
@@ -106,11 +106,16 @@ enum StoreType {
     Stake,
     SingleSignature,
     ProtocolParameters,
+    Snapshot,
 }
 
 impl StoreType {
     pub async fn migrate(&self, input_file: &Path, output_file: &Path) -> ApplicationResult<()> {
         match self {
+            StoreType::Snapshot => {
+                println!("Migrating snapshot_store data…");
+                migrate_one::<String, Snapshot>(input_file, output_file, "snapshot").await?;
+            }
             StoreType::CertificatePending => {
                 println!("Migrating certificate_pending_store data…");
                 migrate_one::<String, CertificatePending>(
@@ -193,6 +198,7 @@ impl AutomaticMigrationCommand {
         migrate(base_dir, "single_signature", StoreType::SingleSignature).await?;
         migrate(base_dir, "verification_key", StoreType::VerificationKey).await?;
         migrate(base_dir, "stake", StoreType::Stake).await?;
+        migrate(base_dir, "snapshot", StoreType::Snapshot).await?;
 
         Ok(())
     }
