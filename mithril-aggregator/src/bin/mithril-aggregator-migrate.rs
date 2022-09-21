@@ -116,7 +116,7 @@ impl StoreType {
                 migrate_one::<String, CertificatePending>(
                     input_file,
                     output_file,
-                    "certificate_pending",
+                    "pending_certificate",
                 )
                 .await?;
             }
