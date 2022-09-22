@@ -7,9 +7,9 @@ use crate::stm::Index;
 use blake2::{digest::consts::U16, Blake2b, Blake2b512, Digest};
 
 // We use `min_sig` resulting in signatures of 48 bytes and public keys of
-// 96. We can switch that around if desired by using `min_pk`.
+// 96. We can switch that around if desired by using `min_vk`.
 use blst::min_sig::{
-    AggregatePublicKey, AggregateSignature, PublicKey as BlstPk, SecretKey as BlstSk,
+    AggregatePublicKey, AggregateSignature, PublicKey as BlstVk, SecretKey as BlstSk,
     Signature as BlstSig,
 };
 use blst::{
@@ -73,10 +73,10 @@ impl SigningKey {
     }
 }
 
-/// MultiSig verification key, which is a wrapper over the BlstPk (element in G2)
+/// MultiSig verification key, which is a wrapper over the BlstVk (element in G2)
 /// from the blst library.
 #[derive(Debug, Clone, Copy, Default)]
-pub struct VerificationKey(BlstPk);
+pub struct VerificationKey(pub(crate) BlstVk);
 
 impl Display for VerificationKey {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -110,8 +110,8 @@ impl VerificationKey {
     /// This function fails if the bytes do not represent a compressed point of the prime
     /// order subgroup of the curve Bls12-381.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
-        match BlstPk::key_validate(&bytes[..96]) {
-            Ok(pk) => Ok(Self(pk)),
+        match BlstVk::key_validate(&bytes[..96]) {
+            Ok(vk) => Ok(Self(vk)),
             Err(e) => Err(blst_err_to_mithril(e, None)
                 .expect_err("If deserialisation is not successful, blst returns and error different to SUCCESS."))
         }
@@ -152,7 +152,7 @@ impl<'a> Sum<&'a Self> for VerificationKey {
     where
         I: Iterator<Item = &'a Self>,
     {
-        let keys: Vec<&BlstPk> = iter.map(|x| &x.0).collect();
+        let keys: Vec<&BlstVk> = iter.map(|x| &x.0).collect();
 
         assert!(!keys.is_empty(), "One cannot add an empty vector");
         let aggregate_key = AggregatePublicKey::aggregate(&keys, false)
@@ -212,7 +212,7 @@ impl From<&SigningKey> for ProofOfPossession {
 }
 
 impl From<&SigningKey> for VerificationKeyPoP {
-    /// Convert a secret key into an `MspPk` by simply converting to a
+    /// Convert a secret key into a `VerificationKeyPoP` by simply converting to a
     /// `MspMvk` and `MspPoP`.
     fn from(sk: &SigningKey) -> Self {
         Self {
@@ -236,7 +236,7 @@ impl VerificationKeyPoP {
         };
         let result = unsafe {
             let g1_p = *blst_p1_affine_generator();
-            let mvk_p = std::mem::transmute::<&BlstPk, &blst_p2_affine>(&self.vk.0);
+            let mvk_p = std::mem::transmute::<&BlstVk, &blst_p2_affine>(&self.vk.0);
             let ml_lhs = blst_fp12::miller_loop(mvk_p, &g1_p);
 
             let mut k2_p = blst_p1_affine::default();
@@ -262,10 +262,10 @@ impl VerificationKeyPoP {
     /// * Public key
     /// * Proof of Possession
     pub fn to_bytes(self) -> [u8; 192] {
-        let mut pkpop_bytes = [0u8; 192];
-        pkpop_bytes[..96].copy_from_slice(&self.vk.to_bytes());
-        pkpop_bytes[96..].copy_from_slice(&self.pop.to_bytes());
-        pkpop_bytes
+        let mut vkpop_bytes = [0u8; 192];
+        vkpop_bytes[..96].copy_from_slice(&self.vk.to_bytes());
+        vkpop_bytes[96..].copy_from_slice(&self.pop.to_bytes());
+        vkpop_bytes
     }
 
     /// Deserialise a byte string to a `PublicKeyPoP`.
@@ -325,7 +325,7 @@ impl ProofOfPossession {
 
 /// MultiSig signature, which is a wrapper over the `BlstSig` type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Signature(BlstSig);
+pub struct Signature(pub(crate) BlstSig);
 
 impl<'a> Sum<&'a Self> for Signature {
     fn sum<I>(iter: I) -> Self
@@ -402,17 +402,18 @@ impl Signature {
         result
     }
 
-    /// Verify a set of signatures with their corresponding verification keys by first hashing the
-    /// signatures into random scalars, and multiplying the signature and verification key with
-    /// the resulting value. This follows the steps defined in Figure 6, `Aggregate` step.
-    pub(crate) fn verify_aggregate(
-        msg: &[u8],
+    pub(crate) fn aggregate(
         vks: &[VerificationKey],
         sigs: &[Signature],
-    ) -> Result<(), MultiSignatureError> {
-        if vks.len() != sigs.len() || vks.len() < 2 {
+    ) -> Result<(BlstVk, BlstSig), MultiSignatureError> {
+        if vks.len() != sigs.len() || vks.is_empty() {
             return Err(MultiSignatureError::AggregateSignatureInvalid);
         }
+
+        if vks.len() < 2 {
+            return Ok((vks[0].0, sigs[0].0));
+        }
+
         let mut hashed_sigs = Blake2b::<U16>::new();
         for sig in sigs {
             hashed_sigs.update(sig.to_bytes());
@@ -430,11 +431,11 @@ impl Signature {
 
         let transmuted_vks: Vec<blst_p2> = vks
             .iter()
-            .map(|pk| unsafe {
+            .map(|vk| unsafe {
                 let mut projective_p2 = blst_p2::default();
                 blst_p2_from_affine(
                     &mut projective_p2,
-                    &std::mem::transmute::<BlstPk, blst_p2_affine>(pk.0),
+                    &std::mem::transmute::<BlstVk, blst_p2_affine>(vk.0),
                 );
                 projective_p2
             })
@@ -452,13 +453,13 @@ impl Signature {
             })
             .collect();
 
-        let grouped_pks = p2_affines::from(transmuted_vks.as_slice());
+        let grouped_vks = p2_affines::from(transmuted_vks.as_slice());
         let grouped_sigs = p1_affines::from(transmuted_sigs.as_slice());
 
-        let aggr_pk: BlstPk = unsafe {
+        let aggr_vk: BlstVk = unsafe {
             let mut affine_p2 = blst_p2_affine::default();
-            blst_p2_to_affine(&mut affine_p2, &grouped_pks.mult(scalars.as_slice(), 128));
-            std::mem::transmute::<blst_p2_affine, BlstPk>(affine_p2)
+            blst_p2_to_affine(&mut affine_p2, &grouped_vks.mult(scalars.as_slice(), 128));
+            std::mem::transmute::<blst_p2_affine, BlstVk>(affine_p2)
         };
         let aggr_sig: BlstSig = unsafe {
             let mut affine_p1 = blst_p1_affine::default();
@@ -466,9 +467,48 @@ impl Signature {
             std::mem::transmute::<blst_p1_affine, BlstSig>(affine_p1)
         };
 
+        Ok((aggr_vk, aggr_sig))
+    }
+
+    /// Verify a set of signatures with their corresponding verification keys by first hashing the
+    /// signatures into random scalars, and multiplying the signature and verification key with
+    /// the resulting value. This follows the steps defined in Figure 6, `Aggregate` step.
+    pub(crate) fn verify_aggregate(
+        msg: &[u8],
+        vks: &[VerificationKey],
+        sigs: &[Signature],
+    ) -> Result<(), MultiSignatureError> {
+        let (aggr_vk, aggr_sig) = Self::aggregate(vks, sigs)?;
+
         blst_err_to_mithril(
-            aggr_sig.verify(false, msg, &[], &[], &aggr_pk, false),
+            aggr_sig.verify(false, msg, &[], &[], &aggr_vk, false),
             Some(Signature(aggr_sig)),
+        )
+    }
+
+    /// Batch verify several sets of signatures with their corresponding verification keys.
+    pub(crate) fn batch_verify_aggregates(
+        msgs: &[Vec<u8>],
+        vks: &[VerificationKey],
+        sigs: &[Signature],
+    ) -> Result<(), MultiSignatureError> {
+        let batched_sig: BlstSig = match AggregateSignature::aggregate(
+            &(sigs.iter().map(|sig| &sig.0).collect::<Vec<&BlstSig>>()),
+            false,
+        ) {
+            Ok(sig) => BlstSig::from_aggregate(&sig),
+            Err(e) => return blst_err_to_mithril(e, None),
+        };
+
+        let p2_vks: Vec<&BlstVk> = vks.iter().map(|vk| &vk.0).collect();
+        let slice_msgs = msgs
+            .iter()
+            .map(|msg| msg.as_slice())
+            .collect::<Vec<&[u8]>>();
+
+        blst_err_to_mithril(
+            batched_sig.aggregate_verify(false, &slice_msgs, &[], &p2_vks, false),
+            None,
         )
     }
 }
@@ -560,14 +600,6 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::{OsRng, SeedableRng};
 
-    impl PartialEq for SigningKey {
-        fn eq(&self, other: &Self) -> bool {
-            self.0.to_bytes() == other.0.to_bytes()
-        }
-    }
-
-    impl Eq for SigningKey {}
-
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(1000))]
 
@@ -577,9 +609,9 @@ mod tests {
             seed in any::<[u8;32]>(),
         ) {
             let sk = SigningKey::gen(&mut ChaCha20Rng::from_seed(seed));
-            let pk = VerificationKey::from(&sk);
+            let vk = VerificationKey::from(&sk);
             let sig = sk.sign(&msg);
-            assert!(sig.verify(&msg, &pk).is_ok());
+            assert!(sig.verify(&msg, &vk).is_ok());
         }
 
         #[test]
@@ -588,10 +620,10 @@ mod tests {
         ) {
             let mut rng = ChaCha20Rng::from_seed(seed);
             let sk1 = SigningKey::gen(&mut rng);
-            let pk1 = VerificationKey::from(&sk1);
+            let vk1 = VerificationKey::from(&sk1);
             let sk2 = SigningKey::gen(&mut rng);
             let fake_sig = sk2.sign(&msg);
-            assert!(fake_sig.verify(&msg, &pk1).is_err());
+            assert!(fake_sig.verify(&msg, &vk1).is_err());
         }
 
         #[test]
@@ -604,11 +636,11 @@ mod tests {
             let mut sigs = Vec::new();
             for _ in 0..num_sigs {
                 let sk = SigningKey::gen(&mut rng);
-                let pk = VerificationKey::from(&sk);
+                let vk = VerificationKey::from(&sk);
                 let sig = sk.sign(&msg);
-                assert!(sig.verify(&msg, &pk).is_ok());
+                assert!(sig.verify(&msg, &vk).is_ok());
                 sigs.push(sig);
-                mvks.push(pk);
+                mvks.push(vk);
             }
 
             assert!(Signature::verify_aggregate(&msg, &mvks, &sigs).is_ok());
@@ -624,26 +656,26 @@ mod tests {
         }
 
         #[test]
-        fn serialize_deserialize_pk(seed in any::<u64>()) {
+        fn serialize_deserialize_vk(seed in any::<u64>()) {
             let mut rng = rand_chacha::ChaCha8Rng::seed_from_u64(seed);
             let sk = SigningKey::gen(&mut rng);
             let vk = VerificationKey::from(&sk);
             let vk_bytes = vk.to_bytes();
             let vk2 = VerificationKey::from_bytes(&vk_bytes).unwrap();
             assert_eq!(vk, vk2);
-            let pk = VerificationKeyPoP::from(&sk);
-            let pk_bytes = pk.to_bytes();
-            let pk2: VerificationKeyPoP = VerificationKeyPoP::from_bytes(&pk_bytes).unwrap();
-            assert_eq!(pk, pk2);
+            let vkpop = VerificationKeyPoP::from(&sk);
+            let vkpop_bytes = vkpop.to_bytes();
+            let vkpop2: VerificationKeyPoP = VerificationKeyPoP::from_bytes(&vkpop_bytes).unwrap();
+            assert_eq!(vkpop, vkpop2);
 
             // Now we test serde
             let encoded = bincode::serialize(&vk).unwrap();
             assert_eq!(encoded, vk_bytes);
             let decoded: VerificationKey = bincode::deserialize(&encoded).unwrap();
             assert_eq!(vk, decoded);
-            let encoded = bincode::serialize(&pk).unwrap();
+            let encoded = bincode::serialize(&vkpop).unwrap();
             let decoded: VerificationKeyPoP = bincode::deserialize(&encoded).unwrap();
-            assert_eq!(pk, decoded);
+            assert_eq!(vkpop, decoded);
         }
 
         #[test]
@@ -663,14 +695,52 @@ mod tests {
             let decoded_bytes: SigningKey = bincode::deserialize(&sk_bytes).unwrap();
             assert_eq!(sk, decoded_bytes);
         }
+
+        #[test]
+        fn batch_verify(num_batches in 2..10usize,
+                              seed in any::<[u8;32]>(),
+        ) {
+            let mut rng = ChaCha20Rng::from_seed(seed);
+            let num_sigs = 10;
+            let mut batch_msgs = Vec::new();
+            let mut batch_vk = Vec::new();
+            let mut batch_sig = Vec::new();
+            for _ in 0..num_batches {
+                let mut msg = [0u8; 32];
+                rng.fill_bytes(&mut msg);
+                let mut mvks = Vec::new();
+                let mut sigs = Vec::new();
+                for _ in 0..num_sigs {
+                    let sk = SigningKey::gen(&mut rng);
+                    let vk = VerificationKey::from(&sk);
+                    let sig = sk.sign(&msg);
+                    sigs.push(sig);
+                    mvks.push(vk);
+                }
+                assert!(Signature::verify_aggregate(&msg, &mvks, &sigs).is_ok());
+                let (agg_vk, agg_sig) = Signature::aggregate(&mvks, &sigs).unwrap();
+                batch_msgs.push(msg.to_vec());
+                batch_vk.push(VerificationKey(agg_vk));
+                batch_sig.push(Signature(agg_sig));
+            }
+            assert!(Signature::batch_verify_aggregates(&batch_msgs, &batch_vk, &batch_sig).is_ok());
+        }
     }
+
+    impl PartialEq for SigningKey {
+        fn eq(&self, other: &Self) -> bool {
+            self.0.to_bytes() == other.0.to_bytes()
+        }
+    }
+
+    impl Eq for SigningKey {}
 
     #[test]
     fn test_gen() {
         for _ in 0..128 {
             let sk = SigningKey::gen(&mut OsRng);
-            let pk = VerificationKeyPoP::from(&sk);
-            assert!(pk.check().is_ok());
+            let vk = VerificationKeyPoP::from(&sk);
+            assert!(vk.check().is_ok());
         }
     }
 }

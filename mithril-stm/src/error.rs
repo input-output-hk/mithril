@@ -25,6 +25,10 @@ pub enum MultiSignatureError {
     /// Incorrect proof of possession
     #[error("Key with invalid PoP")]
     KeyInvalid(Box<VerificationKeyPoP>),
+
+    /// At least one signature in the batch is invalid
+    #[error("One signature in the batch is invalid")]
+    BatchInvalid,
 }
 
 /// Errors which can be output by Mithril single signature verification.
@@ -45,6 +49,10 @@ pub enum StmSignatureError {
     /// A party submitted an invalid signature
     #[error("A provided signature is invalid")]
     SignatureInvalid(Signature),
+
+    /// Batch verification of STM signatures failed
+    #[error("Batch verification of STM signatures failed")]
+    BatchInvalid,
 
     /// This error occurs when the the serialization of the raw bytes failed
     #[error("Invalid bytes")]
@@ -146,6 +154,7 @@ impl From<MultiSignatureError> for StmSignatureError {
         match e {
             MultiSignatureError::SerializationError => Self::SerializationError,
             MultiSignatureError::SignatureInvalid(e) => Self::SignatureInvalid(e),
+            MultiSignatureError::BatchInvalid => Self::BatchInvalid,
             MultiSignatureError::KeyInvalid(_) => unreachable!(),
             MultiSignatureError::AggregateSignatureInvalid => unreachable!(),
         }
@@ -176,6 +185,7 @@ impl From<MultiSignatureError> for RegisterError {
             MultiSignatureError::KeyInvalid(e) => Self::KeyInvalid(e),
             MultiSignatureError::SignatureInvalid(_) => unreachable!(),
             MultiSignatureError::AggregateSignatureInvalid => unreachable!(),
+            MultiSignatureError::BatchInvalid => unreachable!(),
         }
     }
 }
