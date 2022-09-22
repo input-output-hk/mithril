@@ -220,25 +220,14 @@ where
     }
 
     async fn remove(&mut self, key: &Self::Key) -> Result<Option<Self::Record>> {
+        let sql = format!(
+            "delete from {} where key_hash = ?1 returning value",
+            self.table
+        );
         let connection = self.connection.lock().await;
-        let sql = "begin transaction";
-        connection
-            .execute(sql)
-            .map_err(|e| AdapterError::QueryError(e.into()))?;
-        let sql = format!("select value from {} where key_hash = ?1", self.table);
         let statement = self.get_statement_for_key(&connection, sql, key)?;
-        let result = self.fetch_maybe_one_value(statement);
-        let sql = format!("delete from {} where key_hash = ?1", self.table);
-        let mut statement = self.get_statement_for_key(&connection, sql, key)?;
-        statement
-            .next()
-            .map_err(|e| AdapterError::QueryError(e.into()))?;
-        let sql = "commit transaction";
-        connection
-            .execute(sql)
-            .map_err(|e| AdapterError::QueryError(e.into()))?;
 
-        result
+        self.fetch_maybe_one_value(statement)
     }
 
     async fn get_iter(&self) -> Result<Box<dyn Iterator<Item = Self::Record> + '_>> {
