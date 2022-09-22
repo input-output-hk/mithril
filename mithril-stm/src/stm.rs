@@ -1049,7 +1049,7 @@ mod tests {
 
         #[test]
         /// Test that batch verification of certificates works
-        fn test_batch_verify(nparties in 2_usize..30,
+        fn batch_verify(nparties in 2_usize..30,
                               m in 10_u64..20,
                               k in 1_u64..5,
                               seed in any::<[u8;32]>(),
@@ -1076,8 +1076,21 @@ mod tests {
                 batch_msgs.push(msg.to_vec());
                 batch_params.push(params);
             }
-            StmAggrSig::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params).unwrap();
-            // assert!(StmAggrSig::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params).is_ok());
+
+            assert!(StmAggrSig::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params).is_ok());
+
+            let mut msg = [0u8; 32];
+            rng.fill_bytes(&mut msg);
+            let params = StmParameters { m, k, phi_f: 0.8 };
+            let ps = setup_equal_parties(params, nparties);
+            let clerk = StmClerk::from_signer(&ps[0]);
+
+            let all_ps: Vec<usize> = (0..nparties).collect();
+            let sigs = find_signatures(&msg, &ps, &all_ps);
+            let fake_msig = clerk.aggregate(&sigs, &msg);
+
+            aggr_stms[0] = fake_msig.unwrap();
+            assert!(StmAggrSig::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params).is_err());
         }
     }
 

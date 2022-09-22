@@ -724,6 +724,15 @@ mod tests {
                 batch_sig.push(Signature(agg_sig));
             }
             assert!(Signature::batch_verify_aggregates(&batch_msgs, &batch_vk, &batch_sig).is_ok());
+
+            // If we have an invalid signature, the batch verification will fail
+            let mut msg = [0u8; 32];
+            rng.fill_bytes(&mut msg);
+            let sk = SigningKey::gen(&mut rng);
+            let fake_sig = sk.sign(&msg);
+            batch_sig[0] = fake_sig;
+
+            assert!(Signature::batch_verify_aggregates(&batch_msgs, &batch_vk, &batch_sig).is_err());
         }
     }
 
