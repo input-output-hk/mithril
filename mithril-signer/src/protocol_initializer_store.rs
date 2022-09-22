@@ -143,7 +143,7 @@ mod tests {
         let res = store
             .save_protocol_initializer(
                 protocol_initializers[0].0,
-                (&protocol_initializers[0].1).to_owned(),
+                protocol_initializers[0].1.clone(),
             )
             .await
             .unwrap();
@@ -158,7 +158,7 @@ mod tests {
         let res = store
             .save_protocol_initializer(
                 protocol_initializers[0].0,
-                (&protocol_initializers[1].1).to_owned(),
+                protocol_initializers[1].1.clone(),
             )
             .await
             .unwrap();
@@ -190,7 +190,7 @@ mod tests {
         let _ = store
             .save_protocol_initializer(
                 protocol_initializers[0].0,
-                (&protocol_initializers[0].1).to_owned(),
+                protocol_initializers[0].1.clone(),
             )
             .await
             .unwrap();
