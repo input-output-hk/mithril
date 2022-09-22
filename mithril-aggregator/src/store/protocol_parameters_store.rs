@@ -117,10 +117,7 @@ mod tests {
         let protocol_parameters = setup_protocol_parameters(1);
         let store = init_store(0, None);
         let res = store
-            .save_protocol_parameters(
-                protocol_parameters[0].0,
-                (&protocol_parameters[0].1).to_owned(),
-            )
+            .save_protocol_parameters(protocol_parameters[0].0, protocol_parameters[0].1.clone())
             .await
             .unwrap();
 
@@ -132,10 +129,7 @@ mod tests {
         let protocol_parameters = setup_protocol_parameters(2);
         let store = init_store(1, None);
         let res = store
-            .save_protocol_parameters(
-                protocol_parameters[0].0,
-                (&protocol_parameters[1].1).to_owned(),
-            )
+            .save_protocol_parameters(protocol_parameters[0].0, protocol_parameters[1].1.clone())
             .await
             .unwrap();
 
@@ -163,7 +157,7 @@ mod tests {
         let store = init_store(2, Some(2));
         let protocol_parameters = setup_protocol_parameters(3);
         let _ = store
-            .save_protocol_parameters(Epoch(3), (&protocol_parameters[2].1).to_owned())
+            .save_protocol_parameters(Epoch(3), protocol_parameters[2].1.clone())
             .await
             .unwrap();
         assert_eq!(None, store.get_protocol_parameters(Epoch(1)).await.unwrap());

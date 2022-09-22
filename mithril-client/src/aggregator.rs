@@ -221,7 +221,7 @@ impl AggregatorHandler for AggregatorHTTPClient {
         let local_path = archive_file_path(digest, &self.network)?;
         local_path
             .exists()
-            .then(|| ())
+            .then_some(())
             .ok_or_else(|| AggregatorHandlerError::ArchiveNotFound(local_path.clone()))?;
 
         let snapshot_file_tar_gz = fs::File::open(local_path.clone())?;

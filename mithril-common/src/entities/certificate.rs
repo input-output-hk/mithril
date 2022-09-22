@@ -66,7 +66,7 @@ impl Certificate {
         multi_signature: String,
         genesis_signature: String,
     ) -> Certificate {
-        let signed_message = (&protocol_message.compute_hash()).to_owned();
+        let signed_message = protocol_message.compute_hash();
         let mut certificate = Certificate {
             hash: "".to_string(),
             previous_hash,
