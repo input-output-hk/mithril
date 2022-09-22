@@ -6,7 +6,7 @@ on: [push]
 jobs:
   build:
     if: github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
@@ -149,7 +149,7 @@ jobs:
             target/doc/
 
   test-mithril-core:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     if: ${{ github.event_name == 'push' }}
     needs: [ build ]
     steps:
@@ -203,7 +203,7 @@ jobs:
             ./**/test-results-*.xml
 
   run-test-lab:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: [ build ]
     steps:
       - name: Checkout sources
@@ -259,7 +259,7 @@ jobs:
   
   publish-tests-results:
     if: github.event.pull_request.draft == false && ${{ always() }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs: [ test-mithril-core ]
     steps:
       - name: Download mithril-core Tests Results
@@ -311,7 +311,7 @@ jobs:
           files: ./**/test-results-*.xml
 
   docker-mithril:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     if: ${{ github.event_name == 'push' }}
     needs:
       - test-mithril-core
@@ -369,7 +369,7 @@ jobs:
 
   deploy-nightly:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs:
       - test-mithril-core
       - run-test-lab
@@ -409,7 +409,7 @@ jobs:
 
   generate-publish-docs:
     if: github.event.pull_request.draft == false
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs:
       - docker-mithril
     steps:
@@ -483,7 +483,7 @@ jobs:
           publish_dir: ./github-pages
 
   terraform:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     needs:
       - docker-mithril
     env:

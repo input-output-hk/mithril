@@ -44,6 +44,9 @@ In this documentation, we use the generic `testnet` identifier, but you need to 
 
 * Install OpenSSL development libraries, for example on Ubuntu/Debian/Mint run `apt install libssl-dev`
 
+* Ensure SQLite3 library is installed on your system and its version is at least `1.35` (released Apr. 2021) on Debian/Ubuntu: `apt install libsqlite3` and `sqlite3 --version`.
+
+
 ## Download source
 
 Download from Github (HTTPS)

@@ -11,6 +11,7 @@ This is a first version of the Mithril Signer
 **Install Rust**
 
 - Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (latest stable version).
+- Ensure `libsqlite3` is installed on your system and check its version is at least `1.35`. Run `apt install libsqlite3` and `sqlite3 --version`
 
 ## Download source code
 
