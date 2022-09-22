@@ -4,11 +4,14 @@ use sha2::{Digest, Sha256};
 use sqlite::{Connection, State, Statement};
 use tokio::sync::{Mutex, MutexGuard};
 
-use std::{marker::PhantomData, path::PathBuf, sync::Arc};
+use std::{marker::PhantomData, path::PathBuf, sync::Arc, thread::sleep, time::Duration};
 
 use super::{AdapterError, StoreAdapter};
 
 type Result<T> = std::result::Result<T, AdapterError>;
+
+const DELAY_MS_ON_LOCK: u32 = 50;
+const NB_RETRIES_ON_LOCK: u32 = 3;
 
 /// Store adapter for SQLite3
 pub struct SQLiteAdapter<K, V> {
@@ -108,11 +111,24 @@ where
     }
 
     fn fetch_maybe_one_value(&self, mut statement: Statement) -> Result<Option<V>> {
-        if State::Done
-            == statement
-                .next()
-                .map_err(|e| AdapterError::ParsingDataError(e.into()))?
-        {
+        let mut retries = Some(NB_RETRIES_ON_LOCK);
+        let mut result = statement.next();
+
+        while result.is_err() {
+            // database is probably locked
+            // wait and retry strategy
+            retries = retries.filter(|v| v > &1).map(|v| v - 1);
+
+            if retries.is_none() {
+                return Err(result
+                    .map_err(|e| AdapterError::ParsingDataError(e.into()))
+                    .unwrap_err());
+            }
+            sleep(Duration::from_millis(DELAY_MS_ON_LOCK as u64));
+            result = statement.next();
+        }
+
+        if State::Done == result.unwrap() {
             return Ok(None);
         }
         let maybe_value: Option<V> = statement
