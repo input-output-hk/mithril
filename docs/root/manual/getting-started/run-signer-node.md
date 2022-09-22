@@ -51,6 +51,8 @@ For more information about the **Mithril Protocol**, please refer to the [About 
 
 * Install OpenSSL development libraries, for example on Ubuntu/Debian/Mint run `apt install libssl-dev`
 
+* Ensure the SQLite3 version is at lease `1.35` (released Apr. 2021)
+
 :::danger
 
 This document is subject to change as some cryptographic security will be added soon.
