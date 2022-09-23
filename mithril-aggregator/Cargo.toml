@@ -39,7 +39,5 @@ slog-term = "2.9.0"
 tempfile = "3.3.0"
 
 [features]
-default = ["skip_signer_certification"] # TODO: remove 'skip_signer_certification' from default features to activate full signer certification
 portable = ["mithril-common/portable"]
-skip_signer_certification = ["mithril-common/skip_signer_certification"]
 

@@ -43,4 +43,4 @@ slog-scope = "4.4.0"
 
 [features]
 portable = ["mithril/portable"]
-skip_signer_certification = []
+allow_skip_signer_certification = []

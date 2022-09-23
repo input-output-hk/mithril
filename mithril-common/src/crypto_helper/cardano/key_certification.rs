@@ -263,7 +263,7 @@ impl StmSignerWrapper {
     }
 }
 
-#[cfg(all(test, not(feature = "skip_signer_certification")))]
+#[cfg(all(test))]
 mod test {
     use super::*;
     use rand_chacha::ChaCha20Rng;
