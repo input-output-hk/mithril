@@ -504,12 +504,10 @@ echo "====================================================================="
 echo
 
 # Next is to prepare the pool env files
-POOL_IDX=0
 for NODE in ${POOL_NODES}; do
-
-    echo PARTY_ID=${POOL_IDX} > ${NODE}/pool.env
-    POOL_IDX=$(( $POOL_IDX + 1))
-
+    PARTY_ID=$(./cardano-cli stake-pool id \
+                --cold-verification-key-file ${NODE}/shelley/operator.vkey)
+    echo PARTY_ID=${PARTY_ID} > ${NODE}/pool.env
 done
 
 echo "Generated pool env files:"
@@ -586,12 +584,6 @@ do
     POOLS=\$(./pools.sh 2> /dev/null)
     if [ "\$POOLS" != "" ] ; then
         echo ">>>> Activated!"
-        POOL_IDX=1
-        ./pools.sh | while read POOL_ID ; do
-            echo ">>>> Detected PoolId: \$POOL_ID"
-            echo PARTY_ID=\${POOL_ID} > node-pool\${POOL_IDX}/pool.env
-            POOL_IDX=\$(( \$POOL_IDX + 1))
-        done
         ./pools.sh | while read POOL_ID ; do
             echo ">>>> Retrieve stakes PoolId: \$POOL_ID"
             while true
