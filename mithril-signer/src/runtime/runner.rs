@@ -196,7 +196,6 @@ impl Runner for SignerRunner {
             }
             _ => None,
         };
-
         let signer = Signer::new(
             self.config.party_id.to_owned(),
             verification_key,
@@ -304,6 +303,8 @@ impl Runner for SignerRunner {
             signers_with_stake.push(SignerWithStake::new(
                 signer.party_id.to_owned(),
                 signer.verification_key.to_owned(),
+                signer.verification_key_signature.to_owned(),
+                signer.operational_certificate.to_owned(),
                 *stake,
             ));
             trace!(
@@ -602,12 +603,7 @@ mod tests {
         let mut signer = &mut pending_certificate.signers[0];
 
         let protocol_initializer = MithrilProtocolInitializerBuilder::new()
-            .build(
-                &100,
-                &fake_data::protocol_parameters(),
-                Some(PathBuf::new()),
-                Some(0),
-            )
+            .build(&100, &fake_data::protocol_parameters(), None, None)
             .expect("build protocol initializer should not fail");
         signer.verification_key = key_encode_hex(protocol_initializer.verification_key()).unwrap();
         protocol_initializer_store
@@ -681,7 +677,7 @@ mod tests {
         let next_signers = signers
             .iter()
             .map(|(p, s, vk, _, _)| {
-                SignerWithStake::new(p.to_string(), key_encode_hex(vk).unwrap(), *s)
+                SignerWithStake::new(p.to_string(), key_encode_hex(vk).unwrap(), None, None, *s)
             })
             .collect::<Vec<_>>();
         let mut expected = ProtocolMessage::new();
@@ -731,7 +727,7 @@ mod tests {
         let signers = signers
             .iter()
             .map(|(p, s, vk, _, _)| {
-                SignerWithStake::new(p.to_string(), key_encode_hex(vk).unwrap(), *s)
+                SignerWithStake::new(p.to_string(), key_encode_hex(vk).unwrap(), None, None, *s)
             })
             .collect::<Vec<_>>();
 

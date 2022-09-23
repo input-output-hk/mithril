@@ -96,13 +96,15 @@ impl SignerWithStake {
     pub fn new(
         party_id: PartyId,
         verification_key: HexEncodedKey,
+        verification_key_signature: Option<HexEncodedKey>,
+        operational_certificate: Option<HexEncodedKey>,
         stake: Stake,
     ) -> SignerWithStake {
         SignerWithStake {
             party_id,
             verification_key,
-            verification_key_signature: None,
-            operational_certificate: None,
+            verification_key_signature,
+            operational_certificate,
             stake,
         }
     }
@@ -169,23 +171,47 @@ mod tests {
 
         assert_eq!(
             hash_expected,
-            SignerWithStake::new("1".to_string(), "verification-key-123".to_string(), 10)
-                .compute_hash()
+            SignerWithStake::new(
+                "1".to_string(),
+                "verification-key-123".to_string(),
+                None,
+                None,
+                10
+            )
+            .compute_hash()
         );
         assert_ne!(
             hash_expected,
-            SignerWithStake::new("0".to_string(), "verification-key-123".to_string(), 10)
-                .compute_hash()
+            SignerWithStake::new(
+                "0".to_string(),
+                "verification-key-123".to_string(),
+                None,
+                None,
+                10
+            )
+            .compute_hash()
         );
         assert_ne!(
             hash_expected,
-            SignerWithStake::new("1".to_string(), "verification-key-456".to_string(), 10)
-                .compute_hash()
+            SignerWithStake::new(
+                "1".to_string(),
+                "verification-key-456".to_string(),
+                None,
+                None,
+                10
+            )
+            .compute_hash()
         );
         assert_ne!(
             hash_expected,
-            SignerWithStake::new("1".to_string(), "verification-key-123".to_string(), 20)
-                .compute_hash()
+            SignerWithStake::new(
+                "1".to_string(),
+                "verification-key-123".to_string(),
+                None,
+                None,
+                20
+            )
+            .compute_hash()
         );
     }
 }

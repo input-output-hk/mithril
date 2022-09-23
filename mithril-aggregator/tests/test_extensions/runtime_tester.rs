@@ -12,8 +12,8 @@ use mithril_common::crypto_helper::tests_setup::setup_signers_from_parties;
 use mithril_common::crypto_helper::{key_encode_hex, ProtocolClerk, ProtocolGenesisSigner};
 use mithril_common::digesters::DumbImmutableFileObserver;
 use mithril_common::entities::{
-    Certificate, Epoch, ImmutableFileNumber, ProtocolParameters, SignerWithStake, SingleSignatures,
-    Snapshot,
+    Certificate, Epoch, ImmutableFileNumber, ProtocolParameters, Signer, SignerWithStake,
+    SingleSignatures, Snapshot,
 };
 use mithril_common::{chain_observer::FakeObserver, digesters::DumbImmutableDigester};
 
@@ -187,8 +187,14 @@ impl RuntimeTester {
         let mut multisigner = self.deps.multi_signer.write().await;
 
         for (party_id, _stakes, verification_key, _signer, _initializer) in signers {
+            let signer = Signer::new(
+                party_id.to_owned(),
+                key_encode_hex(verification_key).unwrap(),
+                None,
+                None,
+            );
             multisigner
-                .register_signer(party_id.to_owned(), verification_key)
+                .register_signer(&signer)
                 .await
                 .map_err(|e| format!("Registering a signer should not fail: {:?}", e))?;
         }

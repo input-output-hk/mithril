@@ -1,6 +1,6 @@
 use super::FromShelleyFile;
 
-use crate::crypto_helper::cardano::ProtocolRegistrationError;
+use crate::crypto_helper::cardano::ProtocolRegistrationErrorWrapper;
 use ed25519_dalek::{PublicKey as EdPublicKey, Signature as EdSignature, Verifier};
 use kes_summed_ed25519::common::PublicKey as KesPublicKey;
 use serde::de::Error;
@@ -36,7 +36,7 @@ impl FromShelleyFile for OpCert {
 
 impl OpCert {
     /// Validate a certificate
-    pub fn validate(&self) -> Result<(), ProtocolRegistrationError> {
+    pub fn validate(&self) -> Result<(), ProtocolRegistrationErrorWrapper> {
         let mut msg = [0u8; 48];
         msg[..32].copy_from_slice(self.kes_vk.as_bytes());
         msg[32..40].copy_from_slice(&self.issue_number.to_be_bytes());
@@ -46,7 +46,7 @@ impl OpCert {
             return Ok(());
         }
 
-        Err(ProtocolRegistrationError::OpCertInvalid)
+        Err(ProtocolRegistrationErrorWrapper::OpCertInvalid)
     }
 }
 

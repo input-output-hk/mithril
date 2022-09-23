@@ -31,8 +31,8 @@ type D = Blake2b<U32>;
 pub type KESPeriod = usize;
 
 /// New registration error
-#[derive(Error, Debug)]
-pub enum ProtocolRegistrationError {
+#[derive(Error, Debug, PartialEq, Eq)]
+pub enum ProtocolRegistrationErrorWrapper {
     /// Error raised when an operational certificate is invalid
     #[error("invalid operational certificate")]
     OpCertInvalid,
@@ -111,7 +111,7 @@ impl StmInitializerWrapper {
         rng: &mut R,
     ) -> Result<Self, ParseError> {
         let stm_initializer = StmInitializer::setup(params, stake, rng);
-        let kes_signature = if cfg!(feature = "skip_signer_certification") {
+        let kes_signature = if kes_sk_path.is_none() {
             None
         } else {
             let kes_sk: Sum6Kes = Sum6Kes::from_file(kes_sk_path.unwrap())?;
@@ -157,7 +157,7 @@ impl StmInitializerWrapper {
     pub fn new_signer(
         self,
         closed_reg: ClosedKeyReg<D>,
-    ) -> Result<StmSignerWrapper, RegisterError> {
+    ) -> Result<StmSignerWrapper, ProtocolRegistrationErrorWrapper> {
         Ok(StmSignerWrapper(
             self.stm_initializer.new_signer(closed_reg)?,
         ))
@@ -209,35 +209,36 @@ impl KeyRegWrapper {
         kes_sig: Option<ProtocolSignerVerificationKeySignature>, // TODO: Option should be removed once the signer certification is fully deployed
         kes_period: KESPeriod,
         pk: ProtocolSignerVerificationKey,
-    ) -> Result<(), ProtocolRegistrationError> {
-        let pool_id_bech32: ProtocolPartyId = if cfg!(feature = "skip_signer_certification") {
+    ) -> Result<ProtocolPartyId, ProtocolRegistrationErrorWrapper> {
+        let pool_id_bech32: ProtocolPartyId = if opcert.is_none() {
             println!("WARNING: Signer certification is skipped!");
             party_id.unwrap()
         } else {
+            #[allow(clippy::unnecessary_unwrap)] // TODO: remove this clippy allow
             let cert = opcert.unwrap();
             cert.validate()
-                .map_err(|_| ProtocolRegistrationError::OpCertInvalid)?;
+                .map_err(|_| ProtocolRegistrationErrorWrapper::OpCertInvalid)?;
             kes_sig
                 .unwrap()
                 .verify(kes_period, &cert.kes_vk, &pk.to_bytes())
-                .map_err(|_| ProtocolRegistrationError::KesSignatureInvalid)?;
+                .map_err(|_| ProtocolRegistrationErrorWrapper::KesSignatureInvalid)?;
 
             let mut hasher = Blake2b::<U28>::new();
             hasher.update(cert.cold_vk.as_bytes());
             let mut pool_id = [0u8; 28];
             pool_id.copy_from_slice(hasher.finalize().as_slice());
             bech32::encode("pool", pool_id.to_base32(), Variant::Bech32)
-                .map_err(|_| ProtocolRegistrationError::PoolAddressEncoding)?
+                .map_err(|_| ProtocolRegistrationErrorWrapper::PoolAddressEncoding)?
         };
 
         if let Some(&stake) = self.stake_distribution.get(&pool_id_bech32) {
-            return self
-                .stm_key_reg
+            self.stm_key_reg
                 .register(stake, pk)
-                .map_err(ProtocolRegistrationError::CoreRegister);
+                .map_err(ProtocolRegistrationErrorWrapper::CoreRegister)?;
+            return Ok(pool_id_bech32);
         }
 
-        Err(ProtocolRegistrationError::CoreRegister(
+        Err(ProtocolRegistrationErrorWrapper::CoreRegister(
             RegisterError::KeyNonExisting,
         ))
     }

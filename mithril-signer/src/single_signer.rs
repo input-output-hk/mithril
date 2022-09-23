@@ -245,6 +245,8 @@ mod tests {
                     SignerWithStake::new(
                         party_id.to_owned(),
                         key_encode_hex(verification_key).unwrap(),
+                        None,
+                        None,
                         *stake,
                     )
                 },
@@ -285,6 +287,8 @@ mod tests {
                     SignerWithStake::new(
                         party_id.to_owned(),
                         key_encode_hex(verification_key).unwrap(),
+                        None,
+                        None,
                         *stake,
                     )
                 },

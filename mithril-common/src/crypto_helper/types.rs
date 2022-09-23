@@ -1,11 +1,12 @@
 use crate::crypto_helper::cardano::{
-    KeyRegWrapper, StmClerkWrapper, StmInitializerWrapper, StmSignerWrapper,
+    KeyRegWrapper, ProtocolRegistrationErrorWrapper, StmClerkWrapper, StmInitializerWrapper,
+    StmSignerWrapper,
 };
 
 use mithril::stm::{
     Index, Stake, StmAggrSig, StmAggrVerificationKey, StmParameters, StmSig, StmVerificationKeyPoP,
 };
-use mithril::{AggregationError, RegisterError};
+use mithril::AggregationError;
 
 #[cfg(any(test, feature = "skip_signer_certification"))]
 use mithril::key_reg::KeyReg;
@@ -75,7 +76,7 @@ pub type ProtocolGenesisSignature = ed25519_dalek::Signature;
 
 // Error alias
 /// Alias of [MithrilCore:RegisterError](https://mithril.network/mithril-core/doc/mithril/error/enum.RegisterError.html).
-pub type ProtocolRegistrationError = RegisterError;
+pub type ProtocolRegistrationError = ProtocolRegistrationErrorWrapper;
 
 /// Alias of [MithrilCore:AggregationError](https://mithril.network/mithril-core/doc/mithril/error/enum.AggregationError.html).
 pub type ProtocolAggregationError = AggregationError;
