@@ -79,7 +79,7 @@ where
                 metadata,
             ));
         }
-        hashes.sort_by_key(|(_, meta)| meta.created().unwrap());
+        hashes.sort_by_key(|(_, meta)| meta.modified().unwrap());
 
         Ok(Box::new(hashes.into_iter().rev().map(|(hash, _meta)| hash)))
     }
