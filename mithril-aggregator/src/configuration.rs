@@ -1,11 +1,12 @@
 use config::ConfigError;
-use mithril_common::entities::ProtocolParameters;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use mithril_common::{store::adapter::JsonFileStoreAdapter, CardanoNetwork};
+use mithril_common::entities::ProtocolParameters;
+use mithril_common::store::adapter::SQLiteAdapter;
+use mithril_common::CardanoNetwork;
 
 use crate::snapshot_stores::LocalSnapshotStore;
 use crate::tools::GcpFileUploader;
@@ -103,8 +104,9 @@ impl Configuration {
                 self.url_snapshot_manifest.clone(),
             ))),
             SnapshotStoreType::Local => Ok(Arc::new(LocalSnapshotStore::new(
-                Box::new(JsonFileStoreAdapter::new(
-                    self.data_stores_directory.join("snapshot_db"),
+                Box::new(SQLiteAdapter::new(
+                    "snapshot",
+                    Some(self.data_stores_directory.join("aggregator.sqlite3")),
                 )?),
                 LIST_SNAPSHOTS_MAX_ITEMS,
             ))),
