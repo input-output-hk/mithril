@@ -5,6 +5,7 @@ use ed25519_dalek::{PublicKey as EdPublicKey, Signature as EdSignature, Verifier
 use kes_summed_ed25519::common::PublicKey as KesPublicKey;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use sha2::{Digest, Sha256};
 
 /// Raw Fields of the operational certificates (without incluiding the cold VK)
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
@@ -47,6 +48,17 @@ impl OpCert {
         }
 
         Err(ProtocolRegistrationErrorWrapper::OpCertInvalid)
+    }
+
+    /// Compute the hash of an OpCert
+    pub fn compute_hash(&self) -> String {
+        let mut hasher = Sha256::new();
+        hasher.update(self.kes_vk.as_bytes());
+        hasher.update(self.issue_number.to_be_bytes());
+        hasher.update(self.start_kes_period.to_be_bytes());
+        hasher.update(self.cert_sig.to_bytes());
+        hasher.update(self.cold_vk.as_bytes());
+        hex::encode(hasher.finalize())
     }
 }
 
@@ -92,7 +104,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_vector_op_cert() {
+    fn test_vector_opcert() {
         let cert: OpCert = OpCert::from_file("./test-data/node1.cert").unwrap();
 
         assert!(cert.validate().is_ok());
