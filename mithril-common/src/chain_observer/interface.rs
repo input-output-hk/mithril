@@ -1,4 +1,7 @@
-use crate::entities::*;
+use crate::{
+    crypto_helper::{KESPeriod, OpCert},
+    entities::*,
+};
 use async_trait::async_trait;
 use mockall::automock;
 use std::error::Error as StdError;
@@ -27,4 +30,12 @@ pub trait ChainObserver: Sync + Send {
     async fn get_current_stake_distribution(
         &self,
     ) -> Result<Option<StakeDistribution>, ChainObserverError>;
+
+    /// Retrieve the KES period of an operational certificate
+    async fn get_current_kes_period(
+        &self,
+        _opcert: &OpCert,
+    ) -> Result<Option<KESPeriod>, ChainObserverError> {
+        Ok(None)
+    }
 }
