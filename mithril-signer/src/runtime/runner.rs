@@ -174,33 +174,45 @@ impl Runner for SignerRunner {
         let stake = stake_distribution
             .get(&self.config.party_id)
             .ok_or(RuntimeError::NoStakeForSelf())?;
-        let kes_period = 0; // TODO: compute the kes period from opcert
+
+        let (operational_certificate, operational_certificate_encoded) =
+            match &self.config.operational_certificate_path {
+                Some(operational_certificate_path) => {
+                    let opcert: OpCert =
+                        OpCert::from_file(operational_certificate_path).map_err(|_| {
+                            RuntimeError::FileParse("operational_certificate_path".to_string())
+                        })?;
+                    (Some(opcert.clone()), Some(key_encode_hex(opcert)?))
+                }
+                _ => (None, None),
+            };
+        let kes_period = match operational_certificate {
+            Some(operational_certificate) => Some(
+                self.services
+                    .chain_observer
+                    .get_current_kes_period(&operational_certificate)
+                    .await?
+                    .unwrap_or_default(),
+            ),
+            None => None,
+        };
         let protocol_initializer = MithrilProtocolInitializerBuilder::new().build(
             stake,
             protocol_parameters,
             self.config.kes_secret_key_path.clone(),
-            Some(kes_period),
+            kes_period,
         )?;
-        let verification_key = key_encode_hex(protocol_initializer.verification_key())?;
-        let verification_key_signature = match protocol_initializer.verification_key_signature() {
-            Some(verification_signature) => Some(key_encode_hex(verification_signature)?),
-            _ => None,
-        };
-        let operational_certificate = match &self.config.operational_certificate_path {
-            Some(operational_certificate_path) => {
-                let opcert: OpCert =
-                    OpCert::from_file(operational_certificate_path).map_err(|_| {
-                        RuntimeError::FileParse("operational_certificate_path".to_string())
-                    })?;
-                Some(key_encode_hex(opcert)?)
-            }
-            _ => None,
-        };
+        let verification_key_encoded = key_encode_hex(protocol_initializer.verification_key())?;
+        let verification_key_signature_encoded =
+            match protocol_initializer.verification_key_signature() {
+                Some(verification_signature) => Some(key_encode_hex(verification_signature)?),
+                _ => None,
+            };
         let signer = Signer::new(
             self.config.party_id.to_owned(),
-            verification_key,
-            verification_key_signature,
-            operational_certificate,
+            verification_key_encoded,
+            verification_key_signature_encoded,
+            operational_certificate_encoded,
         );
         self.services
             .certificate_handler
@@ -346,7 +358,12 @@ impl Runner for SignerRunner {
         let avk = self
             .services
             .single_signer
-            .compute_aggregate_verification_key(next_signers, &next_protocol_initializer)?
+            .compute_aggregate_verification_key(
+                next_signers,
+                &next_protocol_initializer,
+                self.services.chain_observer.clone(),
+            )
+            .await?
             .ok_or_else(|| RuntimeError::NoValueError("next_signers avk".to_string()))?;
         message.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
 
@@ -373,11 +390,16 @@ impl Runner for SignerRunner {
                     signer_retrieval_epoch
                 ))
             })?;
-        let signature = self.services.single_signer.compute_single_signatures(
-            message,
-            signers,
-            &protocol_initializer,
-        )?;
+        let signature = self
+            .services
+            .single_signer
+            .compute_single_signatures(
+                message,
+                signers,
+                &protocol_initializer,
+                self.services.chain_observer.clone(),
+            )
+            .await?;
         info!(
             " > {}",
             if signature.is_some() {
@@ -687,7 +709,12 @@ mod tests {
         );
         let avk = services
             .single_signer
-            .compute_aggregate_verification_key(&next_signers, protocol_initializer)
+            .compute_aggregate_verification_key(
+                &next_signers,
+                protocol_initializer,
+                services.chain_observer.clone(),
+            )
+            .await
             .expect("compute_aggregate_verification_key should not fail")
             .expect("an avk should have been computed");
         expected.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
@@ -742,7 +769,13 @@ mod tests {
         );
 
         let expected = single_signer
-            .compute_single_signatures(&message, &signers, protocol_initializer)
+            .compute_single_signatures(
+                &message,
+                &signers,
+                protocol_initializer,
+                services.chain_observer.clone(),
+            )
+            .await
             .expect("compute_single_signatures should not fail");
 
         let runner = init_runner(Some(services), None);
