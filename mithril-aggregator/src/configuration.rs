@@ -17,6 +17,7 @@ use crate::{
 
 // TODO: 'LIST_SNAPSHOTS_MAX_ITEMS' keep as const or in config, or add a parameter to `list_snapshots`?
 const LIST_SNAPSHOTS_MAX_ITEMS: usize = 20;
+const SQLITE_FILE: &str = "aggregator.sqlite3";
 
 /// Aggregator configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -106,7 +107,7 @@ impl Configuration {
             SnapshotStoreType::Local => Ok(Arc::new(LocalSnapshotStore::new(
                 Box::new(SQLiteAdapter::new(
                     "snapshot",
-                    Some(self.data_stores_directory.join("aggregator.sqlite3")),
+                    Some(self.get_sqlite_file()),
                 )?),
                 LIST_SNAPSHOTS_MAX_ITEMS,
             ))),
@@ -130,5 +131,16 @@ impl Configuration {
     pub fn get_network(&self) -> Result<CardanoNetwork, ConfigError> {
         CardanoNetwork::from_code(self.network.clone(), self.network_magic)
             .map_err(|e| ConfigError::Message(e.to_string()))
+    }
+
+    /// Return the file of the SQLite stores. If the directory does not exist, it is created.
+    pub fn get_sqlite_file(&self) -> PathBuf {
+        let store_dir = &self.data_stores_directory;
+
+        if !store_dir.exists() {
+            std::fs::create_dir_all(store_dir).unwrap();
+        }
+
+        self.data_stores_directory.join(SQLITE_FILE)
     }
 }

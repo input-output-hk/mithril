@@ -40,9 +40,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Init dependencies
     let snapshot_store = config.build_snapshot_store()?;
-    let sqlite_db_path = Some(config.data_stores_directory.join("aggregator.sqlite3"));
-
     let snapshot_uploader = config.build_snapshot_uploader();
+
+    let sqlite_db_path = Some(config.get_sqlite_file());
+
     let certificate_pending_store = Arc::new(CertificatePendingStore::new(Box::new(
         SQLiteAdapter::new("pending_certificate", sqlite_db_path.clone())?,
     )));
