@@ -5,13 +5,22 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::Write;
 use std::path::Path;
+use thiserror::Error;
 
 /// Parse error
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub enum ParseError {
-    Path(std::io::Error),
-    JsonFormat(serde_json::Error),
-    CborData,
+    #[error("io error: `{0}`")]
+    IO(#[from] std::io::Error),
+
+    #[error("JSON parse error: `{0}`")]
+    JsonFormat(#[from] serde_json::Error),
+
+    #[error("CBOR hex codec error: `{0}`")]
+    CborHex(#[from] hex::FromHexError),
+
+    #[error("CBOR parse error: `{0}`")]
+    CborFormat(#[from] serde_cbor::Error),
 }
 
 /// Fields for a shelley formatted file (holds for vkeys, skeys or certs)
@@ -35,21 +44,17 @@ pub trait FromShelleyFile: serde::Serialize {
 
     /// Deserialize a Cardano key from file
     fn from_file<R: DeserializeOwned, P: AsRef<Path>>(path: P) -> Result<R, ParseError> {
-        let data = fs::read_to_string(path).map_err(ParseError::Path)?;
+        let data = fs::read_to_string(path)?;
+        let file: ShelleyFileFormat = serde_json::from_str(&data)?;
+        let hex_vector = Vec::from_hex(file.cbor_hex)?;
 
-        let file: ShelleyFileFormat =
-            serde_json::from_str(&data).map_err(ParseError::JsonFormat)?;
-
-        let hex_vector = Vec::from_hex(file.cbor_hex).map_err(|_| ParseError::CborData)?;
-
-        let a: R = serde_cbor::from_slice(&hex_vector).map_err(|_| ParseError::CborData)?;
+        let a: R = serde_cbor::from_slice(&hex_vector)?;
         Ok(a)
     }
 
     /// Serialize a Cardano Key to file
     fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), ParseError> {
-        let cbor_string =
-            hex::encode(&serde_cbor::to_vec(&self).map_err(|_| ParseError::CborData)?);
+        let cbor_string = hex::encode(&serde_cbor::to_vec(&self)?);
 
         let file_format = ShelleyFileFormat {
             file_type: Self::TYPE.to_string(),
@@ -57,8 +62,8 @@ pub trait FromShelleyFile: serde::Serialize {
             cbor_hex: cbor_string,
         };
 
-        let mut file = fs::File::create(path).map_err(ParseError::Path)?;
-        let json_str = serde_json::to_string(&file_format).map_err(ParseError::JsonFormat)?;
+        let mut file = fs::File::create(path)?;
+        let json_str = serde_json::to_string(&file_format)?;
 
         write!(file, "{}", json_str).expect("Unable to write bytes to file");
         Ok(())
