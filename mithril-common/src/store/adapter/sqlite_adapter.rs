@@ -325,7 +325,7 @@ mod tests {
         dirpath.join(format!("{}.sqlite3", test_name))
     }
 
-    fn init_db(test_name: &str) -> SQLiteAdapter<u64, String> {
+    fn init_db(test_name: &str, tablename: Option<&str>) -> SQLiteAdapter<u64, String> {
         let filepath = get_file_path(test_name);
 
         if filepath.exists() {
@@ -336,13 +336,14 @@ mod tests {
                 )
             });
         }
-        SQLiteAdapter::new(TABLE_NAME, Some(filepath)).unwrap()
+        let tablename = tablename.unwrap_or(TABLE_NAME);
+        SQLiteAdapter::new(tablename, Some(filepath)).unwrap()
     }
 
     #[tokio::test]
     async fn test_store_record() {
         let test_name = "test_store_record";
-        let mut adapter = init_db(test_name);
+        let mut adapter = init_db(test_name, None);
         adapter
             .store_record(&1, "one".to_string().borrow())
             .await
@@ -397,7 +398,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_record() {
         let test_name = "test_get_record";
-        let mut adapter = init_db(test_name);
+        let mut adapter = init_db(test_name, None);
         adapter
             .store_record(&1, "one".to_string().borrow())
             .await
@@ -428,7 +429,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_iterator() {
         let test_name = "test_get_iterator";
-        let mut adapter = init_db(test_name);
+        let mut adapter = init_db(test_name, None);
         adapter
             .store_record(&1, "one".to_string().borrow())
             .await
@@ -456,7 +457,7 @@ mod tests {
     #[tokio::test]
     async fn test_record_exists() {
         let test_name = "test_record_exists";
-        let mut adapter = init_db(test_name);
+        let mut adapter = init_db(test_name, None);
         adapter
             .store_record(&1, "one".to_string().borrow())
             .await
@@ -474,7 +475,7 @@ mod tests {
     #[tokio::test]
     async fn test_remove() {
         let test_name = "test_remove";
-        let mut adapter = init_db(test_name);
+        let mut adapter = init_db(test_name, None);
         adapter
             .store_record(&1, "one".to_string().borrow())
             .await
@@ -499,7 +500,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_last_n_records() {
         let test_name = "test_get_last_n_records";
-        let mut adapter = init_db(test_name);
+        let mut adapter = init_db(test_name, None);
         adapter
             .store_record(&1, "one".to_string().borrow())
             .await
@@ -535,7 +536,7 @@ mod tests {
     #[tokio::test]
     async fn check_get_last_n_modified_records() {
         let test_name = "check_get_last_n_modified_records";
-        let mut adapter = init_db(test_name);
+        let mut adapter = init_db(test_name, None);
         adapter
             .store_record(&1, "one".to_string().borrow())
             .await
