@@ -62,7 +62,12 @@ impl Spec {
         let certificate_hash =
             assert_signer_is_signing_snapshot(&aggregator_endpoint, &digest, target_epoch - 2)
                 .await?;
-        assert_is_creating_certificate(&aggregator_endpoint, &certificate_hash).await?;
+        assert_is_creating_certificate_with_enough_signers(
+            &aggregator_endpoint,
+            &certificate_hash,
+            self.infrastructure.signers().len(),
+        )
+        .await?;
 
         let mut client = self.infrastructure.build_client()?;
         assert_client_can_verify_snapshot(&mut client, &digest).await?;
@@ -277,9 +282,10 @@ async fn assert_signer_is_signing_snapshot(
     }
 }
 
-async fn assert_is_creating_certificate(
+async fn assert_is_creating_certificate_with_enough_signers(
     aggregator_endpoint: &str,
     certificate_hash: &str,
+    total_signers_expected: usize,
 ) -> Result<(), String> {
     let url = format!("{}/certificate/{}", aggregator_endpoint, certificate_hash);
 
@@ -298,7 +304,20 @@ async fn assert_is_creating_certificate(
     }) {
         AttemptResult::Ok(certificate) => {
             info!("Aggregator produced a certificate"; "certificate" => #?certificate);
-            Ok(())
+            if certificate.metadata.signers.len() == total_signers_expected {
+                info!(
+                    "Certificate is signed by expected number of signers: {} >= {} ",
+                    certificate.metadata.signers.len(),
+                    total_signers_expected
+                );
+                Ok(())
+            } else {
+                Err(format!(
+                    "Certificate is not signed by expected number of signers: {} < {} ",
+                    certificate.metadata.signers.len(),
+                    total_signers_expected
+                ))
+            }
         }
         AttemptResult::Err(error) => Err(error),
         AttemptResult::Timeout() => Err(format!(

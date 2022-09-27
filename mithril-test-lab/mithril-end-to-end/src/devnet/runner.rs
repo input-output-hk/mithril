@@ -20,6 +20,7 @@ pub struct BftNode {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PoolNode {
+    pub node_index: u64,
     pub db_path: PathBuf,
     pub socket_path: PathBuf,
     pool_env_path: PathBuf,
@@ -136,6 +137,7 @@ impl Devnet {
         let pool_nodes = (1..=self.number_of_pool_nodes)
             .into_iter()
             .map(|n| PoolNode {
+                node_index: (n - 1) as u64,
                 db_path: self.artifacts_dir.join(format!("node-pool{}/db", n)),
                 socket_path: self
                     .artifacts_dir
@@ -253,6 +255,7 @@ mod tests {
                     socket_path: PathBuf::from(r"test/path/node-bft1/ipc/node.sock"),
                 }],
                 pool_nodes: vec![PoolNode {
+                    node_index: 0,
                     db_path: PathBuf::from(r"test/path/node-pool1/db"),
                     socket_path: PathBuf::from(r"test/path/node-pool1/ipc/node.sock"),
                     pool_env_path: PathBuf::from(r"test/path/node-pool1/pool.env"),
