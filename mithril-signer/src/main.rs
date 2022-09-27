@@ -1,10 +1,9 @@
 use clap::Parser;
 use slog::{o, Drain, Level, Logger};
 use slog_scope::debug;
-use std::env;
-use std::error::Error;
 use std::sync::Arc;
 use std::time::Duration;
+use std::{error::Error, path::PathBuf};
 
 use mithril_signer::{
     Config, ProductionServiceBuilder, ServiceBuilder, SignerRunner, SignerState, StateMachine,
@@ -16,12 +15,26 @@ use mithril_signer::{
 #[clap(about = "An implementation of a Mithril Signer", long_about = None)]
 pub struct Args {
     /// Run Mode
-    #[clap(short, long, default_value = "dev")]
+    #[clap(short, long, env("RUN_MODE"), default_value = "dev")]
     run_mode: String,
 
     /// Verbosity level
-    #[clap(short, long, parse(from_occurrences))]
+    #[clap(
+        short,
+        long,
+        parse(from_occurrences),
+        help = "verbosity level, add more v to increase"
+    )]
     verbose: usize,
+
+    /// Configuration file location
+    #[clap(
+        short,
+        long,
+        default_value = "./config",
+        help = "directory where the configuration file is located"
+    )]
+    configuration_dir: PathBuf,
 }
 
 impl Args {
@@ -53,15 +66,21 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let _guard = slog_scope::set_global_logger(build_logger(args.log_level()));
 
     // Load config
-    let run_mode = env::var("RUN_MODE").unwrap_or(args.run_mode);
     let config: Config = config::Config::builder()
-        .add_source(config::File::with_name(&format!("./config/{}.json", run_mode)).required(false))
+        .add_source(
+            config::File::with_name(&format!(
+                "{}/{}.json",
+                args.configuration_dir.display(),
+                args.run_mode
+            ))
+            .required(false),
+        )
         .add_source(config::Environment::default())
         .build()
         .map_err(|e| format!("configuration build error: {}", e))?
         .try_deserialize()
         .map_err(|e| format!("configuration deserialize error: {}", e))?;
-    debug!("Started"; "run_mode" => &run_mode, "config" => format!("{:?}", config));
+    debug!("Started"; "run_mode" => &args.run_mode, "config" => format!("{:?}", config));
 
     let mut state_machine = StateMachine::new(
         SignerState::Unregistered(None),

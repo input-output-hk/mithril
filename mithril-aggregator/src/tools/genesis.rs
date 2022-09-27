@@ -7,11 +7,36 @@ use mithril_common::{
         ProtocolGenesisSigner, ProtocolGenesisVerifier,
     },
     entities::{Beacon, ProtocolParameters},
+    BeaconProvider,
+};
+use tokio::sync::RwLock;
+
+use crate::{
+    CertificateStore, DependencyManager, MultiSigner, ProtocolParametersStore,
+    ProtocolParametersStorer,
 };
 
-use crate::{CertificateStore, DependencyManager, ProtocolParametersStorer};
-
 type GenesisToolsResult<R> = Result<R, Box<dyn Error>>;
+
+pub struct GenesisToolsDependency {
+    /// Multisigner service.
+    multi_signer: Arc<RwLock<dyn MultiSigner>>,
+
+    /// Beacon provider service.
+    pub beacon_provider: Arc<dyn BeaconProvider>,
+
+    /// Genesis signature verifier service.
+    pub genesis_verifier: Arc<ProtocolGenesisVerifier>,
+
+    /// Certificate verifier service.
+    pub certificate_verifier: Arc<dyn CertificateVerifier>,
+
+    /// Protocol parameter store.
+    pub protocol_parameters_store: Arc<ProtocolParametersStore>,
+
+    /// Certificate store.
+    pub certificate_store: Arc<CertificateStore>,
+}
 
 pub struct GenesisTools {
     protocol_parameters: ProtocolParameters,
@@ -42,7 +67,7 @@ impl GenesisTools {
     }
 
     pub async fn from_dependencies(
-        dependencies: Arc<DependencyManager>,
+        dependencies: Arc<GenesisToolsDependency>,
     ) -> GenesisToolsResult<Self> {
         let mut multi_signer = dependencies.multi_signer.write().await;
         let beacon_provider = dependencies.beacon_provider.clone();

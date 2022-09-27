@@ -17,6 +17,352 @@ use crate::{
     DependencyManager, ProtocolParametersStore, ProtocolParametersStorer, Server,
 };
 
+/// Main application command line parameters
+#[derive(Parser, Debug, Clone)]
+pub struct MainOpts {
+    #[clap(subcommand)]
+    pub command: MainCommand,
+
+    /// Run Mode
+    #[clap(short, long, default_value = "dev")]
+    pub run_mode: String,
+
+    /// Verbosity level
+    #[clap(short, long, parse(from_occurrences))]
+    pub verbose: usize,
+
+    /// Directory where stores are located
+    #[clap(long)]
+    pub db_directory: Option<PathBuf>,
+}
+
+impl Source for MainOpts {
+    fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
+        Box::new(self.clone())
+    }
+
+    fn collect(&self) -> Result<Map<String, Value>, config::ConfigError> {
+        let mut result = Map::new();
+        let namespace = "clap arguments".to_string();
+
+        result.insert(
+            "run_mode".to_string(),
+            Value::new(Some(&namespace), ValueKind::from(self.run_mode.clone())),
+        );
+        result.insert(
+            "verbose".to_string(),
+            Value::new(Some(&namespace), ValueKind::from(self.verbose as u32)),
+        );
+
+        if let Some(db_directory) = self.db_directory.clone() {
+            result.insert(
+                "db_directory".to_string(),
+                Value::new(
+                    Some(&namespace),
+                    ValueKind::from(format!("{}", db_directory.to_string_lossy())),
+                ),
+            );
+        }
+        result.extend(self.command.collect()?.into_iter());
+
+        Ok(result)
+    }
+}
+
+impl MainOpts {
+    /// execute command
+    pub async fn execute(
+        &self,
+        dependency_manager: Arc<DependencyManager>,
+        config: Configuration,
+    ) -> Result<(), Box<dyn Error>> {
+        todo!()
+    }
+
+    fn log_level(&self) -> Level {
+        match self.verbose {
+            0 => Level::Warning,
+            1 => Level::Info,
+            2 => Level::Debug,
+            _ => Level::Trace,
+        }
+    }
+
+    /// Build a logger from args.
+    pub fn build_logger(&self) -> Logger {
+        let drain = slog_bunyan::new(std::io::stdout())
+            .set_pretty(false)
+            .build()
+            .fuse();
+        let drain = slog::LevelFilter::new(drain, self.log_level()).fuse();
+        let drain = slog_async::Async::new(drain).build().fuse();
+
+        Logger::root(Arc::new(drain), slog::o!())
+    }
+}
+
+/// Main command selecter
+#[derive(Parser, Debug, Clone)]
+pub enum MainCommand {
+    Genesis(GenesisCommand),
+    Serve(ServeCommand),
+}
+
+impl Source for MainCommand {
+    fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
+        Box::new(self.clone())
+    }
+
+    fn collect(&self) -> Result<Map<String, Value>, config::ConfigError> {
+        match self {
+            Self::Genesis(cmd) => cmd.collect(),
+            Self::Serve(cmd) => cmd.collect(),
+        }
+    }
+}
+
+impl MainCommand {
+    /// execute main
+    pub async fn execute(
+        &self,
+        dependency_manager: Arc<DependencyManager>,
+        config: Configuration,
+    ) -> Result<(), Box<dyn Error>> {
+        match self {
+            Self::Genesis(cmd) => cmd.execute(dependency_manager, config).await,
+            Self::Serve(cmd) => cmd.execute(dependency_manager, config).await,
+        }
+    }
+}
+
+/// Server runtime mode
+#[derive(Parser, Debug, Clone)]
+pub struct ServeCommand {
+    /// Server listening IP
+    #[clap(long)]
+    pub server_url: Option<String>,
+
+    /// Directory to store snapshot
+    /// Defaults to work folder
+    #[clap(long)]
+    pub snapshot_directory: Option<PathBuf>,
+}
+
+impl Source for ServeCommand {
+    fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
+        Box::new(self.clone())
+    }
+
+    fn collect(&self) -> Result<Map<String, Value>, config::ConfigError> {
+        let mut result = Map::new();
+        let namespace = "clap arguments".to_string();
+
+        if let Some(server_url) = self.server_url.clone() {
+            result.insert(
+                "server_url".to_string(),
+                Value::new(Some(&namespace), ValueKind::from(server_url)),
+            );
+        }
+        if let Some(snapshot_directory) = self.snapshot_directory.clone() {
+            result.insert(
+                "snapshot_directory".to_string(),
+                Value::new(
+                    Some(&namespace),
+                    ValueKind::from(format!("{}", snapshot_directory.to_string_lossy())),
+                ),
+            );
+        }
+
+        Ok(result)
+    }
+}
+
+impl ServeCommand {
+    pub async fn execute(
+        &self,
+        dependency_manager: Arc<DependencyManager>,
+        config: Configuration,
+    ) -> Result<(), Box<dyn Error>> {
+        todo!()
+    }
+}
+
+#[derive(Parser, Debug, Clone)]
+/// Genesis command selecter
+pub struct GenesisCommand {
+    #[clap(subcommand)]
+    pub genesis_subcommand: GenesisSubCommand,
+}
+
+impl Source for GenesisCommand {
+    fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
+        Box::new(self.clone())
+    }
+
+    fn collect(&self) -> Result<Map<String, Value>, config::ConfigError> {
+        self.genesis_subcommand.collect()
+    }
+}
+
+impl GenesisCommand {
+    pub async fn execute(
+        &self,
+        dependency_manager: Arc<DependencyManager>,
+        config: Configuration,
+    ) -> Result<(), Box<dyn Error>> {
+        todo!()
+    }
+}
+
+#[derive(Parser, Debug, Clone)]
+pub enum GenesisSubCommand {
+    Export(ExportGenesisSubCommand),
+    Import(ImportGenesisSubCommand),
+    Bootstrap(BootstrapGenesisSubCommand),
+}
+
+impl Source for GenesisSubCommand {
+    fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
+        Box::new(self.clone())
+    }
+
+    fn collect(&self) -> Result<Map<String, Value>, config::ConfigError> {
+        match self {
+            Self::Export(cmd) => cmd.collect(),
+            Self::Import(cmd) => cmd.collect(),
+            Self::Bootstrap(cmd) => cmd.collect(),
+        }
+    }
+}
+
+impl GenesisSubCommand {
+    pub async fn execute(
+        &self,
+        dependency_manager: Arc<DependencyManager>,
+        config: Configuration,
+    ) -> Result<(), Box<dyn Error>> {
+        todo!()
+    }
+}
+
+#[derive(Parser, Debug, Clone)]
+pub struct ExportGenesisSubCommand {
+    /// Target Path
+    #[clap(long)]
+    target_path: Option<PathBuf>,
+}
+
+impl Source for ExportGenesisSubCommand {
+    fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
+        Box::new(self.clone())
+    }
+
+    fn collect(&self) -> Result<Map<String, Value>, config::ConfigError> {
+        let mut result = Map::new();
+        let namespace = "clap arguments".to_string();
+
+        if let Some(target_path) = self.target_path.clone() {
+            result.insert(
+                "target_path".to_string(),
+                Value::new(
+                    Some(&namespace),
+                    ValueKind::from(format!("{}", target_path.to_string_lossy())),
+                ),
+            );
+        }
+
+        Ok(result)
+    }
+}
+
+impl ExportGenesisSubCommand {
+    pub async fn execute(
+        &self,
+        dependency_manager: Arc<DependencyManager>,
+        config: Configuration,
+    ) -> Result<(), Box<dyn Error>> {
+        todo!()
+    }
+}
+
+#[derive(Parser, Debug, Clone)]
+pub struct ImportGenesisSubCommand {
+    /// Signed Payload Path
+    #[clap(long)]
+    signed_payload_path: Option<PathBuf>,
+}
+
+impl Source for ImportGenesisSubCommand {
+    fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
+        Box::new(self.clone())
+    }
+
+    fn collect(&self) -> Result<Map<String, Value>, config::ConfigError> {
+        let mut result = Map::new();
+        let namespace = "clap arguments".to_string();
+
+        if let Some(signed_payload_path) = self.signed_payload_path.clone() {
+            result.insert(
+                "signed_payload_path".to_string(),
+                Value::new(
+                    Some(&namespace),
+                    ValueKind::from(format!("{}", signed_payload_path.to_string_lossy())),
+                ),
+            );
+        }
+
+        Ok(result)
+    }
+}
+
+impl ImportGenesisSubCommand {
+    pub async fn execute(
+        &self,
+        dependency_manager: Arc<DependencyManager>,
+        config: Configuration,
+    ) -> Result<(), Box<dyn Error>> {
+        todo!()
+    }
+}
+
+#[derive(Parser, Debug, Clone)]
+pub struct BootstrapGenesisSubCommand {
+    /// Genesis Secret Key (test only)
+    #[clap(long, env = "GENESIS_SECRET_KEY")]
+    genesis_secret_key: String,
+}
+
+impl Source for BootstrapGenesisSubCommand {
+    fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
+        Box::new(self.clone())
+    }
+
+    fn collect(&self) -> Result<Map<String, Value>, config::ConfigError> {
+        let mut result = Map::new();
+        let namespace = "clap arguments".to_string();
+
+        result.insert(
+            "genesis_secret_key".to_string(),
+            Value::new(
+                Some(&namespace),
+                ValueKind::from(self.genesis_secret_key.clone()),
+            ),
+        );
+
+        Ok(result)
+    }
+}
+
+impl BootstrapGenesisSubCommand {
+    pub async fn execute(
+        &self,
+        dependency_manager: Arc<DependencyManager>,
+        config: Configuration,
+    ) -> Result<(), Box<dyn Error>> {
+        todo!()
+    }
+}
+/*
 /// Node args
 #[derive(Parser, Debug, Clone)]
 pub struct Args {
@@ -283,3 +629,4 @@ async fn do_first_launch_initialization_if_needed(
 
     Ok(())
 }
+ */
