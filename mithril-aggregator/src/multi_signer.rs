@@ -4,6 +4,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use chrono::prelude::*;
 use hex::ToHex;
+use mithril_common::chain_observer::ChainObserver;
 use slog_scope::{debug, trace, warn};
 use thiserror::Error;
 
@@ -74,6 +75,10 @@ pub enum ProtocolError {
     /// Beacon error.
     #[error("beacon error: '{0}'")]
     Beacon(#[from] entities::EpochError),
+
+    /// Chain observer error.
+    #[error("chaim observer error: '{0}'")]
+    ChainObserver(String),
 }
 
 /// MultiSigner is the cryptographic engine in charge of producing multi signatures from individual signatures
@@ -251,6 +256,9 @@ pub struct MultiSignerImpl {
 
     /// Protocol parameters store
     protocol_parameters_store: Arc<ProtocolParametersStore>,
+
+    /// Chain observer
+    chain_observer: Arc<dyn ChainObserver>,
 }
 
 impl MultiSignerImpl {
@@ -260,6 +268,7 @@ impl MultiSignerImpl {
         stake_store: Arc<StakeStore>,
         single_signature_store: Arc<SingleSignatureStore>,
         protocol_parameters_store: Arc<ProtocolParametersStore>,
+        chain_observer: Arc<dyn ChainObserver>,
     ) -> Self {
         debug!("New MultiSignerImpl created");
         Self {
@@ -273,6 +282,7 @@ impl MultiSignerImpl {
             stake_store,
             single_signature_store,
             protocol_parameters_store,
+            chain_observer,
         }
     }
 
@@ -290,9 +300,9 @@ impl MultiSignerImpl {
         let mut key_registration = ProtocolKeyRegistration::init(&stake_distribution);
         let mut total_signers = 0;
         for signer in signers_with_stake {
-            let opcert = match &signer.operational_certificate {
+            let operational_certificate = match &signer.operational_certificate {
                 Some(operational_certificate) => {
-                    key_decode_hex(operational_certificate).unwrap_or(None)
+                    key_decode_hex(operational_certificate).map_err(ProtocolError::Codec)?
                 }
                 _ => None,
             };
@@ -304,11 +314,19 @@ impl MultiSignerImpl {
                 }
                 _ => None,
             };
-            let kes_period = 0; // TODO: compute the kes period from opcert
+            let kes_period = match &operational_certificate {
+                Some(operational_certificate) => self
+                    .chain_observer
+                    .get_current_kes_period(operational_certificate)
+                    .await
+                    .map_err(|e| ProtocolError::ChainObserver(e.to_string()))?
+                    .unwrap_or_default(),
+                None => 0,
+            };
             key_registration
                 .register(
                     Some(signer.party_id.to_owned()),
-                    opcert,
+                    operational_certificate,
                     kes_signature,
                     kes_period,
                     verification_key,
@@ -551,7 +569,15 @@ impl MultiSigner for MultiSignerImpl {
             }
             _ => None,
         };
-        let kes_period = 0; // TODO: compute the kes period from opcert
+        let kes_period = match &operational_certificate {
+            Some(operational_certificate) => self
+                .chain_observer
+                .get_current_kes_period(operational_certificate)
+                .await
+                .map_err(|e| ProtocolError::ChainObserver(e.to_string()))?
+                .unwrap_or_default(),
+            None => 0,
+        };
         let party_id_save = key_registration.register(
             party_id_register.clone(),
             operational_certificate,
@@ -833,6 +859,7 @@ mod tests {
     use crate::store::{SingleSignatureStore, VerificationKeyStore};
     use crate::ProtocolParametersStore;
 
+    use mithril_common::chain_observer::FakeObserver;
     use mithril_common::crypto_helper::tests_setup::*;
     use mithril_common::fake_data;
     use mithril_common::store::adapter::MemoryAdapter;
@@ -887,11 +914,13 @@ mod tests {
             ),
             None,
         );
+        let chain_observer = FakeObserver::default();
         let mut multi_signer = MultiSignerImpl::new(
             Arc::new(verification_key_store),
             Arc::new(stake_store),
             Arc::new(single_signature_store),
             Arc::new(protocol_parameters_store),
+            Arc::new(chain_observer),
         );
 
         multi_signer
