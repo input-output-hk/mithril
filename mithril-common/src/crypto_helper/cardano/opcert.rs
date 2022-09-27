@@ -1,11 +1,23 @@
 use super::FromShelleyFile;
-
 use crate::crypto_helper::cardano::ProtocolRegistrationErrorWrapper;
+use crate::crypto_helper::ProtocolPartyId;
+
+use bech32::{self, ToBase32, Variant};
+use blake2::{digest::consts::U28, Blake2b, Digest};
 use ed25519_dalek::{PublicKey as EdPublicKey, Signature as EdSignature, Verifier};
 use kes_summed_ed25519::common::PublicKey as KesPublicKey;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use sha2::{Digest, Sha256};
+use sha2::Sha256;
+use thiserror::Error;
+
+/// Operational certificate error
+#[derive(Error, Debug, PartialEq, Eq)]
+pub enum OpCertError {
+    /// Error raised when a pool address encoding fails
+    #[error("pool address encoding error")]
+    PoolAddressEncoding,
+}
 
 /// Raw Fields of the operational certificates (without incluiding the cold VK)
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
@@ -48,6 +60,16 @@ impl OpCert {
         }
 
         Err(ProtocolRegistrationErrorWrapper::OpCertInvalid)
+    }
+
+    /// Compute protocol party id as pool id bech 32
+    pub fn compute_protocol_party_id(&self) -> Result<ProtocolPartyId, OpCertError> {
+        let mut hasher = Blake2b::<U28>::new();
+        hasher.update(&self.cold_vk.as_bytes());
+        let mut pool_id = [0u8; 28];
+        pool_id.copy_from_slice(hasher.finalize().as_slice());
+        bech32::encode("pool", pool_id.to_base32(), Variant::Bech32)
+            .map_err(|_| OpCertError::PoolAddressEncoding)
     }
 
     /// Compute the hash of an OpCert
@@ -113,5 +135,13 @@ mod tests {
 
         let cert_test: OpCert = OpCert::from_file("./test-data/node_test.cert").unwrap();
         assert!(cert_test.validate().is_ok());
+
+        let party_id = cert
+            .compute_protocol_party_id()
+            .expect("compute protocol party_id should not fail");
+        assert_eq!(
+            "pool19yx7tsfa850q2f2cjkg4alcxxv04gm5j8xlxkdmk0adwylsdrta".to_string(),
+            party_id
+        );
     }
 }

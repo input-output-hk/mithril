@@ -11,11 +11,7 @@ use mithril::stm::{
 };
 use mithril::{AggregationError, RegisterError};
 
-use bech32::{self, ToBase32, Variant};
-use blake2::{
-    digest::consts::{U28, U32},
-    Blake2b, Digest,
-};
+use blake2::{digest::consts::U32, Blake2b, Digest};
 use kes_summed_ed25519::kes::{Sum6Kes, Sum6KesSig};
 use kes_summed_ed25519::traits::{KesSig, KesSk};
 use rand_core::{CryptoRng, RngCore};
@@ -222,12 +218,7 @@ impl KeyRegWrapper {
                 .unwrap()
                 .verify(kes_period, &cert.kes_vk, &pk.to_bytes())
                 .map_err(|_| ProtocolRegistrationErrorWrapper::KesSignatureInvalid)?;
-
-            let mut hasher = Blake2b::<U28>::new();
-            hasher.update(cert.cold_vk.as_bytes());
-            let mut pool_id = [0u8; 28];
-            pool_id.copy_from_slice(hasher.finalize().as_slice());
-            bech32::encode("pool", pool_id.to_base32(), Variant::Bech32)
+            cert.compute_protocol_party_id()
                 .map_err(|_| ProtocolRegistrationErrorWrapper::PoolAddressEncoding)?
         };
 
