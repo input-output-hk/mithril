@@ -50,7 +50,7 @@ impl Spec {
         .await?;
         delegate_stakes_to_pools(self.infrastructure.devnet()).await?;
 
-        target_epoch += 4;
+        target_epoch += 5;
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
             target_epoch,

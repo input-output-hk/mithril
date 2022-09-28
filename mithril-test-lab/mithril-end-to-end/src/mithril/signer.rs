@@ -39,7 +39,6 @@ impl Signer {
         ]);
         if pool_node.node_index % 2 == 0 {
             // 50% of signers with key certification
-            env.insert("PARTY_ID", &party_id); // TODO: Should be removed once the signer certification is fully deployed
             env.insert(
                 "KES_SECRET_KEY_PATH",
                 pool_node.kes_secret_key_path.to_str().unwrap(),

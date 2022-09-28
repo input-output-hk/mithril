@@ -8,7 +8,7 @@ use thiserror::Error;
 
 use mithril_common::crypto_helper::{
     key_decode_hex, key_encode_hex, ProtocolClerk, ProtocolInitializer, ProtocolKeyRegistration,
-    ProtocolRegistrationError, ProtocolSigner, ProtocolStakeDistribution,
+    ProtocolPartyId, ProtocolRegistrationError, ProtocolSigner, ProtocolStakeDistribution,
 };
 use mithril_common::entities::{
     PartyId, ProtocolMessage, ProtocolParameters, SignerWithStake, SingleSignatures, Stake,
@@ -77,6 +77,9 @@ pub trait SingleSigner: Sync + Send {
         protocol_initializer: &ProtocolInitializer,
         chain_observer: Arc<dyn ChainObserver>,
     ) -> Result<Option<String>, SingleSignerError>;
+
+    /// Get party id
+    fn get_party_id(&self) -> ProtocolPartyId;
 }
 
 /// SingleSigner error structure.
@@ -247,6 +250,11 @@ impl SingleSigner for MithrilSingleSigner {
             }
             Err(e) => Err(e),
         }
+    }
+
+    /// Get party id
+    fn get_party_id(&self) -> ProtocolPartyId {
+        self.party_id.clone()
     }
 }
 

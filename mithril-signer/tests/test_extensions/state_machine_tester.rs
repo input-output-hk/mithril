@@ -53,7 +53,7 @@ impl StateMachineTester {
             db_directory: PathBuf::new(),
             network: "devnet".to_string(),
             network_magic: Some(42),
-            party_id: "99999999999999999999999999999999".to_string(),
+            party_id: Some("99999999999999999999999999999999".to_string()),
             run_interval: 5000,
             data_stores_directory: PathBuf::new(),
             store_retention_limit: None,
@@ -85,7 +85,9 @@ impl StateMachineTester {
             Box::new(MemoryAdapter::new(None).unwrap()),
             config.store_retention_limit,
         ));
-        let single_signer = Arc::new(MithrilSingleSigner::new(config.party_id.clone()));
+        let single_signer = Arc::new(MithrilSingleSigner::new(
+            config.party_id.to_owned().unwrap_or_default(),
+        ));
         let stake_store = Arc::new(StakeStore::new(
             Box::new(MemoryAdapter::new(None).unwrap()),
             config.store_retention_limit,

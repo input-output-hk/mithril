@@ -172,9 +172,8 @@ impl Runner for SignerRunner {
             .await?
             .ok_or_else(|| RuntimeError::NoValueError("current_stake_distribution".to_string()))?;
         let stake = stake_distribution
-            .get(&self.config.party_id)
+            .get(&self.services.single_signer.get_party_id())
             .ok_or(RuntimeError::NoStakeForSelf())?;
-
         let (operational_certificate, operational_certificate_encoded) =
             match &self.config.operational_certificate_path {
                 Some(operational_certificate_path) => {
@@ -186,6 +185,7 @@ impl Runner for SignerRunner {
                 }
                 _ => (None, None),
             };
+
         let kes_period = match operational_certificate {
             Some(operational_certificate) => Some(
                 self.services
@@ -209,7 +209,7 @@ impl Runner for SignerRunner {
                 _ => None,
             };
         let signer = Signer::new(
-            self.config.party_id.to_owned(),
+            self.services.single_signer.get_party_id(),
             verification_key_encoded,
             verification_key_signature_encoded,
             operational_certificate_encoded,
@@ -252,7 +252,9 @@ impl Runner for SignerRunner {
     ) -> Result<bool, Box<dyn StdError + Sync + Send>> {
         debug!("RUNNER: can_i_sign");
 
-        if let Some(signer) = pending_certificate.get_signer(self.config.party_id.to_owned()) {
+        if let Some(signer) =
+            pending_certificate.get_signer(self.services.single_signer.get_party_id())
+        {
             debug!(" > got a Signer from pending certificate");
 
             if let Some(protocol_initializer) = self
@@ -500,7 +502,7 @@ mod tests {
             db_directory: PathBuf::new(),
             network: "whatever".to_string(),
             network_magic: None,
-            party_id: "1".to_string(),
+            party_id: Some("1".to_string()),
             run_interval: 100,
             data_stores_directory: PathBuf::new(),
             kes_secret_key_path: None,
@@ -508,10 +510,10 @@ mod tests {
             store_retention_limit: None,
         };
 
-        SignerRunner {
-            config: maybe_config.unwrap_or(config),
-            services: maybe_services.unwrap_or(services),
-        }
+        SignerRunner::new(
+            maybe_config.unwrap_or(config),
+            maybe_services.unwrap_or(services),
+        )
     }
 
     #[tokio::test]

@@ -26,7 +26,7 @@ pub struct Config {
 
     /// Party Id
     // TODO: Field should be removed once the signer certification is fully deployed
-    pub party_id: PartyId,
+    pub party_id: Option<PartyId>,
 
     /// Run Interval
     pub run_interval: u64,
