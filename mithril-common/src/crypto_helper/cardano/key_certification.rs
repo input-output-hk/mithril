@@ -107,14 +107,14 @@ impl StmInitializerWrapper {
         rng: &mut R,
     ) -> Result<Self, ParseError> {
         let stm_initializer = StmInitializer::setup(params, stake, rng);
-        let kes_signature = if kes_sk_path.is_none() {
-            None
-        } else {
-            let kes_sk: Sum6Kes = Sum6Kes::from_file(kes_sk_path.unwrap())?;
+        let kes_signature = if let Some(kes_sk_path) = kes_sk_path {
+            let kes_sk: Sum6Kes = Sum6Kes::from_file(kes_sk_path)?;
             Some(kes_sk.sign(
-                kes_period.unwrap(),
+                kes_period.unwrap_or_default(),
                 &stm_initializer.verification_key().to_bytes(),
             ))
+        } else {
+            None
         };
 
         Ok(Self {
@@ -206,20 +206,20 @@ impl KeyRegWrapper {
         kes_period: KESPeriod,
         pk: ProtocolSignerVerificationKey,
     ) -> Result<ProtocolPartyId, ProtocolRegistrationErrorWrapper> {
-        let pool_id_bech32: ProtocolPartyId = if opcert.is_none() {
-            println!("WARNING: Signer certification is skipped!");
-            party_id.unwrap()
-        } else {
-            #[allow(clippy::unnecessary_unwrap)] // TODO: remove this clippy allow
-            let cert = opcert.unwrap();
-            cert.validate()
+        let pool_id_bech32: ProtocolPartyId = if let Some(opcert) = opcert {
+            opcert
+                .validate()
                 .map_err(|_| ProtocolRegistrationErrorWrapper::OpCertInvalid)?;
             kes_sig
                 .unwrap()
-                .verify(kes_period, &cert.kes_vk, &pk.to_bytes())
+                .verify(kes_period, &opcert.kes_vk, &pk.to_bytes())
                 .map_err(|_| ProtocolRegistrationErrorWrapper::KesSignatureInvalid)?;
-            cert.compute_protocol_party_id()
+            opcert
+                .compute_protocol_party_id()
                 .map_err(|_| ProtocolRegistrationErrorWrapper::PoolAddressEncoding)?
+        } else {
+            println!("WARNING: Signer certification is skipped!");
+            party_id.unwrap()
         };
 
         if let Some(&stake) = self.stake_distribution.get(&pool_id_bech32) {
