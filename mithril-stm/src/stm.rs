@@ -800,8 +800,8 @@ impl<D: Clone + Digest + Send + Sync> StmAggrSig<D> {
                 sig_group.signatures.iter().map(|sig| sig.pk).collect();
 
             let (aggr_vk, aggr_sig) = Signature::aggregate(&grouped_vks, &grouped_sigs).unwrap();
-            aggr_sigs.push(Signature(aggr_sig));
-            aggr_vks.push(VerificationKey(aggr_vk));
+            aggr_sigs.push(aggr_sig);
+            aggr_vks.push(aggr_vk);
         }
 
         let concat_msgs: Vec<Vec<u8>> = msgs

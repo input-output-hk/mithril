@@ -13,14 +13,11 @@ use rand_core::{RngCore, SeedableRng};
 use rayon::prelude::*;
 use std::fmt::Debug;
 
-///
 /// This benchmark framework is not ideal. We really have to think what is the best mechanism for
 /// benchmarking these signatures, over which parameters, how many times to run them, etc:
 /// * Registration depends on the number of parties (should be constant, as it is a lookup table)
 /// * Signing depends on the parameter `m`, as it defines the number of lotteries a user can play
 /// * Aggregation depends on `k`.
-/// * Verification is independent from the parameters.
-
 fn stm_benches<H>(c: &mut Criterion, nr_parties: usize, params: StmParameters, hashing_alg: &str)
 where
     H: Clone + Debug + Digest + Send + Sync + FixedOutput + Default,
@@ -75,14 +72,9 @@ where
         .collect::<Vec<_>>();
 
     let clerk = StmClerk::from_signer(&signers[0]);
-    let msig = clerk.aggregate(&sigs, &msg).unwrap();
 
     group.bench_function(BenchmarkId::new("Aggregation", &param_string), |b| {
         b.iter(|| clerk.aggregate(&sigs, &msg))
-    });
-
-    group.bench_function(BenchmarkId::new("Verification", &param_string), |b| {
-        b.iter(|| msig.verify(&msg, &clerk.compute_avk(), &params).is_ok())
     });
 }
 

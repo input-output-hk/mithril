@@ -3,13 +3,6 @@ use mithril::multi_sig::{Signature, SigningKey, VerificationKey};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
-/// This benchmark framework is not ideal. We really have to think what is the best mechanism for
-/// benchmarking these signatures, over which parameters, how many times to run them, etc:
-/// * Registration depends on the number of parties (should be constant, as it is a lookup table)
-/// * Signing depends on the parameter `m`, as it defines the number of lotteries a user can play
-/// * Aggregation depends on `k`.
-/// * Verification is independent from the parameters.
-
 fn batch_benches(c: &mut Criterion, array_batches: &[usize], nr_sigs: usize) {
     let mut group = c.benchmark_group("MultiSig".to_string());
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
@@ -34,8 +27,8 @@ fn batch_benches(c: &mut Criterion, array_batches: &[usize], nr_sigs: usize) {
             }
             let (agg_vk, agg_sig) = Signature::aggregate(&mvks, &sigs).unwrap();
             batch_msgs.push(msg.to_vec());
-            batch_vk.push(VerificationKey(agg_vk));
-            batch_sig.push(Signature(agg_sig));
+            batch_vk.push(agg_vk);
+            batch_sig.push(agg_sig);
         }
 
         group.bench_function(BenchmarkId::new("Batch Verification", &batch_string), |b| {

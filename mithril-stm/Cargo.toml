@@ -44,6 +44,7 @@ rand_chacha = "0.3.1"
 [[bench]]
 name = "multi_sig"
 harness = false
+required-features = ["benchmark-internals"]
 
 [[bench]]
 name = "stm"
@@ -58,3 +59,4 @@ default = ["rug-backend"]
 rug-backend = ["rug/default"]
 num-integer-backend = ["num-bigint", "num-rational", "num-traits"]
 portable = ["blst/portable"]
+benchmark-internals = [] # For benchmarking multi_sig
