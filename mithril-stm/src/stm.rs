@@ -566,7 +566,7 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
 }
 
 impl StmSig {
-    /// Verify an stm signature by checking that the lottery was won,
+    /// Verify an stm signature by checking that the lottery was won, the merkle path is correct,
     /// the indexes are in the desired range and the underlying multi signature validates.
     pub fn verify<D: Clone + Digest + FixedOutput>(
         &self,
@@ -698,7 +698,7 @@ impl<D: Clone + Digest + FixedOutput> From<&ClosedKeyReg<D>> for StmAggrVerifica
     }
 }
 
-impl<D: Clone + Digest> StmAggrSig<D> {
+impl<D: Clone + Digest + Send + Sync> StmAggrSig<D> {
     /// Verify all checks from signatures, except for the signature verification itself.
     fn preliminary_verify(
         &self,

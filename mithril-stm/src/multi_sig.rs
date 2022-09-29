@@ -76,7 +76,7 @@ impl SigningKey {
 /// MultiSig verification key, which is a wrapper over the BlstVk (element in G2)
 /// from the blst library.
 #[derive(Debug, Clone, Copy, Default)]
-pub struct VerificationKey(pub(crate) BlstVk);
+pub struct VerificationKey(pub BlstVk);
 
 impl Display for VerificationKey {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -325,7 +325,7 @@ impl ProofOfPossession {
 
 /// MultiSig signature, which is a wrapper over the `BlstSig` type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Signature(pub(crate) BlstSig);
+pub struct Signature(pub BlstSig);
 
 impl<'a> Sum<&'a Self> for Signature {
     fn sum<I>(iter: I) -> Self
@@ -402,7 +402,11 @@ impl Signature {
         result
     }
 
-    pub(crate) fn aggregate(
+    /// Aggregate a slice of verification keys and Signatures by first hashing the
+    /// signatures into random scalars, and multiplying the signature and verification
+    /// key with the resulting value. This follows the steps defined in Figure 6,
+    /// `Aggregate` step.
+    pub fn aggregate(
         vks: &[VerificationKey],
         sigs: &[Signature],
     ) -> Result<(BlstVk, BlstSig), MultiSignatureError> {
@@ -470,10 +474,9 @@ impl Signature {
         Ok((aggr_vk, aggr_sig))
     }
 
-    /// Verify a set of signatures with their corresponding verification keys by first hashing the
-    /// signatures into random scalars, and multiplying the signature and verification key with
-    /// the resulting value. This follows the steps defined in Figure 6, `Aggregate` step.
-    pub(crate) fn verify_aggregate(
+    /// Verify a set of signatures with their corresponding verification keys using the
+    /// aggregation mechanism of Figure 6.
+    pub fn verify_aggregate(
         msg: &[u8],
         vks: &[VerificationKey],
         sigs: &[Signature],
@@ -487,7 +490,7 @@ impl Signature {
     }
 
     /// Batch verify several sets of signatures with their corresponding verification keys.
-    pub(crate) fn batch_verify_aggregates(
+    pub fn batch_verify_aggregates(
         msgs: &[Vec<u8>],
         vks: &[VerificationKey],
         sigs: &[Signature],
