@@ -11,16 +11,13 @@ use mithril_common::{
 };
 use tokio::sync::RwLock;
 
-use crate::{
-    CertificateStore, DependencyManager, MultiSigner, ProtocolParametersStore,
-    ProtocolParametersStorer,
-};
+use crate::{CertificateStore, MultiSigner, ProtocolParametersStore, ProtocolParametersStorer};
 
 type GenesisToolsResult<R> = Result<R, Box<dyn Error>>;
 
 pub struct GenesisToolsDependency {
     /// Multisigner service.
-    multi_signer: Arc<RwLock<dyn MultiSigner>>,
+    pub multi_signer: Arc<RwLock<dyn MultiSigner>>,
 
     /// Beacon provider service.
     pub beacon_provider: Arc<dyn BeaconProvider>,
@@ -67,7 +64,7 @@ impl GenesisTools {
     }
 
     pub async fn from_dependencies(
-        dependencies: Arc<GenesisToolsDependency>,
+        dependencies: GenesisToolsDependency,
     ) -> GenesisToolsResult<Self> {
         let mut multi_signer = dependencies.multi_signer.write().await;
         let beacon_provider = dependencies.beacon_provider.clone();

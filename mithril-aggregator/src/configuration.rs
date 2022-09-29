@@ -50,7 +50,10 @@ pub struct Configuration {
     pub snapshot_uploader_type: SnapshotUploaderType,
 
     /// Server listening IP
-    pub server_url: String,
+    pub server_ip: String,
+
+    /// Server listening port
+    pub server_port: u16,
 
     /// Run Interval is the interval between two runtime cycles in ms
     pub run_interval: u64,
@@ -97,6 +100,11 @@ pub enum SnapshotUploaderType {
 }
 
 impl Configuration {
+    /// Build the server URL from configuration.
+    pub fn get_server_url(&self) -> String {
+        format!("http://{}:{}/", self.server_ip, self.server_port)
+    }
+
     /// Create a snapshot store from the configuration settings.
     pub fn build_snapshot_store(&self) -> Result<Arc<dyn SnapshotStore>, Box<dyn Error>> {
         match self.snapshot_store_type {
@@ -121,7 +129,7 @@ impl Configuration {
                 GcpFileUploader::default(),
             ))),
             SnapshotUploaderType::Local => Arc::new(LocalSnapshotUploader::new(
-                self.server_url.clone(),
+                self.get_server_url(),
                 &self.snapshot_directory,
             )),
         }

@@ -128,7 +128,9 @@ mod handlers {
                 );
                 let snapshot_uri = format!(
                     "{}{}/snapshot_download/{}",
-                    config.server_url, SERVER_BASE_PATH, filename
+                    config.get_server_url(),
+                    SERVER_BASE_PATH,
+                    filename
                 );
                 let snapshot_uri = Uri::from_str(&snapshot_uri).unwrap();
 
