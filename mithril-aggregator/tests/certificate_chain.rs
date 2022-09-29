@@ -1,8 +1,10 @@
 mod test_extensions;
 
+use std::collections::BTreeMap;
+
 use mithril_aggregator::VerificationKeyStorer;
 use mithril_common::chain_observer::ChainObserver;
-use mithril_common::crypto_helper::tests_setup;
+use mithril_common::crypto_helper::{tests_setup, ProtocolPartyId, ProtocolStake};
 use mithril_common::entities::{ProtocolParameters, SignerWithStake};
 use test_extensions::RuntimeTester;
 
@@ -143,8 +145,22 @@ async fn certificate_chain() {
         "The new epoch certificate should be linked to the first certificate of the previous epoch"
     );
     assert_eq!(
-        &last_certificates[0].metadata.get_stake_distribution(),
-        &last_certificates[2].metadata.get_stake_distribution(),
+        BTreeMap::from_iter(
+            last_certificates[0]
+                .metadata
+                .get_stake_distribution()
+                .into_iter()
+                .collect::<Vec<(ProtocolPartyId, ProtocolStake)>>()
+                .into_iter(),
+        ),
+        BTreeMap::from_iter(
+            last_certificates[2]
+                .metadata
+                .get_stake_distribution()
+                .into_iter()
+                .collect::<Vec<(ProtocolPartyId, ProtocolStake)>>()
+                .into_iter(),
+        ),
         "The stake distribution update should only be taken into account at the next epoch",
     );
 
@@ -192,8 +208,22 @@ async fn certificate_chain() {
         "The new epoch certificate should be linked to the first certificate of the previous epoch"
     );
     assert_ne!(
-        &last_certificates[0].metadata.get_stake_distribution(),
-        &last_certificates[2].metadata.get_stake_distribution(),
+        BTreeMap::from_iter(
+            last_certificates[0]
+                .metadata
+                .get_stake_distribution()
+                .into_iter()
+                .collect::<Vec<(ProtocolPartyId, ProtocolStake)>>()
+                .into_iter(),
+        ),
+        BTreeMap::from_iter(
+            last_certificates[2]
+                .metadata
+                .get_stake_distribution()
+                .into_iter()
+                .collect::<Vec<(ProtocolPartyId, ProtocolStake)>>()
+                .into_iter(),
+        ),
         "The stake distribution update should have been applied for this epoch",
     );
 }

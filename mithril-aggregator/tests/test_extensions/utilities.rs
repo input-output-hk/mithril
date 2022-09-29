@@ -1,6 +1,6 @@
 use mithril_common::crypto_helper::{
-    ProtocolInitializer, ProtocolPartyId, ProtocolSigner, ProtocolSignerVerificationKey,
-    ProtocolStake,
+    OpCert, ProtocolInitializer, ProtocolPartyId, ProtocolSigner, ProtocolSignerVerificationKey,
+    ProtocolSignerVerificationKeySignature, ProtocolStake,
 };
 use slog_scope::debug;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -9,6 +9,8 @@ pub type TestSigner = (
     ProtocolPartyId,
     ProtocolStake,
     ProtocolSignerVerificationKey,
+    Option<ProtocolSignerVerificationKeySignature>,
+    Option<OpCert>,
     ProtocolSigner,
     ProtocolInitializer,
 );

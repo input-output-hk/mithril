@@ -71,6 +71,6 @@ pub trait FromShelleyFile: serde::Serialize {
 }
 
 impl FromShelleyFile for Sum6Kes {
-    const TYPE: &'static str = "VrfSigningKey_PraosVRF";
-    const DESCRIPTION: &'static str = "VRF Signing Key";
+    const TYPE: &'static str = "KesSigningKey_ed25519_kes_2^6";
+    const DESCRIPTION: &'static str = "KES Signing Key";
 }

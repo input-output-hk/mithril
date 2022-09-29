@@ -315,13 +315,15 @@ mod tests {
         let message = setup_message();
 
         let mut single_signatures = Vec::new();
-        signers.iter().for_each(|(_, _, _, protocol_signer, _)| {
-            if let Some(signature) = protocol_signer.sign(message.compute_hash().as_bytes()) {
-                single_signatures.push(signature);
-            }
-        });
+        signers
+            .iter()
+            .for_each(|(_, _, _, _, _, protocol_signer, _)| {
+                if let Some(signature) = protocol_signer.sign(message.compute_hash().as_bytes()) {
+                    single_signatures.push(signature);
+                }
+            });
 
-        let first_signer = &signers.first().unwrap().3;
+        let first_signer = &signers.first().unwrap().5;
         let clerk = ProtocolClerk::from_signer(first_signer);
         let aggregate_verification_key = clerk.compute_avk();
         let multi_signature = clerk

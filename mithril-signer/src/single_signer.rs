@@ -276,7 +276,15 @@ mod tests {
         let signers_with_stake = signers
             .iter()
             .map(
-                |(party_id, stake, verification_key, _protocol_signer, _protocol_initializer)| {
+                |(
+                    party_id,
+                    stake,
+                    verification_key,
+                    _verification_key_signature,
+                    _operational_certificate,
+                    _protocol_signer,
+                    _protocol_initializer,
+                )| {
                     SignerWithStake::new(
                         party_id.to_owned(),
                         key_encode_hex(verification_key).unwrap(),
@@ -289,7 +297,7 @@ mod tests {
             .collect::<Vec<SignerWithStake>>();
         let current_signer = &signers[0];
         let single_signer = MithrilSingleSigner::new(current_signer.0.to_owned());
-        let protocol_signer = &current_signer.3;
+        let protocol_signer = &current_signer.5;
         let clerk = ProtocolClerk::from_signer(protocol_signer);
         let avk = clerk.compute_avk();
         let mut protocol_message = ProtocolMessage::new();
@@ -300,7 +308,7 @@ mod tests {
             .compute_single_signatures(
                 &protocol_message,
                 &signers_with_stake,
-                &current_signer.4,
+                &current_signer.6,
                 chain_observer,
             )
             .await
@@ -325,7 +333,15 @@ mod tests {
         let signers_with_stake = signers
             .iter()
             .map(
-                |(party_id, stake, verification_key, _protocol_signer, _protocol_initializer)| {
+                |(
+                    party_id,
+                    stake,
+                    verification_key,
+                    _verification_key_signature,
+                    _operational_certificate,
+                    _protocol_signer,
+                    _protocol_initializer,
+                )| {
                     SignerWithStake::new(
                         party_id.to_owned(),
                         key_encode_hex(verification_key).unwrap(),
@@ -338,8 +354,8 @@ mod tests {
             .collect::<Vec<SignerWithStake>>();
         let current_signer = &signers[0];
         let single_signer = MithrilSingleSigner::new(current_signer.0.to_owned());
-        let protocol_initializer = &current_signer.4;
-        let avk = single_signer
+        let protocol_initializer = &current_signer.6;
+        single_signer
             .compute_aggregate_verification_key(
                 &signers_with_stake,
                 protocol_initializer,
@@ -348,7 +364,5 @@ mod tests {
             .await
             .expect("compute aggregate verification signature should not fail")
             .expect("aggregate verification signature should not be empty");
-
-        assert_eq!("7b226d745f636f6d6d69746d656e74223a7b22726f6f74223a5b3230362c3235312c39322c302c36382c3139302c3233382c3134302c3235332c3137362c31342c39302c3232302c3231342c3132372c382c3130392c3135332c3138302c39392c3232312c3131332c39362c32352c3231312c35302c34302c34392c3230352c34372c3138302c3139355d2c22686173686572223a6e756c6c7d2c22746f74616c5f7374616b65223a323438367d", avk);
     }
 }

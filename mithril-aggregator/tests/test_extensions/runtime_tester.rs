@@ -8,7 +8,7 @@ use mithril_aggregator::{
     AggregatorRunner, AggregatorRuntime, DependencyManager, DumbSnapshotUploader, DumbSnapshotter,
     ProtocolParametersStorer,
 };
-use mithril_common::crypto_helper::tests_setup::setup_signers_from_parties;
+use mithril_common::crypto_helper::tests_setup::setup_signers_from_stake_distribution;
 use mithril_common::crypto_helper::{key_encode_hex, ProtocolClerk, ProtocolGenesisSigner};
 use mithril_common::digesters::DumbImmutableFileObserver;
 use mithril_common::entities::{
@@ -111,7 +111,7 @@ impl RuntimeTester {
         let first_signer = &signers
             .first()
             .ok_or_else(|| "Signers list should not be empty".to_string())?
-            .3;
+            .5;
         let clerk = ProtocolClerk::from_signer(first_signer);
         let genesis_avk = clerk.compute_avk();
         let genesis_producer = CertificateGenesisProducer::new(Some(self.genesis_signer.clone()));
@@ -186,7 +186,16 @@ impl RuntimeTester {
     pub async fn register_signers(&self, signers: &[TestSigner]) -> Result<(), String> {
         let mut multisigner = self.deps.multi_signer.write().await;
 
-        for (party_id, _stakes, verification_key, _signer, _initializer) in signers {
+        for (
+            party_id,
+            _stakes,
+            verification_key,
+            _verification_key_signature,
+            _operational_certificate,
+            _signer,
+            _initializer,
+        ) in signers
+        {
             let signer = Signer::new(
                 party_id.to_owned(),
                 key_encode_hex(verification_key).unwrap(),
@@ -210,7 +219,16 @@ impl RuntimeTester {
             .await
             .ok_or("There should be a message to be signed.")?;
 
-        for (party_id, _stakes, _verification_key, protocol_signer, _initializer) in signers {
+        for (
+            party_id,
+            _stakes,
+            _verification_key,
+            _verification_key_signature,
+            _operational_certificate,
+            protocol_signer,
+            _initializer,
+        ) in signers
+        {
             if let Some(signature) = protocol_signer.sign(message.compute_hash().as_bytes()) {
                 let single_signatures = SingleSignatures::new(
                     party_id.to_string(),
@@ -282,7 +300,7 @@ impl RuntimeTester {
                 })?
                 .ok_or("A protocol parameters for the recording epoch should be available")?;
 
-        Ok(setup_signers_from_parties(
+        Ok(setup_signers_from_stake_distribution(
             &signers_with_stake
                 .clone()
                 .into_iter()

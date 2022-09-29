@@ -1007,7 +1007,7 @@ mod tests {
         let mut stake_distribution_expected: ProtocolStakeDistribution =
             setup_signers(5, &setup_protocol_parameters())
                 .iter()
-                .map(|(party_id, stake, _, _, _)| (party_id.to_owned(), *stake))
+                .map(|(party_id, stake, _, _, _, _, _)| (party_id.to_owned(), *stake))
                 .collect::<_>();
         stake_distribution_expected.sort_by_key(|k| k.0.clone());
         multi_signer
@@ -1056,19 +1056,36 @@ mod tests {
 
         let stake_distribution_expected: ProtocolStakeDistribution = signers
             .iter()
-            .map(|(party_id, stake, _, _, _)| (party_id.to_owned(), *stake))
+            .map(|(party_id, stake, _, _, _, _, _)| (party_id.to_owned(), *stake))
             .collect::<_>();
         multi_signer
             .update_stake_distribution(&stake_distribution_expected)
             .await
             .expect("update stake distribution failed");
 
-        for (party_id, _, verification_key, _, _) in &signers {
+        for (
+            party_id,
+            _,
+            verification_key,
+            verification_key_signature,
+            operational_certificate,
+            _,
+            _,
+        ) in &signers
+        {
             let signer = Signer::new(
                 party_id.to_owned(),
                 key_encode_hex(verification_key).unwrap(),
-                None,
-                None,
+                verification_key_signature
+                    .as_ref()
+                    .map(|verification_key_signature| {
+                        key_encode_hex(verification_key_signature).unwrap()
+                    }),
+                operational_certificate
+                    .as_ref()
+                    .map(|operational_certificate| {
+                        key_encode_hex(operational_certificate).unwrap()
+                    }),
             );
             multi_signer
                 .register_signer(&signer)
@@ -1083,7 +1100,16 @@ mod tests {
         .await;
 
         let mut signers_with_stake_all_expected = Vec::new();
-        for (party_id, stake, verification_key_expected, _, _) in &signers {
+        for (
+            party_id,
+            stake,
+            verification_key_expected,
+            verification_key_signature,
+            operational_certificate,
+            _,
+            _,
+        ) in &signers
+        {
             let verification_key = multi_signer
                 .get_signer_verification_key(party_id.to_owned())
                 .await;
@@ -1095,8 +1121,16 @@ mod tests {
             signers_with_stake_all_expected.push(entities::SignerWithStake::new(
                 party_id.to_owned(),
                 key_encode_hex(verification_key_expected).unwrap(),
-                None,
-                None,
+                verification_key_signature
+                    .as_ref()
+                    .map(|verification_key_signature| {
+                        key_encode_hex(verification_key_signature).unwrap()
+                    }),
+                operational_certificate
+                    .as_ref()
+                    .map(|operational_certificate| {
+                        key_encode_hex(operational_certificate).unwrap()
+                    }),
                 *stake,
             ));
         }
@@ -1141,18 +1175,35 @@ mod tests {
         let signers = setup_signers(5, &protocol_parameters);
         let stake_distribution = &signers
             .iter()
-            .map(|(party_id, stake, _, _, _)| (party_id.to_owned(), *stake))
+            .map(|(party_id, stake, _, _, _, _, _)| (party_id.to_owned(), *stake))
             .collect::<_>();
         multi_signer
             .update_stake_distribution(stake_distribution)
             .await
             .expect("update stake distribution failed");
-        for (party_id, _, verification_key, _, _) in &signers {
+        for (
+            party_id,
+            _,
+            verification_key,
+            verification_key_signature,
+            operational_certificate,
+            _,
+            _,
+        ) in &signers
+        {
             let signer = Signer::new(
                 party_id.to_owned(),
                 key_encode_hex(verification_key).unwrap(),
-                None,
-                None,
+                verification_key_signature
+                    .as_ref()
+                    .map(|verification_key_signature| {
+                        key_encode_hex(verification_key_signature).unwrap()
+                    }),
+                operational_certificate
+                    .as_ref()
+                    .map(|operational_certificate| {
+                        key_encode_hex(operational_certificate).unwrap()
+                    }),
             );
             multi_signer
                 .register_signer(&signer)
@@ -1176,7 +1227,16 @@ mod tests {
         let mut signatures = Vec::new();
 
         let mut expected_certificate_signers = Vec::new();
-        for (party_id, stake, _, protocol_signer, protocol_initializer) in &signers {
+        for (
+            party_id,
+            stake,
+            _,
+            _,
+            operational_certificate,
+            protocol_signer,
+            protocol_initializer,
+        ) in &signers
+        {
             if let Some(signature) = protocol_signer.sign(message.compute_hash().as_bytes()) {
                 let won_indexes = signature.indexes.clone();
 
@@ -1189,8 +1249,17 @@ mod tests {
                 expected_certificate_signers.push(entities::SignerWithStake::new(
                     party_id.to_owned(),
                     key_encode_hex(protocol_initializer.verification_key()).unwrap(),
-                    None,
-                    None,
+                    protocol_initializer
+                        .verification_key_signature()
+                        .as_ref()
+                        .map(|verification_key_signature| {
+                            key_encode_hex(verification_key_signature).unwrap()
+                        }),
+                    operational_certificate
+                        .as_ref()
+                        .map(|operational_certificate| {
+                            key_encode_hex(operational_certificate).unwrap()
+                        }),
                     *stake,
                 ))
             }

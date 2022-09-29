@@ -1,5 +1,5 @@
-use super::super::entities;
-use super::types;
+use super::{super::entities, ProtocolSignerVerificationKeySignature};
+use super::{types, OpCert};
 use crate::crypto_helper::{
     key_encode_hex, ProtocolInitializer, ProtocolPartyId, ProtocolSigner,
     ProtocolSignerVerificationKey, ProtocolStake,
@@ -63,6 +63,8 @@ impl
         ProtocolPartyId,
         ProtocolStake,
         ProtocolSignerVerificationKey,
+        Option<ProtocolSignerVerificationKeySignature>,
+        Option<OpCert>,
         ProtocolSigner,
         ProtocolInitializer,
     )> for entities::SignerWithStake
@@ -72,16 +74,32 @@ impl
             ProtocolPartyId,
             ProtocolStake,
             ProtocolSignerVerificationKey,
+            Option<ProtocolSignerVerificationKeySignature>,
+            Option<OpCert>,
             ProtocolSigner,
             ProtocolInitializer,
         ),
     ) -> Self {
-        let (party_id, stake, verification_key, _, _) = other;
+        let (
+            party_id,
+            stake,
+            verification_key,
+            verification_key_signature,
+            operational_certificate,
+            _,
+            _,
+        ) = other;
         entities::SignerWithStake::new(
             party_id,
             key_encode_hex(verification_key).unwrap(),
-            None,
-            None,
+            verification_key_signature
+                .as_ref()
+                .map(|verification_key_signature| {
+                    key_encode_hex(verification_key_signature).unwrap()
+                }),
+            operational_certificate
+                .as_ref()
+                .map(|operational_certificate| key_encode_hex(operational_certificate).unwrap()),
             stake,
         )
     }

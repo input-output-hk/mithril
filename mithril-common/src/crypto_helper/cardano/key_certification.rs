@@ -214,11 +214,15 @@ impl KeyRegWrapper {
                 .unwrap()
                 .verify(kes_period, &opcert.kes_vk, &pk.to_bytes())
                 .map_err(|_| ProtocolRegistrationErrorWrapper::KesSignatureInvalid)?;
+            println!(
+                "INFO: Signer certification is enforced! {:?}",
+                &opcert.compute_protocol_party_id()
+            );
             opcert
                 .compute_protocol_party_id()
                 .map_err(|_| ProtocolRegistrationErrorWrapper::PoolAddressEncoding)?
         } else {
-            println!("WARNING: Signer certification is skipped!");
+            println!("WARNING: Signer certification is skipped! {:?}", party_id);
             party_id.unwrap()
         };
 

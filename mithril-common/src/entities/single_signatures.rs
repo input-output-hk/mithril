@@ -55,7 +55,7 @@ mod tests {
     fn single_signatures_should_convert_to_protocol_signatures() {
         let message = setup_message();
         let signers = setup_signers(1, &setup_protocol_parameters());
-        let (party_id, _, _, signer, _) = signers.first().unwrap();
+        let (party_id, _, _, _, _, signer, _) = signers.first().unwrap();
         let protocol_sigs = signer.sign(message.compute_hash().as_bytes()).unwrap();
 
         let signature = SingleSignatures::new(

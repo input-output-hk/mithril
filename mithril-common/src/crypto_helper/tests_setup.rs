@@ -1,16 +1,33 @@
 //! Test data builders for Mithril Core types, for testing purpose.
 
-use super::{genesis::*, key_encode_hex, types::*};
+use super::cardano::ColdKeyGenerator;
+use super::{genesis::*, key_encode_hex, types::*, FromShelleyFile, OpCert};
+use crate::certificate_chain::CertificateGenesisProducer;
 use crate::{
-    entities::{Certificate, Epoch, PartyId, ProtocolMessage, ProtocolMessagePartKey, Stake},
+    entities::{Certificate, Epoch, ProtocolMessage, ProtocolMessagePartKey},
     fake_data,
 };
 
-use crate::certificate_chain::CertificateGenesisProducer;
+use kes_summed_ed25519::kes::Sum6Kes;
+use kes_summed_ed25519::traits::KesSk;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
-use std::{cmp::min, sync::Arc};
+use std::{cmp::min, fs, sync::Arc};
+
 use std::{collections::HashMap, path::PathBuf};
+
+fn setup_temp_directory_for_signer(
+    party_id: &ProtocolPartyId,
+    auto_create: bool,
+) -> Option<PathBuf> {
+    let temp_dir = std::env::temp_dir()
+        .join("mithril_crypto_helper_material")
+        .join(party_id);
+    if auto_create {
+        fs::create_dir_all(&temp_dir).expect("temp dir creation should not fail");
+    }
+    temp_dir.exists().then_some(temp_dir)
+}
 
 /// Instantiate a [ProtocolMessage] using fake data, use this for tests only.
 pub fn setup_message() -> ProtocolMessage {
@@ -43,40 +60,75 @@ pub fn setup_signers(
     ProtocolPartyId,
     ProtocolStake,
     ProtocolSignerVerificationKey,
+    Option<ProtocolSignerVerificationKeySignature>,
+    Option<OpCert>,
     ProtocolSigner,
     ProtocolInitializer,
 )> {
-    let stake_seed = [0u8; 32];
-    let mut stake_rng = ChaCha20Rng::from_seed(stake_seed);
-    let signers = (0..total)
+    let mut stake_rng = ChaCha20Rng::from_seed([0u8; 32]);
+    let mut kes_keys_seed = [0u8; 32];
+
+    let stake_distribution = (0..total)
         .into_iter()
-        .map(|party_id| {
+        .map(|party_idx| {
+            let party_id = if party_idx % 2 == 0 {
+                // 50% of signers with key certification
+                let (cold_secret_key, _) =
+                    ColdKeyGenerator::create_deterministic_keypair([party_idx as u8; 32]);
+                let (kes_secret_key, kes_verification_key) = Sum6Kes::keygen(&mut kes_keys_seed);
+                let operational_certificate =
+                    OpCert::new(kes_verification_key, 0, 0, cold_secret_key);
+                let party_id = operational_certificate
+                    .compute_protocol_party_id()
+                    .expect("compute protocol party id should not fail");
+                let temp_dir = setup_temp_directory_for_signer(&party_id, true)
+                    .expect("setup temp directory should return a value");
+                if !temp_dir.join("kes.sk").exists() {
+                    kes_secret_key
+                        .to_file(temp_dir.join("kes.sk"))
+                        .expect("KES secret key file export should not fail");
+                }
+                if !temp_dir.join("pool.cert").exists() {
+                    operational_certificate
+                        .to_file(temp_dir.join("pool.cert"))
+                        .expect("operational certificate file export should not fail");
+                }
+                party_id
+            } else {
+                // 50% of signers without key certification (legacy)
+                // TODO: Should be removed once the signer certification is fully deployed
+                format!("{:<032}", party_idx)
+            };
+
             let stake = 1 + stake_rng.next_u64() % 999;
-            let party_id = format!("{:<032}", party_id);
-            (party_id as PartyId, stake as Stake)
+            (party_id, stake)
         })
         .collect::<Vec<_>>();
-    setup_signers_from_parties(&signers, protocol_parameters)
+    setup_signers_from_stake_distribution(&stake_distribution, protocol_parameters)
 }
 
-/// Instantiate a list of protocol signers based on the given [PartyId] / [Stake] pairs, use this for tests only.
-pub fn setup_signers_from_parties(
-    party_with_stake: &[(PartyId, Stake)],
+/// Instantiate a list of protocol signers based on the given [ProtocolStakeDistribution] and [ProtocolParameters], use this for tests only.
+pub fn setup_signers_from_stake_distribution(
+    stake_distribution: &ProtocolStakeDistribution,
     protocol_parameters: &ProtocolParameters,
 ) -> Vec<(
     ProtocolPartyId,
     ProtocolStake,
     ProtocolSignerVerificationKey,
+    Option<ProtocolSignerVerificationKeySignature>,
+    Option<OpCert>,
     ProtocolSigner,
     ProtocolInitializer,
 )> {
-    let signers = party_with_stake
+    let signers = stake_distribution
         .iter()
         .map(|(party_id, stake)| {
+            let temp_dir = setup_temp_directory_for_signer(party_id, false);
             let protocol_initializer_seed: [u8; 32] = party_id.as_bytes()[..32].try_into().unwrap();
             let mut protocol_initializer_rng = ChaCha20Rng::from_seed(protocol_initializer_seed);
-            let kes_secret_key_path: Option<PathBuf> = None;
-            let kes_period = Some(0);
+            let kes_secret_key_path: Option<PathBuf> =
+                temp_dir.as_ref().map(|dir| dir.join("kes.sk"));
+            let kes_period = temp_dir.as_ref().map(|_| 0);
             let protocol_initializer: ProtocolInitializer = ProtocolInitializer::setup(
                 *protocol_parameters,
                 kes_secret_key_path,
@@ -93,22 +145,22 @@ pub fn setup_signers_from_parties(
         })
         .collect::<Vec<_>>();
 
-    let stake_distribution = signers
-        .iter()
-        .map(|(party_id, stake, _)| (party_id.to_owned(), *stake))
-        .collect::<ProtocolStakeDistribution>();
-    let mut key_registration = ProtocolKeyRegistration::init(&stake_distribution);
+    let mut key_registration = ProtocolKeyRegistration::init(stake_distribution);
     signers
         .iter()
         .for_each(|(party_id, _stake, protocol_initializer)| {
-            let opcert = None; // TODO: compute the fake opcert
+            let temp_dir = setup_temp_directory_for_signer(party_id, false);
+            let operational_certificate = temp_dir.as_ref().map(|dir| {
+                OpCert::from_file(dir.join("pool.cert"))
+                    .expect("operational certificate decoding should not fail")
+            });
             let verification_key = protocol_initializer.verification_key();
             let kes_signature = protocol_initializer.verification_key_signature();
-            let kes_period = 0; // TODO: compute the kes period from opcert
+            let kes_period = 0;
             key_registration
                 .register(
                     Some(party_id.to_owned()),
-                    opcert,
+                    operational_certificate,
                     kes_signature,
                     kes_period,
                     verification_key,
@@ -119,10 +171,17 @@ pub fn setup_signers_from_parties(
     signers
         .into_iter()
         .map(|(party_id, stake, protocol_initializer)| {
+            let temp_dir = setup_temp_directory_for_signer(&party_id, false);
+            let operational_certificate = temp_dir.as_ref().map(|dir| {
+                OpCert::from_file(dir.join("pool.cert"))
+                    .expect("operational certificate decoding should not fail")
+            });
             (
                 party_id,
                 stake,
                 protocol_initializer.verification_key(),
+                protocol_initializer.verification_key_signature(),
+                operational_certificate,
                 protocol_initializer
                     .clone()
                     .new_signer(closed_key_registration.clone())
@@ -167,12 +226,12 @@ pub fn setup_certificate_chain(
             )
         })
         .collect::<HashMap<_, _>>();
-    let clerk_for_signers = |signers: &[(_, _, _, ProtocolSigner, _)]| -> ProtocolClerk {
-        let first_signer = &signers.first().unwrap().3;
+    let clerk_for_signers = |signers: &[(_, _, _, _, _, ProtocolSigner, _)]| -> ProtocolClerk {
+        let first_signer = &signers.first().unwrap().5;
         ProtocolClerk::from_signer(first_signer)
     };
     let avk_for_signers =
-        |signers: &[(_, _, _, ProtocolSigner, _)]| -> ProtocolAggregateVerificationKey {
+        |signers: &[(_, _, _, _, _, ProtocolSigner, _)]| -> ProtocolAggregateVerificationKey {
             let clerk = clerk_for_signers(signers);
             clerk.compute_avk()
         };
@@ -221,13 +280,15 @@ pub fn setup_certificate_chain(
                 }
                 _ => {
                     let mut single_signatures = Vec::new();
-                    signers.iter().for_each(|(_, _, _, protocol_signer, _)| {
-                        if let Some(signature) =
-                            protocol_signer.sign(fake_certificate.signed_message.as_bytes())
-                        {
-                            single_signatures.push(signature);
-                        }
-                    });
+                    signers
+                        .iter()
+                        .for_each(|(_, _, _, _, _, protocol_signer, _)| {
+                            if let Some(signature) =
+                                protocol_signer.sign(fake_certificate.signed_message.as_bytes())
+                            {
+                                single_signatures.push(signature);
+                            }
+                        });
                     let clerk = clerk_for_signers(signers);
                     let multi_signature = clerk
                         .aggregate(

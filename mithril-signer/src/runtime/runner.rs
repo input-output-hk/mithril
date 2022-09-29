@@ -683,7 +683,7 @@ mod tests {
             .await
             .expect("get_current_beacon should not fail");
         let signers = setup_signers(5, &setup_protocol_parameters());
-        let (party_id, _, _, _, protocol_initializer) = signers.first().unwrap();
+        let (party_id, _, _, _, _, _, protocol_initializer) = signers.first().unwrap();
         let single_signer = Arc::new(MithrilSingleSigner::new(party_id.to_string()));
         services.single_signer = single_signer.clone();
         services
@@ -700,7 +700,7 @@ mod tests {
 
         let next_signers = signers
             .iter()
-            .map(|(p, s, vk, _, _)| {
+            .map(|(p, s, vk, _, _, _, _)| {
                 SignerWithStake::new(p.to_string(), key_encode_hex(vk).unwrap(), None, None, *s)
             })
             .collect::<Vec<_>>();
@@ -739,7 +739,7 @@ mod tests {
             .await
             .expect("get_current_beacon should not fail");
         let signers = setup_signers(5, &setup_protocol_parameters());
-        let (party_id, _, _, _, protocol_initializer) = signers.first().unwrap();
+        let (party_id, _, _, _, _, _, protocol_initializer) = signers.first().unwrap();
         let single_signer = Arc::new(MithrilSingleSigner::new(party_id.to_string()));
         services.single_signer = single_signer.clone();
         services
@@ -755,7 +755,7 @@ mod tests {
             .expect("save_protocol_initializer should not fail");
         let signers = signers
             .iter()
-            .map(|(p, s, vk, _, _)| {
+            .map(|(p, s, vk, _, _, _, _)| {
                 SignerWithStake::new(p.to_string(), key_encode_hex(vk).unwrap(), None, None, *s)
             })
             .collect::<Vec<_>>();
