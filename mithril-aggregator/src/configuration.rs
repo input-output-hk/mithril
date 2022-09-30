@@ -1,4 +1,4 @@
-use config::ConfigError;
+use config::{ConfigError, Map, Source, Value, ValueKind};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::path::PathBuf;
@@ -206,5 +206,84 @@ impl GenesisConfiguration {
         }
 
         self.data_stores_directory.join(SQLITE_FILE)
+    }
+}
+
+/// Default configuration with all the default values for configurations.
+#[derive(Debug, Clone)]
+pub struct DefaultConfiguration {
+    /// Server listening IP
+    pub server_ip: String,
+
+    /// Server listening port
+    pub server_port: String,
+
+    /// Directory of the node immutable files
+    pub db_directory: String,
+
+    /// Directory to store snapshot
+    pub snapshot_directory: String,
+
+    /// Type of snapshot store to use
+    pub snapshot_store_type: String,
+
+    /// Type of snapshot uploader to use
+    pub snapshot_uploader_type: String,
+}
+
+impl Default for DefaultConfiguration {
+    fn default() -> Self {
+        Self {
+            server_ip: "0.0.0.0".to_string(),
+            server_port: "8080".to_string(),
+            db_directory: "/db".to_string(),
+            snapshot_directory: ".".to_string(),
+            snapshot_store_type: "local".to_string(),
+            snapshot_uploader_type: "gcp".to_string(),
+        }
+    }
+}
+
+impl Source for DefaultConfiguration {
+    fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
+        Box::new(self.clone())
+    }
+
+    fn collect(&self) -> Result<Map<String, Value>, config::ConfigError> {
+        let mut result = Map::new();
+        let namespace = "default configuration".to_string();
+        let myself = self.clone();
+        result.insert(
+            "server_ip".to_string(),
+            Value::new(Some(&namespace), ValueKind::from(myself.server_ip)),
+        );
+        result.insert(
+            "server_port".to_string(),
+            Value::new(Some(&namespace), ValueKind::from(myself.server_port)),
+        );
+        result.insert(
+            "db_directory".to_string(),
+            Value::new(Some(&namespace), ValueKind::from(myself.db_directory)),
+        );
+        result.insert(
+            "snapshot_directory".to_string(),
+            Value::new(Some(&namespace), ValueKind::from(myself.snapshot_directory)),
+        );
+        result.insert(
+            "snapshot_store_type".to_string(),
+            Value::new(
+                Some(&namespace),
+                ValueKind::from(myself.snapshot_store_type),
+            ),
+        );
+        result.insert(
+            "snapshot_uploader_type".to_string(),
+            Value::new(
+                Some(&namespace),
+                ValueKind::from(myself.snapshot_uploader_type),
+            ),
+        );
+
+        Ok(result)
     }
 }

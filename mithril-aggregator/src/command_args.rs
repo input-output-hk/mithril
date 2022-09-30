@@ -27,7 +27,8 @@ use crate::{
     ProtocolParametersStore, Server,
 };
 use crate::{
-    CertificateStore, GzipSnapshotter, MultiSignerImpl, SingleSignatureStore, VerificationKeyStore,
+    CertificateStore, DefaultConfiguration, GzipSnapshotter, MultiSignerImpl, SingleSignatureStore,
+    VerificationKeyStore,
 };
 
 fn setup_genesis_dependencies(
@@ -151,6 +152,7 @@ impl MainOpts {
             .config_directory
             .join(format!("{}.json", self.run_mode));
         let config_builder = config::Config::builder()
+            .add_source(DefaultConfiguration::default())
             .add_source(
                 config::File::with_name(&config_file_path.to_string_lossy()).required(false),
             )

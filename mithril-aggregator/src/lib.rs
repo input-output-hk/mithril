@@ -24,7 +24,8 @@ mod store;
 mod tools;
 
 pub use crate::configuration::{
-    Configuration, GenesisConfiguration, SnapshotStoreType, SnapshotUploaderType,
+    Configuration, DefaultConfiguration, GenesisConfiguration, SnapshotStoreType,
+    SnapshotUploaderType,
 };
 pub use crate::multi_signer::{MultiSigner, MultiSignerImpl, ProtocolError};
 pub use crate::snapshot_stores::{LocalSnapshotStore, RemoteSnapshotStore, SnapshotStore};
