@@ -58,7 +58,7 @@ pub struct Configuration {
     /// Run Interval is the interval between two runtime cycles in ms
     pub run_interval: u64,
 
-    /// Directory of the node immutable files
+    /// Directory of the Cardano node store.
     pub db_directory: PathBuf,
 
     /// Directory to store snapshot
@@ -163,7 +163,7 @@ pub struct GenesisConfiguration {
     /// to communicate with the Cardano node
     pub cardano_node_socket_path: PathBuf,
 
-    /// Directory of the node immutable files
+    /// Directory of the Cardano node database
     pub db_directory: PathBuf,
 
     /// Cardano Network Magic number
@@ -218,7 +218,7 @@ pub struct DefaultConfiguration {
     /// Server listening port
     pub server_port: String,
 
-    /// Directory of the node immutable files
+    /// Directory of the Cardano node database
     pub db_directory: String,
 
     /// Directory to store snapshot

@@ -105,7 +105,6 @@ async fn do_first_launch_initialization_if_needed(
     protocol_parameters_store: Arc<ProtocolParametersStore>,
     config: &Configuration,
 ) -> Result<(), Box<dyn Error>> {
-    // TODO: Remove that when we hande genesis certificate
     let (work_epoch, epoch_to_sign) = match chain_observer
         .get_current_epoch()
         .await?
@@ -135,7 +134,7 @@ async fn do_first_launch_initialization_if_needed(
     Ok(())
 }
 
-/// Main application command line parameters
+/// Mithril Aggregator Node
 #[derive(Parser, Debug, Clone)]
 pub struct MainOpts {
     /// application main command
@@ -150,7 +149,7 @@ pub struct MainOpts {
     #[clap(short, long, parse(from_occurrences))]
     pub verbose: usize,
 
-    /// Directory where stores are located
+    /// Directory of the Cardano node files
     #[clap(long)]
     pub db_directory: Option<PathBuf>,
 
@@ -394,7 +393,6 @@ impl ServeCommand {
         };
         let dependency_manager = Arc::new(dependency_manager);
 
-        // todo: Genesis ?
         do_first_launch_initialization_if_needed(
             dependency_manager.chain_observer.clone(),
             dependency_manager.protocol_parameters_store.clone(),
@@ -440,10 +438,10 @@ impl ServeCommand {
     }
 }
 
-/// Genesis certificate command
+/// Genesis tools
 #[derive(Parser, Debug, Clone)]
-/// Genesis command selecter
 pub struct GenesisCommand {
+    /// commands
     #[clap(subcommand)]
     pub genesis_subcommand: GenesisSubCommand,
 }
@@ -457,7 +455,7 @@ impl GenesisCommand {
     }
 }
 
-/// Genesis sub commands.
+/// Genesis tools commands.
 #[derive(Debug, Clone, Subcommand)]
 pub enum GenesisSubCommand {
     /// Genesis certificate export command.
@@ -516,7 +514,7 @@ impl ExportGenesisSubCommand {
 #[derive(Parser, Debug, Clone)]
 pub struct ImportGenesisSubCommand {
     /// Signed Payload Path
-    #[clap(long, default_value = "./mithril-genesis-payload.txt")]
+    #[clap(long)]
     signed_payload_path: PathBuf,
 }
 
