@@ -214,10 +214,6 @@ impl KeyRegWrapper {
                 .unwrap()
                 .verify(kes_period, &opcert.kes_vk, &pk.to_bytes())
                 .map_err(|_| ProtocolRegistrationErrorWrapper::KesSignatureInvalid)?;
-            println!(
-                "INFO: Signer certification is enforced! {:?}",
-                &opcert.compute_protocol_party_id()
-            );
             opcert
                 .compute_protocol_party_id()
                 .map_err(|_| ProtocolRegistrationErrorWrapper::PoolAddressEncoding)?
@@ -260,9 +256,39 @@ impl StmSignerWrapper {
 
 #[cfg(all(test))]
 mod test {
+
     use super::*;
+    use crate::crypto_helper::cardano::ColdKeyGenerator;
+
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
+    use std::{fs, path::PathBuf};
+
+    fn setup_temp_directory() -> PathBuf {
+        let temp_dir = std::env::temp_dir().join("mithril_cardano_key_certification");
+        fs::create_dir_all(&temp_dir).expect("temp dir creation should not fail");
+        temp_dir
+    }
+
+    fn create_cryptographic_material(party_idx: u64) -> (ProtocolPartyId, PathBuf, PathBuf) {
+        let temp_dir = setup_temp_directory();
+        let (cold_secret_key, _) =
+            ColdKeyGenerator::create_deterministic_keypair([party_idx as u8; 32]);
+        let (kes_secret_key, kes_verification_key) = Sum6Kes::keygen(&mut [party_idx as u8; 32]);
+        let operational_certificate = OpCert::new(kes_verification_key, 0, 0, cold_secret_key);
+        let kes_secret_key_file = temp_dir.join(format!("kes{}.skey", party_idx));
+        kes_secret_key
+            .to_file(&kes_secret_key_file)
+            .expect("KES secret key file export should not fail");
+        let operational_certificate_file = temp_dir.join(format!("pool{}.cert", party_idx));
+        operational_certificate
+            .to_file(&operational_certificate_file)
+            .expect("operational certificate file export should not fail");
+        let party_id = operational_certificate
+            .compute_protocol_party_id()
+            .expect("compute protocol party id should not fail");
+        (party_id, operational_certificate_file, kes_secret_key_file)
+    }
 
     #[test]
     fn test_vector_key_reg() {
@@ -272,20 +298,24 @@ mod test {
             phi_f: 1.0,
         };
         let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-        let pool_id_1 = "pool19yx7tsfa850q2f2cjkg4alcxxv04gm5j8xlxkdmk0adwylsdrta".to_string();
-        let pool_id_2 = "pool1mzud3l4q6zxyut2vzyst5ar2m9g7uc49j2w4l6gwug8y6h3s7k4".to_string();
-        let mut key_reg = KeyRegWrapper::init(&vec![(pool_id_1, 10), (pool_id_2, 3)]);
+
+        let (party_id_1, operational_certificate_file_1, kes_secret_key_file_1) =
+            create_cryptographic_material(1);
+        let (party_id_2, operational_certificate_file_2, kes_secret_key_file_2) =
+            create_cryptographic_material(2);
+
+        let mut key_reg = KeyRegWrapper::init(&vec![(party_id_1, 10), (party_id_2, 3)]);
 
         let initializer_1 = StmInitializerWrapper::setup(
             params,
-            Some("./test-data/kes1.skey"),
+            Some(kes_secret_key_file_1),
             Some(0),
             10,
             &mut rng,
         )
         .unwrap();
 
-        let opcert1: OpCert = OpCert::from_file("./test-data/node1.cert")
+        let opcert1: OpCert = OpCert::from_file(operational_certificate_file_1)
             .expect("opcert deserialization should not fail");
 
         let key_registration_1 = key_reg.register(
@@ -299,14 +329,14 @@ mod test {
 
         let initializer_2 = StmInitializerWrapper::setup(
             params,
-            Some("./test-data/kes2.skey"),
+            Some(kes_secret_key_file_2),
             Some(0),
             10,
             &mut rng,
         )
         .unwrap();
 
-        let opcert2: OpCert = OpCert::from_file("./test-data/node2.cert")
+        let opcert2: OpCert = OpCert::from_file(operational_certificate_file_2)
             .expect("opcert deserialization should not fail");
 
         let key_registration_2 = key_reg.register(

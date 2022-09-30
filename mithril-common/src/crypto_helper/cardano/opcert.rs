@@ -167,24 +167,41 @@ impl<'de> Deserialize<'de> for OpCert {
 
 #[cfg(test)]
 mod tests {
+
     use super::*;
+    use crate::crypto_helper::cardano::ColdKeyGenerator;
+
+    use kes_summed_ed25519::{kes::Sum6Kes, traits::KesSk};
+    use std::{fs, path::PathBuf};
+
+    fn setup_temp_directory() -> PathBuf {
+        let temp_dir = std::env::temp_dir().join("mithril_cardano_opcert");
+        fs::create_dir_all(&temp_dir).expect("temp dir creation should not fail");
+        temp_dir
+    }
 
     #[test]
     fn test_vector_opcert() {
-        let cert: OpCert = OpCert::from_file("./test-data/node1.cert").unwrap();
+        let temp_dir = setup_temp_directory();
+        let (cold_secret_key, _) = ColdKeyGenerator::create_deterministic_keypair([0u8; 32]);
+        let (_, kes_verification_key) = Sum6Kes::keygen(&mut [0u8; 32]);
+        let operational_certificate = OpCert::new(kes_verification_key, 0, 0, cold_secret_key);
+        assert!(operational_certificate.validate().is_ok());
 
-        assert!(cert.validate().is_ok());
+        let operation_certificate_file = temp_dir.join("node.cert");
+        operational_certificate
+            .to_file(&operation_certificate_file)
+            .expect("operational certificate file export should not fail");
 
-        assert!(cert.to_file("./test-data/node_test.cert").is_ok());
+        let operational_certificate: OpCert = OpCert::from_file(&operation_certificate_file)
+            .expect("operational certificate file import should not fail");
+        assert!(operational_certificate.validate().is_ok());
 
-        let cert_test: OpCert = OpCert::from_file("./test-data/node_test.cert").unwrap();
-        assert!(cert_test.validate().is_ok());
-
-        let party_id = cert
+        let party_id = operational_certificate
             .compute_protocol_party_id()
             .expect("compute protocol party_id should not fail");
         assert_eq!(
-            "pool19yx7tsfa850q2f2cjkg4alcxxv04gm5j8xlxkdmk0adwylsdrta".to_string(),
+            "pool1mxyec46067n3querj9cxkk0g0zlag93pf3ya9vuyr3wgkq2e6t7".to_string(),
             party_id
         );
     }

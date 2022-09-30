@@ -344,9 +344,10 @@ impl ChainObserver for CardanoCliChainObserver {
 
 #[cfg(test)]
 mod tests {
-    use crate::crypto_helper::FromShelleyFile;
-
     use super::*;
+    use crate::crypto_helper::ColdKeyGenerator;
+
+    use kes_summed_ed25519::{kes::Sum6Kes, traits::KesSk};
 
     struct TestCliRunner {}
 
@@ -530,10 +531,12 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
 
     #[tokio::test]
     async fn test_get_current_kes_period() {
-        let opcert = OpCert::from_file("./test-data/node1.cert").unwrap();
+        let (cold_secret_key, _) = ColdKeyGenerator::create_deterministic_keypair([0u8; 32]);
+        let (_, kes_verification_key) = Sum6Kes::keygen(&mut [0u8; 32]);
+        let operational_certificate = OpCert::new(kes_verification_key, 0, 0, cold_secret_key);
         let observer = CardanoCliChainObserver::new(Box::new(TestCliRunner {}));
         let kes_period = observer
-            .get_current_kes_period(&opcert)
+            .get_current_kes_period(&operational_certificate)
             .await
             .unwrap()
             .unwrap();
