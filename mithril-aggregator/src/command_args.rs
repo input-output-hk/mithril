@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
+use mithril_common::entities::Epoch;
 use slog::{Drain, Level, Logger};
 use slog_scope::debug;
 use std::error::Error;
@@ -10,7 +11,7 @@ use tokio::sync::RwLock;
 use tokio::time::Duration;
 
 use mithril_common::certificate_chain::MithrilCertificateVerifier;
-use mithril_common::chain_observer::CardanoCliRunner;
+use mithril_common::chain_observer::{CardanoCliRunner, ChainObserver};
 use mithril_common::crypto_helper::ProtocolGenesisVerifier;
 use mithril_common::digesters::{CardanoImmutableDigester, ImmutableFileSystemObserver};
 use mithril_common::store::adapter::SQLiteAdapter;
@@ -27,8 +28,8 @@ use crate::{
     ProtocolParametersStore, Server,
 };
 use crate::{
-    CertificateStore, DefaultConfiguration, GzipSnapshotter, MultiSignerImpl, SingleSignatureStore,
-    VerificationKeyStore,
+    CertificateStore, DefaultConfiguration, GzipSnapshotter, MultiSignerImpl,
+    ProtocolParametersStorer, SingleSignatureStore, VerificationKeyStore,
 };
 
 fn setup_genesis_dependencies(
@@ -98,6 +99,42 @@ fn setup_genesis_dependencies(
 
     Ok(dependencies)
 }
+
+async fn do_first_launch_initialization_if_needed(
+    chain_observer: Arc<dyn ChainObserver>,
+    protocol_parameters_store: Arc<ProtocolParametersStore>,
+    config: &Configuration,
+) -> Result<(), Box<dyn Error>> {
+    // TODO: Remove that when we hande genesis certificate
+    let (work_epoch, epoch_to_sign) = match chain_observer
+        .get_current_epoch()
+        .await?
+        .ok_or("Can't retrieve current epoch")?
+    {
+        Epoch(0) => (Epoch(0), Epoch(1)),
+        epoch => (
+            epoch.offset_to_signer_retrieval_epoch()?,
+            epoch.offset_to_next_signer_retrieval_epoch()?,
+        ),
+    };
+
+    if protocol_parameters_store
+        .get_protocol_parameters(work_epoch)
+        .await?
+        .is_none()
+    {
+        debug!("First launch, will use the configured protocol parameters for the current and next epoch certificate");
+
+        for epoch in [work_epoch, epoch_to_sign] {
+            protocol_parameters_store
+                .save_protocol_parameters(epoch, config.protocol_parameters.clone())
+                .await?;
+        }
+    }
+
+    Ok(())
+}
+
 /// Main application command line parameters
 #[derive(Parser, Debug, Clone)]
 pub struct MainOpts {
@@ -368,6 +405,14 @@ impl ServeCommand {
             genesis_verifier,
         };
         let dependency_manager = Arc::new(dependency_manager);
+
+        // todo: Genesis ?
+        do_first_launch_initialization_if_needed(
+            dependency_manager.chain_observer.clone(),
+            dependency_manager.protocol_parameters_store.clone(),
+            &config,
+        )
+        .await?;
 
         // Start snapshot uploader
         let network = config.get_network()?;
