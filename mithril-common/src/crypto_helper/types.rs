@@ -3,14 +3,15 @@ use crate::crypto_helper::cardano::{
 };
 
 use mithril::stm::{
-    Index, Stake, StmAggrSig, StmAggrVerificationKey, StmParameters, StmSig, StmVerificationKeyPoP,
+    Index, Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmParameters, StmSig, StmSigner,
+    StmVerificationKeyPoP,
 };
 use mithril::AggregationError;
 
 #[cfg(any(test, feature = "allow_skip_signer_certification"))]
 use mithril::key_reg::KeyReg;
 #[cfg(any(test, feature = "allow_skip_signer_certification"))]
-use mithril::stm::{StmClerk, StmInitializer, StmSigner};
+use mithril::stm::StmInitializer;
 
 use blake2::{digest::consts::U32, Blake2b};
 use ed25519_dalek;
