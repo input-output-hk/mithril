@@ -262,24 +262,6 @@ impl StmParameters {
 
 impl StmInitializer {
     /// Builds an `StmInitializer` that is ready to register with the key registration service.
-    /// This function generates the signing and verification key with a PoP, signs the verification
-    /// key with a provided KES signing key, and initialises the structure.
-    pub fn setup_new<R: RngCore + CryptoRng>(
-        params: StmParameters,
-        stake: Stake,
-        rng: &mut R,
-    ) -> Self {
-        let sk = SigningKey::gen(rng);
-        let pk = StmVerificationKeyPoP::from(&sk);
-
-        Self {
-            stake,
-            params,
-            sk,
-            pk,
-        }
-    }
-    /// Builds an `StmInitializer` that is ready to register with the key registration service.
     /// This function generates the signing and verification key with a PoP, and initialises the structure.
     pub fn setup<R: RngCore + CryptoRng>(params: StmParameters, stake: Stake, rng: &mut R) -> Self {
         let sk = SigningKey::gen(rng);
