@@ -1,15 +1,12 @@
 use crate::crypto_helper::cardano::{FromShelleyFile, OpCert, ParseError};
 use crate::crypto_helper::types::{
-    ProtocolAggregateVerificationKey, ProtocolPartyId, ProtocolSignerVerificationKey,
-    ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
+    ProtocolPartyId, ProtocolSignerVerificationKey, ProtocolSignerVerificationKeySignature,
+    ProtocolStakeDistribution,
 };
 
 use mithril::key_reg::{ClosedKeyReg, KeyReg};
-use mithril::stm::{
-    Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmInitializer, StmParameters, StmSig,
-    StmSigner, StmVerificationKeyPoP,
-};
-use mithril::{AggregationError, RegisterError};
+use mithril::stm::{Stake, StmInitializer, StmParameters, StmSigner, StmVerificationKeyPoP};
+use mithril::RegisterError;
 
 use blake2::{digest::consts::U32, Blake2b, Digest};
 use kes_summed_ed25519::kes::{Sum6Kes, Sum6KesSig};
@@ -59,40 +56,6 @@ pub struct StmInitializerWrapper {
 pub struct KeyRegWrapper {
     stm_key_reg: KeyReg,
     stake_distribution: HashMap<ProtocolPartyId, Stake>,
-}
-
-/// Wrapper structure for [MithrilCore:StmSigner](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmSigner.html).
-#[derive(Debug, Clone)]
-pub struct StmSignerWrapper(StmSigner<D>);
-
-/// Wrapper structure fo [MithrilCore:StmClerk](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmClerk.html).
-#[derive(Debug, Clone)]
-pub struct StmClerkWrapper(StmClerk<D>);
-
-impl StmClerkWrapper {
-    /// Create a new `Clerk` from a closed registration instance.
-    pub fn from_registration(params: &StmParameters, closed_reg: &ClosedKeyReg<D>) -> Self {
-        Self(StmClerk::from_registration(params, closed_reg))
-    }
-
-    /// Create a Clerk from a signer.
-    pub fn from_signer(signer: &StmSignerWrapper) -> Self {
-        Self(StmClerk::from_signer(&signer.0))
-    }
-
-    /// Aggregate a set of signatures for their corresponding indices.
-    pub fn aggregate(
-        &self,
-        sigs: &[StmSig<D>],
-        msg: &[u8],
-    ) -> Result<StmAggrSig<D>, AggregationError> {
-        self.0.aggregate(sigs, msg)
-    }
-
-    /// Compute the `StmAggrVerificationKey` related to the used registration.
-    pub fn compute_avk(&self) -> StmAggrVerificationKey<D> {
-        self.0.compute_avk()
-    }
 }
 
 impl StmInitializerWrapper {
@@ -153,10 +116,8 @@ impl StmInitializerWrapper {
     pub fn new_signer(
         self,
         closed_reg: ClosedKeyReg<D>,
-    ) -> Result<StmSignerWrapper, ProtocolRegistrationErrorWrapper> {
-        Ok(StmSignerWrapper(
-            self.stm_initializer.new_signer(closed_reg)?,
-        ))
+    ) -> Result<StmSigner<D>, ProtocolRegistrationErrorWrapper> {
+        Ok(self.stm_initializer.new_signer(closed_reg)?)
     }
 
     /// Convert to bytes
@@ -238,19 +199,6 @@ impl KeyRegWrapper {
     /// This function disables `KeyReg::register`, consumes the instance of `self`, and returns a `ClosedKeyReg`.
     pub fn close<D: Digest>(self) -> ClosedKeyReg<D> {
         self.stm_key_reg.close()
-    }
-}
-
-impl StmSignerWrapper {
-    /// This function produces an STM signature
-    pub fn sign(&self, msg: &[u8]) -> Option<StmSig<D>> {
-        self.0.sign(msg)
-    }
-
-    /// Compute the `StmAggrVerificationKey` related to the used registration, which consists of
-    /// the merkle tree root and the total stake.
-    pub fn compute_avk(&self) -> ProtocolAggregateVerificationKey {
-        self.0.compute_avk()
     }
 }
 

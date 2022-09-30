@@ -1,6 +1,5 @@
 use crate::crypto_helper::cardano::{
-    KeyRegWrapper, ProtocolRegistrationErrorWrapper, StmClerkWrapper, StmInitializerWrapper,
-    StmSignerWrapper,
+    KeyRegWrapper, ProtocolRegistrationErrorWrapper, StmInitializerWrapper,
 };
 
 use mithril::stm::{
@@ -39,13 +38,13 @@ pub type ProtocolParameters = StmParameters;
 pub type ProtocolLotteryIndex = Index;
 
 /// Alias of a wrapper of [MithrilCore:StmSigner](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmSigner.html).
-pub type ProtocolSigner = StmSignerWrapper;
+pub type ProtocolSigner = StmSigner<D>;
 
 /// Alias of a wrapper of [MithrilCore:StmInitializer](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmInitializer.html).
 pub type ProtocolInitializer = StmInitializerWrapper;
 
 /// Alias of a wrapper of [MithrilCore:StmClerk](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmClerk.html).
-pub type ProtocolClerk = StmClerkWrapper;
+pub type ProtocolClerk = StmClerk<D>;
 
 /// Alias of a wrapper of [MithrilCore:KeyReg](https://mithril.network/mithril-core/doc/mithril/key_reg/struct.KeyReg.html).
 pub type ProtocolKeyRegistration = KeyRegWrapper;
