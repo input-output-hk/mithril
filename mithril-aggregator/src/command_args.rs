@@ -23,14 +23,15 @@ use mithril_common::{
 use crate::tools::GenesisToolsDependency;
 use crate::{
     tools::GenesisTools, AggregatorConfig, AggregatorRunner, AggregatorRuntime,
-    CertificatePendingStore, Configuration, DependencyManager, ProtocolParametersStore, Server,
+    CertificatePendingStore, Configuration, DependencyManager, GenesisConfiguration,
+    ProtocolParametersStore, Server,
 };
 use crate::{
     CertificateStore, GzipSnapshotter, MultiSignerImpl, SingleSignatureStore, VerificationKeyStore,
 };
 
 fn setup_genesis_dependencies(
-    config: &Configuration,
+    config: &GenesisConfiguration,
 ) -> Result<GenesisToolsDependency, Box<dyn std::error::Error>> {
     let sqlite_db_path = Some(config.get_sqlite_file());
     let chain_observer = Arc::new(
@@ -460,7 +461,7 @@ impl ExportGenesisSubCommand {
         &self,
         config_builder: ConfigBuilder<DefaultState>,
     ) -> Result<(), Box<dyn Error>> {
-        let config: Configuration = config_builder
+        let config: GenesisConfiguration = config_builder
             .build()
             .map_err(|e| format!("configuration build error: {}", e))?
             .try_deserialize()
@@ -489,7 +490,7 @@ impl ImportGenesisSubCommand {
         &self,
         config_builder: ConfigBuilder<DefaultState>,
     ) -> Result<(), Box<dyn Error>> {
-        let config: Configuration = config_builder
+        let config: GenesisConfiguration = config_builder
             .build()
             .map_err(|e| format!("configuration build error: {}", e))?
             .try_deserialize()
@@ -520,7 +521,7 @@ impl BootstrapGenesisSubCommand {
         &self,
         config_builder: ConfigBuilder<DefaultState>,
     ) -> Result<(), Box<dyn Error>> {
-        let config: Configuration = config_builder
+        let config: GenesisConfiguration = config_builder
             .build()
             .map_err(|e| format!("configuration build error: {}", e))?
             .try_deserialize()

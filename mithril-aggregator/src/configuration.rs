@@ -58,7 +58,7 @@ pub struct Configuration {
     /// Run Interval is the interval between two runtime cycles in ms
     pub run_interval: u64,
 
-    /// Directory to snapshot
+    /// Directory of the node immutable files
     pub db_directory: PathBuf,
 
     /// Directory to store snapshot
@@ -135,6 +135,62 @@ impl Configuration {
         }
     }
 
+    /// Check configuration and return a representation of the Cardano network.
+    pub fn get_network(&self) -> Result<CardanoNetwork, ConfigError> {
+        CardanoNetwork::from_code(self.network.clone(), self.network_magic)
+            .map_err(|e| ConfigError::Message(e.to_string()))
+    }
+
+    /// Return the file of the SQLite stores. If the directory does not exist, it is created.
+    pub fn get_sqlite_file(&self) -> PathBuf {
+        let store_dir = &self.data_stores_directory;
+
+        if !store_dir.exists() {
+            std::fs::create_dir_all(store_dir).unwrap();
+        }
+
+        self.data_stores_directory.join(SQLITE_FILE)
+    }
+}
+
+/// Configuration expected for Genesis commands.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GenesisConfiguration {
+    /// Cardano CLI tool path
+    pub cardano_cli_path: PathBuf,
+
+    /// Path of the socket used by the Cardano CLI tool
+    /// to communicate with the Cardano node
+    pub cardano_node_socket_path: PathBuf,
+
+    /// Directory of the node immutable files
+    pub db_directory: PathBuf,
+
+    /// Cardano Network Magic number
+    ///
+    /// useful for TestNet & DevNet
+    pub network_magic: Option<u64>,
+
+    /// Cardano network
+    pub network: String,
+
+    /// Protocol parameters
+    pub protocol_parameters: ProtocolParameters,
+
+    /// Directory to store aggregator data (Certificates, Snapshots, Protocol Parameters, ...)
+    pub data_stores_directory: PathBuf,
+
+    /// Genesis verification key
+    pub genesis_verification_key: String,
+
+    /// Max number of records in stores.
+    /// When new records are added, oldest records are automatically deleted so
+    /// there can always be at max the number of records specified by this
+    /// setting.
+    pub store_retention_limit: Option<usize>,
+}
+
+impl GenesisConfiguration {
     /// Check configuration and return a representation of the Cardano network.
     pub fn get_network(&self) -> Result<CardanoNetwork, ConfigError> {
         CardanoNetwork::from_code(self.network.clone(), self.network_magic)
