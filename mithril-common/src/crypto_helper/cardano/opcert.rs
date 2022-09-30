@@ -4,7 +4,10 @@ use crate::crypto_helper::ProtocolPartyId;
 
 use bech32::{self, ToBase32, Variant};
 use blake2::{digest::consts::U28, Blake2b, Digest};
-use ed25519_dalek::{PublicKey as EdPublicKey, Signature as EdSignature, Verifier};
+use ed25519_dalek::{
+    ExpandedSecretKey as EdExpandedSecretKey, PublicKey as EdPublicKey, SecretKey as EdSecretKey,
+    Signature as EdSignature, Verifier,
+};
 use kes_summed_ed25519::common::PublicKey as KesPublicKey;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -48,14 +51,55 @@ impl FromShelleyFile for OpCert {
 }
 
 impl OpCert {
+    /// OpCert factory / test only
+    pub fn new(
+        kes_vk: KesPublicKey,
+        issue_number: u64,
+        start_kes_period: u64,
+        cold_sk: EdSecretKey,
+    ) -> Self {
+        let cold_sk_expanded = EdExpandedSecretKey::from(&cold_sk);
+        let cold_vk: EdPublicKey = (&cold_sk_expanded).into();
+        let cert_sig = cold_sk_expanded.sign(
+            &Self::compute_message_to_sign(&kes_vk, issue_number, start_kes_period),
+            &cold_vk,
+        );
+        Self {
+            kes_vk,
+            issue_number,
+            start_kes_period,
+            cert_sig,
+            cold_vk,
+        }
+    }
+
+    /// Compute message to sign
+    pub(crate) fn compute_message_to_sign(
+        kes_vk: &KesPublicKey,
+        issue_number: u64,
+        start_kes_period: u64,
+    ) -> [u8; 48] {
+        let mut msg = [0u8; 48];
+        msg[..32].copy_from_slice(kes_vk.as_bytes());
+        msg[32..40].copy_from_slice(&issue_number.to_be_bytes());
+        msg[40..48].copy_from_slice(&start_kes_period.to_be_bytes());
+        msg
+    }
+
     /// Validate a certificate
     pub fn validate(&self) -> Result<(), ProtocolRegistrationErrorWrapper> {
-        let mut msg = [0u8; 48];
-        msg[..32].copy_from_slice(self.kes_vk.as_bytes());
-        msg[32..40].copy_from_slice(&self.issue_number.to_be_bytes());
-        msg[40..48].copy_from_slice(&self.start_kes_period.to_be_bytes());
-
-        if self.cold_vk.verify(&msg, &self.cert_sig).is_ok() {
+        if self
+            .cold_vk
+            .verify(
+                &Self::compute_message_to_sign(
+                    &self.kes_vk,
+                    self.issue_number,
+                    self.start_kes_period,
+                ),
+                &self.cert_sig,
+            )
+            .is_ok()
+        {
             return Ok(());
         }
 
