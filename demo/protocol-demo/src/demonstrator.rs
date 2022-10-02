@@ -9,10 +9,10 @@ use std::io::Write;
 use std::path;
 
 use mithril_common::crypto_helper::{
-    key_decode_hex, key_encode_hex, ProtocolClerkNotCertified, ProtocolInitializerNotCertified,
+    key_decode_hex, key_encode_hex, ProtocolClerk, ProtocolInitializerNotCertified,
     ProtocolKeyRegistrationNotCertified, ProtocolMultiSignature, ProtocolParameters,
-    ProtocolPartyId, ProtocolSignerNotCertified, ProtocolSignerVerificationKey,
-    ProtocolSingleSignature, ProtocolStake,
+    ProtocolPartyId, ProtocolSigner, ProtocolSignerVerificationKey, ProtocolSingleSignature,
+    ProtocolStake,
 };
 
 /// Player artifacts
@@ -51,9 +51,9 @@ pub struct Party {
     /// Protocol parameters
     params: Option<ProtocolParameters>,
     /// Protocol signer
-    signer: Option<ProtocolSignerNotCertified>,
+    signer: Option<ProtocolSigner>,
     /// Protocol clerk
-    clerk: Option<ProtocolClerkNotCertified>,
+    clerk: Option<ProtocolClerk>,
     /// Multi signatures
     msigs: HashMap<Vec<u8>, ProtocolMultiSignature>,
 }
@@ -109,9 +109,7 @@ impl Party {
         let mut rng = ChaCha20Rng::from_seed(seed);
         let p = ProtocolInitializerNotCertified::setup(self.params.unwrap(), self.stake, &mut rng);
         self.signer = Some(p.new_signer(closed_reg).unwrap());
-        self.clerk = Some(ProtocolClerkNotCertified::from_signer(
-            self.signer.as_ref().unwrap(),
-        ));
+        self.clerk = Some(ProtocolClerk::from_signer(self.signer.as_ref().unwrap()));
     }
 
     /// Individually sign a message through lottery
@@ -206,7 +204,7 @@ pub struct Verifier {
     /// Protocol parameters
     params: Option<ProtocolParameters>,
     /// Protocol clerk
-    clerk: Option<ProtocolClerkNotCertified>,
+    clerk: Option<ProtocolClerk>,
 }
 
 impl Verifier {
@@ -246,7 +244,7 @@ impl Verifier {
         }
         let closed_reg = key_reg.close();
 
-        self.clerk = Some(ProtocolClerkNotCertified::from_registration(
+        self.clerk = Some(ProtocolClerk::from_registration(
             &self.params.unwrap(),
             &closed_reg,
         ));

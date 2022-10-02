@@ -82,17 +82,9 @@ pub type ProtocolRegistrationError = ProtocolRegistrationErrorWrapper;
 pub type ProtocolAggregationError = AggregationError;
 
 // Test only
-/// (Test only) Alias of [MithrilCore:StmSigner](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmSigner.html).
-#[cfg(any(test, feature = "allow_skip_signer_certification"))]
-pub type ProtocolSignerNotCertified = StmSigner<D>;
-
 /// (Test only) Alias of [MithrilCore:StmInitializer](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmInitializer.html).
 #[cfg(any(test, feature = "allow_skip_signer_certification"))]
 pub type ProtocolInitializerNotCertified = StmInitializer;
-
-/// (Test only) Alias of [MithrilCore:StmClerk](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmClerk.html).
-#[cfg(any(test, feature = "allow_skip_signer_certification"))]
-pub type ProtocolClerkNotCertified = StmClerk<D>;
 
 /// (Test only) Alias of [MithrilCore:KeyReg](https://mithril.network/mithril-core/doc/mithril/key_reg/struct.KeyReg.html). (Test only)
 #[cfg(any(test, feature = "allow_skip_signer_certification"))]
