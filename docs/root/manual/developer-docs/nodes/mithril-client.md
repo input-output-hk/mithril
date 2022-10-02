@@ -28,7 +28,7 @@ The [Mithril test networks](../../../manual/developer-docs/references.md#mithril
 * `preprod`: Test network with magic id `1`, not implemented yet on the IOG hosted Mithril Aggregator
 * `testnet`: Legacy test network with magic id `1097911063`, used to be on the IOG hosted Mithril Aggregator, now deprecated
 
-In this documentation, we use the generic `testnet` identifier, but you need to replace it with the identifier of the network that runs on your Cardano node
+In this documentation, we use the generic `**YOUR_TEST_NETWORK**` identifier, but you need to replace it with the identifier of the network that runs on your Cardano node
 
 :::
 
@@ -142,13 +142,13 @@ Run in release with default configuration
 Run in release with a specific mode
 
 ```bash
-./mithril-client -r testnet
+./mithril-client -r preview
 ```
 
 Run in release with a custom configuration via env vars
 
 ```bash
-GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) NETWORK=testnet AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator ./mithril-client
+GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) NETWORK=**YOUR_TEST_NETWORK** AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator ./mithril-client
 ```
 
 :::tip

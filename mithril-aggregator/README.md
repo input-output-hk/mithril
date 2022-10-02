@@ -14,7 +14,6 @@ This is a first version of the Mithril Aggregagator
 - Install OpenSSL development libraries, for example on Ubuntu/Debian/Mint run `apt install libssl-dev`
 - Ensure `libsqlite3` is installed on your system and check its version is at least `1.35`. Run `apt install libsqlite3` and `sqlite3 --version`
 
-
 ## Mithril test networks
 
 The Mithril test networks are:
@@ -23,7 +22,7 @@ The Mithril test networks are:
 - `preprod`: Test network with magic id `1`, not implemented yet on the IOG hosted Mithril Aggregator
 - `testnet`: Legacy test network with magic id `1097911063`, used to be on the IOG hosted Mithril Aggregator, now deprecated
 
-In this documentation, we use the generic `testnet` identifier, but you need to replace it with the identifier of the network that runs on your Cardano node
+In this documentation, we use the generic `**YOUR_TEST_NETWORK**` identifier, but you need to replace it with the identifier of the network that runs on your Cardano node
 
 ## Download source code
 
@@ -117,13 +116,13 @@ Run 'serve' command in release with default configuration
 Run 'serve' command in release with a specific mode
 
 ```bash
-./mithril-aggregator serve -r testnet
+./mithril-aggregator serve -r preview
 ```
 
 Run 'serve' command in release with a custom configuration via env vars
 
 ```bash
-GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) RUN_INTERVAL=60000 NETWORK=testnet ./mithril-aggregator serve
+GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) RUN_INTERVAL=60000 NETWORK=**YOUR_TEST_NETWORK** ./mithril-aggregator serve
 ```
 
 ## Release build and run binary 'genesis' command
@@ -201,7 +200,7 @@ Or with a custom export path (to override the default value `./mithril-genesis-s
 Run 'genesis import' command in release with a custom configuration via env vars
 
 ```bash
-GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) RUN_INTERVAL=60000 NETWORK=testnet ./mithril-aggregator genesis import
+GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) RUN_INTERVAL=60000 NETWORK=**YOUR_TEST_NETWORK** ./mithril-aggregator genesis import
 ```
 
 ```

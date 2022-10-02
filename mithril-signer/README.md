@@ -31,7 +31,7 @@ The Mithril test networks are:
 - `preprod`: Test network with magic id `1`, not implemented yet on the IOG hosted Mithril Aggregator
 - `testnet`: Legacy test network with magic id `1097911063`, used to be on the IOG hosted Mithril Aggregator, now deprecated
 
-In this documentation, we use the generic `testnet` identifier, but you need to replace it with the identifier of the network that runs on your Cardano node
+In this documentation, we use the generic `**YOUR_TEST_NETWORK**` identifier, but you need to replace it with the identifier of the network that runs on your Cardano node
 
 ## Development test and build
 
@@ -66,10 +66,10 @@ make build
 ./mithril-signer
 
 # Run in a specific mode
-./mithril-signer -r testnet
+./mithril-signer -r preview
 
 # Run with custom configuration with env vars
-NETWORK=testnet AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator ./mithril-signer
+NETWORK=**YOUR_TEST_NETWORK** AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator ./mithril-signer
 ```
 
 ## Build and run Docker container

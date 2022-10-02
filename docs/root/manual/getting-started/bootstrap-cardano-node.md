@@ -18,7 +18,7 @@ The [Mithril test networks](../../manual/developer-docs/references.md#mithril-ne
 * `preprod`: Test network with magic id `1`, not implemented yet on the IOG hosted Mithril Aggregator
 * `testnet`: Legacy test network with magic id `1097911063`, used to be on the IOG hosted Mithril Aggregator, now deprecated
 
-In this documentation, we use the generic `testnet` identifier, but you need to replace it with the identifier of the network that runs on your Cardano node
+In this documentation, we use the generic `**YOUR_TEST_NETWORK**` identifier, but you need to replace it with the identifier of the network that runs on your Cardano node
 
 :::
 
@@ -120,7 +120,7 @@ If you want to dig deeper, you can get access to several level of logs from the 
 
 ```bash
 # Cardano network
-NETWORK=testnet
+NETWORK=**YOUR_TEST_NETWORK**
 
 # Aggregator API endpoint URL
 AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator
@@ -225,7 +225,7 @@ docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind
 Launch an empty Cardano node and make it live in minutes!
 
 ```bash
-docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="$(pwd)/data/testnet/$SNAPSHOT_DIGEST/db",target=/data/db/ -e NETWORK=testnet inputoutput/cardano-node
+docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="$(pwd)/data/testnet/$SNAPSHOT_DIGEST/db",target=/data/db/ -e NETWORK=**YOUR_TEST_NETWORK** inputoutput/cardano-node
 ```
 
 You will see the node start by validating the files injested from the snapshot archive
