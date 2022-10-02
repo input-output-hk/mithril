@@ -138,7 +138,7 @@ SNAPSHOT_DIGEST=$(curl -s $AGGREGATOR_ENDPOINT/snapshots | jq -r '.[0].digest')
 List the available snapshots with which you can bootstrap a Cardano node
 
 ```bash
-NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client list
+GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client list
 ```
 
 You will see a list of snapshots
@@ -164,7 +164,7 @@ You will see a list of snapshots
 Get some more details from a specific snapshot (Optional)
 
 ```bash
-NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client show $SNAPSHOT_DIGEST
+GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client show $SNAPSHOT_DIGEST
 ```
 
 You will see more information about a snapshot
@@ -189,7 +189,7 @@ You will see more information about a snapshot
 Download the selected snapshot from the remote location to your remote location
 
 ```bash
-NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client download $SNAPSHOT_DIGEST
+GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client download $SNAPSHOT_DIGEST
 ```
 
 You will see that the selected snapshot archive has been downloaded locally
