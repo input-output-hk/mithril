@@ -968,7 +968,9 @@ done
 NODE_IX=0
 for NODE in ${POOL_NODES}; do
 
-cat >> docker-compose.yaml <<EOF
+if [ `expr $NODE_IX % 2` == 0 ]; then 
+    # 50% of signers with key certification
+    cat >> docker-compose.yaml <<EOF
   mithril-signer-${NODE}:
     image: \${MITHRIL_SIGNER_IMAGE}
     restart: always
@@ -998,6 +1000,39 @@ cat >> docker-compose.yaml <<EOF
       ]
 
 EOF
+else
+    # 50% of signers without key certification (legacy)
+    # TODO: Should be removed once the signer certification is fully deployed
+    cat >> docker-compose.yaml <<EOF
+  mithril-signer-${NODE}:
+    image: \${MITHRIL_SIGNER_IMAGE}
+    restart: always
+    profiles:
+      - mithril
+    volumes:
+      - ./${NODE}:/data:z
+    networks:
+    - mithril_network
+    env_file:
+    - ./${NODE}/pool.env
+    environment:
+      - RUST_BACKTRACE=1
+      - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
+      - NETWORK=devnet
+      - NETWORK_MAGIC=${NETWORK_MAGIC}
+      - RUN_INTERVAL=700
+      - DB_DIRECTORY=/data/db
+      - DATA_STORES_DIRECTORY=/data/mithril/signer-${NODE}/stores
+      - CARDANO_NODE_SOCKET_PATH=/data/ipc/node.sock
+      - CARDANO_CLI_PATH=/app/bin/cardano-cli
+    command:
+      [
+        "-vvv"
+      ]
+
+EOF
+fi
+
     NODE_IX=$(( $NODE_IX + 1))
 
 done
