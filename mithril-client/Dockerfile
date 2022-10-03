@@ -32,10 +32,14 @@ RUN cargo build --release
 ###############################
 # STEP 2: build a small image
 ###############################
-FROM debian:buster-slim
+FROM ubuntu:latest
 
 # Upgrade
-RUN apt-get update && apt-get install -y libssl1.1 ca-certificates && rm -rf /var/lib/apt/lists/*
+RUN apt-get update -y && apt-get install -y libssl-dev ca-certificates wget && rm -rf /var/lib/apt/lists/*
+
+# Install missing libssl1.1
+RUN wget http://nz2.archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2.16_amd64.deb
+RUN dpkg -i libssl1.1_1.1.1f-1ubuntu2.16_amd64.deb
 
 # Import the user and group files from the builder
 COPY --from=rustbuilder /etc/passwd /etc/passwd
