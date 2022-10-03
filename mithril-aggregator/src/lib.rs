@@ -23,10 +23,13 @@ mod snapshotter;
 mod store;
 mod tools;
 
-pub use crate::configuration::{Configuration, SnapshotStoreType, SnapshotUploaderType};
+pub use crate::configuration::{
+    Configuration, DefaultConfiguration, GenesisConfiguration, SnapshotStoreType,
+    SnapshotUploaderType,
+};
 pub use crate::multi_signer::{MultiSigner, MultiSignerImpl, ProtocolError};
 pub use crate::snapshot_stores::{LocalSnapshotStore, RemoteSnapshotStore, SnapshotStore};
-pub use command_args::Args;
+pub use command_args::MainOpts;
 pub use dependency::DependencyManager;
 pub use http_server::Server;
 pub use runtime::{AggregatorConfig, AggregatorRunner, AggregatorRunnerTrait, AggregatorRuntime};

@@ -114,14 +114,17 @@ You should see
 
 ```bash
 mithril-aggregator 
-Node args
+Mithril Aggregator Node
 
 USAGE:
     mithril-aggregator [OPTIONS] <SUBCOMMAND>
 
 OPTIONS:
+        --config-directory <CONFIG_DIRECTORY>
+            Directory where configuration file is located [default: ./config]
+
         --db-directory <DB_DIRECTORY>
-            Directory to snapshot [default: /db]
+            Directory where stores are located
 
     -h, --help
             Print help information
@@ -129,22 +132,14 @@ OPTIONS:
     -r, --run-mode <RUN_MODE>
             Run Mode [default: dev]
 
-        --server-ip <SERVER_IP>
-            Server listening IP [default: 0.0.0.0]
-
-        --server-port <SERVER_PORT>
-            Server listening port [default: 8080]
-
-        --snapshot-directory <SNAPSHOT_DIRECTORY>
-            Directory to store snapshot Defaults to work folder [default: .]
-
     -v, --verbose
             Verbosity level
 
 SUBCOMMANDS:
-    genesis    Aggregator runs in Genesis tools mode
+    genesis    Genesis certificate command Genesis command selecter
     help       Print this message or the help of the given subcommand(s)
-    serve      Aggregator runs in Serve mode
+    serve      Server runtime mode
+
 ```
 
 Run 'serve' command in release with default configuration
@@ -156,7 +151,7 @@ Run 'serve' command in release with default configuration
 Run 'serve' command in release with a specific mode
 
 ```bash
-./mithril-aggregator serve -r testnet
+./mithril-aggregator -r testnet serve
 ```
 
 Run 'serve' command in release with a custom configuration via env vars
@@ -183,7 +178,7 @@ You should see
 
 ```bash
 mithril-aggregator-genesis 
-Aggregator runs in Genesis tools mode
+Genesis tools
 
 USAGE:
     mithril-aggregator genesis <SUBCOMMAND>
@@ -192,10 +187,11 @@ OPTIONS:
     -h, --help    Print help information
 
 SUBCOMMANDS:
-    bootstrap    Bootstrap a genesis certificate Test only usage
-    export       Export payload to sign with genesis secret key
+    bootstrap    Genesis certificate bootstrap command
+    export       Genesis certificate export command
     help         Print this message or the help of the given subcommand(s)
-    import       Import payload signed with genesis secret key and create & import a genesis certificate
+    import       Genesis certificate import command
+
 ```
 
 Run 'genesis bootstrap' command in release with default configuration, **only in test mode**.
@@ -215,23 +211,11 @@ Run 'genesis export' command in release with default configuration.
 This allows the Mithril Aggregator node to export the `Genesis Payload` that needs to be signed (and later reimported) of the `Genesis Certificate`. The signature of the `Genesis Payload` must be done manually with the owner of the `Genesis Secret Key`.
 
 ```bash
-./mithril-aggregator genesis export
-```
-
-Or with a custom export path (to override the default value `./mithril-genesis-payload.txt`)
-
-```bash
 ./mithril-aggregator genesis export --target-path **YOUR_TARGET_PATH**
 ```
 
 Run 'genesis import' command in release with default configuration.
 This allows the Mithril Aggregator node to import the signed payload of the `Genesis Certificate` and create it in the store. After this operation, the Mithril Aggregator will be able to produce new snapshots and certificates.
-
-```bash
-./mithril-aggregator genesis import
-```
-
-Or with a custom export path (to override the default value `./mithril-genesis-signed-payload.txt`)
 
 ```bash
 ./mithril-aggregator genesis import --signed-payload-path **YOUR_SIGNED_PAYLOAD_PATH**
@@ -240,12 +224,12 @@ Or with a custom export path (to override the default value `./mithril-genesis-s
 Run 'genesis import' command in release with a custom configuration via env vars
 
 ```bash
-GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) RUN_INTERVAL=60000 NETWORK=testnet ./mithril-aggregator genesis import
+GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) RUN_INTERVAL=60000 NETWORK=testnet ./mithril-aggregator genesis import --signed-payload-path **YOUR_SIGNED_PAYLOAD_PATH**
 ```
 
 :::tip
 
-If you want to dig deeper, you can get access to several level of logs from the Mithril Aggregators:
+If you want to dig deeper, you can get access to several level of logs from the Mithril Aggregator:
 
 * Add `-v` for some logs (WARN)
 * Add `-vv` for more logs (INFO)
@@ -287,26 +271,51 @@ The configuration parameters are set either:
 * In a configuration file (depending on the `--run-mode` parameter). If runtime mode is `testnet` the file is located in `./conf/testnet.json`.
 * The value can be overridden by an environment variable whose name is the parameter name uppercased.
 
-Here is a list of the available parameters:
+Here is a list of the available parameters.
+
+General parameters:
+
+| Parameter | Command Line (long) |  Command Line (short) | Environment Variable | Description | Default Value | Example | Mandatory |
+|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
+| `cardano_cli_path` | - | - | `CARDANO_CLI_PATH` | Cardano CLI tool path | - | `cardano-cli` | :heavy_check_mark: |
+| `cardano_node_socket_path` | - | - | `CARDANO_NODE_SOCKET_PATH` | Path of the socket used by the Cardano CLI tool to communicate with the Cardano node | - | `/tmp/cardano.sock` | :heavy_check_mark: |
+| `config_directory` | `--config-directory` | - | - | Directory of the configuration file | `./config` | - | - |
+| `data_stores_directory` | - | - | `data_stores_directory` | Directory to store Aggregator data (Certificates, Snapshots, Protocol Parameters, ...) | - | `./mithril-aggregator/stores` | :heavy_check_mark: |
+| `db_directory` | `--db-directory` | - | `DB_DIRECTORY` | Directory of the **Cardano Node** stores | `/db` | - | :heavy_check_mark: |
+| `genesis_verification_key` | - | - | `GENESIS_VERIFICATION_KEY` | Genesis verification key | - | - | :heavy_check_mark: |
+| `network` | - | - | `NETWORK` | Cardano network | - | `testnet` or `mainnet` or `devnet` | :heavy_check_mark: |
+| `network_magic` | - | - | `NETWORK_MAGIC` | Cardano Network Magic number (for `testnet` and `devnet`) | - | `1097911063` or `42` | - |
+| `protocol_parameters` | - | - | `PROTOCOL_PARAMETERS__K`, `PROTOCOL_PARAMETERS__M`, and `PROTOCOL_PARAMETERS__PHI_F` | Mithril Protocol Parameters | - | `{ k: 5, m: 100, phi_f: 0.65 }` | :heavy_check_mark: |
+| `run_mode` | `--run-mode` | `-r` | `RUN_MODE` | Runtime mode | `dev` | - | :heavy_check_mark: |
+| `store_retention_limit` | - | - | `STORE_RETENTION_LIMIT` | Maximum number of records in stores. If not set, no limit is set. | - | - | - |
+| `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level | - | Parsed from number of occurrences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace` | :heavy_check_mark: |
+
+`serve` command:
 
 | Parameter | Command Line (long) |  Command Line (short) | Environment Variable | Description | Default Value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `server_ip` | `--server-ip` | - | `SERVER_IP` | Listening server IP | `0.0.0.0` | - | :heavy_check_mark: |  
 | `server_port` | `--server-port` | - | `SERVER_PORT` | Listening server port | `8080` | - | :heavy_check_mark: |
-| `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level | - | Parsed from number of occurrences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace` | :heavy_check_mark: |
-| `run_mode` | `--run-mode` | `-r` | `RUN_MODE` | Runtime mode | `dev` | - | :heavy_check_mark: |
-| `db_directory` | `--db-directory` | - | `DB_DIRECTORY` | Directory to snapshot from the **Cardano Node** | `/db` | - | :heavy_check_mark: |
 | `snapshot_directory` | `--snapshot-directory` | - | `SNAPSHOT_DIRECTORY` | Directory to store local snapshots of the **Cardano Node** | `.` | - | :heavy_check_mark: |
-| `network` | - | - | `NETWORK` | Cardano network | - | `testnet` or `mainnet` or `devnet` | :heavy_check_mark: |
-`network_magic` | - | - | `NETWORK_MAGIC` | Cardano Network Magic number (for `testnet` and `devnet`) | - | `1097911063` or `42` | - |
-| `protocol_parameters` | - | - | `PROTOCOL_PARAMETERS__K`, `PROTOCOL_PARAMETERS__M`, and `PROTOCOL_PARAMETERS__PHI_F` | Mithril Protocol Parameters | - | `{ k: 5, m: 100, phi_f: 0.65 }` | :heavy_check_mark: |
 | `snapshot_store_type` | - | - | `SNAPSHOT_STORE_TYPE` | Type of snapshot store to use | - | `gcp` or `local` | :heavy_check_mark: |
 | `snapshot_uploader_type` | - | - | `SNAPSHOT_UPLOADER_TYPE` | Type of snapshot uploader to use | - | `gcp` or `local` | :heavy_check_mark: |
 | `run_interval` | - | - | `RUN_INTERVAL` | Interval between two runtime cycles in ms | - | `60000` | :heavy_check_mark: |
-| `data_stores_directory` | - | - | `data_stores_directory` | Directory to store Aggregator data (Certificates, Snapshots, Protocol Parameters, ...) | - | `./mithril-aggregator/stores` | :heavy_check_mark: |
-| `cardano_cli_path` | - | - | `CARDANO_CLI_PATH` | Cardano CLI tool path | - | `cardano-cli` | :heavy_check_mark: |
-| `cardano_node_socket_path` | - | - | `CARDANO_NODE_SOCKET_PATH` | Path of the socket used by the Cardano CLI tool to communicate with the Cardano node | - | `/tmp/cardano.sock` | :heavy_check_mark: |
 | `url_snapshot_manifest` | - | - | `URL_SNAPSHOT_MANIFEST` | Snapshots manifest location | - | Only if `snapshot_store_type` is `gcp`, else it should be `` | :heavy_check_mark: |
-| `genesis_verification_key` | - | - | `GENESIS_VERIFICATION_KEY` | Genesis verification key | - | - | :heavy_check_mark: |
+
+`genesis bootstrap` command:
+
+| Parameter | Command Line (long) |  Command Line (short) | Environment Variable | Description | Default Value | Example | Mandatory |
+|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
 | `genesis_secret_key` | - | - | `GENESIS_SECRET_KEY` | Genesis secret key, :warning: for test only | - | - | - |
-| `store_retention_limit` | - | - | `STORE_RETENTION_LIMIT` | Maximum number of records in stores. If not set, no limit is set. | - | - | - |
+
+`genesis import` command:
+
+| Parameter | Command Line (long) |  Command Line (short) | Environment Variable | Description | Default Value | Example | Mandatory |
+|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
+| `signed-payload-path` | `--signed-payload-path` | - | - | Path of the payload to import. | - | - | - | - |
+
+`genesis export` command:
+
+| Parameter | Command Line (long) |  Command Line (short) | Environment Variable | Description | Default Value | Example | Mandatory |
+|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
+| `target-path` | `--target-path` | - | - | Path of the file to export the payload to. | - | - | - | - |

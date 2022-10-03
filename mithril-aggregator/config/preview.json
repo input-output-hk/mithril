@@ -1,6 +1,6 @@
 {
     "cardano_cli_path": "cardano-cli",
-    "cardano_cli_socket_path": "/tmp/cardano.sock",
+    "cardano_node_socket_path": "/tmp/cardano.sock",
     "network": "preview",
     "run_interval": 60000,
     "protocol_parameters": {
