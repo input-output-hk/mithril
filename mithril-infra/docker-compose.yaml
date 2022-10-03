@@ -71,23 +71,16 @@ services:
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
       - GENESIS_VERIFICATION_KEY=${GENESIS_VERIFICATION_KEY}
       - GENESIS_SECRET_KEY=${GENESIS_SECRET_KEY}
+      - DB_DIRECTORY=/db
+      - SNAPSHOT_DIRECTORY=/mithril-aggregator/snapshots
+      - SERVER_PORT=8080
     volumes:
       - ./${NETWORK}/mithril-aggregator:/mithril-aggregator
       - ./${NETWORK}/node.db:/db
       - ./ipc:/ipc
     ports:
       - "8080:8080"
-    command:
-      [
-        "--db-directory",
-        "/db",
-        "--snapshot-directory",
-        "/mithril-aggregator/snapshots",
-        "--server-port",
-        "8080",
-        "-vvv",
-        "serve"
-      ]
+    command: [ "-vvv", "serve" ]
     logging:
       driver: "json-file"
       options:
