@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import {Badge, Button, Container, Col, ListGroup, Modal, Row, Table} from "react-bootstrap";
+import { Badge, Button, Container, Col, ListGroup, Modal, OverlayTrigger, Row, Table, Tooltip } from "react-bootstrap";
 import RawJsonButton from "../RawJsonButton";
+import VerifiedBadge from '../VerifiedBadge';
 
 export default function CertificateModal(props) {
   const [certificate, setCertificate] = useState({});
@@ -9,7 +10,7 @@ export default function CertificateModal(props) {
     if (!props.hash) {
       return;
     }
-    
+
     fetch(`${props.aggregator}/certificate/${props.hash}`)
       .then(response => response.status === 200 ? response.json() : {})
       .then(data => setCertificate(data))
@@ -22,7 +23,7 @@ export default function CertificateModal(props) {
   function showPrevious() {
     props.onHashChange(certificate.previous_hash);
   }
-  
+
   function close() {
     props.onHashChange(undefined);
   }
@@ -68,28 +69,34 @@ export default function CertificateModal(props) {
                     This is the chain Genesis Certificate, since it&aops;s manually created it doesn&apos;t contain any Signers.
                   </div>
                   : certificate.metadata.signers.length === 0
-                  ?
-                  <div>
-                    No Signers for this certificate, something went wrong either with the data retrieval or the signing process
-                  </div>
-                  : <>
-                    <Table responsive>
-                      <thead>
-                      <tr>
-                        <th>Party id</th>
-                        <th>Stake</th>
-                      </tr>
-                      </thead>
-                      <tbody>
-                      {certificate.metadata.signers.map(signer =>
-                        <tr key={signer.party_id}>
-                          <td>{signer.party_id}</td>
-                          <td>{signer.stake}</td>
-                        </tr>
-                      )}
-                      </tbody>
-                    </Table>
-                  </>
+                    ?
+                    <div>
+                      No Signers for this certificate, something went wrong either with the data retrieval or the signing process
+                    </div>
+                    : <>
+                      <Table responsive>
+                        <thead>
+                          <tr>
+                            <th></th>
+                            <th>Party id</th>
+                            <th>Stake</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {certificate.metadata.signers.map(signer =>
+                            <tr key={signer.party_id}>
+                              <td>
+                                {signer.verification_key_signature &&
+                                  <VerifiedBadge tooltip="Verified Signer" />
+                                }
+                              </td>
+                              <td>{signer.party_id}</td>
+                              <td>{signer.stake}</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </Table>
+                    </>
                 }
               </Col>
             </Row>
