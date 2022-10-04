@@ -18,7 +18,7 @@ The [Mithril test networks](../../manual/developer-docs/references.md#mithril-ne
 * `preprod`: Test network with magic id `1`, not implemented yet on the IOG hosted Mithril Aggregator
 * `testnet`: Legacy test network with magic id `1097911063`, used to be on the IOG hosted Mithril Aggregator, now deprecated
 
-In this documentation, we use the generic `testnet` identifier, but you need to replace it with the identifier of the network that runs on your Cardano node
+In this documentation, we use the generic `**YOUR_TEST_NETWORK**` identifier, but you need to replace it with the identifier of the network that runs on your Cardano node
 
 :::
 
@@ -161,7 +161,7 @@ First create an env file that will be used by the service
 ```bash
 sudo cat > /opt/mithril/mithril-signer.env << EOF
 PARTY_ID=YOUR_POOL_ID_BECH32
-NETWORK=testnet
+NETWORK=**YOUR_TEST_NETWORK**
 AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator
 RUN_INTERVAL=60000
 DB_DIRECTORY=/cardano/db

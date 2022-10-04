@@ -26,7 +26,7 @@ The [Mithril test networks](../../../manual/developer-docs/references.md#mithril
 * `preprod`: Test network with magic id `1`, not implemented yet on the IOG hosted Mithril Aggregator
 * `testnet`: Legacy test network with magic id `1097911063`, used to be on the IOG hosted Mithril Aggregator, now deprecated
 
-In this documentation, we use the generic `testnet` identifier, but you need to replace it with the identifier of the network that runs on your Cardano node
+In this documentation, we use the generic `**YOUR_TEST_NETWORK**` identifier, but you need to replace it with the identifier of the network that runs on your Cardano node
 
 :::
 
@@ -151,13 +151,13 @@ Run 'serve' command in release with default configuration
 Run 'serve' command in release with a specific mode
 
 ```bash
-./mithril-aggregator -r testnet serve
+./mithril-aggregator -r preview serve
 ```
 
 Run 'serve' command in release with a custom configuration via env vars
 
 ```bash
-GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) RUN_INTERVAL=60000 NETWORK=testnet ./mithril-aggregator serve
+GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) RUN_INTERVAL=60000 NETWORK=**YOUR_TEST_NETWORK** ./mithril-aggregator serve
 ```
 
 ## Release build and run binary 'genesis' command
@@ -224,7 +224,7 @@ This allows the Mithril Aggregator node to import the signed payload of the `Gen
 Run 'genesis import' command in release with a custom configuration via env vars
 
 ```bash
-GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) RUN_INTERVAL=60000 NETWORK=testnet ./mithril-aggregator genesis import --signed-payload-path **YOUR_SIGNED_PAYLOAD_PATH**
+GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) RUN_INTERVAL=60000 NETWORK=**YOUR_TEST_NETWORK** ./mithril-aggregator genesis import --signed-payload-path **YOUR_SIGNED_PAYLOAD_PATH**
 ```
 
 :::tip

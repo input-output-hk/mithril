@@ -42,4 +42,4 @@ The Mithril Networks are aligned with the Cardano Networks and have the same nam
 | `testnet` | `1097911063` | :x: | - | - | Deprecated, not supported anymore
 | `preprod` | `1` | :x: | - | - | Not implemented yet
 | `preview` | `2` | :heavy_check_mark: | [:arrow_upper_right:](https://aggregator.api.mithril.network/aggregator) | [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) | Supported
-| `devnet` | `42` | :heavy_check_mark: | [:arrow_upper_right:](http://localhost:8080/aggregator>) | - | Supported on the `devnet` only
+| `devnet` | `42` | :heavy_check_mark: | [:arrow_upper_right:](http://localhost:8080/aggregator) | - | Supported on the `devnet` only

@@ -28,7 +28,7 @@ The [Mithril test networks](../../../manual/developer-docs/references.md#mithril
 * `preprod`: Test network with magic id `1`, not implemented yet on the IOG hosted Mithril Aggregator
 * `testnet`: Legacy test network with magic id `1097911063`, used to be on the IOG hosted Mithril Aggregator, now deprecated
 
-In this documentation, we use the generic `testnet` identifier, but you need to replace it with the identifier of the network that runs on your Cardano node
+In this documentation, we use the generic `**YOUR_TEST_NETWORK**` identifier, but you need to replace it with the identifier of the network that runs on your Cardano node
 
 :::
 
@@ -45,7 +45,6 @@ In this documentation, we use the generic `testnet` identifier, but you need to 
 * Install OpenSSL development libraries, for example on Ubuntu/Debian/Mint run `apt install libssl-dev`
 
 * Ensure SQLite3 library is installed on your system and its version is at least `1.35` (released Apr. 2021) on Debian/Ubuntu: `apt install libsqlite3` and `sqlite3 --version`.
-
 
 ## Download source
 
@@ -137,13 +136,13 @@ Run in release with default configuration
 Run in release with a specific mode
 
 ```bash
-./mithril-signer -r testnet
+./mithril-signer -r preview
 ```
 
 Run in release with a custom configuration via env vars
 
 ```bash
-NETWORK=testnet AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator ./mithril-signer
+NETWORK=**YOUR_TEST_NETWORK** AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator ./mithril-signer
 ```
 
 :::tip
