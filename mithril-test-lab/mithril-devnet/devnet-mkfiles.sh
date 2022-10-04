@@ -908,14 +908,11 @@ cat >> docker-compose.yaml <<EOF
       - CARDANO_NODE_SOCKET_PATH=/data/ipc/node.sock
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
       - GENESIS_VERIFICATION_KEY=${GENESIS_VERIFICATION_KEY}
+      - DB_DIRECTORY=/data/db
+      - SNAPSHOT_DIRECTORY=/data/mithril/aggregator
+      - SERVER_PORT=8080
     command:
       [
-        "--db-directory",
-        "/data/db",
-        "--snapshot-directory",
-        "/data/mithril/aggregator",
-        "--server-port",
-        "8080", 
         "-vvv",
         "serve"
       ]
@@ -947,14 +944,9 @@ cat >> docker-compose.yaml <<EOF
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
       - GENESIS_VERIFICATION_KEY=${GENESIS_VERIFICATION_KEY}
       - GENESIS_SECRET_KEY=${GENESIS_SECRET_KEY}
+      - DB_DIRECTORY=/data/db
     command:
       [
-        "--db-directory",
-        "/data/db",
-        "--snapshot-directory",
-        "/data/mithril/aggregator",
-        "--server-port",
-        "8080", 
         "-vvv",
         "genesis",
         "bootstrap"
