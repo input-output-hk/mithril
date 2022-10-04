@@ -179,6 +179,12 @@ jobs:
             cargo-${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}-mithril-core
             cargo-${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}-
 
+      - name: Install cargo tools
+        if: ${{ steps.cargo-cache.outputs.cache-hit == false }}
+        run: |
+          cargo install cargo2junit 2>/dev/null || true # Suppress the "binary `xyz` already exists in destination" error
+          cargo install cargo-sort 2>/dev/null || true
+
       - name: Cargo build
         uses: actions-rs/cargo@v1
         with:
