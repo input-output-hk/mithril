@@ -12,6 +12,7 @@
 //! implementations using the `with_xxx` methods.
 
 mod aggregator;
+pub mod commands;
 mod entities;
 mod runtime;
 

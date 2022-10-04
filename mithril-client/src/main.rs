@@ -2,13 +2,17 @@
 
 use clap::{Parser, Subcommand};
 use cli_table::{print_stdout, WithTitle};
+use config::builder::DefaultState;
+use config::{ConfigBuilder, Source};
 use slog::{Drain, Level, Logger};
 use slog_scope::debug;
-use std::env;
 use std::error::Error;
 use std::sync::Arc;
+use std::{env, path::PathBuf};
 
-use mithril_client::{convert_to_field_items, AggregatorHTTPClient, Config, Runtime};
+use mithril_client::{
+    commands::ListCommand, convert_to_field_items, AggregatorHTTPClient, Config, Runtime,
+};
 use mithril_common::{
     certificate_chain::MithrilCertificateVerifier,
     crypto_helper::{key_decode_hex, ProtocolGenesisVerifier},
@@ -24,15 +28,34 @@ pub struct Args {
     command: Commands,
 
     /// Run Mode
-    #[clap(short, long, default_value = "dev")]
+    #[clap(short, long, env("RUN_MODE"), default_value = "dev")]
     run_mode: String,
 
     /// Verbosity level
     #[clap(short, long, parse(from_occurrences))]
     verbose: usize,
+
+    /// Directory where configuration file is located
+    #[clap(long, default_value = "./config")]
+    pub config_directory: PathBuf,
 }
 
 impl Args {
+    pub fn execute(&self) -> Result<(), Box<dyn Error>> {
+        let config: ConfigBuilder<DefaultState> = config::Config::builder()
+            .add_source(
+                config::File::with_name(&format!(
+                    "{}/{}.json",
+                    self.config_directory.display(),
+                    self.run_mode
+                ))
+                .required(false),
+            )
+            .add_source(config::Environment::default());
+
+        self.command.execute(config)
+    }
+
     fn log_level(&self) -> Level {
         match self.verbose {
             0 => Level::Warning,
@@ -57,11 +80,7 @@ impl Args {
 enum Commands {
     /// List available snapshots
     #[clap(arg_required_else_help = false)]
-    List {
-        /// JSON output mode
-        #[clap(long)]
-        json: bool,
-    },
+    List(ListCommand),
 
     /// Infos about a snapshot
     #[clap(arg_required_else_help = false)]
@@ -96,6 +115,18 @@ enum Commands {
     },
 }
 
+impl Commands {
+    pub fn executet(
+        &self,
+        config_builder: ConfigBuilder<DefaultState>,
+    ) -> Result<(), Box<dyn Error>> {
+        match self {
+            Self::List(cmd) => cmd.execute(config_builder).await?,
+            _ => todo!(),
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<(), String> {
     // Load args
@@ -124,75 +155,73 @@ async fn main() -> Result<(), String> {
     let genesis_verifier = ProtocolGenesisVerifier::from_verification_key(genesis_verification_key);
 
     // Init runtime
-    let mut runtime = Runtime::new(
-        config.network.clone(),
-        aggregator_handler,
-        certificate_verifier,
-        genesis_verifier,
-    );
+    let mut runtime = Runtime::new(config.network.clone());
 
     // Execute commands
-    match &args.command {
-        Commands::List { json } => match runtime.list_snapshots().await {
-            Ok(snapshot_list_items) => {
-                if *json {
-                    println!("{}", serde_json::to_string(&snapshot_list_items).unwrap());
-                } else {
-                    print_stdout(snapshot_list_items.with_title()).unwrap();
+    /*
+        match &args.command {
+            Commands::List { json } => match runtime.list_snapshots().await {
+                Ok(snapshot_list_items) => {
+                    if *json {
+                        println!("{}", serde_json::to_string(&snapshot_list_items).unwrap());
+                    } else {
+                        print_stdout(snapshot_list_items.with_title()).unwrap();
+                    }
+                    Ok(())
                 }
-                Ok(())
-            }
-            Err(err) => pretty_print_error(err),
-        },
-        Commands::Show { digest, json } => match runtime.show_snapshot(digest).await {
-            Ok(snapshot_field_items) => {
-                if *json {
-                    println!("{}", serde_json::to_string(&snapshot_field_items).unwrap());
-                } else {
-                    print_stdout(
-                        convert_to_field_items(&snapshot_field_items, config.network.clone())
-                            .with_title(),
-                    )
-                    .unwrap();
+                Err(err) => pretty_print_error(err),
+            },
+            Commands::Show { digest, json } => match runtime.show_snapshot(digest).await {
+                Ok(snapshot_field_items) => {
+                    if *json {
+                        println!("{}", serde_json::to_string(&snapshot_field_items).unwrap());
+                    } else {
+                        print_stdout(
+                            convert_to_field_items(&snapshot_field_items, config.network.clone())
+                                .with_title(),
+                        )
+                        .unwrap();
+                    }
+                    Ok(())
                 }
-                Ok(())
-            }
-            Err(err) => pretty_print_error(err),
-        },
-        Commands::Download {
-            digest,
-            location_index,
-        } => match runtime.download_snapshot(digest, *location_index).await {
-            Ok((from, to)) => {
-                println!(
-                    "Download success {} #{}\nfrom {}\nto {}",
-                    digest, location_index, from, to
-                );
-                Ok(())
-            }
-            Err(err) => pretty_print_error(err),
-        },
-        Commands::Restore { digest } => match runtime.restore_snapshot(digest).await {
-            Ok(to) => {
-                println!(
-                    r###"Unpack success {}
-to {}
+                Err(err) => pretty_print_error(err),
+            },
+            Commands::Download {
+                digest,
+                location_index,
+            } => match runtime.download_snapshot(digest, *location_index).await {
+                Ok((from, to)) => {
+                    println!(
+                        "Download success {} #{}\nfrom {}\nto {}",
+                        digest, location_index, from, to
+                    );
+                    Ok(())
+                }
+                Err(err) => pretty_print_error(err),
+            },
+            Commands::Restore { digest } => match runtime.restore_snapshot(digest).await {
+                Ok(to) => {
+                    println!(
+                        r###"Unpack success {}
+    to {}
 
-Restore a Cardano Node with:
+    Restore a Cardano Node with:
 
-docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="{}",target=/data/db/ -e NETWORK={} inputoutput/cardano-node
+    docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="{}",target=/data/db/ -e NETWORK={} inputoutput/cardano-node
 
-"###,
-                    digest,
-                    to,
-                    to,
-                    config.network.clone()
-                );
-                Ok(())
-            }
-            Err(err) => pretty_print_error(err),
-        },
-    }
+    "###,
+                        digest,
+                        to,
+                        to,
+                        config.network.clone()
+                    );
+                    Ok(())
+                }
+                Err(err) => pretty_print_error(err),
+            },
+        }
+     */
+    Ok(())
 }
 
 /// Pretty print error
