@@ -276,28 +276,14 @@ mod tests {
         let signers_with_stake = signers
             .iter()
             .map(
-                |(
-                    party_id,
-                    stake,
-                    verification_key,
-                    _verification_key_signature,
-                    _operational_certificate,
-                    _protocol_signer,
-                    _protocol_initializer,
-                )| {
-                    SignerWithStake::new(
-                        party_id.to_owned(),
-                        key_encode_hex(verification_key).unwrap(),
-                        None,
-                        None,
-                        *stake,
-                    )
+                |(signer_with_stake, _protocol_signer, _protocol_initializer)| {
+                    signer_with_stake.to_owned()
                 },
             )
             .collect::<Vec<SignerWithStake>>();
         let current_signer = &signers[0];
-        let single_signer = MithrilSingleSigner::new(current_signer.0.to_owned());
-        let protocol_signer = &current_signer.5;
+        let single_signer = MithrilSingleSigner::new(current_signer.0.party_id.to_owned());
+        let protocol_signer = &current_signer.1;
         let clerk = ProtocolClerk::from_signer(protocol_signer);
         let avk = clerk.compute_avk();
         let mut protocol_message = ProtocolMessage::new();
@@ -308,7 +294,7 @@ mod tests {
             .compute_single_signatures(
                 &protocol_message,
                 &signers_with_stake,
-                &current_signer.6,
+                &current_signer.2,
                 chain_observer,
             )
             .await
@@ -333,28 +319,14 @@ mod tests {
         let signers_with_stake = signers
             .iter()
             .map(
-                |(
-                    party_id,
-                    stake,
-                    verification_key,
-                    _verification_key_signature,
-                    _operational_certificate,
-                    _protocol_signer,
-                    _protocol_initializer,
-                )| {
-                    SignerWithStake::new(
-                        party_id.to_owned(),
-                        key_encode_hex(verification_key).unwrap(),
-                        None,
-                        None,
-                        *stake,
-                    )
+                |(signer_with_stake, _protocol_signer, _protocol_initializer)| {
+                    signer_with_stake.to_owned()
                 },
             )
             .collect::<Vec<SignerWithStake>>();
         let current_signer = &signers[0];
-        let single_signer = MithrilSingleSigner::new(current_signer.0.to_owned());
-        let protocol_initializer = &current_signer.6;
+        let single_signer = MithrilSingleSigner::new(current_signer.0.party_id.to_owned());
+        let protocol_initializer = &current_signer.2;
         single_signer
             .compute_aggregate_verification_key(
                 &signers_with_stake,

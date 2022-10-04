@@ -1,12 +1,12 @@
 use mithril_common::digesters::ImmutableFileObserver;
-use mithril_common::entities::{Signer, SignerWithStake};
+use mithril_common::entities::SignerWithStake;
 use slog::Drain;
 use slog_scope::debug;
 use std::error::Error as StdError;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 use thiserror::Error;
 
-use mithril_common::crypto_helper::{key_encode_hex, tests_setup};
+use mithril_common::crypto_helper::tests_setup;
 use mithril_common::{
     chain_observer::FakeObserver,
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
@@ -107,13 +107,7 @@ impl StateMachineTester {
         let mut signers: Vec<SignerWithStake> =
             tests_setup::setup_signers(10, &protocol_parameters)
                 .into_iter()
-                .map(|(party_id, stake, key, _, _, _, _)| SignerWithStake {
-                    party_id,
-                    stake,
-                    verification_key: key_encode_hex(key).unwrap(),
-                    verification_key_signature: None,
-                    operational_certificate: None,
-                })
+                .map(|(signer_with_stake, _, _)| signer_with_stake)
                 .collect();
         signers.push(SignerWithStake {
             party_id: "99999999999999999999999999999999".to_string(),
@@ -286,25 +280,11 @@ impl StateMachineTester {
     /// register the signer in the certificate handler
     pub async fn register_signers(&mut self, count: u64) -> Result<&mut Self> {
         let protocol_parameters = tests_setup::setup_protocol_parameters();
-        for (
-            party_id,
-            _stake,
-            verification_key,
-            _verification_key_signature,
-            _operational_certificate,
-            _signer,
-            _protocol_initializer,
-        ) in tests_setup::setup_signers(count, &protocol_parameters)
+        for (signer_with_stake, _signer, _protocol_initializer) in
+            tests_setup::setup_signers(count, &protocol_parameters)
         {
-            let signer = Signer {
-                party_id,
-                verification_key: key_encode_hex(verification_key)
-                    .map_err(|e| TestError::SubsystemError(e.into()))?,
-                verification_key_signature: None,
-                operational_certificate: None,
-            };
             self.certificate_handler
-                .register_signer(&signer)
+                .register_signer(&signer_with_stake.to_owned().into())
                 .await
                 .map_err(|e| TestError::SubsystemError(e.into()))?;
         }

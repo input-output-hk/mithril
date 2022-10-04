@@ -4,7 +4,7 @@ use super::cardano::ColdKeyGenerator;
 use super::{genesis::*, key_encode_hex, types::*, FromShelleyFile, OpCert};
 use crate::certificate_chain::CertificateGenesisProducer;
 use crate::{
-    entities::{Certificate, Epoch, ProtocolMessage, ProtocolMessagePartKey},
+    entities::{Certificate, Epoch, ProtocolMessage, ProtocolMessagePartKey, SignerWithStake},
     fake_data,
 };
 
@@ -56,15 +56,7 @@ pub fn setup_protocol_parameters() -> ProtocolParameters {
 pub fn setup_signers(
     total: u64,
     protocol_parameters: &ProtocolParameters,
-) -> Vec<(
-    ProtocolPartyId,
-    ProtocolStake,
-    ProtocolSignerVerificationKey,
-    Option<ProtocolSignerVerificationKeySignature>,
-    Option<OpCert>,
-    ProtocolSigner,
-    ProtocolInitializer,
-)> {
+) -> Vec<(SignerWithStake, ProtocolSigner, ProtocolInitializer)> {
     let mut stake_rng = ChaCha20Rng::from_seed([0u8; 32]);
     let mut kes_keys_seed = [0u8; 32];
 
@@ -111,15 +103,7 @@ pub fn setup_signers(
 pub fn setup_signers_from_stake_distribution(
     stake_distribution: &ProtocolStakeDistribution,
     protocol_parameters: &ProtocolParameters,
-) -> Vec<(
-    ProtocolPartyId,
-    ProtocolStake,
-    ProtocolSignerVerificationKey,
-    Option<ProtocolSignerVerificationKeySignature>,
-    Option<OpCert>,
-    ProtocolSigner,
-    ProtocolInitializer,
-)> {
+) -> Vec<(SignerWithStake, ProtocolSigner, ProtocolInitializer)> {
     let signers = stake_distribution
         .iter()
         .map(|(party_id, stake)| {
@@ -172,16 +156,31 @@ pub fn setup_signers_from_stake_distribution(
         .into_iter()
         .map(|(party_id, stake, protocol_initializer)| {
             let temp_dir = setup_temp_directory_for_signer(&party_id, false);
-            let operational_certificate = temp_dir.as_ref().map(|dir| {
+            let operational_certificate: Option<OpCert> = temp_dir.as_ref().map(|dir| {
                 OpCert::from_file(dir.join("pool.cert"))
                     .expect("operational certificate decoding should not fail")
             });
             (
-                party_id,
-                stake,
-                protocol_initializer.verification_key(),
-                protocol_initializer.verification_key_signature(),
-                operational_certificate,
+                SignerWithStake::new(
+                    party_id,
+                    key_encode_hex(&protocol_initializer.verification_key())
+                        .expect("key_encode_hex of verification_key should not fail"),
+                    protocol_initializer
+                        .verification_key_signature()
+                        .as_ref()
+                        .map(|verification_key_signature| {
+                            key_encode_hex(verification_key_signature).expect(
+                                "key_encode_hex of verification_key_signature should not fail",
+                            )
+                        }),
+                    operational_certificate
+                        .as_ref()
+                        .map(|operational_certificate| {
+                            key_encode_hex(operational_certificate)
+                                .expect("key_encode_hex of operational_certificate should not fail")
+                        }),
+                    stake,
+                ),
                 protocol_initializer
                     .clone()
                     .new_signer(closed_key_registration.clone())
@@ -226,15 +225,14 @@ pub fn setup_certificate_chain(
             )
         })
         .collect::<HashMap<_, _>>();
-    let clerk_for_signers = |signers: &[(_, _, _, _, _, ProtocolSigner, _)]| -> ProtocolClerk {
-        let first_signer = &signers.first().unwrap().5;
+    let clerk_for_signers = |signers: &[(_, ProtocolSigner, _)]| -> ProtocolClerk {
+        let first_signer = &signers.first().unwrap().1;
         ProtocolClerk::from_signer(first_signer)
     };
-    let avk_for_signers =
-        |signers: &[(_, _, _, _, _, ProtocolSigner, _)]| -> ProtocolAggregateVerificationKey {
-            let clerk = clerk_for_signers(signers);
-            clerk.compute_avk()
-        };
+    let avk_for_signers = |signers: &[(_, ProtocolSigner, _)]| -> ProtocolAggregateVerificationKey {
+        let clerk = clerk_for_signers(signers);
+        clerk.compute_avk()
+    };
     let avk_encode =
         |avk: &ProtocolAggregateVerificationKey| -> String { key_encode_hex(avk).unwrap() };
     epochs.pop();
@@ -280,15 +278,13 @@ pub fn setup_certificate_chain(
                 }
                 _ => {
                     let mut single_signatures = Vec::new();
-                    signers
-                        .iter()
-                        .for_each(|(_, _, _, _, _, protocol_signer, _)| {
-                            if let Some(signature) =
-                                protocol_signer.sign(fake_certificate.signed_message.as_bytes())
-                            {
-                                single_signatures.push(signature);
-                            }
-                        });
+                    signers.iter().for_each(|(_, protocol_signer, _)| {
+                        if let Some(signature) =
+                            protocol_signer.sign(fake_certificate.signed_message.as_bytes())
+                        {
+                            single_signatures.push(signature);
+                        }
+                    });
                     let clerk = clerk_for_signers(signers);
                     let multi_signature = clerk
                         .aggregate(

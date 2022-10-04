@@ -1,9 +1,6 @@
-use super::{super::entities, ProtocolSignerVerificationKeySignature};
-use super::{types, OpCert};
-use crate::crypto_helper::{
-    key_encode_hex, ProtocolInitializer, ProtocolPartyId, ProtocolSigner,
-    ProtocolSignerVerificationKey, ProtocolStake,
-};
+use super::super::entities;
+use super::types;
+use crate::crypto_helper::{ProtocolPartyId, ProtocolStake};
 
 impl From<types::ProtocolParameters> for entities::ProtocolParameters {
     fn from(other: types::ProtocolParameters) -> Self {
@@ -16,30 +13,8 @@ impl From<entities::ProtocolParameters> for types::ProtocolParameters {
         types::ProtocolParameters {
             k: other.k,
             m: other.m,
-            phi_f: other.phi_f as f64,
+            phi_f: other.phi_f,
         }
-    }
-}
-
-impl From<entities::SignerWithStake> for entities::Signer {
-    fn from(other: entities::SignerWithStake) -> Self {
-        entities::Signer::new(
-            other.party_id,
-            other.verification_key,
-            other.verification_key_signature,
-            other.operational_certificate,
-        )
-    }
-}
-
-impl From<&entities::SignerWithStake> for entities::Signer {
-    fn from(other: &entities::SignerWithStake) -> Self {
-        entities::Signer::new(
-            other.party_id.clone(),
-            other.verification_key.clone(),
-            other.verification_key_signature.clone(),
-            other.operational_certificate.clone(),
-        )
     }
 }
 
@@ -48,59 +23,6 @@ impl From<&entities::SignerWithStake> for (types::ProtocolPartyId, types::Protoc
         (
             other.party_id.clone() as ProtocolPartyId,
             other.stake as ProtocolStake,
-        )
-    }
-}
-
-impl From<(types::ProtocolPartyId, types::ProtocolStake)> for entities::SignerWithStake {
-    fn from(other: (types::ProtocolPartyId, types::ProtocolStake)) -> Self {
-        entities::SignerWithStake::new(other.0, "".to_string(), None, None, other.1)
-    }
-}
-
-impl
-    From<(
-        ProtocolPartyId,
-        ProtocolStake,
-        ProtocolSignerVerificationKey,
-        Option<ProtocolSignerVerificationKeySignature>,
-        Option<OpCert>,
-        ProtocolSigner,
-        ProtocolInitializer,
-    )> for entities::SignerWithStake
-{
-    fn from(
-        other: (
-            ProtocolPartyId,
-            ProtocolStake,
-            ProtocolSignerVerificationKey,
-            Option<ProtocolSignerVerificationKeySignature>,
-            Option<OpCert>,
-            ProtocolSigner,
-            ProtocolInitializer,
-        ),
-    ) -> Self {
-        let (
-            party_id,
-            stake,
-            verification_key,
-            verification_key_signature,
-            operational_certificate,
-            _,
-            _,
-        ) = other;
-        entities::SignerWithStake::new(
-            party_id,
-            key_encode_hex(verification_key).unwrap(),
-            verification_key_signature
-                .as_ref()
-                .map(|verification_key_signature| {
-                    key_encode_hex(verification_key_signature).unwrap()
-                }),
-            operational_certificate
-                .as_ref()
-                .map(|operational_certificate| key_encode_hex(operational_certificate).unwrap()),
-            stake,
         )
     }
 }
@@ -146,19 +68,5 @@ pub mod tests {
         let signer_with_stake_expected_into: (types::ProtocolPartyId, types::ProtocolStake) =
             signer_with_stake_expected.into();
         assert_eq!(stake_expected, signer_with_stake_expected_into);
-
-        let stake_expected_from: entities::SignerWithStake = stake_expected.into();
-        assert_eq!(signer_with_stake_expected, &stake_expected_from);
-    }
-
-    #[test]
-    fn test_stake_signers_from_into() {
-        let signer_expected =
-            entities::Signer::new("1".to_string(), "123456".to_string(), None, None);
-        let signer_with_stake =
-            entities::SignerWithStake::new("1".to_string(), "123456".to_string(), None, None, 100);
-
-        let signer_into: entities::Signer = signer_with_stake.into();
-        assert_eq!(signer_expected, signer_into);
     }
 }

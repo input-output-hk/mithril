@@ -1007,7 +1007,12 @@ mod tests {
         let mut stake_distribution_expected: ProtocolStakeDistribution =
             setup_signers(5, &setup_protocol_parameters())
                 .iter()
-                .map(|(party_id, stake, _, _, _, _, _)| (party_id.to_owned(), *stake))
+                .map(|(signer_with_stake, _, _)| {
+                    (
+                        signer_with_stake.party_id.to_owned(),
+                        signer_with_stake.stake,
+                    )
+                })
                 .collect::<_>();
         stake_distribution_expected.sort_by_key(|k| k.0.clone());
         multi_signer
@@ -1056,39 +1061,21 @@ mod tests {
 
         let stake_distribution_expected: ProtocolStakeDistribution = signers
             .iter()
-            .map(|(party_id, stake, _, _, _, _, _)| (party_id.to_owned(), *stake))
+            .map(|(signer_with_stake, _, _)| {
+                (
+                    signer_with_stake.party_id.to_owned(),
+                    signer_with_stake.stake,
+                )
+            })
             .collect::<_>();
         multi_signer
             .update_stake_distribution(&stake_distribution_expected)
             .await
             .expect("update stake distribution failed");
 
-        for (
-            party_id,
-            _,
-            verification_key,
-            verification_key_signature,
-            operational_certificate,
-            _,
-            _,
-        ) in &signers
-        {
-            let signer = Signer::new(
-                party_id.to_owned(),
-                key_encode_hex(verification_key).unwrap(),
-                verification_key_signature
-                    .as_ref()
-                    .map(|verification_key_signature| {
-                        key_encode_hex(verification_key_signature).unwrap()
-                    }),
-                operational_certificate
-                    .as_ref()
-                    .map(|operational_certificate| {
-                        key_encode_hex(operational_certificate).unwrap()
-                    }),
-            );
+        for (signer_with_stake, _, _) in &signers {
             multi_signer
-                .register_signer(&signer)
+                .register_signer(&signer_with_stake.to_owned().into())
                 .await
                 .expect("register should have succeeded")
         }
@@ -1100,39 +1087,8 @@ mod tests {
         .await;
 
         let mut signers_with_stake_all_expected = Vec::new();
-        for (
-            party_id,
-            stake,
-            verification_key_expected,
-            verification_key_signature,
-            operational_certificate,
-            _,
-            _,
-        ) in &signers
-        {
-            let verification_key = multi_signer
-                .get_signer_verification_key(party_id.to_owned())
-                .await;
-            assert!(verification_key.as_ref().unwrap().is_some());
-            assert_eq!(
-                *verification_key_expected,
-                verification_key.unwrap().unwrap()
-            );
-            signers_with_stake_all_expected.push(entities::SignerWithStake::new(
-                party_id.to_owned(),
-                key_encode_hex(verification_key_expected).unwrap(),
-                verification_key_signature
-                    .as_ref()
-                    .map(|verification_key_signature| {
-                        key_encode_hex(verification_key_signature).unwrap()
-                    }),
-                operational_certificate
-                    .as_ref()
-                    .map(|operational_certificate| {
-                        key_encode_hex(operational_certificate).unwrap()
-                    }),
-                *stake,
-            ));
+        for (signer_with_stake, _, _) in &signers {
+            signers_with_stake_all_expected.push(signer_with_stake.to_owned());
         }
         signers_with_stake_all_expected.sort_by_key(|signer| signer.party_id.to_owned());
         let signers_all_expected = signers_with_stake_all_expected
@@ -1175,38 +1131,20 @@ mod tests {
         let signers = setup_signers(5, &protocol_parameters);
         let stake_distribution = &signers
             .iter()
-            .map(|(party_id, stake, _, _, _, _, _)| (party_id.to_owned(), *stake))
+            .map(|(signer_with_stake, _, _)| {
+                (
+                    signer_with_stake.party_id.to_owned(),
+                    signer_with_stake.stake,
+                )
+            })
             .collect::<_>();
         multi_signer
             .update_stake_distribution(stake_distribution)
             .await
             .expect("update stake distribution failed");
-        for (
-            party_id,
-            _,
-            verification_key,
-            verification_key_signature,
-            operational_certificate,
-            _,
-            _,
-        ) in &signers
-        {
-            let signer = Signer::new(
-                party_id.to_owned(),
-                key_encode_hex(verification_key).unwrap(),
-                verification_key_signature
-                    .as_ref()
-                    .map(|verification_key_signature| {
-                        key_encode_hex(verification_key_signature).unwrap()
-                    }),
-                operational_certificate
-                    .as_ref()
-                    .map(|operational_certificate| {
-                        key_encode_hex(operational_certificate).unwrap()
-                    }),
-            );
+        for (signer_with_stake, _, _) in &signers {
             multi_signer
-                .register_signer(&signer)
+                .register_signer(&signer_with_stake.to_owned().into())
                 .await
                 .expect("register should have succeeded")
         }
@@ -1226,42 +1164,18 @@ mod tests {
             .expect("update current message failed");
         let mut signatures = Vec::new();
 
-        let mut expected_certificate_signers = Vec::new();
-        for (
-            party_id,
-            stake,
-            _,
-            _,
-            operational_certificate,
-            protocol_signer,
-            protocol_initializer,
-        ) in &signers
-        {
+        let mut expected_certificate_signers: Vec<SignerWithStake> = Vec::new();
+        for (signer_with_stake, protocol_signer, _protocol_initializer) in &signers {
             if let Some(signature) = protocol_signer.sign(message.compute_hash().as_bytes()) {
                 let won_indexes = signature.indexes.clone();
 
                 signatures.push(entities::SingleSignatures::new(
-                    party_id.to_owned(),
+                    signer_with_stake.party_id.to_owned(),
                     key_encode_hex(signature).unwrap(),
                     won_indexes,
                 ));
 
-                expected_certificate_signers.push(entities::SignerWithStake::new(
-                    party_id.to_owned(),
-                    key_encode_hex(protocol_initializer.verification_key()).unwrap(),
-                    protocol_initializer
-                        .verification_key_signature()
-                        .as_ref()
-                        .map(|verification_key_signature| {
-                            key_encode_hex(verification_key_signature).unwrap()
-                        }),
-                    operational_certificate
-                        .as_ref()
-                        .map(|operational_certificate| {
-                            key_encode_hex(operational_certificate).unwrap()
-                        }),
-                    *stake,
-                ))
+                expected_certificate_signers.push(signer_with_stake.to_owned())
             }
         }
 
@@ -1341,7 +1255,7 @@ mod tests {
             .expect("create_certificate should return something");
         let mut expected_certificate_signers_party_ids = expected_certificate_signers
             .iter()
-            .map(|s| s.party_id.clone())
+            .map(|signer_with_stake| signer_with_stake.party_id.clone())
             .collect::<Vec<ProtocolPartyId>>();
         expected_certificate_signers_party_ids.sort();
         let mut found_certificate_signers_party_ids = certificate

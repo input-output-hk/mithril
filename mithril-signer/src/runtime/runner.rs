@@ -683,8 +683,10 @@ mod tests {
             .await
             .expect("get_current_beacon should not fail");
         let signers = setup_signers(5, &setup_protocol_parameters());
-        let (party_id, _, _, _, _, _, protocol_initializer) = signers.first().unwrap();
-        let single_signer = Arc::new(MithrilSingleSigner::new(party_id.to_string()));
+        let (signer_with_stake, _, protocol_initializer) = signers.first().unwrap();
+        let single_signer = Arc::new(MithrilSingleSigner::new(
+            signer_with_stake.party_id.to_owned(),
+        ));
         services.single_signer = single_signer.clone();
         services
             .protocol_initializer_store
@@ -700,9 +702,7 @@ mod tests {
 
         let next_signers = signers
             .iter()
-            .map(|(p, s, vk, _, _, _, _)| {
-                SignerWithStake::new(p.to_string(), key_encode_hex(vk).unwrap(), None, None, *s)
-            })
+            .map(|(signer_with_stake, _, _)| signer_with_stake.to_owned())
             .collect::<Vec<_>>();
         let mut expected = ProtocolMessage::new();
         expected.set_message_part(
@@ -739,8 +739,10 @@ mod tests {
             .await
             .expect("get_current_beacon should not fail");
         let signers = setup_signers(5, &setup_protocol_parameters());
-        let (party_id, _, _, _, _, _, protocol_initializer) = signers.first().unwrap();
-        let single_signer = Arc::new(MithrilSingleSigner::new(party_id.to_string()));
+        let (signer_with_stake, _, protocol_initializer) = signers.first().unwrap();
+        let single_signer = Arc::new(MithrilSingleSigner::new(
+            signer_with_stake.party_id.to_string(),
+        ));
         services.single_signer = single_signer.clone();
         services
             .protocol_initializer_store
@@ -755,9 +757,7 @@ mod tests {
             .expect("save_protocol_initializer should not fail");
         let signers = signers
             .iter()
-            .map(|(p, s, vk, _, _, _, _)| {
-                SignerWithStake::new(p.to_string(), key_encode_hex(vk).unwrap(), None, None, *s)
-            })
+            .map(|(signer_with_stake, _, _)| signer_with_stake.to_owned())
             .collect::<Vec<_>>();
 
         let mut message = ProtocolMessage::new();

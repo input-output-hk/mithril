@@ -61,6 +61,17 @@ impl Signer {
     }
 }
 
+impl From<SignerWithStake> for Signer {
+    fn from(other: SignerWithStake) -> Self {
+        Signer::new(
+            other.party_id,
+            other.verification_key,
+            other.verification_key_signature,
+            other.operational_certificate,
+        )
+    }
+}
+
 /// Signer represents a signing party in the network (including its stakes)
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct SignerWithStake {
@@ -128,6 +139,16 @@ impl SignerWithStake {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_stake_signers_from_into() {
+        let signer_expected = Signer::new("1".to_string(), "123456".to_string(), None, None);
+        let signer_with_stake =
+            SignerWithStake::new("1".to_string(), "123456".to_string(), None, None, 100);
+
+        let signer_into: Signer = signer_with_stake.into();
+        assert_eq!(signer_expected, signer_into);
+    }
 
     #[test]
     fn test_signer_compute_hash() {

@@ -55,11 +55,13 @@ mod tests {
     fn single_signatures_should_convert_to_protocol_signatures() {
         let message = setup_message();
         let signers = setup_signers(1, &setup_protocol_parameters());
-        let (party_id, _, _, _, _, signer, _) = signers.first().unwrap();
-        let protocol_sigs = signer.sign(message.compute_hash().as_bytes()).unwrap();
+        let (signer_with_stake, protocol_signer, _) = signers.first().unwrap();
+        let protocol_sigs = protocol_signer
+            .sign(message.compute_hash().as_bytes())
+            .unwrap();
 
         let signature = SingleSignatures::new(
-            party_id.to_owned(),
+            signer_with_stake.party_id.to_owned(),
             key_encode_hex(&protocol_sigs).unwrap(),
             protocol_sigs.indexes.clone(),
         );
