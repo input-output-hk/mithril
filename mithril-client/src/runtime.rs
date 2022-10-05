@@ -1,5 +1,4 @@
 use slog_scope::debug;
-use std::path::Path;
 use std::str;
 use std::sync::Arc;
 use thiserror::Error;
@@ -11,9 +10,7 @@ use mithril_common::certificate_chain::{
     CertificateRetrieverError, CertificateVerifier, CertificateVerifierError,
 };
 use mithril_common::crypto_helper::ProtocolGenesisVerifier;
-use mithril_common::digesters::{
-    CardanoImmutableDigester, ImmutableDigester, ImmutableDigesterError,
-};
+use mithril_common::digesters::{ImmutableDigester, ImmutableDigesterError};
 use mithril_common::entities::{ProtocolMessagePartKey, Snapshot};
 
 /// [Runtime] related errors.
@@ -313,7 +310,7 @@ mod tests {
             .iter()
             .map(|snapshot| convert_to_list_item(snapshot, network.clone()))
             .collect::<Vec<SnapshotListItem>>();
-        let (mut mock_aggregator_handler, mock_verifier, _mock_digester, genesis_verifier) =
+        let (mut mock_aggregator_handler, _mock_verifier, _mock_digester, _genesis_verifier) =
             get_dependencies();
         mock_aggregator_handler
             .expect_list_snapshots()
@@ -331,7 +328,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_snapshots_ko() {
-        let (mut mock_aggregator_handler, mock_verifier, _mock_digester, genesis_verifier) =
+        let (mut mock_aggregator_handler, _mock_verifier, _mock_digester, _genesis_verifier) =
             get_dependencies();
         mock_aggregator_handler
             .expect_list_snapshots()
@@ -356,7 +353,7 @@ mod tests {
         let digest = "digest123";
         let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
         let snapshot_item_expected = fake_snapshot.clone();
-        let (mut mock_aggregator_handler, mock_verifier, _mock_digester, genesis_verifier) =
+        let (mut mock_aggregator_handler, _mock_verifier, _mock_digester, _genesis_verifier) =
             get_dependencies();
         mock_aggregator_handler
             .expect_get_snapshot_details()
@@ -372,7 +369,7 @@ mod tests {
     #[tokio::test]
     async fn test_show_snapshot_ko() {
         let digest = "digest123";
-        let (mut mock_aggregator_handler, mock_verifier, _mock_digester, genesis_verifier) =
+        let (mut mock_aggregator_handler, _mock_verifier, _mock_digester, _genesis_verifier) =
             get_dependencies();
         mock_aggregator_handler
             .expect_get_snapshot_details()

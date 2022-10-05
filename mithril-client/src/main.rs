@@ -9,7 +9,7 @@ use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use mithril_client::commands::{DownloadCommand, ListCommand};
+use mithril_client::commands::{DownloadCommand, ListCommand, ShowCommand};
 
 /// CLI args
 #[derive(Parser, Debug, Clone)]
@@ -103,15 +103,7 @@ enum Commands {
 
     /// Infos about a snapshot
     #[clap(arg_required_else_help = false)]
-    Show {
-        /// Snapshot digest
-        #[clap(required = true)]
-        digest: String,
-
-        /// JSON output mode
-        #[clap(long)]
-        json: bool,
-    },
+    Show(ShowCommand),
 
     /// Download a snapshot
     #[clap(arg_required_else_help = true)]
@@ -134,6 +126,7 @@ impl Commands {
         match self {
             Self::List(cmd) => cmd.execute(config_builder).await,
             Self::Download(cmd) => cmd.execute(config_builder).await,
+            Self::Show(cmd) => cmd.execute(config_builder).await,
             _ => todo!(),
         }
     }
