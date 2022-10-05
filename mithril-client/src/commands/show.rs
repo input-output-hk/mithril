@@ -7,7 +7,7 @@ use slog_scope::debug;
 
 use crate::{convert_to_field_items, AggregatorHTTPClient, Config, Runtime};
 
-/// List snapshots command
+/// Show snapshot command
 #[derive(Parser, Debug, Clone)]
 pub struct ShowCommand {
     /// Does the output need to be in JSON format?
@@ -25,7 +25,7 @@ impl ShowCommand {
         &self,
         config_builder: ConfigBuilder<DefaultState>,
     ) -> Result<(), Box<dyn Error>> {
-        debug!("List snapshots");
+        debug!("Show snapshot");
         let config: Config = config_builder
             .build()
             .map_err(|e| format!("configuration build error: {}", e))?

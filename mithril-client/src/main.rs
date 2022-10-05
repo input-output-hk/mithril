@@ -9,7 +9,7 @@ use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use mithril_client::commands::{DownloadCommand, ListCommand, ShowCommand};
+use mithril_client::commands::{DownloadCommand, ListCommand, RestoreCommand, ShowCommand};
 
 /// CLI args
 #[derive(Parser, Debug, Clone)]
@@ -111,11 +111,7 @@ enum Commands {
 
     /// Restore a snapshot
     #[clap(arg_required_else_help = true)]
-    Restore {
-        /// Snapshot digest
-        #[clap(required = true)]
-        digest: String,
-    },
+    Restore(RestoreCommand),
 }
 
 impl Commands {
@@ -127,7 +123,7 @@ impl Commands {
             Self::List(cmd) => cmd.execute(config_builder).await,
             Self::Download(cmd) => cmd.execute(config_builder).await,
             Self::Show(cmd) => cmd.execute(config_builder).await,
-            _ => todo!(),
+            Self::Restore(cmd) => cmd.execute(config_builder).await,
         }
     }
 }
@@ -141,80 +137,3 @@ async fn main() -> Result<(), String> {
 
     result.map_err(|e| format!("An error occured: {:?}", e))
 }
-
-/*
-// Init dependencies
-let aggregator_handler = Arc::new(AggregatorHTTPClient::new(
-    config.network.clone(),
-    config.aggregator_endpoint.clone(),
-));
-let certificate_verifier = Box::new(MithrilCertificateVerifier::new(slog_scope::logger()));
-let genesis_verification_key = key_decode_hex(&config.genesis_verification_key)?;
-let genesis_verifier = ProtocolGenesisVerifier::from_verification_key(genesis_verification_key);
-
-// Init runtime
-let mut runtime = Runtime::new(config.network.clone());
-
-// Execute commands
-    match &args.command {
-        Commands::List { json } => match runtime.list_snapshots().await {
-            Ok(snapshot_list_items) => {
-                if *json {
-                    println!("{}", serde_json::to_string(&snapshot_list_items).unwrap());
-                } else {
-                    print_stdout(snapshot_list_items.with_title()).unwrap();
-                }
-                Ok(())
-            }
-            Err(err) => pretty_print_error(err),
-        },
-        Commands::Show { digest, json } => match runtime.show_snapshot(digest).await {
-            Ok(snapshot_field_items) => {
-                if *json {
-                    println!("{}", serde_json::to_string(&snapshot_field_items).unwrap());
-                } else {
-                    print_stdout(
-                        convert_to_field_items(&snapshot_field_items, config.network.clone())
-                            .with_title(),
-                    )
-                    .unwrap();
-                }
-                Ok(())
-            }
-            Err(err) => pretty_print_error(err),
-        },
-        Commands::Download {
-            digest,
-            location_index,
-        } => match runtime.download_snapshot(digest, *location_index).await {
-            Ok((from, to)) => {
-                println!(
-                    "Download success {} #{}\nfrom {}\nto {}",
-                    digest, location_index, from, to
-                );
-                Ok(())
-            }
-            Err(err) => pretty_print_error(err),
-        },
-        Commands::Restore { digest } => match runtime.restore_snapshot(digest).await {
-            Ok(to) => {
-                println!(
-                    r###"Unpack success {}
-to {}
-
-Restore a Cardano Node with:
-
-docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="{}",target=/data/db/ -e NETWORK={} inputoutput/cardano-node
-
-"###,
-                    digest,
-                    to,
-                    to,
-                    config.network.clone()
-                );
-                Ok(())
-            }
-            Err(err) => pretty_print_error(err),
-        },
-    }
- */
