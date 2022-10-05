@@ -213,6 +213,7 @@ impl Runner for SignerRunner {
             verification_key_encoded,
             verification_key_signature_encoded,
             operational_certificate_encoded,
+            kes_period,
         );
         self.services
             .certificate_handler
@@ -319,6 +320,7 @@ impl Runner for SignerRunner {
                 signer.verification_key.to_owned(),
                 signer.verification_key_signature.to_owned(),
                 signer.operational_certificate.to_owned(),
+                signer.kes_period.to_owned(),
                 *stake,
             ));
             trace!(
@@ -360,11 +362,7 @@ impl Runner for SignerRunner {
         let avk = self
             .services
             .single_signer
-            .compute_aggregate_verification_key(
-                next_signers,
-                &next_protocol_initializer,
-                self.services.chain_observer.clone(),
-            )
+            .compute_aggregate_verification_key(next_signers, &next_protocol_initializer)
             .await?
             .ok_or_else(|| RuntimeError::NoValueError("next_signers avk".to_string()))?;
         message.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
@@ -395,12 +393,7 @@ impl Runner for SignerRunner {
         let signature = self
             .services
             .single_signer
-            .compute_single_signatures(
-                message,
-                signers,
-                &protocol_initializer,
-                self.services.chain_observer.clone(),
-            )
+            .compute_single_signatures(message, signers, &protocol_initializer)
             .await?;
         info!(
             " > {}",
@@ -711,11 +704,7 @@ mod tests {
         );
         let avk = services
             .single_signer
-            .compute_aggregate_verification_key(
-                &next_signers,
-                protocol_initializer,
-                services.chain_observer.clone(),
-            )
+            .compute_aggregate_verification_key(&next_signers, protocol_initializer)
             .await
             .expect("compute_aggregate_verification_key should not fail")
             .expect("an avk should have been computed");
@@ -771,12 +760,7 @@ mod tests {
         );
 
         let expected = single_signer
-            .compute_single_signatures(
-                &message,
-                &signers,
-                protocol_initializer,
-                services.chain_observer.clone(),
-            )
+            .compute_single_signatures(&message, &signers, protocol_initializer)
             .await
             .expect("compute_single_signatures should not fail");
 

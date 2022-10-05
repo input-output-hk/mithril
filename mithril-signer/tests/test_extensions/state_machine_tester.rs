@@ -115,6 +115,7 @@ impl StateMachineTester {
             verification_key: "".to_string(),
             verification_key_signature: None,
             operational_certificate: None,
+            kes_period: None,
         });
 
         chain_observer.set_signers(signers).await;

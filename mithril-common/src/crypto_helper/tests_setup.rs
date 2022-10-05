@@ -160,6 +160,7 @@ pub fn setup_signers_from_stake_distribution(
                 OpCert::from_file(dir.join("pool.cert"))
                     .expect("operational certificate decoding should not fail")
             });
+            let kes_period = 0;
             (
                 SignerWithStake::new(
                     party_id,
@@ -179,6 +180,7 @@ pub fn setup_signers_from_stake_distribution(
                             key_encode_hex(operational_certificate)
                                 .expect("key_encode_hex of operational_certificate should not fail")
                         }),
+                    Some(kes_period),
                     stake,
                 ),
                 protocol_initializer

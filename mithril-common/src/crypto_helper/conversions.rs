@@ -63,7 +63,7 @@ pub mod tests {
             100 as types::ProtocolStake,
         );
         let signer_with_stake_expected =
-            &entities::SignerWithStake::new("1".to_string(), "".to_string(), None, None, 100);
+            &entities::SignerWithStake::new("1".to_string(), "".to_string(), None, None, None, 100);
 
         let signer_with_stake_expected_into: (types::ProtocolPartyId, types::ProtocolStake) =
             signer_with_stake_expected.into();

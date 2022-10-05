@@ -123,11 +123,13 @@ mod tests {
                             "verification-key-123".to_string(),
                             None,
                             None,
+                            None,
                             10
                         ),
                         SignerWithStake::new(
                             "2".to_string(),
                             "verification-key-456".to_string(),
+                            None,
                             None,
                             None,
                             20
@@ -158,11 +160,13 @@ mod tests {
                             "verification-key-123".to_string(),
                             None,
                             None,
+                            None,
                             10
                         ),
                         SignerWithStake::new(
                             "2".to_string(),
                             "verification-key-456".to_string(),
+                            None,
                             None,
                             None,
                             20
@@ -193,11 +197,13 @@ mod tests {
                             "verification-key-123".to_string(),
                             None,
                             None,
+                            None,
                             10
                         ),
                         SignerWithStake::new(
                             "2".to_string(),
                             "verification-key-456".to_string(),
+                            None,
                             None,
                             None,
                             20
@@ -228,11 +234,13 @@ mod tests {
                             "verification-key-123".to_string(),
                             None,
                             None,
+                            None,
                             10
                         ),
                         SignerWithStake::new(
                             "2".to_string(),
                             "verification-key-456".to_string(),
+                            None,
                             None,
                             None,
                             20
@@ -268,11 +276,13 @@ mod tests {
                             "verification-key-123".to_string(),
                             None,
                             None,
+                            None,
                             10
                         ),
                         SignerWithStake::new(
                             "2".to_string(),
                             "verification-key-456".to_string(),
+                            None,
                             None,
                             None,
                             20
@@ -303,11 +313,13 @@ mod tests {
                             "verification-key-123".to_string(),
                             None,
                             None,
+                            None,
                             10
                         ),
                         SignerWithStake::new(
                             "2".to_string(),
                             "verification-key-456".to_string(),
+                            None,
                             None,
                             None,
                             20
@@ -338,11 +350,13 @@ mod tests {
                             "verification-key-123".to_string(),
                             None,
                             None,
+                            None,
                             10
                         ),
                         SignerWithStake::new(
                             "2".to_string(),
                             "verification-key-456".to_string(),
+                            None,
                             None,
                             None,
                             20
@@ -373,11 +387,13 @@ mod tests {
                             "verification-key-123".to_string(),
                             None,
                             None,
+                            None,
                             10
                         ),
                         SignerWithStake::new(
                             "2".to_string(),
                             "verification-key-456".to_string(),
+                            None,
                             None,
                             None,
                             20

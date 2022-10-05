@@ -112,6 +112,7 @@ mod tests {
                         verification_key: format!("vkey {}", party_id),
                         verification_key_signature: None,
                         operational_certificate: None,
+                        kes_period: None,
                     },
                 );
             }
@@ -139,6 +140,7 @@ mod tests {
                     verification_key: "OK".to_string(),
                     verification_key_signature: None,
                     operational_certificate: None,
+                    kes_period: None,
                 },
             )
             .await
@@ -158,6 +160,7 @@ mod tests {
                     verification_key: "test".to_string(),
                     verification_key_signature: None,
                     operational_certificate: None,
+                    kes_period: None,
                 },
             )
             .await
@@ -170,6 +173,7 @@ mod tests {
                 verification_key: "vkey 1".to_string(),
                 verification_key_signature: None,
                 operational_certificate: None,
+                kes_period: None,
             },
             res.unwrap(),
         );
@@ -208,6 +212,7 @@ mod tests {
                     verification_key: "whatever".to_string(),
                     verification_key_signature: None,
                     operational_certificate: None,
+                    kes_period: None,
                 },
             )
             .await

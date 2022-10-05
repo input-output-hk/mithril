@@ -1,9 +1,7 @@
 use async_trait::async_trait;
 use hex::ToHex;
-use mithril_common::chain_observer::ChainObserver;
 use slog_scope::{info, trace, warn};
 use std::path::PathBuf;
-use std::sync::Arc;
 use thiserror::Error;
 
 use mithril_common::crypto_helper::{
@@ -67,7 +65,6 @@ pub trait SingleSigner: Sync + Send {
         protocol_message: &ProtocolMessage,
         signers_with_stake: &[SignerWithStake],
         protocol_initializer: &ProtocolInitializer,
-        chain_observer: Arc<dyn ChainObserver>,
     ) -> Result<Option<SingleSignatures>, SingleSignerError>;
 
     /// Compute aggregate verification key from stake distribution
@@ -75,7 +72,6 @@ pub trait SingleSigner: Sync + Send {
         &self,
         signers_with_stake: &[SignerWithStake],
         protocol_initializer: &ProtocolInitializer,
-        chain_observer: Arc<dyn ChainObserver>,
     ) -> Result<Option<String>, SingleSignerError>;
 
     /// Get party id
@@ -105,10 +101,6 @@ pub enum SingleSignerError {
     #[error("the protocol initializer is not registered")]
     ProtocolInitializerNotRegistered(#[from] ProtocolRegistrationError),
 
-    /// Chain observer error.
-    #[error("chaim observer error: '{0}'")]
-    ChainObserver(String),
-
     /// Encoding / Decoding error.
     #[error("codec error: '{0}'")]
     Codec(String),
@@ -130,7 +122,6 @@ impl MithrilSingleSigner {
         &self,
         signers_with_stake: &[SignerWithStake],
         protocol_initializer: &ProtocolInitializer,
-        chain_observer: Arc<dyn ChainObserver + 'static>,
     ) -> Result<ProtocolSigner, SingleSignerError> {
         let signers = signers_with_stake
             .iter()
@@ -163,14 +154,7 @@ impl MithrilSingleSigner {
                 ),
                 _ => None,
             };
-            let kes_period = match &operational_certificate {
-                Some(operational_certificate) => chain_observer
-                    .get_current_kes_period(operational_certificate)
-                    .await
-                    .map_err(|e| SingleSignerError::ChainObserver(e.to_string()))?
-                    .unwrap_or_default(),
-                None => 0,
-            };
+            let kes_period = s.kes_period.unwrap_or_default();
             key_reg
                 .register(
                     Some(s.party_id.to_owned()),
@@ -194,10 +178,9 @@ impl SingleSigner for MithrilSingleSigner {
         protocol_message: &ProtocolMessage,
         signers_with_stake: &[SignerWithStake],
         protocol_initializer: &ProtocolInitializer,
-        chain_observer: Arc<dyn ChainObserver>,
     ) -> Result<Option<SingleSignatures>, SingleSignerError> {
         let protocol_signer = self
-            .create_protocol_signer(signers_with_stake, protocol_initializer, chain_observer)
+            .create_protocol_signer(signers_with_stake, protocol_initializer)
             .await?;
         let message = protocol_message.compute_hash().as_bytes().to_vec();
 
@@ -232,10 +215,9 @@ impl SingleSigner for MithrilSingleSigner {
         &self,
         signers_with_stake: &[SignerWithStake],
         protocol_initializer: &ProtocolInitializer,
-        chain_observer: Arc<dyn ChainObserver>,
     ) -> Result<Option<String>, SingleSignerError> {
         match self
-            .create_protocol_signer(signers_with_stake, protocol_initializer, chain_observer)
+            .create_protocol_signer(signers_with_stake, protocol_initializer)
             .await
         {
             Ok(protocol_signer) => {
@@ -262,14 +244,12 @@ impl SingleSigner for MithrilSingleSigner {
 mod tests {
     use super::*;
 
-    use mithril_common::chain_observer::FakeObserver;
     use mithril_common::crypto_helper::tests_setup::*;
     use mithril_common::crypto_helper::{key_decode_hex, ProtocolClerk, ProtocolSingleSignature};
     use mithril_common::entities::ProtocolMessagePartKey;
 
     #[tokio::test]
     async fn compute_single_signature_success() {
-        let chain_observer = Arc::new(FakeObserver::default());
         let snapshot_digest = "digest".to_string();
         let protocol_parameters = setup_protocol_parameters();
         let signers = setup_signers(5, &protocol_parameters);
@@ -291,12 +271,7 @@ mod tests {
         let expected_message = protocol_message.compute_hash().as_bytes().to_vec();
 
         let sign_result = single_signer
-            .compute_single_signatures(
-                &protocol_message,
-                &signers_with_stake,
-                &current_signer.2,
-                chain_observer,
-            )
+            .compute_single_signatures(&protocol_message, &signers_with_stake, &current_signer.2)
             .await
             .expect("single signer should not fail")
             .expect("single signer should produce a signature here");
@@ -314,7 +289,6 @@ mod tests {
 
     #[tokio::test]
     async fn compute_aggregate_verification_key_success() {
-        let chain_observer = Arc::new(FakeObserver::default());
         let signers = setup_signers(5, &setup_protocol_parameters());
         let signers_with_stake = signers
             .iter()
@@ -328,11 +302,7 @@ mod tests {
         let single_signer = MithrilSingleSigner::new(current_signer.0.party_id.to_owned());
         let protocol_initializer = &current_signer.2;
         single_signer
-            .compute_aggregate_verification_key(
-                &signers_with_stake,
-                protocol_initializer,
-                chain_observer,
-            )
+            .compute_aggregate_verification_key(&signers_with_stake, protocol_initializer)
             .await
             .expect("compute aggregate verification signature should not fail")
             .expect("aggregate verification signature should not be empty");

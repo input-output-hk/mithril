@@ -649,6 +649,7 @@ impl MultiSigner for MultiSignerImpl {
                         signer.verification_key.to_owned(),
                         signer.verification_key_signature.to_owned(),
                         signer.operational_certificate.to_owned(),
+                        signer.kes_period.to_owned(),
                         *stake as u64,
                     )
                 })
@@ -682,6 +683,7 @@ impl MultiSigner for MultiSignerImpl {
                         signer.verification_key.to_owned(),
                         signer.verification_key_signature.to_owned(),
                         signer.operational_certificate.to_owned(),
+                        signer.kes_period.to_owned(),
                         *stake as u64,
                     )
                 })

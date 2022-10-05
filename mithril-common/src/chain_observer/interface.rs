@@ -22,7 +22,7 @@ pub enum ChainObserverError {
 /// Retrieve data from the cardano network
 #[automock]
 #[async_trait]
-pub trait ChainObserver: Sync + Send + 'static {
+pub trait ChainObserver: Sync + Send {
     /// Retrieve the current epoch of the Cardano network
     async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError>;
 

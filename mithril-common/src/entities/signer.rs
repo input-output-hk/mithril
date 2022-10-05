@@ -1,4 +1,7 @@
-use crate::entities::{HexEncodedKey, PartyId, Stake};
+use crate::{
+    crypto_helper::KESPeriod,
+    entities::{HexEncodedKey, PartyId, Stake},
+};
 
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -28,6 +31,11 @@ pub struct Signer {
         skip_serializing_if = "Option::is_none"
     )]
     pub operational_certificate: Option<HexEncodedKey>,
+
+    /// The kes period used to compute the verification key signature
+    // TODO: This kes period shoud not be used as is and should probably be within an allowed range of kes period for the epoch
+    #[serde(rename = "kes_period", skip_serializing_if = "Option::is_none")]
+    pub kes_period: Option<KESPeriod>,
 }
 
 impl Signer {
@@ -37,12 +45,14 @@ impl Signer {
         verification_key: String,
         verification_key_signature: Option<HexEncodedKey>,
         operational_certificate: Option<HexEncodedKey>,
+        kes_period: Option<KESPeriod>,
     ) -> Signer {
         Signer {
             party_id,
             verification_key,
             verification_key_signature,
             operational_certificate,
+            kes_period,
         }
     }
 
@@ -68,6 +78,7 @@ impl From<SignerWithStake> for Signer {
             other.verification_key,
             other.verification_key_signature,
             other.operational_certificate,
+            other.kes_period,
         )
     }
 }
@@ -98,6 +109,11 @@ pub struct SignerWithStake {
     )]
     pub operational_certificate: Option<HexEncodedKey>,
 
+    /// The kes period used to compute the verification key signature
+    // TODO: This kes period shoud not be used as is and should probably be within an allowed range of kes period for the epoch
+    #[serde(rename = "kes_period", skip_serializing_if = "Option::is_none")]
+    pub kes_period: Option<KESPeriod>,
+
     /// The signer stake
     pub stake: Stake,
 }
@@ -109,6 +125,7 @@ impl SignerWithStake {
         verification_key: HexEncodedKey,
         verification_key_signature: Option<HexEncodedKey>,
         operational_certificate: Option<HexEncodedKey>,
+        kes_period: Option<KESPeriod>,
         stake: Stake,
     ) -> SignerWithStake {
         SignerWithStake {
@@ -116,6 +133,7 @@ impl SignerWithStake {
             verification_key,
             verification_key_signature,
             operational_certificate,
+            kes_period,
             stake,
         }
     }
@@ -142,9 +160,9 @@ mod tests {
 
     #[test]
     fn test_stake_signers_from_into() {
-        let signer_expected = Signer::new("1".to_string(), "123456".to_string(), None, None);
+        let signer_expected = Signer::new("1".to_string(), "123456".to_string(), None, None, None);
         let signer_with_stake =
-            SignerWithStake::new("1".to_string(), "123456".to_string(), None, None, 100);
+            SignerWithStake::new("1".to_string(), "123456".to_string(), None, None, None, 100);
 
         let signer_into: Signer = signer_with_stake.into();
         assert_eq!(signer_expected, signer_into);
@@ -160,7 +178,8 @@ mod tests {
                 "1".to_string(),
                 "verification-key-123".to_string(),
                 None,
-                None
+                None,
+                None,
             )
             .compute_hash()
         );
@@ -169,6 +188,7 @@ mod tests {
             Signer::new(
                 "0".to_string(),
                 "verification-key-123".to_string(),
+                None,
                 None,
                 None
             )
@@ -179,6 +199,7 @@ mod tests {
             Signer::new(
                 "1".to_string(),
                 "verification-key-456".to_string(),
+                None,
                 None,
                 None
             )
@@ -197,6 +218,7 @@ mod tests {
                 "verification-key-123".to_string(),
                 None,
                 None,
+                None,
                 10
             )
             .compute_hash()
@@ -206,6 +228,7 @@ mod tests {
             SignerWithStake::new(
                 "0".to_string(),
                 "verification-key-123".to_string(),
+                None,
                 None,
                 None,
                 10
@@ -219,6 +242,7 @@ mod tests {
                 "verification-key-456".to_string(),
                 None,
                 None,
+                None,
                 10
             )
             .compute_hash()
@@ -228,6 +252,7 @@ mod tests {
             SignerWithStake::new(
                 "1".to_string(),
                 "verification-key-123".to_string(),
+                None,
                 None,
                 None,
                 20
