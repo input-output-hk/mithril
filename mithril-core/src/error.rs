@@ -73,11 +73,15 @@ pub enum StmSignatureError<D: Digest> {
     /// This error occurs when the the serialization of the raw bytes failed
     #[error("Invalid bytes")]
     SerializationError,
+
+    /// Invalid merkle batch path
+    #[error("Batch Path does not verify against root")]
+    BatchPathInvalid,
 }
 
 /// Error types for aggregation.
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum AggregationError{
+pub enum AggregationError {
     /// Not enough signatures were collected, got this many instead.
     #[error("Not enough signatures. Got only {0} out of {1}.")]
     NotEnoughSignatures(u64, u64),
@@ -85,9 +89,7 @@ pub enum AggregationError{
     /// This error happens when we try to convert a u64 to a usize and it does not fit
     #[error("Invalid usize conversion")]
     UsizeConversionInvalid,
-
 }
-
 
 /// Error types related to merkle trees.
 #[derive(Debug, Clone, thiserror::Error)]
@@ -99,6 +101,10 @@ pub enum MerkleTreeError<D: Digest> {
     /// Invalid merkle path
     #[error("Path does not verify against root")]
     PathInvalid(Path<D>),
+
+    /// Invalid merkle path
+    #[error("Batch Path does not verify against root")]
+    BatchPathInvalid,
 }
 
 /// Errors which can be outputted by key registration.
@@ -137,6 +143,7 @@ impl<D: Digest> From<MerkleTreeError<D>> for StmSignatureError<D> {
         match e {
             MerkleTreeError::PathInvalid(e) => Self::PathInvalid(e),
             MerkleTreeError::SerializationError => Self::SerializationError,
+            MerkleTreeError::BatchPathInvalid => Self::BatchPathInvalid,
         }
     }
 }
@@ -162,9 +169,6 @@ impl From<MultiSignatureError> for RegisterError {
         }
     }
 }
-
-
-
 
 /// If verifying a single signature, the signature should be provided. If verifying a multi-sig,
 /// no need to provide the signature

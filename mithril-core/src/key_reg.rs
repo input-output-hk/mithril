@@ -3,7 +3,7 @@ use super::stm::Stake;
 use crate::error::RegisterError;
 use crate::merkle_tree::{MTLeaf, MerkleTree};
 use crate::multi_sig::{VerificationKey, VerificationKeyPoP};
-use blake2::digest::Digest;
+use blake2::digest::{Digest, FixedOutput};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -22,7 +22,7 @@ pub struct KeyReg {
 /// Structure generated out of a closed registration containing the registered parties, total stake, and the merkle tree.
 /// One can only get a global `avk` out of a closed key registration.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ClosedKeyReg<D: Digest> {
+pub struct ClosedKeyReg<D: Digest + FixedOutput> {
     /// Ordered list of registered parties.
     pub reg_parties: Vec<RegParty>,
     /// Total stake of the registered parties.
@@ -57,7 +57,7 @@ impl KeyReg {
 
     /// Finalize the key registration.
     /// This function disables `KeyReg::register`, consumes the instance of `self`, and returns a `ClosedKeyReg`.
-    pub fn close<D: Digest>(self) -> ClosedKeyReg<D> {
+    pub fn close<D: Digest + FixedOutput>(self) -> ClosedKeyReg<D> {
         let mut total_stake: Stake = 0;
         let mut reg_parties = self
             .keys
