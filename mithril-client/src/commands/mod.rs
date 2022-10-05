@@ -1,3 +1,5 @@
-mod list_command;
+mod download;
+mod list;
 
-pub use list_command::ListCommand;
+pub use download::DownloadCommand;
+pub use list::ListCommand;
