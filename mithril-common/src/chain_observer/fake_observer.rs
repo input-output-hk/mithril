@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use tokio::sync::RwLock;
 
 use crate::chain_observer::interface::*;
+use crate::crypto_helper::{KESPeriod, OpCert};
 use crate::{entities::*, fake_data};
 
 /// A Fake [ChainObserver] for testing purpose using fixed data.
@@ -76,6 +77,13 @@ impl ChainObserver for FakeObserver {
                 .map(|signer| (signer.party_id.clone() as PartyId, signer.stake as Stake))
                 .collect::<StakeDistribution>(),
         ))
+    }
+
+    async fn get_current_kes_period(
+        &self,
+        _opcert: &OpCert,
+    ) -> Result<Option<KESPeriod>, ChainObserverError> {
+        Ok(Some(0))
     }
 }
 

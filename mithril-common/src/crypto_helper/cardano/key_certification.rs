@@ -26,6 +26,11 @@ pub type KESPeriod = usize;
 /// New registration error
 #[derive(Error, Debug, PartialEq, Eq)]
 pub enum ProtocolRegistrationErrorWrapper {
+    /// Error raised when a party id is needed but not provided
+    // TODO: Should be removed once the signer certification is fully deployed
+    #[error("missing PartyId")]
+    PartyIdMissing,
+
     /// Error raised when an operational certificate is invalid
     #[error("invalid operational certificate")]
     OpCertInvalid,
@@ -34,12 +39,20 @@ pub enum ProtocolRegistrationErrorWrapper {
     #[error("KES signature verification error")]
     KesSignatureInvalid,
 
+    /// Error raised when a KES Signature is needed but not provided
+    #[error("missing KES signature")]
+    KesSignatureMissing,
+
+    /// Error raised when a KES Period is needed but not provided
+    #[error("missing KES period")]
+    KesPeriodMissing,
+
     /// Error raised when a pool address encoding fails
     #[error("pool address encoding error")]
     PoolAddressEncoding,
 
     /// Error raised when a core registration error occurs
-    #[error("genesis signature verification error: '{0}'")]
+    #[error("core registration error: '{0}'")]
     CoreRegister(#[from] RegisterError),
 }
 
@@ -164,7 +177,7 @@ impl KeyRegWrapper {
         party_id: Option<ProtocolPartyId>, // TODO: Parameter should be removed once the signer certification is fully deployed
         opcert: Option<OpCert>, // TODO: Option should be removed once the signer certification is fully deployed
         kes_sig: Option<ProtocolSignerVerificationKeySignature>, // TODO: Option should be removed once the signer certification is fully deployed
-        kes_period: KESPeriod,
+        kes_period: Option<KESPeriod>,
         pk: ProtocolSignerVerificationKey,
     ) -> Result<ProtocolPartyId, ProtocolRegistrationErrorWrapper> {
         let pool_id_bech32: ProtocolPartyId = if let Some(opcert) = opcert {
@@ -172,15 +185,19 @@ impl KeyRegWrapper {
                 .validate()
                 .map_err(|_| ProtocolRegistrationErrorWrapper::OpCertInvalid)?;
             kes_sig
-                .unwrap()
-                .verify(kes_period, &opcert.kes_vk, &pk.to_bytes())
+                .ok_or(ProtocolRegistrationErrorWrapper::KesSignatureMissing)?
+                .verify(
+                    kes_period.ok_or(ProtocolRegistrationErrorWrapper::KesPeriodMissing)?,
+                    &opcert.kes_vk,
+                    &pk.to_bytes(),
+                )
                 .map_err(|_| ProtocolRegistrationErrorWrapper::KesSignatureInvalid)?;
             opcert
                 .compute_protocol_party_id()
                 .map_err(|_| ProtocolRegistrationErrorWrapper::PoolAddressEncoding)?
         } else {
             println!("WARNING: Signer certification is skipped! {:?}", party_id);
-            party_id.unwrap()
+            party_id.ok_or(ProtocolRegistrationErrorWrapper::PartyIdMissing)?
         };
 
         if let Some(&stake) = self.stake_distribution.get(&pool_id_bech32) {
@@ -270,7 +287,7 @@ mod test {
             None,
             Some(opcert1),
             initializer_1.kes_signature,
-            0,
+            Some(0),
             initializer_1.stm_initializer.verification_key(),
         );
         assert!(key_registration_1.is_ok());
@@ -291,7 +308,7 @@ mod test {
             None,
             Some(opcert2),
             initializer_2.kes_signature,
-            0,
+            Some(0),
             initializer_2.stm_initializer.verification_key(),
         );
         assert!(key_registration_2.is_ok())

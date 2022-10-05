@@ -146,7 +146,7 @@ pub fn setup_signers_from_stake_distribution(
                     Some(party_id.to_owned()),
                     operational_certificate,
                     kes_signature,
-                    kes_period,
+                    Some(kes_period),
                     verification_key,
                 )
                 .expect("key registration should have succeeded");
@@ -180,13 +180,13 @@ pub fn setup_signers_from_stake_distribution(
                             key_encode_hex(operational_certificate)
                                 .expect("key_encode_hex of operational_certificate should not fail")
                         }),
-                    Some(kes_period),
+                    operational_certificate.as_ref().map(|_| kes_period),
                     stake,
                 ),
                 protocol_initializer
                     .clone()
                     .new_signer(closed_key_registration.clone())
-                    .unwrap(),
+                    .expect("creating a new protocol signer should not fail"),
                 protocol_initializer,
             )
         })

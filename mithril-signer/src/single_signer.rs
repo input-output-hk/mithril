@@ -1,4 +1,3 @@
-use async_trait::async_trait;
 use hex::ToHex;
 use slog_scope::{info, trace, warn};
 use std::path::PathBuf;
@@ -57,10 +56,9 @@ impl MithrilProtocolInitializerBuilder {
 
 /// The SingleSigner is the structure responsible of issuing SingleSignatures.
 #[cfg_attr(test, automock)]
-#[async_trait]
 pub trait SingleSigner: Sync + Send {
     /// Computes single signatures
-    async fn compute_single_signatures(
+    fn compute_single_signatures(
         &self,
         protocol_message: &ProtocolMessage,
         signers_with_stake: &[SignerWithStake],
@@ -68,7 +66,7 @@ pub trait SingleSigner: Sync + Send {
     ) -> Result<Option<SingleSignatures>, SingleSignerError>;
 
     /// Compute aggregate verification key from stake distribution
-    async fn compute_aggregate_verification_key(
+    fn compute_aggregate_verification_key(
         &self,
         signers_with_stake: &[SignerWithStake],
         protocol_initializer: &ProtocolInitializer,
@@ -118,7 +116,7 @@ impl MithrilSingleSigner {
     }
 
     /// Create a cryptographic signer.
-    async fn create_protocol_signer(
+    fn create_protocol_signer(
         &self,
         signers_with_stake: &[SignerWithStake],
         protocol_initializer: &ProtocolInitializer,
@@ -154,7 +152,7 @@ impl MithrilSingleSigner {
                 ),
                 _ => None,
             };
-            let kes_period = s.kes_period.unwrap_or_default();
+            let kes_period = s.kes_period;
             key_reg
                 .register(
                     Some(s.party_id.to_owned()),
@@ -171,17 +169,15 @@ impl MithrilSingleSigner {
     }
 }
 
-#[async_trait]
 impl SingleSigner for MithrilSingleSigner {
-    async fn compute_single_signatures(
+    fn compute_single_signatures(
         &self,
         protocol_message: &ProtocolMessage,
         signers_with_stake: &[SignerWithStake],
         protocol_initializer: &ProtocolInitializer,
     ) -> Result<Option<SingleSignatures>, SingleSignerError> {
-        let protocol_signer = self
-            .create_protocol_signer(signers_with_stake, protocol_initializer)
-            .await?;
+        let protocol_signer =
+            self.create_protocol_signer(signers_with_stake, protocol_initializer)?;
         let message = protocol_message.compute_hash().as_bytes().to_vec();
 
         info!("Signing protocol message"; "protocol_message" =>  #?protocol_message, "signed message" => protocol_message.compute_hash().encode_hex::<String>());
@@ -211,15 +207,12 @@ impl SingleSigner for MithrilSingleSigner {
     }
 
     /// Compute aggregate verification key from stake distribution
-    async fn compute_aggregate_verification_key(
+    fn compute_aggregate_verification_key(
         &self,
         signers_with_stake: &[SignerWithStake],
         protocol_initializer: &ProtocolInitializer,
     ) -> Result<Option<String>, SingleSignerError> {
-        match self
-            .create_protocol_signer(signers_with_stake, protocol_initializer)
-            .await
-        {
+        match self.create_protocol_signer(signers_with_stake, protocol_initializer) {
             Ok(protocol_signer) => {
                 let clerk = ProtocolClerk::from_signer(&protocol_signer);
                 Ok(Some(
@@ -248,8 +241,8 @@ mod tests {
     use mithril_common::crypto_helper::{key_decode_hex, ProtocolClerk, ProtocolSingleSignature};
     use mithril_common::entities::ProtocolMessagePartKey;
 
-    #[tokio::test]
-    async fn compute_single_signature_success() {
+    #[test]
+    fn compute_single_signature_success() {
         let snapshot_digest = "digest".to_string();
         let protocol_parameters = setup_protocol_parameters();
         let signers = setup_signers(5, &protocol_parameters);
@@ -272,7 +265,6 @@ mod tests {
 
         let sign_result = single_signer
             .compute_single_signatures(&protocol_message, &signers_with_stake, &current_signer.2)
-            .await
             .expect("single signer should not fail")
             .expect("single signer should produce a signature here");
 
@@ -287,8 +279,8 @@ mod tests {
         //assert_eq!(current_signer.2, decoded_sig.pk);
     }
 
-    #[tokio::test]
-    async fn compute_aggregate_verification_key_success() {
+    #[test]
+    fn compute_aggregate_verification_key_success() {
         let signers = setup_signers(5, &setup_protocol_parameters());
         let signers_with_stake = signers
             .iter()
@@ -303,7 +295,6 @@ mod tests {
         let protocol_initializer = &current_signer.2;
         single_signer
             .compute_aggregate_verification_key(&signers_with_stake, protocol_initializer)
-            .await
             .expect("compute aggregate verification signature should not fail")
             .expect("aggregate verification signature should not be empty");
     }

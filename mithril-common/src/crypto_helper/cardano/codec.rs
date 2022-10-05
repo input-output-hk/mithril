@@ -65,7 +65,7 @@ pub trait FromShelleyFile: serde::Serialize {
         let mut file = fs::File::create(path)?;
         let json_str = serde_json::to_string(&file_format)?;
 
-        write!(file, "{}", json_str).expect("Unable to write bytes to file");
+        write!(file, "{}", json_str)?;
         Ok(())
     }
 }

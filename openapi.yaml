@@ -344,12 +344,17 @@ components:
           description: The operational certificate of the stake pool operator attached to the signer node
           type: string
           format: byte
+        kes_period:
+          description: The KES Period at which the verification key has been signed by the KES secret key
+          type: integer
+          format: int64
       example:
         {
           "party_id": "1234567890",
           "verification_key": "AsB0vSvijo8FIfrG/FwBtdCNQVhBc9P24qQwKgWw4mr5kRZL+IUA9XXu7RiCHSRem3MmHoKbo",
           "verification_key_signature": "wBtdCNQZL+IUA9XXuAsB0vB0vSvijo8FIfrG/FSvijo8FIfrG/FwBtdCNQ7RiCHSRem3MmHo",
           "operational_certificate": "AsB0vSv4qQwKgWw4mem3MmHoKboAsB0vSvijo8FIfrG/FwBtdCwKgWw4mrr5kRZL+IUA9XXu7RiCHSR5kRZL+IUA9XXu7RiCHSRem3MmHoKboAsB0vSvijo8FIfrG/FwBtdCNQVhBc9P24qQ+IvVzKLgmaLiyb+xyV6Npbxvu+Rem3MmHoKbo",
+          "kes_period": 123,
         }
 
     SignerWithStake:

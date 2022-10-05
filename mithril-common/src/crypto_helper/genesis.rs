@@ -48,12 +48,12 @@ impl ProtocolGenesisSigner {
     }
 
     /// Create a an expanded secret key
-    pub(crate) fn create_expanded_secret_key(&self) -> ExpandedSecretKey {
+    fn create_expanded_secret_key(&self) -> ExpandedSecretKey {
         ExpandedSecretKey::from(&self.secret_key)
     }
 
     /// Create a ProtocolGenesisVerificationKey
-    pub(crate) fn create_verification_key(
+    fn create_verification_key(
         &self,
         expanded_secret_key: &ExpandedSecretKey,
     ) -> ProtocolGenesisVerificationKey {

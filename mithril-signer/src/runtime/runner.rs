@@ -362,8 +362,7 @@ impl Runner for SignerRunner {
         let avk = self
             .services
             .single_signer
-            .compute_aggregate_verification_key(next_signers, &next_protocol_initializer)
-            .await?
+            .compute_aggregate_verification_key(next_signers, &next_protocol_initializer)?
             .ok_or_else(|| RuntimeError::NoValueError("next_signers avk".to_string()))?;
         message.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
 
@@ -390,11 +389,11 @@ impl Runner for SignerRunner {
                     signer_retrieval_epoch
                 ))
             })?;
-        let signature = self
-            .services
-            .single_signer
-            .compute_single_signatures(message, signers, &protocol_initializer)
-            .await?;
+        let signature = self.services.single_signer.compute_single_signatures(
+            message,
+            signers,
+            &protocol_initializer,
+        )?;
         info!(
             " > {}",
             if signature.is_some() {
@@ -705,7 +704,6 @@ mod tests {
         let avk = services
             .single_signer
             .compute_aggregate_verification_key(&next_signers, protocol_initializer)
-            .await
             .expect("compute_aggregate_verification_key should not fail")
             .expect("an avk should have been computed");
         expected.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
@@ -761,7 +759,6 @@ mod tests {
 
         let expected = single_signer
             .compute_single_signatures(&message, &signers, protocol_initializer)
-            .await
             .expect("compute_single_signatures should not fail");
 
         let runner = init_runner(Some(services), None);

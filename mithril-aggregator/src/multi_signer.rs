@@ -314,15 +314,7 @@ impl MultiSignerImpl {
                 }
                 _ => None,
             };
-            let kes_period = match &operational_certificate {
-                Some(operational_certificate) => self
-                    .chain_observer
-                    .get_current_kes_period(operational_certificate)
-                    .await
-                    .map_err(|e| ProtocolError::ChainObserver(e.to_string()))?
-                    .unwrap_or_default(),
-                None => 0,
-            };
+            let kes_period = signer.kes_period;
             key_registration
                 .register(
                     Some(signer.party_id.to_owned()),
@@ -574,9 +566,8 @@ impl MultiSigner for MultiSignerImpl {
                 .chain_observer
                 .get_current_kes_period(operational_certificate)
                 .await
-                .map_err(|e| ProtocolError::ChainObserver(e.to_string()))?
-                .unwrap_or_default(),
-            None => 0,
+                .map_err(|e| ProtocolError::ChainObserver(e.to_string()))?,
+            None => None,
         };
         let party_id_save = key_registration.register(
             party_id_register.clone(),
@@ -1131,6 +1122,7 @@ mod tests {
             .expect("update protocol parameters failed");
 
         let signers = setup_signers(5, &protocol_parameters);
+
         let stake_distribution = &signers
             .iter()
             .map(|(signer_with_stake, _, _)| {

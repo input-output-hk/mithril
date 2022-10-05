@@ -30,7 +30,7 @@ pub type ProtocolPartyId = String;
 pub type ProtocolStake = Stake;
 
 /// A list of [Party Id][ProtocolPartyId] associated with its [Stake][ProtocolStake].
-pub type ProtocolStakeDistribution = Vec<(ProtocolPartyId, ProtocolStake)>; // todo: should eventually be Vec<(PoolId, ProtocolStake)>
+pub type ProtocolStakeDistribution = Vec<(ProtocolPartyId, ProtocolStake)>;
 
 /// Alias of [MithrilCore::StmParameters](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmParameters.html).
 pub type ProtocolParameters = StmParameters;

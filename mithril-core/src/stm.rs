@@ -401,8 +401,8 @@ impl<D: Clone + Digest> StmSigner<D> {
     }
 
     /// Return the closed registration instance
-    pub fn get_closed_reg(&self) -> ClosedKeyReg<D> {
-        self.closed_reg.clone()
+    pub fn get_closed_reg(self) -> ClosedKeyReg<D> {
+        self.closed_reg
     }
 }
 
