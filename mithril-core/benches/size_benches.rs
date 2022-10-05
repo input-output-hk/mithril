@@ -1,3 +1,4 @@
+use blake2::digest::FixedOutput;
 use blake2::{
     digest::consts::{U32, U64},
     Blake2b, Digest,
@@ -9,7 +10,7 @@ use rand_core::{RngCore, SeedableRng};
 
 fn size<H>(k: u64, nparties: usize, hash_name: &str)
 where
-    H: Digest + Clone + Sync + Send,
+    H: Digest + Clone + Sync + Send + FixedOutput,
 {
     println!("+-------------------+");
     println!("| Hash: {} |", hash_name);
