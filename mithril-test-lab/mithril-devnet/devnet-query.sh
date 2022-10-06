@@ -14,19 +14,23 @@ echo "====================================================================="
 echo " Query Mithril/Cardano devnet"
 echo "====================================================================="
 echo
-if [ "${NODES}" = "mithril" ] || [ "${NODES}" = "*" ]; then 
+if [ "${NODES}" = "*" ]; then 
     echo "====================================================================="
     echo "=== Mithril Network"
     echo "====================================================================="
     echo
+fi
+if [ "${NODES}" = "mithril" ] || [ "${NODES}" = "*" ]; then 
     ./query-mithril.sh
     echo
 fi
-if [ "${NODES}" = "cardano" ] || [ "${NODES}" = "*" ]; then 
+if [ "${NODES}" = "*" ]; then 
     echo "====================================================================="
     echo "=== Cardano Network"
     echo "====================================================================="
     echo
+fi
+if [ "${NODES}" = "cardano" ] || [ "${NODES}" = "*" ]; then 
     ./query-cardano.sh
     echo
 fi
