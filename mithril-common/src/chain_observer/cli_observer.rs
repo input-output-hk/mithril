@@ -321,14 +321,9 @@ impl ChainObserver for CardanoCliChainObserver {
             .launch_kes_period(opcert_file.to_str().unwrap())
             .await
             .map_err(ChainObserverError::General)?;
-        let output_cleaned = output
-            .trim()
-            .lines()
-            .skip(2)
-            .map(|s| s.to_string())
-            .collect::<Vec<String>>()
-            .join("\n");
-        let v: Value = serde_json::from_str(&output_cleaned).map_err(|e| {
+        let first_left_curly_bracket_index = output.find('{').unwrap_or_default();
+        let output_cleaned = output.split_at(first_left_curly_bracket_index).1;
+        let v: Value = serde_json::from_str(output_cleaned).map_err(|e| {
             ChainObserverError::InvalidContent(
                 format!("Error: {:?}, output was = '{}'", e, output).into(),
             )
