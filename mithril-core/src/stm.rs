@@ -548,8 +548,7 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
 
         self.sigma.verify(&msgp, &self.pk)?;
         self.check_indices(params, &msgp, avk)?;
-        avk.mt_commitment
-            .check(&MTLeaf(self.pk, self.stake), &self.path)?;
+
         Ok(())
     }
 
