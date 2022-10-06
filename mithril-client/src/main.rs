@@ -14,25 +14,28 @@ use mithril_client::commands::{DownloadCommand, ListCommand, RestoreCommand, Sho
 /// CLI args
 #[derive(Parser, Debug, Clone)]
 #[clap(name = "mithril-client")]
-#[clap(about = "An implementation of a Mithril Client", long_about = None)]
+#[clap(
+    about = "This program download, check and restore certified blockchain snapshots.",
+    long_about = None
+)]
 pub struct Args {
     /// Available commands
     #[clap(subcommand)]
     command: Commands,
 
-    /// Run Mode
+    /// Run Mode.
     #[clap(long, env = "RUN_MODE", default_value = "dev")]
     run_mode: String,
 
-    /// Verbosity level
+    /// Verbosity level (-v=warning, -vv=debug, -vvv=very verbose).
     #[clap(short, long, parse(from_occurrences))]
     verbose: usize,
 
-    /// Directory where configuration file is located
+    /// Directory where configuration file is located.
     #[clap(long, default_value = "./config")]
     pub config_directory: PathBuf,
 
-    /// Is there an endpoint specified on the CLI?
+    /// Override configuration Aggregator endpoint URL.
     #[clap(long)]
     aggregator_endpoint: Option<String>,
 }
@@ -101,7 +104,7 @@ enum Commands {
     #[clap(arg_required_else_help = false)]
     List(ListCommand),
 
-    /// Infos about a snapshot
+    /// Show detailed informations about a snapshot
     #[clap(arg_required_else_help = false)]
     Show(ShowCommand),
 

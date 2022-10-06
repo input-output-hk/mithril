@@ -7,24 +7,24 @@ use slog_scope::debug;
 
 use crate::{AggregatorHTTPClient, Config, Runtime};
 
-/// List snapshots command
+/// Download a snapshot.
 #[derive(Parser, Debug, Clone)]
 pub struct DownloadCommand {
-    /// digest of the snapshot to download
+    /// Digest of the snapshot to download. Use the `list` command to get that information.
     #[clap(short, long)]
     digest: String,
 
-    /// location index of the snapshot
+    /// Location index of the snapshot.
     #[clap(short = 'i', long, default_value = "1")]
     location_index: isize,
 
-    /// enable JSON output
+    /// Enable JSON output.
     #[clap(short, long)]
     json: bool,
 }
 
 impl DownloadCommand {
-    /// call the runtime list function
+    /// call the runtime download function
     pub async fn execute(
         &self,
         config_builder: ConfigBuilder<DefaultState>,

@@ -7,10 +7,10 @@ use slog_scope::debug;
 
 use crate::{AggregatorHTTPClient, Config, Runtime};
 
-/// List snapshots command
+/// List signed snapshots from an Aggregator.
 #[derive(Parser, Debug, Clone)]
 pub struct ListCommand {
-    /// Does the output need to be in JSON format?
+    /// Enable JSON output.
     #[clap(long)]
     json: bool,
 }

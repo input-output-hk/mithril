@@ -7,14 +7,14 @@ use slog_scope::debug;
 
 use crate::{convert_to_field_items, AggregatorHTTPClient, Config, Runtime};
 
-/// Show snapshot command
+/// Show detailed information about a snapshot.
 #[derive(Parser, Debug, Clone)]
 pub struct ShowCommand {
-    /// Does the output need to be in JSON format?
+    /// Enable JSON output.
     #[clap(long)]
     json: bool,
 
-    /// digest of the snapshot to download
+    /// Digest of the snapshot to download. Use the `list` command to get that information.
     #[clap(short, long)]
     digest: String,
 }
