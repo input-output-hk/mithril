@@ -664,10 +664,10 @@ mod tests {
         mt_index_list.sort_unstable();
 
         let batch_proof = Some(t.get_batched_path(mt_index_list));
-        let bp = batch_proof.clone().unwrap();
+        let bp = batch_proof.unwrap();
 
         let bytes = &bp.to_bytes();
-        let deserialized = BatchPath::from_bytes(&bytes).unwrap();
+        let deserialized = BatchPath::from_bytes(bytes).unwrap();
         assert!(t.to_commitment().check_batched(&values, &deserialized).is_ok());
 
         let encoded = bincode::serialize(&bp).unwrap();

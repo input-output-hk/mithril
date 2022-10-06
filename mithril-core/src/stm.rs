@@ -1194,12 +1194,12 @@ mod tests {
             with_proof_mod(tc, |aggr, _, _msg| {
                 let p = aggr.batch_proof.clone();
                 let mut index_list = p.indices.clone();
-                let values = p.values.clone();
+                let values = p.values;
                 let batch_proof = {
-                    index_list[0] = index_list[0] + 1;
+                    index_list[0] += 1;
                     BatchPath::create(values, index_list)
                 };
-                aggr.batch_proof = batch_proof.clone();
+                aggr.batch_proof = batch_proof;
             })
         }
     }
