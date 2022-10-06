@@ -108,10 +108,6 @@ impl Runtime {
     }
 
     /// Restore a snapshot by digest
-    /*Box::new(CardanoImmutableDigester::new(
-        Path::new(&unpacked_path).into(),
-        slog_scope::logger(),
-    )) */
     pub async fn restore_snapshot<'a>(
         &mut self,
         aggregator_handler: Arc<dyn AggregatorHandler + 'a>,

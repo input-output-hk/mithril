@@ -476,7 +476,7 @@ You will see a list of snapshots
 Get some more details from a specific snapshot (Optional)
 
 ```bash
-NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client show $SNAPSHOT_DIGEST
+NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client show --digest $SNAPSHOT_DIGEST
 ```
 
 You will see more information about a snapshot
@@ -502,7 +502,7 @@ You will see more information about a snapshot
 Download the selected snapshot from the remote location to your remote location
 
 ```bash
-NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client download $SNAPSHOT_DIGEST
+NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client download --digest $SNAPSHOT_DIGEST
 ```
 
 You will see that the selected snapshot archive has been downloaded locally
@@ -518,7 +518,7 @@ to /home/mithril/data/devnet /85f09b39b0b5a13cec9d8fe7ffb82b5e5f236f02ae896f4e47
 Verify the Certificate of the snapshot and unpack its content in order to feed the Cardano node database
 
 ```bash
-NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client restore $SNAPSHOT_DIGEST
+NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client restore --digest $SNAPSHOT_DIGEST
 ```
 
 You will see that the snapshot archive is unpacked and that the associated certificate is valid

@@ -46,7 +46,7 @@ In this documentation, we use the generic `**YOUR_TEST_NETWORK**` identifier, bu
 
 ## Download source
 
-Download from Github (HTTPS)
+Download from GitHub (HTTPS)
 
 ```bash
 git clone https://github.com/input-output-hk/mithril.git
@@ -114,23 +114,34 @@ You should see
 
 ```bash
 mithril-client 
-An implementation of a Mithril Client
+This program downloads, checks and restores certified blockchain snapshots.
 
 USAGE:
     mithril-client [OPTIONS] <SUBCOMMAND>
 
 OPTIONS:
-    -h, --help                   Print help information
-    -q, --quiet                  Less output per occurrence
-    -r, --run-mode <RUN_MODE>    Run Mode [default: dev]
-    -v, --verbose                More output per occurrence
+        --aggregator-endpoint <AGGREGATOR_ENDPOINT>
+            Override configuration Aggregator endpoint URL
+
+        --config-directory <CONFIG_DIRECTORY>
+            Directory where configuration file is located [default: ./config]
+
+    -h, --help
+            Print help information
+
+        --run-mode <RUN_MODE>
+            Run Mode [env: RUN_MODE=] [default: dev]
+
+    -v, --verbose
+            Verbosity level (-v=warning, -vv=info, -vvv=debug)
 
 SUBCOMMANDS:
     download    Download a snapshot
     help        Print this message or the help of the given subcommand(s)
     list        List available snapshots
     restore     Restore a snapshot
-    show        Infos about a snapshot
+    show        Show detailed informations about a snapshot
+
 ```
 
 Run in release with default configuration
@@ -142,7 +153,7 @@ Run in release with default configuration
 Run in release with a specific mode
 
 ```bash
-./mithril-client -r preview
+./mithril-client --run-mode preview
 ```
 
 Run in release with a custom configuration via env vars
@@ -153,7 +164,7 @@ GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-
 
 :::tip
 
-You can use the `--json` option in order to display results in `JSON` format for the `list` and `show` commands:
+You can use the `--json` (or `-j`) option in order to display results in `JSON` format for the `list` and `show` commands:
 
 ```bash
 ./mithril-client list --json
@@ -196,21 +207,22 @@ Here are the subcommands available:
 | **help** | Print this message or the help of the given subcommand(s)|
 | **list** | List available snapshots|
 | **restore** | Restore a snapshot|
-| **show** | Infos about a snapshot|
+| **show** | Informations about a snapshot|
 
 ## Configuration parameters
 
 The configuration parameters are set either:
 
 * In a configuration file (depending on the `--run-mode` parameter). If runtime mode is `testnet` the file is located in `./conf/testnet.json`.
-* The value can be overriden by an environment variable whose name is the parameter name uppercased.
+* The value can be overridden by an environment variable whose name is the parameter name uppercased.
 
 Here is a list of the available parameters:
 
 | Parameter | Command Line (long) |  Command Line (short) | Environment Variable | Description | Default Value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level | - | Parsed from number of occurences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace` | :heavy_check_mark: |
-| `run_mode` | `--run-mode` | `-r` | `RUN_MODE` | Runtime mode | `dev` | - | :heavy_check_mark: |
+| `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level | - | Parsed from number of occurrences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace` | :heavy_check_mark: |
+| `run_mode` | `--run-mode` | - | `RUN_MODE` | Runtime mode | `dev` | - | :heavy_check_mark: |
 | `network` | - | - | `NETWORK` | Cardano network | - | `testnet` or `mainnet` or `devnet` | :heavy_check_mark: |
-| `aggregator_endpoint` | - | - | `AGGREGATOR_ENDPOINT` | Aggregator node endpoint | - | `https://aggregator.api.mithril.network/aggregator` | :heavy_check_mark: |
+| `aggregator_endpoint` | `--aggregator-endpoint` | - | `AGGREGATOR_ENDPOINT` | Aggregator node endpoint | - | `https://aggregator.api.mithril.network/aggregator` | :heavy_check_mark: |
 | `genesis_verification_key` | - | - | `GENESIS_VERIFICATION_KEY` | Genesis verification key | - | - | :heavy_check_mark: |
+| `json_output` | `--json` | `-j` | - | Enable JSON output | no | - | - |

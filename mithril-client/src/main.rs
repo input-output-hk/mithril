@@ -15,7 +15,7 @@ use mithril_client::commands::{DownloadCommand, ListCommand, RestoreCommand, Sho
 #[derive(Parser, Debug, Clone)]
 #[clap(name = "mithril-client")]
 #[clap(
-    about = "This program download, check and restore certified blockchain snapshots.",
+    about = "This program downloads, checks and restores certified blockchain snapshots.",
     long_about = None
 )]
 pub struct Args {
@@ -27,7 +27,7 @@ pub struct Args {
     #[clap(long, env = "RUN_MODE", default_value = "dev")]
     run_mode: String,
 
-    /// Verbosity level (-v=warning, -vv=debug, -vvv=very verbose).
+    /// Verbosity level (-v=warning, -vv=info, -vvv=debug).
     #[clap(short, long, parse(from_occurrences))]
     verbose: usize,
 
@@ -136,7 +136,8 @@ async fn main() -> Result<(), String> {
     // Load args
     let args = Args::parse();
     let _guard = slog_scope::set_global_logger(args.build_logger());
-    let result = args.execute().await;
 
-    result.map_err(|e| format!("An error occured: {:?}", e))
+    args.execute()
+        .await
+        .map_err(|e| format!("An error occured: {:?}", e))
 }
