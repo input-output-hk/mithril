@@ -102,10 +102,6 @@ pub enum MerkleTreeError<D: Digest> {
 /// Errors which can be outputted by key registration.
 #[derive(Debug, Clone, thiserror::Error, PartialEq, Eq)]
 pub enum RegisterError {
-    /// This key is not available in the cardano_stake distribution
-    #[error("Key not available in Cardano stake distribution.")]
-    KeyNonExisting,
-
     /// This key has already been registered by a participant
     #[error("This key has already been registered.")]
     KeyRegistered(Box<VerificationKey>),
@@ -130,7 +126,6 @@ impl<D: Digest> From<RegisterError> for StmSignatureError<D> {
             RegisterError::KeyInvalid(e) => Self::IvkInvalid(e.vk),
             RegisterError::KeyRegistered(_) => unreachable!(),
             RegisterError::UnregisteredInitializer => unreachable!(),
-            RegisterError::KeyNonExisting => todo!(),
         }
     }
 }

@@ -28,8 +28,12 @@ pub type KESPeriod = usize;
 pub enum ProtocolRegistrationErrorWrapper {
     /// Error raised when a party id is needed but not provided
     // TODO: Should be removed once the signer certification is fully deployed
-    #[error("missing PartyId")]
+    #[error("missing party id")]
     PartyIdMissing,
+
+    /// Error raised when a party id is not available in the Cardano_stake distribution
+    #[error("party id does not exist in the stake distribution")]
+    PartyIdNonExisting,
 
     /// Error raised when an operational certificate is invalid
     #[error("invalid operational certificate")]
@@ -207,9 +211,7 @@ impl KeyRegWrapper {
             return Ok(pool_id_bech32);
         }
 
-        Err(ProtocolRegistrationErrorWrapper::CoreRegister(
-            RegisterError::KeyNonExisting,
-        ))
+        Err(ProtocolRegistrationErrorWrapper::PartyIdNonExisting)
     }
 
     /// Finalize the key registration.
