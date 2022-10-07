@@ -4,10 +4,13 @@ mod cardano;
 mod codec;
 mod conversions;
 mod genesis;
+#[cfg(any(test, feature = "test_only"))]
 pub mod tests_setup;
 mod types;
 
-pub use cardano::{ColdKeyGenerator, KESPeriod, OpCert, SerDeShelleyFileFormat};
+#[cfg(any(test, feature = "test_only"))]
+pub use cardano::ColdKeyGenerator;
+pub use cardano::{KESPeriod, OpCert, SerDeShelleyFileFormat};
 pub use codec::*;
 pub use genesis::{ProtocolGenesisError, ProtocolGenesisSigner, ProtocolGenesisVerifier};
 pub use types::*;

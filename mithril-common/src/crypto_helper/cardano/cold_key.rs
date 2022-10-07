@@ -1,5 +1,5 @@
 use ed25519_dalek::Keypair as ColdKeypair;
-use rand_chacha_dalek_compat::rand_core::{OsRng, SeedableRng};
+use rand_chacha_dalek_compat::rand_core::SeedableRng;
 use rand_chacha_dalek_compat::ChaCha20Rng;
 
 /// A cold key generator / test only
@@ -9,12 +9,6 @@ pub struct ColdKeyGenerator();
 impl ColdKeyGenerator {
     pub(crate) fn create_deterministic_keypair(seed: [u8; 32]) -> ColdKeypair {
         let mut rng = ChaCha20Rng::from_seed(seed);
-        ColdKeypair::generate(&mut rng)
-    }
-
-    #[allow(dead_code)]
-    pub(crate) fn create_non_deterministic_keypair() -> ColdKeypair {
-        let mut rng = OsRng;
         ColdKeypair::generate(&mut rng)
     }
 }
@@ -30,13 +24,5 @@ mod tests {
         let cold_keypair3 = ColdKeyGenerator::create_deterministic_keypair([1u8; 32]);
         assert_eq!(cold_keypair1.to_bytes(), cold_keypair2.to_bytes());
         assert_ne!(cold_keypair1.to_bytes(), cold_keypair3.to_bytes());
-    }
-
-    #[test]
-    fn test_generate_non_deterministic_genesis_keypair() {
-        let cold_keypair1 = ColdKeyGenerator::create_non_deterministic_keypair();
-        let cold_keypair2 = ColdKeyGenerator::create_non_deterministic_keypair();
-
-        assert_ne!(cold_keypair1.to_bytes(), cold_keypair2.to_bytes());
     }
 }
