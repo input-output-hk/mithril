@@ -9,9 +9,7 @@ use mithril::stm::{
 use mithril::AggregationError;
 
 #[cfg(any(test, feature = "allow_skip_signer_certification"))]
-use mithril::key_reg::KeyReg;
-#[cfg(any(test, feature = "allow_skip_signer_certification"))]
-use mithril::stm::StmInitializer;
+use mithril::{key_reg::KeyReg, stm::StmInitializer};
 
 use blake2::{digest::consts::U32, Blake2b};
 use ed25519_dalek;
@@ -38,13 +36,13 @@ pub type ProtocolParameters = StmParameters;
 /// Alias of [MithrilCore::Index](https://mithril.network/mithril-core/doc/mithril/stm/type.Index.html).
 pub type ProtocolLotteryIndex = Index;
 
-/// Alias of a wrapper of [MithrilCore:StmSigner](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmSigner.html).
+/// Alias of [MithrilCore:StmSigner](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmSigner.html).
 pub type ProtocolSigner = StmSigner<D>;
 
 /// Alias of a wrapper of [MithrilCore:StmInitializer](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmInitializer.html).
 pub type ProtocolInitializer = StmInitializerWrapper;
 
-/// Alias of a wrapper of [MithrilCore:StmClerk](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmClerk.html).
+/// Alias of [MithrilCore:StmClerk](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmClerk.html).
 pub type ProtocolClerk = StmClerk<D>;
 
 /// Alias of a wrapper of [MithrilCore:KeyReg](https://mithril.network/mithril-core/doc/mithril/key_reg/struct.KeyReg.html).
@@ -75,7 +73,7 @@ pub type ProtocolGenesisSecretKey = ed25519_dalek::SecretKey;
 pub type ProtocolGenesisSignature = ed25519_dalek::Signature;
 
 // Error alias
-/// Alias of [MithrilCore:RegisterError](https://mithril.network/mithril-core/doc/mithril/error/enum.RegisterError.html).
+/// Alias of a wrapper of [MithrilCore:RegisterError](https://mithril.network/mithril-core/doc/mithril/error/enum.RegisterError.html).
 pub type ProtocolRegistrationError = ProtocolRegistrationErrorWrapper;
 
 /// Alias of [MithrilCore:AggregationError](https://mithril.network/mithril-core/doc/mithril/error/enum.AggregationError.html).
