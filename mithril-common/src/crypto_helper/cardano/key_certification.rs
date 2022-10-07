@@ -237,10 +237,9 @@ mod test {
 
     fn create_cryptographic_material(party_idx: u64) -> (ProtocolPartyId, PathBuf, PathBuf) {
         let temp_dir = setup_temp_directory();
-        let (cold_secret_key, _) =
-            ColdKeyGenerator::create_deterministic_keypair([party_idx as u8; 32]);
+        let keypair = ColdKeyGenerator::create_deterministic_keypair([party_idx as u8; 32]);
         let (kes_secret_key, kes_verification_key) = Sum6Kes::keygen(&mut [party_idx as u8; 32]);
-        let operational_certificate = OpCert::new(kes_verification_key, 0, 0, cold_secret_key);
+        let operational_certificate = OpCert::new(kes_verification_key, 0, 0, keypair);
         let kes_secret_key_file = temp_dir.join(format!("kes{}.skey", party_idx));
         kes_secret_key
             .to_file(&kes_secret_key_file)

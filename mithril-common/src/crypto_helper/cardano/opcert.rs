@@ -5,8 +5,7 @@ use crate::crypto_helper::ProtocolPartyId;
 use bech32::{self, ToBase32, Variant};
 use blake2::{digest::consts::U28, Blake2b, Digest};
 use ed25519_dalek::{
-    ExpandedSecretKey as EdExpandedSecretKey, PublicKey as EdPublicKey, SecretKey as EdSecretKey,
-    Signature as EdSignature, Verifier,
+    Keypair as EdKeypair, PublicKey as EdPublicKey, Signature as EdSignature, Signer, Verifier,
 };
 use kes_summed_ed25519::common::PublicKey as KesPublicKey;
 use serde::de::Error;
@@ -56,14 +55,14 @@ impl OpCert {
         kes_vk: KesPublicKey,
         issue_number: u64,
         start_kes_period: u64,
-        cold_sk: EdSecretKey,
+        cold_keypair: EdKeypair,
     ) -> Self {
-        let cold_sk_expanded = EdExpandedSecretKey::from(&cold_sk);
-        let cold_vk: EdPublicKey = (&cold_sk_expanded).into();
-        let cert_sig = cold_sk_expanded.sign(
-            &Self::compute_message_to_sign(&kes_vk, issue_number, start_kes_period),
-            &cold_vk,
-        );
+        let cold_vk: EdPublicKey = cold_keypair.public;
+        let cert_sig = cold_keypair.sign(&Self::compute_message_to_sign(
+            &kes_vk,
+            issue_number,
+            start_kes_period,
+        ));
         Self {
             kes_vk,
             issue_number,
@@ -183,9 +182,9 @@ mod tests {
     #[test]
     fn test_vector_opcert() {
         let temp_dir = setup_temp_directory();
-        let (cold_secret_key, _) = ColdKeyGenerator::create_deterministic_keypair([0u8; 32]);
+        let keypair = ColdKeyGenerator::create_deterministic_keypair([0u8; 32]);
         let (_, kes_verification_key) = Sum6Kes::keygen(&mut [0u8; 32]);
-        let operational_certificate = OpCert::new(kes_verification_key, 0, 0, cold_secret_key);
+        let operational_certificate = OpCert::new(kes_verification_key, 0, 0, keypair);
         assert!(operational_certificate.validate().is_ok());
 
         let operation_certificate_file = temp_dir.join("node.cert");

@@ -65,11 +65,9 @@ pub fn setup_signers(
         .map(|party_idx| {
             let party_id = if party_idx % 2 == 0 {
                 // 50% of signers with key certification
-                let (cold_secret_key, _) =
-                    ColdKeyGenerator::create_deterministic_keypair([party_idx as u8; 32]);
+                let keypair = ColdKeyGenerator::create_deterministic_keypair([party_idx as u8; 32]);
                 let (kes_secret_key, kes_verification_key) = Sum6Kes::keygen(&mut kes_keys_seed);
-                let operational_certificate =
-                    OpCert::new(kes_verification_key, 0, 0, cold_secret_key);
+                let operational_certificate = OpCert::new(kes_verification_key, 0, 0, keypair);
                 let party_id = operational_certificate
                     .compute_protocol_party_id()
                     .expect("compute protocol party id should not fail");
