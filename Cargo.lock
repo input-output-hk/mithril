@@ -1673,7 +1673,7 @@ dependencies = [
 [[package]]
 name = "kes-summed-ed25519"
 version = "0.1.0"
-source = "git+https://github.com/input-output-hk/kes#1418efaacaca52ba48bdee0bab56bea1bb1d1ce4"
+source = "git+https://github.com/input-output-hk/kes?rev=1418efa#1418efaacaca52ba48bdee0bab56bea1bb1d1ce4"
 dependencies = [
  "blake2 0.9.2",
  "ed25519-dalek",
