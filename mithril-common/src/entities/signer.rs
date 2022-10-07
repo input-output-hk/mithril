@@ -1,6 +1,9 @@
 use crate::{
     crypto_helper::KESPeriod,
-    entities::{HexEncodedKey, PartyId, Stake},
+    entities::{
+        HexEncodedOpCert, HexEncodedVerificationKey, HexEncodedVerificationKeySignature, PartyId,
+        Stake,
+    },
 };
 
 use serde::{Deserialize, Serialize};
@@ -14,7 +17,7 @@ pub struct Signer {
     pub party_id: PartyId,
 
     /// The public key used to authenticate signer signature
-    pub verification_key: HexEncodedKey,
+    pub verification_key: HexEncodedVerificationKey,
 
     /// The encoded signer 'Mithril verification key' signature (signed by the Cardano node KES secret key)
     // TODO: Option should be removed once the signer certification is fully deployed
@@ -22,7 +25,7 @@ pub struct Signer {
         rename = "verification_key_signature",
         skip_serializing_if = "Option::is_none"
     )]
-    pub verification_key_signature: Option<HexEncodedKey>,
+    pub verification_key_signature: Option<HexEncodedVerificationKeySignature>,
 
     /// The encoded operational certificate of stake pool operator attached to the signer node
     // TODO: Option should be removed once the signer certification is fully deployed
@@ -30,7 +33,7 @@ pub struct Signer {
         rename = "operational_certificate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub operational_certificate: Option<HexEncodedKey>,
+    pub operational_certificate: Option<HexEncodedOpCert>,
 
     /// The kes period used to compute the verification key signature
     // TODO: This kes period shoud not be used as is and should probably be within an allowed range of kes period for the epoch
@@ -42,9 +45,9 @@ impl Signer {
     /// Signer factory
     pub fn new(
         party_id: PartyId,
-        verification_key: String,
-        verification_key_signature: Option<HexEncodedKey>,
-        operational_certificate: Option<HexEncodedKey>,
+        verification_key: HexEncodedVerificationKey,
+        verification_key_signature: Option<HexEncodedVerificationKeySignature>,
+        operational_certificate: Option<HexEncodedOpCert>,
         kes_period: Option<KESPeriod>,
     ) -> Signer {
         Signer {
@@ -91,7 +94,7 @@ pub struct SignerWithStake {
     pub party_id: PartyId,
 
     /// The public key used to authenticate signer signature
-    pub verification_key: HexEncodedKey,
+    pub verification_key: HexEncodedVerificationKey,
 
     /// The encoded signer 'Mithril verification key' signature (signed by the Cardano node KES secret key)
     // TODO: Option should be removed once the signer certification is fully deployed
@@ -99,7 +102,7 @@ pub struct SignerWithStake {
         rename = "verification_key_signature",
         skip_serializing_if = "Option::is_none"
     )]
-    pub verification_key_signature: Option<HexEncodedKey>,
+    pub verification_key_signature: Option<HexEncodedVerificationKeySignature>,
 
     /// The encoded operational certificate of stake pool operator attached to the signer node
     // TODO: Option should be removed once the signer certification is fully deployed
@@ -107,7 +110,7 @@ pub struct SignerWithStake {
         rename = "operational_certificate",
         skip_serializing_if = "Option::is_none"
     )]
-    pub operational_certificate: Option<HexEncodedKey>,
+    pub operational_certificate: Option<HexEncodedOpCert>,
 
     /// The kes period used to compute the verification key signature
     // TODO: This kes period shoud not be used as is and should probably be within an allowed range of kes period for the epoch
@@ -122,9 +125,9 @@ impl SignerWithStake {
     /// SignerWithStake factory
     pub fn new(
         party_id: PartyId,
-        verification_key: HexEncodedKey,
-        verification_key_signature: Option<HexEncodedKey>,
-        operational_certificate: Option<HexEncodedKey>,
+        verification_key: HexEncodedVerificationKey,
+        verification_key_signature: Option<HexEncodedVerificationKeySignature>,
+        operational_certificate: Option<HexEncodedOpCert>,
         kes_period: Option<KESPeriod>,
         stake: Stake,
     ) -> SignerWithStake {

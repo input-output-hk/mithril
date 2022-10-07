@@ -13,7 +13,7 @@ use mithril_common::certificate_chain::MithrilCertificateVerifier;
 use mithril_common::chain_observer::{CardanoCliRunner, ChainObserver};
 use mithril_common::crypto_helper::ProtocolGenesisVerifier;
 use mithril_common::digesters::{CardanoImmutableDigester, ImmutableFileSystemObserver};
-use mithril_common::entities::{Epoch, HexEncodedKey};
+use mithril_common::entities::{Epoch, HexEncodedGenesisSecretKey};
 use mithril_common::store::adapter::SQLiteAdapter;
 use mithril_common::store::StakeStore;
 use mithril_common::{
@@ -548,7 +548,7 @@ impl ImportGenesisSubCommand {
 pub struct BootstrapGenesisSubCommand {
     /// Genesis Secret Key (test only)
     #[clap(long, env = "GENESIS_SECRET_KEY")]
-    genesis_secret_key: HexEncodedKey,
+    genesis_secret_key: HexEncodedGenesisSecretKey,
 }
 
 impl BootstrapGenesisSubCommand {

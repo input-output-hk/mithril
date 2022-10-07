@@ -1,5 +1,5 @@
 use crate::crypto_helper::{key_decode_hex, ProtocolSingleSignature};
-use crate::entities::{LotteryIndex, PartyId};
+use crate::entities::{HexEncodedSingleSignature, LotteryIndex, PartyId};
 use serde::{Deserialize, Serialize};
 
 /// SingleSignatures represent single signatures originating from a participant in the network
@@ -10,7 +10,7 @@ pub struct SingleSignatures {
     pub party_id: PartyId,
 
     /// The single signature of the digest
-    pub signature: String,
+    pub signature: HexEncodedSingleSignature,
 
     /// The indexes of the won lotteries that lead to the single signatures
     #[serde(rename = "indexes")]
@@ -21,7 +21,7 @@ impl SingleSignatures {
     /// SingleSignature factory
     pub fn new(
         party_id: PartyId,
-        signature: String,
+        signature: HexEncodedSingleSignature,
         won_indexes: Vec<LotteryIndex>,
     ) -> SingleSignatures {
         SingleSignatures {

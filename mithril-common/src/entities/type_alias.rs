@@ -23,3 +23,30 @@ pub type ProtocolVersion = String;
 
 /// Hex encoded key
 pub type HexEncodedKey = String;
+
+/// Hex encoded Single Signature
+pub type HexEncodedSingleSignature = HexEncodedKey;
+
+/// Hex encoded Multi Signature
+pub type HexEncodedMultiSignature = HexEncodedKey;
+
+/// Hex encoded Aggregate Verification Key
+pub type HexEncodedAgregateVerificationKey = HexEncodedKey;
+
+/// Hex encoded Verification Key
+pub type HexEncodedVerificationKey = HexEncodedKey;
+
+/// Hex encoded Verification Key Signature
+pub type HexEncodedVerificationKeySignature = HexEncodedKey;
+
+/// Hex encoded Operational Certificate
+pub type HexEncodedOpCert = HexEncodedKey;
+
+/// Hex encoded Genesis Secret Key
+pub type HexEncodedGenesisSecretKey = HexEncodedKey;
+
+/// Hex encoded Genesis Verification Key
+pub type HexEncodedGenesisVerificationKey = HexEncodedKey;
+
+/// Hex encoded Genesis Signature
+pub type HexEncodedGenesisSignature = HexEncodedKey;
