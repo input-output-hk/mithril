@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use tokio::process::Command;
 
 use crate::chain_observer::interface::*;
-use crate::crypto_helper::{FromShelleyFile, KESPeriod, OpCert};
+use crate::crypto_helper::{KESPeriod, OpCert, SerDeShelleyFileFormat};
 use crate::entities::{Epoch, StakeDistribution};
 use crate::CardanoNetwork;
 

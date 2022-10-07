@@ -7,7 +7,7 @@ mod genesis;
 pub mod tests_setup;
 mod types;
 
-pub use cardano::{ColdKeyGenerator, FromShelleyFile, KESPeriod, OpCert};
+pub use cardano::{ColdKeyGenerator, KESPeriod, OpCert, SerDeShelleyFileFormat};
 pub use codec::*;
 pub use genesis::{ProtocolGenesisError, ProtocolGenesisSigner, ProtocolGenesisVerifier};
 pub use types::*;

@@ -1,4 +1,4 @@
-use super::FromShelleyFile;
+use super::SerDeShelleyFileFormat;
 use crate::crypto_helper::cardano::ProtocolRegistrationErrorWrapper;
 use crate::crypto_helper::ProtocolPartyId;
 
@@ -45,7 +45,7 @@ pub struct OpCert {
     pub(crate) cold_vk: EdPublicKey,
 }
 
-impl FromShelleyFile for OpCert {
+impl SerDeShelleyFileFormat for OpCert {
     const TYPE: &'static str = "NodeOperationalCertificate";
     const DESCRIPTION: &'static str = "";
 }

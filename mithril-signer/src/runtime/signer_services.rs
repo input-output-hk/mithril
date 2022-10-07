@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use mithril_common::{
     chain_observer::{CardanoCliChainObserver, CardanoCliRunner, ChainObserver},
-    crypto_helper::{FromShelleyFile, OpCert, ProtocolPartyId},
+    crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
     digesters::{CardanoImmutableDigester, ImmutableDigester, ImmutableFileSystemObserver},
     store::{adapter::SQLiteAdapter, StakeStore},
     BeaconProvider, BeaconProviderImpl,

@@ -1,4 +1,4 @@
-use crate::crypto_helper::cardano::{FromShelleyFile, OpCert, ParseError};
+use crate::crypto_helper::cardano::{OpCert, ParseError, SerDeShelleyFileFormat};
 use crate::crypto_helper::types::{
     ProtocolPartyId, ProtocolSignerVerificationKey, ProtocolSignerVerificationKeySignature,
     ProtocolStakeDistribution,

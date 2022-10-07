@@ -33,9 +33,9 @@ struct ShelleyFileFormat {
     cbor_hex: String,
 }
 
-/// Trait that allows any structure that implements serialize to be formatted following
-/// the Shelly json format.
-pub trait FromShelleyFile: serde::Serialize {
+/// Trait that allows any structure that implements Serialize and DeserializeOwned to
+/// be serialized and deserialized following the Shelly json format.
+pub trait SerDeShelleyFileFormat: Serialize + DeserializeOwned {
     /// The type of Cardano key
     const TYPE: &'static str;
 
@@ -43,12 +43,12 @@ pub trait FromShelleyFile: serde::Serialize {
     const DESCRIPTION: &'static str;
 
     /// Deserialize a Cardano key from file
-    fn from_file<R: DeserializeOwned, P: AsRef<Path>>(path: P) -> Result<R, ParseError> {
+    fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, ParseError> {
         let data = fs::read_to_string(path)?;
         let file: ShelleyFileFormat = serde_json::from_str(&data)?;
         let hex_vector = Vec::from_hex(file.cbor_hex)?;
 
-        let a: R = serde_cbor::from_slice(&hex_vector)?;
+        let a: Self = serde_cbor::from_slice(&hex_vector)?;
         Ok(a)
     }
 
@@ -70,7 +70,7 @@ pub trait FromShelleyFile: serde::Serialize {
     }
 }
 
-impl FromShelleyFile for Sum6Kes {
+impl SerDeShelleyFileFormat for Sum6Kes {
     const TYPE: &'static str = "KesSigningKey_ed25519_kes_2^6";
     const DESCRIPTION: &'static str = "KES Signing Key";
 }

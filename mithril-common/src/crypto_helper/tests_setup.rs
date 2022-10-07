@@ -1,7 +1,7 @@
 //! Test data builders for Mithril Core types, for testing purpose.
 
 use super::cardano::ColdKeyGenerator;
-use super::{genesis::*, key_encode_hex, types::*, FromShelleyFile, OpCert};
+use super::{genesis::*, key_encode_hex, types::*, OpCert, SerDeShelleyFileFormat};
 use crate::certificate_chain::CertificateGenesisProducer;
 use crate::{
     entities::{Certificate, Epoch, ProtocolMessage, ProtocolMessagePartKey, SignerWithStake},

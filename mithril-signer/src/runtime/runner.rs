@@ -7,7 +7,7 @@ use thiserror::Error;
 use mockall::automock;
 
 use mithril_common::crypto_helper::{
-    key_decode_hex, FromShelleyFile, OpCert, ProtocolSignerVerificationKey,
+    key_decode_hex, OpCert, ProtocolSignerVerificationKey, SerDeShelleyFileFormat,
 };
 use mithril_common::entities::{PartyId, ProtocolParameters};
 use mithril_common::{
