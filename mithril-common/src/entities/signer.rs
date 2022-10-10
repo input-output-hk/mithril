@@ -21,23 +21,17 @@ pub struct Signer {
 
     /// The encoded signer 'Mithril verification key' signature (signed by the Cardano node KES secret key)
     // TODO: Option should be removed once the signer certification is fully deployed
-    #[serde(
-        rename = "verification_key_signature",
-        skip_serializing_if = "Option::is_none"
-    )]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub verification_key_signature: Option<HexEncodedVerificationKeySignature>,
 
     /// The encoded operational certificate of stake pool operator attached to the signer node
     // TODO: Option should be removed once the signer certification is fully deployed
-    #[serde(
-        rename = "operational_certificate",
-        skip_serializing_if = "Option::is_none"
-    )]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub operational_certificate: Option<HexEncodedOpCert>,
 
     /// The kes period used to compute the verification key signature
     // TODO: This kes period shoud not be used as is and should probably be within an allowed range of kes period for the epoch
-    #[serde(rename = "kes_period", skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub kes_period: Option<KESPeriod>,
 }
 
@@ -98,23 +92,17 @@ pub struct SignerWithStake {
 
     /// The encoded signer 'Mithril verification key' signature (signed by the Cardano node KES secret key)
     // TODO: Option should be removed once the signer certification is fully deployed
-    #[serde(
-        rename = "verification_key_signature",
-        skip_serializing_if = "Option::is_none"
-    )]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub verification_key_signature: Option<HexEncodedVerificationKeySignature>,
 
     /// The encoded operational certificate of stake pool operator attached to the signer node
     // TODO: Option should be removed once the signer certification is fully deployed
-    #[serde(
-        rename = "operational_certificate",
-        skip_serializing_if = "Option::is_none"
-    )]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub operational_certificate: Option<HexEncodedOpCert>,
 
     /// The kes period used to compute the verification key signature
     // TODO: This kes period shoud not be used as is and should probably be within an allowed range of kes period for the epoch
-    #[serde(rename = "kes_period", skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub kes_period: Option<KESPeriod>,
 
     /// The signer stake
