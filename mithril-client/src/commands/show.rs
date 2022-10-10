@@ -15,7 +15,6 @@ pub struct ShowCommand {
     json: bool,
 
     /// Digest of the snapshot to download. Use the `list` command to get that information.
-    #[clap(short, long)]
     digest: String,
 }
 

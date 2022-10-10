@@ -164,7 +164,7 @@ You will see a list of snapshots
 Get some more details from a specific snapshot (Optional)
 
 ```bash
-GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client show --digest $SNAPSHOT_DIGEST
+GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client show $SNAPSHOT_DIGEST
 ```
 
 You will see more information about a snapshot
@@ -189,7 +189,7 @@ You will see more information about a snapshot
 Download the selected snapshot from the remote location to your remote location
 
 ```bash
-GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client download --digest $SNAPSHOT_DIGEST
+GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client download $SNAPSHOT_DIGEST
 ```
 
 You will see that the selected snapshot archive has been downloaded locally
@@ -205,7 +205,7 @@ to /home/mithril/data/testnet/cd587611b5ff2445c714bef083d9455ed3e42e9304ae0ad38b
 Verify the Certificate of the snapshot and unpack its content in order to feed the Cardano node database
 
 ```bash
-GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client restore --digest $SNAPSHOT_DIGEST
+GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client restore $SNAPSHOT_DIGEST
 ```
 
 You will see that the snapshot archive is unpacked and that the associated certificate is valid

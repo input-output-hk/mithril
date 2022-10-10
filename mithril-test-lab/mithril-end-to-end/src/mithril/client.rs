@@ -36,13 +36,13 @@ impl Client {
         let args = match command {
             ClientCommand::List() => vec![],
             ClientCommand::Show { digest } => {
-                vec!["show".to_string(), "--digest".to_string(), digest]
+                vec!["show".to_string(), digest]
             }
             ClientCommand::Download { digest } => {
-                vec!["download".to_string(), "--digest".to_string(), digest]
+                vec!["download".to_string(), digest]
             }
             ClientCommand::Restore { digest } => {
-                vec!["restore".to_string(), "--digest".to_string(), digest]
+                vec!["restore".to_string(), digest]
             }
         };
 

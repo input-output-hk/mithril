@@ -11,15 +11,14 @@ use slog_scope::debug;
 
 use crate::{AggregatorHTTPClient, AggregatorHandler, Config, Runtime};
 
-/// Restore snapshot command
+/// Check a downloaded snapshot and restore it if the signature is OK.
 #[derive(Parser, Debug, Clone)]
 pub struct RestoreCommand {
-    /// Does the output need to be in JSON format?
+    /// Enable JSON output.
     #[clap(long)]
     json: bool,
 
-    /// digest of the snapshot to download
-    #[clap(short, long)]
+    /// Digest of the snapshot to download. Use the `list` command to get that information.
     digest: String,
 }
 

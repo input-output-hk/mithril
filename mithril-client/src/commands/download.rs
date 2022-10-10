@@ -11,7 +11,6 @@ use crate::{AggregatorHTTPClient, Config, Runtime};
 #[derive(Parser, Debug, Clone)]
 pub struct DownloadCommand {
     /// Digest of the snapshot to download. Use the `list` command to get that information.
-    #[clap(short, long)]
     digest: String,
 
     /// Location index of the snapshot.

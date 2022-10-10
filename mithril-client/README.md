@@ -5,6 +5,7 @@
 * A **Mithril Client** is able to download, verify authenticity and restore a snapshot into a **Cardano Node**.
 * It allows user to bootstrap a **Cardano Node** in minutes instead of days.
 * This cli implements a MVP version of a **Mithril Client**.
+* Complete documentation is available from [Mithril page](https://mithril.network/doc/).
 
 ---
 
