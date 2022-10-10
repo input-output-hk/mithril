@@ -20,6 +20,7 @@ impl Signer {
         cardano_cli_path: &Path,
         work_dir: &Path,
         bin_dir: &Path,
+        enable_certification: bool,
     ) -> Result<Self, String> {
         let party_id = pool_node.party_id()?;
         let magic_id = DEVNET_MAGIC_ID.to_string();
@@ -37,8 +38,7 @@ impl Signer {
             ),
             ("CARDANO_CLI_PATH", cardano_cli_path.to_str().unwrap()),
         ]);
-        if pool_node.node_index % 2 == 0 {
-            // 50% of signers with key certification
+        if enable_certification {
             env.insert(
                 "KES_SECRET_KEY_PATH",
                 pool_node.kes_secret_key_path.to_str().unwrap(),
@@ -48,8 +48,6 @@ impl Signer {
                 pool_node.operational_certificate_path.to_str().unwrap(),
             );
         } else {
-            // 50% of signers without key certification (legacy)
-            // TODO: Should be removed once the signer certification is fully deployed
             env.insert("PARTY_ID", &party_id);
         }
         let args = vec!["-vvv"];

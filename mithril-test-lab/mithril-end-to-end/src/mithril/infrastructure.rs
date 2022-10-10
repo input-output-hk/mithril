@@ -38,13 +38,17 @@ impl MithrilInfrastructure {
         aggregator.serve()?;
 
         let mut signers: Vec<Signer> = vec![];
-        for pool_node in devnet_topology.pool_nodes {
+        for (index, pool_node) in devnet_topology.pool_nodes.iter().enumerate() {
+            // 50% of signers with key certification
+            // TODO: Should be removed 100% once the signer certification is fully deployed
+            let enable_certification = index % 2 == 0;
             let mut signer = Signer::new(
                 aggregator.endpoint(),
-                &pool_node,
+                pool_node,
                 &devnet.cardano_cli_path(),
                 work_dir,
                 bin_dir,
+                enable_certification,
             )?;
             signer.start()?;
 
