@@ -1,5 +1,4 @@
 use slog_scope::debug;
-use std::path::Path;
 use std::str;
 use std::sync::Arc;
 use thiserror::Error;
@@ -11,9 +10,7 @@ use mithril_common::certificate_chain::{
     CertificateRetrieverError, CertificateVerifier, CertificateVerifierError,
 };
 use mithril_common::crypto_helper::ProtocolGenesisVerifier;
-use mithril_common::digesters::{
-    CardanoImmutableDigester, ImmutableDigester, ImmutableDigesterError,
-};
+use mithril_common::digesters::{ImmutableDigester, ImmutableDigesterError};
 use mithril_common::entities::{ProtocolMessagePartKey, Snapshot};
 
 /// [Runtime] related errors.
@@ -56,56 +53,21 @@ pub enum RuntimeError {
 pub struct Runtime {
     /// Cardano network
     pub network: String,
-
-    /// Aggregator handler dependency that interacts with an aggregator
-    aggregator_handler: Arc<dyn AggregatorHandler>,
-
-    /// Certificate verifier dependency that verifies certificates and their multi signatures
-    certificate_verifier: Box<dyn CertificateVerifier>,
-
-    /// Genesis verifier dependency that verifies the genesis signatures
-    genesis_verifier: ProtocolGenesisVerifier,
-
-    /// Digester dependency that computes the digest used as the message ot be signed and embedded in the multi-signature
-    digester: Option<Box<dyn ImmutableDigester>>,
 }
 
 impl Runtime {
     /// Runtime factory
-    pub fn new(
-        network: String,
-        aggregator_handler: Arc<dyn AggregatorHandler>,
-        certificate_verifier: Box<dyn CertificateVerifier>,
-        genesis_verifier: ProtocolGenesisVerifier,
-    ) -> Self {
-        Self {
-            network,
-            aggregator_handler,
-            certificate_verifier,
-            genesis_verifier,
-            digester: None,
-        }
-    }
-
-    /// With Digester
-    pub fn with_digester(&mut self, digester: Box<dyn ImmutableDigester>) -> &mut Self {
-        self.digester = Some(digester);
-        self
-    }
-
-    /// Get Digester
-    fn get_digester(&self) -> Result<&dyn ImmutableDigester, RuntimeError> {
-        match self.digester.as_ref() {
-            Some(digester) => Ok(&**digester),
-            None => Err(RuntimeError::MissingDependency("digester".to_string())),
-        }
+    pub fn new(network: String) -> Self {
+        Self { network }
     }
 
     /// List snapshots
-    pub async fn list_snapshots(&self) -> Result<Vec<SnapshotListItem>, RuntimeError> {
+    pub async fn list_snapshots(
+        &self,
+        aggregator_handler: Arc<dyn AggregatorHandler>,
+    ) -> Result<Vec<SnapshotListItem>, RuntimeError> {
         debug!("List snapshots");
-        Ok(self
-            .aggregator_handler
+        Ok(aggregator_handler
             .list_snapshots()
             .await?
             .iter()
@@ -114,53 +76,53 @@ impl Runtime {
     }
 
     /// Show a snapshot
-    pub async fn show_snapshot(&self, digest: &str) -> Result<Snapshot, RuntimeError> {
+    pub async fn show_snapshot<'a>(
+        &self,
+        aggregator_handler: Arc<dyn AggregatorHandler + 'a>,
+        digest: &str,
+    ) -> Result<Snapshot, RuntimeError> {
         debug!("Show snapshot {}", digest);
-        Ok(self.aggregator_handler.get_snapshot_details(digest).await?)
+        let snapshot_details = aggregator_handler.get_snapshot_details(digest).await?;
+
+        Ok(snapshot_details)
     }
 
     /// Download a snapshot by digest
-    pub async fn download_snapshot(
+    pub async fn download_snapshot<'a>(
         &self,
+        aggregator_handler: Arc<dyn AggregatorHandler + 'a>,
         digest: &str,
         location_index: isize,
     ) -> Result<(String, String), RuntimeError> {
         debug!("Download snapshot {}", digest);
-        let snapshot = self.aggregator_handler.get_snapshot_details(digest).await?;
+        let snapshot = aggregator_handler.get_snapshot_details(digest).await?;
         let from = snapshot
             .locations
             .get((location_index - 1) as usize)
             .ok_or_else(|| RuntimeError::InvalidInput("invalid location index".to_string()))?
             .to_owned();
-        match self
-            .aggregator_handler
-            .download_snapshot(digest, &from)
-            .await
-        {
+        match aggregator_handler.download_snapshot(digest, &from).await {
             Ok(to) => Ok((from, to)),
             Err(err) => Err(RuntimeError::AggregatorHandler(err)),
         }
     }
 
     /// Restore a snapshot by digest
-    pub async fn restore_snapshot(&mut self, digest: &str) -> Result<String, RuntimeError> {
+    pub async fn restore_snapshot<'a>(
+        &mut self,
+        aggregator_handler: Arc<dyn AggregatorHandler + 'a>,
+        digester: Box<dyn ImmutableDigester + 'a>,
+        certificate_verifier: Box<dyn CertificateVerifier + 'a>,
+        genesis_verifier: ProtocolGenesisVerifier,
+        digest: &str,
+    ) -> Result<String, RuntimeError> {
         debug!("Restore snapshot {}", digest);
-        let snapshot = &self.aggregator_handler.get_snapshot_details(digest).await?;
-        let certificate = self
-            .aggregator_handler
+        let snapshot = aggregator_handler.get_snapshot_details(digest).await?;
+        let certificate = aggregator_handler
             .get_certificate_details(&snapshot.certificate_hash)
             .await?;
-        let unpacked_path = &self.aggregator_handler.unpack_snapshot(digest).await?;
-        if self.get_digester().is_err() {
-            self.with_digester(Box::new(CardanoImmutableDigester::new(
-                Path::new(unpacked_path).into(),
-                slog_scope::logger(),
-            )));
-        }
-        let unpacked_snapshot_digest = self
-            .get_digester()?
-            .compute_digest(&certificate.beacon)
-            .await?;
+        let unpacked_path = aggregator_handler.unpack_snapshot(digest).await?;
+        let unpacked_snapshot_digest = digester.compute_digest(&certificate.beacon).await?;
         let mut protocol_message = certificate.protocol_message.clone();
         protocol_message.set_message_part(
             ProtocolMessagePartKey::SnapshotDigest,
@@ -169,11 +131,11 @@ impl Runtime {
         if protocol_message.compute_hash() != certificate.signed_message {
             return Err(RuntimeError::DigestDoesntMatch(unpacked_snapshot_digest));
         }
-        self.certificate_verifier
+        certificate_verifier
             .verify_certificate_chain(
                 certificate,
-                self.aggregator_handler.as_certificate_retriever(),
-                &self.genesis_verifier,
+                aggregator_handler.as_certificate_retriever(),
+                &genesis_verifier,
             )
             .await?;
         Ok(unpacked_path.to_owned())
@@ -344,18 +306,15 @@ mod tests {
             .iter()
             .map(|snapshot| convert_to_list_item(snapshot, network.clone()))
             .collect::<Vec<SnapshotListItem>>();
-        let (mut mock_aggregator_handler, mock_verifier, _mock_digester, genesis_verifier) =
+        let (mut mock_aggregator_handler, _mock_verifier, _mock_digester, _genesis_verifier) =
             get_dependencies();
         mock_aggregator_handler
             .expect_list_snapshots()
             .return_once(move || Ok(fake_snapshots));
-        let client = Runtime::new(
-            network.clone(),
-            Arc::new(mock_aggregator_handler),
-            Box::new(mock_verifier),
-            genesis_verifier,
-        );
-        let snapshot_list_items = client.list_snapshots().await;
+        let client = Runtime::new(network.clone());
+        let snapshot_list_items = client
+            .list_snapshots(Arc::new(mock_aggregator_handler))
+            .await;
         snapshot_list_items.as_ref().expect("unexpected error");
         assert_eq!(
             snapshot_list_items.unwrap(),
@@ -365,7 +324,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_snapshots_ko() {
-        let (mut mock_aggregator_handler, mock_verifier, _mock_digester, genesis_verifier) =
+        let (mut mock_aggregator_handler, _mock_verifier, _mock_digester, _genesis_verifier) =
             get_dependencies();
         mock_aggregator_handler
             .expect_list_snapshots()
@@ -374,13 +333,10 @@ mod tests {
                     "error occurred".to_string(),
                 ))
             });
-        let client = Runtime::new(
-            "testnet".to_string(),
-            Arc::new(mock_aggregator_handler),
-            Box::new(mock_verifier),
-            genesis_verifier,
-        );
-        let snapshot_list_items = client.list_snapshots().await;
+        let client = Runtime::new("testnet".to_string());
+        let snapshot_list_items = client
+            .list_snapshots(Arc::new(mock_aggregator_handler))
+            .await;
         assert!(
             matches!(snapshot_list_items, Err(RuntimeError::AggregatorHandler(_))),
             "unexpected error type: {:?}",
@@ -393,18 +349,15 @@ mod tests {
         let digest = "digest123";
         let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
         let snapshot_item_expected = fake_snapshot.clone();
-        let (mut mock_aggregator_handler, mock_verifier, _mock_digester, genesis_verifier) =
+        let (mut mock_aggregator_handler, _mock_verifier, _mock_digester, _genesis_verifier) =
             get_dependencies();
         mock_aggregator_handler
             .expect_get_snapshot_details()
             .return_once(move |_| Ok(fake_snapshot));
-        let client = Runtime::new(
-            "testnet".to_string(),
-            Arc::new(mock_aggregator_handler),
-            Box::new(mock_verifier),
-            genesis_verifier,
-        );
-        let snapshot_item = client.show_snapshot(digest).await;
+        let client = Runtime::new("testnet".to_string());
+        let snapshot_item = client
+            .show_snapshot(Arc::new(mock_aggregator_handler), digest)
+            .await;
         snapshot_item.as_ref().expect("unexpected error");
         assert_eq!(snapshot_item.unwrap(), snapshot_item_expected);
     }
@@ -412,7 +365,7 @@ mod tests {
     #[tokio::test]
     async fn test_show_snapshot_ko() {
         let digest = "digest123";
-        let (mut mock_aggregator_handler, mock_verifier, _mock_digester, genesis_verifier) =
+        let (mut mock_aggregator_handler, _mock_verifier, _mock_digester, _genesis_verifier) =
             get_dependencies();
         mock_aggregator_handler
             .expect_get_snapshot_details()
@@ -421,13 +374,10 @@ mod tests {
                     "error occurred".to_string(),
                 ))
             });
-        let client = Runtime::new(
-            "testnet".to_string(),
-            Arc::new(mock_aggregator_handler),
-            Box::new(mock_verifier),
-            genesis_verifier,
-        );
-        let snapshot_item = client.show_snapshot(digest).await;
+        let client = Runtime::new("testnet".to_string());
+        let snapshot_item = client
+            .show_snapshot(Arc::new(mock_aggregator_handler), digest)
+            .await;
         assert!(
             matches!(snapshot_item, Err(RuntimeError::AggregatorHandler(_))),
             "unexpected error type: {:?}",
@@ -467,14 +417,16 @@ mod tests {
         mock_digester
             .expect_compute_digest()
             .return_once(move |_| Ok(digest_compute));
-        let mut client = Runtime::new(
-            "testnet".to_string(),
-            Arc::new(mock_aggregator_handler),
-            Box::new(mock_verifier),
-            genesis_verifier,
-        );
-        client.with_digester(Box::new(mock_digester));
-        let restore = client.restore_snapshot(&digest_restore).await;
+        let mut client = Runtime::new("testnet".to_string());
+        let restore = client
+            .restore_snapshot(
+                Arc::new(mock_aggregator_handler),
+                Box::new(mock_digester),
+                Box::new(mock_verifier),
+                genesis_verifier,
+                &digest_restore,
+            )
+            .await;
         restore.expect("unexpected error");
     }
 
@@ -510,14 +462,16 @@ mod tests {
         mock_digester
             .expect_compute_digest()
             .return_once(move |_| Ok(digest_compute));
-        let mut client = Runtime::new(
-            "testnet".to_string(),
-            Arc::new(mock_aggregator_handler),
-            Box::new(mock_verifier),
-            genesis_verifier,
-        );
-        client.with_digester(Box::new(mock_digester));
-        let restore = client.restore_snapshot(&digest_restore).await;
+        let mut client = Runtime::new("testnet".to_string());
+        let restore = client
+            .restore_snapshot(
+                Arc::new(mock_aggregator_handler),
+                Box::new(mock_digester),
+                Box::new(mock_verifier),
+                genesis_verifier,
+                &digest_restore,
+            )
+            .await;
         assert!(
             matches!(restore, Err(RuntimeError::Protocol(_))),
             "unexpected error type: {:?}",
@@ -554,14 +508,16 @@ mod tests {
                 expected_number: 3,
             })
         });
-        let mut client = Runtime::new(
-            "testnet".to_string(),
-            Arc::new(mock_aggregator_handler),
-            Box::new(mock_verifier),
-            genesis_verifier,
-        );
-        client.with_digester(Box::new(mock_digester));
-        let restore = client.restore_snapshot(&digest_restore).await;
+        let mut client = Runtime::new("testnet".to_string());
+        let restore = client
+            .restore_snapshot(
+                Arc::new(mock_aggregator_handler),
+                Box::new(mock_digester),
+                Box::new(mock_verifier),
+                genesis_verifier,
+                &digest_restore,
+            )
+            .await;
         assert!(
             matches!(restore, Err(RuntimeError::ImmutableDigester(_))),
             "unexpected error type: {:?}",
@@ -572,7 +528,7 @@ mod tests {
     #[tokio::test]
     async fn test_restore_snapshot_ko_get_snapshot_details() {
         let digest = "digest123";
-        let (mut mock_aggregator_handler, mock_verifier, _mock_digester, genesis_verifier) =
+        let (mut mock_aggregator_handler, mock_verifier, mock_digester, genesis_verifier) =
             get_dependencies();
         mock_aggregator_handler
             .expect_get_snapshot_details()
@@ -582,13 +538,16 @@ mod tests {
                 ))
             });
 
-        let mut client = Runtime::new(
-            "testnet".to_string(),
-            Arc::new(mock_aggregator_handler),
-            Box::new(mock_verifier),
-            genesis_verifier,
-        );
-        let restore = client.restore_snapshot(digest).await;
+        let mut client = Runtime::new("testnet".to_string());
+        let restore = client
+            .restore_snapshot(
+                Arc::new(mock_aggregator_handler),
+                Box::new(mock_digester),
+                Box::new(mock_verifier),
+                genesis_verifier,
+                digest,
+            )
+            .await;
         assert!(
             matches!(restore, Err(RuntimeError::AggregatorHandler(_))),
             "unexpected error type: {:?}",
@@ -600,7 +559,7 @@ mod tests {
     async fn test_restore_snapshot_ko_get_certificate_details() {
         let digest = "digest123";
         let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
-        let (mut mock_aggregator_handler, mock_verifier, _mock_digester, genesis_verifier) =
+        let (mut mock_aggregator_handler, mock_verifier, mock_digester, genesis_verifier) =
             get_dependencies();
         mock_aggregator_handler
             .expect_get_snapshot_details()
@@ -614,13 +573,16 @@ mod tests {
                 ))
             });
 
-        let mut client = Runtime::new(
-            "testnet".to_string(),
-            Arc::new(mock_aggregator_handler),
-            Box::new(mock_verifier),
-            genesis_verifier,
-        );
-        let restore = client.restore_snapshot(digest).await;
+        let mut client = Runtime::new("testnet".to_string());
+        let restore = client
+            .restore_snapshot(
+                Arc::new(mock_aggregator_handler),
+                Box::new(mock_digester),
+                Box::new(mock_verifier),
+                genesis_verifier,
+                digest,
+            )
+            .await;
         assert!(
             matches!(restore, Err(RuntimeError::CertificateRetriever(_))),
             "unexpected error type: {:?}",
@@ -634,7 +596,7 @@ mod tests {
         let certificate_hash = "cert_hash123";
         let fake_certificate = fake_data::certificate(certificate_hash.to_string());
         let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
-        let (mut mock_aggregator_handler, mut mock_verifier, _mock_digester, genesis_verifier) =
+        let (mut mock_aggregator_handler, mut mock_verifier, mock_digester, genesis_verifier) =
             get_dependencies();
         mock_aggregator_handler
             .expect_get_snapshot_details()
@@ -652,13 +614,16 @@ mod tests {
         mock_verifier
             .expect_verify_multi_signature()
             .return_once(|_, _, _, _| Ok(()));
-        let mut client = Runtime::new(
-            "testnet".to_string(),
-            Arc::new(mock_aggregator_handler),
-            Box::new(mock_verifier),
-            genesis_verifier,
-        );
-        let restore = client.restore_snapshot(digest).await;
+        let mut client = Runtime::new("testnet".to_string());
+        let restore = client
+            .restore_snapshot(
+                Arc::new(mock_aggregator_handler),
+                Box::new(mock_digester),
+                Box::new(mock_verifier),
+                genesis_verifier,
+                digest,
+            )
+            .await;
         assert!(
             matches!(restore, Err(RuntimeError::AggregatorHandler(_))),
             "unexpected error type: {:?}",
