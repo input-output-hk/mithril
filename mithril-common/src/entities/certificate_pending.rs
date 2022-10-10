@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub struct CertificatePending {
     /// Current Beacon
-    #[serde(rename = "beacon")]
     pub beacon: Beacon,
 
     /// Current Protocol parameters
@@ -17,11 +16,9 @@ pub struct CertificatePending {
     pub next_protocol_parameters: ProtocolParameters,
 
     /// Current Signers
-    #[serde(rename = "signers")]
     pub signers: Vec<Signer>,
 
     /// Signers that will be able to sign on the next epoch
-    #[serde(rename = "next_signers")]
     pub next_signers: Vec<Signer>,
 }
 

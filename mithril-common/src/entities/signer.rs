@@ -6,11 +6,9 @@ use sha2::{Digest, Sha256};
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Signer {
     /// The unique identifier of the signer
-    #[serde(rename = "party_id")]
     pub party_id: PartyId,
 
     /// The public key used to authenticate signer signature
-    #[serde(rename = "verification_key")]
     pub verification_key: String,
 }
 
@@ -36,15 +34,12 @@ impl Signer {
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct SignerWithStake {
     /// The unique identifier of the signer
-    #[serde(rename = "party_id")]
     pub party_id: PartyId,
 
     /// The public key used to authenticate signer signature
-    #[serde(rename = "verification_key")]
     pub verification_key: String,
 
     /// The signer stake
-    #[serde(rename = "stake")]
     pub stake: Stake,
 }
 

@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct InternalServerError {
     /// error message
-    #[serde(rename = "message")]
     pub message: String,
 }
 

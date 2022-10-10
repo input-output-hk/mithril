@@ -33,7 +33,6 @@ pub type ProtocolMessagePartValue = String;
 pub struct ProtocolMessage {
     /// Map of the messages combined into the digest
     /// aka MSG(p,n)
-    #[serde(rename = "message_parts")]
     pub message_parts: BTreeMap<ProtocolMessagePartKey, ProtocolMessagePartValue>,
 }
 

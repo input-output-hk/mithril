@@ -8,50 +8,41 @@ pub struct Certificate {
     /// Hash of the current certificate
     /// Computed from the other fields of the certificate
     /// aka H(Cp,n))
-    #[serde(rename = "hash")]
     pub hash: String,
 
     /// Hash of the previous certificate in the chain
     /// This is either the hash of the first certificate of the epoch in the chain
     /// Or the first certificate of the previous epoch in the chain (if the certificate is the first of its epoch)
     /// aka H(FC(n))
-    #[serde(rename = "previous_hash")]
     pub previous_hash: String,
 
     /// Mithril beacon on the Cardano chain
     /// aka BEACON(p,n)
-    #[serde(rename = "beacon")]
     pub beacon: Beacon,
 
     /// Certificate metadata
     /// aka METADATA(p,n)
-    #[serde(rename = "metadata")]
     pub metadata: CertificateMetadata,
 
     /// Structured message that is used to created the signed message
     /// aka MSG(p,n) U AVK(n-1)
-    #[serde(rename = "protocol_message")]
     pub protocol_message: ProtocolMessage,
 
     /// Message that is signed by the signers
     /// aka H(MSG(p,n) || AVK(n-1))
-    #[serde(rename = "signed_message")]
     pub signed_message: String,
 
     /// Aggregate verification key
     /// The AVK used to sign during the current epoch
     /// aka AVK(n-2)
-    #[serde(rename = "aggregate_verification_key")]
     pub aggregate_verification_key: String,
 
     /// STM multi signature created from a quorum of single signatures from the signers
     /// aka MULTI_SIG(H(MSG(p,n) || AVK(n-1)))
-    #[serde(rename = "multi_signature")]
     pub multi_signature: String,
 
     /// Genesis signature created from the original stake distribution
     /// aka GENESIS_SIG(AVK(-1))
-    #[serde(rename = "genesis_signature")]
     pub genesis_signature: String,
 }
 
