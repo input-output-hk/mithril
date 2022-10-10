@@ -1,3 +1,6 @@
+//! API for mithril key certification. 
+//! Includes the wrappers for StmInitializer and KeyReg, and ProtocolRegistrationErrorWrapper. 
+
 use crate::crypto_helper::cardano::{OpCert, ParseError, SerDeShelleyFileFormat};
 use crate::crypto_helper::types::{
     ProtocolPartyId, ProtocolSignerVerificationKey, ProtocolSignerVerificationKeySignature,
