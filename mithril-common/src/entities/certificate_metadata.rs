@@ -19,18 +19,15 @@ pub struct CertificateMetadata {
     /// Date and time when the certificate was initiated
     /// Represents the time at which the single signatures registration is opened
     /// part of METADATA(p,n)
-    #[serde(rename = "initiated_at")]
     pub initiated_at: String,
 
     /// Date and time when the certificate was sealed
     /// Represents the time at which the quorum of single signatures was reached so that they were aggregated into a multi signature
     /// part of METADATA(p,n)
-    #[serde(rename = "sealed_at")]
     pub sealed_at: String,
 
     /// The list of the active signers with their stakes and verification keys
     /// part of METADATA(p,n)
-    #[serde(rename = "signers")]
     pub signers: Vec<SignerWithStake>,
 }
 

@@ -6,15 +6,12 @@ use sha2::{Digest, Sha256};
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ProtocolParameters {
     /// Quorum parameter
-    #[serde(rename = "k")]
     pub k: u64,
 
     /// Security parameter (number of lotteries)
-    #[serde(rename = "m")]
     pub m: u64,
 
     /// f in phi(w) = 1 - (1 - f)^w, where w is the stake of a participant
-    #[serde(rename = "phi_f")]
     pub phi_f: f64,
 }
 

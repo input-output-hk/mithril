@@ -9,15 +9,12 @@ use thiserror::Error;
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize, Hash)]
 pub struct Beacon {
     /// Cardano network
-    #[serde(rename = "network")]
     pub network: String,
 
     /// Cardano chain epoch number
-    #[serde(rename = "epoch")]
     pub epoch: Epoch,
 
     /// Number of the last included immutable files for the digest computation
-    #[serde(rename = "immutable_file_number")]
     pub immutable_file_number: ImmutableFileNumber,
 }
 

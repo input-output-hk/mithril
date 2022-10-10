@@ -7,11 +7,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct SingleSignatures {
     /// The unique identifier of the signer
-    #[serde(rename = "party_id")]
     pub party_id: PartyId,
 
     /// The single signature of the digest
-    #[serde(rename = "signature")]
     pub signature: String,
 
     /// The indexes of the won lotteries that lead to the single signatures
