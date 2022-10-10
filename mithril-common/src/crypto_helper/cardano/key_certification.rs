@@ -1,5 +1,7 @@
-//! API for mithril key certification. 
-//! Includes the wrappers for StmInitializer and KeyReg, and ProtocolRegistrationErrorWrapper. 
+//! API for mithril key certification.
+//! Includes the wrappers for StmInitializer and KeyReg, and ProtocolRegistrationErrorWrapper.
+//! These wrappers allows keeping mithril-core agnostic to Cardano, while providing some
+//! guarantees that mithril-core will not be misused in the context of Cardano.  
 
 use crate::crypto_helper::cardano::{OpCert, ParseError, SerDeShelleyFileFormat};
 use crate::crypto_helper::types::{
@@ -63,8 +65,9 @@ pub enum ProtocolRegistrationErrorWrapper {
     CoreRegister(#[from] RegisterError),
 }
 
-// Wrapper structures to reduce library misuse in the Cardano context
 /// Wrapper structure for [MithrilCore:StmInitializer](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmInitializer.html).
+/// It now obtains a KES signature over the Mithril key. This allows the signers prove
+/// their correct identity with respect to a Cardano PoolID.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StmInitializerWrapper {
     stm_initializer: StmInitializer,
@@ -72,6 +75,11 @@ pub struct StmInitializerWrapper {
 }
 
 /// Wrapper structure for [MithrilCore:KeyReg](https://mithril.network/mithril-core/doc/mithril/key_reg/struct.KeyReg.html).
+/// The wrapper not only contains a map between `Mithril vkey <-> Stake`, but also
+/// a map `PoolID <-> Stake`. This information is recovered from the node state, and
+/// is used to verify the identity of a Mithril signer. Furthermore, the `register` function
+/// of the wrapper forces the registrar to check that the KES signature over the Mithril key
+/// is valid with respect to the PoolID.
 #[derive(Debug, Clone)]
 pub struct KeyRegWrapper {
     stm_key_reg: KeyReg,

@@ -1,3 +1,5 @@
+//! Module to (de)serialise, OpCert using the same structure as used in Cardano.  
+
 use super::SerDeShelleyFileFormat;
 use crate::crypto_helper::cardano::ProtocolRegistrationErrorWrapper;
 use crate::crypto_helper::ProtocolPartyId;
