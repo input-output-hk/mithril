@@ -1,10 +1,15 @@
 ###############################
 # STEP 1: build rust executable
 ###############################
-FROM rust:buster AS rustbuilder
+FROM ubuntu:latest AS rustbuilder
 
 # Upgrade and install build base
-RUN apt-get update && apt-get install -y libssl-dev
+RUN apt-get update && apt-get install -y libssl-dev curl wget build-essential pkg-config make m4
+
+# Install Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN cargo --version
 
 # Create appuser
 RUN adduser --no-create-home --disabled-password appuser
@@ -36,10 +41,6 @@ FROM ubuntu:latest
 
 # Upgrade
 RUN apt-get update -y && apt-get install -y libssl-dev ca-certificates wget && rm -rf /var/lib/apt/lists/*
-
-# Install missing libssl1.1
-RUN wget http://nz2.archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2.16_amd64.deb
-RUN dpkg -i libssl1.1_1.1.1f-1ubuntu2.16_amd64.deb
 
 # Import the user and group files from the builder
 COPY --from=rustbuilder /etc/passwd /etc/passwd
