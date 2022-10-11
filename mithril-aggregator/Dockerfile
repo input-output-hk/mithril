@@ -27,7 +27,6 @@ COPY Cargo.lock /mithril-common/
 COPY mithril-aggregator/Cargo.toml /app
 COPY Cargo.lock /app/
 RUN mkdir -p /app/src/ && echo "fn  main () {}" > /app/src/main.rs
-RUN mkdir -p /app/src/bin/ && echo "fn  main () {}" > /app/src/bin/mithril-aggregator-migrate.rs
 RUN cargo build --release --manifest-path /app/Cargo.toml
 
 # Copy the rest of the files into the container
