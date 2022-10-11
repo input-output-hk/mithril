@@ -18,7 +18,7 @@ The **Cardano Network** is a **Proof-of-Stake** Blockchain platform that support
 
 ## Cardano Node
 
-A **Cardano Node** is a node that runs in a [**Cardano Network**](#cardano-network). There are several types of nodes, among them are **Cardano Full Nodes** that hold a copy of the whole Blockchain. They can be used by **Wallets**, [**Stake Pool Operator**](#stake-pool-operator-spo), **Exchanges** or **Dapps**. One of the use cases of the [**Mihtril Network**](#mithril-network) is to bootsrap rapidly a **Cardano Full Node**.
+A **Cardano Node** is a node that runs in a [**Cardano Network**](#cardano-network). There are several types of nodes, among them are **Cardano Full Nodes** that hold a copy of the whole Blockchain. They can be used by **Wallets**, [**Stake Pool Operator**](#stake-pool-operator-spo), **Exchanges** or **Dapps**. One of the use cases of the [**Mithril Network**](#mithril-network) is to bootsrap rapidly a **Cardano Full Node**.
 
 ## Cardano Key Pair
 

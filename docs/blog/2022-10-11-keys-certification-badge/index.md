@@ -1,5 +1,5 @@
 ---
-title: Mihtril Keys Certification
+title: Mithril Keys Certification
 authors:
 - name: Mithril Team
 tags: [cardano, poolId, operational-certificate, kes-keys, mithril-keys, hybrid-mode]
@@ -53,7 +53,7 @@ From now, SPOs can either run their node by:
 The setup of a Mithril Signer node with these two modes is available in this [guide](https://mithril.network/doc/manual/getting-started/run-signer-node).
 
 Here is an example of the `Verified Signer` badge displayed in the Certificate details popin:
-![](./img/badge.png)
+![Verified Signer Badge](./img/badge.png)
 
 #### How Keys Certification works
 
@@ -63,6 +63,6 @@ We rely on the Cardano `KES Keys` and `Operational Certificate` to be able to:
 - Sign the `Mithril Signer Verification Key` with the `KES Secret Key`
 - Verify that the `Mithril Signer Verification Key` is associated to the owner of the pool
 
-![](./img/schema.jpg)
+![Keys Certification Schema](./img/schema.jpg)
 
 Feel free to reach out to us on the [Discord channel](https://discord.gg/5kaErDKDRq) for questions and/or help.
