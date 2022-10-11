@@ -37,7 +37,6 @@ More information about this private Cardano/Mithril `devnet` is available [here]
 
 * Ensure SQLite3 library is installed on your system and its version is at least `1.35` (released Apr. 2021) on Debian/Ubuntu: `apt install libsqlite3` and `sqlite3 --version`.
 
-
 ## Download source
 
 Download from Github (HTTPS)
@@ -92,7 +91,7 @@ You will see that the devnet is launched with the following steps:
 
 * **Bootstraping the devnet**: generates the artifacts of the devnet depending on the configuration parameters (cryptographic keys, network topology, transactions to setup pool nodes, ...)
 * **Start Cardano Network**: run the nodes of the **Cardano Network**, waits for it to be ready and activate the pool nodes
-* **Start Mithril Network**: run the nodes of the **Mihtril Network** that works on top of the **Cardano Network**
+* **Start Mithril Network**: run the nodes of the **Mithril Network** that works on top of the **Cardano Network**
 
 :::
 
