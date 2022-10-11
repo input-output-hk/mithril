@@ -1,7 +1,7 @@
 ###############################
 # STEP 1: build rust executable
 ###############################
-FROM ubuntu:latest AS rustbuilder
+FROM ubuntu:22.04 AS rustbuilder
 
 # Upgrade and install build base
 RUN apt-get update && apt-get install -y libssl-dev curl wget build-essential pkg-config make m4
@@ -14,6 +14,7 @@ RUN cargo --version
 # Create appuser
 RUN adduser --no-create-home --disabled-password appuser
 
+# Set workdir
 WORKDIR /app
 
 # Copy local dependencies
@@ -38,7 +39,7 @@ RUN cargo build --release
 ###############################
 # STEP 2: build a small image
 ###############################
-FROM ubuntu:latest
+FROM ubuntu:22.04
 
 # Upgrade
 RUN apt-get update -y && apt-get install -y libssl-dev ca-certificates wget sqlite3 && rm -rf /var/lib/apt/lists/*
