@@ -1,12 +1,12 @@
 use mithril_common::digesters::ImmutableFileObserver;
-use mithril_common::entities::{Signer, SignerWithStake};
+use mithril_common::entities::SignerWithStake;
 use slog::Drain;
 use slog_scope::debug;
 use std::error::Error as StdError;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 use thiserror::Error;
 
-use mithril_common::crypto_helper::{key_encode_hex, tests_setup};
+use mithril_common::crypto_helper::tests_setup;
 use mithril_common::{
     chain_observer::FakeObserver,
     digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
@@ -53,10 +53,12 @@ impl StateMachineTester {
             db_directory: PathBuf::new(),
             network: "devnet".to_string(),
             network_magic: Some(42),
-            party_id: "99999999999999999999999999999999".to_string(),
+            party_id: Some("99999999999999999999999999999999".to_string()),
             run_interval: 5000,
             data_stores_directory: PathBuf::new(),
             store_retention_limit: None,
+            kes_secret_key_path: None,
+            operational_certificate_path: None,
         };
 
         let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
@@ -83,7 +85,9 @@ impl StateMachineTester {
             Box::new(MemoryAdapter::new(None).unwrap()),
             config.store_retention_limit,
         ));
-        let single_signer = Arc::new(MithrilSingleSigner::new(config.party_id.clone()));
+        let single_signer = Arc::new(MithrilSingleSigner::new(
+            config.party_id.to_owned().unwrap_or_default(),
+        ));
         let stake_store = Arc::new(StakeStore::new(
             Box::new(MemoryAdapter::new(None).unwrap()),
             config.store_retention_limit,
@@ -103,16 +107,15 @@ impl StateMachineTester {
         let mut signers: Vec<SignerWithStake> =
             tests_setup::setup_signers(10, &protocol_parameters)
                 .into_iter()
-                .map(|(party_id, stake, key, _, _)| SignerWithStake {
-                    party_id,
-                    stake,
-                    verification_key: key_encode_hex(key).unwrap(),
-                })
+                .map(|(signer_with_stake, _, _)| signer_with_stake)
                 .collect();
         signers.push(SignerWithStake {
             party_id: "99999999999999999999999999999999".to_string(),
             stake: 999,
             verification_key: "".to_string(),
+            verification_key_signature: None,
+            operational_certificate: None,
+            kes_period: None,
         });
 
         chain_observer.set_signers(signers).await;
@@ -278,16 +281,11 @@ impl StateMachineTester {
     /// register the signer in the certificate handler
     pub async fn register_signers(&mut self, count: u64) -> Result<&mut Self> {
         let protocol_parameters = tests_setup::setup_protocol_parameters();
-        for (party_id, _stake, verification_key, _signer, _protocol_initializer) in
+        for (signer_with_stake, _signer, _protocol_initializer) in
             tests_setup::setup_signers(count, &protocol_parameters)
         {
-            let signer = Signer {
-                party_id,
-                verification_key: key_encode_hex(verification_key)
-                    .map_err(|e| TestError::SubsystemError(e.into()))?,
-            };
             self.certificate_handler
-                .register_signer(&signer)
+                .register_signer(&signer_with_stake.to_owned().into())
                 .await
                 .map_err(|e| TestError::SubsystemError(e.into()))?;
         }

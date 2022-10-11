@@ -1,9 +1,11 @@
+use crate::entities::HexEncodedKey;
+
 use hex::{FromHex, ToHex};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 /// Encode key to hex helper
-pub fn key_encode_hex<T>(from: T) -> Result<String, String>
+pub fn key_encode_hex<T>(from: T) -> Result<HexEncodedKey, String>
 where
     T: Serialize,
 {
@@ -13,7 +15,7 @@ where
 }
 
 /// Decode key from hex helper
-pub fn key_decode_hex<T>(from: &str) -> Result<T, String>
+pub fn key_decode_hex<T>(from: &HexEncodedKey) -> Result<T, String>
 where
     T: DeserializeOwned,
 {
@@ -36,8 +38,8 @@ pub mod tests {
         let stake = 100;
         let seed = [0u8; 32];
         let mut rng = ChaCha20Rng::from_seed(seed);
-        let protocol_initializer: ProtocolInitializer =
-            ProtocolInitializer::setup(protocol_params, stake, &mut rng);
+        let protocol_initializer =
+            ProtocolInitializerNotCertified::setup(protocol_params, stake, &mut rng);
         let verification_key: ProtocolSignerVerificationKey =
             protocol_initializer.verification_key();
         let verification_key_hex =

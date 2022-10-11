@@ -394,142 +394,15 @@ impl<D: Clone + Digest> StmSigner<D> {
         }
     }
 
-    /// This function should be called when a signing epoch is finished (or when a new one starts).
-    /// It consumes `self` and turns it back to an `StmInitializer`, which allows for an update in
-    /// the dynamic parameters (such as stake distribution, or participants). To ensure that the
-    /// `StmInitializer` will not be used for the previous registration, this function also consumes
-    /// the `ClosedKeyReg` instance. In case the stake of the current party has changed, it includes
-    /// it as input.
-    ///
-    /// # Example
-    /// ```
-    /// # use mithril::key_reg::{ClosedKeyReg, KeyReg};
-    /// # use mithril::stm::{Stake, StmInitializer, StmParameters, StmVerificationKeyPoP};
-    /// # use rand_chacha::ChaCha20Rng;
-    /// # use rand_core::{RngCore, SeedableRng};
-    /// # use blake2::{Blake2b, Digest, digest::consts::U32};
-    ///
-    /// # fn main() {
-    ///     // Parameter. This information is broadcast (or known) to all
-    ///     // participants.
-    /// let params = StmParameters {
-    ///         k: 3,
-    ///         m: 10,
-    ///         phi_f: 1.0,
-    ///     };
-    ///
-    ///     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-    ///
-    ///     ////////////////////////////////
-    ///     //////// EPOCH 1 ///////////////
-    ///     ////////////////////////////////
-    ///
-    ///     // The example starts with only two parties.
-    ///     let nparties_e1 = 2;
-    ///
-    ///     // We initialise the stake at epoch 1
-    ///     let mut total_stake_e1: Stake = 0;
-    ///     let stakes_e1 = (0..nparties_e1)
-    ///         .into_iter()
-    ///         .map(|_| {
-    ///             let stake = rng.next_u64() % 999;
-    ///             total_stake_e1 += stake;
-    ///             1 + stake
-    ///         })
-    ///         .collect::<Vec<_>>();
-    ///
-    ///     // Each party generates their Stm keys
-    ///     let party_0_init_e1 = StmInitializer::setup(params, stakes_e1[0], &mut rng);
-    ///     let party_1_init_e1 = StmInitializer::setup(params, stakes_e1[1], &mut rng);
-    ///
-    ///     // The public keys are broadcast. All participants will have the same keys. We expect
-    ///     // the keys to be persistent.
-    ///     let mut parties_pks: Vec<StmVerificationKeyPoP> = vec![
-    ///         party_0_init_e1.verification_key(),
-    ///         party_1_init_e1.verification_key(),
-    ///     ];
-    ///
-    ///     // Now, each party registers all other participating parties. Once all parties are registered, the key registration
-    ///     // is closed.
-    ///     let party_0_key_reg_e1 = local_reg(&stakes_e1, &parties_pks);
-    ///     let party_1_key_reg_e1 = local_reg(&stakes_e1, &parties_pks);
-    ///
-    ///     // Now, with information of all participating parties, the
-    ///     // signers can be initialised (we can create the Merkle Tree).
-    ///     // The (closed) key registration is consumed, to ensure that it
-    ///     // is not used to initialise a signer at a different epoch.
-    ///     let party_0 = party_0_init_e1.new_signer(party_0_key_reg_e1).unwrap();
-    ///     let party_1 = party_1_init_e1.new_signer(party_1_key_reg_e1).unwrap();
-    ///
-    ///     ////////////////////////////////
-    ///     //////// EPOCH 2 ///////////////
-    ///     ////////////////////////////////
-    ///
-    ///     // Now the second epoch starts. A new party joins, and the stake of all
-    ///     // signers changes.
-    ///     let nparties_e2 = 3;
-    ///
-    ///     // We initialise the stake at epoch 2
-    ///     let mut total_stake_e2: Stake = 0;
-    ///     let stakes_e2 = (0..nparties_e2)
-    ///         .into_iter()
-    ///         .map(|_| {
-    ///             let stake = rng.next_u64() % 999;
-    ///             total_stake_e2 += stake;
-    ///             1 + stake
-    ///         })
-    ///         .collect::<Vec<_>>();
-    ///
-    ///     // Now the `StmSigner`s are outdated with respect to the new stake, and participants.
-    ///     // We allow a transition from `StmSigner` back to `StmInitializer`:
-    ///     let party_0_init_e2 = party_0.new_epoch(Some(stakes_e2[0]));
-    ///     let party_1_init_e2 = party_1.new_epoch(Some(stakes_e2[1]));
-    ///
-    ///     // The third party needs to generate from scratch and broadcast the key (which we represent
-    ///     // by appending to the `pks` vector.
-    ///     let party_2_init_e2 = StmInitializer::setup(params, stakes_e2[2], &mut rng);
-    ///     parties_pks.push(party_2_init_e2.verification_key());
-    ///
-    ///     // The key reg of epoch 1 was consumed, so it cannot be used to generate a signer.
-    ///     // This forces us to re-run the key registration (which is good).
-    ///     let key_reg_e2_0 = local_reg(&stakes_e2, &parties_pks);
-    ///     let key_reg_e2_1 = local_reg(&stakes_e2, &parties_pks);
-    ///     let key_reg_e2_2 = local_reg(&stakes_e2, &parties_pks);
-    ///
-    ///     // And finally, new signers can be created to signe messages in epoch 2. Again, signers
-    ///     // of epoch 1 are consumed, so they cannot be used to sign messages of this epoch (again,
-    ///     // this is good).
-    ///     let _party_0_e2 = party_0_init_e2.new_signer(key_reg_e2_0);
-    ///     let _party_1_e2 = party_1_init_e2.new_signer(key_reg_e2_1);
-    ///     let _party_2_e2 = party_2_init_e2.new_signer(key_reg_e2_2);
-    /// # }
-    ///
-    /// # fn local_reg(stakes: &[u64], pks: &[StmVerificationKeyPoP]) -> ClosedKeyReg<Blake2b<U32>> {
-    /// # let mut local_keyreg = KeyReg::init();
-    /// #    for (&pk, stake) in pks.iter().zip(stakes.iter()) {
-    /// #        local_keyreg.register(*stake, pk).unwrap();
-    /// #    }
-    /// #    local_keyreg.close()
-    /// # }
-    /// ```
-    pub fn new_epoch(self, new_stake: Option<Stake>) -> StmInitializer {
-        let stake = match new_stake {
-            None => self.stake,
-            Some(s) => s,
-        };
-
-        StmInitializer {
-            stake,
-            params: self.params,
-            pk: StmVerificationKeyPoP::from(&self.sk),
-            sk: self.sk,
-        }
-    }
-
     /// Compute the `StmAggrVerificationKey` related to the used registration, which consists of
     /// the merkle tree root and the total stake.
     pub fn compute_avk(&self) -> StmAggrVerificationKey<D> {
         StmAggrVerificationKey::from(&self.closed_reg)
+    }
+
+    /// Return the closed registration instance
+    pub fn get_closed_reg(self) -> ClosedKeyReg<D> {
+        self.closed_reg
     }
 }
 

@@ -1,11 +1,11 @@
 use hex::ToHex;
 use slog_scope::{info, trace, warn};
+use std::path::PathBuf;
 use thiserror::Error;
 
-use mithril::RegisterError;
 use mithril_common::crypto_helper::{
     key_decode_hex, key_encode_hex, ProtocolClerk, ProtocolInitializer, ProtocolKeyRegistration,
-    ProtocolSigner,
+    ProtocolPartyId, ProtocolRegistrationError, ProtocolSigner, ProtocolStakeDistribution,
 };
 use mithril_common::entities::{
     PartyId, ProtocolMessage, ProtocolParameters, SignerWithStake, SingleSignatures, Stake,
@@ -14,7 +14,13 @@ use mithril_common::entities::{
 #[cfg(test)]
 use mockall::automock;
 
-use crate::AsyncError;
+/// MithrilProtocolInitializerBuilder error structure.
+#[derive(Error, Debug)]
+pub enum MithrilProtocolInitializerBuilderError {
+    /// Could not parse a Cardano crypto file
+    #[error("the cardano cryptographic file could not be parsed.")]
+    CardanoCryptoParse,
+}
 
 /// This is responsible of creating new instances of ProtocolInitializer.
 #[derive(Default)]
@@ -31,13 +37,18 @@ impl MithrilProtocolInitializerBuilder {
         &self,
         stake: &Stake,
         protocol_parameters: &ProtocolParameters,
-    ) -> Result<ProtocolInitializer, AsyncError> {
+        kes_secret_key_path: Option<PathBuf>,
+        kes_period: Option<usize>,
+    ) -> Result<ProtocolInitializer, MithrilProtocolInitializerBuilderError> {
         let mut rng = rand_core::OsRng;
         let protocol_initializer = ProtocolInitializer::setup(
             protocol_parameters.to_owned().into(),
+            kes_secret_key_path,
+            kes_period,
             stake.to_owned(),
             &mut rng,
-        );
+        )
+        .map_err(|_| MithrilProtocolInitializerBuilderError::CardanoCryptoParse)?;
 
         Ok(protocol_initializer)
     }
@@ -60,6 +71,9 @@ pub trait SingleSigner: Sync + Send {
         signers_with_stake: &[SignerWithStake],
         protocol_initializer: &ProtocolInitializer,
     ) -> Result<Option<String>, SingleSignerError>;
+
+    /// Get party id
+    fn get_party_id(&self) -> ProtocolPartyId;
 }
 
 /// SingleSigner error structure.
@@ -83,7 +97,7 @@ pub enum SingleSignerError {
 
     /// Could not fetch a signer from a protocol initializer.
     #[error("the protocol initializer is not registered")]
-    ProtocolInitializerNotRegistered(#[from] RegisterError),
+    ProtocolInitializerNotRegistered(#[from] ProtocolRegistrationError),
 
     /// Encoding / Decoding error.
     #[error("codec error: '{0}'")]
@@ -107,7 +121,6 @@ impl MithrilSingleSigner {
         signers_with_stake: &[SignerWithStake],
         protocol_initializer: &ProtocolInitializer,
     ) -> Result<ProtocolSigner, SingleSignerError> {
-        let mut key_reg = ProtocolKeyRegistration::init();
         let signers = signers_with_stake
             .iter()
             .filter(|signer| !signer.verification_key.is_empty())
@@ -119,11 +132,35 @@ impl MithrilSingleSigner {
             ));
         }
 
+        let stake_distribution = signers
+            .iter()
+            .map(|&s| s.into())
+            .collect::<ProtocolStakeDistribution>();
+        let mut key_reg = ProtocolKeyRegistration::init(&stake_distribution);
         for s in signers {
-            let decoded_key =
+            let operational_certificate = match &s.operational_certificate {
+                Some(operational_certificate) => {
+                    key_decode_hex(operational_certificate).map_err(SingleSignerError::Codec)?
+                }
+                _ => None,
+            };
+            let verification_key =
                 key_decode_hex(&s.verification_key).map_err(SingleSignerError::Codec)?;
+            let kes_signature = match &s.verification_key_signature {
+                Some(verification_key_signature) => Some(
+                    key_decode_hex(verification_key_signature).map_err(SingleSignerError::Codec)?,
+                ),
+                _ => None,
+            };
+            let kes_period = s.kes_period;
             key_reg
-                .register(s.stake, decoded_key)
+                .register(
+                    Some(s.party_id.to_owned()),
+                    operational_certificate,
+                    kes_signature,
+                    kes_period,
+                    verification_key,
+                )
                 .map_err(|e| SingleSignerError::ProtocolSignerCreationFailure(e.to_string()))?;
         }
         let closed_reg = key_reg.close();
@@ -189,6 +226,11 @@ impl SingleSigner for MithrilSingleSigner {
             Err(e) => Err(e),
         }
     }
+
+    /// Get party id
+    fn get_party_id(&self) -> ProtocolPartyId {
+        self.party_id.clone()
+    }
 }
 
 #[cfg(test)]
@@ -207,18 +249,14 @@ mod tests {
         let signers_with_stake = signers
             .iter()
             .map(
-                |(party_id, stake, verification_key, _protocol_signer, _protocol_initializer)| {
-                    SignerWithStake::new(
-                        party_id.to_owned(),
-                        key_encode_hex(verification_key).unwrap(),
-                        *stake,
-                    )
+                |(signer_with_stake, _protocol_signer, _protocol_initializer)| {
+                    signer_with_stake.to_owned()
                 },
             )
             .collect::<Vec<SignerWithStake>>();
         let current_signer = &signers[0];
-        let single_signer = MithrilSingleSigner::new(current_signer.0.to_owned());
-        let protocol_signer = &current_signer.3;
+        let single_signer = MithrilSingleSigner::new(current_signer.0.party_id.to_owned());
+        let protocol_signer = &current_signer.1;
         let clerk = ProtocolClerk::from_signer(protocol_signer);
         let avk = clerk.compute_avk();
         let mut protocol_message = ProtocolMessage::new();
@@ -226,7 +264,7 @@ mod tests {
         let expected_message = protocol_message.compute_hash().as_bytes().to_vec();
 
         let sign_result = single_signer
-            .compute_single_signatures(&protocol_message, &signers_with_stake, &current_signer.4)
+            .compute_single_signatures(&protocol_message, &signers_with_stake, &current_signer.2)
             .expect("single signer should not fail")
             .expect("single signer should produce a signature here");
 
@@ -247,23 +285,17 @@ mod tests {
         let signers_with_stake = signers
             .iter()
             .map(
-                |(party_id, stake, verification_key, _protocol_signer, _protocol_initializer)| {
-                    SignerWithStake::new(
-                        party_id.to_owned(),
-                        key_encode_hex(verification_key).unwrap(),
-                        *stake,
-                    )
+                |(signer_with_stake, _protocol_signer, _protocol_initializer)| {
+                    signer_with_stake.to_owned()
                 },
             )
             .collect::<Vec<SignerWithStake>>();
         let current_signer = &signers[0];
-        let single_signer = MithrilSingleSigner::new(current_signer.0.to_owned());
-        let protocol_initializer = &current_signer.4;
-        let avk = single_signer
+        let single_signer = MithrilSingleSigner::new(current_signer.0.party_id.to_owned());
+        let protocol_initializer = &current_signer.2;
+        single_signer
             .compute_aggregate_verification_key(&signers_with_stake, protocol_initializer)
             .expect("compute aggregate verification signature should not fail")
             .expect("aggregate verification signature should not be empty");
-
-        assert_eq!("7b226d745f636f6d6d69746d656e74223a7b22726f6f74223a5b3230362c3235312c39322c302c36382c3139302c3233382c3134302c3235332c3137362c31342c39302c3232302c3231342c3132372c382c3130392c3135332c3138302c39392c3232312c3131332c39362c32352c3231312c35302c34302c34392c3230352c34372c3138302c3139355d2c22686173686572223a6e756c6c7d2c22746f74616c5f7374616b65223a323438367d", avk);
     }
 }

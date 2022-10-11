@@ -503,13 +503,23 @@ ls -1 node-*/registration.cert
 echo "====================================================================="
 echo
 
-# Next is to prepare the pool env files
-POOL_IDX=0
+# Next is to prepare the pool metadata & env files
+NODE_ID=1
+PARTY_IDS=()
 for NODE in ${POOL_NODES}; do
-
-    echo PARTY_ID=${POOL_IDX} > ${NODE}/pool.env
-    POOL_IDX=$(( $POOL_IDX + 1))
-
+    PARTY_ID=$(./cardano-cli stake-pool id \
+                --cold-verification-key-file ${NODE}/shelley/operator.vkey)
+    PARTY_IDS[$NODE_ID]=$PARTY_ID
+    echo PARTY_ID=${PARTY_ID} > ${NODE}/pool.env
+    cat >> ${NODE}/metadata.json <<EOF
+{
+"name": "Mithril Pool ${NODE_ID}",
+"description": "Mithril Pool ${NODE_ID}",
+"ticker": "MITHRIL-DEVNET-SPO-${NODE_ID}",
+"homepage": "https://mithril.network"
+}
+EOF
+    NODE_ID=$(( $NODE_ID + 1))
 done
 
 echo "Generated pool env files:"
@@ -586,12 +596,6 @@ do
     POOLS=\$(./pools.sh 2> /dev/null)
     if [ "\$POOLS" != "" ] ; then
         echo ">>>> Activated!"
-        POOL_IDX=1
-        ./pools.sh | while read POOL_ID ; do
-            echo ">>>> Detected PoolId: \$POOL_ID"
-            echo PARTY_ID=\${POOL_ID} > node-pool\${POOL_IDX}/pool.env
-            POOL_IDX=\$(( \$POOL_IDX + 1))
-        done
         ./pools.sh | while read POOL_ID ; do
             echo ">>>> Retrieve stakes PoolId: \$POOL_ID"
             while true
@@ -916,14 +920,11 @@ cat >> docker-compose.yaml <<EOF
       - CARDANO_NODE_SOCKET_PATH=/data/ipc/node.sock
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
       - GENESIS_VERIFICATION_KEY=${GENESIS_VERIFICATION_KEY}
+      - DB_DIRECTORY=/data/db
+      - SNAPSHOT_DIRECTORY=/data/mithril/aggregator
+      - SERVER_PORT=8080
     command:
       [
-        "--db-directory",
-        "/data/db",
-        "--snapshot-directory",
-        "/data/mithril/aggregator",
-        "--server-port",
-        "8080", 
         "-vvv",
         "serve"
       ]
@@ -955,14 +956,9 @@ cat >> docker-compose.yaml <<EOF
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
       - GENESIS_VERIFICATION_KEY=${GENESIS_VERIFICATION_KEY}
       - GENESIS_SECRET_KEY=${GENESIS_SECRET_KEY}
+      - DB_DIRECTORY=/data/db
     command:
       [
-        "--db-directory",
-        "/data/db",
-        "--snapshot-directory",
-        "/data/mithril/aggregator",
-        "--server-port",
-        "8080", 
         "-vvv",
         "genesis",
         "bootstrap"
@@ -975,6 +971,57 @@ done
 
 NODE_IX=0
 for NODE in ${POOL_NODES}; do
+    NODE_ID=$(( $NODE_IX + 1))
+if [ `expr $NODE_IX % 2` == 0 ]; then 
+    # 50% of signers with key certification
+    cat >> ${NODE}/info.json <<EOF
+{
+"name": "Signer ${NODE_ID}",
+"description": "Certified PoolId",
+"pool_id": "${PARTY_IDS[$NODE_ID]}"
+}
+EOF
+
+    cat >> docker-compose.yaml <<EOF
+  mithril-signer-${NODE}:
+    image: \${MITHRIL_SIGNER_IMAGE}
+    restart: always
+    profiles:
+      - mithril
+    volumes:
+      - ./${NODE}:/data:z
+    networks:
+    - mithril_network
+    env_file:
+    - ./${NODE}/pool.env
+    environment:
+      - RUST_BACKTRACE=1
+      - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
+      - NETWORK=devnet
+      - NETWORK_MAGIC=${NETWORK_MAGIC}
+      - RUN_INTERVAL=700
+      - DB_DIRECTORY=/data/db
+      - DATA_STORES_DIRECTORY=/data/mithril/signer-${NODE}/stores
+      - CARDANO_NODE_SOCKET_PATH=/data/ipc/node.sock
+      - CARDANO_CLI_PATH=/app/bin/cardano-cli
+      - KES_SECRET_KEY_PATH=/data/shelley/kes.skey
+      - OPERATIONAL_CERTIFICATE_PATH=/data/shelley/node.cert
+    command:
+      [
+        "-vvv"
+      ]
+
+EOF
+else
+    # 50% of signers without key certification (legacy)
+    # TODO: Should be removed once the signer certification is fully deployed
+    cat >> ${NODE}/info.json <<EOF
+{
+"name": "Signer ${NODE_ID}",
+"description": "Uncertified PoolId (Legacy)",
+"pool_id": "${PARTY_IDS[$NODE_ID]}"
+}
+EOF
 
 cat >> docker-compose.yaml <<EOF
   mithril-signer-${NODE}:
@@ -1004,6 +1051,8 @@ cat >> docker-compose.yaml <<EOF
       ]
 
 EOF
+fi
+
     NODE_IX=$(( $NODE_IX + 1))
 
 done
@@ -1160,6 +1209,18 @@ else
 fi
 docker-compose -f docker-compose.yaml --profile mithril up --remove-orphans --force-recreate -d --no-build
 
+echo ">> List of Mithril signers"
+    echo --------,--------------------------------------------------------,----------------------------------- | column -t -s,                                                 
+EOF
+
+for NODE in ${POOL_NODES}; do
+    cat >> start-mithril.sh <<EOF
+    cat ${NODE}/info.json | jq -r '"\(.name),\(.pool_id),\(.description)"' | column -t -s,
+EOF
+done
+
+cat >> start-mithril.sh <<EOF
+
 echo ">> Wait for Mithril signers to be registered"
 while true
 do
@@ -1174,6 +1235,8 @@ do
         sleep 2
     fi
 done
+
+echo ">> Bootstrap the Genesis certificate"
 docker-compose -f docker-compose.yaml --profile mithril-genesis run mithril-aggregator-genesis
 
 EOF

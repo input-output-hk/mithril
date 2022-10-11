@@ -41,6 +41,7 @@ impl Spec {
         bootstrap_genesis_certificate(self.infrastructure.aggregator_mut()).await?;
         wait_for_epoch_settings(&aggregator_endpoint).await?;
 
+        // Wait 2 epochs before changing stake distribution, so that we use at least once original stake distribution
         target_epoch += 2;
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
@@ -50,11 +51,12 @@ impl Spec {
         .await?;
         delegate_stakes_to_pools(self.infrastructure.devnet()).await?;
 
-        target_epoch += 4;
+        // Wait 5 epochs after stake delegation, so that we make sure that we use new stake distribution a few times
+        target_epoch += 5;
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
             target_epoch,
-            "epoch after which the certificate chain will be long enough".to_string(),
+            "epoch after which the certificate chain will be long enough to catch most common troubles".to_string(),
         )
         .await?;
 
@@ -62,7 +64,12 @@ impl Spec {
         let certificate_hash =
             assert_signer_is_signing_snapshot(&aggregator_endpoint, &digest, target_epoch - 2)
                 .await?;
-        assert_is_creating_certificate(&aggregator_endpoint, &certificate_hash).await?;
+        assert_is_creating_certificate_with_enough_signers(
+            &aggregator_endpoint,
+            &certificate_hash,
+            self.infrastructure.signers().len(),
+        )
+        .await?;
 
         let mut client = self.infrastructure.build_client()?;
         assert_client_can_verify_snapshot(&mut client, &digest).await?;
@@ -277,9 +284,10 @@ async fn assert_signer_is_signing_snapshot(
     }
 }
 
-async fn assert_is_creating_certificate(
+async fn assert_is_creating_certificate_with_enough_signers(
     aggregator_endpoint: &str,
     certificate_hash: &str,
+    total_signers_expected: usize,
 ) -> Result<(), String> {
     let url = format!("{}/certificate/{}", aggregator_endpoint, certificate_hash);
 
@@ -298,7 +306,20 @@ async fn assert_is_creating_certificate(
     }) {
         AttemptResult::Ok(certificate) => {
             info!("Aggregator produced a certificate"; "certificate" => #?certificate);
-            Ok(())
+            if certificate.metadata.signers.len() == total_signers_expected {
+                info!(
+                    "Certificate is signed by expected number of signers: {} >= {} ",
+                    certificate.metadata.signers.len(),
+                    total_signers_expected
+                );
+                Ok(())
+            } else {
+                Err(format!(
+                    "Certificate is not signed by expected number of signers: {} < {} ",
+                    certificate.metadata.signers.len(),
+                    total_signers_expected
+                ))
+            }
         }
         AttemptResult::Err(error) => Err(error),
         AttemptResult::Timeout() => Err(format!(

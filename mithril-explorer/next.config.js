@@ -3,10 +3,8 @@ const nextConfig = {
   basePath: "/explorer",
   reactStrictMode: true,
   swcMinify: true,
-  experimental: {
-    images: {
-      unoptimized: true
-    }
+  images: {
+    unoptimized: true
   }
 }
 

@@ -1,6 +1,5 @@
 use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
-use mithril_common::entities::Epoch;
 use slog::Level;
 use slog_scope::debug;
 use std::error::Error;
@@ -14,6 +13,7 @@ use mithril_common::certificate_chain::MithrilCertificateVerifier;
 use mithril_common::chain_observer::{CardanoCliRunner, ChainObserver};
 use mithril_common::crypto_helper::ProtocolGenesisVerifier;
 use mithril_common::digesters::{CardanoImmutableDigester, ImmutableFileSystemObserver};
+use mithril_common::entities::{Epoch, HexEncodedGenesisSecretKey};
 use mithril_common::store::adapter::SQLiteAdapter;
 use mithril_common::store::StakeStore;
 use mithril_common::{
@@ -47,7 +47,7 @@ fn setup_genesis_dependencies(
     );
     let immutable_file_observer = Arc::new(ImmutableFileSystemObserver::new(&config.db_directory));
     let beacon_provider = Arc::new(BeaconProviderImpl::new(
-        chain_observer,
+        chain_observer.clone(),
         immutable_file_observer,
         config.get_network()?,
     ));
@@ -87,6 +87,7 @@ fn setup_genesis_dependencies(
         stake_store,
         single_signature_store,
         protocol_parameters_store.clone(),
+        chain_observer,
     )));
     let dependencies = GenesisToolsDependency {
         beacon_provider,
@@ -328,12 +329,6 @@ impl ServeCommand {
             Box::new(SQLiteAdapter::new("protocol_parameters", sqlite_db_path)?),
             config.store_retention_limit,
         ));
-        let multi_signer = Arc::new(RwLock::new(MultiSignerImpl::new(
-            verification_key_store.clone(),
-            stake_store.clone(),
-            single_signature_store.clone(),
-            protocol_parameters_store.clone(),
-        )));
         let chain_observer = Arc::new(
             mithril_common::chain_observer::CardanoCliChainObserver::new(Box::new(
                 CardanoCliRunner::new(
@@ -354,6 +349,13 @@ impl ServeCommand {
             config.db_directory.clone(),
             slog_scope::logger(),
         ));
+        let multi_signer = Arc::new(RwLock::new(MultiSignerImpl::new(
+            verification_key_store.clone(),
+            stake_store.clone(),
+            single_signature_store.clone(),
+            protocol_parameters_store.clone(),
+            chain_observer.clone(),
+        )));
         let certificate_verifier = Arc::new(MithrilCertificateVerifier::new(slog_scope::logger()));
         let genesis_verification_key = key_decode_hex(&config.genesis_verification_key)?;
         let genesis_verifier = Arc::new(ProtocolGenesisVerifier::from_verification_key(
@@ -546,7 +548,7 @@ impl ImportGenesisSubCommand {
 pub struct BootstrapGenesisSubCommand {
     /// Genesis Secret Key (test only)
     #[clap(long, env = "GENESIS_SECRET_KEY")]
-    genesis_secret_key: String,
+    genesis_secret_key: HexEncodedGenesisSecretKey,
 }
 
 impl BootstrapGenesisSubCommand {

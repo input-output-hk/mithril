@@ -51,7 +51,7 @@ impl CertificateMetadata {
 
     /// Deduce the stake distribution from the metadata [signers][CertificateMetadata::signers]
     pub fn get_stake_distribution(&self) -> StakeDistribution {
-        self.signers.clone().into_iter().map(|s| s.into()).collect()
+        self.signers.clone().iter().map(|s| s.into()).collect()
     }
 
     /// Computes the hash of the certificate metadata
@@ -84,8 +84,22 @@ mod tests {
                 "initiated_at".to_string(),
                 "sealed_at".to_string(),
                 vec![
-                    SignerWithStake::new("1".to_string(), "verification-key-123".to_string(), 10),
-                    SignerWithStake::new("2".to_string(), "verification-key-456".to_string(), 20)
+                    SignerWithStake::new(
+                        "1".to_string(),
+                        "verification-key-123".to_string(),
+                        None,
+                        None,
+                        None,
+                        10
+                    ),
+                    SignerWithStake::new(
+                        "2".to_string(),
+                        "verification-key-456".to_string(),
+                        None,
+                        None,
+                        None,
+                        20
+                    )
                 ],
             )
             .compute_hash()
@@ -99,8 +113,22 @@ mod tests {
                 "initiated_at".to_string(),
                 "sealed_at".to_string(),
                 vec![
-                    SignerWithStake::new("1".to_string(), "verification-key-123".to_string(), 10),
-                    SignerWithStake::new("2".to_string(), "verification-key-456".to_string(), 20)
+                    SignerWithStake::new(
+                        "1".to_string(),
+                        "verification-key-123".to_string(),
+                        None,
+                        None,
+                        None,
+                        10
+                    ),
+                    SignerWithStake::new(
+                        "2".to_string(),
+                        "verification-key-456".to_string(),
+                        None,
+                        None,
+                        None,
+                        20
+                    )
                 ],
             )
             .compute_hash()
@@ -114,8 +142,22 @@ mod tests {
                 "initiated_at".to_string(),
                 "sealed_at".to_string(),
                 vec![
-                    SignerWithStake::new("1".to_string(), "verification-key-123".to_string(), 10),
-                    SignerWithStake::new("2".to_string(), "verification-key-456".to_string(), 20)
+                    SignerWithStake::new(
+                        "1".to_string(),
+                        "verification-key-123".to_string(),
+                        None,
+                        None,
+                        None,
+                        10
+                    ),
+                    SignerWithStake::new(
+                        "2".to_string(),
+                        "verification-key-456".to_string(),
+                        None,
+                        None,
+                        None,
+                        20
+                    )
                 ],
             )
             .compute_hash()
@@ -129,8 +171,22 @@ mod tests {
                 "initiated_at-modified".to_string(),
                 "sealed_at".to_string(),
                 vec![
-                    SignerWithStake::new("1".to_string(), "verification-key-123".to_string(), 10),
-                    SignerWithStake::new("2".to_string(), "verification-key-456".to_string(), 20)
+                    SignerWithStake::new(
+                        "1".to_string(),
+                        "verification-key-123".to_string(),
+                        None,
+                        None,
+                        None,
+                        10
+                    ),
+                    SignerWithStake::new(
+                        "2".to_string(),
+                        "verification-key-456".to_string(),
+                        None,
+                        None,
+                        None,
+                        20
+                    )
                 ],
             )
             .compute_hash()
@@ -144,8 +200,22 @@ mod tests {
                 "initiated_at".to_string(),
                 "sealed_at-modified".to_string(),
                 vec![
-                    SignerWithStake::new("1".to_string(), "verification-key-123".to_string(), 10),
-                    SignerWithStake::new("2".to_string(), "verification-key-456".to_string(), 20)
+                    SignerWithStake::new(
+                        "1".to_string(),
+                        "verification-key-123".to_string(),
+                        None,
+                        None,
+                        None,
+                        10
+                    ),
+                    SignerWithStake::new(
+                        "2".to_string(),
+                        "verification-key-456".to_string(),
+                        None,
+                        None,
+                        None,
+                        20
+                    )
                 ],
             )
             .compute_hash()
@@ -162,9 +232,19 @@ mod tests {
                     SignerWithStake::new(
                         "1-modified".to_string(),
                         "verification-key-123".to_string(),
+                        None,
+                        None,
+                        None,
                         10
                     ),
-                    SignerWithStake::new("2".to_string(), "verification-key-456".to_string(), 20)
+                    SignerWithStake::new(
+                        "2".to_string(),
+                        "verification-key-456".to_string(),
+                        None,
+                        None,
+                        None,
+                        20
+                    )
                 ],
             )
             .compute_hash()
@@ -180,6 +260,9 @@ mod tests {
                 vec![SignerWithStake::new(
                     "1".to_string(),
                     "verification-key-123".to_string(),
+                    None,
+                    None,
+                    None,
                     10
                 ),],
             )

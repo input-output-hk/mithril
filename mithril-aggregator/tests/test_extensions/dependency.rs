@@ -73,6 +73,7 @@ pub async fn initialize_dependencies(
         stake_store.clone(),
         single_signature_store.clone(),
         protocol_parameters_store.clone(),
+        chain_observer.clone(),
     );
     let multi_signer = Arc::new(RwLock::new(multi_signer));
     let beacon_provider = Arc::new(BeaconProviderImpl::new(

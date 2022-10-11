@@ -1,5 +1,4 @@
 #![warn(missing_docs)]
-
 //! Implementation of Stake-based Threshold Multisignatures
 
 mod dense_mapping;

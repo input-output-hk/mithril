@@ -1,20 +1,19 @@
 //! Key registration functionality.
-
+use super::stm::Stake;
 use crate::error::RegisterError;
+use crate::merkle_tree::{MTLeaf, MerkleTree};
 use crate::multi_sig::{VerificationKey, VerificationKeyPoP};
 use blake2::digest::Digest;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use super::stm::Stake;
-use crate::merkle_tree::{MTLeaf, MerkleTree};
-
 /// Stores a registered party with its public key and the associated stake.
 pub type RegParty = MTLeaf;
 
 /// Struct that collects public keys and stakes of parties.
 /// Each participant (both the signers and the clerks) need to run their own instance of the key registration.
+// todo: replace with KeyReg
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct KeyReg {
     keys: HashMap<VerificationKey, Stake>,
@@ -34,6 +33,7 @@ pub struct ClosedKeyReg<D: Digest> {
 
 impl KeyReg {
     /// Initialise an empty `KeyReg`.
+    /// todo: remove this init function
     pub fn init() -> Self {
         Self {
             keys: HashMap::new(),
@@ -134,7 +134,7 @@ mod tests {
                         assert!(a.check().is_err());
                     }
                     Err(RegisterError::SerializationError) => unreachable!(),
-                    Err(RegisterError::UnregisteredInitializer) => unreachable!(),
+                    _ => unreachable!(),
                 }
             }
 

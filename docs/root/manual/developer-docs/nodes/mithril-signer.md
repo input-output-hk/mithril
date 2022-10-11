@@ -186,8 +186,10 @@ Here is a list of the available parameters:
 | `db_directory` | `--db-directory` | - | `DB_DIRECTORY` | Directory to snapshot from the **Cardano Node** | `/db` | - | :heavy_check_mark: |
 | `network` | - | - | `NETWORK` | Cardano network | - | `testnet` or `mainnet` or `devnet` | :heavy_check_mark: |
 `network_magic` | - | - | `NETWORK_MAGIC` | Cardano Network Magic number (for `testnet` and `devnet`) | - | `1097911063` or `42` | - |
-| `party_id` | - | - | `PARTY_ID` | Party Id of the signer, usually the `PoolId` of the SPO | - | `pool1pxaqe80sqpde7902er5kf6v0c7y0sv6d5g676766v2h829fvs3x` | :heavy_check_mark: |
+| `party_id` | - | - | `PARTY_ID` | Party Id of the signer, usually the `Pool Id` of the SPO | - | `pool1pxaqe80sqpde7902er5kf6v0c7y0sv6d5g676766v2h829fvs3x` | - | Mandatory in `Pool Id Declaration Mode`  where the owner is not verified (soon to be deprecated)
 | `run_interval` | - | - | `RUN_INTERVAL` | Interval between two runtime cycles in ms | - | `60000` | :heavy_check_mark: |
 | `aggregator_endpoint` | - | - | `AGGREGATOR_ENDPOINT` | Aggregator node endpoint | - | `https://aggregator.api.mithril.network/aggregator` | :heavy_check_mark: |
 | `data_stores_directory` | - | - | `DATA_STORES_DIRECTORY` | Directory to store signer data (Stakes, Protocol initializers, ...) | - | `./mithril-signer/stores` | :heavy_check_mark: |
 | `store_retention_limit` | - | - | `STORE_RETENTION_LIMIT` | Maximum number of records in stores. If not set, no limit is set. | - | - | - |
+| `kes_secret_key_path` | - | - | `KES_SECRET_KEY_PATH` | Path to the `Cardano KES Secret Key` file. Mandatory in `Pool Id Certification Mode` where the owner is verified (experimental, soon to be stable & preferred mode) | - | - | - |
+| `operational_certificate_path` | - | - | `OPERATIONAL_CERTIFICATE_PATH` | Path to the `Cardano Operational Certificate` file. Mandatory in `Pool Id Certification Mode` where the owner is verified (experimental, soon to be stable & preferred mode) | - | - | - |

@@ -110,6 +110,9 @@ mod tests {
                     Signer {
                         party_id: party_id.clone(),
                         verification_key: format!("vkey {}", party_id),
+                        verification_key_signature: None,
+                        operational_certificate: None,
+                        kes_period: None,
                     },
                 );
             }
@@ -135,6 +138,9 @@ mod tests {
                 Signer {
                     party_id: "0".to_string(),
                     verification_key: "OK".to_string(),
+                    verification_key_signature: None,
+                    operational_certificate: None,
+                    kes_period: None,
                 },
             )
             .await
@@ -152,6 +158,9 @@ mod tests {
                 Signer {
                     party_id: "1".to_string(),
                     verification_key: "test".to_string(),
+                    verification_key_signature: None,
+                    operational_certificate: None,
+                    kes_period: None,
                 },
             )
             .await
@@ -162,6 +171,9 @@ mod tests {
             Signer {
                 party_id: "1".to_string(),
                 verification_key: "vkey 1".to_string(),
+                verification_key_signature: None,
+                operational_certificate: None,
+                kes_period: None,
             },
             res.unwrap(),
         );
@@ -198,6 +210,9 @@ mod tests {
                 Signer {
                     party_id: "party_id".to_string(),
                     verification_key: "whatever".to_string(),
+                    verification_key_signature: None,
+                    operational_certificate: None,
+                    kes_period: None,
                 },
             )
             .await

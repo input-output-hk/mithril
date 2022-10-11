@@ -1,11 +1,14 @@
 use async_trait::async_trait;
-#[cfg(test)]
-use mockall::automock;
 use slog_scope::{debug, info, trace, warn};
 use std::error::Error as StdError;
 use thiserror::Error;
 
-use mithril_common::crypto_helper::{key_decode_hex, ProtocolSignerVerificationKey};
+#[cfg(test)]
+use mockall::automock;
+
+use mithril_common::crypto_helper::{
+    key_decode_hex, OpCert, ProtocolSignerVerificationKey, SerDeShelleyFileFormat,
+};
 use mithril_common::entities::{PartyId, ProtocolParameters};
 use mithril_common::{
     crypto_helper::key_encode_hex,
@@ -97,6 +100,9 @@ pub enum RuntimeError {
     /// Could not find the stake for one of the signers.
     #[error("No stake associated with this signer, party_id: {0}.")]
     NoStakeForSigner(PartyId),
+    /// Parse file error
+    #[error("File parse failed: {0}.")]
+    FileParse(String),
     /// General subsystem error
     #[error("Subsystem unavailable: {0}.")]
     SubsystemUnavailable(String),
@@ -166,12 +172,49 @@ impl Runner for SignerRunner {
             .await?
             .ok_or_else(|| RuntimeError::NoValueError("current_stake_distribution".to_string()))?;
         let stake = stake_distribution
-            .get(&self.config.party_id)
+            .get(&self.services.single_signer.get_party_id())
             .ok_or(RuntimeError::NoStakeForSelf())?;
-        let protocol_initializer =
-            MithrilProtocolInitializerBuilder::new().build(stake, protocol_parameters)?;
-        let verification_key = key_encode_hex(protocol_initializer.verification_key())?;
-        let signer = Signer::new(self.config.party_id.to_owned(), verification_key);
+        let (operational_certificate, operational_certificate_encoded) =
+            match &self.config.operational_certificate_path {
+                Some(operational_certificate_path) => {
+                    let opcert: OpCert =
+                        OpCert::from_file(operational_certificate_path).map_err(|_| {
+                            RuntimeError::FileParse("operational_certificate_path".to_string())
+                        })?;
+                    (Some(opcert.clone()), Some(key_encode_hex(opcert)?))
+                }
+                _ => (None, None),
+            };
+
+        let kes_period = match operational_certificate {
+            Some(operational_certificate) => Some(
+                self.services
+                    .chain_observer
+                    .get_current_kes_period(&operational_certificate)
+                    .await?
+                    .unwrap_or_default(),
+            ),
+            None => None,
+        };
+        let protocol_initializer = MithrilProtocolInitializerBuilder::new().build(
+            stake,
+            protocol_parameters,
+            self.config.kes_secret_key_path.clone(),
+            kes_period,
+        )?;
+        let verification_key_encoded = key_encode_hex(protocol_initializer.verification_key())?;
+        let verification_key_signature_encoded =
+            match protocol_initializer.verification_key_signature() {
+                Some(verification_signature) => Some(key_encode_hex(verification_signature)?),
+                _ => None,
+            };
+        let signer = Signer::new(
+            self.services.single_signer.get_party_id(),
+            verification_key_encoded,
+            verification_key_signature_encoded,
+            operational_certificate_encoded,
+            kes_period,
+        );
         self.services
             .certificate_handler
             .register_signer(&signer)
@@ -210,7 +253,9 @@ impl Runner for SignerRunner {
     ) -> Result<bool, Box<dyn StdError + Sync + Send>> {
         debug!("RUNNER: can_i_sign");
 
-        if let Some(signer) = pending_certificate.get_signer(self.config.party_id.to_owned()) {
+        if let Some(signer) =
+            pending_certificate.get_signer(self.services.single_signer.get_party_id())
+        {
             debug!(" > got a Signer from pending certificate");
 
             if let Some(protocol_initializer) = self
@@ -273,6 +318,9 @@ impl Runner for SignerRunner {
             signers_with_stake.push(SignerWithStake::new(
                 signer.party_id.to_owned(),
                 signer.verification_key.to_owned(),
+                signer.verification_key_signature.to_owned(),
+                signer.operational_certificate.to_owned(),
+                signer.kes_period.to_owned(),
                 *stake,
             ));
             trace!(
@@ -446,16 +494,18 @@ mod tests {
             db_directory: PathBuf::new(),
             network: "whatever".to_string(),
             network_magic: None,
-            party_id: "1".to_string(),
+            party_id: Some("1".to_string()),
             run_interval: 100,
             data_stores_directory: PathBuf::new(),
+            kes_secret_key_path: None,
+            operational_certificate_path: None,
             store_retention_limit: None,
         };
 
-        SignerRunner {
-            config: maybe_config.unwrap_or(config),
-            services: maybe_services.unwrap_or(services),
-        }
+        SignerRunner::new(
+            maybe_config.unwrap_or(config),
+            maybe_services.unwrap_or(services),
+        )
     }
 
     #[tokio::test]
@@ -569,7 +619,7 @@ mod tests {
         let mut signer = &mut pending_certificate.signers[0];
 
         let protocol_initializer = MithrilProtocolInitializerBuilder::new()
-            .build(&100, &fake_data::protocol_parameters())
+            .build(&100, &fake_data::protocol_parameters(), None, None)
             .expect("build protocol initializer should not fail");
         signer.verification_key = key_encode_hex(protocol_initializer.verification_key()).unwrap();
         protocol_initializer_store
@@ -600,7 +650,7 @@ mod tests {
             .collect::<Vec<_>>();
         let stake_distribution = expected
             .clone()
-            .into_iter()
+            .iter()
             .map(|s| s.into())
             .collect::<StakeDistribution>();
 
@@ -625,8 +675,10 @@ mod tests {
             .await
             .expect("get_current_beacon should not fail");
         let signers = setup_signers(5, &setup_protocol_parameters());
-        let (party_id, _, _, _, protocol_initializer) = signers.first().unwrap();
-        let single_signer = Arc::new(MithrilSingleSigner::new(party_id.to_string()));
+        let (signer_with_stake, _, protocol_initializer) = signers.first().unwrap();
+        let single_signer = Arc::new(MithrilSingleSigner::new(
+            signer_with_stake.party_id.to_owned(),
+        ));
         services.single_signer = single_signer.clone();
         services
             .protocol_initializer_store
@@ -642,9 +694,7 @@ mod tests {
 
         let next_signers = signers
             .iter()
-            .map(|(p, s, vk, _, _)| {
-                SignerWithStake::new(p.to_string(), key_encode_hex(vk).unwrap(), *s)
-            })
+            .map(|(signer_with_stake, _, _)| signer_with_stake.to_owned())
             .collect::<Vec<_>>();
         let mut expected = ProtocolMessage::new();
         expected.set_message_part(
@@ -676,8 +726,10 @@ mod tests {
             .await
             .expect("get_current_beacon should not fail");
         let signers = setup_signers(5, &setup_protocol_parameters());
-        let (party_id, _, _, _, protocol_initializer) = signers.first().unwrap();
-        let single_signer = Arc::new(MithrilSingleSigner::new(party_id.to_string()));
+        let (signer_with_stake, _, protocol_initializer) = signers.first().unwrap();
+        let single_signer = Arc::new(MithrilSingleSigner::new(
+            signer_with_stake.party_id.to_string(),
+        ));
         services.single_signer = single_signer.clone();
         services
             .protocol_initializer_store
@@ -692,9 +744,7 @@ mod tests {
             .expect("save_protocol_initializer should not fail");
         let signers = signers
             .iter()
-            .map(|(p, s, vk, _, _)| {
-                SignerWithStake::new(p.to_string(), key_encode_hex(vk).unwrap(), *s)
-            })
+            .map(|(signer_with_stake, _, _)| signer_with_stake.to_owned())
             .collect::<Vec<_>>();
 
         let mut message = ProtocolMessage::new();

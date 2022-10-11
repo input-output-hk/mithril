@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use mithril_common::{
     chain_observer::{CardanoCliChainObserver, CardanoCliRunner, ChainObserver},
+    crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
     digesters::{CardanoImmutableDigester, ImmutableDigester, ImmutableFileSystemObserver},
     store::{adapter::SQLiteAdapter, StakeStore},
     BeaconProvider, BeaconProviderImpl,
@@ -40,6 +41,27 @@ impl<'a> ProductionServiceBuilder<'a> {
     pub fn new(config: &'a Config) -> Self {
         Self { config }
     }
+
+    /// Compute protocol party id
+    fn compute_protocol_party_id(&self) -> Result<ProtocolPartyId, Box<dyn StdError>> {
+        match &self.config.operational_certificate_path {
+            Some(operational_certificate_path) => {
+                let opcert: OpCert = OpCert::from_file(operational_certificate_path)
+                    .map_err(|e| format!("Could not decode operational certificate: {:?}", e))?;
+                Ok(opcert.compute_protocol_party_id().map_err(|e| {
+                    format!(
+                        "Could not compute party_id from operational certificate: {:?}",
+                        e
+                    )
+                })?)
+            }
+            _ => Ok(self
+                .config
+                .party_id
+                .to_owned()
+                .ok_or("A party_id should at least be provided")?),
+        }
+    }
 }
 
 impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
@@ -58,7 +80,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             )?),
             self.config.store_retention_limit,
         ));
-        let single_signer = Arc::new(MithrilSingleSigner::new(self.config.party_id.clone()));
+        let single_signer = Arc::new(MithrilSingleSigner::new(self.compute_protocol_party_id()?));
         let certificate_handler = Arc::new(CertificateHandlerHTTPClient::new(
             self.config.aggregator_endpoint.clone(),
         ));
@@ -147,11 +169,13 @@ mod tests {
             network_magic: None,
             network: "preview".to_string(),
             aggregator_endpoint: "".to_string(),
-            party_id: "party-123456".to_string(),
+            party_id: Some("party-123456".to_string()),
             run_interval: 1000,
             db_directory: PathBuf::new(),
             data_stores_directory: stores_dir.clone(),
             store_retention_limit: None,
+            kes_secret_key_path: None,
+            operational_certificate_path: None,
         };
 
         assert!(!stores_dir.exists());

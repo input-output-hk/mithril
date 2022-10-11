@@ -296,7 +296,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             Err(ProtocolError::Beacon(_)) => vec![],
             Err(e) => return Err(e.into()),
         };
-        let next_signer = match multi_signer.get_next_signers_with_stake().await {
+        let next_signers = match multi_signer.get_next_signers_with_stake().await {
             Ok(signers) => signers,
             Err(ProtocolError::Beacon(_)) => vec![],
             Err(e) => return Err(e.into()),
@@ -318,7 +318,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             protocol_parameters.into(),
             next_protocol_parameters.into(),
             signers,
-            next_signer.into_iter().map(|s| s.into()).collect(),
+            next_signers.into_iter().map(|s| s.into()).collect(),
         );
 
         Ok(pending_certificate)

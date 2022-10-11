@@ -133,7 +133,7 @@ impl DependencyManager {
                     epoch,
                     signers
                         .clone()
-                        .into_iter()
+                        .iter()
                         .map(|s| s.into())
                         .collect::<StakeDistribution>(),
                 )
@@ -229,11 +229,13 @@ pub mod tests {
             Box::new(MemoryAdapter::new(None).unwrap()),
             None,
         ));
+        let chain_observer = Arc::new(FakeObserver::default());
         let multi_signer = MultiSignerImpl::new(
             verification_key_store.clone(),
             stake_store.clone(),
             single_signature_store.clone(),
             protocol_parameters_store.clone(),
+            chain_observer,
         );
         let multi_signer = Arc::new(RwLock::new(multi_signer));
         let immutable_file_observer = Arc::new(DumbImmutableFileObserver::default());

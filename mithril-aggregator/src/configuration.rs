@@ -4,7 +4,7 @@ use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use mithril_common::entities::ProtocolParameters;
+use mithril_common::entities::{HexEncodedGenesisVerificationKey, ProtocolParameters};
 use mithril_common::store::adapter::SQLiteAdapter;
 use mithril_common::CardanoNetwork;
 
@@ -68,7 +68,7 @@ pub struct Configuration {
     pub data_stores_directory: PathBuf,
 
     /// Genesis verification key
-    pub genesis_verification_key: String,
+    pub genesis_verification_key: HexEncodedGenesisVerificationKey,
 
     /// Max number of records in stores.
     /// When new records are added, oldest records are automatically deleted so

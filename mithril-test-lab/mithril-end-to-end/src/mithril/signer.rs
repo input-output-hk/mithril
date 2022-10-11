@@ -20,14 +20,14 @@ impl Signer {
         cardano_cli_path: &Path,
         work_dir: &Path,
         bin_dir: &Path,
+        enable_certification: bool,
     ) -> Result<Self, String> {
         let party_id = pool_node.party_id()?;
         let magic_id = DEVNET_MAGIC_ID.to_string();
         let data_stores_path = format!("./stores/signer-{}", party_id);
-        let env = HashMap::from([
+        let mut env = HashMap::from([
             ("NETWORK", "devnet"),
-            ("PARTY_ID", &party_id),
-            ("RUN_INTERVAL", "800"),
+            ("RUN_INTERVAL", "400"),
             ("AGGREGATOR_ENDPOINT", &aggregator_endpoint),
             ("DB_DIRECTORY", pool_node.db_path.to_str().unwrap()),
             ("DATA_STORES_DIRECTORY", &data_stores_path),
@@ -38,6 +38,18 @@ impl Signer {
             ),
             ("CARDANO_CLI_PATH", cardano_cli_path.to_str().unwrap()),
         ]);
+        if enable_certification {
+            env.insert(
+                "KES_SECRET_KEY_PATH",
+                pool_node.kes_secret_key_path.to_str().unwrap(),
+            );
+            env.insert(
+                "OPERATIONAL_CERTIFICATE_PATH",
+                pool_node.operational_certificate_path.to_str().unwrap(),
+            );
+        } else {
+            env.insert("PARTY_ID", &party_id);
+        }
         let args = vec!["-vvv"];
 
         let mut command = MithrilCommand::new("mithril-signer", work_dir, bin_dir, env, &args)?;

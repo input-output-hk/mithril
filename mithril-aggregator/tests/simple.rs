@@ -17,8 +17,11 @@ async fn simple_scenario() {
 
     comment!("Create signers & declare stake distribution");
     let signers = tests_setup::setup_signers(5, &protocol_parameters.clone().into());
-    let signers_with_stake: Vec<SignerWithStake> =
-        signers.clone().into_iter().map(|s| s.into()).collect();
+    let signers_with_stake: Vec<SignerWithStake> = signers
+        .clone()
+        .into_iter()
+        .map(|(signer_with_stake, _, _)| signer_with_stake)
+        .collect();
     tester
         .chain_observer
         .set_signers(signers_with_stake.clone())

@@ -156,10 +156,10 @@ impl CertificateVerifier for MithrilCertificateVerifier {
             "Verify multi signature for {:?}",
             message.encode_hex::<String>()
         );
-        let multi_signature: ProtocolMultiSignature =
-            key_decode_hex(multi_signature).map_err(CertificateVerifierError::Codec)?;
-        let aggregate_verification_key =
-            key_decode_hex(aggregate_verification_key).map_err(CertificateVerifierError::Codec)?;
+        let multi_signature: ProtocolMultiSignature = key_decode_hex(&multi_signature.to_string())
+            .map_err(CertificateVerifierError::Codec)?;
+        let aggregate_verification_key = key_decode_hex(&aggregate_verification_key.to_string())
+            .map_err(CertificateVerifierError::Codec)?;
         multi_signature
             .verify(
                 message,
@@ -315,13 +315,13 @@ mod tests {
         let message = setup_message();
 
         let mut single_signatures = Vec::new();
-        signers.iter().for_each(|(_, _, _, protocol_signer, _)| {
+        signers.iter().for_each(|(_, protocol_signer, _)| {
             if let Some(signature) = protocol_signer.sign(message.compute_hash().as_bytes()) {
                 single_signatures.push(signature);
             }
         });
 
-        let first_signer = &signers.first().unwrap().3;
+        let first_signer = &signers.first().unwrap().1;
         let clerk = ProtocolClerk::from_signer(first_signer);
         let aggregate_verification_key = clerk.compute_avk();
         let multi_signature = clerk

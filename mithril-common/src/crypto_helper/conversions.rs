@@ -1,9 +1,6 @@
 use super::super::entities;
 use super::types;
-use crate::crypto_helper::{
-    key_encode_hex, ProtocolInitializer, ProtocolPartyId, ProtocolSigner,
-    ProtocolSignerVerificationKey, ProtocolStake,
-};
+use crate::crypto_helper::{ProtocolPartyId, ProtocolStake};
 
 impl From<types::ProtocolParameters> for entities::ProtocolParameters {
     fn from(other: types::ProtocolParameters) -> Self {
@@ -16,58 +13,17 @@ impl From<entities::ProtocolParameters> for types::ProtocolParameters {
         types::ProtocolParameters {
             k: other.k,
             m: other.m,
-            phi_f: other.phi_f as f64,
+            phi_f: other.phi_f,
         }
     }
 }
 
-impl From<entities::SignerWithStake> for entities::Signer {
-    fn from(other: entities::SignerWithStake) -> Self {
-        entities::Signer::new(other.party_id, other.verification_key)
-    }
-}
-
-impl From<&entities::SignerWithStake> for entities::Signer {
+impl From<&entities::SignerWithStake> for (types::ProtocolPartyId, types::ProtocolStake) {
     fn from(other: &entities::SignerWithStake) -> Self {
-        entities::Signer::new(other.party_id.clone(), other.verification_key.clone())
-    }
-}
-
-impl From<entities::SignerWithStake> for (types::ProtocolPartyId, types::ProtocolStake) {
-    fn from(other: entities::SignerWithStake) -> Self {
         (
-            other.party_id as ProtocolPartyId,
+            other.party_id.clone() as ProtocolPartyId,
             other.stake as ProtocolStake,
         )
-    }
-}
-
-impl From<(ProtocolPartyId, ProtocolStake)> for entities::SignerWithStake {
-    fn from(other: (ProtocolPartyId, ProtocolStake)) -> Self {
-        entities::SignerWithStake::new(other.0, "".to_string(), other.1)
-    }
-}
-
-impl
-    From<(
-        ProtocolPartyId,
-        ProtocolStake,
-        ProtocolSignerVerificationKey,
-        ProtocolSigner,
-        ProtocolInitializer,
-    )> for entities::SignerWithStake
-{
-    fn from(
-        other: (
-            ProtocolPartyId,
-            ProtocolStake,
-            ProtocolSignerVerificationKey,
-            ProtocolSigner,
-            ProtocolInitializer,
-        ),
-    ) -> Self {
-        let (party_id, stake, verification_key, _, _) = other;
-        entities::SignerWithStake::new(party_id, key_encode_hex(verification_key).unwrap(), stake)
     }
 }
 
@@ -107,23 +63,10 @@ pub mod tests {
             100 as types::ProtocolStake,
         );
         let signer_with_stake_expected =
-            entities::SignerWithStake::new("1".to_string(), "".to_string(), 100);
+            &entities::SignerWithStake::new("1".to_string(), "".to_string(), None, None, None, 100);
 
         let signer_with_stake_expected_into: (types::ProtocolPartyId, types::ProtocolStake) =
-            signer_with_stake_expected.clone().into();
+            signer_with_stake_expected.into();
         assert_eq!(stake_expected, signer_with_stake_expected_into);
-
-        let stake_expected_from = stake_expected.into();
-        assert_eq!(signer_with_stake_expected, stake_expected_from);
-    }
-
-    #[test]
-    fn test_stake_signers_from_into() {
-        let signer_expected = entities::Signer::new("1".to_string(), "123456".to_string());
-        let signer_with_stake =
-            entities::SignerWithStake::new("1".to_string(), "123456".to_string(), 100);
-
-        let signer_into: entities::Signer = signer_with_stake.into();
-        assert_eq!(signer_expected, signer_into);
     }
 }

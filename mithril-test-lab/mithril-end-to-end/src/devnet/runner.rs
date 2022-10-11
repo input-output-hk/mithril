@@ -23,6 +23,8 @@ pub struct PoolNode {
     pub db_path: PathBuf,
     pub socket_path: PathBuf,
     pool_env_path: PathBuf,
+    pub kes_secret_key_path: PathBuf,
+    pub operational_certificate_path: PathBuf,
 }
 
 impl PoolNode {
@@ -139,6 +141,12 @@ impl Devnet {
                     .artifacts_dir
                     .join(format!("node-pool{}/ipc/node.sock", n)),
                 pool_env_path: self.artifacts_dir.join(format!("node-pool{}/pool.env", n)),
+                kes_secret_key_path: self
+                    .artifacts_dir
+                    .join(format!("node-pool{}/shelley/kes.skey", n)),
+                operational_certificate_path: self
+                    .artifacts_dir
+                    .join(format!("node-pool{}/shelley/node.cert", n)),
             })
             .collect::<Vec<_>>();
 
@@ -248,6 +256,10 @@ mod tests {
                     db_path: PathBuf::from(r"test/path/node-pool1/db"),
                     socket_path: PathBuf::from(r"test/path/node-pool1/ipc/node.sock"),
                     pool_env_path: PathBuf::from(r"test/path/node-pool1/pool.env"),
+                    kes_secret_key_path: PathBuf::from(r"test/path/node-pool1/shelley/kes.skey"),
+                    operational_certificate_path: PathBuf::from(
+                        r"test/path/node-pool1/shelley/node.cert"
+                    ),
                 },],
             },
             devnet.topology()

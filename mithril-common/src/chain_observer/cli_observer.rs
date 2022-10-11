@@ -2,10 +2,12 @@ use async_trait::async_trait;
 use nom::IResult;
 use serde_json::Value;
 use std::error::Error;
+use std::fs;
 use std::path::PathBuf;
 use tokio::process::Command;
 
 use crate::chain_observer::interface::*;
+use crate::crypto_helper::{KESPeriod, OpCert, SerDeShelleyFileFormat};
 use crate::entities::{Epoch, StakeDistribution};
 use crate::CardanoNetwork;
 
@@ -17,6 +19,10 @@ pub trait CliRunner {
         stake_pool_id: &str,
     ) -> Result<String, Box<dyn Error + Sync + Send>>;
     async fn launch_epoch(&self) -> Result<String, Box<dyn Error + Sync + Send>>;
+    async fn launch_kes_period(
+        &self,
+        opcert_file: &str,
+    ) -> Result<String, Box<dyn Error + Sync + Send>>;
 }
 
 /// A runner able to request data from a Cardano node using the
@@ -60,6 +66,18 @@ impl CardanoCliRunner {
     fn command_for_epoch(&self) -> Command {
         let mut command = self.get_command();
         command.arg("query").arg("tip");
+        self.post_config_command(&mut command);
+
+        command
+    }
+
+    fn command_for_kes_period(&self, opcert_file: &str) -> Command {
+        let mut command = self.get_command();
+        command
+            .arg("query")
+            .arg("kes-period-info")
+            .arg("--op-cert-file")
+            .arg(opcert_file);
         self.post_config_command(&mut command);
 
         command
@@ -143,6 +161,26 @@ impl CliRunner for CardanoCliRunner {
             Err(format!(
                 "Error launching command {:?}, error = '{}'",
                 self.command_for_epoch(),
+                message
+            )
+            .into())
+        }
+    }
+
+    async fn launch_kes_period(
+        &self,
+        opcert_file: &str,
+    ) -> Result<String, Box<dyn Error + Sync + Send>> {
+        let output = self.command_for_kes_period(opcert_file).output().await?;
+
+        if output.status.success() {
+            Ok(std::str::from_utf8(&output.stdout)?.trim().to_string())
+        } else {
+            let message = String::from_utf8_lossy(&output.stderr);
+
+            Err(format!(
+                "Error launching command {:?}, error = '{}'",
+                self.command_for_kes_period(opcert_file),
                 message
             )
             .into())
@@ -266,11 +304,45 @@ impl ChainObserver for CardanoCliChainObserver {
 
         Ok(Some(stake_distribution))
     }
+
+    async fn get_current_kes_period(
+        &self,
+        opcert: &OpCert,
+    ) -> Result<Option<KESPeriod>, ChainObserverError> {
+        let dir = std::env::temp_dir().join("mithril_kes_period");
+        fs::create_dir_all(&dir).map_err(|e| ChainObserverError::General(Box::new(e)))?;
+        let opcert_file =
+            std::env::temp_dir().join(format!("opcert_kes_period-{}", opcert.compute_hash()));
+        opcert
+            .to_file(&opcert_file)
+            .map_err(|e| ChainObserverError::General(Box::new(e)))?;
+        let output = self
+            .cli_runner
+            .launch_kes_period(opcert_file.to_str().unwrap())
+            .await
+            .map_err(ChainObserverError::General)?;
+        let first_left_curly_bracket_index = output.find('{').unwrap_or_default();
+        let output_cleaned = output.split_at(first_left_curly_bracket_index).1;
+        let v: Value = serde_json::from_str(output_cleaned).map_err(|e| {
+            ChainObserverError::InvalidContent(
+                format!("Error: {:?}, output was = '{}'", e, output).into(),
+            )
+        })?;
+
+        if let Value::Number(kes_period) = &v["qKesCurrentKesPeriod"] {
+            Ok(kes_period.as_u64().map(|p| p as KESPeriod))
+        } else {
+            Ok(None)
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::crypto_helper::ColdKeyGenerator;
+
+    use kes_summed_ed25519::{kes::Sum6Kes, traits::KesSk};
 
     struct TestCliRunner {}
 
@@ -332,6 +404,28 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
     "epoch": 120,
     "slot": 0,
     "block": 0
+}"#;
+
+            Ok(output.to_string())
+        }
+
+        async fn launch_kes_period(
+            &self,
+            _opcert_file: &str,
+        ) -> Result<String, Box<dyn Error + Sync + Send>> {
+            let output = r#"
+✓ The operational certificate counter agrees with the node protocol state counter
+✓ Operational certificate's kes period is within the correct KES period interval
+{
+    "qKesNodeStateOperationalCertificateNumber": 6,
+    "qKesCurrentKesPeriod": 404,
+    "qKesOnDiskOperationalCertificateNumber": 6,
+    "qKesRemainingSlotsInKesPeriod": 3760228,
+    "qKesMaxKESEvolutions": 62,
+    "qKesKesKeyExpiry": "2022-03-20T21:44:51Z",
+    "qKesEndKesInterval": 434,
+    "qKesStartKesInterval": 372,
+    "qKesSlotsPerKesPeriod": 129600
 }"#;
 
             Ok(output.to_string())
@@ -428,5 +522,19 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
         assert!(results
             .get("pool1qpqvz90w7qsex2al2ejjej0rfgrwsguch307w8fraw7a7adf6g8")
             .is_none());
+    }
+
+    #[tokio::test]
+    async fn test_get_current_kes_period() {
+        let keypair = ColdKeyGenerator::create_deterministic_keypair([0u8; 32]);
+        let (_, kes_verification_key) = Sum6Kes::keygen(&mut [0u8; 32]);
+        let operational_certificate = OpCert::new(kes_verification_key, 0, 0, keypair);
+        let observer = CardanoCliChainObserver::new(Box::new(TestCliRunner {}));
+        let kes_period = observer
+            .get_current_kes_period(&operational_certificate)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(404, kes_period);
     }
 }

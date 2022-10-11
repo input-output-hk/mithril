@@ -9,9 +9,10 @@ use std::io::Write;
 use std::path;
 
 use mithril_common::crypto_helper::{
-    key_decode_hex, key_encode_hex, ProtocolClerk, ProtocolInitializer, ProtocolKeyRegistration,
-    ProtocolMultiSignature, ProtocolParameters, ProtocolPartyId, ProtocolSigner,
-    ProtocolSignerVerificationKey, ProtocolSingleSignature, ProtocolStake,
+    key_decode_hex, key_encode_hex, ProtocolClerk, ProtocolInitializerNotCertified,
+    ProtocolKeyRegistrationNotCertified, ProtocolMultiSignature, ProtocolParameters,
+    ProtocolPartyId, ProtocolSigner, ProtocolSignerVerificationKey, ProtocolSingleSignature,
+    ProtocolStake,
 };
 
 /// Player artifacts
@@ -98,7 +99,7 @@ impl Party {
             self.party_id, players
         );
 
-        let mut key_reg = ProtocolKeyRegistration::init();
+        let mut key_reg = ProtocolKeyRegistrationNotCertified::init();
         for (_party_id, stake, verification_key) in players_with_keys {
             key_reg.register(*stake, *verification_key).unwrap();
         }
@@ -106,7 +107,7 @@ impl Party {
 
         let seed = [0u8; 32];
         let mut rng = ChaCha20Rng::from_seed(seed);
-        let p = ProtocolInitializer::setup(self.params.unwrap(), self.stake, &mut rng);
+        let p = ProtocolInitializerNotCertified::setup(self.params.unwrap(), self.stake, &mut rng);
         self.signer = Some(p.new_signer(closed_reg).unwrap());
         self.clerk = Some(ProtocolClerk::from_signer(self.signer.as_ref().unwrap()));
     }
@@ -237,7 +238,7 @@ impl Verifier {
             .collect::<Vec<_>>();
         println!("Verifier: protocol keys registration from {:?}", players);
 
-        let mut key_reg = ProtocolKeyRegistration::init();
+        let mut key_reg = ProtocolKeyRegistrationNotCertified::init();
         for (_party_id, stake, verification_key) in players_with_keys {
             key_reg.register(*stake, *verification_key).unwrap();
         }
@@ -367,7 +368,7 @@ impl ProtocolDemonstrator for Demonstrator {
         let mut players_artifacts = Vec::new();
         for (party_id, stake) in players {
             let protocol_initializer =
-                ProtocolInitializer::setup(self.params.unwrap(), stake, &mut rng);
+                ProtocolInitializerNotCertified::setup(self.params.unwrap(), stake, &mut rng);
             let verification_key: ProtocolSignerVerificationKey =
                 protocol_initializer.verification_key();
             players_artifacts.push(PlayerArtifact {

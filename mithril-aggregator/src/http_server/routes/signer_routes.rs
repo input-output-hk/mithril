@@ -24,7 +24,6 @@ mod handlers {
     use crate::dependency::MultiSignerWrapper;
     use crate::http_server::routes::reply;
     use crate::ProtocolError;
-    use mithril_common::crypto_helper::{key_decode_hex, ProtocolPartyId};
     use mithril_common::entities;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
@@ -38,26 +37,23 @@ mod handlers {
         debug!("⇄ HTTP SERVER: register_signer/{:?}", signer);
 
         let mut multi_signer = multi_signer.write().await;
-        match key_decode_hex(&signer.verification_key) {
-            Ok(verification_key) => {
-                match multi_signer
-                    .register_signer(signer.party_id as ProtocolPartyId, &verification_key)
-                    .await
-                {
-                    Ok(()) => Ok(reply::empty(StatusCode::CREATED)),
-                    Err(ProtocolError::ExistingSigner()) => {
-                        debug!("register_signer::already_registered");
-                        Ok(reply::empty(StatusCode::CREATED))
-                    }
-                    Err(err) => {
-                        warn!("register_signer::error"; "error" => ?err);
-                        Ok(reply::internal_server_error(err.to_string()))
-                    }
-                }
+        match multi_signer.register_signer(&signer).await {
+            Ok(()) => Ok(reply::empty(StatusCode::CREATED)),
+            Err(ProtocolError::ExistingSigner()) => {
+                debug!("register_signer::already_registered");
+                Ok(reply::empty(StatusCode::CREATED))
+            }
+            Err(ProtocolError::Codec(err)) => {
+                warn!("register_signer::failed_signer_decoding"; "error" => ?err);
+                Ok(reply::empty(StatusCode::BAD_REQUEST))
+            }
+            Err(ProtocolError::FailedSignerRegistration(err)) => {
+                warn!("register_signer::failed_signer_registration"; "error" => ?err);
+                Ok(reply::empty(StatusCode::BAD_REQUEST))
             }
             Err(err) => {
-                warn!("register_signer::key_decode_hex::error"; "error" => ?err);
-                Ok(reply::empty(StatusCode::BAD_REQUEST))
+                warn!("register_signer::error"; "error" => ?err);
+                Ok(reply::internal_server_error(err.to_string()))
             }
         }
     }
@@ -68,6 +64,7 @@ mod tests {
     const API_SPEC_FILE: &str = "../openapi.yaml";
 
     use mithril_common::apispec::APISpec;
+    use mithril_common::crypto_helper::ProtocolRegistrationError;
     use mithril_common::fake_data;
     use tokio::sync::RwLock;
     use warp::http::Method;
@@ -96,7 +93,7 @@ mod tests {
         let mut mock_multi_signer = MockMultiSigner::new();
         mock_multi_signer
             .expect_register_signer()
-            .return_once(|_, _| Ok(()));
+            .return_once(|_| Ok(()));
         let (mut dependency_manager, _) = initialize_dependencies().await;
         dependency_manager.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
 
@@ -126,7 +123,7 @@ mod tests {
         let mut mock_multi_signer = MockMultiSigner::new();
         mock_multi_signer
             .expect_register_signer()
-            .return_once(|_, _| Err(ProtocolError::ExistingSigner()));
+            .return_once(|_| Err(ProtocolError::ExistingSigner()));
         let (mut dependency_manager, _) = initialize_dependencies().await;
         dependency_manager.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
 
@@ -153,12 +150,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_signer_post_ko_400() {
-        let mock_multi_signer = MockMultiSigner::new();
+        let mut mock_multi_signer = MockMultiSigner::new();
+        mock_multi_signer.expect_register_signer().return_once(|_| {
+            Err(ProtocolError::FailedSignerRegistration(
+                ProtocolRegistrationError::OpCertInvalid,
+            ))
+        });
         let (mut dependency_manager, _) = initialize_dependencies().await;
         dependency_manager.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
 
-        let mut signer = fake_data::signers(1)[0].clone();
-        signer.verification_key = "invalid-key".to_string();
+        let signer = fake_data::signers(1)[0].clone();
 
         let method = Method::POST.as_str();
         let path = "/register-signer";
@@ -184,7 +185,7 @@ mod tests {
         let mut mock_multi_signer = MockMultiSigner::new();
         mock_multi_signer
             .expect_register_signer()
-            .return_once(|_, _| Err(ProtocolError::Core("an error occurred".to_string())));
+            .return_once(|_| Err(ProtocolError::Core("an error occurred".to_string())));
         let (mut dependency_manager, _) = initialize_dependencies().await;
         dependency_manager.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
 

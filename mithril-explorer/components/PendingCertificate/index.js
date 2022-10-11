@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import {Card, CardGroup, ListGroup} from "react-bootstrap";
+import { Card, CardGroup, ListGroup } from "react-bootstrap";
 import RawJsonButton from "../RawJsonButton";
+import VerifiedBadge from '../VerifiedBadge';
 
 export default function PendingCertificate(props) {
   const [pendingCertificate, setPendingCertificate] = useState({});
@@ -9,7 +10,7 @@ export default function PendingCertificate(props) {
     if (!props.autoUpdate) {
       return;
     }
-    
+
     let fetchPendingCertificate = () => {
       fetch(`${props.aggregator}/certificate-pending`)
         .then(response => response.status === 200 ? response.json() : {})
@@ -19,10 +20,10 @@ export default function PendingCertificate(props) {
           console.error("Fetch certificate-pending error:", error);
         });
     };
-    
+
     // Fetch it once without waiting
     fetchPendingCertificate();
-    
+
     const interval = setInterval(fetchPendingCertificate, props.updateInterval);
     return () => clearInterval(interval);
   }, [props.aggregator, props.updateInterval, props.autoUpdate]);
@@ -30,7 +31,7 @@ export default function PendingCertificate(props) {
   return (
     <div className={props.className}>
       <h2>
-        Pending Certificate 
+        Pending Certificate
         {Object.entries(pendingCertificate).length !== 0 &&
           <RawJsonButton
             href={`${props.aggregator}/certificate-pending`}
@@ -38,7 +39,7 @@ export default function PendingCertificate(props) {
             size="sm" />
         }
       </h2>
-      
+
       {Object.entries(pendingCertificate).length === 0
         ? <p>No pending certificate available</p>
         :
@@ -68,7 +69,14 @@ export default function PendingCertificate(props) {
                   <ListGroup variant="flush">
                     <ListGroup.Item><b>Party id</b></ListGroup.Item>
                     {pendingCertificate.signers.map(signer =>
-                      <ListGroup.Item key={signer.party_id}>{signer.party_id}</ListGroup.Item>
+                      <ListGroup.Item key={signer.party_id}>
+                        {signer.party_id}
+                        {signer.verification_key_signature &&
+                          <div className="float-end">
+                            <VerifiedBadge tooltip="Verified Signer" />
+                          </div>
+                        }
+                      </ListGroup.Item>
                     )}
                   </ListGroup>
                 </>
@@ -84,7 +92,14 @@ export default function PendingCertificate(props) {
                   <ListGroup variant="flush">
                     <ListGroup.Item><b>Party id</b></ListGroup.Item>
                     {pendingCertificate.next_signers.map(signer =>
-                      <ListGroup.Item key={signer.party_id}>{signer.party_id}</ListGroup.Item>
+                      <ListGroup.Item key={signer.party_id}>
+                        {signer.party_id}
+                        {signer.verification_key_signature &&
+                          <div className="float-end">
+                            <VerifiedBadge tooltip="Verified Signer" />
+                          </div>
+                        }
+                      </ListGroup.Item>
                     )}
                   </ListGroup>
                 </>
@@ -93,6 +108,6 @@ export default function PendingCertificate(props) {
           </Card>
         </CardGroup>
       }
-    </div>
+    </div >
   );
 }
