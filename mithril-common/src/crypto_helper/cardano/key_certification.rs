@@ -199,17 +199,27 @@ impl KeyRegWrapper {
             opcert
                 .validate()
                 .map_err(|_| ProtocolRegistrationErrorWrapper::OpCertInvalid)?;
-            kes_sig
-                .ok_or(ProtocolRegistrationErrorWrapper::KesSignatureMissing)?
-                .verify(
-                    kes_period.ok_or(ProtocolRegistrationErrorWrapper::KesPeriodMissing)?,
-                    &opcert.kes_vk,
-                    &pk.to_bytes(),
-                )
-                .map_err(|_| ProtocolRegistrationErrorWrapper::KesSignatureInvalid)?;
-            opcert
-                .compute_protocol_party_id()
-                .map_err(|_| ProtocolRegistrationErrorWrapper::PoolAddressEncoding)?
+            // TODO: List of eligible indices to be defined by CurrentKesPeriod and StartKesPeriod
+            let mut pool_id = None;
+            let sig = kes_sig.ok_or(ProtocolRegistrationErrorWrapper::KesSignatureMissing)?;
+            for kes_period_try in 0..64 {
+                if sig
+                    .verify(kes_period_try, &opcert.kes_vk, &pk.to_bytes())
+                    .is_ok()
+                {
+                    println!(
+                        "WARNING: KES Signature verified for TryKesPeriod={}, CurrentKesPeriod={:?}, and StartKesPeriod={}",
+                        kes_period_try, kes_period, &opcert.start_kes_period
+                    );
+                    pool_id = Some(
+                        opcert
+                            .compute_protocol_party_id()
+                            .map_err(|_| ProtocolRegistrationErrorWrapper::PoolAddressEncoding)?,
+                    );
+                    break;
+                }
+            }
+            pool_id.ok_or(ProtocolRegistrationErrorWrapper::KesSignatureInvalid)?
         } else {
             println!("WARNING: Signer certification is skipped! {:?}", party_id);
             party_id.ok_or(ProtocolRegistrationErrorWrapper::PartyIdMissing)?
@@ -221,7 +231,6 @@ impl KeyRegWrapper {
                 .map_err(ProtocolRegistrationErrorWrapper::CoreRegister)?;
             return Ok(pool_id_bech32);
         }
-
         Err(ProtocolRegistrationErrorWrapper::PartyIdNonExisting)
     }
 
