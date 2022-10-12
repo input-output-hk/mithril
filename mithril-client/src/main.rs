@@ -1,4 +1,4 @@
-#![doc = include_str!("../Changes.md")]
+#![doc = include_str!("../README.md")]
 
 use clap::{Parser, Subcommand};
 use config::builder::DefaultState;

@@ -75,7 +75,7 @@ pub enum StmSignatureError<D: Digest> {
     SerializationError,
 
     /// Invalid merkle batch path
-    #[error("Batch Path does not verify against root")]
+    #[error("Batch path does not verify against root")]
     BatchPathInvalid,
 }
 
@@ -102,8 +102,8 @@ pub enum MerkleTreeError<D: Digest> {
     #[error("Path does not verify against root")]
     PathInvalid(Path<D>),
 
-    /// Invalid merkle path
-    #[error("Batch Path does not verify against root")]
+    /// Invalid merkle batch path
+    #[error("Batch path does not verify against root")]
     BatchPathInvalid,
 }
 

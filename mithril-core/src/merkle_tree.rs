@@ -24,21 +24,42 @@ pub struct Path<D: Digest> {
     hasher: PhantomData<D>,
 }
 
+/// Path for a batch of indices. The size of a batched path, $s$, depends
+/// on how the nodes are distributed among the leaves. It has size
+/// $h − \log 2 k \leq s \leq k(h − \log 2 k)$, with $h$
+/// the height of the tree and $k$ the size of the batch. This is considerably better than the
+/// trivial $k \cdot h$ solution of appending $k$ paths.
+#[derive(Default, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BatchPath<D: Digest + FixedOutput> {
+    pub(crate) values: Vec<Vec<u8>>,
+    pub(crate) indices: Vec<usize>,
+    pub(crate) hasher: PhantomData<D>,
+}
+
 /// `MerkleTree` commitment.
 /// This structure differs from `MerkleTree` in that it does not contain all elements, which are not always necessary.
-/// Instead, it only contains the root of the tree and the number of leaves.
+/// Instead, it only contains the root of the tree.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MerkleTreeCommitment<D: Digest + FixedOutput> {
+pub struct MerkleTreeCommitment<D: Digest> {
     /// Root of the merkle commitment.
     pub root: Vec<u8>,
-    /// Number of leaves cached in the merkle tree.
+    hasher: PhantomData<D>,
+}
+
+/// `MerkleTree` commitment.
+/// This structure differs from `MerkleTree` in that it does not contain all elements, which are not always necessary.
+/// Instead, it only contains the root of the tree.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MerkleTreeCommitmentBatchCompat<D: Digest> {
+    /// Root of the merkle commitment.
+    pub root: Vec<u8>,
     nr_leaves: usize,
     hasher: PhantomData<D>,
 }
 
 /// Tree of hashes, providing a commitment of data and its ordering.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct MerkleTree<D: Digest + FixedOutput> {
+pub struct MerkleTree<D: Digest> {
     /// The nodes are stored in an array heap:
     /// * `nodes[0]` is the root,
     /// * the parent of `nodes[i]` is `nodes[(i-1)/2]`
@@ -53,16 +74,76 @@ pub struct MerkleTree<D: Digest + FixedOutput> {
     hasher: PhantomData<D>,
 }
 
-/// Path for a batch of indices. The size of a batched path, $s$, depends
-/// on how the nodes are distributed among the leaves. It has size
-/// $h − \log 2 k \leq s \leq k(h − \log 2 k)$, with $h$
-/// the height of the tree and $k$ the size of the batch. This is considerably better than the
-/// trivial $k \cdot h$ solution of appending $k$ paths.
-#[derive(Default, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct BatchPath<D: Digest + FixedOutput> {
-    pub(crate) values: Vec<Vec<u8>>,
-    pub(crate) indices: Vec<usize>,
-    pub(crate) hasher: PhantomData<D>,
+impl MTLeaf {
+    pub(crate) fn to_bytes(self) -> [u8; 104] {
+        let mut result = [0u8; 104];
+        result[..96].copy_from_slice(&self.0.to_bytes());
+        result[96..].copy_from_slice(&self.1.to_be_bytes());
+        result
+    }
+}
+
+impl PartialOrd for MTLeaf {
+    /// Ordering of MT Values.
+    ///
+    /// First we order by stake, then by key. By having this ordering,
+    /// we have the players with higher stake close together,
+    /// meaning that the probability of having several signatures in the same side of the tree, is higher.
+    /// This allows us to produce a more efficient batch opening of the merkle tree.
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.1.cmp(&other.1).then(self.0.cmp(&other.0)))
+    }
+}
+
+impl Ord for MTLeaf {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.1.cmp(&other.1).then(self.0.cmp(&other.0))
+    }
+}
+
+impl<D: Digest + Clone> Path<D> {
+    /// Convert to bytes
+    /// # Layout
+    /// * Index representing the position in the Merkle Tree
+    /// * Size of the Path
+    /// * Path of hashes
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut output = Vec::new();
+        output.extend_from_slice(&u64::try_from(self.index).unwrap().to_be_bytes());
+        output.extend_from_slice(&u64::try_from(self.values.len()).unwrap().to_be_bytes());
+        for value in &self.values {
+            output.extend_from_slice(value)
+        }
+
+        output
+    }
+
+    /// Extract a `Path` from a byte slice.
+    /// # Error
+    /// This function fails if the bytes cannot retrieve path.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Path<D>, MerkleTreeError<D>> {
+        let mut u64_bytes = [0u8; 8];
+        u64_bytes.copy_from_slice(&bytes[..8]);
+        let index = usize::try_from(u64::from_be_bytes(u64_bytes))
+            .map_err(|_| MerkleTreeError::SerializationError)?;
+        u64_bytes.copy_from_slice(&bytes[8..16]);
+        let len = usize::try_from(u64::from_be_bytes(u64_bytes))
+            .map_err(|_| MerkleTreeError::SerializationError)?;
+        let mut values = Vec::with_capacity(len);
+        for i in 0..len {
+            values.push(
+                bytes[16 + i * <D as Digest>::output_size()
+                    ..16 + (i + 1) * <D as Digest>::output_size()]
+                    .to_vec(),
+            );
+        }
+
+        Ok(Path {
+            values,
+            index,
+            hasher: Default::default(),
+        })
+    }
 }
 
 impl<D: Digest + FixedOutput> BatchPath<D> {
@@ -106,7 +187,7 @@ impl<D: Digest + FixedOutput> BatchPath<D> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(&bytes[..8]);
         let len_v = usize::try_from(u64::from_be_bytes(u64_bytes))
-            .map_err(|_| MerkleTreeError::SerializationError)?;
+            .map_err(|_| MerkleTreeError::BatchPathInvalid)?;
 
         u64_bytes.copy_from_slice(&bytes[8..16]);
         let len_i = usize::try_from(u64::from_be_bytes(u64_bytes))
@@ -139,86 +220,7 @@ impl<D: Digest + FixedOutput> BatchPath<D> {
     }
 }
 
-impl MTLeaf {
-    pub(crate) fn to_bytes(self) -> [u8; 104] {
-        let mut result = [0u8; 104];
-        result[..96].copy_from_slice(&self.0.to_bytes());
-        result[96..].copy_from_slice(&self.1.to_be_bytes());
-        result
-    }
-}
-
-impl PartialOrd for MTLeaf {
-    /// Ordering of MT Values.
-    ///
-    /// First we order by stake, then by key. By having this ordering,
-    /// we have the players with higher stake close together,
-    /// meaning that the probability of having several signatures in the same side of the tree, is higher.
-    /// This allows us to produce a more efficient batch opening of the merkle tree.
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.1.cmp(&other.1).then(self.0.cmp(&other.0)))
-    }
-}
-
-impl Ord for MTLeaf {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.1.cmp(&other.1).then(self.0.cmp(&other.0))
-    }
-}
-
-impl<D: Digest + Clone> Path<D> {
-    pub fn create(values: Vec<Vec<u8>>, index: usize) -> Self {
-        Self {
-            values,
-            index,
-            hasher: PhantomData::default(),
-        }
-    }
-
-    /// Convert to bytes
-    /// # Layout
-    /// * Index representing the position in the Merkle Tree
-    /// * Size of the Path
-    /// * Path of hashes
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut output = Vec::new();
-        output.extend_from_slice(&u64::try_from(self.index).unwrap().to_be_bytes());
-        output.extend_from_slice(&u64::try_from(self.values.len()).unwrap().to_be_bytes());
-        for value in &self.values {
-            output.extend_from_slice(value)
-        }
-        output
-    }
-
-    /// Extract a `Path` from a byte slice.
-    /// # Error
-    /// This function fails if the bytes cannot retrieve path.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Path<D>, MerkleTreeError<D>> {
-        let mut u64_bytes = [0u8; 8];
-        u64_bytes.copy_from_slice(&bytes[..8]);
-        let index = usize::try_from(u64::from_be_bytes(u64_bytes))
-            .map_err(|_| MerkleTreeError::SerializationError)?;
-        u64_bytes.copy_from_slice(&bytes[8..16]);
-        let len = usize::try_from(u64::from_be_bytes(u64_bytes))
-            .map_err(|_| MerkleTreeError::SerializationError)?;
-        let mut values = Vec::with_capacity(len);
-        for i in 0..len {
-            values.push(
-                bytes[16 + i * <D as Digest>::output_size()
-                    ..16 + (i + 1) * <D as Digest>::output_size()]
-                    .to_vec(),
-            );
-        }
-
-        Ok(Path {
-            values,
-            index,
-            hasher: Default::default(),
-        })
-    }
-}
-
-impl<D: Clone + Digest + FixedOutput> MerkleTreeCommitment<D> {
+impl<D: Clone + Digest> MerkleTreeCommitment<D> {
     /// Check an inclusion proof that `val` is part of the tree by traveling the whole path until the root.
     /// # Error
     /// If the merkle tree path is invalid, then the function fails.
@@ -241,6 +243,34 @@ impl<D: Clone + Digest + FixedOutput> MerkleTreeCommitment<D> {
         Err(MerkleTreeError::PathInvalid(proof.clone()))
     }
 
+    /// Serializes the Merkle Tree commitment together with a message in a single vector of bytes.
+    /// Outputs `msg || self` as a vector of bytes.
+    pub fn concat_with_msg(&self, msg: &[u8]) -> Vec<u8>
+    where
+        D: Digest,
+    {
+        let mut msgp = msg.to_vec();
+        let mut bytes = self.root.clone();
+        msgp.append(&mut bytes);
+
+        msgp
+    }
+}
+
+impl<D: Clone + Digest> MerkleTreeCommitmentBatchCompat<D> {
+    /// Serializes the Merkle Tree commitment together with a message in a single vector of bytes.
+    /// Outputs `msg || self` as a vector of bytes.
+    pub fn concat_with_msg(&self, msg: &[u8]) -> Vec<u8>
+    where
+        D: Digest,
+    {
+        let mut msgp = msg.to_vec();
+        let mut bytes = self.root.clone();
+        msgp.append(&mut bytes);
+
+        msgp
+    }
+
     /// Check a proof of a batched opening. The indices must be ordered.
     ///
     /// # Error
@@ -249,7 +279,10 @@ impl<D: Clone + Digest + FixedOutput> MerkleTreeCommitment<D> {
         &self,
         batch_val: &Vec<MTLeaf>,
         proof: &BatchPath<D>,
-    ) -> Result<(), MerkleTreeError<D>> {
+    ) -> Result<(), MerkleTreeError<D>>
+    where
+        D: FixedOutput,
+    {
         if batch_val.len() != proof.indices.len() {
             return Err(MerkleTreeError::BatchPathInvalid);
         }
@@ -335,22 +368,9 @@ impl<D: Clone + Digest + FixedOutput> MerkleTreeCommitment<D> {
 
         Err(MerkleTreeError::BatchPathInvalid)
     }
-
-    /// Serializes the Merkle Tree commitment together with a message in a single vector of bytes.
-    /// Outputs `msg || self` as a vector of bytes.
-    pub fn concat_with_msg(&self, msg: &[u8]) -> Vec<u8>
-    where
-        D: Digest,
-    {
-        let mut msgp = msg.to_vec();
-        let mut bytes = self.root.clone();
-        msgp.append(&mut bytes);
-
-        msgp
-    }
 }
 
-impl<D: Digest + FixedOutput> MerkleTree<D> {
+impl<D: Digest> MerkleTree<D> {
     /// Provided a non-empty list of leaves, `create` generates its corresponding `MerkleTree`.
     pub fn create(leaves: &[MTLeaf]) -> MerkleTree<D> {
         let n = leaves.len();
@@ -394,6 +414,14 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
     /// Convert merkle tree to a commitment. This function simply returns the root.
     pub fn to_commitment(&self) -> MerkleTreeCommitment<D> {
         MerkleTreeCommitment {
+            root: self.nodes[0].clone(),
+            hasher: self.hasher,
+        }
+    }
+
+    /// Convert merkle tree to a commitment. This function simply returns the root.
+    pub fn to_commitment_batch_compat(&self) -> MerkleTreeCommitmentBatchCompat<D> {
+        MerkleTreeCommitmentBatchCompat {
             root: self.nodes[0].clone(),
             nr_leaves: self.n,
             hasher: self.hasher,
@@ -450,7 +478,10 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
     /// # Panics
     /// If the indices provided are out of bounds (higher than the number of elements
     /// committed in the `MerkleTree`) or are not ordered, the function fails.
-    pub fn get_batched_path(&self, indices: Vec<usize>) -> BatchPath<D> {
+    pub fn get_batched_path(&self, indices: Vec<usize>) -> BatchPath<D>
+    where
+        D: FixedOutput,
+    {
         assert!(
             !indices.is_empty(),
             "get_batched_path() called with no indices"
@@ -651,7 +682,7 @@ mod tests {
         }
         mt_index_list.sort_unstable();
         let batch_proof = Some(t.get_batched_path(mt_index_list));
-        assert!(t.to_commitment().check_batched(&values, &batch_proof.unwrap()).is_ok());
+        assert!(t.to_commitment_batch_compat().check_batched(&values, &batch_proof.unwrap()).is_ok());
     }
 
     #[test]
@@ -668,11 +699,11 @@ mod tests {
 
         let bytes = &bp.to_bytes();
         let deserialized = BatchPath::from_bytes(bytes).unwrap();
-        assert!(t.to_commitment().check_batched(&values, &deserialized).is_ok());
+        assert!(t.to_commitment_batch_compat().check_batched(&values, &deserialized).is_ok());
 
         let encoded = bincode::serialize(&bp).unwrap();
         let decoded: BatchPath<Blake2b<U32>> = bincode::deserialize(&encoded).unwrap();
-        assert!(t.to_commitment().check_batched(&values, &decoded).is_ok());
+        assert!(t.to_commitment_batch_compat().check_batched(&values, &decoded).is_ok());
     }    }
 
     fn pow2_plus1(h: usize) -> usize {
