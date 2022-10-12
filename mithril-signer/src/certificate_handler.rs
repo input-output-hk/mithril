@@ -132,7 +132,7 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
             Ok(response) => match response.status() {
                 StatusCode::CREATED => Ok(()),
                 StatusCode::BAD_REQUEST => Err(CertificateHandlerError::RemoteServerLogical(
-                    "bad request".to_string(),
+                    format!("bad request: {}", response.text().await.unwrap_or_default()),
                 )),
                 _ => Err(CertificateHandlerError::RemoteServerTechnical(
                     response.text().await.unwrap_or_default(),
@@ -156,7 +156,7 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
             Ok(response) => match response.status() {
                 StatusCode::CREATED => Ok(()),
                 StatusCode::BAD_REQUEST => Err(CertificateHandlerError::RemoteServerLogical(
-                    "bad request".to_string(),
+                    format!("bad request: {}", response.text().await.unwrap_or_default()),
                 )),
                 StatusCode::CONFLICT => Err(CertificateHandlerError::RemoteServerLogical(
                     "already registered single signatures".to_string(),
@@ -262,6 +262,7 @@ impl CertificateHandler for DumbCertificateHandler {
 mod tests {
     use super::*;
     use httpmock::prelude::*;
+    use mithril_common::entities::ClientError;
     use serde_json::json;
     use std::path::{Path, PathBuf};
 
@@ -386,12 +387,21 @@ mod tests {
         let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signer");
-            then.status(400);
+            then.status(400).body(
+                serde_json::to_vec(&ClientError::new(
+                    "error".to_string(),
+                    "an error".to_string(),
+                ))
+                .unwrap(),
+            );
         });
         let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
         let register_signer = certificate_handler.register_signer(single_signer).await;
         assert_eq!(
-            CertificateHandlerError::RemoteServerLogical("bad request".to_string()).to_string(),
+            CertificateHandlerError::RemoteServerLogical(
+                "bad request: {\"label\":\"error\",\"message\":\"an error\"}".to_string()
+            )
+            .to_string(),
             register_signer.unwrap_err().to_string()
         );
     }
@@ -435,14 +445,23 @@ mod tests {
         let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
-            then.status(400);
+            then.status(400).body(
+                serde_json::to_vec(&ClientError::new(
+                    "error".to_string(),
+                    "an error".to_string(),
+                ))
+                .unwrap(),
+            );
         });
         let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
         let register_signatures = certificate_handler
             .register_signatures(&single_signatures)
             .await;
         assert_eq!(
-            CertificateHandlerError::RemoteServerLogical("bad request".to_string()).to_string(),
+            CertificateHandlerError::RemoteServerLogical(
+                "bad request: {\"label\":\"error\",\"message\":\"an error\"}".to_string()
+            )
+            .to_string(),
             register_signatures.unwrap_err().to_string()
         );
     }

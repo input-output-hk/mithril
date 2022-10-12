@@ -184,6 +184,10 @@ paths:
           description: signer registration succeeded
         "400":
           description: signer registration bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         default:
           description: signer registration error
           content:
@@ -207,6 +211,10 @@ paths:
           description: signatures registration succeeded
         "400":
           description: signer registration bad request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "409":
           description: signatures registration already done
         default:
@@ -636,6 +644,9 @@ components:
       required:
         - message
       properties:
+        label:
+          description: optional label
+          type: string
         message:
           description: error message
           type: string

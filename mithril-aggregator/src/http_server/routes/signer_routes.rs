@@ -45,11 +45,17 @@ mod handlers {
             }
             Err(ProtocolError::Codec(err)) => {
                 warn!("register_signer::failed_signer_decoding"; "error" => ?err);
-                Ok(reply::empty(StatusCode::BAD_REQUEST))
+                Ok(reply::bad_request(
+                    "failed_signer_decoding".to_string(),
+                    err,
+                ))
             }
             Err(ProtocolError::FailedSignerRegistration(err)) => {
                 warn!("register_signer::failed_signer_registration"; "error" => ?err);
-                Ok(reply::empty(StatusCode::BAD_REQUEST))
+                Ok(reply::bad_request(
+                    "failed_signer_registration".to_string(),
+                    err.to_string(),
+                ))
             }
             Err(err) => {
                 warn!("register_signer::error"; "error" => ?err);

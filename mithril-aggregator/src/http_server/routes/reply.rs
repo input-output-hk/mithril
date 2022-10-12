@@ -1,4 +1,4 @@
-use mithril_common::entities::InternalServerError;
+use mithril_common::entities::{ClientError, InternalServerError};
 use serde::Serialize;
 use warp::http::StatusCode;
 
@@ -14,6 +14,10 @@ where
 
 pub fn empty(status_code: StatusCode) -> Box<dyn warp::Reply> {
     Box::new(warp::reply::with_status(warp::reply::reply(), status_code))
+}
+
+pub fn bad_request(label: String, message: String) -> Box<dyn warp::Reply> {
+    json(&ClientError::new(label, message), StatusCode::BAD_REQUEST)
 }
 
 pub fn internal_server_error(message: String) -> Box<dyn warp::Reply> {
