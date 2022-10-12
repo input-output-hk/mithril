@@ -118,7 +118,7 @@ impl<'a> APISpec<'a> {
         match schema {
             Null => match value {
                 Null => Ok(self),
-                _ => Err("null schema provided".to_string()),
+                _ => Err(format!("Expected nothing but got: {:?}", value)),
             },
             _ => {
                 let schema = &mut schema.as_object_mut().unwrap().clone();
