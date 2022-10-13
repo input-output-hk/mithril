@@ -202,7 +202,7 @@ impl<D: Digest + Clone + FixedOutput> StmClerkBatchCompact<D> {
         msg: &[u8],
         sigs: &[StmSigBatchCompat<D>],
     ) -> Result<Vec<StmSigBatchCompat<D>>, AggregationError> {
-        let avk = StmAggrVerificationKey::from(&self.closed_reg);
+        let avk = &self.compute_avk_batch_compat();
         let mut sig_by_index: BTreeMap<Index, &StmSigBatchCompat<D>> = BTreeMap::new();
         let mut removal_idx_by_vk: HashMap<&StmSigBatchCompat<D>, Vec<Index>> = HashMap::new();
 
@@ -268,6 +268,11 @@ impl<D: Digest + Clone + FixedOutput> StmClerkBatchCompact<D> {
         }
 
         Err(AggregationError::NotEnoughSignatures(count, self.params.k))
+    }
+
+    /// Compute the `StmAggrVerificationKey` related to the used registration.
+    pub fn compute_avk_batch_compat(&self) -> StmAggrVerificationKey<D> {
+        StmAggrVerificationKey::from(&self.closed_reg)
     }
 }
 
@@ -662,7 +667,7 @@ mod tests {
             let ps = setup_equal_parties(params, nparties);
             let p = &ps[0];
             let clerk = StmClerkBatchCompact::from_signer_batch_compat(p);
-            let avk = StmAggrVerificationKey::from(&clerk.closed_reg);
+            let avk = clerk.compute_avk_batch_compat();
             let mut sigs = Vec::with_capacity(nparties);
 
 
@@ -692,7 +697,7 @@ mod tests {
             let ps = setup_equal_parties(params, nparties);
             let p = &ps[0];
             let clerk = StmClerkBatchCompact::from_signer_batch_compat(p);
-            let avk = StmAggrVerificationKey::from(&clerk.closed_reg);
+            let avk = clerk.compute_avk_batch_compat();
 
             if let Some(sig) = p.sign(&msg) {
                 assert!(sig.verify(&params, &avk, &msg).is_ok());
@@ -720,7 +725,7 @@ mod tests {
 
             match msig {
                 Ok(aggr) => {
-                    let avk = StmAggrVerificationKey::from(&clerk.closed_reg);
+                    let avk = clerk.compute_avk_batch_compat();
                     let verify_result = aggr.verify(&msg, &avk, &params);
                     assert!(verify_result.is_ok(), "{:?}", verify_result);
                 }
@@ -742,7 +747,7 @@ mod tests {
             let ps = setup_equal_parties(params, nparties);
             let p = &ps[0];
             let clerk = StmClerkBatchCompact::from_signer_batch_compat(p);
-            let avk = StmAggrVerificationKey::from(&clerk.closed_reg);
+            let avk = clerk.compute_avk_batch_compat();
 
             if let Some(sig) = p.sign(&msg) {
                 let bytes = sig.to_bytes();
@@ -761,7 +766,7 @@ mod tests {
             let params = StmParameters { m: 10, k: 1, phi_f: 1.0 };
             let ps = setup_equal_parties(params, nparties);
             let clerk = StmClerkBatchCompact::from_signer_batch_compat(&ps[0]);
-            let avk = StmAggrVerificationKey::from(&clerk.closed_reg);
+            let avk = clerk.compute_avk_batch_compat();
 
             let all_ps: Vec<usize> = (0..nparties).collect();
             let sigs = find_signatures(&msg, &ps, &all_ps);
@@ -876,7 +881,7 @@ mod tests {
         match tc.msig {
             Ok(mut aggr) => {
                 f(&mut aggr, &mut tc.clerk, &mut tc.msg);
-                let avk = StmAggrVerificationKey::from(&tc.clerk.closed_reg);
+                let avk = &tc.clerk.compute_avk_batch_compat();
                 assert!(aggr.verify(&tc.msg, &avk, &tc.clerk.params).is_err())
             }
             Err(e) => unreachable!("Reached an unexpected error: {:?}", e),
