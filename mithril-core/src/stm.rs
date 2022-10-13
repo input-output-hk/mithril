@@ -206,6 +206,10 @@ pub struct StmSig<D: Clone + Digest> {
 
 /// Stm aggregate key, which contains the merkle tree root and the total stake of the system.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(bound(
+    serialize = "Path<D>: Serialize",
+    deserialize = "Path<D>: Deserialize<'de>"
+))]
 pub struct StmAggrVerificationKey<D: Clone + Digest> {
     mt_commitment: MerkleTreeCommitment<D>,
     total_stake: Stake,
