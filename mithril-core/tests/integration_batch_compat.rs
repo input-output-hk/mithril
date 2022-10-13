@@ -15,7 +15,7 @@ use rand_core::{RngCore, SeedableRng};
 type H = Blake2b<U32>;
 
 #[test]
-fn test_full_protocol() {
+fn test_full_protocol_batch_compat() {
     let nparties = 32;
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
     let mut msg = [0u8; 16];

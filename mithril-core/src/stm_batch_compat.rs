@@ -882,7 +882,7 @@ mod tests {
             Ok(mut aggr) => {
                 f(&mut aggr, &mut tc.clerk, &mut tc.msg);
                 let avk = &tc.clerk.compute_avk_batch_compat();
-                assert!(aggr.verify(&tc.msg, &avk, &tc.clerk.params).is_err())
+                assert!(aggr.verify(&tc.msg, avk, &tc.clerk.params).is_err())
             }
             Err(e) => unreachable!("Reached an unexpected error: {:?}", e),
         }
