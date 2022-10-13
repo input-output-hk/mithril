@@ -173,7 +173,7 @@ Replace this value with the correct user. We assume that the user used to run th
   * `DB_DIRECTORY=/cardano/db`: replace `/cardano/db` with the path to the database folder of the **Cardano Node** (the one in `--database-path`)
   * `CARDANO_NODE_SOCKET_PATH=/cardano/ipc/node.socket`: replace with the path to the IPC file (`CARDANO_NODE_SOCKET_PATH` env var)
   * `CARDANO_CLI_PATH=/app/bin/cardano-cli`: replace with the path to the `cardano-cli` executable
-  * `DATA_STORES_DIRECTORY=/opt/mithril/mithril-signer/stores`: replace with the path to a folder where the **Mithril Signer** will store its data (`/opt/mithril/mithril-signer/stores` e.g.)
+  * `DATA_STORES_DIRECTORY=/opt/mithril/stores`: replace with the path to a folder where the **Mithril Signer** will store its data (`/opt/mithril/stores` e.g.)
   * `STORE_RETENTION_LIMIT`: if set, this will limit the number of records in some internal stores (5 is a good fit).
 
 * :boom: **Experimental mode**: in the `/opt/mithril/mithril-signer/service.env` env file:
@@ -182,7 +182,7 @@ Replace this value with the correct user. We assume that the user used to run th
   * `DB_DIRECTORY=/cardano/db`: replace `/cardano/db` with the path to the database folder of the **Cardano Node** (the one in `--database-path`)
   * `CARDANO_NODE_SOCKET_PATH=/cardano/ipc/node.socket`: replace with the path to the IPC file (`CARDANO_NODE_SOCKET_PATH` env var)
   * `CARDANO_CLI_PATH=/app/bin/cardano-cli`: replace with the path to the `cardano-cli` executable
-  * `DATA_STORES_DIRECTORY=/opt/mithril/mithril-signer/stores`: replace with the path to a folder where the **Mithril Signer** will store its data (`/opt/mithril/mithril-signer/stores` e.g.)
+  * `DATA_STORES_DIRECTORY=/opt/mithril/stores`: replace with the path to a folder where the **Mithril Signer** will store its data (`/opt/mithril/stores` e.g.)
   * `STORE_RETENTION_LIMIT`: if set, this will limit the number of records in some internal stores (5 is a good fit).
 
 :::
@@ -192,7 +192,7 @@ First create an env file that will be used by the service:
 * **Stable mode**:
 
 ```bash
-sudo cat > /opt/mithril/mithril-signer.env << EOF
+sudo bash -c 'cat > /opt/mithril/mithril-signer.env << EOF
 PARTY_ID=**YOUR_POOL_ID_BECH32**
 NETWORK=**YOUR_TEST_NETWORK**
 AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator
@@ -200,15 +200,15 @@ RUN_INTERVAL=60000
 DB_DIRECTORY=/cardano/db
 CARDANO_NODE_SOCKET_PATH=/cardano/ipc/node.socket
 CARDANO_CLI_PATH=/app/bin/cardano-cli
-DATA_STORES_DIRECTORY=/opt/mithril/mithril-signer/stores
+DATA_STORES_DIRECTORY=/opt/mithril/stores
 STORE_RETENTION_LIMIT=5
-EOF
+EOF'
 ```
 
 * :boom: **Experimental mode**:
 
 ```bash
-sudo cat > /opt/mithril/mithril-signer.env << EOF
+sudo bash -c 'cat > /opt/mithril/mithril-signer.env << EOF
 KES_SECRET_KEY_PATH=**YOUR_KES_SECRET_KEY_PATH**
 OPERATIONAL_CERTIFICATE_PATH=**YOUR_OPERATIONAL_CERTIFICATE_PATH**
 NETWORK=**YOUR_TEST_NETWORK**
@@ -217,15 +217,15 @@ RUN_INTERVAL=60000
 DB_DIRECTORY=/cardano/db
 CARDANO_NODE_SOCKET_PATH=/cardano/ipc/node.socket
 CARDANO_CLI_PATH=/app/bin/cardano-cli
-DATA_STORES_DIRECTORY=/opt/mithril/mithril-signer/stores
+DATA_STORES_DIRECTORY=/opt/mithril/stores
 STORE_RETENTION_LIMIT=5
-EOF
+EOF'
 ```
 
 Then we will create a `/etc/systemd/system/mithril-signer.service` description file for our service
 
 ```bash
-sudo cat > /etc/systemd/system/mithril-signer.service << EOF
+sudo bash -c 'cat > /etc/systemd/system/mithril-signer.service << EOF
 [Unit]
 Description=Mithril Signer service
 StartLimitIntervalSec=0
@@ -240,7 +240,7 @@ ExecStart=/opt/mithril/mithril-signer -vvv
 
 [Install]
 WantedBy=multi-user.target
-EOF
+EOF'
 ```
 
 Reload the service configuration (Optional)
