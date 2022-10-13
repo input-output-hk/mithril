@@ -1,113 +1,12 @@
-//! Top-level API for Mithril Stake-based Threshold Multisignature scheme.
-//! See figure 6 of [the paper](https://eprint.iacr.org/2021/916) for most of the
-//! protocol.
-//!
-//! What follows is a simple example showing the usage of STM.
-//!
-//! ```rust
-//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! use blake2::{Blake2b, digest::consts::U32};
-//! use mithril::key_reg::KeyReg; // Import key registration functionality
-//! use mithril::stm_batch_compat::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
-//! use rayon::prelude::*; // We use par_iter to speed things up
-//!
-//! use rand_chacha::ChaCha20Rng;
-//! use rand_core::{RngCore, SeedableRng};
-//!
-//! let nparties = 4; // Use a small number of parties for this example
-//! type D = Blake2b<U32>; // Setting the hash function for convenience
-//!
-//! let mut rng = ChaCha20Rng::from_seed([0u8; 32]); // create and initialize rng
-//! let mut msg = [0u8; 16]; // setting an arbitrary message
-//! rng.fill_bytes(&mut msg);
-//!
-//! // In the following, we will have 4 parties try to sign `msg`, then aggregate and
-//! // verify those signatures.
-//!
-//! //////////////////////////
-//! // initialization phase //
-//! //////////////////////////
-//!
-//! // Set low parameters for testing
-//! // XXX: not for production
-//! let params = StmParameters {
-//!     m: 100, // Security parameter XXX: not for production
-//!     k: 2, // Quorum parameter XXX: not for production
-//!     phi_f: 0.2, // Lottery parameter XXX: not for production
-//! };
-//!
-//! // Generate some arbitrary stake for each party
-//! // Stake is an integer.
-//! // Total stake of all parties is total stake in the system.
-//! let stakes = (0..nparties)
-//!     .into_iter()
-//!     .map(|_| 1 + (rng.next_u64() % 9999))
-//!     .collect::<Vec<_>>();
-//!
-//! // Create a new key registry from the parties and their stake
-//! let mut key_reg = KeyReg::init();
-//!
-//! // For each party, crate a StmInitializer.
-//! // This struct can create keys for the party.
-//! let mut ps: Vec<StmInitializer> = Vec::with_capacity(nparties);
-//! for stake in stakes {
-//!     // Create keys for this party
-//!     let p = StmInitializer::setup(params, stake, &mut rng);
-//!     // Register keys with the KeyReg service
-//!     key_reg
-//!         .register(p.stake, p.verification_key())
-//!         .unwrap();
-//!     ps.push(p);
-//! }
-//!
-//! // Close the key registration.
-//! let closed_reg = key_reg.close();
-//!
-//! // Finalize the StmInitializer and turn it into a StmSigner, which can execute the
-//! // rest of the protocol.
-//! let ps = ps
-//!     .into_par_iter()
-//!     .map(|p| p.new_signer(closed_reg.clone()).unwrap())
-//!     .collect::<Vec<StmSigner<D>>>();
-//!
-//! /////////////////////
-//! // operation phase //
-//! /////////////////////
-//!
-//! // Next, each party tries to sign the message for each index available.
-//! // We collect the successful signatures into a vec.
-//! let sigs = ps
-//!     .par_iter()
-//!     .filter_map(|p| {
-//!         return p.sign(&msg);
-//!     })
-//!     .collect::<Vec<StmSig<D>>>();
-//!
-//! // StmClerk can aggregate and verify signatures.
-//! let clerk = StmClerk::from_signer(&ps[0]);
-//!
-//! // Aggregate and verify the signatures
-//! let msig = clerk.aggregate(&sigs, &msg);
-//! match msig {
-//!     Ok(aggr) => {
-//!         println!("Aggregate ok");
-//!         assert!(aggr
-//!             .verify(&msg, &clerk.compute_avk(), &params)
-//!             .is_ok());
-//!     }
-//!     Err(_) => unreachable!(),
-//! }
-//! # Ok(())
-//! # }
-//! ```
-
+//! Batch proof helper.
 use crate::dense_mapping::ev_lt_phi;
-use crate::error::{AggregationError, RegisterError, StmSignatureError};
+use crate::error::{AggregationError, StmSignatureError};
 use crate::key_reg::ClosedKeyReg;
 use crate::merkle_tree::{BatchPath, MTLeaf, MerkleTreeCommitmentBatchCompat};
-use crate::multi_sig::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
+use crate::multi_sig::{Signature, SigningKey, VerificationKey};
+use crate::stm::{Index, Stake, StmClerk, StmInitializer, StmParameters, StmVerificationKey};
+use crate::RegisterError;
 use blake2::digest::{Digest, FixedOutput};
-use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -115,56 +14,17 @@ use std::convert::{From, TryFrom, TryInto};
 use std::hash::{Hash, Hasher};
 use std::marker::PhantomData;
 
-/// The quantity of stake held by a party, represented as a `u64`.
-pub type Stake = u64;
+/// Wrapper for StmClerk
+pub type StmClerkBatchCompact<D> = StmClerk<D>;
 
-/// Quorum index for signatures.
-/// An aggregate signature (`StmMultiSig`) must have at least `k` unique indices.
-pub type Index = u64;
-
-/// Wrapper of the MultiSignature Verification key with proof of possession
-pub type StmVerificationKeyPoP = VerificationKeyPoP;
-
-/// Wrapper of the MultiSignature Verification key
-pub type StmVerificationKey = VerificationKey;
-
-/// Used to set protocol parameters.
-// todo: this is the criteria to consider parameters valid:
-// Let A = max assumed adversarial stake
-// Let a = A / max_stake
-// Let p = φ(a)  // f needs tuning, something close to 0.2 is reasonable
-// Then, we're secure if SUM[from i=k to i=m] Binomial(i successes, m experiments, p chance of success) <= 2^-100 or thereabouts.
-// The latter turns to 1 - BinomialCDF(k-1,m,p)
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct StmParameters {
-    /// Security parameter, upper bound on indices.
-    pub m: u64,
-    /// Quorum parameter.
-    pub k: u64,
-    /// `f` in phi(w) = 1 - (1 - f)^w, where w is the stake of a participant..
-    pub phi_f: f64,
-}
-
-/// Initializer for `StmSigner`.
-/// This is the data that is used during the key registration procedure.
-/// Once the latter is finished, this instance is consumed into an `StmSigner`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StmInitializer {
-    /// This participant's stake.
-    pub stake: Stake,
-    /// Current protocol instantiation parameters.
-    pub params: StmParameters,
-    /// Secret key.
-    pub(crate) sk: SigningKey,
-    /// Verification (public) key + proof of possession.
-    pub(crate) pk: StmVerificationKeyPoP,
-}
+/// Wrapper for StmInitializer
+pub type StmInitializerBatchCompat = StmInitializer;
 
 /// Participant in the protocol can sign messages.
 /// This instance can only be generated out of an `StmInitializer` and a `ClosedKeyReg`.
 /// This ensures that a `MerkleTree` root is not computed before all participants have registered.
 #[derive(Debug, Clone)]
-pub struct StmSigner<D: Digest + FixedOutput> {
+pub struct StmSignerBatchCompat<D: Digest> {
     mt_index: u64,
     stake: Stake,
     params: StmParameters,
@@ -173,18 +33,9 @@ pub struct StmSigner<D: Digest + FixedOutput> {
     closed_reg: ClosedKeyReg<D>,
 }
 
-/// `StmClerk` can verify and aggregate `StmSig`s and verify `StmMultiSig`s.
-/// Clerks can only be generated with the registration closed.
-/// This avoids that a Merkle Tree is computed before all parties have registered.
-#[derive(Debug, Clone)]
-pub struct StmClerk<D: Clone + Digest + FixedOutput> {
-    pub(crate) closed_reg: ClosedKeyReg<D>,
-    pub(crate) params: StmParameters,
-}
-
 /// Signature created by a single party who has won the lottery.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StmSig<D: Clone + Digest> {
+pub struct StmSigBatchCompat<D: Clone + Digest> {
     /// The signature from the underlying MSP scheme.
     pub sigma: Signature,
     /// The Stm verification Key.
@@ -212,65 +63,13 @@ pub struct StmAggrVerificationKey<D: Clone + Digest + FixedOutput> {
     serialize = "BatchPath<D>: Serialize",
     deserialize = "BatchPath<D>: Deserialize<'de>"
 ))]
-pub struct StmAggrSig<D: Clone + Digest + FixedOutput> {
-    pub(crate) signatures: Vec<StmSig<D>>,
+pub struct StmAggrSigBatchCompat<D: Clone + Digest + FixedOutput> {
+    pub(crate) signatures: Vec<StmSigBatchCompat<D>>,
     /// The list of unique merkle tree nodes that covers path for all signatures.
     pub batch_proof: BatchPath<D>,
 }
 
-impl StmParameters {
-    /// Convert to bytes
-    /// # Layout
-    /// * Security parameter, `m` (as u64)
-    /// * Quorum parameter, `k` (as u64)
-    /// * Phi f, as (f64)
-    pub fn to_bytes(&self) -> [u8; 24] {
-        let mut out = [0; 24];
-        out[..8].copy_from_slice(&self.m.to_be_bytes());
-        out[8..16].copy_from_slice(&self.k.to_be_bytes());
-        out[16..].copy_from_slice(&self.phi_f.to_be_bytes());
-        out
-    }
-
-    /// Extract the `StmParameters` from a byte slice.
-    /// # Error
-    /// The function fails if the given string of bytes is not of required size.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, RegisterError> {
-        if bytes.len() != 24 {
-            return Err(RegisterError::SerializationError);
-        }
-
-        let mut u64_bytes = [0u8; 8];
-        u64_bytes.copy_from_slice(&bytes[..8]);
-        let m = u64::from_be_bytes(u64_bytes);
-        u64_bytes.copy_from_slice(&bytes[8..16]);
-        let k = u64::from_be_bytes(u64_bytes);
-        u64_bytes.copy_from_slice(&bytes[16..]);
-        let phi_f = f64::from_be_bytes(u64_bytes);
-
-        Ok(Self { m, k, phi_f })
-    }
-}
-
-impl StmInitializer {
-    /// Builds an `StmInitializer` that is ready to register with the key registration service.
-    /// This function generates the signing and verification key with a PoP, and initialises the structure.
-    pub fn setup<R: RngCore + CryptoRng>(params: StmParameters, stake: Stake, rng: &mut R) -> Self {
-        let sk = SigningKey::gen(rng);
-        let pk = StmVerificationKeyPoP::from(&sk);
-        Self {
-            stake,
-            params,
-            sk,
-            pk,
-        }
-    }
-
-    /// Extract the verification key.
-    pub fn verification_key(&self) -> StmVerificationKeyPoP {
-        self.pk
-    }
-
+impl StmInitializerBatchCompat {
     /// Build the `avk` for the given list of parties.
     ///
     /// Note that if this StmInitializer was modified *between* the last call to `register`,
@@ -283,10 +82,10 @@ impl StmInitializer {
     /// * the current total stake (according to the registration service)
     /// # Error
     /// This function fails if the initializer is not registered.
-    pub fn new_signer<D: Digest + Clone + FixedOutput>(
+    pub fn new_signer_batch_compat<D: Digest + Clone>(
         self,
         closed_reg: ClosedKeyReg<D>,
-    ) -> Result<StmSigner<D>, RegisterError> {
+    ) -> Result<StmSignerBatchCompat<D>, RegisterError> {
         let mut my_index = None;
         for (i, rp) in closed_reg.reg_parties.iter().enumerate() {
             if rp.0 == self.pk.vk {
@@ -298,7 +97,7 @@ impl StmInitializer {
             return Err(RegisterError::UnregisteredInitializer);
         }
 
-        Ok(StmSigner {
+        Ok(StmSignerBatchCompat {
             mt_index: my_index.unwrap(),
             stake: self.stake,
             params: self.params,
@@ -307,43 +106,9 @@ impl StmInitializer {
             closed_reg,
         })
     }
-
-    /// Convert to bytes
-    /// # Layout
-    /// * Stake (u64)
-    /// * Params
-    /// * Secret Key
-    /// * Public key (including PoP)
-    pub fn to_bytes(&self) -> [u8; 256] {
-        let mut out = [0u8; 256];
-        out[..8].copy_from_slice(&self.stake.to_be_bytes());
-        out[8..32].copy_from_slice(&self.params.to_bytes());
-        out[32..64].copy_from_slice(&self.sk.to_bytes());
-        out[64..].copy_from_slice(&self.pk.to_bytes());
-        out
-    }
-
-    /// Convert a slice of bytes to an `StmInitializer`
-    /// # Error
-    /// The function fails if the given string of bytes is not of required size.
-    pub fn from_bytes(bytes: &[u8]) -> Result<StmInitializer, RegisterError> {
-        let mut u64_bytes = [0u8; 8];
-        u64_bytes.copy_from_slice(&bytes[..8]);
-        let stake = u64::from_be_bytes(u64_bytes);
-        let params = StmParameters::from_bytes(&bytes[8..32])?;
-        let sk = SigningKey::from_bytes(&bytes[32..])?;
-        let pk = StmVerificationKeyPoP::from_bytes(&bytes[64..])?;
-
-        Ok(Self {
-            stake,
-            params,
-            sk,
-            pk,
-        })
-    }
 }
 
-impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
+impl<D: Clone + Digest + FixedOutput> StmSignerBatchCompat<D> {
     /// This function produces a signature following the description of Section 2.4.
     /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
     /// wins the lottery by evaluating the dense mapping.
@@ -353,11 +118,11 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     /// # Update
     /// If it wins at least one lottery, it no longer produces a list of indexes of merkle path for its corresponding `(VerificationKey, Stake)`.
     /// Instead it stores the signer's merkle tree index and the merkle path production will be handled in `StmClerk`.
-    pub fn sign(&self, msg: &[u8]) -> Option<StmSig<D>> {
+    pub fn sign(&self, msg: &[u8]) -> Option<StmSigBatchCompat<D>> {
         let msgp = self
             .closed_reg
             .merkle_tree
-            .to_commitment()
+            .to_commitment_batch_compat()
             .concat_with_msg(msg);
         let sigma = self.sk.sign(&msgp);
 
@@ -374,7 +139,7 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
             }
         }
         if !indexes.is_empty() {
-            Some(StmSig {
+            Some(StmSigBatchCompat {
                 sigma,
                 pk: self.vk,
                 stake: self.stake,
@@ -386,157 +151,11 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
             None
         }
     }
-
-    /// This function should be called when a signing epoch is finished (or when a new one starts).
-    /// It consumes `self` and turns it back to an `StmInitializer`, which allows for an update in
-    /// the dynamic parameters (such as stake distribution, or participants). To ensure that the
-    /// `StmInitializer` will not be used for the previous registration, this function also consumes
-    /// the `ClosedKeyReg` instance. In case the stake of the current party has changed, it includes
-    /// it as input.
-    ///
-    /// # Example
-    /// ```
-    /// # use mithril::key_reg::{ClosedKeyReg, KeyReg};
-    /// # use mithril::stm_batch_compat::{Stake, StmInitializer, StmParameters, StmVerificationKeyPoP};
-    /// # use rand_chacha::ChaCha20Rng;
-    /// # use rand_core::{RngCore, SeedableRng};
-    /// # use blake2::{Blake2b, Digest, digest::consts::U32};
-    ///
-    /// # fn main() {
-    ///     // Parameter. This information is broadcast (or known) to all
-    ///     // participants.
-    /// let params = StmParameters {
-    ///         k: 3,
-    ///         m: 10,
-    ///         phi_f: 1.0,
-    ///     };
-    ///
-    ///     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
-    ///
-    ///     ////////////////////////////////
-    ///     //////// EPOCH 1 ///////////////
-    ///     ////////////////////////////////
-    ///
-    ///     // The example starts with only two parties.
-    ///     let nparties_e1 = 2;
-    ///
-    ///     // We initialise the stake at epoch 1
-    ///     let mut total_stake_e1: Stake = 0;
-    ///     let stakes_e1 = (0..nparties_e1)
-    ///         .into_iter()
-    ///         .map(|_| {
-    ///             let stake = rng.next_u64() % 999;
-    ///             total_stake_e1 += stake;
-    ///             1 + stake
-    ///         })
-    ///         .collect::<Vec<_>>();
-    ///
-    ///     // Each party generates their Stm keys
-    ///     let party_0_init_e1 = StmInitializer::setup(params, stakes_e1[0], &mut rng);
-    ///     let party_1_init_e1 = StmInitializer::setup(params, stakes_e1[1], &mut rng);
-    ///
-    ///     // The public keys are broadcast. All participants will have the same keys. We expect
-    ///     // the keys to be persistent.
-    ///     let mut parties_pks: Vec<StmVerificationKeyPoP> = vec![
-    ///         party_0_init_e1.verification_key(),
-    ///         party_1_init_e1.verification_key(),
-    ///     ];
-    ///
-    ///     // Now, each party registers all other participating parties. Once all parties are registered, the key registration
-    ///     // is closed.
-    ///     let party_0_key_reg_e1 = local_reg(&stakes_e1, &parties_pks);
-    ///     let party_1_key_reg_e1 = local_reg(&stakes_e1, &parties_pks);
-    ///
-    ///     // Now, with information of all participating parties, the
-    ///     // signers can be initialised (we can create the Merkle Tree).
-    ///     // The (closed) key registration is consumed, to ensure that it
-    ///     // is not used to initialise a signer at a different epoch.
-    ///     let party_0 = party_0_init_e1.new_signer(party_0_key_reg_e1).unwrap();
-    ///     let party_1 = party_1_init_e1.new_signer(party_1_key_reg_e1).unwrap();
-    ///
-    ///     ////////////////////////////////
-    ///     //////// EPOCH 2 ///////////////
-    ///     ////////////////////////////////
-    ///
-    ///     // Now the second epoch starts. A new party joins, and the stake of all
-    ///     // signers changes.
-    ///     let nparties_e2 = 3;
-    ///
-    ///     // We initialise the stake at epoch 2
-    ///     let mut total_stake_e2: Stake = 0;
-    ///     let stakes_e2 = (0..nparties_e2)
-    ///         .into_iter()
-    ///         .map(|_| {
-    ///             let stake = rng.next_u64() % 999;
-    ///             total_stake_e2 += stake;
-    ///             1 + stake
-    ///         })
-    ///         .collect::<Vec<_>>();
-    ///
-    ///     // Now the `StmSigner`s are outdated with respect to the new stake, and participants.
-    ///     // We allow a transition from `StmSigner` back to `StmInitializer`:
-    ///     let party_0_init_e2 = party_0.new_epoch(Some(stakes_e2[0]));
-    ///     let party_1_init_e2 = party_1.new_epoch(Some(stakes_e2[1]));
-    ///
-    ///     // The third party needs to generate from scratch and broadcast the key (which we represent
-    ///     // by appending to the `pks` vector.
-    ///     let party_2_init_e2 = StmInitializer::setup(params, stakes_e2[2], &mut rng);
-    ///     parties_pks.push(party_2_init_e2.verification_key());
-    ///
-    ///     // The key reg of epoch 1 was consumed, so it cannot be used to generate a signer.
-    ///     // This forces us to re-run the key registration (which is good).
-    ///     let key_reg_e2_0 = local_reg(&stakes_e2, &parties_pks);
-    ///     let key_reg_e2_1 = local_reg(&stakes_e2, &parties_pks);
-    ///     let key_reg_e2_2 = local_reg(&stakes_e2, &parties_pks);
-    ///
-    ///     // And finally, new signers can be created to signe messages in epoch 2. Again, signers
-    ///     // of epoch 1 are consumed, so they cannot be used to sign messages of this epoch (again,
-    ///     // this is good).
-    ///     let _party_0_e2 = party_0_init_e2.new_signer(key_reg_e2_0);
-    ///     let _party_1_e2 = party_1_init_e2.new_signer(key_reg_e2_1);
-    ///     let _party_2_e2 = party_2_init_e2.new_signer(key_reg_e2_2);
-    /// # }
-    ///
-    /// # fn local_reg(stakes: &[u64], pks: &[StmVerificationKeyPoP]) -> ClosedKeyReg<Blake2b<U32>> {
-    /// # let mut local_keyreg = KeyReg::init();
-    /// #    for (&pk, stake) in pks.iter().zip(stakes.iter()) {
-    /// #        local_keyreg.register(*stake, pk).unwrap();
-    /// #    }
-    /// #    local_keyreg.close()
-    /// # }
-    /// ```
-    pub fn new_epoch(self, new_stake: Option<Stake>) -> StmInitializer {
-        let stake = match new_stake {
-            None => self.stake,
-            Some(s) => s,
-        };
-
-        StmInitializer {
-            stake,
-            params: self.params,
-            pk: StmVerificationKeyPoP::from(&self.sk),
-            sk: self.sk,
-        }
-    }
-
-    /// Compute the `StmAggrVerificationKey` related to the used registration, which consists of
-    /// the merkle tree root and the total stake.
-    pub fn compute_avk(&self) -> StmAggrVerificationKey<D> {
-        StmAggrVerificationKey::from(&self.closed_reg)
-    }
 }
 
-impl<D: Digest + Clone + FixedOutput + Default> StmClerk<D> {
-    /// Create a new `Clerk` from a closed registration instance.
-    pub fn from_registration(params: &StmParameters, closed_reg: &ClosedKeyReg<D>) -> Self {
-        Self {
-            params: *params,
-            closed_reg: closed_reg.clone(),
-        }
-    }
-
+impl<D: Digest + Clone + FixedOutput> StmClerkBatchCompact<D> {
     /// Create a Clerk from a signer.
-    pub fn from_signer(signer: &StmSigner<D>) -> Self {
+    pub fn from_signer_batch_compat(signer: &StmSignerBatchCompat<D>) -> Self {
         Self {
             params: signer.params,
             closed_reg: signer.closed_reg.clone(),
@@ -551,12 +170,12 @@ impl<D: Digest + Clone + FixedOutput + Default> StmClerk<D> {
     /// # Update
     /// If there are enough signatures, it collects the merkle tree indexes of unique signatures.
     /// The list of merkle tree indexes is used to create a batch proof to be checked in verify aggregate.
-    pub fn aggregate(
+    pub fn aggregate_batch_compat(
         &self,
-        sigs: &[StmSig<D>],
+        sigs: &[StmSigBatchCompat<D>],
         msg: &[u8],
-    ) -> Result<StmAggrSig<D>, AggregationError> {
-        let mut unique_sigs = self.dedup_sigs_for_indices(msg, sigs)?;
+    ) -> Result<StmAggrSigBatchCompat<D>, AggregationError> {
+        let mut unique_sigs = self.dedup_sigs_for_indices_batch_compat(msg, sigs)?;
         unique_sigs.sort_unstable();
 
         let mt_index_list = unique_sigs
@@ -566,7 +185,7 @@ impl<D: Digest + Clone + FixedOutput + Default> StmClerk<D> {
 
         let batch_proof = self.closed_reg.merkle_tree.get_batched_path(mt_index_list);
 
-        Ok(StmAggrSig {
+        Ok(StmAggrSigBatchCompat {
             signatures: unique_sigs,
             batch_proof,
         })
@@ -578,16 +197,14 @@ impl<D: Digest + Clone + FixedOutput + Default> StmClerk<D> {
     /// The function selects at least `self.k` indexes.
     ///  # Error
     /// If there is no sufficient signatures, then the function fails.s
-    // todo: We need to agree on a criteria to dedup (by defaut we use a BTreeMap that guarantees keys order)
-    // todo: not good, because it only removes index if there is a conflict (see benches)
-    pub fn dedup_sigs_for_indices(
+    pub fn dedup_sigs_for_indices_batch_compat(
         &self,
         msg: &[u8],
-        sigs: &[StmSig<D>],
-    ) -> Result<Vec<StmSig<D>>, AggregationError> {
+        sigs: &[StmSigBatchCompat<D>],
+    ) -> Result<Vec<StmSigBatchCompat<D>>, AggregationError> {
         let avk = StmAggrVerificationKey::from(&self.closed_reg);
-        let mut sig_by_index: BTreeMap<Index, &StmSig<D>> = BTreeMap::new();
-        let mut removal_idx_by_vk: HashMap<&StmSig<D>, Vec<Index>> = HashMap::new();
+        let mut sig_by_index: BTreeMap<Index, &StmSigBatchCompat<D>> = BTreeMap::new();
+        let mut removal_idx_by_vk: HashMap<&StmSigBatchCompat<D>, Vec<Index>> = HashMap::new();
 
         for sig in sigs.iter() {
             if sig.verify(&self.params, &avk, msg).is_err() {
@@ -619,7 +236,7 @@ impl<D: Digest + Clone + FixedOutput + Default> StmClerk<D> {
             }
         }
 
-        let mut dedup_sigs: HashSet<StmSig<D>> = HashSet::new();
+        let mut dedup_sigs: HashSet<StmSigBatchCompat<D>> = HashSet::new();
         let mut count: u64 = 0;
 
         for (_, &sig) in sig_by_index.iter() {
@@ -652,14 +269,9 @@ impl<D: Digest + Clone + FixedOutput + Default> StmClerk<D> {
 
         Err(AggregationError::NotEnoughSignatures(count, self.params.k))
     }
-
-    /// Compute the `StmAggrVerificationKey` related to the used registration.
-    pub fn compute_avk(&self) -> StmAggrVerificationKey<D> {
-        StmAggrVerificationKey::from(&self.closed_reg)
-    }
 }
 
-impl<D: Clone + Digest + FixedOutput> StmSig<D> {
+impl<D: Clone + Digest + FixedOutput> StmSigBatchCompat<D> {
     /// Verify an stm signature by checking that the lottery was won, the merkle path is correct,
     /// the indexes are in the desired range and the underlying multi signature validates.
     ///
@@ -672,7 +284,6 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
         msg: &[u8],
     ) -> Result<(), StmSignatureError<D>> {
         let msgp = avk.mt_commitment.concat_with_msg(msg);
-
         self.sigma.verify(&msgp, &self.pk)?;
         self.check_indices(params, &msgp, avk)?;
 
@@ -697,7 +308,6 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
                 return Err(StmSignatureError::LotteryLost);
             }
         }
-
         Ok(())
     }
 
@@ -727,7 +337,7 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
     }
 
     /// Extract an `StmSig` from a byte slice.
-    pub fn from_bytes(bytes: &[u8]) -> Result<StmSig<D>, StmSignatureError<D>> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<StmSigBatchCompat<D>, StmSignatureError<D>> {
         let mut u64_bytes = [0u8; 8];
 
         u64_bytes.copy_from_slice(&bytes[..8]);
@@ -749,7 +359,7 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
         u64_bytes.copy_from_slice(&bytes[offset + 144..]);
         let mt_index = u64::from_be_bytes(u64_bytes);
 
-        Ok(StmSig {
+        Ok(StmSigBatchCompat {
             sigma,
             pk,
             stake,
@@ -769,27 +379,27 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
     }
 }
 
-impl<D: Clone + Digest> Hash for StmSig<D> {
+impl<D: Clone + Digest> Hash for StmSigBatchCompat<D> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         Hash::hash_slice(&self.sigma.to_bytes(), state)
     }
 }
 
-impl<D: Clone + Digest> PartialEq for StmSig<D> {
+impl<D: Clone + Digest> PartialEq for StmSigBatchCompat<D> {
     fn eq(&self, other: &Self) -> bool {
         self.sigma == other.sigma
     }
 }
 
-impl<D: Clone + Digest> Eq for StmSig<D> {}
+impl<D: Clone + Digest> Eq for StmSigBatchCompat<D> {}
 
-impl<D: Clone + Digest + FixedOutput> PartialOrd for StmSig<D> {
+impl<D: Clone + Digest + FixedOutput> PartialOrd for StmSigBatchCompat<D> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp_stm_sig(other))
     }
 }
 
-impl<D: Clone + Digest + FixedOutput> Ord for StmSig<D> {
+impl<D: Clone + Digest + FixedOutput> Ord for StmSigBatchCompat<D> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.cmp_stm_sig(other)
     }
@@ -804,7 +414,7 @@ impl<D: Clone + Digest + FixedOutput> From<&ClosedKeyReg<D>> for StmAggrVerifica
     }
 }
 
-impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
+impl<D: Clone + Digest + FixedOutput> StmAggrSigBatchCompat<D> {
     /// Verify aggregate signature, by checking that
     /// * each signature contains only valid indices,
     /// * the lottery is indeed won by each one of them,
@@ -894,7 +504,7 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
     }
 
     ///Extract a `StmMultiSig` from a byte slice.
-    pub fn from_bytes(bytes: &[u8]) -> Result<StmAggrSig<D>, StmSignatureError<D>> {
+    pub fn from_bytes(bytes: &[u8]) -> Result<StmAggrSigBatchCompat<D>, StmSignatureError<D>> {
         let mut u64_bytes = [0u8; 8];
 
         u64_bytes.copy_from_slice(&bytes[..8]);
@@ -907,7 +517,7 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
 
         let mut signatures = Vec::with_capacity(size);
         for i in 0..size {
-            signatures.push(StmSig::from_bytes(
+            signatures.push(StmSigBatchCompat::from_bytes(
                 &bytes[16 + i * sig_size..16 + (i + 1) * sig_size],
             )?);
         }
@@ -915,7 +525,7 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
         let offset = 16 + sig_size * size;
         let batch_proof = BatchPath::from_bytes(&bytes[offset..])?;
 
-        Ok(StmAggrSig {
+        Ok(StmAggrSigBatchCompat {
             signatures,
             batch_proof,
         })
@@ -926,6 +536,7 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
 mod tests {
     use super::*;
     use crate::key_reg::*;
+    use crate::stm::StmInitializer;
     use bincode;
     use blake2::{digest::consts::U32, Blake2b};
     use proptest::collection::{hash_map, vec};
@@ -937,15 +548,15 @@ mod tests {
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;
 
-    type Sig = StmAggrSig<D>;
+    type Sig = StmAggrSigBatchCompat<D>;
     type D = Blake2b<U32>;
 
-    fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmSigner<D>> {
+    fn setup_equal_parties(params: StmParameters, nparties: usize) -> Vec<StmSignerBatchCompat<D>> {
         let stake = vec![1; nparties];
         setup_parties(params, stake)
     }
 
-    fn setup_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<StmSigner<D>> {
+    fn setup_parties(params: StmParameters, stake: Vec<Stake>) -> Vec<StmSignerBatchCompat<D>> {
         let mut kr = KeyReg::init();
         let mut trng = TestRng::deterministic_rng(ChaCha);
         let mut rng = ChaCha20Rng::from_seed(trng.gen());
@@ -961,7 +572,7 @@ mod tests {
             .collect::<Vec<_>>();
         let closed_reg = kr.close();
         ps.into_iter()
-            .map(|p| p.new_signer(closed_reg.clone()).unwrap())
+            .map(|p| p.new_signer_batch_compat(closed_reg.clone()).unwrap())
             .collect()
     }
 
@@ -1025,7 +636,11 @@ mod tests {
         )
     }
 
-    fn find_signatures(msg: &[u8], ps: &[StmSigner<D>], is: &[usize]) -> Vec<StmSig<D>> {
+    fn find_signatures(
+        msg: &[u8],
+        ps: &[StmSignerBatchCompat<D>],
+        is: &[usize],
+    ) -> Vec<StmSigBatchCompat<D>> {
         let mut sigs = Vec::new();
         for i in is {
             if let Some(sig) = ps[*i].sign(msg) {
@@ -1046,8 +661,8 @@ mod tests {
             let params = StmParameters { m: (nparties as u64), k: 1, phi_f: 1.0 };
             let ps = setup_equal_parties(params, nparties);
             let p = &ps[0];
-            let clerk = StmClerk::from_signer(p);
-            let avk = clerk.compute_avk();
+            let clerk = StmClerkBatchCompact::from_signer_batch_compat(p);
+            let avk = StmAggrVerificationKey::from(&clerk.closed_reg);
             let mut sigs = Vec::with_capacity(nparties);
 
 
@@ -1059,7 +674,7 @@ mod tests {
                 sigs.push(sig);
             }
 
-            let dedup_result = clerk.dedup_sigs_for_indices(&msg, &sigs);
+            let dedup_result = clerk.dedup_sigs_for_indices_batch_compat(&msg, &sigs);
             assert!(dedup_result.is_ok(), "dedup failure {:?}", dedup_result);
             for passed_sigs in dedup_result.unwrap() {
                 let verify_result = passed_sigs.verify(&params, &avk, &msg);
@@ -1076,8 +691,8 @@ mod tests {
             let params = StmParameters { m: (nparties as u64), k: 1, phi_f: 0.2 };
             let ps = setup_equal_parties(params, nparties);
             let p = &ps[0];
-            let clerk = StmClerk::from_signer(p);
-            let avk = clerk.compute_avk();
+            let clerk = StmClerkBatchCompact::from_signer_batch_compat(p);
+            let avk = StmAggrVerificationKey::from(&clerk.closed_reg);
 
             if let Some(sig) = p.sign(&msg) {
                 assert!(sig.verify(&params, &avk, &msg).is_ok());
@@ -1097,15 +712,16 @@ mod tests {
                               msg in any::<[u8;16]>()) {
             let params = StmParameters { m, k, phi_f: 0.2 };
             let ps = setup_equal_parties(params, nparties);
-            let clerk = StmClerk::from_signer(&ps[0]);
+            let clerk = StmClerkBatchCompact::from_signer_batch_compat(&ps[0]);
 
             let all_ps: Vec<usize> = (0..nparties).collect();
             let sigs = find_signatures(&msg, &ps, &all_ps);
-            let msig = clerk.aggregate(&sigs, &msg);
+            let msig = clerk.aggregate_batch_compat(&sigs, &msg);
 
             match msig {
                 Ok(aggr) => {
-                    let verify_result = aggr.verify(&msg, &clerk.compute_avk(), &params);
+                    let avk = StmAggrVerificationKey::from(&clerk.closed_reg);
+                    let verify_result = aggr.verify(&msg, &avk, &params);
                     assert!(verify_result.is_ok(), "{:?}", verify_result);
                 }
                 Err(AggregationError::NotEnoughSignatures(n, k)) =>
@@ -1118,28 +734,6 @@ mod tests {
 
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(10))]
-        #[test]
-        fn test_parameters_serialize_deserialize(m in any::<u64>(), k in any::<u64>(), phi_f in any::<f64>()) {
-            let params = StmParameters { m, k, phi_f };
-
-            let bytes = params.to_bytes();
-            let deserialised = StmParameters::from_bytes(&bytes);
-            assert!(deserialised.is_ok())
-        }
-
-        #[test]
-        fn test_initializer_serialize_deserialize(seed in any::<[u8;32]>()) {
-            let mut rng = ChaCha20Rng::from_seed(seed);
-            let params = StmParameters { m: 1, k: 1, phi_f: 1.0 };
-            let stake = rng.next_u64();
-            let initializer = StmInitializer::setup(params, stake, &mut rng);
-
-            let bytes = initializer.to_bytes();
-            assert!(StmInitializer::from_bytes(&bytes).is_ok());
-
-            let bytes = bincode::serialize(&initializer).unwrap();
-            assert!(bincode::deserialize::<StmInitializer>(&bytes).is_ok())
-        }
 
         #[test]
         fn test_sig_serialize_deserialize(msg in any::<[u8;16]>()) {
@@ -1147,16 +741,16 @@ mod tests {
             let params = StmParameters { m: (nparties as u64), k: 1, phi_f: 0.2 };
             let ps = setup_equal_parties(params, nparties);
             let p = &ps[0];
-            let clerk = StmClerk::from_signer(p);
-            let avk = clerk.compute_avk();
+            let clerk = StmClerkBatchCompact::from_signer_batch_compat(p);
+            let avk = StmAggrVerificationKey::from(&clerk.closed_reg);
 
             if let Some(sig) = p.sign(&msg) {
                 let bytes = sig.to_bytes();
-                let sig_deser = StmSig::<D>::from_bytes(&bytes).unwrap();
+                let sig_deser = StmSigBatchCompat::<D>::from_bytes(&bytes).unwrap();
                 assert!(sig_deser.verify(&params, &avk, &msg).is_ok());
 
                 let encoded = bincode::serialize(&sig).unwrap();
-                let decoded: StmSig::<D> = bincode::deserialize(&encoded).unwrap();
+                let decoded: StmSigBatchCompat::<D> = bincode::deserialize(&encoded).unwrap();
                 assert!(decoded.verify(&params, &avk, &msg).is_ok());
             }
         }
@@ -1166,19 +760,20 @@ mod tests {
                                           msg in any::<[u8;16]>()) {
             let params = StmParameters { m: 10, k: 1, phi_f: 1.0 };
             let ps = setup_equal_parties(params, nparties);
-            let clerk = StmClerk::from_signer(&ps[0]);
+            let clerk = StmClerkBatchCompact::from_signer_batch_compat(&ps[0]);
+            let avk = StmAggrVerificationKey::from(&clerk.closed_reg);
 
             let all_ps: Vec<usize> = (0..nparties).collect();
             let sigs = find_signatures(&msg, &ps, &all_ps);
-            let msig = clerk.aggregate(&sigs, &msg);
+            let msig = clerk.aggregate_batch_compat(&sigs, &msg);
             if let Ok(aggr) = msig {
                     let bytes: Vec<u8> = aggr.to_bytes();
-                    let aggr2 = StmAggrSig::from_bytes(&bytes).unwrap();
-                    assert!(aggr2.verify(&msg, &clerk.compute_avk(), &params).is_ok());
+                    let aggr2 = StmAggrSigBatchCompat::from_bytes(&bytes).unwrap();
+                    assert!(aggr2.verify(&msg, &avk, &params).is_ok());
 
                     let encoded = bincode::serialize(&aggr).unwrap();
-                    let decoded: StmAggrSig::<D> = bincode::deserialize(&encoded).unwrap();
-                    assert!(decoded.verify(&msg, &clerk.compute_avk(), &params).is_ok());
+                    let decoded: StmAggrSigBatchCompat::<D> = bincode::deserialize(&encoded).unwrap();
+                    assert!(decoded.verify(&msg, &avk, &params).is_ok());
             }
         }
     }
@@ -1227,9 +822,9 @@ mod tests {
 
             assert!(sigs.len() < params.k as usize);
 
-            let clerk = StmClerk::from_signer(&ps[0]);
+            let clerk = StmClerkBatchCompact::from_signer_batch_compat(&ps[0]);
 
-            let msig = clerk.aggregate(&sigs, &msg);
+            let msig = clerk.aggregate_batch_compat(&sigs, &msg);
             match msig {
                 Err(AggregationError::NotEnoughSignatures(n, k)) =>
                     assert!(n < params.k && params.k == k),
@@ -1243,7 +838,7 @@ mod tests {
     struct ProofTest {
         n: u64,
         msig: Result<Sig, AggregationError>,
-        clerk: StmClerk<D>,
+        clerk: StmClerkBatchCompact<D>,
         msg: [u8; 16],
     }
 
@@ -1258,12 +853,12 @@ mod tests {
                     phi_f: 1.0,
                 };
                 let ps = setup_equal_parties(params, n);
-                let clerk = StmClerk::from_signer(&ps[0]);
+                let clerk = StmClerkBatchCompact::from_signer_batch_compat(&ps[0]);
 
                 let all_ps: Vec<usize> = (0..n).collect();
                 let sigs = find_signatures(&msg, &ps, &all_ps);
 
-                let msig = clerk.aggregate(&sigs, &msg);
+                let msig = clerk.aggregate_batch_compat(&sigs, &msg);
                 ProofTest {
                     n: n.try_into().unwrap(),
                     msig,
@@ -1276,14 +871,13 @@ mod tests {
 
     fn with_proof_mod<F>(mut tc: ProofTest, f: F)
     where
-        F: Fn(&mut Sig, &mut StmClerk<D>, &mut [u8; 16]),
+        F: Fn(&mut Sig, &mut StmClerkBatchCompact<D>, &mut [u8; 16]),
     {
         match tc.msig {
             Ok(mut aggr) => {
                 f(&mut aggr, &mut tc.clerk, &mut tc.msg);
-                assert!(aggr
-                    .verify(&tc.msg, &tc.clerk.compute_avk(), &tc.clerk.params)
-                    .is_err())
+                let avk = StmAggrVerificationKey::from(&tc.clerk.closed_reg);
+                assert!(aggr.verify(&tc.msg, &avk, &tc.clerk.params).is_err())
             }
             Err(e) => unreachable!("Reached an unexpected error: {:?}", e),
         }
