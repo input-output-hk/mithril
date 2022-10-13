@@ -33,6 +33,14 @@ harness = false
 name = "size_benches"
 harness = false
 
+[[bench]]
+name = "stm_batch_compat"
+harness = false
+
+[[bench]]
+name = "size_benches_batch_compat"
+harness = false
+
 [features]
 default = ["rug-backend"]
 rug-backend = ["rug/default"]

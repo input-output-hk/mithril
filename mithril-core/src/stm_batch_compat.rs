@@ -207,7 +207,7 @@ impl<D: Digest + Clone + FixedOutput> StmClerkBatchCompact<D> {
         let mut removal_idx_by_vk: HashMap<&StmSigBatchCompat<D>, Vec<Index>> = HashMap::new();
 
         for sig in sigs.iter() {
-            if sig.verify(&self.params, &avk, msg).is_err() {
+            if sig.verify(&self.params, avk, msg).is_err() {
                 continue;
             }
 

@@ -1,8 +1,10 @@
 use blake2::{digest::consts::U32, Blake2b};
 
 use mithril::key_reg::KeyReg;
-use mithril::stm_batch_compat::{StmClerkBatchCompact, StmInitializerBatchCompat, StmSigBatchCompat, StmSignerBatchCompat};
-use mithril::stm::{StmParameters};
+use mithril::stm::StmParameters;
+use mithril::stm_batch_compat::{
+    StmClerkBatchCompact, StmInitializerBatchCompat, StmSigBatchCompat, StmSignerBatchCompat,
+};
 use mithril::AggregationError;
 
 use rayon::prelude::*;
@@ -73,7 +75,9 @@ fn test_full_protocol() {
     match msig {
         Ok(aggr) => {
             println!("Aggregate ok");
-            assert!(aggr.verify(&msg, &clerk.compute_avk_batch_compat(), &params).is_ok());
+            assert!(aggr
+                .verify(&msg, &clerk.compute_avk_batch_compat(), &params)
+                .is_ok());
         }
         Err(AggregationError::NotEnoughSignatures(n, k)) => {
             println!("Not enough signatures");
