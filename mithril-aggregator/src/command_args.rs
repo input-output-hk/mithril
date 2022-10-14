@@ -137,6 +137,7 @@ async fn do_first_launch_initialization_if_needed(
 
 /// Mithril Aggregator Node
 #[derive(Parser, Debug, Clone)]
+#[command(version)]
 pub struct MainOpts {
     /// application main command
     #[clap(subcommand)]
@@ -147,8 +148,8 @@ pub struct MainOpts {
     pub run_mode: String,
 
     /// Verbosity level
-    #[clap(short, long, parse(from_occurrences))]
-    pub verbose: usize,
+    #[clap(short, long, action = clap::ArgAction::Count)]
+    pub verbose: u8,
 
     /// Directory of the Cardano node files
     #[clap(long)]
