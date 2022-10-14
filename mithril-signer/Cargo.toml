@@ -7,7 +7,7 @@ description = "A Mithril Signer"
 
 [dependencies]
 async-trait = "0.1.52"
-clap = { version = "3.1.6", features = ["derive", "env"] }
+clap = { version = "4.0", features = ["derive", "env"] }
 config = "0.13.1"
 hex = "0.4.3"
 mithril-common = { path = "../mithril-common" }

@@ -2104,7 +2104,7 @@ name = "mithril-signer"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "clap 3.2.22",
+ "clap 4.0.15",
  "config",
  "hex",
  "httpmock",
