@@ -1,0 +1,213 @@
+name: Documentations & Explorer
+
+on:
+  push:
+    branches: # only run on branch push, tag push will be ignored
+      - '**'
+
+jobs:
+  cargo-doc:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: mithril-core
+            cargo_project_name: mithril
+          - project: mithril-common
+          - project: mithril-aggregator
+          - project: mithril-client
+          - project: mithril-signer
+    env:
+      CARGO_PROJECT_NAME: ${{ matrix.project }}
+    
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Overriding default $CARGO_PROJECT_NAME with matrix value
+        if: ${{ matrix.cargo_project_name }}
+        run: echo "CARGO_PROJECT_NAME=${{ matrix.cargo_project_name }}" >> $GITHUB_ENV
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - uses: actions/cache@v3
+        name: Cache Cargo.lock
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/
+            ~/.cargo/git/
+            target/
+          key: cargo-doc-${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}-${{ matrix.project }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            cargo-doc-${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}-${{ matrix.project }}-
+            cargo-doc-${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}-
+
+      - name: Generate ${{ matrix.project }} doc
+        uses: actions-rs/cargo@v1
+        with:
+          command: doc
+          args: --no-deps -p ${{ env.CARGO_PROJECT_NAME }}
+
+      - name: Publish ${{ matrix.project }}-doc
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.project }}-doc
+          if-no-files-found: error
+          path: |
+            target/doc/
+  
+  build-docusaurus:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          cache: 'yarn'
+          cache-dependency-path: docs/yarn.lock
+
+      - name: Build Docusaurus site
+        working-directory: docs
+        run: |
+          yarn && yarn build
+
+      - name: Publish Docusaurus build
+        uses: actions/upload-artifact@v3
+        with:
+          name: docusaurus-build
+          if-no-files-found: error
+          path: |
+            docs/build/*
+  
+  build-explorer:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 16
+          cache: 'yarn'
+          cache-dependency-path: mithril-explorer/yarn.lock
+
+      - name: Build Explorer
+        working-directory: mithril-explorer
+        run: |
+          make build
+
+      - name: Publish Explorer build
+        uses: actions/upload-artifact@v3
+        with:
+          name: explorer-build
+          if-no-files-found: error
+          path: |
+            mithril-explorer/out/*
+
+  build-open-api-ui:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Build OpenAPI UI
+        uses: Legion2/swagger-ui-action@v1
+        with:
+          output: out/
+          spec-file: ./openapi.yaml
+
+      - name: Publish OpenAPI UI build
+        uses: actions/upload-artifact@v3
+        with:
+          name: openapi-ui-build
+          if-no-files-found: error
+          path: |
+            out/*
+
+  publish-docs:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-22.04
+    needs:
+      - cargo-doc
+      - build-docusaurus
+      - build-explorer
+      - build-open-api-ui
+    steps:
+      - name: Download mithril-core-doc artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: mithril-core-doc
+          path: ./github-pages/mithril-core/doc
+
+      - name: Download mithril-common-doc artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: mithril-common-doc
+          path: ./github-pages/mithril-common/doc
+
+      - name: Download aggregator-doc artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: mithril-aggregator-doc
+          path: ./github-pages/mithril-aggregator/doc
+
+      - name: Download client-doc artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: mithril-client-doc
+          path: ./github-pages/mithril-client/doc
+
+      - name: Download signer-doc artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: mithril-signer-doc
+          path: ./github-pages/mithril-signer/doc
+
+      - name: Download Docusaurus build
+        uses: actions/download-artifact@v3
+        with:
+          name: docusaurus-build
+          path: ./github-pages/doc
+
+      - name: Download Explorer build
+        uses: actions/download-artifact@v3
+        with:
+          name: explorer-build
+          path: ./github-pages/explorer
+
+      - name: Download OpenAPI UI build
+        uses: actions/download-artifact@v3
+        with:
+          name: openapi-ui-build
+          path: ./github-pages/openapi-ui
+
+      - name: Add CNAME & Redirect
+        run: |
+          echo "mithril.network" > ./github-pages/CNAME
+          echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://mithril.network/doc"></head></html>' > ./github-pages/index.html
+
+      - name: (temp) List output 
+        run: |
+          ls ./github-pages/*
+
+      - name: Mithril / Publish Github Pages
+        uses: peaceiris/actions-gh-pages@v3
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
+          publish_dir: ./github-pages

@@ -1,7 +1,12 @@
 name: CI
 
-# do not run workflow twice on PRs
-on: [push]
+on:
+  push:
+    branches: # only run on branch push, tag push will be ignored
+      - '**'
+    paths-ignore: # ignore docs only changes since they use a dedicated workflows: docs.yml
+      - 'docs/**'
+      - 'mithril-explorer/**'
 
 jobs:
   build:
@@ -24,12 +29,10 @@ jobs:
           cargo_project_name: mithril-end-to-end
           artifacts_base_name: mithril-end-to-end
           artifacts_pattern: mithril-end-to-end
-          skip_doc: true
         - project: demo/protocol-demo
           cargo_project_name: mithrildemo
           artifacts_base_name: mithrildemo
           artifacts_pattern: mithrildemo
-          skip_doc: true
     env:
       CARGO_PROJECT_NAME: ${{ matrix.project }}
       ARTIFACTS_BASE_NAME: ${{ matrix.project }}
@@ -123,13 +126,6 @@ jobs:
           name: test-results-${{ env.ARTIFACTS_BASE_NAME }}
           path: |
             ./**/test-results-*.xml
-      
-      - name: Generate ${{ matrix.project }} doc
-        if: ${{ matrix.skip_doc != true }}
-        uses: actions-rs/cargo@v1
-        with:
-          command: doc
-          args: --no-deps --release -p ${{ env.CARGO_PROJECT_NAME }}
 
       - name: Publish ${{ matrix.project }}
         uses: actions/upload-artifact@v3
@@ -138,15 +134,6 @@ jobs:
           path: |
             target/release/${{ env.ARTIFACTS_PATTERN }}*
           if-no-files-found: error
-
-      - name: Publish ${{ matrix.project }}-doc
-        if: ${{ matrix.skip_doc != true }}
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ env.ARTIFACTS_BASE_NAME }}-doc
-          if-no-files-found: error
-          path: |
-            target/doc/
 
   test-mithril-core:
     runs-on: ubuntu-22.04
@@ -412,81 +399,6 @@ jobs:
           prerelease: true
           title: Nightly Development Builds
           files: build/*
-
-  generate-publish-docs:
-    if: github.event.pull_request.draft == false
-    runs-on: ubuntu-22.04
-    needs:
-      - docker-mithril
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v3
-
-      - name: Download mithril-core-doc artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: mithril-core-doc
-          path: ./github-pages/mithril-core/doc
-
-      - name: Download mithril-common-doc artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: mithril-common-doc
-          path: ./github-pages/mithril-common/doc
-
-      - name: Download aggregator-doc artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: mithril-aggregator-doc
-          path: ./github-pages/mithril-aggregator/doc
-
-      - name: Download client-doc artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: mithril-client-doc
-          path: ./github-pages/mithril-client/doc
-
-      - name: Download signer-doc artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: mithril-signer-doc
-          path: ./github-pages/mithril-signer/doc
-
-      - name: Mithril Aggregator / Generate OpenAPI UI
-        uses: Legion2/swagger-ui-action@v1
-        with:
-          output: ./github-pages/openapi-ui
-          spec-file: ./openapi.yaml
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 16
-          cache: 'yarn'
-          cache-dependency-path: docs/yarn.lock
-
-      - name: Documentation (Docusaurus)
-        working-directory: docs
-        run: |
-          yarn && yarn build
-          mkdir -p ../github-pages/doc
-          mv build/* ../github-pages/doc
-          echo "mithril.network" > ../github-pages/CNAME
-          echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://mithril.network/doc"></head></html>' > ../github-pages/index.html
-
-      - name: Explorer
-        working-directory: mithril-explorer
-        run: |
-          make build
-          mkdir -p ../github-pages/explorer
-          mv out/* ../github-pages/explorer
-
-      - name: Mithril / Publish Github Pages
-        uses: peaceiris/actions-gh-pages@v3
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
-          publish_dir: ./github-pages
 
   terraform:
     runs-on: ubuntu-22.04
