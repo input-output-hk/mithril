@@ -371,7 +371,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: mithril-infra
+        working-directory: mithril-infra-legacy
 
     steps:
     - name: Checkout sources
