@@ -11,3 +11,7 @@ mithril-core/proptest-regressions/
 .DS_Store
 test-results.xml
 target/
+mithril-infra/.terraform*
+mithril-infra/terraform.tfstate*
+mithril-infra/*.tfvars
+
