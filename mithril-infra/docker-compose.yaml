@@ -131,7 +131,7 @@ services:
       - RUST_BACKTRACE=1
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
       - NETWORK=${NETWORK}
-      - PARTY_ID=pool1t2zfh44yjhgxxrmt563k0wjw9v7vc7jn29vpyyz4vrq4yk8k4m6 # APEX / https://preview.cexplorer.io/pool/pool1t2zfh44yjhgxxrmt563k0wjw9v7vc7jn29vpyyz4vrq4yk8k4m6
+      - PARTY_ID=pool15qde6mnkc0jgycm69ua0grwxmmu0tke54h5uhml0j8ndw3kcu9x # Mithril / https://preview.cexplorer.io/pool/pool15qde6mnkc0jgycm69ua0grwxmmu0tke54h5uhml0j8ndw3kcu9x
       - RUN_INTERVAL=240000
       - DB_DIRECTORY=/db
       - DATA_STORES_DIRECTORY=/mithril-signer-1
