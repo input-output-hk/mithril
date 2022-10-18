@@ -360,7 +360,7 @@ jobs:
           push: ${{ env.PUSH_PACKAGES }}
           tags: ${{ steps.meta.outputs.tags }}
 
-  deploy-nightly:
+  deploy-unstable:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-22.04
     needs:
@@ -391,13 +391,13 @@ jobs:
           name: mithril-client
           path: ./build
 
-      - name: Update nightly release
+      - name: Update unstable release
         uses: marvinpinto/action-automatic-releases@latest
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          automatic_release_tag: nightly
+          automatic_release_tag: unstable
           prerelease: true
-          title: Nightly Development Builds
+          title: Unstable Development Builds
           files: build/*
 
   terraform:
