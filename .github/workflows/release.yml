@@ -1,0 +1,12 @@
+name: Release
+
+on:
+  release:
+    types: [released]
+
+jobs:
+  deploy-release:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: TODO
+        run: echo "Add terraform deployment to a release environment here"

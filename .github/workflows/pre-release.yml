@@ -1,0 +1,66 @@
+name: Pre-release
+
+on:
+  push:
+    tags:
+      - '[0-9][0-9][0-9][0-9].[0-9]+'
+      - '[0-9][0-9][0-9][0-9].[0-9]+-**'
+
+jobs:
+  create-pre-release:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Download mithril-core artifacts
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          name: mithril-core
+          path: ./build
+          commit: ${{ github.sha }}
+          workflow: ci.yml
+          workflow_conclusion: success
+      
+      - name: Download Aggregator artifacts
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          name: mithril-aggregator
+          path: ./build
+          commit: ${{ github.sha }}
+          workflow: ci.yml
+          workflow_conclusion: success
+      
+      - name: Download Signer artifacts
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          name: mithril-signer
+          path: ./build
+          commit: ${{ github.sha }}
+          workflow: ci.yml
+          workflow_conclusion: success
+      
+      - name: Download Client artifacts
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          name: mithril-client
+          path: ./build
+          commit: ${{ github.sha }}
+          workflow: ci.yml
+          workflow_conclusion: success
+      
+      - name: Append VERSION file
+        run: |
+          echo ${{ github.ref_name }} >> ./build/VERSION
+      
+      - name: Create pre-release ${{ github.ref_name }}
+        uses: marvinpinto/action-automatic-releases@latest
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          automatic_release_tag: ${{ github.ref_name }}
+          prerelease: true
+          title: Mithril v${{ github.ref_name }}
+          files: build/**/*
+  
+  deploy-pre-release:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: TODO
+        run: echo "Add terraform deployment to a pre-release environment here"
