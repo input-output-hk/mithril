@@ -2,7 +2,8 @@
 slug: 3
 title: |
   3. Release process and versioning
-authors: [Jean-Philippe Raynaud, Denis Jouenne, Grégoire Hubert]
+authors:
+- name: Mithril Team
 tags: [Draft]
 ---
 
@@ -37,7 +38,7 @@ There are 3 versioned layers in the Mithril stack:
 
  * HTTP API protocol to ensure compatibility in the communication between nodes (use Semver)
  * Crate version: each node & library has its own version (use Semver) the commit digest is automatically added to the version by the CI pipeline.
- * Release Version: the distribution version (use version scheme YYWW.patch|YYWW.patch-name). The VERSION file is computed by the pipeline from the tag release.
+ * Release Version: the distribution version (use version scheme **YYWW.patch** | **YYWW.patch-name**). The VERSION file is computed by the pipeline from the tag release.
 
 The documentation is tied to a Release Version.
 
@@ -48,11 +49,15 @@ Starting just after a new release has been made:
 1. Develop on a dedicated development branch
 1. When merging PR on main: update the `Cargo.toml` files with version of the updated nodes
 1. Once merged, the CI creates an `unstable` tag & release which is deployed on testing environment
-1. Push a tag using the distribution version format on this commit with a `-pre_release` suffix.
+1. Push a tag using the distribution version format on this commit with a `-prerelease` suffix.
 1. The CI gets the built artifacts associated with this commit and generates a named pre-release which is deployed on `pre-release` for testing.
-1. Push a tag using the distribution version format on this commit without the `-pre_release` suffix.
+1. Push a tag using the distribution version format on this commit without the `-prerelease` suffix.
 1. The CI gets the built artifacts associated with this commit and generates a named release which is deployed on `pre-release` for testing.
 1. In the release GitHub interface, edit the newly generated release, uncheck the `This is a pre-release` tick box.
 1. The CI gets the built artifacts associated with this commit and generates a named release which is deployed on `release`.
-1. Update the documentation website from future to current.
+1. Create a commit:
+   1. to promote the documentation website from future to current.
+   1. to update the SQL schema with alterations from the previous release.
+
+[![Release Process](./img/release_process.jpg)](./img/release_process.jpg)
 
