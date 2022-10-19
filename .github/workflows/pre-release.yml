@@ -13,7 +13,7 @@ jobs:
       - name: Download mithril-core artifacts
         uses: dawidd6/action-download-artifact@v2
         with:
-          name: mithril-core
+          name: mithril-core-Linux-x64
           path: ./build
           commit: ${{ github.sha }}
           workflow: ci.yml
@@ -22,7 +22,7 @@ jobs:
       - name: Download Aggregator artifacts
         uses: dawidd6/action-download-artifact@v2
         with:
-          name: mithril-aggregator
+          name: mithril-aggregator-Linux-x64
           path: ./build
           commit: ${{ github.sha }}
           workflow: ci.yml
@@ -31,7 +31,7 @@ jobs:
       - name: Download Signer artifacts
         uses: dawidd6/action-download-artifact@v2
         with:
-          name: mithril-signer
+          name: mithril-signer-Linux-x64
           path: ./build
           commit: ${{ github.sha }}
           workflow: ci.yml
@@ -40,7 +40,25 @@ jobs:
       - name: Download Client artifacts
         uses: dawidd6/action-download-artifact@v2
         with:
-          name: mithril-client
+          name: mithril-client-Linux-x64
+          path: ./build
+          commit: ${{ github.sha }}
+          workflow: ci.yml
+          workflow_conclusion: success
+
+      - name: Download Client artifacts
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          name: mithril-client-Windows-x64
+          path: ./build
+          commit: ${{ github.sha }}
+          workflow: ci.yml
+          workflow_conclusion: success
+
+      - name: Download Client artifacts
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          name: mithril-client-macOS-x64
           path: ./build
           commit: ${{ github.sha }}
           workflow: ci.yml
