@@ -72,7 +72,6 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
-          components: clippy, rustfmt
           override: true
 
       - uses: actions/cache@v3
@@ -93,36 +92,12 @@ jobs:
         shell: bash
         run: |
           cargo install cargo2junit 2>/dev/null || true # Suppress the "binary `xyz` already exists in destination" error
-          cargo install cargo-sort 2>/dev/null || true
       
       - name: Cargo build
         uses: actions-rs/cargo@v1
         with:
           command: build
           args: --release --all-targets --features portable -p ${{ env.CARGO_PROJECT_NAME }}
-      
-      - name: Cargo check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --release --all-targets -p ${{ env.CARGO_PROJECT_NAME }}
-
-      - name: Clippy Check
-        uses: actions-rs/clippy-check@v1
-        with:
-          name: clippy-${{ matrix.project }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --release --all-features --all-targets --no-deps -p ${{ env.CARGO_PROJECT_NAME }} -- -D warnings
-
-      - name: Cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --check -p ${{ env.CARGO_PROJECT_NAME }}
-      
-      - name: Cargo sort
-        run: |
-          cargo sort -c ${{ matrix.project }}/Cargo.toml
 
       - name: Run tests
         if: ${{ matrix.skip_tests != true }}
@@ -148,6 +123,54 @@ jobs:
           path: |
             target/release/${{ env.ARTIFACTS_PATTERN }}*
           if-no-files-found: error
+  
+  check:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: clippy, rustfmt
+          override: true
+      
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2.0.1
+        with:
+          key: ${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}
+
+      - name: Install cargo tools
+        if: ${{ steps.cargo-cache.outputs.cache-hit == false }}
+        shell: bash
+        run: |
+          cargo install cargo-sort 2>/dev/null || true # Suppress the "binary `xyz` already exists in destination" error
+
+      - name: Cargo check
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
+          args: --release --all-targets
+
+      - name: Clippy Check
+        uses: actions-rs/clippy-check@v1
+        with:
+          name: clippy
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: --all-features --all-targets --no-deps -- -D warnings
+
+      - name: Cargo fmt
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --check
+
+      - name: Cargo sort
+        shell: bash
+        run: cargo sort -w -c
 
   test-mithril-core:
     runs-on: ubuntu-22.04
@@ -162,7 +185,6 @@ jobs:
         with:
           profile: minimal
           toolchain: stable
-          components: clippy, rustfmt
           override: true
 
       # Get the matrix build cache for mithril-core
@@ -333,6 +355,7 @@ jobs:
     runs-on: ubuntu-22.04
     if: ${{ github.event_name == 'push' }}
     needs:
+      - check
       - test-mithril-core
       - run-test-lab
     strategy:
@@ -392,6 +415,7 @@ jobs:
     needs:
       - test-mithril-core
       - run-test-lab
+      - check
     steps:
       - name: Download mithril-core lib
         uses: actions/download-artifact@v3
