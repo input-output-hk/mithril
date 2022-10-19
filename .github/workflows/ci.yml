@@ -74,18 +74,10 @@ jobs:
           toolchain: stable
           override: true
 
-      - uses: actions/cache@v3
-        name: Cache Cargo.lock
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/
-            ~/.cargo/git/
-            target/
-          key: cargo-${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}-${{ matrix.project }}-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            cargo-${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}-${{ matrix.project }}-
-            cargo-${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}-
+          key: ${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}
 
       - name: Install cargo tools
         if: ${{ steps.cargo-cache.outputs.cache-hit == false }}
@@ -139,7 +131,7 @@ jobs:
           override: true
       
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2.0.1
+        uses: Swatinem/rust-cache@v2
         with:
           key: ${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}
 
@@ -187,26 +179,15 @@ jobs:
           toolchain: stable
           override: true
 
-      # Get the matrix build cache for mithril-core
-      # Note: cargo tools will be included so there's no need to install them
-      - uses: actions/cache@v3
-        name: Cache Cargo.lock
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/
-            ~/.cargo/git/
-            target/
-          key: cargo-${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}-mithril-core-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            cargo-${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}-mithril-core
-            cargo-${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}-
+          key: ${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}
 
       - name: Install cargo tools
         if: ${{ steps.cargo-cache.outputs.cache-hit == false }}
         run: |
           cargo install cargo2junit 2>/dev/null || true # Suppress the "binary `xyz` already exists in destination" error
-          cargo install cargo-sort 2>/dev/null || true
 
       - name: Cargo build
         uses: actions-rs/cargo@v1
