@@ -29,7 +29,6 @@ jobs:
         - project: mithril-core
           cargo_project_name: mithril
           artifacts_pattern: libmithril
-          skip_tests: true
         - project: mithril-common
           artifacts_pattern: libmithril_common
         - project: mithril-client
@@ -78,35 +77,12 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           key: ${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}
-
-      - name: Install cargo tools
-        if: ${{ steps.cargo-cache.outputs.cache-hit == false }}
-        shell: bash
-        run: |
-          cargo install cargo2junit 2>/dev/null || true # Suppress the "binary `xyz` already exists in destination" error
       
       - name: Cargo build
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --all-targets --features portable -p ${{ env.CARGO_PROJECT_NAME }}
-
-      - name: Run tests
-        if: ${{ matrix.skip_tests != true }}
-        shell: bash
-        run: |
-          set -o pipefail && \
-          cargo test --release --features portable -p $CARGO_PROJECT_NAME --no-fail-fast \
-              -- -Z unstable-options --format json --report-time \
-              | tee >(cargo2junit > test-results-${{ env.ARTIFACTS_PATTERN }}-${{ runner.os }}-${{ runner.arch }}.xml)
-
-      - name: Upload Tests Results
-        if: ${{ always() && matrix.skip_tests != true }}
-        uses: actions/upload-artifact@v3
-        with:
-          name: test-results-${{ env.ARTIFACTS_BASE_NAME }}-${{ runner.os }}-${{ runner.arch }}
-          path: |
-            ./**/test-results-*.xml
+          args: --release --features portable -p ${{ env.CARGO_PROJECT_NAME }}
 
       - name: Publish ${{ matrix.project }} (${{ runner.os }}-${{ runner.arch }})
         uses: actions/upload-artifact@v3
@@ -115,6 +91,94 @@ jobs:
           path: |
             target/release/${{ env.ARTIFACTS_PATTERN }}*
           if-no-files-found: error
+  
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [
+          mithril-core,
+          mithril-common,
+          mithril-aggregator,
+          mithril-client,
+          mithril-signer,
+          mithril-test-lab/mithril-end-to-end,
+          demo/protocol-demo
+        ]
+        os: [ubuntu-22.04]
+        
+        include:
+          - project: mithril-core
+            cargo_project_name: mithril
+            cargo-args: --release # Mithril core tests are ~2x quicker on release build
+          - project: mithril-common
+          - project: mithril-client
+            os: macos-latest
+          - project: mithril-client
+            os: windows-latest
+          - project: mithril-test-lab/mithril-end-to-end
+            cargo_project_name: mithril-end-to-end
+            artifacts_base_name: mithril-end-to-end
+          - project: demo/protocol-demo
+            cargo_project_name: mithrildemo
+            artifacts_base_name: mithrildemo
+    env:
+      CARGO_PROJECT_NAME: ${{ matrix.project }}
+      ARTIFACTS_BASE_NAME: ${{ matrix.project }}
+    
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Overriding default $CARGO_PROJECT_NAME with matrix value
+        if: ${{ matrix.cargo_project_name }}
+        run: echo "CARGO_PROJECT_NAME=${{ matrix.cargo_project_name }}" >> $GITHUB_ENV
+
+      - name: Overriding default $ARTIFACTS_BASE_NAME with matrix value
+        if: ${{ matrix.artifacts_base_name }}
+        run: echo "ARTIFACTS_BASE_NAME=${{ matrix.artifacts_base_name }}" >> $GITHUB_ENV
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}
+
+      - name: Install cargo tools
+        if: ${{ steps.cargo-cache.outputs.cache-hit == false }}
+        shell: bash
+        run: |
+          cargo install cargo2junit 2>/dev/null || true # Suppress the "binary `xyz` already exists in destination" error
+
+      - name: Cargo build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --tests --features portable -p ${{ env.CARGO_PROJECT_NAME }} ${{ matrix.cargo-args }}
+
+      - name: Run tests
+        shell: bash
+        run: |
+          set -o pipefail && \
+          cargo test --features portable -p $CARGO_PROJECT_NAME --no-fail-fast ${{ matrix.cargo-args }} \
+              -- -Z unstable-options --format json --report-time \
+              | tee >(cargo2junit > test-results-${{ env.artifacts_base_name }}-${{ runner.os }}-${{ runner.arch }}.xml)
+
+      - name: Upload Tests Results
+        uses: actions/upload-artifact@v3
+        if: ${{ success() || failure() }}
+        with:
+          name: test-results-${{ env.ARTIFACTS_BASE_NAME }}-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            ./**/test-results-*.xml
   
   check:
     runs-on: ubuntu-22.04
@@ -163,54 +227,6 @@ jobs:
       - name: Cargo sort
         shell: bash
         run: cargo sort -w -c
-
-  test-mithril-core:
-    runs-on: ubuntu-22.04
-    if: ${{ github.event_name == 'push' }}
-    needs: [ build ]
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v3
-
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}
-
-      - name: Install cargo tools
-        if: ${{ steps.cargo-cache.outputs.cache-hit == false }}
-        run: |
-          cargo install cargo2junit 2>/dev/null || true # Suppress the "binary `xyz` already exists in destination" error
-
-      - name: Cargo build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --tests --features portable -p mithril
-
-      - name: Run tests
-        if: ${{ matrix.skip_test != true }}
-        shell: bash
-        run: |
-          set -o pipefail && \
-          cargo test --release --features portable -p mithril --no-fail-fast \
-              -- -Z unstable-options --format json --report-time \
-              | tee >(cargo2junit > test-results-libmithril.xml-${{ runner.os }}-${{ runner.arch }}.xml)
-
-      - name: Upload Tests Results
-        if: ${{ always() && matrix.skip_test != true }}
-        uses: actions/upload-artifact@v3
-        with:
-          name: test-results-mithril-core-${{ runner.os }}-${{ runner.arch }}
-          path: |
-            ./**/test-results-*.xml
 
   run-test-lab:
     runs-on: ubuntu-22.04
@@ -268,66 +284,67 @@ jobs:
           if-no-files-found: error
   
   publish-tests-results:
-    if: github.event.pull_request.draft == false && ${{ always() }}
+    if: github.event.pull_request.draft == false && ${{ success() || failure() }}
     runs-on: ubuntu-22.04
-    needs: [ test-mithril-core ]
+    needs: 
+      - test
     steps:
       - name: Download mithril-core Tests Results
-        if: always()
+        if: ${{ success() || failure() }}
         uses: actions/download-artifact@v3
         with:
           name: test-results-mithril-core-${{ runner.os }}-${{ runner.arch }}
 
       - name: Download mithril-common Tests Results
-        if: always()
+        if: ${{ success() || failure() }}
         uses: actions/download-artifact@v3
         with:
           name: test-results-mithril-common-${{ runner.os }}-${{ runner.arch }}
       
       - name: Download mithril-aggregator Tests Results
-        if: always()
+        if: ${{ success() || failure() }}
         uses: actions/download-artifact@v3
         with:
           name: test-results-mithril-aggregator-${{ runner.os }}-${{ runner.arch }}
 
       - name: Download mithril-client (${{ runner.os }}-${{ runner.arch }}) Tests Results
-        if: always()
+        if: ${{ success() || failure() }}
         uses: actions/download-artifact@v3
         with:
           name: test-results-mithril-client-${{ runner.os }}-${{ runner.arch }}
 
       - name: Download mithril-client (macOS-X64) Tests Results
-        if: always()
+        if: ${{ success() || failure() }}
         uses: actions/download-artifact@v3
         with:
           name: test-results-mithril-client-macOS-X64
 
       - name: Download mithril-client (Windows-X64) Tests Results
-        if: always()
+        if: ${{ success() || failure() }}
         uses: actions/download-artifact@v3
         with:
           name: test-results-mithril-client-Windows-X64
 
       - name: Download mithril-signer Tests Results
-        if: always()
+        if: ${{ success() || failure() }}
         uses: actions/download-artifact@v3
         with:
           name: test-results-mithril-signer-${{ runner.os }}-${{ runner.arch }}
 
       - name: Download mithril-end-to-end Tests Results
-        if: always()
+        if: ${{ success() || failure() }}
         uses: actions/download-artifact@v3
         with:
           name: test-results-mithril-end-to-end-${{ runner.os }}-${{ runner.arch }}
 
       - name: Download mithril-demo Tests Results
-        if: always()
+        if: ${{ success() || failure() }}
         uses: actions/download-artifact@v3
         with:
           name: test-results-mithrildemo-${{ runner.os }}-${{ runner.arch }}
       
       - name: Publish Unit Test Results
-        if: always()
+        if: ${{ success() || failure() }}
         uses: EnricoMi/publish-unit-test-result-action@v1
         with:
           files: ./**/test-results-*.xml
@@ -336,8 +353,9 @@ jobs:
     runs-on: ubuntu-22.04
     if: ${{ github.event_name == 'push' }}
     needs:
+      - build
       - check
-      - test-mithril-core
+      - test
       - run-test-lab
     strategy:
       fail-fast: false
@@ -394,7 +412,8 @@ jobs:
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-22.04
     needs:
-      - test-mithril-core
+      - build
+      - test
       - run-test-lab
       - check
     steps:
