@@ -2020,7 +2020,7 @@ name = "mithril-client"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "clap 3.2.22",
+ "clap 4.0.15",
  "cli-table",
  "config",
  "flate2",
