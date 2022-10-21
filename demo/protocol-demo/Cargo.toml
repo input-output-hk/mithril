@@ -9,7 +9,7 @@ base64 = "0.13.0"
 clap = { version = "3.1.6", features = ["derive"] }
 hex = "0.4.3"
 log = "0.4.14"
-mithril-common = { path = "../../mithril-common", features = ["allow_skip_signer_certification"]}
+mithril-common = { path = "../../mithril-common", features = ["allow_skip_signer_certification"] }
 rand_chacha = "0.3.1"
 rand_core   = "0.6.3"
 serde = { version = "1.0", features = ["derive"] }

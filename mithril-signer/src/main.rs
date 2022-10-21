@@ -13,6 +13,7 @@ use mithril_signer::{
 #[derive(Parser)]
 #[clap(name = "mithril-signer")]
 #[clap(about = "An implementation of a Mithril Signer", long_about = None)]
+#[command(version)]
 pub struct Args {
     /// Run Mode
     #[clap(short, long, env("RUN_MODE"), default_value = "dev")]
@@ -22,17 +23,17 @@ pub struct Args {
     #[clap(
         short,
         long,
-        parse(from_occurrences),
-        help = "verbosity level, add more v to increase"
+        action = clap::ArgAction::Count,
+        help = "Verbosity level, add more v to increase"
     )]
-    verbose: usize,
+    verbose: u8,
 
     /// Configuration file location
     #[clap(
         short,
         long,
         default_value = "./config",
-        help = "directory where the configuration file is located"
+        help = "Directory where the configuration file is located"
     )]
     configuration_dir: PathBuf,
 }

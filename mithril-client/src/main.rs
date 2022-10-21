@@ -18,6 +18,7 @@ use mithril_client::commands::{DownloadCommand, ListCommand, RestoreCommand, Sho
     about = "This program downloads, checks and restores certified blockchain snapshots.",
     long_about = None
 )]
+#[command(version)]
 pub struct Args {
     /// Available commands
     #[clap(subcommand)]
@@ -28,8 +29,8 @@ pub struct Args {
     run_mode: String,
 
     /// Verbosity level (-v=warning, -vv=info, -vvv=debug).
-    #[clap(short, long, parse(from_occurrences))]
-    verbose: usize,
+    #[clap(short, long, action = clap::ArgAction::Count)]
+    verbose: u8,
 
     /// Directory where configuration file is located.
     #[clap(long, default_value = "./config")]
