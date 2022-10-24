@@ -50,7 +50,7 @@ services:
       - PROTOCOL_PARAMETERS__M=100
       - PROTOCOL_PARAMETERS__PHI_F=0.65
       - RUN_INTERVAL=60000
-      - URL_SNAPSHOT_MANIFEST=https://storage.googleapis.com/cardano-${NETWORK}/snapshots.json
+      - URL_SNAPSHOT_MANIFEST=https://storage.googleapis.com/${SNAPSHOT_BUCKET_NAME}/snapshots.json
       - SNAPSHOT_STORE_TYPE=local
       - SNAPSHOT_UPLOADER_TYPE=local
       - DATA_STORES_DIRECTORY=/mithril-aggregator/mithril/stores
