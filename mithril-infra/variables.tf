@@ -6,6 +6,7 @@ variable "environment_prefix" {
 variable "environment_suffix" {
   type        = string
   description = "The environment suffix to deploy"
+  default     = ""
 }
 
 variable "cardano_network" {
@@ -21,19 +22,22 @@ locals {
 variable "google_region" {
   type        = string
   description = "The region on GCP"
+  default     = "europe-west1"
 }
 
 variable "google_zone" {
   type        = string
   description = "The zone on GCP"
+  default     = "europe-west1-b"
 }
 
 variable "google_machine_type" {
   type        = string
   description = "The machine type on which to run the VM on GCP"
+  default     = "e2-medium"
 }
 
-variable "google_service_credentials_json" {
+variable "google_service_credentials_json_file" {
   type        = string
   description = "The credentials of the GCP service account"
 }
@@ -45,9 +49,9 @@ variable "google_storage_bucket_max_age" {
 }
 
 locals {
-  google_service_credentials_json_decoded = jsondecode(file(var.google_service_credentials_json))
-  google_service_account_private_key      = local.google_service_credentials_json_decoded.private_key
-  google_project_id                       = local.google_service_credentials_json_decoded.project_id
+  google_service_credentials_json_file_decoded = jsondecode(file(var.google_service_credentials_json_file))
+  google_service_account_private_key           = local.google_service_credentials_json_file_decoded.private_key
+  google_project_id                            = local.google_service_credentials_json_file_decoded.project_id
 }
 
 variable "mithril_api_domain" {
@@ -73,4 +77,9 @@ variable "mithril_signers" {
   type = map(object({
     pool_id = string
   }))
+  default = {
+    "1" = {
+      pool_id = "pool15qde6mnkc0jgycm69ua0grwxmmu0tke54h5uhml0j8ndw3kcu9x",
+    }
+  }
 }
