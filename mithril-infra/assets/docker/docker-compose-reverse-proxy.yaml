@@ -1,0 +1,22 @@
+version: "3.9"
+
+services:
+  reverse-proxy:
+    image: traefik:2.8
+    container_name: reverse-proxy
+    restart: always
+    user: "${CURRENT_UID}:${DOCKER_GID}"
+    profiles:
+      - reverse-proxy
+      - all
+    ports:
+      - '80:80'
+      - '443:443'
+    volumes:
+      - ./traefik:/etc/traefik
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+networks:
+  default:
+    external:
+      name: mithril_network
