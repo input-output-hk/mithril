@@ -38,9 +38,10 @@ variable "google_service_credentials_json" {
   description = "The credentials of the GCP service account"
 }
 
-variable "google_application_credentials_json" {
-  type        = string
-  description = "Service account JSON key file used by aggregator to upload files to gcloud storage"
+variable "google_storage_bucket_max_age" {
+  type        = number
+  description = "Number of days after which an object in the storage bucket expires"
+  default     = 14
 }
 
 locals {
