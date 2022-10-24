@@ -5,7 +5,7 @@ exec_sql_aggregator() {
   sqlite3 data/preview/$1/mithril/stores/aggregator.sqlite3 "$2"
 }
 
-fix_aggregator() {
+fix_table_aggregator() {
   LAST_EPOCH=$(exec_sql_aggregator $1 "SELECT MAX(key) FROM $2;")
   LAST_VALUE=$(exec_sql_aggregator $1 "SELECT value FROM $2 WHERE key = $LAST_EPOCH;")
 
@@ -16,8 +16,13 @@ fix_aggregator() {
   exec_sql_aggregator $1 "SELECT * FROM $2 WHERE key = $CREATE_EPOCH;"
 }
 
-fix_aggregator $AGGREGATOR_NODE stake 1
-fix_aggregator $AGGREGATOR_NODE stake 2
-fix_aggregator $AGGREGATOR_NODE verification_key 1
-fix_aggregator $AGGREGATOR_NODE verification_key 2
+fix_table_aggregator $AGGREGATOR_NODE stake 1
+fix_table_aggregator $AGGREGATOR_NODE stake 2
+fix_table_aggregator $AGGREGATOR_NODE stake 3
+fix_table_aggregator $AGGREGATOR_NODE verification_key 1
+fix_table_aggregator $AGGREGATOR_NODE verification_key 2
+fix_table_aggregator $AGGREGATOR_NODE verification_key 3
+fix_table_aggregator $AGGREGATOR_NODE protocol_parameters 1
+fix_table_aggregator $AGGREGATOR_NODE protocol_parameters 2
+fix_table_aggregator $AGGREGATOR_NODE protocol_parameters 3
 

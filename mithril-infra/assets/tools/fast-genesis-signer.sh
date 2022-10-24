@@ -5,7 +5,7 @@ exec_sql_signer() {
   sqlite3 data/preview/$1/mithril/stores/signer.sqlite3 "$2"
 }
 
-fix_signer() {
+fix_table_signer() {
   LAST_EPOCH=$(exec_sql_signer $1 "SELECT MAX(key) FROM $2;")
   LAST_VALUE=$(exec_sql_signer $1 "SELECT value FROM $2 WHERE key = $LAST_EPOCH;")
 
@@ -16,8 +16,10 @@ fix_signer() {
   exec_sql_signer $1 "SELECT * FROM $2 WHERE key = $CREATE_EPOCH;"
 }
 
-fix_signer $SIGNER_NODE stake 1
-fix_signer $SIGNER_NODE stake 2
-fix_signer $SIGNER_NODE protocol_initializer 1
-fix_signer $SIGNER_NODE protocol_initializer 2
+fix_table_signer $SIGNER_NODE stake 1
+fix_table_signer $SIGNER_NODE stake 2
+fix_table_signer $SIGNER_NODE stake 3
+fix_table_signer $SIGNER_NODE protocol_initializer 1
+fix_table_signer $SIGNER_NODE protocol_initializer 2
+fix_table_signer $SIGNER_NODE protocol_initializer 3
 
