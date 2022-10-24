@@ -73,15 +73,15 @@ where
         .collect::<Vec<_>>();
 
     let clerk = StmClerkBatchCompact::from_signer_batch_compat(&signers[0]);
-    let msig = clerk.aggregate_batch_compat(&sigs, &msg).unwrap();
+    let msig = clerk.aggregate_batch(&sigs, &msg).unwrap();
 
     group.bench_function(BenchmarkId::new("Aggregation", &param_string), |b| {
-        b.iter(|| clerk.aggregate_batch_compat(&sigs, &msg))
+        b.iter(|| clerk.aggregate_batch(&sigs, &msg))
     });
 
     group.bench_function(BenchmarkId::new("Verification", &param_string), |b| {
         b.iter(|| {
-            msig.verify(&msg, &clerk.compute_avk_batch_compat(), &params)
+            msig.verify(&msg, &clerk.compute_avk_batch(), &params)
                 .is_ok()
         })
     });

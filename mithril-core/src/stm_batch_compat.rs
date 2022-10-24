@@ -170,12 +170,12 @@ impl<D: Digest + Clone + FixedOutput> StmClerkBatchCompact<D> {
     /// # Update
     /// If there are enough signatures, it collects the merkle tree indexes of unique signatures.
     /// The list of merkle tree indexes is used to create a batch proof to be checked in verify aggregate.
-    pub fn aggregate_batch_compat(
+    pub fn aggregate_batch(
         &self,
         sigs: &[StmSigBatchCompat<D>],
         msg: &[u8],
     ) -> Result<StmAggrSigBatchCompat<D>, AggregationError> {
-        let mut unique_sigs = self.dedup_sigs_for_indices_batch_compat(msg, sigs)?;
+        let mut unique_sigs = self.dedup_sigs_for_indices_batch(msg, sigs)?;
         unique_sigs.sort_unstable();
 
         let mt_index_list = unique_sigs
@@ -197,12 +197,12 @@ impl<D: Digest + Clone + FixedOutput> StmClerkBatchCompact<D> {
     /// The function selects at least `self.k` indexes.
     ///  # Error
     /// If there is no sufficient signatures, then the function fails.s
-    pub fn dedup_sigs_for_indices_batch_compat(
+    pub fn dedup_sigs_for_indices_batch(
         &self,
         msg: &[u8],
         sigs: &[StmSigBatchCompat<D>],
     ) -> Result<Vec<StmSigBatchCompat<D>>, AggregationError> {
-        let avk = &self.compute_avk_batch_compat();
+        let avk = &self.compute_avk_batch();
         let mut sig_by_index: BTreeMap<Index, &StmSigBatchCompat<D>> = BTreeMap::new();
         let mut removal_idx_by_vk: HashMap<&StmSigBatchCompat<D>, Vec<Index>> = HashMap::new();
 
@@ -271,7 +271,7 @@ impl<D: Digest + Clone + FixedOutput> StmClerkBatchCompact<D> {
     }
 
     /// Compute the `StmAggrVerificationKey` related to the used registration.
-    pub fn compute_avk_batch_compat(&self) -> StmAggrVerificationKey<D> {
+    pub fn compute_avk_batch(&self) -> StmAggrVerificationKey<D> {
         StmAggrVerificationKey::from(&self.closed_reg)
     }
 }
@@ -667,7 +667,7 @@ mod tests {
             let ps = setup_equal_parties(params, nparties);
             let p = &ps[0];
             let clerk = StmClerkBatchCompact::from_signer_batch_compat(p);
-            let avk = clerk.compute_avk_batch_compat();
+            let avk = clerk.compute_avk_batch();
             let mut sigs = Vec::with_capacity(nparties);
 
 
@@ -679,7 +679,7 @@ mod tests {
                 sigs.push(sig);
             }
 
-            let dedup_result = clerk.dedup_sigs_for_indices_batch_compat(&msg, &sigs);
+            let dedup_result = clerk.dedup_sigs_for_indices_batch(&msg, &sigs);
             assert!(dedup_result.is_ok(), "dedup failure {:?}", dedup_result);
             for passed_sigs in dedup_result.unwrap() {
                 let verify_result = passed_sigs.verify(&params, &avk, &msg);
@@ -697,7 +697,7 @@ mod tests {
             let ps = setup_equal_parties(params, nparties);
             let p = &ps[0];
             let clerk = StmClerkBatchCompact::from_signer_batch_compat(p);
-            let avk = clerk.compute_avk_batch_compat();
+            let avk = clerk.compute_avk_batch();
 
             if let Some(sig) = p.sign(&msg) {
                 assert!(sig.verify(&params, &avk, &msg).is_ok());
@@ -721,11 +721,11 @@ mod tests {
 
             let all_ps: Vec<usize> = (0..nparties).collect();
             let sigs = find_signatures(&msg, &ps, &all_ps);
-            let msig = clerk.aggregate_batch_compat(&sigs, &msg);
+            let msig = clerk.aggregate_batch(&sigs, &msg);
 
             match msig {
                 Ok(aggr) => {
-                    let avk = clerk.compute_avk_batch_compat();
+                    let avk = clerk.compute_avk_batch();
                     let verify_result = aggr.verify(&msg, &avk, &params);
                     assert!(verify_result.is_ok(), "{:?}", verify_result);
                 }
@@ -747,7 +747,7 @@ mod tests {
             let ps = setup_equal_parties(params, nparties);
             let p = &ps[0];
             let clerk = StmClerkBatchCompact::from_signer_batch_compat(p);
-            let avk = clerk.compute_avk_batch_compat();
+            let avk = clerk.compute_avk_batch();
 
             if let Some(sig) = p.sign(&msg) {
                 let bytes = sig.to_bytes();
@@ -766,11 +766,11 @@ mod tests {
             let params = StmParameters { m: 10, k: 1, phi_f: 1.0 };
             let ps = setup_equal_parties(params, nparties);
             let clerk = StmClerkBatchCompact::from_signer_batch_compat(&ps[0]);
-            let avk = clerk.compute_avk_batch_compat();
+            let avk = clerk.compute_avk_batch();
 
             let all_ps: Vec<usize> = (0..nparties).collect();
             let sigs = find_signatures(&msg, &ps, &all_ps);
-            let msig = clerk.aggregate_batch_compat(&sigs, &msg);
+            let msig = clerk.aggregate_batch(&sigs, &msg);
             if let Ok(aggr) = msig {
                     let bytes: Vec<u8> = aggr.to_bytes();
                     let aggr2 = StmAggrSigBatchCompat::from_bytes(&bytes).unwrap();
@@ -829,7 +829,7 @@ mod tests {
 
             let clerk = StmClerkBatchCompact::from_signer_batch_compat(&ps[0]);
 
-            let msig = clerk.aggregate_batch_compat(&sigs, &msg);
+            let msig = clerk.aggregate_batch(&sigs, &msg);
             match msig {
                 Err(AggregationError::NotEnoughSignatures(n, k)) =>
                     assert!(n < params.k && params.k == k),
@@ -863,7 +863,7 @@ mod tests {
                 let all_ps: Vec<usize> = (0..n).collect();
                 let sigs = find_signatures(&msg, &ps, &all_ps);
 
-                let msig = clerk.aggregate_batch_compat(&sigs, &msg);
+                let msig = clerk.aggregate_batch(&sigs, &msg);
                 ProofTest {
                     n: n.try_into().unwrap(),
                     msig,
@@ -881,7 +881,7 @@ mod tests {
         match tc.msig {
             Ok(mut aggr) => {
                 f(&mut aggr, &mut tc.clerk, &mut tc.msg);
-                let avk = &tc.clerk.compute_avk_batch_compat();
+                let avk = &tc.clerk.compute_avk_batch();
                 assert!(aggr.verify(&tc.msg, avk, &tc.clerk.params).is_err())
             }
             Err(e) => unreachable!("Reached an unexpected error: {:?}", e),

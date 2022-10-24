@@ -17,7 +17,7 @@ pub struct MTLeaf(pub VerificationKey, pub Stake);
 /// Path of hashes from root to leaf in a Merkle Tree.
 /// Contains all hashes on the path, and the index of the leaf.
 /// Used to verify that signatures come from eligible signers.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Default, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Path<D: Digest> {
     pub(crate) values: Vec<Vec<u8>>,
     pub(crate) index: usize,
@@ -367,6 +367,15 @@ impl<D: Clone + Digest> MerkleTreeCommitmentBatchCompat<D> {
         }
 
         Err(MerkleTreeError::BatchPathInvalid)
+    }
+}
+
+impl<D: Clone + Digest> From<&MerkleTreeCommitmentBatchCompat<D>> for MerkleTreeCommitment<D> {
+    fn from(mt_batch_compat: &MerkleTreeCommitmentBatchCompat<D>) -> Self {
+        Self {
+            root: mt_batch_compat.root.clone(),
+            hasher: Default::default(),
+        }
     }
 }
 

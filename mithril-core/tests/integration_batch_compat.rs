@@ -62,7 +62,7 @@ fn test_full_protocol_batch_compat() {
         .collect::<Vec<StmSigBatchCompat<H>>>();
 
     let clerk = StmClerkBatchCompact::from_signer_batch_compat(&ps[0]);
-    let avk = clerk.compute_avk_batch_compat();
+    let avk = clerk.compute_avk_batch();
 
     // Check all parties can verify every sig
     for s in sigs.iter() {
@@ -70,13 +70,13 @@ fn test_full_protocol_batch_compat() {
     }
 
     // Aggregate with random parties
-    let msig = clerk.aggregate_batch_compat(&sigs, &msg);
+    let msig = clerk.aggregate_batch(&sigs, &msg);
 
     match msig {
         Ok(aggr) => {
             println!("Aggregate ok");
             assert!(aggr
-                .verify(&msg, &clerk.compute_avk_batch_compat(), &params)
+                .verify(&msg, &clerk.compute_avk_batch(), &params)
                 .is_ok());
         }
         Err(AggregationError::NotEnoughSignatures(n, k)) => {
