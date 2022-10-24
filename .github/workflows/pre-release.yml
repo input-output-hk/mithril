@@ -10,55 +10,28 @@ jobs:
   create-pre-release:
     runs-on: ubuntu-22.04
     steps:
-      - name: Download mithril-core artifacts
+      - name: Download built artifacts (Linux-x64)
         uses: dawidd6/action-download-artifact@v2
         with:
-          name: mithril-core-Linux-x64
+          name: mithril-distribution-Linux-x64
           path: ./build
           commit: ${{ github.sha }}
           workflow: ci.yml
           workflow_conclusion: success
       
-      - name: Download Aggregator artifacts
+      - name: Download built artifacts (Windows-x64)
         uses: dawidd6/action-download-artifact@v2
         with:
-          name: mithril-aggregator-Linux-x64
+          name: mithril-distribution-Windows-x64
           path: ./build
           commit: ${{ github.sha }}
           workflow: ci.yml
           workflow_conclusion: success
       
-      - name: Download Signer artifacts
+      - name: Download built artifacts (macOS-x64)
         uses: dawidd6/action-download-artifact@v2
         with:
-          name: mithril-signer-Linux-x64
-          path: ./build
-          commit: ${{ github.sha }}
-          workflow: ci.yml
-          workflow_conclusion: success
-      
-      - name: Download Client artifacts
-        uses: dawidd6/action-download-artifact@v2
-        with:
-          name: mithril-client-Linux-x64
-          path: ./build
-          commit: ${{ github.sha }}
-          workflow: ci.yml
-          workflow_conclusion: success
-
-      - name: Download Client artifacts
-        uses: dawidd6/action-download-artifact@v2
-        with:
-          name: mithril-client-Windows-x64
-          path: ./build
-          commit: ${{ github.sha }}
-          workflow: ci.yml
-          workflow_conclusion: success
-
-      - name: Download Client artifacts
-        uses: dawidd6/action-download-artifact@v2
-        with:
-          name: mithril-client-macOS-x64
+          name: mithril-distribution-macOS-x64
           path: ./build
           commit: ${{ github.sha }}
           workflow: ci.yml
@@ -115,10 +88,10 @@ jobs:
             pre-release
             type=raw,value={{branch}}-{{sha}}
 
-      - name: Download ${{ matrix.project }} artifacts
+      - name: Download built artifacts (Linux-x64)
         uses: dawidd6/action-download-artifact@v2
         with:
-          name: ${{ matrix.project }}-Linux-x64
+          name: mithril-distribution-Linux-x64
           path: ${{ matrix.project }}
           commit: ${{ github.sha }}
           workflow: ci.yml

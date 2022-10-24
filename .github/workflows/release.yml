@@ -43,10 +43,10 @@ jobs:
             latest
             type=raw,value={{branch}}-{{sha}}
 
-      - name: Download ${{ matrix.project }} artifacts
+      - name: Download built artifacts (Linux-x64)
         uses: dawidd6/action-download-artifact@v2
         with:
-          name: ${{ matrix.project }}-Linux-x64
+          name: mithril-distribution-Linux-x64
           path: ${{ matrix.project }}
           commit: ${{ github.sha }}
           workflow: ci.yml
