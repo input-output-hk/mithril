@@ -7,28 +7,10 @@ on:
 
 jobs:
   cargo-doc:
-    if: github.event.pull_request.draft == false
     runs-on: ubuntu-22.04
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - project: mithril-core
-            cargo_project_name: mithril
-          - project: mithril-common
-          - project: mithril-aggregator
-          - project: mithril-client
-          - project: mithril-signer
-    env:
-      CARGO_PROJECT_NAME: ${{ matrix.project }}
-    
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
-
-      - name: Overriding default $CARGO_PROJECT_NAME with matrix value
-        if: ${{ matrix.cargo_project_name }}
-        run: echo "CARGO_PROJECT_NAME=${{ matrix.cargo_project_name }}" >> $GITHUB_ENV
 
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
@@ -37,35 +19,26 @@ jobs:
           toolchain: stable
           override: true
 
-      - uses: actions/cache@v3
-        name: Cache Cargo.lock
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/
-            ~/.cargo/git/
-            target/
-          key: cargo-doc-${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}-${{ matrix.project }}-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            cargo-doc-${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}-${{ matrix.project }}-
-            cargo-doc-${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}-
+          key: ${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}
 
-      - name: Generate ${{ matrix.project }} doc
+      - name: Generate cargo doc
         uses: actions-rs/cargo@v1
         with:
           command: doc
-          args: --no-deps -p ${{ env.CARGO_PROJECT_NAME }}
+          args: --no-deps -p mithril -p mithril-common -p mithril-aggregator -p mithril-signer -p mithril-client
 
-      - name: Publish ${{ matrix.project }}-doc
+      - name: Publish Mithril-rust-doc
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ matrix.project }}-doc
+          name: mithril-rust-doc
           if-no-files-found: error
           path: |
             target/doc/
   
   build-docusaurus:
-    if: github.event.pull_request.draft == false
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
@@ -148,35 +121,11 @@ jobs:
       - build-explorer
       - build-open-api-ui
     steps:
-      - name: Download mithril-core-doc artifact
+      - name: Download mithril-rust-doc artifact
         uses: actions/download-artifact@v3
         with:
-          name: mithril-core-doc
-          path: ./github-pages/mithril-core/doc
-
-      - name: Download mithril-common-doc artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: mithril-common-doc
-          path: ./github-pages/mithril-common/doc
-
-      - name: Download aggregator-doc artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: mithril-aggregator-doc
-          path: ./github-pages/mithril-aggregator/doc
-
-      - name: Download client-doc artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: mithril-client-doc
-          path: ./github-pages/mithril-client/doc
-
-      - name: Download signer-doc artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: mithril-signer-doc
-          path: ./github-pages/mithril-signer/doc
+          name: mithril-rust-doc
+          path: ./github-pages/rust-doc
 
       - name: Download Docusaurus build
         uses: actions/download-artifact@v3
