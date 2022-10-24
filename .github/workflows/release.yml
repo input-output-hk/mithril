@@ -5,6 +5,61 @@ on:
     types: [released]
 
 jobs:
+  build-push-docker:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [ mithril-aggregator, mithril-client, mithril-signer ]
+    
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository_owner }}/${{ matrix.project }}
+      DOCKER_FILE: ./${{ matrix.project }}/Dockerfile.ci
+      CONTEXT: .
+      GITHUB_REF: ${{ github.ref}}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            latest
+            type=raw,value={{branch}}-{{sha}}
+
+      - name: Download ${{ matrix.project }} artifacts
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          name: ${{ matrix.project }}-Linux-x64
+          path: ${{ matrix.project }}
+          commit: ${{ github.sha }}
+          workflow: ci.yml
+          workflow_conclusion: success
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v3
+        with:
+          context: ${{ env.CONTEXT }}
+          file: ${{ env.DOCKER_FILE }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+  
   deploy-release:
     runs-on: ubuntu-22.04
     steps:

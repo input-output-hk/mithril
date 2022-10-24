@@ -391,7 +391,7 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            latest
+            unstable
             type=raw,value={{branch}}-{{sha}}
 
       - name: Download ${{ matrix.project }} executable
