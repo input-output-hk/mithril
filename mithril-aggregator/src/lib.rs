@@ -13,6 +13,7 @@
 
 mod command_args;
 mod configuration;
+mod database;
 mod dependency;
 mod http_server;
 mod multi_signer;
