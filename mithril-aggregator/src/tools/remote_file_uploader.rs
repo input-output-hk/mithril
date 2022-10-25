@@ -25,11 +25,10 @@ pub struct GcpFileUploader {
     bucket: String,
 }
 
-impl Default for GcpFileUploader {
-    fn default() -> Self {
-        Self {
-            bucket: "cardano-testnet".to_string(),
-        }
+impl GcpFileUploader {
+    /// GcpFileUploader factory
+    pub fn new(bucket: String) -> Self {
+        Self { bucket }
     }
 }
 

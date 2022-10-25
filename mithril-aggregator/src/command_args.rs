@@ -297,7 +297,7 @@ impl ServeCommand {
         debug!("SERVE command"; "config" => format!("{:?}", config));
         // Init dependencies
         let snapshot_store = config.build_snapshot_store()?;
-        let snapshot_uploader = config.build_snapshot_uploader();
+        let snapshot_uploader = config.build_snapshot_uploader()?;
 
         let sqlite_db_path = Some(config.get_sqlite_file());
 

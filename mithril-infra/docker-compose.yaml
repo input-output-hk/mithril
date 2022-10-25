@@ -65,6 +65,7 @@ services:
       - URL_SNAPSHOT_MANIFEST=https://storage.googleapis.com/cardano-${NETWORK}/snapshots.json
       - SNAPSHOT_STORE_TYPE=local
       - SNAPSHOT_UPLOADER_TYPE=gcp
+      - SNAPSHOT_BUCKET_NAME=cardano-testnet
       - DATA_STORES_DIRECTORY=/mithril-aggregator
       - STORE_RETENTION_LIMIT=5
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
