@@ -32,12 +32,6 @@ impl GcpFileUploader {
     }
 }
 
-impl Default for GcpFileUploader {
-    fn default() -> Self {
-        Self::new("cardano-testnet".to_string())
-    }
-}
-
 #[async_trait]
 impl RemoteFileUploader for GcpFileUploader {
     async fn upload_file(&self, filepath: &Path) -> Result<(), String> {
