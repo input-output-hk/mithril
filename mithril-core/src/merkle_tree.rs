@@ -317,7 +317,6 @@ impl<D: Clone + Digest> MerkleTreeCommitmentBatchCompat<D> {
                             .finalize()
                             .to_vec(),
                     );
-
                     values.remove(0);
                 } else {
                     let sibling = sibling(ordered_indices[i]);
@@ -526,7 +525,6 @@ impl<D: Digest> MerkleTree<D> {
                 }
                 i += 1;
             }
-
             ordered_indices = new_indices.clone();
         }
 

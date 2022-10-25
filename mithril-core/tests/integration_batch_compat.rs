@@ -1,10 +1,7 @@
 use blake2::{digest::consts::U32, Blake2b};
 
 use mithril::key_reg::KeyReg;
-use mithril::stm::StmParameters;
-use mithril::stm_batch_compat::{
-    StmClerkBatchCompact, StmInitializerBatchCompat, StmSigBatchCompat, StmSignerBatchCompat,
-};
+use mithril::stm::*;
 use mithril::AggregationError;
 
 use rayon::prelude::*;
@@ -38,9 +35,9 @@ fn test_full_protocol_batch_compat() {
 
     let mut key_reg = KeyReg::init();
 
-    let mut ps: Vec<StmInitializerBatchCompat> = Vec::with_capacity(nparties as usize);
+    let mut ps: Vec<StmInitializer> = Vec::with_capacity(nparties as usize);
     for stake in parties {
-        let p = StmInitializerBatchCompat::setup(params, stake, &mut rng);
+        let p = StmInitializer::setup(params, stake, &mut rng);
         key_reg.register(stake, p.verification_key()).unwrap();
         ps.push(p);
     }
@@ -49,8 +46,8 @@ fn test_full_protocol_batch_compat() {
 
     let ps = ps
         .into_par_iter()
-        .map(|p| p.new_signer_batch_compat(closed_reg.clone()).unwrap())
-        .collect::<Vec<StmSignerBatchCompat<H>>>();
+        .map(|p| p.new_signer(closed_reg.clone()).unwrap())
+        .collect::<Vec<StmSigner<H>>>();
 
     /////////////////////
     // operation phase //
@@ -58,25 +55,28 @@ fn test_full_protocol_batch_compat() {
 
     let sigs = ps
         .par_iter()
-        .filter_map(|p| p.sign(&msg))
-        .collect::<Vec<StmSigBatchCompat<H>>>();
+        .filter_map(|p| p.sign_batch_compat(&msg))
+        .collect::<Vec<StmSig<H>>>();
 
-    let clerk = StmClerkBatchCompact::from_signer_batch_compat(&ps[0]);
-    let avk = clerk.compute_avk_batch();
+    let clerk = StmClerk::from_signer(&ps[0]);
+    let avk = clerk.compute_avk();
 
     // Check all parties can verify every sig
     for s in sigs.iter() {
-        assert!(s.verify(&params, &avk, &msg).is_ok(), "Verification failed");
+        assert!(
+            s.verify_batch_compat(&params, &avk, &msg).is_ok(),
+            "Verification failed"
+        );
     }
 
     // Aggregate with random parties
-    let msig = clerk.aggregate_batch(&sigs, &msg);
+    let msig = clerk.aggregate_batch_compat(&sigs, &msg);
 
     match msig {
         Ok(aggr) => {
             println!("Aggregate ok");
             assert!(aggr
-                .verify(&msg, &clerk.compute_avk_batch(), &params)
+                .verify_batch_compat(&msg, &clerk.compute_avk_batch_compat(), &params)
                 .is_ok());
         }
         Err(AggregationError::NotEnoughSignatures(n, k)) => {
