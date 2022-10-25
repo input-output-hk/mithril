@@ -353,7 +353,7 @@ components:
           type: string
           format: byte
         kes_period:
-          description: The KES Period at which the verification key has been signed by the KES secret key
+          description: The number of updates of the KES secret key that signed the verification key
           type: integer
           format: int64
       example:
