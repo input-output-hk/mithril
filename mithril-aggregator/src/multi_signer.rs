@@ -9,9 +9,9 @@ use slog_scope::{debug, trace, warn};
 use thiserror::Error;
 
 use mithril_common::crypto_helper::{
-    key_decode_hex, key_encode_hex, ProtocolAggregateVerificationKey, ProtocolAggregationError,
-    ProtocolClerk, ProtocolKeyRegistration, ProtocolMultiSignature, ProtocolParameters,
-    ProtocolPartyId, ProtocolRegistrationError, ProtocolSignerVerificationKey,
+    key_decode_hex, key_encode_hex, KESPeriod, ProtocolAggregateVerificationKey,
+    ProtocolAggregationError, ProtocolClerk, ProtocolKeyRegistration, ProtocolMultiSignature,
+    ProtocolParameters, ProtocolPartyId, ProtocolRegistrationError, ProtocolSignerVerificationKey,
     ProtocolSingleSignature, ProtocolStakeDistribution, PROTOCOL_VERSION,
 };
 use mithril_common::entities::{self, PartyId, Signer, SignerWithStake};
@@ -562,11 +562,14 @@ impl MultiSigner for MultiSignerImpl {
             _ => None,
         };
         let kes_period = match &operational_certificate {
-            Some(operational_certificate) => self
-                .chain_observer
-                .get_current_kes_period(operational_certificate)
-                .await
-                .map_err(|e| ProtocolError::ChainObserver(e.to_string()))?,
+            Some(operational_certificate) => Some(
+                self.chain_observer
+                    .get_current_kes_period(operational_certificate)
+                    .await
+                    .map_err(|e| ProtocolError::ChainObserver(e.to_string()))?
+                    .unwrap_or_default()
+                    - operational_certificate.start_kes_period as KESPeriod,
+            ),
             None => None,
         };
         let party_id_save = key_registration.register(
