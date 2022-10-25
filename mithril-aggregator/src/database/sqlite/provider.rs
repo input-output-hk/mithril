@@ -8,7 +8,8 @@ pub trait Provider<'conn> {
 
     fn find(
         &'conn self,
-        condition: &str,
+        condition: Option<&str>,
+        parameters: &[Value],
     ) -> Result<EntityCursor<'conn, Self::Entity>, Box<dyn Error>>;
 
     fn get_connection(&'conn self) -> &'conn Connection;
@@ -69,19 +70,24 @@ mod tests {
 
         fn find(
             &'conn self,
-            condition: &str,
+            condition: Option<&str>,
+            parameters: &[Value],
         ) -> Result<EntityCursor<'conn, Self::Entity>, Box<dyn Error>> {
-            let sql = "select text_data, real_data, integer_data, maybe_null from provider_test";
+            let where_clause = condition.unwrap_or("true");
+            let sql = format!(
+                "select text_data, real_data, integer_data, maybe_null from provider_test where {}",
+                where_clause
+            );
 
-            self.query(sql, &[])
+            self.query(&sql, parameters)
         }
 
         fn get_connection(&'conn self) -> &'conn Connection {
             &self.connection
         }
     }
-    #[test]
-    pub fn simple_test() {
+
+    fn init_database() -> TestEntityProvider {
         let connection = Connection::open(":memory:").unwrap();
         connection
             .execute(
@@ -93,8 +99,14 @@ mod tests {
             ",
             )
             .unwrap();
-        let provider = TestEntityProvider::new(connection);
-        let mut cursor = provider.find("whatever").unwrap();
+
+        TestEntityProvider::new(connection)
+    }
+
+    #[test]
+    pub fn simple_test() {
+        let provider = init_database();
+        let mut cursor = provider.find(None, &[]).unwrap();
         let entity = cursor
             .next()
             .expect("there shoud be two results, none returned");
@@ -120,6 +132,46 @@ mod tests {
             entity
         );
 
+        assert!(cursor.next().is_none());
+    }
+
+    #[test]
+    pub fn test_condition() {
+        let provider = init_database();
+        let mut cursor = provider.find(Some("maybe_null is not null"), &[]).unwrap();
+        let entity = cursor
+            .next()
+            .expect("there shoud be one result, none returned");
+        assert_eq!(
+            TestEntity {
+                text_data: "row 2".to_string(),
+                real_data: 2.72,
+                integer_data: 1789,
+                maybe_null: Some(0)
+            },
+            entity
+        );
+        assert!(cursor.next().is_none());
+    }
+
+    #[test]
+    pub fn test_parameters() {
+        let provider = init_database();
+        let mut cursor = provider
+            .find(Some("text_data like ?"), &[Value::String("%1".to_string())])
+            .unwrap();
+        let entity = cursor
+            .next()
+            .expect("there shoud be one result, none returned");
+        assert_eq!(
+            TestEntity {
+                text_data: "row 1".to_string(),
+                real_data: 3.14,
+                integer_data: -52,
+                maybe_null: None
+            },
+            entity
+        );
         assert!(cursor.next().is_none());
     }
 }

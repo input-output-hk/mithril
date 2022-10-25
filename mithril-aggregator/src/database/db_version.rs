@@ -1,6 +1,6 @@
 use std::error::Error;
 
-use sqlite::{Connection, Row};
+use sqlite::{Connection, Row, Value};
 
 use super::sqlite::{Entity, EntityCursor, Provider};
 
@@ -36,10 +36,15 @@ impl<'conn> Provider<'conn> for VersionProvider {
 
     fn find(
         &'conn self,
-        _condition: &str,
+        condition: Option<&str>,
+        parameters: &[Value],
     ) -> Result<EntityCursor<'conn, VersionEntity>, Box<dyn Error>> {
-        let sql = "select database_version from db_version";
+        let where_clause = condition.unwrap_or("true");
+        let sql = format!(
+            "select database_version from db_version where {}",
+            where_clause
+        );
 
-        self.query(sql, &[])
+        self.query(&sql, parameters)
     }
 }
