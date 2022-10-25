@@ -3,7 +3,7 @@ use super::stm::Stake;
 use crate::error::RegisterError;
 use crate::merkle_tree::{MTLeaf, MerkleTree};
 use crate::multi_sig::{VerificationKey, VerificationKeyPoP};
-use blake2::digest::Digest;
+use blake2::digest::{Digest, FixedOutput};
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -57,7 +57,7 @@ impl KeyReg {
 
     /// Finalize the key registration.
     /// This function disables `KeyReg::register`, consumes the instance of `self`, and returns a `ClosedKeyReg`.
-    pub fn close<D: Digest>(self) -> ClosedKeyReg<D> {
+    pub fn close<D: Digest>(self) -> ClosedKeyReg<D> where D: FixedOutput {
         let mut total_stake: Stake = 0;
         let mut reg_parties = self
             .keys

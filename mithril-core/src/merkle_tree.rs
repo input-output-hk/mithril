@@ -14,16 +14,6 @@ use std::marker::PhantomData;
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MTLeaf(pub VerificationKey, pub Stake);
 
-/// Path of hashes from root to leaf in a Merkle Tree.
-/// Contains all hashes on the path, and the index of the leaf.
-/// Used to verify that signatures come from eligible signers.
-#[derive(Default, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct Path<D: Digest> {
-    pub(crate) values: Vec<Vec<u8>>,
-    pub(crate) index: usize,
-    hasher: PhantomData<D>,
-}
-
 /// Path of hashes for a batch of indices.
 /// Contains the hashes and the corresponding merkle tree indices of given batch.
 /// Used to verify the signatures are issued by the registered signers.
@@ -34,22 +24,12 @@ pub struct BatchPath<D: Digest + FixedOutput> {
     pub(crate) hasher: PhantomData<D>,
 }
 
-/// `MerkleTree` commitment.
-/// This structure differs from `MerkleTree` in that it does not contain all elements, which are not always necessary.
-/// Instead, it only contains the root of the tree.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MerkleTreeCommitment<D: Digest> {
-    /// Root of the merkle commitment.
-    pub root: Vec<u8>,
-    hasher: PhantomData<D>,
-}
-
 /// Batch compatible `MerkleTree` commitment .
 /// This structure differs from `MerkleTreeCommitment` in that it stores the number of leaves in the tree
 /// as well as the root of the tree.
 /// Number of leaves is required by the batch path generation/verification.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MerkleTreeCommitmentBatchCompat<D: Digest> {
+pub struct MerkleTreeCommitment<D: Digest> {
     /// Root of the merkle commitment.
     pub root: Vec<u8>,
     nr_leaves: usize,
@@ -100,50 +80,7 @@ impl Ord for MTLeaf {
     }
 }
 
-impl<D: Digest + Clone> Path<D> {
-    /// Convert to bytes
-    /// # Layout
-    /// * Index representing the position in the Merkle Tree
-    /// * Size of the Path
-    /// * Path of hashes
-    pub fn to_bytes(&self) -> Vec<u8> {
-        let mut output = Vec::new();
-        output.extend_from_slice(&u64::try_from(self.index).unwrap().to_be_bytes());
-        output.extend_from_slice(&u64::try_from(self.values.len()).unwrap().to_be_bytes());
-        for value in &self.values {
-            output.extend_from_slice(value)
-        }
 
-        output
-    }
-
-    /// Extract a `Path` from a byte slice.
-    /// # Error
-    /// This function fails if the bytes cannot retrieve path.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Path<D>, MerkleTreeError<D>> {
-        let mut u64_bytes = [0u8; 8];
-        u64_bytes.copy_from_slice(&bytes[..8]);
-        let index = usize::try_from(u64::from_be_bytes(u64_bytes))
-            .map_err(|_| MerkleTreeError::SerializationError)?;
-        u64_bytes.copy_from_slice(&bytes[8..16]);
-        let len = usize::try_from(u64::from_be_bytes(u64_bytes))
-            .map_err(|_| MerkleTreeError::SerializationError)?;
-        let mut values = Vec::with_capacity(len);
-        for i in 0..len {
-            values.push(
-                bytes[16 + i * <D as Digest>::output_size()
-                    ..16 + (i + 1) * <D as Digest>::output_size()]
-                    .to_vec(),
-            );
-        }
-
-        Ok(Path {
-            values,
-            index,
-            hasher: Default::default(),
-        })
-    }
-}
 
 impl<D: Digest + FixedOutput> BatchPath<D> {
     /// Convert the `BatchPath` into byte representation.
@@ -210,47 +147,12 @@ impl<D: Digest + FixedOutput> BatchPath<D> {
     }
 }
 
+
+
 impl<D: Clone + Digest> MerkleTreeCommitment<D> {
-    /// Check an inclusion proof that `val` is part of the tree by traveling the whole path until the root.
-    /// # Error
-    /// If the merkle tree path is invalid, then the function fails.
-    pub fn check(&self, val: &MTLeaf, proof: &Path<D>) -> Result<(), MerkleTreeError<D>> {
-        let mut idx = proof.index;
-
-        let mut h = D::digest(&val.to_bytes()).to_vec();
-        for p in &proof.values {
-            if (idx & 0b1) == 0 {
-                h = D::new().chain_update(h).chain_update(p).finalize().to_vec();
-            } else {
-                h = D::new().chain_update(p).chain_update(h).finalize().to_vec();
-            }
-            idx >>= 1;
-        }
-
-        if h == self.root {
-            return Ok(());
-        }
-        Err(MerkleTreeError::PathInvalid(proof.clone()))
-    }
-
     /// Serializes the Merkle Tree commitment together with a message in a single vector of bytes.
     /// Outputs `msg || self` as a vector of bytes.
-    pub fn concat_with_msg(&self, msg: &[u8]) -> Vec<u8>
-    where
-        D: Digest,
-    {
-        let mut msgp = msg.to_vec();
-        let mut bytes = self.root.clone();
-        msgp.append(&mut bytes);
-
-        msgp
-    }
-}
-
-impl<D: Clone + Digest> MerkleTreeCommitmentBatchCompat<D> {
-    /// Serializes the Merkle Tree commitment together with a message in a single vector of bytes.
-    /// Outputs `msg || self` as a vector of bytes.
-    // todo: Is this function necessary?
+    // todo: Do we need to concat msg to whole commitment (nr_leaves and root) or just the root?
     pub fn concat_with_msg(&self, msg: &[u8]) -> Vec<u8>
     where
         D: Digest,
@@ -268,7 +170,7 @@ impl<D: Clone + Digest> MerkleTreeCommitmentBatchCompat<D> {
     /// Returns an error if the proof is invalid.
     // todo: Update doc.
     // todo: Simplify the algorithm.
-    pub fn check_batched(
+    pub fn check(
         &self,
         batch_val: &Vec<MTLeaf>,
         proof: &BatchPath<D>,
@@ -362,16 +264,7 @@ impl<D: Clone + Digest> MerkleTreeCommitmentBatchCompat<D> {
     }
 }
 
-impl<D: Clone + Digest> From<&MerkleTreeCommitmentBatchCompat<D>> for MerkleTreeCommitment<D> {
-    fn from(mt_batch_compat: &MerkleTreeCommitmentBatchCompat<D>) -> Self {
-        Self {
-            root: mt_batch_compat.root.clone(),
-            hasher: Default::default(),
-        }
-    }
-}
-
-impl<D: Digest> MerkleTree<D> {
+impl<D: Digest + FixedOutput> MerkleTree<D> {
     /// Provided a non-empty list of leaves, `create` generates its corresponding `MerkleTree`.
     pub fn create(leaves: &[MTLeaf]) -> MerkleTree<D> {
         let n = leaves.len();
@@ -412,18 +305,10 @@ impl<D: Digest> MerkleTree<D> {
         }
     }
 
-    /// Convert merkle tree to a commitment. This function simply returns the root.
-    pub fn to_commitment(&self) -> MerkleTreeCommitment<D> {
-        MerkleTreeCommitment {
-            root: self.nodes[0].clone(),
-            hasher: self.hasher,
-        }
-    }
-
     /// Convert merkle tree to a batch compatible commitment.
     /// This function simply returns the root and the number of leaves in the tree.
-    pub fn to_commitment_batch_compat(&self) -> MerkleTreeCommitmentBatchCompat<D> {
-        MerkleTreeCommitmentBatchCompat {
+    pub fn to_commitment(&self) -> MerkleTreeCommitment<D> {
+        MerkleTreeCommitment {
             root: self.nodes[0].clone(),
             nr_leaves: self.n,
             hasher: self.hasher,
@@ -433,36 +318,6 @@ impl<D: Digest> MerkleTree<D> {
     /// Get the root of the tree.
     pub fn root(&self) -> &Vec<u8> {
         &self.nodes[0]
-    }
-
-    /// Get a path (hashes of siblings of the path to the root node)
-    /// for the `i`th value stored in the tree.
-    /// Requires `i < self.n`
-    pub fn get_path(&self, i: usize) -> Path<D> {
-        assert!(
-            i < self.n,
-            "Proof index out of bounds: asked for {} out of {}",
-            i,
-            self.n
-        );
-        let mut idx = self.idx_of_leaf(i);
-        let mut proof = Vec::new();
-
-        while idx > 0 {
-            let h = if sibling(idx) < self.nodes.len() {
-                self.nodes[sibling(idx)].clone()
-            } else {
-                D::digest(&[0u8]).to_vec()
-            };
-            proof.push(h.clone());
-            idx = parent(idx);
-        }
-
-        Path {
-            values: proof,
-            index: i,
-            hasher: Default::default(),
-        }
     }
 
     /// Get a path for a batch of leaves. The indices must be ordered. We use the Octopus algorithm to
@@ -634,28 +489,6 @@ mod tests {
         // proof for i
         #![proptest_config(ProptestConfig::with_cases(100))]
         #[test]
-        fn test_create_proof((t, values) in arb_tree(30)) {
-            values.iter().enumerate().for_each(|(i, _v)| {
-                let pf = t.get_path(i);
-                assert!(t.to_commitment().check(&values[i], &pf).is_ok());
-            })
-        }
-
-        #[test]
-        fn test_bytes_path((t, values) in arb_tree(30)) {
-            values.iter().enumerate().for_each(|(i, _v)| {
-                let pf = t.get_path(i);
-                let bytes = pf.to_bytes();
-                let deserialised = Path::from_bytes(&bytes).unwrap();
-                assert!(t.to_commitment().check(&values[i], &deserialised).is_ok());
-
-                let encoded = bincode::serialize(&pf).unwrap();
-                let decoded: Path<Blake2b<U32>> = bincode::deserialize(&encoded).unwrap();
-                assert!(t.to_commitment().check(&values[i], &decoded).is_ok());
-            })
-        }
-
-        #[test]
         fn test_bytes_tree((t, values) in arb_tree(5)) {
             let bytes = t.to_bytes();
             let deserialised = MerkleTree::<Blake2b<U32>>::from_bytes(&bytes).unwrap();
@@ -668,14 +501,6 @@ mod tests {
         }
 
         #[test]
-        fn test_bytes_tree_commitment((t, values) in arb_tree(5)) {
-            let encoded = bincode::serialize(&t.to_commitment()).unwrap();
-            let decoded: MerkleTreeCommitment::<Blake2b<U32>> = bincode::deserialize(&encoded).unwrap();
-            let tree_commitment = MerkleTree::<Blake2b<U32>>::create(&values).to_commitment();
-            assert_eq!(tree_commitment.root, decoded.root);
-        }
-
-        #[test]
         fn test_create_batch_proof((t, values) in arb_tree(30)) {
             let mut mt_index_list :Vec<usize> = Vec::new();
             for (i, _v) in values.iter().enumerate() {
@@ -684,7 +509,7 @@ mod tests {
             }
             mt_index_list.sort_unstable();
             let batch_proof = Some(t.get_batched_path(mt_index_list));
-            assert!(t.to_commitment_batch_compat().check_batched(&values, &batch_proof.unwrap()).is_ok());
+            assert!(t.to_commitment().check(&values, &batch_proof.unwrap()).is_ok());
         }
 
         #[test]
@@ -701,18 +526,18 @@ mod tests {
 
             let bytes = &bp.to_bytes();
             let deserialized = BatchPath::from_bytes(bytes).unwrap();
-            assert!(t.to_commitment_batch_compat().check_batched(&values, &deserialized).is_ok());
+            assert!(t.to_commitment().check(&values, &deserialized).is_ok());
 
             let encoded = bincode::serialize(&bp).unwrap();
             let decoded: BatchPath<Blake2b<U32>> = bincode::deserialize(&encoded).unwrap();
-            assert!(t.to_commitment_batch_compat().check_batched(&values, &decoded).is_ok());
+            assert!(t.to_commitment().check(&values, &decoded).is_ok());
         }
 
         #[test]
-        fn test_bytes_tree_batch_commitment((t, values) in arb_tree(5)) {
-            let encoded = bincode::serialize(&t.to_commitment_batch_compat()).unwrap();
-            let decoded: MerkleTreeCommitmentBatchCompat::<Blake2b<U32>> = bincode::deserialize(&encoded).unwrap();
-            let tree_commitment = MerkleTree::<Blake2b<U32>>::create(&values).to_commitment_batch_compat();
+        fn test_bytes_tree_commitment((t, values) in arb_tree(5)) {
+            let encoded = bincode::serialize(&t.to_commitment()).unwrap();
+            let decoded: MerkleTreeCommitment::<Blake2b<U32>> = bincode::deserialize(&encoded).unwrap();
+            let tree_commitment = MerkleTree::<Blake2b<U32>>::create(&values).to_commitment();
             assert_eq!(tree_commitment.root, decoded.root);
             assert_eq!(tree_commitment.nr_leaves, decoded.nr_leaves);
 
@@ -743,15 +568,22 @@ mod tests {
             (values, proof) in values_with_invalid_proof(10)
         ) {
             let t = MerkleTree::<Blake2b<U32>>::create(&values[1..]);
-            let index = i % (values.len() - 1);
-            let path = Path{values: proof
+            let mut indices = Vec::with_capacity(values.len() / 2);
+            let mut batch_values = Vec::with_capacity(values.len() / 2);
+
+            for _j in 0..values.len() / 2 {
+                let ind = i % (values.len() - 1);
+                indices.push(ind);
+                batch_values.push(values[ind]);
+            }
+            let path = BatchPath{values: proof
                             .iter()
                             .map(|x|  Blake2b::<U32>::digest(x).to_vec())
                             .collect(),
-                index,
+                indices,
                 hasher: PhantomData::<Blake2b<U32>>::default()
                 };
-            assert!(t.to_commitment().check(&values[0], &path).is_err());
+            assert!(t.to_commitment().check(&batch_values, &path).is_err());
         }
     }
 }

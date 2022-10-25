@@ -110,7 +110,7 @@ use crate::dense_mapping::ev_lt_phi;
 use crate::error::{AggregationError, RegisterError, StmSignatureError};
 use crate::key_reg::ClosedKeyReg;
 use crate::merkle_tree::{
-    BatchPath, MTLeaf, MerkleTreeCommitmentBatchCompat, Path,
+    BatchPath, MTLeaf, MerkleTreeCommitment,
 };
 use crate::multi_sig::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
 use blake2::digest::{Digest, FixedOutput};
@@ -192,10 +192,10 @@ pub struct StmClerk<D: Clone + Digest> {
 /// Signature created by a single party who has won the lottery.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound(
-    serialize = "Path<D>: Serialize",
-    deserialize = "Path<D>: Deserialize<'de>"
+    serialize = "BatchPath<D>: Serialize",
+    deserialize = "BatchPath<D>: Deserialize<'de>"
 ))]
-pub struct StmSig<D: Clone + Digest> {
+pub struct StmSig<D: Clone + Digest + FixedOutput> {
     /// The signature from the underlying MSP scheme.
     pub sigma: Signature,
     /// The Stm verification Key.
@@ -218,7 +218,7 @@ pub struct StmSig<D: Clone + Digest> {
     deserialize = "BatchPath<D>: Deserialize<'de>"
 ))]
 pub struct StmAggrVerificationKey<D: Clone + Digest + FixedOutput> {
-    mt_commitment: MerkleTreeCommitmentBatchCompat<D>,
+    mt_commitment: MerkleTreeCommitment<D>,
     total_stake: Stake,
 }
 
@@ -227,8 +227,8 @@ pub struct StmAggrVerificationKey<D: Clone + Digest + FixedOutput> {
 /// BatchPath is added as `Option` for batch compatibility.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound(
-    serialize = "Path<D>: Serialize",
-    deserialize = "Path<D>: Deserialize<'de>"
+    serialize = "BatchPath<D>: Serialize",
+    deserialize = "BatchPath<D>: Deserialize<'de>"
 ))]
 pub struct StmAggrSig<D: Clone + Digest + FixedOutput> {
     pub(crate) signatures: Vec<StmSig<D>>,
@@ -361,7 +361,7 @@ impl StmInitializer {
     }
 }
 
-impl<D: Clone + Digest> StmSigner<D> {
+impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     /// This function produces a signature following the description of Section 2.4.
     /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
     /// wins the lottery by evaluating the dense mapping.
@@ -409,7 +409,7 @@ impl<D: Clone + Digest> StmSigner<D> {
 
     /// Compute the `StmAggrVerificationKey` related to the used registration, which consists of
     /// the merkle tree root and the total stake.
-    pub fn compute_avk(&self) -> StmAggrVerificationKey<D> where D: FixedOutput {
+    pub fn compute_avk(&self) -> StmAggrVerificationKey<D> {
         StmAggrVerificationKey::from(&self.closed_reg)
     }
 
@@ -548,7 +548,7 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
     }
 }
 
-impl<D: Clone + Digest> StmSig<D> {
+impl<D: Clone + Digest + FixedOutput> StmSig<D> {
     /// Verify an stm signature by checking that the lottery was won,
     /// the indexes are in the desired range and the underlying multi signature validates.
     pub fn verify(
@@ -556,7 +556,7 @@ impl<D: Clone + Digest> StmSig<D> {
         params: &StmParameters,
         avk: &StmAggrVerificationKey<D>,
         msg: &[u8],
-    ) -> Result<(), StmSignatureError<D>>  where D: FixedOutput  {
+    ) -> Result<(), StmSignatureError<D>>  {
         let msgp = avk.mt_commitment.concat_with_msg(msg);
         self.sigma.verify(&msgp, &self.pk)?;
         self.check_indices(params, &msgp, avk)?;
@@ -570,7 +570,7 @@ impl<D: Clone + Digest> StmSig<D> {
         params: &StmParameters,
         msgp: &[u8],
         avk: &StmAggrVerificationKey<D>,
-    ) -> Result<(), StmSignatureError<D>>  where D: FixedOutput  {
+    ) -> Result<(), StmSignatureError<D>> {
         for &index in &self.indexes {
             if index > params.m {
                 return Err(StmSignatureError::IndexBoundFailed(index, params.m));
@@ -614,7 +614,7 @@ impl<D: Clone + Digest> StmSig<D> {
     /// Extract a batch compatible `StmSig` from a byte slice.
     pub fn from_bytes(bytes: &[u8]) -> Result<StmSig<D>, StmSignatureError<D>>
     where
-        D: Default,
+        D: Default + FixedOutput,
     {
         let mut u64_bytes = [0u8; 8];
 
@@ -658,19 +658,19 @@ impl<D: Clone + Digest> StmSig<D> {
     }
 }
 
-impl<D: Clone + Digest> Hash for StmSig<D> {
+impl<D: Clone + Digest + FixedOutput> Hash for StmSig<D> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         Hash::hash_slice(&self.sigma.to_bytes(), state)
     }
 }
 
-impl<D: Clone + Digest> PartialEq for StmSig<D> {
+impl<D: Clone + Digest + FixedOutput> PartialEq for StmSig<D> {
     fn eq(&self, other: &Self) -> bool {
         self.sigma == other.sigma
     }
 }
 
-impl<D: Clone + Digest> Eq for StmSig<D> {}
+impl<D: Clone + Digest + FixedOutput> Eq for StmSig<D> {}
 
 impl<D: Clone + Digest + FixedOutput> PartialOrd for StmSig<D> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -690,7 +690,7 @@ impl<D: Clone + Digest + FixedOutput> From<&ClosedKeyReg<D>>
 {
     fn from(reg: &ClosedKeyReg<D>) -> Self {
         Self {
-            mt_commitment: reg.merkle_tree.to_commitment_batch_compat(),
+            mt_commitment: reg.merkle_tree.to_commitment(),
             total_stake: reg.total_stake,
         }
     }
@@ -745,7 +745,7 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
             let proof = &self.batch_proof;
             avk
                 .mt_commitment
-                .check_batched(&leaves, &proof.clone().unwrap())?;
+                .check(&leaves, &proof.clone().unwrap())?;
         }
 
         let msg = avk

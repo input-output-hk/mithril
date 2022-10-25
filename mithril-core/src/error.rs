@@ -1,7 +1,7 @@
 //! Crate specific errors
 
-use crate::merkle_tree::Path;
-use blake2::digest::Digest;
+use crate::merkle_tree::BatchPath;
+use blake2::digest::{Digest, FixedOutput};
 use {
     crate::multi_sig::{Signature, VerificationKey, VerificationKeyPoP},
     blst::BLST_ERROR,
@@ -29,7 +29,7 @@ pub enum MultiSignatureError {
 
 /// Errors which can be output by Mithril verification.
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum StmSignatureError<D: Digest> {
+pub enum StmSignatureError<D: Digest + FixedOutput> {
     /// No quorum was found
     #[error("No Quorum was found.")]
     NoQuorum,
@@ -52,7 +52,7 @@ pub enum StmSignatureError<D: Digest> {
 
     /// The path is not valid for the Merkle Tree
     #[error("The path of the Merkle Tree is invalid.")]
-    PathInvalid(Path<D>),
+    PathInvalid(BatchPath<D>),
 
     /// MSP.Eval was computed incorrectly
     #[error("The claimed evaluation of function phi is incorrect.")]
@@ -93,14 +93,14 @@ pub enum AggregationError {
 
 /// Error types related to merkle trees.
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum MerkleTreeError<D: Digest> {
+pub enum MerkleTreeError<D: Digest + FixedOutput> {
     /// Serialization error
     #[error("Serialization of a merkle tree failed")]
     SerializationError,
 
     /// Invalid merkle path
     #[error("Path does not verify against root")]
-    PathInvalid(Path<D>),
+    PathInvalid(BatchPath<D>),
 
     /// Invalid merkle batch path
     #[error("Batch path does not verify against root")]
@@ -127,7 +127,7 @@ pub enum RegisterError {
     UnregisteredInitializer,
 }
 
-impl<D: Digest> From<RegisterError> for StmSignatureError<D> {
+impl<D: Digest + FixedOutput> From<RegisterError> for StmSignatureError<D> {
     fn from(e: RegisterError) -> Self {
         match e {
             RegisterError::SerializationError => Self::SerializationError,
@@ -138,7 +138,7 @@ impl<D: Digest> From<RegisterError> for StmSignatureError<D> {
     }
 }
 
-impl<D: Digest> From<MerkleTreeError<D>> for StmSignatureError<D> {
+impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmSignatureError<D> {
     fn from(e: MerkleTreeError<D>) -> Self {
         match e {
             MerkleTreeError::PathInvalid(e) => Self::PathInvalid(e),
@@ -148,7 +148,7 @@ impl<D: Digest> From<MerkleTreeError<D>> for StmSignatureError<D> {
     }
 }
 
-impl<D: Digest> From<MultiSignatureError> for StmSignatureError<D> {
+impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmSignatureError<D> {
     fn from(e: MultiSignatureError) -> Self {
         match e {
             MultiSignatureError::SerializationError => Self::SerializationError,
