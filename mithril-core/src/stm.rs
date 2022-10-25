@@ -221,6 +221,7 @@ pub struct StmAggrVerificationKey<D: Clone + Digest> {
 }
 
 /// Stm aggregate key (batch compatible), which contains the merkle tree commitment and the total stake of the system.
+/// Batch Compat Merkle tree commitment includes the number of leaves in the tree in order to obtain batch path.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound(
     serialize = "BatchPath<D>: Serialize",
@@ -418,10 +419,8 @@ impl<D: Clone + Digest> StmSigner<D> {
     /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
     /// wins the lottery by evaluating the dense mapping.
     /// It records all the winning indexes in `Self.indexes`.
-    /// If it wins at least one lottery, it produces a list of indexes of merkle path for its corresponding `(VerificationKey, Stake)`.
-    ///
-    /// # Update
-    /// If it wins at least one lottery, it no longer produces a list of indexes of merkle path for its corresponding `(VerificationKey, Stake)`.
+    /// The difference between `sign` and `sign_batch_compat` is that if it wins at least one lottery,
+    /// it does not produce a list of indexes of merkle path for its corresponding `(VerificationKey, Stake)`.
     /// Instead it stores the signer's merkle tree index and the merkle path production will be handled in `StmClerk`.
     pub fn sign_batch_compat(&self, msg: &[u8]) -> Option<StmSig<D>>
     where
@@ -508,12 +507,10 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
 
     /// Aggregate a set of signatures for their corresponding indices.
     ///
-    /// This function first deduplicates the repeated signatures and, if there are enough
-    /// signatures, returns an instance of `StmAggrSig`.
-    ///
-    /// # Update
-    /// If there are enough signatures, it collects the merkle tree indexes of unique signatures.
+    /// This function first deduplicates the repeated signatures, and if there are enough signatures, it collects the merkle tree indexes of unique signatures.
     /// The list of merkle tree indexes is used to create a batch proof to be checked in verify aggregate.
+    ///
+    /// It returns an instance of `StmAggrSig`.
     pub fn aggregate_batch_compat(
         &self,
         sigs: &[StmSig<D>],
@@ -616,14 +613,12 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
         Err(AggregationError::NotEnoughSignatures(count, self.params.k))
     }
 
-    /// Given a slice of `sigs`, this function returns a new list of signatures with only  valid indices.
+    /// Given a slice of `sigs`, this function returns a new list of signatures with only valid indices.
     /// In case of conflict (having several signatures for the same index)
     /// it selects the smallest signature (i.e. takes the signature with the smallest scalar).
     /// The function selects at least `self.k` indexes.
     ///  # Error
-    /// If there is no sufficient signatures, then the function fails.s
-    // todo: We need to agree on a criteria to dedup (by defaut we use a BTreeMap that guarantees keys order)
-    // todo: not good, because it only removes index if there is a conflict (see benches)
+    /// If there is no sufficient signatures, then the function fails.
     pub fn dedup_sigs_for_indices_batch_compat(
         &self,
         msg: &[u8],
@@ -701,7 +696,8 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
     pub fn compute_avk(&self) -> StmAggrVerificationKey<D> {
         StmAggrVerificationKey::from(&self.closed_reg)
     }
-    /// Compute the `StmAggrVerificationKey` related to the used registration.
+
+    /// Compute the `StmAggrVerificationKeyBatchCompat` related to the used registration.
     pub fn compute_avk_batch_compat(&self) -> StmAggrVerificationKeyBatchCompat<D> {
         StmAggrVerificationKeyBatchCompat::from(&self.closed_reg)
     }
@@ -725,7 +721,7 @@ impl<D: Clone + Digest> StmSig<D> {
         Ok(())
     }
 
-    /// Verify an stm signature by checking that the lottery was won, the merkle path is correct,
+    /// Verify an stm signature by checking that the lottery was won,
     /// the indexes are in the desired range and the underlying multi signature validates.
     pub fn verify_batch_compat(
         &self,
@@ -836,7 +832,7 @@ impl<D: Clone + Digest> StmSig<D> {
         output
     }
 
-    /// Extract an `StmSig` from a byte slice.
+    /// Extract a batch compatible `StmSig` from a byte slice.
     pub fn from_bytes_batch_compat(bytes: &[u8]) -> Result<StmSig<D>, StmSignatureError<D>>
     where
         D: Default,
@@ -872,7 +868,7 @@ impl<D: Clone + Digest> StmSig<D> {
         })
     }
 
-    /// Compare two `StmSig` by their merkle tree indexes.
+    /// Compare two `StmSig` by their signers' merkle tree indexes.
     pub fn cmp_stm_sig(&self, other: &Self) -> Ordering {
         let result: Ordering = self.signer_index.cmp(&other.signer_index);
         if result != Ordering::Equal {
@@ -1177,6 +1173,7 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
 mod tests {
     use super::*;
     use crate::key_reg::*;
+    use crate::merkle_tree::BatchPath;
     use bincode;
     use blake2::{digest::consts::U32, Blake2b};
     use proptest::collection::{hash_map, vec};
@@ -1841,7 +1838,11 @@ mod tests {
                 let values = p.values.clone();
                 let batch_proof = {
                     index_list[0] += 1;
-                    Some(BatchPath::create(values, index_list))
+                    Some(BatchPath {
+                        values,
+                        indices: index_list,
+                        hasher: Default::default()
+                    })
                 };
                 aggr.batch_proof = batch_proof;
             })

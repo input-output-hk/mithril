@@ -24,11 +24,9 @@ pub struct Path<D: Digest> {
     hasher: PhantomData<D>,
 }
 
-/// Path for a batch of indices. The size of a batched path, $s$, depends
-/// on how the nodes are distributed among the leaves. It has size
-/// $h − \log 2 k \leq s \leq k(h − \log 2 k)$, with $h$
-/// the height of the tree and $k$ the size of the batch. This is considerably better than the
-/// trivial $k \cdot h$ solution of appending $k$ paths.
+/// Path of hashes for a batch of indices.
+/// Contains the hashes and the corresponding merkle tree indices of given batch.
+/// Used to verify the signatures are issued by the registered signers.
 #[derive(Default, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BatchPath<D: Digest + FixedOutput> {
     pub(crate) values: Vec<Vec<u8>>,
@@ -46,9 +44,10 @@ pub struct MerkleTreeCommitment<D: Digest> {
     hasher: PhantomData<D>,
 }
 
-/// `MerkleTree` commitment.
-/// This structure differs from `MerkleTree` in that it does not contain all elements, which are not always necessary.
-/// Instead, it only contains the root of the tree.
+/// Batch compatible `MerkleTree` commitment .
+/// This structure differs from `MerkleTreeCommitment` in that it stores the number of leaves in the tree
+/// as well as the root of the tree.
+/// Number of leaves is required by the batch path generation/verification.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MerkleTreeCommitmentBatchCompat<D: Digest> {
     /// Root of the merkle commitment.
@@ -147,15 +146,6 @@ impl<D: Digest + Clone> Path<D> {
 }
 
 impl<D: Digest + FixedOutput> BatchPath<D> {
-    ///Create batched path
-    pub fn create(values: Vec<Vec<u8>>, indices: Vec<usize>) -> Self {
-        Self {
-            values,
-            indices,
-            hasher: PhantomData::default(),
-        }
-    }
-
     /// Convert the `BatchPath` into byte representation.
     ///
     /// # Layout
@@ -260,6 +250,7 @@ impl<D: Clone + Digest> MerkleTreeCommitment<D> {
 impl<D: Clone + Digest> MerkleTreeCommitmentBatchCompat<D> {
     /// Serializes the Merkle Tree commitment together with a message in a single vector of bytes.
     /// Outputs `msg || self` as a vector of bytes.
+    // todo: Is this function necessary?
     pub fn concat_with_msg(&self, msg: &[u8]) -> Vec<u8>
     where
         D: Digest,
@@ -275,6 +266,8 @@ impl<D: Clone + Digest> MerkleTreeCommitmentBatchCompat<D> {
     ///
     /// # Error
     /// Returns an error if the proof is invalid.
+    // todo: Update doc.
+    // todo: Simplify the algorithm.
     pub fn check_batched(
         &self,
         batch_val: &Vec<MTLeaf>,
@@ -428,7 +421,8 @@ impl<D: Digest> MerkleTree<D> {
         }
     }
 
-    /// Convert merkle tree to a commitment. This function simply returns the root.
+    /// Convert merkle tree to a batch compatible commitment.
+    /// This function simply returns the root and the number of leaves in the tree.
     pub fn to_commitment_batch_compat(&self) -> MerkleTreeCommitmentBatchCompat<D> {
         MerkleTreeCommitmentBatchCompat {
             root: self.nodes[0].clone(),
@@ -487,6 +481,7 @@ impl<D: Digest> MerkleTree<D> {
     /// # Panics
     /// If the indices provided are out of bounds (higher than the number of elements
     /// committed in the `MerkleTree`) or are not ordered, the function fails.
+    // todo: Update doc.
     pub fn get_batched_path(&self, indices: Vec<usize>) -> BatchPath<D>
     where
         D: FixedOutput,

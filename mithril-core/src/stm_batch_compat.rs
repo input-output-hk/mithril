@@ -923,7 +923,11 @@ mod tests {
                 let values = p.values;
                 let batch_proof = {
                     index_list[0] += 1;
-                    BatchPath::create(values, index_list)
+                    BatchPath {
+                        values,
+                        indices: index_list,
+                        hasher: Default::default()
+                    }
                 };
                 aggr.batch_proof = batch_proof;
             })
