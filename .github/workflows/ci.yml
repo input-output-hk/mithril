@@ -109,7 +109,7 @@ jobs:
 
       - name: Upload Tests Results
         uses: actions/upload-artifact@v3
-        if: ${{ success() || failure() }}
+        if: success() || failure()
         with:
           name: test-results${{ matrix.artifact-suffix }}-${{ runner.os }}-${{ runner.arch }}
           path: |
@@ -135,7 +135,7 @@ jobs:
           key: ${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}
 
       - name: Install cargo tools
-        if: ${{ steps.cargo-cache.outputs.cache-hit == false }}
+        if: steps.cargo-cache.outputs.cache-hit == false
         shell: bash
         run: |
           cargo install cargo-sort 2>/dev/null || true # Suppress the "binary `xyz` already exists in destination" error
@@ -207,37 +207,37 @@ jobs:
           if-no-files-found: error
   
   publish-tests-results:
-    if: ${{ success() || failure() }}
+    if: success() || failure()
     runs-on: ubuntu-22.04
     needs: 
       - test
     steps:
       - name: Download Tests Results (${{ runner.os }}-${{ runner.arch }})
-        if: ${{ success() || failure() }}
+        if: success() || failure()
         uses: actions/download-artifact@v3
         with:
           name: test-results-${{ runner.os }}-${{ runner.arch }}
 
       - name: Download mithril-core Tests Results (${{ runner.os }}-${{ runner.arch }})
-        if: ${{ success() || failure() }}
+        if: success() || failure()
         uses: actions/download-artifact@v3
         with:
           name: test-results-mithril-core-${{ runner.os }}-${{ runner.arch }}
 
       - name: Download Tests Results (macOS-X64)
-        if: ${{ success() || failure() }}
+        if: success() || failure()
         uses: actions/download-artifact@v3
         with:
           name: test-results-macOS-X64
 
       - name: Download Tests Results (Windows-X64)
-        if: ${{ success() || failure() }}
+        if: success() || failure()
         uses: actions/download-artifact@v3
         with:
           name: test-results-Windows-X64
 
       - name: Publish Unit Test Results
-        if: ${{ success() || failure() }}
+        if: success() || failure()
         uses: EnricoMi/publish-unit-test-result-action@v1
         with:
           files: ./**/test-results-*.xml
