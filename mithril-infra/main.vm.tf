@@ -1,8 +1,7 @@
 terraform {
   required_providers {
     google = {
-      source  = "hashicorp/google"
-      version = "3.5.0"
+      source = "hashicorp/google"
     }
   }
 }
@@ -50,3 +49,21 @@ resource "google_compute_address" "mithril-external-address" {
   name = "${local.environment_name}-ip"
 }
 
+resource "google_compute_resource_policy" "policy" {
+  name   = "${local.environment_name}-policy"
+  region = var.google_region
+  snapshot_schedule_policy {
+    schedule {
+      daily_schedule {
+        days_in_cycle = 1
+        start_time    = "04:00"
+      }
+    }
+  }
+}
+
+resource "google_compute_disk_resource_policy_attachment" "attachment" {
+  name = google_compute_resource_policy.policy.name
+  disk = google_compute_instance.vm_instance.name
+  zone = var.google_zone
+}
