@@ -1,7 +1,6 @@
 //! Define a generic way to store data with the [Store Adapter][store_adapter::StoreAdapter], with
-//! two main implementations ([in memory][MemoryAdapter] or [filesystem as json][JsonFileStoreAdapter])
-//! and two more for testing ([a stub with one record][DumbStoreAdapter] and one which
-//! [always fails][FailStoreAdapter]).
+//! an adapter ([in memory][MemoryAdapter] and two more for testing ([a stub with one
+//! record][DumbStoreAdapter] and one which [always fails][FailStoreAdapter]).
 
 mod memory_adapter;
 mod sqlite_adapter;
