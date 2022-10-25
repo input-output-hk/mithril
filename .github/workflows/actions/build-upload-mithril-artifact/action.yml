@@ -1,0 +1,48 @@
+name: build-upload-mithril-artifact
+description: Build the Mithril workspace & publish the artifacts using 'actions/upload-artifact'
+inputs:
+  build-args:
+    description: Arguments to pass to 'cargo build'
+    required: false
+    default: ''
+  cache-version:
+    description: Version of the current cache
+    required: false
+    default: ''
+runs:
+  using: "composite"
+  steps:
+    - name: Install stable toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+
+    - name: Rust Cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        key: ${{ runner.os }}-cache-v${{ inputs.cache-version }}
+
+    - name: Cargo build
+      uses: actions-rs/cargo@v1
+      with:
+        command: build
+        args: --release ${{ inputs.build-args }}
+
+    - name: Publish Mithril Distribution (${{ runner.os }}-${{ runner.arch }})
+      uses: actions/upload-artifact@v3
+      with:
+        name: mithril-distribution-${{ runner.os }}-${{ runner.arch }}
+        path: |
+          target/release/libmithril.*
+          target/release/libmithril_common.*
+          target/release/mithril-aggregator
+          target/release/mithril-aggregator.exe
+          target/release/mithril-client
+          target/release/mithril-client.exe
+          target/release/mithril-signer
+          target/release/mithril-signer.exe
+          target/release/mithrildemo
+          target/release/mithrildemo.exe
+        if-no-files-found: error

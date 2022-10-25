@@ -9,11 +9,29 @@ on:
       - 'mithril-explorer/**'
 
 jobs:
+  build-ubuntu-X64:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Build Mithril workspace & publish artifacts
+        uses: ./.github/workflows/actions/build-upload-mithril-artifact
+        with:
+          cache-version: ${{ secrets.CACHE_VERSION }}
+
+      - name: Publish End-to-end runner (${{ runner.os }}-${{ runner.arch }})
+        uses: actions/upload-artifact@v3
+        with:
+          name: mithril-end-to-end-${{ runner.os }}-${{ runner.arch }}
+          path: target/release/mithril-end-to-end
+          if-no-files-found: error
+  
   build:
     strategy:
       fail-fast: false
       matrix:
-        os: [ ubuntu-22.04, macos-12, windows-latest ]
+        os: [ macos-12, windows-latest ]
         
         include:
         # Only build client on windows & mac
@@ -26,49 +44,12 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
-
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}
       
-      - name: Cargo build
-        uses: actions-rs/cargo@v1
+      - name: Build Mithril workspace & publish artifacts
+        uses: ./.github/workflows/actions/build-upload-mithril-artifact
         with:
-          command: build
-          args: --release ${{ matrix.build-args }}
-
-      - name: Publish Mithril Distribution (${{ runner.os }}-${{ runner.arch }})
-        uses: actions/upload-artifact@v3
-        with:
-          name: mithril-distribution-${{ runner.os }}-${{ runner.arch }}
-          path: |
-            target/release/libmithril.*
-            target/release/libmithril_common.*
-            target/release/mithril-aggregator
-            target/release/mithril-aggregator.exe
-            target/release/mithril-client
-            target/release/mithril-client.exe
-            target/release/mithril-signer
-            target/release/mithril-signer.exe
-            target/release/mithrildemo
-            target/release/mithrildemo.exe
-          if-no-files-found: error
-
-      - name: Publish End-to-end runner (${{ runner.os }}-${{ runner.arch }})
-        uses: actions/upload-artifact@v3
-        if: ${{ runner.os == 'Linux' }}
-        with:
-          name: mithril-end-to-end-${{ runner.os }}-${{ runner.arch }}
-          path: target/release/mithril-end-to-end
-          if-no-files-found: error
+          cache-version: ${{ secrets.CACHE_VERSION }}
+          build-args: ${{ matrix.build-args }}
   
   test:
     strategy:
@@ -184,7 +165,7 @@ jobs:
 
   run-test-lab:
     runs-on: ubuntu-22.04
-    needs: [ build ]
+    needs: [ build-ubuntu-X64 ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
