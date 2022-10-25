@@ -73,6 +73,20 @@ variable "mithril_genesis_secret_key" {
   description = "The Mithril genesis secret key used by the aggregator to bootstrap a genesis certificate (test only)"
 }
 
+variable "mithril_protocol_parameters" {
+  type = object({
+    k     = number,
+    m     = number,
+    phi_f = number
+  })
+  description = "The Mithril protocol parameters used to aggregate multi signatures"
+  default = {
+    k     = 5
+    m     = 100
+    phi_f = 0.65
+  }
+}
+
 variable "mithril_signers" {
   type = map(object({
     pool_id = string
