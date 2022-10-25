@@ -49,6 +49,9 @@ pub struct Configuration {
     /// Type of snapshot uploader to use
     pub snapshot_uploader_type: SnapshotUploaderType,
 
+    /// Bucket name where the snapshots are stored if snapshot_uploader_type is Gcp
+    pub snapshot_bucket_name: Option<String>,
+
     /// Server listening IP
     pub server_ip: String,
 
@@ -109,7 +112,11 @@ impl Configuration {
     pub fn build_snapshot_store(&self) -> Result<Arc<dyn SnapshotStore>, Box<dyn Error>> {
         match self.snapshot_store_type {
             SnapshotStoreType::Gcp => Ok(Arc::new(RemoteSnapshotStore::new(
-                Box::new(GcpFileUploader::default()),
+                Box::new(GcpFileUploader::new(
+                    self.snapshot_bucket_name.to_owned().ok_or_else(|| {
+                        ConfigError::Message("missing snapshot bucket name".to_string())
+                    })?,
+                )),
                 self.url_snapshot_manifest.clone(),
             ))),
             SnapshotStoreType::Local => Ok(Arc::new(LocalSnapshotStore::new(
@@ -123,15 +130,17 @@ impl Configuration {
     }
 
     /// Create a snapshot uploader from configuration settings.
-    pub fn build_snapshot_uploader(&self) -> Arc<dyn SnapshotUploader> {
+    pub fn build_snapshot_uploader(&self) -> Result<Arc<dyn SnapshotUploader>, Box<dyn Error>> {
         match self.snapshot_uploader_type {
-            SnapshotUploaderType::Gcp => Arc::new(RemoteSnapshotUploader::new(Box::new(
-                GcpFileUploader::default(),
-            ))),
-            SnapshotUploaderType::Local => Arc::new(LocalSnapshotUploader::new(
+            SnapshotUploaderType::Gcp => Ok(Arc::new(RemoteSnapshotUploader::new(Box::new(
+                GcpFileUploader::new(self.snapshot_bucket_name.to_owned().ok_or_else(|| {
+                    ConfigError::Message("missing snapshot bucket name".to_string())
+                })?),
+            )))),
+            SnapshotUploaderType::Local => Ok(Arc::new(LocalSnapshotUploader::new(
                 self.get_server_url(),
                 &self.snapshot_directory,
-            )),
+            ))),
         }
     }
 

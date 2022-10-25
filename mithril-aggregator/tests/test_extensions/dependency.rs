@@ -37,6 +37,7 @@ pub async fn initialize_dependencies(
             .to_string(),
         snapshot_store_type: SnapshotStoreType::Local,
         snapshot_uploader_type: SnapshotUploaderType::Local,
+        snapshot_bucket_name: None,
         server_ip: "0.0.0.0".to_string(),
         server_port: 8000,
         run_interval: 5000,
