@@ -259,7 +259,7 @@ jobs:
       packages: write
 
     env:
-      PUSH_PACKAGES: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      PUSH_PACKAGES: ${{ github.ref == 'refs/heads/main' || startsWith('refs/heads/hotfix', github.ref) }}
       REGISTRY: ghcr.io
       IMAGE_NAME: ${{ github.repository_owner }}/${{ matrix.project }}
       DOCKER_FILE: ./${{ matrix.project }}/Dockerfile.ci
@@ -301,6 +301,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
 
   unstable-release:
+    if: github.ref == 'refs/heads/main' || startsWith('refs/heads/hotfix', github.ref)
     runs-on: ubuntu-22.04
     needs:
       - build
@@ -327,7 +328,6 @@ jobs:
           path: ./build
 
       - name: Update unstable release
-        if: github.ref == 'refs/heads/main'
         uses: marvinpinto/action-automatic-releases@latest
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
