@@ -55,19 +55,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        title: [ "mithril" ]
         os: [ ubuntu-22.04, macos-12, windows-latest ]
         
         include:
           - os: ubuntu-22.04
             build-args: --workspace
-            test-args: --workspace --exclude mithril # mithril core is tested separately since it's slow
-          - title: mithril-core
-            os: ubuntu-22.04
-            # Mithril core tests are ~2x faster on release build
-            build-args: --release -p mithril
-            test-args: --release -p mithril
-            artifact-suffix: -mithril-core 
+            test-args: --workspace
           # Only test client on windows & mac (since its the only binaries supported for those os for now)
           - os: macos-12
             build-args: -p mithril-client
@@ -217,12 +210,6 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: test-results-${{ runner.os }}-${{ runner.arch }}
-
-      - name: Download mithril-core Tests Results (${{ runner.os }}-${{ runner.arch }})
-        if: success() || failure()
-        uses: actions/download-artifact@v3
-        with:
-          name: test-results-mithril-core-${{ runner.os }}-${{ runner.arch }}
 
       - name: Download Tests Results (macOS-X64)
         if: success() || failure()
