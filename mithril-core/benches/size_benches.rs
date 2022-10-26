@@ -58,13 +58,11 @@ where
     // Aggregate with random parties
     let aggr = clerk.aggregate(&sigs, &msg).unwrap();
 
-    let sig = sigs[0].clone();
-
     println!(
-        "k = {} | nr parties = {}; total size of single signatures {} bytes | aggregate signature {} bytes",
+        "k = {} | m = {} | nr parties = {}; {} bytes",
+        m,
         k,
         nparties,
-        sig.to_bytes().len() * k as usize,
         aggr.to_bytes().len() as usize,
     );
 }
@@ -79,7 +77,7 @@ fn main() {
     println!("|-------------------|");
     println!("|   Trivial proofs  |");
     println!("+-------------------+");
-    println!("| This gives and upper bound of the size\n| as it assumes that at most one signature\n| is provided by each participant.");
+    println!("| Results obtained by using the parameters suggested in paper.");
     println!("+-------------------+");
 
     let params: [(u64, u64, usize); 2] = [(445, 2728, 3000), (554, 3597, 3000)];
