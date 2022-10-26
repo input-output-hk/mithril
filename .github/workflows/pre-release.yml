@@ -1,0 +1,114 @@
+name: Pre-release
+
+on:
+  push:
+    tags:
+      - '[0-9][0-9][0-9][0-9].[0-9]+'
+      - '[0-9][0-9][0-9][0-9].[0-9]+-**'
+
+jobs:
+  create-pre-release:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Download built artifacts (Linux-x64)
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          name: mithril-distribution-Linux-x64
+          path: ./build
+          commit: ${{ github.sha }}
+          workflow: ci.yml
+          workflow_conclusion: success
+      
+      - name: Download built artifacts (Windows-x64)
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          name: mithril-distribution-Windows-x64
+          path: ./build
+          commit: ${{ github.sha }}
+          workflow: ci.yml
+          workflow_conclusion: success
+      
+      - name: Download built artifacts (macOS-x64)
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          name: mithril-distribution-macOS-x64
+          path: ./build
+          commit: ${{ github.sha }}
+          workflow: ci.yml
+          workflow_conclusion: success
+      
+      - name: Append VERSION file
+        run: |
+          echo ${{ github.ref_name }} >> ./build/VERSION
+      
+      - name: Create pre-release ${{ github.ref_name }}
+        uses: marvinpinto/action-automatic-releases@latest
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          automatic_release_tag: ${{ github.ref_name }}
+          prerelease: true
+          title: Mithril v${{ github.ref_name }}
+          files: build/**/*
+
+  build-push-docker:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [ mithril-aggregator, mithril-client, mithril-signer ]
+    
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository_owner }}/${{ matrix.project }}
+      DOCKER_FILE: ./${{ matrix.project }}/Dockerfile.ci
+      CONTEXT: .
+      GITHUB_REF: ${{ github.ref}}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            pre-release
+            type=raw,value={{branch}}-{{sha}}
+
+      - name: Download built artifacts (Linux-x64)
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          name: mithril-distribution-Linux-x64
+          path: ${{ matrix.project }}
+          commit: ${{ github.sha }}
+          workflow: ci.yml
+          workflow_conclusion: success
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v3
+        with:
+          context: ${{ env.CONTEXT }}
+          file: ${{ env.DOCKER_FILE }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+  
+  deploy-pre-release:
+    runs-on: ubuntu-22.04
+    needs:
+      - build-push-docker
+    steps:
+      - name: TODO
+        run: echo "Add terraform deployment to a pre-release environment here"

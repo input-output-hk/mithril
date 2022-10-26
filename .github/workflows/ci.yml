@@ -1,55 +1,118 @@
 name: CI
 
-# do not run workflow twice on PRs
-on: [push]
+on:
+  push:
+    branches: # only run on branch push, tag push will be ignored
+      - '**'
+    paths-ignore: # ignore docs only changes since they use a dedicated workflows: docs.yml
+      - 'docs/**'
+      - 'mithril-explorer/**'
 
 jobs:
-  build:
-    if: github.event.pull_request.draft == false
+  build-ubuntu-X64:
     runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Build Mithril workspace & publish artifacts
+        uses: ./.github/workflows/actions/build-upload-mithril-artifact
+        with:
+          cache-version: ${{ secrets.CACHE_VERSION }}
+
+      - name: Publish End-to-end runner (${{ runner.os }}-${{ runner.arch }})
+        uses: actions/upload-artifact@v3
+        with:
+          name: mithril-end-to-end-${{ runner.os }}-${{ runner.arch }}
+          path: target/release/mithril-end-to-end
+          if-no-files-found: error
+  
+  build:
     strategy:
       fail-fast: false
       matrix:
+        os: [ macos-12, windows-latest ]
+        
         include:
-        - project: mithril-core
-          cargo_project_name: mithril
-          artifacts_pattern: libmithril
-          skip_tests: true
-        - project: mithril-common
-          artifacts_pattern: libmithril_common
-        - project: mithril-aggregator
-        - project: mithril-client
-        - project: mithril-signer
-        - project: mithril-test-lab/mithril-end-to-end
-          cargo_project_name: mithril-end-to-end
-          artifacts_base_name: mithril-end-to-end
-          artifacts_pattern: mithril-end-to-end
-          skip_doc: true
-        - project: demo/protocol-demo
-          cargo_project_name: mithrildemo
-          artifacts_base_name: mithrildemo
-          artifacts_pattern: mithrildemo
-          skip_doc: true
-    env:
-      CARGO_PROJECT_NAME: ${{ matrix.project }}
-      ARTIFACTS_BASE_NAME: ${{ matrix.project }}
-      ARTIFACTS_PATTERN: ${{ matrix.project }}
+        # Only build client on windows & mac
+        - os: macos-12
+          build-args: -p mithril-client
+        - os: windows-latest
+          build-args: -p mithril-client 
+    runs-on: ${{ matrix.os }}
+    
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+      
+      - name: Build Mithril workspace & publish artifacts
+        uses: ./.github/workflows/actions/build-upload-mithril-artifact
+        with:
+          cache-version: ${{ secrets.CACHE_VERSION }}
+          build-args: ${{ matrix.build-args }}
+  
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-22.04, macos-12, windows-latest ]
+        
+        include:
+          - os: ubuntu-22.04
+            build-args: --workspace
+            test-args: --workspace
+          # Only test client on windows & mac (since its the only binaries supported for those os for now)
+          - os: macos-12
+            build-args: -p mithril-client
+            test-args: -p mithril-client
+          - os: windows-latest
+            build-args: -p mithril-client
+            test-args: -p mithril-client
+    
+    runs-on: ${{ matrix.os }}
     
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
 
-      - name: Overriding default $CARGO_PROJECT_NAME with matrix value
-        if: ${{ matrix.cargo_project_name }}
-        run: echo "CARGO_PROJECT_NAME=${{ matrix.cargo_project_name }}" >> $GITHUB_ENV
-      
-      - name: Overriding default $ARTIFACTS_BASE_NAME with matrix value
-        if: ${{ matrix.artifacts_base_name }}
-        run: echo "ARTIFACTS_BASE_NAME=${{ matrix.artifacts_base_name }}" >> $GITHUB_ENV
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
 
-      - name: Overriding default $ARTIFACTS_PATTERN with matrix value
-        if: ${{ matrix.artifacts_pattern }}
-        run: echo "ARTIFACTS_PATTERN=${{ matrix.artifacts_pattern }}" >> $GITHUB_ENV
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}
+
+      - name: Install cargo tools
+        shell: bash
+        run: |
+          cargo install cargo2junit 2>/dev/null || true # Suppress the "binary `xyz` already exists in destination" error
+
+      - name: Run tests
+        shell: bash
+        run: |
+          set -o pipefail && \
+          cargo test --features portable --no-fail-fast ${{ matrix.test-args }} \
+              -- -Z unstable-options --format json --report-time \
+              | tee >(cargo2junit > test-results${{ matrix.artifact-suffix }}-${{ runner.os }}-${{ runner.arch }}.xml)
+
+      - name: Upload Tests Results
+        uses: actions/upload-artifact@v3
+        if: success() || failure()
+        with:
+          name: test-results${{ matrix.artifact-suffix }}-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            ./**/test-results-*.xml
+  
+  check:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
 
       - name: Install stable toolchain
         uses: actions-rs/toolchain@v1
@@ -58,185 +121,58 @@ jobs:
           toolchain: stable
           components: clippy, rustfmt
           override: true
-
-      - uses: actions/cache@v3
-        name: Cache Cargo.lock
+      
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/
-            ~/.cargo/git/
-            target/
-          key: cargo-${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}-${{ matrix.project }}-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            cargo-${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}-${{ matrix.project }}-
-            cargo-${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}-
+          key: ${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}
 
       - name: Install cargo tools
-        if: ${{ steps.cargo-cache.outputs.cache-hit == false }}
+        if: steps.cargo-cache.outputs.cache-hit == false
+        shell: bash
         run: |
-          cargo install cargo2junit 2>/dev/null || true # Suppress the "binary `xyz` already exists in destination" error
-          cargo install cargo-sort 2>/dev/null || true
-      
-      - name: Cargo build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --all-targets --features portable -p ${{ env.CARGO_PROJECT_NAME }}
-      
+          cargo install cargo-sort 2>/dev/null || true # Suppress the "binary `xyz` already exists in destination" error
+
       - name: Cargo check
         uses: actions-rs/cargo@v1
         with:
           command: check
-          args: --release --all-targets -p ${{ env.CARGO_PROJECT_NAME }}
+          args: --release --all-targets
 
       - name: Clippy Check
         uses: actions-rs/clippy-check@v1
         with:
-          name: clippy-${{ matrix.project }}
+          name: clippy
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --release --all-features --all-targets --no-deps -p ${{ env.CARGO_PROJECT_NAME }} -- -D warnings
+          args: --all-features --all-targets --no-deps -- -D warnings
 
       - name: Cargo fmt
         uses: actions-rs/cargo@v1
         with:
           command: fmt
-          args: --check -p ${{ env.CARGO_PROJECT_NAME }}
-      
+          args: --check
+
       - name: Cargo sort
-        run: |
-          cargo sort -c ${{ matrix.project }}/Cargo.toml
-
-      - name: Run tests
-        if: ${{ matrix.skip_tests != true }}
         shell: bash
-        run: |
-          set -o pipefail && \
-          cargo test --release --features portable -p $CARGO_PROJECT_NAME --no-fail-fast \
-              -- -Z unstable-options --format json --report-time \
-              | tee >(cargo2junit > test-results-${{ env.ARTIFACTS_PATTERN }}.xml)
-
-      - name: Upload Tests Results
-        if: ${{ always() && matrix.skip_tests != true }}
-        uses: actions/upload-artifact@v3
-        with:
-          name: test-results-${{ env.ARTIFACTS_BASE_NAME }}
-          path: |
-            ./**/test-results-*.xml
-      
-      - name: Generate ${{ matrix.project }} doc
-        if: ${{ matrix.skip_doc != true }}
-        uses: actions-rs/cargo@v1
-        with:
-          command: doc
-          args: --no-deps --release -p ${{ env.CARGO_PROJECT_NAME }}
-
-      - name: Publish ${{ matrix.project }}
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ env.ARTIFACTS_BASE_NAME }}
-          path: |
-            target/release/${{ env.ARTIFACTS_PATTERN }}*
-          if-no-files-found: error
-
-      - name: Publish ${{ matrix.project }}-doc
-        if: ${{ matrix.skip_doc != true }}
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{ env.ARTIFACTS_BASE_NAME }}-doc
-          if-no-files-found: error
-          path: |
-            target/doc/
-
-  test-mithril-core:
-    runs-on: ubuntu-22.04
-    if: ${{ github.event_name == 'push' }}
-    needs: [ build ]
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v3
-
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          components: clippy, rustfmt
-          override: true
-
-      # Get the matrix build cache for mithril-core
-      # Note: cargo tools will be included so there's no need to install them
-      - uses: actions/cache@v3
-        name: Cache Cargo.lock
-        with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/
-            ~/.cargo/git/
-            target/
-          key: cargo-${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}-mithril-core-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            cargo-${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}-mithril-core
-            cargo-${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}-
-
-      - name: Install cargo tools
-        if: ${{ steps.cargo-cache.outputs.cache-hit == false }}
-        run: |
-          cargo install cargo2junit 2>/dev/null || true # Suppress the "binary `xyz` already exists in destination" error
-          cargo install cargo-sort 2>/dev/null || true
-
-      - name: Cargo build
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --release --tests --features portable -p mithril
-
-      - name: Run tests
-        if: ${{ matrix.skip_test != true }}
-        shell: bash
-        run: |
-          set -o pipefail && \
-          cargo test --release --features portable -p mithril --no-fail-fast \
-              -- -Z unstable-options --format json --report-time \
-              | tee >(cargo2junit > test-results-libmithril.xml)
-
-      - name: Upload Tests Results
-        if: ${{ always() && matrix.skip_test != true }}
-        uses: actions/upload-artifact@v3
-        with:
-          name: test-results-mithril-core
-          path: |
-            ./**/test-results-*.xml
+        run: cargo sort -w -c
 
   run-test-lab:
     runs-on: ubuntu-22.04
-    needs: [ build ]
+    needs: [ build-ubuntu-X64 ]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
 
-      - name: Download aggregator
+      - name: Download binaries
         uses: actions/download-artifact@v3
         with:
-          name: mithril-aggregator
-          path: ./bin
-
-      - name: Download signer
-        uses: actions/download-artifact@v3
-        with:
-          name: mithril-signer
-          path: ./bin
-
-      - name: Download client
-        uses: actions/download-artifact@v3
-        with:
-          name: mithril-client
+          name: mithril-distribution-${{ runner.os }}-${{ runner.arch }}
           path: ./bin
 
       - name: Download rust test runner
         uses: actions/download-artifact@v3
         with:
-          name: mithril-end-to-end
+          name: mithril-end-to-end-${{ runner.os }}-${{ runner.arch }}
           path: ./
 
       - run: |
@@ -264,63 +200,41 @@ jobs:
           if-no-files-found: error
   
   publish-tests-results:
-    if: github.event.pull_request.draft == false && ${{ always() }}
+    if: success() || failure()
     runs-on: ubuntu-22.04
-    needs: [ test-mithril-core ]
+    needs: 
+      - test
     steps:
-      - name: Download mithril-core Tests Results
-        if: always()
+      - name: Download Tests Results (${{ runner.os }}-${{ runner.arch }})
+        if: success() || failure()
         uses: actions/download-artifact@v3
         with:
-          name: test-results-mithril-core
+          name: test-results-${{ runner.os }}-${{ runner.arch }}
 
-      - name: Download mithril-common Tests Results
-        if: always()
+      - name: Download Tests Results (macOS-X64)
+        if: success() || failure()
         uses: actions/download-artifact@v3
         with:
-          name: test-results-mithril-common
-      
-      - name: Download mithril-aggregator Tests Results
-        if: always()
-        uses: actions/download-artifact@v3
-        with:
-          name: test-results-mithril-aggregator
+          name: test-results-macOS-X64
 
-      - name: Download mithril-client Tests Results
-        if: always()
+      - name: Download Tests Results (Windows-X64)
+        if: success() || failure()
         uses: actions/download-artifact@v3
         with:
-          name: test-results-mithril-client
+          name: test-results-Windows-X64
 
-      - name: Download mithril-signer Tests Results
-        if: always()
-        uses: actions/download-artifact@v3
-        with:
-          name: test-results-mithril-signer
-
-      - name: Download mithril-end-to-end Tests Results
-        if: always()
-        uses: actions/download-artifact@v3
-        with:
-          name: test-results-mithril-end-to-end
-
-      - name: Download mithril-demo Tests Results
-        if: always()
-        uses: actions/download-artifact@v3
-        with:
-          name: test-results-mithrildemo
-      
       - name: Publish Unit Test Results
-        if: always()
+        if: success() || failure()
         uses: EnricoMi/publish-unit-test-result-action@v1
         with:
           files: ./**/test-results-*.xml
 
   docker-mithril:
     runs-on: ubuntu-22.04
-    if: ${{ github.event_name == 'push' }}
     needs:
-      - test-mithril-core
+      - build
+      - check
+      - test
       - run-test-lab
     strategy:
       fail-fast: false
@@ -332,7 +246,7 @@ jobs:
       packages: write
 
     env:
-      PUSH_PACKAGES: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+      PUSH_PACKAGES: ${{ github.ref == 'refs/heads/main' || startsWith('refs/heads/hotfix', github.ref) }}
       REGISTRY: ghcr.io
       IMAGE_NAME: ${{ github.repository_owner }}/${{ matrix.project }}
       DOCKER_FILE: ./${{ matrix.project }}/Dockerfile.ci
@@ -356,13 +270,13 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            latest
+            unstable
             type=raw,value={{branch}}-{{sha}}
 
-      - name: Download ${{ matrix.project }} executable
+      - name: Download built artifacts
         uses: actions/download-artifact@v3
         with:
-          name: ${{ matrix.project }}
+          name: mithril-distribution-${{ runner.os }}-${{ runner.arch }}
           path: ${{ matrix.project }}
 
       - name: Build and push Docker image
@@ -373,120 +287,41 @@ jobs:
           push: ${{ env.PUSH_PACKAGES }}
           tags: ${{ steps.meta.outputs.tags }}
 
-  deploy-nightly:
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+  unstable-release:
+    if: github.ref == 'refs/heads/main' || startsWith('refs/heads/hotfix', github.ref)
     runs-on: ubuntu-22.04
     needs:
-      - test-mithril-core
+      - build
+      - test
       - run-test-lab
+      - check
     steps:
-      - name: Download mithril-core lib
+      - name: Download built artifacts (${{ runner.os }}-${{ runner.arch }})
         uses: actions/download-artifact@v3
         with:
-          name: mithril-core
+          name: mithril-distribution-${{ runner.os }}-${{ runner.arch }}
           path: ./build
 
-      - name: Download aggregator
+      - name: Download built artifacts (macOS-X64)
         uses: actions/download-artifact@v3
         with:
-          name: mithril-aggregator
+          name: mithril-distribution-macOS-X64
           path: ./build
 
-      - name: Download signer
+      - name: Download built artifacts (Windows-X64)
         uses: actions/download-artifact@v3
         with:
-          name: mithril-signer
+          name: mithril-distribution-Windows-X64
           path: ./build
 
-      - name: Download client
-        uses: actions/download-artifact@v3
-        with:
-          name: mithril-client
-          path: ./build
-
-      - name: Update nightly release
+      - name: Update unstable release
         uses: marvinpinto/action-automatic-releases@latest
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
-          automatic_release_tag: nightly
+          automatic_release_tag: unstable
           prerelease: true
-          title: Nightly Development Builds
+          title: Unstable Development Builds
           files: build/*
-
-  generate-publish-docs:
-    if: github.event.pull_request.draft == false
-    runs-on: ubuntu-22.04
-    needs:
-      - docker-mithril
-    steps:
-      - name: Checkout sources
-        uses: actions/checkout@v3
-
-      - name: Download mithril-core-doc artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: mithril-core-doc
-          path: ./github-pages/mithril-core/doc
-
-      - name: Download mithril-common-doc artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: mithril-common-doc
-          path: ./github-pages/mithril-common/doc
-
-      - name: Download aggregator-doc artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: mithril-aggregator-doc
-          path: ./github-pages/mithril-aggregator/doc
-
-      - name: Download client-doc artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: mithril-client-doc
-          path: ./github-pages/mithril-client/doc
-
-      - name: Download signer-doc artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: mithril-signer-doc
-          path: ./github-pages/mithril-signer/doc
-
-      - name: Mithril Aggregator / Generate OpenAPI UI
-        uses: Legion2/swagger-ui-action@v1
-        with:
-          output: ./github-pages/openapi-ui
-          spec-file: ./openapi.yaml
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 16
-          cache: 'yarn'
-          cache-dependency-path: docs/yarn.lock
-
-      - name: Documentation (Docusaurus)
-        working-directory: docs
-        run: |
-          yarn && yarn build
-          mkdir -p ../github-pages/doc
-          mv build/* ../github-pages/doc
-          echo "mithril.network" > ../github-pages/CNAME
-          echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://mithril.network/doc"></head></html>' > ../github-pages/index.html
-
-      - name: Explorer
-        working-directory: mithril-explorer
-        run: |
-          make build
-          mkdir -p ../github-pages/explorer
-          mv out/* ../github-pages/explorer
-
-      - name: Mithril / Publish Github Pages
-        uses: peaceiris/actions-gh-pages@v3
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN || github.token }}
-          publish_dir: ./github-pages
 
   terraform:
     runs-on: ubuntu-22.04
@@ -505,13 +340,12 @@ jobs:
         working-directory: mithril-infra
 
     steps:
-
     - name: Checkout sources
       uses: actions/checkout@v3
 
     - name: Get short SHA
       id: slug
-      run: echo "::set-output name=sha8::$(echo ${{ github.sha }} | cut -c1-7)"
+      run: echo "sha8=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
 
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v2
@@ -528,37 +362,7 @@ jobs:
       run: |
         terraform plan -var "image_id=${{ env.BRANCH_NAME }}-${{ steps.slug.outputs.sha8 }}" -var 'private_key=${{ env.GCLOUD_PRIVATE_KEY }}' -var 'google_application_credentials_json=${{ env.GOOGLE_CREDENTIALS }}' -var 'genesis_secret_key=${{ env.GENESIS_SECRET_KEY }}'
 
-    - name: Update Pull Request
-      uses: actions/github-script@v6
-      if: github.event_name == 'pull_request'
-      env:
-        PLAN: "terraform\n${{ steps.plan.outputs.stdout }}"
-      with:
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        script: |
-          const output = `#### Terraform Format and Style 🖌\`${{ steps.fmt.outcome }}\`
-          #### Terraform Initialization ⚙️\`${{ steps.init.outcome }}\`
-          #### Terraform Plan 📖\`${{ steps.plan.outcome }}\`
-          #### Terraform Validation 🤖\`${{ steps.validate.outcome }}\`
-
-          <details><summary>Show Plan</summary>
-
-          \`\`\`\n
-          ${process.env.PLAN}
-          \`\`\`
-
-          </details>
-
-          *Pusher: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
-
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: output
-          })
-
     - name: Terraform Apply
-      if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      if: github.ref == 'refs/heads/main'
       run: |
         terraform apply -auto-approve -var "image_id=${{ env.BRANCH_NAME }}-${{ steps.slug.outputs.sha8 }}" -var 'private_key=${{ env.GCLOUD_PRIVATE_KEY }}' -var 'google_application_credentials_json=${{ env.GOOGLE_CREDENTIALS }}' -var 'genesis_secret_key=${{ env.GENESIS_SECRET_KEY }}'
