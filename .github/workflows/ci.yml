@@ -323,7 +323,7 @@ jobs:
           title: Unstable Development Builds
           files: build/*
 
-  terraform:
+  deploy-testing:
     runs-on: ubuntu-22.04
     needs:
       - docker-mithril
