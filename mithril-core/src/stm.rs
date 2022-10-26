@@ -203,7 +203,7 @@ pub struct StmSig<D: Clone + Digest + FixedOutput> {
     /// The index(es) for which the signature is valid
     pub indexes: Vec<Index>,
     /// Merkle tree index of the signer.
-    pub signer_index: Option<Index>,
+    pub signer_index: Index,
     hasher: PhantomData<D>,
 }
 
@@ -230,7 +230,7 @@ pub struct StmAggrVerificationKey<D: Clone + Digest + FixedOutput> {
 pub struct StmAggrSig<D: Clone + Digest + FixedOutput> {
     pub(crate) signatures: Vec<StmSig<D>>,
     /// The list of unique merkle tree nodes that covers path for all signatures.
-    pub batch_proof: Option<BatchPath<D>>,
+    pub batch_proof: BatchPath<D>,
 }
 
 impl StmParameters {
@@ -396,7 +396,7 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
                 stake: self.stake,
                 indexes,
                 // path: Path::default(),
-                signer_index: Option::from(self.mt_index),
+                signer_index: self.mt_index,
                 hasher: Default::default(),
             })
         } else {
@@ -449,10 +449,10 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
 
         let mt_index_list = unique_sigs
             .iter()
-            .map(|sig| sig.signer_index.unwrap() as usize)
+            .map(|sig| sig.signer_index as usize)
             .collect::<Vec<usize>>();
 
-        let batch_proof = Some(self.closed_reg.merkle_tree.get_batched_path(mt_index_list));
+        let batch_proof = self.closed_reg.merkle_tree.get_batched_path(mt_index_list);
 
         Ok(StmAggrSig {
             signatures: unique_sigs,
@@ -604,7 +604,7 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
         output.extend_from_slice(&self.pk.to_bytes());
         output.extend_from_slice(&self.sigma.to_bytes());
 
-        output.extend_from_slice(&self.signer_index.as_ref().unwrap().to_be_bytes());
+        output.extend_from_slice(&self.signer_index.to_be_bytes());
         output
     }
 
@@ -631,7 +631,7 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
         let pk = StmVerificationKey::from_bytes(&bytes[offset..offset + 96])?;
         let sigma = Signature::from_bytes(&bytes[offset + 96..offset + 144])?;
 
-        u64_bytes.copy_from_slice(&bytes[offset + 144..]);
+        u64_bytes.copy_from_slice(&bytes[offset + 144..offset + 152]);
         let mt_index = u64::from_be_bytes(u64_bytes);
 
         Ok(StmSig {
@@ -639,19 +639,14 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
             pk,
             stake,
             indexes,
-            // path: Path::default(),
-            signer_index: Option::from(mt_index),
+            signer_index: mt_index,
             hasher: Default::default(),
         })
     }
 
     /// Compare two `StmSig` by their signers' merkle tree indexes.
     pub fn cmp_stm_sig(&self, other: &Self) -> Ordering {
-        let result: Ordering = self.signer_index.cmp(&other.signer_index);
-        if result != Ordering::Equal {
-            return result;
-        }
-        result
+        self.signer_index.cmp(&other.signer_index)
     }
 }
 
@@ -735,10 +730,9 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
             leaves.push(mt_leaf);
         }
 
-        if !leaves.is_empty() {
-            let proof = &self.batch_proof;
-            avk.mt_commitment.check(&leaves, &proof.clone().unwrap())?;
-        }
+        let proof = &self.batch_proof;
+        avk.mt_commitment.check(&leaves, &proof.clone())?;
+
 
         let msg = avk.mt_commitment.concat_with_msg(msg);
         let signatures = self
@@ -761,7 +755,7 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
     /// * Number of signatures (as u64)
     /// * Size of a signature
     /// * Signatures
-    /// * Batch prof
+    /// * Batch proof
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
         out.extend_from_slice(&u64::try_from(self.signatures.len()).unwrap().to_be_bytes());
@@ -773,7 +767,7 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
         for sig in &self.signatures {
             out.extend_from_slice(&sig.to_bytes())
         }
-        let proof = &self.batch_proof.as_ref().unwrap();
+        let proof = &self.batch_proof;
         out.extend_from_slice(&proof.to_bytes());
 
         out
@@ -802,7 +796,7 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
         }
 
         let offset = 16 + sig_size * size;
-        let batch_proof = Some(BatchPath::from_bytes(&bytes[offset..])?);
+        let batch_proof = BatchPath::from_bytes(&bytes[offset..])?;
 
         Ok(StmAggrSig {
             signatures,
@@ -1187,16 +1181,16 @@ mod tests {
         fn test_invalid_proof_path(tc in arb_proof_setup(10), _i in any::<usize>()) {
             let _n = tc.n;
             with_proof_mod(tc, |aggr, _, _msg| {
-                let p = aggr.batch_proof.as_ref().unwrap();
+                let p = aggr.batch_proof.clone();
                 let mut index_list = p.indices.clone();
                 let values = p.values.clone();
                 let batch_proof = {
                     index_list[0] += 1;
-                    Some(BatchPath {
+                    BatchPath {
                         values,
                         indices: index_list,
                         hasher: Default::default()
-                    })
+                    }
                 };
                 aggr.batch_proof = batch_proof;
             })
