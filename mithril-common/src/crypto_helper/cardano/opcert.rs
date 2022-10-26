@@ -41,7 +41,8 @@ struct RawOpCert(RawFields, EdPublicKey);
 pub struct OpCert {
     pub(crate) kes_vk: KesPublicKey,
     pub(crate) issue_number: u64,
-    pub(crate) start_kes_period: u64, // this is not the kes period used in signing/verifying
+    /// KES period at which KES key is initalized
+    pub start_kes_period: u64,
     pub(crate) cert_sig: EdSignature,
     pub(crate) cold_vk: EdPublicKey,
 }

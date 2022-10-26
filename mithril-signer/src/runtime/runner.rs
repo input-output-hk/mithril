@@ -7,7 +7,7 @@ use thiserror::Error;
 use mockall::automock;
 
 use mithril_common::crypto_helper::{
-    key_decode_hex, OpCert, ProtocolSignerVerificationKey, SerDeShelleyFileFormat,
+    key_decode_hex, KESPeriod, OpCert, ProtocolSignerVerificationKey, SerDeShelleyFileFormat,
 };
 use mithril_common::entities::{PartyId, ProtocolParameters};
 use mithril_common::{
@@ -192,7 +192,8 @@ impl Runner for SignerRunner {
                     .chain_observer
                     .get_current_kes_period(&operational_certificate)
                     .await?
-                    .unwrap_or_default(),
+                    .unwrap_or_default()
+                    - operational_certificate.start_kes_period as KESPeriod,
             ),
             None => None,
         };

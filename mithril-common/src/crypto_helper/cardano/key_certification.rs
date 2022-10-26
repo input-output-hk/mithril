@@ -65,6 +65,17 @@ pub enum ProtocolRegistrationErrorWrapper {
     CoreRegister(#[from] RegisterError),
 }
 
+/// New initializer error
+#[derive(Error, Debug)]
+pub enum ProtocolInitializerErrorWrapper {
+    /// Error raised when a codec parse error occurs
+    #[error("codec parse error: '{0}'")]
+    Codec(#[from] ParseError),
+
+    /// Error raised when a KES update error occurs
+    #[error("KES key cannot be updated for period {0}")]
+    KesUpdate(KESPeriod),
+}
 /// Wrapper structure for [MithrilCore:StmInitializer](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmInitializer.html).
 /// It now obtains a KES signature over the Mithril key. This allows the signers prove
 /// their correct identity with respect to a Cardano PoolID.
@@ -96,10 +107,18 @@ impl StmInitializerWrapper {
         kes_period: Option<KESPeriod>,
         stake: Stake,
         rng: &mut R,
-    ) -> Result<Self, ParseError> {
+    ) -> Result<Self, ProtocolInitializerErrorWrapper> {
         let stm_initializer = StmInitializer::setup(params, stake, rng);
         let kes_signature = if let Some(kes_sk_path) = kes_sk_path {
-            let kes_sk: Sum6Kes = Sum6Kes::from_file(kes_sk_path)?;
+            let mut kes_sk: Sum6Kes = Sum6Kes::from_file(kes_sk_path)?;
+
+            // We need to perform the evolutions, as the key is stored in evolution 0 in `kes.skey`
+            for period in 0..kes_period.unwrap_or_default() {
+                kes_sk
+                    .update(period)
+                    .map_err(|_| ProtocolInitializerErrorWrapper::KesUpdate(period))?;
+            }
+
             Some(kes_sk.sign(
                 kes_period.unwrap_or_default(),
                 &stm_initializer.verification_key().to_bytes(),
