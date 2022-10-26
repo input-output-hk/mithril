@@ -4,9 +4,11 @@ use blake2::{
     Blake2b, Digest,
 };
 use mithril::key_reg::KeyReg;
-use mithril::stm::{StmInitializer, StmParameters};
+use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
+use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator};
+use rayon::iter::ParallelIterator;
 
 fn size<H>(k: u64, nparties: usize, hash_name: &str)
 where
@@ -41,14 +43,30 @@ where
 
     let closed_reg = key_reg.close::<H>();
 
-    let signer = ps[0].clone().new_signer(closed_reg).unwrap();
-    let sig = signer.sign(&msg).unwrap();
+
+    let ps = ps
+        .into_par_iter()
+        .map(|p| p.new_signer(closed_reg.clone()).unwrap())
+        .collect::<Vec<StmSigner<H>>>();
+
+    let sigs = ps
+        .par_iter()
+        .filter_map(|p| p.sign(&msg))
+        .collect::<Vec<StmSig<H>>>();
+
+    let clerk = StmClerk::from_signer(&ps[0]);
+
+    // Aggregate with random parties
+    let aggr = clerk.aggregate(&sigs, &msg).unwrap();
+
+    let sig = sigs[0].clone();
 
     println!(
-        "k = {} | nr parties = {}; {} bytes",
+        "k = {} | nr parties = {}; single signature {} bytes | aggregate signature {} bytes",
         k,
         nparties,
         sig.to_bytes().len() * k as usize,
+        aggr.to_bytes().len() as usize,
     );
 }
 
