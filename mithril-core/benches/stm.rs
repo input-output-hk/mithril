@@ -64,54 +64,21 @@ where
         })
     });
 
-    group.bench_function(
-        BenchmarkId::new("Play all lotteries - Batch Compat", &param_string),
-        |b| {
-            b.iter(|| {
-                signers[0].sign_batch_compat(&msg);
-            })
-        },
-    );
-
     let sigs = signers
         .par_iter()
         .filter_map(|p| p.sign(&msg))
         .collect::<Vec<_>>();
 
-    let sigs_batch_compat = signers
-        .par_iter()
-        .filter_map(|p| p.sign_batch_compat(&msg))
-        .collect::<Vec<_>>();
-
     let clerk = StmClerk::from_signer(&signers[0]);
     let msig = clerk.aggregate(&sigs, &msg).unwrap();
-    let msig_batch_compat = clerk
-        .aggregate_batch_compat(&sigs_batch_compat, &msg)
-        .unwrap();
 
     group.bench_function(BenchmarkId::new("Aggregation", &param_string), |b| {
         b.iter(|| clerk.aggregate(&sigs, &msg))
     });
 
-    group.bench_function(
-        BenchmarkId::new("Aggregation - Batch Compat", &param_string),
-        |b| b.iter(|| clerk.aggregate_batch_compat(&sigs_batch_compat, &msg)),
-    );
-
     group.bench_function(BenchmarkId::new("Verification", &param_string), |b| {
         b.iter(|| msig.verify(&msg, &clerk.compute_avk(), &params).is_ok())
     });
-
-    group.bench_function(
-        BenchmarkId::new("Verification - Batch Compat", &param_string),
-        |b| {
-            b.iter(|| {
-                msig_batch_compat
-                    .verify_batch_compat(&msg, &clerk.compute_avk_batch_compat(), &params)
-                    .is_ok()
-            })
-        },
-    );
 }
 
 fn stm_benches_blake_300(c: &mut Criterion) {

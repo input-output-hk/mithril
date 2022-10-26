@@ -1,3 +1,4 @@
+use blake2::digest::FixedOutput;
 use blake2::{
     digest::consts::{U32, U64},
     Blake2b, Digest,
@@ -9,7 +10,7 @@ use rand_core::{RngCore, SeedableRng};
 
 fn size<H>(k: u64, nparties: usize, hash_name: &str)
 where
-    H: Digest + Clone + Sync + Send + Default,
+    H: Digest + Clone + Sync + Send + Default + FixedOutput,
 {
     println!("+-------------------+");
     println!("| Hash: {} |", hash_name);
@@ -42,14 +43,12 @@ where
 
     let signer = ps[0].clone().new_signer(closed_reg).unwrap();
     let sig = signer.sign(&msg).unwrap();
-    let sig_batch_compat = signer.sign_batch_compat(&msg).unwrap();
 
     println!(
-        "k = {} | nr parties = {}; stm = {} bytes | stm_batch_compat = {} bytes",
+        "k = {} | nr parties = {}; {} bytes",
         k,
         nparties,
         sig.to_bytes().len() * k as usize,
-        sig_batch_compat.to_bytes_batch_compat().len() * k as usize
     );
 }
 

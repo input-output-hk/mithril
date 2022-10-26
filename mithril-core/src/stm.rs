@@ -733,7 +733,6 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
         let proof = &self.batch_proof;
         avk.mt_commitment.check(&leaves, &proof.clone())?;
 
-
         let msg = avk.mt_commitment.concat_with_msg(msg);
         let signatures = self
             .signatures
