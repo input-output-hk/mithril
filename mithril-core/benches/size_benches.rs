@@ -7,10 +7,10 @@ use mithril::key_reg::KeyReg;
 use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
-use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator};
 use rayon::iter::ParallelIterator;
+use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator};
 
-fn size<H>(k: u64, nparties: usize, hash_name: &str)
+fn size<H>(k: u64, m: u64, nparties: usize, hash_name: &str)
 where
     H: Digest + Clone + Sync + Send + Default + FixedOutput,
 {
@@ -30,8 +30,8 @@ where
     let params = StmParameters {
         k,
         // m equal to one, to get an upper bound were a signer can only submit a single signature
-        m: 1,
-        phi_f: 1.0,
+        m,
+        phi_f: 0.2,
     };
 
     let mut key_reg = KeyReg::init();
@@ -42,7 +42,6 @@ where
     }
 
     let closed_reg = key_reg.close::<H>();
-
 
     let ps = ps
         .into_par_iter()
@@ -62,7 +61,7 @@ where
     let sig = sigs[0].clone();
 
     println!(
-        "k = {} | nr parties = {}; single signature {} bytes | aggregate signature {} bytes",
+        "k = {} | nr parties = {}; total size of single signatures {} bytes | aggregate signature {} bytes",
         k,
         nparties,
         sig.to_bytes().len() * k as usize,
@@ -83,9 +82,9 @@ fn main() {
     println!("| This gives and upper bound of the size\n| as it assumes that at most one signature\n| is provided by each participant.");
     println!("+-------------------+");
 
-    let params: [(u64, usize); 2] = [(25, 300), (250, 2000)];
-    for (k, nparties) in params {
-        size::<Blake2b<U64>>(k, nparties, "Blake2b 512");
-        size::<Blake2b<U32>>(k, nparties, "Blake2b 256");
+    let params: [(u64, u64, usize); 2] = [(445, 2728, 3000), (554, 3597, 3000)];
+    for (k, m, nparties) in params {
+        size::<Blake2b<U64>>(k, m, nparties, "Blake2b 512");
+        size::<Blake2b<U32>>(k, m, nparties, "Blake2b 256");
     }
 }

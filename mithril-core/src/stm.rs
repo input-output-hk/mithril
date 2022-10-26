@@ -221,7 +221,7 @@ pub struct StmAggrVerificationKey<D: Clone + Digest + FixedOutput> {
 
 /// `StmMultiSig` uses the "concatenation" proving system (as described in Section 4.3 of the original paper.)
 /// This means that the aggregated signature contains a vector with all individual signatures.
-/// BatchPath is added as `Option` for batch compatibility.
+/// BatchPath is also a part of the aggregate signature which covers path for all signatures.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(bound(
     serialize = "BatchPath<D>: Serialize",
@@ -363,13 +363,10 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
     /// wins the lottery by evaluating the dense mapping.
     /// It records all the winning indexes in `Self.indexes`.
-    /// The difference between `sign` and `sign` is that if it wins at least one lottery,
+    /// If it wins at least one lottery,
     /// it does not produce a list of indexes of merkle path for its corresponding `(VerificationKey, Stake)`.
     /// Instead it stores the signer's merkle tree index and the merkle path production will be handled in `StmClerk`.
-    pub fn sign(&self, msg: &[u8]) -> Option<StmSig<D>>
-    where
-        D: Default,
-    {
+    pub fn sign(&self, msg: &[u8]) -> Option<StmSig<D>> {
         let msgp = self
             .closed_reg
             .merkle_tree
@@ -611,7 +608,7 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
     /// Extract a batch compatible `StmSig` from a byte slice.
     pub fn from_bytes(bytes: &[u8]) -> Result<StmSig<D>, StmSignatureError<D>>
     where
-        D: Default + FixedOutput,
+        D: Default,
     {
         let mut u64_bytes = [0u8; 8];
 
@@ -772,7 +769,7 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
         out
     }
 
-    ///Extract a `StmMultiSig` from a byte slice.
+    ///Extract a `StmAggrSig` from a byte slice.
     pub fn from_bytes(bytes: &[u8]) -> Result<StmAggrSig<D>, StmSignatureError<D>>
     where
         D: Default,
