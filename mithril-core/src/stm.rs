@@ -109,9 +109,7 @@
 use crate::dense_mapping::ev_lt_phi;
 use crate::error::{AggregationError, RegisterError, StmSignatureError};
 use crate::key_reg::ClosedKeyReg;
-use crate::merkle_tree::{
-    BatchPath, MTLeaf, MerkleTreeCommitment,
-};
+use crate::merkle_tree::{BatchPath, MTLeaf, MerkleTreeCommitmentBatchCompat};
 use crate::multi_sig::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
 use blake2::digest::{Digest, FixedOutput};
 use rand_core::{CryptoRng, RngCore};
@@ -207,7 +205,6 @@ pub struct StmSig<D: Clone + Digest + FixedOutput> {
     /// Merkle tree index of the signer.
     pub signer_index: Option<Index>,
     hasher: PhantomData<D>,
-
 }
 
 /// Stm aggregate key (batch compatible), which contains the merkle tree commitment and the total stake of the system.
@@ -218,7 +215,7 @@ pub struct StmSig<D: Clone + Digest + FixedOutput> {
     deserialize = "BatchPath<D>: Deserialize<'de>"
 ))]
 pub struct StmAggrVerificationKey<D: Clone + Digest + FixedOutput> {
-    mt_commitment: MerkleTreeCommitment<D>,
+    mt_commitment: MerkleTreeCommitmentBatchCompat<D>,
     total_stake: Stake,
 }
 
@@ -376,7 +373,7 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
         let msgp = self
             .closed_reg
             .merkle_tree
-            .to_commitment()
+            .to_commitment_batch_compat()
             .concat_with_msg(msg);
         let sigma = self.sk.sign(&msgp);
 
@@ -400,7 +397,7 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
                 indexes,
                 // path: Path::default(),
                 signer_index: Option::from(self.mt_index),
-                hasher: Default::default()
+                hasher: Default::default(),
             })
         } else {
             None
@@ -556,7 +553,7 @@ impl<D: Clone + Digest + FixedOutput> StmSig<D> {
         params: &StmParameters,
         avk: &StmAggrVerificationKey<D>,
         msg: &[u8],
-    ) -> Result<(), StmSignatureError<D>>  {
+    ) -> Result<(), StmSignatureError<D>> {
         let msgp = avk.mt_commitment.concat_with_msg(msg);
         self.sigma.verify(&msgp, &self.pk)?;
         self.check_indices(params, &msgp, avk)?;
@@ -684,13 +681,10 @@ impl<D: Clone + Digest + FixedOutput> Ord for StmSig<D> {
     }
 }
 
-
-impl<D: Clone + Digest + FixedOutput> From<&ClosedKeyReg<D>>
-    for StmAggrVerificationKey<D>
-{
+impl<D: Clone + Digest + FixedOutput> From<&ClosedKeyReg<D>> for StmAggrVerificationKey<D> {
     fn from(reg: &ClosedKeyReg<D>) -> Self {
         Self {
-            mt_commitment: reg.merkle_tree.to_commitment(),
+            mt_commitment: reg.merkle_tree.to_commitment_batch_compat(),
             total_stake: reg.total_stake,
         }
     }
@@ -731,7 +725,7 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
 
         for sig in self.signatures.iter() {
             let msgp = avk.mt_commitment.concat_with_msg(msg);
-            sig.check_indices(parameters, &msgp, &avk)?;
+            sig.check_indices(parameters, &msgp, avk)?;
         }
 
         let mut leaves = Vec::new();
@@ -743,14 +737,10 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
 
         if !leaves.is_empty() {
             let proof = &self.batch_proof;
-            avk
-                .mt_commitment
-                .check(&leaves, &proof.clone().unwrap())?;
+            avk.mt_commitment.check(&leaves, &proof.clone().unwrap())?;
         }
 
-        let msg = avk
-            .mt_commitment
-            .concat_with_msg(msg);
+        let msg = avk.mt_commitment.concat_with_msg(msg);
         let signatures = self
             .signatures
             .iter()
@@ -924,11 +914,7 @@ mod tests {
         )
     }
 
-    fn find_signatures(
-        msg: &[u8],
-        ps: &[StmSigner<D>],
-        is: &[usize],
-    ) -> Vec<StmSig<D>> {
+    fn find_signatures(msg: &[u8], ps: &[StmSigner<D>], is: &[usize]) -> Vec<StmSig<D>> {
         let mut sigs = Vec::new();
         for i in is {
             if let Some(sig) = ps[*i].sign(msg) {
@@ -1164,11 +1150,7 @@ mod tests {
             Ok(mut aggr) => {
                 f(&mut aggr, &mut tc.clerk, &mut tc.msg);
                 assert!(aggr
-                    .verify(
-                        &tc.msg,
-                        &tc.clerk.compute_avk(),
-                        &tc.clerk.params
-                    )
+                    .verify(&tc.msg, &tc.clerk.compute_avk(), &tc.clerk.params)
                     .is_err())
             }
             Err(e) => unreachable!("Reached an unexpected error: {:?}", e),

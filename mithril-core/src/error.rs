@@ -1,6 +1,6 @@
 //! Crate specific errors
 
-use crate::merkle_tree::BatchPath;
+use crate::merkle_tree::{BatchPath, Path};
 use blake2::digest::{Digest, FixedOutput};
 use {
     crate::multi_sig::{Signature, VerificationKey, VerificationKeyPoP},
@@ -52,7 +52,7 @@ pub enum StmSignatureError<D: Digest + FixedOutput> {
 
     /// The path is not valid for the Merkle Tree
     #[error("The path of the Merkle Tree is invalid.")]
-    PathInvalid(BatchPath<D>),
+    PathInvalid(Path<D>),
 
     /// MSP.Eval was computed incorrectly
     #[error("The claimed evaluation of function phi is incorrect.")]
@@ -76,7 +76,7 @@ pub enum StmSignatureError<D: Digest + FixedOutput> {
 
     /// Invalid merkle batch path
     #[error("Batch path does not verify against root")]
-    BatchPathInvalid,
+    BatchPathInvalid(BatchPath<D>),
 }
 
 /// Error types for aggregation.
@@ -100,11 +100,11 @@ pub enum MerkleTreeError<D: Digest + FixedOutput> {
 
     /// Invalid merkle path
     #[error("Path does not verify against root")]
-    PathInvalid(BatchPath<D>),
+    PathInvalid(Path<D>),
 
     /// Invalid merkle batch path
     #[error("Batch path does not verify against root")]
-    BatchPathInvalid,
+    BatchPathInvalid(BatchPath<D>),
 }
 
 /// Errors which can be outputted by key registration.
@@ -143,7 +143,7 @@ impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmSignatureError<D> 
         match e {
             MerkleTreeError::PathInvalid(e) => Self::PathInvalid(e),
             MerkleTreeError::SerializationError => Self::SerializationError,
-            MerkleTreeError::BatchPathInvalid => Self::BatchPathInvalid,
+            MerkleTreeError::BatchPathInvalid(e) => Self::BatchPathInvalid(e),
         }
     }
 }

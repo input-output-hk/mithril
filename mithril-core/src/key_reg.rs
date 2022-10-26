@@ -57,7 +57,10 @@ impl KeyReg {
 
     /// Finalize the key registration.
     /// This function disables `KeyReg::register`, consumes the instance of `self`, and returns a `ClosedKeyReg`.
-    pub fn close<D: Digest>(self) -> ClosedKeyReg<D> where D: FixedOutput {
+    pub fn close<D: Digest>(self) -> ClosedKeyReg<D>
+    where
+        D: FixedOutput,
+    {
         let mut total_stake: Stake = 0;
         let mut reg_parties = self
             .keys
