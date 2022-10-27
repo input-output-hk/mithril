@@ -5,7 +5,7 @@
 //! Provide:
 //! - A way to store data with the [store] types
 //! - [Digester][digesters] to compute mithril digest from a Cardano database
-//! - Helpers for the [Mithril Core](https://mithril.network/mithril-core/doc/mithril/index.html)
+//! - Helpers for the [Mithril Core](https://mithril.network/rust-doc/mithril/index.html)
 //! lib with the [crypto_helper].
 //! - A [certificate chain] used to validate the Certificate Chain created by an aggregator
 //! - The [entities] used by, and exchanged between, the aggregator, signers and client.

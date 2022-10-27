@@ -31,31 +31,24 @@ pub enum CertificateVerifierError {
     #[error("codec genesis error: '{0}'")]
     CodecGenesis(String),
 
-    /// Error raised when a CertificateRetriever tries to retrieve
-    /// a [certificate](https://mithril.network/mithril-common/doc/mithril_common/entities/struct.Certificate.html)
+    /// Error raised when a CertificateRetriever tries to retrieve a [Certificate].
     #[error("certificate retriever error: '{0}'")]
     CertificateRetriever(#[from] CertificateRetrieverError),
 
-    /// Error raised when the Genesis Signature stored in a
-    /// [certificate](https://mithril.network/mithril-common/doc/mithril_common/entities/struct.Certificate.html)
-    /// is invalid.
+    /// Error raised when the Genesis Signature stored in a [Certificate] is invalid.
     #[error("certificate genesis error: '{0}'")]
     CertificateGenesis(#[from] ProtocolGenesisError),
 
-    /// Error raised when the hash stored in a
-    /// [certificate](https://mithril.network/mithril-common/doc/mithril_common/entities/struct.Certificate.html)
-    /// doesn't match a recomputed hash.
+    /// Error raised when the hash stored in a [Certificate] doesn't match a recomputed hash.
     #[error("certificate hash unmatch error")]
     CertificateHashUnmatch,
 
-    /// Error raised when validating the certificate chain if a previous
-    /// [certificate](https://mithril.network/mithril-common/doc/mithril_common/entities/struct.Certificate.html)
-    /// hash isn't equal to the current certificate `previous_hash`.
+    /// Error raised when validating the certificate chain if a previous [Certificate] hash isn't
+    /// equal to the current certificate `previous_hash`.
     #[error("certificate chain previous hash unmatch error")]
     CertificateChainPreviousHashUnmatch,
 
-    /// Error raised when validating the certificate chain if the current
-    /// [certificate](https://mithril.network/mithril-common/doc/mithril_common/entities/struct.Certificate.html)
+    /// Error raised when validating the certificate chain if the current [Certificate]
     /// `aggregate_verification_key` doesn't match the previous `aggregate_verification_key` (if
     /// the certificates are on the same epoch) or the previous `next_aggregate_verification_key`
     /// (if the certificates are on different epoch).
@@ -67,7 +60,8 @@ pub enum CertificateVerifierError {
     CertificateChainInfiniteLoop,
 }
 
-/// CertificateVerifier is the cryptographic engine in charge of verifying multi signatures and certificates
+/// CertificateVerifier is the cryptographic engine in charge of verifying multi signatures and
+/// [certificates](Certificate)
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait CertificateVerifier: Send + Sync {
