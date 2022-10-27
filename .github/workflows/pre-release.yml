@@ -10,11 +10,26 @@ jobs:
   create-pre-release:
     runs-on: ubuntu-22.04
     steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+      
+      - name: Prepare packaging
+        run: mkdir package
+
       - name: Download built artifacts (Linux-x64)
         uses: dawidd6/action-download-artifact@v2
         with:
           name: mithril-distribution-Linux-x64
-          path: ./build
+          path: ./package-Linux-X64
+          commit: ${{ github.sha }}
+          workflow: ci.yml
+          workflow_conclusion: success
+
+      - name: Download built artifacts (macOS-x64)
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          name: mithril-distribution-macOS-x64
+          path: ./package-macOS-X64
           commit: ${{ github.sha }}
           workflow: ci.yml
           workflow_conclusion: success
@@ -23,23 +38,38 @@ jobs:
         uses: dawidd6/action-download-artifact@v2
         with:
           name: mithril-distribution-Windows-x64
-          path: ./build
+          path: ./package-Windows-X64
           commit: ${{ github.sha }}
           workflow: ci.yml
           workflow_conclusion: success
-      
-      - name: Download built artifacts (macOS-x64)
-        uses: dawidd6/action-download-artifact@v2
-        with:
-          name: mithril-distribution-macOS-x64
-          path: ./build
-          commit: ${{ github.sha }}
-          workflow: ci.yml
-          workflow_conclusion: success
+
+      - name: Package distribution (Linux-X64)
+        run: |
+          python3 ./.github/workflows/scripts/package-distribution.py \
+          --input package-Linux-X64/ \
+          --dest package/ \
+          --version "${{ github.ref_name }}" \
+          --target "linux-x64"
+
+      - name: Package distribution (macOS-X64)
+        run: |
+          python3 ./.github/workflows/scripts/package-distribution.py \
+          --input package-macOS-X64/ \
+          --dest package/ \
+          --version "${{ github.ref_name }}" \
+          --target "macos-x64"
+
+      - name: Package distribution (Windows-X64)
+        run: |
+          python3 ./.github/workflows/scripts/package-distribution.py \
+          --input package-Windows-X64/ \
+          --dest package/ \
+          --version "${{ github.ref_name }}" \
+          --target "windows-x64"
       
       - name: Append VERSION file
         run: |
-          echo ${{ github.ref_name }} >> ./build/VERSION
+          echo ${{ github.ref_name }} >> ./package/VERSION
       
       - name: Create pre-release ${{ github.ref_name }}
         uses: marvinpinto/action-automatic-releases@latest
@@ -48,7 +78,7 @@ jobs:
           automatic_release_tag: ${{ github.ref_name }}
           prerelease: true
           title: Mithril v${{ github.ref_name }}
-          files: build/**/*
+          files: package/*
 
   build-push-docker:
     runs-on: ubuntu-22.04
