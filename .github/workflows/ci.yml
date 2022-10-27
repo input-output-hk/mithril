@@ -296,24 +296,58 @@ jobs:
       - run-test-lab
       - check
     steps:
-      - name: Download built artifacts (${{ runner.os }}-${{ runner.arch }})
+      - name: Checkout sources
+        uses: actions/checkout@v3
+      
+      - name: Prepare packaging
+        run: mkdir package
+
+      - name: Get short SHA
+        id: slug
+        run: echo "sha8=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+      
+      - name: Download built artifacts (Linux-X64)
         uses: actions/download-artifact@v3
         with:
-          name: mithril-distribution-${{ runner.os }}-${{ runner.arch }}
-          path: ./build
+          name: mithril-distribution-Linux-X64
+          path: ./package-Linux-X64
 
       - name: Download built artifacts (macOS-X64)
         uses: actions/download-artifact@v3
         with:
           name: mithril-distribution-macOS-X64
-          path: ./build
+          path: ./package-macOS-X64
 
       - name: Download built artifacts (Windows-X64)
         uses: actions/download-artifact@v3
         with:
           name: mithril-distribution-Windows-X64
-          path: ./build
+          path: ./package-Windows-X64
 
+      - name: Package distribution (Linux-X64)
+        run: |
+          python3 ./.github/workflows/scripts/package-distribution.py \
+          --input package-Linux-X64/ \
+          --dest package/ \
+          --version "unstable-${{ steps.slug.outputs.sha8 }}" \
+          --target "linux-x64"
+
+      - name: Package distribution (macOS-X64)
+        run: |
+          python3 ./.github/workflows/scripts/package-distribution.py \
+          --input package-macOS-X64/ \
+          --dest package/ \
+          --version "unstable-${{ steps.slug.outputs.sha8 }}" \
+          --target "macos-x64"
+
+      - name: Package distribution (Windows-X64)
+        run: |
+          python3 ./.github/workflows/scripts/package-distribution.py \
+          --input package-Windows-X64/ \
+          --dest package/ \
+          --version "unstable-${{ steps.slug.outputs.sha8 }}" \
+          --target "windows-x64"
+      
       - name: Update unstable release
         uses: marvinpinto/action-automatic-releases@latest
         with:
@@ -321,9 +355,9 @@ jobs:
           automatic_release_tag: unstable
           prerelease: true
           title: Unstable Development Builds
-          files: build/*
+          files: package/*
 
-  terraform:
+  deploy-testing:
     runs-on: ubuntu-22.04
     needs:
       - docker-mithril

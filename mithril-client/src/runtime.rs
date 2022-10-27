@@ -30,7 +30,7 @@ pub enum RuntimeError {
     AggregatorHandler(#[from] AggregatorHandlerError),
 
     /// Error raised when a CertificateRetrieverError tries to retrieve a
-    /// [certificate](https://mithril.network/mithril-common/doc/mithril_common/entities/struct.Certificate.html)
+    /// [certificate](mithril_common::entities::Certificate)
     #[error("certificate retriever error: '{0}'")]
     CertificateRetriever(#[from] CertificateRetrieverError),
 
@@ -39,7 +39,7 @@ pub enum RuntimeError {
     ImmutableDigester(#[from] ImmutableDigesterError),
 
     /// Error raised when the digest stored in the signed message doesn't match the
-    /// [certificate](https://mithril.network/mithril-common/doc/mithril_common/entities/struct.Certificate.html)
+    /// [certificate](mithril_common::entities::Certificate)
     /// hash.
     #[error("digest doesn't match error: '{0}'")]
     DigestDoesntMatch(String),

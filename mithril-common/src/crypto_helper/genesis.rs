@@ -14,7 +14,8 @@ pub enum ProtocolGenesisError {
     SignatureVerification(#[from] SignatureError),
 }
 
-/// A protocol Genesis Signer that is responsible for signing the [Genesis Certificate](https://mithril.network/doc/mithril/mithril-protocol/certificates#the-certificate-chain-design)
+/// A protocol Genesis Signer that is responsible for signing the
+/// [Genesis Certificate](https://mithril.network/doc/mithril/mithril-protocol/certificates#the-certificate-chain-design)
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ProtocolGenesisSigner {
     pub(crate) secret_key: ProtocolGenesisSecretKey,
@@ -76,7 +77,8 @@ impl ProtocolGenesisSigner {
     }
 }
 
-/// A protocol Genesis Verifier that is responsible for verifying the [Genesis Certificate](https://mithril.network/doc/mithril/mithril-protocol/certificates#the-certificate-chain-design)
+/// A protocol Genesis Verifier that is responsible for verifying the
+/// [Genesis Certificate](https://mithril.network/doc/mithril/mithril-protocol/certificates#the-certificate-chain-design)
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ProtocolGenesisVerifier {
     pub(crate) verification_key: ProtocolGenesisVerificationKey,

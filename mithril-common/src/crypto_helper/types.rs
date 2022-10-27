@@ -24,43 +24,43 @@ type D = Blake2b<U32>;
 /// The id of a mithril party.
 pub type ProtocolPartyId = String;
 
-/// Alias of [MithrilCore:Stake](https://mithril.network/mithril-core/doc/mithril/stm/type.Stake.html).
+/// Alias of [MithrilCore:Stake](type@mithril::stm::Stake).
 pub type ProtocolStake = Stake;
 
 /// A list of [Party Id][ProtocolPartyId] associated with its [Stake][ProtocolStake].
 pub type ProtocolStakeDistribution = Vec<(ProtocolPartyId, ProtocolStake)>;
 
-/// Alias of [MithrilCore::StmParameters](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmParameters.html).
+/// Alias of [MithrilCore::StmParameters](struct@mithril::stm::StmParameters).
 pub type ProtocolParameters = StmParameters;
 
-/// Alias of [MithrilCore::Index](https://mithril.network/mithril-core/doc/mithril/stm/type.Index.html).
+/// Alias of [MithrilCore::Index](type@mithril::stm::Index).
 pub type ProtocolLotteryIndex = Index;
 
-/// Alias of [MithrilCore:StmSigner](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmSigner.html).
+/// Alias of [MithrilCore:StmSigner](struct@mithril::stm::StmSigner).
 pub type ProtocolSigner = StmSigner<D>;
 
-/// Alias of a wrapper of [MithrilCore:StmInitializer](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmInitializer.html).
+/// Alias of a wrapper of [MithrilCore:StmInitializer](struct@mithril::stm::StmInitializer).
 pub type ProtocolInitializer = StmInitializerWrapper;
 
-/// Alias of [MithrilCore:StmClerk](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmClerk.html).
+/// Alias of [MithrilCore:StmClerk](struct@mithril::stm::StmClerk).
 pub type ProtocolClerk = StmClerk<D>;
 
-/// Alias of a wrapper of [MithrilCore:KeyReg](https://mithril.network/mithril-core/doc/mithril/key_reg/struct.KeyReg.html).
+/// Alias of a wrapper of [MithrilCore:KeyReg](struct@mithril::key_reg::KeyReg).
 pub type ProtocolKeyRegistration = KeyRegWrapper;
 
-/// Alias of [MithrilCore:StmSig](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmSig.html).
+/// Alias of [MithrilCore:StmSig](struct@mithril::stm::StmSig).
 pub type ProtocolSingleSignature = StmSig<D>;
 
-/// Alias of [MithrilCore:StmAggrSig](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmAggrSig.html).
+/// Alias of [MithrilCore:StmAggrSig](struct@mithril::stm::StmAggrSig).
 pub type ProtocolMultiSignature = StmAggrSig<D>;
 
-/// Alias of [MithrilCore:StmVerificationKeyPoP](https://mithril.network/mithril-core/doc/mithril/stm/type.StmVerificationKeyPoP.html).
+/// Alias of [MithrilCore:StmVerificationKeyPoP](type@mithril::stm::StmVerificationKeyPoP).
 pub type ProtocolSignerVerificationKey = StmVerificationKeyPoP;
 
 /// Alias of [KES:Sum6KesSig](https://github.com/input-output-hk/kes/blob/master/src/kes.rs).
 pub type ProtocolSignerVerificationKeySignature = Sum6KesSig;
 
-/// Alias of [MithrilCore:StmAggrVerificationKey](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmAggrVerificationKey.html).
+/// Alias of [MithrilCore:StmAggrVerificationKey](struct@mithril::stm::StmAggrVerificationKey).
 pub type ProtocolAggregateVerificationKey = StmAggrVerificationKey<D>;
 
 /// Alias of [Ed25519:PublicKey](https://docs.rs/ed25519-dalek/latest/ed25519_dalek/struct.PublicKey.html).
@@ -73,17 +73,17 @@ pub type ProtocolGenesisSecretKey = ed25519_dalek::SecretKey;
 pub type ProtocolGenesisSignature = ed25519_dalek::Signature;
 
 // Error alias
-/// Alias of a wrapper of [MithrilCore:RegisterError](https://mithril.network/mithril-core/doc/mithril/error/enum.RegisterError.html).
+/// Alias of a wrapper of [MithrilCore:RegisterError](enum@mithril::RegisterError).
 pub type ProtocolRegistrationError = ProtocolRegistrationErrorWrapper;
 
-/// Alias of [MithrilCore:AggregationError](https://mithril.network/mithril-core/doc/mithril/error/enum.AggregationError.html).
+/// Alias of [MithrilCore:AggregationError](enum@mithril::AggregationError).
 pub type ProtocolAggregationError = AggregationError;
 
 // Test only
-/// (Test only) Alias of [MithrilCore:StmInitializer](https://mithril.network/mithril-core/doc/mithril/stm/struct.StmInitializer.html).
+/// (Test only) Alias of [MithrilCore:StmInitializer](struct@mithril::stm::StmInitializer).
 #[cfg(any(test, feature = "allow_skip_signer_certification"))]
 pub type ProtocolInitializerNotCertified = StmInitializer;
 
-/// (Test only) Alias of [MithrilCore:KeyReg](https://mithril.network/mithril-core/doc/mithril/key_reg/struct.KeyReg.html). (Test only)
+/// (Test only) Alias of [MithrilCore:KeyReg](struct@mithril::key_reg::KeyReg). (Test only)
 #[cfg(any(test, feature = "allow_skip_signer_certification"))]
 pub type ProtocolKeyRegistrationNotCertified = KeyReg;
