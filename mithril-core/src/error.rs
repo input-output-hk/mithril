@@ -27,28 +27,16 @@ pub enum MultiSignatureError {
     KeyInvalid(Box<VerificationKeyPoP>),
 }
 
-/// Errors which can be output by Mithril verification.
+/// Errors which can be output by Mithril single signature verification.
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum StmSignatureError<D: Digest + FixedOutput> {
-    /// No quorum was found
-    #[error("No Quorum was found.")]
-    NoQuorum,
-
+pub enum StmSignatureError {
     /// The IVK is invalid after aggregating the keys
     #[error("Aggregated key does not correspond to the expected key.")]
     IvkInvalid(VerificationKey),
 
-    /// Mu is not the sum of the signatures
-    #[error("Aggregated signature does not correspond to the expected signature.")]
-    SumInvalid(Signature),
-
     /// There is an index out of bounds
     #[error("Received index, {0}, is higher than what the security parameter allows, {1}.")]
     IndexBoundFailed(u64, u64),
-
-    /// There is a duplicate index
-    #[error("Indeces are not unique.")]
-    IndexNotUnique,
 
     /// MSP.Eval was computed incorrectly
     #[error("The claimed evaluation of function phi is incorrect.")]
@@ -61,6 +49,30 @@ pub enum StmSignatureError<D: Digest + FixedOutput> {
     /// A party submitted an invalid signature
     #[error("A provided signature is invalid")]
     SingleSignatureInvalid(Signature),
+
+    /// This error occurs when the the serialization of the raw bytes failed
+    #[error("Invalid bytes")]
+    SerializationError,
+}
+
+/// Errors which can be output by Mithril aggregate verification.
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
+    /// No quorum was found
+    #[error("No Quorum was found.")]
+    NoQuorum,
+
+    /// The IVK is invalid after aggregating the keys
+    #[error("Aggregated key does not correspond to the expected key.")]
+    IvkInvalid(VerificationKey),
+
+    /// There is an index out of bounds
+    #[error("Received index, {0}, is higher than what the security parameter allows, {1}.")]
+    IndexBoundFailed(u64, u64),
+
+    /// There is a duplicate index
+    #[error("Indices are not unique.")]
+    IndexNotUnique,
 
     /// The aggregated signature is invalid
     #[error("Aggregate signature is invalid")]
@@ -123,7 +135,7 @@ pub enum RegisterError {
     UnregisteredInitializer,
 }
 
-impl<D: Digest + FixedOutput> From<RegisterError> for StmSignatureError<D> {
+impl From<RegisterError> for StmSignatureError {
     fn from(e: RegisterError) -> Self {
         match e {
             RegisterError::SerializationError => Self::SerializationError,
@@ -134,7 +146,7 @@ impl<D: Digest + FixedOutput> From<RegisterError> for StmSignatureError<D> {
     }
 }
 
-impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmSignatureError<D> {
+impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmAggregateSignatureError<D> {
     fn from(e: MerkleTreeError<D>) -> Self {
         match e {
             MerkleTreeError::BatchPathInvalid(e) => Self::PathInvalid(e),
@@ -144,13 +156,37 @@ impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmSignatureError<D> 
     }
 }
 
-impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmSignatureError<D> {
+impl From<MultiSignatureError> for StmSignatureError {
     fn from(e: MultiSignatureError) -> Self {
         match e {
             MultiSignatureError::SerializationError => Self::SerializationError,
             MultiSignatureError::KeyInvalid(e) => Self::IvkInvalid(e.vk),
             MultiSignatureError::SignatureInvalid(e) => Self::SingleSignatureInvalid(e),
+            MultiSignatureError::AggregateSignatureInvalid => unreachable!(),
+        }
+    }
+}
+
+impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmAggregateSignatureError<D> {
+    fn from(e: MultiSignatureError) -> Self {
+        match e {
+            MultiSignatureError::SerializationError => Self::SerializationError,
+            MultiSignatureError::KeyInvalid(e) => Self::IvkInvalid(e.vk),
+            MultiSignatureError::SignatureInvalid(_e) => unreachable!(),
             MultiSignatureError::AggregateSignatureInvalid => Self::SignatureInvalid,
+        }
+    }
+}
+
+impl<D: Digest + FixedOutput> From<StmSignatureError> for StmAggregateSignatureError<D> {
+    fn from(e: StmSignatureError) -> Self {
+        match e {
+            StmSignatureError::SerializationError => Self::SerializationError,
+            StmSignatureError::IvkInvalid(e) => Self::IvkInvalid(e),
+            StmSignatureError::SingleSignatureInvalid(_e) => unreachable!(),
+            StmSignatureError::IndexBoundFailed(e, _e) => Self::IndexBoundFailed(e, _e),
+            StmSignatureError::LotteryLost => unreachable!(),
+            StmSignatureError::EvalInvalid(_e) => unreachable!(),
         }
     }
 }

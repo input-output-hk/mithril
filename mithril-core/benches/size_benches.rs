@@ -46,7 +46,7 @@ where
     let sigs = ps
         .par_iter()
         .filter_map(|p| p.sign(&msg))
-        .collect::<Vec<StmSig<H>>>();
+        .collect::<Vec<StmSig>>();
     let clerk = StmClerk::from_signer(&ps[0]);
 
     // Aggregate with random parties
