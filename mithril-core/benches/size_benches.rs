@@ -29,7 +29,6 @@ where
     let mut ps: Vec<StmInitializer> = Vec::with_capacity(nparties);
     let params = StmParameters {
         k,
-        // m equal to one, to get an upper bound were a signer can only submit a single signature
         m,
         phi_f: 0.2,
     };
@@ -52,7 +51,6 @@ where
         .par_iter()
         .filter_map(|p| p.sign(&msg))
         .collect::<Vec<StmSig<H>>>();
-
     let clerk = StmClerk::from_signer(&ps[0]);
 
     // Aggregate with random parties
@@ -60,17 +58,14 @@ where
 
     println!(
         "k = {} | m = {} | nr parties = {}; {} bytes",
-        m,
         k,
+        m,
         nparties,
         aggr.to_bytes().len() as usize,
     );
 }
 
 fn main() {
-    // Upper bound on the size. We only allow one signature per party. In practice
-    // a party with a lot of stake might win more than one lottery. The paths depend
-    // on the number of signers, so we need to iterate over that as well
     println!("+-------------------+");
     println!("|   Size of proofs  |");
     println!("+-------------------+");
