@@ -27,11 +27,7 @@ where
         .collect::<Vec<_>>();
 
     let mut ps: Vec<StmInitializer> = Vec::with_capacity(nparties);
-    let params = StmParameters {
-        k,
-        m,
-        phi_f: 0.2,
-    };
+    let params = StmParameters { k, m, phi_f: 0.2 };
 
     let mut key_reg = KeyReg::init();
     for stake in parties {

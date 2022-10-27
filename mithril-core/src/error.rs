@@ -50,10 +50,6 @@ pub enum StmSignatureError<D: Digest + FixedOutput> {
     #[error("Indeces are not unique.")]
     IndexNotUnique,
 
-    /// The path is not valid for the Merkle Tree
-    #[error("The path of the Merkle Tree is invalid.")]
-    PathInvalid(Path<D>),
-
     /// MSP.Eval was computed incorrectly
     #[error("The claimed evaluation of function phi is incorrect.")]
     EvalInvalid([u8; 64]),
@@ -76,7 +72,7 @@ pub enum StmSignatureError<D: Digest + FixedOutput> {
 
     /// Invalid merkle batch path
     #[error("Batch path does not verify against root")]
-    BatchPathInvalid(BatchPath<D>),
+    PathInvalid(BatchPath<D>),
 }
 
 /// Error types for aggregation.
@@ -141,9 +137,9 @@ impl<D: Digest + FixedOutput> From<RegisterError> for StmSignatureError<D> {
 impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmSignatureError<D> {
     fn from(e: MerkleTreeError<D>) -> Self {
         match e {
-            MerkleTreeError::PathInvalid(e) => Self::PathInvalid(e),
+            MerkleTreeError::BatchPathInvalid(e) => Self::PathInvalid(e),
             MerkleTreeError::SerializationError => Self::SerializationError,
-            MerkleTreeError::BatchPathInvalid(e) => Self::BatchPathInvalid(e),
+            MerkleTreeError::PathInvalid(_e) => unreachable!(),
         }
     }
 }
