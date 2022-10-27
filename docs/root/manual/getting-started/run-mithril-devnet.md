@@ -29,6 +29,10 @@ More information about this private Cardano/Mithril `devnet` is available [here]
 
 :::
 
+# Video demonstration
+
+<iframe style={{width: '100%', height: '480px'}} src="https://www.youtube.com/embed/qu3GoO1UwYI" title="Run a Private Mithril network" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen="true"></iframe>
+
 ## Pre-requisites
 
 * Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (latest stable version).
