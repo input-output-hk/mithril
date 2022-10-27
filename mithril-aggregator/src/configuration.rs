@@ -132,11 +132,15 @@ impl Configuration {
     /// Create a snapshot uploader from configuration settings.
     pub fn build_snapshot_uploader(&self) -> Result<Arc<dyn SnapshotUploader>, Box<dyn Error>> {
         match self.snapshot_uploader_type {
-            SnapshotUploaderType::Gcp => Ok(Arc::new(RemoteSnapshotUploader::new(Box::new(
-                GcpFileUploader::new(self.snapshot_bucket_name.to_owned().ok_or_else(|| {
+            SnapshotUploaderType::Gcp => {
+                let bucket = self.snapshot_bucket_name.to_owned().ok_or_else(|| {
                     ConfigError::Message("missing snapshot bucket name".to_string())
-                })?),
-            )))),
+                })?;
+                Ok(Arc::new(RemoteSnapshotUploader::new(
+                    Box::new(GcpFileUploader::new(bucket.clone())),
+                    bucket,
+                )))
+            }
             SnapshotUploaderType::Local => Ok(Arc::new(LocalSnapshotUploader::new(
                 self.get_server_url(),
                 &self.snapshot_directory,
