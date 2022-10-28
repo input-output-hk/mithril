@@ -5,12 +5,12 @@ This crate is ongoing work, has not been audited, and it's API is by no means fi
 ### A rust implementation of Stake-based Threshold Multisignatures (STMs)
 `mithril-core` implements Stake-based Threshold Multisignatures as described in the paper
 [Mithril: Stake-based Threshold Multisignatures](https://eprint.iacr.org/2021/916.pdf), by
-Pyrros Chaidos and Aggelos Kiayias. 
+Pyrros Chaidos and Aggelos Kiayias.
 
 This library uses zkcrypto's implementation of curve [BLS12-381](https://github.com/zkcrypto/bls12_381)
-by default for implementing the multisignature scheme. One can optionally choose the 
-[blst](https://github.com/supranational/blst) backend (by using the feature `blast`), 
-but this is not recommended due to some [flaky tests](https://github.com/input-output-hk/mithril/issues/207) 
+by default for implementing the multisignature scheme. One can optionally choose the
+[blst](https://github.com/supranational/blst) backend (by using the feature `blast`),
+but this is not recommended due to some [flaky tests](https://github.com/input-output-hk/mithril/issues/207)
 That are still being resolved. We
 currently only support the trivial concatenation proof system (Section 4.3) and do not support
 other proof systems such as Bulletproofs or Halo2.
@@ -90,7 +90,7 @@ fn main() {
 
     // Aggregate with random parties
     let msig = clerk.aggregate(&sigs, &msg);
-    
+
     assert!(msig.is_ok(), "aggregation failed");
     assert!(msig.unwrap().verify(&msg, &clerk.compute_avk(), &params).is_ok());
 }
@@ -101,53 +101,85 @@ You can run tests of the library using `cargo test` (we recommend to use the `--
 the tests might take a while) and run benchmarks using `cargo bench`. This crate uses `criterion` to run
 benchmarks.
 
-We have run the benchmarks on a 2,7 GHz Quad-Core Intel Core i7 machine with 16 GB of RAM, on macOS 12.1. 
+We have run the benchmarks on an Apple M1 Pro machine with 16 GB of RAM, on macOS 12.6.
+
+Note that single signatures in batch compat version does not depend on any variable and size of an individual signature is `176` bytes.
 
 ```shell
-+-------------------+
-|   Size of proofs  |
-+-------------------+
-|-------------------|
-|   Trivial proofs  |
-+-------------------+
++----------------------+
+| Size of benchmarks   |
++----------------------+
 | Results obtained by using the parameters suggested in paper.
-+-------------------+
-+-------------------+
-| Hash: Blake2b 512 |
-+-------------------+
-k = 445 | m = 2728 | nr parties = 3000; 118760 bytes
-+-------------------+
-| Hash: Blake2b 256 |
-+-------------------+
-k = 445 | m = 2728 | nr parties = 3000; 99384 bytes
-+-------------------+
-| Hash: Blake2b 512 |
-+-------------------+
-k = 554 | m = 3597 | nr parties = 3000; 133936 bytes
-+-------------------+
-| Hash: Blake2b 256 |
-+-------------------+
-k = 554 | m = 3597 | nr parties = 3000; 113728 bytes
++----------------------+
++----------------------+
+| Aggregate signatures |
++----------------------+
++----------------------+
+| Hash: Blake2b 512    |
++----------------------+
+k = 445 | m = 2728 | nr parties = 3000; 118760 bytes (old version = 356632 bytes)
++----------------------+
+| Hash: Blake2b 256    |
++----------------------+
+k = 445 | m = 2728 | nr parties = 3000; 99384 bytes (old version = 222536 bytes)
++----------------------+
++----------------------+
+| Aggregate signatures |
++----------------------+
+| Hash: Blake2b 512    |
++----------------------+
+k = 554 | m = 3597 | nr parties = 3000; 133936 bytes (old version = 419808 bytes)
++----------------------+
+| Hash: Blake2b 256    |
++----------------------+
+k = 554 | m = 3597 | nr parties = 3000; 113728 bytes (old version = 261488 bytes)
+make build && ./mithrildemo --nparties 16 -k 5 -m 5 --phi-f 0.9
+
 ```
 
 ```shell
 STM/Blake2b/Key registration/k: 25, m: 150, nr_parties: 300
-                        time:   [388.95 ms 389.43 ms 389.90 ms]
+                        time:   [409.70 ms 426.81 ms 446.30 ms]
+                        change: [+2.3183% +7.5525% +13.315%] (p = 0.02 < 0.05)
+                        Performance has regressed.
+
 STM/Blake2b/Play all lotteries/k: 25, m: 150, nr_parties: 300
-                        time:   [699.76 µs 701.42 µs 703.63 µs]
+                        time:   [696.58 µs 697.62 µs 698.75 µs]
+                        change: [-1.1128% -0.8545% -0.5490%] (p = 0.00 < 0.05)
+                        Change within noise threshold.
+
 STM/Blake2b/Aggregation/k: 25, m: 150, nr_parties: 300
-                        time:   [18.888 ms 18.903 ms 18.920 ms]
+                        time:   [18.765 ms 18.775 ms 18.785 ms]
+                        change: [-1.5665% -1.4456% -1.3236%] (p = 0.00 < 0.05)
+                        Performance has improved.
+
 STM/Blake2b/Verification/k: 25, m: 150, nr_parties: 300
-                        time:   [2.1547 ms 2.1609 ms 2.1686 ms]
+                        time:   [2.1577 ms 2.1715 ms 2.1915 ms]
+                        change: [-0.0379% +0.5723% +1.6451%] (p = 0.14 > 0.05)
+                        No change in performance detected.
+
 
 STM/Blake2b/Key registration/k: 250, m: 1523, nr_parties: 2000
-                        time:   [2.5986 s 2.6042 s 2.6101 s]
+                        time:   [2.5807 s 2.5880 s 2.5961 s]
+                        change: [-1.7298% -0.2763% +0.7870%] (p = 0.78 > 0.05)
+                        No change in performance detected.
+
 STM/Blake2b/Play all lotteries/k: 250, m: 1523, nr_parties: 2000
-                        time:   [5.9141 ms 5.9346 ms 5.9641 ms]
+                        time:   [5.9318 ms 5.9447 ms 5.9582 ms]
+                        change: [+1.1467% +1.4105% +1.6686%] (p = 0.00 < 0.05)
+                        Performance has regressed.
+
 STM/Blake2b/Aggregation/k: 250, m: 1523, nr_parties: 2000
-                        time:   [189.63 ms 190.10 ms 190.69 ms]
+                        time:   [190.81 ms 191.15 ms 191.54 ms]
+                        change: [-0.2176% +0.0444% +0.3235%] (p = 0.82 > 0.05)
+                        No change in performance detected.
+
 STM/Blake2b/Verification/k: 250, m: 1523, nr_parties: 2000
-                        time:   [14.040 ms 14.143 ms 14.271 ms]
+                        time:   [13.944 ms 14.010 ms 14.077 ms]
+                        change: [-1.0844% -0.6175% -0.0397%] (p = 0.03 < 0.05)
+                        Change within noise threshold.
+
+
 ```
 
 # ToDo list once we go public
