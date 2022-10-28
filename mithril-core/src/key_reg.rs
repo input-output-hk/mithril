@@ -74,7 +74,7 @@ impl KeyReg {
                 MTLeaf(vk, stake)
             })
             .collect::<Vec<RegParty>>();
-        reg_parties.sort();
+        reg_parties.sort_unstable();
 
         ClosedKeyReg {
             merkle_tree: Arc::new(MerkleTree::create(&reg_parties)),

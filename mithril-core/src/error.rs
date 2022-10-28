@@ -30,10 +30,6 @@ pub enum MultiSignatureError {
 /// Errors which can be output by Mithril single signature verification.
 #[derive(Debug, Clone, thiserror::Error)]
 pub enum StmSignatureError {
-    /// The IVK is invalid after aggregating the keys
-    #[error("Aggregated key does not correspond to the expected key.")]
-    IvkInvalid(VerificationKey),
-
     /// There is an index out of bounds
     #[error("Received index, {0}, is higher than what the security parameter allows, {1}.")]
     IndexBoundFailed(u64, u64),
@@ -48,7 +44,7 @@ pub enum StmSignatureError {
 
     /// A party submitted an invalid signature
     #[error("A provided signature is invalid")]
-    SingleSignatureInvalid(Signature),
+    SignatureInvalid(Signature),
 
     /// This error occurs when the the serialization of the raw bytes failed
     #[error("Invalid bytes")]
@@ -66,17 +62,17 @@ pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
     #[error("Aggregated key does not correspond to the expected key.")]
     IvkInvalid(VerificationKey),
 
-    /// There is an index out of bounds
-    #[error("Received index, {0}, is higher than what the security parameter allows, {1}.")]
-    IndexBoundFailed(u64, u64),
-
     /// There is a duplicate index
     #[error("Indices are not unique.")]
     IndexNotUnique,
 
     /// The aggregated signature is invalid
     #[error("Aggregate signature is invalid")]
-    SignatureInvalid,
+    AggregateSignatureInvalid,
+
+    /// One of the aggregated signatures is invalid
+    #[error("Individual signature is invalid: {0}")]
+    IndividualSignatureInvalid(StmSignatureError),
 
     /// This error occurs when the the serialization of the raw bytes failed
     #[error("Invalid bytes")]
@@ -135,16 +131,16 @@ pub enum RegisterError {
     UnregisteredInitializer,
 }
 
-impl From<RegisterError> for StmSignatureError {
-    fn from(e: RegisterError) -> Self {
-        match e {
-            RegisterError::SerializationError => Self::SerializationError,
-            RegisterError::KeyInvalid(e) => Self::IvkInvalid(e.vk),
-            RegisterError::KeyRegistered(_) => unreachable!(),
-            RegisterError::UnregisteredInitializer => unreachable!(),
-        }
-    }
-}
+// impl From<RegisterError> for StmSignatureError {
+//     fn from(e: RegisterError) -> Self {
+//         match e {
+//             RegisterError::SerializationError => Self::SerializationError,
+//             RegisterError::KeyInvalid(e) => Self::IvkInvalid(e.vk),
+//             RegisterError::KeyRegistered(_) => unreachable!(),
+//             RegisterError::UnregisteredInitializer => unreachable!(),
+//         }
+//     }
+// }
 
 impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmAggregateSignatureError<D> {
     fn from(e: MerkleTreeError<D>) -> Self {
@@ -160,8 +156,8 @@ impl From<MultiSignatureError> for StmSignatureError {
     fn from(e: MultiSignatureError) -> Self {
         match e {
             MultiSignatureError::SerializationError => Self::SerializationError,
-            MultiSignatureError::KeyInvalid(e) => Self::IvkInvalid(e.vk),
-            MultiSignatureError::SignatureInvalid(e) => Self::SingleSignatureInvalid(e),
+            MultiSignatureError::SignatureInvalid(e) => Self::SignatureInvalid(e),
+            MultiSignatureError::KeyInvalid(_) => unreachable!(),
             MultiSignatureError::AggregateSignatureInvalid => unreachable!(),
         }
     }
@@ -173,21 +169,14 @@ impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmAggregateSignatur
             MultiSignatureError::SerializationError => Self::SerializationError,
             MultiSignatureError::KeyInvalid(e) => Self::IvkInvalid(e.vk),
             MultiSignatureError::SignatureInvalid(_e) => unreachable!(),
-            MultiSignatureError::AggregateSignatureInvalid => Self::SignatureInvalid,
+            MultiSignatureError::AggregateSignatureInvalid => Self::AggregateSignatureInvalid,
         }
     }
 }
 
 impl<D: Digest + FixedOutput> From<StmSignatureError> for StmAggregateSignatureError<D> {
     fn from(e: StmSignatureError) -> Self {
-        match e {
-            StmSignatureError::SerializationError => Self::SerializationError,
-            StmSignatureError::IvkInvalid(e) => Self::IvkInvalid(e),
-            StmSignatureError::SingleSignatureInvalid(_e) => unreachable!(),
-            StmSignatureError::IndexBoundFailed(e, _e) => Self::IndexBoundFailed(e, _e),
-            StmSignatureError::LotteryLost => unreachable!(),
-            StmSignatureError::EvalInvalid(_e) => unreachable!(),
-        }
+        StmAggregateSignatureError::IndividualSignatureInvalid(e)
     }
 }
 

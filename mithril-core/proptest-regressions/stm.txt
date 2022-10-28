@@ -13,3 +13,5 @@ cc bfe6fbad028ad86d75df7c75d29ee8f3279a81acbf50ef971b3dae92d529eeeb # shrinks to
 cc 9ef4bbf885dd054e2e54c85d0a54ef324d5ef7af232157c50bd55986640c6cab # shrinks to nparties = 7, m = 11, k = 1, msg = [16, 197, 45, 60, 228, 119, 173, 69, 2, 156, 57, 238, 34, 178, 228, 198]
 cc 533659c456e216b566b35d413e0b505c6e4d8d04ab402d79343e46a5a32c7c9d # shrinks to nparties = 18, m = 11, k = 1, msg = [78, 114, 142, 29, 122, 86, 154, 181, 170, 165, 114, 115, 234, 82, 143, 36]
 cc f2c14c2a2d3f02a4d98028f41effa69c153529df611e2206e9cbf540e7a99079 # shrinks to nparties = 2, m = 14, k = 1, msg = [69, 0, 87, 0, 53, 5, 58, 203, 42, 90, 66, 244, 89, 95, 198, 22]
+cc 55d304e2dd7bed15dace28eaf8d75174ff9b43e12b98257eb0c5f9296dae66d8 # shrinks to nparties = 21, m = 13, k = 3, msg = [21, 101, 128, 247, 30, 236, 71, 44, 165, 161, 251, 81, 117, 162, 221, 120]
+cc 174b0d31fe87e15ff2e295149062b3adc65b722d8cff4c08257d4b93d72b086b # shrinks to nparties = 15, m = 10, k = 3, msg = [217, 131, 84, 187, 173, 212, 75, 52, 100, 187, 38, 147, 226, 0, 218, 88]

@@ -388,7 +388,6 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
                 pk: self.vk,
                 stake: self.stake,
                 indexes,
-                // path: Path::default(),
                 signer_index: self.mt_index,
             })
         } else {
@@ -690,17 +689,19 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
     ) -> Result<(), StmAggregateSignatureError<D>> {
         let mut nr_indices = 0;
         let mut unique_indices = HashSet::new();
+        let mut leaves = Vec::new();
+
         for sig in &self.signatures {
+            let msgp = avk.mt_commitment.concat_with_msg(msg);
+            sig.check_indices(parameters, &msgp, avk)?;
+
             for &index in &sig.indexes {
-                if index > parameters.m {
-                    return Err(StmAggregateSignatureError::IndexBoundFailed(
-                        index,
-                        parameters.m,
-                    ));
-                }
                 unique_indices.insert(index);
                 nr_indices += 1;
             }
+
+            let mt_leaf = MTLeaf(sig.pk, sig.stake);
+            leaves.push(mt_leaf);
         }
 
         if nr_indices != unique_indices.len() {
@@ -709,18 +710,6 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
 
         if (nr_indices as u64) < parameters.k {
             return Err(StmAggregateSignatureError::NoQuorum);
-        }
-
-        for sig in self.signatures.iter() {
-            let msgp = avk.mt_commitment.concat_with_msg(msg);
-            sig.check_indices(parameters, &msgp, avk)?;
-        }
-
-        let mut leaves = Vec::new();
-
-        for sig in self.signatures.iter() {
-            let mt_leaf = MTLeaf(sig.pk, sig.stake);
-            leaves.push(mt_leaf);
         }
 
         let proof = &self.batch_proof;
@@ -907,8 +896,6 @@ mod tests {
         sigs
     }
 
-    // Batch compat
-
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(50))]
 
@@ -980,7 +967,7 @@ mod tests {
             match msig {
                 Ok(aggr) => {
                     let verify_result = aggr.verify(&msg, &clerk.compute_avk(), &params);
-                    assert!(verify_result.is_ok(), "{:?}", verify_result);
+                    assert!(verify_result.is_ok(), "Verification failed: {:?}", verify_result);
                 }
                 Err(AggregationError::NotEnoughSignatures(n, k)) =>
                     assert!(n < params.k || k == params.k),
@@ -992,6 +979,28 @@ mod tests {
 
     proptest! {
         #![proptest_config(ProptestConfig::with_cases(10))]
+        #[test]
+        fn test_parameters_serialize_deserialize(m in any::<u64>(), k in any::<u64>(), phi_f in any::<f64>()) {
+            let params = StmParameters { m, k, phi_f };
+
+            let bytes = params.to_bytes();
+            let deserialised = StmParameters::from_bytes(&bytes);
+            assert!(deserialised.is_ok())
+        }
+
+        #[test]
+        fn test_initializer_serialize_deserialize(seed in any::<[u8;32]>()) {
+            let mut rng = ChaCha20Rng::from_seed(seed);
+            let params = StmParameters { m: 1, k: 1, phi_f: 1.0 };
+            let stake = rng.next_u64();
+            let initializer = StmInitializer::setup(params, stake, &mut rng);
+
+            let bytes = initializer.to_bytes();
+            assert!(StmInitializer::from_bytes(&bytes).is_ok());
+
+            let bytes = bincode::serialize(&initializer).unwrap();
+            assert!(bincode::deserialize::<StmInitializer>(&bytes).is_ok())
+        }
 
         #[test]
         fn test_sig_serialize_deserialize(msg in any::<[u8;16]>()) {
@@ -1016,7 +1025,7 @@ mod tests {
         #[test]
         fn test_multisig_serialize_deserialize(nparties in 2_usize..10,
                                           msg in any::<[u8;16]>()) {
-            let params = StmParameters { m: 10, k: 1, phi_f: 1.0 };
+            let params = StmParameters { m: 10, k: 5, phi_f: 1.0 };
             let ps = setup_equal_parties(params, nparties);
             let clerk = StmClerk::from_signer(&ps[0]);
 

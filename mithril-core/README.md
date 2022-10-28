@@ -110,46 +110,44 @@ We have run the benchmarks on a 2,7 GHz Quad-Core Intel Core i7 machine with 16 
 |-------------------|
 |   Trivial proofs  |
 +-------------------+
-| This gives and upper bound of the size
-| as it assumes that at most one signature
-| is provided by each participant.
+| Results obtained by using the parameters suggested in paper.
 +-------------------+
 +-------------------+
 | Hash: Blake2b 512 |
 +-------------------+
-k = 25 | nr parties = 300; 19000 bytes
+k = 445 | m = 2728 | nr parties = 3000; 118760 bytes
 +-------------------+
-| Hash:    SHA256   |
+| Hash: Blake2b 256 |
 +-------------------+
-k = 25 | nr parties = 300; 11800 bytes
+k = 445 | m = 2728 | nr parties = 3000; 99384 bytes
 +-------------------+
 | Hash: Blake2b 512 |
 +-------------------+
-k = 250 | nr parties = 2000; 222000 bytes
+k = 554 | m = 3597 | nr parties = 3000; 133936 bytes
 +-------------------+
-| Hash:    SHA256   |
+| Hash: Blake2b 256 |
 +-------------------+
-k = 250 | nr parties = 2000; 134000 bytes
-
+k = 554 | m = 3597 | nr parties = 3000; 113728 bytes
 ```
 
 ```shell
-STM/Blake2b/Key registration/k: 25, m: 150, nr_parties: 300                                                                            
-                        time:   [1.4680 s 1.4706 s 1.4734 s]
-STM/Blake2b/Play all lotteries/k: 25, m: 150, nr_parties: 300                                                                             
-                        time:   [5.1228 ms 5.1296 ms 5.1361 ms]
-STM/Blake2b/Aggregation/k: 25, m: 150, nr_parties: 300                                                                            
-                        time:   [89.231 ms 89.371 ms 89.495 ms]
-STM/Blake2b/Verification/k: 25, m: 150, nr_parties: 300                                                                            
-                        time:   [33.170 ms 33.225 ms 33.292 ms] 
-STM/Blake2b/Key registration/k: 250, m: 1523, nr_parties: 2000                                                                            
-                        time:   [9.8741 s 9.9102 s 9.9644 s]
-STM/Blake2b/Play all lotteries/k: 250, m: 1523, nr_parties: 2000                                                                            
-                        time:   [48.935 ms 49.058 ms 49.185 ms]
-STM/Blake2b/Aggregation/k: 250, m: 1523, nr_parties: 2000                                                                            
-                        time:   [816.11 ms 817.55 ms 819.00 ms]
-STM/Blake2b/Verification/k: 250, m: 1523, nr_parties: 2000                                                                            
-                        time:   [293.18 ms 293.63 ms 294.19 ms]      
+STM/Blake2b/Key registration/k: 25, m: 150, nr_parties: 300
+                        time:   [388.95 ms 389.43 ms 389.90 ms]
+STM/Blake2b/Play all lotteries/k: 25, m: 150, nr_parties: 300
+                        time:   [699.76 µs 701.42 µs 703.63 µs]
+STM/Blake2b/Aggregation/k: 25, m: 150, nr_parties: 300
+                        time:   [18.888 ms 18.903 ms 18.920 ms]
+STM/Blake2b/Verification/k: 25, m: 150, nr_parties: 300
+                        time:   [2.1547 ms 2.1609 ms 2.1686 ms]
+
+STM/Blake2b/Key registration/k: 250, m: 1523, nr_parties: 2000
+                        time:   [2.5986 s 2.6042 s 2.6101 s]
+STM/Blake2b/Play all lotteries/k: 250, m: 1523, nr_parties: 2000
+                        time:   [5.9141 ms 5.9346 ms 5.9641 ms]
+STM/Blake2b/Aggregation/k: 250, m: 1523, nr_parties: 2000
+                        time:   [189.63 ms 190.10 ms 190.69 ms]
+STM/Blake2b/Verification/k: 250, m: 1523, nr_parties: 2000
+                        time:   [14.040 ms 14.143 ms 14.271 ms]
 ```
 
 # ToDo list once we go public

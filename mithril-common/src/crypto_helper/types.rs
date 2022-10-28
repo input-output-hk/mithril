@@ -49,7 +49,7 @@ pub type ProtocolClerk = StmClerk<D>;
 pub type ProtocolKeyRegistration = KeyRegWrapper;
 
 /// Alias of [MithrilCore:StmSig](struct@mithril::stm::StmSig).
-pub type ProtocolSingleSignature = StmSig<D>;
+pub type ProtocolSingleSignature = StmSig;
 
 /// Alias of [MithrilCore:StmAggrSig](struct@mithril::stm::StmAggrSig).
 pub type ProtocolMultiSignature = StmAggrSig<D>;
