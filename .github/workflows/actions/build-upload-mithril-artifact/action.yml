@@ -23,6 +23,12 @@ runs:
       uses: Swatinem/rust-cache@v2
       with:
         key: ${{ runner.os }}-cache-v${{ inputs.cache-version }}
+        
+    - name: Add commit short sha to Cargo.tomls version
+      shell: bash
+      run: |
+        pip3 install toml
+        python3 ./.github/workflows/scripts/edit-cargo-toml-version.py -l $(echo ${{ github.sha }} | cut -c1-7)
 
     - name: Cargo build
       uses: actions-rs/cargo@v1
