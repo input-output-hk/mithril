@@ -31,8 +31,8 @@ def dir_path(path):
 
 
 def build_archive(input_dir, destination_dir, archive_basename):
-    input_files = os.listdir(args.input)
-    print(f"packing mithril distribution {args.version}-{args.target} with files: {input_files}")
+    input_files = os.listdir(input_dir)
+    print(f"packing {archive_basename} with files: {input_files}")
 
     if platform.system() == "Windows":
         import zipfile
@@ -53,10 +53,10 @@ def build_archive(input_dir, destination_dir, archive_basename):
     return archive_name
 
 
-def check_archive(archive, original_input_dir):
+def check_archive(archive_path, original_input_dir):
     print(f"checking archive ...")
     test_dir = "./unpack-test"
-    shutil.unpack_archive(archive, test_dir)
+    shutil.unpack_archive(archive_path, test_dir)
     original_checksum = sha256sum(original_input_dir)
     archive_content_checksum = sha256sum(test_dir)
     if original_checksum != archive_content_checksum:
@@ -69,23 +69,30 @@ def check_archive(archive, original_input_dir):
     shutil.rmtree(test_dir)
 
 
-def compute_sha256_checksum(archive):
+def compute_sha256_checksum(archive_path):
     print(f"computing archive checksum...")
-    archive_checksum = sha256sum(archive)
-    checksum_filename = f"{archive}.sha256"
+    archive_checksum = sha256sum(archive_path)
+    checksum_filename = f"{archive_path}.sha256"
     with open(checksum_filename, "x") as f:
         f.write(archive_checksum)
 
 
+def main(args):
+    archive_path = build_archive(args.input, args.dest, archive_basename=f"mithril-{args.version}-{args.target}")
+    check_archive(archive_path, args.input)
+    compute_sha256_checksum(archive_path)
+
+
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        prog="Mithril distribution packager",
+        description="Package the files in the given '--input' dir in a .tar.gz (linux, macOs) or .zip (windows)"
+                    " plus add a file with the value the sha256 of the generated package."
+    )
     parser.add_argument("--input", type=dir_path, help="input folder which content will be archived", required=True)
     parser.add_argument("--dest", type=dir_path, help="destination folder for the archive, default to current folder",
                         default="./")
     parser.add_argument("--version", help="version of the distribution to package", required=True)
     parser.add_argument("--target", help="target os & architecture of the package", required=True)
-    args = parser.parse_args()
 
-    archive_path = build_archive(args.input, args.dest, archive_basename=f"mithril-{args.version}-{args.target}")
-    check_archive(archive_path, args.input)
-    compute_sha256_checksum(archive_path)
+    main(parser.parse_args())
