@@ -2,7 +2,7 @@ use std::marker::PhantomData;
 
 use sqlite::Cursor;
 
-use super::Entity;
+use super::SqLiteEntity;
 
 pub struct EntityCursor<'a, T> {
     cursor: Cursor<'a>,
@@ -20,11 +20,16 @@ impl<'a, T> EntityCursor<'a, T> {
 
 impl<'a, T> Iterator for EntityCursor<'a, T>
 where
-    T: Entity,
+    T: SqLiteEntity,
 {
     type Item = T;
 
+    /// Spawning entities from Result iterator.
+    /// This iterator will crash the application if an error occures during this process.
+    /// This is intended because it prevents inconsistent data to spread accross the application.
     fn next(&mut self) -> Option<T> {
-        self.cursor.next().map(|res| T::hydrate(res.unwrap()))
+        self.cursor
+            .next()
+            .map(|res| T::hydrate(res.unwrap()).unwrap())
     }
 }

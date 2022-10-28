@@ -1,19 +1,47 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, error::Error, fmt::Display};
 
-use sqlite::{Connection, Row};
+use sqlite::{Connection, Row, Value};
 
-use super::sqlite::{Entity, Projection, ProjectionField, Provider};
+use super::sqlite::{HydrationError, Projection, ProjectionField, Provider, SqLiteEntity};
 
-#[derive(Debug, PartialEq)]
-struct VersionEntity {
-    database_version: String,
+#[derive(Debug, Clone, PartialEq)]
+enum ApplicationNodeType {
+    Aggregator,
+    Signer,
 }
 
-impl Entity for VersionEntity {
-    fn hydrate(row: Row) -> Self {
-        Self {
-            database_version: row.get::<String, _>(0),
+impl ApplicationNodeType {
+    pub fn new(node_type: &str) -> Result<Self, Box<dyn Error>> {
+        match node_type {
+            "aggregator" => Ok(Self::Aggregator),
+            "signer" => Ok(Self::Signer),
+            _ => Err(format!("unknown node type '{}'", node_type).into()),
         }
+    }
+}
+
+impl Display for ApplicationNodeType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Aggregator => write!(f, "aggregator"),
+            Self::Signer => write!(f, "signer"),
+        }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+struct DatabaseVersion {
+    database_version: String,
+    application_type: ApplicationNodeType,
+}
+
+impl SqLiteEntity for DatabaseVersion {
+    fn hydrate(row: Row) -> Result<Self, HydrationError> {
+        Ok(Self {
+            database_version: row.get::<String, _>(0),
+            application_type: ApplicationNodeType::new(&row.get::<String, _>(1))
+                .map_err(|e| HydrationError::InvalidData(format!("{}", e)))?,
+        })
     }
 }
 
@@ -34,6 +62,7 @@ impl DbVersionProjection {
     pub fn new() -> Self {
         let mut projection = Self { fields: Vec::new() };
         projection.add_field("db_version", "{:version:}.version", "text");
+        projection.add_field("application_type", "{:version:}.application_type", "text");
 
         projection
     }
@@ -54,7 +83,7 @@ impl VersionProvider {
 }
 
 impl<'conn> Provider<'conn> for VersionProvider {
-    type Entity = VersionEntity;
+    type Entity = DatabaseVersion;
 
     fn get_projection(&self) -> &dyn Projection {
         &self.projection
@@ -70,7 +99,13 @@ impl<'conn> Provider<'conn> for VersionProvider {
         let _ = aliases.insert("{:version:}".to_string(), "db_version".to_string());
         let projection = self.get_projection().expand(aliases);
 
-        format!("select {projection} from db_version where {where_clause}")
+        format!(
+            r#"
+select {projection}
+from db_version
+where {where_clause}
+"#
+        )
     }
 }
 
@@ -86,10 +121,24 @@ impl VersionUpdatedProvider {
             projection: DbVersionProjection::new(),
         }
     }
+
+    pub fn save(&self, version: DatabaseVersion) -> Result<DatabaseVersion, Box<dyn Error>> {
+        let params = [
+            Value::String(version.database_version),
+            Value::String(format!("{}", version.application_type)),
+        ]
+        .to_vec();
+        let entity = self
+            .find(None, &params)?
+            .next()
+            .ok_or_else(|| "No data returned after insertion")?;
+
+        Ok(entity)
+    }
 }
 
 impl<'conn> Provider<'conn> for VersionUpdatedProvider {
-    type Entity = VersionEntity;
+    type Entity = DatabaseVersion;
 
     fn get_projection(&self) -> &dyn Projection {
         &self.projection
@@ -105,7 +154,13 @@ impl<'conn> Provider<'conn> for VersionUpdatedProvider {
         let _ = aliases.insert("{:version:}".to_string(), "db_version".to_string());
         let projection = self.get_projection().expand(aliases);
 
-        format!("insert into db_version values (?1) returning {projection}")
+        format!(
+            r#"
+insert into db_version values (?, ?)
+  on conflict on (application_type) do update set version = excluded.version
+returning {projection}
+"#
+        )
     }
 }
 
@@ -120,7 +175,8 @@ mod tests {
         let _ = aliases.insert("{:version:}".to_string(), "whatever".to_string());
 
         assert_eq!(
-            "whatever.version as db_version".to_string(),
+            "whatever.version as db_version, whatever.application_type as application_type"
+                .to_string(),
             projection.expand(aliases)
         );
     }
@@ -131,7 +187,11 @@ mod tests {
         let provider = VersionProvider::new(connection);
 
         assert_eq!(
-            "select db_version.version as db_version from db_version where true",
+            r#"
+select db_version.version as db_version, db_version.application_type as application_type
+from db_version
+where true
+"#,
             provider.get_definition(None)
         )
     }
@@ -142,7 +202,11 @@ mod tests {
         let provider = VersionUpdatedProvider::new(connection);
 
         assert_eq!(
-            "insert into db_version values (?1) returning db_version.version as db_version",
+            r#"
+insert into db_version values (?, ?)
+  on conflict on (application_type) do update set version = excluded.version
+returning db_version.version as db_version, db_version.application_type as application_type
+"#,
             provider.get_definition(None)
         )
     }

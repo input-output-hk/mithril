@@ -16,7 +16,7 @@ pub trait Provider<'conn> {
     fn find(
         &'conn self,
         condition: Option<&str>,
-        params: &[Value],
+        params: &Vec<Value>,
     ) -> Result<EntityCursor<'conn, Self::Entity>, Box<dyn Error>> {
         let sql = self.get_definition(condition);
         let cursor = self
@@ -34,7 +34,7 @@ pub trait Provider<'conn> {
 
 #[cfg(test)]
 mod tests {
-    use crate::database::sqlite::{Entity, ProjectionField};
+    use crate::database::sqlite::{entity::HydrationError, ProjectionField, SqLiteEntity};
 
     use super::*;
 
@@ -46,14 +46,14 @@ mod tests {
         maybe_null: Option<i64>,
     }
 
-    impl Entity for TestEntity {
-        fn hydrate(row: sqlite::Row) -> Self {
-            TestEntity {
+    impl SqLiteEntity for TestEntity {
+        fn hydrate(row: sqlite::Row) -> Result<Self, HydrationError> {
+            Ok(TestEntity {
                 text_data: row.get::<String, _>(0),
                 real_data: row.get::<f64, _>(1),
                 integer_data: row.get::<i64, _>(2),
                 maybe_null: row.get::<Option<i64>, _>(3),
-            }
+            })
         }
     }
 
@@ -184,7 +184,7 @@ returning {projection}
     #[test]
     pub fn simple_test() {
         let provider = TestEntityProvider::new(init_database());
-        let mut cursor = provider.find(None, &[]).unwrap();
+        let mut cursor = provider.find(None, &Vec::new()).unwrap();
         let entity = cursor
             .next()
             .expect("there shoud be two results, none returned");
@@ -216,7 +216,9 @@ returning {projection}
     #[test]
     pub fn test_condition() {
         let provider = TestEntityProvider::new(init_database());
-        let mut cursor = provider.find(Some("maybe_null is not null"), &[]).unwrap();
+        let mut cursor = provider
+            .find(Some("maybe_null is not null"), &Vec::new())
+            .unwrap();
         let entity = cursor
             .next()
             .expect("there shoud be one result, none returned");
@@ -236,7 +238,10 @@ returning {projection}
     pub fn test_parameters() {
         let provider = TestEntityProvider::new(init_database());
         let mut cursor = provider
-            .find(Some("text_data like ?"), &[Value::String("%1".to_string())])
+            .find(
+                Some("text_data like ?"),
+                &[Value::String("%1".to_string())].to_vec(),
+            )
             .unwrap();
         let entity = cursor
             .next()
@@ -260,7 +265,8 @@ returning {projection}
             Value::Float(1.234),
             Value::Integer(0),
             Value::Null,
-        ];
+        ]
+        .to_vec();
         let mut cursor = provider.find(None, &params).unwrap();
 
         let entity = cursor
