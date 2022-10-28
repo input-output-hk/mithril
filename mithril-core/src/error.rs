@@ -131,17 +131,6 @@ pub enum RegisterError {
     UnregisteredInitializer,
 }
 
-// impl From<RegisterError> for StmSignatureError {
-//     fn from(e: RegisterError) -> Self {
-//         match e {
-//             RegisterError::SerializationError => Self::SerializationError,
-//             RegisterError::KeyInvalid(e) => Self::IvkInvalid(e.vk),
-//             RegisterError::KeyRegistered(_) => unreachable!(),
-//             RegisterError::UnregisteredInitializer => unreachable!(),
-//         }
-//     }
-// }
-
 impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmAggregateSignatureError<D> {
     fn from(e: MerkleTreeError<D>) -> Self {
         match e {

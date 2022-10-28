@@ -427,7 +427,7 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
     /// Aggregate a set of signatures for their corresponding indices.
     ///
     /// This function first deduplicates the repeated signatures, and if there are enough signatures, it collects the merkle tree indexes of unique signatures.
-    /// The list of merkle tree indexes is used to create a batch proof to be checked in verify aggregate.
+    /// The list of merkle tree indexes is used to create a batch proof, to prove that all signatures are from eligible signers.
     ///
     /// It returns an instance of `StmAggrSig`.
     pub fn aggregate(
@@ -622,14 +622,14 @@ impl StmSig {
         let sigma = Signature::from_bytes(&bytes[offset + 96..offset + 144])?;
 
         u64_bytes.copy_from_slice(&bytes[offset + 144..offset + 152]);
-        let mt_index = u64::from_be_bytes(u64_bytes);
+        let signer_index = u64::from_be_bytes(u64_bytes);
 
         Ok(StmSig {
             sigma,
             pk,
             stake,
             indexes,
-            signer_index: mt_index,
+            signer_index,
         })
     }
 
@@ -1176,8 +1176,7 @@ mod tests {
             })
         }
         #[test]
-        fn test_invalid_proof_path(tc in arb_proof_setup(10), _i in any::<usize>()) {
-            let _n = tc.n;
+        fn test_invalid_proof_path(tc in arb_proof_setup(10)) {
             with_proof_mod(tc, |aggr, _, _msg| {
                 let p = aggr.batch_proof.clone();
                 let mut index_list = p.indices.clone();

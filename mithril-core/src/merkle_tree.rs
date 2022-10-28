@@ -173,6 +173,7 @@ impl<D: Digest + FixedOutput> BatchPath<D> {
     }
 
     /// Try to convert a byte string into a `BatchPath`.
+    // todo: We should not panic if the size of the slice is invalid (I believe `bytes[offset + i * 8..offset + (i + 1) * 8]` will panic if bytes is not large enough. 
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MerkleTreeError<D>> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(&bytes[..8]);
@@ -268,6 +269,7 @@ impl<D: Clone + Digest> MerkleTreeCommitmentBatchCompat<D> {
     /// Returns an error if the proof is invalid.
     // todo: Update doc.
     // todo: Simplify the algorithm.
+    // todo: Maybe we want more granular errors, rather than only `BatchPathInvalid`
     pub fn check(
         &self,
         batch_val: &Vec<MTLeaf>,
@@ -670,25 +672,22 @@ mod tests {
         fn test_create_batch_proof((t, values) in arb_tree(30)) {
             let mut mt_index_list :Vec<usize> = Vec::new();
             for (i, _v) in values.iter().enumerate() {
-                let ind = Some(i as usize);
-                mt_index_list.push(ind.unwrap());
+                mt_index_list.push(i);
             }
             mt_index_list.sort_unstable();
-            let batch_proof = Some(t.get_batched_path(mt_index_list));
-            assert!(t.to_commitment_batch_compat().check(&values, &batch_proof.unwrap()).is_ok());
+            let batch_proof = t.get_batched_path(mt_index_list);
+            assert!(t.to_commitment_batch_compat().check(&values, &batch_proof).is_ok());
         }
 
         #[test]
         fn test_bytes_batch_path((t, values) in arb_tree(30)) {
             let mut mt_index_list :Vec<usize> = Vec::new();
             for (i, _v) in values.iter().enumerate() {
-                let ind = Some(i as usize);
-                mt_index_list.push(ind.unwrap());
+                mt_index_list.push(i);
             }
             mt_index_list.sort_unstable();
 
-            let batch_proof = Some(t.get_batched_path(mt_index_list));
-            let bp = batch_proof.unwrap();
+            let bp = t.get_batched_path(mt_index_list);
 
             let bytes = &bp.to_bytes();
             let deserialized = BatchPath::from_bytes(bytes).unwrap();
@@ -752,14 +751,8 @@ mod tests {
             (values, proof) in values_with_invalid_proof(10)
         ) {
             let t = MerkleTree::<Blake2b<U32>>::create(&values[1..]);
-            let mut indices = Vec::with_capacity(values.len() / 2);
-            let mut batch_values = Vec::with_capacity(values.len() / 2);
-
-            for _j in 0..values.len() / 2 {
-                let ind = i % (values.len() - 1);
-                indices.push(ind);
-                batch_values.push(values[ind]);
-            }
+            let indices = vec![i % (values.len() - 1); values.len() / 2];
+            let batch_values = vec![values[i % (values.len() - 1)]; values.len() / 2];
             let path = BatchPath{values: proof
                             .iter()
                             .map(|x|  Blake2b::<U32>::digest(x).to_vec())
