@@ -173,7 +173,7 @@ impl<D: Digest + FixedOutput> BatchPath<D> {
     }
 
     /// Try to convert a byte string into a `BatchPath`.
-    // todo: We should not panic if the size of the slice is invalid (I believe `bytes[offset + i * 8..offset + (i + 1) * 8]` will panic if bytes is not large enough. 
+    // todo: We should not panic if the size of the slice is invalid (I believe `bytes[offset + i * 8..offset + (i + 1) * 8]` will panic if bytes is not large enough.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MerkleTreeError<D>> {
         let mut u64_bytes = [0u8; 8];
         u64_bytes.copy_from_slice(&bytes[..8]);

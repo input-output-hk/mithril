@@ -155,10 +155,10 @@ impl From<MultiSignatureError> for StmSignatureError {
 impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmAggregateSignatureError<D> {
     fn from(e: MultiSignatureError) -> Self {
         match e {
-            MultiSignatureError::SerializationError => Self::SerializationError,
-            MultiSignatureError::KeyInvalid(e) => Self::IvkInvalid(e.vk),
-            MultiSignatureError::SignatureInvalid(_e) => unreachable!(),
             MultiSignatureError::AggregateSignatureInvalid => Self::AggregateSignatureInvalid,
+            MultiSignatureError::SerializationError => unreachable!(),
+            MultiSignatureError::KeyInvalid(_) => unreachable!(),
+            MultiSignatureError::SignatureInvalid(_e) => unreachable!(),
         }
     }
 }

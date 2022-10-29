@@ -65,9 +65,6 @@ fn main() {
     println!("+-------------------+");
     println!("|   Size of proofs  |");
     println!("+-------------------+");
-    println!("|-------------------|");
-    println!("|   Trivial proofs  |");
-    println!("+-------------------+");
     println!("| Results obtained by using the parameters suggested in paper.");
     println!("+-------------------+");
 

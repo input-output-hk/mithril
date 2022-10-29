@@ -359,9 +359,8 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     /// Once the signature is produced, this function checks whether any index in `[0,..,self.params.m]`
     /// wins the lottery by evaluating the dense mapping.
     /// It records all the winning indexes in `Self.indexes`.
-    /// If it wins at least one lottery,
-    /// it does not produce a list of indexes of merkle path for its corresponding `(VerificationKey, Stake)`.
-    /// Instead it stores the signer's merkle tree index and the merkle path production will be handled in `StmClerk`.
+    /// If it wins at least one lottery, it stores the signer's merkle tree index. The proof of membership
+    /// will be handled by the aggregator.
     pub fn sign(&self, msg: &[u8]) -> Option<StmSig> {
         let msgp = self
             .closed_reg
@@ -457,6 +456,8 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
     /// The function selects at least `self.k` indexes.
     ///  # Error
     /// If there is no sufficient signatures, then the function fails.
+    // todo: We need to agree on a criteria to dedup (by defaut we use a BTreeMap that guarantees keys order)
+    // todo: not good, because it only removes index if there is a conflict (see benches)
     pub fn dedup_sigs_for_indices(
         &self,
         msg: &[u8],
@@ -1102,7 +1103,6 @@ mod tests {
 
     #[derive(Debug)]
     struct ProofTest {
-        n: usize,
         msig: Result<Sig, AggregationError>,
         clerk: StmClerk<D>,
         msg: [u8; 16],
@@ -1124,12 +1124,7 @@ mod tests {
                 let sigs = find_signatures(&msg, &ps, &all_ps);
 
                 let msig = clerk.aggregate(&sigs, &msg);
-                ProofTest {
-                    n,
-                    msig,
-                    clerk,
-                    msg,
-                }
+                ProofTest { msig, clerk, msg }
             })
         })
     }
