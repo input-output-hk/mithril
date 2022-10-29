@@ -1,6 +1,6 @@
 use hex::ToHex;
 use rand_chacha::ChaCha20Rng;
-use rand_core::{RngCore, SeedableRng};
+use rand_core::{CryptoRng, RngCore, SeedableRng};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
@@ -42,7 +42,7 @@ struct MultiSignatureArtifact {
 }
 
 /// Party represents a signing protocol participant
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Party {
     /// Party's identifier
     party_id: ProtocolPartyId,
@@ -50,6 +50,8 @@ pub struct Party {
     stake: ProtocolStake,
     /// Protocol parameters
     params: Option<ProtocolParameters>,
+    /// Protocol initializer
+    initializer: Option<ProtocolInitializerNotCertified>,
     /// Protocol signer
     signer: Option<ProtocolSigner>,
     /// Protocol clerk
@@ -66,6 +68,7 @@ impl Party {
             party_id: format!("{}", party_id) as ProtocolPartyId,
             stake: stake as ProtocolStake,
             params: None,
+            initializer: None,
             signer: None,
             clerk: None,
             msigs: HashMap::new(),
@@ -105,10 +108,13 @@ impl Party {
         }
         let closed_reg = key_reg.close();
 
-        let seed = [0u8; 32];
-        let mut rng = ChaCha20Rng::from_seed(seed);
-        let p = ProtocolInitializerNotCertified::setup(self.params.unwrap(), self.stake, &mut rng);
-        self.signer = Some(p.new_signer(closed_reg).unwrap());
+        let signer = self
+            .initializer
+            .clone()
+            .unwrap()
+            .new_signer(closed_reg)
+            .unwrap();
+        self.signer = Some(signer);
         self.clerk = Some(ProtocolClerk::from_signer(self.signer.as_ref().unwrap()));
     }
 
@@ -296,10 +302,8 @@ pub struct Demonstrator {
 
 impl Demonstrator {
     /// Demonstrator factory
-    pub fn new(config: &crate::Config) -> Self {
+    pub fn new<R: RngCore + CryptoRng>(config: &crate::Config, rng: &mut R) -> Self {
         // Generate parties
-        let seed = [0u8; 32];
-        let mut rng = ChaCha20Rng::from_seed(seed);
         let parties = (0..config.nparties)
             .into_iter()
             .map(|party_id| Party::new(party_id, 1 + rng.next_u64() % 999))
@@ -328,7 +332,7 @@ pub trait ProtocolDemonstrator {
     fn establish(&mut self);
 
     /// Initialization phase of the protocol
-    fn initialize(&mut self);
+    fn initialize<R: RngCore + CryptoRng>(&mut self, rng: &mut R);
 
     /// Issue certificates
     fn issue_certificates(&mut self);
@@ -349,7 +353,7 @@ impl ProtocolDemonstrator for Demonstrator {
     }
 
     /// Initialization phase of the protocol
-    fn initialize(&mut self) {
+    fn initialize<R: RngCore + CryptoRng>(&mut self, rng: &mut R) {
         // Retrieve protocol parameters
         let mut verifier = Verifier::new();
         verifier.update_params(&self.params.unwrap());
@@ -358,25 +362,17 @@ impl ProtocolDemonstrator for Demonstrator {
         }
 
         // Register keys
-        let seed = [0u8; 32];
-        let mut rng = ChaCha20Rng::from_seed(seed);
-        let players = self
-            .parties
-            .iter()
-            .map(|party| (party.party_id.to_owned(), party.stake))
-            .collect::<Vec<_>>();
         let mut players_artifacts = Vec::new();
-        for (party_id, stake) in players {
+        for party in self.parties.iter_mut() {
             let protocol_initializer =
-                ProtocolInitializerNotCertified::setup(self.params.unwrap(), stake, &mut rng);
-            let verification_key: ProtocolSignerVerificationKey =
-                protocol_initializer.verification_key();
+                ProtocolInitializerNotCertified::setup(self.params.unwrap(), party.stake, rng);
             players_artifacts.push(PlayerArtifact {
-                party_id,
-                stake,
-                verification_key: key_encode_hex(verification_key).unwrap(),
-                initializer: key_encode_hex(protocol_initializer).unwrap(),
-            })
+                party_id: party.clone().party_id,
+                stake: party.stake,
+                verification_key: key_encode_hex(protocol_initializer.verification_key()).unwrap(),
+                initializer: key_encode_hex(protocol_initializer.clone()).unwrap(),
+            });
+            party.initializer = Some(protocol_initializer);
         }
         let players_with_keys = players_artifacts
             .iter()
@@ -510,14 +506,18 @@ mod tests {
     #[test]
     fn test_demonstrator_new() {
         let config = default_config();
-        let demo = Demonstrator::new(&config);
+        let seed = [0u8; 32];
+        let mut rng = ChaCha20Rng::from_seed(seed);
+        let demo = Demonstrator::new(&config, &mut rng);
         assert_eq!(demo.config, config);
     }
 
     #[test]
     fn test_demonstrator_establish() {
         let config = default_config();
-        let mut demo = Demonstrator::new(&config);
+        let seed = [0u8; 32];
+        let mut rng = ChaCha20Rng::from_seed(seed);
+        let mut demo = Demonstrator::new(&config, &mut rng);
         demo.establish();
         assert_eq!(demo.params.unwrap().m, config.m);
         assert_eq!(demo.params.unwrap().k, config.k);
@@ -527,9 +527,11 @@ mod tests {
     #[test]
     fn test_demonstrator_initialize() {
         let config = default_config();
-        let mut demo = Demonstrator::new(&config);
+        let seed = [0u8; 32];
+        let mut rng = ChaCha20Rng::from_seed(seed);
+        let mut demo = Demonstrator::new(&config, &mut rng);
         demo.establish();
-        demo.initialize();
+        demo.initialize(&mut rng);
         assert_eq!(demo.parties.len(), config.nparties);
         assert_eq!(demo.messages.len(), config.nmessages);
         for party in demo.parties {
@@ -543,9 +545,11 @@ mod tests {
     #[test]
     fn test_demonstrator_issue_certificates_ok() {
         let config = default_config();
-        let mut demo = Demonstrator::new(&config);
+        let seed = [0u8; 32];
+        let mut rng = ChaCha20Rng::from_seed(seed);
+        let mut demo = Demonstrator::new(&config, &mut rng);
         demo.establish();
-        demo.initialize();
+        demo.initialize(&mut rng);
         demo.issue_certificates();
         assert_eq!(demo.parties.len(), config.nparties);
         assert_eq!(demo.messages.len(), config.nmessages);
@@ -559,9 +563,11 @@ mod tests {
         let mut config = default_config();
         config.k = 10000;
         config.m = 10;
-        let mut demo = Demonstrator::new(&config);
+        let seed = [0u8; 32];
+        let mut rng = ChaCha20Rng::from_seed(seed);
+        let mut demo = Demonstrator::new(&config, &mut rng);
         demo.establish();
-        demo.initialize();
+        demo.initialize(&mut rng);
         demo.issue_certificates();
         assert_eq!(demo.parties.len(), config.nparties);
         assert_eq!(demo.messages.len(), config.nmessages);
@@ -573,9 +579,11 @@ mod tests {
     #[test]
     fn test_demonstrator_verify_certificates_ok() {
         let config = default_config();
-        let mut demo = Demonstrator::new(&config);
+        let seed = [0u8; 32];
+        let mut rng = ChaCha20Rng::from_seed(seed);
+        let mut demo = Demonstrator::new(&config, &mut rng);
         demo.establish();
-        demo.initialize();
+        demo.initialize(&mut rng);
         demo.issue_certificates();
         assert_eq!(demo.parties.len(), config.nparties);
         assert_eq!(demo.messages.len(), config.nmessages);
@@ -587,9 +595,11 @@ mod tests {
         let mut config = default_config();
         config.k = 10000;
         config.m = 10;
-        let mut demo = Demonstrator::new(&config);
+        let seed = [0u8; 32];
+        let mut rng = ChaCha20Rng::from_seed(seed);
+        let mut demo = Demonstrator::new(&config, &mut rng);
         demo.establish();
-        demo.initialize();
+        demo.initialize(&mut rng);
         demo.issue_certificates();
         assert_eq!(demo.parties.len(), config.nparties);
         assert_eq!(demo.messages.len(), config.nmessages);
