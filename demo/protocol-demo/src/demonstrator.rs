@@ -1,6 +1,5 @@
 use hex::ToHex;
-use rand_chacha::ChaCha20Rng;
-use rand_core::{CryptoRng, RngCore, SeedableRng};
+use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::env;
@@ -483,6 +482,8 @@ pub fn write_artifacts<T: Serialize>(artifact_name: &str, value: &T) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rand_chacha::ChaCha20Rng;
+    use rand_core::SeedableRng;
 
     fn setup_protocol_parameters() -> ProtocolParameters {
         ProtocolParameters {
