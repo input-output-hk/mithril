@@ -24,6 +24,8 @@ mod snapshotter;
 mod store;
 mod tools;
 
+const DATABASE_SCHEMATIC_VERSION: &str = "0.1.0";
+
 pub use crate::configuration::{
     Configuration, DefaultConfiguration, GenesisConfiguration, SnapshotStoreType,
     SnapshotUploaderType,
@@ -31,6 +33,7 @@ pub use crate::configuration::{
 pub use crate::multi_signer::{MultiSigner, MultiSignerImpl, ProtocolError};
 pub use crate::snapshot_stores::{LocalSnapshotStore, RemoteSnapshotStore, SnapshotStore};
 pub use command_args::MainOpts;
+pub use database::{DatabaseVersion, VersionProvider, VersionUpdatedProvider};
 pub use dependency::DependencyManager;
 pub use http_server::Server;
 pub use runtime::{AggregatorConfig, AggregatorRunner, AggregatorRunnerTrait, AggregatorRuntime};

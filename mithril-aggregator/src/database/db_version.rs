@@ -30,7 +30,7 @@ impl Display for ApplicationNodeType {
 }
 
 #[derive(Debug, PartialEq)]
-struct DatabaseVersion {
+pub struct DatabaseVersion {
     database_version: String,
     application_type: ApplicationNodeType,
 }
@@ -68,21 +68,43 @@ impl DbVersionProjection {
     }
 }
 
-struct VersionProvider {
-    connection: Connection,
+pub struct VersionProvider<'conn> {
+    connection: &'conn Connection,
     projection: DbVersionProjection,
 }
 
-impl VersionProvider {
-    pub fn new(connection: Connection) -> Self {
+impl<'conn> VersionProvider<'conn> {
+    pub fn new(connection: &'conn Connection) -> Self {
         Self {
             connection,
             projection: DbVersionProjection::new(),
         }
     }
+
+    pub fn create_table_if_not_exists(&self) -> Result<(), Box<dyn Error>> {
+        let connection = self.get_connection();
+        let sql = "select exists(select name from sqlite_master where type='table' and name='db_version') as table_exists";
+        let table_exists = connection
+            .prepare(sql)?
+            .into_cursor()
+            .bind(&[])?
+            .next()
+            .unwrap()?
+            .get::<i64, _>(0)
+            == 1;
+
+        if !table_exists {
+            let sql = r#"
+create table db_version (application_type text not null primary key, db_version text not null)";
+"#;
+            connection.execute(sql)?;
+        }
+
+        Ok(())
+    }
 }
 
-impl<'conn> Provider<'conn> for VersionProvider {
+impl<'conn> Provider<'conn> for VersionProvider<'conn> {
     type Entity = DatabaseVersion;
 
     fn get_projection(&self) -> &dyn Projection {
@@ -90,7 +112,7 @@ impl<'conn> Provider<'conn> for VersionProvider {
     }
 
     fn get_connection(&'conn self) -> &Connection {
-        &self.connection
+        self.connection
     }
 
     fn get_definition(&self, condition: Option<&str>) -> String {
@@ -109,13 +131,13 @@ where {where_clause}
     }
 }
 
-struct VersionUpdatedProvider {
-    connection: Connection,
+pub struct VersionUpdatedProvider<'conn> {
+    connection: &'conn Connection,
     projection: DbVersionProjection,
 }
 
-impl VersionUpdatedProvider {
-    pub fn new(connection: Connection) -> Self {
+impl<'conn> VersionUpdatedProvider<'conn> {
+    pub fn new(connection: &'conn Connection) -> Self {
         Self {
             connection,
             projection: DbVersionProjection::new(),
@@ -137,7 +159,7 @@ impl VersionUpdatedProvider {
     }
 }
 
-impl<'conn> Provider<'conn> for VersionUpdatedProvider {
+impl<'conn> Provider<'conn> for VersionUpdatedProvider<'conn> {
     type Entity = DatabaseVersion;
 
     fn get_projection(&self) -> &dyn Projection {
@@ -184,7 +206,7 @@ mod tests {
     #[test]
     fn test_definition() {
         let connection = Connection::open(":memory:").unwrap();
-        let provider = VersionProvider::new(connection);
+        let provider = VersionProvider::new(&connection);
 
         assert_eq!(
             r#"
@@ -199,7 +221,7 @@ where true
     #[test]
     fn test_updated_entity() {
         let connection = Connection::open(":memory:").unwrap();
-        let provider = VersionUpdatedProvider::new(connection);
+        let provider = VersionUpdatedProvider::new(&connection);
 
         assert_eq!(
             r#"
