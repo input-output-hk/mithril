@@ -2,15 +2,17 @@ use std::{collections::HashMap, error::Error, fmt::Display};
 
 use sqlite::{Connection, Row, Value};
 
-use mithril_common::sqlite::{HydrationError, Projection, ProjectionField, Provider, SqLiteEntity};
+use crate::sqlite::{HydrationError, Projection, ProjectionField, Provider, SqLiteEntity};
 
+/// Application using a database
 #[derive(Debug, Clone, PartialEq)]
-enum ApplicationNodeType {
+pub enum ApplicationNodeType {
     Aggregator,
     Signer,
 }
 
 impl ApplicationNodeType {
+    /// [ApplicationNodeType] constructor.
     pub fn new(node_type: &str) -> Result<Self, Box<dyn Error>> {
         match node_type {
             "aggregator" => Ok(Self::Aggregator),
@@ -33,10 +35,10 @@ impl Display for ApplicationNodeType {
 #[derive(Debug, PartialEq)]
 pub struct DatabaseVersion {
     /// Semver of the database structure.
-    database_version: String,
+    pub database_version: String,
 
     /// Name of the application.
-    application_type: ApplicationNodeType,
+    pub application_type: ApplicationNodeType,
 }
 
 impl SqLiteEntity for DatabaseVersion {
@@ -110,6 +112,13 @@ create table db_version (application_type text not null primary key, db_version 
         }
 
         Ok(())
+    }
+
+    /// Read the database version from the database.
+    pub fn get_database_version(&self) -> Result<Option<DatabaseVersion>, Box<dyn Error>> {
+        let result = self.find(None, &[].to_vec())?.next();
+
+        Ok(result)
     }
 }
 

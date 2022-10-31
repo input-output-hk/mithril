@@ -2,6 +2,7 @@ use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use slog::Level;
 use slog_scope::debug;
+use sqlite::Connection;
 use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
@@ -12,6 +13,9 @@ use tokio::time::Duration;
 use mithril_common::certificate_chain::MithrilCertificateVerifier;
 use mithril_common::chain_observer::{CardanoCliRunner, ChainObserver};
 use mithril_common::crypto_helper::ProtocolGenesisVerifier;
+use mithril_common::database::{
+    ApplicationNodeType, DatabaseVersion, VersionProvider, VersionUpdatedProvider,
+};
 use mithril_common::digesters::{CardanoImmutableDigester, ImmutableFileSystemObserver};
 use mithril_common::entities::{Epoch, HexEncodedGenesisSecretKey};
 use mithril_common::store::adapter::SQLiteAdapter;
@@ -30,12 +34,42 @@ use crate::{
 use crate::{
     CertificateStore, DefaultConfiguration, GzipSnapshotter, MultiSignerImpl,
     ProtocolParametersStorer, SingleSignatureStore, VerificationKeyStore,
+    DATABASE_SCHEMATIC_VERSION,
 };
+
+fn check_database_version(connection: &Connection) -> Result<bool, Box<dyn Error>> {
+    let provider = VersionProvider::new(connection);
+    provider.create_table_if_not_exists()?;
+    let maybe_option = provider.get_database_version()?;
+
+    let _database_version = match maybe_option {
+        None => {
+            let provider = VersionUpdatedProvider::new(connection);
+            let version = DatabaseVersion {
+                database_version: DATABASE_SCHEMATIC_VERSION.to_string(),
+                application_type: ApplicationNodeType::new("aggregator")?,
+            };
+            provider.save(version)?
+        }
+        Some(version) => version,
+    };
+
+    Ok(true)
+}
 
 fn setup_genesis_dependencies(
     config: &GenesisConfiguration,
 ) -> Result<GenesisToolsDependency, Box<dyn std::error::Error>> {
     let sqlite_db_path = Some(config.get_sqlite_file());
+
+    let connection = match sqlite_db_path.clone() {
+        Some(filepath) => Connection::open(filepath)?,
+        None => Connection::open(":memory:")?,
+    };
+    if !check_database_version(&connection)? {
+        return Err("The database is out of date, cannot start.".into());
+    }
+
     let chain_observer = Arc::new(
         mithril_common::chain_observer::CardanoCliChainObserver::new(Box::new(
             CardanoCliRunner::new(
@@ -300,6 +334,14 @@ impl ServeCommand {
         let snapshot_uploader = config.build_snapshot_uploader()?;
 
         let sqlite_db_path = Some(config.get_sqlite_file());
+        let connection = match sqlite_db_path.clone() {
+            Some(filepath) => Connection::open(filepath)?,
+            None => Connection::open(":memory:")?,
+        };
+
+        if !check_database_version(&connection)? {
+            return Err("The database is out of date, cannot start.".into());
+        }
 
         let certificate_pending_store = Arc::new(CertificatePendingStore::new(Box::new(
             SQLiteAdapter::new("pending_certificate", sqlite_db_path.clone())?,

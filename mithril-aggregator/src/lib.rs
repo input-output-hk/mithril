@@ -13,7 +13,6 @@
 
 mod command_args;
 mod configuration;
-mod database;
 mod dependency;
 mod http_server;
 mod multi_signer;
@@ -33,7 +32,6 @@ pub use crate::configuration::{
 pub use crate::multi_signer::{MultiSigner, MultiSignerImpl, ProtocolError};
 pub use crate::snapshot_stores::{LocalSnapshotStore, RemoteSnapshotStore, SnapshotStore};
 pub use command_args::MainOpts;
-pub use database::{DatabaseVersion, VersionProvider, VersionUpdatedProvider};
 pub use dependency::DependencyManager;
 pub use http_server::Server;
 pub use runtime::{AggregatorConfig, AggregatorRunner, AggregatorRunnerTrait, AggregatorRuntime};

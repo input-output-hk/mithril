@@ -17,6 +17,7 @@ mod beacon_provider;
 pub mod certificate_chain;
 pub mod chain_observer;
 pub mod crypto_helper;
+pub mod database;
 pub mod digesters;
 pub mod entities;
 pub mod fake_data;
