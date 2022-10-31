@@ -19,6 +19,9 @@ pub enum HydrationError {
 
 /// How to hydrate an entity from a SQLite result row
 pub trait SqLiteEntity {
+    /// This method is intended to be used when creating new instances from SQL
+    /// result rows. This is the place to grab data, check consistency and types
+    /// and return the entity if possible.
     fn hydrate(row: Row) -> Result<Self, HydrationError>
     where
         Self: Sized;

@@ -4,12 +4,15 @@ use sqlite::Cursor;
 
 use super::SqLiteEntity;
 
+/// Database query result Iterator wrapper. This wrapper allows to call entity
+/// hydration for each extracted result.
 pub struct EntityCursor<'a, T> {
     cursor: Cursor<'a>,
     phantom: PhantomData<T>,
 }
 
 impl<'a, T> EntityCursor<'a, T> {
+    /// [EntityCursor] constructor.
     pub fn new(cursor: Cursor<'a>) -> Self {
         Self {
             cursor,

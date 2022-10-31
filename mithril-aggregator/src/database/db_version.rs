@@ -2,7 +2,7 @@ use std::{collections::HashMap, error::Error, fmt::Display};
 
 use sqlite::{Connection, Row, Value};
 
-use super::sqlite::{HydrationError, Projection, ProjectionField, Provider, SqLiteEntity};
+use mithril_common::sqlite::{HydrationError, Projection, ProjectionField, Provider, SqLiteEntity};
 
 #[derive(Debug, Clone, PartialEq)]
 enum ApplicationNodeType {
@@ -29,9 +29,13 @@ impl Display for ApplicationNodeType {
     }
 }
 
+/// Entity related to the `db_version` database table.
 #[derive(Debug, PartialEq)]
 pub struct DatabaseVersion {
+    /// Semver of the database structure.
     database_version: String,
+
+    /// Name of the application.
     application_type: ApplicationNodeType,
 }
 
@@ -45,6 +49,7 @@ impl SqLiteEntity for DatabaseVersion {
     }
 }
 
+/// Projection dedicated to [DatabaseVersion] entities.
 struct DbVersionProjection {
     fields: Vec<ProjectionField>,
 }
@@ -68,12 +73,14 @@ impl DbVersionProjection {
     }
 }
 
+/// Provider for the [DatabaseVersion] entities using the [DbVersionProjection].
 pub struct VersionProvider<'conn> {
     connection: &'conn Connection,
     projection: DbVersionProjection,
 }
 
 impl<'conn> VersionProvider<'conn> {
+    /// [VersionProvider] constructor.
     pub fn new(connection: &'conn Connection) -> Self {
         Self {
             connection,
@@ -81,6 +88,8 @@ impl<'conn> VersionProvider<'conn> {
         }
     }
 
+    /// Method to create the table at the beginning of the migration procedure.
+    /// This code is temporary and should not last.
     pub fn create_table_if_not_exists(&self) -> Result<(), Box<dyn Error>> {
         let connection = self.get_connection();
         let sql = "select exists(select name from sqlite_master where type='table' and name='db_version') as table_exists";
@@ -131,12 +140,15 @@ where {where_clause}
     }
 }
 
+/// Write [Provider] for the [DatabaseVersion] entities.
+/// This will perform an UPSERT and return the updated entity.
 pub struct VersionUpdatedProvider<'conn> {
     connection: &'conn Connection,
     projection: DbVersionProjection,
 }
 
 impl<'conn> VersionUpdatedProvider<'conn> {
+    /// [VersionUpdateprovider] constructor.
     pub fn new(connection: &'conn Connection) -> Self {
         Self {
             connection,
@@ -144,6 +156,7 @@ impl<'conn> VersionUpdatedProvider<'conn> {
         }
     }
 
+    /// Persist the given entity and return the projection of the saved entity.
     pub fn save(&self, version: DatabaseVersion) -> Result<DatabaseVersion, Box<dyn Error>> {
         let params = [
             Value::String(version.database_version),

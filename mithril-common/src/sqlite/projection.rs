@@ -1,12 +1,32 @@
 use std::collections::HashMap;
 
+/// Each projection field is defined by
+/// 1. a definition
+/// 1. an alias
+/// 1. an output type
+///
+/// by example `SELECT a.title as title`
+///  * `a.title` is the definition
+///  * `title` is the field name
+///  * the type here is the same as the input type (most likely text)
+///
+/// Other example: `count(c.*) as comment_count`
+///  * `count(c.*)` is the definition
+///  * `comment_count` is the field name
+///  * type is int as the SQL `count` aggregate function returns an integer.
 pub struct ProjectionField {
+    /// Field name alias, this is the output name of the field.
     pub name: String,
+
+    /// Field definition. Some field definitions can be fairly complex like `CASE … WHEN …` or using functions.
     pub definition: String,
+
+    /// This indicates the SQL type of the output data.
     pub output_type: String,
 }
 
 impl ProjectionField {
+    /// [ProjectionField] constructor
     pub fn new(name: &str, definition: &str, output_type: &str) -> Self {
         Self {
             name: name.to_string(),
@@ -16,7 +36,13 @@ impl ProjectionField {
     }
 }
 
+/// Projection is a definition of field mapping during a query.
+/// Fields come from one or several source structures (can be tables, views or
+/// sub queries) and are mapped to a Provider query as output.
 pub trait Projection {
+    /// Add a new field to the definition. This is one of the projection
+    /// building tool to create a projection out of an existing structure.
+    /// This is a blanket implementation.
     fn add_field(&mut self, field_name: &str, definition: &str, output_type: &str) {
         self.set_field(ProjectionField {
             name: field_name.to_string(),
@@ -25,10 +51,14 @@ pub trait Projection {
         })
     }
 
+    /// This method is requested by `add_field` to actually save the state in
+    /// the current Provider implementation.
     fn set_field(&mut self, field: ProjectionField);
 
+    /// Returns the list of the ProjectionFields of this Projection.
     fn get_fields(&self) -> &Vec<ProjectionField>;
 
+    /// Turn the Projection into a string suitable for use in SQL queries.
     fn expand(&self, aliases: HashMap<String, String>) -> String {
         let mut fields: String = self
             .get_fields()

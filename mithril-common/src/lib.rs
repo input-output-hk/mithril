@@ -20,6 +20,7 @@ pub mod crypto_helper;
 pub mod digesters;
 pub mod entities;
 pub mod fake_data;
+pub mod sqlite;
 pub mod store;
 
 pub use beacon_provider::{BeaconProvider, BeaconProviderError, BeaconProviderImpl};

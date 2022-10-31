@@ -7,12 +7,16 @@ use super::{EntityCursor, Projection};
 /// A Provider is able to performe queries on a database and return iterator of a defined entity.
 /// It aims at being easily testable and adaptable.
 pub trait Provider<'conn> {
+    /// Entity type returned by the result cursor.
     type Entity;
 
+    /// Share the connection.
     fn get_connection(&'conn self) -> &'conn Connection;
 
+    /// Share the projection.
     fn get_projection(&self) -> &dyn Projection;
 
+    /// Perform the parametrized definition query.
     fn find(
         &'conn self,
         condition: Option<&str>,
@@ -29,12 +33,14 @@ pub trait Provider<'conn> {
         Ok(iterator)
     }
 
+    /// Return the definition of this provider, ie the actual SQL query this
+    /// provider performs.
     fn get_definition(&self, condition: Option<&str>) -> String;
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::database::sqlite::{entity::HydrationError, ProjectionField, SqLiteEntity};
+    use super::super::{entity::HydrationError, ProjectionField, SqLiteEntity};
 
     use super::*;
 
@@ -146,7 +152,7 @@ mod tests {
         }
 
         fn get_definition(&self, condition: Option<&str>) -> String {
-            let where_clause = condition.unwrap_or("true");
+            let _where_clause = condition.unwrap_or("true");
             let aliases = [("{:test:}".to_string(), "provider_test".to_string())]
                 .into_iter()
                 .collect();
