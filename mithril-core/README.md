@@ -140,44 +140,21 @@ make build && ./mithrildemo --nparties 16 -k 5 -m 5 --phi-f 0.9
 ```shell
 STM/Blake2b/Key registration/k: 25, m: 150, nr_parties: 300
                         time:   [409.70 ms 426.81 ms 446.30 ms]
-                        change: [+2.3183% +7.5525% +13.315%] (p = 0.02 < 0.05)
-                        Performance has regressed.
-
 STM/Blake2b/Play all lotteries/k: 25, m: 150, nr_parties: 300
                         time:   [696.58 µs 697.62 µs 698.75 µs]
-                        change: [-1.1128% -0.8545% -0.5490%] (p = 0.00 < 0.05)
-                        Change within noise threshold.
-
 STM/Blake2b/Aggregation/k: 25, m: 150, nr_parties: 300
                         time:   [18.765 ms 18.775 ms 18.785 ms]
-                        change: [-1.5665% -1.4456% -1.3236%] (p = 0.00 < 0.05)
-                        Performance has improved.
-
 STM/Blake2b/Verification/k: 25, m: 150, nr_parties: 300
                         time:   [2.1577 ms 2.1715 ms 2.1915 ms]
-                        change: [-0.0379% +0.5723% +1.6451%] (p = 0.14 > 0.05)
-                        No change in performance detected.
-
 
 STM/Blake2b/Key registration/k: 250, m: 1523, nr_parties: 2000
                         time:   [2.5807 s 2.5880 s 2.5961 s]
-                        change: [-1.7298% -0.2763% +0.7870%] (p = 0.78 > 0.05)
-                        No change in performance detected.
-
 STM/Blake2b/Play all lotteries/k: 250, m: 1523, nr_parties: 2000
                         time:   [5.9318 ms 5.9447 ms 5.9582 ms]
-                        change: [+1.1467% +1.4105% +1.6686%] (p = 0.00 < 0.05)
-                        Performance has regressed.
-
 STM/Blake2b/Aggregation/k: 250, m: 1523, nr_parties: 2000
                         time:   [190.81 ms 191.15 ms 191.54 ms]
-                        change: [-0.2176% +0.0444% +0.3235%] (p = 0.82 > 0.05)
-                        No change in performance detected.
-
 STM/Blake2b/Verification/k: 250, m: 1523, nr_parties: 2000
                         time:   [13.944 ms 14.010 ms 14.077 ms]
-                        change: [-1.0844% -0.6175% -0.0397%] (p = 0.03 < 0.05)
-                        Change within noise threshold.
 
 
 ```
