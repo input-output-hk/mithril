@@ -2,6 +2,8 @@ mod demonstrator;
 
 use crate::demonstrator::{Demonstrator, ProtocolDemonstrator};
 use clap::Parser;
+use rand_chacha::ChaCha20Rng;
+use rand_core::SeedableRng;
 
 /// Simple demonstration of the Mithril protocol
 #[derive(Parser, Debug, PartialEq, Clone, Copy)]
@@ -40,7 +42,9 @@ fn main() {
     /////////////////////
 
     println!("\n>> Protocol establish phase");
-    let mut mithril_protocol = Demonstrator::new(&config);
+    let seed = [0u8; 32];
+    let mut rng = ChaCha20Rng::from_seed(seed);
+    let mut mithril_protocol = Demonstrator::new(&config, &mut rng);
     mithril_protocol.establish();
 
     //////////////////////////
@@ -48,7 +52,7 @@ fn main() {
     /////////////////////////
 
     println!("\n>> Protocol initialize phase:");
-    mithril_protocol.initialize();
+    mithril_protocol.initialize(&mut rng);
 
     //////////////////////
     // operations phase //

@@ -221,6 +221,13 @@ impl RuntimeTester {
                             e
                         )
                     })?;
+            } else {
+                panic!(
+                    "Signer '{}' could not sign. \
+                    This test is based on the assumption that every signer signs everytime. \
+                    Possible fix: relax the protocol parameters or give more stakes to this signer.",
+                    signer_with_stake.party_id
+                );
             }
         }
 

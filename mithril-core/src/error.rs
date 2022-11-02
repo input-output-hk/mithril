@@ -1,7 +1,7 @@
 //! Crate specific errors
 
-use crate::merkle_tree::Path;
-use blake2::digest::Digest;
+use crate::merkle_tree::{BatchPath, Path};
+use blake2::digest::{Digest, FixedOutput};
 use {
     crate::multi_sig::{Signature, VerificationKey, VerificationKeyPoP},
     blst::BLST_ERROR,
@@ -27,32 +27,12 @@ pub enum MultiSignatureError {
     KeyInvalid(Box<VerificationKeyPoP>),
 }
 
-/// Errors which can be output by Mithril verification.
+/// Errors which can be output by Mithril single signature verification.
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum StmSignatureError<D: Digest> {
-    /// No quorum was found
-    #[error("No Quorum was found.")]
-    NoQuorum,
-
-    /// The IVK is invalid after aggregating the keys
-    #[error("Aggregated key does not correspond to the expected key.")]
-    IvkInvalid(VerificationKey),
-
-    /// Mu is not the sum of the signatures
-    #[error("Aggregated signature does not correspond to the expected signature.")]
-    SumInvalid(Signature),
-
+pub enum StmSignatureError {
     /// There is an index out of bounds
     #[error("Received index, {0}, is higher than what the security parameter allows, {1}.")]
     IndexBoundFailed(u64, u64),
-
-    /// There is a duplicate index
-    #[error("Indeces are not unique.")]
-    IndexNotUnique,
-
-    /// The path is not valid for the Merkle Tree
-    #[error("The path of the Merkle Tree is invalid.")]
-    PathInvalid(Path<D>),
 
     /// MSP.Eval was computed incorrectly
     #[error("The claimed evaluation of function phi is incorrect.")]
@@ -64,15 +44,43 @@ pub enum StmSignatureError<D: Digest> {
 
     /// A party submitted an invalid signature
     #[error("A provided signature is invalid")]
-    SingleSignatureInvalid(Signature),
-
-    /// The aggregated signature is invalid
-    #[error("Aggregate signature is invalid")]
-    SignatureInvalid,
+    SignatureInvalid(Signature),
 
     /// This error occurs when the the serialization of the raw bytes failed
     #[error("Invalid bytes")]
     SerializationError,
+}
+
+/// Errors which can be output by Mithril aggregate verification.
+#[derive(Debug, Clone, thiserror::Error)]
+pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
+    /// No quorum was found
+    #[error("No Quorum was found.")]
+    NoQuorum,
+
+    /// The IVK is invalid after aggregating the keys
+    #[error("Aggregated key does not correspond to the expected key.")]
+    IvkInvalid(VerificationKey),
+
+    /// There is a duplicate index
+    #[error("Indices are not unique.")]
+    IndexNotUnique,
+
+    /// The aggregated signature is invalid
+    #[error("Aggregate signature is invalid")]
+    AggregateSignatureInvalid,
+
+    /// One of the aggregated signatures is invalid
+    #[error("Individual signature is invalid: {0}")]
+    IndividualSignatureInvalid(StmSignatureError),
+
+    /// This error occurs when the the serialization of the raw bytes failed
+    #[error("Invalid bytes")]
+    SerializationError,
+
+    /// Invalid merkle batch path
+    #[error("Batch path does not verify against root")]
+    PathInvalid(BatchPath<D>),
 }
 
 /// Error types for aggregation.
@@ -89,7 +97,7 @@ pub enum AggregationError {
 
 /// Error types related to merkle trees.
 #[derive(Debug, Clone, thiserror::Error)]
-pub enum MerkleTreeError<D: Digest> {
+pub enum MerkleTreeError<D: Digest + FixedOutput> {
     /// Serialization error
     #[error("Serialization of a merkle tree failed")]
     SerializationError,
@@ -97,6 +105,10 @@ pub enum MerkleTreeError<D: Digest> {
     /// Invalid merkle path
     #[error("Path does not verify against root")]
     PathInvalid(Path<D>),
+
+    /// Invalid merkle batch path
+    #[error("Batch path does not verify against root")]
+    BatchPathInvalid(BatchPath<D>),
 }
 
 /// Errors which can be outputted by key registration.
@@ -119,34 +131,41 @@ pub enum RegisterError {
     UnregisteredInitializer,
 }
 
-impl<D: Digest> From<RegisterError> for StmSignatureError<D> {
-    fn from(e: RegisterError) -> Self {
-        match e {
-            RegisterError::SerializationError => Self::SerializationError,
-            RegisterError::KeyInvalid(e) => Self::IvkInvalid(e.vk),
-            RegisterError::KeyRegistered(_) => unreachable!(),
-            RegisterError::UnregisteredInitializer => unreachable!(),
-        }
-    }
-}
-
-impl<D: Digest> From<MerkleTreeError<D>> for StmSignatureError<D> {
+impl<D: Digest + FixedOutput> From<MerkleTreeError<D>> for StmAggregateSignatureError<D> {
     fn from(e: MerkleTreeError<D>) -> Self {
         match e {
-            MerkleTreeError::PathInvalid(e) => Self::PathInvalid(e),
+            MerkleTreeError::BatchPathInvalid(e) => Self::PathInvalid(e),
             MerkleTreeError::SerializationError => Self::SerializationError,
+            MerkleTreeError::PathInvalid(_e) => unreachable!(),
         }
     }
 }
 
-impl<D: Digest> From<MultiSignatureError> for StmSignatureError<D> {
+impl From<MultiSignatureError> for StmSignatureError {
     fn from(e: MultiSignatureError) -> Self {
         match e {
             MultiSignatureError::SerializationError => Self::SerializationError,
-            MultiSignatureError::KeyInvalid(e) => Self::IvkInvalid(e.vk),
-            MultiSignatureError::SignatureInvalid(e) => Self::SingleSignatureInvalid(e),
-            MultiSignatureError::AggregateSignatureInvalid => Self::SignatureInvalid,
+            MultiSignatureError::SignatureInvalid(e) => Self::SignatureInvalid(e),
+            MultiSignatureError::KeyInvalid(_) => unreachable!(),
+            MultiSignatureError::AggregateSignatureInvalid => unreachable!(),
         }
+    }
+}
+
+impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmAggregateSignatureError<D> {
+    fn from(e: MultiSignatureError) -> Self {
+        match e {
+            MultiSignatureError::AggregateSignatureInvalid => Self::AggregateSignatureInvalid,
+            MultiSignatureError::SerializationError => unreachable!(),
+            MultiSignatureError::KeyInvalid(_) => unreachable!(),
+            MultiSignatureError::SignatureInvalid(_e) => unreachable!(),
+        }
+    }
+}
+
+impl<D: Digest + FixedOutput> From<StmSignatureError> for StmAggregateSignatureError<D> {
+    fn from(e: StmSignatureError) -> Self {
+        StmAggregateSignatureError::IndividualSignatureInvalid(e)
     }
 }
 

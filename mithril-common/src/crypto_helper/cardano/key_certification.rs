@@ -13,7 +13,10 @@ use mithril::key_reg::{ClosedKeyReg, KeyReg};
 use mithril::stm::{Stake, StmInitializer, StmParameters, StmSigner, StmVerificationKeyPoP};
 use mithril::RegisterError;
 
-use blake2::{digest::consts::U32, Blake2b, Digest};
+use blake2::{
+    digest::{consts::U32, FixedOutput},
+    Blake2b, Digest,
+};
 use kes_summed_ed25519::kes::{Sum6Kes, Sum6KesSig};
 use kes_summed_ed25519::traits::{KesSig, KesSk};
 use rand_core::{CryptoRng, RngCore};
@@ -255,7 +258,7 @@ impl KeyRegWrapper {
 
     /// Finalize the key registration.
     /// This function disables `KeyReg::register`, consumes the instance of `self`, and returns a `ClosedKeyReg`.
-    pub fn close<D: Digest>(self) -> ClosedKeyReg<D> {
+    pub fn close<D: Digest + FixedOutput>(self) -> ClosedKeyReg<D> {
         self.stm_key_reg.close()
     }
 }
