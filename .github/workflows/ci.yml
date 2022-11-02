@@ -361,11 +361,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        environment: [ release-preprod ]
+        environment: [ testing-preview ]
         include:
-        - environment: release-preprod
-          environment_prefix: release
-          cardano_network: preprod
+        - environment: testing-preview
+          environment_prefix: testing
+          cardano_network: preview
           mithril_api_domain: api.mithril.network
           mithril_protocol_parameters: |
             {
@@ -376,13 +376,13 @@ jobs:
           mithril_signers: |
             {
               "1" = {
-                pool_id = "pool1zr907nmfsq5kalxdjju349nwg6f03lyfmcjfqcz52jf45gcgh03",
+                pool_id = "pool18r62tz408lkgfu6pq5svwzkh2vslkeg6mf72qf3h8njgvzhx9ce",
               },
             }
           terraform_backend_bucket: hydra-terraform-admin
           google_region: europe-west1
           google_zone: europe-west1-b
-          google_machine_type: e2-highmem-2
+          google_machine_type: e2-medium
           
     runs-on: ubuntu-22.04
 

@@ -21,13 +21,14 @@ For more information about the **Mithril Protocol**, please refer to the [About 
 ## Mithril Networks
 
 Here is an up ot date list of all the Mithril Networks and their status
-> Last update: 10/28/2022
+> Last update: 11/02/2022
 
 | Mithril Network | Cardano Network | Magic Id | Supported | Aggregator Endpoint | Genesis Verification Key | Note
 |------------|------------|:-----------:|:------------:|:-----------------:|:------------------:|:------------|
 | `release-mainnet` | `mainnet` | - | :x: | - | - | Not supported yet
-| `release-preprod` | `preprod` | `1` | :warning: | [:arrow_upper_right:](https://aggregator.release-preprod.api.mithril.network/aggregator) | [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) | Supported but subject to re-genesis shortly
-| `testing-preview` | `preview` | `2` | :warning: | [:arrow_upper_right:](https://aggregator.api.mithril.network/aggregator) | [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) | Supported but it will be re-spun after the `preview` network re-spin, and endpoint location will be updated
+| `release-preprod` | `preprod` | `1` | :heavy_check_mark: | [:arrow_upper_right:](https://aggregator.release-preprod.api.mithril.network/aggregator) | [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) | Works on re-spun `preprod` network
+| `pre-release-preview` | `preview` | `2` | :heavy_check_mark: | [:arrow_upper_right:](https://aggregator.pre-release-preview.api.mithril.network/aggregator) | [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) | Works on re-spun `preview` network
+| `testing-preview` | `preview` | `2` | :heavy_check_mark: | [:arrow_upper_right:](https://aggregator.testing-preview.api.mithril.network/aggregator) | [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) | Works on re-spun `preview` network
 | `dev-devnet` | `devnet` | `42` | :heavy_check_mark: | [:arrow_upper_right:](http://localhost:8080/aggregator) | - | Supported on the `devnet` only
 | `-` | `testnet` | `1097911063` | :x: | - | - | Decommissioned, not supported anymore
 
