@@ -14,7 +14,7 @@ resource "google_storage_bucket" "cloud_storage" {
 }
 
 resource "google_service_account" "cloud_storage" {
-  account_id   = "${local.environment_name}-cs-sa"
+  account_id   = local.environment_name
   display_name = "${local.environment_name}-cs-sa"
   description  = "${local.environment_name} cloud storage service account"
 }
