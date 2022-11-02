@@ -13,7 +13,7 @@ async fn certificate_chain() {
     let protocol_parameters = ProtocolParameters {
         k: 5,
         m: 100,
-        phi_f: 0.65,
+        phi_f: 0.95,
     };
     let mut tester = RuntimeTester::build(protocol_parameters.clone()).await;
 
