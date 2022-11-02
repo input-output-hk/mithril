@@ -61,7 +61,100 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
   
   deploy-release:
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [ release-preprod ]
+        include:
+        - environment: release-preprod
+          environment_prefix: release
+          cardano_network: preprod
+          mithril_api_domain: api.mithril.network
+          mithril_protocol_parameters: |
+            {
+              k     = 5
+              m     = 100
+              phi_f = 0.65
+            }
+          mithril_signers: |
+            {
+              "1" = {
+                pool_id = "pool1zr907nmfsq5kalxdjju349nwg6f03lyfmcjfqcz52jf45gcgh03",
+              },
+            }
+          terraform_backend_bucket: hydra-terraform-admin
+          google_region: europe-west1
+          google_zone: europe-west1-b
+          google_machine_type: e2-highmem-2
+          
     runs-on: ubuntu-22.04
+
+    needs:
+      - build-push-docker
+
+    environment: ${{ matrix.environment }}
+
+    env:
+      GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+      GENESIS_SECRET_KEY: ${{ secrets.GENESIS_SECRET_KEY }}
+      GENESIS_VERIFICATION_KEY_URL: ${{ secrets.GENESIS_VERIFICATION_KEY_URL }}
+      DOCKER_IMAGE_ID: latest
+
+    defaults:
+      run:
+        working-directory: mithril-infra
+
     steps:
-      - name: TODO
-        run: echo "Add terraform deployment to a release environment here"
+
+    - name: Checkout sources
+      uses: actions/checkout@v3
+
+    - name: Prepare service account credentials
+      run: |
+        echo '${{ env.GOOGLE_APPLICATION_CREDENTIALS}}' > ./google-application-credentials.json
+        chmod u+x ./assets/tools/google-credentials-public-key.sh
+        ./assets/tools/google-credentials-public-key.sh ./google-application-credentials.json ./assets/ssh_keys curry
+
+    - name: Prepare terraform variables
+      run: |
+        cat > ./env.variables.tfvars << EOF
+          environment_prefix                   = "${{ matrix.environment_prefix }}"
+          cardano_network                      = "${{ matrix.cardano_network }}"
+          google_region                        = "${{ matrix.google_region }}"
+          google_zone                          = "${{ matrix.google_zone }}"
+          google_machine_type                  = "${{ matrix.google_machine_type }}"
+          google_service_credentials_json_file = "./google-application-credentials.json"
+          mithril_api_domain                   = "${{ matrix.mithril_api_domain }}"
+          mithril_image_id                     = "${{ env.DOCKER_IMAGE_ID }}"
+          mithril_genesis_verification_key_url = "${{ env.GENESIS_VERIFICATION_KEY_URL }}"
+          mithril_genesis_secret_key           = "${{ env.GENESIS_SECRET_KEY }}"
+          mithril_protocol_parameters          = ${{ matrix.mithril_protocol_parameters }}
+          mithril_signers                      = ${{ matrix.mithril_signers }}
+        EOF
+        terraform fmt ./env.variables.tfvars
+        cat ./env.variables.tfvars
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v2
+      with:
+        terraform_wrapper: false
+
+    - name: Init Terraform
+      run: |
+        GOOGLE_APPLICATION_CREDENTIALS=./google-application-credentials.json terraform init -backend-config="bucket=${{ matrix.terraform_backend_bucket }}" -backend-config="prefix=terraform/mithril-${{ matrix.environment }}"
+
+    - name: Check Terraform
+      run: terraform fmt -check
+
+    - name: Terraform Plan
+      run: |
+        GOOGLE_APPLICATION_CREDENTIALS=./google-application-credentials.json terraform plan --var-file=./env.variables.tfvars
+
+    - name: Terraform Apply
+      run: |
+        GOOGLE_APPLICATION_CREDENTIALS=./google-application-credentials.json terraform apply -auto-approve --var-file=./env.variables.tfvars
+
+    - name: Cleanup
+      run: |
+        rm -f ./env.variables.tfvars
+        rm -f ./google-application-credentials.json
