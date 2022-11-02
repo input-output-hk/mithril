@@ -1,0 +1,31 @@
+name: toolchain-and-cache
+description: Install the stable cargo toolchain, the given cargo tools, and try to restore cache
+inputs:
+  cache-version:
+    description: Version of the current cache
+    required: false
+    default: ''
+  cargo-tools:
+    description: Space seperated list of cargo tools to install
+    required: false
+    default: ''
+runs:
+  using: "composite"
+  steps:
+    - name: Install stable toolchain
+      uses: actions-rs/toolchain@v1
+      with:
+        profile: minimal
+        toolchain: stable
+        override: true
+
+    - name: Rust Cache
+      uses: Swatinem/rust-cache@v2
+      with:
+        key: ${{ runner.os }}-cache-v${{ inputs.cache-version }}
+
+    - name: Install cargo tools
+      if: inputs.cargo-tools != ''
+      shell: bash
+      run: |
+        cargo install ${{ inputs.cargo-tools }} 2>/dev/null || true # Suppress the "binary `xyz` already exists in destination" error
