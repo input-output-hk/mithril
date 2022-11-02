@@ -5,6 +5,7 @@ import Head from "next/head";
 import Image from "next/image";
 import { Form, Stack, Button, Row, Col, InputGroup } from "react-bootstrap";
 import styles from "../styles/Home.module.css";
+import AggregatorSetter from "../components/AggregatorSetter";
 
 const available_aggregators = [
   "https://aggregator.release-preprod.api.mithril.network/aggregator",
@@ -40,23 +41,6 @@ function IntervalSetter(props) {
   );
 }
 
-function AggregatorSetter(props) {
-  function handleChange(event) {
-    props.onAggregatorChange(event.target.value);
-  }
-
-  return (
-    <Form.Group as={Col} className={props.className}>
-      <Form.Label>Aggregator:</Form.Label>
-      <Form.Select value={props.aggregator} onChange={handleChange}>
-        {props.availableAggregators.map((aggregator, index) =>
-          <option key={"agg-" + index} value={aggregator}>{aggregator}</option>
-        )}
-      </Form.Select>
-    </Form.Group>
-  );
-}
-
 export default function Explorer() {
   const [aggregator, setAggregator] = useState(available_aggregators[0]);
   const [interval, setInterval] = useState(10000);
@@ -88,7 +72,10 @@ export default function Explorer() {
           <Stack gap={3}>
             <Form>
               <Row xs={1} sm={2}>
-                <AggregatorSetter aggregator={aggregator} onAggregatorChange={handleApiChange} availableAggregators={available_aggregators} />
+                <AggregatorSetter
+                  aggregator={aggregator}
+                  onAggregatorChange={handleApiChange}
+                  defaultAvailableAggregators={available_aggregators} />
                 <IntervalSetter
                   interval={interval}
                   onIntervalChange={handleIntervalChange}
