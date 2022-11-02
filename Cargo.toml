@@ -11,3 +11,11 @@ members = [
   "mithril-signer",
   "mithril-test-lab/mithril-end-to-end"
 ]
+
+[workspace.package]
+authors = ["dev@iohk.io"]
+documentation =  "https://mithril.network/doc"
+edition = "2021"
+homepage = "https://mithril.network"
+license = "Apache-2.0"
+repository = "https://github.com/input-output-hk/mithril/"

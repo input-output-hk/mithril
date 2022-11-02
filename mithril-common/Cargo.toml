@@ -1,8 +1,12 @@
 [package]
 name = "mithril-common"
 version = "0.1.0"
-edition = "2021"
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+authors = { workspace = true }
+edition = { workspace = true }
+documentation = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
 
 [lib]
 crate-type = ["lib", "cdylib", "staticlib"]
