@@ -6,14 +6,7 @@ import Image from "next/image";
 import { Form, Stack, Button, Row, Col, InputGroup } from "react-bootstrap";
 import styles from "../styles/Home.module.css";
 import AggregatorSetter from "../components/AggregatorSetter";
-
-const available_aggregators = [
-  "https://aggregator.release-preprod.api.mithril.network/aggregator",
-  "https://aggregator.pre-release-preview.api.mithril.network/aggregator",
-  "https://aggregator.testing-preview.api.mithril.network/aggregator",
-  "https://aggregator.api.mithril.network/aggregator",
-  "http://localhost:8080/aggregator"
-];
+import available_aggregators from "../aggregators-list";
 
 function IntervalSetter(props) {
   function handleChange(event) {
