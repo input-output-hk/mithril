@@ -468,7 +468,7 @@ pub fn write_artifacts<T: Serialize>(artifact_name: &str, value: &T) {
     let artifacts_file_path = env::current_dir()
         .unwrap()
         .join(path::Path::new(&artifacts_file_path_name));
-    fs::create_dir_all(&artifacts_file_path.parent().unwrap()).unwrap();
+    fs::create_dir_all(artifacts_file_path.parent().unwrap()).unwrap();
     let mut artifacts_file = fs::File::create(&artifacts_file_path).unwrap();
     write!(
         artifacts_file,

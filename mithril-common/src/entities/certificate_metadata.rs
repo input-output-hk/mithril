@@ -58,7 +58,7 @@ impl CertificateMetadata {
     pub fn compute_hash(&self) -> String {
         let mut hasher = Sha256::new();
         hasher.update(self.protocol_version.as_bytes());
-        hasher.update(&self.protocol_parameters.compute_hash().as_bytes());
+        hasher.update(self.protocol_parameters.compute_hash().as_bytes());
         hasher.update(self.initiated_at.as_bytes());
         hasher.update(self.sealed_at.as_bytes());
         self.signers

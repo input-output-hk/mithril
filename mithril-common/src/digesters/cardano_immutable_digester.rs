@@ -31,7 +31,7 @@ impl CardanoImmutableDigester {
 impl ImmutableDigester for CardanoImmutableDigester {
     async fn compute_digest(&self, beacon: &Beacon) -> Result<String, ImmutableDigesterError> {
         let up_to_file_number = beacon.immutable_file_number;
-        let immutables = ImmutableFile::list_completed_in_dir(&*self.db_directory)?
+        let immutables = ImmutableFile::list_completed_in_dir(&self.db_directory)?
             .into_iter()
             .filter(|f| f.number <= up_to_file_number)
             .collect::<Vec<_>>();

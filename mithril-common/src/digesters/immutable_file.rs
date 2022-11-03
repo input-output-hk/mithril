@@ -127,9 +127,10 @@ mod tests {
 
         if parent_dir.exists() {
             fs::remove_dir_all(&parent_dir)
-                .expect(&*format!("Could not remove dir {:?}", parent_dir));
+                .unwrap_or_else(|_| panic!("Could not remove dir {:?}", parent_dir));
         }
-        fs::create_dir_all(&parent_dir).expect(&*format!("Could not create dir {:?}", parent_dir));
+        fs::create_dir_all(&parent_dir)
+            .unwrap_or_else(|_| panic!("Could not create dir {:?}", parent_dir));
 
         parent_dir
     }

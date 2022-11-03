@@ -218,7 +218,7 @@ impl<D: Clone + Digest + FixedOutput> MerkleTreeCommitment<D> {
     pub fn check(&self, val: &MTLeaf, proof: &Path<D>) -> Result<(), MerkleTreeError<D>> {
         let mut idx = proof.index;
 
-        let mut h = D::digest(&val.to_bytes()).to_vec();
+        let mut h = D::digest(val.to_bytes()).to_vec();
         for p in &proof.values {
             if (idx & 0b1) == 0 {
                 h = D::new().chain_update(h).chain_update(p).finalize().to_vec();
@@ -314,7 +314,7 @@ impl<D: Clone + Digest> MerkleTreeCommitmentBatchCompat<D> {
                 if ordered_indices[i] & 1 == 0 {
                     new_hashes.push(
                         D::new()
-                            .chain(&values.get(0).ok_or(MerkleTreeError::SerializationError)?)
+                            .chain(values.get(0).ok_or(MerkleTreeError::SerializationError)?)
                             .chain(&leaves[i])
                             .finalize()
                             .to_vec(),
@@ -335,7 +335,7 @@ impl<D: Clone + Digest> MerkleTreeCommitmentBatchCompat<D> {
                         new_hashes.push(
                             D::new()
                                 .chain(&leaves[i])
-                                .chain(&values.get(0).ok_or(MerkleTreeError::SerializationError)?)
+                                .chain(values.get(0).ok_or(MerkleTreeError::SerializationError)?)
                                 .finalize()
                                 .to_vec(),
                         );
@@ -344,7 +344,7 @@ impl<D: Clone + Digest> MerkleTreeCommitmentBatchCompat<D> {
                         new_hashes.push(
                             D::new()
                                 .chain(&leaves[i])
-                                .chain(&D::digest(&[0u8]))
+                                .chain(&D::digest([0u8]))
                                 .finalize()
                                 .to_vec(),
                         );
@@ -375,11 +375,11 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
         let mut nodes = vec![vec![0u8]; num_nodes];
 
         for i in 0..leaves.len() {
-            nodes[num_nodes - n + i] = D::digest(&leaves[i].to_bytes()).to_vec();
+            nodes[num_nodes - n + i] = D::digest(leaves[i].to_bytes()).to_vec();
         }
 
         for i in (0..num_nodes - n).rev() {
-            let z = D::digest(&[0u8]).to_vec();
+            let z = D::digest([0u8]).to_vec();
             let left = if left_child(i) < num_nodes {
                 &nodes[left_child(i)]
             } else {
@@ -445,7 +445,7 @@ impl<D: Digest + FixedOutput> MerkleTree<D> {
             let h = if sibling(idx) < self.nodes.len() {
                 self.nodes[sibling(idx)].clone()
             } else {
-                D::digest(&[0u8]).to_vec()
+                D::digest([0u8]).to_vec()
             };
             proof.push(h.clone());
             idx = parent(idx);

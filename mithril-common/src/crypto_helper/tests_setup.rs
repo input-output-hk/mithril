@@ -161,7 +161,7 @@ pub fn setup_signers_from_stake_distribution(
             (
                 SignerWithStake::new(
                     party_id,
-                    key_encode_hex(&protocol_initializer.verification_key())
+                    key_encode_hex(protocol_initializer.verification_key())
                         .expect("key_encode_hex of verification_key should not fail"),
                     protocol_initializer
                         .verification_key_signature()

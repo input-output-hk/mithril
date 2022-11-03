@@ -830,7 +830,7 @@ impl MultiSigner for MultiSignerImpl {
                     .await
                     .ok_or_else(ProtocolError::UnavailableMessage)?;
                 let aggregate_verification_key =
-                    key_encode_hex(&self.avk.as_ref().unwrap()).map_err(ProtocolError::Codec)?;
+                    key_encode_hex(self.avk.as_ref().unwrap()).map_err(ProtocolError::Codec)?;
                 let multi_signature =
                     key_encode_hex(&multi_signature).map_err(ProtocolError::Codec)?;
                 let genesis_signature = "".to_string();

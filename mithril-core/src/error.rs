@@ -60,7 +60,7 @@ pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
 
     /// The IVK is invalid after aggregating the keys
     #[error("Aggregated key does not correspond to the expected key.")]
-    IvkInvalid(VerificationKey),
+    IvkInvalid(Box<VerificationKey>),
 
     /// There is a duplicate index
     #[error("Indices are not unique.")]

@@ -153,9 +153,11 @@ mod tests {
         let test_dir = std::env::temp_dir().join("mithril_test");
 
         if test_dir.exists() {
-            fs::remove_dir_all(&test_dir).expect(&*format!("Could not remove dir {:?}", test_dir));
+            fs::remove_dir_all(&test_dir)
+                .unwrap_or_else(|_| panic!("Could not remove dir {:?}", test_dir));
         }
-        fs::create_dir_all(&test_dir).expect(&*format!("Could not create dir {:?}", test_dir));
+        fs::create_dir_all(&test_dir)
+            .unwrap_or_else(|_| panic!("Could not create dir {:?}", test_dir));
 
         test_dir
     }
