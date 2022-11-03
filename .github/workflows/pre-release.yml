@@ -19,7 +19,7 @@ jobs:
       - name: Download built artifacts (Linux-x64)
         uses: dawidd6/action-download-artifact@v2
         with:
-          name: mithril-distribution-Linux-x64
+          name: mithril-distribution-Linux-X64
           path: ./package-Linux-X64
           commit: ${{ github.sha }}
           workflow: ci.yml
@@ -28,7 +28,7 @@ jobs:
       - name: Download Debian packages (Linux-X64)
         uses: dawidd6/action-download-artifact@v2
         with:
-          name: mithril-deb-packages-Linux-x64
+          name: mithril-deb-packages-Linux-X64
           path: ./package
           commit: ${{ github.sha }}
           workflow: ci.yml
@@ -37,7 +37,7 @@ jobs:
       - name: Download built artifacts (macOS-x64)
         uses: dawidd6/action-download-artifact@v2
         with:
-          name: mithril-distribution-macOS-x64
+          name: mithril-distribution-macOS-X64
           path: ./package-macOS-X64
           commit: ${{ github.sha }}
           workflow: ci.yml
@@ -46,7 +46,7 @@ jobs:
       - name: Download built artifacts (Windows-x64)
         uses: dawidd6/action-download-artifact@v2
         with:
-          name: mithril-distribution-Windows-x64
+          name: mithril-distribution-Windows-X64
           path: ./package-Windows-X64
           commit: ${{ github.sha }}
           workflow: ci.yml
@@ -130,7 +130,7 @@ jobs:
       - name: Download built artifacts (Linux-x64)
         uses: dawidd6/action-download-artifact@v2
         with:
-          name: mithril-distribution-Linux-x64
+          name: mithril-distribution-Linux-X64
           path: ${{ matrix.project }}
           commit: ${{ github.sha }}
           workflow: ci.yml

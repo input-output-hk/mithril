@@ -46,7 +46,7 @@ jobs:
       - name: Download built artifacts (Linux-x64)
         uses: dawidd6/action-download-artifact@v2
         with:
-          name: mithril-distribution-Linux-x64
+          name: mithril-distribution-Linux-X64
           path: ${{ matrix.project }}
           commit: ${{ github.sha }}
           workflow: ci.yml
