@@ -27,9 +27,9 @@ jobs:
       - name: Build Debian packages
         shell: bash
         run: |
-          cargo deb -p mithril-aggregator
-          cargo deb -p mithril-signer
-          cargo deb -p mithril-client
+          cargo deb --no-build -p mithril-aggregator
+          cargo deb --no-build -p mithril-signer
+          cargo deb --no-build -p mithril-client
       
       - name: Publish Debian packages
         uses: actions/upload-artifact@v3
@@ -44,7 +44,6 @@ jobs:
           name: mithril-end-to-end-${{ runner.os }}-${{ runner.arch }}
           path: target/release/mithril-end-to-end
           if-no-files-found: error
-  
   
   build:
     strategy:
