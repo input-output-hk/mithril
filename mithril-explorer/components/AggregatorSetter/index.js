@@ -3,13 +3,19 @@ import {Button, Col, Form, InputGroup, OverlayTrigger, Tooltip} from "react-boot
 import AddAggregatorModal from "./AddAggregatorModal";
 
 export default function AggregatorSetter(props) {
+  const CUSTOM_AGGREGATORS_KEY = "CUSTOM_AGGREGATORS";
   const [availableAggregators, setAvailableAggregators] = useState([]);
   const [showAddModal, toggleAddModal] = useState(false);
   const [canRemoveSelected, setCanRemoveSelected] = useState(false);
 
   useEffect(() => {
     let aggregators = props.defaultAvailableAggregators;
-
+    
+    const storedAggregators = JSON.parse(localStorage.getItem(CUSTOM_AGGREGATORS_KEY));
+    if (storedAggregators) {
+      aggregators = aggregators.concat(storedAggregators);
+    }
+    
     setAvailableAggregators(aggregators);
   }, [props.defaultAvailableAggregators]);
 
@@ -40,8 +46,10 @@ export default function AggregatorSetter(props) {
       return;
     }
 
-    setAvailableAggregators([...availableAggregators, aggregator]);
+    const aggregators = [...availableAggregators, aggregator];
+    setAvailableAggregators(aggregators);
     handleChange(aggregator);
+    saveCustomAggregatorSources(aggregators);
   }
 
   function deleteSelectedAggregatorSource() {
@@ -49,8 +57,16 @@ export default function AggregatorSetter(props) {
       return;
     }
 
-    setAvailableAggregators(availableAggregators.filter(a => a !== props.aggregator));
+    const aggregators = availableAggregators.filter(a => a !== props.aggregator);
+    setAvailableAggregators(aggregators);
     handleChange(availableAggregators.at(0));
+    saveCustomAggregatorSources(aggregators);
+  }
+  
+  function saveCustomAggregatorSources(aggregators) {
+    const customAggregators = aggregators.filter(a => !props.defaultAvailableAggregators.includes(a));
+    console.log("save", customAggregators, aggregators, props.defaultAvailableAggregators);
+    localStorage.setItem(CUSTOM_AGGREGATORS_KEY, JSON.stringify(customAggregators));
   }
 
   return (
