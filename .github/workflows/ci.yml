@@ -314,7 +314,7 @@ jobs:
       - name: Download Debian packages (Linux-X64)
         uses: actions/download-artifact@v3
         with:
-          name: mithril-deb-packages-Linux-x64
+          name: mithril-deb-packages-Linux-X64
           path: ./package
 
       - name: Download built artifacts (macOS-X64)
