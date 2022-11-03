@@ -98,7 +98,6 @@ jobs:
       GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
       GENESIS_SECRET_KEY: ${{ secrets.GENESIS_SECRET_KEY }}
       GENESIS_VERIFICATION_KEY_URL: ${{ secrets.GENESIS_VERIFICATION_KEY_URL }}
-      DOCKER_IMAGE_ID: latest
 
     defaults:
       run:
@@ -108,6 +107,9 @@ jobs:
 
     - name: Checkout sources
       uses: actions/checkout@v3
+
+    - name: Get Docker image id
+      run: echo "DOCKER_IMAGE_ID=${{ github.ref_name }}-$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
 
     - name: Prepare service account credentials
       run: |
