@@ -15,10 +15,28 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
-      - name: Build Mithril workspace & publish artifacts
-        uses: ./.github/workflows/actions/build-upload-mithril-artifact
+      - name: Install stable toolchain, tools, and restore cache
+        uses: ./.github/workflows/actions/toolchain-and-cache
         with:
           cache-version: ${{ secrets.CACHE_VERSION }}
+          cargo-tools: cargo-deb
+
+      - name: Build Mithril workspace & publish artifacts
+        uses: ./.github/workflows/actions/build-upload-mithril-artifact
+
+      - name: Build Debian packages
+        shell: bash
+        run: |
+          cargo deb -p mithril-aggregator
+          cargo deb -p mithril-signer
+          cargo deb -p mithril-client
+      
+      - name: Publish Debian packages
+        uses: actions/upload-artifact@v3
+        with:
+          name: mithril-deb-packages-${{ runner.os }}-${{ runner.arch }}
+          path: target/debian/*.deb
+          if-no-files-found: error
 
       - name: Publish End-to-end runner (${{ runner.os }}-${{ runner.arch }})
         uses: actions/upload-artifact@v3
@@ -26,6 +44,7 @@ jobs:
           name: mithril-end-to-end-${{ runner.os }}-${{ runner.arch }}
           path: target/release/mithril-end-to-end
           if-no-files-found: error
+  
   
   build:
     strategy:
@@ -44,11 +63,15 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
+
+      - name: Install stable toolchain and restore cache
+        uses: ./.github/workflows/actions/toolchain-and-cache
+        with:
+          cache-version: ${{ secrets.CACHE_VERSION }}
       
       - name: Build Mithril workspace & publish artifacts
         uses: ./.github/workflows/actions/build-upload-mithril-artifact
         with:
-          cache-version: ${{ secrets.CACHE_VERSION }}
           build-args: ${{ matrix.build-args }}
   
   test:
@@ -75,22 +98,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
+      - name: Install stable toolchain, tools, and restore cache
+        uses: ./.github/workflows/actions/toolchain-and-cache
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
-
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}
-
-      - name: Install cargo tools
-        shell: bash
-        run: |
-          cargo install cargo2junit 2>/dev/null || true # Suppress the "binary `xyz` already exists in destination" error
+          cache-version: ${{ secrets.CACHE_VERSION }}
+          cargo-tools: cargo2junit
 
       - name: Run tests
         shell: bash
@@ -114,24 +126,11 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
+      - name: Install stable toolchain, tools, and restore cache
+        uses: ./.github/workflows/actions/toolchain-and-cache
         with:
-          profile: minimal
-          toolchain: stable
-          components: clippy, rustfmt
-          override: true
-      
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}
-
-      - name: Install cargo tools
-        if: steps.cargo-cache.outputs.cache-hit == false
-        shell: bash
-        run: |
-          cargo install cargo-sort 2>/dev/null || true # Suppress the "binary `xyz` already exists in destination" error
+          cache-version: ${{ secrets.CACHE_VERSION }}
+          cargo-tools: cargo-sort
 
       - name: Cargo check
         uses: actions-rs/cargo@v1
@@ -311,6 +310,12 @@ jobs:
         with:
           name: mithril-distribution-Linux-X64
           path: ./package-Linux-X64
+
+      - name: Download Debian packages (Linux-X64)
+        uses: actions/download-artifact@v3
+        with:
+          name: mithril-deb-packages-Linux-x64
+          path: ./package
 
       - name: Download built artifacts (macOS-X64)
         uses: actions/download-artifact@v3

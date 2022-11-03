@@ -12,17 +12,10 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v3
 
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
+      - name: Install stable toolchain and restore cache
+        uses: ./.github/workflows/actions/toolchain-and-cache
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
-
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ runner.os }}-cache-v${{ secrets.CACHE_VERSION }}
+          cache-version: ${{ secrets.CACHE_VERSION }}
 
       - name: Generate cargo doc
         uses: actions-rs/cargo@v1

@@ -2,6 +2,11 @@
 name    = "mithril"
 version = "0.1.0"
 edition = "2018"
+authors = { workspace = true }
+documentation = { workspace = true }
+homepage = { workspace = true }
+license = { workspace = true }
+repository = { workspace = true }
 
 [dependencies]
 blake2      = "0.10.4"

@@ -25,6 +25,15 @@ jobs:
           workflow: ci.yml
           workflow_conclusion: success
 
+      - name: Download Debian packages (Linux-X64)
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          name: mithril-deb-packages-Linux-x64
+          path: ./package
+          commit: ${{ github.sha }}
+          workflow: ci.yml
+          workflow_conclusion: success
+
       - name: Download built artifacts (macOS-x64)
         uses: dawidd6/action-download-artifact@v2
         with:
