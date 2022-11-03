@@ -7,6 +7,7 @@ on:
     paths-ignore: # ignore docs only changes since they use a dedicated workflows: docs.yml
       - 'docs/**'
       - 'mithril-explorer/**'
+      - '.github/workflows/docs.yml'
 
 jobs:
   build-ubuntu-X64:
