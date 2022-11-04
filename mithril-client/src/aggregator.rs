@@ -176,7 +176,7 @@ impl AggregatorHandler for AggregatorHTTPClient {
             Ok(response) => match response.status() {
                 StatusCode::OK => {
                     let local_path = archive_file_path(digest, &self.network)?;
-                    fs::create_dir_all(&local_path.parent().unwrap())?;
+                    fs::create_dir_all(local_path.parent().unwrap())?;
                     let mut local_file = fs::File::create(&local_path)?;
                     let bytes_total = response.content_length().ok_or_else(|| {
                         AggregatorHandlerError::RemoteServerTechnical(
@@ -300,14 +300,14 @@ mod tests {
             .unwrap()
             .join(path::Path::new(source_directory_name))
             .join(path::Path::new(data_file_name));
-        fs::create_dir_all(&source_file_path.parent().unwrap()).unwrap();
+        fs::create_dir_all(source_file_path.parent().unwrap()).unwrap();
         let mut source_file = fs::File::create(&source_file_path).unwrap();
         write!(source_file, "{}", data_expected).unwrap();
         let archive_file = fs::File::create(&archive_file_path).unwrap();
         let archive_encoder = GzEncoder::new(&archive_file, Compression::default());
         let mut archive_builder = tar::Builder::new(archive_encoder);
         archive_builder
-            .append_dir_all(".", &source_file_path.parent().unwrap())
+            .append_dir_all(".", source_file_path.parent().unwrap())
             .unwrap();
         archive_builder.into_inner().unwrap().finish().unwrap();
     }

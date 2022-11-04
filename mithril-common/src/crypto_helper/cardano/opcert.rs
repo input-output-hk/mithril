@@ -112,7 +112,7 @@ impl OpCert {
     /// Compute protocol party id as pool id bech 32
     pub fn compute_protocol_party_id(&self) -> Result<ProtocolPartyId, OpCertError> {
         let mut hasher = Blake2b::<U28>::new();
-        hasher.update(&self.cold_vk.as_bytes());
+        hasher.update(self.cold_vk.as_bytes());
         let mut pool_id = [0u8; 28];
         pool_id.copy_from_slice(hasher.finalize().as_slice());
         bech32::encode("pool", pool_id.to_base32(), Variant::Bech32)

@@ -44,7 +44,7 @@ pub async fn initialize_dependencies(
         db_directory: PathBuf::new(),
         snapshot_directory: PathBuf::new(),
         data_stores_directory: PathBuf::new(),
-        genesis_verification_key: key_encode_hex(&genesis_verification_key).unwrap(),
+        genesis_verification_key: key_encode_hex(genesis_verification_key).unwrap(),
         store_retention_limit: None,
     };
     let certificate_pending_store = Arc::new(CertificatePendingStore::new(Box::new(

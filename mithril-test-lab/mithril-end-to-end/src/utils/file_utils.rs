@@ -34,9 +34,11 @@ mod tests {
             .join("mithril_test")
             .join(subfolder_name);
         if temp_dir.exists() {
-            fs::remove_dir_all(&temp_dir).expect(&*format!("Could not remove dir {:?}", temp_dir));
+            fs::remove_dir_all(&temp_dir)
+                .unwrap_or_else(|_| panic!("Could not remove dir {:?}", temp_dir));
         }
-        fs::create_dir_all(&temp_dir).expect(&*format!("Could not create dir {:?}", temp_dir));
+        fs::create_dir_all(&temp_dir)
+            .unwrap_or_else(|_| panic!("Could not create dir {:?}", temp_dir));
 
         temp_dir
     }

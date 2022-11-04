@@ -221,7 +221,7 @@ impl CertificateVerifier for MithrilCertificateVerifier {
         {
             Some(next_aggregate_verification_key)
                 if valid_certificate_has_different_epoch_as_previous(
-                    *next_aggregate_verification_key,
+                    next_aggregate_verification_key,
                 ) =>
             {
                 Ok(Some(previous_certificate.to_owned()))

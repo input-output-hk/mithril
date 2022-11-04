@@ -10,7 +10,7 @@ repository = { workspace = true }
 
 [dependencies]
 base64 = "0.13.0"
-clap = { version = "3.1.6", features = ["derive"] }
+clap = { version = "4.0.18", features = ["derive"] }
 hex = "0.4.3"
 log = "0.4.14"
 mithril-common = { path = "../../mithril-common", features = ["allow_skip_signer_certification"] }

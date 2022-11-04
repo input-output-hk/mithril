@@ -360,8 +360,8 @@ impl Signature {
         let hasher = Blake2b512::new()
             .chain_update(b"map")
             .chain_update(msg)
-            .chain_update(&index.to_le_bytes())
-            .chain_update(&self.to_bytes())
+            .chain_update(index.to_le_bytes())
+            .chain_update(self.to_bytes())
             .finalize();
 
         let mut output = [0u8; 64];
@@ -413,7 +413,7 @@ impl Signature {
     ) -> Result<(), MultiSignatureError> {
         let mut hashed_sigs = Blake2b::<U16>::new();
         for sig in sigs {
-            hashed_sigs.update(&sig.to_bytes());
+            hashed_sigs.update(sig.to_bytes());
         }
 
         // First we generate the scalars
@@ -423,7 +423,7 @@ impl Signature {
         let mut signatures = Vec::with_capacity(vks.len());
         for (index, sig) in sigs.iter().enumerate() {
             let mut hasher = hashed_sigs.clone();
-            hasher.update(&index.to_be_bytes());
+            hasher.update(index.to_be_bytes());
             signatures.push(&sig.0);
             scalar_bytes[..16].copy_from_slice(hasher.finalize().as_slice());
             scalars.push(blst_scalar { b: scalar_bytes });

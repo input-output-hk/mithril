@@ -105,7 +105,7 @@ fn build_logger() -> Logger {
 
 fn create_workdir_if_not_exist_clean_otherwise(work_dir: &Path) {
     if work_dir.exists() {
-        fs::remove_dir_all(&work_dir).expect("Previous work dir removal failed");
+        fs::remove_dir_all(work_dir).expect("Previous work dir removal failed");
     }
-    fs::create_dir(&work_dir).expect("Work dir creation failure");
+    fs::create_dir(work_dir).expect("Work dir creation failure");
 }
