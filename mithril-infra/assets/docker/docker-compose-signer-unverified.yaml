@@ -1,3 +1,5 @@
+# Unverified Mithril Signer node running on top of its own Cardano node
+
 version: "3.9"
 
 services:
@@ -47,15 +49,15 @@ services:
       - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
       - NETWORK=${NETWORK}
       - PARTY_ID=${PARTY_ID}
-      - RUN_INTERVAL=240000
-      - DB_DIRECTORY=/db
+      - RUN_INTERVAL=120000
+      - DB_DIRECTORY=/mithril-signer-${SIGNER_ID}/cardano/db
       - DATA_STORES_DIRECTORY=/mithril-signer-${SIGNER_ID}/mithril/stores
       - STORE_RETENTION_LIMIT=5
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
     volumes:
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/mithril:/mithril-signer-${SIGNER_ID}/mithril
-      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db:/db
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db:/mithril-signer-${SIGNER_ID}/cardano/db
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc
     logging:
       driver: "json-file"

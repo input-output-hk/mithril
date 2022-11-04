@@ -119,10 +119,12 @@ variable "mithril_protocol_parameters" {
 
 variable "mithril_signers" {
   type = map(object({
+    type    = string
     pool_id = string
   }))
   default = {
     "1" = {
+      type    = "unverified",
       pool_id = "pool15qde6mnkc0jgycm69ua0grwxmmu0tke54h5uhml0j8ndw3kcu9x",
     }
   }
