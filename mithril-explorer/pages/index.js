@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, {useEffect, useState} from 'react';
 import PendingCertificate from '../components/PendingCertificate';
 import SnapshotsList from '../components/SnapshotsList';
 import Head from "next/head";
@@ -7,6 +7,7 @@ import { Form, Stack, Button, Row, Col, InputGroup } from "react-bootstrap";
 import styles from "../styles/Home.module.css";
 import AggregatorSetter from "../components/AggregatorSetter";
 import available_aggregators from "../aggregators-list";
+import {useRouter} from "next/router";
 
 function IntervalSetter(props) {
   function handleChange(event) {
@@ -35,12 +36,24 @@ function IntervalSetter(props) {
 }
 
 export default function Explorer() {
+  const router = useRouter();
   const [aggregator, setAggregator] = useState(available_aggregators[0]);
   const [interval, setInterval] = useState(10000);
   const [autoUpdate, setAutoUpdate] = useState(true);
+  
+  useEffect(() => {
+    if (router.query?.aggregator && router.query?.aggregator !== aggregator) {
+      const autoUpdateState = autoUpdate;
+      
+      setAutoUpdate(false);
+      setAggregator(router.query.aggregator);
+      setAutoUpdate(autoUpdateState);
+    }
+  }, [router.query]);
 
   function handleApiChange(api) {
     setAggregator(api);
+    router.push({query: {aggregator: api}}).then(() => {});
   }
 
   function handleStartStopButtonPress(isPressed) {

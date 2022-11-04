@@ -8,6 +8,7 @@ export default function AddAggregatorModal(props) {
   function handleClose() {
     props.onAskClose();
     setIsInvalid(false);
+    setValue("");
   }
 
   function handleSave(event) {
