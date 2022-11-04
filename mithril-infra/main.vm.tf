@@ -59,6 +59,10 @@ resource "google_compute_resource_policy" "policy" {
         start_time    = "04:00"
       }
     }
+    retention_policy {
+      max_retention_days    = var.google_snapshot_max_retention_days
+      on_source_disk_delete = "KEEP_AUTO_SNAPSHOTS"
+    }
   }
 }
 

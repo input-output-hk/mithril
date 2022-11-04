@@ -48,6 +48,12 @@ variable "google_storage_bucket_max_age" {
   default     = 14
 }
 
+variable "google_snapshot_max_retention_days" {
+  type        = number
+  description = "Number of days after a disk snapshot is dropped"
+  default     = 30
+}
+
 locals {
   google_service_credentials_json_file_decoded = jsondecode(file(var.google_service_credentials_json_file))
   google_service_account_private_key           = local.google_service_credentials_json_file_decoded.private_key
