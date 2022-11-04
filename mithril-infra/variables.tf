@@ -37,6 +37,30 @@ variable "google_machine_type" {
   default     = "e2-medium"
 }
 
+variable "google_compute_instance_boot_disk_size" {
+  type        = number
+  description = "Size of the boot disk in GB"
+  default     = 200
+}
+
+variable "google_compute_instance_boot_disk_type" {
+  type        = string
+  description = "Type of disk"
+  default     = "pd-standard"
+}
+
+variable "google_compute_instance_boot_disk_image" {
+  type        = string
+  description = "Image of the boot disk"
+  default     = "ubuntu-os-cloud/ubuntu-2204-lts"
+}
+
+variable "google_compute_instance_boot_disk_snapshot" {
+  type        = string
+  description = "Snapshot used to restore the boot disk"
+  default     = ""
+}
+
 variable "google_service_credentials_json_file" {
   type        = string
   description = "The credentials of the GCP service account"

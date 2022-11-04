@@ -31,10 +31,7 @@ resource "google_compute_instance" "vm_instance" {
   metadata_startup_script = file("./assets/startup-vm.sh")
 
   boot_disk {
-    initialize_params {
-      size  = 200
-      image = "ubuntu-os-cloud/ubuntu-2204-lts"
-    }
+    source = google_compute_disk.boot.name
   }
 
   network_interface {
@@ -42,6 +39,18 @@ resource "google_compute_instance" "vm_instance" {
     access_config {
       nat_ip = google_compute_address.mithril-external-address.address
     }
+  }
+}
+
+resource "google_compute_disk" "boot" {
+  name     = "${local.environment_name}-boot"
+  type     = var.google_compute_instance_boot_disk_type
+  zone     = var.google_zone
+  size     = var.google_compute_instance_boot_disk_size
+  image    = var.google_compute_instance_boot_disk_image
+  snapshot = var.google_compute_instance_boot_disk_snapshot
+  labels = {
+    environment = local.environment_name
   }
 }
 
@@ -68,6 +77,6 @@ resource "google_compute_resource_policy" "policy" {
 
 resource "google_compute_disk_resource_policy_attachment" "attachment" {
   name = google_compute_resource_policy.policy.name
-  disk = google_compute_instance.vm_instance.name
+  disk = google_compute_disk.boot.name
   zone = var.google_zone
 }
