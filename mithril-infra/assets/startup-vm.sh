@@ -5,7 +5,7 @@ rm -f /startup-ready.txt
 
 # Update and install dependencies
 sudo apt update -y
-sudo apt install -y tree ca-certificates curl gnupg lsb-release 
+sudo apt install -y jq tree ca-certificates curl gnupg lsb-release 
 
 # Install sqlite3
 sudo apt install -y sqlite3
