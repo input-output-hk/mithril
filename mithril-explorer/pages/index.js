@@ -3,11 +3,12 @@ import PendingCertificate from '../components/PendingCertificate';
 import SnapshotsList from '../components/SnapshotsList';
 import Head from "next/head";
 import Image from "next/image";
-import { Form, Stack, Button, Row, Col, InputGroup } from "react-bootstrap";
+import {Form, Stack, Button, Row, Col, InputGroup, Container} from "react-bootstrap";
 import styles from "../styles/Home.module.css";
 import AggregatorSetter from "../components/AggregatorSetter";
 import available_aggregators from "../aggregators-list";
 import {useRouter} from "next/router";
+import EpochSettings from "../components/EpochSettings";
 
 function IntervalSetter(props) {
   function handleChange(event) {
@@ -89,7 +90,14 @@ export default function Explorer() {
                   onStartStopPress={handleStartStopButtonPress} />
               </Row>
             </Form>
-            <PendingCertificate aggregator={aggregator} updateInterval={interval} autoUpdate={autoUpdate} />
+            <Row>
+              <Col>
+                <EpochSettings aggregator={aggregator} updateInterval={interval} autoUpdate={autoUpdate} />
+              </Col>
+              <Col xs={8}>
+                <PendingCertificate aggregator={aggregator} updateInterval={interval} autoUpdate={autoUpdate} />
+              </Col>
+            </Row>
             <SnapshotsList aggregator={aggregator} updateInterval={interval} autoUpdate={autoUpdate} />
           </Stack>
         </main>
