@@ -1,42 +1,21 @@
-import React, { useEffect, useState } from 'react';
+import React, {useEffect, useReducer, useState} from 'react';
 import { Button, Col, Form, InputGroup, OverlayTrigger, Tooltip } from "react-bootstrap";
 import AddAggregatorModal from "./AddAggregatorModal";
+import { initAggregatorList, aggregatorListReducer } from "./reducer";
 
 export default function AggregatorSetter(props) {
-  const CUSTOM_AGGREGATORS_KEY = "CUSTOM_AGGREGATORS";
-  const [availableAggregators, setAvailableAggregators] = useState([]);
   const [showAddModal, toggleAddModal] = useState(false);
-  const [canRemoveSelected, setCanRemoveSelected] = useState(false);
-
+  const [state, dispatch] =
+    useReducer(
+      aggregatorListReducer,
+      [props.aggregator, props.defaultAvailableAggregators],
+      initAggregatorList);
+  
   useEffect(() => {
-    setAvailableAggregators(getAggregatorsList());
-  }, [props.defaultAvailableAggregators]);
-
-  useEffect(() => {
-    setCanRemoveSelected(!props.defaultAvailableAggregators.includes(props.aggregator));
-
-    let aggregators = getAggregatorsList();
-    if (!aggregators.includes(props.aggregator)) {
-      aggregators.push(props.aggregator);
-      saveCustomAggregatorSources(aggregators);
-      setAvailableAggregators(aggregators);
-    }
-  }, [props.aggregator]);
-
-  function getAggregatorsList() {
-    let aggregators = [...props.defaultAvailableAggregators];
-
-    const storedAggregators = JSON.parse(localStorage.getItem(CUSTOM_AGGREGATORS_KEY));
-    if (storedAggregators) {
-      aggregators = aggregators.concat(storedAggregators);
-    }
-
-    return aggregators;
-  }
-
-  function handleChange(aggregator) {
+    const aggregator = props.aggregator;
+    dispatch({type: 'addAggregator', aggregator: aggregator});
     props.onAggregatorChange(aggregator);
-  }
+  }, [props.aggregator]);
 
   function copySelected() {
     if (window.isSecureContext && props.aggregator) {
@@ -44,39 +23,18 @@ export default function AggregatorSetter(props) {
     }
   }
 
-  function showAddAggregatorSourceModal() {
-    toggleAddModal(true);
-  }
-
-  function hideAddAggregatorSourceModal() {
-    toggleAddModal(false);
+  function handleChange(aggregator) {
+    dispatch({type: 'aggregatorSelected', aggregator: aggregator});
+    props.onAggregatorChange(aggregator);
   }
 
   function addAggregatorSource(aggregator) {
-    if (availableAggregators.includes(aggregator)) {
-      return;
-    }
-
-    const aggregators = [...availableAggregators, aggregator];
-    setAvailableAggregators(aggregators);
-    handleChange(aggregator);
-    saveCustomAggregatorSources(aggregators);
+    props.onAggregatorChange(aggregator);
   }
 
   function deleteSelectedAggregatorSource() {
-    if (!canRemoveSelected) {
-      return;
-    }
-
-    const aggregators = availableAggregators.filter(a => a !== props.aggregator);
-    setAvailableAggregators(aggregators);
-    handleChange(availableAggregators.at(0));
-    saveCustomAggregatorSources(aggregators);
-  }
-
-  function saveCustomAggregatorSources(aggregators) {
-    const customAggregators = aggregators.filter(a => !props.defaultAvailableAggregators.includes(a));
-    localStorage.setItem(CUSTOM_AGGREGATORS_KEY, JSON.stringify(customAggregators));
+    dispatch({type: 'deleteSelected', aggregator: props.aggregator});
+    props.onAggregatorChange(state.availableAggregators.at(0));
   }
 
   return (
@@ -84,15 +42,15 @@ export default function AggregatorSetter(props) {
       <AddAggregatorModal
         show={showAddModal}
         onAdd={addAggregatorSource}
-        onAskClose={hideAddAggregatorSourceModal} />
+        onAskClose={() => toggleAddModal(false)} />
 
       <Form.Group as={Col} className={props.className}>
         <Form.Label>Aggregator:</Form.Label>
         <InputGroup>
-          <Button variant="outline-success" onClick={showAddAggregatorSourceModal}>
+          <Button variant="outline-success" onClick={() => toggleAddModal(true)}>
             <i className="bi bi-plus-circle"></i>
           </Button>
-          {canRemoveSelected &&
+          {state.canRemoveSelected &&
             <>
               <Button variant="outline-danger" onClick={deleteSelectedAggregatorSource}>
                 <i className="bi bi-dash-circle"></i>
@@ -105,7 +63,7 @@ export default function AggregatorSetter(props) {
             </>
           }
           <Form.Select value={props.aggregator} onChange={e => handleChange(e.target.value)}>
-            {availableAggregators.map((aggregator, index) =>
+            {state.availableAggregators.map((aggregator, index) =>
               <option key={"agg-" + index} value={aggregator}>{aggregator}</option>
             )}
           </Form.Select>
