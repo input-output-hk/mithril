@@ -79,10 +79,10 @@ export default function Explorer() {
               </Row>
             </Form>
             <Row>
-              <Col>
+              <Col xs={12} sm={4} lg={3} xl={2}>
                 <EpochSettings aggregator={aggregator} />
               </Col>
-              <Col xs={8}>
+              <Col xs={12} sm={8} lg={9} xl={10}>
                 <PendingCertificate aggregator={aggregator} />
               </Col>
             </Row>
