@@ -20,12 +20,13 @@ pub trait Provider<'conn> {
     fn find(
         &'conn self,
         condition: Option<&str>,
-        params: &Vec<Value>,
+        params: &[Value],
     ) -> Result<EntityCursor<'conn, Self::Entity>, Box<dyn Error>> {
         let sql = self.get_definition(condition);
         let cursor = self
             .get_connection()
-            .prepare(sql)?
+            .prepare(&sql)
+            .map_err(|e| format!("error=`{:?}, SQL=`{}`", e, &sql.replace("\n", " ").trim()))?
             .into_cursor()
             .bind(params)?;
         let iterator = EntityCursor::new(cursor);

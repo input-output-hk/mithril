@@ -5,9 +5,12 @@ use sqlite::{Connection, Row, Value};
 use crate::sqlite::{HydrationError, Projection, ProjectionField, Provider, SqLiteEntity};
 
 /// Application using a database
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ApplicationNodeType {
+    /// Aggregator node type
     Aggregator,
+
+    /// Signer node type
     Signer,
 }
 
@@ -32,7 +35,7 @@ impl Display for ApplicationNodeType {
 }
 
 /// Entity related to the `db_version` database table.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct DatabaseVersion {
     /// Semver of the database structure.
     pub database_version: String,
@@ -106,7 +109,7 @@ impl<'conn> VersionProvider<'conn> {
 
         if !table_exists {
             let sql = r#"
-create table db_version (application_type text not null primary key, db_version text not null)";
+create table db_version (application_type text not null primary key, version text not null)
 "#;
             connection.execute(sql)?;
         }
@@ -116,7 +119,7 @@ create table db_version (application_type text not null primary key, db_version 
 
     /// Read the database version from the database.
     pub fn get_database_version(&self) -> Result<Option<DatabaseVersion>, Box<dyn Error>> {
-        let result = self.find(None, &[].to_vec())?.next();
+        let result = self.find(None, &[])?.next();
 
         Ok(result)
     }
@@ -168,14 +171,13 @@ impl<'conn> VersionUpdatedProvider<'conn> {
     /// Persist the given entity and return the projection of the saved entity.
     pub fn save(&self, version: DatabaseVersion) -> Result<DatabaseVersion, Box<dyn Error>> {
         let params = [
-            Value::String(version.database_version),
             Value::String(format!("{}", version.application_type)),
-        ]
-        .to_vec();
+            Value::String(version.database_version),
+        ];
         let entity = self
             .find(None, &params)?
             .next()
-            .ok_or_else(|| "No data returned after insertion")?;
+            .ok_or("No data returned after insertion")?;
 
         Ok(entity)
     }
@@ -189,7 +191,7 @@ impl<'conn> Provider<'conn> for VersionUpdatedProvider<'conn> {
     }
 
     fn get_connection(&'conn self) -> &Connection {
-        &self.connection
+        self.connection
     }
 
     fn get_definition(&self, condition: Option<&str>) -> String {
@@ -200,8 +202,8 @@ impl<'conn> Provider<'conn> for VersionUpdatedProvider<'conn> {
 
         format!(
             r#"
-insert into db_version values (?, ?)
-  on conflict on (application_type) do update set version = excluded.version
+insert into db_version (application_type, version) values (?, ?)
+  on conflict (application_type) do update set version = excluded.version
 returning {projection}
 "#
         )
