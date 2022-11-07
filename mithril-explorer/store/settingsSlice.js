@@ -5,6 +5,7 @@ export const settingsSlice = createSlice({
   name: 'settings',
   initialState: {
     aggregator: available_aggregators[0],
+    availableAggregators: available_aggregators,
     updateInterval: 10000,
     autoUpdate: true,
   },

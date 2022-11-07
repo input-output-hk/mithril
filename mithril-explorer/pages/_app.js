@@ -2,11 +2,12 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap-icons/font/bootstrap-icons.css';
 import '../styles/globals.css'
 import Script from "next/script";
-import { storeWrapper } from "../store/store";
 import {Provider} from "react-redux";
+import {saveToLocalStorage, storeWrapper} from "../store/store";
 
 function MithrilExplorer({ Component, ...rest }) {
   const {store, pageProps} = storeWrapper.useWrappedStore(rest);
+  store.subscribe(() => saveToLocalStorage(store.getState()));
 
   return (
     <>
