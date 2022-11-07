@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import {Card, ListGroup} from "react-bootstrap";
 import RawJsonButton from "../RawJsonButton";
+import {useSelector} from "react-redux";
 
 export default function EpochSettings(props) {
   const [epochSettings, setEpochSettings] = useState({});
+  const autoUpdate = useSelector((state) => state.settings.autoUpdate);
 
   useEffect(() => {
-    if (!props.autoUpdate) {
+    if (!autoUpdate) {
       return;
     }
 
@@ -25,7 +27,7 @@ export default function EpochSettings(props) {
 
     const interval = setInterval(fetchEpochSettings, props.updateInterval);
     return () => clearInterval(interval);
-  }, [props.aggregator, props.updateInterval, props.autoUpdate]);
+  }, [props.aggregator, props.updateInterval, autoUpdate]);
   
   return (
     <div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {Badge, Row, Col, Card, Container, Button, ListGroup, Stack} from "react-bootstrap";
 import CertificateModal from '../CertificateModal';
 import RawJsonButton from "../RawJsonButton";
+import {useSelector} from "react-redux";
 
 /*
  * Code from: https://stackoverflow.com/a/18650828
@@ -21,9 +22,10 @@ function formatBytes(bytes, decimals = 2) {
 export default function SnapshotsList(props) {
   const [snapshots, setSnapshots] = useState([]);
   const [selectedCertificateHash, setSelectedCertificateHash] = useState(undefined);
+  const autoUpdate = useSelector((state) => state.settings.autoUpdate);
 
   useEffect(() => {
-    if (!props.autoUpdate) {
+    if (!autoUpdate) {
       return;
     }
     
@@ -42,7 +44,7 @@ export default function SnapshotsList(props) {
     
     const interval = setInterval(fetchSnapshots, props.updateInterval);
     return () => clearInterval(interval);
-  }, [props.aggregator, props.updateInterval, props.autoUpdate]);
+  }, [props.aggregator, props.updateInterval, autoUpdate]);
   
   function handleCertificateHashChange(hash) {
     setSelectedCertificateHash(hash);

@@ -9,22 +9,23 @@ import AggregatorSetter from "../components/AggregatorSetter";
 import available_aggregators from "../aggregators-list";
 import {useRouter} from "next/router";
 import EpochSettings from "../components/EpochSettings";
+import {useDispatch, useSelector} from "react-redux";
+import {toggleAutoUpdate} from "../store/settingsSlice";
 
 function IntervalSetter(props) {
+  const autoUpdate = useSelector((state) => state.settings.autoUpdate);
+  const dispatch = useDispatch();
+  
   function handleChange(event) {
     props.onIntervalChange(parseInt(event.target.value));
-  }
-
-  function handleClick() {
-    props.onStartStopPress(!props.isStartStopPressed);
   }
 
   return (
     <Form.Group as={Col} className={props.className}>
       <Form.Label>Update Interval:</Form.Label>
       <InputGroup>
-        <Button type="button" onClick={handleClick} variant={props.isStartStopPressed ? "primary" : "success"}>
-          {props.isStartStopPressed ? "Pause ⏸" : "Resume ▶"}
+        <Button type="button" onClick={() => dispatch(toggleAutoUpdate())} variant={autoUpdate ? "primary" : "success"}>
+          {autoUpdate ? "Pause ⏸" : "Resume ▶"}
         </Button>
         <Form.Select value={props.interval} onChange={handleChange}>
           <option value={1000}>1 seconds</option>
@@ -40,25 +41,21 @@ export default function Explorer() {
   const router = useRouter();
   const [aggregator, setAggregator] = useState(available_aggregators[0]);
   const [interval, setInterval] = useState(10000);
-  const [autoUpdate, setAutoUpdate] = useState(true);
+  const autoUpdate = useSelector((state) => state.settings.autoUpdate);
   
   useEffect(() => {
     if (router.query?.aggregator && router.query?.aggregator !== aggregator) {
-      const autoUpdateState = autoUpdate;
+      // const autoUpdateState = autoUpdate;
       
-      setAutoUpdate(false);
+      // setAutoUpdate(false);
       setAggregator(router.query.aggregator);
-      setAutoUpdate(autoUpdateState);
+      // setAutoUpdate(autoUpdateState);
     }
   }, [router.query]);
 
   function handleApiChange(api) {
     setAggregator(api);
     router.push({query: {aggregator: api}}).then(() => {});
-  }
-
-  function handleStartStopButtonPress(isPressed) {
-    setAutoUpdate(isPressed);
   }
 
   function handleIntervalChange(interval) {
@@ -85,17 +82,15 @@ export default function Explorer() {
                   defaultAvailableAggregators={available_aggregators} />
                 <IntervalSetter
                   interval={interval}
-                  onIntervalChange={handleIntervalChange}
-                  isStartStopPressed={autoUpdate}
-                  onStartStopPress={handleStartStopButtonPress} />
+                  onIntervalChange={handleIntervalChange} />
               </Row>
             </Form>
             <Row>
               <Col>
-                <EpochSettings aggregator={aggregator} updateInterval={interval} autoUpdate={autoUpdate} />
+                <EpochSettings aggregator={aggregator} updateInterval={interval}  />
               </Col>
               <Col xs={8}>
-                <PendingCertificate aggregator={aggregator} updateInterval={interval} autoUpdate={autoUpdate} />
+                <PendingCertificate aggregator={aggregator} updateInterval={interval} />
               </Col>
             </Row>
             <SnapshotsList aggregator={aggregator} updateInterval={interval} autoUpdate={autoUpdate} />
