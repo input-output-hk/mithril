@@ -5,12 +5,12 @@ export const settingsSlice = createSlice({
   name: 'settings',
   initialState: {
     aggregator: available_aggregators[0],
-    interval: 10000,
+    updateInterval: 10000,
     autoUpdate: true,
   },
   reducers: {
-    setFetchInterval: (state, action) => {
-      state.interval = state.value;
+    setUpdateInterval: (state, action) => {
+      state.updateInterval = action.payload;
     },
     toggleAutoUpdate: (state) => {
       state.autoUpdate = !state.autoUpdate;
@@ -18,6 +18,6 @@ export const settingsSlice = createSlice({
   }
 });
 
-export const { setFetchInterval, toggleAutoUpdate } = settingsSlice.actions;
+export const { setUpdateInterval, toggleAutoUpdate } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

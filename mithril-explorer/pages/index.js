@@ -10,15 +10,12 @@ import available_aggregators from "../aggregators-list";
 import {useRouter} from "next/router";
 import EpochSettings from "../components/EpochSettings";
 import {useDispatch, useSelector} from "react-redux";
-import {toggleAutoUpdate} from "../store/settingsSlice";
+import {setUpdateInterval, toggleAutoUpdate} from "../store/settingsSlice";
 
 function IntervalSetter(props) {
   const autoUpdate = useSelector((state) => state.settings.autoUpdate);
+  const updateInterval = useSelector((state) => state.settings.updateInterval);
   const dispatch = useDispatch();
-  
-  function handleChange(event) {
-    props.onIntervalChange(parseInt(event.target.value));
-  }
 
   return (
     <Form.Group as={Col} className={props.className}>
@@ -27,7 +24,7 @@ function IntervalSetter(props) {
         <Button type="button" onClick={() => dispatch(toggleAutoUpdate())} variant={autoUpdate ? "primary" : "success"}>
           {autoUpdate ? "Pause ⏸" : "Resume ▶"}
         </Button>
-        <Form.Select value={props.interval} onChange={handleChange}>
+        <Form.Select value={updateInterval} onChange={(e) => dispatch(setUpdateInterval(e.target.value))}>
           <option value={1000}>1 seconds</option>
           <option value={5000}>5 seconds</option>
           <option value={10000}>10 seconds</option>
@@ -40,8 +37,6 @@ function IntervalSetter(props) {
 export default function Explorer() {
   const router = useRouter();
   const [aggregator, setAggregator] = useState(available_aggregators[0]);
-  const [interval, setInterval] = useState(10000);
-  const autoUpdate = useSelector((state) => state.settings.autoUpdate);
   
   useEffect(() => {
     if (router.query?.aggregator && router.query?.aggregator !== aggregator) {
@@ -80,20 +75,18 @@ export default function Explorer() {
                   aggregator={aggregator}
                   onAggregatorChange={handleApiChange}
                   defaultAvailableAggregators={available_aggregators} />
-                <IntervalSetter
-                  interval={interval}
-                  onIntervalChange={handleIntervalChange} />
+                <IntervalSetter />
               </Row>
             </Form>
             <Row>
               <Col>
-                <EpochSettings aggregator={aggregator} updateInterval={interval}  />
+                <EpochSettings aggregator={aggregator} />
               </Col>
               <Col xs={8}>
-                <PendingCertificate aggregator={aggregator} updateInterval={interval} />
+                <PendingCertificate aggregator={aggregator} />
               </Col>
             </Row>
-            <SnapshotsList aggregator={aggregator} updateInterval={interval} autoUpdate={autoUpdate} />
+            <SnapshotsList aggregator={aggregator} />
           </Stack>
         </main>
       </div>

@@ -23,6 +23,7 @@ export default function SnapshotsList(props) {
   const [snapshots, setSnapshots] = useState([]);
   const [selectedCertificateHash, setSelectedCertificateHash] = useState(undefined);
   const autoUpdate = useSelector((state) => state.settings.autoUpdate);
+  const updateInterval = useSelector((state) => state.settings.updateInterval);
 
   useEffect(() => {
     if (!autoUpdate) {
@@ -42,9 +43,9 @@ export default function SnapshotsList(props) {
     // Fetch them once without waiting
     fetchSnapshots(); 
     
-    const interval = setInterval(fetchSnapshots, props.updateInterval);
+    const interval = setInterval(fetchSnapshots, updateInterval);
     return () => clearInterval(interval);
-  }, [props.aggregator, props.updateInterval, autoUpdate]);
+  }, [props.aggregator, updateInterval, autoUpdate]);
   
   function handleCertificateHashChange(hash) {
     setSelectedCertificateHash(hash);

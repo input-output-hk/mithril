@@ -7,6 +7,7 @@ import {useSelector} from "react-redux";
 export default function PendingCertificate(props) {
   const [pendingCertificate, setPendingCertificate] = useState({});
   const autoUpdate = useSelector((state) => state.settings.autoUpdate);
+  const updateInterval = useSelector((state) => state.settings.updateInterval);
 
   useEffect(() => {
     if (!autoUpdate) {
@@ -26,9 +27,9 @@ export default function PendingCertificate(props) {
     // Fetch it once without waiting
     fetchPendingCertificate();
 
-    const interval = setInterval(fetchPendingCertificate, props.updateInterval);
+    const interval = setInterval(fetchPendingCertificate, updateInterval);
     return () => clearInterval(interval);
-  }, [props.aggregator, props.updateInterval, autoUpdate]);
+  }, [props.aggregator, updateInterval, autoUpdate]);
 
   return (
     <div className={props.className}>

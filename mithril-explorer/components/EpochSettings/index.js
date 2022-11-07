@@ -6,6 +6,7 @@ import {useSelector} from "react-redux";
 export default function EpochSettings(props) {
   const [epochSettings, setEpochSettings] = useState({});
   const autoUpdate = useSelector((state) => state.settings.autoUpdate);
+  const updateInterval = useSelector((state) => state.settings.updateInterval);
 
   useEffect(() => {
     if (!autoUpdate) {
@@ -25,9 +26,9 @@ export default function EpochSettings(props) {
     // Fetch it once without waiting
     fetchEpochSettings();
 
-    const interval = setInterval(fetchEpochSettings, props.updateInterval);
+    const interval = setInterval(fetchEpochSettings, updateInterval);
     return () => clearInterval(interval);
-  }, [props.aggregator, props.updateInterval, autoUpdate]);
+  }, [props.aggregator, updateInterval, autoUpdate]);
   
   return (
     <div>
