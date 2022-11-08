@@ -2,6 +2,7 @@ import React, {useState} from 'react';
 import {Button, Form, FormGroup, Modal} from "react-bootstrap";
 import {useDispatch} from "react-redux";
 import {selectAggregator} from "../../store/settingsSlice";
+import {checkUrl} from "../../utils";
 
 export default function AddAggregatorModal(props) {
   const [value, setValue] = useState("");
@@ -18,13 +19,10 @@ export default function AddAggregatorModal(props) {
     // Avoid form submit if the enter key is pressed
     event.preventDefault();
 
-    try {
-      // Use the url constructor to check if the value is an url
-      new URL(value);
+    if (checkUrl(value)) {
       handleClose();
       dispatch(selectAggregator(value));
-    } catch (ex) {
-      console.warn("invalid url", ex);
+    } else {
       setIsInvalid(true);
     }
   }

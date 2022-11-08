@@ -2,6 +2,7 @@ import {configureStore} from "@reduxjs/toolkit";
 import {createWrapper} from "next-redux-wrapper";
 import {initialState as settingsInitialState, settingsSlice} from "./settingsSlice";
 import default_available_aggregators from "../aggregators-list";
+import {checkUrl} from "../utils";
 
 const SAVED_STATE_KEY = "Explorer_State";
 
@@ -24,10 +25,9 @@ function initStore() {
 
   if (location?.search) {
     const params = new URLSearchParams(location.search);
+    const aggregator = params.get('aggregator');
 
-    if (params.has('aggregator')) {
-      const aggregator = params.get('aggregator');
-
+    if (aggregator && checkUrl(aggregator)) {
       const settings = {
         selectedAggregator: aggregator,
         availableAggregators:

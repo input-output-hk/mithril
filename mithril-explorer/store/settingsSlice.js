@@ -1,5 +1,6 @@
 import {createSlice} from "@reduxjs/toolkit";
 import default_available_aggregators from "../aggregators-list";
+import {checkUrl} from "../utils";
 
 export const initialState = {
   autoUpdate: true,
@@ -20,6 +21,10 @@ export const settingsSlice = createSlice({
       state.autoUpdate = !state.autoUpdate;
     },
     selectAggregator: (state, action) => {
+      if (!checkUrl(action.payload)) {
+        return state;
+      }
+
       const availableAggregators =
         state.availableAggregators.includes(action.payload)
           ? state.availableAggregators
