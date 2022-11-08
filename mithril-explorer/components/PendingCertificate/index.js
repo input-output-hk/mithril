@@ -3,6 +3,7 @@ import {Card, CardGroup, ListGroup} from "react-bootstrap";
 import RawJsonButton from "../RawJsonButton";
 import VerifiedBadge from '../VerifiedBadge';
 import {useSelector} from "react-redux";
+import ProtocolParameters from "../ProtocolParameters";
 
 export default function PendingCertificate(props) {
   const [pendingCertificate, setPendingCertificate] = useState({});
@@ -58,11 +59,7 @@ export default function PendingCertificate(props) {
                   Number: {pendingCertificate.beacon.immutable_file_number}</ListGroup.Item>
               </ListGroup>
               <Card.Title>Protocol Parameters</Card.Title>
-              <ListGroup horizontal>
-                <ListGroup.Item>K: {pendingCertificate.protocol.k}</ListGroup.Item>
-                <ListGroup.Item>M: {pendingCertificate.protocol.m}</ListGroup.Item>
-                <ListGroup.Item>Phi: {pendingCertificate.protocol.phi_f}</ListGroup.Item>
-              </ListGroup>
+              <ProtocolParameters protocolParameters={pendingCertificate.protocol}/>
             </Card.Body>
           </Card>
           <Card>

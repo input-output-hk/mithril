@@ -2,6 +2,7 @@ import React, {useEffect, useState} from 'react';
 import {Card, ListGroup} from "react-bootstrap";
 import RawJsonButton from "../RawJsonButton";
 import {useSelector} from "react-redux";
+import ProtocolParameters from "../ProtocolParameters";
 
 export default function EpochSettings(props) {
   const [epochSettings, setEpochSettings] = useState({});
@@ -45,11 +46,7 @@ export default function EpochSettings(props) {
             <ListGroup.Item>{epochSettings.epoch}</ListGroup.Item>
           </ListGroup>
           <Card.Title>Protocol Parameters</Card.Title>
-          <ListGroup horizontal>
-            <ListGroup.Item>K: {epochSettings.protocol?.k}</ListGroup.Item>
-            <ListGroup.Item>M: {epochSettings.protocol?.m}</ListGroup.Item>
-            <ListGroup.Item>Phi: {epochSettings.protocol?.phi_f}</ListGroup.Item>
-          </ListGroup>
+          <ProtocolParameters protocolParameters={epochSettings.protocol}/>
         </Card.Body>
       </Card>
     </div>

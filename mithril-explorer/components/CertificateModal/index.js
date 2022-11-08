@@ -3,6 +3,7 @@ import {Badge, Button, Col, Container, ListGroup, Modal, Row, Table} from "react
 import {useSelector} from "react-redux";
 import RawJsonButton from "../RawJsonButton";
 import VerifiedBadge from '../VerifiedBadge';
+import ProtocolParameters from "../ProtocolParameters";
 
 export default function CertificateModal(props) {
   const [certificate, setCertificate] = useState({});
@@ -57,11 +58,7 @@ export default function CertificateModal(props) {
                   <ListGroup.Item>Immutable File Number: {certificate.beacon.immutable_file_number}</ListGroup.Item>
                 </ListGroup>
                 <h4>Protocol Parameters</h4>
-                <ListGroup horizontal>
-                  <ListGroup.Item>K: {certificate.metadata.parameters.k}</ListGroup.Item>
-                  <ListGroup.Item>M: {certificate.metadata.parameters.m}</ListGroup.Item>
-                  <ListGroup.Item>Phi: {certificate.metadata.parameters.phi_f}</ListGroup.Item>
-                </ListGroup>
+                <ProtocolParameters protocolParameters={certificate.metadata.parameters}/>
               </Col>
               <Col xl={8}>
                 <h4>Signers</h4>
