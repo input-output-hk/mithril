@@ -1,5 +1,6 @@
 use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
+use semver::{Version, VersionReq};
 use slog::Level;
 use slog_scope::debug;
 use sqlite::Connection;
@@ -42,19 +43,20 @@ fn check_database_version(connection: &Connection) -> Result<bool, Box<dyn Error
     provider.create_table_if_not_exists()?;
     let maybe_option = provider.get_database_version()?;
 
-    let _database_version = match maybe_option {
+    let version = match maybe_option {
         None => {
             let provider = VersionUpdatedProvider::new(connection);
             let version = DatabaseVersion {
-                database_version: DATABASE_SCHEMATIC_VERSION.to_string(),
+                database_version: Version::parse(DATABASE_SCHEMATIC_VERSION)?,
                 application_type: ApplicationNodeType::new("aggregator")?,
             };
             provider.save(version)?
         }
         Some(version) => version,
     };
+    let req = VersionReq::parse("~0.1").unwrap();
 
-    Ok(true)
+    Ok(req.matches(&version.database_version))
 }
 
 fn setup_genesis_dependencies(

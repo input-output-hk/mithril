@@ -101,9 +101,10 @@ where
         sql: String,
         key: &K,
     ) -> Result<Statement> {
-        let statement = connection
+        let mut statement = connection
             .prepare(sql)
-            .map_err(|e| AdapterError::InitializationError(e.into()))?
+            .map_err(|e| AdapterError::InitializationError(e.into()))?;
+        statement
             .bind::<&str>(1, self.get_hash_from_key(key)?.as_str())
             .map_err(|e| AdapterError::InitializationError(e.into()))?;
 
@@ -165,11 +166,14 @@ where
         })?;
         let mut statement = connection
             .prepare(sql)
-            .map_err(|e| AdapterError::InitializationError(e.into()))?
+            .map_err(|e| AdapterError::InitializationError(e.into()))?;
+        statement
             .bind::<&str>(1, self.get_hash_from_key(key)?.as_str())
-            .map_err(|e| AdapterError::InitializationError(e.into()))?
+            .map_err(|e| AdapterError::InitializationError(e.into()))?;
+        statement
             .bind::<&str>(2, self.serialize_key(key)?.as_str())
-            .map_err(|e| AdapterError::InitializationError(e.into()))?
+            .map_err(|e| AdapterError::InitializationError(e.into()))?;
+        statement
             .bind::<&str>(3, value.as_str())
             .map_err(|e| AdapterError::InitializationError(e.into()))?;
         let _ = statement
@@ -215,12 +219,13 @@ where
             "select cast(key as text) as key, cast(value as text) as value from {} order by ROWID desc limit ?1",
             self.table
         );
-        let cursor = connection
+        let mut statement = connection
             .prepare(sql)
-            .map_err(|e| AdapterError::InitializationError(e.into()))?
+            .map_err(|e| AdapterError::InitializationError(e.into()))?;
+        statement
             .bind::<i64>(1, how_many as i64)
-            .map_err(|e| AdapterError::InitializationError(e.into()))?
-            .into_cursor();
+            .map_err(|e| AdapterError::InitializationError(e.into()))?;
+        let cursor = statement.into_cursor();
 
         let results = cursor
             .map(|row| {

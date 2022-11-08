@@ -1,5 +1,6 @@
 use std::{collections::HashMap, error::Error, fmt::Display};
 
+use semver::Version;
 use sqlite::{Connection, Row, Value};
 
 use crate::sqlite::{HydrationError, Projection, ProjectionField, Provider, SqLiteEntity};
@@ -38,7 +39,7 @@ impl Display for ApplicationNodeType {
 #[derive(Debug, PartialEq, Eq)]
 pub struct DatabaseVersion {
     /// Semver of the database structure.
-    pub database_version: String,
+    pub database_version: Version,
 
     /// Name of the application.
     pub application_type: ApplicationNodeType,
@@ -47,7 +48,8 @@ pub struct DatabaseVersion {
 impl SqLiteEntity for DatabaseVersion {
     fn hydrate(row: Row) -> Result<Self, HydrationError> {
         Ok(Self {
-            database_version: row.get::<String, _>(0),
+            database_version: Version::parse(&row.get::<String, _>(0))
+                .map_err(|e| HydrationError::InvalidData(format!("{}", e)))?,
             application_type: ApplicationNodeType::new(&row.get::<String, _>(1))
                 .map_err(|e| HydrationError::InvalidData(format!("{}", e)))?,
         })
@@ -172,7 +174,7 @@ impl<'conn> VersionUpdatedProvider<'conn> {
     pub fn save(&self, version: DatabaseVersion) -> Result<DatabaseVersion, Box<dyn Error>> {
         let params = [
             Value::String(format!("{}", version.application_type)),
-            Value::String(version.database_version),
+            Value::String(version.database_version.to_string()),
         ];
         let entity = self
             .find(None, &params)?
@@ -249,8 +251,8 @@ where true
 
         assert_eq!(
             r#"
-insert into db_version values (?, ?)
-  on conflict on (application_type) do update set version = excluded.version
+insert into db_version (application_type, version) values (?, ?)
+  on conflict (application_type) do update set version = excluded.version
 returning db_version.version as db_version, db_version.application_type as application_type
 "#,
             provider.get_definition(None)

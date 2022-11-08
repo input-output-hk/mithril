@@ -102,7 +102,7 @@ mod tests {
         }
 
         fn set_field(&mut self, field: ProjectionField) {
-            let _ = self.fields.push(field);
+            self.fields.push(field);
         }
     }
 

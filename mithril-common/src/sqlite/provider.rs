@@ -26,7 +26,7 @@ pub trait Provider<'conn> {
         let cursor = self
             .get_connection()
             .prepare(&sql)
-            .map_err(|e| format!("error=`{:?}, SQL=`{}`", e, &sql.replace("\n", " ").trim()))?
+            .map_err(|e| format!("error=`{:?}, SQL=`{}`", e, &sql.replace('\n', " ").trim()))?
             .into_cursor()
             .bind(params)?;
         let iterator = EntityCursor::new(cursor);
@@ -42,7 +42,6 @@ pub trait Provider<'conn> {
 #[cfg(test)]
 mod tests {
     use super::super::{entity::HydrationError, ProjectionField, SqLiteEntity};
-
     use super::*;
 
     #[derive(Debug, PartialEq)]
@@ -74,7 +73,7 @@ mod tests {
         }
 
         fn set_field(&mut self, field: ProjectionField) {
-            let _ = self.fields.push(field);
+            self.fields.push(field);
         }
     }
 
@@ -179,8 +178,8 @@ returning {projection}
                 "
             drop table if exists provider_test;
             create table provider_test(text_data text not null primary key, real_data real not null, integer_data integer not null, maybe_null integer);
-            insert into provider_test(text_data, real_data, integer_data, maybe_null) values ('row 1', 3.14, -52, null);
-            insert into provider_test(text_data, real_data, integer_data, maybe_null) values ('row 2', 2.72, 1789, 0);
+            insert into provider_test(text_data, real_data, integer_data, maybe_null) values ('row 1', 1.23, -52, null);
+            insert into provider_test(text_data, real_data, integer_data, maybe_null) values ('row 2', 2.34, 1789, 0);
             ",
             )
             .unwrap();
@@ -198,7 +197,7 @@ returning {projection}
         assert_eq!(
             TestEntity {
                 text_data: "row 1".to_string(),
-                real_data: 3.14,
+                real_data: 1.23,
                 integer_data: -52,
                 maybe_null: None
             },
@@ -210,7 +209,7 @@ returning {projection}
         assert_eq!(
             TestEntity {
                 text_data: "row 2".to_string(),
-                real_data: 2.72,
+                real_data: 2.34,
                 integer_data: 1789,
                 maybe_null: Some(0)
             },
@@ -232,7 +231,7 @@ returning {projection}
         assert_eq!(
             TestEntity {
                 text_data: "row 2".to_string(),
-                real_data: 2.72,
+                real_data: 2.34,
                 integer_data: 1789,
                 maybe_null: Some(0)
             },
@@ -245,10 +244,7 @@ returning {projection}
     pub fn test_parameters() {
         let provider = TestEntityProvider::new(init_database());
         let mut cursor = provider
-            .find(
-                Some("text_data like ?"),
-                &[Value::String("%1".to_string())].to_vec(),
-            )
+            .find(Some("text_data like ?"), &[Value::String("%1".to_string())])
             .unwrap();
         let entity = cursor
             .next()
@@ -256,7 +252,7 @@ returning {projection}
         assert_eq!(
             TestEntity {
                 text_data: "row 1".to_string(),
-                real_data: 3.14,
+                real_data: 1.23,
                 integer_data: -52,
                 maybe_null: None
             },
