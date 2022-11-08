@@ -15,6 +15,7 @@ mod command_args;
 mod configuration;
 mod dependency;
 mod http_server;
+mod new_multi_signer;
 mod multi_signer;
 mod runtime;
 mod snapshot_stores;
