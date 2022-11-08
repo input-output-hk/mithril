@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import {Badge, Row, Col, Card, Container, Button, ListGroup, Stack} from "react-bootstrap";
+import React, {useEffect, useState} from 'react';
+import {Badge, Button, Card, Col, Container, ListGroup, Row, Stack} from "react-bootstrap";
 import CertificateModal from '../CertificateModal';
 import RawJsonButton from "../RawJsonButton";
+import {useSelector} from "react-redux";
 
 /*
  * Code from: https://stackoverflow.com/a/18650828
@@ -21,14 +22,17 @@ function formatBytes(bytes, decimals = 2) {
 export default function SnapshotsList(props) {
   const [snapshots, setSnapshots] = useState([]);
   const [selectedCertificateHash, setSelectedCertificateHash] = useState(undefined);
+  const aggregator = useSelector((state) => state.settings.selectedAggregator);
+  const autoUpdate = useSelector((state) => state.settings.autoUpdate);
+  const updateInterval = useSelector((state) => state.settings.updateInterval);
 
   useEffect(() => {
-    if (!props.autoUpdate) {
+    if (!autoUpdate) {
       return;
     }
-    
+
     let fetchSnapshots = () => {
-      fetch(`${props.aggregator}/snapshots`)
+      fetch(`${aggregator}/snapshots`)
         .then(response => response.json())
         .then(data => setSnapshots(data))
         .catch(error => {
@@ -36,18 +40,18 @@ export default function SnapshotsList(props) {
           console.error("Fetch snapshots error:", error);
         });
     };
-    
+
     // Fetch them once without waiting
-    fetchSnapshots(); 
-    
-    const interval = setInterval(fetchSnapshots, props.updateInterval);
+    fetchSnapshots();
+
+    const interval = setInterval(fetchSnapshots, updateInterval);
     return () => clearInterval(interval);
-  }, [props.aggregator, props.updateInterval, props.autoUpdate]);
-  
+  }, [aggregator, updateInterval, autoUpdate]);
+
   function handleCertificateHashChange(hash) {
     setSelectedCertificateHash(hash);
   }
-  
+
   function showCertificate(hash) {
     setSelectedCertificateHash(hash);
   }
@@ -55,12 +59,12 @@ export default function SnapshotsList(props) {
   return (
     <>
       <CertificateModal
-        aggregator={props.aggregator}
+        aggregator={aggregator}
         hash={selectedCertificateHash}
-        onHashChange={handleCertificateHashChange} />
-      
+        onHashChange={handleCertificateHashChange}/>
+
       <div className={props.className}>
-        <h2>Snapshots <RawJsonButton href={`${props.aggregator}/snapshots`} variant="outline-light" size="sm" /></h2>
+        <h2>Snapshots <RawJsonButton href={`${aggregator}/snapshots`} variant="outline-light" size="sm"/></h2>
         {Object.entries(snapshots).length === 0
           ? <p>No snapshot available</p>
           :
@@ -78,7 +82,8 @@ export default function SnapshotsList(props) {
                           {snapshot.certificate_hash}{' '}
                           <Button size="sm" onClick={() => showCertificate(snapshot.certificate_hash)}>Show</Button>
                         </ListGroup.Item>
-                        <ListGroup.Item>Created at: <br/> {new Date(snapshot.created_at).toLocaleString()}</ListGroup.Item>
+                        <ListGroup.Item>Created at: <br/> {new Date(snapshot.created_at).toLocaleString()}
+                        </ListGroup.Item>
                         <ListGroup.Item>Size: {formatBytes(snapshot.size)}</ListGroup.Item>
                       </ListGroup>
                     </Card.Body>
@@ -88,8 +93,9 @@ export default function SnapshotsList(props) {
                           <><Badge bg="primary">Latest</Badge>{' '}</>
                         }
                         <Badge bg="secondary">{snapshot.beacon.network}</Badge>
-                        
-                        <RawJsonButton href={`${props.aggregator}/snapshot/${snapshot.digest}`} size="sm" className="ms-auto" />
+
+                        <RawJsonButton href={`${aggregator}/snapshot/${snapshot.digest}`} size="sm"
+                                       className="ms-auto"/>
                       </Stack>
                     </Card.Footer>
                   </Card>

@@ -1,18 +1,23 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardGroup, ListGroup } from "react-bootstrap";
+import React, {useEffect, useState} from 'react';
+import {Card, CardGroup, ListGroup} from "react-bootstrap";
 import RawJsonButton from "../RawJsonButton";
 import VerifiedBadge from '../VerifiedBadge';
+import {useSelector} from "react-redux";
+import ProtocolParameters from "../ProtocolParameters";
 
 export default function PendingCertificate(props) {
   const [pendingCertificate, setPendingCertificate] = useState({});
+  const aggregator = useSelector((state) => state.settings.selectedAggregator);
+  const autoUpdate = useSelector((state) => state.settings.autoUpdate);
+  const updateInterval = useSelector((state) => state.settings.updateInterval);
 
   useEffect(() => {
-    if (!props.autoUpdate) {
+    if (!autoUpdate) {
       return;
     }
 
     let fetchPendingCertificate = () => {
-      fetch(`${props.aggregator}/certificate-pending`)
+      fetch(`${aggregator}/certificate-pending`)
         .then(response => response.status === 200 ? response.json() : {})
         .then(data => setPendingCertificate(data))
         .catch(error => {
@@ -24,9 +29,9 @@ export default function PendingCertificate(props) {
     // Fetch it once without waiting
     fetchPendingCertificate();
 
-    const interval = setInterval(fetchPendingCertificate, props.updateInterval);
+    const interval = setInterval(fetchPendingCertificate, updateInterval);
     return () => clearInterval(interval);
-  }, [props.aggregator, props.updateInterval, props.autoUpdate]);
+  }, [aggregator, updateInterval, autoUpdate]);
 
   return (
     <div className={props.className}>
@@ -34,9 +39,9 @@ export default function PendingCertificate(props) {
         Pending Certificate
         {Object.entries(pendingCertificate).length !== 0 &&
           <RawJsonButton
-            href={`${props.aggregator}/certificate-pending`}
+            href={`${aggregator}/certificate-pending`}
             variant="outline-light"
-            size="sm" />
+            size="sm"/>
         }
       </h2>
 
@@ -50,14 +55,11 @@ export default function PendingCertificate(props) {
               <ListGroup className="margin-bottom--md" variant="flush">
                 <ListGroup.Item>Network: {pendingCertificate.beacon.network}</ListGroup.Item>
                 <ListGroup.Item>Epoch: {pendingCertificate.beacon.epoch}</ListGroup.Item>
-                <ListGroup.Item>Immutable File Number: {pendingCertificate.beacon.immutable_file_number}</ListGroup.Item>
+                <ListGroup.Item>Immutable File
+                  Number: {pendingCertificate.beacon.immutable_file_number}</ListGroup.Item>
               </ListGroup>
               <Card.Title>Protocol Parameters</Card.Title>
-              <ListGroup horizontal>
-                <ListGroup.Item>K: {pendingCertificate.protocol.k}</ListGroup.Item>
-                <ListGroup.Item>M: {pendingCertificate.protocol.m}</ListGroup.Item>
-                <ListGroup.Item>Phi: {pendingCertificate.protocol.phi_f}</ListGroup.Item>
-              </ListGroup>
+              <ProtocolParameters protocolParameters={pendingCertificate.protocol}/>
             </Card.Body>
           </Card>
           <Card>
@@ -73,7 +75,7 @@ export default function PendingCertificate(props) {
                         {signer.party_id}
                         {signer.verification_key_signature &&
                           <div className="float-end">
-                            <VerifiedBadge tooltip="Verified Signer" />
+                            <VerifiedBadge tooltip="Verified Signer"/>
                           </div>
                         }
                       </ListGroup.Item>
@@ -96,7 +98,7 @@ export default function PendingCertificate(props) {
                         {signer.party_id}
                         {signer.verification_key_signature &&
                           <div className="float-end">
-                            <VerifiedBadge tooltip="Verified Signer" />
+                            <VerifiedBadge tooltip="Verified Signer"/>
                           </div>
                         }
                       </ListGroup.Item>
@@ -108,6 +110,6 @@ export default function PendingCertificate(props) {
           </Card>
         </CardGroup>
       }
-    </div >
+    </div>
   );
 }

@@ -1,24 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { Badge, Button, Container, Col, ListGroup, Modal, OverlayTrigger, Row, Table, Tooltip } from "react-bootstrap";
+import React, {useEffect, useState} from 'react';
+import {Badge, Button, Col, Container, ListGroup, Modal, Row, Table} from "react-bootstrap";
+import {useSelector} from "react-redux";
 import RawJsonButton from "../RawJsonButton";
 import VerifiedBadge from '../VerifiedBadge';
+import ProtocolParameters from "../ProtocolParameters";
 
 export default function CertificateModal(props) {
   const [certificate, setCertificate] = useState({});
+  const aggregator = useSelector((state) => state.settings.selectedAggregator);
 
   useEffect(() => {
     if (!props.hash) {
       return;
     }
 
-    fetch(`${props.aggregator}/certificate/${props.hash}`)
+    fetch(`${aggregator}/certificate/${props.hash}`)
       .then(response => response.status === 200 ? response.json() : {})
       .then(data => setCertificate(data))
       .catch(error => {
         setCertificate({});
         console.error("Fetch certificate error:", error);
       });
-  }, [props.aggregator, props.hash]);
+  }, [aggregator, props.hash]);
 
   function showPrevious() {
     props.onHashChange(certificate.previous_hash);
@@ -55,45 +58,43 @@ export default function CertificateModal(props) {
                   <ListGroup.Item>Immutable File Number: {certificate.beacon.immutable_file_number}</ListGroup.Item>
                 </ListGroup>
                 <h4>Protocol Parameters</h4>
-                <ListGroup horizontal>
-                  <ListGroup.Item>K: {certificate.metadata.parameters.k}</ListGroup.Item>
-                  <ListGroup.Item>M: {certificate.metadata.parameters.m}</ListGroup.Item>
-                  <ListGroup.Item>Phi: {certificate.metadata.parameters.phi_f}</ListGroup.Item>
-                </ListGroup>
+                <ProtocolParameters protocolParameters={certificate.metadata.parameters}/>
               </Col>
               <Col xl={8}>
                 <h4>Signers</h4>
                 {certificate.genesis_signature !== ""
                   ?
                   <div>
-                    This is the chain Genesis Certificate, since it&aops;s manually created it doesn&apos;t contain any Signers.
+                    This is the chain Genesis Certificate, since it&aops;s manually created it doesn&apos;t contain any
+                    Signers.
                   </div>
                   : certificate.metadata.signers.length === 0
                     ?
                     <div>
-                      No Signers for this certificate, something went wrong either with the data retrieval or the signing process
+                      No Signers for this certificate, something went wrong either with the data retrieval or the
+                      signing process
                     </div>
                     : <>
                       <Table responsive>
                         <thead>
-                          <tr>
-                            <th></th>
-                            <th>Party id</th>
-                            <th>Stake</th>
-                          </tr>
+                        <tr>
+                          <th></th>
+                          <th>Party id</th>
+                          <th>Stake</th>
+                        </tr>
                         </thead>
                         <tbody>
-                          {certificate.metadata.signers.map(signer =>
-                            <tr key={signer.party_id}>
-                              <td>
-                                {signer.verification_key_signature &&
-                                  <VerifiedBadge tooltip="Verified Signer" />
-                                }
-                              </td>
-                              <td>{signer.party_id}</td>
-                              <td>{signer.stake}</td>
-                            </tr>
-                          )}
+                        {certificate.metadata.signers.map(signer =>
+                          <tr key={signer.party_id}>
+                            <td>
+                              {signer.verification_key_signature &&
+                                <VerifiedBadge tooltip="Verified Signer"/>
+                              }
+                            </td>
+                            <td>{signer.party_id}</td>
+                            <td>{signer.stake}</td>
+                          </tr>
+                        )}
                         </tbody>
                       </Table>
                     </>
@@ -107,10 +108,11 @@ export default function CertificateModal(props) {
         {certificate.genesis_signature !== ""
           ? <Badge bg="warning">Genesis</Badge>
           : <>
-            <Button size="sm" onClick={showPrevious} className="text-break">Previous hash: {certificate.previous_hash}</Button>
+            <Button size="sm" onClick={showPrevious} className="text-break">Previous
+              hash: {certificate.previous_hash}</Button>
           </>
         }
-        <RawJsonButton href={`${props.aggregator}/certificate/${props.hash}`} size="sm" />
+        <RawJsonButton href={`${aggregator}/certificate/${props.hash}`} size="sm"/>
       </Modal.Footer>
     </Modal>
   );

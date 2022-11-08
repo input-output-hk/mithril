@@ -9,15 +9,18 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@reduxjs/toolkit": "^1.9.0",
     "bootstrap": "^5.2.2",
     "bootstrap-icons": "^1.9.1",
-    "next": "^12.3.1",
+    "next": "^13.0.2",
+    "next-redux-wrapper": "^8.0.0",
     "react": "^18.2.0",
-    "react-bootstrap": "^2.5.0",
-    "react-dom": "^18.2.0"
+    "react-bootstrap": "^2.6.0",
+    "react-dom": "^18.2.0",
+    "react-redux": "^8.0.5"
   },
   "devDependencies": {
-    "eslint": "^8.26.0",
-    "eslint-config-next": "^12.3.1"
+    "eslint": "^8.27.0",
+    "eslint-config-next": "^13.0.2"
   }
 }
