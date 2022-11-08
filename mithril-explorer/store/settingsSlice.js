@@ -24,7 +24,7 @@ export const settingsSlice = createSlice({
         state.availableAggregators.includes(action.payload)
           ? state.availableAggregators
           : [...state.availableAggregators, action.payload];
-      
+
       return {
         ...state,
         selectedAggregator: action.payload,
@@ -36,7 +36,7 @@ export const settingsSlice = createSlice({
       if (default_available_aggregators.includes(state.selectedAggregator)) {
         return state;
       }
-      
+
       return {
         ...state,
         selectedAggregator: state.availableAggregators.at(0),

@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import { Button, Col, Form, InputGroup, OverlayTrigger, Tooltip } from "react-bootstrap";
+import {Button, Col, Form, InputGroup, OverlayTrigger, Tooltip} from "react-bootstrap";
 import {useDispatch, useSelector} from "react-redux";
 import {removeCustomAggregator, selectAggregator} from "../../store/settingsSlice";
 import AddAggregatorModal from "./AddAggregatorModal";
@@ -13,7 +13,8 @@ export default function AggregatorSetter(props) {
 
   function copySelected() {
     if (window.isSecureContext && selectedAggregator) {
-      navigator.clipboard.writeText(selectedAggregator).then(() => { });
+      navigator.clipboard.writeText(selectedAggregator).then(() => {
+      });
     }
   }
 
@@ -21,7 +22,7 @@ export default function AggregatorSetter(props) {
     <>
       <AddAggregatorModal
         show={showAddModal}
-        onAskClose={() => toggleAddModal(false)} />
+        onAskClose={() => toggleAddModal(false)}/>
 
       <Form.Group as={Col} className={props.className}>
         <Form.Label>Aggregator:</Form.Label>

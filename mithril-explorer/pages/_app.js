@@ -6,16 +6,16 @@ import Script from "next/script";
 import {Provider} from "react-redux";
 import {saveToLocalStorage, storeWrapper} from "../store/store";
 
-function MithrilExplorer({ Component, ...rest }) {
+function MithrilExplorer({Component, ...rest}) {
   const {store, pageProps} = storeWrapper.useWrappedStore(rest);
   store.subscribe(() => saveToLocalStorage(store.getState()));
 
   return (
     <>
       <Script id="plausible"
-          strategy="afterInteractive"
-          src="https://plausible.io/js/script.js"
-          data-domain="mithril.network" />
+              strategy="afterInteractive"
+              src="https://plausible.io/js/script.js"
+              data-domain="mithril.network"/>
       <Provider store={store}>
         <Component {...pageProps} />
       </Provider>

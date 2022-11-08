@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, {useEffect, useState} from 'react';
 import {Card, ListGroup} from "react-bootstrap";
 import RawJsonButton from "../RawJsonButton";
 import {useSelector} from "react-redux";
@@ -30,12 +30,12 @@ export default function EpochSettings(props) {
     const interval = setInterval(fetchEpochSettings, updateInterval);
     return () => clearInterval(interval);
   }, [aggregator, updateInterval, autoUpdate]);
-  
+
   return (
     <div>
       <h2>
         Epoch Settings
-        <RawJsonButton href={`${aggregator}/epoch-settings`} variant="outline-light" size="sm" />
+        <RawJsonButton href={`${aggregator}/epoch-settings`} variant="outline-light" size="sm"/>
       </h2>
 
       <Card>

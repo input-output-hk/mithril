@@ -7,7 +7,7 @@ export default function AddAggregatorModal(props) {
   const [value, setValue] = useState("");
   const [isInvalid, setIsInvalid] = useState(false);
   const dispatch = useDispatch();
-  
+
   function handleClose() {
     props.onAskClose();
     setIsInvalid(false);
