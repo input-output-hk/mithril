@@ -6,6 +6,7 @@ import {useSelector} from "react-redux";
 
 export default function PendingCertificate(props) {
   const [pendingCertificate, setPendingCertificate] = useState({});
+  const aggregator = useSelector((state) => state.settings.selectedAggregator);
   const autoUpdate = useSelector((state) => state.settings.autoUpdate);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
 
@@ -15,7 +16,7 @@ export default function PendingCertificate(props) {
     }
 
     let fetchPendingCertificate = () => {
-      fetch(`${props.aggregator}/certificate-pending`)
+      fetch(`${aggregator}/certificate-pending`)
         .then(response => response.status === 200 ? response.json() : {})
         .then(data => setPendingCertificate(data))
         .catch(error => {
@@ -29,7 +30,7 @@ export default function PendingCertificate(props) {
 
     const interval = setInterval(fetchPendingCertificate, updateInterval);
     return () => clearInterval(interval);
-  }, [props.aggregator, updateInterval, autoUpdate]);
+  }, [aggregator, updateInterval, autoUpdate]);
 
   return (
     <div className={props.className}>
@@ -37,7 +38,7 @@ export default function PendingCertificate(props) {
         Pending Certificate
         {Object.entries(pendingCertificate).length !== 0 &&
           <RawJsonButton
-            href={`${props.aggregator}/certificate-pending`}
+            href={`${aggregator}/certificate-pending`}
             variant="outline-light"
             size="sm" />
         }

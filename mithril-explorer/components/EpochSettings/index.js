@@ -5,6 +5,7 @@ import {useSelector} from "react-redux";
 
 export default function EpochSettings(props) {
   const [epochSettings, setEpochSettings] = useState({});
+  const aggregator = useSelector((state) => state.settings.selectedAggregator);
   const autoUpdate = useSelector((state) => state.settings.autoUpdate);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
 
@@ -14,7 +15,7 @@ export default function EpochSettings(props) {
     }
 
     let fetchEpochSettings = () => {
-      fetch(`${props.aggregator}/epoch-settings`)
+      fetch(`${aggregator}/epoch-settings`)
         .then(response => response.status === 200 ? response.json() : {})
         .then(data => setEpochSettings(data))
         .catch(error => {
@@ -28,13 +29,13 @@ export default function EpochSettings(props) {
 
     const interval = setInterval(fetchEpochSettings, updateInterval);
     return () => clearInterval(interval);
-  }, [props.aggregator, updateInterval, autoUpdate]);
+  }, [aggregator, updateInterval, autoUpdate]);
   
   return (
     <div>
       <h2>
         Epoch Settings
-        <RawJsonButton href={`${props.aggregator}/epoch-settings`} variant="outline-light" size="sm" />
+        <RawJsonButton href={`${aggregator}/epoch-settings`} variant="outline-light" size="sm" />
       </h2>
 
       <Card>

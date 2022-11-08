@@ -1,24 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { Badge, Button, Container, Col, ListGroup, Modal, OverlayTrigger, Row, Table, Tooltip } from "react-bootstrap";
+import {useSelector} from "react-redux";
 import RawJsonButton from "../RawJsonButton";
 import VerifiedBadge from '../VerifiedBadge';
 
 export default function CertificateModal(props) {
   const [certificate, setCertificate] = useState({});
+  const aggregator = useSelector((state) => state.settings.selectedAggregator);
 
   useEffect(() => {
     if (!props.hash) {
       return;
     }
 
-    fetch(`${props.aggregator}/certificate/${props.hash}`)
+    fetch(`${aggregator}/certificate/${props.hash}`)
       .then(response => response.status === 200 ? response.json() : {})
       .then(data => setCertificate(data))
       .catch(error => {
         setCertificate({});
         console.error("Fetch certificate error:", error);
       });
-  }, [props.aggregator, props.hash]);
+  }, [aggregator, props.hash]);
 
   function showPrevious() {
     props.onHashChange(certificate.previous_hash);
@@ -110,7 +112,7 @@ export default function CertificateModal(props) {
             <Button size="sm" onClick={showPrevious} className="text-break">Previous hash: {certificate.previous_hash}</Button>
           </>
         }
-        <RawJsonButton href={`${props.aggregator}/certificate/${props.hash}`} size="sm" />
+        <RawJsonButton href={`${aggregator}/certificate/${props.hash}`} size="sm" />
       </Modal.Footer>
     </Modal>
   );

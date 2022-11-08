@@ -1,10 +1,13 @@
 import React, {useState} from 'react';
 import {Button, Form, FormGroup, Modal} from "react-bootstrap";
+import {useDispatch} from "react-redux";
+import {selectAggregator} from "../../store/settingsSlice";
 
 export default function AddAggregatorModal(props) {
   const [value, setValue] = useState("");
   const [isInvalid, setIsInvalid] = useState(false);
-
+  const dispatch = useDispatch();
+  
   function handleClose() {
     props.onAskClose();
     setIsInvalid(false);
@@ -18,8 +21,8 @@ export default function AddAggregatorModal(props) {
     try {
       // Use the url constructor to check if the value is an url
       new URL(value);
-      props.onAdd(value);
       handleClose();
+      dispatch(selectAggregator(value));
     } catch (ex) {
       console.warn("invalid url", ex);
       setIsInvalid(true);

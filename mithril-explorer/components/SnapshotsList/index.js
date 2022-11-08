@@ -22,6 +22,7 @@ function formatBytes(bytes, decimals = 2) {
 export default function SnapshotsList(props) {
   const [snapshots, setSnapshots] = useState([]);
   const [selectedCertificateHash, setSelectedCertificateHash] = useState(undefined);
+  const aggregator = useSelector((state) => state.settings.selectedAggregator);
   const autoUpdate = useSelector((state) => state.settings.autoUpdate);
   const updateInterval = useSelector((state) => state.settings.updateInterval);
 
@@ -31,7 +32,7 @@ export default function SnapshotsList(props) {
     }
     
     let fetchSnapshots = () => {
-      fetch(`${props.aggregator}/snapshots`)
+      fetch(`${aggregator}/snapshots`)
         .then(response => response.json())
         .then(data => setSnapshots(data))
         .catch(error => {
@@ -45,7 +46,7 @@ export default function SnapshotsList(props) {
     
     const interval = setInterval(fetchSnapshots, updateInterval);
     return () => clearInterval(interval);
-  }, [props.aggregator, updateInterval, autoUpdate]);
+  }, [aggregator, updateInterval, autoUpdate]);
   
   function handleCertificateHashChange(hash) {
     setSelectedCertificateHash(hash);
@@ -58,12 +59,12 @@ export default function SnapshotsList(props) {
   return (
     <>
       <CertificateModal
-        aggregator={props.aggregator}
+        aggregator={aggregator}
         hash={selectedCertificateHash}
         onHashChange={handleCertificateHashChange} />
       
       <div className={props.className}>
-        <h2>Snapshots <RawJsonButton href={`${props.aggregator}/snapshots`} variant="outline-light" size="sm" /></h2>
+        <h2>Snapshots <RawJsonButton href={`${aggregator}/snapshots`} variant="outline-light" size="sm" /></h2>
         {Object.entries(snapshots).length === 0
           ? <p>No snapshot available</p>
           :
@@ -92,7 +93,7 @@ export default function SnapshotsList(props) {
                         }
                         <Badge bg="secondary">{snapshot.beacon.network}</Badge>
                         
-                        <RawJsonButton href={`${props.aggregator}/snapshot/${snapshot.digest}`} size="sm" className="ms-auto" />
+                        <RawJsonButton href={`${aggregator}/snapshot/${snapshot.digest}`} size="sm" className="ms-auto" />
                       </Stack>
                     </Card.Footer>
                   </Card>

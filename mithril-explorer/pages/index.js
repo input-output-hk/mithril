@@ -1,61 +1,23 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect} from 'react';
 import PendingCertificate from '../components/PendingCertificate';
 import SnapshotsList from '../components/SnapshotsList';
 import Head from "next/head";
 import Image from "next/image";
-import {Form, Stack, Button, Row, Col, InputGroup, Container} from "react-bootstrap";
+import {Form, Stack, Row, Col} from "react-bootstrap";
 import styles from "../styles/Home.module.css";
 import AggregatorSetter from "../components/AggregatorSetter";
-import available_aggregators from "../aggregators-list";
 import {useRouter} from "next/router";
 import EpochSettings from "../components/EpochSettings";
-import {useDispatch, useSelector} from "react-redux";
-import {setUpdateInterval, toggleAutoUpdate} from "../store/settingsSlice";
-
-function IntervalSetter(props) {
-  const autoUpdate = useSelector((state) => state.settings.autoUpdate);
-  const updateInterval = useSelector((state) => state.settings.updateInterval);
-  const dispatch = useDispatch();
-
-  return (
-    <Form.Group as={Col} className={props.className}>
-      <Form.Label>Update Interval:</Form.Label>
-      <InputGroup>
-        <Button type="button" onClick={() => dispatch(toggleAutoUpdate())} variant={autoUpdate ? "primary" : "success"}>
-          {autoUpdate ? "Pause ⏸" : "Resume ▶"}
-        </Button>
-        <Form.Select value={updateInterval} onChange={(e) => dispatch(setUpdateInterval(e.target.value))}>
-          <option value={1000}>1 seconds</option>
-          <option value={5000}>5 seconds</option>
-          <option value={10000}>10 seconds</option>
-        </Form.Select>
-      </InputGroup>
-    </Form.Group>
-  );
-}
+import {useSelector} from "react-redux";
+import IntervalSetter from "../components/IntervalSetter";
 
 export default function Explorer() {
   const router = useRouter();
-  const [aggregator, setAggregator] = useState(available_aggregators[0]);
+  const selectedAggregator = useSelector((state) => state.settings.selectedAggregator);
   
   useEffect(() => {
-    if (router.query?.aggregator && router.query?.aggregator !== aggregator) {
-      // const autoUpdateState = autoUpdate;
-      
-      // setAutoUpdate(false);
-      setAggregator(router.query.aggregator);
-      // setAutoUpdate(autoUpdateState);
-    }
-  }, [router.query]);
-
-  function handleApiChange(api) {
-    setAggregator(api);
-    router.push({query: {aggregator: api}}).then(() => {});
-  }
-
-  function handleIntervalChange(interval) {
-    setInterval(interval);
-  }
+    router.push({query: {aggregator: selectedAggregator}}).then(() => {});
+  }, [selectedAggregator]);
 
   return (
     <>
@@ -71,22 +33,19 @@ export default function Explorer() {
           <Stack gap={3}>
             <Form>
               <Row xs={1} sm={2}>
-                <AggregatorSetter
-                  aggregator={aggregator}
-                  onAggregatorChange={handleApiChange}
-                  defaultAvailableAggregators={available_aggregators} />
+                <AggregatorSetter />
                 <IntervalSetter />
               </Row>
             </Form>
             <Row>
               <Col xs={12} sm={4} lg={3} xl={2}>
-                <EpochSettings aggregator={aggregator} />
+                <EpochSettings />
               </Col>
               <Col xs={12} sm={8} lg={9} xl={10}>
-                <PendingCertificate aggregator={aggregator} />
+                <PendingCertificate />
               </Col>
             </Row>
-            <SnapshotsList aggregator={aggregator} />
+            <SnapshotsList />
           </Stack>
         </main>
       </div>
