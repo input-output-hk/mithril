@@ -57,7 +57,7 @@ function initStore() {
   return state;
 }
 
-const storeBuilder = () => configureStore({
+export const storeBuilder = () => configureStore({
   reducer: {
     settings: settingsSlice.reducer,
   },
