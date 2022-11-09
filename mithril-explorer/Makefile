@@ -26,4 +26,5 @@ clean:
 upgrade: clean install
 	yarn upgrade next@latest react@latest react-bootstrap@latest react-dom@latest bootstrap@latest \
 	     bootstrap-icons@latest eslint@latest eslint-config-next@latest @reduxjs/toolkit@latest \
-	     next-redux-wrapper@latest react-redux@latest
+	     next-redux-wrapper@latest react-redux@latest @popperjs/core@latest \
+	     jest@latest jest-environment-jsdom@latest @testing-library/react@latest @testing-library/jest-dom@latest
