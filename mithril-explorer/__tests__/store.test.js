@@ -1,15 +1,19 @@
 import {saveToLocalStorage, storeBuilder} from "../store/store";
 import {
-  removeCustomAggregator,
+  removeSelectedAggregator,
   selectAggregator,
   settingsSlice,
   setUpdateInterval,
   toggleAutoUpdate
 } from "../store/settingsSlice";
 import default_available_aggregators from "../aggregators-list";
-import {initStore} from "./helpers";
+import {initStore, resetLocation, setLocationToAggregator} from "./helpers";
 
 describe('Store Initialization', () => {
+  beforeEach(() => {
+    resetLocation();
+  });
+
   it('init with settings initialState without local storage', () => {
     const store = initStore();
 
@@ -27,6 +31,25 @@ describe('Store Initialization', () => {
       }
     };
     saveToLocalStorage(expected);
+    const store = storeBuilder();
+
+    expect(store.getState()).toEqual(expected);
+  });
+
+  it('init with local storage and default aggregator in url', () => {
+    const aggregatorInUrl = default_available_aggregators.at(1);
+    setLocationToAggregator(aggregatorInUrl);
+    let aggregators = [...default_available_aggregators, "https://aggregator.test"];
+    let expected = {
+      settings: {
+        ...settingsSlice.getInitialState(),
+        selectedAggregator: aggregators.at(aggregators.length - 1),
+        availableAggregators: aggregators,
+        updateInterval: 12345,
+      }
+    };
+    saveToLocalStorage(expected);
+    expected.settings.selectedAggregator = aggregatorInUrl;
     const store = storeBuilder();
 
     expect(store.getState()).toEqual(expected);
@@ -70,7 +93,7 @@ describe('Store Initialization', () => {
   it('Can\'t remove a default aggregator', () => {
     const store = initStore();
 
-    store.dispatch(removeCustomAggregator(default_available_aggregators[0]));
+    store.dispatch(removeSelectedAggregator());
     expect(store.getState().settings.availableAggregators).toContain(default_available_aggregators[0]);
   });
 
@@ -84,7 +107,7 @@ describe('Store Initialization', () => {
       }
     });
 
-    store.dispatch(removeCustomAggregator(customAggregator));
+    store.dispatch(removeSelectedAggregator());
     expect(store.getState().settings.availableAggregators).not.toContain(customAggregator);
   });
 });

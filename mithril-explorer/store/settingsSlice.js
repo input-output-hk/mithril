@@ -38,7 +38,6 @@ export const settingsSlice = createSlice({
       }
     },
     removeSelectedAggregator: (state) => {
-      console.log("removing", state.selectedAggregator);
       if (default_available_aggregators.includes(state.selectedAggregator)) {
         return state;
       }
