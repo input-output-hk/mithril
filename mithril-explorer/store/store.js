@@ -20,7 +20,7 @@ function loadFromLocalStorage() {
   return undefined;
 }
 
-function initStore() {
+export function initStore() {
   let state = loadFromLocalStorage();
 
   if (location?.search) {
@@ -28,36 +28,31 @@ function initStore() {
     const aggregator = params.get('aggregator');
 
     if (aggregator && checkUrl(aggregator)) {
-      const settings = {
-        selectedAggregator: aggregator,
-        availableAggregators:
-          !default_available_aggregators.includes(aggregator)
-            ? [...default_available_aggregators, aggregator]
-            : default_available_aggregators,
-        canRemoveSelected: !default_available_aggregators.includes(aggregator),
-      };
-
-      state = (state)
-        ? {
-          ...state,
-          settings: {
-            ...state.settings,
-            ...settings
-          }
-        }
+      const baseState = (state)
+        ? state
         : {
-          settings: {
-            ...settingsInitialState,
-            ...settings,
-          },
+          settings: settingsInitialState
         };
+
+      state = {
+        ...baseState,
+        settings: {
+          ...baseState.settings,
+          selectedAggregator: aggregator,
+          availableAggregators:
+            !baseState.settings.availableAggregators.includes(aggregator)
+              ? [...baseState.settings.availableAggregators, aggregator]
+              : baseState.settings.availableAggregators,
+          canRemoveSelected: !default_available_aggregators.includes(aggregator),
+        }
+      };
     }
   }
 
   return state;
 }
 
-const storeBuilder = () => configureStore({
+export const storeBuilder = () => configureStore({
   reducer: {
     settings: settingsSlice.reducer,
   },

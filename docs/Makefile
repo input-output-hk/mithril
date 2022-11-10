@@ -1,4 +1,4 @@
-.PHONY: clean install
+.PHONY: clean install build serve dev upgrade
 
 yarn.lock:
 	yarn install

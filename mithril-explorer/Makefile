@@ -1,4 +1,4 @@
-.PHONY: clean install
+.PHONY: clean install build dev test watch-test lint upgrade
 
 yarn.lock:
 	yarn install
@@ -15,6 +15,12 @@ dev:
 	@echo "Serving dev build at: http://localhost:3000/explorer"
 	yarn run dev
 
+test: yarn.lock
+	yarn run test:ci
+
+watch-test: yarn.lock
+	yarn run test
+
 lint:
 	yarn run lint
 
@@ -26,4 +32,5 @@ clean:
 upgrade: clean install
 	yarn upgrade next@latest react@latest react-bootstrap@latest react-dom@latest bootstrap@latest \
 	     bootstrap-icons@latest eslint@latest eslint-config-next@latest @reduxjs/toolkit@latest \
-	     next-redux-wrapper@latest react-redux@latest
+	     next-redux-wrapper@latest react-redux@latest @popperjs/core@latest \
+	     jest@latest jest-environment-jsdom@latest @testing-library/react@latest @testing-library/jest-dom@latest
