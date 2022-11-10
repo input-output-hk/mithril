@@ -1,3 +1,3 @@
 mod certificate_creator;
 
-use certificate_creator::*;
+pub use certificate_creator::*;

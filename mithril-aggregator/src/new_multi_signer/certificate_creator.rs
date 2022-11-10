@@ -7,7 +7,9 @@ use mithril_common::{
 /// TODO: use dedicated error
 use crate::ProtocolError;
 
+/// Define a way to create a [Certificate]
 pub trait CertificateCreator {
+    /// Create a [Certificate]
     fn create_certificate(
         working: &WorkingCertificate,
         signatures_party_ids: &[PartyId],
@@ -15,6 +17,7 @@ pub trait CertificateCreator {
     ) -> Result<entities::Certificate, ProtocolError>;
 }
 
+/// Implementation of a [CertificateCreator]
 pub struct MithrilCertificateCreator {}
 
 /// Laius explicant pourquoi ce n'est pas le PendingCertificate ?
@@ -24,9 +27,6 @@ pub struct WorkingCertificate {
 
     /// Current Protocol parameters
     pub protocol_parameters: ProtocolParameters,
-
-    /// Next Protocol parameters
-    pub next_protocol_parameters: ProtocolParameters,
 
     /// Current Signers
     pub signers: Vec<SignerWithStake>,
@@ -40,7 +40,8 @@ pub struct WorkingCertificate {
     /// Signing start datetime of current message
     pub initiated_at: DateTime<Utc>,
 
-    previous_hash: String,
+    /// Hash of the first certificate of the previous epoch
+    pub previous_hash: String,
 }
 
 impl CertificateCreator for MithrilCertificateCreator {
@@ -98,11 +99,9 @@ mod tests {
     fn test() {
         let (certificates, _) = setup_certificate_chain(3, 1);
         let expected = &certificates[1];
-        let next_cert = &certificates[0];
         let working_certicate = WorkingCertificate {
             beacon: expected.beacon.clone(),
             protocol_parameters: expected.metadata.protocol_parameters.clone(),
-            next_protocol_parameters: next_cert.metadata.protocol_parameters.clone(),
             signers: expected.metadata.signers.clone(),
             message: expected.protocol_message.clone(),
             aggregate_verification_key: expected.aggregate_verification_key.clone(),

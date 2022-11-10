@@ -12,7 +12,7 @@ use mithril_common::crypto_helper::{
     key_decode_hex, key_encode_hex, KESPeriod, ProtocolAggregateVerificationKey,
     ProtocolAggregationError, ProtocolClerk, ProtocolKeyRegistration, ProtocolMultiSignature,
     ProtocolParameters, ProtocolPartyId, ProtocolRegistrationError, ProtocolSignerVerificationKey,
-    ProtocolSingleSignature, ProtocolStakeDistribution, PROTOCOL_VERSION,
+    ProtocolSingleSignature, ProtocolStakeDistribution,
 };
 use mithril_common::entities::{self, PartyId, Signer, SignerWithStake};
 use mithril_common::store::{StakeStore, StakeStorer, StoreError};
@@ -23,7 +23,8 @@ use mithril_common::{
 
 use crate::store::{SingleSignatureStorer, VerificationKeyStorer};
 use crate::{
-    ProtocolParametersStore, ProtocolParametersStorer, SingleSignatureStore, VerificationKeyStore,
+    CertificateCreator, MithrilCertificateCreator, ProtocolParametersStore,
+    ProtocolParametersStorer, SingleSignatureStore, VerificationKeyStore, WorkingCertificate,
 };
 
 #[cfg(test)]
@@ -451,15 +452,6 @@ impl MultiSigner for MultiSignerImpl {
             .await
     }
 
-    /// Get next protocol parameters
-    async fn get_next_protocol_parameters(
-        &self,
-    ) -> Result<Option<ProtocolParameters>, ProtocolError> {
-        debug!("Get next protocol parameters");
-        self.get_protocol_parameters_with_epoch_offset(NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET)
-            .await
-    }
-
     /// Update protocol parameters
     async fn update_protocol_parameters(
         &mut self,
@@ -477,6 +469,15 @@ impl MultiSigner for MultiSignerImpl {
             .save_protocol_parameters(epoch, protocol_parameters.to_owned().into())
             .await?;
         Ok(())
+    }
+
+    /// Get next protocol parameters
+    async fn get_next_protocol_parameters(
+        &self,
+    ) -> Result<Option<ProtocolParameters>, ProtocolError> {
+        debug!("Get next protocol parameters");
+        self.get_protocol_parameters_with_epoch_offset(NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET)
+            .await
     }
 
     /// Get stake distribution
@@ -795,15 +796,11 @@ impl MultiSigner for MultiSignerImpl {
 
         match self.get_multi_signature().await? {
             Some(multi_signature) => {
-                let protocol_version = PROTOCOL_VERSION.to_string();
                 let protocol_parameters = self
                     .get_protocol_parameters()
                     .await?
                     .ok_or_else(ProtocolError::UnavailableProtocolParameters)?
                     .into();
-                let initiated_at =
-                    format!("{:?}", self.current_initiated_at.unwrap_or_else(Utc::now));
-                let sealed_at = format!("{:?}", Utc::now());
                 let signatures_party_ids: Vec<PartyId> = self
                     .single_signature_store
                     .get_single_signatures(&beacon)
@@ -818,31 +815,30 @@ impl MultiSigner for MultiSignerImpl {
                     .into_iter()
                     .filter(|signer| signatures_party_ids.contains(&signer.party_id))
                     .collect::<Vec<_>>();
-                let metadata = entities::CertificateMetadata::new(
-                    protocol_version,
-                    protocol_parameters,
-                    initiated_at,
-                    sealed_at,
-                    signers,
-                );
                 let protocol_message = self
                     .get_current_message()
                     .await
                     .ok_or_else(ProtocolError::UnavailableMessage)?;
                 let aggregate_verification_key =
                     key_encode_hex(self.avk.as_ref().unwrap()).map_err(ProtocolError::Codec)?;
-                let multi_signature =
-                    key_encode_hex(&multi_signature).map_err(ProtocolError::Codec)?;
-                let genesis_signature = "".to_string();
-                Ok(Some(entities::Certificate::new(
-                    previous_hash,
-                    beacon,
-                    metadata,
-                    protocol_message,
+
+                let working_certificate = WorkingCertificate {
                     aggregate_verification_key,
+                    beacon,
+                    initiated_at: Utc::now(),
+                    message: protocol_message,
+                    protocol_parameters,
+                    signers,
+                    previous_hash,
+                };
+
+                let certificate = MithrilCertificateCreator::create_certificate(
+                    &working_certificate,
+                    &signatures_party_ids,
                     multi_signature,
-                    genesis_signature,
-                )))
+                )?;
+
+                Ok(Some(certificate))
             }
             None => Ok(None),
         }

@@ -15,8 +15,8 @@ mod command_args;
 mod configuration;
 mod dependency;
 mod http_server;
-mod new_multi_signer;
 mod multi_signer;
+mod new_multi_signer;
 mod runtime;
 mod snapshot_stores;
 mod snapshot_uploaders;
@@ -33,6 +33,7 @@ pub use crate::snapshot_stores::{LocalSnapshotStore, RemoteSnapshotStore, Snapsh
 pub use command_args::MainOpts;
 pub use dependency::DependencyManager;
 pub use http_server::Server;
+pub use new_multi_signer::{CertificateCreator, MithrilCertificateCreator, WorkingCertificate};
 pub use runtime::{AggregatorConfig, AggregatorRunner, AggregatorRunnerTrait, AggregatorRuntime};
 pub use snapshot_uploaders::{
     DumbSnapshotUploader, LocalSnapshotUploader, RemoteSnapshotUploader, SnapshotUploader,
