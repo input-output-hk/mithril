@@ -1,7 +1,10 @@
 use chrono::{DateTime, Utc};
 use mithril_common::{
     crypto_helper::{key_encode_hex, ProtocolMultiSignature, PROTOCOL_VERSION},
-    entities::{self, Beacon, PartyId, ProtocolMessage, ProtocolParameters, SignerWithStake},
+    entities::{
+        self, Beacon, CertificatePending, PartyId, ProtocolMessage, ProtocolParameters,
+        SignerWithStake, StakeDistribution,
+    },
 };
 
 /// TODO: use dedicated error
@@ -21,6 +24,7 @@ pub trait CertificateCreator {
 pub struct MithrilCertificateCreator {}
 
 /// Laius explicant pourquoi ce n'est pas le PendingCertificate ?
+#[derive(Clone, Debug, PartialEq)]
 pub struct WorkingCertificate {
     /// Current Beacon
     pub beacon: Beacon,
@@ -42,6 +46,42 @@ pub struct WorkingCertificate {
 
     /// Hash of the first certificate of the previous epoch
     pub previous_hash: String,
+}
+
+impl WorkingCertificate {
+    pub fn from_pending_certificate(
+        pending_certificate: &CertificatePending,
+        signers: &[SignerWithStake],
+        protocol_message: &ProtocolMessage,
+        aggregate_verification_key: &str,
+        initiated_at: &DateTime<Utc>,
+        previous_hash: &str,
+    ) -> Self {
+        Self {
+            beacon: pending_certificate.beacon.clone(),
+            protocol_parameters: pending_certificate.protocol_parameters.clone(),
+            signers: signers.to_vec(),
+            message: protocol_message.clone(),
+            aggregate_verification_key: aggregate_verification_key.to_string(),
+            initiated_at: initiated_at.clone(),
+            previous_hash: previous_hash.to_string(),
+        }
+    }
+
+    #[cfg(test)]
+    pub fn fake() -> Self {
+        use mithril_common::fake_data;
+
+        Self {
+            beacon: fake_data::beacon(),
+            protocol_parameters: fake_data::protocol_parameters().into(),
+            signers: fake_data::signers_with_stakes(3),
+            message: ProtocolMessage::new(),
+            aggregate_verification_key: "avk".to_string(),
+            initiated_at: Utc::now(),
+            previous_hash: "hash".to_string(),
+        }
+    }
 }
 
 impl CertificateCreator for MithrilCertificateCreator {

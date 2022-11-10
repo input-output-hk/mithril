@@ -12,8 +12,10 @@ use mithril_common::entities::{
 };
 use mithril_common::CardanoNetwork;
 
+use crate::multi_signer;
 use crate::snapshot_uploaders::SnapshotLocation;
 use crate::snapshotter::OngoingSnapshot;
+use crate::WorkingCertificate;
 use crate::{DependencyManager, ProtocolError, SnapshotError};
 
 #[cfg(test)]
@@ -87,6 +89,12 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         beacon: Beacon,
     ) -> Result<CertificatePending, RuntimeError>;
 
+    /// Return the actual working certificate from the multisigner.
+    async fn create_new_working_certificate(
+        &self,
+        certificate_pending: &CertificatePending,
+    ) -> Result<WorkingCertificate, RuntimeError>;
+
     /// Store the given pending certificate.
     async fn save_pending_certificate(
         &self,
@@ -143,6 +151,32 @@ impl AggregatorRunner {
         Self {
             config,
             dependencies,
+        }
+    }
+
+    fn get_previous_hash_from_last_two_certificates<'a>(
+        beacon: &Beacon,
+        last_certificate: Option<&'a Certificate>,
+        penultimate_certificate: Option<&'a Certificate>,
+    ) -> Result<&'a str, RuntimeError> {
+        match (penultimate_certificate, last_certificate) {
+            (Some(penultimate_certificate), Some(last_certificate)) => {
+                // Check if last certificate is exactly at most one epoch before current epoch
+                if beacon.epoch - last_certificate.beacon.epoch > Epoch(1) {
+                    return Err(RuntimeError::CertificateChainEpochGap(
+                        beacon.epoch,
+                        last_certificate.beacon.epoch,
+                    ));
+                }
+                // Check if last certificate is first certificate of its epoch
+                if penultimate_certificate.beacon.epoch != last_certificate.beacon.epoch {
+                    Ok(&last_certificate.hash)
+                } else {
+                    Ok(&last_certificate.previous_hash)
+                }
+            }
+            (None, Some(last_certificate)) => Ok(&last_certificate.hash),
+            _ => Ok(""),
         }
     }
 }
@@ -324,6 +358,48 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(pending_certificate)
     }
 
+    async fn create_new_working_certificate(
+        &self,
+        certificate_pending: &CertificatePending,
+    ) -> Result<WorkingCertificate, RuntimeError> {
+        debug!("RUNNER: create new working certificate");
+        let multi_signer = self.dependencies.multi_signer.read().await;
+
+        let signers = match multi_signer.get_signers_with_stake().await {
+            Ok(signers) => signers,
+            Err(ProtocolError::Beacon(_)) => vec![],
+            Err(e) => return Err(e.into()),
+        };
+        let protocol_message = multi_signer.get_current_message().await.ok_or_else(|| {
+            RuntimeError::General("Can't create a working certificate without a message".into())
+        })?;
+        let aggregate_verification_key = multi_signer
+            .compute_stake_distribution_aggregate_verification_key()
+            .await?
+            .ok_or_else(|| {
+                RuntimeError::General("Can't create a working certificate without an AVK".into())
+            })?;
+
+        let certificate_store = self.dependencies.certificate_store.clone();
+        let latest_certificates = certificate_store.get_list(2).await?;
+        let last_certificate = latest_certificates.get(0);
+        let penultimate_certificate = latest_certificates.get(1);
+        let previous_hash = AggregatorRunner::get_previous_hash_from_last_two_certificates(
+            &certificate_pending.beacon,
+            last_certificate,
+            penultimate_certificate,
+        )?;
+
+        Ok(WorkingCertificate::from_pending_certificate(
+            certificate_pending,
+            &signers,
+            &protocol_message,
+            &aggregate_verification_key,
+            &Utc::now(),
+            previous_hash,
+        ))
+    }
+
     async fn save_pending_certificate(
         &self,
         pending_certificate: CertificatePending,
@@ -437,25 +513,11 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         let latest_certificates = certificate_store.get_list(2).await?;
         let last_certificate = latest_certificates.get(0);
         let penultimate_certificate = latest_certificates.get(1);
-        let previous_hash = match (penultimate_certificate, last_certificate) {
-            (Some(penultimate_certificate), Some(last_certificate)) => {
-                // Check if last certificate is exactly at most one epoch before current epoch
-                if beacon.epoch - last_certificate.beacon.epoch > Epoch(1) {
-                    return Err(RuntimeError::CertificateChainEpochGap(
-                        beacon.epoch,
-                        last_certificate.beacon.epoch,
-                    ));
-                }
-                // Check if last certificate is first certificate of its epoch
-                if penultimate_certificate.beacon.epoch != last_certificate.beacon.epoch {
-                    &last_certificate.hash
-                } else {
-                    &last_certificate.previous_hash
-                }
-            }
-            (None, Some(last_certificate)) => &last_certificate.hash,
-            _ => "",
-        };
+        let previous_hash = AggregatorRunner::get_previous_hash_from_last_two_certificates(
+            &beacon,
+            last_certificate,
+            penultimate_certificate,
+        )?;
         let multisigner = self.dependencies.multi_signer.read().await;
         let certificate = multisigner
             .create_certificate(beacon.clone(), previous_hash.to_owned())
@@ -509,11 +571,11 @@ pub mod tests {
     use crate::multi_signer::MockMultiSigner;
     use crate::runtime::RuntimeError;
     use crate::snapshotter::OngoingSnapshot;
-    use crate::ProtocolParametersStorer;
     use crate::{
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
     };
+    use crate::{ProtocolParametersStorer, WorkingCertificate};
     use mithril_common::chain_observer::FakeObserver;
     use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
     use mithril_common::digesters::DumbImmutableFileObserver;
@@ -703,6 +765,68 @@ pub mod tests {
         expected.next_signers.sort_by_key(|s| s.party_id.clone());
 
         assert_eq!(expected, certificate);
+    }
+
+    #[tokio::test]
+    async fn test_create_new_working_certificate() {
+        let (deps, config) = initialize_dependencies().await;
+        let deps = Arc::new(deps);
+        let runner = AggregatorRunner::new(config, deps.clone());
+        let beacon = runner.get_beacon_from_chain().await.unwrap();
+        runner.update_beacon(&beacon).await.unwrap();
+
+        let signers = fake_data::signers_with_stakes(5);
+        let current_signers = signers[1..3].to_vec();
+        let next_signers = signers[2..5].to_vec();
+        let protocol_parameters = fake_data::protocol_parameters();
+        deps.simulate_genesis(
+            current_signers.clone(),
+            next_signers.clone(),
+            &protocol_parameters.clone(),
+        )
+        .await;
+
+        runner
+            .update_message_in_multisigner("a digest".to_string())
+            .await
+            .expect("update_message_in_multisigner should not fail");
+        let message = deps
+            .multi_signer
+            .read()
+            .await
+            .get_current_message()
+            .await
+            .unwrap();
+
+        let aggregate_verification_key = deps
+            .multi_signer
+            .read()
+            .await
+            .compute_stake_distribution_aggregate_verification_key()
+            .await
+            .expect("")
+            .unwrap();
+
+        let certificate_pending = runner
+            .create_new_pending_certificate_from_multisigner(beacon.clone())
+            .await
+            .unwrap();
+
+        let sut = runner
+            .create_new_working_certificate(&certificate_pending)
+            .await
+            .expect("create_new_working_certificate should not fail");
+
+        let expected = WorkingCertificate::from_pending_certificate(
+            &certificate_pending,
+            &current_signers,
+            &message,
+            &aggregate_verification_key,
+            &sut.initiated_at,
+            "",
+        );
+
+        assert_eq!(expected, sut);
     }
 
     #[tokio::test]
