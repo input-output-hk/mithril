@@ -37,7 +37,8 @@ export const settingsSlice = createSlice({
         canRemoveSelected: !default_available_aggregators.includes(action.payload),
       }
     },
-    removeCustomAggregator: (state) => {
+    removeSelectedAggregator: (state) => {
+      console.log("removing", state.selectedAggregator);
       if (default_available_aggregators.includes(state.selectedAggregator)) {
         return state;
       }
@@ -56,7 +57,7 @@ export const {
   setUpdateInterval,
   toggleAutoUpdate,
   selectAggregator,
-  removeCustomAggregator
+  removeSelectedAggregator
 } = settingsSlice.actions;
 
 export default settingsSlice.reducer;

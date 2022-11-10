@@ -1,7 +1,7 @@
 import React, {useState} from 'react';
 import {Button, Col, Form, InputGroup, OverlayTrigger, Tooltip} from "react-bootstrap";
 import {useDispatch, useSelector} from "react-redux";
-import {removeCustomAggregator, selectAggregator} from "../../store/settingsSlice";
+import {removeSelectedAggregator, selectAggregator} from "../../store/settingsSlice";
 import AddAggregatorModal from "./AddAggregatorModal";
 
 export default function AggregatorSetter(props) {
@@ -32,7 +32,7 @@ export default function AggregatorSetter(props) {
           </Button>
           {canRemoveSelected &&
             <>
-              <Button variant="outline-danger" onClick={() => dispatch(removeCustomAggregator())}>
+              <Button variant="outline-danger" onClick={() => dispatch(removeSelectedAggregator())}>
                 <i className="bi bi-dash-circle"></i>
               </Button>
               <OverlayTrigger overlay={<Tooltip>Unofficial Aggregator</Tooltip>}>
