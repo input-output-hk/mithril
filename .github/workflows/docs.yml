@@ -57,7 +57,7 @@ jobs:
           path: |
             docs/build/*
   
-  build-explorer:
+  build-test-explorer:
     runs-on: ubuntu-22.04
     steps:
       - name: Checkout sources
@@ -69,6 +69,15 @@ jobs:
           node-version: 16
           cache: 'yarn'
           cache-dependency-path: mithril-explorer/yarn.lock
+
+      - name: Install dependencies
+        working-directory: mithril-explorer
+        run: yarn install --frozen-lockfile
+      
+      - name: Test explorer
+        working-directory: mithril-explorer
+        run: |
+          make test
 
       - name: Build Explorer
         working-directory: mithril-explorer
@@ -109,7 +118,7 @@ jobs:
     needs:
       - cargo-doc
       - build-docusaurus
-      - build-explorer
+      - build-test-explorer
       - build-open-api-ui
     steps:
       - name: Download mithril-rust-doc artifact

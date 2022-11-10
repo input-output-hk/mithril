@@ -1,4 +1,4 @@
-.PHONY: clean install
+.PHONY: clean install build dev test watch-test lint upgrade
 
 yarn.lock:
 	yarn install
@@ -14,6 +14,12 @@ serve: build
 dev:
 	@echo "Serving dev build at: http://localhost:3000/explorer"
 	yarn run dev
+
+test: yarn.lock
+	yarn run test:ci
+
+watch-test: yarn.lock
+	yarn run test
 
 lint:
 	yarn run lint
