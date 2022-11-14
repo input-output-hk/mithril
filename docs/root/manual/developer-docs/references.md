@@ -20,7 +20,7 @@ For more information about the **Mithril Protocol**, please refer to the [About 
 
 ## Mithril Networks
 
-Here is an up ot date list of all the Mithril Networks and their status
+Here is an up to date list of all the Mithril Networks and their status
 > Last update: 11/02/2022
 
 | Mithril Network | Cardano Network | Magic Id | Supported | Aggregator Endpoint | Genesis Verification Key | Note
