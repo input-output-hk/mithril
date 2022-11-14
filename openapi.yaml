@@ -14,7 +14,9 @@ info:
     name: BSD 3-Clause License
     url: https://github.com/input-output-hk/mithril/blob/main/LICENSE
 servers:
-  - url: https://aggregator.api.mithril.network/aggregator
+  - url: https://aggregator.release-preprod.api.mithril.network/aggregator
+  - url: https://aggregator.pre-release-preview.api.mithril.network/aggregator
+  - url: https://aggregator.testing-preview.api.mithril.network/aggregator
   - url: http://localhost:8080/aggregator
 paths:
   /epoch-settings:
