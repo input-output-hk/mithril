@@ -22,7 +22,7 @@ The Mithril test networks are:
 - `preprod`: Test network with magic id `1`, not implemented yet on the IOG hosted Mithril Aggregator
 - `testnet`: Legacy test network with magic id `1097911063`, used to be on the IOG hosted Mithril Aggregator, now deprecated
 
-In this documentation, we use the generic `**YOUR_TEST_NETWORK**` identifier, but you need to replace it with the identifier of the network that runs on your Cardano node
+In this documentation, we use the generic `**YOUR_CARDANO_NETWORK**` identifier, but you need to replace it with the identifier of the network that runs on your Cardano node
 
 ## Download source code
 
@@ -122,7 +122,7 @@ Run 'serve' command in release with a specific mode
 Run 'serve' command in release with a custom configuration via env vars
 
 ```bash
-GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) RUN_INTERVAL=60000 NETWORK=**YOUR_TEST_NETWORK** ./mithril-aggregator serve
+GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) RUN_INTERVAL=60000 NETWORK=**YOUR_CARDANO_NETWORK** ./mithril-aggregator serve
 ```
 
 ## Release build and run binary 'genesis' command
@@ -200,7 +200,7 @@ Or with a custom export path (to override the default value `./mithril-genesis-s
 Run 'genesis import' command in release with a custom configuration via env vars
 
 ```bash
-GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) RUN_INTERVAL=60000 NETWORK=**YOUR_TEST_NETWORK** ./mithril-aggregator genesis import
+GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) RUN_INTERVAL=60000 NETWORK=**YOUR_CARDANO_NETWORK** ./mithril-aggregator genesis import
 ```
 
 ```
