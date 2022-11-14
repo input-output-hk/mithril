@@ -44,7 +44,7 @@ For more information about the **Mithril Protocol**, please refer to the [About 
   * Read rights on the `Database` folder (`--database-path` setting of the **Cardano Node**)
   * Read/Write rights on the `Inter Process Communication` file (usually `CARDANO_NODE_SOCKET_PATH` env var used to launch the **Cardano Node**)
 
-* Install a recent version of the [`cardano-cli`](https://hydra.iohk.io/job/Cardano/cardano-node/linux.native.cardano-cli) (version 1.35.3+)
+* Install a recent version of the [`cardano-cli`](https://hydra.iohk.io/job/Cardano/cardano-node/linux.native.cardano-cli) (version 1.35.4+)
 
 * Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (latest stable version).
 
