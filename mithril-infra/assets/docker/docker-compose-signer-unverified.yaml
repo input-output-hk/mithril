@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   cardano-node-signer:
-    image: cardano-node/1.35.3-modified
+    image: cardano-node/1.35.4-modified
     container_name: cardano-node-signer-${SIGNER_ID}
     build:
       context: .
