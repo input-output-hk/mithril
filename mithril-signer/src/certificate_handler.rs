@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use reqwest::{self, StatusCode};
+use reqwest::{self, Client, RequestBuilder, StatusCode};
 use slog_scope::debug;
 use std::io;
 use thiserror::Error;
@@ -7,7 +7,7 @@ use tokio::sync::RwLock;
 
 use mithril_common::{
     entities::{CertificatePending, EpochSettings, Signer, SingleSignatures},
-    fake_data,
+    fake_data, MITHRIL_API_VERSION,
 };
 
 #[cfg(test)]
@@ -74,6 +74,11 @@ impl CertificateHandlerHTTPClient {
             aggregator_endpoint,
         }
     }
+
+    /// Forge a client request adding protocol version in the headers.
+    pub fn prepare_request_builder(&self, request_builder: RequestBuilder) -> RequestBuilder {
+        request_builder.header("API_VERSION", MITHRIL_API_VERSION)
+    }
 }
 
 #[async_trait]
@@ -83,7 +88,11 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
     ) -> Result<Option<EpochSettings>, CertificateHandlerError> {
         debug!("Retrieve epoch settings");
         let url = format!("{}/epoch-settings", self.aggregator_endpoint);
-        let response = reqwest::get(url.clone()).await;
+        let response = self
+            .prepare_request_builder(Client::new().get(url.clone()))
+            .send()
+            .await;
+
         match response {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<EpochSettings>().await {
@@ -105,7 +114,11 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
     ) -> Result<Option<CertificatePending>, CertificateHandlerError> {
         debug!("Retrieve pending certificate");
         let url = format!("{}/certificate-pending", self.aggregator_endpoint);
-        let response = reqwest::get(url.clone()).await;
+        let response = self
+            .prepare_request_builder(Client::new().get(url.clone()))
+            .send()
+            .await;
+
         match response {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<CertificatePending>().await {
@@ -126,8 +139,12 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
     async fn register_signer(&self, signer: &Signer) -> Result<(), CertificateHandlerError> {
         debug!("Register signer");
         let url = format!("{}/register-signer", self.aggregator_endpoint);
-        let client = reqwest::Client::new();
-        let response = client.post(url.clone()).json(signer).send().await;
+        let response = self
+            .prepare_request_builder(Client::new().post(url.clone()))
+            .json(signer)
+            .send()
+            .await;
+
         match response {
             Ok(response) => match response.status() {
                 StatusCode::CREATED => Ok(()),
@@ -150,8 +167,12 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
     ) -> Result<(), CertificateHandlerError> {
         debug!("Register signatures");
         let url = format!("{}/register-signatures", self.aggregator_endpoint);
-        let client = reqwest::Client::new();
-        let response = client.post(url.clone()).json(signatures).send().await;
+        let response = self
+            .prepare_request_builder(Client::new().post(url.clone()))
+            .json(signatures)
+            .send()
+            .await;
+
         match response {
             Ok(response) => match response.status() {
                 StatusCode::CREATED => Ok(()),

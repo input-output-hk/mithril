@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use flate2::read::GzDecoder;
 use futures::StreamExt;
 use reqwest::{self, StatusCode};
+use reqwest::{Client, RequestBuilder};
 use slog_scope::debug;
 use std::env;
 use std::fs;
@@ -12,7 +13,10 @@ use std::sync::Arc;
 use tar::Archive;
 use thiserror::Error;
 
-use mithril_common::entities::{Certificate, Snapshot};
+use mithril_common::{
+    entities::{Certificate, Snapshot},
+    MITHRIL_API_VERSION,
+};
 
 use mithril_common::certificate_chain::CertificateRetriever;
 use mithril_common::certificate_chain::CertificateRetrieverError;
@@ -86,6 +90,11 @@ impl AggregatorHTTPClient {
         }
     }
 
+    /// Forge a client request adding protocol version in the headers.
+    pub fn prepare_request_builder(&self, request_builder: RequestBuilder) -> RequestBuilder {
+        request_builder.header("API_VERSION", MITHRIL_API_VERSION)
+    }
+
     /// Download certificate details
     async fn download_certificate_details(
         &self,
@@ -96,7 +105,11 @@ impl AggregatorHTTPClient {
             "{}/certificate/{}",
             self.aggregator_endpoint, certificate_hash
         );
-        let response = reqwest::get(url.clone()).await;
+        let response = self
+            .prepare_request_builder(Client::new().get(url.clone()))
+            .send()
+            .await;
+
         match response {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<Certificate>().await {
@@ -123,7 +136,11 @@ impl AggregatorHandler for AggregatorHTTPClient {
     async fn list_snapshots(&self) -> Result<Vec<Snapshot>, AggregatorHandlerError> {
         debug!("List snapshots");
         let url = format!("{}/snapshots", self.aggregator_endpoint);
-        let response = reqwest::get(url.clone()).await;
+        let response = self
+            .prepare_request_builder(Client::new().get(url.clone()))
+            .send()
+            .await;
+
         match response {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<Vec<Snapshot>>().await {
@@ -144,7 +161,11 @@ impl AggregatorHandler for AggregatorHTTPClient {
     async fn get_snapshot_details(&self, digest: &str) -> Result<Snapshot, AggregatorHandlerError> {
         debug!("Details snapshot {}", digest);
         let url = format!("{}/snapshot/{}", self.aggregator_endpoint, digest);
-        let response = reqwest::get(url.clone()).await;
+        let response = self
+            .prepare_request_builder(Client::new().get(url.clone()))
+            .send()
+            .await;
+
         match response {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<Snapshot>().await {
@@ -171,7 +192,11 @@ impl AggregatorHandler for AggregatorHTTPClient {
         location: &str,
     ) -> Result<String, AggregatorHandlerError> {
         debug!("Download snapshot {} from {}", digest, location);
-        let response = reqwest::get(location).await;
+        let response = self
+            .prepare_request_builder(Client::new().get(location.to_owned()))
+            .send()
+            .await;
+
         match response {
             Ok(response) => match response.status() {
                 StatusCode::OK => {

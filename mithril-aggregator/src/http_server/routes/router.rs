@@ -1,8 +1,11 @@
 use crate::http_server::routes::{
     certificate_routes, epoch_routes, signatures_routes, signer_routes, snapshot_routes,
 };
-use crate::http_server::{MITHRIL_API_VERSION, SERVER_BASE_PATH};
+use crate::http_server::SERVER_BASE_PATH;
 use crate::DependencyManager;
+
+use mithril_common::MITHRIL_API_VERSION;
+
 use reqwest::header::{HeaderMap, HeaderValue};
 use std::sync::Arc;
 use warp::http::Method;
