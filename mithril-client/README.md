@@ -73,7 +73,7 @@ make build
 ./mithril-client -r preview list
 
 # Run with custom configuration with env vars
-GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) NETWORK=**YOUR_CARDANO_NETWORK** AGGREGATOR_ENDPOINT=**YOUR_AGREGATOR_ENDPOINT** ./mithril-client
+GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**) NETWORK=**YOUR_CARDANO_NETWORK** AGGREGATOR_ENDPOINT=**YOUR_AGREGATOR_ENDPOINT** ./mithril-client
 ```
 
 You can use the `--json` option in order to display results in `JSON` format for the `list` and `show` commands:
