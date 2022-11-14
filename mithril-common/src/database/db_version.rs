@@ -35,9 +35,9 @@ impl Display for ApplicationNodeType {
     }
 }
 
-/// Entity related to the `db_version` database table.
+/// Entity related to the `app_version` database table.
 #[derive(Debug, PartialEq, Eq)]
-pub struct DatabaseVersion {
+pub struct ApplicationVersion {
     /// Semver of the database structure.
     pub database_version: Version,
 
@@ -45,7 +45,7 @@ pub struct DatabaseVersion {
     pub application_type: ApplicationNodeType,
 }
 
-impl SqLiteEntity for DatabaseVersion {
+impl SqLiteEntity for ApplicationVersion {
     fn hydrate(row: Row) -> Result<Self, HydrationError> {
         Ok(Self {
             database_version: Version::parse(&row.get::<String, _>(0))
@@ -56,12 +56,12 @@ impl SqLiteEntity for DatabaseVersion {
     }
 }
 
-/// Projection dedicated to [DatabaseVersion] entities.
-struct DbVersionProjection {
+/// Projection dedicated to [ApplicationVersion] entities.
+struct ApplicationVersionProjection {
     fields: Vec<ProjectionField>,
 }
 
-impl Projection for DbVersionProjection {
+impl Projection for ApplicationVersionProjection {
     fn set_field(&mut self, field: ProjectionField) {
         self.fields.push(field);
     }
@@ -70,20 +70,24 @@ impl Projection for DbVersionProjection {
         &self.fields
     }
 }
-impl DbVersionProjection {
+impl ApplicationVersionProjection {
     pub fn new() -> Self {
         let mut projection = Self { fields: Vec::new() };
-        projection.add_field("db_version", "{:version:}.version", "text");
-        projection.add_field("application_type", "{:version:}.application_type", "text");
+        projection.add_field("version", "{:app_version:}.version", "text");
+        projection.add_field(
+            "application_type",
+            "{:app_version:}.application_type",
+            "text",
+        );
 
         projection
     }
 }
 
-/// Provider for the [DatabaseVersion] entities using the [DbVersionProjection].
+/// Provider for the [ApplicationVersion] entities using the `ApplicationVersionProjection`.
 pub struct VersionProvider<'conn> {
     connection: &'conn Connection,
-    projection: DbVersionProjection,
+    projection: ApplicationVersionProjection,
 }
 
 impl<'conn> VersionProvider<'conn> {
@@ -91,7 +95,7 @@ impl<'conn> VersionProvider<'conn> {
     pub fn new(connection: &'conn Connection) -> Self {
         Self {
             connection,
-            projection: DbVersionProjection::new(),
+            projection: ApplicationVersionProjection::new(),
         }
     }
 
@@ -99,7 +103,7 @@ impl<'conn> VersionProvider<'conn> {
     /// This code is temporary and should not last.
     pub fn create_table_if_not_exists(&self) -> Result<(), Box<dyn Error>> {
         let connection = self.get_connection();
-        let sql = "select exists(select name from sqlite_master where type='table' and name='db_version') as table_exists";
+        let sql = "select exists(select name from sqlite_master where type='table' and name='app_version') as table_exists";
         let table_exists = connection
             .prepare(sql)?
             .into_cursor()
@@ -111,7 +115,7 @@ impl<'conn> VersionProvider<'conn> {
 
         if !table_exists {
             let sql = r#"
-create table db_version (application_type text not null primary key, version text not null)
+create table app_version (application_type text not null primary key, version text not null)
 "#;
             connection.execute(sql)?;
         }
@@ -120,15 +124,20 @@ create table db_version (application_type text not null primary key, version tex
     }
 
     /// Read the database version from the database.
-    pub fn get_database_version(&self) -> Result<Option<DatabaseVersion>, Box<dyn Error>> {
-        let result = self.find(None, &[])?.next();
+    pub fn get_database_version(
+        &self,
+        application_type: &ApplicationNodeType,
+    ) -> Result<Option<ApplicationVersion>, Box<dyn Error>> {
+        let condition = "application_type = ?";
+        let params = [Value::String(format!("{}", application_type))];
+        let result = self.find(Some(condition), &params)?.next();
 
         Ok(result)
     }
 }
 
 impl<'conn> Provider<'conn> for VersionProvider<'conn> {
-    type Entity = DatabaseVersion;
+    type Entity = ApplicationVersion;
 
     fn get_projection(&self) -> &dyn Projection {
         &self.projection
@@ -141,37 +150,37 @@ impl<'conn> Provider<'conn> for VersionProvider<'conn> {
     fn get_definition(&self, condition: Option<&str>) -> String {
         let where_clause = condition.unwrap_or("true");
         let mut aliases = HashMap::new();
-        let _ = aliases.insert("{:version:}".to_string(), "db_version".to_string());
+        let _ = aliases.insert("{:app_version:}".to_string(), "app_version".to_string());
         let projection = self.get_projection().expand(aliases);
 
         format!(
             r#"
 select {projection}
-from db_version
+from app_version
 where {where_clause}
 "#
         )
     }
 }
 
-/// Write [Provider] for the [DatabaseVersion] entities.
+/// Write [Provider] for the [ApplicationVersion] entities.
 /// This will perform an UPSERT and return the updated entity.
-pub struct VersionUpdatedProvider<'conn> {
+pub struct VersionUpdaterProvider<'conn> {
     connection: &'conn Connection,
-    projection: DbVersionProjection,
+    projection: ApplicationVersionProjection,
 }
 
-impl<'conn> VersionUpdatedProvider<'conn> {
-    /// [VersionUpdateprovider] constructor.
+impl<'conn> VersionUpdaterProvider<'conn> {
+    /// [VersionUpdaterProvider] constructor.
     pub fn new(connection: &'conn Connection) -> Self {
         Self {
             connection,
-            projection: DbVersionProjection::new(),
+            projection: ApplicationVersionProjection::new(),
         }
     }
 
     /// Persist the given entity and return the projection of the saved entity.
-    pub fn save(&self, version: DatabaseVersion) -> Result<DatabaseVersion, Box<dyn Error>> {
+    pub fn save(&self, version: ApplicationVersion) -> Result<ApplicationVersion, Box<dyn Error>> {
         let params = [
             Value::String(format!("{}", version.application_type)),
             Value::String(version.database_version.to_string()),
@@ -185,8 +194,8 @@ impl<'conn> VersionUpdatedProvider<'conn> {
     }
 }
 
-impl<'conn> Provider<'conn> for VersionUpdatedProvider<'conn> {
-    type Entity = DatabaseVersion;
+impl<'conn> Provider<'conn> for VersionUpdaterProvider<'conn> {
+    type Entity = ApplicationVersion;
 
     fn get_projection(&self) -> &dyn Projection {
         &self.projection
@@ -199,12 +208,12 @@ impl<'conn> Provider<'conn> for VersionUpdatedProvider<'conn> {
     fn get_definition(&self, condition: Option<&str>) -> String {
         let _where_clause = condition.unwrap_or("true");
         let mut aliases = HashMap::new();
-        let _ = aliases.insert("{:version:}".to_string(), "db_version".to_string());
+        let _ = aliases.insert("{:app_version:}".to_string(), "app_version".to_string());
         let projection = self.get_projection().expand(aliases);
 
         format!(
             r#"
-insert into db_version (application_type, version) values (?, ?)
+insert into app_version (application_type, version) values (?, ?)
   on conflict (application_type) do update set version = excluded.version
 returning {projection}
 "#
@@ -218,12 +227,12 @@ mod tests {
 
     #[test]
     fn test_projection() {
-        let projection = DbVersionProjection::new();
+        let projection = ApplicationVersionProjection::new();
         let mut aliases: HashMap<String, String> = HashMap::new();
-        let _ = aliases.insert("{:version:}".to_string(), "whatever".to_string());
+        let _ = aliases.insert("{:app_version:}".to_string(), "whatever".to_string());
 
         assert_eq!(
-            "whatever.version as db_version, whatever.application_type as application_type"
+            "whatever.version as version, whatever.application_type as application_type"
                 .to_string(),
             projection.expand(aliases)
         );
@@ -236,8 +245,8 @@ mod tests {
 
         assert_eq!(
             r#"
-select db_version.version as db_version, db_version.application_type as application_type
-from db_version
+select app_version.version as version, app_version.application_type as application_type
+from app_version
 where true
 "#,
             provider.get_definition(None)
@@ -247,13 +256,13 @@ where true
     #[test]
     fn test_updated_entity() {
         let connection = Connection::open(":memory:").unwrap();
-        let provider = VersionUpdatedProvider::new(&connection);
+        let provider = VersionUpdaterProvider::new(&connection);
 
         assert_eq!(
             r#"
-insert into db_version (application_type, version) values (?, ?)
+insert into app_version (application_type, version) values (?, ?)
   on conflict (application_type) do update set version = excluded.version
-returning db_version.version as db_version, db_version.application_type as application_type
+returning app_version.version as version, app_version.application_type as application_type
 "#,
             provider.get_definition(None)
         )

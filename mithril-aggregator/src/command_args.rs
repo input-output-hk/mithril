@@ -2,7 +2,7 @@ use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use semver::{Version, VersionReq};
 use slog::Level;
-use slog_scope::debug;
+use slog_scope::{debug, warn};
 use sqlite::Connection;
 use std::error::Error;
 use std::fs;
@@ -15,7 +15,7 @@ use mithril_common::certificate_chain::MithrilCertificateVerifier;
 use mithril_common::chain_observer::{CardanoCliRunner, ChainObserver};
 use mithril_common::crypto_helper::ProtocolGenesisVerifier;
 use mithril_common::database::{
-    ApplicationNodeType, DatabaseVersion, VersionProvider, VersionUpdatedProvider,
+    ApplicationNodeType, ApplicationVersion, VersionProvider, VersionUpdaterProvider,
 };
 use mithril_common::digesters::{CardanoImmutableDigester, ImmutableFileSystemObserver};
 use mithril_common::entities::{Epoch, HexEncodedGenesisSecretKey};
@@ -35,26 +35,26 @@ use crate::{
 use crate::{
     CertificateStore, DefaultConfiguration, GzipSnapshotter, MultiSignerImpl,
     ProtocolParametersStorer, SingleSignatureStore, VerificationKeyStore,
-    DATABASE_SCHEMATIC_VERSION,
 };
 
 fn check_database_version(connection: &Connection) -> Result<bool, Box<dyn Error>> {
     let provider = VersionProvider::new(connection);
     provider.create_table_if_not_exists()?;
-    let maybe_option = provider.get_database_version()?;
+    let application_type = ApplicationNodeType::new("aggregator")?;
+    let maybe_option = provider.get_database_version(&application_type)?;
 
     let version = match maybe_option {
         None => {
-            let provider = VersionUpdatedProvider::new(connection);
-            let version = DatabaseVersion {
-                database_version: Version::parse(DATABASE_SCHEMATIC_VERSION)?,
-                application_type: ApplicationNodeType::new("aggregator")?,
+            let provider = VersionUpdaterProvider::new(connection);
+            let version = ApplicationVersion {
+                database_version: Version::parse(env!("CARGO_PKG_VERSION"))?,
+                application_type,
             };
             provider.save(version)?
         }
         Some(version) => version,
     };
-    let req = VersionReq::parse("~0.1").unwrap();
+    let req = VersionReq::parse(env!("CARGO_PKG_VERSION")).unwrap();
 
     Ok(req.matches(&version.database_version))
 }
@@ -69,7 +69,12 @@ fn setup_genesis_dependencies(
         None => Connection::open(":memory:")?,
     };
     if !check_database_version(&connection)? {
-        return Err("The database is out of date, cannot start.".into());
+        warn!("❌ The database is out of date, application may fail.");
+    } else {
+        debug!(
+            "Database schematic for application version {} has been checked OK!",
+            env!("CARGO_PKG_VERSION")
+        );
     }
 
     let chain_observer = Arc::new(
@@ -342,7 +347,12 @@ impl ServeCommand {
         };
 
         if !check_database_version(&connection)? {
-            return Err("The database is out of date, cannot start.".into());
+            warn!("❌ The database is out of date, application may fail.");
+        } else {
+            debug!(
+                "Database schematic for application version {} has been checked OK!",
+                env!("CARGO_PKG_VERSION")
+            );
         }
 
         let certificate_pending_store = Arc::new(CertificatePendingStore::new(Box::new(

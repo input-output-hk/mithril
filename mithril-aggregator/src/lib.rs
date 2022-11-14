@@ -23,8 +23,6 @@ mod snapshotter;
 mod store;
 mod tools;
 
-const DATABASE_SCHEMATIC_VERSION: &str = "0.1.0";
-
 pub use crate::configuration::{
     Configuration, DefaultConfiguration, GenesisConfiguration, SnapshotStoreType,
     SnapshotUploaderType,
