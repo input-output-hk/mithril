@@ -1,6 +1,6 @@
 {
     "network": "preview",
-    "aggregator_endpoint": "https://aggregator.api.mithril.network/aggregator",
+    "aggregator_endpoint": "https://aggregator.pre-release-preview.api.mithril.network/aggregator",
     "party_id": 0,
     "run_interval": 20000,
     "db_directory": "/db",

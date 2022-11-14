@@ -2,6 +2,8 @@
 sidebar_position: 3
 ---
 
+import NetworksMatrix from '../../../../shared/networks-matrix.md';
+
 # Mithril Client Node
 
 :::info
@@ -20,17 +22,12 @@ This is the node of the **Mithril Network** responsible for restoring the **Card
 
 :::
 
-:::tip
+:::note Mithril Networks
 
-The [Mithril test networks](../../../manual/developer-docs/references.md#mithril-networks) are:
-
-* `preview`: Test network with magic id `2`, implemented on the IOG hosted Mithril Aggregator
-* `preprod`: Test network with magic id `1`, not implemented yet on the IOG hosted Mithril Aggregator
-* `testnet`: Legacy test network with magic id `1097911063`, used to be on the IOG hosted Mithril Aggregator, now deprecated
-
-In this documentation, we use the generic `**YOUR_TEST_NETWORK**` identifier, but you need to replace it with the identifier of the network that runs on your Cardano node
+<NetworksMatrix />
 
 :::
+
 
 ## Resources
 
@@ -159,7 +156,7 @@ Run in release with a specific mode
 Run in release with a custom configuration via env vars
 
 ```bash
-GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) NETWORK=**YOUR_TEST_NETWORK** AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator ./mithril-client
+GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**) NETWORK=**YOUR_CARDANO_NETWORK** AGGREGATOR_ENDPOINT=**YOUR_AGGREGATOR_ENDPOINT** ./mithril-client
 ```
 
 :::tip
@@ -223,6 +220,6 @@ Here is a list of the available parameters:
 | `verbose` | `--verbose` | `-v` | `VERBOSE` | Verbosity level | - | Parsed from number of occurrences: `-v` for `Warning`, `-vv` for `Info`, `-vvv` for `Debug` and `-vvvv` for `Trace` | :heavy_check_mark: |
 | `run_mode` | `--run-mode` | - | `RUN_MODE` | Runtime mode | `dev` | - | :heavy_check_mark: |
 | `network` | - | - | `NETWORK` | Cardano network | - | `testnet` or `mainnet` or `devnet` | :heavy_check_mark: |
-| `aggregator_endpoint` | `--aggregator-endpoint` | - | `AGGREGATOR_ENDPOINT` | Aggregator node endpoint | - | `https://aggregator.api.mithril.network/aggregator` | :heavy_check_mark: |
+| `aggregator_endpoint` | `--aggregator-endpoint` | - | `AGGREGATOR_ENDPOINT` | Aggregator node endpoint | - | `https://aggregator.pre-release-preview.api.mithril.network/aggregator` | :heavy_check_mark: |
 | `genesis_verification_key` | - | - | `GENESIS_VERIFICATION_KEY` | Genesis verification key | - | - | :heavy_check_mark: |
 | `json_output` | `--json` | `-j` | - | Enable JSON output | no | - | - |

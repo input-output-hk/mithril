@@ -2,6 +2,8 @@
 sidebar_position: 2
 ---
 
+import NetworksMatrix from '../../../../shared/networks-matrix.md';
+
 # Mithril Signer Node
 
 :::info
@@ -20,15 +22,9 @@ This is the node of the **Mithril Network** responsible for producing individual
 
 :::
 
-:::tip
+:::note Mithril Networks
 
-The [Mithril test networks](../../../manual/developer-docs/references.md#mithril-networks) are:
-
-* `preview`: Test network with magic id `2`, implemented on the IOG hosted Mithril Aggregator
-* `preprod`: Test network with magic id `1`, not implemented yet on the IOG hosted Mithril Aggregator
-* `testnet`: Legacy test network with magic id `1097911063`, used to be on the IOG hosted Mithril Aggregator, now deprecated
-
-In this documentation, we use the generic `**YOUR_TEST_NETWORK**` identifier, but you need to replace it with the identifier of the network that runs on your Cardano node
+<NetworksMatrix />
 
 :::
 
@@ -44,7 +40,7 @@ In this documentation, we use the generic `**YOUR_TEST_NETWORK**` identifier, bu
 
 * Install OpenSSL development libraries, for example on Ubuntu/Debian/Mint run `apt install libssl-dev`
 
-* Ensure SQLite3 library is installed on your system and its version is at least `1.35` (released Apr. 2021) on Debian/Ubuntu: `apt install libsqlite3` and `sqlite3 --version`.
+* Ensure SQLite3 library is installed on your system and its version is at least `3.35` (released Apr. 2021) on Debian/Ubuntu: `apt install libsqlite3` and `sqlite3 --version`.
 
 ## Download source
 
@@ -142,7 +138,7 @@ Run in release with a specific mode
 Run in release with a custom configuration via env vars
 
 ```bash
-NETWORK=**YOUR_TEST_NETWORK** AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator ./mithril-signer
+NETWORK=**YOUR_CARDANO_NETWORK** AGGREGATOR_ENDPOINT=**YOUR_AGGREGATOR_ENDPOINT** ./mithril-signer
 ```
 
 :::tip
@@ -188,7 +184,7 @@ Here is a list of the available parameters:
 `network_magic` | - | - | `NETWORK_MAGIC` | Cardano Network Magic number (for `testnet` and `devnet`) | - | `1097911063` or `42` | - |
 | `party_id` | - | - | `PARTY_ID` | Party Id of the signer, usually the `Pool Id` of the SPO | - | `pool1pxaqe80sqpde7902er5kf6v0c7y0sv6d5g676766v2h829fvs3x` | - | Mandatory in `Pool Id Declaration Mode`  where the owner is not verified (soon to be deprecated)
 | `run_interval` | - | - | `RUN_INTERVAL` | Interval between two runtime cycles in ms | - | `60000` | :heavy_check_mark: |
-| `aggregator_endpoint` | - | - | `AGGREGATOR_ENDPOINT` | Aggregator node endpoint | - | `https://aggregator.api.mithril.network/aggregator` | :heavy_check_mark: |
+| `aggregator_endpoint` | - | - | `AGGREGATOR_ENDPOINT` | Aggregator node endpoint | - | `https://aggregator.pre-release-preview.api.mithril.network/aggregator` | :heavy_check_mark: |
 | `data_stores_directory` | - | - | `DATA_STORES_DIRECTORY` | Directory to store signer data (Stakes, Protocol initializers, ...) | - | `./mithril-signer/stores` | :heavy_check_mark: |
 | `store_retention_limit` | - | - | `STORE_RETENTION_LIMIT` | Maximum number of records in stores. If not set, no limit is set. | - | - | - |
 | `kes_secret_key_path` | - | - | `KES_SECRET_KEY_PATH` | Path to the `Cardano KES Secret Key` file. Mandatory in `Pool Id Certification Mode` where the owner is verified (experimental, soon to be stable & preferred mode) | - | - | - |

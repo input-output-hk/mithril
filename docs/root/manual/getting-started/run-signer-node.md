@@ -2,6 +2,8 @@
 sidebar_position: 2
 ---
 
+import NetworksMatrix from '../../../shared/networks-matrix.md';
+
 # Run a Mithril Signer node (SPO)
 
 :::info
@@ -10,15 +12,9 @@ In this guide, you will learn how to setup a **Mithril Signer** on top of a **Ca
 
 :::
 
-:::tip
+:::note Mithril Networks
 
-The [Mithril test networks](../../manual/developer-docs/references.md#mithril-networks) are:
-
-* `preview`: Test network with magic id `2`, implemented on the IOG hosted Mithril Aggregator
-* `preprod`: Test network with magic id `1`, not implemented yet on the IOG hosted Mithril Aggregator
-* `testnet`: Legacy test network with magic id `1097911063`, used to be on the IOG hosted Mithril Aggregator, now deprecated
-
-In this documentation, we use the generic `**YOUR_TEST_NETWORK**` identifier, but you need to replace it with the identifier of the network that runs on your Cardano node
+<NetworksMatrix />
 
 :::
 
@@ -54,7 +50,7 @@ For more information about the **Mithril Protocol**, please refer to the [About 
 
 * Install OpenSSL development libraries, for example on Ubuntu/Debian/Mint run `apt install libssl-dev`
 
-* Ensure the SQLite3 version is at lease `1.35` (released Apr. 2021)
+* Ensure the SQLite3 version is at lease `3.35` (released Apr. 2021)
 
 ## Mithril Keys Certification
 
@@ -194,8 +190,8 @@ First create an env file that will be used by the service:
 ```bash
 sudo bash -c 'cat > /opt/mithril/mithril-signer.env << EOF
 PARTY_ID=**YOUR_POOL_ID_BECH32**
-NETWORK=**YOUR_TEST_NETWORK**
-AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator
+NETWORK=**YOUR_CARDANO_NETWORK**
+AGGREGATOR_ENDPOINT=**YOUR_AGGREGATOR_ENDPOINT**
 RUN_INTERVAL=60000
 DB_DIRECTORY=/cardano/db
 CARDANO_NODE_SOCKET_PATH=/cardano/ipc/node.socket
@@ -211,8 +207,8 @@ EOF'
 sudo bash -c 'cat > /opt/mithril/mithril-signer.env << EOF
 KES_SECRET_KEY_PATH=**YOUR_KES_SECRET_KEY_PATH**
 OPERATIONAL_CERTIFICATE_PATH=**YOUR_OPERATIONAL_CERTIFICATE_PATH**
-NETWORK=**YOUR_TEST_NETWORK**
-AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator
+NETWORK=**YOUR_CARDANO_NETWORK**
+AGGREGATOR_ENDPOINT=**YOUR_AGGREGATOR_ENDPOINT**
 RUN_INTERVAL=60000
 DB_DIRECTORY=/cardano/db
 CARDANO_NODE_SOCKET_PATH=/cardano/ipc/node.socket
