@@ -2,6 +2,8 @@
 sidebar_position: 1
 ---
 
+import NetworksMatrix from '../../../shared/networks-matrix.md';
+
 # Bootstrap a Cardano Node
 
 :::info
@@ -10,15 +12,9 @@ Thanks to a **Mithril Client** connected to a **Mithril Aggregator**, you will r
 
 :::
 
-:::tip
+:::note Mithril Networks
 
-The [Mithril test networks](../../manual/developer-docs/references.md#mithril-networks) are:
-
-* `preview`: Test network with magic id `2`, implemented on the IOG hosted Mithril Aggregator
-* `preprod`: Test network with magic id `1`, not implemented yet on the IOG hosted Mithril Aggregator
-* `testnet`: Legacy test network with magic id `1097911063`, used to be on the IOG hosted Mithril Aggregator, now deprecated
-
-In this documentation, we use the generic `**YOUR_TEST_NETWORK**` identifier, but you need to replace it with the identifier of the network that runs on your Cardano node
+<NetworksMatrix />
 
 :::
 
@@ -120,13 +116,13 @@ If you want to dig deeper, you can get access to several level of logs from the 
 
 ```bash
 # Cardano network
-NETWORK=**YOUR_TEST_NETWORK**
+NETWORK=**YOUR_CARDANO_NETWORK**
 
 # Aggregator API endpoint URL
-AGGREGATOR_ENDPOINT=https://aggregator.api.mithril.network/aggregator
+AGGREGATOR_ENDPOINT=**YOUR_AGGREGATOR_ENDPOINT**
 
 # Genesis verification key
-GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey)
+GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**)
 
 # Digest of the latest produced snapshot for convenience of the demo
 # You can also modify this variable and set it to the value of the digest of a snapshot that you can retrieve at step 2
@@ -225,7 +221,7 @@ docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind
 Launch an empty Cardano node and make it live in minutes!
 
 ```bash
-docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="$(pwd)/data/testnet/$SNAPSHOT_DIGEST/db",target=/data/db/ -e NETWORK=**YOUR_TEST_NETWORK** inputoutput/cardano-node
+docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind,source="$(pwd)/data/testnet/$SNAPSHOT_DIGEST/db",target=/data/db/ -e NETWORK=**YOUR_CARDANO_NETWORK** inputoutput/cardano-node
 ```
 
 You will see the node start by validating the files injested from the snapshot archive

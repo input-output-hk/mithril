@@ -2,6 +2,8 @@
 sidebar_position: 1
 ---
 
+import NetworksMatrix from '../../../../shared/networks-matrix.md';
+
 # Mithril Aggregator Node
 
 :::info
@@ -18,15 +20,9 @@ This is the node of the **Mithril Network** responsible for collecting individua
 
 :::
 
-:::tip
+:::note Mithril Networks
 
-The [Mithril test networks](../../../manual/developer-docs/references.md#mithril-networks) are:
-
-* `preview`: Test network with magic id `2`, implemented on the IOG hosted Mithril Aggregator
-* `preprod`: Test network with magic id `1`, not implemented yet on the IOG hosted Mithril Aggregator
-* `testnet`: Legacy test network with magic id `1097911063`, used to be on the IOG hosted Mithril Aggregator, now deprecated
-
-In this documentation, we use the generic `**YOUR_TEST_NETWORK**` identifier, but you need to replace it with the identifier of the network that runs on your Cardano node
+<NetworksMatrix />
 
 :::
 
@@ -157,7 +153,7 @@ Run 'serve' command in release with a specific mode
 Run 'serve' command in release with a custom configuration via env vars
 
 ```bash
-GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) RUN_INTERVAL=60000 NETWORK=**YOUR_TEST_NETWORK** ./mithril-aggregator serve
+GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**) RUN_INTERVAL=60000 NETWORK=**YOUR_CARDANO_NETWORK** ./mithril-aggregator serve
 ```
 
 ## Release build and run binary 'genesis' command
@@ -224,7 +220,7 @@ This allows the Mithril Aggregator node to import the signed payload of the `Gen
 Run 'genesis import' command in release with a custom configuration via env vars
 
 ```bash
-GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) RUN_INTERVAL=60000 NETWORK=**YOUR_TEST_NETWORK** ./mithril-aggregator genesis import --signed-payload-path **YOUR_SIGNED_PAYLOAD_PATH**
+GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**) RUN_INTERVAL=60000 NETWORK=**YOUR_CARDANO_NETWORK** ./mithril-aggregator genesis import --signed-payload-path **YOUR_SIGNED_PAYLOAD_PATH**
 ```
 
 :::tip

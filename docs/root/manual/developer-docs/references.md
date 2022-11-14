@@ -2,6 +2,8 @@
 sidebar_position: 2
 ---
 
+import NetworksMatrix from '../../../shared/networks-matrix.md';
+
 # API Reference
 
 Welcome to the Mithril API references doc!
@@ -20,17 +22,7 @@ For more information about the **Mithril Protocol**, please refer to the [About 
 
 ## Mithril Networks
 
-Here is an up to date list of all the Mithril Networks and their status
-> Last update: 11/02/2022
-
-| Mithril Network | Cardano Network | Magic Id | Supported | Aggregator Endpoint | Genesis Verification Key | Note
-|------------|------------|:-----------:|:------------:|:-----------------:|:------------------:|:------------|
-| `release-mainnet` | `mainnet` | - | :x: | - | - | Not supported yet
-| `release-preprod` | `preprod` | `1` | :heavy_check_mark: | [:arrow_upper_right:](https://aggregator.release-preprod.api.mithril.network/aggregator) | [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) | Works on re-spun `preprod` network
-| `pre-release-preview` | `preview` | `2` | :heavy_check_mark: | [:arrow_upper_right:](https://aggregator.pre-release-preview.api.mithril.network/aggregator) | [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) | Works on re-spun `preview` network
-| `testing-preview` | `preview` | `2` | :heavy_check_mark: | [:arrow_upper_right:](https://aggregator.testing-preview.api.mithril.network/aggregator) | [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/TEST_ONLY_genesis.vkey) | Works on re-spun `preview` network
-| `dev-devnet` | `devnet` | `42` | :heavy_check_mark: | [:arrow_upper_right:](http://localhost:8080/aggregator) | - | Supported on the `devnet` only
-| `-` | `testnet` | `1097911063` | :x: | - | - | Decommissioned, not supported anymore
+<NetworksMatrix />
 
 ## Dependencies List
 
