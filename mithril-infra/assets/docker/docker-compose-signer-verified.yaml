@@ -4,7 +4,7 @@ version: "3.9"
 
 services:
   cardano-node-signer:
-    image: cardano-node/1.35.3-modified
+    image: cardano-node/1.35.4-modified
     container_name: cardano-node-signer-${SIGNER_ID}
     build:
       context: .
@@ -23,6 +23,7 @@ services:
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db:/db
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/pool:/pool
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/www:/www
     environment:
       - CARDANO_SOCKET_PATH=/ipc/node.socket
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
@@ -63,11 +64,39 @@ services:
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/pool:/mithril-signer-${SIGNER_ID}/cardano/pool
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc
       - ./cardano-configurations/network/${NETWORK}:/config
+    depends_on:
+      cardano-node-signer:
+        condition: service_started
     logging:
       driver: "json-file"
       options:
         max-size: "100m"
         max-file: "5"
+
+  mithril-signer-www:
+    image: nginx:latest
+    container_name: mithril-signer-www-${SIGNER_ID}
+    restart: always
+    profiles:
+      - mithril
+      - all
+    volumes:
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/www:/usr/share/nginx/html
+    ports:
+      - "${SIGNER_WWW_PORT}:8080"
+    depends_on:
+      cardano-node-signer:
+        condition: service_started
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.http.routers.mithril-signer-${SIGNER_ID}.rule=Host(`${SIGNER_HOST}`)'
+      - 'traefik.http.routers.mithril-signer-${SIGNER_ID}.tls=true'
+      - 'traefik.http.routers.mithril-signer-${SIGNER_ID}.tls.certresolver=lets-encrypt'
 
 networks:
   default:

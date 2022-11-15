@@ -59,6 +59,9 @@ services:
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/mithril:/mithril-signer-${SIGNER_ID}/mithril
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db:/mithril-signer-${SIGNER_ID}/cardano/db
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc
+    depends_on:
+      cardano-node-signer:
+        condition: service_started
     logging:
       driver: "json-file"
       options:

@@ -16,6 +16,7 @@ services:
 
   promtail:
     image: grafana/promtail:1.4.1
+    container_name: promtail
     profiles:
       - tools
       - all
