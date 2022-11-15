@@ -22,7 +22,12 @@ Thanks to a **Mithril Client** connected to a **Mithril Aggregator**, you will r
 
 * Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (latest stable version).
 
-* Install OpenSSL development libraries, for example on Ubuntu/Debian/Mint run `apt install libssl-dev`
+* Install OpenSSL development libraries, for example on Ubuntu/Debian/Mint run `sudo apt install libssl-dev`
+
+* Install other requirements
+```bash
+sudo apt-get install make build-essential m4 docker jq
+```
 
 ## Download source
 
