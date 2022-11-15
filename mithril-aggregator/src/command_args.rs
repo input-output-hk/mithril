@@ -1,3 +1,4 @@
+use chrono::Local;
 use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use semver::{Version, VersionReq};
@@ -37,45 +38,52 @@ use crate::{
     ProtocolParametersStorer, SingleSignatureStore, VerificationKeyStore,
 };
 
-fn check_database_version(connection: &Connection) -> Result<bool, Box<dyn Error>> {
-    let provider = VersionProvider::new(connection);
+fn check_database_version(filepath: &Option<PathBuf>) -> Result<(), Box<dyn Error>> {
+    let connection = match filepath {
+        Some(file) => Connection::open(file)?,
+        None => Connection::open(":memory:")?,
+    };
+    let provider = VersionProvider::new(&connection);
     provider.create_table_if_not_exists()?;
     let application_type = ApplicationNodeType::new("aggregator")?;
-    let maybe_option = provider.get_database_version(&application_type)?;
-
-    let version = match maybe_option {
-        None => {
-            let provider = VersionUpdaterProvider::new(connection);
-            let version = ApplicationVersion {
-                database_version: Version::parse(env!("CARGO_PKG_VERSION"))?,
-                application_type,
-            };
-            provider.save(version)?
-        }
-        Some(version) => version,
+    let maybe_option = provider.get_application_version(&application_type)?;
+    let current_version = ApplicationVersion {
+        semver: Version::parse(env!("CARGO_PKG_VERSION"))?,
+        application_type,
+        updated_at: Local::now().naive_local(),
     };
-    let req = VersionReq::parse(env!("CARGO_PKG_VERSION")).unwrap();
 
-    Ok(req.matches(&version.database_version))
+    match maybe_option {
+        None => {
+            let provider = VersionUpdaterProvider::new(&connection);
+            let _ = provider.save(current_version)?;
+            debug!("application version saved in database");
+        }
+        Some(version) => {
+            let req = VersionReq::parse(&current_version.semver.to_string()).unwrap();
+
+            if !req.matches(&version.semver) {
+                warn!(
+                    "application version '{}' is out of date, new version is '{}'. Upgrading database…",
+                    version.semver, current_version.semver
+                );
+                let upgrader_provider = VersionUpdaterProvider::new(&connection);
+                upgrader_provider.save(current_version)?;
+                debug!("database updated");
+            } else {
+                debug!("database up to date");
+            }
+        }
+    };
+
+    Ok(())
 }
 
 fn setup_genesis_dependencies(
     config: &GenesisConfiguration,
 ) -> Result<GenesisToolsDependency, Box<dyn std::error::Error>> {
     let sqlite_db_path = Some(config.get_sqlite_file());
-
-    let connection = match sqlite_db_path.clone() {
-        Some(filepath) => Connection::open(filepath)?,
-        None => Connection::open(":memory:")?,
-    };
-    if !check_database_version(&connection)? {
-        warn!("❌ The database is out of date, application may fail.");
-    } else {
-        debug!(
-            "Database schematic for application version {} has been checked OK!",
-            env!("CARGO_PKG_VERSION")
-        );
-    }
+    check_database_version(&sqlite_db_path)?;
 
     let chain_observer = Arc::new(
         mithril_common::chain_observer::CardanoCliChainObserver::new(Box::new(
@@ -336,24 +344,12 @@ impl ServeCommand {
             .try_deserialize()
             .map_err(|e| format!("configuration deserialize error: {}", e))?;
         debug!("SERVE command"; "config" => format!("{:?}", config));
+        let sqlite_db_path = Some(config.get_sqlite_file());
+        check_database_version(&sqlite_db_path)?;
+
         // Init dependencies
         let snapshot_store = config.build_snapshot_store()?;
         let snapshot_uploader = config.build_snapshot_uploader()?;
-
-        let sqlite_db_path = Some(config.get_sqlite_file());
-        let connection = match sqlite_db_path.clone() {
-            Some(filepath) => Connection::open(filepath)?,
-            None => Connection::open(":memory:")?,
-        };
-
-        if !check_database_version(&connection)? {
-            warn!("❌ The database is out of date, application may fail.");
-        } else {
-            debug!(
-                "Database schematic for application version {} has been checked OK!",
-                env!("CARGO_PKG_VERSION")
-            );
-        }
 
         let certificate_pending_store = Arc::new(CertificatePendingStore::new(Box::new(
             SQLiteAdapter::new("pending_certificate", sqlite_db_path.clone())?,
