@@ -2071,6 +2071,7 @@ name = "mithril-signer"
 version = "0.1.1"
 dependencies = [
  "async-trait",
+ "chrono",
  "clap 4.0.22",
  "config",
  "hex",
@@ -2080,6 +2081,7 @@ dependencies = [
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
  "reqwest",
+ "semver",
  "serde",
  "serde_json",
  "slog",
@@ -2087,6 +2089,7 @@ dependencies = [
  "slog-bunyan",
  "slog-scope",
  "slog-term",
+ "sqlite",
  "thiserror",
  "tokio",
 ]

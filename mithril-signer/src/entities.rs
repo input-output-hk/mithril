@@ -4,6 +4,8 @@ use std::path::PathBuf;
 
 use mithril_common::{entities::PartyId, CardanoNetwork};
 
+const SQLITE_FILE: &str = "signer.sqlite3";
+
 /// Client configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -52,5 +54,17 @@ impl Config {
     pub fn get_network(&self) -> Result<CardanoNetwork, ConfigError> {
         CardanoNetwork::from_code(self.network.clone(), self.network_magic)
             .map_err(|e| ConfigError::Message(e.to_string()))
+    }
+
+    /// Create the SQL store directory if not exist and return the path of the
+    /// SQLite3 file.
+    pub fn get_sqlite_file(&self) -> PathBuf {
+        let store_dir = &self.data_stores_directory;
+
+        if !store_dir.exists() {
+            std::fs::create_dir_all(store_dir).unwrap();
+        }
+
+        self.data_stores_directory.join(SQLITE_FILE)
     }
 }
