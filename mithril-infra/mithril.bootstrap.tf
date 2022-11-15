@@ -36,7 +36,7 @@ done
 echo "Startup script complete!"
 EOT
       ,
-      "chmod u+x /home/curry/tools/*.sh",
+      "find /home/curry/tools -name '*.sh' -type f | xargs chmod u+x",
       "rm -rf /home/curry/docker/cardano-configurations && git clone https://github.com/input-output-hk/cardano-configurations.git /home/curry/docker/cardano-configurations"
     ]
   }

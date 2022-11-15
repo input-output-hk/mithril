@@ -2,8 +2,12 @@ output "google_project" {
   value = local.google_project_id
 }
 
-output "aggregator_endpoint" {
+output "mithril_aggregator_endpoint" {
   value = local.mithril_aggregator_endpoint_url
+}
+
+output "mithril_signers_endpoint_url" {
+  value = local.mithril_signers_endpoint_url
 }
 
 output "storage_bucket" {
