@@ -30,7 +30,7 @@ In this documentation, we use the generic `**YOUR_TEST_NETWORK**` identifier, bu
 
 * Install other requirements
 ```bash
-sudo apt-get install make build-essential m4 docker docker-compose jq
+sudo apt-get install make build-essential m4 docker jq
 ```
 
 ## Download source
