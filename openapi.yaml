@@ -1,5 +1,9 @@
 openapi: "3.0.0"
 info:
+  # The protocol version is embedded in the code as constant in the
+  # `mithril-aggregator/src/http_server/mod.rs` file. If you plan to update it
+  # here to reflect changes in the API, please also update the constant in the
+  # Rust file.
   version: 0.0.1
   title: Mithril Aggregator Server
   description: |
