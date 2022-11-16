@@ -1,10 +1,7 @@
-use chrono::Local;
 use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
-use semver::{Version, VersionReq};
 use slog::Level;
-use slog_scope::{debug, warn};
-use sqlite::Connection;
+use slog_scope::debug;
 use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
@@ -15,9 +12,7 @@ use tokio::time::Duration;
 use mithril_common::certificate_chain::MithrilCertificateVerifier;
 use mithril_common::chain_observer::{CardanoCliRunner, ChainObserver};
 use mithril_common::crypto_helper::ProtocolGenesisVerifier;
-use mithril_common::database::{
-    ApplicationNodeType, ApplicationVersion, VersionProvider, VersionUpdaterProvider,
-};
+use mithril_common::database::{ApplicationNodeType, ApplicationVersionChecker};
 use mithril_common::digesters::{CardanoImmutableDigester, ImmutableFileSystemObserver};
 use mithril_common::entities::{Epoch, HexEncodedGenesisSecretKey};
 use mithril_common::store::adapter::SQLiteAdapter;
@@ -38,52 +33,16 @@ use crate::{
     ProtocolParametersStorer, SingleSignatureStore, VerificationKeyStore,
 };
 
-fn check_database_version(filepath: &Option<PathBuf>) -> Result<(), Box<dyn Error>> {
-    let connection = match filepath {
-        Some(file) => Connection::open(file)?,
-        None => Connection::open(":memory:")?,
-    };
-    let provider = VersionProvider::new(&connection);
-    provider.create_table_if_not_exists()?;
-    let application_type = ApplicationNodeType::new("aggregator")?;
-    let maybe_option = provider.get_application_version(&application_type)?;
-    let current_version = ApplicationVersion {
-        semver: Version::parse(env!("CARGO_PKG_VERSION"))?,
-        application_type,
-        updated_at: Local::now().naive_local(),
-    };
-
-    match maybe_option {
-        None => {
-            let provider = VersionUpdaterProvider::new(&connection);
-            let _ = provider.save(current_version)?;
-            debug!("application version saved in database");
-        }
-        Some(version) => {
-            let req = VersionReq::parse(&current_version.semver.to_string()).unwrap();
-
-            if !req.matches(&version.semver) {
-                warn!(
-                    "application version '{}' is out of date, new version is '{}'. Upgrading database…",
-                    version.semver, current_version.semver
-                );
-                let upgrader_provider = VersionUpdaterProvider::new(&connection);
-                upgrader_provider.save(current_version)?;
-                debug!("database updated");
-            } else {
-                debug!("database up to date");
-            }
-        }
-    };
-
-    Ok(())
-}
-
 fn setup_genesis_dependencies(
     config: &GenesisConfiguration,
 ) -> Result<GenesisToolsDependency, Box<dyn std::error::Error>> {
     let sqlite_db_path = Some(config.get_sqlite_file());
-    check_database_version(&sqlite_db_path)?;
+    ApplicationVersionChecker::new(
+        slog_scope::logger(),
+        ApplicationNodeType::Aggregator,
+        config.get_sqlite_file(),
+    )
+    .check(env!("CARGO_PKG_VERSION"))?;
 
     let chain_observer = Arc::new(
         mithril_common::chain_observer::CardanoCliChainObserver::new(Box::new(
@@ -345,7 +304,12 @@ impl ServeCommand {
             .map_err(|e| format!("configuration deserialize error: {}", e))?;
         debug!("SERVE command"; "config" => format!("{:?}", config));
         let sqlite_db_path = Some(config.get_sqlite_file());
-        check_database_version(&sqlite_db_path)?;
+        ApplicationVersionChecker::new(
+            slog_scope::logger(),
+            ApplicationNodeType::Aggregator,
+            config.get_sqlite_file(),
+        )
+        .check(env!("CARGO_PKG_VERSION"))?;
 
         // Init dependencies
         let snapshot_store = config.build_snapshot_store()?;

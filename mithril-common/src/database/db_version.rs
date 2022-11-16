@@ -1,7 +1,8 @@
-use std::{collections::HashMap, error::Error, fmt::Display};
+use std::{cmp::Ordering, collections::HashMap, error::Error, fmt::Display, path::PathBuf};
 
-use chrono::NaiveDateTime;
+use chrono::{Local, NaiveDateTime};
 use semver::Version;
+use slog::{debug, error, warn, Logger};
 use sqlite::{Connection, Row, Value};
 
 use crate::sqlite::{HydrationError, Projection, ProjectionField, Provider, SqLiteEntity};
@@ -232,6 +233,90 @@ returning {projection}
     }
 }
 
+/// Struct to perform application version check in the database.
+#[derive(Debug)]
+pub struct ApplicationVersionChecker {
+    /// Pathbuf to the SQLite3 file.
+    sqlite_file_path: PathBuf,
+
+    /// Application type which vesion is verified.
+    application_type: ApplicationNodeType,
+
+    /// logger
+    logger: Logger,
+}
+
+impl ApplicationVersionChecker {
+    /// constructor
+    pub fn new(
+        logger: Logger,
+        application_type: ApplicationNodeType,
+        sqlite_file_path: PathBuf,
+    ) -> Self {
+        Self {
+            sqlite_file_path,
+            application_type,
+            logger,
+        }
+    }
+
+    /// Performs an actual version check in the database. This method creates a
+    /// connection to the SQLite3 file and drops it at the end.
+    pub fn check(&self, current_semver: &str) -> Result<(), Box<dyn Error>> {
+        debug!(
+            &self.logger,
+            "check application version, database file = '{}'",
+            self.sqlite_file_path.display()
+        );
+        let connection = Connection::open(&self.sqlite_file_path)?;
+        let provider = VersionProvider::new(&connection);
+        provider.create_table_if_not_exists()?;
+        let updater = VersionUpdaterProvider::new(&connection);
+        let maybe_option = provider.get_application_version(&self.application_type)?;
+        let current_version = ApplicationVersion {
+            semver: Version::parse(current_semver)?,
+            application_type: self.application_type.clone(),
+            updated_at: Local::now().naive_local(),
+        };
+
+        match maybe_option {
+            None => {
+                let current_version = updater.save(current_version)?;
+                debug!(
+                    &self.logger,
+                    "Application version '{}' saved in database.", current_version.semver
+                );
+            }
+            Some(version) => match current_version.semver.cmp(&version.semver) {
+                Ordering::Greater => {
+                    warn!(
+                            &self.logger,
+                            "Application version '{}' is out of date, new version is '{}'. Upgrading database…",
+                            version.semver, current_version.semver
+                        );
+                    updater.save(current_version)?;
+                    debug!(&self.logger, "database updated");
+                }
+                Ordering::Less => {
+                    error!(
+                        &self.logger,
+                        "Software version '{}' is older than database structure version '{}'.",
+                        current_version.semver,
+                        version.semver
+                    );
+
+                    Err("This software version is older than the database structure. Aborting launch to prevent possible data corruption.")?;
+                }
+                Ordering::Equal => {
+                    debug!(&self.logger, "database up to date");
+                }
+            },
+        };
+
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -277,5 +362,37 @@ returning app_version.semver as semver, app_version.application_type as applicat
 "#,
             provider.get_definition(None)
         )
+    }
+
+    fn check_database_version(filepath: &PathBuf, semver: &str) {
+        let connection = Connection::open(filepath).unwrap();
+        let provider = VersionProvider::new(&connection);
+        let version = provider
+            .get_application_version(&ApplicationNodeType::Aggregator)
+            .unwrap()
+            .expect("there should be a version in the database");
+
+        assert_eq!(semver, version.semver.to_string());
+    }
+
+    #[test]
+    fn test_application_version_checker() {
+        let filepath = std::env::temp_dir().join("test.sqlite3");
+
+        if filepath.exists() {
+            std::fs::remove_file(filepath.as_path()).unwrap();
+        }
+        let app_checker = ApplicationVersionChecker::new(
+            slog_scope::logger(),
+            ApplicationNodeType::Aggregator,
+            filepath.clone(),
+        );
+        app_checker.check("1.0.0").unwrap();
+        check_database_version(&filepath, "1.0.0");
+        app_checker.check("1.0.0").unwrap();
+        check_database_version(&filepath, "1.0.0");
+        app_checker.check("1.1.0").unwrap();
+        check_database_version(&filepath, "1.1.0");
+        app_checker.check("1.0.1").unwrap_err();
     }
 }
