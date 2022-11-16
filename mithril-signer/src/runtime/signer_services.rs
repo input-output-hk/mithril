@@ -72,7 +72,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
                 .map_err(|e| format!("Could not create data stores directory: {:?}", e))?;
         }
 
-        let sqlite_db_path = Some(self.config.data_stores_directory.join("signer.sqlite3"));
+        let sqlite_db_path = Some(self.config.get_sqlite_file());
         let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
             Box::new(SQLiteAdapter::new(
                 "protocol_initializer",

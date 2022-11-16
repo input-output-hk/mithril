@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::{error::Error, path::PathBuf};
 
+use mithril_common::database::{ApplicationNodeType, ApplicationVersionChecker};
 use mithril_signer::{
     Config, ProductionServiceBuilder, ServiceBuilder, SignerRunner, SignerState, StateMachine,
 };
@@ -81,14 +82,18 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .map_err(|e| format!("configuration build error: {}", e))?
         .try_deserialize()
         .map_err(|e| format!("configuration deserialize error: {}", e))?;
+    let services = ProductionServiceBuilder::new(&config).build()?;
+    ApplicationVersionChecker::new(
+        slog_scope::logger(),
+        ApplicationNodeType::Signer,
+        config.get_sqlite_file(),
+    )
+    .check(env!("CARGO_PKG_VERSION"))?;
     debug!("Started"; "run_mode" => &args.run_mode, "config" => format!("{:?}", config));
 
     let mut state_machine = StateMachine::new(
         SignerState::Unregistered(None),
-        Box::new(SignerRunner::new(
-            config.clone(),
-            ProductionServiceBuilder::new(&config).build()?,
-        )),
+        Box::new(SignerRunner::new(config.clone(), services)),
         Duration::from_millis(config.run_interval),
     );
     state_machine.run().await
