@@ -24,6 +24,8 @@ services:
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/pool:/pool
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/www:/www
+    ports:
+      - "${SIGNER_CARDANO_PORT}:${SIGNER_CARDANO_PORT}"
     environment:
       - CARDANO_SOCKET_PATH=/ipc/node.socket
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
@@ -35,7 +37,17 @@ services:
         "--topology",
         "/config/cardano-node/topology.json",
         "--database-path",
-        "/db"
+        "/db",
+        "--host-addr",
+        "${SIGNER_CARDANO_ADDR}",
+        "--port",
+        "${SIGNER_CARDANO_PORT}",
+        "--shelley-kes-key",
+        "/pool/kes.skey",
+        "--shelley-vrf-key",
+        "/pool/vrf.skey",
+        "--shelley-operational-certificate",
+        "/pool/opcert.cert"
       ]
 
   mithril-signer:

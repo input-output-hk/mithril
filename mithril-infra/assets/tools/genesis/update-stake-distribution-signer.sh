@@ -9,7 +9,7 @@ exec_sql_signer() {
 }
 
 fix_stake_distribution_signer() {
-  LAST_EPOCH=$(exec_sql_aggregator $1 $2 "SELECT MAX(key) FROM stake;")
+  LAST_EPOCH=$(exec_sql_signer $1 $2 "SELECT MAX(key) FROM stake;")
 
   exec_sql_signer $1 $2 "UPDATE stake SET value = json_insert(json(value), '$.${POOL_ID}', ${POOL_STAKES}) WHERE key = '$LAST_EPOCH';"
   exec_sql_signer $1 $2 "SELECT * FROM stake WHERE key = $LAST_EPOCH;"

@@ -1,5 +1,7 @@
 locals {
-  mithril_signers_index = [for key, signer in var.mithril_signers : key]
+  mithril_signers_index        = [for key, signer in var.mithril_signers : key]
+  mithril_signers_www_port     = { for key, signer in var.mithril_signers : key => index(local.mithril_signers_index, key) + 1 + 8080 }
+  mithril_signers_cardano_port = { for key, signer in var.mithril_signers : key => index(local.mithril_signers_index, key) + 1 + 9090 }
 }
 resource "null_resource" "mithril_signer" {
   for_each = var.mithril_signers
@@ -38,7 +40,9 @@ resource "null_resource" "mithril_signer" {
       "export NETWORK=${var.cardano_network}",
       "export IMAGE_ID=${var.mithril_image_id}",
       "export SIGNER_HOST=${local.mithril_signers_host[each.key]}",
-      "export SIGNER_WWW_PORT=`expr 8080 + ${index(local.mithril_signers_index, each.key) + 1}`",
+      "export SIGNER_WWW_PORT=${local.mithril_signers_www_port[each.key]}",
+      "export SIGNER_CARDANO_ADDR=0.0.0.0",
+      "export SIGNER_CARDANO_PORT=${local.mithril_signers_cardano_port[each.key]}",
       "export CURRENT_UID=$(id -u)",
       "export DOCKER_GID=$(getent group docker | cut -d: -f3)",
       "docker-compose -p $SIGNER_ID -f /home/curry/docker/docker-compose-signer-${each.value.type}.yaml --profile all up -d",

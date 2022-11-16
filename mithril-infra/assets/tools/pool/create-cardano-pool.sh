@@ -142,7 +142,7 @@ POOL_PLEDGE=$AMOUNT_STAKED
 POOL_COST=$(cat $PROTOCOL_FILE | jq .protocolParams.minPoolCost)
 POOL_MARGIN=0.1
 POOL_METADATA_URL=$(curl -s https://tinyurl.com/api-create.php?url=https://${SIGNER_NODE}.${DOMAIN}/pool-metadata.json)
-POOL_RELAY_URL="https://${SIGNER_NODE}.${DOMAIN}/"
+POOL_RELAY_URL="${SIGNER_NODE}.${DOMAIN}"
 
 CARDANO_CLI_CMD stake-pool registration-certificate \
 --cold-verification-key-file ${POOL_ARTIFACTS_DIR}/cold.vkey \
