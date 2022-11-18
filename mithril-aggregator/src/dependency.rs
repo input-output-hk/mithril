@@ -9,7 +9,6 @@ use mithril_common::store::{StakeStore, StakeStorer};
 use mithril_common::BeaconProvider;
 
 use std::collections::HashMap;
-use std::ops::Range;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -82,35 +81,8 @@ pub struct DependencyManager {
 #[doc(hidden)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SimulateFromChainParams {
-    /// If set it will search for epoch gap in the given chain and fill the ProtocolParameters and
-    /// Stakes & VerificationKeys stores using the values from the closets latest certificate in each
-    /// gap.
-    FillSignersAndProtocolParamsForGap,
-
     /// Will set the multi_signer protocol parameters & beacon to the one in contained in the latest certificate.
     SetupMultiSigner,
-}
-
-impl SimulateFromChainParams {
-    pub fn find_gap(epochs: &[Epoch]) -> Vec<Range<Epoch>> {
-        if epochs.is_empty() {
-            panic!("The given epochs slice must not be empty");
-        }
-
-        let mut result = vec![];
-        let mut epochs = epochs.to_vec();
-        epochs.sort();
-
-        let mut previous = *epochs.first().unwrap();
-        for current in epochs {
-            if current - previous > Epoch(1) {
-                result.push((previous + 1)..(current - 1));
-            }
-            previous = current;
-        }
-
-        result
-    }
 }
 
 #[doc(hidden)]
@@ -172,23 +144,6 @@ impl DependencyManager {
                     certificate.metadata.protocol_parameters.clone(),
                 ),
             );
-        }
-
-        if additional_params.contains(&SimulateFromChainParams::FillSignersAndProtocolParamsForGap)
-        {
-            let epochs = parameters_per_epoch.clone().into_keys().collect::<Vec<_>>();
-
-            for gap in SimulateFromChainParams::find_gap(&epochs) {
-                let (closest_signers, closest_protocol_params) =
-                    parameters_per_epoch.get(&(gap.end + 1)).unwrap().clone();
-
-                for epoch in gap.start.0..=gap.end.0 {
-                    parameters_per_epoch.insert(
-                        Epoch(epoch),
-                        (closest_signers.clone(), closest_protocol_params.clone()),
-                    );
-                }
-            }
         }
 
         for (epoch, params) in parameters_per_epoch {
@@ -290,7 +245,6 @@ impl DependencyManager {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::dependency::SimulateFromChainParams;
     use crate::{
         AggregatorConfig, CertificatePendingStore, CertificateStore, Configuration,
         DependencyManager, DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore,
@@ -300,7 +254,6 @@ pub mod tests {
     use mithril_common::certificate_chain::MithrilCertificateVerifier;
     use mithril_common::crypto_helper::{key_encode_hex, ProtocolGenesisSigner};
     use mithril_common::digesters::{DumbImmutableDigester, DumbImmutableFileObserver};
-    use mithril_common::entities::Epoch;
     use mithril_common::{
         chain_observer::FakeObserver,
         fake_data,
@@ -405,15 +358,5 @@ pub mod tests {
         );
 
         (dependency_manager, config)
-    }
-
-    #[test]
-    fn test_find_epoch_gap() {
-        let epochs = vec![Epoch(1), Epoch(2), Epoch(6), Epoch(7), Epoch(8), Epoch(20)];
-
-        assert_eq!(
-            SimulateFromChainParams::find_gap(&epochs),
-            vec![(Epoch(3)..Epoch(5)), (Epoch(9)..Epoch(19))]
-        );
     }
 }
