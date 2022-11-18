@@ -1,6 +1,8 @@
+use crate::WorkingCertificate;
+
 use super::{AggregatorRunnerTrait, RuntimeError};
 
-use mithril_common::entities::{Beacon, CertificatePending};
+use mithril_common::entities::Beacon;
 use slog_scope::{error, info, trace, warn};
 use std::fmt::Display;
 use std::sync::Arc;
@@ -19,7 +21,7 @@ pub struct ReadyState {
 #[derive(Clone, Debug, PartialEq)]
 pub struct SigningState {
     current_beacon: Beacon,
-    certificate_pending: CertificatePending,
+    working_certificate: WorkingCertificate,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -252,7 +254,7 @@ impl AggregatorRuntime {
             .await?;
         let certificate = self
             .runner
-            .create_and_save_certificate(&state.current_beacon)
+            .create_and_save_certificate(&state.working_certificate)
             .await?;
         let _ = self
             .runner
@@ -298,9 +300,13 @@ impl AggregatorRuntime {
         self.runner
             .save_pending_certificate(certificate_pending.clone())
             .await?;
+        let working_certificate = self
+            .runner
+            .create_new_working_certificate(&certificate_pending)
+            .await?;
         let state = SigningState {
             current_beacon: new_beacon,
-            certificate_pending,
+            working_certificate,
         };
 
         Ok(state)
@@ -514,6 +520,10 @@ mod tests {
             .once()
             .returning(|_| Ok(fake_data::certificate_pending()));
         runner
+            .expect_create_new_working_certificate()
+            .once()
+            .returning(|_| Ok(WorkingCertificate::fake()));
+        runner
             .expect_save_pending_certificate()
             .once()
             .returning(|_| Ok(()));
@@ -551,7 +561,7 @@ mod tests {
 
                 beacon
             },
-            certificate_pending: fake_data::certificate_pending(),
+            working_certificate: WorkingCertificate::fake(),
         };
         let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
         runtime.cycle().await.unwrap();
@@ -572,7 +582,7 @@ mod tests {
             .returning(|| Ok(false));
         let state = SigningState {
             current_beacon: fake_data::beacon(),
-            certificate_pending: fake_data::certificate_pending(),
+            working_certificate: WorkingCertificate::fake(),
         };
         let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
         runtime.cycle().await.unwrap();
@@ -619,7 +629,7 @@ mod tests {
 
         let state = SigningState {
             current_beacon: fake_data::beacon(),
-            certificate_pending: fake_data::certificate_pending(),
+            working_certificate: WorkingCertificate::fake(),
         };
         let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
         runtime.cycle().await.unwrap();

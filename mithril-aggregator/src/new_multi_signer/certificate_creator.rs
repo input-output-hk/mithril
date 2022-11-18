@@ -3,7 +3,7 @@ use mithril_common::{
     crypto_helper::{key_encode_hex, ProtocolMultiSignature, PROTOCOL_VERSION},
     entities::{
         self, Beacon, CertificatePending, PartyId, ProtocolMessage, ProtocolParameters,
-        SignerWithStake, StakeDistribution,
+        SignerWithStake,
     },
 };
 
@@ -49,6 +49,7 @@ pub struct WorkingCertificate {
 }
 
 impl WorkingCertificate {
+    /// Create a [WorkingCertificate] using what it can copy from a given [PendingCertificate]
     pub fn from_pending_certificate(
         pending_certificate: &CertificatePending,
         signers: &[SignerWithStake],
@@ -63,7 +64,7 @@ impl WorkingCertificate {
             signers: signers.to_vec(),
             message: protocol_message.clone(),
             aggregate_verification_key: aggregate_verification_key.to_string(),
-            initiated_at: initiated_at.clone(),
+            initiated_at: *initiated_at,
             previous_hash: previous_hash.to_string(),
         }
     }
@@ -74,7 +75,7 @@ impl WorkingCertificate {
 
         Self {
             beacon: fake_data::beacon(),
-            protocol_parameters: fake_data::protocol_parameters().into(),
+            protocol_parameters: fake_data::protocol_parameters(),
             signers: fake_data::signers_with_stakes(3),
             message: ProtocolMessage::new(),
             aggregate_verification_key: "avk".to_string(),

@@ -1,15 +1,17 @@
 use mithril_common::certificate_chain::CertificateVerifier;
-use mithril_common::crypto_helper::ProtocolGenesisVerifier;
-use std::sync::Arc;
-use tokio::sync::RwLock;
-
 use mithril_common::chain_observer::ChainObserver;
+use mithril_common::crypto_helper::ProtocolGenesisVerifier;
 use mithril_common::digesters::{ImmutableDigester, ImmutableFileObserver};
 use mithril_common::entities::{
-    Epoch, ProtocolParameters, Signer, SignerWithStake, StakeDistribution,
+    Certificate, Epoch, ProtocolParameters, Signer, SignerWithStake, StakeDistribution,
 };
 use mithril_common::store::{StakeStore, StakeStorer};
 use mithril_common::BeaconProvider;
+
+use std::collections::HashMap;
+use std::ops::Range;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 use crate::configuration::*;
 use crate::multi_signer::MultiSigner;
@@ -78,6 +80,40 @@ pub struct DependencyManager {
 }
 
 #[doc(hidden)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SimulateFromChainParams {
+    /// If set it will search for epoch gap in the given chain and fill the ProtocolParameters and
+    /// Stakes & VerificationKeys stores using the values from the closets latest certificate in each
+    /// gap.
+    FillSignersAndProtocolParamsForGap,
+
+    /// Will set the multi_signer protocol parameters & beacon to the one in contained in the latest certificate.
+    SetupMultiSigner,
+}
+
+impl SimulateFromChainParams {
+    pub fn find_gap(epochs: &[Epoch]) -> Vec<Range<Epoch>> {
+        if epochs.is_empty() {
+            panic!("The given epochs slice must not be empty");
+        }
+
+        let mut result = vec![];
+        let mut epochs = epochs.to_vec();
+        epochs.sort();
+
+        let mut previous = *epochs.first().unwrap();
+        for current in epochs {
+            if current - previous > Epoch(1) {
+                result.push((previous + 1)..(current - 1));
+            }
+            previous = current;
+        }
+
+        result
+    }
+}
+
+#[doc(hidden)]
 impl DependencyManager {
     /// Get the first two epochs that will be used by a newly started aggregator
     async fn get_genesis_epochs(&self) -> (Epoch, Epoch) {
@@ -99,6 +135,94 @@ impl DependencyManager {
 
     /// `TEST METHOD ONLY`
     ///
+    /// Fill the stores of a [DependencyManager] in a way to simulate an aggregator genesis state
+    /// using the data from a precomputed certificate_chain.
+    ///
+    /// Arguments:
+    pub async fn simulate_genesis_from_chain(
+        &self,
+        certificate_chain: &[Certificate],
+        additional_params: Vec<SimulateFromChainParams>,
+    ) {
+        if certificate_chain.is_empty() {
+            panic!("The given certificate chain must contains at least one certificate");
+        }
+
+        let mut certificate_chain = certificate_chain.to_vec();
+        certificate_chain.sort_by(|left, right| {
+            left.beacon
+                .partial_cmp(&right.beacon)
+                .expect("The given certificates should all share the same network")
+        });
+        let last_certificate = certificate_chain.last().unwrap().clone();
+        let last_beacon = last_certificate.beacon.clone();
+        let last_protocol_parameters = last_certificate.metadata.protocol_parameters.clone();
+
+        let mut parameters_per_epoch: HashMap<Epoch, (Vec<SignerWithStake>, ProtocolParameters)> =
+            HashMap::new();
+        for certificate in certificate_chain.iter() {
+            if parameters_per_epoch.contains_key(&certificate.beacon.epoch) {
+                continue;
+            }
+
+            parameters_per_epoch.insert(
+                certificate.beacon.epoch,
+                (
+                    certificate.metadata.signers.clone(),
+                    certificate.metadata.protocol_parameters.clone(),
+                ),
+            );
+        }
+
+        if additional_params.contains(&SimulateFromChainParams::FillSignersAndProtocolParamsForGap)
+        {
+            let epochs = parameters_per_epoch.clone().into_keys().collect::<Vec<_>>();
+
+            for gap in SimulateFromChainParams::find_gap(&epochs) {
+                let (closest_signers, closest_protocol_params) =
+                    parameters_per_epoch.get(&(gap.end + 1)).unwrap().clone();
+
+                for epoch in gap.start.0..=gap.end.0 {
+                    parameters_per_epoch.insert(
+                        Epoch(epoch),
+                        (closest_signers.clone(), closest_protocol_params.clone()),
+                    );
+                }
+            }
+        }
+
+        for (epoch, params) in parameters_per_epoch {
+            self.fill_verification_key_store(epoch, &params.0).await;
+            self.fill_stakes_store(epoch, &params.0).await;
+            self.protocol_parameters_store
+                .save_protocol_parameters(epoch, params.1)
+                .await
+                .expect("save_protocol_parameters should not fail");
+        }
+
+        for certificate in certificate_chain {
+            self.certificate_store
+                .save(certificate.to_owned())
+                .await
+                .expect("certificate_store::save should not fail");
+        }
+
+        if additional_params.contains(&SimulateFromChainParams::SetupMultiSigner) {
+            let mut multi_signer = self.multi_signer.write().await;
+
+            multi_signer
+                .update_current_beacon(last_beacon)
+                .await
+                .expect("setting the beacon should not fail");
+            multi_signer
+                .update_protocol_parameters(&last_protocol_parameters.into())
+                .await
+                .expect("updating protocol parameters should not fail");
+        }
+    }
+
+    /// `TEST METHOD ONLY`
+    ///
     /// Fill the stores of a [DependencyManager] in a way to simulate an aggregator genesis state.
     ///
     /// For the current and the next epoch:
@@ -116,29 +240,8 @@ impl DependencyManager {
             (work_epoch, genesis_signers),
             (epoch_to_sign, second_epoch_signers),
         ] {
-            for signer in signers
-                .clone()
-                .into_iter()
-                .map(|s| s.into())
-                .collect::<Vec<Signer>>()
-            {
-                self.verification_key_store
-                    .save_verification_key(epoch, signer.clone())
-                    .await
-                    .expect("save_verification_key should not fail");
-            }
-
-            self.stake_store
-                .save_stakes(
-                    epoch,
-                    signers
-                        .clone()
-                        .iter()
-                        .map(|s| s.into())
-                        .collect::<StakeDistribution>(),
-                )
-                .await
-                .expect("save_stakes should not fail");
+            self.fill_verification_key_store(epoch, &signers).await;
+            self.fill_stakes_store(epoch, &signers).await;
         }
 
         self.init_protocol_parameter_store(genesis_protocol_parameters)
@@ -157,10 +260,37 @@ impl DependencyManager {
                 .expect("save_protocol_parameters should not fail");
         }
     }
+
+    async fn fill_verification_key_store(&self, target_epoch: Epoch, signers: &[SignerWithStake]) {
+        for signer in signers
+            .iter()
+            .map(|s| s.to_owned().into())
+            .collect::<Vec<Signer>>()
+        {
+            self.verification_key_store
+                .save_verification_key(target_epoch, signer.clone())
+                .await
+                .expect("save_verification_key should not fail");
+        }
+    }
+
+    async fn fill_stakes_store(&self, target_epoch: Epoch, signers: &[SignerWithStake]) {
+        self.stake_store
+            .save_stakes(
+                target_epoch,
+                signers
+                    .iter()
+                    .map(|s| s.into())
+                    .collect::<StakeDistribution>(),
+            )
+            .await
+            .expect("save_stakes should not fail");
+    }
 }
 
 #[cfg(test)]
 pub mod tests {
+    use crate::dependency::SimulateFromChainParams;
     use crate::{
         AggregatorConfig, CertificatePendingStore, CertificateStore, Configuration,
         DependencyManager, DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore,
@@ -170,6 +300,7 @@ pub mod tests {
     use mithril_common::certificate_chain::MithrilCertificateVerifier;
     use mithril_common::crypto_helper::{key_encode_hex, ProtocolGenesisSigner};
     use mithril_common::digesters::{DumbImmutableDigester, DumbImmutableFileObserver};
+    use mithril_common::entities::Epoch;
     use mithril_common::{
         chain_observer::FakeObserver,
         fake_data,
@@ -274,5 +405,15 @@ pub mod tests {
         );
 
         (dependency_manager, config)
+    }
+
+    #[test]
+    fn test_find_epoch_gap() {
+        let epochs = vec![Epoch(1), Epoch(2), Epoch(6), Epoch(7), Epoch(8), Epoch(20)];
+
+        assert_eq!(
+            SimulateFromChainParams::find_gap(&epochs),
+            vec![(Epoch(3)..Epoch(5)), (Epoch(9)..Epoch(19))]
+        );
     }
 }
