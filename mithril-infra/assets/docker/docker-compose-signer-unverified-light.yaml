@@ -1,0 +1,38 @@
+# Unverified Mithril Signer node running on top of shared Cardano node (from Mithril Aggregator)
+
+version: "3.9"
+
+services:
+  mithril-signer:
+    image: ghcr.io/input-output-hk/mithril-signer:${IMAGE_ID}
+    container_name: mithril-signer-${SIGNER_ID}
+    restart: always
+    user: ${CURRENT_UID}
+    profiles:
+      - mithril
+      - all
+    environment:
+      - RUST_BACKTRACE=1
+      - AGGREGATOR_ENDPOINT=http://mithril-aggregator:8080/aggregator
+      - NETWORK=${NETWORK}
+      - PARTY_ID=${PARTY_ID}
+      - RUN_INTERVAL=120000
+      - DB_DIRECTORY=/mithril-aggregator/cardano/db
+      - DATA_STORES_DIRECTORY=/mithril-signer-${SIGNER_ID}/mithril/stores
+      - STORE_RETENTION_LIMIT=5
+      - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
+      - CARDANO_CLI_PATH=/app/bin/cardano-cli
+    volumes:
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/mithril:/mithril-signer-${SIGNER_ID}/mithril
+      - ../data/${NETWORK}/mithril-aggregator/cardano/db:/mithril-aggregator/cardano/db
+      - ../data/${NETWORK}/mithril-aggregator/cardano/ipc:/ipc
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+
+networks:
+  default:
+    external:
+      name: mithril_network
