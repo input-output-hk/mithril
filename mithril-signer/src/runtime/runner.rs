@@ -165,12 +165,18 @@ impl Runner for SignerRunner {
     ) -> Result<(), Box<dyn StdError + Sync + Send>> {
         debug!("RUNNER: register_signer_to_aggregator");
 
+        let epoch_offset_to_recording_epoch = epoch.offset_to_recording_epoch()?;
         let stake_distribution = self
             .services
-            .chain_observer
-            .get_current_stake_distribution()
+            .stake_store
+            .get_stakes(epoch_offset_to_recording_epoch)
             .await?
-            .ok_or_else(|| RuntimeError::NoValueError("current_stake_distribution".to_string()))?;
+            .ok_or_else(|| {
+                RuntimeError::NoValueError(format!(
+                    "stakes at epoch {}",
+                    epoch_offset_to_recording_epoch
+                ))
+            })?;
         let stake = stake_distribution
             .get(&self.services.single_signer.get_party_id())
             .ok_or(RuntimeError::NoStakeForSelf())?;
@@ -430,6 +436,7 @@ impl Runner for SignerRunner {
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::chain_observer::ChainObserver;
     use mockall::mock;
     use std::{path::PathBuf, sync::Arc};
 
@@ -573,6 +580,24 @@ mod tests {
         let protocol_initializer_store = services.protocol_initializer_store.clone();
         let chain_observer = Arc::new(FakeObserver::default());
         services.chain_observer = chain_observer.clone();
+        let epoch = services
+            .beacon_provider
+            .get_current_beacon()
+            .await
+            .unwrap()
+            .epoch
+            .offset_to_recording_epoch()
+            .unwrap();
+        let stakes = chain_observer
+            .get_current_stake_distribution()
+            .await
+            .unwrap()
+            .unwrap();
+        services
+            .stake_store
+            .save_stakes(epoch, stakes)
+            .await
+            .unwrap();
         let runner = init_runner(Some(services), None);
         let epoch = chain_observer
             .current_beacon
