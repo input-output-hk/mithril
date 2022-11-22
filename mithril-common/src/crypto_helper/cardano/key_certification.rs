@@ -48,8 +48,8 @@ pub enum ProtocolRegistrationErrorWrapper {
     OpCertInvalid,
 
     /// Error raised when a KES Signature verification fails
-    #[error("KES signature verification error")]
-    KesSignatureInvalid,
+    #[error("KES signature verification error: CurrentKesPeriod={0}, StartKesPeriod={1}")]
+    KesSignatureInvalid(usize, u64),
 
     /// Error raised when a KES Signature is needed but not provided
     #[error("missing KES signature")]
@@ -221,18 +221,17 @@ impl KeyRegWrapper {
             opcert
                 .validate()
                 .map_err(|_| ProtocolRegistrationErrorWrapper::OpCertInvalid)?;
-            // TODO: List of eligible indices to be defined by CurrentKesPeriod and StartKesPeriod
             let mut pool_id = None;
             let sig = kes_sig.ok_or(ProtocolRegistrationErrorWrapper::KesSignatureMissing)?;
-            for kes_period_try in 0..64 {
+            let kes_period =
+                kes_period.ok_or(ProtocolRegistrationErrorWrapper::KesPeriodMissing)?;
+            let kes_period_try_min = std::cmp::max(0, kes_period.saturating_sub(1));
+            let kes_period_try_max = std::cmp::min(64, kes_period.saturating_add(1));
+            for kes_period_try in kes_period_try_min..kes_period_try_max {
                 if sig
                     .verify(kes_period_try, &opcert.kes_vk, &pk.to_bytes())
                     .is_ok()
                 {
-                    println!(
-                        "WARNING: KES Signature verified for TryKesPeriod={}, CurrentKesPeriod={:?}, and StartKesPeriod={}",
-                        kes_period_try, kes_period, &opcert.start_kes_period
-                    );
                     pool_id = Some(
                         opcert
                             .compute_protocol_party_id()
@@ -241,7 +240,10 @@ impl KeyRegWrapper {
                     break;
                 }
             }
-            pool_id.ok_or(ProtocolRegistrationErrorWrapper::KesSignatureInvalid)?
+            pool_id.ok_or(ProtocolRegistrationErrorWrapper::KesSignatureInvalid(
+                kes_period,
+                opcert.start_kes_period,
+            ))?
         } else {
             println!("WARNING: Signer certification is skipped! {:?}", party_id);
             party_id.ok_or(ProtocolRegistrationErrorWrapper::PartyIdMissing)?
