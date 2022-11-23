@@ -159,8 +159,3 @@ STM/Blake2b/Verification/k: 250, m: 1523, nr_parties: 2000
 
 ```
 
-# ToDo list once we go public
-- [ ] Upload mithril-stm to crates.io
-- [ ] Ensure that the badges are working
-- [ ] Update links for crates and docs
-- [ ] Error handling
