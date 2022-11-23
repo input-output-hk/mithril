@@ -79,7 +79,7 @@ pub enum ProtocolInitializerErrorWrapper {
     #[error("KES key cannot be updated for period {0}")]
     KesUpdate(KESPeriod),
 }
-/// Wrapper structure for [MithrilStm:StmInitializer](mithril::stm::StmInitializer).
+/// Wrapper structure for [MithrilStm:StmInitializer](mithril_stm::stm::StmInitializer).
 /// It now obtains a KES signature over the Mithril key. This allows the signers prove
 /// their correct identity with respect to a Cardano PoolID.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -88,7 +88,7 @@ pub struct StmInitializerWrapper {
     kes_signature: Option<ProtocolSignerVerificationKeySignature>, // todo: The option is ONLY for a smooth transition. We have to remove this.
 }
 
-/// Wrapper structure for [MithrilStm:KeyReg](mithril::key_reg::KeyReg).
+/// Wrapper structure for [MithrilStm:KeyReg](mithril_stm::key_reg::KeyReg).
 /// The wrapper not only contains a map between `Mithril vkey <-> Stake`, but also
 /// a map `PoolID <-> Stake`. This information is recovered from the node state, and
 /// is used to verify the identity of a Mithril signer. Furthermore, the `register` function
