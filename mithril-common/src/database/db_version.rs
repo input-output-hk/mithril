@@ -2,7 +2,7 @@ use std::{cmp::Ordering, collections::HashMap, error::Error, fmt::Display, path:
 
 use chrono::{Local, NaiveDateTime};
 use semver::Version;
-use slog::{debug, error, warn, Logger};
+use slog::{debug, warn, Logger};
 use sqlite::{Connection, Row, Value};
 
 use crate::sqlite::{HydrationError, Projection, ProjectionField, Provider, SqLiteEntity};
@@ -298,14 +298,12 @@ impl ApplicationVersionChecker {
                     debug!(&self.logger, "database updated");
                 }
                 Ordering::Less => {
-                    error!(
+                    warn!(
                         &self.logger,
                         "Software version '{}' is older than database structure version '{}'.",
                         current_version.semver,
                         version.semver
                     );
-
-                    Err("This software version is older than the database structure. Aborting launch to prevent possible data corruption.")?;
                 }
                 Ordering::Equal => {
                     debug!(&self.logger, "database up to date");
@@ -393,6 +391,6 @@ returning app_version.semver as semver, app_version.application_type as applicat
         check_database_version(&filepath, "1.0.0");
         app_checker.check("1.1.0").unwrap();
         check_database_version(&filepath, "1.1.0");
-        app_checker.check("1.0.1").unwrap_err();
+        app_checker.check("1.0.1").unwrap();
     }
 }
