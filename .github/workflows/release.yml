@@ -60,6 +60,63 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
   
+  check-deploy-crates-io:
+    runs-on: ubuntu-22.04
+    outputs:
+      should-deploy: ${{ steps.check_version.outputs.should_deploy }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Check crate latest version
+        id: check_version
+        run: |
+          LATEST_REMOTE_VERSION=$(wget -q -O - https://crates.io/api/v1/crates/mithril-stm | jq -r '.crate.newest_version')
+          LOCAL_VERSION=$(cargo metadata --quiet --no-deps | jq -r '.packages[] | select(.name=="mithril-stm") | .version')
+          echo "Latest crate.io version: $LATEST_REMOTE_VERSION"
+          echo "Local version: $LOCAL_VERSION"
+
+          if [ "$LOCAL_VERSION" != "$LATEST_REMOTE_VERSION" ]; then 
+            echo "Local version is newer than remote version: we will publish to crates.io"
+            echo "should_deploy=true" >> $GITHUB_OUTPUT
+          else
+            echo "Local version and remote version are the same: no need to publish to crates.io"
+            echo "should_deploy=false" >> $GITHUB_OUTPUT
+          fi
+  
+  deploy-crates-io:
+    runs-on: ubuntu-22.04
+    needs: check-deploy-crates-io
+    if: needs.check-deploy-crates-io.outputs.should-deploy == 'true'
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Install stable toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+
+      - name: Cargo publish dry run
+        uses: actions-rs/cargo@v1
+        with:
+          command: publish
+          args: -p mithril-stm --dry-run
+
+      - name: Cargo package list
+        uses: actions-rs/cargo@v1
+        with:
+          command: package
+          args: -p mithril-stm --list
+
+      # We use the '--dry-run' arg until we have a valid CRATES_IO_API_TOKEN to avoid the workflow to crash
+      - name: Cargo publish
+        uses: actions-rs/cargo@v1
+        with:
+          command: publish
+          args: -p mithril-stm --token ${{ secrets.CRATES_IO_API_TOKEN }} --dry-run
+
   deploy-release:
     strategy:
       fail-fast: false

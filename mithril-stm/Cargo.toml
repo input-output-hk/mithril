@@ -9,6 +9,12 @@ license = { workspace = true }
 repository = { workspace = true }
 description = "A Rust implementation of Mithril Stake-based Threshold Multisignatures (STMs)."
 categories = ["cryptography"]
+include = [
+    "**/*.rs",
+    "Cargo.toml",
+    "README.md",
+    ".gitignore",
+]
 
 [lib]
 crate-type = ["lib", "cdylib", "staticlib"]
