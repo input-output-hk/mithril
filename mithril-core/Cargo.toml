@@ -7,6 +7,8 @@ documentation = { workspace = true }
 homepage = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
+description = "A Rust implementation of Mithril Stake-based Threshold Multisignatures (STMs)."
+categories = ["cryptography"]
 
 [lib]
 crate-type = ["lib", "cdylib", "staticlib"]
