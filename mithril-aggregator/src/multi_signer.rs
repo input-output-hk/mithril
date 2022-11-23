@@ -48,7 +48,7 @@ pub enum ProtocolError {
     #[error("codec error: '{0}'")]
     Codec(String),
 
-    /// Mithril Core library returned an error.
+    /// Mithril STM library returned an error.
     #[error("core error: '{0}'")]
     Core(String),
 
