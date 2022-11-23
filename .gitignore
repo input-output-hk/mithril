@@ -1,10 +1,10 @@
 mithril.cabal
 .stack-work/
 .direnv/
-mithril-core/c-tests/tests
-mithril-core/c-tests/tests.dSYM/
+mithril-stm/c-tests/tests
+mithril-stm/c-tests/tests.dSYM/
 *~
-mithril-core/proptest-regressions/
+mithril-stm/proptest-regressions/
 *.dump
 .tmp/
 .s.PGSQL*

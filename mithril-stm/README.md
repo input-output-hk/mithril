@@ -1,9 +1,9 @@
-Mithril-core ![CI workflow](https://github.com/input-output-hk/mithril/actions/workflows/ci.yml/badge.svg) ![crates.io](https://img.shields.io/crates/v/mithril_core.svg)
+Mithril-stm ![CI workflow](https://github.com/input-output-hk/mithril/actions/workflows/ci.yml/badge.svg) ![crates.io](https://img.shields.io/crates/v/mithril_stm.svg)
 =======
 This crate is ongoing work, has not been audited, and it's API is by no means final. Do not use in production.
 
 ### A rust implementation of Stake-based Threshold Multisignatures (STMs)
-`mithril-core` implements Stake-based Threshold Multisignatures as described in the paper
+`mithril-stm` implements Stake-based Threshold Multisignatures as described in the paper
 [Mithril: Stake-based Threshold Multisignatures](https://eprint.iacr.org/2021/916.pdf), by
 Pyrros Chaidos and Aggelos Kiayias.
 
@@ -160,7 +160,7 @@ STM/Blake2b/Verification/k: 250, m: 1523, nr_parties: 2000
 ```
 
 # ToDo list once we go public
-- [ ] Upload mithril-core to crates.io
+- [ ] Upload mithril-stm to crates.io
 - [ ] Ensure that the badges are working
 - [ ] Update links for crates and docs
 - [ ] Error handling

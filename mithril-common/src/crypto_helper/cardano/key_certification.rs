@@ -1,7 +1,7 @@
 //! API for mithril key certification.
 //! Includes the wrappers for StmInitializer and KeyReg, and ProtocolRegistrationErrorWrapper.
-//! These wrappers allows keeping mithril-core agnostic to Cardano, while providing some
-//! guarantees that mithril-core will not be misused in the context of Cardano.  
+//! These wrappers allows keeping mithril-stm agnostic to Cardano, while providing some
+//! guarantees that mithril-stm will not be misused in the context of Cardano.  
 
 use crate::crypto_helper::cardano::{OpCert, ParseError, SerDeShelleyFileFormat};
 use crate::crypto_helper::types::{

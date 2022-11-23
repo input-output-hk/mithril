@@ -7,7 +7,7 @@ members = [
   "mithril-aggregator",
   "mithril-client",
   "mithril-common",
-  "mithril-core",
+  "mithril-stm",
   "mithril-signer",
   "mithril-test-lab/mithril-end-to-end"
 ]

@@ -44,11 +44,11 @@ warp = "0.3"
 
 [target.'cfg(not(windows))'.dependencies]
 # non-windows: use default rug backend
-mithril-stm = { path = "../mithril-core" }
+mithril-stm = { path = "../mithril-stm" }
 
 [target.'cfg(windows)'.dependencies]
 # Windows doesn't support rug backend, fallback to num-integer
-mithril-stm = { path = "../mithril-core", default-features = false, features = ["num-integer-backend"] }
+mithril-stm = { path = "../mithril-stm", default-features = false, features = ["num-integer-backend"] }
 
 [dev-dependencies]
 slog-scope = "4.4.0"

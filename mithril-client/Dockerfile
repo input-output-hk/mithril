@@ -18,8 +18,8 @@ RUN adduser --no-create-home --disabled-password appuser
 WORKDIR /app
 
 # Copy local dependencies
-COPY mithril-core/ /mithril-core/
-COPY Cargo.lock /mithril-core/
+COPY mithril-stm/ /mithril-stm/
+COPY Cargo.lock /mithril-stm/
 COPY mithril-common/ /mithril-common/
 COPY Cargo.lock /mithril-common/
 
