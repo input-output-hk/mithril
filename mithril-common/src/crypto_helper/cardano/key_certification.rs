@@ -9,9 +9,9 @@ use crate::crypto_helper::types::{
     ProtocolStakeDistribution,
 };
 
-use mithril::key_reg::{ClosedKeyReg, KeyReg};
-use mithril::stm::{Stake, StmInitializer, StmParameters, StmSigner, StmVerificationKeyPoP};
-use mithril::RegisterError;
+use mithril_stm::key_reg::{ClosedKeyReg, KeyReg};
+use mithril_stm::stm::{Stake, StmInitializer, StmParameters, StmSigner, StmVerificationKeyPoP};
+use mithril_stm::RegisterError;
 
 use blake2::{
     digest::{consts::U32, FixedOutput},

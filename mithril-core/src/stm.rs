@@ -7,9 +7,9 @@
 //! ```rust
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! use blake2::{Blake2b, digest::consts::U32};
-//! use mithril::key_reg::KeyReg; // Import key registration functionality
-//! use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
-//! use mithril::AggregationError;
+//! use mithril_stm::key_reg::KeyReg; // Import key registration functionality
+//! use mithril_stm::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
+//! use mithril_stm::AggregationError;
 //! use rayon::prelude::*; // We use par_iter to speed things up
 //!
 //! use rand_chacha::ChaCha20Rng;

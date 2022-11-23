@@ -1934,28 +1934,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mithril"
-version = "0.1.0"
-dependencies = [
- "bincode",
- "blake2 0.10.5",
- "blst",
- "criterion",
- "digest 0.10.6",
- "hex",
- "num-bigint 0.4.3",
- "num-rational",
- "num-traits",
- "proptest",
- "rand_chacha 0.3.1",
- "rand_core 0.6.4",
- "rayon",
- "rug",
- "serde",
- "thiserror",
-]
-
-[[package]]
 name = "mithril-aggregator"
 version = "0.1.2"
 dependencies = [
@@ -2028,7 +2006,7 @@ dependencies = [
  "http",
  "jsonschema",
  "kes-summed-ed25519",
- "mithril",
+ "mithril-stm",
  "mockall",
  "nom",
  "rand_chacha 0.2.2",
@@ -2095,6 +2073,28 @@ dependencies = [
  "slog-term",
  "thiserror",
  "tokio",
+]
+
+[[package]]
+name = "mithril-stm"
+version = "0.1.0"
+dependencies = [
+ "bincode",
+ "blake2 0.10.5",
+ "blst",
+ "criterion",
+ "digest 0.10.6",
+ "hex",
+ "num-bigint 0.4.3",
+ "num-rational",
+ "num-traits",
+ "proptest",
+ "rand_chacha 0.3.1",
+ "rand_core 0.6.4",
+ "rayon",
+ "rug",
+ "serde",
+ "thiserror",
 ]
 
 [[package]]

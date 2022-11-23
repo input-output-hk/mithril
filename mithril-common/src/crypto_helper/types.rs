@@ -2,14 +2,14 @@ use crate::crypto_helper::cardano::{
     KeyRegWrapper, ProtocolRegistrationErrorWrapper, StmInitializerWrapper,
 };
 
-use mithril::stm::{
+use mithril_stm::stm::{
     Index, Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmParameters, StmSig, StmSigner,
     StmVerificationKeyPoP,
 };
-use mithril::AggregationError;
+use mithril_stm::AggregationError;
 
 #[cfg(any(test, feature = "allow_skip_signer_certification"))]
-use mithril::{key_reg::KeyReg, stm::StmInitializer};
+use mithril_stm::{key_reg::KeyReg, stm::StmInitializer};
 
 use blake2::{digest::consts::U32, Blake2b};
 use ed25519_dalek;

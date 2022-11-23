@@ -3,8 +3,8 @@ use blake2::{
     digest::consts::{U32, U64},
     Blake2b, Digest,
 };
-use mithril::key_reg::KeyReg;
-use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
+use mithril_stm::key_reg::KeyReg;
+use mithril_stm::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::iter::ParallelIterator;

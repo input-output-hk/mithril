@@ -1,8 +1,8 @@
 use blake2::{digest::consts::U32, Blake2b};
 
-use mithril::key_reg::KeyReg;
-use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
-use mithril::AggregationError;
+use mithril_stm::key_reg::KeyReg;
+use mithril_stm::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
+use mithril_stm::AggregationError;
 
 use rayon::prelude::*;
 

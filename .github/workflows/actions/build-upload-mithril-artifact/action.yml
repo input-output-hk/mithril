@@ -25,7 +25,7 @@ runs:
       with:
         name: mithril-distribution-${{ runner.os }}-${{ runner.arch }}
         path: |
-          target/release/libmithril.*
+          target/release/libmithril_stm.*
           target/release/libmithril_common.*
           target/release/mithril-aggregator
           target/release/mithril-aggregator.exe

@@ -1,8 +1,8 @@
 use blake2::digest::{Digest, FixedOutput};
 use blake2::{digest::consts::U32, Blake2b};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use mithril::key_reg::KeyReg;
-use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSigner};
+use mithril_stm::key_reg::KeyReg;
+use mithril_stm::stm::{StmClerk, StmInitializer, StmParameters, StmSigner};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::prelude::*;

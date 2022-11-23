@@ -24,11 +24,11 @@ The user-facing documentation for the above modules can be found [here]().
 
 # Example
 ```rust
-use mithril::key_reg::KeyReg;
-use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
+use mithril_stm::key_reg::KeyReg;
+use mithril_stm::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
 use rayon::prelude::*;
 
-use mithril::error::AggregationFailure;
+use mithril_stm::error::AggregationFailure;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
