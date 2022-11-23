@@ -8,6 +8,9 @@ homepage = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
 
+[lib]
+crate-type = ["lib", "cdylib", "staticlib"]
+
 [dependencies]
 blake2      = "0.10.4"
 blst = { version = "0.3.10" }
