@@ -18,6 +18,13 @@ Thanks to a **Mithril Client** connected to a **Mithril Aggregator**, you will r
 
 :::
 
+# Video demonstration
+
+In this video you will see how fast the bootstrapping of a Cardano node with Mithril is compared to classical bootstrapping (benchmark done on mainnet with Daedalus wallet).
+
+<iframe style={{width: '100%', height: '480px'}} src="https://www.youtube.com/embed/5qjJNRgEzYo" title="Daedalus Bootstrap Benchmark on mainnet with/without Mithril" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen="true"></iframe>
+
+
 ## Pre-requisites
 
 * Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (latest stable version).
