@@ -9,6 +9,10 @@ on:
       - 'mithril-explorer/**'
       - '.github/workflows/docs.yml'
 
+concurrency:
+  group: ci-build-test-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-ubuntu-X64:
     runs-on: ubuntu-22.04
