@@ -54,7 +54,7 @@ This repository is sliced in the following parts:
 
 * [**Mithril Common**](./mithril-common): this is the **common** library that is used by the **Mithril Network** nodes.
 
-* [**Mithril Core**](./mithril-core): the **core** library that implements **Mithril** protocol cryptographic engine.
+* [**Mithril STM**](./mithril-stm): the **core** library that implements **Mithril** protocol cryptographic engine.
 
 * [**Mithril Explorer**](./mithril-explorer): the **explorer** website that connects to a **Mithril Aggregator** and displays its **Certificate Chain**.
 

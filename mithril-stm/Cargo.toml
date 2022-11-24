@@ -1,12 +1,23 @@
 [package]
-name    = "mithril"
+name    = "mithril-stm"
 version = "0.1.0"
-edition = "2018"
+edition = { workspace = true }
 authors = { workspace = true }
 documentation = { workspace = true }
 homepage = { workspace = true }
 license = { workspace = true }
 repository = { workspace = true }
+description = "A Rust implementation of Mithril Stake-based Threshold Multisignatures (STMs)."
+categories = ["cryptography"]
+include = [
+    "**/*.rs",
+    "Cargo.toml",
+    "README.md",
+    ".gitignore",
+]
+
+[lib]
+crate-type = ["lib", "cdylib", "staticlib"]
 
 [dependencies]
 blake2      = "0.10.4"

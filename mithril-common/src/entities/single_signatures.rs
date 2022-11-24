@@ -31,7 +31,7 @@ impl SingleSignatures {
         }
     }
 
-    /// Convert this [SingleSignatures] to its corresponding [MithrilCore Signature][ProtocolSingleSignature].
+    /// Convert this [SingleSignatures] to its corresponding [MithrilStm Signature][ProtocolSingleSignature].
     pub fn to_protocol_signature(&self) -> Result<ProtocolSingleSignature, String> {
         match key_decode_hex::<ProtocolSingleSignature>(&self.signature) {
             Ok(signature) => Ok(signature),

@@ -1,4 +1,4 @@
-//! Tools and types to abstract the use of the [Mithril Core library](https://mithril.network/rust-doc/mithril/index.html)
+//! Tools and types to abstract the use of the [Mithril STM library](https://mithril.network/rust-doc/mithril_stm/index.html)
 
 mod cardano;
 mod codec;

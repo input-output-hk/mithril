@@ -1,9 +1,9 @@
-Mithril-core ![CI workflow](https://github.com/input-output-hk/mithril/actions/workflows/ci.yml/badge.svg) ![crates.io](https://img.shields.io/crates/v/mithril_core.svg)
+Mithril-stm ![CI workflow](https://github.com/input-output-hk/mithril/actions/workflows/ci.yml/badge.svg) ![crates.io](https://img.shields.io/crates/v/mithril_stm.svg)
 =======
 This crate is ongoing work, has not been audited, and it's API is by no means final. Do not use in production.
 
 ### A rust implementation of Stake-based Threshold Multisignatures (STMs)
-`mithril-core` implements Stake-based Threshold Multisignatures as described in the paper
+`mithril-stm` implements Stake-based Threshold Multisignatures as described in the paper
 [Mithril: Stake-based Threshold Multisignatures](https://eprint.iacr.org/2021/916.pdf), by
 Pyrros Chaidos and Aggelos Kiayias.
 
@@ -24,11 +24,11 @@ The user-facing documentation for the above modules can be found [here]().
 
 # Example
 ```rust
-use mithril::key_reg::KeyReg;
-use mithril::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
+use mithril_stm::key_reg::KeyReg;
+use mithril_stm::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
 use rayon::prelude::*;
 
-use mithril::error::AggregationFailure;
+use mithril_stm::error::AggregationFailure;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
@@ -159,8 +159,3 @@ STM/Blake2b/Verification/k: 250, m: 1523, nr_parties: 2000
 
 ```
 
-# ToDo list once we go public
-- [ ] Upload mithril-core to crates.io
-- [ ] Ensure that the badges are working
-- [ ] Update links for crates and docs
-- [ ] Error handling

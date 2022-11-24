@@ -21,7 +21,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: doc
-          args: --no-deps -p mithril -p mithril-common -p mithril-aggregator -p mithril-signer -p mithril-client
+          args: --no-deps -p mithril-stm -p mithril-common -p mithril-aggregator -p mithril-signer -p mithril-client
 
       - name: Publish Mithril-rust-doc
         uses: actions/upload-artifact@v3
