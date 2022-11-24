@@ -1,13 +1,11 @@
-use blake2::{digest::consts::U32, Blake2b};
-
 use mithril_stm::key_reg::KeyReg;
 use mithril_stm::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
 use mithril_stm::AggregationError;
 
-use rayon::prelude::*;
-
+use blake2::{digest::consts::U32, Blake2b};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
+use rayon::prelude::*;
 
 type H = Blake2b<U32>;
 

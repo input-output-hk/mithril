@@ -1,6 +1,5 @@
 Mithril-stm ![CI workflow](https://github.com/input-output-hk/mithril/actions/workflows/ci.yml/badge.svg) ![crates.io](https://img.shields.io/crates/v/mithril_stm.svg)
 =======
-This crate is ongoing work, has not been audited, and it's API is by no means final. Do not use in production.
 
 ### A rust implementation of Stake-based Threshold Multisignatures (STMs)
 `mithril-stm` implements Stake-based Threshold Multisignatures as described in the paper
@@ -22,19 +21,27 @@ This library provides implementations of:
 
 The user-facing documentation for the above modules can be found [here]().
 
+
+Disclaimer
+=======
+This crate is ongoing work, has not been audited, and it's API is by no means final. Do not use in production.
+
+
 # Example
 ```rust
 use mithril_stm::key_reg::KeyReg;
 use mithril_stm::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
-use rayon::prelude::*;
+use mithril_stm::AggregationError;
 
-use mithril_stm::error::AggregationFailure;
+use blake2::{digest::consts::U32, Blake2b};
+use rayon::prelude::*;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
-type H = blake2::Blake2b;
+type H = Blake2b<U32>;
 
-fn main() {
+#[test]
+fn test_full_protocol() {
     let nparties = 32;
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
     let mut msg = [0u8; 16];
@@ -68,7 +75,7 @@ fn main() {
 
     let ps = ps
         .into_par_iter()
-        .map(|p| p.new_signer(closed_reg.clone()))
+        .map(|p| p.new_signer(closed_reg.clone()).unwrap())
         .collect::<Vec<StmSigner<H>>>();
 
     /////////////////////
@@ -78,7 +85,7 @@ fn main() {
     let sigs = ps
         .par_iter()
         .filter_map(|p| p.sign(&msg))
-        .collect::<Vec<StmSig<H>>>();
+        .collect::<Vec<StmSig>>();
 
     let clerk = StmClerk::from_signer(&ps[0]);
     let avk = clerk.compute_avk();
@@ -91,9 +98,21 @@ fn main() {
     // Aggregate with random parties
     let msig = clerk.aggregate(&sigs, &msg);
 
-    assert!(msig.is_ok(), "aggregation failed");
-    assert!(msig.unwrap().verify(&msg, &clerk.compute_avk(), &params).is_ok());
+    match msig {
+        Ok(aggr) => {
+            println!("Aggregate ok");
+            assert!(aggr.verify(&msg, &clerk.compute_avk(), &params).is_ok());
+        }
+        Err(AggregationError::NotEnoughSignatures(n, k)) => {
+            println!("Not enough signatures");
+            assert!(n < params.k && k == params.k)
+        }
+        Err(AggregationError::UsizeConversionInvalid) => {
+            println!("Invalid usize conversion");
+        }
+    }
 }
+
 ```
 
 # Test and Benchmarks
@@ -103,13 +122,13 @@ benchmarks.
 
 We have run the benchmarks on an Apple M1 Pro machine with 16 GB of RAM, on macOS 12.6.
 
-Note that single signatures in batch compat version does not depend on any variable and size of an individual signature is `176` bytes.
+> Note that single signatures in batch compat version does not depend on any variable and <mark> the size of an individual signature is 176 bytes. </mark>
 
 ```shell
 +----------------------+
 | Size of benchmarks   |
 +----------------------+
-| Results obtained by using the parameters suggested in paper.
+| Results obtained by using the parameters suggested by the paper.
 +----------------------+
 +----------------------+
 | Aggregate signatures |
@@ -117,24 +136,22 @@ Note that single signatures in batch compat version does not depend on any varia
 +----------------------+
 | Hash: Blake2b 512    |
 +----------------------+
-k = 445 | m = 2728 | nr parties = 3000; 118760 bytes (old version = 356632 bytes)
+k = 445 | m = 2728 | nr parties = 3000; 118760 bytes 
 +----------------------+
 | Hash: Blake2b 256    |
 +----------------------+
-k = 445 | m = 2728 | nr parties = 3000; 99384 bytes (old version = 222536 bytes)
+k = 445 | m = 2728 | nr parties = 3000; 99384 bytes 
 +----------------------+
 +----------------------+
 | Aggregate signatures |
 +----------------------+
 | Hash: Blake2b 512    |
 +----------------------+
-k = 554 | m = 3597 | nr parties = 3000; 133936 bytes (old version = 419808 bytes)
+k = 554 | m = 3597 | nr parties = 3000; 133936 bytes 
 +----------------------+
 | Hash: Blake2b 256    |
 +----------------------+
-k = 554 | m = 3597 | nr parties = 3000; 113728 bytes (old version = 261488 bytes)
-make build && ./mithrildemo --nparties 16 -k 5 -m 5 --phi-f 0.9
-
+k = 554 | m = 3597 | nr parties = 3000; 113728 bytes 
 ```
 
 ```shell
@@ -155,7 +172,5 @@ STM/Blake2b/Aggregation/k: 250, m: 1523, nr_parties: 2000
                         time:   [190.81 ms 191.15 ms 191.54 ms]
 STM/Blake2b/Verification/k: 250, m: 1523, nr_parties: 2000
                         time:   [13.944 ms 14.010 ms 14.077 ms]
-
-
 ```
 
