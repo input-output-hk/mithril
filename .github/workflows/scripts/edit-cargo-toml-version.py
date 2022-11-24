@@ -20,7 +20,7 @@ def append_label_to_cargo_toml_version(cargo_toml_path, label: str, dry_run: boo
         print("No package section (probably a workspace file), skipping this Cargo.toml")
         return
 
-    new_version = f"{cargo_toml['package']['version'].split('-', 1)[0]}-{label}"
+    new_version = f"{cargo_toml['package']['version'].split('+', 1)[0]}+{label}"
     print(f"{cargo_toml_path} new version: {new_version}")
 
     if not dry_run:
