@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::{error::Error, path::PathBuf};
 
-use mithril_common::database::{ApplicationNodeType, ApplicationVersionChecker};
+use mithril_common::database::{ApplicationNodeType, DatabaseVersionChecker};
 use mithril_signer::{
     Config, ProductionServiceBuilder, ServiceBuilder, SignerRunner, SignerState, StateMachine,
 };
@@ -83,7 +83,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .try_deserialize()
         .map_err(|e| format!("configuration deserialize error: {}", e))?;
     let services = ProductionServiceBuilder::new(&config).build()?;
-    ApplicationVersionChecker::new(
+    DatabaseVersionChecker::new(
         slog_scope::logger(),
         ApplicationNodeType::Signer,
         config.get_sqlite_file(),

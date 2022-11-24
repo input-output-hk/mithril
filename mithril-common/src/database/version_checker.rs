@@ -1,16 +1,18 @@
 use chrono::Local;
 use semver::Version;
-use slog::Logger;
-use slog::{debug, error, warn};
+use slog::{debug, error};
+use slog::{info, Logger};
 use sqlite::Connection;
 use std::str::FromStr;
 use std::{cmp::Ordering, collections::BTreeSet, error::Error, path::PathBuf};
 
-use super::{ApplicationNodeType, ApplicationVersion, VersionProvider, VersionUpdaterProvider};
+use super::{
+    ApplicationNodeType, DatabaseVersion, DatabaseVersionProvider, DatabaseVersionUpdater,
+};
 
 /// Struct to perform application version check in the database.
 #[derive(Debug)]
-pub struct ApplicationVersionChecker {
+pub struct DatabaseVersionChecker {
     /// Pathbuf to the SQLite3 file.
     sqlite_file_path: PathBuf,
 
@@ -24,7 +26,7 @@ pub struct ApplicationVersionChecker {
     migrations: BTreeSet<SqlMigration>,
 }
 
-impl ApplicationVersionChecker {
+impl DatabaseVersionChecker {
     /// constructor
     pub fn new(
         logger: Logger,
@@ -53,21 +55,21 @@ impl ApplicationVersionChecker {
     pub fn check(&self, current_semver: &str) -> Result<(), Box<dyn Error>> {
         debug!(
             &self.logger,
-            "check application version, database file = '{}'",
+            "check database version, database file = '{}'",
             self.sqlite_file_path.display()
         );
         let connection = Connection::open(&self.sqlite_file_path)?;
-        let provider = VersionProvider::new(&connection);
+        let provider = DatabaseVersionProvider::new(&connection);
         provider.create_table_if_not_exists()?;
-        let updater = VersionUpdaterProvider::new(&connection);
+        let updater = DatabaseVersionUpdater::new(&connection);
         let version = provider
             .get_application_version(&self.application_type)?
-            .unwrap_or_else(|| ApplicationVersion {
+            .unwrap_or_else(|| DatabaseVersion {
                 semver: Version::from_str("0.0.0").unwrap(),
                 application_type: self.application_type.clone(),
                 updated_at: Local::now().naive_local(),
             });
-        let current_version = ApplicationVersion {
+        let current_version = DatabaseVersion {
             semver: Version::parse(current_semver)?,
             application_type: self.application_type.clone(),
             updated_at: Local::now().naive_local(),
@@ -75,18 +77,22 @@ impl ApplicationVersionChecker {
 
         match current_version.semver.cmp(&version.semver) {
             Ordering::Greater => {
-                warn!(
-                    &self.logger,
-                    "Application version '{}' is out of date, new version is '{}'. Upgrading database…",
-                    version.semver, current_version.semver
-                );
-                self.apply_migrations(&version, &current_version.semver, &updater, &connection)?;
-                let current_version = updater.save(current_version)?;
                 debug!(
                     &self.logger,
-                    "database updated to version {}",
-                    current_version.semver.to_string()
+                    "Application '{}' is newer than last database migration '{}', checking for new migrations…",
+                    current_version.semver, version.semver
                 );
+                if let Some(version) =
+                    self.apply_migrations(&version, &current_version.semver, &updater, &connection)?
+                {
+                    info!(
+                        &self.logger,
+                        "database upgraded to version '{}'",
+                        version.to_string()
+                    );
+                } else {
+                    debug!(&self.logger, "no database upgrade needed");
+                }
             }
             Ordering::Less => {
                 error!(
@@ -108,24 +114,24 @@ impl ApplicationVersionChecker {
 
     fn apply_migrations(
         &self,
-        starting_app_version: &ApplicationVersion,
-        target_version: &Version,
-        updater: &VersionUpdaterProvider,
+        starting_db_version: &DatabaseVersion,
+        app_version: &Version,
+        updater: &DatabaseVersionUpdater,
         connection: &Connection,
-    ) -> Result<(), Box<dyn Error>> {
-        let mut app_version = starting_app_version.clone();
+    ) -> Result<Option<Version>, Box<dyn Error>> {
+        let mut db_version = starting_db_version.clone();
+        let mut last_updated_version: Option<Version> = None;
 
         for migration in &self.migrations {
-            if migration.version > starting_app_version.semver
-                && migration.version <= *target_version
-            {
+            if migration.version > starting_db_version.semver && migration.version <= *app_version {
                 connection.execute(&migration.alterations)?;
-                app_version.semver = migration.version.clone();
-                app_version = updater.save(app_version)?;
+                db_version.semver = migration.version.clone();
+                db_version = updater.save(db_version)?;
+                last_updated_version = Some(db_version.semver.clone());
             }
         }
 
-        Ok(())
+        Ok(last_updated_version)
     }
 }
 
@@ -175,11 +181,15 @@ mod tests {
 
     fn check_database_version(filepath: &PathBuf, semver: &str) {
         let connection = Connection::open(filepath).unwrap();
-        let provider = VersionProvider::new(&connection);
+        let provider = DatabaseVersionProvider::new(&connection);
         let version = provider
             .get_application_version(&ApplicationNodeType::Aggregator)
             .unwrap()
-            .expect("there should be a version in the database");
+            .unwrap_or_else(|| DatabaseVersion {
+                application_type: ApplicationNodeType::Aggregator,
+                semver: Version::from_str("0.0.0").unwrap(),
+                updated_at: Local::now().naive_local(),
+            });
 
         assert_eq!(semver, version.semver.to_string());
     }
@@ -212,26 +222,36 @@ mod tests {
     }
 
     #[test]
-    fn test_application_version_checker() {
+    fn test_database_version_checker() {
         let filepath = create_sqlite_file("test_1.sqlite3");
-        let app_checker = ApplicationVersionChecker::new(
+        let mut db_checker = DatabaseVersionChecker::new(
             slog_scope::logger(),
             ApplicationNodeType::Aggregator,
             filepath.clone(),
         );
-        app_checker.check("1.0.0").unwrap();
-        check_database_version(&filepath, "1.0.0");
-        app_checker.check("1.0.0").unwrap();
-        check_database_version(&filepath, "1.0.0");
-        app_checker.check("1.1.0").unwrap();
-        check_database_version(&filepath, "1.1.0");
-        app_checker.check("1.0.9").unwrap_err();
+        db_checker.add_migration(SqlMigration {
+            version: Version::from_str("1.0.10").unwrap(),
+            alterations: "select false".to_string(),
+        });
+        db_checker.check("1.0.0").unwrap();
+        check_database_version(&filepath, "0.0.0");
+
+        db_checker.check("1.0.0").unwrap();
+        check_database_version(&filepath, "0.0.0");
+
+        db_checker.check("1.1.0").unwrap();
+        check_database_version(&filepath, "1.0.10");
+
+        db_checker.check("1.0.12").unwrap();
+        check_database_version(&filepath, "1.0.10");
+
+        db_checker.check("1.0.9").unwrap_err();
     }
 
     #[test]
     fn test_upgrade_with_migration() {
         let filepath = create_sqlite_file("test_2.sqlite3");
-        let mut app_checker = ApplicationVersionChecker::new(
+        let mut db_checker = DatabaseVersionChecker::new(
             slog_scope::logger(),
             ApplicationNodeType::Aggregator,
             filepath.clone(),
@@ -244,31 +264,31 @@ mod tests {
             version: Version::from_str("1.1.0").unwrap(),
             alterations: alterations.to_string(),
         };
-        app_checker.add_migration(migration);
+        db_checker.add_migration(migration);
 
         let alterations = "create table whatever (thing_id integer); insert into whatever (thing_id) values (1), (2), (3), (4);";
         let migration = SqlMigration {
             version: Version::from_str("1.0.5").unwrap(),
             alterations: alterations.to_string(),
         };
-        app_checker.add_migration(migration);
+        db_checker.add_migration(migration);
 
-        app_checker.check("1.0.0").unwrap();
+        db_checker.check("1.0.0").unwrap();
         assert_eq!(0, get_table_whatever_column_count(&filepath));
 
-        app_checker.check("1.0.4").unwrap();
+        db_checker.check("1.0.4").unwrap();
         assert_eq!(0, get_table_whatever_column_count(&filepath));
 
-        app_checker.check("1.0.5").unwrap();
+        db_checker.check("1.0.5").unwrap();
         assert_eq!(1, get_table_whatever_column_count(&filepath));
         check_database_version(&filepath, "1.0.5");
 
-        app_checker.check("1.0.9").unwrap();
+        db_checker.check("1.0.9").unwrap();
         assert_eq!(1, get_table_whatever_column_count(&filepath));
-        check_database_version(&filepath, "1.0.9");
+        check_database_version(&filepath, "1.0.5");
 
-        app_checker.check("1.1.1").unwrap();
+        db_checker.check("1.1.1").unwrap();
         assert_eq!(2, get_table_whatever_column_count(&filepath));
-        check_database_version(&filepath, "1.1.1");
+        check_database_version(&filepath, "1.1.0");
     }
 }

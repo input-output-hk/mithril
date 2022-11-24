@@ -5,4 +5,4 @@ mod db_version;
 mod version_checker;
 
 pub use db_version::*;
-pub use version_checker::{ApplicationVersionChecker, SqlMigration};
+pub use version_checker::{DatabaseVersionChecker, SqlMigration};

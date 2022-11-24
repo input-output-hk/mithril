@@ -12,7 +12,7 @@ use tokio::time::Duration;
 use mithril_common::certificate_chain::MithrilCertificateVerifier;
 use mithril_common::chain_observer::{CardanoCliRunner, ChainObserver};
 use mithril_common::crypto_helper::ProtocolGenesisVerifier;
-use mithril_common::database::{ApplicationNodeType, ApplicationVersionChecker};
+use mithril_common::database::{ApplicationNodeType, DatabaseVersionChecker};
 use mithril_common::digesters::{CardanoImmutableDigester, ImmutableFileSystemObserver};
 use mithril_common::entities::{Epoch, HexEncodedGenesisSecretKey};
 use mithril_common::store::adapter::SQLiteAdapter;
@@ -37,7 +37,7 @@ fn setup_genesis_dependencies(
     config: &GenesisConfiguration,
 ) -> Result<GenesisToolsDependency, Box<dyn std::error::Error>> {
     let sqlite_db_path = Some(config.get_sqlite_file());
-    ApplicationVersionChecker::new(
+    DatabaseVersionChecker::new(
         slog_scope::logger(),
         ApplicationNodeType::Aggregator,
         config.get_sqlite_file(),
@@ -304,7 +304,7 @@ impl ServeCommand {
             .map_err(|e| format!("configuration deserialize error: {}", e))?;
         debug!("SERVE command"; "config" => format!("{:?}", config));
         let sqlite_db_path = Some(config.get_sqlite_file());
-        ApplicationVersionChecker::new(
+        DatabaseVersionChecker::new(
             slog_scope::logger(),
             ApplicationNodeType::Aggregator,
             config.get_sqlite_file(),

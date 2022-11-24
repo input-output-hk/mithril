@@ -43,7 +43,7 @@ impl Display for ApplicationNodeType {
 
 /// Entity related to the `app_version` database table.
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct ApplicationVersion {
+pub struct DatabaseVersion {
     /// Semver of the database structure.
     pub semver: Version,
 
@@ -55,7 +55,7 @@ pub struct ApplicationVersion {
     pub updated_at: NaiveDateTime,
 }
 
-impl SqLiteEntity for ApplicationVersion {
+impl SqLiteEntity for DatabaseVersion {
     fn hydrate(row: Row) -> Result<Self, HydrationError> {
         Ok(Self {
             semver: Version::parse(&row.get::<String, _>(0))
@@ -71,7 +71,7 @@ impl SqLiteEntity for ApplicationVersion {
     }
 }
 
-impl PartialOrd for ApplicationVersion {
+impl PartialOrd for DatabaseVersion {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         if self.application_type != other.application_type {
             None
@@ -81,12 +81,12 @@ impl PartialOrd for ApplicationVersion {
     }
 }
 
-/// Projection dedicated to [ApplicationVersion] entities.
-struct ApplicationVersionProjection {
+/// Projection dedicated to [DatabaseVersion] entities.
+struct DatabaseVersionProjection {
     fields: Vec<ProjectionField>,
 }
 
-impl Projection for ApplicationVersionProjection {
+impl Projection for DatabaseVersionProjection {
     fn set_field(&mut self, field: ProjectionField) {
         self.fields.push(field);
     }
@@ -95,7 +95,7 @@ impl Projection for ApplicationVersionProjection {
         &self.fields
     }
 }
-impl ApplicationVersionProjection {
+impl DatabaseVersionProjection {
     pub fn new() -> Self {
         let mut projection = Self { fields: Vec::new() };
         projection.add_field("semver", "{:app_version:}.semver", "text");
@@ -110,18 +110,18 @@ impl ApplicationVersionProjection {
     }
 }
 
-/// Provider for the [ApplicationVersion] entities using the `ApplicationVersionProjection`.
-pub struct VersionProvider<'conn> {
+/// Provider for the [DatabaseVersion] entities using the `DatabaseVersionProjection`.
+pub struct DatabaseVersionProvider<'conn> {
     connection: &'conn Connection,
-    projection: ApplicationVersionProjection,
+    projection: DatabaseVersionProjection,
 }
 
-impl<'conn> VersionProvider<'conn> {
-    /// [VersionProvider] constructor.
+impl<'conn> DatabaseVersionProvider<'conn> {
+    /// [DatabaseVersionProvider] constructor.
     pub fn new(connection: &'conn Connection) -> Self {
         Self {
             connection,
-            projection: ApplicationVersionProjection::new(),
+            projection: DatabaseVersionProjection::new(),
         }
     }
 
@@ -153,7 +153,7 @@ create table app_version (application_type text not null primary key, semver tex
     pub fn get_application_version(
         &self,
         application_type: &ApplicationNodeType,
-    ) -> Result<Option<ApplicationVersion>, Box<dyn Error>> {
+    ) -> Result<Option<DatabaseVersion>, Box<dyn Error>> {
         let condition = "application_type = ?";
         let params = [Value::String(format!("{}", application_type))];
         let result = self.find(Some(condition), &params)?.next();
@@ -162,8 +162,8 @@ create table app_version (application_type text not null primary key, semver tex
     }
 }
 
-impl<'conn> Provider<'conn> for VersionProvider<'conn> {
-    type Entity = ApplicationVersion;
+impl<'conn> Provider<'conn> for DatabaseVersionProvider<'conn> {
+    type Entity = DatabaseVersion;
 
     fn get_projection(&self) -> &dyn Projection {
         &self.projection
@@ -189,24 +189,24 @@ where {where_clause}
     }
 }
 
-/// Write [Provider] for the [ApplicationVersion] entities.
+/// Write [Provider] for the [DatabaseVersion] entities.
 /// This will perform an UPSERT and return the updated entity.
-pub struct VersionUpdaterProvider<'conn> {
+pub struct DatabaseVersionUpdater<'conn> {
     connection: &'conn Connection,
-    projection: ApplicationVersionProjection,
+    projection: DatabaseVersionProjection,
 }
 
-impl<'conn> VersionUpdaterProvider<'conn> {
-    /// [VersionUpdaterProvider] constructor.
+impl<'conn> DatabaseVersionUpdater<'conn> {
+    /// [DatabaseVersionUpdater] constructor.
     pub fn new(connection: &'conn Connection) -> Self {
         Self {
             connection,
-            projection: ApplicationVersionProjection::new(),
+            projection: DatabaseVersionProjection::new(),
         }
     }
 
     /// Persist the given entity and return the projection of the saved entity.
-    pub fn save(&self, version: ApplicationVersion) -> Result<ApplicationVersion, Box<dyn Error>> {
+    pub fn save(&self, version: DatabaseVersion) -> Result<DatabaseVersion, Box<dyn Error>> {
         let params = [
             Value::String(format!("{}", version.application_type)),
             Value::String(version.semver.to_string()),
@@ -220,8 +220,8 @@ impl<'conn> VersionUpdaterProvider<'conn> {
     }
 }
 
-impl<'conn> Provider<'conn> for VersionUpdaterProvider<'conn> {
-    type Entity = ApplicationVersion;
+impl<'conn> Provider<'conn> for DatabaseVersionUpdater<'conn> {
+    type Entity = DatabaseVersion;
 
     fn get_projection(&self) -> &dyn Projection {
         &self.projection
@@ -253,7 +253,7 @@ mod tests {
 
     #[test]
     fn test_projection() {
-        let projection = ApplicationVersionProjection::new();
+        let projection = DatabaseVersionProjection::new();
         let mut aliases: HashMap<String, String> = HashMap::new();
         let _ = aliases.insert("{:app_version:}".to_string(), "whatever".to_string());
 
@@ -267,7 +267,7 @@ mod tests {
     #[test]
     fn test_definition() {
         let connection = Connection::open(":memory:").unwrap();
-        let provider = VersionProvider::new(&connection);
+        let provider = DatabaseVersionProvider::new(&connection);
 
         assert_eq!(
             r#"
@@ -282,7 +282,7 @@ where true
     #[test]
     fn test_updated_entity() {
         let connection = Connection::open(":memory:").unwrap();
-        let provider = VersionUpdaterProvider::new(&connection);
+        let provider = DatabaseVersionUpdater::new(&connection);
 
         assert_eq!(
             r#"
