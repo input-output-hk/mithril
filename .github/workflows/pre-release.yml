@@ -89,6 +89,29 @@ jobs:
           title: Mithril v${{ github.ref_name }}
           files: package/*
 
+      - name: Prepare crates versions table
+        run: |
+          cat > ./versions-manifest.txt << EOF
+
+            ## Crates Versions
+            |  Crate  |  Version  |
+            |---------- |-------------|
+          EOF
+
+          cargo metadata --quiet --no-deps | \
+            jq -r '.packages | sort_by(.name) | .[] | select([.name] | inside(["mithrildemo", "mithril-end-to-end"]) | not) | "| \(.name) | `\(.version)` |"' \
+            >> ./versions-manifest.txt
+
+      - name: Update release body with crates versions table
+        id: update_release
+        uses: tubone24/update_release@v1.3.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.ref_name }} 
+        with:
+          is_append_body: true
+          body_path: ./versions-manifest.txt
+
   build-push-docker:
     runs-on: ubuntu-22.04
     strategy:
