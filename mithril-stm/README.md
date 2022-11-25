@@ -1,33 +1,59 @@
-Mithril-stm ![CI workflow](https://github.com/input-output-hk/mithril/actions/workflows/ci.yml/badge.svg) ![crates.io](https://img.shields.io/crates/v/mithril_stm.svg)
-=======
-
-### A rust implementation of Stake-based Threshold Multisignatures (STMs)
-`mithril-stm` implements Stake-based Threshold Multisignatures as described in the paper
-[Mithril: Stake-based Threshold Multisignatures](https://eprint.iacr.org/2021/916.pdf), by
-Pyrros Chaidos and Aggelos Kiayias.
-
-This library uses zkcrypto's implementation of curve [BLS12-381](https://github.com/zkcrypto/bls12_381)
-by default for implementing the multisignature scheme. One can optionally choose the
-[blst](https://github.com/supranational/blst) backend (by using the feature `blast`),
-but this is not recommended due to some [flaky tests](https://github.com/input-output-hk/mithril/issues/207)
-That are still being resolved. We
-currently only support the trivial concatenation proof system (Section 4.3) and do not support
-other proof systems such as Bulletproofs or Halo2.
-
-This library provides implementations of:
-
-* Stake-based Threshold Multisignatures
-* Key registration procedure for STM signatures
-
-The user-facing documentation for the above modules can be found [here]().
+# Mithril-stm ![CI workflow](https://github.com/input-output-hk/mithril/actions/workflows/ci.yml/badge.svg) ![crates.io](https://img.shields.io/crates/v/mithril_stm.svg)
 
 
-Disclaimer
-=======
-This crate is ongoing work, has not been audited, and it's API is by no means final. Do not use in production.
+**This is a work in progress** :hammer_and_wrench:s
+
+* `mithril-stm` is a Rust implementation of the scheme described in the paper [Mithril: Stake-based Threshold Multisignatures](https://eprint.iacr.org/2021/916.pdf) by Pyrros Chaidos and Aggelos Kiayias.
+* The BLS12-381 signature library [blst](https://github.com/supranational/blst) is used as the backend for the implementation of STM.
+* This implementation supports the _trivial concatenation proof system_ (Section 4.3). Other proof systems such as _Bulletproofs_ or _Halo2_ are not supported in this version.
+* We implemented the concatenation proof system as batch proofs, which provides a remarkable decrease in the size of individual signatures.
+* Protocol documentation is given in [Mithril Protocol in depth](https://mithril.network/doc/mithril/mithril-protocol/protocol/).
 
 
-# Example
+* This library provides:
+    * The implementation of the Stake-based Threshold Multisignatures
+    * Key registration procedure for STM signatures
+    * The tests for the library functions and STM scheme
+    * Benchmark tests
+
+## Pre-requisites
+
+**Install Rust**
+
+* Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (latest stable version).
+* Install Rust [Clippy](https://github.com/rust-lang/rust-clippy) component.
+
+## Download source code
+
+```bash
+# Download sources from github
+git clone https://github.com/input-output-hk/mithril
+
+# Go to sources directory
+cd mithril-stm
+```
+
+## Compiling the library
+```shell
+cargo build --release
+```
+
+## Running the tests
+For running rust tests, simply run (to run the tests faster, the use of `--release` flag is recommended):
+```shell
+cargo test --release
+```
+
+## Running the benches
+```shell
+cargo bench
+```
+
+
+## Example
+
+The following is a simple example of the STM implementation:
+
 ```rust
 use mithril_stm::key_reg::KeyReg;
 use mithril_stm::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
@@ -112,17 +138,13 @@ fn test_full_protocol() {
         }
     }
 }
-
 ```
 
-# Test and Benchmarks
-You can run tests of the library using `cargo test` (we recommend to use the `--release` flag, otherwise
-the tests might take a while) and run benchmarks using `cargo bench`. This crate uses `criterion` to run
-benchmarks.
+## Benchmarks
 
-We have run the benchmarks on an Apple M1 Pro machine with 16 GB of RAM, on macOS 12.6.
+Here we give the benchmark results of STM for size and time. We run the benchmarks on macOS 12.6 on an Apple M1 Pro machine with 16 GB of RAM.
 
-> Note that single signatures in batch compat version does not depend on any variable and <mark> the size of an individual signature is 176 bytes. </mark>
+Note that single signatures in batch compatible version do not depend on any variable and **the size of an individual signature is 176 bytes**.
 
 ```shell
 +----------------------+
@@ -173,4 +195,3 @@ STM/Blake2b/Aggregation/k: 250, m: 1523, nr_parties: 2000
 STM/Blake2b/Verification/k: 250, m: 1523, nr_parties: 2000
                         time:   [13.944 ms 14.010 ms 14.077 ms]
 ```
-

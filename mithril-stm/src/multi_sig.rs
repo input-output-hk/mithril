@@ -1,9 +1,6 @@
 //! Base multisignature scheme, used as a primitive for STM.
 //! See Section 2.4 of [the paper](https://eprint.iacr.org/2021/916).
-//! This module uses the `blst` library as a backend for pairings
-//! and can be activated by using the feature `blast`. This feature
-//! is not chosen by default due to some flaky tests, as exposed in the
-//! [issue](https://github.com/input-output-hk/mithril/issues/207)
+//! This module uses the `blst` library as a backend for pairings.
 
 use crate::error::{blst_err_to_atms, MultiSignatureError};
 use crate::stm::Index;
