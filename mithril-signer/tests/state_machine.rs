@@ -1,13 +1,20 @@
 mod test_extensions;
 
-use mithril_common::entities::Epoch;
+use mithril_common::{
+    crypto_helper::tests_setup,
+    entities::{Epoch, SignerWithStake},
+};
 
 use test_extensions::StateMachineTester;
 
 #[rustfmt::skip]
 #[tokio::test]
 async fn test_create_single_signature() {
-    let mut tester = StateMachineTester::init().await;
+
+    let protocol_parameters = tests_setup::setup_protocol_parameters();
+    let signers = tests_setup::setup_signers(10, &protocol_parameters);
+    let signers_with_stake = signers.iter().map(|(signer_with_stake, _, _)| signer_with_stake.to_owned()).collect::<Vec<SignerWithStake>>();
+    let mut tester = StateMachineTester::init(&signers_with_stake).await.expect("state machine tester init should not fail");
 
     tester
         .comment("state machine starts and remains in Unregistered state until a epoch settings is got")
@@ -25,7 +32,7 @@ async fn test_create_single_signature() {
         .comment("getting an epoch settings changes the state → Registered")
         .aggregator_send_epoch_settings().await
         .cycle_registered().await.unwrap()
-        .register_signers(2).await.unwrap()
+        .register_signers(&signers_with_stake[..2]).await.unwrap()
         .check_protocol_initializer(Epoch(3)).await.unwrap()
         .check_stake_store(Epoch(3)).await.unwrap()
 
