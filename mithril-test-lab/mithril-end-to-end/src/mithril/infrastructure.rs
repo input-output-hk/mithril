@@ -43,7 +43,7 @@ impl MithrilInfrastructure {
             // Or 100% of signers otherwise
             // TODO: Should be removed once the signer certification is fully deployed
             let enable_certification =
-                index % 2 == 0 || cfg!(not(feature = "allow_uncertified_signer_registration"));
+                index % 2 == 0 || cfg!(not(feature = "allow_skip_signer_certification"));
             let mut signer = Signer::new(
                 aggregator.endpoint(),
                 pool_node,

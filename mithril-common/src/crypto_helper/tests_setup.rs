@@ -64,7 +64,7 @@ pub fn setup_signers(
         .into_iter()
         .map(|party_idx| {
             let party_id = if party_idx % 2 == 0
-                || cfg!(not(feature = "allow_uncertified_signer_registration"))
+                || cfg!(not(feature = "allow_skip_signer_certification"))
             {
                 // 50% of signers with key certification if allow unverified signer registration
                 // Or 100% of signers otherwise
