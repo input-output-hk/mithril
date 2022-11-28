@@ -6,7 +6,8 @@
 * `mithril-stm` is a Rust implementation of the scheme described in the paper [Mithril: Stake-based Threshold Multisignatures](https://eprint.iacr.org/2021/916.pdf) by Pyrros Chaidos and Aggelos Kiayias.
 * The BLS12-381 signature library [blst](https://github.com/supranational/blst) is used as the backend for the implementation of STM.
 * This implementation supports the _trivial concatenation proof system_ (Section 4.3). Other proof systems such as _Bulletproofs_ or _Halo2_ are not supported in this version.
-* We implemented the concatenation proof system as batch proofs, which provides a remarkable decrease in the size of individual signatures.
+* We implemented the concatenation proof system as batch proofs:
+  * Individual signatures do not contain the Merkle path to prove membership of the avk. Instead, it is the role of the aggregator to generate such proofs. This allows for a more efficient implementation of batched membership proofs (or batched Merkle paths).
 * Protocol documentation is given in [Mithril Protocol in depth](https://mithril.network/doc/mithril/mithril-protocol/protocol/).
 
 
@@ -21,7 +22,6 @@
 **Install Rust**
 
 * Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (latest stable version).
-* Install Rust [Clippy](https://github.com/rust-lang/rust-clippy) component.
 
 ## Download source code
 
@@ -66,8 +66,7 @@ use rand_core::{RngCore, SeedableRng};
 
 type H = Blake2b<U32>;
 
-#[test]
-fn test_full_protocol() {
+fn main() {
     let nparties = 32;
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
     let mut msg = [0u8; 16];
@@ -144,7 +143,7 @@ fn test_full_protocol() {
 
 Here we give the benchmark results of STM for size and time. We run the benchmarks on macOS 12.6 on an Apple M1 Pro machine with 16 GB of RAM.
 
-Note that single signatures in batch compatible version do not depend on any variable and **the size of an individual signature is 176 bytes**.
+Note that single signatures do not contain the Merkle path, and therefore have a **constant size of 176 bytes**.
 
 ```shell
 +----------------------+
