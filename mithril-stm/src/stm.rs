@@ -169,7 +169,6 @@ pub struct StmInitializer {
 /// Participant in the protocol can sign messages.
 /// This instance can only be generated out of an `StmInitializer` and a `ClosedKeyReg`.
 /// This ensures that a `MerkleTree` root is not computed before all participants have registered.
-#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct StmSigner<D: Digest> {
     mt_index: u64,
@@ -399,6 +398,16 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     pub fn get_closed_reg(self) -> ClosedKeyReg<D> {
         self.closed_reg
     }
+
+    /// Extract the verification key.
+    pub fn verification_key(&self) -> StmVerificationKey {
+        self.vk
+    }
+
+    /// Extract stake from the signer.
+    pub fn get_stake(&self) -> Stake {
+        self.stake
+    }
 }
 
 impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
@@ -545,6 +554,15 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
     /// Compute the `StmAggrVerificationKey` related to the used registration.
     pub fn compute_avk(&self) -> StmAggrVerificationKey<D> {
         StmAggrVerificationKey::from(&self.closed_reg)
+    }
+
+    /// Get the (VK, stake) of a party given it's index.
+    pub fn get_reg_party(&self, party_index: &Index) -> Option<(StmVerificationKey, Stake)> {
+        if *party_index as usize >= self.closed_reg.reg_parties.len() {
+            return None;
+        }
+
+        Some(self.closed_reg.reg_parties[*party_index as usize].into())
     }
 }
 

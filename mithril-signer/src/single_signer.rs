@@ -271,7 +271,13 @@ mod tests {
         let decoded_sig: ProtocolSingleSignature = key_decode_hex(&sign_result.signature).unwrap();
         assert!(
             decoded_sig
-                .verify(&protocol_parameters, &avk, &expected_message)
+                .verify(
+                    &protocol_parameters,
+                    &protocol_signer.verification_key(),
+                    &protocol_signer.get_stake(),
+                    &avk,
+                    &expected_message
+                )
                 .is_ok(),
             "produced single signature should be valid"
         );

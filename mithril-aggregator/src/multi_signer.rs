@@ -696,34 +696,54 @@ impl MultiSigner for MultiSignerImpl {
             .get_protocol_parameters()
             .await?
             .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
-        let avk = &self
+
+        let clerk = self
             .clerk
             .as_ref()
-            .ok_or_else(ProtocolError::UnavailableClerk)?
-            .compute_avk();
+            .ok_or_else(ProtocolError::UnavailableClerk)?;
 
-        signatures
+        let signature = signatures
             .to_protocol_signature()
-            .map_err(ProtocolError::Codec)?
-            .verify(&protocol_parameters, avk, message.compute_hash().as_bytes())
-            .map_err(|e| ProtocolError::Core(e.to_string()))?;
+            .map_err(ProtocolError::Codec)?;
 
-        // Register single signature
-        let beacon = self
-            .current_beacon
-            .as_ref()
-            .ok_or_else(ProtocolError::UnavailableBeacon)?;
+        let avk = clerk.compute_avk();
 
-        match self
-            .single_signature_store
-            .save_single_signatures(beacon, signatures)
-            .await?
-        {
-            Some(_) => Err(ProtocolError::ExistingSingleSignature(
-                signatures.party_id.clone(),
-            )),
-            None => Ok(()),
+        // If there is no reg_party, then we simply received a signature from a non-registered
+        // party, and we can ignore the request.
+        if let Some((vk, stake)) = clerk.get_reg_party(&signature.signer_index) {
+            signature
+                .verify(
+                    &protocol_parameters,
+                    &vk,
+                    &stake,
+                    &avk,
+                    message.compute_hash().as_bytes(),
+                )
+                .map_err(|e| ProtocolError::Core(e.to_string()))?;
+
+            // Register single signature
+            let beacon = self
+                .current_beacon
+                .as_ref()
+                .ok_or_else(ProtocolError::UnavailableBeacon)?;
+
+            match self
+                .single_signature_store
+                .save_single_signatures(beacon, signatures)
+                .await?
+            {
+                Some(_) => {
+                    return Err(ProtocolError::ExistingSingleSignature(
+                        signatures.party_id.clone(),
+                    ));
+                }
+                None => {
+                    return Ok(());
+                }
+            }
         }
+
+        Ok(())
     }
 
     /// Retrieves a multi signature from a message

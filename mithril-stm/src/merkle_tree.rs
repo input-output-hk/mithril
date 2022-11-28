@@ -91,6 +91,12 @@ impl MTLeaf {
     }
 }
 
+impl From<MTLeaf> for (StmVerificationKey, Stake) {
+    fn from(leaf: MTLeaf) -> (StmVerificationKey, Stake) {
+        (leaf.0, leaf.1)
+    }
+}
+
 impl PartialOrd for MTLeaf {
     /// Ordering of MT Values.
     ///
