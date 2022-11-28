@@ -110,7 +110,7 @@ use crate::dense_mapping::ev_lt_phi;
 use crate::error::{
     AggregationError, RegisterError, StmAggregateSignatureError, StmSignatureError,
 };
-use crate::key_reg::ClosedKeyReg;
+use crate::key_reg::{ClosedKeyReg, RegParty};
 use crate::merkle_tree::{BatchPath, MTLeaf, MerkleTreeCommitmentBatchCompat};
 use crate::multi_sig::{Signature, SigningKey, VerificationKey, VerificationKeyPoP};
 use blake2::digest::{Digest, FixedOutput};
@@ -169,6 +169,7 @@ pub struct StmInitializer {
 /// Participant in the protocol can sign messages.
 /// This instance can only be generated out of an `StmInitializer` and a `ClosedKeyReg`.
 /// This ensures that a `MerkleTree` root is not computed before all participants have registered.
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct StmSigner<D: Digest> {
     mt_index: u64,
@@ -193,10 +194,6 @@ pub struct StmClerk<D: Clone + Digest> {
 pub struct StmSig {
     /// The signature from the underlying MSP scheme.
     pub sigma: Signature,
-    /// The Stm verification Key.
-    pub pk: StmVerificationKey,
-    /// The stake of the party that made this signature.
-    pub stake: Stake,
     /// The index(es) for which the signature is valid
     pub indexes: Vec<Index>,
     /// Merkle tree index of the signer.
@@ -224,7 +221,7 @@ pub struct StmAggrVerificationKey<D: Clone + Digest + FixedOutput> {
     deserialize = "BatchPath<D>: Deserialize<'de>"
 ))]
 pub struct StmAggrSig<D: Clone + Digest + FixedOutput> {
-    pub(crate) signatures: Vec<StmSig>,
+    pub(crate) signatures: Vec<(StmSig, RegParty)>,
     /// The list of unique merkle tree nodes that covers path for all signatures.
     pub batch_proof: BatchPath<D>,
 }
@@ -384,8 +381,6 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
         if !indexes.is_empty() {
             Some(StmSig {
                 sigma,
-                pk: self.vk,
-                stake: self.stake,
                 indexes,
                 signer_index: self.mt_index,
             })
@@ -436,6 +431,15 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
     ) -> Result<StmAggrSig<D>, AggregationError> {
         let mut unique_sigs = self.dedup_sigs_for_indices(msg, sigs)?;
         unique_sigs.sort_unstable();
+        let signatures = unique_sigs
+            .iter()
+            .map(|sig| {
+                (
+                    sig.clone(),
+                    self.closed_reg.reg_parties[sig.signer_index as usize],
+                )
+            })
+            .collect(); // todo: look into this conversion
 
         let mt_index_list = unique_sigs
             .iter()
@@ -445,7 +449,7 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
         let batch_proof = self.closed_reg.merkle_tree.get_batched_path(mt_index_list);
 
         Ok(StmAggrSig {
-            signatures: unique_sigs,
+            signatures,
             batch_proof,
         })
     }
@@ -466,9 +470,16 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
         let avk = StmAggrVerificationKey::from(&self.closed_reg);
         let mut sig_by_index: BTreeMap<Index, &StmSig> = BTreeMap::new();
         let mut removal_idx_by_vk: HashMap<&StmSig, Vec<Index>> = HashMap::new();
+        let reg_parties = sigs
+            .iter()
+            .map(|sig| self.closed_reg.reg_parties[sig.signer_index as usize])
+            .collect::<Vec<RegParty>>(); // todo: look into this
 
-        for sig in sigs.iter() {
-            if sig.verify(&self.params, &avk, msg).is_err() {
+        for (sig, reg_party) in sigs.iter().zip(reg_parties.iter()) {
+            if sig
+                .verify(&self.params, &reg_party.0, &reg_party.1, &avk, msg)
+                .is_err()
+            {
                 continue;
             }
 
@@ -543,12 +554,14 @@ impl StmSig {
     pub fn verify<D: Clone + Digest + FixedOutput>(
         &self,
         params: &StmParameters,
+        pk: &StmVerificationKey,
+        stake: &Stake,
         avk: &StmAggrVerificationKey<D>,
         msg: &[u8],
     ) -> Result<(), StmSignatureError> {
         let msgp = avk.mt_commitment.concat_with_msg(msg);
-        self.sigma.verify(&msgp, &self.pk)?;
-        self.check_indices(params, &msgp, avk)?;
+        self.sigma.verify(&msgp, pk)?;
+        self.check_indices(params, stake, &msgp, avk)?;
 
         Ok(())
     }
@@ -557,6 +570,7 @@ impl StmSig {
     pub(crate) fn check_indices<D: Clone + Digest + FixedOutput>(
         &self,
         params: &StmParameters,
+        stake: &Stake,
         msgp: &[u8],
         avk: &StmAggrVerificationKey<D>,
     ) -> Result<(), StmSignatureError> {
@@ -567,7 +581,7 @@ impl StmSig {
 
             let ev = self.sigma.eval(msgp, index);
 
-            if !ev_lt_phi(params.phi_f, ev, self.stake, avk.total_stake) {
+            if !ev_lt_phi(params.phi_f, ev, *stake, avk.total_stake) {
                 return Err(StmSignatureError::LotteryLost);
             }
         }
@@ -586,14 +600,12 @@ impl StmSig {
     /// * Merkle index of the signer.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut output = Vec::new();
-        output.extend_from_slice(&self.stake.to_be_bytes());
         output.extend_from_slice(&(self.indexes.len() as u64).to_be_bytes());
 
         for index in &self.indexes {
             output.extend_from_slice(&index.to_be_bytes());
         }
 
-        output.extend_from_slice(&self.pk.to_bytes());
         output.extend_from_slice(&self.sigma.to_bytes());
 
         output.extend_from_slice(&self.signer_index.to_be_bytes());
@@ -606,29 +618,23 @@ impl StmSig {
     ) -> Result<StmSig, StmSignatureError> {
         let mut u64_bytes = [0u8; 8];
 
-        u64_bytes.copy_from_slice(&bytes[..8]);
-        let stake = u64::from_be_bytes(u64_bytes);
-
-        u64_bytes.copy_from_slice(&bytes[8..16]);
+        u64_bytes.copy_from_slice(&bytes[0..8]);
         let nr_indexes = u64::from_be_bytes(u64_bytes) as usize;
 
         let mut indexes = Vec::new();
         for i in 0..nr_indexes {
-            u64_bytes.copy_from_slice(&bytes[16 + i * 8..24 + i * 8]);
+            u64_bytes.copy_from_slice(&bytes[8 + i * 8..16 + i * 8]);
             indexes.push(u64::from_be_bytes(u64_bytes));
         }
 
-        let offset = 16 + nr_indexes * 8;
-        let pk = StmVerificationKey::from_bytes(&bytes[offset..offset + 96])?;
-        let sigma = Signature::from_bytes(&bytes[offset + 96..offset + 144])?;
+        let offset = 8 + nr_indexes * 8;
+        let sigma = Signature::from_bytes(&bytes[offset..offset + 48])?;
 
-        u64_bytes.copy_from_slice(&bytes[offset + 144..offset + 152]);
+        u64_bytes.copy_from_slice(&bytes[offset + 48..offset + 56]);
         let signer_index = u64::from_be_bytes(u64_bytes);
 
         Ok(StmSig {
             sigma,
-            pk,
-            stake,
             indexes,
             signer_index,
         })
@@ -692,17 +698,16 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
         let mut unique_indices = HashSet::new();
         let mut leaves = Vec::new();
 
-        for sig in &self.signatures {
+        for (sig, reg_party) in &self.signatures {
             let msgp = avk.mt_commitment.concat_with_msg(msg);
-            sig.check_indices(parameters, &msgp, avk)?;
+            sig.check_indices(parameters, &reg_party.1, &msgp, avk)?;
 
             for &index in &sig.indexes {
                 unique_indices.insert(index);
                 nr_indices += 1;
             }
 
-            let mt_leaf = MTLeaf(sig.pk, sig.stake);
-            leaves.push(mt_leaf);
+            leaves.push(*reg_party);
         }
 
         if nr_indices != unique_indices.len() {
@@ -720,12 +725,12 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
         let signatures = self
             .signatures
             .iter()
-            .map(|sig| sig.sigma)
+            .map(|(sig, _)| sig.sigma)
             .collect::<Vec<Signature>>();
         let vks = self
             .signatures
             .iter()
-            .map(|sig| sig.pk)
+            .map(|(_, reg_party)| reg_party.0)
             .collect::<Vec<VerificationKey>>();
 
         Signature::verify_aggregate(msg.as_slice(), &vks, &signatures)?;
@@ -736,18 +741,19 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
     /// # Layout
     /// * Number of signatures (as u64)
     /// * Size of a signature
-    /// * Signatures
+    /// * Pairs of Signatures and Registered Parties
     /// * Batch proof
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut out = Vec::new();
         out.extend_from_slice(&u64::try_from(self.signatures.len()).unwrap().to_be_bytes());
         out.extend_from_slice(
-            &u64::try_from(self.signatures[0].to_bytes().len())
+            &u64::try_from(self.signatures[0].0.to_bytes().len())
                 .unwrap()
                 .to_be_bytes(),
         );
-        for sig in &self.signatures {
-            out.extend_from_slice(&sig.to_bytes())
+        for (sig, reg_party) in &self.signatures {
+            out.extend_from_slice(&sig.to_bytes());
+            out.extend_from_slice(&reg_party.to_bytes());
         }
         let proof = &self.batch_proof;
         out.extend_from_slice(&proof.to_bytes());
@@ -769,12 +775,18 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
 
         let mut signatures = Vec::with_capacity(size);
         for i in 0..size {
-            signatures.push(StmSig::from_bytes::<D>(
-                &bytes[16 + i * sig_size..16 + (i + 1) * sig_size],
-            )?);
+            signatures.push((
+                StmSig::from_bytes::<D>(
+                    &bytes[16 + i * (sig_size + 104)..16 + sig_size + i * (sig_size + 104)],
+                )?,
+                MTLeaf::from_bytes(
+                    &bytes[16 + sig_size + i * (sig_size + 104)..16 + (i + 1) * (sig_size + 104)],
+                )
+                .map_err(|_| StmAggregateSignatureError::SerializationError)?,
+            ));
         }
 
-        let offset = 16 + sig_size * size;
+        let offset = 16 + (sig_size + 104) * size;
         let batch_proof = BatchPath::from_bytes(&bytes[offset..])?;
 
         Ok(StmAggrSig {
@@ -903,28 +915,26 @@ mod tests {
         #[test]
         /// Test that `dedup_sigs_for_indices` only takes valid signatures.
         fn test_dedup(msg in any::<[u8; 16]>()) {
-            let nparties = 10usize;
             let false_msg = [1u8; 20];
-            let params = StmParameters { m: (nparties as u64), k: 1, phi_f: 1.0 };
-            let ps = setup_equal_parties(params, nparties);
-            let p = &ps[0];
-            let clerk = StmClerk::from_signer(p);
+            let params = StmParameters { m: 1, k: 1, phi_f: 1.0 };
+            let ps = setup_equal_parties(params, 1);
+            let clerk = StmClerk::from_signer(&ps[0]);
             let avk = clerk.compute_avk();
-            let mut sigs = Vec::with_capacity(nparties);
+            let mut sigs = Vec::with_capacity(2);
 
 
-            if let Some(sig) = p.sign(&false_msg) {
+            if let Some(sig) = ps[0].sign(&false_msg) {
                 sigs.push(sig);
             }
 
-            if let Some(sig) = p.sign(&msg) {
+            if let Some(sig) = ps[0].sign(&msg) {
                 sigs.push(sig);
             }
 
             let dedup_result = clerk.dedup_sigs_for_indices(&msg, &sigs);
             assert!(dedup_result.is_ok(), "dedup failure {:?}", dedup_result);
             for passed_sigs in dedup_result.unwrap() {
-                let verify_result = passed_sigs.verify(&params, &avk, &msg);
+                let verify_result = passed_sigs.verify(&params, &ps[0].vk, &ps[0].stake, &avk, &msg);
                 assert!(verify_result.is_ok(), "verify {:?}", verify_result);
             }
         }
@@ -934,15 +944,13 @@ mod tests {
         #[test]
         /// Test that when a party creates a signature it can be verified
         fn test_sig(msg in any::<[u8;16]>()) {
-            let nparties = 2;
-            let params = StmParameters { m: (nparties as u64), k: 1, phi_f: 0.2 };
-            let ps = setup_equal_parties(params, nparties);
-            let p = &ps[0];
-            let clerk = StmClerk::from_signer(p);
+            let params = StmParameters { m: 1, k: 1, phi_f: 0.2 };
+            let ps = setup_equal_parties(params, 1);
+            let clerk = StmClerk::from_signer(&ps[0]);
             let avk = clerk.compute_avk();
 
-            if let Some(sig) = p.sign(&msg) {
-                assert!(sig.verify(&params, &avk, &msg).is_ok());
+            if let Some(sig) = ps[0].sign(&msg) {
+                assert!(sig.verify(&params, &ps[0].vk, &ps[0].stake, &avk, &msg).is_ok());
             }
         }
     }
@@ -1005,21 +1013,19 @@ mod tests {
 
         #[test]
         fn test_sig_serialize_deserialize(msg in any::<[u8;16]>()) {
-            let nparties = 2;
-            let params = StmParameters { m: (nparties as u64), k: 1, phi_f: 0.2 };
-            let ps = setup_equal_parties(params, nparties);
-            let p = &ps[0];
-            let clerk = StmClerk::from_signer(p);
+            let params = StmParameters { m: 1, k: 1, phi_f: 0.2 };
+            let ps = setup_equal_parties(params, 1);
+            let clerk = StmClerk::from_signer(&ps[0]);
             let avk = clerk.compute_avk();
 
-            if let Some(sig) = p.sign(&msg) {
+            if let Some(sig) = ps[0].sign(&msg) {
                 let bytes = sig.to_bytes();
                 let sig_deser = StmSig::from_bytes::<D>(&bytes).unwrap();
-                assert!(sig_deser.verify(&params, &avk, &msg).is_ok());
+                assert!(sig_deser.verify(&params, &ps[0].vk, &ps[0].stake, &avk, &msg).is_ok());
 
                 let encoded = bincode::serialize(&sig).unwrap();
                 let decoded: StmSig = bincode::deserialize(&encoded).unwrap();
-                assert!(decoded.verify(&params, &avk, &msg).is_ok());
+                assert!(decoded.verify(&params, &ps[0].vk, &ps[0].stake, &avk, &msg).is_ok());
             }
         }
 
@@ -1164,7 +1170,7 @@ mod tests {
         fn test_invalid_proof_index_unique(tc in arb_proof_setup(10)) {
             with_proof_mod(tc, |aggr, clerk, _msg| {
                 for sig in aggr.signatures.iter_mut() {
-                    for index in sig.indexes.iter_mut() {
+                    for index in sig.0.indexes.iter_mut() {
                        *index %= clerk.params.k - 1
                     }
                 }

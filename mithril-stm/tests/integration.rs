@@ -1,5 +1,7 @@
 use mithril_stm::key_reg::KeyReg;
-use mithril_stm::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
+use mithril_stm::stm::{
+    Stake, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner, StmVerificationKey,
+};
 use mithril_stm::AggregationError;
 
 use blake2::{digest::consts::U32, Blake2b};
@@ -34,9 +36,11 @@ fn test_full_protocol() {
     let mut key_reg = KeyReg::init();
 
     let mut ps: Vec<StmInitializer> = Vec::with_capacity(nparties as usize);
+    let mut reg_parties: Vec<(StmVerificationKey, Stake)> = Vec::with_capacity(nparties as usize);
     for stake in parties {
         let p = StmInitializer::setup(params, stake, &mut rng);
         key_reg.register(stake, p.verification_key()).unwrap();
+        reg_parties.push((p.verification_key().vk, stake));
         ps.push(p);
     }
 
@@ -60,8 +64,11 @@ fn test_full_protocol() {
     let avk = clerk.compute_avk();
 
     // Check all parties can verify every sig
-    for s in sigs.iter() {
-        assert!(s.verify(&params, &avk, &msg).is_ok(), "Verification failed");
+    for (s, (vk, stake)) in sigs.iter().zip(reg_parties.iter()) {
+        assert!(
+            s.verify(&params, vk, stake, &avk, &msg).is_ok(),
+            "Verification failed"
+        );
     }
 
     // Aggregate with random parties
