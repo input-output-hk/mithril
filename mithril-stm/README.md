@@ -1,38 +1,70 @@
-Mithril-stm ![CI workflow](https://github.com/input-output-hk/mithril/actions/workflows/ci.yml/badge.svg) ![crates.io](https://img.shields.io/crates/v/mithril_stm.svg)
-=======
-This crate is ongoing work, has not been audited, and it's API is by no means final. Do not use in production.
+# Mithril-stm ![CI workflow](https://github.com/input-output-hk/mithril/actions/workflows/ci.yml/badge.svg) ![crates.io](https://img.shields.io/crates/v/mithril_stm.svg)
 
-### A rust implementation of Stake-based Threshold Multisignatures (STMs)
-`mithril-stm` implements Stake-based Threshold Multisignatures as described in the paper
-[Mithril: Stake-based Threshold Multisignatures](https://eprint.iacr.org/2021/916.pdf), by
-Pyrros Chaidos and Aggelos Kiayias.
 
-This library uses zkcrypto's implementation of curve [BLS12-381](https://github.com/zkcrypto/bls12_381)
-by default for implementing the multisignature scheme. One can optionally choose the
-[blst](https://github.com/supranational/blst) backend (by using the feature `blast`),
-but this is not recommended due to some [flaky tests](https://github.com/input-output-hk/mithril/issues/207)
-That are still being resolved. We
-currently only support the trivial concatenation proof system (Section 4.3) and do not support
-other proof systems such as Bulletproofs or Halo2.
+**This is a work in progress** :hammer_and_wrench:s
 
-This library provides implementations of:
+* `mithril-stm` is a Rust implementation of the scheme described in the paper [Mithril: Stake-based Threshold Multisignatures](https://eprint.iacr.org/2021/916.pdf) by Pyrros Chaidos and Aggelos Kiayias.
+* The BLS12-381 signature library [blst](https://github.com/supranational/blst) is used as the backend for the implementation of STM.
+* This implementation supports the _trivial concatenation proof system_ (Section 4.3). Other proof systems such as _Bulletproofs_ or _Halo2_ are not supported in this version.
+* We implemented the concatenation proof system as batch proofs:
+  * Individual signatures do not contain the Merkle path to prove membership of the avk. Instead, it is the role of the aggregator to generate such proofs. This allows for a more efficient implementation of batched membership proofs (or batched Merkle paths).
+* Protocol documentation is given in [Mithril Protocol in depth](https://mithril.network/doc/mithril/mithril-protocol/protocol/).
 
-* Stake-based Threshold Multisignatures
-* Key registration procedure for STM signatures
 
-The user-facing documentation for the above modules can be found [here]().
+* This library provides:
+    * The implementation of the Stake-based Threshold Multisignatures
+    * Key registration procedure for STM signatures
+    * The tests for the library functions and STM scheme
+    * Benchmark tests
 
-# Example
+## Pre-requisites
+
+**Install Rust**
+
+* Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (latest stable version).
+
+## Download source code
+
+```bash
+# Download sources from github
+git clone https://github.com/input-output-hk/mithril
+
+# Go to sources directory
+cd mithril-stm
+```
+
+## Compiling the library
+```shell
+cargo build --release
+```
+
+## Running the tests
+For running rust tests, simply run (to run the tests faster, the use of `--release` flag is recommended):
+```shell
+cargo test --release
+```
+
+## Running the benches
+```shell
+cargo bench
+```
+
+
+## Example
+
+The following is a simple example of the STM implementation:
+
 ```rust
 use mithril_stm::key_reg::KeyReg;
 use mithril_stm::stm::{StmClerk, StmInitializer, StmParameters, StmSig, StmSigner};
-use rayon::prelude::*;
+use mithril_stm::AggregationError;
 
-use mithril_stm::error::AggregationFailure;
+use blake2::{digest::consts::U32, Blake2b};
+use rayon::prelude::*;
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
-type H = blake2::Blake2b;
+type H = Blake2b<U32>;
 
 fn main() {
     let nparties = 32;
@@ -68,7 +100,7 @@ fn main() {
 
     let ps = ps
         .into_par_iter()
-        .map(|p| p.new_signer(closed_reg.clone()))
+        .map(|p| p.new_signer(closed_reg.clone()).unwrap())
         .collect::<Vec<StmSigner<H>>>();
 
     /////////////////////
@@ -78,7 +110,7 @@ fn main() {
     let sigs = ps
         .par_iter()
         .filter_map(|p| p.sign(&msg))
-        .collect::<Vec<StmSig<H>>>();
+        .collect::<Vec<StmSig>>();
 
     let clerk = StmClerk::from_signer(&ps[0]);
     let avk = clerk.compute_avk();
@@ -91,25 +123,33 @@ fn main() {
     // Aggregate with random parties
     let msig = clerk.aggregate(&sigs, &msg);
 
-    assert!(msig.is_ok(), "aggregation failed");
-    assert!(msig.unwrap().verify(&msg, &clerk.compute_avk(), &params).is_ok());
+    match msig {
+        Ok(aggr) => {
+            println!("Aggregate ok");
+            assert!(aggr.verify(&msg, &clerk.compute_avk(), &params).is_ok());
+        }
+        Err(AggregationError::NotEnoughSignatures(n, k)) => {
+            println!("Not enough signatures");
+            assert!(n < params.k && k == params.k)
+        }
+        Err(AggregationError::UsizeConversionInvalid) => {
+            println!("Invalid usize conversion");
+        }
+    }
 }
 ```
 
-# Test and Benchmarks
-You can run tests of the library using `cargo test` (we recommend to use the `--release` flag, otherwise
-the tests might take a while) and run benchmarks using `cargo bench`. This crate uses `criterion` to run
-benchmarks.
+## Benchmarks
 
-We have run the benchmarks on an Apple M1 Pro machine with 16 GB of RAM, on macOS 12.6.
+Here we give the benchmark results of STM for size and time. We run the benchmarks on macOS 12.6 on an Apple M1 Pro machine with 16 GB of RAM.
 
-Note that single signatures in batch compat version does not depend on any variable and size of an individual signature is `176` bytes.
+Note that the size of an individual signature with one valid index is **176 bytes** and increases linearly in the length of valid indices (where an index is 8 bytes).
 
 ```shell
 +----------------------+
 | Size of benchmarks   |
 +----------------------+
-| Results obtained by using the parameters suggested in paper.
+| Results obtained by using the parameters suggested by the paper.
 +----------------------+
 +----------------------+
 | Aggregate signatures |
@@ -117,24 +157,22 @@ Note that single signatures in batch compat version does not depend on any varia
 +----------------------+
 | Hash: Blake2b 512    |
 +----------------------+
-k = 445 | m = 2728 | nr parties = 3000; 118760 bytes (old version = 356632 bytes)
+k = 445 | m = 2728 | nr parties = 3000; 118760 bytes 
 +----------------------+
 | Hash: Blake2b 256    |
 +----------------------+
-k = 445 | m = 2728 | nr parties = 3000; 99384 bytes (old version = 222536 bytes)
+k = 445 | m = 2728 | nr parties = 3000; 99384 bytes 
 +----------------------+
 +----------------------+
 | Aggregate signatures |
 +----------------------+
 | Hash: Blake2b 512    |
 +----------------------+
-k = 554 | m = 3597 | nr parties = 3000; 133936 bytes (old version = 419808 bytes)
+k = 554 | m = 3597 | nr parties = 3000; 133936 bytes 
 +----------------------+
 | Hash: Blake2b 256    |
 +----------------------+
-k = 554 | m = 3597 | nr parties = 3000; 113728 bytes (old version = 261488 bytes)
-make build && ./mithrildemo --nparties 16 -k 5 -m 5 --phi-f 0.9
-
+k = 554 | m = 3597 | nr parties = 3000; 113728 bytes 
 ```
 
 ```shell
@@ -155,7 +193,4 @@ STM/Blake2b/Aggregation/k: 250, m: 1523, nr_parties: 2000
                         time:   [190.81 ms 191.15 ms 191.54 ms]
 STM/Blake2b/Verification/k: 250, m: 1523, nr_parties: 2000
                         time:   [13.944 ms 14.010 ms 14.077 ms]
-
-
 ```
-
