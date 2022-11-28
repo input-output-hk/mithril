@@ -2,7 +2,7 @@
 sidebar_position: 2
 ---
 
-import NetworksMatrix from '../../../../shared/networks-matrix.md';
+import NetworksMatrix from '../../../networks-matrix.md';
 
 # Mithril Signer Node
 

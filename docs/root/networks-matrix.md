@@ -1,3 +1,9 @@
+---
+unlisted: true
+hide_title: true
+hide_table_of_contents: true
+---
+
 Here is an up to date list of all the **Mithril Networks**, their configurations and their status:
 
 > Last update: 11/14/2022
