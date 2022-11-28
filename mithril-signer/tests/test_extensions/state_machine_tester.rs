@@ -45,7 +45,13 @@ pub struct StateMachineTester {
 }
 
 impl StateMachineTester {
-    pub async fn init() -> Self {
+    pub async fn init(signers_with_stake: &[SignerWithStake]) -> Result<Self> {
+        let selected_signer_with_stake = signers_with_stake.first().ok_or_else(|| {
+            TestError::AssertFailed("there should be at least one signer with stakes".to_string())
+        })?;
+        let selected_signer_party_id = selected_signer_with_stake.party_id.clone();
+        let selected_signer_temp_dir =
+            tests_setup::setup_temp_directory_for_signer(&selected_signer_party_id, false);
         let config = Config {
             aggregator_endpoint: "http://0.0.0.0:8000".to_string(),
             cardano_cli_path: PathBuf::new(),
@@ -53,12 +59,16 @@ impl StateMachineTester {
             db_directory: PathBuf::new(),
             network: "devnet".to_string(),
             network_magic: Some(42),
-            party_id: Some("99999999999999999999999999999999".to_string()),
+            party_id: Some(selected_signer_party_id),
             run_interval: 5000,
             data_stores_directory: PathBuf::new(),
             store_retention_limit: None,
-            kes_secret_key_path: None,
-            operational_certificate_path: None,
+            kes_secret_key_path: selected_signer_temp_dir
+                .as_ref()
+                .map(|dir| dir.join("kes.sk")),
+            operational_certificate_path: selected_signer_temp_dir
+                .as_ref()
+                .map(|dir| dir.join("opcert.cert")),
         };
 
         let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
@@ -103,22 +113,9 @@ impl StateMachineTester {
             stake_store: stake_store.clone(),
         };
         // set up stake distribution
-        let protocol_parameters = tests_setup::setup_protocol_parameters();
-        let mut signers: Vec<SignerWithStake> =
-            tests_setup::setup_signers(10, &protocol_parameters)
-                .into_iter()
-                .map(|(signer_with_stake, _, _)| signer_with_stake)
-                .collect();
-        signers.push(SignerWithStake {
-            party_id: "99999999999999999999999999999999".to_string(),
-            stake: 999,
-            verification_key: "".to_string(),
-            verification_key_signature: None,
-            operational_certificate: None,
-            kes_period: None,
-        });
-
-        chain_observer.set_signers(signers).await;
+        chain_observer
+            .set_signers(signers_with_stake.to_owned())
+            .await;
 
         let runner = Box::new(SignerRunner::new(config, services));
 
@@ -128,7 +125,7 @@ impl StateMachineTester {
             Duration::from_secs(5),
         );
 
-        StateMachineTester {
+        Ok(StateMachineTester {
             state_machine,
             immutable_observer,
             chain_observer,
@@ -137,7 +134,7 @@ impl StateMachineTester {
             stake_store,
             comment_no: 0,
             _logs_guard: logs_guard,
-        }
+        })
     }
 
     fn assert(&mut self, condition: bool, description: String) -> Result<&mut Self> {
@@ -279,11 +276,11 @@ impl StateMachineTester {
     }
 
     /// register the signer in the certificate handler
-    pub async fn register_signers(&mut self, count: u64) -> Result<&mut Self> {
-        let protocol_parameters = tests_setup::setup_protocol_parameters();
-        for (signer_with_stake, _signer, _protocol_initializer) in
-            tests_setup::setup_signers(count, &protocol_parameters)
-        {
+    pub async fn register_signers(
+        &mut self,
+        signers_with_stake: &[SignerWithStake],
+    ) -> Result<&mut Self> {
+        for signer_with_stake in signers_with_stake {
             self.certificate_handler
                 .register_signer(&signer_with_stake.to_owned().into())
                 .await

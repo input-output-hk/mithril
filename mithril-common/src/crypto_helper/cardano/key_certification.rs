@@ -43,6 +43,10 @@ pub enum ProtocolRegistrationErrorWrapper {
     #[error("party id does not exist in the stake distribution")]
     PartyIdNonExisting,
 
+    /// Error raised when the operational certificate is missing
+    #[error("missing operational certificate")]
+    OpCertMissing,
+
     /// Error raised when an operational certificate is invalid
     #[error("invalid operational certificate")]
     OpCertInvalid,
@@ -245,7 +249,10 @@ impl KeyRegWrapper {
                 opcert.start_kes_period,
             ))?
         } else {
-            println!("WARNING: Signer certification is skipped! {:?}", party_id);
+            if cfg!(not(feature = "allow_skip_signer_certification")) {
+                Err(ProtocolRegistrationErrorWrapper::OpCertMissing)?
+            }
+            println!("WARNING: Uncertified signer regsitration by providing a Pool Id is deprecated and will be removed soon! (Pool Id: {:?})", party_id);
             party_id.ok_or(ProtocolRegistrationErrorWrapper::PartyIdMissing)?
         };
 

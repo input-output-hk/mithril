@@ -39,9 +39,11 @@ impl MithrilInfrastructure {
 
         let mut signers: Vec<Signer> = vec![];
         for (index, pool_node) in devnet_topology.pool_nodes.iter().enumerate() {
-            // 50% of signers with key certification
-            // TODO: Should be removed 100% once the signer certification is fully deployed
-            let enable_certification = index % 2 == 0;
+            // 50% of signers with key certification if allow unverified signer registration
+            // Or 100% of signers otherwise
+            // TODO: Should be removed once the signer certification is fully deployed
+            let enable_certification =
+                index % 2 == 0 || cfg!(not(feature = "allow_skip_signer_certification"));
             let mut signer = Signer::new(
                 aggregator.endpoint(),
                 pool_node,

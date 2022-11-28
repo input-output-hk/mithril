@@ -54,6 +54,8 @@ mithril-stm = { path = "../mithril-stm", default-features = false, features = ["
 slog-scope = "4.4.0"
 
 [features]
+default = ["allow_skip_signer_certification"]
 portable = ["mithril-stm/portable"]
 test_only = []
 allow_skip_signer_certification = []
+

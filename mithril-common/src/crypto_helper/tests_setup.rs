@@ -15,7 +15,8 @@ use std::{cmp::min, fs, sync::Arc};
 
 use std::{collections::HashMap, path::PathBuf};
 
-fn setup_temp_directory_for_signer(
+/// Create or retrieve a temporary directory for storing cryptographic material for a signer, use this for tests only.
+pub fn setup_temp_directory_for_signer(
     party_id: &ProtocolPartyId,
     auto_create: bool,
 ) -> Option<PathBuf> {
@@ -62,8 +63,11 @@ pub fn setup_signers(
     let stake_distribution = (0..total)
         .into_iter()
         .map(|party_idx| {
-            let party_id = if party_idx % 2 == 0 {
-                // 50% of signers with key certification
+            let party_id = if party_idx % 2 == 0
+                || cfg!(not(feature = "allow_skip_signer_certification"))
+            {
+                // 50% of signers with key certification if allow unverified signer registration
+                // Or 100% of signers otherwise
                 let keypair = ColdKeyGenerator::create_deterministic_keypair([party_idx as u8; 32]);
                 let (kes_secret_key, kes_verification_key) = Sum6Kes::keygen(&mut kes_keys_seed);
                 let operational_certificate = OpCert::new(kes_verification_key, 0, 0, keypair);
@@ -77,14 +81,15 @@ pub fn setup_signers(
                         .to_file(temp_dir.join("kes.sk"))
                         .expect("KES secret key file export should not fail");
                 }
-                if !temp_dir.join("pool.cert").exists() {
+                if !temp_dir.join("opcert.cert").exists() {
                     operational_certificate
-                        .to_file(temp_dir.join("pool.cert"))
+                        .to_file(temp_dir.join("opcert.cert"))
                         .expect("operational certificate file export should not fail");
                 }
                 party_id
             } else {
-                // 50% of signers without key certification (legacy)
+                // 50% of signers without key certification (legacy) if allow unverified signer registration
+                // Or 0% of signers otherwise
                 // TODO: Should be removed once the signer certification is fully deployed
                 format!("{:<032}", party_idx)
             };
@@ -132,7 +137,7 @@ pub fn setup_signers_from_stake_distribution(
         .for_each(|(party_id, _stake, protocol_initializer)| {
             let temp_dir = setup_temp_directory_for_signer(party_id, false);
             let operational_certificate = temp_dir.as_ref().map(|dir| {
-                OpCert::from_file(dir.join("pool.cert"))
+                OpCert::from_file(dir.join("opcert.cert"))
                     .expect("operational certificate decoding should not fail")
             });
             let verification_key = protocol_initializer.verification_key();
@@ -154,7 +159,7 @@ pub fn setup_signers_from_stake_distribution(
         .map(|(party_id, stake, protocol_initializer)| {
             let temp_dir = setup_temp_directory_for_signer(&party_id, false);
             let operational_certificate: Option<OpCert> = temp_dir.as_ref().map(|dir| {
-                OpCert::from_file(dir.join("pool.cert"))
+                OpCert::from_file(dir.join("opcert.cert"))
                     .expect("operational certificate decoding should not fail")
             });
             let kes_period = 0;
