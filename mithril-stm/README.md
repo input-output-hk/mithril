@@ -143,7 +143,7 @@ fn main() {
 
 Here we give the benchmark results of STM for size and time. We run the benchmarks on macOS 12.6 on an Apple M1 Pro machine with 16 GB of RAM.
 
-Note that single signatures do not contain the Merkle path, and therefore have a **constant size of 176 bytes**.
+Note that the size of an individual signature with one valid index is **176 bytes** and increases linearly in the length of valid indices (where an index is 8 bytes).
 
 ```shell
 +----------------------+
