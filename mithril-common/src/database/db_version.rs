@@ -6,10 +6,11 @@ use std::{
 };
 
 use chrono::NaiveDateTime;
-use semver::Version;
 use sqlite::{Connection, Row, Value};
 
 use crate::sqlite::{HydrationError, Projection, ProjectionField, Provider, SqLiteEntity};
+
+use super::DbVersion;
 
 /// Application using a database
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -41,11 +42,11 @@ impl Display for ApplicationNodeType {
     }
 }
 
-/// Entity related to the `app_version` database table.
+/// Entity related to the `db_version` database table.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct DatabaseVersion {
-    /// Semver of the database structure.
-    pub semver: Version,
+    /// Version of the database structure.
+    pub version: DbVersion,
 
     /// Name of the application.
     pub application_type: ApplicationNodeType,
@@ -58,8 +59,7 @@ pub struct DatabaseVersion {
 impl SqLiteEntity for DatabaseVersion {
     fn hydrate(row: Row) -> Result<Self, HydrationError> {
         Ok(Self {
-            semver: Version::parse(&row.get::<String, _>(0))
-                .map_err(|e| HydrationError::InvalidData(format!("{}", e)))?,
+            version: row.get::<i64, _>(0),
             application_type: ApplicationNodeType::new(&row.get::<String, _>(1))
                 .map_err(|e| HydrationError::InvalidData(format!("{}", e)))?,
             updated_at: NaiveDateTime::parse_from_str(
@@ -76,7 +76,7 @@ impl PartialOrd for DatabaseVersion {
         if self.application_type != other.application_type {
             None
         } else {
-            self.semver.partial_cmp(&other.semver)
+            self.version.partial_cmp(&other.version)
         }
     }
 }
@@ -98,13 +98,13 @@ impl Projection for DatabaseVersionProjection {
 impl DatabaseVersionProjection {
     pub fn new() -> Self {
         let mut projection = Self { fields: Vec::new() };
-        projection.add_field("semver", "{:app_version:}.semver", "text");
+        projection.add_field("version", "{:db_version:}.version", "text");
         projection.add_field(
             "application_type",
-            "{:app_version:}.application_type",
+            "{:db_version:}.application_type",
             "text",
         );
-        projection.add_field("updated_at", "{:app_version:}.updated_at", "timestamp");
+        projection.add_field("updated_at", "{:db_version:}.updated_at", "timestamp");
 
         projection
     }
@@ -129,7 +129,7 @@ impl<'conn> DatabaseVersionProvider<'conn> {
     /// This code is temporary and should not last.
     pub fn create_table_if_not_exists(&self) -> Result<(), Box<dyn Error>> {
         let connection = self.get_connection();
-        let sql = "select exists(select name from sqlite_master where type='table' and name='app_version') as table_exists";
+        let sql = "select exists(select name from sqlite_master where type='table' and name='db_version') as table_exists";
         let table_exists = connection
             .prepare(sql)?
             .into_cursor()
@@ -141,7 +141,7 @@ impl<'conn> DatabaseVersionProvider<'conn> {
 
         if !table_exists {
             let sql = r#"
-create table app_version (application_type text not null primary key, semver text not null, updated_at timestamp not null default CURRENT_TIMESTAMP)
+create table db_version (application_type text not null primary key, version integer not null, updated_at timestamp not null default CURRENT_TIMESTAMP)
 "#;
             connection.execute(sql)?;
         }
@@ -176,13 +176,13 @@ impl<'conn> Provider<'conn> for DatabaseVersionProvider<'conn> {
     fn get_definition(&self, condition: Option<&str>) -> String {
         let where_clause = condition.unwrap_or("true");
         let mut aliases = HashMap::new();
-        let _ = aliases.insert("{:app_version:}".to_string(), "app_version".to_string());
+        let _ = aliases.insert("{:db_version:}".to_string(), "db_version".to_string());
         let projection = self.get_projection().expand(aliases);
 
         format!(
             r#"
 select {projection}
-from app_version
+from db_version
 where {where_clause}
 "#
         )
@@ -209,7 +209,7 @@ impl<'conn> DatabaseVersionUpdater<'conn> {
     pub fn save(&self, version: DatabaseVersion) -> Result<DatabaseVersion, Box<dyn Error>> {
         let params = [
             Value::String(format!("{}", version.application_type)),
-            Value::String(version.semver.to_string()),
+            Value::Integer(version.version),
         ];
         let entity = self
             .find(None, &params)?
@@ -234,13 +234,13 @@ impl<'conn> Provider<'conn> for DatabaseVersionUpdater<'conn> {
     fn get_definition(&self, condition: Option<&str>) -> String {
         let _where_clause = condition.unwrap_or("true");
         let mut aliases = HashMap::new();
-        let _ = aliases.insert("{:app_version:}".to_string(), "app_version".to_string());
+        let _ = aliases.insert("{:db_version:}".to_string(), "db_version".to_string());
         let projection = self.get_projection().expand(aliases);
 
         format!(
             r#"
-insert into app_version (application_type, semver) values (?, ?)
-  on conflict (application_type) do update set semver = excluded.semver, updated_at = CURRENT_TIMESTAMP
+insert into db_version (application_type, version) values (?, ?)
+  on conflict (application_type) do update set version = excluded.version, updated_at = CURRENT_TIMESTAMP
 returning {projection}
 "#
         )
@@ -255,10 +255,10 @@ mod tests {
     fn test_projection() {
         let projection = DatabaseVersionProjection::new();
         let mut aliases: HashMap<String, String> = HashMap::new();
-        let _ = aliases.insert("{:app_version:}".to_string(), "whatever".to_string());
+        let _ = aliases.insert("{:db_version:}".to_string(), "whatever".to_string());
 
         assert_eq!(
-            "whatever.semver as semver, whatever.application_type as application_type, whatever.updated_at as updated_at"
+            "whatever.version as version, whatever.application_type as application_type, whatever.updated_at as updated_at"
                 .to_string(),
             projection.expand(aliases)
         );
@@ -271,8 +271,8 @@ mod tests {
 
         assert_eq!(
             r#"
-select app_version.semver as semver, app_version.application_type as application_type, app_version.updated_at as updated_at
-from app_version
+select db_version.version as version, db_version.application_type as application_type, db_version.updated_at as updated_at
+from db_version
 where true
 "#,
             provider.get_definition(None)
@@ -286,9 +286,9 @@ where true
 
         assert_eq!(
             r#"
-insert into app_version (application_type, semver) values (?, ?)
-  on conflict (application_type) do update set semver = excluded.semver, updated_at = CURRENT_TIMESTAMP
-returning app_version.semver as semver, app_version.application_type as application_type, app_version.updated_at as updated_at
+insert into db_version (application_type, version) values (?, ?)
+  on conflict (application_type) do update set version = excluded.version, updated_at = CURRENT_TIMESTAMP
+returning db_version.version as version, db_version.application_type as application_type, db_version.updated_at as updated_at
 "#,
             provider.get_definition(None)
         )

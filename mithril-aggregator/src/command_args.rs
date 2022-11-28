@@ -42,7 +42,7 @@ fn setup_genesis_dependencies(
         ApplicationNodeType::Aggregator,
         config.get_sqlite_file(),
     )
-    .check(env!("CARGO_PKG_VERSION"))?;
+    .apply()?;
 
     let chain_observer = Arc::new(
         mithril_common::chain_observer::CardanoCliChainObserver::new(Box::new(
@@ -309,7 +309,7 @@ impl ServeCommand {
             ApplicationNodeType::Aggregator,
             config.get_sqlite_file(),
         )
-        .check(env!("CARGO_PKG_VERSION"))?;
+        .apply()?;
 
         // Init dependencies
         let snapshot_store = config.build_snapshot_store()?;

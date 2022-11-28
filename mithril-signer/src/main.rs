@@ -88,7 +88,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         ApplicationNodeType::Signer,
         config.get_sqlite_file(),
     )
-    .check(env!("CARGO_PKG_VERSION"))?;
+    .apply()?;
     debug!("Started"; "run_mode" => &args.run_mode, "config" => format!("{:?}", config));
 
     let mut state_machine = StateMachine::new(
