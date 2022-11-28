@@ -4,7 +4,7 @@ resource "google_compute_firewall" "mithril-vm-firewall" {
 
   allow {
     protocol = "tcp"
-    ports    = concat(["22", "80", "443"], values(local.mithril_signers_cardano_port))
+    ports    = concat(["22", "80", "443"], values(local.mithril_signers_relay_cardano_port))
   }
 
   source_ranges = ["0.0.0.0/0"]

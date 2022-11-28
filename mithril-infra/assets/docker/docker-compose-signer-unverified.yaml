@@ -20,7 +20,7 @@ services:
         max-file: "5"
     volumes:
       - ./cardano-configurations/network/${NETWORK}:/config
-      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db:/db
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/passive:/db
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc
     environment:
       - CARDANO_SOCKET_PATH=/ipc/node.socket
@@ -57,7 +57,7 @@ services:
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
     volumes:
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/mithril:/mithril-signer-${SIGNER_ID}/mithril
-      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db:/mithril-signer-${SIGNER_ID}/cardano/db
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/passive:/mithril-signer-${SIGNER_ID}/cardano/db
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc
     depends_on:
       cardano-node-signer:

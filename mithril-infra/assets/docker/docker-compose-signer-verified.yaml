@@ -3,9 +3,9 @@
 version: "3.9"
 
 services:
-  cardano-node-signer:
+  cardano-node-signer-relay:
     image: cardano-node/1.35.4-modified
-    container_name: cardano-node-signer-${SIGNER_ID}
+    container_name: cardano-node-relay-signer-${SIGNER_ID}
     build:
       context: .
       dockerfile: Dockerfile.cardano
@@ -20,12 +20,12 @@ services:
         max-file: "5"
     volumes:
       - ./cardano-configurations/network/${NETWORK}:/config
-      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db:/db
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/relay:/db
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/pool:/pool
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/www:/www
     ports:
-      - "${SIGNER_CARDANO_PORT}:${SIGNER_CARDANO_PORT}"
+      - "${SIGNER_CARDANO_RELAY_PORT}:${SIGNER_CARDANO_RELAY_PORT}"
     environment:
       - CARDANO_SOCKET_PATH=/ipc/node.socket
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
@@ -35,13 +35,50 @@ services:
         "--config",
         "/config/cardano-node/config.json",
         "--topology",
-        "/config/cardano-node/topology.json",
+        "/pool/topology-relay.json",
         "--database-path",
         "/db",
-        "--host-addr",
-        "${SIGNER_CARDANO_ADDR}",
         "--port",
-        "${SIGNER_CARDANO_PORT}",
+        "${SIGNER_CARDANO_RELAY_PORT}"
+      ]
+
+  cardano-node-signer-block-producer:
+    image: cardano-node/1.35.4-modified
+    container_name: cardano-node-block-producer-signer-${SIGNER_ID}
+    build:
+      context: .
+      dockerfile: Dockerfile.cardano
+    user: ${CURRENT_UID}
+    profiles:
+      - cardano
+      - all
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "5"
+    volumes:
+      - ./cardano-configurations/network/${NETWORK}:/config
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/block-producer:/db
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/pool:/pool
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/www:/www
+    ports:
+      - "${SIGNER_CARDANO_BLOCK_PRODUCER_PORT}:${SIGNER_CARDANO_BLOCK_PRODUCER_PORT}"
+    environment:
+      - CARDANO_SOCKET_PATH=/ipc/node.socket
+      - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
+    command:
+      [
+        "run",
+        "--config",
+        "/config/cardano-node/config.json",
+        "--topology",
+        "/pool/topology-block-producer.json",
+        "--database-path",
+        "/db",
+        "--port",
+        "${SIGNER_CARDANO_BLOCK_PRODUCER_PORT}",
         "--shelley-kes-key",
         "/pool/kes.skey",
         "--shelley-vrf-key",
@@ -72,12 +109,14 @@ services:
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
     volumes:
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/mithril:/mithril-signer-${SIGNER_ID}/mithril
-      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db:/mithril-signer-${SIGNER_ID}/cardano/db
+      - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/block-producer:/mithril-signer-${SIGNER_ID}/cardano/db
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/pool:/mithril-signer-${SIGNER_ID}/cardano/pool
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/ipc:/ipc
       - ./cardano-configurations/network/${NETWORK}:/config
     depends_on:
-      cardano-node-signer:
+      cardano-node-signer-block-producer:
+        condition: service_started
+      cardano-node-signer-relay:
         condition: service_started
     logging:
       driver: "json-file"
@@ -96,9 +135,6 @@ services:
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/www:/usr/share/nginx/html
     ports:
       - "${SIGNER_WWW_PORT}:8080"
-    depends_on:
-      cardano-node-signer:
-        condition: service_started
     logging:
       driver: "json-file"
       options:
