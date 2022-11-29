@@ -1,11 +1,16 @@
-use std::{cmp::Ordering, collections::HashMap, error::Error, fmt::Display, path::PathBuf};
+use std::{
+    cmp::Ordering,
+    collections::HashMap,
+    error::Error,
+    fmt::{Debug, Display},
+};
 
-use chrono::{Local, NaiveDateTime};
-use semver::Version;
-use slog::{debug, warn, Logger};
+use chrono::NaiveDateTime;
 use sqlite::{Connection, Row, Value};
 
 use crate::sqlite::{HydrationError, Projection, ProjectionField, Provider, SqLiteEntity};
+
+use super::DbVersion;
 
 /// Application using a database
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -37,11 +42,11 @@ impl Display for ApplicationNodeType {
     }
 }
 
-/// Entity related to the `app_version` database table.
+/// Entity related to the `db_version` database table.
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct ApplicationVersion {
-    /// Semver of the database structure.
-    pub semver: Version,
+pub struct DatabaseVersion {
+    /// Version of the database structure.
+    pub version: DbVersion,
 
     /// Name of the application.
     pub application_type: ApplicationNodeType,
@@ -51,11 +56,10 @@ pub struct ApplicationVersion {
     pub updated_at: NaiveDateTime,
 }
 
-impl SqLiteEntity for ApplicationVersion {
+impl SqLiteEntity for DatabaseVersion {
     fn hydrate(row: Row) -> Result<Self, HydrationError> {
         Ok(Self {
-            semver: Version::parse(&row.get::<String, _>(0))
-                .map_err(|e| HydrationError::InvalidData(format!("{}", e)))?,
+            version: row.get::<i64, _>(0),
             application_type: ApplicationNodeType::new(&row.get::<String, _>(1))
                 .map_err(|e| HydrationError::InvalidData(format!("{}", e)))?,
             updated_at: NaiveDateTime::parse_from_str(
@@ -67,12 +71,22 @@ impl SqLiteEntity for ApplicationVersion {
     }
 }
 
-/// Projection dedicated to [ApplicationVersion] entities.
-struct ApplicationVersionProjection {
+impl PartialOrd for DatabaseVersion {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        if self.application_type != other.application_type {
+            None
+        } else {
+            self.version.partial_cmp(&other.version)
+        }
+    }
+}
+
+/// Projection dedicated to [DatabaseVersion] entities.
+struct DatabaseVersionProjection {
     fields: Vec<ProjectionField>,
 }
 
-impl Projection for ApplicationVersionProjection {
+impl Projection for DatabaseVersionProjection {
     fn set_field(&mut self, field: ProjectionField) {
         self.fields.push(field);
     }
@@ -81,41 +95,44 @@ impl Projection for ApplicationVersionProjection {
         &self.fields
     }
 }
-impl ApplicationVersionProjection {
+impl DatabaseVersionProjection {
     pub fn new() -> Self {
         let mut projection = Self { fields: Vec::new() };
-        projection.add_field("semver", "{:app_version:}.semver", "text");
+        projection.add_field("version", "{:db_version:}.version", "text");
         projection.add_field(
             "application_type",
-            "{:app_version:}.application_type",
+            "{:db_version:}.application_type",
             "text",
         );
-        projection.add_field("updated_at", "{:app_version:}.updated_at", "timestamp");
+        projection.add_field("updated_at", "{:db_version:}.updated_at", "timestamp");
 
         projection
     }
 }
 
-/// Provider for the [ApplicationVersion] entities using the `ApplicationVersionProjection`.
-pub struct VersionProvider<'conn> {
+/// Provider for the [DatabaseVersion] entities using the `DatabaseVersionProjection`.
+pub struct DatabaseVersionProvider<'conn> {
     connection: &'conn Connection,
-    projection: ApplicationVersionProjection,
+    projection: DatabaseVersionProjection,
 }
 
-impl<'conn> VersionProvider<'conn> {
-    /// [VersionProvider] constructor.
+impl<'conn> DatabaseVersionProvider<'conn> {
+    /// [DatabaseVersionProvider] constructor.
     pub fn new(connection: &'conn Connection) -> Self {
         Self {
             connection,
-            projection: ApplicationVersionProjection::new(),
+            projection: DatabaseVersionProjection::new(),
         }
     }
 
     /// Method to create the table at the beginning of the migration procedure.
     /// This code is temporary and should not last.
-    pub fn create_table_if_not_exists(&self) -> Result<(), Box<dyn Error>> {
+    pub fn create_table_if_not_exists(
+        &self,
+        application_type: &ApplicationNodeType,
+    ) -> Result<(), Box<dyn Error>> {
         let connection = self.get_connection();
-        let sql = "select exists(select name from sqlite_master where type='table' and name='app_version') as table_exists";
+        let sql = "select exists(select name from sqlite_master where type='table' and name='db_version') as table_exists";
         let table_exists = connection
             .prepare(sql)?
             .into_cursor()
@@ -126,9 +143,10 @@ impl<'conn> VersionProvider<'conn> {
             == 1;
 
         if !table_exists {
-            let sql = r#"
-create table app_version (application_type text not null primary key, semver text not null, updated_at timestamp not null default CURRENT_TIMESTAMP)
-"#;
+            let sql = format!("
+create table db_version (application_type text not null primary key, version integer not null, updated_at timestamp not null default CURRENT_TIMESTAMP);
+insert into db_version (application_type, version) values ('{application_type}', 0);
+");
             connection.execute(sql)?;
         }
 
@@ -139,7 +157,7 @@ create table app_version (application_type text not null primary key, semver tex
     pub fn get_application_version(
         &self,
         application_type: &ApplicationNodeType,
-    ) -> Result<Option<ApplicationVersion>, Box<dyn Error>> {
+    ) -> Result<Option<DatabaseVersion>, Box<dyn Error>> {
         let condition = "application_type = ?";
         let params = [Value::String(format!("{}", application_type))];
         let result = self.find(Some(condition), &params)?.next();
@@ -148,8 +166,8 @@ create table app_version (application_type text not null primary key, semver tex
     }
 }
 
-impl<'conn> Provider<'conn> for VersionProvider<'conn> {
-    type Entity = ApplicationVersion;
+impl<'conn> Provider<'conn> for DatabaseVersionProvider<'conn> {
+    type Entity = DatabaseVersion;
 
     fn get_projection(&self) -> &dyn Projection {
         &self.projection
@@ -162,40 +180,40 @@ impl<'conn> Provider<'conn> for VersionProvider<'conn> {
     fn get_definition(&self, condition: Option<&str>) -> String {
         let where_clause = condition.unwrap_or("true");
         let mut aliases = HashMap::new();
-        let _ = aliases.insert("{:app_version:}".to_string(), "app_version".to_string());
+        let _ = aliases.insert("{:db_version:}".to_string(), "db_version".to_string());
         let projection = self.get_projection().expand(aliases);
 
         format!(
             r#"
 select {projection}
-from app_version
+from db_version
 where {where_clause}
 "#
         )
     }
 }
 
-/// Write [Provider] for the [ApplicationVersion] entities.
+/// Write [Provider] for the [DatabaseVersion] entities.
 /// This will perform an UPSERT and return the updated entity.
-pub struct VersionUpdaterProvider<'conn> {
+pub struct DatabaseVersionUpdater<'conn> {
     connection: &'conn Connection,
-    projection: ApplicationVersionProjection,
+    projection: DatabaseVersionProjection,
 }
 
-impl<'conn> VersionUpdaterProvider<'conn> {
-    /// [VersionUpdaterProvider] constructor.
+impl<'conn> DatabaseVersionUpdater<'conn> {
+    /// [DatabaseVersionUpdater] constructor.
     pub fn new(connection: &'conn Connection) -> Self {
         Self {
             connection,
-            projection: ApplicationVersionProjection::new(),
+            projection: DatabaseVersionProjection::new(),
         }
     }
 
     /// Persist the given entity and return the projection of the saved entity.
-    pub fn save(&self, version: ApplicationVersion) -> Result<ApplicationVersion, Box<dyn Error>> {
+    pub fn save(&self, version: DatabaseVersion) -> Result<DatabaseVersion, Box<dyn Error>> {
         let params = [
             Value::String(format!("{}", version.application_type)),
-            Value::String(version.semver.to_string()),
+            Value::Integer(version.version),
         ];
         let entity = self
             .find(None, &params)?
@@ -206,8 +224,8 @@ impl<'conn> VersionUpdaterProvider<'conn> {
     }
 }
 
-impl<'conn> Provider<'conn> for VersionUpdaterProvider<'conn> {
-    type Entity = ApplicationVersion;
+impl<'conn> Provider<'conn> for DatabaseVersionUpdater<'conn> {
+    type Entity = DatabaseVersion;
 
     fn get_projection(&self) -> &dyn Projection {
         &self.projection
@@ -220,98 +238,16 @@ impl<'conn> Provider<'conn> for VersionUpdaterProvider<'conn> {
     fn get_definition(&self, condition: Option<&str>) -> String {
         let _where_clause = condition.unwrap_or("true");
         let mut aliases = HashMap::new();
-        let _ = aliases.insert("{:app_version:}".to_string(), "app_version".to_string());
+        let _ = aliases.insert("{:db_version:}".to_string(), "db_version".to_string());
         let projection = self.get_projection().expand(aliases);
 
         format!(
             r#"
-insert into app_version (application_type, semver) values (?, ?)
-  on conflict (application_type) do update set semver = excluded.semver, updated_at = CURRENT_TIMESTAMP
+insert into db_version (application_type, version) values (?, ?)
+  on conflict (application_type) do update set version = excluded.version, updated_at = CURRENT_TIMESTAMP
 returning {projection}
 "#
         )
-    }
-}
-
-/// Struct to perform application version check in the database.
-#[derive(Debug)]
-pub struct ApplicationVersionChecker {
-    /// Pathbuf to the SQLite3 file.
-    sqlite_file_path: PathBuf,
-
-    /// Application type which vesion is verified.
-    application_type: ApplicationNodeType,
-
-    /// logger
-    logger: Logger,
-}
-
-impl ApplicationVersionChecker {
-    /// constructor
-    pub fn new(
-        logger: Logger,
-        application_type: ApplicationNodeType,
-        sqlite_file_path: PathBuf,
-    ) -> Self {
-        Self {
-            sqlite_file_path,
-            application_type,
-            logger,
-        }
-    }
-
-    /// Performs an actual version check in the database. This method creates a
-    /// connection to the SQLite3 file and drops it at the end.
-    pub fn check(&self, current_semver: &str) -> Result<(), Box<dyn Error>> {
-        debug!(
-            &self.logger,
-            "check application version, database file = '{}'",
-            self.sqlite_file_path.display()
-        );
-        let connection = Connection::open(&self.sqlite_file_path)?;
-        let provider = VersionProvider::new(&connection);
-        provider.create_table_if_not_exists()?;
-        let updater = VersionUpdaterProvider::new(&connection);
-        let maybe_option = provider.get_application_version(&self.application_type)?;
-        let current_version = ApplicationVersion {
-            semver: Version::parse(current_semver)?,
-            application_type: self.application_type.clone(),
-            updated_at: Local::now().naive_local(),
-        };
-
-        match maybe_option {
-            None => {
-                let current_version = updater.save(current_version)?;
-                debug!(
-                    &self.logger,
-                    "Application version '{}' saved in database.", current_version.semver
-                );
-            }
-            Some(version) => match current_version.semver.cmp(&version.semver) {
-                Ordering::Greater => {
-                    warn!(
-                            &self.logger,
-                            "Application version '{}' is out of date, new version is '{}'. Upgrading database…",
-                            version.semver, current_version.semver
-                        );
-                    updater.save(current_version)?;
-                    debug!(&self.logger, "database updated");
-                }
-                Ordering::Less => {
-                    warn!(
-                        &self.logger,
-                        "Software version '{}' is older than database structure version '{}'.",
-                        current_version.semver,
-                        version.semver
-                    );
-                }
-                Ordering::Equal => {
-                    debug!(&self.logger, "database up to date");
-                }
-            },
-        };
-
-        Ok(())
     }
 }
 
@@ -321,12 +257,12 @@ mod tests {
 
     #[test]
     fn test_projection() {
-        let projection = ApplicationVersionProjection::new();
+        let projection = DatabaseVersionProjection::new();
         let mut aliases: HashMap<String, String> = HashMap::new();
-        let _ = aliases.insert("{:app_version:}".to_string(), "whatever".to_string());
+        let _ = aliases.insert("{:db_version:}".to_string(), "whatever".to_string());
 
         assert_eq!(
-            "whatever.semver as semver, whatever.application_type as application_type, whatever.updated_at as updated_at"
+            "whatever.version as version, whatever.application_type as application_type, whatever.updated_at as updated_at"
                 .to_string(),
             projection.expand(aliases)
         );
@@ -335,12 +271,12 @@ mod tests {
     #[test]
     fn test_definition() {
         let connection = Connection::open(":memory:").unwrap();
-        let provider = VersionProvider::new(&connection);
+        let provider = DatabaseVersionProvider::new(&connection);
 
         assert_eq!(
             r#"
-select app_version.semver as semver, app_version.application_type as application_type, app_version.updated_at as updated_at
-from app_version
+select db_version.version as version, db_version.application_type as application_type, db_version.updated_at as updated_at
+from db_version
 where true
 "#,
             provider.get_definition(None)
@@ -350,47 +286,15 @@ where true
     #[test]
     fn test_updated_entity() {
         let connection = Connection::open(":memory:").unwrap();
-        let provider = VersionUpdaterProvider::new(&connection);
+        let provider = DatabaseVersionUpdater::new(&connection);
 
         assert_eq!(
             r#"
-insert into app_version (application_type, semver) values (?, ?)
-  on conflict (application_type) do update set semver = excluded.semver, updated_at = CURRENT_TIMESTAMP
-returning app_version.semver as semver, app_version.application_type as application_type, app_version.updated_at as updated_at
+insert into db_version (application_type, version) values (?, ?)
+  on conflict (application_type) do update set version = excluded.version, updated_at = CURRENT_TIMESTAMP
+returning db_version.version as version, db_version.application_type as application_type, db_version.updated_at as updated_at
 "#,
             provider.get_definition(None)
         )
-    }
-
-    fn check_database_version(filepath: &PathBuf, semver: &str) {
-        let connection = Connection::open(filepath).unwrap();
-        let provider = VersionProvider::new(&connection);
-        let version = provider
-            .get_application_version(&ApplicationNodeType::Aggregator)
-            .unwrap()
-            .expect("there should be a version in the database");
-
-        assert_eq!(semver, version.semver.to_string());
-    }
-
-    #[test]
-    fn test_application_version_checker() {
-        let filepath = std::env::temp_dir().join("test.sqlite3");
-
-        if filepath.exists() {
-            std::fs::remove_file(filepath.as_path()).unwrap();
-        }
-        let app_checker = ApplicationVersionChecker::new(
-            slog_scope::logger(),
-            ApplicationNodeType::Aggregator,
-            filepath.clone(),
-        );
-        app_checker.check("1.0.0").unwrap();
-        check_database_version(&filepath, "1.0.0");
-        app_checker.check("1.0.0").unwrap();
-        check_database_version(&filepath, "1.0.0");
-        app_checker.check("1.1.0").unwrap();
-        check_database_version(&filepath, "1.1.0");
-        app_checker.check("1.0.1").unwrap();
     }
 }
