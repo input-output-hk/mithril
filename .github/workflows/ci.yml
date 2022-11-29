@@ -248,7 +248,7 @@ jobs:
       packages: write
 
     env:
-      PUSH_PACKAGES: ${{ github.event.action == 'closed' && github.event.pull_request.merged == true && (github.base_ref == 'refs/heads/main' || startsWith('refs/heads/hotfix', github.base_ref)) }}
+      PUSH_PACKAGES: ${{ github.event.action == 'closed' && github.event.pull_request.merged == true && (github.base_ref == 'main' || startsWith('hotfix', github.base_ref)) }}
       REGISTRY: ghcr.io
       IMAGE_NAME: ${{ github.repository_owner }}/${{ matrix.project }}
       DOCKER_FILE: ./${{ matrix.project }}/Dockerfile.ci
@@ -272,7 +272,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             unstable
-            type=raw,value={{base_ref}}-{{sha}}
+            type=raw,value=${{ github.base_ref }}-{{sha}}
 
       - name: Download built artifacts
         uses: actions/download-artifact@v3
@@ -289,7 +289,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
 
   unstable-release:
-    if: github.event.action == 'closed' && github.event.pull_request.merged == true && (github.base_ref == 'refs/heads/main' || startsWith('refs/heads/hotfix', github.base_ref))
+    if: github.event.action == 'closed' && github.event.pull_request.merged == true && (github.base_ref == 'main' || startsWith('hotfix', github.base_ref))
     runs-on: ubuntu-22.04
     needs:
       - build
@@ -458,7 +458,7 @@ jobs:
         GOOGLE_APPLICATION_CREDENTIALS=./google-application-credentials.json terraform plan --var-file=./env.variables.tfvars
 
     - name: Terraform Apply
-      if: github.event.action == 'closed' && github.event.pull_request.merged == true && github.base_ref == 'refs/heads/main' 
+      if: github.event.action == 'closed' && github.event.pull_request.merged == true && github.base_ref == 'main' 
       run: |
         GOOGLE_APPLICATION_CREDENTIALS=./google-application-credentials.json terraform apply -auto-approve --var-file=./env.variables.tfvars
 
