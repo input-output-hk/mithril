@@ -116,7 +116,7 @@ jobs:
             out/*
 
   publish-docs:
-    if: github.event.action == 'closed' && github.event.pull_request.merged == true && github.base_ref == 'refs/heads/main' 
+    if: github.event.action == 'closed' && github.event.pull_request.merged == true && github.base_ref == 'main' 
     runs-on: ubuntu-22.04
     needs:
       - cargo-doc
