@@ -59,15 +59,13 @@ impl DatabaseVersionChecker {
         );
         let connection = Connection::open(&self.sqlite_file_path)?;
         let provider = DatabaseVersionProvider::new(&connection);
-        provider.create_table_if_not_exists()?;
+        provider.create_table_if_not_exists(&self.application_type)?;
         let updater = DatabaseVersionUpdater::new(&connection);
         let db_version = provider
             .get_application_version(&self.application_type)?
-            .unwrap_or_else(|| DatabaseVersion {
-                version: 0,
-                application_type: self.application_type.clone(),
-                updated_at: Local::now().naive_local(),
-            });
+            .unwrap(); // At least a record exists.
+
+        // if no migration registered then we are at version 0.
         let migration_version = self.migrations.iter().map(|m| m.version).max().unwrap_or(0);
 
         match migration_version.cmp(&db_version.version) {
@@ -176,17 +174,15 @@ mod tests {
         let version = provider
             .get_application_version(&ApplicationNodeType::Aggregator)
             .unwrap()
-            .unwrap_or_else(|| DatabaseVersion {
-                application_type: ApplicationNodeType::Aggregator,
-                version: 0,
-                updated_at: Local::now().naive_local(),
-            });
+            .unwrap();
 
         assert_eq!(db_version, version.version);
     }
 
     fn create_sqlite_file(name: &str) -> PathBuf {
-        let filepath = std::env::temp_dir().join(name);
+        let dirpath = std::env::temp_dir().join("mithril_test_database");
+        std::fs::create_dir_all(&dirpath).unwrap();
+        let filepath = dirpath.join(name);
 
         if filepath.exists() {
             std::fs::remove_file(filepath.as_path()).unwrap();
@@ -214,7 +210,7 @@ mod tests {
 
     #[test]
     fn test_upgrade_with_migration() {
-        let filepath = create_sqlite_file("test_1.sqlite3");
+        let filepath = create_sqlite_file("test_upgrade_with_migration.sqlite3");
         let mut db_checker = DatabaseVersionChecker::new(
             slog_scope::logger(),
             ApplicationNodeType::Aggregator,
@@ -273,7 +269,7 @@ mod tests {
 
     #[test]
     fn starting_with_migration() {
-        let filepath = create_sqlite_file("test_2.sqlite3");
+        let filepath = create_sqlite_file("starting_with_migration.sqlite3");
         let mut db_checker = DatabaseVersionChecker::new(
             slog_scope::logger(),
             ApplicationNodeType::Aggregator,
@@ -292,21 +288,66 @@ mod tests {
     }
 
     #[test]
+    /// This test case ensure that when multiple migrations are played and one fails:
+    /// * previous migrations are ok and the database version is updated
+    /// * further migrations are not played.
     fn test_failing_migration() {
-        let filepath = create_sqlite_file("test_3.sqlite3");
+        let filepath = create_sqlite_file("test_failing_migration.sqlite3");
         let mut db_checker = DatabaseVersionChecker::new(
             slog_scope::logger(),
             ApplicationNodeType::Aggregator,
             filepath.clone(),
         );
         // Table whatever does not exist, this should fail with error.
-        let alterations = "alter table whatever add column thing_content text; update whatever set thing_content = 'some content'";
+        let alterations = "create table whatever (thing_id integer); insert into whatever (thing_id) values (1), (2), (3), (4);";
         let migration = SqlMigration {
             version: 1,
             alterations: alterations.to_string(),
         };
         db_checker.add_migration(migration);
+        let alterations = "alter table wrong add column thing_content text; update whatever set thing_content = 'some content'";
+        let migration = SqlMigration {
+            version: 2,
+            alterations: alterations.to_string(),
+        };
+        db_checker.add_migration(migration);
+        let alterations = "alter table whatever add column thing_content text; update whatever set thing_content = 'some content'";
+        let migration = SqlMigration {
+            version: 3,
+            alterations: alterations.to_string(),
+        };
+        db_checker.add_migration(migration);
         db_checker.apply().unwrap_err();
-        check_database_version(&filepath, 0);
+        check_database_version(&filepath, 1);
+    }
+
+    #[test]
+    fn test_fail_downgrading() {
+        let filepath = create_sqlite_file("test_fail_downgrading.sqlite3");
+        let mut db_checker = DatabaseVersionChecker::new(
+            slog_scope::logger(),
+            ApplicationNodeType::Aggregator,
+            filepath.clone(),
+        );
+        let alterations = "create table whatever (thing_id integer); insert into whatever (thing_id) values (1), (2), (3), (4);";
+        let migration = SqlMigration {
+            version: 1,
+            alterations: alterations.to_string(),
+        };
+        db_checker.add_migration(migration);
+        db_checker.apply().unwrap();
+        check_database_version(&filepath, 1);
+
+        // re instanciate a new checker with no migration registered (version 0).
+        let db_checker = DatabaseVersionChecker::new(
+            slog_scope::logger(),
+            ApplicationNodeType::Aggregator,
+            filepath.clone(),
+        );
+        assert!(
+            db_checker.apply().is_err(),
+            "using an old version with an up to date database should fail"
+        );
+        check_database_version(&filepath, 1);
     }
 }

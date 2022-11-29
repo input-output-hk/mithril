@@ -127,7 +127,10 @@ impl<'conn> DatabaseVersionProvider<'conn> {
 
     /// Method to create the table at the beginning of the migration procedure.
     /// This code is temporary and should not last.
-    pub fn create_table_if_not_exists(&self) -> Result<(), Box<dyn Error>> {
+    pub fn create_table_if_not_exists(
+        &self,
+        application_type: &ApplicationNodeType,
+    ) -> Result<(), Box<dyn Error>> {
         let connection = self.get_connection();
         let sql = "select exists(select name from sqlite_master where type='table' and name='db_version') as table_exists";
         let table_exists = connection
@@ -140,9 +143,10 @@ impl<'conn> DatabaseVersionProvider<'conn> {
             == 1;
 
         if !table_exists {
-            let sql = r#"
-create table db_version (application_type text not null primary key, version integer not null, updated_at timestamp not null default CURRENT_TIMESTAMP)
-"#;
+            let sql = format!("
+create table db_version (application_type text not null primary key, version integer not null, updated_at timestamp not null default CURRENT_TIMESTAMP);
+insert into db_version (application_type, version) values ('{application_type}', 0);
+");
             connection.execute(sql)?;
         }
 

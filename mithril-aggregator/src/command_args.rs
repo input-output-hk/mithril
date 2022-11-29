@@ -37,12 +37,7 @@ fn setup_genesis_dependencies(
     config: &GenesisConfiguration,
 ) -> Result<GenesisToolsDependency, Box<dyn std::error::Error>> {
     let sqlite_db_path = Some(config.get_sqlite_file());
-    DatabaseVersionChecker::new(
-        slog_scope::logger(),
-        ApplicationNodeType::Aggregator,
-        config.get_sqlite_file(),
-    )
-    .apply()?;
+    check_database_migration(config.get_sqlite_file())?;
 
     let chain_observer = Arc::new(
         mithril_common::chain_observer::CardanoCliChainObserver::new(Box::new(
@@ -141,6 +136,17 @@ async fn do_first_launch_initialization_if_needed(
     }
 
     Ok(())
+}
+
+/// Database version checker.
+/// This is the place where migrations are to be registered.
+fn check_database_migration(sql_file_path: PathBuf) -> Result<(), Box<dyn Error>> {
+    DatabaseVersionChecker::new(
+        slog_scope::logger(),
+        ApplicationNodeType::Aggregator,
+        sql_file_path,
+    )
+    .apply()
 }
 
 /// Mithril Aggregator Node
@@ -304,12 +310,7 @@ impl ServeCommand {
             .map_err(|e| format!("configuration deserialize error: {}", e))?;
         debug!("SERVE command"; "config" => format!("{:?}", config));
         let sqlite_db_path = Some(config.get_sqlite_file());
-        DatabaseVersionChecker::new(
-            slog_scope::logger(),
-            ApplicationNodeType::Aggregator,
-            config.get_sqlite_file(),
-        )
-        .apply()?;
+        check_database_migration(config.get_sqlite_file())?;
 
         // Init dependencies
         let snapshot_store = config.build_snapshot_store()?;
