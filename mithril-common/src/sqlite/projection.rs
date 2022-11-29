@@ -39,27 +39,34 @@ impl ProjectionField {
 /// Projection is a definition of field mapping during a query.
 /// Fields come from one or several source structures (can be tables, views or
 /// sub queries) and are mapped to a Provider query as output.
-pub trait Projection {
+pub struct Projection {
+    fields: Vec<ProjectionField>,
+}
+
+impl Projection {
+    /// Instanciate a new Projection
+    pub fn new(fields: Vec<ProjectionField>) -> Self {
+        Self { fields }
+    }
+
     /// Add a new field to the definition. This is one of the projection
     /// building tool to create a projection out of an existing structure.
     /// This is a blanket implementation.
-    fn add_field(&mut self, field_name: &str, definition: &str, output_type: &str) {
-        self.set_field(ProjectionField {
+    pub fn add_field(&mut self, field_name: &str, definition: &str, output_type: &str) {
+        self.fields.push(ProjectionField {
             name: field_name.to_string(),
             definition: definition.to_string(),
             output_type: output_type.to_string(),
         })
     }
 
-    /// This method is requested by `add_field` to actually save the state in
-    /// the current Provider implementation.
-    fn set_field(&mut self, field: ProjectionField);
-
     /// Returns the list of the ProjectionFields of this Projection.
-    fn get_fields(&self) -> &Vec<ProjectionField>;
+    pub fn get_fields(&self) -> &Vec<ProjectionField> {
+        &self.fields
+    }
 
     /// Turn the Projection into a string suitable for use in SQL queries.
-    fn expand(&self, aliases: HashMap<String, String>) -> String {
+    pub fn expand(&self, aliases: HashMap<String, String>) -> String {
         let mut fields: String = self
             .get_fields()
             .iter()
@@ -75,40 +82,24 @@ pub trait Projection {
     }
 }
 
+impl Default for Projection {
+    fn default() -> Self {
+        Self::new(Vec::new())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    struct TestProjection {
-        fields: Vec<ProjectionField>,
-    }
-
-    impl TestProjection {
-        pub fn new() -> Self {
-            let mut projection = Self { fields: Vec::new() };
-
-            projection.add_field("test_id", "{:test:}.test_id", "integer");
-            projection.add_field("name", "{:test:}.name", "text");
-            projection.add_field("created_at", "{:test:}.created_at", "timestamp");
-            projection.add_field("thing_count", "count({:thing:}.*)", "integer");
-
-            projection
-        }
-    }
-
-    impl Projection for TestProjection {
-        fn get_fields(&self) -> &Vec<ProjectionField> {
-            &self.fields
-        }
-
-        fn set_field(&mut self, field: ProjectionField) {
-            self.fields.push(field);
-        }
-    }
-
     #[test]
     fn simple_projection() {
-        let projection = TestProjection::new();
+        let mut projection = Projection::default();
+        projection.add_field("test_id", "{:test:}.test_id", "integer");
+        projection.add_field("name", "{:test:}.name", "text");
+        projection.add_field("created_at", "{:test:}.created_at", "timestamp");
+        projection.add_field("thing_count", "count({:thing:}.*)", "integer");
+
         let aliases: HashMap<String, String> = [("{:test:}", "pika"), ("{:thing:}", "thing_alias")]
             .into_iter()
             .map(|(a, b)| (a.to_string(), b.to_string()))
