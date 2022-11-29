@@ -1,0 +1,10 @@
+{
+    "label": "Mithril Protocol",
+    "collapsible": true,
+    "collapsed": false,
+    "position": 1,
+    "link": {
+        "type": "generated-index",
+        "title": "Mithril Protocol Topics"
+    }
+}

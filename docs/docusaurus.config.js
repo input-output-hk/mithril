@@ -33,7 +33,21 @@ const config = {
           path: 'root',
           routeBasePath: '/',
           sidebarPath: require.resolve('./sidebars.js'),
-          editUrl: 'https://github.com/input-output-hk/mithril/edit/main/docs',
+          editUrl: ({docPath}) => {
+            // We want users to submit doc updates to the upstream/next version!
+            // Otherwise we risk losing the update on the next release.
+            return `https://github.com/input-output-hk/mithril/edit/main/docs/root/${docPath}`;
+          },
+          lastVersion: 'maintained',
+          versions: {
+            current: {
+              label: 'Next 🚧',
+              banner: 'unreleased',
+            },
+            maintained: {
+              label: 'Current',
+            }
+          },
         },
         blog: {
           path: 'blog/',
@@ -112,6 +126,11 @@ const config = {
             docId: 'mithril/intro',
             label: 'About Mithril',
             position: 'left',
+          },
+          {
+            type: 'docsVersionDropdown',
+            position: 'right',
+            dropdownActiveClassDisabled: true,
           },
           {
             label: 'Explorer',
