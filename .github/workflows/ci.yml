@@ -371,6 +371,8 @@ jobs:
           files: package/*
 
   deploy-testing:
+    # Don't run on pull request from forks since they don't have access to all the needed secrets
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && !github.event.pull_request.head.repo.fork)
     strategy:
       fail-fast: false
       matrix:
