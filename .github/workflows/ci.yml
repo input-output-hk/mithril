@@ -1,12 +1,18 @@
 name: CI
 
 on:
+  push:
+    branches:
+      - 'main'
+      - 'hotfix**'
   pull_request:
-    types: [opened, reopened, synchronize, closed]
+    types: [opened, reopened, synchronize]
     paths-ignore: # ignore docs only changes since they use a dedicated workflows: docs.yml
       - 'docs/**'
       - 'mithril-explorer/**'
       - '.github/workflows/docs.yml'
+    branches-ignore:
+      - 'hotfix**' # hotfix are handled by the push trigger
 
 concurrency:
   group: ci-build-test-${{ github.ref }}
@@ -248,7 +254,7 @@ jobs:
       packages: write
 
     env:
-      PUSH_PACKAGES: ${{ github.event.action == 'closed' && github.event.pull_request.merged == true && (github.base_ref == 'main' || startsWith('hotfix', github.base_ref)) }}
+      PUSH_PACKAGES: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith('refs/heads/hotfix', github.ref)) }}
       REGISTRY: ghcr.io
       IMAGE_NAME: ${{ github.repository_owner }}/${{ matrix.project }}
       DOCKER_FILE: ./${{ matrix.project }}/Dockerfile.ci
@@ -272,7 +278,7 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             unstable
-            type=raw,value=${{ github.base_ref }}-{{sha}}
+            type=raw,value=${{ github.base_ref || github.ref_name }}-{{sha}}
 
       - name: Download built artifacts
         uses: actions/download-artifact@v3
@@ -289,7 +295,7 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
 
   unstable-release:
-    if: github.event.action == 'closed' && github.event.pull_request.merged == true && (github.base_ref == 'main' || startsWith('hotfix', github.base_ref))
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith('refs/heads/hotfix', github.ref))
     runs-on: ubuntu-22.04
     needs:
       - build
@@ -418,7 +424,7 @@ jobs:
       uses: actions/checkout@v3
 
     - name: Get Docker image id
-      run: echo "DOCKER_IMAGE_ID=${{ github.base_ref }}-$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
+      run: echo "DOCKER_IMAGE_ID=${{ github.base_ref || github.ref_name }}-$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_ENV
 
     - name: Prepare service account credentials
       run: |
@@ -462,7 +468,7 @@ jobs:
         GOOGLE_APPLICATION_CREDENTIALS=./google-application-credentials.json terraform plan --var-file=./env.variables.tfvars
 
     - name: Terraform Apply
-      if: github.event.action == 'closed' && github.event.pull_request.merged == true && github.base_ref == 'main' 
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: |
         GOOGLE_APPLICATION_CREDENTIALS=./google-application-credentials.json terraform apply -auto-approve --var-file=./env.variables.tfvars
 
