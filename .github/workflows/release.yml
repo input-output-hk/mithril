@@ -110,12 +110,11 @@ jobs:
           command: package
           args: -p mithril-stm --list
 
-      # We use the '--dry-run' arg until we have a valid CRATES_IO_API_TOKEN to avoid the workflow to crash
       - name: Cargo publish
         uses: actions-rs/cargo@v1
         with:
           command: publish
-          args: -p mithril-stm --token ${{ secrets.CRATES_IO_API_TOKEN }} --dry-run
+          args: -p mithril-stm --token ${{ secrets.CRATES_IO_API_TOKEN }}
 
   deploy-release:
     strategy:

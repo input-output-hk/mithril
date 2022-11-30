@@ -1,8 +1,11 @@
 name: Documentations & Explorer
 
 on:
+  push:
+    branches:
+      - 'main'
   pull_request:
-    types: [opened, reopened, synchronize, closed]
+    types: [opened, reopened, synchronize]
 
 concurrency:
   group: ci-docs-${{ github.ref }}
@@ -116,7 +119,7 @@ jobs:
             out/*
 
   publish-docs:
-    if: github.event.action == 'closed' && github.event.pull_request.merged == true && github.base_ref == 'main' 
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-22.04
     needs:
       - cargo-doc
