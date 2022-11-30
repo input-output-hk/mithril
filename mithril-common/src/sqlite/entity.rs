@@ -1,6 +1,8 @@
 use sqlite::Row;
 use thiserror::Error;
 
+use super::Projection;
+
 /// SqLite hydration error
 #[derive(Error, Debug, Clone)]
 pub enum HydrationError {
@@ -25,4 +27,7 @@ pub trait SqLiteEntity {
     fn hydrate(row: Row) -> Result<Self, HydrationError>
     where
         Self: Sized;
+
+    /// Construct a [Projection] that will allow to hydrate this `SqLiteEntity`.
+    fn get_projection() -> Projection;
 }

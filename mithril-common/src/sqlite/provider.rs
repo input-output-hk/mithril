@@ -14,7 +14,7 @@ pub trait Provider<'conn> {
     fn get_connection(&'conn self) -> &'conn Connection;
 
     /// Share the projection.
-    fn get_projection(&self) -> &dyn Projection;
+    fn get_projection(&self) -> &Projection;
 
     /// Perform the parametrized definition query.
     fn find(
@@ -41,7 +41,7 @@ pub trait Provider<'conn> {
 
 #[cfg(test)]
 mod tests {
-    use super::super::{entity::HydrationError, ProjectionField, SqLiteEntity};
+    use super::super::{entity::HydrationError, SqLiteEntity};
     use super::*;
 
     #[derive(Debug, PartialEq)]
@@ -61,25 +61,9 @@ mod tests {
                 maybe_null: row.get::<Option<i64>, _>(3),
             })
         }
-    }
 
-    pub struct TestProjection {
-        fields: Vec<ProjectionField>,
-    }
-
-    impl Projection for TestProjection {
-        fn get_fields(&self) -> &Vec<ProjectionField> {
-            &self.fields
-        }
-
-        fn set_field(&mut self, field: ProjectionField) {
-            self.fields.push(field);
-        }
-    }
-
-    impl TestProjection {
-        pub fn new() -> Self {
-            let mut projection = Self { fields: Vec::new() };
+        fn get_projection() -> Projection {
+            let mut projection = Projection::default();
 
             projection.add_field("text_data", "{:test:}.text_data", "text");
             projection.add_field("real_data", "{:test:}.real_data", "real");
@@ -92,14 +76,14 @@ mod tests {
 
     struct TestEntityProvider {
         connection: Connection,
-        projection: TestProjection,
+        projection: Projection,
     }
 
     impl TestEntityProvider {
         pub fn new(connection: Connection) -> Self {
             Self {
                 connection,
-                projection: TestProjection::new(),
+                projection: TestEntity::get_projection(),
             }
         }
     }
@@ -111,7 +95,7 @@ mod tests {
             &self.connection
         }
 
-        fn get_projection(&self) -> &dyn Projection {
+        fn get_projection(&self) -> &Projection {
             &self.projection
         }
 
@@ -128,14 +112,14 @@ mod tests {
 
     struct TestEntityUpdateProvider {
         connection: Connection,
-        projection: TestProjection,
+        projection: Projection,
     }
 
     impl TestEntityUpdateProvider {
         pub fn new(connection: Connection) -> Self {
             Self {
                 connection,
-                projection: TestProjection::new(),
+                projection: TestEntity::get_projection(),
             }
         }
     }
@@ -147,7 +131,7 @@ mod tests {
             &self.connection
         }
 
-        fn get_projection(&self) -> &dyn Projection {
+        fn get_projection(&self) -> &Projection {
             &self.projection
         }
 

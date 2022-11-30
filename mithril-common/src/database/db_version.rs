@@ -8,7 +8,7 @@ use std::{
 use chrono::NaiveDateTime;
 use sqlite::{Connection, Row, Value};
 
-use crate::sqlite::{HydrationError, Projection, ProjectionField, Provider, SqLiteEntity};
+use crate::sqlite::{HydrationError, Projection, Provider, SqLiteEntity};
 
 use super::DbVersion;
 
@@ -69,35 +69,9 @@ impl SqLiteEntity for DatabaseVersion {
             .map_err(|e| HydrationError::InvalidData(format!("{}", e)))?,
         })
     }
-}
 
-impl PartialOrd for DatabaseVersion {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        if self.application_type != other.application_type {
-            None
-        } else {
-            self.version.partial_cmp(&other.version)
-        }
-    }
-}
-
-/// Projection dedicated to [DatabaseVersion] entities.
-struct DatabaseVersionProjection {
-    fields: Vec<ProjectionField>,
-}
-
-impl Projection for DatabaseVersionProjection {
-    fn set_field(&mut self, field: ProjectionField) {
-        self.fields.push(field);
-    }
-
-    fn get_fields(&self) -> &Vec<ProjectionField> {
-        &self.fields
-    }
-}
-impl DatabaseVersionProjection {
-    pub fn new() -> Self {
-        let mut projection = Self { fields: Vec::new() };
+    fn get_projection() -> Projection {
+        let mut projection = Projection::default();
         projection.add_field("version", "{:db_version:}.version", "text");
         projection.add_field(
             "application_type",
@@ -110,10 +84,20 @@ impl DatabaseVersionProjection {
     }
 }
 
+impl PartialOrd for DatabaseVersion {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        if self.application_type != other.application_type {
+            None
+        } else {
+            self.version.partial_cmp(&other.version)
+        }
+    }
+}
+
 /// Provider for the [DatabaseVersion] entities using the `DatabaseVersionProjection`.
 pub struct DatabaseVersionProvider<'conn> {
     connection: &'conn Connection,
-    projection: DatabaseVersionProjection,
+    projection: Projection,
 }
 
 impl<'conn> DatabaseVersionProvider<'conn> {
@@ -121,7 +105,7 @@ impl<'conn> DatabaseVersionProvider<'conn> {
     pub fn new(connection: &'conn Connection) -> Self {
         Self {
             connection,
-            projection: DatabaseVersionProjection::new(),
+            projection: DatabaseVersion::get_projection(),
         }
     }
 
@@ -169,7 +153,7 @@ insert into db_version (application_type, version) values ('{application_type}',
 impl<'conn> Provider<'conn> for DatabaseVersionProvider<'conn> {
     type Entity = DatabaseVersion;
 
-    fn get_projection(&self) -> &dyn Projection {
+    fn get_projection(&self) -> &Projection {
         &self.projection
     }
 
@@ -197,7 +181,7 @@ where {where_clause}
 /// This will perform an UPSERT and return the updated entity.
 pub struct DatabaseVersionUpdater<'conn> {
     connection: &'conn Connection,
-    projection: DatabaseVersionProjection,
+    projection: Projection,
 }
 
 impl<'conn> DatabaseVersionUpdater<'conn> {
@@ -205,7 +189,7 @@ impl<'conn> DatabaseVersionUpdater<'conn> {
     pub fn new(connection: &'conn Connection) -> Self {
         Self {
             connection,
-            projection: DatabaseVersionProjection::new(),
+            projection: DatabaseVersion::get_projection(),
         }
     }
 
@@ -227,7 +211,7 @@ impl<'conn> DatabaseVersionUpdater<'conn> {
 impl<'conn> Provider<'conn> for DatabaseVersionUpdater<'conn> {
     type Entity = DatabaseVersion;
 
-    fn get_projection(&self) -> &dyn Projection {
+    fn get_projection(&self) -> &Projection {
         &self.projection
     }
 
@@ -257,7 +241,7 @@ mod tests {
 
     #[test]
     fn test_projection() {
-        let projection = DatabaseVersionProjection::new();
+        let projection = DatabaseVersion::get_projection();
         let mut aliases: HashMap<String, String> = HashMap::new();
         let _ = aliases.insert("{:db_version:}".to_string(), "whatever".to_string());
 
