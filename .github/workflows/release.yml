@@ -136,7 +136,7 @@ jobs:
           mithril_signers: |
             {
               "1" = {
-                type    = "unverified"
+                type    = "unverified",
                 pool_id = "pool1zr907nmfsq5kalxdjju349nwg6f03lyfmcjfqcz52jf45gcgh03",
               },
             }
@@ -172,8 +172,8 @@ jobs:
     - name: Prepare service account credentials
       run: |
         echo '${{ env.GOOGLE_APPLICATION_CREDENTIALS}}' > ./google-application-credentials.json
-        chmod u+x ./assets/tools/google-credentials-public-key.sh
-        ./assets/tools/google-credentials-public-key.sh ./google-application-credentials.json ./assets/ssh_keys curry
+        chmod u+x ./assets/tools/utils/google-credentials-public-key.sh
+        ./assets/tools/utils/google-credentials-public-key.sh ./google-application-credentials.json ./assets/ssh_keys curry
 
     - name: Prepare terraform variables
       run: |

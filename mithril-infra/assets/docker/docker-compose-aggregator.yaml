@@ -70,6 +70,9 @@ services:
     ports:
       - "8080:8080"
     command: [ "-vvv", "serve" ]
+    depends_on:
+      cardano-node-aggregator:
+        condition: service_started
     logging:
       driver: "json-file"
       options:
@@ -77,9 +80,9 @@ services:
         max-file: "5"
     labels:
       - 'traefik.enable=true'
-      - 'traefik.http.routers.my-app.rule=Host(`${AGGREGATOR_HOST}`)'
-      - 'traefik.http.routers.my-app.tls=true'
-      - 'traefik.http.routers.my-app.tls.certresolver=lets-encrypt'
+      - 'traefik.http.routers.mithril-aggregator.rule=Host(`${AGGREGATOR_HOST}`)'
+      - 'traefik.http.routers.mithril-aggregator.tls=true'
+      - 'traefik.http.routers.mithril-aggregator.tls.certresolver=lets-encrypt'
 
 networks:
   default:
