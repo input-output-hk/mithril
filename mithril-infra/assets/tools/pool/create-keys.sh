@@ -8,7 +8,7 @@
 
 # Create keys and addresses
 ## Create payment keypair
-CARDANO_CLI_CMD address key-gen \s
+CARDANO_CLI_CMD address key-gen \
 --verification-key-file ${POOL_ARTIFACTS_DIR}/payment.vkey \
 --signing-key-file ${POOL_ARTIFACTS_DIR}/payment.skey
 
@@ -30,7 +30,7 @@ CARDANO_CLI_CMD stake-address build \
 --out-file ${POOL_ARTIFACTS_DIR}/stake.addr \
 --testnet-magic $NETWORK_MAGIC
 
-# 2. Generate your stake pool keys
+# Generate your stake pool keys
 ## Generate Cold Keys and a Cold_counter
 CARDANO_CLI_CMD node key-gen \
 --cold-verification-key-file ${POOL_ARTIFACTS_DIR}/cold.vkey \
