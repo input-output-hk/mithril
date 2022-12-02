@@ -558,7 +558,10 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
 
     /// Get the (VK, stake) of a party given its index.
     pub fn get_reg_party(&self, party_index: &Index) -> Option<(StmVerificationKey, Stake)> {
-       self.closed_reg.reg_parties.get(*party_index as usize).map(|r| r.into())
+        self.closed_reg
+            .reg_parties
+            .get(*party_index as usize)
+            .map(|&r| r.into())
     }
 }
 
