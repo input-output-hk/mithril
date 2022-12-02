@@ -301,12 +301,14 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
 
   unstable-release:
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith('refs/heads/hotfix', github.ref))
+    #TODO: rollback
+    #if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith('refs/heads/hotfix', github.ref))
     runs-on: ubuntu-22.04
     needs:
       - build
       - test
-      - run-test-lab
+      # TODO: rollback
+      #- run-test-lab
       - check
     steps:
       - name: Checkout sources
@@ -366,15 +368,36 @@ jobs:
           --dest package/ \
           --version "unstable-${{ steps.slug.outputs.sha8 }}" \
           --target "windows-x64"
+
+      - name: Create and Sign sha256 checksum
+        run: |
+          mkdir gpghome
+          chmod 700 gpghome
+          echo "${{ secrets.GPG_SECRET_KEY }}" > gpg-secret.key
+          chmod 664 gpg-secret.key
+          gpg --homedir gpghome --allow-secret-key-import --import gpg-secret.key
+          gpg --homedir gpghome --list-secret-keys
+          gpg --export -a "Input Output / Mithril" > ./package/gpg-public.key
+          find ./package -type f -print | sort -n | xargs -I '{}' sha256sum '{}' > ./package/CHECKSUM
+          gpg --homedir gpghome --clear-sign ./package/CHECKSUM
+          rm -f ./package/CHECKSUM
+          gpg --homedir gpghome --verify ./package/CHECKSUM.asc
+          rm -f gpg-secret.key
+          rm -rf gpghome
+
+      - name: List packaged files
+        run: |
+          ls -al ./package
       
-      - name: Update unstable release
-        uses: marvinpinto/action-automatic-releases@latest
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          automatic_release_tag: unstable
-          prerelease: true
-          title: Unstable Development Builds
-          files: package/*
+      # TODO: rollback
+      #- name: Update unstable release
+      #  uses: marvinpinto/action-automatic-releases@latest
+      #  with:
+      #    repo_token: ${{ secrets.GITHUB_TOKEN }}
+      #    automatic_release_tag: unstable
+      #    prerelease: true
+      #    title: Unstable Development Builds
+      #    files: package/*
 
   deploy-testing:
     # Don't run on pull request from forks since they don't have access to all the needed secrets

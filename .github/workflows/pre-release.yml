@@ -79,6 +79,22 @@ jobs:
       - name: Append VERSION file
         run: |
           echo ${{ github.ref_name }} >> ./package/VERSION
+
+      - name: Create and Sign sha256 checksum
+        run: |
+          mkdir gpghome
+          chmod 700 gpghome
+          echo "${{ secrets.GPG_SECRET_KEY }}" > gpg-secret.key
+          chmod 664 gpg-secret.key
+          gpg --homedir gpghome --allow-secret-key-import --import gpg-secret.key
+          gpg --homedir gpghome --list-secret-keys
+          gpg --export -a "Input Output / Mithril" > ./package/gpg-public.key
+          find ./package -type f -print | sort -n | xargs -I '{}' sha256sum '{}' > ./package/CHECKSUM
+          gpg --homedir gpghome --clear-sign ./package/CHECKSUM
+          rm -f ./package/CHECKSUM
+          gpg --homedir gpghome --verify ./package/CHECKSUM.asc
+          rm -f gpg-secret.key
+          rm -rf gpghome
       
       - name: Create pre-release ${{ github.ref_name }}
         uses: marvinpinto/action-automatic-releases@latest
