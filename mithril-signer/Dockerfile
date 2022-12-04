@@ -56,7 +56,7 @@ COPY --from=rustbuilder /app/config /app/config
 WORKDIR /app/
 
 # Install cardano-cli
-RUN wget -nv -O cardano-bin.tar.gz https://hydra.iohk.io/build/13065769/download/1/cardano-node-1.34.1-linux.tar.gz
+RUN wget -nv -O cardano-bin.tar.gz https://storage.googleapis.com/mithril-cardano-node-archive/cardano-1.34.1.tar.gz
 RUN tar xzf cardano-bin.tar.gz ./cardano-cli && mv cardano-cli /app/bin
 RUN /app/bin/cardano-cli --version
 RUN rm -f cardano-bin.tar.gz
