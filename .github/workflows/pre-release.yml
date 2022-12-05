@@ -84,16 +84,16 @@ jobs:
         run: |
           mkdir gpghome
           chmod 700 gpghome
-          echo "${{ secrets.GPG_SECRET_KEY }}" > gpg-secret.key
-          chmod 664 gpg-secret.key
-          gpg --homedir gpghome --allow-secret-key-import --import gpg-secret.key
+          echo "${{ secrets.GPG_SECRET_KEY }}" | gpg --homedir gpghome --batch --import
           gpg --homedir gpghome --list-secret-keys
           gpg --export -a "Input Output / Mithril" > ./package/gpg-public.key
-          find ./package -type f -print | sort -n | xargs -I '{}' sha256sum '{}' > ./package/CHECKSUM
-          gpg --homedir gpghome --clear-sign ./package/CHECKSUM
-          rm -f ./package/CHECKSUM
-          gpg --homedir gpghome --verify ./package/CHECKSUM.asc
-          rm -f gpg-secret.key
+          cd ./package
+          find . -type f -print | grep -v CHECKSUM | sort -n | xargs -I '{}' sha256sum '{}' > ./CHECKSUM
+          gpg --homedir ../gpghome --clear-sign ./CHECKSUM
+          rm -f ./CHECKSUM
+          sha256sum -c ./CHECKSUM.asc
+          gpg --homedir ../gpghome --verify ./CHECKSUM.asc
+          cd ..
           rm -rf gpghome
       
       - name: Create pre-release ${{ github.ref_name }}
