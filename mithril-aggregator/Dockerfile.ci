@@ -14,7 +14,7 @@ COPY mithril-aggregator/mithril-aggregator /app/bin/mithril-aggregator
 COPY mithril-aggregator/config /app/config
 
 # Install cardano-cli
-RUN wget -nv -O cardano-bin.tar.gz https://hydra.iohk.io/build/21343721/download/1/cardano-node-1.35.4-linux.tar.gz
+RUN wget -nv -O cardano-bin.tar.gz https://update-cardano-mainnet.iohk.io/cardano-node-releases/cardano-node-1.35.4-linux.tar.gz
 RUN tar xzf cardano-bin.tar.gz ./cardano-cli && mv cardano-cli /app/bin
 RUN /app/bin/cardano-cli --version
 RUN rm -f cardano-bin.tar.gz
