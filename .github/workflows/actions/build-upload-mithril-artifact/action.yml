@@ -15,10 +15,8 @@ runs:
         python3 ./.github/workflows/scripts/edit-cargo-toml-version.py -l $(echo ${{ github.sha }} | cut -c1-7)
 
     - name: Cargo build
-      uses: actions-rs/cargo@v1
-      with:
-        command: build
-        args: --release ${{ inputs.build-args }}
+      shell: bash
+      run: cargo build --release ${{ inputs.build-args }}
 
     - name: Publish Mithril Distribution (${{ runner.os }}-${{ runner.arch }})
       uses: actions/upload-artifact@v3

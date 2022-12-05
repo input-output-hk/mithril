@@ -24,10 +24,7 @@ jobs:
           cache-version: ${{ secrets.CACHE_VERSION }}
 
       - name: Generate cargo doc
-        uses: actions-rs/cargo@v1
-        with:
-          command: doc
-          args: --no-deps -p mithril-stm -p mithril-common -p mithril-aggregator -p mithril-signer -p mithril-client
+        run: cargo doc --no-deps -p mithril-stm -p mithril-common -p mithril-aggregator -p mithril-signer -p mithril-client
 
       - name: Publish Mithril-rust-doc
         uses: actions/upload-artifact@v3

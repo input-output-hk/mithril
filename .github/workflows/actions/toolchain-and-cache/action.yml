@@ -13,11 +13,10 @@ runs:
   using: "composite"
   steps:
     - name: Install stable toolchain
-      uses: actions-rs/toolchain@v1
+      uses: dtolnay/rust-toolchain@master
       with:
-        profile: minimal
         toolchain: stable
-        override: true
+        components: clippy, rustfmt
 
     - name: Rust Cache
       uses: Swatinem/rust-cache@v2
