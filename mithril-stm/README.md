@@ -116,8 +116,8 @@ fn main() {
     let avk = clerk.compute_avk();
 
     // Check all parties can verify every sig
-    for s in sigs.iter() {
-        assert!(s.verify(&params, &avk, &msg).is_ok(), "Verification failed");
+    for (s, p) in sigs.iter().zip(ps.iter()) {
+        assert!(s.verify(&params, &p.verification_key(), &p.get_stake(), &avk, &msg).is_ok(), "Verification failed");
     }
 
     // Aggregate with random parties
