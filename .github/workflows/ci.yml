@@ -141,10 +141,6 @@ jobs:
           cache-version: ${{ secrets.CACHE_VERSION }}
           cargo-tools: cargo-sort clippy-sarif sarif-fmt
 
-      - name: Cargo check
-        shell: bash
-        run: cargo check --release --all-targets
-
       - name: Clippy Check
         if: success() || failure()
         run: |
