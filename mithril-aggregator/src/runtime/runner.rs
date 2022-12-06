@@ -13,12 +13,12 @@ use mithril_common::entities::{
 };
 use mithril_common::CardanoNetwork;
 
+use crate::runtime::WorkingCertificate;
 use crate::snapshot_uploaders::SnapshotLocation;
 use crate::snapshotter::OngoingSnapshot;
 use crate::store::SingleSignatureStorer;
 use crate::CertificateCreator;
 use crate::MithrilCertificateCreator;
-use crate::WorkingCertificate;
 use crate::{DependencyManager, ProtocolError, SnapshotError};
 
 #[cfg(test)]
@@ -580,13 +580,13 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 pub mod tests {
     use crate::dependency::SimulateFromChainParams;
     use crate::multi_signer::MockMultiSigner;
-    use crate::runtime::RuntimeError;
+    use crate::runtime::{RuntimeError, WorkingCertificate};
     use crate::snapshotter::OngoingSnapshot;
+    use crate::ProtocolParametersStorer;
     use crate::{
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
     };
-    use crate::{ProtocolParametersStorer, WorkingCertificate};
     use mithril_common::chain_observer::FakeObserver;
     use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
     use mithril_common::crypto_helper::{key_decode_hex, ProtocolMultiSignature};
@@ -826,12 +826,14 @@ pub mod tests {
             .await
             .unwrap();
 
-        let sut = runner
+        let mut sut = runner
             .create_new_working_certificate(&certificate_pending)
             .await
             .expect("create_new_working_certificate should not fail");
+        sut.signers
+            .sort_by(|left, right| left.party_id.cmp(&right.party_id));
 
-        let expected = WorkingCertificate::from_pending_certificate(
+        let mut expected = WorkingCertificate::from_pending_certificate(
             &certificate_pending,
             &current_signers,
             &message,
@@ -839,6 +841,9 @@ pub mod tests {
             &sut.initiated_at,
             "",
         );
+        expected
+            .signers
+            .sort_by(|left, right| left.party_id.cmp(&right.party_id));
 
         assert_eq!(expected, sut);
     }
@@ -850,7 +855,7 @@ pub mod tests {
         let mut beacon = certificate_chain.first().unwrap().beacon.clone();
         beacon.epoch += 2;
 
-        deps.simulate_genesis_from_chain(
+        deps.init_state_from_chain(
             &certificate_chain,
             vec![SimulateFromChainParams::SetupMultiSigner],
         )

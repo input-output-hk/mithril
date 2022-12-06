@@ -1,6 +1,4 @@
-use crate::WorkingCertificate;
-
-use super::{AggregatorRunnerTrait, RuntimeError};
+use crate::runtime::{AggregatorRunnerTrait, RuntimeError, WorkingCertificate};
 
 use mithril_common::entities::Beacon;
 use slog_scope::{error, info, trace, warn};

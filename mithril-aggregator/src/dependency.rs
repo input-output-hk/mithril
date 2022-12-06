@@ -111,7 +111,7 @@ impl DependencyManager {
     /// using the data from a precomputed certificate_chain.
     ///
     /// Arguments:
-    pub async fn simulate_genesis_from_chain(
+    pub async fn init_state_from_chain(
         &self,
         certificate_chain: &[Certificate],
         additional_params: Vec<SimulateFromChainParams>,

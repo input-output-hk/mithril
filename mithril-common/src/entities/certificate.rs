@@ -45,6 +45,7 @@ pub struct Certificate {
     /// aka MULTI_SIG(H(MSG(p,n) || AVK(n-1)))
     pub multi_signature: HexEncodedMultiSignature,
 
+    // @todo: Should we change this to an option since it's only filled for genesis certificates ?
     /// Genesis signature created from the original stake distribution
     /// aka GENESIS_SIG(AVK(-1))
     pub genesis_signature: HexEncodedGenesisSignature,

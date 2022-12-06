@@ -1,14 +1,18 @@
-use chrono::{DateTime, Utc};
+use crate::runtime::WorkingCertificate;
+use chrono::Utc;
 use mithril_common::{
     crypto_helper::{key_encode_hex, ProtocolMultiSignature, PROTOCOL_VERSION},
-    entities::{
-        self, Beacon, CertificatePending, PartyId, ProtocolMessage, ProtocolParameters,
-        SignerWithStake,
-    },
+    entities::{self, PartyId},
 };
+use thiserror::Error;
 
-/// TODO: use dedicated error
-use crate::ProtocolError;
+/// Error type for multi signer service.
+#[derive(Error, Debug)]
+pub enum CertificateCreationError {
+    /// Codec error.
+    #[error("codec error: '{0}'")]
+    Codec(String),
+}
 
 /// Define a way to create a [Certificate]
 pub trait CertificateCreator {
@@ -17,85 +21,23 @@ pub trait CertificateCreator {
         working: &WorkingCertificate,
         signatures_party_ids: &[PartyId],
         multi_signature: ProtocolMultiSignature,
-    ) -> Result<entities::Certificate, ProtocolError>;
+    ) -> Result<entities::Certificate, CertificateCreationError>;
 }
 
 /// Implementation of a [CertificateCreator]
 pub struct MithrilCertificateCreator {}
 
-/// Laius explicant pourquoi ce n'est pas le PendingCertificate ?
-#[derive(Clone, Debug, PartialEq)]
-pub struct WorkingCertificate {
-    /// Current Beacon
-    pub beacon: Beacon,
-
-    /// Current Protocol parameters
-    pub protocol_parameters: ProtocolParameters,
-
-    /// Current Signers
-    pub signers: Vec<SignerWithStake>,
-
-    /// Message that is currently signed
-    pub message: ProtocolMessage,
-
-    /// Created aggregate verification key
-    pub aggregate_verification_key: String,
-
-    /// Signing start datetime of current message
-    pub initiated_at: DateTime<Utc>,
-
-    /// Hash of the first certificate of the previous epoch
-    pub previous_hash: String,
-}
-
-impl WorkingCertificate {
-    /// Create a [WorkingCertificate] using what it can copy from a given [PendingCertificate]
-    pub fn from_pending_certificate(
-        pending_certificate: &CertificatePending,
-        signers: &[SignerWithStake],
-        protocol_message: &ProtocolMessage,
-        aggregate_verification_key: &str,
-        initiated_at: &DateTime<Utc>,
-        previous_hash: &str,
-    ) -> Self {
-        Self {
-            beacon: pending_certificate.beacon.clone(),
-            protocol_parameters: pending_certificate.protocol_parameters.clone(),
-            signers: signers.to_vec(),
-            message: protocol_message.clone(),
-            aggregate_verification_key: aggregate_verification_key.to_string(),
-            initiated_at: *initiated_at,
-            previous_hash: previous_hash.to_string(),
-        }
-    }
-
-    #[cfg(test)]
-    pub fn fake() -> Self {
-        use mithril_common::fake_data;
-
-        Self {
-            beacon: fake_data::beacon(),
-            protocol_parameters: fake_data::protocol_parameters(),
-            signers: fake_data::signers_with_stakes(3),
-            message: ProtocolMessage::new(),
-            aggregate_verification_key: "avk".to_string(),
-            initiated_at: Utc::now(),
-            previous_hash: "hash".to_string(),
-        }
-    }
-}
-
 impl CertificateCreator for MithrilCertificateCreator {
     /// Creates a certificate from a multi signature
     fn create_certificate(
-        working: &WorkingCertificate,
+        working_certificate: &WorkingCertificate,
         signatures_party_ids: &[PartyId],
         multi_signature: ProtocolMultiSignature,
-    ) -> Result<entities::Certificate, ProtocolError> {
+    ) -> Result<entities::Certificate, CertificateCreationError> {
         let protocol_version = PROTOCOL_VERSION.to_string();
-        let initiated_at = format!("{:?}", working.initiated_at);
+        let initiated_at = format!("{:?}", working_certificate.initiated_at);
         let sealed_at = format!("{:?}", Utc::now());
-        let signers = working
+        let signers = working_certificate
             .signers
             .iter()
             .filter(|signer| signatures_party_ids.contains(&signer.party_id))
@@ -103,20 +45,21 @@ impl CertificateCreator for MithrilCertificateCreator {
             .collect::<Vec<_>>();
         let metadata = entities::CertificateMetadata::new(
             protocol_version,
-            working.protocol_parameters.clone(),
+            working_certificate.protocol_parameters.clone(),
             initiated_at,
             sealed_at,
             signers,
         );
-        let multi_signature = key_encode_hex(&multi_signature).map_err(ProtocolError::Codec)?;
+        let multi_signature =
+            key_encode_hex(&multi_signature).map_err(CertificateCreationError::Codec)?;
         let genesis_signature = "".to_string();
 
         Ok(entities::Certificate::new(
-            working.previous_hash.clone(),
-            working.beacon.clone(),
+            working_certificate.previous_hash.clone(),
+            working_certificate.beacon.clone(),
             metadata,
-            working.message.clone(),
-            working.aggregate_verification_key.clone(),
+            working_certificate.message.clone(),
+            working_certificate.aggregate_verification_key.clone(),
             multi_signature,
             genesis_signature,
         ))
@@ -125,16 +68,16 @@ impl CertificateCreator for MithrilCertificateCreator {
 
 #[cfg(test)]
 mod tests {
+    use crate::{
+        certificate_creator::MithrilCertificateCreator, runtime::WorkingCertificate,
+        CertificateCreator,
+    };
     use chrono::{DateTime, Utc};
     use mithril_common::{
         crypto_helper::{key_decode_hex, tests_setup::setup_certificate_chain},
         entities::PartyId,
     };
     use std::str::FromStr;
-
-    use crate::new_multi_signer::certificate_creator::MithrilCertificateCreator;
-
-    use super::{CertificateCreator, WorkingCertificate};
 
     #[test]
     fn test() {

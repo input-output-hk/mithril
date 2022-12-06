@@ -1,5 +1,7 @@
 mod test_extensions;
 
+use std::collections::BTreeSet;
+
 use mithril_common::crypto_helper::tests_setup;
 use mithril_common::entities::SignerWithStake;
 use mithril_common::entities::{ProtocolMessagePartKey, ProtocolParameters};
@@ -55,7 +57,11 @@ async fn create_certificate() {
     cycle!(tester, "signing");
 
     comment!("signers send their single signature");
-    tester.send_single_signatures(&signers).await.unwrap();
+    let signers_who_sign = &signers[0..=6];
+    tester
+        .send_single_signatures(signers_who_sign)
+        .await
+        .unwrap();
 
     comment!("The state machine should issue a multisignature");
     cycle!(tester, "idle");
@@ -73,5 +79,20 @@ async fn create_certificate() {
         ),
         (&snapshots[0].certificate_hash, &snapshots[0].digest)
     );
+    assert_eq!(
+        BTreeSet::from_iter(
+            last_certificates[0]
+                .metadata
+                .signers
+                .iter()
+                .map(|s| s.party_id.to_owned())
+        ),
+        BTreeSet::from_iter(
+            signers_who_sign
+                .iter()
+                .map(|(s, _, _)| s.party_id.to_owned())
+        )
+    );
+
     cycle!(tester, "idle");
 }
