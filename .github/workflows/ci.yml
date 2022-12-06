@@ -301,14 +301,12 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
 
   unstable-release:
-    #TODO: rollback
-    #if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith('refs/heads/hotfix', github.ref))
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith('refs/heads/hotfix', github.ref))
     runs-on: ubuntu-22.04
     needs:
       - build
       - test
-      # TODO: rollback
-      #- run-test-lab
+      - run-test-lab
       - check
     steps:
       - name: Checkout sources
@@ -369,92 +367,51 @@ jobs:
           --version "unstable-${{ steps.slug.outputs.sha8 }}" \
           --target "windows-x64"
 
-      - name: Create and Sign sha256 checksum
+      - name: Prepare crates versions table
         run: |
-          mkdir gpghome
-          chmod 700 gpghome
-          echo "${{ secrets.GPG_SECRET_KEY }}" | gpg --homedir gpghome --batch --import
-          gpg --homedir gpghome --list-secret-keys
-          gpg --export --armor mithril@iohk.io > ./package/gpg-public.key
-          cd ./package
-          find . -type f -print | grep -v CHECKSUM | sort -n | xargs -I '{}' sha256sum '{}' > ./CHECKSUM
-          gpg --homedir ../gpghome --clear-sign ./CHECKSUM
-          rm -f ./CHECKSUM
-          sha256sum -c ./CHECKSUM.asc
-          gpg --homedir ../gpghome --verify ./CHECKSUM.asc
-          cd ..
-          GPG_FINGERPRINT=$(gpg --homedir gpghome --fingerprint "mithril@iohk.io" | head -n 2 | tail -n 1 | xargs)
-          cat > ./asset-verify.txt << EOF
+          cat > ./release-notes-addon.txt << EOF
 
-            ## Verify the authenticity of a downloaded asset
-            <details><summary>Process to verify an asset</summary>
-            <p>
-            
-            * **Step 1**: Identify your downloaded asset ***YOUR_ASSET_FILE***
-            * **Step 2**: Download the signed checksum file from this link [CHECKSUM.asc](./CHECKSUM.asc) and save it in the same folder as the asset
-            * **Step 3**: In your terminal, go to the asset folder by running:
-            \`\`\`
-            cd ***YOUR_ASSET_FOLDER***
-            \`\`\`
-            * **Step 4**: Then verify the checksum of the asset by running:
-            \`\`\`
-            sha256sum -c ./CHECKSUM.asc 2>&1 >/dev/null | grep ***YOUR_ASSET_FILE***
-            \`\`\`
-            You must see:
-            \`\`\`
-            ./***YOUR_ASSET_FILE***: OK
-            \`\`\`
-            * **Step 5**: Download the public key file from this link [gpg-public.key](./gpg-public.key) and save it in the same folder as the asset
-            * **Step 6**: Then import the GPG public key:
-            \`\`\`
-            gpg --import ./gpg-public.key
-            \`\`\`
-            You must see something like:
-            \`\`\`
-            gpg: key : public key "Input Output / Mithril <mithril@iohk.io>" imported
-            gpg: Total number processed: 1
-            gpg:               imported: 1
-            \`\`\`
-            * **Step 7**: Then verify the GPG signature of the checksum file:
-            \`\`\`
-            gpg --verify ./gpg-public.key ./CHECKSUM.asc
-            \`\`\`
-            You must see something like:
-            \`\`\`
-            gpg: Signature made Mon 05 Dec 2022 04:53:54 PM CET
-            gpg:                using RSA key 35EDE9D47BBA62A2F388E655899ACD26B8BCA0D2
-            gpg: Good signature from "Input Output / Mithril <mithril@iohk.io>" [unknown]
-            gpg: WARNING: This key is not certified with a trusted signature!
-            gpg:          There is no indication that the signature belongs to the owner.
-            Primary key fingerprint: 35ED E9D4 7BBA 62A2 F388  E655 899A CD26 B8BC A0D2
-            \`\`\`
-            The signature is valid if and only if:
-            - there is a line with \`gpg: Good signature from "Input Output / Mithril <mithril@iohk.io>"\`
-            - there is a line with \`Primary key fingerprint: ${GPG_FINGERPRINT}\`
-            * **Step 8**:
-            If you successfully validated all the steps of this process, then you have successfully verified the authenticity of the asset :heavy_check_mark:
-            If not, contact us at [mithril@iohk.io] and let us know of the outcome of your run of this process :warning:
-
-            </p>
-            </details>
+          ## Crates Versions
+          |  Crate  |  Version  |
+          |---------- |-------------|
           EOF
 
-          cat ./asset-verify.txt
-          rm -rf gpghome
+          cargo metadata --quiet --no-deps | \
+            jq -r '.packages | sort_by(.name) | .[] | select([.name] | inside(["mithrildemo", "mithril-end-to-end"]) | not) | "| \(.name) | `\(.version)` |"' \
+            >> ./release-notes-addon.txt
 
-      - name: List packaged files
+      - name: Create and sign sha256 checksum
+        run: |
+          chmod u+x ./.github/workflows/scripts/sign-distribution.sh
+          GPG_SECRET_KEY="${{ secrets.GPG_SECRET_KEY }}" ./.github/workflows/scripts/sign-distribution.sh
+
+      - name: Create a procedure to verify the distribution
+        run: |
+          chmod u+x ./.github/workflows/scripts/verify-distribution.sh
+          PROCEDURE_FILE_PATH=./release-notes-addon.txt GPG_SECRET_KEY="${{ secrets.GPG_SECRET_KEY }}" ./.github/workflows/scripts/verify-distribution.sh
+
+      - name: List packaged assets
         run: |
           ls -al ./package
-      
-      # TODO: rollback
-      #- name: Update unstable release
-      #  uses: marvinpinto/action-automatic-releases@latest
-      #  with:
-      #    repo_token: ${{ secrets.GITHUB_TOKEN }}
-      #    automatic_release_tag: unstable
-      #    prerelease: true
-      #    title: Unstable Development Builds
-      #    files: package/*
+
+      - name: Update unstable release
+        uses: marvinpinto/action-automatic-releases@latest
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          automatic_release_tag: unstable
+          prerelease: true
+          title: Test Development Builds
+          files: package/*
+
+      - name: Update unstable release body with release notes addon
+        id: update_release_verif
+        uses: tubone24/update_release@v1.3.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: unstable 
+        with:
+          is_append_body: true
+          body_path: ./release-notes-addon.txt
 
   deploy-testing:
     # Don't run on pull request from forks since they don't have access to all the needed secrets
