@@ -139,28 +139,34 @@ jobs:
         uses: ./.github/workflows/actions/toolchain-and-cache
         with:
           cache-version: ${{ secrets.CACHE_VERSION }}
-          cargo-tools: cargo-sort
-
-      - name: Cargo check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
-          args: --release --all-targets
+          cargo-tools: cargo-sort clippy-sarif sarif-fmt
 
       - name: Clippy Check
-        uses: actions-rs/clippy-check@v1
+        if: success() || failure()
+        run: |
+          cargo clippy \
+            --all-features --all-targets --no-deps --message-format=json \
+            | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
+          
+          # Make this step fail if any warning has been found
+          if [[ $(cat rust-clippy-results.sarif | jq '.runs[0].results') != "[]" ]]; then
+            false
+          fi
+
+      - name: Upload clippy analysis results to GitHub
+        if: success() || failure()
+        uses: github/codeql-action/upload-sarif@v2
         with:
-          name: clippy
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features --all-targets --no-deps -- -D warnings
+          sarif_file: rust-clippy-results.sarif
+          wait-for-processing: true
 
       - name: Cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --check
+        if: success() || failure()
+        shell: bash
+        run: cargo fmt --check
 
       - name: Cargo sort
+        if: success() || failure()
         shell: bash
         run: cargo sort -w -c
 
@@ -233,9 +239,9 @@ jobs:
 
       - name: Publish Unit Test Results
         if: success() || failure()
-        uses: EnricoMi/publish-unit-test-result-action@v1
+        uses: EnricoMi/publish-unit-test-result-action@v2
         with:
-          files: ./**/test-results-*.xml
+          junit_files: ./**/test-results-*.xml
 
   docker-mithril:
     runs-on: ubuntu-22.04

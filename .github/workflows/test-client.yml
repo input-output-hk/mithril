@@ -1,0 +1,110 @@
+name: Mithril Client multi-platform test
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: |
+          SHA of the commit on which the mithril-client binary should be obtained, a "ci.yml" workflow must have run
+          on it else no binary would be available leading to the failure of this.
+          
+          If not provided the last commit on the main branch will be used instead.
+        required: false
+        type: string
+      network:
+        required: true
+        type: string
+        default: preview
+      aggregator_endpoint:
+        required: true
+        type: string
+        default: https://aggregator.pre-release-preview.api.mithril.network/aggregator
+      genesis_verification_key:
+        description: The genesis verification key, if empty the "TEST_ONLY_genesis.vkey" file at the project root will be used
+        required: false
+        type: string
+      enable_debug:
+        description: Enable debug output ("-vvv") for the mithril-client calls
+        required: true
+        type: bool
+        default: false
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-22.04, macos-12, windows-latest ]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout sources
+        uses: actions/checkout@v3
+
+      - name: Prepare environment variables
+        id: prepare
+        shell: bash
+        run: |
+          if [[ -n "${{ inputs.commit_sha }}" ]]; then
+            echo "sha=${{ inputs.commit_sha }}" >> $GITHUB_OUTPUT
+          else
+            echo "branch=main" >> $GITHUB_OUTPUT
+          fi
+          
+          if [[ "${{ inputs.enable_debug }}" == "true" ]]; then
+            echo "debug_level=-vvv" >> $GITHUB_OUTPUT
+          fi
+          
+          if [[ -n "${{ inputs.network }}" ]]; then
+            echo "NETWORK=${{ inputs.network }}" >> $GITHUB_ENV
+          else
+            echo "NETWORK=preview" >> $GITHUB_ENV
+          fi
+          
+          if [[ -n "${{ inputs.aggregator_endpoint }}" ]]; then
+            echo "AGGREGATOR_ENDPOINT=${{ inputs.aggregator_endpoint }}" >> $GITHUB_ENV
+          else
+            echo "AGGREGATOR_ENDPOINT=https://aggregator.pre-release-preview.api.mithril.network/aggregator" >> $GITHUB_ENV
+          fi
+          
+          if [[ -n "${{ inputs.genesis_verification_key }}" ]]; then
+            echo "GENESIS_VERIFICATION_KEY=${{ inputs.genesis_verification_key }}" >> $GITHUB_ENV
+          else
+            echo "GENESIS_VERIFICATION_KEY=$(cat TEST_ONLY_genesis.vkey)" >> $GITHUB_ENV
+          fi
+          
+      - name: Checkout binary
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          name: mithril-distribution-${{ runner.os }}-${{ runner.arch }}
+          path: ./bin
+          commit: ${{ steps.prepare.outputs.sha }} 
+          branch: ${{ steps.prepare.outputs.branch }}
+          workflow: ci.yml
+          workflow_conclusion: success
+      
+      - name: Set permissions
+        shell: bash
+        working-directory: ./bin
+        run: chmod +x ./mithril-client
+      
+      - name: Show client version
+        shell: bash
+        working-directory: ./bin
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} --version
+      
+      - name: List and get last snapshot digest
+        shell: bash
+        working-directory: ./bin
+        run: |
+          ./mithril-client ${{ steps.prepare.outputs.debug_level }} list
+          echo "SNAPSHOT_DIGEST=$(./mithril-client list --json | jq -r '.[0].digest')" >> $GITHUB_ENV
+      
+      - name: Download Latest Snapshot
+        shell: bash
+        working-directory: ./bin
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} download $SNAPSHOT_DIGEST
+        
+      - name: Restore Latest Snapshot
+        shell: bash
+        working-directory: ./bin
+        run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} restore $SNAPSHOT_DIGEST 
