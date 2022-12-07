@@ -12,9 +12,9 @@ use mithril_common::crypto_helper::{
     key_decode_hex, key_encode_hex, KESPeriod, ProtocolAggregateVerificationKey,
     ProtocolAggregationError, ProtocolClerk, ProtocolKeyRegistration, ProtocolMultiSignature,
     ProtocolParameters, ProtocolPartyId, ProtocolRegistrationError, ProtocolSignerVerificationKey,
-    ProtocolSingleSignature, ProtocolStakeDistribution, PROTOCOL_VERSION,
+    ProtocolSingleSignature, ProtocolStakeDistribution,
 };
-use mithril_common::entities::{self, PartyId, Signer, SignerWithStake};
+use mithril_common::entities::{self, Signer, SignerWithStake};
 use mithril_common::store::{StakeStore, StakeStorer, StoreError};
 use mithril_common::{
     NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET, SIGNER_EPOCH_RECORDING_OFFSET,
@@ -216,13 +216,6 @@ pub trait MultiSigner: Sync + Send {
     async fn create_multi_signature(
         &mut self,
     ) -> Result<Option<ProtocolMultiSignature>, ProtocolError>;
-
-    /// Creates a certificate from a multi signatures
-    async fn create_certificate(
-        &self,
-        beacon: entities::Beacon,
-        previous_hash: String,
-    ) -> Result<Option<entities::Certificate>, ProtocolError>;
 }
 
 /// MultiSignerImpl is an implementation of the MultiSigner
@@ -451,15 +444,6 @@ impl MultiSigner for MultiSignerImpl {
             .await
     }
 
-    /// Get next protocol parameters
-    async fn get_next_protocol_parameters(
-        &self,
-    ) -> Result<Option<ProtocolParameters>, ProtocolError> {
-        debug!("Get next protocol parameters");
-        self.get_protocol_parameters_with_epoch_offset(NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET)
-            .await
-    }
-
     /// Update protocol parameters
     async fn update_protocol_parameters(
         &mut self,
@@ -477,6 +461,15 @@ impl MultiSigner for MultiSignerImpl {
             .save_protocol_parameters(epoch, protocol_parameters.to_owned().into())
             .await?;
         Ok(())
+    }
+
+    /// Get next protocol parameters
+    async fn get_next_protocol_parameters(
+        &self,
+    ) -> Result<Option<ProtocolParameters>, ProtocolError> {
+        debug!("Get next protocol parameters");
+        self.get_protocol_parameters_with_epoch_offset(NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET)
+            .await
     }
 
     /// Get stake distribution
@@ -784,69 +777,6 @@ impl MultiSigner for MultiSignerImpl {
             Err(err) => Err(ProtocolError::Core(err.to_string())),
         }
     }
-
-    /// Creates a certificate from a multi signature
-    async fn create_certificate(
-        &self,
-        beacon: entities::Beacon,
-        previous_hash: String,
-    ) -> Result<Option<entities::Certificate>, ProtocolError> {
-        debug!("Create certificate");
-
-        match self.get_multi_signature().await? {
-            Some(multi_signature) => {
-                let protocol_version = PROTOCOL_VERSION.to_string();
-                let protocol_parameters = self
-                    .get_protocol_parameters()
-                    .await?
-                    .ok_or_else(ProtocolError::UnavailableProtocolParameters)?
-                    .into();
-                let initiated_at =
-                    format!("{:?}", self.current_initiated_at.unwrap_or_else(Utc::now));
-                let sealed_at = format!("{:?}", Utc::now());
-                let signatures_party_ids: Vec<PartyId> = self
-                    .single_signature_store
-                    .get_single_signatures(&beacon)
-                    .await?
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|(party_id, _single_signature)| party_id)
-                    .collect::<Vec<_>>();
-                let signers = self
-                    .get_signers_with_stake()
-                    .await?
-                    .into_iter()
-                    .filter(|signer| signatures_party_ids.contains(&signer.party_id))
-                    .collect::<Vec<_>>();
-                let metadata = entities::CertificateMetadata::new(
-                    protocol_version,
-                    protocol_parameters,
-                    initiated_at,
-                    sealed_at,
-                    signers,
-                );
-                let protocol_message = self
-                    .get_current_message()
-                    .await
-                    .ok_or_else(ProtocolError::UnavailableMessage)?;
-                let aggregate_verification_key =
-                    key_encode_hex(self.avk.as_ref().unwrap()).map_err(ProtocolError::Codec)?;
-                let multi_signature =
-                    key_encode_hex(&multi_signature).map_err(ProtocolError::Codec)?;
-                let genesis_signature = "".to_string();
-                Ok(Some(entities::Certificate::new(
-                    previous_hash,
-                    beacon,
-                    metadata,
-                    protocol_message,
-                    aggregate_verification_key,
-                    multi_signature,
-                    genesis_signature,
-                )))
-            }
-            None => Ok(None),
-        }
-    }
 }
 
 #[cfg(test)]
@@ -1112,9 +1042,6 @@ mod tests {
 
     #[tokio::test]
     async fn test_multi_signer_multi_signature_ok() {
-        let beacon = fake_data::beacon();
-        let previous_hash = "prev-hash-123".to_string();
-
         let mut multi_signer = setup_multi_signer().await;
 
         let message = setup_message();
@@ -1195,11 +1122,6 @@ mod tests {
             .await
             .expect("get multi signature should not fail")
             .is_none());
-        assert!(multi_signer
-            .create_certificate(beacon.clone(), previous_hash.clone())
-            .await
-            .expect("create_certificate should not fail")
-            .is_none());
 
         // Add some signatures but not enough to reach the quorum: multi-signer should not create the multi-signature
         for signature in signatures_to_almost_reach_quorum {
@@ -1216,11 +1138,6 @@ mod tests {
             .get_multi_signature()
             .await
             .expect("get multi signature should not fail")
-            .is_none());
-        assert!(multi_signer
-            .create_certificate(beacon.clone(), previous_hash.clone())
-            .await
-            .expect("create_certificate should not fail")
             .is_none());
 
         // Add the remaining signatures to reach the quorum: multi-signer should create a multi-signature
@@ -1242,39 +1159,5 @@ mod tests {
                 .is_some(),
             "no multi-signature were computed"
         );
-
-        // A certificate should also be produced with valid AVK and valid signers list
-        let beacon = multi_signer.get_current_beacon().await.unwrap();
-        let certificate = multi_signer
-            .create_certificate(beacon, previous_hash.clone())
-            .await
-            .expect("create_certificate should not fail")
-            .expect("create_certificate should return something");
-        let mut expected_certificate_signers_party_ids = expected_certificate_signers
-            .iter()
-            .map(|signer_with_stake| signer_with_stake.party_id.clone())
-            .collect::<Vec<ProtocolPartyId>>();
-        expected_certificate_signers_party_ids.sort();
-        let mut found_certificate_signers_party_ids = certificate
-            .clone()
-            .metadata
-            .signers
-            .iter()
-            .map(|s| s.party_id.clone())
-            .collect::<Vec<ProtocolPartyId>>();
-        found_certificate_signers_party_ids.sort();
-        assert_eq!(
-            expected_certificate_signers_party_ids,
-            found_certificate_signers_party_ids
-        );
-        let avk_expected = certificate.aggregate_verification_key;
-        let avk_computed = multi_signer
-            .compute_stake_distribution_aggregate_verification_key()
-            .await
-            .expect("compute stake distribution aggregate verification key should not fail")
-            .expect(
-                "compute stake distribution aggregate verification key should return something",
-            );
-        assert_eq!(avk_expected, avk_computed);
     }
 }

@@ -1,3 +1,4 @@
+use crate::certificate_creator::CertificateCreationError;
 use crate::snapshot_stores::SnapshotStoreError;
 use crate::{ProtocolError, SnapshotError};
 
@@ -49,6 +50,9 @@ pub enum RuntimeError {
 
     #[error("snapshot store error: {0}")]
     SnapshotStore(#[from] SnapshotStoreError),
+
+    #[error("certificate creation error: {0}")]
+    CertificateCreation(#[from] CertificateCreationError),
 
     #[error("beacon comparison error: {0}")]
     BeaconComparisonError(#[from] BeaconComparisonError),

@@ -11,6 +11,7 @@
 //! signed certificates.
 //! You can find more information on how it works reading the [documentation website](https://mithril.network/doc/mithril/mithril-network/aggregator).
 
+mod certificate_creator;
 mod command_args;
 mod configuration;
 mod dependency;
@@ -29,6 +30,7 @@ pub use crate::configuration::{
 };
 pub use crate::multi_signer::{MultiSigner, MultiSignerImpl, ProtocolError};
 pub use crate::snapshot_stores::{LocalSnapshotStore, RemoteSnapshotStore, SnapshotStore};
+pub use certificate_creator::{CertificateCreator, MithrilCertificateCreator};
 pub use command_args::MainOpts;
 pub use dependency::DependencyManager;
 pub use http_server::Server;
