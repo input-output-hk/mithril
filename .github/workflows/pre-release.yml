@@ -94,16 +94,18 @@ jobs:
             >> ./release-notes-addon.txt
 
       - name: Create and sign sha256 checksum
-        run: |
-          GPG_SECRET_KEY="${{ secrets.GPG_SECRET_KEY }}" ./.github/workflows/scripts/sign-distribution.sh
+        env:
+          GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
+        run: ./.github/workflows/scripts/sign-distribution.sh
 
       - name: Create a procedure to verify the distribution
-        run: |
-          PROCEDURE_FILE_PATH=./release-notes-addon.txt GPG_SECRET_KEY="${{ secrets.GPG_SECRET_KEY }}" ./.github/workflows/scripts/verify-distribution.sh
+        env:
+          GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
+          PROCEDURE_FILE_PATH: ./release-notes-addon.txt
+        run: ./.github/workflows/scripts/verify-distribution.sh
           
       - name: List packaged assets
-        run: |
-          ls -al ./package
+        run: ls -al ./package
 
       - name: Create pre-release ${{ github.ref_name }}
         uses: marvinpinto/action-automatic-releases@latest
@@ -115,7 +117,6 @@ jobs:
           files: package/*
 
       - name: Update release body with release notes addon
-        id: update_release_verif
         uses: tubone24/update_release@v1.3.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
