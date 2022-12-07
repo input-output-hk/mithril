@@ -24,13 +24,14 @@ pub fn routes(
         "mithril-api-version",
         HeaderValue::from_static(MITHRIL_API_VERSION),
     );
-
+    let header_must_be = warp::header::exact("API_VERSION", MITHRIL_API_VERSION);
     warp::any().and(warp::path(SERVER_BASE_PATH)).and(
         certificate_routes::routes(dependency_manager.clone())
             .or(snapshot_routes::routes(dependency_manager.clone()))
             .or(signer_routes::routes(dependency_manager.clone()))
             .or(signatures_routes::routes(dependency_manager.clone()))
             .or(epoch_routes::routes(dependency_manager))
+            .and(header_must_be)
             .with(cors)
             .with(warp::reply::with::headers(headers)),
     )
