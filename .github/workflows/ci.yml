@@ -382,12 +382,10 @@ jobs:
 
       - name: Create and sign sha256 checksum
         run: |
-          chmod u+x ./.github/workflows/scripts/sign-distribution.sh
           GPG_SECRET_KEY="${{ secrets.GPG_SECRET_KEY }}" ./.github/workflows/scripts/sign-distribution.sh
 
       - name: Create a procedure to verify the distribution
         run: |
-          chmod u+x ./.github/workflows/scripts/verify-distribution.sh
           PROCEDURE_FILE_PATH=./release-notes-addon.txt GPG_SECRET_KEY="${{ secrets.GPG_SECRET_KEY }}" ./.github/workflows/scripts/verify-distribution.sh
 
       - name: List packaged assets
