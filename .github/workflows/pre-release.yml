@@ -189,6 +189,10 @@ jobs:
                 type    = "unverified"
                 pool_id = "pool18r62tz408lkgfu6pq5svwzkh2vslkeg6mf72qf3h8njgvzhx9ce",
               },
+              "2" = {
+                type    = "verified",
+                pool_id = "",
+              },
             }
           terraform_backend_bucket: hydra-terraform-admin
           google_region: europe-west1
