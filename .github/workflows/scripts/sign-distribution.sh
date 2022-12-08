@@ -18,7 +18,7 @@ main() {
     chmod 700 gpghome
     echo "$GPG_SECRET_KEY" | gpg --homedir gpghome --batch --import
     gpg --homedir gpghome --list-secret-keys
-    gpg --homedir gpghome -export --armor mithril@iohk.io > ./package/gpg-public.key
+    gpg --homedir gpghome --export --armor mithril@iohk.io > ./package/gpg-public.key
     cd ./package
     find . -type f -print | grep -v CHECKSUM | sort -n | xargs -I '{}' sha256sum '{}' > ./CHECKSUM
     gpg --homedir ../gpghome --clear-sign ./CHECKSUM
