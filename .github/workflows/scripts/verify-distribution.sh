@@ -16,10 +16,16 @@ if [ -z "${GPG_SECRET_KEY}" ]; then
     exit 1
 fi
 
+if [ -z "${DOWNLOAD_URL_BASE}" ]; then
+    echo Missing environment variable: DOWNLOAD_URL_BASE
+    exit 1
+fi
+
 # Create a procedure to verify the checksum and the GPG signature for a downloaded asset from the package
 main() {
     PROCEDURE_FILE_PATH=$1
-    GPG_SECRET_KEY=$2
+    DOWNLOAD_URL_BASE=$2
+    GPG_SECRET_KEY=$3
     mkdir gpghome
     chmod 700 gpghome
     echo "$GPG_SECRET_KEY" | gpg --homedir gpghome --batch --import
@@ -32,7 +38,7 @@ main() {
 <p>
 
 * **Step 1**: Identify the downloaded asset on your computer ***YOUR_ASSET_FILE***
-* **Step 2**: Download the signed checksum file from this link [CHECKSUM.asc](./CHECKSUM.asc) and save it in the same folder as the asset
+* **Step 2**: Download the signed checksum file from this link [CHECKSUM.asc](${DOWNLOAD_URL_BASE}/CHECKSUM.asc) and save it in the same folder as the asset
 * **Step 3**: In your terminal, go to the asset folder by running:
 \`\`\`
 cd ***YOUR_ASSET_FOLDER***
@@ -45,7 +51,7 @@ You must see:
 \`\`\`
 ./***YOUR_ASSET_FILE***: OK
 \`\`\`
-* **Step 5**: Download the public key file from this link [gpg-public.key](./gpg-public.key) and save it in the same folder as the asset
+* **Step 5**: Download the public key file from this link [gpg-public.key](${DOWNLOAD_URL_BASE}/gpg-public.key) and save it in the same folder as the asset
 * **Step 6**: Then import the GPG public key:
 \`\`\`
 gpg --import ./gpg-public.key
@@ -85,4 +91,4 @@ EOF
     rm -rf gpghome
 }
 
-main "$PROCEDURE_FILE_PATH" "$GPG_SECRET_KEY" 
+main "$PROCEDURE_FILE_PATH" "$DOWNLOAD_URL_BASE" "$GPG_SECRET_KEY"
