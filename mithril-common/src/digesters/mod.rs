@@ -5,7 +5,9 @@ mod immutable_digester;
 mod immutable_file;
 mod immutable_file_observer;
 
-pub use cardano_immutable_digester::CardanoImmutableDigester;
+pub use cardano_immutable_digester::{
+    CardanoImmutableDigester, CardanoImmutableDigesterCacheProvider,
+};
 pub use immutable_digester::{DumbImmutableDigester, ImmutableDigester, ImmutableDigesterError};
 pub use immutable_file::{ImmutableFile, ImmutableFileCreationError, ImmutableFileListingError};
 pub use immutable_file_observer::{

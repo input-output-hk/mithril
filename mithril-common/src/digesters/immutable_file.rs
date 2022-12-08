@@ -96,6 +96,7 @@ impl ImmutableFile {
         }
         files.sort();
 
+        // @todo: make the skip of the last 'trio' more robust
         Ok(files.into_iter().rev().skip(3).rev().collect())
     }
 }
