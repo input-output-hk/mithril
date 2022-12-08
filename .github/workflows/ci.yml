@@ -389,6 +389,7 @@ jobs:
         env:
           GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
           PROCEDURE_FILE_PATH: ./release-notes-addon.txt
+          DOWNLOAD_URL_BASE: ${{ github.server_url }}/${{ github.repository }}/releases/download/unstable
         run: ./.github/workflows/scripts/verify-distribution.sh
 
       - name: List packaged assets

@@ -49,4 +49,4 @@ Here is a high-level picture of this process:
 
 ### Further Reading
 
-* The Mithril developers have redacted an ADR [Release proces and versioning](https://mithril.network/doc/adr/3/) that also describes more technically this process.
+* The Mithril developers have redacted an ADR [Release process and versioning](https://mithril.network/doc/adr/3/) that also describes more technically this process.
