@@ -366,7 +366,34 @@ jobs:
           --dest package/ \
           --version "unstable-${{ steps.slug.outputs.sha8 }}" \
           --target "windows-x64"
-      
+
+      - name: Prepare crates versions table
+        run: |
+          cat > ./release-notes-addon.txt << EOF
+
+          ## Crates Versions
+          |  Crate  |  Version  |
+          |---------- |-------------|
+          EOF
+
+          cargo metadata --quiet --no-deps | \
+            jq -r '.packages | sort_by(.name) | .[] | select([.name] | inside(["mithrildemo", "mithril-end-to-end"]) | not) | "| \(.name) | `\(.version)` |"' \
+            >> ./release-notes-addon.txt
+
+      - name: Create and sign sha256 checksum
+        env:
+          GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
+        run: ./.github/workflows/scripts/sign-distribution.sh
+
+      - name: Create a procedure to verify the distribution
+        env:
+          GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
+          PROCEDURE_FILE_PATH: ./release-notes-addon.txt
+        run: ./.github/workflows/scripts/verify-distribution.sh
+
+      - name: List packaged assets
+        run: ls -al ./package
+
       - name: Update unstable release
         uses: marvinpinto/action-automatic-releases@latest
         with:
@@ -375,6 +402,15 @@ jobs:
           prerelease: true
           title: Unstable Development Builds
           files: package/*
+
+      - name: Update unstable release body with release notes addon
+        uses: tubone24/update_release@v1.3.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: unstable 
+        with:
+          is_append_body: true
+          body_path: ./release-notes-addon.txt
 
   deploy-testing:
     # Don't run on pull request from forks since they don't have access to all the needed secrets

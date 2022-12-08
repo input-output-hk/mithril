@@ -80,6 +80,33 @@ jobs:
         run: |
           echo ${{ github.ref_name }} >> ./package/VERSION
       
+      - name: Prepare crates versions table
+        run: |
+          cat > ./release-notes-addon.txt << EOF
+
+          ## Crates Versions
+          |  Crate  |  Version  |
+          |---------- |-------------|
+          EOF
+
+          cargo metadata --quiet --no-deps | \
+            jq -r '.packages | sort_by(.name) | .[] | select([.name] | inside(["mithrildemo", "mithril-end-to-end"]) | not) | "| \(.name) | `\(.version)` |"' \
+            >> ./release-notes-addon.txt
+
+      - name: Create and sign sha256 checksum
+        env:
+          GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
+        run: ./.github/workflows/scripts/sign-distribution.sh
+
+      - name: Create a procedure to verify the distribution
+        env:
+          GPG_SECRET_KEY: ${{ secrets.GPG_SECRET_KEY }}
+          PROCEDURE_FILE_PATH: ./release-notes-addon.txt
+        run: ./.github/workflows/scripts/verify-distribution.sh
+          
+      - name: List packaged assets
+        run: ls -al ./package
+
       - name: Create pre-release ${{ github.ref_name }}
         uses: marvinpinto/action-automatic-releases@latest
         with:
@@ -89,28 +116,14 @@ jobs:
           title: Mithril v${{ github.ref_name }}
           files: package/*
 
-      - name: Prepare crates versions table
-        run: |
-          cat > ./versions-manifest.txt << EOF
-
-            ## Crates Versions
-            |  Crate  |  Version  |
-            |---------- |-------------|
-          EOF
-
-          cargo metadata --quiet --no-deps | \
-            jq -r '.packages | sort_by(.name) | .[] | select([.name] | inside(["mithrildemo", "mithril-end-to-end"]) | not) | "| \(.name) | `\(.version)` |"' \
-            >> ./versions-manifest.txt
-
-      - name: Update release body with crates versions table
-        id: update_release
+      - name: Update release body with release notes addon
         uses: tubone24/update_release@v1.3.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG_NAME: ${{ github.ref_name }} 
         with:
           is_append_body: true
-          body_path: ./versions-manifest.txt
+          body_path: ./release-notes-addon.txt
 
   build-push-docker:
     runs-on: ubuntu-22.04
