@@ -2042,6 +2042,7 @@ dependencies = [
  "bech32",
  "blake2 0.10.5",
  "chrono",
+ "digest 0.10.6",
  "ed25519-dalek",
  "fixed",
  "glob",

@@ -4,7 +4,6 @@ use crate::entities::Beacon;
 use async_trait::async_trait;
 use sha2::{Digest, Sha256};
 use slog::{debug, info, Logger};
-use std::fs::File;
 use std::io;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -106,9 +105,7 @@ fn compute_hash(
     hasher.update(beacon.compute_hash().as_bytes());
 
     for (ix, entry) in entries.iter().enumerate() {
-        let mut file = File::open(&entry.path)?;
-
-        io::copy(&mut file, &mut hasher)?;
+        hasher.update(entry.compute_raw_hash::<Sha256>()?);
 
         if progress.report(ix) {
             info!(logger, "hashing: {}", &progress);

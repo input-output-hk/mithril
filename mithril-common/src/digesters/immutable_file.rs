@@ -1,10 +1,14 @@
 use crate::entities::ImmutableFileNumber;
-use std::cmp::Ordering;
 
-use std::ffi::OsStr;
-use std::io;
-use std::num::ParseIntError;
-use std::path::{Path, PathBuf};
+use digest::{Digest, Output};
+use std::{
+    cmp::Ordering,
+    ffi::OsStr,
+    fs::File,
+    io,
+    num::ParseIntError,
+    path::{Path, PathBuf},
+};
 use thiserror::Error;
 use walkdir::WalkDir;
 
@@ -72,6 +76,17 @@ impl ImmutableFile {
             path,
             number: immutable_file_number,
         })
+    }
+
+    /// Compute the hash of this immutable file.
+    pub fn compute_raw_hash<D: Digest>(&self) -> Result<Output<D>, io::Error>
+    where
+        D: io::Write,
+    {
+        let mut hasher = D::new();
+        let mut file = File::open(&self.path)?;
+        io::copy(&mut file, &mut hasher)?;
+        Ok(hasher.finalize())
     }
 
     /// List all [`ImmutableFile`] in a given directory.
