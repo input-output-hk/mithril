@@ -118,8 +118,8 @@ export DEBUG=1
 export NETWORK=preview
 export NETWORK_MAGIC=2
 
-# Selet Cardano node
-export CARDANO_NODE=cardano-node-signer-1
+# Select Cardano node
+export CARDANO_NODE=cardano-node-relay-signer-1
 
 # Select Mithril signer node
 export SIGNER_NODE=mithril-signer-1
