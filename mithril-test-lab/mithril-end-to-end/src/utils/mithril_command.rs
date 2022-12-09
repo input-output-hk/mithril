@@ -56,6 +56,10 @@ impl MithrilCommand {
         self.log_path = self.work_dir.join(format!("{}.log", name));
     }
 
+    pub fn set_env_var(&mut self, name: &str, value: &str) {
+        self.env_vars.insert(name.to_string(), value.to_string());
+    }
+
     pub fn start(&mut self, args: &[String]) -> Result<Child, String> {
         let args = [&self.default_args, args].concat();
 

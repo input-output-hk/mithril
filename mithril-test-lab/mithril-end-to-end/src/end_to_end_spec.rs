@@ -56,7 +56,18 @@ impl Spec {
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
             target_epoch,
-            "epoch after which the certificate chain will be long enough to catch most common troubles".to_string(),
+            "epoch after which the certificate chain will be long enough to catch most common troubles with stake distribution".to_string(),
+        )
+        .await?;
+
+        // Wait 5 epochs after updating protocol parameters, so that we make sure that we use new protool parameters a few times
+        update_protocol_parameters(self.infrastructure.aggregator_mut()).await?;
+        wait_for_epoch_settings(&aggregator_endpoint).await?;
+        target_epoch += 5;
+        wait_for_target_epoch(
+            self.infrastructure.chain_observer(),
+            target_epoch,
+            "epoch after which the certificate chain will be long enough to catch most common troubles with protocol parameters".to_string(),
         )
         .await?;
 
@@ -206,6 +217,19 @@ async fn delegate_stakes_to_pools(devnet: &Devnet) -> Result<(), String> {
     info!("Delegate stakes to the cardano pools");
 
     devnet.delegate_stakes().await?;
+
+    Ok(())
+}
+
+async fn update_protocol_parameters(aggregator: &mut Aggregator) -> Result<(), String> {
+    info!("Update protocol parameters");
+
+    info!("> stopping aggregator");
+    aggregator.stop().await?;
+    info!("> updating protocol parameters ...");
+    aggregator.update_protocol_parameters();
+    info!("> done, restarting aggregator");
+    aggregator.serve()?;
 
     Ok(())
 }

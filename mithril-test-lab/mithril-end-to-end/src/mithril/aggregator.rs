@@ -105,6 +105,13 @@ impl Aggregator {
         Ok(())
     }
 
+    pub fn update_protocol_parameters(&mut self) {
+        self.command.set_env_var("PROTOCOL_PARAMETERS__K", "150");
+        self.command.set_env_var("PROTOCOL_PARAMETERS__M", "200");
+        self.command
+            .set_env_var("PROTOCOL_PARAMETERS__PHI_F", "0.95");
+    }
+
     pub async fn tail_logs(&self, number_of_line: u64) -> Result<(), String> {
         self.command.tail_logs(None, number_of_line).await
     }
