@@ -4,7 +4,7 @@ info:
   # `mithril-aggregator/src/http_server/mod.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.0.1
+  version: 0.1.0
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -28,7 +28,8 @@ paths:
       summary: Get current epoch settings
       description: |
         Returns the information related to the current epoch:
-          * protocol parameters for current epoch (to setup cryptography, allowing signers to register)
+          * protocol parameters for current epoch
+          * protocol parameters for next epoch (to setup cryptography, allowing signers to register)
       responses:
         "200":
           description: epoch settings found
@@ -238,6 +239,7 @@ components:
       required:
         - epoch
         - protocol
+        - next_protocol
       properties:
         epoch:
           description: Cardano chain epoch number
@@ -245,10 +247,13 @@ components:
           format: int64
         protocol:
           $ref: "#/components/schemas/ProtocolParameters"
+        next_protocol:
+          $ref: "#/components/schemas/ProtocolParameters"
       example: 
         { 
           "epoch": 329,
-          "protocol": { "k": 857, "m": 6172, "phi_f": 0.2 }
+          "protocol": { "k": 857, "m": 6172, "phi_f": 0.2 },
+          "next_protocol": { "k": 2422, "m": 20973, "phi_f": 0.2 }
         }
     ProtocolParameters:
       description: Protocol cryptographic parameters
