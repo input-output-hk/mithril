@@ -3,6 +3,9 @@ use std::collections::HashMap;
 /// ImmutableFileNumber represents the id of immutable files in the Cardano node database
 pub type ImmutableFileNumber = u64;
 
+/// ImmutableFileName represents the filename, with extension, of a immutable file in the Cardano node database
+pub type ImmutableFileName = String;
+
 /// PartyId represents a signing party in Mithril protocol
 pub type PartyId = String;
 
@@ -50,3 +53,6 @@ pub type HexEncodedGenesisVerificationKey = HexEncodedKey;
 
 /// Hex encoded Genesis Signature
 pub type HexEncodedGenesisSignature = HexEncodedKey;
+
+/// Hex encoded Sha256 Digest
+pub type HexEncodedDigest = HexEncodedKey;

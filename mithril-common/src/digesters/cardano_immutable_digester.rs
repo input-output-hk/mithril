@@ -1,12 +1,17 @@
-use crate::digesters::{ImmutableDigester, ImmutableDigesterError, ImmutableFile};
-use crate::entities::Beacon;
-
+use crate::{
+    digesters::CardanoImmutableDigesterCacheProvider,
+    digesters::{ImmutableDigester, ImmutableDigesterError, ImmutableFile},
+    entities::{Beacon, HexEncodedDigest, ImmutableFileName},
+};
 use async_trait::async_trait;
 use sha2::{Digest, Sha256};
 use slog::{debug, info, Logger};
-use std::io;
-use std::path::PathBuf;
-use std::sync::Arc;
+use std::{collections::BTreeMap, io, path::PathBuf, sync::Arc};
+
+/// Result of a cache computation, contains the digest and the list of new entries to add
+/// to the [CardanoImmutableDigesterCacheProvider].
+type CacheComputationResult =
+    Result<([u8; 32], BTreeMap<ImmutableFileName, HexEncodedDigest>), io::Error>;
 
 /// A digester working directly on a Cardano DB immutables files
 pub struct CardanoImmutableDigester {
@@ -19,21 +24,6 @@ pub struct CardanoImmutableDigester {
     /// The logger where the logs should be written
     logger: Logger,
 }
-
-/// A cache provider that store individual [ImmutableFile] digest.
-#[async_trait]
-pub trait CardanoImmutableDigesterCacheProvider: Sync + Send {}
-
-/// A in memory [CardanoImmutableDigesterCacheProvider].
-pub struct MemoryCardanoImmutableDigesterCacheProvider {}
-
-impl MemoryCardanoImmutableDigesterCacheProvider {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
-
-impl CardanoImmutableDigesterCacheProvider for MemoryCardanoImmutableDigesterCacheProvider {}
 
 impl CardanoImmutableDigester {
     /// ImmutableDigester factory
@@ -72,16 +62,19 @@ impl ImmutableDigester for CardanoImmutableDigester {
             }
             Some(_) => {
                 info!(self.logger, "#compute_digest"; "beacon" => #?beacon, "nb_of_immutables" => immutables.len());
+                let cached_values = self.cache_provider.get(immutables).await;
 
                 // digest is done in a separate thread because it is blocking the whole task
                 let logger = self.logger.clone();
                 let thread_beacon = beacon.clone();
-                let hash = tokio::task::spawn_blocking(move || -> Result<[u8; 32], io::Error> {
-                    compute_hash(logger, &thread_beacon, &immutables)
-                })
-                .await
-                .map_err(|e| ImmutableDigesterError::DigestComputationError(e.into()))??;
+                let (hash, new_cache_entries) =
+                    tokio::task::spawn_blocking(move || -> CacheComputationResult {
+                        compute_hash(logger, &thread_beacon, cached_values)
+                    })
+                    .await
+                    .map_err(|e| ImmutableDigesterError::DigestComputationError(e.into()))??;
                 let digest = hex::encode(hash);
+                self.cache_provider.store(new_cache_entries).await;
 
                 debug!(self.logger, "#computed digest: {:?}", digest);
 
@@ -94,9 +87,10 @@ impl ImmutableDigester for CardanoImmutableDigester {
 fn compute_hash(
     logger: Logger,
     beacon: &Beacon,
-    entries: &[ImmutableFile],
-) -> Result<[u8; 32], io::Error> {
+    entries: BTreeMap<ImmutableFile, Option<HexEncodedDigest>>,
+) -> CacheComputationResult {
     let mut hasher = Sha256::new();
+    let mut new_cached_entries = BTreeMap::new();
     let mut progress = Progress {
         index: 0,
         total: entries.len(),
@@ -104,15 +98,24 @@ fn compute_hash(
 
     hasher.update(beacon.compute_hash().as_bytes());
 
-    for (ix, entry) in entries.iter().enumerate() {
-        hasher.update(entry.compute_raw_hash::<Sha256>()?);
+    for (ix, (entry, cache)) in entries.iter().enumerate() {
+        match cache {
+            None => {
+                let data = hex::encode(entry.compute_raw_hash::<Sha256>()?);
+                hasher.update(&data);
+                new_cached_entries.insert(entry.filename.clone(), data);
+            }
+            Some(digest) => {
+                hasher.update(digest);
+            }
+        };
 
         if progress.report(ix) {
             info!(logger, "hashing: {}", &progress);
         }
     }
 
-    Ok(hasher.finalize().into())
+    Ok((hasher.finalize().into(), new_cached_entries))
 }
 
 struct Progress {
@@ -140,24 +143,30 @@ impl std::fmt::Display for Progress {
 #[cfg(test)]
 mod tests {
     use super::Progress;
-    use crate::digesters::cardano_immutable_digester::{
-        compute_hash, MemoryCardanoImmutableDigesterCacheProvider,
+    use crate::{
+        digesters::{
+            CardanoImmutableDigester, CardanoImmutableDigesterCacheProvider, ImmutableDigester,
+            ImmutableDigesterError, ImmutableFile, MemoryCardanoImmutableDigesterCacheProvider,
+        },
+        entities::{Beacon, HexEncodedDigest, ImmutableFileNumber},
     };
-    use crate::digesters::{
-        CardanoImmutableDigester, ImmutableDigester, ImmutableDigesterError, ImmutableFile,
-    };
-    use crate::entities::{Beacon, ImmutableFileNumber};
+    use sha2::{Digest, Sha256};
     use slog::Drain;
     use std::{
+        collections::BTreeMap,
         fs,
         fs::File,
         io::prelude::*,
         path::{Path, PathBuf},
         sync::Arc,
     };
+    use tokio::time::Instant;
 
     fn get_test_dir(subdir_name: &str) -> PathBuf {
-        let parent_dir = std::env::temp_dir().join("mithril_test").join(subdir_name);
+        let parent_dir = std::env::temp_dir()
+            .join("mithril_test")
+            .join("cardano_immutable_digester")
+            .join(subdir_name);
 
         if parent_dir.exists() {
             fs::remove_dir_all(&parent_dir)
@@ -183,6 +192,7 @@ mod tests {
             result.push(ImmutableFile {
                 number: immutable.to_owned(),
                 path: file,
+                filename: filename.to_string(),
             });
         }
         result
@@ -231,6 +241,18 @@ mod tests {
         slog::Logger::root(Arc::new(drain), slog::o!())
     }
 
+    fn compute_expected_hash(beacon: &Beacon, entries: &[ImmutableFile]) -> HexEncodedDigest {
+        let mut hasher = Sha256::new();
+        hasher.update(beacon.compute_hash().as_bytes());
+
+        for entry in entries {
+            let data = hex::encode(entry.compute_raw_hash::<Sha256>().unwrap());
+            hasher.update(&data);
+        }
+
+        hex::encode(hasher.finalize())
+    }
+
     #[test]
     fn reports_progress_every_5_percent() {
         let mut progress = Progress {
@@ -260,7 +282,7 @@ mod tests {
     #[tokio::test]
     async fn fail_if_no_file_in_folder() {
         let dir = get_test_dir("fail_if_no_file_in_folder/immutable");
-        let cache = MemoryCardanoImmutableDigesterCacheProvider::new();
+        let cache = MemoryCardanoImmutableDigesterCacheProvider::default();
         let digester = CardanoImmutableDigester::new(dir, Arc::new(cache), create_logger());
         let beacon = Beacon::new("devnet".to_string(), 1, 1);
 
@@ -285,7 +307,7 @@ mod tests {
     async fn fail_if_a_invalid_file_is_in_immutable_folder() {
         let dir = get_test_dir("fail_if_no_immutable_exist/immutable");
         write_dummy_file(&dir, "not_immutable");
-        let cache = MemoryCardanoImmutableDigesterCacheProvider::new();
+        let cache = MemoryCardanoImmutableDigesterCacheProvider::default();
         let digester = CardanoImmutableDigester::new(dir, Arc::new(cache), create_logger());
         let beacon = Beacon::new("devnet".to_string(), 1, 1);
 
@@ -296,7 +318,7 @@ mod tests {
     async fn fail_if_theres_only_the_uncompleted_immutable_trio() {
         let dir = get_test_dir("fail_if_theres_only_the_uncompleted_immutable_trio/immutable");
         write_immutable_trio(&dir, 1);
-        let cache = MemoryCardanoImmutableDigesterCacheProvider::new();
+        let cache = MemoryCardanoImmutableDigesterCacheProvider::default();
         let digester = CardanoImmutableDigester::new(dir, Arc::new(cache), create_logger());
         let beacon = Beacon::new("devnet".to_string(), 1, 1);
 
@@ -321,7 +343,7 @@ mod tests {
     async fn fail_if_less_immutable_than_what_required_in_beacon() {
         let dir = get_test_dir("fail_if_less_immutable_than_what_required_in_beacon/immutable");
         create_fake_immutables(&dir, &[1, 2, 3, 4, 5], true);
-        let cache = MemoryCardanoImmutableDigesterCacheProvider::new();
+        let cache = MemoryCardanoImmutableDigesterCacheProvider::default();
         let digester = CardanoImmutableDigester::new(dir, Arc::new(cache), create_logger());
         let beacon = Beacon::new("devnet".to_string(), 1, 10);
 
@@ -343,21 +365,104 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn compute_hash_of_a_hundred_immutable_file_trio() {
-        let dir = get_test_dir("compute_hash_of_a_hundred_immutable_file_trio/immutable");
+    async fn can_compute_hash_of_a_hundred_immutable_file_trio() {
+        let dir = get_test_dir("can_compute_hash_of_a_hundred_immutable_file_trio/immutable");
         let immutables =
-            create_fake_immutables(&dir, &(1..100).collect::<Vec<ImmutableFileNumber>>(), true);
-        let cache = MemoryCardanoImmutableDigesterCacheProvider::new();
+            create_fake_immutables(&dir, &(1..=100).collect::<Vec<ImmutableFileNumber>>(), true);
+        let cache = MemoryCardanoImmutableDigesterCacheProvider::default();
         let logger = create_logger();
         let digester = CardanoImmutableDigester::new(dir, Arc::new(cache), logger.clone());
-        let beacon = Beacon::new("devnet".to_string(), 1, 99);
+        let beacon = Beacon::new("devnet".to_string(), 1, 100);
 
+        let expected = compute_expected_hash(&beacon, &immutables);
         let result = digester
             .compute_digest(&beacon)
             .await
             .expect("compute_digest must not fail");
-        let expected = hex::encode(compute_hash(logger, &beacon, &immutables).unwrap());
 
         assert_eq!(expected, result)
+    }
+
+    #[tokio::test]
+    async fn digests_are_stored_into_cache_provider() {
+        let dir = get_test_dir("digests_are_stored_into_cache_provider/immutable");
+        let immutables = create_fake_immutables(&dir, &[1, 2], true);
+        let cache = Arc::new(MemoryCardanoImmutableDigesterCacheProvider::default());
+        let logger = create_logger();
+        let digester = CardanoImmutableDigester::new(dir, cache.clone(), logger.clone());
+        let beacon = Beacon::new("devnet".to_string(), 1, 2);
+
+        digester
+            .compute_digest(&beacon)
+            .await
+            .expect("compute_digest must not fail");
+
+        let cached_entries = cache.get(immutables.clone()).await;
+        let expected: BTreeMap<_, _> = immutables
+            .into_iter()
+            .map(|i| {
+                let digest = hex::encode(i.compute_raw_hash::<Sha256>().unwrap());
+                (i, Some(digest))
+            })
+            .collect();
+
+        assert_eq!(expected, cached_entries);
+    }
+
+    #[tokio::test]
+    async fn computed_digest_with_or_without_cache_are_equals() {
+        let dir = get_test_dir("computed_digest_with_or_without_cache_are_equals/immutable");
+        create_fake_immutables(&dir, &[1, 2, 3], true);
+        let cache = MemoryCardanoImmutableDigesterCacheProvider::default();
+        let logger = create_logger();
+        let digester = CardanoImmutableDigester::new(dir, Arc::new(cache), logger.clone());
+        let beacon = Beacon::new("devnet".to_string(), 1, 3);
+
+        let without_cache_digest = digester
+            .compute_digest(&beacon)
+            .await
+            .expect("compute_digest must not fail");
+
+        let with_cache_digest = digester
+            .compute_digest(&beacon)
+            .await
+            .expect("compute_digest must not fail");
+
+        assert_eq!(
+            without_cache_digest, with_cache_digest,
+            "Digests with or without cache should be the same"
+        );
+    }
+
+    #[tokio::test]
+    async fn hash_computation_is_quicker_with_a_full_cache() {
+        let dir = get_test_dir("hash_computation_is_quicker_with_a_full_cache/immutable");
+        create_fake_immutables(&dir, &(1..=300).collect::<Vec<ImmutableFileNumber>>(), true);
+        let cache = MemoryCardanoImmutableDigesterCacheProvider::default();
+        let logger = create_logger();
+        let digester = CardanoImmutableDigester::new(dir, Arc::new(cache), logger.clone());
+        let beacon = Beacon::new("devnet".to_string(), 1, 300);
+
+        let now = Instant::now();
+        digester
+            .compute_digest(&beacon)
+            .await
+            .expect("compute_digest must not fail");
+        let elapsed_without_cache = now.elapsed();
+
+        let now = Instant::now();
+        digester
+            .compute_digest(&beacon)
+            .await
+            .expect("compute_digest must not fail");
+        let elapsed_with_cache = now.elapsed();
+
+        assert!(
+            elapsed_with_cache < (elapsed_without_cache * 2 / 3),
+            "digest computation with full cache should be at least 33% faster than without cache,\
+            time elapsed: with cache {:?}, without cache {:?}",
+            elapsed_with_cache,
+            elapsed_without_cache
+        );
     }
 }

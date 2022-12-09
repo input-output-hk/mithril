@@ -18,13 +18,16 @@ fn is_immutable(path: &Path) -> bool {
 }
 
 /// Represent an immutable file in a Cardano node database directory
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ImmutableFile {
     /// The path to the immutable file
     pub path: PathBuf,
 
     /// The immutable file number
     pub number: ImmutableFileNumber,
+
+    /// The filename
+    pub filename: String,
 }
 
 /// [ImmutableFile::new] related errors.
@@ -63,18 +66,25 @@ pub enum ImmutableFileListingError {
 
 impl ImmutableFile {
     /// ImmutableFile factory
-    pub fn new(path: PathBuf) -> Result<Self, ImmutableFileCreationError> {
+    pub fn new(path: PathBuf) -> Result<ImmutableFile, ImmutableFileCreationError> {
         let filename = path
+            .file_name()
+            .ok_or(ImmutableFileCreationError::FileNameExtraction { path: path.clone() })?
+            .to_str()
+            .ok_or(ImmutableFileCreationError::FileNameExtraction { path: path.clone() })?
+            .to_string();
+
+        let filestem = path
             .file_stem()
-            .ok_or(ImmutableFileCreationError::FileStemExtraction { path: path.clone() })?;
-        let filename = filename
+            .ok_or(ImmutableFileCreationError::FileStemExtraction { path: path.clone() })?
             .to_str()
             .ok_or(ImmutableFileCreationError::FileNameExtraction { path: path.clone() })?;
-        let immutable_file_number = filename.parse::<ImmutableFileNumber>()?;
+        let immutable_file_number = filestem.parse::<ImmutableFileNumber>()?;
 
         Ok(Self {
             path,
             number: immutable_file_number,
+            filename,
         })
     }
 
