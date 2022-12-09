@@ -215,7 +215,7 @@ impl StateMachine {
         let beacon = self.runner.get_current_beacon().await?;
         self.runner.update_stake_distribution(beacon.epoch).await?;
         self.runner
-            .register_signer_to_aggregator(beacon.epoch, &epoch_settings.protocol_parameters)
+            .register_signer_to_aggregator(beacon.epoch, &epoch_settings.next_protocol_parameters)
             .await?;
 
         Ok(RegisteredState { beacon })
@@ -304,6 +304,7 @@ mod tests {
         let epoch_settings = EpochSettings {
             epoch: Epoch(3),
             protocol_parameters: fake_data::protocol_parameters(),
+            next_protocol_parameters: fake_data::protocol_parameters(),
         };
         let known_epoch = Epoch(4);
         runner

@@ -10,4 +10,8 @@ pub struct EpochSettings {
     /// Current Protocol parameters
     #[serde(rename = "protocol")]
     pub protocol_parameters: ProtocolParameters,
+
+    /// Next Protocol parameters
+    #[serde(rename = "next_protocol")]
+    pub next_protocol_parameters: ProtocolParameters,
 }

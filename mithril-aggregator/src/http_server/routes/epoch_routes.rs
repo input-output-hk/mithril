@@ -40,24 +40,31 @@ mod handlers {
         debug!("⇄ HTTP SERVER: epoch_settings");
 
         match multi_signer.read().await.get_current_beacon().await {
-            Some(beacon) => match protocol_parameters_store
-                .get_protocol_parameters(beacon.epoch)
-                .await
-            {
-                Ok(Some(protocol_parameters)) => Ok(reply::json(
-                    &EpochSettings {
-                        epoch: beacon.epoch,
-                        protocol_parameters,
-                    },
-                    StatusCode::OK,
-                )),
-                Ok(None) => {
+            Some(beacon) => match (
+                protocol_parameters_store
+                    .get_protocol_parameters(beacon.epoch)
+                    .await,
+                protocol_parameters_store
+                    .get_protocol_parameters(beacon.epoch + 1)
+                    .await,
+            ) {
+                (Ok(Some(protocol_parameters)), Ok(Some(next_protocol_parameters))) => {
+                    Ok(reply::json(
+                        &EpochSettings {
+                            epoch: beacon.epoch,
+                            protocol_parameters,
+                            next_protocol_parameters,
+                        },
+                        StatusCode::OK,
+                    ))
+                }
+                (Ok(None), Ok(Some(_))) | (Ok(Some(_)), Ok(None)) | (Ok(None), Ok(None)) => {
                     warn!("epoch_settings::could_not_retrieve_protocol_parameters");
                     Ok(reply::internal_server_error(
                         "could_not_retrieve_protocol_parameters".to_string(),
                     ))
                 }
-                Err(err) => {
+                (Err(err), _) | (_, Err(err)) => {
                     warn!("epoch_settings::error"; "error" => ?err);
                     Ok(reply::internal_server_error(err.to_string()))
                 }
