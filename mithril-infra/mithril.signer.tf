@@ -47,7 +47,7 @@ cat > /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano
   ]
 }
 EOF
-cat /home/curry/docker/cardano-configurations/network/preview/cardano-node/topology.json | jq '.Producers[1] |= . + { "addr": "${google_compute_address.mithril-external-address.address}", "port": ${local.mithril_signers_block_producer_cardano_port[each.key]}, "valency": 1}' > /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/pool/topology-relay.json
+cat /home/curry/docker/cardano-configurations/network/${var.cardano_network}/cardano-node/topology.json | jq '.Producers[1] |= . + { "addr": "${google_compute_address.mithril-external-address.address}", "port": ${local.mithril_signers_block_producer_cardano_port[each.key]}, "valency": 1}' > /home/curry/data/${var.cardano_network}/mithril-signer-${each.key}/cardano/pool/topology-relay.json
 EOT
     ]
   }
