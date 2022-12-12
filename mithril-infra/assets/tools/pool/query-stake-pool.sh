@@ -34,6 +34,11 @@ CARDANO_CLI_CMD query pool-params \
 --testnet-magic $NETWORK_MAGIC \
 --stake-pool-id $POOL_ID | jq .
 
+# Query KES period info
+CARDANO_CLI_CMD query kes-period-info \
+--testnet-magic $NETWORK_MAGIC \
+--op-cert-file ${POOL_ARTIFACTS_DIR}/opcert.cert
+
 # Query current leadership schedule
 CARDANO_CLI_CMD query leadership-schedule \
 --testnet-magic $NETWORK_MAGIC \
