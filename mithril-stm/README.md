@@ -116,8 +116,8 @@ fn main() {
     let avk = clerk.compute_avk();
 
     // Check all parties can verify every sig
-    for s in sigs.iter() {
-        assert!(s.verify(&params, &avk, &msg).is_ok(), "Verification failed");
+    for (s, p) in sigs.iter().zip(ps.iter()) {
+        assert!(s.verify(&params, &p.verification_key(), &p.get_stake(), &avk, &msg).is_ok(), "Verification failed");
     }
 
     // Aggregate with random parties
@@ -143,7 +143,7 @@ fn main() {
 
 Here we give the benchmark results of STM for size and time. We run the benchmarks on macOS 12.6 on an Apple M1 Pro machine with 16 GB of RAM.
 
-Note that the size of an individual signature with one valid index is **176 bytes** and increases linearly in the length of valid indices (where an index is 8 bytes).
+Note that the size of an individual signature with one valid index is **72 bytes** (48 bytes from `sigma`, 8 bytes from `party_index`, 8 bytes for the `length` of winning indices and at least 8 bytes for a single winning `index`) and increases linearly in the length of valid indices (where an index is 8 bytes).
 
 ```shell
 +----------------------+

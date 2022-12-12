@@ -36,6 +36,10 @@ pub enum ProtocolError {
     #[error("signer already registered")]
     ExistingSigner(),
 
+    /// Signer was not registered.
+    #[error("signer did not register")]
+    UnregisteredParty(),
+
     /// Signer registration failed.
     #[error("signer registration failed")]
     FailedSignerRegistration(#[from] ProtocolRegistrationError),
@@ -696,16 +700,31 @@ impl MultiSigner for MultiSignerImpl {
             .get_protocol_parameters()
             .await?
             .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
-        let avk = &self
+
+        let clerk = self
             .clerk
             .as_ref()
-            .ok_or_else(ProtocolError::UnavailableClerk)?
-            .compute_avk();
+            .ok_or_else(ProtocolError::UnavailableClerk)?;
 
-        signatures
+        let signature = signatures
             .to_protocol_signature()
-            .map_err(ProtocolError::Codec)?
-            .verify(&protocol_parameters, avk, message.compute_hash().as_bytes())
+            .map_err(ProtocolError::Codec)?;
+
+        let avk = clerk.compute_avk();
+
+        // If there is no reg_party, then we simply received a signature from a non-registered
+        // party, and we can ignore the request.
+        let (vk, stake) = clerk
+            .get_reg_party(&signature.signer_index)
+            .ok_or_else(ProtocolError::UnregisteredParty)?;
+        signature
+            .verify(
+                &protocol_parameters,
+                &vk,
+                &stake,
+                &avk,
+                message.compute_hash().as_bytes(),
+            )
             .map_err(|e| ProtocolError::Core(e.to_string()))?;
 
         // Register single signature
@@ -714,7 +733,7 @@ impl MultiSigner for MultiSignerImpl {
             .as_ref()
             .ok_or_else(ProtocolError::UnavailableBeacon)?;
 
-        match self
+        return match self
             .single_signature_store
             .save_single_signatures(beacon, signatures)
             .await?
@@ -723,7 +742,7 @@ impl MultiSigner for MultiSignerImpl {
                 signatures.party_id.clone(),
             )),
             None => Ok(()),
-        }
+        };
     }
 
     /// Retrieves a multi signature from a message

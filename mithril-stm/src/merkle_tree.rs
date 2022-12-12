@@ -1,8 +1,9 @@
 //! Creation and verification of Merkle Trees
 use crate::error::MerkleTreeError;
 use crate::multi_sig::VerificationKey;
-use crate::stm::Stake;
-use blake2::digest::{Digest, FixedOutput};
+use crate::stm::{Stake, StmVerificationKey};
+use blake2::digest::{consts::U32, Digest, FixedOutput};
+use blake2::Blake2b;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::convert::TryFrom;
@@ -74,11 +75,25 @@ pub struct MerkleTree<D: Digest> {
 }
 
 impl MTLeaf {
+    pub(crate) fn from_bytes(bytes: &[u8]) -> Result<Self, MerkleTreeError<Blake2b<U32>>> {
+        let pk = StmVerificationKey::from_bytes(bytes)
+            .map_err(|_| MerkleTreeError::SerializationError)?;
+        let mut u64_bytes = [0u8; 8];
+        u64_bytes.copy_from_slice(&bytes[96..]);
+        let stake = Stake::from_be_bytes(u64_bytes);
+        Ok(MTLeaf(pk, stake))
+    }
     pub(crate) fn to_bytes(self) -> [u8; 104] {
         let mut result = [0u8; 104];
         result[..96].copy_from_slice(&self.0.to_bytes());
         result[96..].copy_from_slice(&self.1.to_be_bytes());
         result
+    }
+}
+
+impl From<MTLeaf> for (StmVerificationKey, Stake) {
+    fn from(leaf: MTLeaf) -> (StmVerificationKey, Stake) {
+        (leaf.0, leaf.1)
     }
 }
 
