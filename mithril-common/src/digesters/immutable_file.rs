@@ -88,6 +88,16 @@ impl ImmutableFile {
         })
     }
 
+    /// ImmutableFile factory, TEST ONLY as it bypass the checks done by [ImmutableFile::new].
+    #[cfg(test)]
+    pub(crate) fn dummy(path: PathBuf, number: ImmutableFileNumber, filename: String) -> Self {
+        Self {
+            path,
+            number,
+            filename,
+        }
+    }
+
     /// Compute the hash of this immutable file.
     pub fn compute_raw_hash<D: Digest>(&self) -> Result<Output<D>, io::Error>
     where
