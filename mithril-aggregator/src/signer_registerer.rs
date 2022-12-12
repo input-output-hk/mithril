@@ -45,22 +45,33 @@ pub enum SignerRegistrationError {
 }
 
 /// Represents the information needed to handle a signer registration round
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SignerRegistrationRound {
     epoch: Epoch,
     stake_distribution: StakeDistribution,
 }
 
+#[cfg(test)]
+impl SignerRegistrationRound {
+    pub fn dummy(epoch: Epoch, stake_distribution: StakeDistribution) -> Self {
+        Self {
+            epoch,
+            stake_distribution,
+        }
+    }
+}
+
 /// Trait to register a signer
-#[async_trait]
 #[cfg_attr(test, automock)]
+#[async_trait]
 pub trait SignerRegisterer: Sync + Send {
     /// Register a signer
     async fn register_signer(&self, signer: &Signer) -> Result<(), SignerRegistrationError>;
 }
 
-// Trait to open a signer registration round
-#[async_trait]
+/// Trait to open a signer registration round
 #[cfg_attr(test, automock)]
+#[async_trait]
 pub trait SignerRegistrationRoundOpener: Sync + Send {
     /// Open a signer registration round
     async fn open_registration_round(
@@ -93,6 +104,11 @@ impl MithrilSignerRegisterer {
             chain_observer,
             verification_key_store,
         }
+    }
+
+    #[cfg(test)]
+    pub async fn get_current_round(&self) -> Option<SignerRegistrationRound> {
+        self.current_round.read().await.as_ref().cloned()
     }
 }
 

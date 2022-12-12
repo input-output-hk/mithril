@@ -1,8 +1,8 @@
 use mithril_aggregator::{
     AggregatorConfig, CertificatePendingStore, CertificateStore, Configuration, DependencyManager,
-    DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore, MultiSignerImpl,
-    ProtocolParametersStore, SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType,
-    VerificationKeyStore,
+    DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore, MithrilSignerRegisterer,
+    MultiSignerImpl, ProtocolParametersStore, SingleSignatureStore, SnapshotStoreType,
+    SnapshotUploaderType, VerificationKeyStore,
 };
 use mithril_common::certificate_chain::MithrilCertificateVerifier;
 use mithril_common::chain_observer::FakeObserver;
@@ -87,6 +87,11 @@ pub async fn initialize_dependencies(
         5,
     ));
     let certificate_verifier = Arc::new(MithrilCertificateVerifier::new(slog_scope::logger()));
+    let signer_registerer = Arc::new(MithrilSignerRegisterer::new(
+        chain_observer.clone(),
+        verification_key_store.clone(),
+    ));
+
     let dependency_manager = DependencyManager {
         config,
         snapshot_store,
@@ -105,6 +110,8 @@ pub async fn initialize_dependencies(
         snapshotter,
         certificate_verifier,
         genesis_verifier,
+        signer_registerer: signer_registerer.clone(),
+        signer_registration_round_opener: signer_registerer,
     };
 
     let config = AggregatorConfig::new(

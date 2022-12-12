@@ -223,6 +223,9 @@ impl AggregatorRuntime {
         {
             self.runner.update_stake_distribution(&new_beacon).await?;
             self.runner
+                .open_signer_registration_round(&new_beacon)
+                .await?;
+            self.runner
                 .update_protocol_parameters_in_multisigner(&new_beacon)
                 .await?;
         }
@@ -363,6 +366,10 @@ mod tests {
             .once()
             .returning(|_| Ok(()));
         runner
+            .expect_open_signer_registration_round()
+            .once()
+            .returning(|_| Ok(()));
+        runner
             .expect_update_protocol_parameters_in_multisigner()
             .with(predicate::eq(fake_data::beacon()))
             .once()
@@ -399,6 +406,10 @@ mod tests {
         runner
             .expect_update_stake_distribution()
             .with(predicate::eq(fake_data::beacon()))
+            .once()
+            .returning(|_| Ok(()));
+        runner
+            .expect_open_signer_registration_round()
             .once()
             .returning(|_| Ok(()));
         runner
