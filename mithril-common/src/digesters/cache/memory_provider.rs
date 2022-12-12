@@ -3,17 +3,17 @@ use crate::digesters::ImmutableFile;
 use crate::entities::{HexEncodedDigest, ImmutableFileName};
 
 use async_trait::async_trait;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use tokio::sync::RwLock;
 
 /// A in memory [CardanoImmutableDigesterCacheProvider].
 pub struct MemoryCardanoImmutableDigesterCacheProvider {
-    store: RwLock<BTreeMap<ImmutableFileName, HexEncodedDigest>>,
+    store: RwLock<HashMap<ImmutableFileName, HexEncodedDigest>>,
 }
 
 impl MemoryCardanoImmutableDigesterCacheProvider {
     /// Build a new [MemoryCardanoImmutableDigesterCacheProvider] that contains the given values.
-    pub fn from(values: BTreeMap<ImmutableFileName, HexEncodedDigest>) -> Self {
+    pub fn from(values: HashMap<ImmutableFileName, HexEncodedDigest>) -> Self {
         Self {
             store: RwLock::new(values),
         }
@@ -23,14 +23,14 @@ impl MemoryCardanoImmutableDigesterCacheProvider {
 impl Default for MemoryCardanoImmutableDigesterCacheProvider {
     fn default() -> Self {
         Self {
-            store: RwLock::new(BTreeMap::new()),
+            store: RwLock::new(HashMap::new()),
         }
     }
 }
 
 #[async_trait]
 impl CardanoImmutableDigesterCacheProvider for MemoryCardanoImmutableDigesterCacheProvider {
-    async fn store(&self, digest_per_filenames: BTreeMap<ImmutableFileName, HexEncodedDigest>) {
+    async fn store(&self, digest_per_filenames: Vec<(ImmutableFileName, HexEncodedDigest)>) {
         let mut store = self.store.write().await;
         for (filename, digest) in digest_per_filenames {
             store.insert(filename, digest);
@@ -59,16 +59,16 @@ mod tests {
         CardanoImmutableDigesterCacheProvider, ImmutableFile,
         MemoryCardanoImmutableDigesterCacheProvider,
     };
-    use std::collections::BTreeMap;
+    use std::collections::{BTreeMap, HashMap};
     use std::path::PathBuf;
 
     #[tokio::test]
     async fn can_store_values() {
         let provider = MemoryCardanoImmutableDigesterCacheProvider::default();
-        let values_to_store = BTreeMap::from([
+        let values_to_store = vec![
             ("0.chunk".to_string(), "digest 0".to_string()),
             ("1.chunk".to_string(), "digest 1".to_string()),
-        ]);
+        ];
         let expected: BTreeMap<_, _> = BTreeMap::from([
             (
                 ImmutableFile::dummy(PathBuf::default(), 0, "0.chunk".to_string()),
@@ -89,7 +89,7 @@ mod tests {
 
     #[tokio::test]
     async fn returns_only_asked_immutables_cache() {
-        let provider = MemoryCardanoImmutableDigesterCacheProvider::from(BTreeMap::from([
+        let provider = MemoryCardanoImmutableDigesterCacheProvider::from(HashMap::from([
             ("0.chunk".to_string(), "digest 0".to_string()),
             ("1.chunk".to_string(), "digest 1".to_string()),
         ]));
@@ -106,7 +106,7 @@ mod tests {
 
     #[tokio::test]
     async fn returns_none_for_uncached_asked_immutables() {
-        let provider = MemoryCardanoImmutableDigesterCacheProvider::from(BTreeMap::from([(
+        let provider = MemoryCardanoImmutableDigesterCacheProvider::from(HashMap::from([(
             "0.chunk".to_string(),
             "digest 0".to_string(),
         )]));
@@ -123,15 +123,15 @@ mod tests {
 
     #[tokio::test]
     async fn store_erase_existing_values() {
-        let provider = MemoryCardanoImmutableDigesterCacheProvider::from(BTreeMap::from([
+        let provider = MemoryCardanoImmutableDigesterCacheProvider::from(HashMap::from([
             ("0.chunk".to_string(), "to erase".to_string()),
             ("1.chunk".to_string(), "keep me".to_string()),
             ("2.chunk".to_string(), "keep me too".to_string()),
         ]));
-        let values_to_store = BTreeMap::from([
+        let values_to_store = vec![
             ("0.chunk".to_string(), "updated".to_string()),
             ("1.chunk".to_string(), "keep me".to_string()),
-        ]);
+        ];
         let expected: BTreeMap<_, _> = BTreeMap::from([
             (
                 ImmutableFile::dummy(PathBuf::default(), 0, "0.chunk".to_string()),

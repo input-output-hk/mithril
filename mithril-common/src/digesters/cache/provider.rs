@@ -8,11 +8,9 @@ use std::collections::BTreeMap;
 #[async_trait]
 pub trait CardanoImmutableDigesterCacheProvider: Sync + Send {
     /// Store the given digests
-    async fn store(&self, digest_per_filenames: BTreeMap<ImmutableFileName, HexEncodedDigest>);
+    async fn store(&self, digest_per_filenames: Vec<(ImmutableFileName, HexEncodedDigest)>);
 
-    /// Get all digest for the given [immutable files][ImmutableFile] if a cached value can be found.
-    ///
-    /// Note: existing cache for unspecified files won't be returned.
+    /// Associate each given [immutable files][ImmutableFile] with a cached value if one exist.
     async fn get(
         &self,
         immutables: Vec<ImmutableFile>,

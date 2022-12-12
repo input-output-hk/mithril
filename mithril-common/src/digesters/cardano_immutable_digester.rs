@@ -11,7 +11,7 @@ use std::{collections::BTreeMap, io, path::PathBuf, sync::Arc};
 /// Result of a cache computation, contains the digest and the list of new entries to add
 /// to the [CardanoImmutableDigesterCacheProvider].
 type CacheComputationResult =
-    Result<([u8; 32], BTreeMap<ImmutableFileName, HexEncodedDigest>), io::Error>;
+    Result<([u8; 32], Vec<(ImmutableFileName, HexEncodedDigest)>), io::Error>;
 
 /// A digester working directly on a Cardano DB immutables files
 pub struct CardanoImmutableDigester {
@@ -90,7 +90,7 @@ fn compute_hash(
     entries: BTreeMap<ImmutableFile, Option<HexEncodedDigest>>,
 ) -> CacheComputationResult {
     let mut hasher = Sha256::new();
-    let mut new_cached_entries = BTreeMap::new();
+    let mut new_cached_entries = Vec::new();
     let mut progress = Progress {
         index: 0,
         total: entries.len(),
@@ -103,7 +103,7 @@ fn compute_hash(
             None => {
                 let data = hex::encode(entry.compute_raw_hash::<Sha256>()?);
                 hasher.update(&data);
-                new_cached_entries.insert(entry.filename.clone(), data);
+                new_cached_entries.push((entry.filename.clone(), data));
             }
             Some(digest) => {
                 hasher.update(digest);
