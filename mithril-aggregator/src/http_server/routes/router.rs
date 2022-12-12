@@ -9,7 +9,7 @@ use mithril_common::MITHRIL_API_VERSION;
 use reqwest::header::{HeaderMap, HeaderValue};
 use std::sync::Arc;
 use warp::http::Method;
-use warp::Filter;
+use warp::{Filter, Rejection};
 
 /// Routes
 pub fn routes(
@@ -24,15 +24,29 @@ pub fn routes(
         "mithril-api-version",
         HeaderValue::from_static(MITHRIL_API_VERSION),
     );
-    let header_must_be = warp::header::exact("API_VERSION", MITHRIL_API_VERSION);
-    warp::any().and(warp::path(SERVER_BASE_PATH)).and(
-        certificate_routes::routes(dependency_manager.clone())
-            .or(snapshot_routes::routes(dependency_manager.clone()))
-            .or(signer_routes::routes(dependency_manager.clone()))
-            .or(signatures_routes::routes(dependency_manager.clone()))
-            .or(epoch_routes::routes(dependency_manager))
-            .and(header_must_be)
-            .with(cors)
-            .with(warp::reply::with::headers(headers)),
-    )
+    warp::any()
+        .and(header_must_be())
+        .and(warp::path(SERVER_BASE_PATH))
+        .and(
+            certificate_routes::routes(dependency_manager.clone())
+                .or(snapshot_routes::routes(dependency_manager.clone()))
+                .or(signer_routes::routes(dependency_manager.clone()))
+                .or(signatures_routes::routes(dependency_manager.clone()))
+                .or(epoch_routes::routes(dependency_manager))
+                .with(cors)
+                .with(warp::reply::with::headers(headers)),
+        )
+}
+
+/// API Version verification
+fn header_must_be() -> impl Filter<Extract = (), Error = Rejection> + Copy {
+    warp::header::optional("mithril-api-version")
+        .and_then(|maybe_header: Option<String>| async move {
+            match maybe_header {
+                None => Ok(()),
+                Some(version) if version == MITHRIL_API_VERSION => Ok(()),
+                Some(_version) => Err(warp::reject()),
+            }
+        })
+        .untuple_one()
 }
