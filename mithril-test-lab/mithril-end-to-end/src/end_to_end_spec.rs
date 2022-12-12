@@ -2,7 +2,7 @@ use crate::utils::AttemptResult;
 use crate::{attempt, Aggregator, Client, ClientCommand, Devnet, MithrilInfrastructure};
 use mithril_common::chain_observer::{CardanoCliChainObserver, ChainObserver};
 use mithril_common::digesters::ImmutableFile;
-use mithril_common::entities::{Certificate, Epoch, EpochSettings, Snapshot};
+use mithril_common::entities::{Certificate, Epoch, EpochSettings, ProtocolParameters, Snapshot};
 use reqwest::StatusCode;
 use slog_scope::{info, warn};
 use std::error::Error;
@@ -60,7 +60,7 @@ impl Spec {
         )
         .await?;
 
-        // Wait 5 epochs after updating protocol parameters, so that we make sure that we use new protool parameters a few times
+        // Wait 5 epochs after updating protocol parameters, so that we make sure that we use new protocol parameters a few times
         update_protocol_parameters(self.infrastructure.aggregator_mut()).await?;
         wait_for_epoch_settings(&aggregator_endpoint).await?;
         target_epoch += 5;
@@ -188,7 +188,7 @@ async fn wait_for_target_epoch(
         }
     }) {
         AttemptResult::Ok(_) => {
-            info!("Target epoch reached !"; "target_epoch" => ?target_epoch);
+            info!("Target epoch reached!"; "target_epoch" => ?target_epoch);
             Ok(())
         }
         AttemptResult::Err(error) => Err(error),
@@ -205,7 +205,7 @@ async fn bootstrap_genesis_certificate(aggregator: &mut Aggregator) -> Result<()
 
     info!("> stopping aggregator");
     aggregator.stop().await?;
-    info!("> bootstrapping genesis using signers registered two epochs ago ...");
+    info!("> bootstrapping genesis using signers registered two epochs ago...");
     aggregator.bootstrap_genesis().await?;
     info!("> done, restarting aggregator");
     aggregator.serve()?;
@@ -226,8 +226,16 @@ async fn update_protocol_parameters(aggregator: &mut Aggregator) -> Result<(), S
 
     info!("> stopping aggregator");
     aggregator.stop().await?;
-    info!("> updating protocol parameters ...");
-    aggregator.update_protocol_parameters();
+    let protocol_parameters_new = ProtocolParameters {
+        k: 150,
+        m: 200,
+        phi_f: 0.95,
+    };
+    info!(
+        "> updating protocol parameters to {:?}...",
+        protocol_parameters_new
+    );
+    aggregator.set_protocol_parameters(&protocol_parameters_new);
     info!("> done, restarting aggregator");
     aggregator.serve()?;
 
