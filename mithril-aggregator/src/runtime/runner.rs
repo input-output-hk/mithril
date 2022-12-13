@@ -616,11 +616,15 @@ pub mod tests {
     };
     use crate::{MithrilSignerRegisterer, ProtocolParametersStorer, SignerRegistrationRound};
     use mithril_common::chain_observer::FakeObserver;
-    use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
-    use mithril_common::crypto_helper::{key_decode_hex, ProtocolMultiSignature};
+    use mithril_common::crypto_helper::{
+        key_decode_hex,
+        tests_setup::{setup_certificate_chain, setup_signers},
+        ProtocolMultiSignature,
+    };
     use mithril_common::digesters::DumbImmutableFileObserver;
     use mithril_common::entities::{
-        Beacon, CertificatePending, Epoch, HexEncodedKey, ProtocolMessage, StakeDistribution,
+        Beacon, CertificatePending, Epoch, HexEncodedKey, ProtocolMessage, SignerWithStake,
+        StakeDistribution,
     };
     use mithril_common::{entities::ProtocolMessagePartKey, fake_data, store::StakeStorer};
     use mithril_common::{BeaconProviderImpl, CardanoNetwork};
@@ -856,10 +860,13 @@ pub mod tests {
         let beacon = runner.get_beacon_from_chain().await.unwrap();
         runner.update_beacon(&beacon).await.unwrap();
 
-        let signers = fake_data::signers_with_stakes(5);
+        let protocol_parameters = fake_data::protocol_parameters();
+        let signers = setup_signers(5, &protocol_parameters.clone().into())
+            .into_iter()
+            .map(|s| s.0)
+            .collect::<Vec<SignerWithStake>>();
         let current_signers = signers[1..3].to_vec();
         let next_signers = signers[2..5].to_vec();
-        let protocol_parameters = fake_data::protocol_parameters();
         deps.simulate_genesis(
             current_signers.clone(),
             next_signers.clone(),
