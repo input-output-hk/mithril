@@ -23,6 +23,10 @@ pub struct RestoreCommand {
     #[clap(long)]
     json: bool,
 
+    /// Disable immutables digest cache.
+    #[clap(long)]
+    disable_digest_cache: bool,
+
     /// Digest of the snapshot to download. Use the `list` command to get that information.
     digest: String,
 }
@@ -51,7 +55,7 @@ impl RestoreCommand {
 
         let digester = Box::new(CardanoImmutableDigester::new(
             Path::new(&unpacked_path).into(),
-            build_digester_cache_provider()?,
+            build_digester_cache_provider(self.disable_digest_cache)?,
             slog_scope::logger(),
         ));
         let output = runtime
@@ -82,10 +86,15 @@ docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind
 }
 
 fn build_digester_cache_provider(
+    disable_digest_cache: bool,
 ) -> Result<Arc<dyn ImmutableFileDigestCacheProvider>, Box<dyn Error>> {
+    if disable_digest_cache {
+        return Ok(Arc::new(MemoryImmutableFileDigestCacheProvider::default()));
+    }
+
     match ProjectDirs::from("io", "iohk", "mithril") {
         None => {
-            warn!("Could not get cache directory for immutables digests, fallback to In Memory cache provider");
+            warn!("Could not get cache directory for immutables digests");
             Ok(Arc::new(MemoryImmutableFileDigestCacheProvider::default()))
         }
         Some(project_dirs) => {
