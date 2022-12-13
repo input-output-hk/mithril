@@ -35,10 +35,8 @@ For more information about the **Mithril Protocol**, please refer to the [About 
 ## What you'll need
 
 * Operating a **Cardano Node** as a **Stake Pool**:
-  * **Stable**:
-    * The Cardano `Operational Certificate` file of the pool
-    * The Cardano `KES Secret Key` file of the pool
-  * **Deprecated**: The Cardano `Pool Id` in a `BECH32` format such as `pool1frevxe70aqw2ce58c0muyesnahl88nfjjsp25h85jwakzgd2g2l`
+  * The Cardano `Operational Certificate` file of the pool
+  * The Cardano `KES Secret Key` file of the pool
 
 * Access to the file system of a `relay` **Cardano Node** running on the `testnet`:
   * Read rights on the `Database` folder (`--database-path` setting of the **Cardano Node**)
@@ -54,29 +52,14 @@ For more information about the **Mithril Protocol**, please refer to the [About 
 
 ## Mithril Keys Certification
 
-:::danger
 
-The cryptographic certification of the Mithril keys is an experimental feature. We strongly recommend that you first setup a Mithril Signer node in the stable mode. Once you are able to sign in the stable mode is a good time to start experimenting with the keys certification.
+### Certify your Pool Id
 
-Your feedback is very important, so feel free to contact us on the #moria channel on the IOG [Discord server](https://discord.gg/5kaErDKDRq), or to file an issue on GitHub.
-
-:::
-
-### Stable mode: Certify your Pool Id
-
-In this mode, you declare your Cardano `Operational Certificate` file and `KES Secret Key` file which allows to:
+You must declare your Cardano `Operational Certificate` file and `KES Secret Key` file which allows to:
 
 * Compute automatically the `PoolId`
 * Verify that you are the owner of the `PoolId`, and thus of the associated stakes used by Mithril protocol
 * Verify that you are the owner of the Mithril `Signer Secret Key`, and thus allowed to contribute to the multi-signatures and certificate production of the Mithril network
-
-This mode is displayed with a specific **Stable** mention in this document.
-
-### Deprecated mode: Declare your Pool Id
-
-In this mode, the Cardano `Pool Id` that you specify is not strictly verified. It is associated to Cardano stakes based on your declaration. This mode is deprecated and replaced by the certification mode above.
-
-This mode is presented in the setup of this document with a specific **Deprecated** mention.
 
 ## Building your own executable
 
@@ -164,17 +147,9 @@ sudo mv mithril-signer /opt/mithril
 * `User=cardano`:
 Replace this value with the correct user. We assume that the user used to run the **Cardano Node** is `cardano`. The **Mithril Signer** must imperatively run with the same user.
 
-* **Stable mode**: in the `/opt/mithril/mithril-signer/service.env` env file:
+* In the `/opt/mithril/mithril-signer/service.env` env file:
   * `KES_SECRET_KEY_PATH=/cardano/keys/kes.skey`: replace `/cardano/keys/kes.skey` with the path to your Cardano `KES Secret Key` file
   * `OPERATIONAL_CERTIFICATE_PATH=/cardano/cert/opcert.cert`: replace `/cardano/cert/opcert.cert` with the path to your Cardano `Operational Certificate` file
-  * `DB_DIRECTORY=/cardano/db`: replace `/cardano/db` with the path to the database folder of the **Cardano Node** (the one in `--database-path`)
-  * `CARDANO_NODE_SOCKET_PATH=/cardano/ipc/node.socket`: replace with the path to the IPC file (`CARDANO_NODE_SOCKET_PATH` env var)
-  * `CARDANO_CLI_PATH=/app/bin/cardano-cli`: replace with the path to the `cardano-cli` executable
-  * `DATA_STORES_DIRECTORY=/opt/mithril/stores`: replace with the path to a folder where the **Mithril Signer** will store its data (`/opt/mithril/stores` e.g.)
-  * `STORE_RETENTION_LIMIT`: if set, this will limit the number of records in some internal stores (5 is a good fit).
-
-* **Deprecated mode**: in the `/opt/mithril/mithril-signer/service.env` env file:
-  * `PARTY_ID=YOUR_POOL_ID_BECH32`: replace `YOUR_POOL_ID_BECH32` with your BECH32 `Pool Id`
   * `DB_DIRECTORY=/cardano/db`: replace `/cardano/db` with the path to the database folder of the **Cardano Node** (the one in `--database-path`)
   * `CARDANO_NODE_SOCKET_PATH=/cardano/ipc/node.socket`: replace with the path to the IPC file (`CARDANO_NODE_SOCKET_PATH` env var)
   * `CARDANO_CLI_PATH=/app/bin/cardano-cli`: replace with the path to the `cardano-cli` executable
@@ -185,28 +160,10 @@ Replace this value with the correct user. We assume that the user used to run th
 
 First create an env file that will be used by the service:
 
-* **Stable mode**:
-
 ```bash
 sudo bash -c 'cat > /opt/mithril/mithril-signer.env << EOF
 KES_SECRET_KEY_PATH=**YOUR_KES_SECRET_KEY_PATH**
 OPERATIONAL_CERTIFICATE_PATH=**YOUR_OPERATIONAL_CERTIFICATE_PATH**
-NETWORK=**YOUR_CARDANO_NETWORK**
-AGGREGATOR_ENDPOINT=**YOUR_AGGREGATOR_ENDPOINT**
-RUN_INTERVAL=60000
-DB_DIRECTORY=/cardano/db
-CARDANO_NODE_SOCKET_PATH=/cardano/ipc/node.socket
-CARDANO_CLI_PATH=/app/bin/cardano-cli
-DATA_STORES_DIRECTORY=/opt/mithril/stores
-STORE_RETENTION_LIMIT=5
-EOF'
-```
-
-* **Deprecated mode**:
-
-```bash
-sudo bash -c 'cat > /opt/mithril/mithril-signer.env << EOF
-PARTY_ID=**YOUR_POOL_ID_BECH32**
 NETWORK=**YOUR_CARDANO_NETWORK**
 AGGREGATOR_ENDPOINT=**YOUR_AGGREGATOR_ENDPOINT**
 RUN_INTERVAL=60000
