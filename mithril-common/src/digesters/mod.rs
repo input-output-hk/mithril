@@ -7,7 +7,8 @@ mod immutable_file;
 mod immutable_file_observer;
 
 pub use cache::{
-    CardanoImmutableDigesterCacheProvider, MemoryCardanoImmutableDigesterCacheProvider,
+    CardanoImmutableDigesterCacheProvider, JsonCardanoImmutableDigesterCacheProvider,
+    MemoryCardanoImmutableDigesterCacheProvider,
 };
 pub use cardano_immutable_digester::CardanoImmutableDigester;
 pub use immutable_digester::{DumbImmutableDigester, ImmutableDigester, ImmutableDigesterError};
