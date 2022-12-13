@@ -1,21 +1,29 @@
-use super::CardanoImmutableDigesterCacheProvider;
-use crate::digesters::ImmutableFile;
-use crate::entities::{HexEncodedDigest, ImmutableFileName};
+use super::ImmutableFileDigestCacheProvider;
+use crate::{
+    digesters::cache::CacheProviderResult,
+    digesters::{
+        cache::provider::{ImmutableDigesterCacheGetError, ImmutableDigesterCacheStoreError},
+        ImmutableFile,
+    },
+    entities::{HexEncodedDigest, ImmutableFileName},
+};
 
 use async_trait::async_trait;
-use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
-use std::{fs, io};
+use std::{
+    collections::BTreeMap,
+    fs,
+    path::{Path, PathBuf},
+};
 
 type InnerStructure = BTreeMap<ImmutableFileName, HexEncodedDigest>;
 
-/// A in memory [CardanoImmutableDigesterCacheProvider].
-pub struct JsonCardanoImmutableDigesterCacheProvider {
+/// A in memory [ImmutableFileDigestCacheProvider].
+pub struct JsonImmutableFileDigestCacheProvider {
     filepath: PathBuf,
 }
 
-impl JsonCardanoImmutableDigesterCacheProvider {
-    /// [JsonCardanoImmutableDigesterCacheProvider] factory
+impl JsonImmutableFileDigestCacheProvider {
+    /// [JsonImmutableFileDigestCacheProvider] factory
     pub fn new(filepath: &Path) -> Self {
         Self {
             filepath: filepath.to_path_buf(),
@@ -23,21 +31,21 @@ impl JsonCardanoImmutableDigesterCacheProvider {
     }
 
     #[cfg(test)]
-    /// [Test Only] Build a new [JsonCardanoImmutableDigesterCacheProvider] that contains the given values.
+    /// [Test Only] Build a new [JsonImmutableFileDigestCacheProvider] that contains the given values.
     pub fn from(filepath: &Path, values: InnerStructure) -> Self {
         let provider = Self::new(filepath);
         provider.write_data(values).unwrap();
         provider
     }
 
-    fn write_data(&self, values: InnerStructure) -> Result<(), io::Error> {
+    fn write_data(&self, values: InnerStructure) -> Result<(), ImmutableDigesterCacheStoreError> {
         let file = fs::File::create(&self.filepath)?;
         serde_json::to_writer(&file, &values)?;
 
         Ok(())
     }
 
-    fn read_data(&self) -> Result<InnerStructure, io::Error> {
+    fn read_data(&self) -> Result<InnerStructure, ImmutableDigesterCacheGetError> {
         match self.filepath.exists() {
             true => {
                 let file = fs::File::open(&self.filepath)?;
@@ -50,20 +58,25 @@ impl JsonCardanoImmutableDigesterCacheProvider {
 }
 
 #[async_trait]
-impl CardanoImmutableDigesterCacheProvider for JsonCardanoImmutableDigesterCacheProvider {
-    async fn store(&self, digest_per_filenames: Vec<(ImmutableFileName, HexEncodedDigest)>) {
-        let mut data = self.read_data().unwrap();
+impl ImmutableFileDigestCacheProvider for JsonImmutableFileDigestCacheProvider {
+    async fn store(
+        &self,
+        digest_per_filenames: Vec<(ImmutableFileName, HexEncodedDigest)>,
+    ) -> CacheProviderResult<()> {
+        let mut data = self.read_data()?;
         for (filename, digest) in digest_per_filenames {
             data.insert(filename, digest);
         }
-        self.write_data(data).unwrap();
+        self.write_data(data)?;
+
+        Ok(())
     }
 
     async fn get(
         &self,
         immutables: Vec<ImmutableFile>,
-    ) -> BTreeMap<ImmutableFile, Option<HexEncodedDigest>> {
-        let values = self.read_data().unwrap();
+    ) -> CacheProviderResult<BTreeMap<ImmutableFile, Option<HexEncodedDigest>>> {
+        let values = self.read_data()?;
         let mut result = BTreeMap::new();
 
         for immutable in immutables {
@@ -71,16 +84,16 @@ impl CardanoImmutableDigesterCacheProvider for JsonCardanoImmutableDigesterCache
             result.insert(immutable, value);
         }
 
-        result
+        Ok(result)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::digesters::{
-        CardanoImmutableDigesterCacheProvider, ImmutableFile,
-        JsonCardanoImmutableDigesterCacheProvider,
+    use crate::digesters::cache::{
+        ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProvider,
     };
+    use crate::digesters::ImmutableFile;
     use std::{collections::BTreeMap, fs, path::PathBuf};
 
     fn get_test_dir(subdir_name: &str) -> PathBuf {
@@ -102,7 +115,7 @@ mod tests {
     #[tokio::test]
     async fn can_store_values() {
         let file = get_test_dir("can_store_values").join("immutable-cache-store.json");
-        let provider = JsonCardanoImmutableDigesterCacheProvider::new(&file);
+        let provider = JsonImmutableFileDigestCacheProvider::new(&file);
         let values_to_store = vec![
             ("0.chunk".to_string(), "digest 0".to_string()),
             ("1.chunk".to_string(), "digest 1".to_string()),
@@ -119,8 +132,14 @@ mod tests {
         ]);
         let immutables = expected.keys().cloned().collect();
 
-        provider.store(values_to_store).await;
-        let result = provider.get(immutables).await;
+        provider
+            .store(values_to_store)
+            .await
+            .expect("Cache write should not fail");
+        let result = provider
+            .get(immutables)
+            .await
+            .expect("Cache read should not fail");
 
         assert_eq!(expected, result);
     }
@@ -129,7 +148,7 @@ mod tests {
     async fn returns_only_asked_immutables_cache() {
         let file =
             get_test_dir("returns_only_asked_immutables_cache").join("immutable-cache-store.json");
-        let provider = JsonCardanoImmutableDigesterCacheProvider::from(
+        let provider = JsonImmutableFileDigestCacheProvider::from(
             &file,
             BTreeMap::from([
                 ("0.chunk".to_string(), "digest 0".to_string()),
@@ -142,7 +161,10 @@ mod tests {
         )]);
         let immutables = expected.keys().cloned().collect();
 
-        let result = provider.get(immutables).await;
+        let result = provider
+            .get(immutables)
+            .await
+            .expect("Cache read should not fail");
 
         assert_eq!(expected, result);
     }
@@ -151,7 +173,7 @@ mod tests {
     async fn returns_none_for_uncached_asked_immutables() {
         let file = get_test_dir("returns_none_for_uncached_asked_immutables")
             .join("immutable-cache-store.json");
-        let provider = JsonCardanoImmutableDigesterCacheProvider::from(
+        let provider = JsonImmutableFileDigestCacheProvider::from(
             &file,
             BTreeMap::from([("0.chunk".to_string(), "digest 0".to_string())]),
         );
@@ -161,7 +183,10 @@ mod tests {
         )]);
         let immutables = expected.keys().cloned().collect();
 
-        let result = provider.get(immutables).await;
+        let result = provider
+            .get(immutables)
+            .await
+            .expect("Cache read should not fail");
 
         assert_eq!(expected, result);
     }
@@ -169,7 +194,7 @@ mod tests {
     #[tokio::test]
     async fn store_erase_existing_values() {
         let file = get_test_dir("store_erase_existing_values").join("immutable-cache-store.json");
-        let provider = JsonCardanoImmutableDigesterCacheProvider::from(
+        let provider = JsonImmutableFileDigestCacheProvider::from(
             &file,
             BTreeMap::from([
                 ("0.chunk".to_string(), "to erase".to_string()),
@@ -201,8 +226,14 @@ mod tests {
         ]);
         let immutables = expected.keys().cloned().collect();
 
-        provider.store(values_to_store).await;
-        let result = provider.get(immutables).await;
+        provider
+            .store(values_to_store)
+            .await
+            .expect("Cache write should not fail");
+        let result = provider
+            .get(immutables)
+            .await
+            .expect("Cache read should not fail");
 
         assert_eq!(expected, result);
     }

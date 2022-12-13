@@ -1,18 +1,21 @@
-use super::CardanoImmutableDigesterCacheProvider;
-use crate::digesters::ImmutableFile;
-use crate::entities::{HexEncodedDigest, ImmutableFileName};
+use crate::{
+    digesters::cache::CacheProviderResult,
+    digesters::cache::ImmutableFileDigestCacheProvider,
+    digesters::ImmutableFile,
+    entities::{HexEncodedDigest, ImmutableFileName},
+};
 
 use async_trait::async_trait;
 use std::collections::{BTreeMap, HashMap};
 use tokio::sync::RwLock;
 
-/// A in memory [CardanoImmutableDigesterCacheProvider].
-pub struct MemoryCardanoImmutableDigesterCacheProvider {
+/// A in memory [ImmutableFileDigestCacheProvider].
+pub struct MemoryImmutableFileDigestCacheProvider {
     store: RwLock<HashMap<ImmutableFileName, HexEncodedDigest>>,
 }
 
-impl MemoryCardanoImmutableDigesterCacheProvider {
-    /// Build a new [MemoryCardanoImmutableDigesterCacheProvider] that contains the given values.
+impl MemoryImmutableFileDigestCacheProvider {
+    /// Build a new [MemoryImmutableFileDigestCacheProvider] that contains the given values.
     pub fn from(values: HashMap<ImmutableFileName, HexEncodedDigest>) -> Self {
         Self {
             store: RwLock::new(values),
@@ -20,7 +23,7 @@ impl MemoryCardanoImmutableDigesterCacheProvider {
     }
 }
 
-impl Default for MemoryCardanoImmutableDigesterCacheProvider {
+impl Default for MemoryImmutableFileDigestCacheProvider {
     fn default() -> Self {
         Self {
             store: RwLock::new(HashMap::new()),
@@ -29,18 +32,23 @@ impl Default for MemoryCardanoImmutableDigesterCacheProvider {
 }
 
 #[async_trait]
-impl CardanoImmutableDigesterCacheProvider for MemoryCardanoImmutableDigesterCacheProvider {
-    async fn store(&self, digest_per_filenames: Vec<(ImmutableFileName, HexEncodedDigest)>) {
+impl ImmutableFileDigestCacheProvider for MemoryImmutableFileDigestCacheProvider {
+    async fn store(
+        &self,
+        digest_per_filenames: Vec<(ImmutableFileName, HexEncodedDigest)>,
+    ) -> CacheProviderResult<()> {
         let mut store = self.store.write().await;
         for (filename, digest) in digest_per_filenames {
             store.insert(filename, digest);
         }
+
+        Ok(())
     }
 
     async fn get(
         &self,
         immutables: Vec<ImmutableFile>,
-    ) -> BTreeMap<ImmutableFile, Option<HexEncodedDigest>> {
+    ) -> CacheProviderResult<BTreeMap<ImmutableFile, Option<HexEncodedDigest>>> {
         let store = self.store.read().await;
         let mut result = BTreeMap::new();
 
@@ -49,22 +57,24 @@ impl CardanoImmutableDigesterCacheProvider for MemoryCardanoImmutableDigesterCac
             result.insert(immutable, value);
         }
 
-        result
+        Ok(result)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::digesters::{
-        CardanoImmutableDigesterCacheProvider, ImmutableFile,
-        MemoryCardanoImmutableDigesterCacheProvider,
+    use crate::{
+        digesters::cache::{
+            ImmutableFileDigestCacheProvider, MemoryImmutableFileDigestCacheProvider,
+        },
+        digesters::ImmutableFile,
     };
     use std::collections::{BTreeMap, HashMap};
     use std::path::PathBuf;
 
     #[tokio::test]
     async fn can_store_values() {
-        let provider = MemoryCardanoImmutableDigesterCacheProvider::default();
+        let provider = MemoryImmutableFileDigestCacheProvider::default();
         let values_to_store = vec![
             ("0.chunk".to_string(), "digest 0".to_string()),
             ("1.chunk".to_string(), "digest 1".to_string()),
@@ -81,15 +91,21 @@ mod tests {
         ]);
         let immutables = expected.keys().cloned().collect();
 
-        provider.store(values_to_store).await;
-        let result = provider.get(immutables).await;
+        provider
+            .store(values_to_store)
+            .await
+            .expect("Cache write should not fail");
+        let result = provider
+            .get(immutables)
+            .await
+            .expect("Cache read should not fail");
 
         assert_eq!(expected, result);
     }
 
     #[tokio::test]
     async fn returns_only_asked_immutables_cache() {
-        let provider = MemoryCardanoImmutableDigesterCacheProvider::from(HashMap::from([
+        let provider = MemoryImmutableFileDigestCacheProvider::from(HashMap::from([
             ("0.chunk".to_string(), "digest 0".to_string()),
             ("1.chunk".to_string(), "digest 1".to_string()),
         ]));
@@ -99,14 +115,17 @@ mod tests {
         )]);
         let immutables = expected.keys().cloned().collect();
 
-        let result = provider.get(immutables).await;
+        let result = provider
+            .get(immutables)
+            .await
+            .expect("Cache read should not fail");
 
         assert_eq!(expected, result);
     }
 
     #[tokio::test]
     async fn returns_none_for_uncached_asked_immutables() {
-        let provider = MemoryCardanoImmutableDigesterCacheProvider::from(HashMap::from([(
+        let provider = MemoryImmutableFileDigestCacheProvider::from(HashMap::from([(
             "0.chunk".to_string(),
             "digest 0".to_string(),
         )]));
@@ -116,14 +135,17 @@ mod tests {
         )]);
         let immutables = expected.keys().cloned().collect();
 
-        let result = provider.get(immutables).await;
+        let result = provider
+            .get(immutables)
+            .await
+            .expect("Cache read should not fail");
 
         assert_eq!(expected, result);
     }
 
     #[tokio::test]
     async fn store_erase_existing_values() {
-        let provider = MemoryCardanoImmutableDigesterCacheProvider::from(HashMap::from([
+        let provider = MemoryImmutableFileDigestCacheProvider::from(HashMap::from([
             ("0.chunk".to_string(), "to erase".to_string()),
             ("1.chunk".to_string(), "keep me".to_string()),
             ("2.chunk".to_string(), "keep me too".to_string()),
@@ -152,8 +174,14 @@ mod tests {
         ]);
         let immutables = expected.keys().cloned().collect();
 
-        provider.store(values_to_store).await;
-        let result = provider.get(immutables).await;
+        provider
+            .store(values_to_store)
+            .await
+            .expect("Cache write should not fail");
+        let result = provider
+            .get(immutables)
+            .await
+            .expect("Cache read should not fail");
 
         assert_eq!(expected, result);
     }

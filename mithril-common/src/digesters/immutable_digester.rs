@@ -1,4 +1,4 @@
-use crate::digesters::ImmutableFileListingError;
+use crate::digesters::{cache, ImmutableFileListingError};
 use crate::entities::{Beacon, ImmutableFileNumber};
 use async_trait::async_trait;
 use std::io;
@@ -65,6 +65,10 @@ pub enum ImmutableDigesterError {
     /// Error raised when the digest computation failed.
     #[error("Digest computation failed: {0}")]
     DigestComputationError(#[from] io::Error),
+
+    /// Error raised when the act of storing or getting cached immutable files digest failed.
+    #[error("Cache provider error: {0}")]
+    CacheProvider(#[from] cache::ImmutableDigesterCacheProviderError),
 }
 
 /// A [ImmutableDigester] returning configurable result for testing purpose.
