@@ -2,6 +2,7 @@ use std::error::Error as StdError;
 use std::fs;
 use std::sync::Arc;
 
+use mithril_common::digesters::cache::JsonImmutableFileDigestCacheProvider;
 use mithril_common::{
     chain_observer::{CardanoCliChainObserver, CardanoCliRunner, ChainObserver},
     crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
@@ -86,6 +87,12 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         ));
         let digester = Arc::new(CardanoImmutableDigester::new(
             self.config.db_directory.clone(),
+            Arc::new(JsonImmutableFileDigestCacheProvider::new(
+                &self
+                    .config
+                    .data_stores_directory
+                    .join("immutables_digests.json"),
+            )),
             slog_scope::logger(),
         ));
         let stake_store = Arc::new(StakeStore::new(

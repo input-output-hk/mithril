@@ -14,6 +14,7 @@ use mithril_common::{
     chain_observer::{CardanoCliRunner, ChainObserver},
     crypto_helper::{key_decode_hex, ProtocolGenesisSigner, ProtocolGenesisVerifier},
     database::{ApplicationNodeType, DatabaseVersionChecker},
+    digesters::cache::JsonImmutableFileDigestCacheProvider,
     digesters::{CardanoImmutableDigester, ImmutableFileSystemObserver},
     entities::{Epoch, HexEncodedGenesisSecretKey},
     store::{adapter::SQLiteAdapter, StakeStore},
@@ -357,6 +358,9 @@ impl ServeCommand {
         ));
         let digester = Arc::new(CardanoImmutableDigester::new(
             config.db_directory.clone(),
+            Arc::new(JsonImmutableFileDigestCacheProvider::new(
+                &config.data_stores_directory.join("immutables_digests.json"),
+            )),
             slog_scope::logger(),
         ));
         let multi_signer = Arc::new(RwLock::new(MultiSignerImpl::new(
