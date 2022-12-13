@@ -41,7 +41,7 @@ impl Spec {
         bootstrap_genesis_certificate(self.infrastructure.aggregator_mut()).await?;
         wait_for_epoch_settings(&aggregator_endpoint).await?;
 
-        // Wait 2 epochs before changing stake distribution, so that we use at least once original stake distribution
+        // Wait 2 epochs before changing stake distribution, so that we use at least one original stake distribution
         target_epoch += 2;
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
@@ -51,23 +51,22 @@ impl Spec {
         .await?;
         delegate_stakes_to_pools(self.infrastructure.devnet()).await?;
 
-        // Wait 5 epochs after stake delegation, so that we make sure that we use new stake distribution a few times
-        target_epoch += 5;
+        // Wait 2 epochs before changing protocol parameters
+        target_epoch += 2;
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
             target_epoch,
-            "epoch after which the certificate chain will be long enough to catch most common troubles with stake distribution".to_string(),
+            "epoch after which the protocol parameters will change".to_string(),
         )
         .await?;
-
-        // Wait 5 epochs after updating protocol parameters, so that we make sure that we use new protocol parameters a few times
         update_protocol_parameters(self.infrastructure.aggregator_mut()).await?;
-        wait_for_epoch_settings(&aggregator_endpoint).await?;
-        target_epoch += 5;
+
+        // Wait 4 epochs after protocol parameters update, so that we make sure that we use new protocol parameters as well as new stake distribution a few times
+        target_epoch += 4;
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
             target_epoch,
-            "epoch after which the certificate chain will be long enough to catch most common troubles with protocol parameters".to_string(),
+            "epoch after which the certificate chain will be long enough to catch most common troubles with stake distribution and protocol parameters".to_string(),
         )
         .await?;
 
