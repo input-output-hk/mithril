@@ -2,12 +2,17 @@ use std::{error::Error, path::Path, sync::Arc};
 
 use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder};
+use directories::ProjectDirs;
+use mithril_common::digesters::cache::{
+    ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProvider,
+    MemoryImmutableFileDigestCacheProvider,
+};
 use mithril_common::{
     certificate_chain::MithrilCertificateVerifier,
     crypto_helper::{key_decode_hex, ProtocolGenesisVerifier},
     digesters::CardanoImmutableDigester,
 };
-use slog_scope::debug;
+use slog_scope::{debug, info, warn};
 
 use crate::{AggregatorHTTPClient, AggregatorHandler, Config, Runtime};
 
@@ -43,8 +48,10 @@ impl RestoreCommand {
         let genesis_verifier =
             ProtocolGenesisVerifier::from_verification_key(genesis_verification_key);
         let unpacked_path = aggregator_handler.unpack_snapshot(&self.digest).await?;
+
         let digester = Box::new(CardanoImmutableDigester::new(
             Path::new(&unpacked_path).into(),
+            build_digester_cache_provider()?,
             slog_scope::logger(),
         ));
         let output = runtime
@@ -71,5 +78,30 @@ docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind
             config.network.clone()
         );
         Ok(())
+    }
+}
+
+fn build_digester_cache_provider(
+) -> Result<Arc<dyn ImmutableFileDigestCacheProvider>, Box<dyn Error>> {
+    match ProjectDirs::from("io", "iohk", "mithril") {
+        None => {
+            warn!("Could not get cache directory for immutables digests, fallback to In Memory cache provider");
+            Ok(Arc::new(MemoryImmutableFileDigestCacheProvider::default()))
+        }
+        Some(project_dirs) => {
+            let cache_dir: &Path = project_dirs.cache_dir();
+            if !cache_dir.exists() {
+                std::fs::create_dir_all(cache_dir)?;
+            }
+
+            let cache_file = cache_dir.join("immutables_digests.json");
+            info!(
+                "Storing/Getting immutables digests cache from: {}",
+                cache_file.display()
+            );
+            Ok(Arc::new(JsonImmutableFileDigestCacheProvider::new(
+                &cache_file,
+            )))
+        }
     }
 }
