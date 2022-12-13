@@ -91,7 +91,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
                 &self
                     .config
                     .data_stores_directory
-                    .join("immutables_digests.json"),
+                    .join(format!("immutables_digests_{}.json", self.config.network)),
             )),
             slog_scope::logger(),
         ));

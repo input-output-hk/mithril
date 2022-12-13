@@ -46,7 +46,7 @@ impl RestoreCommand {
         debug!("{:?}", config);
         let mut runtime = Runtime::new(config.network.clone());
         let aggregator_handler =
-            AggregatorHTTPClient::new(config.network.clone(), config.aggregator_endpoint);
+            AggregatorHTTPClient::new(config.network.clone(), config.aggregator_endpoint.clone());
         let certificate_verifier = Box::new(MithrilCertificateVerifier::new(slog_scope::logger()));
         let genesis_verification_key = key_decode_hex(&config.genesis_verification_key)?;
         let genesis_verifier =
@@ -55,7 +55,7 @@ impl RestoreCommand {
 
         let digester = Box::new(CardanoImmutableDigester::new(
             Path::new(&unpacked_path).into(),
-            build_digester_cache_provider(self.disable_digest_cache)?,
+            build_digester_cache_provider(self.disable_digest_cache, &config)?,
             slog_scope::logger(),
         ));
         let output = runtime
@@ -87,6 +87,7 @@ docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind
 
 fn build_digester_cache_provider(
     disable_digest_cache: bool,
+    config: &Config,
 ) -> Result<Arc<dyn ImmutableFileDigestCacheProvider>, Box<dyn Error>> {
     if disable_digest_cache {
         return Ok(Arc::new(MemoryImmutableFileDigestCacheProvider::default()));
@@ -103,7 +104,7 @@ fn build_digester_cache_provider(
                 std::fs::create_dir_all(cache_dir)?;
             }
 
-            let cache_file = cache_dir.join("immutables_digests.json");
+            let cache_file = cache_dir.join(format!("immutables_digests_{}.json", config.network));
             info!(
                 "Storing/Getting immutables digests cache from: {}",
                 cache_file.display()

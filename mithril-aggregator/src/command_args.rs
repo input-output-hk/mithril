@@ -359,7 +359,9 @@ impl ServeCommand {
         let digester = Arc::new(CardanoImmutableDigester::new(
             config.db_directory.clone(),
             Arc::new(JsonImmutableFileDigestCacheProvider::new(
-                &config.data_stores_directory.join("immutables_digests.json"),
+                &config
+                    .data_stores_directory
+                    .join(format!("immutables_digests_{}.json", config.network)),
             )),
             slog_scope::logger(),
         ));
