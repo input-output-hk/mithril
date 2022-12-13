@@ -66,3 +66,40 @@ pub async fn handle_custom(reject: Rejection) -> Result<impl Reply, Rejection> {
         Err(reject)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_no_version() {
+        let filters = header_must_be();
+        warp::test::request()
+            .path("/aggregator/whatever")
+            .filter(&filters)
+            .await
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_bad_version() {
+        let filters = header_must_be();
+        warp::test::request()
+            .header("mithril-api-version", "0.0.999")
+            .path("/aggregator/whatever")
+            .filter(&filters)
+            .await
+            .unwrap_err();
+    }
+
+    #[tokio::test]
+    async fn test_good_version() {
+        let filters = header_must_be();
+        warp::test::request()
+            .header("mithril-api-version", MITHRIL_API_VERSION)
+            .path("/aggregator/whatever")
+            .filter(&filters)
+            .await
+            .unwrap();
+    }
+}
