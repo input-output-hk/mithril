@@ -11,6 +11,7 @@ pub struct DummyImmutablesDbBuilder {
     immutables_to_write: Vec<ImmutableFileNumber>,
     non_immutables_to_write: Vec<String>,
     append_uncompleted_trio: bool,
+    file_size: Option<u64>,
 }
 
 pub struct DummyImmutableDb {
@@ -28,6 +29,7 @@ impl DummyImmutablesDbBuilder {
             immutables_to_write: vec![],
             non_immutables_to_write: vec![],
             append_uncompleted_trio: false,
+            file_size: None,
         }
     }
 
@@ -41,11 +43,19 @@ impl DummyImmutablesDbBuilder {
         self
     }
 
-    /// Makes [Self::build] add another trio of immutables file, that won't be included
+    /// Makes [build][Self::build] add another trio of immutables file, that won't be included
     /// in its returned vec, to simulate the last 3 'uncompleted / wip' files that can be found in
     /// a cardano immutable db.
     pub fn append_immutable_trio(&mut self) -> &mut Self {
         self.append_uncompleted_trio = true;
+        self
+    }
+
+    /// Set the size of all files written by [build][Self::build] to the given `file_size` in bytes.
+    ///
+    /// Note: by default the size of the produced files is less than a 1kb.
+    pub fn set_file_size(&mut self, file_size: u64) -> &mut Self {
+        self.file_size = Some(file_size);
         self
     }
 
@@ -113,7 +123,14 @@ impl DummyImmutablesDbBuilder {
     fn write_dummy_file(&self, filename: &str) -> PathBuf {
         let file = self.dir.join(Path::new(filename));
         let mut source_file = File::create(&file).unwrap();
+
         write!(source_file, "This is a test file named '{}'", filename).unwrap();
+
+        if let Some(file_size) = self.file_size {
+            writeln!(source_file).unwrap();
+            source_file.set_len(file_size).unwrap();
+        }
+
         file
     }
 }

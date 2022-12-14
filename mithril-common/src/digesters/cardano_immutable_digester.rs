@@ -410,14 +410,15 @@ mod tests {
     #[tokio::test]
     async fn hash_computation_is_quicker_with_a_full_cache() {
         let immutable_db = db_builder("hash_computation_is_quicker_with_a_full_cache")
-            .with_immutables(&(1..=300).collect::<Vec<ImmutableFileNumber>>())
+            .with_immutables(&(1..=50).collect::<Vec<ImmutableFileNumber>>())
             .append_immutable_trio()
+            .set_file_size(65536)
             .build();
         let cache = MemoryImmutableFileDigestCacheProvider::default();
         let logger = create_logger();
         let digester =
             CardanoImmutableDigester::new(immutable_db.dir, Some(Arc::new(cache)), logger.clone());
-        let beacon = Beacon::new("devnet".to_string(), 1, 300);
+        let beacon = Beacon::new("devnet".to_string(), 1, 50);
 
         let now = Instant::now();
         digester
@@ -433,9 +434,13 @@ mod tests {
             .expect("compute_digest must not fail");
         let elapsed_with_cache = now.elapsed();
 
+        // Note real performance doesn't matter here, the purpose is only to check that the computation
+        // time is faster with cache.
+        // We set the limit to 90% to avoid flakiness and ensure that the cache is useful (Note: Real
+        // performance is around ~100 times faster in debug).
         assert!(
             elapsed_with_cache < (elapsed_without_cache * 9 / 10),
-            "digest computation with full cache should be at least 10% faster than without cache,\
+            "digest computation with full cache should be faster than without cache,\
             time elapsed: with cache {:?}, without cache {:?}",
             elapsed_with_cache,
             elapsed_without_cache
