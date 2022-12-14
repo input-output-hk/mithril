@@ -1,6 +1,7 @@
 use crate::devnet::BftNode;
 use crate::utils::MithrilCommand;
 use crate::DEVNET_MAGIC_ID;
+use mithril_common::entities;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tokio::process::Child;
@@ -25,9 +26,6 @@ impl Aggregator {
         let server_port_parameter = server_port.to_string();
         let env = HashMap::from([
             ("NETWORK", "devnet"),
-            ("PROTOCOL_PARAMETERS__K", "75"),
-            ("PROTOCOL_PARAMETERS__M", "100"),
-            ("PROTOCOL_PARAMETERS__PHI_F", "0.95"),
             ("RUN_INTERVAL", "800"),
             ("SERVER_IP", "0.0.0.0"),
             ("SERVER_PORT", &server_port_parameter),
@@ -103,6 +101,21 @@ impl Aggregator {
                 .map_err(|e| format!("Could not kill aggregator: {:?}", e))?;
         }
         Ok(())
+    }
+
+    pub fn set_protocol_parameters(&mut self, protocol_parameters: &entities::ProtocolParameters) {
+        self.command.set_env_var(
+            "PROTOCOL_PARAMETERS__K",
+            &format!("{}", protocol_parameters.k),
+        );
+        self.command.set_env_var(
+            "PROTOCOL_PARAMETERS__M",
+            &format!("{}", protocol_parameters.m),
+        );
+        self.command.set_env_var(
+            "PROTOCOL_PARAMETERS__PHI_F",
+            &format!("{}", protocol_parameters.phi_f),
+        );
     }
 
     pub async fn tail_logs(&self, number_of_line: u64) -> Result<(), String> {

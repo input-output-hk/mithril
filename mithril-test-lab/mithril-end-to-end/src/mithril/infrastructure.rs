@@ -1,5 +1,6 @@
 use crate::{Aggregator, Client, Devnet, Signer, DEVNET_MAGIC_ID};
 use mithril_common::chain_observer::{CardanoCliChainObserver, CardanoCliRunner};
+use mithril_common::entities::ProtocolParameters;
 use mithril_common::CardanoNetwork;
 use std::borrow::BorrowMut;
 use std::path::{Path, PathBuf};
@@ -35,6 +36,11 @@ impl MithrilInfrastructure {
             work_dir,
             bin_dir,
         )?;
+        aggregator.set_protocol_parameters(&ProtocolParameters {
+            k: 75,
+            m: 100,
+            phi_f: 0.95,
+        });
         aggregator.serve()?;
 
         let mut signers: Vec<Signer> = vec![];

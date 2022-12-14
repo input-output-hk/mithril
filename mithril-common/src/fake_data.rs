@@ -38,11 +38,13 @@ pub fn epoch_settings() -> entities::EpochSettings {
 
     // Protocol parameters
     let protocol_parameters = protocol_parameters();
+    let next_protocol_parameters = protocol_parameters.clone();
 
     // Epoch settings
     entities::EpochSettings {
         epoch: beacon.epoch,
         protocol_parameters,
+        next_protocol_parameters,
     }
 }
 

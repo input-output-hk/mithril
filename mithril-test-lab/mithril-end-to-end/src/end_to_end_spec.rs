@@ -2,7 +2,7 @@ use crate::utils::AttemptResult;
 use crate::{attempt, Aggregator, Client, ClientCommand, Devnet, MithrilInfrastructure};
 use mithril_common::chain_observer::{CardanoCliChainObserver, ChainObserver};
 use mithril_common::digesters::ImmutableFile;
-use mithril_common::entities::{Certificate, Epoch, EpochSettings, Snapshot};
+use mithril_common::entities::{Certificate, Epoch, EpochSettings, ProtocolParameters, Snapshot};
 use reqwest::StatusCode;
 use slog_scope::{info, warn};
 use std::error::Error;
@@ -41,7 +41,7 @@ impl Spec {
         bootstrap_genesis_certificate(self.infrastructure.aggregator_mut()).await?;
         wait_for_epoch_settings(&aggregator_endpoint).await?;
 
-        // Wait 2 epochs before changing stake distribution, so that we use at least once original stake distribution
+        // Wait 2 epochs before changing stake distribution, so that we use at least one original stake distribution
         target_epoch += 2;
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
@@ -51,12 +51,22 @@ impl Spec {
         .await?;
         delegate_stakes_to_pools(self.infrastructure.devnet()).await?;
 
-        // Wait 5 epochs after stake delegation, so that we make sure that we use new stake distribution a few times
-        target_epoch += 5;
+        // Wait 2 epochs before changing protocol parameters
+        target_epoch += 2;
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
             target_epoch,
-            "epoch after which the certificate chain will be long enough to catch most common troubles".to_string(),
+            "epoch after which the protocol parameters will change".to_string(),
+        )
+        .await?;
+        update_protocol_parameters(self.infrastructure.aggregator_mut()).await?;
+
+        // Wait 4 epochs after protocol parameters update, so that we make sure that we use new protocol parameters as well as new stake distribution a few times
+        target_epoch += 4;
+        wait_for_target_epoch(
+            self.infrastructure.chain_observer(),
+            target_epoch,
+            "epoch after which the certificate chain will be long enough to catch most common troubles with stake distribution and protocol parameters".to_string(),
         )
         .await?;
 
@@ -177,7 +187,7 @@ async fn wait_for_target_epoch(
         }
     }) {
         AttemptResult::Ok(_) => {
-            info!("Target epoch reached !"; "target_epoch" => ?target_epoch);
+            info!("Target epoch reached!"; "target_epoch" => ?target_epoch);
             Ok(())
         }
         AttemptResult::Err(error) => Err(error),
@@ -194,7 +204,7 @@ async fn bootstrap_genesis_certificate(aggregator: &mut Aggregator) -> Result<()
 
     info!("> stopping aggregator");
     aggregator.stop().await?;
-    info!("> bootstrapping genesis using signers registered two epochs ago ...");
+    info!("> bootstrapping genesis using signers registered two epochs ago...");
     aggregator.bootstrap_genesis().await?;
     info!("> done, restarting aggregator");
     aggregator.serve()?;
@@ -206,6 +216,27 @@ async fn delegate_stakes_to_pools(devnet: &Devnet) -> Result<(), String> {
     info!("Delegate stakes to the cardano pools");
 
     devnet.delegate_stakes().await?;
+
+    Ok(())
+}
+
+async fn update_protocol_parameters(aggregator: &mut Aggregator) -> Result<(), String> {
+    info!("Update protocol parameters");
+
+    info!("> stopping aggregator");
+    aggregator.stop().await?;
+    let protocol_parameters_new = ProtocolParameters {
+        k: 150,
+        m: 200,
+        phi_f: 0.95,
+    };
+    info!(
+        "> updating protocol parameters to {:?}...",
+        protocol_parameters_new
+    );
+    aggregator.set_protocol_parameters(&protocol_parameters_new);
+    info!("> done, restarting aggregator");
+    aggregator.serve()?;
 
     Ok(())
 }
