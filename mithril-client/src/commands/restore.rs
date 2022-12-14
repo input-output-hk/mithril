@@ -1,4 +1,4 @@
-use std::{error::Error, path::Path, sync::Arc};
+use std::{error::Error, fs, path::Path, sync::Arc};
 
 use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder};
@@ -23,9 +23,15 @@ pub struct RestoreCommand {
     #[clap(long)]
     json: bool,
 
-    /// Disable immutables digest cache.
+    /// Disable immutables digests cache.
     #[clap(long)]
-    disable_digest_cache: bool,
+    disable_digests_cache: bool,
+
+    /// If set the existing immutables digests cache will be reset.
+    ///
+    /// Will be ignored if set in conjunction with `--disable-digests-cache`.
+    #[clap(long)]
+    reset_digests_cache: bool,
 
     /// Digest of the snapshot to download. Use the `list` command to get that information.
     digest: String,
@@ -55,7 +61,11 @@ impl RestoreCommand {
 
         let digester = Box::new(CardanoImmutableDigester::new(
             Path::new(&unpacked_path).into(),
-            build_digester_cache_provider(self.disable_digest_cache, &config)?,
+            build_digester_cache_provider(
+                self.disable_digests_cache,
+                self.reset_digests_cache,
+                &config,
+            )?,
             slog_scope::logger(),
         ));
         let output = runtime
@@ -86,25 +96,43 @@ docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind
 }
 
 fn build_digester_cache_provider(
-    disable_digest_cache: bool,
+    disable_digests_cache: bool,
+    reset_digests_cache: bool,
     config: &Config,
 ) -> Result<Arc<dyn ImmutableFileDigestCacheProvider>, Box<dyn Error>> {
-    if disable_digest_cache {
+    if disable_digests_cache {
         return Ok(Arc::new(MemoryImmutableFileDigestCacheProvider::default()));
     }
 
     match ProjectDirs::from("io", "iohk", "mithril") {
         None => {
-            warn!("Could not get cache directory for immutables digests");
+            warn!("Could not get cache directory, disabling immutables digests cache");
             Ok(Arc::new(MemoryImmutableFileDigestCacheProvider::default()))
         }
         Some(project_dirs) => {
             let cache_dir: &Path = project_dirs.cache_dir();
             if !cache_dir.exists() {
-                std::fs::create_dir_all(cache_dir)?;
+                fs::create_dir_all(cache_dir).map_err(|e| {
+                    format!(
+                        "Failure when creation cache directory `{}`: {}",
+                        cache_dir.display(),
+                        e
+                    )
+                })?;
             }
 
             let cache_file = cache_dir.join(format!("immutables_digests_{}.json", config.network));
+
+            if reset_digests_cache {
+                fs::remove_file(&cache_file).map_err(|e| {
+                    format!(
+                        "Failure when resetting digests cache file `{}`: {}",
+                        cache_file.display(),
+                        e
+                    )
+                })?;
+            }
+
             info!(
                 "Storing/Getting immutables digests cache from: {}",
                 cache_file.display()

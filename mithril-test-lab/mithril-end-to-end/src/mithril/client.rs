@@ -45,7 +45,7 @@ impl Client {
                 vec![
                     "restore".to_string(),
                     // Disable immutable digests cache as they will changes between two e2e executions
-                    "--disable-digest-cache".to_string(),
+                    "--disable-digests-cache".to_string(),
                     digest,
                 ]
             }
