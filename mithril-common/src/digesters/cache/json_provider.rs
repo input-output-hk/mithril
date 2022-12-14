@@ -11,8 +11,11 @@ use crate::{
 use async_trait::async_trait;
 use std::{
     collections::BTreeMap,
-    fs,
     path::{Path, PathBuf},
+};
+use tokio::{
+    fs::File,
+    io::{AsyncReadExt, AsyncWriteExt},
 };
 
 type InnerStructure = BTreeMap<ImmutableFileName, HexEncodedDigest>;
@@ -32,24 +35,30 @@ impl JsonImmutableFileDigestCacheProvider {
 
     #[cfg(test)]
     /// [Test Only] Build a new [JsonImmutableFileDigestCacheProvider] that contains the given values.
-    pub fn from(filepath: &Path, values: InnerStructure) -> Self {
+    pub async fn from(filepath: &Path, values: InnerStructure) -> Self {
         let provider = Self::new(filepath);
-        provider.write_data(values).unwrap();
+        provider.write_data(values).await.unwrap();
         provider
     }
 
-    fn write_data(&self, values: InnerStructure) -> Result<(), ImmutableDigesterCacheStoreError> {
-        let file = fs::File::create(&self.filepath)?;
-        serde_json::to_writer(&file, &values)?;
+    async fn write_data(
+        &self,
+        values: InnerStructure,
+    ) -> Result<(), ImmutableDigesterCacheStoreError> {
+        let mut file = File::create(&self.filepath).await?;
+        file.write_all(serde_json::to_string_pretty(&values)?.as_bytes())
+            .await?;
 
         Ok(())
     }
 
-    fn read_data(&self) -> Result<InnerStructure, ImmutableDigesterCacheGetError> {
+    async fn read_data(&self) -> Result<InnerStructure, ImmutableDigesterCacheGetError> {
         match self.filepath.exists() {
             true => {
-                let file = fs::File::open(&self.filepath)?;
-                let values: InnerStructure = serde_json::from_reader(&file)?;
+                let mut file = File::open(&self.filepath).await?;
+                let mut json_string = String::new();
+                file.read_to_string(&mut json_string).await?;
+                let values: InnerStructure = serde_json::from_str(&json_string)?;
                 Ok(values)
             }
             false => Ok(BTreeMap::new()),
@@ -63,11 +72,11 @@ impl ImmutableFileDigestCacheProvider for JsonImmutableFileDigestCacheProvider {
         &self,
         digest_per_filenames: Vec<(ImmutableFileName, HexEncodedDigest)>,
     ) -> CacheProviderResult<()> {
-        let mut data = self.read_data()?;
+        let mut data = self.read_data().await?;
         for (filename, digest) in digest_per_filenames {
             data.insert(filename, digest);
         }
-        self.write_data(data)?;
+        self.write_data(data).await?;
 
         Ok(())
     }
@@ -76,7 +85,7 @@ impl ImmutableFileDigestCacheProvider for JsonImmutableFileDigestCacheProvider {
         &self,
         immutables: Vec<ImmutableFile>,
     ) -> CacheProviderResult<BTreeMap<ImmutableFile, Option<HexEncodedDigest>>> {
-        let values = self.read_data()?;
+        let values = self.read_data().await?;
         let mut result = BTreeMap::new();
 
         for immutable in immutables {
@@ -154,7 +163,8 @@ mod tests {
                 ("0.chunk".to_string(), "digest 0".to_string()),
                 ("1.chunk".to_string(), "digest 1".to_string()),
             ]),
-        );
+        )
+        .await;
         let expected: BTreeMap<_, _> = BTreeMap::from([(
             ImmutableFile::dummy(PathBuf::default(), 0, "0.chunk".to_string()),
             Some("digest 0".to_string()),
@@ -176,7 +186,8 @@ mod tests {
         let provider = JsonImmutableFileDigestCacheProvider::from(
             &file,
             BTreeMap::from([("0.chunk".to_string(), "digest 0".to_string())]),
-        );
+        )
+        .await;
         let expected: BTreeMap<_, _> = BTreeMap::from([(
             ImmutableFile::dummy(PathBuf::default(), 2, "2.chunk".to_string()),
             None,
@@ -201,7 +212,8 @@ mod tests {
                 ("1.chunk".to_string(), "keep me".to_string()),
                 ("2.chunk".to_string(), "keep me too".to_string()),
             ]),
-        );
+        )
+        .await;
         let values_to_store = vec![
             ("0.chunk".to_string(), "updated".to_string()),
             ("1.chunk".to_string(), "keep me".to_string()),
