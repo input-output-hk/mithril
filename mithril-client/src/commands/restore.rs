@@ -3,13 +3,10 @@ use std::{error::Error, fs, path::Path, sync::Arc};
 use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder};
 use directories::ProjectDirs;
-use mithril_common::digesters::cache::{
-    ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProvider,
-    MemoryImmutableFileDigestCacheProvider,
-};
 use mithril_common::{
     certificate_chain::MithrilCertificateVerifier,
     crypto_helper::{key_decode_hex, ProtocolGenesisVerifier},
+    digesters::cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProvider},
     digesters::CardanoImmutableDigester,
 };
 use slog_scope::{debug, info, warn};
@@ -99,15 +96,15 @@ fn build_digester_cache_provider(
     disable_digests_cache: bool,
     reset_digests_cache: bool,
     config: &Config,
-) -> Result<Arc<dyn ImmutableFileDigestCacheProvider>, Box<dyn Error>> {
+) -> Result<Option<Arc<dyn ImmutableFileDigestCacheProvider>>, Box<dyn Error>> {
     if disable_digests_cache {
-        return Ok(Arc::new(MemoryImmutableFileDigestCacheProvider::default()));
+        return Ok(None);
     }
 
     match ProjectDirs::from("io", "iohk", "mithril") {
         None => {
             warn!("Could not get cache directory, disabling immutables digests cache");
-            Ok(Arc::new(MemoryImmutableFileDigestCacheProvider::default()))
+            Ok(None)
         }
         Some(project_dirs) => {
             let cache_dir: &Path = project_dirs.cache_dir();
@@ -137,9 +134,9 @@ fn build_digester_cache_provider(
                 "Storing/Getting immutables digests cache from: {}",
                 cache_file.display()
             );
-            Ok(Arc::new(JsonImmutableFileDigestCacheProvider::new(
+            Ok(Some(Arc::new(JsonImmutableFileDigestCacheProvider::new(
                 &cache_file,
-            )))
+            ))))
         }
     }
 }

@@ -1,4 +1,4 @@
-use crate::entities::ImmutableFileNumber;
+use crate::entities::{ImmutableFileName, ImmutableFileNumber};
 
 use digest::{Digest, Output};
 use std::{
@@ -27,7 +27,7 @@ pub struct ImmutableFile {
     pub number: ImmutableFileNumber,
 
     /// The filename
-    pub filename: String,
+    pub filename: ImmutableFileName,
 }
 
 /// [ImmutableFile::new] related errors.

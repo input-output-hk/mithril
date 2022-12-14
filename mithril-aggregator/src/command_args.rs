@@ -358,11 +358,11 @@ impl ServeCommand {
         ));
         let digester = Arc::new(CardanoImmutableDigester::new(
             config.db_directory.clone(),
-            Arc::new(JsonImmutableFileDigestCacheProvider::new(
+            Some(Arc::new(JsonImmutableFileDigestCacheProvider::new(
                 &config
                     .data_stores_directory
                     .join(format!("immutables_digests_{}.json", config.network)),
-            )),
+            ))),
             slog_scope::logger(),
         ));
         let multi_signer = Arc::new(RwLock::new(MultiSignerImpl::new(

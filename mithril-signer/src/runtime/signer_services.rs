@@ -87,12 +87,12 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         ));
         let digester = Arc::new(CardanoImmutableDigester::new(
             self.config.db_directory.clone(),
-            Arc::new(JsonImmutableFileDigestCacheProvider::new(
+            Some(Arc::new(JsonImmutableFileDigestCacheProvider::new(
                 &self
                     .config
                     .data_stores_directory
                     .join(format!("immutables_digests_{}.json", self.config.network)),
-            )),
+            ))),
             slog_scope::logger(),
         ));
         let stake_store = Arc::new(StakeStore::new(
