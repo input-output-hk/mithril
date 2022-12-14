@@ -45,10 +45,7 @@ pub enum CertificateHandlerError {
 /// convenient methods to error enum
 impl CertificateHandlerError {
     pub fn is_api_version_mismatch(&self) -> bool {
-        match self {
-            Self::ApiVersionMismatch(_) => true,
-            _ => false,
-        }
+        matches!(self, Self::ApiVersionMismatch(_))
     }
 }
 
