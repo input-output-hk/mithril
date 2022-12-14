@@ -4,17 +4,16 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use chrono::prelude::*;
 use hex::ToHex;
-use mithril_common::chain_observer::ChainObserver;
 use slog_scope::{debug, trace, warn};
 use thiserror::Error;
 
 use mithril_common::crypto_helper::{
-    key_decode_hex, key_encode_hex, KESPeriod, ProtocolAggregateVerificationKey,
-    ProtocolAggregationError, ProtocolClerk, ProtocolKeyRegistration, ProtocolMultiSignature,
-    ProtocolParameters, ProtocolPartyId, ProtocolRegistrationError, ProtocolSignerVerificationKey,
+    key_decode_hex, key_encode_hex, ProtocolAggregateVerificationKey, ProtocolAggregationError,
+    ProtocolClerk, ProtocolKeyRegistration, ProtocolMultiSignature, ProtocolParameters,
+    ProtocolPartyId, ProtocolRegistrationError, ProtocolSignerVerificationKey,
     ProtocolSingleSignature, ProtocolStakeDistribution,
 };
-use mithril_common::entities::{self, Signer, SignerWithStake};
+use mithril_common::entities::{self, SignerWithStake};
 use mithril_common::store::{StakeStore, StakeStorer, StoreError};
 use mithril_common::{
     NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET, SIGNER_EPOCH_RECORDING_OFFSET,
@@ -79,10 +78,6 @@ pub enum ProtocolError {
     /// Beacon error.
     #[error("beacon error: '{0}'")]
     Beacon(#[from] entities::EpochError),
-
-    /// Chain observer error.
-    #[error("chaim observer error: '{0}'")]
-    ChainObserver(String),
 }
 
 /// MultiSigner is the cryptographic engine in charge of producing multi signatures from individual signatures
@@ -178,9 +173,6 @@ pub trait MultiSigner: Sync + Send {
         }
     }
 
-    /// Register a signer
-    async fn register_signer(&mut self, signer: &Signer) -> Result<(), ProtocolError>;
-
     /// Get signer
     async fn get_signer_verification_key(
         &self,
@@ -253,9 +245,6 @@ pub struct MultiSignerImpl {
 
     /// Protocol parameters store
     protocol_parameters_store: Arc<ProtocolParametersStore>,
-
-    /// Chain observer
-    chain_observer: Arc<dyn ChainObserver>,
 }
 
 impl MultiSignerImpl {
@@ -265,7 +254,6 @@ impl MultiSignerImpl {
         stake_store: Arc<StakeStore>,
         single_signature_store: Arc<SingleSignatureStore>,
         protocol_parameters_store: Arc<ProtocolParametersStore>,
-        chain_observer: Arc<dyn ChainObserver>,
     ) -> Self {
         debug!("New MultiSignerImpl created");
         Self {
@@ -279,7 +267,6 @@ impl MultiSignerImpl {
             stake_store,
             single_signature_store,
             protocol_parameters_store,
-            chain_observer,
         }
     }
 
@@ -525,70 +512,6 @@ impl MultiSigner for MultiSignerImpl {
         }
     }
 
-    /// Register a signer
-    async fn register_signer(&mut self, signer: &Signer) -> Result<(), ProtocolError> {
-        debug!("Register signer {}", signer.party_id);
-
-        let epoch = self
-            .current_beacon
-            .as_ref()
-            .ok_or_else(ProtocolError::UnavailableBeacon)?
-            .epoch
-            .offset_by(SIGNER_EPOCH_RECORDING_OFFSET)?;
-
-        let stake_distribution = self
-            .get_stake_distribution_with_epoch_offset(SIGNER_EPOCH_RECORDING_OFFSET)
-            .await?;
-        let mut key_registration = ProtocolKeyRegistration::init(&stake_distribution);
-        let party_id_register = match signer.party_id.as_str() {
-            "" => None,
-            party_id => Some(party_id.to_string()),
-        };
-        let verification_key =
-            key_decode_hex(&signer.verification_key).map_err(ProtocolError::Codec)?;
-        let verification_key_signature = match &signer.verification_key_signature {
-            Some(verification_key_signature) => {
-                Some(key_decode_hex(verification_key_signature).map_err(ProtocolError::Codec)?)
-            }
-            _ => None,
-        };
-        let operational_certificate = match &signer.operational_certificate {
-            Some(operational_certificate) => {
-                Some(key_decode_hex(operational_certificate).map_err(ProtocolError::Codec)?)
-            }
-            _ => None,
-        };
-        let kes_period = match &operational_certificate {
-            Some(operational_certificate) => Some(
-                self.chain_observer
-                    .get_current_kes_period(operational_certificate)
-                    .await
-                    .map_err(|e| ProtocolError::ChainObserver(e.to_string()))?
-                    .unwrap_or_default()
-                    - operational_certificate.start_kes_period as KESPeriod,
-            ),
-            None => None,
-        };
-        let party_id_save = key_registration.register(
-            party_id_register.clone(),
-            operational_certificate,
-            verification_key_signature,
-            kes_period,
-            verification_key,
-        )?;
-        let mut signer_save = signer.to_owned();
-        signer_save.party_id = party_id_save;
-
-        match self
-            .verification_key_store
-            .save_verification_key(epoch, signer_save)
-            .await?
-        {
-            Some(_) => Err(ProtocolError::ExistingSigner()),
-            None => Ok(()),
-        }
-    }
-
     /// Get signer verification key
     async fn get_signer_verification_key(
         &self,
@@ -804,7 +727,6 @@ mod tests {
     use crate::store::{SingleSignatureStore, VerificationKeyStore};
     use crate::ProtocolParametersStore;
 
-    use mithril_common::chain_observer::FakeObserver;
     use mithril_common::crypto_helper::tests_setup::*;
     use mithril_common::fake_data;
     use mithril_common::store::adapter::MemoryAdapter;
@@ -859,13 +781,11 @@ mod tests {
             ),
             None,
         );
-        let chain_observer = FakeObserver::default();
         let mut multi_signer = MultiSignerImpl::new(
             Arc::new(verification_key_store),
             Arc::new(stake_store),
             Arc::new(single_signature_store),
             Arc::new(protocol_parameters_store),
-            Arc::new(chain_observer),
         );
 
         multi_signer
@@ -993,75 +913,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_multi_signer_register_signer_ok() {
-        let mut multi_signer = setup_multi_signer().await;
-
-        let protocol_parameters_expected = setup_protocol_parameters();
-        multi_signer
-            .update_protocol_parameters(&protocol_parameters_expected)
-            .await
-            .expect("update protocol parameters failed");
-
-        let signers = setup_signers(5, &protocol_parameters_expected);
-
-        let stake_distribution_expected: ProtocolStakeDistribution = signers
-            .iter()
-            .map(|(signer_with_stake, _, _)| {
-                (
-                    signer_with_stake.party_id.to_owned(),
-                    signer_with_stake.stake,
-                )
-            })
-            .collect::<_>();
-        multi_signer
-            .update_stake_distribution(&stake_distribution_expected)
-            .await
-            .expect("update stake distribution failed");
-
-        for (signer_with_stake, _, _) in &signers {
-            multi_signer
-                .register_signer(&signer_with_stake.to_owned().into())
-                .await
-                .expect("register should have succeeded")
-        }
-
-        offset_epoch(
-            &mut multi_signer,
-            (SIGNER_EPOCH_RECORDING_OFFSET - SIGNER_EPOCH_RETRIEVAL_OFFSET) as i64,
-        )
-        .await;
-
-        let mut signers_with_stake_all_expected = Vec::new();
-        for (signer_with_stake, _, _) in &signers {
-            signers_with_stake_all_expected.push(signer_with_stake.to_owned());
-        }
-        signers_with_stake_all_expected.sort_by_key(|signer| signer.party_id.to_owned());
-        let signers_all_expected = signers_with_stake_all_expected
-            .clone()
-            .into_iter()
-            .map(|signer| signer.into())
-            .collect::<Vec<entities::Signer>>();
-
-        let mut signers_with_stake_all = multi_signer
-            .get_signers_with_stake()
-            .await
-            .expect("get signers with stake should have been succeeded");
-        signers_with_stake_all.sort_by_key(|signer| signer.party_id.to_owned());
-
-        assert_eq!(signers_with_stake_all_expected, signers_with_stake_all);
-
-        let mut signers_all = multi_signer
-            .get_signers()
-            .await
-            .expect("get signers should have been succeeded");
-        signers_all.sort_by_key(|signer| signer.party_id.to_owned());
-
-        assert_eq!(signers_all_expected, signers_all);
-    }
-
-    #[tokio::test]
     async fn test_multi_signer_multi_signature_ok() {
         let mut multi_signer = setup_multi_signer().await;
+        let verification_key_store = multi_signer.verification_key_store.clone();
+        let start_epoch = multi_signer.current_beacon.as_ref().unwrap().epoch;
 
         let message = setup_message();
         let protocol_parameters = setup_protocol_parameters();
@@ -1086,10 +941,13 @@ mod tests {
             .await
             .expect("update stake distribution failed");
         for (signer_with_stake, _, _) in &signers {
-            multi_signer
-                .register_signer(&signer_with_stake.to_owned().into())
+            verification_key_store
+                .save_verification_key(
+                    start_epoch.offset_to_recording_epoch().unwrap(),
+                    signer_with_stake.to_owned().into(),
+                )
                 .await
-                .expect("register should have succeeded")
+                .expect("register should have succeeded");
         }
 
         offset_epoch(

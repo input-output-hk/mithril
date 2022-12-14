@@ -45,7 +45,7 @@ fn setup_genesis_dependencies(
     );
     let immutable_file_observer = Arc::new(ImmutableFileSystemObserver::new(&config.db_directory));
     let beacon_provider = Arc::new(BeaconProviderImpl::new(
-        chain_observer.clone(),
+        chain_observer,
         immutable_file_observer,
         config.get_network()?,
     ));
@@ -85,7 +85,6 @@ fn setup_genesis_dependencies(
         stake_store,
         single_signature_store,
         protocol_parameters_store.clone(),
-        chain_observer,
     )));
     let dependencies = GenesisToolsDependency {
         beacon_provider,
@@ -365,7 +364,6 @@ impl ServeCommand {
             stake_store.clone(),
             single_signature_store.clone(),
             protocol_parameters_store.clone(),
-            chain_observer.clone(),
         )));
         let certificate_verifier = Arc::new(MithrilCertificateVerifier::new(slog_scope::logger()));
         let genesis_verification_key = key_decode_hex(&config.genesis_verification_key)?;
