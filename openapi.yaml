@@ -37,6 +37,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EpochSettings"
+        "412":
+          description: API version mismatch
         default:
           description: epoch settings error
           content:
@@ -60,6 +62,8 @@ paths:
                 $ref: "#/components/schemas/CertificatePending"
         "204":
           description: no pending certificate available
+        "412":
+          description: API version mismatch
         default:
           description: pending certificate error
           content:
@@ -89,6 +93,8 @@ paths:
                 $ref: "#/components/schemas/Certificate"
         "404":
           description: certificate not found
+        "412":
+          description: API version mismatch
         default:
           description: pending certificate error
           content:
@@ -109,6 +115,8 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/Snapshot"
+        "412":
+          description: API version mismatch
         default:
           description: snapshot retrieval error
           content:
@@ -139,6 +147,8 @@ paths:
                 format: binary
         "404":
           description: snapshot not found
+        "412":
+          description: API version mismatch
         default:
           description: snapshot retrieval error
           content:
@@ -168,6 +178,8 @@ paths:
                 $ref: "#/components/schemas/Snapshot"
         "404":
           description: snapshot not found
+        "412":
+          description: API version mismatch
         default:
           description: snapshot retrieval error
           content:
@@ -195,6 +207,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "412":
+          description: API version mismatch
         default:
           description: signer registration error
           content:
@@ -224,6 +238,8 @@ paths:
                 $ref: "#/components/schemas/Error"
         "409":
           description: signatures registration already done
+        "412":
+          description: API version mismatch
         default:
           description: signatures registration error
           content:
