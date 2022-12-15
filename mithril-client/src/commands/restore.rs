@@ -62,7 +62,8 @@ impl RestoreCommand {
                 self.disable_digests_cache,
                 self.reset_digests_cache,
                 &config,
-            )?,
+            )
+            .await?,
             slog_scope::logger(),
         ));
         let output = runtime
@@ -92,7 +93,7 @@ docker run -v cardano-node-ipc:/ipc -v cardano-node-data:/data --mount type=bind
     }
 }
 
-fn build_digester_cache_provider(
+async fn build_digester_cache_provider(
     disable_digests_cache: bool,
     reset_digests_cache: bool,
     config: &Config,
@@ -119,9 +120,10 @@ fn build_digester_cache_provider(
             }
 
             let cache_file = cache_dir.join(format!("immutables_digests_{}.json", config.network));
+            let cache_provider = Arc::new(JsonImmutableFileDigestCacheProvider::new(&cache_file));
 
             if reset_digests_cache {
-                fs::remove_file(&cache_file).map_err(|e| {
+                cache_provider.reset().await.map_err(|e| {
                     format!(
                         "Failure when resetting digests cache file `{}`: {}",
                         cache_file.display(),
@@ -134,9 +136,7 @@ fn build_digester_cache_provider(
                 "Storing/Getting immutables digests cache from: {}",
                 cache_file.display()
             );
-            Ok(Some(Arc::new(JsonImmutableFileDigestCacheProvider::new(
-                &cache_file,
-            ))))
+            Ok(Some(cache_provider))
         }
     }
 }
