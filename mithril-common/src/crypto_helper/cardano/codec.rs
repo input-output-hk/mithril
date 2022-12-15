@@ -67,7 +67,7 @@ pub trait SerDeShelleyFileFormat: Serialize + DeserializeOwned {
 
     /// Serialize a Cardano Key to file
     fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), ParseError> {
-        let cbor_string = hex::encode(&serde_cbor::to_vec(&self)?);
+        let cbor_string = hex::encode(serde_cbor::to_vec(&self)?);
 
         let file_format = ShelleyFileFormat {
             file_type: Self::TYPE.to_string(),

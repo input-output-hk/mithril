@@ -138,7 +138,7 @@ mod tests {
     fn create_fake_files(parent_dir: &Path, child_filenames: &[&str]) {
         for filename in child_filenames {
             let file = parent_dir.join(Path::new(filename));
-            let mut source_file = File::create(&file).unwrap();
+            let mut source_file = File::create(file).unwrap();
             write!(source_file, "This is a test file named '{}'", filename).unwrap();
         }
     }

@@ -57,7 +57,7 @@ where
         k,
         m,
         nparties,
-        aggr.to_bytes().len() as usize,
+        aggr.to_bytes().len(),
     );
 }
 
