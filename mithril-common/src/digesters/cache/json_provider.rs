@@ -1,8 +1,8 @@
-use super::ImmutableFileDigestCacheProvider;
 use crate::{
-    digesters::cache::CacheProviderResult,
     digesters::{
         cache::provider::{ImmutableDigesterCacheGetError, ImmutableDigesterCacheStoreError},
+        cache::CacheProviderResult,
+        cache::ImmutableFileDigestCacheProvider,
         ImmutableFile,
     },
     entities::{HexEncodedDigest, ImmutableFileName},

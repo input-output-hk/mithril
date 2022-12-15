@@ -507,7 +507,9 @@ mod tests {
             data_stores_directory: PathBuf::new(),
             kes_secret_key_path: None,
             operational_certificate_path: None,
+            disable_digests_cache: false,
             store_retention_limit: None,
+            reset_digests_cache: false,
         };
 
         SignerRunner::new(

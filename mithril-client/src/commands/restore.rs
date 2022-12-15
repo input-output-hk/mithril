@@ -1,15 +1,16 @@
-use std::{error::Error, fs, path::Path, sync::Arc};
-
 use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder};
 use directories::ProjectDirs;
 use mithril_common::{
     certificate_chain::MithrilCertificateVerifier,
     crypto_helper::{key_decode_hex, ProtocolGenesisVerifier},
-    digesters::cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProvider},
-    digesters::CardanoImmutableDigester,
+    digesters::{
+        cache::ImmutableFileDigestCacheProvider,
+        cache::JsonImmutableFileDigestCacheProviderBuilder, CardanoImmutableDigester,
+    },
 };
-use slog_scope::{debug, info, warn};
+use slog_scope::{debug, warn};
+use std::{error::Error, path::Path, sync::Arc};
 
 use crate::{AggregatorHTTPClient, AggregatorHandler, Config, Runtime};
 
@@ -108,35 +109,16 @@ async fn build_digester_cache_provider(
             Ok(None)
         }
         Some(project_dirs) => {
-            let cache_dir: &Path = project_dirs.cache_dir();
-            if !cache_dir.exists() {
-                fs::create_dir_all(cache_dir).map_err(|e| {
-                    format!(
-                        "Failure when creation cache directory `{}`: {}",
-                        cache_dir.display(),
-                        e
-                    )
-                })?;
-            }
+            let cache_provider = JsonImmutableFileDigestCacheProviderBuilder::new(
+                project_dirs.cache_dir(),
+                &format!("immutables_digests_{}.json", config.network),
+            )
+            .ensure_dir_exist()
+            .should_reset_digests_cache(reset_digests_cache)
+            .build()
+            .await?;
 
-            let cache_file = cache_dir.join(format!("immutables_digests_{}.json", config.network));
-            let cache_provider = Arc::new(JsonImmutableFileDigestCacheProvider::new(&cache_file));
-
-            if reset_digests_cache {
-                cache_provider.reset().await.map_err(|e| {
-                    format!(
-                        "Failure when resetting digests cache file `{}`: {}",
-                        cache_file.display(),
-                        e
-                    )
-                })?;
-            }
-
-            info!(
-                "Storing/Getting immutables digests cache from: {}",
-                cache_file.display()
-            );
-            Ok(Some(cache_provider))
+            Ok(Some(Arc::new(cache_provider)))
         }
     }
 }

@@ -7,13 +7,13 @@
 //! for more information on how it works.
 
 mod certificate_handler;
-mod entities;
+mod configuration;
 mod protocol_initializer_store;
 mod runtime;
 mod single_signer;
 
 pub use certificate_handler::*;
-pub use entities::Config;
+pub use configuration::Config;
 pub use protocol_initializer_store::{ProtocolInitializerStore, ProtocolInitializerStorer};
 pub use runtime::*;
 pub use single_signer::*;
