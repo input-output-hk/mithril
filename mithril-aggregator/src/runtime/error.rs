@@ -1,6 +1,6 @@
 use crate::certificate_creator::CertificateCreationError;
 use crate::snapshot_stores::SnapshotStoreError;
-use crate::{ProtocolError, SnapshotError};
+use crate::{ProtocolError, SignerRegistrationError, SnapshotError};
 
 use mithril_common::certificate_chain::CertificateVerifierError;
 use mithril_common::chain_observer::ChainObserverError;
@@ -56,6 +56,9 @@ pub enum RuntimeError {
 
     #[error("beacon comparison error: {0}")]
     BeaconComparisonError(#[from] BeaconComparisonError),
+
+    #[error("signer registration error: {0}")]
+    SignerRegistration(#[from] SignerRegistrationError),
 
     #[error("general error: {0}")]
     General(Box<dyn StdError + Sync + Send>),

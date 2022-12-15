@@ -18,6 +18,7 @@ mod dependency;
 mod http_server;
 mod multi_signer;
 mod runtime;
+mod signer_registerer;
 mod snapshot_stores;
 mod snapshot_uploaders;
 mod snapshotter;
@@ -35,6 +36,10 @@ pub use command_args::MainOpts;
 pub use dependency::DependencyManager;
 pub use http_server::Server;
 pub use runtime::{AggregatorConfig, AggregatorRunner, AggregatorRunnerTrait, AggregatorRuntime};
+pub use signer_registerer::{
+    MithrilSignerRegisterer, SignerRegisterer, SignerRegistrationError, SignerRegistrationRound,
+    SignerRegistrationRoundOpener,
+};
 pub use snapshot_uploaders::{
     DumbSnapshotUploader, LocalSnapshotUploader, RemoteSnapshotUploader, SnapshotUploader,
 };

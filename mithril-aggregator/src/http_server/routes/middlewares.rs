@@ -1,7 +1,6 @@
-use crate::dependency::MultiSignerWrapper;
 use crate::{
-    CertificatePendingStore, CertificateStore, Configuration, DependencyManager,
-    ProtocolParametersStore, SnapshotStore,
+    dependency::MultiSignerWrapper, CertificatePendingStore, CertificateStore, Configuration,
+    DependencyManager, ProtocolParametersStore, SignerRegisterer, SnapshotStore,
 };
 use std::convert::Infallible;
 use std::sync::Arc;
@@ -40,6 +39,13 @@ pub fn with_multi_signer(
     dependency_manager: Arc<DependencyManager>,
 ) -> impl Filter<Extract = (MultiSignerWrapper,), Error = Infallible> + Clone {
     warp::any().map(move || dependency_manager.multi_signer.clone())
+}
+
+/// With signer registerer middleware
+pub fn with_signer_registerer(
+    dependency_manager: Arc<DependencyManager>,
+) -> impl Filter<Extract = (Arc<dyn SignerRegisterer>,), Error = Infallible> + Clone {
+    warp::any().map(move || dependency_manager.signer_registerer.clone())
 }
 
 /// With config middleware

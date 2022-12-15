@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use mithril_common::entities::Epoch;
 use mithril_common::entities::PartyId;
+use mithril_common::store::StakeStorer;
 use slog_scope::{debug, info, warn};
 use std::path::Path;
 use std::path::PathBuf;
@@ -74,6 +75,10 @@ pub trait AggregatorRunnerTrait: Sync + Send {
 
     /// Read the stake distribution from the blockchain and store it.
     async fn update_stake_distribution(&self, new_beacon: &Beacon) -> Result<(), RuntimeError>;
+
+    /// Open the signer registration round for an epoch.
+    async fn open_signer_registration_round(&self, new_beacon: &Beacon)
+        -> Result<(), RuntimeError>;
 
     /// Update the multisigner with the protocol parameters from configuration.
     async fn update_protocol_parameters_in_multisigner(
@@ -285,6 +290,30 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .await
             .update_stake_distribution(&stake_distribution)
             .await?)
+    }
+
+    async fn open_signer_registration_round(
+        &self,
+        new_beacon: &Beacon,
+    ) -> Result<(), RuntimeError> {
+        debug!("RUNNER: open signer registration round"; "beacon" => #?new_beacon);
+        let registration_epoch = new_beacon.epoch.offset_to_recording_epoch().map_err(|e| {
+            RuntimeError::General(format!("could not deduce recording epoch: {}", e).into())
+        })?;
+
+        let stakes = self
+            .dependencies
+            .stake_store
+            .get_stakes(registration_epoch)
+            .await?
+            .unwrap_or_default();
+
+        self.dependencies
+            .signer_registration_round_opener
+            .open_registration_round(registration_epoch, stakes)
+            .await?;
+
+        Ok(())
     }
 
     async fn update_protocol_parameters_in_multisigner(
@@ -582,20 +611,21 @@ pub mod tests {
     use crate::multi_signer::MockMultiSigner;
     use crate::runtime::{RuntimeError, WorkingCertificate};
     use crate::snapshotter::OngoingSnapshot;
-    use crate::ProtocolParametersStorer;
     use crate::{
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
     };
+    use crate::{MithrilSignerRegisterer, ProtocolParametersStorer, SignerRegistrationRound};
     use mithril_common::chain_observer::FakeObserver;
     use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
     use mithril_common::crypto_helper::{key_decode_hex, ProtocolMultiSignature};
     use mithril_common::digesters::DumbImmutableFileObserver;
     use mithril_common::entities::{
-        Beacon, CertificatePending, Epoch, HexEncodedKey, ProtocolMessage,
+        Beacon, CertificatePending, Epoch, HexEncodedKey, ProtocolMessage, StakeDistribution,
     };
     use mithril_common::{entities::ProtocolMessagePartKey, fake_data, store::StakeStorer};
     use mithril_common::{BeaconProviderImpl, CardanoNetwork};
+    use std::collections::HashMap;
     use std::path::Path;
     use std::sync::Arc;
     use tempfile::NamedTempFile;
@@ -709,6 +739,44 @@ pub mod tests {
         for (party_id, stake) in current_stake_distribution.iter() {
             assert_eq!(stake, saved_stake_distribution.get(party_id).unwrap());
         }
+    }
+
+    #[tokio::test]
+    async fn test_open_signer_registration_round() {
+        let (mut deps, config) = initialize_dependencies().await;
+        let signer_registration_round_opener = Arc::new(MithrilSignerRegisterer::new(
+            deps.chain_observer.clone(),
+            deps.verification_key_store.clone(),
+        ));
+        deps.signer_registration_round_opener = signer_registration_round_opener.clone();
+        let stake_store = deps.stake_store.clone();
+        let deps = Arc::new(deps);
+        let runner = AggregatorRunner::new(config, deps.clone());
+
+        let beacon = fake_data::beacon();
+        let recording_epoch = beacon.epoch.offset_to_recording_epoch().unwrap();
+        let stake_distribution: StakeDistribution =
+            HashMap::from([("a".to_string(), 5), ("b".to_string(), 10)]);
+
+        stake_store
+            .save_stakes(recording_epoch, stake_distribution.clone())
+            .await
+            .expect("Save Stake distribution should not fail");
+
+        runner
+            .open_signer_registration_round(&beacon)
+            .await
+            .expect("opening signer registration should not return an error");
+
+        let saved_current_round = signer_registration_round_opener.get_current_round().await;
+
+        let expected_signer_registration_round =
+            SignerRegistrationRound::dummy(recording_epoch, stake_distribution);
+
+        assert_eq!(
+            Some(expected_signer_registration_round),
+            saved_current_round,
+        );
     }
 
     #[tokio::test]

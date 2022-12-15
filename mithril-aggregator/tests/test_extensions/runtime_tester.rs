@@ -182,12 +182,11 @@ impl RuntimeTester {
         Ok(new_epoch)
     }
 
-    /// Register the given signers in the multi-signers
+    /// Register the given signers in the registerer
     pub async fn register_signers(&self, signers: &[TestSigner]) -> Result<(), String> {
-        let mut multisigner = self.deps.multi_signer.write().await;
-
         for (signer_with_stake, _protocol_signer, _protocol_initializer) in signers {
-            multisigner
+            self.deps
+                .signer_registerer
                 .register_signer(&signer_with_stake.to_owned().into())
                 .await
                 .map_err(|e| format!("Registering a signer should not fail: {:?}", e))?;

@@ -252,7 +252,7 @@ impl KeyRegWrapper {
             if cfg!(not(feature = "allow_skip_signer_certification")) {
                 Err(ProtocolRegistrationErrorWrapper::OpCertMissing)?
             }
-            println!("WARNING: Uncertified signer regsitration by providing a Pool Id is deprecated and will be removed soon! (Pool Id: {:?})", party_id);
+            println!("WARNING: Uncertified signer registration by providing a Pool Id is deprecated and will be removed soon! (Pool Id: {:?})", party_id);
             party_id.ok_or(ProtocolRegistrationErrorWrapper::PartyIdMissing)?
         };
 

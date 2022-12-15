@@ -16,41 +16,39 @@ fn register_signer(
     warp::path!("register-signer")
         .and(warp::post())
         .and(warp::body::json())
-        .and(middlewares::with_multi_signer(dependency_manager))
+        .and(middlewares::with_signer_registerer(dependency_manager))
         .and_then(handlers::register_signer)
 }
 
 mod handlers {
-    use crate::dependency::MultiSignerWrapper;
-    use crate::http_server::routes::reply;
-    use crate::ProtocolError;
+    use crate::{http_server::routes::reply, SignerRegisterer, SignerRegistrationError};
     use mithril_common::entities;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
+    use std::sync::Arc;
     use warp::http::StatusCode;
 
     /// Register Signer
     pub async fn register_signer(
         signer: entities::Signer,
-        multi_signer: MultiSignerWrapper,
+        signer_registerer: Arc<dyn SignerRegisterer>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: register_signer/{:?}", signer);
 
-        let mut multi_signer = multi_signer.write().await;
-        match multi_signer.register_signer(&signer).await {
+        match signer_registerer.register_signer(&signer).await {
             Ok(()) => Ok(reply::empty(StatusCode::CREATED)),
-            Err(ProtocolError::ExistingSigner()) => {
+            Err(SignerRegistrationError::ExistingSigner()) => {
                 debug!("register_signer::already_registered");
                 Ok(reply::empty(StatusCode::CREATED))
             }
-            Err(ProtocolError::Codec(err)) => {
+            Err(SignerRegistrationError::Codec(err)) => {
                 warn!("register_signer::failed_signer_decoding"; "error" => ?err);
                 Ok(reply::bad_request(
                     "failed_signer_decoding".to_string(),
                     err,
                 ))
             }
-            Err(ProtocolError::FailedSignerRegistration(err)) => {
+            Err(SignerRegistrationError::FailedSignerRegistration(err)) => {
                 warn!("register_signer::failed_signer_registration"; "error" => ?err);
                 Ok(reply::bad_request(
                     "failed_signer_registration".to_string(),
@@ -72,14 +70,13 @@ mod tests {
     use mithril_common::apispec::APISpec;
     use mithril_common::crypto_helper::ProtocolRegistrationError;
     use mithril_common::fake_data;
-    use tokio::sync::RwLock;
     use warp::http::Method;
     use warp::test::request;
 
     use super::*;
     use crate::http_server::SERVER_BASE_PATH;
-    use crate::multi_signer::MockMultiSigner;
-    use crate::{initialize_dependencies, ProtocolError};
+    use crate::signer_registerer::MockSignerRegisterer;
+    use crate::{initialize_dependencies, SignerRegistrationError};
 
     fn setup_router(
         dependency_manager: Arc<DependencyManager>,
@@ -96,12 +93,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_signer_post_ok() {
-        let mut mock_multi_signer = MockMultiSigner::new();
-        mock_multi_signer
+        let mut mock_signer_registerer = MockSignerRegisterer::new();
+        mock_signer_registerer
             .expect_register_signer()
             .return_once(|_| Ok(()));
         let (mut dependency_manager, _) = initialize_dependencies().await;
-        dependency_manager.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
+        dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
         let signer = &fake_data::signers(1)[0];
 
@@ -126,12 +123,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_signer_post_ok_existing() {
-        let mut mock_multi_signer = MockMultiSigner::new();
-        mock_multi_signer
+        let mut mock_signer_registerer = MockSignerRegisterer::new();
+        mock_signer_registerer
             .expect_register_signer()
-            .return_once(|_| Err(ProtocolError::ExistingSigner()));
+            .return_once(|_| Err(SignerRegistrationError::ExistingSigner()));
         let (mut dependency_manager, _) = initialize_dependencies().await;
-        dependency_manager.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
+        dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
         let signer = &fake_data::signers(1)[0];
 
@@ -156,14 +153,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_signer_post_ko_400() {
-        let mut mock_multi_signer = MockMultiSigner::new();
-        mock_multi_signer.expect_register_signer().return_once(|_| {
-            Err(ProtocolError::FailedSignerRegistration(
-                ProtocolRegistrationError::OpCertInvalid,
-            ))
-        });
+        let mut mock_signer_registerer = MockSignerRegisterer::new();
+        mock_signer_registerer
+            .expect_register_signer()
+            .return_once(|_| {
+                Err(SignerRegistrationError::FailedSignerRegistration(
+                    ProtocolRegistrationError::OpCertInvalid,
+                ))
+            });
         let (mut dependency_manager, _) = initialize_dependencies().await;
-        dependency_manager.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
+        dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
         let signer = fake_data::signers(1)[0].clone();
 
@@ -188,12 +187,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_signer_post_ko_500() {
-        let mut mock_multi_signer = MockMultiSigner::new();
-        mock_multi_signer
+        let mut mock_signer_registerer = MockSignerRegisterer::new();
+        mock_signer_registerer
             .expect_register_signer()
-            .return_once(|_| Err(ProtocolError::Core("an error occurred".to_string())));
+            .return_once(|_| {
+                Err(SignerRegistrationError::ChainObserver(
+                    "an error occurred".to_string(),
+                ))
+            });
         let (mut dependency_manager, _) = initialize_dependencies().await;
-        dependency_manager.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
+        dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
         let signer = &fake_data::signers(1)[0];
 

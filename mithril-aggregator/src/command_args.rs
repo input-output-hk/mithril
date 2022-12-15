@@ -9,28 +9,23 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::time::Duration;
 
-use mithril_common::certificate_chain::MithrilCertificateVerifier;
-use mithril_common::chain_observer::{CardanoCliRunner, ChainObserver};
-use mithril_common::crypto_helper::ProtocolGenesisVerifier;
-use mithril_common::database::{ApplicationNodeType, DatabaseVersionChecker};
-use mithril_common::digesters::{CardanoImmutableDigester, ImmutableFileSystemObserver};
-use mithril_common::entities::{Epoch, HexEncodedGenesisSecretKey};
-use mithril_common::store::adapter::SQLiteAdapter;
-use mithril_common::store::StakeStore;
 use mithril_common::{
-    crypto_helper::{key_decode_hex, ProtocolGenesisSigner},
+    certificate_chain::MithrilCertificateVerifier,
+    chain_observer::{CardanoCliRunner, ChainObserver},
+    crypto_helper::{key_decode_hex, ProtocolGenesisSigner, ProtocolGenesisVerifier},
+    database::{ApplicationNodeType, DatabaseVersionChecker},
+    digesters::{CardanoImmutableDigester, ImmutableFileSystemObserver},
+    entities::{Epoch, HexEncodedGenesisSecretKey},
+    store::{adapter::SQLiteAdapter, StakeStore},
     BeaconProviderImpl,
 };
 
-use crate::tools::GenesisToolsDependency;
 use crate::{
-    tools::GenesisTools, AggregatorConfig, AggregatorRunner, AggregatorRuntime,
-    CertificatePendingStore, Configuration, DependencyManager, GenesisConfiguration,
-    ProtocolParametersStore, Server,
-};
-use crate::{
-    CertificateStore, DefaultConfiguration, GzipSnapshotter, MultiSignerImpl,
-    ProtocolParametersStorer, SingleSignatureStore, VerificationKeyStore,
+    tools::{GenesisTools, GenesisToolsDependency},
+    AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
+    CertificateStore, Configuration, DefaultConfiguration, DependencyManager, GenesisConfiguration,
+    GzipSnapshotter, MithrilSignerRegisterer, MultiSignerImpl, ProtocolParametersStore,
+    ProtocolParametersStorer, Server, SingleSignatureStore, VerificationKeyStore,
 };
 
 fn setup_genesis_dependencies(
@@ -50,7 +45,7 @@ fn setup_genesis_dependencies(
     );
     let immutable_file_observer = Arc::new(ImmutableFileSystemObserver::new(&config.db_directory));
     let beacon_provider = Arc::new(BeaconProviderImpl::new(
-        chain_observer.clone(),
+        chain_observer,
         immutable_file_observer,
         config.get_network()?,
     ));
@@ -90,7 +85,6 @@ fn setup_genesis_dependencies(
         stake_store,
         single_signature_store,
         protocol_parameters_store.clone(),
-        chain_observer,
     )));
     let dependencies = GenesisToolsDependency {
         beacon_provider,
@@ -370,12 +364,15 @@ impl ServeCommand {
             stake_store.clone(),
             single_signature_store.clone(),
             protocol_parameters_store.clone(),
-            chain_observer.clone(),
         )));
         let certificate_verifier = Arc::new(MithrilCertificateVerifier::new(slog_scope::logger()));
         let genesis_verification_key = key_decode_hex(&config.genesis_verification_key)?;
         let genesis_verifier = Arc::new(ProtocolGenesisVerifier::from_verification_key(
             genesis_verification_key,
+        ));
+        let signer_registerer = Arc::new(MithrilSignerRegisterer::new(
+            chain_observer.clone(),
+            verification_key_store.clone(),
         ));
 
         // Snapshotter - Ensure its ongoing snapshot directory exist
@@ -408,6 +405,8 @@ impl ServeCommand {
             snapshotter,
             certificate_verifier,
             genesis_verifier,
+            signer_registerer: signer_registerer.clone(),
+            signer_registration_round_opener: signer_registerer.clone(),
         };
         let dependency_manager = Arc::new(dependency_manager);
 

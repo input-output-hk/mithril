@@ -12,12 +12,12 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-use crate::configuration::*;
 use crate::multi_signer::MultiSigner;
 use crate::snapshot_stores::SnapshotStore;
 use crate::snapshot_uploaders::SnapshotUploader;
 use crate::{
-    CertificatePendingStore, CertificateStore, ProtocolParametersStore, ProtocolParametersStorer,
+    configuration::*, CertificatePendingStore, CertificateStore, ProtocolParametersStore,
+    ProtocolParametersStorer, SignerRegisterer, SignerRegistrationRoundOpener,
     SingleSignatureStore, Snapshotter, VerificationKeyStore, VerificationKeyStorer,
 };
 
@@ -76,6 +76,12 @@ pub struct DependencyManager {
 
     /// Genesis signature verifier service.
     pub genesis_verifier: Arc<ProtocolGenesisVerifier>,
+
+    /// Signer registerer service
+    pub signer_registerer: Arc<dyn SignerRegisterer>,
+
+    /// Signer registration round opener service
+    pub signer_registration_round_opener: Arc<dyn SignerRegistrationRoundOpener>,
 }
 
 #[doc(hidden)]
@@ -248,8 +254,8 @@ pub mod tests {
     use crate::{
         AggregatorConfig, CertificatePendingStore, CertificateStore, Configuration,
         DependencyManager, DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore,
-        MultiSignerImpl, ProtocolParametersStore, SingleSignatureStore, SnapshotStoreType,
-        SnapshotUploaderType, VerificationKeyStore,
+        MithrilSignerRegisterer, MultiSignerImpl, ProtocolParametersStore, SingleSignatureStore,
+        SnapshotStoreType, SnapshotUploaderType, VerificationKeyStore,
     };
     use mithril_common::certificate_chain::MithrilCertificateVerifier;
     use mithril_common::crypto_helper::{key_encode_hex, ProtocolGenesisSigner};
@@ -314,13 +320,11 @@ pub mod tests {
             Box::new(MemoryAdapter::new(None).unwrap()),
             None,
         ));
-        let chain_observer = Arc::new(FakeObserver::default());
         let multi_signer = MultiSignerImpl::new(
             verification_key_store.clone(),
             stake_store.clone(),
             single_signature_store.clone(),
             protocol_parameters_store.clone(),
-            chain_observer,
         );
         let multi_signer = Arc::new(RwLock::new(multi_signer));
         let immutable_file_observer = Arc::new(DumbImmutableFileObserver::default());
@@ -331,6 +335,11 @@ pub mod tests {
             CardanoNetwork::TestNet(42),
         ));
         let certificate_verifier = Arc::new(MithrilCertificateVerifier::new(slog_scope::logger()));
+        let signer_registerer = Arc::new(MithrilSignerRegisterer::new(
+            chain_observer.clone(),
+            verification_key_store.clone(),
+        ));
+
         let dependency_manager = DependencyManager {
             config,
             snapshot_store,
@@ -349,6 +358,8 @@ pub mod tests {
             snapshotter: Arc::new(DumbSnapshotter::new()),
             certificate_verifier,
             genesis_verifier,
+            signer_registerer: signer_registerer.clone(),
+            signer_registration_round_opener: signer_registerer,
         };
 
         let config = AggregatorConfig::new(
