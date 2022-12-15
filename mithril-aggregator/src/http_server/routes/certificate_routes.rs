@@ -5,7 +5,7 @@ use warp::Filter;
 
 pub fn routes(
     dependency_manager: Arc<DependencyManager>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     certificate_pending(dependency_manager.clone())
         .or(certificate_certificate_hash(dependency_manager))
 }
@@ -13,7 +13,7 @@ pub fn routes(
 /// GET /certificate-pending
 fn certificate_pending(
     dependency_manager: Arc<DependencyManager>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("certificate-pending")
         .and(warp::get())
         .and(middlewares::with_certificate_pending_store(
@@ -25,7 +25,7 @@ fn certificate_pending(
 /// GET /certificate/{certificate_hash}
 fn certificate_certificate_hash(
     dependency_manager: Arc<DependencyManager>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("certificate" / String)
         .and(warp::get())
         .and(middlewares::with_certificate_store(dependency_manager))
@@ -95,7 +95,7 @@ mod tests {
 
     fn setup_router(
         dependency_manager: Arc<DependencyManager>,
-    ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
         let cors = warp::cors()
             .allow_any_origin()
             .allow_headers(vec!["content-type"])

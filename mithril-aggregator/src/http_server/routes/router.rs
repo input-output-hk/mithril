@@ -14,7 +14,7 @@ use warp::Filter;
 /// Routes
 pub fn routes(
     dependency_manager: Arc<DependencyManager>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     let cors = warp::cors()
         .allow_any_origin()
         .allow_headers(vec!["content-type"])

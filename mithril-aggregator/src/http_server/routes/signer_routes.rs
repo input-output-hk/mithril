@@ -5,14 +5,14 @@ use warp::Filter;
 
 pub fn routes(
     dependency_manager: Arc<DependencyManager>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     register_signer(dependency_manager)
 }
 
 /// POST /register-signer
 fn register_signer(
     dependency_manager: Arc<DependencyManager>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("register-signer")
         .and(warp::post())
         .and(warp::body::json())
@@ -80,7 +80,7 @@ mod tests {
 
     fn setup_router(
         dependency_manager: Arc<DependencyManager>,
-    ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
         let cors = warp::cors()
             .allow_any_origin()
             .allow_headers(vec!["content-type"])
