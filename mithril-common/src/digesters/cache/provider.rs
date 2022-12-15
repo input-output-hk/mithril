@@ -63,4 +63,7 @@ pub trait ImmutableFileDigestCacheProvider: Sync + Send {
         &self,
         immutables: Vec<ImmutableFile>,
     ) -> CacheProviderResult<BTreeMap<ImmutableFile, Option<HexEncodedDigest>>>;
+
+    /// Reset the stored values
+    async fn reset(&self) -> CacheProviderResult<()>;
 }

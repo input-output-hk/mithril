@@ -59,6 +59,12 @@ impl ImmutableFileDigestCacheProvider for MemoryImmutableFileDigestCacheProvider
 
         Ok(result)
     }
+
+    async fn reset(&self) -> CacheProviderResult<()> {
+        let mut store = self.store.write().await;
+        store.clear();
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -184,5 +190,38 @@ mod tests {
             .expect("Cache read should not fail");
 
         assert_eq!(expected, result);
+    }
+
+    #[tokio::test]
+    async fn reset_clear_existing_values() {
+        let provider = MemoryImmutableFileDigestCacheProvider::default();
+        let values_to_store = vec![
+            ("0.chunk".to_string(), "digest 0".to_string()),
+            ("1.chunk".to_string(), "digest 1".to_string()),
+        ];
+        let expected: BTreeMap<_, _> = BTreeMap::from([
+            (
+                ImmutableFile::dummy(PathBuf::default(), 0, "0.chunk".to_string()),
+                Some("digest 0".to_string()),
+            ),
+            (
+                ImmutableFile::dummy(PathBuf::default(), 1, "1.chunk".to_string()),
+                Some("digest 1".to_string()),
+            ),
+        ]);
+        let immutables = expected.keys().cloned().collect();
+
+        provider
+            .store(values_to_store)
+            .await
+            .expect("Cache write should not fail");
+        provider.reset().await.expect("reset should not fails");
+
+        let result: BTreeMap<_, _> = provider
+            .get(immutables)
+            .await
+            .expect("Cache read should not fail");
+
+        assert!(result.into_iter().all(|(_, cache)| cache.is_none()));
     }
 }
