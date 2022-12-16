@@ -5,14 +5,14 @@ use warp::Filter;
 
 pub fn routes(
     dependency_manager: Arc<DependencyManager>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     epoch_settings(dependency_manager)
 }
 
 /// GET /epoch-settings
 fn epoch_settings(
     dependency_manager: Arc<DependencyManager>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("epoch-settings")
         .and(warp::get())
         .and(middlewares::with_protocol_parameters_store(
@@ -94,7 +94,7 @@ mod tests {
 
     fn setup_router(
         dependency_manager: Arc<DependencyManager>,
-    ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
         let cors = warp::cors()
             .allow_any_origin()
             .allow_headers(vec!["content-type"])

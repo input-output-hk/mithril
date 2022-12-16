@@ -903,7 +903,7 @@ mod tests {
                     .map(|(a, stake)| (*a, (stake * adversary_stake) / adversary_sum))
                     .collect();
 
-                let adversaries = adversaries.into_iter().map(|(key, _)| key).collect();
+                let adversaries = adversaries.into_keys().collect();
                 (
                     Just(adversaries),
                     arb_honest_for_adversaries(

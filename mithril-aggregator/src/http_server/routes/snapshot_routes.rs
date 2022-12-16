@@ -5,7 +5,7 @@ use warp::Filter;
 
 pub fn routes(
     dependency_manager: Arc<DependencyManager>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     snapshots(dependency_manager.clone())
         .or(serve_snapshots_dir(dependency_manager.clone()))
         .or(snapshot_download(dependency_manager.clone()))
@@ -15,7 +15,7 @@ pub fn routes(
 /// GET /snapshots
 fn snapshots(
     dependency_manager: Arc<DependencyManager>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("snapshots")
         .and(warp::get())
         .and(middlewares::with_snapshot_store(dependency_manager))
@@ -25,7 +25,7 @@ fn snapshots(
 /// GET /snapshots/{digest}/download
 fn snapshot_download(
     dependency_manager: Arc<DependencyManager>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("snapshot" / String / "download")
         .and(warp::get())
         .and(middlewares::with_config(dependency_manager.clone()))
@@ -35,7 +35,7 @@ fn snapshot_download(
 
 fn serve_snapshots_dir(
     dependency_manager: Arc<DependencyManager>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     let config = dependency_manager.config.clone();
 
     warp::path("snapshot_download")
@@ -47,7 +47,7 @@ fn serve_snapshots_dir(
 /// GET /snapshot/digest
 fn snapshot_digest(
     dependency_manager: Arc<DependencyManager>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("snapshot" / String)
         .and(warp::get())
         .and(middlewares::with_snapshot_store(dependency_manager))
@@ -182,7 +182,7 @@ mod tests {
 
     fn setup_router(
         dependency_manager: Arc<DependencyManager>,
-    ) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
+    ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
         let cors = warp::cors()
             .allow_any_origin()
             .allow_headers(vec!["content-type"])

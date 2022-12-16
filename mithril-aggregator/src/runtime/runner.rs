@@ -549,8 +549,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .get_single_signatures(&working_certificate.beacon)
             .await?
             .unwrap_or_default()
-            .into_iter()
-            .map(|(party_id, _single_signature)| party_id)
+            .into_keys()
             .collect::<Vec<_>>();
         let multi_signature = multisigner.get_multi_signature().await?.ok_or_else(|| {
             RuntimeError::General("no multi signature generated".to_string().into())

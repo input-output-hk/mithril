@@ -564,7 +564,7 @@ impl MultiSigner for MultiSignerImpl {
                         signer.verification_key_signature.to_owned(),
                         signer.operational_certificate.to_owned(),
                         signer.kes_period.to_owned(),
-                        *stake as u64,
+                        *stake,
                     )
                 })
             })
@@ -598,7 +598,7 @@ impl MultiSigner for MultiSignerImpl {
                         signer.verification_key_signature.to_owned(),
                         signer.operational_certificate.to_owned(),
                         signer.kes_period.to_owned(),
-                        *stake as u64,
+                        *stake,
                     )
                 })
             })
@@ -851,7 +851,7 @@ mod tests {
 
         offset_epoch(
             &mut multi_signer,
-            (SIGNER_EPOCH_RECORDING_OFFSET - SIGNER_EPOCH_RETRIEVAL_OFFSET) as i64,
+            SIGNER_EPOCH_RECORDING_OFFSET - SIGNER_EPOCH_RETRIEVAL_OFFSET,
         )
         .await;
 
@@ -887,7 +887,7 @@ mod tests {
 
         offset_epoch(
             &mut multi_signer,
-            (SIGNER_EPOCH_RECORDING_OFFSET - SIGNER_EPOCH_RETRIEVAL_OFFSET) as i64,
+            SIGNER_EPOCH_RECORDING_OFFSET - SIGNER_EPOCH_RETRIEVAL_OFFSET,
         )
         .await;
 
@@ -952,7 +952,7 @@ mod tests {
 
         offset_epoch(
             &mut multi_signer,
-            (SIGNER_EPOCH_RECORDING_OFFSET - SIGNER_EPOCH_RETRIEVAL_OFFSET) as i64,
+            SIGNER_EPOCH_RECORDING_OFFSET - SIGNER_EPOCH_RETRIEVAL_OFFSET,
         )
         .await;
         // We have to update the current message AFTER we reached the epoch for

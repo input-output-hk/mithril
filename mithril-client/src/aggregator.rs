@@ -443,7 +443,7 @@ mod tests {
         let location = server.url(url_path);
         let local_file_path = aggregator_client.download_snapshot(digest, &location).await;
         local_file_path.as_ref().expect("unexpected error");
-        let data_downloaded = fs::read_to_string(&local_file_path.unwrap()).unwrap();
+        let data_downloaded = fs::read_to_string(local_file_path.unwrap()).unwrap();
 
         assert_eq!(data_downloaded, data_expected);
     }

@@ -296,7 +296,7 @@ pub fn setup_certificate_chain(
                             fake_certificate.signed_message.as_bytes(),
                         )
                         .unwrap();
-                    fake_certificate.multi_signature = key_encode_hex(&multi_signature).unwrap();
+                    fake_certificate.multi_signature = key_encode_hex(multi_signature).unwrap();
                     fake_certificate.genesis_signature = "".to_string()
                 }
             }

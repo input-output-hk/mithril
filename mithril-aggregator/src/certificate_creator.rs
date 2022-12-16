@@ -51,7 +51,7 @@ impl CertificateCreator for MithrilCertificateCreator {
             signers,
         );
         let multi_signature =
-            key_encode_hex(&multi_signature).map_err(CertificateCreationError::Codec)?;
+            key_encode_hex(multi_signature).map_err(CertificateCreationError::Codec)?;
         let genesis_signature = "".to_string();
 
         Ok(entities::Certificate::new(
