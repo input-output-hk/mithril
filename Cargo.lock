@@ -688,6 +688,7 @@ dependencies = [
  "ciborium",
  "clap 3.2.23",
  "criterion-plot",
+ "futures",
  "itertools",
  "lazy_static",
  "num-traits",
@@ -699,6 +700,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "tinytemplate",
+ "tokio",
  "walkdir",
 ]
 
@@ -2063,6 +2065,7 @@ dependencies = [
  "bech32",
  "blake2 0.10.5",
  "chrono",
+ "criterion",
  "digest 0.10.6",
  "ed25519-dalek",
  "fixed",

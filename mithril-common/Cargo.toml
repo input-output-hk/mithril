@@ -11,6 +11,10 @@ repository = { workspace = true }
 [lib]
 crate-type = ["lib", "cdylib", "staticlib"]
 
+[[bench]]
+name = "digester"
+harness = false
+
 [dependencies]
 async-trait = "0.1.52"
 bech32 = "0.9.1"
@@ -53,6 +57,7 @@ mithril-stm = { path = "../mithril-stm" }
 mithril-stm = { path = "../mithril-stm", default-features = false, features = ["num-integer-backend"] }
 
 [dev-dependencies]
+criterion   = { version = "0.4.0", features = ["html_reports", "async_tokio"] }
 slog-async = "2.7.0"
 slog-scope = "4.4.0"
 slog-term = "2.9.0"
