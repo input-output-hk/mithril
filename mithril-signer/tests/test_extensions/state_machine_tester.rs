@@ -69,6 +69,8 @@ impl StateMachineTester {
             operational_certificate_path: selected_signer_temp_dir
                 .as_ref()
                 .map(|dir| dir.join("opcert.cert")),
+            disable_digests_cache: false,
+            reset_digests_cache: false,
         };
 
         let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);

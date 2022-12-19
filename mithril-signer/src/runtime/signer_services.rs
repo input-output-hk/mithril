@@ -1,7 +1,13 @@
-use std::error::Error as StdError;
-use std::fs;
-use std::sync::Arc;
+use async_trait::async_trait;
+use std::{
+    error::{Error as StdError, Error},
+    fs,
+    sync::Arc,
+};
 
+use mithril_common::digesters::cache::{
+    ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder,
+};
 use mithril_common::{
     chain_observer::{CardanoCliChainObserver, CardanoCliRunner, ChainObserver},
     crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
@@ -26,9 +32,10 @@ type ProtocolInitializerStoreService = Arc<dyn ProtocolInitializerStorer>;
 
 /// The ServiceBuilder is intended to manage Services instance creation.
 /// The goal of this is to put all this code out of the way of business code.
+#[async_trait]
 pub trait ServiceBuilder {
     /// Create a SignerService instance.
-    fn build(&self) -> Result<SignerServices, Box<dyn StdError>>;
+    async fn build(&self) -> Result<SignerServices, Box<dyn StdError>>;
 }
 
 /// Create a SignerService instance for Production environment.
@@ -62,11 +69,30 @@ impl<'a> ProductionServiceBuilder<'a> {
                 .ok_or("A party_id should at least be provided")?),
         }
     }
+
+    async fn build_digester_cache_provider(
+        &self,
+    ) -> Result<Option<Arc<dyn ImmutableFileDigestCacheProvider>>, Box<dyn Error>> {
+        if self.config.disable_digests_cache {
+            return Ok(None);
+        }
+
+        let cache_provider = JsonImmutableFileDigestCacheProviderBuilder::new(
+            &self.config.data_stores_directory,
+            &format!("immutables_digests_{}.json", self.config.network),
+        )
+        .should_reset_digests_cache(self.config.reset_digests_cache)
+        .build()
+        .await?;
+
+        Ok(Some(Arc::new(cache_provider)))
+    }
 }
 
+#[async_trait]
 impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
     /// Build a Services for the Production environment.
-    fn build(&self) -> Result<SignerServices, Box<dyn StdError>> {
+    async fn build(&self) -> Result<SignerServices, Box<dyn StdError>> {
         if !self.config.data_stores_directory.exists() {
             fs::create_dir_all(self.config.data_stores_directory.clone())
                 .map_err(|e| format!("Could not create data stores directory: {:?}", e))?;
@@ -86,6 +112,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         ));
         let digester = Arc::new(CardanoImmutableDigester::new(
             self.config.db_directory.clone(),
+            self.build_digester_cache_provider().await?,
             slog_scope::logger(),
         ));
         let stake_store = Arc::new(StakeStore::new(
@@ -162,8 +189,8 @@ mod tests {
         test_dir
     }
 
-    #[test]
-    fn test_auto_create_stores_directory() {
+    #[tokio::test]
+    async fn test_auto_create_stores_directory() {
         let stores_dir = get_test_dir().join("stores");
         let config = Config {
             cardano_cli_path: PathBuf::new(),
@@ -178,12 +205,15 @@ mod tests {
             store_retention_limit: None,
             kes_secret_key_path: None,
             operational_certificate_path: None,
+            disable_digests_cache: false,
+            reset_digests_cache: false,
         };
 
         assert!(!stores_dir.exists());
         let service_builder = ProductionServiceBuilder::new(&config);
         service_builder
             .build()
+            .await
             .expect("service builder build should not fail");
         assert!(stores_dir.exists());
     }

@@ -11,11 +11,16 @@ repository = { workspace = true }
 [lib]
 crate-type = ["lib", "cdylib", "staticlib"]
 
+[[bench]]
+name = "digester"
+harness = false
+
 [dependencies]
 async-trait = "0.1.52"
 bech32 = "0.9.1"
 blake2 = "0.10.4"
 chrono = "0.4"
+digest = "0.10.6"
 ed25519-dalek = { version = "1.0.1", features = ["serde"] }
 fixed = "1.15.0"
 glob = "0.3"
@@ -36,6 +41,7 @@ serde_json = "1.0"
 serde_yaml = "0.9.10"
 sha2 = "0.10.2"
 slog = { version = "2.7.0", features = ["max_level_trace", "release_max_level_debug"] }
+slog-scope = "4.4.0"
 sqlite = "0.28"
 thiserror = "1.0.31"
 tokio = { version = "1.17.0", features = ["full"] }
@@ -51,7 +57,10 @@ mithril-stm = { path = "../mithril-stm" }
 mithril-stm = { path = "../mithril-stm", default-features = false, features = ["num-integer-backend"] }
 
 [dev-dependencies]
+criterion   = { version = "0.4.0", features = ["html_reports", "async_tokio"] }
+slog-async = "2.7.0"
 slog-scope = "4.4.0"
+slog-term = "2.9.0"
 
 [features]
 default = ["allow_skip_signer_certification"]

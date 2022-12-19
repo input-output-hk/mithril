@@ -321,7 +321,7 @@ mod tests {
 
     use mithril_common::fake_data;
 
-    use crate::entities::Config;
+    use crate::configuration::Config;
 
     fn setup_test() -> (MockServer, Config) {
         let server = MockServer::start();
@@ -338,6 +338,8 @@ mod tests {
             store_retention_limit: None,
             kes_secret_key_path: None,
             operational_certificate_path: None,
+            disable_digests_cache: false,
+            reset_digests_cache: false,
         };
         (server, config)
     }

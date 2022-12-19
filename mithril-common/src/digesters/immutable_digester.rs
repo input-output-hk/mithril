@@ -1,5 +1,7 @@
-use crate::digesters::ImmutableFileListingError;
-use crate::entities::{Beacon, ImmutableFileNumber};
+use crate::{
+    digesters::ImmutableFileListingError,
+    entities::{Beacon, ImmutableFileNumber},
+};
 use async_trait::async_trait;
 use std::io;
 use thiserror::Error;

@@ -42,7 +42,12 @@ impl Client {
                 vec!["download".to_string(), digest]
             }
             ClientCommand::Restore { digest } => {
-                vec!["restore".to_string(), digest]
+                vec![
+                    "restore".to_string(),
+                    // Disable immutable digests cache as they will changes between two e2e executions
+                    "--disable-digests-cache".to_string(),
+                    digest,
+                ]
             }
         };
 

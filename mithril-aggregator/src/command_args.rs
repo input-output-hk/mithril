@@ -2,19 +2,18 @@ use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use slog::Level;
 use slog_scope::debug;
-use std::error::Error;
-use std::fs;
-use std::path::PathBuf;
-use std::sync::Arc;
-use tokio::sync::RwLock;
-use tokio::time::Duration;
+use std::{error::Error, fs, path::PathBuf, sync::Arc};
+use tokio::{sync::RwLock, time::Duration};
 
 use mithril_common::{
     certificate_chain::MithrilCertificateVerifier,
     chain_observer::{CardanoCliRunner, ChainObserver},
     crypto_helper::{key_decode_hex, ProtocolGenesisSigner, ProtocolGenesisVerifier},
     database::{ApplicationNodeType, DatabaseVersionChecker},
-    digesters::{CardanoImmutableDigester, ImmutableFileSystemObserver},
+    digesters::{
+        cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder},
+        CardanoImmutableDigester, ImmutableFileSystemObserver,
+    },
     entities::{Epoch, HexEncodedGenesisSecretKey},
     store::{adapter::SQLiteAdapter, StakeStore},
     BeaconProviderImpl,
@@ -254,6 +253,16 @@ pub struct ServeCommand {
     /// Defaults to work folder
     #[clap(long)]
     pub snapshot_directory: Option<PathBuf>,
+
+    /// Disable immutables digests cache.
+    #[clap(long)]
+    disable_digests_cache: bool,
+
+    /// If set the existing immutables digests cache will be reset.
+    ///
+    /// Will be ignored if set in conjunction with `--disable-digests-cache`.
+    #[clap(long)]
+    reset_digests_cache: bool,
 }
 
 impl Source for ServeCommand {
@@ -357,6 +366,7 @@ impl ServeCommand {
         ));
         let digester = Arc::new(CardanoImmutableDigester::new(
             config.db_directory.clone(),
+            self.build_digester_cache_provider(&config).await?,
             slog_scope::logger(),
         ));
         let multi_signer = Arc::new(RwLock::new(MultiSignerImpl::new(
@@ -452,6 +462,24 @@ impl ServeCommand {
 
         println!("Exiting...");
         Ok(())
+    }
+
+    async fn build_digester_cache_provider(
+        &self,
+        config: &Configuration,
+    ) -> Result<Option<Arc<dyn ImmutableFileDigestCacheProvider>>, Box<dyn Error>> {
+        if self.disable_digests_cache {
+            return Ok(None);
+        }
+        let cache_provider = JsonImmutableFileDigestCacheProviderBuilder::new(
+            &config.data_stores_directory,
+            &format!("immutables_digests_{}.json", config.network),
+        )
+        .should_reset_digests_cache(self.reset_digests_cache)
+        .build()
+        .await?;
+
+        Ok(Some(Arc::new(cache_provider)))
     }
 }
 

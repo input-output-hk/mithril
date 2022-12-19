@@ -47,6 +47,14 @@ pub struct Config {
 
     /// File path to the operational certificate of the pool
     pub operational_certificate_path: Option<PathBuf>,
+
+    /// Disable immutables digests cache.
+    pub disable_digests_cache: bool,
+
+    /// If set the existing immutables digests cache will be reset.
+    ///
+    /// Will be ignored if set in conjunction with `disable_digests_cache`.
+    pub reset_digests_cache: bool,
 }
 
 impl Config {

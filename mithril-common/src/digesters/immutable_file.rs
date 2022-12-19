@@ -1,10 +1,14 @@
-use crate::entities::ImmutableFileNumber;
-use std::cmp::Ordering;
+use crate::entities::{ImmutableFileName, ImmutableFileNumber};
 
-use std::ffi::OsStr;
-use std::io;
-use std::num::ParseIntError;
-use std::path::{Path, PathBuf};
+use digest::{Digest, Output};
+use std::{
+    cmp::Ordering,
+    ffi::OsStr,
+    fs::File,
+    io,
+    num::ParseIntError,
+    path::{Path, PathBuf},
+};
 use thiserror::Error;
 use walkdir::WalkDir;
 
@@ -14,13 +18,16 @@ fn is_immutable(path: &Path) -> bool {
 }
 
 /// Represent an immutable file in a Cardano node database directory
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct ImmutableFile {
     /// The path to the immutable file
     pub path: PathBuf,
 
     /// The immutable file number
     pub number: ImmutableFileNumber,
+
+    /// The filename
+    pub filename: ImmutableFileName,
 }
 
 /// [ImmutableFile::new] related errors.
@@ -59,19 +66,47 @@ pub enum ImmutableFileListingError {
 
 impl ImmutableFile {
     /// ImmutableFile factory
-    pub fn new(path: PathBuf) -> Result<Self, ImmutableFileCreationError> {
+    pub fn new(path: PathBuf) -> Result<ImmutableFile, ImmutableFileCreationError> {
         let filename = path
+            .file_name()
+            .ok_or(ImmutableFileCreationError::FileNameExtraction { path: path.clone() })?
+            .to_str()
+            .ok_or(ImmutableFileCreationError::FileNameExtraction { path: path.clone() })?
+            .to_string();
+
+        let filestem = path
             .file_stem()
-            .ok_or(ImmutableFileCreationError::FileStemExtraction { path: path.clone() })?;
-        let filename = filename
+            .ok_or(ImmutableFileCreationError::FileStemExtraction { path: path.clone() })?
             .to_str()
             .ok_or(ImmutableFileCreationError::FileNameExtraction { path: path.clone() })?;
-        let immutable_file_number = filename.parse::<ImmutableFileNumber>()?;
+        let immutable_file_number = filestem.parse::<ImmutableFileNumber>()?;
 
         Ok(Self {
             path,
             number: immutable_file_number,
+            filename,
         })
+    }
+
+    /// ImmutableFile factory, TEST ONLY as it bypass the checks done by [ImmutableFile::new].
+    #[cfg(test)]
+    pub(crate) fn dummy(path: PathBuf, number: ImmutableFileNumber, filename: String) -> Self {
+        Self {
+            path,
+            number,
+            filename,
+        }
+    }
+
+    /// Compute the hash of this immutable file.
+    pub fn compute_raw_hash<D: Digest>(&self) -> Result<Output<D>, io::Error>
+    where
+        D: io::Write,
+    {
+        let mut hasher = D::new();
+        let mut file = File::open(&self.path)?;
+        io::copy(&mut file, &mut hasher)?;
+        Ok(hasher.finalize())
     }
 
     /// List all [`ImmutableFile`] in a given directory.
@@ -96,6 +131,7 @@ impl ImmutableFile {
         }
         files.sort();
 
+        // @todo: make the skip of the last 'trio' more robust
         Ok(files.into_iter().rev().skip(3).rev().collect())
     }
 }

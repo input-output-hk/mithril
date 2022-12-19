@@ -37,6 +37,16 @@ pub struct Args {
         help = "Directory where the configuration file is located"
     )]
     configuration_dir: PathBuf,
+
+    /// Disable immutables digests cache.
+    #[clap(long)]
+    disable_digests_cache: bool,
+
+    /// If set the existing immutables digests cache will be reset.
+    ///
+    /// Will be ignored if set in conjunction with `--disable-digests-cache`.
+    #[clap(long)]
+    reset_digests_cache: bool,
 }
 
 impl Args {
@@ -69,6 +79,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Load config
     let config: Config = config::Config::builder()
+        .set_default("disable_digests_cache", args.disable_digests_cache)?
+        .set_default("reset_digests_cache", args.reset_digests_cache)?
         .add_source(
             config::File::with_name(&format!(
                 "{}/{}.json",
@@ -82,7 +94,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .map_err(|e| format!("configuration build error: {}", e))?
         .try_deserialize()
         .map_err(|e| format!("configuration deserialize error: {}", e))?;
-    let services = ProductionServiceBuilder::new(&config).build()?;
+    let services = ProductionServiceBuilder::new(&config).build().await?;
     DatabaseVersionChecker::new(
         slog_scope::logger(),
         ApplicationNodeType::Signer,
