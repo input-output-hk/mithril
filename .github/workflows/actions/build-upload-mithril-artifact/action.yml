@@ -4,7 +4,7 @@ inputs:
   build-args:
     description: Arguments to pass to 'cargo build'
     required: false
-    default: ''
+    default: '-p mithril-aggregator -p mithril-client -p mithril-common -p mithril-signer -p mithril-stm'
 runs:
   using: "composite"
   steps:
@@ -14,10 +14,10 @@ runs:
         pip3 install toml
         python3 ./.github/workflows/scripts/edit-cargo-toml-version.py -l $(echo ${{ github.sha }} | cut -c1-7)
 
-    - name: Cargo build
+    - name: Cargo build - Distribution
       shell: bash
       run: cargo build --release ${{ inputs.build-args }}
-
+        
     - name: Publish Mithril Distribution (${{ runner.os }}-${{ runner.arch }})
       uses: actions/upload-artifact@v3
       with:
