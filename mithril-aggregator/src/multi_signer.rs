@@ -726,8 +726,9 @@ mod tests {
         ProtocolParametersStore,
     };
     use mithril_common::{
-        crypto_helper::tests_setup::*, fake_data, store::adapter::MemoryAdapter, store::StakeStore,
-        SIGNER_EPOCH_RECORDING_OFFSET, SIGNER_EPOCH_RETRIEVAL_OFFSET,
+        crypto_helper::tests_setup::*,
+        fake_data,
+        store::{adapter::MemoryAdapter, StakeStore},
     };
     use std::{collections::HashMap, sync::Arc};
 
@@ -843,7 +844,7 @@ mod tests {
 
         offset_epoch(
             &mut multi_signer,
-            SIGNER_EPOCH_RECORDING_OFFSET - SIGNER_EPOCH_RETRIEVAL_OFFSET,
+            Epoch::SIGNER_RECORDING_OFFSET as i64 - Epoch::SIGNER_RETRIEVAL_OFFSET,
         )
         .await;
 
@@ -879,7 +880,7 @@ mod tests {
 
         offset_epoch(
             &mut multi_signer,
-            SIGNER_EPOCH_RECORDING_OFFSET - SIGNER_EPOCH_RETRIEVAL_OFFSET,
+            Epoch::SIGNER_RECORDING_OFFSET as i64 - Epoch::SIGNER_RETRIEVAL_OFFSET,
         )
         .await;
 
@@ -944,7 +945,7 @@ mod tests {
 
         offset_epoch(
             &mut multi_signer,
-            SIGNER_EPOCH_RECORDING_OFFSET - SIGNER_EPOCH_RETRIEVAL_OFFSET,
+            Epoch::SIGNER_RECORDING_OFFSET as i64 - Epoch::SIGNER_RETRIEVAL_OFFSET,
         )
         .await;
         // We have to update the current message AFTER we reached the epoch for

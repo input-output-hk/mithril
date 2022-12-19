@@ -1,7 +1,3 @@
-use crate::{
-    NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET, SIGNER_EPOCH_RECORDING_OFFSET,
-    SIGNER_EPOCH_RETRIEVAL_OFFSET,
-};
 use serde::{Deserialize, Serialize};
 use std::{
     fmt::{Display, Formatter},
@@ -16,9 +12,19 @@ use thiserror::Error;
 pub struct Epoch(pub u64);
 
 impl Epoch {
+    /// The epoch offset used for signers stake distribution and verification keys retrieval.
+    pub const SIGNER_RETRIEVAL_OFFSET: i64 = -1;
+
+    /// The epoch offset used to retrieve the signers stake distribution and verification keys that's
+    /// currently being signed so it can be used in the next epoch.
+    pub const NEXT_SIGNER_RETRIEVAL_OFFSET: u64 = 0;
+
+    /// The epoch offset used for signers stake distribution and verification keys recording.
+    pub const SIGNER_RECORDING_OFFSET: u64 = 1;
+
     /// Computes a new Epoch by applying an epoch offset.
     ///
-    /// Will fails if the computed epoch is negative.
+    /// Will fail if the computed epoch is negative.
     pub fn offset_by(&self, epoch_offset: i64) -> Result<Self, EpochError> {
         let epoch_new = self.0 as i64 + epoch_offset;
         if epoch_new < 0 {
@@ -27,19 +33,19 @@ impl Epoch {
         Ok(Epoch(epoch_new as u64))
     }
 
-    /// Apply the [SIGNER_EPOCH_RETRIEVAL_OFFSET] to this epoch
+    /// Apply the [Self::SIGNER_EPOCH_RETRIEVAL_OFFSET] to this epoch
     pub fn offset_to_signer_retrieval_epoch(&self) -> Result<Self, EpochError> {
-        self.offset_by(SIGNER_EPOCH_RETRIEVAL_OFFSET)
+        self.offset_by(Self::SIGNER_RETRIEVAL_OFFSET)
     }
 
-    /// Apply the [NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET] to this epoch
+    /// Apply the [Self::NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET] to this epoch
     pub fn offset_to_next_signer_retrieval_epoch(&self) -> Self {
-        *self + NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET
+        *self + Self::NEXT_SIGNER_RETRIEVAL_OFFSET
     }
 
-    /// Apply the [SIGNER_EPOCH_RECORDING_OFFSET] to this epoch
+    /// Apply the [Self::SIGNER_EPOCH_RECORDING_OFFSET] to this epoch
     pub fn offset_to_recording_epoch(&self) -> Self {
-        *self + SIGNER_EPOCH_RECORDING_OFFSET
+        *self + Self::SIGNER_RECORDING_OFFSET
     }
 }
 
@@ -59,22 +65,6 @@ impl Add<u64> for Epoch {
     }
 }
 
-impl Add<i32> for Epoch {
-    type Output = Self;
-
-    fn add(self, rhs: i32) -> Self::Output {
-        Self(self.0 + rhs as u64)
-    }
-}
-
-impl Add<i64> for Epoch {
-    type Output = Self;
-
-    fn add(self, rhs: i64) -> Self::Output {
-        Self(self.0 + rhs as u64)
-    }
-}
-
 impl AddAssign for Epoch {
     fn add_assign(&mut self, rhs: Self) {
         *self = self.add(rhs);
@@ -83,18 +73,6 @@ impl AddAssign for Epoch {
 
 impl AddAssign<u64> for Epoch {
     fn add_assign(&mut self, rhs: u64) {
-        *self = self.add(rhs);
-    }
-}
-
-impl AddAssign<i32> for Epoch {
-    fn add_assign(&mut self, rhs: i32) {
-        *self = self.add(rhs);
-    }
-}
-
-impl AddAssign<i64> for Epoch {
-    fn add_assign(&mut self, rhs: i64) {
         *self = self.add(rhs);
     }
 }
@@ -115,22 +93,6 @@ impl Sub<u64> for Epoch {
     }
 }
 
-impl Sub<i32> for Epoch {
-    type Output = Self;
-
-    fn sub(self, rhs: i32) -> Self::Output {
-        Self(self.0 - rhs as u64)
-    }
-}
-
-impl Sub<i64> for Epoch {
-    type Output = Self;
-
-    fn sub(self, rhs: i64) -> Self::Output {
-        Self(self.0 - rhs as u64)
-    }
-}
-
 impl SubAssign for Epoch {
     fn sub_assign(&mut self, rhs: Self) {
         *self = self.sub(rhs);
@@ -139,18 +101,6 @@ impl SubAssign for Epoch {
 
 impl SubAssign<u64> for Epoch {
     fn sub_assign(&mut self, rhs: u64) {
-        *self = self.sub(rhs);
-    }
-}
-
-impl SubAssign<i32> for Epoch {
-    fn sub_assign(&mut self, rhs: i32) {
-        *self = self.sub(rhs);
-    }
-}
-
-impl SubAssign<i64> for Epoch {
-    fn sub_assign(&mut self, rhs: i64) {
         *self = self.sub(rhs);
     }
 }
@@ -189,8 +139,6 @@ mod tests {
     fn test_add() {
         assert_eq!(Epoch(4), Epoch(1) + Epoch(3));
         assert_eq!(Epoch(4), Epoch(1) + 3_u64);
-        assert_eq!(Epoch(4), Epoch(1) + 3_i32);
-        assert_eq!(Epoch(4), Epoch(1) + 3_i64);
 
         let mut epoch = Epoch(1);
         epoch += Epoch(3);
@@ -199,22 +147,12 @@ mod tests {
         let mut epoch = Epoch(1);
         epoch += 3_u64;
         assert_eq!(Epoch(4), epoch);
-
-        let mut epoch = Epoch(1);
-        epoch += 3_i32;
-        assert_eq!(Epoch(4), epoch);
-
-        let mut epoch = Epoch(1);
-        epoch += 3_i64;
-        assert_eq!(Epoch(4), epoch);
     }
 
     #[test]
     fn test_sub() {
         assert_eq!(Epoch(8), Epoch(14) - Epoch(6));
         assert_eq!(Epoch(8), Epoch(14) - 6_u64);
-        assert_eq!(Epoch(8), Epoch(14) - 6_i32);
-        assert_eq!(Epoch(8), Epoch(14) - 6_i64);
 
         let mut epoch = Epoch(14);
         epoch -= Epoch(6);
@@ -222,14 +160,6 @@ mod tests {
 
         let mut epoch = Epoch(14);
         epoch -= 6_u64;
-        assert_eq!(Epoch(8), epoch);
-
-        let mut epoch = Epoch(14);
-        epoch -= 6_i32;
-        assert_eq!(Epoch(8), epoch);
-
-        let mut epoch = Epoch(14);
-        epoch -= 6_i64;
         assert_eq!(Epoch(8), epoch);
     }
 }
