@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use reqwest::{self, Client, RequestBuilder, StatusCode};
+use reqwest::{self, Client, RequestBuilder, Response, StatusCode};
 use slog_scope::debug;
 use std::io;
 use thiserror::Error;
@@ -35,6 +35,18 @@ pub enum CertificateHandlerError {
     /// Mostly network errors.
     #[error("io error: {0}")]
     IOError(#[from] io::Error),
+
+    /// Incompatible API version error
+    #[error("HTTP API version mismatch: {0}")]
+    ApiVersionMismatch(String),
+}
+
+#[cfg(test)]
+/// convenient methods to error enum
+impl CertificateHandlerError {
+    pub fn is_api_version_mismatch(&self) -> bool {
+        matches!(self, Self::ApiVersionMismatch(_))
+    }
 }
 
 /// Trait for mocking and testing a `CertificateHandler`
@@ -79,6 +91,22 @@ impl CertificateHandlerHTTPClient {
     pub fn prepare_request_builder(&self, request_builder: RequestBuilder) -> RequestBuilder {
         request_builder.header("API_VERSION", MITHRIL_API_VERSION)
     }
+
+    /// API version error handling
+    fn handle_api_error(&self, response: &Response) -> CertificateHandlerError {
+        if let Some(version) = response.headers().get("mithril-api-version") {
+            CertificateHandlerError::ApiVersionMismatch(format!(
+                "server version: '{}', signer version: '{}'",
+                version.to_str().unwrap(),
+                MITHRIL_API_VERSION
+            ))
+        } else {
+            CertificateHandlerError::ApiVersionMismatch(format!(
+                "version precondition failed, sent version '{}'.",
+                MITHRIL_API_VERSION
+            ))
+        }
+    }
 }
 
 #[async_trait]
@@ -99,6 +127,7 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
                     Ok(epoch_settings) => Ok(Some(epoch_settings)),
                     Err(err) => Err(CertificateHandlerError::JsonParseFailed(err.to_string())),
                 },
+                StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
                 _ => Err(CertificateHandlerError::RemoteServerTechnical(
                     response.text().await.unwrap_or_default(),
                 )),
@@ -125,6 +154,7 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
                     Ok(pending_certificate) => Ok(Some(pending_certificate)),
                     Err(err) => Err(CertificateHandlerError::JsonParseFailed(err.to_string())),
                 },
+                StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
                 StatusCode::NO_CONTENT => Ok(None),
                 _ => Err(CertificateHandlerError::RemoteServerTechnical(
                     response.text().await.unwrap_or_default(),
@@ -148,6 +178,7 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
         match response {
             Ok(response) => match response.status() {
                 StatusCode::CREATED => Ok(()),
+                StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
                 StatusCode::BAD_REQUEST => Err(CertificateHandlerError::RemoteServerLogical(
                     format!("bad request: {}", response.text().await.unwrap_or_default()),
                 )),
@@ -176,6 +207,7 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
         match response {
             Ok(response) => match response.status() {
                 StatusCode::CREATED => Ok(()),
+                StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
                 StatusCode::BAD_REQUEST => Err(CertificateHandlerError::RemoteServerLogical(
                     format!("bad request: {}", response.text().await.unwrap_or_default()),
                 )),
@@ -326,6 +358,22 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_epoch_settings_ko_412() {
+        let (server, config) = setup_test();
+        let _snapshots_mock = server.mock(|when, then| {
+            when.path("/epoch-settings");
+            then.status(412).header("mithril-api-version", "0.0.999");
+        });
+        let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
+        let epoch_settings = certificate_handler
+            .retrieve_epoch_settings()
+            .await
+            .unwrap_err();
+
+        assert!(epoch_settings.is_api_version_mismatch());
+    }
+
+    #[tokio::test]
     async fn test_epoch_settings_ko_500() {
         let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
@@ -357,6 +405,22 @@ mod tests {
             pending_certificate_expected,
             pending_certificate.unwrap().unwrap()
         );
+    }
+
+    #[tokio::test]
+    async fn test_certificate_pending_ko_412() {
+        let (server, config) = setup_test();
+        let _snapshots_mock = server.mock(|when, then| {
+            when.path("/certificate-pending");
+            then.status(412).header("mithril-api-version", "0.0.999");
+        });
+        let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
+        let error = certificate_handler
+            .retrieve_pending_certificate()
+            .await
+            .unwrap_err();
+
+        assert!(error.is_api_version_mismatch());
     }
 
     #[tokio::test]
@@ -402,7 +466,25 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signer_ok_400() {
+    async fn test_register_signer_ko_412() {
+        let (server, config) = setup_test();
+        let _snapshots_mock = server.mock(|when, then| {
+            when.method(POST).path("/register-signer");
+            then.status(412).header("mithril-api-version", "0.0.999");
+        });
+        let single_signers = fake_data::signers(1);
+        let single_signer = single_signers.first().unwrap();
+        let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
+        let error = certificate_handler
+            .register_signer(single_signer)
+            .await
+            .unwrap_err();
+
+        assert!(error.is_api_version_mismatch());
+    }
+
+    #[tokio::test]
+    async fn test_register_signer_ko_400() {
         let single_signers = fake_data::signers(1);
         let single_signer = single_signers.first().unwrap();
         let (server, config) = setup_test();
@@ -428,7 +510,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signer_ok_500() {
+    async fn test_register_signer_ko_500() {
         let single_signers = fake_data::signers(1);
         let single_signer = single_signers.first().unwrap();
         let (server, config) = setup_test();
@@ -458,6 +540,23 @@ mod tests {
             .register_signatures(&single_signatures)
             .await;
         register_signatures.expect("unexpected error");
+    }
+
+    #[tokio::test]
+    async fn test_register_signatures_ko_412() {
+        let (server, config) = setup_test();
+        let _snapshots_mock = server.mock(|when, then| {
+            when.method(POST).path("/register-signatures");
+            then.status(412).header("mithril-api-version", "0.0.999");
+        });
+        let single_signatures = fake_data::single_signatures((1..5).collect());
+        let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
+        let error = certificate_handler
+            .register_signatures(&single_signatures)
+            .await
+            .unwrap_err();
+
+        assert!(error.is_api_version_mismatch());
     }
 
     #[tokio::test]

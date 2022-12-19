@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use flate2::read::GzDecoder;
 use futures::StreamExt;
-use reqwest::{self, StatusCode};
+use reqwest::{self, Response, StatusCode};
 use reqwest::{Client, RequestBuilder};
 use slog_scope::debug;
 use std::env;
@@ -48,6 +48,17 @@ pub enum AggregatorHandlerError {
     /// [AggregatorHandler::download_snapshot] beforehand.
     #[error("archive not found, did you download it beforehand ? Expected path: '{0}'")]
     ArchiveNotFound(PathBuf),
+
+    /// Error raised when the server API version mismatch the client API version.
+    #[error("API version mismatch: {0}")]
+    ApiVersionMismatch(String),
+}
+
+#[cfg(test)]
+impl AggregatorHandlerError {
+    pub fn is_api_version_mismatch(&self) -> bool {
+        matches!(self, Self::ApiVersionMismatch(_))
+    }
 }
 
 /// AggregatorHandler represents a read interactor with an aggregator
@@ -128,6 +139,22 @@ impl AggregatorHTTPClient {
             )),
         }
     }
+
+    /// API version error handling
+    fn handle_api_error(&self, response: &Response) -> AggregatorHandlerError {
+        if let Some(version) = response.headers().get("mithril-api-version") {
+            AggregatorHandlerError::ApiVersionMismatch(format!(
+                "server version: '{}', signer version: '{}'",
+                version.to_str().unwrap(),
+                MITHRIL_API_VERSION
+            ))
+        } else {
+            AggregatorHandlerError::ApiVersionMismatch(format!(
+                "version precondition failed, sent version '{}'.",
+                MITHRIL_API_VERSION
+            ))
+        }
+    }
 }
 
 #[async_trait]
@@ -147,6 +174,7 @@ impl AggregatorHandler for AggregatorHTTPClient {
                     Ok(snapshots) => Ok(snapshots),
                     Err(err) => Err(AggregatorHandlerError::JsonParseFailed(err.to_string())),
                 },
+                StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
                 status_error => Err(AggregatorHandlerError::RemoteServerTechnical(
                     status_error.to_string(),
                 )),
@@ -172,6 +200,7 @@ impl AggregatorHandler for AggregatorHTTPClient {
                     Ok(snapshot) => Ok(snapshot),
                     Err(err) => Err(AggregatorHandlerError::JsonParseFailed(err.to_string())),
                 },
+                StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
                 StatusCode::NOT_FOUND => Err(AggregatorHandlerError::RemoteServerLogical(
                     "snapshot not found".to_string(),
                 )),
@@ -226,6 +255,7 @@ impl AggregatorHandler for AggregatorHTTPClient {
                     }
                     Ok(local_path.into_os_string().into_string().unwrap())
                 }
+                StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
                 StatusCode::NOT_FOUND => Err(AggregatorHandlerError::RemoteServerLogical(
                     "snapshot archive not found".to_string(),
                 )),
@@ -353,6 +383,20 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_list_snapshots_ko_412() {
+        let (server, config) = setup_test();
+        let _snapshots_mock = server.mock(|when, then| {
+            when.path("/snapshots");
+            then.status(412).header("mithril-api-version", "0.0.999");
+        });
+        let aggregator_client =
+            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
+        let error = aggregator_client.list_snapshots().await.unwrap_err();
+
+        assert!(error.is_api_version_mismatch());
+    }
+
+    #[tokio::test]
     async fn test_list_snapshots_ko_500() {
         let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
@@ -404,6 +448,24 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_snapshot_details_ko_412() {
+        let (server, config) = setup_test();
+        let digest = "digest123";
+        let _snapshots_mock = server.mock(|when, then| {
+            when.path(format!("/snapshot/{}", digest));
+            then.status(412).header("mithril-api-version", "0.0.999");
+        });
+        let aggregator_client =
+            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
+        let error = aggregator_client
+            .get_snapshot_details(digest)
+            .await
+            .unwrap_err();
+
+        assert!(error.is_api_version_mismatch());
+    }
+
+    #[tokio::test]
     async fn get_snapshot_details_ko_500() {
         let digest = "digest123";
         let (server, config) = setup_test();
@@ -446,6 +508,26 @@ mod tests {
         let data_downloaded = fs::read_to_string(local_file_path.unwrap()).unwrap();
 
         assert_eq!(data_downloaded, data_expected);
+    }
+
+    #[tokio::test]
+    async fn test_download_snapshot_ko_412() {
+        let (server, config) = setup_test();
+        let digest = "digest123";
+        let url_path = "/download";
+        let _snapshots_mock = server.mock(|when, then| {
+            when.path(url_path.to_string());
+            then.status(412).header("mithril-api-version", "0.0.999");
+        });
+        let aggregator_client =
+            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
+        let location = server.url(url_path);
+        let error = aggregator_client
+            .download_snapshot(digest, &location)
+            .await
+            .unwrap_err();
+
+        assert!(error.is_api_version_mismatch());
     }
 
     #[tokio::test]
@@ -500,6 +582,22 @@ mod tests {
             AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
         let local_dir_path = aggregator_client.unpack_snapshot(digest).await;
         assert!(local_dir_path.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_certificate_details_412() {
+        let (server, config) = setup_test();
+        let certificate_hash = "certificate-hash-123";
+        let _snapshots_mock = server.mock(|when, then| {
+            when.path(format!("/certificate/{}", certificate_hash));
+            then.status(412).header("mithril-api-version", "0.0.999");
+        });
+        let aggregator_client =
+            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
+        let _error = aggregator_client
+            .get_certificate_details(certificate_hash)
+            .await
+            .unwrap_err();
     }
 
     #[tokio::test]
