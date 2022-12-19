@@ -3,9 +3,10 @@ use crate::{
     SIGNER_EPOCH_RETRIEVAL_OFFSET,
 };
 use serde::{Deserialize, Serialize};
-use std::fmt::Display;
-use std::fmt::Formatter;
-use std::ops::{Add, AddAssign, Sub, SubAssign};
+use std::{
+    fmt::{Display, Formatter},
+    ops::{Add, AddAssign, Sub, SubAssign},
+};
 use thiserror::Error;
 
 /// Epoch represents a Cardano epoch
@@ -15,7 +16,9 @@ use thiserror::Error;
 pub struct Epoch(pub u64);
 
 impl Epoch {
-    /// Computes a new Epoch by applying an epoch offset
+    /// Computes a new Epoch by applying an epoch offset.
+    ///
+    /// Will fails if the computed epoch is negative.
     pub fn offset_by(&self, epoch_offset: i64) -> Result<Self, EpochError> {
         let epoch_new = self.0 as i64 + epoch_offset;
         if epoch_new < 0 {
@@ -30,13 +33,13 @@ impl Epoch {
     }
 
     /// Apply the [NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET] to this epoch
-    pub fn offset_to_next_signer_retrieval_epoch(&self) -> Result<Self, EpochError> {
-        self.offset_by(NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET)
+    pub fn offset_to_next_signer_retrieval_epoch(&self) -> Self {
+        *self + NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET
     }
 
     /// Apply the [SIGNER_EPOCH_RECORDING_OFFSET] to this epoch
-    pub fn offset_to_recording_epoch(&self) -> Result<Self, EpochError> {
-        self.offset_by(SIGNER_EPOCH_RECORDING_OFFSET)
+    pub fn offset_to_recording_epoch(&self) -> Self {
+        *self + SIGNER_EPOCH_RECORDING_OFFSET
     }
 }
 

@@ -1,27 +1,23 @@
-use std::collections::HashMap;
-use std::sync::Arc;
-
 use async_trait::async_trait;
 use chrono::prelude::*;
 use hex::ToHex;
 use slog_scope::{debug, trace, warn};
+use std::{collections::HashMap, sync::Arc};
 use thiserror::Error;
 
-use mithril_common::crypto_helper::{
-    key_decode_hex, key_encode_hex, ProtocolAggregateVerificationKey, ProtocolAggregationError,
-    ProtocolClerk, ProtocolKeyRegistration, ProtocolMultiSignature, ProtocolParameters,
-    ProtocolPartyId, ProtocolRegistrationError, ProtocolSignerVerificationKey,
-    ProtocolSingleSignature, ProtocolStakeDistribution,
-};
-use mithril_common::entities::{self, SignerWithStake};
-use mithril_common::store::{StakeStore, StakeStorer, StoreError};
 use mithril_common::{
-    NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET, SIGNER_EPOCH_RECORDING_OFFSET,
-    SIGNER_EPOCH_RETRIEVAL_OFFSET,
+    crypto_helper::{
+        key_decode_hex, key_encode_hex, ProtocolAggregateVerificationKey, ProtocolAggregationError,
+        ProtocolClerk, ProtocolKeyRegistration, ProtocolMultiSignature, ProtocolParameters,
+        ProtocolPartyId, ProtocolRegistrationError, ProtocolSignerVerificationKey,
+        ProtocolSingleSignature, ProtocolStakeDistribution,
+    },
+    entities::{self, Epoch, SignerWithStake},
+    store::{StakeStore, StakeStorer, StoreError},
 };
 
-use crate::store::{SingleSignatureStorer, VerificationKeyStorer};
 use crate::{
+    store::{SingleSignatureStorer, VerificationKeyStorer},
     ProtocolParametersStore, ProtocolParametersStorer, SingleSignatureStore, VerificationKeyStore,
 };
 
@@ -191,13 +187,10 @@ pub trait MultiSigner: Sync + Send {
     }
 
     /// Get signers with stake
-    async fn get_signers_with_stake(&self)
-        -> Result<Vec<entities::SignerWithStake>, ProtocolError>;
+    async fn get_signers_with_stake(&self) -> Result<Vec<SignerWithStake>, ProtocolError>;
 
     /// Get signers for the next epoch with their stake
-    async fn get_next_signers_with_stake(
-        &self,
-    ) -> Result<Vec<entities::SignerWithStake>, ProtocolError>;
+    async fn get_next_signers_with_stake(&self) -> Result<Vec<SignerWithStake>, ProtocolError>;
 
     /// Registers a single signature
     async fn register_single_signature(
@@ -322,18 +315,12 @@ impl MultiSignerImpl {
         }
     }
 
-    /// Get stake distribution with epoch offset
-    async fn get_stake_distribution_with_epoch_offset(
+    /// Get the [stake distribution][ProtocolStakeDistribution] for the given `epoch`
+    async fn get_stake_distribution_at_epoch(
         &self,
-        epoch_offset: i64,
+        epoch: Epoch,
     ) -> Result<ProtocolStakeDistribution, ProtocolError> {
-        debug!("Get stake distribution with epoch offset"; "epoch_offset"=>epoch_offset);
-        let epoch = self
-            .current_beacon
-            .as_ref()
-            .ok_or_else(ProtocolError::UnavailableBeacon)?
-            .epoch
-            .offset_by(epoch_offset)?;
+        debug!("Get stake distribution at epoch"; "epoch"=> #?epoch);
 
         let stakes = self
             .stake_store
@@ -343,18 +330,12 @@ impl MultiSignerImpl {
         Ok(stakes.into_iter().collect::<ProtocolStakeDistribution>())
     }
 
-    /// Get protocol parameters with epoch offset
-    async fn get_protocol_parameters_with_epoch_offset(
+    /// Get the [protocol parameters][ProtocolParameters] for the given `epoch`
+    async fn get_protocol_parameters_at_epoch(
         &self,
-        epoch_offset: i64,
+        epoch: Epoch,
     ) -> Result<Option<ProtocolParameters>, ProtocolError> {
-        debug!("Get protocol parameters with epoch offset"; "epoch_offset"=>epoch_offset);
-        let epoch = self
-            .current_beacon
-            .as_ref()
-            .ok_or_else(ProtocolError::UnavailableBeacon)?
-            .epoch
-            .offset_by(epoch_offset)?;
+        debug!("Get protocol parameters at epoch"; "epoch"=> #?epoch);
 
         match self
             .protocol_parameters_store
@@ -431,8 +412,13 @@ impl MultiSigner for MultiSignerImpl {
     /// Get protocol parameters
     async fn get_protocol_parameters(&self) -> Result<Option<ProtocolParameters>, ProtocolError> {
         debug!("Get protocol parameters");
-        self.get_protocol_parameters_with_epoch_offset(SIGNER_EPOCH_RETRIEVAL_OFFSET)
-            .await
+        let epoch = self
+            .current_beacon
+            .as_ref()
+            .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .epoch
+            .offset_to_signer_retrieval_epoch()?;
+        self.get_protocol_parameters_at_epoch(epoch).await
     }
 
     /// Update protocol parameters
@@ -446,7 +432,7 @@ impl MultiSigner for MultiSignerImpl {
             .as_ref()
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
-            .offset_by(SIGNER_EPOCH_RECORDING_OFFSET)?;
+            .offset_to_recording_epoch();
 
         self.protocol_parameters_store
             .save_protocol_parameters(epoch, protocol_parameters.to_owned().into())
@@ -459,15 +445,25 @@ impl MultiSigner for MultiSignerImpl {
         &self,
     ) -> Result<Option<ProtocolParameters>, ProtocolError> {
         debug!("Get next protocol parameters");
-        self.get_protocol_parameters_with_epoch_offset(NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET)
-            .await
+        let epoch = self
+            .current_beacon
+            .as_ref()
+            .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .epoch
+            .offset_to_next_signer_retrieval_epoch();
+        self.get_protocol_parameters_at_epoch(epoch).await
     }
 
     /// Get stake distribution
     async fn get_stake_distribution(&self) -> Result<ProtocolStakeDistribution, ProtocolError> {
         debug!("Get stake distribution");
-        self.get_stake_distribution_with_epoch_offset(SIGNER_EPOCH_RETRIEVAL_OFFSET)
-            .await
+        let epoch = self
+            .current_beacon
+            .as_ref()
+            .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .epoch
+            .offset_to_signer_retrieval_epoch()?;
+        self.get_stake_distribution_at_epoch(epoch).await
     }
 
     /// Get next stake distribution
@@ -475,8 +471,13 @@ impl MultiSigner for MultiSignerImpl {
         &self,
     ) -> Result<ProtocolStakeDistribution, ProtocolError> {
         debug!("Get next stake distribution");
-        self.get_stake_distribution_with_epoch_offset(NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET)
-            .await
+        let epoch = self
+            .current_beacon
+            .as_ref()
+            .ok_or_else(ProtocolError::UnavailableBeacon)?
+            .epoch
+            .offset_to_next_signer_retrieval_epoch();
+        self.get_stake_distribution_at_epoch(epoch).await
     }
 
     /// Update stake distribution
@@ -490,7 +491,7 @@ impl MultiSigner for MultiSignerImpl {
             .as_ref()
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
-            .offset_by(SIGNER_EPOCH_RECORDING_OFFSET)?;
+            .offset_to_recording_epoch();
         let stakes = HashMap::from_iter(stakes.iter().cloned());
         self.stake_store.save_stakes(epoch, stakes).await?;
 
@@ -523,7 +524,7 @@ impl MultiSigner for MultiSignerImpl {
             .as_ref()
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
-            .offset_by(SIGNER_EPOCH_RETRIEVAL_OFFSET)?;
+            .offset_to_signer_retrieval_epoch()?;
         let signers = self
             .verification_key_store
             .get_verification_keys(epoch)
@@ -537,16 +538,14 @@ impl MultiSigner for MultiSignerImpl {
         }
     }
 
-    async fn get_signers_with_stake(
-        &self,
-    ) -> Result<Vec<entities::SignerWithStake>, ProtocolError> {
+    async fn get_signers_with_stake(&self) -> Result<Vec<SignerWithStake>, ProtocolError> {
         debug!("Get signers with stake");
         let epoch = self
             .current_beacon
             .as_ref()
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
-            .offset_by(SIGNER_EPOCH_RETRIEVAL_OFFSET)?;
+            .offset_to_signer_retrieval_epoch()?;
         let signers = self
             .verification_key_store
             .get_verification_keys(epoch)
@@ -558,7 +557,7 @@ impl MultiSigner for MultiSignerImpl {
             .iter()
             .filter_map(|(party_id, stake)| {
                 signers.get(party_id).map(|signer| {
-                    entities::SignerWithStake::new(
+                    SignerWithStake::new(
                         party_id.to_owned(),
                         signer.verification_key.to_owned(),
                         signer.verification_key_signature.to_owned(),
@@ -571,16 +570,14 @@ impl MultiSigner for MultiSignerImpl {
             .collect())
     }
 
-    async fn get_next_signers_with_stake(
-        &self,
-    ) -> Result<Vec<entities::SignerWithStake>, ProtocolError> {
+    async fn get_next_signers_with_stake(&self) -> Result<Vec<SignerWithStake>, ProtocolError> {
         debug!("Get next signers with stake");
         let epoch = self
             .current_beacon
             .as_ref()
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
-            .offset_by(NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET)?;
+            .offset_to_next_signer_retrieval_epoch();
         let signers = self
             .verification_key_store
             .get_verification_keys(epoch)
@@ -592,7 +589,7 @@ impl MultiSigner for MultiSignerImpl {
             .iter()
             .filter_map(|(party_id, stake)| {
                 signers.get(party_id).map(|signer| {
-                    entities::SignerWithStake::new(
+                    SignerWithStake::new(
                         party_id.to_owned(),
                         signer.verification_key.to_owned(),
                         signer.verification_key_signature.to_owned(),
@@ -724,31 +721,29 @@ impl MultiSigner for MultiSignerImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::store::{SingleSignatureStore, VerificationKeyStore};
-    use crate::ProtocolParametersStore;
-
-    use mithril_common::crypto_helper::tests_setup::*;
-    use mithril_common::fake_data;
-    use mithril_common::store::adapter::MemoryAdapter;
-    use mithril_common::store::StakeStore;
-
-    use std::collections::HashMap;
-    use std::sync::Arc;
+    use crate::{
+        store::{SingleSignatureStore, VerificationKeyStore},
+        ProtocolParametersStore,
+    };
+    use mithril_common::{
+        crypto_helper::tests_setup::*, fake_data, store::adapter::MemoryAdapter, store::StakeStore,
+        SIGNER_EPOCH_RECORDING_OFFSET, SIGNER_EPOCH_RETRIEVAL_OFFSET,
+    };
+    use std::{collections::HashMap, sync::Arc};
 
     async fn setup_multi_signer() -> MultiSignerImpl {
         let beacon = fake_data::beacon();
-        let verification_key_store = VerificationKeyStore::new(Box::new(
-            MemoryAdapter::<entities::Epoch, HashMap<entities::PartyId, entities::Signer>>::new(
-                None,
-            )
-            .unwrap(),
-        ), None);
+        let verification_key_store = VerificationKeyStore::new(
+            Box::new(
+                MemoryAdapter::<Epoch, HashMap<entities::PartyId, entities::Signer>>::new(None)
+                    .unwrap(),
+            ),
+            None,
+        );
         let stake_store = StakeStore::new(
             Box::new(
-                MemoryAdapter::<entities::Epoch, HashMap<entities::PartyId, entities::Stake>>::new(
-                    None,
-                )
-                .unwrap(),
+                MemoryAdapter::<Epoch, HashMap<entities::PartyId, entities::Stake>>::new(None)
+                    .unwrap(),
             ),
             None,
         );
@@ -764,16 +759,13 @@ mod tests {
         );
         let protocol_parameters_store = ProtocolParametersStore::new(
             Box::new(
-                MemoryAdapter::<entities::Epoch, entities::ProtocolParameters>::new(Some(vec![
+                MemoryAdapter::<Epoch, entities::ProtocolParameters>::new(Some(vec![
                     (
                         beacon.epoch.offset_to_signer_retrieval_epoch().unwrap(),
                         fake_data::protocol_parameters(),
                     ),
                     (
-                        beacon
-                            .epoch
-                            .offset_to_next_signer_retrieval_epoch()
-                            .unwrap(),
+                        beacon.epoch.offset_to_next_signer_retrieval_epoch(),
                         fake_data::protocol_parameters(),
                     ),
                 ]))
@@ -943,7 +935,7 @@ mod tests {
         for (signer_with_stake, _, _) in &signers {
             verification_key_store
                 .save_verification_key(
-                    start_epoch.offset_to_recording_epoch().unwrap(),
+                    start_epoch.offset_to_recording_epoch(),
                     signer_with_stake.to_owned().into(),
                 )
                 .await

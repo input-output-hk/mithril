@@ -104,9 +104,7 @@ impl DependencyManager {
         let work_epoch = current_epoch
             .offset_to_signer_retrieval_epoch()
             .expect("epoch.offset_by SIGNER_EPOCH_RETRIEVAL_OFFSET should not fail");
-        let epoch_to_sign = current_epoch
-            .offset_to_next_signer_retrieval_epoch()
-            .expect("epoch.offset_by NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET should not fail");
+        let epoch_to_sign = current_epoch.offset_to_next_signer_retrieval_epoch();
 
         (work_epoch, epoch_to_sign)
     }

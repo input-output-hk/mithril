@@ -297,9 +297,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         new_beacon: &Beacon,
     ) -> Result<(), RuntimeError> {
         debug!("RUNNER: open signer registration round"; "beacon" => #?new_beacon);
-        let registration_epoch = new_beacon.epoch.offset_to_recording_epoch().map_err(|e| {
-            RuntimeError::General(format!("could not deduce recording epoch: {}", e).into())
-        })?;
+        let registration_epoch = new_beacon.epoch.offset_to_recording_epoch();
 
         let stakes = self
             .dependencies
@@ -716,12 +714,7 @@ pub mod tests {
 
         let saved_stake_distribution = deps
             .stake_store
-            .get_stakes(
-                beacon
-                    .epoch
-                    .offset_to_recording_epoch()
-                    .expect("offset_to_recording_epoch should not fail"),
-            )
+            .get_stakes(beacon.epoch.offset_to_recording_epoch())
             .await
             .unwrap()
             .unwrap_or_else(|| {
@@ -753,7 +746,7 @@ pub mod tests {
         let runner = AggregatorRunner::new(config, deps.clone());
 
         let beacon = fake_data::beacon();
-        let recording_epoch = beacon.epoch.offset_to_recording_epoch().unwrap();
+        let recording_epoch = beacon.epoch.offset_to_recording_epoch();
         let stake_distribution: StakeDistribution =
             HashMap::from([("a".to_string(), 5), ("b".to_string(), 10)]);
 
@@ -961,10 +954,7 @@ pub mod tests {
         runner.update_beacon(&beacon).await.unwrap();
         for epoch in [
             beacon.epoch.offset_to_signer_retrieval_epoch().unwrap(),
-            beacon
-                .epoch
-                .offset_to_next_signer_retrieval_epoch()
-                .unwrap(),
+            beacon.epoch.offset_to_next_signer_retrieval_epoch(),
         ] {
             deps.protocol_parameters_store
                 .save_protocol_parameters(epoch, fake_data::protocol_parameters())
