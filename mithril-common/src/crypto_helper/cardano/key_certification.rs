@@ -131,6 +131,7 @@ impl StmInitializerWrapper {
                 &stm_initializer.verification_key().to_bytes(),
             ))
         } else {
+            println!("WARNING: Non certified signer registration by providing only a Pool Id is decommissionned and must be used for tests only!");
             None
         };
 
@@ -252,7 +253,6 @@ impl KeyRegWrapper {
             if cfg!(not(feature = "allow_skip_signer_certification")) {
                 Err(ProtocolRegistrationErrorWrapper::OpCertMissing)?
             }
-            println!("WARNING: Uncertified signer registration by providing a Pool Id is decommissionned and must be used for tests only! (Pool Id: {:?})", party_id);
             party_id.ok_or(ProtocolRegistrationErrorWrapper::PartyIdMissing)?
         };
 
