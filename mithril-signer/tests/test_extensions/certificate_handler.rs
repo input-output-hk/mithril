@@ -81,12 +81,7 @@ impl CertificateHandler for FakeAggregator {
             .cloned()
             .unwrap_or_default();
         certificate_pending.next_signers = store
-            .get(
-                &beacon
-                    .epoch
-                    .offset_to_next_signer_retrieval_epoch()
-                    .unwrap(),
-            )
+            .get(&beacon.epoch.offset_to_next_signer_retrieval_epoch())
             .cloned()
             .unwrap_or_default();
 
@@ -95,12 +90,7 @@ impl CertificateHandler for FakeAggregator {
 
     /// Registers signer with the aggregator
     async fn register_signer(&self, signer: &Signer) -> Result<(), CertificateHandlerError> {
-        let epoch = self
-            .get_beacon()
-            .await?
-            .epoch
-            .offset_to_recording_epoch()
-            .unwrap();
+        let epoch = self.get_beacon().await?.epoch.offset_to_recording_epoch();
 
         let mut store = self.registered_signers.write().await;
         let mut signers = store.get(&epoch).cloned().unwrap_or_default();
@@ -156,7 +146,7 @@ mod tests {
             .await
             .expect("certificate handler should not fail while registering a user");
         let signers = fake_aggregator
-            .get_registered_signers(&Epoch(1).offset_to_recording_epoch().unwrap())
+            .get_registered_signers(&Epoch(1).offset_to_recording_epoch())
             .await
             .expect("we should have a result, None found!");
 
@@ -167,7 +157,7 @@ mod tests {
             .await
             .expect("certificate handler should not fail while registering a user");
         let signers = fake_aggregator
-            .get_registered_signers(&Epoch(1).offset_to_recording_epoch().unwrap())
+            .get_registered_signers(&Epoch(1).offset_to_recording_epoch())
             .await
             .expect("we should have a result, None found!");
 

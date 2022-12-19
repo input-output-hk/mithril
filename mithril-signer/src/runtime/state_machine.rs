@@ -229,9 +229,7 @@ impl StateMachine {
         let current_beacon = &pending_certificate.beacon;
         let (retrieval_epoch, next_retrieval_epoch) = (
             current_beacon.epoch.offset_to_signer_retrieval_epoch()?,
-            current_beacon
-                .epoch
-                .offset_to_next_signer_retrieval_epoch()?,
+            current_beacon.epoch.offset_to_next_signer_retrieval_epoch(),
         );
 
         debug!(

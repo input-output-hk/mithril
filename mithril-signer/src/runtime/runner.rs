@@ -165,7 +165,7 @@ impl Runner for SignerRunner {
     ) -> Result<(), Box<dyn StdError + Sync + Send>> {
         debug!("RUNNER: register_signer_to_aggregator");
 
-        let epoch_offset_to_recording_epoch = epoch.offset_to_recording_epoch()?;
+        let epoch_offset_to_recording_epoch = epoch.offset_to_recording_epoch();
         let stake_distribution = self
             .services
             .stake_store
@@ -228,7 +228,7 @@ impl Runner for SignerRunner {
             .await?;
         self.services
             .protocol_initializer_store
-            .save_protocol_initializer(epoch.offset_to_recording_epoch()?, protocol_initializer)
+            .save_protocol_initializer(epoch.offset_to_recording_epoch(), protocol_initializer)
             .await?;
 
         Ok(())
@@ -248,7 +248,7 @@ impl Runner for SignerRunner {
             .ok_or_else(|| RuntimeError::NoValueError("current_stake_distribution".to_string()))?;
         self.services
             .stake_store
-            .save_stakes(epoch.offset_to_recording_epoch()?, stake_distribution)
+            .save_stakes(epoch.offset_to_recording_epoch(), stake_distribution)
             .await?;
 
         Ok(())
@@ -353,7 +353,7 @@ impl Runner for SignerRunner {
         message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
 
         // 2 set the next signers keys and stakes in the message
-        let next_signer_retrieval_epoch = beacon.epoch.offset_to_next_signer_retrieval_epoch()?;
+        let next_signer_retrieval_epoch = beacon.epoch.offset_to_next_signer_retrieval_epoch();
         let next_protocol_initializer = self
             .services
             .protocol_initializer_store
@@ -562,11 +562,7 @@ mod tests {
             .expect("update_stake_distribution should not fail.");
 
         let stake_distribution = stake_store
-            .get_stakes(
-                current_epoch
-                    .offset_to_recording_epoch()
-                    .expect("offset_to_recording_epoch should not fail"),
-            )
+            .get_stakes(current_epoch.offset_to_recording_epoch())
             .await
             .expect("getting stakes from store should not fail")
             .expect("there should be stakes for this epoch");
@@ -588,8 +584,7 @@ mod tests {
             .await
             .unwrap()
             .epoch
-            .offset_to_recording_epoch()
-            .unwrap();
+            .offset_to_recording_epoch();
         let stakes = chain_observer
             .get_current_stake_distribution()
             .await
@@ -624,11 +619,7 @@ mod tests {
             .await
             .is_some());
         let maybe_protocol_initializer = protocol_initializer_store
-            .get_protocol_initializer(
-                epoch
-                    .offset_to_recording_epoch()
-                    .expect("offset_to_recording_epoch should not fail"),
-            )
+            .get_protocol_initializer(epoch.offset_to_recording_epoch())
             .await
             .expect("get_protocol_initializer should not fail");
         assert!(
@@ -711,10 +702,7 @@ mod tests {
         services
             .protocol_initializer_store
             .save_protocol_initializer(
-                current_beacon
-                    .epoch
-                    .offset_to_next_signer_retrieval_epoch()
-                    .expect("offset_to_signer_retrieval_epoch should not fail"),
+                current_beacon.epoch.offset_to_next_signer_retrieval_epoch(),
                 protocol_initializer.clone(),
             )
             .await

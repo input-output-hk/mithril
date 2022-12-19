@@ -267,20 +267,18 @@ impl RuntimeTester {
             .get_current_beacon()
             .await
             .map_err(|e| format!("Querying the current beacon should not fail: {:?}", e))?;
-        let protocol_parameters =
-            self.deps
-                .protocol_parameters_store
-                .get_protocol_parameters(beacon.epoch.offset_to_recording_epoch().map_err(|e| {
-                    format!("Offsetting to recording epoch should not fail: {:?}", e)
-                })?)
-                .await
-                .map_err(|e| {
-                    format!(
-                        "Querying the recording epoch protocol_parameters should not fail: {:?}",
-                        e
-                    )
-                })?
-                .ok_or("A protocol parameters for the recording epoch should be available")?;
+        let protocol_parameters = self
+            .deps
+            .protocol_parameters_store
+            .get_protocol_parameters(beacon.epoch.offset_to_recording_epoch())
+            .await
+            .map_err(|e| {
+                format!(
+                    "Querying the recording epoch protocol_parameters should not fail: {:?}",
+                    e
+                )
+            })?
+            .ok_or("A protocol parameters for the recording epoch should be available")?;
 
         Ok(setup_signers_from_stake_distribution(
             &signers_with_stake

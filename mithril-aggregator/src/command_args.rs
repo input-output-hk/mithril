@@ -110,7 +110,7 @@ async fn do_first_launch_initialization_if_needed(
         Epoch(0) => (Epoch(0), Epoch(1)),
         epoch => (
             epoch.offset_to_signer_retrieval_epoch()?,
-            epoch.offset_to_next_signer_retrieval_epoch()?,
+            epoch.offset_to_next_signer_retrieval_epoch(),
         ),
     };
 
