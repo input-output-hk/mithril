@@ -7,11 +7,12 @@ use std::fs;
 use std::io::Write;
 use std::path;
 
-use mithril_common::crypto_helper::{
-    key_decode_hex, key_encode_hex, ProtocolClerk, ProtocolInitializerNotCertified,
-    ProtocolKeyRegistrationNotCertified, ProtocolMultiSignature, ProtocolParameters,
-    ProtocolPartyId, ProtocolSigner, ProtocolSignerVerificationKey, ProtocolSingleSignature,
-    ProtocolStake,
+use mithril_common::crypto_helper::{key_decode_hex, key_encode_hex};
+
+use crate::types::{
+    ProtocolClerk, ProtocolInitializerNotCertified, ProtocolKeyRegistrationNotCertified,
+    ProtocolMultiSignature, ProtocolParameters, ProtocolPartyId, ProtocolSigner,
+    ProtocolSignerVerificationKey, ProtocolSingleSignature, ProtocolStake,
 };
 
 /// Player artifacts

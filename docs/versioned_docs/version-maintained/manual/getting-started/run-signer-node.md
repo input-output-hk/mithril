@@ -72,12 +72,6 @@ In this mode, you declare your Cardano `Operational Certificate` file and `KES S
 
 This mode is displayed with a specific **Stable** mention in this document.
 
-### Deprecated mode: Declare your Pool Id
-
-In this mode, the Cardano `Pool Id` that you specify is not strictly verified. It is associated to Cardano stakes based on your declaration. This mode is deprecated and replaced by the certification mode above.
-
-This mode is presented in the setup of this document with a specific **Deprecated** mention.
-
 ## Building your own executable
 
 ### Download source

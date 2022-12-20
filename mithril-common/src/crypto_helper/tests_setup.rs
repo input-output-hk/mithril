@@ -281,6 +281,8 @@ pub fn setup_certificate_chain(
                     .unwrap()
                 }
                 _ => {
+                    fake_certificate.metadata.signers =
+                        signers.iter().map(|s| s.0.to_owned()).collect();
                     let mut single_signatures = Vec::new();
                     signers.iter().for_each(|(_, protocol_signer, _)| {
                         if let Some(signature) =

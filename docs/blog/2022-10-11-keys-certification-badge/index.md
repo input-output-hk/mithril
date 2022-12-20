@@ -5,6 +5,10 @@ authors:
 tags: [cardano, poolId, operational-certificate, kes-keys, mithril-keys, hybrid-mode]
 ---
 
+**Update 2022/12/19**: The signer registration with **declarative** PoolId has been decommissioned.
+
+**Update 2022/11/30**: The signer registration with **declarative** PoolId has been deprecated and the **certified** PoolId is now the stable mode.
+
 ### The way the Mithril nodes handle the Certification of the SPOs is evolving
 
 **PR**: `New STM registration procedure` [#433](https://github.com/input-output-hk/mithril/pull/433)

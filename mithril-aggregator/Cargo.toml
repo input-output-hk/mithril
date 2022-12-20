@@ -35,7 +35,7 @@ warp = "0.3"
 
 [dev-dependencies]
 httpmock = "0.6.6"
-mithril-common = { path = "../mithril-common", features = ["test_only"] }
+mithril-common = { path = "../mithril-common", features = ["test_only", "allow_skip_signer_certification"] }
 mockall = "0.11.0"
 slog-term = "2.9.0"
 tempfile = "3.3.0"
