@@ -23,6 +23,7 @@ pub mod entities;
 pub mod fake_data;
 pub mod sqlite;
 pub mod store;
+pub mod test_utils;
 
 pub use beacon_provider::{BeaconProvider, BeaconProviderError, BeaconProviderImpl};
 pub use entities::{CardanoNetwork, MagicId};
