@@ -1,13 +1,8 @@
 use blake2::digest::{Digest, FixedOutput};
 use blake2::{digest::consts::U32, Blake2b};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-<<<<<<< HEAD:mithril-stm/benches/stm.rs
 use mithril_stm::key_reg::KeyReg;
-use mithril_stm::stm::{StmClerk, StmInitializer, StmParameters, StmSigner};
-=======
-use mithril::key_reg::KeyReg;
-use mithril::stm::{StmAggrSig, StmClerk, StmInitializer, StmParameters, StmSigner};
->>>>>>> d2c588f73e (Bench multi sigs):mithril-core/benches/stm.rs
+use mithril_stm::stm::{StmAggrSig, StmClerk, StmInitializer, StmParameters, StmSigner};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 use rayon::prelude::*;
@@ -85,7 +80,7 @@ fn batch_benches<H>(
     params: StmParameters,
     hashing_alg: &str,
 ) where
-    H: Clone + Debug + Digest + Send + Sync,
+    H: Clone + Debug + Digest + FixedOutput + Send + Sync,
 {
     let mut group = c.benchmark_group(format!("STM/{}", hashing_alg));
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);

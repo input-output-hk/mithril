@@ -428,7 +428,7 @@ impl Signature {
         let mut signatures = Vec::with_capacity(vks.len());
         for (index, sig) in sigs.iter().enumerate() {
             let mut hasher = hashed_sigs.clone();
-            hasher.update(&index.to_be_bytes());
+            hasher.update(index.to_be_bytes());
             signatures.push(sig.0);
             scalars.extend_from_slice(hasher.finalize().as_slice());
         }

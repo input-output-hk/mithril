@@ -698,7 +698,7 @@ impl<D: Clone + Digest + FixedOutput> From<&ClosedKeyReg<D>> for StmAggrVerifica
     }
 }
 
-impl<D: Clone + Digest + Send + Sync> StmAggrSig<D> {
+impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
     /// Verify all checks from signatures, except for the signature verification itself.
     fn preliminary_verify(
         &self,
@@ -747,7 +747,7 @@ impl<D: Clone + Digest + Send + Sync> StmAggrSig<D> {
         msg: &[u8],
         avk: &StmAggrVerificationKey<D>,
         parameters: &StmParameters,
-    ) -> Result<(), StmSignatureError<D>> {
+    ) -> Result<(), StmAggregateSignatureError<D>> {
         self.preliminary_verify(msg, avk, parameters)?;
 
         let msg = avk.mt_commitment.concat_with_msg(msg);
@@ -772,7 +772,7 @@ impl<D: Clone + Digest + Send + Sync> StmAggrSig<D> {
         msgs: &[Vec<u8>],
         avks: &[StmAggrVerificationKey<D>],
         parameters: &[StmParameters],
-    ) -> Result<(), StmSignatureError<D>> {
+    ) -> Result<(), StmAggregateSignatureError<D>> {
         let batch_size = stm_signatures.len();
         assert_eq!(
             batch_size,
@@ -794,10 +794,16 @@ impl<D: Clone + Digest + Send + Sync> StmAggrSig<D> {
         let mut aggr_vks = Vec::with_capacity(batch_size);
         for (idx, sig_group) in stm_signatures.iter().enumerate() {
             sig_group.preliminary_verify(&msgs[idx], &avks[idx], &parameters[idx])?;
-            let grouped_sigs: Vec<Signature> =
-                sig_group.signatures.iter().map(|sig| sig.sigma).collect();
-            let grouped_vks: Vec<VerificationKey> =
-                sig_group.signatures.iter().map(|sig| sig.pk).collect();
+            let grouped_sigs: Vec<Signature> = sig_group
+                .signatures
+                .iter()
+                .map(|(sig, _)| sig.sigma)
+                .collect();
+            let grouped_vks: Vec<VerificationKey> = sig_group
+                .signatures
+                .iter()
+                .map(|(_, reg_party)| reg_party.0)
+                .collect();
 
             let (aggr_vk, aggr_sig) = Signature::aggregate(&grouped_vks, &grouped_sigs).unwrap();
             aggr_sigs.push(aggr_sig);
@@ -1098,15 +1104,13 @@ mod tests {
         #[test]
         /// Test that when a party creates a signature it can be verified
         fn test_sig(msg in any::<[u8;16]>()) {
-            let nparties = 2;
-            let params = StmParameters { m: (nparties as u64), k: 1, phi_f: 0.2 };
-            let ps = setup_equal_parties(params, nparties);
-            let p = &ps[0];
-            let clerk = StmClerk::from_signer(p);
+            let params = StmParameters { m: 1, k: 1, phi_f: 0.2 };
+            let ps = setup_equal_parties(params, 1);
+            let clerk = StmClerk::from_signer(&ps[0]);
             let avk = clerk.compute_avk();
 
-            if let Some(sig) = p.sign(&msg) {
-                assert!(sig.verify(&params, &avk, &msg).is_ok());
+            if let Some(sig) = ps[0].sign(&msg) {
+                assert!(sig.verify(&params, &ps[0].vk, &ps[0].stake, &avk, &msg).is_ok());
             }
         }
     }

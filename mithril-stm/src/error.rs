@@ -168,6 +168,7 @@ impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmAggregateSignatur
             MultiSignatureError::SerializationError => unreachable!(),
             MultiSignatureError::KeyInvalid(_) => unreachable!(),
             MultiSignatureError::SignatureInvalid(_e) => unreachable!(),
+            MultiSignatureError::BatchInvalid => unreachable!(),
         }
     }
 }
