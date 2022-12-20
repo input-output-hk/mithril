@@ -48,7 +48,8 @@ SECURITY_PARAM=2
 NODE_PORT_START=3000
 NODE_ADDR_PREFIX="172.16.238"
 NODE_ADDR_INCREMENT=10
-CARDANO_BINARY_URL="https://storage.googleapis.com/mithril-cardano-node-archive/cardano-1.34.1.tar.gz"
+CARDANO_BINARY_URL="https://update-cardano-mainnet.iohk.io/cardano-node-releases/cardano-node-1.35.4-linux.tar.gz"
+ALONZO_GENESIS_URL="https://book.world.dev.cardano.org/environments/pv8/alonzo-genesis.json"
 
 GENESIS_VERIFICATION_KEY=5b33322c3235332c3138362c3230312c3137372c31312c3131372c3133352c3138372c3136372c3138312c3138382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c3235322c3138302c37322c3133342c3133372c3234372c3136312c36385d
 GENESIS_SECRET_KEY=5b3131382c3138342c3232342c3137332c3136302c3234312c36312c3134342c36342c39332c3130362c3232392c38332c3133342c3138392c34302c3138392c3231302c32352c3138342c3136302c3134312c3233372c32362c3136382c35342c3233392c3230342c3133392c3131392c31332c3139395d
@@ -315,6 +316,7 @@ echo "====================================================================="
 
 # Shelley era. Set up our template
 mkdir shelley
+curl -s ${ALONZO_GENESIS_URL} -o shelley/genesis.alonzo.spec.json
 ./cardano-cli genesis create --testnet-magic ${NETWORK_MAGIC} --genesis-dir shelley
 
 # Then edit the genesis.spec.json ...
@@ -324,7 +326,7 @@ mkdir shelley
 # cycling KES keys
 sed -i shelley/genesis.spec.json \
     -e 's/"slotLength": 1/"slotLength": '${SLOT_LENGTH}'/' \
-    -e 's/"activeSlotsCoeff": 5.0e-2/"activeSlotsCoeff": 0.05/' \
+    -e 's/"activeSlotsCoeff": 5.0e-2/"activeSlotsCoeff": 0.50/' \
     -e 's/"securityParam": 2160/"securityParam": '${SECURITY_PARAM}'/' \
     -e 's/"epochLength": 432000/"epochLength": '${EPOCH_LENGTH}'/' \
     -e 's/"maxLovelaceSupply": 0/"maxLovelaceSupply": 1000000000/' \
@@ -629,9 +631,10 @@ echo
 
 cat >> delegate.sh <<EOF
 #!/bin/bash
+set -e
 
-CURRENT_EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query tip  \\
-                    --cardano-mode  \\
+CURRENT_EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query tip \\
+                    --cardano-mode \\
                     --testnet-magic ${NETWORK_MAGIC} | jq .epoch)
 echo ">>>> Current Epoch: \${CURRENT_EPOCH}"
 EOF
@@ -646,11 +649,14 @@ for N in ${POOL_NODES_N}; do
     
     AMOUNT_STAKED=\$(( $N*1000000 +  DELEGATION_ROUND*1 ))
 
+    TX_IN=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query utxo \\
+      --testnet-magic ${NETWORK_MAGIC}  --address \$(cat addresses/utxo${N}.addr) --out-file tmp.txt \\
+      && cat tmp.txt | jq  -r 'to_entries | [last] | .[0].key' \\
+      && rm -f tmp.txt)
+
     CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli transaction build \\
         --alonzo-era \\
-        --tx-in \$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query utxo  \\
-                    --testnet-magic ${NETWORK_MAGIC}  \\
-                    --address \$(cat addresses/utxo${N}.addr) | tail -n 1  | awk '{print \$1;}')#0 \\
+        --tx-in \${TX_IN} \\
         --tx-out \$(cat addresses/user${N}.addr)+\${AMOUNT_STAKED} \\
         --change-address \$(cat addresses/utxo${N}.addr) \\
         --testnet-magic ${NETWORK_MAGIC} \\
@@ -708,27 +714,27 @@ cat >> query-cardano.sh <<EOF
 #!/bin/bash
 
 echo ">> Query chain tip"
-CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip  \\
-    --cardano-mode  \\
+CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip \\
+    --cardano-mode \\
     --testnet-magic ${NETWORK_MAGIC}
 
 echo
 echo ">> Query whole utxo"
-CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query utxo  \\
-    --cardano-mode  \\
-    --testnet-magic ${NETWORK_MAGIC}   \\
+CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query utxo \\
+    --cardano-mode \\
+    --testnet-magic ${NETWORK_MAGIC} \\
     --whole-utxo
 echo
 
 echo ">> Query stake pools"
 CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query stake-pools \\
-    --cardano-mode  \\
+    --cardano-mode \\
     --testnet-magic ${NETWORK_MAGIC}
 echo
 
 echo ">> Query stake distribution"
 CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query stake-distribution \\
-    --cardano-mode  \\
+    --cardano-mode \\
     --testnet-magic ${NETWORK_MAGIC}
 echo
 
@@ -739,28 +745,28 @@ cat >> query-unused.sh <<EOF
 
 echo
 echo ">> Query utxo1 utxo 'utxo1.addr'"
-CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query utxo  \\
-    --cardano-mode  \\
-    --testnet-magic ${NETWORK_MAGIC}  \\
+CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query utxo \\
+    --cardano-mode \\
+    --testnet-magic ${NETWORK_MAGIC} \\
     --address \$(cat addresses/utxo1.addr)
 
 echo
 echo ">> Query user1 utxo 'user1.addr'"
-CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query utxo  \\
-    --cardano-mode  \\
-    --testnet-magic ${NETWORK_MAGIC}  \\
+CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query utxo \\
+    --cardano-mode \\
+    --testnet-magic ${NETWORK_MAGIC} \\
     --address \$(cat addresses/user1.addr)
 
 echo ">> Query stake pool params"
 echo CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query pool-params \\
-    --cardano-mode  \\
+    --cardano-mode \\
     --testnet-magic ${NETWORK_MAGIC} \\
     --stake-pool-id \${STAKE_POOL_ID}
 echo
 
 echo ">> Query stake pool snapshot"
 echo CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query stake-snapshot \\
-    --cardano-mode  \\
+    --cardano-mode \\
     --testnet-magic ${NETWORK_MAGIC} \\
     --stake-pool-id \${STAKE_POOL_ID}
 echo
@@ -779,7 +785,7 @@ cat >> pools.sh <<EOF
 #!/bin/bash
 
 CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query stake-pools \\
-    --cardano-mode  \\
+    --cardano-mode \\
     --testnet-magic ${NETWORK_MAGIC}
 EOF
 
@@ -1164,8 +1170,8 @@ cat >> start-cardano.sh <<EOF
 echo ">> Wait for Cardano network to be ready"
 while true
 do
-    EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip  \\
-        --cardano-mode  \\
+    EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip \\
+        --cardano-mode \\
         --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq .epoch | sed -e "s/null//" | sed -e "s/ //" | tr -d '\n')
     if [ "\$EPOCH" != "" ] ; then
         echo ">>>> Ready!"
@@ -1224,8 +1230,8 @@ cat >> start-mithril.sh <<EOF
 echo ">> Wait for Mithril signers to be registered"
 while true
 do
-    EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip  \\
-        --cardano-mode  \\
+    EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip \\
+        --cardano-mode \\
         --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq .epoch | sed -e "s/null//" | sed -e "s/ //" | tr -d '\n')
     if [ \$EPOCH -ge 2 ] ; then
         echo ">>>> Ready!"
