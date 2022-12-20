@@ -8,9 +8,6 @@ use mithril_stm::stm::{
 };
 use mithril_stm::AggregationError;
 
-#[cfg(any(test, feature = "allow_skip_signer_certification"))]
-use mithril_stm::{key_reg::KeyReg, stm::StmInitializer};
-
 use blake2::{digest::consts::U32, Blake2b};
 use ed25519_dalek;
 use kes_summed_ed25519::kes::Sum6KesSig;
@@ -78,12 +75,3 @@ pub type ProtocolRegistrationError = ProtocolRegistrationErrorWrapper;
 
 /// Alias of [MithrilStm:AggregationError](enum@mithril_stm::AggregationError).
 pub type ProtocolAggregationError = AggregationError;
-
-// Test only
-/// (Test only) Alias of [MithrilStm:StmInitializer](struct@mithril_stm::stm::StmInitializer).
-#[cfg(any(test, feature = "allow_skip_signer_certification"))]
-pub type ProtocolInitializerNotCertified = StmInitializer;
-
-/// (Test only) Alias of [MithrilStm:KeyReg](struct@mithril_stm::key_reg::KeyReg). (Test only)
-#[cfg(any(test, feature = "allow_skip_signer_certification"))]
-pub type ProtocolKeyRegistrationNotCertified = KeyReg;

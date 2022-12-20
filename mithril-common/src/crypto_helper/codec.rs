@@ -25,27 +25,24 @@ where
 
 #[cfg(test)]
 pub mod tests {
-    use super::super::tests_setup::*;
-    use super::super::types::*;
-    use super::*;
+    use serde::{Deserialize, Serialize};
 
-    use rand_chacha::ChaCha20Rng;
-    use rand_core::SeedableRng;
+    use super::{key_decode_hex, key_encode_hex};
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    struct TestSerialize {
+        inner_string: String,
+    }
 
     #[test]
     fn test_key_encode_decode_hex() {
-        let protocol_params = setup_protocol_parameters();
-        let stake = 100;
-        let seed = [0u8; 32];
-        let mut rng = ChaCha20Rng::from_seed(seed);
-        let protocol_initializer =
-            ProtocolInitializerNotCertified::setup(protocol_params, stake, &mut rng);
-        let verification_key: ProtocolSignerVerificationKey =
-            protocol_initializer.verification_key();
-        let verification_key_hex =
-            key_encode_hex(verification_key).expect("unexpected hex encoding error");
-        let verification_key_restored =
-            key_decode_hex(&verification_key_hex).expect("unexpected hex decoding error");
-        assert_eq!(verification_key, verification_key_restored);
+        let test_to_serialize = TestSerialize {
+            inner_string: "my inner string".to_string(),
+        };
+        let test_to_serialize_hex =
+            key_encode_hex(&test_to_serialize).expect("unexpected hex encoding error");
+        let test_to_serialize_restored =
+            key_decode_hex(&test_to_serialize_hex).expect("unexpected hex decoding error");
+        assert_eq!(test_to_serialize, test_to_serialize_restored);
     }
 }

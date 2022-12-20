@@ -2142,13 +2142,15 @@ dependencies = [
 
 [[package]]
 name = "mithrildemo"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "base64 0.13.1",
+ "blake2 0.10.5",
  "clap 4.0.29",
  "hex",
  "log",
  "mithril-common",
+ "mithril-stm",
  "rand_chacha 0.3.1",
  "rand_core 0.6.4",
  "serde",

@@ -1,4 +1,5 @@
 mod demonstrator;
+mod types;
 
 use crate::demonstrator::{Demonstrator, ProtocolDemonstrator};
 use clap::Parser;
