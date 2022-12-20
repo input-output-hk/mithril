@@ -1,6 +1,6 @@
 use blake2::{digest::consts::U64, Blake2b, Digest};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use mithril::multi_sig::{Signature, SigningKey, VerificationKey};
+use mithril_stm::multi_sig::{Signature, SigningKey, VerificationKey};
 use rand_chacha::ChaCha20Rng;
 use rand_core::{RngCore, SeedableRng};
 
@@ -56,20 +56,20 @@ fn aggregate_and_verify(c: &mut Criterion, nr_sigs: usize) {
         mvks.push(vk);
     }
 
-    group.bench_function(BenchmarkId::new("Individual verif", &nr_sigs), |b| {
+    group.bench_function(BenchmarkId::new("Individual verif", nr_sigs), |b| {
         b.iter(|| {
             for (vk, sig) in mvks.iter().zip(sigs.iter()) {
-                sig.verify(&msg, vk).is_ok();
+                assert!(sig.verify(&msg, vk).is_ok());
             }
         })
     });
 
-    group.bench_function(BenchmarkId::new("Batch Verification", &nr_sigs), |b| {
+    group.bench_function(BenchmarkId::new("Batch Verification", nr_sigs), |b| {
         b.iter(|| {
             for sig in sigs.iter() {
                 let mut hasher = Blake2b::<U64>::new();
-                hasher.update((sig.to_bytes()));
-                let res = hasher.finalize();
+                hasher.update(sig.to_bytes());
+                hasher.finalize();
             }
             let (agg_vk, agg_sig) = Signature::aggregate(&mvks, &sigs).unwrap();
             assert!(agg_sig.verify(&msg, &agg_vk).is_ok())
