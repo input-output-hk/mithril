@@ -137,7 +137,7 @@ fn batch_benches<H>(
             batch_stms.push(msig);
         }
 
-        group.bench_function(BenchmarkId::new("Batch Verification", &batch_string), |b| {
+        group.bench_function(BenchmarkId::new("Batch Verification", batch_string), |b| {
             b.iter(|| {
                 StmAggrSig::batch_verify(&batch_stms, &batch_msgs, &batch_avks, &batch_params)
                     .is_ok()

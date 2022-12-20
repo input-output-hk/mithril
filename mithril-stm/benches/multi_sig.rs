@@ -32,7 +32,7 @@ fn batch_benches(c: &mut Criterion, array_batches: &[usize], nr_sigs: usize) {
             batch_sig.push(agg_sig);
         }
 
-        group.bench_function(BenchmarkId::new("Batch Verification", &batch_string), |b| {
+        group.bench_function(BenchmarkId::new("Batch Verification", batch_string), |b| {
             b.iter(|| {
                 Signature::batch_verify_aggregates(&batch_msgs, &batch_vk, &batch_sig).is_ok()
             })
