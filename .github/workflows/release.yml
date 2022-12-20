@@ -127,10 +127,6 @@ jobs:
             }
           mithril_signers: |
             {
-              "1" = {
-                type    = "unverified",
-                pool_id = "pool1zr907nmfsq5kalxdjju349nwg6f03lyfmcjfqcz52jf45gcgh03",
-              },
               "2" = {
                 type    = "verified",
                 pool_id = "",
