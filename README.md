@@ -2,7 +2,7 @@
 
 <div align="center">
   <a href='https://github.com/input-output-hk/mithril/actions'>
-    <img src="https://img.shields.io/github/workflow/status/input-output-hk/mithril/CI?label=Tests&style=for-the-badge">
+    <img src="https://img.shields.io/github/actions/workflow/status/input-output-hk/mithril/ci.yml?label=Tests&style=for-the-badge&branch=main">
   </a>
   <a href='https://github.com/input-output-hk/mithril/issues'>
     <img src="https://img.shields.io/github/issues/input-output-hk/mithril?label=Issues&style=for-the-badge">
