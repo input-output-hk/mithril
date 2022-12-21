@@ -1,6 +1,6 @@
 use crate::{
     crypto_helper::{ProtocolInitializer, ProtocolSigner, ProtocolStakeDistribution},
-    entities::{ProtocolParameters, SignerWithStake, StakeDistribution},
+    entities::{ProtocolParameters, Signer, SignerWithStake, StakeDistribution},
 };
 use std::collections::HashMap;
 
@@ -48,6 +48,15 @@ impl MithrilFixture {
     /// Get the fixture signers.
     pub fn signers_fixture(&self) -> Vec<SignerFixture> {
         self.signers.clone()
+    }
+
+    /// Get the fixture signers.
+    pub fn signers(&self) -> Vec<Signer> {
+        self.signers
+            .clone()
+            .into_iter()
+            .map(|s| s.signer_with_stake.into())
+            .collect()
     }
 
     /// Get the fixture signers with stake.

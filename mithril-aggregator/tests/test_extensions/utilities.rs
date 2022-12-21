@@ -1,11 +1,5 @@
-use mithril_common::{
-    crypto_helper::{ProtocolInitializer, ProtocolSigner},
-    entities::SignerWithStake,
-};
 use slog_scope::debug;
 use std::sync::atomic::{AtomicUsize, Ordering};
-
-pub type TestSigner = (SignerWithStake, ProtocolSigner, ProtocolInitializer);
 
 pub static COMMENT_COUNT: AtomicUsize = AtomicUsize::new(0);
 

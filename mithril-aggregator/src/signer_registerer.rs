@@ -201,10 +201,9 @@ mod tests {
 
     use mithril_common::{
         chain_observer::FakeObserver,
-        crypto_helper::tests_setup::setup_signers,
         entities::{Epoch, PartyId, Signer},
-        fake_data,
         store::adapter::MemoryAdapter,
+        test_utils::MithrilFixtureBuilder,
     };
 
     use crate::{
@@ -222,13 +221,9 @@ mod tests {
         let signer_registerer =
             MithrilSignerRegisterer::new(Arc::new(chain_observer), verification_key_store.clone());
         let registration_epoch = Epoch(1);
-        let signers = setup_signers(5, &fake_data::protocol_parameters().into());
-        let signer_to_register: Signer = signers[0].0.clone().into();
-        assert!(signer_to_register.operational_certificate.is_some());
-        let stake_distribution = signers
-            .into_iter()
-            .map(|s| (s.0.party_id, s.0.stake))
-            .collect::<HashMap<_, _>>();
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+        let signer_to_register: Signer = fixture.signers()[0].to_owned();
+        let stake_distribution = fixture.stake_distribution();
 
         signer_registerer
             .open_registration_round(registration_epoch, stake_distribution)
@@ -264,13 +259,12 @@ mod tests {
         let signer_registerer =
             MithrilSignerRegisterer::new(Arc::new(chain_observer), verification_key_store.clone());
         let registration_epoch = Epoch(1);
-        let signers = setup_signers(5, &fake_data::protocol_parameters().into());
-        let signer_to_register: Signer = signers[1].0.clone().into();
-        assert!(signer_to_register.operational_certificate.is_none());
-        let stake_distribution = signers
-            .into_iter()
-            .map(|s| (s.0.party_id, s.0.stake))
-            .collect::<HashMap<_, _>>();
+        let fixture = MithrilFixtureBuilder::default()
+            .with_signers(5)
+            .disable_signers_certification()
+            .build();
+        let signer_to_register: Signer = fixture.signers()[0].to_owned();
+        let stake_distribution = fixture.stake_distribution();
 
         signer_registerer
             .open_registration_round(registration_epoch, stake_distribution)
@@ -305,8 +299,8 @@ mod tests {
         ));
         let signer_registerer =
             MithrilSignerRegisterer::new(Arc::new(chain_observer), verification_key_store.clone());
-        let signers = setup_signers(5, &fake_data::protocol_parameters().into());
-        let signer_to_register: Signer = signers[1].0.clone().into();
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+        let signer_to_register: Signer = fixture.signers()[0].to_owned();
 
         signer_registerer
             .register_signer(&signer_to_register)

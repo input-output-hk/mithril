@@ -159,9 +159,10 @@ mod tests {
 
     use mithril_common::{
         certificate_chain::MithrilCertificateVerifier,
-        crypto_helper::{tests_setup, ProtocolClerk, ProtocolGenesisSigner},
+        crypto_helper::{ProtocolClerk, ProtocolGenesisSigner},
         fake_data,
         store::adapter::MemoryAdapter,
+        test_utils::MithrilFixtureBuilder,
     };
 
     use super::*;
@@ -179,10 +180,9 @@ mod tests {
     }
 
     fn create_fake_genesis_avk() -> ProtocolAggregateVerificationKey {
-        let protocol_parameters = tests_setup::setup_protocol_parameters();
-        let signers = tests_setup::setup_signers(5, &protocol_parameters);
-        let first_signer = &signers.first().unwrap().1;
-        let clerk = ProtocolClerk::from_signer(first_signer);
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+        let first_signer = fixture.signers_fixture()[0].clone().protocol_signer;
+        let clerk = ProtocolClerk::from_signer(&first_signer);
         clerk.compute_avk()
     }
 

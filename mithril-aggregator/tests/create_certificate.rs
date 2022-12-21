@@ -2,9 +2,10 @@ mod test_extensions;
 
 use std::collections::BTreeSet;
 
-use mithril_common::crypto_helper::tests_setup;
-use mithril_common::entities::SignerWithStake;
-use mithril_common::entities::{ProtocolMessagePartKey, ProtocolParameters};
+use mithril_common::{
+    entities::{ProtocolMessagePartKey, ProtocolParameters},
+    test_utils::MithrilFixtureBuilder,
+};
 use test_extensions::RuntimeTester;
 
 #[tokio::test]
@@ -17,19 +18,19 @@ async fn create_certificate() {
     let mut tester = RuntimeTester::build(protocol_parameters.clone()).await;
 
     comment!("create signers & declare stake distribution");
-    let signers = tests_setup::setup_signers(10, &protocol_parameters.clone().into());
-    let signers_with_stake: Vec<SignerWithStake> = signers
-        .clone()
-        .into_iter()
-        .map(|(signer_with_stake, _, _)| signer_with_stake)
-        .collect();
+    let fixture = MithrilFixtureBuilder::default()
+        .with_signers(10)
+        .with_protocol_parameters(protocol_parameters.clone())
+        .build();
+    let signers = fixture.signers_fixture();
+    let signers_with_stake = fixture.signers_with_stake();
     tester
         .chain_observer
         .set_signers(signers_with_stake.clone())
         .await;
     tester
         .deps
-        .simulate_genesis(
+        .prepare_for_genesis(
             signers_with_stake.clone(),
             signers_with_stake,
             &protocol_parameters,
@@ -90,7 +91,7 @@ async fn create_certificate() {
         BTreeSet::from_iter(
             signers_who_sign
                 .iter()
-                .map(|(s, _, _)| s.party_id.to_owned())
+                .map(|s| s.signer_with_stake.party_id.to_owned())
         )
     );
 

@@ -7,7 +7,7 @@ use crate::{
         tests_setup, tests_setup::setup_temp_directory_for_signer, ColdKeyGenerator, OpCert,
         ProtocolStakeDistribution, SerDeShelleyFileFormat,
     },
-    entities::{PartyId, ProtocolParameters},
+    entities::{PartyId, ProtocolParameters, StakeDistribution},
     fake_data,
     test_utils::mithril_fixture::MithrilFixture,
 };
@@ -41,6 +41,9 @@ pub enum StakeDistributionGenerationMethod {
         /// The randomizer seed
         seed: [u8; 32],
     },
+
+    /// Use a custom stake distribution
+    Custom(StakeDistribution),
 }
 
 impl MithrilFixtureBuilder {
@@ -106,9 +109,9 @@ impl MithrilFixtureBuilder {
             }
         });
 
-        match self.stake_distribution_generation_method {
+        match &self.stake_distribution_generation_method {
             StakeDistributionGenerationMethod::RandomDistribution { seed } => {
-                let mut stake_rng = ChaCha20Rng::from_seed(seed);
+                let mut stake_rng = ChaCha20Rng::from_seed(*seed);
 
                 signers_party_ids
                     .map(|party_id| {
@@ -117,6 +120,10 @@ impl MithrilFixtureBuilder {
                     })
                     .collect::<Vec<_>>()
             }
+            StakeDistributionGenerationMethod::Custom(stake_distribution) => stake_distribution
+                .clone()
+                .into_iter()
+                .collect::<ProtocolStakeDistribution>(),
         }
     }
 }

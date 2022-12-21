@@ -188,7 +188,7 @@ impl DependencyManager {
     /// * Fill the [VerificationKeyStore] with the given signers keys.
     /// * Fill the [StakeStore] with the given signers stakes.
     /// * Fill the [ProtocolParametersStore] with the given parameters.
-    pub async fn simulate_genesis(
+    pub async fn prepare_for_genesis(
         &self,
         genesis_signers: Vec<SignerWithStake>,
         second_epoch_signers: Vec<SignerWithStake>,
