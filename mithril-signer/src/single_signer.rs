@@ -237,34 +237,33 @@ impl SingleSigner for MithrilSingleSigner {
 mod tests {
     use super::*;
 
-    use mithril_common::crypto_helper::tests_setup::*;
-    use mithril_common::crypto_helper::{key_decode_hex, ProtocolClerk, ProtocolSingleSignature};
-    use mithril_common::entities::ProtocolMessagePartKey;
+    use mithril_common::{
+        crypto_helper::{key_decode_hex, tests_setup::*, ProtocolClerk, ProtocolSingleSignature},
+        entities::ProtocolMessagePartKey,
+        test_utils::MithrilFixtureBuilder,
+    };
 
     #[test]
     fn compute_single_signature_success() {
         let snapshot_digest = "digest".to_string();
         let protocol_parameters = setup_protocol_parameters();
-        let signers = setup_signers(5, &protocol_parameters);
-        let signers_with_stake = signers
-            .iter()
-            .map(
-                |(signer_with_stake, _protocol_signer, _protocol_initializer)| {
-                    signer_with_stake.to_owned()
-                },
-            )
-            .collect::<Vec<SignerWithStake>>();
-        let current_signer = &signers[0];
-        let single_signer = MithrilSingleSigner::new(current_signer.0.party_id.to_owned());
-        let protocol_signer = &current_signer.1;
-        let clerk = ProtocolClerk::from_signer(protocol_signer);
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+        let signers_with_stake = fixture.signers_with_stake();
+        let current_signer = &fixture.signers_fixture()[0];
+        let single_signer =
+            MithrilSingleSigner::new(current_signer.signer_with_stake.party_id.to_owned());
+        let clerk = ProtocolClerk::from_signer(&current_signer.protocol_signer);
         let avk = clerk.compute_avk();
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, snapshot_digest);
         let expected_message = protocol_message.compute_hash().as_bytes().to_vec();
 
         let sign_result = single_signer
-            .compute_single_signatures(&protocol_message, &signers_with_stake, &current_signer.2)
+            .compute_single_signatures(
+                &protocol_message,
+                &signers_with_stake,
+                &current_signer.protocol_initializer,
+            )
             .expect("single signer should not fail")
             .expect("single signer should produce a signature here");
 
@@ -273,8 +272,8 @@ mod tests {
             decoded_sig
                 .verify(
                     &protocol_parameters,
-                    &protocol_signer.verification_key(),
-                    &protocol_signer.get_stake(),
+                    &current_signer.protocol_signer.verification_key(),
+                    &current_signer.protocol_signer.get_stake(),
                     &avk,
                     &expected_message
                 )
@@ -282,25 +281,22 @@ mod tests {
             "produced single signature should be valid"
         );
         //TODO: decoded_sig.pk should probably be a StmVerificationKeyPoP, uncomment once fixed
-        //assert_eq!(current_signer.2, decoded_sig.pk);
+        //assert_eq!(current_signer.protocol_initializer, decoded_sig.pk);
     }
 
     #[test]
     fn compute_aggregate_verification_key_success() {
-        let signers = setup_signers(5, &setup_protocol_parameters());
-        let signers_with_stake = signers
-            .iter()
-            .map(
-                |(signer_with_stake, _protocol_signer, _protocol_initializer)| {
-                    signer_with_stake.to_owned()
-                },
-            )
-            .collect::<Vec<SignerWithStake>>();
-        let current_signer = &signers[0];
-        let single_signer = MithrilSingleSigner::new(current_signer.0.party_id.to_owned());
-        let protocol_initializer = &current_signer.2;
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+        let signers_with_stake = fixture.signers_with_stake();
+        let current_signer = &fixture.signers_fixture()[0];
+        let single_signer =
+            MithrilSingleSigner::new(current_signer.signer_with_stake.party_id.to_owned());
+
         single_signer
-            .compute_aggregate_verification_key(&signers_with_stake, protocol_initializer)
+            .compute_aggregate_verification_key(
+                &signers_with_stake,
+                &current_signer.protocol_initializer,
+            )
             .expect("compute aggregate verification signature should not fail")
             .expect("aggregate verification signature should not be empty");
     }
