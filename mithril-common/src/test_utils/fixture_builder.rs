@@ -12,8 +12,6 @@ use crate::{
     test_utils::mithril_fixture::MithrilFixture,
 };
 
-use super::mithril_fixture::SignerFixture;
-
 /// A builder of mithril types.
 pub struct MithrilFixtureBuilder {
     protocol_parameters: ProtocolParameters,
@@ -81,16 +79,7 @@ impl MithrilFixtureBuilder {
         let signers = tests_setup::setup_signers_from_stake_distribution(
             &protocol_stake_distribution,
             &self.protocol_parameters.clone().into(),
-        )
-        .into_iter()
-        .map(
-            |(signer_with_stake, protocol_signer, protocol_initializer)| SignerFixture {
-                signer_with_stake,
-                protocol_signer,
-                protocol_initializer,
-            },
-        )
-        .collect();
+        );
 
         MithrilFixture::new(
             self.protocol_parameters,

@@ -1,16 +1,14 @@
 //! Test data builders for Mithril STM types, for testing purpose.
-use super::cardano::ColdKeyGenerator;
 use super::{genesis::*, key_encode_hex, types::*, OpCert, SerDeShelleyFileFormat};
-use crate::certificate_chain::CertificateGenesisProducer;
 use crate::{
+    certificate_chain::CertificateGenesisProducer,
     entities::{Certificate, Epoch, ProtocolMessage, ProtocolMessagePartKey, SignerWithStake},
     fake_data,
+    test_utils::{MithrilFixtureBuilder, SignerFixture},
 };
 
-use kes_summed_ed25519::kes::Sum6Kes;
-use kes_summed_ed25519::traits::KesSk;
 use rand_chacha::ChaCha20Rng;
-use rand_core::{RngCore, SeedableRng};
+use rand_core::SeedableRng;
 use std::{cmp::min, fs, sync::Arc};
 
 use std::{collections::HashMap, path::PathBuf};
@@ -52,60 +50,11 @@ pub fn setup_protocol_parameters() -> ProtocolParameters {
     }
 }
 
-/// Instantiate a list of protocol signers, use this for tests only.
-pub fn setup_signers(
-    total: u64,
-    protocol_parameters: &ProtocolParameters,
-) -> Vec<(SignerWithStake, ProtocolSigner, ProtocolInitializer)> {
-    let mut stake_rng = ChaCha20Rng::from_seed([0u8; 32]);
-    let mut kes_keys_seed = [0u8; 32];
-
-    let stake_distribution = (0..total)
-        .into_iter()
-        .map(|party_idx| {
-            let party_id = if party_idx % 2 == 0
-                || cfg!(not(feature = "allow_skip_signer_certification"))
-            {
-                // 50% of signers with key certification if allow unverified signer registration
-                // Or 100% of signers otherwise
-                let keypair = ColdKeyGenerator::create_deterministic_keypair([party_idx as u8; 32]);
-                let (kes_secret_key, kes_verification_key) = Sum6Kes::keygen(&mut kes_keys_seed);
-                let operational_certificate = OpCert::new(kes_verification_key, 0, 0, keypair);
-                let party_id = operational_certificate
-                    .compute_protocol_party_id()
-                    .expect("compute protocol party id should not fail");
-                let temp_dir = setup_temp_directory_for_signer(&party_id, true)
-                    .expect("setup temp directory should return a value");
-                if !temp_dir.join("kes.sk").exists() {
-                    kes_secret_key
-                        .to_file(temp_dir.join("kes.sk"))
-                        .expect("KES secret key file export should not fail");
-                }
-                if !temp_dir.join("opcert.cert").exists() {
-                    operational_certificate
-                        .to_file(temp_dir.join("opcert.cert"))
-                        .expect("operational certificate file export should not fail");
-                }
-                party_id
-            } else {
-                // 50% of signers without key certification (legacy) if allow unverified signer registration
-                // Or 0% of signers otherwise
-                // TODO: Should be removed once the signer certification is fully deployed
-                format!("{:<032}", party_idx)
-            };
-
-            let stake = 1 + stake_rng.next_u64() % 999;
-            (party_id, stake)
-        })
-        .collect::<Vec<_>>();
-    setup_signers_from_stake_distribution(&stake_distribution, protocol_parameters)
-}
-
 /// Instantiate a list of protocol signers based on the given [ProtocolStakeDistribution] and [ProtocolParameters], use this for tests only.
 pub fn setup_signers_from_stake_distribution(
     stake_distribution: &ProtocolStakeDistribution,
     protocol_parameters: &ProtocolParameters,
-) -> Vec<(SignerWithStake, ProtocolSigner, ProtocolInitializer)> {
+) -> Vec<SignerFixture> {
     let signers = stake_distribution
         .iter()
         .map(|(party_id, stake)| {
@@ -163,34 +112,37 @@ pub fn setup_signers_from_stake_distribution(
                     .expect("operational certificate decoding should not fail")
             });
             let kes_period = 0;
-            (
-                SignerWithStake::new(
-                    party_id,
-                    key_encode_hex(protocol_initializer.verification_key())
-                        .expect("key_encode_hex of verification_key should not fail"),
-                    protocol_initializer
-                        .verification_key_signature()
-                        .as_ref()
-                        .map(|verification_key_signature| {
-                            key_encode_hex(verification_key_signature).expect(
-                                "key_encode_hex of verification_key_signature should not fail",
-                            )
-                        }),
-                    operational_certificate
-                        .as_ref()
-                        .map(|operational_certificate| {
-                            key_encode_hex(operational_certificate)
-                                .expect("key_encode_hex of operational_certificate should not fail")
-                        }),
-                    operational_certificate.as_ref().map(|_| kes_period),
-                    stake,
-                ),
+
+            let signer_with_stake = SignerWithStake::new(
+                party_id,
+                key_encode_hex(protocol_initializer.verification_key())
+                    .expect("key_encode_hex of verification_key should not fail"),
                 protocol_initializer
-                    .clone()
-                    .new_signer(closed_key_registration.clone())
-                    .expect("creating a new protocol signer should not fail"),
+                    .verification_key_signature()
+                    .as_ref()
+                    .map(|verification_key_signature| {
+                        key_encode_hex(verification_key_signature)
+                            .expect("key_encode_hex of verification_key_signature should not fail")
+                    }),
+                operational_certificate
+                    .as_ref()
+                    .map(|operational_certificate| {
+                        key_encode_hex(operational_certificate)
+                            .expect("key_encode_hex of operational_certificate should not fail")
+                    }),
+                operational_certificate.as_ref().map(|_| kes_period),
+                stake,
+            );
+            let protocol_signer = protocol_initializer
+                .clone()
+                .new_signer(closed_key_registration.clone())
+                .expect("creating a new protocol signer should not fail");
+
+            SignerFixture {
+                signer_with_stake,
+                protocol_signer,
                 protocol_initializer,
-            )
+            }
         })
         .collect::<_>()
 }
@@ -219,21 +171,24 @@ pub fn setup_certificate_chain(
             _ => Epoch(i / certificates_per_epoch + 1),
         })
         .collect::<Vec<_>>();
-    let signers_by_epoch = epochs
+    let fixture_per_epoch = epochs
         .clone()
         .into_iter()
         .map(|epoch| {
             (
                 epoch,
-                setup_signers(min(2 + epoch.0, 5), &protocol_parameters),
+                MithrilFixtureBuilder::default()
+                    .with_protocol_parameters(protocol_parameters.into())
+                    .with_signers(min(2 + epoch.0 as usize, 5))
+                    .build(),
             )
         })
         .collect::<HashMap<_, _>>();
-    let clerk_for_signers = |signers: &[(_, ProtocolSigner, _)]| -> ProtocolClerk {
-        let first_signer = &signers.first().unwrap().1;
+    let clerk_for_signers = |signers: &[SignerFixture]| -> ProtocolClerk {
+        let first_signer = &signers[0].protocol_signer;
         ProtocolClerk::from_signer(first_signer)
     };
-    let avk_for_signers = |signers: &[(_, ProtocolSigner, _)]| -> ProtocolAggregateVerificationKey {
+    let avk_for_signers = |signers: &[SignerFixture]| -> ProtocolAggregateVerificationKey {
         let clerk = clerk_for_signers(signers);
         clerk.compute_avk()
     };
@@ -247,10 +202,10 @@ pub fn setup_certificate_chain(
             let immutable_file_number = i as u64 * 10;
             let digest = format!("digest{}", i);
             let certificate_hash = format!("certificate_hash-{}", i);
-            let signers = signers_by_epoch.get(&epoch).unwrap();
-            let next_signers = signers_by_epoch.get(&(epoch + 1)).unwrap();
-            let avk = avk_for_signers(signers);
-            let next_avk = avk_for_signers(next_signers);
+            let fixture = fixture_per_epoch.get(&epoch).unwrap();
+            let next_fixture = fixture_per_epoch.get(&(epoch + 1)).unwrap();
+            let avk = avk_for_signers(&fixture.signers_fixture());
+            let next_avk = avk_for_signers(&next_fixture.signers_fixture());
             let mut fake_certificate = fake_data::certificate(certificate_hash);
             fake_certificate.beacon.epoch = epoch;
             fake_certificate.beacon.immutable_file_number = immutable_file_number;
@@ -281,17 +236,17 @@ pub fn setup_certificate_chain(
                     .unwrap()
                 }
                 _ => {
-                    fake_certificate.metadata.signers =
-                        signers.iter().map(|s| s.0.to_owned()).collect();
-                    let mut single_signatures = Vec::new();
-                    signers.iter().for_each(|(_, protocol_signer, _)| {
-                        if let Some(signature) =
-                            protocol_signer.sign(fake_certificate.signed_message.as_bytes())
-                        {
-                            single_signatures.push(signature);
-                        }
-                    });
-                    let clerk = clerk_for_signers(signers);
+                    fake_certificate.metadata.signers = fixture.signers_with_stake();
+
+                    let single_signatures = fixture
+                        .signers_fixture()
+                        .iter()
+                        .filter_map(|s| {
+                            s.protocol_signer
+                                .sign(fake_certificate.signed_message.as_bytes())
+                        })
+                        .collect::<Vec<_>>();
+                    let clerk = clerk_for_signers(&fixture.signers_fixture());
                     let multi_signature = clerk
                         .aggregate(
                             &single_signatures,
