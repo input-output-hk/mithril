@@ -280,8 +280,6 @@ mod tests {
                 .is_ok(),
             "produced single signature should be valid"
         );
-        //TODO: decoded_sig.pk should probably be a StmVerificationKeyPoP, uncomment once fixed
-        //assert_eq!(current_signer.protocol_initializer, decoded_sig.pk);
     }
 
     #[test]

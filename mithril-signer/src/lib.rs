@@ -12,6 +12,8 @@ mod protocol_initializer_store;
 mod runtime;
 mod single_signer;
 
+#[cfg(test)]
+pub use certificate_handler::dumb::DumbCertificateHandler;
 pub use certificate_handler::*;
 pub use configuration::Config;
 pub use protocol_initializer_store::{ProtocolInitializerStore, ProtocolInitializerStorer};

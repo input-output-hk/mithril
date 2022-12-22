@@ -9,9 +9,8 @@
 //! lib with the [crypto_helper].
 //! - A [certificate chain] used to validate the Certificate Chain created by an aggregator
 //! - The [entities] used by, and exchanged between, the aggregator, signers and client.
-//! - useful test utilities including stubs, [fake data][fake_data] builders, a tool validate
-//! conformity to an open api specification ([apispec]).
 
+#[cfg(any(test, feature = "test_only"))]
 pub mod apispec;
 mod beacon_provider;
 pub mod certificate_chain;
@@ -20,6 +19,7 @@ pub mod crypto_helper;
 pub mod database;
 pub mod digesters;
 pub mod entities;
+#[cfg(any(test, feature = "test_only"))]
 pub mod fake_data;
 pub mod sqlite;
 pub mod store;
