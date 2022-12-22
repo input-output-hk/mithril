@@ -322,7 +322,7 @@ mod tests {
 
     use super::super::runner::MockAggregatorRunner;
     use super::*;
-    use mithril_common::fake_data;
+    use mithril_common::test_utils::fake_data;
     use mockall::predicate;
 
     async fn init_runtime(

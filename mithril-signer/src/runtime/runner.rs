@@ -436,20 +436,20 @@ impl Runner for SignerRunner {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::chain_observer::ChainObserver;
+    use mithril_common::{
+        chain_observer::{ChainObserver, FakeObserver},
+        crypto_helper::ProtocolInitializer,
+        digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
+        entities::{Epoch, StakeDistribution},
+        store::{
+            adapter::{DumbStoreAdapter, MemoryAdapter},
+            StakeStore, StakeStorer,
+        },
+        test_utils::{fake_data, MithrilFixtureBuilder},
+        BeaconProvider, BeaconProviderError, BeaconProviderImpl, CardanoNetwork,
+    };
     use mockall::mock;
     use std::{path::PathBuf, sync::Arc};
-
-    use mithril_common::crypto_helper::tests_setup::{setup_protocol_parameters, setup_signers};
-    use mithril_common::crypto_helper::ProtocolInitializer;
-    use mithril_common::digesters::{DumbImmutableDigester, DumbImmutableFileObserver};
-    use mithril_common::entities::{Epoch, StakeDistribution};
-    use mithril_common::store::adapter::{DumbStoreAdapter, MemoryAdapter};
-    use mithril_common::store::{StakeStore, StakeStorer};
-    use mithril_common::{
-        chain_observer::FakeObserver, BeaconProvider, BeaconProviderError, BeaconProviderImpl,
-    };
-    use mithril_common::{fake_data, CardanoNetwork};
 
     use crate::{
         CertificateHandler, DumbCertificateHandler, MithrilSingleSigner, MockCertificateHandler,
@@ -693,8 +693,9 @@ mod tests {
             .get_current_beacon()
             .await
             .expect("get_current_beacon should not fail");
-        let signers = setup_signers(5, &setup_protocol_parameters());
-        let (signer_with_stake, _, protocol_initializer) = signers.first().unwrap();
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+        let signer_with_stake = fixture.signers_fixture()[0].signer_with_stake.clone();
+        let protocol_initializer = fixture.signers_fixture()[0].protocol_initializer.clone();
         let single_signer = Arc::new(MithrilSingleSigner::new(
             signer_with_stake.party_id.to_owned(),
         ));
@@ -708,10 +709,7 @@ mod tests {
             .await
             .expect("save_protocol_initializer should not fail");
 
-        let next_signers = signers
-            .iter()
-            .map(|(signer_with_stake, _, _)| signer_with_stake.to_owned())
-            .collect::<Vec<_>>();
+        let next_signers = fixture.signers_with_stake();
         let mut expected = ProtocolMessage::new();
         expected.set_message_part(
             ProtocolMessagePartKey::SnapshotDigest,
@@ -719,7 +717,7 @@ mod tests {
         );
         let avk = services
             .single_signer
-            .compute_aggregate_verification_key(&next_signers, protocol_initializer)
+            .compute_aggregate_verification_key(&next_signers, &protocol_initializer)
             .expect("compute_aggregate_verification_key should not fail")
             .expect("an avk should have been computed");
         expected.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
@@ -741,8 +739,9 @@ mod tests {
             .get_current_beacon()
             .await
             .expect("get_current_beacon should not fail");
-        let signers = setup_signers(5, &setup_protocol_parameters());
-        let (signer_with_stake, _, protocol_initializer) = signers.first().unwrap();
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+        let signer_with_stake = fixture.signers_fixture()[0].signer_with_stake.clone();
+        let protocol_initializer = fixture.signers_fixture()[0].protocol_initializer.clone();
         let single_signer = Arc::new(MithrilSingleSigner::new(
             signer_with_stake.party_id.to_string(),
         ));
@@ -758,10 +757,7 @@ mod tests {
             )
             .await
             .expect("save_protocol_initializer should not fail");
-        let signers = signers
-            .iter()
-            .map(|(signer_with_stake, _, _)| signer_with_stake.to_owned())
-            .collect::<Vec<_>>();
+        let signers = fixture.signers_with_stake();
 
         let mut message = ProtocolMessage::new();
         message.set_message_part(
@@ -774,7 +770,7 @@ mod tests {
         );
 
         let expected = single_signer
-            .compute_single_signatures(&message, &signers, protocol_initializer)
+            .compute_single_signatures(&message, &signers, &protocol_initializer)
             .expect("compute_single_signatures should not fail");
 
         let runner = init_runner(Some(services), None);

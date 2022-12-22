@@ -67,9 +67,9 @@ mod handlers {
 mod tests {
     const API_SPEC_FILE: &str = "../openapi.yaml";
 
-    use mithril_common::apispec::APISpec;
     use mithril_common::crypto_helper::ProtocolRegistrationError;
-    use mithril_common::fake_data;
+    use mithril_common::test_utils::apispec::APISpec;
+    use mithril_common::test_utils::fake_data;
     use warp::http::Method;
     use warp::test::request;
 

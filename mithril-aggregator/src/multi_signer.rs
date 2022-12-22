@@ -727,8 +727,8 @@ mod tests {
     };
     use mithril_common::{
         crypto_helper::tests_setup::*,
-        fake_data,
         store::{adapter::MemoryAdapter, StakeStore},
+        test_utils::{fake_data, MithrilFixtureBuilder},
     };
     use std::{collections::HashMap, sync::Arc};
 
@@ -861,17 +861,9 @@ mod tests {
     #[tokio::test]
     async fn test_multi_signer_stake_distribution_ok() {
         let mut multi_signer = setup_multi_signer().await;
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+        let mut stake_distribution_expected = fixture.protocol_stake_distribution();
 
-        let mut stake_distribution_expected: ProtocolStakeDistribution =
-            setup_signers(5, &setup_protocol_parameters())
-                .iter()
-                .map(|(signer_with_stake, _, _)| {
-                    (
-                        signer_with_stake.party_id.to_owned(),
-                        signer_with_stake.stake,
-                    )
-                })
-                .collect::<_>();
         stake_distribution_expected.sort_by_key(|k| k.0.clone());
         multi_signer
             .update_stake_distribution(&stake_distribution_expected)
@@ -918,22 +910,15 @@ mod tests {
             .await
             .expect("update protocol parameters failed");
 
-        let signers = setup_signers(5, &protocol_parameters);
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
 
-        let stake_distribution = &signers
-            .iter()
-            .map(|(signer_with_stake, _, _)| {
-                (
-                    signer_with_stake.party_id.to_owned(),
-                    signer_with_stake.stake,
-                )
-            })
-            .collect::<_>();
+        let stake_distribution = fixture.protocol_stake_distribution();
+
         multi_signer
-            .update_stake_distribution(stake_distribution)
+            .update_stake_distribution(&stake_distribution)
             .await
             .expect("update stake distribution failed");
-        for (signer_with_stake, _, _) in &signers {
+        for signer_with_stake in &fixture.signers_with_stake() {
             verification_key_store
                 .save_verification_key(
                     start_epoch.offset_to_recording_epoch(),
@@ -959,17 +944,20 @@ mod tests {
         let mut signatures = Vec::new();
 
         let mut expected_certificate_signers: Vec<SignerWithStake> = Vec::new();
-        for (signer_with_stake, protocol_signer, _protocol_initializer) in &signers {
-            if let Some(signature) = protocol_signer.sign(message.compute_hash().as_bytes()) {
+        for signer_fixture in fixture.signers_fixture() {
+            if let Some(signature) = signer_fixture
+                .protocol_signer
+                .sign(message.compute_hash().as_bytes())
+            {
                 let won_indexes = signature.indexes.clone();
 
                 signatures.push(entities::SingleSignatures::new(
-                    signer_with_stake.party_id.to_owned(),
+                    signer_fixture.signer_with_stake.party_id.to_owned(),
                     key_encode_hex(signature).unwrap(),
                     won_indexes,
                 ));
 
-                expected_certificate_signers.push(signer_with_stake.to_owned())
+                expected_certificate_signers.push(signer_fixture.signer_with_stake.to_owned())
             }
         }
 

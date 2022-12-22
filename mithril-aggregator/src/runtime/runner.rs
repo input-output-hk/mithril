@@ -615,16 +615,16 @@ pub mod tests {
     use crate::{MithrilSignerRegisterer, ProtocolParametersStorer, SignerRegistrationRound};
     use mithril_common::chain_observer::FakeObserver;
     use mithril_common::crypto_helper::{
-        key_decode_hex,
-        tests_setup::{setup_certificate_chain, setup_signers},
-        ProtocolMultiSignature,
+        key_decode_hex, tests_setup::setup_certificate_chain, ProtocolMultiSignature,
     };
     use mithril_common::digesters::DumbImmutableFileObserver;
     use mithril_common::entities::{
-        Beacon, CertificatePending, Epoch, HexEncodedKey, ProtocolMessage, SignerWithStake,
-        StakeDistribution,
+        Beacon, CertificatePending, Epoch, HexEncodedKey, ProtocolMessage, StakeDistribution,
     };
-    use mithril_common::{entities::ProtocolMessagePartKey, fake_data, store::StakeStorer};
+    use mithril_common::test_utils::MithrilFixtureBuilder;
+    use mithril_common::{
+        entities::ProtocolMessagePartKey, store::StakeStorer, test_utils::fake_data,
+    };
     use mithril_common::{BeaconProviderImpl, CardanoNetwork};
     use std::collections::HashMap;
     use std::path::Path;
@@ -696,10 +696,18 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_update_stake_distribution() {
-        let (deps, config) = initialize_dependencies().await;
+        let (mut deps, config) = initialize_dependencies().await;
+        let chain_observer = Arc::new(FakeObserver::default());
+        deps.chain_observer = chain_observer.clone();
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(config, deps.clone());
         let beacon = runner.get_beacon_from_chain().await.unwrap();
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+        let expected = fixture.stake_distribution();
+
+        chain_observer
+            .set_signers(fixture.signers_with_stake())
+            .await;
         runner
             .update_beacon(&beacon)
             .await
@@ -708,13 +716,6 @@ pub mod tests {
             .update_stake_distribution(&beacon)
             .await
             .expect("updating stake distribution should not return an error");
-
-        let current_stake_distribution = deps
-            .chain_observer
-            .get_current_stake_distribution()
-            .await
-            .unwrap()
-            .expect("The stake distribution should not be None.");
 
         let saved_stake_distribution = deps
             .stake_store
@@ -728,13 +729,7 @@ pub mod tests {
                 )
             });
 
-        assert_eq!(
-            current_stake_distribution.len(),
-            saved_stake_distribution.len()
-        );
-        for (party_id, stake) in current_stake_distribution.iter() {
-            assert_eq!(stake, saved_stake_distribution.get(party_id).unwrap());
-        }
+        assert_eq!(expected, saved_stake_distribution);
     }
 
     #[tokio::test]
@@ -815,11 +810,11 @@ pub mod tests {
         let beacon = runner.get_beacon_from_chain().await.unwrap();
         runner.update_beacon(&beacon).await.unwrap();
 
-        let signers = fake_data::signers_with_stakes(5);
-        let current_signers = signers[1..3].to_vec();
-        let next_signers = signers[2..5].to_vec();
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+        let current_signers = fixture.signers_with_stake()[1..3].to_vec();
+        let next_signers = fixture.signers_with_stake()[2..5].to_vec();
         let protocol_parameters = fake_data::protocol_parameters();
-        deps.simulate_genesis(
+        deps.prepare_for_genesis(
             current_signers.clone(),
             next_signers.clone(),
             &protocol_parameters.clone(),
@@ -853,17 +848,12 @@ pub mod tests {
         let beacon = runner.get_beacon_from_chain().await.unwrap();
         runner.update_beacon(&beacon).await.unwrap();
 
-        let protocol_parameters = fake_data::protocol_parameters();
-        let signers = setup_signers(5, &protocol_parameters.clone().into())
-            .into_iter()
-            .map(|s| s.0)
-            .collect::<Vec<SignerWithStake>>();
-        let current_signers = signers[1..3].to_vec();
-        let next_signers = signers[2..5].to_vec();
-        deps.simulate_genesis(
-            current_signers.clone(),
-            next_signers.clone(),
-            &protocol_parameters.clone(),
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+
+        deps.prepare_for_genesis(
+            fixture.signers_with_stake(),
+            fixture.signers_with_stake(),
+            &fixture.protocol_parameters(),
         )
         .await;
 
@@ -902,7 +892,7 @@ pub mod tests {
 
         let mut expected = WorkingCertificate::from_pending_certificate(
             &certificate_pending,
-            &current_signers,
+            &fixture.signers_with_stake(),
             &message,
             &aggregate_verification_key,
             &sut.initiated_at,
@@ -956,18 +946,15 @@ pub mod tests {
         let (deps, config) = initialize_dependencies().await;
         let deps = Arc::new(deps);
         let runner = AggregatorRunner::new(config, deps.clone());
-        let beacon = runner.get_beacon_from_chain().await.unwrap();
         let digest = "1+2+3+4=10".to_string();
-        runner.update_beacon(&beacon).await.unwrap();
-        for epoch in [
-            beacon.epoch.offset_to_signer_retrieval_epoch().unwrap(),
-            beacon.epoch.offset_to_next_signer_retrieval_epoch(),
-        ] {
-            deps.protocol_parameters_store
-                .save_protocol_parameters(epoch, fake_data::protocol_parameters())
-                .await
-                .unwrap();
-        }
+        runner.update_beacon(&fake_data::beacon()).await.unwrap();
+        let fixture = MithrilFixtureBuilder::default().build();
+        deps.prepare_for_genesis(
+            fixture.signers_with_stake(),
+            fixture.signers_with_stake(),
+            &fixture.protocol_parameters(),
+        )
+        .await;
 
         runner
             .update_message_in_multisigner(digest)
@@ -1061,15 +1048,8 @@ pub mod tests {
             .expect_get_multi_signature()
             .return_once(move || Ok(Some(multi_signature)));
         deps.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
-        let certificate_store = deps.certificate_store.clone();
+        deps.init_state_from_chain(&certificate_chain, vec![]).await;
         let runner = AggregatorRunner::new(config, Arc::new(deps));
-        for certificate in certificate_chain[1..].iter().rev() {
-            certificate_store
-                .as_ref()
-                .save(certificate.to_owned())
-                .await
-                .expect("save certificate to store should not fail");
-        }
 
         let certificate = runner
             .create_and_save_certificate(&working_certificate)

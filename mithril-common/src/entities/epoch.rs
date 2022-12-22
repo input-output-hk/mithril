@@ -33,17 +33,17 @@ impl Epoch {
         Ok(Epoch(epoch_new as u64))
     }
 
-    /// Apply the [Self::SIGNER_EPOCH_RETRIEVAL_OFFSET] to this epoch
+    /// Apply the [retrieval offset][Self::SIGNER_RETRIEVAL_OFFSET] to this epoch
     pub fn offset_to_signer_retrieval_epoch(&self) -> Result<Self, EpochError> {
         self.offset_by(Self::SIGNER_RETRIEVAL_OFFSET)
     }
 
-    /// Apply the [Self::NEXT_SIGNER_EPOCH_RETRIEVAL_OFFSET] to this epoch
+    /// Apply the [next signer retrieval offset][Self::NEXT_SIGNER_RETRIEVAL_OFFSET] to this epoch
     pub fn offset_to_next_signer_retrieval_epoch(&self) -> Self {
         *self + Self::NEXT_SIGNER_RETRIEVAL_OFFSET
     }
 
-    /// Apply the [Self::SIGNER_EPOCH_RECORDING_OFFSET] to this epoch
+    /// Apply the [recording offset][Self::SIGNER_RECORDING_OFFSET] to this epoch
     pub fn offset_to_recording_epoch(&self) -> Self {
         *self + Self::SIGNER_RECORDING_OFFSET
     }

@@ -288,6 +288,7 @@ mod tests {
 
     use crate::crypto_helper::tests_setup::*;
     use crate::crypto_helper::{key_encode_hex, ProtocolClerk};
+    use crate::test_utils::MithrilFixtureBuilder;
 
     mock! {
         pub CertificateRetrieverImpl { }
@@ -305,43 +306,42 @@ mod tests {
     #[test]
     fn test_verify_multi_signature_ok() {
         let protocol_parameters = setup_protocol_parameters();
-        let signers = setup_signers(5, &protocol_parameters);
-        let message = setup_message();
+        let fixture = MithrilFixtureBuilder::default()
+            .with_signers(5)
+            .with_protocol_parameters(protocol_parameters.into())
+            .build();
+        let signers = fixture.signers_fixture();
+        let message_hash = setup_message().compute_hash().as_bytes().to_vec();
 
-        let mut single_signatures = Vec::new();
-        signers.iter().for_each(|(_, protocol_signer, _)| {
-            if let Some(signature) = protocol_signer.sign(message.compute_hash().as_bytes()) {
-                single_signatures.push(signature);
-            }
-        });
+        let single_signatures = signers
+            .iter()
+            .filter_map(|s| s.protocol_signer.sign(&message_hash))
+            .collect::<Vec<_>>();
 
-        let first_signer = &signers.first().unwrap().1;
+        let first_signer = &signers[0].protocol_signer;
         let clerk = ProtocolClerk::from_signer(first_signer);
         let aggregate_verification_key = clerk.compute_avk();
-        let multi_signature = clerk
-            .aggregate(&single_signatures, message.compute_hash().as_bytes())
-            .unwrap();
+        let multi_signature = clerk.aggregate(&single_signatures, &message_hash).unwrap();
 
         let verifier = MithrilCertificateVerifier::new(slog_scope::logger());
-        let protocol_parameters = protocol_parameters.into();
-        let message_tampered = message.compute_hash().as_bytes()[1..].to_vec();
+        let message_tampered = message_hash[1..].to_vec();
         assert!(
             verifier
                 .verify_multi_signature(
                     &message_tampered,
                     &key_encode_hex(&multi_signature).unwrap(),
                     &key_encode_hex(&aggregate_verification_key).unwrap(),
-                    &protocol_parameters,
+                    &fixture.protocol_parameters(),
                 )
                 .is_err(),
             "multi signature verification should have failed"
         );
         verifier
             .verify_multi_signature(
-                message.compute_hash().as_bytes(),
+                &message_hash,
                 &key_encode_hex(&multi_signature).unwrap(),
                 &key_encode_hex(&aggregate_verification_key).unwrap(),
-                &protocol_parameters,
+                &fixture.protocol_parameters(),
             )
             .expect("multi signature verification should have succeeded");
     }

@@ -1,8 +1,7 @@
 mod test_extensions;
 
 use mithril_common::{
-    crypto_helper::tests_setup,
-    entities::{Epoch, SignerWithStake},
+    crypto_helper::tests_setup, entities::Epoch, test_utils::MithrilFixtureBuilder,
 };
 
 use test_extensions::StateMachineTester;
@@ -12,8 +11,8 @@ use test_extensions::StateMachineTester;
 async fn test_create_single_signature() {
 
     let protocol_parameters = tests_setup::setup_protocol_parameters();
-    let signers = tests_setup::setup_signers(10, &protocol_parameters);
-    let signers_with_stake = signers.iter().map(|(signer_with_stake, _, _)| signer_with_stake.to_owned()).collect::<Vec<SignerWithStake>>();
+    let fixture = MithrilFixtureBuilder::default().with_signers(10).with_protocol_parameters(protocol_parameters.into()).build();
+    let signers_with_stake = fixture.signers_with_stake();
     let mut tester = StateMachineTester::init(&signers_with_stake).await.expect("state machine tester init should not fail");
 
     tester

@@ -9,10 +9,7 @@
 //! lib with the [crypto_helper].
 //! - A [certificate chain] used to validate the Certificate Chain created by an aggregator
 //! - The [entities] used by, and exchanged between, the aggregator, signers and client.
-//! - useful test utilities including stubs, [fake data][fake_data] builders, a tool validate
-//! conformity to an open api specification ([apispec]).
 
-pub mod apispec;
 mod beacon_provider;
 pub mod certificate_chain;
 pub mod chain_observer;
@@ -20,9 +17,9 @@ pub mod crypto_helper;
 pub mod database;
 pub mod digesters;
 pub mod entities;
-pub mod fake_data;
 pub mod sqlite;
 pub mod store;
+pub mod test_utils;
 
 pub use beacon_provider::{BeaconProvider, BeaconProviderError, BeaconProviderImpl};
 pub use entities::{CardanoNetwork, MagicId};

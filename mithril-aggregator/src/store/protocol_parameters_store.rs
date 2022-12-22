@@ -86,7 +86,7 @@ impl ProtocolParametersStorer for ProtocolParametersStore {
 mod tests {
     use super::*;
 
-    use mithril_common::{fake_data, store::adapter::MemoryAdapter};
+    use mithril_common::{store::adapter::MemoryAdapter, test_utils::fake_data};
 
     fn setup_protocol_parameters(nb_epoch: u64) -> Vec<(Epoch, ProtocolParameters)> {
         let mut values: Vec<(Epoch, ProtocolParameters)> = Vec::new();

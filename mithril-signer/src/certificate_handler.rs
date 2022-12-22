@@ -3,11 +3,10 @@ use reqwest::{self, Client, RequestBuilder, Response, StatusCode};
 use slog_scope::debug;
 use std::io;
 use thiserror::Error;
-use tokio::sync::RwLock;
 
 use mithril_common::{
     entities::{CertificatePending, EpochSettings, Signer, SingleSignatures},
-    fake_data, MITHRIL_API_VERSION,
+    MITHRIL_API_VERSION,
 };
 
 #[cfg(test)]
@@ -225,89 +224,99 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
     }
 }
 
-/// This certificate handler is intended to be used by test services.
-/// It actually does not communicate with an aggregator host but mimics this behavior.
-/// It is driven by a Tester that controls the CertificatePending it can return and it can return its internal state for testing.
-pub struct DumbCertificateHandler {
-    epoch_settings: RwLock<Option<EpochSettings>>,
-    certificate_pending: RwLock<Option<CertificatePending>>,
-    last_registered_signer: RwLock<Option<Signer>>,
-}
+#[cfg(test)]
+pub(crate) mod dumb {
+    use super::*;
+    use mithril_common::test_utils::fake_data;
+    use tokio::sync::RwLock;
 
-impl DumbCertificateHandler {
-    /// Instanciate a new DumbCertificateHandler.
-    pub fn new() -> Self {
-        Self {
-            epoch_settings: RwLock::new(None),
-            certificate_pending: RwLock::new(None),
-            last_registered_signer: RwLock::new(None),
+    /// This certificate handler is intended to be used by test services.
+    /// It actually does not communicate with an aggregator host but mimics this behavior.
+    /// It is driven by a Tester that controls the CertificatePending it can return and it can return its internal state for testing.
+    pub struct DumbCertificateHandler {
+        epoch_settings: RwLock<Option<EpochSettings>>,
+        certificate_pending: RwLock<Option<CertificatePending>>,
+        last_registered_signer: RwLock<Option<Signer>>,
+    }
+
+    impl DumbCertificateHandler {
+        /// Instanciate a new DumbCertificateHandler.
+        pub fn new() -> Self {
+            Self {
+                epoch_settings: RwLock::new(None),
+                certificate_pending: RwLock::new(None),
+                last_registered_signer: RwLock::new(None),
+            }
+        }
+
+        /// this method pilots the epoch settings handler
+        pub async fn set_epoch_settings(&self, epoch_settings: Option<EpochSettings>) {
+            let mut epoch_settings_writer = self.epoch_settings.write().await;
+            *epoch_settings_writer = epoch_settings;
+        }
+
+        /// this method pilots the certificate pending handler
+        /// calling this method unsets the last registered signer
+        pub async fn set_certificate_pending(
+            &self,
+            certificate_pending: Option<CertificatePending>,
+        ) {
+            let mut cert = self.certificate_pending.write().await;
+            *cert = certificate_pending;
+            let mut signer = self.last_registered_signer.write().await;
+            *signer = None;
+        }
+
+        /// Return the last signer that called with the `register` method.
+        pub async fn get_last_registered_signer(&self) -> Option<Signer> {
+            self.last_registered_signer.read().await.clone()
         }
     }
 
-    /// this method pilots the epoch settings handler
-    pub async fn set_epoch_settings(&self, epoch_settings: Option<EpochSettings>) {
-        let mut epoch_settings_writer = self.epoch_settings.write().await;
-        *epoch_settings_writer = epoch_settings;
-    }
-
-    /// this method pilots the certificate pending handler
-    /// calling this method unsets the last registered signer
-    pub async fn set_certificate_pending(&self, certificate_pending: Option<CertificatePending>) {
-        let mut cert = self.certificate_pending.write().await;
-        *cert = certificate_pending;
-        let mut signer = self.last_registered_signer.write().await;
-        *signer = None;
-    }
-
-    /// Return the last signer that called with the `register` method.
-    pub async fn get_last_registered_signer(&self) -> Option<Signer> {
-        self.last_registered_signer.read().await.clone()
-    }
-}
-
-impl Default for DumbCertificateHandler {
-    fn default() -> Self {
-        Self {
-            epoch_settings: RwLock::new(Some(fake_data::epoch_settings())),
-            certificate_pending: RwLock::new(Some(fake_data::certificate_pending())),
-            last_registered_signer: RwLock::new(None),
+    impl Default for DumbCertificateHandler {
+        fn default() -> Self {
+            Self {
+                epoch_settings: RwLock::new(Some(fake_data::epoch_settings())),
+                certificate_pending: RwLock::new(Some(fake_data::certificate_pending())),
+                last_registered_signer: RwLock::new(None),
+            }
         }
     }
-}
 
-#[async_trait]
-impl CertificateHandler for DumbCertificateHandler {
-    async fn retrieve_epoch_settings(
-        &self,
-    ) -> Result<Option<EpochSettings>, CertificateHandlerError> {
-        let epoch_settings = self.epoch_settings.read().await.clone();
+    #[async_trait]
+    impl CertificateHandler for DumbCertificateHandler {
+        async fn retrieve_epoch_settings(
+            &self,
+        ) -> Result<Option<EpochSettings>, CertificateHandlerError> {
+            let epoch_settings = self.epoch_settings.read().await.clone();
 
-        Ok(epoch_settings)
-    }
+            Ok(epoch_settings)
+        }
 
-    async fn retrieve_pending_certificate(
-        &self,
-    ) -> Result<Option<CertificatePending>, CertificateHandlerError> {
-        let cert = self.certificate_pending.read().await.clone();
+        async fn retrieve_pending_certificate(
+            &self,
+        ) -> Result<Option<CertificatePending>, CertificateHandlerError> {
+            let cert = self.certificate_pending.read().await.clone();
 
-        Ok(cert)
-    }
+            Ok(cert)
+        }
 
-    /// Registers signer with the aggregator
-    async fn register_signer(&self, signer: &Signer) -> Result<(), CertificateHandlerError> {
-        let mut last_registered_signer = self.last_registered_signer.write().await;
-        let signer = signer.clone();
-        *last_registered_signer = Some(signer);
+        /// Registers signer with the aggregator
+        async fn register_signer(&self, signer: &Signer) -> Result<(), CertificateHandlerError> {
+            let mut last_registered_signer = self.last_registered_signer.write().await;
+            let signer = signer.clone();
+            *last_registered_signer = Some(signer);
 
-        Ok(())
-    }
+            Ok(())
+        }
 
-    /// Registers single signatures with the aggregator
-    async fn register_signatures(
-        &self,
-        _signatures: &SingleSignatures,
-    ) -> Result<(), CertificateHandlerError> {
-        Ok(())
+        /// Registers single signatures with the aggregator
+        async fn register_signatures(
+            &self,
+            _signatures: &SingleSignatures,
+        ) -> Result<(), CertificateHandlerError> {
+            Ok(())
+        }
     }
 }
 
@@ -319,7 +328,7 @@ mod tests {
     use serde_json::json;
     use std::path::{Path, PathBuf};
 
-    use mithril_common::fake_data;
+    use mithril_common::test_utils::fake_data;
 
     use crate::configuration::Config;
 

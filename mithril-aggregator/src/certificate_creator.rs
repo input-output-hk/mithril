@@ -14,9 +14,9 @@ pub enum CertificateCreationError {
     Codec(String),
 }
 
-/// Define a way to create a [Certificate]
+/// Define a way to create a [Certificate][mithril_common::entities::Certificate]
 pub trait CertificateCreator {
-    /// Create a [Certificate]
+    /// Create a [Certificate][mithril_common::entities::Certificate]
     fn create_certificate(
         working: &WorkingCertificate,
         signatures_party_ids: &[PartyId],

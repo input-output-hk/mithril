@@ -86,7 +86,7 @@ impl SnapshotStore for RemoteSnapshotStore {
 mod tests {
     use super::*;
     use httpmock::prelude::*;
-    use mithril_common::fake_data;
+    use mithril_common::test_utils::fake_data;
     use serde_json::json;
 
     use crate::tools::MockRemoteFileUploader;

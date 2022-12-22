@@ -194,7 +194,7 @@ mod tests {
     };
     use mithril_common::digesters::{ImmutableDigester, ImmutableDigesterError};
     use mithril_common::entities::{Beacon, Certificate, ProtocolParameters};
-    use mithril_common::fake_data;
+    use mithril_common::test_utils::fake_data;
 
     mock! {
         pub DigesterImpl { }

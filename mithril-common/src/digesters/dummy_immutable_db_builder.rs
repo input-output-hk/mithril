@@ -1,4 +1,3 @@
-#![cfg(test)]
 use crate::{digesters::ImmutableFile, entities::ImmutableFileNumber};
 use std::{
     fs::File,
@@ -6,6 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
+/// A [DummyImmutableDb] builder.
 pub struct DummyImmutablesDbBuilder {
     dir: PathBuf,
     immutables_to_write: Vec<ImmutableFileNumber>,
@@ -14,9 +14,13 @@ pub struct DummyImmutablesDbBuilder {
     file_size: Option<u64>,
 }
 
+/// A dummy cardano immutable db.
 pub struct DummyImmutableDb {
+    /// The dummy cardano db directory path.
     pub dir: PathBuf,
+    /// The [immutables files][ImmutableFile] in the dummy cardano db.
     pub immutables_files: Vec<ImmutableFile>,
+    /// Files that doesn't follow the immutable file name scheme in the dummy cardano db.
     pub non_immutables_files: Vec<PathBuf>,
 }
 
@@ -33,11 +37,14 @@ impl DummyImmutablesDbBuilder {
         }
     }
 
+    /// Set the immutables file number that will be used to generate the immutable files, for each
+    /// number three files will be generated (a 'chunk', a 'primary' and a 'secondary' file).
     pub fn with_immutables(&mut self, immutables: &[ImmutableFileNumber]) -> &mut Self {
         self.immutables_to_write = immutables.to_vec();
         self
     }
 
+    /// Set filenames to write to the db that doesn't follow the immutable file name scheme.
     pub fn with_non_immutables(&mut self, non_immutables: &[&str]) -> &mut Self {
         self.non_immutables_to_write = non_immutables.iter().map(|f| f.to_string()).collect();
         self
@@ -59,6 +66,7 @@ impl DummyImmutablesDbBuilder {
         self
     }
 
+    /// Build a [DummyImmutableDb].
     pub fn build(&self) -> DummyImmutableDb {
         let mut non_immutables_files = vec![];
         let mut immutable_numbers = self.immutables_to_write.clone();

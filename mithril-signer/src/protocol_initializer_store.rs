@@ -105,7 +105,7 @@ mod tests {
 
     use super::*;
 
-    use mithril_common::{fake_data, store::adapter::MemoryAdapter};
+    use mithril_common::{store::adapter::MemoryAdapter, test_utils::fake_data};
 
     use rand_chacha::ChaCha20Rng;
     use rand_core::SeedableRng;

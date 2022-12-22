@@ -188,7 +188,7 @@ impl DependencyManager {
     /// * Fill the [VerificationKeyStore] with the given signers keys.
     /// * Fill the [StakeStore] with the given signers stakes.
     /// * Fill the [ProtocolParametersStore] with the given parameters.
-    pub async fn simulate_genesis(
+    pub async fn prepare_for_genesis(
         &self,
         genesis_signers: Vec<SignerWithStake>,
         second_epoch_signers: Vec<SignerWithStake>,
@@ -255,13 +255,13 @@ pub mod tests {
         MithrilSignerRegisterer, MultiSignerImpl, ProtocolParametersStore, SingleSignatureStore,
         SnapshotStoreType, SnapshotUploaderType, VerificationKeyStore,
     };
-    use mithril_common::certificate_chain::MithrilCertificateVerifier;
-    use mithril_common::crypto_helper::{key_encode_hex, ProtocolGenesisSigner};
-    use mithril_common::digesters::{DumbImmutableDigester, DumbImmutableFileObserver};
     use mithril_common::{
+        certificate_chain::MithrilCertificateVerifier,
         chain_observer::FakeObserver,
-        fake_data,
+        crypto_helper::{key_encode_hex, ProtocolGenesisSigner},
+        digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
         store::{adapter::MemoryAdapter, StakeStore},
+        test_utils::fake_data,
         BeaconProviderImpl, CardanoNetwork,
     };
     use std::{path::PathBuf, sync::Arc};

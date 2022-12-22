@@ -48,7 +48,7 @@ impl CertificatePending {
 
 #[cfg(test)]
 mod tests {
-    use crate::fake_data;
+    use crate::test_utils::fake_data;
 
     #[test]
     fn certificate_pending_get_signers() {

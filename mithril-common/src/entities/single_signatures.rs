@@ -46,22 +46,23 @@ impl SingleSignatures {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::crypto_helper::key_encode_hex;
-    use crate::crypto_helper::tests_setup::{
-        setup_message, setup_protocol_parameters, setup_signers,
+    use crate::{
+        crypto_helper::{key_encode_hex, tests_setup::setup_message},
+        test_utils::MithrilFixtureBuilder,
     };
 
     #[test]
     fn single_signatures_should_convert_to_protocol_signatures() {
         let message = setup_message();
-        let signers = setup_signers(1, &setup_protocol_parameters());
-        let (signer_with_stake, protocol_signer, _) = signers.first().unwrap();
-        let protocol_sigs = protocol_signer
+        let fixture = MithrilFixtureBuilder::default().with_signers(1).build();
+        let signer = &fixture.signers_fixture()[0];
+        let protocol_sigs = signer
+            .protocol_signer
             .sign(message.compute_hash().as_bytes())
             .unwrap();
 
         let signature = SingleSignatures::new(
-            signer_with_stake.party_id.to_owned(),
+            signer.signer_with_stake.party_id.to_owned(),
             key_encode_hex(&protocol_sigs).unwrap(),
             protocol_sigs.indexes.clone(),
         );

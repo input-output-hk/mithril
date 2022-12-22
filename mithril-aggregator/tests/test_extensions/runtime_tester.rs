@@ -1,6 +1,10 @@
-use crate::test_extensions::{initialize_dependencies, TestSigner};
+use crate::test_extensions::initialize_dependencies;
 use mithril_common::certificate_chain::CertificateGenesisProducer;
+use mithril_common::test_utils::{
+    MithrilFixtureBuilder, SignerFixture, StakeDistributionGenerationMethod,
+};
 use slog::Drain;
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -8,7 +12,6 @@ use mithril_aggregator::{
     AggregatorRunner, AggregatorRuntime, DependencyManager, DumbSnapshotUploader, DumbSnapshotter,
     ProtocolParametersStorer,
 };
-use mithril_common::crypto_helper::tests_setup::setup_signers_from_stake_distribution;
 use mithril_common::crypto_helper::{key_encode_hex, ProtocolClerk, ProtocolGenesisSigner};
 use mithril_common::digesters::DumbImmutableFileObserver;
 use mithril_common::entities::{
@@ -89,7 +92,10 @@ impl RuntimeTester {
     }
 
     /// Registers the genesis certificate
-    pub async fn register_genesis_certificate(&self, signers: &[TestSigner]) -> Result<(), String> {
+    pub async fn register_genesis_certificate(
+        &self,
+        signers: &[SignerFixture],
+    ) -> Result<(), String> {
         let beacon = self
             .deps
             .beacon_provider
@@ -108,10 +114,10 @@ impl RuntimeTester {
                 )
             })?
             .ok_or("A protocol parameters for the epoch should be available")?;
-        let first_signer = &signers
+        let first_signer = &&signers
             .first()
             .ok_or_else(|| "Signers list should not be empty".to_string())?
-            .1;
+            .protocol_signer;
         let clerk = ProtocolClerk::from_signer(first_signer);
         let genesis_avk = clerk.compute_avk();
         let genesis_producer = CertificateGenesisProducer::new(Some(self.genesis_signer.clone()));
@@ -183,8 +189,8 @@ impl RuntimeTester {
     }
 
     /// Register the given signers in the registerer
-    pub async fn register_signers(&self, signers: &[TestSigner]) -> Result<(), String> {
-        for (signer_with_stake, _protocol_signer, _protocol_initializer) in signers {
+    pub async fn register_signers(&self, signers: &[SignerFixture]) -> Result<(), String> {
+        for signer_with_stake in signers.iter().map(|f| &f.signer_with_stake) {
             self.deps
                 .signer_registerer
                 .register_signer(&signer_with_stake.to_owned().into())
@@ -196,17 +202,20 @@ impl RuntimeTester {
     }
 
     /// "Send", actually register, the given single signatures in the multi-signers
-    pub async fn send_single_signatures(&self, signers: &[TestSigner]) -> Result<(), String> {
+    pub async fn send_single_signatures(&self, signers: &[SignerFixture]) -> Result<(), String> {
         let mut multisigner = self.deps.multi_signer.write().await;
         let message = multisigner
             .get_current_message()
             .await
             .ok_or("There should be a message to be signed.")?;
 
-        for (signer_with_stake, protocol_signer, _protocol_initializer) in signers {
-            if let Some(signature) = protocol_signer.sign(message.compute_hash().as_bytes()) {
+        for signer_fixture in signers {
+            if let Some(signature) = signer_fixture
+                .protocol_signer
+                .sign(message.compute_hash().as_bytes())
+            {
                 let single_signatures = SingleSignatures::new(
-                    signer_with_stake.party_id.to_owned(),
+                    signer_fixture.signer_with_stake.party_id.to_owned(),
                     key_encode_hex(&signature).expect("hex encoding should not fail"),
                     signature.indexes,
                 );
@@ -225,7 +234,7 @@ impl RuntimeTester {
                     "Signer '{}' could not sign. \
                     This test is based on the assumption that every signer signs everytime. \
                     Possible fix: relax the protocol parameters or give more stakes to this signer.",
-                    signer_with_stake.party_id
+                    signer_fixture.signer_with_stake.party_id,
                 );
             }
         }
@@ -257,7 +266,7 @@ impl RuntimeTester {
     pub async fn update_stake_distribution(
         &self,
         signers_with_stake: Vec<SignerWithStake>,
-    ) -> Result<Vec<TestSigner>, String> {
+    ) -> Result<Vec<SignerFixture>, String> {
         self.chain_observer
             .set_signers(signers_with_stake.clone())
             .await;
@@ -280,14 +289,19 @@ impl RuntimeTester {
             })?
             .ok_or("A protocol parameters for the recording epoch should be available")?;
 
-        Ok(setup_signers_from_stake_distribution(
-            &signers_with_stake
-                .clone()
-                .into_iter()
-                .map(|s| (s.party_id, s.stake))
-                .collect::<Vec<_>>(),
-            &protocol_parameters.into(),
-        ))
+        let fixture = MithrilFixtureBuilder::default()
+            .with_signers(signers_with_stake.len())
+            .with_protocol_parameters(protocol_parameters)
+            .with_stake_distribution(StakeDistributionGenerationMethod::Custom(
+                HashMap::from_iter(
+                    signers_with_stake
+                        .into_iter()
+                        .map(|s| (s.party_id, s.stake)),
+                ),
+            ))
+            .build();
+
+        Ok(fixture.signers_fixture())
     }
 
     // Update the digester result using the current beacon
