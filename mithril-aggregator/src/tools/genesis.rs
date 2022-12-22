@@ -160,9 +160,8 @@ mod tests {
     use mithril_common::{
         certificate_chain::MithrilCertificateVerifier,
         crypto_helper::{ProtocolClerk, ProtocolGenesisSigner},
-        fake_data,
         store::adapter::MemoryAdapter,
-        test_utils::MithrilFixtureBuilder,
+        test_utils::{fake_data, MithrilFixtureBuilder},
     };
 
     use super::*;

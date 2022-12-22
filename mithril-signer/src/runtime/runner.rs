@@ -441,12 +441,11 @@ mod tests {
         crypto_helper::ProtocolInitializer,
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
         entities::{Epoch, StakeDistribution},
-        fake_data,
         store::{
             adapter::{DumbStoreAdapter, MemoryAdapter},
             StakeStore, StakeStorer,
         },
-        test_utils::MithrilFixtureBuilder,
+        test_utils::{fake_data, MithrilFixtureBuilder},
         BeaconProvider, BeaconProviderError, BeaconProviderImpl, CardanoNetwork,
     };
     use mockall::mock;

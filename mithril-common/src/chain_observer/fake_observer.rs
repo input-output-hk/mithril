@@ -3,7 +3,7 @@ use tokio::sync::RwLock;
 
 use crate::chain_observer::interface::*;
 use crate::crypto_helper::{KESPeriod, OpCert};
-use crate::{entities::*, fake_data};
+use crate::{entities::*, test_utils::fake_data};
 
 /// A Fake [ChainObserver] for testing purpose using fixed data.
 pub struct FakeObserver {
@@ -89,7 +89,7 @@ impl ChainObserver for FakeObserver {
 
 #[cfg(test)]
 mod tests {
-    use crate::fake_data;
+    use crate::test_utils::fake_data;
 
     use super::*;
 

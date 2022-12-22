@@ -112,7 +112,7 @@ impl CertificateHandler for FakeAggregator {
 #[cfg(test)]
 mod tests {
     use mithril_common::{
-        chain_observer::FakeObserver, digesters::DumbImmutableFileObserver, fake_data,
+        chain_observer::FakeObserver, digesters::DumbImmutableFileObserver, test_utils::fake_data,
         CardanoNetwork,
     };
 

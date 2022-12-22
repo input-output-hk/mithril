@@ -255,13 +255,13 @@ pub mod tests {
         MithrilSignerRegisterer, MultiSignerImpl, ProtocolParametersStore, SingleSignatureStore,
         SnapshotStoreType, SnapshotUploaderType, VerificationKeyStore,
     };
-    use mithril_common::certificate_chain::MithrilCertificateVerifier;
-    use mithril_common::crypto_helper::{key_encode_hex, ProtocolGenesisSigner};
-    use mithril_common::digesters::{DumbImmutableDigester, DumbImmutableFileObserver};
     use mithril_common::{
+        certificate_chain::MithrilCertificateVerifier,
         chain_observer::FakeObserver,
-        fake_data,
+        crypto_helper::{key_encode_hex, ProtocolGenesisSigner},
+        digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
         store::{adapter::MemoryAdapter, StakeStore},
+        test_utils::fake_data,
         BeaconProviderImpl, CardanoNetwork,
     };
     use std::{path::PathBuf, sync::Arc};

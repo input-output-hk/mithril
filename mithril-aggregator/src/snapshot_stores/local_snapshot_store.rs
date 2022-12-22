@@ -76,8 +76,8 @@ mod tests {
     use crate::SnapshotStore;
 
     use mithril_common::entities::Snapshot;
-    use mithril_common::fake_data;
     use mithril_common::store::adapter::DumbStoreAdapter;
+    use mithril_common::test_utils::fake_data;
 
     #[tokio::test]
     async fn can_list_added_snapshot() {

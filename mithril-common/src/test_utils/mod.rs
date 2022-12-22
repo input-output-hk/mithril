@@ -1,4 +1,8 @@
 #[cfg(any(test, feature = "test_only"))]
+pub mod apispec;
+#[cfg(any(test, feature = "test_only"))]
+pub mod fake_data;
+#[cfg(any(test, feature = "test_only"))]
 mod fixture_builder;
 mod mithril_fixture;
 

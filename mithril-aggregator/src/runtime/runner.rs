@@ -622,7 +622,9 @@ pub mod tests {
         Beacon, CertificatePending, Epoch, HexEncodedKey, ProtocolMessage, StakeDistribution,
     };
     use mithril_common::test_utils::MithrilFixtureBuilder;
-    use mithril_common::{entities::ProtocolMessagePartKey, fake_data, store::StakeStorer};
+    use mithril_common::{
+        entities::ProtocolMessagePartKey, store::StakeStorer, test_utils::fake_data,
+    };
     use mithril_common::{BeaconProviderImpl, CardanoNetwork};
     use std::collections::HashMap;
     use std::path::Path;

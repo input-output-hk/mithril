@@ -267,7 +267,7 @@ impl StateMachine {
 #[cfg(test)]
 mod tests {
     use mithril_common::entities::Epoch;
-    use mithril_common::{entities::ProtocolMessage, fake_data};
+    use mithril_common::{entities::ProtocolMessage, test_utils::fake_data};
 
     use super::*;
     use crate::runtime::runner::MockSignerRunner;

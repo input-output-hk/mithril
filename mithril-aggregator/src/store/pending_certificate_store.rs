@@ -57,8 +57,8 @@ mod test {
     use super::*;
 
     use mithril_common::entities::Beacon;
-    use mithril_common::fake_data;
     use mithril_common::store::adapter::DumbStoreAdapter;
+    use mithril_common::test_utils::fake_data;
 
     async fn get_certificate_pending_store(is_populated: bool) -> CertificatePendingStore {
         let mut adapter: DumbStoreAdapter<String, CertificatePending> = DumbStoreAdapter::new();

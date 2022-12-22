@@ -52,7 +52,7 @@ impl WorkingCertificate {
 
     #[cfg(test)]
     pub fn fake() -> Self {
-        use mithril_common::fake_data;
+        use mithril_common::test_utils::fake_data;
 
         Self {
             beacon: fake_data::beacon(),

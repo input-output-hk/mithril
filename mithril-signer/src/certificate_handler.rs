@@ -227,7 +227,7 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
 #[cfg(test)]
 pub(crate) mod dumb {
     use super::*;
-    use mithril_common::fake_data;
+    use mithril_common::test_utils::fake_data;
     use tokio::sync::RwLock;
 
     /// This certificate handler is intended to be used by test services.
@@ -328,7 +328,7 @@ mod tests {
     use serde_json::json;
     use std::path::{Path, PathBuf};
 
-    use mithril_common::fake_data;
+    use mithril_common::test_utils::fake_data;
 
     use crate::configuration::Config;
 

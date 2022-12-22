@@ -169,8 +169,8 @@ mod tests {
     const API_SPEC_FILE: &str = "../openapi.yaml";
 
     use crate::http_server::SERVER_BASE_PATH;
-    use mithril_common::apispec::APISpec;
-    use mithril_common::fake_data;
+    use mithril_common::test_utils::apispec::APISpec;
+    use mithril_common::test_utils::fake_data;
     use serde_json::Value::Null;
 
     use crate::initialize_dependencies;

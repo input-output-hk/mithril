@@ -3,8 +3,7 @@ use super::{genesis::*, key_encode_hex, types::*, OpCert, SerDeShelleyFileFormat
 use crate::{
     certificate_chain::CertificateGenesisProducer,
     entities::{Certificate, Epoch, ProtocolMessage, ProtocolMessagePartKey, SignerWithStake},
-    fake_data,
-    test_utils::{MithrilFixtureBuilder, SignerFixture},
+    test_utils::{fake_data, MithrilFixtureBuilder, SignerFixture},
 };
 
 use rand_chacha::ChaCha20Rng;

@@ -8,8 +8,7 @@ use crate::{
         ProtocolStakeDistribution, SerDeShelleyFileFormat,
     },
     entities::{PartyId, ProtocolParameters, StakeDistribution},
-    fake_data,
-    test_utils::mithril_fixture::MithrilFixture,
+    test_utils::{fake_data, mithril_fixture::MithrilFixture},
 };
 
 /// A builder of mithril types.

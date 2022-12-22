@@ -727,9 +727,8 @@ mod tests {
     };
     use mithril_common::{
         crypto_helper::tests_setup::*,
-        fake_data,
         store::{adapter::MemoryAdapter, StakeStore},
-        test_utils::MithrilFixtureBuilder,
+        test_utils::{fake_data, MithrilFixtureBuilder},
     };
     use std::{collections::HashMap, sync::Arc};
 

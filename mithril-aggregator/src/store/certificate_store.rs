@@ -82,8 +82,8 @@ impl CertificateRetriever for CertificateStore {
 mod test {
     use super::*;
 
-    use mithril_common::fake_data::{self};
     use mithril_common::store::adapter::MemoryAdapter;
+    use mithril_common::test_utils::fake_data::{self};
 
     async fn get_certificate_store(size: u64) -> CertificateStore {
         let mut beacon = Beacon::new("devnet".to_string(), 1, 1);

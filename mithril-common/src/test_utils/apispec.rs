@@ -147,7 +147,7 @@ mod tests {
 
     use super::*;
     use crate::entities;
-    use crate::fake_data;
+    use crate::test_utils::fake_data;
 
     const API_SPEC_FILE: &str = "../openapi.yaml";
 
