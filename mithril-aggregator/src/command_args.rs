@@ -102,15 +102,16 @@ async fn do_first_launch_initialization_if_needed(
     protocol_parameters_store: Arc<ProtocolParametersStore>,
     config: &Configuration,
 ) -> Result<(), Box<dyn Error>> {
-    let (work_epoch, epoch_to_sign) = match chain_observer
+    let (work_epoch, epoch_to_sign, next_epoch_to_sign) = match chain_observer
         .get_current_epoch()
         .await?
         .ok_or("Can't retrieve current epoch")?
     {
-        Epoch(0) => (Epoch(0), Epoch(1)),
+        Epoch(0) => (Epoch(0), Epoch(1), Epoch(2)),
         epoch => (
             epoch.offset_to_signer_retrieval_epoch()?,
             epoch.offset_to_next_signer_retrieval_epoch(),
+            epoch.offset_to_next_signer_retrieval_epoch() + 1,
         ),
     };
 
@@ -121,7 +122,7 @@ async fn do_first_launch_initialization_if_needed(
     {
         debug!("First launch, will use the configured protocol parameters for the current and next epoch certificate");
 
-        for epoch in [work_epoch, epoch_to_sign] {
+        for epoch in [work_epoch, epoch_to_sign, next_epoch_to_sign] {
             protocol_parameters_store
                 .save_protocol_parameters(epoch, config.protocol_parameters.clone())
                 .await?;

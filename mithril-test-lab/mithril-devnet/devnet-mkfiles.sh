@@ -317,7 +317,7 @@ echo "====================================================================="
 # Shelley era. Set up our template
 mkdir shelley
 curl -s ${ALONZO_GENESIS_URL} -o shelley/genesis.alonzo.spec.json
-./cardano-cli genesis create --testnet-magic ${NETWORK_MAGIC} --genesis-dir shelley
+./cardano-cli genesis create --testnet-magic ${NETWORK_MAGIC} --genesis-dir shelley --start-time $(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 # Then edit the genesis.spec.json ...
 

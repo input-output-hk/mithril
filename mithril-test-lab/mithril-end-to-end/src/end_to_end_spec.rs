@@ -29,8 +29,8 @@ impl Spec {
             .await?
             .unwrap_or_default();
 
-        // Wait 1 epoch after start epoch for the aggregator to be able to bootstrap a genesis certificate
-        let mut target_epoch = start_epoch + 1;
+        // Wait 2 epochs after start epoch for the aggregator to be able to bootstrap a genesis certificate
+        let mut target_epoch = start_epoch + 2;
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
             target_epoch,
