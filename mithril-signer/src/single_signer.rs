@@ -4,8 +4,9 @@ use std::path::PathBuf;
 use thiserror::Error;
 
 use mithril_common::crypto_helper::{
-    key_decode_hex, key_encode_hex, ProtocolClerk, ProtocolInitializer, ProtocolKeyRegistration,
-    ProtocolPartyId, ProtocolRegistrationError, ProtocolSigner, ProtocolStakeDistribution,
+    key_decode_hex, key_encode_hex, KESPeriod, ProtocolClerk, ProtocolInitializer,
+    ProtocolKeyRegistration, ProtocolPartyId, ProtocolRegistrationError, ProtocolSigner,
+    ProtocolStakeDistribution,
 };
 use mithril_common::entities::{
     PartyId, ProtocolMessage, ProtocolParameters, SignerWithStake, SingleSignatures, Stake,
@@ -38,7 +39,7 @@ impl MithrilProtocolInitializerBuilder {
         stake: &Stake,
         protocol_parameters: &ProtocolParameters,
         kes_secret_key_path: Option<PathBuf>,
-        kes_period: Option<usize>,
+        kes_period: Option<KESPeriod>,
     ) -> Result<ProtocolInitializer, MithrilProtocolInitializerBuilderError> {
         let mut rng = rand_core::OsRng;
         let protocol_initializer = ProtocolInitializer::setup(

@@ -29,7 +29,7 @@ use thiserror::Error;
 type D = Blake2b<U32>;
 
 /// The KES period that is used to check if the KES keys is expired
-pub type KESPeriod = usize;
+pub type KESPeriod = u32;
 
 /// New registration error
 #[derive(Error, Debug, PartialEq, Eq)]
@@ -53,7 +53,7 @@ pub enum ProtocolRegistrationErrorWrapper {
 
     /// Error raised when a KES Signature verification fails
     #[error("KES signature verification error: CurrentKesPeriod={0}, StartKesPeriod={1}")]
-    KesSignatureInvalid(usize, u64),
+    KesSignatureInvalid(u32, u64),
 
     /// Error raised when a KES Signature is needed but not provided
     #[error("missing KES signature")]
@@ -122,14 +122,11 @@ impl StmInitializerWrapper {
             // We need to perform the evolutions, as the key is stored in evolution 0 in `kes.skey`
             for period in 0..kes_period.unwrap_or_default() {
                 kes_sk
-                    .update(period)
+                    .update()
                     .map_err(|_| ProtocolInitializerErrorWrapper::KesUpdate(period))?;
             }
 
-            Some(kes_sk.sign(
-                kes_period.unwrap_or_default(),
-                &stm_initializer.verification_key().to_bytes(),
-            ))
+            Some(kes_sk.sign(&stm_initializer.verification_key().to_bytes()))
         } else {
             println!("WARNING: Non certified signer registration by providing only a Pool Id is decommissionned and must be used for tests only!");
             None
