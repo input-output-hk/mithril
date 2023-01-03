@@ -145,7 +145,7 @@ impl StmInitializerWrapper {
 
     /// Extract the verification key signature.
     pub fn verification_key_signature(&self) -> Option<ProtocolSignerVerificationKeySignature> {
-        self.kes_signature.clone()
+        self.kes_signature
     }
 
     /// Extract the stake of the party
