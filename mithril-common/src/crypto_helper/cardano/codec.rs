@@ -55,7 +55,8 @@ pub trait SerDeShelleyFileFormat: Serialize + DeserializeOwned {
     /// The description of the Cardano key
     const DESCRIPTION: &'static str;
 
-    /// Deserialize a Cardano key from file
+    /// Deserialize a type `T: Serialize + DeserializeOwned` from file following Cardano
+    /// Shelley file format.
     fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, ParseError> {
         let data = fs::read_to_string(path)?;
         let file: ShelleyFileFormat = serde_json::from_str(&data)?;
@@ -65,7 +66,8 @@ pub trait SerDeShelleyFileFormat: Serialize + DeserializeOwned {
         Ok(a)
     }
 
-    /// Serialize a Cardano Key to file
+    /// Serialize a type `T: Serialize + DeserializeOwned` to file following Cardano
+    /// Shelley file format.
     fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), ParseError> {
         let cbor_string = hex::encode(serde_cbor::to_vec(&self)?);
 
@@ -86,6 +88,26 @@ pub trait SerDeShelleyFileFormat: Serialize + DeserializeOwned {
 impl SerDeShelleyFileFormat for Sum6Kes {
     const TYPE: &'static str = "KesSigningKey_ed25519_kes_2^6";
     const DESCRIPTION: &'static str = "KES Signing Key";
+
+    /// Deserialize a Cardano key from file. Cardano KES key Shelley format does not
+    /// contain the period (it is always zero). Therefore we need to include it in the
+    /// deserialisation.
+    fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, ParseError> {
+        let data = fs::read_to_string(path)?;
+        let file: ShelleyFileFormat = serde_json::from_str(&data)?;
+        let mut hex_vector = Vec::from_hex(file.cbor_hex)?;
+
+        // We check whether the serialisation was performed by the haskell library or the rust library
+        if (hex_vector[2] & 4u8) == 0 {
+            // First we need to change the cbor format to notify about the extra 4 bytes:
+            hex_vector[2] |= 4u8;
+            // Then we append the bytes representing the period = 0
+            hex_vector.extend_from_slice(&[0u8; 4]);
+        }
+
+        let a: Self = serde_cbor::from_slice(&hex_vector)?;
+        Ok(a)
+    }
 }
 
 #[cfg(all(test))]
