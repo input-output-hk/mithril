@@ -89,6 +89,10 @@ pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
     /// Invalid merkle batch path
     #[error("Batch path does not verify against root")]
     PathInvalid(BatchPath<D>),
+
+    /// Batch verification of STM aggregate signatures failed
+    #[error("Batch verification of STM aggregate signatures failed")]
+    BatchInvalid,
 }
 
 /// Error types for aggregation.
@@ -154,7 +158,7 @@ impl From<MultiSignatureError> for StmSignatureError {
         match e {
             MultiSignatureError::SerializationError => Self::SerializationError,
             MultiSignatureError::SignatureInvalid(e) => Self::SignatureInvalid(e),
-            MultiSignatureError::BatchInvalid => Self::BatchInvalid,
+            MultiSignatureError::BatchInvalid => unreachable!(),
             MultiSignatureError::KeyInvalid(_) => unreachable!(),
             MultiSignatureError::AggregateSignatureInvalid => unreachable!(),
         }
@@ -165,10 +169,10 @@ impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmAggregateSignatur
     fn from(e: MultiSignatureError) -> Self {
         match e {
             MultiSignatureError::AggregateSignatureInvalid => Self::AggregateSignatureInvalid,
+            MultiSignatureError::BatchInvalid => Self::BatchInvalid,
             MultiSignatureError::SerializationError => unreachable!(),
             MultiSignatureError::KeyInvalid(_) => unreachable!(),
             MultiSignatureError::SignatureInvalid(_e) => unreachable!(),
-            MultiSignatureError::BatchInvalid => unreachable!(),
         }
     }
 }
