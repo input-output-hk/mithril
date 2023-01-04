@@ -14,7 +14,7 @@ use blst::min_sig::{
 };
 use blst::{
     blst_p1, blst_p1_affine, blst_p1_compress, blst_p1_from_affine, blst_p1_to_affine,
-    blst_p1_uncompress, blst_p2, blst_p2_affine, blst_p2_from_affine, blst_p2_to_affine,
+    blst_p1_uncompress,blst_p2_deserialize, blst_scalar_from_bendian, blst_p2, blst_p2_affine, blst_p2_from_affine, blst_p2_to_affine,
     blst_scalar, p1_affines, p2_affines,
 };
 
@@ -200,10 +200,11 @@ impl From<&SigningKey> for ProofOfPossession {
         use blst::blst_sk_to_pk_in_g1;
         let k1 = sk.0.sign(POP, &[], &[]);
         let k2 = unsafe {
-            let sk_scalar = std::mem::transmute::<&BlstSk, &blst_scalar>(&sk.0);
-
+            let ser_sk = sk.0.serialize().as_ptr();
+            let mut sk_scalar= blst_scalar::default();
+            blst_scalar_from_bendian(&mut sk_scalar, ser_sk);
             let mut out = blst_p1::default();
-            blst_sk_to_pk_in_g1(&mut out, sk_scalar);
+            blst_sk_to_pk_in_g1(&mut out, &sk_scalar);
             out
         };
 
@@ -236,8 +237,10 @@ impl VerificationKeyPoP {
         };
         let result = unsafe {
             let g1_p = *blst_p1_affine_generator();
-            let mvk_p = std::mem::transmute::<&BlstVk, &blst_p2_affine>(&self.vk.0);
-            let ml_lhs = blst_fp12::miller_loop(mvk_p, &g1_p);
+            let ser_vk = self.vk.0.serialize().as_ptr();
+            let mut mvk_p = blst_p2_affine::default();
+            blst_p2_deserialize(&mut mvk_p, ser_vk);
+            let ml_lhs = blst_fp12::miller_loop(&mvk_p, &g1_p);
 
             let mut k2_p = blst_p1_affine::default();
             blst_p1_to_affine(&mut k2_p, &self.pop.k2);
