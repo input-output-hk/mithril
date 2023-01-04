@@ -82,6 +82,10 @@ pub enum ProtocolInitializerErrorWrapper {
     /// Error raised when a KES update error occurs
     #[error("KES key cannot be updated for period {0}")]
     KesUpdate(KESPeriod),
+
+    /// Period of key file does not match with period provided by user
+    #[error("Period of key file, {0}, does not match with period provided by user, {1}")]
+    KesMismatch(KESPeriod, KESPeriod),
 }
 /// Wrapper structure for [MithrilStm:StmInitializer](mithril_stm::stm::StmInitializer).
 /// It now obtains a KES signature over the Mithril key. This allows the signers prove
@@ -119,14 +123,23 @@ impl StmInitializerWrapper {
         let kes_signature = if let Some(kes_sk_path) = kes_sk_path {
             let mut kes_sk: Sum6Kes = Sum6Kes::from_file(kes_sk_path)?;
 
-            // We need to perform the evolutions, as the key is stored in evolution 0 in `kes.skey`
-            for period in 0..kes_period.unwrap_or_default() {
-                kes_sk
-                    .update()
-                    .map_err(|_| ProtocolInitializerErrorWrapper::KesUpdate(period))?;
-            }
+            let kes_sk_period = kes_sk.get_period();
+            let provided_period = kes_period.unwrap_or_default();
+            if kes_sk_period <= provided_period {
+                // We need to perform the evolutions
+                for period in kes_sk_period..provided_period {
+                    kes_sk
+                        .update()
+                        .map_err(|_| ProtocolInitializerErrorWrapper::KesUpdate(period))?;
+                }
 
-            Some(kes_sk.sign(&stm_initializer.verification_key().to_bytes()))
+                Some(kes_sk.sign(&stm_initializer.verification_key().to_bytes()))
+            } else {
+                return Err(ProtocolInitializerErrorWrapper::KesMismatch(
+                    kes_sk_period,
+                    provided_period,
+                ));
+            }
         } else {
             println!("WARNING: Non certified signer registration by providing only a Pool Id is decommissionned and must be used for tests only!");
             None

@@ -1801,9 +1801,9 @@ dependencies = [
 
 [[package]]
 name = "kes-summed-ed25519"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9bd03f6fbbd46e0197115047ace8236ae5a8d434c12083f782db9c4eeefa900"
+checksum = "ff5ba36dcf3798c53cfe222f22038ac63b1a3ef676a68af50a990d2775280cfb"
 dependencies = [
  "blake2 0.9.2",
  "ed25519-dalek",

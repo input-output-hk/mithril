@@ -27,7 +27,7 @@ glob = "0.3"
 hex = "0.4.3"
 http = "0.2.6"
 jsonschema = "0.16.0"
-kes-summed-ed25519 = { version = "0.1.0", features = ["serde_enabled"] }
+kes-summed-ed25519 = { version = "0.1.1", features = ["serde_enabled"] }
 mockall = "0.11.0"
 nom = "7.1"
 rand-chacha-dalek-compat = { package = "rand_chacha", version = "0.2" }
