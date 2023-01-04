@@ -201,7 +201,7 @@ impl From<&SigningKey> for ProofOfPossession {
         let k1 = sk.0.sign(POP, &[], &[]);
         let k2 = unsafe {
             let ser_sk = sk.0.serialize().as_ptr();
-            let mut sk_scalar= blst_scalar::default();
+            let mut sk_scalar = blst_scalar::default();
             blst_scalar_from_bendian(&mut sk_scalar, ser_sk);
             let mut out = blst_p1::default();
             blst_sk_to_pk_in_g1(&mut out, &sk_scalar);
