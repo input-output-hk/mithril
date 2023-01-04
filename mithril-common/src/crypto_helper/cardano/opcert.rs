@@ -9,7 +9,7 @@ use blake2::{digest::consts::U28, Blake2b, Digest};
 #[cfg(any(test, feature = "test_only"))]
 use ed25519_dalek::{Keypair as EdKeypair, Signer};
 use ed25519_dalek::{PublicKey as EdPublicKey, Signature as EdSignature, Verifier};
-use kes_summed_ed25519::common::PublicKey as KesPublicKey;
+use kes_summed_ed25519::PublicKey as KesPublicKey;
 use serde::de::Error;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use sha2::Sha256;

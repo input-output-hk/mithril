@@ -1801,8 +1801,9 @@ dependencies = [
 
 [[package]]
 name = "kes-summed-ed25519"
-version = "0.1.0"
-source = "git+https://github.com/input-output-hk/kes?rev=1418efa#1418efaacaca52ba48bdee0bab56bea1bb1d1ce4"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ff5ba36dcf3798c53cfe222f22038ac63b1a3ef676a68af50a990d2775280cfb"
 dependencies = [
  "blake2 0.9.2",
  "ed25519-dalek",
@@ -2059,7 +2060,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "async-trait",
  "bech32",

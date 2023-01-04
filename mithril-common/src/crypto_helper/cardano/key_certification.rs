@@ -29,7 +29,7 @@ use thiserror::Error;
 type D = Blake2b<U32>;
 
 /// The KES period that is used to check if the KES keys is expired
-pub type KESPeriod = usize;
+pub type KESPeriod = u32;
 
 /// New registration error
 #[derive(Error, Debug, PartialEq, Eq)]
@@ -53,7 +53,7 @@ pub enum ProtocolRegistrationErrorWrapper {
 
     /// Error raised when a KES Signature verification fails
     #[error("KES signature verification error: CurrentKesPeriod={0}, StartKesPeriod={1}")]
-    KesSignatureInvalid(usize, u64),
+    KesSignatureInvalid(u32, u64),
 
     /// Error raised when a KES Signature is needed but not provided
     #[error("missing KES signature")]
@@ -82,6 +82,10 @@ pub enum ProtocolInitializerErrorWrapper {
     /// Error raised when a KES update error occurs
     #[error("KES key cannot be updated for period {0}")]
     KesUpdate(KESPeriod),
+
+    /// Period of key file does not match with period provided by user
+    #[error("Period of key file, {0}, does not match with period provided by user, {1}")]
+    KesMismatch(KESPeriod, KESPeriod),
 }
 /// Wrapper structure for [MithrilStm:StmInitializer](mithril_stm::stm::StmInitializer).
 /// It now obtains a KES signature over the Mithril key. This allows the signers prove
@@ -119,17 +123,23 @@ impl StmInitializerWrapper {
         let kes_signature = if let Some(kes_sk_path) = kes_sk_path {
             let mut kes_sk: Sum6Kes = Sum6Kes::from_file(kes_sk_path)?;
 
-            // We need to perform the evolutions, as the key is stored in evolution 0 in `kes.skey`
-            for period in 0..kes_period.unwrap_or_default() {
+            let kes_sk_period = kes_sk.get_period();
+            let provided_period = kes_period.unwrap_or_default();
+            if kes_sk_period > provided_period {
+                return Err(ProtocolInitializerErrorWrapper::KesMismatch(
+                    kes_sk_period,
+                    provided_period,
+                ));
+            }
+
+            // We need to perform the evolutions
+            for period in kes_sk_period..provided_period {
                 kes_sk
-                    .update(period)
+                    .update()
                     .map_err(|_| ProtocolInitializerErrorWrapper::KesUpdate(period))?;
             }
 
-            Some(kes_sk.sign(
-                kes_period.unwrap_or_default(),
-                &stm_initializer.verification_key().to_bytes(),
-            ))
+            Some(kes_sk.sign(&stm_initializer.verification_key().to_bytes()))
         } else {
             println!("WARNING: Non certified signer registration by providing only a Pool Id is decommissionned and must be used for tests only!");
             None
@@ -148,7 +158,7 @@ impl StmInitializerWrapper {
 
     /// Extract the verification key signature.
     pub fn verification_key_signature(&self) -> Option<ProtocolSignerVerificationKeySignature> {
-        self.kes_signature.clone()
+        self.kes_signature
     }
 
     /// Extract the stake of the party
