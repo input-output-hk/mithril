@@ -513,6 +513,7 @@ impl Signature {
             batched_sig.aggregate_verify(false, &slice_msgs, &[], &p2_vks, false),
             None,
         )
+        .map_err(|_| MultiSignatureError::BatchInvalid)
     }
 }
 
