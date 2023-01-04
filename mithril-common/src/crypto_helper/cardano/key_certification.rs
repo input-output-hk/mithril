@@ -125,21 +125,21 @@ impl StmInitializerWrapper {
 
             let kes_sk_period = kes_sk.get_period();
             let provided_period = kes_period.unwrap_or_default();
-            if kes_sk_period <= provided_period {
-                // We need to perform the evolutions
-                for period in kes_sk_period..provided_period {
-                    kes_sk
-                        .update()
-                        .map_err(|_| ProtocolInitializerErrorWrapper::KesUpdate(period))?;
-                }
-
-                Some(kes_sk.sign(&stm_initializer.verification_key().to_bytes()))
-            } else {
+            if kes_sk_period > provided_period {
                 return Err(ProtocolInitializerErrorWrapper::KesMismatch(
                     kes_sk_period,
                     provided_period,
                 ));
             }
+
+            // We need to perform the evolutions
+            for period in kes_sk_period..provided_period {
+                kes_sk
+                    .update()
+                    .map_err(|_| ProtocolInitializerErrorWrapper::KesUpdate(period))?;
+            }
+
+            Some(kes_sk.sign(&stm_initializer.verification_key().to_bytes()))
         } else {
             println!("WARNING: Non certified signer registration by providing only a Pool Id is decommissionned and must be used for tests only!");
             None
