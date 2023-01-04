@@ -25,6 +25,10 @@ pub enum MultiSignatureError {
     /// Incorrect proof of possession
     #[error("Key with invalid PoP")]
     KeyInvalid(Box<VerificationKeyPoP>),
+
+    /// At least one signature in the batch is invalid
+    #[error("One signature in the batch is invalid")]
+    BatchInvalid,
 }
 
 /// Errors which can be output by Mithril single signature verification.
@@ -45,6 +49,10 @@ pub enum StmSignatureError {
     /// A party submitted an invalid signature
     #[error("A provided signature is invalid")]
     SignatureInvalid(Signature),
+
+    /// Batch verification of STM signatures failed
+    #[error("Batch verification of STM signatures failed")]
+    BatchInvalid,
 
     /// This error occurs when the the serialization of the raw bytes failed
     #[error("Invalid bytes")]
@@ -81,6 +89,10 @@ pub enum StmAggregateSignatureError<D: Digest + FixedOutput> {
     /// Invalid merkle batch path
     #[error("Batch path does not verify against root")]
     PathInvalid(BatchPath<D>),
+
+    /// Batch verification of STM aggregate signatures failed
+    #[error("Batch verification of STM aggregate signatures failed")]
+    BatchInvalid,
 }
 
 /// Error types for aggregation.
@@ -146,6 +158,7 @@ impl From<MultiSignatureError> for StmSignatureError {
         match e {
             MultiSignatureError::SerializationError => Self::SerializationError,
             MultiSignatureError::SignatureInvalid(e) => Self::SignatureInvalid(e),
+            MultiSignatureError::BatchInvalid => unreachable!(),
             MultiSignatureError::KeyInvalid(_) => unreachable!(),
             MultiSignatureError::AggregateSignatureInvalid => unreachable!(),
         }
@@ -156,6 +169,7 @@ impl<D: Digest + FixedOutput> From<MultiSignatureError> for StmAggregateSignatur
     fn from(e: MultiSignatureError) -> Self {
         match e {
             MultiSignatureError::AggregateSignatureInvalid => Self::AggregateSignatureInvalid,
+            MultiSignatureError::BatchInvalid => Self::BatchInvalid,
             MultiSignatureError::SerializationError => unreachable!(),
             MultiSignatureError::KeyInvalid(_) => unreachable!(),
             MultiSignatureError::SignatureInvalid(_e) => unreachable!(),
@@ -176,13 +190,14 @@ impl From<MultiSignatureError> for RegisterError {
             MultiSignatureError::KeyInvalid(e) => Self::KeyInvalid(e),
             MultiSignatureError::SignatureInvalid(_) => unreachable!(),
             MultiSignatureError::AggregateSignatureInvalid => unreachable!(),
+            MultiSignatureError::BatchInvalid => unreachable!(),
         }
     }
 }
 
 /// If verifying a single signature, the signature should be provided. If verifying a multi-sig,
 /// no need to provide the signature
-pub(crate) fn blst_err_to_atms(
+pub(crate) fn blst_err_to_mithril(
     e: BLST_ERROR,
     sig: Option<Signature>,
 ) -> Result<(), MultiSignatureError> {

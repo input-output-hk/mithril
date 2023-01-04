@@ -8,6 +8,10 @@ pub mod key_reg;
 mod merkle_tree;
 pub mod stm;
 
-mod multi_sig;
-
 pub use crate::error::{AggregationError, RegisterError};
+
+#[cfg(feature = "benchmark-internals")]
+pub mod multi_sig;
+
+#[cfg(not(feature = "benchmark-internals"))]
+mod multi_sig;

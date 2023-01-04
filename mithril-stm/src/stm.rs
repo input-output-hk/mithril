@@ -566,7 +566,7 @@ impl<D: Digest + Clone + FixedOutput> StmClerk<D> {
 }
 
 impl StmSig {
-    /// Verify an stm signature by checking that the lottery was won,
+    /// Verify an stm signature by checking that the lottery was won, the merkle path is correct,
     /// the indexes are in the desired range and the underlying multi signature validates.
     pub fn verify<D: Clone + Digest + FixedOutput>(
         &self,
@@ -698,14 +698,9 @@ impl<D: Clone + Digest + FixedOutput> From<&ClosedKeyReg<D>> for StmAggrVerifica
     }
 }
 
-impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
-    /// Verify aggregate signature, by checking that
-    /// * each signature contains only valid indices,
-    /// * the lottery is indeed won by each one of them,
-    /// * the batched path is valid,
-    /// * the aggregate signature validates with respect to the aggregate verification key
-    /// (aggregation is computed using functions `MSP.BKey` and `MSP.BSig` as described in Section 2.4 of the paper).
-    pub fn verify(
+impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
+    /// Verify all checks from signatures, except for the signature verification itself.
+    fn preliminary_verify(
         &self,
         msg: &[u8],
         avk: &StmAggrVerificationKey<D>,
@@ -738,6 +733,23 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
         let proof = &self.batch_proof;
         avk.mt_commitment.check(&leaves, &proof.clone())?;
 
+        Ok(())
+    }
+
+    /// Verify aggregate signature, by checking that
+    /// * each signature contains only valid indices,
+    /// * the lottery is indeed won by each one of them,
+    /// * the merkle tree path is valid,
+    /// * the aggregate signature validates with respect to the aggregate verification key
+    /// (aggregation is computed using functions `MSP.BKey` and `MSP.BSig` as described in Section 2.4 of the paper).
+    pub fn verify(
+        &self,
+        msg: &[u8],
+        avk: &StmAggrVerificationKey<D>,
+        parameters: &StmParameters,
+    ) -> Result<(), StmAggregateSignatureError<D>> {
+        self.preliminary_verify(msg, avk, parameters)?;
+
         let msg = avk.mt_commitment.concat_with_msg(msg);
         let signatures = self
             .signatures
@@ -751,6 +763,60 @@ impl<D: Clone + Digest + FixedOutput> StmAggrSig<D> {
             .collect::<Vec<VerificationKey>>();
 
         Signature::verify_aggregate(msg.as_slice(), &vks, &signatures)?;
+        Ok(())
+    }
+
+    /// Batch verify a set of signatures, with different messages and avks.
+    pub fn batch_verify(
+        stm_signatures: &[Self],
+        msgs: &[Vec<u8>],
+        avks: &[StmAggrVerificationKey<D>],
+        parameters: &[StmParameters],
+    ) -> Result<(), StmAggregateSignatureError<D>> {
+        let batch_size = stm_signatures.len();
+        assert_eq!(
+            batch_size,
+            msgs.len(),
+            "Number of messages should correspond to size of the batch"
+        );
+        assert_eq!(
+            batch_size,
+            avks.len(),
+            "Number of avks should correspond to size of the batch"
+        );
+        assert_eq!(
+            batch_size,
+            parameters.len(),
+            "Number of parameters should correspond to size of the batch"
+        );
+
+        let mut aggr_sigs = Vec::with_capacity(batch_size);
+        let mut aggr_vks = Vec::with_capacity(batch_size);
+        for (idx, sig_group) in stm_signatures.iter().enumerate() {
+            sig_group.preliminary_verify(&msgs[idx], &avks[idx], &parameters[idx])?;
+            let grouped_sigs: Vec<Signature> = sig_group
+                .signatures
+                .iter()
+                .map(|(sig, _)| sig.sigma)
+                .collect();
+            let grouped_vks: Vec<VerificationKey> = sig_group
+                .signatures
+                .iter()
+                .map(|(_, reg_party)| reg_party.0)
+                .collect();
+
+            let (aggr_vk, aggr_sig) = Signature::aggregate(&grouped_vks, &grouped_sigs).unwrap();
+            aggr_sigs.push(aggr_sig);
+            aggr_vks.push(aggr_vk);
+        }
+
+        let concat_msgs: Vec<Vec<u8>> = msgs
+            .iter()
+            .zip(avks.iter())
+            .map(|(msg, avk)| avk.mt_commitment.concat_with_msg(msg))
+            .collect();
+
+        Signature::batch_verify_aggregates(&concat_msgs, &aggr_vks, &aggr_sigs)?;
         Ok(())
     }
 
@@ -958,21 +1024,6 @@ mod tests {
     }
 
     proptest! {
-        #[test]
-        /// Test that when a party creates a signature it can be verified
-        fn test_sig(msg in any::<[u8;16]>()) {
-            let params = StmParameters { m: 1, k: 1, phi_f: 0.2 };
-            let ps = setup_equal_parties(params, 1);
-            let clerk = StmClerk::from_signer(&ps[0]);
-            let avk = clerk.compute_avk();
-
-            if let Some(sig) = ps[0].sign(&msg) {
-                assert!(sig.verify(&params, &ps[0].vk, &ps[0].stake, &avk, &msg).is_ok());
-            }
-        }
-    }
-
-    proptest! {
         #![proptest_config(ProptestConfig::with_cases(50))]
 
         #[test]
@@ -999,6 +1050,67 @@ mod tests {
                     assert!(n < params.k || k == params.k),
                 Err(AggregationError::UsizeConversionInvalid) =>
                     unreachable!()
+            }
+        }
+
+        #[test]
+        /// Test that batch verification of certificates works
+        fn batch_verify(nparties in 2_usize..30,
+                              m in 10_u64..20,
+                              k in 1_u64..5,
+                              seed in any::<[u8;32]>(),
+                              batch_size in 2..10,
+        ) {
+            let mut rng = ChaCha20Rng::from_seed(seed);
+            let mut aggr_avks = Vec::new();
+            let mut aggr_stms = Vec::new();
+            let mut batch_msgs = Vec::new();
+            let mut batch_params = Vec::new();
+            for _ in 0..batch_size {
+                let mut msg = [0u8; 32];
+                rng.fill_bytes(&mut msg);
+                let params = StmParameters { m, k, phi_f: 0.8 };
+                let ps = setup_equal_parties(params, nparties);
+                let clerk = StmClerk::from_signer(&ps[0]);
+
+                let all_ps: Vec<usize> = (0..nparties).collect();
+                let sigs = find_signatures(&msg, &ps, &all_ps);
+                let msig = clerk.aggregate(&sigs, &msg);
+
+                aggr_avks.push(clerk.compute_avk());
+                aggr_stms.push(msig.unwrap());
+                batch_msgs.push(msg.to_vec());
+                batch_params.push(params);
+            }
+
+            assert!(StmAggrSig::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params).is_ok());
+
+            let mut msg = [0u8; 32];
+            rng.fill_bytes(&mut msg);
+            let params = StmParameters { m, k, phi_f: 0.8 };
+            let ps = setup_equal_parties(params, nparties);
+            let clerk = StmClerk::from_signer(&ps[0]);
+
+            let all_ps: Vec<usize> = (0..nparties).collect();
+            let sigs = find_signatures(&msg, &ps, &all_ps);
+            let fake_msig = clerk.aggregate(&sigs, &msg);
+
+            aggr_stms[0] = fake_msig.unwrap();
+            assert!(StmAggrSig::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params).is_err());
+        }
+    }
+
+    proptest! {
+        #[test]
+        /// Test that when a party creates a signature it can be verified
+        fn test_sig(msg in any::<[u8;16]>()) {
+            let params = StmParameters { m: 1, k: 1, phi_f: 0.2 };
+            let ps = setup_equal_parties(params, 1);
+            let clerk = StmClerk::from_signer(&ps[0]);
+            let avk = clerk.compute_avk();
+
+            if let Some(sig) = ps[0].sign(&msg) {
+                assert!(sig.verify(&params, &ps[0].vk, &ps[0].stake, &avk, &msg).is_ok());
             }
         }
     }
