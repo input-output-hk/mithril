@@ -14,8 +14,8 @@ use blst::min_sig::{
 };
 use blst::{
     blst_p1, blst_p1_affine, blst_p1_compress, blst_p1_from_affine, blst_p1_to_affine,
-    blst_p1_uncompress,blst_p2_deserialize, blst_scalar_from_bendian, blst_p2, blst_p2_affine, blst_p2_from_affine, blst_p2_to_affine,
-    blst_scalar, p1_affines, p2_affines,
+    blst_p1_uncompress, blst_p2, blst_p2_affine, blst_p2_deserialize, blst_p2_from_affine,
+    blst_p2_to_affine, blst_scalar, blst_scalar_from_bendian, p1_affines, p2_affines,
 };
 
 use rand_core::{CryptoRng, RngCore};
