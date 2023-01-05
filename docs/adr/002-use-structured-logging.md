@@ -2,8 +2,10 @@
 slug: 2
 title: |
   2. Use simple structured logging
-authors: []
+authors:
+- name: Mithril Team
 tags: [Draft]
+date: 2022-04-24
 ---
 
 ## Status

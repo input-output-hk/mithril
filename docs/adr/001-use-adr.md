@@ -2,8 +2,10 @@
 slug: 1
 title: |
   1. Record Architecture Decisions
-authors: []
+authors:
+- name: Mithril Team
 tags: [Accepted]
+date: 2022-04-21
 ---
 
 ## Status
