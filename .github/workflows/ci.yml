@@ -175,6 +175,10 @@ jobs:
   run-test-lab:
     runs-on: ubuntu-22.04
     needs: [ build-ubuntu-X64 ]
+    strategy:
+      fail-fast: false
+      matrix:
+        run_id: [1,2,3]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -205,7 +209,7 @@ jobs:
         if:  ${{ failure() }}
         uses: actions/upload-artifact@v3
         with:
-          name: mithril-e2e-tests-artifacts-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}
+          name: mithril-e2e-tests-artifacts-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}-run_id_${{ matrix.run_id }}
           path: |
             ./artifacts/*
             # including node.sock makes the upload fails so exclude them:
