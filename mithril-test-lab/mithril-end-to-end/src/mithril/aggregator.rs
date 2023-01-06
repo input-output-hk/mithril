@@ -26,7 +26,7 @@ impl Aggregator {
         let server_port_parameter = server_port.to_string();
         let env = HashMap::from([
             ("NETWORK", "devnet"),
-            ("RUN_INTERVAL", "800"),
+            ("RUN_INTERVAL", "600"),
             ("SERVER_IP", "0.0.0.0"),
             ("SERVER_PORT", &server_port_parameter),
             ("URL_SNAPSHOT_MANIFEST", ""),
