@@ -36,15 +36,19 @@ The release team is the team responsible of releasing new versions of Mithril so
 
 ### Version monitoring
 
-The Release Team must be aware of the software version run by the Signer nodes and their associated stake. The version is going to be added to all HTTP headers in inter-node communication. In a first step, the Aggregator nodes will record this information, an provide the mapping of stakes to Signer nodes.
+The Release Team must be aware of the software version run by the Signer nodes and their associated stake. The version is going to be added to all HTTP headers in inter-node communication. In a first step, the Aggregator nodes will record this information, and provide the mapping of stakes to Signer nodes.
 
 This configuration works in the case where there is a centralized Aggregator Node (as it is today). In the future, there may be several Aggregator nodes working in a decentralized manner. This would mean having a separate monitoring service, and also monitor the aggregators node versions.
 
 ### Era Activation Marker
 
-An Era Activation Marker is an information shared among all the nodes that specifies the Epoch when they must switch from old to new behavior. The Era Activation Marker will be a transaction in the Cardano blockchain. This implies the nodes must be able to read transactions of the blockchain.
+An Era Activation Marker is an information shared among all the nodes. For every upgrade, there are two phases:
+ * a first marker is set on the blockchain that just indicates a new Era will start soon and softwares shall be updated.
+ * a second marker is set that specifies the Epoch when they must switch from old to new behavior.
 
-Node will check the BlockChain for Markers at startup and for every new Epoch. When a node detects a Marker, it will warn the user if it does not support the incoming Era that he must upgrade his node. If the node detects it does not support the current Era, it will stop working with an explicit error message. To ease that operation, Era Activation Marker will be made sortable.
+Every Era Activation Marker will be a transaction in the Cardano blockchain. This implies the nodes must be able to read transactions of the blockchain. Era Activation Markers can be of the same type, the first maker does not hold any Epoch information whereas the second does.
+
+Node will check the blockchain for Markers at startup and for every new Epoch. When a node detects a Marker, it will warn the user if it does not support the incoming Era that he must upgrade his node. If the node detects it does not support the current Era, it will stop working with an explicit error message. To ease that operation, Era Activation Marker will be made sortable.
 
 ### Behavior Switch
 
@@ -54,19 +58,36 @@ The nodes must be able to switch from one behavior to another when the Era Epoch
 sequenceDiagram
     actor Release Team
     actor User
+    Release Team--xChain: New Era coming soon.
+    Note over Chain: new Epoch
     Old Node->>Chain: What is the latest marker?
-    Chain->>Old Node: Era change at epoch XX
-    Release Team--xChain: Set new Era Marker Epoch to YY.
+    Chain->>Old Node: Era change soon
     New Node->>Chain: What is the last marker?
-    Chain->>New Node: Era change epoch YY
-    Old Node->>Chain: What is the last marker?
-    Chain->>Old Node: Era change epoch YY
-    Old Node->>User: ⚠️ new Era incoming, please update node
+    Chain->>New Node: Era change soon
+    Note over New Node: upgrade
+    Loop every Epoch
+        Note over Chain: new Epoch
+        Old Node->>Chain: What is the last marker?
+        Chain->>Old Node: Era change soon
+        Old Node->>User: ⚠️ new Era incoming, please update node
+        New Node->>Chain: What is the last marker?
+        Chain->>New Node: Era change soon
+    end
+    Release Team--xChain: New Era start at Epoch XX.
+    Loop every Epoch
+        Note over Chain: new Epoch
+        Old Node->>Chain: What is the last marker?
+        Chain->>Old Node: Era change at Epoch XX
+        Old Node->>User: ⚠️ new Era incoming, please update node
+        New Node->>Chain: What is the last marker?
+        Chain->>New Node: Era change at Epoch XX
+    end
+    Note over Chain: Epoch XX
     Note over Old Node,New Node: new Era
     New Node->>Chain: What is the last marker?
-    Chain->>New Node: Era change epoch YY
+    Chain->>New Node: Era change at Epoch XX
     Note over New Node: switch behavior
     Old Node->>Chain: What is the last marker?
-    Chain->>Old Node: Epoch change is YY
+    Chain->>Old Node: Era change at Epoch XX
     Old Node->>User: 💀 unsupported Era, quit.
 ```
