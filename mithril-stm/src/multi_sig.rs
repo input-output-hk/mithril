@@ -13,9 +13,10 @@ use blst::min_sig::{
     Signature as BlstSig,
 };
 use blst::{
-    blst_p1, blst_p1_affine, blst_p1_compress, blst_p1_from_affine, blst_p1_to_affine,
-    blst_p1_uncompress, blst_p2, blst_p2_affine, blst_p2_deserialize, blst_p2_from_affine,
-    blst_p2_to_affine, blst_scalar, blst_scalar_from_bendian, p1_affines, p2_affines,
+    blst_p1, blst_p1_affine, blst_p1_compress, blst_p1_deserialize, blst_p1_from_affine,
+    blst_p1_to_affine, blst_p1_uncompress, blst_p2, blst_p2_affine, blst_p2_deserialize,
+    blst_p2_from_affine, blst_p2_to_affine, blst_scalar, blst_scalar_from_bendian, p1_affines,
+    p2_affines,
 };
 
 use rand_core::{CryptoRng, RngCore};
@@ -452,10 +453,10 @@ impl Signature {
             .iter()
             .map(|&sig| unsafe {
                 let mut projective_p1 = blst_p1::default();
-                blst_p1_from_affine(
-                    &mut projective_p1,
-                    &std::mem::transmute::<BlstSig, blst_p1_affine>(sig),
-                );
+                let mut affine_p1 = blst_p1_affine::default();
+                let ser_sig = sig.serialize().as_ptr();
+                blst_p1_deserialize(&mut affine_p1, ser_sig);
+                blst_p1_from_affine(&mut projective_p1, &affine_p1);
                 projective_p1
             })
             .collect();
