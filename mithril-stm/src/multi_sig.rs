@@ -440,10 +440,10 @@ impl Signature {
             .iter()
             .map(|vk| unsafe {
                 let mut projective_p2 = blst_p2::default();
-                blst_p2_from_affine(
-                    &mut projective_p2,
-                    &std::mem::transmute::<BlstVk, blst_p2_affine>(vk.0),
-                );
+                let mut affine_p2 = blst_p2_affine::default();
+                let ser_vk = vk.0.serialize().as_ptr();
+                blst_p2_deserialize(&mut affine_p2, ser_vk);
+                blst_p2_from_affine(&mut projective_p2, &affine_p2);
                 projective_p2
             })
             .collect();
