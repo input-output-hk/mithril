@@ -91,7 +91,7 @@ impl MithrilCommand {
             .args(&args)
             .kill_on_drop(true);
 
-        info!("Starting {}", self.name; "work_dir" => &self.work_dir.display(), "env" => #?&self.env_vars, "args" => #?&args);
+        info!("Starting {}", self.name; "work_dir" => &self.work_dir.display(), "bin_path" => &self.process_path.display(), "env" => #?&self.env_vars, "args" => #?&args);
 
         command
             .spawn()

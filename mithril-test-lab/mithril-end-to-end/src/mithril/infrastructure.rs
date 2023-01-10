@@ -21,6 +21,7 @@ impl MithrilInfrastructure {
         devnet: Devnet,
         work_dir: &Path,
         bin_dir: &Path,
+        alternative_signer_bin_directory: &Option<PathBuf>,
     ) -> Result<Self, String> {
         devnet.run().await?;
         let devnet_topology = devnet.topology();
@@ -50,12 +51,19 @@ impl MithrilInfrastructure {
             // TODO: Should be removed once the signer certification is fully deployed
             let enable_certification =
                 index % 2 == 0 || cfg!(not(feature = "allow_skip_signer_certification"));
+
+            // If an alternative signer bin dir is available use it for half of the signer.
+            let bin_directory = match alternative_signer_bin_directory.as_ref() {
+                Some(dir) if index % 2 == 0 => dir,
+                _ => bin_dir,
+            };
+
             let mut signer = Signer::new(
                 aggregator.endpoint(),
                 pool_node,
                 &devnet.cardano_cli_path(),
                 work_dir,
-                bin_dir,
+                bin_directory,
                 enable_certification,
             )?;
             signer.start()?;

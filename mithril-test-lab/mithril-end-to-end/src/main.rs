@@ -30,6 +30,10 @@ pub struct Args {
     #[clap(long, default_value = ".")]
     bin_directory: PathBuf,
 
+    /// Directory to the an alternative mithril-signer binary that will be used for half the signers.
+    #[clap(long)]
+    alternative_signer_bin_directory: Option<PathBuf>,
+
     /// Number of BFT nodes in the devnet
     #[clap(long, default_value_t = 1)]
     number_of_bft_nodes: u8,
@@ -74,9 +78,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     )
     .await?;
 
-    let infrastructure =
-        MithrilInfrastructure::start(server_port, devnet.clone(), &work_dir, &args.bin_directory)
-            .await?;
+    let infrastructure = MithrilInfrastructure::start(
+        server_port,
+        devnet.clone(),
+        &work_dir,
+        &args.bin_directory,
+        &args.alternative_signer_bin_directory,
+    )
+    .await?;
 
     let mut spec = Spec::new(infrastructure);
 
