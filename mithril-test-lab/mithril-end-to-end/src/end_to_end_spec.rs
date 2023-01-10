@@ -61,8 +61,8 @@ impl Spec {
         .await?;
         update_protocol_parameters(self.infrastructure.aggregator_mut()).await?;
 
-        // Wait 4 epochs after protocol parameters update, so that we make sure that we use new protocol parameters as well as new stake distribution a few times
-        target_epoch += 4;
+        // Wait 5 epochs after protocol parameters update, so that we make sure that we use new protocol parameters as well as new stake distribution a few times
+        target_epoch += 5;
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
             target_epoch,

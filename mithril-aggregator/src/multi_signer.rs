@@ -432,7 +432,7 @@ impl MultiSigner for MultiSignerImpl {
             .as_ref()
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
-            .offset_to_recording_epoch();
+            .offset_to_protocol_parameters_recording_epoch();
 
         self.protocol_parameters_store
             .save_protocol_parameters(epoch, protocol_parameters.to_owned().into())
@@ -767,6 +767,10 @@ mod tests {
                     ),
                     (
                         beacon.epoch.offset_to_next_signer_retrieval_epoch(),
+                        fake_data::protocol_parameters(),
+                    ),
+                    (
+                        beacon.epoch.offset_to_next_signer_retrieval_epoch().next(),
                         fake_data::protocol_parameters(),
                     ),
                 ]))

@@ -77,7 +77,7 @@ impl GenesisTools {
         let protocol_parameters_store = dependencies.protocol_parameters_store.clone();
 
         let protocol_parameters = protocol_parameters_store
-            .get_protocol_parameters(beacon.epoch)
+            .get_protocol_parameters(beacon.epoch.offset_to_signer_retrieval_epoch()?)
             .await?
             .ok_or_else(|| "Missing protocol parameters".to_string())?;
 

@@ -789,7 +789,7 @@ pub mod tests {
 
         let saved_protocol_parameters = deps
             .protocol_parameters_store
-            .get_protocol_parameters(beacon.epoch + 1)
+            .get_protocol_parameters(beacon.epoch.offset_to_protocol_parameters_recording_epoch())
             .await
             .unwrap()
             .unwrap_or_else(|| {

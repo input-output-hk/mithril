@@ -111,7 +111,7 @@ async fn do_first_launch_initialization_if_needed(
         epoch => (
             epoch.offset_to_signer_retrieval_epoch()?,
             epoch.offset_to_next_signer_retrieval_epoch(),
-            epoch.offset_to_next_signer_retrieval_epoch() + 1,
+            epoch.offset_to_next_signer_retrieval_epoch().next(),
         ),
     };
 
