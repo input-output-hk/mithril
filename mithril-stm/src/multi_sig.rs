@@ -14,10 +14,10 @@ use blst::min_sig::{
     Signature as BlstSig,
 };
 use blst::{
-    blst_p1, blst_p1_affine, blst_p1_compress, blst_p1_deserialize, blst_p1_from_affine,
-    blst_p1_to_affine, blst_p1_uncompress, blst_p2, blst_p2_affine, blst_p2_affine_serialize,
-    blst_p2_deserialize, blst_p2_from_affine, blst_p2_to_affine, blst_scalar,
-    blst_scalar_from_bendian, p1_affines, p2_affines,
+    blst_p1, blst_p1_affine, blst_p1_affine_serialize, blst_p1_compress, blst_p1_deserialize,
+    blst_p1_from_affine, blst_p1_to_affine, blst_p1_uncompress, blst_p2, blst_p2_affine,
+    blst_p2_affine_serialize, blst_p2_deserialize, blst_p2_from_affine, blst_p2_to_affine,
+    blst_scalar, blst_scalar_from_bendian, p1_affines, p2_affines,
 };
 
 use rand_core::{CryptoRng, RngCore};
@@ -474,8 +474,10 @@ impl Signature {
         };
         let aggr_sig: BlstSig = unsafe {
             let mut affine_p1 = blst_p1_affine::default();
+            let mut ser_affine_p1: [u8; 96] = [0u8; 96];
             blst_p1_to_affine(&mut affine_p1, &grouped_sigs.mult(scalars.as_slice(), 128));
-            std::mem::transmute::<blst_p1_affine, BlstSig>(affine_p1)
+            blst_p1_affine_serialize(ser_affine_p1.as_mut_ptr(), &affine_p1);
+            blst::min_sig::Signature::deserialize(&ser_affine_p1).unwrap()
         };
 
         Ok((VerificationKey(aggr_vk), Signature(aggr_sig)))
