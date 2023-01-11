@@ -4,6 +4,7 @@
 
 use crate::error::{blst_err_to_mithril, MultiSignatureError};
 use crate::stm::Index;
+
 use blake2::{digest::consts::U16, Blake2b, Blake2b512, Digest};
 
 // We use `min_sig` resulting in signatures of 48 bytes and public keys of
@@ -14,9 +15,9 @@ use blst::min_sig::{
 };
 use blst::{
     blst_p1, blst_p1_affine, blst_p1_compress, blst_p1_deserialize, blst_p1_from_affine,
-    blst_p1_to_affine, blst_p1_uncompress, blst_p2, blst_p2_affine, blst_p2_deserialize,
-    blst_p2_from_affine, blst_p2_to_affine, blst_scalar, blst_scalar_from_bendian, p1_affines,
-    p2_affines,
+    blst_p1_to_affine, blst_p1_uncompress, blst_p2, blst_p2_affine, blst_p2_affine_serialize,
+    blst_p2_deserialize, blst_p2_from_affine, blst_p2_to_affine, blst_scalar,
+    blst_scalar_from_bendian, p1_affines, p2_affines,
 };
 
 use rand_core::{CryptoRng, RngCore};
@@ -466,8 +467,10 @@ impl Signature {
 
         let aggr_vk: BlstVk = unsafe {
             let mut affine_p2 = blst_p2_affine::default();
+            let mut ser_affine_p2: [u8; 192] = [0u8; 192];
             blst_p2_to_affine(&mut affine_p2, &grouped_vks.mult(scalars.as_slice(), 128));
-            std::mem::transmute::<blst_p2_affine, BlstVk>(affine_p2)
+            blst_p2_affine_serialize(ser_affine_p2.as_mut_ptr(), &affine_p2);
+            blst::min_sig::PublicKey::deserialize(&ser_affine_p2).unwrap()
         };
         let aggr_sig: BlstSig = unsafe {
             let mut affine_p1 = blst_p1_affine::default();
