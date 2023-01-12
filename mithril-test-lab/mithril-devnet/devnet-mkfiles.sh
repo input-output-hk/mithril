@@ -529,7 +529,7 @@ ls -1 node-*/pool.env
 echo "====================================================================="
 
 cat >> activate.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 EOF
@@ -653,7 +653,7 @@ echo "====================================================================="
 echo
 
 cat >> delegate.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 
 CURRENT_EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query tip \\
@@ -719,7 +719,7 @@ echo "====================================================================="
 echo
 
 cat >> query-mithril.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 AGGREGATOR_API_ENDPOINT="http://0.0.0.0:8080/aggregator"
 
@@ -734,7 +734,7 @@ echo
 EOF
 
 cat >> query-cardano.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo ">> Query chain tip"
 CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip \\
@@ -764,7 +764,7 @@ echo
 EOF
 
 cat >> query-unused.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo
 echo ">> Query utxo1 utxo 'utxo1.addr'"
@@ -805,7 +805,7 @@ echo "====================================================================="
 echo
 
 cat >> pools.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query stake-pools \\
     --cardano-mode \\
@@ -1124,7 +1124,7 @@ echo
 echo "To start the nodes, in separate terminals use:"
 echo
 cat >> start-cardano.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo ">> Start Cardano network"
 killall cardano-node 2>&1 /dev/null
@@ -1137,7 +1137,7 @@ for NODE in ${BFT_NODES}; do
   echo ./${ROOT}/${NODE}/start-node.sh
 
   cat >> ${NODE}/start-node.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 ./cardano-node run \\
   --config                          ${NODE}/configuration.yaml \\
@@ -1166,7 +1166,7 @@ for NODE in ${POOL_NODES}; do
   echo ./${ROOT}/${NODE}/start-node.sh
 
   cat >> ${NODE}/start-node.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 ./cardano-node run \\
   --config                          ${NODE}/configuration.yaml \\
@@ -1218,7 +1218,7 @@ EOF
 chmod u+x start-cardano.sh
 
 cat >> start-mithril.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo ">> Start Mithril network"
 if [ -z "\${MITHRIL_IMAGE_ID}" ]; then 
@@ -1279,7 +1279,7 @@ EOF
 chmod u+x start-mithril.sh
 
 cat >> stop.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo ">> Stop Cardano network"
 killall cardano-node
@@ -1299,7 +1299,7 @@ EOF
 chmod u+x stop.sh
 
 cat >> log-mithril.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 SEPARATOR="====================================================================="
 
@@ -1325,7 +1325,7 @@ EOF
 chmod u+x log-mithril.sh
 
 cat >> log-cardano.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 SEPARATOR="====================================================================="
 

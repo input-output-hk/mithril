@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Default values
 if [ -z "${ROOT}" ]; then 
   ROOT="artifacts"
