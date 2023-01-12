@@ -38,7 +38,7 @@ sudo apt-get install make build-essential m4 docker jq
 
 ## Download source
 
-Download from Github (HTTPS)
+Download from GitHub (HTTPS)
 
 ```bash
 git clone https://github.com/input-output-hk/mithril.git

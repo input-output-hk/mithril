@@ -43,7 +43,7 @@ More information about this private Cardano/Mithril `devnet` is available [here]
 
 ## Download source
 
-Download from Github (HTTPS)
+Download from GitHub (HTTPS)
 
 ```bash
 git clone https://github.com/input-output-hk/mithril.git

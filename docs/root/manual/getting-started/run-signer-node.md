@@ -65,7 +65,7 @@ You must declare your Cardano `Operational Certificate` file and `KES Secret Key
 
 ### Download source
 
-Download from Github (HTTPS)
+Download from GitHub (HTTPS)
 
 ```bash
 git clone https://github.com/input-output-hk/mithril.git
@@ -103,6 +103,16 @@ Build executable
 
 ```bash
 make build
+```
+
+## Verify binary
+
+### Verify version
+
+Check that the Mithril Signer binary is running the correct version by running
+
+```bash
+./mithril-signer -h
 ```
 
 ### Verify build

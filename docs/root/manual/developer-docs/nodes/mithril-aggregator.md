@@ -42,7 +42,7 @@ This is the node of the **Mithril Network** responsible for collecting individua
 
 ## Download source
 
-Download from Github (HTTPS)
+Download from GitHub (HTTPS)
 
 ```bash
 git clone https://github.com/input-output-hk/mithril.git

@@ -153,7 +153,7 @@ jobs:
           echo "mithril.network" > ./github-pages/CNAME
           echo '<!DOCTYPE html><html><head><meta http-equiv="Refresh" content="0; URL=https://mithril.network/doc"></head></html>' > ./github-pages/index.html
 
-      - name: Mithril / Publish Github Pages
+      - name: Mithril / Publish GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN || github.token }}

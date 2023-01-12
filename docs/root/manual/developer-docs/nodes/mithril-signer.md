@@ -44,7 +44,7 @@ This is the node of the **Mithril Network** responsible for producing individual
 
 ## Download source
 
-Download from Github (HTTPS)
+Download from GitHub (HTTPS)
 
 ```bash
 git clone https://github.com/input-output-hk/mithril.git
