@@ -54,6 +54,14 @@ Or (SSH)
 git clone git@github.com:input-output-hk/mithril.git
 ```
 
+Switch to build branch / tag
+
+```bash
+# **YOUR_BUILD_BRANCH_OR_TAG** depends on the Mithril network you target, 
+# please refer to the **Build From** column of the above **Mithril Networks** table
+git switch **YOUR_BUILD_BRANCH_OR_TAG**
+```
+
 Change directory
 
 ```bash
