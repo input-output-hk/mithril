@@ -1,3 +1,6 @@
+#!/bin/bash
+set -e
+
 # Default values
 if [ -z "${ROOT}" ]; then 
   ROOT="artifacts"
@@ -65,13 +68,13 @@ echo " Schedule Cardano Stake Delegation"
 echo "====================================================================="
 echo
 DELEGATION_ROUND=0
-echo ">> Begin scheduled delegation"
+echo ">> Begin scheduled stakes delegation"
 while true
 do
-    echo ">> $(date +"%T"): Wait ${DELEGATE_PERIOD}s until next delegation round..."
+    echo ">> $(date +"%T"): Wait ${DELEGATE_PERIOD}s until next stakes delegation round..."
     sleep ${DELEGATE_PERIOD}
     DELEGATION_ROUND=$(( $DELEGATION_ROUND + 1 ))
-    echo ">> Run delegation round #${DELEGATION_ROUND}!"
+    echo ">> Run stakes delegation round #${DELEGATION_ROUND}!"
     DELEGATION_ROUND=${DELEGATION_ROUND} ./delegate.sh
 done
 echo

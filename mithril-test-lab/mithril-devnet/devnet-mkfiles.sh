@@ -530,6 +530,7 @@ echo "====================================================================="
 
 cat >> activate.sh <<EOF
 #!/bin/bash
+set -e
 
 EOF
 
@@ -588,18 +589,29 @@ CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli transaction s
 
 EOF
 
+  # Copy retrieve transaction id to activate.sh script
+  cat >> activate.sh <<EOF
+CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli transaction txid \\
+    --tx-file node-pool${N}/tx/tx${N}.tx
+
+EOF
+
 done
 
     # Wait until pools are activated on the Cardano network
     cat >> activate.sh <<EOF
-    echo ">> Wait for Cardano pools to be activated"
+echo ">> Wait for Cardano pools to be activated"
+POOLS_ACTIVATION_WAIT_ROUNDS_MAX=20
+POOL_STAKE_RETRIEVAL_WAIT_ROUNDS_MAX=30
+POOLS_ACTIVATION_WAIT_ROUNDS=1
 while true
 do
     POOLS=\$(./pools.sh 2> /dev/null)
     if [ "\$POOLS" != "" ] ; then
-        echo ">>>> Activated!"
+        echo ">>>> Cardano pools are activated!"
         ./pools.sh | while read POOL_ID ; do
-            echo ">>>> Retrieve stakes PoolId: \$POOL_ID"
+            POOL_STAKE_RETRIEVAL_WAIT_ROUNDS=1
+            echo ">>>> Retrieve stakes for pool: \$POOL_ID"
             while true
             do
                 POOL_STAKE_PREVIOUS_EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query stake-snapshot \\
@@ -608,19 +620,30 @@ do
                 if [ "\$POOL_STAKE_PREVIOUS_EPOCH" != "0" ] ; then
                     break
                 else
-                    echo ">>>> Not retrievable yet"
+                    echo ">>>> Stakes are not retrievable for this pool yet..."
                     sleep 2
                 fi
+                POOL_STAKE_RETRIEVAL_WAIT_ROUNDS=\$(( \$POOL_STAKE_RETRIEVAL_WAIT_ROUNDS + 1 ))
+                if [ "\$POOL_STAKE_RETRIEVAL_WAIT_ROUNDS" -gt "\$POOL_STAKE_RETRIEVAL_WAIT_ROUNDS_MAX" ] ; then
+                    echo ">>>> Error: too many attempts of stakes retrieval for this pool"
+                    exit 1
+                fi
             done
-            echo ">>>> Stakes retrieved PoolId: \$POOL_ID / \$POOL_STAKE_PREVIOUS_EPOCH"
+            echo ">>>> Stakes retrieved for pool: \$POOL_ID / \$POOL_STAKE_PREVIOUS_EPOCH Lovelace"
         done
         break
     else
-        echo ">>>> Not activated yet"
+        echo ">>>> Cardano pools are not activated yet..."
         sleep 2
+    fi
+    POOLS_ACTIVATION_WAIT_ROUNDS=\$(( \$POOLS_ACTIVATION_WAIT_ROUNDS + 1 ))
+    if [ "\$POOLS_ACTIVATION_WAIT_ROUNDS" -gt "\$POOLS_ACTIVATION_WAIT_ROUNDS_MAX" ] ; then
+        echo ">>>> Error: too many attempts of pools activation wait rounds"
+        exit 1
     fi
 done
 
+echo ">> Cardano pools activation was successful!"
 EOF
 
 chmod u+x activate.sh
@@ -1168,17 +1191,24 @@ done
 
 cat >> start-cardano.sh <<EOF
 echo ">> Wait for Cardano network to be ready"
+CARDANO_ACTIVATION_WAIT_ROUNDS_MAX=30
+CARDANO_ACTIVATION_WAIT_ROUNDS=1
 while true
 do
     EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip \\
         --cardano-mode \\
         --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq .epoch | sed -e "s/null//" | sed -e "s/ //" | tr -d '\n')
     if [ "\$EPOCH" != "" ] ; then
-        echo ">>>> Ready!"
+        echo ">>>> Cardano network is ready!"
         break
     else
-        echo ">>>> Not ready yet"
+        echo ">>>> Cardano network is not ready yet..."
         sleep 2
+    fi
+    CARDANO_ACTIVATION_WAIT_ROUNDS=\$(( \$CARDANO_ACTIVATION_WAIT_ROUNDS + 1 ))
+    if [ "\$CARDANO_ACTIVATION_WAIT_ROUNDS" -gt "\$CARDANO_ACTIVATION_WAIT_ROUNDS_MAX" ] ; then
+        echo ">>>> Error: too many attempts of Cardano network activation wait rounds"
+        exit 1
     fi
 done
 
