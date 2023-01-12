@@ -105,6 +105,14 @@ Build executable
 make build
 ```
 
+## Download compiled binary
+
+Each Release / Pre-Release distribution comes with pre compiled binaries ready to use or wrapped in a debian package.
+
+You can download them from the Release / Pre-Release distribution page that depends on the Mithril Network you are targeting.
+
+These links are available in the **Build From** column of the above **Mithril Networks** table.
+
 ## Verify binary
 
 ### Verify version
@@ -112,8 +120,16 @@ make build
 Check that the Mithril Signer binary is running the correct version by running
 
 ```bash
-./mithril-signer -h
+./mithril-signer -V
 ```
+
+You should see something like
+
+```bash
+mithril-signer 0.2.0
+```
+
+:warning: Verify that the version displayed is the version described in the content of the Release / Pre-Release note (see the **Build From** column of the above **Mithril Networks** table)
 
 ### Verify build
 
@@ -126,16 +142,25 @@ Check that the Mithril Signer binary is working fine by running its help
 You should see
 
 ```bash
-mithril-signer 
 An implementation of a Mithril Signer
 
-USAGE:
-    mithril-signer [OPTIONS]
+Usage: mithril-signer [OPTIONS]
 
-OPTIONS:
-    -h, --help                   Print help information
-    -r, --run-mode <RUN_MODE>    Run Mode [default: dev]
-    -v, --verbose                Verbosity level
+Options:
+  -r, --run-mode <RUN_MODE>
+          Run Mode [env: RUN_MODE=] [default: dev]
+  -v, --verbose...
+          Verbosity level, add more v to increase
+  -c, --configuration-dir <CONFIGURATION_DIR>
+          Directory where the configuration file is located [default: ./config]
+      --disable-digests-cache
+          Disable immutables digests cache
+      --reset-digests-cache
+          If set the existing immutables digests cache will be reset
+  -h, --help
+          Print help information (use `--help` for more detail)
+  -V, --version
+          Print version information
 ```
 
 :::tip
@@ -148,6 +173,8 @@ If you want to dig deeper, you can get access to several level of logs from the 
 * Add `-vvvv` for all logs (TRACE)
 
 :::
+
+## Install the service
 
 ### Move executable
 

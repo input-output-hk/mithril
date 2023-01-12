@@ -117,33 +117,28 @@ Display the help menu
 You should see
 
 ```bash
-mithril-aggregator 
 Mithril Aggregator Node
 
-USAGE:
-    mithril-aggregator [OPTIONS] <SUBCOMMAND>
+Usage: mithril-aggregator [OPTIONS] <COMMAND>
 
-OPTIONS:
-        --config-directory <CONFIG_DIRECTORY>
-            Directory where configuration file is located [default: ./config]
+Commands:
+  genesis  Genesis tools
+  serve    Server runtime mode
+  help     Print this message or the help of the given subcommand(s)
 
-        --db-directory <DB_DIRECTORY>
-            Directory where stores are located
-
-    -h, --help
-            Print help information
-
-    -r, --run-mode <RUN_MODE>
-            Run Mode [default: dev]
-
-    -v, --verbose
-            Verbosity level
-
-SUBCOMMANDS:
-    genesis    Genesis certificate command Genesis command selecter
-    help       Print this message or the help of the given subcommand(s)
-    serve      Server runtime mode
-
+Options:
+  -r, --run-mode <RUN_MODE>
+          Run Mode [default: dev]
+  -v, --verbose...
+          Verbosity level
+      --db-directory <DB_DIRECTORY>
+          Directory of the Cardano node files
+      --config-directory <CONFIG_DIRECTORY>
+          Directory where configuration file is located [default: ./config]
+  -h, --help
+          Print help information
+  -V, --version
+          Print version information
 ```
 
 Run 'serve' command in release with default configuration
@@ -241,6 +236,14 @@ If you want to dig deeper, you can get access to several level of logs from the 
 * Add `-vvvv` for all logs (TRACE)
 
 :::
+
+## Download compiled binary
+
+Each Release / Pre-Release distribution comes with pre compiled binaries ready to use or wrapped in a debian package.
+
+You can download them from the Release / Pre-Release distribution page that depends on the Mithril Network you are targeting.
+
+These links are available in the **Build From** column of the above **Mithril Networks** table.
 
 ## Build and run Docker container
 

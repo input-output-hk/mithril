@@ -118,34 +118,30 @@ Display the help menu
 You should see
 
 ```bash
-mithril-client 
 This program downloads, checks and restores certified blockchain snapshots.
 
-USAGE:
-    mithril-client [OPTIONS] <SUBCOMMAND>
+Usage: mithril-client [OPTIONS] <COMMAND>
 
-OPTIONS:
-        --aggregator-endpoint <AGGREGATOR_ENDPOINT>
-            Override configuration Aggregator endpoint URL
+Commands:
+  list      List available snapshots
+  show      Show detailed informations about a snapshot
+  download  Download a snapshot
+  restore   Restore a snapshot
+  help      Print this message or the help of the given subcommand(s)
 
-        --config-directory <CONFIG_DIRECTORY>
-            Directory where configuration file is located [default: ./config]
-
-    -h, --help
-            Print help information
-
-        --run-mode <RUN_MODE>
-            Run Mode [env: RUN_MODE=] [default: dev]
-
-    -v, --verbose
-            Verbosity level (-v=warning, -vv=info, -vvv=debug)
-
-SUBCOMMANDS:
-    download    Download a snapshot
-    help        Print this message or the help of the given subcommand(s)
-    list        List available snapshots
-    restore     Restore a snapshot
-    show        Show detailed informations about a snapshot
+Options:
+      --run-mode <RUN_MODE>
+          Run Mode [env: RUN_MODE=] [default: dev]
+  -v, --verbose...
+          Verbosity level (-v=warning, -vv=info, -vvv=debug)
+      --config-directory <CONFIG_DIRECTORY>
+          Directory where configuration file is located [default: ./config]
+      --aggregator-endpoint <AGGREGATOR_ENDPOINT>
+          Override configuration Aggregator endpoint URL
+  -h, --help
+          Print help information
+  -V, --version
+          Print version information
 
 ```
 
@@ -201,6 +197,14 @@ Run a local Docker container
 ```bash
 make docker-run
 ```
+
+## Download compiled binary
+
+Each Release / Pre-Release distribution comes with pre compiled binaries ready to use or wrapped in a debian package.
+
+You can download them from the Release / Pre-Release distribution page that depends on the Mithril Network you are targeting.
+
+These links are available in the **Build From** column of the above **Mithril Networks** table.
 
 ## Subcommands
 

@@ -78,35 +78,60 @@ Build executable
 make build
 ```
 
-## Verify build
+## Verify binary
+
+### Verify version
+
+Check that the Mithril Signer binary is running the correct version by running
+
+```bash
+./mithril-client -V
+```
+
+You should see something like
+
+```bash
+mithril-client 0.2.0
+```
+
+:warning: Verify that the version displayed is the version described in the content of the Release / Pre-Release note (see the **Build From** column of the above **Mithril Networks** table)
+
+
+### Verify build
 
 Check that the Mithril Client binary is working fine by running its help
 
 ```bash
-./mithril-client help
+./mithril-client -h
 ```
 
 You should see
 
 ```bash
-mithril-client 
-An implementation of a Mithril Client
+This program downloads, checks and restores certified blockchain snapshots.
 
-USAGE:
-    mithril-client [OPTIONS] <SUBCOMMAND>
+Usage: mithril-client [OPTIONS] <COMMAND>
 
-OPTIONS:
-    -h, --help                   Print help information
-    -q, --quiet                  Less output per occurrence
-    -r, --run-mode <RUN_MODE>    Run Mode [default: dev]
-    -v, --verbose                More output per occurrence
+Commands:
+  list      List available snapshots
+  show      Show detailed informations about a snapshot
+  download  Download a snapshot
+  restore   Restore a snapshot
+  help      Print this message or the help of the given subcommand(s)
 
-SUBCOMMANDS:
-    download    Download a snapshot
-    help        Print this message or the help of the given subcommand(s)
-    list        List available snapshots
-    restore     Restore a snapshot
-    show        Infos about a snapshot
+Options:
+      --run-mode <RUN_MODE>
+          Run Mode [env: RUN_MODE=] [default: dev]
+  -v, --verbose...
+          Verbosity level (-v=warning, -vv=info, -vvv=debug)
+      --config-directory <CONFIG_DIRECTORY>
+          Directory where configuration file is located [default: ./config]
+      --aggregator-endpoint <AGGREGATOR_ENDPOINT>
+          Override configuration Aggregator endpoint URL
+  -h, --help
+          Print help information
+  -V, --version
+          Print version information
 ```
 
 :::tip
@@ -129,6 +154,14 @@ If you want to dig deeper, you can get access to several level of logs from the 
 * Add `-vvvv` for all logs (TRACE)
 
 :::
+
+## Download compiled binary
+
+Each Release / Pre-Release distribution comes with pre compiled binaries ready to use or wrapped in a debian package.
+
+You can download them from the Release / Pre-Release distribution page that depends on the Mithril Network you are targeting.
+
+These links are available in the **Build From** column of the above **Mithril Networks** table.
 
 ## Bootstrap a Cardano node from a testnet Mithril snapshot
 
