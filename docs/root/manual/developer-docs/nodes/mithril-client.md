@@ -3,6 +3,7 @@ sidebar_position: 3
 ---
 
 import NetworksMatrix from '../../../networks-matrix.md';
+import CompiledBinaries from '../../../compiled-binaries.md'
 
 # Mithril Client Node
 
@@ -184,6 +185,8 @@ If you want to dig deeper, you can get access to several level of logs from the 
 
 :::
 
+<CompiledBinaries />
+
 ## Build and run Docker container
 
 Build a local Docker image
@@ -197,14 +200,6 @@ Run a local Docker container
 ```bash
 make docker-run
 ```
-
-## Download compiled binary
-
-Each Release / Pre-Release distribution comes with pre compiled binaries ready to use or wrapped in a debian package.
-
-You can download them from the Release / Pre-Release distribution page that depends on the Mithril Network you are targeting.
-
-These links are available in the **Build From** column of the above **Mithril Networks** table.
 
 ## Subcommands
 
