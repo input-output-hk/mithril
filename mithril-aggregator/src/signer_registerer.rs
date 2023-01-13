@@ -28,7 +28,7 @@ pub enum SignerRegistrationError {
     Codec(String),
 
     /// Chain observer error.
-    #[error("chaim observer error: '{0}'")]
+    #[error("chain observer error: '{0}'")]
     ChainObserver(String),
 
     /// Signer is already registered.

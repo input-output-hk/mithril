@@ -215,7 +215,10 @@ impl StateMachine {
         let beacon = self.runner.get_current_beacon().await?;
         self.runner.update_stake_distribution(beacon.epoch).await?;
         self.runner
-            .register_signer_to_aggregator(beacon.epoch, &epoch_settings.next_protocol_parameters)
+            .register_signer_to_aggregator(
+                epoch_settings.epoch,
+                &epoch_settings.next_protocol_parameters,
+            )
             .await?;
 
         Ok(RegisteredState { beacon })

@@ -22,6 +22,9 @@ impl Epoch {
     /// The epoch offset used for signers stake distribution and verification keys recording.
     pub const SIGNER_RECORDING_OFFSET: u64 = 1;
 
+    /// The epoch offset used for aggregator protocol parameters recording.
+    pub const PROTOCOL_PARAMETERS_RECORDING_OFFSET: u64 = 2;
+
     /// Computes a new Epoch by applying an epoch offset.
     ///
     /// Will fail if the computed epoch is negative.
@@ -46,6 +49,21 @@ impl Epoch {
     /// Apply the [recording offset][Self::SIGNER_RECORDING_OFFSET] to this epoch
     pub fn offset_to_recording_epoch(&self) -> Self {
         *self + Self::SIGNER_RECORDING_OFFSET
+    }
+
+    /// Apply the [protocol parameters recording offset][Self::PROTOCOL_PARAMETERS_RECORDING_OFFSET] to this epoch
+    pub fn offset_to_protocol_parameters_recording_epoch(&self) -> Self {
+        *self + Self::PROTOCOL_PARAMETERS_RECORDING_OFFSET
+    }
+
+    /// Computes the next Epoch
+    pub fn next(&self) -> Self {
+        *self + 1
+    }
+
+    /// Computes the previous Epoch
+    pub fn previous(&self) -> Result<Self, EpochError> {
+        self.offset_by(-1)
     }
 }
 
@@ -161,5 +179,15 @@ mod tests {
         let mut epoch = Epoch(14);
         epoch -= 6_u64;
         assert_eq!(Epoch(8), epoch);
+    }
+
+    #[test]
+    fn test_previous() {
+        assert_eq!(Epoch(2), Epoch(3).previous().unwrap());
+    }
+
+    #[test]
+    fn test_next() {
+        assert_eq!(Epoch(4), Epoch(3).next());
     }
 }

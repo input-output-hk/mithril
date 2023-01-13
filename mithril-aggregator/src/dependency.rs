@@ -209,10 +209,14 @@ impl DependencyManager {
 
     /// `TEST METHOD ONLY`
     ///
-    /// Fill the first two epoch of the [ProtocolParametersStore] with the given value.
+    /// Fill up to the first three epochs of the [ProtocolParametersStore] with the given value.
     pub async fn init_protocol_parameter_store(&self, protocol_parameters: &ProtocolParameters) {
         let (work_epoch, epoch_to_sign) = self.get_genesis_epochs().await;
-        for epoch in [work_epoch, epoch_to_sign] {
+        let mut epochs_to_save = Vec::new();
+        epochs_to_save.push(work_epoch);
+        epochs_to_save.push(epoch_to_sign);
+        epochs_to_save.push(epoch_to_sign.next());
+        for epoch in epochs_to_save {
             self.protocol_parameters_store
                 .save_protocol_parameters(epoch, protocol_parameters.clone())
                 .await

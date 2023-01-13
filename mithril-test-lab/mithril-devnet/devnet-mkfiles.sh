@@ -48,7 +48,8 @@ SECURITY_PARAM=2
 NODE_PORT_START=3000
 NODE_ADDR_PREFIX="172.16.238"
 NODE_ADDR_INCREMENT=10
-CARDANO_BINARY_URL="https://storage.googleapis.com/mithril-cardano-node-archive/cardano-1.34.1.tar.gz"
+CARDANO_BINARY_URL="https://update-cardano-mainnet.iohk.io/cardano-node-releases/cardano-node-1.35.4-linux.tar.gz"
+ALONZO_GENESIS_URL="https://book.world.dev.cardano.org/environments/pv8/alonzo-genesis.json"
 
 GENESIS_VERIFICATION_KEY=5b33322c3235332c3138362c3230312c3137372c31312c3131372c3133352c3138372c3136372c3138312c3138382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c3235322c3138302c37322c3133342c3133372c3234372c3136312c36385d
 GENESIS_SECRET_KEY=5b3131382c3138342c3232342c3137332c3136302c3234312c36312c3134342c36342c39332c3130362c3232392c38332c3133342c3138392c34302c3138392c3231302c32352c3138342c3136302c3134312c3233372c32362c3136382c35342c3233392c3230342c3133392c3131392c31332c3139395d
@@ -315,7 +316,8 @@ echo "====================================================================="
 
 # Shelley era. Set up our template
 mkdir shelley
-./cardano-cli genesis create --testnet-magic ${NETWORK_MAGIC} --genesis-dir shelley
+curl -s ${ALONZO_GENESIS_URL} -o shelley/genesis.alonzo.spec.json
+./cardano-cli genesis create --testnet-magic ${NETWORK_MAGIC} --genesis-dir shelley --start-time $(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 # Then edit the genesis.spec.json ...
 
@@ -324,7 +326,7 @@ mkdir shelley
 # cycling KES keys
 sed -i shelley/genesis.spec.json \
     -e 's/"slotLength": 1/"slotLength": '${SLOT_LENGTH}'/' \
-    -e 's/"activeSlotsCoeff": 5.0e-2/"activeSlotsCoeff": 0.05/' \
+    -e 's/"activeSlotsCoeff": 5.0e-2/"activeSlotsCoeff": 0.50/' \
     -e 's/"securityParam": 2160/"securityParam": '${SECURITY_PARAM}'/' \
     -e 's/"epochLength": 432000/"epochLength": '${EPOCH_LENGTH}'/' \
     -e 's/"maxLovelaceSupply": 0/"maxLovelaceSupply": 1000000000/' \
@@ -527,7 +529,8 @@ ls -1 node-*/pool.env
 echo "====================================================================="
 
 cat >> activate.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
+set -e
 
 EOF
 
@@ -586,18 +589,29 @@ CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli transaction s
 
 EOF
 
+  # Copy retrieve transaction id to activate.sh script
+  cat >> activate.sh <<EOF
+CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli transaction txid \\
+    --tx-file node-pool${N}/tx/tx${N}.tx
+
+EOF
+
 done
 
     # Wait until pools are activated on the Cardano network
     cat >> activate.sh <<EOF
-    echo ">> Wait for Cardano pools to be activated"
+echo ">> Wait for Cardano pools to be activated"
+POOLS_ACTIVATION_WAIT_ROUNDS_MAX=20
+POOL_STAKE_RETRIEVAL_WAIT_ROUNDS_MAX=30
+POOLS_ACTIVATION_WAIT_ROUNDS=1
 while true
 do
     POOLS=\$(./pools.sh 2> /dev/null)
     if [ "\$POOLS" != "" ] ; then
-        echo ">>>> Activated!"
+        echo ">>>> Cardano pools are activated!"
         ./pools.sh | while read POOL_ID ; do
-            echo ">>>> Retrieve stakes PoolId: \$POOL_ID"
+            POOL_STAKE_RETRIEVAL_WAIT_ROUNDS=1
+            echo ">>>> Retrieve stakes for pool: \$POOL_ID"
             while true
             do
                 POOL_STAKE_PREVIOUS_EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query stake-snapshot \\
@@ -606,19 +620,30 @@ do
                 if [ "\$POOL_STAKE_PREVIOUS_EPOCH" != "0" ] ; then
                     break
                 else
-                    echo ">>>> Not retrievable yet"
+                    echo ">>>> Stakes are not retrievable for this pool yet... [attempt \$POOL_STAKE_RETRIEVAL_WAIT_ROUNDS]"
                     sleep 2
                 fi
+                POOL_STAKE_RETRIEVAL_WAIT_ROUNDS=\$(( \$POOL_STAKE_RETRIEVAL_WAIT_ROUNDS + 1 ))
+                if [ "\$POOL_STAKE_RETRIEVAL_WAIT_ROUNDS" -gt "\$POOL_STAKE_RETRIEVAL_WAIT_ROUNDS_MAX" ] ; then
+                    echo ">>>> Timeout: could not retrieve stakes of pool \$POOL_ID within \$POOL_STAKE_RETRIEVAL_WAIT_ROUNDS_MAX attempts"
+                    exit 1
+                fi
             done
-            echo ">>>> Stakes retrieved PoolId: \$POOL_ID / \$POOL_STAKE_PREVIOUS_EPOCH"
+            echo ">>>> Stakes retrieved for pool: \$POOL_ID / \$POOL_STAKE_PREVIOUS_EPOCH Lovelace"
         done
         break
     else
-        echo ">>>> Not activated yet"
+        echo ">>>> Cardano pools are not activated yet... [attempt \$POOLS_ACTIVATION_WAIT_ROUNDS]"
         sleep 2
+    fi
+    POOLS_ACTIVATION_WAIT_ROUNDS=\$(( \$POOLS_ACTIVATION_WAIT_ROUNDS + 1 ))
+    if [ "\$POOLS_ACTIVATION_WAIT_ROUNDS" -gt "\$POOLS_ACTIVATION_WAIT_ROUNDS_MAX" ] ; then
+        echo ">>>> Timeout: pools could not be activated within \$POOLS_ACTIVATION_WAIT_ROUNDS_MAX attempts"
+        exit 1
     fi
 done
 
+echo ">> Cardano pools activation was successful!"
 EOF
 
 chmod u+x activate.sh
@@ -628,10 +653,11 @@ echo "====================================================================="
 echo
 
 cat >> delegate.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
+set -e
 
-CURRENT_EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query tip  \\
-                    --cardano-mode  \\
+CURRENT_EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query tip \\
+                    --cardano-mode \\
                     --testnet-magic ${NETWORK_MAGIC} | jq .epoch)
 echo ">>>> Current Epoch: \${CURRENT_EPOCH}"
 EOF
@@ -646,11 +672,14 @@ for N in ${POOL_NODES_N}; do
     
     AMOUNT_STAKED=\$(( $N*1000000 +  DELEGATION_ROUND*1 ))
 
+    TX_IN=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query utxo \\
+      --testnet-magic ${NETWORK_MAGIC}  --address \$(cat addresses/utxo${N}.addr) --out-file tmp.txt \\
+      && cat tmp.txt | jq  -r 'to_entries | [last] | .[0].key' \\
+      && rm -f tmp.txt)
+
     CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli transaction build \\
         --alonzo-era \\
-        --tx-in \$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query utxo  \\
-                    --testnet-magic ${NETWORK_MAGIC}  \\
-                    --address \$(cat addresses/utxo${N}.addr) | tail -n 1  | awk '{print \$1;}')#0 \\
+        --tx-in \${TX_IN} \\
         --tx-out \$(cat addresses/user${N}.addr)+\${AMOUNT_STAKED} \\
         --change-address \$(cat addresses/utxo${N}.addr) \\
         --testnet-magic ${NETWORK_MAGIC} \\
@@ -690,7 +719,7 @@ echo "====================================================================="
 echo
 
 cat >> query-mithril.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 AGGREGATOR_API_ENDPOINT="http://0.0.0.0:8080/aggregator"
 
@@ -705,62 +734,62 @@ echo
 EOF
 
 cat >> query-cardano.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo ">> Query chain tip"
-CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip  \\
-    --cardano-mode  \\
+CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip \\
+    --cardano-mode \\
     --testnet-magic ${NETWORK_MAGIC}
 
 echo
 echo ">> Query whole utxo"
-CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query utxo  \\
-    --cardano-mode  \\
-    --testnet-magic ${NETWORK_MAGIC}   \\
+CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query utxo \\
+    --cardano-mode \\
+    --testnet-magic ${NETWORK_MAGIC} \\
     --whole-utxo
 echo
 
 echo ">> Query stake pools"
 CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query stake-pools \\
-    --cardano-mode  \\
+    --cardano-mode \\
     --testnet-magic ${NETWORK_MAGIC}
 echo
 
 echo ">> Query stake distribution"
 CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query stake-distribution \\
-    --cardano-mode  \\
+    --cardano-mode \\
     --testnet-magic ${NETWORK_MAGIC}
 echo
 
 EOF
 
 cat >> query-unused.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo
 echo ">> Query utxo1 utxo 'utxo1.addr'"
-CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query utxo  \\
-    --cardano-mode  \\
-    --testnet-magic ${NETWORK_MAGIC}  \\
+CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query utxo \\
+    --cardano-mode \\
+    --testnet-magic ${NETWORK_MAGIC} \\
     --address \$(cat addresses/utxo1.addr)
 
 echo
 echo ">> Query user1 utxo 'user1.addr'"
-CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query utxo  \\
-    --cardano-mode  \\
-    --testnet-magic ${NETWORK_MAGIC}  \\
+CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query utxo \\
+    --cardano-mode \\
+    --testnet-magic ${NETWORK_MAGIC} \\
     --address \$(cat addresses/user1.addr)
 
 echo ">> Query stake pool params"
 echo CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query pool-params \\
-    --cardano-mode  \\
+    --cardano-mode \\
     --testnet-magic ${NETWORK_MAGIC} \\
     --stake-pool-id \${STAKE_POOL_ID}
 echo
 
 echo ">> Query stake pool snapshot"
 echo CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query stake-snapshot \\
-    --cardano-mode  \\
+    --cardano-mode \\
     --testnet-magic ${NETWORK_MAGIC} \\
     --stake-pool-id \${STAKE_POOL_ID}
 echo
@@ -776,10 +805,10 @@ echo "====================================================================="
 echo
 
 cat >> pools.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query stake-pools \\
-    --cardano-mode  \\
+    --cardano-mode \\
     --testnet-magic ${NETWORK_MAGIC}
 EOF
 
@@ -1095,7 +1124,7 @@ echo
 echo "To start the nodes, in separate terminals use:"
 echo
 cat >> start-cardano.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo ">> Start Cardano network"
 killall cardano-node 2>&1 /dev/null
@@ -1108,7 +1137,7 @@ for NODE in ${BFT_NODES}; do
   echo ./${ROOT}/${NODE}/start-node.sh
 
   cat >> ${NODE}/start-node.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 ./cardano-node run \\
   --config                          ${NODE}/configuration.yaml \\
@@ -1137,7 +1166,7 @@ for NODE in ${POOL_NODES}; do
   echo ./${ROOT}/${NODE}/start-node.sh
 
   cat >> ${NODE}/start-node.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 ./cardano-node run \\
   --config                          ${NODE}/configuration.yaml \\
@@ -1162,17 +1191,24 @@ done
 
 cat >> start-cardano.sh <<EOF
 echo ">> Wait for Cardano network to be ready"
+CARDANO_ACTIVATION_WAIT_ROUNDS_MAX=30
+CARDANO_ACTIVATION_WAIT_ROUNDS=1
 while true
 do
-    EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip  \\
-        --cardano-mode  \\
+    EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip \\
+        --cardano-mode \\
         --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq .epoch | sed -e "s/null//" | sed -e "s/ //" | tr -d '\n')
     if [ "\$EPOCH" != "" ] ; then
-        echo ">>>> Ready!"
+        echo ">>>> Cardano network is ready!"
         break
     else
-        echo ">>>> Not ready yet"
+        echo ">>>> Cardano network is not ready yet... [attempt \$CARDANO_ACTIVATION_WAIT_ROUNDS]"
         sleep 2
+    fi
+    CARDANO_ACTIVATION_WAIT_ROUNDS=\$(( \$CARDANO_ACTIVATION_WAIT_ROUNDS + 1 ))
+    if [ "\$CARDANO_ACTIVATION_WAIT_ROUNDS" -gt "\$CARDANO_ACTIVATION_WAIT_ROUNDS_MAX" ] ; then
+        echo ">>>> Timeout: Cardano network could no start within \$CARDANO_ACTIVATION_WAIT_ROUNDS_MAX attempts"
+        exit 1
     fi
 done
 
@@ -1182,7 +1218,7 @@ EOF
 chmod u+x start-cardano.sh
 
 cat >> start-mithril.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo ">> Start Mithril network"
 if [ -z "\${MITHRIL_IMAGE_ID}" ]; then 
@@ -1224,8 +1260,8 @@ cat >> start-mithril.sh <<EOF
 echo ">> Wait for Mithril signers to be registered"
 while true
 do
-    EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip  \\
-        --cardano-mode  \\
+    EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip \\
+        --cardano-mode \\
         --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq .epoch | sed -e "s/null//" | sed -e "s/ //" | tr -d '\n')
     if [ \$EPOCH -ge 2 ] ; then
         echo ">>>> Ready!"
@@ -1243,7 +1279,7 @@ EOF
 chmod u+x start-mithril.sh
 
 cat >> stop.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 echo ">> Stop Cardano network"
 killall cardano-node
@@ -1263,7 +1299,7 @@ EOF
 chmod u+x stop.sh
 
 cat >> log-mithril.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 SEPARATOR="====================================================================="
 
@@ -1289,7 +1325,7 @@ EOF
 chmod u+x log-mithril.sh
 
 cat >> log-cardano.sh <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 
 SEPARATOR="====================================================================="
 

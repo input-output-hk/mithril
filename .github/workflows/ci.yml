@@ -34,7 +34,7 @@ jobs:
       # We separate the build in 2 steps as we want to avoid side effects with Rust feature unification.
       - name: Cargo build - Tooling
         shell: bash
-        run: cargo build --release --workspace --exclude mithril-aggregator --exclude mithril-client --exclude mithril-signer --exclude mithril-stm
+        run: cargo build --features portable --release --workspace --exclude mithril-aggregator --exclude mithril-client --exclude mithril-signer --exclude mithril-stm
 
       - name: Build Mithril workspace & publish artifacts
         uses: ./.github/workflows/actions/build-upload-mithril-artifact
@@ -96,14 +96,11 @@ jobs:
         
         include:
           - os: ubuntu-22.04
-            build-args: --workspace
-            test-args: --workspace
+            test-args: --features portable --workspace
           # Only test client on windows & mac (since its the only binaries supported for those os for now)
           - os: macos-12
-            build-args: -p mithril-client
             test-args: -p mithril-client
           - os: windows-latest
-            build-args: -p mithril-client
             test-args: -p mithril-client
     
     runs-on: ${{ matrix.os }}
@@ -122,7 +119,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail && \
-          cargo test --features portable --no-fail-fast ${{ matrix.test-args }} \
+          cargo test --no-fail-fast ${{ matrix.test-args }} \
               -- -Z unstable-options --format json --report-time \
               | tee >(cargo2junit > test-results${{ matrix.artifact-suffix }}-${{ runner.os }}-${{ runner.arch }}.xml)
 
@@ -178,6 +175,10 @@ jobs:
   run-test-lab:
     runs-on: ubuntu-22.04
     needs: [ build-ubuntu-X64 ]
+    strategy:
+      fail-fast: false
+      matrix:
+        run_id: [1,2,3]
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -208,7 +209,7 @@ jobs:
         if:  ${{ failure() }}
         uses: actions/upload-artifact@v3
         with:
-          name: mithril-e2e-tests-artifacts-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}
+          name: mithril-e2e-tests-artifacts-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}-run_id_${{ matrix.run_id }}
           path: |
             ./artifacts/*
             # including node.sock makes the upload fails so exclude them:

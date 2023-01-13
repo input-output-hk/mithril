@@ -4,7 +4,7 @@ inputs:
   build-args:
     description: Arguments to pass to 'cargo build'
     required: false
-    default: '-p mithril-aggregator -p mithril-client -p mithril-common -p mithril-signer -p mithril-stm'
+    default: '--features portable -p mithril-aggregator -p mithril-client -p mithril-common -p mithril-signer -p mithril-stm'
 runs:
   using: "composite"
   steps:
