@@ -1,0 +1,32 @@
+{
+  "namespace": "io.iog.mithril",
+  "protocol": "single_signature_registration",
+  
+  "types": [
+    {
+      "name": "SingleSignature",
+      "type": "record",
+      "fields": [
+        { "name": "PartyId", "type": "string" },
+        { "name": "Index", "type": "int", "items": "long" },
+        { "name": "Signature", "type": "string" }
+      ]
+    },
+    {
+      "name": "Error",
+      "type": "record",
+      "fields": [
+        { "name": "code", "type": "string" },
+        { "name": "message", "type": "string" }
+      ]
+    }
+  ],
+  
+  "messages": {
+    "register_single_signature": {
+      "request": [{"name": "SingleSignature", "type": "SingleSignature" }],
+      "response": "string",
+      "errors": ["Error"]
+    }
+  }
+}

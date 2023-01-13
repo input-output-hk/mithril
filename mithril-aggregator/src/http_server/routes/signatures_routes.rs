@@ -15,7 +15,7 @@ fn register_signatures(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("register-signatures")
         .and(warp::post())
-        .and(warp::body::json())
+        .and(warp::body::bytes())
         .and(middlewares::with_multi_signer(dependency_manager))
         .and_then(handlers::register_signatures)
 }
@@ -24,30 +24,57 @@ mod handlers {
     use crate::dependency::MultiSignerWrapper;
     use crate::http_server::routes::reply;
     use crate::ProtocolError;
-    use mithril_common::entities;
+    use mithril_common::entities::SingleSignatures;
+    use mithril_common::messages::{
+        MessageDecoder, SingleSignatureMessage, SINGLE_SIGNATURE_MESSAGE_SCHEMA,
+    };
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use warp::http::StatusCode;
+    use warp::hyper::body::Bytes;
 
     /// Register Signatures
     pub async fn register_signatures(
-        signature: entities::SingleSignatures,
+        encoded_signature: Bytes,
         multi_signer: MultiSignerWrapper,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("⇄ HTTP SERVER: register_signatures/{:?}", signature);
+        debug!("⇄ HTTP SERVER: register_signatures");
 
-        let mut multi_signer = multi_signer.write().await;
-        match multi_signer.register_single_signature(&signature).await {
-            Err(ProtocolError::ExistingSingleSignature(party_id)) => {
-                debug!("register_signatures::already_exist"; "party_id" => ?party_id);
-                Ok(reply::empty(StatusCode::CONFLICT))
+        match read_signature_message(encoded_signature) {
+            Ok(signature) => {
+                debug!("⇄ HTTP SERVER: decoded signature: {:?}", signature);
+
+                let mut multi_signer = multi_signer.write().await;
+                match multi_signer.register_single_signature(&signature).await {
+                    Err(ProtocolError::ExistingSingleSignature(party_id)) => {
+                        debug!("register_signatures::already_exist"; "party_id" => ?party_id);
+                        Ok(reply::empty(StatusCode::CONFLICT))
+                    }
+                    Err(err) => {
+                        warn!("register_signatures::error"; "error" => ?err);
+                        Ok(reply::internal_server_error(err.to_string()))
+                    }
+                    Ok(()) => Ok(reply::empty(StatusCode::CREATED)),
+                }
             }
             Err(err) => {
                 warn!("register_signatures::error"; "error" => ?err);
                 Ok(reply::internal_server_error(err.to_string()))
             }
-            Ok(()) => Ok(reply::empty(StatusCode::CREATED)),
         }
+    }
+
+    fn read_signature_message(encoded_signature: Bytes) -> Result<SingleSignatures, String> {
+        let decoder = MessageDecoder::with_schema(SINGLE_SIGNATURE_MESSAGE_SCHEMA)
+            .map_err(|e| format!("Could not create message decoder: {}", e))?;
+        let message = decoder
+            .decode_one::<SingleSignatureMessage>(encoded_signature.to_vec())
+            .map_err(|e| format!("Could not decode SingleSignatureMessage: {}", e))?;
+        let signature = message
+            .try_into()
+            .map_err(|e| format!("Could not convert message to SingleSignature: {}", e))?;
+
+        Ok(signature)
     }
 }
 

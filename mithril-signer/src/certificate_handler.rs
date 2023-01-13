@@ -9,6 +9,9 @@ use mithril_common::{
     MITHRIL_API_VERSION,
 };
 
+use mithril_common::messages::{
+    MessageEncoder, SingleSignatureMessage, SINGLE_SIGNATURE_MESSAGE_SCHEMA,
+};
 #[cfg(test)]
 use mockall::automock;
 
@@ -197,9 +200,13 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
     ) -> Result<(), CertificateHandlerError> {
         debug!("Register signatures");
         let url = format!("{}/register-signatures", self.aggregator_endpoint);
+        let encoder = MessageEncoder::new(SINGLE_SIGNATURE_MESSAGE_SCHEMA).unwrap();
+        let message = encoder
+            .encode::<SingleSignatureMessage>(signatures.clone().try_into().unwrap())
+            .unwrap();
         let response = self
             .prepare_request_builder(Client::new().post(url.clone()))
-            .json(signatures)
+            .body(message)
             .send()
             .await;
 
