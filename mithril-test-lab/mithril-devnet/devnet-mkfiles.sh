@@ -620,12 +620,12 @@ do
                 if [ "\$POOL_STAKE_PREVIOUS_EPOCH" != "0" ] ; then
                     break
                 else
-                    echo ">>>> Stakes are not retrievable for this pool yet..."
+                    echo ">>>> Stakes are not retrievable for this pool yet... [attempt \$POOL_STAKE_RETRIEVAL_WAIT_ROUNDS]"
                     sleep 2
                 fi
                 POOL_STAKE_RETRIEVAL_WAIT_ROUNDS=\$(( \$POOL_STAKE_RETRIEVAL_WAIT_ROUNDS + 1 ))
                 if [ "\$POOL_STAKE_RETRIEVAL_WAIT_ROUNDS" -gt "\$POOL_STAKE_RETRIEVAL_WAIT_ROUNDS_MAX" ] ; then
-                    echo ">>>> Error: too many attempts of stakes retrieval for this pool"
+                    echo ">>>> Timeout: could not retrieve stakes of pool \$POOL_ID within \$POOL_STAKE_RETRIEVAL_WAIT_ROUNDS_MAX attempts"
                     exit 1
                 fi
             done
@@ -633,12 +633,12 @@ do
         done
         break
     else
-        echo ">>>> Cardano pools are not activated yet..."
+        echo ">>>> Cardano pools are not activated yet... [attempt \$POOLS_ACTIVATION_WAIT_ROUNDS]"
         sleep 2
     fi
     POOLS_ACTIVATION_WAIT_ROUNDS=\$(( \$POOLS_ACTIVATION_WAIT_ROUNDS + 1 ))
     if [ "\$POOLS_ACTIVATION_WAIT_ROUNDS" -gt "\$POOLS_ACTIVATION_WAIT_ROUNDS_MAX" ] ; then
-        echo ">>>> Error: too many attempts of pools activation wait rounds"
+        echo ">>>> Timeout: pools could not be activated within \$POOLS_ACTIVATION_WAIT_ROUNDS_MAX attempts"
         exit 1
     fi
 done
@@ -1202,12 +1202,12 @@ do
         echo ">>>> Cardano network is ready!"
         break
     else
-        echo ">>>> Cardano network is not ready yet..."
+        echo ">>>> Cardano network is not ready yet... [attempt \$CARDANO_ACTIVATION_WAIT_ROUNDS]"
         sleep 2
     fi
     CARDANO_ACTIVATION_WAIT_ROUNDS=\$(( \$CARDANO_ACTIVATION_WAIT_ROUNDS + 1 ))
     if [ "\$CARDANO_ACTIVATION_WAIT_ROUNDS" -gt "\$CARDANO_ACTIVATION_WAIT_ROUNDS_MAX" ] ; then
-        echo ">>>> Error: too many attempts of Cardano network activation wait rounds"
+        echo ">>>> Timeout: Cardano network could no start within \$CARDANO_ACTIVATION_WAIT_ROUNDS_MAX attempts"
         exit 1
     fi
 done
