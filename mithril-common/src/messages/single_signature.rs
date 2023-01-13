@@ -2,12 +2,20 @@ use crate::entities;
 use crate::entities::LotteryIndex;
 use std::num::TryFromIntError;
 
+#[cfg(not(feature = "v2_single_signature_message"))]
 pub static SINGLE_SIGNATURE_MESSAGE_SCHEMA: &str = include_str!(concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/avro-schemas/single_signature_message.json"
 ));
+#[cfg(feature = "v2_single_signature_message")]
+pub static SINGLE_SIGNATURE_MESSAGE_SCHEMA: &str = include_str!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/avro-schemas/single_signature_message.v2.json"
+));
 
-#[derive(Debug, PartialEq, Eq, Clone, serde::Deserialize, serde::Serialize, Default)]
+#[cfg(not(feature = "v2_single_signature_message"))]
+//# rsgen-avro generated code
+#[derive(Debug, PartialEq, Eq, Clone, serde::Deserialize, serde::Serialize)]
 pub struct SingleSignatureMessage {
     #[serde(rename = "PartyId")]
     pub party_id: String,
@@ -16,6 +24,29 @@ pub struct SingleSignatureMessage {
     #[serde(rename = "Signature")]
     pub signature: String,
 }
+//# end of rsgen-avro generated code
+
+#[cfg(feature = "v2_single_signature_message")]
+//# rsgen-avro generated code
+#[derive(Debug, PartialEq, Eq, Clone, serde::Deserialize, serde::Serialize)]
+pub struct SingleSignatureMessage {
+    #[serde(rename = "PartyId")]
+    pub party_id: String,
+    #[serde(rename = "Indexes")]
+    pub indexes: Vec<i64>,
+    #[serde(rename = "Signature")]
+    pub signature: String,
+    #[serde(rename = "MessageType")]
+    #[serde(default = "default_singlesignaturemessage_message_type")]
+    pub message_type: Vec<String>,
+}
+
+#[cfg(feature = "v2_single_signature_message")]
+#[inline(always)]
+fn default_singlesignaturemessage_message_type() -> Vec<String> {
+    vec!["immutables".to_owned()]
+}
+//# end of rsgen-avro generated code
 
 impl TryFrom<entities::SingleSignatures> for SingleSignatureMessage {
     type Error = TryFromIntError;
@@ -31,6 +62,8 @@ impl TryFrom<entities::SingleSignatures> for SingleSignatureMessage {
             party_id: value.party_id,
             indexes,
             signature: value.signature,
+            #[cfg(feature = "v2_single_signature_message")]
+            message_type: default_singlesignaturemessage_message_type(),
         })
     }
 }
@@ -72,6 +105,8 @@ mod test {
             party_id: "party_id".to_string(),
             indexes: vec![1, 2, 3],
             signature: "signature".to_string(),
+            #[cfg(feature = "v2_single_signature_message")]
+            message_type: default_singlesignaturemessage_message_type(),
         };
 
         writer

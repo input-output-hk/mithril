@@ -1,0 +1,15 @@
+{
+  "name": "SingleSignatureMessage",
+  "type": "record",
+  "fields": [
+    { "name": "PartyId", "type": "string" },
+    { "name": "Indexes", "type": "array", "items": "long" },
+    { "name": "Signature", "type": "string" },
+    {
+      "name": "MessageType",
+      "type": "array",
+      "items": "string",
+      "default": [ "immutables" ]
+    }
+  ]
+}

@@ -68,4 +68,5 @@ default = []
 portable = ["mithril-stm/portable"]
 test_only = []
 allow_skip_signer_certification = []
+v2_single_signature_message = []
 

@@ -35,3 +35,4 @@ slog-term = "2.9.0"
 
 [features]
 portable = ["mithril-common/portable"]
+v2_single_signature_message = ["mithril-common/v2_single_signature_message"]

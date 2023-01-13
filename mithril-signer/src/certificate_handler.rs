@@ -200,13 +200,14 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
     ) -> Result<(), CertificateHandlerError> {
         debug!("Register signatures");
         let url = format!("{}/register-signatures", self.aggregator_endpoint);
+        let message = signatures.clone().try_into().unwrap();
+        debug!("Register signatures: message: {:?}", message);
+
         let encoder = MessageEncoder::new(SINGLE_SIGNATURE_MESSAGE_SCHEMA).unwrap();
-        let message = encoder
-            .encode::<SingleSignatureMessage>(signatures.clone().try_into().unwrap())
-            .unwrap();
+        let encoded_message = encoder.encode::<SingleSignatureMessage>(message).unwrap();
         let response = self
             .prepare_request_builder(Client::new().post(url.clone()))
-            .body(message)
+            .body(encoded_message)
             .send()
             .await;
 

@@ -70,6 +70,7 @@ mod handlers {
         let message = decoder
             .decode_one::<SingleSignatureMessage>(encoded_signature.to_vec())
             .map_err(|e| format!("Could not decode SingleSignatureMessage: {}", e))?;
+        debug!("⇄ HTTP SERVER: decoded message: {:?}", message);
         let signature = message
             .try_into()
             .map_err(|e| format!("Could not convert message to SingleSignature: {}", e))?;
