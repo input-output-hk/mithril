@@ -66,7 +66,7 @@ In the [**Developer Docs**](/doc/category/developer-docs), you will find documen
 
 If you need help, feel free to reach the **Mithril** team:
 
-* [Github Discussions](https://github.com/input-output-hk/mithril/discussions)
+* [GitHub Discussions](https://github.com/input-output-hk/mithril/discussions)
 
 * [Stack Exchange](https://cardano.stackexchange.com/questions/tagged/mithril)
 

@@ -13,7 +13,7 @@ The new release now uses SQLite stores in place of JSON file storage. This means
 
 ## How to migrate data from old storage system to SQLite stores?
 
-There are 2 ways of getting the new version and the associated migration tool. Either downloading binaries from Github or compiling them yourself.
+There are 2 ways of getting the new version and the associated migration tool. Either downloading binaries from GitHub or compiling them yourself.
 
 ### Downloading
 

@@ -16,7 +16,7 @@ these communication channels to reach the Mithril team and get answers in a way
 where others can benefit from it as well:
 
 - #moria on the IOG [Discord server](https://discord.gg/5kaErDKDRq)
-- Github [Discussions](https://github.com/input-output-hk/mithril/discussions)
+- GitHub [Discussions](https://github.com/input-output-hk/mithril/discussions)
 - Cardano [StackExchange](https://cardano.stackexchange.com/) using the `mithril` tag
 
 ## Your first contribution
@@ -88,7 +88,7 @@ Thank you for contributing your changes by opening a pull requests! To get
 something merged we usually require:
 
 - Description of the changes - if your commit messages are great, this is less important
-- Quality of changes is ensured - through new or updated automated tests in [Github Actions](https://github.com/input-output-hk/mithril/actions)
+- Quality of changes is ensured - through new or updated automated tests in [GitHub Actions](https://github.com/input-output-hk/mithril/actions)
 - Change is related to an issue, feature (idea) or bug report - ideally discussed beforehand
 - Well-scoped - we prefer multiple PRs, rather than a big one
 

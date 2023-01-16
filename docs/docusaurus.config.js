@@ -179,7 +179,7 @@ const config = {
                 href: 'https://discord.gg/5kaErDKDRq',
               },
               {
-                label: 'Github Discussions',
+                label: 'GitHub Discussions',
                 href: 'https://github.com/input-output-hk/mithril/discussions',
               },
               {
