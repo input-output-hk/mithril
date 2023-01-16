@@ -3,6 +3,7 @@ sidebar_position: 1
 ---
 
 import NetworksMatrix from '../../networks-matrix.md';
+import CompiledBinaries from '../../compiled-binaries.md'
 
 # Bootstrap a Cardano Node
 
@@ -38,7 +39,7 @@ sudo apt-get install make build-essential m4 docker jq
 
 ## Download source
 
-Download from Github (HTTPS)
+Download from GitHub (HTTPS)
 
 ```bash
 git clone https://github.com/input-output-hk/mithril.git
@@ -51,6 +52,14 @@ git clone git@github.com:input-output-hk/mithril.git
 ```
 
 ## Build Mithril Client binary
+
+Switch to build branch / tag
+
+```bash
+# **YOUR_BUILD_BRANCH_OR_TAG** depends on the Mithril network you target, 
+# please refer to the **Build From** column of the above **Mithril Networks** table
+git switch **YOUR_BUILD_BRANCH_OR_TAG**
+```
 
 Change directory
 
@@ -70,35 +79,60 @@ Build executable
 make build
 ```
 
-## Verify build
+## Verify binary
+
+### Verify version
+
+Check that the Mithril Signer binary is running the correct version by running
+
+```bash
+./mithril-client -V
+```
+
+You should see something like
+
+```bash
+mithril-client 0.2.0
+```
+
+:warning: Verify that the version displayed is the version described in the content of the Release / Pre-Release note (see the **Build From** column of the above **Mithril Networks** table)
+
+
+### Verify build
 
 Check that the Mithril Client binary is working fine by running its help
 
 ```bash
-./mithril-client help
+./mithril-client -h
 ```
 
 You should see
 
 ```bash
-mithril-client 
-An implementation of a Mithril Client
+This program downloads, checks and restores certified blockchain snapshots.
 
-USAGE:
-    mithril-client [OPTIONS] <SUBCOMMAND>
+Usage: mithril-client [OPTIONS] <COMMAND>
 
-OPTIONS:
-    -h, --help                   Print help information
-    -q, --quiet                  Less output per occurrence
-    -r, --run-mode <RUN_MODE>    Run Mode [default: dev]
-    -v, --verbose                More output per occurrence
+Commands:
+  list      List available snapshots
+  show      Show detailed informations about a snapshot
+  download  Download a snapshot
+  restore   Restore a snapshot
+  help      Print this message or the help of the given subcommand(s)
 
-SUBCOMMANDS:
-    download    Download a snapshot
-    help        Print this message or the help of the given subcommand(s)
-    list        List available snapshots
-    restore     Restore a snapshot
-    show        Infos about a snapshot
+Options:
+      --run-mode <RUN_MODE>
+          Run Mode [env: RUN_MODE=] [default: dev]
+  -v, --verbose...
+          Verbosity level (-v=warning, -vv=info, -vvv=debug)
+      --config-directory <CONFIG_DIRECTORY>
+          Directory where configuration file is located [default: ./config]
+      --aggregator-endpoint <AGGREGATOR_ENDPOINT>
+          Override configuration Aggregator endpoint URL
+  -h, --help
+          Print help information
+  -V, --version
+          Print version information
 ```
 
 :::tip
@@ -121,6 +155,8 @@ If you want to dig deeper, you can get access to several level of logs from the 
 * Add `-vvvv` for all logs (TRACE)
 
 :::
+
+<CompiledBinaries />
 
 ## Bootstrap a Cardano node from a testnet Mithril snapshot
 

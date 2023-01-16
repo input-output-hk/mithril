@@ -3,6 +3,7 @@ sidebar_position: 3
 ---
 
 import NetworksMatrix from '../../../networks-matrix.md';
+import CompiledBinaries from '../../../compiled-binaries.md'
 
 # Mithril Client Node
 
@@ -53,6 +54,14 @@ Or (SSH)
 
 ```bash
 git clone git@github.com:input-output-hk/mithril.git
+```
+
+Switch to build branch / tag
+
+```bash
+# **YOUR_BUILD_BRANCH_OR_TAG** depends on the Mithril network you target, 
+# please refer to the **Build From** column of the above **Mithril Networks** table
+git switch **YOUR_BUILD_BRANCH_OR_TAG**
 ```
 
 Change directory
@@ -110,34 +119,30 @@ Display the help menu
 You should see
 
 ```bash
-mithril-client 
 This program downloads, checks and restores certified blockchain snapshots.
 
-USAGE:
-    mithril-client [OPTIONS] <SUBCOMMAND>
+Usage: mithril-client [OPTIONS] <COMMAND>
 
-OPTIONS:
-        --aggregator-endpoint <AGGREGATOR_ENDPOINT>
-            Override configuration Aggregator endpoint URL
+Commands:
+  list      List available snapshots
+  show      Show detailed informations about a snapshot
+  download  Download a snapshot
+  restore   Restore a snapshot
+  help      Print this message or the help of the given subcommand(s)
 
-        --config-directory <CONFIG_DIRECTORY>
-            Directory where configuration file is located [default: ./config]
-
-    -h, --help
-            Print help information
-
-        --run-mode <RUN_MODE>
-            Run Mode [env: RUN_MODE=] [default: dev]
-
-    -v, --verbose
-            Verbosity level (-v=warning, -vv=info, -vvv=debug)
-
-SUBCOMMANDS:
-    download    Download a snapshot
-    help        Print this message or the help of the given subcommand(s)
-    list        List available snapshots
-    restore     Restore a snapshot
-    show        Show detailed informations about a snapshot
+Options:
+      --run-mode <RUN_MODE>
+          Run Mode [env: RUN_MODE=] [default: dev]
+  -v, --verbose...
+          Verbosity level (-v=warning, -vv=info, -vvv=debug)
+      --config-directory <CONFIG_DIRECTORY>
+          Directory where configuration file is located [default: ./config]
+      --aggregator-endpoint <AGGREGATOR_ENDPOINT>
+          Override configuration Aggregator endpoint URL
+  -h, --help
+          Print help information
+  -V, --version
+          Print version information
 
 ```
 
@@ -179,6 +184,8 @@ If you want to dig deeper, you can get access to several level of logs from the 
 * Add `-vvvv` for all logs (TRACE)
 
 :::
+
+<CompiledBinaries />
 
 ## Build and run Docker container
 

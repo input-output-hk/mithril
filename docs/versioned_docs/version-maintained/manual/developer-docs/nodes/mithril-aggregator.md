@@ -3,6 +3,7 @@ sidebar_position: 1
 ---
 
 import NetworksMatrix from '../../../networks-matrix.md';
+import CompiledBinaries from '../../../compiled-binaries.md'
 
 # Mithril Aggregator Node
 
@@ -42,7 +43,7 @@ This is the node of the **Mithril Network** responsible for collecting individua
 
 ## Download source
 
-Download from Github (HTTPS)
+Download from GitHub (HTTPS)
 
 ```bash
 git clone https://github.com/input-output-hk/mithril.git
@@ -52,6 +53,14 @@ Or (SSH)
 
 ```bash
 git clone git@github.com:input-output-hk/mithril.git
+```
+
+Switch to build branch / tag
+
+```bash
+# **YOUR_BUILD_BRANCH_OR_TAG** depends on the Mithril network you target, 
+# please refer to the **Build From** column of the above **Mithril Networks** table
+git switch **YOUR_BUILD_BRANCH_OR_TAG**
 ```
 
 Change directory
@@ -109,33 +118,28 @@ Display the help menu
 You should see
 
 ```bash
-mithril-aggregator 
 Mithril Aggregator Node
 
-USAGE:
-    mithril-aggregator [OPTIONS] <SUBCOMMAND>
+Usage: mithril-aggregator [OPTIONS] <COMMAND>
 
-OPTIONS:
-        --config-directory <CONFIG_DIRECTORY>
-            Directory where configuration file is located [default: ./config]
+Commands:
+  genesis  Genesis tools
+  serve    Server runtime mode
+  help     Print this message or the help of the given subcommand(s)
 
-        --db-directory <DB_DIRECTORY>
-            Directory where stores are located
-
-    -h, --help
-            Print help information
-
-    -r, --run-mode <RUN_MODE>
-            Run Mode [default: dev]
-
-    -v, --verbose
-            Verbosity level
-
-SUBCOMMANDS:
-    genesis    Genesis certificate command Genesis command selecter
-    help       Print this message or the help of the given subcommand(s)
-    serve      Server runtime mode
-
+Options:
+  -r, --run-mode <RUN_MODE>
+          Run Mode [default: dev]
+  -v, --verbose...
+          Verbosity level
+      --db-directory <DB_DIRECTORY>
+          Directory of the Cardano node files
+      --config-directory <CONFIG_DIRECTORY>
+          Directory where configuration file is located [default: ./config]
+  -h, --help
+          Print help information
+  -V, --version
+          Print version information
 ```
 
 Run 'serve' command in release with default configuration
@@ -233,6 +237,8 @@ If you want to dig deeper, you can get access to several level of logs from the 
 * Add `-vvvv` for all logs (TRACE)
 
 :::
+
+<CompiledBinaries />
 
 ## Build and run Docker container
 

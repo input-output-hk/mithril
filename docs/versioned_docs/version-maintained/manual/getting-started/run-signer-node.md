@@ -3,6 +3,7 @@ sidebar_position: 2
 ---
 
 import NetworksMatrix from '../../networks-matrix.md';
+import CompiledBinaries from '../../compiled-binaries.md'
 
 # Run a Mithril Signer node (SPO)
 
@@ -65,7 +66,7 @@ You must declare your Cardano `Operational Certificate` file and `KES Secret Key
 
 ### Download source
 
-Download from Github (HTTPS)
+Download from GitHub (HTTPS)
 
 ```bash
 git clone https://github.com/input-output-hk/mithril.git
@@ -78,6 +79,14 @@ git clone git@github.com:input-output-hk/mithril.git
 ```
 
 ### Build Mithril Signer binary
+
+Switch to build branch / tag
+
+```bash
+# **YOUR_BUILD_BRANCH_OR_TAG** depends on the Mithril network you target, 
+# please refer to the **Build From** column of the above **Mithril Networks** table
+git switch **YOUR_BUILD_BRANCH_OR_TAG**
+```
 
 Change directory
 
@@ -97,6 +106,26 @@ Build executable
 make build
 ```
 
+<CompiledBinaries />
+
+## Verify binary
+
+### Verify version
+
+Check that the Mithril Signer binary is running the correct version by running
+
+```bash
+./mithril-signer -V
+```
+
+You should see something like
+
+```bash
+mithril-signer 0.2.0
+```
+
+:warning: Verify that the version displayed is the version described in the content of the Release / Pre-Release note (see the **Build From** column of the above **Mithril Networks** table)
+
 ### Verify build
 
 Check that the Mithril Signer binary is working fine by running its help
@@ -108,16 +137,25 @@ Check that the Mithril Signer binary is working fine by running its help
 You should see
 
 ```bash
-mithril-signer 
 An implementation of a Mithril Signer
 
-USAGE:
-    mithril-signer [OPTIONS]
+Usage: mithril-signer [OPTIONS]
 
-OPTIONS:
-    -h, --help                   Print help information
-    -r, --run-mode <RUN_MODE>    Run Mode [default: dev]
-    -v, --verbose                Verbosity level
+Options:
+  -r, --run-mode <RUN_MODE>
+          Run Mode [env: RUN_MODE=] [default: dev]
+  -v, --verbose...
+          Verbosity level, add more v to increase
+  -c, --configuration-dir <CONFIGURATION_DIR>
+          Directory where the configuration file is located [default: ./config]
+      --disable-digests-cache
+          Disable immutables digests cache
+      --reset-digests-cache
+          If set the existing immutables digests cache will be reset
+  -h, --help
+          Print help information (use `--help` for more detail)
+  -V, --version
+          Print version information
 ```
 
 :::tip
@@ -130,6 +168,8 @@ If you want to dig deeper, you can get access to several level of logs from the 
 * Add `-vvvv` for all logs (TRACE)
 
 :::
+
+## Install the service
 
 ### Move executable
 
