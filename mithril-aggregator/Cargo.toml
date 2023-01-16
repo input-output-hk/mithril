@@ -41,4 +41,4 @@ slog-term = "2.9.0"
 tempfile = "3.3.0"
 
 [features]
-portable = ["mithril-common/portable"]
+portable = ["mithril-common/portable"] # portable feature avoids SIGILL crashes on CPUs not supporting Intel ADX instruction set when built on CPUs that support it

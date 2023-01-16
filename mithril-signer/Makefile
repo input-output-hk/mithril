@@ -5,7 +5,8 @@ CARGO = cargo
 all: test build
 
 build:
-	${CARGO} build --release
+	# We use 'portable' feature to avoid SIGILL crashes
+	${CARGO} build --release --features portable
 	cp ../target/release/mithril-signer .
 
 run: build

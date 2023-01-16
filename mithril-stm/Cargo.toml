@@ -58,5 +58,5 @@ harness = false
 default = ["rug-backend"]
 rug-backend = ["rug/default"]
 num-integer-backend = ["num-bigint", "num-rational", "num-traits"]
-portable = ["blst/portable"]
+portable = ["blst/portable"] # portable feature avoids SIGILL crashes on CPUs not supporting Intel ADX instruction set when built on CPUs that support it
 benchmark-internals = [] # For benchmarking multi_sig
