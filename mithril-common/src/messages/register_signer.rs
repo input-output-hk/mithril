@@ -7,6 +7,7 @@ use crate::{
     },
 };
 
+/// Register Signer Message
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct RegisterSignerMessage {
     /// The unique identifier of the signer

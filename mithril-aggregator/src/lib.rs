@@ -16,6 +16,7 @@ mod command_args;
 mod configuration;
 mod dependency;
 mod http_server;
+mod message_adapters;
 mod multi_signer;
 mod runtime;
 mod signer_registerer;
