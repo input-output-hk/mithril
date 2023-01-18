@@ -1,5 +1,6 @@
 use mithril_common::{entities::Signer, messages::RegisterSignerMessage};
 
+/// Adapter to create [RegisterSignerMessage] from [Signer] instance.
 pub struct ToRegisterSignerMessageAdapter;
 
 impl ToRegisterSignerMessageAdapter {
@@ -23,7 +24,7 @@ mod tests {
 
     #[test]
     fn adapt_ok() {
-        let signer = (&fake_data::signers(1)[0]).to_owned();
+        let signer = fake_data::signers(1)[0].to_owned();
         let message = ToRegisterSignerMessageAdapter::adapt(signer);
 
         assert_eq!("0".to_string(), message.party_id);

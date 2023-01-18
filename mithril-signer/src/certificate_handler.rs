@@ -12,6 +12,8 @@ use mithril_common::{
 #[cfg(test)]
 use mockall::automock;
 
+use crate::ToRegisterSignerMessageAdapter;
+
 /// Error structure for the Certificate Handler.
 #[derive(Error, Debug)]
 pub enum CertificateHandlerError {
@@ -168,9 +170,10 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
     async fn register_signer(&self, signer: &Signer) -> Result<(), CertificateHandlerError> {
         debug!("Register signer");
         let url = format!("{}/register-signer", self.aggregator_endpoint);
+        let register_signer_message = ToRegisterSignerMessageAdapter::adapt(signer.to_owned());
         let response = self
             .prepare_request_builder(Client::new().post(url.clone()))
-            .json(signer)
+            .json(&register_signer_message)
             .send()
             .await;
 
