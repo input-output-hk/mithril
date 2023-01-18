@@ -21,8 +21,9 @@ fn register_signer(
 }
 
 mod handlers {
+    use crate::FromRegisterSignerAdapter;
     use crate::{http_server::routes::reply, SignerRegisterer, SignerRegistrationError};
-    use mithril_common::entities;
+    use mithril_common::messages::RegisterSignerMessage;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
@@ -30,10 +31,14 @@ mod handlers {
 
     /// Register Signer
     pub async fn register_signer(
-        signer: entities::Signer,
+        register_signer_message: RegisterSignerMessage,
         signer_registerer: Arc<dyn SignerRegisterer>,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("⇄ HTTP SERVER: register_signer/{:?}", signer);
+        debug!(
+            "⇄ HTTP SERVER: register_signer/{:?}",
+            register_signer_message
+        );
+        let signer = FromRegisterSignerAdapter::adapt(register_signer_message);
 
         match signer_registerer.register_signer(&signer).await {
             Ok(()) => Ok(reply::empty(StatusCode::CREATED)),
@@ -68,8 +73,8 @@ mod tests {
     const API_SPEC_FILE: &str = "../openapi.yaml";
 
     use mithril_common::crypto_helper::ProtocolRegistrationError;
+    use mithril_common::messages::RegisterSignerMessage;
     use mithril_common::test_utils::apispec::APISpec;
-    use mithril_common::test_utils::fake_data;
     use warp::http::Method;
     use warp::test::request;
 
@@ -100,7 +105,7 @@ mod tests {
         let (mut dependency_manager, _) = initialize_dependencies().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
-        let signer = &fake_data::signers(1)[0];
+        let signer: RegisterSignerMessage = RegisterSignerMessage::dummy();
 
         let method = Method::POST.as_str();
         let path = "/register-signer";
@@ -108,7 +113,7 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .json(signer)
+            .json(&signer)
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
@@ -130,7 +135,7 @@ mod tests {
         let (mut dependency_manager, _) = initialize_dependencies().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
-        let signer = &fake_data::signers(1)[0];
+        let signer: RegisterSignerMessage = RegisterSignerMessage::dummy();
 
         let method = Method::POST.as_str();
         let path = "/register-signer";
@@ -138,7 +143,7 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .json(signer)
+            .json(&signer)
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
@@ -164,7 +169,7 @@ mod tests {
         let (mut dependency_manager, _) = initialize_dependencies().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
-        let signer = fake_data::signers(1)[0].clone();
+        let signer: RegisterSignerMessage = RegisterSignerMessage::dummy();
 
         let method = Method::POST.as_str();
         let path = "/register-signer";
@@ -198,15 +203,14 @@ mod tests {
         let (mut dependency_manager, _) = initialize_dependencies().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
-        let signer = &fake_data::signers(1)[0];
-
+        let signer: RegisterSignerMessage = RegisterSignerMessage::dummy();
         let method = Method::POST.as_str();
         let path = "/register-signer";
 
         let response = request()
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .json(signer)
+            .json(&signer)
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 

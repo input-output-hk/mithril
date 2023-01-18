@@ -8,6 +8,7 @@
 
 mod certificate_handler;
 mod configuration;
+mod message_adapters;
 mod protocol_initializer_store;
 mod runtime;
 mod single_signer;
@@ -16,6 +17,7 @@ mod single_signer;
 pub use certificate_handler::dumb::DumbCertificateHandler;
 pub use certificate_handler::*;
 pub use configuration::Config;
+pub use message_adapters::ToRegisterSignerMessageAdapter;
 pub use protocol_initializer_store::{ProtocolInitializerStore, ProtocolInitializerStorer};
 pub use runtime::*;
 pub use single_signer::*;

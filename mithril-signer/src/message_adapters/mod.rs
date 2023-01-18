@@ -1,0 +1,3 @@
+mod to_register_signer_message_adapter;
+
+pub use to_register_signer_message_adapter::ToRegisterSignerMessageAdapter;
