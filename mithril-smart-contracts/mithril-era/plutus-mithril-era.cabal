@@ -1,0 +1,72 @@
+cabal-version:      2.4
+name:               plutus-mithril-era
+version:            0.1.0.0
+
+-- A short (one-line) description of the package.
+synopsis:           Plutus Mithril Era
+-- A longer description of the package.
+description:        A plutus smart contract for handling Mithril Eras
+
+-- A URL where users can report bugs.
+-- bug-reports:
+
+-- The license under which the package is released.
+license:            Apache-2.0
+author:             Mithril Team
+maintainer:         mithril@iohk.io
+
+-- A copyright notice.
+copyright:          2023 Input Output Global
+-- category:
+extra-source-files: CHANGELOG.md
+
+flag defer-plugin-errors
+  description:
+      Defer errors from the plugin, useful for things like Haddock that can't handle it.
+  default: False
+  manual: True
+
+common lang
+  default-language: Haskell2010
+  build-depends:    base ^>=4.14.3.0
+  ghc-options:
+    -Wall -fobject-code -fno-ignore-interface-pragmas
+    -fno-omit-interface-pragmas -fno-strictness -fno-spec-constr
+    -fno-specialise
+  if flag(defer-plugin-errors)
+    ghc-options: -fplugin-opt PlutusTx.Plugin:defer-errors
+
+library
+  import:          lang
+  exposed-modules:
+    MithrilEra.Contract
+    MithrilEra.Shared
+    MithrilEra.Utils
+
+  hs-source-dirs:  src
+  build-depends:
+    , bytestring
+    , cardano-api
+    , filepath
+    , plutus-core
+    , plutus-ledger-api
+    , plutus-tx
+    , plutus-tx-plugin
+    , serialise
+    , aeson
+
+executable plutus-mithril-era
+  import:           lang
+  main-is:          Main.hs
+
+  -- Modules included in this executable, other than Main.
+  -- other-modules:
+
+  -- LANGUAGE extensions used by modules in this package.
+  -- other-extensions:
+  hs-source-dirs:   app
+  default-language: Haskell2010
+  ghc-options:      -Wall -Werror -threaded -rtsopts -with-rtsopts=-T
+  build-depends:
+    , optparse-applicative
+    , plutus-mithril-era
