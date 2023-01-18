@@ -21,20 +21,23 @@ fn register_signatures(
 }
 
 mod handlers {
-    use crate::dependency::MultiSignerWrapper;
     use crate::http_server::routes::reply;
     use crate::ProtocolError;
-    use mithril_common::entities;
+    use crate::{
+        dependency::MultiSignerWrapper, message_adapters::FromRegisterSingleSignatureAdapter,
+    };
+    use mithril_common::messages::RegisterSignatureMessage;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use warp::http::StatusCode;
 
     /// Register Signatures
     pub async fn register_signatures(
-        signature: entities::SingleSignatures,
+        message: RegisterSignatureMessage,
         multi_signer: MultiSignerWrapper,
     ) -> Result<impl warp::Reply, Infallible> {
-        debug!("⇄ HTTP SERVER: register_signatures/{:?}", signature);
+        debug!("⇄ HTTP SERVER: register_signatures/{:?}", message);
+        let signature = FromRegisterSingleSignatureAdapter::adapt(message);
 
         let mut multi_signer = multi_signer.write().await;
         match multi_signer.register_single_signature(&signature).await {
@@ -56,8 +59,8 @@ mod tests {
     const API_SPEC_FILE: &str = "../openapi.yaml";
 
     use crate::http_server::SERVER_BASE_PATH;
+    use mithril_common::messages::RegisterSignatureMessage;
     use mithril_common::test_utils::apispec::APISpec;
-    use mithril_common::test_utils::fake_data;
     use tokio::sync::RwLock;
     use warp::http::Method;
     use warp::test::request;
@@ -91,7 +94,7 @@ mod tests {
         let (mut dependency_manager, _) = initialize_dependencies().await;
         dependency_manager.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
 
-        let signatures = &fake_data::single_signatures(vec![1]);
+        let message = RegisterSignatureMessage::dummy();
 
         let method = Method::POST.as_str();
         let path = "/register-signatures";
@@ -99,14 +102,14 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .json(signatures)
+            .json(&message)
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
             .method(method)
             .path(path)
-            .validate_request(&signatures)
+            .validate_request(&message)
             .unwrap()
             .validate_response(&response)
             .expect("OpenAPI error");
@@ -121,8 +124,8 @@ mod tests {
         let (mut dependency_manager, _) = initialize_dependencies().await;
         dependency_manager.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
 
-        let mut signatures = fake_data::single_signatures(vec![1]);
-        signatures.signature = "invalid-signature".to_string();
+        let mut message = RegisterSignatureMessage::dummy();
+        message.signature = "invalid-signature".to_string();
 
         let method = Method::POST.as_str();
         let path = "/register-signatures";
@@ -130,14 +133,14 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .json(&signatures)
+            .json(&message)
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
             .method(method)
             .path(path)
-            .validate_request(&signatures)
+            .validate_request(&message)
             .unwrap()
             .validate_response(&response)
             .expect("OpenAPI error");
@@ -145,8 +148,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_signatures_post_ko_409() {
-        let signatures = fake_data::single_signatures(vec![1]);
-        let party_id = signatures.party_id.clone();
+        let message = RegisterSignatureMessage::dummy();
+        let party_id = message.party_id.clone();
         let mut mock_multi_signer = MockMultiSigner::new();
         mock_multi_signer
             .expect_update_current_message()
@@ -163,14 +166,14 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .json(&signatures)
+            .json(&message)
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
             .method(method)
             .path(path)
-            .validate_request(&signatures)
+            .validate_request(&message)
             .unwrap()
             .validate_response(&response)
             .expect("OpenAPI error");
@@ -188,7 +191,7 @@ mod tests {
         let (mut dependency_manager, _) = initialize_dependencies().await;
         dependency_manager.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
 
-        let signatures = &fake_data::single_signatures(vec![1]);
+        let message = RegisterSignatureMessage::dummy();
 
         let method = Method::POST.as_str();
         let path = "/register-signatures";
@@ -196,14 +199,14 @@ mod tests {
         let response = request()
             .method(method)
             .path(&format!("/{}{}", SERVER_BASE_PATH, path))
-            .json(signatures)
+            .json(&message)
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
         APISpec::from_file(API_SPEC_FILE)
             .method(method)
             .path(path)
-            .validate_request(&signatures)
+            .validate_request(&message)
             .unwrap()
             .validate_response(&response)
             .expect("OpenAPI error");

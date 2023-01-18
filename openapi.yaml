@@ -226,7 +226,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/SingleSignatures"
+              $ref: "#/components/schemas/RegisterSingleSignatureMessage"
       responses:
         "201":
           description: signatures registration succeeded
@@ -404,10 +404,10 @@ components:
         - $ref: "#/components/schemas/Signer"
         - $ref: "#/components/schemas/Stake"
 
-    SingleSignatures:
+    RegisterSingleSignatureMessage:
       description: |
-        SingleSignatures represent single signatures originating from a participant in the network for a digest 
-        associated with the list of the won indexes in the lottery
+          This message holds a Signer Single Signature with the
+          list of won indexes in the lottery.
       type: object
       additionalProperties: false
       required:
