@@ -43,7 +43,7 @@ pub struct Args {
     cardano_slot_length: f64,
 
     /// Length of a Cardano epoch in the devnet (in s)
-    #[clap(long, default_value_t = 60.0)]
+    #[clap(long, default_value_t = 45.0)]
     cardano_epoch_length: f64,
 }
 
