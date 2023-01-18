@@ -12,7 +12,7 @@ use mithril_common::{
 #[cfg(test)]
 use mockall::automock;
 
-use crate::ToRegisterSignerMessageAdapter;
+use crate::{message_adapters::ToRegisterSignatureMessageAdapter, ToRegisterSignerMessageAdapter};
 
 /// Error structure for the Certificate Handler.
 #[derive(Error, Debug)]
@@ -200,9 +200,11 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
     ) -> Result<(), CertificateHandlerError> {
         debug!("Register signatures");
         let url = format!("{}/register-signatures", self.aggregator_endpoint);
+        let register_single_signature_message =
+            ToRegisterSignatureMessageAdapter::adapt(signatures.to_owned());
         let response = self
             .prepare_request_builder(Client::new().post(url.clone()))
-            .json(signatures)
+            .json(&register_single_signature_message)
             .send()
             .await;
 
