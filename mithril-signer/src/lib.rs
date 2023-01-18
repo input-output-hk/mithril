@@ -8,6 +8,7 @@
 
 mod certificate_handler;
 mod configuration;
+mod message_adapters;
 mod protocol_initializer_store;
 mod runtime;
 mod single_signer;

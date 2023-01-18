@@ -36,6 +36,7 @@ pub use certificate_creator::{CertificateCreator, MithrilCertificateCreator};
 pub use command_args::MainOpts;
 pub use dependency::DependencyManager;
 pub use http_server::Server;
+pub use message_adapters::FromRegisterSignerAdapter;
 pub use runtime::{AggregatorConfig, AggregatorRunner, AggregatorRunnerTrait, AggregatorRuntime};
 pub use signer_registerer::{
     MithrilSignerRegisterer, SignerRegisterer, SignerRegistrationError, SignerRegistrationRound,

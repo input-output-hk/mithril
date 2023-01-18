@@ -197,7 +197,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/Signer"
+              $ref: "#/components/schemas/RegisterSignerMessage"
       responses:
         "201":
           description: signer registration succeeded
@@ -391,6 +391,11 @@ components:
           "operational_certificate": "AsB0vSv4qQwKgWw4mem3MmHoKboAsB0vSvijo8FIfrG/FwBtdCwKgWw4mrr5kRZL+IUA9XXu7RiCHSR5kRZL+IUA9XXu7RiCHSRem3MmHoKboAsB0vSvijo8FIfrG/FwBtdCNQVhBc9P24qQ+IvVzKLgmaLiyb+xyV6Npbxvu+Rem3MmHoKbo",
           "kes_period": 123,
         }
+
+    RegisterSignerMessage:
+      description: This message represents a signing participant in the network.
+      allOf:
+        - $ref: "#/components/schemas/Signer"
 
     SignerWithStake:
       description: Signer represents a signing party in the network (including its stakes)
