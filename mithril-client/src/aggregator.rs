@@ -14,12 +14,13 @@ use tar::Archive;
 use thiserror::Error;
 
 use mithril_common::{
+    certificate_chain::{CertificateRetriever, CertificateRetrieverError},
     entities::{Certificate, Snapshot},
+    messages::SnapshotMessage,
     MITHRIL_API_VERSION,
 };
 
-use mithril_common::certificate_chain::CertificateRetriever;
-use mithril_common::certificate_chain::CertificateRetrieverError;
+use crate::FromSnapshotMessageAdapter;
 
 /// [AggregatorHandler] related errors.
 #[derive(Error, Debug)]
@@ -196,8 +197,8 @@ impl AggregatorHandler for AggregatorHTTPClient {
 
         match response {
             Ok(response) => match response.status() {
-                StatusCode::OK => match response.json::<Snapshot>().await {
-                    Ok(snapshot) => Ok(snapshot),
+                StatusCode::OK => match response.json::<SnapshotMessage>().await {
+                    Ok(snapshot) => Ok(FromSnapshotMessageAdapter::adapt(snapshot)),
                     Err(err) => Err(AggregatorHandlerError::JsonParseFailed(err.to_string())),
                 },
                 StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),

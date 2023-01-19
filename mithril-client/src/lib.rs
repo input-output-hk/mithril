@@ -14,10 +14,12 @@
 mod aggregator;
 pub mod commands;
 mod entities;
+mod message_adapters;
 mod runtime;
 
-pub use crate::aggregator::{AggregatorHTTPClient, AggregatorHandler, AggregatorHandlerError};
-pub use crate::entities::Config;
-pub use crate::runtime::{Runtime, RuntimeError};
+pub use aggregator::{AggregatorHTTPClient, AggregatorHandler, AggregatorHandlerError};
+pub use entities::Config;
+pub use message_adapters::FromSnapshotMessageAdapter;
+pub use runtime::{Runtime, RuntimeError};
 
-pub use crate::runtime::convert_to_field_items;
+pub use runtime::convert_to_field_items;

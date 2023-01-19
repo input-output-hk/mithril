@@ -175,7 +175,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Snapshot"
+                $ref: "#/components/schemas/SnapshotMessage"
         "404":
           description: snapshot not found
         "412":
@@ -668,6 +668,11 @@ components:
               "ipfs:QmPXME1oRtoT627YKaDPDQ3PwA8tdP9rWuAAweLzqSwAWT",
             ],
         }
+
+    SnapshotMessage:
+      description: This message represents a snapshot file and its metadata.
+      allOf:
+        - $ref: "#/components/schemas/Snapshot"
 
     Error:
       description: Internal error representation
