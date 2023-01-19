@@ -48,8 +48,8 @@ mod tests {
                 phi_f: 0.65,
             },
             next_protocol_parameters: ProtocolParameters {
-                k: 5,
-                m: 100,
+                k: 50,
+                m: 1000,
                 phi_f: 0.65,
             },
         }
@@ -64,7 +64,7 @@ mod tests {
 "next_protocol":  { "k": 5, "m": 100, "phi_f": 0.65 }
 }"#;
         let message: EpochSettingsMessage = serde_json::from_str(json).expect(
-            "This JSON is expected to be succesfully parsed into a RegisterSignatureMessage instance.",
+            "This JSON is expected to be succesfully parsed into a EpochSettingsMessage instance.",
         );
 
         assert_eq!(golden_message(), message);
