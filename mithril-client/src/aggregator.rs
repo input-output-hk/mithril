@@ -16,11 +16,11 @@ use thiserror::Error;
 use mithril_common::{
     certificate_chain::{CertificateRetriever, CertificateRetrieverError},
     entities::{Certificate, Snapshot},
-    messages::SnapshotMessage,
+    messages::{CertificateMessage, SnapshotMessage},
     MITHRIL_API_VERSION,
 };
 
-use crate::FromSnapshotMessageAdapter;
+use crate::{FromCertificateMessageAdapter, FromSnapshotMessageAdapter};
 
 /// [AggregatorHandler] related errors.
 #[derive(Error, Debug)]
@@ -124,8 +124,10 @@ impl AggregatorHTTPClient {
 
         match response {
             Ok(response) => match response.status() {
-                StatusCode::OK => match response.json::<Certificate>().await {
-                    Ok(certificate) => Ok(certificate),
+                StatusCode::OK => match response.json::<CertificateMessage>().await {
+                    Ok(certificate_message) => {
+                        Ok(FromCertificateMessageAdapter::adapt(certificate_message))
+                    }
                     Err(err) => Err(AggregatorHandlerError::JsonParseFailed(err.to_string())),
                 },
                 StatusCode::NOT_FOUND => Err(AggregatorHandlerError::RemoteServerLogical(

@@ -19,7 +19,7 @@ mod runtime;
 
 pub use aggregator::{AggregatorHTTPClient, AggregatorHandler, AggregatorHandlerError};
 pub use entities::Config;
-pub use message_adapters::FromSnapshotMessageAdapter;
+pub use message_adapters::{FromCertificateMessageAdapter, FromSnapshotMessageAdapter};
 pub use runtime::{Runtime, RuntimeError};
 
 pub use runtime::convert_to_field_items;
