@@ -57,7 +57,7 @@ fn snapshot_digest(
 mod handlers {
     use crate::http_server::routes::reply;
     use crate::http_server::SERVER_BASE_PATH;
-    use crate::message_adapters::ToSnapshotMessageAdapter;
+    use crate::message_adapters::{ToSnapshotListMessageAdapter, ToSnapshotMessageAdapter};
     use crate::{Configuration, SnapshotStore};
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
@@ -72,7 +72,10 @@ mod handlers {
         debug!("⇄ HTTP SERVER: snapshots");
 
         match snapshot_store.list_snapshots().await {
-            Ok(snapshots) => Ok(reply::json(&snapshots, StatusCode::OK)),
+            Ok(snapshots) => Ok(reply::json(
+                &ToSnapshotListMessageAdapter::adapt(snapshots),
+                StatusCode::OK,
+            )),
             Err(err) => {
                 warn!("snapshots::error"; "error" => ?err);
                 Ok(reply::internal_server_error(err.to_string()))
