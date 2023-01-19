@@ -17,6 +17,7 @@ pub struct EpochSettingsMessage {
 }
 
 impl EpochSettingsMessage {
+    #[cfg(any(test, feature = "test_only"))]
     /// Dummy instance for test purposes.
     pub fn dummy() -> Self {
         Self {
@@ -61,7 +62,7 @@ mod tests {
         let json = r#"{
 "epoch": 10,
 "protocol":  { "k": 5, "m": 100, "phi_f": 0.65 },
-"next_protocol":  { "k": 5, "m": 100, "phi_f": 0.65 }
+"next_protocol":  { "k": 50, "m": 1000, "phi_f": 0.65 }
 }"#;
         let message: EpochSettingsMessage = serde_json::from_str(json).expect(
             "This JSON is expected to be succesfully parsed into a EpochSettingsMessage instance.",
