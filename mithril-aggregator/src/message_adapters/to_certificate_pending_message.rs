@@ -4,6 +4,7 @@ use mithril_common::{entities::CertificatePending, messages::CertificatePendingM
 pub struct ToCertificatePendingMessageAdapter;
 
 impl ToCertificatePendingMessageAdapter {
+    /// Method to trigger the conversion
     pub fn adapt(certificate_pending: CertificatePending) -> CertificatePendingMessage {
         CertificatePendingMessage {
             beacon: certificate_pending.beacon,
