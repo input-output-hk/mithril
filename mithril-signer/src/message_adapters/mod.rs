@@ -1,5 +1,7 @@
+mod from_epoch_settings;
 mod to_register_signature_message_adapter;
 mod to_register_signer_message_adapter;
 
+pub use from_epoch_settings::FromEpochSettingsAdapter;
 pub use to_register_signature_message_adapter::ToRegisterSignatureMessageAdapter;
 pub use to_register_signer_message_adapter::ToRegisterSignerMessageAdapter;

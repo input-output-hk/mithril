@@ -25,7 +25,7 @@ fn epoch_settings(
 mod handlers {
     use crate::dependency::MultiSignerWrapper;
     use crate::http_server::routes::reply;
-    use crate::{ProtocolParametersStore, ProtocolParametersStorer};
+    use crate::{ProtocolParametersStore, ProtocolParametersStorer, ToEpochSettingsMessageAdapter};
     use mithril_common::entities::EpochSettings;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
@@ -50,22 +50,15 @@ mod handlers {
                         .await,
                 ) {
                     (Ok(Some(protocol_parameters)), Ok(Some(next_protocol_parameters))) => {
-                        println!(
-                            "EpochSettings={:?}",
-                            EpochSettings {
-                                epoch: beacon.epoch,
-                                protocol_parameters: protocol_parameters.clone(),
-                                next_protocol_parameters: next_protocol_parameters.clone(),
-                            }
-                        );
-                        Ok(reply::json(
-                            &EpochSettings {
-                                epoch: beacon.epoch,
-                                protocol_parameters,
-                                next_protocol_parameters,
-                            },
-                            StatusCode::OK,
-                        ))
+                        let epoch_settings = EpochSettings {
+                            epoch: beacon.epoch,
+                            protocol_parameters,
+                            next_protocol_parameters,
+                        };
+                        println!("EpochSettings={:?}", epoch_settings);
+                        let epoch_settings_message =
+                            ToEpochSettingsMessageAdapter::adapt(epoch_settings);
+                        Ok(reply::json(&epoch_settings_message, StatusCode::OK))
                     }
                     (Ok(None), Ok(Some(_))) | (Ok(Some(_)), Ok(None)) | (Ok(None), Ok(None)) => {
                         warn!("epoch_settings::could_not_retrieve_protocol_parameters");
