@@ -6,13 +6,17 @@ use thiserror::Error;
 
 use mithril_common::{
     entities::{CertificatePending, EpochSettings, Signer, SingleSignatures},
+    messages::EpochSettingsMessage,
     MITHRIL_API_VERSION,
 };
 
 #[cfg(test)]
 use mockall::automock;
 
-use crate::{message_adapters::ToRegisterSignatureMessageAdapter, ToRegisterSignerMessageAdapter};
+use crate::{
+    message_adapters::ToRegisterSignatureMessageAdapter, FromEpochSettingsAdapter,
+    ToRegisterSignerMessageAdapter,
+};
 
 /// Error structure for the Certificate Handler.
 #[derive(Error, Debug)]
@@ -124,8 +128,8 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
 
         match response {
             Ok(response) => match response.status() {
-                StatusCode::OK => match response.json::<EpochSettings>().await {
-                    Ok(epoch_settings) => Ok(Some(epoch_settings)),
+                StatusCode::OK => match response.json::<EpochSettingsMessage>().await {
+                    Ok(message) => Ok(Some(FromEpochSettingsAdapter::adapt(message))),
                     Err(err) => Err(CertificateHandlerError::JsonParseFailed(err.to_string())),
                 },
                 StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),

@@ -36,7 +36,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/EpochSettings"
+                $ref: "#/components/schemas/EpochSettingsMessage"
         "412":
           description: API version mismatch
         default:
@@ -248,7 +248,7 @@ paths:
                 $ref: "#/components/schemas/Error"
 components:
   schemas:
-    EpochSettings:
+    EpochSettingsMessage:
       description: Epoch settings
       type: object
       additionalProperties: false

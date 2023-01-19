@@ -17,7 +17,7 @@ mod single_signer;
 pub use certificate_handler::dumb::DumbCertificateHandler;
 pub use certificate_handler::*;
 pub use configuration::Config;
-pub use message_adapters::ToRegisterSignerMessageAdapter;
+pub use message_adapters::{FromEpochSettingsAdapter, ToRegisterSignerMessageAdapter};
 pub use protocol_initializer_store::{ProtocolInitializerStore, ProtocolInitializerStorer};
 pub use runtime::*;
 pub use single_signer::*;
