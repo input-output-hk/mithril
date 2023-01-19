@@ -34,6 +34,7 @@ fn certificate_certificate_hash(
 
 mod handlers {
     use crate::http_server::routes::reply;
+    use crate::message_adapters::ToCertificateMessageAdapter;
     use crate::{CertificatePendingStore, CertificateStore};
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
@@ -67,7 +68,10 @@ mod handlers {
         );
 
         match certificate_store.get_from_hash(&certificate_hash).await {
-            Ok(Some(certificate)) => Ok(reply::json(&certificate, StatusCode::OK)),
+            Ok(Some(certificate)) => Ok(reply::json(
+                &ToCertificateMessageAdapter::adapt(certificate),
+                StatusCode::OK,
+            )),
             Ok(None) => Ok(reply::empty(StatusCode::NOT_FOUND)),
             Err(err) => {
                 warn!("certificate_certificate_hash::error"; "error" => ?err);
