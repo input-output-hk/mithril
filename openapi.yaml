@@ -90,7 +90,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Certificate"
+                $ref: "#/components/schemas/CertificateMessage"
         "404":
           description: certificate not found
         "412":
@@ -523,7 +523,7 @@ components:
             ],
         }
 
-    Certificate:
+    CertificateMessage:
       description: Certificate represents a Mithril certificate embedding a Mithril STM multi signature
       type: object
       additionalProperties: false
