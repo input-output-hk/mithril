@@ -32,7 +32,7 @@ use semver::{Version, VersionReq};
 /// this is the same as the one in openapi.yml file.
 /// If you want to update this version to reflect changes in the protocol,
 /// please also update the entry in the openapi.yml
-pub const MITHRIL_API_VERSION: &str = "0.1.0";
+pub const MITHRIL_API_VERSION: &str = "0.1.1";
 
 lazy_static! {
     /// The [SemVer version requirement][semver::VersionReq] associated with the [MITHRIL_API_VERSION].
