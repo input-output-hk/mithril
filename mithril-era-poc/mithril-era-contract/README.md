@@ -86,7 +86,7 @@ $ TX_IN=cef4b65d996c0f7ce017044977f4ad5f4a7f123bb3414b411a2b368d2ab5ceea#0
 
 Create the initial datum file:
 ```bash
-cat > assets/mithril-era-datum-1.json << EOF
+$ cat > assets/mithril-era-datum-1.json << EOF
 {
     "constructor": 0,
     "fields": [
@@ -195,7 +195,7 @@ $ COLLATERAL_TX_IN=c9b1719d77bdc2a27cbc4277070dc9eebea370c413ba5d5561f41cfed2e3c
 
 Create the updated datum file:
 ```bash
-cat > assets/mithril-era-datum-2.json << EOF
+$ cat > assets/mithril-era-datum-2.json << EOF
 {
     "constructor": 0,
     "fields": [
@@ -209,7 +209,7 @@ EOF
 
 And create the redeemer file:
 ```bash
-cat > assets/mithril-era-redeemer-2.json << EOF
+$ cat > assets/mithril-era-redeemer-2.json << EOF
 {
     "constructor": 0,
     "fields": [
