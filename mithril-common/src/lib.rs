@@ -61,6 +61,8 @@ mod test {
     };
     use semver::{Version, VersionReq};
 
+    const API_SPEC_FILE: &str = "../openapi.yaml";
+
     fn assert_versions_matches(versions: &[&str], requirement: &VersionReq) {
         for string in versions {
             let version = Version::parse(string).unwrap();
@@ -103,5 +105,17 @@ mod test {
     fn requirement_parsed_from_api_version_should_match_said_api_version() {
         let api_version = Version::parse(MITHRIL_API_VERSION).unwrap();
         assert!(MITHRIL_API_VERSION_REQUIREMENT.matches(&api_version));
+    }
+
+    #[test]
+    fn api_version_constant_should_match_version_in_openapi_yaml() {
+        let yaml_spec = std::fs::read_to_string(API_SPEC_FILE).unwrap();
+        let openapi: serde_json::Value = serde_yaml::from_str(&yaml_spec).unwrap();
+        let openapi_version = openapi["info"]["version"].as_str().unwrap();
+
+        assert_eq!(
+            openapi_version, MITHRIL_API_VERSION,
+            "MITHRIL_API_VERSION constant should always be synced with openapi.yaml version"
+        );
     }
 }
