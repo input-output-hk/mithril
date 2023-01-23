@@ -35,7 +35,7 @@ fn certificate_certificate_hash(
 mod handlers {
     use crate::http_server::routes::reply;
     use crate::message_adapters::ToCertificateMessageAdapter;
-    use crate::{CertificatePendingStore, CertificateStore};
+    use crate::{CertificatePendingStore, CertificateStore, ToCertificatePendingMessageAdapter};
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
@@ -48,7 +48,10 @@ mod handlers {
         debug!("⇄ HTTP SERVER: certificate_pending");
 
         match certificate_pending_store.get().await {
-            Ok(Some(certificate_pending)) => Ok(reply::json(&certificate_pending, StatusCode::OK)),
+            Ok(Some(certificate_pending)) => Ok(reply::json(
+                &ToCertificatePendingMessageAdapter::adapt(certificate_pending),
+                StatusCode::OK,
+            )),
             Ok(None) => Ok(reply::empty(StatusCode::NO_CONTENT)),
             Err(err) => {
                 warn!("certificate_pending::error"; "error" => ?err);

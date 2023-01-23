@@ -1,7 +1,9 @@
 mod from_epoch_settings;
+mod from_pending_certificate_message;
 mod to_register_signature_message;
 mod to_register_signer_message;
 
 pub use from_epoch_settings::FromEpochSettingsAdapter;
+pub use from_pending_certificate_message::FromPendingCertificateMessageAdapter;
 pub use to_register_signature_message::ToRegisterSignatureMessageAdapter;
 pub use to_register_signer_message::ToRegisterSignerMessageAdapter;
