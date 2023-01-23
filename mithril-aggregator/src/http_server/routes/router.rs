@@ -4,10 +4,11 @@ use crate::http_server::routes::{
 use crate::http_server::SERVER_BASE_PATH;
 use crate::DependencyManager;
 
-use mithril_common::MITHRIL_API_VERSION;
+use mithril_common::{MITHRIL_API_VERSION, MITHRIL_API_VERSION_REQUIREMENT};
 
 use reqwest::header::{HeaderMap, HeaderValue};
 use reqwest::StatusCode;
+use slog_scope::warn;
 use std::sync::Arc;
 use warp::http::Method;
 use warp::reject::Reject;
@@ -17,6 +18,11 @@ use warp::{Filter, Rejection, Reply};
 pub struct VersionMismatchError;
 
 impl Reject for VersionMismatchError {}
+
+#[derive(Debug)]
+pub struct VersionParseError;
+
+impl Reject for VersionParseError {}
 
 /// Routes
 pub fn routes(
@@ -52,8 +58,14 @@ fn header_must_be() -> impl Filter<Extract = (), Error = Rejection> + Copy {
         .and_then(|maybe_header: Option<String>| async move {
             match maybe_header {
                 None => Ok(()),
-                Some(version) if version == MITHRIL_API_VERSION => Ok(()),
-                Some(_version) => Err(warp::reject::custom(VersionMismatchError)),
+                Some(version) => match semver::Version::parse(&version) {
+                    Ok(version) if MITHRIL_API_VERSION_REQUIREMENT.matches(&version) => Ok(()),
+                    Ok(_version) => Err(warp::reject::custom(VersionMismatchError)),
+                    Err(err) => {
+                        warn!("⇄ HTTP SERVER::api_version_check::parse_error"; "error" => ?err);
+                        Err(warp::reject::custom(VersionParseError))
+                    }
+                },
             }
         })
         .untuple_one()
@@ -78,7 +90,20 @@ mod tests {
             .path("/aggregator/whatever")
             .filter(&filters)
             .await
-            .unwrap();
+            .expect("request without a version in headers should not be rejected");
+    }
+
+    #[tokio::test]
+    async fn test_parse_version_error() {
+        let filters = header_must_be();
+        warp::test::request()
+            .header("mithril-api-version", "not_a_version")
+            .path("/aggregator/whatever")
+            .filter(&filters)
+            .await
+            .expect_err(
+                r#"request with an unparsable version should be rejected with a version parse error"#,
+            );
     }
 
     #[tokio::test]
@@ -89,7 +114,7 @@ mod tests {
             .path("/aggregator/whatever")
             .filter(&filters)
             .await
-            .unwrap_err();
+            .expect_err(r#"request with bad version "0.0.999" should be rejected with a version mismatch error"#);
     }
 
     #[tokio::test]
@@ -100,6 +125,6 @@ mod tests {
             .path("/aggregator/whatever")
             .filter(&filters)
             .await
-            .unwrap();
+            .expect("request with the current api version should not be rejected");
     }
 }

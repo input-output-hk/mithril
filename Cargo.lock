@@ -2001,7 +2001,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "async-trait",
  "chrono",
@@ -2014,6 +2014,7 @@ dependencies = [
  "mithril-common",
  "mockall",
  "reqwest",
+ "semver",
  "serde",
  "serde_json",
  "serde_yaml",
@@ -2033,7 +2034,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "async-trait",
  "clap 4.1.1",
@@ -2060,7 +2061,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.2.6"
+version = "0.2.7"
 dependencies = [
  "async-trait",
  "bech32",
@@ -2075,6 +2076,7 @@ dependencies = [
  "http",
  "jsonschema",
  "kes-summed-ed25519",
+ "lazy_static",
  "mithril-stm",
  "mockall",
  "nom",
@@ -2123,7 +2125,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "async-trait",
  "clap 4.1.1",
