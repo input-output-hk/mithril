@@ -318,7 +318,7 @@ components:
         { "network": "mainnet", "epoch": 329, "immutable_file_number": 7060000 }
 
     CertificatePendingMessage:
-      description: CertificatePending represents all the information related to the certificate currently expecting to receive quorum of single signatures
+      description: CertificatePendingMessage represents all the information related to the certificate currently expecting to receive quorum of single signatures
       type: object
       additionalProperties: false
       required:
