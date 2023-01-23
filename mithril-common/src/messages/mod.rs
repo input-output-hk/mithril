@@ -8,7 +8,7 @@ mod register_signer;
 mod snapshot;
 
 pub use certificate::CertificateMessage;
-pub use certificate_pending::CertificatePendingMessage;
+pub use certificate_pending::{CertificatePendingMessage, SignerMessage};
 pub use epoch_settings::EpochSettingsMessage;
 pub use register_signature::RegisterSignatureMessage;
 pub use register_signer::RegisterSignerMessage;
