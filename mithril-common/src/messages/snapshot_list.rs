@@ -4,9 +4,13 @@ use crate::entities::Beacon;
 
 #[cfg(any(test, feature = "test_only"))]
 use crate::entities::Epoch;
-/// Message structure of a snapshot
+
+/// Message structure of a snapshot list
+pub type SnapshotListMessage = Vec<SnapshotListItemMessage>;
+
+/// Message structure of a snapshot list item
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub struct SnapshotMessage {
+pub struct SnapshotListItemMessage {
     /// Digest that is signed by the signer participants
     pub digest: String,
 
@@ -26,7 +30,7 @@ pub struct SnapshotMessage {
     pub locations: Vec<String>,
 }
 
-impl SnapshotMessage {
+impl SnapshotListItemMessage {
     #[cfg(any(test, feature = "test_only"))]
     /// Return a dummy test entity (test-only).
     pub fn dummy() -> Self {
@@ -50,8 +54,8 @@ impl SnapshotMessage {
 mod tests {
     use super::*;
 
-    fn golden_message() -> SnapshotMessage {
-        SnapshotMessage {
+    fn golden_message() -> SnapshotListMessage {
+        vec![SnapshotListItemMessage {
             digest: "0b9f5ad7f33cc523775c82249294eb8a1541d54f08eb3107cafc5638403ec7c6".to_string(),
             beacon: Beacon {
                 network: "preview".to_string(),
@@ -63,13 +67,13 @@ mod tests {
             size: 807803196,
             created_at: "2023-01-19T13:43:05.618857482Z".to_string(),
             locations: vec!["https://host/certificate.tar.gz".to_string()],
-        }
+        }]
     }
 
     // Test the retro compatibility with possible future upgrades.
     #[test]
     fn test_v1() {
-        let json = r#"{
+        let json = r#"[{
 "digest": "0b9f5ad7f33cc523775c82249294eb8a1541d54f08eb3107cafc5638403ec7c6",
 "beacon": {
   "network": "preview",
@@ -82,9 +86,9 @@ mod tests {
 "locations": [
   "https://host/certificate.tar.gz"
 ]
-}"#;
-        let message: SnapshotMessage = serde_json::from_str(json).expect(
-            "This JSON is expected to be succesfully parsed into a SnapshotMessage instance.",
+}]"#;
+        let message: SnapshotListMessage = serde_json::from_str(json).expect(
+            "This JSON is expected to be succesfully parsed into a SnapshotListMessage instance.",
         );
 
         assert_eq!(golden_message(), message);

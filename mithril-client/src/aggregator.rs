@@ -16,11 +16,13 @@ use thiserror::Error;
 use mithril_common::{
     certificate_chain::{CertificateRetriever, CertificateRetrieverError},
     entities::{Certificate, Snapshot},
-    messages::{CertificateMessage, SnapshotMessage},
+    messages::{CertificateMessage, SnapshotListMessage, SnapshotMessage},
     MITHRIL_API_VERSION,
 };
 
-use crate::{FromCertificateMessageAdapter, FromSnapshotMessageAdapter};
+use crate::{
+    FromCertificateMessageAdapter, FromSnapshotListMessageAdapter, FromSnapshotMessageAdapter,
+};
 
 /// [AggregatorHandler] related errors.
 #[derive(Error, Debug)]
@@ -173,8 +175,8 @@ impl AggregatorHandler for AggregatorHTTPClient {
 
         match response {
             Ok(response) => match response.status() {
-                StatusCode::OK => match response.json::<Vec<Snapshot>>().await {
-                    Ok(snapshots) => Ok(snapshots),
+                StatusCode::OK => match response.json::<SnapshotListMessage>().await {
+                    Ok(snapshots) => Ok(FromSnapshotListMessageAdapter::adapt(snapshots)),
                     Err(err) => Err(AggregatorHandlerError::JsonParseFailed(err.to_string())),
                 },
                 StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),

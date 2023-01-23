@@ -1,10 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-// TODO: We should probably not rely on entities when defining the message
 use crate::entities::{Beacon, CertificateMetadata, ProtocolMessage};
 
 #[cfg(any(test, feature = "test_only"))]
-// TODO: We should probably not rely on entities when defining the message
 use crate::entities::{ProtocolMessagePartKey, ProtocolParameters, SignerWithStake};
 
 /// Message structure of a certificate
