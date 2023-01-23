@@ -1,11 +1,10 @@
 use serde::{Deserialize, Serialize};
 
-// TODO: We should probably not rely on entities when defining the message
 use crate::entities::Beacon;
 
-// TODO: We should probably not rely on entities when defining the message
 #[cfg(any(test, feature = "test_only"))]
 use crate::entities::Epoch;
+
 /// Message structure of a snapshot list
 pub type SnapshotListMessage = Vec<SnapshotListItemMessage>;
 
