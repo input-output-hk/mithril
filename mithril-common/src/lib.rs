@@ -17,6 +17,7 @@ pub mod crypto_helper;
 pub mod database;
 pub mod digesters;
 pub mod entities;
+pub mod era;
 pub mod messages;
 pub mod sqlite;
 pub mod store;
