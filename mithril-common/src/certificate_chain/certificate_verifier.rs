@@ -1,6 +1,7 @@
 //! A module used to validate the Certificate Chain created by an aggregator
 //!
 use async_trait::async_trait;
+use either::Either;
 use hex::{FromHex, ToHex};
 use slog::{debug, Logger};
 use std::sync::Arc;
@@ -11,7 +12,9 @@ use crate::crypto_helper::{
     key_decode_hex, ProtocolGenesisError, ProtocolGenesisSignature, ProtocolGenesisVerifier,
     ProtocolMultiSignature,
 };
-use crate::entities::{Certificate, ProtocolMessagePartKey, ProtocolParameters};
+use crate::entities::{
+    Certificate, ProtocolMessagePartKey, ProtocolMessagePartKeyThales, ProtocolParameters,
+};
 
 #[cfg(test)]
 use mockall::automock;
@@ -215,10 +218,15 @@ impl CertificateVerifier for MithrilCertificateVerifier {
             return Err(CertificateVerifierError::CertificateChainPreviousHashUnmatch);
         }
 
-        match &previous_certificate
-            .protocol_message
-            .get_message_part(&ProtocolMessagePartKey::NextAggregateVerificationKey)
-        {
+        let next_aggregate_verification_key = match &previous_certificate.protocol_message {
+            Either::Left(m) => {
+                m.get_message_part(&ProtocolMessagePartKey::NextAggregateVerificationKey)
+            }
+            Either::Right(m) => {
+                m.get_message_part(&ProtocolMessagePartKeyThales::NextAggregateVerificationKey)
+            }
+        };
+        match next_aggregate_verification_key {
             Some(next_aggregate_verification_key)
                 if valid_certificate_has_different_epoch_as_previous(
                     next_aggregate_verification_key,
@@ -280,6 +288,7 @@ impl CertificateVerifier for MithrilCertificateVerifier {
 #[cfg(test)]
 mod tests {
     use async_trait::async_trait;
+    use either::Either;
     use mockall::mock;
     use slog_scope;
 
@@ -311,7 +320,9 @@ mod tests {
             .with_protocol_parameters(protocol_parameters.into())
             .build();
         let signers = fixture.signers_fixture();
-        let message_hash = setup_message().compute_hash().as_bytes().to_vec();
+        let message_hash = either::for_both!(setup_message(), m => m.compute_hash())
+            .as_bytes()
+            .to_vec();
 
         let single_signatures = signers
             .iter()
@@ -434,11 +445,22 @@ mod tests {
             setup_certificate_chain(total_certificates, certificates_per_epoch);
         let mut fake_certificate1 = fake_certificates[0].clone();
         let mut fake_certificate2 = fake_certificates[1].clone();
-        fake_certificate2.protocol_message.set_message_part(
-            ProtocolMessagePartKey::NextAggregateVerificationKey,
-            "another-avk".to_string(),
-        );
-        fake_certificate2.hash = fake_certificate2.compute_hash();
+        match fake_certificate2.protocol_message.as_mut() {
+            Either::Left(m) => {
+                m.set_message_part(
+                    ProtocolMessagePartKey::NextAggregateVerificationKey,
+                    "another-avk".to_string(),
+                );
+            }
+            Either::Right(m) => {
+                m.set_message_part(
+                    ProtocolMessagePartKeyThales::NextAggregateVerificationKey,
+                    "another-avk".to_string(),
+                );
+            }
+        };
+        fake_certificate2.hash =
+            either::for_both!(&fake_certificate2.protocol_message, m => m.compute_hash());
         fake_certificate1.previous_hash = fake_certificate2.hash.clone();
         fake_certificate1.hash = fake_certificate1.compute_hash();
         let mut mock_certificate_retriever = MockCertificateRetrieverImpl::new();

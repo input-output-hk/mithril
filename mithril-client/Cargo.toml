@@ -15,6 +15,7 @@ clap = { version = "4.0", features = ["derive", "env"] }
 cli-table = "0.4"
 config = "0.13.1"
 directories = "4.0.1"
+either = { version = "1.8.0", features = ["serde"] }
 flate2 = "1.0.23"
 futures = "0.3"
 hex = "0.4.3"

@@ -1,12 +1,13 @@
+use either::Either;
 use serde::{Deserialize, Serialize};
 
-use crate::entities::{Beacon, CertificateMetadata, ProtocolMessage};
+use crate::entities::{Beacon, CertificateMetadata, ProtocolMessage, ProtocolMessageThales};
 
 #[cfg(any(test, feature = "test_only"))]
 use crate::entities::{ProtocolMessagePartKey, ProtocolParameters, SignerWithStake};
 
 /// Message structure of a certificate
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CertificateMessage {
     /// Hash of the current certificate
     /// Computed from the other fields of the certificate
@@ -29,7 +30,8 @@ pub struct CertificateMessage {
 
     /// Structured message that is used to created the signed message
     /// aka MSG(p,n) U AVK(n-1)
-    pub protocol_message: ProtocolMessage,
+    #[serde(with = "either::serde_untagged")]
+    pub protocol_message: Either<ProtocolMessage, ProtocolMessageThales>,
 
     /// Message that is signed by the signers
     /// aka H(MSG(p,n) || AVK(n-1))
@@ -90,7 +92,7 @@ impl CertificateMessage {
                     ),
                 ],
             ),
-            protocol_message: protocol_message.clone(),
+            protocol_message: Either::Left(protocol_message.clone()),
             signed_message: "signed_message".to_string(),
             aggregate_verification_key: "aggregate_verification_key".to_string(),
             multi_signature: "multi_signature".to_string(),
@@ -141,7 +143,7 @@ mod tests {
                     ),
                 ],
             ),
-            protocol_message: protocol_message.clone(),
+            protocol_message: Either::Left(protocol_message.clone()),
             signed_message: "signed_message".to_string(),
             aggregate_verification_key: "aggregate_verification_key".to_string(),
             multi_signature: "multi_signature".to_string(),

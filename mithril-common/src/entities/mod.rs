@@ -9,6 +9,7 @@ mod epoch;
 mod epoch_settings;
 mod http_server_error;
 mod protocol_message;
+mod protocol_message_thales;
 mod protocol_parameters;
 mod signer;
 mod single_signatures;
@@ -24,6 +25,11 @@ pub use epoch::{Epoch, EpochError};
 pub use epoch_settings::EpochSettings;
 pub use http_server_error::{ClientError, InternalServerError};
 pub use protocol_message::{ProtocolMessage, ProtocolMessagePartKey, ProtocolMessagePartValue};
+pub use protocol_message_thales::{
+    ProtocolMessage as ProtocolMessageThales,
+    ProtocolMessagePartKey as ProtocolMessagePartKeyThales,
+    ProtocolMessagePartValue as ProtocolMessagePartValueThales,
+};
 pub use protocol_parameters::ProtocolParameters;
 pub use signer::{Signer, SignerWithStake};
 pub use single_signatures::SingleSignatures;

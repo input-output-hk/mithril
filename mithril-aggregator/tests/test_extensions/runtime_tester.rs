@@ -197,7 +197,7 @@ impl RuntimeTester {
         for signer_fixture in signers {
             if let Some(signature) = signer_fixture
                 .protocol_signer
-                .sign(message.compute_hash().as_bytes())
+                .sign(either::for_both!(&message, m => m.compute_hash()).as_bytes())
             {
                 let single_signatures = SingleSignatures::new(
                     signer_fixture.signer_with_stake.party_id.to_owned(),

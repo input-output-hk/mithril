@@ -2,8 +2,9 @@ mod test_extensions;
 
 use std::collections::BTreeSet;
 
+use either::Either;
 use mithril_common::{
-    entities::{ProtocolMessagePartKey, ProtocolParameters},
+    entities::{ProtocolMessagePartKey, ProtocolMessagePartKeyThales, ProtocolParameters},
     test_utils::MithrilFixtureBuilder,
 };
 use test_extensions::RuntimeTester;
@@ -69,15 +70,13 @@ async fn create_certificate() {
     let (last_certificates, snapshots) =
         tester.get_last_certificates_and_snapshots().await.unwrap();
 
+    let last_certificate_digest = match &last_certificates[0].protocol_message {
+        Either::Left(m) => m.get_message_part(&ProtocolMessagePartKey::SnapshotDigest),
+        Either::Right(m) => m.get_message_part(&ProtocolMessagePartKeyThales::SnapshotDigest),
+    };
     assert_eq!((2, 1), (last_certificates.len(), snapshots.len()));
     assert_eq!(
-        (
-            &last_certificates[0].hash,
-            last_certificates[0]
-                .protocol_message
-                .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
-                .unwrap()
-        ),
+        (&last_certificates[0].hash, last_certificate_digest.unwrap()),
         (&snapshots[0].certificate_hash, &snapshots[0].digest)
     );
     assert_eq!(

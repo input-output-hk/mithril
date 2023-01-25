@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use chrono::prelude::*;
+use either::Either;
 use hex::ToHex;
 use thiserror::Error;
 
@@ -95,7 +96,7 @@ impl CertificateGenesisProducer {
             previous_hash,
             beacon,
             metadata,
-            genesis_protocol_message,
+            Either::Left(genesis_protocol_message),
             genesis_avk,
             multi_signature,
             genesis_signature,

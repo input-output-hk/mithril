@@ -56,9 +56,10 @@ mod tests {
         let message = setup_message();
         let fixture = MithrilFixtureBuilder::default().with_signers(1).build();
         let signer = &fixture.signers_fixture()[0];
+        let message_hash = either::for_both!(message, m => m.compute_hash());
         let protocol_sigs = signer
             .protocol_signer
-            .sign(message.compute_hash().as_bytes())
+            .sign(message_hash.as_bytes())
             .unwrap();
 
         let signature = SingleSignatures::new(

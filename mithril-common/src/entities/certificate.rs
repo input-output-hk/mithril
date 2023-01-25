@@ -1,13 +1,14 @@
 use crate::entities::{
     Beacon, CertificateMetadata, HexEncodedAgregateVerificationKey, HexEncodedGenesisSignature,
-    HexEncodedMultiSignature, ProtocolMessage,
+    HexEncodedMultiSignature, ProtocolMessage, ProtocolMessageThales,
 };
 
+use either::Either;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 /// Certificate represents a Mithril certificate embedding a Mithril STM multisignature
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Certificate {
     /// Hash of the current certificate
     /// Computed from the other fields of the certificate
@@ -30,7 +31,8 @@ pub struct Certificate {
 
     /// Structured message that is used to created the signed message
     /// aka MSG(p,n) U AVK(n-1)
-    pub protocol_message: ProtocolMessage,
+    #[serde(with = "either::serde_untagged")]
+    pub protocol_message: Either<ProtocolMessage, ProtocolMessageThales>,
 
     /// Message that is signed by the signers
     /// aka H(MSG(p,n) || AVK(n-1))
@@ -57,12 +59,12 @@ impl Certificate {
         previous_hash: String,
         beacon: Beacon,
         metadata: CertificateMetadata,
-        protocol_message: ProtocolMessage,
+        protocol_message: Either<ProtocolMessage, ProtocolMessageThales>,
         aggregate_verification_key: HexEncodedAgregateVerificationKey,
         multi_signature: HexEncodedMultiSignature,
         genesis_signature: HexEncodedGenesisSignature,
     ) -> Certificate {
-        let signed_message = protocol_message.compute_hash();
+        let signed_message = either::for_both!(&protocol_message, m => m.compute_hash());
         let mut certificate = Certificate {
             hash: "".to_string(),
             previous_hash,
@@ -84,7 +86,7 @@ impl Certificate {
         hasher.update(self.previous_hash.as_bytes());
         hasher.update(self.beacon.compute_hash().as_bytes());
         hasher.update(self.metadata.compute_hash().as_bytes());
-        hasher.update(self.protocol_message.compute_hash().as_bytes());
+        hasher.update(either::for_both!(&self.protocol_message, m => m.compute_hash()).as_bytes());
         hasher.update(self.signed_message.as_bytes());
         hasher.update(self.aggregate_verification_key.as_bytes());
         hasher.update(self.multi_signature.as_bytes());
@@ -140,7 +142,7 @@ mod tests {
                         )
                     ],
                 ),
-                protocol_message.clone(),
+                Either::Left(protocol_message.clone()),
                 "aggregate_verification_key".to_string(),
                 "multi_signature".to_string(),
                 "genesis_signature".to_string(),
@@ -177,7 +179,7 @@ mod tests {
                         )
                     ],
                 ),
-                protocol_message.clone(),
+                Either::Left(protocol_message.clone()),
                 "aggregate_verification_key".to_string(),
                 "multi_signature".to_string(),
                 "genesis_signature".to_string(),
@@ -214,7 +216,7 @@ mod tests {
                         )
                     ],
                 ),
-                protocol_message.clone(),
+                Either::Left(protocol_message.clone()),
                 "aggregate_verification_key".to_string(),
                 "multi_signature".to_string(),
                 "genesis_signature".to_string(),
@@ -251,7 +253,7 @@ mod tests {
                         )
                     ],
                 ),
-                protocol_message.clone(),
+                Either::Left(protocol_message.clone()),
                 "aggregate_verification_key".to_string(),
                 "multi_signature".to_string(),
                 "genesis_signature".to_string(),
@@ -293,7 +295,7 @@ mod tests {
                         )
                     ],
                 ),
-                protocol_message_modified.clone(),
+                Either::Left(protocol_message_modified.clone()),
                 "aggregate_verification_key".to_string(),
                 "multi_signature".to_string(),
                 "genesis_signature".to_string(),
@@ -330,7 +332,7 @@ mod tests {
                         )
                     ],
                 ),
-                protocol_message.clone(),
+                Either::Left(protocol_message.clone()),
                 "aggregate_verification_key-modified".to_string(),
                 "multi_signature".to_string(),
                 "genesis_signature".to_string(),
@@ -367,7 +369,7 @@ mod tests {
                         )
                     ],
                 ),
-                protocol_message.clone(),
+                Either::Left(protocol_message.clone()),
                 "aggregate_verification_key".to_string(),
                 "multi_signature-modified".to_string(),
                 "genesis_signature".to_string(),
@@ -404,7 +406,7 @@ mod tests {
                         )
                     ],
                 ),
-                protocol_message.clone(),
+                Either::Left(protocol_message.clone()),
                 "aggregate_verification_key".to_string(),
                 "multi_signature".to_string(),
                 "genesis_signature-modified".to_string(),

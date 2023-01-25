@@ -1,3 +1,4 @@
+use either::Either;
 use slog_scope::debug;
 use std::str;
 use std::sync::Arc;
@@ -11,7 +12,7 @@ use mithril_common::certificate_chain::{
 };
 use mithril_common::crypto_helper::ProtocolGenesisVerifier;
 use mithril_common::digesters::{ImmutableDigester, ImmutableDigesterError};
-use mithril_common::entities::{ProtocolMessagePartKey, Snapshot};
+use mithril_common::entities::{ProtocolMessagePartKey, ProtocolMessagePartKeyThales, Snapshot};
 
 /// [Runtime] related errors.
 #[derive(Error, Debug)]
@@ -124,11 +125,18 @@ impl Runtime {
         let unpacked_path = aggregator_handler.unpack_snapshot(digest).await?;
         let unpacked_snapshot_digest = digester.compute_digest(&certificate.beacon).await?;
         let mut protocol_message = certificate.protocol_message.clone();
-        protocol_message.set_message_part(
-            ProtocolMessagePartKey::SnapshotDigest,
-            unpacked_snapshot_digest.clone(),
-        );
-        if protocol_message.compute_hash() != certificate.signed_message {
+        match protocol_message.as_mut() {
+            Either::Left(m) => m.set_message_part(
+                ProtocolMessagePartKey::SnapshotDigest,
+                unpacked_snapshot_digest.clone(),
+            ),
+            Either::Right(m) => m.set_message_part(
+                ProtocolMessagePartKeyThales::SnapshotDigest,
+                unpacked_snapshot_digest.clone(),
+            ),
+        };
+        if either::for_both!(protocol_message, m => m.compute_hash()) != certificate.signed_message
+        {
             return Err(RuntimeError::DigestDoesntMatch(unpacked_snapshot_digest));
         }
         certificate_verifier
@@ -388,11 +396,11 @@ mod tests {
         let fake_certificate = fake_data::certificate("cert-hash-123".to_string());
         let (mut mock_aggregator_handler, mut mock_verifier, mut mock_digester, genesis_verifier) =
             get_dependencies();
-        let digest_compute = fake_certificate
-            .protocol_message
-            .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
-            .unwrap()
-            .to_owned();
+        let digest_compute = match &fake_certificate.protocol_message {
+            Either::Left(m) => m.get_message_part(&ProtocolMessagePartKey::SnapshotDigest),
+            Either::Right(m) => m.get_message_part(&ProtocolMessagePartKeyThales::SnapshotDigest),
+        };
+        let digest_compute = digest_compute.unwrap().to_owned();
         let digest_restore = digest_compute.clone();
         let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
         mock_aggregator_handler
@@ -433,11 +441,11 @@ mod tests {
         let fake_certificate = fake_data::certificate("cert-hash-123".to_string());
         let (mut mock_aggregator_handler, mut mock_verifier, mut mock_digester, genesis_verifier) =
             get_dependencies();
-        let digest_compute = fake_certificate
-            .protocol_message
-            .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
-            .unwrap()
-            .to_owned();
+        let digest_compute = match &fake_certificate.protocol_message {
+            Either::Left(m) => m.get_message_part(&ProtocolMessagePartKey::SnapshotDigest),
+            Either::Right(m) => m.get_message_part(&ProtocolMessagePartKeyThales::SnapshotDigest),
+        };
+        let digest_compute = digest_compute.unwrap().to_owned();
         let digest_restore = digest_compute.clone();
         let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
         mock_aggregator_handler
@@ -479,11 +487,12 @@ mod tests {
     #[tokio::test]
     async fn test_restore_snapshot_ko_digester_error() {
         let fake_certificate = fake_data::certificate("cert-hash-123".to_string());
-        let digest_compute = fake_certificate
-            .protocol_message
-            .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
-            .unwrap()
-            .to_owned();
+        let digest_compute = match &fake_certificate.protocol_message {
+            Either::Left(m) => m.get_message_part(&ProtocolMessagePartKey::SnapshotDigest),
+            Either::Right(m) => m.get_message_part(&ProtocolMessagePartKeyThales::SnapshotDigest),
+        }
+        .unwrap()
+        .to_owned();
         let digest_restore = digest_compute.clone();
         let mut fake_certificate1 = fake_certificate.clone();
         fake_certificate1.hash = "another-hash".to_string();

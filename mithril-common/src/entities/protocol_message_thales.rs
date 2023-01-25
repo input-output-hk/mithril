@@ -9,10 +9,6 @@ pub enum ProtocolMessagePartKey {
     #[serde(rename = "snapshot_digest")]
     SnapshotDigest,
 
-    /// The ProtocolMessage part key associated to the Epoch Number
-    #[serde(rename = "epoch_number")]
-    EpochNumber,
-
     /// The ProtocolMessage part key associated to the Next epoch aggregate verification key
     /// The AVK that will be allowed to be used to sign during the next epoch
     /// aka AVK(n-1)
@@ -25,7 +21,6 @@ impl Display for ProtocolMessagePartKey {
         match *self {
             Self::SnapshotDigest => write!(f, "snapshot_digest"),
             Self::NextAggregateVerificationKey => write!(f, "next_aggregate_verification_key"),
-            Self::EpochNumber => write!(f, "epoch_number"),
         }
     }
 }

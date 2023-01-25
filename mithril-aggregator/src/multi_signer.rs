@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use chrono::prelude::*;
+use either::Either;
 use hex::ToHex;
 use slog_scope::{debug, trace, warn};
 use std::{collections::HashMap, sync::Arc};
@@ -81,12 +82,14 @@ pub enum ProtocolError {
 #[async_trait]
 pub trait MultiSigner: Sync + Send {
     /// Get current message
-    async fn get_current_message(&self) -> Option<entities::ProtocolMessage>;
+    async fn get_current_message(
+        &self,
+    ) -> Option<Either<entities::ProtocolMessage, entities::ProtocolMessageThales>>;
 
     /// Update current message
     async fn update_current_message(
         &mut self,
-        message: entities::ProtocolMessage,
+        message: Either<entities::ProtocolMessage, entities::ProtocolMessageThales>,
     ) -> Result<(), ProtocolError>;
 
     /// Get current beacon
@@ -210,7 +213,7 @@ pub trait MultiSigner: Sync + Send {
 /// MultiSignerImpl is an implementation of the MultiSigner
 pub struct MultiSignerImpl {
     /// Message that is currently signed
-    current_message: Option<entities::ProtocolMessage>,
+    current_message: Option<Either<entities::ProtocolMessage, entities::ProtocolMessageThales>>,
 
     /// Beacon that is currently used
     current_beacon: Option<entities::Beacon>,
@@ -352,7 +355,9 @@ impl MultiSignerImpl {
 #[async_trait]
 impl MultiSigner for MultiSignerImpl {
     /// Get current message
-    async fn get_current_message(&self) -> Option<entities::ProtocolMessage> {
+    async fn get_current_message(
+        &self,
+    ) -> Option<Either<entities::ProtocolMessage, entities::ProtocolMessageThales>> {
         debug!("Get current message");
         self.current_message.clone()
     }
@@ -360,9 +365,10 @@ impl MultiSigner for MultiSignerImpl {
     /// Update current message
     async fn update_current_message(
         &mut self,
-        message: entities::ProtocolMessage,
+        message: Either<entities::ProtocolMessage, entities::ProtocolMessageThales>,
     ) -> Result<(), ProtocolError> {
-        debug!("Update current_message"; "protocol_message" =>  #?message, "signed message" => message.compute_hash().encode_hex::<String>());
+        let message_hash = either::for_both!(&message, m => m.compute_hash());
+        debug!("Update current_message"; "protocol_message" =>  #?message, "signed message" => message_hash.encode_hex::<String>());
 
         self.multi_signature = None;
         let signers_with_stake = self.get_signers_with_stake().await?;
@@ -637,13 +643,14 @@ impl MultiSigner for MultiSignerImpl {
         let (vk, stake) = clerk
             .get_reg_party(&signature.signer_index)
             .ok_or_else(ProtocolError::UnregisteredParty)?;
+        let message_hash = either::for_both!(message, m => m.compute_hash());
         signature
             .verify(
                 &protocol_parameters,
                 &vk,
                 &stake,
                 &avk,
-                message.compute_hash().as_bytes(),
+                message_hash.as_bytes(),
             )
             .map_err(|e| ProtocolError::Core(e.to_string()))?;
 
@@ -703,7 +710,8 @@ impl MultiSigner for MultiSignerImpl {
             .clerk
             .as_ref()
             .ok_or_else(ProtocolError::UnavailableClerk)?;
-        match clerk.aggregate(&signatures, message.compute_hash().as_bytes()) {
+        let message_hash = either::for_both!(message, m => m.compute_hash());
+        match clerk.aggregate(&signatures, message_hash.as_bytes()) {
             Ok(multi_signature) => {
                 self.avk = Some(clerk.compute_avk());
                 self.multi_signature = Some(multi_signature.clone());
@@ -949,10 +957,8 @@ mod tests {
 
         let mut expected_certificate_signers: Vec<SignerWithStake> = Vec::new();
         for signer_fixture in fixture.signers_fixture() {
-            if let Some(signature) = signer_fixture
-                .protocol_signer
-                .sign(message.compute_hash().as_bytes())
-            {
+            let message_hash = either::for_both!(&message, m => m.compute_hash());
+            if let Some(signature) = signer_fixture.protocol_signer.sign(message_hash.as_bytes()) {
                 let won_indexes = signature.indexes.clone();
 
                 signatures.push(entities::SingleSignatures::new(

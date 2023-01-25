@@ -2,10 +2,15 @@
 use super::{genesis::*, key_encode_hex, types::*, OpCert, SerDeShelleyFileFormat};
 use crate::{
     certificate_chain::CertificateGenesisProducer,
-    entities::{Certificate, Epoch, ProtocolMessage, ProtocolMessagePartKey, SignerWithStake},
+    entities::{
+        Certificate, Epoch, ProtocolMessage, ProtocolMessagePartKey, ProtocolMessagePartKeyThales,
+        ProtocolMessageThales, SignerWithStake,
+    },
+    era::{EraChecker, SupportedEra},
     test_utils::{fake_data, MithrilFixtureBuilder, SignerFixture},
 };
 
+use either::Either;
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 use std::{cmp::min, fs, sync::Arc};
@@ -27,17 +32,31 @@ pub fn setup_temp_directory_for_signer(
 }
 
 /// Instantiate a [ProtocolMessage] using fake data, use this for tests only.
-pub fn setup_message() -> ProtocolMessage {
-    let mut protocol_message = ProtocolMessage::new();
-    protocol_message.set_message_part(
-        ProtocolMessagePartKey::SnapshotDigest,
-        "message_to_sign_123".to_string(),
-    );
-    protocol_message.set_message_part(
-        ProtocolMessagePartKey::NextAggregateVerificationKey,
-        "next-avk-123".to_string(),
-    );
-    protocol_message
+pub fn setup_message() -> Either<ProtocolMessage, ProtocolMessageThales> {
+    if EraChecker::is_era_active(SupportedEra::Thales) {
+        let mut protocol_message = ProtocolMessageThales::new();
+        protocol_message.set_message_part(
+            ProtocolMessagePartKeyThales::SnapshotDigest,
+            "message_to_sign_123".to_string(),
+        );
+        protocol_message.set_message_part(
+            ProtocolMessagePartKeyThales::NextAggregateVerificationKey,
+            "next-avk-123".to_string(),
+        );
+        Either::Right(protocol_message)
+    } else {
+        let mut protocol_message = ProtocolMessage::new();
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::SnapshotDigest,
+            "message_to_sign_123".to_string(),
+        );
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::NextAggregateVerificationKey,
+            "next-avk-123".to_string(),
+        );
+        protocol_message.set_message_part(ProtocolMessagePartKey::EpochNumber, "123".to_string());
+        Either::Left(protocol_message)
+    }
 }
 
 /// Instantiate a [ProtocolParameters], use this for tests only.
@@ -208,15 +227,27 @@ pub fn setup_certificate_chain(
             let mut fake_certificate = fake_data::certificate(certificate_hash);
             fake_certificate.beacon.epoch = epoch;
             fake_certificate.beacon.immutable_file_number = immutable_file_number;
-            fake_certificate
-                .protocol_message
-                .set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
-            fake_certificate.protocol_message.set_message_part(
-                ProtocolMessagePartKey::NextAggregateVerificationKey,
-                avk_encode(&next_avk),
-            );
+            match fake_certificate.protocol_message.as_mut() {
+                Either::Left(m) => {
+                    m.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
+                    m.set_message_part(
+                        ProtocolMessagePartKey::NextAggregateVerificationKey,
+                        avk_encode(&next_avk),
+                    );
+                    m.set_message_part(ProtocolMessagePartKey::EpochNumber, format!("{}", epoch));
+                }
+                Either::Right(m) => {
+                    m.set_message_part(ProtocolMessagePartKeyThales::SnapshotDigest, digest);
+                    m.set_message_part(
+                        ProtocolMessagePartKeyThales::NextAggregateVerificationKey,
+                        avk_encode(&next_avk),
+                    );
+                }
+            }
+
             fake_certificate.aggregate_verification_key = avk_encode(&avk);
-            fake_certificate.signed_message = fake_certificate.protocol_message.compute_hash();
+            fake_certificate.signed_message =
+                either::for_both!(&fake_certificate.protocol_message, m => m.compute_hash());
             fake_certificate.previous_hash = "".to_string();
             match i {
                 0 => {

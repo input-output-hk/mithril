@@ -1,5 +1,7 @@
 //! Fake data builders for testing.
 
+use either::Either;
+
 use crate::entities::{
     CertificateMetadata, LotteryIndex, ProtocolMessage, ProtocolMessagePartKey, SingleSignatures,
 };
@@ -114,7 +116,7 @@ pub fn certificate(certificate_hash: String) -> entities::Certificate {
         previous_hash,
         beacon,
         metadata,
-        protocol_message,
+        Either::Left(protocol_message),
         aggregate_verification_key,
         multi_signature,
         genesis_signature,

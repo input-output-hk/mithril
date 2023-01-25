@@ -1,7 +1,12 @@
 use async_trait::async_trait;
 use chrono::Utc;
+use either::Either;
 use mithril_common::entities::Epoch;
 use mithril_common::entities::PartyId;
+use mithril_common::entities::ProtocolMessagePartKeyThales;
+use mithril_common::entities::ProtocolMessageThales;
+use mithril_common::era::EraChecker;
+use mithril_common::era::SupportedEra;
 use mithril_common::store::StakeStorer;
 use slog_scope::{debug, info, warn};
 use std::path::Path;
@@ -346,20 +351,39 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     async fn update_message_in_multisigner(&self, digest: String) -> Result<(), RuntimeError> {
         debug!("RUNNER: update message in multisigner");
         let mut multi_signer = self.dependencies.multi_signer.write().await;
-        let mut protocol_message = ProtocolMessage::new();
-        protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
-        protocol_message.set_message_part(
-            ProtocolMessagePartKey::NextAggregateVerificationKey,
-            multi_signer
-                .compute_next_stake_distribution_aggregate_verification_key()
+        if EraChecker::is_era_active(SupportedEra::Thales) {
+            let mut protocol_message = ProtocolMessageThales::new();
+            protocol_message.set_message_part(ProtocolMessagePartKeyThales::SnapshotDigest, digest);
+            protocol_message.set_message_part(
+                ProtocolMessagePartKeyThales::NextAggregateVerificationKey,
+                multi_signer
+                    .compute_next_stake_distribution_aggregate_verification_key()
+                    .await
+                    .map_err(RuntimeError::MultiSigner)?
+                    .unwrap_or_default(),
+            );
+            return multi_signer
+                .update_current_message(Either::Right(protocol_message))
                 .await
-                .map_err(RuntimeError::MultiSigner)?
-                .unwrap_or_default(),
-        );
-        multi_signer
-            .update_current_message(protocol_message)
-            .await
-            .map_err(RuntimeError::MultiSigner)
+                .map_err(RuntimeError::MultiSigner);
+        } else {
+            let mut protocol_message = ProtocolMessage::new();
+            protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
+            protocol_message.set_message_part(
+                ProtocolMessagePartKey::NextAggregateVerificationKey,
+                multi_signer
+                    .compute_next_stake_distribution_aggregate_verification_key()
+                    .await
+                    .map_err(RuntimeError::MultiSigner)?
+                    .unwrap_or_default(),
+            );
+            protocol_message
+                .set_message_part(ProtocolMessagePartKey::EpochNumber, "123".to_string()); // TODO: add real epoch number
+            return multi_signer
+                .update_current_message(Either::Left(protocol_message))
+                .await
+                .map_err(RuntimeError::MultiSigner);
+        }
     }
 
     async fn create_new_pending_certificate_from_multisigner(
@@ -504,11 +528,13 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .get_current_message()
             .await
             .ok_or_else(|| RuntimeError::General("no message found".to_string().into()))?;
-        let snapshot_digest = protocol_message
-            .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
-            .ok_or_else(|| {
-                RuntimeError::General("no snapshot digest message part found".to_string().into())
-            })?;
+        let message_part = match &protocol_message {
+            Either::Left(m) => m.get_message_part(&ProtocolMessagePartKey::SnapshotDigest),
+            Either::Right(m) => m.get_message_part(&ProtocolMessagePartKeyThales::SnapshotDigest),
+        };
+        let snapshot_digest = message_part.ok_or_else(|| {
+            RuntimeError::General("no snapshot digest message part found".to_string().into())
+        })?;
         let snapshot_name = format!(
             "{}-e{}-i{}.{}.tar.gz",
             beacon.network, beacon.epoch.0, beacon.immutable_file_number, snapshot_digest
@@ -593,9 +619,11 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         remote_locations: Vec<String>,
     ) -> Result<Snapshot, RuntimeError> {
         debug!("RUNNER: create and save snapshot");
-        let snapshot_digest = certificate
-            .protocol_message
-            .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
+        let message_part = match &certificate.protocol_message {
+            Either::Left(m) => m.get_message_part(&ProtocolMessagePartKey::SnapshotDigest),
+            Either::Right(m) => m.get_message_part(&ProtocolMessagePartKeyThales::SnapshotDigest),
+        };
+        let snapshot_digest = message_part
             .ok_or_else(|| RuntimeError::General("message part not found".to_string().into()))?
             .to_owned();
         let snapshot = Snapshot::new(
@@ -627,13 +655,15 @@ pub mod tests {
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
     };
     use crate::{MithrilSignerRegisterer, ProtocolParametersStorer, SignerRegistrationRound};
+    use either::Either;
     use mithril_common::chain_observer::FakeObserver;
     use mithril_common::crypto_helper::{
         key_decode_hex, tests_setup::setup_certificate_chain, ProtocolMultiSignature,
     };
     use mithril_common::digesters::DumbImmutableFileObserver;
     use mithril_common::entities::{
-        Beacon, CertificatePending, Epoch, HexEncodedKey, ProtocolMessage, StakeDistribution,
+        Beacon, CertificatePending, Epoch, HexEncodedKey, ProtocolMessage,
+        ProtocolMessagePartKeyThales, StakeDistribution,
     };
     use mithril_common::test_utils::MithrilFixtureBuilder;
     use mithril_common::{
@@ -1007,13 +1037,11 @@ pub mod tests {
             .get_current_message()
             .await
             .unwrap();
-
-        assert_eq!(
-            "1+2+3+4=10",
-            message
-                .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
-                .unwrap()
-        );
+        let message_part = match &message {
+            Either::Left(m) => m.get_message_part(&ProtocolMessagePartKey::SnapshotDigest),
+            Either::Right(m) => m.get_message_part(&ProtocolMessagePartKeyThales::SnapshotDigest),
+        };
+        assert_eq!("1+2+3+4=10", message_part.unwrap());
     }
 
     #[tokio::test]
@@ -1127,7 +1155,7 @@ pub mod tests {
         let mut mock_multi_signer = MockMultiSigner::new();
         mock_multi_signer
             .expect_get_current_message()
-            .return_once(move || Some(message));
+            .return_once(move || Some(Either::Left(message)));
         let (mut deps, config) = initialize_dependencies().await;
         deps.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
         let runner = AggregatorRunner::new(config, Arc::new(deps));
