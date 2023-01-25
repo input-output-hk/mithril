@@ -265,3 +265,6 @@ And monitor the logs of the service
 ```bash
 tail /var/log/syslog
 ```
+
+There is a 2 epoch delay between the signer node registering and signing the snapshots.
+Then, you should be able to see your pool's id on certificates listed on the [`Mithril explorer`](https://mithril.network/explorer)
