@@ -106,7 +106,7 @@ impl AggregatorHTTPClient {
 
     /// Forge a client request adding protocol version in the headers.
     pub fn prepare_request_builder(&self, request_builder: RequestBuilder) -> RequestBuilder {
-        request_builder.header("API_VERSION", MITHRIL_API_VERSION)
+        request_builder.header("mithril-api-version", MITHRIL_API_VERSION)
     }
 
     /// Download certificate details
