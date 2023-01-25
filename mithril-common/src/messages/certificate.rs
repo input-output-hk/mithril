@@ -31,7 +31,9 @@ pub struct CertificateMessage {
     /// Structured message that is used to created the signed message
     /// aka MSG(p,n) U AVK(n-1)
     #[serde(with = "either::serde_untagged")]
-    pub protocol_message: Either<ProtocolMessage, ProtocolMessageThales>,
+    // WARNING: When using Either always put the "oldest" type on the left since serde prefer the
+    // left type when deserializing if using serde_untagged.
+    pub protocol_message: Either<ProtocolMessageThales, ProtocolMessage>,
 
     /// Message that is signed by the signers
     /// aka H(MSG(p,n) || AVK(n-1))
@@ -92,7 +94,7 @@ impl CertificateMessage {
                     ),
                 ],
             ),
-            protocol_message: Either::Left(protocol_message.clone()),
+            protocol_message: Either::Right(protocol_message.clone()),
             signed_message: "signed_message".to_string(),
             aggregate_verification_key: "aggregate_verification_key".to_string(),
             multi_signature: "multi_signature".to_string(),
@@ -104,17 +106,12 @@ impl CertificateMessage {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::entities::ProtocolMessagePartKeyThales;
+    use test_case::test_case;
 
-    fn golden_message() -> CertificateMessage {
-        let mut protocol_message = ProtocolMessage::new();
-        protocol_message.set_message_part(
-            ProtocolMessagePartKey::SnapshotDigest,
-            "snapshot-digest-123".to_string(),
-        );
-        protocol_message.set_message_part(
-            ProtocolMessagePartKey::NextAggregateVerificationKey,
-            "next-avk-123".to_string(),
-        );
+    fn golden_message(
+        message: Either<ProtocolMessageThales, ProtocolMessage>,
+    ) -> CertificateMessage {
         CertificateMessage {
             hash: "hash".to_string(),
             previous_hash: "previous_hash".to_string(),
@@ -143,7 +140,7 @@ mod tests {
                     ),
                 ],
             ),
-            protocol_message: Either::Left(protocol_message.clone()),
+            protocol_message: message,
             signed_message: "signed_message".to_string(),
             aggregate_verification_key: "aggregate_verification_key".to_string(),
             multi_signature: "multi_signature".to_string(),
@@ -151,55 +148,109 @@ mod tests {
         }
     }
 
-    // Test the backward compatibility with possible future upgrades.
-    #[test]
-    fn test_v1() {
-        let json = r#"{
-    
-            "hash": "hash",
-            "previous_hash": "previous_hash",
-            "beacon": {
-                "network": "testnet",
-                "epoch": 10,
-                "immutable_file_number": 100
-            },
-            "metadata": {
-                "version": "0.1.0",
-                "parameters": {
-                    "k": 1000,
-                    "m": 100,
-                    "phi_f": 0.123
-                },
-                "initiated_at": "initiated_at",
-                "sealed_at": "sealed_at",
-                "signers": [
-                    {
-                        "party_id": "1",
-                        "verification_key": "verification-key-123",
-                        "stake": 10
-                    },
-                    {
-                        "party_id": "2",
-                        "verification_key": "verification-key-456",
-                        "stake": 20
-                    }
-                ]
-            },
-            "protocol_message": {
+    fn golden_protocol_message() -> ProtocolMessage {
+        let mut protocol_message = ProtocolMessage::new();
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::SnapshotDigest,
+            "snapshot-digest-123".to_string(),
+        );
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::NextAggregateVerificationKey,
+            "next-avk-123".to_string(),
+        );
+        protocol_message.set_message_part(ProtocolMessagePartKey::EpochNumber, "1".to_string());
+
+        protocol_message
+    }
+
+    fn golden_protocol_message_thales() -> ProtocolMessageThales {
+        let mut protocol_message = ProtocolMessageThales::new();
+        protocol_message.set_message_part(
+            ProtocolMessagePartKeyThales::SnapshotDigest,
+            "snapshot-digest-123".to_string(),
+        );
+        protocol_message.set_message_part(
+            ProtocolMessagePartKeyThales::NextAggregateVerificationKey,
+            "next-avk-123".to_string(),
+        );
+
+        protocol_message
+    }
+
+    fn json_message() -> &'static str {
+        r#"
+                "message_parts": {
+                    "snapshot_digest": "snapshot-digest-123",
+                    "next_aggregate_verification_key": "next-avk-123",
+                    "epoch_number": "1"
+                }
+        "#
+    }
+
+    fn json_message_thales() -> &'static str {
+        r#"
                 "message_parts": {
                     "snapshot_digest": "snapshot-digest-123",
                     "next_aggregate_verification_key": "next-avk-123"
                 }
-            },
+        "#
+    }
+
+    // Test the backward compatibility with possible future upgrades.
+    #[test_case(Either::Left(golden_protocol_message_thales()), json_message_thales())]
+    #[test_case(Either::Right(golden_protocol_message()), json_message(); "Protocol message")]
+    fn test_v1(
+        protocol_message: Either<ProtocolMessageThales, ProtocolMessage>,
+        protocol_json: &str,
+    ) {
+        println!("protocol message: {:?}", &protocol_message);
+        let json = format!(
+            r#"{{
+    
+            "hash": "hash",
+            "previous_hash": "previous_hash",
+            "beacon": {{
+                "network": "testnet",
+                "epoch": 10,
+                "immutable_file_number": 100
+            }},
+            "metadata": {{
+                "version": "0.1.0",
+                "parameters": {{
+                    "k": 1000,
+                    "m": 100,
+                    "phi_f": 0.123
+                }},
+                "initiated_at": "initiated_at",
+                "sealed_at": "sealed_at",
+                "signers": [
+                    {{
+                        "party_id": "1",
+                        "verification_key": "verification-key-123",
+                        "stake": 10
+                    }},
+                    {{
+                        "party_id": "2",
+                        "verification_key": "verification-key-456",
+                        "stake": 20
+                    }}
+                ]
+            }},
+            "protocol_message": {{
+                {protocol_json}
+            }},
             "signed_message": "signed_message",
             "aggregate_verification_key": "aggregate_verification_key",
             "multi_signature": "multi_signature",
             "genesis_signature": "genesis_signature"
-        }"#;
-        let message: CertificateMessage = serde_json::from_str(json).expect(
+        }}"#
+        );
+
+        println!("json: {}", &json);
+        let message: CertificateMessage = serde_json::from_str(&json).expect(
             "This JSON is expected to be succesfully parsed into a CertificateMessage instance.",
         );
 
-        assert_eq!(golden_message(), message);
+        assert_eq!(golden_message(protocol_message), message);
     }
 }
