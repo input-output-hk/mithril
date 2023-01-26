@@ -106,7 +106,7 @@ pub fn certificate(certificate_hash: String) -> entities::Certificate {
     );
 
     // Certificate
-    let previous_hash = format!("{}0", certificate_hash);
+    let previous_hash = format!("{certificate_hash}0");
     let aggregate_verification_key = format!("AVK{}", beacon.immutable_file_number).repeat(5);
     let multi_signature = format!("MSIG{}", beacon.immutable_file_number).repeat(200);
     let genesis_signature = "".to_string();
@@ -151,14 +151,14 @@ pub fn single_signatures(won_indexes: Vec<LotteryIndex>) -> SingleSignatures {
 pub fn snapshots(total: u64) -> Vec<entities::Snapshot> {
     (1..total + 1)
         .map(|snapshot_id| {
-            let digest = format!("1{}", snapshot_id).repeat(20);
+            let digest = format!("1{snapshot_id}").repeat(20);
             let beacon = beacon();
             let certificate_hash = "123".to_string();
             let size = snapshot_id * 100000;
             let created_at = "2006-01-02T15:04:05Z".to_string();
             let mut locations = Vec::new();
-            locations.push(format!("http://{}", certificate_hash));
-            locations.push(format!("http2://{}", certificate_hash));
+            locations.push(format!("http://{certificate_hash}"));
+            locations.push(format!("http2://{certificate_hash}"));
             entities::Snapshot::new(
                 digest,
                 beacon,

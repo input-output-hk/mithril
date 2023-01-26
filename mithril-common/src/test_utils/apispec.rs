@@ -105,7 +105,7 @@ impl<'a> APISpec<'a> {
                     }
                 }
             }
-            None => Err(format!("unmatched path and method: {} {}", path, method)),
+            None => Err(format!("unmatched path and method: {path} {method}")),
         }
     }
 
@@ -118,7 +118,7 @@ impl<'a> APISpec<'a> {
         match schema {
             Null => match value {
                 Null => Ok(self),
-                _ => Err(format!("Expected nothing but got: {:?}", value)),
+                _ => Err(format!("Expected nothing but got: {value:?}")),
             },
             _ => {
                 let schema = &mut schema.as_object_mut().unwrap().clone();

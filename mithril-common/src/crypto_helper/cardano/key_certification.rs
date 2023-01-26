@@ -303,11 +303,11 @@ mod test {
         let keypair = ColdKeyGenerator::create_deterministic_keypair([party_idx as u8; 32]);
         let (kes_secret_key, kes_verification_key) = Sum6Kes::keygen(&mut [party_idx as u8; 32]);
         let operational_certificate = OpCert::new(kes_verification_key, 0, 0, keypair);
-        let kes_secret_key_file = temp_dir.join(format!("kes{}.skey", party_idx));
+        let kes_secret_key_file = temp_dir.join(format!("kes{party_idx}.skey"));
         kes_secret_key
             .to_file(&kes_secret_key_file)
             .expect("KES secret key file export should not fail");
-        let operational_certificate_file = temp_dir.join(format!("pool{}.cert", party_idx));
+        let operational_certificate_file = temp_dir.join(format!("pool{party_idx}.cert"));
         operational_certificate
             .to_file(&operational_certificate_file)
             .expect("operational certificate file export should not fail");

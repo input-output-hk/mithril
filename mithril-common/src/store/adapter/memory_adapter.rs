@@ -110,7 +110,7 @@ mod tests {
         let mut values: Vec<(u64, String)> = Vec::new();
         if nb > 0 {
             for ix in 1..=nb {
-                values.push((ix, format!("value {}", ix)));
+                values.push((ix, format!("value {ix}")));
             }
 
             MemoryAdapter::new(Some(values)).unwrap()

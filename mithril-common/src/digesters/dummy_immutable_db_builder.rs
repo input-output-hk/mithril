@@ -101,10 +101,10 @@ impl DummyImmutablesDbBuilder {
 
         if parent_dir.exists() {
             std::fs::remove_dir_all(&parent_dir)
-                .unwrap_or_else(|e| panic!("Could not remove dir {:?}: {}", parent_dir, e));
+                .unwrap_or_else(|e| panic!("Could not remove dir {parent_dir:?}: {e}"));
         }
         std::fs::create_dir_all(&parent_dir)
-            .unwrap_or_else(|e| panic!("Could not create dir {:?}: {}", parent_dir, e));
+            .unwrap_or_else(|e| panic!("Could not create dir {parent_dir:?}: {e}"));
 
         parent_dir
     }
@@ -112,9 +112,9 @@ impl DummyImmutablesDbBuilder {
     fn write_immutable_trio(&self, immutable: ImmutableFileNumber) -> Vec<ImmutableFile> {
         let mut result = vec![];
         for filename in [
-            format!("{:05}.chunk", immutable),
-            format!("{:05}.primary", immutable),
-            format!("{:05}.secondary", immutable),
+            format!("{immutable:05}.chunk"),
+            format!("{immutable:05}.primary"),
+            format!("{immutable:05}.secondary"),
         ] {
             let file = self.write_dummy_file(&filename);
             result.push(ImmutableFile {
@@ -132,7 +132,7 @@ impl DummyImmutablesDbBuilder {
         let file = self.dir.join(Path::new(filename));
         let mut source_file = File::create(&file).unwrap();
 
-        write!(source_file, "This is a test file named '{}'", filename).unwrap();
+        write!(source_file, "This is a test file named '{filename}'").unwrap();
 
         if let Some(file_size) = self.file_size {
             writeln!(source_file).unwrap();

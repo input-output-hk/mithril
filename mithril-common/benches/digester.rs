@@ -27,22 +27,22 @@ fn db_dir() -> PathBuf {
 
 fn create_db(dir: &Path, number_of_immutables: ImmutableFileNumber, file_size: u64) {
     if dir.exists() {
-        fs::remove_dir_all(dir).unwrap_or_else(|e| panic!("Could not remove dir {:?}: {}", dir, e));
+        fs::remove_dir_all(dir).unwrap_or_else(|e| panic!("Could not remove dir {dir:?}: {e}"));
     }
-    fs::create_dir_all(dir).unwrap_or_else(|e| panic!("Could not create dir {:?}: {}", dir, e));
+    fs::create_dir_all(dir).unwrap_or_else(|e| panic!("Could not create dir {dir:?}: {e}"));
 
     // + 1 to simulate "in-progress" immutable trio.
     for filename in (1..=(number_of_immutables + 1)).flat_map(|i| {
         [
-            format!("{:05}.chunk", i),
-            format!("{:05}.primary", i),
-            format!("{:05}.secondary", i),
+            format!("{i:05}.chunk"),
+            format!("{i:05}.primary"),
+            format!("{i:05}.secondary"),
         ]
     }) {
         let file = dir.join(Path::new(&filename));
         let mut source_file = File::create(file).unwrap();
 
-        write!(source_file, "This is a test file named '{}'", filename).unwrap();
+        write!(source_file, "This is a test file named '{filename}'").unwrap();
         writeln!(source_file).unwrap();
         source_file.set_len(file_size).unwrap();
     }

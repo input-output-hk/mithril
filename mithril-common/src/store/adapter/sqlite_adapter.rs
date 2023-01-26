@@ -46,8 +46,7 @@ where
 
     fn check_table_exists(connection: &Connection, table_name: &str) -> Result<()> {
         let sql = format!(
-            "select exists(select 1 from sqlite_master where type='table' and name='{}')",
-            table_name
+            "select exists(select 1 from sqlite_master where type='table' and name='{table_name}')"
         );
         let mut statement = connection
             .prepare(sql)
@@ -68,8 +67,7 @@ where
 
     fn create_table(connection: &Connection, table_name: &str) -> Result<()> {
         let sql = format!(
-            "create table {} (key_hash text primary key, key json not null, value json not null)",
-            table_name
+            "create table {table_name} (key_hash text primary key, key json not null, value json not null)"
         );
         connection
             .execute(sql)
@@ -89,8 +87,7 @@ where
     fn serialize_key(&self, key: &K) -> Result<String> {
         serde_json::to_string(&key).map_err(|e| {
             AdapterError::GeneralError(format!(
-                "SQLite adapter: Serde error while serializing store key: {:?}",
-                e
+                "SQLite adapter: Serde error while serializing store key: {e:?}"
             ))
         })
     }
@@ -160,8 +157,7 @@ where
         );
         let value = serde_json::to_string(record).map_err(|e| {
             AdapterError::GeneralError(format!(
-                "SQLite adapter error: could not serialize value before insertion: {:?}",
-                e
+                "SQLite adapter error: could not serialize value before insertion: {e:?}"
             ))
         })?;
         let mut statement = connection
@@ -205,10 +201,7 @@ where
         statement
             .read::<i64>(0)
             .map_err(|e| {
-                AdapterError::GeneralError(format!(
-                    "There should be a result in this case ! {:?}",
-                    e
-                ))
+                AdapterError::GeneralError(format!("There should be a result in this case ! {e:?}"))
             })
             .map(|res| res == 1)
     }
@@ -275,7 +268,7 @@ where
         connection: MutexGuard<Connection>,
         table_name: &str,
     ) -> Result<SQLiteResultIterator<V>> {
-        let sql = format!("select value from {} order by ROWID asc", table_name);
+        let sql = format!("select value from {table_name} order by ROWID asc");
 
         let cursor = connection
             .prepare(sql)
@@ -327,7 +320,7 @@ mod tests {
             });
         }
 
-        dirpath.join(format!("{}.sqlite3", test_name))
+        dirpath.join(format!("{test_name}.sqlite3"))
     }
 
     fn init_db(test_name: &str, tablename: Option<&str>) -> SQLiteAdapter<u64, String> {
@@ -361,7 +354,7 @@ mod tests {
             )
         });
         let mut statement = connection
-            .prepare(format!("select key_hash, key, value from {}", TABLE_NAME))
+            .prepare(format!("select key_hash, key, value from {TABLE_NAME}"))
             .unwrap()
             .into_cursor();
         let row = statement
@@ -385,7 +378,7 @@ mod tests {
             .await
             .unwrap();
         let mut statement = connection
-            .prepare(format!("select key_hash, key, value from {}", TABLE_NAME))
+            .prepare(format!("select key_hash, key, value from {TABLE_NAME}"))
             .unwrap()
             .into_cursor();
         let row = statement

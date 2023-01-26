@@ -163,10 +163,10 @@ mod tests {
 
         if parent_dir.exists() {
             fs::remove_dir_all(&parent_dir)
-                .unwrap_or_else(|_| panic!("Could not remove dir {:?}", parent_dir));
+                .unwrap_or_else(|_| panic!("Could not remove dir {parent_dir:?}"));
         }
         fs::create_dir_all(&parent_dir)
-            .unwrap_or_else(|_| panic!("Could not create dir {:?}", parent_dir));
+            .unwrap_or_else(|_| panic!("Could not create dir {parent_dir:?}"));
 
         parent_dir
     }
@@ -175,7 +175,7 @@ mod tests {
         for filename in child_filenames {
             let file = parent_dir.join(Path::new(filename));
             let mut source_file = File::create(file).unwrap();
-            write!(source_file, "This is a test file named '{}'", filename).unwrap();
+            write!(source_file, "This is a test file named '{filename}'").unwrap();
         }
     }
 

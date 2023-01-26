@@ -93,7 +93,7 @@ impl MithrilFixtureBuilder {
             if self.enable_signers_certification {
                 build_party_with_operational_certificate(party_index, &mut kes_keys_seed)
             } else {
-                format!("{:<032}", party_index)
+                format!("{party_index:<032}")
             }
         });
 
