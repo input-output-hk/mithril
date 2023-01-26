@@ -23,7 +23,7 @@ impl MithrilCommand {
         default_args: &[&str],
     ) -> Result<MithrilCommand, String> {
         let process_path = bin_dir.canonicalize().unwrap().join(name);
-        let log_path = work_dir.join(format!("{}.log", name));
+        let log_path = work_dir.join(format!("{name}.log"));
 
         // ugly but it's far easier for callers to manipulate string literals
         let mut env_vars: HashMap<String, String> = env_vars
@@ -53,7 +53,7 @@ impl MithrilCommand {
     }
 
     pub fn set_log_name(&mut self, name: &str) {
-        self.log_path = self.work_dir.join(format!("{}.log", name));
+        self.log_path = self.work_dir.join(format!("{name}.log"));
     }
 
     pub fn set_env_var(&mut self, name: &str, value: &str) {

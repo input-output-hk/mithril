@@ -128,7 +128,7 @@ async fn wait_for_enough_immutable(db_directory: &Path) -> Result<(), String> {
 }
 
 async fn wait_for_epoch_settings(aggregator_endpoint: &str) -> Result<EpochSettings, String> {
-    let url = format!("{}/epoch-settings", aggregator_endpoint);
+    let url = format!("{aggregator_endpoint}/epoch-settings");
     info!("Waiting for the aggregator to expose epoch settings");
 
     match attempt!(20, Duration::from_millis(1000), {
@@ -138,7 +138,7 @@ async fn wait_for_epoch_settings(aggregator_endpoint: &str) -> Result<EpochSetti
                     let epoch_settings = response
                         .json::<EpochSettings>()
                         .await
-                        .map_err(|e| format!("Invalid EpochSettings body : {}", e))?;
+                        .map_err(|e| format!("Invalid EpochSettings body : {e}"))?;
                     info!("Aggregator ready"; "epoch_settings"  => #?epoch_settings);
                     Ok(Some(epoch_settings))
                 }
@@ -157,8 +157,7 @@ async fn wait_for_epoch_settings(aggregator_endpoint: &str) -> Result<EpochSetti
         AttemptResult::Ok(epoch_settings) => Ok(epoch_settings),
         AttemptResult::Err(error) => Err(error),
         AttemptResult::Timeout() => Err(format!(
-            "Timeout exhausted for aggregator to be up, no response from `{}`",
-            url
+            "Timeout exhausted for aggregator to be up, no response from `{url}`"
         )),
     }
 }
@@ -183,7 +182,7 @@ async fn wait_for_target_epoch(
                 }
             }
             Ok(None) => Ok(None),
-            Err(err) => Err(format!("Could not query current epoch: {}", err)),
+            Err(err) => Err(format!("Could not query current epoch: {err}")),
         }
     }) {
         AttemptResult::Ok(_) => {
@@ -242,7 +241,7 @@ async fn update_protocol_parameters(aggregator: &mut Aggregator) -> Result<(), S
 }
 
 async fn assert_node_producing_snapshot(aggregator_endpoint: &str) -> Result<String, String> {
-    let url = format!("{}/snapshots", aggregator_endpoint);
+    let url = format!("{aggregator_endpoint}/snapshots");
     info!("Waiting for the aggregator to produce a snapshot");
 
     // todo: reduce the number of attempts if we can reduce the delay between two immutables
@@ -252,11 +251,11 @@ async fn assert_node_producing_snapshot(aggregator_endpoint: &str) -> Result<Str
                 StatusCode::OK => match response.json::<Vec<Snapshot>>().await.as_deref() {
                     Ok([snapshot, ..]) => Ok(Some(snapshot.digest.clone())),
                     Ok(&[]) => Ok(None),
-                    Err(err) => Err(format!("Invalid snapshot body : {}", err,)),
+                    Err(err) => Err(format!("Invalid snapshot body : {err}",)),
                 },
-                s => Err(format!("Unexpected status code from Aggregator: {}", s)),
+                s => Err(format!("Unexpected status code from Aggregator: {s}")),
             },
-            Err(err) => Err(format!("Request to `{}` failed: {}", url, err)),
+            Err(err) => Err(format!("Request to `{url}` failed: {err}")),
         }
     }) {
         AttemptResult::Ok(digest) => {
@@ -265,8 +264,7 @@ async fn assert_node_producing_snapshot(aggregator_endpoint: &str) -> Result<Str
         }
         AttemptResult::Err(error) => Err(error),
         AttemptResult::Timeout() => Err(format!(
-            "Timeout exhausted assert_node_producing_snapshot, no response from `{}`",
-            url
+            "Timeout exhausted assert_node_producing_snapshot, no response from `{url}`"
         )),
     }
 }
@@ -276,7 +274,7 @@ async fn assert_signer_is_signing_snapshot(
     digest: &str,
     expected_epoch_min: Epoch,
 ) -> Result<String, String> {
-    let url = format!("{}/snapshot/{}", aggregator_endpoint, digest);
+    let url = format!("{aggregator_endpoint}/snapshot/{digest}");
     info!(
         "Asserting the aggregator is signing the snapshot message `{}` with an expected min epoch of `{}`",
         digest,
@@ -290,16 +288,15 @@ async fn assert_signer_is_signing_snapshot(
                     Ok(snapshot) => match snapshot.beacon.epoch {
                         epoch if epoch >= expected_epoch_min => Ok(Some(snapshot)),
                         epoch => Err(format!(
-                            "Minimum expected snapshot epoch not reached : {} < {}",
-                            epoch, expected_epoch_min
+                            "Minimum expected snapshot epoch not reached : {epoch} < {expected_epoch_min}"
                         )),
                     },
-                    Err(err) => Err(format!("Invalid snapshot body : {}", err,)),
+                    Err(err) => Err(format!("Invalid snapshot body : {err}",)),
                 },
                 StatusCode::NOT_FOUND => Ok(None),
-                s => Err(format!("Unexpected status code from Aggregator: {}", s)),
+                s => Err(format!("Unexpected status code from Aggregator: {s}")),
             },
-            Err(err) => Err(format!("Request to `{}` failed: {}", url, err)),
+            Err(err) => Err(format!("Request to `{url}` failed: {err}")),
         }
     }) {
         AttemptResult::Ok(snapshot) => {
@@ -309,8 +306,7 @@ async fn assert_signer_is_signing_snapshot(
         }
         AttemptResult::Err(error) => Err(error),
         AttemptResult::Timeout() => Err(format!(
-            "Timeout exhausted assert_signer_is_signing_snapshot, no response from `{}`",
-            url
+            "Timeout exhausted assert_signer_is_signing_snapshot, no response from `{url}`"
         )),
     }
 }
@@ -320,19 +316,19 @@ async fn assert_is_creating_certificate_with_enough_signers(
     certificate_hash: &str,
     total_signers_expected: usize,
 ) -> Result<(), String> {
-    let url = format!("{}/certificate/{}", aggregator_endpoint, certificate_hash);
+    let url = format!("{aggregator_endpoint}/certificate/{certificate_hash}");
 
     match attempt!(10, Duration::from_millis(1000), {
         match reqwest::get(url.clone()).await {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<Certificate>().await {
                     Ok(certificate) => Ok(Some(certificate)),
-                    Err(err) => Err(format!("Invalid snapshot body : {}", err,)),
+                    Err(err) => Err(format!("Invalid snapshot body : {err}",)),
                 },
                 StatusCode::NOT_FOUND => Ok(None),
-                s => Err(format!("Unexpected status code from Aggregator: {}", s)),
+                s => Err(format!("Unexpected status code from Aggregator: {s}")),
             },
-            Err(err) => Err(format!("Request to `{}` failed: {}", url, err)),
+            Err(err) => Err(format!("Request to `{url}` failed: {err}")),
         }
     }) {
         AttemptResult::Ok(certificate) => {
@@ -354,8 +350,7 @@ async fn assert_is_creating_certificate_with_enough_signers(
         }
         AttemptResult::Err(error) => Err(error),
         AttemptResult::Timeout() => Err(format!(
-            "Timeout exhausted assert_is_creating_certificate, no response from `{}`",
-            url
+            "Timeout exhausted assert_is_creating_certificate, no response from `{url}`"
         )),
     }
 }
