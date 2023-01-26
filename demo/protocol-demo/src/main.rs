@@ -33,10 +33,7 @@ pub struct Config {
 fn main() {
     let config = Config::parse();
 
-    println!(
-        ">> Launch Mithril protocol demonstrator with configuration: \n{:#?}",
-        config
-    );
+    println!(">> Launch Mithril protocol demonstrator with configuration: \n{config:#?}");
 
     //////////////////////
     // establish phase //
@@ -68,7 +65,7 @@ fn main() {
             println!("\n>> Congrats, protocol terminated with success!\n")
         }
         Err(err) => {
-            println!("\n>> Certificate verification failed: {}\n", err)
+            println!("\n>> Certificate verification failed: {err}\n")
         }
     }
 }
