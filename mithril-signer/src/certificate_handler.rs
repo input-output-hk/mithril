@@ -107,8 +107,7 @@ impl CertificateHandlerHTTPClient {
             ))
         } else {
             CertificateHandlerError::ApiVersionMismatch(format!(
-                "version precondition failed, sent version '{}'.",
-                MITHRIL_API_VERSION
+                "version precondition failed, sent version '{MITHRIL_API_VERSION}'."
             ))
         }
     }
