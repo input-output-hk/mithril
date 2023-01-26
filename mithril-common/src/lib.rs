@@ -34,6 +34,9 @@ use semver::{Version, VersionReq};
 /// please also update the entry in the openapi.yml
 pub const MITHRIL_API_VERSION: &str = "0.1.1";
 
+/// Mithril API protocol version header name
+pub const MITHRIL_API_VERSION_HEADER: &str = "mithril-api-version";
+
 lazy_static! {
     /// The [SemVer version requirement][semver::VersionReq] associated with the [MITHRIL_API_VERSION].
     ///

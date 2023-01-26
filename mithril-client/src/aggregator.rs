@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use flate2::read::GzDecoder;
 use futures::StreamExt;
+use mithril_common::MITHRIL_API_VERSION_HEADER;
 use reqwest::{self, Response, StatusCode};
 use reqwest::{Client, RequestBuilder};
 use slog_scope::debug;
@@ -106,7 +107,7 @@ impl AggregatorHTTPClient {
 
     /// Forge a client request adding protocol version in the headers.
     pub fn prepare_request_builder(&self, request_builder: RequestBuilder) -> RequestBuilder {
-        request_builder.header("mithril-api-version", MITHRIL_API_VERSION)
+        request_builder.header(MITHRIL_API_VERSION_HEADER, MITHRIL_API_VERSION)
     }
 
     /// Download certificate details
@@ -147,7 +148,7 @@ impl AggregatorHTTPClient {
 
     /// API version error handling
     fn handle_api_error(&self, response: &Response) -> AggregatorHandlerError {
-        if let Some(version) = response.headers().get("mithril-api-version") {
+        if let Some(version) = response.headers().get(MITHRIL_API_VERSION_HEADER) {
             AggregatorHandlerError::ApiVersionMismatch(format!(
                 "server version: '{}', signer version: '{}'",
                 version.to_str().unwrap(),
@@ -390,7 +391,8 @@ mod tests {
         let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.path("/snapshots");
-            then.status(412).header("mithril-api-version", "0.0.999");
+            then.status(412)
+                .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
         });
         let aggregator_client =
             AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
@@ -456,7 +458,8 @@ mod tests {
         let digest = "digest123";
         let _snapshots_mock = server.mock(|when, then| {
             when.path(format!("/snapshot/{digest}"));
-            then.status(412).header("mithril-api-version", "0.0.999");
+            then.status(412)
+                .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
         });
         let aggregator_client =
             AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
@@ -520,7 +523,8 @@ mod tests {
         let url_path = "/download";
         let _snapshots_mock = server.mock(|when, then| {
             when.path(url_path.to_string());
-            then.status(412).header("mithril-api-version", "0.0.999");
+            then.status(412)
+                .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
         });
         let aggregator_client =
             AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
@@ -593,7 +597,8 @@ mod tests {
         let certificate_hash = "certificate-hash-123";
         let _snapshots_mock = server.mock(|when, then| {
             when.path(format!("/certificate/{certificate_hash}"));
-            then.status(412).header("mithril-api-version", "0.0.999");
+            then.status(412)
+                .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
         });
         let aggregator_client =
             AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
