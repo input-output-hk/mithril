@@ -115,7 +115,7 @@ fn main() {
     let msig_1 = match clerk.aggregate(&complete_sigs_1, &msg) {
         Ok(s) => s,
         Err(e) => {
-            panic!("Aggregation failed: {:?}", e)
+            panic!("Aggregation failed: {e:?}")
         }
     };
     assert!(msig_1.verify(&msg, &clerk.compute_avk(), &params).is_ok());
@@ -123,7 +123,7 @@ fn main() {
     let msig_2 = match clerk.aggregate(&complete_sigs_2, &msg) {
         Ok(s) => s,
         Err(e) => {
-            panic!("Aggregation failed: {:?}", e)
+            panic!("Aggregation failed: {e:?}")
         }
     };
     assert!(msig_2.verify(&msg, &clerk.compute_avk(), &params).is_ok());

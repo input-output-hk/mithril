@@ -15,7 +15,7 @@ where
     H: Digest + Clone + Sync + Send + Default + FixedOutput,
 {
     println!("+-------------------+");
-    println!("| Hash: {} |", hash_name);
+    println!("| Hash: {hash_name} |");
     println!("+-------------------+");
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
     let mut msg = [0u8; 16];

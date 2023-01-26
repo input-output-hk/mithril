@@ -12,7 +12,7 @@ fn batch_benches(c: &mut Criterion, array_batches: &[usize], nr_sigs: usize) {
     let mut batch_sig = Vec::new();
 
     for &nr_batches in array_batches {
-        let batch_string = format!("Batch size: {}", nr_batches);
+        let batch_string = format!("Batch size: {nr_batches}");
 
         for _ in 0..nr_batches {
             let mut msg = [0u8; 32];
