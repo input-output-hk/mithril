@@ -155,8 +155,7 @@ impl AggregatorHTTPClient {
             ))
         } else {
             AggregatorHandlerError::ApiVersionMismatch(format!(
-                "version precondition failed, sent version '{}'.",
-                MITHRIL_API_VERSION
+                "version precondition failed, sent version '{MITHRIL_API_VERSION}'."
             ))
         }
     }
@@ -314,8 +313,7 @@ impl CertificateRetriever for AggregatorHTTPClient {
 /// Computes local archive filepath
 fn archive_file_path(digest: &str, network: &str) -> Result<PathBuf, AggregatorHandlerError> {
     Ok(env::current_dir()?.join(path::Path::new(&format!(
-        "data/{}/{}/snapshot.archive.tar.gz",
-        network, digest
+        "data/{network}/{digest}/snapshot.archive.tar.gz"
     ))))
 }
 
@@ -362,7 +360,7 @@ mod tests {
             .join(path::Path::new(data_file_name));
         fs::create_dir_all(source_file_path.parent().unwrap()).unwrap();
         let mut source_file = fs::File::create(&source_file_path).unwrap();
-        write!(source_file, "{}", data_expected).unwrap();
+        write!(source_file, "{data_expected}").unwrap();
         let archive_file = fs::File::create(&archive_file_path).unwrap();
         let archive_encoder = GzEncoder::new(&archive_file, Compression::default());
         let mut archive_builder = tar::Builder::new(archive_encoder);
@@ -428,7 +426,7 @@ mod tests {
         let (server, config) = setup_test();
         let snapshot_expected = fake_data::snapshots(1).first().unwrap().to_owned();
         let _snapshots_mock = server.mock(|when, then| {
-            when.path(format!("/snapshot/{}", digest));
+            when.path(format!("/snapshot/{digest}"));
             then.status(200).body(json!(snapshot_expected).to_string());
         });
         let aggregator_client =
@@ -443,7 +441,7 @@ mod tests {
         let digest = "digest123";
         let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
-            when.path(format!("/snapshot/{}", digest));
+            when.path(format!("/snapshot/{digest}"));
             then.status(404);
         });
         let aggregator_client =
@@ -457,7 +455,7 @@ mod tests {
         let (server, config) = setup_test();
         let digest = "digest123";
         let _snapshots_mock = server.mock(|when, then| {
-            when.path(format!("/snapshot/{}", digest));
+            when.path(format!("/snapshot/{digest}"));
             then.status(412).header("mithril-api-version", "0.0.999");
         });
         let aggregator_client =
@@ -475,7 +473,7 @@ mod tests {
         let digest = "digest123";
         let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
-            when.path(format!("/snapshot/{}", digest));
+            when.path(format!("/snapshot/{digest}"));
             then.status(500);
         });
         let aggregator_client =
@@ -594,7 +592,7 @@ mod tests {
         let (server, config) = setup_test();
         let certificate_hash = "certificate-hash-123";
         let _snapshots_mock = server.mock(|when, then| {
-            when.path(format!("/certificate/{}", certificate_hash));
+            when.path(format!("/certificate/{certificate_hash}"));
             then.status(412).header("mithril-api-version", "0.0.999");
         });
         let aggregator_client =
@@ -611,7 +609,7 @@ mod tests {
         let (server, config) = setup_test();
         let certificate_expected = fake_data::certificate(certificate_hash.to_string());
         let _certificate_mock = server.mock(|when, then| {
-            when.path(format!("/certificate/{}", certificate_hash));
+            when.path(format!("/certificate/{certificate_hash}"));
             then.status(200)
                 .body(json!(certificate_expected).to_string());
         });
@@ -629,7 +627,7 @@ mod tests {
         let certificate_hash = "certificate-hash-123";
         let (server, config) = setup_test();
         let _certificate_mock = server.mock(|when, then| {
-            when.path(format!("/certificate/{}", certificate_hash));
+            when.path(format!("/certificate/{certificate_hash}"));
             then.status(404);
         });
         let aggregator_client =
@@ -645,7 +643,7 @@ mod tests {
         let certificate_hash = "certificate-hash-123";
         let (server, config) = setup_test();
         let _certificate_mock = server.mock(|when, then| {
-            when.path(format!("/certificate/{}", certificate_hash));
+            when.path(format!("/certificate/{certificate_hash}"));
             then.status(500);
         });
         let aggregator_client =

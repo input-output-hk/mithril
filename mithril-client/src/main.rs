@@ -140,5 +140,5 @@ async fn main() -> Result<(), String> {
 
     args.execute()
         .await
-        .map_err(|e| format!("An error occured: {:?}", e))
+        .map_err(|e| format!("An error occured: {e:?}"))
 }
