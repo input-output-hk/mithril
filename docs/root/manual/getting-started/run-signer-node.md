@@ -266,5 +266,7 @@ And monitor the logs of the service
 tail /var/log/syslog
 ```
 
-There is a 2 epoch delay between the signer node registering and signing the snapshots.
-Then, you should be able to see your pool's id on certificates listed on the [`Mithril explorer`](https://mithril.network/explorer)
+:::tip
+There is a `2` epochs delay between the signer node registration and its ability to create individual signatures, as explained in the [Mithril Certificate Chain in depth](https://mithril.network/doc/mithril/mithril-protocol/certificates).
+After this delay, you should be able to see your `PoolId` listed in some of the certificates available on the [`Mithril Explorer`](https://mithril.network/explorer)
+:::
