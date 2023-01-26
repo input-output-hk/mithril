@@ -55,7 +55,7 @@ mod tests {
     #[test]
     fn should_extract_digest_from_path() {
         let digest = "41e27b9ed5a32531b95b2b7ff3c0757591a06a337efaf19a524a998e348028e7".to_string();
-        let filename = format!("testnet.{}.tar.gz", digest);
+        let filename = format!("testnet.{digest}.tar.gz");
         let result = extract_digest_from_path(Path::new(&filename));
 
         assert_eq!(Ok(digest), result);
@@ -64,7 +64,7 @@ mod tests {
     #[test]
     fn extract_digest_from_path_fail_if_file_named_incorrectly() {
         let digest = "41e27b9ed5a32531b95b2b7ff3c0757591a06a337efaf19a524a998e348028e7".to_string();
-        let filename = format!("{}.zip", digest);
+        let filename = format!("{digest}.zip");
         let result = extract_digest_from_path(Path::new(&filename));
 
         assert_eq!(Err(DigestExtractError::DigestNotFound(filename)), result);
@@ -73,7 +73,7 @@ mod tests {
     #[test]
     fn extract_digest_from_path_fail_if_tar_file_named_incorrectly() {
         let digest = "41e27b9ed5a32531b95b2b7ff3c0757591a06a337efaf19a524a998e348028e7".to_string();
-        let filename = format!("{}.tar.gz", digest);
+        let filename = format!("{digest}.tar.gz");
         let result = extract_digest_from_path(Path::new(&filename));
 
         assert_eq!(
@@ -85,7 +85,7 @@ mod tests {
     #[test]
     fn extract_digest_from_path_fail_if_digest_not_hexadecimal() {
         let digest = "not_hexadecimal".to_string();
-        let filename = format!("testnet.{}.tar.gz", digest);
+        let filename = format!("testnet.{digest}.tar.gz");
         let result = extract_digest_from_path(Path::new(&filename));
 
         assert_eq!(Err(DigestExtractError::InvalidDigest(digest)), result);

@@ -90,7 +90,7 @@ mod test {
         let mut certificates = vec![];
 
         for ix in 0..size {
-            let mut certificate = fake_data::certificate(format!("cert_{:0>2}", ix));
+            let mut certificate = fake_data::certificate(format!("cert_{ix:0>2}"));
             // Change the beacon to properly test [CertificateStore::get_from_beacon]
             certificate.beacon = beacon.clone();
             beacon.immutable_file_number += 1;

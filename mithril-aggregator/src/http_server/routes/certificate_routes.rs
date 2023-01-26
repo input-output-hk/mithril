@@ -121,7 +121,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
@@ -143,7 +143,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
@@ -164,7 +164,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
@@ -191,7 +191,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
@@ -213,7 +213,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
@@ -240,7 +240,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 

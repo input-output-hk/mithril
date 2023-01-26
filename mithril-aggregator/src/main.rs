@@ -26,7 +26,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let result = args.execute().await;
 
     if result.is_err() {
-        eprintln!("ERROR: application ends abnormaly: {:?}", result);
+        eprintln!("ERROR: application ends abnormaly: {result:?}");
     }
 
     result
