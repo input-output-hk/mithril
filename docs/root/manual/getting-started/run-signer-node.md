@@ -265,3 +265,8 @@ And monitor the logs of the service
 ```bash
 tail /var/log/syslog
 ```
+
+:::tip
+There is a `2` epochs delay between the signer node registration and its ability to create individual signatures, as explained in the [Mithril Certificate Chain in depth](https://mithril.network/doc/mithril/mithril-protocol/certificates).
+After this delay, you should be able to see your `PoolId` listed in some of the certificates available on the [`Mithril Explorer`](https://mithril.network/explorer)
+:::
