@@ -76,9 +76,12 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Read the stake distribution from the blockchain and store it.
     async fn update_stake_distribution(&self, new_beacon: &Beacon) -> Result<(), RuntimeError>;
 
-    /// Open the signer registration round for an epoch.
+    /// Open the signer registration round of an epoch.
     async fn open_signer_registration_round(&self, new_beacon: &Beacon)
         -> Result<(), RuntimeError>;
+
+    /// Close the signer registration round of an epoch.
+    async fn close_signer_registration_round(&self) -> Result<(), RuntimeError>;
 
     /// Update the multisigner with the protocol parameters from configuration.
     async fn update_protocol_parameters_in_multisigner(
@@ -309,6 +312,17 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         self.dependencies
             .signer_registration_round_opener
             .open_registration_round(registration_epoch, stakes)
+            .await?;
+
+        Ok(())
+    }
+
+    async fn close_signer_registration_round(&self) -> Result<(), RuntimeError> {
+        debug!("RUNNER: close signer registration round");
+
+        self.dependencies
+            .signer_registration_round_opener
+            .close_registration_round()
             .await?;
 
         Ok(())
@@ -768,6 +782,32 @@ pub mod tests {
             Some(expected_signer_registration_round),
             saved_current_round,
         );
+    }
+
+    #[tokio::test]
+    async fn test_close_signer_registration_round() {
+        let (mut deps, config) = initialize_dependencies().await;
+        let signer_registration_round_opener = Arc::new(MithrilSignerRegisterer::new(
+            deps.chain_observer.clone(),
+            deps.verification_key_store.clone(),
+        ));
+        deps.signer_registration_round_opener = signer_registration_round_opener.clone();
+        let deps = Arc::new(deps);
+        let runner = AggregatorRunner::new(config, deps.clone());
+
+        let beacon = fake_data::beacon();
+        runner
+            .open_signer_registration_round(&beacon)
+            .await
+            .expect("opening signer registration should not return an error");
+
+        runner
+            .close_signer_registration_round()
+            .await
+            .expect("closing signer registration should not return an error");
+
+        let saved_current_round = signer_registration_round_opener.get_current_round().await;
+        assert!(saved_current_round.is_none());
     }
 
     #[tokio::test]
