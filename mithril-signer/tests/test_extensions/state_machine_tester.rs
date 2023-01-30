@@ -240,10 +240,7 @@ impl StateMachineTester {
         let new_immutable = immutable_number + increment;
         self.assert(
             expected == new_immutable,
-            format!(
-                "expected to increase immutable number up to {}, got {}",
-                expected, new_immutable
-            ),
+            format!("expected to increase immutable number up to {expected}, got {new_immutable}"),
         )?;
         self.immutable_observer
             .shall_return(Some(new_immutable))
@@ -262,10 +259,7 @@ impl StateMachineTester {
 
         self.assert(
             expected == new_epoch,
-            format!(
-                "Epoch increased by 1 to {} ({} expected)",
-                new_epoch, expected
-            ),
+            format!("Epoch increased by 1 to {new_epoch} ({expected} expected)"),
         )
     }
 

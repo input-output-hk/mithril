@@ -101,8 +101,7 @@ mod tests {
             assert_eq!(
                 data_len as usize,
                 store.adapter.read().await.get_iter().await.unwrap().count(),
-                "test no pruning with dataset length = {}",
-                data_len
+                "test no pruning with dataset length = {data_len}"
             );
         }
     }
@@ -118,8 +117,7 @@ mod tests {
             assert_eq!(
                 data_len as usize,
                 store.adapter.read().await.get_iter().await.unwrap().count(),
-                "test pruning with retention limit = {}",
-                data_len
+                "test pruning with retention limit = {data_len}"
             );
         }
     }

@@ -58,11 +58,11 @@ impl Client {
                     Ok(())
                 } else {
                     self.command
-                        .tail_logs(Some(format!("mithril-client {:?}", args).as_str()), 20)
+                        .tail_logs(Some(format!("mithril-client {args:?}").as_str()), 20)
                         .await?;
 
                     Err(match status.code() {
-                        Some(c) => format!("mithril-client exited with code: {}", c),
+                        Some(c) => format!("mithril-client exited with code: {c}"),
                         None => "mithril-client was terminated with a signal".to_string(),
                     })
                 }

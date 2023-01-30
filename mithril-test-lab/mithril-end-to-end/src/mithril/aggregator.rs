@@ -78,10 +78,9 @@ impl Aggregator {
                     Ok(())
                 } else {
                     Err(match status.code() {
-                        Some(c) => format!(
-                            "`mithril-aggregator genesis bootstrap` exited with code: {}",
-                            c
-                        ),
+                        Some(c) => {
+                            format!("`mithril-aggregator genesis bootstrap` exited with code: {c}")
+                        }
                         None => {
                             "`mithril-aggregator genesis bootstrap` was terminated with a signal"
                                 .to_string()
@@ -98,7 +97,7 @@ impl Aggregator {
             process
                 .kill()
                 .await
-                .map_err(|e| format!("Could not kill aggregator: {:?}", e))?;
+                .map_err(|e| format!("Could not kill aggregator: {e:?}"))?;
         }
         Ok(())
     }

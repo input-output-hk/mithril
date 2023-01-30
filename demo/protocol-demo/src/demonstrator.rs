@@ -63,9 +63,9 @@ pub struct Party {
 impl Party {
     /// Party factory
     pub fn new(party_id: usize, stake: u64) -> Self {
-        println!("Party #{}: party created with {} stakes", party_id, stake);
+        println!("Party #{party_id}: party created with {stake} stakes");
         Self {
-            party_id: format!("{}", party_id) as ProtocolPartyId,
+            party_id: format!("{party_id}") as ProtocolPartyId,
             stake: stake as ProtocolStake,
             params: None,
             initializer: None,
@@ -225,7 +225,7 @@ impl Verifier {
 
     /// Update protocol parameters
     pub fn update_params(&mut self, params: &ProtocolParameters) {
-        println!("Verifier: protocol params updated to {:?}", params);
+        println!("Verifier: protocol params updated to {params:?}");
         self.params = Some(*params);
     }
 
@@ -242,7 +242,7 @@ impl Verifier {
             .iter()
             .map(|(party_id, stake, _verification_key)| (party_id.to_owned(), *stake))
             .collect::<Vec<_>>();
-        println!("Verifier: protocol keys registration from {:?}", players);
+        println!("Verifier: protocol keys registration from {players:?}");
 
         let mut key_reg = ProtocolKeyRegistrationNotCertified::init();
         for (_party_id, stake, verification_key) in players_with_keys {
@@ -404,7 +404,7 @@ impl ProtocolDemonstrator for Demonstrator {
         let mut multi_signature_artifacts = Vec::new();
         for (i, message) in self.messages.iter().enumerate() {
             // Issue certificates
-            println!("Message #{} to sign: {:?}", i, message);
+            println!("Message #{i} to sign: {message:?}");
             let mut signatures = Vec::<ProtocolSingleSignature>::new();
             for party in self.parties.iter_mut() {
                 if let Some(party_signature) = party.sign_message(message) {
@@ -465,7 +465,7 @@ impl ProtocolDemonstrator for Demonstrator {
 
 /// Write artifacts helper
 pub fn write_artifacts<T: Serialize>(artifact_name: &str, value: &T) {
-    let artifacts_file_path_name = format!("artifacts/{}.json", artifact_name);
+    let artifacts_file_path_name = format!("artifacts/{artifact_name}.json");
     let artifacts_file_path = env::current_dir()
         .unwrap()
         .join(path::Path::new(&artifacts_file_path_name));
@@ -477,7 +477,7 @@ pub fn write_artifacts<T: Serialize>(artifact_name: &str, value: &T) {
         serde_json::to_string_pretty(value).unwrap()
     )
     .unwrap();
-    println!("Artifacts written to {}", artifacts_file_path_name);
+    println!("Artifacts written to {artifacts_file_path_name}");
 }
 
 #[cfg(test)]

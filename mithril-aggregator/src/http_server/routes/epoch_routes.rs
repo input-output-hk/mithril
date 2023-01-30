@@ -55,7 +55,7 @@ mod handlers {
                             protocol_parameters,
                             next_protocol_parameters,
                         };
-                        println!("EpochSettings={:?}", epoch_settings);
+                        println!("EpochSettings={epoch_settings:?}");
                         let epoch_settings_message =
                             ToEpochSettingsMessageAdapter::adapt(epoch_settings);
                         Ok(reply::json(&epoch_settings_message, StatusCode::OK))
@@ -116,7 +116,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
@@ -137,7 +137,7 @@ mod tests {
 
         let response = request()
             .method(method)
-            .path(&format!("/{}{}", SERVER_BASE_PATH, path))
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 

@@ -17,7 +17,7 @@ fn stm_benches<H>(c: &mut Criterion, nr_parties: usize, params: StmParameters, h
 where
     H: Clone + Debug + Digest + Send + Sync + FixedOutput + Default,
 {
-    let mut group = c.benchmark_group(format!("STM/{}", hashing_alg));
+    let mut group = c.benchmark_group(format!("STM/{hashing_alg}"));
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
     let mut msg = [0u8; 16];
     rng.fill_bytes(&mut msg);
@@ -82,7 +82,7 @@ fn batch_benches<H>(
 ) where
     H: Clone + Debug + Digest + FixedOutput + Send + Sync,
 {
-    let mut group = c.benchmark_group(format!("STM/{}", hashing_alg));
+    let mut group = c.benchmark_group(format!("STM/{hashing_alg}"));
     let mut rng = ChaCha20Rng::from_seed([0u8; 32]);
 
     let param_string = format!(
@@ -91,7 +91,7 @@ fn batch_benches<H>(
     );
 
     for &nr_batches in array_batches {
-        let batch_string = format!("{}/batch size: {}", param_string, nr_batches);
+        let batch_string = format!("{param_string}/batch size: {nr_batches}");
 
         let mut batch_msgs = Vec::with_capacity(nr_batches);
         let mut batch_params = Vec::with_capacity(nr_batches);

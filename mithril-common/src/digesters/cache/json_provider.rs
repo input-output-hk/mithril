@@ -122,10 +122,10 @@ mod tests {
 
         if parent_dir.exists() {
             fs::remove_dir_all(&parent_dir)
-                .unwrap_or_else(|e| panic!("Could not remove dir {:?}: {}", parent_dir, e));
+                .unwrap_or_else(|e| panic!("Could not remove dir {parent_dir:?}: {e}"));
         }
         fs::create_dir_all(&parent_dir)
-            .unwrap_or_else(|e| panic!("Could not create dir {:?}: {}", parent_dir, e));
+            .unwrap_or_else(|e| panic!("Could not create dir {parent_dir:?}: {e}"));
 
         parent_dir
     }

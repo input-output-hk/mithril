@@ -113,7 +113,7 @@ mod tests {
             let mut signers: StakeDistribution = HashMap::new();
 
             for party_idx in 1..=signers_per_epoch {
-                let party_id = format!("{}", party_idx);
+                let party_id = format!("{party_idx}");
                 signers.insert(party_id.clone(), 100 * party_idx + 1);
             }
             values.push((Epoch(epoch), signers));

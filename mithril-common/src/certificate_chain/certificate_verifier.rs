@@ -422,8 +422,7 @@ mod tests {
                 verify,
                 Err(CertificateVerifierError::CertificateChainPreviousHashUnmatch)
             ),
-            "unexpected error type: {:?}",
-            verify
+            "unexpected error type: {verify:?}"
         );
     }
 
@@ -460,8 +459,7 @@ mod tests {
                 verify,
                 Err(CertificateVerifierError::CertificateChainAVKUnmatch)
             ),
-            "unexpected error type: {:?}",
-            verify
+            "unexpected error type: {verify:?}"
         );
     }
 
@@ -487,8 +485,7 @@ mod tests {
                 verify,
                 Err(CertificateVerifierError::CertificateHashUnmatch)
             ),
-            "unexpected error type: {:?}",
-            verify
+            "unexpected error type: {verify:?}"
         );
     }
 
@@ -550,8 +547,7 @@ mod tests {
                 verify,
                 Err(CertificateVerifierError::CertificateChainPreviousHashUnmatch)
             ),
-            "unexpected error type: {:?}",
-            verify
+            "unexpected error type: {verify:?}"
         );
     }
 }

@@ -24,7 +24,7 @@ impl Signer {
     ) -> Result<Self, String> {
         let party_id = pool_node.party_id()?;
         let magic_id = DEVNET_MAGIC_ID.to_string();
-        let data_stores_path = format!("./stores/signer-{}", party_id);
+        let data_stores_path = format!("./stores/signer-{party_id}");
         let mut env = HashMap::from([
             ("NETWORK", "devnet"),
             ("RUN_INTERVAL", "300"),
@@ -53,7 +53,7 @@ impl Signer {
         let args = vec!["-vvv"];
 
         let mut command = MithrilCommand::new("mithril-signer", work_dir, bin_dir, env, &args)?;
-        command.set_log_name(format!("mithril-signer-{}", party_id).as_str());
+        command.set_log_name(format!("mithril-signer-{party_id}").as_str());
 
         Ok(Self {
             party_id,

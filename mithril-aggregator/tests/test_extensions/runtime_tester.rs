@@ -87,7 +87,7 @@ impl RuntimeTester {
         self.runtime
             .cycle()
             .await
-            .map_err(|e| format!("Ticking the state machine should not fail, error: {:?}", e))?;
+            .map_err(|e| format!("Ticking the state machine should not fail, error: {e:?}"))?;
         Ok(())
     }
 
@@ -101,17 +101,14 @@ impl RuntimeTester {
             .beacon_provider
             .get_current_beacon()
             .await
-            .map_err(|e| format!("Querying the current beacon should not fail: {:?}", e))?;
+            .map_err(|e| format!("Querying the current beacon should not fail: {e:?}"))?;
         let protocol_parameters = self
             .deps
             .protocol_parameters_store
             .get_protocol_parameters(beacon.epoch)
             .await
             .map_err(|e| {
-                format!(
-                    "Querying the recording epoch protocol_parameters should not fail: {:?}",
-                    e
-                )
+                format!("Querying the recording epoch protocol_parameters should not fail: {e:?}")
             })?
             .ok_or("A protocol parameters for the epoch should be available")?;
         let first_signer = &&signers
@@ -124,32 +121,22 @@ impl RuntimeTester {
         let genesis_protocol_message = CertificateGenesisProducer::create_genesis_protocol_message(
             &genesis_avk,
         )
-        .map_err(|e| {
-            format!(
-                "Creating the genesis protocol message should not fail: {:?}",
-                e
-            )
-        })?;
+        .map_err(|e| format!("Creating the genesis protocol message should not fail: {e:?}"))?;
         let genesis_signature = genesis_producer
             .sign_genesis_protocol_message(genesis_protocol_message)
-            .map_err(|e| {
-                format!(
-                    "Signing the genesis protocol message should not fail: {:?}",
-                    e
-                )
-            })?;
+            .map_err(|e| format!("Signing the genesis protocol message should not fail: {e:?}"))?;
         let genesis_certificate = CertificateGenesisProducer::create_genesis_certificate(
             protocol_parameters,
             beacon,
             genesis_avk,
             genesis_signature,
         )
-        .map_err(|e| format!("Creating the genesis certificate should not fail: {:?}", e))?;
+        .map_err(|e| format!("Creating the genesis certificate should not fail: {e:?}"))?;
         self.deps
             .certificate_store
             .save(genesis_certificate)
             .await
-            .map_err(|e| format!("Saving the genesis certificate should not fail: {:?}", e))?;
+            .map_err(|e| format!("Saving the genesis certificate should not fail: {e:?}"))?;
         Ok(())
     }
 
@@ -163,16 +150,14 @@ impl RuntimeTester {
             .beacon_provider
             .get_current_beacon()
             .await
-            .map_err(|e| format!("Querying the current beacon should not fail: {:?}", e))?
+            .map_err(|e| format!("Querying the current beacon should not fail: {e:?}"))?
             .immutable_file_number;
 
         if new_immutable_number == updated_number {
             Ok(new_immutable_number)
         } else {
             Err(format!(
-                "beacon_provider immutable file number should've increased, expected:{} / actual:{}",
-                new_immutable_number,
-                updated_number))
+                "beacon_provider immutable file number should've increased, expected:{new_immutable_number} / actual:{updated_number}"))
         }
     }
 
@@ -195,7 +180,7 @@ impl RuntimeTester {
                 .signer_registerer
                 .register_signer(&signer_with_stake.to_owned().into())
                 .await
-                .map_err(|e| format!("Registering a signer should not fail: {:?}", e))?;
+                .map_err(|e| format!("Registering a signer should not fail: {e:?}"))?;
         }
 
         Ok(())
@@ -224,10 +209,7 @@ impl RuntimeTester {
                     .register_single_signature(&single_signatures)
                     .await
                     .map_err(|e| {
-                        format!(
-                            "registering a winning lottery signature should not fail: {:?}",
-                            e
-                        )
+                        format!("registering a winning lottery signature should not fail: {e:?}")
                     })?;
             } else {
                 panic!(
@@ -251,13 +233,13 @@ impl RuntimeTester {
             .certificate_store
             .get_list(1000) // Arbitrary high number to get all of them in store
             .await
-            .map_err(|e| format!("Querying certificate store should not fail {:?}", e))?;
+            .map_err(|e| format!("Querying certificate store should not fail {e:?}"))?;
         let snapshots = self
             .deps
             .snapshot_store
             .list_snapshots()
             .await
-            .map_err(|e| format!("Querying snapshot store should not fail {:?}", e))?;
+            .map_err(|e| format!("Querying snapshot store should not fail {e:?}"))?;
 
         Ok((certificates, snapshots))
     }
@@ -275,17 +257,14 @@ impl RuntimeTester {
             .beacon_provider
             .get_current_beacon()
             .await
-            .map_err(|e| format!("Querying the current beacon should not fail: {:?}", e))?;
+            .map_err(|e| format!("Querying the current beacon should not fail: {e:?}"))?;
         let protocol_parameters = self
             .deps
             .protocol_parameters_store
             .get_protocol_parameters(beacon.epoch.offset_to_recording_epoch())
             .await
             .map_err(|e| {
-                format!(
-                    "Querying the recording epoch protocol_parameters should not fail: {:?}",
-                    e
-                )
+                format!("Querying the recording epoch protocol_parameters should not fail: {e:?}")
             })?
             .ok_or("A protocol parameters for the recording epoch should be available")?;
 
@@ -311,7 +290,7 @@ impl RuntimeTester {
             .beacon_provider
             .get_current_beacon()
             .await
-            .map_err(|e| format!("Querying the current beacon should not fail: {:?}", e))?;
+            .map_err(|e| format!("Querying the current beacon should not fail: {e:?}"))?;
 
         self.digester
             .update_digest(format!(

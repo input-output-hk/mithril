@@ -39,7 +39,7 @@ impl PoolNode {
         let party_id = content
             .split('=')
             .nth(1)
-            .ok_or(format!("could not get party_id from string '{}'", content))?;
+            .ok_or(format!("could not get party_id from string '{content}'"))?;
 
         Ok(party_id.trim().to_string())
     }
@@ -75,7 +75,7 @@ impl Devnet {
 
         if artifacts_target_dir.exists() {
             fs::remove_dir_all(&artifacts_target_dir)
-                .map_err(|e| format!("Previous artifacts dir removal failed: {}", e))?;
+                .map_err(|e| format!("Previous artifacts dir removal failed: {e}"))?;
         }
 
         let mut bootstrap_command = Command::new(&bootstrap_script_path);
@@ -96,10 +96,10 @@ impl Devnet {
 
         bootstrap_command
             .spawn()
-            .map_err(|e| format!("{} failed to start: {}", bootstrap_script, e))?
+            .map_err(|e| format!("{bootstrap_script} failed to start: {e}"))?
             .wait()
             .await
-            .map_err(|e| format!("{} failed to run: {}", bootstrap_script, e))?;
+            .map_err(|e| format!("{bootstrap_script} failed to run: {e}"))?;
 
         Ok(Devnet {
             artifacts_dir: artifacts_target_dir,
@@ -126,27 +126,27 @@ impl Devnet {
         let bft_nodes = (1..=self.number_of_bft_nodes)
             .into_iter()
             .map(|n| BftNode {
-                db_path: self.artifacts_dir.join(format!("node-bft{}/db", n)),
+                db_path: self.artifacts_dir.join(format!("node-bft{n}/db")),
                 socket_path: self
                     .artifacts_dir
-                    .join(format!("node-bft{}/ipc/node.sock", n)),
+                    .join(format!("node-bft{n}/ipc/node.sock")),
             })
             .collect::<Vec<_>>();
 
         let pool_nodes = (1..=self.number_of_pool_nodes)
             .into_iter()
             .map(|n| PoolNode {
-                db_path: self.artifacts_dir.join(format!("node-pool{}/db", n)),
+                db_path: self.artifacts_dir.join(format!("node-pool{n}/db")),
                 socket_path: self
                     .artifacts_dir
-                    .join(format!("node-pool{}/ipc/node.sock", n)),
-                pool_env_path: self.artifacts_dir.join(format!("node-pool{}/pool.env", n)),
+                    .join(format!("node-pool{n}/ipc/node.sock")),
+                pool_env_path: self.artifacts_dir.join(format!("node-pool{n}/pool.env")),
                 kes_secret_key_path: self
                     .artifacts_dir
-                    .join(format!("node-pool{}/shelley/kes.skey", n)),
+                    .join(format!("node-pool{n}/shelley/kes.skey")),
                 operational_certificate_path: self
                     .artifacts_dir
-                    .join(format!("node-pool{}/shelley/node.cert", n)),
+                    .join(format!("node-pool{n}/shelley/node.cert")),
             })
             .collect::<Vec<_>>();
 
@@ -168,10 +168,10 @@ impl Devnet {
 
         run_command
             .spawn()
-            .map_err(|e| format!("Failed to start the devnet: {}", e))?
+            .map_err(|e| format!("Failed to start the devnet: {e}"))?
             .wait()
             .await
-            .map_err(|e| format!("Error while starting the devnet: {}", e))?;
+            .map_err(|e| format!("Error while starting the devnet: {e}"))?;
         Ok(())
     }
 
@@ -187,10 +187,10 @@ impl Devnet {
 
         stop_command
             .spawn()
-            .map_err(|e| format!("Failed to stop the devnet: {}", e))?
+            .map_err(|e| format!("Failed to stop the devnet: {e}"))?
             .wait()
             .await
-            .map_err(|e| format!("Error while stopping the devnet: {}", e))?;
+            .map_err(|e| format!("Error while stopping the devnet: {e}"))?;
         Ok(())
     }
 
@@ -206,10 +206,10 @@ impl Devnet {
 
         run_command
             .spawn()
-            .map_err(|e| format!("Failed to delegate stakes to the pools: {}", e))?
+            .map_err(|e| format!("Failed to delegate stakes to the pools: {e}"))?
             .wait()
             .await
-            .map_err(|e| format!("Error while delegating stakes to the pools: {}", e))?;
+            .map_err(|e| format!("Error while delegating stakes to the pools: {e}"))?;
         Ok(())
     }
 }

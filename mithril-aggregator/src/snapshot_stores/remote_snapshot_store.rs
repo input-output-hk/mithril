@@ -42,8 +42,7 @@ impl SnapshotStore for RemoteSnapshotStore {
                     Err(err) => Err(SnapshotStoreError::Manifest(err.to_string())),
                 },
                 status_error => Err(SnapshotStoreError::Manifest(format!(
-                    "error {} received",
-                    status_error
+                    "error {status_error} received"
                 ))),
             },
             Err(err) => Err(SnapshotStoreError::Manifest(err.to_string())),

@@ -33,7 +33,7 @@ impl SnapshotUploader for LocalSnapshotUploader {
         let target_path = &self.target_location.join(archive_name);
         tokio::fs::copy(snapshot_filepath, target_path)
             .await
-            .map_err(|e| format!("Snapshot copy failure: {}", e))?;
+            .map_err(|e| format!("Snapshot copy failure: {e}"))?;
 
         let digest = tools::extract_digest_from_path(Path::new(archive_name));
         let location = format!(
@@ -58,7 +58,7 @@ mod tests {
     use tempfile::tempdir;
 
     fn create_fake_archive(dir: &Path, digest: &str) -> PathBuf {
-        let file_path = dir.join(format!("test.{}.tar.gz", digest));
+        let file_path = dir.join(format!("test.{digest}.tar.gz"));
         let mut file = File::create(&file_path).unwrap();
         writeln!(
             file,

@@ -10,7 +10,7 @@ where
     T: Serialize,
 {
     Ok(serde_json::to_string(&from)
-        .map_err(|e| format!("can't convert to hex: {}", e))?
+        .map_err(|e| format!("can't convert to hex: {e}"))?
         .encode_hex::<String>())
 }
 
@@ -19,8 +19,8 @@ pub fn key_decode_hex<T>(from: &HexEncodedKey) -> Result<T, String>
 where
     T: DeserializeOwned,
 {
-    let from_vec = Vec::from_hex(from).map_err(|e| format!("can't parse from hex: {}", e))?;
-    serde_json::from_slice(from_vec.as_slice()).map_err(|e| format!("can't deserialize: {}", e))
+    let from_vec = Vec::from_hex(from).map_err(|e| format!("can't parse from hex: {e}"))?;
+    serde_json::from_slice(from_vec.as_slice()).map_err(|e| format!("can't deserialize: {e}"))
 }
 
 #[cfg(test)]

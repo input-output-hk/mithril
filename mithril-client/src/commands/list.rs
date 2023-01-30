@@ -24,9 +24,9 @@ impl ListCommand {
         debug!("List snapshots");
         let config: Config = config_builder
             .build()
-            .map_err(|e| format!("configuration build error: {}", e))?
+            .map_err(|e| format!("configuration build error: {e}"))?
             .try_deserialize()
-            .map_err(|e| format!("configuration deserialize error: {}", e))?;
+            .map_err(|e| format!("configuration deserialize error: {e}"))?;
         debug!("{:?}", config);
         let runtime = Runtime::new(config.network.clone());
         let aggregator_handler =

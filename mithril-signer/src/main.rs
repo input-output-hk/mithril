@@ -91,9 +91,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
         )
         .add_source(config::Environment::default())
         .build()
-        .map_err(|e| format!("configuration build error: {}", e))?
+        .map_err(|e| format!("configuration build error: {e}"))?
         .try_deserialize()
-        .map_err(|e| format!("configuration deserialize error: {}", e))?;
+        .map_err(|e| format!("configuration deserialize error: {e}"))?;
     let services = ProductionServiceBuilder::new(&config).build().await?;
     DatabaseVersionChecker::new(
         slog_scope::logger(),
@@ -101,7 +101,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         config.get_sqlite_file(),
     )
     .apply()?;
-    debug!("Started"; "run_mode" => &args.run_mode, "config" => format!("{:?}", config));
+    debug!("Started"; "run_mode" => &args.run_mode, "config" => format!("{config:?}"));
 
     let mut state_machine = StateMachine::new(
         SignerState::Unregistered(None),

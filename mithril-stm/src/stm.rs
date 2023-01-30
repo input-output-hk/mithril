@@ -1015,10 +1015,10 @@ mod tests {
             }
 
             let dedup_result = clerk.dedup_sigs_for_indices(&msg, &sigs);
-            assert!(dedup_result.is_ok(), "dedup failure {:?}", dedup_result);
+            assert!(dedup_result.is_ok(), "dedup failure {dedup_result:?}");
             for passed_sigs in dedup_result.unwrap() {
                 let verify_result = passed_sigs.verify(&params, &ps[0].vk, &ps[0].stake, &avk, &msg);
-                assert!(verify_result.is_ok(), "verify {:?}", verify_result);
+                assert!(verify_result.is_ok(), "verify {verify_result:?}");
             }
         }
     }
@@ -1044,7 +1044,7 @@ mod tests {
             match msig {
                 Ok(aggr) => {
                     let verify_result = aggr.verify(&msg, &clerk.compute_avk(), &params);
-                    assert!(verify_result.is_ok(), "Verification failed: {:?}", verify_result);
+                    assert!(verify_result.is_ok(), "Verification failed: {verify_result:?}");
                 }
                 Err(AggregationError::NotEnoughSignatures(n, k)) =>
                     assert!(n < params.k || k == params.k),

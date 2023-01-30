@@ -191,7 +191,7 @@ mod tests {
     }
 
     fn db_builder(dir_name: &str) -> DummyImmutablesDbBuilder {
-        DummyImmutablesDbBuilder::new(&format!("cardano_immutable_digester/{}", dir_name))
+        DummyImmutablesDbBuilder::new(&format!("cardano_immutable_digester/{dir_name}"))
     }
 
     #[test]
@@ -239,7 +239,7 @@ mod tests {
                     found_number: None,
                 }
             ),
-            format!("{:?}", result)
+            format!("{result:?}")
         );
     }
 
@@ -275,7 +275,7 @@ mod tests {
                     found_number: None,
                 }
             ),
-            format!("{:?}", result)
+            format!("{result:?}")
         );
     }
 
@@ -301,7 +301,7 @@ mod tests {
                     found_number: Some(5),
                 }
             ),
-            format!("{:?}", result)
+            format!("{result:?}")
         );
     }
 
@@ -441,9 +441,7 @@ mod tests {
         assert!(
             elapsed_with_cache < (elapsed_without_cache * 9 / 10),
             "digest computation with full cache should be faster than without cache,\
-            time elapsed: with cache {:?}, without cache {:?}",
-            elapsed_with_cache,
-            elapsed_without_cache
+            time elapsed: with cache {elapsed_with_cache:?}, without cache {elapsed_without_cache:?}"
         );
     }
 

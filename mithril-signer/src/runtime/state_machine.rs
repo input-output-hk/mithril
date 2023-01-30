@@ -56,7 +56,7 @@ impl Display for SignerState {
                 "Unregistered - {}",
                 match state {
                     None => "No Epoch".to_string(),
-                    Some(e) => format!("Epoch({})", e),
+                    Some(e) => format!("Epoch({e})"),
                 }
             ),
             Self::Registered(state) => write!(f, "Registered - {}", state.beacon),

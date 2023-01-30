@@ -80,7 +80,7 @@ pub trait SerDeShelleyFileFormat: Serialize + DeserializeOwned {
         let mut file = fs::File::create(path)?;
         let json_str = serde_json::to_string(&file_format)?;
 
-        write!(file, "{}", json_str)?;
+        write!(file, "{json_str}")?;
         Ok(())
     }
 }
@@ -132,7 +132,7 @@ mod test {
         let json_str =
             serde_json::to_string(&file_format).expect("Unexpected error with serialisation.");
 
-        write!(file, "{}", json_str).expect("Unexpected error writing to file.");
+        write!(file, "{json_str}").expect("Unexpected error writing to file.");
 
         let kes_sk = Sum6Kes::from_file(&sk_dir);
 

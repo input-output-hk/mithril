@@ -173,8 +173,7 @@ impl Runner for SignerRunner {
             .await?
             .ok_or_else(|| {
                 RuntimeError::NoValueError(format!(
-                    "stakes at epoch {}",
-                    epoch_offset_to_recording_epoch
+                    "stakes at epoch {epoch_offset_to_recording_epoch}"
                 ))
             })?;
         let stake = stake_distribution
@@ -314,7 +313,7 @@ impl Runner for SignerRunner {
             .stake_store
             .get_stakes(epoch)
             .await?
-            .ok_or_else(|| RuntimeError::NoValueError(format!("stakes at epoch {}", epoch)))?;
+            .ok_or_else(|| RuntimeError::NoValueError(format!("stakes at epoch {epoch}")))?;
         let mut signers_with_stake = vec![];
 
         for signer in signers {
@@ -361,8 +360,7 @@ impl Runner for SignerRunner {
             .await?
             .ok_or_else(|| {
                 RuntimeError::NoValueError(format!(
-                    "protocol_initializer at epoch {}",
-                    next_signer_retrieval_epoch
+                    "protocol_initializer at epoch {next_signer_retrieval_epoch}"
                 ))
             })?;
 
@@ -392,8 +390,7 @@ impl Runner for SignerRunner {
             .await?
             .ok_or_else(|| {
                 RuntimeError::NoValueError(format!(
-                    "protocol_initializer at epoch {}",
-                    signer_retrieval_epoch
+                    "protocol_initializer at epoch {signer_retrieval_epoch}"
                 ))
             })?;
         let signature = self.services.single_signer.compute_single_signatures(

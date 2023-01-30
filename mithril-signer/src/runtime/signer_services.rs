@@ -54,12 +54,9 @@ impl<'a> ProductionServiceBuilder<'a> {
         match &self.config.operational_certificate_path {
             Some(operational_certificate_path) => {
                 let opcert: OpCert = OpCert::from_file(operational_certificate_path)
-                    .map_err(|e| format!("Could not decode operational certificate: {:?}", e))?;
+                    .map_err(|e| format!("Could not decode operational certificate: {e:?}"))?;
                 Ok(opcert.compute_protocol_party_id().map_err(|e| {
-                    format!(
-                        "Could not compute party_id from operational certificate: {:?}",
-                        e
-                    )
+                    format!("Could not compute party_id from operational certificate: {e:?}")
                 })?)
             }
             _ => Ok(self
@@ -95,7 +92,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
     async fn build(&self) -> Result<SignerServices, Box<dyn StdError>> {
         if !self.config.data_stores_directory.exists() {
             fs::create_dir_all(self.config.data_stores_directory.clone())
-                .map_err(|e| format!("Could not create data stores directory: {:?}", e))?;
+                .map_err(|e| format!("Could not create data stores directory: {e:?}"))?;
         }
 
         let sqlite_db_path = Some(self.config.get_sqlite_file());
@@ -181,10 +178,10 @@ mod tests {
 
         if test_dir.exists() {
             fs::remove_dir_all(&test_dir)
-                .unwrap_or_else(|_| panic!("Could not remove dir {:?}", test_dir));
+                .unwrap_or_else(|_| panic!("Could not remove dir {test_dir:?}"));
         }
         fs::create_dir_all(&test_dir)
-            .unwrap_or_else(|_| panic!("Could not create dir {:?}", test_dir));
+            .unwrap_or_else(|_| panic!("Could not create dir {test_dir:?}"));
 
         test_dir
     }

@@ -28,7 +28,7 @@ impl ApplicationNodeType {
         match node_type {
             "aggregator" => Ok(Self::Aggregator),
             "signer" => Ok(Self::Signer),
-            _ => Err(format!("unknown node type '{}'", node_type).into()),
+            _ => Err(format!("unknown node type '{node_type}'").into()),
         }
     }
 }
@@ -61,12 +61,12 @@ impl SqLiteEntity for DatabaseVersion {
         Ok(Self {
             version: row.get::<i64, _>(0),
             application_type: ApplicationNodeType::new(&row.get::<String, _>(1))
-                .map_err(|e| HydrationError::InvalidData(format!("{}", e)))?,
+                .map_err(|e| HydrationError::InvalidData(format!("{e}")))?,
             updated_at: NaiveDateTime::parse_from_str(
                 &row.get::<String, _>(2),
                 "%Y-%m-%d %H:%M:%S",
             )
-            .map_err(|e| HydrationError::InvalidData(format!("{}", e)))?,
+            .map_err(|e| HydrationError::InvalidData(format!("{e}")))?,
         })
     }
 
@@ -143,7 +143,7 @@ insert into db_version (application_type, version) values ('{application_type}',
         application_type: &ApplicationNodeType,
     ) -> Result<Option<DatabaseVersion>, Box<dyn Error>> {
         let condition = "application_type = ?";
-        let params = [Value::String(format!("{}", application_type))];
+        let params = [Value::String(format!("{application_type}"))];
         let result = self.find(Some(condition), &params)?.next();
 
         Ok(result)

@@ -217,30 +217,19 @@ impl CardanoCliChainObserver {
         let stake_pool_snapshot: Value = serde_json::from_str(&stake_pool_snapshot_output)
             .map_err(|e| {
                 ChainObserverError::InvalidContent(
-                    format!(
-                        "Error: {:?}, output was = '{}'",
-                        e, stake_pool_snapshot_output
-                    )
-                    .into(),
+                    format!("Error: {e:?}, output was = '{stake_pool_snapshot_output}'").into(),
                 )
             })?;
         if let Value::Number(stake_pool_stake) = &stake_pool_snapshot["poolStakeMark"] {
             return stake_pool_stake.as_u64().ok_or_else(|| {
                 ChainObserverError::InvalidContent(
-                    format!(
-                        "Error: could not parse stake pool value as u64 {:?}",
-                        stake_pool_stake
-                    )
-                    .into(),
+                    format!("Error: could not parse stake pool value as u64 {stake_pool_stake:?}")
+                        .into(),
                 )
             });
         }
         Err(ChainObserverError::InvalidContent(
-            format!(
-                "Error: could not parse stake pool snapshot {:?}",
-                stake_pool_snapshot
-            )
-            .into(),
+            format!("Error: could not parse stake pool snapshot {stake_pool_snapshot:?}").into(),
         ))
     }
 }
@@ -255,7 +244,7 @@ impl ChainObserver for CardanoCliChainObserver {
             .map_err(ChainObserverError::General)?;
         let v: Value = serde_json::from_str(&output).map_err(|e| {
             ChainObserverError::InvalidContent(
-                format!("Error: {:?}, output was = '{}'", e, output).into(),
+                format!("Error: {e:?}, output was = '{output}'").into(),
             )
         })?;
 
@@ -325,7 +314,7 @@ impl ChainObserver for CardanoCliChainObserver {
         let output_cleaned = output.split_at(first_left_curly_bracket_index).1;
         let v: Value = serde_json::from_str(output_cleaned).map_err(|e| {
             ChainObserverError::InvalidContent(
-                format!("Error: {:?}, output was = '{}'", e, output).into(),
+                format!("Error: {e:?}, output was = '{output}'").into(),
             )
         })?;
 

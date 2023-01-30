@@ -104,12 +104,12 @@ mod tests {
             let mut signers: HashMap<PartyId, Signer> = HashMap::new();
 
             for party_idx in 1..=signers_per_epoch {
-                let party_id = format!("{}", party_idx);
+                let party_id = format!("{party_idx}");
                 signers.insert(
                     party_id.clone(),
                     Signer {
                         party_id: party_id.clone(),
-                        verification_key: format!("vkey {}", party_id),
+                        verification_key: format!("vkey {party_id}"),
                         verification_key_signature: None,
                         operational_certificate: None,
                         kes_period: None,

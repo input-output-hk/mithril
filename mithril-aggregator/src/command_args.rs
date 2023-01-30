@@ -309,10 +309,10 @@ impl ServeCommand {
         config_builder = config_builder.add_source(self.clone());
         let config: Configuration = config_builder
             .build()
-            .map_err(|e| format!("configuration build error: {}", e))?
+            .map_err(|e| format!("configuration build error: {e}"))?
             .try_deserialize()
-            .map_err(|e| format!("configuration deserialize error: {}", e))?;
-        debug!("SERVE command"; "config" => format!("{:?}", config));
+            .map_err(|e| format!("configuration deserialize error: {e}"))?;
+        debug!("SERVE command"; "config" => format!("{config:?}"));
         let sqlite_db_path = Some(config.get_sqlite_file());
         check_database_migration(config.get_sqlite_file())?;
 
@@ -542,10 +542,10 @@ impl ExportGenesisSubCommand {
     ) -> Result<(), Box<dyn Error>> {
         let config: GenesisConfiguration = config_builder
             .build()
-            .map_err(|e| format!("configuration build error: {}", e))?
+            .map_err(|e| format!("configuration build error: {e}"))?
             .try_deserialize()
-            .map_err(|e| format!("configuration deserialize error: {}", e))?;
-        debug!("EXPORT GENESIS command"; "config" => format!("{:?}", config));
+            .map_err(|e| format!("configuration deserialize error: {e}"))?;
+        debug!("EXPORT GENESIS command"; "config" => format!("{config:?}"));
         println!(
             "Genesis export payload to sign to {}",
             self.target_path.display()
@@ -571,10 +571,10 @@ impl ImportGenesisSubCommand {
     ) -> Result<(), Box<dyn Error>> {
         let config: GenesisConfiguration = config_builder
             .build()
-            .map_err(|e| format!("configuration build error: {}", e))?
+            .map_err(|e| format!("configuration build error: {e}"))?
             .try_deserialize()
-            .map_err(|e| format!("configuration deserialize error: {}", e))?;
-        debug!("IMPORT GENESIS command"; "config" => format!("{:?}", config));
+            .map_err(|e| format!("configuration deserialize error: {e}"))?;
+        debug!("IMPORT GENESIS command"; "config" => format!("{config:?}"));
         println!(
             "Genesis import signed payload from {}",
             self.signed_payload_path.to_string_lossy()
@@ -602,10 +602,10 @@ impl BootstrapGenesisSubCommand {
     ) -> Result<(), Box<dyn Error>> {
         let config: GenesisConfiguration = config_builder
             .build()
-            .map_err(|e| format!("configuration build error: {}", e))?
+            .map_err(|e| format!("configuration build error: {e}"))?
             .try_deserialize()
-            .map_err(|e| format!("configuration deserialize error: {}", e))?;
-        debug!("BOOTSTRAP GENESIS command"; "config" => format!("{:?}", config));
+            .map_err(|e| format!("configuration deserialize error: {e}"))?;
+        debug!("BOOTSTRAP GENESIS command"; "config" => format!("{config:?}"));
         println!("Genesis bootstrap for test only!");
         let dependencies = setup_genesis_dependencies(&config)?;
 

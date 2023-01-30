@@ -339,8 +339,7 @@ mod tests {
             .await;
         assert!(
             matches!(snapshot_list_items, Err(RuntimeError::AggregatorHandler(_))),
-            "unexpected error type: {:?}",
-            snapshot_list_items
+            "unexpected error type: {snapshot_list_items:?}"
         );
     }
 
@@ -380,8 +379,7 @@ mod tests {
             .await;
         assert!(
             matches!(snapshot_item, Err(RuntimeError::AggregatorHandler(_))),
-            "unexpected error type: {:?}",
-            snapshot_item
+            "unexpected error type: {snapshot_item:?}"
         );
     }
 
@@ -474,8 +472,7 @@ mod tests {
             .await;
         assert!(
             matches!(restore, Err(RuntimeError::Protocol(_))),
-            "unexpected error type: {:?}",
-            restore
+            "unexpected error type: {restore:?}"
         );
     }
 
@@ -520,8 +517,7 @@ mod tests {
             .await;
         assert!(
             matches!(restore, Err(RuntimeError::ImmutableDigester(_))),
-            "unexpected error type: {:?}",
-            restore
+            "unexpected error type: {restore:?}"
         );
     }
 
@@ -550,8 +546,7 @@ mod tests {
             .await;
         assert!(
             matches!(restore, Err(RuntimeError::AggregatorHandler(_))),
-            "unexpected error type: {:?}",
-            restore
+            "unexpected error type: {restore:?}"
         );
     }
 
@@ -585,8 +580,7 @@ mod tests {
             .await;
         assert!(
             matches!(restore, Err(RuntimeError::CertificateRetriever(_))),
-            "unexpected error type: {:?}",
-            restore
+            "unexpected error type: {restore:?}"
         );
     }
 
@@ -626,8 +620,7 @@ mod tests {
             .await;
         assert!(
             matches!(restore, Err(RuntimeError::AggregatorHandler(_))),
-            "unexpected error type: {:?}",
-            restore
+            "unexpected error type: {restore:?}"
         );
     }
 }

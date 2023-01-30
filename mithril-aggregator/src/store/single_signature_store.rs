@@ -111,13 +111,13 @@ mod tests {
         for immutable_file_number in 1..=nb_immutable_file_numbers {
             let mut single_signatures: HashMap<PartyId, SingleSignatures> = HashMap::new();
             for party_idx in 1..=single_signers_per_epoch {
-                let party_id = format!("{}", party_idx);
+                let party_id = format!("{party_idx}");
                 let lottery_idx = (1..=single_signatures_per_signers).collect();
                 single_signatures.insert(
                     party_id.clone(),
                     SingleSignatures {
                         party_id,
-                        signature: format!("single-signature {} {:?}", party_idx, lottery_idx),
+                        signature: format!("single-signature {party_idx} {lottery_idx:?}"),
                         won_indexes: lottery_idx,
                     },
                 );

@@ -24,7 +24,7 @@ impl DumbSnapshotUploader {
         let value = self
             .last_uploaded
             .read()
-            .map_err(|e| format!("Error while saving filepath location: {}", e))?;
+            .map_err(|e| format!("Error while saving filepath location: {e}"))?;
 
         Ok(value.as_ref().map(|v| v.to_string()))
     }
@@ -43,7 +43,7 @@ impl SnapshotUploader for DumbSnapshotUploader {
         let mut value = self
             .last_uploaded
             .write()
-            .map_err(|e| format!("Error while saving filepath location: {}", e))?;
+            .map_err(|e| format!("Error while saving filepath location: {e}"))?;
 
         *value = Some(snapshot_filepath.to_string_lossy().to_string());
 

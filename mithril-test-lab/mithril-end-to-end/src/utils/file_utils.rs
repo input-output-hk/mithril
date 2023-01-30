@@ -18,7 +18,7 @@ pub async fn tail(file_path: &Path, number_of_line: u64) -> Result<String, Strin
         .map_err(|e| format!("Failed to tail file `{}`: {}", file_path.display(), e))?;
 
     String::from_utf8(tail_result.stdout)
-        .map_err(|e| format!("Failed to parse tail output to utf8: {}", e))
+        .map_err(|e| format!("Failed to parse tail output to utf8: {e}"))
 }
 
 #[cfg(test)]
@@ -35,17 +35,17 @@ mod tests {
             .join(subfolder_name);
         if temp_dir.exists() {
             fs::remove_dir_all(&temp_dir)
-                .unwrap_or_else(|_| panic!("Could not remove dir {:?}", temp_dir));
+                .unwrap_or_else(|_| panic!("Could not remove dir {temp_dir:?}"));
         }
         fs::create_dir_all(&temp_dir)
-            .unwrap_or_else(|_| panic!("Could not create dir {:?}", temp_dir));
+            .unwrap_or_else(|_| panic!("Could not create dir {temp_dir:?}"));
 
         temp_dir
     }
 
     fn write_file(path: &Path, file_content: &str) {
         let mut source_file = File::create(path).unwrap();
-        write!(source_file, "{}", file_content).unwrap();
+        write!(source_file, "{file_content}").unwrap();
     }
 
     #[tokio::test]

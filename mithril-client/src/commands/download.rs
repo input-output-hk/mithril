@@ -31,9 +31,9 @@ impl DownloadCommand {
         debug!("Download snapshots");
         let config: Config = config_builder
             .build()
-            .map_err(|e| format!("configuration build error: {}", e))?
+            .map_err(|e| format!("configuration build error: {e}"))?
             .try_deserialize()
-            .map_err(|e| format!("configuration deserialize error: {}", e))?;
+            .map_err(|e| format!("configuration deserialize error: {e}"))?;
         debug!("{:?}", config);
         let runtime = Runtime::new(config.network.clone());
         let aggregator_handler =
@@ -50,9 +50,9 @@ impl DownloadCommand {
         let output = if self.json {
             serde_json::to_string(&token)?
         } else {
-            format!("success!\n{}", token)
+            format!("success!\n{token}")
         };
-        println!("{}", output);
+        println!("{output}");
         Ok(())
     }
 }

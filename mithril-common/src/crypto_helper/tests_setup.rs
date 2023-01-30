@@ -199,8 +199,8 @@ pub fn setup_certificate_chain(
         .enumerate()
         .map(|(i, epoch)| {
             let immutable_file_number = i as u64 * 10;
-            let digest = format!("digest{}", i);
-            let certificate_hash = format!("certificate_hash-{}", i);
+            let digest = format!("digest{i}");
+            let certificate_hash = format!("certificate_hash-{i}");
             let fixture = fixture_per_epoch.get(&epoch).unwrap();
             let next_fixture = fixture_per_epoch.get(&(epoch + 1)).unwrap();
             let avk = avk_for_signers(&fixture.signers_fixture());

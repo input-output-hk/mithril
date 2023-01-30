@@ -58,8 +58,7 @@ impl CardanoNetwork {
                 }
             }
             what => Err(CardanoNetworkError::ParseFromCode(format!(
-                "could not parse network '{}', the only recognized networks are: mainnet, devnet, testnet, preview, preprod and private",
-                what
+                "could not parse network '{what}', the only recognized networks are: mainnet, devnet, testnet, preview, preprod and private"
             ))),
         }
     }
