@@ -1,5 +1,6 @@
 use mithril_common::digesters::ImmutableFileObserver;
 use mithril_common::entities::SignerWithStake;
+use mithril_common::era::{EraChecker, SupportedEra};
 use slog::Drain;
 use slog_scope::debug;
 use std::error::Error as StdError;
@@ -104,6 +105,7 @@ impl StateMachineTester {
             Box::new(MemoryAdapter::new(None).unwrap()),
             config.store_retention_limit,
         ));
+        let era_checker = Arc::new(EraChecker::new(SupportedEra::dummy()));
 
         let services = SignerServices {
             certificate_handler: certificate_handler.clone(),
@@ -113,6 +115,7 @@ impl StateMachineTester {
             protocol_initializer_store: protocol_initializer_store.clone(),
             single_signer: single_signer.clone(),
             stake_store: stake_store.clone(),
+            era_checker,
         };
         // set up stake distribution
         chain_observer

@@ -5,15 +5,19 @@ use std::{
     sync::Arc,
 };
 
-use mithril_common::digesters::cache::{
-    ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder,
-};
 use mithril_common::{
     chain_observer::{CardanoCliChainObserver, CardanoCliRunner, ChainObserver},
     crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
     digesters::{CardanoImmutableDigester, ImmutableDigester, ImmutableFileSystemObserver},
+    era::EraChecker,
     store::{adapter::SQLiteAdapter, StakeStore},
     BeaconProvider, BeaconProviderImpl,
+};
+use mithril_common::{
+    digesters::cache::{
+        ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder,
+    },
+    era::SupportedEra,
 };
 
 use crate::{
@@ -128,6 +132,9 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             Arc::new(ImmutableFileSystemObserver::new(&self.config.db_directory)),
             self.config.get_network()?.to_owned(),
         ));
+        // TODO: use EraReader when it is implemented to retrieve current era
+        let current_era = SupportedEra::Thales;
+        let era_checker = Arc::new(EraChecker::new(current_era));
 
         let services = SignerServices {
             beacon_provider,
@@ -137,6 +144,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             single_signer,
             stake_store,
             protocol_initializer_store,
+            era_checker,
         };
 
         Ok(services)
@@ -165,6 +173,9 @@ pub struct SignerServices {
 
     /// ProtocolInitializer store
     pub protocol_initializer_store: ProtocolInitializerStoreService,
+
+    /// Era checker service
+    pub era_checker: Arc<EraChecker>,
 }
 
 #[cfg(test)]

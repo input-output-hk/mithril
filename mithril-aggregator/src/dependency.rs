@@ -1,15 +1,17 @@
-use mithril_common::certificate_chain::CertificateVerifier;
-use mithril_common::chain_observer::ChainObserver;
-use mithril_common::crypto_helper::ProtocolGenesisVerifier;
-use mithril_common::digesters::{ImmutableDigester, ImmutableFileObserver};
-use mithril_common::entities::{
-    Certificate, Epoch, ProtocolParameters, Signer, SignerWithStake, StakeDistribution,
+use mithril_common::{
+    certificate_chain::CertificateVerifier,
+    chain_observer::ChainObserver,
+    crypto_helper::ProtocolGenesisVerifier,
+    digesters::{ImmutableDigester, ImmutableFileObserver},
+    entities::{
+        Certificate, Epoch, ProtocolParameters, Signer, SignerWithStake, StakeDistribution,
+    },
+    era::EraChecker,
+    store::{StakeStore, StakeStorer},
+    BeaconProvider,
 };
-use mithril_common::store::{StakeStore, StakeStorer};
-use mithril_common::BeaconProvider;
 
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 
 use crate::multi_signer::MultiSigner;
@@ -82,6 +84,9 @@ pub struct DependencyManager {
 
     /// Signer registration round opener service
     pub signer_registration_round_opener: Arc<dyn SignerRegistrationRoundOpener>,
+
+    /// Era checker service
+    pub era_checker: Arc<EraChecker>,
 }
 
 #[doc(hidden)]
@@ -264,6 +269,7 @@ pub mod tests {
         chain_observer::FakeObserver,
         crypto_helper::{key_encode_hex, ProtocolGenesisSigner},
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
+        era::{EraChecker, SupportedEra},
         store::{adapter::MemoryAdapter, StakeStore},
         test_utils::fake_data,
         BeaconProviderImpl, CardanoNetwork,
@@ -341,6 +347,7 @@ pub mod tests {
             chain_observer.clone(),
             verification_key_store.clone(),
         ));
+        let era_checker = Arc::new(EraChecker::new(SupportedEra::dummy()));
 
         let dependency_manager = DependencyManager {
             config,
@@ -362,6 +369,7 @@ pub mod tests {
             genesis_verifier,
             signer_registerer: signer_registerer.clone(),
             signer_registration_round_opener: signer_registerer,
+            era_checker,
         };
 
         let config = AggregatorConfig::new(
