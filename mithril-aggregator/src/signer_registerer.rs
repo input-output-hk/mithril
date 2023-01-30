@@ -79,6 +79,9 @@ pub trait SignerRegistrationRoundOpener: Sync + Send {
         registration_epoch: Epoch,
         stake_distribution: StakeDistribution,
     ) -> Result<(), SignerRegistrationError>;
+
+    /// Close a signer registration round
+    async fn close_registration_round(&self) -> Result<(), SignerRegistrationError>;
 }
 
 /// Implementation of a [SignerRegisterer]
@@ -124,6 +127,13 @@ impl SignerRegistrationRoundOpener for MithrilSignerRegisterer {
             epoch: registration_epoch,
             stake_distribution,
         });
+
+        Ok(())
+    }
+
+    async fn close_registration_round(&self) -> Result<(), SignerRegistrationError> {
+        let mut current_round = self.current_round.write().await;
+        *current_round = None;
 
         Ok(())
     }

@@ -221,6 +221,7 @@ impl AggregatorRuntime {
 
         if maybe_current_beacon.is_none() || maybe_current_beacon.unwrap().epoch < new_beacon.epoch
         {
+            self.runner.close_signer_registration_round().await?;
             self.runner.update_stake_distribution(&new_beacon).await?;
             self.runner
                 .open_signer_registration_round(&new_beacon)
@@ -366,6 +367,10 @@ mod tests {
             .once()
             .returning(|_| Ok(()));
         runner
+            .expect_close_signer_registration_round()
+            .once()
+            .returning(|| Ok(()));
+        runner
             .expect_open_signer_registration_round()
             .once()
             .returning(|_| Ok(()));
@@ -408,6 +413,10 @@ mod tests {
             .with(predicate::eq(fake_data::beacon()))
             .once()
             .returning(|_| Ok(()));
+        runner
+            .expect_close_signer_registration_round()
+            .once()
+            .returning(|| Ok(()));
         runner
             .expect_open_signer_registration_round()
             .once()
