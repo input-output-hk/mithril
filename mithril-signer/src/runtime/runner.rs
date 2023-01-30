@@ -438,6 +438,7 @@ mod tests {
         crypto_helper::ProtocolInitializer,
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
         entities::{Epoch, StakeDistribution},
+        era::{EraChecker, SupportedEra},
         store::{
             adapter::{DumbStoreAdapter, MemoryAdapter},
             StakeStore, StakeStorer,
@@ -469,6 +470,7 @@ mod tests {
     fn init_services() -> SignerServices {
         let adapter: MemoryAdapter<Epoch, ProtocolInitializer> = MemoryAdapter::new(None).unwrap();
         let chain_observer = Arc::new(FakeObserver::default());
+        let era_checker = Arc::new(EraChecker::new(SupportedEra::dummy()));
         SignerServices {
             stake_store: Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None)),
             certificate_handler: Arc::new(DumbCertificateHandler::default()),
@@ -484,6 +486,7 @@ mod tests {
                 Box::new(adapter),
                 None,
             )),
+            era_checker,
         }
     }
 
