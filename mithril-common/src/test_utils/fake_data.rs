@@ -116,7 +116,7 @@ pub fn certificate(certificate_hash: String) -> entities::Certificate {
         previous_hash,
         beacon,
         metadata,
-        Either::Left(protocol_message),
+        Either::Right(protocol_message),
         aggregate_verification_key,
         multi_signature,
         genesis_signature,

@@ -127,11 +127,11 @@ impl Runtime {
         let mut protocol_message = certificate.protocol_message.clone();
         match protocol_message.as_mut() {
             Either::Left(m) => m.set_message_part(
-                ProtocolMessagePartKey::SnapshotDigest,
+                ProtocolMessagePartKeyThales::SnapshotDigest,
                 unpacked_snapshot_digest.clone(),
             ),
             Either::Right(m) => m.set_message_part(
-                ProtocolMessagePartKeyThales::SnapshotDigest,
+                ProtocolMessagePartKey::SnapshotDigest,
                 unpacked_snapshot_digest.clone(),
             ),
         };
@@ -397,8 +397,8 @@ mod tests {
         let (mut mock_aggregator_handler, mut mock_verifier, mut mock_digester, genesis_verifier) =
             get_dependencies();
         let digest_compute = match &fake_certificate.protocol_message {
-            Either::Left(m) => m.get_message_part(&ProtocolMessagePartKey::SnapshotDigest),
-            Either::Right(m) => m.get_message_part(&ProtocolMessagePartKeyThales::SnapshotDigest),
+            Either::Left(m) => m.get_message_part(&ProtocolMessagePartKeyThales::SnapshotDigest),
+            Either::Right(m) => m.get_message_part(&ProtocolMessagePartKey::SnapshotDigest),
         };
         let digest_compute = digest_compute.unwrap().to_owned();
         let digest_restore = digest_compute.clone();
@@ -442,8 +442,8 @@ mod tests {
         let (mut mock_aggregator_handler, mut mock_verifier, mut mock_digester, genesis_verifier) =
             get_dependencies();
         let digest_compute = match &fake_certificate.protocol_message {
-            Either::Left(m) => m.get_message_part(&ProtocolMessagePartKey::SnapshotDigest),
-            Either::Right(m) => m.get_message_part(&ProtocolMessagePartKeyThales::SnapshotDigest),
+            Either::Left(m) => m.get_message_part(&ProtocolMessagePartKeyThales::SnapshotDigest),
+            Either::Right(m) => m.get_message_part(&ProtocolMessagePartKey::SnapshotDigest),
         };
         let digest_compute = digest_compute.unwrap().to_owned();
         let digest_restore = digest_compute.clone();
@@ -488,8 +488,8 @@ mod tests {
     async fn test_restore_snapshot_ko_digester_error() {
         let fake_certificate = fake_data::certificate("cert-hash-123".to_string());
         let digest_compute = match &fake_certificate.protocol_message {
-            Either::Left(m) => m.get_message_part(&ProtocolMessagePartKey::SnapshotDigest),
-            Either::Right(m) => m.get_message_part(&ProtocolMessagePartKeyThales::SnapshotDigest),
+            Either::Left(m) => m.get_message_part(&ProtocolMessagePartKeyThales::SnapshotDigest),
+            Either::Right(m) => m.get_message_part(&ProtocolMessagePartKey::SnapshotDigest),
         }
         .unwrap()
         .to_owned();

@@ -32,7 +32,7 @@ pub fn setup_temp_directory_for_signer(
 }
 
 /// Instantiate a [ProtocolMessage] using fake data, use this for tests only.
-pub fn setup_message() -> Either<ProtocolMessage, ProtocolMessageThales> {
+pub fn setup_message() -> Either<ProtocolMessageThales, ProtocolMessage> {
     if EraChecker::is_era_active(SupportedEra::Thales) {
         let mut protocol_message = ProtocolMessageThales::new();
         protocol_message.set_message_part(
@@ -43,7 +43,7 @@ pub fn setup_message() -> Either<ProtocolMessage, ProtocolMessageThales> {
             ProtocolMessagePartKeyThales::NextAggregateVerificationKey,
             "next-avk-123".to_string(),
         );
-        Either::Right(protocol_message)
+        Either::Left(protocol_message)
     } else {
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(
@@ -55,7 +55,7 @@ pub fn setup_message() -> Either<ProtocolMessage, ProtocolMessageThales> {
             "next-avk-123".to_string(),
         );
         protocol_message.set_message_part(ProtocolMessagePartKey::EpochNumber, "123".to_string());
-        Either::Left(protocol_message)
+        Either::Right(protocol_message)
     }
 }
 
@@ -229,19 +229,19 @@ pub fn setup_certificate_chain(
             fake_certificate.beacon.immutable_file_number = immutable_file_number;
             match fake_certificate.protocol_message.as_mut() {
                 Either::Left(m) => {
+                    m.set_message_part(ProtocolMessagePartKeyThales::SnapshotDigest, digest);
+                    m.set_message_part(
+                        ProtocolMessagePartKeyThales::NextAggregateVerificationKey,
+                        avk_encode(&next_avk),
+                    );
+                }
+                Either::Right(m) => {
                     m.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
                     m.set_message_part(
                         ProtocolMessagePartKey::NextAggregateVerificationKey,
                         avk_encode(&next_avk),
                     );
                     m.set_message_part(ProtocolMessagePartKey::EpochNumber, format!("{}", epoch));
-                }
-                Either::Right(m) => {
-                    m.set_message_part(ProtocolMessagePartKeyThales::SnapshotDigest, digest);
-                    m.set_message_part(
-                        ProtocolMessagePartKeyThales::NextAggregateVerificationKey,
-                        avk_encode(&next_avk),
-                    );
                 }
             }
 

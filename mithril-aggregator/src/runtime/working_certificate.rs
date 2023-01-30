@@ -18,7 +18,7 @@ pub struct WorkingCertificate {
     pub signers: Vec<SignerWithStake>,
 
     /// Message that is currently signed
-    pub message: Either<ProtocolMessage, ProtocolMessageThales>,
+    pub message: Either<ProtocolMessageThales, ProtocolMessage>,
 
     /// Created aggregate verification key
     pub aggregate_verification_key: HexEncodedAgregateVerificationKey,
@@ -35,7 +35,7 @@ impl WorkingCertificate {
     pub fn from_pending_certificate(
         pending_certificate: &CertificatePending,
         signers: &[SignerWithStake],
-        protocol_message: &Either<ProtocolMessage, ProtocolMessageThales>,
+        protocol_message: &Either<ProtocolMessageThales, ProtocolMessage>,
         aggregate_verification_key: &str,
         initiated_at: &DateTime<Utc>,
         previous_hash: &str,
@@ -59,7 +59,7 @@ impl WorkingCertificate {
             beacon: fake_data::beacon(),
             protocol_parameters: fake_data::protocol_parameters(),
             signers: fake_data::signers_with_stakes(3),
-            message: Either::Left(ProtocolMessage::new()),
+            message: Either::Right(ProtocolMessage::new()),
             aggregate_verification_key: "avk".to_string(),
             initiated_at: Utc::now(),
             previous_hash: "hash".to_string(),

@@ -96,7 +96,7 @@ impl CertificateGenesisProducer {
             previous_hash,
             beacon,
             metadata,
-            Either::Left(genesis_protocol_message),
+            Either::Right(genesis_protocol_message),
             genesis_avk,
             multi_signature,
             genesis_signature,

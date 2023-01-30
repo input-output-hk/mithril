@@ -363,7 +363,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                     .unwrap_or_default(),
             );
             return multi_signer
-                .update_current_message(Either::Right(protocol_message))
+                .update_current_message(Either::Left(protocol_message))
                 .await
                 .map_err(RuntimeError::MultiSigner);
         } else {
@@ -380,7 +380,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             protocol_message
                 .set_message_part(ProtocolMessagePartKey::EpochNumber, "123".to_string()); // TODO: add real epoch number
             return multi_signer
-                .update_current_message(Either::Left(protocol_message))
+                .update_current_message(Either::Right(protocol_message))
                 .await
                 .map_err(RuntimeError::MultiSigner);
         }
@@ -529,8 +529,8 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .await
             .ok_or_else(|| RuntimeError::General("no message found".to_string().into()))?;
         let message_part = match &protocol_message {
-            Either::Left(m) => m.get_message_part(&ProtocolMessagePartKey::SnapshotDigest),
-            Either::Right(m) => m.get_message_part(&ProtocolMessagePartKeyThales::SnapshotDigest),
+            Either::Left(m) => m.get_message_part(&ProtocolMessagePartKeyThales::SnapshotDigest),
+            Either::Right(m) => m.get_message_part(&ProtocolMessagePartKey::SnapshotDigest),
         };
         let snapshot_digest = message_part.ok_or_else(|| {
             RuntimeError::General("no snapshot digest message part found".to_string().into())
@@ -620,8 +620,8 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     ) -> Result<Snapshot, RuntimeError> {
         debug!("RUNNER: create and save snapshot");
         let message_part = match &certificate.protocol_message {
-            Either::Left(m) => m.get_message_part(&ProtocolMessagePartKey::SnapshotDigest),
-            Either::Right(m) => m.get_message_part(&ProtocolMessagePartKeyThales::SnapshotDigest),
+            Either::Left(m) => m.get_message_part(&ProtocolMessagePartKeyThales::SnapshotDigest),
+            Either::Right(m) => m.get_message_part(&ProtocolMessagePartKey::SnapshotDigest),
         };
         let snapshot_digest = message_part
             .ok_or_else(|| RuntimeError::General("message part not found".to_string().into()))?
@@ -1038,8 +1038,8 @@ pub mod tests {
             .await
             .unwrap();
         let message_part = match &message {
-            Either::Left(m) => m.get_message_part(&ProtocolMessagePartKey::SnapshotDigest),
-            Either::Right(m) => m.get_message_part(&ProtocolMessagePartKeyThales::SnapshotDigest),
+            Either::Left(m) => m.get_message_part(&ProtocolMessagePartKeyThales::SnapshotDigest),
+            Either::Right(m) => m.get_message_part(&ProtocolMessagePartKey::SnapshotDigest),
         };
         assert_eq!("1+2+3+4=10", message_part.unwrap());
     }
@@ -1155,7 +1155,7 @@ pub mod tests {
         let mut mock_multi_signer = MockMultiSigner::new();
         mock_multi_signer
             .expect_get_current_message()
-            .return_once(move || Some(Either::Left(message)));
+            .return_once(move || Some(Either::Right(message)));
         let (mut deps, config) = initialize_dependencies().await;
         deps.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
         let runner = AggregatorRunner::new(config, Arc::new(deps));

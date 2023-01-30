@@ -32,7 +32,7 @@ pub struct Certificate {
     /// Structured message that is used to created the signed message
     /// aka MSG(p,n) U AVK(n-1)
     #[serde(with = "either::serde_untagged")]
-    pub protocol_message: Either<ProtocolMessage, ProtocolMessageThales>,
+    pub protocol_message: Either<ProtocolMessageThales, ProtocolMessage>,
 
     /// Message that is signed by the signers
     /// aka H(MSG(p,n) || AVK(n-1))
@@ -59,7 +59,7 @@ impl Certificate {
         previous_hash: String,
         beacon: Beacon,
         metadata: CertificateMetadata,
-        protocol_message: Either<ProtocolMessage, ProtocolMessageThales>,
+        protocol_message: Either<ProtocolMessageThales, ProtocolMessage>,
         aggregate_verification_key: HexEncodedAgregateVerificationKey,
         multi_signature: HexEncodedMultiSignature,
         genesis_signature: HexEncodedGenesisSignature,
@@ -142,7 +142,7 @@ mod tests {
                         )
                     ],
                 ),
-                Either::Left(protocol_message.clone()),
+                Either::Right(protocol_message.clone()),
                 "aggregate_verification_key".to_string(),
                 "multi_signature".to_string(),
                 "genesis_signature".to_string(),
@@ -179,7 +179,7 @@ mod tests {
                         )
                     ],
                 ),
-                Either::Left(protocol_message.clone()),
+                Either::Right(protocol_message.clone()),
                 "aggregate_verification_key".to_string(),
                 "multi_signature".to_string(),
                 "genesis_signature".to_string(),
@@ -216,7 +216,7 @@ mod tests {
                         )
                     ],
                 ),
-                Either::Left(protocol_message.clone()),
+                Either::Right(protocol_message.clone()),
                 "aggregate_verification_key".to_string(),
                 "multi_signature".to_string(),
                 "genesis_signature".to_string(),
@@ -253,7 +253,7 @@ mod tests {
                         )
                     ],
                 ),
-                Either::Left(protocol_message.clone()),
+                Either::Right(protocol_message.clone()),
                 "aggregate_verification_key".to_string(),
                 "multi_signature".to_string(),
                 "genesis_signature".to_string(),
@@ -295,7 +295,7 @@ mod tests {
                         )
                     ],
                 ),
-                Either::Left(protocol_message_modified.clone()),
+                Either::Right(protocol_message_modified.clone()),
                 "aggregate_verification_key".to_string(),
                 "multi_signature".to_string(),
                 "genesis_signature".to_string(),
@@ -332,7 +332,7 @@ mod tests {
                         )
                     ],
                 ),
-                Either::Left(protocol_message.clone()),
+                Either::Right(protocol_message.clone()),
                 "aggregate_verification_key-modified".to_string(),
                 "multi_signature".to_string(),
                 "genesis_signature".to_string(),
@@ -369,7 +369,7 @@ mod tests {
                         )
                     ],
                 ),
-                Either::Left(protocol_message.clone()),
+                Either::Right(protocol_message.clone()),
                 "aggregate_verification_key".to_string(),
                 "multi_signature-modified".to_string(),
                 "genesis_signature".to_string(),
@@ -406,7 +406,7 @@ mod tests {
                         )
                     ],
                 ),
-                Either::Left(protocol_message.clone()),
+                Either::Right(protocol_message.clone()),
                 "aggregate_verification_key".to_string(),
                 "multi_signature".to_string(),
                 "genesis_signature-modified".to_string(),

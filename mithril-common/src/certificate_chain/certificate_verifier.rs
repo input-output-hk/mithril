@@ -220,10 +220,10 @@ impl CertificateVerifier for MithrilCertificateVerifier {
 
         let next_aggregate_verification_key = match &previous_certificate.protocol_message {
             Either::Left(m) => {
-                m.get_message_part(&ProtocolMessagePartKey::NextAggregateVerificationKey)
+                m.get_message_part(&ProtocolMessagePartKeyThales::NextAggregateVerificationKey)
             }
             Either::Right(m) => {
-                m.get_message_part(&ProtocolMessagePartKeyThales::NextAggregateVerificationKey)
+                m.get_message_part(&ProtocolMessagePartKey::NextAggregateVerificationKey)
             }
         };
         match next_aggregate_verification_key {
@@ -448,13 +448,13 @@ mod tests {
         match fake_certificate2.protocol_message.as_mut() {
             Either::Left(m) => {
                 m.set_message_part(
-                    ProtocolMessagePartKey::NextAggregateVerificationKey,
+                    ProtocolMessagePartKeyThales::NextAggregateVerificationKey,
                     "another-avk".to_string(),
                 );
             }
             Either::Right(m) => {
                 m.set_message_part(
-                    ProtocolMessagePartKeyThales::NextAggregateVerificationKey,
+                    ProtocolMessagePartKey::NextAggregateVerificationKey,
                     "another-avk".to_string(),
                 );
             }

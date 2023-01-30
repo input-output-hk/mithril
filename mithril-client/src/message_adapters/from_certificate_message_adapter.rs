@@ -61,7 +61,7 @@ mod tests {
                     ),
                 ],
             ),
-            protocol_message: Either::Left(ProtocolMessage::new()),
+            protocol_message: Either::Right(ProtocolMessage::new()),
             signed_message: "signed_message".to_string(),
             aggregate_verification_key: "aggregate_verification_key".to_string(),
             multi_signature: "multi_signature".to_string(),

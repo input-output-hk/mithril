@@ -71,8 +71,8 @@ async fn create_certificate() {
         tester.get_last_certificates_and_snapshots().await.unwrap();
 
     let last_certificate_digest = match &last_certificates[0].protocol_message {
-        Either::Left(m) => m.get_message_part(&ProtocolMessagePartKey::SnapshotDigest),
-        Either::Right(m) => m.get_message_part(&ProtocolMessagePartKeyThales::SnapshotDigest),
+        Either::Left(m) => m.get_message_part(&ProtocolMessagePartKeyThales::SnapshotDigest),
+        Either::Right(m) => m.get_message_part(&ProtocolMessagePartKey::SnapshotDigest),
     };
     assert_eq!((2, 1), (last_certificates.len(), snapshots.len()));
     assert_eq!(

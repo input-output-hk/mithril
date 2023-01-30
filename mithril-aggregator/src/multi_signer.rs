@@ -84,12 +84,12 @@ pub trait MultiSigner: Sync + Send {
     /// Get current message
     async fn get_current_message(
         &self,
-    ) -> Option<Either<entities::ProtocolMessage, entities::ProtocolMessageThales>>;
+    ) -> Option<Either<entities::ProtocolMessageThales, entities::ProtocolMessage>>;
 
     /// Update current message
     async fn update_current_message(
         &mut self,
-        message: Either<entities::ProtocolMessage, entities::ProtocolMessageThales>,
+        message: Either<entities::ProtocolMessageThales, entities::ProtocolMessage>,
     ) -> Result<(), ProtocolError>;
 
     /// Get current beacon
@@ -213,7 +213,7 @@ pub trait MultiSigner: Sync + Send {
 /// MultiSignerImpl is an implementation of the MultiSigner
 pub struct MultiSignerImpl {
     /// Message that is currently signed
-    current_message: Option<Either<entities::ProtocolMessage, entities::ProtocolMessageThales>>,
+    current_message: Option<Either<entities::ProtocolMessageThales, entities::ProtocolMessage>>,
 
     /// Beacon that is currently used
     current_beacon: Option<entities::Beacon>,
@@ -357,7 +357,7 @@ impl MultiSigner for MultiSignerImpl {
     /// Get current message
     async fn get_current_message(
         &self,
-    ) -> Option<Either<entities::ProtocolMessage, entities::ProtocolMessageThales>> {
+    ) -> Option<Either<entities::ProtocolMessageThales, entities::ProtocolMessage>> {
         debug!("Get current message");
         self.current_message.clone()
     }
@@ -365,7 +365,7 @@ impl MultiSigner for MultiSignerImpl {
     /// Update current message
     async fn update_current_message(
         &mut self,
-        message: Either<entities::ProtocolMessage, entities::ProtocolMessageThales>,
+        message: Either<entities::ProtocolMessageThales, entities::ProtocolMessage>,
     ) -> Result<(), ProtocolError> {
         let message_hash = either::for_both!(&message, m => m.compute_hash());
         debug!("Update current_message"; "protocol_message" =>  #?message, "signed message" => message_hash.encode_hex::<String>());
