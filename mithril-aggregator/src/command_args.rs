@@ -15,6 +15,7 @@ use mithril_common::{
         CardanoImmutableDigester, ImmutableFileSystemObserver,
     },
     entities::{Epoch, HexEncodedGenesisSecretKey},
+    era::{EraChecker, SupportedEra},
     store::{adapter::SQLiteAdapter, StakeStore},
     BeaconProviderImpl,
 };
@@ -397,6 +398,10 @@ impl ServeCommand {
             ongoing_snapshot_directory,
         ));
 
+        // TODO: use EraReader when it is implemented to retrieve current era
+        let current_era = SupportedEra::Thales;
+        let era_checker = Arc::new(EraChecker::new(current_era));
+
         // Init dependency manager
         let dependency_manager = DependencyManager {
             config: config.clone(),
@@ -418,6 +423,7 @@ impl ServeCommand {
             genesis_verifier,
             signer_registerer: signer_registerer.clone(),
             signer_registration_round_opener: signer_registerer.clone(),
+            era_checker: era_checker.clone(),
         };
         let dependency_manager = Arc::new(dependency_manager);
 

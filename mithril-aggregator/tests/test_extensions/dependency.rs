@@ -9,6 +9,7 @@ use mithril_common::chain_observer::FakeObserver;
 use mithril_common::crypto_helper::{key_encode_hex, ProtocolGenesisSigner};
 use mithril_common::digesters::{DumbImmutableDigester, DumbImmutableFileObserver};
 use mithril_common::entities::ProtocolParameters;
+use mithril_common::era::{EraChecker, SupportedEra};
 use mithril_common::store::adapter::MemoryAdapter;
 use mithril_common::store::StakeStore;
 use mithril_common::{BeaconProviderImpl, CardanoNetwork};
@@ -90,6 +91,7 @@ pub async fn initialize_dependencies(
         chain_observer.clone(),
         verification_key_store.clone(),
     ));
+    let era_checker = Arc::new(EraChecker::new(SupportedEra::dummy()));
 
     let dependency_manager = DependencyManager {
         config,
@@ -111,6 +113,7 @@ pub async fn initialize_dependencies(
         genesis_verifier,
         signer_registerer: signer_registerer.clone(),
         signer_registration_round_opener: signer_registerer,
+        era_checker,
     };
 
     let config = AggregatorConfig::new(
