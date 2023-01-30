@@ -4,7 +4,9 @@ use crate::http_server::routes::{
 use crate::http_server::SERVER_BASE_PATH;
 use crate::DependencyManager;
 
-use mithril_common::{MITHRIL_API_VERSION, MITHRIL_API_VERSION_REQUIREMENT};
+use mithril_common::{
+    MITHRIL_API_VERSION, MITHRIL_API_VERSION_HEADER, MITHRIL_API_VERSION_REQUIREMENT,
+};
 
 use reqwest::header::{HeaderMap, HeaderValue};
 use reqwest::StatusCode;
@@ -34,7 +36,7 @@ pub fn routes(
         .allow_methods(vec![Method::GET, Method::POST, Method::OPTIONS]);
     let mut headers = HeaderMap::new();
     headers.insert(
-        "mithril-api-version",
+        MITHRIL_API_VERSION_HEADER,
         HeaderValue::from_static(MITHRIL_API_VERSION),
     );
     warp::any()
@@ -54,7 +56,7 @@ pub fn routes(
 
 /// API Version verification
 fn header_must_be() -> impl Filter<Extract = (), Error = Rejection> + Copy {
-    warp::header::optional("mithril-api-version")
+    warp::header::optional(MITHRIL_API_VERSION_HEADER)
         .and_then(|maybe_header: Option<String>| async move {
             match maybe_header {
                 None => Ok(()),
@@ -97,7 +99,7 @@ mod tests {
     async fn test_parse_version_error() {
         let filters = header_must_be();
         warp::test::request()
-            .header("mithril-api-version", "not_a_version")
+            .header(MITHRIL_API_VERSION_HEADER, "not_a_version")
             .path("/aggregator/whatever")
             .filter(&filters)
             .await
@@ -110,7 +112,7 @@ mod tests {
     async fn test_bad_version() {
         let filters = header_must_be();
         warp::test::request()
-            .header("mithril-api-version", "0.0.999")
+            .header(MITHRIL_API_VERSION_HEADER, "0.0.999")
             .path("/aggregator/whatever")
             .filter(&filters)
             .await
@@ -121,7 +123,7 @@ mod tests {
     async fn test_good_version() {
         let filters = header_must_be();
         warp::test::request()
-            .header("mithril-api-version", MITHRIL_API_VERSION)
+            .header(MITHRIL_API_VERSION_HEADER, MITHRIL_API_VERSION)
             .path("/aggregator/whatever")
             .filter(&filters)
             .await

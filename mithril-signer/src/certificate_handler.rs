@@ -7,7 +7,7 @@ use thiserror::Error;
 use mithril_common::{
     entities::{CertificatePending, EpochSettings, Signer, SingleSignatures},
     messages::{CertificatePendingMessage, EpochSettingsMessage},
-    MITHRIL_API_VERSION,
+    MITHRIL_API_VERSION, MITHRIL_API_VERSION_HEADER,
 };
 
 #[cfg(test)]
@@ -94,12 +94,12 @@ impl CertificateHandlerHTTPClient {
 
     /// Forge a client request adding protocol version in the headers.
     pub fn prepare_request_builder(&self, request_builder: RequestBuilder) -> RequestBuilder {
-        request_builder.header("API_VERSION", MITHRIL_API_VERSION)
+        request_builder.header(MITHRIL_API_VERSION_HEADER, MITHRIL_API_VERSION)
     }
 
     /// API version error handling
     fn handle_api_error(&self, response: &Response) -> CertificateHandlerError {
-        if let Some(version) = response.headers().get("mithril-api-version") {
+        if let Some(version) = response.headers().get(MITHRIL_API_VERSION_HEADER) {
             CertificateHandlerError::ApiVersionMismatch(format!(
                 "server version: '{}', signer version: '{}'",
                 version.to_str().unwrap(),
@@ -381,7 +381,8 @@ mod tests {
         let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.path("/epoch-settings");
-            then.status(412).header("mithril-api-version", "0.0.999");
+            then.status(412)
+                .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
         });
         let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
         let epoch_settings = certificate_handler
@@ -431,7 +432,8 @@ mod tests {
         let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.path("/certificate-pending");
-            then.status(412).header("mithril-api-version", "0.0.999");
+            then.status(412)
+                .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
         });
         let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
         let error = certificate_handler
@@ -489,7 +491,8 @@ mod tests {
         let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signer");
-            then.status(412).header("mithril-api-version", "0.0.999");
+            then.status(412)
+                .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
         });
         let single_signers = fake_data::signers(1);
         let single_signer = single_signers.first().unwrap();
@@ -566,7 +569,8 @@ mod tests {
         let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
-            then.status(412).header("mithril-api-version", "0.0.999");
+            then.status(412)
+                .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
         });
         let single_signatures = fake_data::single_signatures((1..5).collect());
         let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
