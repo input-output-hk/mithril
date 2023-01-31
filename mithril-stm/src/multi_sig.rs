@@ -1,4 +1,4 @@
-//! Base multisignature scheme, used as a primitive for STM.
+//! Base multi-signature scheme, used as a primitive for STM.
 //! See Section 2.4 of [the paper](https://eprint.iacr.org/2021/916).
 //! This module uses the `blst` library as a backend for pairings.
 
@@ -30,14 +30,39 @@ use std::{
 /// String used to generate the proofs of possession.
 const POP: &[u8] = b"PoP";
 
-// ---------------------------------------------------------------------
-// Multi signature keys
-// ---------------------------------------------------------------------
-
 /// MultiSig secret key, which is a wrapper over the BlstSk type from the blst
 /// library.
 #[derive(Debug, Clone)]
 pub struct SigningKey(BlstSk);
+
+/// MultiSig verification key, which is a wrapper over the BlstVk (element in G2)
+/// from the blst library.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct VerificationKey(BlstVk);
+
+/// MultiSig proof of possession, which contains two elements from G1. However,
+/// the two elements have different types: `k1` is represented as a BlstSig
+/// as it has the same structure, and this facilitates its verification. On
+/// the other hand, `k2` is a G1 point, as it does not share structure with
+/// the BLS signature, and we need to have an ad-hoc verification mechanism.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProofOfPossession {
+    k1: BlstSig,
+    k2: blst_p1,
+}
+
+/// MultiSig public key, contains the verification key and the proof of possession.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VerificationKeyPoP {
+    /// The verification key.
+    pub vk: VerificationKey,
+    /// Proof of Possession.
+    pub pop: ProofOfPossession,
+}
+
+/// MultiSig signature, which is a wrapper over the `BlstSig` type.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Signature(BlstSig);
 
 impl SigningKey {
     /// Generate a secret key
@@ -68,35 +93,10 @@ impl SigningKey {
         match BlstSk::from_bytes(&bytes[..32]) {
             Ok(sk) => Ok(Self(sk)),
             Err(e) => Err(blst_err_to_mithril(e, None)
-                .expect_err("If deserialisation is not successful, blst returns and error different to SUCCESS."))
+                .expect_err("If deserialization is not successful, blst returns and error different to SUCCESS."))
         }
     }
 }
-
-/// MultiSig verification key, which is a wrapper over the BlstVk (element in G2)
-/// from the blst library.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct VerificationKey(BlstVk);
-
-impl Display for VerificationKey {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self.to_bytes())
-    }
-}
-
-impl Hash for VerificationKey {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        Hash::hash_slice(&self.to_bytes(), state)
-    }
-}
-
-impl PartialEq for VerificationKey {
-    fn eq(&self, other: &Self) -> bool {
-        self.0 == other.0
-    }
-}
-
-impl Eq for VerificationKey {}
 
 impl VerificationKey {
     /// Convert an `VerificationKey` to its compressed byte representation.
@@ -113,7 +113,7 @@ impl VerificationKey {
         match BlstVk::key_validate(&bytes[..96]) {
             Ok(vk) => Ok(Self(vk)),
             Err(e) => Err(blst_err_to_mithril(e, None)
-                .expect_err("If deserialisation is not successful, blst returns and error different to SUCCESS."))
+                .expect_err("If deserialization is not successful, blst returns and error different to SUCCESS."))
         }
     }
 
@@ -134,6 +134,26 @@ impl VerificationKey {
         result
     }
 }
+
+impl Display for VerificationKey {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.to_bytes())
+    }
+}
+
+impl Hash for VerificationKey {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        Hash::hash_slice(&self.to_bytes(), state)
+    }
+}
+
+impl PartialEq for VerificationKey {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl Eq for VerificationKey {}
 
 impl PartialOrd for VerificationKey {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -163,26 +183,6 @@ impl<'a> Sum<&'a Self> for VerificationKey {
     }
 }
 
-/// MultiSig proof of possession, which contains two elements from G1. However,
-/// the two elements have different types: `k1` is represented as a BlstSig
-/// as it has the same structure, and this facilitates its verification. On
-/// the other hand, `k2` is a G1 point, as it does not share structure with
-/// the BLS signature, and we need to have an ad-hoc verification mechanism.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ProofOfPossession {
-    k1: BlstSig,
-    k2: blst_p1,
-}
-
-/// MultiSig public key, contains the verification key and the proof of possession.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VerificationKeyPoP {
-    /// The verification key.
-    pub vk: VerificationKey,
-    /// Proof of Possession.
-    pub pop: ProofOfPossession,
-}
-
 impl From<&SigningKey> for VerificationKey {
     /// Convert a secret key into an `MspMvk`. This is performed by computing
     /// `MspMvk = g2 * sk`, where `g2` is the generator in G2. We can use the
@@ -192,43 +192,13 @@ impl From<&SigningKey> for VerificationKey {
     }
 }
 
-impl From<&SigningKey> for ProofOfPossession {
-    /// Convert a secret key into an `MspPoP`. This is performed by computing
-    /// `k1 =  H_G1(b"PoP" || mvk)` and `k2 = g1 * sk` where `H_G1` hashes into
-    /// `G1` and `g1` is the generator in `G1`.
-    fn from(sk: &SigningKey) -> Self {
-        use blst::blst_sk_to_pk_in_g1;
-        let k1 = sk.0.sign(POP, &[], &[]);
-        let k2 = unsafe {
-            let sk_scalar = std::mem::transmute::<&BlstSk, &blst_scalar>(&sk.0);
-
-            let mut out = blst_p1::default();
-            blst_sk_to_pk_in_g1(&mut out, sk_scalar);
-            out
-        };
-
-        Self { k1, k2 }
-    }
-}
-
-impl From<&SigningKey> for VerificationKeyPoP {
-    /// Convert a secret key into a `VerificationKeyPoP` by simply converting to a
-    /// `MspMvk` and `MspPoP`.
-    fn from(sk: &SigningKey) -> Self {
-        Self {
-            vk: sk.into(),
-            pop: sk.into(),
-        }
-    }
-}
-
 impl VerificationKeyPoP {
     /// if `e(k1,g2) = e(H_G1("PoP" || mvk),mvk)` and `e(g1,mvk) = e(k2,g2)`
     /// are both true, return 1. The first part is a signature verification
     /// of message "PoP", while the second we need to compute the pairing
     /// manually.
     // If we are really looking for performance improvements, we can combine the
-    // two final exponantiations (for verifying k1 and k2) into a single one.
+    // two final exponentiations (for verifying k1 and k2) into a single one.
     pub fn check(&self) -> Result<(), MultiSignatureError> {
         use blst::{
             blst_fp12, blst_fp12_finalverify, blst_p1_affine_generator, blst_p2_affine_generator,
@@ -268,13 +238,24 @@ impl VerificationKeyPoP {
         vkpop_bytes
     }
 
-    /// Deserialise a byte string to a `PublicKeyPoP`.
+    /// Deserialize a byte string to a `PublicKeyPoP`.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
         let mvk = VerificationKey::from_bytes(&bytes[..96])?;
 
         let pop = ProofOfPossession::from_bytes(&bytes[96..])?;
 
         Ok(Self { vk: mvk, pop })
+    }
+}
+
+impl From<&SigningKey> for VerificationKeyPoP {
+    /// Convert a secret key into a `VerificationKeyPoP` by simply converting to a
+    /// `MspMvk` and `MspPoP`.
+    fn from(sk: &SigningKey) -> Self {
+        Self {
+            vk: sk.into(),
+            pop: sk.into(),
+        }
     }
 }
 
@@ -297,7 +278,7 @@ impl ProofOfPossession {
         pop_bytes
     }
 
-    /// Deserialise a byte string to a `PublicKeyPoP`.
+    /// Deserialize a byte string to a `PublicKeyPoP`.
     pub fn from_bytes(bytes: &[u8]) -> Result<Self, MultiSignatureError> {
         let k1 = match BlstSig::from_bytes(&bytes[..48]) {
             Ok(key) => key,
@@ -319,26 +300,22 @@ impl ProofOfPossession {
     }
 }
 
-// ---------------------------------------------------------------------
-// Multi signature
-// ---------------------------------------------------------------------
+impl From<&SigningKey> for ProofOfPossession {
+    /// Convert a secret key into an `MspPoP`. This is performed by computing
+    /// `k1 =  H_G1(b"PoP" || mvk)` and `k2 = g1 * sk` where `H_G1` hashes into
+    /// `G1` and `g1` is the generator in `G1`.
+    fn from(sk: &SigningKey) -> Self {
+        use blst::blst_sk_to_pk_in_g1;
+        let k1 = sk.0.sign(POP, &[], &[]);
+        let k2 = unsafe {
+            let sk_scalar = std::mem::transmute::<&BlstSk, &blst_scalar>(&sk.0);
 
-/// MultiSig signature, which is a wrapper over the `BlstSig` type.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Signature(BlstSig);
+            let mut out = blst_p1::default();
+            blst_sk_to_pk_in_g1(&mut out, sk_scalar);
+            out
+        };
 
-impl<'a> Sum<&'a Self> for Signature {
-    fn sum<I>(iter: I) -> Self
-    where
-        I: Iterator<Item = &'a Self>,
-    {
-        let signatures: Vec<&BlstSig> = iter.map(|x| &x.0).collect();
-        assert!(!signatures.is_empty(), "One cannot add an empty vector");
-        let aggregate = AggregateSignature::aggregate(&signatures, false)
-                .expect("An MspSig is always a valid signature. This function only fails if signatures is empty or if the signatures are invalid, none of which can happen.")
-                .to_signature();
-
-        Self(aggregate)
+        Self { k1, k2 }
     }
 }
 
@@ -382,7 +359,7 @@ impl Signature {
         match BlstSig::sig_validate(&bytes[..48], true) {
             Ok(sig) => Ok(Self(sig)),
             Err(e) => Err(blst_err_to_mithril(e, None)
-                .expect_err("If deserialisation is not successful, blst returns and error different to SUCCESS."))
+                .expect_err("If deserialization is not successful, blst returns and error different to SUCCESS."))
         }
     }
 
@@ -514,6 +491,21 @@ impl Signature {
             None,
         )
         .map_err(|_| MultiSignatureError::BatchInvalid)
+    }
+}
+
+impl<'a> Sum<&'a Self> for Signature {
+    fn sum<I>(iter: I) -> Self
+    where
+        I: Iterator<Item = &'a Self>,
+    {
+        let signatures: Vec<&BlstSig> = iter.map(|x| &x.0).collect();
+        assert!(!signatures.is_empty(), "One cannot add an empty vector");
+        let aggregate = AggregateSignature::aggregate(&signatures, false)
+                .expect("An MspSig is always a valid signature. This function only fails if signatures is empty or if the signatures are invalid, none of which can happen.")
+                .to_signature();
+
+        Self(aggregate)
     }
 }
 
