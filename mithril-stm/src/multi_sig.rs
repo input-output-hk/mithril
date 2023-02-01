@@ -206,7 +206,7 @@ impl VerificationKeyPoP {
         };
         let result = unsafe {
             let g1_p = *blst_p1_affine_generator();
-            let mvk_p = std::mem::transmute::<&BlstVk, &blst_p2_affine>(&self.vk.0);
+            let mvk_p = vk_to_p2_affine(&self.vk);
             let ml_lhs = blst_fp12::miller_loop(mvk_p, &g1_p);
 
             let mut k2_p = blst_p1_affine::default();
@@ -308,7 +308,7 @@ impl From<&SigningKey> for ProofOfPossession {
         use blst::blst_sk_to_pk_in_g1;
         let k1 = sk.0.sign(POP, &[], &[]);
         let k2 = unsafe {
-            let sk_scalar = std::mem::transmute::<&BlstSk, &blst_scalar>(&sk.0);
+            let sk_scalar = sk_to_scalar(sk);
 
             let mut out = blst_p1::default();
             blst_sk_to_pk_in_g1(&mut out, sk_scalar);
@@ -416,7 +416,7 @@ impl Signature {
                 let mut projective_p2 = blst_p2::default();
                 blst_p2_from_affine(
                     &mut projective_p2,
-                    &std::mem::transmute::<BlstVk, blst_p2_affine>(vk.0),
+                    vk_to_p2_affine(vk),
                 );
                 projective_p2
             })
@@ -428,7 +428,7 @@ impl Signature {
                 let mut projective_p1 = blst_p1::default();
                 blst_p1_from_affine(
                     &mut projective_p1,
-                    &std::mem::transmute::<BlstSig, blst_p1_affine>(sig),
+                    &sig_to_p1_affine(sig),
                 );
                 projective_p1
             })
@@ -440,12 +440,12 @@ impl Signature {
         let aggr_vk: BlstVk = unsafe {
             let mut affine_p2 = blst_p2_affine::default();
             blst_p2_to_affine(&mut affine_p2, &grouped_vks.mult(scalars.as_slice(), 128));
-            std::mem::transmute::<blst_p2_affine, BlstVk>(affine_p2)
+            p2_affine_to_vk(affine_p2)
         };
         let aggr_sig: BlstSig = unsafe {
             let mut affine_p1 = blst_p1_affine::default();
             blst_p1_to_affine(&mut affine_p1, &grouped_sigs.mult(scalars.as_slice(), 128));
-            std::mem::transmute::<blst_p1_affine, BlstSig>(affine_p1)
+            p1_affine_to_sig(affine_p1)
         };
 
         Ok((VerificationKey(aggr_vk), Signature(aggr_sig)))
@@ -519,6 +519,47 @@ impl Ord for Signature {
     fn cmp(&self, other: &Self) -> Ordering {
         self.cmp_msp_sig(other)
     }
+}
+
+
+
+// ---------------------------------------------------------------------
+// Transmute helpers
+// ---------------------------------------------------------------------
+
+pub fn vk_to_p2_affine(vk: &VerificationKey) -> &'static blst_p2_affine {
+    unsafe {
+        let result = std::mem::transmute::<&BlstVk, &blst_p2_affine>(&vk.0);
+        return result;
+    };
+}
+
+pub fn p2_affine_to_vk(affine_p2: blst_p2_affine) -> BlstVk {
+    unsafe {
+        let result = std::mem::transmute::<blst_p2_affine, BlstVk>(affine_p2);
+        return result;
+    };
+}
+
+pub fn p1_affine_to_sig(affine_p1: blst_p1_affine) -> BlstSig {
+    unsafe {
+        let result = std::mem::transmute::<blst_p1_affine, BlstSig>(affine_p1);
+        return result;
+    };
+}
+
+pub fn sig_to_p1_affine(sig: BlstSig) -> blst_p1_affine  {
+    unsafe {
+        let result = std::mem::transmute::<BlstSig, blst_p1_affine>(sig);
+        return result;
+    };
+}
+
+pub fn sk_to_scalar(sk: &SigningKey) -> &blst_scalar  {
+    unsafe {
+        let result = std::mem::transmute::<&BlstSk, &blst_scalar>(&sk.0);
+        return result;
+    };
 }
 
 // ---------------------------------------------------------------------
