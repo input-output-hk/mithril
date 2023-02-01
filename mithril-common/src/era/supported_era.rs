@@ -29,10 +29,24 @@ impl FromStr for SupportedEra {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let s = s.trim().to_lowercase();
 
-        if &s == "thales" {
-            Ok(Self::Thales)
-        } else {
-            Err(UnsupportedEraError(s))
+        let era = match s.as_str() {
+            "thales" => Self::Thales,
+            _ => return Err(UnsupportedEraError(s)),
+        };
+
+        // This is intended to make the compiler to complain when a new variant
+        // is added in order not to forget to add a conversion for the new
+        // variant.
+        match era {
+            Self::Thales => Ok(Self::Thales),
+        }
+    }
+}
+
+impl ToString for SupportedEra {
+    fn to_string(&self) -> String {
+        match self {
+            Self::Thales => "thales".to_owned(),
         }
     }
 }

@@ -13,6 +13,15 @@ pub struct EraMarker {
     epoch: Option<Epoch>,
 }
 
+impl EraMarker {
+    /// instanciate a new [EraMarker].
+    pub fn new(name: &str, epoch: Option<Epoch>) -> Self {
+        let name = name.to_string();
+
+        Self { name, epoch }
+    }
+}
+
 /// Adapters are responsible of technically reading the information of
 /// [EraMarker]s from a backend.
 #[async_trait]
@@ -146,25 +155,8 @@ impl EraReader {
 
 #[cfg(test)]
 mod tests {
+    use super::super::adapters::DummyAdapter;
     use super::*;
-
-    #[derive(Default)]
-    struct DummyAdapter {
-        markers: Vec<EraMarker>,
-    }
-
-    impl DummyAdapter {
-        pub fn set_markers(&mut self, markers: Vec<EraMarker>) {
-            self.markers = markers;
-        }
-    }
-
-    #[async_trait]
-    impl EraReaderAdapter for DummyAdapter {
-        async fn read(&self) -> Result<Vec<EraMarker>, Box<dyn StdError>> {
-            Ok(self.markers.clone())
-        }
-    }
 
     fn get_basic_marker_sample() -> Vec<EraMarker> {
         vec![
@@ -173,11 +165,11 @@ mod tests {
                 epoch: Some(Epoch(1)),
             },
             EraMarker {
-                name: "thales".to_string(),
+                name: SupportedEra::dummy().to_string(),
                 epoch: None,
             },
             EraMarker {
-                name: "thales".to_string(),
+                name: SupportedEra::dummy().to_string(),
                 epoch: Some(Epoch(10)),
             },
         ]
@@ -196,7 +188,7 @@ mod tests {
             EraEpochToken {
                 current_epoch: Epoch(10),
                 current_era: EraMarker {
-                    name: "thales".to_string(),
+                    name: SupportedEra::dummy().to_string(),
                     epoch: Some(Epoch(10))
                 },
                 next_era: None,
@@ -243,7 +235,7 @@ mod tests {
                     epoch: Some(Epoch(1))
                 },
                 next_era: Some(EraMarker {
-                    name: "thales".to_string(),
+                    name: SupportedEra::dummy().to_string(),
                     epoch: Some(Epoch(10))
                 }),
             },
