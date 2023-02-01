@@ -519,23 +519,23 @@ impl Ord for Signature {
 // Transmute helpers
 // ---------------------------------------------------------------------
 
-pub fn vk_to_p2_affine(vk: &VerificationKey) -> &'static blst_p2_affine {
+fn vk_to_p2_affine(vk: &VerificationKey) -> &'static blst_p2_affine {
     unsafe { std::mem::transmute::<&BlstVk, &blst_p2_affine>(&vk.0) }
 }
 
-pub fn p2_affine_to_vk(affine_p2: blst_p2_affine) -> BlstVk {
+fn p2_affine_to_vk(affine_p2: blst_p2_affine) -> BlstVk {
     unsafe { std::mem::transmute::<blst_p2_affine, BlstVk>(affine_p2) }
 }
 
-pub fn p1_affine_to_sig(affine_p1: blst_p1_affine) -> BlstSig {
+fn p1_affine_to_sig(affine_p1: blst_p1_affine) -> BlstSig {
     unsafe { std::mem::transmute::<blst_p1_affine, BlstSig>(affine_p1) }
 }
 
-pub fn sig_to_p1_affine(sig: BlstSig) -> blst_p1_affine {
+fn sig_to_p1_affine(sig: BlstSig) -> blst_p1_affine {
     unsafe { std::mem::transmute::<BlstSig, blst_p1_affine>(sig) }
 }
 
-pub fn sk_to_scalar(sk: &SigningKey) -> &blst_scalar {
+fn sk_to_scalar(sk: &SigningKey) -> &blst_scalar {
     unsafe { std::mem::transmute::<&BlstSk, &blst_scalar>(&sk.0) }
 }
 
