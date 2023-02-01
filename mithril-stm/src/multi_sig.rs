@@ -414,10 +414,7 @@ impl Signature {
             .iter()
             .map(|vk| unsafe {
                 let mut projective_p2 = blst_p2::default();
-                blst_p2_from_affine(
-                    &mut projective_p2,
-                    vk_to_p2_affine(vk),
-                );
+                blst_p2_from_affine(&mut projective_p2, vk_to_p2_affine(vk));
                 projective_p2
             })
             .collect();
@@ -426,10 +423,7 @@ impl Signature {
             .iter()
             .map(|&sig| unsafe {
                 let mut projective_p1 = blst_p1::default();
-                blst_p1_from_affine(
-                    &mut projective_p1,
-                    &sig_to_p1_affine(sig),
-                );
+                blst_p1_from_affine(&mut projective_p1, &sig_to_p1_affine(sig));
                 projective_p1
             })
             .collect();
@@ -521,45 +515,28 @@ impl Ord for Signature {
     }
 }
 
-
-
 // ---------------------------------------------------------------------
 // Transmute helpers
 // ---------------------------------------------------------------------
 
 pub fn vk_to_p2_affine(vk: &VerificationKey) -> &'static blst_p2_affine {
-    unsafe {
-        let result = std::mem::transmute::<&BlstVk, &blst_p2_affine>(&vk.0);
-        return result;
-    };
+    unsafe { std::mem::transmute::<&BlstVk, &blst_p2_affine>(&vk.0) }
 }
 
 pub fn p2_affine_to_vk(affine_p2: blst_p2_affine) -> BlstVk {
-    unsafe {
-        let result = std::mem::transmute::<blst_p2_affine, BlstVk>(affine_p2);
-        return result;
-    };
+    unsafe { std::mem::transmute::<blst_p2_affine, BlstVk>(affine_p2) }
 }
 
 pub fn p1_affine_to_sig(affine_p1: blst_p1_affine) -> BlstSig {
-    unsafe {
-        let result = std::mem::transmute::<blst_p1_affine, BlstSig>(affine_p1);
-        return result;
-    };
+    unsafe { std::mem::transmute::<blst_p1_affine, BlstSig>(affine_p1) }
 }
 
-pub fn sig_to_p1_affine(sig: BlstSig) -> blst_p1_affine  {
-    unsafe {
-        let result = std::mem::transmute::<BlstSig, blst_p1_affine>(sig);
-        return result;
-    };
+pub fn sig_to_p1_affine(sig: BlstSig) -> blst_p1_affine {
+    unsafe { std::mem::transmute::<BlstSig, blst_p1_affine>(sig) }
 }
 
-pub fn sk_to_scalar(sk: &SigningKey) -> &blst_scalar  {
-    unsafe {
-        let result = std::mem::transmute::<&BlstSk, &blst_scalar>(&sk.0);
-        return result;
-    };
+pub fn sk_to_scalar(sk: &SigningKey) -> &blst_scalar {
+    unsafe { std::mem::transmute::<&BlstSk, &blst_scalar>(&sk.0) }
 }
 
 // ---------------------------------------------------------------------
