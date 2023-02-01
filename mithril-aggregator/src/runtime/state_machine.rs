@@ -222,6 +222,7 @@ impl AggregatorRuntime {
         if maybe_current_beacon.is_none() || maybe_current_beacon.unwrap().epoch < new_beacon.epoch
         {
             self.runner.close_signer_registration_round().await?;
+            self.runner.update_era_checker(&new_beacon).await?;
             self.runner.update_stake_distribution(&new_beacon).await?;
             self.runner
                 .open_signer_registration_round(&new_beacon)
@@ -388,6 +389,11 @@ mod tests {
             .expect_is_certificate_chain_valid()
             .once()
             .returning(|| Ok(false));
+        runner
+            .expect_update_era_checker()
+            .with(predicate::eq(fake_data::beacon()))
+            .once()
+            .returning(|_| Ok(()));
 
         let mut runtime = init_runtime(
             Some(AggregatorState::Idle(IdleState {
@@ -435,6 +441,11 @@ mod tests {
             .expect_is_certificate_chain_valid()
             .once()
             .returning(|| Ok(true));
+        runner
+            .expect_update_era_checker()
+            .with(predicate::eq(fake_data::beacon()))
+            .once()
+            .returning(|_| Ok(()));
 
         let mut runtime = init_runtime(
             Some(AggregatorState::Idle(IdleState {

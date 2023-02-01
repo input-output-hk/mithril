@@ -1,4 +1,4 @@
-//! Module dedicated to [EraReaderAdapter] implementations.
+//! Module dedicated to EraReaderAdapter implementations.
 mod bootstrap;
 mod dummy;
 

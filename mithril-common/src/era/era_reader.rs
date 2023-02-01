@@ -6,11 +6,14 @@ use thiserror::Error;
 
 use super::{supported_era::UnsupportedEraError, SupportedEra};
 
-/// Represents a tag of Era change.
+/// Value object that represents a tag of Era change.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EraMarker {
-    name: String,
-    epoch: Option<Epoch>,
+    /// Era name
+    pub name: String,
+
+    /// Eventual information that advertises the Epoch of transition.
+    pub epoch: Option<Epoch>,
 }
 
 impl EraMarker {
@@ -25,7 +28,7 @@ impl EraMarker {
 /// Adapters are responsible of technically reading the information of
 /// [EraMarker]s from a backend.
 #[async_trait]
-pub trait EraReaderAdapter {
+pub trait EraReaderAdapter: Sync + Send {
     /// Read era markers from the underlying adapter.
     async fn read(&self) -> Result<Vec<EraMarker>, Box<dyn StdError>>;
 }
@@ -59,6 +62,11 @@ impl EraEpochToken {
     /// Return the [EraMarker] of the current Era.
     pub fn get_current_era_marker(&self) -> &EraMarker {
         &self.current_era
+    }
+
+    /// Return the epoch the Token has been created at
+    pub fn get_current_epoch(&self) -> Epoch {
+        self.current_epoch
     }
 
     /// Try to cast the next [EraMarker] to a [SupportedEra]. If it fails, that
