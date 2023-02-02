@@ -13,9 +13,10 @@ use blst::min_sig::{
     Signature as BlstSig,
 };
 use blst::{
-    blst_p1, blst_p1_affine, blst_p1_compress, blst_p1_from_affine, blst_p1_to_affine,
-    blst_p1_uncompress, blst_p2, blst_p2_affine, blst_p2_from_affine, blst_p2_to_affine,
-    blst_scalar, p1_affines, p2_affines,
+    blst_fp12, blst_fp12_finalverify, blst_p1, blst_p1_affine, blst_p1_affine_generator,
+    blst_p1_compress, blst_p1_from_affine, blst_p1_to_affine, blst_p1_uncompress, blst_p2,
+    blst_p2_affine, blst_p2_affine_generator, blst_p2_from_affine, blst_p2_to_affine, blst_scalar,
+    blst_sk_to_pk_in_g1, p1_affines, p2_affines, BLST_ERROR,
 };
 
 use rand_core::{CryptoRng, RngCore};
@@ -200,21 +201,17 @@ impl VerificationKeyPoP {
     // If we are really looking for performance improvements, we can combine the
     // two final exponentiations (for verifying k1 and k2) into a single one.
     pub fn check(&self) -> Result<(), MultiSignatureError> {
-        use blst::{
-            blst_fp12, blst_fp12_finalverify, blst_p1_affine_generator, blst_p2_affine_generator,
-            BLST_ERROR,
-        };
-        let result = unsafe {
-            let g1_p = *blst_p1_affine_generator();
+        let result = {
+            let g1_p = generate_p1_affine();
             let mvk_p = vk_to_p2_affine(&self.vk);
             let ml_lhs = blst_fp12::miller_loop(mvk_p, &g1_p);
 
             let mut k2_p = blst_p1_affine::default();
-            blst_p1_to_affine(&mut k2_p, &self.pop.k2);
-            let g2_p = *blst_p2_affine_generator();
+            p1_to_affine(&mut k2_p, &self.pop.k2);
+            let g2_p = generate_p2_affine();
             let ml_rhs = blst_fp12::miller_loop(&g2_p, &k2_p);
 
-            blst_fp12_finalverify(&ml_lhs, &ml_rhs)
+            final_verify(ml_lhs, ml_rhs)
         };
 
         if !(self.pop.k1.verify(false, POP, &[], &[], &self.vk.0, false)
@@ -269,9 +266,9 @@ impl ProofOfPossession {
     pub fn to_bytes(self) -> [u8; 96] {
         let mut pop_bytes = [0u8; 96];
         pop_bytes[..48].copy_from_slice(&self.k1.to_bytes());
-        let k2_bytes = unsafe {
+        let k2_bytes = {
             let mut bytes = [0u8; 48];
-            blst_p1_compress(bytes.as_mut_ptr(), &self.k2);
+            compress_p1(&mut bytes, &self.k2);
             bytes
         };
         pop_bytes[48..].copy_from_slice(&k2_bytes);
@@ -288,11 +285,11 @@ impl ProofOfPossession {
             }
         };
 
-        let k2 = unsafe {
+        let k2 = {
             let mut point = blst_p1_affine::default();
             let mut out = blst_p1::default();
-            blst_p1_uncompress(&mut point, bytes[48..].as_ptr());
-            blst_p1_from_affine(&mut out, &point);
+            uncompress_p1(&mut point, bytes[48..96].as_ptr());
+            p1_from_affine(&mut out, &point);
             out
         };
 
@@ -305,13 +302,12 @@ impl From<&SigningKey> for ProofOfPossession {
     /// `k1 =  H_G1(b"PoP" || mvk)` and `k2 = g1 * sk` where `H_G1` hashes into
     /// `G1` and `g1` is the generator in `G1`.
     fn from(sk: &SigningKey) -> Self {
-        use blst::blst_sk_to_pk_in_g1;
         let k1 = sk.0.sign(POP, &[], &[]);
-        let k2 = unsafe {
+        let k2 = {
             let sk_scalar = sk_to_scalar(sk);
 
             let mut out = blst_p1::default();
-            blst_sk_to_pk_in_g1(&mut out, sk_scalar);
+            sk_to_pk_in_g1(&mut out, sk_scalar);
             out
         };
 
@@ -412,18 +408,18 @@ impl Signature {
 
         let transmuted_vks: Vec<blst_p2> = vks
             .iter()
-            .map(|vk| unsafe {
+            .map(|vk| {
                 let mut projective_p2 = blst_p2::default();
-                blst_p2_from_affine(&mut projective_p2, vk_to_p2_affine(vk));
+                p2_from_affine(&mut projective_p2, vk_to_p2_affine(vk));
                 projective_p2
             })
             .collect();
 
         let transmuted_sigs: Vec<blst_p1> = signatures
             .iter()
-            .map(|&sig| unsafe {
+            .map(|&sig| {
                 let mut projective_p1 = blst_p1::default();
-                blst_p1_from_affine(&mut projective_p1, &sig_to_p1_affine(sig));
+                p1_from_affine(&mut projective_p1, &sig_to_p1_affine(sig));
                 projective_p1
             })
             .collect();
@@ -431,14 +427,14 @@ impl Signature {
         let grouped_vks = p2_affines::from(transmuted_vks.as_slice());
         let grouped_sigs = p1_affines::from(transmuted_sigs.as_slice());
 
-        let aggr_vk: BlstVk = unsafe {
+        let aggr_vk: BlstVk = {
             let mut affine_p2 = blst_p2_affine::default();
-            blst_p2_to_affine(&mut affine_p2, &grouped_vks.mult(scalars.as_slice(), 128));
+            p2_to_affine(&mut affine_p2, &grouped_vks.mult(scalars.as_slice(), 128));
             p2_affine_to_vk(affine_p2)
         };
-        let aggr_sig: BlstSig = unsafe {
+        let aggr_sig: BlstSig = {
             let mut affine_p1 = blst_p1_affine::default();
-            blst_p1_to_affine(&mut affine_p1, &grouped_sigs.mult(scalars.as_slice(), 128));
+            p1_to_affine(&mut affine_p1, &grouped_sigs.mult(scalars.as_slice(), 128));
             p1_affine_to_sig(affine_p1)
         };
 
@@ -513,6 +509,50 @@ impl Ord for Signature {
     fn cmp(&self, other: &Self) -> Ordering {
         self.cmp_msp_sig(other)
     }
+}
+
+// ---------------------------------------------------------------------
+// Unsafe helpers
+// ---------------------------------------------------------------------
+
+fn generate_p1_affine() -> blst_p1_affine {
+    unsafe { *blst_p1_affine_generator() }
+}
+
+fn compress_p1(bytes: &mut [u8; 48], k2: *const blst_p1) {
+    unsafe { blst_p1_compress(bytes.as_mut_ptr(), k2) }
+}
+
+fn uncompress_p1(point: *mut blst_p1_affine, bytes: *const u8) -> BLST_ERROR {
+    unsafe { blst_p1_uncompress(point, bytes) }
+}
+
+fn p1_from_affine(out: *mut blst_p1, point: *const blst_p1_affine) {
+    unsafe { blst_p1_from_affine(out, point) }
+}
+
+fn p1_to_affine(k2_p: *mut blst_p1_affine, k2: *const blst_p1) {
+    unsafe { blst_p1_to_affine(k2_p, k2) }
+}
+
+fn generate_p2_affine() -> blst_p2_affine {
+    unsafe { *blst_p2_affine_generator() }
+}
+
+fn p2_from_affine(out: *mut blst_p2, point: *const blst_p2_affine) {
+    unsafe { blst_p2_from_affine(out, point) }
+}
+
+fn p2_to_affine(out_: *mut blst_p2_affine, in_: *const blst_p2) {
+    unsafe { blst_p2_to_affine(out_, in_) }
+}
+
+fn sk_to_pk_in_g1(out: *mut blst_p1, sk_scalar: *const blst_scalar) {
+    unsafe { blst_sk_to_pk_in_g1(out, sk_scalar) }
+}
+
+fn final_verify(ml_lhs: blst_fp12, ml_rhs: blst_fp12) -> bool {
+    unsafe { blst_fp12_finalverify(&ml_lhs, &ml_rhs) }
 }
 
 // ---------------------------------------------------------------------
