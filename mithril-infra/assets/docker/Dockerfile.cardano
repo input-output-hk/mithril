@@ -1,4 +1,4 @@
-FROM inputoutput/cardano-node:1.35.4
+FROM inputoutput/cardano-node:1.35.5
 
 # Fix env file rights
 # In order to be able to interact with the Cardano node trough its 'node.socket'

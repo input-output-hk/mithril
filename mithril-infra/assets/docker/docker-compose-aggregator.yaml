@@ -2,7 +2,7 @@ version: "3.9"
 
 services:
   cardano-node-aggregator:
-    image: cardano-node/1.35.4-modified
+    image: cardano-node/1.35.5-modified
     container_name: cardano-node-aggregator
     build:
       context: .
