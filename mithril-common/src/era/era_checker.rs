@@ -27,7 +27,7 @@ impl EraChecker {
         self.current_era_stamp.read().unwrap().era
     }
 
-    /// Retrieve the current Epoch
+    /// Retrieve the Epoch the checker was the last updated.
     pub fn current_epoch(&self) -> Epoch {
         self.current_era_stamp.read().unwrap().epoch
     }

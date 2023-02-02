@@ -15,7 +15,7 @@ use mithril_common::{
         CardanoImmutableDigester, ImmutableFileSystemObserver,
     },
     entities::{Epoch, HexEncodedGenesisSecretKey},
-    era::{adapters::BootstrapAdapter as BootstrapEraReaderAdapter, EraChecker, EraReader},
+    era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
     store::{adapter::SQLiteAdapter, StakeStore},
     BeaconProvider, BeaconProviderImpl,
 };
@@ -399,7 +399,7 @@ impl ServeCommand {
         ));
 
         // TODO: use EraReader when it is implemented to retrieve current era
-        let era_reader = Arc::new(EraReader::new(Box::new(BootstrapEraReaderAdapter)));
+        let era_reader = Arc::new(EraReader::new(Box::new(EraReaderBootstrapAdapter)));
         let era_epoch_token = era_reader
             .read_era_epoch_token(beacon_provider.get_current_beacon().await?.epoch)
             .await?;

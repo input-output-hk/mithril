@@ -272,7 +272,7 @@ pub mod tests {
         chain_observer::FakeObserver,
         crypto_helper::{key_encode_hex, ProtocolGenesisSigner},
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
-        era::{adapters::BootstrapAdapter as BootstrapEraReaderAdapter, EraChecker, EraReader},
+        era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
         store::{adapter::MemoryAdapter, StakeStore},
         test_utils::fake_data,
         BeaconProvider, BeaconProviderImpl, CardanoNetwork,
@@ -350,7 +350,7 @@ pub mod tests {
             chain_observer.clone(),
             verification_key_store.clone(),
         ));
-        let era_reader = Arc::new(EraReader::new(Box::new(BootstrapEraReaderAdapter)));
+        let era_reader = Arc::new(EraReader::new(Box::new(EraReaderBootstrapAdapter)));
         let era_epoch_token = era_reader
             .read_era_epoch_token(beacon_provider.get_current_beacon().await.unwrap().epoch)
             .await

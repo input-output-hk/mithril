@@ -5,62 +5,61 @@ use mithril_common::entities::{Beacon, CertificatePending, Epoch, EpochSettings,
 
 use super::Runner;
 
-/// Structure to hold `Registered` state information.
-#[derive(Debug, PartialEq, Eq)]
-pub struct RegisteredState {
-    beacon: Beacon,
-}
-
-/// Structure to hold `Signed` state information.
-#[derive(Debug, PartialEq, Eq)]
-pub struct SignedState {
-    beacon: Beacon,
-}
-
 /// Different possible states of the state machine.
 #[derive(Debug, PartialEq, Eq)]
 pub enum SignerState {
     /// starting state, may hold the latest known epoch in order to help synchronisation
     /// with the aggregator
-    Unregistered(Option<Epoch>),
+    Unregistered {
+        /// Unregistered state may know its epoch (None at startup). The given
+        /// epoch corresponds to the previous epoch in order to be able to
+        /// register stake distribution.
+        epoch: Option<Epoch>,
+    },
 
     /// `Registered` state
-    Registered(RegisteredState),
+    Registered {
+        /// Beacon when Signer may sign.
+        beacon: Beacon,
+    },
 
     /// `Signed` state
-    Signed(SignedState),
+    Signed {
+        /// Beacon when Signer signed.
+        beacon: Beacon,
+    },
 }
 
 impl SignerState {
     /// Returns `true` if the state in `Unregistered`
     pub fn is_unregistered(&self) -> bool {
-        matches!(*self, SignerState::Unregistered(_))
+        matches!(*self, SignerState::Unregistered { epoch: _ })
     }
 
     /// Returns `true` if the state in `Registered`
     pub fn is_registered(&self) -> bool {
-        matches!(*self, SignerState::Registered(_))
+        matches!(*self, SignerState::Registered { beacon: _ })
     }
 
     /// Returns `true` if the state in `Signed`
     pub fn is_signed(&self) -> bool {
-        matches!(*self, SignerState::Signed(_))
+        matches!(*self, SignerState::Signed { beacon: _ })
     }
 }
 
 impl Display for SignerState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Unregistered(state) => write!(
+            Self::Unregistered { epoch } => write!(
                 f,
                 "Unregistered - {}",
-                match state {
+                match epoch {
                     None => "No Epoch".to_string(),
                     Some(e) => format!("Epoch({e})"),
                 }
             ),
-            Self::Registered(state) => write!(f, "Registered - {}", state.beacon),
-            Self::Signed(state) => write!(f, "Signed - {}", state.beacon),
+            Self::Registered { beacon } => write!(f, "Registered - {}", beacon),
+            Self::Signed { beacon } => write!(f, "Signed - {}", beacon),
         }
     }
 }
@@ -114,29 +113,30 @@ impl StateMachine {
         info!("STATE MACHINE: new cycle: {}", self.state);
 
         match &self.state {
-            SignerState::Unregistered(maybe_epoch) => {
+            SignerState::Unregistered { epoch } => {
                 if let Some(epoch_settings) = self.runner.get_epoch_settings().await? {
-                    if maybe_epoch.map_or_else(|| true, |e| epoch_settings.epoch >= e) {
+                    if epoch.map_or_else(|| true, |e| epoch_settings.epoch >= e) {
                         info!("→ Epoch settings found, transiting to REGISTERED");
-                        let state = self
+                        self.state = self
                             .transition_from_unregistered_to_registered(&epoch_settings)
                             .await?;
-                        self.state = SignerState::Registered(state);
                     } else {
                         info!(
                             " ⋅ Epoch settings found, but it's epoch is behind the known epoch, waiting…";
                             "epoch_settings" => ?epoch_settings,
-                            "known_epoch" => ?maybe_epoch,
+                            "known_epoch" => ?epoch,
                         );
                     }
                 } else {
                     info!(" ⋅ No epoch settings found yet, waiting…");
                 }
             }
-            SignerState::Registered(state) => {
-                if let Some(new_beacon) = self.has_epoch_changed(&state.beacon).await? {
+            SignerState::Registered { beacon } => {
+                if let Some(new_beacon) = self.has_epoch_changed(&beacon).await? {
                     info!("→ Epoch has changed, transiting to UNREGISTERED");
-                    self.state = SignerState::Unregistered(Some(new_beacon.epoch));
+                    self.state = self
+                        .transition_from_registered_to_unregistered(new_beacon)
+                        .await?;
                 } else if let Some(pending_certificate) =
                     self.runner.get_pending_certificate().await?
                 {
@@ -147,10 +147,9 @@ impl StateMachine {
 
                     if self.runner.can_i_sign(&pending_certificate).await? {
                         info!(" → we can sign this certificate, transiting to SIGNED");
-                        let state = self
+                        self.state = self
                             .transition_from_registered_to_signed(&pending_certificate)
                             .await?;
-                        self.state = SignerState::Signed(state)
                     } else {
                         info!(" ⋅ cannot sign this pending certificate, waiting…");
                     }
@@ -158,17 +157,18 @@ impl StateMachine {
                     info!(" ⋅ no pending certificate, waiting…");
                 }
             }
-            SignerState::Signed(state) => {
-                if let Some(new_beacon) = self.has_beacon_changed(&state.beacon).await? {
+            SignerState::Signed { beacon } => {
+                if let Some(new_beacon) = self.has_beacon_changed(&beacon).await? {
                     info!("  New beacon detected: {:?}", new_beacon);
 
-                    if new_beacon.epoch > state.beacon.epoch {
+                    if new_beacon.epoch > beacon.epoch {
                         info!(" → new Epoch detected, transiting to UNREGISTERED");
-                        self.state = SignerState::Unregistered(Some(new_beacon.epoch));
+                        self.state = self
+                            .transition_from_signed_to_unregistered(new_beacon)
+                            .await?;
                     } else {
                         info!(" → new immutable file detected, transiting to REGISTERED");
-                        self.state =
-                            SignerState::Registered(RegisteredState { beacon: new_beacon });
+                        self.state = SignerState::Registered { beacon: new_beacon };
                     }
                 } else {
                     info!(" ⋅ NO new beacon detected, waiting");
@@ -207,11 +207,32 @@ impl StateMachine {
         }
     }
 
+    async fn transition_from_signed_to_unregistered(
+        &self,
+        beacon: Beacon,
+    ) -> Result<SignerState, Box<dyn Error + Sync + Send>> {
+        self.runner.update_era_checker(beacon.epoch).await?;
+
+        Ok(SignerState::Unregistered {
+            epoch: Some(beacon.epoch),
+        })
+    }
+
+    async fn transition_from_registered_to_unregistered(
+        &self,
+        beacon: Beacon,
+    ) -> Result<SignerState, Box<dyn Error + Sync + Send>> {
+        self.runner.update_era_checker(beacon.epoch).await?;
+
+        Ok(SignerState::Unregistered {
+            epoch: Some(beacon.epoch),
+        })
+    }
     /// Launch the transition process from the `Unregistered` to the `Registered` state.
     async fn transition_from_unregistered_to_registered(
         &self,
         epoch_settings: &EpochSettings,
-    ) -> Result<RegisteredState, Box<dyn Error + Sync + Send>> {
+    ) -> Result<SignerState, Box<dyn Error + Sync + Send>> {
         let beacon = self.runner.get_current_beacon().await?;
         self.runner.update_stake_distribution(beacon.epoch).await?;
         self.runner
@@ -221,14 +242,14 @@ impl StateMachine {
             )
             .await?;
 
-        Ok(RegisteredState { beacon })
+        Ok(SignerState::Registered { beacon })
     }
 
     /// Launch the transition process from the `Registered` to the `Signed` state.
     async fn transition_from_registered_to_signed(
         &self,
         pending_certificate: &CertificatePending,
-    ) -> Result<SignedState, Box<dyn Error + Sync + Send>> {
+    ) -> Result<SignerState, Box<dyn Error + Sync + Send>> {
         let current_beacon = &pending_certificate.beacon;
         let (retrieval_epoch, next_retrieval_epoch) = (
             current_beacon.epoch.offset_to_signer_retrieval_epoch()?,
@@ -261,7 +282,7 @@ impl StateMachine {
             .await?;
         self.runner.send_single_signature(single_signatures).await?;
 
-        Ok(SignedState {
+        Ok(SignerState::Signed {
             beacon: current_beacon.clone(),
         })
     }
@@ -290,13 +311,17 @@ mod tests {
             .expect_get_epoch_settings()
             .once()
             .returning(|| Ok(None));
-        let mut state_machine = init_state_machine(SignerState::Unregistered(None), runner);
+        let mut state_machine =
+            init_state_machine(SignerState::Unregistered { epoch: None }, runner);
         state_machine
             .cycle()
             .await
             .expect("Cycling the state machine should not fail");
 
-        assert_eq!(&SignerState::Unregistered(None), state_machine.get_state());
+        assert_eq!(
+            &SignerState::Unregistered { epoch: None },
+            state_machine.get_state()
+        );
     }
 
     #[tokio::test]
@@ -312,15 +337,21 @@ mod tests {
             .expect_get_epoch_settings()
             .once()
             .returning(move || Ok(Some(epoch_settings.to_owned())));
-        let mut state_machine =
-            init_state_machine(SignerState::Unregistered(Some(known_epoch)), runner);
+        let mut state_machine = init_state_machine(
+            SignerState::Unregistered {
+                epoch: Some(known_epoch),
+            },
+            runner,
+        );
         state_machine
             .cycle()
             .await
             .expect("Cycling the state machine should not fail");
 
         assert_eq!(
-            &SignerState::Unregistered(Some(known_epoch)),
+            &SignerState::Unregistered {
+                epoch: Some(known_epoch)
+            },
             state_machine.get_state()
         );
     }
@@ -345,14 +376,15 @@ mod tests {
             .once()
             .returning(|_, _| Ok(()));
 
-        let mut state_machine = init_state_machine(SignerState::Unregistered(None), runner);
+        let mut state_machine =
+            init_state_machine(SignerState::Unregistered { epoch: None }, runner);
 
         state_machine
             .cycle()
             .await
             .expect("Cycling the state machine should not fail");
 
-        if let SignerState::Registered(_state) = state_machine.get_state() {
+        if let SignerState::Registered { beacon: _ } = state_machine.get_state() {
         } else {
             panic!(
                 "state machine did not return a RegisteredState but {:?}",
@@ -369,13 +401,13 @@ mod tests {
             .once()
             .returning(|| Ok(fake_data::beacon()));
         let mut state_machine = init_state_machine(
-            SignerState::Registered(RegisteredState {
+            SignerState::Registered {
                 beacon: Beacon {
                     epoch: Epoch(0),
                     immutable_file_number: 0,
                     ..Default::default()
                 },
-            }),
+            },
             runner,
         );
 
@@ -384,7 +416,9 @@ mod tests {
             .await
             .expect("Cycling the state machine should not fail");
         assert_eq!(
-            &SignerState::Unregistered(Some(fake_data::beacon().epoch)),
+            &SignerState::Unregistered {
+                epoch: Some(fake_data::beacon().epoch)
+            },
             state_machine.get_state()
         );
     }
@@ -396,7 +430,7 @@ mod tests {
             epoch: Epoch(9),
             ..Default::default()
         };
-        let state = RegisteredState {
+        let state = SignerState::Registered {
             beacon: beacon.clone(),
         };
 
@@ -413,20 +447,20 @@ mod tests {
             .returning(move || Ok(Some(certificate_pending.to_owned())));
         runner.expect_can_i_sign().once().returning(|_| Ok(false));
 
-        let mut state_machine = init_state_machine(SignerState::Registered(state), runner);
+        let mut state_machine = init_state_machine(state, runner);
         state_machine
             .cycle()
             .await
             .expect("Cycling the state machine should not fail");
 
         assert_eq!(
-            SignerState::Registered(RegisteredState {
+            SignerState::Registered {
                 beacon: Beacon {
                     epoch: Epoch(9),
                     immutable_file_number: 99,
                     ..Default::default()
                 }
-            }),
+            },
             *state_machine.get_state(),
             "state machine did not return a RegisteredState but {:?}",
             state_machine.get_state()
@@ -440,7 +474,7 @@ mod tests {
             epoch: Epoch(9),
             ..Default::default()
         };
-        let state = RegisteredState {
+        let state = SignerState::Registered {
             beacon: beacon.clone(),
         };
 
@@ -473,20 +507,20 @@ mod tests {
             .once()
             .returning(|_| Ok(()));
 
-        let mut state_machine = init_state_machine(SignerState::Registered(state), runner);
+        let mut state_machine = init_state_machine(state, runner);
         state_machine
             .cycle()
             .await
             .expect("Cycling the state machine should not fail");
 
         assert_eq!(
-            SignerState::Signed(SignedState {
+            SignerState::Signed {
                 beacon: Beacon {
                     epoch: Epoch(9),
                     immutable_file_number: 99,
                     ..Default::default()
                 }
-            }),
+            },
             *state_machine.get_state(),
             "state machine did not return a RegisteredState but {:?}",
             state_machine.get_state()
@@ -504,7 +538,7 @@ mod tests {
             immutable_file_number: 100,
             ..beacon.clone()
         };
-        let state = SignedState {
+        let state = SignerState::Signed {
             beacon: beacon.clone(),
         };
 
@@ -514,19 +548,19 @@ mod tests {
             .once()
             .returning(move || Ok(new_beacon.to_owned()));
 
-        let mut state_machine = init_state_machine(SignerState::Signed(state), runner);
+        let mut state_machine = init_state_machine(state, runner);
         state_machine
             .cycle()
             .await
             .expect("Cycling the state machine should not fail");
 
         assert_eq!(
-            SignerState::Registered(RegisteredState {
+            SignerState::Registered {
                 beacon: Beacon {
                     immutable_file_number: 100,
                     ..beacon.clone()
                 }
-            }),
+            },
             *state_machine.get_state()
         );
     }
@@ -542,7 +576,7 @@ mod tests {
             epoch: Epoch(10),
             ..beacon.clone()
         };
-        let state = SignedState {
+        let state = SignerState::Signed {
             beacon: beacon.clone(),
         };
 
@@ -552,14 +586,16 @@ mod tests {
             .once()
             .returning(move || Ok(new_beacon.to_owned()));
 
-        let mut state_machine = init_state_machine(SignerState::Signed(state), runner);
+        let mut state_machine = init_state_machine(state, runner);
         state_machine
             .cycle()
             .await
             .expect("Cycling the state machine should not fail");
 
         assert_eq!(
-            SignerState::Unregistered(Some(Epoch(10))),
+            SignerState::Unregistered {
+                epoch: Some(Epoch(10))
+            },
             *state_machine.get_state()
         );
     }

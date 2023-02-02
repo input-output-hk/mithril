@@ -20,7 +20,7 @@ impl DummyAdapter {
 
 #[async_trait]
 impl EraReaderAdapter for DummyAdapter {
-    async fn read(&self) -> Result<Vec<EraMarker>, Box<dyn Error>> {
+    async fn read(&self) -> Result<Vec<EraMarker>, Box<dyn Error + Sync + Send>> {
         Ok(self.markers.clone())
     }
 }

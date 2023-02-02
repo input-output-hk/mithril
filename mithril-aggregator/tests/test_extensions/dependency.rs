@@ -10,7 +10,7 @@ use mithril_common::crypto_helper::{key_encode_hex, ProtocolGenesisSigner};
 use mithril_common::digesters::{DumbImmutableDigester, DumbImmutableFileObserver};
 use mithril_common::entities::ProtocolParameters;
 use mithril_common::era::EraReader;
-use mithril_common::era::{adapters::BootstrapAdapter as BootstrapEraReaderAdapter, EraChecker};
+use mithril_common::era::{adapters::EraReaderBootstrapAdapter, EraChecker};
 use mithril_common::store::adapter::MemoryAdapter;
 use mithril_common::store::StakeStore;
 use mithril_common::{BeaconProvider, BeaconProviderImpl, CardanoNetwork};
@@ -92,7 +92,7 @@ pub async fn initialize_dependencies(
         chain_observer.clone(),
         verification_key_store.clone(),
     ));
-    let era_reader = Arc::new(EraReader::new(Box::new(BootstrapEraReaderAdapter)));
+    let era_reader = Arc::new(EraReader::new(Box::new(EraReaderBootstrapAdapter)));
     let era_epoch_token = era_reader
         .read_era_epoch_token(beacon_provider.get_current_beacon().await.unwrap().epoch)
         .await

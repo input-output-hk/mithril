@@ -2,5 +2,5 @@
 mod bootstrap;
 mod dummy;
 
-pub use bootstrap::BootstrapAdapter;
-pub use dummy::DummyAdapter;
+pub use bootstrap::BootstrapAdapter as EraReaderBootstrapAdapter;
+pub use dummy::DummyAdapter as EraReaderDummyAdapter;

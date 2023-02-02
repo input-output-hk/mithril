@@ -30,7 +30,7 @@ impl EraMarker {
 #[async_trait]
 pub trait EraReaderAdapter: Sync + Send {
     /// Read era markers from the underlying adapter.
-    async fn read(&self) -> Result<Vec<EraMarker>, Box<dyn StdError>>;
+    async fn read(&self) -> Result<Vec<EraMarker>, Box<dyn StdError + Sync + Send>>;
 }
 
 /// This is a response from the [EraReader]. It contains [EraMarker]s read from
@@ -102,7 +102,7 @@ pub enum EraReaderError {
         message: String,
 
         /// nested underlying adapter error
-        error: Box<dyn StdError>,
+        error: Box<dyn StdError + Sync + Send>,
     },
 
     /// Data returned from the adapter are inconsistent or incomplete preventing
@@ -163,7 +163,7 @@ impl EraReader {
 
 #[cfg(test)]
 mod tests {
-    use super::super::adapters::DummyAdapter;
+    use super::super::adapters::EraReaderDummyAdapter as DummyAdapter;
     use super::*;
 
     fn get_basic_marker_sample() -> Vec<EraMarker> {

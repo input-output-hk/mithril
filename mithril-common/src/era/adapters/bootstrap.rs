@@ -11,7 +11,7 @@ pub struct BootstrapAdapter;
 
 #[async_trait]
 impl EraReaderAdapter for BootstrapAdapter {
-    async fn read(&self) -> Result<Vec<EraMarker>, Box<dyn std::error::Error>> {
+    async fn read(&self) -> Result<Vec<EraMarker>, Box<dyn std::error::Error + Sync + Send>> {
         Ok(vec![EraMarker::new(
             &SupportedEra::Thales.to_string(),
             Some(Epoch(1)),

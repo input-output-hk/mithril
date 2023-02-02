@@ -1,6 +1,7 @@
 use mithril_common::digesters::ImmutableFileObserver;
 use mithril_common::entities::SignerWithStake;
-use mithril_common::era::{EraChecker, SupportedEra};
+use mithril_common::era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader};
+use mithril_common::BeaconProvider;
 use slog::Drain;
 use slog_scope::debug;
 use std::error::Error as StdError;
@@ -41,6 +42,7 @@ pub struct StateMachineTester {
     certificate_handler: Arc<FakeAggregator>,
     protocol_initializer_store: Arc<ProtocolInitializerStore>,
     stake_store: Arc<StakeStore>,
+    era_checker: Arc<EraChecker>,
     comment_no: u32,
     _logs_guard: slog_scope::GlobalLoggerGuard,
 }
@@ -105,7 +107,15 @@ impl StateMachineTester {
             Box::new(MemoryAdapter::new(None).unwrap()),
             config.store_retention_limit,
         ));
-        let era_checker = Arc::new(EraChecker::new(SupportedEra::dummy()));
+        let era_reader = Arc::new(EraReader::new(Box::new(EraReaderBootstrapAdapter)));
+        let era_epoch_token = era_reader
+            .read_era_epoch_token(beacon_provider.get_current_beacon().await.unwrap().epoch)
+            .await
+            .unwrap();
+        let era_checker = Arc::new(EraChecker::new(
+            era_epoch_token.get_current_supported_era().unwrap(),
+            era_epoch_token.get_current_epoch(),
+        ));
 
         let services = SignerServices {
             certificate_handler: certificate_handler.clone(),
@@ -115,7 +125,8 @@ impl StateMachineTester {
             protocol_initializer_store: protocol_initializer_store.clone(),
             single_signer: single_signer.clone(),
             stake_store: stake_store.clone(),
-            era_checker,
+            era_checker: era_checker.clone(),
+            era_reader,
         };
         // set up stake distribution
         chain_observer
@@ -125,7 +136,7 @@ impl StateMachineTester {
         let runner = Box::new(SignerRunner::new(config, services));
 
         let state_machine = StateMachine::new(
-            SignerState::Unregistered(None),
+            SignerState::Unregistered { epoch: None },
             runner,
             Duration::from_secs(5),
         );
@@ -137,6 +148,7 @@ impl StateMachineTester {
             certificate_handler,
             protocol_initializer_store,
             stake_store,
+            era_checker,
             comment_no: 0,
             _logs_guard: logs_guard,
         })
@@ -287,5 +299,13 @@ impl StateMachineTester {
         }
 
         Ok(self)
+    }
+
+    /// Check when the era_checker has been updated
+    pub async fn check_era_checker_last_updated_at(&mut self, epoch: Epoch) -> Result<&mut Self> {
+        self.assert(
+            self.era_checker.current_epoch() == epoch,
+            format!("The epoch the EraChecker has been the last updated '{}' is different from expected epoch '{}'.", self.era_checker.current_epoch(), epoch)
+        )
     }
 }
