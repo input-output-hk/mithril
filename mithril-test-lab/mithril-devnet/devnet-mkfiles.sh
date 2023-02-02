@@ -601,9 +601,12 @@ done
     # Wait until pools are activated on the Cardano network
     cat >> activate.sh <<EOF
 echo ">> Wait for Cardano pools to be activated"
-POOLS_ACTIVATION_WAIT_ROUNDS_MAX=20
-POOL_STAKE_RETRIEVAL_WAIT_ROUNDS_MAX=30
+POOLS_ACTIVATION_WAIT_ROUND_DELAY=2
+POOLS_ACTIVATION_WAIT_ROUNDS_MAX=\$(echo "scale=0; 2 * $EPOCH_LENGTH * $SLOT_LENGTH / \$POOLS_ACTIVATION_WAIT_ROUND_DELAY" | bc)
 POOLS_ACTIVATION_WAIT_ROUNDS=1
+POOL_STAKE_RETRIEVAL_WAIT_ROUND_DELAY=2
+POOL_STAKE_RETRIEVAL_WAIT_ROUNDS_MAX=\$POOLS_ACTIVATION_WAIT_ROUNDS_MAX
+
 while true
 do
     POOLS=\$(./pools.sh 2> /dev/null)
@@ -621,7 +624,7 @@ do
                     break
                 else
                     echo ">>>> Stakes are not retrievable for this pool yet... [attempt \$POOL_STAKE_RETRIEVAL_WAIT_ROUNDS]"
-                    sleep 2
+                    sleep \$POOL_STAKE_RETRIEVAL_WAIT_ROUND_DELAY
                 fi
                 POOL_STAKE_RETRIEVAL_WAIT_ROUNDS=\$(( \$POOL_STAKE_RETRIEVAL_WAIT_ROUNDS + 1 ))
                 if [ "\$POOL_STAKE_RETRIEVAL_WAIT_ROUNDS" -gt "\$POOL_STAKE_RETRIEVAL_WAIT_ROUNDS_MAX" ] ; then
@@ -634,7 +637,7 @@ do
         break
     else
         echo ">>>> Cardano pools are not activated yet... [attempt \$POOLS_ACTIVATION_WAIT_ROUNDS]"
-        sleep 2
+        sleep \$POOLS_ACTIVATION_WAIT_ROUND_DELAY
     fi
     POOLS_ACTIVATION_WAIT_ROUNDS=\$(( \$POOLS_ACTIVATION_WAIT_ROUNDS + 1 ))
     if [ "\$POOLS_ACTIVATION_WAIT_ROUNDS" -gt "\$POOLS_ACTIVATION_WAIT_ROUNDS_MAX" ] ; then
@@ -1001,7 +1004,7 @@ done
 NODE_IX=0
 for NODE in ${POOL_NODES}; do
     NODE_ID=$(( $NODE_IX + 1))
-if [ `expr $NODE_IX % 2` == 0 ]; then 
+if [ `expr $NODE_IX % 2` == 0 || -z "${WITH_UNCERTIFIED_SIGNERS}" ]; then 
     # 50% of signers with key certification
     cat >> ${NODE}/info.json <<EOF
 {
@@ -1193,17 +1196,16 @@ cat >> start-cardano.sh <<EOF
 echo ">> Wait for Cardano network to be ready"
 CARDANO_ACTIVATION_WAIT_ROUNDS_MAX=30
 CARDANO_ACTIVATION_WAIT_ROUNDS=1
+CARDANO_ACTIVATION_WAIT_ROUND_DELAY=2
 while true
 do
-    EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip \\
-        --cardano-mode \\
-        --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq .epoch | sed -e "s/null//" | sed -e "s/ //" | tr -d '\n')
+    EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip --cardano-mode --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq -r .epoch)
     if [ "\$EPOCH" != "" ] ; then
         echo ">>>> Cardano network is ready!"
         break
     else
         echo ">>>> Cardano network is not ready yet... [attempt \$CARDANO_ACTIVATION_WAIT_ROUNDS]"
-        sleep 2
+        sleep \$CARDANO_ACTIVATION_WAIT_ROUND_DELAY
     fi
     CARDANO_ACTIVATION_WAIT_ROUNDS=\$(( \$CARDANO_ACTIVATION_WAIT_ROUNDS + 1 ))
     if [ "\$CARDANO_ACTIVATION_WAIT_ROUNDS" -gt "\$CARDANO_ACTIVATION_WAIT_ROUNDS_MAX" ] ; then
@@ -1258,12 +1260,12 @@ done
 cat >> start-mithril.sh <<EOF
 
 echo ">> Wait for Mithril signers to be registered"
+EPOCH_NOW=\$(CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip --cardano-mode --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq -r .epoch)
 while true
 do
-    EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip \\
-        --cardano-mode \\
-        --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq .epoch | sed -e "s/null//" | sed -e "s/ //" | tr -d '\n')
-    if [ \$EPOCH -ge 2 ] ; then
+    EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query tip --cardano-mode --testnet-magic ${NETWORK_MAGIC} 2> /dev/null | jq -r .epoch)
+    EPOCH_DELTA=\$(( \$EPOCH - \$EPOCH_NOW ))
+    if [ \$EPOCH_DELTA -ge 2 ] ; then
         echo ">>>> Ready!"
         break
     else
