@@ -18,22 +18,21 @@ RUN adduser --no-create-home --disabled-password appuser
 WORKDIR /app
 
 # Copy local dependencies
-COPY mithril-stm/ /mithril-stm/
-COPY Cargo.lock /mithril-stm/
-COPY mithril-common/ /mithril-common/
-COPY Cargo.lock /mithril-common/
+COPY . .
 
 # Build the app using a dummy main in order to cache dependencies
-COPY mithril-aggregator/Cargo.toml /app
-COPY Cargo.lock /app/
-RUN mkdir -p /app/src/ && echo "fn  main () {}" > /app/src/main.rs
-RUN cargo build --release --manifest-path /app/Cargo.toml
+RUN mv /app/mithril-aggregator /app/mithril-aggregator.1 && mkdir -p /app/mithril-aggregator/src
+COPY mithril-aggregator/Cargo.toml /app/mithril-aggregator/
+RUN echo "fn  main () {}" > /app/mithril-aggregator/src/main.rs
+RUN cargo build --release -p mithril-aggregator --manifest-path /app/mithril-aggregator/Cargo.toml
 
-# Copy the rest of the files into the container
-COPY ./mithril-aggregator /app/
+# Rollback the rest of the files into the container
+RUN rm -rf /app/mithril-aggregator && mv /app/mithril-aggregator.1 /app/mithril-aggregator
+COPY ./mithril-aggregator/src/main.rs /app/mithril-aggregator/src/
 
 # Build the binary
-RUN cargo build --release
+RUN cargo build --release -p mithril-aggregator
+RUN /app/target/release/mithril-aggregator --version
 
 ###############################
 # STEP 2: build a small image
@@ -50,7 +49,7 @@ COPY --from=rustbuilder /etc/passwd /etc/passwd
 COPY --from=rustbuilder /app/target/release/mithril-aggregator /app/bin/mithril-aggregator
 
 # Copy the config files
-COPY --from=rustbuilder /app/config /app/config
+COPY --from=rustbuilder /app/mithril-aggregator/config /app/config
 
 #Workdir
 WORKDIR /app/

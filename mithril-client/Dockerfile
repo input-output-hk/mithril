@@ -18,22 +18,21 @@ RUN adduser --no-create-home --disabled-password appuser
 WORKDIR /app
 
 # Copy local dependencies
-COPY mithril-stm/ /mithril-stm/
-COPY Cargo.lock /mithril-stm/
-COPY mithril-common/ /mithril-common/
-COPY Cargo.lock /mithril-common/
+COPY . .
 
 # Build the app using a dummy main in order to cache dependencies
-COPY mithril-client/Cargo.toml /app
-COPY Cargo.lock /app/
-RUN mkdir -p /app/src/ && echo "fn  main () {}" > /app/src/main.rs
-RUN cargo build --release --manifest-path /app/Cargo.toml
+RUN mv /app/mithril-client /app/mithril-client.1 && mkdir -p /app/mithril-client/src
+COPY mithril-client/Cargo.toml /app/mithril-client/
+RUN echo "fn  main () {}" > /app/mithril-client/src/main.rs
+RUN cargo build --release -p mithril-client --manifest-path /app/mithril-client/Cargo.toml
 
-# Copy the rest of the files into the container
-COPY ./mithril-client /app/
+# Rollback the rest of the files into the container
+RUN rm -rf /app/mithril-client && mv /app/mithril-client.1 /app/mithril-client
+COPY ./mithril-client/src/main.rs /app/mithril-client/src/
 
 # Build the binary
-RUN cargo build --release
+RUN cargo build --release -p mithril-client
+RUN /app/target/release/mithril-client --version
 
 ###############################
 # STEP 2: build a small image
@@ -50,13 +49,14 @@ COPY --from=rustbuilder /etc/passwd /etc/passwd
 COPY --from=rustbuilder /app/target/release/mithril-client /app/bin/mithril-client
 
 # Copy the config files
-COPY --from=rustbuilder /app/config /app/config
+COPY --from=rustbuilder /app/mithril-client/config /app/config
 
 #Workdir
 WORKDIR /app/
+RUN chown -R appuser /app/
 
 # Use an unprivileged user
 USER appuser
 
 # Run the executable
-ENTRYPOINT ["/app/bin/mithril-client"]
+ENTRYPOINT ["/app/bin/mithril-client", "-vvv"]
