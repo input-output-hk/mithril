@@ -79,7 +79,7 @@ impl BeaconProvider for BeaconProviderImpl {
 
 #[cfg(test)]
 mod tests {
-    use crate::chain_observer::{ChainObserver, ChainObserverError};
+    use crate::chain_observer::{ChainAddress, ChainObserver, ChainObserverError, TxDatum};
     use crate::digesters::DumbImmutableFileObserver;
     use crate::entities::{Epoch, StakeDistribution};
 
@@ -89,6 +89,13 @@ mod tests {
 
     #[async_trait]
     impl ChainObserver for DumbChainObserver {
+        async fn get_current_datums(
+            &self,
+            _address: &ChainAddress,
+        ) -> Result<Vec<TxDatum>, ChainObserverError> {
+            Ok(Vec::new())
+        }
+
         async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError> {
             Ok(Some(Epoch(42)))
         }

@@ -1,18 +1,22 @@
 use async_trait::async_trait;
 use nom::IResult;
+use rand_core::RngCore;
 use serde_json::Value;
+use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
 use tokio::process::Command;
 
 use crate::chain_observer::interface::*;
+use crate::chain_observer::{ChainAddress, TxDatum};
 use crate::crypto_helper::{KESPeriod, OpCert, SerDeShelleyFileFormat};
 use crate::entities::{Epoch, StakeDistribution};
 use crate::CardanoNetwork;
 
 #[async_trait]
 pub trait CliRunner {
+    async fn launch_utxo(&self, address: &str) -> Result<String, Box<dyn Error + Sync + Send>>;
     async fn launch_stake_distribution(&self) -> Result<String, Box<dyn Error + Sync + Send>>;
     async fn launch_stake_snapshot(
         &self,
@@ -41,6 +45,27 @@ impl CardanoCliRunner {
             socket_path,
             network,
         }
+    }
+
+    fn random_out_file() -> PathBuf {
+        let mut rng = rand_core::OsRng;
+        std::env::temp_dir()
+            .join("cardano-cli-runner")
+            .join(format!("{}", rng.next_u64()))
+    }
+
+    fn command_for_utxo(&self, address: &str, out_file: PathBuf) -> Command {
+        let mut command = self.get_command();
+        command
+            .arg("query")
+            .arg("utxo")
+            .arg("--address")
+            .arg(address)
+            .arg("--out-file")
+            .arg(out_file);
+        self.post_config_command(&mut command);
+
+        command
     }
 
     fn command_for_stake_distribution(&self) -> Command {
@@ -110,6 +135,27 @@ impl CardanoCliRunner {
 
 #[async_trait]
 impl CliRunner for CardanoCliRunner {
+    async fn launch_utxo(&self, address: &str) -> Result<String, Box<dyn Error + Sync + Send>> {
+        let out_file = Self::random_out_file();
+        let output = self
+            .command_for_utxo(address, out_file.clone())
+            .output()
+            .await?;
+
+        if output.status.success() {
+            Ok(std::str::from_utf8(&output.stdout)?.trim().to_string())
+        } else {
+            let message = String::from_utf8_lossy(&output.stderr);
+
+            Err(format!(
+                "Error launching command {:?}, error = '{}'",
+                self.command_for_utxo(address, out_file),
+                message
+            )
+            .into())
+        }
+    }
+
     async fn launch_stake_distribution(&self) -> Result<String, Box<dyn Error + Sync + Send>> {
         let output = self.command_for_stake_distribution().output().await?;
 
@@ -255,6 +301,30 @@ impl ChainObserver for CardanoCliChainObserver {
         }
     }
 
+    async fn get_current_datums(
+        &self,
+        address: &ChainAddress,
+    ) -> Result<Vec<TxDatum>, ChainObserverError> {
+        let output = self
+            .cli_runner
+            .launch_utxo(address)
+            .await
+            .map_err(ChainObserverError::General)?;
+        let v: HashMap<String, Value> = serde_json::from_str(&output).map_err(|e| {
+            ChainObserverError::InvalidContent(
+                format!("Error: {e:?}, output was = '{output}'").into(),
+            )
+        })?;
+
+        Ok(v.values()
+            .filter_map(|v| {
+                v.get("inlineDatum")
+                    .filter(|datum| !datum.is_null())
+                    .map(|datum| TxDatum(datum.to_string()))
+            })
+            .collect())
+    }
+
     async fn get_current_stake_distribution(
         &self,
     ) -> Result<Option<StakeDistribution>, ChainObserverError> {
@@ -337,6 +407,45 @@ mod tests {
 
     #[async_trait]
     impl CliRunner for TestCliRunner {
+        async fn launch_utxo(
+            &self,
+            _address: &str,
+        ) -> Result<String, Box<dyn Error + Sync + Send>> {
+            let output = r#"
+{
+    "1fd4d3e131afe3c8b212772a3f3083d2fbc6b2a7b20e54e4ff08e001598818d8#0": {
+        "address": "addr_test1vpcr3he05gemue6eyy0c9clajqnnww8aa2l3jszjdlszjhq093qrn",
+        "datum": null,
+        "inlineDatum": {
+            "constructor": 0,
+            "fields": [
+                {
+                    "bytes": "5b0a20207b0a20202020226e616d65223a20227468616c6573222c0a202020202265706f6368223a203132330a20207d2c0a20207b0a20202020226e616d65223a20227079746861676f726173222c0a202020202265706f6368223a206e756c6c0a20207d0a5d0a"
+                }
+            ]
+        },
+        "inlineDatumhash": "b97cbaa0dc5b41864c83c2f625d9bc2a5f3e6b5cd5071c14a2090e630e188c80",
+        "referenceScript": null,
+        "value": {
+            "lovelace": 10000000
+        }
+    },
+    "1fd4d3e131afe3c8b212772a3f3083d2fbc6b2a7b20e54e4ff08e001598818d8#1": {
+        "address": "addr_test1vpcr3he05gemue6eyy0c9clajqnnww8aa2l3jszjdlszjhq093qrn",
+        "datum": null,
+        "datumhash": null,
+        "inlineDatum": null,
+        "referenceScript": null,
+        "value": {
+            "lovelace": 9989656678
+        }
+    }
+}
+"#;
+
+            Ok(output.to_string())
+        }
+
         async fn launch_stake_distribution(&self) -> Result<String, Box<dyn Error + Sync + Send>> {
             let output = r#"
                            PoolId                                 Stake frac
@@ -469,6 +578,14 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
             "Command { std: \"cardano-cli\" \"query\" \"stake-distribution\" \"--mainnet\", kill_on_drop: false }",
             format!("{:?}", runner.command_for_stake_distribution())
         );
+    }
+
+    #[tokio::test]
+    async fn test_get_current_datums() {
+        let observer = CardanoCliChainObserver::new(Box::new(TestCliRunner {}));
+        let address = "addrtest_123456".to_string();
+        let datums = observer.get_current_datums(&address).await.unwrap();
+        assert_eq!(vec![TxDatum("{\"constructor\":0,\"fields\":[{\"bytes\":\"5b0a20207b0a20202020226e616d65223a20227468616c6573222c0a202020202265706f6368223a203132330a20207d2c0a20207b0a20202020226e616d65223a20227079746861676f726173222c0a202020202265706f6368223a206e756c6c0a20207d0a5d0a\"}]}".to_string())], datums);
     }
 
     #[tokio::test]

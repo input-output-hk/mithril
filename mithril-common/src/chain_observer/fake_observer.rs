@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use tokio::sync::RwLock;
 
 use crate::chain_observer::interface::*;
+use crate::chain_observer::{ChainAddress, TxDatum};
 use crate::crypto_helper::{KESPeriod, OpCert};
 use crate::{entities::*, test_utils::fake_data};
 
@@ -57,6 +58,13 @@ impl Default for FakeObserver {
 
 #[async_trait]
 impl ChainObserver for FakeObserver {
+    async fn get_current_datums(
+        &self,
+        _address: &ChainAddress,
+    ) -> Result<Vec<TxDatum>, ChainObserverError> {
+        Ok(Vec::new())
+    }
+
     async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError> {
         Ok(self
             .current_beacon

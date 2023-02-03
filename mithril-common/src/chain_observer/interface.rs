@@ -7,6 +7,8 @@ use mockall::automock;
 use std::error::Error as StdError;
 use thiserror::Error;
 
+use super::{ChainAddress, TxDatum};
+
 /// [ChainObserver] related errors.
 #[derive(Debug, Error)]
 pub enum ChainObserverError {
@@ -23,6 +25,12 @@ pub enum ChainObserverError {
 #[automock]
 #[async_trait]
 pub trait ChainObserver: Sync + Send {
+    /// Retrive the datums associated to and address
+    async fn get_current_datums(
+        &self,
+        address: &ChainAddress,
+    ) -> Result<Vec<TxDatum>, ChainObserverError>;
+
     /// Retrieve the current epoch of the Cardano network
     async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError>;
 
