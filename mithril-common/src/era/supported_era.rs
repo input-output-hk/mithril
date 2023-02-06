@@ -20,7 +20,7 @@ impl SupportedEra {
 
 /// Error related to [SupportedEra] String parsing implementation.
 #[derive(Error, Debug)]
-#[error("Unable to transform era '{0}' into a currently supported era ('thales').")]
+#[error("Unable to transform era '{0}' into a currently supported era.")]
 pub struct UnsupportedEraError(String);
 
 impl FromStr for SupportedEra {

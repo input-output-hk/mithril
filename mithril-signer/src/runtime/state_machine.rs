@@ -13,19 +13,19 @@ pub enum SignerState {
     /// Hold the latest known epoch in order to help synchronisation
     /// with the aggregator
     Unregistered {
-        /// Unregistered state may know its epoch (None at startup). The given
-        /// epoch corresponds to the previous epoch in order to be able to
-        /// register stake distribution.
+        /// Current Epoch
         epoch: Epoch,
     },
 
-    /// `Registered` state
+    /// `Registered` state. The Signer has successfuly registered against the
+    /// Aggregator for this Epoch, it is now able to sign.
     Registered {
         /// Beacon when Signer may sign.
         beacon: Beacon,
     },
 
-    /// `Signed` state
+    /// `Signed` state. The Signer has signed the immutable files for the
+    /// current Beacon.
     Signed {
         /// Beacon when Signer signed.
         beacon: Beacon,

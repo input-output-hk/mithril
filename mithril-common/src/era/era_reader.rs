@@ -87,7 +87,7 @@ impl EraEpochToken {
 }
 
 /// The EraReader is responsible of giving the current Era and the Era to come.
-/// Is uses an [EraReaderAdapter] to read data from a backend.
+/// It uses an [EraReaderAdapter] to read data from a backend.
 pub struct EraReader {
     adapter: Box<dyn EraReaderAdapter>,
 }
@@ -105,8 +105,7 @@ pub enum EraReaderError {
         error: Box<dyn StdError + Sync + Send>,
     },
 
-    /// Data returned from the adapter are inconsistent or incomplete preventing
-    /// the determined the current [EraMarker].
+    /// Data returned from the adapter are inconsistent or incomplete.
     #[error("Current Era could not be determined with data from the adapter.")]
     CurrentEraNotFound,
 }
