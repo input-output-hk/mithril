@@ -6,6 +6,9 @@
 # Import prelude
 . $(dirname -- "$0")/_prelude.sh
 
+# Show version
+CARDANO_CLI_CMD --version
+
 # Compute Pool Id
 POOL_ID=$(CARDANO_CLI_CMD stake-pool id --cold-verification-key-file ${POOL_ARTIFACTS_DIR}/cold.vkey)
 echo POOL_ID=$POOL_ID
