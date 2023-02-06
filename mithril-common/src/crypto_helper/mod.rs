@@ -3,6 +3,7 @@
 mod cardano;
 mod codec;
 mod conversions;
+mod era;
 mod genesis;
 #[cfg(any(test, feature = "test_only"))]
 pub mod tests_setup;
@@ -12,6 +13,10 @@ mod types;
 pub use cardano::ColdKeyGenerator;
 pub use cardano::{KESPeriod, OpCert, SerDeShelleyFileFormat};
 pub use codec::*;
+pub use era::{
+    EraMarkersSigner, EraMarkersVerifier, EraMarkersVerifierError, EraMarkersVerifierSecretKey,
+    EraMarkersVerifierSignature, EraMarkersVerifierVerificationKey,
+};
 pub use genesis::{ProtocolGenesisError, ProtocolGenesisSigner, ProtocolGenesisVerifier};
 pub use types::*;
 
