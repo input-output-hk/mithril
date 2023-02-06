@@ -135,11 +135,7 @@ impl StateMachineTester {
 
         let runner = Box::new(SignerRunner::new(config, services));
 
-        let state_machine = StateMachine::new(
-            SignerState::Unregistered { epoch: None },
-            runner,
-            Duration::from_secs(5),
-        );
+        let state_machine = StateMachine::new(SignerState::Init, runner, Duration::from_secs(5));
 
         Ok(StateMachineTester {
             state_machine,
@@ -166,6 +162,14 @@ impl StateMachineTester {
         self.state_machine.cycle().await?;
 
         Ok(self)
+    }
+
+    /// Is the state machine in `Init` state?
+    pub fn is_init(&mut self) -> Result<&mut Self> {
+        self.assert(
+            self.state_machine.get_state().is_init(),
+            "state machine shall be in Init state".to_string(),
+        )
     }
 
     /// cycle the state machine and test the resulting state

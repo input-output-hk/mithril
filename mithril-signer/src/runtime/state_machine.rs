@@ -8,13 +8,15 @@ use super::Runner;
 /// Different possible states of the state machine.
 #[derive(Debug, PartialEq, Eq)]
 pub enum SignerState {
-    /// starting state, may hold the latest known epoch in order to help synchronisation
+    /// Starting state
+    Init,
+    /// Hold the latest known epoch in order to help synchronisation
     /// with the aggregator
     Unregistered {
         /// Unregistered state may know its epoch (None at startup). The given
         /// epoch corresponds to the previous epoch in order to be able to
         /// register stake distribution.
-        epoch: Option<Epoch>,
+        epoch: Epoch,
     },
 
     /// `Registered` state
@@ -31,6 +33,11 @@ pub enum SignerState {
 }
 
 impl SignerState {
+    /// Returns `true` if the state in `Init`
+    pub fn is_init(&self) -> bool {
+        matches!(*self, SignerState::Init)
+    }
+
     /// Returns `true` if the state in `Unregistered`
     pub fn is_unregistered(&self) -> bool {
         matches!(*self, SignerState::Unregistered { epoch: _ })
@@ -50,16 +57,10 @@ impl SignerState {
 impl Display for SignerState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Unregistered { epoch } => write!(
-                f,
-                "Unregistered - {}",
-                match epoch {
-                    None => "No Epoch".to_string(),
-                    Some(e) => format!("Epoch({e})"),
-                }
-            ),
-            Self::Registered { beacon } => write!(f, "Registered - {}", beacon),
-            Self::Signed { beacon } => write!(f, "Signed - {}", beacon),
+            Self::Init => write!(f, "Init"),
+            Self::Unregistered { epoch } => write!(f, "Unregistered - {epoch:?}"),
+            Self::Registered { beacon } => write!(f, "Registered - {beacon}"),
+            Self::Signed { beacon } => write!(f, "Signed - {beacon}"),
         }
     }
 }
@@ -113,26 +114,35 @@ impl StateMachine {
         info!("STATE MACHINE: new cycle: {}", self.state);
 
         match &self.state {
+            SignerState::Init => {
+                self.state = self.transition_from_init_to_unregistered().await?;
+            }
             SignerState::Unregistered { epoch } => {
-                if let Some(epoch_settings) = self.runner.get_epoch_settings().await? {
-                    if epoch.map_or_else(|| true, |e| epoch_settings.epoch >= e) {
-                        info!("→ Epoch settings found, transiting to REGISTERED");
+                if let Some(new_beacon) = self.has_epoch_changed(*epoch).await? {
+                    info!("→ Epoch has changed, transiting to UNREGISTERED");
+                    self.state = self
+                        .transition_from_unregistered_to_unregistered(new_beacon)
+                        .await?;
+                } else if let Some(epoch_settings) = self.runner.get_epoch_settings().await? {
+                    info!("→ Epoch settings found");
+                    if epoch_settings.epoch >= *epoch {
+                        info!(" ⋅ transiting to REGISTERED");
                         self.state = self
                             .transition_from_unregistered_to_registered(&epoch_settings)
                             .await?;
                     } else {
                         info!(
-                            " ⋅ Epoch settings found, but it's epoch is behind the known epoch, waiting…";
+                            " ⋅ Epoch settings found, but its epoch is behind the known epoch, waiting…";
                             "epoch_settings" => ?epoch_settings,
                             "known_epoch" => ?epoch,
                         );
                     }
                 } else {
-                    info!(" ⋅ No epoch settings found yet, waiting…");
+                    info!("→ No epoch settings found yet, waiting…");
                 }
             }
             SignerState::Registered { beacon } => {
-                if let Some(new_beacon) = self.has_epoch_changed(&beacon).await? {
+                if let Some(new_beacon) = self.has_epoch_changed(beacon.epoch).await? {
                     info!("→ Epoch has changed, transiting to UNREGISTERED");
                     self.state = self
                         .transition_from_registered_to_unregistered(new_beacon)
@@ -158,7 +168,7 @@ impl StateMachine {
                 }
             }
             SignerState::Signed { beacon } => {
-                if let Some(new_beacon) = self.has_beacon_changed(&beacon).await? {
+                if let Some(new_beacon) = self.has_beacon_changed(beacon).await? {
                     info!("  New beacon detected: {:?}", new_beacon);
 
                     if new_beacon.epoch > beacon.epoch {
@@ -179,14 +189,14 @@ impl StateMachine {
         Ok(())
     }
 
-    /// Return true if the epoch is different than the one in the given beacon.
+    /// Return the new beacon if the epoch is different than the one in the given beacon.
     async fn has_epoch_changed(
         &self,
-        beacon: &Beacon,
+        epoch: Epoch,
     ) -> Result<Option<Beacon>, Box<dyn Error + Sync + Send>> {
         let current_beacon = self.runner.get_current_beacon().await?;
 
-        if current_beacon.epoch > beacon.epoch {
+        if current_beacon.epoch > epoch {
             Ok(Some(current_beacon))
         } else {
             Ok(None)
@@ -207,6 +217,27 @@ impl StateMachine {
         }
     }
 
+    async fn transition_from_unregistered_to_unregistered(
+        &self,
+        new_beacon: Beacon,
+    ) -> Result<SignerState, Box<dyn Error + Sync + Send>> {
+        self.runner.update_era_checker(new_beacon.epoch).await?;
+
+        Ok(SignerState::Unregistered {
+            epoch: new_beacon.epoch,
+        })
+    }
+
+    async fn transition_from_init_to_unregistered(
+        &self,
+    ) -> Result<SignerState, Box<dyn Error + Sync + Send>> {
+        let current_beacon = self.runner.get_current_beacon().await?;
+
+        Ok(SignerState::Unregistered {
+            epoch: current_beacon.epoch,
+        })
+    }
+
     async fn transition_from_signed_to_unregistered(
         &self,
         beacon: Beacon,
@@ -214,7 +245,7 @@ impl StateMachine {
         self.runner.update_era_checker(beacon.epoch).await?;
 
         Ok(SignerState::Unregistered {
-            epoch: Some(beacon.epoch),
+            epoch: beacon.epoch,
         })
     }
 
@@ -225,9 +256,10 @@ impl StateMachine {
         self.runner.update_era_checker(beacon.epoch).await?;
 
         Ok(SignerState::Unregistered {
-            epoch: Some(beacon.epoch),
+            epoch: beacon.epoch,
         })
     }
+
     /// Launch the transition process from the `Unregistered` to the `Registered` state.
     async fn transition_from_unregistered_to_registered(
         &self,
@@ -311,15 +343,25 @@ mod tests {
             .expect_get_epoch_settings()
             .once()
             .returning(|| Ok(None));
-        let mut state_machine =
-            init_state_machine(SignerState::Unregistered { epoch: None }, runner);
+        runner
+            .expect_get_current_beacon()
+            .once()
+            .returning(|| Ok(fake_data::beacon()));
+        let mut state_machine = init_state_machine(
+            SignerState::Unregistered {
+                epoch: fake_data::beacon().epoch,
+            },
+            runner,
+        );
         state_machine
             .cycle()
             .await
             .expect("Cycling the state machine should not fail");
 
         assert_eq!(
-            &SignerState::Unregistered { epoch: None },
+            &SignerState::Unregistered {
+                epoch: fake_data::beacon().epoch
+            },
             state_machine.get_state()
         );
     }
@@ -337,21 +379,20 @@ mod tests {
             .expect_get_epoch_settings()
             .once()
             .returning(move || Ok(Some(epoch_settings.to_owned())));
-        let mut state_machine = init_state_machine(
-            SignerState::Unregistered {
-                epoch: Some(known_epoch),
-            },
-            runner,
-        );
+        runner.expect_get_current_beacon().once().returning(|| {
+            let mut beacon = fake_data::beacon();
+            beacon.epoch = Epoch(4);
+            Ok(beacon)
+        });
+        let mut state_machine =
+            init_state_machine(SignerState::Unregistered { epoch: known_epoch }, runner);
         state_machine
             .cycle()
             .await
             .expect("Cycling the state machine should not fail");
 
         assert_eq!(
-            &SignerState::Unregistered {
-                epoch: Some(known_epoch)
-            },
+            &SignerState::Unregistered { epoch: known_epoch },
             state_machine.get_state()
         );
     }
@@ -365,7 +406,7 @@ mod tests {
             .returning(|| Ok(Some(fake_data::epoch_settings())));
         runner
             .expect_get_current_beacon()
-            .once()
+            .times(2)
             .returning(|| Ok(fake_data::beacon()));
         runner
             .expect_update_stake_distribution()
@@ -376,8 +417,12 @@ mod tests {
             .once()
             .returning(|_, _| Ok(()));
 
-        let mut state_machine =
-            init_state_machine(SignerState::Unregistered { epoch: None }, runner);
+        let mut state_machine = init_state_machine(
+            SignerState::Unregistered {
+                epoch: fake_data::beacon().epoch,
+            },
+            runner,
+        );
 
         state_machine
             .cycle()
@@ -400,6 +445,11 @@ mod tests {
             .expect_get_current_beacon()
             .once()
             .returning(|| Ok(fake_data::beacon()));
+        runner
+            .expect_update_era_checker()
+            .once()
+            .returning(|_e: Epoch| Ok(()));
+
         let mut state_machine = init_state_machine(
             SignerState::Registered {
                 beacon: Beacon {
@@ -417,7 +467,7 @@ mod tests {
             .expect("Cycling the state machine should not fail");
         assert_eq!(
             &SignerState::Unregistered {
-                epoch: Some(fake_data::beacon().epoch)
+                epoch: fake_data::beacon().epoch
             },
             state_machine.get_state()
         );
@@ -585,6 +635,10 @@ mod tests {
             .expect_get_current_beacon()
             .once()
             .returning(move || Ok(new_beacon.to_owned()));
+        runner
+            .expect_update_era_checker()
+            .once()
+            .returning(|_e: Epoch| Ok(()));
 
         let mut state_machine = init_state_machine(state, runner);
         state_machine
@@ -593,9 +647,7 @@ mod tests {
             .expect("Cycling the state machine should not fail");
 
         assert_eq!(
-            SignerState::Unregistered {
-                epoch: Some(Epoch(10))
-            },
+            SignerState::Unregistered { epoch: Epoch(10) },
             *state_machine.get_state()
         );
     }

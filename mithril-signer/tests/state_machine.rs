@@ -16,7 +16,8 @@ async fn test_create_single_signature() {
     let mut tester = StateMachineTester::init(&signers_with_stake).await.expect("state machine tester init should not fail");
 
     tester
-        .comment("state machine starts and remains in Unregistered state until a epoch settings is got")
+        .comment("state machine starts in Init and transit to Unregistered state.")
+        .is_init().unwrap()
         .cycle_unregistered().await.unwrap()
         .cycle_unregistered().await.unwrap()
         .check_era_checker_last_updated_at(Epoch(1)).await.unwrap()

@@ -443,7 +443,7 @@ impl Runner for SignerRunner {
             .era_reader
             .read_era_epoch_token(epoch)
             .await
-            .map_err(|e| Box::new(e))?;
+            .map_err(Box::new)?;
 
         self.services.era_checker.change_era(
             era_token.get_current_supported_era()?,

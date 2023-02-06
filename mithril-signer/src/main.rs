@@ -104,7 +104,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     debug!("Started"; "run_mode" => &args.run_mode, "config" => format!("{config:?}"));
 
     let mut state_machine = StateMachine::new(
-        SignerState::Unregistered { epoch: None },
+        SignerState::Init,
         Box::new(SignerRunner::new(config.clone(), services)),
         Duration::from_millis(config.run_interval),
     );
