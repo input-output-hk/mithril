@@ -1,4 +1,7 @@
 .git
-/mithril-test-lab
+.sock
+.socket
 /target
+/**/artifacts
 /**/data
+/**/node_modules

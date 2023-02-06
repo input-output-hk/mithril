@@ -18,22 +18,22 @@ RUN adduser --no-create-home --disabled-password appuser
 WORKDIR /app
 
 # Copy local dependencies
-COPY mithril-stm/ /mithril-stm/
-COPY Cargo.lock /mithril-stm/
-COPY mithril-common/ /mithril-common/
-COPY Cargo.lock /mithril-common/
+COPY . .
 
 # Build the app using a dummy main in order to cache dependencies
-COPY mithril-signer/Cargo.toml /app
-COPY Cargo.lock /app/
-RUN mkdir -p /app/src/ && echo "fn  main () {}" > /app/src/main.rs
-RUN cargo build --release --manifest-path /app/Cargo.toml
+RUN mv /app/mithril-signer /app/mithril-signer.1 && mkdir -p /app/mithril-signer/src
+COPY mithril-signer/Cargo.toml /app/mithril-signer/
+RUN echo "fn  main () {}" > /app/mithril-signer/src/main.rs
+RUN cargo build --release -p mithril-signer --manifest-path /app/mithril-signer/Cargo.toml
 
-# Copy the rest of the files into the container
-COPY ./mithril-signer /app/
+# Rollback the rest of the files into the container
+RUN rm -rf /app/mithril-signer && mv /app/mithril-signer.1 /app/mithril-signer
+COPY ./mithril-signer/src/main.rs /app/mithril-signer/src/
+
 
 # Build the binary
-RUN cargo build --release
+RUN cargo build --release -p mithril-signer
+RUN /app/target/release/mithril-signer --version
 
 ###############################
 # STEP 2: build a small image
@@ -50,13 +50,14 @@ COPY --from=rustbuilder /etc/passwd /etc/passwd
 COPY --from=rustbuilder /app/target/release/mithril-signer /app/bin/mithril-signer
 
 # Copy the config files
-COPY --from=rustbuilder /app/config /app/config
+COPY --from=rustbuilder /app/mithril-signer/config /app/config
 
 #Workdir
 WORKDIR /app/
+RUN chown -R appuser /app/
 
 # Install cardano-cli
-RUN wget -nv -O cardano-bin.tar.gz https://update-cardano-mainnet.iohk.io/cardano-node-releases/cardano-node-1.35.4-linux.tar.gz
+RUN wget -nv -O cardano-bin.tar.gz https://update-cardano-mainnet.iohk.io/cardano-node-releases/cardano-node-1.35.5-linux.tar.gz
 RUN tar xzf cardano-bin.tar.gz ./cardano-cli && mv cardano-cli /app/bin
 RUN /app/bin/cardano-cli --version
 RUN rm -f cardano-bin.tar.gz
@@ -65,4 +66,4 @@ RUN rm -f cardano-bin.tar.gz
 USER appuser
 
 # Run the executable
-ENTRYPOINT ["/app/bin/mithril-signer"]
+ENTRYPOINT ["/app/bin/mithril-signer", "-vvv"]
