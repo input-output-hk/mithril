@@ -204,7 +204,7 @@ impl VerificationKeyPoP {
         //     blst_fp12, blst_fp12_finalverify, blst_p1_affine_generator, blst_p2_affine_generator,
         //     BLST_ERROR,
         // };
-        let result = verify_miller_loop(self.vk, self.pop.k2);
+        let result = verify_miller_loop(self.vk.0, self.pop.k2);
 
         if !(self.pop.k1.verify(false, POP, &[], &[], &self.vk.0, false)
             == BLST_ERROR::BLST_SUCCESS
@@ -288,7 +288,7 @@ impl From<&SigningKey> for ProofOfPossession {
     /// `G1` and `g1` is the generator in `G1`.
     fn from(sk: &SigningKey) -> Self {
         let k1 = sk.0.sign(POP, &[], &[]);
-        let k2 = sk_to_pk_in_g1(sk);
+        let k2 = scalar_to_pk_in_g1(sk);
 
         Self { k1, k2 }
     }
@@ -385,7 +385,7 @@ impl Signature {
             scalars.extend_from_slice(hasher.finalize().as_slice());
         }
 
-        let transmuted_vks: Vec<blst_p2> = vks.iter().map(p2_from_affine).collect();
+        let transmuted_vks: Vec<blst_p2> = vks.iter().map(vk_from_p2_affine).collect();
 
         let transmuted_sigs: Vec<blst_p1> = signatures.iter().map(|&sig| sig_to_p1(sig)).collect();
 
@@ -468,13 +468,17 @@ impl Ord for Signature {
     }
 }
 
-fn verify_miller_loop(vk: VerificationKey, k2: blst_p1) -> bool {
+// ---------------------------------------------------------------------
+// Unsafe helpers
+// ---------------------------------------------------------------------
+
+fn verify_miller_loop(vk: BlstVk, k2: blst_p1) -> bool {
     use blst::{
         blst_fp12, blst_fp12_finalverify, blst_p1_affine_generator, blst_p2_affine_generator,
     };
     unsafe {
         let g1_p = *blst_p1_affine_generator();
-        let mvk_p = vk_to_p2_affine(&vk);
+        let mvk_p = std::mem::transmute::<&BlstVk, &blst_p2_affine>(&vk);
         let ml_lhs = blst_fp12::miller_loop(mvk_p, &g1_p);
 
         let mut k2_p = blst_p1_affine::default();
@@ -500,9 +504,8 @@ fn uncompress_p1(bytes: *const u8) -> blst_p1 {
     }
 }
 
-fn sk_to_pk_in_g1(sk: &SigningKey) -> blst_p1 {
+fn scalar_to_pk_in_g1(sk: &SigningKey) -> blst_p1 {
     use blst::blst_sk_to_pk_in_g1;
-
     unsafe {
         let sk_scalar = std::mem::transmute::<&BlstSk, &blst_scalar>(&sk.0);
         let mut out = blst_p1::default();
@@ -511,7 +514,7 @@ fn sk_to_pk_in_g1(sk: &SigningKey) -> blst_p1 {
     }
 }
 
-fn p2_from_affine(vk: &VerificationKey) -> blst_p2 {
+fn vk_from_p2_affine(vk: &VerificationKey) -> blst_p2 {
     unsafe {
         let mut projective_p2 = blst_p2::default();
         blst_p2_from_affine(
@@ -541,14 +544,6 @@ fn p2_affine_to_vk(grouped_vks: p2_affines, scalars: &[u8]) -> BlstVk {
     }
 }
 
-// ---------------------------------------------------------------------
-// Transmute helpers
-// ---------------------------------------------------------------------
-
-fn vk_to_p2_affine(vk: &VerificationKey) -> &'static blst_p2_affine {
-    unsafe { std::mem::transmute::<&BlstVk, &blst_p2_affine>(&vk.0) }
-}
-
 fn p1_affine_to_sig(grouped_sigs: p1_affines, scalars: &[u8]) -> BlstSig {
     unsafe {
         let mut affine_p1 = blst_p1_affine::default();
@@ -556,10 +551,6 @@ fn p1_affine_to_sig(grouped_sigs: p1_affines, scalars: &[u8]) -> BlstSig {
         std::mem::transmute::<blst_p1_affine, BlstSig>(affine_p1)
     }
 }
-
-// fn sk_to_scalar(sk: &SigningKey) -> &blst_scalar {
-//     unsafe { std::mem::transmute::<&BlstSk, &blst_scalar>(&sk.0) }
-// }
 
 // ---------------------------------------------------------------------
 // Serde implementation
