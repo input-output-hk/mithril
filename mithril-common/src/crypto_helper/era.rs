@@ -21,8 +21,7 @@ pub enum EraMarkersVerifierError {
     SignatureVerification(#[from] SignatureError),
 }
 
-/// A protocol Signer that is responsible for signing the
-/// [Certificate](https://mithril.network/doc/mithril/mithril-protocol/certificates#the-certificate-chain-design)
+/// A cryptographic signer that is responsible for signing the [EreMarker]s
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EraMarkersSigner {
     pub(crate) secret_key: EraMarkersVerifierSecretKey,
@@ -84,7 +83,7 @@ impl EraMarkersSigner {
     }
 }
 
-/// An era merkers Verifier
+/// An era markers verifier that checks the authenticity of era markers stored on the chain
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct EraMarkersVerifier {
     pub(crate) verification_key: EraMarkersVerifierVerificationKey,

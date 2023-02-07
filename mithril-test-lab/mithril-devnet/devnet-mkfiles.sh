@@ -1004,7 +1004,7 @@ done
 NODE_IX=0
 for NODE in ${POOL_NODES}; do
     NODE_ID=$(( $NODE_IX + 1))
-if [ `expr $NODE_IX % 2` == 0 || -z "${WITH_UNCERTIFIED_SIGNERS}" ]; then 
+if [ `expr $NODE_IX % 2` == 0 ] || [ -z "${WITH_UNCERTIFIED_SIGNERS}" ]; then 
     # 50% of signers with key certification
     cat >> ${NODE}/info.json <<EOF
 {

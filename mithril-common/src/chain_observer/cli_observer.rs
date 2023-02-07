@@ -47,11 +47,13 @@ impl CardanoCliRunner {
         }
     }
 
-    fn random_out_file() -> PathBuf {
+    fn random_out_file() -> Result<PathBuf, Box<dyn Error + Sync + Send>> {
         let mut rng = rand_core::OsRng;
-        std::env::temp_dir()
-            .join("cardano-cli-runner")
-            .join(format!("{}", rng.next_u64()))
+        let dir = std::env::temp_dir().join("cardano-cli-runner");
+        if !dir.exists() {
+            fs::create_dir_all(&dir)?;
+        }
+        Ok(dir.join(format!("{}.out", rng.next_u64())))
     }
 
     fn command_for_utxo(&self, address: &str, out_file: PathBuf) -> Command {
@@ -136,14 +138,14 @@ impl CardanoCliRunner {
 #[async_trait]
 impl CliRunner for CardanoCliRunner {
     async fn launch_utxo(&self, address: &str) -> Result<String, Box<dyn Error + Sync + Send>> {
-        let out_file = Self::random_out_file();
+        let out_file = Self::random_out_file()?;
         let output = self
             .command_for_utxo(address, out_file.clone())
             .output()
             .await?;
 
         if output.status.success() {
-            Ok(std::str::from_utf8(&output.stdout)?.trim().to_string())
+            Ok(fs::read_to_string(out_file)?.trim().to_string())
         } else {
             let message = String::from_utf8_lossy(&output.stderr);
 

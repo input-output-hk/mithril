@@ -28,6 +28,10 @@ pub enum EraMarkersPayloadError {
     #[error("could not deserialize signature: {0}")]
     DeserializeSignature(GeneralError),
 
+    /// Error raised when the signature is missing
+    #[error("could not verify signature: signature is missing")]
+    MissingSignature,
+
     /// Error raised when the signature is invalid
     #[error("could not verify signature: {0}")]
     VerifySignature(GeneralError),
@@ -37,45 +41,57 @@ pub enum EraMarkersPayloadError {
     CreateSignature(GeneralError),
 }
 
+/// Era markers payload
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-struct EraMarkersPayload {
+pub struct EraMarkersPayload {
     markers: Vec<EraMarker>,
-    signature: HexEncodeEraMarkerSignature,
+    signature: Option<HexEncodeEraMarkerSignature>,
 }
 
 impl EraMarkersPayload {
-    fn message_to_sign(&self) -> Result<Vec<u8>, EraMarkersPayloadError> {
+    fn message_to_bytes(&self) -> Result<Vec<u8>, EraMarkersPayloadError> {
         serde_json::to_vec(&self.markers)
             .map_err(|e| EraMarkersPayloadError::SerializeMessage(e.into()))
     }
 
-    fn verify_signature(
+    fn deserialize_signature(&self) -> Result<EraMarkersVerifierSignature, EraMarkersPayloadError> {
+        EraMarkersVerifierSignature::from_bytes(
+            &Vec::from_hex(
+                self.signature
+                    .as_ref()
+                    .ok_or(EraMarkersPayloadError::MissingSignature)?,
+            )
+            .map_err(|e| EraMarkersPayloadError::DeserializeSignature(e.into()))?,
+        )
+        .map_err(|e| EraMarkersPayloadError::DeserializeSignature(e.into()))
+    }
+
+    /// Verify the signature an era markers payload
+    pub fn verify_signature(
         &self,
         verification_key: EraMarkersVerifierVerificationKey,
     ) -> Result<(), EraMarkersPayloadError> {
-        let signature = EraMarkersVerifierSignature::from_bytes(
-            &Vec::from_hex(&self.signature)
-                .map_err(|e| EraMarkersPayloadError::DeserializeSignature(e.into()))?,
-        )
-        .map_err(|e| EraMarkersPayloadError::DeserializeSignature(e.into()))?;
         let markers_verifier = EraMarkersVerifier::from_verification_key(verification_key);
+
         markers_verifier
-            .verify(&self.message_to_sign()?, &signature)
+            .verify(&self.message_to_bytes()?, &self.deserialize_signature()?)
             .map_err(|e| EraMarkersPayloadError::VerifySignature(e.into()))
     }
 
-    #[cfg(any(test, feature = "test_only"))]
-    fn sign(self, signer: &EraMarkersSigner) -> Result<Self, EraMarkersPayloadError> {
+    /// Sign an era markers payload
+    #[allow(dead_code)]
+    pub fn sign(self, signer: &EraMarkersSigner) -> Result<Self, EraMarkersPayloadError> {
         let signature = signer
             .sign(
                 &self
-                    .message_to_sign()
+                    .message_to_bytes()
                     .map_err(|e| EraMarkersPayloadError::CreateSignature(e.into()))?,
             )
             .encode_hex::<String>();
+
         Ok(Self {
             markers: self.markers,
-            signature,
+            signature: Some(signature),
         })
     }
 }
@@ -111,7 +127,7 @@ impl EraReaderAdapter for CardanoChainAdapter {
             .await?;
         let markers_list = tx_datums
             .into_iter()
-            .filter_map(|datum| datum.get_field_raw_value("bytes", 0).ok())
+            .filter_map(|datum| datum.get_nth_field_by_type("bytes", 0).ok())
             .filter_map(|field_value| field_value.as_str().map(|s| s.to_string()))
             .filter_map(|field_value_str| key_decode_hex(&field_value_str).ok())
             .filter_map(|era_markers_payload: EraMarkersPayload| {
@@ -121,6 +137,7 @@ impl EraReaderAdapter for CardanoChainAdapter {
                     .map(|_| era_markers_payload.markers)
             })
             .collect::<Vec<Vec<EraMarker>>>();
+
         Ok(markers_list.first().unwrap_or(&Vec::new()).to_owned())
     }
 }
@@ -154,14 +171,14 @@ mod test {
                 EraMarker::new("thales", Some(Epoch(1))),
                 EraMarker::new("pythagoras", None),
             ],
-            signature: "".to_string(),
+            signature: None,
         };
         let era_marker_payload_2 = EraMarkersPayload {
             markers: vec![
                 EraMarker::new("thales", Some(Epoch(1))),
                 EraMarker::new("pythagoras", Some(Epoch(2))),
             ],
-            signature: "".to_string(),
+            signature: None,
         };
         let mut fake_datums = dummy_tx_datums_from_markers_payload(vec![
             era_marker_payload_1,

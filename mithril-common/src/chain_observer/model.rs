@@ -22,18 +22,20 @@ pub enum TxDatumError {
 pub struct TxDatum(pub String);
 
 impl TxDatum {
-    /// Retrieves the ith field of the datum with given type
-    pub fn get_field_raw_value(
+    /// Retrieves the nth field of the datum with given type
+    pub fn get_nth_field_by_type(
         &self,
         type_name: &str,
         index: usize,
     ) -> Result<Value, Box<dyn StdError>> {
         let tx_datum_raw = &self.0;
+        // 1- Parse the Utxo raw data to a hashmap
         let v: HashMap<String, Value> = serde_json::from_str(tx_datum_raw).map_err(|e| {
             TxDatumError::InvalidContent(
                 format!("Error: {e:?}, tx datum was = '{tx_datum_raw}'").into(),
             )
         })?;
+        // 2- Convert the 'fields' entry to a vec of json objects
         let fields = v.get("fields").ok_or_else(|| {
             TxDatumError::InvalidContent(
                 format!("Error: missing 'fields' entry, tx datum was = '{tx_datum_raw}'").into(),
@@ -43,6 +45,7 @@ impl TxDatum {
                 format!("Error: 'fields' entry is not correctly structured, tx datum was = '{tx_datum_raw}'").into(),
             )
         })?;
+        // 3- Filter the vec (keep the ones that match the given type), and retrieve the nth entry of this filtered vec
         let field_value = fields
             .iter()
             .filter(|&field| field.get(type_name).is_some())
@@ -76,7 +79,7 @@ mod test {
         assert_eq!(
             "bytes0",
             tx_datum
-                .get_field_raw_value("bytes", 0)
+                .get_nth_field_by_type("bytes", 0)
                 .unwrap()
                 .as_str()
                 .unwrap()
@@ -84,7 +87,7 @@ mod test {
         assert_eq!(
             "bytes1",
             tx_datum
-                .get_field_raw_value("bytes", 1)
+                .get_nth_field_by_type("bytes", 1)
                 .unwrap()
                 .as_str()
                 .unwrap()
@@ -92,13 +95,13 @@ mod test {
         assert_eq!(
             "bytes2",
             tx_datum
-                .get_field_raw_value("bytes", 2)
+                .get_nth_field_by_type("bytes", 2)
                 .unwrap()
                 .as_str()
                 .unwrap()
         );
         tx_datum
-            .get_field_raw_value("bytes", 100)
+            .get_nth_field_by_type("bytes", 100)
             .expect_err("should have returned an error");
     }
 
@@ -108,7 +111,7 @@ mod test {
         assert_eq!(
             0,
             tx_datum
-                .get_field_raw_value("int", 0)
+                .get_nth_field_by_type("int", 0)
                 .unwrap()
                 .as_u64()
                 .unwrap()
@@ -116,7 +119,7 @@ mod test {
         assert_eq!(
             1,
             tx_datum
-                .get_field_raw_value("int", 1)
+                .get_nth_field_by_type("int", 1)
                 .unwrap()
                 .as_u64()
                 .unwrap()
@@ -124,13 +127,13 @@ mod test {
         assert_eq!(
             2,
             tx_datum
-                .get_field_raw_value("int", 2)
+                .get_nth_field_by_type("int", 2)
                 .unwrap()
                 .as_u64()
                 .unwrap()
         );
         tx_datum
-            .get_field_raw_value("int", 100)
+            .get_nth_field_by_type("int", 100)
             .expect_err("should have returned an error");
     }
 }
