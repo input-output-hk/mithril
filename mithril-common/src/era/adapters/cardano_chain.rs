@@ -4,7 +4,7 @@ use crate::{
         key_decode_hex, EraMarkersSigner, EraMarkersVerifier, EraMarkersVerifierSignature,
         EraMarkersVerifierVerificationKey,
     },
-    entities::Epoch,
+    era::{EraMarker, EraReaderAdapter},
 };
 use async_trait::async_trait;
 use hex::{FromHex, ToHex};
@@ -14,35 +14,6 @@ use std::sync::Arc;
 use thiserror::Error;
 
 type GeneralError = Box<dyn StdError + Sync + Send>;
-
-// TODO: remove EraMarker & EraReaderAdapter w/ they are available
-
-/// Value object that represents a tag of Era change.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EraMarker {
-    /// Era name
-    pub name: String,
-
-    /// Eventual information that advertises the Epoch of transition.
-    pub epoch: Option<Epoch>,
-}
-
-impl EraMarker {
-    /// instanciate a new [EraMarker].
-    pub fn new(name: &str, epoch: Option<Epoch>) -> Self {
-        let name = name.to_string();
-
-        Self { name, epoch }
-    }
-}
-
-#[async_trait]
-pub trait EraReaderAdapter: Sync + Send {
-    /// Read era markers from the underlying adapter.
-    async fn read(&self) -> Result<Vec<EraMarker>, GeneralError>;
-}
-
-// TODO: Keep Cardano Chain Adapter part below
 
 type HexEncodeEraMarkerSignature = String;
 
@@ -158,6 +129,7 @@ impl EraReaderAdapter for CardanoChainAdapter {
 mod test {
     use crate::chain_observer::{FakeObserver, TxDatum};
     use crate::crypto_helper::{key_encode_hex, EraMarkersSigner};
+    use crate::entities::Epoch;
 
     use super::*;
 

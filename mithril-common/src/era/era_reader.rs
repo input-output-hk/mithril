@@ -1,13 +1,13 @@
-use std::{error::Error as StdError, str::FromStr};
-
 use crate::entities::Epoch;
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
+use std::{error::Error as StdError, str::FromStr};
 use thiserror::Error;
 
 use super::{supported_era::UnsupportedEraError, SupportedEra};
 
 /// Value object that represents a tag of Era change.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EraMarker {
     /// Era name
     pub name: String,

@@ -1,7 +1,6 @@
 //! The module used for handling eras
 
 pub mod adapters;
-mod cardano_chain_adapter;
 mod era_checker;
 mod era_reader;
 mod supported_era;
