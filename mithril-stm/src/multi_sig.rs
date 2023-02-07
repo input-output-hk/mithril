@@ -204,7 +204,7 @@ impl VerificationKeyPoP {
         //     blst_fp12, blst_fp12_finalverify, blst_p1_affine_generator, blst_p2_affine_generator,
         //     BLST_ERROR,
         // };
-        let result = verify_miller_loop(self.vk.0, self.pop.k2);
+        let result = verify_miller_loop(&self.vk.0, &self.pop.k2);
 
         if !(self.pop.k1.verify(false, POP, &[], &[], &self.vk.0, false)
             == BLST_ERROR::BLST_SUCCESS
@@ -259,10 +259,9 @@ impl ProofOfPossession {
         let mut pop_bytes = [0u8; 96];
         pop_bytes[..48].copy_from_slice(&self.k1.to_bytes());
 
-        let mut k2_bytes = [0u8; 48];
-        compress_p1(&mut k2_bytes, &self.k2);
+        let k2_bytes = compress_p1(&self.k2);
 
-        pop_bytes[48..].copy_from_slice(&k2_bytes);
+        pop_bytes[48..].copy_from_slice(k2_bytes.as_slice());
         pop_bytes
     }
 
@@ -276,7 +275,7 @@ impl ProofOfPossession {
             }
         };
 
-        let k2 = uncompress_p1(bytes[48..96].as_ptr());
+        let k2 = uncompress_p1(&bytes[48..96]);
 
         Ok(Self { k1, k2 })
     }
@@ -387,13 +386,13 @@ impl Signature {
 
         let transmuted_vks: Vec<blst_p2> = vks.iter().map(vk_from_p2_affine).collect();
 
-        let transmuted_sigs: Vec<blst_p1> = signatures.iter().map(|&sig| sig_to_p1(sig)).collect();
+        let transmuted_sigs: Vec<blst_p1> = signatures.iter().map(sig_to_p1).collect();
 
         let grouped_vks = p2_affines::from(transmuted_vks.as_slice());
         let grouped_sigs = p1_affines::from(transmuted_sigs.as_slice());
 
-        let aggr_vk: BlstVk = p2_affine_to_vk(grouped_vks, scalars.as_slice());
-        let aggr_sig: BlstSig = p1_affine_to_sig(grouped_sigs, scalars.as_slice());
+        let aggr_vk: BlstVk = p2_affine_to_vk(&grouped_vks, scalars.as_slice());
+        let aggr_sig: BlstSig = p1_affine_to_sig(&grouped_sigs, scalars.as_slice());
 
         Ok((VerificationKey(aggr_vk), Signature(aggr_sig)))
     }
@@ -472,17 +471,17 @@ impl Ord for Signature {
 // Unsafe helpers
 // ---------------------------------------------------------------------
 
-fn verify_miller_loop(vk: BlstVk, k2: blst_p1) -> bool {
+fn verify_miller_loop(vk: &BlstVk, k2: &blst_p1) -> bool {
     use blst::{
         blst_fp12, blst_fp12_finalverify, blst_p1_affine_generator, blst_p2_affine_generator,
     };
     unsafe {
         let g1_p = *blst_p1_affine_generator();
-        let mvk_p = std::mem::transmute::<&BlstVk, &blst_p2_affine>(&vk);
+        let mvk_p = std::mem::transmute::<&BlstVk, &blst_p2_affine>(vk);
         let ml_lhs = blst_fp12::miller_loop(mvk_p, &g1_p);
 
         let mut k2_p = blst_p1_affine::default();
-        blst_p1_to_affine(&mut k2_p, &k2);
+        blst_p1_to_affine(&mut k2_p, k2);
         let g2_p = *blst_p2_affine_generator();
         let ml_rhs = blst_fp12::miller_loop(&g2_p, &k2_p);
 
@@ -490,15 +489,17 @@ fn verify_miller_loop(vk: BlstVk, k2: blst_p1) -> bool {
     }
 }
 
-fn compress_p1(bytes: &mut [u8; 48], k2: *const blst_p1) {
+fn compress_p1(k2: &blst_p1) -> [u8; 48] {
+    let mut bytes = [0u8; 48];
     unsafe { blst_p1_compress(bytes.as_mut_ptr(), k2) }
+    bytes
 }
 
-fn uncompress_p1(bytes: *const u8) -> blst_p1 {
+fn uncompress_p1(bytes: &[u8]) -> blst_p1 {
     unsafe {
         let mut point = blst_p1_affine::default();
         let mut out = blst_p1::default();
-        blst_p1_uncompress(&mut point, bytes);
+        blst_p1_uncompress(&mut point, bytes.as_ptr());
         blst_p1_from_affine(&mut out, &point);
         out
     }
@@ -525,18 +526,18 @@ fn vk_from_p2_affine(vk: &VerificationKey) -> blst_p2 {
     }
 }
 
-fn sig_to_p1(sig: BlstSig) -> blst_p1 {
+fn sig_to_p1(sig: &BlstSig) -> blst_p1 {
     unsafe {
         let mut projective_p1 = blst_p1::default();
         blst_p1_from_affine(
             &mut projective_p1,
-            &std::mem::transmute::<BlstSig, blst_p1_affine>(sig),
+            &std::mem::transmute::<BlstSig, blst_p1_affine>(*sig),
         );
         projective_p1
     }
 }
 
-fn p2_affine_to_vk(grouped_vks: p2_affines, scalars: &[u8]) -> BlstVk {
+fn p2_affine_to_vk(grouped_vks: &p2_affines, scalars: &[u8]) -> BlstVk {
     unsafe {
         let mut affine_p2 = blst_p2_affine::default();
         blst_p2_to_affine(&mut affine_p2, &grouped_vks.mult(scalars, 128));
@@ -544,7 +545,7 @@ fn p2_affine_to_vk(grouped_vks: p2_affines, scalars: &[u8]) -> BlstVk {
     }
 }
 
-fn p1_affine_to_sig(grouped_sigs: p1_affines, scalars: &[u8]) -> BlstSig {
+fn p1_affine_to_sig(grouped_sigs: &p1_affines, scalars: &[u8]) -> BlstSig {
     unsafe {
         let mut affine_p1 = blst_p1_affine::default();
         blst_p1_to_affine(&mut affine_p1, &grouped_sigs.mult(scalars, 128));
