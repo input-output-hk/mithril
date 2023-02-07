@@ -15,9 +15,9 @@ use mithril_common::{
         CardanoImmutableDigester, ImmutableFileSystemObserver,
     },
     entities::{Epoch, HexEncodedGenesisSecretKey},
-    era::{EraChecker, SupportedEra},
+    era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
     store::{adapter::SQLiteAdapter, StakeStore},
-    BeaconProviderImpl,
+    BeaconProvider, BeaconProviderImpl,
 };
 
 use crate::{
@@ -399,8 +399,14 @@ impl ServeCommand {
         ));
 
         // TODO: use EraReader when it is implemented to retrieve current era
-        let current_era = SupportedEra::Thales;
-        let era_checker = Arc::new(EraChecker::new(current_era));
+        let era_reader = Arc::new(EraReader::new(Box::new(EraReaderBootstrapAdapter)));
+        let era_epoch_token = era_reader
+            .read_era_epoch_token(beacon_provider.get_current_beacon().await?.epoch)
+            .await?;
+        let era_checker = Arc::new(EraChecker::new(
+            era_epoch_token.get_current_supported_era()?,
+            era_epoch_token.get_current_epoch(),
+        ));
 
         // Init dependency manager
         let dependency_manager = DependencyManager {
@@ -424,6 +430,7 @@ impl ServeCommand {
             signer_registerer: signer_registerer.clone(),
             signer_registration_round_opener: signer_registerer.clone(),
             era_checker: era_checker.clone(),
+            era_reader: era_reader.clone(),
         };
         let dependency_manager = Arc::new(dependency_manager);
 

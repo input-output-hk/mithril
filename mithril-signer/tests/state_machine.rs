@@ -16,9 +16,11 @@ async fn test_create_single_signature() {
     let mut tester = StateMachineTester::init(&signers_with_stake).await.expect("state machine tester init should not fail");
 
     tester
-        .comment("state machine starts and remains in Unregistered state until a epoch settings is got")
+        .comment("state machine starts in Init and transit to Unregistered state.")
+        .is_init().unwrap()
         .cycle_unregistered().await.unwrap()
         .cycle_unregistered().await.unwrap()
+        .check_era_checker_last_updated_at(Epoch(1)).await.unwrap()
 
         .comment("increasing immutable files does not change the state = Unregistered")
         .increase_immutable(1, 2).await.unwrap()
@@ -27,6 +29,7 @@ async fn test_create_single_signature() {
         .comment("changing the epoch does not change the state = Unregistered")
         .increase_epoch(2).await.unwrap()
         .cycle_unregistered().await.unwrap()
+        .check_era_checker_last_updated_at(Epoch(2)).await.unwrap()
 
         .comment("getting an epoch settings changes the state → Registered")
         .aggregator_send_epoch_settings().await
@@ -45,6 +48,7 @@ async fn test_create_single_signature() {
         .comment("changing Epoch changes the state → Unregistered")
         .increase_epoch(3).await.unwrap()
         .cycle_unregistered().await.unwrap()
+        .check_era_checker_last_updated_at(Epoch(3)).await.unwrap()
 
         .comment("creating a new certificate pending with new signers and new beacon → Registered")
         .cycle_registered().await.unwrap()
@@ -62,6 +66,7 @@ async fn test_create_single_signature() {
         .comment("changing epoch changes the state → Unregistered")
         .increase_epoch(4).await.unwrap()
         .cycle_unregistered().await.unwrap()
+        .check_era_checker_last_updated_at(Epoch(4)).await.unwrap()
 
         .comment("creating a new certificate pending with new signers and new beacon → Registered")
         .cycle_registered().await.unwrap()
@@ -82,6 +87,7 @@ async fn test_create_single_signature() {
         .comment("changing epoch changes the state → Unregistered")
         .increase_epoch(5).await.unwrap()
         .cycle_unregistered().await.unwrap()
+        .check_era_checker_last_updated_at(Epoch(5)).await.unwrap()
         .cycle_registered().await.unwrap()
         .check_protocol_initializer(Epoch(5)).await.unwrap()
 

@@ -147,6 +147,9 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         ongoing_snapshot: &OngoingSnapshot,
         remote_locations: Vec<String>,
     ) -> Result<Snapshot, RuntimeError>;
+
+    /// Update the EraChecker with EraReader information.
+    async fn update_era_checker(&self, beacon: &Beacon) -> Result<(), RuntimeError>;
 }
 
 /// The runner responsibility is to expose a code API for the state machine. It
@@ -613,6 +616,25 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .await?;
 
         Ok(snapshot)
+    }
+
+    async fn update_era_checker(&self, beacon: &Beacon) -> Result<(), RuntimeError> {
+        let token = self
+            .dependencies
+            .era_reader
+            .read_era_epoch_token(beacon.epoch)
+            .await
+            .map_err(|e| {
+                RuntimeError::General(format!("Could not get Era information ('{e}')").into())
+            })?;
+        self.dependencies.era_checker.change_era(
+            token.get_current_supported_era().map_err(|e| {
+                RuntimeError::General(format!("Could not update EraChecker service ('{e}')").into())
+            })?,
+            token.get_current_epoch(),
+        );
+
+        Ok(())
     }
 }
 
@@ -1147,5 +1169,20 @@ pub mod tests {
             ),
             ongoing_snapshot.get_file_path()
         );
+    }
+
+    #[tokio::test]
+    async fn test_update_era_checker() {
+        let (deps, config) = initialize_dependencies().await;
+        let beacon_provider = deps.beacon_provider.clone();
+        let era_checker = deps.era_checker.clone();
+        let mut beacon = beacon_provider.get_current_beacon().await.unwrap();
+
+        assert_eq!(beacon.epoch, era_checker.current_epoch());
+        let runner = AggregatorRunner::new(config, Arc::new(deps));
+        beacon.epoch += 1;
+
+        runner.update_era_checker(&beacon).await.unwrap();
+        assert_eq!(beacon.epoch, era_checker.current_epoch());
     }
 }

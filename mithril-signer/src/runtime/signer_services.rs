@@ -1,23 +1,17 @@
 use async_trait::async_trait;
-use std::{
-    error::{Error as StdError, Error},
-    fs,
-    sync::Arc,
-};
+use std::{fs, sync::Arc};
 
+use mithril_common::digesters::{
+    cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder},
+    ImmutableFileObserver,
+};
 use mithril_common::{
     chain_observer::{CardanoCliChainObserver, CardanoCliRunner, ChainObserver},
     crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
     digesters::{CardanoImmutableDigester, ImmutableDigester, ImmutableFileSystemObserver},
-    era::EraChecker,
+    era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
     store::{adapter::SQLiteAdapter, StakeStore},
     BeaconProvider, BeaconProviderImpl,
-};
-use mithril_common::{
-    digesters::cache::{
-        ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder,
-    },
-    era::SupportedEra,
 };
 
 use crate::{
@@ -34,27 +28,71 @@ type SingleSignerService = Arc<dyn SingleSigner>;
 type BeaconProviderService = Arc<dyn BeaconProvider>;
 type ProtocolInitializerStoreService = Arc<dyn ProtocolInitializerStorer>;
 
+type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 /// The ServiceBuilder is intended to manage Services instance creation.
 /// The goal of this is to put all this code out of the way of business code.
 #[async_trait]
 pub trait ServiceBuilder {
     /// Create a SignerService instance.
-    async fn build(&self) -> Result<SignerServices, Box<dyn StdError>>;
+    async fn build(&self) -> Result<SignerServices>;
 }
 
 /// Create a SignerService instance for Production environment.
 pub struct ProductionServiceBuilder<'a> {
     config: &'a Config,
+    chain_observer_builder: fn(&Config) -> Result<ChainObserverService>,
+    immutable_file_observer_builder: fn(&Config) -> Result<Arc<dyn ImmutableFileObserver>>,
 }
 
 impl<'a> ProductionServiceBuilder<'a> {
     /// Create a new production service builder.
     pub fn new(config: &'a Config) -> Self {
-        Self { config }
+        let chain_observer_builder: fn(&Config) -> Result<ChainObserverService> =
+            |config: &Config| {
+                Ok(Arc::new(CardanoCliChainObserver::new(Box::new(
+                    CardanoCliRunner::new(
+                        config.cardano_cli_path.clone(),
+                        config.cardano_node_socket_path.clone(),
+                        config.get_network()?,
+                    ),
+                ))))
+            };
+        let immutable_file_observer_builder: fn(&Config) -> Result<Arc<dyn ImmutableFileObserver>> =
+            |config: &Config| {
+                Ok(Arc::new(ImmutableFileSystemObserver::new(
+                    &config.db_directory,
+                )))
+            };
+
+        Self {
+            config,
+            chain_observer_builder,
+            immutable_file_observer_builder,
+        }
+    }
+
+    /// Override immutable file observer builder.
+    pub fn override_immutable_file_observer_builder(
+        &mut self,
+        builder: fn(&Config) -> Result<Arc<dyn ImmutableFileObserver>>,
+    ) -> &mut Self {
+        self.immutable_file_observer_builder = builder;
+
+        self
+    }
+
+    /// Override default chain observer builder.
+    pub fn override_chain_observer_builder(
+        &mut self,
+        builder: fn(&Config) -> Result<ChainObserverService>,
+    ) -> &mut Self {
+        self.chain_observer_builder = builder;
+
+        self
     }
 
     /// Compute protocol party id
-    fn compute_protocol_party_id(&self) -> Result<ProtocolPartyId, Box<dyn StdError>> {
+    fn compute_protocol_party_id(&self) -> Result<ProtocolPartyId> {
         match &self.config.operational_certificate_path {
             Some(operational_certificate_path) => {
                 let opcert: OpCert = OpCert::from_file(operational_certificate_path)
@@ -73,7 +111,7 @@ impl<'a> ProductionServiceBuilder<'a> {
 
     async fn build_digester_cache_provider(
         &self,
-    ) -> Result<Option<Arc<dyn ImmutableFileDigestCacheProvider>>, Box<dyn Error>> {
+    ) -> Result<Option<Arc<dyn ImmutableFileDigestCacheProvider>>> {
         if self.config.disable_digests_cache {
             return Ok(None);
         }
@@ -93,7 +131,7 @@ impl<'a> ProductionServiceBuilder<'a> {
 #[async_trait]
 impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
     /// Build a Services for the Production environment.
-    async fn build(&self) -> Result<SignerServices, Box<dyn StdError>> {
+    async fn build(&self) -> Result<SignerServices> {
         if !self.config.data_stores_directory.exists() {
             fs::create_dir_all(self.config.data_stores_directory.clone())
                 .map_err(|e| format!("Could not create data stores directory: {e:?}"))?;
@@ -120,21 +158,27 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             Box::new(SQLiteAdapter::new("stake", sqlite_db_path)?),
             self.config.store_retention_limit,
         ));
-        let chain_observer = Arc::new(CardanoCliChainObserver::new(Box::new(
-            CardanoCliRunner::new(
-                self.config.cardano_cli_path.clone(),
-                self.config.cardano_node_socket_path.clone(),
-                self.config.get_network()?,
-            ),
-        )));
-        let beacon_provider = Arc::new(BeaconProviderImpl::new(
-            chain_observer.clone(),
-            Arc::new(ImmutableFileSystemObserver::new(&self.config.db_directory)),
-            self.config.get_network()?.to_owned(),
-        ));
+        let chain_observer = {
+            let builder = self.chain_observer_builder;
+            builder(self.config)?
+        };
+        let beacon_provider = {
+            let builder = self.immutable_file_observer_builder;
+            Arc::new(BeaconProviderImpl::new(
+                chain_observer.clone(),
+                builder(self.config)?,
+                self.config.get_network()?.to_owned(),
+            ))
+        };
         // TODO: use EraReader when it is implemented to retrieve current era
-        let current_era = SupportedEra::Thales;
-        let era_checker = Arc::new(EraChecker::new(current_era));
+        let era_reader = Arc::new(EraReader::new(Box::new(EraReaderBootstrapAdapter)));
+        let era_epoch_token = era_reader
+            .read_era_epoch_token(beacon_provider.get_current_beacon().await?.epoch)
+            .await?;
+        let era_checker = Arc::new(EraChecker::new(
+            era_epoch_token.get_current_supported_era()?,
+            era_epoch_token.get_current_epoch(),
+        ));
 
         let services = SignerServices {
             beacon_provider,
@@ -145,6 +189,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             stake_store,
             protocol_initializer_store,
             era_checker,
+            era_reader,
         };
 
         Ok(services)
@@ -176,10 +221,19 @@ pub struct SignerServices {
 
     /// Era checker service
     pub era_checker: Arc<EraChecker>,
+
+    /// Era reader service
+    pub era_reader: Arc<EraReader>,
 }
 
 #[cfg(test)]
 mod tests {
+    use mithril_common::{
+        chain_observer::FakeObserver,
+        digesters::DumbImmutableFileObserver,
+        entities::{Beacon, Epoch},
+    };
+
     use super::*;
 
     use std::path::PathBuf;
@@ -218,8 +272,20 @@ mod tests {
         };
 
         assert!(!stores_dir.exists());
-        let service_builder = ProductionServiceBuilder::new(&config);
+        let chain_observer_builder: fn(&Config) -> Result<ChainObserverService> = |_config| {
+            Ok(Arc::new(FakeObserver::new(Some(Beacon {
+                epoch: Epoch(1),
+                immutable_file_number: 1,
+                network: "devnet".to_string(),
+            }))))
+        };
+        let immutable_file_observer_builder: fn(&Config) -> Result<Arc<dyn ImmutableFileObserver>> =
+            |_config: &Config| Ok(Arc::new(DumbImmutableFileObserver::default()));
+
+        let mut service_builder = ProductionServiceBuilder::new(&config);
         service_builder
+            .override_chain_observer_builder(chain_observer_builder)
+            .override_immutable_file_observer_builder(immutable_file_observer_builder)
             .build()
             .await
             .expect("service builder build should not fail");

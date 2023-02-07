@@ -6,7 +6,7 @@ use mithril_common::{
     entities::{
         Certificate, Epoch, ProtocolParameters, Signer, SignerWithStake, StakeDistribution,
     },
-    era::EraChecker,
+    era::{EraChecker, EraReader},
     store::{StakeStore, StakeStorer},
     BeaconProvider,
 };
@@ -87,6 +87,9 @@ pub struct DependencyManager {
 
     /// Era checker service
     pub era_checker: Arc<EraChecker>,
+
+    /// Era reader service
+    pub era_reader: Arc<EraReader>,
 }
 
 #[doc(hidden)]
@@ -269,10 +272,10 @@ pub mod tests {
         chain_observer::FakeObserver,
         crypto_helper::{key_encode_hex, ProtocolGenesisSigner},
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
-        era::{EraChecker, SupportedEra},
+        era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
         store::{adapter::MemoryAdapter, StakeStore},
         test_utils::fake_data,
-        BeaconProviderImpl, CardanoNetwork,
+        BeaconProvider, BeaconProviderImpl, CardanoNetwork,
     };
     use std::{path::PathBuf, sync::Arc};
     use tokio::sync::RwLock;
@@ -347,7 +350,15 @@ pub mod tests {
             chain_observer.clone(),
             verification_key_store.clone(),
         ));
-        let era_checker = Arc::new(EraChecker::new(SupportedEra::dummy()));
+        let era_reader = Arc::new(EraReader::new(Box::new(EraReaderBootstrapAdapter)));
+        let era_epoch_token = era_reader
+            .read_era_epoch_token(beacon_provider.get_current_beacon().await.unwrap().epoch)
+            .await
+            .unwrap();
+        let era_checker = Arc::new(EraChecker::new(
+            era_epoch_token.get_current_supported_era().unwrap(),
+            era_epoch_token.get_current_epoch(),
+        ));
 
         let dependency_manager = DependencyManager {
             config,
@@ -370,6 +381,7 @@ pub mod tests {
             signer_registerer: signer_registerer.clone(),
             signer_registration_round_opener: signer_registerer,
             era_checker,
+            era_reader,
         };
 
         let config = AggregatorConfig::new(

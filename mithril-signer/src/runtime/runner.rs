@@ -86,6 +86,10 @@ pub trait Runner {
         &self,
         maybe_signature: Option<SingleSignatures>,
     ) -> Result<(), Box<dyn StdError + Sync + Send>>;
+
+    /// Read the current era and update the EraChecker.
+    async fn update_era_checker(&self, epoch: Epoch)
+        -> Result<(), Box<dyn StdError + Sync + Send>>;
 }
 
 /// This type represents the errors thrown from the Runner.
@@ -429,6 +433,25 @@ impl Runner for SignerRunner {
             Ok(())
         }
     }
+
+    async fn update_era_checker(
+        &self,
+        epoch: Epoch,
+    ) -> Result<(), Box<dyn StdError + Sync + Send>> {
+        let era_token = self
+            .services
+            .era_reader
+            .read_era_epoch_token(epoch)
+            .await
+            .map_err(Box::new)?;
+
+        self.services.era_checker.change_era(
+            era_token.get_current_supported_era()?,
+            era_token.get_current_epoch(),
+        );
+
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -438,7 +461,7 @@ mod tests {
         crypto_helper::ProtocolInitializer,
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
         entities::{Epoch, StakeDistribution},
-        era::{EraChecker, SupportedEra},
+        era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
         store::{
             adapter::{DumbStoreAdapter, MemoryAdapter},
             StakeStore, StakeStorer,
@@ -467,34 +490,45 @@ mod tests {
         }
     }
 
-    fn init_services() -> SignerServices {
+    async fn init_services() -> SignerServices {
         let adapter: MemoryAdapter<Epoch, ProtocolInitializer> = MemoryAdapter::new(None).unwrap();
         let chain_observer = Arc::new(FakeObserver::default());
-        let era_checker = Arc::new(EraChecker::new(SupportedEra::dummy()));
+        let beacon_provider = Arc::new(BeaconProviderImpl::new(
+            chain_observer.clone(),
+            Arc::new(DumbImmutableFileObserver::default()),
+            CardanoNetwork::TestNet(42),
+        ));
+        let era_reader = Arc::new(EraReader::new(Box::new(EraReaderBootstrapAdapter)));
+        let era_epoch_token = era_reader
+            .read_era_epoch_token(beacon_provider.get_current_beacon().await.unwrap().epoch)
+            .await
+            .unwrap();
+        let era_checker = Arc::new(EraChecker::new(
+            era_epoch_token.get_current_supported_era().unwrap(),
+            era_epoch_token.get_current_epoch(),
+        ));
+
         SignerServices {
             stake_store: Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None)),
             certificate_handler: Arc::new(DumbCertificateHandler::default()),
-            chain_observer: chain_observer.clone(),
+            chain_observer,
             digester: Arc::new(DumbImmutableDigester::new(DIGESTER_RESULT, true)),
             single_signer: Arc::new(MithrilSingleSigner::new("1".to_string())),
-            beacon_provider: Arc::new(BeaconProviderImpl::new(
-                chain_observer,
-                Arc::new(DumbImmutableFileObserver::default()),
-                CardanoNetwork::TestNet(42),
-            )),
+            beacon_provider,
             protocol_initializer_store: Arc::new(ProtocolInitializerStore::new(
                 Box::new(adapter),
                 None,
             )),
             era_checker,
+            era_reader,
         }
     }
 
-    fn init_runner(
+    async fn init_runner(
         maybe_services: Option<SignerServices>,
         maybe_config: Option<Config>,
     ) -> SignerRunner {
-        let services = init_services();
+        let services = init_services().await;
         let config = Config {
             aggregator_endpoint: "http://0.0.0.0:3000".to_string(),
             cardano_cli_path: PathBuf::new(),
@@ -520,7 +554,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_current_beacon() {
-        let mut services = init_services();
+        let mut services = init_services().await;
         let expected = fake_data::beacon();
         let mut beacon_provider = MockFakeBeaconProvider::new();
         beacon_provider
@@ -528,7 +562,7 @@ mod tests {
             .once()
             .returning(|| Ok(fake_data::beacon()));
         services.beacon_provider = Arc::new(beacon_provider);
-        let runner = init_runner(Some(services), None);
+        let runner = init_runner(Some(services), None).await;
 
         assert_eq!(
             expected,
@@ -541,7 +575,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_update_stake_distribution() {
-        let services = init_services();
+        let services = init_services().await;
         let stake_store = services.stake_store.clone();
         let current_epoch = services
             .chain_observer
@@ -549,7 +583,7 @@ mod tests {
             .await
             .expect("chain observer should not fail")
             .expect("the observer should return an epoch");
-        let runner = init_runner(Some(services), None);
+        let runner = init_runner(Some(services), None).await;
         assert!(stake_store
             .get_stakes(current_epoch)
             .await
@@ -572,7 +606,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_signer_to_aggregator() {
-        let mut services = init_services();
+        let mut services = init_services().await;
         let certificate_handler = Arc::new(DumbCertificateHandler::default());
         services.certificate_handler = certificate_handler.clone();
         let protocol_initializer_store = services.protocol_initializer_store.clone();
@@ -595,7 +629,7 @@ mod tests {
             .save_stakes(epoch, stakes)
             .await
             .unwrap();
-        let runner = init_runner(Some(services), None);
+        let runner = init_runner(Some(services), None).await;
         let epoch = chain_observer
             .current_beacon
             .read()
@@ -630,9 +664,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_can_i_sign() {
-        let services = init_services();
+        let services = init_services().await;
         let protocol_initializer_store = services.protocol_initializer_store.clone();
-        let runner = init_runner(Some(services), None);
+        let runner = init_runner(Some(services), None).await;
         let mut pending_certificate = fake_data::certificate_pending();
         let epoch = pending_certificate.beacon.epoch;
         let mut signer = &mut pending_certificate.signers[0];
@@ -657,9 +691,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_associate_signers_with_stake() {
-        let services = init_services();
+        let services = init_services().await;
         let stake_store = services.stake_store.clone();
-        let runner = init_runner(Some(services), None);
+        let runner = init_runner(Some(services), None).await;
         let epoch = Epoch(12);
         let expected = fake_data::signers_with_stakes(5);
         let signers = expected
@@ -687,7 +721,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_compute_message() {
-        let mut services = init_services();
+        let mut services = init_services().await;
         let current_beacon = services
             .beacon_provider
             .get_current_beacon()
@@ -722,7 +756,7 @@ mod tests {
             .expect("an avk should have been computed");
         expected.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
 
-        let runner = init_runner(Some(services), None);
+        let runner = init_runner(Some(services), None).await;
         let message = runner
             .compute_message(&current_beacon, &next_signers)
             .await
@@ -733,7 +767,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_compute_single_signature() {
-        let mut services = init_services();
+        let mut services = init_services().await;
         let current_beacon = services
             .beacon_provider
             .get_current_beacon()
@@ -773,7 +807,7 @@ mod tests {
             .compute_single_signatures(&message, &signers, &protocol_initializer)
             .expect("compute_single_signatures should not fail");
 
-        let runner = init_runner(Some(services), None);
+        let runner = init_runner(Some(services), None).await;
         let single_signature = runner
             .compute_single_signature(current_beacon.epoch, &message, &signers)
             .await
@@ -783,18 +817,33 @@ mod tests {
 
     #[tokio::test]
     async fn test_send_single_signature() {
-        let mut services = init_services();
+        let mut services = init_services().await;
         let mut certificate_handler = MockCertificateHandler::new();
         certificate_handler
             .expect_register_signatures()
             .once()
             .returning(|_| Ok(()));
         services.certificate_handler = Arc::new(certificate_handler);
-        let runner = init_runner(Some(services), None);
+        let runner = init_runner(Some(services), None).await;
 
         runner
             .send_single_signature(Some(fake_data::single_signatures(vec![2, 5, 12])))
             .await
             .expect("send_single_signature should not fail");
+    }
+
+    #[tokio::test]
+    async fn test_update_era_checker() {
+        let services = init_services().await;
+        let beacon_provider = services.beacon_provider.clone();
+        let era_checker = services.era_checker.clone();
+        let mut beacon = beacon_provider.get_current_beacon().await.unwrap();
+
+        assert_eq!(beacon.epoch, era_checker.current_epoch());
+        let runner = init_runner(Some(services), None).await;
+        beacon.epoch += 1;
+        runner.update_era_checker(beacon.epoch).await.unwrap();
+
+        assert_eq!(beacon.epoch, era_checker.current_epoch());
     }
 }

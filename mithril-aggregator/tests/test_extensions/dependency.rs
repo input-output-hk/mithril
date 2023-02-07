@@ -9,10 +9,11 @@ use mithril_common::chain_observer::FakeObserver;
 use mithril_common::crypto_helper::{key_encode_hex, ProtocolGenesisSigner};
 use mithril_common::digesters::{DumbImmutableDigester, DumbImmutableFileObserver};
 use mithril_common::entities::ProtocolParameters;
-use mithril_common::era::{EraChecker, SupportedEra};
+use mithril_common::era::EraReader;
+use mithril_common::era::{adapters::EraReaderBootstrapAdapter, EraChecker};
 use mithril_common::store::adapter::MemoryAdapter;
 use mithril_common::store::StakeStore;
-use mithril_common::{BeaconProviderImpl, CardanoNetwork};
+use mithril_common::{BeaconProvider, BeaconProviderImpl, CardanoNetwork};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -91,7 +92,15 @@ pub async fn initialize_dependencies(
         chain_observer.clone(),
         verification_key_store.clone(),
     ));
-    let era_checker = Arc::new(EraChecker::new(SupportedEra::dummy()));
+    let era_reader = Arc::new(EraReader::new(Box::new(EraReaderBootstrapAdapter)));
+    let era_epoch_token = era_reader
+        .read_era_epoch_token(beacon_provider.get_current_beacon().await.unwrap().epoch)
+        .await
+        .unwrap();
+    let era_checker = Arc::new(EraChecker::new(
+        era_epoch_token.get_current_supported_era().unwrap(),
+        era_epoch_token.get_current_epoch(),
+    ));
 
     let dependency_manager = DependencyManager {
         config,
@@ -114,6 +123,7 @@ pub async fn initialize_dependencies(
         signer_registerer: signer_registerer.clone(),
         signer_registration_round_opener: signer_registerer,
         era_checker,
+        era_reader,
     };
 
     let config = AggregatorConfig::new(
