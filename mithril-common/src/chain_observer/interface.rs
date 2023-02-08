@@ -25,7 +25,7 @@ pub enum ChainObserverError {
 #[automock]
 #[async_trait]
 pub trait ChainObserver: Sync + Send {
-    /// Retrive the datums associated to and address
+    /// Retrieve the datums associated to and address
     async fn get_current_datums(
         &self,
         address: &ChainAddress,
