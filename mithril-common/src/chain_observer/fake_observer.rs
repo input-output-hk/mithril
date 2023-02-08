@@ -2,6 +2,7 @@ use async_trait::async_trait;
 use tokio::sync::RwLock;
 
 use crate::chain_observer::interface::*;
+use crate::chain_observer::{ChainAddress, TxDatum};
 use crate::crypto_helper::{KESPeriod, OpCert};
 use crate::{entities::*, test_utils::fake_data};
 
@@ -16,6 +17,11 @@ pub struct FakeObserver {
     ///
     /// [get_current_epoch]: ChainObserver::get_current_epoch
     pub current_beacon: RwLock<Option<Beacon>>,
+
+    /// A list of [TxDatum], used by [get_current_datums]
+    ///
+    /// [get_current_datums]: ChainObserver::get_current_datums
+    pub datums: RwLock<Vec<TxDatum>>,
 }
 
 impl FakeObserver {
@@ -24,6 +30,7 @@ impl FakeObserver {
         Self {
             signers: RwLock::new(vec![]),
             current_beacon: RwLock::new(current_beacon),
+            datums: RwLock::new(vec![]),
         }
     }
 
@@ -44,6 +51,13 @@ impl FakeObserver {
         let mut signers = self.signers.write().await;
         *signers = new_signers;
     }
+
+    /// Set the datums that will used to compute the result of
+    /// [get_current_datums][ChainObserver::get_current_datums].
+    pub async fn set_datums(&self, new_datums: Vec<TxDatum>) {
+        let mut datums = self.datums.write().await;
+        *datums = new_datums;
+    }
 }
 
 impl Default for FakeObserver {
@@ -57,6 +71,14 @@ impl Default for FakeObserver {
 
 #[async_trait]
 impl ChainObserver for FakeObserver {
+    async fn get_current_datums(
+        &self,
+        _address: &ChainAddress,
+    ) -> Result<Vec<TxDatum>, ChainObserverError> {
+        let datums = self.datums.read().await;
+        Ok(datums.to_vec())
+    }
+
     async fn get_current_epoch(&self) -> Result<Option<Epoch>, ChainObserverError> {
         Ok(self
             .current_beacon
@@ -115,5 +137,22 @@ mod tests {
             stake_distribution.unwrap().unwrap().len(),
             "get current stake distribution should not fail and should not be empty"
         );
+    }
+
+    #[tokio::test]
+    async fn test_get_current_datums() {
+        let fake_address = "addr_test_123456".to_string();
+        let fake_datums = vec![
+            TxDatum("tx_datum_1".to_string()),
+            TxDatum("tx_datum_2".to_string()),
+        ];
+        let fake_observer = FakeObserver::new(None);
+        fake_observer.set_datums(fake_datums.clone()).await;
+        let datums = fake_observer
+            .get_current_datums(&fake_address)
+            .await
+            .expect("get_current_datums should not fail");
+
+        assert_eq!(fake_datums, datums);
     }
 }
