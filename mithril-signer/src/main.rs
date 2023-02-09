@@ -1,9 +1,9 @@
 use clap::Parser;
 use slog::{o, Drain, Level, Logger};
 use slog_scope::debug;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
-use std::{error::Error, path::PathBuf};
 
 use mithril_common::database::{ApplicationNodeType, DatabaseVersionChecker};
 use mithril_signer::{
@@ -72,15 +72,17 @@ fn build_logger(min_level: Level) -> Logger {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<(), String> {
     // Load args
     let args = Args::parse();
     let _guard = slog_scope::set_global_logger(build_logger(args.log_level()));
 
     // Load config
     let config: Config = config::Config::builder()
-        .set_default("disable_digests_cache", args.disable_digests_cache)?
-        .set_default("reset_digests_cache", args.reset_digests_cache)?
+        .set_default("disable_digests_cache", args.disable_digests_cache)
+        .map_err(|e| e.to_string())?
+        .set_default("reset_digests_cache", args.reset_digests_cache)
+        .map_err(|e| e.to_string())?
         .add_source(
             config::File::with_name(&format!(
                 "{}/{}.json",
@@ -94,13 +96,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .map_err(|e| format!("configuration build error: {e}"))?
         .try_deserialize()
         .map_err(|e| format!("configuration deserialize error: {e}"))?;
-    let services = ProductionServiceBuilder::new(&config).build().await?;
+    let services = ProductionServiceBuilder::new(&config)
+        .build()
+        .await
+        .map_err(|e| e.to_string())?;
     DatabaseVersionChecker::new(
         slog_scope::logger(),
         ApplicationNodeType::Signer,
         config.get_sqlite_file(),
     )
-    .apply()?;
+    .apply()
+    .map_err(|e| e.to_string())?;
     debug!("Started"; "run_mode" => &args.run_mode, "config" => format!("{config:?}"));
 
     let mut state_machine = StateMachine::new(
@@ -108,5 +114,5 @@ async fn main() -> Result<(), Box<dyn Error>> {
         Box::new(SignerRunner::new(config.clone(), services)),
         Duration::from_millis(config.run_interval),
     );
-    state_machine.run().await
+    state_machine.run().await.map_err(|e| e.to_string())
 }
