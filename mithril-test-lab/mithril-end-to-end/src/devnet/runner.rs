@@ -166,13 +166,17 @@ impl Devnet {
 
         info!("Starting the Devnet"; "script" => &run_script_path.display());
 
-        run_command
+        let status = run_command
             .spawn()
             .map_err(|e| format!("Failed to start the devnet: {e}"))?
             .wait()
             .await
             .map_err(|e| format!("Error while starting the devnet: {e}"))?;
-        Ok(())
+        match status.code() {
+            Some(0) => Ok(()),
+            Some(code) => Err(format!("Run devnet exited with status code: {code}")),
+            None => Err("Run devnet terminated by signal".to_string()),
+        }
     }
 
     pub async fn stop(&self) -> Result<(), String> {
@@ -185,13 +189,17 @@ impl Devnet {
 
         info!("Stopping the Devnet"; "script" => &stop_script_path.display());
 
-        stop_command
+        let status = stop_command
             .spawn()
             .map_err(|e| format!("Failed to stop the devnet: {e}"))?
             .wait()
             .await
             .map_err(|e| format!("Error while stopping the devnet: {e}"))?;
-        Ok(())
+        match status.code() {
+            Some(0) => Ok(()),
+            Some(code) => Err(format!("Stop devnet exited with status code: {code}")),
+            None => Err("Stop devnet terminated by signal".to_string()),
+        }
     }
 
     pub async fn delegate_stakes(&self) -> Result<(), String> {
@@ -204,13 +212,17 @@ impl Devnet {
 
         info!("Delegating stakes to the pools"; "script" => &run_script_path.display());
 
-        run_command
+        let status = run_command
             .spawn()
             .map_err(|e| format!("Failed to delegate stakes to the pools: {e}"))?
             .wait()
             .await
             .map_err(|e| format!("Error while delegating stakes to the pools: {e}"))?;
-        Ok(())
+        match status.code() {
+            Some(0) => Ok(()),
+            Some(code) => Err(format!("Delegating stakes exited with status code: {code}")),
+            None => Err("Delegating stakes terminated by signal".to_string()),
+        }
     }
 }
 
