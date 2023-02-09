@@ -14,7 +14,6 @@ use mithril_common::{
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 
-use crate::multi_signer::MultiSigner;
 use crate::snapshot_stores::SnapshotStore;
 use crate::snapshot_uploaders::SnapshotUploader;
 use crate::{
@@ -22,6 +21,7 @@ use crate::{
     ProtocolParametersStorer, SignerRegisterer, SignerRegistrationRoundOpener,
     SingleSignatureStore, Snapshotter, VerificationKeyStore, VerificationKeyStorer,
 };
+use crate::{event_store::TransmitterService, multi_signer::MultiSigner};
 
 /// MultiSignerWrapper wraps a MultiSigner
 pub type MultiSignerWrapper = Arc<RwLock<dyn MultiSigner>>;
@@ -90,6 +90,9 @@ pub struct DependencyManager {
 
     /// Era reader service
     pub era_reader: Arc<EraReader>,
+
+    /// Event Transmitter Service
+    pub event_transmitter: Arc<TransmitterService<String>>,
 }
 
 #[doc(hidden)]
@@ -262,10 +265,10 @@ impl DependencyManager {
 #[cfg(test)]
 pub mod tests {
     use crate::{
-        AggregatorConfig, CertificatePendingStore, CertificateStore, Configuration,
-        DependencyManager, DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore,
-        MithrilSignerRegisterer, MultiSignerImpl, ProtocolParametersStore, SingleSignatureStore,
-        SnapshotStoreType, SnapshotUploaderType, VerificationKeyStore,
+        event_store::TransmitterService, AggregatorConfig, CertificatePendingStore,
+        CertificateStore, Configuration, DependencyManager, DumbSnapshotUploader, DumbSnapshotter,
+        LocalSnapshotStore, MithrilSignerRegisterer, MultiSignerImpl, ProtocolParametersStore,
+        SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType, VerificationKeyStore,
     };
     use mithril_common::{
         certificate_chain::MithrilCertificateVerifier,
@@ -278,7 +281,10 @@ pub mod tests {
         BeaconProvider, BeaconProviderImpl, CardanoNetwork,
     };
     use std::{path::PathBuf, sync::Arc};
-    use tokio::sync::RwLock;
+    use tokio::sync::{
+        mpsc::{self, UnboundedSender},
+        RwLock,
+    };
 
     pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) {
         let genesis_signer = ProtocolGenesisSigner::create_deterministic_genesis_signer();
@@ -361,6 +367,10 @@ pub mod tests {
             era_epoch_token.get_current_supported_era().unwrap(),
             era_epoch_token.get_current_epoch(),
         ));
+        let event_transmitter = {
+            let (tx, mut _rx) = mpsc::unbounded_channel();
+            Arc::new(TransmitterService::new(tx))
+        };
 
         let dependency_manager = DependencyManager {
             config,
@@ -384,6 +394,7 @@ pub mod tests {
             signer_registration_round_opener: signer_registerer,
             era_checker,
             era_reader,
+            event_transmitter,
         };
 
         let config = AggregatorConfig::new(

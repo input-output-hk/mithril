@@ -21,6 +21,7 @@ use mithril_common::{
 };
 
 use crate::{
+    event_store::{self, TransmitterService},
     tools::{GenesisTools, GenesisToolsDependency},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
     CertificateStore, Configuration, DefaultConfiguration, DependencyManager, GenesisConfiguration,
@@ -408,6 +409,9 @@ impl ServeCommand {
             era_epoch_token.get_current_supported_era()?,
             era_epoch_token.get_current_epoch(),
         ));
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+        let event_transmitter = Arc::new(TransmitterService::new(tx));
+        let mut event_store = event_store::EventStore::new(rx);
 
         // Init dependency manager
         let dependency_manager = DependencyManager {
@@ -432,6 +436,7 @@ impl ServeCommand {
             signer_registration_round_opener: signer_registerer.clone(),
             era_checker: era_checker.clone(),
             era_reader: era_reader.clone(),
+            event_transmitter,
         };
         let dependency_manager = Arc::new(dependency_manager);
 
@@ -442,21 +447,23 @@ impl ServeCommand {
         )
         .await?;
 
-        // Start snapshot uploader
         let network = config.get_network()?;
         let runtime_dependencies = dependency_manager.clone();
+
+        // Start Aggregator state machine
         let handle = tokio::spawn(async move {
             let config =
                 AggregatorConfig::new(config.run_interval, network, &config.db_directory.clone());
             let mut runtime = AggregatorRuntime::new(
                 Duration::from_millis(config.interval),
                 None,
-                Arc::new(AggregatorRunner::new(config, runtime_dependencies.clone())),
+                Arc::new(AggregatorRunner::new(config, runtime_dependencies)),
             )
             .await
             .unwrap();
             runtime.run().await
         });
+        let _event_store_thread = tokio::spawn(async move { event_store.run().await.unwrap() });
 
         // Start REST server
         println!("Starting server...");

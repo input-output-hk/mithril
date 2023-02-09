@@ -15,6 +15,7 @@ mod certificate_creator;
 mod command_args;
 mod configuration;
 mod dependency;
+pub mod event_store;
 mod http_server;
 mod message_adapters;
 mod multi_signer;

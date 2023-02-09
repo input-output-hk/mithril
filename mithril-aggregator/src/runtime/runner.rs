@@ -266,6 +266,12 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     async fn update_beacon(&self, new_beacon: &Beacon) -> Result<(), RuntimeError> {
+        self.dependencies
+            .event_transmitter
+            .get_transmitter()
+            .send("coucou".to_string())
+            .map_err(|e| RuntimeError::General(e.into()))?;
+
         debug!("RUNNER: update beacon"; "beacon" => #?new_beacon);
         self.dependencies
             .multi_signer
