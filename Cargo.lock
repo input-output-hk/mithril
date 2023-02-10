@@ -2007,7 +2007,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.2.12"
+version = "0.2.13"
 dependencies = [
  "async-trait",
  "chrono",
@@ -2131,7 +2131,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.9"
+version = "0.2.10"
 dependencies = [
  "async-trait",
  "clap 4.1.4",

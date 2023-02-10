@@ -3,7 +3,7 @@
 use clap::Parser;
 use mithril_aggregator::MainOpts;
 use slog::{Drain, Logger};
-use std::{error::Error, sync::Arc};
+use std::sync::Arc;
 
 /// Build a logger from args.
 pub fn build_logger(args: &MainOpts) -> Logger {
@@ -18,16 +18,10 @@ pub fn build_logger(args: &MainOpts) -> Logger {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> Result<(), String> {
     // Load args
     let args = MainOpts::parse();
     let _guard = slog_scope::set_global_logger(build_logger(&args));
 
-    let result = args.execute().await;
-
-    if result.is_err() {
-        eprintln!("ERROR: application ends abnormaly: {result:?}");
-    }
-
-    result
+    args.execute().await.map_err(|e| e.to_string())
 }
