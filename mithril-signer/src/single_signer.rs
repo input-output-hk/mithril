@@ -116,12 +116,11 @@ impl MithrilSingleSigner {
         Self { party_id }
     }
 
-    /// Create a cryptographic signer.
-    fn create_protocol_signer(
+    /// Create a protocol key registration.
+    fn create_protocol_key_registration(
         &self,
         signers_with_stake: &[SignerWithStake],
-        protocol_initializer: &ProtocolInitializer,
-    ) -> Result<ProtocolSigner, SingleSignerError> {
+    ) -> Result<ProtocolKeyRegistration, SingleSignerError> {
         let signers = signers_with_stake
             .iter()
             .filter(|signer| !signer.verification_key.is_empty())
@@ -164,9 +163,34 @@ impl MithrilSingleSigner {
                 )
                 .map_err(|e| SingleSignerError::ProtocolSignerCreationFailure(e.to_string()))?;
         }
+        Ok(key_reg)
+    }
+
+    /// Create a protocol signer.
+    fn create_protocol_signer(
+        &self,
+        signers_with_stake: &[SignerWithStake],
+        protocol_initializer: &ProtocolInitializer,
+    ) -> Result<ProtocolSigner, SingleSignerError> {
+        let key_reg = self.create_protocol_key_registration(signers_with_stake)?;
         let closed_reg = key_reg.close();
 
         Ok(protocol_initializer.to_owned().new_signer(closed_reg)?)
+    }
+
+    /// Create a cryptographic clerk.
+    fn create_protocol_clerk(
+        &self,
+        signers_with_stake: &[SignerWithStake],
+        protocol_initializer: &ProtocolInitializer,
+    ) -> Result<ProtocolClerk, SingleSignerError> {
+        let key_reg = self.create_protocol_key_registration(signers_with_stake)?;
+        let closed_reg = key_reg.close();
+
+        Ok(ProtocolClerk::from_registration(
+            &protocol_initializer.get_protocol_parameters(),
+            &closed_reg,
+        ))
     }
 }
 
@@ -213,13 +237,10 @@ impl SingleSigner for MithrilSingleSigner {
         signers_with_stake: &[SignerWithStake],
         protocol_initializer: &ProtocolInitializer,
     ) -> Result<Option<String>, SingleSignerError> {
-        match self.create_protocol_signer(signers_with_stake, protocol_initializer) {
-            Ok(protocol_signer) => {
-                let clerk = ProtocolClerk::from_signer(&protocol_signer);
-                Ok(Some(
-                    key_encode_hex(clerk.compute_avk()).map_err(SingleSignerError::Codec)?,
-                ))
-            }
+        match self.create_protocol_clerk(signers_with_stake, protocol_initializer) {
+            Ok(clerk) => Ok(Some(
+                key_encode_hex(clerk.compute_avk()).map_err(SingleSignerError::Codec)?,
+            )),
             Err(SingleSignerError::ProtocolSignerCreationFailure(err)) => {
                 warn!("compute_aggregate_verification_key::protocol_signer_creation_failure"; "error" => err);
                 Ok(None)

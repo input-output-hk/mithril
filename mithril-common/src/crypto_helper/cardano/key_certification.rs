@@ -3,10 +3,12 @@
 //! These wrappers allows keeping mithril-stm agnostic to Cardano, while providing some
 //! guarantees that mithril-stm will not be misused in the context of Cardano.  
 
-use crate::crypto_helper::cardano::{OpCert, ParseError, SerDeShelleyFileFormat};
-use crate::crypto_helper::types::{
-    ProtocolPartyId, ProtocolSignerVerificationKey, ProtocolSignerVerificationKeySignature,
-    ProtocolStakeDistribution,
+use crate::crypto_helper::{
+    cardano::{OpCert, ParseError, SerDeShelleyFileFormat},
+    types::{
+        ProtocolParameters, ProtocolPartyId, ProtocolSignerVerificationKey,
+        ProtocolSignerVerificationKeySignature, ProtocolStakeDistribution,
+    },
 };
 
 use mithril_stm::key_reg::{ClosedKeyReg, KeyReg};
@@ -159,6 +161,11 @@ impl StmInitializerWrapper {
     /// Extract the verification key signature.
     pub fn verification_key_signature(&self) -> Option<ProtocolSignerVerificationKeySignature> {
         self.kes_signature
+    }
+
+    /// Extract the protocol parameters of the initializer
+    pub fn get_protocol_parameters(&self) -> ProtocolParameters {
+        self.stm_initializer.params
     }
 
     /// Extract the stake of the party
