@@ -6,6 +6,7 @@ services:
   cardano-node-signer:
     image: cardano-node/1.35.5-modified
     container_name: cardano-node-signer-${SIGNER_ID}
+    restart: always
     build:
       context: .
       dockerfile: Dockerfile.cardano
