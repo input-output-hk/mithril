@@ -4,6 +4,7 @@ services:
   cardano-node-aggregator:
     image: cardano-node/1.35.5-modified
     container_name: cardano-node-aggregator
+    restart: always
     build:
       context: .
       dockerfile: Dockerfile.cardano

@@ -6,6 +6,7 @@ services:
   cardano-node-signer-relay:
     image: cardano-node/1.35.5-modified
     container_name: cardano-node-relay-signer-${SIGNER_ID}
+    restart: always
     build:
       context: .
       dockerfile: Dockerfile.cardano
@@ -45,6 +46,7 @@ services:
   cardano-node-signer-block-producer:
     image: cardano-node/1.35.5-modified
     container_name: cardano-node-block-producer-signer-${SIGNER_ID}
+    restart: always
     build:
       context: .
       dockerfile: Dockerfile.cardano
