@@ -9,7 +9,7 @@ use mithril_common::{
     chain_observer::{CardanoCliChainObserver, CardanoCliRunner, ChainObserver},
     crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
     digesters::{CardanoImmutableDigester, ImmutableDigester, ImmutableFileSystemObserver},
-    era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
+    era::{EraChecker, EraReader},
     store::{adapter::SQLiteAdapter, StakeStore},
     BeaconProvider, BeaconProviderImpl,
 };
@@ -170,8 +170,11 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
                 self.config.get_network()?.to_owned(),
             ))
         };
-        // TODO: use EraReader when it is implemented to retrieve current era
-        let era_reader = Arc::new(EraReader::new(Box::new(EraReaderBootstrapAdapter)));
+
+        let era_reader = Arc::new(EraReader::new(
+            self.config
+                .build_era_reader_adapter(chain_observer.clone())?,
+        ));
         let era_epoch_token = era_reader
             .read_era_epoch_token(beacon_provider.get_current_beacon().await?.epoch)
             .await?;
@@ -234,6 +237,8 @@ mod tests {
         entities::{Beacon, Epoch},
     };
 
+    use crate::configuration::EraReaderAdapterType;
+
     use super::*;
 
     use std::path::PathBuf;
@@ -269,6 +274,8 @@ mod tests {
             operational_certificate_path: None,
             disable_digests_cache: false,
             reset_digests_cache: false,
+            era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
+            era_reader_adapter_params: None,
         };
 
         assert!(!stores_dir.exists());

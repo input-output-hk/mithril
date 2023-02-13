@@ -1,8 +1,19 @@
 use config::ConfigError;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{error::Error, path::PathBuf, sync::Arc};
 
-use mithril_common::{entities::PartyId, CardanoNetwork};
+use mithril_common::{
+    chain_observer::{ChainAddress, ChainObserver},
+    crypto_helper::EraMarkersVerifierVerificationKey,
+    entities::PartyId,
+    era::{
+        adapters::{
+            EraReaderBootstrapAdapter, EraReaderCardanoChainAdapter, EraReaderDummyAdapter,
+        },
+        EraMarker, EraReaderAdapter,
+    },
+    CardanoNetwork,
+};
 
 const SQLITE_FILE: &str = "signer.sqlite3";
 
@@ -55,6 +66,24 @@ pub struct Config {
     ///
     /// Will be ignored if set in conjunction with `disable_digests_cache`.
     pub reset_digests_cache: bool,
+
+    /// Era reader adapter type
+    pub era_reader_adapter_type: EraReaderAdapterType,
+
+    /// Era reader adapter parameters
+    pub era_reader_adapter_params: Option<String>,
+}
+
+/// Era reader adapter type used to retrieve the era activation markers.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum EraReaderAdapterType {
+    /// Cardano chain adapter.
+    CardanoChain,
+    /// Dummy adapter.
+    Dummy,
+    /// Bootstrap adapter.
+    Bootstrap,
 }
 
 impl Config {
@@ -74,5 +103,50 @@ impl Config {
         }
 
         self.data_stores_directory.join(SQLITE_FILE)
+    }
+
+    /// Create era reader adapter from configuration settings.
+    pub fn build_era_reader_adapter(
+        &self,
+        chain_observer: Arc<dyn ChainObserver>,
+    ) -> Result<Box<dyn EraReaderAdapter>, Box<dyn Error>> {
+        match self.era_reader_adapter_type {
+            EraReaderAdapterType::CardanoChain => {
+                #[derive(Deserialize)]
+                struct EraReaderCardanoChainAdapterConfig {
+                    address: ChainAddress,
+                    verification_key: EraMarkersVerifierVerificationKey,
+                }
+                let adapter_config: EraReaderCardanoChainAdapterConfig = serde_json::from_str(
+                    self.era_reader_adapter_params.as_ref().ok_or_else(|| {
+                        ConfigError::Message(
+                            "missing era adapter configuration parameters".to_string(),
+                        )
+                    })?,
+                )?;
+                Ok(Box::new(EraReaderCardanoChainAdapter::new(
+                    adapter_config.address,
+                    chain_observer,
+                    adapter_config.verification_key,
+                )))
+            }
+            EraReaderAdapterType::Dummy => {
+                #[derive(Deserialize)]
+                struct EraReaderDummyAdapterConfig {
+                    markers: Vec<EraMarker>,
+                }
+                let adapter_config: EraReaderDummyAdapterConfig = serde_json::from_str(
+                    self.era_reader_adapter_params.as_ref().ok_or_else(|| {
+                        ConfigError::Message(
+                            "missing era adapter configuration parameters".to_string(),
+                        )
+                    })?,
+                )?;
+                let mut dummy_adapter = EraReaderDummyAdapter::default();
+                dummy_adapter.set_markers(adapter_config.markers);
+                Ok(Box::new(dummy_adapter))
+            }
+            EraReaderAdapterType::Bootstrap => Ok(Box::new(EraReaderBootstrapAdapter)),
+        }
     }
 }

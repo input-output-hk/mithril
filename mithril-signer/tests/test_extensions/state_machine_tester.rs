@@ -17,8 +17,9 @@ use mithril_common::{
     BeaconProviderImpl,
 };
 use mithril_signer::{
-    CertificateHandler, Config, MithrilSingleSigner, ProtocolInitializerStore,
-    ProtocolInitializerStorer, SignerRunner, SignerServices, SignerState, StateMachine,
+    CertificateHandler, Config, EraReaderAdapterType, MithrilSingleSigner,
+    ProtocolInitializerStore, ProtocolInitializerStorer, SignerRunner, SignerServices, SignerState,
+    StateMachine,
 };
 
 use super::FakeAggregator;
@@ -74,6 +75,8 @@ impl StateMachineTester {
                 .map(|dir| dir.join("opcert.cert")),
             disable_digests_cache: false,
             reset_digests_cache: false,
+            era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
+            era_reader_adapter_params: None,
         };
 
         let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);

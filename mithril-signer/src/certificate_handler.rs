@@ -338,7 +338,7 @@ mod tests {
 
     use mithril_common::test_utils::fake_data;
 
-    use crate::configuration::Config;
+    use crate::configuration::{Config, EraReaderAdapterType};
 
     fn setup_test() -> (MockServer, Config) {
         let server = MockServer::start();
@@ -357,6 +357,8 @@ mod tests {
             operational_certificate_path: None,
             disable_digests_cache: false,
             reset_digests_cache: false,
+            era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
+            era_reader_adapter_params: None,
         };
         (server, config)
     }

@@ -473,8 +473,8 @@ mod tests {
     use std::{path::PathBuf, sync::Arc};
 
     use crate::{
-        CertificateHandler, DumbCertificateHandler, MithrilSingleSigner, MockCertificateHandler,
-        ProtocolInitializerStore, SingleSigner,
+        configuration::EraReaderAdapterType, CertificateHandler, DumbCertificateHandler,
+        MithrilSingleSigner, MockCertificateHandler, ProtocolInitializerStore, SingleSigner,
     };
 
     use super::*;
@@ -544,6 +544,8 @@ mod tests {
             disable_digests_cache: false,
             store_retention_limit: None,
             reset_digests_cache: false,
+            era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
+            era_reader_adapter_params: None,
         };
 
         SignerRunner::new(
