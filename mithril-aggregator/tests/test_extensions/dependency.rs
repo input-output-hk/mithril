@@ -1,8 +1,8 @@
 use mithril_aggregator::{
     AggregatorConfig, CertificatePendingStore, CertificateStore, Configuration, DependencyManager,
-    DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore, MithrilSignerRegisterer,
-    MultiSignerImpl, ProtocolParametersStore, SingleSignatureStore, SnapshotStoreType,
-    SnapshotUploaderType, VerificationKeyStore,
+    DumbSnapshotUploader, DumbSnapshotter, EraReaderAdapterType, LocalSnapshotStore,
+    MithrilSignerRegisterer, MultiSignerImpl, ProtocolParametersStore, SingleSignatureStore,
+    SnapshotStoreType, SnapshotUploaderType, VerificationKeyStore,
 };
 use mithril_common::certificate_chain::MithrilCertificateVerifier;
 use mithril_common::chain_observer::FakeObserver;
@@ -48,6 +48,8 @@ pub async fn initialize_dependencies(
         data_stores_directory: PathBuf::new(),
         genesis_verification_key: key_encode_hex(genesis_verification_key).unwrap(),
         store_retention_limit: None,
+        era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
+        era_reader_adapter_params: None,
     };
     let certificate_pending_store = Arc::new(CertificatePendingStore::new(Box::new(
         MemoryAdapter::new(None).unwrap(),

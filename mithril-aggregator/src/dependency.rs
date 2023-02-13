@@ -263,9 +263,9 @@ impl DependencyManager {
 pub mod tests {
     use crate::{
         AggregatorConfig, CertificatePendingStore, CertificateStore, Configuration,
-        DependencyManager, DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore,
-        MithrilSignerRegisterer, MultiSignerImpl, ProtocolParametersStore, SingleSignatureStore,
-        SnapshotStoreType, SnapshotUploaderType, VerificationKeyStore,
+        DependencyManager, DumbSnapshotUploader, DumbSnapshotter, EraReaderAdapterType,
+        LocalSnapshotStore, MithrilSignerRegisterer, MultiSignerImpl, ProtocolParametersStore,
+        SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType, VerificationKeyStore,
     };
     use mithril_common::{
         certificate_chain::MithrilCertificateVerifier,
@@ -303,6 +303,8 @@ pub mod tests {
             data_stores_directory: PathBuf::new(),
             genesis_verification_key: key_encode_hex(genesis_verification_key).unwrap(),
             store_retention_limit: None,
+            era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
+            era_reader_adapter_params: None,
         };
         let snapshot_store = Arc::new(LocalSnapshotStore::new(
             Box::new(MemoryAdapter::new(None).unwrap()),
