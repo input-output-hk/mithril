@@ -14,13 +14,13 @@ use mithril_common::{
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::RwLock;
 
-use crate::snapshot_stores::SnapshotStore;
 use crate::snapshot_uploaders::SnapshotUploader;
 use crate::{
     configuration::*, CertificatePendingStore, CertificateStore, ProtocolParametersStore,
     ProtocolParametersStorer, SignerRegisterer, SignerRegistrationRoundOpener,
     SingleSignatureStore, Snapshotter, VerificationKeyStore, VerificationKeyStorer,
 };
+use crate::{event_store::EventMessage, snapshot_stores::SnapshotStore};
 use crate::{event_store::TransmitterService, multi_signer::MultiSigner};
 
 /// MultiSignerWrapper wraps a MultiSigner
@@ -92,7 +92,7 @@ pub struct DependencyManager {
     pub era_reader: Arc<EraReader>,
 
     /// Event Transmitter Service
-    pub event_transmitter: Arc<TransmitterService<String>>,
+    pub event_transmitter: Arc<TransmitterService<EventMessage>>,
 }
 
 #[doc(hidden)]
@@ -282,7 +282,7 @@ pub mod tests {
     };
     use std::{path::PathBuf, sync::Arc};
     use tokio::sync::{
-        mpsc::{self, UnboundedSender},
+        mpsc::{self},
         RwLock,
     };
 

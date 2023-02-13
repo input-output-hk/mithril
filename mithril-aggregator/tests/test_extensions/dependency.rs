@@ -1,3 +1,4 @@
+use mithril_aggregator::event_store::{EventMessage, TransmitterService};
 use mithril_aggregator::{
     AggregatorConfig, CertificatePendingStore, CertificateStore, Configuration, DependencyManager,
     DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore, MithrilSignerRegisterer,
@@ -16,6 +17,7 @@ use mithril_common::store::StakeStore;
 use mithril_common::{BeaconProvider, BeaconProviderImpl, CardanoNetwork};
 use std::path::PathBuf;
 use std::sync::Arc;
+use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::RwLock;
 
 pub async fn initialize_dependencies(
@@ -26,7 +28,11 @@ pub async fn initialize_dependencies(
     digester: Arc<DumbImmutableDigester>,
     snapshotter: Arc<DumbSnapshotter>,
     genesis_signer: Arc<ProtocolGenesisSigner>,
-) -> (Arc<DependencyManager>, AggregatorConfig) {
+) -> (
+    Arc<DependencyManager>,
+    AggregatorConfig,
+    UnboundedReceiver<EventMessage>,
+) {
     let genesis_verifier = Arc::new(genesis_signer.create_genesis_verifier());
     let genesis_verification_key = genesis_verifier.to_verification_key();
     let config: Configuration = Configuration {
@@ -103,6 +109,8 @@ pub async fn initialize_dependencies(
         era_epoch_token.get_current_supported_era().unwrap(),
         era_epoch_token.get_current_epoch(),
     ));
+    let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
+    let event_transmitter = Arc::new(TransmitterService::new(tx));
 
     let dependency_manager = DependencyManager {
         config,
@@ -126,6 +134,7 @@ pub async fn initialize_dependencies(
         signer_registration_round_opener: signer_registerer,
         era_checker,
         era_reader,
+        event_transmitter,
     };
 
     let config = AggregatorConfig::new(
@@ -134,5 +143,5 @@ pub async fn initialize_dependencies(
         dependency_manager.config.db_directory.as_path(),
     );
 
-    (Arc::new(dependency_manager), config)
+    (Arc::new(dependency_manager), config, rx)
 }

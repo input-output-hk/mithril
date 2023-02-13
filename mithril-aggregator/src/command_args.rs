@@ -450,6 +450,10 @@ impl ServeCommand {
         let network = config.get_network()?;
         let runtime_dependencies = dependency_manager.clone();
 
+        // start the monitoring thread
+        let event_store_thread =
+            tokio::spawn(async move { event_store.run(":memory:").await.unwrap() });
+
         // Start Aggregator state machine
         let handle = tokio::spawn(async move {
             let config =
@@ -463,7 +467,6 @@ impl ServeCommand {
             .unwrap();
             runtime.run().await
         });
-        let _event_store_thread = tokio::spawn(async move { event_store.run().await.unwrap() });
 
         // Start REST server
         println!("Starting server...");
@@ -481,6 +484,7 @@ impl ServeCommand {
         http_server.start(shutdown_signal).await;
 
         handle.abort();
+        event_store_thread.await?;
 
         println!("Exiting...");
         Ok(())

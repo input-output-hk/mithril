@@ -3,6 +3,7 @@ use chrono::Utc;
 use mithril_common::entities::Epoch;
 use mithril_common::entities::PartyId;
 use mithril_common::store::StakeStorer;
+use serde::Serialize;
 use slog_scope::{debug, info, warn};
 use std::path::Path;
 use std::path::PathBuf;
@@ -14,6 +15,7 @@ use mithril_common::entities::{
 };
 use mithril_common::CardanoNetwork;
 
+use crate::event_store::EventMessage;
 use crate::runtime::WorkingCertificate;
 use crate::snapshot_uploaders::SnapshotLocation;
 use crate::snapshotter::OngoingSnapshot;
@@ -193,6 +195,26 @@ impl AggregatorRunner {
             _ => Ok(""),
         }
     }
+
+    fn send_message<T>(&self, source: &str, action: &str, content: &T) -> Result<(), String>
+    where
+        T: Serialize,
+    {
+        let content = serde_json::to_string(content)
+            .map_err(|e| format!("Serialization error while forging event message: {e}"))?;
+        let message = EventMessage {
+            source: source.to_string(),
+            action: action.to_string(),
+            content,
+        };
+        self.dependencies
+            .event_transmitter
+            .get_transmitter()
+            .send(message.clone())
+            .map_err(|e| {
+                format!("An error occured when sending message {message:?} to monitoring: '{e}'.")
+            })
+    }
 }
 
 #[cfg_attr(test, automock)]
@@ -266,13 +288,13 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     }
 
     async fn update_beacon(&self, new_beacon: &Beacon) -> Result<(), RuntimeError> {
-        self.dependencies
-            .event_transmitter
-            .get_transmitter()
-            .send("coucou".to_string())
-            .map_err(|e| RuntimeError::General(e.into()))?;
-
         debug!("RUNNER: update beacon"; "beacon" => #?new_beacon);
+        if let Err(error) =
+            self.send_message("runtime::update_beacon", "update_beacon", &new_beacon)
+        {
+            warn!("Message error => {error}");
+        }
+
         self.dependencies
             .multi_signer
             .write()

@@ -2,22 +2,26 @@ use std::fmt::Debug;
 
 use tokio::sync::mpsc::UnboundedSender;
 
-pub struct TransmitterService<EVENT>
+/// The transmitter service is used to allow inter process channel
+/// communication. This service is used to create multiple transmitters.
+pub struct TransmitterService<MSG>
 where
-    EVENT: Debug + Sync + Send,
+    MSG: Debug + Sync + Send,
 {
-    transmitter: UnboundedSender<EVENT>,
+    transmitter: UnboundedSender<MSG>,
 }
 
-impl<EVENT> TransmitterService<EVENT>
+impl<MSG> TransmitterService<MSG>
 where
-    EVENT: Debug + Sync + Send,
+    MSG: Debug + Sync + Send,
 {
-    pub fn new(transmitter: UnboundedSender<EVENT>) -> Self {
+    /// Instanciate a new Service by passing a MPSC transmitter.
+    pub fn new(transmitter: UnboundedSender<MSG>) -> Self {
         Self { transmitter }
     }
 
-    pub fn get_transmitter(&self) -> UnboundedSender<EVENT> {
+    /// Clone the internal transmitter and return it.
+    pub fn get_transmitter(&self) -> UnboundedSender<MSG> {
         self.transmitter.clone()
     }
 }
