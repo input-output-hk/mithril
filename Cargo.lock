@@ -2079,7 +2079,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.2.13"
+version = "0.2.14"
 dependencies = [
  "async-trait",
  "bech32",
@@ -2143,7 +2143,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.11"
+version = "0.2.12"
 dependencies = [
  "async-trait",
  "clap 4.1.4",
