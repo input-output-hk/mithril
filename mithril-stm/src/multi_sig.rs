@@ -204,7 +204,7 @@ impl VerificationKeyPoP {
         //     blst_fp12, blst_fp12_finalverify, blst_p1_affine_generator, blst_p2_affine_generator,
         //     BLST_ERROR,
         // };
-        let result = verify_miller_loop(&self.vk.0, &self.pop.k2);
+        let result = verify_pairing(&self.vk, &self.pop);
 
         if !(self.pop.k1.verify(false, POP, &[], &[], &self.vk.0, false)
             == BLST_ERROR::BLST_SUCCESS
@@ -259,9 +259,7 @@ impl ProofOfPossession {
         let mut pop_bytes = [0u8; 96];
         pop_bytes[..48].copy_from_slice(&self.k1.to_bytes());
 
-        let k2_bytes = compress_p1(&self.k2);
-
-        pop_bytes[48..].copy_from_slice(k2_bytes.as_slice());
+        pop_bytes[48..].copy_from_slice(compress_p1(&self.k2)[..]);
         pop_bytes
     }
 
@@ -391,8 +389,8 @@ impl Signature {
         let grouped_vks = p2_affines::from(transmuted_vks.as_slice());
         let grouped_sigs = p1_affines::from(transmuted_sigs.as_slice());
 
-        let aggr_vk: BlstVk = p2_affine_to_vk(&grouped_vks, scalars.as_slice());
-        let aggr_sig: BlstSig = p1_affine_to_sig(&grouped_sigs, scalars.as_slice());
+        let aggr_vk: BlstVk = p2_affine_to_vk(&grouped_vks, &scalars);
+        let aggr_sig: BlstSig = p1_affine_to_sig(&grouped_sigs, &scalars);
 
         Ok((VerificationKey(aggr_vk), Signature(aggr_sig)))
     }
@@ -545,11 +543,11 @@ mod unsafe_helpers {
         blst_sk_to_pk_in_g1,
     };
 
-    pub(crate) fn verify_miller_loop(vk: &BlstVk, k2: &blst_p1) -> bool {
+    pub(crate) fn verify_pairing(vk: & VerificationKey, pop: & ProofOfPossession) -> bool {
         unsafe {
             let g1_p = *blst_p1_affine_generator();
-            let mvk_p = std::mem::transmute::<&BlstVk, &blst_p2_affine>(vk);
-            let ml_lhs = blst_fp12::miller_loop(mvk_p, &g1_p);
+            let mvk_p = std::mem::transmute::<BlstVk, blst_p2_affine>(vk.0);
+            let ml_lhs = blst_fp12::miller_loop(&mvk_p, &g1_p);
 
             let mut k2_p = blst_p1_affine::default();
             blst_p1_to_affine(&mut k2_p, k2);
@@ -578,9 +576,9 @@ mod unsafe_helpers {
 
     pub(crate) fn scalar_to_pk_in_g1(sk: &SigningKey) -> blst_p1 {
         unsafe {
-            let sk_scalar = std::mem::transmute::<&BlstSk, &blst_scalar>(&sk.0);
+            let sk_scalar = std::mem::transmute::<BlstSk, blst_scalar>(sk.0);
             let mut out = blst_p1::default();
-            blst_sk_to_pk_in_g1(&mut out, sk_scalar);
+            blst_sk_to_pk_in_g1(&mut out, &sk_scalar);
             out
         }
     }
