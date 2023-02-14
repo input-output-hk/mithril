@@ -178,6 +178,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        era: [ thales ]
         run_id: [1,2,3]
     steps:
       - name: Checkout sources
@@ -203,13 +204,13 @@ jobs:
           mkdir artifacts
 
       - name: Test
-        run: ./mithril-end-to-end --bin-directory ./bin --work-directory=./artifacts --devnet-scripts-directory=./mithril-test-lab/mithril-devnet
+        run: ./mithril-end-to-end --bin-directory ./bin --work-directory=./artifacts --devnet-scripts-directory=./mithril-test-lab/mithril-devnet --mithril-era=${{ matrix.era }}
 
       - name: Upload E2E Tests Artifacts
         if:  ${{ failure() }}
         uses: actions/upload-artifact@v3
         with:
-          name: mithril-e2e-tests-artifacts-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}-run_id_${{ matrix.run_id }}
+          name: mithril-e2e-tests-artifacts-run_${{ github.run_number }}-attempt_${{ github.run_attempt }}-era_${{ matrix.era }}-run_id_${{ matrix.run_id }}
           path: |
             ./artifacts/*
             # including node.sock makes the upload fails so exclude them:
