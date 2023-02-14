@@ -13,11 +13,10 @@ use blst::min_sig::{
     AggregatePublicKey, AggregateSignature, PublicKey as BlstVk, SecretKey as BlstSk,
     Signature as BlstSig,
 };
-use blst::{
-    blst_p1, blst_p1_affine, blst_p1_compress, blst_p1_from_affine, blst_p1_to_affine,
-    blst_p1_uncompress, blst_p2, blst_p2_affine, blst_p2_from_affine, blst_p2_to_affine,
-    blst_scalar, p1_affines, p2_affines, BLST_ERROR,
-};
+use blst::{blst_p1, blst_p2, p1_affines, p2_affines, BLST_ERROR};
+// blst_p1_affine, blst_p1_compress, blst_p1_from_affine, blst_p1_to_affine,
+//     blst_p1_uncompress, blst_p2, blst_p2_affine, blst_p2_from_affine, blst_p2_to_affine,
+//     blst_scalar, p1_affines, p2_affines, BLST_ERROR,
 
 use rand_core::{CryptoRng, RngCore};
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
@@ -200,10 +199,6 @@ impl VerificationKeyPoP {
     // If we are really looking for performance improvements, we can combine the
     // two final exponentiations (for verifying k1 and k2) into a single one.
     pub fn check(&self) -> Result<(), MultiSignatureError> {
-        // use blst::{
-        //     blst_fp12, blst_fp12_finalverify, blst_p1_affine_generator, blst_p2_affine_generator,
-        //     BLST_ERROR,
-        // };
         let result = verify_pairing(&self.vk, &self.pop);
 
         if !(self.pop.k1.verify(false, POP, &[], &[], &self.vk.0, false)
@@ -259,7 +254,7 @@ impl ProofOfPossession {
         let mut pop_bytes = [0u8; 96];
         pop_bytes[..48].copy_from_slice(&self.k1.to_bytes());
 
-        pop_bytes[48..].copy_from_slice(compress_p1(&self.k2)[..]);
+        pop_bytes[48..].copy_from_slice(&compress_p1(&self.k2)[..]);
         pop_bytes
     }
 
@@ -273,7 +268,7 @@ impl ProofOfPossession {
             }
         };
 
-        let k2 = uncompress_p1(&bytes[48..96]);
+        let k2 = uncompress_p1(&bytes[48..96])?;
 
         Ok(Self { k1, k2 })
     }
@@ -389,8 +384,8 @@ impl Signature {
         let grouped_vks = p2_affines::from(transmuted_vks.as_slice());
         let grouped_sigs = p1_affines::from(transmuted_sigs.as_slice());
 
-        let aggr_vk: BlstVk = p2_affine_to_vk(&grouped_vks, &scalars);
-        let aggr_sig: BlstSig = p1_affine_to_sig(&grouped_sigs, &scalars);
+        let aggr_vk: BlstVk = p2_affine_to_vk(&grouped_vks.mult(&scalars, 128));
+        let aggr_sig: BlstSig = p1_affine_to_sig(&grouped_sigs.mult(&scalars, 128));
 
         Ok((VerificationKey(aggr_vk), Signature(aggr_sig)))
     }
@@ -538,19 +533,22 @@ impl_serde!(Signature, SignatureVisitor, 48);
 // ---------------------------------------------------------------------
 mod unsafe_helpers {
     use super::*;
+    use crate::error::MultiSignatureError::SerializationError;
     use blst::{
-        blst_fp12, blst_fp12_finalverify, blst_p1_affine_generator, blst_p2_affine_generator,
-        blst_sk_to_pk_in_g1,
+        blst_fp12, blst_fp12_finalverify, blst_p1_affine, blst_p1_affine_generator,
+        blst_p1_compress, blst_p1_from_affine, blst_p1_to_affine, blst_p1_uncompress,
+        blst_p2_affine, blst_p2_affine_generator, blst_p2_from_affine, blst_p2_to_affine,
+        blst_scalar, blst_sk_to_pk_in_g1,
     };
 
-    pub(crate) fn verify_pairing(vk: & VerificationKey, pop: & ProofOfPossession) -> bool {
+    pub(crate) fn verify_pairing(vk: &VerificationKey, pop: &ProofOfPossession) -> bool {
         unsafe {
             let g1_p = *blst_p1_affine_generator();
             let mvk_p = std::mem::transmute::<BlstVk, blst_p2_affine>(vk.0);
             let ml_lhs = blst_fp12::miller_loop(&mvk_p, &g1_p);
 
             let mut k2_p = blst_p1_affine::default();
-            blst_p1_to_affine(&mut k2_p, k2);
+            blst_p1_to_affine(&mut k2_p, &pop.k2);
             let g2_p = *blst_p2_affine_generator();
             let ml_rhs = blst_fp12::miller_loop(&g2_p, &k2_p);
 
@@ -564,19 +562,23 @@ mod unsafe_helpers {
         bytes
     }
 
-    pub(crate) fn uncompress_p1(bytes: &[u8]) -> blst_p1 {
+    pub(crate) fn uncompress_p1(bytes: &[u8]) -> Result<blst_p1, MultiSignatureError> {
         unsafe {
-            let mut point = blst_p1_affine::default();
-            let mut out = blst_p1::default();
-            blst_p1_uncompress(&mut point, bytes.as_ptr());
-            blst_p1_from_affine(&mut out, &point);
-            out
+            if bytes.len() == 48 {
+                let mut point = blst_p1_affine::default();
+                let mut out = blst_p1::default();
+                blst_p1_uncompress(&mut point, bytes.as_ptr());
+                blst_p1_from_affine(&mut out, &point);
+                Ok(out)
+            } else {
+                Err(SerializationError)
+            }
         }
     }
 
     pub(crate) fn scalar_to_pk_in_g1(sk: &SigningKey) -> blst_p1 {
         unsafe {
-            let sk_scalar = std::mem::transmute::<BlstSk, blst_scalar>(sk.0);
+            let sk_scalar = std::mem::transmute::<BlstSk, blst_scalar>(sk.0.clone());
             let mut out = blst_p1::default();
             blst_sk_to_pk_in_g1(&mut out, &sk_scalar);
             out
@@ -605,18 +607,18 @@ mod unsafe_helpers {
         }
     }
 
-    pub(crate) fn p2_affine_to_vk(grouped_vks: &p2_affines, scalars: &[u8]) -> BlstVk {
+    pub(crate) fn p2_affine_to_vk(grouped_vks: &blst_p2) -> BlstVk {
         unsafe {
             let mut affine_p2 = blst_p2_affine::default();
-            blst_p2_to_affine(&mut affine_p2, &grouped_vks.mult(scalars, 128));
+            blst_p2_to_affine(&mut affine_p2, grouped_vks);
             std::mem::transmute::<blst_p2_affine, BlstVk>(affine_p2)
         }
     }
 
-    pub(crate) fn p1_affine_to_sig(grouped_sigs: &p1_affines, scalars: &[u8]) -> BlstSig {
+    pub(crate) fn p1_affine_to_sig(grouped_sigs: &blst_p1) -> BlstSig {
         unsafe {
             let mut affine_p1 = blst_p1_affine::default();
-            blst_p1_to_affine(&mut affine_p1, &grouped_sigs.mult(scalars, 128));
+            blst_p1_to_affine(&mut affine_p1, grouped_sigs);
             std::mem::transmute::<blst_p1_affine, BlstSig>(affine_p1)
         }
     }
