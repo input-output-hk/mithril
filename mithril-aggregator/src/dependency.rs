@@ -263,16 +263,16 @@ impl DependencyManager {
 pub mod tests {
     use crate::{
         AggregatorConfig, CertificatePendingStore, CertificateStore, Configuration,
-        DependencyManager, DumbSnapshotUploader, DumbSnapshotter, EraReaderAdapterType,
-        LocalSnapshotStore, MithrilSignerRegisterer, MultiSignerImpl, ProtocolParametersStore,
-        SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType, VerificationKeyStore,
+        DependencyManager, DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore,
+        MithrilSignerRegisterer, MultiSignerImpl, ProtocolParametersStore, SingleSignatureStore,
+        SnapshotStoreType, SnapshotUploaderType, VerificationKeyStore,
     };
     use mithril_common::{
         certificate_chain::MithrilCertificateVerifier,
         chain_observer::FakeObserver,
         crypto_helper::{key_encode_hex, ProtocolGenesisSigner},
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
-        era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
+        era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader, EraReaderAdapterType},
         store::{adapter::MemoryAdapter, StakeStore},
         test_utils::fake_data,
         BeaconProvider, BeaconProviderImpl, CardanoNetwork,

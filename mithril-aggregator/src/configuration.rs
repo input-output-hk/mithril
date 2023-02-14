@@ -1,10 +1,7 @@
 use config::{ConfigError, Map, Source, Value, ValueKind};
-use mithril_common::chain_observer::{ChainAddress, ChainObserver};
-use mithril_common::crypto_helper::EraMarkersVerifierVerificationKey;
-use mithril_common::era::adapters::{
-    EraReaderBootstrapAdapter, EraReaderCardanoChainAdapter, EraReaderDummyAdapter,
-};
-use mithril_common::era::{EraMarker, EraReaderAdapter};
+use mithril_common::chain_observer::ChainObserver;
+use mithril_common::era::adapters::EraReaderAdapterBuilder;
+use mithril_common::era::{EraReaderAdapter, EraReaderAdapterType};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::path::PathBuf;
@@ -114,18 +111,6 @@ pub enum SnapshotUploaderType {
     Local,
 }
 
-/// Era reader adapter type used to retrieve the era activation markers.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum EraReaderAdapterType {
-    /// Cardano chain adapter.
-    CardanoChain,
-    /// Dummy adapter.
-    Dummy,
-    /// Bootstrap adapter.
-    Bootstrap,
-}
-
 impl Configuration {
     /// Build the server URL from configuration.
     pub fn get_server_url(&self) -> String {
@@ -177,44 +162,12 @@ impl Configuration {
         &self,
         chain_observer: Arc<dyn ChainObserver>,
     ) -> Result<Box<dyn EraReaderAdapter>, Box<dyn Error>> {
-        match self.era_reader_adapter_type {
-            EraReaderAdapterType::CardanoChain => {
-                #[derive(Deserialize)]
-                struct EraReaderCardanoChainAdapterConfig {
-                    address: ChainAddress,
-                    verification_key: EraMarkersVerifierVerificationKey,
-                }
-                let adapter_config: EraReaderCardanoChainAdapterConfig = serde_json::from_str(
-                    self.era_reader_adapter_params.as_ref().ok_or_else(|| {
-                        ConfigError::Message(
-                            "missing era adapter configuration parameters".to_string(),
-                        )
-                    })?,
-                )?;
-                Ok(Box::new(EraReaderCardanoChainAdapter::new(
-                    adapter_config.address,
-                    chain_observer,
-                    adapter_config.verification_key,
-                )))
-            }
-            EraReaderAdapterType::Dummy => {
-                #[derive(Deserialize)]
-                struct EraReaderDummyAdapterConfig {
-                    markers: Vec<EraMarker>,
-                }
-                let adapter_config: EraReaderDummyAdapterConfig = serde_json::from_str(
-                    self.era_reader_adapter_params.as_ref().ok_or_else(|| {
-                        ConfigError::Message(
-                            "missing era adapter configuration parameters".to_string(),
-                        )
-                    })?,
-                )?;
-                let mut dummy_adapter = EraReaderDummyAdapter::default();
-                dummy_adapter.set_markers(adapter_config.markers);
-                Ok(Box::new(dummy_adapter))
-            }
-            EraReaderAdapterType::Bootstrap => Ok(Box::new(EraReaderBootstrapAdapter)),
-        }
+        Ok(EraReaderAdapterBuilder::new(
+            &self.era_reader_adapter_type,
+            &self.era_reader_adapter_params,
+        )
+        .build(chain_observer)
+        .map_err(|e| ConfigError::Message(format!("build era adapter failed {e}")))?)
     }
 
     /// Check configuration and return a representation of the Cardano network.

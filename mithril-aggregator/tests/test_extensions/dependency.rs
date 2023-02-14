@@ -1,16 +1,16 @@
 use mithril_aggregator::{
     AggregatorConfig, CertificatePendingStore, CertificateStore, Configuration, DependencyManager,
-    DumbSnapshotUploader, DumbSnapshotter, EraReaderAdapterType, LocalSnapshotStore,
-    MithrilSignerRegisterer, MultiSignerImpl, ProtocolParametersStore, SingleSignatureStore,
-    SnapshotStoreType, SnapshotUploaderType, VerificationKeyStore,
+    DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore, MithrilSignerRegisterer,
+    MultiSignerImpl, ProtocolParametersStore, SingleSignatureStore, SnapshotStoreType,
+    SnapshotUploaderType, VerificationKeyStore,
 };
 use mithril_common::certificate_chain::MithrilCertificateVerifier;
 use mithril_common::chain_observer::FakeObserver;
 use mithril_common::crypto_helper::{key_encode_hex, ProtocolGenesisSigner};
 use mithril_common::digesters::{DumbImmutableDigester, DumbImmutableFileObserver};
 use mithril_common::entities::ProtocolParameters;
-use mithril_common::era::EraReader;
 use mithril_common::era::{adapters::EraReaderBootstrapAdapter, EraChecker};
+use mithril_common::era::{EraReader, EraReaderAdapterType};
 use mithril_common::store::adapter::MemoryAdapter;
 use mithril_common::store::StakeStore;
 use mithril_common::{BeaconProvider, BeaconProviderImpl, CardanoNetwork};
