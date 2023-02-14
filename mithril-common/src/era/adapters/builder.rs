@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 use thiserror::Error;
 
 use crate::{
@@ -8,6 +8,7 @@ use crate::{
     era::{
         adapters::{
             EraReaderBootstrapAdapter, EraReaderCardanoChainAdapter, EraReaderDummyAdapter,
+            EraReaderFileAdapter,
         },
         EraMarker, EraReaderAdapter,
     },
@@ -19,6 +20,8 @@ use crate::{
 pub enum AdapterType {
     /// Cardano chain adapter.
     CardanoChain,
+    /// File adapter.
+    File,
     /// Dummy adapter.
     Dummy,
     /// Bootstrap adapter.
@@ -64,23 +67,42 @@ impl AdapterBuilder {
                     address: ChainAddress,
                     verification_key: EraMarkersVerifierVerificationKey,
                 }
+
                 let adapter_config: CardanoChainAdapterConfig = serde_json::from_str(
                     self.adapter_params
                         .as_ref()
                         .ok_or_else(AdapterBuilderError::MissingParameters)?,
                 )
                 .map_err(AdapterBuilderError::ParseParameters)?;
+
                 Ok(Box::new(EraReaderCardanoChainAdapter::new(
                     adapter_config.address,
                     chain_observer,
                     adapter_config.verification_key,
                 )))
             }
+            AdapterType::File => {
+                #[derive(Deserialize)]
+                struct EraReaderFileAdapterConfig {
+                    markers_file: PathBuf,
+                }
+
+                let adapter_config: EraReaderFileAdapterConfig = serde_json::from_str(
+                    self.adapter_params
+                        .as_ref()
+                        .ok_or_else(AdapterBuilderError::MissingParameters)?,
+                )
+                .map_err(AdapterBuilderError::ParseParameters)?;
+                let file_adapter = EraReaderFileAdapter::new(adapter_config.markers_file);
+
+                Ok(Box::new(file_adapter))
+            }
             AdapterType::Dummy => {
                 #[derive(Deserialize)]
                 struct EraReaderDummyAdapterConfig {
                     markers: Vec<EraMarker>,
                 }
+
                 let adapter_config: EraReaderDummyAdapterConfig = serde_json::from_str(
                     self.adapter_params
                         .as_ref()
@@ -89,6 +111,7 @@ impl AdapterBuilder {
                 .map_err(AdapterBuilderError::ParseParameters)?;
                 let mut dummy_adapter = EraReaderDummyAdapter::default();
                 dummy_adapter.set_markers(adapter_config.markers);
+
                 Ok(Box::new(dummy_adapter))
             }
             AdapterType::Bootstrap => Ok(Box::new(EraReaderBootstrapAdapter)),
