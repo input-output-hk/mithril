@@ -20,11 +20,14 @@ impl Signer {
         cardano_cli_path: &Path,
         work_dir: &Path,
         bin_dir: &Path,
+        mithril_era: &str,
         enable_certification: bool,
     ) -> Result<Self, String> {
         let party_id = pool_node.party_id()?;
         let magic_id = DEVNET_MAGIC_ID.to_string();
         let data_stores_path = format!("./stores/signer-{party_id}");
+        let era_reader_adapater_params =
+            format!(r#"{{"markers": [{{"name": "{mithril_era}", "epoch": 1}}]}}"#);
         let mut env = HashMap::from([
             ("NETWORK", "devnet"),
             ("RUN_INTERVAL", "300"),
@@ -37,6 +40,8 @@ impl Signer {
                 pool_node.socket_path.to_str().unwrap(),
             ),
             ("CARDANO_CLI_PATH", cardano_cli_path.to_str().unwrap()),
+            ("ERA_READER_ADAPTER_TYPE", "dummy"),
+            ("ERA_READER_ADAPTER_PARAMS", &era_reader_adapater_params),
         ]);
         if enable_certification {
             env.insert(
