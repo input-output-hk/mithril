@@ -18,7 +18,7 @@ use mithril_common::{
     BeaconProviderImpl,
 };
 use mithril_signer::{
-    CertificateHandler, Config, MithrilSingleSigner, ProtocolInitializerStore,
+    CertificateHandler, Configuration, MithrilSingleSigner, ProtocolInitializerStore,
     ProtocolInitializerStorer, SignerRunner, SignerServices, SignerState, StateMachine,
 };
 
@@ -56,7 +56,7 @@ impl StateMachineTester {
         let selected_signer_party_id = selected_signer_with_stake.party_id.clone();
         let selected_signer_temp_dir =
             tests_setup::setup_temp_directory_for_signer(&selected_signer_party_id, false);
-        let config = Config {
+        let config = Configuration {
             aggregator_endpoint: "http://0.0.0.0:8000".to_string(),
             cardano_cli_path: PathBuf::new(),
             cardano_node_socket_path: PathBuf::new(),

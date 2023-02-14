@@ -13,7 +13,7 @@ const SQLITE_FILE: &str = "signer.sqlite3";
 
 /// Client configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Config {
+pub struct Configuration {
     /// Cardano CLI tool path
     pub cardano_cli_path: PathBuf,
 
@@ -68,7 +68,7 @@ pub struct Config {
     pub era_reader_adapter_params: Option<String>,
 }
 
-impl Config {
+impl Configuration {
     /// Return the CardanoNetwork value from the configuration.
     pub fn get_network(&self) -> Result<CardanoNetwork, ConfigError> {
         CardanoNetwork::from_code(self.network.clone(), self.network_magic)

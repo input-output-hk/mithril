@@ -16,7 +16,7 @@ use mithril_common::{
 
 use crate::{
     certificate_handler::CertificateHandler, single_signer::SingleSigner,
-    CertificateHandlerHTTPClient, Config, MithrilSingleSigner, ProtocolInitializerStore,
+    CertificateHandlerHTTPClient, Configuration, MithrilSingleSigner, ProtocolInitializerStore,
     ProtocolInitializerStorer,
 };
 
@@ -39,16 +39,16 @@ pub trait ServiceBuilder {
 
 /// Create a SignerService instance for Production environment.
 pub struct ProductionServiceBuilder<'a> {
-    config: &'a Config,
-    chain_observer_builder: fn(&Config) -> Result<ChainObserverService>,
-    immutable_file_observer_builder: fn(&Config) -> Result<Arc<dyn ImmutableFileObserver>>,
+    config: &'a Configuration,
+    chain_observer_builder: fn(&Configuration) -> Result<ChainObserverService>,
+    immutable_file_observer_builder: fn(&Configuration) -> Result<Arc<dyn ImmutableFileObserver>>,
 }
 
 impl<'a> ProductionServiceBuilder<'a> {
     /// Create a new production service builder.
-    pub fn new(config: &'a Config) -> Self {
-        let chain_observer_builder: fn(&Config) -> Result<ChainObserverService> =
-            |config: &Config| {
+    pub fn new(config: &'a Configuration) -> Self {
+        let chain_observer_builder: fn(&Configuration) -> Result<ChainObserverService> =
+            |config: &Configuration| {
                 Ok(Arc::new(CardanoCliChainObserver::new(Box::new(
                     CardanoCliRunner::new(
                         config.cardano_cli_path.clone(),
@@ -57,12 +57,13 @@ impl<'a> ProductionServiceBuilder<'a> {
                     ),
                 ))))
             };
-        let immutable_file_observer_builder: fn(&Config) -> Result<Arc<dyn ImmutableFileObserver>> =
-            |config: &Config| {
-                Ok(Arc::new(ImmutableFileSystemObserver::new(
-                    &config.db_directory,
-                )))
-            };
+        let immutable_file_observer_builder: fn(
+            &Configuration,
+        ) -> Result<Arc<dyn ImmutableFileObserver>> = |config: &Configuration| {
+            Ok(Arc::new(ImmutableFileSystemObserver::new(
+                &config.db_directory,
+            )))
+        };
 
         Self {
             config,
@@ -74,7 +75,7 @@ impl<'a> ProductionServiceBuilder<'a> {
     /// Override immutable file observer builder.
     pub fn override_immutable_file_observer_builder(
         &mut self,
-        builder: fn(&Config) -> Result<Arc<dyn ImmutableFileObserver>>,
+        builder: fn(&Configuration) -> Result<Arc<dyn ImmutableFileObserver>>,
     ) -> &mut Self {
         self.immutable_file_observer_builder = builder;
 
@@ -84,7 +85,7 @@ impl<'a> ProductionServiceBuilder<'a> {
     /// Override default chain observer builder.
     pub fn override_chain_observer_builder(
         &mut self,
-        builder: fn(&Config) -> Result<ChainObserverService>,
+        builder: fn(&Configuration) -> Result<ChainObserverService>,
     ) -> &mut Self {
         self.chain_observer_builder = builder;
 
@@ -258,7 +259,7 @@ mod tests {
     #[tokio::test]
     async fn test_auto_create_stores_directory() {
         let stores_dir = get_test_dir().join("stores");
-        let config = Config {
+        let config = Configuration {
             cardano_cli_path: PathBuf::new(),
             cardano_node_socket_path: PathBuf::new(),
             network_magic: None,
@@ -278,15 +279,17 @@ mod tests {
         };
 
         assert!(!stores_dir.exists());
-        let chain_observer_builder: fn(&Config) -> Result<ChainObserverService> = |_config| {
+        let chain_observer_builder: fn(&Configuration) -> Result<ChainObserverService> = |_config| {
             Ok(Arc::new(FakeObserver::new(Some(Beacon {
                 epoch: Epoch(1),
                 immutable_file_number: 1,
                 network: "devnet".to_string(),
             }))))
         };
-        let immutable_file_observer_builder: fn(&Config) -> Result<Arc<dyn ImmutableFileObserver>> =
-            |_config: &Config| Ok(Arc::new(DumbImmutableFileObserver::default()));
+        let immutable_file_observer_builder: fn(
+            &Configuration,
+        ) -> Result<Arc<dyn ImmutableFileObserver>> =
+            |_config: &Configuration| Ok(Arc::new(DumbImmutableFileObserver::default()));
 
         let mut service_builder = ProductionServiceBuilder::new(&config);
         service_builder
