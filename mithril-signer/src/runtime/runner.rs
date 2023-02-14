@@ -461,7 +461,7 @@ mod tests {
         crypto_helper::ProtocolInitializer,
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
         entities::{Epoch, StakeDistribution},
-        era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
+        era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader, EraReaderAdapterType},
         store::{
             adapter::{DumbStoreAdapter, MemoryAdapter},
             StakeStore, StakeStorer,
@@ -473,8 +473,8 @@ mod tests {
     use std::{path::PathBuf, sync::Arc};
 
     use crate::{
-        configuration::EraReaderAdapterType, CertificateHandler, DumbCertificateHandler,
-        MithrilSingleSigner, MockCertificateHandler, ProtocolInitializerStore, SingleSigner,
+        CertificateHandler, DumbCertificateHandler, MithrilSingleSigner, MockCertificateHandler,
+        ProtocolInitializerStore, SingleSigner,
     };
 
     use super::*;

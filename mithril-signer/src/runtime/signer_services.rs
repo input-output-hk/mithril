@@ -235,9 +235,8 @@ mod tests {
         chain_observer::FakeObserver,
         digesters::DumbImmutableFileObserver,
         entities::{Beacon, Epoch},
+        era::EraReaderAdapterType,
     };
-
-    use crate::configuration::EraReaderAdapterType;
 
     use super::*;
 

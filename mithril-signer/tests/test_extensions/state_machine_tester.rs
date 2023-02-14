@@ -1,5 +1,6 @@
 use mithril_common::digesters::ImmutableFileObserver;
 use mithril_common::entities::SignerWithStake;
+use mithril_common::era::EraReaderAdapterType;
 use mithril_common::era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader};
 use mithril_common::BeaconProvider;
 use slog::Drain;
@@ -17,9 +18,8 @@ use mithril_common::{
     BeaconProviderImpl,
 };
 use mithril_signer::{
-    CertificateHandler, Config, EraReaderAdapterType, MithrilSingleSigner,
-    ProtocolInitializerStore, ProtocolInitializerStorer, SignerRunner, SignerServices, SignerState,
-    StateMachine,
+    CertificateHandler, Config, MithrilSingleSigner, ProtocolInitializerStore,
+    ProtocolInitializerStorer, SignerRunner, SignerServices, SignerState, StateMachine,
 };
 
 use super::FakeAggregator;
