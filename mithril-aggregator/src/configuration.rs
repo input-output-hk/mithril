@@ -264,6 +264,9 @@ pub struct DefaultConfiguration {
 
     /// Type of snapshot uploader to use
     pub snapshot_uploader_type: String,
+
+    /// Era reader adapter type
+    pub era_reader_adapter_type: String,
 }
 
 impl Default for DefaultConfiguration {
@@ -275,6 +278,7 @@ impl Default for DefaultConfiguration {
             snapshot_directory: ".".to_string(),
             snapshot_store_type: "local".to_string(),
             snapshot_uploader_type: "gcp".to_string(),
+            era_reader_adapter_type: "bootstrap".to_string(),
         }
     }
 }
@@ -316,6 +320,13 @@ impl Source for DefaultConfiguration {
             Value::new(
                 Some(&namespace),
                 ValueKind::from(myself.snapshot_uploader_type),
+            ),
+        );
+        result.insert(
+            "era_reader_adapter_type".to_string(),
+            Value::new(
+                Some(&namespace),
+                ValueKind::from(myself.era_reader_adapter_type),
             ),
         );
 

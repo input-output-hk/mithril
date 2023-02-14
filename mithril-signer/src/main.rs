@@ -7,8 +7,8 @@ use std::time::Duration;
 
 use mithril_common::database::{ApplicationNodeType, DatabaseVersionChecker};
 use mithril_signer::{
-    Configuration, ProductionServiceBuilder, ServiceBuilder, SignerRunner, SignerState,
-    StateMachine,
+    Configuration, DefaultConfiguration, ProductionServiceBuilder, ServiceBuilder, SignerRunner,
+    SignerState, StateMachine,
 };
 
 /// CLI args
@@ -84,6 +84,7 @@ async fn main() -> Result<(), String> {
         .map_err(|e| e.to_string())?
         .set_default("reset_digests_cache", args.reset_digests_cache)
         .map_err(|e| e.to_string())?
+        .add_source(DefaultConfiguration::default())
         .add_source(
             config::File::with_name(&format!(
                 "{}/{}.json",

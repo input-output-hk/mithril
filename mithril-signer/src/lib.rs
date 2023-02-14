@@ -16,7 +16,7 @@ mod single_signer;
 #[cfg(test)]
 pub use certificate_handler::dumb::DumbCertificateHandler;
 pub use certificate_handler::*;
-pub use configuration::Configuration;
+pub use configuration::{Configuration, DefaultConfiguration};
 pub use message_adapters::{
     FromEpochSettingsAdapter, FromPendingCertificateMessageAdapter, ToRegisterSignerMessageAdapter,
 };
