@@ -14,9 +14,6 @@ use blst::min_sig::{
     Signature as BlstSig,
 };
 use blst::{blst_p1, blst_p2, p1_affines, p2_affines, BLST_ERROR};
-// blst_p1_affine, blst_p1_compress, blst_p1_from_affine, blst_p1_to_affine,
-//     blst_p1_uncompress, blst_p2, blst_p2_affine, blst_p2_from_affine, blst_p2_to_affine,
-//     blst_scalar, p1_affines, p2_affines, BLST_ERROR,
 
 use rand_core::{CryptoRng, RngCore};
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
@@ -209,6 +206,7 @@ impl VerificationKeyPoP {
         }
         Ok(())
     }
+
     /// Convert to a 144 byte string.
     ///
     /// # Layout
@@ -531,6 +529,7 @@ impl_serde!(Signature, SignatureVisitor, 48);
 // ---------------------------------------------------------------------
 // Unsafe helpers
 // ---------------------------------------------------------------------
+
 mod unsafe_helpers {
     use super::*;
     use crate::error::MultiSignatureError::SerializationError;
@@ -541,6 +540,7 @@ mod unsafe_helpers {
         blst_scalar, blst_sk_to_pk_in_g1,
     };
 
+    /// Check manually if the pairing `e(g1,mvk) = e(k2,g2)` holds.
     pub(crate) fn verify_pairing(vk: &VerificationKey, pop: &ProofOfPossession) -> bool {
         unsafe {
             let g1_p = *blst_p1_affine_generator();
@@ -578,9 +578,9 @@ mod unsafe_helpers {
 
     pub(crate) fn scalar_to_pk_in_g1(sk: &SigningKey) -> blst_p1 {
         unsafe {
-            let sk_scalar = std::mem::transmute::<BlstSk, blst_scalar>(sk.0.clone());
+            let sk_scalar = std::mem::transmute::<&BlstSk, &blst_scalar>(&sk.0);
             let mut out = blst_p1::default();
-            blst_sk_to_pk_in_g1(&mut out, &sk_scalar);
+            blst_sk_to_pk_in_g1(&mut out, sk_scalar);
             out
         }
     }
