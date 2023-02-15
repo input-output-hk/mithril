@@ -1,4 +1,5 @@
 use crate::test_extensions::initialize_dependencies;
+use mithril_aggregator::event_store::EventMessage;
 use mithril_common::certificate_chain::CertificateGenesisProducer;
 use mithril_common::test_utils::{
     MithrilFixtureBuilder, SignerFixture, StakeDistributionGenerationMethod,
@@ -7,6 +8,7 @@ use slog::Drain;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::mpsc::UnboundedReceiver;
 
 use mithril_aggregator::{
     AggregatorRunner, AggregatorRuntime, DependencyManager, DumbSnapshotUploader, DumbSnapshotter,
@@ -37,6 +39,7 @@ pub struct RuntimeTester {
     pub genesis_signer: Arc<ProtocolGenesisSigner>,
     pub deps: Arc<DependencyManager>,
     pub runtime: AggregatorRuntime,
+    pub receiver: UnboundedReceiver<EventMessage>,
     _logs_guard: slog_scope::GlobalLoggerGuard,
 }
 
@@ -48,7 +51,7 @@ impl RuntimeTester {
         let digester = Arc::new(DumbImmutableDigester::default());
         let snapshotter = Arc::new(DumbSnapshotter::new());
         let genesis_signer = Arc::new(ProtocolGenesisSigner::create_deterministic_genesis_signer());
-        let (deps, config) = initialize_dependencies(
+        let (deps, config, receiver) = initialize_dependencies(
             default_protocol_parameters,
             snapshot_uploader.clone(),
             chain_observer.clone(),
@@ -78,6 +81,7 @@ impl RuntimeTester {
             genesis_signer,
             deps,
             runtime,
+            receiver,
             _logs_guard: log,
         }
     }
@@ -89,6 +93,34 @@ impl RuntimeTester {
             .await
             .map_err(|e| format!("Ticking the state machine should not fail, error: {e:?}"))?;
         Ok(())
+    }
+
+    /// Check if a message has been sent.
+    pub async fn check_message(&mut self, source: &str, action: &str) -> Result<(), String> {
+        let message = self
+            .receiver
+            .try_recv()
+            .map_err(|e| format!("No message has been sent: '{e}'."))?;
+        let mut error_message = String::new();
+
+        if source != message.source {
+            error_message = format!(
+                "The source of the message ({}) is NOT what was expected ({source}).",
+                &message.source
+            );
+        }
+        if action != message.action {
+            error_message.push_str(&format!(
+                "The action of the message ({}) is NOT what was expected ({action}).",
+                &message.action
+            ));
+        }
+
+        if error_message.is_empty() {
+            Ok(())
+        } else {
+            Err(error_message)
+        }
     }
 
     /// Registers the genesis certificate
