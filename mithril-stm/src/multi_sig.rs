@@ -293,10 +293,10 @@ impl Signature {
         )
     }
 
-    /// Check if the signature is valid for the given index. We hash the signature to produce a
-    /// 64 bytes integer. We follow the same mechanism as Shelley
-    /// for the lottery (i.e., we follow the VRF lottery mechanism as described in Section 16 of
-    /// <https://hydra.iohk.io/build/8201171/download/1/ledger-spec.pdf>).
+    /// Dense mapping function indexed by the index to be evaluated.
+    /// We hash the signature to produce a 64 bytes integer.
+    /// The return value of this function refers to
+    /// `ev = H("map" || msg || index || σ) <- MSP.Eval(msg,index,σ)` given in paper.
     pub fn eval(&self, msg: &[u8], index: Index) -> [u8; 64] {
         let hasher = Blake2b512::new()
             .chain_update(b"map")
