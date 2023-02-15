@@ -5,6 +5,7 @@
 use crate::error::{blst_err_to_mithril, MultiSignatureError};
 use crate::stm::Index;
 use blake2::{digest::consts::U16, Blake2b, Blake2b512, Digest};
+use unsafe_helpers::*;
 
 // We use `min_sig` resulting in signatures of 48 bytes and public keys of
 // 96. We can switch that around if desired by using `min_vk`.
@@ -12,11 +13,7 @@ use blst::min_sig::{
     AggregatePublicKey, AggregateSignature, PublicKey as BlstVk, SecretKey as BlstSk,
     Signature as BlstSig,
 };
-use blst::{
-    blst_p1, blst_p1_affine, blst_p1_compress, blst_p1_from_affine, blst_p1_to_affine,
-    blst_p1_uncompress, blst_p2, blst_p2_affine, blst_p2_from_affine, blst_p2_to_affine,
-    blst_scalar, p1_affines, p2_affines,
-};
+use blst::{blst_p1, blst_p2, p1_affines, p2_affines, BLST_ERROR};
 
 use rand_core::{CryptoRng, RngCore};
 use serde::{de::Visitor, Deserialize, Deserializer, Serialize, Serializer};
@@ -26,7 +23,6 @@ use std::{
     hash::{Hash, Hasher},
     iter::Sum,
 };
-
 /// String used to generate the proofs of possession.
 const POP: &[u8] = b"PoP";
 
@@ -200,22 +196,7 @@ impl VerificationKeyPoP {
     // If we are really looking for performance improvements, we can combine the
     // two final exponentiations (for verifying k1 and k2) into a single one.
     pub fn check(&self) -> Result<(), MultiSignatureError> {
-        use blst::{
-            blst_fp12, blst_fp12_finalverify, blst_p1_affine_generator, blst_p2_affine_generator,
-            BLST_ERROR,
-        };
-        let result = unsafe {
-            let g1_p = *blst_p1_affine_generator();
-            let mvk_p = std::mem::transmute::<&BlstVk, &blst_p2_affine>(&self.vk.0);
-            let ml_lhs = blst_fp12::miller_loop(mvk_p, &g1_p);
-
-            let mut k2_p = blst_p1_affine::default();
-            blst_p1_to_affine(&mut k2_p, &self.pop.k2);
-            let g2_p = *blst_p2_affine_generator();
-            let ml_rhs = blst_fp12::miller_loop(&g2_p, &k2_p);
-
-            blst_fp12_finalverify(&ml_lhs, &ml_rhs)
-        };
+        let result = verify_pairing(&self.vk, &self.pop);
 
         if !(self.pop.k1.verify(false, POP, &[], &[], &self.vk.0, false)
             == BLST_ERROR::BLST_SUCCESS
@@ -225,6 +206,7 @@ impl VerificationKeyPoP {
         }
         Ok(())
     }
+
     /// Convert to a 144 byte string.
     ///
     /// # Layout
@@ -269,12 +251,8 @@ impl ProofOfPossession {
     pub fn to_bytes(self) -> [u8; 96] {
         let mut pop_bytes = [0u8; 96];
         pop_bytes[..48].copy_from_slice(&self.k1.to_bytes());
-        let k2_bytes = unsafe {
-            let mut bytes = [0u8; 48];
-            blst_p1_compress(bytes.as_mut_ptr(), &self.k2);
-            bytes
-        };
-        pop_bytes[48..].copy_from_slice(&k2_bytes);
+
+        pop_bytes[48..].copy_from_slice(&compress_p1(&self.k2)[..]);
         pop_bytes
     }
 
@@ -288,13 +266,7 @@ impl ProofOfPossession {
             }
         };
 
-        let k2 = unsafe {
-            let mut point = blst_p1_affine::default();
-            let mut out = blst_p1::default();
-            blst_p1_uncompress(&mut point, bytes[48..].as_ptr());
-            blst_p1_from_affine(&mut out, &point);
-            out
-        };
+        let k2 = uncompress_p1(&bytes[48..96])?;
 
         Ok(Self { k1, k2 })
     }
@@ -305,15 +277,8 @@ impl From<&SigningKey> for ProofOfPossession {
     /// `k1 =  H_G1(b"PoP" || mvk)` and `k2 = g1 * sk` where `H_G1` hashes into
     /// `G1` and `g1` is the generator in `G1`.
     fn from(sk: &SigningKey) -> Self {
-        use blst::blst_sk_to_pk_in_g1;
         let k1 = sk.0.sign(POP, &[], &[]);
-        let k2 = unsafe {
-            let sk_scalar = std::mem::transmute::<&BlstSk, &blst_scalar>(&sk.0);
-
-            let mut out = blst_p1::default();
-            blst_sk_to_pk_in_g1(&mut out, sk_scalar);
-            out
-        };
+        let k2 = scalar_to_pk_in_g1(sk);
 
         Self { k1, k2 }
     }
@@ -410,43 +375,15 @@ impl Signature {
             scalars.extend_from_slice(hasher.finalize().as_slice());
         }
 
-        let transmuted_vks: Vec<blst_p2> = vks
-            .iter()
-            .map(|vk| unsafe {
-                let mut projective_p2 = blst_p2::default();
-                blst_p2_from_affine(
-                    &mut projective_p2,
-                    &std::mem::transmute::<BlstVk, blst_p2_affine>(vk.0),
-                );
-                projective_p2
-            })
-            .collect();
+        let transmuted_vks: Vec<blst_p2> = vks.iter().map(vk_from_p2_affine).collect();
 
-        let transmuted_sigs: Vec<blst_p1> = signatures
-            .iter()
-            .map(|&sig| unsafe {
-                let mut projective_p1 = blst_p1::default();
-                blst_p1_from_affine(
-                    &mut projective_p1,
-                    &std::mem::transmute::<BlstSig, blst_p1_affine>(sig),
-                );
-                projective_p1
-            })
-            .collect();
+        let transmuted_sigs: Vec<blst_p1> = signatures.iter().map(sig_to_p1).collect();
 
         let grouped_vks = p2_affines::from(transmuted_vks.as_slice());
         let grouped_sigs = p1_affines::from(transmuted_sigs.as_slice());
 
-        let aggr_vk: BlstVk = unsafe {
-            let mut affine_p2 = blst_p2_affine::default();
-            blst_p2_to_affine(&mut affine_p2, &grouped_vks.mult(scalars.as_slice(), 128));
-            std::mem::transmute::<blst_p2_affine, BlstVk>(affine_p2)
-        };
-        let aggr_sig: BlstSig = unsafe {
-            let mut affine_p1 = blst_p1_affine::default();
-            blst_p1_to_affine(&mut affine_p1, &grouped_sigs.mult(scalars.as_slice(), 128));
-            std::mem::transmute::<blst_p1_affine, BlstSig>(affine_p1)
-        };
+        let aggr_vk: BlstVk = p2_affine_to_vk(&grouped_vks.mult(&scalars, 128));
+        let aggr_sig: BlstSig = p1_affine_to_sig(&grouped_sigs.mult(&scalars, 128));
 
         Ok((VerificationKey(aggr_vk), Signature(aggr_sig)))
     }
@@ -502,8 +439,8 @@ impl<'a> Sum<&'a Self> for Signature {
         let signatures: Vec<&BlstSig> = iter.map(|x| &x.0).collect();
         assert!(!signatures.is_empty(), "One cannot add an empty vector");
         let aggregate = AggregateSignature::aggregate(&signatures, false)
-                .expect("An MspSig is always a valid signature. This function only fails if signatures is empty or if the signatures are invalid, none of which can happen.")
-                .to_signature();
+            .expect("An MspSig is always a valid signature. This function only fails if signatures is empty or if the signatures are invalid, none of which can happen.")
+            .to_signature();
 
         Self(aggregate)
     }
@@ -588,6 +525,104 @@ impl_serde!(SigningKey, SigningKeyVisitor, 32);
 impl_serde!(VerificationKey, VerificationKeyVisitor, 96);
 impl_serde!(ProofOfPossession, ProofOfPossessionVisitor, 96);
 impl_serde!(Signature, SignatureVisitor, 48);
+
+// ---------------------------------------------------------------------
+// Unsafe helpers
+// ---------------------------------------------------------------------
+
+mod unsafe_helpers {
+    use super::*;
+    use crate::error::MultiSignatureError::SerializationError;
+    use blst::{
+        blst_fp12, blst_fp12_finalverify, blst_p1_affine, blst_p1_affine_generator,
+        blst_p1_compress, blst_p1_from_affine, blst_p1_to_affine, blst_p1_uncompress,
+        blst_p2_affine, blst_p2_affine_generator, blst_p2_from_affine, blst_p2_to_affine,
+        blst_scalar, blst_sk_to_pk_in_g1,
+    };
+
+    /// Check manually if the pairing `e(g1,mvk) = e(k2,g2)` holds.
+    pub(crate) fn verify_pairing(vk: &VerificationKey, pop: &ProofOfPossession) -> bool {
+        unsafe {
+            let g1_p = *blst_p1_affine_generator();
+            let mvk_p = std::mem::transmute::<BlstVk, blst_p2_affine>(vk.0);
+            let ml_lhs = blst_fp12::miller_loop(&mvk_p, &g1_p);
+
+            let mut k2_p = blst_p1_affine::default();
+            blst_p1_to_affine(&mut k2_p, &pop.k2);
+            let g2_p = *blst_p2_affine_generator();
+            let ml_rhs = blst_fp12::miller_loop(&g2_p, &k2_p);
+
+            blst_fp12_finalverify(&ml_lhs, &ml_rhs)
+        }
+    }
+
+    pub(crate) fn compress_p1(k2: &blst_p1) -> [u8; 48] {
+        let mut bytes = [0u8; 48];
+        unsafe { blst_p1_compress(bytes.as_mut_ptr(), k2) }
+        bytes
+    }
+
+    pub(crate) fn uncompress_p1(bytes: &[u8]) -> Result<blst_p1, MultiSignatureError> {
+        unsafe {
+            if bytes.len() == 48 {
+                let mut point = blst_p1_affine::default();
+                let mut out = blst_p1::default();
+                blst_p1_uncompress(&mut point, bytes.as_ptr());
+                blst_p1_from_affine(&mut out, &point);
+                Ok(out)
+            } else {
+                Err(SerializationError)
+            }
+        }
+    }
+
+    pub(crate) fn scalar_to_pk_in_g1(sk: &SigningKey) -> blst_p1 {
+        unsafe {
+            let sk_scalar = std::mem::transmute::<&BlstSk, &blst_scalar>(&sk.0);
+            let mut out = blst_p1::default();
+            blst_sk_to_pk_in_g1(&mut out, sk_scalar);
+            out
+        }
+    }
+
+    pub(crate) fn vk_from_p2_affine(vk: &VerificationKey) -> blst_p2 {
+        unsafe {
+            let mut projective_p2 = blst_p2::default();
+            blst_p2_from_affine(
+                &mut projective_p2,
+                &std::mem::transmute::<BlstVk, blst_p2_affine>(vk.0),
+            );
+            projective_p2
+        }
+    }
+
+    pub(crate) fn sig_to_p1(sig: &BlstSig) -> blst_p1 {
+        unsafe {
+            let mut projective_p1 = blst_p1::default();
+            blst_p1_from_affine(
+                &mut projective_p1,
+                &std::mem::transmute::<BlstSig, blst_p1_affine>(*sig),
+            );
+            projective_p1
+        }
+    }
+
+    pub(crate) fn p2_affine_to_vk(grouped_vks: &blst_p2) -> BlstVk {
+        unsafe {
+            let mut affine_p2 = blst_p2_affine::default();
+            blst_p2_to_affine(&mut affine_p2, grouped_vks);
+            std::mem::transmute::<blst_p2_affine, BlstVk>(affine_p2)
+        }
+    }
+
+    pub(crate) fn p1_affine_to_sig(grouped_sigs: &blst_p1) -> BlstSig {
+        unsafe {
+            let mut affine_p1 = blst_p1_affine::default();
+            blst_p1_to_affine(&mut affine_p1, grouped_sigs);
+            std::mem::transmute::<blst_p1_affine, BlstSig>(affine_p1)
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
