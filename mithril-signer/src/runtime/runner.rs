@@ -19,7 +19,7 @@ use mithril_common::{
     store::StakeStorer,
 };
 
-use crate::{Config, MithrilProtocolInitializerBuilder};
+use crate::{Configuration, MithrilProtocolInitializerBuilder};
 
 use super::signer_services::SignerServices;
 
@@ -114,13 +114,13 @@ pub enum RuntimeError {
 
 /// Controller methods for the Signer's state machine.
 pub struct SignerRunner {
-    config: Config,
+    config: Configuration,
     services: SignerServices,
 }
 
 impl SignerRunner {
     /// Create a new Runner instance.
-    pub fn new(config: Config, services: SignerServices) -> Self {
+    pub fn new(config: Configuration, services: SignerServices) -> Self {
         Self { services, config }
     }
 }
@@ -461,7 +461,7 @@ mod tests {
         crypto_helper::ProtocolInitializer,
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
         entities::{Epoch, StakeDistribution},
-        era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
+        era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader, EraReaderAdapterType},
         store::{
             adapter::{DumbStoreAdapter, MemoryAdapter},
             StakeStore, StakeStorer,
@@ -526,10 +526,10 @@ mod tests {
 
     async fn init_runner(
         maybe_services: Option<SignerServices>,
-        maybe_config: Option<Config>,
+        maybe_config: Option<Configuration>,
     ) -> SignerRunner {
         let services = init_services().await;
-        let config = Config {
+        let config = Configuration {
             aggregator_endpoint: "http://0.0.0.0:3000".to_string(),
             cardano_cli_path: PathBuf::new(),
             cardano_node_socket_path: PathBuf::new(),
@@ -544,6 +544,8 @@ mod tests {
             disable_digests_cache: false,
             store_retention_limit: None,
             reset_digests_cache: false,
+            era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
+            era_reader_adapter_params: None,
         };
 
         SignerRunner::new(

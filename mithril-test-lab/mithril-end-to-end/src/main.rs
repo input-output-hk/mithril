@@ -45,6 +45,10 @@ pub struct Args {
     /// Length of a Cardano epoch in the devnet (in s)
     #[clap(long, default_value_t = 45.0)]
     cardano_epoch_length: f64,
+
+    /// Mithril era to run
+    #[clap(long, default_value = "thales")]
+    mithril_era: String,
 }
 
 #[tokio::main]
@@ -74,9 +78,14 @@ async fn main() -> Result<(), Box<dyn Error>> {
     )
     .await?;
 
-    let infrastructure =
-        MithrilInfrastructure::start(server_port, devnet.clone(), &work_dir, &args.bin_directory)
-            .await?;
+    let infrastructure = MithrilInfrastructure::start(
+        server_port,
+        devnet.clone(),
+        &work_dir,
+        &args.bin_directory,
+        &args.mithril_era,
+    )
+    .await?;
 
     let mut spec = Spec::new(infrastructure);
 

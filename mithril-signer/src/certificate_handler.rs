@@ -332,17 +332,17 @@ pub(crate) mod dumb {
 mod tests {
     use super::*;
     use httpmock::prelude::*;
-    use mithril_common::entities::ClientError;
+    use mithril_common::{entities::ClientError, era::EraReaderAdapterType};
     use serde_json::json;
     use std::path::{Path, PathBuf};
 
     use mithril_common::test_utils::fake_data;
 
-    use crate::configuration::Config;
+    use crate::configuration::Configuration;
 
-    fn setup_test() -> (MockServer, Config) {
+    fn setup_test() -> (MockServer, Configuration) {
         let server = MockServer::start();
-        let config = Config {
+        let config = Configuration {
             cardano_cli_path: PathBuf::new().join("cardano-cli"),
             cardano_node_socket_path: PathBuf::new().join("whatever"),
             network_magic: Some(42),
@@ -357,6 +357,8 @@ mod tests {
             operational_certificate_path: None,
             disable_digests_cache: false,
             reset_digests_cache: false,
+            era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
+            era_reader_adapter_params: None,
         };
         (server, config)
     }

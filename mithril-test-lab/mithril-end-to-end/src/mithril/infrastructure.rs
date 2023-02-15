@@ -21,6 +21,7 @@ impl MithrilInfrastructure {
         devnet: Devnet,
         work_dir: &Path,
         bin_dir: &Path,
+        mithril_era: &str,
     ) -> Result<Self, String> {
         devnet.run().await?;
         let devnet_topology = devnet.topology();
@@ -35,6 +36,7 @@ impl MithrilInfrastructure {
             &devnet.cardano_cli_path(),
             work_dir,
             bin_dir,
+            mithril_era,
         )?;
         aggregator.set_protocol_parameters(&ProtocolParameters {
             k: 75,
@@ -56,6 +58,7 @@ impl MithrilInfrastructure {
                 &devnet.cardano_cli_path(),
                 work_dir,
                 bin_dir,
+                mithril_era,
                 enable_certification,
             )?;
             signer.start()?;

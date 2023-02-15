@@ -9,8 +9,8 @@ use mithril_common::chain_observer::FakeObserver;
 use mithril_common::crypto_helper::{key_encode_hex, ProtocolGenesisSigner};
 use mithril_common::digesters::{DumbImmutableDigester, DumbImmutableFileObserver};
 use mithril_common::entities::ProtocolParameters;
-use mithril_common::era::EraReader;
 use mithril_common::era::{adapters::EraReaderBootstrapAdapter, EraChecker};
+use mithril_common::era::{EraReader, EraReaderAdapterType};
 use mithril_common::store::adapter::MemoryAdapter;
 use mithril_common::store::StakeStore;
 use mithril_common::{BeaconProvider, BeaconProviderImpl, CardanoNetwork};
@@ -48,6 +48,8 @@ pub async fn initialize_dependencies(
         data_stores_directory: PathBuf::new(),
         genesis_verification_key: key_encode_hex(genesis_verification_key).unwrap(),
         store_retention_limit: None,
+        era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
+        era_reader_adapter_params: None,
     };
     let certificate_pending_store = Arc::new(CertificatePendingStore::new(Box::new(
         MemoryAdapter::new(None).unwrap(),

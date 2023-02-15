@@ -1,4 +1,7 @@
 use config::{ConfigError, Map, Source, Value, ValueKind};
+use mithril_common::chain_observer::ChainObserver;
+use mithril_common::era::adapters::EraReaderAdapterBuilder;
+use mithril_common::era::{EraReaderAdapter, EraReaderAdapterType};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::path::PathBuf;
@@ -78,6 +81,12 @@ pub struct Configuration {
     /// there can always be at max the number of records specified by this
     /// setting.
     pub store_retention_limit: Option<usize>,
+
+    /// Era reader adapter type
+    pub era_reader_adapter_type: EraReaderAdapterType,
+
+    /// Era reader adapter parameters
+    pub era_reader_adapter_params: Option<String>,
 }
 
 /// Snapshot store type enumerates the different kinds of snapshot stores.
@@ -146,6 +155,19 @@ impl Configuration {
                 &self.snapshot_directory,
             ))),
         }
+    }
+
+    /// Create era reader adapter from configuration settings.
+    pub fn build_era_reader_adapter(
+        &self,
+        chain_observer: Arc<dyn ChainObserver>,
+    ) -> Result<Box<dyn EraReaderAdapter>, Box<dyn Error>> {
+        Ok(EraReaderAdapterBuilder::new(
+            &self.era_reader_adapter_type,
+            &self.era_reader_adapter_params,
+        )
+        .build(chain_observer)
+        .map_err(|e| ConfigError::Message(format!("build era adapter failed {e}")))?)
     }
 
     /// Check configuration and return a representation of the Cardano network.
@@ -242,6 +264,9 @@ pub struct DefaultConfiguration {
 
     /// Type of snapshot uploader to use
     pub snapshot_uploader_type: String,
+
+    /// Era reader adapter type
+    pub era_reader_adapter_type: String,
 }
 
 impl Default for DefaultConfiguration {
@@ -253,6 +278,7 @@ impl Default for DefaultConfiguration {
             snapshot_directory: ".".to_string(),
             snapshot_store_type: "local".to_string(),
             snapshot_uploader_type: "gcp".to_string(),
+            era_reader_adapter_type: "bootstrap".to_string(),
         }
     }
 }
@@ -294,6 +320,13 @@ impl Source for DefaultConfiguration {
             Value::new(
                 Some(&namespace),
                 ValueKind::from(myself.snapshot_uploader_type),
+            ),
+        );
+        result.insert(
+            "era_reader_adapter_type".to_string(),
+            Value::new(
+                Some(&namespace),
+                ValueKind::from(myself.era_reader_adapter_type),
             ),
         );
 

@@ -1,5 +1,6 @@
 use mithril_common::digesters::ImmutableFileObserver;
 use mithril_common::entities::SignerWithStake;
+use mithril_common::era::EraReaderAdapterType;
 use mithril_common::era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader};
 use mithril_common::BeaconProvider;
 use slog::Drain;
@@ -17,7 +18,7 @@ use mithril_common::{
     BeaconProviderImpl,
 };
 use mithril_signer::{
-    CertificateHandler, Config, MithrilSingleSigner, ProtocolInitializerStore,
+    CertificateHandler, Configuration, MithrilSingleSigner, ProtocolInitializerStore,
     ProtocolInitializerStorer, SignerRunner, SignerServices, SignerState, StateMachine,
 };
 
@@ -55,7 +56,7 @@ impl StateMachineTester {
         let selected_signer_party_id = selected_signer_with_stake.party_id.clone();
         let selected_signer_temp_dir =
             tests_setup::setup_temp_directory_for_signer(&selected_signer_party_id, false);
-        let config = Config {
+        let config = Configuration {
             aggregator_endpoint: "http://0.0.0.0:8000".to_string(),
             cardano_cli_path: PathBuf::new(),
             cardano_node_socket_path: PathBuf::new(),
@@ -74,6 +75,8 @@ impl StateMachineTester {
                 .map(|dir| dir.join("opcert.cert")),
             disable_digests_cache: false,
             reset_digests_cache: false,
+            era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
+            era_reader_adapter_params: None,
         };
 
         let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);

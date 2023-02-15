@@ -272,7 +272,7 @@ pub mod tests {
         chain_observer::FakeObserver,
         crypto_helper::{key_encode_hex, ProtocolGenesisSigner},
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
-        era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader},
+        era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader, EraReaderAdapterType},
         store::{adapter::MemoryAdapter, StakeStore},
         test_utils::fake_data,
         BeaconProvider, BeaconProviderImpl, CardanoNetwork,
@@ -303,6 +303,8 @@ pub mod tests {
             data_stores_directory: PathBuf::new(),
             genesis_verification_key: key_encode_hex(genesis_verification_key).unwrap(),
             store_retention_limit: None,
+            era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
+            era_reader_adapter_params: None,
         };
         let snapshot_store = Arc::new(LocalSnapshotStore::new(
             Box::new(MemoryAdapter::new(None).unwrap()),

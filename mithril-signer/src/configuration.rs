@@ -1,14 +1,19 @@
-use config::ConfigError;
+use config::{ConfigError, Map, Source, Value, ValueKind};
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::{error::Error, path::PathBuf, sync::Arc};
 
-use mithril_common::{entities::PartyId, CardanoNetwork};
+use mithril_common::{
+    chain_observer::ChainObserver,
+    entities::PartyId,
+    era::{adapters::EraReaderAdapterBuilder, EraReaderAdapter, EraReaderAdapterType},
+    CardanoNetwork,
+};
 
 const SQLITE_FILE: &str = "signer.sqlite3";
 
 /// Client configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Config {
+pub struct Configuration {
     /// Cardano CLI tool path
     pub cardano_cli_path: PathBuf,
 
@@ -55,9 +60,15 @@ pub struct Config {
     ///
     /// Will be ignored if set in conjunction with `disable_digests_cache`.
     pub reset_digests_cache: bool,
+
+    /// Era reader adapter type
+    pub era_reader_adapter_type: EraReaderAdapterType,
+
+    /// Era reader adapter parameters
+    pub era_reader_adapter_params: Option<String>,
 }
 
-impl Config {
+impl Configuration {
     /// Return the CardanoNetwork value from the configuration.
     pub fn get_network(&self) -> Result<CardanoNetwork, ConfigError> {
         CardanoNetwork::from_code(self.network.clone(), self.network_magic)
@@ -74,5 +85,55 @@ impl Config {
         }
 
         self.data_stores_directory.join(SQLITE_FILE)
+    }
+
+    /// Create era reader adapter from configuration settings.
+    pub fn build_era_reader_adapter(
+        &self,
+        chain_observer: Arc<dyn ChainObserver>,
+    ) -> Result<Box<dyn EraReaderAdapter>, Box<dyn Error>> {
+        Ok(EraReaderAdapterBuilder::new(
+            &self.era_reader_adapter_type,
+            &self.era_reader_adapter_params,
+        )
+        .build(chain_observer)
+        .map_err(|e| ConfigError::Message(format!("build era adapter failed {e}")))?)
+    }
+}
+
+/// Default configuration with all the default values for configurations.
+#[derive(Debug, Clone)]
+pub struct DefaultConfiguration {
+    /// Era reader adapter type
+    pub era_reader_adapter_type: String,
+}
+
+impl Default for DefaultConfiguration {
+    fn default() -> Self {
+        Self {
+            era_reader_adapter_type: "bootstrap".to_string(),
+        }
+    }
+}
+
+impl Source for DefaultConfiguration {
+    fn clone_into_box(&self) -> Box<dyn Source + Send + Sync> {
+        Box::new(self.clone())
+    }
+
+    fn collect(&self) -> Result<Map<String, Value>, config::ConfigError> {
+        let mut result = Map::new();
+        let namespace = "default configuration".to_string();
+        let myself = self.clone();
+
+        result.insert(
+            "era_reader_adapter_type".to_string(),
+            Value::new(
+                Some(&namespace),
+                ValueKind::from(myself.era_reader_adapter_type),
+            ),
+        );
+
+        Ok(result)
     }
 }
