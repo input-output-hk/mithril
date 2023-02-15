@@ -29,6 +29,8 @@ use crate::{
     ProtocolParametersStorer, Server, SingleSignatureStore, VerificationKeyStore,
 };
 
+const SQLITE_MONITORING_FILE: &str = "monitoring.sqlite3";
+
 fn setup_genesis_dependencies(
     config: &GenesisConfiguration,
 ) -> Result<GenesisToolsDependency, Box<dyn std::error::Error>> {
@@ -451,8 +453,14 @@ impl ServeCommand {
         let runtime_dependencies = dependency_manager.clone();
 
         // start the monitoring thread
-        let event_store_thread =
-            tokio::spawn(async move { event_store.run(":memory:").await.unwrap() });
+        let event_store_thread = tokio::spawn(async move {
+            event_store
+                .run(Some(
+                    config.data_stores_directory.join(SQLITE_MONITORING_FILE),
+                ))
+                .await
+                .unwrap()
+        });
 
         // Start Aggregator state machine
         let handle = tokio::spawn(async move {

@@ -91,10 +91,26 @@ struct EventPersisterProvider<'conn> {
 
 impl<'conn> EventPersisterProvider<'conn> {
     pub fn new(connection: &'conn Connection) -> Self {
-        Self {
+        let myself = Self {
             connection,
             projection: Event::get_projection(),
-        }
+        };
+        myself.create_table_if_not_exists();
+
+        myself
+    }
+
+    fn create_table_if_not_exists(&self) {
+        let sql = r#"
+        create table if not exists event (
+            event_id integer primary key asc autoincrement,
+            created_at text not null default current_timestamp,
+            source text not null,
+            action text not null,
+            content text nul null
+        )"#;
+
+        self.connection.execute(sql).unwrap();
     }
 }
 

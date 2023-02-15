@@ -196,12 +196,17 @@ impl AggregatorRunner {
         }
     }
 
-    fn send_message<T>(&self, source: &str, action: &str, content: &T) -> Result<(), String>
+    #[allow(dead_code)]
+    fn send_event_message<T>(&self, source: &str, action: &str, content: &T) -> Result<(), String>
     where
         T: Serialize,
     {
-        let content = serde_json::to_string(content)
-            .map_err(|e| format!("Serialization error while forging event message: {e}"))?;
+        let content = serde_json::to_string(content).map_err(|e| {
+            let error_msg = format!("Serialization error while forging event message: {e}");
+            warn!("Event message error => «{error_msg}»");
+
+            error_msg
+        })?;
         let message = EventMessage {
             source: source.to_string(),
             action: action.to_string(),
@@ -212,7 +217,12 @@ impl AggregatorRunner {
             .get_transmitter()
             .send(message.clone())
             .map_err(|e| {
-                format!("An error occured when sending message {message:?} to monitoring: '{e}'.")
+                let error_msg = format!(
+                    "An error occured when sending message {message:?} to monitoring: '{e}'."
+                );
+                warn!("Event message error => «{error_msg}»");
+
+                error_msg
             })
     }
 }
@@ -289,12 +299,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
     async fn update_beacon(&self, new_beacon: &Beacon) -> Result<(), RuntimeError> {
         debug!("RUNNER: update beacon"; "beacon" => #?new_beacon);
-        if let Err(error) =
-            self.send_message("runtime::update_beacon", "update_beacon", &new_beacon)
-        {
-            warn!("Message error => {error}");
-        }
-
         self.dependencies
             .multi_signer
             .write()

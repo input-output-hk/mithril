@@ -2,7 +2,10 @@ use slog_scope::{debug, info};
 use sqlite::Connection;
 use tokio::sync::mpsc::UnboundedReceiver;
 
-use std::sync::{Arc, Mutex};
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 use super::{EventMessage, EventPersister};
 
@@ -20,8 +23,14 @@ impl EventStore {
     /// Launch the service. It runs until all the transmitters are gone and all
     /// messages have been processed. This means this service shall be waited
     /// upon completion to ensure all events are properly saved in the database.
-    pub async fn run(&mut self, db_dsn: &str) -> Result<(), Box<dyn std::error::Error>> {
-        let connection = Arc::new(Mutex::new(Connection::open(db_dsn)?));
+    pub async fn run(&mut self, file: Option<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
+        let connection = {
+            let connection = match file {
+                Some(path) => Connection::open(path)?,
+                None => Connection::open(":memory:")?,
+            };
+            Arc::new(Mutex::new(connection))
+        };
         let persister = EventPersister::new(connection);
         info!("monitoring: starting event loop to log messages.");
         loop {
