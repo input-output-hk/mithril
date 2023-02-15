@@ -16,11 +16,15 @@ fn register_signer(
     warp::path!("register-signer")
         .and(warp::post())
         .and(warp::body::json())
-        .and(middlewares::with_signer_registerer(dependency_manager))
+        .and(middlewares::with_signer_registerer(
+            dependency_manager.clone(),
+        ))
+        .and(middlewares::with_event_transmitter(dependency_manager))
         .and_then(handlers::register_signer)
 }
 
 mod handlers {
+    use crate::event_store::{EventMessage, TransmitterService};
     use crate::FromRegisterSignerAdapter;
     use crate::{http_server::routes::reply, SignerRegisterer, SignerRegistrationError};
     use mithril_common::messages::RegisterSignerMessage;
@@ -33,6 +37,7 @@ mod handlers {
     pub async fn register_signer(
         register_signer_message: RegisterSignerMessage,
         signer_registerer: Arc<dyn SignerRegisterer>,
+        event_transmitter: Arc<TransmitterService<EventMessage>>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!(
             "⇄ HTTP SERVER: register_signer/{:?}",
@@ -41,9 +46,22 @@ mod handlers {
         let signer = FromRegisterSignerAdapter::adapt(register_signer_message);
 
         match signer_registerer.register_signer(&signer).await {
-            Ok(()) => Ok(reply::empty(StatusCode::CREATED)),
+            Ok(()) => {
+                let _ = event_transmitter.send_event_message(
+                    "HTTP::signer_register",
+                    "register_signer",
+                    &signer,
+                );
+
+                Ok(reply::empty(StatusCode::CREATED))
+            }
             Err(SignerRegistrationError::ExistingSigner()) => {
                 debug!("register_signer::already_registered");
+                let _ = event_transmitter.send_event_message(
+                    "HTTP::signer_register",
+                    "register_signer",
+                    &signer,
+                );
                 Ok(reply::empty(StatusCode::CREATED))
             }
             Err(SignerRegistrationError::Codec(err)) => {

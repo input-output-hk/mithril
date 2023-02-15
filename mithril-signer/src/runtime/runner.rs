@@ -461,7 +461,10 @@ mod tests {
         crypto_helper::ProtocolInitializer,
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
         entities::{Epoch, StakeDistribution},
-        era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader, EraReaderAdapterType},
+        era::{
+            adapters::{EraReaderAdapterType, EraReaderBootstrapAdapter},
+            EraChecker, EraReader,
+        },
         store::{
             adapter::{DumbStoreAdapter, MemoryAdapter},
             StakeStore, StakeStorer,

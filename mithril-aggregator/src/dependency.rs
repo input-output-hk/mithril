@@ -275,7 +275,10 @@ pub mod tests {
         chain_observer::FakeObserver,
         crypto_helper::{key_encode_hex, ProtocolGenesisSigner},
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
-        era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader, EraReaderAdapterType},
+        era::{
+            adapters::{EraReaderAdapterType, EraReaderBootstrapAdapter},
+            EraChecker, EraReader,
+        },
         store::{adapter::MemoryAdapter, StakeStore},
         test_utils::fake_data,
         BeaconProvider, BeaconProviderImpl, CardanoNetwork,

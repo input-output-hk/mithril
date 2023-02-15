@@ -1,7 +1,9 @@
 use mithril_common::digesters::ImmutableFileObserver;
 use mithril_common::entities::SignerWithStake;
-use mithril_common::era::EraReaderAdapterType;
-use mithril_common::era::{adapters::EraReaderBootstrapAdapter, EraChecker, EraReader};
+use mithril_common::era::{
+    adapters::{EraReaderAdapterType, EraReaderBootstrapAdapter},
+    EraChecker, EraReader,
+};
 use mithril_common::BeaconProvider;
 use slog::Drain;
 use slog_scope::debug;

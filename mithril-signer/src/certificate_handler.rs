@@ -332,13 +332,13 @@ pub(crate) mod dumb {
 mod tests {
     use super::*;
     use httpmock::prelude::*;
-    use mithril_common::{entities::ClientError, era::EraReaderAdapterType};
+    use mithril_common::entities::ClientError;
     use serde_json::json;
     use std::path::{Path, PathBuf};
 
-    use mithril_common::test_utils::fake_data;
-
     use crate::configuration::Configuration;
+    use mithril_common::era::adapters::EraReaderAdapterType;
+    use mithril_common::test_utils::fake_data;
 
     fn setup_test() -> (MockServer, Configuration) {
         let server = MockServer::start();
