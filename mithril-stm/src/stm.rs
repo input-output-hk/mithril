@@ -106,7 +106,7 @@
 //! # }
 //! ```
 
-use crate::dense_mapping::ev_lt_phi;
+use crate::eligibility_check::ev_lt_phi;
 use crate::error::{
     AggregationError, RegisterError, StmAggregateSignatureError, StmSignatureError,
 };

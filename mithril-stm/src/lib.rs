@@ -2,7 +2,7 @@
 #![doc = include_str!("../README.md")]
 //! Implementation of Stake-based Threshold Multisignatures
 
-mod dense_mapping;
+mod eligibility_check;
 mod error;
 pub mod key_reg;
 mod merkle_tree;
