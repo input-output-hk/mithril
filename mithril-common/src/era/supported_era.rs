@@ -1,4 +1,4 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumIter, EnumString};
 
@@ -6,7 +6,9 @@ use strum_macros::{Display, EnumIter, EnumString};
 pub type UnsupportedEraError = strum::ParseError;
 
 /// The era that the software is running or will run
-#[derive(Display, EnumString, EnumIter, Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(
+    Display, EnumString, EnumIter, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize,
+)]
 #[strum(serialize_all = "lowercase")]
 pub enum SupportedEra {
     /// Thales era

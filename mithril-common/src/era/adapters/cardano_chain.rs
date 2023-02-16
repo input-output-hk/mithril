@@ -4,6 +4,7 @@ use crate::{
         key_decode_hex, EraMarkersSigner, EraMarkersVerifier, EraMarkersVerifierSignature,
         EraMarkersVerifierVerificationKey,
     },
+    entities::HexEncodedEraMarkersSignature,
     era::{EraMarker, EraReaderAdapter},
 };
 use async_trait::async_trait;
@@ -14,8 +15,6 @@ use std::sync::Arc;
 use thiserror::Error;
 
 type GeneralError = Box<dyn StdError + Sync + Send>;
-
-type HexEncodeEraMarkerSignature = String;
 
 /// [EraMarkersPayload] related errors.
 #[derive(Debug, Error)]
@@ -44,8 +43,11 @@ pub enum EraMarkersPayloadError {
 /// Era markers payload
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EraMarkersPayload {
-    markers: Vec<EraMarker>,
-    signature: Option<HexEncodeEraMarkerSignature>,
+    /// List of Era markers
+    pub markers: Vec<EraMarker>,
+
+    /// Era markers signature
+    pub signature: Option<HexEncodedEraMarkersSignature>,
 }
 
 impl EraMarkersPayload {
@@ -79,7 +81,6 @@ impl EraMarkersPayload {
     }
 
     /// Sign an era markers payload
-    #[allow(dead_code)]
     pub fn sign(self, signer: &EraMarkersSigner) -> Result<Self, EraMarkersPayloadError> {
         let signature = signer
             .sign(
