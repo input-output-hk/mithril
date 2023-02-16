@@ -7,7 +7,7 @@ use thiserror::Error;
 use mithril_common::{
     entities::{CertificatePending, EpochSettings, Signer, SingleSignatures},
     messages::{CertificatePendingMessage, EpochSettingsMessage},
-    MITHRIL_API_VERSION, MITHRIL_API_VERSION_HEADER,
+    MITHRIL_API_VERSION, MITHRIL_API_VERSION_HEADER, MITHRIL_SIGNER_VERSION_HEADER,
 };
 
 #[cfg(test)]
@@ -94,7 +94,9 @@ impl CertificateHandlerHTTPClient {
 
     /// Forge a client request adding protocol version in the headers.
     pub fn prepare_request_builder(&self, request_builder: RequestBuilder) -> RequestBuilder {
-        request_builder.header(MITHRIL_API_VERSION_HEADER, MITHRIL_API_VERSION)
+        request_builder
+            .header(MITHRIL_API_VERSION_HEADER, MITHRIL_API_VERSION)
+            .header(MITHRIL_SIGNER_VERSION_HEADER, env!("CARGO_PKG_VERSION"))
     }
 
     /// API version error handling

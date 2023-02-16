@@ -3,6 +3,8 @@ use crate::DependencyManager;
 use std::sync::Arc;
 use warp::Filter;
 
+const MITHRIL_SIGNER_VERSION_HEADER: &str = "signer-node-version";
+
 pub fn routes(
     dependency_manager: Arc<DependencyManager>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
@@ -15,7 +17,9 @@ fn register_signer(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("register-signer")
         .and(warp::post())
-        .and(warp::header::optional::<String>("signer-node-version"))
+        .and(warp::header::optional::<String>(
+            MITHRIL_SIGNER_VERSION_HEADER,
+        ))
         .and(warp::body::json())
         .and(middlewares::with_signer_registerer(
             dependency_manager.clone(),
