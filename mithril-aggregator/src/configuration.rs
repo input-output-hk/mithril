@@ -1,7 +1,7 @@
 use config::{ConfigError, Map, Source, Value, ValueKind};
 use mithril_common::chain_observer::ChainObserver;
-use mithril_common::era::adapters::EraReaderAdapterBuilder;
-use mithril_common::era::{EraReaderAdapter, EraReaderAdapterType};
+use mithril_common::era::adapters::{EraReaderAdapterBuilder, EraReaderAdapterType};
+use mithril_common::era::EraReaderAdapter;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::path::PathBuf;

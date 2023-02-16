@@ -21,7 +21,7 @@ pub enum EraMarkersVerifierError {
     SignatureVerification(#[from] SignatureError),
 }
 
-/// A cryptographic signer that is responsible for signing the [EreMarker]s
+/// A cryptographic signer that is responsible for signing the EreMarkers
 #[derive(Debug, Serialize, Deserialize)]
 pub struct EraMarkersSigner {
     pub(crate) secret_key: EraMarkersVerifierSecretKey,

@@ -3,6 +3,8 @@ use crate::DependencyManager;
 use std::sync::Arc;
 use warp::Filter;
 
+const MITHRIL_SIGNER_VERSION_HEADER: &str = "signer-node-version";
+
 pub fn routes(
     dependency_manager: Arc<DependencyManager>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
@@ -15,12 +17,19 @@ fn register_signer(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("register-signer")
         .and(warp::post())
+        .and(warp::header::optional::<String>(
+            MITHRIL_SIGNER_VERSION_HEADER,
+        ))
         .and(warp::body::json())
-        .and(middlewares::with_signer_registerer(dependency_manager))
+        .and(middlewares::with_signer_registerer(
+            dependency_manager.clone(),
+        ))
+        .and(middlewares::with_event_transmitter(dependency_manager))
         .and_then(handlers::register_signer)
 }
 
 mod handlers {
+    use crate::event_store::{EventMessage, TransmitterService};
     use crate::FromRegisterSignerAdapter;
     use crate::{http_server::routes::reply, SignerRegisterer, SignerRegistrationError};
     use mithril_common::messages::RegisterSignerMessage;
@@ -31,19 +40,40 @@ mod handlers {
 
     /// Register Signer
     pub async fn register_signer(
+        signer_node_version: Option<String>,
         register_signer_message: RegisterSignerMessage,
         signer_registerer: Arc<dyn SignerRegisterer>,
+        event_transmitter: Arc<TransmitterService<EventMessage>>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!(
             "⇄ HTTP SERVER: register_signer/{:?}",
             register_signer_message
         );
         let signer = FromRegisterSignerAdapter::adapt(register_signer_message);
+        let headers: Vec<(&str, &str)> = match signer_node_version.as_ref() {
+            Some(version) => vec![("signer-node-version", version)],
+            None => Vec::new(),
+        };
 
         match signer_registerer.register_signer(&signer).await {
-            Ok(()) => Ok(reply::empty(StatusCode::CREATED)),
+            Ok(()) => {
+                let _ = event_transmitter.send_event_message(
+                    "HTTP::signer_register",
+                    "register_signer",
+                    &signer,
+                    headers,
+                );
+
+                Ok(reply::empty(StatusCode::CREATED))
+            }
             Err(SignerRegistrationError::ExistingSigner()) => {
                 debug!("register_signer::already_registered");
+                let _ = event_transmitter.send_event_message(
+                    "HTTP::signer_register",
+                    "register_signer",
+                    &signer,
+                    headers,
+                );
                 Ok(reply::empty(StatusCode::CREATED))
             }
             Err(SignerRegistrationError::Codec(err)) => {

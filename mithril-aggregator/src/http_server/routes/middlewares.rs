@@ -1,3 +1,4 @@
+use crate::event_store::{EventMessage, TransmitterService};
 use crate::{
     dependency::MultiSignerWrapper, CertificatePendingStore, CertificateStore, Configuration,
     DependencyManager, ProtocolParametersStore, SignerRegisterer, SnapshotStore,
@@ -53,4 +54,11 @@ pub fn with_config(
     dependency_manager: Arc<DependencyManager>,
 ) -> impl Filter<Extract = (Configuration,), Error = Infallible> + Clone {
     warp::any().map(move || dependency_manager.config.clone())
+}
+
+/// With Event transmitter middleware
+pub fn with_event_transmitter(
+    dependency_manager: Arc<DependencyManager>,
+) -> impl Filter<Extract = (Arc<TransmitterService<EventMessage>>,), Error = Infallible> + Clone {
+    warp::any().map(move || dependency_manager.event_transmitter.clone())
 }

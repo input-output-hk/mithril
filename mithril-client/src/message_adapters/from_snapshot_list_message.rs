@@ -1,7 +1,7 @@
 use mithril_common::entities::Snapshot;
 use mithril_common::messages::SnapshotListMessage;
 
-/// Adapter to convert [SnapshotListMessage] to [SnapshotList] instances
+/// Adapter to convert [SnapshotListMessage] to SnapshotList instances
 pub struct FromSnapshotListMessageAdapter;
 
 impl FromSnapshotListMessageAdapter {

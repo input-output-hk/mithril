@@ -3,7 +3,6 @@ use chrono::Utc;
 use mithril_common::entities::Epoch;
 use mithril_common::entities::PartyId;
 use mithril_common::store::StakeStorer;
-use serde::Serialize;
 use slog_scope::{debug, info, warn};
 use std::path::Path;
 use std::path::PathBuf;
@@ -15,7 +14,6 @@ use mithril_common::entities::{
 };
 use mithril_common::CardanoNetwork;
 
-use crate::event_store::EventMessage;
 use crate::runtime::WorkingCertificate;
 use crate::snapshot_uploaders::SnapshotLocation;
 use crate::snapshotter::OngoingSnapshot;
@@ -194,36 +192,6 @@ impl AggregatorRunner {
             (None, Some(last_certificate)) => Ok(&last_certificate.hash),
             _ => Ok(""),
         }
-    }
-
-    #[allow(dead_code)]
-    fn send_event_message<T>(&self, source: &str, action: &str, content: &T) -> Result<(), String>
-    where
-        T: Serialize,
-    {
-        let content = serde_json::to_string(content).map_err(|e| {
-            let error_msg = format!("Serialization error while forging event message: {e}");
-            warn!("Event message error => «{error_msg}»");
-
-            error_msg
-        })?;
-        let message = EventMessage {
-            source: source.to_string(),
-            action: action.to_string(),
-            content,
-        };
-        self.dependencies
-            .event_transmitter
-            .get_transmitter()
-            .send(message.clone())
-            .map_err(|e| {
-                let error_msg = format!(
-                    "An error occured when sending message {message:?} to monitoring: '{e}'."
-                );
-                warn!("Event message error => «{error_msg}»");
-
-                error_msg
-            })
     }
 }
 

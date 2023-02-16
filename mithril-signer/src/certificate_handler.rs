@@ -7,7 +7,7 @@ use thiserror::Error;
 use mithril_common::{
     entities::{CertificatePending, EpochSettings, Signer, SingleSignatures},
     messages::{CertificatePendingMessage, EpochSettingsMessage},
-    MITHRIL_API_VERSION, MITHRIL_API_VERSION_HEADER,
+    MITHRIL_API_VERSION, MITHRIL_API_VERSION_HEADER, MITHRIL_SIGNER_VERSION_HEADER,
 };
 
 #[cfg(test)]
@@ -94,7 +94,9 @@ impl CertificateHandlerHTTPClient {
 
     /// Forge a client request adding protocol version in the headers.
     pub fn prepare_request_builder(&self, request_builder: RequestBuilder) -> RequestBuilder {
-        request_builder.header(MITHRIL_API_VERSION_HEADER, MITHRIL_API_VERSION)
+        request_builder
+            .header(MITHRIL_API_VERSION_HEADER, MITHRIL_API_VERSION)
+            .header(MITHRIL_SIGNER_VERSION_HEADER, env!("CARGO_PKG_VERSION"))
     }
 
     /// API version error handling
@@ -332,13 +334,13 @@ pub(crate) mod dumb {
 mod tests {
     use super::*;
     use httpmock::prelude::*;
-    use mithril_common::{entities::ClientError, era::EraReaderAdapterType};
+    use mithril_common::entities::ClientError;
     use serde_json::json;
     use std::path::{Path, PathBuf};
 
-    use mithril_common::test_utils::fake_data;
-
     use crate::configuration::Configuration;
+    use mithril_common::era::adapters::EraReaderAdapterType;
+    use mithril_common::test_utils::fake_data;
 
     fn setup_test() -> (MockServer, Configuration) {
         let server = MockServer::start();

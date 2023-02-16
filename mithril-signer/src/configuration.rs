@@ -5,7 +5,10 @@ use std::{error::Error, path::PathBuf, sync::Arc};
 use mithril_common::{
     chain_observer::ChainObserver,
     entities::PartyId,
-    era::{adapters::EraReaderAdapterBuilder, EraReaderAdapter, EraReaderAdapterType},
+    era::{
+        adapters::{EraReaderAdapterBuilder, EraReaderAdapterType},
+        EraReaderAdapter,
+    },
     CardanoNetwork,
 };
 
