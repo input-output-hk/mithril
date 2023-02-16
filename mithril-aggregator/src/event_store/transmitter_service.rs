@@ -40,6 +40,7 @@ impl TransmitterService<EventMessage> {
         source: &str,
         action: &str,
         content: &T,
+        headers: Vec<(&str, &str)>,
     ) -> Result<(), String>
     where
         T: Serialize,
@@ -54,6 +55,10 @@ impl TransmitterService<EventMessage> {
             source: source.to_string(),
             action: action.to_string(),
             content,
+            headers: headers
+                .into_iter()
+                .map(|(h, v)| (h.to_string(), v.to_string()))
+                .collect(),
         };
         self.get_transmitter().send(message.clone()).map_err(|e| {
             let error_msg =

@@ -15,6 +15,7 @@ fn register_signer(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("register-signer")
         .and(warp::post())
+        .and(warp::header::optional::<String>("signer-node-version"))
         .and(warp::body::json())
         .and(middlewares::with_signer_registerer(
             dependency_manager.clone(),
@@ -35,6 +36,7 @@ mod handlers {
 
     /// Register Signer
     pub async fn register_signer(
+        signer_node_version: Option<String>,
         register_signer_message: RegisterSignerMessage,
         signer_registerer: Arc<dyn SignerRegisterer>,
         event_transmitter: Arc<TransmitterService<EventMessage>>,
@@ -44,6 +46,10 @@ mod handlers {
             register_signer_message
         );
         let signer = FromRegisterSignerAdapter::adapt(register_signer_message);
+        let headers: Vec<(&str, &str)> = match signer_node_version.as_ref() {
+            Some(version) => vec![("signer-node-version", version)],
+            None => Vec::new(),
+        };
 
         match signer_registerer.register_signer(&signer).await {
             Ok(()) => {
@@ -51,6 +57,7 @@ mod handlers {
                     "HTTP::signer_register",
                     "register_signer",
                     &signer,
+                    headers,
                 );
 
                 Ok(reply::empty(StatusCode::CREATED))
@@ -61,6 +68,7 @@ mod handlers {
                     "HTTP::signer_register",
                     "register_signer",
                     &signer,
+                    headers,
                 );
                 Ok(reply::empty(StatusCode::CREATED))
             }

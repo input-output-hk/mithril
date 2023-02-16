@@ -20,6 +20,9 @@ pub struct EventMessage {
 
     /// JSON content of the message, its type is declared in the action property.
     pub content: String,
+
+    /// Headers
+    pub headers: HashMap<String, String>,
 }
 
 impl EventMessage {
@@ -29,7 +32,15 @@ impl EventMessage {
             source: source.to_string(),
             action: action.to_string(),
             content: content.to_string(),
+            headers: HashMap::new(),
         }
+    }
+
+    /// forge a new instance adding the given header
+    pub fn add_header(mut self, name: &str, value: &str) -> Self {
+        let _ = self.headers.insert(name.to_owned(), value.to_owned());
+
+        self
     }
 }
 
@@ -156,7 +167,11 @@ impl EventPersister {
             &[
                 sqlite::Value::String(message.source),
                 sqlite::Value::String(message.action),
-                sqlite::Value::String(message.content),
+                sqlite::Value::String(format!(
+                    r#"{{"headers": {}, "content": {}}}"#,
+                    serde_json::to_string(&message.headers)?,
+                    message.content
+                )),
             ],
         )?;
 
