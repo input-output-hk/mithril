@@ -44,6 +44,8 @@ sha2 = "0.10.2"
 slog = { version = "2.7.0", features = ["max_level_trace", "release_max_level_debug"] }
 slog-scope = "4.4.0"
 sqlite = "0.28"
+strum = "0.24.1"
+strum_macros = "0.24.1"
 thiserror = "1.0.31"
 tokio = { version = "1.17.0", features = ["full"] }
 walkdir = "2"
