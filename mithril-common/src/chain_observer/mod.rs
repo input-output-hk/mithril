@@ -10,4 +10,6 @@ pub use cli_observer::{CardanoCliChainObserver, CardanoCliRunner};
 #[cfg(any(test, feature = "test_only"))]
 pub use fake_observer::FakeObserver;
 pub use interface::{ChainObserver, ChainObserverError};
-pub use model::{ChainAddress, TxDatum};
+pub use model::{
+    ChainAddress, TxDatum, TxDatumBuilder, TxDatumError, TxDatumFieldTypeName, TxDatumFieldValue,
+};

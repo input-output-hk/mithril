@@ -1,5 +1,5 @@
 use crate::{
-    chain_observer::{ChainAddress, ChainObserver},
+    chain_observer::{ChainAddress, ChainObserver, TxDatumFieldTypeName},
     crypto_helper::{
         key_decode_hex, EraMarkersSigner, EraMarkersVerifier, EraMarkersVerifierSignature,
         EraMarkersVerifierVerificationKey,
@@ -127,7 +127,11 @@ impl EraReaderAdapter for CardanoChainAdapter {
             .await?;
         let markers_list = tx_datums
             .into_iter()
-            .filter_map(|datum| datum.get_nth_field_by_type("bytes", 0).ok())
+            .filter_map(|datum| {
+                datum
+                    .get_nth_field_by_type(&TxDatumFieldTypeName::Bytes, 0)
+                    .ok()
+            })
             .filter_map(|field_value| field_value.as_str().map(|s| s.to_string()))
             .filter_map(|field_value_str| key_decode_hex(&field_value_str).ok())
             .filter_map(|era_markers_payload: EraMarkersPayload| {
@@ -144,7 +148,7 @@ impl EraReaderAdapter for CardanoChainAdapter {
 
 #[cfg(test)]
 mod test {
-    use crate::chain_observer::{FakeObserver, TxDatum};
+    use crate::chain_observer::{FakeObserver, TxDatum, TxDatumBuilder, TxDatumFieldValue};
     use crate::crypto_helper::{key_encode_hex, EraMarkersSigner};
     use crate::entities::Epoch;
 
@@ -154,10 +158,13 @@ mod test {
         payloads
             .into_iter()
             .map(|payload| {
-                TxDatum(format!(
-                    "{{\"constructor\":0,\"fields\":[{{\"bytes\":\"{}\"}}]}}",
-                    key_encode_hex(payload).unwrap()
-                ))
+                TxDatumBuilder::new()
+                    .add_field(
+                        TxDatumFieldTypeName::Bytes,
+                        TxDatumFieldValue::Bytes(key_encode_hex(payload).unwrap()),
+                    )
+                    .build()
+                    .unwrap()
             })
             .collect()
     }
