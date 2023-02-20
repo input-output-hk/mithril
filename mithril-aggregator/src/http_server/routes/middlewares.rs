@@ -3,6 +3,7 @@ use crate::{
     dependency::MultiSignerWrapper, CertificatePendingStore, CertificateStore, Configuration,
     DependencyManager, ProtocolParametersStore, SignerRegisterer, SnapshotStore,
 };
+use mithril_common::BeaconProvider;
 use std::convert::Infallible;
 use std::sync::Arc;
 use warp::Filter;
@@ -61,4 +62,11 @@ pub fn with_event_transmitter(
     dependency_manager: Arc<DependencyManager>,
 ) -> impl Filter<Extract = (Arc<TransmitterService<EventMessage>>,), Error = Infallible> + Clone {
     warp::any().map(move || dependency_manager.event_transmitter.clone())
+}
+
+/// With round_opener middleware
+pub fn with_beacon_provider(
+    dependency_manager: Arc<DependencyManager>,
+) -> impl Filter<Extract = (Arc<dyn BeaconProvider>,), Error = Infallible> + Clone {
+    warp::any().map(move || dependency_manager.beacon_provider.clone())
 }

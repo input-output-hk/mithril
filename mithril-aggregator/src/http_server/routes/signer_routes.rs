@@ -24,7 +24,10 @@ fn register_signer(
         .and(middlewares::with_signer_registerer(
             dependency_manager.clone(),
         ))
-        .and(middlewares::with_event_transmitter(dependency_manager))
+        .and(middlewares::with_event_transmitter(
+            dependency_manager.clone(),
+        ))
+        .and(middlewares::with_beacon_provider(dependency_manager))
         .and_then(handlers::register_signer)
 }
 
@@ -33,6 +36,7 @@ mod handlers {
     use crate::FromRegisterSignerAdapter;
     use crate::{http_server::routes::reply, SignerRegisterer, SignerRegistrationError};
     use mithril_common::messages::RegisterSignerMessage;
+    use mithril_common::BeaconProvider;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
@@ -44,17 +48,26 @@ mod handlers {
         register_signer_message: RegisterSignerMessage,
         signer_registerer: Arc<dyn SignerRegisterer>,
         event_transmitter: Arc<TransmitterService<EventMessage>>,
+        beacon_provider: Arc<dyn BeaconProvider>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!(
             "⇄ HTTP SERVER: register_signer/{:?}",
             register_signer_message
         );
         let signer = FromRegisterSignerAdapter::adapt(register_signer_message);
-        let headers: Vec<(&str, &str)> = match signer_node_version.as_ref() {
+        let mut headers: Vec<(&str, &str)> = match signer_node_version.as_ref() {
             Some(version) => vec![("signer-node-version", version)],
             None => Vec::new(),
         };
+        let epoch_str = if let Some(beacon) = beacon_provider.get_current_beacon().await.ok() {
+            format!("{}", beacon.epoch)
+        } else {
+            String::new()
+        };
 
+        if epoch_str.len() > 0 {
+            headers.push(("epoch", epoch_str.as_str()));
+        }
         match signer_registerer.register_signer(&signer).await {
             Ok(signer_with_stake) => {
                 let _ = event_transmitter.send_event_message(
