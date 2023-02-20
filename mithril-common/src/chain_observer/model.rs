@@ -1,7 +1,7 @@
 use serde::Serialize;
 use serde_json::Value;
 use std::{collections::HashMap, error::Error as StdError};
-use strum_macros::Display;
+use strum_macros::{Display, EnumDiscriminants};
 use thiserror::Error;
 
 /// [ChainAddress] represents an on chain address.
@@ -67,21 +67,13 @@ impl TxDatum {
     }
 }
 
-/// [TxDatumFieldTypeName] represents a fiel type name of TxDatum.
-#[derive(Debug, Serialize, Hash, PartialEq, Eq, Display)]
-#[serde(rename_all = "lowercase")]
-#[strum(serialize_all = "lowercase")]
-pub enum TxDatumFieldTypeName {
-    /// Bytes datum field type name.
-    Bytes,
-    /// Integer datum field type name
-    #[allow(dead_code)]
-    Int,
-}
-
 /// [TxDatumFieldValue] represents a fiel value of TxDatum.
-#[derive(Debug, Serialize)]
+#[derive(Debug, EnumDiscriminants, Serialize, Display)]
 #[serde(untagged)]
+#[strum(serialize_all = "lowercase")]
+#[strum_discriminants(derive(Serialize, Hash, Display))]
+#[strum_discriminants(name(TxDatumFieldTypeName))]
+#[strum_discriminants(strum(serialize_all = "lowercase"))]
 pub enum TxDatumFieldValue {
     /// Bytes datum field value.
     Bytes(String),
@@ -94,7 +86,7 @@ pub enum TxDatumFieldValue {
 #[derive(Debug, Serialize)]
 pub struct TxDatumBuilder {
     constructor: usize,
-    fields: Vec<HashMap<TxDatumFieldTypeName, TxDatumFieldValue>>,
+    fields: Vec<HashMap<String, TxDatumFieldValue>>,
 }
 
 impl TxDatumBuilder {
@@ -107,13 +99,12 @@ impl TxDatumBuilder {
     }
 
     /// Add a field to the builder
-    pub fn add_field(
-        &mut self,
-        field_type: TxDatumFieldTypeName,
-        field_value: TxDatumFieldValue,
-    ) -> &mut TxDatumBuilder {
+    pub fn add_field(&mut self, field_value: TxDatumFieldValue) -> &mut TxDatumBuilder {
         let mut field = HashMap::new();
-        field.insert(field_type, field_value);
+        field.insert(
+            TxDatumFieldTypeName::from(&field_value).to_string(),
+            field_value,
+        );
         self.fields.push(field);
 
         self
@@ -140,21 +131,12 @@ mod test {
     fn dummy_tx_datum() -> TxDatum {
         let mut tx_datum_builder = TxDatumBuilder::new();
         let tx_datum = tx_datum_builder
-            .add_field(
-                TxDatumFieldTypeName::Bytes,
-                TxDatumFieldValue::Bytes("bytes0".to_string()),
-            )
-            .add_field(TxDatumFieldTypeName::Int, TxDatumFieldValue::Int(0))
-            .add_field(TxDatumFieldTypeName::Int, TxDatumFieldValue::Int(1))
-            .add_field(
-                TxDatumFieldTypeName::Bytes,
-                TxDatumFieldValue::Bytes("bytes1".to_string()),
-            )
-            .add_field(
-                TxDatumFieldTypeName::Bytes,
-                TxDatumFieldValue::Bytes("bytes2".to_string()),
-            )
-            .add_field(TxDatumFieldTypeName::Int, TxDatumFieldValue::Int(2))
+            .add_field(TxDatumFieldValue::Bytes("bytes0".to_string()))
+            .add_field(TxDatumFieldValue::Int(0))
+            .add_field(TxDatumFieldValue::Int(1))
+            .add_field(TxDatumFieldValue::Bytes("bytes1".to_string()))
+            .add_field(TxDatumFieldValue::Bytes("bytes2".to_string()))
+            .add_field(TxDatumFieldValue::Int(2))
             .build()
             .expect("tx_datum build should not fail");
         tx_datum

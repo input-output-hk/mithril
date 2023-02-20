@@ -160,10 +160,7 @@ mod test {
             .into_iter()
             .map(|payload| {
                 TxDatumBuilder::new()
-                    .add_field(
-                        TxDatumFieldTypeName::Bytes,
-                        TxDatumFieldValue::Bytes(key_encode_hex(payload).unwrap()),
-                    )
+                    .add_field(TxDatumFieldValue::Bytes(key_encode_hex(payload).unwrap()))
                     .build()
                     .unwrap()
             })
