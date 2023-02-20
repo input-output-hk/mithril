@@ -1,18 +1,13 @@
-use std::{error::Error, sync::Arc};
+use std::error::Error;
 
 use mithril_common::{
     chain_observer::{TxDatumBuilder, TxDatumFieldValue},
-    crypto_helper::{key_encode_hex, EraMarkersSigner, EraMarkersVerifier},
+    crypto_helper::{key_encode_hex, EraMarkersSigner},
     entities::Epoch,
     era::{adapters::EraMarkersPayloadCardanoChain, EraMarker, SupportedEra},
 };
 
 type EraToolsResult<R> = Result<R, Box<dyn Error>>;
-
-pub struct EraToolsDependency {
-    /// Era markers signature verifier service.
-    pub era_markers_verifier: Option<Arc<EraMarkersVerifier>>,
-}
 
 pub struct EraTools {}
 
@@ -21,16 +16,12 @@ impl EraTools {
         Self {}
     }
 
-    pub async fn from_dependencies(_dependencies: EraToolsDependency) -> EraToolsResult<Self> {
-        Ok(Self::new())
-    }
-
     /// Get list of supported eras
-    pub fn get_supported_eras_list(&self) -> EraToolsResult<String> {
-        Ok(serde_json::to_string(&SupportedEra::eras())?)
+    pub fn get_supported_eras_list(&self) -> EraToolsResult<Vec<SupportedEra>> {
+        Ok(SupportedEra::eras())
     }
 
-    /// Generate TxDatum for eras
+    /// Generate TxDatum for eras with sanity check of epochs
     pub fn generate_tx_datum(
         &self,
         current_era_epoch: Epoch,
@@ -78,12 +69,9 @@ mod tests {
     #[test]
     fn get_supported_eras_list() {
         let era_tools = build_tools();
-        let supported_eras_list_serialized = era_tools
+        let supported_eras_list = era_tools
             .get_supported_eras_list()
             .expect("get_supported_eras_list should not fail");
-        let supported_eras_list: Vec<SupportedEra> =
-            serde_json::from_str(&supported_eras_list_serialized)
-                .expect("supported_eras_list_serialized should be a valid JSON");
         assert_eq!(supported_eras_list, SupportedEra::eras());
     }
 

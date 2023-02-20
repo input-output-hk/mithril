@@ -71,7 +71,7 @@ impl TxDatum {
 #[derive(Debug, EnumDiscriminants, Serialize, Display)]
 #[serde(untagged)]
 #[strum(serialize_all = "lowercase")]
-#[strum_discriminants(derive(Serialize, Hash, Display))]
+#[strum_discriminants(derive(Serialize, Display))]
 #[strum_discriminants(name(TxDatumFieldTypeName))]
 #[strum_discriminants(strum(serialize_all = "lowercase"))]
 pub enum TxDatumFieldValue {
@@ -145,7 +145,7 @@ mod test {
     #[test]
     fn test_build_tx_datum() {
         let tx_datum = dummy_tx_datum();
-        let tx_datum_expected = TxDatum("{\"constructor\":0,\"fields\":[{\"bytes\":\"bytes0\"},{\"int\":0},{\"int\":1},{\"bytes\":\"bytes1\"},{\"bytes\":\"bytes2\"},{\"int\":2}]}".to_string());
+        let tx_datum_expected = TxDatum(r#"{"constructor":0,"fields":[{"bytes":"bytes0"},{"int":0},{"int":1},{"bytes":"bytes1"},{"bytes":"bytes2"},{"int":2}]}"#.to_string());
         assert_eq!(tx_datum_expected, tx_datum);
     }
 

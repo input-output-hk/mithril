@@ -23,9 +23,8 @@ use mithril_common::{
 };
 
 use crate::{
-    configuration::EraConfiguration,
     event_store::{self, TransmitterService},
-    tools::{EraTools, EraToolsDependency, GenesisTools, GenesisToolsDependency},
+    tools::{EraTools, GenesisTools, GenesisToolsDependency},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
     CertificateStore, Configuration, DefaultConfiguration, DependencyManager, GenesisConfiguration,
     GzipSnapshotter, MithrilSignerRegisterer, MultiSignerImpl, ProtocolParametersStore,
@@ -99,16 +98,6 @@ fn setup_genesis_dependencies(
         genesis_verifier,
         protocol_parameters_store,
         multi_signer,
-    };
-
-    Ok(dependencies)
-}
-
-fn setup_era_dependencies(
-    _config: &EraConfiguration,
-) -> Result<EraToolsDependency, Box<dyn std::error::Error>> {
-    let dependencies = EraToolsDependency {
-        era_markers_verifier: None,
     };
 
     Ok(dependencies)
@@ -707,22 +696,27 @@ impl EraSubCommand {
 
 /// Era list command
 #[derive(Parser, Debug, Clone)]
-pub struct ListEraSubCommand {}
+pub struct ListEraSubCommand {
+    /// Enable JSON output.
+    #[clap(long)]
+    json: bool,
+}
 
 impl ListEraSubCommand {
     pub async fn execute(
         &self,
-        config_builder: ConfigBuilder<DefaultState>,
+        _config_builder: ConfigBuilder<DefaultState>,
     ) -> Result<(), Box<dyn Error>> {
-        let config: EraConfiguration = config_builder
-            .build()
-            .map_err(|e| format!("configuration build error: {e}"))?
-            .try_deserialize()
-            .map_err(|e| format!("configuration deserialize error: {e}"))?;
-        debug!("LIST ERA command"; "config" => format!("{config:?}"));
-        let dependencies = setup_era_dependencies(&config)?;
-        let era_tools = EraTools::from_dependencies(dependencies).await?;
-        print!("{}", era_tools.get_supported_eras_list()?);
+        debug!("LIST ERA command");
+        let era_tools = EraTools::new();
+        let eras = era_tools.get_supported_eras_list()?;
+
+        if self.json {
+            println!("{}", serde_json::to_string(&eras)?);
+        } else {
+            println!("Supported Eras:");
+            println!("{eras:#?}");
+        }
 
         Ok(())
     }
@@ -747,16 +741,10 @@ pub struct GenerateTxDatumEraSubCommand {
 impl GenerateTxDatumEraSubCommand {
     pub async fn execute(
         &self,
-        config_builder: ConfigBuilder<DefaultState>,
+        _config_builder: ConfigBuilder<DefaultState>,
     ) -> Result<(), Box<dyn Error>> {
-        let config: EraConfiguration = config_builder
-            .build()
-            .map_err(|e| format!("configuration build error: {e}"))?
-            .try_deserialize()
-            .map_err(|e| format!("configuration deserialize error: {e}"))?;
-        debug!("GENERATE TXDATUM ERA command"; "config" => format!("{config:?}"));
-        let dependencies = setup_era_dependencies(&config)?;
-        let era_tools = EraTools::from_dependencies(dependencies).await?;
+        debug!("GENERATETXDATUM ERA command");
+        let era_tools = EraTools::new();
 
         let era_markers_secret_key = key_decode_hex(&self.era_markers_secret_key)?;
         let era_markers_signer = EraMarkersSigner::from_secret_key(era_markers_secret_key);

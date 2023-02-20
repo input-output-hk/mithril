@@ -244,13 +244,6 @@ impl GenesisConfiguration {
     }
 }
 
-/// Configuration expected for Era commands.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EraConfiguration {
-    /// Era markers verification key
-    pub era_markers_verification_key: Option<String>,
-}
-
 /// Default configuration with all the default values for configurations.
 #[derive(Debug, Clone)]
 pub struct DefaultConfiguration {
