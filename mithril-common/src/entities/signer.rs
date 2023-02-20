@@ -129,6 +129,18 @@ impl SignerWithStake {
         }
     }
 
+    /// Turn a [Signer] into a [SignerWithStake].
+    pub fn from_signer(signer: Signer, stake: Stake) -> Self {
+        Self {
+            party_id: signer.party_id,
+            verification_key: signer.verification_key,
+            verification_key_signature: signer.verification_key_signature,
+            operational_certificate: signer.operational_certificate,
+            kes_period: signer.kes_period,
+            stake,
+        }
+    }
+
     /// Computes the hash of SignerWithStake
     pub fn compute_hash(&self) -> String {
         let mut hasher = Sha256::new();

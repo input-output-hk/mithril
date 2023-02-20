@@ -9,7 +9,7 @@ use mithril_common::{
     crypto_helper::{
         key_decode_hex, KESPeriod, ProtocolKeyRegistration, ProtocolRegistrationError,
     },
-    entities::{Epoch, Signer, StakeDistribution},
+    entities::{Epoch, Signer, SignerWithStake, StakeDistribution},
     store::StoreError,
 };
 
@@ -33,7 +33,7 @@ pub enum SignerRegistrationError {
 
     /// Signer is already registered.
     #[error("signer already registered")]
-    ExistingSigner(),
+    ExistingSigner(SignerWithStake),
 
     /// Store error.
     #[error("store error: {0}")]
@@ -66,7 +66,10 @@ impl SignerRegistrationRound {
 #[async_trait]
 pub trait SignerRegisterer: Sync + Send {
     /// Register a signer
-    async fn register_signer(&self, signer: &Signer) -> Result<(), SignerRegistrationError>;
+    async fn register_signer(
+        &self,
+        signer: &Signer,
+    ) -> Result<SignerWithStake, SignerRegistrationError>;
 }
 
 /// Trait to open a signer registration round
@@ -141,7 +144,10 @@ impl SignerRegistrationRoundOpener for MithrilSignerRegisterer {
 
 #[async_trait]
 impl SignerRegisterer for MithrilSignerRegisterer {
-    async fn register_signer(&self, signer: &Signer) -> Result<(), SignerRegistrationError> {
+    async fn register_signer(
+        &self,
+        signer: &Signer,
+    ) -> Result<SignerWithStake, SignerRegistrationError> {
         let registration_round = self.current_round.read().await;
         let registration_round = registration_round
             .as_ref()
@@ -191,16 +197,22 @@ impl SignerRegisterer for MithrilSignerRegisterer {
             kes_period,
             verification_key,
         )?;
-        let mut signer_save = signer.to_owned();
+        let mut signer_save = SignerWithStake::from_signer(
+            signer.to_owned(),
+            *registration_round
+                .stake_distribution
+                .get(&party_id_save)
+                .unwrap(),
+        );
         signer_save.party_id = party_id_save;
 
         match self
             .verification_key_store
-            .save_verification_key(registration_round.epoch, signer_save)
+            .save_verification_key(registration_round.epoch, signer_save.clone().into())
             .await?
         {
-            Some(_) => Err(SignerRegistrationError::ExistingSigner()),
-            None => Ok(()),
+            Some(_) => Err(SignerRegistrationError::ExistingSigner(signer_save)),
+            None => Ok(signer_save),
         }
     }
 }
