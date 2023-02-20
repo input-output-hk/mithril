@@ -66,7 +66,7 @@ impl SqLiteEntity for Event {
     fn get_projection() -> Projection {
         let mut projection = Projection::default();
         projection.add_field("event_id", "event_id", "int");
-        projection.add_field("created_at", "unixepoch(created_at)", "string");
+        projection.add_field("created_at", "strftime('%s', created_at)", "string");
         projection.add_field("source", "source", "string");
         projection.add_field("action", "action", "string");
         projection.add_field("content", "content", "string");
@@ -191,7 +191,7 @@ mod tests {
         let connection = Connection::open(":memory:").unwrap();
         let provider = EventPersisterProvider::new(&connection);
         assert_eq!(
-            r#"insert into event (source, action, content) values (?1, ?2, ?3) returning event_id as event_id, unixepoch(created_at) as created_at, source as source, action as action, content as content"#,
+            r#"insert into event (source, action, content) values (?1, ?2, ?3) returning event_id as event_id, strftime('%s', created_at) as created_at, source as source, action as action, content as content"#,
             provider.get_definition(None)
         )
     }
