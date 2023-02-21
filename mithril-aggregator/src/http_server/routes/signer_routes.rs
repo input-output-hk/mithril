@@ -24,7 +24,10 @@ fn register_signer(
         .and(middlewares::with_signer_registerer(
             dependency_manager.clone(),
         ))
-        .and(middlewares::with_event_transmitter(dependency_manager))
+        .and(middlewares::with_event_transmitter(
+            dependency_manager.clone(),
+        ))
+        .and(middlewares::with_beacon_provider(dependency_manager))
         .and_then(handlers::register_signer)
 }
 
@@ -33,6 +36,7 @@ mod handlers {
     use crate::FromRegisterSignerAdapter;
     use crate::{http_server::routes::reply, SignerRegisterer, SignerRegistrationError};
     use mithril_common::messages::RegisterSignerMessage;
+    use mithril_common::BeaconProvider;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use std::sync::Arc;
@@ -44,34 +48,43 @@ mod handlers {
         register_signer_message: RegisterSignerMessage,
         signer_registerer: Arc<dyn SignerRegisterer>,
         event_transmitter: Arc<TransmitterService<EventMessage>>,
+        beacon_provider: Arc<dyn BeaconProvider>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!(
             "⇄ HTTP SERVER: register_signer/{:?}",
             register_signer_message
         );
         let signer = FromRegisterSignerAdapter::adapt(register_signer_message);
-        let headers: Vec<(&str, &str)> = match signer_node_version.as_ref() {
+        let mut headers: Vec<(&str, &str)> = match signer_node_version.as_ref() {
             Some(version) => vec![("signer-node-version", version)],
             None => Vec::new(),
         };
+        let epoch_str = if let Ok(beacon) = beacon_provider.get_current_beacon().await {
+            format!("{}", beacon.epoch)
+        } else {
+            String::new()
+        };
 
+        if epoch_str.is_empty() {
+            headers.push(("epoch", epoch_str.as_str()));
+        }
         match signer_registerer.register_signer(&signer).await {
-            Ok(()) => {
+            Ok(signer_with_stake) => {
                 let _ = event_transmitter.send_event_message(
                     "HTTP::signer_register",
                     "register_signer",
-                    &signer,
+                    &signer_with_stake,
                     headers,
                 );
 
                 Ok(reply::empty(StatusCode::CREATED))
             }
-            Err(SignerRegistrationError::ExistingSigner()) => {
+            Err(SignerRegistrationError::ExistingSigner(signer_with_stake)) => {
                 debug!("register_signer::already_registered");
                 let _ = event_transmitter.send_event_message(
                     "HTTP::signer_register",
                     "register_signer",
-                    &signer,
+                    &signer_with_stake,
                     headers,
                 );
                 Ok(reply::empty(StatusCode::CREATED))
@@ -105,6 +118,7 @@ mod tests {
     use mithril_common::crypto_helper::ProtocolRegistrationError;
     use mithril_common::messages::RegisterSignerMessage;
     use mithril_common::test_utils::apispec::APISpec;
+    use mithril_common::test_utils::fake_data;
     use warp::http::Method;
     use warp::test::request;
 
@@ -128,10 +142,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_signer_post_ok() {
+        let signer_with_stake = fake_data::signers_with_stakes(1).pop().unwrap();
         let mut mock_signer_registerer = MockSignerRegisterer::new();
         mock_signer_registerer
             .expect_register_signer()
-            .return_once(|_| Ok(()));
+            .return_once(|_| Ok(signer_with_stake));
         let (mut dependency_manager, _) = initialize_dependencies().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
@@ -158,10 +173,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_signer_post_ok_existing() {
+        let signer_with_stake = fake_data::signers_with_stakes(1).pop().unwrap();
         let mut mock_signer_registerer = MockSignerRegisterer::new();
         mock_signer_registerer
             .expect_register_signer()
-            .return_once(|_| Err(SignerRegistrationError::ExistingSigner()));
+            .return_once(|_| Err(SignerRegistrationError::ExistingSigner(signer_with_stake)));
         let (mut dependency_manager, _) = initialize_dependencies().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
