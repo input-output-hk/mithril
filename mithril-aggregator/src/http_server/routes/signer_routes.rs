@@ -59,13 +59,13 @@ mod handlers {
             Some(version) => vec![("signer-node-version", version)],
             None => Vec::new(),
         };
-        let epoch_str = if let Some(beacon) = beacon_provider.get_current_beacon().await.ok() {
+        let epoch_str = if let Ok(beacon) = beacon_provider.get_current_beacon().await {
             format!("{}", beacon.epoch)
         } else {
             String::new()
         };
 
-        if epoch_str.len() > 0 {
+        if epoch_str.is_empty() {
             headers.push(("epoch", epoch_str.as_str()));
         }
         match signer_registerer.register_signer(&signer).await {
