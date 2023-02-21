@@ -69,11 +69,12 @@ impl TxDatum {
 
 /// [TxDatumFieldValue] represents a fiel value of TxDatum.
 #[derive(Debug, EnumDiscriminants, Serialize, Display)]
-#[serde(untagged)]
+#[serde(untagged, rename_all = "lowercase")]
 #[strum(serialize_all = "lowercase")]
-#[strum_discriminants(derive(Serialize, Display))]
+#[strum_discriminants(derive(Serialize, Hash, Display))]
 #[strum_discriminants(name(TxDatumFieldTypeName))]
 #[strum_discriminants(strum(serialize_all = "lowercase"))]
+#[strum_discriminants(serde(rename_all = "lowercase"))]
 pub enum TxDatumFieldValue {
     /// Bytes datum field value.
     Bytes(String),
@@ -86,7 +87,7 @@ pub enum TxDatumFieldValue {
 #[derive(Debug, Serialize)]
 pub struct TxDatumBuilder {
     constructor: usize,
-    fields: Vec<HashMap<String, TxDatumFieldValue>>,
+    fields: Vec<HashMap<TxDatumFieldTypeName, TxDatumFieldValue>>,
 }
 
 impl TxDatumBuilder {
@@ -101,10 +102,7 @@ impl TxDatumBuilder {
     /// Add a field to the builder
     pub fn add_field(&mut self, field_value: TxDatumFieldValue) -> &mut TxDatumBuilder {
         let mut field = HashMap::new();
-        field.insert(
-            TxDatumFieldTypeName::from(&field_value).to_string(),
-            field_value,
-        );
+        field.insert(TxDatumFieldTypeName::from(&field_value), field_value);
         self.fields.push(field);
 
         self

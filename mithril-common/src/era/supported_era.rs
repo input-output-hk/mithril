@@ -9,6 +9,7 @@ pub type UnsupportedEraError = strum::ParseError;
 #[derive(
     Display, EnumString, EnumIter, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize,
 )]
+#[serde(rename_all = "lowercase")]
 #[strum(serialize_all = "lowercase")]
 pub enum SupportedEra {
     /// Thales era
