@@ -1,75 +1,50 @@
-use std::str::FromStr;
+use serde::{Deserialize, Serialize};
+use strum::IntoEnumIterator;
+use strum_macros::{Display, EnumIter, EnumString};
 
-use serde::Deserialize;
-use thiserror::Error;
+/// Error related to [SupportedEra] String parsing implementation.
+pub type UnsupportedEraError = strum::ParseError;
 
 /// The era that the software is running or will run
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(
+    Display, EnumString, EnumIter, Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize,
+)]
+#[strum(serialize_all = "lowercase")]
 pub enum SupportedEra {
     /// Thales era
     Thales,
 }
 
 impl SupportedEra {
+    /// Retrieve the list of supported eras
+    pub fn eras() -> Vec<Self> {
+        Self::iter().collect()
+    }
+
     /// Retrieve a dummy era (for test only)
     #[cfg(any(test, feature = "test_only"))]
     pub fn dummy() -> Self {
-        Self::Thales
-    }
-}
-
-/// Error related to [SupportedEra] String parsing implementation.
-#[derive(Error, Debug)]
-#[error("Unable to transform era '{0}' into a currently supported era.")]
-pub struct UnsupportedEraError(String);
-
-impl FromStr for SupportedEra {
-    type Err = UnsupportedEraError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.trim().to_lowercase();
-
-        let era = match s.as_str() {
-            "thales" => Self::Thales,
-            _ => return Err(UnsupportedEraError(s)),
-        };
-
-        // This is intended to make the compiler to complain when a new variant
-        // is added in order not to forget to add a conversion for the new
-        // variant.
-        match era {
-            Self::Thales => Ok(Self::Thales),
-        }
-    }
-}
-
-impl ToString for SupportedEra {
-    fn to_string(&self) -> String {
-        match self {
-            Self::Thales => "thales".to_owned(),
-        }
+        Self::eras().first().unwrap().to_owned()
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    const ERA_NAME: &str = "thales";
+    use std::str::FromStr;
 
     #[test]
-    fn from_str() {
-        let supported_era =
-            SupportedEra::from_str(ERA_NAME).expect("This era name should be supported.");
+    fn correct_number_of_eras() {
+        let total_eras = SupportedEra::eras().len();
 
-        assert_eq!(SupportedEra::dummy(), supported_era);
+        assert!(total_eras > 0);
+        assert!(total_eras <= 2);
     }
 
     #[test]
-    fn from_bad_str() {
-        let era_name = &format!("  {} ", ERA_NAME.to_ascii_uppercase());
-        let supported_era =
-            SupportedEra::from_str(era_name).expect("This era name should be supported.");
+    fn from_str() {
+        let supported_era = SupportedEra::from_str(&SupportedEra::dummy().to_string())
+            .expect("This era name should be supported.");
 
         assert_eq!(SupportedEra::dummy(), supported_era);
     }

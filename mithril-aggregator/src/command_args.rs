@@ -8,13 +8,15 @@ use tokio::{sync::RwLock, time::Duration};
 use mithril_common::{
     certificate_chain::MithrilCertificateVerifier,
     chain_observer::{CardanoCliRunner, ChainObserver},
-    crypto_helper::{key_decode_hex, ProtocolGenesisSigner, ProtocolGenesisVerifier},
+    crypto_helper::{
+        key_decode_hex, EraMarkersSigner, ProtocolGenesisSigner, ProtocolGenesisVerifier,
+    },
     database::{ApplicationNodeType, DatabaseVersionChecker},
     digesters::{
         cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder},
         CardanoImmutableDigester, ImmutableFileSystemObserver,
     },
-    entities::{Epoch, HexEncodedGenesisSecretKey},
+    entities::{Epoch, HexEncodedEraMarkersSecretKey, HexEncodedGenesisSecretKey},
     era::{EraChecker, EraReader},
     store::{adapter::SQLiteAdapter, StakeStore},
     BeaconProvider, BeaconProviderImpl,
@@ -22,7 +24,7 @@ use mithril_common::{
 
 use crate::{
     event_store::{self, TransmitterService},
-    tools::{GenesisTools, GenesisToolsDependency},
+    tools::{EraTools, GenesisTools, GenesisToolsDependency},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
     CertificateStore, Configuration, DefaultConfiguration, DependencyManager, GenesisConfiguration,
     GzipSnapshotter, MithrilSignerRegisterer, MultiSignerImpl, ProtocolParametersStore,
@@ -228,6 +230,7 @@ impl MainOpts {
 #[derive(Debug, Clone, Subcommand)]
 pub enum MainCommand {
     Genesis(GenesisCommand),
+    Era(EraCommand),
     Serve(ServeCommand),
 }
 
@@ -238,6 +241,7 @@ impl MainCommand {
     ) -> Result<(), Box<dyn Error>> {
         match self {
             Self::Genesis(cmd) => cmd.execute(config_builder).await,
+            Self::Era(cmd) => cmd.execute(config_builder).await,
             Self::Serve(cmd) => cmd.execute(config_builder).await,
         }
     }
@@ -648,5 +652,111 @@ impl BootstrapGenesisSubCommand {
         genesis_tools
             .bootstrap_test_genesis_certificate(genesis_signer)
             .await
+    }
+}
+
+/// Era tools
+#[derive(Parser, Debug, Clone)]
+pub struct EraCommand {
+    /// commands
+    #[clap(subcommand)]
+    pub era_subcommand: EraSubCommand,
+}
+
+impl EraCommand {
+    pub async fn execute(
+        &self,
+        config_builder: ConfigBuilder<DefaultState>,
+    ) -> Result<(), Box<dyn Error>> {
+        self.era_subcommand.execute(config_builder).await
+    }
+}
+
+/// Era tools commands.
+#[derive(Debug, Clone, Subcommand)]
+pub enum EraSubCommand {
+    /// Era list command.
+    List(ListEraSubCommand),
+
+    /// Era tx datum generate command.
+    GenerateTxDatum(GenerateTxDatumEraSubCommand),
+}
+
+impl EraSubCommand {
+    pub async fn execute(
+        &self,
+        config_builder: ConfigBuilder<DefaultState>,
+    ) -> Result<(), Box<dyn Error>> {
+        match self {
+            Self::List(cmd) => cmd.execute(config_builder).await,
+            Self::GenerateTxDatum(cmd) => cmd.execute(config_builder).await,
+        }
+    }
+}
+
+/// Era list command
+#[derive(Parser, Debug, Clone)]
+pub struct ListEraSubCommand {
+    /// Enable JSON output.
+    #[clap(long)]
+    json: bool,
+}
+
+impl ListEraSubCommand {
+    pub async fn execute(
+        &self,
+        _config_builder: ConfigBuilder<DefaultState>,
+    ) -> Result<(), Box<dyn Error>> {
+        debug!("LIST ERA command");
+        let era_tools = EraTools::new();
+        let eras = era_tools.get_supported_eras_list()?;
+
+        if self.json {
+            println!("{}", serde_json::to_string(&eras)?);
+        } else {
+            println!("Supported Eras:");
+            println!("{eras:#?}");
+        }
+
+        Ok(())
+    }
+}
+
+/// Era tx datum generate command
+#[derive(Parser, Debug, Clone)]
+pub struct GenerateTxDatumEraSubCommand {
+    /// Current Era epoch
+    #[clap(long, env = "CURRENT_ERA_EPOCH")]
+    current_era_epoch: u64,
+
+    /// Next Era epoch start, if exists
+    #[clap(long, env = "NEXT_ERA_EPOCH")]
+    next_era_epoch: Option<u64>,
+
+    /// Era Markers Secret Key
+    #[clap(long, env = "ERA_MARKERS_SECRET_KEY")]
+    era_markers_secret_key: HexEncodedEraMarkersSecretKey,
+}
+
+impl GenerateTxDatumEraSubCommand {
+    pub async fn execute(
+        &self,
+        _config_builder: ConfigBuilder<DefaultState>,
+    ) -> Result<(), Box<dyn Error>> {
+        debug!("GENERATETXDATUM ERA command");
+        let era_tools = EraTools::new();
+
+        let era_markers_secret_key = key_decode_hex(&self.era_markers_secret_key)?;
+        let era_markers_signer = EraMarkersSigner::from_secret_key(era_markers_secret_key);
+        print!(
+            "{}",
+            era_tools.generate_tx_datum(
+                Epoch(self.current_era_epoch),
+                self.next_era_epoch.map(Epoch),
+                &era_markers_signer
+            )?
+        );
+
+        Ok(())
     }
 }

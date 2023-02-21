@@ -587,7 +587,7 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
         let observer = CardanoCliChainObserver::new(Box::new(TestCliRunner {}));
         let address = "addrtest_123456".to_string();
         let datums = observer.get_current_datums(&address).await.unwrap();
-        assert_eq!(vec![TxDatum("{\"constructor\":0,\"fields\":[{\"bytes\":\"5b0a20207b0a20202020226e616d65223a20227468616c6573222c0a202020202265706f6368223a203132330a20207d2c0a20207b0a20202020226e616d65223a20227079746861676f726173222c0a202020202265706f6368223a206e756c6c0a20207d0a5d0a\"}]}".to_string())], datums);
+        assert_eq!(vec![TxDatum(r#"{"constructor":0,"fields":[{"bytes":"5b0a20207b0a20202020226e616d65223a20227468616c6573222c0a202020202265706f6368223a203132330a20207d2c0a20207b0a20202020226e616d65223a20227079746861676f726173222c0a202020202265706f6368223a206e756c6c0a20207d0a5d0a"}]}"#.to_string())], datums);
     }
 
     #[tokio::test]

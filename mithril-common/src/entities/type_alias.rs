@@ -56,3 +56,12 @@ pub type HexEncodedGenesisSignature = HexEncodedKey;
 
 /// Hex encoded Sha256 Digest
 pub type HexEncodedDigest = HexEncodedKey;
+
+/// Hex encoded Era Markers Secret Key
+pub type HexEncodedEraMarkersSecretKey = HexEncodedKey;
+
+/// Hex encoded Era Markers Verification Key
+pub type HexEncodedEraMarkersVerificationKey = HexEncodedKey;
+
+/// Hex encoded Era Markers Signature
+pub type HexEncodedEraMarkersSignature = HexEncodedKey;
