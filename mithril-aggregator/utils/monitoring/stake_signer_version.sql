@@ -36,7 +36,7 @@ select
   version,
   total_epoch_stakes,
   stakes_version,
-  printf("%02d %%", round((stakes_version * 100) / (total_epoch_stakes * 1.0))) as stakes_ratio,
+  printf('%02d %%', round((stakes_version * 100) / (total_epoch_stakes * 1.0))) as stakes_ratio,
   count(party_id) as pool_count
 from summed_stakes_version
 group by epoch, version
