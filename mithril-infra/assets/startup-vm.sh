@@ -8,7 +8,12 @@ sudo apt update -y
 sudo apt install -y jq tree ca-certificates curl gnupg lsb-release 
 
 # Install sqlite3
-sudo apt install -y sqlite3
+curl http://ftp.fr.debian.org/debian/pool/main/s/sqlite3/libsqlite3-0_3.40.1-1_amd64.deb -o libsqlite3-0_3.40.1-1_amd64.deb
+dpkg -i libsqlite3-0_3.40.1-1_amd64.deb
+rm -f libsqlite3-0_3.40.1-1_amd64.deb
+curl http://ftp.fr.debian.org/debian/pool/main/s/sqlite3/sqlite3_3.40.1-1_amd64.deb -o sqlite3_3.40.1-1_amd64.deb
+dpkg -i sqlite3_3.40.1-1_amd64.deb
+rm -f sqlite3_3.40.1-1_amd64.deb
 
 # Install docker & docker-compose
 sudo mkdir -p /etc/apt/keyrings

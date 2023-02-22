@@ -39,7 +39,7 @@ This is the node of the **Mithril Network** responsible for collecting individua
 
 * Install OpenSSL development libraries, for example on Ubuntu/Debian/Mint run `apt install libssl-dev`
 
-* Ensure SQLite3 library is installed on your system and its version is at least `3.35` (released Apr. 2021) on Debian/Ubuntu: `apt install libsqlite3` and `sqlite3 --version`.
+* Ensure SQLite3 library is installed on your system and its version is at least `3.40`. Run `sqlite3 --version` to check your version.
 
 ## Download source
 

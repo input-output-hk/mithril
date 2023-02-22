@@ -68,7 +68,7 @@ mod handlers {
             }
         };
 
-        if epoch_str.is_empty() {
+        if !epoch_str.is_empty() {
             headers.push(("epoch", epoch_str.as_str()));
         }
         match signer_registerer.register_signer(&signer).await {

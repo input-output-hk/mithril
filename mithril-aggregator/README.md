@@ -12,7 +12,7 @@ This is a first version of the Mithril Aggregagator
 
 - Install a [correctly configured](https://www.rust-lang.org/learn/get-started) Rust toolchain (latest stable version).
 - Install OpenSSL development libraries, for example on Ubuntu/Debian/Mint run `apt install libssl-dev`
-- Ensure `libsqlite3` is installed on your system and check its version is at least `3.35`. Run `apt install libsqlite3` and `sqlite3 --version`
+- Ensure `libsqlite3` is installed on your system and check its version is at least `3.40`. Run `sqlite3 --version` to check your version.
 
 ## Mithril test networks
 
