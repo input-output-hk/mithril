@@ -59,10 +59,13 @@ mod handlers {
             Some(version) => vec![("signer-node-version", version)],
             None => Vec::new(),
         };
-        let epoch_str = if let Ok(beacon) = beacon_provider.get_current_beacon().await {
-            format!("{}", beacon.epoch)
-        } else {
-            String::new()
+        let epoch_str = match beacon_provider.get_current_beacon().await {
+            Ok(beacon) => format!("{}", beacon.epoch),
+            Err(e) => {
+                warn!("Could not read beacon to add in event: {e}");
+
+                String::new()
+            }
         };
 
         if epoch_str.is_empty() {
