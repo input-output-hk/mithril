@@ -627,6 +627,7 @@ mod tests {
     use blake2::{digest::consts::U32, Blake2b};
     use proptest::collection::vec;
     use proptest::prelude::*;
+    use rand::{seq::IteratorRandom, thread_rng};
 
     prop_compose! {
         fn arb_tree(max_size: u32)
@@ -778,4 +779,20 @@ mod tests {
             assert!(t.to_commitment_batch_compat().check(&batch_values, &path).is_err());
         }
     }
+
+    // prop_compose! {
+    //     fn arb_tree_arb_index_list(max_size: u32)
+    //                (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<Blake2b<U32>>, Vec<MTLeaf>, Vec<&'static usize>) {
+    //         let mut rng = thread_rng();
+    //         let size = v.len();
+    //         let pks = vec![VerificationKey::default(); size];
+    //         let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MTLeaf(key, stake)).collect::<Vec<MTLeaf>>();
+    //         let mut indices :Vec<usize> = Vec::with_capacity(size);
+    //         for (i, _v) in leaves.iter().enumerate() {
+    //             indices.push(i);
+    //         }
+    //         let mt_index_list: Vec<&usize> = indices.iter().choose_multiple(&mut rng, (size/10)*7);
+    //          (MerkleTree::<Blake2b<U32>>::create(&leaves), leaves, mt_index_list)
+    //     }
+    // }
 }
