@@ -684,16 +684,16 @@ mod tests {
             assert_eq!(tree.nodes, decoded.nodes);
         }
 
-        #[test]
-        fn test_create_batch_proof((t, values) in arb_tree(30)) {
-            let mut mt_index_list :Vec<usize> = Vec::new();
-            for (i, _v) in values.iter().enumerate() {
-                mt_index_list.push(i);
-            }
-            mt_index_list.sort_unstable();
-            let batch_proof = t.get_batched_path(mt_index_list);
-            assert!(t.to_commitment_batch_compat().check(&values, &batch_proof).is_ok());
-        }
+        // #[test]
+        // fn test_create_batch_proof((t, values) in arb_tree(30)) {
+        //     let mut mt_index_list :Vec<usize> = Vec::new();
+        //     for (i, _v) in values.iter().enumerate() {
+        //         mt_index_list.push(i);
+        //     }
+        //     mt_index_list.sort_unstable();
+        //     let batch_proof = t.get_batched_path(mt_index_list);
+        //     assert!(t.to_commitment_batch_compat().check(&values, &batch_proof).is_ok());
+        // }
 
         #[test]
         fn test_bytes_batch_path((t, values) in arb_tree(30)) {
@@ -780,19 +780,66 @@ mod tests {
         }
     }
 
-    // prop_compose! {
-    //     fn arb_tree_arb_index_list(max_size: u32)
-    //                (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<Blake2b<U32>>, Vec<MTLeaf>, Vec<&'static usize>) {
-    //         let mut rng = thread_rng();
-    //         let size = v.len();
-    //         let pks = vec![VerificationKey::default(); size];
-    //         let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MTLeaf(key, stake)).collect::<Vec<MTLeaf>>();
-    //         let mut indices :Vec<usize> = Vec::with_capacity(size);
-    //         for (i, _v) in leaves.iter().enumerate() {
-    //             indices.push(i);
-    //         }
-    //         let mt_index_list: Vec<&usize> = indices.iter().choose_multiple(&mut rng, (size/10)*7);
-    //          (MerkleTree::<Blake2b<U32>>::create(&leaves), leaves, mt_index_list)
-    //     }
-    // }
+    prop_compose! {
+        fn arb_tree_arb_index_list(max_size: u32)
+                   (v in vec(any::<u64>(), 2..max_size as usize)) -> (MerkleTree<Blake2b<U32>>, Vec<MTLeaf>, Vec<usize>) {
+            let mut rng = thread_rng();
+            let size = v.len();
+            let pks = vec![VerificationKey::default(); size];
+            let leaves = pks.into_iter().zip(v.into_iter()).map(|(key, stake)| MTLeaf(key, stake)).collect::<Vec<MTLeaf>>();
+            let mut indices :Vec<usize> = Vec::with_capacity(size);
+            for (i, _v) in leaves.iter().enumerate() {
+                indices.push(i);
+            }
+            indices.iter().choose_multiple(&mut rng, size / 10 * 7);
+            (MerkleTree::<Blake2b<U32>>::create(&leaves), leaves, indices)
+        }
+    }
+
+    proptest! {
+        // Test the relation that t.get_path(i) is a valid
+        // proof for i
+        #![proptest_config(ProptestConfig::with_cases(100))]
+        #[test]
+        fn test_create_batch_proof((t, values, indices) in arb_tree_arb_index_list(60)) {
+
+            indices.clone().sort_unstable();
+            print!("Indices: {}\n", indices.len());
+            let batch_proof = t.get_batched_path(indices);
+            print!("Path: {}\n", batch_proof.values.len());
+            print!("tree: {}\n", t.nodes.len());
+
+            assert!(t.to_commitment_batch_compat().check(&values, &batch_proof).is_ok());
+        }
+
+        // #[test]
+        // fn test_bytes_batch_path((t, values) in arb_tree(30)) {
+        //     let mut mt_index_list :Vec<usize> = Vec::new();
+        //     for (i, _v) in values.iter().enumerate() {
+        //         mt_index_list.push(i);
+        //     }
+        //     mt_index_list.sort_unstable();
+        //
+        //     let bp = t.get_batched_path(mt_index_list);
+        //
+        //     let bytes = &bp.to_bytes();
+        //     let deserialized = BatchPath::from_bytes(bytes).unwrap();
+        //     assert!(t.to_commitment_batch_compat().check(&values, &deserialized).is_ok());
+        //
+        //     let encoded = bincode::serialize(&bp).unwrap();
+        //     let decoded: BatchPath<Blake2b<U32>> = bincode::deserialize(&encoded).unwrap();
+        //     assert!(t.to_commitment_batch_compat().check(&values, &decoded).is_ok());
+        // }
+        //
+        // #[test]
+        // fn test_bytes_tree_commitment_batch_compat((t, values) in arb_tree(5)) {
+        //     let encoded = bincode::serialize(&t.to_commitment_batch_compat()).unwrap();
+        //     let decoded: MerkleTreeCommitmentBatchCompat::<Blake2b<U32>> = bincode::deserialize(&encoded).unwrap();
+        //     let tree_commitment = MerkleTree::<Blake2b<U32>>::create(&values).to_commitment_batch_compat();
+        //     assert_eq!(tree_commitment.root, decoded.root);
+        //     assert_eq!(tree_commitment.nr_leaves, decoded.nr_leaves);
+        //
+        // }
+
+    }
 }
