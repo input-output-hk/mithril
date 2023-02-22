@@ -21,6 +21,8 @@ concurrency:
 jobs:
   build-ubuntu-X64:
     runs-on: ubuntu-22.04
+    outputs:
+      eras: ${{ steps.eras-test-lab.outputs.eras }}
     steps:
       - name: Checkout sources
         uses: actions/checkout@v3
@@ -59,6 +61,13 @@ jobs:
           name: mithril-end-to-end-${{ runner.os }}-${{ runner.arch }}
           path: target/release/mithril-end-to-end
           if-no-files-found: error
+
+      - name: Prepare test lab eras
+        id: eras-test-lab
+        run: |
+          ERAS=$(./target/release/mithril-aggregator era list --json)
+          echo "Test Lab Eras: $ERAS"
+          echo "eras=$ERAS" >> $GITHUB_OUTPUT
   
   build:
     strategy:
@@ -178,7 +187,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        era: [ thales ]
+        era: ${{ fromJSON(needs.build-ubuntu-X64.outputs.eras) }}
         run_id: [1,2,3]
     steps:
       - name: Checkout sources
