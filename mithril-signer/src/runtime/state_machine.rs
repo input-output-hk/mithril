@@ -126,6 +126,7 @@ impl StateMachine {
                 } else if let Some(epoch_settings) = self.runner.get_epoch_settings().await? {
                     info!("→ Epoch settings found");
                     if epoch_settings.epoch >= *epoch {
+                        info!("new Epoch found");
                         info!(" ⋅ transiting to REGISTERED");
                         self.state = self
                             .transition_from_unregistered_to_registered(&epoch_settings)

@@ -444,11 +444,20 @@ impl Runner for SignerRunner {
             .read_era_epoch_token(epoch)
             .await
             .map_err(Box::new)?;
-
-        self.services.era_checker.change_era(
-            era_token.get_current_supported_era()?,
-            era_token.get_current_epoch(),
+        let current_era = era_token.get_current_supported_era()?;
+        self.services
+            .era_checker
+            .change_era(current_era, era_token.get_current_epoch());
+        info!(
+            "Current Era is {} (Epoch {}).",
+            current_era,
+            era_token.get_current_epoch()
         );
+
+        if era_token.get_next_supported_era().is_err() {
+            let era_name = &era_token.get_next_era_marker().unwrap().name;
+            warn!("Upcoming Era '{era_name}' is not supported by this version of the software. Please update!");
+        }
 
         Ok(())
     }
