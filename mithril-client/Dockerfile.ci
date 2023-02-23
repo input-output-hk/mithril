@@ -4,7 +4,7 @@
 FROM ubuntu:22.04
 
 # Upgrade
-RUN apt-get update -y && apt-get install -y libssl-dev ca-certificates wget && rm -rf /var/lib/apt/lists/*
+RUN apt-get update -y && apt-get install -y libssl-dev ca-certificates wget sqlite3 && rm -rf /var/lib/apt/lists/*
 
 # Create appuser
 RUN adduser --no-create-home --disabled-password appuser
