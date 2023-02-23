@@ -60,9 +60,6 @@ pub enum RuntimeError {
     #[error("signer registration error: {0}")]
     SignerRegistration(#[from] SignerRegistrationError),
 
-    #[error("era not supported: {0}")]
-    EraNotSupported(String),
-
     #[error("general error: {0}")]
     General(Box<dyn StdError + Sync + Send>),
 }
