@@ -448,7 +448,7 @@ impl Runner for SignerRunner {
         self.services
             .era_checker
             .change_era(current_era, era_token.get_current_epoch());
-        info!(
+        debug!(
             "Current Era is {} (Epoch {}).",
             current_era,
             era_token.get_current_epoch()
