@@ -57,6 +57,7 @@ impl EraEpochToken {
     /// software.
     pub fn get_current_supported_era(&self) -> Result<SupportedEra, UnsupportedEraError> {
         SupportedEra::from_str(&self.current_era.name)
+            .map_err(|_| UnsupportedEraError::new(&self.current_era.name))
     }
 
     /// Return the [EraMarker] of the current Era.
@@ -75,7 +76,10 @@ impl EraEpochToken {
     /// for upgrade.
     pub fn get_next_supported_era(&self) -> Result<Option<SupportedEra>, UnsupportedEraError> {
         match self.next_era.as_ref() {
-            Some(marker) => Ok(Some(SupportedEra::from_str(&marker.name)?)),
+            Some(marker) => Ok(Some(
+                SupportedEra::from_str(&marker.name)
+                    .map_err(|_| UnsupportedEraError::new(&self.current_era.name))?,
+            )),
             None => Ok(None),
         }
     }
