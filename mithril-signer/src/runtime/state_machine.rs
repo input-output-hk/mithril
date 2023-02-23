@@ -97,7 +97,7 @@ impl StateMachine {
 
         loop {
             if let Err(e) = self.cycle().await {
-                error!("STATE MACHINE: an error occured: "; "error" => ?e);
+                error!("STATE MACHINE: an error occured: {e}");
             }
 
             info!(
