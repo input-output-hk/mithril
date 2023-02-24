@@ -66,6 +66,8 @@ services:
       - DB_DIRECTORY=/db
       - SNAPSHOT_DIRECTORY=/mithril-aggregator/mithril/snapshots
       - SERVER_PORT=8080
+      - ERA_READER_ADAPTER_TYPE=${ERA_READER_ADAPTER_TYPE}
+      - ERA_READER_ADAPTER_PARAMS=${ERA_READER_ADAPTER_PARAMS}
     volumes:
       - ../data/${NETWORK}/mithril-aggregator/mithril:/mithril-aggregator/mithril
       - ../data/${NETWORK}/mithril-aggregator/cardano/db:/db
