@@ -92,7 +92,7 @@ fn test_full_protocol() {
         phi_f: 0.2,
     };
 
-    let init = initialization_phase(nparties as i32, rng.clone(), params);
+    let init = initialization_phase(nparties, rng.clone(), params);
     let operation = operation_phase(params, init.0, init.1, msg);
 
     let msig = operation.0;
