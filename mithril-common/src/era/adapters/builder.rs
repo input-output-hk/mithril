@@ -19,6 +19,7 @@ use crate::{
 #[serde(rename_all = "lowercase")]
 pub enum AdapterType {
     /// Cardano chain adapter.
+    #[serde(rename = "cardano-chain")]
     CardanoChain,
     /// File adapter.
     File,
