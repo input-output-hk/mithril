@@ -148,6 +148,9 @@ jobs:
       GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
       GENESIS_SECRET_KEY: ${{ secrets.GENESIS_SECRET_KEY }}
       GENESIS_VERIFICATION_KEY_URL: ${{ secrets.GENESIS_VERIFICATION_KEY_URL }}
+      ERA_READER_ADDRESS_URL: ${{ secrets.ERA_READER_ADDRESS_URL }}
+      ERA_READER_VERIFICATION_KEY_URL: ${{ secrets.ERA_READER_VERIFICATION_KEY_URL }}
+      ERA_READER_VERIFICATION_SECRET_KEY: ${{ secrets.ERA_READER_VERIFICATION_SECRET_KEY }}
 
     defaults:
       run:
@@ -170,18 +173,22 @@ jobs:
     - name: Prepare terraform variables
       run: |
         cat > ./env.variables.tfvars << EOF
-          environment_prefix                   = "${{ matrix.environment_prefix }}"
-          cardano_network                      = "${{ matrix.cardano_network }}"
-          google_region                        = "${{ matrix.google_region }}"
-          google_zone                          = "${{ matrix.google_zone }}"
-          google_machine_type                  = "${{ matrix.google_machine_type }}"
-          google_service_credentials_json_file = "./google-application-credentials.json"
-          mithril_api_domain                   = "${{ matrix.mithril_api_domain }}"
-          mithril_image_id                     = "${{ env.DOCKER_IMAGE_ID }}"
-          mithril_genesis_verification_key_url = "${{ env.GENESIS_VERIFICATION_KEY_URL }}"
-          mithril_genesis_secret_key           = "${{ env.GENESIS_SECRET_KEY }}"
-          mithril_protocol_parameters          = ${{ matrix.mithril_protocol_parameters }}
-          mithril_signers                      = ${{ matrix.mithril_signers }}
+          environment_prefix                      = "${{ matrix.environment_prefix }}"
+          cardano_network                         = "${{ matrix.cardano_network }}"
+          google_region                           = "${{ matrix.google_region }}"
+          google_zone                             = "${{ matrix.google_zone }}"
+          google_machine_type                     = "${{ matrix.google_machine_type }}"
+          google_service_credentials_json_file    = "./google-application-credentials.json"
+          mithril_api_domain                      = "${{ matrix.mithril_api_domain }}"
+          mithril_image_id                        = "${{ env.DOCKER_IMAGE_ID }}"
+          mithril_genesis_verification_key_url    = "${{ env.GENESIS_VERIFICATION_KEY_URL }}"
+          mithril_genesis_secret_key              = "${{ env.GENESIS_SECRET_KEY }}"
+          mithril_protocol_parameters             = ${{ matrix.mithril_protocol_parameters }}
+          mithril_era_reader_adapter_type         = "cardano-chain"
+          mithril_era_reader_address_url          = "${{ env.ERA_READER_ADDRESS_URL }}"
+          mithril_era_reader_verification_key_url = "${{ env.ERA_READER_VERIFICATION_KEY_URL }}"
+          mithril_era_reader_secret_key           = "${{ env.ERA_READER_VERIFICATION_SECRET_KEY }}"
+          mithril_signers                         = ${{ matrix.mithril_signers }}
         EOF
         terraform fmt ./env.variables.tfvars
         cat ./env.variables.tfvars
