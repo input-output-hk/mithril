@@ -1,5 +1,8 @@
-use mithril_stm::key_reg::{KeyReg};
-use mithril_stm::stm::{Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmInitializer, StmParameters, StmSig, StmSigner, StmVerificationKey};
+use mithril_stm::key_reg::KeyReg;
+use mithril_stm::stm::{
+    Stake, StmAggrSig, StmAggrVerificationKey, StmClerk, StmInitializer, StmParameters, StmSig,
+    StmSigner, StmVerificationKey,
+};
 use mithril_stm::AggregationError;
 
 use blake2::{digest::consts::U32, Blake2b};
@@ -9,8 +12,11 @@ use rayon::prelude::*;
 
 type H = Blake2b<U32>;
 
-fn initialization_phase(nparties: i32, mut rng: ChaCha20Rng, params: StmParameters) -> (Vec<StmSigner<H>>, Vec<(StmVerificationKey, Stake)>) {
-
+fn initialization_phase(
+    nparties: i32,
+    mut rng: ChaCha20Rng,
+    params: StmParameters,
+) -> (Vec<StmSigner<H>>, Vec<(StmVerificationKey, Stake)>) {
     let parties = (0..nparties)
         .into_iter()
         .map(|_| 1 + (rng.next_u64() % 9999))
@@ -39,7 +45,15 @@ fn initialization_phase(nparties: i32, mut rng: ChaCha20Rng, params: StmParamete
     (signers, reg_parties)
 }
 
-fn operation_phase(params: StmParameters, signers: Vec<StmSigner<H>>, reg_parties: Vec<(StmVerificationKey, Stake)>, msg: [u8; 32]) -> (Result<StmAggrSig<H>, AggregationError>, StmAggrVerificationKey<H>) {
+fn operation_phase(
+    params: StmParameters,
+    signers: Vec<StmSigner<H>>,
+    reg_parties: Vec<(StmVerificationKey, Stake)>,
+    msg: [u8; 32],
+) -> (
+    Result<StmAggrSig<H>, AggregationError>,
+    StmAggrVerificationKey<H>,
+) {
     let sigs = signers
         .par_iter()
         .filter_map(|p| p.sign(&msg))
@@ -129,4 +143,3 @@ fn test_full_protocol_batch_verify() {
     }
     assert!(StmAggrSig::batch_verify(&aggr_stms, &batch_msgs, &aggr_avks, &batch_params).is_ok());
 }
-
