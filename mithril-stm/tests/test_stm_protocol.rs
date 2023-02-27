@@ -13,7 +13,7 @@ use rayon::prelude::*;
 type H = Blake2b<U32>;
 
 fn initialization_phase(
-    nparties: i32,
+    nparties: u64,
     mut rng: ChaCha20Rng,
     params: StmParameters,
 ) -> (Vec<StmSigner<H>>, Vec<(StmVerificationKey, Stake)>) {
@@ -92,11 +92,8 @@ fn test_full_protocol() {
         phi_f: 0.2,
     };
 
-    let init = initialization_phase(nparties, rng.clone(), params);
-    let operation = operation_phase(params, init.0, init.1, msg);
-
-    let msig = operation.0;
-    let avk = operation.1;
+    let (signers, reg_parties) = initialization_phase(nparties, rng.clone(), params);
+    let (msig, avk) = operation_phase(params, signers, reg_parties, msg);
 
     match msig {
         Ok(aggr) => {
@@ -133,8 +130,8 @@ fn test_full_protocol_batch_verify() {
         let mut msg = [0u8; 32];
         rng.fill_bytes(&mut msg);
         let nparties = rng.next_u64() % 33;
-        let init = initialization_phase(nparties as i32, rng.clone(), params);
-        let operation = operation_phase(params, init.0, init.1, msg);
+        let (signers, reg_parties) = initialization_phase(nparties, rng.clone(), params);
+        let operation = operation_phase(params, signers, reg_parties, msg);
 
         aggr_avks.push(operation.1);
         aggr_stms.push(operation.0.unwrap());
