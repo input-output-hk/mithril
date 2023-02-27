@@ -3,7 +3,7 @@ use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind
 use slog::Level;
 use slog_scope::debug;
 use std::{error::Error, fs, path::PathBuf, sync::Arc};
-use tokio::{sync::RwLock, time::Duration};
+use tokio::{select, sync::RwLock, time::Duration};
 
 use mithril_common::{
     certificate_chain::MithrilCertificateVerifier,
@@ -466,21 +466,7 @@ impl ServeCommand {
                 .unwrap()
         });
 
-        // Start Aggregator state machine
-        let handle = tokio::spawn(async move {
-            let config =
-                AggregatorConfig::new(config.run_interval, network, &config.db_directory.clone());
-            let mut runtime = AggregatorRuntime::new(
-                Duration::from_millis(config.interval),
-                None,
-                Arc::new(AggregatorRunner::new(config, runtime_dependencies)),
-            )
-            .await
-            .unwrap();
-            runtime.run().await
-        });
-
-        // Start REST server
+        // Start servers
         println!("Starting server...");
         println!("Press Ctrl+C to stop...");
         let shutdown_signal = async {
@@ -493,9 +479,22 @@ impl ServeCommand {
             config.server_port,
             dependency_manager.clone(),
         );
-        http_server.start(shutdown_signal).await;
+        select! {
+            _ = tokio::spawn(async move {
+            let config =
+                AggregatorConfig::new(config.run_interval, network, &config.db_directory.clone());
+            let mut runtime = AggregatorRuntime::new(
+                Duration::from_millis(config.interval),
+                None,
+                Arc::new(AggregatorRunner::new(config, runtime_dependencies)),
+            )
+            .await
+            .unwrap();
+            runtime.run().await
+        }) => { println!("Runtime quits, stopping HTTP server."); }
+            _ = http_server.start(shutdown_signal) => { println!("HTTP servers signaled, stopping Runtime."); }
+        };
 
-        handle.abort();
         event_store_thread.await?;
 
         println!("Exiting...");
