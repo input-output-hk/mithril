@@ -3,7 +3,6 @@ use crate::DependencyManager;
 use slog_scope::info;
 use std::net::IpAddr;
 use std::sync::Arc;
-use warp::Future;
 
 pub const SERVER_BASE_PATH: &str = "aggregator";
 
@@ -25,11 +24,9 @@ impl Server {
     }
 
     /// Start
-    pub async fn start(&self, shutdown_signal: impl Future<Output = ()> + Send + 'static) {
+    pub async fn start(&self) -> impl warp::Future<Output = ()> + 'static {
         info!("Start Aggregator Http Server");
         let routes = router::routes(self.dependency_manager.clone());
-        let (_, server) =
-            warp::serve(routes).bind_with_graceful_shutdown((self.ip, self.port), shutdown_signal);
-        tokio::spawn(server).await.unwrap();
+        warp::serve(routes).bind((self.ip, self.port))
     }
 }

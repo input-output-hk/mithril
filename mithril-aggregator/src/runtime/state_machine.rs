@@ -96,12 +96,13 @@ impl AggregatorRuntime {
     }
 
     /// Launches an infinite loop ticking the state machine.
-    pub async fn run(&mut self) {
+    pub async fn run(&mut self) -> Result<(), RuntimeError> {
         info!("STATE MACHINE: launching");
 
         loop {
             if let Err(e) = self.cycle().await {
                 error!("STATE MACHINE: an error occurred: {e}");
+                return Err(e);
             }
 
             info!(
