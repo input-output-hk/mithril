@@ -1,6 +1,6 @@
 {
   "name": "mithril-doc",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "scripts": {
     "docusaurus": "docusaurus",
@@ -21,7 +21,7 @@
     "clsx": "^1.1.1",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
-    "redocusaurus": "^1.5.0"
+    "redocusaurus": "^1.6.0"
   },
   "browserslist": {
     "production": [
