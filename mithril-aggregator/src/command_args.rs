@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use slog::Level;
-use slog_scope::{crit, debug};
+use slog_scope::{crit, debug, info};
 use std::{error::Error, fs, net::IpAddr, path::PathBuf, sync::Arc};
 use tokio::{
     sync::{oneshot, RwLock},
@@ -463,7 +463,7 @@ impl ServeCommand {
 
         // start servers
         println!("Starting server...");
-        println!("Press Ctrl+C to stop...");
+        println!("Press Ctrl+C to stop");
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
 
         let mut join_set = JoinSet::new();
@@ -491,6 +491,7 @@ impl ServeCommand {
                 },
             );
             server.await;
+
             Ok(())
         });
         join_set.spawn(async { tokio::signal::ctrl_c().await.map_err(|e| e.to_string()) });
@@ -509,13 +510,15 @@ impl ServeCommand {
         if let Err(e) = res {
             crit!("A critical error occurred: {e}");
         }
+
+        // stop servers
         join_set.shutdown().await;
         let _ = shutdown_tx.send(());
 
-        crit!("Event store is finishing...");
+        info!("Event store is finishing...");
         event_store_thread.await?;
+        println!("Services stopped, exiting.");
 
-        crit!("Exiting...");
         Ok(())
     }
 

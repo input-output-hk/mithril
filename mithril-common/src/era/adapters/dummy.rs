@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{error::Error, sync::RwLock};
 
 use async_trait::async_trait;
 
@@ -8,20 +8,31 @@ use super::super::{EraMarker, EraReaderAdapter};
 /// to simulate not yet activated Eras.
 #[derive(Default)]
 pub struct DummyAdapter {
-    markers: Vec<EraMarker>,
+    markers: RwLock<Vec<EraMarker>>,
 }
 
 impl DummyAdapter {
+    /// Create a new instance directly from markers
+    pub fn from_markers(markers: Vec<EraMarker>) -> Self {
+        let myself = Self::default();
+        myself.set_markers(markers);
+
+        myself
+    }
+
     /// Tells what markers should be sent back by the adapter.
-    pub fn set_markers(&mut self, markers: Vec<EraMarker>) {
-        self.markers = markers;
+    pub fn set_markers(&self, markers: Vec<EraMarker>) {
+        let mut my_markers = self.markers.write().unwrap();
+        *my_markers = markers;
     }
 }
 
 #[async_trait]
 impl EraReaderAdapter for DummyAdapter {
     async fn read(&self) -> Result<Vec<EraMarker>, Box<dyn Error + Sync + Send>> {
-        Ok(self.markers.clone())
+        let markers = self.markers.read().unwrap();
+
+        Ok((*markers.clone()).to_vec())
     }
 }
 
@@ -51,7 +62,7 @@ mod tests {
             EraMarker::new(&SupportedEra::dummy().to_string(), Some(Epoch(10))),
         ];
 
-        let mut adapter = DummyAdapter::default();
+        let adapter = DummyAdapter::default();
         adapter.set_markers(markers.clone());
 
         assert_eq!(

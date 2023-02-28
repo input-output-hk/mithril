@@ -39,7 +39,9 @@ pub use dependency::DependencyManager;
 pub use message_adapters::{
     FromRegisterSignerAdapter, ToCertificatePendingMessageAdapter, ToEpochSettingsMessageAdapter,
 };
-pub use runtime::{AggregatorConfig, AggregatorRunner, AggregatorRunnerTrait, AggregatorRuntime};
+pub use runtime::{
+    AggregatorConfig, AggregatorRunner, AggregatorRunnerTrait, AggregatorRuntime, RuntimeError,
+};
 pub use signer_registerer::{
     MithrilSignerRegisterer, SignerRegisterer, SignerRegistrationError, SignerRegistrationRound,
     SignerRegistrationRoundOpener,

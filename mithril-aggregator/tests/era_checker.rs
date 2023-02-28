@@ -1,0 +1,103 @@
+mod test_extensions;
+use mithril_aggregator::RuntimeError;
+use mithril_common::{
+    chain_observer::ChainObserver,
+    entities::{Epoch, ProtocolParameters},
+    era::{EraMarker, SupportedEra},
+    test_utils::MithrilFixtureBuilder,
+};
+
+use test_extensions::RuntimeTester;
+
+#[tokio::test]
+async fn unsupported_starting_era() {
+    let protocol_parameters = ProtocolParameters {
+        k: 5,
+        m: 100,
+        phi_f: 0.95,
+    };
+    let mut tester = RuntimeTester::build(protocol_parameters.clone()).await;
+    tester.era_reader_adapter.set_markers(vec![
+        EraMarker::new("unsupported", Some(Epoch(0))),
+        EraMarker::new(&SupportedEra::dummy().to_string(), Some(Epoch(12))),
+    ]);
+
+    if let Err(e) = tester.runtime.cycle().await {
+        match e {
+            RuntimeError::Critical {
+                message: _,
+                nested_error: _,
+            } => {}
+            _ => panic!("Expected a Critical Error, got {e:?}."),
+        }
+    } else {
+        panic!("Expected an error, got Ok().")
+    }
+}
+
+#[tokio::test]
+async fn transiting_to_unsupported_era() {
+    let protocol_parameters = ProtocolParameters {
+        k: 5,
+        m: 100,
+        phi_f: 0.95,
+    };
+    let mut tester = RuntimeTester::build(protocol_parameters.clone()).await;
+    tester.era_reader_adapter.set_markers(vec![
+        EraMarker::new(&SupportedEra::dummy().to_string(), Some(Epoch(0))),
+        EraMarker::new("unsupported", Some(Epoch(11))),
+    ]);
+    let fixture = MithrilFixtureBuilder::default()
+        .with_signers(5)
+        .with_protocol_parameters(protocol_parameters.clone())
+        .build();
+    let signers = fixture.signers_fixture();
+    let signers_with_stake = fixture.signers_with_stake();
+    tester
+        .chain_observer
+        .set_signers(signers_with_stake.clone())
+        .await;
+    tester
+        .deps
+        .prepare_for_genesis(
+            signers_with_stake.clone(),
+            signers_with_stake.clone(),
+            &protocol_parameters,
+        )
+        .await;
+    let _ = tester
+        .chain_observer
+        .get_current_epoch()
+        .await
+        .unwrap()
+        .unwrap();
+    comment!("Boostrap the genesis certificate");
+    tester.register_genesis_certificate(&signers).await.unwrap();
+
+    comment!("Increase immutable number");
+    tester.increase_immutable_number().await.unwrap();
+
+    comment!("start the runtime state machine");
+    cycle!(tester, "ready");
+
+    // reach unsupported Epoch
+    let current_epoch = tester
+        .chain_observer
+        .next_epoch()
+        .await
+        .expect("Epoch was expected to be 11.");
+    assert_eq!(11, current_epoch);
+    cycle!(tester, "idle");
+
+    if let Err(e) = tester.runtime.cycle().await {
+        match e {
+            RuntimeError::Critical {
+                message: _,
+                nested_error: _,
+            } => {}
+            _ => panic!("Expected a Critical Error, got {e:?}."),
+        }
+    } else {
+        panic!("Expected an error, got Ok().")
+    }
+}

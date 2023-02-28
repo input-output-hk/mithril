@@ -361,7 +361,7 @@ pub mod tests {
             chain_observer.clone(),
             verification_key_store.clone(),
         ));
-        let era_reader = Arc::new(EraReader::new(Box::new(EraReaderBootstrapAdapter)));
+        let era_reader = Arc::new(EraReader::new(Arc::new(EraReaderBootstrapAdapter)));
         let era_epoch_token = era_reader
             .read_era_epoch_token(beacon_provider.get_current_beacon().await.unwrap().epoch)
             .await

@@ -1,7 +1,7 @@
 use crate::runtime::{AggregatorRunnerTrait, RuntimeError, WorkingCertificate};
 
 use mithril_common::entities::Beacon;
-use slog_scope::{error, info, trace, warn};
+use slog_scope::{crit, info, trace, warn};
 use std::fmt::Display;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
@@ -101,8 +101,19 @@ impl AggregatorRuntime {
 
         loop {
             if let Err(e) = self.cycle().await {
-                error!("STATE MACHINE: an error occurred: {e}");
-                //return Err(e);
+                match &e {
+                    RuntimeError::Critical {
+                        message: _,
+                        nested_error: _,
+                    } => {
+                        crit!("state machine: a critical error occurred: {e}");
+
+                        return Err(e);
+                    }
+                    _ => {
+                        warn!("state machine: cycle returned an error: '{e}'.");
+                    }
+                }
             }
 
             info!(
@@ -663,6 +674,45 @@ mod tests {
         };
         let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
         runtime.cycle().await.unwrap();
+
+        assert_eq!("idle".to_string(), runtime.get_state());
+    }
+
+    #[tokio::test]
+    pub async fn critical_error() {
+        let mut runner = MockAggregatorRunner::new();
+        runner
+            .expect_get_beacon_from_chain()
+            .once()
+            .returning(|| Ok(fake_data::beacon()));
+        runner
+            .expect_update_beacon()
+            .with(predicate::eq(fake_data::beacon()))
+            .once()
+            .returning(|_| Ok(()));
+        runner
+            .expect_update_era_checker()
+            .with(predicate::eq(fake_data::beacon()))
+            .once()
+            .returning(|_| {
+                Err(RuntimeError::Critical {
+                    message: "unsupported Era: 'whatever'".to_string(),
+                    nested_error: None,
+                })
+            });
+        runner
+            .expect_close_signer_registration_round()
+            .once()
+            .returning(|| Ok(()));
+
+        let mut runtime = init_runtime(
+            Some(AggregatorState::Idle(IdleState {
+                current_beacon: None,
+            })),
+            runner,
+        )
+        .await;
+        runtime.cycle().await.unwrap_err();
 
         assert_eq!("idle".to_string(), runtime.get_state());
     }

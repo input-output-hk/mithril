@@ -15,6 +15,7 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum RuntimeError {
+    /// MultiSigner error
     #[error("multi signer error: {0}")]
     MultiSigner(#[from] ProtocolError),
 
@@ -62,4 +63,12 @@ pub enum RuntimeError {
 
     #[error("general error: {0}")]
     General(Box<dyn StdError + Sync + Send>),
+
+    /// A Critical error means the Runtime stops and the software exits with an
+    /// error code.
+    #[error("Critical error '{message}'. Nested error: {nested_error:#?}")]
+    Critical {
+        message: String,
+        nested_error: Option<Box<dyn StdError + Sync + Send>>,
+    },
 }

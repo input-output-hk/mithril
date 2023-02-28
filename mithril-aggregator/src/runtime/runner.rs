@@ -627,9 +627,13 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .map_err(|e| {
                 RuntimeError::General(format!("Could not get Era information ('{e}')").into())
             })?;
-        let current_era = token.get_current_supported_era().map_err(|e| {
-            RuntimeError::General(format!("Could not update EraChecker service ('{e}')").into())
-        })?;
+        let current_era =
+            token
+                .get_current_supported_era()
+                .map_err(|e| RuntimeError::Critical {
+                    message: "Cannot update Era checker.".to_string(),
+                    nested_error: Some(e.into()),
+                })?;
         self.dependencies
             .era_checker
             .change_era(current_era, token.get_current_epoch());

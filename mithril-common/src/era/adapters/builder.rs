@@ -65,7 +65,7 @@ impl AdapterBuilder {
     pub fn build(
         &self,
         chain_observer: Arc<dyn ChainObserver>,
-    ) -> Result<Box<dyn EraReaderAdapter>, AdapterBuilderError> {
+    ) -> Result<Arc<dyn EraReaderAdapter>, AdapterBuilderError> {
         match self.adapter_type {
             AdapterType::CardanoChain => {
                 #[derive(Deserialize)]
@@ -81,7 +81,7 @@ impl AdapterBuilder {
                 )
                 .map_err(AdapterBuilderError::ParseParameters)?;
 
-                Ok(Box::new(EraReaderCardanoChainAdapter::new(
+                Ok(Arc::new(EraReaderCardanoChainAdapter::new(
                     adapter_config.address,
                     chain_observer,
                     key_decode_hex(&adapter_config.verification_key)
@@ -102,7 +102,7 @@ impl AdapterBuilder {
                 .map_err(AdapterBuilderError::ParseParameters)?;
                 let file_adapter = EraReaderFileAdapter::new(adapter_config.markers_file);
 
-                Ok(Box::new(file_adapter))
+                Ok(Arc::new(file_adapter))
             }
             AdapterType::Dummy => {
                 #[derive(Deserialize)]
@@ -116,12 +116,12 @@ impl AdapterBuilder {
                         .ok_or_else(AdapterBuilderError::MissingParameters)?,
                 )
                 .map_err(AdapterBuilderError::ParseParameters)?;
-                let mut dummy_adapter = EraReaderDummyAdapter::default();
+                let dummy_adapter = EraReaderDummyAdapter::default();
                 dummy_adapter.set_markers(adapter_config.markers);
 
-                Ok(Box::new(dummy_adapter))
+                Ok(Arc::new(dummy_adapter))
             }
-            AdapterType::Bootstrap => Ok(Box::new(EraReaderBootstrapAdapter)),
+            AdapterType::Bootstrap => Ok(Arc::new(EraReaderBootstrapAdapter)),
         }
     }
 }
