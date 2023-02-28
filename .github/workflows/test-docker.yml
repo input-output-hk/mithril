@@ -11,10 +11,15 @@ on:
           If not provided the last commit on the main branch will be used instead.
         required: false
         type: string
+      cardano_bin_url:
+        description: The url of the archive of the Cardano Node/CLI binaries
+        required: true
+        type: string
+        default: https://update-cardano-mainnet.iohk.io/cardano-node-releases/cardano-node-1.35.5-linux.tar.gz
       dry_run:
         description: Dry run will not push the Docker images to the registry
         required: true
-        type: bool
+        type: boolean
         default: false
 
 jobs:
@@ -91,5 +96,6 @@ jobs:
         with:
           context: ${{ env.CONTEXT }}
           file: ${{ env.DOCKER_FILE }}
+          build-args: CARDANO_BIN_URL=${{ steps.inputs.cardano_bin_url }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
