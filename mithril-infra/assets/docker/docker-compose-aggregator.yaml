@@ -2,12 +2,14 @@ version: "3.9"
 
 services:
   cardano-node-aggregator:
-    image: cardano-node/1.35.5-modified
+    image: cardano-node/${CARDANO_IMAGE_ID}-modified
     container_name: cardano-node-aggregator
     restart: always
     build:
       context: .
       dockerfile: Dockerfile.cardano
+      args:
+        CARDANO_IMAGE_ID: ${CARDANO_IMAGE_ID}
     user: ${CURRENT_UID}
     profiles:
       - cardano
@@ -36,7 +38,7 @@ services:
       ]
 
   mithril-aggregator:
-    image: ghcr.io/input-output-hk/mithril-aggregator:${IMAGE_ID}
+    image: ghcr.io/input-output-hk/mithril-aggregator:${MITHRIL_IMAGE_ID}
     container_name: mithril-aggregator
     restart: always
     user: ${CURRENT_UID}
