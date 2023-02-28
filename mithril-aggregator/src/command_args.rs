@@ -2,8 +2,12 @@ use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use slog::Level;
 use slog_scope::{crit, debug};
-use std::{error::Error, fs, path::PathBuf, sync::Arc};
-use tokio::{sync::RwLock, task::JoinSet, time::Duration};
+use std::{error::Error, fs, net::IpAddr, path::PathBuf, sync::Arc};
+use tokio::{
+    sync::{oneshot, RwLock},
+    task::JoinSet,
+    time::Duration,
+};
 
 use mithril_common::{
     certificate_chain::MithrilCertificateVerifier,
@@ -24,11 +28,12 @@ use mithril_common::{
 
 use crate::{
     event_store::{self, TransmitterService},
+    http_server::routes::router,
     tools::{EraTools, GenesisTools, GenesisToolsDependency},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
     CertificateStore, Configuration, DefaultConfiguration, DependencyManager, GenesisConfiguration,
     GzipSnapshotter, MithrilSignerRegisterer, MultiSignerImpl, ProtocolParametersStore,
-    ProtocolParametersStorer, Server, SingleSignatureStore, VerificationKeyStore,
+    ProtocolParametersStorer, SingleSignatureStore, VerificationKeyStore,
 };
 
 const SQLITE_MONITORING_FILE: &str = "monitoring.sqlite3";
@@ -454,15 +459,12 @@ impl ServeCommand {
         .await?;
 
         let network = config.get_network()?;
+        let runtime_dependency_manager = dependency_manager.clone();
 
         // start servers
         println!("Starting server...");
         println!("Press Ctrl+C to stop...");
-        let http_server = Server::new(
-            config.server_ip.clone(),
-            config.server_port,
-            dependency_manager.clone(),
-        );
+        let (shutdown_tx, shutdown_rx) = oneshot::channel();
 
         let mut join_set = JoinSet::new();
         join_set.spawn(async move {
@@ -471,14 +473,24 @@ impl ServeCommand {
             let mut runtime = AggregatorRuntime::new(
                 Duration::from_millis(config.interval),
                 None,
-                Arc::new(AggregatorRunner::new(config, dependency_manager)),
+                Arc::new(AggregatorRunner::new(config, runtime_dependency_manager)),
             )
             .await
             .unwrap();
             runtime.run().await.map_err(|e| e.to_string())
         });
         join_set.spawn(async move {
-            http_server.start().await.await;
+            let routes = router::routes(dependency_manager);
+            let (_, server) = warp::serve(routes).bind_with_graceful_shutdown(
+                (
+                    config.server_ip.clone().parse::<IpAddr>().unwrap(),
+                    config.server_port,
+                ),
+                async {
+                    shutdown_rx.await.ok();
+                },
+            );
+            server.await;
             Ok(())
         });
         join_set.spawn(async { tokio::signal::ctrl_c().await.map_err(|e| e.to_string()) });
@@ -497,7 +509,8 @@ impl ServeCommand {
         if let Err(e) = res {
             crit!("A critical error occurred: {e}");
         }
-        join_set.abort_all();
+        join_set.shutdown().await;
+        let _ = shutdown_tx.send(());
 
         crit!("Event store is finishing...");
         event_store_thread.await?;

@@ -102,7 +102,7 @@ impl AggregatorRuntime {
         loop {
             if let Err(e) = self.cycle().await {
                 error!("STATE MACHINE: an error occurred: {e}");
-                return Err(e);
+                //return Err(e);
             }
 
             info!(
