@@ -150,7 +150,7 @@ jobs:
       GENESIS_VERIFICATION_KEY_URL: ${{ vars.GENESIS_VERIFICATION_KEY_URL }}
       ERA_READER_ADDRESS_URL: ${{ vars.ERA_READER_ADDRESS_URL }}
       ERA_READER_VERIFICATION_KEY_URL: ${{ vars.ERA_READER_VERIFICATION_KEY_URL }}
-      ERA_READER_VERIFICATION_SECRET_KEY: ${{ secrets.ERA_READER_VERIFICATION_SECRET_KEY }}
+      ERA_READER_SECRET_KEY: ${{ secrets.ERA_READER_SECRET_KEY }}
 
     defaults:
       run:
@@ -187,7 +187,7 @@ jobs:
           mithril_era_reader_adapter_type         = "cardano-chain"
           mithril_era_reader_address_url          = "${{ env.ERA_READER_ADDRESS_URL }}"
           mithril_era_reader_verification_key_url = "${{ env.ERA_READER_VERIFICATION_KEY_URL }}"
-          mithril_era_reader_secret_key           = "${{ env.ERA_READER_VERIFICATION_SECRET_KEY }}"
+          mithril_era_reader_secret_key           = "${{ env.ERA_READER_SECRET_KEY }}"
           mithril_signers                         = ${{ matrix.mithril_signers }}
         EOF
         terraform fmt ./env.variables.tfvars
