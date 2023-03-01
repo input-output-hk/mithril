@@ -345,7 +345,7 @@ impl RuntimeTester {
     }
 
     // update the Era markers
-    pub async fn set_era_markers(&self, markers: Vec<EraMarker>) -> () {
+    pub async fn set_era_markers(&self, markers: Vec<EraMarker>) {
         self.era_reader_adapter.set_markers(markers)
     }
 }

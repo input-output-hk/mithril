@@ -177,10 +177,13 @@ impl AggregatorRunner {
             (Some(penultimate_certificate), Some(last_certificate)) => {
                 // Check if last certificate is exactly at most one epoch before current epoch
                 if beacon.epoch - last_certificate.beacon.epoch > Epoch(1) {
-                    return Err(RuntimeError::CertificateChainEpochGap(
-                        beacon.epoch,
-                        last_certificate.beacon.epoch,
-                    ));
+                    return Err(RuntimeError::KeepState {
+                        message: format!(
+                            "Last certificate ({:?}) is more than 1 epoch ahead from now ({:?}).",
+                            last_certificate.beacon.epoch, beacon.epoch
+                        ),
+                        nested_error: None,
+                    });
                 }
                 // Check if last certificate is first certificate of its epoch
                 if penultimate_certificate.beacon.epoch != last_certificate.beacon.epoch {
@@ -201,11 +204,13 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     /// Return the current beacon from the chain
     async fn get_beacon_from_chain(&self) -> Result<Beacon, RuntimeError> {
         debug!("RUNNER: get beacon from chain");
-        Ok(self
+        let beacon = self
             .dependencies
             .beacon_provider
             .get_current_beacon()
-            .await?)
+            .await?;
+
+        Ok(beacon)
     }
 
     async fn does_certificate_exist_for_beacon(
@@ -256,10 +261,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         debug!(" > computing digest"; "cardano_db_directory" => self.config.db_directory.display());
 
         debug!(" > launching digester thread");
-        let digest = digester
-            .compute_digest(new_beacon)
-            .await
-            .map_err(|e| RuntimeError::General(e.into()))?;
+        let digest = digester.compute_digest(new_beacon).await?;
         debug!(" > computed digest: {}", digest);
 
         Ok(digest)
@@ -283,7 +285,12 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .chain_observer
             .get_current_stake_distribution()
             .await?
-            .ok_or_else(|| RuntimeError::General("no epoch was returned".to_string().into()))?;
+            .ok_or_else(|| RuntimeError::KeepState {
+                message: format!(
+                    "Chain observer: no stake distribution for beacon {new_beacon:?}."
+                ),
+                nested_error: None,
+            })?;
         let stake_distribution = stake_distribution
             .iter()
             .map(|(party_id, stake)| (party_id.to_owned(), *stake))
@@ -315,7 +322,13 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         self.dependencies
             .signer_registration_round_opener
             .open_registration_round(registration_epoch, stakes)
-            .await?;
+            .await
+            .map_err(|e|
+                RuntimeError::KeepState {
+                    message: format!("could not open signer registration round for beacon {new_beacon:?} registration epoch {registration_epoch}"), 
+                    nested_error: Some(e.into()),
+                }
+    )?;
 
         Ok(())
     }
@@ -326,9 +339,13 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         self.dependencies
             .signer_registration_round_opener
             .close_registration_round()
-            .await?;
-
-        Ok(())
+            .await
+            .map_err(|e| {
+                RuntimeError::keep_state(
+                    "Error while trying to close the registration round",
+                    Some(e.into()),
+                )
+            })
     }
 
     async fn update_protocol_parameters_in_multisigner(
@@ -355,14 +372,13 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             ProtocolMessagePartKey::NextAggregateVerificationKey,
             multi_signer
                 .compute_next_stake_distribution_aggregate_verification_key()
-                .await
-                .map_err(RuntimeError::MultiSigner)?
+                .await?
                 .unwrap_or_default(),
         );
         multi_signer
             .update_current_message(protocol_message)
             .await
-            .map_err(RuntimeError::MultiSigner)
+            .map_err(|e| e.into())
     }
 
     async fn create_new_pending_certificate_from_multisigner(
@@ -383,15 +399,21 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             Err(e) => return Err(e.into()),
         };
 
-        let protocol_parameters = multi_signer
-            .get_protocol_parameters()
-            .await?
-            .ok_or_else(|| RuntimeError::General("no protocol parameters".to_string().into()))?;
+        let protocol_parameters =
+            multi_signer
+                .get_protocol_parameters()
+                .await?
+                .ok_or_else(|| RuntimeError::KeepState {
+                    message: format!("no protocol parameters found for beacon {beacon:?}"),
+                    nested_error: None,
+                })?;
+
         let next_protocol_parameters = multi_signer
             .get_next_protocol_parameters()
             .await?
-            .ok_or_else(|| {
-                RuntimeError::General("no next protocol parameters".to_string().into())
+            .ok_or_else(|| RuntimeError::KeepState {
+                message: format!("no next protocol parameters found for beacon {beacon:?}"),
+                nested_error: None,
             })?;
 
         let pending_certificate = CertificatePending::new(
@@ -418,13 +440,13 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             Err(e) => return Err(e.into()),
         };
         let protocol_message = multi_signer.get_current_message().await.ok_or_else(|| {
-            RuntimeError::General("Can't create a working certificate without a message".into())
+            RuntimeError::keep_state("Can't create a working certificate without a message", None)
         })?;
         let aggregate_verification_key = multi_signer
             .compute_stake_distribution_aggregate_verification_key()
             .await?
             .ok_or_else(|| {
-                RuntimeError::General("Can't create a working certificate without an AVK".into())
+                RuntimeError::keep_state("Can't create a working certificate without an AVK", None)
             })?;
 
         let certificate_store = self.dependencies.certificate_store.clone();
@@ -506,11 +528,14 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .await
             .get_current_message()
             .await
-            .ok_or_else(|| RuntimeError::General("no message found".to_string().into()))?;
+            .ok_or_else(|| RuntimeError::keep_state("no current protocol message found", None))?;
         let snapshot_digest = protocol_message
             .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
             .ok_or_else(|| {
-                RuntimeError::General("no snapshot digest message part found".to_string().into())
+                RuntimeError::keep_state(
+                    "no snapshot digest message part found in current protocol message",
+                    None,
+                )
             })?;
         let snapshot_name = format!(
             "{}-e{}-i{}.{}.tar.gz",
@@ -522,7 +547,16 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                 snapshotter.snapshot(&snapshot_name)
             })
             .await
-            .map_err(|e| RuntimeError::General(e.into()))??;
+            .map_err(|e| {
+                RuntimeError::keep_state(
+                    "failed to wait for snapshot blocking thread to finish",
+                    Some(e.into()),
+                )
+            })?
+            .map_err(|e| RuntimeError::KeepState {
+                message: format!("failed to compute snapshot for beacon {beacon:?}"),
+                nested_error: Some(e.into()),
+            })?;
 
         debug!(" > snapshot created: '{:?}'", ongoing_snapshot);
 
@@ -539,7 +573,9 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .snapshot_uploader
             .upload_snapshot(ongoing_snapshot.get_file_path())
             .await
-            .map_err(RuntimeError::SnapshotUploader)?;
+            .map_err(|e| {
+                RuntimeError::keep_state("could not upload the snapshot archive", Some(e.into()))
+            })?;
 
         if let Err(error) = tokio::fs::remove_file(ongoing_snapshot.get_file_path()).await {
             warn!(
@@ -567,14 +603,15 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .into_keys()
             .collect::<Vec<_>>();
         let multi_signature = multisigner.get_multi_signature().await?.ok_or_else(|| {
-            RuntimeError::General("no multi signature generated".to_string().into())
+            RuntimeError::keep_state("no multisignature returned by the multisigner", None)
         })?;
 
         let certificate = MithrilCertificateCreator::create_certificate(
             working_certificate,
             &signatures_party_ids,
             multi_signature,
-        )?;
+        )
+        .map_err(|e| RuntimeError::keep_state("Could not create certificate", Some(e.into())))?;
 
         self.dependencies
             .certificate_verifier
@@ -599,7 +636,13 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         let snapshot_digest = certificate
             .protocol_message
             .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
-            .ok_or_else(|| RuntimeError::General("message part not found".to_string().into()))?
+            .ok_or_else(|| RuntimeError::KeepState {
+                message: format!(
+                    "Protocol message part 'digest' not found for snapshot '{}'.",
+                    ongoing_snapshot.get_file_path().display()
+                ),
+                nested_error: None,
+            })?
             .to_owned();
         let snapshot = Snapshot::new(
             snapshot_digest,
@@ -613,7 +656,14 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         self.dependencies
             .snapshot_store
             .add_snapshot(snapshot.clone())
-            .await?;
+            .await
+            .map_err(|e| RuntimeError::KeepState {
+                message: format!(
+                    "could not save snapshot '{}'",
+                    ongoing_snapshot.get_file_path().display()
+                ),
+                nested_error: Some(e.into()),
+            })?;
 
         Ok(snapshot)
     }
@@ -624,8 +674,9 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .era_reader
             .read_era_epoch_token(beacon.epoch)
             .await
-            .map_err(|e| {
-                RuntimeError::General(format!("Could not get Era information ('{e}')").into())
+            .map_err(|e| RuntimeError::KeepState {
+                message: format!("Could not get Era information for beacon {beacon:?}."),
+                nested_error: Some(e.into()),
             })?;
         let current_era =
             token
@@ -669,7 +720,7 @@ pub mod tests {
     };
     use mithril_common::digesters::DumbImmutableFileObserver;
     use mithril_common::entities::{
-        Beacon, CertificatePending, Epoch, HexEncodedKey, ProtocolMessage, StakeDistribution,
+        Beacon, CertificatePending, HexEncodedKey, ProtocolMessage, StakeDistribution,
     };
     use mithril_common::test_utils::MithrilFixtureBuilder;
     use mithril_common::{
@@ -994,7 +1045,6 @@ pub mod tests {
         )
         .await;
         let runner = AggregatorRunner::new(config, Arc::new(deps));
-        let total_certificates = 5;
         runner
             .update_message_in_multisigner("a digest".to_string())
             .await
@@ -1010,11 +1060,13 @@ pub mod tests {
             .await;
         assert!(certificate.is_err());
         let err = certificate.unwrap_err();
-        assert_eq!(
-            RuntimeError::CertificateChainEpochGap(beacon.epoch, Epoch(total_certificates))
-                .to_string(),
-            err.to_string()
-        );
+        assert!(matches!(
+            err,
+            RuntimeError::KeepState {
+                message: _,
+                nested_error: _
+            }
+        ));
     }
 
     #[tokio::test]

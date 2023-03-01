@@ -1,9 +1,9 @@
-use slog_scope::{debug, error, info};
-use std::{error::Error, fmt::Display, thread::sleep, time::Duration};
+use slog_scope::{crit, debug, error, info};
+use std::{fmt::Display, thread::sleep, time::Duration};
 
 use mithril_common::entities::{Beacon, CertificatePending, Epoch, EpochSettings, SignerWithStake};
 
-use super::Runner;
+use super::{Runner, RuntimeError};
 
 /// Different possible states of the state machine.
 #[derive(Debug, PartialEq, Eq)]
@@ -92,12 +92,18 @@ impl StateMachine {
     }
 
     /// Launch the state machine until an error occurs or it is interrupted.
-    pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
+    pub async fn run(&mut self) -> Result<(), RuntimeError> {
         info!("STATE MACHINE: launching");
 
         loop {
             if let Err(e) = self.cycle().await {
-                error!("STATE MACHINE: an error occured: {e}");
+                if e.is_critical() {
+                    crit!("{e}");
+
+                    return Err(e);
+                } else {
+                    error!("{e}");
+                }
             }
 
             info!(
@@ -109,7 +115,7 @@ impl StateMachine {
     }
 
     /// Perform a cycle of the state machine.
-    pub async fn cycle(&mut self) -> Result<(), Box<dyn Error + Sync + Send>> {
+    pub async fn cycle(&mut self) -> Result<(), RuntimeError> {
         info!("================================================================================");
         info!("STATE MACHINE: new cycle: {}", self.state);
 
@@ -123,7 +129,15 @@ impl StateMachine {
                     self.state = self
                         .transition_from_unregistered_to_unregistered(new_beacon)
                         .await?;
-                } else if let Some(epoch_settings) = self.runner.get_epoch_settings().await? {
+                } else if let Some(epoch_settings) = self
+                    .runner
+                    .get_epoch_settings()
+                    .await
+                    .map_err(|e| RuntimeError::KeepState {
+                        message: format!("could not retrieve epoch settings at epoch {epoch:?}"),
+                        nested_error: Some(e),
+                    })?
+                {
                     info!("→ Epoch settings found");
                     if epoch_settings.epoch >= *epoch {
                         info!("new Epoch found");
@@ -149,14 +163,28 @@ impl StateMachine {
                         .transition_from_registered_to_unregistered(new_beacon)
                         .await?;
                 } else if let Some(pending_certificate) =
-                    self.runner.get_pending_certificate().await?
+                    self.runner.get_pending_certificate().await.map_err(|e| {
+                        RuntimeError::KeepState {
+                            message: format!(
+                                "could not fetch pending certificate at beacon {beacon:?}"
+                            ),
+                            nested_error: Some(e),
+                        }
+                    })?
                 {
                     info!(
                         " ⋅ Epoch has NOT changed but there is a pending certificate";
                         "pending_certificate" => ?pending_certificate
                     );
 
-                    if self.runner.can_i_sign(&pending_certificate).await? {
+                    if self.runner.can_i_sign(&pending_certificate).await.map_err(|e| {
+                        RuntimeError::KeepState {
+                            message: format!(
+                                "could not determin if I can sign pending certificate at beacon {beacon:?}"
+                            ),
+                            nested_error: Some(e),
+                        }
+                    })? {
                         info!(" → we can sign this certificate, transiting to SIGNED");
                         self.state = self
                             .transition_from_registered_to_signed(&pending_certificate)
@@ -191,11 +219,10 @@ impl StateMachine {
     }
 
     /// Return the new beacon if the epoch is different than the one in the given beacon.
-    async fn has_epoch_changed(
-        &self,
-        epoch: Epoch,
-    ) -> Result<Option<Beacon>, Box<dyn Error + Sync + Send>> {
-        let current_beacon = self.runner.get_current_beacon().await?;
+    async fn has_epoch_changed(&self, epoch: Epoch) -> Result<Option<Beacon>, RuntimeError> {
+        let current_beacon = self
+            .get_current_beacon("checking if epoch has changed")
+            .await?;
 
         if current_beacon.epoch > epoch {
             Ok(Some(current_beacon))
@@ -205,11 +232,10 @@ impl StateMachine {
     }
 
     /// Return true if the current beacon is different than the given beacon.
-    async fn has_beacon_changed(
-        &self,
-        beacon: &Beacon,
-    ) -> Result<Option<Beacon>, Box<dyn Error + Sync + Send>> {
-        let current_beacon = self.runner.get_current_beacon().await?;
+    async fn has_beacon_changed(&self, beacon: &Beacon) -> Result<Option<Beacon>, RuntimeError> {
+        let current_beacon = self
+            .get_current_beacon("checking if beacon has changed")
+            .await?;
 
         if &current_beacon != beacon {
             Ok(Some(current_beacon))
@@ -221,18 +247,19 @@ impl StateMachine {
     async fn transition_from_unregistered_to_unregistered(
         &self,
         new_beacon: Beacon,
-    ) -> Result<SignerState, Box<dyn Error + Sync + Send>> {
-        self.runner.update_era_checker(new_beacon.epoch).await?;
+    ) -> Result<SignerState, RuntimeError> {
+        self.update_era_checker(new_beacon.epoch, "unregistered → unregistered")
+            .await?;
 
         Ok(SignerState::Unregistered {
             epoch: new_beacon.epoch,
         })
     }
 
-    async fn transition_from_init_to_unregistered(
-        &self,
-    ) -> Result<SignerState, Box<dyn Error + Sync + Send>> {
-        let current_beacon = self.runner.get_current_beacon().await?;
+    async fn transition_from_init_to_unregistered(&self) -> Result<SignerState, RuntimeError> {
+        let current_beacon = self
+            .get_current_beacon("unregistered → unregistered")
+            .await?;
 
         Ok(SignerState::Unregistered {
             epoch: current_beacon.epoch,
@@ -242,8 +269,9 @@ impl StateMachine {
     async fn transition_from_signed_to_unregistered(
         &self,
         beacon: Beacon,
-    ) -> Result<SignerState, Box<dyn Error + Sync + Send>> {
-        self.runner.update_era_checker(beacon.epoch).await?;
+    ) -> Result<SignerState, RuntimeError> {
+        self.update_era_checker(beacon.epoch, "signed → unregistered")
+            .await?;
 
         Ok(SignerState::Unregistered {
             epoch: beacon.epoch,
@@ -253,8 +281,9 @@ impl StateMachine {
     async fn transition_from_registered_to_unregistered(
         &self,
         beacon: Beacon,
-    ) -> Result<SignerState, Box<dyn Error + Sync + Send>> {
-        self.runner.update_era_checker(beacon.epoch).await?;
+    ) -> Result<SignerState, RuntimeError> {
+        self.update_era_checker(beacon.epoch, "unregistered → registered")
+            .await?;
 
         Ok(SignerState::Unregistered {
             epoch: beacon.epoch,
@@ -265,15 +294,22 @@ impl StateMachine {
     async fn transition_from_unregistered_to_registered(
         &self,
         epoch_settings: &EpochSettings,
-    ) -> Result<SignerState, Box<dyn Error + Sync + Send>> {
-        let beacon = self.runner.get_current_beacon().await?;
-        self.runner.update_stake_distribution(beacon.epoch).await?;
+    ) -> Result<SignerState, RuntimeError> {
+        let beacon = self.get_current_beacon("unregistered → registered").await?;
+        self.runner.update_stake_distribution(beacon.epoch)
+            .await
+            .map_err(|e| RuntimeError::KeepState {
+                message: format!("Could not update stake distribution in 'unregistered → registered' phase for epoch {:?}.", beacon.epoch),
+                nested_error: Some(e) })?;
         self.runner
             .register_signer_to_aggregator(
                 epoch_settings.epoch,
                 &epoch_settings.next_protocol_parameters,
             )
-            .await?;
+            .await
+            .map_err(|e| RuntimeError::KeepState {
+                message: format!("Could not register to aggregator in 'unregistered → registered' phase for epoch {:?}.", beacon.epoch),
+                nested_error: Some(e) })?;
 
         Ok(SignerState::Registered { beacon })
     }
@@ -282,7 +318,7 @@ impl StateMachine {
     async fn transition_from_registered_to_signed(
         &self,
         pending_certificate: &CertificatePending,
-    ) -> Result<SignerState, Box<dyn Error + Sync + Send>> {
+    ) -> Result<SignerState, RuntimeError> {
         let current_beacon = &pending_certificate.beacon;
         let (retrieval_epoch, next_retrieval_epoch) = (
             current_beacon.epoch.offset_to_signer_retrieval_epoch()?,
@@ -299,25 +335,70 @@ impl StateMachine {
         let signers: Vec<SignerWithStake> = self
             .runner
             .associate_signers_with_stake(retrieval_epoch, &pending_certificate.signers)
-            .await?;
+            .await
+            .map_err(|e| RuntimeError::KeepState {
+                message: format!("Could not associate current signers with stakes during 'registered → signed' phase (current beacon {current_beacon:?}, retrieval epoch {retrieval_epoch:?})"),
+                nested_error: Some(e)
+            })?;
         let next_signers: Vec<SignerWithStake> = self
             .runner
             .associate_signers_with_stake(next_retrieval_epoch, &pending_certificate.next_signers)
-            .await?;
+            .await
+            .map_err(|e| RuntimeError::KeepState {
+                message: format!("Could not associate next signers with stakes during 'registered → signed' phase (current beacon {current_beacon:?}, next retrieval epoch {next_retrieval_epoch:?})"),
+                nested_error: Some(e)
+            })?;
 
         let message = self
             .runner
             .compute_message(current_beacon, &next_signers)
-            .await?;
+            .await
+            .map_err(|e| RuntimeError::KeepState {
+                message: format!("Could not compute message during 'registered → signed' phase (current beacon {current_beacon:?})"),
+                nested_error: Some(e)
+            })?;
         let single_signatures = self
             .runner
             .compute_single_signature(current_beacon.epoch, &message, &signers)
-            .await?;
-        self.runner.send_single_signature(single_signatures).await?;
+            .await
+            .map_err(|e| RuntimeError::KeepState {
+                message: format!("Could not compute single signature during 'registered → signed' phase (current beacon {current_beacon:?})"),
+                nested_error: Some(e)
+            })?;
+        self.runner.send_single_signature(single_signatures).await
+            .map_err(|e| RuntimeError::KeepState {
+                message: format!("Could not send single signature during 'registered → signed' phase (current beacon {current_beacon:?})"),
+                nested_error: Some(e)
+            })?;
 
         Ok(SignerState::Signed {
             beacon: current_beacon.clone(),
         })
+    }
+
+    async fn get_current_beacon(&self, context: &str) -> Result<Beacon, RuntimeError> {
+        let current_beacon =
+            self.runner
+                .get_current_beacon()
+                .await
+                .map_err(|e| RuntimeError::KeepState {
+                    message: format!("Could not retrieve current beacon in context '{context}'."),
+                    nested_error: Some(e),
+                })?;
+
+        Ok(current_beacon)
+    }
+
+    async fn update_era_checker(&self, epoch: Epoch, context: &str) -> Result<(), RuntimeError> {
+        self.runner
+            .update_era_checker(epoch)
+            .await
+            .map_err(|e| RuntimeError::Critical {
+                message: format!(
+                    "Could not update Era checker with context '{context}' for epoch {epoch:?}"
+                ),
+                nested_error: Some(e),
+            })
     }
 }
 

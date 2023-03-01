@@ -94,7 +94,7 @@ pub trait Runner {
 
 /// This type represents the errors thrown from the Runner.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
-pub enum RuntimeError {
+pub enum RunnerError {
     /// Value was expected from a subsystem but None was returned.
     #[error("No value returned by the subsystem for `{0}`.")]
     NoValueError(String),
@@ -107,9 +107,6 @@ pub enum RuntimeError {
     /// Parse file error
     #[error("File parse failed: {0}.")]
     FileParse(String),
-    /// General subsystem error
-    #[error("Subsystem unavailable: {0}.")]
-    SubsystemUnavailable(String),
 }
 
 /// Controller methods for the Signer's state machine.
@@ -176,19 +173,19 @@ impl Runner for SignerRunner {
             .get_stakes(epoch_offset_to_recording_epoch)
             .await?
             .ok_or_else(|| {
-                RuntimeError::NoValueError(format!(
+                RunnerError::NoValueError(format!(
                     "stakes at epoch {epoch_offset_to_recording_epoch}"
                 ))
             })?;
         let stake = stake_distribution
             .get(&self.services.single_signer.get_party_id())
-            .ok_or(RuntimeError::NoStakeForSelf())?;
+            .ok_or_else(RunnerError::NoStakeForSelf)?;
         let (operational_certificate, operational_certificate_encoded) =
             match &self.config.operational_certificate_path {
                 Some(operational_certificate_path) => {
                     let opcert: OpCert =
                         OpCert::from_file(operational_certificate_path).map_err(|_| {
-                            RuntimeError::FileParse("operational_certificate_path".to_string())
+                            RunnerError::FileParse("operational_certificate_path".to_string())
                         })?;
                     (Some(opcert.clone()), Some(key_encode_hex(opcert)?))
                 }
@@ -248,7 +245,7 @@ impl Runner for SignerRunner {
             .chain_observer
             .get_current_stake_distribution()
             .await?
-            .ok_or_else(|| RuntimeError::NoValueError("current_stake_distribution".to_string()))?;
+            .ok_or_else(|| RunnerError::NoValueError("current_stake_distribution".to_string()))?;
         self.services
             .stake_store
             .save_stakes(epoch.offset_to_recording_epoch(), stake_distribution)
@@ -317,13 +314,13 @@ impl Runner for SignerRunner {
             .stake_store
             .get_stakes(epoch)
             .await?
-            .ok_or_else(|| RuntimeError::NoValueError(format!("stakes at epoch {epoch}")))?;
+            .ok_or_else(|| RunnerError::NoValueError(format!("stakes at epoch {epoch}")))?;
         let mut signers_with_stake = vec![];
 
         for signer in signers {
             let stake = stakes
                 .get(&*signer.party_id)
-                .ok_or_else(|| RuntimeError::NoStakeForSigner(signer.party_id.to_string()))?;
+                .ok_or_else(|| RunnerError::NoStakeForSigner(signer.party_id.to_string()))?;
 
             signers_with_stake.push(SignerWithStake::new(
                 signer.party_id.to_owned(),
@@ -363,7 +360,7 @@ impl Runner for SignerRunner {
             .get_protocol_initializer(next_signer_retrieval_epoch)
             .await?
             .ok_or_else(|| {
-                RuntimeError::NoValueError(format!(
+                RunnerError::NoValueError(format!(
                     "protocol_initializer at epoch {next_signer_retrieval_epoch}"
                 ))
             })?;
@@ -372,7 +369,7 @@ impl Runner for SignerRunner {
             .services
             .single_signer
             .compute_aggregate_verification_key(next_signers, &next_protocol_initializer)?
-            .ok_or_else(|| RuntimeError::NoValueError("next_signers avk".to_string()))?;
+            .ok_or_else(|| RunnerError::NoValueError("next_signers avk".to_string()))?;
         message.set_message_part(ProtocolMessagePartKey::NextAggregateVerificationKey, avk);
 
         Ok(message)
@@ -393,7 +390,7 @@ impl Runner for SignerRunner {
             .get_protocol_initializer(signer_retrieval_epoch)
             .await?
             .ok_or_else(|| {
-                RuntimeError::NoValueError(format!(
+                RunnerError::NoValueError(format!(
                     "protocol_initializer at epoch {signer_retrieval_epoch}"
                 ))
             })?;
@@ -510,7 +507,7 @@ mod tests {
             Arc::new(DumbImmutableFileObserver::default()),
             CardanoNetwork::TestNet(42),
         ));
-        let era_reader = Arc::new(EraReader::new(Box::new(EraReaderBootstrapAdapter)));
+        let era_reader = Arc::new(EraReader::new(Arc::new(EraReaderBootstrapAdapter)));
         let era_epoch_token = era_reader
             .read_era_epoch_token(beacon_provider.get_current_beacon().await.unwrap().epoch)
             .await

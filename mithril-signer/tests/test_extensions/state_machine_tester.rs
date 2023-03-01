@@ -21,7 +21,8 @@ use mithril_common::{
 };
 use mithril_signer::{
     CertificateHandler, Configuration, MithrilSingleSigner, ProtocolInitializerStore,
-    ProtocolInitializerStorer, SignerRunner, SignerServices, SignerState, StateMachine,
+    ProtocolInitializerStorer, RuntimeError, SignerRunner, SignerServices, SignerState,
+    StateMachine,
 };
 
 use super::FakeAggregator;
@@ -36,6 +37,12 @@ pub enum TestError {
     SubsystemError(#[from] Box<dyn StdError + Sync + Send>),
     #[error("Value error: {0}")]
     ValueError(String),
+}
+
+impl From<RuntimeError> for TestError {
+    fn from(value: RuntimeError) -> Self {
+        Self::SubsystemError(value.into())
+    }
 }
 
 pub struct StateMachineTester {
@@ -112,7 +119,7 @@ impl StateMachineTester {
             Box::new(MemoryAdapter::new(None).unwrap()),
             config.store_retention_limit,
         ));
-        let era_reader = Arc::new(EraReader::new(Box::new(EraReaderBootstrapAdapter)));
+        let era_reader = Arc::new(EraReader::new(Arc::new(EraReaderBootstrapAdapter)));
         let era_epoch_token = era_reader
             .read_era_epoch_token(beacon_provider.get_current_beacon().await.unwrap().epoch)
             .await

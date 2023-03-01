@@ -21,6 +21,8 @@ use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::RwLock;
 
+// TODO: remove this allow, create a real dependency injection builder.
+#[allow(clippy::too_many_arguments)]
 pub async fn initialize_dependencies(
     default_protocol_parameters: ProtocolParameters,
     snapshot_uploader: Arc<DumbSnapshotUploader>,

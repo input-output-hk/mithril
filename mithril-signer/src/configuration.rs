@@ -94,7 +94,7 @@ impl Configuration {
     pub fn build_era_reader_adapter(
         &self,
         chain_observer: Arc<dyn ChainObserver>,
-    ) -> Result<Box<dyn EraReaderAdapter>, Box<dyn Error>> {
+    ) -> Result<Arc<dyn EraReaderAdapter>, Box<dyn Error>> {
         Ok(EraReaderAdapterBuilder::new(
             &self.era_reader_adapter_type,
             &self.era_reader_adapter_params,
