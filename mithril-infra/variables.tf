@@ -84,6 +84,12 @@ locals {
   google_project_id                            = local.google_service_credentials_json_file_decoded.project_id
 }
 
+variable "cardano_image_id" {
+  type        = string
+  description = "The Cardano image tag of service to deploy"
+  default     = "1.35.5"
+}
+
 variable "mithril_api_domain" {
   type        = string
   description = "The Mithril api (sub)domain name of service to deploy"

@@ -1,0 +1,101 @@
+name: Docker images test
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: |
+          SHA of the commit on which the mithril binaries should be obtained, a "ci.yml" workflow must have run
+          on it else no binary would be available leading to the failure of this.
+          
+          If not provided the last commit on the main branch will be used instead.
+        required: false
+        type: string
+      cardano_bin_url:
+        description: The url of the archive of the Cardano Node/CLI binaries
+        required: true
+        type: string
+        default: https://update-cardano-mainnet.iohk.io/cardano-node-releases/cardano-node-1.35.5-linux.tar.gz
+      dry_run:
+        description: Dry run will not push the Docker images to the registry
+        required: true
+        type: boolean
+        default: false
+
+jobs:
+  build-push-docker:
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [ mithril-aggregator, mithril-client, mithril-signer ]
+    
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_NAME: ${{ github.repository_owner }}/${{ matrix.project }}
+      DOCKER_FILE: ./${{ matrix.project }}/Dockerfile.ci
+      CONTEXT: .
+      GITHUB_REF: ${{ github.ref}}
+
+    steps:
+      - name: Prepare environment variables
+        id: prepare
+        shell: bash
+        run: |
+          if [[ -n "${{ inputs.commit_sha }}" ]]; then
+            echo "sha=${{ inputs.commit_sha }}" >> $GITHUB_OUTPUT
+          else
+            echo "branch=main" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Checkout binary
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          name: mithril-distribution-${{ runner.os }}-${{ runner.arch }}
+          path: ./bin
+          commit: ${{ steps.prepare.outputs.sha }} 
+          branch: ${{ steps.prepare.outputs.branch }}
+          workflow: ci.yml
+          workflow_conclusion: success
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@v2
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            test
+            type=raw,value=test-${{ github.ref_name }}-{{ steps.prepare.outputs.sha }}
+
+      - name: Download built artifacts (Linux-x64)
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          name: mithril-distribution-Linux-X64
+          path: ${{ matrix.project }}
+          commit: ${{ steps.prepare.outputs.sha }}
+          workflow: ci.yml
+          workflow_conclusion: success
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v3
+        if: ${{ inputs.dry_run }} == 'false'
+        with:
+          context: ${{ env.CONTEXT }}
+          file: ${{ env.DOCKER_FILE }}
+          build-args: CARDANO_BIN_URL=${{ steps.inputs.cardano_bin_url }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}

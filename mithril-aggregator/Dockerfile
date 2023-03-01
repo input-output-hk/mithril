@@ -39,6 +39,9 @@ RUN /app/target/release/mithril-aggregator --version
 ###############################
 FROM ubuntu:22.04
 
+# Args
+ARG CARDANO_BIN_URL=https://update-cardano-mainnet.iohk.io/cardano-node-releases/cardano-node-1.35.5-linux.tar.gz
+
 # Upgrade
 RUN apt-get update -y && apt-get install -y libssl-dev ca-certificates wget sqlite3 && rm -rf /var/lib/apt/lists/*
 
@@ -56,7 +59,7 @@ WORKDIR /app/
 RUN chown -R appuser /app/
 
 # Install cardano-cli
-RUN wget -nv -O cardano-bin.tar.gz https://update-cardano-mainnet.iohk.io/cardano-node-releases/cardano-node-1.35.5-linux.tar.gz
+RUN wget -nv -O cardano-bin.tar.gz $CARDANO_BIN_URL
 RUN tar xzf cardano-bin.tar.gz ./cardano-cli && mv cardano-cli /app/bin
 RUN /app/bin/cardano-cli --version
 RUN rm -f cardano-bin.tar.gz
