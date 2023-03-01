@@ -28,7 +28,9 @@ impl EraTools {
         maybe_next_era_epoch: Option<Epoch>,
         era_markers_signer: &EraMarkersSigner,
     ) -> EraToolsResult<String> {
-        if maybe_next_era_epoch.unwrap_or_default() >= current_era_epoch {
+        if maybe_next_era_epoch.is_some()
+            && maybe_next_era_epoch.unwrap_or_default() <= current_era_epoch
+        {
             Err("next era epoch must be strictly greater than the current era epoch".to_string())?;
         }
 
@@ -89,7 +91,7 @@ mod tests {
         let era_markers_signer = EraMarkersSigner::create_deterministic_signer();
         let era_tools = build_tools();
         let _ = era_tools
-            .generate_tx_datum(Epoch(1), Some(Epoch(2)), &era_markers_signer)
+            .generate_tx_datum(Epoch(3), Some(Epoch(2)), &era_markers_signer)
             .expect_err("generate_tx_datum should have failed");
     }
 }
