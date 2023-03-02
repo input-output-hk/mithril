@@ -9,8 +9,11 @@ use mithril_common::{
 
 use test_extensions::RuntimeTester;
 
+// NOTE: Due to the shared nature of the Logger, there cannot be two methods in
+// the same test file. Because the logger is wiped of memory when the first
+// methods terminates it also removes the other method's logger from memory.
 #[tokio::test]
-async fn unsupported_starting_era() {
+async fn testing_eras() {
     let protocol_parameters = ProtocolParameters {
         k: 5,
         m: 100,
@@ -21,7 +24,7 @@ async fn unsupported_starting_era() {
         EraMarker::new("unsupported", Some(Epoch(0))),
         EraMarker::new(&SupportedEra::dummy().to_string(), Some(Epoch(12))),
     ]);
-
+    comment!("Starting the runtime at unsupported Era.");
     if let Err(e) = tester.runtime.cycle().await {
         match e {
             RuntimeError::Critical {
@@ -33,16 +36,13 @@ async fn unsupported_starting_era() {
     } else {
         panic!("Expected an error, got Ok().")
     }
-}
 
-#[tokio::test]
-async fn transiting_to_unsupported_era() {
+    // Testing the Era changes during the process
     let protocol_parameters = ProtocolParameters {
         k: 5,
         m: 100,
         phi_f: 0.95,
     };
-    let mut tester = RuntimeTester::build(protocol_parameters.clone()).await;
     tester.era_reader_adapter.set_markers(vec![
         EraMarker::new(&SupportedEra::dummy().to_string(), Some(Epoch(0))),
         EraMarker::new("unsupported", Some(Epoch(11))),
@@ -71,6 +71,7 @@ async fn transiting_to_unsupported_era() {
         .await
         .unwrap()
         .unwrap();
+
     comment!("Boostrap the genesis certificate");
     tester.register_genesis_certificate(&signers).await.unwrap();
 

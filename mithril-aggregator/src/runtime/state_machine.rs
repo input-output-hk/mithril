@@ -135,7 +135,10 @@ impl AggregatorRuntime {
 
                 if state.current_beacon.is_none()
                     || chain_beacon
-                        .compare_to_older(state.current_beacon.as_ref().unwrap())?
+                        .compare_to_older(state.current_beacon.as_ref().unwrap())
+                        .map_err(|e|
+                            RuntimeError::keep_state(
+                                &format!("Beacon in the state ({:?}) is newer than the beacon read on chain '{:?})", state.current_beacon, chain_beacon), Some(e.into())))?
                         .is_new_beacon()
                 {
                     info!(
@@ -164,7 +167,10 @@ impl AggregatorRuntime {
                 let chain_beacon: Beacon = self.runner.get_beacon_from_chain().await?;
 
                 if chain_beacon
-                    .compare_to_older(&state.current_beacon)?
+                    .compare_to_older(&state.current_beacon)
+                    .map_err(|e|
+                            RuntimeError::keep_state(
+                                &format!("Beacon in the state ({:?}) is newer than the beacon read on chain '{:?})", state.current_beacon, chain_beacon), Some(e.into())))?
                     .is_new_epoch()
                 {
                     // transition READY > IDLE
@@ -198,7 +204,10 @@ impl AggregatorRuntime {
                 let chain_beacon: Beacon = self.runner.get_beacon_from_chain().await?;
 
                 if chain_beacon
-                    .compare_to_older(&state.current_beacon)?
+                    .compare_to_older(&state.current_beacon)
+                    .map_err(|e|
+                            RuntimeError::keep_state(
+                                &format!("Beacon in the state ({:?}) is newer than the beacon read on chain '{:?})", state.current_beacon, chain_beacon), Some(e.into())))?
                     .is_new_beacon()
                 {
                     info!("→ Beacon changed, transitioning to IDLE"; "new_beacon" => ?chain_beacon);
@@ -234,7 +243,10 @@ impl AggregatorRuntime {
         if maybe_current_beacon.is_none() || maybe_current_beacon.unwrap().epoch < new_beacon.epoch
         {
             self.runner.close_signer_registration_round().await?;
-            self.runner.update_era_checker(&new_beacon).await?;
+            self.runner
+                .update_era_checker(&new_beacon)
+                .await
+                .map_err(|e| RuntimeError::critical("transiting IDLE → READY", Some(e)))?;
             self.runner.update_stake_distribution(&new_beacon).await?;
             self.runner
                 .open_signer_registration_round(&new_beacon)
@@ -336,6 +348,8 @@ mod tests {
 
     use super::super::runner::MockAggregatorRunner;
     use super::*;
+
+    use mithril_common::era::UnsupportedEraError;
     use mithril_common::test_utils::fake_data;
     use mockall::predicate;
 
@@ -694,12 +708,7 @@ mod tests {
             .expect_update_era_checker()
             .with(predicate::eq(fake_data::beacon()))
             .once()
-            .returning(|_| {
-                Err(RuntimeError::Critical {
-                    message: "unsupported Era: 'whatever'".to_string(),
-                    nested_error: None,
-                })
-            });
+            .returning(|_| Err(UnsupportedEraError::new("whatever").into()));
         runner
             .expect_close_signer_registration_round()
             .once()

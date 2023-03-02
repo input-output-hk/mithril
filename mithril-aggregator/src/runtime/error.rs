@@ -1,11 +1,3 @@
-use crate::ProtocolError;
-
-use mithril_common::certificate_chain::CertificateVerifierError;
-use mithril_common::chain_observer::ChainObserverError;
-use mithril_common::digesters::ImmutableDigesterError;
-use mithril_common::entities::BeaconComparisonError;
-use mithril_common::store::StoreError;
-use mithril_common::BeaconProviderError;
 use std::error::Error as StdError;
 use thiserror::Error;
 
@@ -53,65 +45,36 @@ impl RuntimeError {
     }
 }
 
-impl From<BeaconComparisonError> for RuntimeError {
-    fn from(value: BeaconComparisonError) -> Self {
+impl From<Box<dyn StdError + Sync + Send>> for RuntimeError {
+    fn from(value: Box<dyn StdError + Sync + Send>) -> Self {
         Self::KeepState {
-            message: "Beacon comparison error".to_string(),
-            nested_error: Some(value.into()),
+            message: "Error caught, state preserved, will retry to cycle.".to_string(),
+            nested_error: Some(value),
         }
     }
 }
 
-impl From<ImmutableDigesterError> for RuntimeError {
-    fn from(value: ImmutableDigesterError) -> Self {
-        Self::KeepState {
-            message: "Error while reading immutable files".to_string(),
-            nested_error: Some(value.into()),
-        }
-    }
-}
+/// Errors returned when the runner cannot fulfil its missions with no subsystem
+/// to fail.
+#[derive(Debug, Error)]
+pub enum RunnerError {
+    /// Protocol message part is missing
+    #[error("Missing protocol message: '{0}'.")]
+    MissingProtocolMessage(String),
 
-impl From<ProtocolError> for RuntimeError {
-    fn from(value: ProtocolError) -> Self {
-        Self::KeepState {
-            message: "Mithril Protocol Error".to_string(),
-            nested_error: Some(value.into()),
-        }
-    }
-}
+    /// Epoch out of bounds
+    #[error("Epoch out of bounds: '{0}'.")]
+    EpochOutOfBounds(String),
 
-impl From<ChainObserverError> for RuntimeError {
-    fn from(value: ChainObserverError) -> Self {
-        Self::KeepState {
-            message: "Chain observer error".to_string(),
-            nested_error: Some(value.into()),
-        }
-    }
-}
+    /// No stack distribution found
+    #[error("Missing stack distribution: '{0}'.")]
+    MissingStakeDistribution(String),
 
-impl From<StoreError> for RuntimeError {
-    fn from(value: StoreError) -> Self {
-        Self::KeepState {
-            message: "Store Error".to_string(),
-            nested_error: Some(value.into()),
-        }
-    }
-}
+    /// Missing protocol parameters
+    #[error("Missing protocol parameters: '{0}'.")]
+    MissingProtocolParameters(String),
 
-impl From<BeaconProviderError> for RuntimeError {
-    fn from(value: BeaconProviderError) -> Self {
-        Self::KeepState {
-            message: "Could not read beacon from chain".to_string(),
-            nested_error: Some(value.into()),
-        }
-    }
-}
-
-impl From<CertificateVerifierError> for RuntimeError {
-    fn from(value: CertificateVerifierError) -> Self {
-        Self::KeepState {
-            message: "Could not verify given certificate".to_string(),
-            nested_error: Some(value.into()),
-        }
-    }
+    /// No AVK issued by the multisigner
+    #[error("No MultiSignature issued: '{0}'.")]
+    NoComputedMultiSignature(String),
 }
