@@ -6,13 +6,11 @@ on:
       commit_sha:
         description: |
           SHA of the commit on which the mithril binaries should be obtained, a "ci.yml" workflow must have run
-          on it else no binary would be available leading to the failure of this.
-          
-          If not provided the last commit on the main branch will be used instead.
-        required: false
+          on it otherwise no binary would be available leading to the failure of this workflow.
+        required: true
         type: string
       cardano_bin_url:
-        description: The url of the archive of the Cardano Node/CLI binaries
+        description: The url of the archive of the Cardano binaries
         required: true
         type: string
         default: https://update-cardano-mainnet.iohk.io/cardano-node-releases/cardano-node-1.35.5-linux.tar.gz
@@ -20,7 +18,7 @@ on:
         description: Dry run will not push the Docker images to the registry
         required: true
         type: boolean
-        default: false
+        default: true
 
 jobs:
   build-push-docker:
@@ -31,8 +29,7 @@ jobs:
         project: [ mithril-aggregator, mithril-client, mithril-signer ]
     
     permissions:
-      contents: read
-      packages: write
+      contents: read 
 
     env:
       REGISTRY: ghcr.io
@@ -42,26 +39,19 @@ jobs:
       GITHUB_REF: ${{ github.ref}}
 
     steps:
-      - name: Prepare environment variables
-        id: prepare
-        shell: bash
-        run: |
-          if [[ -n "${{ inputs.commit_sha }}" ]]; then
-            echo "sha=${{ inputs.commit_sha }}" >> $GITHUB_OUTPUT
-          else
-            echo "branch=main" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Checkout binary
+      - name: Checkout commit
+        run: |
+          git checkout ${{ inputs.commit_sha }}
+
+      - name: Download built artifacts (Linux-x64)
         uses: dawidd6/action-download-artifact@v2
         with:
-          name: mithril-distribution-${{ runner.os }}-${{ runner.arch }}
-          path: ./bin
-          commit: ${{ steps.prepare.outputs.sha }} 
-          branch: ${{ steps.prepare.outputs.branch }}
+          name: mithril-distribution-Linux-X64
+          path: ${{ matrix.project }}
+          commit: ${{ inputs.commit_sha }}
           workflow: ci.yml
           workflow_conclusion: success
 
@@ -79,23 +69,13 @@ jobs:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
             test
-            type=raw,value=test-${{ github.ref_name }}-{{ steps.prepare.outputs.sha }}
-
-      - name: Download built artifacts (Linux-x64)
-        uses: dawidd6/action-download-artifact@v2
-        with:
-          name: mithril-distribution-Linux-X64
-          path: ${{ matrix.project }}
-          commit: ${{ steps.prepare.outputs.sha }}
-          workflow: ci.yml
-          workflow_conclusion: success
+            type=raw,value=test-${{ inputs.commit_sha }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v3
-        if: ${{ inputs.dry_run }} == 'false'
         with:
           context: ${{ env.CONTEXT }}
           file: ${{ env.DOCKER_FILE }}
-          build-args: CARDANO_BIN_URL=${{ steps.inputs.cardano_bin_url }}
-          push: true
+          build-args: CARDANO_BIN_URL=${{ inputs.cardano_bin_url }}
+          push: ${{ inputs.dry_run == 'false' }}
           tags: ${{ steps.meta.outputs.tags }}
