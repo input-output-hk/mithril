@@ -9,7 +9,7 @@ pub use bootstrap::BootstrapAdapter as EraReaderBootstrapAdapter;
 pub use builder::{AdapterBuilder as EraReaderAdapterBuilder, AdapterType as EraReaderAdapterType};
 pub use cardano_chain::{
     CardanoChainAdapter as EraReaderCardanoChainAdapter,
-    EraMarkersPayload as EraMarkersPayloadCardanoChain,
+    EraMarkerItem as EraMarkerItemCardanoChain, EraMarkersPayload as EraMarkersPayloadCardanoChain,
 };
 pub use dummy::DummyAdapter as EraReaderDummyAdapter;
 pub use file::FileAdapter as EraReaderFileAdapter;
