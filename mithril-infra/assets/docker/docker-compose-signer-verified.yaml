@@ -113,6 +113,8 @@ services:
       - STORE_RETENTION_LIMIT=5
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
+      - ERA_READER_ADAPTER_TYPE=${ERA_READER_ADAPTER_TYPE}
+      - ERA_READER_ADAPTER_PARAMS=${ERA_READER_ADAPTER_PARAMS}
     volumes:
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/mithril:/mithril-signer-${SIGNER_ID}/mithril
       - ../data/${NETWORK}/mithril-signer-${SIGNER_ID}/cardano/db/block-producer:/mithril-signer-${SIGNER_ID}/cardano/db

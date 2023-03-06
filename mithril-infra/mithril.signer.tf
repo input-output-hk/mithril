@@ -65,6 +65,8 @@ EOT
       "export SIGNER_CARDANO_RELAY_PORT=${local.mithril_signers_relay_cardano_port[each.key]}",
       "export SIGNER_CARDANO_BLOCK_PRODUCER_ADDR=0.0.0.0",
       "export SIGNER_CARDANO_BLOCK_PRODUCER_PORT=${local.mithril_signers_block_producer_cardano_port[each.key]}",
+      "export ERA_READER_ADAPTER_TYPE='${var.mithril_era_reader_adapter_type}'",
+      "export ERA_READER_ADAPTER_PARAMS=$(jq -nc --arg address $(wget -q -O - ${var.mithril_era_reader_address_url}) --arg verification_key $(wget -q -O - ${var.mithril_era_reader_verification_key_url}) '{\"address\": $address, \"verification_key\": $verification_key}')",
       "export CURRENT_UID=$(id -u)",
       "export DOCKER_GID=$(getent group docker | cut -d: -f3)",
       "docker-compose -p $SIGNER_ID -f /home/curry/docker/docker-compose-signer-${each.value.type}.yaml --profile all up -d",

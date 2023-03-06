@@ -123,6 +123,26 @@ variable "mithril_protocol_parameters" {
   }
 }
 
+variable "mithril_era_reader_adapter_type" {
+  type        = string
+  description = "The Mithril era reader adapter used to read the era markers"
+  default     = "cardano-chain"
+}
+
+variable "mithril_era_reader_address_url" {
+  type        = string
+  description = "The url of the Mithril era reader address used to query the on chain Utxo containing the era markers payload"
+}
+
+variable "mithril_era_reader_verification_key_url" {
+  type        = string
+  description = "The url of the Mithril era reader verification key used by to verify an era markers payload"
+}
+variable "mithril_era_reader_secret_key" {
+  type        = string
+  description = "The Mithril genesis secret key used by the aggregator to generate an era marker payload TxDatum file (test only)"
+}
+
 variable "mithril_signers" {
   type = map(object({
     type    = string

@@ -4,7 +4,8 @@ use thiserror::Error;
 
 use crate::{
     chain_observer::{ChainAddress, ChainObserver},
-    crypto_helper::EraMarkersVerifierVerificationKey,
+    crypto_helper::key_decode_hex,
+    entities::HexEncodedEraMarkersSignature,
     era::{
         adapters::{
             EraReaderBootstrapAdapter, EraReaderCardanoChainAdapter, EraReaderDummyAdapter,
@@ -19,6 +20,7 @@ use crate::{
 #[serde(rename_all = "lowercase")]
 pub enum AdapterType {
     /// Cardano chain adapter.
+    #[serde(rename = "cardano-chain")]
     CardanoChain,
     /// File adapter.
     File,
@@ -38,6 +40,10 @@ pub enum AdapterBuilderError {
     /// Parameters parse error.
     #[error("era reader adapter parameters parse error: {0:?}")]
     ParseParameters(serde_json::Error),
+
+    /// Parameters decode error.
+    #[error("era reader adapter parameters decode error: {0:?}")]
+    Decode(String),
 }
 
 /// Era adapter builder
@@ -65,7 +71,7 @@ impl AdapterBuilder {
                 #[derive(Deserialize)]
                 struct CardanoChainAdapterConfig {
                     address: ChainAddress,
-                    verification_key: EraMarkersVerifierVerificationKey,
+                    verification_key: HexEncodedEraMarkersSignature,
                 }
 
                 let adapter_config: CardanoChainAdapterConfig = serde_json::from_str(
@@ -78,7 +84,8 @@ impl AdapterBuilder {
                 Ok(Box::new(EraReaderCardanoChainAdapter::new(
                     adapter_config.address,
                     chain_observer,
-                    adapter_config.verification_key,
+                    key_decode_hex(&adapter_config.verification_key)
+                        .map_err(AdapterBuilderError::Decode)?,
                 )))
             }
             AdapterType::File => {

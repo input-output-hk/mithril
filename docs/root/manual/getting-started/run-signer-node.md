@@ -49,7 +49,9 @@ For more information about the **Mithril Protocol**, please refer to the [About 
 
 * Install OpenSSL development libraries, for example on Ubuntu/Debian/Mint run `apt install libssl-dev`
 
-* Ensure the SQLite3 version is at lease `3.35` (released Apr. 2021)
+* Ensure the SQLite3 version is at least `3.35` (released Apr. 2021)
+
+* Install a recent version of `jq` (version `1.6+`) `apt install jq`
 
 ## Mithril Keys Certification
 
@@ -195,7 +197,8 @@ Replace this value with the correct user. We assume that the user used to run th
   * `CARDANO_CLI_PATH=/app/bin/cardano-cli`: replace with the path to the `cardano-cli` executable
   * `DATA_STORES_DIRECTORY=/opt/mithril/stores`: replace with the path to a folder where the **Mithril Signer** will store its data (`/opt/mithril/stores` e.g.)
   * `STORE_RETENTION_LIMIT`: if set, this will limit the number of records in some internal stores (5 is a good fit).
-
+  * `ERA_READER_ADAPTER_TYPE=cardano-chain`: replace `cardano-chain` with the era reader adapter type used in your Mithril network
+  * `ERA_READER_ADAPTER_PARAMS={"address": "...", "verification_key": "..."}`: replace `{"address": "...", "verification_key": "..."}` with the era reader params that you need to compute by running the command `jq -nc --arg address $(wget -q -O - **YOUR_ERA_READER_ADDRESS**) --arg verification_key $(wget -q -O - **YOUR_ERA_READER_VERIFICATION_KEY**) '{"address": $address, "verification_key": $verification_key}'`
 :::
 
 First create an env file that will be used by the service:
@@ -212,6 +215,8 @@ CARDANO_NODE_SOCKET_PATH=/cardano/ipc/node.socket
 CARDANO_CLI_PATH=/app/bin/cardano-cli
 DATA_STORES_DIRECTORY=/opt/mithril/stores
 STORE_RETENTION_LIMIT=5
+ERA_READER_ADAPTER_TYPE=**YOUR_ERA_READER_ADAPTER_TYPE**
+ERA_READER_ADAPTER_PARAMS=**YOUR_ERA_READER_ADAPTER_PARAMS**
 EOF'
 ```
 

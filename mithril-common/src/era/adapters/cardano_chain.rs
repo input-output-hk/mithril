@@ -4,7 +4,7 @@ use crate::{
         key_decode_hex, EraMarkersSigner, EraMarkersVerifier, EraMarkersVerifierSignature,
         EraMarkersVerifierVerificationKey,
     },
-    entities::HexEncodedEraMarkersSignature,
+    entities::{Epoch, HexEncodedEraMarkersSignature},
     era::{EraMarker, EraReaderAdapter},
 };
 use async_trait::async_trait;
@@ -40,11 +40,45 @@ pub enum EraMarkersPayloadError {
     CreateSignature(GeneralError),
 }
 
+/// Era marker item
+/// Value object that represents a tag of Era change.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EraMarkerItem {
+    /// Era name
+    #[serde(rename = "n")]
+    pub name: String,
+
+    /// Eventual information that advertises the Epoch of transition.
+    #[serde(rename = "e")]
+    pub epoch: Option<Epoch>,
+}
+
+impl EraMarkerItem {
+    /// Instantiate a new [EraMarkerItem].
+    pub fn new(name: &str, epoch: Option<Epoch>) -> Self {
+        let name = name.to_string();
+
+        Self { name, epoch }
+    }
+}
+
+impl From<EraMarker> for EraMarkerItem {
+    fn from(other: EraMarker) -> EraMarkerItem {
+        EraMarkerItem::new(&other.name, other.epoch)
+    }
+}
+
+impl From<EraMarkerItem> for EraMarker {
+    fn from(other: EraMarkerItem) -> EraMarker {
+        EraMarker::new(&other.name, other.epoch)
+    }
+}
+
 /// Era markers payload
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct EraMarkersPayload {
     /// List of Era markers
-    pub markers: Vec<EraMarker>,
+    pub markers: Vec<EraMarkerItem>,
 
     /// Era markers signature
     pub signature: Option<HexEncodedEraMarkersSignature>,
@@ -129,17 +163,26 @@ impl EraReaderAdapter for CardanoChainAdapter {
         let markers_list = tx_datums
             .into_iter()
             .filter_map(|datum| {
-                datum
-                    .get_nth_field_by_type(&TxDatumFieldTypeName::Bytes, 0)
-                    .ok()
-            })
-            .filter_map(|field_value| field_value.as_str().map(|s| s.to_string()))
-            .filter_map(|field_value_str| key_decode_hex(&field_value_str).ok())
-            .filter_map(|era_markers_payload: EraMarkersPayload| {
-                era_markers_payload
-                    .verify_signature(self.verification_key)
-                    .ok()
-                    .map(|_| era_markers_payload.markers)
+                match (
+                    datum.get_nth_field_by_type(&TxDatumFieldTypeName::Bytes, 0),
+                    datum.get_nth_field_by_type(&TxDatumFieldTypeName::Bytes, 1),
+                ) {
+                    (Ok(markers), Ok(signature)) => {
+                        let markers = markers.as_str().map(|s| s.to_string()).unwrap_or_default();
+                        let signature = signature.as_str().map(|s| s.to_string());
+                        match key_decode_hex::<Vec<_>>(&markers) {
+                            Ok(markers) => EraMarkersPayload {
+                                markers: markers.clone(),
+                                signature,
+                            }
+                            .verify_signature(self.verification_key)
+                            .ok()
+                            .map(|_| markers.into_iter().map(|em| em.into()).collect()),
+                            Err(_) => None,
+                        }
+                    }
+                    _ => None,
+                }
             })
             .collect::<Vec<Vec<EraMarker>>>();
 
@@ -160,7 +203,12 @@ mod test {
             .into_iter()
             .map(|payload| {
                 TxDatumBuilder::new()
-                    .add_field(TxDatumFieldValue::Bytes(key_encode_hex(payload).unwrap()))
+                    .add_field(TxDatumFieldValue::Bytes(
+                        key_encode_hex(payload.markers).unwrap(),
+                    ))
+                    .add_field(TxDatumFieldValue::Bytes(
+                        payload.signature.unwrap_or_default(),
+                    ))
                     .build()
                     .unwrap()
             })
@@ -173,15 +221,15 @@ mod test {
         let fake_address = "addr_test_123456".to_string();
         let era_marker_payload_1 = EraMarkersPayload {
             markers: vec![
-                EraMarker::new("thales", Some(Epoch(1))),
-                EraMarker::new("pythagoras", None),
+                EraMarkerItem::new("thales", Some(Epoch(1))),
+                EraMarkerItem::new("pythagoras", None),
             ],
             signature: None,
         };
         let era_marker_payload_2 = EraMarkersPayload {
             markers: vec![
-                EraMarker::new("thales", Some(Epoch(1))),
-                EraMarker::new("pythagoras", Some(Epoch(2))),
+                EraMarkerItem::new("thales", Some(Epoch(1))),
+                EraMarkerItem::new("pythagoras", Some(Epoch(2))),
             ],
             signature: None,
         };
@@ -204,7 +252,11 @@ mod test {
             .read()
             .await
             .expect("CardanoChainAdapter read should not fail");
-        let expected_markers = era_marker_payload_2.markers.to_owned();
+        let expected_markers = era_marker_payload_2
+            .markers
+            .into_iter()
+            .map(|em| em.into())
+            .collect::<Vec<EraMarker>>();
         assert_eq!(expected_markers, markers);
     }
 }

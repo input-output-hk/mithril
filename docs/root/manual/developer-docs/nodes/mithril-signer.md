@@ -209,3 +209,5 @@ Here is a list of the available parameters:
 | `store_retention_limit` | - | - | `STORE_RETENTION_LIMIT` | Maximum number of records in stores. If not set, no limit is set. | - | - | - |
 | `kes_secret_key_path` | - | - | `KES_SECRET_KEY_PATH` | Path to the `Cardano KES Secret Key` file. Mandatory in `Pool Id Certification Mode` where the owner is verified (experimental, soon to be stable & preferred mode) | - | - | - |
 | `operational_certificate_path` | - | - | `OPERATIONAL_CERTIFICATE_PATH` | Path to the `Cardano Operational Certificate` file. Mandatory in `Pool Id Certification Mode` where the owner is verified (experimental, soon to be stable & preferred mode) | - | - | - |
+| `era_reader_adapter_type` | `--era-reader-adapter-type` | - | `ERA_READER_ADAPTER_TYPE` | Era reader adapter type that can be `cardano-chain`, `file` or `bootstrap`. | `bootstrap` | - | - |
+| `era_reader_adapter_params` | `--era-reader-adapter-params` | - | `ERA_READER_ADAPTER_PARAMS` | Era reader adapter params that is an optional JSON encoded parameters structure that is expected depending on the `era_reader_adapter_type` parameter | - | - | - |

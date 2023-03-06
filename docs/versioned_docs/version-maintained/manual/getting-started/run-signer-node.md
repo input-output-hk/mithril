@@ -49,7 +49,7 @@ For more information about the **Mithril Protocol**, please refer to the [About 
 
 * Install OpenSSL development libraries, for example on Ubuntu/Debian/Mint run `apt install libssl-dev`
 
-* Ensure the SQLite3 version is at lease `3.35` (released Apr. 2021)
+* Ensure the SQLite3 version is at least `3.35` (released Apr. 2021)
 
 ## Mithril Keys Certification
 
