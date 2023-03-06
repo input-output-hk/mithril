@@ -20,7 +20,7 @@ In order to guarantee that any breaking change of the Mithril nodes does not bre
 All theses information will be available at the updated [`Run a Mithril Signer node (SPO)`](https://mithril.network/doc/manual/getting-started/run-signer-node) guide.
 
 Here is a schema that illustrates the era switch behavior:
-![Era Switch Schema](./img/schema.jpg)
+[![Era Switch Schema](./img/schema.jpg)](./img/schema.jpg)
 
 More information is also available at this [ADR](https://mithril.network/doc/adr/4).
 
