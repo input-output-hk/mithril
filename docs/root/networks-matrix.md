@@ -24,16 +24,10 @@ Here is an up to date list of all the **Mithril Networks**, their configurations
 | **Supported** | Yes :heavy_check_mark:
 | **Status** | Pre-Release 🟠
 | **Aggregator Endpoint** | `https://aggregator.pre-release-preview.api.mithril.network/aggregator` [:arrow_upper_right:](https://aggregator.pre-release-preview.api.mithril.network/aggregator)  
-| **Genesis Verification Key** | `
-https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey` [:arrow_upper_right:](
-https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey)  
+| **Genesis Verification Key** | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey)  
 | **Era Reader Adapter Type** | `cardano-chain`
-| **Era Reader Address** | `
-https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/era.addr` [:arrow_upper_right:](
-https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/era.addr)
-| **Era Reader Verification Key** | `
-https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/era.vkey` [:arrow_upper_right:](
-https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/era.vkey)
+| **Era Reader Address** | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/era.addr` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/era.addr)
+| **Era Reader Verification Key** | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/era.vkey` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/era.vkey)
 | **Build From** |  **Latest Pre-Release** [:arrow_upper_right:](https://github.com/input-output-hk/mithril/releases?q=pre-release) 
 
 <br/>
@@ -49,16 +43,10 @@ https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/con
 | **Supported** | Yes :heavy_check_mark:
 | **Status** | Unstable 🔴
 | **Aggregator Endpoint** | `https://aggregator.testing-preview.api.mithril.network/aggregator` [:arrow_upper_right:](https://aggregator.testing-preview.api.mithril.network/aggregator)  
-| **Genesis Verification Key** | `
-https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/genesis.vkey` [:arrow_upper_right:](
-https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/genesis.vkey)  
+| **Genesis Verification Key** | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/genesis.vkey` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/genesis.vkey)  
 | **Era Reader Adapter Type** | `cardano-chain`
-| **Era Reader Address** | `
-https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/era.addr` [:arrow_upper_right:](
-https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/era.addr)
-| **Era Reader Verification Key** | `
-https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/era.vkey` [:arrow_upper_right:](
-https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/era.vkey)
+| **Era Reader Address** | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/era.addr` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/era.addr)
+| **Era Reader Verification Key** | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/era.vkey` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/testing-preview/era.vkey)
 | **Build From** |  **Main Branch** [:arrow_upper_right:](https://github.com/input-output-hk/mithril/tree/main) 
 
   </TabItem>
@@ -74,16 +62,10 @@ https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/con
 | **Supported** | Yes :heavy_check_mark:
 | **Status** | Release 🟢
 | **Aggregator Endpoint** | `https://aggregator.release-preprod.api.mithril.network/aggregator` [:arrow_upper_right:](https://aggregator.release-preprod.api.mithril.network/aggregator)  
-| **Genesis Verification Key** | `
-https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey` [:arrow_upper_right:](
-https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey)  
+| **Genesis Verification Key** | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey)  
 | **Era Reader Adapter Type** | `cardano-chain`
-| **Era Reader Address** | `
-https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/era.addr` [:arrow_upper_right:](
-https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/era.addr)
-| **Era Reader Verification Key** | `
-https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/era.vkey` [:arrow_upper_right:](
-https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/era.vkey)
+| **Era Reader Address** | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/era.addr` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/era.addr)
+| **Era Reader Verification Key** | `https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/era.vkey` [:arrow_upper_right:](https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/era.vkey)
 | **Build From** |  **Latest Release** [:arrow_upper_right:](https://github.com/input-output-hk/mithril/releases/latest) 
 
   </TabItem>
