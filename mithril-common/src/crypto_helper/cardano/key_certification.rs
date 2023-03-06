@@ -15,6 +15,7 @@ use mithril_stm::key_reg::{ClosedKeyReg, KeyReg};
 use mithril_stm::stm::{Stake, StmInitializer, StmParameters, StmSigner, StmVerificationKeyPoP};
 use mithril_stm::RegisterError;
 
+use crate::crypto_helper::cardano::Sum6KesBytes;
 use blake2::{
     digest::{consts::U32, FixedOutput},
     Blake2b, Digest,
@@ -123,8 +124,8 @@ impl StmInitializerWrapper {
     ) -> Result<Self, ProtocolInitializerErrorWrapper> {
         let stm_initializer = StmInitializer::setup(params, stake, rng);
         let kes_signature = if let Some(kes_sk_path) = kes_sk_path {
-            let mut kes_sk: Sum6Kes = Sum6Kes::from_file(kes_sk_path)?;
-
+            let mut kes_sk_bytes = Sum6KesBytes::from_file(kes_sk_path)?;
+            let mut kes_sk = Sum6Kes::from(&mut kes_sk_bytes);
             let kes_sk_period = kes_sk.get_period();
             let provided_period = kes_period.unwrap_or_default();
             if kes_sk_period > provided_period {
@@ -308,10 +309,15 @@ mod test {
     fn create_cryptographic_material(party_idx: u64) -> (ProtocolPartyId, PathBuf, PathBuf) {
         let temp_dir = setup_temp_directory();
         let keypair = ColdKeyGenerator::create_deterministic_keypair([party_idx as u8; 32]);
-        let (kes_secret_key, kes_verification_key) = Sum6Kes::keygen(&mut [party_idx as u8; 32]);
+        let mut dummy_buffer = [0u8; Sum6Kes::SIZE + 4];
+        let mut dummy_seed = [party_idx as u8; 32];
+        let (kes_secret_key, kes_verification_key) =
+            Sum6Kes::keygen(&mut dummy_buffer, &mut dummy_seed);
+        let mut kes_bytes = Sum6KesBytes([0u8; Sum6Kes::SIZE + 4]);
+        kes_bytes.0.copy_from_slice(&kes_secret_key.clone_sk());
         let operational_certificate = OpCert::new(kes_verification_key, 0, 0, keypair);
         let kes_secret_key_file = temp_dir.join(format!("kes{party_idx}.skey"));
-        kes_secret_key
+        kes_bytes
             .to_file(&kes_secret_key_file)
             .expect("KES secret key file export should not fail");
         let operational_certificate_file = temp_dir.join(format!("pool{party_idx}.cert"));
