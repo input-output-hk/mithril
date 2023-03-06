@@ -435,6 +435,8 @@ impl Runner for SignerRunner {
         &self,
         epoch: Epoch,
     ) -> Result<(), Box<dyn StdError + Sync + Send>> {
+        debug!("RUNNER: update_era_checker");
+
         let era_token = self
             .services
             .era_reader

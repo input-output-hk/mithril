@@ -623,7 +623,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .collect::<Vec<_>>();
         let multi_signature = multisigner.get_multi_signature().await?.ok_or_else(|| {
             RunnerError::NoComputedMultiSignature(format!(
-                "No AVK returned by the multisigner for working certificate at beacon {:?}",
+                "no multi signature generated for beacon {:?}",
                 working_certificate.beacon
             ))
         })?;

@@ -177,14 +177,17 @@ impl StateMachine {
                         "pending_certificate" => ?pending_certificate
                     );
 
-                    if self.runner.can_i_sign(&pending_certificate).await.map_err(|e| {
-                        RuntimeError::KeepState {
+                    if self
+                        .runner
+                        .can_i_sign(&pending_certificate)
+                        .await
+                        .map_err(|e| RuntimeError::KeepState {
                             message: format!(
-                                "could not determin if I can sign pending certificate at beacon {beacon:?}"
+                                "could not determine if I can sign certificate at beacon {beacon:?}"
                             ),
                             nested_error: Some(e),
-                        }
-                    })? {
+                        })?
+                    {
                         info!(" → we can sign this certificate, transiting to SIGNED");
                         self.state = self
                             .transition_from_registered_to_signed(&pending_certificate)
@@ -257,8 +260,8 @@ impl StateMachine {
     }
 
     async fn transition_from_init_to_unregistered(&self) -> Result<SignerState, RuntimeError> {
-        let current_beacon = self
-            .get_current_beacon("unregistered → unregistered")
+        let current_beacon = self.get_current_beacon("init → unregistered").await?;
+        self.update_era_checker(current_beacon.epoch, "init → unregistered")
             .await?;
 
         Ok(SignerState::Unregistered {
@@ -282,7 +285,7 @@ impl StateMachine {
         &self,
         beacon: Beacon,
     ) -> Result<SignerState, RuntimeError> {
-        self.update_era_checker(beacon.epoch, "unregistered → registered")
+        self.update_era_checker(beacon.epoch, "registered → unregistered")
             .await?;
 
         Ok(SignerState::Unregistered {

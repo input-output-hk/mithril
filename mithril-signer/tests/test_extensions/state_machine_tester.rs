@@ -1,13 +1,16 @@
+#![allow(dead_code)]
 use mithril_common::digesters::ImmutableFileObserver;
 use mithril_common::entities::SignerWithStake;
 use mithril_common::era::{
-    adapters::{EraReaderAdapterType, EraReaderBootstrapAdapter},
+    adapters::{EraReaderAdapterType, EraReaderDummyAdapter},
     EraChecker, EraReader,
 };
+use mithril_common::era::{EraMarker, SupportedEra};
 use mithril_common::BeaconProvider;
 use slog::Drain;
 use slog_scope::debug;
 use std::error::Error as StdError;
+use std::fmt::Debug;
 use std::{path::PathBuf, sync::Arc, time::Duration};
 use thiserror::Error;
 
@@ -53,8 +56,16 @@ pub struct StateMachineTester {
     protocol_initializer_store: Arc<ProtocolInitializerStore>,
     stake_store: Arc<StakeStore>,
     era_checker: Arc<EraChecker>,
+    era_reader_adapter: Arc<EraReaderDummyAdapter>,
     comment_no: u32,
     _logs_guard: slog_scope::GlobalLoggerGuard,
+}
+
+impl Debug for StateMachineTester {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        debug!("Debug called after comment N°{}.", self.comment_no);
+        write!(f, "DEBUG")
+    }
 }
 
 impl StateMachineTester {
@@ -119,7 +130,13 @@ impl StateMachineTester {
             Box::new(MemoryAdapter::new(None).unwrap()),
             config.store_retention_limit,
         ));
-        let era_reader = Arc::new(EraReader::new(Arc::new(EraReaderBootstrapAdapter)));
+        let era_reader_adapter = Arc::new(EraReaderDummyAdapter::from_markers(vec![
+            (EraMarker {
+                name: SupportedEra::dummy().to_string(),
+                epoch: Some(Epoch(0)),
+            }),
+        ]));
+        let era_reader = Arc::new(EraReader::new(era_reader_adapter.clone()));
         let era_epoch_token = era_reader
             .read_era_epoch_token(beacon_provider.get_current_beacon().await.unwrap().epoch)
             .await
@@ -157,6 +174,7 @@ impl StateMachineTester {
             protocol_initializer_store,
             stake_store,
             era_checker,
+            era_reader_adapter,
             comment_no: 0,
             _logs_guard: logs_guard,
         })
@@ -323,5 +341,13 @@ impl StateMachineTester {
             self.era_checker.current_epoch() == epoch,
             format!("The epoch the EraChecker has been the last updated '{}' is different from expected epoch '{}'.", self.era_checker.current_epoch(), epoch)
         )
+    }
+
+    /// Set Era markers
+    pub fn set_era_markers(&mut self, markers: Vec<EraMarker>) -> &mut Self {
+        debug!("Era markers set: {:?}", markers);
+        self.era_reader_adapter.set_markers(markers);
+
+        self
     }
 }
