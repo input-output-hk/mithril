@@ -11,6 +11,7 @@ pub struct UnsupportedEraError {
 }
 
 impl UnsupportedEraError {
+    /// Create a new Era Error
     pub fn new(era: &str) -> Self {
         Self {
             era: era.to_owned(),

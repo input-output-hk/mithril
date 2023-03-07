@@ -7,4 +7,4 @@ mod supported_era;
 
 pub use era_checker::EraChecker;
 pub use era_reader::*;
-pub use supported_era::SupportedEra;
+pub use supported_era::*;

@@ -1,7 +1,7 @@
 use crate::runtime::{AggregatorRunnerTrait, RuntimeError, WorkingCertificate};
 
 use mithril_common::entities::Beacon;
-use slog_scope::{error, info, trace, warn};
+use slog_scope::{crit, info, trace, warn};
 use std::fmt::Display;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
@@ -96,12 +96,24 @@ impl AggregatorRuntime {
     }
 
     /// Launches an infinite loop ticking the state machine.
-    pub async fn run(&mut self) {
+    pub async fn run(&mut self) -> Result<(), RuntimeError> {
         info!("STATE MACHINE: launching");
 
         loop {
             if let Err(e) = self.cycle().await {
-                error!("STATE MACHINE: an error occurred: {e}");
+                match &e {
+                    RuntimeError::Critical {
+                        message: _,
+                        nested_error: _,
+                    } => {
+                        crit!("state machine: a critical error occurred: {e}");
+
+                        return Err(e);
+                    }
+                    _ => {
+                        warn!("state machine: cycle returned an error: '{e}'.");
+                    }
+                }
             }
 
             info!(
@@ -123,7 +135,10 @@ impl AggregatorRuntime {
 
                 if state.current_beacon.is_none()
                     || chain_beacon
-                        .compare_to_older(state.current_beacon.as_ref().unwrap())?
+                        .compare_to_older(state.current_beacon.as_ref().unwrap())
+                        .map_err(|e|
+                            RuntimeError::keep_state(
+                                &format!("Beacon in the state ({:?}) is newer than the beacon read on chain '{:?})", state.current_beacon, chain_beacon), Some(e.into())))?
                         .is_new_beacon()
                 {
                     info!(
@@ -152,7 +167,10 @@ impl AggregatorRuntime {
                 let chain_beacon: Beacon = self.runner.get_beacon_from_chain().await?;
 
                 if chain_beacon
-                    .compare_to_older(&state.current_beacon)?
+                    .compare_to_older(&state.current_beacon)
+                    .map_err(|e|
+                            RuntimeError::keep_state(
+                                &format!("Beacon in the state ({:?}) is newer than the beacon read on chain '{:?})", state.current_beacon, chain_beacon), Some(e.into())))?
                     .is_new_epoch()
                 {
                     // transition READY > IDLE
@@ -186,7 +204,10 @@ impl AggregatorRuntime {
                 let chain_beacon: Beacon = self.runner.get_beacon_from_chain().await?;
 
                 if chain_beacon
-                    .compare_to_older(&state.current_beacon)?
+                    .compare_to_older(&state.current_beacon)
+                    .map_err(|e|
+                            RuntimeError::keep_state(
+                                &format!("Beacon in the state ({:?}) is newer than the beacon read on chain '{:?})", state.current_beacon, chain_beacon), Some(e.into())))?
                     .is_new_beacon()
                 {
                     info!("→ Beacon changed, transitioning to IDLE"; "new_beacon" => ?chain_beacon);
@@ -222,7 +243,10 @@ impl AggregatorRuntime {
         if maybe_current_beacon.is_none() || maybe_current_beacon.unwrap().epoch < new_beacon.epoch
         {
             self.runner.close_signer_registration_round().await?;
-            self.runner.update_era_checker(&new_beacon).await?;
+            self.runner
+                .update_era_checker(&new_beacon)
+                .await
+                .map_err(|e| RuntimeError::critical("transiting IDLE → READY", Some(e)))?;
             self.runner.update_stake_distribution(&new_beacon).await?;
             self.runner
                 .open_signer_registration_round(&new_beacon)
@@ -324,6 +348,8 @@ mod tests {
 
     use super::super::runner::MockAggregatorRunner;
     use super::*;
+
+    use mithril_common::era::UnsupportedEraError;
     use mithril_common::test_utils::fake_data;
     use mockall::predicate;
 
@@ -662,6 +688,40 @@ mod tests {
         };
         let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
         runtime.cycle().await.unwrap();
+
+        assert_eq!("idle".to_string(), runtime.get_state());
+    }
+
+    #[tokio::test]
+    pub async fn critical_error() {
+        let mut runner = MockAggregatorRunner::new();
+        runner
+            .expect_get_beacon_from_chain()
+            .once()
+            .returning(|| Ok(fake_data::beacon()));
+        runner
+            .expect_update_beacon()
+            .with(predicate::eq(fake_data::beacon()))
+            .once()
+            .returning(|_| Ok(()));
+        runner
+            .expect_update_era_checker()
+            .with(predicate::eq(fake_data::beacon()))
+            .once()
+            .returning(|_| Err(UnsupportedEraError::new("whatever").into()));
+        runner
+            .expect_close_signer_registration_round()
+            .once()
+            .returning(|| Ok(()));
+
+        let mut runtime = init_runtime(
+            Some(AggregatorState::Idle(IdleState {
+                current_beacon: None,
+            })),
+            runner,
+        )
+        .await;
+        runtime.cycle().await.unwrap_err();
 
         assert_eq!("idle".to_string(), runtime.get_state());
     }

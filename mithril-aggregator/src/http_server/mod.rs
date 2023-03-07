@@ -1,4 +1,3 @@
-mod routes;
-mod server;
+pub mod routes;
 
-pub use server::{Server, SERVER_BASE_PATH};
+pub const SERVER_BASE_PATH: &str = "aggregator";

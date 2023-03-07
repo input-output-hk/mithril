@@ -10,8 +10,9 @@ use mithril_common::chain_observer::FakeObserver;
 use mithril_common::crypto_helper::{key_encode_hex, ProtocolGenesisSigner};
 use mithril_common::digesters::{DumbImmutableDigester, DumbImmutableFileObserver};
 use mithril_common::entities::ProtocolParameters;
-use mithril_common::era::{adapters::EraReaderAdapterType, EraReader};
-use mithril_common::era::{adapters::EraReaderBootstrapAdapter, EraChecker};
+use mithril_common::era::{
+    adapters::EraReaderAdapterType, EraChecker, EraReader, EraReaderAdapter,
+};
 use mithril_common::store::adapter::MemoryAdapter;
 use mithril_common::store::StakeStore;
 use mithril_common::{BeaconProvider, BeaconProviderImpl, CardanoNetwork};
@@ -20,6 +21,8 @@ use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedReceiver;
 use tokio::sync::RwLock;
 
+// TODO: remove this allow, create a real dependency injection builder.
+#[allow(clippy::too_many_arguments)]
 pub async fn initialize_dependencies(
     default_protocol_parameters: ProtocolParameters,
     snapshot_uploader: Arc<DumbSnapshotUploader>,
@@ -28,6 +31,7 @@ pub async fn initialize_dependencies(
     digester: Arc<DumbImmutableDigester>,
     snapshotter: Arc<DumbSnapshotter>,
     genesis_signer: Arc<ProtocolGenesisSigner>,
+    era_reader_adapter: Arc<dyn EraReaderAdapter>,
 ) -> (
     Arc<DependencyManager>,
     AggregatorConfig,
@@ -100,11 +104,14 @@ pub async fn initialize_dependencies(
         chain_observer.clone(),
         verification_key_store.clone(),
     ));
-    let era_reader = Arc::new(EraReader::new(Box::new(EraReaderBootstrapAdapter)));
-    let era_epoch_token = era_reader
+    let era_reader = Arc::new(EraReader::new(era_reader_adapter));
+    let era_epoch_token = match era_reader
         .read_era_epoch_token(beacon_provider.get_current_beacon().await.unwrap().epoch)
         .await
-        .unwrap();
+    {
+        Err(e) => panic!("Era checker error => {e}"),
+        Ok(token) => token,
+    };
     let era_checker = Arc::new(EraChecker::new(
         era_epoch_token.get_current_supported_era().unwrap(),
         era_epoch_token.get_current_epoch(),

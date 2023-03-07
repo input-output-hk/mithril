@@ -1,6 +1,8 @@
 use crate::test_extensions::initialize_dependencies;
 use mithril_aggregator::event_store::EventMessage;
 use mithril_common::certificate_chain::CertificateGenesisProducer;
+use mithril_common::era::adapters::EraReaderDummyAdapter;
+use mithril_common::era::{EraMarker, SupportedEra};
 use mithril_common::test_utils::{
     MithrilFixtureBuilder, SignerFixture, StakeDistributionGenerationMethod,
 };
@@ -40,6 +42,7 @@ pub struct RuntimeTester {
     pub deps: Arc<DependencyManager>,
     pub runtime: AggregatorRuntime,
     pub receiver: UnboundedReceiver<EventMessage>,
+    pub era_reader_adapter: Arc<EraReaderDummyAdapter>,
     _logs_guard: slog_scope::GlobalLoggerGuard,
 }
 
@@ -51,6 +54,11 @@ impl RuntimeTester {
         let digester = Arc::new(DumbImmutableDigester::default());
         let snapshotter = Arc::new(DumbSnapshotter::new());
         let genesis_signer = Arc::new(ProtocolGenesisSigner::create_deterministic_genesis_signer());
+        let era_reader_adapter =
+            Arc::new(EraReaderDummyAdapter::from_markers(vec![EraMarker::new(
+                &SupportedEra::dummy().to_string(),
+                Some(Epoch(0)),
+            )]));
         let (deps, config, receiver) = initialize_dependencies(
             default_protocol_parameters,
             snapshot_uploader.clone(),
@@ -59,6 +67,7 @@ impl RuntimeTester {
             digester.clone(),
             snapshotter.clone(),
             genesis_signer.clone(),
+            era_reader_adapter.clone(),
         )
         .await;
         let runner = Arc::new(AggregatorRunner::new(config.clone(), deps.clone()));
@@ -82,6 +91,7 @@ impl RuntimeTester {
             deps,
             runtime,
             receiver,
+            era_reader_adapter,
             _logs_guard: log,
         }
     }
@@ -332,5 +342,10 @@ impl RuntimeTester {
             .await;
 
         Ok(())
+    }
+
+    // update the Era markers
+    pub async fn set_era_markers(&self, markers: Vec<EraMarker>) {
+        self.era_reader_adapter.set_markers(markers)
     }
 }

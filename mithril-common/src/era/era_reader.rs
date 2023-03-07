@@ -1,7 +1,7 @@
 use crate::entities::Epoch;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::{error::Error as StdError, str::FromStr};
+use std::{error::Error as StdError, str::FromStr, sync::Arc};
 use thiserror::Error;
 
 use super::{supported_era::UnsupportedEraError, SupportedEra};
@@ -93,7 +93,7 @@ impl EraEpochToken {
 /// The EraReader is responsible of giving the current Era and the Era to come.
 /// It uses an [EraReaderAdapter] to read data from a backend.
 pub struct EraReader {
-    adapter: Box<dyn EraReaderAdapter>,
+    adapter: Arc<dyn EraReaderAdapter>,
 }
 
 /// Error type when [EraReader] fails to return a [EraEpochToken].
@@ -110,13 +110,21 @@ pub enum EraReaderError {
     },
 
     /// Data returned from the adapter are inconsistent or incomplete.
-    #[error("Current Era could not be determined with data from the adapter.")]
-    CurrentEraNotFound,
+    #[error(
+        "Cannot determine the Era we are currently at epoch {epoch} using the adapter informations: {eras:?}"
+    )]
+    CurrentEraNotFound {
+        /// Current Epoch
+        epoch: Epoch,
+
+        /// Eras given by the adapter
+        eras: Vec<EraMarker>,
+    },
 }
 
 impl EraReader {
     /// Instantiate the [EraReader] injecting the adapter.
-    pub fn new(adapter: Box<dyn EraReaderAdapter>) -> Self {
+    pub fn new(adapter: Arc<dyn EraReaderAdapter>) -> Self {
         Self { adapter }
     }
 
@@ -136,23 +144,23 @@ impl EraReader {
                 error: e,
             })?;
 
-        let get_epoch = |era_marker: Option<&EraMarker>| -> Epoch {
-            if let Some(marker) = era_marker {
-                marker.epoch.unwrap_or_default()
-            } else {
-                Epoch(0)
-            }
-        };
-        let current_marker = eras.iter().fold(None, |acc, marker| {
-            if get_epoch(Some(marker)) <= current_epoch && get_epoch(Some(marker)) > get_epoch(acc)
-            {
-                Some(marker)
-            } else {
-                acc
-            }
-        });
+        let current_marker = eras.iter().filter(|&f| f.epoch.is_some()).fold(
+            None,
+            |acc: Option<&EraMarker>, marker| {
+                if marker.epoch.unwrap() <= current_epoch
+                    && (acc.is_none() || marker.epoch.unwrap() > acc.unwrap().epoch.unwrap())
+                {
+                    Some(marker)
+                } else {
+                    acc
+                }
+            },
+        );
         let current_era_marker =
-            current_marker.ok_or_else(|| EraReaderError::CurrentEraNotFound)?;
+            current_marker.ok_or_else(|| EraReaderError::CurrentEraNotFound {
+                epoch: current_epoch,
+                eras: eras.clone(),
+            })?;
 
         let next_era_marker = eras.last().filter(|&marker| marker != current_era_marker);
 
@@ -189,10 +197,10 @@ mod tests {
     #[tokio::test]
     async fn current_era_is_supported() {
         let markers: Vec<EraMarker> = get_basic_marker_sample();
-        let mut adapter = DummyAdapter::default();
+        let adapter = DummyAdapter::default();
         adapter.set_markers(markers);
 
-        let reader = EraReader::new(Box::new(adapter));
+        let reader = EraReader::new(Arc::new(adapter));
         let token = reader.read_era_epoch_token(Epoch(10)).await.unwrap();
 
         assert_eq!(
@@ -211,10 +219,10 @@ mod tests {
     #[tokio::test]
     async fn era_epoch_token() {
         let markers: Vec<EraMarker> = get_basic_marker_sample();
-        let mut adapter = DummyAdapter::default();
+        let adapter = DummyAdapter::default();
         adapter.set_markers(markers);
 
-        let reader = EraReader::new(Box::new(adapter));
+        let reader = EraReader::new(Arc::new(adapter));
         let token = reader.read_era_epoch_token(Epoch(10)).await.unwrap();
         assert_eq!(
             SupportedEra::dummy(),
@@ -232,10 +240,10 @@ mod tests {
     #[tokio::test]
     async fn previous_era_is_not_supported() {
         let markers: Vec<EraMarker> = get_basic_marker_sample();
-        let mut adapter = DummyAdapter::default();
+        let adapter = DummyAdapter::default();
         adapter.set_markers(markers);
 
-        let reader = EraReader::new(Box::new(adapter));
+        let reader = EraReader::new(Arc::new(adapter));
         let token = reader.read_era_epoch_token(Epoch(9)).await.unwrap();
 
         assert_eq!(
@@ -271,10 +279,10 @@ mod tests {
             },
         ];
 
-        let mut adapter = DummyAdapter::default();
+        let adapter = DummyAdapter::default();
         adapter.set_markers(markers);
 
-        let reader = EraReader::new(Box::new(adapter));
+        let reader = EraReader::new(Arc::new(adapter));
         let _ = reader
             .read_era_epoch_token(Epoch(9))
             .await
@@ -285,7 +293,7 @@ mod tests {
     async fn error_when_no_era() {
         let adapter = DummyAdapter::default();
 
-        let reader = EraReader::new(Box::new(adapter));
+        let reader = EraReader::new(Arc::new(adapter));
         let _ = reader
             .read_era_epoch_token(Epoch(9))
             .await
@@ -295,10 +303,10 @@ mod tests {
     #[tokio::test]
     async fn current_era_is_not_supported() {
         let markers: Vec<EraMarker> = get_basic_marker_sample();
-        let mut adapter = DummyAdapter::default();
+        let adapter = DummyAdapter::default();
         adapter.set_markers(markers);
 
-        let reader = EraReader::new(Box::new(adapter));
+        let reader = EraReader::new(Arc::new(adapter));
         let token = reader.read_era_epoch_token(Epoch(9)).await.unwrap();
 
         token
@@ -315,5 +323,25 @@ mod tests {
         token
             .get_next_supported_era()
             .expect("The next era is supported hence this shall not fail.");
+    }
+
+    #[tokio::test]
+    async fn epoch_0_should_work() {
+        let markers = vec![EraMarker::new(
+            &SupportedEra::dummy().to_string(),
+            Some(Epoch(0)),
+        )];
+        let adapter = DummyAdapter::default();
+        adapter.set_markers(markers);
+        let reader = EraReader::new(Arc::new(adapter));
+        let token = reader.read_era_epoch_token(Epoch(9)).await.unwrap();
+
+        assert_eq!(
+            &EraMarker {
+                name: SupportedEra::dummy().to_string(),
+                epoch: Some(Epoch(0))
+            },
+            token.get_current_era_marker()
+        );
     }
 }

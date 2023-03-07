@@ -1,9 +1,13 @@
 use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use slog::Level;
-use slog_scope::debug;
-use std::{error::Error, fs, path::PathBuf, sync::Arc};
-use tokio::{sync::RwLock, time::Duration};
+use slog_scope::{crit, debug, info};
+use std::{error::Error, fs, net::IpAddr, path::PathBuf, sync::Arc};
+use tokio::{
+    sync::{oneshot, RwLock},
+    task::JoinSet,
+    time::Duration,
+};
 
 use mithril_common::{
     certificate_chain::MithrilCertificateVerifier,
@@ -24,11 +28,12 @@ use mithril_common::{
 
 use crate::{
     event_store::{self, TransmitterService},
+    http_server::routes::router,
     tools::{EraTools, GenesisTools, GenesisToolsDependency},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
     CertificateStore, Configuration, DefaultConfiguration, DependencyManager, GenesisConfiguration,
     GzipSnapshotter, MithrilSignerRegisterer, MultiSignerImpl, ProtocolParametersStore,
-    ProtocolParametersStorer, Server, SingleSignatureStore, VerificationKeyStore,
+    ProtocolParametersStorer, SingleSignatureStore, VerificationKeyStore,
 };
 
 const SQLITE_MONITORING_FILE: &str = "monitoring.sqlite3";
@@ -454,7 +459,42 @@ impl ServeCommand {
         .await?;
 
         let network = config.get_network()?;
-        let runtime_dependencies = dependency_manager.clone();
+        let runtime_dependency_manager = dependency_manager.clone();
+
+        // start servers
+        println!("Starting server...");
+        println!("Press Ctrl+C to stop");
+        let (shutdown_tx, shutdown_rx) = oneshot::channel();
+
+        let mut join_set = JoinSet::new();
+        join_set.spawn(async move {
+            let config =
+                AggregatorConfig::new(config.run_interval, network, &config.db_directory.clone());
+            let mut runtime = AggregatorRuntime::new(
+                Duration::from_millis(config.interval),
+                None,
+                Arc::new(AggregatorRunner::new(config, runtime_dependency_manager)),
+            )
+            .await
+            .unwrap();
+            runtime.run().await.map_err(|e| e.to_string())
+        });
+        join_set.spawn(async move {
+            let routes = router::routes(dependency_manager);
+            let (_, server) = warp::serve(routes).bind_with_graceful_shutdown(
+                (
+                    config.server_ip.clone().parse::<IpAddr>().unwrap(),
+                    config.server_port,
+                ),
+                async {
+                    shutdown_rx.await.ok();
+                },
+            );
+            server.await;
+
+            Ok(())
+        });
+        join_set.spawn(async { tokio::signal::ctrl_c().await.map_err(|e| e.to_string()) });
 
         // start the monitoring thread
         let event_store_thread = tokio::spawn(async move {
@@ -466,39 +506,19 @@ impl ServeCommand {
                 .unwrap()
         });
 
-        // Start Aggregator state machine
-        let handle = tokio::spawn(async move {
-            let config =
-                AggregatorConfig::new(config.run_interval, network, &config.db_directory.clone());
-            let mut runtime = AggregatorRuntime::new(
-                Duration::from_millis(config.interval),
-                None,
-                Arc::new(AggregatorRunner::new(config, runtime_dependencies)),
-            )
-            .await
-            .unwrap();
-            runtime.run().await
-        });
+        let res = join_set.join_next().await.unwrap()?;
+        if let Err(e) = res {
+            crit!("A critical error occurred: {e}");
+        }
 
-        // Start REST server
-        println!("Starting server...");
-        println!("Press Ctrl+C to stop...");
-        let shutdown_signal = async {
-            tokio::signal::ctrl_c()
-                .await
-                .expect("failed to install CTRL+C signal handler");
-        };
-        let http_server = Server::new(
-            config.server_ip.clone(),
-            config.server_port,
-            dependency_manager.clone(),
-        );
-        http_server.start(shutdown_signal).await;
+        // stop servers
+        join_set.shutdown().await;
+        let _ = shutdown_tx.send(());
 
-        handle.abort();
+        info!("Event store is finishing...");
         event_store_thread.await?;
+        println!("Services stopped, exiting.");
 
-        println!("Exiting...");
         Ok(())
     }
 

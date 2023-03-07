@@ -36,11 +36,12 @@ pub use crate::snapshot_stores::{LocalSnapshotStore, RemoteSnapshotStore, Snapsh
 pub use certificate_creator::{CertificateCreator, MithrilCertificateCreator};
 pub use command_args::MainOpts;
 pub use dependency::DependencyManager;
-pub use http_server::Server;
 pub use message_adapters::{
     FromRegisterSignerAdapter, ToCertificatePendingMessageAdapter, ToEpochSettingsMessageAdapter,
 };
-pub use runtime::{AggregatorConfig, AggregatorRunner, AggregatorRunnerTrait, AggregatorRuntime};
+pub use runtime::{
+    AggregatorConfig, AggregatorRunner, AggregatorRunnerTrait, AggregatorRuntime, RuntimeError,
+};
 pub use signer_registerer::{
     MithrilSignerRegisterer, SignerRegisterer, SignerRegistrationError, SignerRegistrationRound,
     SignerRegistrationRoundOpener,

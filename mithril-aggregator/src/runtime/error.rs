@@ -1,65 +1,80 @@
-use crate::certificate_creator::CertificateCreationError;
-use crate::snapshot_stores::SnapshotStoreError;
-use crate::{ProtocolError, SignerRegistrationError, SnapshotError};
-
-use mithril_common::certificate_chain::CertificateVerifierError;
-use mithril_common::chain_observer::ChainObserverError;
-use mithril_common::digesters::{ImmutableDigesterError, ImmutableFileListingError};
-use mithril_common::entities::BeaconComparisonError;
-use mithril_common::entities::Epoch;
-use mithril_common::store::StoreError;
-use mithril_common::BeaconProviderError;
 use std::error::Error as StdError;
-use std::io;
 use thiserror::Error;
 
+/// Error encountered or produced by the Runtime.
+/// This enum represents the faith of the errors produced during the state
+/// transitions.
 #[derive(Error, Debug)]
 pub enum RuntimeError {
-    #[error("multi signer error: {0}")]
-    MultiSigner(#[from] ProtocolError),
+    /// Errors that need the runtime to try again without changing its state.
+    #[error("An error occured: {message}. This runtime cycle will be skipped. Nested error: {nested_error:#?}.")]
+    KeepState {
+        /// error message
+        message: String,
 
-    #[error("snapshotter error: {0}")]
-    Snapshotter(#[from] SnapshotError),
+        /// Eventual caught error
+        nested_error: Option<Box<dyn StdError + Sync + Send>>,
+    },
+    /// A Critical error means the Runtime stops and the software exits with an
+    /// error code.
+    #[error("Critical error:'{message}'. Nested error: {nested_error:#?}.")]
+    Critical {
+        /// error message
+        message: String,
 
-    #[error("digester error: {0}")]
-    Digester(#[from] ImmutableDigesterError),
+        /// Eventual caught error
+        nested_error: Option<Box<dyn StdError + Sync + Send>>,
+    },
+}
 
-    #[error("store error: {0}")]
-    StoreError(#[from] StoreError),
+impl RuntimeError {
+    /// Create a new KeepState error
+    pub fn keep_state(message: &str, error: Option<Box<dyn StdError + Sync + Send>>) -> Self {
+        Self::KeepState {
+            message: message.to_string(),
+            nested_error: error,
+        }
+    }
 
-    #[error("snapshot uploader error: {0}")]
-    SnapshotUploader(String),
+    /// Create a new Critical error
+    pub fn critical(message: &str, error: Option<Box<dyn StdError + Sync + Send>>) -> Self {
+        Self::Critical {
+            message: message.to_string(),
+            nested_error: error,
+        }
+    }
+}
 
-    #[error("snapshot build error: {0}")]
-    SnapshotBuild(#[from] io::Error),
+impl From<Box<dyn StdError + Sync + Send>> for RuntimeError {
+    fn from(value: Box<dyn StdError + Sync + Send>) -> Self {
+        Self::KeepState {
+            message: "Error caught, state preserved, will retry to cycle.".to_string(),
+            nested_error: Some(value),
+        }
+    }
+}
 
-    #[error("immutable file scanning error: {0}")]
-    ImmutableFile(#[from] ImmutableFileListingError),
+/// Errors returned when the runner cannot fulfil its missions with no subsystem
+/// to fail.
+#[derive(Debug, Error)]
+pub enum RunnerError {
+    /// Protocol message part is missing
+    #[error("Missing protocol message: '{0}'.")]
+    MissingProtocolMessage(String),
 
-    #[error("chain observer error: {0}")]
-    ChainObserver(#[from] ChainObserverError),
+    /// Epoch out of bounds
+    #[error("Epoch out of bounds: '{0}'.")]
+    EpochOutOfBounds(String),
 
-    #[error("beacon provider error: {0}")]
-    BeaconProvider(#[from] BeaconProviderError),
+    /// No stack distribution found
+    #[error("Missing stack distribution: '{0}'.")]
+    MissingStakeDistribution(String),
 
-    #[error("certificate verifier error: {0}")]
-    CertificateVerifier(#[from] CertificateVerifierError),
+    /// Missing protocol parameters
+    #[error("Missing protocol parameters: '{0}'.")]
+    MissingProtocolParameters(String),
 
-    #[error("certificate chain gap error: {0} vs {1}")]
-    CertificateChainEpochGap(Epoch, Epoch),
-
-    #[error("snapshot store error: {0}")]
-    SnapshotStore(#[from] SnapshotStoreError),
-
-    #[error("certificate creation error: {0}")]
-    CertificateCreation(#[from] CertificateCreationError),
-
-    #[error("beacon comparison error: {0}")]
-    BeaconComparisonError(#[from] BeaconComparisonError),
-
-    #[error("signer registration error: {0}")]
-    SignerRegistration(#[from] SignerRegistrationError),
-
-    #[error("general error: {0}")]
-    General(Box<dyn StdError + Sync + Send>),
+    /// No AVK issued by the multisigner
+    #[error("No MultiSignature issued: '{0}'.")]
+    NoComputedMultiSignature(String),
 }
