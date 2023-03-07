@@ -1,6 +1,5 @@
 use std::{
     cmp::Ordering,
-    collections::HashMap,
     error::Error,
     fmt::{Debug, Display},
 };
@@ -8,7 +7,9 @@ use std::{
 use chrono::NaiveDateTime;
 use sqlite::{Connection, Row, Value};
 
-use crate::sqlite::{HydrationError, Projection, Provider, SqLiteEntity};
+use crate::sqlite::{
+    HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, WhereCondition,
+};
 
 use super::DbVersion;
 
@@ -97,16 +98,12 @@ impl PartialOrd for DatabaseVersion {
 /// Provider for the [DatabaseVersion] entities using the `DatabaseVersionProjection`.
 pub struct DatabaseVersionProvider<'conn> {
     connection: &'conn Connection,
-    projection: Projection,
 }
 
 impl<'conn> DatabaseVersionProvider<'conn> {
     /// [DatabaseVersionProvider] constructor.
     pub fn new(connection: &'conn Connection) -> Self {
-        Self {
-            connection,
-            projection: DatabaseVersion::get_projection(),
-        }
+        Self { connection }
     }
 
     /// Method to create the table at the beginning of the migration procedure.
@@ -142,9 +139,11 @@ insert into db_version (application_type, version) values ('{application_type}',
         &self,
         application_type: &ApplicationNodeType,
     ) -> Result<Option<DatabaseVersion>, Box<dyn Error>> {
-        let condition = "application_type = ?";
-        let params = [Value::String(format!("{application_type}"))];
-        let result = self.find(Some(condition), &params)?.next();
+        let filters = WhereCondition::new(
+            "application_type = ?*",
+            vec![Value::String(format!("{application_type}"))],
+        );
+        let result = self.find(filters)?.next();
 
         Ok(result)
     }
@@ -153,25 +152,19 @@ insert into db_version (application_type, version) values ('{application_type}',
 impl<'conn> Provider<'conn> for DatabaseVersionProvider<'conn> {
     type Entity = DatabaseVersion;
 
-    fn get_projection(&self) -> &Projection {
-        &self.projection
-    }
-
     fn get_connection(&'conn self) -> &Connection {
         self.connection
     }
 
-    fn get_definition(&self, condition: Option<&str>) -> String {
-        let where_clause = condition.unwrap_or("true");
-        let mut aliases = HashMap::new();
-        let _ = aliases.insert("{:db_version:}".to_string(), "db_version".to_string());
-        let projection = self.get_projection().expand(aliases);
+    fn get_definition(&self, condition: &str) -> String {
+        let aliases = SourceAlias::new(&[("{:db_version:}", "db_version")]);
+        let projection = Self::Entity::get_projection().expand(aliases);
 
         format!(
             r#"
 select {projection}
 from db_version
-where {where_clause}
+where {condition}
 "#
         )
     }
@@ -181,26 +174,25 @@ where {where_clause}
 /// This will perform an UPSERT and return the updated entity.
 pub struct DatabaseVersionUpdater<'conn> {
     connection: &'conn Connection,
-    projection: Projection,
 }
 
 impl<'conn> DatabaseVersionUpdater<'conn> {
     /// [DatabaseVersionUpdater] constructor.
     pub fn new(connection: &'conn Connection) -> Self {
-        Self {
-            connection,
-            projection: DatabaseVersion::get_projection(),
-        }
+        Self { connection }
     }
 
     /// Persist the given entity and return the projection of the saved entity.
     pub fn save(&self, version: DatabaseVersion) -> Result<DatabaseVersion, Box<dyn Error>> {
-        let params = [
-            Value::String(format!("{}", version.application_type)),
-            Value::Integer(version.version),
-        ];
+        let filters = WhereCondition::new(
+            "",
+            vec![
+                Value::String(format!("{}", version.application_type)),
+                Value::Integer(version.version),
+            ],
+        );
         let entity = self
-            .find(None, &params)?
+            .find(filters)?
             .next()
             .ok_or("No data returned after insertion")?;
 
@@ -211,19 +203,13 @@ impl<'conn> DatabaseVersionUpdater<'conn> {
 impl<'conn> Provider<'conn> for DatabaseVersionUpdater<'conn> {
     type Entity = DatabaseVersion;
 
-    fn get_projection(&self) -> &Projection {
-        &self.projection
-    }
-
     fn get_connection(&'conn self) -> &Connection {
         self.connection
     }
 
-    fn get_definition(&self, condition: Option<&str>) -> String {
-        let _where_clause = condition.unwrap_or("true");
-        let mut aliases = HashMap::new();
-        let _ = aliases.insert("{:db_version:}".to_string(), "db_version".to_string());
-        let projection = self.get_projection().expand(aliases);
+    fn get_definition(&self, _condition: &str) -> String {
+        let aliases = SourceAlias::new(&[("{:db_version:}", "db_version")]);
+        let projection = Self::Entity::get_projection().expand(aliases);
 
         format!(
             r#"
@@ -242,8 +228,7 @@ mod tests {
     #[test]
     fn test_projection() {
         let projection = DatabaseVersion::get_projection();
-        let mut aliases: HashMap<String, String> = HashMap::new();
-        let _ = aliases.insert("{:db_version:}".to_string(), "whatever".to_string());
+        let aliases = SourceAlias::new(&[("{:db_version:}", "whatever")]);
 
         assert_eq!(
             "whatever.version as version, whatever.application_type as application_type, whatever.updated_at as updated_at"
@@ -263,7 +248,7 @@ select db_version.version as version, db_version.application_type as application
 from db_version
 where true
 "#,
-            provider.get_definition(None)
+            provider.get_definition("true")
         )
     }
 
@@ -278,7 +263,7 @@ insert into db_version (application_type, version) values (?, ?)
   on conflict (application_type) do update set version = excluded.version, updated_at = CURRENT_TIMESTAMP
 returning db_version.version as version, db_version.application_type as application_type, db_version.updated_at as updated_at
 "#,
-            provider.get_definition(None)
+            provider.get_definition("true")
         )
     }
 }

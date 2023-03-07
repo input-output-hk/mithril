@@ -1,34 +1,31 @@
 use std::error::Error;
 
-use sqlite::{Connection, Value};
+use sqlite::Connection;
 
-use super::{EntityCursor, Projection};
+use super::{EntityCursor, SqLiteEntity, WhereCondition};
 
 /// A Provider is able to performe queries on a database and return iterator of a defined entity.
 /// It aims at being easily testable and adaptable.
 pub trait Provider<'conn> {
     /// Entity type returned by the result cursor.
-    type Entity;
+    type Entity: SqLiteEntity;
 
     /// Share the connection.
     fn get_connection(&'conn self) -> &'conn Connection;
 
-    /// Share the projection.
-    fn get_projection(&self) -> &Projection;
-
     /// Perform the parametrized definition query.
     fn find(
         &'conn self,
-        condition: Option<&str>,
-        params: &[Value],
+        filters: WhereCondition,
     ) -> Result<EntityCursor<'conn, Self::Entity>, Box<dyn Error>> {
-        let sql = self.get_definition(condition);
+        let (condition, params) = filters.expand();
+        let sql = self.get_definition(&condition);
         let cursor = self
             .get_connection()
             .prepare(&sql)
-            .map_err(|e| format!("error=`{:?}, SQL=`{}`", e, &sql.replace('\n', " ").trim()))?
+            .map_err(|e| format!("error=`{e}, SQL=`{}`", &sql.replace('\n', " ").trim()))?
             .into_cursor()
-            .bind(params)?;
+            .bind(&params)?;
         let iterator = EntityCursor::new(cursor);
 
         Ok(iterator)
@@ -36,11 +33,15 @@ pub trait Provider<'conn> {
 
     /// Return the definition of this provider, ie the actual SQL query this
     /// provider performs.
-    fn get_definition(&self, condition: Option<&str>) -> String;
+    fn get_definition(&self, condition: &str) -> String;
 }
 
 #[cfg(test)]
 mod tests {
+    use sqlite::Value;
+
+    use crate::sqlite::{Projection, SourceAlias};
+
     use super::super::{entity::HydrationError, SqLiteEntity};
     use super::*;
 
@@ -76,15 +77,11 @@ mod tests {
 
     struct TestEntityProvider {
         connection: Connection,
-        projection: Projection,
     }
 
     impl TestEntityProvider {
         pub fn new(connection: Connection) -> Self {
-            Self {
-                connection,
-                projection: TestEntity::get_projection(),
-            }
+            Self { connection }
         }
     }
 
@@ -95,32 +92,21 @@ mod tests {
             &self.connection
         }
 
-        fn get_projection(&self) -> &Projection {
-            &self.projection
-        }
+        fn get_definition(&self, condition: &str) -> String {
+            let aliases = SourceAlias::new(&[("{:test:}", "test")]);
+            let projection = Self::Entity::get_projection().expand(aliases);
 
-        fn get_definition(&self, condition: Option<&str>) -> String {
-            let where_clause = condition.unwrap_or("true");
-            let aliases = [("{:test:}".to_string(), "test".to_string())]
-                .into_iter()
-                .collect();
-            let projection = self.get_projection().expand(aliases);
-
-            format!("select {projection} from provider_test as test where {where_clause}")
+            format!("select {projection} from provider_test as test where {condition}")
         }
     }
 
     struct TestEntityUpdateProvider {
         connection: Connection,
-        projection: Projection,
     }
 
     impl TestEntityUpdateProvider {
         pub fn new(connection: Connection) -> Self {
-            Self {
-                connection,
-                projection: TestEntity::get_projection(),
-            }
+            Self { connection }
         }
     }
 
@@ -131,16 +117,9 @@ mod tests {
             &self.connection
         }
 
-        fn get_projection(&self) -> &Projection {
-            &self.projection
-        }
-
-        fn get_definition(&self, condition: Option<&str>) -> String {
-            let _where_clause = condition.unwrap_or("true");
-            let aliases = [("{:test:}".to_string(), "provider_test".to_string())]
-                .into_iter()
-                .collect();
-            let projection = self.get_projection().expand(aliases);
+        fn get_definition(&self, _condition: &str) -> String {
+            let aliases = SourceAlias::new(&[("{:test:}", "provider_test")]);
+            let projection = Self::Entity::get_projection().expand(aliases);
 
             format!(
                 r#"
@@ -174,7 +153,7 @@ returning {projection}
     #[test]
     pub fn simple_test() {
         let provider = TestEntityProvider::new(init_database());
-        let mut cursor = provider.find(None, &Vec::new()).unwrap();
+        let mut cursor = provider.find(WhereCondition::default()).unwrap();
         let entity = cursor
             .next()
             .expect("there shoud be two results, none returned");
@@ -207,7 +186,7 @@ returning {projection}
     pub fn test_condition() {
         let provider = TestEntityProvider::new(init_database());
         let mut cursor = provider
-            .find(Some("maybe_null is not null"), &Vec::new())
+            .find(WhereCondition::new("maybe_null is not null", Vec::new()))
             .unwrap();
         let entity = cursor
             .next()
@@ -228,7 +207,10 @@ returning {projection}
     pub fn test_parameters() {
         let provider = TestEntityProvider::new(init_database());
         let mut cursor = provider
-            .find(Some("text_data like ?"), &[Value::String("%1".to_string())])
+            .find(WhereCondition::new(
+                "text_data like ?",
+                vec![Value::String("%1".to_string())],
+            ))
             .unwrap();
         let entity = cursor
             .next()
@@ -247,14 +229,14 @@ returning {projection}
     #[test]
     fn test_upsertion() {
         let provider = TestEntityUpdateProvider::new(init_database());
-        let params = [
+        let params = vec![
             Value::String("row 1".to_string()),
             Value::Float(1.234),
             Value::Integer(0),
             Value::Null,
         ]
         .to_vec();
-        let mut cursor = provider.find(None, &params).unwrap();
+        let mut cursor = provider.find(WhereCondition::new("", params)).unwrap();
 
         let entity = cursor
             .next()

@@ -4,7 +4,7 @@ use thiserror::Error;
 use super::Projection;
 
 /// SqLite hydration error
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Debug)]
 pub enum HydrationError {
     /// data do not conform to expectations
     #[error("data do not conform to expectations: {0}")]
