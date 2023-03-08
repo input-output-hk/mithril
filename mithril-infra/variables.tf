@@ -132,15 +132,18 @@ variable "mithril_era_reader_adapter_type" {
 variable "mithril_era_reader_address_url" {
   type        = string
   description = "The url of the Mithril era reader address used to query the on chain Utxo containing the era markers payload"
+  default     = ""
 }
 
 variable "mithril_era_reader_verification_key_url" {
   type        = string
   description = "The url of the Mithril era reader verification key used by to verify an era markers payload"
+  default     = ""
 }
 variable "mithril_era_reader_secret_key" {
   type        = string
   description = "The Mithril genesis secret key used by the aggregator to generate an era marker payload TxDatum file (test only)"
+  default     = ""
 }
 
 variable "mithril_signers" {
