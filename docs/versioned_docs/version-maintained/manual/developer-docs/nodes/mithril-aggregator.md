@@ -39,7 +39,7 @@ This is the node of the **Mithril Network** responsible for collecting individua
 
 * Install OpenSSL development libraries, for example on Ubuntu/Debian/Mint run `apt install libssl-dev`
 
-* Ensure SQLite3 library is installed on your system and its version is at least `3.35` (released Apr. 2021) on Debian/Ubuntu: `apt install libsqlite3` and `sqlite3 --version`.
+* Ensure SQLite3 library is installed on your system and its version is at least `3.40`. Run `sqlite3 --version` to check your version.
 
 ## Download source
 
@@ -124,6 +124,7 @@ Usage: mithril-aggregator [OPTIONS] <COMMAND>
 
 Commands:
   genesis  Genesis tools
+  era      Era tools
   serve    Server runtime mode
   help     Print this message or the help of the given subcommand(s)
 
@@ -137,9 +138,9 @@ Options:
       --config-directory <CONFIG_DIRECTORY>
           Directory where configuration file is located [default: ./config]
   -h, --help
-          Print help information
+          Print help
   -V, --version
-          Print version information
+          Print version
 ```
 
 Run 'serve' command in release with default configuration
@@ -160,7 +161,7 @@ Run 'serve' command in release with a custom configuration via env vars
 GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**) RUN_INTERVAL=60000 NETWORK=**YOUR_CARDANO_NETWORK** ./mithril-aggregator serve
 ```
 
-## Release build and run binary 'genesis' command
+## Release build and run binary 'era' command
 
 Build in release with default configuration
 
@@ -171,60 +172,80 @@ make build
 Display the help menu
 
 ```bash
-./mithril-aggregator genesis --help
+./mithril-aggregator era --help
 ```
 
 You should see
 
 ```bash
-mithril-aggregator-genesis 
-Genesis tools
+Era tools
 
-USAGE:
-    mithril-aggregator genesis <SUBCOMMAND>
+Usage: mithril-aggregator era <COMMAND>
 
-OPTIONS:
-    -h, --help    Print help information
+Commands:
+  list               Era list command
+  generate-tx-datum  Era tx datum generate command
+  help               Print this message or the help of the given subcommand(s)
 
-SUBCOMMANDS:
-    bootstrap    Genesis certificate bootstrap command
-    export       Genesis certificate export command
-    help         Print this message or the help of the given subcommand(s)
-    import       Genesis certificate import command
-
+Options:
+  -h, --help  Print help
 ```
 
-Run 'genesis bootstrap' command in release with default configuration, **only in test mode**.
-This allows the Mithril Aggregator node to bootstrap a `Genesis Certificate`. After this operation, the Mithril Aggregator will be able to produce new snapshots and certificates.
+Run 'era list' to list the supported eras embedded in the binary
 
 ```bash
-./mithril-aggregator genesis bootstrap
+./mithril-aggregator era list
 ```
 
-Or with a specific `Genesis Secret Key`, **only in test mode**.
+You should see something like
 
 ```bash
-./mithril-aggregator genesis bootstrap --genesis-secret-key **YOUR_SECRET_KEY**
+Supported Eras:
+[
+    Thales,
+]
 ```
 
-Run 'genesis export' command in release with default configuration.
-This allows the Mithril Aggregator node to export the `Genesis Payload` that needs to be signed (and later reimported) of the `Genesis Certificate`. The signature of the `Genesis Payload` must be done manually with the owner of the `Genesis Secret Key`.
+:::tip
+
+You can use the `--json` option in order to display results in `JSON` format for the `list` command:
 
 ```bash
-./mithril-aggregator genesis export --target-path **YOUR_TARGET_PATH**
+./mithril-aggregator era list --json
 ```
 
-Run 'genesis import' command in release with default configuration.
-This allows the Mithril Aggregator node to import the signed payload of the `Genesis Certificate` and create it in the store. After this operation, the Mithril Aggregator will be able to produce new snapshots and certificates.
+You should see something like
 
 ```bash
-./mithril-aggregator genesis import --signed-payload-path **YOUR_SIGNED_PAYLOAD_PATH**
+["thales"]
 ```
 
-Run 'genesis import' command in release with a custom configuration via env vars
+:::
+
+Run 'era generate-tx-datum' to generate the transaction datum file to be stored on the Cardano chain that will provide era markers to the 'cardano-chain' era reader adapter
+
+**Case 1**: There is only one supported era in the code, create the datum file with
 
 ```bash
-GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**) RUN_INTERVAL=60000 NETWORK=**YOUR_CARDANO_NETWORK** ./mithril-aggregator genesis import --signed-payload-path **YOUR_SIGNED_PAYLOAD_PATH**
+./mithril-aggregator era generate-tx-datum --current-era-epoch **EPOCH_AT_WHICH_CURRENT_ERA_STARTS** --era-markers-secret-key **YOUR_ERA_ACTIVATION_SECRET_KEY**
+```
+
+You should see something like
+
+```bash
+{"constructor":0,"fields":[{"bytes":"5b7b226e223a227468616c6573222c2265223a317d5d"},{"bytes":"a58fe8e336f465ded3bba7c5a7afe5b5a26f2fb65b7c4e6e742e680645f13df28bf2b63a61cc72d9c826be490e2c1f1098d955df503580a4e899b5173884e30e"}]}
+```
+
+**Case 2**: There are two supported era in the code, in order to announce the upcoming era (i.e. the activation epoch of this era is not known yet), run the command
+
+```bash
+./mithril-aggregator era generate-tx-datum --current-era-epoch **EPOCH_AT_WHICH_CURRENT_ERA_STARTS** --era-markers-secret-key **YOUR_ERA_ACTIVATION_SECRET_KEY**
+```
+
+**Case 3**: There are two supported era in the code, in order to activate the era switch at a following epoch (i.e. the activation epoch of this era known), run the command
+
+```bash
+./mithril-aggregator era generate-tx-datum --current-era-epoch **EPOCH_AT_WHICH_CURRENT_ERA_STARTS** --next-era-epoch **EPOCH_AT_WHICH_NEXT_ERA_STARTS** --era-markers-secret-key **YOUR_ERA_ACTIVATION_SECRET_KEY**
 ```
 
 :::tip
@@ -237,6 +258,7 @@ If you want to dig deeper, you can get access to several level of logs from the 
 * Add `-vvvv` for all logs (TRACE)
 
 :::
+
 
 <CompiledBinaries />
 
@@ -265,6 +287,8 @@ Here are the subcommands available:
 | **genesis export** | Export genesis payload to sign with genesis secret key |
 | **genesis import** | Import genesis signature (payload signed with genesis secret key) and create & import a genesis certificate in the store |
 | **genesis bootstrap** | Bootstrap a genesis certificate (test only usage) |
+| **era list** | List the supported eras |
+| **era generate-tx-datum** | Generate era markers transaction datum to be stored on chain |
 
 ## Configuration parameters
 
@@ -304,6 +328,8 @@ General parameters:
 | `snapshot_bucket_name` | - | - | `SNAPSHOT_BUCKET_NAME` | Name of the bucket where the snapshots are stored  | - | `snapshot-bucket` | :heavy_check_mark: | Required if `snapshot_uploader_type` is `gcp`
 | `run_interval` | - | - | `RUN_INTERVAL` | Interval between two runtime cycles in ms | - | `60000` | :heavy_check_mark: |
 | `url_snapshot_manifest` | - | - | `URL_SNAPSHOT_MANIFEST` | Snapshots manifest location | - | Only if `snapshot_store_type` is `gcp`, else it should be `` | :heavy_check_mark: |
+| `era_reader_adapter_type` | `--era-reader-adapter-type` | - | `ERA_READER_ADAPTER_TYPE` | Era reader adapter type that can be `cardano-chain`, `file` or `bootstrap`. | `bootstrap` | - | - |
+| `era_reader_adapter_params` | `--era-reader-adapter-params` | - | `ERA_READER_ADAPTER_PARAMS` | Era reader adapter params that is an optional JSON encoded parameters structure that is expected depending on the `era_reader_adapter_type` parameter | - | - | - |
 
 `genesis bootstrap` command:
 
@@ -315,10 +341,24 @@ General parameters:
 
 | Parameter | Command Line (long) |  Command Line (short) | Environment Variable | Description | Default Value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `signed-payload-path` | `--signed-payload-path` | - | - | Path of the payload to import. | - | - | - | - |
+| `signed_payload_path` | `--signed-payload-path` | - | - | Path of the payload to import. | - | - | - | - |
 
 `genesis export` command:
 
 | Parameter | Command Line (long) |  Command Line (short) | Environment Variable | Description | Default Value | Example | Mandatory |
 |-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
-| `target-path` | `--target-path` | - | - | Path of the file to export the payload to. | - | - | - | - |
+| `target_path` | `--target-path` | - | - | Path of the file to export the payload to. | - | - | - | - |
+
+`era list` command:
+
+| Parameter | Command Line (long) |  Command Line (short) | Environment Variable | Description | Default Value | Example | Mandatory |
+|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
+| `json` | `--json` | - | - | Export the supported era list to JSON format. | - | - | - | - |
+
+`era generate-tx-datum` command:
+
+| Parameter | Command Line (long) |  Command Line (short) | Environment Variable | Description | Default Value | Example | Mandatory |
+|-----------|---------------------|:---------------------:|----------------------|-------------|---------------|---------|:---------:|
+| `current_era_epoch` | `--current-era-epoch` | - | `CURRENT_ERA_EPOCH` | Epoch at which current era starts. | - | - | - | :heavy_check_mark: |
+| `next_era_epoch` | `--next-era-epoch` | - | `NEXT_ERA_EPOCH` | Epoch at which the next era starts. If not specified and an upcoming era is available, it will announce the next era. If specified, it must be strictly greater than `current-epoch-era` | - | - | - | - |
+| `era_markers_secret_key` | `--era-markers-secret-key` | - | `ERA_MARKERS_SECRET_KEY` | Era Markers Secret Key that is used to verify the authenticity of the era markers on chain. | - | - | - | :heavy_check_mark: |
