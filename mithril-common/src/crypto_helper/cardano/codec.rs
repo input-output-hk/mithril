@@ -45,6 +45,9 @@ pub enum ParseError {
 
     #[error("CBOR parse error: `{0}`")]
     CborFormat(#[from] serde_cbor::Error),
+
+    #[error("Invalid KES format")]
+    KesFormat,
 }
 
 /// Fields for a shelley formatted file (holds for vkeys, skeys or certs)
@@ -121,9 +124,11 @@ impl SerDeShelleyFileFormat for Sum6KesBytes {
     }
 }
 
-impl<'a> From<&'a mut Sum6KesBytes> for Sum6Kes<'a> {
-    fn from(value: &'a mut Sum6KesBytes) -> Self {
-        Self::from_bytes(&mut value.0).expect("Invalid data format")
+impl<'a> TryFrom<&'a mut Sum6KesBytes> for Sum6Kes<'a> {
+    type Error = ParseError;
+
+    fn try_from(value: &'a mut Sum6KesBytes) -> Result<Self, Self::Error> {
+        Self::from_bytes(&mut value.0).map_err(|_| ParseError::KesFormat)
     }
 }
 
@@ -154,6 +159,6 @@ mod test {
         let mut kes_sk_bytes =
             Sum6KesBytes::from_file(&sk_dir).expect("Failure parsing Shelley file format.");
 
-        let _kes_sk = Sum6Kes::from(&mut kes_sk_bytes); // Panics if data is incorrect
+        assert!(Sum6Kes::try_from(&mut kes_sk_bytes).is_ok());
     }
 }

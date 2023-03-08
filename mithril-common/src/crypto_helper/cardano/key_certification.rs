@@ -125,7 +125,8 @@ impl StmInitializerWrapper {
         let stm_initializer = StmInitializer::setup(params, stake, rng);
         let kes_signature = if let Some(kes_sk_path) = kes_sk_path {
             let mut kes_sk_bytes = Sum6KesBytes::from_file(kes_sk_path)?;
-            let mut kes_sk = Sum6Kes::from(&mut kes_sk_bytes);
+            let mut kes_sk = Sum6Kes::try_from(&mut kes_sk_bytes)
+                .map_err(ProtocolInitializerErrorWrapper::Codec)?;
             let kes_sk_period = kes_sk.get_period();
             let provided_period = kes_period.unwrap_or_default();
             if kes_sk_period > provided_period {
