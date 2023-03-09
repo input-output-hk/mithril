@@ -163,7 +163,6 @@ pub fn setup_certificate_chain(
     let genesis_producer = CertificateGenesisProducer::new(Some(Arc::new(genesis_signer)));
     let protocol_parameters = setup_protocol_parameters();
     let mut epochs = (1..total_certificates + 2)
-        .into_iter()
         .map(|i| match certificates_per_epoch {
             0 => panic!("expected at least 1 certificate per epoch"),
             1 => Epoch(i),
