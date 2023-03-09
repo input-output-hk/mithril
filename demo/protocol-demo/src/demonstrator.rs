@@ -305,12 +305,10 @@ impl Demonstrator {
     pub fn new<R: RngCore + CryptoRng>(config: &crate::Config, rng: &mut R) -> Self {
         // Generate parties
         let parties = (0..config.nparties)
-            .into_iter()
             .map(|party_id| Party::new(party_id, 1 + rng.next_u64() % 999))
             .collect::<Vec<_>>();
         // Generate messages
         let messages = (0..config.nmessages)
-            .into_iter()
             .map(|_| {
                 let mut msg = [0u8; 16];
                 rng.fill_bytes(&mut msg);
