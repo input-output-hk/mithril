@@ -124,7 +124,6 @@ impl Devnet {
 
     pub fn topology(&self) -> DevnetTopology {
         let bft_nodes = (1..=self.number_of_bft_nodes)
-            .into_iter()
             .map(|n| BftNode {
                 db_path: self.artifacts_dir.join(format!("node-bft{n}/db")),
                 socket_path: self
@@ -134,7 +133,6 @@ impl Devnet {
             .collect::<Vec<_>>();
 
         let pool_nodes = (1..=self.number_of_pool_nodes)
-            .into_iter()
             .map(|n| PoolNode {
                 db_path: self.artifacts_dir.join(format!("node-pool{n}/db")),
                 socket_path: self
