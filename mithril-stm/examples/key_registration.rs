@@ -28,7 +28,6 @@ fn main() {
 
     let mut total_stake: Stake = 0;
     let stakes = (0..nparties)
-        .into_iter()
         .map(|_| {
             let stake = rng.next_u64() % 999;
             total_stake += stake;
