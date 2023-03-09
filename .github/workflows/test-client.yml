@@ -11,26 +11,34 @@ on:
           If not provided the last commit on the main branch will be used instead.
         required: false
         type: string
+      docker_image_id:
+        description: The selected Docker image id.
+        required: true
+        type: string
+        default: latest
       network:
+        description: The name of the selected Cardano network.
         required: true
         type: string
         default: preview
       aggregator_endpoint:
+        description: The endpoint of the selected aggregator of the Mithril network.
         required: true
         type: string
         default: https://aggregator.pre-release-preview.api.mithril.network/aggregator
       genesis_verification_key:
-        description: The genesis verification key, if empty the "TEST_ONLY_genesis.vkey" file at the project root will be used
+        description: The genesis verification key location for the Mithril network.
         required: false
         type: string
+        default: https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/pre-release-preview/genesis.vkey
       enable_debug:
         description: Enable debug output ("-vvv") for the mithril-client calls
         required: true
-        type: bool
+        type: boolean
         default: false
 
 jobs:
-  test:
+  test-binaries:
     strategy:
       fail-fast: false
       matrix:
@@ -54,23 +62,9 @@ jobs:
             echo "debug_level=-vvv" >> $GITHUB_OUTPUT
           fi
           
-          if [[ -n "${{ inputs.network }}" ]]; then
-            echo "NETWORK=${{ inputs.network }}" >> $GITHUB_ENV
-          else
-            echo "NETWORK=preview" >> $GITHUB_ENV
-          fi
-          
-          if [[ -n "${{ inputs.aggregator_endpoint }}" ]]; then
-            echo "AGGREGATOR_ENDPOINT=${{ inputs.aggregator_endpoint }}" >> $GITHUB_ENV
-          else
-            echo "AGGREGATOR_ENDPOINT=https://aggregator.pre-release-preview.api.mithril.network/aggregator" >> $GITHUB_ENV
-          fi
-          
-          if [[ -n "${{ inputs.genesis_verification_key }}" ]]; then
-            echo "GENESIS_VERIFICATION_KEY=${{ inputs.genesis_verification_key }}" >> $GITHUB_ENV
-          else
-            echo "GENESIS_VERIFICATION_KEY=$(cat TEST_ONLY_genesis.vkey)" >> $GITHUB_ENV
-          fi
+          echo "NETWORK=${{ inputs.network }}" >> $GITHUB_ENV
+          echo "AGGREGATOR_ENDPOINT=${{ inputs.aggregator_endpoint }}" >> $GITHUB_ENV
+          echo "GENESIS_VERIFICATION_KEY=$(curl -s ${{ inputs.genesis_verification_key }})" >> $GITHUB_ENV
           
       - name: Checkout binary
         uses: dawidd6/action-download-artifact@v2
@@ -108,3 +102,52 @@ jobs:
         shell: bash
         working-directory: ./bin
         run: ./mithril-client ${{ steps.prepare.outputs.debug_level }} restore $SNAPSHOT_DIGEST 
+
+  test-docker:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-22.04 ]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Setup Docker
+        uses: docker-practice/actions-setup-docker@master
+        timeout-minutes: 10
+
+      - name: Prepare environment variables
+        id: prepare
+        shell: bash
+        run: |
+          if [[ "${{ inputs.enable_debug }}" == "true" ]]; then
+            echo "debug_level=-vvv" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "MITHRIL_IMAGE_ID=${{ inputs.docker_image_id }}" >> $GITHUB_ENV
+          echo "NETWORK=${{ inputs.network }}" >> $GITHUB_ENV
+          echo "AGGREGATOR_ENDPOINT=${{ inputs.aggregator_endpoint }}" >> $GITHUB_ENV
+          echo "GENESIS_VERIFICATION_KEY=$(curl -s ${{ inputs.genesis_verification_key }})" >> $GITHUB_ENV
+
+      - name: Prepare Mithril client command
+        id: command
+        shell: bash
+        run: |
+          echo "mithril_client=docker run --rm -e NETWORK=$NETWORK -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT --name='mithril-client' -v ~:/app/data -u $(id -u) ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID"  >> $GITHUB_OUTPUT
+
+      - name: Show client version
+        shell: bash
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} --version
+      
+      - name: List and get last snapshot digest
+        shell: bash
+        run: |
+          ${{ steps.command.outputs.mithril_client }} list
+          echo "SNAPSHOT_DIGEST=$(${{ steps.command.outputs.mithril_client }} list --json | jq -r '.[0].digest')" >> $GITHUB_ENV
+      
+      - name: Download Latest Snapshot
+        shell: bash
+        run: ${{ steps.command.outputs.mithril_client }} ${{ steps.prepare.outputs.debug_level }} download $SNAPSHOT_DIGEST
+        
+      # We use the `--disable-digests-cache` option because the client is not able to create the /home/appuser/.cache directory otherwise
+      - name: Restore Latest Snapshot
+        shell: bash
+        run: ${{ steps.command.outputs.mithril_client }}  ${{ steps.prepare.outputs.debug_level }} restore --disable-digests-cache $SNAPSHOT_DIGEST 
