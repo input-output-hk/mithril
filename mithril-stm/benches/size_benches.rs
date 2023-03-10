@@ -22,7 +22,6 @@ where
     rng.fill_bytes(&mut msg);
 
     let parties = (0..nparties)
-        .into_iter()
         .map(|_| 1 + (rng.next_u64() % 9999))
         .collect::<Vec<_>>();
 

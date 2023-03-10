@@ -89,7 +89,7 @@ impl MithrilFixtureBuilder {
 
     fn generate_stake_distribution(&self) -> ProtocolStakeDistribution {
         let mut kes_keys_seed = [0u8; 32];
-        let signers_party_ids = (0..self.number_of_signers).into_iter().map(|party_index| {
+        let signers_party_ids = (0..self.number_of_signers).map(|party_index| {
             if self.enable_signers_certification {
                 build_party_with_operational_certificate(party_index, &mut kes_keys_seed)
             } else {

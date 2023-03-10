@@ -18,7 +18,6 @@ fn initialization_phase(
     params: StmParameters,
 ) -> (Vec<StmSigner<H>>, Vec<(StmVerificationKey, Stake)>) {
     let parties = (0..nparties)
-        .into_iter()
         .map(|_| 1 + (rng.next_u64() % 9999))
         .collect::<Vec<_>>();
 

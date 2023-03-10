@@ -28,7 +28,6 @@ where
     );
 
     let stakes = (0..nr_parties)
-        .into_iter()
         .map(|_| 1 + (rng.next_u64() % 9999))
         .collect::<Vec<_>>();
 
@@ -105,7 +104,6 @@ fn batch_benches<H>(
             batch_params.push(params);
 
             let stakes = (0..nr_parties)
-                .into_iter()
                 .map(|_| 1 + (rng.next_u64() % 9999))
                 .collect::<Vec<_>>();
 
