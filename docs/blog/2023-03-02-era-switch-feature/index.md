@@ -5,6 +5,8 @@ authors:
 tags: [era, era activation, era markers, era switch, hard fork]
 ---
 
+**Update 2023/03/10**: The Era Switch behavior has been activated on the `release-preprod` network.
+
 **Update 2023/03/08**: The Era Switch behavior has been activated on the `pre-release-preview` network.
 
 ### An new Era Switch behavior will be introduced soon to the Mithril networks
@@ -23,6 +25,12 @@ Here is the configuration values that should be used on `pre-release-preview`:
 ```bash
 ERA_READER_ADAPTER_TYPE=cardano-chain
 ERA_READER_ADAPTER_PARAMS={"address":"addr_test1qrv5xfwh043mlc3vk5d97s4nmhxu7cmleyssvhx37gkfyejfe8d38v3vsfgetjafgrsdc49krug8wf04h5rmtengtejqlxrksk","verification_key":"5b35352c3232382c3134342c38372c3133382c3133362c34382c382c31342c3138372c38352c3134382c39372c3233322c3235352c3232392c33382c3234342c3234372c3230342c3139382c31332c33312c3232322c32352c3136342c35322c3130322c39312c3132302c3230382c3134375d"}
+```
+
+Here is the configuration values that should be used on `release-preprod`:
+```bash
+ERA_READER_ADAPTER_TYPE=cardano-chain
+ERA_READER_ADAPTER_PARAMS={"address":"addr_test1qpkyv2ws0deszm67t840sdnruqgr492n80g3y96xw3p2ksk6suj5musy6w8lsg3yjd09cnpgctc2qh386rtxphxt248qr0npnx","verification_key":"5b35352c3232382c3134342c38372c3133382c3133362c34382c382c31342c3138372c38352c3134382c39372c3233322c3235352c3232392c33382c3234342c3234372c3230342c3139382c31332c33312c3232322c32352c3136342c35322c3130322c39312c3132302c3230382c3134375d"}
 ```
 
 All theses information will be available at the updated [`Run a Mithril Signer node (SPO)`](https://mithril.network/doc/manual/getting-started/run-signer-node) guide.
