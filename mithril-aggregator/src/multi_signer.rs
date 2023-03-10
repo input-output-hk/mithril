@@ -13,7 +13,7 @@ use mithril_common::{
         ProtocolSingleSignature, ProtocolStakeDistribution,
     },
     entities::{self, Epoch, SignerWithStake},
-    store::{StakeStore, StakeStorer, StoreError},
+    store::{StakeStorer, StoreError},
 };
 
 use crate::{
@@ -231,7 +231,7 @@ pub struct MultiSignerImpl {
     verification_key_store: Arc<VerificationKeyStore>,
 
     /// Stake store
-    stake_store: Arc<StakeStore>,
+    stake_store: Arc<dyn StakeStorer>,
 
     /// Single signature store
     single_signature_store: Arc<SingleSignatureStore>,
@@ -244,7 +244,7 @@ impl MultiSignerImpl {
     /// MultiSignerImpl factory
     pub fn new(
         verification_key_store: Arc<VerificationKeyStore>,
-        stake_store: Arc<StakeStore>,
+        stake_store: Arc<dyn StakeStorer>,
         single_signature_store: Arc<SingleSignatureStore>,
         protocol_parameters_store: Arc<ProtocolParametersStore>,
     ) -> Self {

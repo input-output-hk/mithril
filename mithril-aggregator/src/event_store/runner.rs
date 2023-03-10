@@ -3,6 +3,7 @@ use sqlite::Connection;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 use std::{
+    error::Error,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
@@ -23,7 +24,7 @@ impl EventStore {
     /// Launch the service. It runs until all the transmitters are gone and all
     /// messages have been processed. This means this service shall be waited
     /// upon completion to ensure all events are properly saved in the database.
-    pub async fn run(&mut self, file: Option<PathBuf>) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn run(&mut self, file: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
         let connection = {
             let connection = match file {
                 Some(path) => Connection::open(path)?,
@@ -36,7 +37,9 @@ impl EventStore {
         loop {
             if let Some(message) = self.receiver.recv().await {
                 debug!("Event received: {message:?}");
-                let event = persister.persist(message)?;
+                let event = persister
+                    .persist(message)
+                    .map_err(|e| -> Box<dyn Error> { e })?;
                 debug!("event ID={} created", event.event_id);
             } else {
                 info!("No more events to proceed, quitting…");

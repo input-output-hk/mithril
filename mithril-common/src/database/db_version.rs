@@ -1,6 +1,5 @@
 use std::{
     cmp::Ordering,
-    error::Error,
     fmt::{Debug, Display},
 };
 
@@ -10,6 +9,7 @@ use sqlite::{Connection, Row, Value};
 use crate::sqlite::{
     HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, WhereCondition,
 };
+use crate::StdError;
 
 use super::DbVersion;
 
@@ -25,7 +25,7 @@ pub enum ApplicationNodeType {
 
 impl ApplicationNodeType {
     /// [ApplicationNodeType] constructor.
-    pub fn new(node_type: &str) -> Result<Self, Box<dyn Error>> {
+    pub fn new(node_type: &str) -> Result<Self, StdError> {
         match node_type {
             "aggregator" => Ok(Self::Aggregator),
             "signer" => Ok(Self::Signer),
@@ -111,7 +111,7 @@ impl<'conn> DatabaseVersionProvider<'conn> {
     pub fn create_table_if_not_exists(
         &self,
         application_type: &ApplicationNodeType,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), StdError> {
         let connection = self.get_connection();
         let sql = "select exists(select name from sqlite_master where type='table' and name='db_version') as table_exists";
         let table_exists = connection
@@ -138,7 +138,7 @@ insert into db_version (application_type, version) values ('{application_type}',
     pub fn get_application_version(
         &self,
         application_type: &ApplicationNodeType,
-    ) -> Result<Option<DatabaseVersion>, Box<dyn Error>> {
+    ) -> Result<Option<DatabaseVersion>, StdError> {
         let filters = WhereCondition::new(
             "application_type = ?*",
             vec![Value::String(format!("{application_type}"))],
@@ -183,7 +183,7 @@ impl<'conn> DatabaseVersionUpdater<'conn> {
     }
 
     /// Persist the given entity and return the projection of the saved entity.
-    pub fn save(&self, version: DatabaseVersion) -> Result<DatabaseVersion, Box<dyn Error>> {
+    pub fn save(&self, version: DatabaseVersion) -> Result<DatabaseVersion, StdError> {
         let filters = WhereCondition::new(
             "",
             vec![

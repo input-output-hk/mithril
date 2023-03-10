@@ -2,7 +2,14 @@ use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use slog::Level;
 use slog_scope::{crit, debug, info};
-use std::{error::Error, fs, net::IpAddr, path::PathBuf, sync::Arc};
+use sqlite::Connection;
+use std::{
+    error::Error,
+    fs,
+    net::IpAddr,
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 use tokio::{
     sync::{oneshot, RwLock},
     task::JoinSet,
@@ -27,6 +34,7 @@ use mithril_common::{
 };
 
 use crate::{
+    database::provider::StakePoolRepository,
     event_store::{self, TransmitterService},
     http_server::routes::router,
     tools::{EraTools, GenesisTools, GenesisToolsDependency},
@@ -82,6 +90,13 @@ fn setup_genesis_dependencies(
         )?),
         config.store_retention_limit,
     ));
+    let stake_store = Arc::new(StakePoolRepository::new(Arc::new(Mutex::new(
+        Connection::open(sqlite_db_path.clone().unwrap())?,
+    ))));
+    // let stake_store = Arc::new(StakeStore::new(
+    //     Box::new(SQLiteAdapter::new("stake", sqlite_db_path.clone())?),
+    //     config.store_retention_limit,
+    // ));
     let single_signature_store = Arc::new(SingleSignatureStore::new(
         Box::new(SQLiteAdapter::new("single_signature", sqlite_db_path)?),
         config.store_retention_limit,
@@ -152,7 +167,7 @@ fn check_database_migration(sql_file_path: PathBuf) -> Result<(), Box<dyn Error>
         db_checker.add_migration(migration);
     }
 
-    db_checker.apply()
+    db_checker.apply().map_err(|e| -> Box<dyn Error> { e })
 }
 
 /// Mithril Aggregator Node

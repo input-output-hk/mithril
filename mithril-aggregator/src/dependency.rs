@@ -7,7 +7,7 @@ use mithril_common::{
         Certificate, Epoch, ProtocolParameters, Signer, SignerWithStake, StakeDistribution,
     },
     era::{EraChecker, EraReader},
-    store::{StakeStore, StakeStorer},
+    store::StakeStorer,
     BeaconProvider,
 };
 
@@ -50,7 +50,7 @@ pub struct DependencyManager {
     pub verification_key_store: Arc<VerificationKeyStore>,
 
     /// Stake store.
-    pub stake_store: Arc<StakeStore>,
+    pub stake_store: Arc<dyn StakeStorer>,
 
     /// Signer single signature store.
     pub single_signature_store: Arc<SingleSignatureStore>,

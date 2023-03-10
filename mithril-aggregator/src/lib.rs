@@ -25,6 +25,7 @@ mod signer_registerer;
 mod snapshot_stores;
 mod snapshot_uploaders;
 mod snapshotter;
+//pub mod stake_pools;
 mod store;
 mod tools;
 

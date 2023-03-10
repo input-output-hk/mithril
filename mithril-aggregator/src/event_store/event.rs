@@ -1,4 +1,4 @@
-use std::{collections::HashMap, error::Error, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 use chrono::NaiveDateTime;
 use mithril_common::sqlite::{
@@ -6,6 +6,8 @@ use mithril_common::sqlite::{
 };
 use sqlite::Connection;
 use std::sync::Mutex;
+
+use mithril_common::StdError;
 
 /// Event that is sent from a thread to be persisted.
 #[derive(Debug, Clone)]
@@ -149,10 +151,7 @@ impl EventPersister {
         Self { connection }
     }
 
-    fn get_persist_parameters(
-        &self,
-        message: EventMessage,
-    ) -> Result<WhereCondition, Box<dyn Error>> {
+    fn get_persist_parameters(&self, message: EventMessage) -> Result<WhereCondition, StdError> {
         let filters = WhereCondition::new(
             "(source, action, content) values (?*, ?*, ?*)",
             vec![
@@ -170,11 +169,13 @@ impl EventPersister {
     }
 
     /// Save an EventMessage in the database.
-    pub fn persist(&self, message: EventMessage) -> Result<Event, Box<dyn Error>> {
+    pub fn persist(&self, message: EventMessage) -> Result<Event, StdError> {
         let connection = &*self.connection.lock().unwrap();
         let provider = EventPersisterProvider::new(connection);
         let log_message = message.clone();
-        let mut rows = provider.find(self.get_persist_parameters(message)?)?;
+        let mut rows = provider
+            .find(self.get_persist_parameters(message)?)
+            .map_err(|e| -> StdError { e })?;
 
         rows.next().ok_or_else(|| {
             format!("No record from the database after I saved event message {log_message:?}")
@@ -204,7 +205,10 @@ mod tests {
         let message = EventMessage::new("source", "action", "content");
         let (parameters, values) = persister.get_persist_parameters(message).unwrap().expand();
 
-        assert_eq!("(?1, ?2, ?3)".to_string(), parameters);
+        assert_eq!(
+            "(source, action, content) values (?1, ?2, ?3)".to_string(),
+            parameters
+        );
         assert_eq!(3, values.len());
     }
 }

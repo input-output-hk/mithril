@@ -1,6 +1,6 @@
-use std::error::Error;
-
 use sqlite::Connection;
+
+use crate::StdError;
 
 use super::{EntityCursor, SqLiteEntity, WhereCondition};
 
@@ -17,7 +17,7 @@ pub trait Provider<'conn> {
     fn find(
         &'conn self,
         filters: WhereCondition,
-    ) -> Result<EntityCursor<'conn, Self::Entity>, Box<dyn Error>> {
+    ) -> Result<EntityCursor<'conn, Self::Entity>, StdError> {
         let (condition, params) = filters.expand();
         let sql = self.get_definition(&condition);
         let cursor = self

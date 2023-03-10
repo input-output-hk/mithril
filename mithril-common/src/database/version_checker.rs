@@ -2,7 +2,10 @@ use chrono::Local;
 use slog::{debug, error};
 use slog::{info, Logger};
 use sqlite::Connection;
-use std::{cmp::Ordering, collections::BTreeSet, error::Error, path::PathBuf};
+
+use std::{cmp::Ordering, collections::BTreeSet, path::PathBuf};
+
+use crate::StdError;
 
 use super::{
     ApplicationNodeType, DatabaseVersion, DatabaseVersionProvider, DatabaseVersionUpdater,
@@ -51,7 +54,7 @@ impl DatabaseVersionChecker {
 
     /// Performs an actual version check in the database. This method creates a
     /// connection to the SQLite3 file and drops it at the end.
-    pub fn apply(&self) -> Result<(), Box<dyn Error>> {
+    pub fn apply(&self) -> Result<(), StdError> {
         debug!(
             &self.logger,
             "check database version, database file = '{}'",
@@ -65,7 +68,9 @@ impl DatabaseVersionChecker {
             .get_application_version(&self.application_type)?
             .unwrap(); // At least a record exists.
 
-        // if no migration registered then we are at version 0.
+        // the current database version is equal to the maximum migration
+        // version present in this software.
+        // If no migration registered then version = 0.
         let migration_version = self.migrations.iter().map(|m| m.version).max().unwrap_or(0);
 
         match migration_version.cmp(&db_version.version) {
@@ -104,7 +109,7 @@ impl DatabaseVersionChecker {
         starting_version: &DatabaseVersion,
         updater: &DatabaseVersionUpdater,
         connection: &Connection,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), StdError> {
         for migration in &self
             .migrations
             .iter()
