@@ -15,6 +15,14 @@ create table stake_pool (
     stake         integer    not null,
     created_at    text      not null default current_timestamp,
     primary key (epoch, stake_pool_id)
-)"#,
+);
+insert into stake_pool (epoch, stake_pool_id, stake) 
+    select 
+        stake.key as epoch, 
+        stake_dis.key as stake_pool_id, 
+        stake_dis.value as stake 
+    from stake, json_each(stake.value) as stake_dis 
+    order by epoch asc;
+"#,
     )]
 }

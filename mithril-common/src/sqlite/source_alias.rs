@@ -12,7 +12,7 @@ impl SourceAlias {
     pub fn new(aliases: &[(&str, &str)]) -> Self {
         Self {
             aliases: aliases
-                .into_iter()
+                .iter()
                 .map(|(name, alias)| (name.to_string(), alias.to_string()))
                 .collect(),
         }

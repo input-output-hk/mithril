@@ -163,7 +163,7 @@ impl<'conn> UpdateStakePoolProvider<'conn> {
 
         let entity = self.find(filters)?
             .next()
-            .expect(&format!("No entity returned by the persister, stake_pool_id = {stake_pool_id} for epoch {epoch:?}"));
+            .unwrap_or_else(|| panic!("No entity returned by the persister, stake_pool_id = {stake_pool_id} for epoch {epoch:?}"));
 
         Ok(entity)
     }
@@ -217,7 +217,7 @@ impl StakeStorer for StakePoolRepository {
             let stake_pool = provider
                 .persist(&pool_id, epoch, stake)
                 .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
-            new_stakes.insert(pool_id.to_string(), stake_pool.stake as u64);
+            new_stakes.insert(pool_id.to_string(), stake_pool.stake);
         }
         connection
             .execute("commit transaction")
