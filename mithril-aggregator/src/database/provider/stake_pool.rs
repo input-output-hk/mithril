@@ -40,12 +40,12 @@ impl SqLiteEntity for StakePool {
     where
         Self: Sized,
     {
-        let epoch_int = row.get::<i64, _>(3);
-        let datetime = &row.get::<String, _>(4);
-        let stake = row.get::<i64, _>(2);
+        let epoch_int = row.get::<i64, _>(2);
+        let datetime = &row.get::<String, _>(3);
+        let stake = row.get::<i64, _>(1);
 
         let stake_pool = Self {
-            stake_pool_id: row.get::<String, _>(1),
+            stake_pool_id: row.get::<String, _>(0),
             stake: u64::try_from(stake).map_err(|e| {
                 HydrationError::InconsistentType(format!(
                     "Could not cast the stake from internal db I64 → U64. Error: '{e}'."
@@ -177,10 +177,12 @@ impl<'conn> Provider<'conn> for UpdateStakePoolProvider<'conn> {
     }
 
     fn get_definition(&self, condition: &str) -> String {
-        let projection =
-            Self::Entity::get_projection().expand(SourceAlias::new(&[("{:stake_pool:}", "sp")]));
+        // it is important to alias the fields with the same name as the table
+        // since the table cannot be aliased in a RETURNING statement in SQLite.
+        let projection = Self::Entity::get_projection()
+            .expand(SourceAlias::new(&[("{:stake_pool:}", "stake_pool")]));
 
-        format!("insert into stake_pool {condition} returning {projection}")
+        format!("insert or replace into stake_pool {condition} returning {projection}")
     }
 }
 

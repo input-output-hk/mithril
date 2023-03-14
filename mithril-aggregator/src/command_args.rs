@@ -29,7 +29,7 @@ use mithril_common::{
     },
     entities::{Epoch, HexEncodedEraMarkersSecretKey, HexEncodedGenesisSecretKey},
     era::{EraChecker, EraReader},
-    store::{adapter::SQLiteAdapter, StakeStore},
+    store::adapter::SQLiteAdapter,
     BeaconProvider, BeaconProviderImpl,
 };
 
@@ -93,10 +93,6 @@ fn setup_genesis_dependencies(
     let stake_store = Arc::new(StakePoolRepository::new(Arc::new(Mutex::new(
         Connection::open(sqlite_db_path.clone().unwrap())?,
     ))));
-    // let stake_store = Arc::new(StakeStore::new(
-    //     Box::new(SQLiteAdapter::new("stake", sqlite_db_path.clone())?),
-    //     config.store_retention_limit,
-    // ));
     let single_signature_store = Arc::new(SingleSignatureStore::new(
         Box::new(SQLiteAdapter::new("single_signature", sqlite_db_path)?),
         config.store_retention_limit,
@@ -363,10 +359,9 @@ impl ServeCommand {
             )?),
             config.store_retention_limit,
         ));
-        let stake_store = Arc::new(StakeStore::new(
-            Box::new(SQLiteAdapter::new("stake", sqlite_db_path.clone())?),
-            config.store_retention_limit,
-        ));
+        let stake_store = Arc::new(StakePoolRepository::new(Arc::new(Mutex::new(
+            Connection::open(sqlite_db_path.clone().unwrap())?,
+        ))));
         let single_signature_store = Arc::new(SingleSignatureStore::new(
             Box::new(SQLiteAdapter::new(
                 "single_signature",

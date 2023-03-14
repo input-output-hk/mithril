@@ -16,6 +16,7 @@ create table stake_pool (
     created_at    text      not null default current_timestamp,
     primary key (epoch, stake_pool_id)
 );
+create table if not exists stake (key_hash text primary key, key json not null, value json not null);
 insert into stake_pool (epoch, stake_pool_id, stake) 
     select 
         stake.key as epoch, 
@@ -23,6 +24,7 @@ insert into stake_pool (epoch, stake_pool_id, stake)
         stake_dis.value as stake 
     from stake, json_each(stake.value) as stake_dis 
     order by epoch asc;
+drop table stake;
 "#,
     )]
 }
