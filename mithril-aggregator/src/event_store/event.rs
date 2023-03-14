@@ -1,9 +1,13 @@
-use std::{collections::HashMap, error::Error, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 use chrono::NaiveDateTime;
-use mithril_common::sqlite::{HydrationError, Projection, Provider, SqLiteEntity};
+use mithril_common::sqlite::{
+    HydrationError, Projection, Provider, SourceAlias, SqLiteEntity, WhereCondition,
+};
 use sqlite::Connection;
 use std::sync::Mutex;
+
+use mithril_common::StdError;
 
 /// Event that is sent from a thread to be persisted.
 #[derive(Debug, Clone)]
@@ -97,15 +101,11 @@ impl SqLiteEntity for Event {
 
 struct EventPersisterProvider<'conn> {
     connection: &'conn Connection,
-    projection: Projection,
 }
 
 impl<'conn> EventPersisterProvider<'conn> {
     pub fn new(connection: &'conn Connection) -> Self {
-        let myself = Self {
-            connection,
-            projection: Event::get_projection(),
-        };
+        let myself = Self { connection };
         myself.create_table_if_not_exists();
 
         myself
@@ -132,16 +132,10 @@ impl<'conn> Provider<'conn> for EventPersisterProvider<'conn> {
         self.connection
     }
 
-    fn get_projection(&self) -> &Projection {
-        &self.projection
-    }
+    fn get_definition(&self, data: &str) -> String {
+        let projection = Self::Entity::get_projection().expand(SourceAlias::default());
 
-    fn get_definition(&self, _condition: Option<&str>) -> String {
-        let projection = self.get_projection().expand(HashMap::new());
-
-        format!(
-            r#"insert into event (source, action, content) values (?1, ?2, ?3) returning {projection}"#
-        )
+        format!(r#"insert into event {data} returning {projection}"#)
     }
 }
 
@@ -157,14 +151,10 @@ impl EventPersister {
         Self { connection }
     }
 
-    /// Save an EventMessage in the database.
-    pub fn persist(&self, message: EventMessage) -> Result<Event, Box<dyn Error>> {
-        let connection = &*self.connection.lock().unwrap();
-        let provider = EventPersisterProvider::new(connection);
-        let log_message = message.clone();
-        let mut rows = provider.find(
-            None,
-            &[
+    fn get_persist_parameters(&self, message: EventMessage) -> Result<WhereCondition, StdError> {
+        let filters = WhereCondition::new(
+            "(source, action, content) values (?*, ?*, ?*)",
+            vec![
                 sqlite::Value::String(message.source),
                 sqlite::Value::String(message.action),
                 sqlite::Value::String(format!(
@@ -173,7 +163,19 @@ impl EventPersister {
                     message.content
                 )),
             ],
-        )?;
+        );
+
+        Ok(filters)
+    }
+
+    /// Save an EventMessage in the database.
+    pub fn persist(&self, message: EventMessage) -> Result<Event, StdError> {
+        let connection = &*self.connection.lock().unwrap();
+        let provider = EventPersisterProvider::new(connection);
+        let log_message = message.clone();
+        let mut rows = provider
+            .find(self.get_persist_parameters(message)?)
+            .map_err(|e| -> StdError { e })?;
 
         rows.next().ok_or_else(|| {
             format!("No record from the database after I saved event message {log_message:?}")
@@ -187,12 +189,26 @@ mod tests {
     use super::*;
 
     #[test]
-    fn provider_sql() {
-        let connection = Connection::open(":memory:").unwrap();
-        let provider = EventPersisterProvider::new(&connection);
+    fn event_projection() {
+        let projection = Event::get_projection();
+
         assert_eq!(
-            r#"insert into event (source, action, content) values (?1, ?2, ?3) returning event_id as event_id, strftime('%s', created_at) as created_at, source as source, action as action, content as content"#,
-            provider.get_definition(None)
+            "event_id as event_id, strftime('%s', created_at) as created_at, source as source, action as action, content as content".to_string(),
+            projection.expand(SourceAlias::default())
         )
+    }
+
+    #[test]
+    fn provider_sql() {
+        let connection = Arc::new(Mutex::new(Connection::open(":memory:").unwrap()));
+        let persister = EventPersister::new(connection);
+        let message = EventMessage::new("source", "action", "content");
+        let (parameters, values) = persister.get_persist_parameters(message).unwrap().expand();
+
+        assert_eq!(
+            "(source, action, content) values (?1, ?2, ?3)".to_string(),
+            parameters
+        );
+        assert_eq!(3, values.len());
     }
 }

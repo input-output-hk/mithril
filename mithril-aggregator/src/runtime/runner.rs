@@ -2,7 +2,6 @@ use async_trait::async_trait;
 use chrono::Utc;
 use mithril_common::entities::Epoch;
 use mithril_common::entities::PartyId;
-use mithril_common::store::StakeStorer;
 use slog_scope::{debug, info, warn};
 
 use mithril_common::crypto_helper::ProtocolStakeDistribution;
@@ -730,9 +729,7 @@ pub mod tests {
         Beacon, CertificatePending, HexEncodedKey, ProtocolMessage, StakeDistribution,
     };
     use mithril_common::test_utils::MithrilFixtureBuilder;
-    use mithril_common::{
-        entities::ProtocolMessagePartKey, store::StakeStorer, test_utils::fake_data,
-    };
+    use mithril_common::{entities::ProtocolMessagePartKey, test_utils::fake_data};
     use mithril_common::{BeaconProviderImpl, CardanoNetwork};
     use std::collections::HashMap;
     use std::path::Path;

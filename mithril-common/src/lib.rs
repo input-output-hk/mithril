@@ -23,11 +23,16 @@ pub mod sqlite;
 pub mod store;
 pub mod test_utils;
 
+use std::error::Error;
+
 pub use beacon_provider::{BeaconProvider, BeaconProviderError, BeaconProviderImpl};
 pub use entities::{CardanoNetwork, MagicId};
 
 use lazy_static::lazy_static;
 use semver::{Version, VersionReq};
+
+/// Generic error type
+pub type StdError = Box<dyn Error + Sync + Send>;
 
 /// Mithril API protocol version
 /// this is the same as the one in openapi.yml file.

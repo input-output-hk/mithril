@@ -9,7 +9,7 @@ type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = StakeDistribution>>;
 
 /// Represent a way to store the stake of mithril party members.
 #[async_trait]
-pub trait StakeStorer {
+pub trait StakeStorer: Sync + Send {
     /// Save the stakes in the store for a given `epoch`.
     async fn save_stakes(
         &self,
@@ -19,13 +19,6 @@ pub trait StakeStorer {
 
     /// Get the stakes of all party at a given `epoch`.
     async fn get_stakes(&self, epoch: Epoch) -> Result<Option<StakeDistribution>, StoreError>;
-
-    /// Return the last stakes recorded in the store.
-    /// This is mainly used for testing right now.
-    async fn get_last_stakes(
-        &self,
-        last: usize,
-    ) -> Result<Vec<(Epoch, StakeDistribution)>, StoreError>;
 }
 
 /// A [StakeStorer] that use a [StoreAdapter] to store data.
@@ -83,15 +76,6 @@ impl StakeStorer for StakeStore {
 
     async fn get_stakes(&self, epoch: Epoch) -> Result<Option<StakeDistribution>, StoreError> {
         Ok(self.adapter.read().await.get_record(&epoch).await?)
-    }
-
-    async fn get_last_stakes(
-        &self,
-        last: usize,
-    ) -> Result<Vec<(Epoch, StakeDistribution)>, StoreError> {
-        let results = self.adapter.read().await.get_last_n_records(last).await?;
-
-        Ok(results)
     }
 }
 

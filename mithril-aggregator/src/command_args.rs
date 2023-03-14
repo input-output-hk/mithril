@@ -2,7 +2,14 @@ use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use slog::Level;
 use slog_scope::{crit, debug, info};
-use std::{error::Error, fs, net::IpAddr, path::PathBuf, sync::Arc};
+use sqlite::Connection;
+use std::{
+    error::Error,
+    fs,
+    net::IpAddr,
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 use tokio::{
     sync::{oneshot, RwLock},
     task::JoinSet,
@@ -22,11 +29,12 @@ use mithril_common::{
     },
     entities::{Epoch, HexEncodedEraMarkersSecretKey, HexEncodedGenesisSecretKey},
     era::{EraChecker, EraReader},
-    store::{adapter::SQLiteAdapter, StakeStore},
+    store::adapter::SQLiteAdapter,
     BeaconProvider, BeaconProviderImpl,
 };
 
 use crate::{
+    database::provider::StakePoolRepository,
     event_store::{self, TransmitterService},
     http_server::routes::router,
     tools::{EraTools, GenesisTools, GenesisToolsDependency},
@@ -82,10 +90,9 @@ fn setup_genesis_dependencies(
         )?),
         config.store_retention_limit,
     ));
-    let stake_store = Arc::new(StakeStore::new(
-        Box::new(SQLiteAdapter::new("stake", sqlite_db_path.clone())?),
-        config.store_retention_limit,
-    ));
+    let stake_store = Arc::new(StakePoolRepository::new(Arc::new(Mutex::new(
+        Connection::open(sqlite_db_path.clone().unwrap())?,
+    ))));
     let single_signature_store = Arc::new(SingleSignatureStore::new(
         Box::new(SQLiteAdapter::new("single_signature", sqlite_db_path)?),
         config.store_retention_limit,
@@ -146,12 +153,17 @@ async fn do_first_launch_initialization_if_needed(
 /// Database version checker.
 /// This is the place where migrations are to be registered.
 fn check_database_migration(sql_file_path: PathBuf) -> Result<(), Box<dyn Error>> {
-    DatabaseVersionChecker::new(
+    let mut db_checker = DatabaseVersionChecker::new(
         slog_scope::logger(),
         ApplicationNodeType::Aggregator,
         sql_file_path,
-    )
-    .apply()
+    );
+
+    for migration in crate::database::migration::get_migrations() {
+        db_checker.add_migration(migration);
+    }
+
+    db_checker.apply().map_err(|e| -> Box<dyn Error> { e })
 }
 
 /// Mithril Aggregator Node
@@ -347,10 +359,9 @@ impl ServeCommand {
             )?),
             config.store_retention_limit,
         ));
-        let stake_store = Arc::new(StakeStore::new(
-            Box::new(SQLiteAdapter::new("stake", sqlite_db_path.clone())?),
-            config.store_retention_limit,
-        ));
+        let stake_store = Arc::new(StakePoolRepository::new(Arc::new(Mutex::new(
+            Connection::open(sqlite_db_path.clone().unwrap())?,
+        ))));
         let single_signature_store = Arc::new(SingleSignatureStore::new(
             Box::new(SQLiteAdapter::new(
                 "single_signature",

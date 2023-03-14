@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use super::SourceAlias;
 
 /// Each projection field is defined by
 /// 1. a definition
@@ -66,7 +66,7 @@ impl Projection {
     }
 
     /// Turn the Projection into a string suitable for use in SQL queries.
-    pub fn expand(&self, aliases: HashMap<String, String>) -> String {
+    pub fn expand(&self, aliases: SourceAlias) -> String {
         let mut fields: String = self
             .get_fields()
             .iter()
@@ -74,8 +74,8 @@ impl Projection {
             .collect::<Vec<String>>()
             .join(", ");
 
-        for (alias, source) in aliases {
-            fields = fields.replace(&alias, &source);
+        for (alias, source) in aliases.get_iterator() {
+            fields = fields.replace(alias, source);
         }
 
         fields
@@ -100,10 +100,7 @@ mod tests {
         projection.add_field("created_at", "{:test:}.created_at", "timestamp");
         projection.add_field("thing_count", "count({:thing:}.*)", "integer");
 
-        let aliases: HashMap<String, String> = [("{:test:}", "pika"), ("{:thing:}", "thing_alias")]
-            .into_iter()
-            .map(|(a, b)| (a.to_string(), b.to_string()))
-            .collect();
+        let aliases = SourceAlias::new(&[("{:test:}", "pika"), ("{:thing:}", "thing_alias")]);
 
         assert_eq!(
             "pika.test_id as test_id, pika.name as name, pika.created_at as created_at, count(thing_alias.*) as thing_count".to_string(),

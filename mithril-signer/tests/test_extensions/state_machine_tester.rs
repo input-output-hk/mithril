@@ -272,11 +272,10 @@ impl StateMachineTester {
             .await
             .map_err(|e| TestError::SubsystemError(e.into()))?;
 
-        self.assert(maybe_stakes.is_some(), format!(
-            "there should be stake distribution saved for {}, here is the last 3 in the store: {:?}",
-            epoch,
-            self.stake_store.get_last_stakes(3).await.unwrap(),
-        ))
+        self.assert(
+            maybe_stakes.is_some(),
+            format!("there should be stake distribution saved for {epoch:?}"),
+        )
     }
 
     /// increase the immutable file number in the dumb beacon provider
