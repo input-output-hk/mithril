@@ -18,6 +18,9 @@ use mithril_common::{
 
 use mithril_common::StdError;
 
+/// Delete stake pools for Epoch older than this.
+const STAKE_POOL_PRUNE_EPOCH_THRESHOLD: u64 = 2;
+
 /// Stake pool as read from Chain.
 /// TODO remove this compile directive ↓
 #[allow(dead_code)]
@@ -186,12 +189,54 @@ impl<'conn> Provider<'conn> for UpdateStakePoolProvider<'conn> {
     }
 }
 
+/// Provider to remove old data from the stake_pool table
+pub struct DeleteStakePoolProvider<'conn> {
+    connection: &'conn Connection,
+}
+
+impl<'conn> Provider<'conn> for DeleteStakePoolProvider<'conn> {
+    type Entity = StakePool;
+
+    fn get_connection(&'conn self) -> &'conn Connection {
+        self.connection
+    }
+
+    fn get_definition(&self, condition: &str) -> String {
+        // it is important to alias the fields with the same name as the table
+        // since the table cannot be aliased in a RETURNING statement in SQLite.
+        let projection = Self::Entity::get_projection()
+            .expand(SourceAlias::new(&[("{:stake_pool:}", "stake_pool")]));
+
+        format!("delete from stake_pool where {condition} returning {projection}")
+    }
+}
+
+impl<'conn> DeleteStakePoolProvider<'conn> {
+    /// Create a new instance
+    pub fn new(connection: &'conn Connection) -> Self {
+        Self { connection }
+    }
+
+    /// Create the SQL condition to prune data older than the given Epoch.
+    fn get_prune_condition(&self, epoch_threshold: Epoch) -> WhereCondition {
+        let epoch_value = Value::Integer(i64::try_from(epoch_threshold.0).unwrap());
+
+        WhereCondition::new("epoch < ?*", vec![epoch_value])
+    }
+
+    /// Prune the stake pools data older than the given epoch.
+    pub fn prune(&self, epoch_threshold: Epoch) -> Result<EntityCursor<StakePool>, StdError> {
+        let filters = self.get_prune_condition(epoch_threshold);
+
+        self.find(filters)
+    }
+}
 /// Service to deal with stake pools (read & write).
-pub struct StakePoolRepository {
+pub struct StakePoolStore {
     connection: Arc<Mutex<Connection>>,
 }
 
-impl StakePoolRepository {
+impl StakePoolStore {
     /// Create a new StakePool service
     pub fn new(connection: Arc<Mutex<Connection>>) -> Self {
         Self { connection }
@@ -199,7 +244,7 @@ impl StakePoolRepository {
 }
 
 #[async_trait]
-impl StakeStorer for StakePoolRepository {
+impl StakeStorer for StakePoolStore {
     async fn save_stakes(
         &self,
         epoch: Epoch,
@@ -220,6 +265,12 @@ impl StakeStorer for StakePoolRepository {
                 .persist(&pool_id, epoch, stake)
                 .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
             new_stakes.insert(pool_id.to_string(), stake_pool.stake);
+        }
+        // Clean useless old stake distributions if needed.
+        if epoch.0 > STAKE_POOL_PRUNE_EPOCH_THRESHOLD {
+            let _ = DeleteStakePoolProvider::new(connection)
+                .prune(Epoch(epoch.0 - STAKE_POOL_PRUNE_EPOCH_THRESHOLD))
+                .map_err(AdapterError::InitializationError)?;
         }
         connection
             .execute("commit transaction")
@@ -292,5 +343,16 @@ mod tests {
             ],
             params
         );
+    }
+
+    #[test]
+    fn prune() {
+        let connection = Connection::open(":memory:").unwrap();
+        let provider = DeleteStakePoolProvider::new(&connection);
+        let condition = provider.get_prune_condition(Epoch(5));
+        let (condition, params) = condition.expand();
+
+        assert_eq!("epoch < ?1".to_string(), condition);
+        assert_eq!(vec![Value::Integer(5)], params);
     }
 }

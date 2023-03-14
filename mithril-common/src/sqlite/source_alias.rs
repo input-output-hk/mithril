@@ -31,12 +31,11 @@ mod tests {
     #[test]
     fn simple_source_alias() {
         let source_alias = SourceAlias::new(&[("first", "one"), ("second", "two")]);
-        let target = source_alias
-            .get_iterator()
-            .map(|(name, alias)| format!("{name} => {alias}"))
-            .collect::<Vec<String>>()
-            .join(", ");
+        let mut fields = "first.one, second.two".to_string();
 
-        assert_eq!("first => one, second => two".to_string(), target);
+        for (alias, source) in source_alias.get_iterator() {
+            fields = fields.replace(alias, source);
+        }
+        assert_eq!("one.one, two.two".to_string(), fields);
     }
 }
