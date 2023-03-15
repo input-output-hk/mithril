@@ -5,6 +5,7 @@ use mithril_aggregator::{
     MultiSignerImpl, ProtocolParametersStore, SingleSignatureStore, SnapshotUploaderType,
     VerificationKeyStore,
 };
+use mithril_common::api::APIVersionProvider;
 use mithril_common::certificate_chain::MithrilCertificateVerifier;
 use mithril_common::chain_observer::FakeObserver;
 use mithril_common::crypto_helper::{key_encode_hex, ProtocolGenesisSigner};
@@ -118,6 +119,8 @@ pub async fn initialize_dependencies(
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
     let event_transmitter = Arc::new(TransmitterService::new(tx));
 
+    let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
+
     let dependency_manager = DependencyManager {
         config,
         snapshot_store,
@@ -141,6 +144,7 @@ pub async fn initialize_dependencies(
         era_checker,
         era_reader,
         event_transmitter,
+        api_version_provider,
     };
 
     let config = AggregatorConfig::new(

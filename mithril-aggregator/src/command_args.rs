@@ -18,6 +18,7 @@ use tokio::{
 };
 
 use mithril_common::{
+    api::APIVersionProvider,
     certificate_chain::MithrilCertificateVerifier,
     chain_observer::{CardanoCliRunner, ChainObserver},
     crypto_helper::{
@@ -446,6 +447,8 @@ impl ServeCommand {
         let event_transmitter = Arc::new(TransmitterService::new(tx));
         let mut event_store = event_store::EventStore::new(rx);
 
+        let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
+
         // Init dependency manager
         let dependency_manager = DependencyManager {
             config: config.clone(),
@@ -470,6 +473,7 @@ impl ServeCommand {
             era_checker: era_checker.clone(),
             era_reader: era_reader.clone(),
             event_transmitter,
+            api_version_provider,
         };
         let dependency_manager = Arc::new(dependency_manager);
 

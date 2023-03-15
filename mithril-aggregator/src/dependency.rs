@@ -1,4 +1,5 @@
 use mithril_common::{
+    api::APIVersionProvider,
     certificate_chain::CertificateVerifier,
     chain_observer::ChainObserver,
     crypto_helper::ProtocolGenesisVerifier,
@@ -93,6 +94,9 @@ pub struct DependencyManager {
 
     /// Event Transmitter Service
     pub event_transmitter: Arc<TransmitterService<EventMessage>>,
+
+    /// API Version provider
+    pub api_version_provider: Arc<APIVersionProvider>,
 }
 
 #[doc(hidden)]
@@ -271,6 +275,7 @@ pub mod tests {
         SingleSignatureStore, SnapshotUploaderType, VerificationKeyStore,
     };
     use mithril_common::{
+        api::APIVersionProvider,
         certificate_chain::MithrilCertificateVerifier,
         chain_observer::FakeObserver,
         crypto_helper::{key_encode_hex, ProtocolGenesisSigner},
@@ -374,6 +379,8 @@ pub mod tests {
             Arc::new(TransmitterService::new(tx))
         };
 
+        let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
+
         let dependency_manager = DependencyManager {
             config,
             snapshot_store,
@@ -397,6 +404,7 @@ pub mod tests {
             era_checker,
             era_reader,
             event_transmitter,
+            api_version_provider,
         };
 
         let config = AggregatorConfig::new(
