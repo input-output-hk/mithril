@@ -21,6 +21,7 @@ use crate::snapshotter::OngoingSnapshot;
 use crate::store::SingleSignatureStorer;
 use crate::CertificateCreator;
 use crate::MithrilCertificateCreator;
+use crate::RuntimeError;
 use crate::{DependencyManager, ProtocolError, SnapshotError};
 
 #[cfg(test)]
@@ -307,6 +308,29 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         new_beacon: &Beacon,
     ) -> Result<(), Box<dyn StdError + Sync + Send>> {
         debug!("RUNNER: update stake distribution"; "beacon" => #?new_beacon);
+        let exists_stake_distribution = !self
+            .dependencies
+            .stake_store
+            .get_stakes(
+                self.dependencies
+                    .multi_signer
+                    .read()
+                    .await
+                    .get_current_beacon()
+                    .await
+                    .ok_or_else(|| {
+                        RuntimeError::keep_state("Current beacon is not available", None)
+                    })?
+                    .epoch
+                    .offset_to_recording_epoch(),
+            )
+            .await?
+            .unwrap_or_default()
+            .is_empty();
+        if exists_stake_distribution {
+            return Ok(());
+        }
+
         let stake_distribution = self
             .dependencies
             .chain_observer
