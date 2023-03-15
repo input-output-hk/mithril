@@ -1,6 +1,6 @@
 [package]
 name = "mithril-signer"
-version = "0.2.22"
+version = "0.2.23"
 description = "A Mithril Signer"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -24,6 +24,7 @@ slog = { version = "2.7.0", features = ["max_level_trace", "release_max_level_de
 slog-async = "2.7.0"
 slog-bunyan = "2.4.0"
 slog-scope = "4.4.0"
+sqlite = "0.28"
 thiserror = "1.0.31"
 tokio = { version = "1.17.0", features = ["full"] }
 

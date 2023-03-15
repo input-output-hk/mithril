@@ -344,13 +344,11 @@ impl ServeCommand {
             .try_deserialize()
             .map_err(|e| format!("configuration deserialize error: {e}"))?;
         debug!("SERVE command"; "config" => format!("{config:?}"));
-        let sqlite_db_path = Some(config.get_sqlite_file());
         check_database_migration(config.get_sqlite_file())?;
 
         // Init dependencies
-        let sqlite_connection = Arc::new(Mutex::new(Connection::open(
-            sqlite_db_path.clone().unwrap(),
-        )?));
+        let sqlite_db_path = config.get_sqlite_file();
+        let sqlite_connection = Arc::new(Mutex::new(Connection::open(sqlite_db_path)?));
         let snapshot_store = Arc::new(LocalSnapshotStore::new(
             Box::new(SQLiteAdapter::new("snapshot", sqlite_connection.clone())?),
             LIST_SNAPSHOTS_MAX_ITEMS,

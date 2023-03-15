@@ -1,13 +1,17 @@
 use async_trait::async_trait;
-use std::{fs, sync::Arc};
-
-use mithril_common::digesters::{
-    cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder},
-    ImmutableFileObserver,
+use sqlite::Connection;
+use std::{
+    fs,
+    sync::{Arc, Mutex},
 };
+
 use mithril_common::{
     chain_observer::{CardanoCliChainObserver, CardanoCliRunner, ChainObserver},
     crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
+    digesters::{
+        cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder},
+        ImmutableFileObserver,
+    },
     digesters::{CardanoImmutableDigester, ImmutableDigester, ImmutableFileSystemObserver},
     era::{EraChecker, EraReader},
     store::{adapter::SQLiteAdapter, StakeStore},
@@ -138,11 +142,12 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
                 .map_err(|e| format!("Could not create data stores directory: {e:?}"))?;
         }
 
-        let sqlite_db_path = Some(self.config.get_sqlite_file());
+        let sqlite_db_path = self.config.get_sqlite_file();
+        let sqlite_connection = Arc::new(Mutex::new(Connection::open(sqlite_db_path)?));
         let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
             Box::new(SQLiteAdapter::new(
                 "protocol_initializer",
-                sqlite_db_path.clone(),
+                sqlite_connection.clone(),
             )?),
             self.config.store_retention_limit,
         ));
@@ -156,7 +161,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             slog_scope::logger(),
         ));
         let stake_store = Arc::new(StakeStore::new(
-            Box::new(SQLiteAdapter::new("stake", sqlite_db_path)?),
+            Box::new(SQLiteAdapter::new("stake", sqlite_connection)?),
             self.config.store_retention_limit,
         ));
         let chain_observer = {
