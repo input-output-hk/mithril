@@ -2,9 +2,14 @@ use async_trait::async_trait;
 use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
 use sqlite::{Connection, State, Statement};
-use tokio::sync::{Mutex, MutexGuard};
 
-use std::{marker::PhantomData, path::PathBuf, sync::Arc, thread::sleep, time::Duration};
+use std::{
+    marker::PhantomData,
+    ops::Deref,
+    sync::{Arc, Mutex},
+    thread::sleep,
+    time::Duration,
+};
 
 use super::{AdapterError, StoreAdapter};
 
@@ -27,14 +32,13 @@ where
     V: DeserializeOwned,
 {
     /// Create a new SQLiteAdapter instance.
-    pub fn new(table_name: &str, file: Option<PathBuf>) -> Result<Self> {
-        let connection = match file {
-            Some(filepath) => Connection::open(filepath),
-            None => Connection::open(":memory:"),
+    pub fn new(table_name: &str, connection: Arc<Mutex<Connection>>) -> Result<Self> {
+        {
+            let conn = &*connection.lock().map_err(|e| {
+                AdapterError::GeneralError(format!("SQLite adapter instanciation failed: '{e}'."))
+            })?;
+            Self::check_table_exists(conn, table_name)?;
         }
-        .map_err(|e| AdapterError::InitializationError(e.into()))?;
-        Self::check_table_exists(&connection, table_name)?;
-        let connection = Arc::new(Mutex::new(connection));
 
         Ok(Self {
             connection,
@@ -92,9 +96,11 @@ where
         })
     }
 
-    fn get_statement_for_key<'a>(
-        &'a self,
-        connection: &'a MutexGuard<Connection>,
+    // Connection must be locked from the calling function to be able to return
+    // a Statement that references this connection.
+    fn get_statement_for_key<'conn>(
+        &'conn self,
+        connection: &'conn Connection,
         sql: String,
         key: &K,
     ) -> Result<Statement> {
@@ -150,7 +156,11 @@ where
     type Record = V;
 
     async fn store_record(&mut self, key: &Self::Key, record: &Self::Record) -> Result<()> {
-        let connection = self.connection.lock().await;
+        let lock = self
+            .connection
+            .lock()
+            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+        let connection = lock.deref();
         let sql = format!(
             "insert into {} (key_hash, key, value) values (?1, ?2, ?3) on conflict (key_hash) do update set value = excluded.value",
             self.table
@@ -180,20 +190,28 @@ where
     }
 
     async fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>> {
+        let lock = self
+            .connection
+            .lock()
+            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+        let connection = lock.deref();
         let sql = format!("select value from {} where key_hash = ?1", self.table);
-        let connection = self.connection.lock().await;
-        let statement = self.get_statement_for_key(&connection, sql, key)?;
+        let statement = self.get_statement_for_key(connection, sql, key)?;
 
         self.fetch_maybe_one_value(statement)
     }
 
     async fn record_exists(&self, key: &Self::Key) -> Result<bool> {
-        let connection = self.connection.lock().await;
+        let lock = self
+            .connection
+            .lock()
+            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+        let connection = lock.deref();
         let sql = format!(
             "select exists(select 1 from {} where key_hash = ?1) as record_exists",
             self.table
         );
-        let mut statement = self.get_statement_for_key(&connection, sql, key)?;
+        let mut statement = self.get_statement_for_key(connection, sql, key)?;
         statement
             .next()
             .map_err(|e| AdapterError::QueryError(e.into()))?;
@@ -207,7 +225,11 @@ where
     }
 
     async fn get_last_n_records(&self, how_many: usize) -> Result<Vec<(Self::Key, Self::Record)>> {
-        let connection = self.connection.lock().await;
+        let lock = self
+            .connection
+            .lock()
+            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+        let connection = lock.deref();
         let sql = format!(
             "select cast(key as text) as key, cast(value as text) as value from {} order by ROWID desc limit ?1",
             self.table
@@ -238,14 +260,23 @@ where
             "delete from {} where key_hash = ?1 returning value",
             self.table
         );
-        let connection = self.connection.lock().await;
-        let statement = self.get_statement_for_key(&connection, sql, key)?;
+        let lock = self
+            .connection
+            .lock()
+            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+        let connection = lock.deref();
+        let statement = self.get_statement_for_key(connection, sql, key)?;
 
         self.fetch_maybe_one_value(statement)
     }
 
     async fn get_iter(&self) -> Result<Box<dyn Iterator<Item = Self::Record> + '_>> {
-        let iterator = SQLiteResultIterator::new(self.connection.lock().await, &self.table)?;
+        let lock = self
+            .connection
+            .lock()
+            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+        let connection = lock.deref();
+        let iterator = SQLiteResultIterator::new(connection, &self.table)?;
 
         Ok(Box::new(iterator))
     }
@@ -264,10 +295,7 @@ where
     V: DeserializeOwned,
 {
     /// Create a new instance of the iterator.
-    pub fn new(
-        connection: MutexGuard<Connection>,
-        table_name: &str,
-    ) -> Result<SQLiteResultIterator<V>> {
+    pub fn new(connection: &Connection, table_name: &str) -> Result<SQLiteResultIterator<V>> {
         let sql = format!("select value from {table_name} order by ROWID asc");
 
         let cursor = connection
@@ -302,6 +330,7 @@ mod tests {
     use std::{
         borrow::Borrow,
         fs::{create_dir_all, remove_file},
+        path::PathBuf,
     };
 
     use super::*;
@@ -335,7 +364,8 @@ mod tests {
             });
         }
         let tablename = tablename.unwrap_or(TABLE_NAME);
-        SQLiteAdapter::new(tablename, Some(filepath)).unwrap()
+        let connection = Arc::new(Mutex::new(Connection::open(filepath).unwrap()));
+        SQLiteAdapter::new(tablename, connection).unwrap()
     }
 
     #[tokio::test]

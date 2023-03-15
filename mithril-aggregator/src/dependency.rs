@@ -268,7 +268,7 @@ pub mod tests {
         event_store::TransmitterService, AggregatorConfig, CertificatePendingStore,
         CertificateStore, Configuration, DependencyManager, DumbSnapshotUploader, DumbSnapshotter,
         LocalSnapshotStore, MithrilSignerRegisterer, MultiSignerImpl, ProtocolParametersStore,
-        SingleSignatureStore, SnapshotStoreType, SnapshotUploaderType, VerificationKeyStore,
+        SingleSignatureStore, SnapshotUploaderType, VerificationKeyStore,
     };
     use mithril_common::{
         certificate_chain::MithrilCertificateVerifier,
@@ -301,7 +301,6 @@ pub mod tests {
             protocol_parameters: fake_data::protocol_parameters(),
             url_snapshot_manifest: "https://storage.googleapis.com/cardano-testnet/snapshots.json"
                 .to_string(),
-            snapshot_store_type: SnapshotStoreType::Local,
             snapshot_uploader_type: SnapshotUploaderType::Local,
             snapshot_bucket_name: None,
             server_ip: "0.0.0.0".to_string(),
