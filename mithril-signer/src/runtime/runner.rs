@@ -240,6 +240,17 @@ impl Runner for SignerRunner {
     ) -> Result<(), Box<dyn StdError + Sync + Send>> {
         debug!("RUNNER: update_stake_distribution");
 
+        let exists_stake_distribution = !self
+            .services
+            .stake_store
+            .get_stakes(epoch.offset_to_recording_epoch())
+            .await?
+            .unwrap_or_default()
+            .is_empty();
+        if exists_stake_distribution {
+            return Ok(());
+        }
+
         let stake_distribution = self
             .services
             .chain_observer
