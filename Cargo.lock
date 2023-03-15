@@ -1999,7 +1999,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.2.30"
+version = "0.2.31"
 dependencies = [
  "async-trait",
  "chrono",
@@ -2032,7 +2032,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.2.10"
+version = "0.2.11"
 dependencies = [
  "async-trait",
  "clap 4.1.8",
@@ -2126,7 +2126,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.21"
+version = "0.2.22"
 dependencies = [
  "async-trait",
  "clap 4.1.8",
@@ -2151,11 +2151,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-stm"
-<<<<<<< HEAD
-version = "0.2.6"
-=======
-version = "0.2.5"
->>>>>>> 624faa66ef (bump stm and common versions)
+version = "0.2.7"
 dependencies = [
  "bincode",
  "blake2 0.10.6",
