@@ -19,11 +19,10 @@ use mithril_common::{
 use mithril_common::StdError;
 
 /// Delete stake pools for Epoch older than this.
-const STAKE_POOL_PRUNE_EPOCH_THRESHOLD: u64 = 2;
+const STAKE_POOL_PRUNE_EPOCH_THRESHOLD: Epoch = Epoch(2);
 
 /// Stake pool as read from Chain.
-/// TODO remove this compile directive ↓
-#[allow(dead_code)]
+#[derive(Debug, PartialEq)]
 pub struct StakePool {
     /// Pool Id
     stake_pool_id: PartyId,
@@ -122,7 +121,7 @@ impl<'client> Provider<'client> for StakePoolProvider<'client> {
         let aliases = SourceAlias::new(&[("{:stake_pool:}", "sp")]);
         let projection = Self::Entity::get_projection().expand(aliases);
 
-        format!("select {projection} from stake_pool as sp where {condition}")
+        format!("select {projection} from stake_pool as sp where {condition} order by epoch asc, stake desc")
     }
 }
 
@@ -267,9 +266,9 @@ impl StakeStorer for StakePoolStore {
             new_stakes.insert(pool_id.to_string(), stake_pool.stake);
         }
         // Clean useless old stake distributions if needed.
-        if epoch.0 > STAKE_POOL_PRUNE_EPOCH_THRESHOLD {
+        if epoch > STAKE_POOL_PRUNE_EPOCH_THRESHOLD {
             let _ = DeleteStakePoolProvider::new(connection)
-                .prune(Epoch(epoch.0 - STAKE_POOL_PRUNE_EPOCH_THRESHOLD))
+                .prune(epoch - STAKE_POOL_PRUNE_EPOCH_THRESHOLD)
                 .map_err(AdapterError::InitializationError)?;
         }
         connection
@@ -300,6 +299,8 @@ impl StakeStorer for StakePoolStore {
 
 #[cfg(test)]
 mod tests {
+    use crate::database::migration::get_migrations;
+
     use super::*;
 
     #[test]
@@ -354,5 +355,117 @@ mod tests {
 
         assert_eq!("epoch < ?1".to_string(), condition);
         assert_eq!(vec![Value::Integer(5)], params);
+    }
+
+    fn setup_db(connection: &Connection) -> Result<(), StdError> {
+        let migrations = get_migrations();
+        let migration =
+            migrations
+                .iter()
+                .find(|&m| m.version == 1)
+                .ok_or_else(|| -> StdError {
+                    "There should be a migration version 1".to_string().into()
+                })?;
+        let query = {
+            // leverage the expanded parameter from this provider which is unit
+            // tested on its own above.
+            let update_provider = UpdateStakePoolProvider::new(connection);
+            let (sql_values, _) = update_provider
+                .get_update_condition("pool_id", Epoch(1), 1000)
+                .expand();
+
+            connection.execute(&migration.alterations)?;
+
+            format!("insert into stake_pool {sql_values}")
+        };
+        let stake_distribution: &[(&str, i64, i64); 9] = &[
+            ("pool1", 1, 1000),
+            ("pool2", 1, 1100),
+            ("pool3", 1, 1300),
+            ("pool1", 2, 1230),
+            ("pool2", 2, 1090),
+            ("pool3", 2, 1300),
+            ("pool1", 3, 1250),
+            ("pool2", 3, 1370),
+            ("pool3", 3, 1300),
+        ];
+        for (pool_id, epoch, stake) in stake_distribution {
+            let mut statement = connection.prepare(&query)?;
+
+            statement.bind(1, *pool_id).unwrap();
+            statement.bind(2, *epoch).unwrap();
+            statement.bind(3, *stake).unwrap();
+            statement.next().unwrap();
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_stake_pools() {
+        let connection = Connection::open(":memory:").unwrap();
+        setup_db(&connection).unwrap();
+
+        let provider = StakePoolProvider::new(&connection);
+        let mut cursor = provider.get_by_epoch(&Epoch(1)).unwrap();
+
+        let stake_pool = cursor.next().expect("Should have a stake pool 'pool1'.");
+        assert_eq!("pool3".to_string(), stake_pool.stake_pool_id);
+        assert_eq!(Epoch(1), stake_pool.epoch);
+        assert_eq!(1300, stake_pool.stake);
+        assert_eq!(2, cursor.count());
+
+        let mut cursor = provider.get_by_epoch(&Epoch(3)).unwrap();
+
+        let stake_pool = cursor.next().expect("Should have a stake pool 'pool2'.");
+        assert_eq!("pool2".to_string(), stake_pool.stake_pool_id);
+        assert_eq!(Epoch(3), stake_pool.epoch);
+        assert_eq!(1370, stake_pool.stake);
+        assert_eq!(2, cursor.count());
+
+        let cursor = provider.get_by_epoch(&Epoch(5)).unwrap();
+        assert_eq!(0, cursor.count());
+    }
+
+    #[test]
+    fn test_update_stakes() {
+        let connection = Connection::open(":memory:").unwrap();
+        setup_db(&connection).unwrap();
+
+        let provider = UpdateStakePoolProvider::new(&connection);
+        let stake_pool = provider.persist("pool4", Epoch(3), 9999).unwrap();
+
+        assert_eq!("pool4".to_string(), stake_pool.stake_pool_id);
+        assert_eq!(Epoch(3), stake_pool.epoch);
+        assert_eq!(9999, stake_pool.stake);
+
+        let provider = StakePoolProvider::new(&connection);
+        let mut cursor = provider.get_by_epoch(&Epoch(3)).unwrap();
+        let stake_pool = cursor.next().expect("Should have a stake pool 'pool4'.");
+
+        assert_eq!("pool4".to_string(), stake_pool.stake_pool_id);
+        assert_eq!(Epoch(3), stake_pool.epoch);
+        assert_eq!(9999, stake_pool.stake);
+        assert_eq!(3, cursor.count());
+    }
+
+    #[test]
+    fn test_prune() {
+        let connection = Connection::open(":memory:").unwrap();
+        setup_db(&connection).unwrap();
+
+        let provider = DeleteStakePoolProvider::new(&connection);
+        let cursor = provider.prune(Epoch(2)).unwrap();
+
+        assert_eq!(3, cursor.count());
+
+        let provider = StakePoolProvider::new(&connection);
+        let cursor = provider.get_by_epoch(&Epoch(1)).unwrap();
+
+        assert_eq!(0, cursor.count());
+
+        let cursor = provider.get_by_epoch(&Epoch(2)).unwrap();
+
+        assert_eq!(3, cursor.count());
     }
 }
