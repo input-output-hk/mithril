@@ -207,7 +207,7 @@ jobs:
           terraform_backend_bucket: hydra-terraform-admin
           google_region: europe-west1
           google_zone: europe-west1-b
-          google_machine_type: e2-standard-2
+          google_machine_type: e2-highmem-2
           
     runs-on: ubuntu-22.04
 
