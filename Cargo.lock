@@ -2059,7 +2059,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.2.25"
+version = "0.2.26"
 dependencies = [
  "async-trait",
  "bech32",
@@ -2151,7 +2151,11 @@ dependencies = [
 
 [[package]]
 name = "mithril-stm"
+<<<<<<< HEAD
 version = "0.2.6"
+=======
+version = "0.2.5"
+>>>>>>> 624faa66ef (bump stm and common versions)
 dependencies = [
  "bincode",
  "blake2 0.10.6",
