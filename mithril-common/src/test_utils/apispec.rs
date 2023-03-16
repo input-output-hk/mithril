@@ -1,10 +1,13 @@
 //! Tools to helps validate conformity to an OpenAPI specification
 
+use glob::glob;
 use http::response::Response;
 use jsonschema::JSONSchema;
 use serde::Serialize;
 use serde_json::{json, Value, Value::Null};
 use warp::hyper::body::Bytes;
+
+use crate::era::SupportedEra;
 
 /// APISpec helps validate conformity to an OpenAPI specification
 pub struct APISpec<'a> {
@@ -138,6 +141,28 @@ impl<'a> APISpec<'a> {
             }
         }
     }
+
+    /// Get default spec file
+    pub fn get_defaut_spec_file() -> String {
+        "../openapi.yaml".to_string()
+    }
+
+    /// Get spec file for era
+    pub fn get_era_spec_file(era: SupportedEra) -> String {
+        format!("../openapi-{}", era)
+    }
+
+    /// Get all spec files
+    pub fn get_all_spec_files() -> Vec<String> {
+        let mut open_api_spec_files = Vec::new();
+        for entry in glob("../openapi*.yaml").unwrap() {
+            let entry_path = entry.unwrap().to_str().unwrap().to_string();
+            open_api_spec_files.push(entry_path.clone());
+            open_api_spec_files.push(entry_path);
+        }
+
+        open_api_spec_files
+    }
 }
 
 #[cfg(test)]
@@ -149,12 +174,10 @@ mod tests {
     use crate::entities;
     use crate::test_utils::fake_data;
 
-    const API_SPEC_FILE: &str = "../openapi.yaml";
-
     #[test]
     fn test_apispec_validate_ok() {
         // Route exists and does not expect request body, but expects response
-        assert!(APISpec::from_file(API_SPEC_FILE)
+        assert!(APISpec::from_file(&APISpec::get_defaut_spec_file())
             .method(Method::GET.as_str())
             .path("/certificate-pending")
             .validate_request(&Null)
@@ -167,7 +190,7 @@ mod tests {
             .is_ok());
 
         // Route exists and expects request body, but does not expect response
-        assert!(APISpec::from_file(API_SPEC_FILE)
+        assert!(APISpec::from_file(&APISpec::get_defaut_spec_file())
             .method(Method::POST.as_str())
             .path("/register-signer")
             .validate_request(&fake_data::signers(1)[0])
@@ -184,7 +207,7 @@ mod tests {
             .into_bytes(),
         ));
         *response.status_mut() = StatusCode::INTERNAL_SERVER_ERROR;
-        assert!(APISpec::from_file(API_SPEC_FILE)
+        assert!(APISpec::from_file(&APISpec::get_defaut_spec_file())
             .method(Method::POST.as_str())
             .path("/register-signer")
             .validate_response(&response)
@@ -194,45 +217,52 @@ mod tests {
     #[test]
     fn test_apispec_validate_errors() {
         // Route does not exist
-        assert!(APISpec::from_file(API_SPEC_FILE)
+        assert!(APISpec::from_file(&APISpec::get_defaut_spec_file())
             .method(Method::GET.as_str())
             .path("/route-not-existing-in-openapi-spec")
             .validate_response(&Response::<Bytes>::new(Bytes::from_static(b"abcdefgh")))
             .is_err());
 
         // Route exists, but method does not
-        assert!(APISpec::from_file(API_SPEC_FILE)
+        assert!(APISpec::from_file(&APISpec::get_defaut_spec_file())
             .method(Method::OPTIONS.as_str())
             .path("/certificate-pending")
             .validate_response(&Response::<Bytes>::new(Bytes::from_static(b"abcdefgh")))
             .is_err());
 
         // Route exists, but expects non empty reponse
-        assert!(APISpec::from_file(API_SPEC_FILE)
+        assert!(APISpec::from_file(&APISpec::get_defaut_spec_file())
             .method(Method::GET.as_str())
             .path("/certificate-pending")
             .validate_response(&Response::<Bytes>::new(Bytes::new()))
             .is_err());
 
         // Route exists, but expects empty reponse
-        assert!(APISpec::from_file(API_SPEC_FILE)
+        assert!(APISpec::from_file(&APISpec::get_defaut_spec_file())
             .method(Method::POST.as_str())
             .path("/register-signer")
             .validate_response(&Response::<Bytes>::new(Bytes::from_static(b"abcdefgh")))
             .is_err());
 
         // Route exists, but does not expect request body
-        assert!(APISpec::from_file(API_SPEC_FILE)
+        assert!(APISpec::from_file(&APISpec::get_defaut_spec_file())
             .method(Method::GET.as_str())
             .path("/certificate-pending")
             .validate_request(&fake_data::beacon())
             .is_err());
 
         // Route exists, but expects non empty request body
-        assert!(APISpec::from_file(API_SPEC_FILE)
+        assert!(APISpec::from_file(&APISpec::get_defaut_spec_file())
             .method(Method::POST.as_str())
             .path("/register-signer")
             .validate_request(&Null)
             .is_err());
+    }
+
+    #[test]
+    fn test_get_all_spec_files_not_empty() {
+        let spec_files = APISpec::get_all_spec_files();
+        assert!(!spec_files.is_empty());
+        assert!(spec_files.contains(&APISpec::get_defaut_spec_file()))
     }
 }
