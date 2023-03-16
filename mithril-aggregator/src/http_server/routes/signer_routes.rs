@@ -116,8 +116,6 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
-    const API_SPEC_FILE: &str = "../openapi.yaml";
-
     use mithril_common::crypto_helper::ProtocolRegistrationError;
     use mithril_common::messages::RegisterSignerMessage;
     use mithril_common::test_utils::apispec::APISpec;
@@ -165,13 +163,15 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::from_file(API_SPEC_FILE)
-            .method(method)
-            .path(path)
-            .validate_request(&signer)
-            .unwrap()
-            .validate_response(&response)
-            .expect("OpenAPI error");
+        for spec_file in APISpec::get_all_spec_files() {
+            APISpec::from_file(&spec_file)
+                .method(method)
+                .path(path)
+                .validate_request(&signer)
+                .unwrap()
+                .validate_response(&response)
+                .unwrap_or_else(|_| panic!("OpenAPI error in {}", spec_file));
+        }
     }
 
     #[tokio::test]
@@ -196,13 +196,15 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::from_file(API_SPEC_FILE)
-            .method(method)
-            .path(path)
-            .validate_request(&signer)
-            .unwrap()
-            .validate_response(&response)
-            .expect("OpenAPI error");
+        for spec_file in APISpec::get_all_spec_files() {
+            APISpec::from_file(&spec_file)
+                .method(method)
+                .path(path)
+                .validate_request(&signer)
+                .unwrap()
+                .validate_response(&response)
+                .unwrap_or_else(|_| panic!("OpenAPI error in {}", spec_file));
+        }
     }
 
     #[tokio::test]
@@ -230,13 +232,15 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::from_file(API_SPEC_FILE)
-            .method(method)
-            .path(path)
-            .validate_request(&signer)
-            .unwrap()
-            .validate_response(&response)
-            .expect("OpenAPI error");
+        for spec_file in APISpec::get_all_spec_files() {
+            APISpec::from_file(&spec_file)
+                .method(method)
+                .path(path)
+                .validate_request(&signer)
+                .unwrap()
+                .validate_response(&response)
+                .unwrap_or_else(|_| panic!("OpenAPI error in {}", spec_file));
+        }
     }
 
     #[tokio::test]
@@ -263,12 +267,14 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::from_file(API_SPEC_FILE)
-            .method(method)
-            .path(path)
-            .validate_request(&signer)
-            .unwrap()
-            .validate_response(&response)
-            .expect("OpenAPI error");
+        for spec_file in APISpec::get_all_spec_files() {
+            APISpec::from_file(&spec_file)
+                .method(method)
+                .path(path)
+                .validate_request(&signer)
+                .unwrap()
+                .validate_response(&response)
+                .unwrap_or_else(|_| panic!("OpenAPI error in {}", spec_file));
+        }
     }
 }
