@@ -187,7 +187,9 @@ mod tests {
     fn test_vector_opcert() {
         let temp_dir = setup_temp_directory();
         let keypair = ColdKeyGenerator::create_deterministic_keypair([0u8; 32]);
-        let (_, kes_verification_key) = Sum6Kes::keygen(&mut [0u8; 32]);
+        let mut dummy_key_buffer = [0u8; Sum6Kes::SIZE + 4];
+        let mut dummy_seed = [0u8; 32];
+        let (_, kes_verification_key) = Sum6Kes::keygen(&mut dummy_key_buffer, &mut dummy_seed);
         let operational_certificate = OpCert::new(kes_verification_key, 0, 0, keypair);
         assert!(operational_certificate.validate().is_ok());
 

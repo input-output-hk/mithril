@@ -5,7 +5,7 @@ use rand_core::{RngCore, SeedableRng};
 use crate::{
     crypto_helper::{
         tests_setup, tests_setup::setup_temp_directory_for_signer, ColdKeyGenerator, OpCert,
-        ProtocolStakeDistribution, SerDeShelleyFileFormat,
+        ProtocolStakeDistribution, SerDeShelleyFileFormat, Sum6KesBytes,
     },
     entities::{PartyId, ProtocolParameters, StakeDistribution},
     test_utils::{fake_data, mithril_fixture::MithrilFixture},
@@ -121,7 +121,10 @@ fn build_party_with_operational_certificate(
     kes_key_seed: &mut [u8],
 ) -> PartyId {
     let keypair = ColdKeyGenerator::create_deterministic_keypair([party_index as u8; 32]);
-    let (kes_secret_key, kes_verification_key) = Sum6Kes::keygen(kes_key_seed);
+    let mut dummy_buffer = [0u8; Sum6Kes::SIZE + 4];
+    let (kes_secret_key, kes_verification_key) = Sum6Kes::keygen(&mut dummy_buffer, kes_key_seed);
+    let mut kes_bytes = Sum6KesBytes([0u8; Sum6Kes::SIZE + 4]);
+    kes_bytes.0.copy_from_slice(&kes_secret_key.clone_sk());
     let operational_certificate = OpCert::new(kes_verification_key, 0, 0, keypair);
     let party_id = operational_certificate
         .compute_protocol_party_id()
@@ -129,7 +132,7 @@ fn build_party_with_operational_certificate(
     let temp_dir = setup_temp_directory_for_signer(&party_id, true)
         .expect("setup temp directory should return a value");
     if !temp_dir.join("kes.sk").exists() {
-        kes_secret_key
+        kes_bytes
             .to_file(temp_dir.join("kes.sk"))
             .expect("KES secret key file export should not fail");
     }
