@@ -3,6 +3,11 @@ use std::{error::Error, sync::Arc};
 use clap::Parser;
 use cli_table::{print_stdout, WithTitle};
 use config::{builder::DefaultState, ConfigBuilder};
+use mithril_common::{
+    api::APIVersionProvider,
+    entities::Epoch,
+    era::{EraChecker, SupportedEra},
+};
 use slog_scope::debug;
 
 use crate::{convert_to_field_items, AggregatorHTTPClient, Config, Runtime};
@@ -32,8 +37,18 @@ impl ShowCommand {
             .map_err(|e| format!("configuration deserialize error: {e}"))?;
         debug!("{:?}", config);
         let runtime = Runtime::new(config.network.clone());
-        let aggregator_handler =
-            AggregatorHTTPClient::new(config.network.clone(), config.aggregator_endpoint);
+        // TODO: This does not allow the client to handle an upgraded API version of a new supported era after the switch
+        // In order to do so, we should retrieve the list of supported versions from the API Version provider and test them sequentially until one hopefully succeeds
+        let era_checker = Arc::new(EraChecker::new(
+            SupportedEra::eras().first().unwrap().to_owned(),
+            Epoch(0),
+        ));
+        let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
+        let aggregator_handler = AggregatorHTTPClient::new(
+            config.network.clone(),
+            config.aggregator_endpoint,
+            api_version_provider,
+        );
         let snapshot = runtime
             .show_snapshot(Arc::new(aggregator_handler), &self.digest)
             .await?;

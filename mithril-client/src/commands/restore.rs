@@ -2,12 +2,15 @@ use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder};
 use directories::ProjectDirs;
 use mithril_common::{
+    api::APIVersionProvider,
     certificate_chain::MithrilCertificateVerifier,
     crypto_helper::{key_decode_hex, ProtocolGenesisVerifier},
     digesters::{
         cache::ImmutableFileDigestCacheProvider,
         cache::JsonImmutableFileDigestCacheProviderBuilder, CardanoImmutableDigester,
     },
+    entities::Epoch,
+    era::{EraChecker, SupportedEra},
 };
 use slog_scope::{debug, warn};
 use std::{error::Error, path::Path, sync::Arc};
@@ -49,8 +52,18 @@ impl RestoreCommand {
             .map_err(|e| format!("configuration deserialize error: {e}"))?;
         debug!("{:?}", config);
         let mut runtime = Runtime::new(config.network.clone());
-        let aggregator_handler =
-            AggregatorHTTPClient::new(config.network.clone(), config.aggregator_endpoint.clone());
+        let era_checker = Arc::new(EraChecker::new(
+            SupportedEra::eras().first().unwrap().to_owned(),
+            Epoch(0),
+        ));
+        // TODO: This does not allow the client to handle an upgraded API version of a new supported era after the switch
+        // In order to do so, we should retrieve the list of supported versions from the API Version provider and test them sequentially until one hopefully succeeds
+        let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
+        let aggregator_handler = AggregatorHTTPClient::new(
+            config.clone().network,
+            config.clone().aggregator_endpoint,
+            api_version_provider,
+        );
         let certificate_verifier = Box::new(MithrilCertificateVerifier::new(slog_scope::logger()));
         let genesis_verification_key = key_decode_hex(&config.genesis_verification_key)?;
         let genesis_verifier =
