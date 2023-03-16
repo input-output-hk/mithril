@@ -30,11 +30,10 @@ mod store;
 mod tools;
 
 pub use crate::configuration::{
-    Configuration, DefaultConfiguration, GenesisConfiguration, SnapshotStoreType,
-    SnapshotUploaderType,
+    Configuration, DefaultConfiguration, GenesisConfiguration, SnapshotUploaderType,
 };
 pub use crate::multi_signer::{MultiSigner, MultiSignerImpl, ProtocolError};
-pub use crate::snapshot_stores::{LocalSnapshotStore, RemoteSnapshotStore, SnapshotStore};
+pub use crate::snapshot_stores::{LocalSnapshotStore, SnapshotStore};
 pub use certificate_creator::{CertificateCreator, MithrilCertificateCreator};
 pub use command_args::MainOpts;
 pub use dependency::DependencyManager;

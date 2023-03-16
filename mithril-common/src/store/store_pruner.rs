@@ -41,7 +41,12 @@ pub trait StorePruner {
 
 #[cfg(test)]
 mod tests {
-    use std::cmp::min;
+    use std::{
+        cmp::min,
+        sync::{Arc, Mutex},
+    };
+
+    use sqlite::Connection;
 
     use crate::store::adapter::SQLiteAdapter;
 
@@ -80,7 +85,9 @@ mod tests {
     }
 
     async fn get_adapter(data_len: u64) -> SQLiteAdapter<u64, String> {
-        let mut adapter: SQLiteAdapter<u64, String> = SQLiteAdapter::new("whatever", None).unwrap();
+        let connection = Arc::new(Mutex::new(Connection::open(":memory:").unwrap()));
+        let mut adapter: SQLiteAdapter<u64, String> =
+            SQLiteAdapter::new("whatever", connection).unwrap();
 
         for (key, record) in get_data(data_len) {
             adapter.store_record(&key, &record).await.unwrap();

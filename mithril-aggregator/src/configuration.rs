@@ -8,18 +8,13 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use mithril_common::entities::{HexEncodedGenesisVerificationKey, ProtocolParameters};
-use mithril_common::store::adapter::SQLiteAdapter;
 use mithril_common::CardanoNetwork;
 
-use crate::snapshot_stores::LocalSnapshotStore;
 use crate::tools::GcpFileUploader;
-use crate::{
-    LocalSnapshotUploader, RemoteSnapshotStore, RemoteSnapshotUploader, SnapshotStore,
-    SnapshotUploader,
-};
+use crate::{LocalSnapshotUploader, RemoteSnapshotUploader, SnapshotUploader};
 
 // TODO: 'LIST_SNAPSHOTS_MAX_ITEMS' keep as const or in config, or add a parameter to `list_snapshots`?
-const LIST_SNAPSHOTS_MAX_ITEMS: usize = 20;
+pub const LIST_SNAPSHOTS_MAX_ITEMS: usize = 20;
 const SQLITE_FILE: &str = "aggregator.sqlite3";
 
 /// Aggregator configuration
@@ -45,9 +40,6 @@ pub struct Configuration {
 
     /// Snapshots manifest location
     pub url_snapshot_manifest: String,
-
-    /// Type of snapshot store to use
-    pub snapshot_store_type: SnapshotStoreType,
 
     /// Type of snapshot uploader to use
     pub snapshot_uploader_type: SnapshotUploaderType,
@@ -89,18 +81,6 @@ pub struct Configuration {
     pub era_reader_adapter_params: Option<String>,
 }
 
-/// Snapshot store type enumerates the different kinds of snapshot stores.
-/// Local storage is mainly used by development and test environements while GCP
-/// is intended for production use.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "lowercase")]
-pub enum SnapshotStoreType {
-    /// Google storage.
-    Gcp,
-    /// Local hard drive storage.
-    Local,
-}
-
 /// Uploader needed to copy the snapshot once computed.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "lowercase")]
@@ -115,27 +95,6 @@ impl Configuration {
     /// Build the server URL from configuration.
     pub fn get_server_url(&self) -> String {
         format!("http://{}:{}/", self.server_ip, self.server_port)
-    }
-
-    /// Create a snapshot store from the configuration settings.
-    pub fn build_snapshot_store(&self) -> Result<Arc<dyn SnapshotStore>, Box<dyn Error>> {
-        match self.snapshot_store_type {
-            SnapshotStoreType::Gcp => Ok(Arc::new(RemoteSnapshotStore::new(
-                Box::new(GcpFileUploader::new(
-                    self.snapshot_bucket_name.to_owned().ok_or_else(|| {
-                        ConfigError::Message("missing snapshot bucket name".to_string())
-                    })?,
-                )),
-                self.url_snapshot_manifest.clone(),
-            ))),
-            SnapshotStoreType::Local => Ok(Arc::new(LocalSnapshotStore::new(
-                Box::new(SQLiteAdapter::new(
-                    "snapshot",
-                    Some(self.get_sqlite_file()),
-                )?),
-                LIST_SNAPSHOTS_MAX_ITEMS,
-            ))),
-        }
     }
 
     /// Create a snapshot uploader from configuration settings.

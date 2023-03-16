@@ -5,6 +5,7 @@ use slog_scope::{crit, debug, info};
 use sqlite::Connection;
 use std::{
     error::Error,
+    ffi::OsStr,
     fs,
     net::IpAddr,
     path::PathBuf,
@@ -34,14 +35,15 @@ use mithril_common::{
 };
 
 use crate::{
+    configuration::LIST_SNAPSHOTS_MAX_ITEMS,
     database::provider::StakePoolStore,
     event_store::{self, TransmitterService},
     http_server::routes::router,
     tools::{EraTools, GenesisTools, GenesisToolsDependency},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
     CertificateStore, Configuration, DefaultConfiguration, DependencyManager, GenesisConfiguration,
-    GzipSnapshotter, MithrilSignerRegisterer, MultiSignerImpl, ProtocolParametersStore,
-    ProtocolParametersStorer, SingleSignatureStore, VerificationKeyStore,
+    GzipSnapshotter, LocalSnapshotStore, MithrilSignerRegisterer, MultiSignerImpl,
+    ProtocolParametersStore, ProtocolParametersStorer, SingleSignatureStore, VerificationKeyStore,
 };
 
 const SQLITE_MONITORING_FILE: &str = "monitoring.sqlite3";
@@ -61,6 +63,12 @@ fn setup_genesis_dependencies(
             ),
         )),
     );
+    let sqlite_connection = Arc::new(Mutex::new(Connection::open(
+        sqlite_db_path
+            .as_ref()
+            .map(|path| path.as_os_str())
+            .unwrap_or(OsStr::new(":memory:")),
+    )?));
     let immutable_file_observer = Arc::new(ImmutableFileSystemObserver::new(&config.db_directory));
     let beacon_provider = Arc::new(BeaconProviderImpl::new(
         chain_observer,
@@ -69,7 +77,7 @@ fn setup_genesis_dependencies(
     ));
     let certificate_store = Arc::new(CertificateStore::new(Box::new(SQLiteAdapter::new(
         "certificate",
-        sqlite_db_path.clone(),
+        sqlite_connection.clone(),
     )?)));
     let certificate_verifier = Arc::new(MithrilCertificateVerifier::new(slog_scope::logger()));
     let genesis_verification_key = key_decode_hex(&config.genesis_verification_key)?;
@@ -79,22 +87,20 @@ fn setup_genesis_dependencies(
     let protocol_parameters_store = Arc::new(ProtocolParametersStore::new(
         Box::new(SQLiteAdapter::new(
             "protocol_parameters",
-            sqlite_db_path.clone(),
+            sqlite_connection.clone(),
         )?),
         config.store_retention_limit,
     ));
     let verification_key_store = Arc::new(VerificationKeyStore::new(
         Box::new(SQLiteAdapter::new(
             "verification_key",
-            sqlite_db_path.clone(),
+            sqlite_connection.clone(),
         )?),
         config.store_retention_limit,
     ));
-    let stake_store = Arc::new(StakePoolStore::new(Arc::new(Mutex::new(Connection::open(
-        sqlite_db_path.clone().unwrap(),
-    )?))));
+    let stake_store = Arc::new(StakePoolStore::new(sqlite_connection.clone()));
     let single_signature_store = Arc::new(SingleSignatureStore::new(
-        Box::new(SQLiteAdapter::new("single_signature", sqlite_db_path)?),
+        Box::new(SQLiteAdapter::new("single_signature", sqlite_connection)?),
         config.store_retention_limit,
     ));
     let multi_signer = Arc::new(RwLock::new(MultiSignerImpl::new(
@@ -338,39 +344,44 @@ impl ServeCommand {
             .try_deserialize()
             .map_err(|e| format!("configuration deserialize error: {e}"))?;
         debug!("SERVE command"; "config" => format!("{config:?}"));
-        let sqlite_db_path = Some(config.get_sqlite_file());
         check_database_migration(config.get_sqlite_file())?;
 
         // Init dependencies
-        let snapshot_store = config.build_snapshot_store()?;
+        let sqlite_db_path = config.get_sqlite_file();
+        let sqlite_connection = Arc::new(Mutex::new(Connection::open(sqlite_db_path)?));
+        let snapshot_store = Arc::new(LocalSnapshotStore::new(
+            Box::new(SQLiteAdapter::new("snapshot", sqlite_connection.clone())?),
+            LIST_SNAPSHOTS_MAX_ITEMS,
+        ));
         let snapshot_uploader = config.build_snapshot_uploader()?;
 
         let certificate_pending_store = Arc::new(CertificatePendingStore::new(Box::new(
-            SQLiteAdapter::new("pending_certificate", sqlite_db_path.clone())?,
+            SQLiteAdapter::new("pending_certificate", sqlite_connection.clone())?,
         )));
         let certificate_store = Arc::new(CertificateStore::new(Box::new(SQLiteAdapter::new(
             "certificate",
-            sqlite_db_path.clone(),
+            sqlite_connection.clone(),
         )?)));
         let verification_key_store = Arc::new(VerificationKeyStore::new(
             Box::new(SQLiteAdapter::new(
                 "verification_key",
-                sqlite_db_path.clone(),
+                sqlite_connection.clone(),
             )?),
             config.store_retention_limit,
         ));
-        let stake_store = Arc::new(StakePoolStore::new(Arc::new(Mutex::new(Connection::open(
-            sqlite_db_path.clone().unwrap(),
-        )?))));
+        let stake_store = Arc::new(StakePoolStore::new(sqlite_connection.clone()));
         let single_signature_store = Arc::new(SingleSignatureStore::new(
             Box::new(SQLiteAdapter::new(
                 "single_signature",
-                sqlite_db_path.clone(),
+                sqlite_connection.clone(),
             )?),
             config.store_retention_limit,
         ));
         let protocol_parameters_store = Arc::new(ProtocolParametersStore::new(
-            Box::new(SQLiteAdapter::new("protocol_parameters", sqlite_db_path)?),
+            Box::new(SQLiteAdapter::new(
+                "protocol_parameters",
+                sqlite_connection,
+            )?),
             config.store_retention_limit,
         ));
         let chain_observer = Arc::new(

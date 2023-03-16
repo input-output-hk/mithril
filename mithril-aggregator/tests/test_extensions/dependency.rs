@@ -2,8 +2,8 @@ use mithril_aggregator::event_store::{EventMessage, TransmitterService};
 use mithril_aggregator::{
     AggregatorConfig, CertificatePendingStore, CertificateStore, Configuration, DependencyManager,
     DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore, MithrilSignerRegisterer,
-    MultiSignerImpl, ProtocolParametersStore, SingleSignatureStore, SnapshotStoreType,
-    SnapshotUploaderType, VerificationKeyStore,
+    MultiSignerImpl, ProtocolParametersStore, SingleSignatureStore, SnapshotUploaderType,
+    VerificationKeyStore,
 };
 use mithril_common::certificate_chain::MithrilCertificateVerifier;
 use mithril_common::chain_observer::FakeObserver;
@@ -47,7 +47,6 @@ pub async fn initialize_dependencies(
         protocol_parameters: default_protocol_parameters,
         url_snapshot_manifest: "https://storage.googleapis.com/cardano-testnet/snapshots.json"
             .to_string(),
-        snapshot_store_type: SnapshotStoreType::Local,
         snapshot_uploader_type: SnapshotUploaderType::Local,
         snapshot_bucket_name: None,
         server_ip: "0.0.0.0".to_string(),
