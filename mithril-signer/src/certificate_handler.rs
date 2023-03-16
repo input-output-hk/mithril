@@ -1,13 +1,14 @@
 use async_trait::async_trait;
 use reqwest::{self, Client, RequestBuilder, Response, StatusCode};
 use slog_scope::debug;
-use std::io;
+use std::{io, sync::Arc};
 use thiserror::Error;
 
 use mithril_common::{
+    api::APIVersionProvider,
     entities::{CertificatePending, EpochSettings, Signer, SingleSignatures},
     messages::{CertificatePendingMessage, EpochSettingsMessage},
-    MITHRIL_API_VERSION, MITHRIL_API_VERSION_HEADER, MITHRIL_SIGNER_VERSION_HEADER,
+    MITHRIL_API_VERSION_HEADER, MITHRIL_SIGNER_VERSION_HEADER,
 };
 
 #[cfg(test)]
@@ -81,21 +82,29 @@ pub trait CertificateHandler: Sync + Send {
 /// CertificateHandlerHTTPClient is a http client for an aggregator
 pub struct CertificateHandlerHTTPClient {
     aggregator_endpoint: String,
+    api_version_provider: Arc<APIVersionProvider>,
 }
 
 impl CertificateHandlerHTTPClient {
     /// CertificateHandlerHTTPClient factory
-    pub fn new(aggregator_endpoint: String) -> Self {
+    pub fn new(aggregator_endpoint: String, api_version_provider: Arc<APIVersionProvider>) -> Self {
         debug!("New CertificateHandlerHTTPClient created");
         Self {
             aggregator_endpoint,
+            api_version_provider,
         }
     }
 
     /// Forge a client request adding protocol version in the headers.
     pub fn prepare_request_builder(&self, request_builder: RequestBuilder) -> RequestBuilder {
         request_builder
-            .header(MITHRIL_API_VERSION_HEADER, MITHRIL_API_VERSION)
+            .header(
+                MITHRIL_API_VERSION_HEADER,
+                self.api_version_provider
+                    .compute_current_version()
+                    .unwrap()
+                    .to_string(),
+            )
             .header(MITHRIL_SIGNER_VERSION_HEADER, env!("CARGO_PKG_VERSION"))
     }
 
@@ -105,11 +114,12 @@ impl CertificateHandlerHTTPClient {
             CertificateHandlerError::ApiVersionMismatch(format!(
                 "server version: '{}', signer version: '{}'",
                 version.to_str().unwrap(),
-                MITHRIL_API_VERSION
+                self.api_version_provider.compute_current_version().unwrap()
             ))
         } else {
             CertificateHandlerError::ApiVersionMismatch(format!(
-                "version precondition failed, sent version '{MITHRIL_API_VERSION}'."
+                "version precondition failed, sent version '{}'.",
+                self.api_version_provider.compute_current_version().unwrap()
             ))
         }
     }
@@ -334,7 +344,8 @@ pub(crate) mod dumb {
 mod tests {
     use super::*;
     use httpmock::prelude::*;
-    use mithril_common::entities::ClientError;
+    use mithril_common::entities::{ClientError, Epoch};
+    use mithril_common::era::{EraChecker, SupportedEra};
     use serde_json::json;
     use std::path::{Path, PathBuf};
 
@@ -342,7 +353,7 @@ mod tests {
     use mithril_common::era::adapters::EraReaderAdapterType;
     use mithril_common::test_utils::fake_data;
 
-    fn setup_test() -> (MockServer, Configuration) {
+    fn setup_test() -> (MockServer, Configuration, APIVersionProvider) {
         let server = MockServer::start();
         let config = Configuration {
             cardano_cli_path: PathBuf::new().join("cardano-cli"),
@@ -362,19 +373,24 @@ mod tests {
             era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
             era_reader_adapter_params: None,
         };
-        (server, config)
+        let era_checker = EraChecker::new(SupportedEra::dummy(), Epoch(1));
+        let api_version_provider = APIVersionProvider::new(Arc::new(era_checker));
+        (server, config, api_version_provider)
     }
 
     #[tokio::test]
     async fn test_epoch_settings_ok_200() {
-        let (server, config) = setup_test();
+        let (server, config, api_version_provider) = setup_test();
         let epoch_settings_expected = fake_data::epoch_settings();
         let _snapshots_mock = server.mock(|when, then| {
             when.path("/epoch-settings");
             then.status(200)
                 .body(json!(epoch_settings_expected).to_string());
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
+        let certificate_handler = CertificateHandlerHTTPClient::new(
+            config.aggregator_endpoint,
+            Arc::new(api_version_provider),
+        );
         let epoch_settings = certificate_handler.retrieve_epoch_settings().await;
         epoch_settings.as_ref().expect("unexpected error");
         assert_eq!(epoch_settings_expected, epoch_settings.unwrap().unwrap());
@@ -382,13 +398,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_epoch_settings_ko_412() {
-        let (server, config) = setup_test();
+        let (server, config, api_version_provider) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.path("/epoch-settings");
             then.status(412)
                 .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
+        let certificate_handler = CertificateHandlerHTTPClient::new(
+            config.aggregator_endpoint,
+            Arc::new(api_version_provider),
+        );
         let epoch_settings = certificate_handler
             .retrieve_epoch_settings()
             .await
@@ -399,12 +418,15 @@ mod tests {
 
     #[tokio::test]
     async fn test_epoch_settings_ko_500() {
-        let (server, config) = setup_test();
+        let (server, config, api_version_provider) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.path("/epoch-settings");
             then.status(500).body("an error occurred");
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
+        let certificate_handler = CertificateHandlerHTTPClient::new(
+            config.aggregator_endpoint,
+            Arc::new(api_version_provider),
+        );
         let epoch_settings = certificate_handler.retrieve_epoch_settings().await;
         assert_eq!(
             CertificateHandlerError::RemoteServerTechnical("an error occurred".to_string())
@@ -415,14 +437,17 @@ mod tests {
 
     #[tokio::test]
     async fn test_certificate_pending_ok_200() {
-        let (server, config) = setup_test();
+        let (server, config, api_version_provider) = setup_test();
         let pending_certificate_expected = fake_data::certificate_pending();
         let _snapshots_mock = server.mock(|when, then| {
             when.path("/certificate-pending");
             then.status(200)
                 .body(json!(pending_certificate_expected).to_string());
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
+        let certificate_handler = CertificateHandlerHTTPClient::new(
+            config.aggregator_endpoint,
+            Arc::new(api_version_provider),
+        );
         let pending_certificate = certificate_handler.retrieve_pending_certificate().await;
         pending_certificate.as_ref().expect("unexpected error");
         assert_eq!(
@@ -433,13 +458,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_certificate_pending_ko_412() {
-        let (server, config) = setup_test();
+        let (server, config, api_version_provider) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.path("/certificate-pending");
             then.status(412)
                 .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
+        let certificate_handler = CertificateHandlerHTTPClient::new(
+            config.aggregator_endpoint,
+            Arc::new(api_version_provider),
+        );
         let error = certificate_handler
             .retrieve_pending_certificate()
             .await
@@ -450,24 +478,30 @@ mod tests {
 
     #[tokio::test]
     async fn test_certificate_pending_ok_204() {
-        let (server, config) = setup_test();
+        let (server, config, api_version_provider) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.path("/certificate-pending");
             then.status(204);
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
+        let certificate_handler = CertificateHandlerHTTPClient::new(
+            config.aggregator_endpoint,
+            Arc::new(api_version_provider),
+        );
         let pending_certificate = certificate_handler.retrieve_pending_certificate().await;
         assert!(pending_certificate.expect("unexpected error").is_none());
     }
 
     #[tokio::test]
     async fn test_certificate_pending_ko_500() {
-        let (server, config) = setup_test();
+        let (server, config, api_version_provider) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.path("/certificate-pending");
             then.status(500).body("an error occurred");
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
+        let certificate_handler = CertificateHandlerHTTPClient::new(
+            config.aggregator_endpoint,
+            Arc::new(api_version_provider),
+        );
         let pending_certificate = certificate_handler.retrieve_pending_certificate().await;
         assert_eq!(
             CertificateHandlerError::RemoteServerTechnical("an error occurred".to_string())
@@ -480,19 +514,22 @@ mod tests {
     async fn test_register_signer_ok_201() {
         let single_signers = fake_data::signers(1);
         let single_signer = single_signers.first().unwrap();
-        let (server, config) = setup_test();
+        let (server, config, api_version_provider) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signer");
             then.status(201);
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
+        let certificate_handler = CertificateHandlerHTTPClient::new(
+            config.aggregator_endpoint,
+            Arc::new(api_version_provider),
+        );
         let register_signer = certificate_handler.register_signer(single_signer).await;
         register_signer.expect("unexpected error");
     }
 
     #[tokio::test]
     async fn test_register_signer_ko_412() {
-        let (server, config) = setup_test();
+        let (server, config, api_version_provider) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signer");
             then.status(412)
@@ -500,7 +537,10 @@ mod tests {
         });
         let single_signers = fake_data::signers(1);
         let single_signer = single_signers.first().unwrap();
-        let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
+        let certificate_handler = CertificateHandlerHTTPClient::new(
+            config.aggregator_endpoint,
+            Arc::new(api_version_provider),
+        );
         let error = certificate_handler
             .register_signer(single_signer)
             .await
@@ -513,7 +553,7 @@ mod tests {
     async fn test_register_signer_ko_400() {
         let single_signers = fake_data::signers(1);
         let single_signer = single_signers.first().unwrap();
-        let (server, config) = setup_test();
+        let (server, config, api_version_provider) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signer");
             then.status(400).body(
@@ -524,7 +564,10 @@ mod tests {
                 .unwrap(),
             );
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
+        let certificate_handler = CertificateHandlerHTTPClient::new(
+            config.aggregator_endpoint,
+            Arc::new(api_version_provider),
+        );
         let register_signer = certificate_handler.register_signer(single_signer).await;
         assert_eq!(
             CertificateHandlerError::RemoteServerLogical(
@@ -539,12 +582,15 @@ mod tests {
     async fn test_register_signer_ko_500() {
         let single_signers = fake_data::signers(1);
         let single_signer = single_signers.first().unwrap();
-        let (server, config) = setup_test();
+        let (server, config, api_version_provider) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signer");
             then.status(500).body("an error occurred");
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
+        let certificate_handler = CertificateHandlerHTTPClient::new(
+            config.aggregator_endpoint,
+            Arc::new(api_version_provider),
+        );
         let register_signer = certificate_handler.register_signer(single_signer).await;
         assert_eq!(
             CertificateHandlerError::RemoteServerTechnical("an error occurred".to_string())
@@ -556,12 +602,15 @@ mod tests {
     #[tokio::test]
     async fn test_register_signatures_ok_201() {
         let single_signatures = fake_data::single_signatures((1..5).collect());
-        let (server, config) = setup_test();
+        let (server, config, api_version_provider) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
             then.status(201);
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
+        let certificate_handler = CertificateHandlerHTTPClient::new(
+            config.aggregator_endpoint,
+            Arc::new(api_version_provider),
+        );
         let register_signatures = certificate_handler
             .register_signatures(&single_signatures)
             .await;
@@ -570,14 +619,17 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_signatures_ko_412() {
-        let (server, config) = setup_test();
+        let (server, config, api_version_provider) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
             then.status(412)
                 .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
         });
         let single_signatures = fake_data::single_signatures((1..5).collect());
-        let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
+        let certificate_handler = CertificateHandlerHTTPClient::new(
+            config.aggregator_endpoint,
+            Arc::new(api_version_provider),
+        );
         let error = certificate_handler
             .register_signatures(&single_signatures)
             .await
@@ -589,7 +641,7 @@ mod tests {
     #[tokio::test]
     async fn test_register_signatures_ko_400() {
         let single_signatures = fake_data::single_signatures((1..5).collect());
-        let (server, config) = setup_test();
+        let (server, config, api_version_provider) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
             then.status(400).body(
@@ -600,7 +652,10 @@ mod tests {
                 .unwrap(),
             );
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
+        let certificate_handler = CertificateHandlerHTTPClient::new(
+            config.aggregator_endpoint,
+            Arc::new(api_version_provider),
+        );
         let register_signatures = certificate_handler
             .register_signatures(&single_signatures)
             .await;
@@ -616,12 +671,15 @@ mod tests {
     #[tokio::test]
     async fn test_register_signatures_ko_409() {
         let single_signatures = fake_data::single_signatures((1..5).collect());
-        let (server, config) = setup_test();
+        let (server, config, api_version_provider) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
             then.status(409);
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
+        let certificate_handler = CertificateHandlerHTTPClient::new(
+            config.aggregator_endpoint,
+            Arc::new(api_version_provider),
+        );
         let register_signatures = certificate_handler
             .register_signatures(&single_signatures)
             .await;
@@ -637,12 +695,15 @@ mod tests {
     #[tokio::test]
     async fn test_register_signatures_ko_500() {
         let single_signatures = fake_data::single_signatures((1..5).collect());
-        let (server, config) = setup_test();
+        let (server, config, api_version_provider) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signatures");
             then.status(500).body("an error occurred");
         });
-        let certificate_handler = CertificateHandlerHTTPClient::new(config.aggregator_endpoint);
+        let certificate_handler = CertificateHandlerHTTPClient::new(
+            config.aggregator_endpoint,
+            Arc::new(api_version_provider),
+        );
         let register_signatures = certificate_handler
             .register_signatures(&single_signatures)
             .await;
