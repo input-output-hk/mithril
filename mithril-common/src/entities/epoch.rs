@@ -99,7 +99,7 @@ impl Sub for Epoch {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        Self(self.0 - rhs.0)
+        Self(self.0.saturating_sub(rhs.0))
     }
 }
 
@@ -107,7 +107,7 @@ impl Sub<u64> for Epoch {
     type Output = Self;
 
     fn sub(self, rhs: u64) -> Self::Output {
-        Self(self.0 - rhs)
+        Self(self.0.saturating_sub(rhs))
     }
 }
 
@@ -182,8 +182,15 @@ mod tests {
     }
 
     #[test]
+    fn saturating_sub() {
+        assert_eq!(Epoch(0), Epoch(1) - Epoch(5));
+        assert_eq!(Epoch(0), Epoch(1) - 5_u64);
+    }
+
+    #[test]
     fn test_previous() {
         assert_eq!(Epoch(2), Epoch(3).previous().unwrap());
+        assert!(Epoch(0).previous().is_err());
     }
 
     #[test]

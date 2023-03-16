@@ -34,7 +34,7 @@ use mithril_common::{
 };
 
 use crate::{
-    database::provider::StakePoolRepository,
+    database::provider::StakePoolStore,
     event_store::{self, TransmitterService},
     http_server::routes::router,
     tools::{EraTools, GenesisTools, GenesisToolsDependency},
@@ -90,9 +90,9 @@ fn setup_genesis_dependencies(
         )?),
         config.store_retention_limit,
     ));
-    let stake_store = Arc::new(StakePoolRepository::new(Arc::new(Mutex::new(
-        Connection::open(sqlite_db_path.clone().unwrap())?,
-    ))));
+    let stake_store = Arc::new(StakePoolStore::new(Arc::new(Mutex::new(Connection::open(
+        sqlite_db_path.clone().unwrap(),
+    )?))));
     let single_signature_store = Arc::new(SingleSignatureStore::new(
         Box::new(SQLiteAdapter::new("single_signature", sqlite_db_path)?),
         config.store_retention_limit,
@@ -359,9 +359,9 @@ impl ServeCommand {
             )?),
             config.store_retention_limit,
         ));
-        let stake_store = Arc::new(StakePoolRepository::new(Arc::new(Mutex::new(
-            Connection::open(sqlite_db_path.clone().unwrap())?,
-        ))));
+        let stake_store = Arc::new(StakePoolStore::new(Arc::new(Mutex::new(Connection::open(
+            sqlite_db_path.clone().unwrap(),
+        )?))));
         let single_signature_store = Arc::new(SingleSignatureStore::new(
             Box::new(SQLiteAdapter::new(
                 "single_signature",
