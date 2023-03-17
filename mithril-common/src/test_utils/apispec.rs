@@ -18,6 +18,27 @@ pub struct APISpec<'a> {
 }
 
 impl<'a> APISpec<'a> {
+    /// Verify conformity helper of API Specs
+    pub fn verify_conformity(
+        spec_files: Vec<String>,
+        method: &str,
+        path: &str,
+        content_type: &str,
+        request_body: &impl Serialize,
+        response: &Response<Bytes>,
+    ) {
+        for spec_file in spec_files {
+            APISpec::from_file(&spec_file)
+                .method(method)
+                .path(path)
+                .content_type(content_type)
+                .validate_request(request_body)
+                .unwrap_or_else(|_| panic!("OpenAPI invalid request in {}", spec_file))
+                .validate_response(response)
+                .unwrap_or_else(|_| panic!("OpenAPI invalid response in {}", spec_file));
+        }
+    }
+
     /// APISpec factory from spec
     pub fn from_file(path: &str) -> APISpec<'a> {
         let yaml_spec = std::fs::read_to_string(path).unwrap();

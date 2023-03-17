@@ -163,15 +163,14 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        for spec_file in APISpec::get_all_spec_files() {
-            APISpec::from_file(&spec_file)
-                .method(method)
-                .path(path)
-                .validate_request(&signer)
-                .unwrap()
-                .validate_response(&response)
-                .unwrap_or_else(|_| panic!("OpenAPI error in {}", spec_file));
-        }
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/json",
+            &signer,
+            &response,
+        );
     }
 
     #[tokio::test]
@@ -196,15 +195,14 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        for spec_file in APISpec::get_all_spec_files() {
-            APISpec::from_file(&spec_file)
-                .method(method)
-                .path(path)
-                .validate_request(&signer)
-                .unwrap()
-                .validate_response(&response)
-                .unwrap_or_else(|_| panic!("OpenAPI error in {}", spec_file));
-        }
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/json",
+            &signer,
+            &response,
+        );
     }
 
     #[tokio::test]
@@ -232,15 +230,14 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        for spec_file in APISpec::get_all_spec_files() {
-            APISpec::from_file(&spec_file)
-                .method(method)
-                .path(path)
-                .validate_request(&signer)
-                .unwrap()
-                .validate_response(&response)
-                .unwrap_or_else(|_| panic!("OpenAPI error in {}", spec_file));
-        }
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/json",
+            &signer,
+            &response,
+        );
     }
 
     #[tokio::test]
@@ -267,14 +264,13 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        for spec_file in APISpec::get_all_spec_files() {
-            APISpec::from_file(&spec_file)
-                .method(method)
-                .path(path)
-                .validate_request(&signer)
-                .unwrap()
-                .validate_response(&response)
-                .unwrap_or_else(|_| panic!("OpenAPI error in {}", spec_file));
-        }
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/json",
+            &signer,
+            &response,
+        );
     }
 }
