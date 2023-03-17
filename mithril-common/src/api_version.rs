@@ -75,6 +75,16 @@ impl APIVersionProvider {
         Ok(VersionReq::parse(&version_req)?)
     }
 
+    /// Compute all the sorted list of all versions
+    pub fn compute_all_versions_sorted() -> Result<Vec<Version>, APIVersionProviderError> {
+        let mut versions = Vec::new();
+        for version_raw in get_open_api_versions_mapping().into_values() {
+            versions.push(Version::parse(&version_raw)?)
+        }
+        versions.sort();
+        Ok(versions)
+    }
+
     /// Update open api versions. Test only
     #[cfg(any(test, feature = "test_only"))]
     pub fn update_open_api_versions(
@@ -169,5 +179,13 @@ mod test {
                 .unwrap()
                 .to_string()
         )
+    }
+
+    #[test]
+    fn test_compute_all_versions_sorted() {
+        let all_versions_sorted = APIVersionProvider::compute_all_versions_sorted()
+            .expect("Computing the list of all sorted versions should not fail");
+
+        assert!(!all_versions_sorted.is_empty());
     }
 }

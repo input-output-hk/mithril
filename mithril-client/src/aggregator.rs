@@ -1,10 +1,10 @@
 use async_trait::async_trait;
 use flate2::read::GzDecoder;
 use futures::StreamExt;
-use mithril_common::api_version::APIVersionProvider;
 use mithril_common::MITHRIL_API_VERSION_HEADER;
 use reqwest::{self, Response, StatusCode};
 use reqwest::{Client, RequestBuilder};
+use semver::Version;
 use slog_scope::debug;
 use std::env;
 use std::fs;
@@ -93,32 +93,32 @@ pub trait AggregatorHandler: CertificateRetriever + Sync + Send {
 pub struct AggregatorHTTPClient {
     network: String,
     aggregator_endpoint: String,
-    api_version_provider: Arc<APIVersionProvider>,
+    api_versions: Vec<Version>,
 }
 
 impl AggregatorHTTPClient {
     /// AggregatorHTTPClient factory
-    pub fn new(
-        network: String,
-        aggregator_endpoint: String,
-        api_version_provider: Arc<APIVersionProvider>,
-    ) -> Self {
+    pub fn new(network: String, aggregator_endpoint: String, api_versions: Vec<Version>) -> Self {
         debug!("New AggregatorHTTPClient created");
         Self {
             network,
             aggregator_endpoint,
-            api_version_provider,
+            api_versions,
         }
+    }
+
+    /// Computes the current api version
+    // TODO: This is a naive implementation that uses only the first available version
+    // This should handle version properly negocation with the aggregator to know which version to use
+    pub fn compute_current_api_version(&self) -> String {
+        self.api_versions.first().unwrap().to_string()
     }
 
     /// Forge a client request adding protocol version in the headers.
     pub fn prepare_request_builder(&self, request_builder: RequestBuilder) -> RequestBuilder {
         request_builder.header(
             MITHRIL_API_VERSION_HEADER,
-            self.api_version_provider
-                .compute_current_version()
-                .unwrap()
-                .to_string(),
+            self.compute_current_api_version(),
         )
     }
 
@@ -164,12 +164,12 @@ impl AggregatorHTTPClient {
             AggregatorHandlerError::ApiVersionMismatch(format!(
                 "server version: '{}', signer version: '{}'",
                 version.to_str().unwrap(),
-                self.api_version_provider.compute_current_version().unwrap()
+                self.compute_current_api_version()
             ))
         } else {
             AggregatorHandlerError::ApiVersionMismatch(format!(
                 "version precondition failed, sent version '{}'.",
-                self.api_version_provider.compute_current_version().unwrap()
+                self.compute_current_api_version()
             ))
         }
     }
@@ -339,24 +339,19 @@ mod tests {
     use flate2::write::GzEncoder;
     use flate2::Compression;
     use httpmock::prelude::*;
-    use mithril_common::{
-        entities::Epoch,
-        era::{EraChecker, SupportedEra},
-    };
+    use mithril_common::api_version::APIVersionProvider;
     use serde_json::json;
 
     use mithril_common::test_utils::fake_data;
 
-    fn setup_test() -> (MockServer, Config, APIVersionProvider) {
+    fn setup_test() -> (MockServer, Config) {
         let server = MockServer::start();
         let config = Config {
             network: "testnet".to_string(),
             aggregator_endpoint: server.url(""),
             genesis_verification_key: "genesis-vkey".to_string(),
         };
-        let era_checker = EraChecker::new(SupportedEra::dummy(), Epoch(1));
-        let api_version_provider = APIVersionProvider::new(Arc::new(era_checker));
-        (server, config, api_version_provider)
+        (server, config)
     }
 
     /// see [`archive_file_path`] to see the path that will be removed if it exist
@@ -392,7 +387,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_snapshots_ok() {
-        let (server, config, api_version_provider) = setup_test();
+        let (server, config) = setup_test();
         let snapshots_expected = fake_data::snapshots(5);
         let _snapshots_mock = server.mock(|when, then| {
             when.path("/snapshots");
@@ -401,7 +396,7 @@ mod tests {
         let aggregator_client = AggregatorHTTPClient::new(
             config.network,
             config.aggregator_endpoint,
-            Arc::new(api_version_provider),
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
         );
         let snapshots = aggregator_client.list_snapshots().await;
         snapshots.as_ref().expect("unexpected error");
@@ -410,7 +405,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_snapshots_ko_412() {
-        let (server, config, api_version_provider) = setup_test();
+        let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.path("/snapshots");
             then.status(412)
@@ -419,7 +414,7 @@ mod tests {
         let aggregator_client = AggregatorHTTPClient::new(
             config.network,
             config.aggregator_endpoint,
-            Arc::new(api_version_provider),
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
         );
         let error = aggregator_client.list_snapshots().await.unwrap_err();
 
@@ -428,7 +423,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_snapshots_ko_500() {
-        let (server, config, api_version_provider) = setup_test();
+        let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.path("/snapshots");
             then.status(500);
@@ -436,7 +431,7 @@ mod tests {
         let aggregator_client = AggregatorHTTPClient::new(
             config.network,
             config.aggregator_endpoint,
-            Arc::new(api_version_provider),
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
         );
         let snapshots = aggregator_client.list_snapshots().await;
         assert!(snapshots.is_err());
@@ -444,11 +439,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_snapshots_ko_unreachable() {
-        let (_, config, api_version_provider) = setup_test();
+        let (_, config) = setup_test();
         let aggregator_client = AggregatorHTTPClient::new(
             config.network,
             config.aggregator_endpoint,
-            Arc::new(api_version_provider),
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
         );
         let snapshots = aggregator_client.list_snapshots().await;
         assert!(snapshots.is_err());
@@ -457,7 +452,7 @@ mod tests {
     #[tokio::test]
     async fn get_snapshot_details_ok() {
         let digest = "digest123";
-        let (server, config, api_version_provider) = setup_test();
+        let (server, config) = setup_test();
         let snapshot_expected = fake_data::snapshots(1).first().unwrap().to_owned();
         let _snapshots_mock = server.mock(|when, then| {
             when.path(format!("/snapshot/{digest}"));
@@ -466,7 +461,7 @@ mod tests {
         let aggregator_client = AggregatorHTTPClient::new(
             config.network,
             config.aggregator_endpoint,
-            Arc::new(api_version_provider),
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
         );
         let snapshot = aggregator_client.get_snapshot_details(digest).await;
         snapshot.as_ref().expect("unexpected error");
@@ -476,7 +471,7 @@ mod tests {
     #[tokio::test]
     async fn get_snapshot_details_ko_404() {
         let digest = "digest123";
-        let (server, config, api_version_provider) = setup_test();
+        let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.path(format!("/snapshot/{digest}"));
             then.status(404);
@@ -484,7 +479,7 @@ mod tests {
         let aggregator_client = AggregatorHTTPClient::new(
             config.network,
             config.aggregator_endpoint,
-            Arc::new(api_version_provider),
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
         );
         let snapshot = aggregator_client.get_snapshot_details(digest).await;
         assert!(snapshot.is_err());
@@ -492,7 +487,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_snapshot_details_ko_412() {
-        let (server, config, api_version_provider) = setup_test();
+        let (server, config) = setup_test();
         let digest = "digest123";
         let _snapshots_mock = server.mock(|when, then| {
             when.path(format!("/snapshot/{digest}"));
@@ -502,7 +497,7 @@ mod tests {
         let aggregator_client = AggregatorHTTPClient::new(
             config.network,
             config.aggregator_endpoint,
-            Arc::new(api_version_provider),
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
         );
         let error = aggregator_client
             .get_snapshot_details(digest)
@@ -515,7 +510,7 @@ mod tests {
     #[tokio::test]
     async fn get_snapshot_details_ko_500() {
         let digest = "digest123";
-        let (server, config, api_version_provider) = setup_test();
+        let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.path(format!("/snapshot/{digest}"));
             then.status(500);
@@ -523,7 +518,7 @@ mod tests {
         let aggregator_client = AggregatorHTTPClient::new(
             config.network,
             config.aggregator_endpoint,
-            Arc::new(api_version_provider),
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
         );
         let snapshot = aggregator_client.get_snapshot_details(digest).await;
         assert!(snapshot.is_err());
@@ -532,11 +527,11 @@ mod tests {
     #[tokio::test]
     async fn get_snapshot_details_ko_unreachable() {
         let digest = "digest123";
-        let (_, config, api_version_provider) = setup_test();
+        let (_, config) = setup_test();
         let aggregator_client = AggregatorHTTPClient::new(
             config.network,
             config.aggregator_endpoint,
-            Arc::new(api_version_provider),
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
         );
         let snapshot = aggregator_client.get_snapshot_details(digest).await;
         assert!(snapshot.is_err());
@@ -546,7 +541,7 @@ mod tests {
     async fn get_download_snapshot_ok() {
         let digest = "digest_get_download_snapshot_ok";
         let url_path = "/download";
-        let (server, config, api_version_provider) = setup_test();
+        let (server, config) = setup_test();
         let data_expected = "1234567890".repeat(1024).to_string();
         server.mock(|when, then| {
             when.path(url_path.to_string());
@@ -557,7 +552,7 @@ mod tests {
         let aggregator_client = AggregatorHTTPClient::new(
             config.network,
             config.aggregator_endpoint,
-            Arc::new(api_version_provider),
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
         );
         let location = server.url(url_path);
         let local_file_path = aggregator_client.download_snapshot(digest, &location).await;
@@ -569,7 +564,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_download_snapshot_ko_412() {
-        let (server, config, api_version_provider) = setup_test();
+        let (server, config) = setup_test();
         let digest = "digest123";
         let url_path = "/download";
         let _snapshots_mock = server.mock(|when, then| {
@@ -580,7 +575,7 @@ mod tests {
         let aggregator_client = AggregatorHTTPClient::new(
             config.network,
             config.aggregator_endpoint,
-            Arc::new(api_version_provider),
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
         );
         let location = server.url(url_path);
         let error = aggregator_client
@@ -595,7 +590,7 @@ mod tests {
     async fn get_download_snapshot_ko_unreachable() {
         let digest = "digest123";
         let url_path = "/download";
-        let (server, config, api_version_provider) = setup_test();
+        let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.path(url_path.to_string());
             then.status(500);
@@ -603,7 +598,7 @@ mod tests {
         let aggregator_client = AggregatorHTTPClient::new(
             config.network,
             config.aggregator_endpoint,
-            Arc::new(api_version_provider),
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
         );
         let location = server.url(url_path);
         let local_file_path = aggregator_client.download_snapshot(digest, &location).await;
@@ -613,11 +608,11 @@ mod tests {
     #[tokio::test]
     async fn get_download_snapshot_ko_500() {
         let digest = "digest_get_download_snapshot_ko_500";
-        let (_, config, api_version_provider) = setup_test();
+        let (_, config) = setup_test();
         let aggregator_client = AggregatorHTTPClient::new(
             config.network,
             config.aggregator_endpoint,
-            Arc::new(api_version_provider),
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
         );
         let location = "http123://unreachable".to_string();
         let local_file_path = aggregator_client.download_snapshot(digest, &location).await;
@@ -627,7 +622,7 @@ mod tests {
     #[tokio::test]
     async fn unpack_snapshot_ok() {
         let digest = "digest_unpack_snapshot_ok";
-        let (_, config, api_version_provider) = setup_test();
+        let (_, config) = setup_test();
         let data_expected = "1234567890".repeat(1024);
 
         ensure_snapshot_dir_does_not_exist(digest, &config.network);
@@ -636,7 +631,7 @@ mod tests {
         let aggregator_client = AggregatorHTTPClient::new(
             config.network,
             config.aggregator_endpoint,
-            Arc::new(api_version_provider),
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
         );
         let local_dir_path = aggregator_client.unpack_snapshot(digest).await;
         local_dir_path.expect("unexpected error");
@@ -645,13 +640,13 @@ mod tests {
     #[tokio::test]
     async fn unpack_snapshot_ko_noarchive() {
         let digest = "digest_unpack_snapshot_ko_noarchive";
-        let (_, config, api_version_provider) = setup_test();
+        let (_, config) = setup_test();
         ensure_snapshot_dir_does_not_exist(digest, &config.network);
 
         let aggregator_client = AggregatorHTTPClient::new(
             config.network,
             config.aggregator_endpoint,
-            Arc::new(api_version_provider),
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
         );
         let local_dir_path = aggregator_client.unpack_snapshot(digest).await;
         assert!(local_dir_path.is_err());
@@ -659,7 +654,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_certificate_details_412() {
-        let (server, config, api_version_provider) = setup_test();
+        let (server, config) = setup_test();
         let certificate_hash = "certificate-hash-123";
         let _snapshots_mock = server.mock(|when, then| {
             when.path(format!("/certificate/{certificate_hash}"));
@@ -669,7 +664,7 @@ mod tests {
         let aggregator_client = AggregatorHTTPClient::new(
             config.network,
             config.aggregator_endpoint,
-            Arc::new(api_version_provider),
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
         );
         let _error = aggregator_client
             .get_certificate_details(certificate_hash)
@@ -680,7 +675,7 @@ mod tests {
     #[tokio::test]
     async fn get_certificate_details_ok() {
         let certificate_hash = "certificate-hash-123";
-        let (server, config, api_version_provider) = setup_test();
+        let (server, config) = setup_test();
         let certificate_expected = fake_data::certificate(certificate_hash.to_string());
         let _certificate_mock = server.mock(|when, then| {
             when.path(format!("/certificate/{certificate_hash}"));
@@ -690,7 +685,7 @@ mod tests {
         let aggregator_client = AggregatorHTTPClient::new(
             config.network,
             config.aggregator_endpoint,
-            Arc::new(api_version_provider),
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
         );
         let certificate = aggregator_client
             .get_certificate_details(certificate_hash)
@@ -702,7 +697,7 @@ mod tests {
     #[tokio::test]
     async fn get_certificate_details_ko_404() {
         let certificate_hash = "certificate-hash-123";
-        let (server, config, api_version_provider) = setup_test();
+        let (server, config) = setup_test();
         let _certificate_mock = server.mock(|when, then| {
             when.path(format!("/certificate/{certificate_hash}"));
             then.status(404);
@@ -710,7 +705,7 @@ mod tests {
         let aggregator_client = AggregatorHTTPClient::new(
             config.network,
             config.aggregator_endpoint,
-            Arc::new(api_version_provider),
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
         );
         let certificate = aggregator_client
             .get_certificate_details(certificate_hash)
@@ -721,7 +716,7 @@ mod tests {
     #[tokio::test]
     async fn get_certificate_details_ko_500() {
         let certificate_hash = "certificate-hash-123";
-        let (server, config, api_version_provider) = setup_test();
+        let (server, config) = setup_test();
         let _certificate_mock = server.mock(|when, then| {
             when.path(format!("/certificate/{certificate_hash}"));
             then.status(500);
@@ -729,7 +724,7 @@ mod tests {
         let aggregator_client = AggregatorHTTPClient::new(
             config.network,
             config.aggregator_endpoint,
-            Arc::new(api_version_provider),
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
         );
         let certificate = aggregator_client
             .get_certificate_details(certificate_hash)
@@ -740,11 +735,11 @@ mod tests {
     #[tokio::test]
     async fn get_certificate_details_ko_unreachable() {
         let certificate_hash = "certificate-hash-123";
-        let (_, config, api_version_provider) = setup_test();
+        let (_, config) = setup_test();
         let aggregator_client = AggregatorHTTPClient::new(
             config.network,
             config.aggregator_endpoint,
-            Arc::new(api_version_provider),
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
         );
         let certificate = aggregator_client
             .get_certificate_details(certificate_hash)
