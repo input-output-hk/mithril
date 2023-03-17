@@ -48,7 +48,7 @@
               pkgs.gnum4
               pkgs.pkg-config
               pkgs.openssl
-            ];
+            ] ++ lib.optional (pkgs.stdenv.isDarwin) [pkgs.darwin.apple_sdk.frameworks.Security];
           };
       in {
         packages = {
@@ -63,10 +63,12 @@
           nativeBuildInputs = [
             pkgs.cargo
             pkgs.rustc
+            pkgs.libiconv
             config.treefmt.package
           ];
 
           shellHook = ''
+            export RUST_BACKTRACE=1
             ln -sf ${config.treefmt.build.configFile} treefmt.toml
           '';
         };
