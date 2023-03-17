@@ -755,7 +755,6 @@ pub mod tests {
     use mithril_common::test_utils::MithrilFixtureBuilder;
     use mithril_common::{entities::ProtocolMessagePartKey, test_utils::fake_data};
     use mithril_common::{BeaconProviderImpl, CardanoNetwork};
-    use std::collections::HashMap;
     use std::path::Path;
     use std::sync::Arc;
     use tempfile::NamedTempFile;
@@ -876,7 +875,7 @@ pub mod tests {
         let beacon = fake_data::beacon();
         let recording_epoch = beacon.epoch.offset_to_recording_epoch();
         let stake_distribution: StakeDistribution =
-            HashMap::from([("a".to_string(), 5), ("b".to_string(), 10)]);
+            StakeDistribution::from([("a".to_string(), 5), ("b".to_string(), 10)]);
 
         stake_store
             .save_stakes(recording_epoch, stake_distribution.clone())

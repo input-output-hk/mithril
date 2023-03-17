@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use chrono::prelude::*;
 use hex::ToHex;
 use slog_scope::{debug, trace, warn};
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 use thiserror::Error;
 
 use mithril_common::{
@@ -12,7 +12,7 @@ use mithril_common::{
         ProtocolPartyId, ProtocolRegistrationError, ProtocolSignerVerificationKey,
         ProtocolSingleSignature, ProtocolStakeDistribution,
     },
-    entities::{self, Epoch, SignerWithStake},
+    entities::{self, Epoch, SignerWithStake, StakeDistribution},
     store::{StakeStorer, StoreError},
 };
 
@@ -492,7 +492,7 @@ impl MultiSigner for MultiSignerImpl {
             .ok_or_else(ProtocolError::UnavailableBeacon)?
             .epoch
             .offset_to_recording_epoch();
-        let stakes = HashMap::from_iter(stakes.iter().cloned());
+        let stakes = StakeDistribution::from_iter(stakes.iter().cloned());
         self.stake_store.save_stakes(epoch, stakes).await?;
 
         Ok(())
@@ -742,10 +742,7 @@ mod tests {
             None,
         );
         let stake_store = StakeStore::new(
-            Box::new(
-                MemoryAdapter::<Epoch, HashMap<entities::PartyId, entities::Stake>>::new(None)
-                    .unwrap(),
-            ),
+            Box::new(MemoryAdapter::<Epoch, StakeDistribution>::new(None).unwrap()),
             None,
         );
         let single_signature_store = SingleSignatureStore::new(
