@@ -6,7 +6,7 @@ use std::{
 };
 
 use mithril_common::{
-    api::APIVersionProvider,
+    api_version::APIVersionProvider,
     chain_observer::{CardanoCliChainObserver, CardanoCliRunner, ChainObserver},
     crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
     digesters::{

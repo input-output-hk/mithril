@@ -4,7 +4,7 @@ use clap::Parser;
 use cli_table::{print_stdout, WithTitle};
 use config::{builder::DefaultState, ConfigBuilder};
 use mithril_common::{
-    api::APIVersionProvider,
+    api_version::APIVersionProvider,
     entities::Epoch,
     era::{EraChecker, SupportedEra},
 };

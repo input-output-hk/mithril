@@ -10,7 +10,7 @@
 //! - A [certificate chain] used to validate the Certificate Chain created by an aggregator
 //! - The [entities] used by, and exchanged between, the aggregator, signers and client.
 
-pub mod api;
+pub mod api_version;
 mod beacon_provider;
 pub mod certificate_chain;
 pub mod chain_observer;

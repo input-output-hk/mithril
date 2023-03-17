@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use mithril_common::api::APIVersionProvider;
+use mithril_common::api_version::APIVersionProvider;
 use mithril_common::digesters::ImmutableFileObserver;
 use mithril_common::entities::SignerWithStake;
 use mithril_common::era::{

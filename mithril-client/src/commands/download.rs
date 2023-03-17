@@ -3,7 +3,7 @@ use std::{error::Error, fmt::Display, sync::Arc};
 use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder};
 use mithril_common::{
-    api::APIVersionProvider,
+    api_version::APIVersionProvider,
     entities::Epoch,
     era::{EraChecker, SupportedEra},
 };

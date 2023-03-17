@@ -1,5 +1,5 @@
 use mithril_common::{
-    api::APIVersionProvider,
+    api_version::APIVersionProvider,
     certificate_chain::CertificateVerifier,
     chain_observer::ChainObserver,
     crypto_helper::ProtocolGenesisVerifier,
@@ -275,7 +275,7 @@ pub mod tests {
         SingleSignatureStore, SnapshotUploaderType, VerificationKeyStore,
     };
     use mithril_common::{
-        api::APIVersionProvider,
+        api_version::APIVersionProvider,
         certificate_chain::MithrilCertificateVerifier,
         chain_observer::FakeObserver,
         crypto_helper::{key_encode_hex, ProtocolGenesisSigner},

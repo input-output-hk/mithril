@@ -476,7 +476,7 @@ impl Runner for SignerRunner {
 #[cfg(test)]
 mod tests {
     use mithril_common::{
-        api::APIVersionProvider,
+        api_version::APIVersionProvider,
         chain_observer::{ChainObserver, FakeObserver},
         crypto_helper::ProtocolInitializer,
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},

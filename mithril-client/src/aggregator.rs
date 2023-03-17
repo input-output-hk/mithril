@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use flate2::read::GzDecoder;
 use futures::StreamExt;
-use mithril_common::api::APIVersionProvider;
+use mithril_common::api_version::APIVersionProvider;
 use mithril_common::MITHRIL_API_VERSION_HEADER;
 use reqwest::{self, Response, StatusCode};
 use reqwest::{Client, RequestBuilder};

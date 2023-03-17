@@ -4,7 +4,7 @@ use crate::http_server::routes::{
 use crate::http_server::SERVER_BASE_PATH;
 use crate::DependencyManager;
 
-use mithril_common::api::APIVersionProvider;
+use mithril_common::api_version::APIVersionProvider;
 use mithril_common::MITHRIL_API_VERSION_HEADER;
 
 use reqwest::StatusCode;

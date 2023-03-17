@@ -5,7 +5,7 @@ use mithril_aggregator::{
     MultiSignerImpl, ProtocolParametersStore, SingleSignatureStore, SnapshotUploaderType,
     VerificationKeyStore,
 };
-use mithril_common::api::APIVersionProvider;
+use mithril_common::api_version::APIVersionProvider;
 use mithril_common::certificate_chain::MithrilCertificateVerifier;
 use mithril_common::chain_observer::FakeObserver;
 use mithril_common::crypto_helper::{key_encode_hex, ProtocolGenesisSigner};

@@ -90,7 +90,7 @@ mod test {
     use std::{collections::HashMap, sync::Arc};
 
     use crate::{
-        api::version::APIVersionProvider,
+        api_version::APIVersionProvider,
         entities::Epoch,
         era::{EraChecker, SupportedEra},
     };

@@ -18,7 +18,7 @@ use tokio::{
 };
 
 use mithril_common::{
-    api::APIVersionProvider,
+    api_version::APIVersionProvider,
     certificate_chain::MithrilCertificateVerifier,
     chain_observer::{CardanoCliRunner, ChainObserver},
     crypto_helper::{

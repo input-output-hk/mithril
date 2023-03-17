@@ -2,7 +2,7 @@ use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder};
 use directories::ProjectDirs;
 use mithril_common::{
-    api::APIVersionProvider,
+    api_version::APIVersionProvider,
     certificate_chain::MithrilCertificateVerifier,
     crypto_helper::{key_decode_hex, ProtocolGenesisVerifier},
     digesters::{

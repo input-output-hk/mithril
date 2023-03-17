@@ -5,7 +5,7 @@ use std::{io, sync::Arc};
 use thiserror::Error;
 
 use mithril_common::{
-    api::APIVersionProvider,
+    api_version::APIVersionProvider,
     entities::{CertificatePending, EpochSettings, Signer, SingleSignatures},
     messages::{CertificatePendingMessage, EpochSettingsMessage},
     MITHRIL_API_VERSION_HEADER, MITHRIL_SIGNER_VERSION_HEADER,
