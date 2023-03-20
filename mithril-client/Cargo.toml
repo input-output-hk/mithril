@@ -10,6 +10,7 @@ license = { workspace = true }
 repository = { workspace = true }
 
 [dependencies]
+async-recursion = "1.0.4"
 async-trait = "0.1.52"
 clap = { version = "4.0", features = ["derive", "env"] }
 cli-table = "0.4"
