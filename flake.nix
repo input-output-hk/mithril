@@ -39,22 +39,39 @@
               type == "directory" || matchesSuffix || isCargoFile || isCargoConfig || isOpenApiYaml;
           };
 
+        buildInputs =
+          [
+            pkgs.gnum4
+            pkgs.pkg-config
+            pkgs.openssl
+          ]
+          ++ lib.optional (pkgs.stdenv.isDarwin) [
+            pkgs.darwin.apple_sdk.frameworks.Security
+            pkgs.darwin.configdHeaders
+          ];
+
         buildPackage = name: cargoToml:
           craneLib.buildPackage {
             inherit (craneLib.crateNameFromCargoToml {inherit cargoToml;}) pname version;
             cargoExtraArgs = "-p ${name}";
             src = clean ./.;
-            buildInputs = [
-              pkgs.gnum4
-              pkgs.pkg-config
-              pkgs.openssl
-            ] ++ lib.optional (pkgs.stdenv.isDarwin) [pkgs.darwin.apple_sdk.frameworks.Security];
+            inherit buildInputs;
           };
       in {
         packages = {
+          default = craneLib.buildPackage {
+            pname = "mithril";
+            version = "0.0.1";
+            src = clean ./.;
+            doCheck = false; # some tests require cardano-cli
+            inherit buildInputs;
+          };
+
           mithril-client = buildPackage "mithril-client" ./mithril-client/Cargo.toml;
           mithril-aggregator = buildPackage "mithril-aggregator" ./mithril-aggregator/Cargo.toml;
           mithril-signer = buildPackage "mithril-signer" ./mithril-signer/Cargo.toml;
+          mithrildemo = buildPackage "mithrildemo" ./demo/protocol-demo/Cargo.toml;
+          mithril-end-to-end = buildPackage "mithril-end-to-end" ./mithril-test-lab/mithril-end-to-end/Cargo.toml;
         };
 
         devShells.default = pkgs.mkShell {
