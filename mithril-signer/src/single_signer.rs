@@ -5,8 +5,8 @@ use thiserror::Error;
 
 use mithril_common::crypto_helper::{
     key_decode_hex, key_encode_hex, KESPeriod, ProtocolClerk, ProtocolInitializer,
-    ProtocolKeyRegistration, ProtocolPartyId, ProtocolRegistrationError, ProtocolSigner,
-    ProtocolStakeDistribution,
+    ProtocolInitializerError, ProtocolKeyRegistration, ProtocolPartyId, ProtocolRegistrationError,
+    ProtocolSigner, ProtocolStakeDistribution,
 };
 use mithril_common::entities::{
     PartyId, ProtocolMessage, ProtocolParameters, SignerWithStake, SingleSignatures, Stake,
@@ -14,14 +14,6 @@ use mithril_common::entities::{
 
 #[cfg(test)]
 use mockall::automock;
-
-/// MithrilProtocolInitializerBuilder error structure.
-#[derive(Error, Debug)]
-pub enum MithrilProtocolInitializerBuilderError {
-    /// Could not parse a Cardano crypto file
-    #[error("the cardano cryptographic file could not be parsed.")]
-    CardanoCryptoParse,
-}
 
 /// This is responsible of creating new instances of ProtocolInitializer.
 #[derive(Default)]
@@ -40,7 +32,7 @@ impl MithrilProtocolInitializerBuilder {
         protocol_parameters: &ProtocolParameters,
         kes_secret_key_path: Option<PathBuf>,
         kes_period: Option<KESPeriod>,
-    ) -> Result<ProtocolInitializer, MithrilProtocolInitializerBuilderError> {
+    ) -> Result<ProtocolInitializer, ProtocolInitializerError> {
         let mut rng = rand_core::OsRng;
         let protocol_initializer = ProtocolInitializer::setup(
             protocol_parameters.to_owned().into(),
@@ -48,8 +40,7 @@ impl MithrilProtocolInitializerBuilder {
             kes_period,
             stake.to_owned(),
             &mut rng,
-        )
-        .map_err(|_| MithrilProtocolInitializerBuilderError::CardanoCryptoParse)?;
+        )?;
 
         Ok(protocol_initializer)
     }

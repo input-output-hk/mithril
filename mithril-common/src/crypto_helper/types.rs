@@ -1,5 +1,6 @@
 use crate::crypto_helper::cardano::{
-    KeyRegWrapper, ProtocolRegistrationErrorWrapper, StmInitializerWrapper,
+    KeyRegWrapper, ProtocolInitializerErrorWrapper, ProtocolRegistrationErrorWrapper,
+    StmInitializerWrapper,
 };
 
 use mithril_stm::stm::{
@@ -70,8 +71,11 @@ pub type ProtocolGenesisSecretKey = ed25519_dalek::SecretKey;
 pub type ProtocolGenesisSignature = ed25519_dalek::Signature;
 
 // Error alias
-/// Alias of a wrapper of [MithrilStm:RegisterError](enum@mithril_stm::RegisterError).
+/// Alias of a wrapper of [MithrilCommon:ProtocolRegistrationErrorWrapper](enum@mithril_common::ProtocolRegistrationErrorWrapper).
 pub type ProtocolRegistrationError = ProtocolRegistrationErrorWrapper;
+
+/// Alias of a wrapper of [MithrilCommon:ProtocolInitializerErrorWrapper](enum@mithril_common::ProtocolInitializerErrorWrapper).
+pub type ProtocolInitializerError = ProtocolInitializerErrorWrapper;
 
 /// Alias of [MithrilStm:AggregationError](enum@mithril_stm::AggregationError).
 pub type ProtocolAggregationError = AggregationError;
