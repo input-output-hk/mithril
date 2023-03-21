@@ -1,7 +1,10 @@
 use slog_scope::{crit, debug, error, info};
 use std::{fmt::Display, thread::sleep, time::Duration};
 
-use mithril_common::entities::{Beacon, CertificatePending, Epoch, EpochSettings, SignerWithStake};
+use mithril_common::{
+    crypto_helper::ProtocolInitializerError,
+    entities::{Beacon, CertificatePending, Epoch, EpochSettings, SignerWithStake},
+};
 
 use super::{Runner, RuntimeError};
 
@@ -304,15 +307,18 @@ impl StateMachine {
             .map_err(|e| RuntimeError::KeepState {
                 message: format!("Could not update stake distribution in 'unregistered → registered' phase for epoch {:?}.", beacon.epoch),
                 nested_error: Some(e) })?;
-        self.runner
-            .register_signer_to_aggregator(
-                epoch_settings.epoch,
-                &epoch_settings.next_protocol_parameters,
-            )
-            .await
-            .map_err(|e| RuntimeError::KeepState {
-                message: format!("Could not register to aggregator in 'unregistered → registered' phase for epoch {:?}.", beacon.epoch),
-                nested_error: Some(e) })?;
+
+        self.runner. register_signer_to_aggregator(
+            epoch_settings.epoch,
+            &epoch_settings.next_protocol_parameters,
+        )
+        .await.map_err(|e| {
+            if e.downcast_ref::<ProtocolInitializerError>().is_some(){
+                RuntimeError::Critical { message: format!("Could not register to aggregator in 'unregistered → registered' phase for epoch {:?}.", beacon.epoch), nested_error: Some(e) }
+            }else{
+                RuntimeError::KeepState { message: format!("Could not register to aggregator in 'unregistered → registered' phase for epoch {:?}.", beacon.epoch), nested_error: Some(e) }
+            }
+        })?;
 
         Ok(SignerState::Registered { beacon })
     }
