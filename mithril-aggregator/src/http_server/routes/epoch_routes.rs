@@ -84,8 +84,6 @@ mod handlers {
 
 #[cfg(test)]
 mod tests {
-    const API_SPEC_FILE: &str = "../openapi.yaml";
-
     use crate::http_server::SERVER_BASE_PATH;
     use mithril_common::test_utils::apispec::APISpec;
     use serde_json::Value::Null;
@@ -120,13 +118,14 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::from_file(API_SPEC_FILE)
-            .method(method)
-            .path(path)
-            .validate_request(&Null)
-            .unwrap()
-            .validate_response(&response)
-            .expect("OpenAPI error");
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/json",
+            &Null,
+            &response,
+        );
     }
 
     #[tokio::test]
@@ -141,12 +140,13 @@ mod tests {
             .reply(&setup_router(Arc::new(dependency_manager)))
             .await;
 
-        APISpec::from_file(API_SPEC_FILE)
-            .method(method)
-            .path(path)
-            .validate_request(&Null)
-            .unwrap()
-            .validate_response(&response)
-            .expect("OpenAPI error");
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/json",
+            &Null,
+            &response,
+        );
     }
 }

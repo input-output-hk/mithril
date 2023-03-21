@@ -2,6 +2,7 @@ use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder};
 use directories::ProjectDirs;
 use mithril_common::{
+    api_version::APIVersionProvider,
     certificate_chain::MithrilCertificateVerifier,
     crypto_helper::{key_decode_hex, ProtocolGenesisVerifier},
     digesters::{
@@ -49,8 +50,11 @@ impl RestoreCommand {
             .map_err(|e| format!("configuration deserialize error: {e}"))?;
         debug!("{:?}", config);
         let mut runtime = Runtime::new(config.network.clone());
-        let aggregator_handler =
-            AggregatorHTTPClient::new(config.network.clone(), config.aggregator_endpoint.clone());
+        let aggregator_handler = AggregatorHTTPClient::new(
+            config.clone().network,
+            config.clone().aggregator_endpoint,
+            APIVersionProvider::compute_all_versions_sorted()?,
+        );
         let certificate_verifier = Box::new(MithrilCertificateVerifier::new(slog_scope::logger()));
         let genesis_verification_key = key_decode_hex(&config.genesis_verification_key)?;
         let genesis_verifier =

@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+use mithril_common::api_version::APIVersionProvider;
 use mithril_common::digesters::ImmutableFileObserver;
 use mithril_common::entities::SignerWithStake;
 use mithril_common::era::{
@@ -146,6 +147,8 @@ impl StateMachineTester {
             era_epoch_token.get_current_epoch(),
         ));
 
+        let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
+
         let services = SignerServices {
             certificate_handler: certificate_handler.clone(),
             beacon_provider: beacon_provider.clone(),
@@ -156,6 +159,7 @@ impl StateMachineTester {
             stake_store: stake_store.clone(),
             era_checker: era_checker.clone(),
             era_reader,
+            api_version_provider,
         };
         // set up stake distribution
         chain_observer

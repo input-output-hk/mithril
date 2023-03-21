@@ -2,6 +2,7 @@ use std::{error::Error, fmt::Display, sync::Arc};
 
 use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder};
+use mithril_common::api_version::APIVersionProvider;
 use serde::Serialize;
 use slog_scope::debug;
 
@@ -36,8 +37,11 @@ impl DownloadCommand {
             .map_err(|e| format!("configuration deserialize error: {e}"))?;
         debug!("{:?}", config);
         let runtime = Runtime::new(config.network.clone());
-        let aggregator_handler =
-            AggregatorHTTPClient::new(config.network.clone(), config.aggregator_endpoint);
+        let aggregator_handler = AggregatorHTTPClient::new(
+            config.network.clone(),
+            config.aggregator_endpoint,
+            APIVersionProvider::compute_all_versions_sorted()?,
+        );
         let (from, to) = runtime
             .download_snapshot(
                 Arc::new(aggregator_handler),

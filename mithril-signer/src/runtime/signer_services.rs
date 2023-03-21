@@ -6,6 +6,7 @@ use std::{
 };
 
 use mithril_common::{
+    api_version::APIVersionProvider,
     chain_observer::{CardanoCliChainObserver, CardanoCliRunner, ChainObserver},
     crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
     digesters::{
@@ -152,9 +153,6 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             self.config.store_retention_limit,
         ));
         let single_signer = Arc::new(MithrilSingleSigner::new(self.compute_protocol_party_id()?));
-        let certificate_handler = Arc::new(CertificateHandlerHTTPClient::new(
-            self.config.aggregator_endpoint.clone(),
-        ));
         let digester = Arc::new(CardanoImmutableDigester::new(
             self.config.db_directory.clone(),
             self.build_digester_cache_provider().await?,
@@ -189,6 +187,12 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             era_epoch_token.get_current_epoch(),
         ));
 
+        let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
+        let certificate_handler = Arc::new(CertificateHandlerHTTPClient::new(
+            self.config.aggregator_endpoint.clone(),
+            api_version_provider.clone(),
+        ));
+
         let services = SignerServices {
             beacon_provider,
             certificate_handler,
@@ -199,6 +203,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             protocol_initializer_store,
             era_checker,
             era_reader,
+            api_version_provider,
         };
 
         Ok(services)
@@ -233,6 +238,9 @@ pub struct SignerServices {
 
     /// Era reader service
     pub era_reader: Arc<EraReader>,
+
+    /// API version provider
+    pub api_version_provider: Arc<APIVersionProvider>,
 }
 
 #[cfg(test)]

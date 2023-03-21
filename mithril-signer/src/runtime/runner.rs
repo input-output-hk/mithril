@@ -476,6 +476,7 @@ impl Runner for SignerRunner {
 #[cfg(test)]
 mod tests {
     use mithril_common::{
+        api_version::APIVersionProvider,
         chain_observer::{ChainObserver, FakeObserver},
         crypto_helper::ProtocolInitializer,
         digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
@@ -530,6 +531,8 @@ mod tests {
             era_epoch_token.get_current_epoch(),
         ));
 
+        let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
+
         SignerServices {
             stake_store: Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None)),
             certificate_handler: Arc::new(DumbCertificateHandler::default()),
@@ -543,6 +546,7 @@ mod tests {
             )),
             era_checker,
             era_reader,
+            api_version_provider,
         }
     }
 

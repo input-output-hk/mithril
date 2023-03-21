@@ -3,6 +3,7 @@ use std::{error::Error, sync::Arc};
 use clap::Parser;
 use cli_table::{print_stdout, WithTitle};
 use config::{builder::DefaultState, ConfigBuilder};
+use mithril_common::api_version::APIVersionProvider;
 use slog_scope::debug;
 
 use crate::{convert_to_field_items, AggregatorHTTPClient, Config, Runtime};
@@ -32,8 +33,11 @@ impl ShowCommand {
             .map_err(|e| format!("configuration deserialize error: {e}"))?;
         debug!("{:?}", config);
         let runtime = Runtime::new(config.network.clone());
-        let aggregator_handler =
-            AggregatorHTTPClient::new(config.network.clone(), config.aggregator_endpoint);
+        let aggregator_handler = AggregatorHTTPClient::new(
+            config.network.clone(),
+            config.aggregator_endpoint,
+            APIVersionProvider::compute_all_versions_sorted()?,
+        );
         let snapshot = runtime
             .show_snapshot(Arc::new(aggregator_handler), &self.digest)
             .await?;

@@ -1,9 +1,11 @@
+use async_recursion::async_recursion;
 use async_trait::async_trait;
 use flate2::read::GzDecoder;
 use futures::StreamExt;
 use mithril_common::MITHRIL_API_VERSION_HEADER;
 use reqwest::{self, Response, StatusCode};
 use reqwest::{Client, RequestBuilder};
+use semver::Version;
 use slog_scope::debug;
 use std::env;
 use std::fs;
@@ -13,12 +15,12 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tar::Archive;
 use thiserror::Error;
+use tokio::sync::RwLock;
 
 use mithril_common::{
     certificate_chain::{CertificateRetriever, CertificateRetrieverError},
     entities::{Certificate, Snapshot},
     messages::{CertificateMessage, SnapshotListMessage, SnapshotMessage},
-    MITHRIL_API_VERSION,
 };
 
 use crate::{
@@ -93,24 +95,57 @@ pub trait AggregatorHandler: CertificateRetriever + Sync + Send {
 pub struct AggregatorHTTPClient {
     network: String,
     aggregator_endpoint: String,
+    api_versions: Arc<RwLock<Vec<Version>>>,
 }
 
 impl AggregatorHTTPClient {
     /// AggregatorHTTPClient factory
-    pub fn new(network: String, aggregator_endpoint: String) -> Self {
+    pub fn new(network: String, aggregator_endpoint: String, api_versions: Vec<Version>) -> Self {
         debug!("New AggregatorHTTPClient created");
         Self {
             network,
             aggregator_endpoint,
+            api_versions: Arc::new(RwLock::new(api_versions)),
         }
     }
 
+    /// Computes the current api version
+    pub async fn compute_current_api_version(&self) -> Option<Version> {
+        self.api_versions.read().await.first().cloned()
+    }
+
+    /// Discards the current api version
+    /// It discards the current version if and only if there is at least 2 versions available
+    async fn discard_current_api_version(&self) -> Option<Version> {
+        if self.api_versions.read().await.len() < 2 {
+            return None;
+        }
+        if let Some(current_api_version) = self.compute_current_api_version().await {
+            let mut api_versions = self.api_versions.write().await;
+            if let Some(index) = api_versions
+                .iter()
+                .position(|value| *value == current_api_version)
+            {
+                api_versions.remove(index);
+                return Some(current_api_version);
+            }
+        }
+        None
+    }
+
     /// Forge a client request adding protocol version in the headers.
-    pub fn prepare_request_builder(&self, request_builder: RequestBuilder) -> RequestBuilder {
-        request_builder.header(MITHRIL_API_VERSION_HEADER, MITHRIL_API_VERSION)
+    pub async fn prepare_request_builder(&self, request_builder: RequestBuilder) -> RequestBuilder {
+        let current_api_version = self
+            .compute_current_api_version()
+            .await
+            .unwrap()
+            .to_string();
+        debug!("Prepare request with version: {}", current_api_version);
+        request_builder.header(MITHRIL_API_VERSION_HEADER, current_api_version)
     }
 
     /// Download certificate details
+    #[async_recursion]
     async fn download_certificate_details(
         &self,
         certificate_hash: &str,
@@ -122,6 +157,7 @@ impl AggregatorHTTPClient {
         );
         let response = self
             .prepare_request_builder(Client::new().get(url.clone()))
+            .await
             .send()
             .await;
 
@@ -136,6 +172,14 @@ impl AggregatorHTTPClient {
                 StatusCode::NOT_FOUND => Err(AggregatorHandlerError::RemoteServerLogical(
                     "certificate not found".to_string(),
                 )),
+                StatusCode::PRECONDITION_FAILED => {
+                    if self.discard_current_api_version().await.is_some()
+                        && !self.api_versions.read().await.is_empty()
+                    {
+                        return self.download_certificate_details(certificate_hash).await;
+                    }
+                    Err(self.handle_api_error(&response).await)
+                }
                 status_error => Err(AggregatorHandlerError::RemoteServerTechnical(
                     status_error.to_string(),
                 )),
@@ -147,16 +191,17 @@ impl AggregatorHTTPClient {
     }
 
     /// API version error handling
-    fn handle_api_error(&self, response: &Response) -> AggregatorHandlerError {
+    async fn handle_api_error(&self, response: &Response) -> AggregatorHandlerError {
         if let Some(version) = response.headers().get(MITHRIL_API_VERSION_HEADER) {
             AggregatorHandlerError::ApiVersionMismatch(format!(
                 "server version: '{}', signer version: '{}'",
                 version.to_str().unwrap(),
-                MITHRIL_API_VERSION
+                self.compute_current_api_version().await.unwrap()
             ))
         } else {
             AggregatorHandlerError::ApiVersionMismatch(format!(
-                "version precondition failed, sent version '{MITHRIL_API_VERSION}'."
+                "version precondition failed, sent version '{}'.",
+                self.compute_current_api_version().await.unwrap()
             ))
         }
     }
@@ -170,6 +215,7 @@ impl AggregatorHandler for AggregatorHTTPClient {
         let url = format!("{}/snapshots", self.aggregator_endpoint);
         let response = self
             .prepare_request_builder(Client::new().get(url.clone()))
+            .await
             .send()
             .await;
 
@@ -179,7 +225,14 @@ impl AggregatorHandler for AggregatorHTTPClient {
                     Ok(snapshots) => Ok(FromSnapshotListMessageAdapter::adapt(snapshots)),
                     Err(err) => Err(AggregatorHandlerError::JsonParseFailed(err.to_string())),
                 },
-                StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
+                StatusCode::PRECONDITION_FAILED => {
+                    if self.discard_current_api_version().await.is_some()
+                        && !self.api_versions.read().await.is_empty()
+                    {
+                        return self.list_snapshots().await;
+                    }
+                    return Err(self.handle_api_error(&response).await);
+                }
                 status_error => Err(AggregatorHandlerError::RemoteServerTechnical(
                     status_error.to_string(),
                 )),
@@ -196,6 +249,7 @@ impl AggregatorHandler for AggregatorHTTPClient {
         let url = format!("{}/snapshot/{}", self.aggregator_endpoint, digest);
         let response = self
             .prepare_request_builder(Client::new().get(url.clone()))
+            .await
             .send()
             .await;
 
@@ -205,7 +259,14 @@ impl AggregatorHandler for AggregatorHTTPClient {
                     Ok(snapshot) => Ok(FromSnapshotMessageAdapter::adapt(snapshot)),
                     Err(err) => Err(AggregatorHandlerError::JsonParseFailed(err.to_string())),
                 },
-                StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
+                StatusCode::PRECONDITION_FAILED => {
+                    if self.discard_current_api_version().await.is_some()
+                        && !self.api_versions.read().await.is_empty()
+                    {
+                        return self.get_snapshot_details(digest).await;
+                    }
+                    return Err(self.handle_api_error(&response).await);
+                }
                 StatusCode::NOT_FOUND => Err(AggregatorHandlerError::RemoteServerLogical(
                     "snapshot not found".to_string(),
                 )),
@@ -228,6 +289,7 @@ impl AggregatorHandler for AggregatorHTTPClient {
         debug!("Download snapshot {} from {}", digest, location);
         let response = self
             .prepare_request_builder(Client::new().get(location.to_owned()))
+            .await
             .send()
             .await;
 
@@ -260,7 +322,14 @@ impl AggregatorHandler for AggregatorHTTPClient {
                     }
                     Ok(local_path.into_os_string().into_string().unwrap())
                 }
-                StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),
+                StatusCode::PRECONDITION_FAILED => {
+                    if self.discard_current_api_version().await.is_some()
+                        && !self.api_versions.read().await.is_empty()
+                    {
+                        return self.download_snapshot(digest, location).await;
+                    }
+                    return Err(self.handle_api_error(&response).await);
+                }
                 StatusCode::NOT_FOUND => Err(AggregatorHandlerError::RemoteServerLogical(
                     "snapshot archive not found".to_string(),
                 )),
@@ -326,6 +395,7 @@ mod tests {
     use flate2::write::GzEncoder;
     use flate2::Compression;
     use httpmock::prelude::*;
+    use mithril_common::api_version::APIVersionProvider;
     use serde_json::json;
 
     use mithril_common::test_utils::fake_data;
@@ -379,8 +449,11 @@ mod tests {
             when.path("/snapshots");
             then.status(200).body(json!(snapshots_expected).to_string());
         });
-        let aggregator_client =
-            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
+        let aggregator_client = AggregatorHTTPClient::new(
+            config.network,
+            config.aggregator_endpoint,
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
+        );
         let snapshots = aggregator_client.list_snapshots().await;
         snapshots.as_ref().expect("unexpected error");
         assert_eq!(snapshots.unwrap(), snapshots_expected);
@@ -391,11 +464,21 @@ mod tests {
         let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.path("/snapshots");
-            then.status(412)
-                .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
+            then.status(412).header(
+                MITHRIL_API_VERSION_HEADER,
+                APIVersionProvider::compute_all_versions_sorted()
+                    .unwrap()
+                    .first()
+                    .unwrap()
+                    .to_string(),
+            );
         });
-        let aggregator_client =
-            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
+
+        let aggregator_client = AggregatorHTTPClient::new(
+            config.network,
+            config.aggregator_endpoint,
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
+        );
         let error = aggregator_client.list_snapshots().await.unwrap_err();
 
         assert!(error.is_api_version_mismatch());
@@ -408,16 +491,23 @@ mod tests {
             when.path("/snapshots");
             then.status(500);
         });
-        let aggregator_client =
-            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
+        let aggregator_client = AggregatorHTTPClient::new(
+            config.network,
+            config.aggregator_endpoint,
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
+        );
         let snapshots = aggregator_client.list_snapshots().await;
         assert!(snapshots.is_err());
     }
 
     #[tokio::test]
     async fn test_list_snapshots_ko_unreachable() {
-        let aggregator_client =
-            AggregatorHTTPClient::new("testnet".to_string(), "http://unreachable".to_string());
+        let (_, config) = setup_test();
+        let aggregator_client = AggregatorHTTPClient::new(
+            config.network,
+            config.aggregator_endpoint,
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
+        );
         let snapshots = aggregator_client.list_snapshots().await;
         assert!(snapshots.is_err());
     }
@@ -431,8 +521,11 @@ mod tests {
             when.path(format!("/snapshot/{digest}"));
             then.status(200).body(json!(snapshot_expected).to_string());
         });
-        let aggregator_client =
-            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
+        let aggregator_client = AggregatorHTTPClient::new(
+            config.network,
+            config.aggregator_endpoint,
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
+        );
         let snapshot = aggregator_client.get_snapshot_details(digest).await;
         snapshot.as_ref().expect("unexpected error");
         assert_eq!(snapshot.unwrap(), snapshot_expected);
@@ -446,8 +539,11 @@ mod tests {
             when.path(format!("/snapshot/{digest}"));
             then.status(404);
         });
-        let aggregator_client =
-            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
+        let aggregator_client = AggregatorHTTPClient::new(
+            config.network,
+            config.aggregator_endpoint,
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
+        );
         let snapshot = aggregator_client.get_snapshot_details(digest).await;
         assert!(snapshot.is_err());
     }
@@ -461,8 +557,11 @@ mod tests {
             then.status(412)
                 .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
         });
-        let aggregator_client =
-            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
+        let aggregator_client = AggregatorHTTPClient::new(
+            config.network,
+            config.aggregator_endpoint,
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
+        );
         let error = aggregator_client
             .get_snapshot_details(digest)
             .await
@@ -479,8 +578,11 @@ mod tests {
             when.path(format!("/snapshot/{digest}"));
             then.status(500);
         });
-        let aggregator_client =
-            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
+        let aggregator_client = AggregatorHTTPClient::new(
+            config.network,
+            config.aggregator_endpoint,
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
+        );
         let snapshot = aggregator_client.get_snapshot_details(digest).await;
         assert!(snapshot.is_err());
     }
@@ -488,8 +590,12 @@ mod tests {
     #[tokio::test]
     async fn get_snapshot_details_ko_unreachable() {
         let digest = "digest123";
-        let aggregator_client =
-            AggregatorHTTPClient::new("testnet".to_string(), "http123://unreachable".to_string());
+        let (_, config) = setup_test();
+        let aggregator_client = AggregatorHTTPClient::new(
+            config.network,
+            config.aggregator_endpoint,
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
+        );
         let snapshot = aggregator_client.get_snapshot_details(digest).await;
         assert!(snapshot.is_err());
     }
@@ -506,8 +612,11 @@ mod tests {
         });
         ensure_snapshot_dir_does_not_exist(digest, &config.network);
 
-        let aggregator_client =
-            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
+        let aggregator_client = AggregatorHTTPClient::new(
+            config.network,
+            config.aggregator_endpoint,
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
+        );
         let location = server.url(url_path);
         let local_file_path = aggregator_client.download_snapshot(digest, &location).await;
         local_file_path.as_ref().expect("unexpected error");
@@ -526,8 +635,11 @@ mod tests {
             then.status(412)
                 .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
         });
-        let aggregator_client =
-            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
+        let aggregator_client = AggregatorHTTPClient::new(
+            config.network,
+            config.aggregator_endpoint,
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
+        );
         let location = server.url(url_path);
         let error = aggregator_client
             .download_snapshot(digest, &location)
@@ -546,8 +658,11 @@ mod tests {
             when.path(url_path.to_string());
             then.status(500);
         });
-        let aggregator_client =
-            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
+        let aggregator_client = AggregatorHTTPClient::new(
+            config.network,
+            config.aggregator_endpoint,
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
+        );
         let location = server.url(url_path);
         let local_file_path = aggregator_client.download_snapshot(digest, &location).await;
         assert!(local_file_path.is_err());
@@ -557,8 +672,11 @@ mod tests {
     async fn get_download_snapshot_ko_500() {
         let digest = "digest_get_download_snapshot_ko_500";
         let (_, config) = setup_test();
-        let aggregator_client =
-            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
+        let aggregator_client = AggregatorHTTPClient::new(
+            config.network,
+            config.aggregator_endpoint,
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
+        );
         let location = "http123://unreachable".to_string();
         let local_file_path = aggregator_client.download_snapshot(digest, &location).await;
         assert!(local_file_path.is_err());
@@ -573,8 +691,11 @@ mod tests {
         ensure_snapshot_dir_does_not_exist(digest, &config.network);
         build_dummy_snapshot(digest, &config.network, &data_expected);
 
-        let aggregator_client =
-            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
+        let aggregator_client = AggregatorHTTPClient::new(
+            config.network,
+            config.aggregator_endpoint,
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
+        );
         let local_dir_path = aggregator_client.unpack_snapshot(digest).await;
         local_dir_path.expect("unexpected error");
     }
@@ -585,8 +706,11 @@ mod tests {
         let (_, config) = setup_test();
         ensure_snapshot_dir_does_not_exist(digest, &config.network);
 
-        let aggregator_client =
-            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
+        let aggregator_client = AggregatorHTTPClient::new(
+            config.network,
+            config.aggregator_endpoint,
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
+        );
         let local_dir_path = aggregator_client.unpack_snapshot(digest).await;
         assert!(local_dir_path.is_err());
     }
@@ -600,8 +724,11 @@ mod tests {
             then.status(412)
                 .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
         });
-        let aggregator_client =
-            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
+        let aggregator_client = AggregatorHTTPClient::new(
+            config.network,
+            config.aggregator_endpoint,
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
+        );
         let _error = aggregator_client
             .get_certificate_details(certificate_hash)
             .await
@@ -618,8 +745,11 @@ mod tests {
             then.status(200)
                 .body(json!(certificate_expected).to_string());
         });
-        let aggregator_client =
-            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
+        let aggregator_client = AggregatorHTTPClient::new(
+            config.network,
+            config.aggregator_endpoint,
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
+        );
         let certificate = aggregator_client
             .get_certificate_details(certificate_hash)
             .await;
@@ -635,8 +765,11 @@ mod tests {
             when.path(format!("/certificate/{certificate_hash}"));
             then.status(404);
         });
-        let aggregator_client =
-            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
+        let aggregator_client = AggregatorHTTPClient::new(
+            config.network,
+            config.aggregator_endpoint,
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
+        );
         let certificate = aggregator_client
             .get_certificate_details(certificate_hash)
             .await;
@@ -651,8 +784,11 @@ mod tests {
             when.path(format!("/certificate/{certificate_hash}"));
             then.status(500);
         });
-        let aggregator_client =
-            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint);
+        let aggregator_client = AggregatorHTTPClient::new(
+            config.network,
+            config.aggregator_endpoint,
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
+        );
         let certificate = aggregator_client
             .get_certificate_details(certificate_hash)
             .await;
@@ -662,11 +798,57 @@ mod tests {
     #[tokio::test]
     async fn get_certificate_details_ko_unreachable() {
         let certificate_hash = "certificate-hash-123";
-        let aggregator_client =
-            AggregatorHTTPClient::new("testnet".to_string(), "http123://unreachable".to_string());
+        let (_, config) = setup_test();
+        let aggregator_client = AggregatorHTTPClient::new(
+            config.network,
+            config.aggregator_endpoint,
+            APIVersionProvider::compute_all_versions_sorted().unwrap(),
+        );
         let certificate = aggregator_client
             .get_certificate_details(certificate_hash)
             .await;
         assert!(certificate.is_err());
+    }
+
+    #[tokio::test]
+    async fn discard_current_api_version_zero_version() {
+        let (_, config) = setup_test();
+        let aggregator_client =
+            AggregatorHTTPClient::new(config.network, config.aggregator_endpoint, vec![]);
+        assert!(aggregator_client
+            .discard_current_api_version()
+            .await
+            .is_none());
+    }
+
+    #[tokio::test]
+    async fn discard_current_api_version_one_version() {
+        let (_, config) = setup_test();
+        let aggregator_client = AggregatorHTTPClient::new(
+            config.network,
+            config.aggregator_endpoint,
+            vec![Version::parse("0.1.2").unwrap()],
+        );
+        assert!(aggregator_client
+            .discard_current_api_version()
+            .await
+            .is_none());
+    }
+
+    #[tokio::test]
+    async fn discard_current_api_version_two_version() {
+        let (_, config) = setup_test();
+        let aggregator_client = AggregatorHTTPClient::new(
+            config.network,
+            config.aggregator_endpoint,
+            vec![
+                Version::parse("0.1.2").unwrap(),
+                Version::parse("0.2.0").unwrap(),
+            ],
+        );
+        assert_eq!(
+            Some(Version::parse("0.1.2").unwrap()),
+            aggregator_client.discard_current_api_version().await
+        );
     }
 }
