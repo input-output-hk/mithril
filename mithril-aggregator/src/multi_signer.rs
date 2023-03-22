@@ -9,8 +9,7 @@ use mithril_common::{
     crypto_helper::{
         key_decode_hex, key_encode_hex, ProtocolAggregateVerificationKey, ProtocolAggregationError,
         ProtocolClerk, ProtocolKeyRegistration, ProtocolMultiSignature, ProtocolParameters,
-        ProtocolPartyId, ProtocolRegistrationError, ProtocolSignerVerificationKey,
-        ProtocolSingleSignature, ProtocolStakeDistribution,
+        ProtocolRegistrationError, ProtocolSingleSignature, ProtocolStakeDistribution,
     },
     entities::{self, Epoch, SignerWithStake, StakeDistribution},
     store::{StakeStorer, StoreError},
@@ -169,12 +168,6 @@ pub trait MultiSigner: Sync + Send {
         }
     }
 
-    /// Get signer
-    async fn get_signer_verification_key(
-        &self,
-        party_id: ProtocolPartyId,
-    ) -> Result<Option<ProtocolSignerVerificationKey>, ProtocolError>;
-
     /// Get signers
     async fn get_signers(&self) -> Result<Vec<entities::Signer>, ProtocolError> {
         debug!("Get signers");
@@ -224,9 +217,6 @@ pub struct MultiSignerImpl {
     /// Created multi signature for message signed
     multi_signature: Option<ProtocolMultiSignature>,
 
-    /// Created aggregate verification key
-    avk: Option<ProtocolAggregateVerificationKey>,
-
     /// Verification key store
     verification_key_store: Arc<VerificationKeyStore>,
 
@@ -255,7 +245,6 @@ impl MultiSignerImpl {
             current_initiated_at: None,
             clerk: None,
             multi_signature: None,
-            avk: None,
             verification_key_store,
             stake_store,
             single_signature_store,
@@ -513,31 +502,6 @@ impl MultiSigner for MultiSignerImpl {
         }
     }
 
-    /// Get signer verification key
-    async fn get_signer_verification_key(
-        &self,
-        party_id: ProtocolPartyId,
-    ) -> Result<Option<ProtocolSignerVerificationKey>, ProtocolError> {
-        debug!("Get signer {}", party_id);
-        let epoch = self
-            .current_beacon
-            .as_ref()
-            .ok_or_else(ProtocolError::UnavailableBeacon)?
-            .epoch
-            .offset_to_signer_retrieval_epoch()?;
-        let signers = self
-            .verification_key_store
-            .get_verification_keys(epoch)
-            .await?
-            .unwrap_or_default();
-        match signers.get(&party_id) {
-            Some(signer) => Ok(Some(
-                key_decode_hex(&signer.verification_key).map_err(ProtocolError::Codec)?,
-            )),
-            _ => Ok(None),
-        }
-    }
-
     async fn get_signers_with_stake(&self) -> Result<Vec<SignerWithStake>, ProtocolError> {
         debug!("Get signers with stake");
         let epoch = self
@@ -705,7 +669,6 @@ impl MultiSigner for MultiSignerImpl {
             .ok_or_else(ProtocolError::UnavailableClerk)?;
         match clerk.aggregate(&signatures, message.compute_hash().as_bytes()) {
             Ok(multi_signature) => {
-                self.avk = Some(clerk.compute_avk());
                 self.multi_signature = Some(multi_signature.clone());
                 Ok(Some(multi_signature))
             }
