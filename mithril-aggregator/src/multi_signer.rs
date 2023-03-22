@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use chrono::prelude::*;
 use hex::ToHex;
-use slog_scope::{debug, trace, warn};
+use slog_scope::{debug, warn};
 use std::sync::Arc;
 use thiserror::Error;
 
@@ -211,9 +211,6 @@ pub struct MultiSignerImpl {
     /// Signing start datetime of current message
     current_initiated_at: Option<DateTime<Utc>>,
 
-    /// Clerk used for verifying the single signatures
-    clerk: Option<ProtocolClerk>,
-
     /// Created multi signature for message signed
     multi_signature: Option<ProtocolMultiSignature>,
 
@@ -243,7 +240,6 @@ impl MultiSignerImpl {
             current_message: None,
             current_beacon: None,
             current_initiated_at: None,
-            clerk: None,
             multi_signature: None,
             verification_key_store,
             stake_store,
@@ -354,31 +350,6 @@ impl MultiSigner for MultiSignerImpl {
         debug!("Update current_message"; "protocol_message" =>  #?message, "signed message" => message.compute_hash().encode_hex::<String>());
 
         self.multi_signature = None;
-        let signers_with_stake = self.get_signers_with_stake().await?;
-        let protocol_parameters = self
-            .get_protocol_parameters()
-            .await?
-            .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
-        match self
-            .create_clerk(&signers_with_stake, &protocol_parameters)
-            .await
-        {
-            Ok(Some(clerk)) => {
-                trace!("update_current_message::new_clerk_created");
-                self.clerk = Some(clerk)
-            }
-            Ok(None) => {
-                warn!(
-                    "update_current_message::no_clerk_created: probably not enough signers with valid verification keys";
-                    "signers" => ?signers_with_stake
-                );
-                self.clerk = None
-            }
-            Err(ProtocolError::Beacon(err)) => {
-                warn!("update_current_message::error"; "error" => ?err);
-            }
-            Err(e) => return Err(e),
-        }
         self.current_initiated_at = Some(Utc::now());
         self.current_message = Some(message);
         Ok(())
@@ -585,14 +556,16 @@ impl MultiSigner for MultiSignerImpl {
             .await?
             .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
 
-        let clerk = self
-            .clerk
-            .as_ref()
-            .ok_or_else(ProtocolError::UnavailableClerk)?;
-
         let signature = signatures
             .to_protocol_signature()
             .map_err(ProtocolError::Codec)?;
+
+        let signers_with_stakes = self.get_signers_with_stake().await?;
+
+        let clerk = self
+            .create_clerk(&signers_with_stakes, &protocol_parameters)
+            .await?
+            .ok_or_else(ProtocolError::UnavailableClerk)?;
 
         let avk = clerk.compute_avk();
 
@@ -649,6 +622,11 @@ impl MultiSigner for MultiSignerImpl {
             .current_beacon
             .as_ref()
             .ok_or_else(ProtocolError::UnavailableBeacon)?;
+        let protocol_parameters = self
+            .get_protocol_parameters()
+            .await?
+            .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
+
         let signatures: Vec<ProtocolSingleSignature> = self
             .single_signature_store
             .get_single_signatures(beacon)
@@ -663,10 +641,13 @@ impl MultiSigner for MultiSignerImpl {
             })
             .collect::<Vec<_>>();
 
+        let signers_with_stakes = self.get_signers_with_stake().await?;
+
         let clerk = self
-            .clerk
-            .as_ref()
+            .create_clerk(&signers_with_stakes, &protocol_parameters)
+            .await?
             .ok_or_else(ProtocolError::UnavailableClerk)?;
+
         match clerk.aggregate(&signatures, message.compute_hash().as_bytes()) {
             Ok(multi_signature) => {
                 self.multi_signature = Some(multi_signature.clone());
