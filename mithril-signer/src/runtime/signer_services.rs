@@ -1,9 +1,7 @@
 use async_trait::async_trait;
 use sqlite::Connection;
-use std::{
-    fs,
-    sync::{Arc, Mutex},
-};
+use std::{fs, sync::Arc};
+use tokio::sync::Mutex;
 
 use mithril_common::{
     api_version::APIVersionProvider,

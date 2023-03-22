@@ -35,7 +35,7 @@ pub use crate::configuration::{
 pub use crate::multi_signer::{MultiSigner, MultiSignerImpl, ProtocolError};
 pub use crate::snapshot_stores::{LocalSnapshotStore, SnapshotStore};
 pub use certificate_creator::{CertificateCreator, MithrilCertificateCreator};
-pub use command_args::MainOpts;
+pub use command_args::{check_database_migration, MainOpts};
 pub use dependency::DependencyManager;
 pub use message_adapters::{
     FromRegisterSignerAdapter, ToCertificatePendingMessageAdapter, ToEpochSettingsMessageAdapter,

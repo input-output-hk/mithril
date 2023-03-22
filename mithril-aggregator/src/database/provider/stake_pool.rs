@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::NaiveDateTime;
@@ -14,6 +14,7 @@ use mithril_common::{
 };
 
 use mithril_common::StdError;
+use tokio::sync::Mutex;
 
 /// Delete stake pools for Epoch older than this.
 const STAKE_POOL_PRUNE_EPOCH_THRESHOLD: Epoch = Epoch(2);
@@ -246,10 +247,7 @@ impl StakeStorer for StakePoolStore {
         epoch: Epoch,
         stakes: StakeDistribution,
     ) -> Result<Option<StakeDistribution>, StoreError> {
-        let connection = &*self
-            .connection
-            .lock()
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+        let connection = &*self.connection.lock().await;
         let provider = UpdateStakePoolProvider::new(connection);
         let mut new_stakes = StakeDistribution::new();
         connection
@@ -276,10 +274,7 @@ impl StakeStorer for StakePoolStore {
     }
 
     async fn get_stakes(&self, epoch: Epoch) -> Result<Option<StakeDistribution>, StoreError> {
-        let connection = &*self
-            .connection
-            .lock()
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+        let connection = &*self.connection.lock().await;
         let provider = StakePoolProvider::new(connection);
         let cursor = provider
             .get_by_epoch(&epoch)

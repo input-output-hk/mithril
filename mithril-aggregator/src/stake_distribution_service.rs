@@ -87,7 +87,7 @@ impl std::error::Error for StakePoolDistributionServiceError {}
 
 /// Responsible of synchronizing with Cardano stake distribution.
 #[async_trait]
-pub trait StakeDistributionService {
+pub trait StakeDistributionService: Sync + Send {
     /// Return the stake distribution fot the given epoch.
     async fn get_stake_distribution(
         &self,
@@ -226,8 +226,6 @@ impl StakeDistributionService for MithrilStakeDistributionService {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Mutex;
-
     use crate::database::provider::setup_stake_db;
 
     use super::*;

@@ -2,14 +2,9 @@ use async_trait::async_trait;
 use serde::{de::DeserializeOwned, Serialize};
 use sha2::{Digest, Sha256};
 use sqlite::{Connection, State, Statement};
+use tokio::sync::Mutex;
 
-use std::{
-    marker::PhantomData,
-    ops::Deref,
-    sync::{Arc, Mutex},
-    thread::sleep,
-    time::Duration,
-};
+use std::{marker::PhantomData, ops::Deref, sync::Arc, thread::sleep, time::Duration};
 
 use super::{AdapterError, StoreAdapter};
 
@@ -34,9 +29,7 @@ where
     /// Create a new SQLiteAdapter instance.
     pub fn new(table_name: &str, connection: Arc<Mutex<Connection>>) -> Result<Self> {
         {
-            let conn = &*connection.lock().map_err(|e| {
-                AdapterError::GeneralError(format!("SQLite adapter instanciation failed: '{e}'."))
-            })?;
+            let conn = &*connection.blocking_lock();
             Self::check_table_exists(conn, table_name)?;
         }
 
@@ -156,10 +149,7 @@ where
     type Record = V;
 
     async fn store_record(&mut self, key: &Self::Key, record: &Self::Record) -> Result<()> {
-        let lock = self
-            .connection
-            .lock()
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+        let lock = self.connection.lock().await;
         let connection = lock.deref();
         let sql = format!(
             "insert into {} (key_hash, key, value) values (?1, ?2, ?3) on conflict (key_hash) do update set value = excluded.value",
@@ -190,10 +180,7 @@ where
     }
 
     async fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>> {
-        let lock = self
-            .connection
-            .lock()
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+        let lock = self.connection.lock().await;
         let connection = lock.deref();
         let sql = format!("select value from {} where key_hash = ?1", self.table);
         let statement = self.get_statement_for_key(connection, sql, key)?;
@@ -202,10 +189,7 @@ where
     }
 
     async fn record_exists(&self, key: &Self::Key) -> Result<bool> {
-        let lock = self
-            .connection
-            .lock()
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+        let lock = self.connection.lock().await;
         let connection = lock.deref();
         let sql = format!(
             "select exists(select 1 from {} where key_hash = ?1) as record_exists",
@@ -225,10 +209,7 @@ where
     }
 
     async fn get_last_n_records(&self, how_many: usize) -> Result<Vec<(Self::Key, Self::Record)>> {
-        let lock = self
-            .connection
-            .lock()
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+        let lock = self.connection.lock().await;
         let connection = lock.deref();
         let sql = format!(
             "select cast(key as text) as key, cast(value as text) as value from {} order by ROWID desc limit ?1",
@@ -260,10 +241,7 @@ where
             "delete from {} where key_hash = ?1 returning value",
             self.table
         );
-        let lock = self
-            .connection
-            .lock()
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+        let lock = self.connection.lock().await;
         let connection = lock.deref();
         let statement = self.get_statement_for_key(connection, sql, key)?;
 
@@ -271,10 +249,7 @@ where
     }
 
     async fn get_iter(&self) -> Result<Box<dyn Iterator<Item = Self::Record> + '_>> {
-        let lock = self
-            .connection
-            .lock()
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+        let lock = self.connection.lock().await;
         let connection = lock.deref();
         let iterator = SQLiteResultIterator::new(connection, &self.table)?;
 
