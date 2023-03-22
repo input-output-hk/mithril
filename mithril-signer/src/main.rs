@@ -5,7 +5,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use mithril_common::database::{ApplicationNodeType, DatabaseVersionChecker};
 use mithril_signer::{
     Configuration, DefaultConfiguration, ProductionServiceBuilder, ServiceBuilder, SignerRunner,
     SignerState, StateMachine,
@@ -102,13 +101,6 @@ async fn main() -> Result<(), String> {
         .build()
         .await
         .map_err(|e| e.to_string())?;
-    DatabaseVersionChecker::new(
-        slog_scope::logger(),
-        ApplicationNodeType::Signer,
-        config.get_sqlite_file(),
-    )
-    .apply()
-    .map_err(|e| e.to_string())?;
     debug!("Started"; "run_mode" => &args.run_mode, "config" => format!("{config:?}"));
 
     let mut state_machine = StateMachine::new(

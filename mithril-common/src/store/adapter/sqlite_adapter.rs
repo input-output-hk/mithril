@@ -29,7 +29,9 @@ where
     /// Create a new SQLiteAdapter instance.
     pub fn new(table_name: &str, connection: Arc<Mutex<Connection>>) -> Result<Self> {
         {
-            let conn = &*connection.blocking_lock();
+            let conn = &*connection
+                .try_lock()
+                .map_err(|e| AdapterError::InitializationError(e.into()))?;
             Self::check_table_exists(conn, table_name)?;
         }
 

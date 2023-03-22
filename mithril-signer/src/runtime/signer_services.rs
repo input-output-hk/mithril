@@ -7,6 +7,7 @@ use mithril_common::{
     api_version::APIVersionProvider,
     chain_observer::{CardanoCliChainObserver, CardanoCliRunner, ChainObserver},
     crypto_helper::{OpCert, ProtocolPartyId, SerDeShelleyFileFormat},
+    database::{ApplicationNodeType, DatabaseVersionChecker},
     digesters::{
         cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder},
         ImmutableFileObserver,
@@ -143,6 +144,16 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
 
         let sqlite_db_path = self.config.get_sqlite_file();
         let sqlite_connection = Arc::new(Mutex::new(Connection::open(sqlite_db_path)?));
+        DatabaseVersionChecker::new(
+            slog_scope::logger(),
+            ApplicationNodeType::Signer,
+            sqlite_connection.clone(),
+        )
+        .apply()
+        .await
+        .map_err(|e| -> Box<dyn std::error::Error> {
+            format!("Database migration error {e}").into()
+        })?;
         let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
             Box::new(SQLiteAdapter::new(
                 "protocol_initializer",

@@ -17,7 +17,7 @@ use tokio::sync::{Mutex, MutexGuard};
 
 use crate::database::provider::StakePoolStore;
 
-/// Errors related to the [StakePoolDistributionService].
+/// Errors related to the [StakeDistributionService].
 #[derive(Debug)]
 pub enum StakePoolDistributionServiceError {
     /// Critical errors cannot be recovered.

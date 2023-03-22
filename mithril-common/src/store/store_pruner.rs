@@ -41,12 +41,10 @@ pub trait StorePruner {
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        cmp::min,
-        sync::{Arc, Mutex},
-    };
+    use std::{cmp::min, sync::Arc};
 
     use sqlite::Connection;
+    use tokio::sync::Mutex;
 
     use crate::store::adapter::SQLiteAdapter;
 
