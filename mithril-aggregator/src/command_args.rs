@@ -3,16 +3,9 @@ use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind
 use slog::Level;
 use slog_scope::{crit, debug, info};
 use sqlite::Connection;
-use std::{
-    error::Error,
-    ffi::OsStr,
-    fs,
-    net::IpAddr,
-    path::PathBuf,
-    sync::{Arc, Mutex},
-};
+use std::{error::Error, ffi::OsStr, fs, net::IpAddr, path::PathBuf, sync::Arc};
 use tokio::{
-    sync::{oneshot, RwLock},
+    sync::{oneshot, Mutex, RwLock},
     task::JoinSet,
     time::Duration,
 };
@@ -40,6 +33,7 @@ use crate::{
     database::provider::StakePoolStore,
     event_store::{self, TransmitterService},
     http_server::routes::router,
+    stake_distribution_service::MithrilStakeDistributionService,
     tools::{EraTools, GenesisTools, GenesisToolsDependency},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
     CertificateStore, Configuration, DefaultConfiguration, DependencyManager, GenesisConfiguration,
@@ -49,12 +43,10 @@ use crate::{
 
 const SQLITE_MONITORING_FILE: &str = "monitoring.sqlite3";
 
-fn setup_genesis_dependencies(
+async fn setup_genesis_dependencies(
     config: &GenesisConfiguration,
 ) -> Result<GenesisToolsDependency, Box<dyn std::error::Error>> {
     let sqlite_db_path = Some(config.get_sqlite_file());
-    check_database_migration(config.get_sqlite_file())?;
-
     let chain_observer = Arc::new(
         mithril_common::chain_observer::CardanoCliChainObserver::new(Box::new(
             CardanoCliRunner::new(
@@ -70,6 +62,11 @@ fn setup_genesis_dependencies(
             .map(|path| path.as_os_str())
             .unwrap_or(OsStr::new(":memory:")),
     )?));
+
+    // DATABASE MIGRATION
+    check_database_migration(sqlite_connection.clone()).await?;
+
+    let stake_store = Arc::new(StakePoolStore::new(sqlite_connection.clone()));
     let immutable_file_observer = Arc::new(ImmutableFileSystemObserver::new(&config.db_directory));
     let beacon_provider = Arc::new(BeaconProviderImpl::new(
         chain_observer,
@@ -99,7 +96,6 @@ fn setup_genesis_dependencies(
         )?),
         config.store_retention_limit,
     ));
-    let stake_store = Arc::new(StakePoolStore::new(sqlite_connection.clone()));
     let single_signature_store = Arc::new(SingleSignatureStore::new(
         Box::new(SQLiteAdapter::new("single_signature", sqlite_connection)?),
         config.store_retention_limit,
@@ -159,18 +155,23 @@ async fn do_first_launch_initialization_if_needed(
 
 /// Database version checker.
 /// This is the place where migrations are to be registered.
-fn check_database_migration(sql_file_path: PathBuf) -> Result<(), Box<dyn Error>> {
+pub async fn check_database_migration(
+    connection: Arc<Mutex<Connection>>,
+) -> Result<(), Box<dyn Error>> {
     let mut db_checker = DatabaseVersionChecker::new(
         slog_scope::logger(),
         ApplicationNodeType::Aggregator,
-        sql_file_path,
+        connection,
     );
 
     for migration in crate::database::migration::get_migrations() {
         db_checker.add_migration(migration);
     }
 
-    db_checker.apply().map_err(|e| -> Box<dyn Error> { e })
+    db_checker
+        .apply()
+        .await
+        .map_err(|e| -> Box<dyn Error> { e })
 }
 
 /// Mithril Aggregator Node
@@ -345,11 +346,14 @@ impl ServeCommand {
             .try_deserialize()
             .map_err(|e| format!("configuration deserialize error: {e}"))?;
         debug!("SERVE command"; "config" => format!("{config:?}"));
-        check_database_migration(config.get_sqlite_file())?;
 
         // Init dependencies
         let sqlite_db_path = config.get_sqlite_file();
         let sqlite_connection = Arc::new(Mutex::new(Connection::open(sqlite_db_path)?));
+
+        // DATABASE MIGRATION
+        check_database_migration(sqlite_connection.clone()).await?;
+
         let snapshot_store = Arc::new(LocalSnapshotStore::new(
             Box::new(SQLiteAdapter::new("snapshot", sqlite_connection.clone())?),
             LIST_SNAPSHOTS_MAX_ITEMS,
@@ -370,7 +374,6 @@ impl ServeCommand {
             )?),
             config.store_retention_limit,
         ));
-        let stake_store = Arc::new(StakePoolStore::new(sqlite_connection.clone()));
         let single_signature_store = Arc::new(SingleSignatureStore::new(
             Box::new(SQLiteAdapter::new(
                 "single_signature",
@@ -381,7 +384,7 @@ impl ServeCommand {
         let protocol_parameters_store = Arc::new(ProtocolParametersStore::new(
             Box::new(SQLiteAdapter::new(
                 "protocol_parameters",
-                sqlite_connection,
+                sqlite_connection.clone(),
             )?),
             config.store_retention_limit,
         ));
@@ -394,6 +397,11 @@ impl ServeCommand {
                 ),
             )),
         );
+        let stake_store = Arc::new(StakePoolStore::new(sqlite_connection.clone()));
+        let stake_distribution_service = Arc::new(MithrilStakeDistributionService::new(
+            stake_store.clone(),
+            chain_observer.clone(),
+        ));
         let immutable_file_observer =
             Arc::new(ImmutableFileSystemObserver::new(&config.db_directory));
         let beacon_provider = Arc::new(BeaconProviderImpl::new(
@@ -452,13 +460,14 @@ impl ServeCommand {
         // Init dependency manager
         let dependency_manager = DependencyManager {
             config: config.clone(),
+            sqlite_connection,
+            stake_store,
             snapshot_store: snapshot_store.clone(),
             snapshot_uploader: snapshot_uploader.clone(),
             multi_signer: multi_signer.clone(),
             certificate_pending_store: certificate_pending_store.clone(),
             certificate_store: certificate_store.clone(),
             verification_key_store: verification_key_store.clone(),
-            stake_store: stake_store.clone(),
             single_signature_store: single_signature_store.clone(),
             protocol_parameters_store: protocol_parameters_store.clone(),
             chain_observer: chain_observer.clone(),
@@ -474,6 +483,7 @@ impl ServeCommand {
             era_reader: era_reader.clone(),
             event_transmitter,
             api_version_provider,
+            stake_distribution_service,
         };
         let dependency_manager = Arc::new(dependency_manager);
 
@@ -633,7 +643,7 @@ impl ExportGenesisSubCommand {
             "Genesis export payload to sign to {}",
             self.target_path.display()
         );
-        let dependencies = setup_genesis_dependencies(&config)?;
+        let dependencies = setup_genesis_dependencies(&config).await?;
 
         let genesis_tools = GenesisTools::from_dependencies(dependencies).await?;
         genesis_tools.export_payload_to_sign(&self.target_path)
@@ -662,7 +672,7 @@ impl ImportGenesisSubCommand {
             "Genesis import signed payload from {}",
             self.signed_payload_path.to_string_lossy()
         );
-        let dependencies = setup_genesis_dependencies(&config)?;
+        let dependencies = setup_genesis_dependencies(&config).await?;
 
         let genesis_tools = GenesisTools::from_dependencies(dependencies).await?;
         genesis_tools
@@ -690,7 +700,7 @@ impl BootstrapGenesisSubCommand {
             .map_err(|e| format!("configuration deserialize error: {e}"))?;
         debug!("BOOTSTRAP GENESIS command"; "config" => format!("{config:?}"));
         println!("Genesis bootstrap for test only!");
-        let dependencies = setup_genesis_dependencies(&config)?;
+        let dependencies = setup_genesis_dependencies(&config).await?;
 
         let genesis_tools = GenesisTools::from_dependencies(dependencies).await?;
         let genesis_secret_key = key_decode_hex(&self.genesis_secret_key)?;

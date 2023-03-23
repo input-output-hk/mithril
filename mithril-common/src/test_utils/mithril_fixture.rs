@@ -2,7 +2,6 @@ use crate::{
     crypto_helper::{ProtocolInitializer, ProtocolSigner, ProtocolStakeDistribution},
     entities::{ProtocolParameters, Signer, SignerWithStake, StakeDistribution},
 };
-use std::collections::HashMap;
 
 /// A fixture of Mithril data types.
 #[derive(Debug, Clone)]
@@ -70,7 +69,7 @@ impl MithrilFixture {
 
     /// Get the fixture stake distribution.
     pub fn stake_distribution(&self) -> StakeDistribution {
-        HashMap::from_iter(self.stake_distribution.clone())
+        StakeDistribution::from_iter(self.stake_distribution.clone())
     }
 
     /// Get the fixture protocol stake distribution.

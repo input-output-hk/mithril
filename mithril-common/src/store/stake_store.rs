@@ -81,8 +81,6 @@ impl StakeStorer for StakeStore {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use super::super::adapter::MemoryAdapter;
     use super::*;
 
@@ -94,7 +92,7 @@ mod tests {
         let mut values: Vec<(Epoch, StakeDistribution)> = Vec::new();
 
         for epoch in 1..=nb_epoch {
-            let mut signers: StakeDistribution = HashMap::new();
+            let mut signers: StakeDistribution = StakeDistribution::new();
 
             for party_idx in 1..=signers_per_epoch {
                 let party_id = format!("{party_idx}");
@@ -116,7 +114,7 @@ mod tests {
     async fn save_key_in_empty_store() {
         let store = init_store(0, 0, None);
         let res = store
-            .save_stakes(Epoch(1), HashMap::from([("1".to_string(), 123)]))
+            .save_stakes(Epoch(1), StakeDistribution::from([("1".to_string(), 123)]))
             .await
             .expect("Test adapter should not fail.");
 
@@ -127,12 +125,12 @@ mod tests {
     async fn update_signer_in_store() {
         let store = init_store(1, 1, None);
         let res = store
-            .save_stakes(Epoch(1), HashMap::from([("1".to_string(), 123)]))
+            .save_stakes(Epoch(1), StakeDistribution::from([("1".to_string(), 123)]))
             .await
             .expect("Test adapter should not fail.");
 
         assert_eq!(
-            HashMap::from([("1".to_string(), 101)]),
+            StakeDistribution::from([("1".to_string(), 101)]),
             res.expect("the result should not be empty"),
         );
     }
@@ -164,7 +162,7 @@ mod tests {
     async fn check_retention_limit() {
         let store = init_store(2, 2, Some(2));
         let _res = store
-            .save_stakes(Epoch(3), HashMap::from([("1".to_string(), 123)]))
+            .save_stakes(Epoch(3), StakeDistribution::from([("1".to_string(), 123)]))
             .await
             .unwrap();
         assert!(store.get_stakes(Epoch(1)).await.unwrap().is_none());

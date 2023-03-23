@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 /// ImmutableFileNumber represents the id of immutable files in the Cardano node database
 pub type ImmutableFileNumber = u64;
@@ -13,7 +13,7 @@ pub type PartyId = String;
 pub type Stake = u64;
 
 /// StakeDistribution represents the stakes of multiple participants in the Cardano chain
-pub type StakeDistribution = HashMap<PartyId, Stake>;
+pub type StakeDistribution = BTreeMap<PartyId, Stake>;
 
 /// LotteryIndex represents the index of a Mithril single signature lottery
 pub type LotteryIndex = u64;

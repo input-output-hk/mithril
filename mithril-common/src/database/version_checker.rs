@@ -2,8 +2,11 @@ use chrono::Local;
 use slog::{debug, error};
 use slog::{info, Logger};
 use sqlite::Connection;
+use tokio::sync::Mutex;
 
-use std::{cmp::Ordering, collections::BTreeSet, path::PathBuf};
+use std::ops::Deref;
+use std::sync::Arc;
+use std::{cmp::Ordering, collections::BTreeSet};
 
 use crate::StdError;
 
@@ -13,10 +16,9 @@ use super::{
 };
 
 /// Struct to perform application version check in the database.
-#[derive(Debug)]
 pub struct DatabaseVersionChecker {
     /// Pathbuf to the SQLite3 file.
-    sqlite_file_path: PathBuf,
+    connection: Arc<Mutex<Connection>>,
 
     /// Application type which vesion is verified.
     application_type: ApplicationNodeType,
@@ -33,12 +35,12 @@ impl DatabaseVersionChecker {
     pub fn new(
         logger: Logger,
         application_type: ApplicationNodeType,
-        sqlite_file_path: PathBuf,
+        connection: Arc<Mutex<Connection>>,
     ) -> Self {
         let migrations = BTreeSet::new();
 
         Self {
-            sqlite_file_path,
+            connection,
             application_type,
             logger,
             migrations,
@@ -52,18 +54,14 @@ impl DatabaseVersionChecker {
         self
     }
 
-    /// Performs an actual version check in the database. This method creates a
-    /// connection to the SQLite3 file and drops it at the end.
-    pub fn apply(&self) -> Result<(), StdError> {
-        debug!(
-            &self.logger,
-            "check database version, database file = '{}'",
-            self.sqlite_file_path.display()
-        );
-        let connection = Connection::open(&self.sqlite_file_path)?;
-        let provider = DatabaseVersionProvider::new(&connection);
+    /// Apply migrations
+    pub async fn apply(&self) -> Result<(), StdError> {
+        debug!(&self.logger, "check database version",);
+        let lock = self.connection.lock().await;
+        let connection = lock.deref();
+        let provider = DatabaseVersionProvider::new(connection);
         provider.create_table_if_not_exists(&self.application_type)?;
-        let updater = DatabaseVersionUpdater::new(&connection);
+        let updater = DatabaseVersionUpdater::new(connection);
         let db_version = provider
             .get_application_version(&self.application_type)?
             .unwrap(); // At least a record exists.
@@ -80,7 +78,7 @@ impl DatabaseVersionChecker {
                     "Database needs upgrade from version '{}' to version '{}', applying new migrations…",
                     db_version.version, migration_version
                 );
-                self.apply_migrations(&db_version, &updater, &connection)?;
+                self.apply_migrations(&db_version, &updater, connection)?;
                 info!(
                     &self.logger,
                     "database upgraded to version '{}'", migration_version
@@ -171,11 +169,13 @@ impl Eq for SqlMigration {}
 
 #[cfg(test)]
 mod tests {
+    use std::path::PathBuf;
+
     use super::*;
 
-    fn check_database_version(filepath: &PathBuf, db_version: DbVersion) {
-        let connection = Connection::open(filepath).unwrap();
-        let provider = DatabaseVersionProvider::new(&connection);
+    async fn check_database_version(connection: Arc<Mutex<Connection>>, db_version: DbVersion) {
+        let lock = connection.lock().await;
+        let provider = DatabaseVersionProvider::new(lock.deref());
         let version = provider
             .get_application_version(&ApplicationNodeType::Aggregator)
             .unwrap()
@@ -184,7 +184,7 @@ mod tests {
         assert_eq!(db_version, version.version);
     }
 
-    fn create_sqlite_file(name: &str) -> PathBuf {
+    fn create_sqlite_file(name: &str) -> Result<(PathBuf, Connection), StdError> {
         let dirpath = std::env::temp_dir().join("mithril_test_database");
         std::fs::create_dir_all(&dirpath).unwrap();
         let filepath = dirpath.join(name);
@@ -193,11 +193,14 @@ mod tests {
             std::fs::remove_file(filepath.as_path()).unwrap();
         }
 
-        filepath
+        let connection = Connection::open(&filepath).map_err(|e| -> StdError { e.into() })?;
+
+        Ok((filepath, connection))
     }
 
-    fn get_table_whatever_column_count(filepath: &PathBuf) -> i64 {
-        let connection = Connection::open(filepath).unwrap();
+    async fn get_table_whatever_column_count(cnt_mutex: Arc<Mutex<Connection>>) -> i64 {
+        let lock = cnt_mutex.lock().await;
+        let connection = lock.deref();
         let sql = "select count(*) as column_count from pragma_table_info('whatever');";
         let column_count = connection
             .prepare(sql)
@@ -213,20 +216,22 @@ mod tests {
         column_count
     }
 
-    #[test]
-    fn test_upgrade_with_migration() {
-        let filepath = create_sqlite_file("test_upgrade_with_migration.sqlite3");
+    #[tokio::test]
+    async fn test_upgrade_with_migration() {
+        let (_filepath, connection) =
+            create_sqlite_file("test_upgrade_with_migration.sqlite3").unwrap();
+        let connection = Arc::new(Mutex::new(connection));
         let mut db_checker = DatabaseVersionChecker::new(
             slog_scope::logger(),
             ApplicationNodeType::Aggregator,
-            filepath.clone(),
+            connection.clone(),
         );
 
-        db_checker.apply().unwrap();
-        assert_eq!(0, get_table_whatever_column_count(&filepath));
+        db_checker.apply().await.unwrap();
+        assert_eq!(0, get_table_whatever_column_count(connection.clone()).await);
 
-        db_checker.apply().unwrap();
-        assert_eq!(0, get_table_whatever_column_count(&filepath));
+        db_checker.apply().await.unwrap();
+        assert_eq!(0, get_table_whatever_column_count(connection.clone()).await);
 
         let alterations = "create table whatever (thing_id integer); insert into whatever (thing_id) values (1), (2), (3), (4);";
         let migration = SqlMigration {
@@ -234,13 +239,13 @@ mod tests {
             alterations: alterations.to_string(),
         };
         db_checker.add_migration(migration);
-        db_checker.apply().unwrap();
-        assert_eq!(1, get_table_whatever_column_count(&filepath));
-        check_database_version(&filepath, 1);
+        db_checker.apply().await.unwrap();
+        assert_eq!(1, get_table_whatever_column_count(connection.clone()).await);
+        check_database_version(connection.clone(), 1).await;
 
-        db_checker.apply().unwrap();
-        assert_eq!(1, get_table_whatever_column_count(&filepath));
-        check_database_version(&filepath, 1);
+        db_checker.apply().await.unwrap();
+        assert_eq!(1, get_table_whatever_column_count(connection.clone()).await);
+        check_database_version(connection.clone(), 1).await;
 
         let alterations = "alter table whatever add column thing_content text; update whatever set thing_content = 'some content'";
         let migration = SqlMigration {
@@ -248,9 +253,9 @@ mod tests {
             alterations: alterations.to_string(),
         };
         db_checker.add_migration(migration);
-        db_checker.apply().unwrap();
-        assert_eq!(2, get_table_whatever_column_count(&filepath));
-        check_database_version(&filepath, 2);
+        db_checker.apply().await.unwrap();
+        assert_eq!(2, get_table_whatever_column_count(connection.clone()).await);
+        check_database_version(connection.clone(), 2).await;
 
         // in the test below both migrations are declared in reversed order to
         // ensure they are played in the right order. The last one depends on
@@ -267,18 +272,20 @@ mod tests {
             alterations: alterations.to_string(),
         };
         db_checker.add_migration(migration);
-        db_checker.apply().unwrap();
-        assert_eq!(4, get_table_whatever_column_count(&filepath));
-        check_database_version(&filepath, 4);
+        db_checker.apply().await.unwrap();
+        assert_eq!(4, get_table_whatever_column_count(connection.clone()).await);
+        check_database_version(connection, 4).await;
     }
 
-    #[test]
-    fn starting_with_migration() {
-        let filepath = create_sqlite_file("starting_with_migration.sqlite3");
+    #[tokio::test]
+    async fn starting_with_migration() {
+        let (_filepath, connection) =
+            create_sqlite_file("starting_with_migration.sqlite3").unwrap();
+        let connection = Arc::new(Mutex::new(connection));
         let mut db_checker = DatabaseVersionChecker::new(
             slog_scope::logger(),
             ApplicationNodeType::Aggregator,
-            filepath.clone(),
+            connection.clone(),
         );
 
         let alterations = "create table whatever (thing_id integer); insert into whatever (thing_id) values (1), (2), (3), (4);";
@@ -287,21 +294,22 @@ mod tests {
             alterations: alterations.to_string(),
         };
         db_checker.add_migration(migration);
-        db_checker.apply().unwrap();
-        assert_eq!(1, get_table_whatever_column_count(&filepath));
-        check_database_version(&filepath, 1);
+        db_checker.apply().await.unwrap();
+        assert_eq!(1, get_table_whatever_column_count(connection.clone()).await);
+        check_database_version(connection, 1).await;
     }
 
-    #[test]
+    #[tokio::test]
     /// This test case ensure that when multiple migrations are played and one fails:
     /// * previous migrations are ok and the database version is updated
     /// * further migrations are not played.
-    fn test_failing_migration() {
-        let filepath = create_sqlite_file("test_failing_migration.sqlite3");
+    async fn test_failing_migration() {
+        let (_filepath, connection) = create_sqlite_file("test_failing_migration.sqlite3").unwrap();
+        let connection = Arc::new(Mutex::new(connection));
         let mut db_checker = DatabaseVersionChecker::new(
             slog_scope::logger(),
             ApplicationNodeType::Aggregator,
-            filepath.clone(),
+            connection.clone(),
         );
         // Table whatever does not exist, this should fail with error.
         let alterations = "create table whatever (thing_id integer); insert into whatever (thing_id) values (1), (2), (3), (4);";
@@ -322,17 +330,18 @@ mod tests {
             alterations: alterations.to_string(),
         };
         db_checker.add_migration(migration);
-        db_checker.apply().unwrap_err();
-        check_database_version(&filepath, 1);
+        db_checker.apply().await.unwrap_err();
+        check_database_version(connection, 1).await;
     }
 
-    #[test]
-    fn test_fail_downgrading() {
-        let filepath = create_sqlite_file("test_fail_downgrading.sqlite3");
+    #[tokio::test]
+    async fn test_fail_downgrading() {
+        let (_filepath, connection) = create_sqlite_file("test_fail_downgrading.sqlite3").unwrap();
+        let connection = Arc::new(Mutex::new(connection));
         let mut db_checker = DatabaseVersionChecker::new(
             slog_scope::logger(),
             ApplicationNodeType::Aggregator,
-            filepath.clone(),
+            connection.clone(),
         );
         let alterations = "create table whatever (thing_id integer); insert into whatever (thing_id) values (1), (2), (3), (4);";
         let migration = SqlMigration {
@@ -340,19 +349,19 @@ mod tests {
             alterations: alterations.to_string(),
         };
         db_checker.add_migration(migration);
-        db_checker.apply().unwrap();
-        check_database_version(&filepath, 1);
+        db_checker.apply().await.unwrap();
+        check_database_version(connection.clone(), 1).await;
 
         // re instanciate a new checker with no migration registered (version 0).
         let db_checker = DatabaseVersionChecker::new(
             slog_scope::logger(),
             ApplicationNodeType::Aggregator,
-            filepath.clone(),
+            connection.clone(),
         );
         assert!(
-            db_checker.apply().is_err(),
+            db_checker.apply().await.is_err(),
             "using an old version with an up to date database should fail"
         );
-        check_database_version(&filepath, 1);
+        check_database_version(connection, 1).await;
     }
 }

@@ -7,7 +7,6 @@ use mithril_common::test_utils::{
     MithrilFixtureBuilder, SignerFixture, StakeDistributionGenerationMethod,
 };
 use slog::Drain;
-use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -20,7 +19,7 @@ use mithril_common::crypto_helper::{key_encode_hex, ProtocolClerk, ProtocolGenes
 use mithril_common::digesters::DumbImmutableFileObserver;
 use mithril_common::entities::{
     Certificate, Epoch, ImmutableFileNumber, ProtocolParameters, SignerWithStake, SingleSignatures,
-    Snapshot,
+    Snapshot, StakeDistribution,
 };
 use mithril_common::{chain_observer::FakeObserver, digesters::DumbImmutableDigester};
 
@@ -314,7 +313,7 @@ impl RuntimeTester {
             .with_signers(signers_with_stake.len())
             .with_protocol_parameters(protocol_parameters)
             .with_stake_distribution(StakeDistributionGenerationMethod::Custom(
-                HashMap::from_iter(
+                StakeDistribution::from_iter(
                     signers_with_stake
                         .into_iter()
                         .map(|s| (s.party_id, s.stake)),
