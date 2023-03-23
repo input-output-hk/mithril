@@ -191,9 +191,6 @@ pub trait MultiSigner: Sync + Send {
         signatures: &entities::SingleSignatures,
     ) -> Result<(), ProtocolError>;
 
-    /// Retrieves a multi signature from a message
-    async fn get_multi_signature(&self) -> Result<Option<ProtocolMultiSignature>, ProtocolError>;
-
     /// Creates a multi signature from single signatures
     async fn create_multi_signature(
         &mut self,
@@ -210,9 +207,6 @@ pub struct MultiSignerImpl {
 
     /// Signing start datetime of current message
     current_initiated_at: Option<DateTime<Utc>>,
-
-    /// Created multi signature for message signed
-    multi_signature: Option<ProtocolMultiSignature>,
 
     /// Verification key store
     verification_key_store: Arc<VerificationKeyStore>,
@@ -240,7 +234,6 @@ impl MultiSignerImpl {
             current_message: None,
             current_beacon: None,
             current_initiated_at: None,
-            multi_signature: None,
             verification_key_store,
             stake_store,
             single_signature_store,
@@ -349,7 +342,6 @@ impl MultiSigner for MultiSignerImpl {
     ) -> Result<(), ProtocolError> {
         debug!("Update current_message"; "protocol_message" =>  #?message, "signed message" => message.compute_hash().encode_hex::<String>());
 
-        self.multi_signature = None;
         self.current_initiated_at = Some(Utc::now());
         self.current_message = Some(message);
         Ok(())
@@ -602,12 +594,6 @@ impl MultiSigner for MultiSignerImpl {
         };
     }
 
-    /// Retrieves a multi signature from a message
-    async fn get_multi_signature(&self) -> Result<Option<ProtocolMultiSignature>, ProtocolError> {
-        debug!("Get multi signature");
-        Ok(self.multi_signature.to_owned())
-    }
-
     /// Creates a multi signature from single signatures
     async fn create_multi_signature(
         &mut self,
@@ -649,10 +635,7 @@ impl MultiSigner for MultiSignerImpl {
             .ok_or_else(ProtocolError::UnavailableClerk)?;
 
         match clerk.aggregate(&signatures, message.compute_hash().as_bytes()) {
-            Ok(multi_signature) => {
-                self.multi_signature = Some(multi_signature.clone());
-                Ok(Some(multi_signature))
-            }
+            Ok(multi_signature) => Ok(Some(multi_signature)),
             Err(ProtocolAggregationError::NotEnoughSignatures(actual, expected)) => {
                 warn!("Could not compute multi-signature: Not enough signatures. Got only {} out of {}.", actual, expected);
                 Ok(None)
@@ -916,14 +899,10 @@ mod tests {
         );
 
         // No signatures registered: multi-signer can't create the multi-signature
-        multi_signer
+        assert!(multi_signer
             .create_multi_signature()
             .await
-            .expect("create multi signature should not fail");
-        assert!(multi_signer
-            .get_multi_signature()
-            .await
-            .expect("get multi signature should not fail")
+            .expect("create multi signature should not fail")
             .is_none());
 
         // Add some signatures but not enough to reach the quorum: multi-signer should not create the multi-signature
@@ -933,14 +912,10 @@ mod tests {
                 .await
                 .expect("register single signature should not fail");
         }
-        multi_signer
+        assert!(multi_signer
             .create_multi_signature()
             .await
-            .expect("create multi signature should not fail");
-        assert!(multi_signer
-            .get_multi_signature()
-            .await
-            .expect("get multi signature should not fail")
+            .expect("create multi signature should not fail")
             .is_none());
 
         // Add the remaining signatures to reach the quorum: multi-signer should create a multi-signature
@@ -950,15 +925,11 @@ mod tests {
                 .await
                 .expect("register single signature should not fail");
         }
-        multi_signer
-            .create_multi_signature()
-            .await
-            .expect("create multi signature should not fail");
         assert!(
             multi_signer
-                .get_multi_signature()
+                .create_multi_signature()
                 .await
-                .expect("get multi signature should not fail")
+                .expect("create multi signature should not fail")
                 .is_some(),
             "no multi-signature were computed"
         );

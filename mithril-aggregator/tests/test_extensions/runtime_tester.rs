@@ -31,6 +31,17 @@ macro_rules! cycle {
     }};
 }
 
+#[macro_export]
+macro_rules! cycle_err {
+    ( $tester:expr, $expected_state:expr ) => {{
+        $tester
+            .cycle()
+            .await
+            .expect_err("cycle tick shoudl have returned an error");
+        assert_eq!($expected_state, $tester.runtime.get_state());
+    }};
+}
+
 pub struct RuntimeTester {
     pub snapshot_uploader: Arc<DumbSnapshotUploader>,
     pub chain_observer: Arc<FakeObserver>,

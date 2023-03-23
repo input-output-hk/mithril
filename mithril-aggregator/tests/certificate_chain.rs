@@ -51,7 +51,7 @@ async fn certificate_chain() {
     cycle!(tester, "ready");
     cycle!(tester, "signing");
     tester.register_signers(&signers).await.unwrap();
-    cycle!(tester, "signing");
+    cycle_err!(tester, "signing");
     tester.send_single_signatures(&signers).await.unwrap();
 
     comment!("The state machine should have issued a multisignature");

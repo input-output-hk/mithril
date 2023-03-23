@@ -1,9 +1,10 @@
 use async_trait::async_trait;
 use chrono::Utc;
+use mithril_common::crypto_helper::ProtocolMultiSignature;
 use mithril_common::entities::Epoch;
 use mithril_common::entities::PartyId;
 use mithril_common::store::StakeStorer;
-use slog_scope::{debug, info, warn};
+use slog_scope::{debug, warn};
 
 use mithril_common::crypto_helper::ProtocolStakeDistribution;
 use mithril_common::entities::{
@@ -134,8 +135,10 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         &self,
     ) -> Result<Option<CertificatePending>, Box<dyn StdError + Sync + Send>>;
 
-    /// Check if the multisigner has issued a multi-signature.
-    async fn is_multisig_created(&self) -> Result<bool, Box<dyn StdError + Sync + Send>>;
+    /// Create multi-signature.
+    async fn create_multi_signature(
+        &self,
+    ) -> Result<Option<ProtocolMultiSignature>, Box<dyn StdError + Sync + Send>>;
 
     /// Create an archive of the cardano node db directory naming it after the given beacon.
     ///
@@ -157,6 +160,7 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     async fn create_and_save_certificate(
         &self,
         working_certificate: &WorkingCertificate,
+        multi_signature: ProtocolMultiSignature,
     ) -> Result<Certificate, Box<dyn StdError + Sync + Send>>;
 
     /// Create a snapshot and save it to the given locations.
@@ -546,25 +550,18 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(certificate_pending)
     }
 
-    /// Is a multi-signature ready?
-    /// Can we create a multi-signature.
-    async fn is_multisig_created(&self) -> Result<bool, Box<dyn StdError + Sync + Send>> {
-        debug!("RUNNER: check if we can create a multi-signature");
-        let has_multisig = self
+    async fn create_multi_signature(
+        &self,
+    ) -> Result<Option<ProtocolMultiSignature>, Box<dyn StdError + Sync + Send>> {
+        debug!("RUNNER: create multi-signature");
+
+        Ok(self
             .dependencies
             .multi_signer
             .write()
             .await
             .create_multi_signature()
-            .await?
-            .is_some();
-
-        if has_multisig {
-            debug!(" > new multi-signature created");
-        } else {
-            info!(" > no multi-signature created");
-        }
-        Ok(has_multisig)
+            .await?)
     }
 
     async fn create_snapshot_archive(
@@ -633,10 +630,10 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     async fn create_and_save_certificate(
         &self,
         working_certificate: &WorkingCertificate,
+        multi_signature: ProtocolMultiSignature,
     ) -> Result<Certificate, Box<dyn StdError + Sync + Send>> {
         debug!("RUNNER: create and save certificate");
         let certificate_store = self.dependencies.certificate_store.clone();
-        let multisigner = self.dependencies.multi_signer.read().await;
         let signatures_party_ids: Vec<PartyId> = self
             .dependencies
             .single_signature_store
@@ -645,12 +642,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .unwrap_or_default()
             .into_keys()
             .collect::<Vec<_>>();
-        let multi_signature = multisigner.get_multi_signature().await?.ok_or_else(|| {
-            RunnerError::NoComputedMultiSignature(format!(
-                "no multi signature generated for beacon {:?}",
-                working_certificate.beacon
-            ))
-        })?;
 
         let certificate = MithrilCertificateCreator::create_certificate(
             working_certificate,
@@ -1183,6 +1174,7 @@ pub mod tests {
         let first_certificate = certificate_chain[0].clone();
         let multi_signature: ProtocolMultiSignature =
             key_decode_hex(&first_certificate.multi_signature as &HexEncodedKey).unwrap();
+        let multi_signature_clone = multi_signature.clone();
         let working_certificate = WorkingCertificate {
             beacon: first_certificate.beacon.clone(),
             signers: first_certificate.metadata.signers.clone(),
@@ -1193,16 +1185,13 @@ pub mod tests {
             ..WorkingCertificate::fake()
         };
         let (mut deps, config) = initialize_dependencies().await;
-        let mut mock_multi_signer = MockMultiSigner::new();
-        mock_multi_signer
-            .expect_get_multi_signature()
-            .return_once(move || Ok(Some(multi_signature)));
+        let mock_multi_signer = MockMultiSigner::new();
         deps.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
         deps.init_state_from_chain(&certificate_chain, vec![]).await;
         let runner = AggregatorRunner::new(config, Arc::new(deps));
 
         let certificate = runner
-            .create_and_save_certificate(&working_certificate)
+            .create_and_save_certificate(&working_certificate, multi_signature_clone)
             .await;
         certificate.expect("a certificate should have been created and saved");
     }
