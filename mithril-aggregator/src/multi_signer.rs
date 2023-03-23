@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use chrono::prelude::*;
 use hex::ToHex;
 use slog_scope::{debug, warn};
 use std::sync::Arc;
@@ -205,9 +204,6 @@ pub struct MultiSignerImpl {
     /// Beacon that is currently used
     current_beacon: Option<entities::Beacon>,
 
-    /// Signing start datetime of current message
-    current_initiated_at: Option<DateTime<Utc>>,
-
     /// Verification key store
     verification_key_store: Arc<VerificationKeyStore>,
 
@@ -233,7 +229,6 @@ impl MultiSignerImpl {
         Self {
             current_message: None,
             current_beacon: None,
-            current_initiated_at: None,
             verification_key_store,
             stake_store,
             single_signature_store,
@@ -342,7 +337,6 @@ impl MultiSigner for MultiSignerImpl {
     ) -> Result<(), ProtocolError> {
         debug!("Update current_message"; "protocol_message" =>  #?message, "signed message" => message.compute_hash().encode_hex::<String>());
 
-        self.current_initiated_at = Some(Utc::now());
         self.current_message = Some(message);
         Ok(())
     }
