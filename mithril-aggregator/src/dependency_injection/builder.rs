@@ -31,8 +31,8 @@ use crate::{
     stake_distribution_service::StakeDistributionService,
     tools::GcpFileUploader,
     CertificatePendingStore, CertificateStore, Configuration, DumbSnapshotter, GzipSnapshotter,
-    LocalSnapshotStore, LocalSnapshotUploader, MultiSigner, MultiSignerImpl,
-    ProtocolParametersStore, RemoteSnapshotUploader, SignerRegisterer,
+    LocalSnapshotStore, LocalSnapshotUploader, MithrilSignerRegisterer, MultiSigner,
+    MultiSignerImpl, ProtocolParametersStore, RemoteSnapshotUploader, SignerRegisterer,
     SignerRegistrationRoundOpener, SingleSignatureStore, SnapshotStore, SnapshotUploader,
     SnapshotUploaderType, Snapshotter, VerificationKeyStore,
 };
@@ -704,5 +704,23 @@ impl DependenciesBuilder {
         }
 
         Ok(self.genesis_verifier.as_ref().cloned().unwrap())
+    }
+
+    fn build_signer_registerer(&mut self) -> Result<Arc<dyn SignerRegisterer>> {
+        let registerer = MithrilSignerRegisterer::new(
+            self.get_chain_observer()?,
+            self.get_verification_key_store()?,
+        );
+
+        Ok(Arc::new(registerer))
+    }
+
+    /// [SignerRegisterer] service
+    pub fn get_signer_registerer(&mut self) -> Result<Arc<dyn SignerRegisterer>> {
+        if self.signer_registerer.is_none() {
+            self.signer_registerer = Some(self.build_signer_registerer()?);
+        }
+
+        Ok(self.signer_registerer.as_ref().cloned().unwrap())
     }
 }
