@@ -37,7 +37,7 @@ macro_rules! cycle_err {
         $tester
             .cycle()
             .await
-            .expect_err("cycle tick shoudl have returned an error");
+            .expect_err("cycle tick should have returned an error");
         assert_eq!($expected_state, $tester.runtime.get_state());
     }};
 }
@@ -240,7 +240,7 @@ impl RuntimeTester {
 
     /// "Send", actually register, the given single signatures in the multi-signers
     pub async fn send_single_signatures(&self, signers: &[SignerFixture]) -> Result<(), String> {
-        let mut multisigner = self.deps.multi_signer.write().await;
+        let multisigner = self.deps.multi_signer.read().await;
         let message = multisigner
             .get_current_message()
             .await
@@ -258,7 +258,7 @@ impl RuntimeTester {
                 );
 
                 multisigner
-                    .register_single_signature(&single_signatures)
+                    .register_single_signature(&message, &single_signatures)
                     .await
                     .map_err(|e| {
                         format!("registering a winning lottery signature should not fail: {e:?}")

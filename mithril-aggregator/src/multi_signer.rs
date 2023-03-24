@@ -186,7 +186,8 @@ pub trait MultiSigner: Sync + Send {
 
     /// Registers a single signature
     async fn register_single_signature(
-        &mut self,
+        &self,
+        message: &entities::ProtocolMessage,
         signatures: &entities::SingleSignatures,
     ) -> Result<(), ProtocolError>;
 
@@ -525,18 +526,15 @@ impl MultiSigner for MultiSignerImpl {
 
     /// Registers a single signature
     async fn register_single_signature(
-        &mut self,
+        &self,
+        message: &entities::ProtocolMessage,
         signatures: &entities::SingleSignatures,
     ) -> Result<(), ProtocolError> {
         debug!(
-            "Register single signature from {} at indexes {:?}",
-            signatures.party_id, signatures.won_indexes
+            "Register single signature from {} at indexes {:?} for message {:?}",
+            signatures.party_id, signatures.won_indexes, message
         );
 
-        let message = &self
-            .get_current_message()
-            .await
-            .ok_or_else(ProtocolError::UnavailableMessage)?;
         let protocol_parameters = self
             .get_protocol_parameters()
             .await?
@@ -902,7 +900,7 @@ mod tests {
         // Add some signatures but not enough to reach the quorum: multi-signer should not create the multi-signature
         for signature in signatures_to_almost_reach_quorum {
             multi_signer
-                .register_single_signature(&signature)
+                .register_single_signature(&message, &signature)
                 .await
                 .expect("register single signature should not fail");
         }
@@ -915,7 +913,7 @@ mod tests {
         // Add the remaining signatures to reach the quorum: multi-signer should create a multi-signature
         for signature in &signatures {
             multi_signer
-                .register_single_signature(signature)
+                .register_single_signature(&message, signature)
                 .await
                 .expect("register single signature should not fail");
         }

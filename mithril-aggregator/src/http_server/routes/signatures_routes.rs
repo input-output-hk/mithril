@@ -26,6 +26,7 @@ mod handlers {
     use crate::{
         dependency::MultiSignerWrapper, message_adapters::FromRegisterSingleSignatureAdapter,
     };
+    use mithril_common::entities::SingleSignatures;
     use mithril_common::messages::RegisterSignatureMessage;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
@@ -37,10 +38,23 @@ mod handlers {
         multi_signer: MultiSignerWrapper,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: register_signatures/{:?}", message);
-        let signature = FromRegisterSingleSignatureAdapter::adapt(message);
 
-        let mut multi_signer = multi_signer.write().await;
-        match multi_signer.register_single_signature(&signature).await {
+        async fn register_single_signature(
+            multi_signer: MultiSignerWrapper,
+            signature: SingleSignatures,
+        ) -> Result<(), ProtocolError> {
+            let multi_signer = multi_signer.write().await;
+            let message = multi_signer
+                .get_current_message()
+                .await
+                .ok_or_else(ProtocolError::UnavailableMessage)?;
+            multi_signer
+                .register_single_signature(&message, &signature)
+                .await
+        }
+
+        let signature = FromRegisterSingleSignatureAdapter::adapt(message);
+        match register_single_signature(multi_signer, signature).await {
             Err(ProtocolError::ExistingSingleSignature(party_id)) => {
                 debug!("register_signatures::already_exist"; "party_id" => ?party_id);
                 Ok(reply::empty(StatusCode::CONFLICT))
@@ -58,6 +72,7 @@ mod handlers {
 mod tests {
 
     use crate::http_server::SERVER_BASE_PATH;
+    use mithril_common::entities::ProtocolMessage;
     use mithril_common::messages::RegisterSignatureMessage;
     use mithril_common::test_utils::apispec::APISpec;
     use tokio::sync::RwLock;
@@ -85,11 +100,11 @@ mod tests {
     async fn test_register_signatures_post_ok() {
         let mut mock_multi_signer = MockMultiSigner::new();
         mock_multi_signer
-            .expect_update_current_message()
-            .return_once(|_| Ok(()));
+            .expect_get_current_message()
+            .return_once(|| Some(ProtocolMessage::new()));
         mock_multi_signer
             .expect_register_single_signature()
-            .return_once(|_| Ok(()));
+            .return_once(|_, _| Ok(()));
         let (mut dependency_manager, _) = initialize_dependencies().await;
         dependency_manager.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
 
@@ -119,8 +134,11 @@ mod tests {
     async fn test_register_signatures_post_ko_400() {
         let mut mock_multi_signer = MockMultiSigner::new();
         mock_multi_signer
+            .expect_get_current_message()
+            .return_once(|| Some(ProtocolMessage::new()));
+        mock_multi_signer
             .expect_register_single_signature()
-            .return_once(|_| Ok(()));
+            .return_once(|_, _| Ok(()));
         let (mut dependency_manager, _) = initialize_dependencies().await;
         dependency_manager.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
 
@@ -153,11 +171,11 @@ mod tests {
         let party_id = message.party_id.clone();
         let mut mock_multi_signer = MockMultiSigner::new();
         mock_multi_signer
-            .expect_update_current_message()
-            .return_once(|_| Ok(()));
+            .expect_get_current_message()
+            .return_once(|| Some(ProtocolMessage::new()));
         mock_multi_signer
             .expect_register_single_signature()
-            .return_once(move |_| Err(ProtocolError::ExistingSingleSignature(party_id)));
+            .return_once(move |_, _| Err(ProtocolError::ExistingSingleSignature(party_id)));
         let (mut dependency_manager, _) = initialize_dependencies().await;
         dependency_manager.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
 
@@ -185,11 +203,11 @@ mod tests {
     async fn test_register_signatures_post_ko_500() {
         let mut mock_multi_signer = MockMultiSigner::new();
         mock_multi_signer
-            .expect_update_current_message()
-            .return_once(|_| Ok(()));
+            .expect_get_current_message()
+            .return_once(|| Some(ProtocolMessage::new()));
         mock_multi_signer
             .expect_register_single_signature()
-            .return_once(|_| Err(ProtocolError::Core("an error occurred".to_string())));
+            .return_once(|_, _| Err(ProtocolError::Core("an error occurred".to_string())));
         let (mut dependency_manager, _) = initialize_dependencies().await;
         dependency_manager.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
 
