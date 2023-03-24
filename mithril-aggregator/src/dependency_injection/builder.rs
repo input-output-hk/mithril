@@ -5,6 +5,7 @@ use mithril_common::{
     api_version::APIVersionProvider,
     certificate_chain::{CertificateVerifier, MithrilCertificateVerifier},
     chain_observer::{CardanoCliChainObserver, CardanoCliRunner, ChainObserver, FakeObserver},
+    crypto_helper::{key_decode_hex, ProtocolGenesisSigner, ProtocolGenesisVerifier},
     digesters::{
         CardanoImmutableDigester, DumbImmutableFileObserver, ImmutableDigester,
         ImmutableFileObserver, ImmutableFileSystemObserver,
@@ -125,7 +126,7 @@ pub struct DependenciesBuilder {
     pub certificate_verifier: Option<Arc<dyn CertificateVerifier>>,
 
     /// Genesis signature verifier service.
-    pub genesis_verifier: Option<Arc<mithril_common::crypto_helper::ProtocolGenesisVerifier>>,
+    pub genesis_verifier: Option<Arc<ProtocolGenesisVerifier>>,
 
     /// Signer registerer service
     pub signer_registerer: Option<Arc<dyn SignerRegisterer>>,
@@ -675,5 +676,33 @@ impl DependenciesBuilder {
         }
 
         Ok(self.certificate_verifier.as_ref().cloned().unwrap())
+    }
+
+    fn build_genesis_verifier(&mut self) -> Result<Arc<ProtocolGenesisVerifier>> {
+        let genesis_verifier: ProtocolGenesisVerifier = match self.configuration.environment {
+            ExecutionEnvironment::Production => ProtocolGenesisVerifier::from_verification_key(
+                key_decode_hex(&self.configuration.genesis_verification_key).map_err(|e| {
+                    DependenciesBuilderError::Initialization {
+                        message: format!(
+                            "Could not decode hex key to build genesis verifier: '{}' Error: {e}.",
+                            self.configuration.genesis_verification_key
+                        ),
+                        error: None,
+                    }
+                })?,
+            ),
+            _ => ProtocolGenesisSigner::create_deterministic_genesis_signer()
+                .create_genesis_verifier(),
+        };
+
+        Ok(Arc::new(genesis_verifier))
+    }
+
+    pub fn get_genesis_verifier(&mut self) -> Result<Arc<ProtocolGenesisVerifier>> {
+        if self.genesis_verifier.is_none() {
+            self.genesis_verifier = Some(self.build_genesis_verifier()?);
+        }
+
+        Ok(self.genesis_verifier.as_ref().cloned().unwrap())
     }
 }
