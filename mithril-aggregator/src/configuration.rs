@@ -17,9 +17,19 @@ use crate::{LocalSnapshotUploader, RemoteSnapshotUploader, SnapshotUploader};
 pub const LIST_SNAPSHOTS_MAX_ITEMS: usize = 20;
 const SQLITE_FILE: &str = "aggregator.sqlite3";
 
+/// Different kinds of execution environments
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum ExecutionEnvironment {
+    Test,
+    Production,
+}
+
 /// Aggregator configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Configuration {
+    /// What kind of runtime environment the configuration is meant to.
+    pub environment: ExecutionEnvironment,
+
     /// Cardano CLI tool path
     pub cardano_cli_path: PathBuf,
 

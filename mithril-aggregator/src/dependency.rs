@@ -283,8 +283,8 @@ impl DependencyManager {
 #[cfg(test)]
 pub mod tests {
     use crate::{
-        check_database_migration, database::provider::StakePoolStore,
-        event_store::TransmitterService,
+        check_database_migration, configuration::ExecutionEnvironment,
+        database::provider::StakePoolStore, event_store::TransmitterService,
         stake_distribution_service::MithrilStakeDistributionService, AggregatorConfig,
         CertificatePendingStore, CertificateStore, Configuration, DependencyManager,
         DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore, MithrilSignerRegisterer,
@@ -317,6 +317,7 @@ pub mod tests {
         let genesis_verifier = Arc::new(genesis_signer.create_genesis_verifier());
         let genesis_verification_key = genesis_verifier.to_verification_key();
         let config = Configuration {
+            environment: ExecutionEnvironment::Test,
             cardano_cli_path: PathBuf::new(),
             cardano_node_socket_path: PathBuf::new(),
             network_magic: Some(42),

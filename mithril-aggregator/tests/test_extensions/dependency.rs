@@ -43,6 +43,7 @@ pub async fn initialize_dependencies(
     let genesis_verifier = Arc::new(genesis_signer.create_genesis_verifier());
     let genesis_verification_key = genesis_verifier.to_verification_key();
     let config: Configuration = Configuration {
+        environment: ExecutionEnvironment::Test,
         cardano_cli_path: PathBuf::new(),
         cardano_node_socket_path: PathBuf::new(),
         network_magic: Some(42),
