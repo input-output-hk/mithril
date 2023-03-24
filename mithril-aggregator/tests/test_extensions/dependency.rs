@@ -3,9 +3,9 @@ use mithril_aggregator::event_store::{EventMessage, TransmitterService};
 use mithril_aggregator::stake_distribution_service::MithrilStakeDistributionService;
 use mithril_aggregator::{
     check_database_migration, AggregatorConfig, CertificatePendingStore, CertificateStore,
-    Configuration, DependencyManager, DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore,
-    MithrilSignerRegisterer, MultiSignerImpl, ProtocolParametersStore, SingleSignatureStore,
-    SnapshotUploaderType, VerificationKeyStore,
+    Configuration, DependencyManager, DumbSnapshotUploader, DumbSnapshotter, ExecutionEnvironment,
+    LocalSnapshotStore, MithrilSignerRegisterer, MultiSignerImpl, ProtocolParametersStore,
+    SingleSignatureStore, SnapshotUploaderType, VerificationKeyStore,
 };
 use mithril_common::api_version::APIVersionProvider;
 use mithril_common::certificate_chain::MithrilCertificateVerifier;

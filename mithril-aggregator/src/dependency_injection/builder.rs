@@ -3,11 +3,11 @@ use std::{collections::HashMap, sync::Arc};
 use config::ConfigError;
 use mithril_common::{
     api_version::APIVersionProvider,
+    certificate_chain::{CertificateVerifier, MithrilCertificateVerifier},
     chain_observer::{CardanoCliChainObserver, CardanoCliRunner, ChainObserver, FakeObserver},
     digesters::{
-        cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder},
-        DumbImmutableFileObserver, ImmutableDigester, ImmutableFileObserver,
-        ImmutableFileSystemObserver,
+        CardanoImmutableDigester, DumbImmutableFileObserver, ImmutableDigester,
+        ImmutableFileObserver, ImmutableFileSystemObserver,
     },
     entities::{
         Beacon, Certificate, CertificatePending, Epoch, PartyId, ProtocolParameters, Signer,
@@ -29,10 +29,11 @@ use crate::{
     event_store::{EventMessage, TransmitterService},
     stake_distribution_service::StakeDistributionService,
     tools::GcpFileUploader,
-    CertificatePendingStore, CertificateStore, Configuration, LocalSnapshotStore,
-    LocalSnapshotUploader, MultiSigner, MultiSignerImpl, ProtocolParametersStore,
-    RemoteSnapshotUploader, SignerRegisterer, SignerRegistrationRoundOpener, SingleSignatureStore,
-    SnapshotStore, SnapshotUploader, SnapshotUploaderType, Snapshotter, VerificationKeyStore,
+    CertificatePendingStore, CertificateStore, Configuration, DumbSnapshotter, GzipSnapshotter,
+    LocalSnapshotStore, LocalSnapshotUploader, MultiSigner, MultiSignerImpl,
+    ProtocolParametersStore, RemoteSnapshotUploader, SignerRegisterer,
+    SignerRegistrationRoundOpener, SingleSignatureStore, SnapshotStore, SnapshotUploader,
+    SnapshotUploaderType, Snapshotter, VerificationKeyStore,
 };
 
 type Result<T> = std::result::Result<T, DependenciesBuilderError>;
@@ -108,6 +109,9 @@ pub struct DependenciesBuilder {
     /// Beacon provider service.
     pub beacon_provider: Option<Arc<dyn BeaconProvider>>,
 
+    /// Immutable file digester service.
+    pub immutable_digester: Option<Arc<dyn ImmutableDigester>>,
+
     /// Immutable file observer service.
     pub immutable_file_observer: Option<Arc<dyn ImmutableFileObserver>>,
 
@@ -118,8 +122,7 @@ pub struct DependenciesBuilder {
     pub snapshotter: Option<Arc<dyn Snapshotter>>,
 
     /// Certificate verifier service.
-    pub certificate_verifier:
-        Option<Arc<dyn mithril_common::certificate_chain::CertificateVerifier>>,
+    pub certificate_verifier: Option<Arc<dyn CertificateVerifier>>,
 
     /// Genesis signature verifier service.
     pub genesis_verifier: Option<Arc<mithril_common::crypto_helper::ProtocolGenesisVerifier>>,
@@ -164,6 +167,7 @@ impl DependenciesBuilder {
             cardano_cli_runner: None,
             chain_observer: None,
             beacon_provider: None,
+            immutable_digester: None,
             immutable_file_observer: None,
             digester: None,
             snapshotter: None,
@@ -600,7 +604,7 @@ impl DependenciesBuilder {
         let digester = CardanoImmutableDigester::new(
             self.configuration.db_directory.clone(),
             None, // ← Cache shall be initialized here
-            self.get_logger(),
+            self.get_logger()?,
         );
 
         Ok(Arc::new(digester))
@@ -625,12 +629,21 @@ impl DependenciesBuilder {
                     .snapshot_directory
                     .join("pending_snapshot");
 
+                // **TODO** this code should be in the snapshotter constructor.
                 if !ongoing_snapshot_directory.exists() {
-                    create_dir(&ongoing_snapshot_directory)?;
+                    std::fs::create_dir(&ongoing_snapshot_directory).map_err(|e| {
+                        DependenciesBuilderError::Initialization {
+                            message: format!(
+                                "Cannot create snapshotter directory '{}'.",
+                                ongoing_snapshot_directory.display()
+                            ),
+                            error: Some(e.into()),
+                        }
+                    })?;
                 }
 
                 Arc::new(GzipSnapshotter::new(
-                    config.db_directory.clone(),
+                    self.configuration.db_directory.clone(),
                     ongoing_snapshot_directory,
                 ))
             }
@@ -640,11 +653,27 @@ impl DependenciesBuilder {
         Ok(snapshotter)
     }
 
+    /// [Snapshotter] service.
     pub fn get_snapshotter(&mut self) -> Result<Arc<dyn Snapshotter>> {
         if self.snapshotter.is_none() {
             self.snapshotter = Some(self.build_snapshotter()?);
         }
 
         Ok(self.snapshotter.as_ref().cloned().unwrap())
+    }
+
+    fn build_certificate_verifier(&mut self) -> Result<Arc<dyn CertificateVerifier>> {
+        let verifier = Arc::new(MithrilCertificateVerifier::new(self.get_logger()?));
+
+        Ok(verifier)
+    }
+
+    /// [CertificateVerifier] service.
+    pub fn get_certificate_verifier(&mut self) -> Result<Arc<dyn CertificateVerifier>> {
+        if self.certificate_verifier.is_none() {
+            self.certificate_verifier = Some(self.build_certificate_verifier()?);
+        }
+
+        Ok(self.certificate_verifier.as_ref().cloned().unwrap())
     }
 }

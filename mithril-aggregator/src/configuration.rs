@@ -20,7 +20,11 @@ const SQLITE_FILE: &str = "aggregator.sqlite3";
 /// Different kinds of execution environments
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum ExecutionEnvironment {
+    /// Test environment, maximum logging, memory stores etc.
     Test,
+
+    /// Production environment, minimum logging, maximum performances,
+    /// persistent stores etc.
     Production,
 }
 
