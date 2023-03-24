@@ -555,13 +555,13 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     ) -> Result<Option<ProtocolMultiSignature>, Box<dyn StdError + Sync + Send>> {
         debug!("RUNNER: create multi-signature");
 
-        Ok(self
-            .dependencies
-            .multi_signer
-            .write()
+        let multi_signer = self.dependencies.multi_signer.read().await;
+        let message = multi_signer
+            .get_current_message()
             .await
-            .create_multi_signature()
-            .await?)
+            .ok_or_else(ProtocolError::UnavailableMessage)?;
+
+        Ok(multi_signer.create_multi_signature(&message).await?)
     }
 
     async fn create_snapshot_archive(

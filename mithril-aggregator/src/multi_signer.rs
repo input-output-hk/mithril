@@ -193,7 +193,8 @@ pub trait MultiSigner: Sync + Send {
 
     /// Creates a multi signature from single signatures
     async fn create_multi_signature(
-        &mut self,
+        &self,
+        message: &entities::ProtocolMessage,
     ) -> Result<Option<ProtocolMultiSignature>, ProtocolError>;
 }
 
@@ -588,14 +589,10 @@ impl MultiSigner for MultiSignerImpl {
 
     /// Creates a multi signature from single signatures
     async fn create_multi_signature(
-        &mut self,
+        &self,
+        message: &entities::ProtocolMessage,
     ) -> Result<Option<ProtocolMultiSignature>, ProtocolError> {
         debug!("Create multi signature");
-        let message = &self
-            .get_current_message()
-            .await
-            .ok_or_else(ProtocolError::UnavailableMessage)?;
-
         let beacon = self
             .current_beacon
             .as_ref()
@@ -892,7 +889,7 @@ mod tests {
 
         // No signatures registered: multi-signer can't create the multi-signature
         assert!(multi_signer
-            .create_multi_signature()
+            .create_multi_signature(&message)
             .await
             .expect("create multi signature should not fail")
             .is_none());
@@ -905,7 +902,7 @@ mod tests {
                 .expect("register single signature should not fail");
         }
         assert!(multi_signer
-            .create_multi_signature()
+            .create_multi_signature(&message)
             .await
             .expect("create multi signature should not fail")
             .is_none());
@@ -919,7 +916,7 @@ mod tests {
         }
         assert!(
             multi_signer
-                .create_multi_signature()
+                .create_multi_signature(&message)
                 .await
                 .expect("create multi signature should not fail")
                 .is_some(),
