@@ -1,12 +1,13 @@
-use std::{collections::HashMap, error::Error, fmt::Display, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
-use config::ConfigError;
 use mithril_common::{
     api_version::APIVersionProvider,
     certificate_chain::{CertificateVerifier, MithrilCertificateVerifier},
     chain_observer::{CardanoCliChainObserver, CardanoCliRunner, ChainObserver, FakeObserver},
     crypto_helper::{key_decode_hex, ProtocolGenesisSigner, ProtocolGenesisVerifier},
+    database::{ApplicationNodeType, DatabaseVersionChecker},
     digesters::{
+        cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProviderBuilder},
         CardanoImmutableDigester, DumbImmutableFileObserver, ImmutableDigester,
         ImmutableFileObserver, ImmutableFileSystemObserver,
     },
@@ -18,79 +19,35 @@ use mithril_common::{
         adapters::{EraReaderAdapterBuilder, EraReaderDummyAdapter},
         EraChecker, EraMarker, EraReader, EraReaderAdapter, SupportedEra,
     },
-    store::{
-        adapter::{MemoryAdapter, SQLiteAdapter, StoreAdapter},
-        StakeStorer,
-    },
+    store::adapter::{MemoryAdapter, SQLiteAdapter, StoreAdapter},
     BeaconProvider, BeaconProviderImpl, StdError,
 };
 use slog::Logger;
+use slog_scope::debug;
 use sqlite::Connection;
-use tokio::sync::{
-    mpsc::{UnboundedReceiver, UnboundedSender},
-    Mutex, RwLock,
+use tokio::{
+    sync::{mpsc::UnboundedSender, Mutex, RwLock},
+    time::Duration,
 };
+use warp::Filter;
 
 use crate::{
     configuration::{ExecutionEnvironment, LIST_SNAPSHOTS_MAX_ITEMS},
     database::provider::StakePoolStore,
-    event_store::{EventMessage, TransmitterService},
+    event_store::{EventMessage, EventStore, TransmitterService},
+    http_server::routes::router,
     stake_distribution_service::{MithrilStakeDistributionService, StakeDistributionService},
     tools::GcpFileUploader,
-    CertificatePendingStore, CertificateStore, Configuration, DumbSnapshotter, GzipSnapshotter,
+    AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
+    CertificateStore, Configuration, DependencyManager, DumbSnapshotter, GzipSnapshotter,
     LocalSnapshotStore, LocalSnapshotUploader, MithrilSignerRegisterer, MultiSigner,
-    MultiSignerImpl, ProtocolParametersStore, RemoteSnapshotUploader, SingleSignatureStore,
-    SnapshotStore, SnapshotUploader, SnapshotUploaderType, Snapshotter, VerificationKeyStore,
+    MultiSignerImpl, ProtocolParametersStore, ProtocolParametersStorer, RemoteSnapshotUploader,
+    SingleSignatureStore, SnapshotStore, SnapshotUploader, SnapshotUploaderType, Snapshotter,
+    VerificationKeyStore,
 };
 
-type Result<T> = std::result::Result<T, DependenciesBuilderError>;
+use super::{DependenciesBuilderError, Result};
 
-/// Error that can occure during dependencies initialization process.
-#[derive(Debug)]
-pub enum DependenciesBuilderError {
-    /// Unrecoverable system initialization failure
-    Initialization {
-        message: String,
-        error: Option<StdError>,
-    },
-
-    /// Configuration parameter missing for initialization.
-    MissingConfiguration(String),
-}
-
-impl Display for DependenciesBuilderError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Initialization { message, error } => {
-                if let Some(nested) = error {
-                    write!(f, "Dependency initialization error: «{message}» with additional nested error: '{nested}'.")
-                } else {
-                    write!(f, "Dependency initialization error: «{message}».")
-                }
-            }
-            Self::MissingConfiguration(field) => {
-                write!(f, "Missing configuration setting '{field}'.")
-            }
-        }
-    }
-}
-
-impl Error for DependenciesBuilderError {}
-
-impl From<StdError> for DependenciesBuilderError {
-    fn from(value: StdError) -> Self {
-        DependenciesBuilderError::Initialization {
-            message: "subsystem error".to_string(),
-            error: Some(value),
-        }
-    }
-}
-
-impl From<ConfigError> for DependenciesBuilderError {
-    fn from(value: ConfigError) -> Self {
-        Self::MissingConfiguration(format!("{value}"))
-    }
-}
 /// Dependencies container builder
 pub struct DependenciesBuilder {
     /// Configuration parameters
@@ -142,6 +99,9 @@ pub struct DependenciesBuilder {
     /// Immutable file observer service.
     pub immutable_file_observer: Option<Arc<dyn ImmutableFileObserver>>,
 
+    /// Immutable cache provider service.
+    pub immutable_cache_provider: Option<Arc<dyn ImmutableFileDigestCacheProvider>>,
+
     /// Digester service.
     pub digester: Option<Arc<dyn ImmutableDigester>>,
 
@@ -178,7 +138,7 @@ pub struct DependenciesBuilder {
 
 impl DependenciesBuilder {
     /// Create a new clean dependency builder
-    pub async fn new(configuration: Configuration) -> Self {
+    pub fn new(configuration: Configuration) -> Self {
         Self {
             configuration,
             sqlite_connection: None,
@@ -196,6 +156,7 @@ impl DependenciesBuilder {
             beacon_provider: None,
             immutable_digester: None,
             immutable_file_observer: None,
+            immutable_cache_provider: None,
             digester: None,
             snapshotter: None,
             certificate_verifier: None,
@@ -217,17 +178,30 @@ impl DependenciesBuilder {
             }
             _ => Connection::open(":memory:"),
         };
-
-        connection
+        let connection = connection
             .map(|conn| Arc::new(Mutex::new(conn)))
             .map_err(|e| DependenciesBuilderError::Initialization {
                 message: "Could not initialize SQLite driver.".to_string(),
                 error: Some(Box::new(e)),
-            })
+            })?;
+        // Check database migrations
+        let mut db_checker = DatabaseVersionChecker::new(
+            slog_scope::logger(),
+            ApplicationNodeType::Aggregator,
+            connection.clone(),
+        );
+
+        for migration in crate::database::migration::get_migrations() {
+            db_checker.add_migration(migration);
+        }
+
+        db_checker.apply().await?;
+
+        Ok(connection)
     }
 
     /// Get SQLite connection
-    pub async fn get_sqlite_connection(&mut self) -> Result<Arc<Mutex<Connection>>> {
+    async fn get_sqlite_connection(&mut self) -> Result<Arc<Mutex<Connection>>> {
         if self.sqlite_connection.is_none() {
             self.sqlite_connection = Some(self.build_sqlite_connection().await?);
         }
@@ -241,7 +215,7 @@ impl DependenciesBuilder {
         Ok(stake_pool_store)
     }
 
-    pub async fn get_stake_store(&mut self) -> Result<Arc<StakePoolStore>> {
+    async fn get_stake_store(&mut self) -> Result<Arc<StakePoolStore>> {
         if self.stake_store.is_none() {
             self.stake_store = Some(self.build_stake_store().await?);
         }
@@ -279,7 +253,7 @@ impl DependenciesBuilder {
         )))
     }
 
-    pub async fn get_snapshot_store(&mut self) -> Result<Arc<dyn SnapshotStore>> {
+    async fn get_snapshot_store(&mut self) -> Result<Arc<dyn SnapshotStore>> {
         if self.snapshot_store.is_none() {
             self.snapshot_store = Some(self.build_snapshot_store().await?);
         }
@@ -312,7 +286,7 @@ impl DependenciesBuilder {
         }
     }
 
-    pub async fn get_snapshot_uploader(&mut self) -> Result<Arc<dyn SnapshotUploader>> {
+    async fn get_snapshot_uploader(&mut self) -> Result<Arc<dyn SnapshotUploader>> {
         if self.snapshot_uploader.is_none() {
             self.snapshot_uploader = Some(self.build_snapshot_uploader().await?);
         }
@@ -332,7 +306,7 @@ impl DependenciesBuilder {
     }
 
     /// Get a configured multi signer
-    pub async fn get_multi_signer(&mut self) -> Result<Arc<RwLock<dyn MultiSigner>>> {
+    async fn get_multi_signer(&mut self) -> Result<Arc<RwLock<dyn MultiSigner>>> {
         if self.multi_signer.is_none() {
             self.multi_signer = Some(self.build_multi_signer().await?);
         }
@@ -372,7 +346,7 @@ impl DependenciesBuilder {
     }
 
     /// Get a configured [CertificatePendingStore].
-    pub async fn get_certificate_pending_store(&mut self) -> Result<Arc<CertificatePendingStore>> {
+    async fn get_certificate_pending_store(&mut self) -> Result<Arc<CertificatePendingStore>> {
         if self.certificate_pending_store.is_none() {
             self.certificate_pending_store = Some(self.build_certificate_pending_store().await?);
         }
@@ -410,7 +384,7 @@ impl DependenciesBuilder {
     }
 
     /// Get a configured [CertificateStore].
-    pub async fn get_certificate_store(&mut self) -> Result<Arc<CertificateStore>> {
+    async fn get_certificate_store(&mut self) -> Result<Arc<CertificateStore>> {
         if self.certificate_store.is_none() {
             self.certificate_store = Some(self.build_certificate_store().await?);
         }
@@ -451,7 +425,7 @@ impl DependenciesBuilder {
     }
 
     /// Get a configured [VerificationKeyStore].
-    pub async fn get_verification_key_store(&mut self) -> Result<Arc<VerificationKeyStore>> {
+    async fn get_verification_key_store(&mut self) -> Result<Arc<VerificationKeyStore>> {
         if self.verification_key_store.is_none() {
             self.verification_key_store = Some(self.build_verification_key_store().await?);
         }
@@ -493,7 +467,7 @@ impl DependenciesBuilder {
     }
 
     /// Get a configured [SingleSignatureStore].
-    pub async fn get_single_signature_store(&mut self) -> Result<Arc<SingleSignatureStore>> {
+    async fn get_single_signature_store(&mut self) -> Result<Arc<SingleSignatureStore>> {
         if self.single_signature_store.is_none() {
             self.single_signature_store = Some(self.build_single_signature_store().await?);
         }
@@ -536,7 +510,7 @@ impl DependenciesBuilder {
     }
 
     /// Get a configured [ProtocolParametersStore].
-    pub async fn get_protocol_parameters_store(&mut self) -> Result<Arc<ProtocolParametersStore>> {
+    async fn get_protocol_parameters_store(&mut self) -> Result<Arc<ProtocolParametersStore>> {
         if self.protocol_parameters_store.is_none() {
             self.protocol_parameters_store = Some(self.build_protocol_parameters_store().await?);
         }
@@ -555,7 +529,7 @@ impl DependenciesBuilder {
         Ok(chain_observer)
     }
 
-    pub async fn get_chain_observer(&mut self) -> Result<Arc<dyn ChainObserver>> {
+    async fn get_chain_observer(&mut self) -> Result<Arc<dyn ChainObserver>> {
         if self.chain_observer.is_none() {
             self.chain_observer = Some(self.build_chain_observer().await?);
         }
@@ -592,7 +566,7 @@ impl DependenciesBuilder {
     }
 
     /// Return a [BeaconProvider] instance.
-    pub async fn get_beacon_provider(&mut self) -> Result<Arc<dyn BeaconProvider>> {
+    async fn get_beacon_provider(&mut self) -> Result<Arc<dyn BeaconProvider>> {
         if self.beacon_provider.is_none() {
             self.beacon_provider = Some(self.build_beacon_provider().await?);
         }
@@ -621,13 +595,37 @@ impl DependenciesBuilder {
         Ok(self.immutable_file_observer.as_ref().cloned().unwrap())
     }
 
+    async fn build_immutable_cache_provider(
+        &mut self,
+    ) -> Result<Arc<dyn ImmutableFileDigestCacheProvider>> {
+        let cache_provider = JsonImmutableFileDigestCacheProviderBuilder::new(
+            &self.configuration.data_stores_directory,
+            &format!("immutables_digests_{}.json", self.configuration.network),
+        )
+        .should_reset_digests_cache(self.configuration.reset_digests_cache.unwrap_or(false))
+        .build()
+        .await?;
+
+        Ok(Arc::new(cache_provider))
+    }
+
+    async fn get_immutable_cache_provider(
+        &mut self,
+    ) -> Result<Arc<dyn ImmutableFileDigestCacheProvider>> {
+        if self.immutable_cache_provider.is_none() {
+            self.immutable_cache_provider = Some(self.build_immutable_cache_provider().await?);
+        }
+
+        Ok(self.immutable_cache_provider.as_ref().cloned().unwrap())
+    }
+
     async fn create_logger(&self) -> Result<Logger> {
         Ok(slog_scope::logger())
     }
 
     /// This method does not cache the logger since it is managed internally by
     /// its own crate.
-    pub async fn get_logger(&self) -> Result<Logger> {
+    async fn get_logger(&self) -> Result<Logger> {
         self.create_logger().await
     }
 
@@ -686,7 +684,7 @@ impl DependenciesBuilder {
     }
 
     /// [Snapshotter] service.
-    pub async fn get_snapshotter(&mut self) -> Result<Arc<dyn Snapshotter>> {
+    async fn get_snapshotter(&mut self) -> Result<Arc<dyn Snapshotter>> {
         if self.snapshotter.is_none() {
             self.snapshotter = Some(self.build_snapshotter().await?);
         }
@@ -701,7 +699,7 @@ impl DependenciesBuilder {
     }
 
     /// [CertificateVerifier] service.
-    pub async fn get_certificate_verifier(&mut self) -> Result<Arc<dyn CertificateVerifier>> {
+    async fn get_certificate_verifier(&mut self) -> Result<Arc<dyn CertificateVerifier>> {
         if self.certificate_verifier.is_none() {
             self.certificate_verifier = Some(self.build_certificate_verifier().await?);
         }
@@ -729,7 +727,7 @@ impl DependenciesBuilder {
         Ok(Arc::new(genesis_verifier))
     }
 
-    pub async fn get_genesis_verifier(&mut self) -> Result<Arc<ProtocolGenesisVerifier>> {
+    async fn get_genesis_verifier(&mut self) -> Result<Arc<ProtocolGenesisVerifier>> {
         if self.genesis_verifier.is_none() {
             self.genesis_verifier = Some(self.build_genesis_verifier().await?);
         }
@@ -747,7 +745,7 @@ impl DependenciesBuilder {
     }
 
     /// [MithrilSignerRegisterer] service
-    pub async fn get_mithril_registerer(&mut self) -> Result<Arc<MithrilSignerRegisterer>> {
+    async fn get_mithril_registerer(&mut self) -> Result<Arc<MithrilSignerRegisterer>> {
         if self.mithril_registerer.is_none() {
             self.mithril_registerer = Some(self.build_mithril_registerer().await?);
         }
@@ -776,7 +774,7 @@ impl DependenciesBuilder {
     }
 
     /// [EraReader] service
-    pub async fn get_era_reader(&mut self) -> Result<Arc<EraReader>> {
+    async fn get_era_reader(&mut self) -> Result<Arc<EraReader>> {
         if self.era_reader.is_none() {
             self.era_reader = Some(self.build_era_reader().await?);
         }
@@ -818,7 +816,7 @@ impl DependenciesBuilder {
     }
 
     /// [EraReader] service
-    pub async fn get_era_checker(&mut self) -> Result<Arc<EraChecker>> {
+    async fn get_era_checker(&mut self) -> Result<Arc<EraChecker>> {
         if self.era_checker.is_none() {
             self.era_checker = Some(self.build_era_checker().await?);
         }
@@ -826,16 +824,7 @@ impl DependenciesBuilder {
         Ok(self.era_checker.as_ref().cloned().unwrap())
     }
 
-    async fn build_event_transmitter_channel(
-        &mut self,
-    ) -> (
-        UnboundedSender<EventMessage>,
-        UnboundedReceiver<EventMessage>,
-    ) {
-        tokio::sync::mpsc::unbounded_channel()
-    }
-
-    pub async fn get_event_transmitter_sender(&self) -> Result<UnboundedSender<EventMessage>> {
+    async fn get_event_transmitter_sender(&self) -> Result<UnboundedSender<EventMessage>> {
         if self.event_transmitter_channel_tx.is_none() {
             panic!("Event transmitter channel not initialized. The EventStore service shall be instanciated prior to this service to run.");
         }
@@ -851,7 +840,7 @@ impl DependenciesBuilder {
     }
 
     /// [EventTransmitter] service
-    pub async fn get_event_transmitter(&mut self) -> Result<Arc<TransmitterService<EventMessage>>> {
+    async fn get_event_transmitter(&mut self) -> Result<Arc<TransmitterService<EventMessage>>> {
         if self.event_transmitter.is_none() {
             self.event_transmitter = Some(self.build_event_transmitter().await?);
         }
@@ -866,7 +855,7 @@ impl DependenciesBuilder {
     }
 
     /// [ApiVersionprovider] service
-    pub async fn get_api_version_provider(&mut self) -> Result<Arc<APIVersionProvider>> {
+    async fn get_api_version_provider(&mut self) -> Result<Arc<APIVersionProvider>> {
         if self.api_version_provider.is_none() {
             self.api_version_provider = Some(self.build_api_version_provider().await?);
         }
@@ -886,7 +875,7 @@ impl DependenciesBuilder {
     }
 
     /// [StakeDistributionService] service
-    pub async fn get_stake_distribution_service(
+    async fn get_stake_distribution_service(
         &mut self,
     ) -> Result<Arc<dyn StakeDistributionService>> {
         if self.stake_distribution_service.is_none() {
@@ -894,5 +883,129 @@ impl DependenciesBuilder {
         }
 
         Ok(self.stake_distribution_service.as_ref().cloned().unwrap())
+    }
+
+    async fn build_dependency_manager(&mut self) -> Result<DependencyManager> {
+        let dependency_manager = DependencyManager {
+            config: self.configuration.clone(),
+            sqlite_connection: self.get_sqlite_connection().await?,
+            stake_store: self.get_stake_store().await?,
+            snapshot_store: self.get_snapshot_store().await?,
+            snapshot_uploader: self.get_snapshot_uploader().await?,
+            multi_signer: self.get_multi_signer().await?,
+            certificate_pending_store: self.get_certificate_pending_store().await?,
+            certificate_store: self.get_certificate_store().await?,
+            verification_key_store: self.get_verification_key_store().await?,
+            single_signature_store: self.get_single_signature_store().await?,
+            protocol_parameters_store: self.get_protocol_parameters_store().await?,
+            chain_observer: self.get_chain_observer().await?,
+            beacon_provider: self.get_beacon_provider().await?,
+            immutable_file_observer: self.get_immutable_file_observer().await?,
+            digester: self.get_immutable_digester().await?,
+            snapshotter: self.get_snapshotter().await?,
+            certificate_verifier: self.get_certificate_verifier().await?,
+            genesis_verifier: self.get_genesis_verifier().await?,
+            signer_registerer: self.get_mithril_registerer().await?,
+            signer_registration_round_opener: self.get_mithril_registerer().await?,
+            era_checker: self.get_era_checker().await?,
+            era_reader: self.get_era_reader().await?,
+            event_transmitter: self.get_event_transmitter().await?,
+            api_version_provider: self.get_api_version_provider().await?,
+            stake_distribution_service: self.get_stake_distribution_service().await?,
+        };
+
+        Ok(dependency_manager)
+    }
+    /// Create dependencies for the [EventStore] task. This task uses an
+    /// unshared resource (the Receiver), this is why the EventMessage channel
+    /// is created here instead of a dedicateed builder.
+    pub async fn create_event_store(&mut self) -> Result<EventStore> {
+        //
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<EventMessage>();
+        self.event_transmitter_channel_tx = Some(tx);
+        let event_store = EventStore::new(rx);
+
+        Ok(event_store)
+    }
+
+    /// Create the AggregatorRunner
+    pub async fn create_aggregator_runner(&mut self) -> Result<AggregatorRuntime> {
+        // initialize ProtocolParameters store if needed
+        {
+            let (work_epoch, epoch_to_sign, next_epoch_to_sign) = match self
+                .get_chain_observer()
+                .await?
+                .get_current_epoch()
+                .await
+                .map_err(|e| DependenciesBuilderError::Initialization {
+                    message: "cannot create aggrgator runner".to_string(),
+                    error: Some(e.into()),
+                })?
+                .ok_or(DependenciesBuilderError::Initialization {
+                    message: "cannot build aggrgator runner: impossible to retrieve current epoch"
+                        .to_string(),
+                    error: None,
+                })? {
+                Epoch(0) => (Epoch(0), Epoch(1), Epoch(2)),
+                epoch => (
+                    epoch.offset_to_signer_retrieval_epoch().unwrap(),
+                    epoch.offset_to_next_signer_retrieval_epoch(),
+                    epoch.offset_to_next_signer_retrieval_epoch().next(),
+                ),
+            };
+            let protocol_parameters_store = self.get_protocol_parameters_store().await?;
+            if protocol_parameters_store
+                .get_protocol_parameters(work_epoch)
+                .await
+                .map_err(|e| DependenciesBuilderError::Initialization {
+                    message: "can not create aggregator runner".to_string(),
+                    error: Some(e.into()),
+                })?
+                .is_none()
+            {
+                debug!("First launch, will use the configured protocol parameters for the current and next epoch certificate");
+
+                for epoch in [work_epoch, epoch_to_sign, next_epoch_to_sign] {
+                    protocol_parameters_store
+                        .save_protocol_parameters(
+                            epoch,
+                            self.configuration.protocol_parameters.clone(),
+                        )
+                        .await
+                        .map_err(|e| DependenciesBuilderError::Initialization {
+                            message: "can not create aggregator runner".to_string(),
+                            error: Some(e.into()),
+                        })?;
+                }
+            }
+        }
+        let runtime_dependency_manager = Arc::new(self.build_dependency_manager().await?);
+
+        let config = AggregatorConfig::new(
+            self.configuration.run_interval,
+            self.configuration.get_network()?,
+            &self.configuration.db_directory.clone(),
+        );
+        let runtime = AggregatorRuntime::new(
+            Duration::from_millis(config.interval),
+            None,
+            Arc::new(AggregatorRunner::new(config, runtime_dependency_manager)),
+        )
+        .await
+        .map_err(|e| DependenciesBuilderError::Initialization {
+            message: "Cannot initialize Aggregator runtime.".to_string(),
+            error: Some(e.into()),
+        })?;
+
+        Ok(runtime)
+    }
+
+    /// Create the HTTP route instance
+    pub async fn create_http_routes(
+        &mut self,
+    ) -> Result<impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone> {
+        let dependency_container = Arc::new(self.build_dependency_manager().await?);
+
+        Ok(router::routes(dependency_container))
     }
 }

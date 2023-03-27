@@ -1,7 +1,5 @@
 use config::{ConfigError, Map, Source, Value, ValueKind};
-use mithril_common::chain_observer::ChainObserver;
-use mithril_common::era::adapters::{EraReaderAdapterBuilder, EraReaderAdapterType};
-use mithril_common::era::EraReaderAdapter;
+use mithril_common::era::adapters::EraReaderAdapterType;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::path::PathBuf;
@@ -82,6 +80,9 @@ pub struct Configuration {
     /// Genesis verification key
     pub genesis_verification_key: HexEncodedGenesisVerificationKey,
 
+    /// Should the immutable cache be reset or not
+    pub reset_digests_cache: Option<bool>,
+
     /// Max number of records in stores.
     /// When new records are added, oldest records are automatically deleted so
     /// there can always be at max the number of records specified by this
@@ -128,19 +129,6 @@ impl Configuration {
                 &self.snapshot_directory,
             ))),
         }
-    }
-
-    /// Create era reader adapter from configuration settings.
-    pub fn build_era_reader_adapter(
-        &self,
-        chain_observer: Arc<dyn ChainObserver>,
-    ) -> Result<Arc<dyn EraReaderAdapter>, Box<dyn Error>> {
-        Ok(EraReaderAdapterBuilder::new(
-            &self.era_reader_adapter_type,
-            &self.era_reader_adapter_params,
-        )
-        .build(chain_observer)
-        .map_err(|e| ConfigError::Message(format!("build era adapter failed {e}")))?)
     }
 
     /// Check configuration and return a representation of the Cardano network.

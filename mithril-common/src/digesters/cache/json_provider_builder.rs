@@ -1,8 +1,9 @@
-use crate::digesters::cache::{
-    ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProvider,
+use crate::{
+    digesters::cache::{ImmutableFileDigestCacheProvider, JsonImmutableFileDigestCacheProvider},
+    StdError,
 };
 use slog_scope::info;
-use std::{error::Error, path::Path};
+use std::path::Path;
 use tokio::fs;
 
 /// A [JsonImmutableFileDigestCacheProvider] builder.
@@ -37,7 +38,7 @@ impl<'a> JsonImmutableFileDigestCacheProviderBuilder<'a> {
     }
 
     /// Build a [JsonImmutableFileDigestCacheProvider] based on the parameters previously set.
-    pub async fn build(&self) -> Result<JsonImmutableFileDigestCacheProvider, Box<dyn Error>> {
+    pub async fn build(&self) -> Result<JsonImmutableFileDigestCacheProvider, StdError> {
         let cache_file = self.cache_dir.join(self.filename);
         let cache_provider = JsonImmutableFileDigestCacheProvider::new(&cache_file);
 

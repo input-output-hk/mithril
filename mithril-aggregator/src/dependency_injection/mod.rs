@@ -12,6 +12,9 @@
 //! The Builder ensure every services has required dependencies to build and
 //! provide services containers for each sub process.
 mod builder;
+mod error;
 mod runtime_dependencies;
 
+pub use builder::*;
+pub use error::*;
 pub use runtime_dependencies::RuntimeDependencies;

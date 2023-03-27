@@ -283,8 +283,8 @@ impl DependencyManager {
 #[cfg(test)]
 pub mod tests {
     use crate::{
-        check_database_migration, configuration::ExecutionEnvironment,
-        database::provider::StakePoolStore, event_store::TransmitterService,
+        configuration::ExecutionEnvironment, database::provider::StakePoolStore,
+        event_store::TransmitterService,
         stake_distribution_service::MithrilStakeDistributionService, AggregatorConfig,
         CertificatePendingStore, CertificateStore, Configuration, DependencyManager,
         DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore, MithrilSignerRegisterer,
@@ -337,9 +337,9 @@ pub mod tests {
             store_retention_limit: None,
             era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
             era_reader_adapter_params: None,
+            reset_digests_cache: Some(true),
         };
         let connection = Arc::new(Mutex::new(Connection::open(":memory:").unwrap()));
-        check_database_migration(connection.clone()).await.unwrap();
         let snapshot_store = Arc::new(LocalSnapshotStore::new(
             Box::new(MemoryAdapter::new(None).unwrap()),
             20,
