@@ -35,7 +35,7 @@ use crate::{
     configuration::{ExecutionEnvironment, LIST_SNAPSHOTS_MAX_ITEMS},
     database::provider::StakePoolStore,
     event_store::{EventMessage, TransmitterService},
-    stake_distribution_service::StakeDistributionService,
+    stake_distribution_service::{MithrilStakeDistributionService, StakeDistributionService},
     tools::GcpFileUploader,
     CertificatePendingStore, CertificateStore, Configuration, DumbSnapshotter, GzipSnapshotter,
     LocalSnapshotStore, LocalSnapshotUploader, MithrilSignerRegisterer, MultiSigner,
@@ -101,7 +101,7 @@ pub struct DependenciesBuilder {
 
     /// Stake Store used by the StakeDistributionService
     /// It shall be a private dependency.
-    pub stake_store: Option<Arc<dyn StakeStorer>>,
+    pub stake_store: Option<Arc<StakePoolStore>>,
 
     /// Snapshot store.
     pub snapshot_store: Option<Arc<dyn SnapshotStore>>,
@@ -235,13 +235,13 @@ impl DependenciesBuilder {
         Ok(self.sqlite_connection.as_ref().cloned().unwrap())
     }
 
-    async fn build_stake_store(&mut self) -> Result<Arc<dyn StakeStorer>> {
+    async fn build_stake_store(&mut self) -> Result<Arc<StakePoolStore>> {
         let stake_pool_store = Arc::new(StakePoolStore::new(self.get_sqlite_connection().await?));
 
         Ok(stake_pool_store)
     }
 
-    pub async fn get_stake_store(&mut self) -> Result<Arc<dyn StakeStorer>> {
+    pub async fn get_stake_store(&mut self) -> Result<Arc<StakePoolStore>> {
         if self.stake_store.is_none() {
             self.stake_store = Some(self.build_stake_store().await?);
         }
@@ -826,7 +826,7 @@ impl DependenciesBuilder {
         Ok(self.era_checker.as_ref().cloned().unwrap())
     }
 
-    pub async fn build_event_transmitter_channel(
+    async fn build_event_transmitter_channel(
         &mut self,
     ) -> (
         UnboundedSender<EventMessage>,
@@ -843,9 +843,7 @@ impl DependenciesBuilder {
         Ok(self.event_transmitter_channel_tx.as_ref().cloned().unwrap())
     }
 
-    pub async fn build_event_transmitter(
-        &mut self,
-    ) -> Result<Arc<TransmitterService<EventMessage>>> {
+    async fn build_event_transmitter(&mut self) -> Result<Arc<TransmitterService<EventMessage>>> {
         let sender = self.get_event_transmitter_sender().await?;
         let event_transmitter = Arc::new(TransmitterService::new(sender));
 
@@ -861,7 +859,7 @@ impl DependenciesBuilder {
         Ok(self.event_transmitter.as_ref().cloned().unwrap())
     }
 
-    pub async fn build_api_version_provider(&mut self) -> Result<Arc<APIVersionProvider>> {
+    async fn build_api_version_provider(&mut self) -> Result<Arc<APIVersionProvider>> {
         let api_version_provider = Arc::new(APIVersionProvider::new(self.get_era_checker().await?));
 
         Ok(api_version_provider)
@@ -874,5 +872,27 @@ impl DependenciesBuilder {
         }
 
         Ok(self.api_version_provider.as_ref().cloned().unwrap())
+    }
+
+    async fn build_stake_distribution_service(
+        &mut self,
+    ) -> Result<Arc<dyn StakeDistributionService>> {
+        let stake_distribution_service = Arc::new(MithrilStakeDistributionService::new(
+            self.get_stake_store().await?,
+            self.get_chain_observer().await?,
+        ));
+
+        Ok(stake_distribution_service)
+    }
+
+    /// [StakeDistributionService] service
+    pub async fn get_stake_distribution_service(
+        &mut self,
+    ) -> Result<Arc<dyn StakeDistributionService>> {
+        if self.stake_distribution_service.is_none() {
+            self.stake_distribution_service = Some(self.build_stake_distribution_service().await?);
+        }
+
+        Ok(self.stake_distribution_service.as_ref().cloned().unwrap())
     }
 }
