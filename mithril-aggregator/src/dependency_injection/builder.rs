@@ -20,7 +20,7 @@ use mithril_common::{
         EraChecker, EraMarker, EraReader, EraReaderAdapter, SupportedEra,
     },
     store::adapter::{MemoryAdapter, SQLiteAdapter, StoreAdapter},
-    BeaconProvider, BeaconProviderImpl, StdError,
+    BeaconProvider, BeaconProviderImpl,
 };
 use slog::Logger;
 use slog_scope::debug;
@@ -631,9 +631,13 @@ impl DependenciesBuilder {
 
     // TODO: cache management which should not be ASYNC
     async fn build_immutable_digester(&mut self) -> Result<Arc<dyn ImmutableDigester>> {
+        let immutable_digester_cache = match self.configuration.environment {
+            ExecutionEnvironment::Production => Some(self.get_immutable_cache_provider().await?),
+            _ => None,
+        };
         let digester = CardanoImmutableDigester::new(
             self.configuration.db_directory.clone(),
-            None, // ← Cache shall be initialized here
+            immutable_digester_cache,
             self.get_logger().await?,
         );
 
@@ -885,7 +889,7 @@ impl DependenciesBuilder {
         Ok(self.stake_distribution_service.as_ref().cloned().unwrap())
     }
 
-    async fn build_dependency_manager(&mut self) -> Result<DependencyManager> {
+    async fn build_dependency_container(&mut self) -> Result<DependencyManager> {
         let dependency_manager = DependencyManager {
             config: self.configuration.clone(),
             sqlite_connection: self.get_sqlite_connection().await?,
@@ -979,7 +983,7 @@ impl DependenciesBuilder {
                 }
             }
         }
-        let runtime_dependency_manager = Arc::new(self.build_dependency_manager().await?);
+        let dependency_container = Arc::new(self.build_dependency_container().await?);
 
         let config = AggregatorConfig::new(
             self.configuration.run_interval,
@@ -989,7 +993,7 @@ impl DependenciesBuilder {
         let runtime = AggregatorRuntime::new(
             Duration::from_millis(config.interval),
             None,
-            Arc::new(AggregatorRunner::new(config, runtime_dependency_manager)),
+            Arc::new(AggregatorRunner::new(config, dependency_container)),
         )
         .await
         .map_err(|e| DependenciesBuilderError::Initialization {
@@ -1004,7 +1008,7 @@ impl DependenciesBuilder {
     pub async fn create_http_routes(
         &mut self,
     ) -> Result<impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone> {
-        let dependency_container = Arc::new(self.build_dependency_manager().await?);
+        let dependency_container = Arc::new(self.build_dependency_container().await?);
 
         Ok(router::routes(dependency_container))
     }
