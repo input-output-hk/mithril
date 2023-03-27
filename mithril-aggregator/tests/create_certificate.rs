@@ -49,7 +49,7 @@ async fn create_certificate() {
 
     comment!("register signers");
     tester.register_signers(&signers).await.unwrap();
-    cycle!(tester, "signing");
+    cycle_err!(tester, "signing");
 
     comment!("change the immutable number to alter the beacon");
     tester.increase_immutable_number().await.unwrap();

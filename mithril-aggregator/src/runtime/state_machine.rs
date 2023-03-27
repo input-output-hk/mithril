@@ -215,14 +215,12 @@ impl AggregatorRuntime {
                         .transition_from_signing_to_idle_new_beacon(state)
                         .await?;
                     self.state = AggregatorState::Idle(new_state);
-                } else if self.runner.is_multisig_created().await? {
-                    info!("→ a multi-signature have been created, build a snapshot & a certificate and transitioning back to IDLE");
-                    let new_state = self
-                        .transition_from_signing_to_idle_multisignature(state)
-                        .await?;
-                    self.state = AggregatorState::Idle(new_state);
                 } else {
-                    info!(" ⋅ not enough signature yet to aggregate a multi-signature, waiting…");
+                    let new_state = self
+                            .transition_from_signing_to_idle_multisignature(state)
+                            .await?;
+                        info!("→ a multi-signature have been created, build a snapshot & a certificate and transitioning back to IDLE");
+                        self.state = AggregatorState::Idle(new_state);
                 }
             }
         }
@@ -270,6 +268,18 @@ impl AggregatorRuntime {
         state: SigningState,
     ) -> Result<IdleState, RuntimeError> {
         trace!("launching transition from SIGNING to IDLE state");
+        let multi_signature = self.runner.create_multi_signature().await?;
+
+        let multi_signature = if multi_signature.is_none() {
+            return Err(RuntimeError::Critical {
+                message: "not enough signature yet to aggregate a multi-signature, waiting…"
+                    .to_string(),
+                nested_error: None,
+            });
+        } else {
+            multi_signature.unwrap()
+        };
+
         self.runner.drop_pending_certificate().await?;
         let ongoing_snapshot = self
             .runner
@@ -281,7 +291,7 @@ impl AggregatorRuntime {
             .await?;
         let certificate = self
             .runner
-            .create_and_save_certificate(&state.working_certificate)
+            .create_and_save_certificate(&state.working_certificate, multi_signature)
             .await?;
         let _ = self
             .runner
@@ -349,6 +359,9 @@ mod tests {
     use super::super::runner::MockAggregatorRunner;
     use super::*;
 
+    use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
+    use mithril_common::crypto_helper::{key_decode_hex, ProtocolMultiSignature};
+    use mithril_common::entities::HexEncodedKey;
     use mithril_common::era::UnsupportedEraError;
     use mithril_common::test_utils::fake_data;
     use mockall::predicate;
@@ -632,30 +645,36 @@ mod tests {
             .once()
             .returning(|| Ok(fake_data::beacon()));
         runner
-            .expect_is_multisig_created()
+            .expect_create_multi_signature()
             .once()
-            .returning(|| Ok(false));
+            .returning(|| Ok(None));
         let state = SigningState {
             current_beacon: fake_data::beacon(),
             working_certificate: WorkingCertificate::fake(),
         };
         let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
-        runtime.cycle().await.unwrap();
+        runtime
+            .cycle()
+            .await
+            .expect_err("cycle should have returned an error");
 
         assert_eq!("signing".to_string(), runtime.get_state());
     }
 
     #[tokio::test]
     async fn signing_multisig_is_created() {
+        let (certificate_chain, _) = setup_certificate_chain(5, 1);
+        let first_certificate = certificate_chain[0].clone();
+        let multi_signature: ProtocolMultiSignature =
+            key_decode_hex(&first_certificate.multi_signature as &HexEncodedKey).unwrap();
         let mut runner = MockAggregatorRunner::new();
         runner
             .expect_get_beacon_from_chain()
             .once()
             .returning(|| Ok(fake_data::beacon()));
         runner
-            .expect_is_multisig_created()
-            .once()
-            .returning(|| Ok(true));
+            .expect_create_multi_signature()
+            .return_once(move || Ok(Some(multi_signature)));
         runner
             .expect_drop_pending_certificate()
             .once()
@@ -676,7 +695,7 @@ mod tests {
         runner
             .expect_create_and_save_certificate()
             .once()
-            .returning(|_| Ok(fake_data::certificate("whatever".to_string())));
+            .returning(|_, _| Ok(fake_data::certificate("whatever".to_string())));
         runner
             .expect_create_and_save_snapshot()
             .once()
