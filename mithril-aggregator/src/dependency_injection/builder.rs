@@ -26,8 +26,10 @@ use mithril_common::{
 };
 use slog::Logger;
 use sqlite::Connection;
-use thiserror::Error;
-use tokio::sync::{Mutex, RwLock};
+use tokio::sync::{
+    mpsc::{UnboundedReceiver, UnboundedSender},
+    Mutex, RwLock,
+};
 
 use crate::{
     configuration::{ExecutionEnvironment, LIST_SNAPSHOTS_MAX_ITEMS},
@@ -164,6 +166,9 @@ pub struct DependenciesBuilder {
     /// Event Transmitter Service
     pub event_transmitter: Option<Arc<TransmitterService<EventMessage>>>,
 
+    /// Event transmitter Channel Sender endpoint
+    pub event_transmitter_channel_tx: Option<UnboundedSender<EventMessage>>,
+
     /// API Version provider
     pub api_version_provider: Option<Arc<APIVersionProvider>>,
 
@@ -199,6 +204,7 @@ impl DependenciesBuilder {
             era_checker: None,
             era_reader: None,
             event_transmitter: None,
+            event_transmitter_channel_tx: None,
             api_version_provider: None,
             stake_distribution_service: None,
         }
@@ -818,5 +824,40 @@ impl DependenciesBuilder {
         }
 
         Ok(self.era_checker.as_ref().cloned().unwrap())
+    }
+
+    pub async fn build_event_transmitter_channel(
+        &mut self,
+    ) -> (
+        UnboundedSender<EventMessage>,
+        UnboundedReceiver<EventMessage>,
+    ) {
+        tokio::sync::mpsc::unbounded_channel()
+    }
+
+    pub async fn get_event_transmitter_sender(&self) -> Result<UnboundedSender<EventMessage>> {
+        if self.event_transmitter_channel_tx.is_none() {
+            panic!("Event transmitter channel not initialized. The EventStore service shall be instanciated prior to this service to run.");
+        }
+
+        Ok(self.event_transmitter_channel_tx.as_ref().cloned().unwrap())
+    }
+
+    pub async fn build_event_transmitter(
+        &mut self,
+    ) -> Result<Arc<TransmitterService<EventMessage>>> {
+        let sender = self.get_event_transmitter_sender().await?;
+        let event_transmitter = Arc::new(TransmitterService::new(sender));
+
+        Ok(event_transmitter)
+    }
+
+    /// [EventTransmitter] service
+    pub async fn get_event_transmitter(&mut self) -> Result<Arc<TransmitterService<EventMessage>>> {
+        if self.event_transmitter.is_none() {
+            self.event_transmitter = Some(self.build_event_transmitter().await?);
+        }
+
+        Ok(self.event_transmitter.as_ref().cloned().unwrap())
     }
 }
