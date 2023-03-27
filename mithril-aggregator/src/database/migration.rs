@@ -68,5 +68,67 @@ insert into signed_entity_type (signed_entity_type_id, name)
             (2, 'Full Cardano Immutable Files');
 "#,
         ),
+        // Migration 4
+        // Add the new `certificate` table and migrate data from its previous version.
+        SqlMigration::new(
+            4,
+            r#"
+create table if not exists certificate (key_hash text primary key, key json not null, value json not null);
+alter table certificate rename to certificate_temp;
+create table certificate (
+    certificate_id              text     not null,
+    parent_certificate_id       text,
+    message                     text     not null,
+    signature                   text     not null,
+    aggregate_verification_key  text     not null,
+    epoch                       integer  not null,
+    beacon                      json     not null,
+    protocol_version            text     not null,
+    protocol_parameters         json     not null,
+    protocol_message            json     not null,
+    signers                     json     not null,
+    initiated_at                text     not null default current_timestamp,
+    sealed_at                   text     not null default current_timestamp,
+    primary key (certificate_id),
+    foreign key (parent_certificate_id) references certificate(certificate_id)
+);
+insert into certificate (certificate_id, 
+                        parent_certificate_id, 
+                        message, 
+                        signature, 
+                        aggregate_verification_key,
+                        epoch,
+                        beacon,
+                        protocol_version,
+                        protocol_parameters,
+                        protocol_message,
+                        signers,
+                        initiated_at,
+                        sealed_at)
+    select 
+        c.value->>'$.hash' as certificate_id,
+        case 
+            when c.value->>'$.multi_signature' <> '' then c.value->>'$.previous_hash'  
+            else NULL 
+        end as parent_certificate_id,
+        c.value->>'$.signed_message' as message,
+        case 
+            when c.value->>'$.multi_signature' <> '' then c.value->>'$.multi_signature' 
+            else c.value->>'$.genesis_signature' 
+        end as signature,
+        c.value->>'$.aggregate_verification_key' as aggregate_verification_key,
+        c.value->>'$.beacon.epoch' as epoch,
+        c.value->'$.beacon' as beacon,
+        c.value->>'$.metadata.version' as protocol_version,
+        c.value->'$.metadata.parameters' as protocol_parameters,
+        c.value->'$.protocol_message' as protocol_message,
+        c.value->'$.metadata.signers' as signers,
+        c.value->>'$.metadata.initiated_at' as initiated_at,
+        c.value->>'$.metadata.sealed_at' as sealed_at
+    from certificate_temp as c;
+create index epoch_index ON certificate(epoch);
+drop table certificate_temp;
+"#,
+        ),
     ]
 }
