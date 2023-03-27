@@ -271,7 +271,7 @@ impl AggregatorRuntime {
         let multi_signature = self.runner.create_multi_signature().await?;
 
         let multi_signature = if multi_signature.is_none() {
-            return Err(RuntimeError::Critical {
+            return Err(RuntimeError::KeepState {
                 message: "not enough signature yet to aggregate a multi-signature, waiting…"
                     .to_string(),
                 nested_error: None,
