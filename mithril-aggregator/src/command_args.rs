@@ -2,109 +2,21 @@ use clap::{Parser, Subcommand};
 use config::{builder::DefaultState, ConfigBuilder, Map, Source, Value, ValueKind};
 use slog::Level;
 use slog_scope::{crit, debug, info};
-use sqlite::Connection;
-use std::{error::Error, ffi::OsStr, net::IpAddr, path::PathBuf, sync::Arc};
-use tokio::{
-    sync::{oneshot, Mutex, RwLock},
-    task::JoinSet,
-};
+use std::{error::Error, net::IpAddr, path::PathBuf};
+use tokio::{sync::oneshot, task::JoinSet};
 
 use mithril_common::{
-    certificate_chain::MithrilCertificateVerifier,
-    chain_observer::CardanoCliRunner,
-    crypto_helper::{
-        key_decode_hex, EraMarkersSigner, ProtocolGenesisSigner, ProtocolGenesisVerifier,
-    },
-    digesters::ImmutableFileSystemObserver,
+    crypto_helper::{key_decode_hex, EraMarkersSigner, ProtocolGenesisSigner},
     entities::{Epoch, HexEncodedEraMarkersSecretKey, HexEncodedGenesisSecretKey},
-    store::adapter::SQLiteAdapter,
-    BeaconProviderImpl,
 };
 
 use crate::{
-    database::provider::StakePoolStore,
     dependency_injection::DependenciesBuilder,
-    tools::{EraTools, GenesisTools, GenesisToolsDependency},
-    CertificateStore, Configuration, DefaultConfiguration, GenesisConfiguration, MultiSignerImpl,
-    ProtocolParametersStore, SingleSignatureStore, VerificationKeyStore,
+    tools::{EraTools, GenesisTools},
+    Configuration, DefaultConfiguration,
 };
 
 const SQLITE_MONITORING_FILE: &str = "monitoring.sqlite3";
-
-async fn setup_genesis_dependencies(
-    config: &GenesisConfiguration,
-) -> Result<GenesisToolsDependency, Box<dyn std::error::Error>> {
-    let sqlite_db_path = Some(config.get_sqlite_file());
-    let chain_observer = Arc::new(
-        mithril_common::chain_observer::CardanoCliChainObserver::new(Box::new(
-            CardanoCliRunner::new(
-                config.cardano_cli_path.clone(),
-                config.cardano_node_socket_path.clone(),
-                config.get_network()?,
-            ),
-        )),
-    );
-    let sqlite_connection = Arc::new(Mutex::new(Connection::open(
-        sqlite_db_path
-            .as_ref()
-            .map(|path| path.as_os_str())
-            .unwrap_or(OsStr::new(":memory:")),
-    )?));
-
-    // DATABASE MIGRATION
-    //check_database_migration(sqlite_connection.clone()).await?;
-
-    let stake_store = Arc::new(StakePoolStore::new(sqlite_connection.clone()));
-    let immutable_file_observer = Arc::new(ImmutableFileSystemObserver::new(&config.db_directory));
-    let beacon_provider = Arc::new(BeaconProviderImpl::new(
-        chain_observer,
-        immutable_file_observer,
-        config.get_network()?,
-    ));
-    let certificate_store = Arc::new(CertificateStore::new(Box::new(SQLiteAdapter::new(
-        "certificate",
-        sqlite_connection.clone(),
-    )?)));
-    let certificate_verifier = Arc::new(MithrilCertificateVerifier::new(slog_scope::logger()));
-    let genesis_verification_key = key_decode_hex(&config.genesis_verification_key)?;
-    let genesis_verifier = Arc::new(ProtocolGenesisVerifier::from_verification_key(
-        genesis_verification_key,
-    ));
-    let protocol_parameters_store = Arc::new(ProtocolParametersStore::new(
-        Box::new(SQLiteAdapter::new(
-            "protocol_parameters",
-            sqlite_connection.clone(),
-        )?),
-        config.store_retention_limit,
-    ));
-    let verification_key_store = Arc::new(VerificationKeyStore::new(
-        Box::new(SQLiteAdapter::new(
-            "verification_key",
-            sqlite_connection.clone(),
-        )?),
-        config.store_retention_limit,
-    ));
-    let single_signature_store = Arc::new(SingleSignatureStore::new(
-        Box::new(SQLiteAdapter::new("single_signature", sqlite_connection)?),
-        config.store_retention_limit,
-    ));
-    let multi_signer = Arc::new(RwLock::new(MultiSignerImpl::new(
-        verification_key_store,
-        stake_store,
-        single_signature_store,
-        protocol_parameters_store.clone(),
-    )));
-    let dependencies = GenesisToolsDependency {
-        beacon_provider,
-        certificate_store,
-        certificate_verifier,
-        genesis_verifier,
-        protocol_parameters_store,
-        multi_signer,
-    };
-
-    Ok(dependencies)
-}
 
 /// Mithril Aggregator Node
 #[derive(Parser, Debug, Clone)]
@@ -392,7 +304,7 @@ impl ExportGenesisSubCommand {
         &self,
         config_builder: ConfigBuilder<DefaultState>,
     ) -> Result<(), Box<dyn Error>> {
-        let config: GenesisConfiguration = config_builder
+        let config: Configuration = config_builder
             .build()
             .map_err(|e| format!("configuration build error: {e}"))?
             .try_deserialize()
@@ -402,7 +314,8 @@ impl ExportGenesisSubCommand {
             "Genesis export payload to sign to {}",
             self.target_path.display()
         );
-        let dependencies = setup_genesis_dependencies(&config).await?;
+        let mut dependencies_builder = DependenciesBuilder::new(config.clone());
+        let dependencies = dependencies_builder.create_genesis_container().await?;
 
         let genesis_tools = GenesisTools::from_dependencies(dependencies).await?;
         genesis_tools.export_payload_to_sign(&self.target_path)
@@ -421,7 +334,7 @@ impl ImportGenesisSubCommand {
         &self,
         config_builder: ConfigBuilder<DefaultState>,
     ) -> Result<(), Box<dyn Error>> {
-        let config: GenesisConfiguration = config_builder
+        let config: Configuration = config_builder
             .build()
             .map_err(|e| format!("configuration build error: {e}"))?
             .try_deserialize()
@@ -431,7 +344,8 @@ impl ImportGenesisSubCommand {
             "Genesis import signed payload from {}",
             self.signed_payload_path.to_string_lossy()
         );
-        let dependencies = setup_genesis_dependencies(&config).await?;
+        let mut dependencies_builder = DependenciesBuilder::new(config.clone());
+        let dependencies = dependencies_builder.create_genesis_container().await?;
 
         let genesis_tools = GenesisTools::from_dependencies(dependencies).await?;
         genesis_tools
@@ -452,14 +366,15 @@ impl BootstrapGenesisSubCommand {
         &self,
         config_builder: ConfigBuilder<DefaultState>,
     ) -> Result<(), Box<dyn Error>> {
-        let config: GenesisConfiguration = config_builder
+        let config: Configuration = config_builder
             .build()
             .map_err(|e| format!("configuration build error: {e}"))?
             .try_deserialize()
             .map_err(|e| format!("configuration deserialize error: {e}"))?;
         debug!("BOOTSTRAP GENESIS command"; "config" => format!("{config:?}"));
         println!("Genesis bootstrap for test only!");
-        let dependencies = setup_genesis_dependencies(&config).await?;
+        let mut dependencies_builder = DependenciesBuilder::new(config.clone());
+        let dependencies = dependencies_builder.create_genesis_container().await?;
 
         let genesis_tools = GenesisTools::from_dependencies(dependencies).await?;
         let genesis_secret_key = key_decode_hex(&self.genesis_secret_key)?;

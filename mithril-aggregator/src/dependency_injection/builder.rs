@@ -1,9 +1,11 @@
+#[cfg(any(test, feature = "test_only"))]
+use mithril_common::chain_observer::FakeObserver;
 use std::{collections::HashMap, sync::Arc};
 
 use mithril_common::{
     api_version::APIVersionProvider,
     certificate_chain::{CertificateVerifier, MithrilCertificateVerifier},
-    chain_observer::{CardanoCliChainObserver, CardanoCliRunner, ChainObserver, FakeObserver},
+    chain_observer::{CardanoCliChainObserver, CardanoCliRunner, ChainObserver},
     crypto_helper::{key_decode_hex, ProtocolGenesisSigner, ProtocolGenesisVerifier},
     database::{ApplicationNodeType, DatabaseVersionChecker},
     digesters::{
@@ -37,7 +39,7 @@ use crate::{
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
     stake_distribution_service::{MithrilStakeDistributionService, StakeDistributionService},
-    tools::GcpFileUploader,
+    tools::{GcpFileUploader, GenesisToolsDependency},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
     CertificateStore, Configuration, DependencyManager, DumbSnapshotter, GzipSnapshotter,
     LocalSnapshotStore, LocalSnapshotUploader, MithrilSignerRegisterer, MultiSigner,
@@ -523,6 +525,7 @@ impl DependenciesBuilder {
             ExecutionEnvironment::Production => Arc::new(CardanoCliChainObserver::new(
                 self.get_cardano_cli_runner().await?,
             )),
+            #[cfg(any(test, feature = "test_only"))]
             _ => Arc::new(FakeObserver::default()),
         };
 
@@ -645,8 +648,6 @@ impl DependenciesBuilder {
     }
 
     /// Immutable digester.
-    /// **WARNING**: It is incomplete for now, the caching is no more supported,
-    /// the dependency must be reworked.
     async fn get_immutable_digester(&mut self) -> Result<Arc<dyn ImmutableDigester>> {
         if self.immutable_digester.is_none() {
             self.immutable_digester = Some(self.build_immutable_digester().await?);
@@ -768,6 +769,7 @@ impl DependenciesBuilder {
                 message: "Could not build EraReader as dependency.".to_string(),
                 error: Some(Box::new(e)),
             })?,
+            #[cfg(any(test, feature = "test_only"))]
             _ => Arc::new(EraReaderDummyAdapter::from_markers(vec![EraMarker::new(
                 &SupportedEra::dummy().to_string(),
                 Some(Epoch(0)),
@@ -1011,5 +1013,19 @@ impl DependenciesBuilder {
         let dependency_container = Arc::new(self.build_dependency_container().await?);
 
         Ok(router::routes(dependency_container))
+    }
+
+    /// Create dependencies for genesis commands
+    pub async fn create_genesis_container(&mut self) -> Result<GenesisToolsDependency> {
+        let dependencies = GenesisToolsDependency {
+            beacon_provider: self.get_beacon_provider().await?,
+            certificate_store: self.get_certificate_store().await?,
+            certificate_verifier: self.get_certificate_verifier().await?,
+            genesis_verifier: self.get_genesis_verifier().await?,
+            protocol_parameters_store: self.get_protocol_parameters_store().await?,
+            multi_signer: self.get_multi_signer().await?,
+        };
+
+        Ok(dependencies)
     }
 }
