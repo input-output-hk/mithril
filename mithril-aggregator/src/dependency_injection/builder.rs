@@ -860,4 +860,19 @@ impl DependenciesBuilder {
 
         Ok(self.event_transmitter.as_ref().cloned().unwrap())
     }
+
+    pub async fn build_api_version_provider(&mut self) -> Result<Arc<APIVersionProvider>> {
+        let api_version_provider = Arc::new(APIVersionProvider::new(self.get_era_checker().await?));
+
+        Ok(api_version_provider)
+    }
+
+    /// [ApiVersionprovider] service
+    pub async fn get_api_version_provider(&mut self) -> Result<Arc<APIVersionProvider>> {
+        if self.api_version_provider.is_none() {
+            self.api_version_provider = Some(self.build_api_version_provider().await?);
+        }
+
+        Ok(self.api_version_provider.as_ref().cloned().unwrap())
+    }
 }
