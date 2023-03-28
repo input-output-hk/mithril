@@ -22,6 +22,10 @@ pub enum DependenciesBuilderError {
 
     /// Configuration parameter missing for initialization.
     MissingConfiguration(String),
+
+    /// The dependency has reached a state where dependencies are not consistent
+    /// anymore. Shall be critical.
+    InconsistentState(String),
 }
 
 impl Display for DependenciesBuilderError {
@@ -36,6 +40,9 @@ impl Display for DependenciesBuilderError {
             }
             Self::MissingConfiguration(field) => {
                 write!(f, "Missing configuration setting '{field}'.")
+            }
+            Self::InconsistentState(message) => {
+                write!(f, "Inconsistent dependency state: '{message}'.")
             }
         }
     }

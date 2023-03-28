@@ -26,7 +26,10 @@ use slog::Logger;
 use slog_scope::debug;
 use sqlite::Connection;
 use tokio::{
-    sync::{mpsc::UnboundedSender, Mutex, RwLock},
+    sync::{
+        mpsc::{UnboundedReceiver, UnboundedSender},
+        Mutex, RwLock,
+    },
     time::Duration,
 };
 use warp::Filter;
@@ -127,7 +130,10 @@ pub struct DependenciesBuilder {
     pub event_transmitter: Option<Arc<TransmitterService<EventMessage>>>,
 
     /// Event transmitter Channel Sender endpoint
-    pub event_transmitter_channel_tx: Option<UnboundedSender<EventMessage>>,
+    pub event_transmitter_channel: (
+        Option<UnboundedReceiver<EventMessage>>,
+        Option<UnboundedSender<EventMessage>>,
+    ),
 
     /// API Version provider
     pub api_version_provider: Option<Arc<APIVersionProvider>>,
@@ -165,7 +171,7 @@ impl DependenciesBuilder {
             era_checker: None,
             era_reader: None,
             event_transmitter: None,
-            event_transmitter_channel_tx: None,
+            event_transmitter_channel: (None, None),
             api_version_provider: None,
             stake_distribution_service: None,
         }
@@ -186,7 +192,7 @@ impl DependenciesBuilder {
             })?;
         // Check database migrations
         let mut db_checker = DatabaseVersionChecker::new(
-            slog_scope::logger(),
+            self.get_logger().await?,
             ApplicationNodeType::Aggregator,
             connection.clone(),
         );
@@ -833,16 +839,49 @@ impl DependenciesBuilder {
         Ok(self.era_checker.as_ref().cloned().unwrap())
     }
 
-    /// Return the channel sender setup for the [EventStore]. Since, this
-    /// service needs the according receiver to work and this receiver is not
-    /// clonable, it must be created prior of getting any sender. This method
-    /// will panic otherwise.
-    pub async fn get_event_transmitter_sender(&self) -> Result<UnboundedSender<EventMessage>> {
-        if self.event_transmitter_channel_tx.is_none() {
-            panic!("Event transmitter channel not initialized. The EventStore service shall be instanciated prior to this service to run.");
+    async fn build_event_transmitter_channel(
+        &mut self,
+    ) -> Result<(
+        UnboundedReceiver<EventMessage>,
+        UnboundedSender<EventMessage>,
+    )> {
+        let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<EventMessage>();
+
+        Ok((rx, tx))
+    }
+
+    /// Return the EventMessage channel sender.
+    pub async fn get_event_transmitter_sender(&mut self) -> Result<UnboundedSender<EventMessage>> {
+        if let (_, None) = self.event_transmitter_channel {
+            let (rx, tx) = self.build_event_transmitter_channel().await?;
+            self.event_transmitter_channel = (Some(rx), Some(tx));
         }
 
-        Ok(self.event_transmitter_channel_tx.as_ref().cloned().unwrap())
+        Ok(self
+            .event_transmitter_channel
+            .1
+            .as_ref()
+            .cloned()
+            .expect("Transmitter<EventMessage> should be set."))
+    }
+
+    /// Return the channel receiver setup for the [EventStore]. Since this
+    /// receiver is not clonable, it must be called only once.
+    pub async fn get_event_transmitter_receiver(
+        &mut self,
+    ) -> Result<UnboundedReceiver<EventMessage>> {
+        if let (_, None) = self.event_transmitter_channel {
+            let (rx, tx) = self.build_event_transmitter_channel().await?;
+            self.event_transmitter_channel = (Some(rx), Some(tx));
+        }
+        let mut receiver: Option<UnboundedReceiver<EventMessage>> = None;
+        std::mem::swap(&mut self.event_transmitter_channel.0, &mut receiver);
+
+        receiver.ok_or_else(|| {
+            DependenciesBuilderError::InconsistentState(
+                "Receiver<EventMessage> has already been given and is not clonable.".to_string(),
+            )
+        })
     }
 
     async fn build_event_transmitter(&mut self) -> Result<Arc<TransmitterService<EventMessage>>> {
@@ -929,14 +968,9 @@ impl DependenciesBuilder {
 
         Ok(dependency_manager)
     }
-    /// Create dependencies for the [EventStore] task. This task uses an
-    /// unshared resource (the Receiver), this is why the EventMessage channel
-    /// is created here instead of a dedicateed builder.
+    /// Create dependencies for the [EventStore] task.
     pub async fn create_event_store(&mut self) -> Result<EventStore> {
-        //
-        let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<EventMessage>();
-        self.event_transmitter_channel_tx = Some(tx);
-        let event_store = EventStore::new(rx);
+        let event_store = EventStore::new(self.get_event_transmitter_receiver().await?);
 
         Ok(event_store)
     }
