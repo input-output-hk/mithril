@@ -4,9 +4,9 @@
 
 #[macro_use]
 pub mod runtime_tester;
-mod dependency;
+//mod dependency;
 #[macro_use]
 pub mod utilities;
 
-pub use dependency::initialize_dependencies;
+//pub use dependency::initialize_dependencies;
 pub use runtime_tester::RuntimeTester;

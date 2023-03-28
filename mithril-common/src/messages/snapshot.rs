@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::entities::Beacon;
 
-#[cfg(any(test, feature = "test_only"))]
 use crate::entities::Epoch;
 /// Message structure of a snapshot
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -27,7 +26,6 @@ pub struct SnapshotMessage {
 }
 
 impl SnapshotMessage {
-    #[cfg(any(test, feature = "test_only"))]
     /// Return a dummy test entity (test-only).
     pub fn dummy() -> Self {
         Self {

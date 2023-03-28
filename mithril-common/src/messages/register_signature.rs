@@ -17,7 +17,6 @@ pub struct RegisterSignatureMessage {
 }
 
 impl RegisterSignatureMessage {
-    #[cfg(any(test, feature = "test_only"))]
     /// Return a dummy test entity (test-only).
     pub fn dummy() -> Self {
         Self {

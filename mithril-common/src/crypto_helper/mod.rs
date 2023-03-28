@@ -5,11 +5,9 @@ mod codec;
 mod conversions;
 mod era;
 mod genesis;
-#[cfg(any(test, feature = "test_only"))]
 pub mod tests_setup;
 mod types;
 
-#[cfg(any(test, feature = "test_only"))]
 pub use cardano::ColdKeyGenerator;
 pub use cardano::{KESPeriod, OpCert, SerDeShelleyFileFormat, Sum6KesBytes};
 pub use codec::*;

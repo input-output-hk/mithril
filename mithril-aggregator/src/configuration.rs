@@ -1,4 +1,5 @@
 use config::{ConfigError, Map, Source, Value, ValueKind};
+use mithril_common::crypto_helper::{key_encode_hex, ProtocolGenesisSigner};
 use mithril_common::era::adapters::EraReaderAdapterType;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -20,7 +21,6 @@ const SQLITE_FILE: &str = "aggregator.sqlite3";
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum ExecutionEnvironment {
     /// Test environment, maximum logging, memory stores etc.
-    #[cfg(any(test, feature = "test_only"))]
     Test,
 
     /// Production environment, minimum logging, maximum performances,
@@ -34,7 +34,6 @@ impl FromStr for ExecutionEnvironment {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "production" => Ok(Self::Production),
-            #[cfg(any(test, feature = "test_only"))]
             "test" => Ok(Self::Test),
             _ => Err(ConfigError::Message(format!(
                 "Unkown execution environement {s}"
@@ -121,6 +120,42 @@ pub enum SnapshotUploaderType {
     Gcp,
     /// Uploader to local storage.
     Local,
+}
+
+impl Default for Configuration {
+    fn default() -> Self {
+        let genesis_verification_key = ProtocolGenesisSigner::create_deterministic_genesis_signer()
+            .create_genesis_verifier()
+            .to_verification_key();
+
+        Self {
+            environment: ExecutionEnvironment::Test,
+            cardano_cli_path: PathBuf::new(),
+            cardano_node_socket_path: PathBuf::new(),
+            network_magic: Some(42),
+            network: "whatever".to_string(),
+            protocol_parameters: ProtocolParameters {
+                k: 5,
+                m: 100,
+                phi_f: 0.95,
+            },
+            url_snapshot_manifest: "https://storage.googleapis.com/cardano-testnet/snapshots.json"
+                .to_string(),
+            snapshot_uploader_type: SnapshotUploaderType::Local,
+            snapshot_bucket_name: None,
+            server_ip: "0.0.0.0".to_string(),
+            server_port: 8000,
+            run_interval: 5000,
+            db_directory: PathBuf::new(),
+            snapshot_directory: PathBuf::new(),
+            data_stores_directory: PathBuf::new(),
+            genesis_verification_key: key_encode_hex(genesis_verification_key).unwrap(),
+            reset_digests_cache: Some(false),
+            store_retention_limit: None,
+            era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
+            era_reader_adapter_params: None,
+        }
+    }
 }
 
 impl Configuration {

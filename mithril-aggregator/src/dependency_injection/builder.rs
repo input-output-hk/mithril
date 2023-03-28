@@ -1,11 +1,9 @@
-#[cfg(any(test, feature = "test_only"))]
-use mithril_common::chain_observer::FakeObserver;
 use std::{collections::HashMap, sync::Arc};
 
 use mithril_common::{
     api_version::APIVersionProvider,
     certificate_chain::{CertificateVerifier, MithrilCertificateVerifier},
-    chain_observer::{CardanoCliChainObserver, CardanoCliRunner, ChainObserver},
+    chain_observer::{CardanoCliChainObserver, CardanoCliRunner, ChainObserver, FakeObserver},
     crypto_helper::{key_decode_hex, ProtocolGenesisSigner, ProtocolGenesisVerifier},
     database::{ApplicationNodeType, DatabaseVersionChecker},
     digesters::{
@@ -203,7 +201,7 @@ impl DependenciesBuilder {
     }
 
     /// Get SQLite connection
-    async fn get_sqlite_connection(&mut self) -> Result<Arc<Mutex<Connection>>> {
+    pub async fn get_sqlite_connection(&mut self) -> Result<Arc<Mutex<Connection>>> {
         if self.sqlite_connection.is_none() {
             self.sqlite_connection = Some(self.build_sqlite_connection().await?);
         }
@@ -217,7 +215,8 @@ impl DependenciesBuilder {
         Ok(stake_pool_store)
     }
 
-    async fn get_stake_store(&mut self) -> Result<Arc<StakePoolStore>> {
+    /// Return a [StakeStore]
+    pub async fn get_stake_store(&mut self) -> Result<Arc<StakePoolStore>> {
         if self.stake_store.is_none() {
             self.stake_store = Some(self.build_stake_store().await?);
         }
@@ -255,7 +254,8 @@ impl DependenciesBuilder {
         )))
     }
 
-    async fn get_snapshot_store(&mut self) -> Result<Arc<dyn SnapshotStore>> {
+    /// Return a configured [SnapshotStore]
+    pub async fn get_snapshot_store(&mut self) -> Result<Arc<dyn SnapshotStore>> {
         if self.snapshot_store.is_none() {
             self.snapshot_store = Some(self.build_snapshot_store().await?);
         }
@@ -288,7 +288,8 @@ impl DependenciesBuilder {
         }
     }
 
-    async fn get_snapshot_uploader(&mut self) -> Result<Arc<dyn SnapshotUploader>> {
+    /// Get a [SnapshotUploader]
+    pub async fn get_snapshot_uploader(&mut self) -> Result<Arc<dyn SnapshotUploader>> {
         if self.snapshot_uploader.is_none() {
             self.snapshot_uploader = Some(self.build_snapshot_uploader().await?);
         }
@@ -308,7 +309,7 @@ impl DependenciesBuilder {
     }
 
     /// Get a configured multi signer
-    async fn get_multi_signer(&mut self) -> Result<Arc<RwLock<dyn MultiSigner>>> {
+    pub async fn get_multi_signer(&mut self) -> Result<Arc<RwLock<dyn MultiSigner>>> {
         if self.multi_signer.is_none() {
             self.multi_signer = Some(self.build_multi_signer().await?);
         }
@@ -348,7 +349,7 @@ impl DependenciesBuilder {
     }
 
     /// Get a configured [CertificatePendingStore].
-    async fn get_certificate_pending_store(&mut self) -> Result<Arc<CertificatePendingStore>> {
+    pub async fn get_certificate_pending_store(&mut self) -> Result<Arc<CertificatePendingStore>> {
         if self.certificate_pending_store.is_none() {
             self.certificate_pending_store = Some(self.build_certificate_pending_store().await?);
         }
@@ -386,7 +387,7 @@ impl DependenciesBuilder {
     }
 
     /// Get a configured [CertificateStore].
-    async fn get_certificate_store(&mut self) -> Result<Arc<CertificateStore>> {
+    pub async fn get_certificate_store(&mut self) -> Result<Arc<CertificateStore>> {
         if self.certificate_store.is_none() {
             self.certificate_store = Some(self.build_certificate_store().await?);
         }
@@ -427,7 +428,7 @@ impl DependenciesBuilder {
     }
 
     /// Get a configured [VerificationKeyStore].
-    async fn get_verification_key_store(&mut self) -> Result<Arc<VerificationKeyStore>> {
+    pub async fn get_verification_key_store(&mut self) -> Result<Arc<VerificationKeyStore>> {
         if self.verification_key_store.is_none() {
             self.verification_key_store = Some(self.build_verification_key_store().await?);
         }
@@ -469,7 +470,7 @@ impl DependenciesBuilder {
     }
 
     /// Get a configured [SingleSignatureStore].
-    async fn get_single_signature_store(&mut self) -> Result<Arc<SingleSignatureStore>> {
+    pub async fn get_single_signature_store(&mut self) -> Result<Arc<SingleSignatureStore>> {
         if self.single_signature_store.is_none() {
             self.single_signature_store = Some(self.build_single_signature_store().await?);
         }
@@ -512,7 +513,7 @@ impl DependenciesBuilder {
     }
 
     /// Get a configured [ProtocolParametersStore].
-    async fn get_protocol_parameters_store(&mut self) -> Result<Arc<ProtocolParametersStore>> {
+    pub async fn get_protocol_parameters_store(&mut self) -> Result<Arc<ProtocolParametersStore>> {
         if self.protocol_parameters_store.is_none() {
             self.protocol_parameters_store = Some(self.build_protocol_parameters_store().await?);
         }
@@ -525,14 +526,14 @@ impl DependenciesBuilder {
             ExecutionEnvironment::Production => Arc::new(CardanoCliChainObserver::new(
                 self.get_cardano_cli_runner().await?,
             )),
-            #[cfg(any(test, feature = "test_only"))]
             _ => Arc::new(FakeObserver::default()),
         };
 
         Ok(chain_observer)
     }
 
-    async fn get_chain_observer(&mut self) -> Result<Arc<dyn ChainObserver>> {
+    /// Return a [ChaineObserver]
+    pub async fn get_chain_observer(&mut self) -> Result<Arc<dyn ChainObserver>> {
         if self.chain_observer.is_none() {
             self.chain_observer = Some(self.build_chain_observer().await?);
         }
@@ -550,7 +551,8 @@ impl DependenciesBuilder {
         Ok(Box::new(cli_runner))
     }
 
-    async fn get_cardano_cli_runner(&mut self) -> Result<Box<CardanoCliRunner>> {
+    /// Return a [CardanoCliRunner]
+    pub async fn get_cardano_cli_runner(&mut self) -> Result<Box<CardanoCliRunner>> {
         if self.cardano_cli_runner.is_none() {
             self.cardano_cli_runner = Some(self.build_cardano_cli_runner().await?);
         }
@@ -569,7 +571,7 @@ impl DependenciesBuilder {
     }
 
     /// Return a [BeaconProvider] instance.
-    async fn get_beacon_provider(&mut self) -> Result<Arc<dyn BeaconProvider>> {
+    pub async fn get_beacon_provider(&mut self) -> Result<Arc<dyn BeaconProvider>> {
         if self.beacon_provider.is_none() {
             self.beacon_provider = Some(self.build_beacon_provider().await?);
         }
@@ -590,7 +592,7 @@ impl DependenciesBuilder {
     }
 
     /// Return a [ImmutableFileObserver] instance.
-    async fn get_immutable_file_observer(&mut self) -> Result<Arc<dyn ImmutableFileObserver>> {
+    pub async fn get_immutable_file_observer(&mut self) -> Result<Arc<dyn ImmutableFileObserver>> {
         if self.immutable_file_observer.is_none() {
             self.immutable_file_observer = Some(self.build_immutable_file_observer().await?);
         }
@@ -612,7 +614,8 @@ impl DependenciesBuilder {
         Ok(Arc::new(cache_provider))
     }
 
-    async fn get_immutable_cache_provider(
+    /// Get an [ImmutableCacheProvider]
+    pub async fn get_immutable_cache_provider(
         &mut self,
     ) -> Result<Arc<dyn ImmutableFileDigestCacheProvider>> {
         if self.immutable_cache_provider.is_none() {
@@ -628,7 +631,7 @@ impl DependenciesBuilder {
 
     /// This method does not cache the logger since it is managed internally by
     /// its own crate.
-    async fn get_logger(&self) -> Result<Logger> {
+    pub async fn get_logger(&self) -> Result<Logger> {
         self.create_logger().await
     }
 
@@ -648,7 +651,7 @@ impl DependenciesBuilder {
     }
 
     /// Immutable digester.
-    async fn get_immutable_digester(&mut self) -> Result<Arc<dyn ImmutableDigester>> {
+    pub async fn get_immutable_digester(&mut self) -> Result<Arc<dyn ImmutableDigester>> {
         if self.immutable_digester.is_none() {
             self.immutable_digester = Some(self.build_immutable_digester().await?);
         }
@@ -689,7 +692,7 @@ impl DependenciesBuilder {
     }
 
     /// [Snapshotter] service.
-    async fn get_snapshotter(&mut self) -> Result<Arc<dyn Snapshotter>> {
+    pub async fn get_snapshotter(&mut self) -> Result<Arc<dyn Snapshotter>> {
         if self.snapshotter.is_none() {
             self.snapshotter = Some(self.build_snapshotter().await?);
         }
@@ -704,7 +707,7 @@ impl DependenciesBuilder {
     }
 
     /// [CertificateVerifier] service.
-    async fn get_certificate_verifier(&mut self) -> Result<Arc<dyn CertificateVerifier>> {
+    pub async fn get_certificate_verifier(&mut self) -> Result<Arc<dyn CertificateVerifier>> {
         if self.certificate_verifier.is_none() {
             self.certificate_verifier = Some(self.build_certificate_verifier().await?);
         }
@@ -732,7 +735,8 @@ impl DependenciesBuilder {
         Ok(Arc::new(genesis_verifier))
     }
 
-    async fn get_genesis_verifier(&mut self) -> Result<Arc<ProtocolGenesisVerifier>> {
+    /// Return a [ProtocolGenesisVerifier]
+    pub async fn get_genesis_verifier(&mut self) -> Result<Arc<ProtocolGenesisVerifier>> {
         if self.genesis_verifier.is_none() {
             self.genesis_verifier = Some(self.build_genesis_verifier().await?);
         }
@@ -750,7 +754,7 @@ impl DependenciesBuilder {
     }
 
     /// [MithrilSignerRegisterer] service
-    async fn get_mithril_registerer(&mut self) -> Result<Arc<MithrilSignerRegisterer>> {
+    pub async fn get_mithril_registerer(&mut self) -> Result<Arc<MithrilSignerRegisterer>> {
         if self.mithril_registerer.is_none() {
             self.mithril_registerer = Some(self.build_mithril_registerer().await?);
         }
@@ -769,7 +773,6 @@ impl DependenciesBuilder {
                 message: "Could not build EraReader as dependency.".to_string(),
                 error: Some(Box::new(e)),
             })?,
-            #[cfg(any(test, feature = "test_only"))]
             _ => Arc::new(EraReaderDummyAdapter::from_markers(vec![EraMarker::new(
                 &SupportedEra::dummy().to_string(),
                 Some(Epoch(0)),
@@ -780,7 +783,7 @@ impl DependenciesBuilder {
     }
 
     /// [EraReader] service
-    async fn get_era_reader(&mut self) -> Result<Arc<EraReader>> {
+    pub async fn get_era_reader(&mut self) -> Result<Arc<EraReader>> {
         if self.era_reader.is_none() {
             self.era_reader = Some(self.build_era_reader().await?);
         }
@@ -822,7 +825,7 @@ impl DependenciesBuilder {
     }
 
     /// [EraReader] service
-    async fn get_era_checker(&mut self) -> Result<Arc<EraChecker>> {
+    pub async fn get_era_checker(&mut self) -> Result<Arc<EraChecker>> {
         if self.era_checker.is_none() {
             self.era_checker = Some(self.build_era_checker().await?);
         }
@@ -830,7 +833,11 @@ impl DependenciesBuilder {
         Ok(self.era_checker.as_ref().cloned().unwrap())
     }
 
-    async fn get_event_transmitter_sender(&self) -> Result<UnboundedSender<EventMessage>> {
+    /// Return the channel sender setup for the [EventStore]. Since, this
+    /// service needs the according receiver to work and this receiver is not
+    /// clonable, it must be created prior of getting any sender. This method
+    /// will panic otherwise.
+    pub async fn get_event_transmitter_sender(&self) -> Result<UnboundedSender<EventMessage>> {
         if self.event_transmitter_channel_tx.is_none() {
             panic!("Event transmitter channel not initialized. The EventStore service shall be instanciated prior to this service to run.");
         }
@@ -846,7 +853,7 @@ impl DependenciesBuilder {
     }
 
     /// [EventTransmitter] service
-    async fn get_event_transmitter(&mut self) -> Result<Arc<TransmitterService<EventMessage>>> {
+    pub async fn get_event_transmitter(&mut self) -> Result<Arc<TransmitterService<EventMessage>>> {
         if self.event_transmitter.is_none() {
             self.event_transmitter = Some(self.build_event_transmitter().await?);
         }
@@ -861,7 +868,7 @@ impl DependenciesBuilder {
     }
 
     /// [ApiVersionprovider] service
-    async fn get_api_version_provider(&mut self) -> Result<Arc<APIVersionProvider>> {
+    pub async fn get_api_version_provider(&mut self) -> Result<Arc<APIVersionProvider>> {
         if self.api_version_provider.is_none() {
             self.api_version_provider = Some(self.build_api_version_provider().await?);
         }
@@ -881,7 +888,7 @@ impl DependenciesBuilder {
     }
 
     /// [StakeDistributionService] service
-    async fn get_stake_distribution_service(
+    pub async fn get_stake_distribution_service(
         &mut self,
     ) -> Result<Arc<dyn StakeDistributionService>> {
         if self.stake_distribution_service.is_none() {
