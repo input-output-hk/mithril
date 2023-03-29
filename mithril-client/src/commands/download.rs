@@ -1,8 +1,8 @@
-use std::{error::Error, fmt::Display, sync::Arc};
+use std::{fmt::Display, sync::Arc};
 
 use clap::Parser;
 use config::{builder::DefaultState, ConfigBuilder};
-use mithril_common::api_version::APIVersionProvider;
+use mithril_common::{api_version::APIVersionProvider, StdError};
 use serde::Serialize;
 use slog_scope::debug;
 
@@ -28,7 +28,7 @@ impl DownloadCommand {
     pub async fn execute(
         &self,
         config_builder: ConfigBuilder<DefaultState>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), StdError> {
         debug!("Download snapshots");
         let config: Config = config_builder
             .build()

@@ -250,7 +250,7 @@ impl RuntimeTester {
         signers: &[SignerFixture],
     ) -> Result<(), String> {
         let lock = self.deps_builder.get_multi_signer().await.unwrap();
-        let mut multisigner = lock.write().await;
+        let multisigner = lock.read().await;
         let message = multisigner
             .get_current_message()
             .await

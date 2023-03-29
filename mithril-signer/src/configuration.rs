@@ -1,6 +1,6 @@
 use config::{ConfigError, Map, Source, Value, ValueKind};
 use serde::{Deserialize, Serialize};
-use std::{error::Error, path::PathBuf, sync::Arc};
+use std::{path::PathBuf, sync::Arc};
 
 use mithril_common::{
     chain_observer::ChainObserver,
@@ -9,7 +9,7 @@ use mithril_common::{
         adapters::{EraReaderAdapterBuilder, EraReaderAdapterType},
         EraReaderAdapter,
     },
-    CardanoNetwork,
+    CardanoNetwork, StdError,
 };
 
 const SQLITE_FILE: &str = "signer.sqlite3";
@@ -94,7 +94,7 @@ impl Configuration {
     pub fn build_era_reader_adapter(
         &self,
         chain_observer: Arc<dyn ChainObserver>,
-    ) -> Result<Arc<dyn EraReaderAdapter>, Box<dyn Error>> {
+    ) -> Result<Arc<dyn EraReaderAdapter>, StdError> {
         Ok(EraReaderAdapterBuilder::new(
             &self.era_reader_adapter_type,
             &self.era_reader_adapter_params,

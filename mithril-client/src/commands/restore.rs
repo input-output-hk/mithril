@@ -9,9 +9,10 @@ use mithril_common::{
         cache::ImmutableFileDigestCacheProvider,
         cache::JsonImmutableFileDigestCacheProviderBuilder, CardanoImmutableDigester,
     },
+    StdError,
 };
 use slog_scope::{debug, warn};
-use std::{error::Error, path::Path, sync::Arc};
+use std::{path::Path, sync::Arc};
 
 use crate::{AggregatorHTTPClient, AggregatorHandler, Config, Runtime};
 
@@ -41,7 +42,7 @@ impl RestoreCommand {
     pub async fn execute(
         &self,
         config_builder: ConfigBuilder<DefaultState>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), StdError> {
         debug!("Restore snapshot");
         let config: Config = config_builder
             .build()
@@ -102,7 +103,7 @@ async fn build_digester_cache_provider(
     disable_digests_cache: bool,
     reset_digests_cache: bool,
     config: &Config,
-) -> Result<Option<Arc<dyn ImmutableFileDigestCacheProvider>>, Box<dyn Error>> {
+) -> Result<Option<Arc<dyn ImmutableFileDigestCacheProvider>>, StdError> {
     if disable_digests_cache {
         return Ok(None);
     }
