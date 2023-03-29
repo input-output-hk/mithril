@@ -42,11 +42,11 @@ use crate::{
     stake_distribution_service::{MithrilStakeDistributionService, StakeDistributionService},
     tools::{GcpFileUploader, GenesisToolsDependency},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
-    CertificateStore, Configuration, DependencyManager, DumbSnapshotter, GzipSnapshotter,
-    LocalSnapshotStore, LocalSnapshotUploader, MithrilSignerRegisterer, MultiSigner,
-    MultiSignerImpl, ProtocolParametersStore, ProtocolParametersStorer, RemoteSnapshotUploader,
-    SingleSignatureStore, SnapshotStore, SnapshotUploader, SnapshotUploaderType, Snapshotter,
-    VerificationKeyStore,
+    CertificateStore, Configuration, DependencyManager, DumbSnapshotUploader, DumbSnapshotter,
+    GzipSnapshotter, LocalSnapshotStore, LocalSnapshotUploader, MithrilSignerRegisterer,
+    MultiSigner, MultiSignerImpl, ProtocolParametersStore, ProtocolParametersStorer,
+    RemoteSnapshotUploader, SingleSignatureStore, SnapshotStore, SnapshotUploader,
+    SnapshotUploaderType, Snapshotter, VerificationKeyStore,
 };
 
 use super::{DependenciesBuilderError, Result};
@@ -123,6 +123,9 @@ pub struct DependenciesBuilder {
     /// Era checker service
     pub era_checker: Option<Arc<EraChecker>>,
 
+    /// Adapter for [EraReader]
+    pub era_reader_adapter: Option<Arc<dyn EraReaderAdapter>>,
+
     /// Era reader service
     pub era_reader: Option<Arc<EraReader>>,
 
@@ -168,6 +171,7 @@ impl DependenciesBuilder {
             certificate_verifier: None,
             genesis_verifier: None,
             mithril_registerer: None,
+            era_reader_adapter: None,
             era_checker: None,
             era_reader: None,
             event_transmitter: None,
@@ -270,27 +274,31 @@ impl DependenciesBuilder {
     }
 
     async fn build_snapshot_uploader(&mut self) -> Result<Arc<dyn SnapshotUploader>> {
-        match self.configuration.snapshot_uploader_type {
-            SnapshotUploaderType::Gcp => {
-                let bucket = self
-                    .configuration
-                    .snapshot_bucket_name
-                    .to_owned()
-                    .ok_or_else(|| {
-                        DependenciesBuilderError::MissingConfiguration(
-                            "snapshot_bucket_name".to_string(),
-                        )
-                    })?;
+        if self.configuration.environment == ExecutionEnvironment::Production {
+            match self.configuration.snapshot_uploader_type {
+                SnapshotUploaderType::Gcp => {
+                    let bucket = self
+                        .configuration
+                        .snapshot_bucket_name
+                        .to_owned()
+                        .ok_or_else(|| {
+                            DependenciesBuilderError::MissingConfiguration(
+                                "snapshot_bucket_name".to_string(),
+                            )
+                        })?;
 
-                Ok(Arc::new(RemoteSnapshotUploader::new(
-                    Box::new(GcpFileUploader::new(bucket.clone())),
-                    bucket,
-                )))
+                    Ok(Arc::new(RemoteSnapshotUploader::new(
+                        Box::new(GcpFileUploader::new(bucket.clone())),
+                        bucket,
+                    )))
+                }
+                SnapshotUploaderType::Local => Ok(Arc::new(LocalSnapshotUploader::new(
+                    self.configuration.get_server_url(),
+                    &self.configuration.snapshot_directory,
+                ))),
             }
-            SnapshotUploaderType::Local => Ok(Arc::new(LocalSnapshotUploader::new(
-                self.configuration.get_server_url(),
-                &self.configuration.snapshot_directory,
-            ))),
+        } else {
+            Ok(Arc::new(DumbSnapshotUploader::new()))
         }
     }
 
@@ -591,7 +599,7 @@ impl DependenciesBuilder {
                 ExecutionEnvironment::Production => Arc::new(ImmutableFileSystemObserver::new(
                     &self.configuration.db_directory,
                 )),
-                _ => Arc::new(DumbImmutableFileObserver::new()),
+                _ => Arc::new(DumbImmutableFileObserver::default()),
             };
 
         Ok(immutable_file_observer)
@@ -937,7 +945,8 @@ impl DependenciesBuilder {
         Ok(self.stake_distribution_service.as_ref().cloned().unwrap())
     }
 
-    async fn build_dependency_container(&mut self) -> Result<DependencyManager> {
+    /// Return an unconfigured [DependencyManager]
+    pub async fn build_dependency_container(&mut self) -> Result<DependencyManager> {
         let dependency_manager = DependencyManager {
             config: self.configuration.clone(),
             sqlite_connection: self.get_sqlite_connection().await?,
@@ -979,20 +988,21 @@ impl DependenciesBuilder {
     pub async fn create_aggregator_runner(&mut self) -> Result<AggregatorRuntime> {
         // initialize ProtocolParameters store if needed
         {
-            let (work_epoch, epoch_to_sign, next_epoch_to_sign) = match self
+            let current_epoch = self
                 .get_chain_observer()
                 .await?
                 .get_current_epoch()
                 .await
                 .map_err(|e| DependenciesBuilderError::Initialization {
-                    message: "cannot create aggrgator runner".to_string(),
+                    message: "cannot create aggregator runner".to_string(),
                     error: Some(e.into()),
                 })?
                 .ok_or(DependenciesBuilderError::Initialization {
                     message: "cannot build aggrgator runner: impossible to retrieve current epoch"
                         .to_string(),
                     error: None,
-                })? {
+                })?;
+            let (work_epoch, epoch_to_sign, next_epoch_to_sign) = match current_epoch {
                 Epoch(0) => (Epoch(0), Epoch(1), Epoch(2)),
                 epoch => (
                     epoch.offset_to_signer_retrieval_epoch().unwrap(),
@@ -1001,6 +1011,7 @@ impl DependenciesBuilder {
                 ),
             };
             let protocol_parameters_store = self.get_protocol_parameters_store().await?;
+
             if protocol_parameters_store
                 .get_protocol_parameters(work_epoch)
                 .await

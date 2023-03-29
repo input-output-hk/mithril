@@ -283,153 +283,15 @@ impl DependencyManager {
 #[cfg(test)]
 pub mod tests {
     use crate::{
-        configuration::ExecutionEnvironment, database::provider::StakePoolStore,
-        event_store::TransmitterService,
-        stake_distribution_service::MithrilStakeDistributionService, AggregatorConfig,
-        CertificatePendingStore, CertificateStore, Configuration, DependencyManager,
-        DumbSnapshotUploader, DumbSnapshotter, LocalSnapshotStore, MithrilSignerRegisterer,
-        MultiSignerImpl, ProtocolParametersStore, SingleSignatureStore, SnapshotUploaderType,
-        VerificationKeyStore,
+        dependency_injection::DependenciesBuilder, AggregatorConfig, Configuration,
+        DependencyManager,
     };
-    use mithril_common::{
-        api_version::APIVersionProvider,
-        certificate_chain::MithrilCertificateVerifier,
-        chain_observer::FakeObserver,
-        crypto_helper::{key_encode_hex, ProtocolGenesisSigner},
-        digesters::{DumbImmutableDigester, DumbImmutableFileObserver},
-        era::{
-            adapters::{EraReaderAdapterType, EraReaderBootstrapAdapter},
-            EraChecker, EraReader,
-        },
-        store::adapter::MemoryAdapter,
-        test_utils::fake_data,
-        BeaconProvider, BeaconProviderImpl, CardanoNetwork,
-    };
-    use sqlite::Connection;
-    use std::{path::PathBuf, sync::Arc};
-    use tokio::sync::{
-        mpsc::{self},
-        Mutex, RwLock,
-    };
+    use mithril_common::CardanoNetwork;
 
     pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) {
-        let genesis_signer = ProtocolGenesisSigner::create_deterministic_genesis_signer();
-        let genesis_verifier = Arc::new(genesis_signer.create_genesis_verifier());
-        let genesis_verification_key = genesis_verifier.to_verification_key();
-        let config = Configuration {
-            environment: ExecutionEnvironment::Test,
-            cardano_cli_path: PathBuf::new(),
-            cardano_node_socket_path: PathBuf::new(),
-            network_magic: Some(42),
-            network: "whatever".to_string(),
-            protocol_parameters: fake_data::protocol_parameters(),
-            url_snapshot_manifest: "https://storage.googleapis.com/cardano-testnet/snapshots.json"
-                .to_string(),
-            snapshot_uploader_type: SnapshotUploaderType::Local,
-            snapshot_bucket_name: None,
-            server_ip: "0.0.0.0".to_string(),
-            server_port: 8000,
-            run_interval: 5000,
-            db_directory: PathBuf::new(),
-            snapshot_directory: PathBuf::new(),
-            data_stores_directory: PathBuf::new(),
-            genesis_verification_key: key_encode_hex(genesis_verification_key).unwrap(),
-            store_retention_limit: None,
-            era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
-            era_reader_adapter_params: None,
-            reset_digests_cache: Some(true),
-        };
-        let connection = Arc::new(Mutex::new(Connection::open(":memory:").unwrap()));
-        let snapshot_store = Arc::new(LocalSnapshotStore::new(
-            Box::new(MemoryAdapter::new(None).unwrap()),
-            20,
-        ));
-        let snapshot_uploader = Arc::new(DumbSnapshotUploader::new());
-        let certificate_pending_store = Arc::new(CertificatePendingStore::new(Box::new(
-            MemoryAdapter::new(None).unwrap(),
-        )));
-        let certificate_store = Arc::new(CertificateStore::new(Box::new(
-            MemoryAdapter::new(None).unwrap(),
-        )));
-        let verification_key_store = Arc::new(VerificationKeyStore::new(
-            Box::new(MemoryAdapter::new(None).unwrap()),
-            config.store_retention_limit,
-        ));
-        let single_signature_store = Arc::new(SingleSignatureStore::new(
-            Box::new(MemoryAdapter::new(None).unwrap()),
-            config.store_retention_limit,
-        ));
-        let protocol_parameters_store = Arc::new(ProtocolParametersStore::new(
-            Box::new(MemoryAdapter::new(None).unwrap()),
-            None,
-        ));
-        let stake_pool_store = Arc::new(StakePoolStore::new(connection.clone()));
-        let multi_signer = MultiSignerImpl::new(
-            verification_key_store.clone(),
-            stake_pool_store.clone(),
-            single_signature_store.clone(),
-            protocol_parameters_store.clone(),
-        );
-        let multi_signer = Arc::new(RwLock::new(multi_signer));
-        let immutable_file_observer = Arc::new(DumbImmutableFileObserver::default());
-        let chain_observer = Arc::new(FakeObserver::default());
-        let beacon_provider = Arc::new(BeaconProviderImpl::new(
-            chain_observer.clone(),
-            immutable_file_observer.clone(),
-            CardanoNetwork::TestNet(42),
-        ));
-        let stake_distribution_service = Arc::new(MithrilStakeDistributionService::new(
-            stake_pool_store.clone(),
-            chain_observer.clone(),
-        ));
-        let certificate_verifier = Arc::new(MithrilCertificateVerifier::new(slog_scope::logger()));
-        let signer_registerer = Arc::new(MithrilSignerRegisterer::new(
-            chain_observer.clone(),
-            verification_key_store.clone(),
-        ));
-        let era_reader = Arc::new(EraReader::new(Arc::new(EraReaderBootstrapAdapter)));
-        let era_epoch_token = era_reader
-            .read_era_epoch_token(beacon_provider.get_current_beacon().await.unwrap().epoch)
-            .await
-            .unwrap();
-        let era_checker = Arc::new(EraChecker::new(
-            era_epoch_token.get_current_supported_era().unwrap(),
-            era_epoch_token.get_current_epoch(),
-        ));
-        let event_transmitter = {
-            let (tx, mut _rx) = mpsc::unbounded_channel();
-            Arc::new(TransmitterService::new(tx))
-        };
-
-        let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
-
-        let dependency_manager = DependencyManager {
-            sqlite_connection: connection,
-            stake_store: stake_pool_store,
-            config,
-            snapshot_store,
-            snapshot_uploader,
-            multi_signer,
-            certificate_pending_store,
-            certificate_store,
-            verification_key_store,
-            single_signature_store,
-            protocol_parameters_store,
-            chain_observer,
-            beacon_provider,
-            immutable_file_observer,
-            digester: Arc::new(DumbImmutableDigester::new("digest", true)),
-            snapshotter: Arc::new(DumbSnapshotter::new()),
-            certificate_verifier,
-            genesis_verifier,
-            signer_registerer: signer_registerer.clone(),
-            signer_registration_round_opener: signer_registerer,
-            era_checker,
-            era_reader,
-            event_transmitter,
-            api_version_provider,
-            stake_distribution_service,
-        };
+        let config = Configuration::default();
+        let mut builder = DependenciesBuilder::new(config);
+        let dependency_manager = builder.build_dependency_container().await.unwrap();
 
         let config = AggregatorConfig::new(
             dependency_manager.config.run_interval,

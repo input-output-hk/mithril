@@ -29,7 +29,10 @@ async fn create_certificate() {
         .set_signers(signers_with_stake.clone())
         .await;
     tester
-        .deps
+        .deps_builder
+        .build_dependency_container()
+        .await
+        .unwrap()
         .prepare_for_genesis(
             signers_with_stake.clone(),
             signers_with_stake,

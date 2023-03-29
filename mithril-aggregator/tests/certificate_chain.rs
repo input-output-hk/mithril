@@ -27,7 +27,10 @@ async fn certificate_chain() {
         .set_signers(signers_with_stake.clone())
         .await;
     tester
-        .deps
+        .deps_builder
+        .build_dependency_container()
+        .await
+        .unwrap()
         .prepare_for_genesis(
             signers_with_stake.clone(),
             signers_with_stake.clone(),
@@ -111,8 +114,10 @@ async fn certificate_chain() {
         "Checking that no signers are registered for the next epoch since they did not register"
     );
     let next_epoch_verification_keys = tester
-        .deps
-        .verification_key_store
+        .deps_builder
+        .get_verification_key_store()
+        .await
+        .unwrap()
         .get_verification_keys(new_epoch + 1)
         .await
         .expect("get_verification_keys should not fail");

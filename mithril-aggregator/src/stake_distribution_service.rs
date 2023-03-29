@@ -238,7 +238,7 @@ mod tests {
             Arc::new(chain_observer),
         );
         let query =
-            format!("insert into stake_pool (stake_pool_id, epoch, stake) values (?1, ?2, ?3)");
+            "insert into stake_pool (stake_pool_id, epoch, stake) values (?1, ?2, ?3)".to_string();
         let stake_distribution: &[(&str, i64, i64); 9] = &[
             ("pool1", 1, 1000),
             ("pool2", 1, 1100),

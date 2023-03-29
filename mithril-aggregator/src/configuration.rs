@@ -18,7 +18,7 @@ pub const LIST_SNAPSHOTS_MAX_ITEMS: usize = 20;
 const SQLITE_FILE: &str = "aggregator.sqlite3";
 
 /// Different kinds of execution environments
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub enum ExecutionEnvironment {
     /// Test environment, maximum logging, memory stores etc.
     Test,
@@ -133,7 +133,7 @@ impl Default for Configuration {
             cardano_cli_path: PathBuf::new(),
             cardano_node_socket_path: PathBuf::new(),
             network_magic: Some(42),
-            network: "whatever".to_string(),
+            network: "devnet".to_string(),
             protocol_parameters: ProtocolParameters {
                 k: 5,
                 m: 100,
