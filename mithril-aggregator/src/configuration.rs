@@ -15,7 +15,6 @@ use crate::{LocalSnapshotUploader, RemoteSnapshotUploader, SnapshotUploader};
 
 // TODO: 'LIST_SNAPSHOTS_MAX_ITEMS' keep as const or in config, or add a parameter to `list_snapshots`?
 pub const LIST_SNAPSHOTS_MAX_ITEMS: usize = 20;
-const SQLITE_FILE: &str = "aggregator.sqlite3";
 
 /// Different kinds of execution environments
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -188,14 +187,14 @@ impl Configuration {
     }
 
     /// Return the file of the SQLite stores. If the directory does not exist, it is created.
-    pub fn get_sqlite_file(&self) -> PathBuf {
+    pub fn get_sqlite_dir(&self) -> PathBuf {
         let store_dir = &self.data_stores_directory;
 
         if !store_dir.exists() {
             std::fs::create_dir_all(store_dir).unwrap();
         }
 
-        self.data_stores_directory.join(SQLITE_FILE)
+        self.data_stores_directory.clone()
     }
 }
 

@@ -198,10 +198,13 @@ impl ServeCommand {
 
         // start the monitoring thread
         let mut event_store = dependencies_builder.create_event_store().await?;
+        let event_store_config = config.clone();
         let event_store_thread = tokio::spawn(async move {
             event_store
                 .run(Some(
-                    config.data_stores_directory.join(SQLITE_MONITORING_FILE),
+                    event_store_config
+                        .get_sqlite_dir()
+                        .join(SQLITE_MONITORING_FILE),
                 ))
                 .await
                 .unwrap()

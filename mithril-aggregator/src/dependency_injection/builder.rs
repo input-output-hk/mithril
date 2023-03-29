@@ -51,6 +51,8 @@ use crate::{
 
 use super::{DependenciesBuilderError, Result};
 
+const SQLITE_FILE: &str = "aggregator.sqlite3";
+
 /// Dependencies container builder
 pub struct DependenciesBuilder {
     /// Configuration parameters
@@ -184,7 +186,7 @@ impl DependenciesBuilder {
     async fn build_sqlite_connection(&self) -> Result<Arc<Mutex<Connection>>> {
         let connection = match self.configuration.environment {
             ExecutionEnvironment::Production => {
-                Connection::open(self.configuration.get_sqlite_file())
+                Connection::open(self.configuration.get_sqlite_dir().join(SQLITE_FILE))
             }
             _ => Connection::open(":memory:"),
         };
@@ -414,7 +416,7 @@ impl DependenciesBuilder {
             match self.configuration.environment {
                 ExecutionEnvironment::Production => {
                     let adapter =
-                        SQLiteAdapter::new("certificate", self.get_sqlite_connection().await?)
+                        SQLiteAdapter::new("verification_key", self.get_sqlite_connection().await?)
                             .map_err(|e| DependenciesBuilderError::Initialization {
                                 message: "Cannot create SQLite adapter for VerificationKeyStore."
                                     .to_string(),
@@ -977,6 +979,7 @@ impl DependenciesBuilder {
 
         Ok(dependency_manager)
     }
+
     /// Create dependencies for the [EventStore] task.
     pub async fn create_event_store(&mut self) -> Result<EventStore> {
         let event_store = EventStore::new(self.get_event_transmitter_receiver().await?);
@@ -998,7 +1001,7 @@ impl DependenciesBuilder {
                     error: Some(e.into()),
                 })?
                 .ok_or(DependenciesBuilderError::Initialization {
-                    message: "cannot build aggrgator runner: impossible to retrieve current epoch"
+                    message: "cannot build aggregator runner: impossible to retrieve current epoch"
                         .to_string(),
                     error: None,
                 })?;
