@@ -232,7 +232,7 @@ mod tests {
     use mithril_common::chain_observer::MockChainObserver;
 
     async fn get_service(chain_observer: MockChainObserver) -> MithrilStakeDistributionService {
-        let mut builder = DependenciesBuilder::new(crate::Configuration::default());
+        let mut builder = DependenciesBuilder::new(crate::Configuration::new_sample());
         let stake_service = MithrilStakeDistributionService::new(
             builder.get_stake_store().await.unwrap(),
             Arc::new(chain_observer),

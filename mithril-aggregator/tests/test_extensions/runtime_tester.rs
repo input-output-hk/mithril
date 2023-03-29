@@ -70,7 +70,7 @@ impl RuntimeTester {
             )]));
         let configuration = Configuration {
             protocol_parameters: default_protocol_parameters,
-            ..Default::default()
+            ..Configuration::new_sample()
         };
         let mut deps_builder = DependenciesBuilder::new(configuration);
         deps_builder.snapshot_uploader = Some(snapshot_uploader.clone());

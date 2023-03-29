@@ -289,7 +289,7 @@ pub mod tests {
     use mithril_common::CardanoNetwork;
 
     pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) {
-        let config = Configuration::default();
+        let config = Configuration::new_sample();
         let mut builder = DependenciesBuilder::new(config);
         let dependency_manager = builder.build_dependency_container().await.unwrap();
 

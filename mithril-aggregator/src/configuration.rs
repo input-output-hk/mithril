@@ -66,9 +66,6 @@ pub struct Configuration {
     /// Protocol parameters
     pub protocol_parameters: ProtocolParameters,
 
-    /// Snapshots manifest location
-    pub url_snapshot_manifest: String,
-
     /// Type of snapshot uploader to use
     pub snapshot_uploader_type: SnapshotUploaderType,
 
@@ -97,7 +94,10 @@ pub struct Configuration {
     pub genesis_verification_key: HexEncodedGenesisVerificationKey,
 
     /// Should the immutable cache be reset or not
-    pub reset_digests_cache: Option<bool>,
+    pub reset_digests_cache: bool,
+
+    /// Use the digest caching strategy
+    pub disable_digests_cache: bool,
 
     /// Max number of records in stores.
     /// When new records are added, oldest records are automatically deleted so
@@ -122,8 +122,9 @@ pub enum SnapshotUploaderType {
     Local,
 }
 
-impl Default for Configuration {
-    fn default() -> Self {
+impl Configuration {
+    /// Create a sample configuration mainly for tests
+    pub fn new_sample() -> Self {
         let genesis_verification_key = ProtocolGenesisSigner::create_deterministic_genesis_signer()
             .create_genesis_verifier()
             .to_verification_key();
@@ -139,8 +140,6 @@ impl Default for Configuration {
                 m: 100,
                 phi_f: 0.95,
             },
-            url_snapshot_manifest: "https://storage.googleapis.com/cardano-testnet/snapshots.json"
-                .to_string(),
             snapshot_uploader_type: SnapshotUploaderType::Local,
             snapshot_bucket_name: None,
             server_ip: "0.0.0.0".to_string(),
@@ -150,15 +149,14 @@ impl Default for Configuration {
             snapshot_directory: PathBuf::new(),
             data_stores_directory: PathBuf::new(),
             genesis_verification_key: key_encode_hex(genesis_verification_key).unwrap(),
-            reset_digests_cache: Some(false),
+            reset_digests_cache: false,
+            disable_digests_cache: false,
             store_retention_limit: None,
             era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
             era_reader_adapter_params: None,
         }
     }
-}
 
-impl Configuration {
     /// Build the server URL from configuration.
     pub fn get_server_url(&self) -> String {
         format!("http://{}:{}/", self.server_ip, self.server_port)
@@ -204,6 +202,9 @@ impl Configuration {
 /// Default configuration with all the default values for configurations.
 #[derive(Debug, Clone)]
 pub struct DefaultConfiguration {
+    /// Execution environment
+    pub environment: ExecutionEnvironment,
+
     /// Server listening IP
     pub server_ip: String,
 
@@ -227,11 +228,15 @@ pub struct DefaultConfiguration {
 
     /// ImmutableDigesterCacheProvider default setting
     pub reset_digests_cache: String,
+
+    /// ImmutableDigesterCacheProvider default setting
+    pub disable_digests_cache: String,
 }
 
 impl Default for DefaultConfiguration {
     fn default() -> Self {
         Self {
+            environment: ExecutionEnvironment::Production,
             server_ip: "0.0.0.0".to_string(),
             server_port: "8080".to_string(),
             db_directory: "/db".to_string(),
@@ -240,6 +245,16 @@ impl Default for DefaultConfiguration {
             snapshot_uploader_type: "gcp".to_string(),
             era_reader_adapter_type: "bootstrap".to_string(),
             reset_digests_cache: "false".to_string(),
+            disable_digests_cache: "false".to_string(),
+        }
+    }
+}
+
+impl From<ExecutionEnvironment> for ValueKind {
+    fn from(value: ExecutionEnvironment) -> Self {
+        match value {
+            ExecutionEnvironment::Production => ValueKind::String("Production".to_string()),
+            ExecutionEnvironment::Test => ValueKind::String("Test".to_string()),
         }
     }
 }
@@ -253,6 +268,10 @@ impl Source for DefaultConfiguration {
         let mut result = Map::new();
         let namespace = "default configuration".to_string();
         let myself = self.clone();
+        result.insert(
+            "environment".to_string(),
+            Value::new(Some(&namespace), ValueKind::from(myself.environment)),
+        );
         result.insert(
             "server_ip".to_string(),
             Value::new(Some(&namespace), ValueKind::from(myself.server_ip)),
@@ -295,6 +314,13 @@ impl Source for DefaultConfiguration {
             Value::new(
                 Some(&namespace),
                 ValueKind::from(myself.reset_digests_cache),
+            ),
+        );
+        result.insert(
+            "disable_digests_cache".to_string(),
+            Value::new(
+                Some(&namespace),
+                ValueKind::from(myself.disable_digests_cache),
             ),
         );
 
