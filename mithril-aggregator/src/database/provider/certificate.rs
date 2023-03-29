@@ -1,4 +1,8 @@
+use std::sync::Arc;
+
 use sqlite::{Connection, Value};
+
+use async_trait::async_trait;
 
 use mithril_common::{
     entities::{
@@ -9,9 +13,11 @@ use mithril_common::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
         WhereCondition,
     },
+    store::adapter::{AdapterError, StoreAdapter},
 };
 
 use mithril_common::StdError;
+use tokio::sync::Mutex;
 
 /// Certificate record is the representation of a stored certificate.
 #[derive(Debug, PartialEq, Clone)]
@@ -288,6 +294,14 @@ impl<'client> CertificateRecordProvider<'client> {
 
         Ok(certificate_record)
     }
+
+    /// Get all CertificateRecords.
+    pub fn get_all(&self) -> Result<EntityCursor<CertificateRecord>, StdError> {
+        let filters = WhereCondition::default();
+        let certificate_record = self.find(filters)?;
+
+        Ok(certificate_record)
+    }
 }
 
 impl<'client> Provider<'client> for CertificateRecordProvider<'client> {
@@ -374,6 +388,81 @@ impl<'conn> Provider<'conn> for InsertCertificateRecordProvider<'conn> {
             .expand(SourceAlias::new(&[("{:certificate:}", "certificate")]));
 
         format!("insert into certificate {condition} returning {projection}")
+    }
+}
+
+/// Service to deal with certificate (read & write).
+pub struct CertificateStoreAdapter {
+    connection: Arc<Mutex<Connection>>,
+}
+
+impl CertificateStoreAdapter {
+    /// Create a new CertificateStoreAdapter service
+    pub fn new(connection: Arc<Mutex<Connection>>) -> Self {
+        Self { connection }
+    }
+}
+
+#[async_trait]
+impl StoreAdapter for CertificateStoreAdapter {
+    type Key = String;
+    type Record = Certificate;
+
+    async fn store_record(
+        &mut self,
+        _key: &Self::Key,
+        record: &Self::Record,
+    ) -> Result<(), AdapterError> {
+        let connection = &*self.connection.lock().await;
+        let provider = InsertCertificateRecordProvider::new(connection);
+        let _certificate_record = provider
+            .persist(record.to_owned().into())
+            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+
+        Ok(())
+    }
+
+    async fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
+        let connection = &*self.connection.lock().await;
+        let provider = CertificateRecordProvider::new(connection);
+        let mut cursor = provider
+            .get_by_certificate_id(key.to_string())
+            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+        let certificate = cursor
+            .next()
+            .map(|certificate_record| certificate_record.into());
+
+        Ok(certificate)
+    }
+
+    async fn record_exists(&self, key: &Self::Key) -> Result<bool, AdapterError> {
+        Ok(self.get_record(key).await?.is_some())
+    }
+
+    async fn get_last_n_records(
+        &self,
+        how_many: usize,
+    ) -> Result<Vec<(Self::Key, Self::Record)>, AdapterError> {
+        Ok(self
+            .get_iter()
+            .await?
+            .take(how_many)
+            .map(|c| (c.hash.to_owned(), c))
+            .collect())
+    }
+
+    async fn remove(&mut self, _key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
+        unimplemented!()
+    }
+
+    async fn get_iter(&self) -> Result<Box<dyn Iterator<Item = Self::Record> + '_>, AdapterError> {
+        let connection = &*self.connection.lock().await;
+        let provider = CertificateRecordProvider::new(connection);
+        let cursor = provider
+            .get_all()
+            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+        let certificates: Vec<Certificate> = cursor.map(|c| c.into()).collect();
+        Ok(Box::new(certificates.into_iter()))
     }
 }
 
@@ -573,7 +662,6 @@ mod tests {
 
         let certificate_records: Vec<CertificateRecord> =
             provider.get_by_epoch(&Epoch(1)).unwrap().collect();
-
         let expected_certificate_records: Vec<CertificateRecord> = certificates
             .iter()
             .filter_map(|c| (c.beacon.epoch == Epoch(1)).then_some(c.to_owned().into()))
@@ -582,7 +670,6 @@ mod tests {
 
         let certificate_records: Vec<CertificateRecord> =
             provider.get_by_epoch(&Epoch(3)).unwrap().collect();
-
         let expected_certificate_records: Vec<CertificateRecord> = certificates
             .iter()
             .filter_map(|c| (c.beacon.epoch == Epoch(3)).then_some(c.to_owned().into()))
@@ -591,6 +678,11 @@ mod tests {
 
         let cursor = provider.get_by_epoch(&Epoch(5)).unwrap();
         assert_eq!(0, cursor.count());
+
+        let certificate_records: Vec<CertificateRecord> = provider.get_all().unwrap().collect();
+        let expected_certificate_records: Vec<CertificateRecord> =
+            certificates.iter().map(|c| c.to_owned().into()).collect();
+        assert_eq!(expected_certificate_records, certificate_records);
     }
 
     #[test]
@@ -607,5 +699,48 @@ mod tests {
             let certificate_record_saved = provider.persist(certificate_record.clone()).unwrap();
             assert_eq!(certificate_record, certificate_record_saved);
         }
+    }
+
+    #[tokio::test]
+    async fn test_store_adapter() {
+        let (certificates, _) = setup_certificate_chain(5, 2);
+
+        let connection = Connection::open(":memory:").unwrap();
+        setup_certificate_db(&connection, Vec::new()).unwrap();
+
+        let mut certificate_store_adapter =
+            CertificateStoreAdapter::new(Arc::new(Mutex::new(connection)));
+
+        for certificate in &certificates {
+            assert!(certificate_store_adapter
+                .store_record(&certificate.hash, certificate)
+                .await
+                .is_ok());
+        }
+
+        for certificate in &certificates {
+            assert!(certificate_store_adapter
+                .record_exists(&certificate.hash)
+                .await
+                .unwrap());
+            assert_eq!(
+                Some(certificate.to_owned()),
+                certificate_store_adapter
+                    .get_record(&certificate.hash)
+                    .await
+                    .unwrap()
+            );
+        }
+
+        assert_eq!(
+            certificates,
+            certificate_store_adapter
+                .get_last_n_records(certificates.len())
+                .await
+                .unwrap()
+                .into_iter()
+                .map(|(_k, v)| v)
+                .collect::<Vec<Certificate>>()
+        )
     }
 }
