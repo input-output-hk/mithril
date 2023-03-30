@@ -314,9 +314,7 @@ impl<'client> Provider<'client> for CertificateRecordProvider<'client> {
     fn get_definition(&self, condition: &str) -> String {
         let aliases = SourceAlias::new(&[("{:certificate:}", "c")]);
         let projection = Self::Entity::get_projection().expand(aliases);
-        format!(
-            "select {projection} from certificate as c where {condition} order by sealed_at asc"
-        )
+        format!("select {projection} from certificate as c where {condition} order by ROWID desc")
     }
 }
 
@@ -665,6 +663,7 @@ mod tests {
         let expected_certificate_records: Vec<CertificateRecord> = certificates
             .iter()
             .filter_map(|c| (c.beacon.epoch == Epoch(1)).then_some(c.to_owned().into()))
+            .rev()
             .collect();
         assert_eq!(expected_certificate_records, certificate_records);
 
@@ -673,6 +672,7 @@ mod tests {
         let expected_certificate_records: Vec<CertificateRecord> = certificates
             .iter()
             .filter_map(|c| (c.beacon.epoch == Epoch(3)).then_some(c.to_owned().into()))
+            .rev()
             .collect();
         assert_eq!(expected_certificate_records, certificate_records);
 
@@ -680,8 +680,11 @@ mod tests {
         assert_eq!(0, cursor.count());
 
         let certificate_records: Vec<CertificateRecord> = provider.get_all().unwrap().collect();
-        let expected_certificate_records: Vec<CertificateRecord> =
-            certificates.iter().map(|c| c.to_owned().into()).collect();
+        let expected_certificate_records: Vec<CertificateRecord> = certificates
+            .iter()
+            .map(|c| c.to_owned().into())
+            .rev()
+            .collect();
         assert_eq!(expected_certificate_records, certificate_records);
     }
 
@@ -740,6 +743,7 @@ mod tests {
                 .unwrap()
                 .into_iter()
                 .map(|(_k, v)| v)
+                .rev()
                 .collect::<Vec<Certificate>>()
         )
     }
