@@ -106,25 +106,25 @@ insert into certificate (certificate_id,
                         initiated_at,
                         sealed_at)
     select 
-        c.value->>'$.hash' as certificate_id,
+        json_extract(c.value, '$.hash') as certificate_id,
         case 
-            when c.value->>'$.multi_signature' <> '' then c.value->>'$.previous_hash'  
+            when json_extract(c.value, '$.multi_signature') <> '' then json_extract(c.value, '$.previous_hash') 
             else NULL 
         end as parent_certificate_id,
-        c.value->>'$.signed_message' as message,
+        json_extract(c.value, '$.signed_message') as message,
         case 
-            when c.value->>'$.multi_signature' <> '' then c.value->>'$.multi_signature' 
-            else c.value->>'$.genesis_signature' 
+            when json_extract(c.value, '$.multi_signature') <> '' then json_extract(c.value, '$.multi_signature')
+            else json_extract(c.value, '$.genesis_signature')
         end as signature,
-        c.value->>'$.aggregate_verification_key' as aggregate_verification_key,
-        c.value->>'$.beacon.epoch' as epoch,
-        c.value->'$.beacon' as beacon,
-        c.value->>'$.metadata.version' as protocol_version,
-        c.value->'$.metadata.parameters' as protocol_parameters,
-        c.value->'$.protocol_message' as protocol_message,
-        c.value->'$.metadata.signers' as signers,
-        c.value->>'$.metadata.initiated_at' as initiated_at,
-        c.value->>'$.metadata.sealed_at' as sealed_at
+        json_extract(c.value, '$.aggregate_verification_key') as aggregate_verification_key,
+        json_extract(c.value, '$.beacon.epoch') as epoch,
+        json(json_extract(c.value, '$.beacon')) as beacon,
+        json_extract(c.value, '$.metadata.version') as protocol_version,
+        json(json_extract(c.value, '$.metadata.parameters')) as protocol_parameters,
+        json(json_extract(c.value, '$.protocol_message')) as protocol_message,
+        json(json_extract(c.value, '$.metadata.signers')) as signers,
+        json_extract(c.value, '$.metadata.initiated_at') as initiated_at,
+        json_extract(c.value, '$.metadata.sealed_at') as sealed_at
     from certificate_temp as c;
 create index epoch_index ON certificate(epoch);
 drop table certificate_temp;
