@@ -12,8 +12,8 @@ use mithril_common::{
         ImmutableFileObserver, ImmutableFileSystemObserver,
     },
     entities::{
-        Beacon, Certificate, CertificatePending, Epoch, PartyId, ProtocolParameters, Signer,
-        SingleSignatures,
+        Beacon, Certificate, CertificatePending, Epoch, PartyId, ProtocolParameters,
+        SignerWithStake, SingleSignatures,
     },
     era::{
         adapters::{EraReaderAdapterBuilder, EraReaderDummyAdapter},
@@ -419,30 +419,31 @@ impl DependenciesBuilder {
     }
 
     async fn build_verification_key_store(&mut self) -> Result<Arc<VerificationKeyStore>> {
-        let adapter: Box<dyn StoreAdapter<Key = Epoch, Record = HashMap<PartyId, Signer>>> =
-            match self.configuration.environment {
-                ExecutionEnvironment::Production => {
-                    let adapter =
-                        SQLiteAdapter::new("verification_key", self.get_sqlite_connection().await?)
-                            .map_err(|e| DependenciesBuilderError::Initialization {
-                                message: "Cannot create SQLite adapter for VerificationKeyStore."
-                                    .to_string(),
-                                error: Some(e.into()),
-                            })?;
-
-                    Box::new(adapter)
-                }
-                _ => {
-                    let adapter = MemoryAdapter::new(None).map_err(|e| {
-                        DependenciesBuilderError::Initialization {
-                            message: "Cannot create Memory adapter for VerificationKeyStore."
+        let adapter: Box<
+            dyn StoreAdapter<Key = Epoch, Record = HashMap<PartyId, SignerWithStake>>,
+        > = match self.configuration.environment {
+            ExecutionEnvironment::Production => {
+                let adapter =
+                    SQLiteAdapter::new("verification_key", self.get_sqlite_connection().await?)
+                        .map_err(|e| DependenciesBuilderError::Initialization {
+                            message: "Cannot create SQLite adapter for VerificationKeyStore."
                                 .to_string(),
                             error: Some(e.into()),
-                        }
-                    })?;
-                    Box::new(adapter)
-                }
-            };
+                        })?;
+
+                Box::new(adapter)
+            }
+            _ => {
+                let adapter = MemoryAdapter::new(None).map_err(|e| {
+                    DependenciesBuilderError::Initialization {
+                        message: "Cannot create Memory adapter for VerificationKeyStore."
+                            .to_string(),
+                        error: Some(e.into()),
+                    }
+                })?;
+                Box::new(adapter)
+            }
+        };
 
         Ok(Arc::new(VerificationKeyStore::new(
             adapter,

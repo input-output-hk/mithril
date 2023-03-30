@@ -652,8 +652,10 @@ mod tests {
         let beacon = fake_data::beacon();
         let verification_key_store = VerificationKeyStore::new(
             Box::new(
-                MemoryAdapter::<Epoch, HashMap<entities::PartyId, entities::Signer>>::new(None)
-                    .unwrap(),
+                MemoryAdapter::<Epoch, HashMap<entities::PartyId, entities::SignerWithStake>>::new(
+                    None,
+                )
+                .unwrap(),
             ),
             None,
         );

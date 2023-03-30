@@ -223,7 +223,7 @@ mod tests {
 
     use mithril_common::{
         chain_observer::FakeObserver,
-        entities::{Epoch, PartyId, Signer},
+        entities::{Epoch, PartyId, Signer, SignerWithStake},
         store::adapter::MemoryAdapter,
         test_utils::MithrilFixtureBuilder,
     };
@@ -237,7 +237,7 @@ mod tests {
     async fn can_register_signer_if_registration_round_is_opened_with_operational_certificate() {
         let chain_observer = FakeObserver::default();
         let verification_key_store = Arc::new(VerificationKeyStore::new(
-            Box::new(MemoryAdapter::<Epoch, HashMap<PartyId, Signer>>::new(None).unwrap()),
+            Box::new(MemoryAdapter::<Epoch, HashMap<PartyId, SignerWithStake>>::new(None).unwrap()),
             None,
         ));
         let signer_registerer =
@@ -275,7 +275,7 @@ mod tests {
     async fn can_register_signer_if_registration_round_is_opened_without_operational_certificate() {
         let chain_observer = FakeObserver::default();
         let verification_key_store = Arc::new(VerificationKeyStore::new(
-            Box::new(MemoryAdapter::<Epoch, HashMap<PartyId, Signer>>::new(None).unwrap()),
+            Box::new(MemoryAdapter::<Epoch, HashMap<PartyId, SignerWithStake>>::new(None).unwrap()),
             None,
         ));
         let signer_registerer =
@@ -316,7 +316,7 @@ mod tests {
     async fn cant_register_signer_if_registration_round_is_not_opened() {
         let chain_observer = FakeObserver::default();
         let verification_key_store = Arc::new(VerificationKeyStore::new(
-            Box::new(MemoryAdapter::<Epoch, HashMap<PartyId, Signer>>::new(None).unwrap()),
+            Box::new(MemoryAdapter::<Epoch, HashMap<PartyId, SignerWithStake>>::new(None).unwrap()),
             None,
         ));
         let signer_registerer =
