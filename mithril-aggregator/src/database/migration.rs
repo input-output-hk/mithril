@@ -52,5 +52,21 @@ insert into epoch_setting (epoch_setting_id, protocol_parameters)
 drop table protocol_parameters;
 "#,
         ),
+        // Migration 3
+        // Add the `signed_entity_type` table and insert first types
+        SqlMigration::new(
+            3,
+            r#"
+create table signed_entity_type (
+    signed_entity_type_id       integer     not null,
+    name                        text        not null,
+    primary key (signed_entity_type_id)
+);
+insert into signed_entity_type (signed_entity_type_id, name) 
+    values  (0, 'Mithril Stake Distribution'), 
+            (1, 'Cardano Stake Distribution'),
+            (2, 'Full Cardano Immutable Files');
+"#,
+        ),
     ]
 }
