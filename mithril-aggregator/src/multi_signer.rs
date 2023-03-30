@@ -839,7 +839,7 @@ mod tests {
             verification_key_store
                 .save_verification_key(
                     start_epoch.offset_to_recording_epoch(),
-                    signer_with_stake.to_owned().into(),
+                    signer_with_stake.to_owned(),
                 )
                 .await
                 .expect("register should have succeeded");

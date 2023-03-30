@@ -4,9 +4,7 @@ use mithril_common::{
     chain_observer::ChainObserver,
     crypto_helper::ProtocolGenesisVerifier,
     digesters::{ImmutableDigester, ImmutableFileObserver},
-    entities::{
-        Certificate, Epoch, ProtocolParameters, Signer, SignerWithStake, StakeDistribution,
-    },
+    entities::{Certificate, Epoch, ProtocolParameters, SignerWithStake, StakeDistribution},
     era::{EraChecker, EraReader},
     store::StakeStorer,
     BeaconProvider,
@@ -253,11 +251,7 @@ impl DependencyManager {
     }
 
     async fn fill_verification_key_store(&self, target_epoch: Epoch, signers: &[SignerWithStake]) {
-        for signer in signers
-            .iter()
-            .map(|s| s.to_owned().into())
-            .collect::<Vec<Signer>>()
-        {
+        for signer in signers {
             self.verification_key_store
                 .save_verification_key(target_epoch, signer.clone())
                 .await

@@ -208,7 +208,7 @@ impl SignerRegisterer for MithrilSignerRegisterer {
 
         match self
             .verification_key_store
-            .save_verification_key(registration_round.epoch, signer_save.clone().into())
+            .save_verification_key(registration_round.epoch, signer_save.clone())
             .await?
         {
             Some(_) => Err(SignerRegistrationError::ExistingSigner(signer_save)),
