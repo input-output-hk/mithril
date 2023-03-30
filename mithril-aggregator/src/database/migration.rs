@@ -148,5 +148,47 @@ create table open_message (
 );
 "#,
         ),
+        // Migration 6
+        // Add the `signer_registration` table and migration data from the previous
+        // `verification_key` JSON format.
+        SqlMigration::new(
+            6,
+            r#"
+create table signer_registration (
+    signer_id                   text        not null,
+    epoch_setting_id            integer     not null,
+    verification_key            text        not null,
+    verification_key_signature  text,
+    operational_certificate     text,
+    kes_period                  integer,
+    stake                       integer,
+    created_at                  text        not null default current_timestamp,
+    primary key (epoch_setting_id, signer_id)
+    -- TODO: activate FK w/ signer table exists
+    -- foreign key (signer_id) references signer(signer_id)
+    foreign key (epoch_setting_id) references epoch_settings(epoch_setting_id)
+);
+create table if not exists verification_key (key_hash text primary key, key json not null, value json not null);
+insert into signer_registration (signer_id, 
+                                epoch_setting_id, 
+                                verification_key, 
+                                verification_key_signature,
+                                operational_certificate, 
+                                kes_period,
+                                stake) 
+    select 
+        verification_key_signer.key as signer_id,
+        verification_key.key as epoch_setting_id, 
+        json_extract(verification_key_signer.value, '$.verification_key') as verification_key,
+        json_extract(verification_key_signer.value, '$.verification_key_signature') as verification_key_signature,
+        json_extract(verification_key_signer.value, '$.operational_certificate') as operational_certificate,
+        json_extract(verification_key_signer.value, '$.kes_period') as kes_period,
+        stake_pool.stake as stake
+    from verification_key, json_each(verification_key.value) as verification_key_signer 
+    left join stake_pool on stake_pool.stake_pool_id = verification_key_signer.key and stake_pool.epoch = verification_key.key
+    order by verification_key.key, verification_key_signer.key asc;
+drop table verification_key;
+"#,
+        ),
     ]
 }
