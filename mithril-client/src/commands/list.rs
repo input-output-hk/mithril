@@ -1,9 +1,9 @@
-use std::{error::Error, sync::Arc};
+use std::sync::Arc;
 
 use clap::Parser;
 use cli_table::{print_stdout, WithTitle};
 use config::{builder::DefaultState, ConfigBuilder};
-use mithril_common::api_version::APIVersionProvider;
+use mithril_common::{api_version::APIVersionProvider, StdError};
 use slog_scope::debug;
 
 use crate::{AggregatorHTTPClient, Config, Runtime};
@@ -21,7 +21,7 @@ impl ListCommand {
     pub async fn execute(
         &self,
         config_builder: ConfigBuilder<DefaultState>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), StdError> {
         debug!("List snapshots");
         let config: Config = config_builder
             .build()

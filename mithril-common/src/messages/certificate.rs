@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::entities::{Beacon, CertificateMetadata, ProtocolMessage};
 
-#[cfg(any(test, feature = "test_only"))]
 use crate::entities::{ProtocolMessagePartKey, ProtocolParameters, SignerWithStake};
 
 /// Message structure of a certificate
@@ -50,7 +49,6 @@ pub struct CertificateMessage {
 }
 
 impl CertificateMessage {
-    #[cfg(any(test, feature = "test_only"))]
     /// Return a dummy test entity (test-only).
     pub fn dummy() -> Self {
         let mut protocol_message = ProtocolMessage::new();

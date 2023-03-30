@@ -226,24 +226,49 @@ impl StakeDistributionService for MithrilStakeDistributionService {
 
 #[cfg(test)]
 mod tests {
-    use crate::database::provider::setup_stake_db;
+    use crate::dependency_injection::DependenciesBuilder;
 
     use super::*;
     use mithril_common::chain_observer::MockChainObserver;
-    use sqlite::Connection;
 
-    fn get_service(chain_observer: MockChainObserver) -> MithrilStakeDistributionService {
-        let connection = Connection::open(":memory:").unwrap();
-        setup_stake_db(&connection).unwrap();
-        let stake_store = StakePoolStore::new(Arc::new(Mutex::new(connection)));
+    async fn get_service(chain_observer: MockChainObserver) -> MithrilStakeDistributionService {
+        let mut builder = DependenciesBuilder::new(crate::Configuration::new_sample());
+        let stake_service = MithrilStakeDistributionService::new(
+            builder.get_stake_store().await.unwrap(),
+            Arc::new(chain_observer),
+        );
+        let query =
+            "insert into stake_pool (stake_pool_id, epoch, stake) values (?1, ?2, ?3)".to_string();
+        let stake_distribution: &[(&str, i64, i64); 9] = &[
+            ("pool1", 1, 1000),
+            ("pool2", 1, 1100),
+            ("pool3", 1, 1300),
+            ("pool1", 2, 1230),
+            ("pool2", 2, 1090),
+            ("pool3", 2, 1300),
+            ("pool1", 3, 1250),
+            ("pool2", 3, 1370),
+            ("pool3", 3, 1300),
+        ];
+        let connection = builder.get_sqlite_connection().await.unwrap();
+        let cnt_lock = connection.lock().await;
 
-        MithrilStakeDistributionService::new(Arc::new(stake_store), Arc::new(chain_observer))
+        for (pool_id, epoch, stake) in stake_distribution {
+            let mut statement = cnt_lock.prepare(&query).unwrap();
+
+            statement.bind(1, *pool_id).unwrap();
+            statement.bind(2, *epoch).unwrap();
+            statement.bind(3, *stake).unwrap();
+            statement.next().unwrap();
+        }
+
+        stake_service
     }
 
     #[tokio::test]
     async fn get_current_stake_distribution() {
         let chain_observer = MockChainObserver::new();
-        let service = get_service(chain_observer);
+        let service = get_service(chain_observer).await;
         let expected_stake_distribution: StakeDistribution =
             [("pool2", 1370), ("pool3", 1300), ("pool1", 1250)]
                 .into_iter()
@@ -259,7 +284,7 @@ mod tests {
     #[tokio::test]
     async fn get_unavailable_stake_distribution() {
         let chain_observer = MockChainObserver::new();
-        let service = get_service(chain_observer);
+        let service = get_service(chain_observer).await;
         let result = service.get_stake_distribution(Epoch(5)).await.unwrap_err();
 
         assert!(matches!(
@@ -283,7 +308,7 @@ mod tests {
         chain_observer
             .expect_get_current_stake_distribution()
             .return_once(|| Ok(Some(returned_stake_distribution)));
-        let service = get_service(chain_observer);
+        let service = get_service(chain_observer).await;
         service.update_stake_distribution().await.unwrap();
         let sd = service.get_stake_distribution(Epoch(4)).await.unwrap();
 
@@ -297,7 +322,7 @@ mod tests {
             .expect_get_current_epoch()
             .returning(|| Ok(Some(Epoch(2))))
             .times(1);
-        let service = get_service(chain_observer);
+        let service = get_service(chain_observer).await;
         service.update_stake_distribution().await.unwrap();
     }
 
@@ -307,7 +332,7 @@ mod tests {
         chain_observer
             .expect_get_current_epoch()
             .returning(|| Ok(Some(Epoch(3))));
-        let service = get_service(chain_observer);
+        let service = get_service(chain_observer).await;
         let _mutex = service.update_token.update(Epoch(4)).unwrap();
         let result = service.get_stake_distribution(Epoch(4)).await.unwrap_err();
 
@@ -323,7 +348,7 @@ mod tests {
         chain_observer
             .expect_get_current_epoch()
             .returning(|| Ok(Some(Epoch(3))));
-        let service = get_service(chain_observer);
+        let service = get_service(chain_observer).await;
         let _mutex = service.update_token.update(Epoch(4)).unwrap();
         let result = service.get_stake_distribution(Epoch(0)).await.unwrap_err();
 
@@ -339,7 +364,7 @@ mod tests {
         chain_observer
             .expect_get_current_epoch()
             .returning(|| Ok(Some(Epoch(3))));
-        let service = get_service(chain_observer);
+        let service = get_service(chain_observer).await;
         let _mutex = service.update_token.update(Epoch(4)).unwrap();
         let result = service.update_stake_distribution().await.unwrap_err();
 

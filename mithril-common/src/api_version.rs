@@ -86,7 +86,6 @@ impl APIVersionProvider {
     }
 
     /// Update open api versions. Test only
-    #[cfg(any(test, feature = "test_only"))]
     pub fn update_open_api_versions(
         &mut self,
         open_api_versions: HashMap<OpenAPIFileName, OpenAPIVersionRaw>,

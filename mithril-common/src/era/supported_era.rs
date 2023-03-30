@@ -37,7 +37,6 @@ impl SupportedEra {
     }
 
     /// Retrieve a dummy era (for test only)
-    #[cfg(any(test, feature = "test_only"))]
     pub fn dummy() -> Self {
         Self::eras().first().unwrap().to_owned()
     }

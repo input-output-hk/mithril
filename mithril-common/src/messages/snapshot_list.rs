@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 
 use crate::entities::Beacon;
 
-#[cfg(any(test, feature = "test_only"))]
 use crate::entities::Epoch;
 
 /// Message structure of a snapshot list
@@ -31,7 +30,6 @@ pub struct SnapshotListItemMessage {
 }
 
 impl SnapshotListItemMessage {
-    #[cfg(any(test, feature = "test_only"))]
     /// Return a dummy test entity (test-only).
     pub fn dummy() -> Self {
         Self {

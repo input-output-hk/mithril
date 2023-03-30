@@ -31,6 +31,7 @@ pub trait CliRunner {
 
 /// A runner able to request data from a Cardano node using the
 /// [Cardano Cli](https://docs.cardano.org/getting-started/use-cli).
+#[derive(Clone, Debug)]
 pub struct CardanoCliRunner {
     cli_path: PathBuf,
     socket_path: PathBuf,

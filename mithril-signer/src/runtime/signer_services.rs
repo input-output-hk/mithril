@@ -15,7 +15,7 @@ use mithril_common::{
     digesters::{CardanoImmutableDigester, ImmutableDigester, ImmutableFileSystemObserver},
     era::{EraChecker, EraReader},
     store::{adapter::SQLiteAdapter, StakeStore},
-    BeaconProvider, BeaconProviderImpl,
+    BeaconProvider, BeaconProviderImpl, StdError,
 };
 
 use crate::{
@@ -32,7 +32,7 @@ type SingleSignerService = Arc<dyn SingleSigner>;
 type BeaconProviderService = Arc<dyn BeaconProvider>;
 type ProtocolInitializerStoreService = Arc<dyn ProtocolInitializerStorer>;
 
-type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
+type Result<T> = std::result::Result<T, StdError>;
 /// The ServiceBuilder is intended to manage Services instance creation.
 /// The goal of this is to put all this code out of the way of business code.
 #[async_trait]
@@ -151,9 +151,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         )
         .apply()
         .await
-        .map_err(|e| -> Box<dyn std::error::Error> {
-            format!("Database migration error {e}").into()
-        })?;
+        .map_err(|e| -> StdError { format!("Database migration error {e}").into() })?;
         let protocol_initializer_store = Arc::new(ProtocolInitializerStore::new(
             Box::new(SQLiteAdapter::new(
                 "protocol_initializer",

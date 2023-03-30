@@ -1,10 +1,10 @@
 use config::{ConfigError, Map, Source, Value, ValueKind};
-use mithril_common::chain_observer::ChainObserver;
-use mithril_common::era::adapters::{EraReaderAdapterBuilder, EraReaderAdapterType};
-use mithril_common::era::EraReaderAdapter;
+use mithril_common::crypto_helper::{key_encode_hex, ProtocolGenesisSigner};
+use mithril_common::era::adapters::EraReaderAdapterType;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use mithril_common::entities::{HexEncodedGenesisVerificationKey, ProtocolParameters};
@@ -15,11 +15,38 @@ use crate::{LocalSnapshotUploader, RemoteSnapshotUploader, SnapshotUploader};
 
 // TODO: 'LIST_SNAPSHOTS_MAX_ITEMS' keep as const or in config, or add a parameter to `list_snapshots`?
 pub const LIST_SNAPSHOTS_MAX_ITEMS: usize = 20;
-const SQLITE_FILE: &str = "aggregator.sqlite3";
+
+/// Different kinds of execution environments
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub enum ExecutionEnvironment {
+    /// Test environment, maximum logging, memory stores etc.
+    Test,
+
+    /// Production environment, minimum logging, maximum performances,
+    /// persistent stores etc.
+    Production,
+}
+
+impl FromStr for ExecutionEnvironment {
+    type Err = ConfigError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "production" => Ok(Self::Production),
+            "test" => Ok(Self::Test),
+            _ => Err(ConfigError::Message(format!(
+                "Unkown execution environement {s}"
+            ))),
+        }
+    }
+}
 
 /// Aggregator configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Configuration {
+    /// What kind of runtime environment the configuration is meant to.
+    pub environment: ExecutionEnvironment,
+
     /// Cardano CLI tool path
     pub cardano_cli_path: PathBuf,
 
@@ -37,9 +64,6 @@ pub struct Configuration {
 
     /// Protocol parameters
     pub protocol_parameters: ProtocolParameters,
-
-    /// Snapshots manifest location
-    pub url_snapshot_manifest: String,
 
     /// Type of snapshot uploader to use
     pub snapshot_uploader_type: SnapshotUploaderType,
@@ -68,6 +92,12 @@ pub struct Configuration {
     /// Genesis verification key
     pub genesis_verification_key: HexEncodedGenesisVerificationKey,
 
+    /// Should the immutable cache be reset or not
+    pub reset_digests_cache: bool,
+
+    /// Use the digest caching strategy
+    pub disable_digests_cache: bool,
+
     /// Max number of records in stores.
     /// When new records are added, oldest records are automatically deleted so
     /// there can always be at max the number of records specified by this
@@ -92,6 +122,40 @@ pub enum SnapshotUploaderType {
 }
 
 impl Configuration {
+    /// Create a sample configuration mainly for tests
+    pub fn new_sample() -> Self {
+        let genesis_verification_key = ProtocolGenesisSigner::create_deterministic_genesis_signer()
+            .create_genesis_verifier()
+            .to_verification_key();
+
+        Self {
+            environment: ExecutionEnvironment::Test,
+            cardano_cli_path: PathBuf::new(),
+            cardano_node_socket_path: PathBuf::new(),
+            network_magic: Some(42),
+            network: "devnet".to_string(),
+            protocol_parameters: ProtocolParameters {
+                k: 5,
+                m: 100,
+                phi_f: 0.95,
+            },
+            snapshot_uploader_type: SnapshotUploaderType::Local,
+            snapshot_bucket_name: None,
+            server_ip: "0.0.0.0".to_string(),
+            server_port: 8000,
+            run_interval: 5000,
+            db_directory: PathBuf::new(),
+            snapshot_directory: PathBuf::new(),
+            data_stores_directory: PathBuf::new(),
+            genesis_verification_key: key_encode_hex(genesis_verification_key).unwrap(),
+            reset_digests_cache: false,
+            disable_digests_cache: false,
+            store_retention_limit: None,
+            era_reader_adapter_type: EraReaderAdapterType::Bootstrap,
+            era_reader_adapter_params: None,
+        }
+    }
+
     /// Build the server URL from configuration.
     pub fn get_server_url(&self) -> String {
         format!("http://{}:{}/", self.server_ip, self.server_port)
@@ -116,19 +180,6 @@ impl Configuration {
         }
     }
 
-    /// Create era reader adapter from configuration settings.
-    pub fn build_era_reader_adapter(
-        &self,
-        chain_observer: Arc<dyn ChainObserver>,
-    ) -> Result<Arc<dyn EraReaderAdapter>, Box<dyn Error>> {
-        Ok(EraReaderAdapterBuilder::new(
-            &self.era_reader_adapter_type,
-            &self.era_reader_adapter_params,
-        )
-        .build(chain_observer)
-        .map_err(|e| ConfigError::Message(format!("build era adapter failed {e}")))?)
-    }
-
     /// Check configuration and return a representation of the Cardano network.
     pub fn get_network(&self) -> Result<CardanoNetwork, ConfigError> {
         CardanoNetwork::from_code(self.network.clone(), self.network_magic)
@@ -136,76 +187,23 @@ impl Configuration {
     }
 
     /// Return the file of the SQLite stores. If the directory does not exist, it is created.
-    pub fn get_sqlite_file(&self) -> PathBuf {
+    pub fn get_sqlite_dir(&self) -> PathBuf {
         let store_dir = &self.data_stores_directory;
 
         if !store_dir.exists() {
             std::fs::create_dir_all(store_dir).unwrap();
         }
 
-        self.data_stores_directory.join(SQLITE_FILE)
-    }
-}
-
-/// Configuration expected for Genesis commands.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GenesisConfiguration {
-    /// Cardano CLI tool path
-    pub cardano_cli_path: PathBuf,
-
-    /// Path of the socket used by the Cardano CLI tool
-    /// to communicate with the Cardano node
-    pub cardano_node_socket_path: PathBuf,
-
-    /// Directory of the Cardano node database
-    pub db_directory: PathBuf,
-
-    /// Cardano Network Magic number
-    ///
-    /// useful for TestNet & DevNet
-    pub network_magic: Option<u64>,
-
-    /// Cardano network
-    pub network: String,
-
-    /// Protocol parameters
-    pub protocol_parameters: ProtocolParameters,
-
-    /// Directory to store aggregator data (Certificates, Snapshots, Protocol Parameters, ...)
-    pub data_stores_directory: PathBuf,
-
-    /// Genesis verification key
-    pub genesis_verification_key: String,
-
-    /// Max number of records in stores.
-    /// When new records are added, oldest records are automatically deleted so
-    /// there can always be at max the number of records specified by this
-    /// setting.
-    pub store_retention_limit: Option<usize>,
-}
-
-impl GenesisConfiguration {
-    /// Check configuration and return a representation of the Cardano network.
-    pub fn get_network(&self) -> Result<CardanoNetwork, ConfigError> {
-        CardanoNetwork::from_code(self.network.clone(), self.network_magic)
-            .map_err(|e| ConfigError::Message(e.to_string()))
-    }
-
-    /// Return the file of the SQLite stores. If the directory does not exist, it is created.
-    pub fn get_sqlite_file(&self) -> PathBuf {
-        let store_dir = &self.data_stores_directory;
-
-        if !store_dir.exists() {
-            std::fs::create_dir_all(store_dir).unwrap();
-        }
-
-        self.data_stores_directory.join(SQLITE_FILE)
+        self.data_stores_directory.clone()
     }
 }
 
 /// Default configuration with all the default values for configurations.
 #[derive(Debug, Clone)]
 pub struct DefaultConfiguration {
+    /// Execution environment
+    pub environment: ExecutionEnvironment,
+
     /// Server listening IP
     pub server_ip: String,
 
@@ -226,11 +224,18 @@ pub struct DefaultConfiguration {
 
     /// Era reader adapter type
     pub era_reader_adapter_type: String,
+
+    /// ImmutableDigesterCacheProvider default setting
+    pub reset_digests_cache: String,
+
+    /// ImmutableDigesterCacheProvider default setting
+    pub disable_digests_cache: String,
 }
 
 impl Default for DefaultConfiguration {
     fn default() -> Self {
         Self {
+            environment: ExecutionEnvironment::Production,
             server_ip: "0.0.0.0".to_string(),
             server_port: "8080".to_string(),
             db_directory: "/db".to_string(),
@@ -238,6 +243,17 @@ impl Default for DefaultConfiguration {
             snapshot_store_type: "local".to_string(),
             snapshot_uploader_type: "gcp".to_string(),
             era_reader_adapter_type: "bootstrap".to_string(),
+            reset_digests_cache: "false".to_string(),
+            disable_digests_cache: "false".to_string(),
+        }
+    }
+}
+
+impl From<ExecutionEnvironment> for ValueKind {
+    fn from(value: ExecutionEnvironment) -> Self {
+        match value {
+            ExecutionEnvironment::Production => ValueKind::String("Production".to_string()),
+            ExecutionEnvironment::Test => ValueKind::String("Test".to_string()),
         }
     }
 }
@@ -251,6 +267,10 @@ impl Source for DefaultConfiguration {
         let mut result = Map::new();
         let namespace = "default configuration".to_string();
         let myself = self.clone();
+        result.insert(
+            "environment".to_string(),
+            Value::new(Some(&namespace), ValueKind::from(myself.environment)),
+        );
         result.insert(
             "server_ip".to_string(),
             Value::new(Some(&namespace), ValueKind::from(myself.server_ip)),
@@ -286,6 +306,20 @@ impl Source for DefaultConfiguration {
             Value::new(
                 Some(&namespace),
                 ValueKind::from(myself.era_reader_adapter_type),
+            ),
+        );
+        result.insert(
+            "reset_digests_cache".to_string(),
+            Value::new(
+                Some(&namespace),
+                ValueKind::from(myself.reset_digests_cache),
+            ),
+        );
+        result.insert(
+            "disable_digests_cache".to_string(),
+            Value::new(
+                Some(&namespace),
+                ValueKind::from(myself.disable_digests_cache),
             ),
         );
 

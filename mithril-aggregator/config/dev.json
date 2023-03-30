@@ -1,4 +1,5 @@
 {
+    "environment": "Production",
     "cardano_cli_path": "cardano-cli",
     "cardano_node_socket_path": "/tmp/cardano.sock",
     "network": "devnet",

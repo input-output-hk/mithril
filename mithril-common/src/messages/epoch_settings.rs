@@ -17,7 +17,6 @@ pub struct EpochSettingsMessage {
 }
 
 impl EpochSettingsMessage {
-    #[cfg(any(test, feature = "test_only"))]
     /// Dummy instance for test purposes.
     pub fn dummy() -> Self {
         Self {

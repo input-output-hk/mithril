@@ -1,19 +1,18 @@
-use crate::test_extensions::initialize_dependencies;
+use mithril_aggregator::dependency_injection::DependenciesBuilder;
 use mithril_aggregator::event_store::EventMessage;
 use mithril_common::certificate_chain::CertificateGenesisProducer;
 use mithril_common::era::adapters::EraReaderDummyAdapter;
-use mithril_common::era::{EraMarker, SupportedEra};
+use mithril_common::era::{EraMarker, EraReader, SupportedEra};
 use mithril_common::test_utils::{
     MithrilFixtureBuilder, SignerFixture, StakeDistributionGenerationMethod,
 };
 use slog::Drain;
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::mpsc::UnboundedReceiver;
 
 use mithril_aggregator::{
-    AggregatorRunner, AggregatorRuntime, DependencyManager, DumbSnapshotUploader, DumbSnapshotter,
-    ProtocolParametersStorer,
+    AggregatorRuntime, Configuration, DumbSnapshotUploader, DumbSnapshotter,
+    ProtocolParametersStorer, SignerRegisterer,
 };
 use mithril_common::crypto_helper::{key_encode_hex, ProtocolClerk, ProtocolGenesisSigner};
 use mithril_common::digesters::DumbImmutableFileObserver;
@@ -49,7 +48,7 @@ pub struct RuntimeTester {
     pub digester: Arc<DumbImmutableDigester>,
     pub snapshotter: Arc<DumbSnapshotter>,
     pub genesis_signer: Arc<ProtocolGenesisSigner>,
-    pub deps: Arc<DependencyManager>,
+    pub deps_builder: DependenciesBuilder,
     pub runtime: AggregatorRuntime,
     pub receiver: UnboundedReceiver<EventMessage>,
     pub era_reader_adapter: Arc<EraReaderDummyAdapter>,
@@ -69,27 +68,24 @@ impl RuntimeTester {
                 &SupportedEra::dummy().to_string(),
                 Some(Epoch(0)),
             )]));
-        let (deps, config, receiver) = initialize_dependencies(
-            default_protocol_parameters,
-            snapshot_uploader.clone(),
-            chain_observer.clone(),
-            immutable_file_observer.clone(),
-            digester.clone(),
-            snapshotter.clone(),
-            genesis_signer.clone(),
-            era_reader_adapter.clone(),
-        )
-        .await;
-        let runner = Arc::new(AggregatorRunner::new(config.clone(), deps.clone()));
-        let runtime =
-            AggregatorRuntime::new(Duration::from_millis(config.interval), None, runner.clone())
-                .await
-                .expect("Instantiating the Runtime should not fail.");
+        let configuration = Configuration {
+            protocol_parameters: default_protocol_parameters,
+            ..Configuration::new_sample()
+        };
+        let mut deps_builder = DependenciesBuilder::new(configuration);
+        deps_builder.snapshot_uploader = Some(snapshot_uploader.clone());
+        deps_builder.chain_observer = Some(chain_observer.clone());
+        deps_builder.immutable_file_observer = Some(immutable_file_observer.clone());
+        deps_builder.immutable_digester = Some(digester.clone());
+        deps_builder.snapshotter = Some(snapshotter.clone());
+        deps_builder.era_reader = Some(Arc::new(EraReader::new(era_reader_adapter.clone())));
 
+        let runtime = deps_builder.create_aggregator_runner().await.unwrap();
         let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
         let drain = slog_term::CompactFormat::new(decorator).build().fuse();
         let drain = slog_async::Async::new(drain).build().fuse();
         let log = slog_scope::set_global_logger(slog::Logger::root(Arc::new(drain), slog::o!()));
+        let receiver = deps_builder.get_event_transmitter_receiver().await.unwrap();
 
         Self {
             snapshot_uploader,
@@ -98,7 +94,7 @@ impl RuntimeTester {
             digester,
             snapshotter,
             genesis_signer,
-            deps,
+            deps_builder,
             runtime,
             receiver,
             era_reader_adapter,
@@ -145,18 +141,22 @@ impl RuntimeTester {
 
     /// Registers the genesis certificate
     pub async fn register_genesis_certificate(
-        &self,
+        &mut self,
         signers: &[SignerFixture],
     ) -> Result<(), String> {
         let beacon = self
-            .deps
-            .beacon_provider
+            .deps_builder
+            .get_beacon_provider()
+            .await
+            .unwrap()
             .get_current_beacon()
             .await
             .map_err(|e| format!("Querying the current beacon should not fail: {e:?}"))?;
         let protocol_parameters = self
-            .deps
-            .protocol_parameters_store
+            .deps_builder
+            .get_protocol_parameters_store()
+            .await
+            .unwrap()
             .get_protocol_parameters(beacon.epoch)
             .await
             .map_err(|e| {
@@ -184,8 +184,10 @@ impl RuntimeTester {
             genesis_signature,
         )
         .map_err(|e| format!("Creating the genesis certificate should not fail: {e:?}"))?;
-        self.deps
-            .certificate_store
+        self.deps_builder
+            .get_certificate_store()
+            .await
+            .unwrap()
             .save(genesis_certificate)
             .await
             .map_err(|e| format!("Saving the genesis certificate should not fail: {e:?}"))?;
@@ -193,13 +195,15 @@ impl RuntimeTester {
     }
 
     /// Increase the immutable file number of the beacon, returns the new number.
-    pub async fn increase_immutable_number(&self) -> Result<ImmutableFileNumber, String> {
+    pub async fn increase_immutable_number(&mut self) -> Result<ImmutableFileNumber, String> {
         let new_immutable_number = self.immutable_file_observer.increase().await.unwrap();
         self.update_digester_digest().await?;
 
         let updated_number = self
-            .deps
-            .beacon_provider
+            .deps_builder
+            .get_beacon_provider()
+            .await
+            .unwrap()
             .get_current_beacon()
             .await
             .map_err(|e| format!("Querying the current beacon should not fail: {e:?}"))?
@@ -214,7 +218,7 @@ impl RuntimeTester {
     }
 
     /// Increase the epoch of the beacon, returns the new epoch.
-    pub async fn increase_epoch(&self) -> Result<Epoch, String> {
+    pub async fn increase_epoch(&mut self) -> Result<Epoch, String> {
         let new_epoch = self
             .chain_observer
             .next_epoch()
@@ -226,10 +230,12 @@ impl RuntimeTester {
     }
 
     /// Register the given signers in the registerer
-    pub async fn register_signers(&self, signers: &[SignerFixture]) -> Result<(), String> {
+    pub async fn register_signers(&mut self, signers: &[SignerFixture]) -> Result<(), String> {
         for signer_with_stake in signers.iter().map(|f| &f.signer_with_stake) {
-            self.deps
-                .signer_registerer
+            self.deps_builder
+                .get_mithril_registerer()
+                .await
+                .unwrap()
                 .register_signer(&signer_with_stake.to_owned().into())
                 .await
                 .map_err(|e| format!("Registering a signer should not fail: {e:?}"))?;
@@ -239,8 +245,12 @@ impl RuntimeTester {
     }
 
     /// "Send", actually register, the given single signatures in the multi-signers
-    pub async fn send_single_signatures(&self, signers: &[SignerFixture]) -> Result<(), String> {
-        let multisigner = self.deps.multi_signer.read().await;
+    pub async fn send_single_signatures(
+        &mut self,
+        signers: &[SignerFixture],
+    ) -> Result<(), String> {
+        let lock = self.deps_builder.get_multi_signer().await.unwrap();
+        let multisigner = lock.read().await;
         let message = multisigner
             .get_current_message()
             .await
@@ -278,17 +288,21 @@ impl RuntimeTester {
 
     /// List the certificates and snapshots from their respective stores.
     pub async fn get_last_certificates_and_snapshots(
-        &self,
+        &mut self,
     ) -> Result<(Vec<Certificate>, Vec<Snapshot>), String> {
         let certificates = self
-            .deps
-            .certificate_store
+            .deps_builder
+            .get_certificate_store()
+            .await
+            .unwrap()
             .get_list(1000) // Arbitrary high number to get all of them in store
             .await
             .map_err(|e| format!("Querying certificate store should not fail {e:?}"))?;
         let snapshots = self
-            .deps
-            .snapshot_store
+            .deps_builder
+            .get_snapshot_store()
+            .await
+            .unwrap()
             .list_snapshots()
             .await
             .map_err(|e| format!("Querying snapshot store should not fail {e:?}"))?;
@@ -298,21 +312,25 @@ impl RuntimeTester {
 
     /// Updates the stake distribution given a vector of signers with stakes
     pub async fn update_stake_distribution(
-        &self,
+        &mut self,
         signers_with_stake: Vec<SignerWithStake>,
     ) -> Result<Vec<SignerFixture>, String> {
         self.chain_observer
             .set_signers(signers_with_stake.clone())
             .await;
         let beacon = self
-            .deps
-            .beacon_provider
+            .deps_builder
+            .get_beacon_provider()
+            .await
+            .unwrap()
             .get_current_beacon()
             .await
             .map_err(|e| format!("Querying the current beacon should not fail: {e:?}"))?;
         let protocol_parameters = self
-            .deps
-            .protocol_parameters_store
+            .deps_builder
+            .get_protocol_parameters_store()
+            .await
+            .unwrap()
             .get_protocol_parameters(beacon.epoch.offset_to_recording_epoch())
             .await
             .map_err(|e| {
@@ -336,10 +354,12 @@ impl RuntimeTester {
     }
 
     // Update the digester result using the current beacon
-    pub async fn update_digester_digest(&self) -> Result<(), String> {
+    pub async fn update_digester_digest(&mut self) -> Result<(), String> {
         let beacon = self
-            .deps
-            .beacon_provider
+            .deps_builder
+            .get_beacon_provider()
+            .await
+            .unwrap()
             .get_current_beacon()
             .await
             .map_err(|e| format!("Querying the current beacon should not fail: {e:?}"))?;

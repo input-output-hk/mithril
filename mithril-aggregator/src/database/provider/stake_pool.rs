@@ -289,55 +289,55 @@ impl StakeStorer for StakePoolStore {
     }
 }
 
-#[cfg(any(test, feature = "test_only"))]
-pub fn setup_stake_db(connection: &Connection) -> Result<(), StdError> {
-    use crate::database::migration::get_migrations;
-
-    let migrations = get_migrations();
-    let migration = migrations
-        .iter()
-        .find(|&m| m.version == 1)
-        .ok_or_else(|| -> StdError {
-            "There should be a migration version 1".to_string().into()
-        })?;
-    let query = {
-        // leverage the expanded parameter from this provider which is unit
-        // tested on its own above.
-        let update_provider = UpdateStakePoolProvider::new(connection);
-        let (sql_values, _) = update_provider
-            .get_update_condition("pool_id", Epoch(1), 1000)
-            .expand();
-
-        connection.execute(&migration.alterations)?;
-
-        format!("insert into stake_pool {sql_values}")
-    };
-    let stake_distribution: &[(&str, i64, i64); 9] = &[
-        ("pool1", 1, 1000),
-        ("pool2", 1, 1100),
-        ("pool3", 1, 1300),
-        ("pool1", 2, 1230),
-        ("pool2", 2, 1090),
-        ("pool3", 2, 1300),
-        ("pool1", 3, 1250),
-        ("pool2", 3, 1370),
-        ("pool3", 3, 1300),
-    ];
-    for (pool_id, epoch, stake) in stake_distribution {
-        let mut statement = connection.prepare(&query)?;
-
-        statement.bind(1, *pool_id).unwrap();
-        statement.bind(2, *epoch).unwrap();
-        statement.bind(3, *stake).unwrap();
-        statement.next().unwrap();
-    }
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    pub fn setup_stake_db(connection: &Connection) -> Result<(), StdError> {
+        use crate::database::migration::get_migrations;
+
+        let migrations = get_migrations();
+        let migration =
+            migrations
+                .iter()
+                .find(|&m| m.version == 1)
+                .ok_or_else(|| -> StdError {
+                    "There should be a migration version 1".to_string().into()
+                })?;
+        let query = {
+            // leverage the expanded parameter from this provider which is unit
+            // tested on its own above.
+            let update_provider = UpdateStakePoolProvider::new(connection);
+            let (sql_values, _) = update_provider
+                .get_update_condition("pool_id", Epoch(1), 1000)
+                .expand();
+
+            connection.execute(&migration.alterations)?;
+
+            format!("insert into stake_pool {sql_values}")
+        };
+        let stake_distribution: &[(&str, i64, i64); 9] = &[
+            ("pool1", 1, 1000),
+            ("pool2", 1, 1100),
+            ("pool3", 1, 1300),
+            ("pool1", 2, 1230),
+            ("pool2", 2, 1090),
+            ("pool3", 2, 1300),
+            ("pool1", 3, 1250),
+            ("pool2", 3, 1370),
+            ("pool3", 3, 1300),
+        ];
+        for (pool_id, epoch, stake) in stake_distribution {
+            let mut statement = connection.prepare(&query)?;
+
+            statement.bind(1, *pool_id).unwrap();
+            statement.bind(2, *epoch).unwrap();
+            statement.bind(3, *stake).unwrap();
+            statement.next().unwrap();
+        }
+
+        Ok(())
+    }
 
     #[test]
     fn projection() {

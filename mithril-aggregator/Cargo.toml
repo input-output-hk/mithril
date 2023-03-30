@@ -1,6 +1,6 @@
 [package]
 name = "mithril-aggregator"
-version = "0.2.38"
+version = "0.2.39"
 description = "A Mithril Aggregator server"
 authors = { workspace = true }
 edition = { workspace = true }
@@ -36,7 +36,7 @@ warp = "0.3"
 
 [dev-dependencies]
 httpmock = "0.6.6"
-mithril-common = { path = "../mithril-common", features = ["test_only", "allow_skip_signer_certification"] }
+mithril-common = { path = "../mithril-common", features = ["allow_skip_signer_certification"] }
 mockall = "0.11.0"
 slog-term = "2.9.0"
 tempfile = "3.3.0"

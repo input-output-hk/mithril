@@ -2,9 +2,7 @@
 
 pub mod cache;
 mod cardano_immutable_digester;
-#[cfg(any(test, feature = "test_only"))]
 mod dumb_immutable_observer;
-#[cfg(any(test, feature = "test_only"))]
 mod dummy_immutable_db_builder;
 mod immutable_digester;
 mod immutable_file;
@@ -18,7 +16,5 @@ pub use immutable_file_observer::{
     ImmutableFileSystemObserver,
 };
 
-#[cfg(any(test, feature = "test_only"))]
 pub use dumb_immutable_observer::DumbImmutableDigester;
-#[cfg(any(test, feature = "test_only"))]
 pub use dummy_immutable_db_builder::{DummyImmutableDb, DummyImmutablesDbBuilder};

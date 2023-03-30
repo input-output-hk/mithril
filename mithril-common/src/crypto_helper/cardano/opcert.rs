@@ -6,7 +6,6 @@ use crate::crypto_helper::ProtocolPartyId;
 
 use bech32::{self, ToBase32, Variant};
 use blake2::{digest::consts::U28, Blake2b, Digest};
-#[cfg(any(test, feature = "test_only"))]
 use ed25519_dalek::{Keypair as EdKeypair, Signer};
 use ed25519_dalek::{PublicKey as EdPublicKey, Signature as EdSignature, Verifier};
 use kes_summed_ed25519::PublicKey as KesPublicKey;
@@ -54,7 +53,6 @@ impl SerDeShelleyFileFormat for OpCert {
 
 impl OpCert {
     /// OpCert factory / test only
-    #[cfg(any(test, feature = "test_only"))]
     pub fn new(
         kes_vk: KesPublicKey,
         issue_number: u64,

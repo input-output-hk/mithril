@@ -16,6 +16,7 @@ mod command_args;
 mod configuration;
 pub mod database;
 mod dependency;
+pub mod dependency_injection;
 pub mod event_store;
 mod http_server;
 mod message_adapters;
@@ -30,12 +31,12 @@ mod store;
 mod tools;
 
 pub use crate::configuration::{
-    Configuration, DefaultConfiguration, GenesisConfiguration, SnapshotUploaderType,
+    Configuration, DefaultConfiguration, ExecutionEnvironment, SnapshotUploaderType,
 };
 pub use crate::multi_signer::{MultiSigner, MultiSignerImpl, ProtocolError};
 pub use crate::snapshot_stores::{LocalSnapshotStore, SnapshotStore};
 pub use certificate_creator::{CertificateCreator, MithrilCertificateCreator};
-pub use command_args::{check_database_migration, MainOpts};
+pub use command_args::MainOpts;
 pub use dependency::DependencyManager;
 pub use message_adapters::{
     FromRegisterSignerAdapter, ToCertificatePendingMessageAdapter, ToEpochSettingsMessageAdapter,

@@ -26,7 +26,6 @@ pub struct SignerFixture {
 
 impl MithrilFixture {
     /// [MithrilFixture] factory.
-    #[cfg(any(test, feature = "test_only"))]
     pub fn new(
         protocol_parameters: ProtocolParameters,
         signers: Vec<SignerFixture>,

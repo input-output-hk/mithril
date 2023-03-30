@@ -3,9 +3,9 @@
 use clap::{Parser, Subcommand};
 use config::builder::DefaultState;
 use config::{ConfigBuilder, Map, Source, Value, ValueKind};
+use mithril_common::StdError;
 use slog::{Drain, Level, Logger};
 use slog_scope::debug;
-use std::error::Error;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -42,7 +42,7 @@ pub struct Args {
 }
 
 impl Args {
-    pub async fn execute(&self) -> Result<(), Box<dyn Error>> {
+    pub async fn execute(&self) -> Result<(), StdError> {
         debug!("Run Mode: {}", self.run_mode);
         let config: ConfigBuilder<DefaultState> = config::Config::builder()
             .add_source(
@@ -122,7 +122,7 @@ impl Commands {
     pub async fn execute(
         &self,
         config_builder: ConfigBuilder<DefaultState>,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), StdError> {
         match self {
             Self::List(cmd) => cmd.execute(config_builder).await,
             Self::Download(cmd) => cmd.execute(config_builder).await,

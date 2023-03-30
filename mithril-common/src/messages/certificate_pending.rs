@@ -31,7 +31,6 @@ pub struct CertificatePendingMessage {
 
 impl CertificatePendingMessage {
     /// Provide a dummy instance for test.
-    #[cfg(any(test, feature = "test_only"))]
     pub fn dummy() -> Self {
         Self {
             beacon: Beacon::default(),
@@ -83,7 +82,6 @@ pub struct SignerMessage {
 }
 
 impl SignerMessage {
-    #[cfg(any(test, feature = "test_only"))]
     /// Return a dummy test entity (test-only).
     pub fn dummy() -> Self {
         Self {
