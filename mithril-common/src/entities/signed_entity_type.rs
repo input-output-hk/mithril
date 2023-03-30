@@ -1,9 +1,12 @@
 use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumIter, EnumString, FromRepr};
 
-/// The signed entity type that represents a type of data signed by the Mithril protocol
-/// Note: Each variant of this enum must be associated to an entry in the `signed_entity_type` tables of the signer/aggregator nodes.
-///       The variant are identified by their discriminant (i.e. index in the enum), thus the modification of this type should only ever consist of appending new variants.
+/// The signed entity type that represents a type of data signed by the Mithril
+/// protocol Note: Each variant of this enum must be associated to an entry in
+/// the `signed_entity_type` table of the signer/aggregator nodes. The variant
+/// are identified by their discriminant (i.e. index in the enum), thus the
+/// modification of this type should only ever consist of appending new
+/// variants.
 #[derive(Display, FromRepr, EnumString, EnumIter, Debug, Clone, Copy, PartialEq, Eq)]
 #[strum(serialize_all = "PascalCase")]
 pub enum SignedEntityType {

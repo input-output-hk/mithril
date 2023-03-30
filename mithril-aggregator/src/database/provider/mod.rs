@@ -1,6 +1,7 @@
 //! Aggregator related database providers
 mod certificate;
 mod epoch_setting;
+mod open_message;
 mod stake_pool;
 
 pub use certificate::*;
