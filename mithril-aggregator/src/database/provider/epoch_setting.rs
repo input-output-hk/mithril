@@ -126,7 +126,7 @@ impl<'client> Provider<'client> for EpochSettingProvider<'client> {
     fn get_definition(&self, condition: &str) -> String {
         let aliases = SourceAlias::new(&[("{:epoch_setting:}", "es")]);
         let projection = Self::Entity::get_projection().expand(aliases);
-        format!("select {projection} from epoch_setting as es where {condition} order by epoch_setting_id asc")
+        format!("select {projection} from epoch_setting as es where {condition} order by epoch_setting_id desc")
     }
 }
 
@@ -596,6 +596,9 @@ mod tests {
                 .get_last_n_records(epoch_settings.len())
                 .await
                 .unwrap()
+                .into_iter()
+                .rev()
+                .collect::<Vec<(Epoch, ProtocolParameters)>>()
         )
     }
 }
