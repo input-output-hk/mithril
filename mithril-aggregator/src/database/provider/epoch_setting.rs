@@ -218,6 +218,20 @@ impl<'conn> DeleteEpochSettingProvider<'conn> {
         Self { connection }
     }
 
+    /// Create the SQL condition to delete a record given the Epoch.
+    fn get_delete_condition_by_epoch(&self, epoch: Epoch) -> WhereCondition {
+        let epoch_setting_id_value = Value::Integer(i64::try_from(epoch.0).unwrap());
+
+        WhereCondition::new("epoch_setting_id = ?*", vec![epoch_setting_id_value])
+    }
+
+    /// Delete the epoch setting data given the Epoch
+    pub fn delete(&self, epoch: Epoch) -> Result<EntityCursor<EpochSettingRecord>, StdError> {
+        let filters = self.get_delete_condition_by_epoch(epoch);
+
+        self.find(filters)
+    }
+
     /// Create the SQL condition to prune data older than the given Epoch.
     fn get_prune_condition(&self, epoch_threshold: Epoch) -> WhereCondition {
         let epoch_setting_id_value = Value::Integer(i64::try_from(epoch_threshold.0).unwrap());
@@ -312,8 +326,15 @@ impl StoreAdapter for EpochSettingStore {
         Ok(protocol_parameters)
     }
 
-    async fn remove(&mut self, _key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
-        unimplemented!()
+    async fn remove(&mut self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
+        let connection = &*self.connection.lock().await;
+        let provider = DeleteEpochSettingProvider::new(connection);
+        let mut cursor = provider
+            .delete(*key)
+            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+        let epoch_setting_record = cursor.next();
+
+        Ok(epoch_setting_record.map(|es| es.protocol_parameters))
     }
 
     async fn get_iter(&self) -> Result<Box<dyn Iterator<Item = Self::Record> + '_>, AdapterError> {
@@ -462,6 +483,17 @@ mod tests {
     }
 
     #[test]
+    fn delete() {
+        let connection = Connection::open(":memory:").unwrap();
+        let provider = DeleteEpochSettingProvider::new(&connection);
+        let condition = provider.get_delete_condition_by_epoch(Epoch(5));
+        let (condition, params) = condition.expand();
+
+        assert_eq!("epoch_setting_id = ?1".to_string(), condition);
+        assert_eq!(vec![Value::Integer(5)], params);
+    }
+
+    #[test]
     fn prune() {
         let connection = Connection::open(":memory:").unwrap();
         let provider = DeleteEpochSettingProvider::new(&connection);
@@ -534,6 +566,26 @@ mod tests {
     }
 
     #[test]
+    fn test_delete() {
+        let connection = Connection::open(":memory:").unwrap();
+        setup_epoch_setting_db(&connection).unwrap();
+
+        let provider = DeleteEpochSettingProvider::new(&connection);
+        let cursor = provider.delete(Epoch(2)).unwrap();
+
+        assert_eq!(1, cursor.count());
+
+        let provider = EpochSettingProvider::new(&connection);
+        let cursor = provider.get_by_epoch(&Epoch(1)).unwrap();
+
+        assert_eq!(1, cursor.count());
+
+        let cursor = provider.get_by_epoch(&Epoch(2)).unwrap();
+
+        assert_eq!(0, cursor.count());
+    }
+
+    #[test]
     fn test_prune() {
         let connection = Connection::open(":memory:").unwrap();
         setup_epoch_setting_db(&connection).unwrap();
@@ -599,6 +651,23 @@ mod tests {
                 .into_iter()
                 .rev()
                 .collect::<Vec<(Epoch, ProtocolParameters)>>()
-        )
+        );
+
+        for epoch_setting in &epoch_settings {
+            assert!(epoch_setting_store_adapter
+                .remove(&epoch_setting.0)
+                .await
+                .is_ok());
+        }
+
+        assert_eq!(
+            0,
+            epoch_setting_store_adapter
+                .get_last_n_records(epoch_settings.len())
+                .await
+                .unwrap()
+                .into_iter()
+                .len()
+        );
     }
 }
