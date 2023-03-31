@@ -184,16 +184,19 @@ impl DependenciesBuilder {
     }
 
     async fn build_sqlite_connection(&self) -> Result<Arc<Mutex<Connection>>> {
-        let connection = match self.configuration.environment {
+        let path = match self.configuration.environment {
             ExecutionEnvironment::Production => {
-                Connection::open(self.configuration.get_sqlite_dir().join(SQLITE_FILE))
+                self.configuration.get_sqlite_dir().join(SQLITE_FILE)
             }
-            _ => Connection::open(":memory:"),
+            _ => ":memory:".into(),
         };
-        let connection = connection
-            .map(|conn| Arc::new(Mutex::new(conn)))
+        let connection = Connection::open(&path)
+            .map(|c| Arc::new(Mutex::new(c)))
             .map_err(|e| DependenciesBuilderError::Initialization {
-                message: "Could not initialize SQLite driver.".to_string(),
+                message: format!(
+                    "SQLite initialization: could not open connection with string '{}'.",
+                    path.display()
+                ),
                 error: Some(Box::new(e)),
             })?;
         // Check database migrations
@@ -206,6 +209,16 @@ impl DependenciesBuilder {
         for migration in crate::database::migration::get_migrations() {
             db_checker.add_migration(migration);
         }
+
+        // configure session
+        connection
+            .lock()
+            .await
+            .execute("pragma foreign_keys=true")
+            .map_err(|e| DependenciesBuilderError::Initialization {
+                message: "SQLite initialization: could not enable FOREIGN KEY support.".to_string(),
+                error: Some(e.into()),
+            })?;
 
         db_checker.apply().await?;
 
