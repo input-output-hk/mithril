@@ -187,7 +187,57 @@ If you want to dig deeper, you can get access to several level of logs from the 
 
 <CompiledBinaries />
 
-## Build and run Docker container
+## Run Docker container
+
+### Registry Image
+
+The list of available images on the registry is listed [here](https://github.com/input-output-hk/mithril/pkgs/container/mithril-client)
+
+Prepare environment variables (values can be retrieved on the above **Mithril Networks** table)
+
+```bash
+export MITHRIL_IMAGE_ID=**YOUR_MITHRIL_IMAGE_ID**
+export NETWORK=**YOUR_CARDANO_NETWORK**
+export AGGREGATOR_ENDPOINT=**YOUR_AGGREGATOR_ENDPOINT**
+export GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**)
+export SNAPSHOT_DIGEST=$(curl -s $AGGREGATOR_ENDPOINT/snapshots | jq -r '.[0].digest')
+```
+
+Here is an example configuration for the `release-preprod` network and the `latest` stable Docker image
+
+```bash
+export MITHRIL_IMAGE_ID=latest
+export NETWORK=preprod
+export AGGREGATOR_ENDPOINT=https://aggregator.release-preprod.api.mithril.network/aggregator
+export GENESIS_VERIFICATION_KEY=$(wget -q -O - https://raw.githubusercontent.com/input-output-hk/mithril/main/mithril-infra/configuration/release-preprod/genesis.vkey)
+export SNAPSHOT_DIGEST=$(curl -s $AGGREGATOR_ENDPOINT/snapshots | jq -r '.[0].digest')
+```
+
+Then create a shell function for the Mithril Client
+
+```bash
+mithril_client () {
+  docker run --rm -e NETWORK=$NETWORK -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT --name='mithril-client' -v $(pwd):/app/data -u $(id -u) ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID $@
+}
+```
+
+Now you can use the `mithril_client` function:
+
+```bash
+# 1- Help
+mithril_client help
+
+# 2- List snapshots
+mithril_client list
+
+# 3- Download latest snapshot
+mithril_client download $SNAPSHOT_DIGEST
+
+# 4- Restore latest snapshot
+mithril_client restore $SNAPSHOT_DIGEST
+```
+
+### Local Image
 
 Build a local Docker image
 

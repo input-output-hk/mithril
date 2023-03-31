@@ -158,23 +158,61 @@ If you want to dig deeper, you can get access to several level of logs from the 
 
 <CompiledBinaries />
 
+## Run Docker container
+
+The list of available images on the registry is listed [here](https://github.com/input-output-hk/mithril/pkgs/container/mithril-client)
+
+Prepare an environment variable with the selected Docker image
+
+```bash
+export MITHRIL_IMAGE_ID=**YOUR_MITHRIL_IMAGE_ID**
+```
+
+Here is an example configuration for the `latest` stable Docker image
+
+```bash
+export MITHRIL_IMAGE_ID=latest
+```
+
+Then create a shell function for the Mithril Client:
+```bash
+mithril_client () {
+  docker run --rm -e NETWORK=$NETWORK -e GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY -e AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT --name='mithril-client' -v $(pwd):/app/data -u $(id -u) ghcr.io/input-output-hk/mithril-client:$MITHRIL_IMAGE_ID $@
+}
+```
+
+Now you can use the `mithril_client` function:
+```bash
+# 1- Help
+mithril_client help
+
+# 2- List snapshots
+mithril_client list
+```
+
+:::tip
+
+In the following part of the document, you will need to replace the `./mithril-client` commands with `mithril_client` in order to use the above shell function.
+
+:::
+
 ## Bootstrap a Cardano node from a testnet Mithril snapshot
 
 ### Step 1: Prepare some useful variables
 
 ```bash
 # Cardano network
-NETWORK=**YOUR_CARDANO_NETWORK**
+export NETWORK=**YOUR_CARDANO_NETWORK**
 
 # Aggregator API endpoint URL
-AGGREGATOR_ENDPOINT=**YOUR_AGGREGATOR_ENDPOINT**
+export AGGREGATOR_ENDPOINT=**YOUR_AGGREGATOR_ENDPOINT**
 
 # Genesis verification key
-GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**)
+export GENESIS_VERIFICATION_KEY=$(wget -q -O - **YOUR_GENESIS_VERIFICATION_KEY**)
 
 # Digest of the latest produced snapshot for convenience of the demo
 # You can also modify this variable and set it to the value of the digest of a snapshot that you can retrieve at step 2
-SNAPSHOT_DIGEST=$(curl -s $AGGREGATOR_ENDPOINT/snapshots | jq -r '.[0].digest')
+export SNAPSHOT_DIGEST=$(curl -s $AGGREGATOR_ENDPOINT/snapshots | jq -r '.[0].digest')
 ```
 
 ### Step 2: Select A Snapshot
@@ -182,7 +220,7 @@ SNAPSHOT_DIGEST=$(curl -s $AGGREGATOR_ENDPOINT/snapshots | jq -r '.[0].digest')
 List the available snapshots with which you can bootstrap a Cardano node
 
 ```bash
-GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client list
+./mithril-client list
 ```
 
 You will see a list of snapshots
@@ -208,7 +246,7 @@ You will see a list of snapshots
 Get some more details from a specific snapshot (Optional)
 
 ```bash
-GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client show $SNAPSHOT_DIGEST
+./mithril-client show $SNAPSHOT_DIGEST
 ```
 
 You will see more information about a snapshot
@@ -233,7 +271,7 @@ You will see more information about a snapshot
 Download the selected snapshot from the remote location to your remote location
 
 ```bash
-GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client download $SNAPSHOT_DIGEST
+./mithril-client download $SNAPSHOT_DIGEST
 ```
 
 You will see that the selected snapshot archive has been downloaded locally
@@ -249,7 +287,7 @@ to /home/mithril/data/testnet/cd587611b5ff2445c714bef083d9455ed3e42e9304ae0ad38b
 Verify the Certificate of the snapshot and unpack its content in order to feed the Cardano node database
 
 ```bash
-GENESIS_VERIFICATION_KEY=$GENESIS_VERIFICATION_KEY NETWORK=$NETWORK AGGREGATOR_ENDPOINT=$AGGREGATOR_ENDPOINT ./mithril-client restore $SNAPSHOT_DIGEST
+./mithril-client restore $SNAPSHOT_DIGEST
 ```
 
 You will see that the snapshot archive is unpacked and that the associated certificate is valid
