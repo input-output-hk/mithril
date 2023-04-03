@@ -36,7 +36,9 @@ use warp::Filter;
 
 use crate::{
     configuration::{ExecutionEnvironment, LIST_SNAPSHOTS_MAX_ITEMS},
-    database::provider::{CertificateStoreAdapter, EpochSettingStore, StakePoolStore},
+    database::provider::{
+        CertificateStoreAdapter, EpochSettingStore, SignerRegistrationStoreAdapter, StakePoolStore,
+    },
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
     stake_distribution_service::{MithrilStakeDistributionService, StakeDistributionService},
@@ -424,12 +426,7 @@ impl DependenciesBuilder {
         > = match self.configuration.environment {
             ExecutionEnvironment::Production => {
                 let adapter =
-                    SQLiteAdapter::new("verification_key", self.get_sqlite_connection().await?)
-                        .map_err(|e| DependenciesBuilderError::Initialization {
-                            message: "Cannot create SQLite adapter for VerificationKeyStore."
-                                .to_string(),
-                            error: Some(e.into()),
-                        })?;
+                    SignerRegistrationStoreAdapter::new(self.get_sqlite_connection().await?);
 
                 Box::new(adapter)
             }
