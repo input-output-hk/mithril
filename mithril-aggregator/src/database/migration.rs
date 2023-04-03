@@ -138,7 +138,7 @@ drop table certificate_temp;
 create table open_message (
 	open_message_id         text    not null,
     epoch_setting_id        int     not null,
-    beacon                  text    not null,
+    beacon                  json    not null,
     signed_entity_type_id   int     not null,
     message                 text    not null,
     created_at              text    not null default current_timestamp,
