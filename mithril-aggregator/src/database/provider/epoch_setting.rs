@@ -76,7 +76,7 @@ impl SqLiteEntity for EpochSettingRecord {
     }
 }
 
-/// Simple [EpochSetting] provider.
+/// Simple [EpochSettingRecord] provider.
 pub struct EpochSettingProvider<'client> {
     client: &'client Connection,
 }

@@ -5,7 +5,7 @@ use std::{error::Error, fmt::Display};
 use config::ConfigError;
 use mithril_common::StdError;
 
-/// Result with the [DependencyBuilderError] error.
+/// Result with the [DependenciesBuilderError] error.
 pub type Result<T> = std::result::Result<T, DependenciesBuilderError>;
 
 /// Error that can occure during dependencies initialization process.

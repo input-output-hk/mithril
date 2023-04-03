@@ -240,7 +240,7 @@ impl DependenciesBuilder {
         Ok(stake_pool_store)
     }
 
-    /// Return a [StakeStore]
+    /// Return a [StakePoolStore]
     pub async fn get_stake_store(&mut self) -> Result<Arc<StakePoolStore>> {
         if self.stake_store.is_none() {
             self.stake_store = Some(self.build_stake_store().await?);
@@ -547,7 +547,7 @@ impl DependenciesBuilder {
         Ok(chain_observer)
     }
 
-    /// Return a [ChaineObserver]
+    /// Return a [ChainObserver]
     pub async fn get_chain_observer(&mut self) -> Result<Arc<dyn ChainObserver>> {
         if self.chain_observer.is_none() {
             self.chain_observer = Some(self.build_chain_observer().await?);
@@ -629,7 +629,7 @@ impl DependenciesBuilder {
         Ok(Arc::new(cache_provider))
     }
 
-    /// Get an [ImmutableCacheProvider]
+    /// Get an [ImmutableFileDigestCacheProvider]
     pub async fn get_immutable_cache_provider(
         &mut self,
     ) -> Result<Arc<dyn ImmutableFileDigestCacheProvider>> {
@@ -900,7 +900,7 @@ impl DependenciesBuilder {
         Ok(event_transmitter)
     }
 
-    /// [EventTransmitter] service
+    /// [TransmitterService] service
     pub async fn get_event_transmitter(&mut self) -> Result<Arc<TransmitterService<EventMessage>>> {
         if self.event_transmitter.is_none() {
             self.event_transmitter = Some(self.build_event_transmitter().await?);
@@ -915,7 +915,7 @@ impl DependenciesBuilder {
         Ok(api_version_provider)
     }
 
-    /// [ApiVersionprovider] service
+    /// [APIVersionProvider] service
     pub async fn get_api_version_provider(&mut self) -> Result<Arc<APIVersionProvider>> {
         if self.api_version_provider.is_none() {
             self.api_version_provider = Some(self.build_api_version_provider().await?);

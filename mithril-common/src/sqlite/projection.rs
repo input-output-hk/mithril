@@ -52,8 +52,8 @@ impl Projection {
     /// Create a Projection from a list of tuples `&[(name, definition, sql_type)]`.
     pub fn from(fields: &[(&str, &str, &str)]) -> Self {
         let field_defs: Vec<ProjectionField> = fields
-            .into_iter()
-            .map(|(name, definition, sql_type)| ProjectionField::new(name, definition, &sql_type))
+            .iter()
+            .map(|(name, definition, sql_type)| ProjectionField::new(name, definition, sql_type))
             .collect();
 
         Self::new(field_defs)

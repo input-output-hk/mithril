@@ -440,10 +440,12 @@ mod tests {
                 ))
                 .unwrap();
 
-            cursor.next().expect(&format!(
-                "OpenMessage ID='{}' should exist in the database.",
-                open_message.open_message_id.to_string()
-            ))
+            cursor.next().unwrap_or_else(|| {
+                panic!(
+                    "OpenMessage ID='{}' should exist in the database.",
+                    open_message.open_message_id
+                )
+            })
         };
 
         assert_eq!(open_message.message, message.message);
