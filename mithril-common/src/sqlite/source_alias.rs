@@ -1,6 +1,11 @@
 use std::collections::{hash_map::Iter, HashMap};
 
-/// Handful tool to store SQL source aliases
+/// Handful tool to store SQL source aliases.
+/// ```
+/// use mithril_common::sqlite::SourceAlias;
+///
+/// let aliases = SourceAlias::new(&[("first", "one"), ("second", "two")]);
+/// ```
 #[derive(Debug, Default, Clone)]
 pub struct SourceAlias {
     /// Internal HashMap of source_name => source_alias

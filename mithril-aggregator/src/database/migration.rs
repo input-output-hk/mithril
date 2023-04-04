@@ -130,5 +130,23 @@ create index epoch_index ON certificate(epoch);
 drop table certificate_temp;
 "#,
         ),
+        // Migration 5
+        // Add the `open_message` table
+        SqlMigration::new(
+            5,
+            r#"
+create table open_message (
+	open_message_id         text    not null,
+    epoch_setting_id        int     not null,
+    beacon                  json    not null,
+    signed_entity_type_id   int     not null,
+    message                 text    not null,
+    created_at              text    not null default current_timestamp,
+    primary key (open_message_id),
+    foreign key (epoch_setting_id)     references epoch_setting (epoch_setting_id),
+    foreign key (signed_entity_type_id) references signed_entity_type (signed_entity_type_id)
+);
+"#,
+        ),
     ]
 }

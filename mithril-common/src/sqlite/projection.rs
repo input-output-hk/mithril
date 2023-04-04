@@ -49,6 +49,16 @@ impl Projection {
         Self { fields }
     }
 
+    /// Create a Projection from a list of tuples `&[(name, definition, sql_type)]`.
+    pub fn from(fields: &[(&str, &str, &str)]) -> Self {
+        let field_defs: Vec<ProjectionField> = fields
+            .iter()
+            .map(|(name, definition, sql_type)| ProjectionField::new(name, definition, sql_type))
+            .collect();
+
+        Self::new(field_defs)
+    }
+
     /// Add a new field to the definition. This is one of the projection
     /// building tool to create a projection out of an existing structure.
     /// This is a blanket implementation.
@@ -106,5 +116,21 @@ mod tests {
             "pika.test_id as test_id, pika.name as name, pika.created_at as created_at, count(thing_alias.*) as thing_count".to_string(),
             projection.expand(aliases)
         )
+    }
+
+    #[test]
+    fn list_constructor() {
+        let projection = Projection::from(&[
+            ("something_id", "{:test:}.something_id", "integer"),
+            ("name", "{:test:}.name", "text"),
+            ("created_at", "{:test:}.created_at", "timestamp"),
+        ]);
+
+        let aliases = SourceAlias::new(&[("{:test:}", "test")]);
+
+        assert_eq!(
+            "test.something_id as something_id, test.name as name, test.created_at as created_at",
+            projection.expand(aliases)
+        );
     }
 }

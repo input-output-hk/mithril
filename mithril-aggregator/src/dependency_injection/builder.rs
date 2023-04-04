@@ -184,16 +184,19 @@ impl DependenciesBuilder {
     }
 
     async fn build_sqlite_connection(&self) -> Result<Arc<Mutex<Connection>>> {
-        let connection = match self.configuration.environment {
+        let path = match self.configuration.environment {
             ExecutionEnvironment::Production => {
-                Connection::open(self.configuration.get_sqlite_dir().join(SQLITE_FILE))
+                self.configuration.get_sqlite_dir().join(SQLITE_FILE)
             }
-            _ => Connection::open(":memory:"),
+            _ => ":memory:".into(),
         };
-        let connection = connection
-            .map(|conn| Arc::new(Mutex::new(conn)))
+        let connection = Connection::open(&path)
+            .map(|c| Arc::new(Mutex::new(c)))
             .map_err(|e| DependenciesBuilderError::Initialization {
-                message: "Could not initialize SQLite driver.".to_string(),
+                message: format!(
+                    "SQLite initialization: could not open connection with string '{}'.",
+                    path.display()
+                ),
                 error: Some(Box::new(e)),
             })?;
         // Check database migrations
@@ -206,6 +209,16 @@ impl DependenciesBuilder {
         for migration in crate::database::migration::get_migrations() {
             db_checker.add_migration(migration);
         }
+
+        // configure session
+        connection
+            .lock()
+            .await
+            .execute("pragma foreign_keys=true")
+            .map_err(|e| DependenciesBuilderError::Initialization {
+                message: "SQLite initialization: could not enable FOREIGN KEY support.".to_string(),
+                error: Some(e.into()),
+            })?;
 
         db_checker.apply().await?;
 
@@ -227,7 +240,7 @@ impl DependenciesBuilder {
         Ok(stake_pool_store)
     }
 
-    /// Return a [StakeStore]
+    /// Return a [StakePoolStore]
     pub async fn get_stake_store(&mut self) -> Result<Arc<StakePoolStore>> {
         if self.stake_store.is_none() {
             self.stake_store = Some(self.build_stake_store().await?);
@@ -534,7 +547,7 @@ impl DependenciesBuilder {
         Ok(chain_observer)
     }
 
-    /// Return a [ChaineObserver]
+    /// Return a [ChainObserver]
     pub async fn get_chain_observer(&mut self) -> Result<Arc<dyn ChainObserver>> {
         if self.chain_observer.is_none() {
             self.chain_observer = Some(self.build_chain_observer().await?);
@@ -616,7 +629,7 @@ impl DependenciesBuilder {
         Ok(Arc::new(cache_provider))
     }
 
-    /// Get an [ImmutableCacheProvider]
+    /// Get an [ImmutableFileDigestCacheProvider]
     pub async fn get_immutable_cache_provider(
         &mut self,
     ) -> Result<Arc<dyn ImmutableFileDigestCacheProvider>> {
@@ -887,7 +900,7 @@ impl DependenciesBuilder {
         Ok(event_transmitter)
     }
 
-    /// [EventTransmitter] service
+    /// [TransmitterService] service
     pub async fn get_event_transmitter(&mut self) -> Result<Arc<TransmitterService<EventMessage>>> {
         if self.event_transmitter.is_none() {
             self.event_transmitter = Some(self.build_event_transmitter().await?);
@@ -902,7 +915,7 @@ impl DependenciesBuilder {
         Ok(api_version_provider)
     }
 
-    /// [ApiVersionprovider] service
+    /// [APIVersionProvider] service
     pub async fn get_api_version_provider(&mut self) -> Result<Arc<APIVersionProvider>> {
         if self.api_version_provider.is_none() {
             self.api_version_provider = Some(self.build_api_version_provider().await?);
