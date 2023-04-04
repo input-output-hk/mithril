@@ -653,22 +653,16 @@ mod tests {
     }
 
     #[test]
-    fn get_signer_registration_record_by_signer_id_and_epoch() {
+    fn get_signer_registration_record_by_signer_id() {
         let connection = Connection::open(":memory:").unwrap();
         let provider = SignerRegistrationRecordProvider::new(&connection);
         let condition = provider
-            .condition_by_signer_id_and_epoch("signer-123".to_string(), &Epoch(1))
+            .condition_by_signer_id("signer-123".to_string())
             .unwrap();
         let (filter, values) = condition.expand();
 
-        assert_eq!(
-            "signer_id = ?1 and epoch_setting_id = ?2".to_string(),
-            filter
-        );
-        assert_eq!(
-            vec![Value::String("signer-123".to_string()), Value::Integer(1)],
-            values
-        );
+        assert_eq!("signer_id = ?1".to_string(), filter);
+        assert_eq!(vec![Value::String("signer-123".to_string())], values);
     }
 
     #[test]

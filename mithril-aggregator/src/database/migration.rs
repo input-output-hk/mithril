@@ -151,6 +151,7 @@ create table open_message (
         // Migration 6
         // Add the `signer_registration` table and migration data from the previous
         // `verification_key` JSON format.
+        // TODO: activate FK w/ signer table exists `foreign key (signer_id) references signer(signer_id)`
         SqlMigration::new(
             6,
             r#"
@@ -164,9 +165,7 @@ create table signer_registration (
     stake                       integer,
     created_at                  text        not null default current_timestamp,
     primary key (epoch_setting_id, signer_id)
-    -- TODO: activate FK w/ signer table exists
-    -- foreign key (signer_id) references signer(signer_id)
-    foreign key (epoch_setting_id) references epoch_settings(epoch_setting_id)
+    foreign key (epoch_setting_id) references epoch_setting(epoch_setting_id)
 );
 create table if not exists verification_key (key_hash text primary key, key json not null, value json not null);
 insert into signer_registration (signer_id, 
