@@ -168,16 +168,10 @@ impl<'client> SignerRegistrationRecordProvider<'client> {
         Self { client }
     }
 
-    fn condition_by_signer_id_and_epoch(
-        &self,
-        signer_id: String,
-        epoch: &Epoch,
-    ) -> Result<WhereCondition, StdError> {
-        let epoch = i64::try_from(epoch.0).unwrap();
-
+    fn condition_by_signer_id(&self, signer_id: String) -> Result<WhereCondition, StdError> {
         Ok(WhereCondition::new(
-            "signer_id = ?1 and epoch_setting_id = ?2",
-            vec![Value::String(signer_id), Value::Integer(epoch)],
+            "signer_id = ?*",
+            vec![Value::String(signer_id)],
         ))
     }
 
@@ -196,7 +190,9 @@ impl<'client> SignerRegistrationRecordProvider<'client> {
         signer_id: String,
         epoch: &Epoch,
     ) -> Result<EntityCursor<SignerRegistrationRecord>, StdError> {
-        let filters = self.condition_by_signer_id_and_epoch(signer_id, epoch)?;
+        let filters = self
+            .condition_by_signer_id(signer_id)?
+            .and_where(self.condition_by_epoch(epoch)?);
         let signer_registration_record = self.find(filters)?;
 
         Ok(signer_registration_record)
@@ -252,7 +248,7 @@ impl<'conn> UpdateSignerRegistrationRecordProvider<'conn> {
         signer_registration_record: SignerRegistrationRecord,
     ) -> WhereCondition {
         WhereCondition::new(
-            "(signer_id, epoch_setting_id, verification_key, verification_key_signature, operational_certificate, kes_period, stake, created_at) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+            "(signer_id, epoch_setting_id, verification_key, verification_key_signature, operational_certificate, kes_period, stake, created_at) values (?*, ?*, ?*, ?*, ?*, ?*, ?*, ?*)",
             vec![
                 Value::String(signer_registration_record.signer_id),
                 Value::Integer(
