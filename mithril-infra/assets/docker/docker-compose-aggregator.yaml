@@ -58,7 +58,7 @@ services:
       - SNAPSHOT_UPLOADER_TYPE=gcp
       - SNAPSHOT_BUCKET_NAME=${SNAPSHOT_BUCKET_NAME}
       - DATA_STORES_DIRECTORY=/mithril-aggregator/mithril/stores
-      - STORE_RETENTION_LIMIT=5
+      #- STORE_RETENTION_LIMIT=5
       - CARDANO_NODE_SOCKET_PATH=/ipc/node.socket
       - CARDANO_CLI_PATH=/app/bin/cardano-cli
       - GENESIS_VERIFICATION_KEY=${GENESIS_VERIFICATION_KEY}
