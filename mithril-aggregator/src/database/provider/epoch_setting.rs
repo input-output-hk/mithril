@@ -190,7 +190,7 @@ impl<'conn> Provider<'conn> for UpdateEpochSettingProvider<'conn> {
     }
 }
 
-/// Provider to remove old data from theepoch_setting table
+/// Provider to remove old data from the epoch_setting table
 pub struct DeleteEpochSettingProvider<'conn> {
     connection: &'conn Connection,
 }
@@ -249,6 +249,7 @@ impl<'conn> DeleteEpochSettingProvider<'conn> {
         self.find(filters)
     }
 }
+
 /// Service to deal with epoch settings (read & write).
 pub struct EpochSettingStore {
     connection: Arc<Mutex<Connection>>,

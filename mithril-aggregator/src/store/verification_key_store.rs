@@ -3,10 +3,10 @@ use mithril_common::store::StorePruner;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
 
-use mithril_common::entities::{Epoch, PartyId, Signer};
+use mithril_common::entities::{Epoch, PartyId, Signer, SignerWithStake};
 use mithril_common::store::{adapter::StoreAdapter, StoreError};
 
-type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = HashMap<PartyId, Signer>>>;
+type Adapter = Box<dyn StoreAdapter<Key = Epoch, Record = HashMap<PartyId, SignerWithStake>>>;
 
 /// Mocking trait for `VerificationKeyStore`.
 #[async_trait]
@@ -15,8 +15,8 @@ pub trait VerificationKeyStorer {
     async fn save_verification_key(
         &self,
         epoch: Epoch,
-        signer: Signer,
-    ) -> Result<Option<Signer>, StoreError>;
+        signer: SignerWithStake,
+    ) -> Result<Option<SignerWithStake>, StoreError>;
 
     /// Returns a HashMap of [Signer] indexed by [PartyId] for the given `Beacon`.
     async fn get_verification_keys(
@@ -43,7 +43,7 @@ impl VerificationKeyStore {
 #[async_trait]
 impl StorePruner for VerificationKeyStore {
     type Key = Epoch;
-    type Record = HashMap<PartyId, Signer>;
+    type Record = HashMap<PartyId, SignerWithStake>;
 
     fn get_adapter(
         &self,
@@ -61,13 +61,13 @@ impl VerificationKeyStorer for VerificationKeyStore {
     async fn save_verification_key(
         &self,
         epoch: Epoch,
-        signer: Signer,
-    ) -> Result<Option<Signer>, StoreError> {
+        signer: SignerWithStake,
+    ) -> Result<Option<SignerWithStake>, StoreError> {
         let mut signers = match self.adapter.read().await.get_record(&epoch).await? {
             Some(s) => s,
             None => HashMap::new(),
         };
-        let prev_signer = signers.insert(signer.party_id.to_owned(), signer);
+        let prev_signer = signers.insert(signer.party_id.to_owned(), signer.clone());
         self.adapter
             .write()
             .await
@@ -83,7 +83,7 @@ impl VerificationKeyStorer for VerificationKeyStore {
         epoch: Epoch,
     ) -> Result<Option<HashMap<PartyId, Signer>>, StoreError> {
         let record = self.adapter.read().await.get_record(&epoch).await?;
-        Ok(record)
+        Ok(record.map(|h| h.into_iter().map(|(k, v)| (k, v.into())).collect()))
     }
 }
 
@@ -98,21 +98,22 @@ mod tests {
         signers_per_epoch: u64,
         retention_limit: Option<usize>,
     ) -> VerificationKeyStore {
-        let mut values: Vec<(Epoch, HashMap<PartyId, Signer>)> = Vec::new();
+        let mut values: Vec<(Epoch, HashMap<PartyId, SignerWithStake>)> = Vec::new();
 
         for epoch in 1..=nb_epoch {
-            let mut signers: HashMap<PartyId, Signer> = HashMap::new();
+            let mut signers: HashMap<PartyId, SignerWithStake> = HashMap::new();
 
             for party_idx in 1..=signers_per_epoch {
                 let party_id = format!("{party_idx}");
                 signers.insert(
                     party_id.clone(),
-                    Signer {
+                    SignerWithStake {
                         party_id: party_id.clone(),
                         verification_key: format!("vkey {party_id}"),
                         verification_key_signature: None,
                         operational_certificate: None,
                         kes_period: None,
+                        stake: 10,
                     },
                 );
             }
@@ -124,7 +125,7 @@ mod tests {
         } else {
             None
         };
-        let adapter: MemoryAdapter<Epoch, HashMap<PartyId, Signer>> =
+        let adapter: MemoryAdapter<Epoch, HashMap<PartyId, SignerWithStake>> =
             MemoryAdapter::new(values).unwrap();
         VerificationKeyStore::new(Box::new(adapter), retention_limit)
     }
@@ -135,12 +136,13 @@ mod tests {
         let res = store
             .save_verification_key(
                 Epoch(0),
-                Signer {
+                SignerWithStake {
                     party_id: "0".to_string(),
                     verification_key: "OK".to_string(),
                     verification_key_signature: None,
                     operational_certificate: None,
                     kes_period: None,
+                    stake: 10,
                 },
             )
             .await
@@ -155,12 +157,13 @@ mod tests {
         let res = store
             .save_verification_key(
                 Epoch(1),
-                Signer {
+                SignerWithStake {
                     party_id: "1".to_string(),
                     verification_key: "test".to_string(),
                     verification_key_signature: None,
                     operational_certificate: None,
                     kes_period: None,
+                    stake: 10,
                 },
             )
             .await
@@ -168,12 +171,13 @@ mod tests {
 
         assert!(res.is_some());
         assert_eq!(
-            Signer {
+            SignerWithStake {
                 party_id: "1".to_string(),
                 verification_key: "vkey 1".to_string(),
                 verification_key_signature: None,
                 operational_certificate: None,
                 kes_period: None,
+                stake: 10,
             },
             res.unwrap(),
         );
@@ -207,12 +211,13 @@ mod tests {
         let _ = store
             .save_verification_key(
                 Epoch(3),
-                Signer {
+                SignerWithStake {
                     party_id: "party_id".to_string(),
                     verification_key: "whatever".to_string(),
                     verification_key_signature: None,
                     operational_certificate: None,
                     kes_period: None,
+                    stake: 10,
                 },
             )
             .await

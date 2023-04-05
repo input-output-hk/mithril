@@ -652,8 +652,10 @@ mod tests {
         let beacon = fake_data::beacon();
         let verification_key_store = VerificationKeyStore::new(
             Box::new(
-                MemoryAdapter::<Epoch, HashMap<entities::PartyId, entities::Signer>>::new(None)
-                    .unwrap(),
+                MemoryAdapter::<Epoch, HashMap<entities::PartyId, entities::SignerWithStake>>::new(
+                    None,
+                )
+                .unwrap(),
             ),
             None,
         );
@@ -839,7 +841,7 @@ mod tests {
             verification_key_store
                 .save_verification_key(
                     start_epoch.offset_to_recording_epoch(),
-                    signer_with_stake.to_owned().into(),
+                    signer_with_stake.to_owned(),
                 )
                 .await
                 .expect("register should have succeeded");
