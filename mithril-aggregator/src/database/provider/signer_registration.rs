@@ -1,4 +1,7 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::Arc,
+};
 
 use sqlite::{Connection, Value};
 
@@ -453,8 +456,8 @@ impl StoreAdapter for SignerRegistrationStoreAdapter {
             .collect::<Vec<_>>()
             .into_iter()
             .rev();
-        let signer_with_stake_by_epoch: HashMap<Self::Key, Self::Record> = cursor.fold(
-            HashMap::<Self::Key, Self::Record>::new(),
+        let signer_with_stake_by_epoch: BTreeMap<Self::Key, Self::Record> = cursor.fold(
+            BTreeMap::<Self::Key, Self::Record>::new(),
             |mut acc, signer_registration_record| {
                 let epoch = signer_registration_record.epoch_setting_id;
                 let mut signer_with_stakes: Self::Record =
@@ -473,6 +476,7 @@ impl StoreAdapter for SignerRegistrationStoreAdapter {
         );
         Ok(signer_with_stake_by_epoch
             .into_iter()
+            .rev()
             .take(how_many)
             .collect())
     }
@@ -839,7 +843,7 @@ mod tests {
     async fn test_store_adapter() {
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let signer_with_stakes = fixture.signers_with_stake();
-        let signer_with_stakes_by_epoch: Vec<(Epoch, HashMap<PartyId, SignerWithStake>)> = (0..1)
+        let signer_with_stakes_by_epoch: Vec<(Epoch, HashMap<PartyId, SignerWithStake>)> = (0..5)
             .map(|e| {
                 (
                     Epoch(e),

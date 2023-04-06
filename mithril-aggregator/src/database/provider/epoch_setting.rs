@@ -21,7 +21,7 @@ use mithril_common::StdError;
 use tokio::sync::Mutex;
 
 /// Delete epoch settings for Epoch older than this.
-const EPOCH_SETTING_PRUNE_EPOCH_THRESHOLD: Epoch = Epoch(3);
+const EPOCH_SETTING_PRUNE_EPOCH_THRESHOLD: Epoch = Epoch(10);
 
 /// Settings for an epoch, including the protocol parameters.
 #[derive(Debug, PartialEq)]

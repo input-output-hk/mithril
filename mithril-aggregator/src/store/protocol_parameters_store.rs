@@ -52,6 +52,11 @@ impl StorePruner for ProtocolParametersStore {
     fn get_max_records(&self) -> Option<usize> {
         self.retention_len
     }
+
+    /// Pruning is deactivated on this store.
+    async fn prune(&self) -> Result<(), StoreError> {
+        Ok(())
+    }
 }
 
 #[async_trait]
@@ -160,7 +165,11 @@ mod tests {
             .save_protocol_parameters(Epoch(3), protocol_parameters[2].1.clone())
             .await
             .unwrap();
-        assert_eq!(None, store.get_protocol_parameters(Epoch(1)).await.unwrap());
+        assert!(store
+            .get_protocol_parameters(Epoch(1))
+            .await
+            .unwrap()
+            .is_some());
         let res = store.get_protocol_parameters(Epoch(2)).await.unwrap();
         assert!(res.is_some());
     }
@@ -192,11 +201,11 @@ mod tests {
             .get_protocol_parameters(Epoch(1))
             .await
             .unwrap()
-            .is_none());
+            .is_some());
         assert!(store
             .get_protocol_parameters(Epoch(2))
             .await
             .unwrap()
-            .is_none());
+            .is_some());
     }
 }
