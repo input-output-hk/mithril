@@ -2062,7 +2062,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.2.45"
+version = "0.2.46"
 dependencies = [
  "async-trait",
  "chrono",
@@ -2096,7 +2096,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.2.16"
+version = "0.2.17"
 dependencies = [
  "async-recursion",
  "async-trait",
@@ -2125,7 +2125,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-common"
-version = "0.2.36"
+version = "0.2.37"
 dependencies = [
  "async-trait",
  "bech32",
@@ -2170,7 +2170,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-end-to-end"
-version = "0.1.9"
+version = "0.1.10"
 dependencies = [
  "async-trait",
  "clap 4.2.1",
@@ -2192,7 +2192,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.30"
+version = "0.2.31"
 dependencies = [
  "async-trait",
  "clap 4.2.1",
@@ -2218,7 +2218,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-stm"
-version = "0.2.9"
+version = "0.2.10"
 dependencies = [
  "bincode",
  "blake2 0.10.6",
@@ -2241,7 +2241,7 @@ dependencies = [
 
 [[package]]
 name = "mithrildemo"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "base64 0.13.1",
  "blake2 0.10.6",
