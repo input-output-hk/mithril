@@ -189,5 +189,36 @@ insert into signer_registration (signer_id,
 drop table verification_key;
 "#,
         ),
+        // Migration 7
+        // Add the `signed_entity` table and migration data from the previous
+        // `snapshot` JSON format.
+        SqlMigration::new(
+            7,
+            r#"
+create table signed_entity (
+    signed_entity_id            text        not null,
+    signed_entity_type_id       integer     not null,
+    certificate_id              text        not null,
+    entity                      json        not null,
+    created_at                  text        not null default current_timestamp,
+    primary key (signed_entity_id)
+    foreign key (signed_entity_type_id) references signed_entity_type(signed_entity_type_id)
+    foreign key (certificate_id) references certificate(certificate_id)
+);
+create table if not exists snapshot (key_hash text primary key, key json not null, value json not null);
+insert into signed_entity (signed_entity_id, 
+                                signed_entity_type_id, 
+                                certificate_id, 
+                                entity) 
+    select 
+        json_extract(snapshot.value, '$.digest') as signed_entity_id,
+        2 as signed_entity_type_id,
+        json_extract(snapshot.value, '$.certificate_hash') as certificate_id,
+        snapshot.value as entity
+    from snapshot 
+    order by ROWID asc;
+drop table snapshot;
+"#,
+        ),
     ]
 }
