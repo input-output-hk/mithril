@@ -1,4 +1,8 @@
+use std::sync::Arc;
+
 use sqlite::{Connection, Value};
+
+use async_trait::async_trait;
 
 use mithril_common::{
     entities::{SignedEntityType, Snapshot},
@@ -6,9 +10,11 @@ use mithril_common::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
         WhereCondition,
     },
+    store::adapter::{AdapterError, StoreAdapter},
 };
 
 use mithril_common::StdError;
+use tokio::sync::Mutex;
 
 /// SignedEntity record is the representation of a stored signed_entity.
 #[derive(Debug, PartialEq, Clone)]
@@ -172,7 +178,9 @@ impl<'client> Provider<'client> for SignedEntityRecordProvider<'client> {
     fn get_definition(&self, condition: &str) -> String {
         let aliases = SourceAlias::new(&[("{:signed_entity:}", "se")]);
         let projection = Self::Entity::get_projection().expand(aliases);
-        format!("select {projection} from signed_entity as se where {condition} order by created_at, ROWID desc")
+        format!(
+            "select {projection} from signed_entity as se where {condition} order by ROWID desc"
+        )
     }
 }
 
@@ -233,6 +241,81 @@ impl<'conn> Provider<'conn> for InsertSignedEntityRecordProvider<'conn> {
     }
 }
 
+/// Service to deal with signed_entity (read & write).
+pub struct SignedEntityStoreAdapter {
+    connection: Arc<Mutex<Connection>>,
+}
+
+impl SignedEntityStoreAdapter {
+    /// Create a new SignedEntityStoreAdapter service
+    pub fn new(connection: Arc<Mutex<Connection>>) -> Self {
+        Self { connection }
+    }
+}
+
+#[async_trait]
+impl StoreAdapter for SignedEntityStoreAdapter {
+    type Key = String;
+    type Record = Snapshot;
+
+    async fn store_record(
+        &mut self,
+        _key: &Self::Key,
+        record: &Self::Record,
+    ) -> Result<(), AdapterError> {
+        let connection = &*self.connection.lock().await;
+        let provider = InsertSignedEntityRecordProvider::new(connection);
+        let _signed_entity_record = provider
+            .persist(record.to_owned().into())
+            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+
+        Ok(())
+    }
+
+    async fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
+        let connection = &*self.connection.lock().await;
+        let provider = SignedEntityRecordProvider::new(connection);
+        let mut cursor = provider
+            .get_by_signed_entity_id(key.to_string())
+            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+        let signed_entity = cursor
+            .next()
+            .map(|signed_entity_record| signed_entity_record.into());
+
+        Ok(signed_entity)
+    }
+
+    async fn record_exists(&self, key: &Self::Key) -> Result<bool, AdapterError> {
+        Ok(self.get_record(key).await?.is_some())
+    }
+
+    async fn get_last_n_records(
+        &self,
+        how_many: usize,
+    ) -> Result<Vec<(Self::Key, Self::Record)>, AdapterError> {
+        Ok(self
+            .get_iter()
+            .await?
+            .take(how_many)
+            .map(|se| (se.digest.to_owned(), se))
+            .collect())
+    }
+
+    async fn remove(&mut self, _key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
+        unimplemented!()
+    }
+
+    async fn get_iter(&self) -> Result<Box<dyn Iterator<Item = Self::Record> + '_>, AdapterError> {
+        let connection = &*self.connection.lock().await;
+        let provider = SignedEntityRecordProvider::new(connection);
+        let cursor = provider
+            .get_all()
+            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+        let signed_entities: Vec<Snapshot> = cursor.map(|se| se.into()).collect();
+        Ok(Box::new(signed_entities.into_iter()))
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use mithril_common::test_utils::fake_data;
@@ -252,7 +335,7 @@ mod tests {
                     signed_entity_type: SignedEntityType::CardanoImmutableFilesFull,
                     certificate_id: snapshot.certificate_hash,
                     entity,
-                    created_at: "2023-04-07T21:44:51Z".to_string(),
+                    created_at: snapshot.created_at,
                 }
             })
             .collect()
@@ -434,5 +517,52 @@ mod tests {
                 provider.persist(signed_entity_record.clone()).unwrap();
             assert_eq!(signed_entity_record, signed_entity_record_saved);
         }
+    }
+
+    #[tokio::test]
+    async fn test_store_adapter() {
+        let signed_entity_records = fake_signed_entity_records(5);
+
+        let connection = Connection::open(":memory:").unwrap();
+        setup_signed_entity_db(&connection, Vec::new()).unwrap();
+
+        let mut signed_entity_store_adapter =
+            SignedEntityStoreAdapter::new(Arc::new(Mutex::new(connection)));
+
+        for signed_entity_record in &signed_entity_records {
+            assert!(signed_entity_store_adapter
+                .store_record(
+                    &signed_entity_record.signed_entity_id,
+                    &signed_entity_record.to_owned().into()
+                )
+                .await
+                .is_ok());
+        }
+
+        for signed_entity_record in &signed_entity_records {
+            assert!(signed_entity_store_adapter
+                .record_exists(&signed_entity_record.signed_entity_id)
+                .await
+                .unwrap());
+            assert_eq!(
+                Some(signed_entity_record.to_owned().into()),
+                signed_entity_store_adapter
+                    .get_record(&signed_entity_record.signed_entity_id)
+                    .await
+                    .unwrap()
+            );
+        }
+
+        assert_eq!(
+            signed_entity_records,
+            signed_entity_store_adapter
+                .get_last_n_records(signed_entity_records.len())
+                .await
+                .unwrap()
+                .into_iter()
+                .map(|(_k, v)| v.into())
+                .rev()
+                .collect::<Vec<SignedEntityRecord>>()
+        )
     }
 }
