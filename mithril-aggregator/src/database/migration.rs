@@ -151,7 +151,6 @@ create table open_message (
         // Migration 6
         // Add the `signer_registration` table and migration data from the previous
         // `verification_key` JSON format.
-        // TODO: activate FK w/ signer table exists `foreign key (signer_id) references signer(signer_id)`
         SqlMigration::new(
             6,
             r#"
@@ -221,6 +220,45 @@ insert into signed_entity (signed_entity_id,
     from snapshot 
     order by ROWID asc;
 drop table snapshot;
+"#,
+        ),
+        // Migration 8
+        // Add the `signer` table and migration data from `signer_registration` table
+        SqlMigration::new(
+            8,
+            r#"
+create table signer (
+    signer_id                   text        not null,
+    pool_ticker                 text,
+    created_at                  text        not null default current_timestamp,
+    updated_at                  text        not null default current_timestamp,
+    primary key (signer_id)
+);
+insert into signer (signer_id, created_at, updated_at) 
+    select 
+        distinct(signer_registration.signer_id) as signer_id,
+        min(signer_registration.created_at) as created_at,
+        max(signer_registration.created_at) as updated_at
+    from signer_registration 
+    group by signer_registration.signer_id
+    order by signer_registration.signer_id;
+
+alter table signer_registration rename to signer_registration_temp;
+create table signer_registration (
+    signer_id                   text        not null,
+    epoch_setting_id            integer     not null,
+    verification_key            text        not null,
+    verification_key_signature  text,
+    operational_certificate     text,
+    kes_period                  integer,
+    stake                       integer,
+    created_at                  text        not null default current_timestamp,
+    primary key (epoch_setting_id, signer_id)
+    foreign key (epoch_setting_id) references epoch_setting(epoch_setting_id)
+    foreign key (signer_id) references signer(signer_id)
+);
+insert into signer_registration select * from signer_registration_temp order by ROWID asc;
+drop table signer_registration_temp;
 "#,
         ),
     ]
