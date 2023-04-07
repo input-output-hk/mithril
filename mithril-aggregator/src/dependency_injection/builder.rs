@@ -37,7 +37,8 @@ use warp::Filter;
 use crate::{
     configuration::{ExecutionEnvironment, LIST_SNAPSHOTS_MAX_ITEMS},
     database::provider::{
-        CertificateStoreAdapter, EpochSettingStore, SignerRegistrationStoreAdapter, StakePoolStore,
+        CertificateStoreAdapter, EpochSettingStore, SignedEntityStoreAdapter,
+        SignerRegistrationStoreAdapter, StakePoolStore,
     },
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
@@ -256,11 +257,7 @@ impl DependenciesBuilder {
             dyn StoreAdapter<Key = String, Record = mithril_common::entities::Snapshot>,
         > = match self.configuration.environment {
             ExecutionEnvironment::Production => {
-                let adapter = SQLiteAdapter::new("snapshot", self.get_sqlite_connection().await?)
-                    .map_err(|e| DependenciesBuilderError::Initialization {
-                    message: "Cannot create SQLite adapter for Snapshot Store.".to_string(),
-                    error: Some(e.into()),
-                })?;
+                let adapter = SignedEntityStoreAdapter::new(self.get_sqlite_connection().await?);
 
                 Box::new(adapter)
             }
