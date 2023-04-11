@@ -40,7 +40,7 @@ impl From<Snapshot> for SignedEntityRecord {
         let entity = serde_json::to_string(&other).unwrap();
         SignedEntityRecord {
             signed_entity_id: other.digest,
-            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull,
+            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(other.beacon),
             certificate_id: other.certificate_hash,
             entity,
             created_at: other.created_at,
@@ -62,21 +62,20 @@ impl SqLiteEntity for SignedEntityRecord {
         let signed_entity_id = row.get::<String, _>(0);
         let signed_entity_type_id_int = row.get::<i64, _>(1);
         let certificate_id = row.get::<String, _>(2);
-        let entity_str = row.get::<String, _>(3);
-        let created_at = row.get::<String, _>(4);
+        let beacon_str = row.get::<String, _>(3);
+        let entity_str = row.get::<String, _>(4);
+        let created_at = row.get::<String, _>(5);
 
         let signed_entity_record = Self {
             signed_entity_id,
-            signed_entity_type: SignedEntityType::from_repr(
+            signed_entity_type: SignedEntityType::hydrate(
                 signed_entity_type_id_int.try_into().map_err(|e| {
                     HydrationError::InvalidData(format!(
                         "Could not cast i64 ({signed_entity_type_id_int}) to u64. Error: '{e}'"
                     ))
                 })?,
-            )
-            .ok_or(HydrationError::InconsistentType(format!(
-                "Could not convert ({signed_entity_type_id_int}) to SignedEntityType"
-            )))?,
+                &beacon_str,
+            )?,
             certificate_id,
             entity: entity_str,
             created_at,
@@ -98,6 +97,7 @@ impl SqLiteEntity for SignedEntityRecord {
                 "integer",
             ),
             ("certificate_id", "{:signed_entity:}.certificate_id", "text"),
+            ("beacon", "{:signed_entity:}.beacon", "text"),
             ("entity", "{:signed_entity:}.entity", "text"),
             ("created_at", "{:signed_entity:}.created_at", "text"),
         ])
@@ -129,7 +129,7 @@ impl<'client> SignedEntityRecordProvider<'client> {
         &self,
         signed_entity_type: SignedEntityType,
     ) -> Result<WhereCondition, StdError> {
-        let signed_entity_type_id: i64 = i64::try_from(signed_entity_type as usize)?;
+        let signed_entity_type_id: i64 = signed_entity_type.index() as i64;
 
         Ok(WhereCondition::new(
             "signed_entity_type_id = ?*",
@@ -197,11 +197,12 @@ impl<'conn> InsertSignedEntityRecordProvider<'conn> {
 
     fn get_insert_condition(&self, signed_entity_record: SignedEntityRecord) -> WhereCondition {
         WhereCondition::new(
-            "(signed_entity_id, signed_entity_type_id, certificate_id, entity, created_at) values (?*, ?*, ?*, ?*, ?*)",
+            "(signed_entity_id, signed_entity_type_id, certificate_id, beacon, entity, created_at) values (?*, ?*, ?*, ?*, ?*, ?*)",
             vec![
                 Value::String(signed_entity_record.signed_entity_id),
-                Value::Integer(i64::try_from(signed_entity_record.signed_entity_type as usize).unwrap()),
+                Value::Integer(signed_entity_record.signed_entity_type.index() as i64),
                 Value::String(signed_entity_record.certificate_id),
+                Value::String(signed_entity_record.signed_entity_type.get_json_beacon().unwrap()),
                 Value::String(signed_entity_record.entity),
                 Value::String(signed_entity_record.created_at),
             ],
@@ -318,7 +319,7 @@ impl StoreAdapter for SignedEntityStoreAdapter {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::test_utils::fake_data;
+    use mithril_common::{entities::Beacon, test_utils::fake_data};
 
     use crate::database::migration::get_migrations;
 
@@ -332,7 +333,9 @@ mod tests {
                 let entity = serde_json::to_string(&snapshot).unwrap();
                 SignedEntityRecord {
                     signed_entity_id: snapshot.digest,
-                    signed_entity_type: SignedEntityType::CardanoImmutableFilesFull,
+                    signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(
+                        snapshot.beacon,
+                    ),
                     certificate_id: snapshot.certificate_hash,
                     entity,
                     created_at: snapshot.created_at,
@@ -370,16 +373,26 @@ mod tests {
                 .bind(1, signed_entity_record.signed_entity_id.as_str())
                 .unwrap();
             statement
-                .bind(2, signed_entity_record.signed_entity_type as i64)
+                .bind(2, signed_entity_record.signed_entity_type.index() as i64)
                 .unwrap();
             statement
                 .bind(3, signed_entity_record.certificate_id.as_str())
                 .unwrap();
             statement
-                .bind(4, signed_entity_record.entity.as_str())
+                .bind(
+                    4,
+                    signed_entity_record
+                        .signed_entity_type
+                        .get_json_beacon()
+                        .unwrap()
+                        .as_str(),
+                )
                 .unwrap();
             statement
-                .bind(5, signed_entity_record.created_at.as_str())
+                .bind(5, signed_entity_record.entity.as_str())
+                .unwrap();
+            statement
+                .bind(6, signed_entity_record.created_at.as_str())
                 .unwrap();
 
             statement.next().unwrap();
@@ -405,7 +418,7 @@ mod tests {
         let aliases = SourceAlias::new(&[("{:signed_entity:}", "se")]);
 
         assert_eq!(
-            "se.signed_entity_id as signed_entity_id, se.signed_entity_type_id as signed_entity_type_id, se.certificate_id as certificate_id, se.entity as entity, se.created_at as created_at"
+            "se.signed_entity_id as signed_entity_id, se.signed_entity_type_id as signed_entity_type_id, se.certificate_id as certificate_id, se.beacon as beacon, se.entity as entity, se.created_at as created_at"
                 .to_string(),
             projection.expand(aliases)
         );
@@ -422,7 +435,7 @@ mod tests {
 
         assert_eq!("signed_entity_type_id = ?1".to_string(), filter);
         assert_eq!(
-            vec![Value::Integer(SignedEntityType::dummy() as i64)],
+            vec![Value::Integer(SignedEntityType::dummy().index() as i64)],
             values
         );
     }
@@ -451,16 +464,20 @@ mod tests {
         let (values, params) = condition.expand();
 
         assert_eq!(
-            "(signed_entity_id, signed_entity_type_id, certificate_id, entity, created_at) values (?1, ?2, ?3, ?4, ?5)".to_string(),
+            "(signed_entity_id, signed_entity_type_id, certificate_id, beacon, entity, created_at) values (?1, ?2, ?3, ?4, ?5, ?6)".to_string(),
             values
         );
         assert_eq!(
             vec![
                 Value::String(signed_entity_record.signed_entity_id),
-                Value::Integer(
-                    i64::try_from(signed_entity_record.signed_entity_type as usize).unwrap()
-                ),
+                Value::Integer(signed_entity_record.signed_entity_type.index() as i64),
                 Value::String(signed_entity_record.certificate_id),
+                Value::String(
+                    signed_entity_record
+                        .signed_entity_type
+                        .get_json_beacon()
+                        .unwrap()
+                ),
                 Value::String(signed_entity_record.entity),
                 Value::String(signed_entity_record.created_at),
             ],
@@ -485,14 +502,17 @@ mod tests {
         assert_eq!(vec![first_signed_entity_type], signed_entity_records);
 
         let signed_entity_records: Vec<SignedEntityRecord> = provider
-            .get_by_signed_entity_type(SignedEntityType::CardanoImmutableFilesFull)
+            .get_by_signed_entity_type(SignedEntityType::CardanoImmutableFilesFull(
+                Beacon::default(),
+            ))
             .unwrap()
             .collect();
         let expected_signed_entity_records: Vec<SignedEntityRecord> = signed_entity_records
             .iter()
             .filter_map(|se| {
-                (se.signed_entity_type == SignedEntityType::CardanoImmutableFilesFull)
-                    .then_some(se.to_owned())
+                (se.signed_entity_type.index()
+                    == SignedEntityType::CardanoImmutableFilesFull(Beacon::default()).index())
+                .then_some(se.to_owned())
             })
             .collect();
         assert_eq!(expected_signed_entity_records, signed_entity_records);
