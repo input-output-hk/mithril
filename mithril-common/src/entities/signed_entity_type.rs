@@ -1,5 +1,17 @@
-use strum::IntoEnumIterator;
-use strum_macros::{Display, EnumIter, EnumString, FromRepr};
+use strum_macros::Display;
+
+use crate::{sqlite::HydrationError, StdError};
+
+use super::{Beacon, Epoch};
+
+/// Database representation of the SignedEntityType::MithrilStakeDistribution value
+const ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION: usize = 0;
+
+/// Database representation of the SignedEntityType::CardanoStakeDistribution value
+const ENTITY_TYPE_CARDANO_STAKE_DISTRIBUTION: usize = 1;
+
+/// Database representation of the SignedEntityType::CardanoImmutableFilesFull value
+const ENTITY_TYPE_CARDANO_IMMUTABLE_FILES_FULL: usize = 2;
 
 /// The signed entity type that represents a type of data signed by the Mithril
 /// protocol Note: Each variant of this enum must be associated to an entry in
@@ -7,40 +19,79 @@ use strum_macros::{Display, EnumIter, EnumString, FromRepr};
 /// are identified by their discriminant (i.e. index in the enum), thus the
 /// modification of this type should only ever consist of appending new
 /// variants.
-#[derive(Display, FromRepr, EnumString, EnumIter, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Display, Debug, Clone, PartialEq, Eq)]
 #[strum(serialize_all = "PascalCase")]
 pub enum SignedEntityType {
     /// Mithril stake distribution
-    MithrilStakeDistribution,
+    MithrilStakeDistribution(Epoch),
 
     /// Cardano Stake Distribution
-    CardanoStakeDistribution,
+    CardanoStakeDistribution(Epoch),
 
     /// Full Cardano Immutable Files
-    CardanoImmutableFilesFull,
+    CardanoImmutableFilesFull(Beacon),
 }
 
 impl SignedEntityType {
-    /// Retrieve the list of entity types
-    pub fn entity_types() -> Vec<Self> {
-        Self::iter().collect()
-    }
-
     /// Retrieve a dummy enty (for test only)
     pub fn dummy() -> Self {
-        Self::entity_types().first().unwrap().to_owned()
+        Self::MithrilStakeDistribution(Epoch(5))
+    }
+
+    /// Create an instance from data coming from the database
+    pub fn hydrate(signed_entity_type_id: usize, beacon_str: &str) -> Result<Self, HydrationError> {
+        let myself = match signed_entity_type_id {
+            ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION => {
+                let epoch: Epoch = serde_json::from_str(beacon_str).map_err(|e| {
+                    HydrationError::InvalidData(format!(
+                        "Invalid Epoch JSON representation '{beacon_str}. Error: {e}'."
+                    ))
+                })?;
+                Self::MithrilStakeDistribution(epoch)
+            }
+            ENTITY_TYPE_CARDANO_STAKE_DISTRIBUTION => {
+                let epoch: Epoch = serde_json::from_str(beacon_str).map_err(|e| {
+                    HydrationError::InvalidData(format!(
+                        "Invalid Epoch JSON representation '{beacon_str}. Error: {e}'."
+                    ))
+                })?;
+                Self::CardanoStakeDistribution(epoch)
+            }
+            ENTITY_TYPE_CARDANO_IMMUTABLE_FILES_FULL => {
+                let beacon: Beacon = serde_json::from_str(beacon_str).map_err(|e| {
+                    HydrationError::InvalidData(format!(
+                        "Invalid Beacon JSON in open_message.beacon: '{beacon_str}'. Error: {e}"
+                    ))
+                })?;
+                Self::CardanoImmutableFilesFull(beacon)
+            }
+            index => panic!("Invalid entity_type_id {index}."),
+        };
+
+        Ok(myself)
+    }
+
+    /// Get the database value from enum's instance
+    pub fn index(&self) -> usize {
+        match self {
+            Self::MithrilStakeDistribution(_) => ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION,
+            Self::CardanoStakeDistribution(_) => ENTITY_TYPE_CARDANO_STAKE_DISTRIBUTION,
+            Self::CardanoImmutableFilesFull(_) => ENTITY_TYPE_CARDANO_IMMUTABLE_FILES_FULL,
+        }
+    }
+
+    /// Return a JSON serialized value of the internal beacon
+    pub fn get_json_beacon(&self) -> Result<String, StdError> {
+        let value = match self {
+            Self::CardanoImmutableFilesFull(value) => serde_json::to_string(value)?,
+            Self::CardanoStakeDistribution(value) | Self::MithrilStakeDistribution(value) => {
+                serde_json::to_string(value)?
+            }
+        };
+
+        Ok(value)
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn from_repr() {
-        let supported_entity_type = SignedEntityType::from_repr(SignedEntityType::dummy() as usize)
-            .expect("This signed entity type should support conversion from representation.");
-
-        assert_eq!(SignedEntityType::dummy(), supported_entity_type);
-    }
-}
+mod tests {}

@@ -26,7 +26,7 @@ pub use epoch_settings::EpochSettings;
 pub use http_server_error::{ClientError, InternalServerError};
 pub use protocol_message::{ProtocolMessage, ProtocolMessagePartKey, ProtocolMessagePartValue};
 pub use protocol_parameters::ProtocolParameters;
-pub use signed_entity_type::SignedEntityType;
+pub use signed_entity_type::*;
 pub use signer::{Signer, SignerWithStake};
 pub use single_signatures::SingleSignatures;
 pub use snapshot::Snapshot;

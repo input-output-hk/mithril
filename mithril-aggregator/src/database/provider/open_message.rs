@@ -1,7 +1,7 @@
 use mithril_common::StdError;
 
 use mithril_common::{
-    entities::{Beacon, Epoch, SignedEntityType},
+    entities::{Epoch, SignedEntityType},
     sqlite::{HydrationError, Projection, SqLiteEntity, WhereCondition},
     sqlite::{Provider, SourceAlias},
 };
@@ -30,10 +30,6 @@ pub struct OpenMessage {
     /// Epoch
     epoch: Epoch,
 
-    /// Beacon, this is the discriminant of this message type in the current
-    /// Epoch
-    beacon: Beacon,
-
     /// Type of message
     signed_entity_type: SignedEntityType,
 
@@ -60,21 +56,13 @@ impl SqLiteEntity for OpenMessage {
         let epoch_val = u64::try_from(epoch_setting_id)
             .map_err(|e| panic!("Integer field open_message.epoch_setting_id (value={epoch_setting_id}) is incompatible with u64 Epoch representation. Error = {e}"))?;
 
+        let beacon_str = row.get::<String, _>(2);
         let signed_entity_type_id = usize::try_from(row.get::<i64, _>(3)).map_err(|e| {
             panic!(
                 "Integer field open_message.signed_entity_type_id cannot be turned into usize: {e}"
             )
         })?;
-        let signed_entity_type = SignedEntityType::from_repr(signed_entity_type_id)
-            .ok_or_else(|| HydrationError::InvalidData(format!(
-                "Field open_message.signed_type_id can be either 0, 1 or 2, ({signed_entity_type_id} given)."
-            )))?;
-        let beacon_str = row.get::<String, _>(2);
-        let beacon: Beacon = serde_json::from_str(&beacon_str).map_err(|e| {
-            HydrationError::InvalidData(format!(
-                "Invalid Beacon JSON in open_message.beacon: '{beacon_str}'. Error: {e}"
-            ))
-        })?;
+        let signed_entity_type = SignedEntityType::hydrate(signed_entity_type_id, &beacon_str)?;
         let datetime = &row.get::<String, _>(5);
         let created_at =
             NaiveDateTime::parse_from_str(datetime, "%Y-%m-%d %H:%M:%S").map_err(|e| {
@@ -86,7 +74,6 @@ impl SqLiteEntity for OpenMessage {
         let open_message = Self {
             open_message_id,
             epoch: Epoch(epoch_val),
-            beacon,
             signed_entity_type,
             message,
             created_at,
@@ -141,7 +128,7 @@ impl<'client> OpenMessageProvider<'client> {
     ) -> WhereCondition {
         WhereCondition::new(
             "signed_entity_type_id = ?*",
-            vec![Value::Integer(*signed_entity_type as i64)],
+            vec![Value::Integer(signed_entity_type.index() as i64)],
         )
     }
 
@@ -181,16 +168,16 @@ impl<'client> InsertOpenMessageProvider<'client> {
     fn get_insert_condition(
         &self,
         epoch: Epoch,
-        beacon: &Beacon,
         signed_entity_type: &SignedEntityType,
         message: &str,
     ) -> StdResult<WhereCondition> {
         let expression = "(open_message_id, epoch_setting_id, beacon, signed_entity_type_id, message) values (?*, ?*, ?*, ?*, ?*)";
+        let beacon_str = signed_entity_type.get_json_beacon()?;
         let parameters = vec![
             Value::String(Uuid::new_v4().to_string()),
             Value::Integer(epoch.0 as i64),
-            Value::String(serde_json::to_string(beacon)?),
-            Value::Integer(*signed_entity_type as i64),
+            Value::String(beacon_str),
+            Value::Integer(signed_entity_type.index() as i64),
             Value::String(message.to_string()),
         ];
 
@@ -279,13 +266,12 @@ impl OpenMessageRepository {
     pub async fn create_open_message(
         &self,
         epoch: Epoch,
-        beacon: &Beacon,
         signed_entity_type: &SignedEntityType,
         message: &str,
     ) -> StdResult<OpenMessage> {
         let lock = self.connection.lock().await;
         let provider = InsertOpenMessageProvider::new(&lock);
-        let filters = provider.get_insert_condition(epoch, beacon, signed_entity_type, message)?;
+        let filters = provider.get_insert_condition(epoch, signed_entity_type, message)?;
         let mut cursor = provider.find(filters)?;
 
         cursor
@@ -307,7 +293,7 @@ impl OpenMessageRepository {
 
 #[cfg(test)]
 mod tests {
-    use mithril_common::sqlite::SourceAlias;
+    use mithril_common::{entities::Beacon, sqlite::SourceAlias};
 
     use crate::{dependency_injection::DependenciesBuilder, Configuration};
 
@@ -338,8 +324,13 @@ mod tests {
     fn provider_message_type_condition() {
         let connection = Connection::open(":memory:").unwrap();
         let provider = OpenMessageProvider::new(&connection);
+        let beacon = Beacon {
+            network: "whatever".to_string(),
+            epoch: Epoch(4),
+            immutable_file_number: 400,
+        };
         let (expr, params) = provider
-            .get_signed_entity_type_condition(&SignedEntityType::CardanoImmutableFilesFull)
+            .get_signed_entity_type_condition(&SignedEntityType::CardanoImmutableFilesFull(beacon))
             .expand();
 
         assert_eq!("signed_entity_type_id = ?1".to_string(), expr);
@@ -367,11 +358,11 @@ mod tests {
     fn insert_provider_condition() {
         let connection = Connection::open(":memory:").unwrap();
         let provider = InsertOpenMessageProvider::new(&connection);
+        let epoch = Epoch(12);
         let (expr, params) = provider
             .get_insert_condition(
-                Epoch(12),
-                &Beacon::default(),
-                &SignedEntityType::CardanoStakeDistribution,
+                epoch,
+                &SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
                 "This is a message",
             )
             .unwrap()
@@ -383,7 +374,7 @@ mod tests {
             Value::String(r#"{"network":"","epoch":0,"immutable_file_number":0}"#.to_string()),
             params[2]
         );
-        assert_eq!(Value::Integer(1), params[3]);
+        assert_eq!(Value::Integer(2), params[3]);
         assert_eq!(Value::String("This is a message".to_string()), params[4]);
     }
 
@@ -413,11 +404,11 @@ mod tests {
     async fn repository_create_open_message() {
         let connection = get_connection().await;
         let repository = OpenMessageRepository::new(connection.clone());
+        let epoch = Epoch(1);
         let open_message = repository
             .create_open_message(
-                Epoch(1),
-                &Beacon::default(),
-                &SignedEntityType::CardanoImmutableFilesFull,
+                epoch,
+                &SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
                 "this is a message",
             )
             .await
@@ -426,7 +417,7 @@ mod tests {
         assert_eq!(Epoch(1), open_message.epoch);
         assert_eq!("this is a message".to_string(), open_message.message);
         assert_eq!(
-            SignedEntityType::CardanoImmutableFilesFull,
+            SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
             open_message.signed_entity_type
         );
 
@@ -459,8 +450,7 @@ mod tests {
         let _ = repository
             .create_open_message(
                 Epoch(1),
-                &Beacon::default(),
-                &SignedEntityType::CardanoImmutableFilesFull,
+                &SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
                 "this is a message",
             )
             .await
@@ -468,8 +458,7 @@ mod tests {
         let _ = repository
             .create_open_message(
                 Epoch(1),
-                &Beacon::default(),
-                &SignedEntityType::MithrilStakeDistribution,
+                &SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
                 "this is a stake distribution",
             )
             .await
