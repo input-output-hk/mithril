@@ -199,6 +199,7 @@ create table signed_entity (
     signed_entity_id            text        not null,
     signed_entity_type_id       integer     not null,
     certificate_id              text        not null,
+    beacon                      json        not null,
     entity                      json        not null,
     created_at                  text        not null default current_timestamp,
     primary key (signed_entity_id)
@@ -208,12 +209,14 @@ create table signed_entity (
 create table if not exists snapshot (key_hash text primary key, key json not null, value json not null);
 insert into signed_entity (signed_entity_id, 
                                 signed_entity_type_id, 
-                                certificate_id, 
+                                certificate_id,
+                                beacon,
                                 entity) 
     select 
         json_extract(snapshot.value, '$.digest') as signed_entity_id,
         2 as signed_entity_type_id,
         json_extract(snapshot.value, '$.certificate_hash') as certificate_id,
+        json_extract(snapshot.value, '$.beacon') as beacon,
         snapshot.value as entity
     from snapshot 
     order by ROWID asc;
