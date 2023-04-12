@@ -11,6 +11,7 @@ use mithril_common::{
     },
     entities::{Epoch, Signer, SignerWithStake, StakeDistribution},
     store::StoreError,
+    StdError,
 };
 
 #[cfg(test)]
@@ -42,6 +43,10 @@ pub enum SignerRegistrationError {
     /// Signer registration failed.
     #[error("signer registration failed")]
     FailedSignerRegistration(#[from] ProtocolRegistrationError),
+
+    /// Signer recorder failed.
+    #[error("signer recorder failed: '{0}'")]
+    FailedSignerRecorder(String),
 }
 
 /// Represents the information needed to handle a signer registration round
@@ -87,6 +92,21 @@ pub trait SignerRegistrationRoundOpener: Sync + Send {
     async fn close_registration_round(&self) -> Result<(), SignerRegistrationError>;
 }
 
+/// Signer recorder trait
+#[cfg_attr(test, automock)]
+#[async_trait]
+pub trait SignerRecorder: Sync + Send {
+    /// Record signer_id
+    async fn record_signer_id(&self, signer_id: String) -> Result<(), StdError>;
+
+    /// Record pool ticker by id
+    async fn record_signer_pool_ticker(
+        &self,
+        signer_id: String,
+        pool_ticker: Option<String>,
+    ) -> Result<(), StdError>;
+}
+
 /// Implementation of a [SignerRegisterer]
 pub struct MithrilSignerRegisterer {
     /// Current signer registration round
@@ -97,6 +117,9 @@ pub struct MithrilSignerRegisterer {
 
     /// Verification key store
     verification_key_store: Arc<VerificationKeyStore>,
+
+    /// Signer recorder
+    signer_recorder: Arc<dyn SignerRecorder>,
 }
 
 impl MithrilSignerRegisterer {
@@ -104,11 +127,13 @@ impl MithrilSignerRegisterer {
     pub fn new(
         chain_observer: Arc<dyn ChainObserver>,
         verification_key_store: Arc<VerificationKeyStore>,
+        signer_recorder: Arc<dyn SignerRecorder>,
     ) -> Self {
         Self {
             current_round: RwLock::new(None),
             chain_observer,
             verification_key_store,
+            signer_recorder,
         }
     }
 
@@ -204,7 +229,12 @@ impl SignerRegisterer for MithrilSignerRegisterer {
                 .get(&party_id_save)
                 .unwrap(),
         );
-        signer_save.party_id = party_id_save;
+        signer_save.party_id = party_id_save.clone();
+
+        self.signer_recorder
+            .record_signer_id(party_id_save)
+            .await
+            .map_err(|e| SignerRegistrationError::FailedSignerRecorder(e.to_string()))?;
 
         match self
             .verification_key_store
@@ -233,6 +263,8 @@ mod tests {
         VerificationKeyStore, VerificationKeyStorer,
     };
 
+    use super::MockSignerRecorder;
+
     #[tokio::test]
     async fn can_register_signer_if_registration_round_is_opened_with_operational_certificate() {
         let chain_observer = FakeObserver::default();
@@ -240,8 +272,16 @@ mod tests {
             Box::new(MemoryAdapter::<Epoch, HashMap<PartyId, SignerWithStake>>::new(None).unwrap()),
             None,
         ));
-        let signer_registerer =
-            MithrilSignerRegisterer::new(Arc::new(chain_observer), verification_key_store.clone());
+        let mut signer_recorder = MockSignerRecorder::new();
+        signer_recorder
+            .expect_record_signer_id()
+            .returning(|_| Ok(()))
+            .once();
+        let signer_registerer = MithrilSignerRegisterer::new(
+            Arc::new(chain_observer),
+            verification_key_store.clone(),
+            Arc::new(signer_recorder),
+        );
         let registration_epoch = Epoch(1);
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let signer_to_register: Signer = fixture.signers()[0].to_owned();
@@ -278,8 +318,16 @@ mod tests {
             Box::new(MemoryAdapter::<Epoch, HashMap<PartyId, SignerWithStake>>::new(None).unwrap()),
             None,
         ));
-        let signer_registerer =
-            MithrilSignerRegisterer::new(Arc::new(chain_observer), verification_key_store.clone());
+        let mut signer_recorder = MockSignerRecorder::new();
+        signer_recorder
+            .expect_record_signer_id()
+            .returning(|_| Ok(()))
+            .once();
+        let signer_registerer = MithrilSignerRegisterer::new(
+            Arc::new(chain_observer),
+            verification_key_store.clone(),
+            Arc::new(signer_recorder),
+        );
         let registration_epoch = Epoch(1);
         let fixture = MithrilFixtureBuilder::default()
             .with_signers(5)
@@ -319,8 +367,12 @@ mod tests {
             Box::new(MemoryAdapter::<Epoch, HashMap<PartyId, SignerWithStake>>::new(None).unwrap()),
             None,
         ));
-        let signer_registerer =
-            MithrilSignerRegisterer::new(Arc::new(chain_observer), verification_key_store.clone());
+        let signer_recorder = MockSignerRecorder::new();
+        let signer_registerer = MithrilSignerRegisterer::new(
+            Arc::new(chain_observer),
+            verification_key_store.clone(),
+            Arc::new(signer_recorder),
+        );
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let signer_to_register: Signer = fixture.signers()[0].to_owned();
 
