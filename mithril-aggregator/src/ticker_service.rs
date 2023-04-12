@@ -44,7 +44,7 @@ pub struct MithrilTickerService {
 }
 
 impl MithrilTickerService {
-    /// Instanciate a new service
+    /// Instantiate a new service
     pub fn new(
         chain_observer: Arc<dyn ChainObserver>,
         immutable_observer: Arc<dyn ImmutableFileObserver>,
@@ -126,5 +126,29 @@ mod tests {
             },
             beacon
         )
+    }
+
+    #[tokio::test]
+    async fn no_beacon_error() {
+        let mut chain_observer = MockChainObserver::new();
+        chain_observer
+            .expect_get_current_epoch()
+            .returning(|| Ok(None))
+            .times(1);
+        let immutable_observer = DumbImmutableFileObserver::new();
+        immutable_observer.shall_return(Some(99)).await;
+        let network = CardanoNetwork::DevNet(42);
+
+        let ticker_service = MithrilTickerService::new(
+            Arc::new(chain_observer),
+            Arc::new(immutable_observer),
+            network,
+        );
+        let error = ticker_service.get_current_epoch().await.unwrap_err();
+        let error = error
+            .downcast_ref::<MithrilTickerError>()
+            .expect("Expected error was a `MithrilTickerError`.");
+
+        assert!(matches!(error, MithrilTickerError::NoEpoch));
     }
 }
