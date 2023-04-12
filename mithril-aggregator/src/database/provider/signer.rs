@@ -11,6 +11,8 @@ use mithril_common::sqlite::{
 use mithril_common::StdError;
 use tokio::sync::Mutex;
 
+use crate::signer_registerer::SignerRecorder;
+
 /// Signer record is the representation of a stored signer.
 #[derive(Debug, PartialEq, Clone)]
 pub struct SignerRecord {
@@ -216,20 +218,6 @@ impl<'conn> Provider<'conn> for UpdateSignerRecordProvider<'conn> {
 
         format!("insert into signer {condition} on conflict(signer_id) do update set pool_ticker = excluded.pool_ticker, updated_at = excluded.updated_at returning {projection}")
     }
-}
-
-/// Signer recorder trait
-#[async_trait]
-pub trait SignerRecorder {
-    /// Record signer_id
-    async fn record_signer_id(&self, signer_id: String) -> Result<(), StdError>;
-
-    /// Record pool ticker by id
-    async fn record_signer_pool_ticker(
-        &self,
-        signer_id: String,
-        pool_ticker: Option<String>,
-    ) -> Result<(), StdError>;
 }
 
 /// Service to deal with signer (read & write).

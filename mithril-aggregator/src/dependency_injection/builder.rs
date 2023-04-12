@@ -38,10 +38,11 @@ use crate::{
     configuration::{ExecutionEnvironment, LIST_SNAPSHOTS_MAX_ITEMS},
     database::provider::{
         CertificateStoreAdapter, EpochSettingStore, SignedEntityStoreAdapter,
-        SignerRegistrationStoreAdapter, StakePoolStore,
+        SignerRegistrationStoreAdapter, SignerStore, StakePoolStore,
     },
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
+    signer_registerer::SignerRecorder,
     stake_distribution_service::{MithrilStakeDistributionService, StakeDistributionService},
     ticker_service::{MithrilTickerService, TickerService},
     tools::{GcpFileUploader, GenesisToolsDependency},
@@ -152,6 +153,9 @@ pub struct DependenciesBuilder {
 
     /// Ticker Service (TODO: remove BeaconProvider)
     pub ticker_service: Option<Arc<dyn TickerService>>,
+
+    /// Signer Recorder
+    pub signer_recorder: Option<Arc<dyn SignerRecorder>>,
 }
 
 impl DependenciesBuilder {
@@ -188,6 +192,7 @@ impl DependenciesBuilder {
             api_version_provider: None,
             stake_distribution_service: None,
             ticker_service: None,
+            signer_recorder: None,
         }
     }
 
@@ -763,6 +768,7 @@ impl DependenciesBuilder {
         let registerer = MithrilSignerRegisterer::new(
             self.get_chain_observer().await?,
             self.get_verification_key_store().await?,
+            self.get_signer_recorder().await?,
         );
 
         Ok(Arc::new(registerer))
@@ -946,6 +952,21 @@ impl DependenciesBuilder {
         Ok(self.stake_distribution_service.as_ref().cloned().unwrap())
     }
 
+    async fn build_signer_recorder(&mut self) -> Result<Arc<dyn SignerRecorder>> {
+        let signer_recorder = Arc::new(SignerStore::new(self.get_sqlite_connection().await?));
+
+        Ok(signer_recorder)
+    }
+
+    /// [SignerRecorder]
+    pub async fn get_signer_recorder(&mut self) -> Result<Arc<dyn SignerRecorder>> {
+        if self.signer_recorder.is_none() {
+            self.signer_recorder = Some(self.build_signer_recorder().await?);
+        }
+
+        Ok(self.signer_recorder.as_ref().cloned().unwrap())
+    }
+
     /// Return an unconfigured [DependencyManager]
     pub async fn build_dependency_container(&mut self) -> Result<DependencyManager> {
         let dependency_manager = DependencyManager {
@@ -974,6 +995,7 @@ impl DependenciesBuilder {
             event_transmitter: self.get_event_transmitter().await?,
             api_version_provider: self.get_api_version_provider().await?,
             stake_distribution_service: self.get_stake_distribution_service().await?,
+            signer_recorder: self.get_signer_recorder().await?,
         };
 
         Ok(dependency_manager)

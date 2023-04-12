@@ -15,10 +15,10 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{Mutex, RwLock};
 
 use crate::{
-    configuration::*, database::provider::StakePoolStore, CertificatePendingStore,
-    CertificateStore, ProtocolParametersStore, ProtocolParametersStorer, SignerRegisterer,
-    SignerRegistrationRoundOpener, SingleSignatureStore, Snapshotter, VerificationKeyStore,
-    VerificationKeyStorer,
+    configuration::*, database::provider::StakePoolStore, signer_registerer::SignerRecorder,
+    CertificatePendingStore, CertificateStore, ProtocolParametersStore, ProtocolParametersStorer,
+    SignerRegisterer, SignerRegistrationRoundOpener, SingleSignatureStore, Snapshotter,
+    VerificationKeyStore, VerificationKeyStorer,
 };
 use crate::{event_store::EventMessage, snapshot_stores::SnapshotStore};
 use crate::{event_store::TransmitterService, multi_signer::MultiSigner};
@@ -108,6 +108,9 @@ pub struct DependencyManager {
 
     /// Stake Distribution Service
     pub stake_distribution_service: Arc<dyn StakeDistributionService>,
+
+    /// Signer Recorder
+    pub signer_recorder: Arc<dyn SignerRecorder>,
 }
 
 #[doc(hidden)]
