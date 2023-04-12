@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use async_trait::async_trait;
+use chrono::Utc;
 use sqlite::{Connection, Value};
 
 use mithril_common::sqlite::{
@@ -216,15 +218,68 @@ impl<'conn> Provider<'conn> for UpdateSignerRecordProvider<'conn> {
     }
 }
 
+/// Signer recorder trait
+#[async_trait]
+pub trait SignerRecorder {
+    /// Record signer_id
+    async fn record_signer_id(&self, signer_id: String) -> Result<(), StdError>;
+
+    /// Record pool ticker by id
+    async fn record_signer_pool_ticker(
+        &self,
+        signer_id: String,
+        pool_ticker: Option<String>,
+    ) -> Result<(), StdError>;
+}
+
 /// Service to deal with signer (read & write).
-pub struct SignerStoreAdapter {
+pub struct SignerStore {
     connection: Arc<Mutex<Connection>>,
 }
 
-impl SignerStoreAdapter {
-    /// Create a new SignerStoreAdapter service
+impl SignerStore {
+    /// Create a new SignerStore service
     pub fn new(connection: Arc<Mutex<Connection>>) -> Self {
         Self { connection }
+    }
+}
+
+#[async_trait]
+impl SignerRecorder for SignerStore {
+    async fn record_signer_id(&self, signer_id: String) -> Result<(), StdError> {
+        let connection = &*self.connection.lock().await;
+        let provider = InsertSignerRecordProvider::new(connection);
+        let created_at = format!("{:?}", Utc::now());
+        let updated_at = created_at.clone();
+        let signer_record = SignerRecord {
+            signer_id,
+            pool_ticker: None,
+            created_at,
+            updated_at,
+        };
+        provider.persist(signer_record)?;
+
+        Ok(())
+    }
+
+    async fn record_signer_pool_ticker(
+        &self,
+        signer_id: String,
+        pool_ticker: Option<String>,
+    ) -> Result<(), StdError> {
+        let connection = &*self.connection.lock().await;
+        let provider = UpdateSignerRecordProvider::new(connection);
+        let created_at = format!("{:?}", Utc::now());
+        let updated_at = created_at.clone();
+        let signer_record = SignerRecord {
+            signer_id,
+            pool_ticker,
+            created_at,
+            updated_at,
+        };
+        provider.persist(signer_record)?;
+
+        Ok(())
     }
 }
 
@@ -441,6 +496,46 @@ mod tests {
             signer_record_copy.updated_at = "2025-01-19T13:43:05.618857482Z".to_string();
             let signer_record_saved = provider.persist(signer_record_copy.clone()).unwrap();
             assert_eq!(signer_record_copy, signer_record_saved);
+        }
+    }
+
+    #[tokio::test]
+    async fn test_signer_recorder() {
+        let signer_records_fake = fake_signer_records(5);
+
+        let connection = Connection::open(":memory:").unwrap();
+        setup_signer_db(&connection, Vec::new()).unwrap();
+
+        let connection = Arc::new(Mutex::new(connection));
+        let store_recorder = SignerStore::new(connection.clone());
+
+        for signer_record in signer_records_fake.clone() {
+            store_recorder
+                .record_signer_id(signer_record.signer_id.clone())
+                .await
+                .expect("record_signer_id should not fail");
+            let connection = &*connection.lock().await;
+            let provider = SignerRecordProvider::new(connection);
+            let signer_records_stored: Vec<SignerRecord> = provider
+                .get_by_signer_id(signer_record.signer_id)
+                .unwrap()
+                .collect::<Vec<_>>();
+            assert_eq!(1, signer_records_stored.len());
+        }
+
+        for signer_record in signer_records_fake {
+            let pool_ticker = Some(format!("new-pool-{}", signer_record.signer_id));
+            store_recorder
+                .record_signer_pool_ticker(signer_record.signer_id.clone(), pool_ticker.clone())
+                .await
+                .expect("record_signer_pool_ticker should not fail");
+            let connection = &*connection.lock().await;
+            let provider = SignerRecordProvider::new(connection);
+            let signer_records_stored: Vec<SignerRecord> = provider
+                .get_by_signer_id(signer_record.signer_id)
+                .unwrap()
+                .collect::<Vec<_>>();
+            assert_eq!(pool_ticker, signer_records_stored[0].to_owned().pool_ticker);
         }
     }
 }
