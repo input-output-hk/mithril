@@ -43,6 +43,7 @@ use crate::{
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
     stake_distribution_service::{MithrilStakeDistributionService, StakeDistributionService},
+    ticker_service::{MithrilTickerService, TickerService},
     tools::{GcpFileUploader, GenesisToolsDependency},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
     CertificateStore, Configuration, DependencyManager, DumbSnapshotUploader, DumbSnapshotter,
@@ -148,6 +149,9 @@ pub struct DependenciesBuilder {
 
     /// Stake Distribution Service
     pub stake_distribution_service: Option<Arc<dyn StakeDistributionService>>,
+
+    /// Ticker Service (TODO: remove BeaconProvider)
+    pub ticker_service: Option<Arc<dyn TickerService>>,
 }
 
 impl DependenciesBuilder {
@@ -183,6 +187,7 @@ impl DependenciesBuilder {
             event_transmitter_channel: (None, None),
             api_version_provider: None,
             stake_distribution_service: None,
+            ticker_service: None,
         }
     }
 
@@ -1076,5 +1081,27 @@ impl DependenciesBuilder {
         };
 
         Ok(dependencies)
+    }
+
+    /// Create [TickerService] instance.
+    pub async fn build_ticker_service(&mut self) -> Result<Arc<dyn TickerService>> {
+        let network = self.configuration.get_network()?;
+        let chain_observer = self.get_chain_observer().await?;
+        let immutable_observer = self.get_immutable_file_observer().await?;
+
+        Ok(Arc::new(MithrilTickerService::new(
+            chain_observer,
+            immutable_observer,
+            network,
+        )))
+    }
+
+    /// [StakeDistributionService] service
+    pub async fn get_ticker_service(&mut self) -> Result<Arc<dyn TickerService>> {
+        if self.ticker_service.is_none() {
+            self.ticker_service = Some(self.build_ticker_service().await?);
+        }
+
+        Ok(self.ticker_service.as_ref().cloned().unwrap())
     }
 }
