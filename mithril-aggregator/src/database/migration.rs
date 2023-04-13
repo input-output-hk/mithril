@@ -261,5 +261,25 @@ insert into signer_registration select * from signer_registration_temp order by 
 drop table signer_registration_temp;
 "#,
         ),
+        // Migration 9
+        // Add the `single_signature` table and rename previous table to `single_signature_legacy`
+        SqlMigration::new(
+            9,
+            r#"
+create table if not exists single_signature (key_hash text primary key, key json not null, value json not null);
+alter table single_signature rename to single_signature_legacy;
+create table single_signature (
+    open_message_id                 text        not null,
+    signer_id                       text        not null,
+    registration_epoch_setting_id   integer     not null,
+    lottery_indexes                 json        not null,
+    signature                       text        not null,
+    created_at                      text        not null default current_timestamp,
+    primary key (open_message_id, signer_id, registration_epoch_setting_id)
+    foreign key (open_message_id) references open_message(open_message_id) on delete cascade
+    foreign key (signer_id, registration_epoch_setting_id) references signer_registration(signer_id, epoch_setting_id)
+);
+"#,
+        ),
     ]
 }
