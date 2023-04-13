@@ -3,6 +3,7 @@ use std::{
     sync::Arc,
 };
 
+use chrono::Utc;
 use sqlite::{Connection, Value};
 
 use async_trait::async_trait;
@@ -61,7 +62,7 @@ impl SignerRegistrationRecord {
             operational_certificate: other.operational_certificate,
             kes_period: other.kes_period,
             stake: Some(other.stake),
-            created_at: "".to_string(),
+            created_at: format!("{:?}", Utc::now()),
         }
     }
 }
@@ -740,6 +741,18 @@ mod tests {
 
         let provider = SignerRegistrationRecordProvider::new(&connection);
 
+        fn reset_created_at(
+            signer_registration_records: Vec<SignerRegistrationRecord>,
+        ) -> Vec<SignerRegistrationRecord> {
+            signer_registration_records
+                .into_iter()
+                .map(|mut sr| {
+                    sr.created_at = "".to_string();
+                    sr
+                })
+                .collect::<Vec<_>>()
+        }
+
         let signer_registration_records: Vec<SignerRegistrationRecord> =
             provider.get_by_epoch(&Epoch(1)).unwrap().collect();
         let expected_signer_registration_records: Vec<SignerRegistrationRecord> =
@@ -750,8 +763,8 @@ mod tests {
                 .rev()
                 .collect();
         assert_eq!(
-            expected_signer_registration_records,
-            signer_registration_records
+            reset_created_at(expected_signer_registration_records),
+            reset_created_at(signer_registration_records)
         );
 
         let signer_registration_records: Vec<SignerRegistrationRecord> =
@@ -764,8 +777,8 @@ mod tests {
                 .rev()
                 .collect();
         assert_eq!(
-            expected_signer_registration_records,
-            signer_registration_records
+            reset_created_at(expected_signer_registration_records),
+            reset_created_at(signer_registration_records)
         );
 
         let cursor = provider.get_by_epoch(&Epoch(5)).unwrap();
@@ -797,8 +810,8 @@ mod tests {
                 .rev()
                 .collect();
         assert_eq!(
-            expected_signer_registration_records,
-            signer_registration_records
+            reset_created_at(expected_signer_registration_records),
+            reset_created_at(signer_registration_records)
         );
     }
 

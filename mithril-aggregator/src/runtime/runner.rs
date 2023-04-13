@@ -859,6 +859,7 @@ pub mod tests {
         let signer_registration_round_opener = Arc::new(MithrilSignerRegisterer::new(
             deps.chain_observer.clone(),
             deps.verification_key_store.clone(),
+            deps.signer_recorder.clone(),
         ));
         deps.signer_registration_round_opener = signer_registration_round_opener.clone();
         let stake_store = deps.stake_store.clone();
@@ -897,6 +898,7 @@ pub mod tests {
         let signer_registration_round_opener = Arc::new(MithrilSignerRegisterer::new(
             deps.chain_observer.clone(),
             deps.verification_key_store.clone(),
+            deps.signer_recorder.clone(),
         ));
         deps.signer_registration_round_opener = signer_registration_round_opener.clone();
         let deps = Arc::new(deps);
