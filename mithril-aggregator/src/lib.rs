@@ -13,6 +13,7 @@
 
 mod artifact_builder;
 mod certificate_creator;
+pub mod certifier_service;
 mod command_args;
 mod configuration;
 pub mod database;

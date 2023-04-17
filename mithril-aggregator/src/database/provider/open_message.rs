@@ -1,5 +1,6 @@
 use mithril_common::StdError;
 
+use mithril_common::entities::{ProtocolMessage, SingleSignatures};
 use mithril_common::{
     entities::{Epoch, SignedEntityType},
     sqlite::{HydrationError, Projection, SqLiteEntity, WhereCondition},
@@ -7,7 +8,7 @@ use mithril_common::{
 };
 
 use chrono::NaiveDateTime;
-use sqlite::Row;
+use sqlite::{open, Row};
 use sqlite::{Connection, Value};
 
 use std::sync::Arc;
@@ -23,6 +24,7 @@ type StdResult<T> = Result<T, StdError>;
 /// single signature for this message from which a multi signature will be
 /// generated if possible.
 #[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub struct OpenMessage {
     /// OpenMessage unique identifier
     open_message_id: Uuid,
@@ -33,8 +35,11 @@ pub struct OpenMessage {
     /// Type of message
     signed_entity_type: SignedEntityType,
 
-    /// Message content
-    message: String,
+    /// Message used by the Mithril Protocol
+    protocol_message: String,
+
+    /// Has this open message been converted into a certificate?
+    is_certified: bool,
 
     /// Message creation datetime, it is set by the database.
     created_at: NaiveDateTime,
@@ -51,7 +56,7 @@ impl SqLiteEntity for OpenMessage {
                 "Invalid UUID in open_message.open_message_id: '{open_message_id}'. Error: {e}"
             ))
         })?;
-        let message = row.get::<String, _>(4);
+        let protocol_message = row.get::<String, _>(4);
         let epoch_setting_id = row.get::<i64, _>(1);
         let epoch_val = u64::try_from(epoch_setting_id)
             .map_err(|e| panic!("Integer field open_message.epoch_setting_id (value={epoch_setting_id}) is incompatible with u64 Epoch representation. Error = {e}"))?;
@@ -63,7 +68,8 @@ impl SqLiteEntity for OpenMessage {
             )
         })?;
         let signed_entity_type = SignedEntityType::hydrate(signed_entity_type_id, &beacon_str)?;
-        let datetime = &row.get::<String, _>(5);
+        let is_certified = row.get::<i64, _>(5) != 0;
+        let datetime = &row.get::<String, _>(6);
         let created_at =
             NaiveDateTime::parse_from_str(datetime, "%Y-%m-%d %H:%M:%S").map_err(|e| {
                 HydrationError::InvalidData(format!(
@@ -75,7 +81,8 @@ impl SqLiteEntity for OpenMessage {
             open_message_id,
             epoch: Epoch(epoch_val),
             signed_entity_type,
-            message,
+            protocol_message,
+            is_certified,
             created_at,
         };
 
@@ -100,60 +107,14 @@ impl SqLiteEntity for OpenMessage {
                 "{:open_message:}.signed_entity_type_id",
                 "int",
             ),
-            ("message", "{:open_message:}.message", "text"),
+            (
+                "protocol_message",
+                "{:open_message:}.protocol_message",
+                "text",
+            ),
+            ("is_certified", "{:open_message:}.is_certified", "bool"),
             ("created_at", "{:open_message:}.created_at", "text"),
         ])
-    }
-}
-
-struct OpenMessageProvider<'client> {
-    connection: &'client Connection,
-}
-
-impl<'client> OpenMessageProvider<'client> {
-    pub fn new(connection: &'client Connection) -> Self {
-        Self { connection }
-    }
-
-    fn get_epoch_condition(&self, epoch: Epoch) -> WhereCondition {
-        WhereCondition::new(
-            "epoch_setting_id = ?*",
-            vec![Value::Integer(epoch.0 as i64)],
-        )
-    }
-
-    fn get_signed_entity_type_condition(
-        &self,
-        signed_entity_type: &SignedEntityType,
-    ) -> WhereCondition {
-        WhereCondition::new(
-            "signed_entity_type_id = ?*",
-            vec![Value::Integer(signed_entity_type.index() as i64)],
-        )
-    }
-
-    // Useful in test and probably in the future.
-    #[allow(dead_code)]
-    fn get_open_message_id_condition(&self, open_message_id: &str) -> WhereCondition {
-        WhereCondition::new(
-            "open_message_id = ?*",
-            vec![Value::String(open_message_id.to_owned())],
-        )
-    }
-}
-
-impl<'client> Provider<'client> for OpenMessageProvider<'client> {
-    type Entity = OpenMessage;
-
-    fn get_definition(&self, condition: &str) -> String {
-        let aliases = SourceAlias::new(&[("{:open_message:}", "open_message")]);
-        let projection = Self::Entity::get_projection().expand(aliases);
-
-        format!("select {projection} from open_message where {condition} order by created_at desc")
-    }
-
-    fn get_connection(&'client self) -> &'client Connection {
-        self.connection
     }
 }
 
@@ -169,16 +130,16 @@ impl<'client> InsertOpenMessageProvider<'client> {
         &self,
         epoch: Epoch,
         signed_entity_type: &SignedEntityType,
-        message: &str,
+        protocol_message: &ProtocolMessage,
     ) -> StdResult<WhereCondition> {
-        let expression = "(open_message_id, epoch_setting_id, beacon, signed_entity_type_id, message) values (?*, ?*, ?*, ?*, ?*)";
+        let expression = "(open_message_id, epoch_setting_id, beacon, signed_entity_type_id, protocol_message) values (?*, ?*, ?*, ?*, ?*)";
         let beacon_str = signed_entity_type.get_json_beacon()?;
         let parameters = vec![
             Value::String(Uuid::new_v4().to_string()),
             Value::Integer(epoch.0 as i64),
             Value::String(beacon_str),
             Value::Integer(signed_entity_type.index() as i64),
-            Value::String(message.to_string()),
+            Value::String(serde_json::to_string(protocol_message)?),
         ];
 
         Ok(WhereCondition::new(expression, parameters))
@@ -211,7 +172,7 @@ impl<'client> DeleteOpenMessageProvider<'client> {
 
     fn get_epoch_condition(&self, epoch: Epoch) -> WhereCondition {
         WhereCondition::new(
-            "epoch_setting_id = ?*",
+            "epoch_setting_id <= ?*",
             vec![Value::Integer(epoch.0 as i64)],
         )
     }
@@ -267,11 +228,11 @@ impl OpenMessageRepository {
         &self,
         epoch: Epoch,
         signed_entity_type: &SignedEntityType,
-        message: &str,
+        protocol_message: &ProtocolMessage,
     ) -> StdResult<OpenMessage> {
         let lock = self.connection.lock().await;
         let provider = InsertOpenMessageProvider::new(&lock);
-        let filters = provider.get_insert_condition(epoch, signed_entity_type, message)?;
+        let filters = provider.get_insert_condition(epoch, signed_entity_type, protocol_message)?;
         let mut cursor = provider.find(filters)?;
 
         cursor
@@ -291,6 +252,137 @@ impl OpenMessageRepository {
     }
 }
 
+pub struct OpenMessageWithSingleSignatures {
+    /// OpenMessage unique identifier
+    open_message_id: Uuid,
+
+    /// Epoch
+    epoch: Epoch,
+
+    /// Type of message
+    signed_entity_type: SignedEntityType,
+
+    /// Message used by the Mithril Protocol
+    protocol_message: String,
+
+    /// Has this message been converted into a Certificate?
+    is_certified: bool,
+
+    /// associated single signatures
+    single_signatures: Vec<SingleSignatures>,
+
+    /// Message creation datetime, it is set by the database.
+    created_at: NaiveDateTime,
+}
+
+impl SqLiteEntity for OpenMessageWithSingleSignatures {
+    fn hydrate(row: Row) -> Result<Self, HydrationError>
+    where
+        Self: Sized,
+    {
+        let single_signatures = &row.get::<String, _>(7);
+        let single_signatures: Vec<SingleSignatures> = serde_json::from_str(single_signatures)
+            .map_err(|e| {
+                HydrationError::InvalidData(format!(
+                    "Could not parse single signatures JSON: '{single_signatures}'. Error: {e}"
+                ))
+            })?;
+
+        let open_message = OpenMessage::hydrate(row)?;
+
+        let open_message = Self {
+            open_message_id: open_message.open_message_id,
+            epoch: open_message.epoch,
+            signed_entity_type: open_message.signed_entity_type,
+            protocol_message: open_message.protocol_message,
+            is_certified: open_message.is_certified,
+            single_signatures,
+            created_at: open_message.created_at,
+        };
+
+        Ok(open_message)
+    }
+
+    fn get_projection() -> Projection {
+        Projection::from(&[
+            (
+                "open_message_id",
+                "{:open_message:}.open_message_id",
+                "text",
+            ),
+            (
+                "epoch_setting_id",
+                "{:open_message:}.epoch_setting_id",
+                "int",
+            ),
+            ("beacon", "{:open_message:}.beacon", "text"),
+            (
+                "signed_entity_type_id",
+                "{:open_message:}.signed_entity_type_id",
+                "int",
+            ),
+            ("protocol_message", "{:open_message:}.protocol_message", "text"),
+            ("is_certified", "{:open_message:}.is_certified", "bool"),
+            ("created_at", "{:open_message:}.created_at", "text"),
+            ("single_signatures", "json_group_array(json_object('signer_id', {:single_signature:}.signer_id, 'signature', {:single_signature:}.signature, 'won_indexes', {:single_signature:}.lottery_indexes))", "text")
+        ])
+    }
+}
+
+struct OpenMessageProvider<'client> {
+    connection: &'client Connection,
+}
+
+impl<'client> OpenMessageProvider<'client> {
+    pub fn new(connection: &'client Connection) -> Self {
+        Self { connection }
+    }
+
+    fn get_epoch_condition(&self, epoch: Epoch) -> WhereCondition {
+        WhereCondition::new(
+            "epoch_setting_id = ?*",
+            vec![Value::Integer(epoch.0 as i64)],
+        )
+    }
+
+    fn get_signed_entity_type_condition(
+        &self,
+        signed_entity_type: &SignedEntityType,
+    ) -> WhereCondition {
+        WhereCondition::new(
+            "signed_entity_type_id = ?*",
+            vec![Value::Integer(signed_entity_type.index() as i64)],
+        )
+    }
+
+    // Useful in test and probably in the future.
+    #[allow(dead_code)]
+    fn get_open_message_id_condition(&self, open_message_id: &str) -> WhereCondition {
+        WhereCondition::new(
+            "open_message_id = ?*",
+            vec![Value::String(open_message_id.to_owned())],
+        )
+    }
+}
+
+impl<'client> Provider<'client> for OpenMessageProvider<'client> {
+    type Entity = OpenMessage;
+
+    fn get_definition(&self, condition: &str) -> String {
+        let aliases = SourceAlias::new(&[
+            ("{:open_message:}", "open_message"),
+            ("{:single_signature:}", "single_signature"),
+        ]);
+        let projection = Self::Entity::get_projection().expand(aliases);
+
+        format!("select {projection} from open_message where {condition} order by created_at desc")
+    }
+
+    fn get_connection(&'client self) -> &'client Connection {
+        self.connection
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use mithril_common::{entities::Beacon, sqlite::SourceAlias};
@@ -300,12 +392,26 @@ mod tests {
     use super::*;
 
     #[test]
+    fn open_message_with_single_signature_projection() {
+        let projection = OpenMessageWithSingleSignatures::get_projection();
+        let aliases = SourceAlias::new(&[
+            ("{:open_message:}", "open_message"),
+            ("{:single_signature:}", "single_signature"),
+        ]);
+
+        assert_eq!(
+            "open_message.open_message_id as open_message_id, open_message.epoch_setting_id as epoch_setting_id, open_message.beacon as beacon, open_message.signed_entity_type_id as signed_entity_type_id, open_message.protocol_message as protocol_message, open_message.is_certified as is_certified, open_message.created_at as created_at, json_group_array(json_object('signer_id', single_signature.signer_id, 'signature', single_signature.signature, 'won_indexes', single_signature.lottery_indexes)) as single_signatures".to_string(),
+            projection.expand(aliases)
+        )
+    }
+
+    #[test]
     fn open_message_projection() {
         let projection = OpenMessage::get_projection();
         let aliases = SourceAlias::new(&[("{:open_message:}", "open_message")]);
 
         assert_eq!(
-            "open_message.open_message_id as open_message_id, open_message.epoch_setting_id as epoch_setting_id, open_message.beacon as beacon, open_message.signed_entity_type_id as signed_entity_type_id, open_message.message as message, open_message.created_at as created_at".to_string(),
+            "open_message.open_message_id as open_message_id, open_message.epoch_setting_id as epoch_setting_id, open_message.beacon as beacon, open_message.signed_entity_type_id as signed_entity_type_id, open_message.protocol_message as protocol_message, open_message.is_certified as is_certified, open_message.created_at as created_at".to_string(),
             projection.expand(aliases)
         )
     }
@@ -363,19 +469,19 @@ mod tests {
             .get_insert_condition(
                 epoch,
                 &SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
-                "This is a message",
+                &ProtocolMessage::new(),
             )
             .unwrap()
             .expand();
 
-        assert_eq!("(open_message_id, epoch_setting_id, beacon, signed_entity_type_id, message) values (?1, ?2, ?3, ?4, ?5)".to_string(), expr);
+        assert_eq!("(open_message_id, epoch_setting_id, beacon, signed_entity_type_id, protocol_message) values (?1, ?2, ?3, ?4, ?5)".to_string(), expr);
         assert_eq!(Value::Integer(12), params[1]);
         assert_eq!(
             Value::String(r#"{"network":"","epoch":0,"immutable_file_number":0}"#.to_string()),
             params[2]
         );
         assert_eq!(Value::Integer(2), params[3]);
-        assert_eq!(Value::String("This is a message".to_string()), params[4]);
+        assert!(!params[4].as_string().unwrap().is_empty());
     }
 
     #[test]
@@ -384,7 +490,7 @@ mod tests {
         let provider = DeleteOpenMessageProvider::new(&connection);
         let (expr, params) = provider.get_epoch_condition(Epoch(12)).expand();
 
-        assert_eq!("epoch_setting_id = ?1".to_string(), expr);
+        assert_eq!("epoch_setting_id <= ?1".to_string(), expr);
         assert_eq!(vec![Value::Integer(12)], params,);
     }
 
@@ -394,7 +500,7 @@ mod tests {
         let connection = builder.get_sqlite_connection().await.unwrap();
         {
             let lock = connection.lock().await;
-            lock.execute(r#"insert into epoch_setting(epoch_setting_id, protocol_parameters) values (1, '{"k": 100, "m": 5, "phi": 0.65 }');"#).unwrap();
+            lock.execute(r#"insert into epoch_setting(epoch_setting_id, protocol_parameters) values (1, '{"k": 100, "m": 5, "phi": 0.65 }'), (2, '{"k": 100, "m": 5, "phi": 0.65 }');"#).unwrap();
         }
 
         connection
@@ -409,13 +515,12 @@ mod tests {
             .create_open_message(
                 epoch,
                 &SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
-                "this is a message",
+                &ProtocolMessage::new(),
             )
             .await
             .unwrap();
 
         assert_eq!(Epoch(1), open_message.epoch);
-        assert_eq!("this is a message".to_string(), open_message.message);
         assert_eq!(
             SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
             open_message.signed_entity_type
@@ -439,7 +544,7 @@ mod tests {
             })
         };
 
-        assert_eq!(open_message.message, message.message);
+        assert_eq!(open_message.protocol_message, message.protocol_message);
         assert_eq!(open_message.epoch, message.epoch);
     }
 
@@ -449,9 +554,9 @@ mod tests {
         let repository = OpenMessageRepository::new(connection.clone());
         let _ = repository
             .create_open_message(
-                Epoch(1),
+                Epoch(2),
                 &SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
-                "this is a message",
+                &ProtocolMessage::new(),
             )
             .await
             .unwrap();
@@ -459,11 +564,11 @@ mod tests {
             .create_open_message(
                 Epoch(1),
                 &SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
-                "this is a stake distribution",
+                &ProtocolMessage::new(),
             )
             .await
             .unwrap();
-        let count = repository.clean_epoch(Epoch(1)).await.unwrap();
+        let count = repository.clean_epoch(Epoch(2)).await.unwrap();
 
         assert_eq!(2, count);
     }
