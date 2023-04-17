@@ -8,7 +8,7 @@ use mithril_common::{
 };
 
 use chrono::NaiveDateTime;
-use sqlite::{open, Row};
+use sqlite::Row;
 use sqlite::{Connection, Value};
 
 use std::sync::Arc;
@@ -27,22 +27,35 @@ type StdResult<T> = Result<T, StdError>;
 #[derive(Debug, Clone)]
 pub struct OpenMessage {
     /// OpenMessage unique identifier
-    open_message_id: Uuid,
+    pub open_message_id: Uuid,
 
     /// Epoch
-    epoch: Epoch,
+    pub epoch: Epoch,
 
     /// Type of message
-    signed_entity_type: SignedEntityType,
+    pub signed_entity_type: SignedEntityType,
 
     /// Message used by the Mithril Protocol
-    protocol_message: String,
+    pub protocol_message: ProtocolMessage,
 
     /// Has this open message been converted into a certificate?
-    is_certified: bool,
+    pub is_certified: bool,
 
     /// Message creation datetime, it is set by the database.
-    created_at: NaiveDateTime,
+    pub created_at: NaiveDateTime,
+}
+
+impl From<OpenMessageWithSingleSignatures> for OpenMessage {
+    fn from(value: OpenMessageWithSingleSignatures) -> Self {
+        Self {
+            open_message_id: value.open_message_id,
+            epoch: value.epoch,
+            signed_entity_type: value.signed_entity_type,
+            protocol_message: value.protocol_message,
+            is_certified: value.is_certified,
+            created_at: value.created_at,
+        }
+    }
 }
 
 impl SqLiteEntity for OpenMessage {
@@ -57,6 +70,11 @@ impl SqLiteEntity for OpenMessage {
             ))
         })?;
         let protocol_message = row.get::<String, _>(4);
+        let protocol_message = serde_json::from_str(&protocol_message).map_err(|e| {
+            HydrationError::InvalidData(format!(
+                "Invalid protocol message JSON representation '{protocol_message}'. Error: {e}"
+            ))
+        })?;
         let epoch_setting_id = row.get::<i64, _>(1);
         let epoch_val = u64::try_from(epoch_setting_id)
             .map_err(|e| panic!("Integer field open_message.epoch_setting_id (value={epoch_setting_id}) is incompatible with u64 Epoch representation. Error = {e}"))?;
@@ -115,6 +133,60 @@ impl SqLiteEntity for OpenMessage {
             ("is_certified", "{:open_message:}.is_certified", "bool"),
             ("created_at", "{:open_message:}.created_at", "text"),
         ])
+    }
+}
+
+struct OpenMessageProvider<'client> {
+    connection: &'client Connection,
+}
+
+impl<'client> OpenMessageProvider<'client> {
+    pub fn new(connection: &'client Connection) -> Self {
+        Self { connection }
+    }
+
+    fn get_epoch_condition(&self, epoch: Epoch) -> WhereCondition {
+        WhereCondition::new(
+            "epoch_setting_id = ?*",
+            vec![Value::Integer(epoch.0 as i64)],
+        )
+    }
+
+    fn get_signed_entity_type_condition(
+        &self,
+        signed_entity_type: &SignedEntityType,
+    ) -> WhereCondition {
+        WhereCondition::new(
+            "signed_entity_type_id = ?*",
+            vec![Value::Integer(signed_entity_type.index() as i64)],
+        )
+    }
+
+    // Useful in test and probably in the future.
+    #[allow(dead_code)]
+    fn get_open_message_id_condition(&self, open_message_id: &str) -> WhereCondition {
+        WhereCondition::new(
+            "open_message_id = ?*",
+            vec![Value::String(open_message_id.to_owned())],
+        )
+    }
+}
+
+impl<'client> Provider<'client> for OpenMessageProvider<'client> {
+    type Entity = OpenMessage;
+
+    fn get_definition(&self, condition: &str) -> String {
+        let aliases = SourceAlias::new(&[
+            ("{:open_message:}", "open_message"),
+            ("{:single_signature:}", "single_signature"),
+        ]);
+        let projection = Self::Entity::get_projection().expand(aliases);
+
+        format!("select {projection} from open_message where {condition} order by created_at desc")
+    }
+
+    fn get_connection(&'client self) -> &'client Connection {
+        self.connection
     }
 }
 
@@ -250,29 +322,41 @@ impl OpenMessageRepository {
 
         Ok(cursor.count())
     }
+
+    pub async fn get_open_message_with_single_signatures(
+        &self,
+        signed_entity_type: &SignedEntityType,
+    ) -> StdResult<Option<OpenMessageWithSingleSignatures>> {
+        let lock = self.connection.lock().await;
+        let provider = OpenMessageWithSingleSignaturesProvider::new(&lock);
+        let filters = provider.get_signed_entity_type_condition(signed_entity_type);
+        let mut messages = provider.find(filters)?;
+
+        Ok(messages.next())
+    }
 }
 
 pub struct OpenMessageWithSingleSignatures {
     /// OpenMessage unique identifier
-    open_message_id: Uuid,
+    pub open_message_id: Uuid,
 
     /// Epoch
-    epoch: Epoch,
+    pub epoch: Epoch,
 
     /// Type of message
-    signed_entity_type: SignedEntityType,
+    pub signed_entity_type: SignedEntityType,
 
     /// Message used by the Mithril Protocol
-    protocol_message: String,
+    pub protocol_message: ProtocolMessage,
 
     /// Has this message been converted into a Certificate?
-    is_certified: bool,
+    pub is_certified: bool,
 
     /// associated single signatures
-    single_signatures: Vec<SingleSignatures>,
+    pub single_signatures: Vec<SingleSignatures>,
 
     /// Message creation datetime, it is set by the database.
-    created_at: NaiveDateTime,
+    pub created_at: NaiveDateTime,
 }
 
 impl SqLiteEntity for OpenMessageWithSingleSignatures {
@@ -328,21 +412,13 @@ impl SqLiteEntity for OpenMessageWithSingleSignatures {
         ])
     }
 }
-
-struct OpenMessageProvider<'client> {
+struct OpenMessageWithSingleSignaturesProvider<'client> {
     connection: &'client Connection,
 }
 
-impl<'client> OpenMessageProvider<'client> {
+impl<'client> OpenMessageWithSingleSignaturesProvider<'client> {
     pub fn new(connection: &'client Connection) -> Self {
         Self { connection }
-    }
-
-    fn get_epoch_condition(&self, epoch: Epoch) -> WhereCondition {
-        WhereCondition::new(
-            "epoch_setting_id = ?*",
-            vec![Value::Integer(epoch.0 as i64)],
-        )
     }
 
     fn get_signed_entity_type_condition(
@@ -354,19 +430,10 @@ impl<'client> OpenMessageProvider<'client> {
             vec![Value::Integer(signed_entity_type.index() as i64)],
         )
     }
-
-    // Useful in test and probably in the future.
-    #[allow(dead_code)]
-    fn get_open_message_id_condition(&self, open_message_id: &str) -> WhereCondition {
-        WhereCondition::new(
-            "open_message_id = ?*",
-            vec![Value::String(open_message_id.to_owned())],
-        )
-    }
 }
 
-impl<'client> Provider<'client> for OpenMessageProvider<'client> {
-    type Entity = OpenMessage;
+impl<'client> Provider<'client> for OpenMessageWithSingleSignaturesProvider<'client> {
+    type Entity = OpenMessageWithSingleSignatures;
 
     fn get_definition(&self, condition: &str) -> String {
         let aliases = SourceAlias::new(&[
@@ -375,7 +442,15 @@ impl<'client> Provider<'client> for OpenMessageProvider<'client> {
         ]);
         let projection = Self::Entity::get_projection().expand(aliases);
 
-        format!("select {projection} from open_message where {condition} order by created_at desc")
+        format!(
+            r#"
+select {projection}
+from open_message
+  join single_signature on open_message.open_message_id = single_signature.open_message_id 
+where {condition}
+order by open_message.created_at desc
+"#
+        )
     }
 
     fn get_connection(&'client self) -> &'client Connection {
