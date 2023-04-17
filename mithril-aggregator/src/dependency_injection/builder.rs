@@ -469,13 +469,14 @@ impl DependenciesBuilder {
             dyn StoreAdapter<Key = Beacon, Record = HashMap<PartyId, SingleSignatures>>,
         > = match self.configuration.environment {
             ExecutionEnvironment::Production => {
-                let adapter =
-                    SQLiteAdapter::new("single_signature", self.get_sqlite_connection().await?)
-                        .map_err(|e| DependenciesBuilderError::Initialization {
-                            message: "Cannot create SQLite adapter for SingleSignatureStore."
-                                .to_string(),
-                            error: Some(e.into()),
-                        })?;
+                let adapter = SQLiteAdapter::new(
+                    "single_signature_legacy",
+                    self.get_sqlite_connection().await?,
+                )
+                .map_err(|e| DependenciesBuilderError::Initialization {
+                    message: "Cannot create SQLite adapter for SingleSignatureStore.".to_string(),
+                    error: Some(e.into()),
+                })?;
 
                 Box::new(adapter)
             }
