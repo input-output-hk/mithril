@@ -20,6 +20,7 @@ pub mod digesters;
 pub mod entities;
 pub mod era;
 pub mod messages;
+pub mod signable_builder;
 pub mod sqlite;
 pub mod store;
 pub mod test_utils;
