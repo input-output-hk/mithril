@@ -37,10 +37,12 @@ use warp::Filter;
 
 use crate::{
     artifact_builder::{ArtifactBuilderService, DummyArtifactBuilder},
+    certifier_service::{CertifierService, MithrilCertifierService},
     configuration::{ExecutionEnvironment, LIST_SNAPSHOTS_MAX_ITEMS},
     database::provider::{
-        CertificateStoreAdapter, EpochSettingStore, SignedEntityStoreAdapter,
-        SignerRegistrationStoreAdapter, SignerStore, StakePoolStore,
+        CertificateRepository, CertificateStoreAdapter, EpochSettingStore, OpenMessageRepository,
+        SignedEntityStoreAdapter, SignerRegistrationStoreAdapter, SignerStore,
+        SingleSignatureRepository, StakePoolStore,
     },
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
@@ -61,7 +63,17 @@ use super::{DependenciesBuilderError, Result};
 
 const SQLITE_FILE: &str = "aggregator.sqlite3";
 
-/// Dependencies container builder
+/// ## Dependencies container builder
+///
+/// This is meant to create SHARED DEPENDENCIES, ie: dependencies instances that
+/// must be shared amongst several Tokio tasks. For example, database
+/// repositories are NOT shared dependencies and therefor can be created ad hoc
+/// whereas the database connection is a shared dependency.
+///
+/// Each shared dependency must implement a `build` and a `get` function. The
+/// build function creates the dependency, the get function creates the
+/// dependency at first call then return a clone of the Arc containing the
+/// dependency for all further calls.
 pub struct DependenciesBuilder {
     /// Configuration parameters
     pub configuration: Configuration,
@@ -165,6 +177,9 @@ pub struct DependenciesBuilder {
 
     /// Artifact Builder Service
     pub artifact_builder_service: Option<Arc<ArtifactBuilderService>>,
+
+    /// Certifier service
+    pub certifier_service: Option<Arc<dyn CertifierService>>,
 }
 
 impl DependenciesBuilder {
@@ -204,6 +219,7 @@ impl DependenciesBuilder {
             signer_recorder: None,
             signable_builder_service: None,
             artifact_builder_service: None,
+            certifier_service: None,
         }
     }
 
@@ -1044,6 +1060,7 @@ impl DependenciesBuilder {
             signer_recorder: self.get_signer_recorder().await?,
             signable_builder_service: self.get_signable_builder_service().await?,
             artifact_builder_service: self.get_artifact_builder_service().await?,
+            certifier_service: self.get_certifier_service().await?,
         };
 
         Ok(dependency_manager)
@@ -1173,5 +1190,38 @@ impl DependenciesBuilder {
         }
 
         Ok(self.ticker_service.as_ref().cloned().unwrap())
+    }
+
+    /// Create [CertifierService] service
+    pub async fn build_certifier_service(&mut self) -> Result<Arc<dyn CertifierService>> {
+        let open_message_repository = Arc::new(OpenMessageRepository::new(
+            self.get_sqlite_connection().await?,
+        ));
+        let single_signature_repository = Arc::new(SingleSignatureRepository::new(
+            self.get_sqlite_connection().await?,
+        ));
+        let certificate_repository = Arc::new(CertificateRepository::new(
+            self.get_sqlite_connection().await?,
+        ));
+        let multisigner = self.get_multi_signer().await?;
+        let logger = self.get_logger().await?;
+
+        Ok(Arc::new(MithrilCertifierService::new(
+            open_message_repository,
+            single_signature_repository,
+            certificate_repository,
+            multisigner,
+            Epoch(0),
+            logger,
+        )))
+    }
+
+    /// [CertifierService] service
+    pub async fn get_certifier_service(&mut self) -> Result<Arc<dyn CertifierService>> {
+        if self.certifier_service.is_none() {
+            self.certifier_service = Some(self.build_certifier_service().await?);
+        }
+
+        Ok(self.certifier_service.as_ref().cloned().unwrap())
     }
 }

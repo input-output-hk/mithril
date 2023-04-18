@@ -38,6 +38,13 @@ impl SignedEntityType {
         Self::MithrilStakeDistribution(Epoch(5))
     }
 
+    /// Return the epoch from the intern beacon.
+    pub fn get_epoch(&self) -> Epoch {
+        match self {
+            Self::CardanoImmutableFilesFull(b) => b.epoch,
+            Self::CardanoStakeDistribution(e) | Self::MithrilStakeDistribution(e) => *e,
+        }
+    }
     /// Create an instance from data coming from the database
     pub fn hydrate(signed_entity_type_id: usize, beacon_str: &str) -> Result<Self, HydrationError> {
         let myself = match signed_entity_type_id {

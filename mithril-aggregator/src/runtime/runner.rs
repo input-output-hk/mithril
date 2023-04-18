@@ -3,6 +3,7 @@ use chrono::Utc;
 use mithril_common::crypto_helper::ProtocolMultiSignature;
 use mithril_common::entities::Epoch;
 use mithril_common::entities::PartyId;
+use mithril_common::entities::SignedEntityType;
 use mithril_common::store::StakeStorer;
 use slog_scope::{debug, warn};
 
@@ -138,6 +139,7 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Create multi-signature.
     async fn create_multi_signature(
         &self,
+        signed_entity_type: &SignedEntityType,
     ) -> Result<Option<ProtocolMultiSignature>, Box<dyn StdError + Sync + Send>>;
 
     /// Create an archive of the cardano node db directory naming it after the given beacon.
@@ -552,16 +554,18 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
     async fn create_multi_signature(
         &self,
+        signed_entity_type: &SignedEntityType,
     ) -> Result<Option<ProtocolMultiSignature>, Box<dyn StdError + Sync + Send>> {
         debug!("RUNNER: create multi-signature");
+        todo!()
+        /*
+        let certificate = self
+            .dependencies
+            .certifier_service
+            .create_certificate(signed_entity_type)
+            .await?;
 
-        let multi_signer = self.dependencies.multi_signer.read().await;
-        let message = multi_signer
-            .get_current_message()
-            .await
-            .ok_or_else(ProtocolError::UnavailableMessage)?;
-
-        Ok(multi_signer.create_multi_signature(&message).await?)
+        Ok(certificate) */
     }
 
     async fn create_snapshot_archive(

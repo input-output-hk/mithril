@@ -282,13 +282,12 @@ impl OpenMessageRepository {
     /// Return the latest [OpenMessage] for the given Epoch and [SignedEntityType].
     pub async fn get_open_message(
         &self,
-        epoch: Epoch,
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<OpenMessage>> {
         let lock = self.connection.lock().await;
         let provider = OpenMessageProvider::new(&lock);
         let filters = provider
-            .get_epoch_condition(epoch)
+            .get_epoch_condition(signed_entity_type.get_epoch())
             .and_where(provider.get_signed_entity_type_condition(signed_entity_type));
         let mut messages = provider.find(filters)?;
 
@@ -323,6 +322,7 @@ impl OpenMessageRepository {
         Ok(cursor.count())
     }
 
+    /// Return an open message with its associated single signatures if any.
     pub async fn get_open_message_with_single_signatures(
         &self,
         signed_entity_type: &SignedEntityType,
@@ -336,6 +336,8 @@ impl OpenMessageRepository {
     }
 }
 
+/// Open Message with associated single signatures if any.
+#[derive(Debug, Clone)]
 pub struct OpenMessageWithSingleSignatures {
     /// OpenMessage unique identifier
     pub open_message_id: Uuid,
@@ -446,8 +448,10 @@ impl<'client> Provider<'client> for OpenMessageWithSingleSignaturesProvider<'cli
             r#"
 select {projection}
 from open_message
-  join single_signature on open_message.open_message_id = single_signature.open_message_id 
+    left outer join single_signature
+        on open_message.open_message_id = single_signature.open_message_id 
 where {condition}
+group by open_message.open_message_id
 order by open_message.created_at desc
 "#
         )
@@ -647,4 +651,10 @@ mod tests {
 
         assert_eq!(2, count);
     }
+
+    /*
+    #[tokio::test]
+    async fn repository_get_open_message_with_single_signatures() {
+        todo!()
+    } */
 }

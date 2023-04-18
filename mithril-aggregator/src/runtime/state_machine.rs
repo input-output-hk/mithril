@@ -268,17 +268,17 @@ impl AggregatorRuntime {
         state: SigningState,
     ) -> Result<IdleState, RuntimeError> {
         trace!("launching transition from SIGNING to IDLE state");
-        let multi_signature = self.runner.create_multi_signature().await?;
-
-        let multi_signature = if multi_signature.is_none() {
-            return Err(RuntimeError::KeepState {
-                message: "not enough signature yet to aggregate a multi-signature, waiting…"
-                    .to_string(),
-                nested_error: None,
-            });
-        } else {
-            multi_signature.unwrap()
-        };
+        todo!()
+        /*
+        let certificate =
+            self.runner
+                .create_multi_signature()
+                .await?
+                .ok_or_else(|| RuntimeError::KeepState {
+                    message: "not enough signature yet to aggregate a multi-signature, waiting…"
+                        .to_string(),
+                    nested_error: None,
+                })?;
 
         self.runner.drop_pending_certificate().await?;
         let ongoing_snapshot = self
@@ -300,7 +300,7 @@ impl AggregatorRuntime {
 
         Ok(IdleState {
             current_beacon: Some(state.current_beacon),
-        })
+        }) */
     }
 
     /// Perform a transition from `SIGNING` state to `IDLE` state when a new
@@ -647,7 +647,7 @@ mod tests {
         runner
             .expect_create_multi_signature()
             .once()
-            .returning(|| Ok(None));
+            .returning(|_| Ok(None));
         let state = SigningState {
             current_beacon: fake_data::beacon(),
             working_certificate: WorkingCertificate::fake(),
@@ -674,7 +674,7 @@ mod tests {
             .returning(|| Ok(fake_data::beacon()));
         runner
             .expect_create_multi_signature()
-            .return_once(move || Ok(Some(multi_signature)));
+            .return_once(move |_| Ok(Some(multi_signature)));
         runner
             .expect_drop_pending_certificate()
             .once()

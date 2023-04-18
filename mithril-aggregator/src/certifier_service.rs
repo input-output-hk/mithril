@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use mithril_common::entities::{
-    Certificate, Epoch, ProtocolMessage, SignedEntityType, SingleSignatures,
+    Certificate, Epoch, ProtocolMessage, SignedEntityType, SignerWithStake, SingleSignatures,
 };
 use mithril_common::StdResult;
 use slog::Logger;
@@ -11,7 +11,8 @@ use thiserror::Error;
 use tokio::sync::RwLock;
 
 use crate::database::provider::{
-    OpenMessage, OpenMessageRepository, OpenMessageWithSingleSignatures, SingleSignatureRepository,
+    CertificateRepository, OpenMessage, OpenMessageRepository, OpenMessageWithSingleSignatures,
+    SingleSignatureRepository,
 };
 use crate::MultiSigner;
 
@@ -41,7 +42,7 @@ pub enum CertifierServiceError {
 /// This service manages the open message and their beacon transitions. It can
 /// ultimately transform open messages into certificates.
 #[async_trait]
-pub trait CertifierService {
+pub trait CertifierService: Sync + Send {
     /// Inform the certifier I have detected a new epoch, it may clear its state
     /// and prepare the new signature round. If the given Epoch is equal or less
     /// than the previous informed Epoch, nothing is done.
@@ -79,26 +80,31 @@ pub trait CertifierService {
     /// message is set to true. The Certificate is created.
     /// If the stake quorum of the single signatures is
     /// not reached for the multisignature to be created, the certificate is not
-    /// created and None is returned.
+    /// created and None is returned. If the certificate can be created, the
+    /// list of the registered signers for the given epoch is used.
     async fn create_certificate(
         &self,
         signed_entity_type: &SignedEntityType,
+        registered_signers: Vec<SignerWithStake>,
     ) -> StdResult<Option<Certificate>>;
 }
 
-struct MithrilCertifierService {
+/// Mithril CertifierService implementation
+pub struct MithrilCertifierService {
     open_message_repository: Arc<OpenMessageRepository>,
     single_signature_repository: Arc<SingleSignatureRepository>,
-    multi_signer: Arc<dyn MultiSigner>,
+    multi_signer: Arc<RwLock<dyn MultiSigner>>,
     current_epoch: Arc<RwLock<Epoch>>,
     _logger: Logger,
 }
 
 impl MithrilCertifierService {
+    /// instanciate the service
     pub fn new(
         open_message_repository: Arc<OpenMessageRepository>,
         single_signature_repository: Arc<SingleSignatureRepository>,
-        multi_signer: Arc<dyn MultiSigner>,
+        certificate_repository: Arc<CertificateRepository>,
+        multi_signer: Arc<RwLock<dyn MultiSigner>>,
         current_epoch: Epoch,
         logger: Logger,
     ) -> Self {
@@ -197,6 +203,7 @@ impl CertifierService for MithrilCertifierService {
     async fn create_certificate(
         &self,
         signed_entity_type: &SignedEntityType,
+        registered_signers: Vec<SignerWithStake>,
     ) -> StdResult<Option<Certificate>> {
         debug!("CertifierService::create_certificate(signed_entity_type: {signed_entity_type:?})");
         let open_message = self
@@ -213,16 +220,56 @@ impl CertifierService for MithrilCertifierService {
             return Err(CertifierServiceError::AlreadyCertified(signed_entity_type.clone()).into());
         }
 
-        let signature = self
-            .multi_signer
-            .create_multi_signature(&open_message.protocol_message)
-            .await?;
+        let multisigner = self.multi_signer.write().await;
+        let signature = multisigner.create_multi_signature(&open_message).await?;
 
         if signature.is_some() {
             info!("CertifierService::create_certificate: Multi-Signature created for open message {signed_entity_type:?}");
         } else {
             debug!("CertifierService::create_certificate: No multi-signature could be created for open message {signed_entity_type:?}");
         }
+
         todo!()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Mutex;
+
+    use mithril_common::entities::Beacon;
+    use sqlite::Connection;
+
+    use crate::{dependency_injection::DependenciesBuilder, Configuration};
+
+    use super::*;
+
+    fn setup_dependencies() -> DependenciesBuilder {
+        let config = Configuration::new_sample();
+
+        DependenciesBuilder::new(config)
+    }
+    /*
+       fn get_open_message(connection: Arc<Mutex<Connection>>, signed_entity_type: &SignedEntityType) -> StdResult<Option<OpenMessage>> {
+           let repository = OpenMessageRepository::new(connection);
+           let open_message = repository.get_open_message(epoch, signed_entity_type)
+       }
+    */
+    #[tokio::test]
+    async fn create_open_message() {
+        let mut dependencies = setup_dependencies();
+        let service = dependencies.get_certifier_service().await.unwrap();
+        let beacon = Beacon::new("whatever".to_string(), 1, 1);
+        let open_message = service
+            .create_open_message(
+                &SignedEntityType::CardanoImmutableFilesFull(beacon),
+                &ProtocolMessage::new(),
+            )
+            .await
+            .unwrap();
+
+        assert!(!open_message.is_certified);
+
+        let connection = dependencies.get_sqlite_connection().await.unwrap();
     }
 }
