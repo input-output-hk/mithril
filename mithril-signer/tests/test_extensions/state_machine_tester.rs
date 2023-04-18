@@ -7,6 +7,7 @@ use mithril_common::era::{
     EraChecker, EraReader,
 };
 use mithril_common::era::{EraMarker, SupportedEra};
+use mithril_common::signable_builder::{DummySignableBuilder, SignableBuilderService};
 use mithril_common::BeaconProvider;
 use slog::Drain;
 use slog_scope::debug;
@@ -149,6 +150,10 @@ impl StateMachineTester {
 
         let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
 
+        let dummy_signable_builder = DummySignableBuilder::new();
+        let signable_builder_service =
+            Arc::new(SignableBuilderService::new(dummy_signable_builder));
+
         let services = SignerServices {
             certificate_handler: certificate_handler.clone(),
             beacon_provider: beacon_provider.clone(),
@@ -160,6 +165,7 @@ impl StateMachineTester {
             era_checker: era_checker.clone(),
             era_reader,
             api_version_provider,
+            signable_builder_service,
         };
         // set up stake distribution
         chain_observer

@@ -14,6 +14,7 @@ use mithril_common::{
     },
     digesters::{CardanoImmutableDigester, ImmutableDigester, ImmutableFileSystemObserver},
     era::{EraChecker, EraReader},
+    signable_builder::{DummySignableBuilder, SignableBuilderService},
     store::{adapter::SQLiteAdapter, StakeStore},
     BeaconProvider, BeaconProviderImpl, StdError,
 };
@@ -200,6 +201,10 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             api_version_provider.clone(),
         ));
 
+        let dummy_signable_builder = DummySignableBuilder::new();
+        let signable_builder_service =
+            Arc::new(SignableBuilderService::new(dummy_signable_builder));
+
         let services = SignerServices {
             beacon_provider,
             certificate_handler,
@@ -211,6 +216,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             era_checker,
             era_reader,
             api_version_provider,
+            signable_builder_service,
         };
 
         Ok(services)
@@ -248,6 +254,9 @@ pub struct SignerServices {
 
     /// API version provider
     pub api_version_provider: Arc<APIVersionProvider>,
+
+    /// Signable Builder Service
+    pub signable_builder_service: Arc<SignableBuilderService>,
 }
 
 #[cfg(test)]
