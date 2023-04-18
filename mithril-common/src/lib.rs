@@ -32,6 +32,9 @@ pub use entities::{CardanoNetwork, MagicId};
 /// Generic error type
 pub type StdError = Box<dyn Error + Sync + Send>;
 
+/// Generic result type
+pub type StdResult<T> = std::result::Result<T, StdError>;
+
 /// Mithril API protocol version header name
 pub const MITHRIL_API_VERSION_HEADER: &str = "mithril-api-version";
 
