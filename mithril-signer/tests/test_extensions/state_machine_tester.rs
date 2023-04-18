@@ -7,7 +7,7 @@ use mithril_common::era::{
     EraChecker, EraReader,
 };
 use mithril_common::era::{EraMarker, SupportedEra};
-use mithril_common::signable_builder::{DummySignableBuilder, SignableBuilderService};
+use mithril_common::signable_builder::DummySignableBuilder;
 use mithril_common::BeaconProvider;
 use slog::Drain;
 use slog_scope::debug;
@@ -26,8 +26,8 @@ use mithril_common::{
 };
 use mithril_signer::{
     CertificateHandler, Configuration, MithrilSingleSigner, ProtocolInitializerStore,
-    ProtocolInitializerStorer, RuntimeError, SignerRunner, SignerServices, SignerState,
-    StateMachine,
+    ProtocolInitializerStorer, RuntimeError, SignableBuilderService, SignerRunner, SignerServices,
+    SignerState, StateMachine,
 };
 
 use super::FakeAggregator;

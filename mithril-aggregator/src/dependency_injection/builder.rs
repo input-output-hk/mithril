@@ -19,7 +19,7 @@ use mithril_common::{
         adapters::{EraReaderAdapterBuilder, EraReaderDummyAdapter},
         EraChecker, EraMarker, EraReader, EraReaderAdapter, SupportedEra,
     },
-    signable_builder::{DummySignableBuilder, SignableBuilderService},
+    signable_builder::DummySignableBuilder,
     store::adapter::{MemoryAdapter, SQLiteAdapter, StoreAdapter},
     BeaconProvider, BeaconProviderImpl,
 };
@@ -44,6 +44,7 @@ use crate::{
     },
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
+    signable_builder::SignableBuilderService,
     signer_registerer::SignerRecorder,
     stake_distribution_service::{MithrilStakeDistributionService, StakeDistributionService},
     ticker_service::{MithrilTickerService, TickerService},

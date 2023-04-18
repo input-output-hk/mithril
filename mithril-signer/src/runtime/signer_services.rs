@@ -14,15 +14,15 @@ use mithril_common::{
     },
     digesters::{CardanoImmutableDigester, ImmutableDigester, ImmutableFileSystemObserver},
     era::{EraChecker, EraReader},
-    signable_builder::{DummySignableBuilder, SignableBuilderService},
+    signable_builder::DummySignableBuilder,
     store::{adapter::SQLiteAdapter, StakeStore},
     BeaconProvider, BeaconProviderImpl, StdError,
 };
 
 use crate::{
-    certificate_handler::CertificateHandler, single_signer::SingleSigner,
-    CertificateHandlerHTTPClient, Configuration, MithrilSingleSigner, ProtocolInitializerStore,
-    ProtocolInitializerStorer,
+    certificate_handler::CertificateHandler, signable_builder::SignableBuilderService,
+    single_signer::SingleSigner, CertificateHandlerHTTPClient, Configuration, MithrilSingleSigner,
+    ProtocolInitializerStore, ProtocolInitializerStorer,
 };
 
 type StakeStoreService = Arc<StakeStore>;

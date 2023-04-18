@@ -485,7 +485,7 @@ mod tests {
             adapters::{EraReaderAdapterType, EraReaderBootstrapAdapter},
             EraChecker, EraReader,
         },
-        signable_builder::{DummySignableBuilder, SignableBuilderService},
+        signable_builder::DummySignableBuilder,
         store::{
             adapter::{DumbStoreAdapter, MemoryAdapter},
             StakeStore, StakeStorer,
@@ -497,8 +497,8 @@ mod tests {
     use std::{path::PathBuf, sync::Arc};
 
     use crate::{
-        CertificateHandler, DumbCertificateHandler, MithrilSingleSigner, MockCertificateHandler,
-        ProtocolInitializerStore, SingleSigner,
+        signable_builder::SignableBuilderService, CertificateHandler, DumbCertificateHandler,
+        MithrilSingleSigner, MockCertificateHandler, ProtocolInitializerStore, SingleSigner,
     };
 
     use super::*;
