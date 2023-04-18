@@ -16,7 +16,6 @@ use mithril_common::{
         adapters::{EraReaderAdapterBuilder, EraReaderDummyAdapter},
         EraChecker, EraMarker, EraReader, EraReaderAdapter, SupportedEra,
     },
-    signable_builder::DummySignableBuilder,
     store::adapter::{MemoryAdapter, SQLiteAdapter, StoreAdapter},
     BeaconProvider, BeaconProviderImpl,
 };
@@ -43,7 +42,7 @@ use crate::{
     },
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
-    signable_builder::SignableBuilderService,
+    signable_builder::{MithrilStakeDistributionSignableBuilder, SignableBuilderService},
     signer_registerer::SignerRecorder,
     stake_distribution_service::{MithrilStakeDistributionService, StakeDistributionService},
     ticker_service::{MithrilTickerService, TickerService},
@@ -873,9 +872,12 @@ impl DependenciesBuilder {
     }
 
     async fn build_signable_builder_service(&mut self) -> Result<Arc<SignableBuilderService>> {
-        let dummy_signable_builder = DummySignableBuilder::new();
-        let signable_builder_service =
-            Arc::new(SignableBuilderService::new(dummy_signable_builder));
+        let multi_signer = self.get_multi_signer().await?;
+        let mithril_stake_distribution_builder =
+            MithrilStakeDistributionSignableBuilder::new(multi_signer);
+        let signable_builder_service = Arc::new(SignableBuilderService::new(
+            mithril_stake_distribution_builder,
+        ));
 
         Ok(signable_builder_service)
     }
