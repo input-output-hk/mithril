@@ -22,13 +22,13 @@ use super::OpenMessage;
 #[derive(Debug, PartialEq, Clone)]
 pub struct SingleSignatureRecord {
     /// Open message id.
-    open_message_id: Uuid,
+    pub open_message_id: Uuid,
 
     /// Signer id.
-    signer_id: String,
+    pub signer_id: String,
 
     /// Registration epoch setting id
-    registration_epoch_setting_id: Epoch,
+    pub registration_epoch_setting_id: Epoch,
 
     /// Lottery indexes
     pub lottery_indexes: Vec<LotteryIndex>,
@@ -37,7 +37,7 @@ pub struct SingleSignatureRecord {
     pub signature: HexEncodedSingleSignature,
 
     /// Date and time when the single_signature was created
-    created_at: String,
+    pub created_at: String,
 }
 
 impl SingleSignatureRecord {

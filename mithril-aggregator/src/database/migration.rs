@@ -292,7 +292,7 @@ create table new_open_message (
     epoch_setting_id        int     not null,
     beacon                  json    not null,
     signed_entity_type_id   int     not null,
-    protocol_message        text    not null,
+    protocol_message        json    not null,
     is_certified            bool    not null default false,
     created_at              text    not null default current_timestamp,
     primary key (open_message_id),
