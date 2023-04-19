@@ -14,5 +14,5 @@ where
     W: Artifact<'a>,
 {
     /// Compute an artifact
-    async fn compute_artifact(&'a self, beacon: U, certificate: Certificate) -> StdResult<W>;
+    async fn compute_artifact(&'a self, beacon: U, certificate: &Certificate) -> StdResult<W>;
 }

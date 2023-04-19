@@ -48,7 +48,7 @@ impl<'a> ArtifactBuilder<'a, DummyBeacon, DummyArtifact<'a>> for DummyArtifactBu
     async fn compute_artifact(
         &'a self,
         beacon: DummyBeacon,
-        certificate: Certificate,
+        certificate: &Certificate,
     ) -> StdResult<DummyArtifact> {
         Ok(DummyArtifact::new(
             format!("certificate id is {}", certificate.hash),

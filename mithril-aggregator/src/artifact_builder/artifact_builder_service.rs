@@ -18,6 +18,7 @@ pub struct ArtifactBuilderService {
 
 impl ArtifactBuilderService {
     /// ArtifactBuilderService factory
+    #[allow(dead_code)]
     pub fn new(dummy_artifact_builder: DummyArtifactBuilder) -> Self {
         Self {
             dummy_artifact_builder,
@@ -30,7 +31,7 @@ impl ArtifactBuilderService {
     async fn compute_artifact(
         &self,
         signed_entity_type: SignedEntityType,
-        certificate: Certificate,
+        certificate: &Certificate,
     ) -> StdResult<Arc<impl Artifact>> {
         let artifact = match signed_entity_type {
             SignedEntityType::MithrilStakeDistribution(e) => Arc::new(
@@ -69,19 +70,19 @@ mod tests {
 
         let signed_entity_type_1 = SignedEntityType::MithrilStakeDistribution(Epoch(1));
         let artifact_1 = artifact_builder_service
-            .compute_artifact(signed_entity_type_1, certificate.clone())
+            .compute_artifact(signed_entity_type_1, &certificate)
             .await
             .unwrap();
 
         let signed_entity_type_2 = SignedEntityType::CardanoStakeDistribution(Epoch(0));
         let artifact_2 = artifact_builder_service
-            .compute_artifact(signed_entity_type_2, certificate.clone())
+            .compute_artifact(signed_entity_type_2, &certificate)
             .await
             .unwrap();
 
         let signed_entity_type_3 = SignedEntityType::CardanoImmutableFilesFull(Beacon::default());
         let artifact_3 = artifact_builder_service
-            .compute_artifact(signed_entity_type_3, certificate)
+            .compute_artifact(signed_entity_type_3, &certificate)
             .await
             .unwrap();
 
