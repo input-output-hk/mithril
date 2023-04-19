@@ -167,11 +167,7 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
         match response {
             Ok(response) => match response.status() {
                 StatusCode::OK => match response.json::<CertificatePendingMessage>().await {
-                    Ok(message) => Ok(Some(
-                        FromPendingCertificateMessageAdapter::adapt(message).map_err(|err| {
-                            CertificateHandlerError::JsonParseFailed(err.to_string())
-                        })?,
-                    )),
+                    Ok(message) => Ok(Some(FromPendingCertificateMessageAdapter::adapt(message))),
                     Err(err) => Err(CertificateHandlerError::JsonParseFailed(err.to_string())),
                 },
                 StatusCode::PRECONDITION_FAILED => Err(self.handle_api_error(&response)),

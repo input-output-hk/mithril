@@ -193,6 +193,7 @@ mod tests {
 
     use super::*;
     use crate::entities;
+    use crate::messages::CertificatePendingMessage;
     use crate::test_utils::fake_data;
 
     #[test]
@@ -204,9 +205,9 @@ mod tests {
             .validate_request(&Null)
             .unwrap()
             .validate_response(&Response::<Bytes>::new(Bytes::from(
-                json!(fake_data::certificate_pending())
+                json!(CertificatePendingMessage::dummy())
                     .to_string()
-                    .into_bytes()
+                    .into_bytes(),
             )))
             .is_ok());
 

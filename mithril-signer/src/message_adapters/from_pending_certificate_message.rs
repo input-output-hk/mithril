@@ -9,15 +9,15 @@ pub struct FromPendingCertificateMessageAdapter;
 
 impl FromPendingCertificateMessageAdapter {
     /// Adapter method
-    pub fn adapt(message: CertificatePendingMessage) -> StdResult<CertificatePending> {
-        Ok(CertificatePending {
+    pub fn adapt(message: CertificatePendingMessage) -> CertificatePending {
+        CertificatePending {
             beacon: message.beacon,
-            signed_entity_type: serde_json::from_str(&message.signed_entity_type)?,
+            signed_entity_type: message.signed_entity_type,
             protocol_parameters: message.protocol_parameters,
             next_protocol_parameters: message.next_protocol_parameters,
             signers: Self::adapt_signers(message.signers),
             next_signers: Self::adapt_signers(message.next_signers),
-        })
+        }
     }
 
     fn adapt_signers(signer_messages: Vec<SignerMessage>) -> Vec<Signer> {
@@ -42,7 +42,7 @@ mod tests {
     fn adapt_ok() {
         let message = CertificatePendingMessage::dummy();
         let epoch = message.beacon.epoch;
-        let certificate_pending = FromPendingCertificateMessageAdapter::adapt(message).unwrap();
+        let certificate_pending = FromPendingCertificateMessageAdapter::adapt(message);
 
         assert_eq!(epoch, certificate_pending.beacon.epoch);
     }
@@ -51,7 +51,7 @@ mod tests {
     fn adapt_signers() {
         let mut message = CertificatePendingMessage::dummy();
         message.signers = vec![SignerMessage::dummy(), SignerMessage::dummy()];
-        let certificate_pending = FromPendingCertificateMessageAdapter::adapt(message).unwrap();
+        let certificate_pending = FromPendingCertificateMessageAdapter::adapt(message);
 
         assert_eq!(2, certificate_pending.signers.len());
         assert_eq!(1, certificate_pending.next_signers.len());
