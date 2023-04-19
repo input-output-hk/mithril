@@ -1,6 +1,6 @@
 use crate::runtime::{AggregatorRunnerTrait, RuntimeError, WorkingCertificate};
 
-use mithril_common::entities::Beacon;
+use mithril_common::entities::{Beacon, SignedEntityType};
 use slog_scope::{crit, info, trace, warn};
 use std::fmt::Display;
 use std::sync::Arc;
@@ -324,6 +324,8 @@ impl AggregatorRuntime {
         new_beacon: Beacon,
     ) -> Result<SigningState, RuntimeError> {
         trace!("launching transition from READY to SIGNING state");
+        // TODO: Temporary, we need to compute the signed entity type from the current open message
+        let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(new_beacon.clone());
         self.runner.update_beacon(&new_beacon).await?;
 
         let digester_result = self.runner.compute_digest(&new_beacon).await?;
@@ -332,7 +334,10 @@ impl AggregatorRuntime {
             .await?;
         let certificate_pending = self
             .runner
-            .create_new_pending_certificate_from_multisigner(new_beacon.clone())
+            .create_new_pending_certificate_from_multisigner(
+                new_beacon.clone(),
+                &signed_entity_type,
+            )
             .await?;
         self.runner
             .save_pending_certificate(certificate_pending.clone())
@@ -584,9 +589,9 @@ mod tests {
             .returning(|_| Ok(()));
         runner
             .expect_create_new_pending_certificate_from_multisigner()
-            .with(predicate::eq(fake_data::beacon()))
+            //.with(predicate::eq(fake_data::beacon()))
             .once()
-            .returning(|_| Ok(fake_data::certificate_pending()));
+            .returning(|_, _| Ok(fake_data::certificate_pending()));
         runner
             .expect_create_new_working_certificate()
             .once()

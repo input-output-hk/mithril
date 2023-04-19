@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use chrono::Utc;
+use mithril_common::crypto_helper::key_decode_hex;
 use mithril_common::crypto_helper::ProtocolMultiSignature;
 use mithril_common::entities::Epoch;
 use mithril_common::entities::PartyId;
@@ -117,6 +118,7 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     async fn create_new_pending_certificate_from_multisigner(
         &self,
         beacon: Beacon,
+        signed_entity_type: &SignedEntityType,
     ) -> Result<CertificatePending, Box<dyn StdError + Sync + Send>>;
 
     /// Return the actual working certificate from the multisigner.
@@ -433,6 +435,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     async fn create_new_pending_certificate_from_multisigner(
         &self,
         beacon: Beacon,
+        signed_entity_type: &SignedEntityType,
     ) -> Result<CertificatePending, Box<dyn StdError + Sync + Send>> {
         debug!("RUNNER: create new pending certificate from multisigner");
         let multi_signer = self.dependencies.multi_signer.read().await;
@@ -469,6 +472,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
         let pending_certificate = CertificatePending::new(
             beacon,
+            signed_entity_type.to_owned(),
             protocol_parameters.into(),
             next_protocol_parameters.into(),
             signers,
@@ -564,7 +568,8 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .create_certificate(signed_entity_type)
             .await?;
 
-        Ok(certificate)
+        // TODO: Quickfix, this function should be renamed to create_certificate and retrun a Result<Certificate>
+        Ok(certificate.map(|c| key_decode_hex(&c.multi_signature).unwrap()))
     }
 
     async fn create_snapshot_archive(
@@ -745,7 +750,8 @@ pub mod tests {
     };
     use mithril_common::digesters::DumbImmutableFileObserver;
     use mithril_common::entities::{
-        Beacon, CertificatePending, HexEncodedKey, ProtocolMessage, StakeDistribution,
+        Beacon, CertificatePending, HexEncodedKey, ProtocolMessage, SignedEntityType,
+        StakeDistribution,
     };
     use mithril_common::store::StakeStorer;
     use mithril_common::test_utils::MithrilFixtureBuilder;
@@ -961,6 +967,7 @@ pub mod tests {
         let runner = AggregatorRunner::new(config, deps.clone());
         let beacon = runner.get_beacon_from_chain().await.unwrap();
         runner.update_beacon(&beacon).await.unwrap();
+        let signed_entity_type = SignedEntityType::dummy();
 
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let current_signers = fixture.signers_with_stake()[1..3].to_vec();
@@ -974,13 +981,14 @@ pub mod tests {
         .await;
 
         let mut certificate = runner
-            .create_new_pending_certificate_from_multisigner(beacon.clone())
+            .create_new_pending_certificate_from_multisigner(beacon.clone(), &signed_entity_type)
             .await
             .unwrap();
         certificate.signers.sort_by_key(|s| s.party_id.clone());
         certificate.next_signers.sort_by_key(|s| s.party_id.clone());
         let mut expected = CertificatePending::new(
             beacon,
+            signed_entity_type,
             protocol_parameters.clone(),
             protocol_parameters,
             current_signers.into_iter().map(|s| s.into()).collect(),
@@ -999,6 +1007,7 @@ pub mod tests {
         let runner = AggregatorRunner::new(config, deps.clone());
         let beacon = runner.get_beacon_from_chain().await.unwrap();
         runner.update_beacon(&beacon).await.unwrap();
+        let signed_entity_type = SignedEntityType::dummy();
 
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
 
@@ -1031,7 +1040,7 @@ pub mod tests {
             .unwrap();
 
         let certificate_pending = runner
-            .create_new_pending_certificate_from_multisigner(beacon.clone())
+            .create_new_pending_certificate_from_multisigner(beacon.clone(), &signed_entity_type)
             .await
             .unwrap();
 

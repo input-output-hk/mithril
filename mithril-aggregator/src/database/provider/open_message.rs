@@ -366,7 +366,7 @@ impl OpenMessageWithSingleSignatures {
     pub fn get_signers_id(&self) -> Vec<PartyId> {
         self.single_signatures
             .iter()
-            .map(|sig| sig.party_id)
+            .map(|sig| sig.party_id.to_owned())
             .collect()
     }
 }

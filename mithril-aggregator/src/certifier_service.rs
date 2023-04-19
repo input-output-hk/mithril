@@ -4,8 +4,7 @@ use async_trait::async_trait;
 use chrono::Utc;
 use mithril_common::crypto_helper::{key_encode_hex, PROTOCOL_VERSION};
 use mithril_common::entities::{
-    Certificate, CertificateMetadata, Epoch, ProtocolMessage, SignedEntityType, SignerWithStake,
-    SingleSignatures,
+    Certificate, CertificateMetadata, Epoch, ProtocolMessage, SignedEntityType, SingleSignatures,
 };
 use mithril_common::StdResult;
 use slog::Logger;

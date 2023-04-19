@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.1
+  version: 0.1.2
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -52,6 +52,7 @@ paths:
         Returns the information related to the current pending certificate:
           * protocol parameters, for current and next epoch (to setup cryptography)
           * beacon information (where on the chain the pending certificate should be triggered)
+          * entity type of the message that must be signed
           * verification keys of the signers, for current and next epoch
       responses:
         "200":
@@ -321,6 +322,7 @@ components:
       additionalProperties: false
       required:
         - beacon
+        - entity_type
         - protocol
         - next_protocol
         - signers
@@ -328,6 +330,9 @@ components:
       properties:
         beacon:
           $ref: "#/components/schemas/Beacon"
+        entity_type:
+          description: Entity type of the message that is signed
+          type: string
         protocol:
           $ref: "#/components/schemas/ProtocolParameters"
         next_protocol:

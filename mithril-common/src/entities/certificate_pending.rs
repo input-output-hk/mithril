@@ -1,11 +1,16 @@
 use crate::entities::{Beacon, PartyId, ProtocolParameters, Signer};
 use serde::{Deserialize, Serialize};
 
+use super::SignedEntityType;
+
 /// CertificatePending represents a pending certificate in the process of production
-#[derive(Clone, Debug, PartialEq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct CertificatePending {
     /// Current Beacon
     pub beacon: Beacon,
+
+    /// Signed entity type
+    pub signed_entity_type: SignedEntityType,
 
     /// Current Protocol parameters
     #[serde(rename = "protocol")]
@@ -26,6 +31,7 @@ impl CertificatePending {
     /// CertificatePending factory
     pub fn new(
         beacon: Beacon,
+        signed_entity_type: SignedEntityType,
         protocol_parameters: ProtocolParameters,
         next_protocol_parameters: ProtocolParameters,
         signers: Vec<Signer>,
@@ -33,6 +39,7 @@ impl CertificatePending {
     ) -> CertificatePending {
         CertificatePending {
             beacon,
+            signed_entity_type,
             protocol_parameters,
             next_protocol_parameters,
             signers,
