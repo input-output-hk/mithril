@@ -7,8 +7,7 @@ use async_trait::async_trait;
 use mithril_common::{
     entities::{
         Beacon, Certificate, CertificateMetadata, Epoch, HexEncodedAgregateVerificationKey,
-        HexEncodedKey, ProtocolMessage, ProtocolParameters, ProtocolVersion, SignedEntityType,
-        SignerWithStake,
+        HexEncodedKey, ProtocolMessage, ProtocolParameters, ProtocolVersion, SignerWithStake,
     },
     sqlite::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
@@ -20,9 +19,6 @@ use mithril_common::{
 
 use mithril_common::StdError;
 use tokio::sync::Mutex;
-use warp::reply::WithHeader;
-
-use super::signed_entity;
 
 /// Certificate record is the representation of a stored certificate.
 #[derive(Debug, PartialEq, Clone)]
@@ -443,6 +439,7 @@ where {condition}"#
     }
 }
 
+/// Database frontend API for Certificate queries.
 pub struct CertificateRepository {
     connection: Arc<Mutex<Connection>>,
 }
@@ -462,6 +459,9 @@ impl CertificateRepository {
         Ok(cursor.next().map(|v| v.into()))
     }
 
+    /// Return the first certificate signed per epoch as the reference
+    /// certificate for this Epoch. This will be the parent certificate for all
+    /// other certificates issued within this Epoch.
     pub async fn get_master_certificate_for_epoch(
         &self,
         epoch: Epoch,
@@ -471,6 +471,20 @@ impl CertificateRepository {
         let mut cursor = provider.find(provider.get_master_certificate_condition(epoch))?;
 
         Ok(cursor.next().map(|c| c.into()))
+    }
+
+    /// Create a new certificate in the database.
+    pub async fn create_certificate(&self, certificate: Certificate) -> StdResult<Certificate> {
+        let lock = self.connection.lock().await;
+        let provider = InsertCertificateRecordProvider::new(&lock);
+        let mut cursor = provider.find(provider.get_insert_condition(&certificate.into()))?;
+
+        let new_certificate = cursor
+            .next()
+            .ok_or_else(|| panic!("Insert certificate query should always return a record."))
+            .unwrap();
+
+        Ok(new_certificate.into())
     }
 }
 
@@ -897,5 +911,32 @@ mod tests {
             .expect("This should return a certificate.");
 
         assert_eq!(expected_certificate_id.to_string(), certificate.hash);
+    }
+
+    #[tokio::test]
+    async fn save_certificate() {
+        let (certificates, _) = setup_certificate_chain(5, 3);
+        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let connection = deps.get_sqlite_connection().await.unwrap();
+        let repository = CertificateRepository::new(connection);
+        let certificate = repository
+            .create_certificate(certificates[4].clone())
+            .await
+            .unwrap();
+
+        assert_eq!(certificates[4].hash, certificate.hash);
+        {
+            let connection = deps.get_sqlite_connection().await.unwrap();
+            let lock = connection.lock().await;
+            let provider = CertificateRecordProvider::new(&lock);
+            let mut cursor = provider
+                .get_by_certificate_id(&certificates[4].hash)
+                .unwrap();
+            let cert = cursor
+                .next()
+                .expect("There should be a certificate in the database with this hash ID.");
+
+            assert_eq!(certificates[4].hash, cert.certificate_id);
+        }
     }
 }

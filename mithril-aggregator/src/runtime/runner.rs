@@ -557,15 +557,14 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         signed_entity_type: &SignedEntityType,
     ) -> Result<Option<ProtocolMultiSignature>, Box<dyn StdError + Sync + Send>> {
         debug!("RUNNER: create multi-signature");
-        todo!()
-        /*
+
         let certificate = self
             .dependencies
             .certifier_service
             .create_certificate(signed_entity_type)
             .await?;
 
-        Ok(certificate) */
+        Ok(certificate)
     }
 
     async fn create_snapshot_archive(

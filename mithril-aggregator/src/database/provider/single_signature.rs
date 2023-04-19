@@ -316,7 +316,6 @@ mod tests {
         for epoch in 1..=total_epoch {
             for open_message_idx in 1..=total_open_message {
                 for signer_idx in 1..=total_signer {
-                    let open_message_id = open_message_idx * epoch;
                     let single_signature_id = epoch
                         + (epoch + 1) * open_message_idx
                         + (epoch + 1) * (open_message_idx + 1) * signer_idx;

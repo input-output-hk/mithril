@@ -1,8 +1,11 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use chrono::Utc;
+use mithril_common::crypto_helper::{key_encode_hex, PROTOCOL_VERSION};
 use mithril_common::entities::{
-    Certificate, Epoch, ProtocolMessage, SignedEntityType, SignerWithStake, SingleSignatures,
+    Certificate, CertificateMetadata, Epoch, ProtocolMessage, SignedEntityType, SignerWithStake,
+    SingleSignatures,
 };
 use mithril_common::StdResult;
 use slog::Logger;
@@ -10,6 +13,7 @@ use slog_scope::{debug, error, info, warn};
 use thiserror::Error;
 use tokio::sync::RwLock;
 
+use crate::certificate_creator::CertificateCreationError;
 use crate::database::provider::{
     CertificateRepository, OpenMessage, OpenMessageRepository, OpenMessageWithSingleSignatures,
     SingleSignatureRepository,
@@ -35,6 +39,12 @@ pub enum CertifierServiceError {
     /// The given OpenMessage already exists
     #[error("An open message already exist for this beacon {0:?}, cannot create another one.")]
     OpenMessageAlreadyExists(SignedEntityType),
+
+    /// No parent certificate could be found, this certifier cannot create genesis certificates.
+    #[error(
+        "No parent certificate could be found, this certifier cannot create genesis certificates."
+    )]
+    NoParentCertificateFound,
 }
 
 /// ## CertifierService
@@ -85,7 +95,6 @@ pub trait CertifierService: Sync + Send {
     async fn create_certificate(
         &self,
         signed_entity_type: &SignedEntityType,
-        registered_signers: Vec<SignerWithStake>,
     ) -> StdResult<Option<Certificate>>;
 }
 
@@ -93,6 +102,7 @@ pub trait CertifierService: Sync + Send {
 pub struct MithrilCertifierService {
     open_message_repository: Arc<OpenMessageRepository>,
     single_signature_repository: Arc<SingleSignatureRepository>,
+    certificate_repository: Arc<CertificateRepository>,
     multi_signer: Arc<RwLock<dyn MultiSigner>>,
     current_epoch: Arc<RwLock<Epoch>>,
     _logger: Logger,
@@ -111,6 +121,7 @@ impl MithrilCertifierService {
         Self {
             open_message_repository,
             single_signature_repository,
+            certificate_repository,
             multi_signer,
             current_epoch: Arc::new(RwLock::new(current_epoch)),
             _logger: logger,
@@ -203,7 +214,6 @@ impl CertifierService for MithrilCertifierService {
     async fn create_certificate(
         &self,
         signed_entity_type: &SignedEntityType,
-        registered_signers: Vec<SignerWithStake>,
     ) -> StdResult<Option<Certificate>> {
         debug!("CertifierService::create_certificate(signed_entity_type: {signed_entity_type:?})");
         let open_message = self
@@ -227,9 +237,57 @@ impl CertifierService for MithrilCertifierService {
             info!("CertifierService::create_certificate: Multi-Signature created for open message {signed_entity_type:?}");
         } else {
             debug!("CertifierService::create_certificate: No multi-signature could be created for open message {signed_entity_type:?}");
-        }
 
-        todo!()
+            return Ok(None);
+        }
+        let signature = signature.unwrap();
+        let signer_ids = open_message.get_signers_id();
+        let signers = multisigner
+            .get_signers_with_stake()
+            .await?
+            .into_iter()
+            .filter(|signer| signer_ids.contains(&signer.party_id))
+            .collect::<Vec<_>>();
+
+        let protocol_version = PROTOCOL_VERSION.to_string();
+        let initiated_at = format!("{:?}", open_message.created_at);
+        let sealed_at = format!("{:?}", Utc::now());
+        let metadata = CertificateMetadata::new(
+            protocol_version,
+            // TODO remove this multisigner call ↓
+            multisigner.get_protocol_parameters().await?.unwrap().into(),
+            initiated_at,
+            sealed_at,
+            signers,
+        );
+        let multi_signature = key_encode_hex(signature).map_err(CertificateCreationError::Codec)?;
+        let parent_certificate_hash = self
+            .certificate_repository
+            .get_master_certificate_for_epoch(open_message.epoch)
+            .await?
+            .map(|cert| cert.hash)
+            .ok_or_else(|| CertifierServiceError::NoParentCertificateFound)?;
+
+        let certificate = Certificate::new(
+            parent_certificate_hash,
+            // TODO: remove this multisigner call ↓
+            multisigner.get_current_beacon().await.unwrap(),
+            metadata,
+            open_message.protocol_message,
+            multisigner
+                .compute_stake_distribution_aggregate_verification_key()
+                .await?
+                .unwrap(),
+            multi_signature,
+            "".to_string(),
+        );
+
+        let certificate = self
+            .certificate_repository
+            .create_certificate(certificate)
+            .await?;
+
+        Ok(Some(certificate))
     }
 }
 
