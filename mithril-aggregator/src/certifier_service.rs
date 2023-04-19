@@ -19,6 +19,9 @@ use crate::database::provider::{
 };
 use crate::MultiSigner;
 
+#[cfg(test)]
+use mockall::automock;
+
 /// Errors dedicated to the CertifierService.
 #[derive(Debug, Error)]
 pub enum CertifierServiceError {
@@ -50,6 +53,7 @@ pub enum CertifierServiceError {
 ///
 /// This service manages the open message and their beacon transitions. It can
 /// ultimately transform open messages into certificates.
+#[cfg_attr(test, automock)]
 #[async_trait]
 pub trait CertifierService: Sync + Send {
     /// Inform the certifier I have detected a new epoch, it may clear its state

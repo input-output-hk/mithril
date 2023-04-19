@@ -1061,6 +1061,7 @@ impl DependenciesBuilder {
             signable_builder_service: self.get_signable_builder_service().await?,
             artifact_builder_service: self.get_artifact_builder_service().await?,
             certifier_service: self.get_certifier_service().await?,
+            ticker_service: self.get_ticker_service().await?,
         };
 
         Ok(dependency_manager)

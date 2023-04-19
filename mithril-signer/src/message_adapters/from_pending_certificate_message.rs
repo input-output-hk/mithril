@@ -1,7 +1,6 @@
 use mithril_common::{
     entities::{CertificatePending, Signer},
     messages::{CertificatePendingMessage, SignerMessage},
-    StdResult,
 };
 
 /// Adapter to turn [CertificatePendingMessage] instances into [CertificatePending].

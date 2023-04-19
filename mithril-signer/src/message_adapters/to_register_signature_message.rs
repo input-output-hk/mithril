@@ -6,6 +6,7 @@ pub struct ToRegisterSignatureMessageAdapter;
 impl ToRegisterSignatureMessageAdapter {
     pub fn adapt(single_signature: SingleSignatures) -> RegisterSignatureMessage {
         RegisterSignatureMessage {
+            signed_entity_type: None,
             party_id: single_signature.party_id,
             signature: single_signature.signature,
             won_indexes: single_signature.won_indexes,

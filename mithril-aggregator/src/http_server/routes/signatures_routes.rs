@@ -16,54 +16,69 @@ fn register_signatures(
     warp::path!("register-signatures")
         .and(warp::post())
         .and(warp::body::json())
-        .and(middlewares::with_multi_signer(dependency_manager))
+        .and(middlewares::with_certifier_service(
+            dependency_manager.clone(),
+        ))
+        .and(middlewares::with_ticker_service(dependency_manager))
         .and_then(handlers::register_signatures)
 }
 
 mod handlers {
+    use crate::certifier_service::{CertifierService, CertifierServiceError};
     use crate::http_server::routes::reply;
-    use crate::ProtocolError;
-    use crate::{
-        dependency::MultiSignerWrapper, message_adapters::FromRegisterSingleSignatureAdapter,
-    };
-    use mithril_common::entities::SingleSignatures;
+    use crate::message_adapters::FromRegisterSingleSignatureAdapter;
+    use crate::ticker_service::TickerService;
+    use mithril_common::entities::SignedEntityType;
     use mithril_common::messages::RegisterSignatureMessage;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
+    use std::sync::Arc;
     use warp::http::StatusCode;
 
     /// Register Signatures
     pub async fn register_signatures(
         message: RegisterSignatureMessage,
-        multi_signer: MultiSignerWrapper,
+        certifier_service: Arc<dyn CertifierService>,
+        ticker_service: Arc<dyn TickerService>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: register_signatures/{:?}", message);
 
-        async fn register_single_signature(
-            multi_signer: MultiSignerWrapper,
-            signature: SingleSignatures,
-        ) -> Result<(), ProtocolError> {
-            let multi_signer = multi_signer.write().await;
-            let message = multi_signer
-                .get_current_message()
+        let signed_entity_type = match message.signed_entity_type.clone() {
+            Some(signed_entity_type) => Ok(signed_entity_type),
+            None => ticker_service
+                .get_current_immutable_beacon()
                 .await
-                .ok_or_else(ProtocolError::UnavailableMessage)?;
-            multi_signer
-                .register_single_signature(&message, &signature)
-                .await
-        }
+                .map(SignedEntityType::CardanoImmutableFilesFull),
+        };
 
-        let signature = FromRegisterSingleSignatureAdapter::adapt(message);
-        match register_single_signature(multi_signer, signature).await {
-            Err(ProtocolError::ExistingSingleSignature(party_id)) => {
-                debug!("register_signatures::already_exist"; "party_id" => ?party_id);
-                Ok(reply::empty(StatusCode::CONFLICT))
+        match signed_entity_type {
+            Ok(signed_entity_type) => {
+                let signature = FromRegisterSingleSignatureAdapter::adapt(message);
+                match certifier_service
+                    .register_single_signature(&signed_entity_type, &signature)
+                    .await
+                {
+                    Err(err) => match err.downcast_ref::<CertifierServiceError>() {
+                        Some(CertifierServiceError::AlreadyCertified(signed_entity_type)) => {
+                            debug!("register_signatures::open_message_already_certified"; "signed_entity_type" => ?signed_entity_type);
+                            Ok(reply::empty(StatusCode::GONE))
+                        }
+                        Some(CertifierServiceError::NotFound(signed_entity_type)) => {
+                            debug!("register_signatures::not_found"; "signed_entity_type" => ?signed_entity_type);
+                            Ok(reply::empty(StatusCode::NOT_FOUND))
+                        }
+                        Some(_) | None => {
+                            warn!("register_signatures::error"; "error" => ?err);
+                            Ok(reply::internal_server_error(err.to_string()))
+                        }
+                    },
+                    Ok(()) => Ok(reply::empty(StatusCode::CREATED)),
+                }
             }
             Err(err) => {
-                warn!("register_signatures::error"; "error" => ?err);
+                warn!("register_signatures::cant_retrieve_signed_entity_type"; "error" => ?err);
                 Ok(reply::internal_server_error(err.to_string()))
             }
-            Ok(()) => Ok(reply::empty(StatusCode::CREATED)),
         }
     }
 }
@@ -72,15 +87,14 @@ mod handlers {
 mod tests {
 
     use crate::http_server::SERVER_BASE_PATH;
-    use mithril_common::entities::ProtocolMessage;
+    use mithril_common::entities::SignedEntityType;
     use mithril_common::messages::RegisterSignatureMessage;
     use mithril_common::test_utils::apispec::APISpec;
-    use tokio::sync::RwLock;
     use warp::http::Method;
     use warp::test::request;
 
     use super::*;
-    use crate::multi_signer::MockMultiSigner;
+    use crate::certifier_service::{CertifierServiceError, MockCertifierService};
     use crate::{initialize_dependencies, ProtocolError};
 
     fn setup_router(
@@ -98,15 +112,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_signatures_post_ok() {
-        let mut mock_multi_signer = MockMultiSigner::new();
-        mock_multi_signer
-            .expect_get_current_message()
-            .return_once(|| Some(ProtocolMessage::new()));
-        mock_multi_signer
+        let mut mock_certifier_service = MockCertifierService::new();
+        mock_certifier_service
             .expect_register_single_signature()
-            .return_once(|_, _| Ok(()));
+            .return_once(move |_, _| Ok(()));
         let (mut dependency_manager, _) = initialize_dependencies().await;
-        dependency_manager.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
+        dependency_manager.certifier_service = Arc::new(mock_certifier_service);
 
         let message = RegisterSignatureMessage::dummy();
 
@@ -132,15 +143,12 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_signatures_post_ko_400() {
-        let mut mock_multi_signer = MockMultiSigner::new();
-        mock_multi_signer
-            .expect_get_current_message()
-            .return_once(|| Some(ProtocolMessage::new()));
-        mock_multi_signer
+        let mut mock_certifier_service = MockCertifierService::new();
+        mock_certifier_service
             .expect_register_single_signature()
-            .return_once(|_, _| Ok(()));
+            .return_once(move |_, _| Ok(()));
         let (mut dependency_manager, _) = initialize_dependencies().await;
-        dependency_manager.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
+        dependency_manager.certifier_service = Arc::new(mock_certifier_service);
 
         let mut message = RegisterSignatureMessage::dummy();
         message.signature = "invalid-signature".to_string();
@@ -166,18 +174,54 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_register_signatures_post_ko_409() {
+    async fn test_register_signatures_post_ko_404() {
+        let signed_entity_type = SignedEntityType::dummy();
         let message = RegisterSignatureMessage::dummy();
-        let party_id = message.party_id.clone();
-        let mut mock_multi_signer = MockMultiSigner::new();
-        mock_multi_signer
-            .expect_get_current_message()
-            .return_once(|| Some(ProtocolMessage::new()));
-        mock_multi_signer
+        let mut mock_certifier_service = MockCertifierService::new();
+        mock_certifier_service
             .expect_register_single_signature()
-            .return_once(move |_, _| Err(ProtocolError::ExistingSingleSignature(party_id)));
+            .return_once(move |_, _| {
+                Err(Box::new(CertifierServiceError::NotFound(
+                    signed_entity_type,
+                )))
+            });
         let (mut dependency_manager, _) = initialize_dependencies().await;
-        dependency_manager.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
+        dependency_manager.certifier_service = Arc::new(mock_certifier_service);
+
+        let method = Method::POST.as_str();
+        let path = "/register-signatures";
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .json(&message)
+            .reply(&setup_router(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/json",
+            &message,
+            &response,
+        );
+    }
+
+    #[tokio::test]
+    async fn test_register_signatures_post_ko_410() {
+        let signed_entity_type = SignedEntityType::dummy();
+        let message = RegisterSignatureMessage::dummy();
+        let mut mock_certifier_service = MockCertifierService::new();
+        mock_certifier_service
+            .expect_register_single_signature()
+            .return_once(move |_, _| {
+                Err(Box::new(CertifierServiceError::AlreadyCertified(
+                    signed_entity_type,
+                )))
+            });
+        let (mut dependency_manager, _) = initialize_dependencies().await;
+        dependency_manager.certifier_service = Arc::new(mock_certifier_service);
 
         let method = Method::POST.as_str();
         let path = "/register-signatures";
@@ -201,15 +245,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_signatures_post_ko_500() {
-        let mut mock_multi_signer = MockMultiSigner::new();
-        mock_multi_signer
-            .expect_get_current_message()
-            .return_once(|| Some(ProtocolMessage::new()));
-        mock_multi_signer
+        let mut mock_certifier_service = MockCertifierService::new();
+        mock_certifier_service
             .expect_register_single_signature()
-            .return_once(|_, _| Err(ProtocolError::Core("an error occurred".to_string())));
+            .return_once(move |_, _| {
+                Err(Box::new(ProtocolError::Core(
+                    "an error occurred".to_string(),
+                )))
+            });
         let (mut dependency_manager, _) = initialize_dependencies().await;
-        dependency_manager.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
+        dependency_manager.certifier_service = Arc::new(mock_certifier_service);
 
         let message = RegisterSignatureMessage::dummy();
 

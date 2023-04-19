@@ -17,8 +17,8 @@ use tokio::sync::{Mutex, RwLock};
 use crate::{
     artifact_builder::ArtifactBuilderService, certifier_service::CertifierService,
     configuration::*, database::provider::StakePoolStore, signable_builder::SignableBuilderService,
-    signer_registerer::SignerRecorder, CertificatePendingStore, CertificateStore,
-    ProtocolParametersStore, ProtocolParametersStorer, SignerRegisterer,
+    signer_registerer::SignerRecorder, ticker_service::TickerService, CertificatePendingStore,
+    CertificateStore, ProtocolParametersStore, ProtocolParametersStorer, SignerRegisterer,
     SignerRegistrationRoundOpener, SingleSignatureStore, Snapshotter, VerificationKeyStore,
     VerificationKeyStorer,
 };
@@ -122,6 +122,9 @@ pub struct DependencyManager {
 
     /// Certifier Service
     pub certifier_service: Arc<dyn CertifierService>,
+
+    /// Ticker Service
+    pub ticker_service: Arc<dyn TickerService>,
 }
 
 #[doc(hidden)]
