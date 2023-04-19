@@ -307,7 +307,7 @@ mod tests {
 
     use super::*;
 
-    fn test_single_signature_records(
+    fn setup_single_signature_records(
         total_epoch: u64,
         total_open_message: u64,
         total_signer: u64,
@@ -315,13 +315,13 @@ mod tests {
         let mut single_signature_records = Vec::new();
         for epoch in 1..=total_epoch {
             for open_message_idx in 1..=total_open_message {
+                let open_message_id = Uuid::new_v4();
                 for signer_idx in 1..=total_signer {
                     let single_signature_id = epoch
                         + (epoch + 1) * open_message_idx
                         + (epoch + 1) * (open_message_idx + 1) * signer_idx;
                     single_signature_records.push(SingleSignatureRecord {
-                        open_message_id: Uuid::parse_str("193d1442-e89b-43cf-9519-04d8db9a12ff")
-                            .unwrap(),
+                        open_message_id,
                         signer_id: format!("signer-{signer_idx}"),
                         registration_epoch_setting_id: Epoch(epoch),
                         lottery_indexes: (1..=single_signature_id).collect(),
@@ -360,7 +360,10 @@ mod tests {
             let mut statement = connection.prepare(&query)?;
 
             statement
-                .bind(1, single_signature_record.open_message_id.as_ref())
+                .bind(
+                    1,
+                    single_signature_record.open_message_id.to_string().as_str(),
+                )
                 .unwrap();
             statement
                 .bind(2, single_signature_record.signer_id.as_str())
@@ -495,14 +498,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_single_signature_records() {
-        let single_signature_records = test_single_signature_records(2, 3, 4);
+        let single_signature_records = setup_single_signature_records(2, 3, 4);
 
         let connection = Connection::open(":memory:").unwrap();
-        setup_single_signature_db(&connection, single_signature_records).unwrap();
+        setup_single_signature_db(&connection, single_signature_records.clone()).unwrap();
 
         let provider = SingleSignatureRecordProvider::new(&connection);
 
-        let open_message_id_test = Uuid::parse_str("193d1442-e89b-43cf-9519-04d8db9a12ff").unwrap();
+        let open_message_id_test = single_signature_records[0].open_message_id.to_owned();
         let single_signature_records: Vec<SingleSignatureRecord> = provider
             .get_by_open_message_id(&open_message_id_test)
             .unwrap()
@@ -521,7 +524,11 @@ mod tests {
         assert!(!single_signature_records.is_empty());
         assert_eq!(expected_single_signature_records, single_signature_records);
 
-        let open_message_id_test = Uuid::parse_str("193d1442-e89b-43cf-9519-04d8db9a12ff").unwrap();
+        let open_message_id_test = single_signature_records
+            .last()
+            .unwrap()
+            .open_message_id
+            .to_owned();
         let single_signature_records: Vec<SingleSignatureRecord> = provider
             .get_by_open_message_id(&open_message_id_test)
             .unwrap()
@@ -556,7 +563,7 @@ mod tests {
 
     #[test]
     fn test_update_single_signature_record() {
-        let single_signature_records = test_single_signature_records(2, 3, 4);
+        let single_signature_records = setup_single_signature_records(2, 3, 4);
         let single_signature_records_copy = single_signature_records.clone();
 
         let connection = Connection::open(":memory:").unwrap();
