@@ -15,7 +15,8 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{Mutex, RwLock};
 
 use crate::{
-    configuration::*, database::provider::StakePoolStore, signer_registerer::SignerRecorder,
+    artifact_builder::ArtifactBuilderService, configuration::*, database::provider::StakePoolStore,
+    signable_builder::SignableBuilderService, signer_registerer::SignerRecorder,
     CertificatePendingStore, CertificateStore, ProtocolParametersStore, ProtocolParametersStorer,
     SignerRegisterer, SignerRegistrationRoundOpener, SingleSignatureStore, Snapshotter,
     VerificationKeyStore, VerificationKeyStorer,
@@ -111,6 +112,12 @@ pub struct DependencyManager {
 
     /// Signer Recorder
     pub signer_recorder: Arc<dyn SignerRecorder>,
+
+    /// Signable Builder Service
+    pub signable_builder_service: Arc<SignableBuilderService>,
+
+    /// Artifact Builder Service
+    pub artifact_builder_service: Arc<ArtifactBuilderService>,
 }
 
 #[doc(hidden)]

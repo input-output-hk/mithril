@@ -5,6 +5,8 @@ use std::{
 };
 use thiserror::Error;
 
+use crate::signable_builder::Beacon as SignableBeacon;
+
 /// Epoch represents a Cardano epoch
 #[derive(
     Debug, Copy, Clone, Default, PartialEq, Serialize, Deserialize, Hash, Eq, PartialOrd, Ord,
@@ -140,6 +142,8 @@ impl Display for Epoch {
         write!(f, "{}", self.0)
     }
 }
+
+impl SignableBeacon for Epoch {}
 
 /// EpochError is an error triggerred by an [Epoch]
 #[derive(Error, Debug)]

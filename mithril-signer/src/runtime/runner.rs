@@ -485,6 +485,7 @@ mod tests {
             adapters::{EraReaderAdapterType, EraReaderBootstrapAdapter},
             EraChecker, EraReader,
         },
+        signable_builder::DummySignableBuilder,
         store::{
             adapter::{DumbStoreAdapter, MemoryAdapter},
             StakeStore, StakeStorer,
@@ -496,8 +497,8 @@ mod tests {
     use std::{path::PathBuf, sync::Arc};
 
     use crate::{
-        CertificateHandler, DumbCertificateHandler, MithrilSingleSigner, MockCertificateHandler,
-        ProtocolInitializerStore, SingleSigner,
+        signable_builder::SignableBuilderService, CertificateHandler, DumbCertificateHandler,
+        MithrilSingleSigner, MockCertificateHandler, ProtocolInitializerStore, SingleSigner,
     };
 
     use super::*;
@@ -533,6 +534,10 @@ mod tests {
 
         let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
 
+        let dummy_signable_builder = DummySignableBuilder::new();
+        let signable_builder_service =
+            Arc::new(SignableBuilderService::new(dummy_signable_builder));
+
         SignerServices {
             stake_store: Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None)),
             certificate_handler: Arc::new(DumbCertificateHandler::default()),
@@ -547,6 +552,7 @@ mod tests {
             era_checker,
             era_reader,
             api_version_provider,
+            signable_builder_service,
         }
     }
 

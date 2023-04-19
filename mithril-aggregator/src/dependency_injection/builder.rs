@@ -19,6 +19,7 @@ use mithril_common::{
         adapters::{EraReaderAdapterBuilder, EraReaderDummyAdapter},
         EraChecker, EraMarker, EraReader, EraReaderAdapter, SupportedEra,
     },
+    signable_builder::DummySignableBuilder,
     store::adapter::{MemoryAdapter, SQLiteAdapter, StoreAdapter},
     BeaconProvider, BeaconProviderImpl,
 };
@@ -35,6 +36,7 @@ use tokio::{
 use warp::Filter;
 
 use crate::{
+    artifact_builder::{ArtifactBuilderService, DummyArtifactBuilder},
     configuration::{ExecutionEnvironment, LIST_SNAPSHOTS_MAX_ITEMS},
     database::provider::{
         CertificateStoreAdapter, EpochSettingStore, SignedEntityStoreAdapter,
@@ -42,6 +44,7 @@ use crate::{
     },
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
+    signable_builder::SignableBuilderService,
     signer_registerer::SignerRecorder,
     stake_distribution_service::{MithrilStakeDistributionService, StakeDistributionService},
     ticker_service::{MithrilTickerService, TickerService},
@@ -156,6 +159,12 @@ pub struct DependenciesBuilder {
 
     /// Signer Recorder
     pub signer_recorder: Option<Arc<dyn SignerRecorder>>,
+
+    /// Signable Builder Service
+    pub signable_builder_service: Option<Arc<SignableBuilderService>>,
+
+    /// Artifact Builder Service
+    pub artifact_builder_service: Option<Arc<ArtifactBuilderService>>,
 }
 
 impl DependenciesBuilder {
@@ -193,6 +202,8 @@ impl DependenciesBuilder {
             stake_distribution_service: None,
             ticker_service: None,
             signer_recorder: None,
+            signable_builder_service: None,
+            artifact_builder_service: None,
         }
     }
 
@@ -968,6 +979,40 @@ impl DependenciesBuilder {
         Ok(self.signer_recorder.as_ref().cloned().unwrap())
     }
 
+    async fn build_signable_builder_service(&mut self) -> Result<Arc<SignableBuilderService>> {
+        let dummy_signable_builder = DummySignableBuilder::new();
+        let signable_builder_service =
+            Arc::new(SignableBuilderService::new(dummy_signable_builder));
+
+        Ok(signable_builder_service)
+    }
+
+    /// [SignableBuilderService] service
+    pub async fn get_signable_builder_service(&mut self) -> Result<Arc<SignableBuilderService>> {
+        if self.signable_builder_service.is_none() {
+            self.signable_builder_service = Some(self.build_signable_builder_service().await?);
+        }
+
+        Ok(self.signable_builder_service.as_ref().cloned().unwrap())
+    }
+
+    async fn build_artifact_builder_service(&mut self) -> Result<Arc<ArtifactBuilderService>> {
+        let dummy_artifact_builder = DummyArtifactBuilder::new();
+        let artifact_builder_service =
+            Arc::new(ArtifactBuilderService::new(dummy_artifact_builder));
+
+        Ok(artifact_builder_service)
+    }
+
+    /// [ArtifactBuilderService] service
+    pub async fn get_artifact_builder_service(&mut self) -> Result<Arc<ArtifactBuilderService>> {
+        if self.artifact_builder_service.is_none() {
+            self.artifact_builder_service = Some(self.build_artifact_builder_service().await?);
+        }
+
+        Ok(self.artifact_builder_service.as_ref().cloned().unwrap())
+    }
+
     /// Return an unconfigured [DependencyManager]
     pub async fn build_dependency_container(&mut self) -> Result<DependencyManager> {
         let dependency_manager = DependencyManager {
@@ -997,6 +1042,8 @@ impl DependenciesBuilder {
             api_version_provider: self.get_api_version_provider().await?,
             stake_distribution_service: self.get_stake_distribution_service().await?,
             signer_recorder: self.get_signer_recorder().await?,
+            signable_builder_service: self.get_signable_builder_service().await?,
+            artifact_builder_service: self.get_artifact_builder_service().await?,
         };
 
         Ok(dependency_manager)

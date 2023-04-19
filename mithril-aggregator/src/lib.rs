@@ -11,6 +11,7 @@
 //! signed certificates.
 //! You can find more information on how it works reading the [documentation website](https://mithril.network/doc/mithril/mithril-network/aggregator).
 
+mod artifact_builder;
 mod certificate_creator;
 mod command_args;
 mod configuration;
@@ -22,6 +23,7 @@ mod http_server;
 mod message_adapters;
 mod multi_signer;
 mod runtime;
+mod signable_builder;
 mod signer_registerer;
 mod snapshot_stores;
 mod snapshot_uploaders;
