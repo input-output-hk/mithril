@@ -33,6 +33,6 @@ where
     fn next(&mut self) -> Option<T> {
         self.cursor
             .next()
-            .map(|res| T::hydrate(res.unwrap()).unwrap())
+            .map(|res| T::hydrate(res.map_err(|e| panic!("{e}")).unwrap()).unwrap())
     }
 }

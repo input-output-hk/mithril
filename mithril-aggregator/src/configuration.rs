@@ -146,7 +146,7 @@ impl Configuration {
             run_interval: 5000,
             db_directory: PathBuf::new(),
             snapshot_directory: PathBuf::new(),
-            data_stores_directory: PathBuf::new(),
+            data_stores_directory: PathBuf::from(":memory:"),
             genesis_verification_key: key_encode_hex(genesis_verification_key).unwrap(),
             reset_digests_cache: false,
             disable_digests_cache: false,

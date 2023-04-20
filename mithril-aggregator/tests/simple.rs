@@ -1,10 +1,11 @@
 mod test_extensions;
 
+use mithril_aggregator::Configuration;
 use mithril_common::{
     entities::{ProtocolParameters, SignerWithStake},
     test_utils::MithrilFixtureBuilder,
 };
-use test_extensions::RuntimeTester;
+use test_extensions::{utilities::get_test_dir, RuntimeTester};
 
 #[tokio::test]
 async fn simple_scenario() {
@@ -13,7 +14,12 @@ async fn simple_scenario() {
         m: 100,
         phi_f: 0.65,
     };
-    let mut tester = RuntimeTester::build(protocol_parameters.clone()).await;
+    let configuration = Configuration {
+        protocol_parameters: protocol_parameters.clone(),
+        data_stores_directory: get_test_dir("simple_scenario").join("aggregator.sqlite3"),
+        ..Configuration::new_sample()
+    };
+    let mut tester = RuntimeTester::build(configuration).await;
 
     comment!("Create signers & declare stake distribution");
     let fixture = MithrilFixtureBuilder::default()

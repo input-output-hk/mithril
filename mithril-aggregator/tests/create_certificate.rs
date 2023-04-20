@@ -2,11 +2,12 @@ mod test_extensions;
 
 use std::collections::BTreeSet;
 
+use mithril_aggregator::Configuration;
 use mithril_common::{
     entities::{ProtocolMessagePartKey, ProtocolParameters},
     test_utils::MithrilFixtureBuilder,
 };
-use test_extensions::RuntimeTester;
+use test_extensions::{utilities::get_test_dir, RuntimeTester};
 
 #[tokio::test]
 async fn create_certificate() {
@@ -15,7 +16,12 @@ async fn create_certificate() {
         m: 100,
         phi_f: 0.95,
     };
-    let mut tester = RuntimeTester::build(protocol_parameters.clone()).await;
+    let configuration = Configuration {
+        protocol_parameters: protocol_parameters.clone(),
+        data_stores_directory: get_test_dir("create_certificate").join("aggregator.sqlite3"),
+        ..Configuration::new_sample()
+    };
+    let mut tester = RuntimeTester::build(configuration).await;
 
     comment!("create signers & declare stake distribution");
     let fixture = MithrilFixtureBuilder::default()

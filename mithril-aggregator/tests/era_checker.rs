@@ -1,5 +1,5 @@
 mod test_extensions;
-use mithril_aggregator::RuntimeError;
+use mithril_aggregator::{Configuration, RuntimeError};
 use mithril_common::{
     chain_observer::ChainObserver,
     entities::{Epoch, ProtocolParameters},
@@ -7,7 +7,7 @@ use mithril_common::{
     test_utils::MithrilFixtureBuilder,
 };
 
-use test_extensions::RuntimeTester;
+use test_extensions::{utilities::get_test_dir, RuntimeTester};
 
 // NOTE: Due to the shared nature of the Logger, there cannot be two methods in
 // the same test file. Because the logger is wiped of memory when the first
@@ -19,7 +19,12 @@ async fn testing_eras() {
         m: 100,
         phi_f: 0.95,
     };
-    let mut tester = RuntimeTester::build(protocol_parameters.clone()).await;
+    let configuration = Configuration {
+        protocol_parameters: protocol_parameters.clone(),
+        data_stores_directory: get_test_dir("testing_eras").join("aggregator.sqlite3"),
+        ..Configuration::new_sample()
+    };
+    let mut tester = RuntimeTester::build(configuration).await;
     tester.era_reader_adapter.set_markers(vec![
         EraMarker::new("unsupported", Some(Epoch(0))),
         EraMarker::new(&SupportedEra::dummy().to_string(), Some(Epoch(12))),

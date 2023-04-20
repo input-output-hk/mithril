@@ -17,8 +17,8 @@ use mithril_aggregator::{
 use mithril_common::crypto_helper::{key_encode_hex, ProtocolClerk, ProtocolGenesisSigner};
 use mithril_common::digesters::DumbImmutableFileObserver;
 use mithril_common::entities::{
-    Certificate, Epoch, ImmutableFileNumber, ProtocolParameters, SignerWithStake, SingleSignatures,
-    Snapshot, StakeDistribution,
+    Certificate, Epoch, ImmutableFileNumber, SignerWithStake, SingleSignatures, Snapshot,
+    StakeDistribution,
 };
 use mithril_common::{chain_observer::FakeObserver, digesters::DumbImmutableDigester};
 
@@ -56,7 +56,7 @@ pub struct RuntimeTester {
 }
 
 impl RuntimeTester {
-    pub async fn build(default_protocol_parameters: ProtocolParameters) -> Self {
+    pub async fn build(configuration: Configuration) -> Self {
         let snapshot_uploader = Arc::new(DumbSnapshotUploader::new());
         let chain_observer = Arc::new(FakeObserver::default());
         let immutable_file_observer = Arc::new(DumbImmutableFileObserver::default());
@@ -68,10 +68,6 @@ impl RuntimeTester {
                 &SupportedEra::dummy().to_string(),
                 Some(Epoch(0)),
             )]));
-        let configuration = Configuration {
-            protocol_parameters: default_protocol_parameters,
-            ..Configuration::new_sample()
-        };
         let mut deps_builder = DependenciesBuilder::new(configuration);
         deps_builder.snapshot_uploader = Some(snapshot_uploader.clone());
         deps_builder.chain_observer = Some(chain_observer.clone());

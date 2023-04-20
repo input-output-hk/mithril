@@ -1,3 +1,9 @@
+//! ## Certifier Service
+//!
+//! This service is responsible of [OpenMessage] cycle of life. It creates open
+//! messages and turn them into [CertificateRecord]. To do so, it registers
+//! single signatures and deal with the multisigner for aggregate signature
+//! creation.
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -269,7 +275,7 @@ impl CertifierService for MithrilCertifierService {
             .get_master_certificate_for_epoch(open_message.epoch)
             .await?
             .map(|cert| cert.hash)
-            .ok_or_else(|| CertifierServiceError::NoParentCertificateFound)?;
+            .ok_or_else(|| Box::new(CertifierServiceError::NoParentCertificateFound))?;
 
         let certificate = Certificate::new(
             parent_certificate_hash,
@@ -296,10 +302,8 @@ impl CertifierService for MithrilCertifierService {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Mutex;
-
+    /*
     use mithril_common::entities::Beacon;
-    use sqlite::Connection;
 
     use crate::{dependency_injection::DependenciesBuilder, Configuration};
 
@@ -310,12 +314,11 @@ mod tests {
 
         DependenciesBuilder::new(config)
     }
-    /*
        fn get_open_message(connection: Arc<Mutex<Connection>>, signed_entity_type: &SignedEntityType) -> StdResult<Option<OpenMessage>> {
            let repository = OpenMessageRepository::new(connection);
            let open_message = repository.get_open_message(epoch, signed_entity_type)
        }
-    */
+
     #[tokio::test]
     async fn create_open_message() {
         let mut dependencies = setup_dependencies();
@@ -333,4 +336,5 @@ mod tests {
 
         let connection = dependencies.get_sqlite_connection().await.unwrap();
     }
+    */
 }

@@ -45,6 +45,25 @@ pub struct OpenMessage {
     pub created_at: NaiveDateTime,
 }
 
+impl OpenMessage {
+    #[cfg(test)]
+    /// Create a dumb OpenMessage instance mainly for test purposes
+    pub fn dummy() -> Self {
+        let beacon = mithril_common::test_utils::fake_data::beacon();
+        let epoch = beacon.epoch;
+        let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon);
+
+        Self {
+            open_message_id: Uuid::parse_str("193d1442-e89b-43cf-9519-04d8db9a12ff").unwrap(),
+            epoch,
+            signed_entity_type,
+            protocol_message: ProtocolMessage::new(),
+            is_certified: false,
+            created_at: chrono::Local::now().naive_local(),
+        }
+    }
+}
+
 impl From<OpenMessageWithSingleSignatures> for OpenMessage {
     fn from(value: OpenMessageWithSingleSignatures) -> Self {
         Self {

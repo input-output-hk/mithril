@@ -77,6 +77,15 @@ pub fn certificate_pending() -> entities::CertificatePending {
     )
 }
 
+/// Fake Genesis Certificate
+pub fn genesis_certificate(certificate_hash: String) -> entities::Certificate {
+    let mut certificate = certificate(certificate_hash);
+    certificate.genesis_signature = certificate.multi_signature;
+    certificate.multi_signature = "".to_string();
+
+    certificate
+}
+
 /// Fake Certificate
 pub fn certificate(certificate_hash: String) -> entities::Certificate {
     // Beacon

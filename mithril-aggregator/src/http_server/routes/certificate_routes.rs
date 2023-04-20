@@ -183,7 +183,9 @@ mod tests {
         let (dependency_manager, _) = initialize_dependencies().await;
         dependency_manager
             .certificate_store
-            .save(fake_data::certificate("{certificate_hash}".to_string()))
+            .save(fake_data::genesis_certificate(
+                "{certificate_hash}".to_string(),
+            ))
             .await
             .expect("certificate store save should have succeeded");
 

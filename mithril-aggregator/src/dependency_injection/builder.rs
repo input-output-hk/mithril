@@ -11,10 +11,7 @@ use mithril_common::{
         CardanoImmutableDigester, DumbImmutableFileObserver, ImmutableDigester,
         ImmutableFileObserver, ImmutableFileSystemObserver,
     },
-    entities::{
-        Beacon, Certificate, CertificatePending, Epoch, PartyId, ProtocolParameters,
-        SignerWithStake, SingleSignatures,
-    },
+    entities::{Beacon, CertificatePending, Epoch, PartyId, SingleSignatures},
     era::{
         adapters::{EraReaderAdapterBuilder, EraReaderDummyAdapter},
         EraChecker, EraMarker, EraReader, EraReaderAdapter, SupportedEra,
@@ -228,7 +225,7 @@ impl DependenciesBuilder {
             ExecutionEnvironment::Production => {
                 self.configuration.get_sqlite_dir().join(SQLITE_FILE)
             }
-            _ => ":memory:".into(),
+            _ => self.configuration.data_stores_directory.clone(),
         };
         let connection = Connection::open(&path)
             .map(|c| Arc::new(Mutex::new(c)))
@@ -290,27 +287,10 @@ impl DependenciesBuilder {
     }
 
     async fn build_snapshot_store(&mut self) -> Result<Arc<dyn SnapshotStore>> {
-        let adapter: Box<
-            dyn StoreAdapter<Key = String, Record = mithril_common::entities::Snapshot>,
-        > = match self.configuration.environment {
-            ExecutionEnvironment::Production => {
-                let adapter = SignedEntityStoreAdapter::new(self.get_sqlite_connection().await?);
-
-                Box::new(adapter)
-            }
-            _ => {
-                let adapter = MemoryAdapter::new(None).map_err(|e| {
-                    DependenciesBuilderError::Initialization {
-                        message: "Cannot create Memory adapter for Snapshot Store.".to_string(),
-                        error: Some(e.into()),
-                    }
-                })?;
-                Box::new(adapter)
-            }
-        };
-
         Ok(Arc::new(LocalSnapshotStore::new(
-            adapter,
+            Box::new(SignedEntityStoreAdapter::new(
+                self.get_sqlite_connection().await?,
+            )),
             LIST_SNAPSHOTS_MAX_ITEMS,
         )))
     }
@@ -423,26 +403,9 @@ impl DependenciesBuilder {
     }
 
     async fn build_certificate_store(&mut self) -> Result<Arc<CertificateStore>> {
-        let adapter: Box<dyn StoreAdapter<Key = String, Record = Certificate>> =
-            match self.configuration.environment {
-                ExecutionEnvironment::Production => {
-                    let adapter = CertificateStoreAdapter::new(self.get_sqlite_connection().await?);
-
-                    Box::new(adapter)
-                }
-                _ => {
-                    let adapter = MemoryAdapter::new(None).map_err(|e| {
-                        DependenciesBuilderError::Initialization {
-                            message: "Cannot create Memory adapter for Certificate Store."
-                                .to_string(),
-                            error: Some(e.into()),
-                        }
-                    })?;
-                    Box::new(adapter)
-                }
-            };
-
-        Ok(Arc::new(CertificateStore::new(adapter)))
+        Ok(Arc::new(CertificateStore::new(Box::new(
+            CertificateStoreAdapter::new(self.get_sqlite_connection().await?),
+        ))))
     }
 
     /// Get a configured [CertificateStore].
@@ -455,29 +418,10 @@ impl DependenciesBuilder {
     }
 
     async fn build_verification_key_store(&mut self) -> Result<Arc<VerificationKeyStore>> {
-        let adapter: Box<
-            dyn StoreAdapter<Key = Epoch, Record = HashMap<PartyId, SignerWithStake>>,
-        > = match self.configuration.environment {
-            ExecutionEnvironment::Production => {
-                let adapter =
-                    SignerRegistrationStoreAdapter::new(self.get_sqlite_connection().await?);
-
-                Box::new(adapter)
-            }
-            _ => {
-                let adapter = MemoryAdapter::new(None).map_err(|e| {
-                    DependenciesBuilderError::Initialization {
-                        message: "Cannot create Memory adapter for VerificationKeyStore."
-                            .to_string(),
-                        error: Some(e.into()),
-                    }
-                })?;
-                Box::new(adapter)
-            }
-        };
-
         Ok(Arc::new(VerificationKeyStore::new(
-            adapter,
+            Box::new(SignerRegistrationStoreAdapter::new(
+                self.get_sqlite_connection().await?,
+            )),
             self.configuration.store_retention_limit,
         )))
     }
@@ -535,27 +479,8 @@ impl DependenciesBuilder {
     }
 
     async fn build_protocol_parameters_store(&mut self) -> Result<Arc<ProtocolParametersStore>> {
-        let adapter: Box<dyn StoreAdapter<Key = Epoch, Record = ProtocolParameters>> =
-            match self.configuration.environment {
-                ExecutionEnvironment::Production => {
-                    let adapter = EpochSettingStore::new(self.get_sqlite_connection().await?);
-
-                    Box::new(adapter)
-                }
-                _ => {
-                    let adapter = MemoryAdapter::new(None).map_err(|e| {
-                        DependenciesBuilderError::Initialization {
-                            message: "Cannot create Memory adapter for ProtocolParametersStore."
-                                .to_string(),
-                            error: Some(e.into()),
-                        }
-                    })?;
-                    Box::new(adapter)
-                }
-            };
-
         Ok(Arc::new(ProtocolParametersStore::new(
-            adapter,
+            Box::new(EpochSettingStore::new(self.get_sqlite_connection().await?)),
             self.configuration.store_retention_limit,
         )))
     }

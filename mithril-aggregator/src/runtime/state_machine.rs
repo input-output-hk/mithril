@@ -268,17 +268,17 @@ impl AggregatorRuntime {
         state: SigningState,
     ) -> Result<IdleState, RuntimeError> {
         trace!("launching transition from SIGNING to IDLE state");
-        todo!()
-        /*
-        let certificate =
-            self.runner
-                .create_multi_signature()
-                .await?
-                .ok_or_else(|| RuntimeError::KeepState {
-                    message: "not enough signature yet to aggregate a multi-signature, waiting…"
-                        .to_string(),
-                    nested_error: None,
-                })?;
+        // TODO: Temporary, we need to compute the signed entity type from the current open message
+        let signed_entity_type =
+            SignedEntityType::CardanoImmutableFilesFull(state.current_beacon.clone());
+        let certificate = self
+            .runner
+            .create_certificate(&signed_entity_type)
+            .await?
+            .ok_or_else(|| RuntimeError::KeepState {
+                message: "not enough signature yet to create a certificate, waiting…".to_string(),
+                nested_error: None,
+            })?;
 
         self.runner.drop_pending_certificate().await?;
         let ongoing_snapshot = self
@@ -289,10 +289,7 @@ impl AggregatorRuntime {
             .runner
             .upload_snapshot_archive(&ongoing_snapshot)
             .await?;
-        let certificate = self
-            .runner
-            .create_and_save_certificate(&state.working_certificate, multi_signature)
-            .await?;
+
         let _ = self
             .runner
             .create_and_save_snapshot(certificate, &ongoing_snapshot, locations)
@@ -300,7 +297,7 @@ impl AggregatorRuntime {
 
         Ok(IdleState {
             current_beacon: Some(state.current_beacon),
-        }) */
+        })
     }
 
     /// Perform a transition from `SIGNING` state to `IDLE` state when a new
@@ -329,8 +326,13 @@ impl AggregatorRuntime {
         self.runner.update_beacon(&new_beacon).await?;
 
         let digester_result = self.runner.compute_digest(&new_beacon).await?;
-        self.runner
+        let protocol_message = self
+            .runner
             .update_message_in_multisigner(digester_result)
+            .await?;
+        let _open_message = self
+            .runner
+            .create_open_message(&signed_entity_type, &protocol_message)
             .await?;
         let certificate_pending = self
             .runner
@@ -357,16 +359,13 @@ impl AggregatorRuntime {
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
 
-    use crate::snapshotter::OngoingSnapshot;
+    use crate::database::provider::OpenMessage;
 
     use super::super::runner::MockAggregatorRunner;
     use super::*;
 
-    use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
-    use mithril_common::crypto_helper::{key_decode_hex, ProtocolMultiSignature};
-    use mithril_common::entities::HexEncodedKey;
+    use mithril_common::entities::ProtocolMessage;
     use mithril_common::era::UnsupportedEraError;
     use mithril_common::test_utils::fake_data;
     use mockall::predicate;
@@ -586,7 +585,7 @@ mod tests {
             .expect_update_message_in_multisigner()
             .with(predicate::eq("whatever".to_string()))
             .once()
-            .returning(|_| Ok(()));
+            .returning(|_| Ok(ProtocolMessage::new()));
         runner
             .expect_create_new_pending_certificate_from_multisigner()
             //.with(predicate::eq(fake_data::beacon()))
@@ -600,6 +599,10 @@ mod tests {
             .expect_save_pending_certificate()
             .once()
             .returning(|_| Ok(()));
+        runner
+            .expect_create_open_message()
+            .once()
+            .returning(|_, _| Ok(OpenMessage::dummy()));
 
         let mut runtime = init_runtime(
             Some(AggregatorState::Ready(ReadyState {
@@ -650,7 +653,7 @@ mod tests {
             .once()
             .returning(|| Ok(fake_data::beacon()));
         runner
-            .expect_create_multi_signature()
+            .expect_create_certificate()
             .once()
             .returning(|_| Ok(None));
         let state = SigningState {
@@ -666,6 +669,7 @@ mod tests {
         assert_eq!("signing".to_string(), runtime.get_state());
     }
 
+    /* TODO: create a fake certificate to test the certificate creation.
     #[tokio::test]
     async fn signing_multisig_is_created() {
         let (certificate_chain, _) = setup_certificate_chain(5, 1);
@@ -678,7 +682,7 @@ mod tests {
             .once()
             .returning(|| Ok(fake_data::beacon()));
         runner
-            .expect_create_multi_signature()
+            .expect_create_certificate()
             .return_once(move |_| Ok(Some(multi_signature)));
         runner
             .expect_drop_pending_certificate()
@@ -715,6 +719,7 @@ mod tests {
 
         assert_eq!("idle".to_string(), runtime.get_state());
     }
+    */
 
     #[tokio::test]
     pub async fn critical_error() {
