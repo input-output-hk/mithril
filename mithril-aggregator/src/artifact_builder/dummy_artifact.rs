@@ -1,10 +1,14 @@
 use std::marker::PhantomData;
 
 use async_trait::async_trait;
-use mithril_common::{entities::Certificate, signable_builder::DummyBeacon, StdResult};
+use mithril_common::{
+    entities::Certificate,
+    signable_builder::{Artifact, DummyBeacon},
+    StdResult,
+};
 use serde::{Deserialize, Serialize};
 
-use crate::artifact_builder::{Artifact, ArtifactBuilder};
+use crate::artifact_builder::ArtifactBuilder;
 
 /// Dummy artifact
 #[derive(Serialize, Deserialize, PartialEq, Debug)]

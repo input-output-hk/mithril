@@ -2,13 +2,11 @@ use std::sync::Arc;
 
 use mithril_common::{
     entities::{Certificate, SignedEntityType},
-    signable_builder::DummyBeacon,
+    signable_builder::{Artifact, DummyBeacon},
     StdResult,
 };
 
-use crate::artifact_builder::{Artifact, DummyArtifactBuilder};
-
-use super::ArtifactBuilder;
+use crate::artifact_builder::{ArtifactBuilder, DummyArtifactBuilder};
 
 /// ArtifactBuilder Service
 // TODO: temporary implementation
