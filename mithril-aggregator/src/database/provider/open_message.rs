@@ -439,7 +439,7 @@ impl SqLiteEntity for OpenMessageWithSingleSignatures {
             ("protocol_message", "{:open_message:}.protocol_message", "text"),
             ("is_certified", "{:open_message:}.is_certified", "bool"),
             ("created_at", "{:open_message:}.created_at", "text"),
-            ("single_signatures", "json_group_array(json_object('signer_id', {:single_signature:}.signer_id, 'signature', {:single_signature:}.signature, 'won_indexes', {:single_signature:}.lottery_indexes))", "text")
+            ("single_signatures", "case when {:single_signature:}.signer_id is null then json('[]') else json_group_array(json_object('party_id', {:single_signature:}.signer_id, 'signature', {:single_signature:}.signature, 'indexes', json({:single_signature:}.lottery_indexes))) end", "text")
         ])
     }
 }
@@ -509,7 +509,7 @@ mod tests {
         ]);
 
         assert_eq!(
-            "open_message.open_message_id as open_message_id, open_message.epoch_setting_id as epoch_setting_id, open_message.beacon as beacon, open_message.signed_entity_type_id as signed_entity_type_id, open_message.protocol_message as protocol_message, open_message.is_certified as is_certified, open_message.created_at as created_at, json_group_array(json_object('signer_id', single_signature.signer_id, 'signature', single_signature.signature, 'won_indexes', single_signature.lottery_indexes)) as single_signatures".to_string(),
+            "open_message.open_message_id as open_message_id, open_message.epoch_setting_id as epoch_setting_id, open_message.beacon as beacon, open_message.signed_entity_type_id as signed_entity_type_id, open_message.protocol_message as protocol_message, open_message.is_certified as is_certified, open_message.created_at as created_at, case when single_signature.signer_id is null then json('[]') else json_group_array(json_object('party_id', single_signature.signer_id, 'signature', single_signature.signature, 'indexes', json(single_signature.lottery_indexes))) end as single_signatures".to_string(),
             projection.expand(aliases)
         )
     }
