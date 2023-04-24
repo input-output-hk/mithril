@@ -282,26 +282,14 @@ create table single_signature (
 "#,
         ),
         // Migration 10
-        // Add the single signatures attached to the open messages.  This table
-        // does not have a previous existence so no data migration is needed.
+        // Alter `open_message` table and drop `single_signature_legacy` table
         SqlMigration::new(
             10,
             r#"
-create table new_open_message (
-	open_message_id         text    not null,
-    epoch_setting_id        int     not null,
-    beacon                  json    not null,
-    signed_entity_type_id   int     not null,
-    protocol_message        json    not null,
-    is_certified            bool    not null default false,
-    created_at              text    not null default current_timestamp,
-    primary key (open_message_id),
-    foreign key (epoch_setting_id)     references epoch_setting (epoch_setting_id),
-    foreign key (signed_entity_type_id) references signed_entity_type (signed_entity_type_id)
-);
-alter table open_message rename to old_open_message;
-alter table new_open_message rename to open_message;
-drop table old_open_message;
+drop table single_signature_legacy;
+alter table open_message drop column message;
+alter table open_message add column protocol_message json not null;
+alter table open_message add column is_certified bool not null default false;
 "#,
         ),
     ]
