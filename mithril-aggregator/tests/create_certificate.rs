@@ -67,9 +67,10 @@ async fn create_certificate() {
     cycle!(tester, "signing");
 
     comment!("signers send their single signature");
+    let signed_entity_type = tester.retrieve_signed_entity_type().await;
     let signers_who_sign = &signers[0..=6];
     tester
-        .send_single_signatures(signers_who_sign)
+        .send_single_signatures(&signed_entity_type, signers_who_sign)
         .await
         .unwrap();
 

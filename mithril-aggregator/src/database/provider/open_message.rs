@@ -482,7 +482,7 @@ from open_message
         on open_message.open_message_id = single_signature.open_message_id 
 where {condition}
 group by open_message.open_message_id
-order by open_message.created_at desc
+order by open_message.rowid desc
 "#
         )
     }

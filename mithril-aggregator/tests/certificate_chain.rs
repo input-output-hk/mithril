@@ -60,7 +60,11 @@ async fn certificate_chain() {
     cycle!(tester, "signing");
     tester.register_signers(&signers).await.unwrap();
     cycle_err!(tester, "signing");
-    tester.send_single_signatures(&signers).await.unwrap();
+    let signed_entity_type = tester.retrieve_signed_entity_type().await;
+    tester
+        .send_single_signatures(&signed_entity_type, &signers)
+        .await
+        .unwrap();
 
     comment!("The state machine should have issued a multisignature");
     cycle!(tester, "idle");
@@ -76,7 +80,11 @@ async fn certificate_chain() {
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "ready");
     cycle!(tester, "signing");
-    tester.send_single_signatures(&signers).await.unwrap();
+    let signed_entity_type = tester.retrieve_signed_entity_type().await;
+    tester
+        .send_single_signatures(&signed_entity_type, &signers)
+        .await
+        .unwrap();
     cycle!(tester, "idle");
     let (last_certificates, snapshots) =
         tester.get_last_certificates_and_snapshots().await.unwrap();
@@ -135,7 +143,11 @@ async fn certificate_chain() {
         "Signers register & send signatures, the new certificate should be link to the first of the previous epoch"
     );
     tester.register_signers(&new_signers).await.unwrap();
-    tester.send_single_signatures(&signers).await.unwrap();
+    let signed_entity_type = tester.retrieve_signed_entity_type().await;
+    tester
+        .send_single_signatures(&signed_entity_type, &signers)
+        .await
+        .unwrap();
     cycle!(tester, "idle");
     let (last_certificates, snapshots) =
         tester.get_last_certificates_and_snapshots().await.unwrap();
@@ -170,7 +182,12 @@ async fn certificate_chain() {
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "ready");
     cycle!(tester, "signing");
-    tester.send_single_signatures(&signers).await.unwrap();
+
+    let signed_entity_type = tester.retrieve_signed_entity_type().await;
+    tester
+        .send_single_signatures(&signed_entity_type, &signers)
+        .await
+        .unwrap();
     cycle!(tester, "idle");
 
     comment!(
@@ -182,7 +199,12 @@ async fn certificate_chain() {
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "ready");
     cycle!(tester, "signing");
-    tester.send_single_signatures(&new_signers).await.unwrap();
+    let signed_entity_type = tester.retrieve_signed_entity_type().await;
+
+    tester
+        .send_single_signatures(&signed_entity_type, &new_signers)
+        .await
+        .unwrap();
     cycle!(tester, "idle");
 
     let (last_certificates, snapshots) =

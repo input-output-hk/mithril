@@ -17,8 +17,8 @@ use mithril_aggregator::{
 use mithril_common::crypto_helper::{key_encode_hex, ProtocolClerk, ProtocolGenesisSigner};
 use mithril_common::digesters::DumbImmutableFileObserver;
 use mithril_common::entities::{
-    Certificate, Epoch, ImmutableFileNumber, SignerWithStake, SingleSignatures, Snapshot,
-    StakeDistribution,
+    Certificate, Epoch, ImmutableFileNumber, SignedEntityType, SignerWithStake, SingleSignatures,
+    Snapshot, StakeDistribution,
 };
 use mithril_common::{chain_observer::FakeObserver, digesters::DumbImmutableDigester};
 
@@ -148,6 +148,13 @@ impl RuntimeTester {
             .get_current_beacon()
             .await
             .map_err(|e| format!("Querying the current beacon should not fail: {e:?}"))?;
+        self.deps_builder
+            .get_certifier_service()
+            .await
+            .unwrap()
+            .inform_epoch(beacon.epoch)
+            .await
+            .expect("inform_epoch should not fail");
         let protocol_parameters = self
             .deps_builder
             .get_protocol_parameters_store()
@@ -221,6 +228,13 @@ impl RuntimeTester {
             .await
             .ok_or("a new epoch should have been issued")?;
         self.update_digester_digest().await?;
+        self.deps_builder
+            .get_certifier_service()
+            .await
+            .unwrap()
+            .inform_epoch(new_epoch)
+            .await
+            .expect("inform_epoch should not fail");
 
         Ok(new_epoch)
     }
@@ -243,8 +257,10 @@ impl RuntimeTester {
     /// "Send", actually register, the given single signatures in the multi-signers
     pub async fn send_single_signatures(
         &mut self,
+        signed_entity_type: &SignedEntityType,
         signers: &[SignerFixture],
     ) -> Result<(), String> {
+        let certifier_service = self.deps_builder.get_certifier_service().await.unwrap();
         let lock = self.deps_builder.get_multi_signer().await.unwrap();
         let multisigner = lock.read().await;
         let message = multisigner
@@ -263,8 +279,8 @@ impl RuntimeTester {
                     signature.indexes,
                 );
 
-                multisigner
-                    .register_single_signature(&message, &single_signatures)
+                certifier_service
+                    .register_single_signature(signed_entity_type, &single_signatures)
                     .await
                     .map_err(|e| {
                         format!("registering a winning lottery signature should not fail: {e:?}")
@@ -349,7 +365,7 @@ impl RuntimeTester {
         Ok(fixture.signers_fixture())
     }
 
-    // Update the digester result using the current beacon
+    /// Update the digester result using the current beacon
     pub async fn update_digester_digest(&mut self) -> Result<(), String> {
         let beacon = self
             .deps_builder
@@ -370,8 +386,30 @@ impl RuntimeTester {
         Ok(())
     }
 
-    // update the Era markers
+    /// Update the Era markers
     pub async fn set_era_markers(&self, markers: Vec<EraMarker>) {
         self.era_reader_adapter.set_markers(markers)
+    }
+
+    /// Retrieve signed entity type
+    pub async fn retrieve_signed_entity_type(&mut self) -> SignedEntityType {
+        let signer_entity_type_default = SignedEntityType::CardanoImmutableFilesFull(
+            self.deps_builder
+                .get_beacon_provider()
+                .await
+                .unwrap()
+                .get_current_beacon()
+                .await
+                .unwrap(),
+        );
+        self.deps_builder
+            .get_certifier_service()
+            .await
+            .unwrap()
+            .get_open_message(&signer_entity_type_default)
+            .await
+            .unwrap()
+            .map(|om| om.signed_entity_type)
+            .unwrap()
     }
 }

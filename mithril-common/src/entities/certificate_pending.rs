@@ -10,6 +10,7 @@ pub struct CertificatePending {
     pub beacon: Beacon,
 
     /// Signed entity type
+    #[serde(rename = "entity_type")]
     pub signed_entity_type: SignedEntityType,
 
     /// Current Protocol parameters

@@ -906,7 +906,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_master_certificate_for_epoch() {
-        let (certificates, _) = setup_certificate_chain(14, 3);
+        let (certificates, _) = setup_certificate_chain(3, 1);
         let expected_certificate_id = &certificates[2].hash;
         let epoch = &certificates[2].beacon.epoch;
         let mut deps = DependenciesBuilder::new(Configuration::new_sample());

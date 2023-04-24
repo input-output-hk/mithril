@@ -774,7 +774,7 @@ pub mod tests {
         let runner = AggregatorRunner::new(config, Arc::new(dependencies));
 
         let beacon = fake_data::beacon();
-        let mut certificate = fake_data::certificate("certificate_hash".to_string());
+        let mut certificate = fake_data::genesis_certificate("certificate_hash".to_string());
         certificate.beacon = beacon.clone();
 
         assert!(!runner

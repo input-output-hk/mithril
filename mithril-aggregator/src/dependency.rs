@@ -194,12 +194,12 @@ impl DependencyManager {
         }
 
         for (epoch, params) in parameters_per_epoch {
-            self.fill_verification_key_store(epoch, &params.0).await;
-            self.fill_stakes_store(epoch, params.0.to_vec()).await;
             self.protocol_parameters_store
                 .save_protocol_parameters(epoch, params.1)
                 .await
                 .expect("save_protocol_parameters should not fail");
+            self.fill_verification_key_store(epoch, &params.0).await;
+            self.fill_stakes_store(epoch, params.0.to_vec()).await;
         }
 
         for certificate in certificate_chain {
@@ -237,6 +237,9 @@ impl DependencyManager {
         second_epoch_signers: Vec<SignerWithStake>,
         genesis_protocol_parameters: &ProtocolParameters,
     ) {
+        self.init_protocol_parameter_store(genesis_protocol_parameters)
+            .await;
+
         let (work_epoch, epoch_to_sign) = self.get_genesis_epochs().await;
         for (epoch, signers) in [
             (work_epoch, genesis_signers),
@@ -245,9 +248,6 @@ impl DependencyManager {
             self.fill_verification_key_store(epoch, &signers).await;
             self.fill_stakes_store(epoch, signers).await;
         }
-
-        self.init_protocol_parameter_store(genesis_protocol_parameters)
-            .await;
     }
 
     /// `TEST METHOD ONLY`
@@ -269,6 +269,10 @@ impl DependencyManager {
 
     async fn fill_verification_key_store(&self, target_epoch: Epoch, signers: &[SignerWithStake]) {
         for signer in signers {
+            self.signer_recorder
+                .record_signer_id(signer.party_id.clone())
+                .await
+                .expect("record_signer_id should not fail");
             self.verification_key_store
                 .save_verification_key(target_epoch, signer.clone())
                 .await
