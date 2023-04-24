@@ -37,7 +37,7 @@ pub struct DependencyManager {
     pub config: Configuration,
 
     /// SQLite database connection
-    /// This is not a real service but is is needed to instanciate all store
+    /// This is not a real service but is is needed to instantiate all store
     /// services. Shall be private dependency.
     pub sqlite_connection: Arc<Mutex<Connection>>,
 

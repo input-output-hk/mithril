@@ -352,7 +352,7 @@ mod tests {
         db_checker.apply().await.unwrap();
         check_database_version(connection.clone(), 1).await;
 
-        // re instanciate a new checker with no migration registered (version 0).
+        // re instantiate a new checker with no migration registered (version 0).
         let db_checker = DatabaseVersionChecker::new(
             slog_scope::logger(),
             ApplicationNodeType::Aggregator,
