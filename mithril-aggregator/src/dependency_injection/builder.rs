@@ -1129,6 +1129,8 @@ impl DependenciesBuilder {
         let certificate_repository = Arc::new(CertificateRepository::new(
             self.get_sqlite_connection().await?,
         ));
+        let certificate_verifier = self.get_certificate_verifier().await?;
+        let genesis_verifier = self.get_genesis_verifier().await?;
         let multisigner = self.get_multi_signer().await?;
         let logger = self.get_logger().await?;
 
@@ -1136,6 +1138,8 @@ impl DependenciesBuilder {
             open_message_repository,
             single_signature_repository,
             certificate_repository,
+            certificate_verifier,
+            genesis_verifier,
             multisigner,
             Epoch(0),
             logger,

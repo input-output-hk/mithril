@@ -8,7 +8,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use chrono::Utc;
-use mithril_common::crypto_helper::{key_encode_hex, PROTOCOL_VERSION};
+use mithril_common::certificate_chain::CertificateVerifier;
+use mithril_common::crypto_helper::{key_encode_hex, ProtocolGenesisVerifier, PROTOCOL_VERSION};
 use mithril_common::entities::{
     Certificate, CertificateMetadata, Epoch, ProtocolMessage, SignedEntityType, SingleSignatures,
 };
@@ -112,17 +113,22 @@ pub struct MithrilCertifierService {
     open_message_repository: Arc<OpenMessageRepository>,
     single_signature_repository: Arc<SingleSignatureRepository>,
     certificate_repository: Arc<CertificateRepository>,
+    certificate_verifier: Arc<dyn CertificateVerifier>,
+    genesis_verifier: Arc<ProtocolGenesisVerifier>,
     multi_signer: Arc<RwLock<dyn MultiSigner>>,
     current_epoch: Arc<RwLock<Epoch>>,
     _logger: Logger,
 }
 
 impl MithrilCertifierService {
-    /// instanciate the service
+    /// instantiate the service
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         open_message_repository: Arc<OpenMessageRepository>,
         single_signature_repository: Arc<SingleSignatureRepository>,
         certificate_repository: Arc<CertificateRepository>,
+        certificate_verifier: Arc<dyn CertificateVerifier>,
+        genesis_verifier: Arc<ProtocolGenesisVerifier>,
         multi_signer: Arc<RwLock<dyn MultiSigner>>,
         current_epoch: Epoch,
         logger: Logger,
@@ -132,6 +138,8 @@ impl MithrilCertifierService {
             single_signature_repository,
             certificate_repository,
             multi_signer,
+            certificate_verifier,
+            genesis_verifier,
             current_epoch: Arc::new(RwLock::new(current_epoch)),
             _logger: logger,
         }
@@ -290,6 +298,14 @@ impl CertifierService for MithrilCertifierService {
             multi_signature,
             "".to_string(),
         );
+
+        self.certificate_verifier
+            .verify_certificate(
+                &certificate,
+                self.certificate_repository.clone(),
+                &self.genesis_verifier,
+            )
+            .await?;
 
         let certificate = self
             .certificate_repository
