@@ -245,6 +245,9 @@ impl AggregatorRuntime {
                 .update_era_checker(&new_beacon)
                 .await
                 .map_err(|e| RuntimeError::critical("transiting IDLE → READY", Some(e)))?;
+            self.runner
+                .certifier_inform_new_epoch(&new_beacon.epoch)
+                .await?;
             self.runner.update_stake_distribution(&new_beacon).await?;
             self.runner
                 .open_signer_registration_round(&new_beacon)
@@ -437,6 +440,11 @@ mod tests {
             .with(predicate::eq(fake_data::beacon()))
             .once()
             .returning(|_| Ok(()));
+        runner
+            .expect_certifier_inform_new_epoch()
+            .with(predicate::eq(fake_data::beacon().epoch))
+            .once()
+            .returning(|_| Ok(()));
 
         let mut runtime = init_runtime(
             Some(AggregatorState::Idle(IdleState {
@@ -487,6 +495,11 @@ mod tests {
         runner
             .expect_update_era_checker()
             .with(predicate::eq(fake_data::beacon()))
+            .once()
+            .returning(|_| Ok(()));
+        runner
+            .expect_certifier_inform_new_epoch()
+            .with(predicate::eq(fake_data::beacon().epoch))
             .once()
             .returning(|_| Ok(()));
 

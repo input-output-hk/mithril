@@ -169,6 +169,12 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         beacon: &Beacon,
     ) -> Result<(), Box<dyn StdError + Sync + Send>>;
 
+    /// Certifier inform new epoch
+    async fn certifier_inform_new_epoch(
+        &self,
+        epoch: &Epoch,
+    ) -> Result<(), Box<dyn StdError + Sync + Send>>;
+
     /// Create new open message
     async fn create_open_message(
         &self,
@@ -689,6 +695,18 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(())
     }
 
+    async fn certifier_inform_new_epoch(
+        &self,
+        epoch: &Epoch,
+    ) -> Result<(), Box<dyn StdError + Sync + Send>> {
+        self.dependencies
+            .certifier_service
+            .inform_epoch(*epoch)
+            .await?;
+
+        Ok(())
+    }
+
     async fn create_open_message(
         &self,
         signed_entity_type: &SignedEntityType,
@@ -703,6 +721,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
 #[cfg(test)]
 pub mod tests {
+    use crate::certifier_service::MockCertifierService;
     use crate::dependency::SimulateFromChainParams;
     use crate::multi_signer::MockMultiSigner;
     use crate::runtime::WorkingCertificate;
@@ -713,12 +732,10 @@ pub mod tests {
     };
     use crate::{MithrilSignerRegisterer, ProtocolParametersStorer, SignerRegistrationRound};
     use mithril_common::chain_observer::FakeObserver;
-    use mithril_common::crypto_helper::{
-        tests_setup::setup_certificate_chain, };
+    use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
     use mithril_common::digesters::DumbImmutableFileObserver;
     use mithril_common::entities::{
-        Beacon, CertificatePending, ProtocolMessage, SignedEntityType,
-        StakeDistribution,
+        Beacon, CertificatePending, Epoch, ProtocolMessage, SignedEntityType, StakeDistribution,
     };
     use mithril_common::store::StakeStorer;
     use mithril_common::test_utils::MithrilFixtureBuilder;
@@ -1214,5 +1231,20 @@ pub mod tests {
 
         runner.update_era_checker(&beacon).await.unwrap();
         assert_eq!(beacon.epoch, era_checker.current_epoch());
+    }
+
+    #[tokio::test]
+    async fn test_certifier_inform_new_epoch() {
+        let mut mock_certifier_service = MockCertifierService::new();
+        mock_certifier_service
+            .expect_inform_epoch()
+            .returning(|_| Ok(()))
+            .times(1);
+
+        let (mut deps, config) = initialize_dependencies().await;
+        deps.certifier_service = Arc::new(mock_certifier_service);
+
+        let runner = AggregatorRunner::new(config, Arc::new(deps));
+        runner.certifier_inform_new_epoch(&Epoch(1)).await.unwrap();
     }
 }
