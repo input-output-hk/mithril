@@ -5,6 +5,7 @@ use sqlite::{Connection, Value};
 use async_trait::async_trait;
 
 use mithril_common::{
+    certificate_chain::{CertificateRetriever, CertificateRetrieverError},
     entities::{
         Beacon, Certificate, CertificateMetadata, Epoch, HexEncodedAgregateVerificationKey,
         HexEncodedKey, ProtocolMessage, ProtocolParameters, ProtocolVersion, SignerWithStake,
@@ -405,9 +406,10 @@ impl<'conn> MasterCertificateProvider<'conn> {
                 WhereCondition::new("parent_certificate.epoch != certificate.epoch", Vec::new()),
             );
 
+        let epoch_i64: i64 = epoch.0.try_into().unwrap();
         WhereCondition::new(
-            "certificate.epoch = ?*",
-            vec![Value::Integer(epoch.0.try_into().unwrap())],
+            "certificate.epoch between ?* and ?*",
+            vec![Value::Integer(epoch_i64 - 1), Value::Integer(epoch_i64)],
         )
         .and_where(condition)
     }
@@ -485,6 +487,21 @@ impl CertificateRepository {
             .unwrap();
 
         Ok(new_certificate.into())
+    }
+}
+
+#[async_trait]
+impl CertificateRetriever for CertificateRepository {
+    async fn get_certificate_details(
+        &self,
+        certificate_hash: &str,
+    ) -> Result<Certificate, CertificateRetrieverError> {
+        self.get_certificate(certificate_hash)
+            .await
+            .map_err(|e| CertificateRetrieverError::General(e.to_string()))?
+            .ok_or(CertificateRetrieverError::General(
+                "certificate does not exist".to_string(),
+            ))
     }
 }
 
@@ -855,8 +872,8 @@ mod tests {
         let condition = provider.get_master_certificate_condition(Epoch(10));
         let (condition_str, parameters) = condition.expand();
 
-        assert_eq!("certificate.epoch = ?1 and (certificate.parent_certificate_id is null or parent_certificate.epoch != certificate.epoch)".to_string(), condition_str);
-        assert_eq!(Value::Integer(10), parameters[0]);
+        assert_eq!("certificate.epoch between ?1 and ?2 and (certificate.parent_certificate_id is null or parent_certificate.epoch != certificate.epoch)".to_string(), condition_str);
+        assert_eq!(vec![Value::Integer(9), Value::Integer(10)], parameters);
     }
 
     #[tokio::test]
@@ -889,7 +906,7 @@ mod tests {
 
     #[tokio::test]
     async fn get_master_certificate_for_epoch() {
-        let (certificates, _) = setup_certificate_chain(5, 3);
+        let (certificates, _) = setup_certificate_chain(14, 3);
         let expected_certificate_id = &certificates[2].hash;
         let epoch = &certificates[2].beacon.epoch;
         let mut deps = DependenciesBuilder::new(Configuration::new_sample());
