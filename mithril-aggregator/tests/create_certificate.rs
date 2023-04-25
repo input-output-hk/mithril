@@ -67,7 +67,11 @@ async fn create_certificate() {
     cycle!(tester, "signing");
 
     comment!("signers send their single signature");
-    let signed_entity_type = tester.retrieve_signed_entity_type().await;
+    let signed_entity_type = tester
+        .open_message_observer
+        .get_current_immutable_entity_type()
+        .await
+        .unwrap();
     let signers_who_sign = &signers[0..=6];
     tester
         .send_single_signatures(&signed_entity_type, signers_who_sign)

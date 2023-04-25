@@ -6,10 +6,12 @@ use mithril_common::era::{EraMarker, EraReader, SupportedEra};
 use mithril_common::test_utils::{
     MithrilFixtureBuilder, SignerFixture, StakeDistributionGenerationMethod,
 };
+use semver::Op;
 use slog::Drain;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedReceiver;
 
+use crate::test_extensions::open_message_observer::OpenMessageObserver;
 use mithril_aggregator::{
     AggregatorRuntime, Configuration, DumbSnapshotUploader, DumbSnapshotter,
     ProtocolParametersStorer, SignerRegisterer,
@@ -52,6 +54,7 @@ pub struct RuntimeTester {
     pub runtime: AggregatorRuntime,
     pub receiver: UnboundedReceiver<EventMessage>,
     pub era_reader_adapter: Arc<EraReaderDummyAdapter>,
+    pub open_message_observer: OpenMessageObserver,
     _logs_guard: slog_scope::GlobalLoggerGuard,
 }
 
@@ -82,6 +85,10 @@ impl RuntimeTester {
         let drain = slog_async::Async::new(drain).build().fuse();
         let log = slog_scope::set_global_logger(slog::Logger::root(Arc::new(drain), slog::o!()));
         let receiver = deps_builder.get_event_transmitter_receiver().await.unwrap();
+        let open_message_observer = OpenMessageObserver::new(
+            deps_builder.get_beacon_provider().await.unwrap(),
+            deps_builder.get_certifier_service().await.unwrap(),
+        );
 
         Self {
             snapshot_uploader,
@@ -94,6 +101,7 @@ impl RuntimeTester {
             runtime,
             receiver,
             era_reader_adapter,
+            open_message_observer,
             _logs_guard: log,
         }
     }
@@ -389,27 +397,5 @@ impl RuntimeTester {
     /// Update the Era markers
     pub async fn set_era_markers(&self, markers: Vec<EraMarker>) {
         self.era_reader_adapter.set_markers(markers)
-    }
-
-    /// Retrieve signed entity type
-    pub async fn retrieve_signed_entity_type(&mut self) -> SignedEntityType {
-        let signer_entity_type_default = SignedEntityType::CardanoImmutableFilesFull(
-            self.deps_builder
-                .get_beacon_provider()
-                .await
-                .unwrap()
-                .get_current_beacon()
-                .await
-                .unwrap(),
-        );
-        self.deps_builder
-            .get_certifier_service()
-            .await
-            .unwrap()
-            .get_open_message(&signer_entity_type_default)
-            .await
-            .unwrap()
-            .map(|om| om.signed_entity_type)
-            .unwrap()
     }
 }

@@ -60,7 +60,11 @@ async fn certificate_chain() {
     cycle!(tester, "signing");
     tester.register_signers(&signers).await.unwrap();
     cycle_err!(tester, "signing");
-    let signed_entity_type = tester.retrieve_signed_entity_type().await;
+    let signed_entity_type = tester
+        .open_message_observer
+        .get_current_immutable_entity_type()
+        .await
+        .unwrap();
     tester
         .send_single_signatures(&signed_entity_type, &signers)
         .await
@@ -80,7 +84,11 @@ async fn certificate_chain() {
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "ready");
     cycle!(tester, "signing");
-    let signed_entity_type = tester.retrieve_signed_entity_type().await;
+    let signed_entity_type = tester
+        .open_message_observer
+        .get_current_immutable_entity_type()
+        .await
+        .unwrap();
     tester
         .send_single_signatures(&signed_entity_type, &signers)
         .await
@@ -143,7 +151,11 @@ async fn certificate_chain() {
         "Signers register & send signatures, the new certificate should be link to the first of the previous epoch"
     );
     tester.register_signers(&new_signers).await.unwrap();
-    let signed_entity_type = tester.retrieve_signed_entity_type().await;
+    let signed_entity_type = tester
+        .open_message_observer
+        .get_current_immutable_entity_type()
+        .await
+        .unwrap();
     tester
         .send_single_signatures(&signed_entity_type, &signers)
         .await
@@ -183,7 +195,11 @@ async fn certificate_chain() {
     cycle!(tester, "ready");
     cycle!(tester, "signing");
 
-    let signed_entity_type = tester.retrieve_signed_entity_type().await;
+    let signed_entity_type = tester
+        .open_message_observer
+        .get_current_immutable_entity_type()
+        .await
+        .unwrap();
     tester
         .send_single_signatures(&signed_entity_type, &signers)
         .await
@@ -199,7 +215,11 @@ async fn certificate_chain() {
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "ready");
     cycle!(tester, "signing");
-    let signed_entity_type = tester.retrieve_signed_entity_type().await;
+    let signed_entity_type = tester
+        .open_message_observer
+        .get_current_immutable_entity_type()
+        .await
+        .unwrap();
 
     tester
         .send_single_signatures(&signed_entity_type, &new_signers)
