@@ -24,7 +24,7 @@ type StdResult<T> = Result<T, StdError>;
 /// single signature for this message from which a multi signature will be
 /// generated if possible.
 #[allow(dead_code)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OpenMessage {
     /// OpenMessage unique identifier
     pub open_message_id: Uuid,
@@ -252,6 +252,45 @@ impl<'client> Provider<'client> for InsertOpenMessageProvider<'client> {
     }
 }
 
+struct UpdateOpenMessageProvider<'client> {
+    connection: &'client Connection,
+}
+impl<'client> UpdateOpenMessageProvider<'client> {
+    pub fn new(connection: &'client Connection) -> Self {
+        Self { connection }
+    }
+
+    fn get_update_condition(&self, open_message: &OpenMessage) -> StdResult<WhereCondition> {
+        let expression = "(open_message_id, epoch_setting_id, beacon, signed_entity_type_id, protocol_message, is_certified) values (?*, ?*, ?*, ?*, ?*, ?*)";
+        let beacon_str = open_message.signed_entity_type.get_json_beacon()?;
+        let parameters = vec![
+            Value::String(open_message.open_message_id.to_string()),
+            Value::Integer(open_message.epoch.0 as i64),
+            Value::String(beacon_str),
+            Value::Integer(open_message.signed_entity_type.index() as i64),
+            Value::String(serde_json::to_string(&open_message.protocol_message)?),
+            Value::Integer(open_message.is_certified as i64),
+        ];
+
+        Ok(WhereCondition::new(expression, parameters))
+    }
+}
+
+impl<'client> Provider<'client> for UpdateOpenMessageProvider<'client> {
+    type Entity = OpenMessage;
+
+    fn get_connection(&'client self) -> &'client Connection {
+        self.connection
+    }
+
+    fn get_definition(&self, condition: &str) -> String {
+        let aliases = SourceAlias::new(&[("{:open_message:}", "open_message")]);
+        let projection = Self::Entity::get_projection().expand(aliases);
+
+        format!("replace into open_message {condition} returning {projection}")
+    }
+}
+
 struct DeleteOpenMessageProvider<'client> {
     connection: &'client Connection,
 }
@@ -328,6 +367,18 @@ impl OpenMessageRepository {
         cursor
             .next()
             .ok_or_else(|| panic!("Inserting an open_message should not return nothing."))
+    }
+
+    /// Updates an [OpenMessage] in the database.
+    pub async fn update_open_message(&self, open_message: &OpenMessage) -> StdResult<OpenMessage> {
+        let lock = self.connection.lock().await;
+        let provider = UpdateOpenMessageProvider::new(&lock);
+        let filters = provider.get_update_condition(open_message)?;
+        let mut cursor = provider.find(filters)?;
+
+        cursor
+            .next()
+            .ok_or_else(|| panic!("Updating an open_message should not return nothing."))
     }
 
     /// Remove all the [OpenMessage] for the given Epoch in the database.
@@ -482,7 +533,7 @@ from open_message
         on open_message.open_message_id = single_signature.open_message_id 
 where {condition}
 group by open_message.open_message_id
-order by open_message.rowid desc
+order by open_message.created_at desc, open_message.rowid desc
 "#
         )
     }
@@ -594,6 +645,37 @@ mod tests {
     }
 
     #[test]
+    fn update_provider_condition() {
+        let connection = Connection::open(":memory:").unwrap();
+        let provider = UpdateOpenMessageProvider::new(&connection);
+        let open_message = OpenMessage {
+            open_message_id: Uuid::new_v4(),
+            epoch: Epoch(12),
+            signed_entity_type: SignedEntityType::dummy(),
+            protocol_message: ProtocolMessage::new(),
+            is_certified: true,
+            created_at: NaiveDateTime::default(),
+        };
+        let (expr, params) = provider
+            .get_update_condition(&open_message)
+            .unwrap()
+            .expand();
+
+        assert_eq!("(open_message_id, epoch_setting_id, beacon, signed_entity_type_id, protocol_message, is_certified) values (?1, ?2, ?3, ?4, ?5, ?6)".to_string(), expr);
+        assert_eq!(
+            vec![
+                Value::String(open_message.open_message_id.to_string()),
+                Value::Integer(open_message.epoch.0 as i64),
+                Value::String(open_message.signed_entity_type.get_json_beacon().unwrap()),
+                Value::Integer(open_message.signed_entity_type.index() as i64),
+                Value::String(serde_json::to_string(&open_message.protocol_message).unwrap()),
+                Value::Integer(open_message.is_certified as i64),
+            ],
+            params
+        );
+    }
+
+    #[test]
     fn delete_provider_epoch_condition() {
         let connection = Connection::open(":memory:").unwrap();
         let provider = DeleteOpenMessageProvider::new(&connection);
@@ -655,6 +737,30 @@ mod tests {
 
         assert_eq!(open_message.protocol_message, message.protocol_message);
         assert_eq!(open_message.epoch, message.epoch);
+    }
+
+    #[tokio::test]
+    async fn repository_update_open_message() {
+        let connection = get_connection().await;
+        let repository = OpenMessageRepository::new(connection.clone());
+        let epoch = Epoch(1);
+        let open_message = repository
+            .create_open_message(
+                epoch,
+                &SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
+                &ProtocolMessage::new(),
+            )
+            .await
+            .unwrap();
+
+        let mut open_message_updated = open_message;
+        open_message_updated.is_certified = true;
+        let open_message_saved = repository
+            .update_open_message(&open_message_updated)
+            .await
+            .unwrap();
+
+        assert_eq!(open_message_updated, open_message_saved);
     }
 
     #[tokio::test]
