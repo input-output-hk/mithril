@@ -98,7 +98,14 @@ impl SqLiteEntity for OpenMessage {
         let epoch_val = u64::try_from(epoch_setting_id)
             .map_err(|e| panic!("Integer field open_message.epoch_setting_id (value={epoch_setting_id}) is incompatible with u64 Epoch representation. Error = {e}"))?;
 
-        let beacon_str = row.get::<String, _>(2);
+        // TODO: We need to check first that the cell can be read as a string first
+        // (e.g. when beacon json is '{"network": "dev", "epoch": 1, "immutable_file_number": 2}').
+        // If it fails, we fallback on readign the cell as an integer (e.g. when beacon json is '5').
+        // Maybe there is a better way of doing this.
+        let beacon_str = row
+            .try_get::<String, _>(2)
+            .unwrap_or_else(|_| (row.get::<i64, _>(2)).to_string());
+
         let signed_entity_type_id = usize::try_from(row.get::<i64, _>(3)).map_err(|e| {
             panic!(
                 "Integer field open_message.signed_entity_type_id cannot be turned into usize: {e}"
@@ -695,6 +702,35 @@ mod tests {
         }
 
         connection
+    }
+
+    #[tokio::test]
+    async fn repository_get_open_message() {
+        let connection = get_connection().await;
+        let repository = OpenMessageRepository::new(connection.clone());
+        let beacon = Beacon::new("devnet".to_string(), 1, 1);
+
+        let signed_entity_type = SignedEntityType::MithrilStakeDistribution(beacon.epoch);
+        repository
+            .create_open_message(beacon.epoch, &signed_entity_type, &ProtocolMessage::new())
+            .await
+            .unwrap();
+        let open_message_result = repository
+            .get_open_message(&signed_entity_type)
+            .await
+            .unwrap();
+        assert!(open_message_result.is_some());
+
+        let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(beacon.clone());
+        repository
+            .create_open_message(beacon.epoch, &signed_entity_type, &ProtocolMessage::new())
+            .await
+            .unwrap();
+        let open_message_result = repository
+            .get_open_message(&signed_entity_type)
+            .await
+            .unwrap();
+        assert!(open_message_result.is_some());
     }
 
     #[tokio::test]
