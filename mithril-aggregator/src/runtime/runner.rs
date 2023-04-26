@@ -100,10 +100,8 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         new_beacon: &Beacon,
     ) -> Result<(), Box<dyn StdError + Sync + Send>>;
 
-    /// Set the message to sign in the multisigner. The digest is only one part
-    /// of the message, the next signing stake distribution must also be signed
-    /// as part of the message.
-    async fn update_message_in_multisigner(
+    /// Compute the protocol message
+    async fn compute_protocol_message(
         &self,
         digest: String,
     ) -> Result<ProtocolMessage, Box<dyn StdError + Sync + Send>>;
@@ -138,6 +136,7 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     async fn create_snapshot_archive(
         &self,
         beacon: &Beacon,
+        protocol_message: &ProtocolMessage,
     ) -> Result<OngoingSnapshot, Box<dyn StdError + Sync + Send>>;
 
     /// Upload the snapshot at the given location using the configured uploader(s).
@@ -378,12 +377,12 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .map_err(|e| e.into())
     }
 
-    async fn update_message_in_multisigner(
+    async fn compute_protocol_message(
         &self,
         digest: String,
     ) -> Result<ProtocolMessage, Box<dyn StdError + Sync + Send>> {
-        debug!("RUNNER: update message in multisigner");
-        let mut multi_signer = self.dependencies.multi_signer.write().await;
+        debug!("RUNNER: compute protocol message");
+        let multi_signer = self.dependencies.multi_signer.write().await;
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
         protocol_message.set_message_part(
@@ -393,9 +392,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                 .await?
                 .unwrap_or_default(),
         );
-        multi_signer
-            .update_current_message(protocol_message.clone())
-            .await?;
 
         Ok(protocol_message)
     }
@@ -491,22 +487,11 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     async fn create_snapshot_archive(
         &self,
         beacon: &Beacon,
+        protocol_message: &ProtocolMessage,
     ) -> Result<OngoingSnapshot, Box<dyn StdError + Sync + Send>> {
         debug!("RUNNER: create snapshot archive");
 
         let snapshotter = self.dependencies.snapshotter.clone();
-        let protocol_message = self
-            .dependencies
-            .multi_signer
-            .read()
-            .await
-            .get_current_message()
-            .await
-            .ok_or_else(|| {
-                RunnerError::MissingProtocolMessage(format!(
-                    "no message found for beacon '{beacon:?}'."
-                ))
-            })?;
         let snapshot_digest = protocol_message
             .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
             .ok_or_else(|| {
@@ -900,41 +885,6 @@ pub mod tests {
     }
 
     #[tokio::test]
-    async fn test_update_message_in_multisigner() {
-        let (deps, config) = initialize_dependencies().await;
-        let deps = Arc::new(deps);
-        let runner = AggregatorRunner::new(config, deps.clone());
-        let digest = "1+2+3+4=10".to_string();
-        runner.update_beacon(&fake_data::beacon()).await.unwrap();
-        let fixture = MithrilFixtureBuilder::default().build();
-        deps.prepare_for_genesis(
-            fixture.signers_with_stake(),
-            fixture.signers_with_stake(),
-            &fixture.protocol_parameters(),
-        )
-        .await;
-
-        runner
-            .update_message_in_multisigner(digest)
-            .await
-            .expect("update_message_in_multisigner should not fail");
-        let message = deps
-            .multi_signer
-            .read()
-            .await
-            .get_current_message()
-            .await
-            .unwrap();
-
-        assert_eq!(
-            "1+2+3+4=10",
-            message
-                .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
-                .unwrap()
-        );
-    }
-
-    #[tokio::test]
     async fn test_save_pending_certificate() {
         let (deps, config) = initialize_dependencies().await;
         let deps = Arc::new(deps);
@@ -1012,16 +962,13 @@ pub mod tests {
             ProtocolMessagePartKey::SnapshotDigest,
             "test+digest".to_string(),
         );
-        let mut mock_multi_signer = MockMultiSigner::new();
-        mock_multi_signer
-            .expect_get_current_message()
-            .return_once(move || Some(message));
+        let mock_multi_signer = MockMultiSigner::new();
         let (mut deps, config) = initialize_dependencies().await;
         deps.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
         let runner = AggregatorRunner::new(config, Arc::new(deps));
 
         let ongoing_snapshot = runner
-            .create_snapshot_archive(&beacon)
+            .create_snapshot_archive(&beacon, &message)
             .await
             .expect("create_snapshot_archive should not fail");
 

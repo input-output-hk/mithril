@@ -15,11 +15,11 @@ use mithril_aggregator::{
     AggregatorRuntime, Configuration, DumbSnapshotUploader, DumbSnapshotter,
     ProtocolParametersStorer, SignerRegisterer,
 };
-use mithril_common::crypto_helper::{key_encode_hex, ProtocolClerk, ProtocolGenesisSigner};
+use mithril_common::crypto_helper::{ProtocolClerk, ProtocolGenesisSigner};
 use mithril_common::digesters::DumbImmutableFileObserver;
 use mithril_common::entities::{
-    Certificate, Epoch, ImmutableFileNumber, SignedEntityType, SignerWithStake, SingleSignatures,
-    Snapshot, StakeDistribution,
+    Certificate, Epoch, ImmutableFileNumber, SignedEntityType, SignerWithStake, Snapshot,
+    StakeDistribution,
 };
 use mithril_common::{chain_observer::FakeObserver, digesters::DumbImmutableDigester};
 
@@ -268,24 +268,15 @@ impl RuntimeTester {
         signers: &[SignerFixture],
     ) -> Result<(), String> {
         let certifier_service = self.deps_builder.get_certifier_service().await.unwrap();
-        let lock = self.deps_builder.get_multi_signer().await.unwrap();
-        let multisigner = lock.read().await;
-        let message = multisigner
-            .get_current_message()
+        let message = certifier_service
+            .get_open_message(signed_entity_type)
             .await
-            .ok_or("There should be a message to be signed.")?;
+            .unwrap()
+            .ok_or("There should be a message to be signed.")?
+            .protocol_message;
 
         for signer_fixture in signers {
-            if let Some(signature) = signer_fixture
-                .protocol_signer
-                .sign(message.compute_hash().as_bytes())
-            {
-                let single_signatures = SingleSignatures::new(
-                    signer_fixture.signer_with_stake.party_id.to_owned(),
-                    key_encode_hex(&signature).expect("hex encoding should not fail"),
-                    signature.indexes,
-                );
-
+            if let Some(single_signatures) = signer_fixture.sign(&message) {
                 certifier_service
                     .register_single_signature(signed_entity_type, &single_signatures)
                     .await

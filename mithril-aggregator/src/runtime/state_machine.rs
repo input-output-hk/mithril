@@ -1,4 +1,7 @@
-use crate::runtime::{AggregatorRunnerTrait, RuntimeError};
+use crate::{
+    database::provider::OpenMessage,
+    runtime::{AggregatorRunnerTrait, RuntimeError},
+};
 
 use mithril_common::entities::{Beacon, SignedEntityType};
 use slog_scope::{crit, info, trace, warn};
@@ -19,6 +22,7 @@ pub struct ReadyState {
 #[derive(Clone, Debug, PartialEq)]
 pub struct SigningState {
     current_beacon: Beacon,
+    open_message: OpenMessage,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -270,12 +274,9 @@ impl AggregatorRuntime {
         state: SigningState,
     ) -> Result<IdleState, RuntimeError> {
         trace!("launching transition from SIGNING to IDLE state");
-        // TODO: Temporary, we need to compute the signed entity type from the current open message
-        let signed_entity_type =
-            SignedEntityType::CardanoImmutableFilesFull(state.current_beacon.clone());
         let certificate = self
             .runner
-            .create_certificate(&signed_entity_type)
+            .create_certificate(&state.open_message.signed_entity_type)
             .await?
             .ok_or_else(|| RuntimeError::KeepState {
                 message: "not enough signature yet to create a certificate, waiting…".to_string(),
@@ -285,7 +286,7 @@ impl AggregatorRuntime {
         self.runner.drop_pending_certificate().await?;
         let ongoing_snapshot = self
             .runner
-            .create_snapshot_archive(&state.current_beacon)
+            .create_snapshot_archive(&state.current_beacon, &state.open_message.protocol_message)
             .await?;
         let locations = self
             .runner
@@ -323,16 +324,16 @@ impl AggregatorRuntime {
         new_beacon: Beacon,
     ) -> Result<SigningState, RuntimeError> {
         trace!("launching transition from READY to SIGNING state");
-        // TODO: Temporary, we need to compute the signed entity type from the current open message
+        // TODO: Temporary, we need to compute the signed entity type for other types than Cardano immutable files
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(new_beacon.clone());
         self.runner.update_beacon(&new_beacon).await?;
 
         let digester_result = self.runner.compute_digest(&new_beacon).await?;
         let protocol_message = self
             .runner
-            .update_message_in_multisigner(digester_result)
+            .compute_protocol_message(digester_result)
             .await?;
-        let _open_message = self
+        let open_message = self
             .runner
             .create_open_message(&signed_entity_type, &protocol_message)
             .await?;
@@ -348,6 +349,7 @@ impl AggregatorRuntime {
             .await?;
         let state = SigningState {
             current_beacon: new_beacon,
+            open_message,
         };
 
         Ok(state)
@@ -589,7 +591,7 @@ mod tests {
             .once()
             .returning(|_| Ok(()));
         runner
-            .expect_update_message_in_multisigner()
+            .expect_compute_protocol_message()
             .with(predicate::eq("whatever".to_string()))
             .once()
             .returning(|_| Ok(ProtocolMessage::new()));
@@ -640,6 +642,7 @@ mod tests {
 
                 beacon
             },
+            open_message: OpenMessage::dummy(),
         };
         let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
         runtime.cycle().await.unwrap();
@@ -660,6 +663,7 @@ mod tests {
             .returning(|_| Ok(None));
         let state = SigningState {
             current_beacon: fake_data::beacon(),
+            open_message: OpenMessage::dummy(),
         };
         let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
         runtime

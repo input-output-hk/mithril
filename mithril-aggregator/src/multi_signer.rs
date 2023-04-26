@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use hex::ToHex;
 use slog_scope::{debug, warn};
 use std::sync::Arc;
 use thiserror::Error;
@@ -78,15 +77,6 @@ pub enum ProtocolError {
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait MultiSigner: Sync + Send {
-    /// Get current message
-    async fn get_current_message(&self) -> Option<entities::ProtocolMessage>;
-
-    /// Update current message
-    async fn update_current_message(
-        &mut self,
-        message: entities::ProtocolMessage,
-    ) -> Result<(), ProtocolError>;
-
     /// Get current beacon
     async fn get_current_beacon(&self) -> Option<entities::Beacon>;
 
@@ -200,9 +190,6 @@ pub trait MultiSigner: Sync + Send {
 
 /// MultiSignerImpl is an implementation of the MultiSigner
 pub struct MultiSignerImpl {
-    /// Message that is currently signed
-    current_message: Option<entities::ProtocolMessage>,
-
     /// Beacon that is currently used
     current_beacon: Option<entities::Beacon>,
 
@@ -225,7 +212,6 @@ impl MultiSignerImpl {
     ) -> Self {
         debug!("New MultiSignerImpl created");
         Self {
-            current_message: None,
             current_beacon: None,
             verification_key_store,
             stake_store,
@@ -321,23 +307,6 @@ impl MultiSignerImpl {
 
 #[async_trait]
 impl MultiSigner for MultiSignerImpl {
-    /// Get current message
-    async fn get_current_message(&self) -> Option<entities::ProtocolMessage> {
-        debug!("Get current message");
-        self.current_message.clone()
-    }
-
-    /// Update current message
-    async fn update_current_message(
-        &mut self,
-        message: entities::ProtocolMessage,
-    ) -> Result<(), ProtocolError> {
-        debug!("Update current_message"; "protocol_message" =>  #?message, "signed message" => message.compute_hash().encode_hex::<String>());
-
-        self.current_message = Some(message);
-        Ok(())
-    }
-
     async fn get_current_beacon(&self) -> Option<entities::Beacon> {
         self.current_beacon.clone()
     }
@@ -699,23 +668,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_multi_signer_current_message_ok() {
-        let mut multi_signer = setup_multi_signer().await;
-
-        let current_message_expected = setup_message();
-        multi_signer
-            .update_current_message(current_message_expected.clone())
-            .await
-            .expect("update current message failed");
-
-        let current_message = multi_signer
-            .get_current_message()
-            .await
-            .expect("current message should have been retrieved");
-        assert_eq!(current_message_expected, current_message)
-    }
-
-    #[tokio::test]
     async fn test_multi_signer_protocol_parameters_ok() {
         let mut multi_signer = setup_multi_signer().await;
 
@@ -816,14 +768,7 @@ mod tests {
             Epoch::SIGNER_RECORDING_OFFSET as i64 - Epoch::SIGNER_RETRIEVAL_OFFSET,
         )
         .await;
-        // We have to update the current message AFTER we reached the epoch for
-        // which the signers registered for the stake distribution to be valid
-        // hence the multisigner be able to create a Clerk and being able to
-        // register single signatures
-        multi_signer
-            .update_current_message(message.clone())
-            .await
-            .expect("update current message failed");
+
         let mut signatures = Vec::new();
 
         let mut expected_certificate_signers: Vec<SignerWithStake> = Vec::new();
