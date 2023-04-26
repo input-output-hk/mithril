@@ -330,89 +330,6 @@ impl<'client> Provider<'client> for DeleteOpenMessageProvider<'client> {
     }
 }
 
-/// ## Open message repository
-///
-/// This is a business oriented layer to perform actions on the database through
-/// providers.
-pub struct OpenMessageRepository {
-    connection: Arc<Mutex<Connection>>,
-}
-
-impl OpenMessageRepository {
-    /// Instanciate service
-    pub fn new(connection: Arc<Mutex<Connection>>) -> Self {
-        Self { connection }
-    }
-
-    /// Return the latest [OpenMessage] for the given Epoch and [SignedEntityType].
-    pub async fn get_open_message(
-        &self,
-        signed_entity_type: &SignedEntityType,
-    ) -> StdResult<Option<OpenMessage>> {
-        let lock = self.connection.lock().await;
-        let provider = OpenMessageProvider::new(&lock);
-        let filters = provider
-            .get_epoch_condition(signed_entity_type.get_epoch())
-            .and_where(provider.get_signed_entity_type_condition(signed_entity_type));
-        let mut messages = provider.find(filters)?;
-
-        Ok(messages.next())
-    }
-
-    /// Create a new [OpenMessage] in the database.
-    pub async fn create_open_message(
-        &self,
-        epoch: Epoch,
-        signed_entity_type: &SignedEntityType,
-        protocol_message: &ProtocolMessage,
-    ) -> StdResult<OpenMessage> {
-        let lock = self.connection.lock().await;
-        let provider = InsertOpenMessageProvider::new(&lock);
-        let filters = provider.get_insert_condition(epoch, signed_entity_type, protocol_message)?;
-        let mut cursor = provider.find(filters)?;
-
-        cursor
-            .next()
-            .ok_or_else(|| panic!("Inserting an open_message should not return nothing."))
-    }
-
-    /// Updates an [OpenMessage] in the database.
-    pub async fn update_open_message(&self, open_message: &OpenMessage) -> StdResult<OpenMessage> {
-        let lock = self.connection.lock().await;
-        let provider = UpdateOpenMessageProvider::new(&lock);
-        let filters = provider.get_update_condition(open_message)?;
-        let mut cursor = provider.find(filters)?;
-
-        cursor
-            .next()
-            .ok_or_else(|| panic!("Updating an open_message should not return nothing."))
-    }
-
-    /// Remove all the [OpenMessage] for the given Epoch in the database.
-    /// It returns the number of messages removed.
-    pub async fn clean_epoch(&self, epoch: Epoch) -> StdResult<usize> {
-        let lock = self.connection.lock().await;
-        let provider = DeleteOpenMessageProvider::new(&lock);
-        let filters = provider.get_epoch_condition(epoch);
-        let cursor = provider.find(filters)?;
-
-        Ok(cursor.count())
-    }
-
-    /// Return an open message with its associated single signatures if any.
-    pub async fn get_open_message_with_single_signatures(
-        &self,
-        signed_entity_type: &SignedEntityType,
-    ) -> StdResult<Option<OpenMessageWithSingleSignatures>> {
-        let lock = self.connection.lock().await;
-        let provider = OpenMessageWithSingleSignaturesProvider::new(&lock);
-        let filters = provider.get_signed_entity_type_condition(signed_entity_type);
-        let mut messages = provider.find(filters)?;
-
-        Ok(messages.next())
-    }
-}
-
 /// Open Message with associated single signatures if any.
 #[derive(Debug, Clone)]
 pub struct OpenMessageWithSingleSignatures {
@@ -550,11 +467,98 @@ order by open_message.created_at desc, open_message.rowid desc
     }
 }
 
+/// ## Open message repository
+///
+/// This is a business oriented layer to perform actions on the database through
+/// providers.
+pub struct OpenMessageRepository {
+    connection: Arc<Mutex<Connection>>,
+}
+
+impl OpenMessageRepository {
+    /// Instanciate service
+    pub fn new(connection: Arc<Mutex<Connection>>) -> Self {
+        Self { connection }
+    }
+
+    /// Return the latest [OpenMessage] for the given Epoch and [SignedEntityType].
+    pub async fn get_open_message(
+        &self,
+        signed_entity_type: &SignedEntityType,
+    ) -> StdResult<Option<OpenMessage>> {
+        let lock = self.connection.lock().await;
+        let provider = OpenMessageProvider::new(&lock);
+        let filters = provider
+            .get_epoch_condition(signed_entity_type.get_epoch())
+            .and_where(provider.get_signed_entity_type_condition(signed_entity_type));
+        let mut messages = provider.find(filters)?;
+
+        Ok(messages.next())
+    }
+
+    /// Create a new [OpenMessage] in the database.
+    pub async fn create_open_message(
+        &self,
+        epoch: Epoch,
+        signed_entity_type: &SignedEntityType,
+        protocol_message: &ProtocolMessage,
+    ) -> StdResult<OpenMessage> {
+        let lock = self.connection.lock().await;
+        let provider = InsertOpenMessageProvider::new(&lock);
+        let filters = provider.get_insert_condition(epoch, signed_entity_type, protocol_message)?;
+        let mut cursor = provider.find(filters)?;
+
+        cursor
+            .next()
+            .ok_or_else(|| panic!("Inserting an open_message should not return nothing."))
+    }
+
+    /// Updates an [OpenMessage] in the database.
+    pub async fn update_open_message(&self, open_message: &OpenMessage) -> StdResult<OpenMessage> {
+        let lock = self.connection.lock().await;
+        let provider = UpdateOpenMessageProvider::new(&lock);
+        let filters = provider.get_update_condition(open_message)?;
+        let mut cursor = provider.find(filters)?;
+
+        cursor
+            .next()
+            .ok_or_else(|| panic!("Updating an open_message should not return nothing."))
+    }
+
+    /// Remove all the [OpenMessage] for the given Epoch in the database.
+    /// It returns the number of messages removed.
+    pub async fn clean_epoch(&self, epoch: Epoch) -> StdResult<usize> {
+        let lock = self.connection.lock().await;
+        let provider = DeleteOpenMessageProvider::new(&lock);
+        let filters = provider.get_epoch_condition(epoch);
+        let cursor = provider.find(filters)?;
+
+        Ok(cursor.count())
+    }
+
+    /// Return an open message with its associated single signatures if any.
+    pub async fn get_open_message_with_single_signatures(
+        &self,
+        signed_entity_type: &SignedEntityType,
+    ) -> StdResult<Option<OpenMessageWithSingleSignatures>> {
+        let lock = self.connection.lock().await;
+        let provider = OpenMessageWithSingleSignaturesProvider::new(&lock);
+        let filters = provider.get_signed_entity_type_condition(signed_entity_type);
+        let mut messages = provider.find(filters)?;
+
+        Ok(messages.next())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use mithril_common::{entities::Beacon, sqlite::SourceAlias};
 
     use crate::{dependency_injection::DependenciesBuilder, Configuration};
+
+    use crate::database::provider::test_helper::{
+        setup_single_signature_db, setup_single_signature_records,
+    };
 
     use super::*;
 
@@ -824,9 +828,52 @@ mod tests {
         assert_eq!(2, count);
     }
 
-    /*
     #[tokio::test]
-    async fn repository_get_open_message_with_single_signatures() {
-        todo!()
-    } */
+    async fn repository_get_open_message_with_single_signatures_when_signatures_exist() {
+        let single_signature_records = setup_single_signature_records(1, 1, 4);
+
+        let connection = Connection::open(":memory:").unwrap();
+        setup_single_signature_db(&connection, single_signature_records.clone()).unwrap();
+        let repository = OpenMessageRepository::new(Arc::new(Mutex::new(connection)));
+
+        let mut open_message = OpenMessage::dummy();
+        open_message.open_message_id = single_signature_records[0].open_message_id;
+        repository.update_open_message(&open_message).await.unwrap();
+
+        let open_message_with_single_signatures = repository
+            .get_open_message_with_single_signatures(&open_message.signed_entity_type)
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            4,
+            open_message_with_single_signatures.single_signatures.len()
+        )
+    }
+
+    #[tokio::test]
+    async fn repository_get_open_message_with_single_signatures_when_signatures_not_exist() {
+        let connection = Connection::open(":memory:").unwrap();
+        setup_single_signature_db(&connection, Vec::new()).unwrap();
+        let repository = OpenMessageRepository::new(Arc::new(Mutex::new(connection)));
+
+        let open_message = OpenMessage::dummy();
+        repository
+            .create_open_message(
+                open_message.epoch,
+                &open_message.signed_entity_type,
+                &open_message.protocol_message,
+            )
+            .await
+            .unwrap();
+
+        let open_message_with_single_signatures = repository
+            .get_open_message_with_single_signatures(&open_message.signed_entity_type)
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(open_message_with_single_signatures
+            .single_signatures
+            .is_empty())
+    }
 }

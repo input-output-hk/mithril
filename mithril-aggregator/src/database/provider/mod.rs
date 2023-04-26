@@ -7,6 +7,8 @@ mod signer;
 mod signer_registration;
 mod single_signature;
 mod stake_pool;
+#[cfg(test)]
+mod test_helper;
 
 pub use certificate::*;
 pub use epoch_setting::*;
@@ -16,3 +18,5 @@ pub use signer::*;
 pub use signer_registration::*;
 pub use single_signature::*;
 pub use stake_pool::*;
+#[cfg(test)]
+pub use test_helper::*;
