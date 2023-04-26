@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.3
+  version: 0.1.4
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -403,6 +403,12 @@ components:
 
     RegisterSignerMessage:
       description: This message represents a signing participant in the network.
+      additionalProperties: true
+      properties:
+        epoch:
+          description: Cardano chain epoch number
+          type: integer
+          format: int64
       allOf:
         - $ref: "#/components/schemas/Signer"
 

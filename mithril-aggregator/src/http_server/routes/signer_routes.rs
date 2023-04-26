@@ -54,11 +54,25 @@ mod handlers {
             "⇄ HTTP SERVER: register_signer/{:?}",
             register_signer_message
         );
+
+        let registration_epoch = match register_signer_message.epoch {
+            Some(epoch) => epoch,
+            None => match signer_registerer.get_current_round().await {
+                Some(round) => round.epoch,
+                None => {
+                    let err = SignerRegistrationError::RegistrationRoundNotYetOpened;
+                    warn!("register_signer::error"; "error" => ?err);
+                    return Ok(reply::internal_server_error(err.to_string()));
+                }
+            },
+        };
+
         let signer = FromRegisterSignerAdapter::adapt(register_signer_message);
         let mut headers: Vec<(&str, &str)> = match signer_node_version.as_ref() {
             Some(version) => vec![("signer-node-version", version)],
             None => Vec::new(),
         };
+
         let epoch_str = match beacon_provider.get_current_beacon().await {
             Ok(beacon) => format!("{}", beacon.epoch),
             Err(e) => {
@@ -67,11 +81,14 @@ mod handlers {
                 String::new()
             }
         };
-
         if !epoch_str.is_empty() {
             headers.push(("epoch", epoch_str.as_str()));
         }
-        match signer_registerer.register_signer(&signer).await {
+
+        match signer_registerer
+            .register_signer(registration_epoch, &signer)
+            .await
+        {
             Ok(signer_with_stake) => {
                 let _ = event_transmitter.send_event_message(
                     "HTTP::signer_register",
@@ -147,7 +164,10 @@ mod tests {
         let mut mock_signer_registerer = MockSignerRegisterer::new();
         mock_signer_registerer
             .expect_register_signer()
-            .return_once(|_| Ok(signer_with_stake));
+            .return_once(|_, _| Ok(signer_with_stake));
+        mock_signer_registerer
+            .expect_get_current_round()
+            .return_once(|| None);
         let (mut dependency_manager, _) = initialize_dependencies().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
@@ -179,7 +199,10 @@ mod tests {
         let mut mock_signer_registerer = MockSignerRegisterer::new();
         mock_signer_registerer
             .expect_register_signer()
-            .return_once(|_| Err(SignerRegistrationError::ExistingSigner(signer_with_stake)));
+            .return_once(|_, _| Err(SignerRegistrationError::ExistingSigner(signer_with_stake)));
+        mock_signer_registerer
+            .expect_get_current_round()
+            .return_once(|| None);
         let (mut dependency_manager, _) = initialize_dependencies().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
@@ -210,11 +233,14 @@ mod tests {
         let mut mock_signer_registerer = MockSignerRegisterer::new();
         mock_signer_registerer
             .expect_register_signer()
-            .return_once(|_| {
+            .return_once(|_, _| {
                 Err(SignerRegistrationError::FailedSignerRegistration(
                     ProtocolRegistrationError::OpCertInvalid,
                 ))
             });
+        mock_signer_registerer
+            .expect_get_current_round()
+            .return_once(|| None);
         let (mut dependency_manager, _) = initialize_dependencies().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
@@ -245,11 +271,14 @@ mod tests {
         let mut mock_signer_registerer = MockSignerRegisterer::new();
         mock_signer_registerer
             .expect_register_signer()
-            .return_once(|_| {
+            .return_once(|_, _| {
                 Err(SignerRegistrationError::ChainObserver(
                     "an error occurred".to_string(),
                 ))
             });
+        mock_signer_registerer
+            .expect_get_current_round()
+            .return_once(|| None);
         let (mut dependency_manager, _) = initialize_dependencies().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
