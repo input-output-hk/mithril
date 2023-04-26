@@ -15,9 +15,8 @@ use mithril_common::{
 };
 
 use crate::{
-    database::provider::OpenMessageWithSingleSignatures,
-    store::{SingleSignatureStorer, VerificationKeyStorer},
-    ProtocolParametersStore, ProtocolParametersStorer, SingleSignatureStore, VerificationKeyStore,
+    database::provider::OpenMessageWithSingleSignatures, store::VerificationKeyStorer,
+    ProtocolParametersStore, ProtocolParametersStorer, VerificationKeyStore,
 };
 
 #[cfg(test)]
@@ -185,8 +184,8 @@ pub trait MultiSigner: Sync + Send {
     /// Get signers for the next epoch with their stake
     async fn get_next_signers_with_stake(&self) -> Result<Vec<SignerWithStake>, ProtocolError>;
 
-    /// Registers a single signature
-    async fn register_single_signature(
+    /// Verify a single signature
+    async fn verify_single_signature(
         &self,
         message: &entities::ProtocolMessage,
         signatures: &entities::SingleSignatures,
@@ -213,9 +212,6 @@ pub struct MultiSignerImpl {
     /// Stake store
     stake_store: Arc<dyn StakeStorer>,
 
-    /// Single signature store
-    single_signature_store: Arc<SingleSignatureStore>,
-
     /// Protocol parameters store
     protocol_parameters_store: Arc<ProtocolParametersStore>,
 }
@@ -225,7 +221,6 @@ impl MultiSignerImpl {
     pub fn new(
         verification_key_store: Arc<VerificationKeyStore>,
         stake_store: Arc<dyn StakeStorer>,
-        single_signature_store: Arc<SingleSignatureStore>,
         protocol_parameters_store: Arc<ProtocolParametersStore>,
     ) -> Self {
         debug!("New MultiSignerImpl created");
@@ -234,7 +229,6 @@ impl MultiSignerImpl {
             current_beacon: None,
             verification_key_store,
             stake_store,
-            single_signature_store,
             protocol_parameters_store,
         }
     }
@@ -526,14 +520,14 @@ impl MultiSigner for MultiSignerImpl {
             .collect())
     }
 
-    /// Registers a single signature
-    async fn register_single_signature(
+    /// Verify a single signature
+    async fn verify_single_signature(
         &self,
         message: &entities::ProtocolMessage,
         signatures: &entities::SingleSignatures,
     ) -> Result<(), ProtocolError> {
         debug!(
-            "Register single signature from {} at indexes {:?} for message {:?}",
+            "Verify single signature from {} at indexes {:?} for message {:?}",
             signatures.party_id, signatures.won_indexes, message
         );
 
@@ -570,22 +564,7 @@ impl MultiSigner for MultiSignerImpl {
             )
             .map_err(|e| ProtocolError::Core(e.to_string()))?;
 
-        // Register single signature
-        let beacon = self
-            .current_beacon
-            .as_ref()
-            .ok_or_else(ProtocolError::UnavailableBeacon)?;
-
-        return match self
-            .single_signature_store
-            .save_single_signatures(beacon, signatures)
-            .await?
-        {
-            Some(_) => Err(ProtocolError::ExistingSingleSignature(
-                signatures.party_id.clone(),
-            )),
-            None => Ok(()),
-        };
+        Ok(())
     }
 
     /// Creates a multi signature from single signatures
@@ -633,10 +612,7 @@ impl MultiSigner for MultiSignerImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        store::{SingleSignatureStore, VerificationKeyStore},
-        ProtocolParametersStore,
-    };
+    use crate::{store::VerificationKeyStore, ProtocolParametersStore};
     use chrono::Local;
     use mithril_common::{
         crypto_helper::tests_setup::*,
@@ -662,16 +638,6 @@ mod tests {
             Box::new(MemoryAdapter::<Epoch, StakeDistribution>::new(None).unwrap()),
             None,
         );
-        let single_signature_store = SingleSignatureStore::new(
-            Box::new(
-                MemoryAdapter::<
-                    entities::Beacon,
-                    HashMap<entities::PartyId, entities::SingleSignatures>,
-                >::new(None)
-                .unwrap(),
-            ),
-            None,
-        );
         let protocol_parameters_store = ProtocolParametersStore::new(
             Box::new(
                 MemoryAdapter::<Epoch, entities::ProtocolParameters>::new(Some(vec![
@@ -695,7 +661,6 @@ mod tests {
         let mut multi_signer = MultiSignerImpl::new(
             Arc::new(verification_key_store),
             Arc::new(stake_store),
-            Arc::new(single_signature_store),
             Arc::new(protocol_parameters_store),
         );
 
@@ -877,6 +842,13 @@ mod tests {
 
                 expected_certificate_signers.push(signer_fixture.signer_with_stake.to_owned())
             }
+        }
+
+        for signature in &signatures {
+            multi_signer
+                .verify_single_signature(&message, signature)
+                .await
+                .expect("single signature should be valid");
         }
 
         let signatures_to_almost_reach_quorum = take_signatures_until_quorum_is_almost_reached(

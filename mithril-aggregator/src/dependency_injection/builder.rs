@@ -346,7 +346,6 @@ impl DependenciesBuilder {
         let multi_signer = MultiSignerImpl::new(
             self.get_verification_key_store().await?,
             self.get_stake_store().await?,
-            self.get_single_signature_store().await?,
             self.get_protocol_parameters_store().await?,
         );
 
