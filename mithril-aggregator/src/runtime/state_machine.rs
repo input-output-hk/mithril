@@ -1,4 +1,4 @@
-use crate::runtime::{AggregatorRunnerTrait, RuntimeError, WorkingCertificate};
+use crate::runtime::{AggregatorRunnerTrait, RuntimeError};
 
 use mithril_common::entities::{Beacon, SignedEntityType};
 use slog_scope::{crit, info, trace, warn};
@@ -19,7 +19,6 @@ pub struct ReadyState {
 #[derive(Clone, Debug, PartialEq)]
 pub struct SigningState {
     current_beacon: Beacon,
-    working_certificate: WorkingCertificate,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -347,13 +346,8 @@ impl AggregatorRuntime {
         self.runner
             .save_pending_certificate(certificate_pending.clone())
             .await?;
-        let working_certificate = self
-            .runner
-            .create_new_working_certificate(&certificate_pending)
-            .await?;
         let state = SigningState {
             current_beacon: new_beacon,
-            working_certificate,
         };
 
         Ok(state)
@@ -605,10 +599,6 @@ mod tests {
             .once()
             .returning(|_, _| Ok(fake_data::certificate_pending()));
         runner
-            .expect_create_new_working_certificate()
-            .once()
-            .returning(|_| Ok(WorkingCertificate::fake()));
-        runner
             .expect_save_pending_certificate()
             .once()
             .returning(|_| Ok(()));
@@ -650,7 +640,6 @@ mod tests {
 
                 beacon
             },
-            working_certificate: WorkingCertificate::fake(),
         };
         let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
         runtime.cycle().await.unwrap();
@@ -671,7 +660,6 @@ mod tests {
             .returning(|_| Ok(None));
         let state = SigningState {
             current_beacon: fake_data::beacon(),
-            working_certificate: WorkingCertificate::fake(),
         };
         let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
         runtime

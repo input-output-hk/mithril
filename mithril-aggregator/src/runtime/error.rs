@@ -57,14 +57,12 @@ impl From<Box<dyn StdError + Sync + Send>> for RuntimeError {
 /// Errors returned when the runner cannot fulfil its missions with no subsystem
 /// to fail.
 #[derive(Debug, Error)]
+// TODO: Are these errors still relevant, do we need to remove them?
+#[allow(clippy::enum_variant_names)]
 pub enum RunnerError {
     /// Protocol message part is missing
     #[error("Missing protocol message: '{0}'.")]
     MissingProtocolMessage(String),
-
-    /// Epoch out of bounds
-    #[error("Epoch out of bounds: '{0}'.")]
-    EpochOutOfBounds(String),
 
     /// No stack distribution found
     #[error("Missing stack distribution: '{0}'.")]
@@ -73,8 +71,4 @@ pub enum RunnerError {
     /// Missing protocol parameters
     #[error("Missing protocol parameters: '{0}'.")]
     MissingProtocolParameters(String),
-
-    /// No AVK issued by the multisigner
-    #[error("No MultiSignature issued: '{0}'.")]
-    NoComputedMultiSignature(String),
 }

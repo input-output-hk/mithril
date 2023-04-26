@@ -19,7 +19,6 @@ use slog_scope::{debug, error, info, warn};
 use thiserror::Error;
 use tokio::sync::RwLock;
 
-use crate::certificate_creator::CertificateCreationError;
 use crate::database::provider::{
     CertificateRepository, OpenMessage, OpenMessageRepository, OpenMessageWithSingleSignatures,
     SingleSignatureRepository,
@@ -54,6 +53,10 @@ pub enum CertifierServiceError {
         "No parent certificate could be found, this certifier cannot create genesis certificates."
     )]
     NoParentCertificateFound,
+
+    /// Codec error.
+    #[error("codec error: '{0}'")]
+    Codec(String),
 }
 
 /// ## CertifierService
@@ -287,7 +290,7 @@ impl CertifierService for MithrilCertifierService {
             sealed_at,
             signers,
         );
-        let multi_signature = key_encode_hex(signature).map_err(CertificateCreationError::Codec)?;
+        let multi_signature = key_encode_hex(signature).map_err(CertifierServiceError::Codec)?;
         let parent_certificate_hash = self
             .certificate_repository
             .get_master_certificate_for_epoch(open_message.epoch)
