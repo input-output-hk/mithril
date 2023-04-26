@@ -6,7 +6,6 @@ use mithril_common::era::{EraMarker, EraReader, SupportedEra};
 use mithril_common::test_utils::{
     MithrilFixtureBuilder, SignerFixture, StakeDistributionGenerationMethod,
 };
-use semver::Op;
 use slog::Drain;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedReceiver;

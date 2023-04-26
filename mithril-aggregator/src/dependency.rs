@@ -7,6 +7,7 @@ use mithril_common::{
     entities::{Certificate, Epoch, ProtocolParameters, SignerWithStake, StakeDistribution},
     era::{EraChecker, EraReader},
     store::StakeStorer,
+    test_utils::MithrilFixture,
     BeaconProvider,
 };
 use sqlite::Connection;
@@ -150,6 +151,23 @@ impl DependencyManager {
         let epoch_to_sign = current_epoch.offset_to_next_signer_retrieval_epoch();
 
         (work_epoch, epoch_to_sign)
+    }
+
+    /// `TEST METHOD ONLY`
+    ///
+    /// Fill the stores of a [DependencyManager] in a way to simulate an aggregator state
+    /// using the data from a precomputed fixture.
+    pub async fn init_state_from_fixture(&self, fixture: &MithrilFixture, target_epochs: &[Epoch]) {
+        for epoch in target_epochs {
+            self.protocol_parameters_store
+                .save_protocol_parameters(*epoch, fixture.protocol_parameters())
+                .await
+                .expect("save_protocol_parameters should not fail");
+            self.fill_verification_key_store(*epoch, &fixture.signers_with_stake())
+                .await;
+            self.fill_stakes_store(*epoch, fixture.signers_with_stake())
+                .await;
+        }
     }
 
     /// `TEST METHOD ONLY`
