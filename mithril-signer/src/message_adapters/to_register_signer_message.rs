@@ -7,6 +7,7 @@ impl ToRegisterSignerMessageAdapter {
     /// Method to trigger the conversion.
     pub fn adapt(signer: Signer) -> RegisterSignerMessage {
         RegisterSignerMessage {
+            epoch: None,
             party_id: signer.party_id,
             verification_key: signer.verification_key,
             verification_key_signature: signer.verification_key_signature,
