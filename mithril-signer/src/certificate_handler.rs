@@ -6,7 +6,7 @@ use thiserror::Error;
 
 use mithril_common::{
     api_version::APIVersionProvider,
-    entities::{CertificatePending, EpochSettings, Signer, SingleSignatures},
+    entities::{CertificatePending, Epoch, EpochSettings, Signer, SingleSignatures},
     messages::{CertificatePendingMessage, EpochSettingsMessage},
     MITHRIL_API_VERSION_HEADER, MITHRIL_SIGNER_VERSION_HEADER,
 };
@@ -70,7 +70,11 @@ pub trait CertificateHandler: Sync + Send {
     ) -> Result<Option<CertificatePending>, CertificateHandlerError>;
 
     /// Registers signer with the aggregator.
-    async fn register_signer(&self, signer: &Signer) -> Result<(), CertificateHandlerError>;
+    async fn register_signer(
+        &self,
+        epoch: Epoch,
+        signer: &Signer,
+    ) -> Result<(), CertificateHandlerError>;
 
     /// Registers single signatures with the aggregator.
     async fn register_signatures(
@@ -182,10 +186,15 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
         }
     }
 
-    async fn register_signer(&self, signer: &Signer) -> Result<(), CertificateHandlerError> {
+    async fn register_signer(
+        &self,
+        epoch: Epoch,
+        signer: &Signer,
+    ) -> Result<(), CertificateHandlerError> {
         debug!("Register signer");
         let url = format!("{}/register-signer", self.aggregator_endpoint);
-        let register_signer_message = ToRegisterSignerMessageAdapter::adapt(signer.to_owned());
+        let register_signer_message =
+            ToRegisterSignerMessageAdapter::adapt(epoch, signer.to_owned());
         let response = self
             .prepare_request_builder(Client::new().post(url.clone()))
             .json(&register_signer_message)
@@ -322,7 +331,11 @@ pub(crate) mod dumb {
         }
 
         /// Registers signer with the aggregator
-        async fn register_signer(&self, signer: &Signer) -> Result<(), CertificateHandlerError> {
+        async fn register_signer(
+            &self,
+            _epoch: Epoch,
+            signer: &Signer,
+        ) -> Result<(), CertificateHandlerError> {
             let mut last_registered_signer = self.last_registered_signer.write().await;
             let signer = signer.clone();
             *last_registered_signer = Some(signer);
@@ -512,6 +525,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_signer_ok_201() {
+        let epoch = Epoch(1);
         let single_signers = fake_data::signers(1);
         let single_signer = single_signers.first().unwrap();
         let (server, config, api_version_provider) = setup_test();
@@ -523,12 +537,15 @@ mod tests {
             config.aggregator_endpoint,
             Arc::new(api_version_provider),
         );
-        let register_signer = certificate_handler.register_signer(single_signer).await;
+        let register_signer = certificate_handler
+            .register_signer(epoch, single_signer)
+            .await;
         register_signer.expect("unexpected error");
     }
 
     #[tokio::test]
     async fn test_register_signer_ko_412() {
+        let epoch = Epoch(1);
         let (server, config, api_version_provider) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
             when.method(POST).path("/register-signer");
@@ -542,7 +559,7 @@ mod tests {
             Arc::new(api_version_provider),
         );
         let error = certificate_handler
-            .register_signer(single_signer)
+            .register_signer(epoch, single_signer)
             .await
             .unwrap_err();
 
@@ -551,6 +568,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_signer_ko_400() {
+        let epoch = Epoch(1);
         let single_signers = fake_data::signers(1);
         let single_signer = single_signers.first().unwrap();
         let (server, config, api_version_provider) = setup_test();
@@ -568,7 +586,9 @@ mod tests {
             config.aggregator_endpoint,
             Arc::new(api_version_provider),
         );
-        let register_signer = certificate_handler.register_signer(single_signer).await;
+        let register_signer = certificate_handler
+            .register_signer(epoch, single_signer)
+            .await;
         assert_eq!(
             CertificateHandlerError::RemoteServerLogical(
                 "bad request: {\"label\":\"error\",\"message\":\"an error\"}".to_string()
@@ -580,6 +600,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_register_signer_ko_500() {
+        let epoch = Epoch(1);
         let single_signers = fake_data::signers(1);
         let single_signer = single_signers.first().unwrap();
         let (server, config, api_version_provider) = setup_test();
@@ -591,7 +612,9 @@ mod tests {
             config.aggregator_endpoint,
             Arc::new(api_version_provider),
         );
-        let register_signer = certificate_handler.register_signer(single_signer).await;
+        let register_signer = certificate_handler
+            .register_signer(epoch, single_signer)
+            .await;
         assert_eq!(
             CertificateHandlerError::RemoteServerTechnical("an error occurred".to_string())
                 .to_string(),

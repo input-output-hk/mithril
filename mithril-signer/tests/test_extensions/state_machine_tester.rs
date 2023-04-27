@@ -334,9 +334,17 @@ impl StateMachineTester {
         &mut self,
         signers_with_stake: &[SignerWithStake],
     ) -> Result<&mut Self> {
+        let epoch = self
+            .chain_observer
+            .current_beacon
+            .read()
+            .await
+            .as_ref()
+            .unwrap()
+            .epoch;
         for signer_with_stake in signers_with_stake {
             self.certificate_handler
-                .register_signer(&signer_with_stake.to_owned().into())
+                .register_signer(epoch, &signer_with_stake.to_owned().into())
                 .await
                 .map_err(|e| TestError::SubsystemError(e.into()))?;
         }

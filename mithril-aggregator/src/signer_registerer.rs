@@ -24,6 +24,15 @@ pub enum SignerRegistrationError {
     #[error("a signer registration round has not yet to be opened")]
     RegistrationRoundNotYetOpened,
 
+    /// Registration round for unexpected epoch
+    #[error("unexpected signer registration round epoch: current_round_epoch: {current_round_epoch}, received_epoch: {received_epoch}")]
+    RegistrationRoundUnexpectedEpoch {
+        /// Epoch of the current round
+        current_round_epoch: Epoch,
+        /// Epoch of the received signer registration
+        received_epoch: Epoch,
+    },
+
     /// Codec error.
     #[error("codec error: '{0}'")]
     Codec(String),
@@ -52,7 +61,9 @@ pub enum SignerRegistrationError {
 /// Represents the information needed to handle a signer registration round
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SignerRegistrationRound {
-    epoch: Epoch,
+    /// Registration round epoch
+    pub epoch: Epoch,
+
     stake_distribution: StakeDistribution,
 }
 
@@ -73,8 +84,12 @@ pub trait SignerRegisterer: Sync + Send {
     /// Register a signer
     async fn register_signer(
         &self,
+        epoch: Epoch,
         signer: &Signer,
     ) -> Result<SignerWithStake, SignerRegistrationError>;
+
+    /// Get current open round if exists
+    async fn get_current_round(&self) -> Option<SignerRegistrationRound>;
 }
 
 /// Trait to open a signer registration round
@@ -171,12 +186,19 @@ impl SignerRegistrationRoundOpener for MithrilSignerRegisterer {
 impl SignerRegisterer for MithrilSignerRegisterer {
     async fn register_signer(
         &self,
+        epoch: Epoch,
         signer: &Signer,
     ) -> Result<SignerWithStake, SignerRegistrationError> {
         let registration_round = self.current_round.read().await;
         let registration_round = registration_round
             .as_ref()
             .ok_or(SignerRegistrationError::RegistrationRoundNotYetOpened)?;
+        if registration_round.epoch != epoch {
+            return Err(SignerRegistrationError::RegistrationRoundUnexpectedEpoch {
+                current_round_epoch: registration_round.epoch,
+                received_epoch: epoch,
+            });
+        }
 
         let mut key_registration = ProtocolKeyRegistration::init(
             &registration_round
@@ -245,6 +267,10 @@ impl SignerRegisterer for MithrilSignerRegisterer {
             None => Ok(signer_save),
         }
     }
+
+    async fn get_current_round(&self) -> Option<SignerRegistrationRound> {
+        self.current_round.read().await.as_ref().cloned()
+    }
 }
 
 #[cfg(test)]
@@ -293,7 +319,7 @@ mod tests {
             .expect("signer registration round opening should not fail");
 
         signer_registerer
-            .register_signer(&signer_to_register)
+            .register_signer(registration_epoch, &signer_to_register)
             .await
             .expect("signer registration should not fail");
 
@@ -342,7 +368,7 @@ mod tests {
             .expect("signer registration round opening should not fail");
 
         signer_registerer
-            .register_signer(&signer_to_register)
+            .register_signer(registration_epoch, &signer_to_register)
             .await
             .expect("signer registration should not fail");
 
@@ -373,11 +399,12 @@ mod tests {
             verification_key_store.clone(),
             Arc::new(signer_recorder),
         );
+        let registration_epoch = Epoch(1);
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let signer_to_register: Signer = fixture.signers()[0].to_owned();
 
         signer_registerer
-            .register_signer(&signer_to_register)
+            .register_signer(registration_epoch, &signer_to_register)
             .await
             .expect_err("signer registration should fail if no round opened");
     }

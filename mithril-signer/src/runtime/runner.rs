@@ -224,11 +224,11 @@ impl Runner for SignerRunner {
         );
         self.services
             .certificate_handler
-            .register_signer(&signer)
+            .register_signer(epoch_offset_to_recording_epoch, &signer)
             .await?;
         self.services
             .protocol_initializer_store
-            .save_protocol_initializer(epoch.offset_to_recording_epoch(), protocol_initializer)
+            .save_protocol_initializer(epoch_offset_to_recording_epoch, protocol_initializer)
             .await?;
 
         Ok(())

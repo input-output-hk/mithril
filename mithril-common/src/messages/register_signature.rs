@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::entities::{HexEncodedSingleSignature, LotteryIndex, PartyId, SignedEntityType};
 
+era_deprecate!("make signed_entity_type of RegisterSignatureMessage not optional");
 /// Message structure to register single signature.
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct RegisterSignatureMessage {

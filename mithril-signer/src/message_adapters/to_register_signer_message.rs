@@ -1,12 +1,16 @@
-use mithril_common::{entities::Signer, messages::RegisterSignerMessage};
+use mithril_common::{
+    entities::{Epoch, Signer},
+    messages::RegisterSignerMessage,
+};
 
 /// Adapter to create [RegisterSignerMessage] from [Signer] instance.
 pub struct ToRegisterSignerMessageAdapter;
 
 impl ToRegisterSignerMessageAdapter {
     /// Method to trigger the conversion.
-    pub fn adapt(signer: Signer) -> RegisterSignerMessage {
+    pub fn adapt(epoch: Epoch, signer: Signer) -> RegisterSignerMessage {
         RegisterSignerMessage {
+            epoch: Some(epoch),
             party_id: signer.party_id,
             verification_key: signer.verification_key,
             verification_key_signature: signer.verification_key_signature,
@@ -24,8 +28,9 @@ mod tests {
 
     #[test]
     fn adapt_ok() {
+        let epoch = Epoch(1);
         let signer = fake_data::signers(1)[0].to_owned();
-        let message = ToRegisterSignerMessageAdapter::adapt(signer);
+        let message = ToRegisterSignerMessageAdapter::adapt(epoch, signer);
 
         assert_eq!("0".to_string(), message.party_id);
     }

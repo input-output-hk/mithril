@@ -193,6 +193,7 @@ async fn certificate_chain() {
     current_epoch = tester.increase_epoch().await.unwrap();
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "ready");
+    tester.register_signers(&signers).await.unwrap();
     cycle!(tester, "signing");
 
     let signed_entity_type = tester
@@ -214,6 +215,7 @@ async fn certificate_chain() {
     tester.increase_epoch().await.unwrap();
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "ready");
+    tester.register_signers(&signers).await.unwrap();
     cycle!(tester, "signing");
     let signed_entity_type = tester
         .open_message_observer

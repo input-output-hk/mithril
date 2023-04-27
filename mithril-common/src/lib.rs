@@ -18,6 +18,7 @@ pub mod crypto_helper;
 pub mod database;
 pub mod digesters;
 pub mod entities;
+#[macro_use]
 pub mod era;
 pub mod messages;
 pub mod signable_builder;
