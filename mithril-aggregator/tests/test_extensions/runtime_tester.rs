@@ -13,7 +13,7 @@ use tokio::sync::mpsc::UnboundedReceiver;
 use crate::test_extensions::open_message_observer::OpenMessageObserver;
 use mithril_aggregator::{
     AggregatorRuntime, Configuration, DumbSnapshotUploader, DumbSnapshotter,
-    ProtocolParametersStorer, SignerRegisterer,
+    ProtocolParametersStorer, SignerRegisterer, SignerRegistrationError,
 };
 use mithril_common::crypto_helper::{ProtocolClerk, ProtocolGenesisSigner};
 use mithril_common::digesters::DumbImmutableFileObserver;
@@ -248,14 +248,27 @@ impl RuntimeTester {
 
     /// Register the given signers in the registerer
     pub async fn register_signers(&mut self, signers: &[SignerFixture]) -> Result<(), String> {
+        let registration_epoch = self
+            .chain_observer
+            .current_beacon
+            .read()
+            .await
+            .as_ref()
+            .unwrap()
+            .epoch
+            .offset_to_recording_epoch();
+        let signer_registerer = self.deps_builder.get_mithril_registerer().await.unwrap();
         for signer_with_stake in signers.iter().map(|f| &f.signer_with_stake) {
-            self.deps_builder
-                .get_mithril_registerer()
+            match signer_registerer
+                .register_signer(registration_epoch, &signer_with_stake.to_owned().into())
                 .await
-                .unwrap()
-                .register_signer(&signer_with_stake.to_owned().into())
-                .await
-                .map_err(|e| format!("Registering a signer should not fail: {e:?}"))?;
+            {
+                Ok(_) => {}
+                Err(SignerRegistrationError::ExistingSigner(_)) => {}
+                Err(e) => {
+                    return Err(format!("Registering a signer should not fail: {e:?}"));
+                }
+            }
         }
 
         Ok(())
