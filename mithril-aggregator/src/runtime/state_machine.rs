@@ -359,7 +359,7 @@ mod tests {
 
     use std::path::Path;
 
-    use crate::database::provider::OpenMessageRecord;
+    use crate::entities::OpenMessage;
     use crate::snapshotter::OngoingSnapshot;
 
     use super::super::runner::MockAggregatorRunner;
@@ -607,7 +607,7 @@ mod tests {
         runner
             .expect_create_open_message()
             .once()
-            .returning(|_, _| Ok(OpenMessageRecord::dummy()));
+            .returning(|_, _| Ok(OpenMessage::dummy()));
 
         let mut runtime = init_runtime(
             Some(AggregatorState::Ready(ReadyState {

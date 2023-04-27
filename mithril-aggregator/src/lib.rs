@@ -18,6 +18,7 @@ mod configuration;
 pub mod database;
 mod dependency;
 pub mod dependency_injection;
+pub mod entities;
 pub mod event_store;
 mod http_server;
 mod message_adapters;
