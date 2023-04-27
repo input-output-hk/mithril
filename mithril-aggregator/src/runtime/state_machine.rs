@@ -1,9 +1,6 @@
-use crate::{
-    database::provider::OpenMessageRecord,
-    runtime::{AggregatorRunnerTrait, RuntimeError},
-};
+use crate::runtime::{AggregatorRunnerTrait, RuntimeError};
 
-use mithril_common::entities::{Beacon, SignedEntityType};
+use mithril_common::entities::{Beacon, ProtocolMessage, SignedEntityType};
 use slog_scope::{crit, info, trace, warn};
 use std::fmt::Display;
 use std::sync::Arc;
@@ -22,7 +19,8 @@ pub struct ReadyState {
 #[derive(Clone, Debug, PartialEq)]
 pub struct SigningState {
     current_beacon: Beacon,
-    open_message: OpenMessageRecord,
+    signed_entity_type: SignedEntityType,
+    protocol_message: ProtocolMessage,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -276,7 +274,7 @@ impl AggregatorRuntime {
         trace!("launching transition from SIGNING to IDLE state");
         let certificate = self
             .runner
-            .create_certificate(&state.open_message.signed_entity_type)
+            .create_certificate(&state.signed_entity_type)
             .await?
             .ok_or_else(|| RuntimeError::KeepState {
                 message: "not enough signature yet to create a certificate, waiting…".to_string(),
@@ -286,7 +284,7 @@ impl AggregatorRuntime {
         self.runner.drop_pending_certificate().await?;
         let ongoing_snapshot = self
             .runner
-            .create_snapshot_archive(&state.current_beacon, &state.open_message.protocol_message)
+            .create_snapshot_archive(&state.current_beacon, &state.protocol_message)
             .await?;
         let locations = self
             .runner
@@ -333,8 +331,7 @@ impl AggregatorRuntime {
             .runner
             .compute_protocol_message(digester_result)
             .await?;
-        let open_message = self
-            .runner
+        self.runner
             .create_open_message(&signed_entity_type, &protocol_message)
             .await?;
         let certificate_pending = self
@@ -349,7 +346,8 @@ impl AggregatorRuntime {
             .await?;
         let state = SigningState {
             current_beacon: new_beacon,
-            open_message,
+            signed_entity_type,
+            protocol_message,
         };
 
         Ok(state)
@@ -359,12 +357,14 @@ impl AggregatorRuntime {
 #[cfg(test)]
 mod tests {
 
+    use std::path::Path;
+
     use crate::database::provider::OpenMessageRecord;
+    use crate::snapshotter::OngoingSnapshot;
 
     use super::super::runner::MockAggregatorRunner;
     use super::*;
 
-    use mithril_common::entities::ProtocolMessage;
     use mithril_common::era::UnsupportedEraError;
     use mithril_common::test_utils::fake_data;
     use mockall::predicate;
@@ -642,7 +642,8 @@ mod tests {
 
                 beacon
             },
-            open_message: OpenMessageRecord::dummy(),
+            signed_entity_type: SignedEntityType::dummy(),
+            protocol_message: ProtocolMessage::default(),
         };
         let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
         runtime.cycle().await.unwrap();
@@ -651,7 +652,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn signing_multisig_is_not_created() {
+    async fn signing_certificate_is_not_created() {
         let mut runner = MockAggregatorRunner::new();
         runner
             .expect_get_beacon_from_chain()
@@ -663,7 +664,8 @@ mod tests {
             .returning(|_| Ok(None));
         let state = SigningState {
             current_beacon: fake_data::beacon(),
-            open_message: OpenMessageRecord::dummy(),
+            signed_entity_type: SignedEntityType::dummy(),
+            protocol_message: ProtocolMessage::default(),
         };
         let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
         runtime
@@ -674,13 +676,8 @@ mod tests {
         assert_eq!("signing".to_string(), runtime.get_state());
     }
 
-    /* TODO: create a fake certificate to test the certificate creation.
     #[tokio::test]
-    async fn signing_multisig_is_created() {
-        let (certificate_chain, _) = setup_certificate_chain(5, 1);
-        let first_certificate = certificate_chain[0].clone();
-        let multi_signature: ProtocolMultiSignature =
-            key_decode_hex(&first_certificate.multi_signature as &HexEncodedKey).unwrap();
+    async fn signing_certificate_is_created() {
         let mut runner = MockAggregatorRunner::new();
         runner
             .expect_get_beacon_from_chain()
@@ -688,7 +685,7 @@ mod tests {
             .returning(|| Ok(fake_data::beacon()));
         runner
             .expect_create_certificate()
-            .return_once(move |_| Ok(Some(multi_signature)));
+            .return_once(move |_| Ok(Some(fake_data::certificate("whatever".to_string()))));
         runner
             .expect_drop_pending_certificate()
             .once()
@@ -696,7 +693,7 @@ mod tests {
         runner
             .expect_create_snapshot_archive()
             .once()
-            .returning(|_| {
+            .returning(|_, _| {
                 Ok(OngoingSnapshot::new(
                     Path::new("/tmp/archive.zip").to_path_buf(),
                     1234,
@@ -707,24 +704,20 @@ mod tests {
             .once()
             .returning(|_path| Ok(vec!["locA".to_string(), "locB".to_string()]));
         runner
-            .expect_create_and_save_certificate()
-            .once()
-            .returning(|_, _| Ok(fake_data::certificate("whatever".to_string())));
-        runner
             .expect_create_and_save_snapshot()
             .once()
             .returning(|_, _, _| Ok(fake_data::snapshots(1)[0].clone()));
 
         let state = SigningState {
             current_beacon: fake_data::beacon(),
-            working_certificate: WorkingCertificate::fake(),
+            signed_entity_type: SignedEntityType::dummy(),
+            protocol_message: ProtocolMessage::default(),
         };
         let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
         runtime.cycle().await.unwrap();
 
         assert_eq!("idle".to_string(), runtime.get_state());
     }
-    */
 
     #[tokio::test]
     pub async fn critical_error() {
