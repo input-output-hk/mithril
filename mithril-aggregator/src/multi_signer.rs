@@ -14,7 +14,7 @@ use mithril_common::{
 };
 
 use crate::{
-    database::provider::OpenMessageWithSingleSignatures, store::VerificationKeyStorer,
+    database::provider::OpenMessageWithSingleSignaturesRecord, store::VerificationKeyStorer,
     ProtocolParametersStore, ProtocolParametersStorer, VerificationKeyStore,
 };
 
@@ -184,7 +184,7 @@ pub trait MultiSigner: Sync + Send {
     /// Creates a multi signature from single signatures
     async fn create_multi_signature(
         &self,
-        open_message: &OpenMessageWithSingleSignatures,
+        open_message: &OpenMessageWithSingleSignaturesRecord,
     ) -> Result<Option<ProtocolMultiSignature>, ProtocolError>;
 }
 
@@ -539,7 +539,7 @@ impl MultiSigner for MultiSignerImpl {
     /// Creates a multi signature from single signatures
     async fn create_multi_signature(
         &self,
-        open_message: &OpenMessageWithSingleSignatures,
+        open_message: &OpenMessageWithSingleSignaturesRecord,
     ) -> Result<Option<ProtocolMultiSignature>, ProtocolError> {
         debug!("MultiSigner:create_multi_signature({open_message:?})");
         let protocol_parameters = self
@@ -805,7 +805,7 @@ mod tests {
             "they should be at least one signature that can be registered without reaching the quorum"
         );
 
-        let mut open_message = OpenMessageWithSingleSignatures {
+        let mut open_message = OpenMessageWithSingleSignaturesRecord {
             open_message_id: Uuid::parse_str("193d1442-e89b-43cf-9519-04d8db9a12ff").unwrap(),
             epoch: start_epoch,
             signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(

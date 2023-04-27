@@ -20,8 +20,8 @@ use thiserror::Error;
 use tokio::sync::RwLock;
 
 use crate::database::provider::{
-    CertificateRepository, OpenMessage, OpenMessageRepository, OpenMessageWithSingleSignatures,
-    SingleSignatureRepository,
+    CertificateRepository, OpenMessageRecord, OpenMessageRepository,
+    OpenMessageWithSingleSignaturesRecord, SingleSignatureRepository,
 };
 use crate::MultiSigner;
 
@@ -88,14 +88,14 @@ pub trait CertifierService: Sync + Send {
         &self,
         signed_entity_type: &SignedEntityType,
         protocol_message: &ProtocolMessage,
-    ) -> StdResult<OpenMessage>;
+    ) -> StdResult<OpenMessageRecord>;
 
     /// Return the open message at the given Beacon. If the message does not
     /// exist, None is returned.
     async fn get_open_message(
         &self,
         signed_entity_type: &SignedEntityType,
-    ) -> StdResult<Option<OpenMessageWithSingleSignatures>>;
+    ) -> StdResult<Option<OpenMessageWithSingleSignaturesRecord>>;
 
     /// Create a certificate if possible. If the pointed open message does
     /// not exist or has been already certified, an error is raised. If a multi
@@ -209,7 +209,7 @@ impl CertifierService for MithrilCertifierService {
         &self,
         signed_entity_type: &SignedEntityType,
         protocol_message: &ProtocolMessage,
-    ) -> StdResult<OpenMessage> {
+    ) -> StdResult<OpenMessageRecord> {
         debug!("CertifierService::create_open_message(signed_entity_type: {signed_entity_type:?}, protocol_message: {protocol_message:?})");
         let current_epoch = self.current_epoch.read().await;
 
@@ -229,7 +229,7 @@ impl CertifierService for MithrilCertifierService {
     async fn get_open_message(
         &self,
         signed_entity_type: &SignedEntityType,
-    ) -> StdResult<Option<OpenMessageWithSingleSignatures>> {
+    ) -> StdResult<Option<OpenMessageWithSingleSignaturesRecord>> {
         debug!("CertifierService::get_open_message(signed_entity_type: {signed_entity_type:?})");
 
         self.open_message_repository
@@ -325,7 +325,7 @@ impl CertifierService for MithrilCertifierService {
             .create_certificate(certificate)
             .await?;
 
-        let mut open_message_certified: OpenMessage = open_message.into();
+        let mut open_message_certified: OpenMessageRecord = open_message.into();
         open_message_certified.is_certified = true;
         self.open_message_repository
             .update_open_message(&open_message_certified)

@@ -16,7 +16,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::database::provider::OpenMessage;
+use crate::database::provider::OpenMessageRecord;
 use crate::snapshot_uploaders::SnapshotLocation;
 use crate::snapshotter::OngoingSnapshot;
 use crate::RuntimeError;
@@ -172,7 +172,7 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         &self,
         signed_entity_type: &SignedEntityType,
         protocol_message: &ProtocolMessage,
-    ) -> Result<OpenMessage, Box<dyn StdError + Sync + Send>>;
+    ) -> Result<OpenMessageRecord, Box<dyn StdError + Sync + Send>>;
 }
 
 /// The runner responsibility is to expose a code API for the state machine. It
@@ -614,7 +614,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         &self,
         signed_entity_type: &SignedEntityType,
         protocol_message: &ProtocolMessage,
-    ) -> Result<OpenMessage, Box<dyn StdError + Sync + Send>> {
+    ) -> Result<OpenMessageRecord, Box<dyn StdError + Sync + Send>> {
         self.dependencies
             .certifier_service
             .create_open_message(signed_entity_type, protocol_message)

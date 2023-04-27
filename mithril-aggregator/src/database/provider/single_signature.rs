@@ -16,7 +16,7 @@ use mithril_common::StdError;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use super::OpenMessage;
+use super::OpenMessageRecord;
 
 /// SingleSignature record is the representation of a stored single_signature.
 #[derive(Debug, PartialEq, Clone)]
@@ -285,7 +285,7 @@ impl SingleSignatureRepository {
     pub async fn create_single_signature(
         &self,
         single_signature: &SingleSignatures,
-        open_message: &OpenMessage,
+        open_message: &OpenMessageRecord,
     ) -> Result<SingleSignatureRecord, StdError> {
         let connection = self.connection.lock().await;
         let single_signature = SingleSignatureRecord::from_single_signatures(

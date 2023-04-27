@@ -1,5 +1,5 @@
 use crate::{
-    database::provider::OpenMessage,
+    database::provider::OpenMessageRecord,
     runtime::{AggregatorRunnerTrait, RuntimeError},
 };
 
@@ -22,7 +22,7 @@ pub struct ReadyState {
 #[derive(Clone, Debug, PartialEq)]
 pub struct SigningState {
     current_beacon: Beacon,
-    open_message: OpenMessage,
+    open_message: OpenMessageRecord,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -359,7 +359,7 @@ impl AggregatorRuntime {
 #[cfg(test)]
 mod tests {
 
-    use crate::database::provider::OpenMessage;
+    use crate::database::provider::OpenMessageRecord;
 
     use super::super::runner::MockAggregatorRunner;
     use super::*;
@@ -607,7 +607,7 @@ mod tests {
         runner
             .expect_create_open_message()
             .once()
-            .returning(|_, _| Ok(OpenMessage::dummy()));
+            .returning(|_, _| Ok(OpenMessageRecord::dummy()));
 
         let mut runtime = init_runtime(
             Some(AggregatorState::Ready(ReadyState {
@@ -642,7 +642,7 @@ mod tests {
 
                 beacon
             },
-            open_message: OpenMessage::dummy(),
+            open_message: OpenMessageRecord::dummy(),
         };
         let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
         runtime.cycle().await.unwrap();
@@ -663,7 +663,7 @@ mod tests {
             .returning(|_| Ok(None));
         let state = SigningState {
             current_beacon: fake_data::beacon(),
-            open_message: OpenMessage::dummy(),
+            open_message: OpenMessageRecord::dummy(),
         };
         let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
         runtime
