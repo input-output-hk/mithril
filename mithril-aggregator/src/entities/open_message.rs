@@ -1,4 +1,7 @@
-use mithril_common::entities::{Epoch, ProtocolMessage, SignedEntityType, SingleSignatures};
+use chrono::NaiveDateTime;
+use mithril_common::entities::{
+    Epoch, PartyId, ProtocolMessage, SignedEntityType, SingleSignatures,
+};
 
 use crate::database::provider::{OpenMessageRecord, OpenMessageWithSingleSignaturesRecord};
 
@@ -9,9 +12,6 @@ use crate::database::provider::{OpenMessageRecord, OpenMessageWithSingleSignatur
 /// generated if possible.
 #[derive(Debug, Clone, PartialEq)]
 pub struct OpenMessage {
-    /// OpenMessage unique identifier
-    // pub open_message_id: Uuid, // do we need it in the entity ?
-
     /// Epoch
     pub epoch: Epoch,
 
@@ -26,9 +26,20 @@ pub struct OpenMessage {
 
     /// associated single signatures
     pub single_signatures: Vec<SingleSignatures>,
+
+    /// Message creation datetime
+    pub created_at: NaiveDateTime,
 }
 
 impl OpenMessage {
+    /// Gather all signers party_id for this open message
+    pub fn get_signers_id(&self) -> Vec<PartyId> {
+        self.single_signatures
+            .iter()
+            .map(|sig| sig.party_id.to_owned())
+            .collect()
+    }
+
     #[cfg(test)]
     /// Create a dumb OpenMessage instance mainly for test purposes
     pub fn dummy() -> Self {
@@ -47,6 +58,7 @@ impl OpenMessage {
                 fake_data::single_signatures(vec![1, 4, 5]),
                 fake_data::single_signatures(vec![2, 3, 8]),
             ],
+            created_at: chrono::Local::now().naive_local(),
         }
     }
 }
@@ -59,6 +71,7 @@ impl From<OpenMessageRecord> for OpenMessage {
             protocol_message: record.protocol_message,
             is_certified: record.is_certified,
             single_signatures: vec![],
+            created_at: record.created_at,
         }
     }
 }
@@ -71,6 +84,7 @@ impl From<OpenMessageWithSingleSignaturesRecord> for OpenMessage {
             protocol_message: record.protocol_message,
             is_certified: record.is_certified,
             single_signatures: record.single_signatures,
+            created_at: record.created_at,
         }
     }
 }
@@ -89,13 +103,14 @@ mod test {
 
     #[test]
     fn test_from_record() {
+        let created_at = chrono::Local::now().naive_local();
         let record = OpenMessageRecord {
             open_message_id: Uuid::new_v4(),
             epoch: Epoch(1),
             signed_entity_type: SignedEntityType::dummy(),
             protocol_message: ProtocolMessage::default(),
             is_certified: false,
-            created_at: chrono::Local::now().naive_local(),
+            created_at,
         };
         let expected = OpenMessage {
             epoch: Epoch(1),
@@ -103,6 +118,7 @@ mod test {
             protocol_message: ProtocolMessage::default(),
             is_certified: false,
             single_signatures: vec![],
+            created_at,
         };
         let result: OpenMessage = record.into();
 
@@ -111,13 +127,14 @@ mod test {
 
     #[test]
     fn test_from_record_with_single_signatures() {
+        let created_at = chrono::Local::now().naive_local();
         let record = OpenMessageWithSingleSignaturesRecord {
             open_message_id: Uuid::new_v4(),
             epoch: Epoch(1),
             signed_entity_type: SignedEntityType::dummy(),
             protocol_message: ProtocolMessage::default(),
             is_certified: false,
-            created_at: chrono::Local::now().naive_local(),
+            created_at,
             single_signatures: vec![fake_data::single_signatures(vec![1, 4, 5])],
         };
         let expected = OpenMessage {
@@ -126,6 +143,7 @@ mod test {
             protocol_message: ProtocolMessage::default(),
             is_certified: false,
             single_signatures: vec![fake_data::single_signatures(vec![1, 4, 5])],
+            created_at,
         };
         let result: OpenMessage = record.into();
 

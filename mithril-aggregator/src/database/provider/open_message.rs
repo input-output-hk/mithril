@@ -1,6 +1,6 @@
 use mithril_common::StdError;
 
-use mithril_common::entities::{PartyId, ProtocolMessage, SingleSignatures};
+use mithril_common::entities::{ProtocolMessage, SingleSignatures};
 use mithril_common::{
     entities::{Epoch, SignedEntityType},
     sqlite::{HydrationError, Projection, SqLiteEntity, WhereCondition},
@@ -353,16 +353,6 @@ pub struct OpenMessageWithSingleSignaturesRecord {
 
     /// Message creation datetime, it is set by the database.
     pub created_at: NaiveDateTime,
-}
-
-impl OpenMessageWithSingleSignaturesRecord {
-    /// Gather all signers party_id for this open message
-    pub fn get_signers_id(&self) -> Vec<PartyId> {
-        self.single_signatures
-            .iter()
-            .map(|sig| sig.party_id.to_owned())
-            .collect()
-    }
 }
 
 impl SqLiteEntity for OpenMessageWithSingleSignaturesRecord {

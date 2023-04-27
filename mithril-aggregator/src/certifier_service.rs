@@ -260,13 +260,14 @@ impl CertifierService for MithrilCertifierService {
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<Certificate>> {
         debug!("CertifierService::create_certificate(signed_entity_type: {signed_entity_type:?})");
-        let open_message = self
+        let open_message_record = self
             .get_open_message_record(signed_entity_type)
             .await?
             .ok_or_else(|| {
                 warn!("CertifierService::create_certificate: OpenMessage not found for type {signed_entity_type:?}.");
                 CertifierServiceError::NotFound(signed_entity_type.clone())
             })?;
+        let open_message: OpenMessage = open_message_record.clone().into();
 
         if open_message.is_certified {
             warn!("CertifierService::create_certificate: open message {signed_entity_type:?} is already certified, cannot create certificate.");
@@ -343,7 +344,7 @@ impl CertifierService for MithrilCertifierService {
             .create_certificate(certificate)
             .await?;
 
-        let mut open_message_certified: OpenMessageRecord = open_message.into();
+        let mut open_message_certified: OpenMessageRecord = open_message_record.into();
         open_message_certified.is_certified = true;
         self.open_message_repository
             .update_open_message(&open_message_certified)
