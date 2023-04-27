@@ -24,7 +24,7 @@ enum MithrilTickerError {
 
 /// Service trait with consistent business oriented API.
 #[async_trait]
-pub trait TickerService {
+pub trait TickerService: Send + Sync {
     /// Return the current Epoch as read from the chain.
     async fn get_current_epoch(&self) -> StdResult<Epoch>;
 

@@ -3,6 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use async_trait::async_trait;
 use mithril_common::{
     entities::{Beacon, CertificatePending, Epoch, EpochSettings, Signer, SingleSignatures},
+    test_utils::fake_data,
     BeaconProvider, BeaconProviderImpl,
 };
 use mithril_signer::{CertificateHandler, CertificateHandlerError};
@@ -72,7 +73,7 @@ impl CertificateHandler for FakeAggregator {
         let beacon = self.get_beacon().await?;
         let mut certificate_pending = CertificatePending {
             beacon: beacon.clone(),
-            ..Default::default()
+            ..fake_data::certificate_pending()
         };
 
         let store = self.registered_signers.read().await;

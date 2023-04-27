@@ -11,6 +11,7 @@ impl ToCertificatePendingMessageAdapter {
     pub fn adapt(certificate_pending: CertificatePending) -> CertificatePendingMessage {
         CertificatePendingMessage {
             beacon: certificate_pending.beacon,
+            signed_entity_type: certificate_pending.signed_entity_type,
             protocol_parameters: certificate_pending.protocol_parameters,
             next_protocol_parameters: certificate_pending.next_protocol_parameters,
             signers: Self::adapt_signers(certificate_pending.signers),
@@ -55,7 +56,7 @@ mod tests {
         let certificate_pending = CertificatePending {
             signers,
             next_signers,
-            ..Default::default()
+            ..fake_data::certificate_pending()
         };
         let message = ToCertificatePendingMessageAdapter::adapt(certificate_pending);
 

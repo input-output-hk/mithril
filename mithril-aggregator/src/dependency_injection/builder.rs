@@ -11,10 +11,7 @@ use mithril_common::{
         CardanoImmutableDigester, DumbImmutableFileObserver, ImmutableDigester,
         ImmutableFileObserver, ImmutableFileSystemObserver,
     },
-    entities::{
-        Beacon, Certificate, CertificatePending, Epoch, PartyId, ProtocolParameters,
-        SignerWithStake, SingleSignatures,
-    },
+    entities::{Beacon, CertificatePending, Epoch, PartyId, SingleSignatures},
     era::{
         adapters::{EraReaderAdapterBuilder, EraReaderDummyAdapter},
         EraChecker, EraMarker, EraReader, EraReaderAdapter, SupportedEra,
@@ -37,10 +34,12 @@ use warp::Filter;
 
 use crate::{
     artifact_builder::{ArtifactBuilderService, DummyArtifactBuilder},
+    certifier_service::{CertifierService, MithrilCertifierService},
     configuration::{ExecutionEnvironment, LIST_SNAPSHOTS_MAX_ITEMS},
     database::provider::{
-        CertificateStoreAdapter, EpochSettingStore, SignedEntityStoreAdapter,
-        SignerRegistrationStoreAdapter, SignerStore, StakePoolStore,
+        CertificateRepository, CertificateStoreAdapter, EpochSettingStore, OpenMessageRepository,
+        SignedEntityStoreAdapter, SignerRegistrationStoreAdapter, SignerStore,
+        SingleSignatureRepository, StakePoolStore,
     },
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
@@ -61,7 +60,17 @@ use super::{DependenciesBuilderError, Result};
 
 const SQLITE_FILE: &str = "aggregator.sqlite3";
 
-/// Dependencies container builder
+/// ## Dependencies container builder
+///
+/// This is meant to create SHARED DEPENDENCIES, ie: dependencies instances that
+/// must be shared amongst several Tokio tasks. For example, database
+/// repositories are NOT shared dependencies and therefor can be created ad hoc
+/// whereas the database connection is a shared dependency.
+///
+/// Each shared dependency must implement a `build` and a `get` function. The
+/// build function creates the dependency, the get function creates the
+/// dependency at first call then return a clone of the Arc containing the
+/// dependency for all further calls.
 pub struct DependenciesBuilder {
     /// Configuration parameters
     pub configuration: Configuration,
@@ -165,6 +174,9 @@ pub struct DependenciesBuilder {
 
     /// Artifact Builder Service
     pub artifact_builder_service: Option<Arc<ArtifactBuilderService>>,
+
+    /// Certifier service
+    pub certifier_service: Option<Arc<dyn CertifierService>>,
 }
 
 impl DependenciesBuilder {
@@ -204,6 +216,7 @@ impl DependenciesBuilder {
             signer_recorder: None,
             signable_builder_service: None,
             artifact_builder_service: None,
+            certifier_service: None,
         }
     }
 
@@ -212,7 +225,7 @@ impl DependenciesBuilder {
             ExecutionEnvironment::Production => {
                 self.configuration.get_sqlite_dir().join(SQLITE_FILE)
             }
-            _ => ":memory:".into(),
+            _ => self.configuration.data_stores_directory.clone(),
         };
         let connection = Connection::open(&path)
             .map(|c| Arc::new(Mutex::new(c)))
@@ -274,27 +287,10 @@ impl DependenciesBuilder {
     }
 
     async fn build_snapshot_store(&mut self) -> Result<Arc<dyn SnapshotStore>> {
-        let adapter: Box<
-            dyn StoreAdapter<Key = String, Record = mithril_common::entities::Snapshot>,
-        > = match self.configuration.environment {
-            ExecutionEnvironment::Production => {
-                let adapter = SignedEntityStoreAdapter::new(self.get_sqlite_connection().await?);
-
-                Box::new(adapter)
-            }
-            _ => {
-                let adapter = MemoryAdapter::new(None).map_err(|e| {
-                    DependenciesBuilderError::Initialization {
-                        message: "Cannot create Memory adapter for Snapshot Store.".to_string(),
-                        error: Some(e.into()),
-                    }
-                })?;
-                Box::new(adapter)
-            }
-        };
-
         Ok(Arc::new(LocalSnapshotStore::new(
-            adapter,
+            Box::new(SignedEntityStoreAdapter::new(
+                self.get_sqlite_connection().await?,
+            )),
             LIST_SNAPSHOTS_MAX_ITEMS,
         )))
     }
@@ -350,7 +346,6 @@ impl DependenciesBuilder {
         let multi_signer = MultiSignerImpl::new(
             self.get_verification_key_store().await?,
             self.get_stake_store().await?,
-            self.get_single_signature_store().await?,
             self.get_protocol_parameters_store().await?,
         );
 
@@ -407,26 +402,9 @@ impl DependenciesBuilder {
     }
 
     async fn build_certificate_store(&mut self) -> Result<Arc<CertificateStore>> {
-        let adapter: Box<dyn StoreAdapter<Key = String, Record = Certificate>> =
-            match self.configuration.environment {
-                ExecutionEnvironment::Production => {
-                    let adapter = CertificateStoreAdapter::new(self.get_sqlite_connection().await?);
-
-                    Box::new(adapter)
-                }
-                _ => {
-                    let adapter = MemoryAdapter::new(None).map_err(|e| {
-                        DependenciesBuilderError::Initialization {
-                            message: "Cannot create Memory adapter for Certificate Store."
-                                .to_string(),
-                            error: Some(e.into()),
-                        }
-                    })?;
-                    Box::new(adapter)
-                }
-            };
-
-        Ok(Arc::new(CertificateStore::new(adapter)))
+        Ok(Arc::new(CertificateStore::new(Box::new(
+            CertificateStoreAdapter::new(self.get_sqlite_connection().await?),
+        ))))
     }
 
     /// Get a configured [CertificateStore].
@@ -439,29 +417,10 @@ impl DependenciesBuilder {
     }
 
     async fn build_verification_key_store(&mut self) -> Result<Arc<VerificationKeyStore>> {
-        let adapter: Box<
-            dyn StoreAdapter<Key = Epoch, Record = HashMap<PartyId, SignerWithStake>>,
-        > = match self.configuration.environment {
-            ExecutionEnvironment::Production => {
-                let adapter =
-                    SignerRegistrationStoreAdapter::new(self.get_sqlite_connection().await?);
-
-                Box::new(adapter)
-            }
-            _ => {
-                let adapter = MemoryAdapter::new(None).map_err(|e| {
-                    DependenciesBuilderError::Initialization {
-                        message: "Cannot create Memory adapter for VerificationKeyStore."
-                            .to_string(),
-                        error: Some(e.into()),
-                    }
-                })?;
-                Box::new(adapter)
-            }
-        };
-
         Ok(Arc::new(VerificationKeyStore::new(
-            adapter,
+            Box::new(SignerRegistrationStoreAdapter::new(
+                self.get_sqlite_connection().await?,
+            )),
             self.configuration.store_retention_limit,
         )))
     }
@@ -519,27 +478,8 @@ impl DependenciesBuilder {
     }
 
     async fn build_protocol_parameters_store(&mut self) -> Result<Arc<ProtocolParametersStore>> {
-        let adapter: Box<dyn StoreAdapter<Key = Epoch, Record = ProtocolParameters>> =
-            match self.configuration.environment {
-                ExecutionEnvironment::Production => {
-                    let adapter = EpochSettingStore::new(self.get_sqlite_connection().await?);
-
-                    Box::new(adapter)
-                }
-                _ => {
-                    let adapter = MemoryAdapter::new(None).map_err(|e| {
-                        DependenciesBuilderError::Initialization {
-                            message: "Cannot create Memory adapter for ProtocolParametersStore."
-                                .to_string(),
-                            error: Some(e.into()),
-                        }
-                    })?;
-                    Box::new(adapter)
-                }
-            };
-
         Ok(Arc::new(ProtocolParametersStore::new(
-            adapter,
+            Box::new(EpochSettingStore::new(self.get_sqlite_connection().await?)),
             self.configuration.store_retention_limit,
         )))
     }
@@ -1044,6 +984,8 @@ impl DependenciesBuilder {
             signer_recorder: self.get_signer_recorder().await?,
             signable_builder_service: self.get_signable_builder_service().await?,
             artifact_builder_service: self.get_artifact_builder_service().await?,
+            certifier_service: self.get_certifier_service().await?,
+            ticker_service: self.get_ticker_service().await?,
         };
 
         Ok(dependency_manager)
@@ -1173,5 +1115,42 @@ impl DependenciesBuilder {
         }
 
         Ok(self.ticker_service.as_ref().cloned().unwrap())
+    }
+
+    /// Create [CertifierService] service
+    pub async fn build_certifier_service(&mut self) -> Result<Arc<dyn CertifierService>> {
+        let open_message_repository = Arc::new(OpenMessageRepository::new(
+            self.get_sqlite_connection().await?,
+        ));
+        let single_signature_repository = Arc::new(SingleSignatureRepository::new(
+            self.get_sqlite_connection().await?,
+        ));
+        let certificate_repository = Arc::new(CertificateRepository::new(
+            self.get_sqlite_connection().await?,
+        ));
+        let certificate_verifier = self.get_certificate_verifier().await?;
+        let genesis_verifier = self.get_genesis_verifier().await?;
+        let multisigner = self.get_multi_signer().await?;
+        let logger = self.get_logger().await?;
+
+        Ok(Arc::new(MithrilCertifierService::new(
+            open_message_repository,
+            single_signature_repository,
+            certificate_repository,
+            certificate_verifier,
+            genesis_verifier,
+            multisigner,
+            Epoch(0),
+            logger,
+        )))
+    }
+
+    /// [CertifierService] service
+    pub async fn get_certifier_service(&mut self) -> Result<Arc<dyn CertifierService>> {
+        if self.certifier_service.is_none() {
+            self.certifier_service = Some(self.build_certifier_service().await?);
+        }
+
+        Ok(self.certifier_service.as_ref().cloned().unwrap())
     }
 }

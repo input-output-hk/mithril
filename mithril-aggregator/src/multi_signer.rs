@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use hex::ToHex;
 use slog_scope::{debug, warn};
 use std::sync::Arc;
 use thiserror::Error;
@@ -15,8 +14,8 @@ use mithril_common::{
 };
 
 use crate::{
-    store::{SingleSignatureStorer, VerificationKeyStorer},
-    ProtocolParametersStore, ProtocolParametersStorer, SingleSignatureStore, VerificationKeyStore,
+    database::provider::OpenMessageWithSingleSignatures, store::VerificationKeyStorer,
+    ProtocolParametersStore, ProtocolParametersStorer, VerificationKeyStore,
 };
 
 #[cfg(test)]
@@ -78,15 +77,6 @@ pub enum ProtocolError {
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait MultiSigner: Sync + Send {
-    /// Get current message
-    async fn get_current_message(&self) -> Option<entities::ProtocolMessage>;
-
-    /// Update current message
-    async fn update_current_message(
-        &mut self,
-        message: entities::ProtocolMessage,
-    ) -> Result<(), ProtocolError>;
-
     /// Get current beacon
     async fn get_current_beacon(&self) -> Option<entities::Beacon>;
 
@@ -184,8 +174,8 @@ pub trait MultiSigner: Sync + Send {
     /// Get signers for the next epoch with their stake
     async fn get_next_signers_with_stake(&self) -> Result<Vec<SignerWithStake>, ProtocolError>;
 
-    /// Registers a single signature
-    async fn register_single_signature(
+    /// Verify a single signature
+    async fn verify_single_signature(
         &self,
         message: &entities::ProtocolMessage,
         signatures: &entities::SingleSignatures,
@@ -194,15 +184,12 @@ pub trait MultiSigner: Sync + Send {
     /// Creates a multi signature from single signatures
     async fn create_multi_signature(
         &self,
-        message: &entities::ProtocolMessage,
+        open_message: &OpenMessageWithSingleSignatures,
     ) -> Result<Option<ProtocolMultiSignature>, ProtocolError>;
 }
 
 /// MultiSignerImpl is an implementation of the MultiSigner
 pub struct MultiSignerImpl {
-    /// Message that is currently signed
-    current_message: Option<entities::ProtocolMessage>,
-
     /// Beacon that is currently used
     current_beacon: Option<entities::Beacon>,
 
@@ -211,9 +198,6 @@ pub struct MultiSignerImpl {
 
     /// Stake store
     stake_store: Arc<dyn StakeStorer>,
-
-    /// Single signature store
-    single_signature_store: Arc<SingleSignatureStore>,
 
     /// Protocol parameters store
     protocol_parameters_store: Arc<ProtocolParametersStore>,
@@ -224,16 +208,13 @@ impl MultiSignerImpl {
     pub fn new(
         verification_key_store: Arc<VerificationKeyStore>,
         stake_store: Arc<dyn StakeStorer>,
-        single_signature_store: Arc<SingleSignatureStore>,
         protocol_parameters_store: Arc<ProtocolParametersStore>,
     ) -> Self {
         debug!("New MultiSignerImpl created");
         Self {
-            current_message: None,
             current_beacon: None,
             verification_key_store,
             stake_store,
-            single_signature_store,
             protocol_parameters_store,
         }
     }
@@ -326,23 +307,6 @@ impl MultiSignerImpl {
 
 #[async_trait]
 impl MultiSigner for MultiSignerImpl {
-    /// Get current message
-    async fn get_current_message(&self) -> Option<entities::ProtocolMessage> {
-        debug!("Get current message");
-        self.current_message.clone()
-    }
-
-    /// Update current message
-    async fn update_current_message(
-        &mut self,
-        message: entities::ProtocolMessage,
-    ) -> Result<(), ProtocolError> {
-        debug!("Update current_message"; "protocol_message" =>  #?message, "signed message" => message.compute_hash().encode_hex::<String>());
-
-        self.current_message = Some(message);
-        Ok(())
-    }
-
     async fn get_current_beacon(&self) -> Option<entities::Beacon> {
         self.current_beacon.clone()
     }
@@ -525,14 +489,14 @@ impl MultiSigner for MultiSignerImpl {
             .collect())
     }
 
-    /// Registers a single signature
-    async fn register_single_signature(
+    /// Verify a single signature
+    async fn verify_single_signature(
         &self,
         message: &entities::ProtocolMessage,
         signatures: &entities::SingleSignatures,
     ) -> Result<(), ProtocolError> {
         debug!(
-            "Register single signature from {} at indexes {:?} for message {:?}",
+            "Verify single signature from {} at indexes {:?} for message {:?}",
             signatures.party_id, signatures.won_indexes, message
         );
 
@@ -569,52 +533,19 @@ impl MultiSigner for MultiSignerImpl {
             )
             .map_err(|e| ProtocolError::Core(e.to_string()))?;
 
-        // Register single signature
-        let beacon = self
-            .current_beacon
-            .as_ref()
-            .ok_or_else(ProtocolError::UnavailableBeacon)?;
-
-        return match self
-            .single_signature_store
-            .save_single_signatures(beacon, signatures)
-            .await?
-        {
-            Some(_) => Err(ProtocolError::ExistingSingleSignature(
-                signatures.party_id.clone(),
-            )),
-            None => Ok(()),
-        };
+        Ok(())
     }
 
     /// Creates a multi signature from single signatures
     async fn create_multi_signature(
         &self,
-        message: &entities::ProtocolMessage,
+        open_message: &OpenMessageWithSingleSignatures,
     ) -> Result<Option<ProtocolMultiSignature>, ProtocolError> {
-        debug!("Create multi signature");
-        let beacon = self
-            .current_beacon
-            .as_ref()
-            .ok_or_else(ProtocolError::UnavailableBeacon)?;
+        debug!("MultiSigner:create_multi_signature({open_message:?})");
         let protocol_parameters = self
             .get_protocol_parameters()
             .await?
             .ok_or_else(ProtocolError::UnavailableProtocolParameters)?;
-
-        let signatures: Vec<ProtocolSingleSignature> = self
-            .single_signature_store
-            .get_single_signatures(beacon)
-            .await?
-            .unwrap_or_default()
-            .iter()
-            .filter_map(|(_party_id, single_signature)| {
-                single_signature
-                    .to_protocol_signature()
-                    .map_err(ProtocolError::Codec)
-                    .ok()
-            })
-            .collect::<Vec<_>>();
 
         let signers_with_stakes = self.get_signers_with_stake().await?;
 
@@ -622,8 +553,21 @@ impl MultiSigner for MultiSignerImpl {
             .create_clerk(&signers_with_stakes, &protocol_parameters)
             .await?
             .ok_or_else(ProtocolError::UnavailableClerk)?;
+        let signatures: Vec<ProtocolSingleSignature> = open_message
+            .single_signatures
+            .iter()
+            .filter_map(|single_signature| {
+                single_signature
+                    .to_protocol_signature()
+                    .map_err(ProtocolError::Codec)
+                    .ok()
+            })
+            .collect::<Vec<_>>();
 
-        match clerk.aggregate(&signatures, message.compute_hash().as_bytes()) {
+        match clerk.aggregate(
+            &signatures,
+            open_message.protocol_message.compute_hash().as_bytes(),
+        ) {
             Ok(multi_signature) => Ok(Some(multi_signature)),
             Err(ProtocolAggregationError::NotEnoughSignatures(actual, expected)) => {
                 warn!("Could not compute multi-signature: Not enough signatures. Got only {} out of {}.", actual, expected);
@@ -637,16 +581,16 @@ impl MultiSigner for MultiSignerImpl {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{
-        store::{SingleSignatureStore, VerificationKeyStore},
-        ProtocolParametersStore,
-    };
+    use crate::{store::VerificationKeyStore, ProtocolParametersStore};
+    use chrono::Local;
     use mithril_common::{
         crypto_helper::tests_setup::*,
+        entities::SignedEntityType,
         store::{adapter::MemoryAdapter, StakeStore},
         test_utils::{fake_data, MithrilFixtureBuilder},
     };
     use std::{collections::HashMap, sync::Arc};
+    use uuid::Uuid;
 
     async fn setup_multi_signer() -> MultiSignerImpl {
         let beacon = fake_data::beacon();
@@ -661,16 +605,6 @@ mod tests {
         );
         let stake_store = StakeStore::new(
             Box::new(MemoryAdapter::<Epoch, StakeDistribution>::new(None).unwrap()),
-            None,
-        );
-        let single_signature_store = SingleSignatureStore::new(
-            Box::new(
-                MemoryAdapter::<
-                    entities::Beacon,
-                    HashMap<entities::PartyId, entities::SingleSignatures>,
-                >::new(None)
-                .unwrap(),
-            ),
             None,
         );
         let protocol_parameters_store = ProtocolParametersStore::new(
@@ -696,7 +630,6 @@ mod tests {
         let mut multi_signer = MultiSignerImpl::new(
             Arc::new(verification_key_store),
             Arc::new(stake_store),
-            Arc::new(single_signature_store),
             Arc::new(protocol_parameters_store),
         );
 
@@ -732,23 +665,6 @@ mod tests {
         }
 
         result
-    }
-
-    #[tokio::test]
-    async fn test_multi_signer_current_message_ok() {
-        let mut multi_signer = setup_multi_signer().await;
-
-        let current_message_expected = setup_message();
-        multi_signer
-            .update_current_message(current_message_expected.clone())
-            .await
-            .expect("update current message failed");
-
-        let current_message = multi_signer
-            .get_current_message()
-            .await
-            .expect("current message should have been retrieved");
-        assert_eq!(current_message_expected, current_message)
     }
 
     #[tokio::test]
@@ -852,14 +768,7 @@ mod tests {
             Epoch::SIGNER_RECORDING_OFFSET as i64 - Epoch::SIGNER_RETRIEVAL_OFFSET,
         )
         .await;
-        // We have to update the current message AFTER we reached the epoch for
-        // which the signers registered for the stake distribution to be valid
-        // hence the multisigner be able to create a Clerk and being able to
-        // register single signatures
-        multi_signer
-            .update_current_message(message.clone())
-            .await
-            .expect("update current message failed");
+
         let mut signatures = Vec::new();
 
         let mut expected_certificate_signers: Vec<SignerWithStake> = Vec::new();
@@ -880,6 +789,13 @@ mod tests {
             }
         }
 
+        for signature in &signatures {
+            multi_signer
+                .verify_single_signature(&message, signature)
+                .await
+                .expect("single signature should be valid");
+        }
+
         let signatures_to_almost_reach_quorum = take_signatures_until_quorum_is_almost_reached(
             &mut signatures,
             protocol_parameters.k as usize,
@@ -889,36 +805,40 @@ mod tests {
             "they should be at least one signature that can be registered without reaching the quorum"
         );
 
+        let mut open_message = OpenMessageWithSingleSignatures {
+            open_message_id: Uuid::parse_str("193d1442-e89b-43cf-9519-04d8db9a12ff").unwrap(),
+            epoch: start_epoch,
+            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(
+                multi_signer.current_beacon.clone().unwrap(),
+            ),
+            protocol_message: message.clone(),
+            is_certified: false,
+            single_signatures: Vec::new(),
+            created_at: Local::now().naive_local(),
+        };
+
         // No signatures registered: multi-signer can't create the multi-signature
         assert!(multi_signer
-            .create_multi_signature(&message)
+            .create_multi_signature(&open_message)
             .await
             .expect("create multi signature should not fail")
             .is_none());
 
         // Add some signatures but not enough to reach the quorum: multi-signer should not create the multi-signature
-        for signature in signatures_to_almost_reach_quorum {
-            multi_signer
-                .register_single_signature(&message, &signature)
-                .await
-                .expect("register single signature should not fail");
-        }
+        open_message.single_signatures = signatures_to_almost_reach_quorum;
+
         assert!(multi_signer
-            .create_multi_signature(&message)
+            .create_multi_signature(&open_message)
             .await
             .expect("create multi signature should not fail")
             .is_none());
 
         // Add the remaining signatures to reach the quorum: multi-signer should create a multi-signature
-        for signature in &signatures {
-            multi_signer
-                .register_single_signature(&message, signature)
-                .await
-                .expect("register single signature should not fail");
-        }
+        open_message.single_signatures.append(&mut signatures);
+
         assert!(
             multi_signer
-                .create_multi_signature(&message)
+                .create_multi_signature(&open_message)
                 .await
                 .expect("create multi signature should not fail")
                 .is_some(),

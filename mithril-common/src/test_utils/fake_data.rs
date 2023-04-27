@@ -1,7 +1,8 @@
 //! Fake data builders for testing.
 
 use crate::entities::{
-    CertificateMetadata, LotteryIndex, ProtocolMessage, ProtocolMessagePartKey, SingleSignatures,
+    CertificateMetadata, LotteryIndex, ProtocolMessage, ProtocolMessagePartKey, SignedEntityType,
+    SingleSignatures,
 };
 use crate::{crypto_helper, entities};
 
@@ -53,6 +54,9 @@ pub fn certificate_pending() -> entities::CertificatePending {
     // Beacon
     let beacon = beacon();
 
+    // Signed entity type
+    let signed_entity_type = SignedEntityType::dummy();
+
     // Protocol parameters
     let next_protocol_parameters = protocol_parameters();
     let protocol_parameters = protocol_parameters();
@@ -65,11 +69,21 @@ pub fn certificate_pending() -> entities::CertificatePending {
     // Certificate pending
     entities::CertificatePending::new(
         beacon,
+        signed_entity_type,
         protocol_parameters,
         next_protocol_parameters,
         current_signers,
         next_signers,
     )
+}
+
+/// Fake Genesis Certificate
+pub fn genesis_certificate(certificate_hash: String) -> entities::Certificate {
+    let mut certificate = certificate(certificate_hash);
+    certificate.genesis_signature = certificate.multi_signature;
+    certificate.multi_signature = "".to_string();
+
+    certificate
 }
 
 /// Fake Certificate

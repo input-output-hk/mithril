@@ -4,7 +4,7 @@ info:
   # `mithril-common/src/lib.rs` file. If you plan to update it
   # here to reflect changes in the API, please also update the constant in the
   # Rust file.
-  version: 0.1.1
+  version: 0.1.3
   title: Mithril Aggregator Server
   description: |
     The REST API provided by a Mithril Aggregator Node in a Mithril network.
@@ -52,6 +52,7 @@ paths:
         Returns the information related to the current pending certificate:
           * protocol parameters, for current and next epoch (to setup cryptography)
           * beacon information (where on the chain the pending certificate should be triggered)
+          * entity type of the message that must be signed
           * verification keys of the signers, for current and next epoch
       responses:
         "200":
@@ -229,13 +230,15 @@ paths:
         "201":
           description: signatures registration succeeded
         "400":
-          description: signer registration bad request
+          description: signatures registration bad request
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-        "409":
-          description: signatures registration already done
+        "404":
+          description: open message not found
+        "410":
+          description: signatures registration done too late
         "412":
           description: API version mismatch
         default:
@@ -315,12 +318,18 @@ components:
       example:
         { "network": "mainnet", "epoch": 329, "immutable_file_number": 7060000 }
 
+    SignedEntityType:
+      description: Entity type of the message that is signed
+      type: object
+      additionalProperties: true   
+
     CertificatePendingMessage:
       description: CertificatePendingMessage represents all the information related to the certificate currently expecting to receive quorum of single signatures
       type: object
       additionalProperties: false
       required:
         - beacon
+        - entity_type
         - protocol
         - next_protocol
         - signers
@@ -328,6 +337,8 @@ components:
       properties:
         beacon:
           $ref: "#/components/schemas/Beacon"
+        entity_type:
+          $ref: "#/components/schemas/SignedEntityType"
         protocol:
           $ref: "#/components/schemas/ProtocolParameters"
         next_protocol:
@@ -409,10 +420,13 @@ components:
       type: object
       additionalProperties: false
       required:
+        - entity_type
         - party_id
         - signature
         - indexes
       properties:
+        entity_type:
+          $ref: "#/components/schemas/SignedEntityType"
         party_id:
           description: The unique identifier of the signer
           type: string

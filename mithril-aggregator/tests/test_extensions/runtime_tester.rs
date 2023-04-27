@@ -10,15 +10,16 @@ use slog::Drain;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedReceiver;
 
+use crate::test_extensions::open_message_observer::OpenMessageObserver;
 use mithril_aggregator::{
     AggregatorRuntime, Configuration, DumbSnapshotUploader, DumbSnapshotter,
     ProtocolParametersStorer, SignerRegisterer,
 };
-use mithril_common::crypto_helper::{key_encode_hex, ProtocolClerk, ProtocolGenesisSigner};
+use mithril_common::crypto_helper::{ProtocolClerk, ProtocolGenesisSigner};
 use mithril_common::digesters::DumbImmutableFileObserver;
 use mithril_common::entities::{
-    Certificate, Epoch, ImmutableFileNumber, ProtocolParameters, SignerWithStake, SingleSignatures,
-    Snapshot, StakeDistribution,
+    Certificate, Epoch, ImmutableFileNumber, SignedEntityType, SignerWithStake, Snapshot,
+    StakeDistribution,
 };
 use mithril_common::{chain_observer::FakeObserver, digesters::DumbImmutableDigester};
 
@@ -52,11 +53,12 @@ pub struct RuntimeTester {
     pub runtime: AggregatorRuntime,
     pub receiver: UnboundedReceiver<EventMessage>,
     pub era_reader_adapter: Arc<EraReaderDummyAdapter>,
+    pub open_message_observer: OpenMessageObserver,
     _logs_guard: slog_scope::GlobalLoggerGuard,
 }
 
 impl RuntimeTester {
-    pub async fn build(default_protocol_parameters: ProtocolParameters) -> Self {
+    pub async fn build(configuration: Configuration) -> Self {
         let snapshot_uploader = Arc::new(DumbSnapshotUploader::new());
         let chain_observer = Arc::new(FakeObserver::default());
         let immutable_file_observer = Arc::new(DumbImmutableFileObserver::default());
@@ -68,10 +70,6 @@ impl RuntimeTester {
                 &SupportedEra::dummy().to_string(),
                 Some(Epoch(0)),
             )]));
-        let configuration = Configuration {
-            protocol_parameters: default_protocol_parameters,
-            ..Configuration::new_sample()
-        };
         let mut deps_builder = DependenciesBuilder::new(configuration);
         deps_builder.snapshot_uploader = Some(snapshot_uploader.clone());
         deps_builder.chain_observer = Some(chain_observer.clone());
@@ -86,6 +84,10 @@ impl RuntimeTester {
         let drain = slog_async::Async::new(drain).build().fuse();
         let log = slog_scope::set_global_logger(slog::Logger::root(Arc::new(drain), slog::o!()));
         let receiver = deps_builder.get_event_transmitter_receiver().await.unwrap();
+        let open_message_observer = OpenMessageObserver::new(
+            deps_builder.get_beacon_provider().await.unwrap(),
+            deps_builder.get_certifier_service().await.unwrap(),
+        );
 
         Self {
             snapshot_uploader,
@@ -98,6 +100,7 @@ impl RuntimeTester {
             runtime,
             receiver,
             era_reader_adapter,
+            open_message_observer,
             _logs_guard: log,
         }
     }
@@ -152,6 +155,13 @@ impl RuntimeTester {
             .get_current_beacon()
             .await
             .map_err(|e| format!("Querying the current beacon should not fail: {e:?}"))?;
+        self.deps_builder
+            .get_certifier_service()
+            .await
+            .unwrap()
+            .inform_epoch(beacon.epoch)
+            .await
+            .expect("inform_epoch should not fail");
         let protocol_parameters = self
             .deps_builder
             .get_protocol_parameters_store()
@@ -225,6 +235,13 @@ impl RuntimeTester {
             .await
             .ok_or("a new epoch should have been issued")?;
         self.update_digester_digest().await?;
+        self.deps_builder
+            .get_certifier_service()
+            .await
+            .unwrap()
+            .inform_epoch(new_epoch)
+            .await
+            .expect("inform_epoch should not fail");
 
         Ok(new_epoch)
     }
@@ -247,28 +264,21 @@ impl RuntimeTester {
     /// "Send", actually register, the given single signatures in the multi-signers
     pub async fn send_single_signatures(
         &mut self,
+        signed_entity_type: &SignedEntityType,
         signers: &[SignerFixture],
     ) -> Result<(), String> {
-        let lock = self.deps_builder.get_multi_signer().await.unwrap();
-        let multisigner = lock.read().await;
-        let message = multisigner
-            .get_current_message()
+        let certifier_service = self.deps_builder.get_certifier_service().await.unwrap();
+        let message = certifier_service
+            .get_open_message(signed_entity_type)
             .await
-            .ok_or("There should be a message to be signed.")?;
+            .unwrap()
+            .ok_or("There should be a message to be signed.")?
+            .protocol_message;
 
         for signer_fixture in signers {
-            if let Some(signature) = signer_fixture
-                .protocol_signer
-                .sign(message.compute_hash().as_bytes())
-            {
-                let single_signatures = SingleSignatures::new(
-                    signer_fixture.signer_with_stake.party_id.to_owned(),
-                    key_encode_hex(&signature).expect("hex encoding should not fail"),
-                    signature.indexes,
-                );
-
-                multisigner
-                    .register_single_signature(&message, &single_signatures)
+            if let Some(single_signatures) = signer_fixture.sign(&message) {
+                certifier_service
+                    .register_single_signature(signed_entity_type, &single_signatures)
                     .await
                     .map_err(|e| {
                         format!("registering a winning lottery signature should not fail: {e:?}")
@@ -353,7 +363,7 @@ impl RuntimeTester {
         Ok(fixture.signers_fixture())
     }
 
-    // Update the digester result using the current beacon
+    /// Update the digester result using the current beacon
     pub async fn update_digester_digest(&mut self) -> Result<(), String> {
         let beacon = self
             .deps_builder
@@ -374,7 +384,7 @@ impl RuntimeTester {
         Ok(())
     }
 
-    // update the Era markers
+    /// Update the Era markers
     pub async fn set_era_markers(&self, markers: Vec<EraMarker>) {
         self.era_reader_adapter.set_markers(markers)
     }

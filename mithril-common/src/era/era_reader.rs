@@ -17,7 +17,7 @@ pub struct EraMarker {
 }
 
 impl EraMarker {
-    /// instanciate a new [EraMarker].
+    /// instantiate a new [EraMarker].
     pub fn new(name: &str, epoch: Option<Epoch>) -> Self {
         let name = name.to_string();
 

@@ -5,6 +5,7 @@ use sqlite::{Connection, Value};
 use async_trait::async_trait;
 
 use mithril_common::{
+    certificate_chain::{CertificateRetriever, CertificateRetrieverError},
     entities::{
         Beacon, Certificate, CertificateMetadata, Epoch, HexEncodedAgregateVerificationKey,
         HexEncodedKey, ProtocolMessage, ProtocolParameters, ProtocolVersion, SignerWithStake,
@@ -14,6 +15,7 @@ use mithril_common::{
         WhereCondition,
     },
     store::adapter::{AdapterError, StoreAdapter},
+    StdResult,
 };
 
 use mithril_common::StdError;
@@ -23,13 +25,13 @@ use tokio::sync::Mutex;
 #[derive(Debug, PartialEq, Clone)]
 pub struct CertificateRecord {
     /// Certificate id.
-    certificate_id: String,
+    pub certificate_id: String,
 
     /// Parent Certificate id.
-    parent_certificate_id: Option<String>,
+    pub parent_certificate_id: Option<String>,
 
     /// Message that is signed.
-    message: String,
+    pub message: String,
 
     /// Signature of the certificate.
     /// Note: multi-signature if parent certificate id is set, genesis signature otherwise.
@@ -40,28 +42,28 @@ pub struct CertificateRecord {
     pub aggregate_verification_key: HexEncodedAgregateVerificationKey,
 
     /// Epoch of creation of the certificate.
-    epoch: Epoch,
+    pub epoch: Epoch,
 
     /// Beacon used to produce the signed message
-    beacon: Beacon,
+    pub beacon: Beacon,
 
     /// Protocol Version (semver)
-    protocol_version: ProtocolVersion,
+    pub protocol_version: ProtocolVersion,
 
     /// Protocol parameters.
-    protocol_parameters: ProtocolParameters,
+    pub protocol_parameters: ProtocolParameters,
 
     /// Structured message that is used to create the signed message
-    protocol_message: ProtocolMessage,
+    pub protocol_message: ProtocolMessage,
 
     /// The list of the active signers with their stakes and verification keys
-    signers: Vec<SignerWithStake>,
+    pub signers: Vec<SignerWithStake>,
 
     /// Date and time when the certificate was initiated
-    initiated_at: String,
+    pub initiated_at: String,
 
     /// Date and time when the certificate was sealed
-    sealed_at: String,
+    pub sealed_at: String,
 }
 
 impl From<Certificate> for CertificateRecord {
@@ -259,11 +261,11 @@ impl<'client> CertificateRecordProvider<'client> {
 
     fn condition_by_certificate_id(
         &self,
-        certificate_id: String,
+        certificate_id: &str,
     ) -> Result<WhereCondition, StdError> {
         Ok(WhereCondition::new(
             "certificate_id = ?*",
-            vec![Value::String(certificate_id)],
+            vec![Value::String(certificate_id.to_owned())],
         ))
     }
 
@@ -279,7 +281,7 @@ impl<'client> CertificateRecordProvider<'client> {
     /// Get CertificateRecords for a given certificate id.
     pub fn get_by_certificate_id(
         &self,
-        certificate_id: String,
+        certificate_id: &str,
     ) -> Result<EntityCursor<CertificateRecord>, StdError> {
         let filters = self.condition_by_certificate_id(certificate_id)?;
         let certificate_record = self.find(filters)?;
@@ -329,29 +331,29 @@ impl<'conn> InsertCertificateRecordProvider<'conn> {
         Self { connection }
     }
 
-    fn get_insert_condition(&self, certificate_record: CertificateRecord) -> WhereCondition {
+    fn get_insert_condition(&self, certificate_record: &CertificateRecord) -> WhereCondition {
         WhereCondition::new(
             "(certificate_id, parent_certificate_id, message, signature, aggregate_verification_key, epoch, beacon, protocol_version, protocol_parameters, protocol_message, signers, initiated_at, sealed_at) values (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             vec![
-                Value::String(certificate_record.certificate_id),
-                if let Some(parent_certificate_id) = certificate_record.parent_certificate_id{
+                Value::String(certificate_record.certificate_id.to_owned()),
+                if let Some(parent_certificate_id) = certificate_record.parent_certificate_id.to_owned() {
                     Value::String(parent_certificate_id)
                 }else{
                     Value::Null
                 },
-                Value::String(certificate_record.message),
-                Value::String(certificate_record.signature),
-                Value::String(certificate_record.aggregate_verification_key),
+                Value::String(certificate_record.message.to_owned()),
+                Value::String(certificate_record.signature.to_owned()),
+                Value::String(certificate_record.aggregate_verification_key.to_owned()),
                 Value::Integer(i64::try_from(certificate_record.epoch.0).unwrap()),
                 Value::String(serde_json::to_string(&certificate_record.beacon).unwrap()),
-                Value::String(certificate_record.protocol_version),
+                Value::String(certificate_record.protocol_version.to_owned()),
                 Value::String(
                     serde_json::to_string(&certificate_record.protocol_parameters).unwrap(),
                 ),
                 Value::String(serde_json::to_string(&certificate_record.protocol_message).unwrap()),
                 Value::String(serde_json::to_string(&certificate_record.signers).unwrap()),
-                Value::String(certificate_record.initiated_at),
-                Value::String(certificate_record.sealed_at),
+                Value::String(certificate_record.initiated_at.to_owned()),
+                Value::String(certificate_record.sealed_at.to_owned()),
             ],
         )
     }
@@ -360,7 +362,7 @@ impl<'conn> InsertCertificateRecordProvider<'conn> {
         &self,
         certificate_record: CertificateRecord,
     ) -> Result<CertificateRecord, StdError> {
-        let filters = self.get_insert_condition(certificate_record.clone());
+        let filters = self.get_insert_condition(&certificate_record);
 
         let entity = self.find(filters)?.next().unwrap_or_else(|| {
             panic!(
@@ -386,6 +388,120 @@ impl<'conn> Provider<'conn> for InsertCertificateRecordProvider<'conn> {
             .expand(SourceAlias::new(&[("{:certificate:}", "certificate")]));
 
         format!("insert into certificate {condition} returning {projection}")
+    }
+}
+
+struct MasterCertificateProvider<'conn> {
+    connection: &'conn Connection,
+}
+
+impl<'conn> MasterCertificateProvider<'conn> {
+    pub fn new(connection: &'conn Connection) -> Self {
+        Self { connection }
+    }
+
+    pub fn get_master_certificate_condition(&self, epoch: Epoch) -> WhereCondition {
+        let condition =
+            WhereCondition::new("certificate.parent_certificate_id is null", Vec::new()).or_where(
+                WhereCondition::new("parent_certificate.epoch != certificate.epoch", Vec::new()),
+            );
+
+        let epoch_i64: i64 = epoch.0.try_into().unwrap();
+        WhereCondition::new(
+            "certificate.epoch between ?* and ?*",
+            vec![Value::Integer(epoch_i64 - 1), Value::Integer(epoch_i64)],
+        )
+        .and_where(condition)
+    }
+}
+
+impl<'conn> Provider<'conn> for MasterCertificateProvider<'conn> {
+    type Entity = CertificateRecord;
+
+    fn get_connection(&'conn self) -> &'conn Connection {
+        self.connection
+    }
+
+    fn get_definition(&self, condition: &str) -> String {
+        // it is important to alias the fields with the same name as the table
+        // since the table cannot be aliased in a RETURNING statement in SQLite.
+        let projection = Self::Entity::get_projection().expand(SourceAlias::new(&[
+            ("{:certificate:}", "certificate"),
+            ("{:parent_certificate:}", "parent_certificate"),
+        ]));
+
+        format!(
+            r#"
+select {projection}
+from certificate
+  left join certificate as parent_certificate
+    on certificate.parent_certificate_id = parent_certificate.certificate_id
+where {condition}"#
+        )
+    }
+}
+
+/// Database frontend API for Certificate queries.
+pub struct CertificateRepository {
+    connection: Arc<Mutex<Connection>>,
+}
+
+impl CertificateRepository {
+    /// Instanciate a new repository
+    pub fn new(connection: Arc<Mutex<Connection>>) -> Self {
+        Self { connection }
+    }
+
+    /// Return the certificate corresponding to the given hash if any.
+    pub async fn get_certificate(&self, hash: &str) -> StdResult<Option<Certificate>> {
+        let lock = self.connection.lock().await;
+        let provider = CertificateRecordProvider::new(&lock);
+        let mut cursor = provider.get_by_certificate_id(hash)?;
+
+        Ok(cursor.next().map(|v| v.into()))
+    }
+
+    /// Return the first certificate signed per epoch as the reference
+    /// certificate for this Epoch. This will be the parent certificate for all
+    /// other certificates issued within this Epoch.
+    pub async fn get_master_certificate_for_epoch(
+        &self,
+        epoch: Epoch,
+    ) -> StdResult<Option<Certificate>> {
+        let lock = self.connection.lock().await;
+        let provider = MasterCertificateProvider::new(&lock);
+        let mut cursor = provider.find(provider.get_master_certificate_condition(epoch))?;
+
+        Ok(cursor.next().map(|c| c.into()))
+    }
+
+    /// Create a new certificate in the database.
+    pub async fn create_certificate(&self, certificate: Certificate) -> StdResult<Certificate> {
+        let lock = self.connection.lock().await;
+        let provider = InsertCertificateRecordProvider::new(&lock);
+        let mut cursor = provider.find(provider.get_insert_condition(&certificate.into()))?;
+
+        let new_certificate = cursor
+            .next()
+            .ok_or_else(|| panic!("Insert certificate query should always return a record."))
+            .unwrap();
+
+        Ok(new_certificate.into())
+    }
+}
+
+#[async_trait]
+impl CertificateRetriever for CertificateRepository {
+    async fn get_certificate_details(
+        &self,
+        certificate_hash: &str,
+    ) -> Result<Certificate, CertificateRetrieverError> {
+        self.get_certificate(certificate_hash)
+            .await
+            .map_err(|e| CertificateRetrieverError::General(e.to_string()))?
+            .ok_or(CertificateRetrieverError::General(
+                "certificate does not exist".to_string(),
+            ))
     }
 }
 
@@ -424,7 +540,7 @@ impl StoreAdapter for CertificateStoreAdapter {
         let connection = &*self.connection.lock().await;
         let provider = CertificateRecordProvider::new(connection);
         let mut cursor = provider
-            .get_by_certificate_id(key.to_string())
+            .get_by_certificate_id(key)
             .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
         let certificate = cursor
             .next()
@@ -466,7 +582,10 @@ impl StoreAdapter for CertificateStoreAdapter {
 
 #[cfg(test)]
 mod tests {
-    use crate::database::migration::get_migrations;
+    use crate::{
+        database::migration::get_migrations, dependency_injection::DependenciesBuilder,
+        Configuration,
+    };
     use mithril_common::crypto_helper::tests_setup::setup_certificate_chain;
 
     use super::*;
@@ -488,7 +607,7 @@ mod tests {
             // tested on its own above.
             let update_provider = InsertCertificateRecordProvider::new(connection);
             let (sql_values, _) = update_provider
-                .get_insert_condition(certificates.first().unwrap().to_owned().into())
+                .get_insert_condition(&(certificates.first().unwrap().to_owned().into()))
                 .expand();
             format!("insert into certificate {sql_values}")
         };
@@ -605,9 +724,7 @@ mod tests {
     fn get_certificate_record_by_certificate_id() {
         let connection = Connection::open(":memory:").unwrap();
         let provider = CertificateRecordProvider::new(&connection);
-        let condition = provider
-            .condition_by_certificate_id("cert-123".to_string())
-            .unwrap();
+        let condition = provider.condition_by_certificate_id("cert-123").unwrap();
         let (filter, values) = condition.expand();
 
         assert_eq!("certificate_id = ?1".to_string(), filter);
@@ -620,7 +737,7 @@ mod tests {
         let certificate_record: CertificateRecord = certificates.first().unwrap().to_owned().into();
         let connection = Connection::open(":memory:").unwrap();
         let provider = InsertCertificateRecordProvider::new(&connection);
-        let condition = provider.get_insert_condition(certificate_record.clone());
+        let condition = provider.get_insert_condition(&certificate_record);
         let (values, params) = condition.expand();
 
         assert_eq!(
@@ -746,5 +863,97 @@ mod tests {
                 .rev()
                 .collect::<Vec<Certificate>>()
         )
+    }
+
+    #[tokio::test]
+    async fn master_certificate_condition() {
+        let connection = Connection::open(":memory:").unwrap();
+        let provider = MasterCertificateProvider::new(&connection);
+        let condition = provider.get_master_certificate_condition(Epoch(10));
+        let (condition_str, parameters) = condition.expand();
+
+        assert_eq!("certificate.epoch between ?1 and ?2 and (certificate.parent_certificate_id is null or parent_certificate.epoch != certificate.epoch)".to_string(), condition_str);
+        assert_eq!(vec![Value::Integer(9), Value::Integer(10)], parameters);
+    }
+
+    #[tokio::test]
+    async fn repository_get_certificate() {
+        let (certificates, _) = setup_certificate_chain(5, 2);
+        let expected_hash = certificates[0].hash.clone();
+        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let connection = deps.get_sqlite_connection().await.unwrap();
+        {
+            let lock = connection.lock().await;
+            let provider = InsertCertificateRecordProvider::new(&lock);
+
+            for certificate in certificates.iter().rev() {
+                provider.persist(certificate.to_owned().into()).unwrap();
+            }
+        }
+
+        let repository = CertificateRepository::new(connection);
+        let certificate = repository.get_certificate("whatever").await.unwrap();
+        assert!(certificate.is_none());
+
+        let certificate = repository
+            .get_certificate(&expected_hash)
+            .await
+            .unwrap()
+            .expect("The certificate exist and should be returned.");
+
+        assert_eq!(expected_hash, certificate.hash);
+    }
+
+    #[tokio::test]
+    async fn get_master_certificate_for_epoch() {
+        let (certificates, _) = setup_certificate_chain(3, 1);
+        let expected_certificate_id = &certificates[2].hash;
+        let epoch = &certificates[2].beacon.epoch;
+        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let connection = deps.get_sqlite_connection().await.unwrap();
+        {
+            let lock = connection.lock().await;
+            let provider = InsertCertificateRecordProvider::new(&lock);
+
+            for certificate in certificates.iter().rev() {
+                provider.persist(certificate.to_owned().into()).unwrap();
+            }
+        }
+
+        let repository = CertificateRepository::new(connection);
+        let certificate = repository
+            .get_master_certificate_for_epoch(*epoch)
+            .await
+            .unwrap()
+            .expect("This should return a certificate.");
+
+        assert_eq!(expected_certificate_id.to_string(), certificate.hash);
+    }
+
+    #[tokio::test]
+    async fn save_certificate() {
+        let (certificates, _) = setup_certificate_chain(5, 3);
+        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let connection = deps.get_sqlite_connection().await.unwrap();
+        let repository = CertificateRepository::new(connection);
+        let certificate = repository
+            .create_certificate(certificates[4].clone())
+            .await
+            .unwrap();
+
+        assert_eq!(certificates[4].hash, certificate.hash);
+        {
+            let connection = deps.get_sqlite_connection().await.unwrap();
+            let lock = connection.lock().await;
+            let provider = CertificateRecordProvider::new(&lock);
+            let mut cursor = provider
+                .get_by_certificate_id(&certificates[4].hash)
+                .unwrap();
+            let cert = cursor
+                .next()
+                .expect("There should be a certificate in the database with this hash ID.");
+
+            assert_eq!(certificates[4].hash, cert.certificate_id);
+        }
     }
 }

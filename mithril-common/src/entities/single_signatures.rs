@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 /// SingleSignatures represent single signatures originating from a participant in the network
 /// for a digest at won lottery indexes
-#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SingleSignatures {
     /// The unique identifier of the signer
     pub party_id: PartyId,

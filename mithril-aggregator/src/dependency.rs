@@ -7,6 +7,7 @@ use mithril_common::{
     entities::{Certificate, Epoch, ProtocolParameters, SignerWithStake, StakeDistribution},
     era::{EraChecker, EraReader},
     store::StakeStorer,
+    test_utils::MithrilFixture,
     BeaconProvider,
 };
 use sqlite::Connection;
@@ -15,11 +16,12 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{Mutex, RwLock};
 
 use crate::{
-    artifact_builder::ArtifactBuilderService, configuration::*, database::provider::StakePoolStore,
-    signable_builder::SignableBuilderService, signer_registerer::SignerRecorder,
-    CertificatePendingStore, CertificateStore, ProtocolParametersStore, ProtocolParametersStorer,
-    SignerRegisterer, SignerRegistrationRoundOpener, SingleSignatureStore, Snapshotter,
-    VerificationKeyStore, VerificationKeyStorer,
+    artifact_builder::ArtifactBuilderService, certifier_service::CertifierService,
+    configuration::*, database::provider::StakePoolStore, signable_builder::SignableBuilderService,
+    signer_registerer::SignerRecorder, ticker_service::TickerService, CertificatePendingStore,
+    CertificateStore, ProtocolParametersStore, ProtocolParametersStorer, SignerRegisterer,
+    SignerRegistrationRoundOpener, SingleSignatureStore, Snapshotter, VerificationKeyStore,
+    VerificationKeyStorer,
 };
 use crate::{event_store::EventMessage, snapshot_stores::SnapshotStore};
 use crate::{event_store::TransmitterService, multi_signer::MultiSigner};
@@ -36,7 +38,7 @@ pub struct DependencyManager {
     pub config: Configuration,
 
     /// SQLite database connection
-    /// This is not a real service but is is needed to instanciate all store
+    /// This is not a real service but is is needed to instantiate all store
     /// services. Shall be private dependency.
     pub sqlite_connection: Arc<Mutex<Connection>>,
 
@@ -118,6 +120,12 @@ pub struct DependencyManager {
 
     /// Artifact Builder Service
     pub artifact_builder_service: Arc<ArtifactBuilderService>,
+
+    /// Certifier Service
+    pub certifier_service: Arc<dyn CertifierService>,
+
+    /// Ticker Service
+    pub ticker_service: Arc<dyn TickerService>,
 }
 
 #[doc(hidden)]
@@ -143,6 +151,23 @@ impl DependencyManager {
         let epoch_to_sign = current_epoch.offset_to_next_signer_retrieval_epoch();
 
         (work_epoch, epoch_to_sign)
+    }
+
+    /// `TEST METHOD ONLY`
+    ///
+    /// Fill the stores of a [DependencyManager] in a way to simulate an aggregator state
+    /// using the data from a precomputed fixture.
+    pub async fn init_state_from_fixture(&self, fixture: &MithrilFixture, target_epochs: &[Epoch]) {
+        for epoch in target_epochs {
+            self.protocol_parameters_store
+                .save_protocol_parameters(*epoch, fixture.protocol_parameters())
+                .await
+                .expect("save_protocol_parameters should not fail");
+            self.fill_verification_key_store(*epoch, &fixture.signers_with_stake())
+                .await;
+            self.fill_stakes_store(*epoch, fixture.signers_with_stake())
+                .await;
+        }
     }
 
     /// `TEST METHOD ONLY`
@@ -187,12 +212,12 @@ impl DependencyManager {
         }
 
         for (epoch, params) in parameters_per_epoch {
-            self.fill_verification_key_store(epoch, &params.0).await;
-            self.fill_stakes_store(epoch, params.0.to_vec()).await;
             self.protocol_parameters_store
                 .save_protocol_parameters(epoch, params.1)
                 .await
                 .expect("save_protocol_parameters should not fail");
+            self.fill_verification_key_store(epoch, &params.0).await;
+            self.fill_stakes_store(epoch, params.0.to_vec()).await;
         }
 
         for certificate in certificate_chain {
@@ -230,6 +255,9 @@ impl DependencyManager {
         second_epoch_signers: Vec<SignerWithStake>,
         genesis_protocol_parameters: &ProtocolParameters,
     ) {
+        self.init_protocol_parameter_store(genesis_protocol_parameters)
+            .await;
+
         let (work_epoch, epoch_to_sign) = self.get_genesis_epochs().await;
         for (epoch, signers) in [
             (work_epoch, genesis_signers),
@@ -238,9 +266,6 @@ impl DependencyManager {
             self.fill_verification_key_store(epoch, &signers).await;
             self.fill_stakes_store(epoch, signers).await;
         }
-
-        self.init_protocol_parameter_store(genesis_protocol_parameters)
-            .await;
     }
 
     /// `TEST METHOD ONLY`
@@ -262,6 +287,10 @@ impl DependencyManager {
 
     async fn fill_verification_key_store(&self, target_epoch: Epoch, signers: &[SignerWithStake]) {
         for signer in signers {
+            self.signer_recorder
+                .record_signer_id(signer.party_id.clone())
+                .await
+                .expect("record_signer_id should not fail");
             self.verification_key_store
                 .save_verification_key(target_epoch, signer.clone())
                 .await

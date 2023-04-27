@@ -11,6 +11,7 @@ impl FromPendingCertificateMessageAdapter {
     pub fn adapt(message: CertificatePendingMessage) -> CertificatePending {
         CertificatePending {
             beacon: message.beacon,
+            signed_entity_type: message.signed_entity_type,
             protocol_parameters: message.protocol_parameters,
             next_protocol_parameters: message.next_protocol_parameters,
             signers: Self::adapt_signers(message.signers),

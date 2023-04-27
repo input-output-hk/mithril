@@ -14,18 +14,21 @@ use mithril_common::{
 
 use mithril_common::StdError;
 use tokio::sync::Mutex;
+use uuid::Uuid;
+
+use super::OpenMessage;
 
 /// SingleSignature record is the representation of a stored single_signature.
 #[derive(Debug, PartialEq, Clone)]
 pub struct SingleSignatureRecord {
     /// Open message id.
-    open_message_id: String,
+    pub open_message_id: Uuid,
 
     /// Signer id.
-    signer_id: String,
+    pub signer_id: String,
 
     /// Registration epoch setting id
-    registration_epoch_setting_id: Epoch,
+    pub registration_epoch_setting_id: Epoch,
 
     /// Lottery indexes
     pub lottery_indexes: Vec<LotteryIndex>,
@@ -34,21 +37,21 @@ pub struct SingleSignatureRecord {
     pub signature: HexEncodedSingleSignature,
 
     /// Date and time when the single_signature was created
-    created_at: String,
+    pub created_at: String,
 }
 
 impl SingleSignatureRecord {
     fn from_single_signatures(
-        other: SingleSignatures,
-        open_message_id: String,
+        other: &SingleSignatures,
+        open_message_id: &Uuid,
         registration_epoch_setting_id: Epoch,
     ) -> Self {
         SingleSignatureRecord {
-            open_message_id,
-            signer_id: other.party_id,
+            open_message_id: open_message_id.to_owned(),
+            signer_id: other.party_id.to_owned(),
             registration_epoch_setting_id,
-            lottery_indexes: other.won_indexes,
-            signature: other.signature,
+            lottery_indexes: other.won_indexes.to_owned(),
+            signature: other.signature.to_owned(),
             created_at: format!("{:?}", Utc::now()),
         }
     }
@@ -70,6 +73,11 @@ impl SqLiteEntity for SingleSignatureRecord {
         Self: Sized,
     {
         let open_message_id = row.get::<String, _>(0);
+        let open_message_id = Uuid::parse_str(&open_message_id).map_err(|e| {
+            HydrationError::InvalidData(format!(
+                "Invalid UUID in single_signature.open_message_id: '{open_message_id}'. Error: {e}"
+            ))
+        })?;
         let signer_id = row.get::<String, _>(1);
         let registration_epoch_setting_id_int = row.get::<i64, _>(2);
         let lottery_indexes_str = row.get::<String, _>(3);
@@ -136,11 +144,11 @@ impl<'client> SingleSignatureRecordProvider<'client> {
 
     fn condition_by_open_message_id(
         &self,
-        open_message_id: String,
+        open_message_id: &Uuid,
     ) -> Result<WhereCondition, StdError> {
         Ok(WhereCondition::new(
             "open_message_id = ?*",
-            vec![Value::String(open_message_id)],
+            vec![Value::String(open_message_id.to_string())],
         ))
     }
 
@@ -166,7 +174,7 @@ impl<'client> SingleSignatureRecordProvider<'client> {
     /// Get SingleSignatureRecords for a given Open Message id.
     pub fn get_by_open_message_id(
         &self,
-        open_message_id: String,
+        open_message_id: &Uuid,
     ) -> Result<EntityCursor<SingleSignatureRecord>, StdError> {
         let filters = self.condition_by_open_message_id(open_message_id)?;
         let single_signature_record = self.find(filters)?;
@@ -208,21 +216,21 @@ impl<'conn> UpdateSingleSignatureRecordProvider<'conn> {
         Self { connection }
     }
 
-    fn get_update_condition(
+    pub(crate) fn get_update_condition(
         &self,
-        single_signature_record: SingleSignatureRecord,
+        single_signature_record: &SingleSignatureRecord,
     ) -> WhereCondition {
         WhereCondition::new(
             "(open_message_id, signer_id, registration_epoch_setting_id, lottery_indexes, signature, created_at) values (?*, ?*, ?*, ?*, ?*, ?*)",
             vec![
-                Value::String(single_signature_record.open_message_id),
-                Value::String(single_signature_record.signer_id),
+                Value::String(single_signature_record.open_message_id.to_string()),
+                Value::String(single_signature_record.signer_id.to_owned()),
                 Value::Integer(
                     i64::try_from(single_signature_record.registration_epoch_setting_id.0).unwrap(),
                 ),
                 Value::String(serde_json::to_string(&single_signature_record.lottery_indexes).unwrap()),
-                Value::String(single_signature_record.signature),
-                Value::String(single_signature_record.created_at),
+                Value::String(single_signature_record.signature.to_owned()),
+                Value::String(single_signature_record.created_at.to_owned()),
             ],
         )
     }
@@ -231,7 +239,7 @@ impl<'conn> UpdateSingleSignatureRecordProvider<'conn> {
         &self,
         single_signature_record: SingleSignatureRecord,
     ) -> Result<SingleSignatureRecord, StdError> {
-        let filters = self.get_update_condition(single_signature_record.clone());
+        let filters = self.get_update_condition(&single_signature_record);
 
         let entity = self.find(filters)?.next().unwrap_or_else(|| {
             panic!(
@@ -263,14 +271,31 @@ impl<'conn> Provider<'conn> for UpdateSingleSignatureRecordProvider<'conn> {
 }
 
 /// Service to deal with single_signature (read & write).
-pub struct SingleSignatureStoreAdapter {
+pub struct SingleSignatureRepository {
     connection: Arc<Mutex<Connection>>,
 }
 
-impl SingleSignatureStoreAdapter {
+impl SingleSignatureRepository {
     /// Create a new SingleSignatureStoreAdapter service
     pub fn new(connection: Arc<Mutex<Connection>>) -> Self {
         Self { connection }
+    }
+
+    /// Create a new Single Signature in database
+    pub async fn create_single_signature(
+        &self,
+        single_signature: &SingleSignatures,
+        open_message: &OpenMessage,
+    ) -> Result<SingleSignatureRecord, StdError> {
+        let connection = self.connection.lock().await;
+        let single_signature = SingleSignatureRecord::from_single_signatures(
+            single_signature,
+            &open_message.open_message_id,
+            open_message.epoch.offset_to_signer_retrieval_epoch()?,
+        );
+        let provider = UpdateSingleSignatureRecordProvider::new(&connection);
+
+        provider.persist(single_signature)
     }
 }
 
@@ -278,103 +303,19 @@ impl SingleSignatureStoreAdapter {
 mod tests {
     use mithril_common::test_utils::fake_data;
 
-    use crate::database::migration::get_migrations;
+    use crate::database::provider::{setup_single_signature_db, setup_single_signature_records};
 
     use super::*;
-
-    fn test_single_signature_records(
-        total_epoch: u64,
-        total_open_message: u64,
-        total_signer: u64,
-    ) -> Vec<SingleSignatureRecord> {
-        let mut single_signature_records = Vec::new();
-        for epoch in 1..=total_epoch {
-            for open_message_idx in 1..=total_open_message {
-                for signer_idx in 1..=total_signer {
-                    let open_message_id = open_message_idx * epoch;
-                    let single_signature_id = epoch
-                        + (epoch + 1) * open_message_idx
-                        + (epoch + 1) * (open_message_idx + 1) * signer_idx;
-                    single_signature_records.push(SingleSignatureRecord {
-                        open_message_id: format!("open-msg-{open_message_id}"),
-                        signer_id: format!("signer-{signer_idx}"),
-                        registration_epoch_setting_id: Epoch(epoch),
-                        lottery_indexes: (1..=single_signature_id).collect(),
-                        signature: format!("signature-{single_signature_id}"),
-                        created_at: format!("created-at-{single_signature_id}"),
-                    });
-                }
-            }
-        }
-        single_signature_records
-    }
-
-    pub fn setup_single_signature_db(
-        connection: &Connection,
-        single_signature_records: Vec<SingleSignatureRecord>,
-    ) -> Result<(), StdError> {
-        for migration in get_migrations() {
-            connection.execute(&migration.alterations)?;
-        }
-
-        if single_signature_records.is_empty() {
-            return Ok(());
-        }
-
-        let query = {
-            // leverage the expanded parameter from this provider which is unit
-            // tested on its own above.
-            let update_provider = UpdateSingleSignatureRecordProvider::new(connection);
-            let (sql_values, _) = update_provider
-                .get_update_condition(single_signature_records.first().unwrap().to_owned())
-                .expand();
-            format!("insert into single_signature {sql_values}")
-        };
-
-        for single_signature_record in single_signature_records {
-            let mut statement = connection.prepare(&query)?;
-
-            statement
-                .bind(1, single_signature_record.open_message_id.as_str())
-                .unwrap();
-            statement
-                .bind(2, single_signature_record.signer_id.as_str())
-                .unwrap();
-            statement
-                .bind(
-                    3,
-                    single_signature_record.registration_epoch_setting_id.0 as i64,
-                )
-                .unwrap();
-            statement
-                .bind(
-                    4,
-                    serde_json::to_string(&single_signature_record.lottery_indexes)
-                        .unwrap()
-                        .as_str(),
-                )
-                .unwrap();
-            statement
-                .bind(5, single_signature_record.signature.as_str())
-                .unwrap();
-            statement
-                .bind(6, single_signature_record.created_at.as_str())
-                .unwrap();
-            statement.next().unwrap();
-        }
-
-        Ok(())
-    }
 
     #[test]
     fn test_convert_single_signatures() {
         let single_signature = fake_data::single_signatures(vec![1, 3, 4, 6, 7, 9]);
-        let open_message_id = "msg-123".to_string();
+        let open_message_id = Uuid::parse_str("193d1442-e89b-43cf-9519-04d8db9a12ff").unwrap();
         let single_signature_expected = single_signature.clone();
 
         let single_signature_record = SingleSignatureRecord::from_single_signatures(
-            single_signature,
-            open_message_id,
+            &single_signature,
+            &open_message_id,
             Epoch(1),
         );
         let single_signature = single_signature_record.into();
@@ -397,13 +338,17 @@ mod tests {
     fn get_single_signature_record_by_epoch() {
         let connection = Connection::open(":memory:").unwrap();
         let provider = SingleSignatureRecordProvider::new(&connection);
+        let open_message_id_test = Uuid::parse_str("193d1442-e89b-43cf-9519-04d8db9a12ff").unwrap();
         let condition = provider
-            .condition_by_open_message_id("open-msg-123".to_string())
+            .condition_by_open_message_id(&open_message_id_test)
             .unwrap();
         let (filter, values) = condition.expand();
 
         assert_eq!("open_message_id = ?1".to_string(), filter);
-        assert_eq!(vec![Value::String("open-msg-123".to_string())], values);
+        assert_eq!(
+            vec![Value::String(open_message_id_test.to_string())],
+            values
+        );
     }
 
     #[test]
@@ -436,13 +381,13 @@ mod tests {
     fn update_single_signature_record() {
         let single_signature = fake_data::single_signatures(vec![1, 3, 4, 6, 7, 9]);
         let single_signature_record = SingleSignatureRecord::from_single_signatures(
-            single_signature,
-            "open-msg-123".to_string(),
+            &single_signature,
+            &Uuid::parse_str("193d1442-e89b-43cf-9519-04d8db9a12ff").unwrap(),
             Epoch(1),
         );
         let connection = Connection::open(":memory:").unwrap();
         let provider = UpdateSingleSignatureRecordProvider::new(&connection);
-        let condition = provider.get_update_condition(single_signature_record.clone());
+        let condition = provider.get_update_condition(&single_signature_record);
         let (values, params) = condition.expand();
 
         assert_eq!(
@@ -451,7 +396,7 @@ mod tests {
         );
         assert_eq!(
             vec![
-                Value::String(single_signature_record.open_message_id),
+                Value::String(single_signature_record.open_message_id.to_string()),
                 Value::String(single_signature_record.signer_id),
                 Value::Integer(single_signature_record.registration_epoch_setting_id.0 as i64),
                 Value::String(
@@ -466,16 +411,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_get_single_signature_records() {
-        let single_signature_records = test_single_signature_records(2, 3, 4);
+        let single_signature_records = setup_single_signature_records(2, 3, 4);
 
         let connection = Connection::open(":memory:").unwrap();
-        setup_single_signature_db(&connection, single_signature_records).unwrap();
+        setup_single_signature_db(&connection, single_signature_records.clone()).unwrap();
 
         let provider = SingleSignatureRecordProvider::new(&connection);
 
-        let open_message_id_test = "open-msg-1".to_string();
+        let open_message_id_test = single_signature_records[0].open_message_id.to_owned();
         let single_signature_records: Vec<SingleSignatureRecord> = provider
-            .get_by_open_message_id(open_message_id_test.clone())
+            .get_by_open_message_id(&open_message_id_test)
             .unwrap()
             .collect();
         let expected_single_signature_records: Vec<SingleSignatureRecord> =
@@ -492,9 +437,13 @@ mod tests {
         assert!(!single_signature_records.is_empty());
         assert_eq!(expected_single_signature_records, single_signature_records);
 
-        let open_message_id_test = "open-msg-2".to_string();
+        let open_message_id_test = single_signature_records
+            .last()
+            .unwrap()
+            .open_message_id
+            .to_owned();
         let single_signature_records: Vec<SingleSignatureRecord> = provider
-            .get_by_open_message_id(open_message_id_test.clone())
+            .get_by_open_message_id(&open_message_id_test)
             .unwrap()
             .collect();
         let expected_single_signature_records: Vec<SingleSignatureRecord> =
@@ -511,9 +460,9 @@ mod tests {
         assert!(!single_signature_records.is_empty());
         assert_eq!(expected_single_signature_records, single_signature_records);
 
-        let open_message_id_test = "open-msg-123".to_string();
+        let open_message_id_test = Uuid::parse_str("193d1442-e89b-43cf-9519-04d8db9a12ff").unwrap();
         let single_signature_records: Vec<SingleSignatureRecord> = provider
-            .get_by_open_message_id(open_message_id_test)
+            .get_by_open_message_id(&open_message_id_test)
             .unwrap()
             .collect();
         assert!(single_signature_records.is_empty());
@@ -527,7 +476,7 @@ mod tests {
 
     #[test]
     fn test_update_single_signature_record() {
-        let single_signature_records = test_single_signature_records(2, 3, 4);
+        let single_signature_records = setup_single_signature_records(2, 3, 4);
         let single_signature_records_copy = single_signature_records.clone();
 
         let connection = Connection::open(":memory:").unwrap();

@@ -1,4 +1,6 @@
+use crate::certifier_service::CertifierService;
 use crate::event_store::{EventMessage, TransmitterService};
+use crate::ticker_service::TickerService;
 use crate::{
     dependency::MultiSignerWrapper, CertificatePendingStore, CertificateStore, Configuration,
     DependencyManager, ProtocolParametersStore, SignerRegisterer, SnapshotStore,
@@ -69,4 +71,18 @@ pub fn with_beacon_provider(
     dependency_manager: Arc<DependencyManager>,
 ) -> impl Filter<Extract = (Arc<dyn BeaconProvider>,), Error = Infallible> + Clone {
     warp::any().map(move || dependency_manager.beacon_provider.clone())
+}
+
+/// With certifier service middleware
+pub fn with_certifier_service(
+    dependency_manager: Arc<DependencyManager>,
+) -> impl Filter<Extract = (Arc<dyn CertifierService>,), Error = Infallible> + Clone {
+    warp::any().map(move || dependency_manager.certifier_service.clone())
+}
+
+/// With ticker service middleware
+pub fn with_ticker_service(
+    dependency_manager: Arc<DependencyManager>,
+) -> impl Filter<Extract = (Arc<dyn TickerService>,), Error = Infallible> + Clone {
+    warp::any().map(move || dependency_manager.ticker_service.clone())
 }

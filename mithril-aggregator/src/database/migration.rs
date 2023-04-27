@@ -281,5 +281,16 @@ create table single_signature (
 );
 "#,
         ),
+        // Migration 10
+        // Alter `open_message` table and drop `single_signature_legacy` table
+        SqlMigration::new(
+            10,
+            r#"
+drop table single_signature_legacy;
+alter table open_message drop column message;
+alter table open_message add column protocol_message json not null;
+alter table open_message add column is_certified bool not null default false;
+"#,
+        ),
     ]
 }

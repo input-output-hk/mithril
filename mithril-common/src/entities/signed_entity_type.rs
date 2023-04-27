@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use strum_macros::Display;
 
 use crate::{sqlite::HydrationError, StdError};
@@ -19,7 +20,7 @@ const ENTITY_TYPE_CARDANO_IMMUTABLE_FILES_FULL: usize = 2;
 /// are identified by their discriminant (i.e. index in the enum), thus the
 /// modification of this type should only ever consist of appending new
 /// variants.
-#[derive(Display, Debug, Clone, PartialEq, Eq)]
+#[derive(Display, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[strum(serialize_all = "PascalCase")]
 pub enum SignedEntityType {
     /// Mithril stake distribution
@@ -38,6 +39,13 @@ impl SignedEntityType {
         Self::MithrilStakeDistribution(Epoch(5))
     }
 
+    /// Return the epoch from the intern beacon.
+    pub fn get_epoch(&self) -> Epoch {
+        match self {
+            Self::CardanoImmutableFilesFull(b) => b.epoch,
+            Self::CardanoStakeDistribution(e) | Self::MithrilStakeDistribution(e) => *e,
+        }
+    }
     /// Create an instance from data coming from the database
     pub fn hydrate(signed_entity_type_id: usize, beacon_str: &str) -> Result<Self, HydrationError> {
         let myself = match signed_entity_type_id {

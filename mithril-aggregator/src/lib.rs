@@ -12,7 +12,7 @@
 //! You can find more information on how it works reading the [documentation website](https://mithril.network/doc/mithril/mithril-network/aggregator).
 
 mod artifact_builder;
-mod certificate_creator;
+pub mod certifier_service;
 mod command_args;
 mod configuration;
 pub mod database;
@@ -38,7 +38,6 @@ pub use crate::configuration::{
 };
 pub use crate::multi_signer::{MultiSigner, MultiSignerImpl, ProtocolError};
 pub use crate::snapshot_stores::{LocalSnapshotStore, SnapshotStore};
-pub use certificate_creator::{CertificateCreator, MithrilCertificateCreator};
 pub use command_args::MainOpts;
 pub use dependency::DependencyManager;
 pub use message_adapters::{

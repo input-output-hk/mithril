@@ -56,7 +56,7 @@ impl CertificatePendingStore {
 mod test {
     use super::*;
 
-    use mithril_common::entities::Beacon;
+    use mithril_common::entities::{Beacon, SignedEntityType};
     use mithril_common::store::adapter::DumbStoreAdapter;
     use mithril_common::test_utils::fake_data;
 
@@ -67,6 +67,7 @@ mod test {
             let beacon = Beacon::new("testnet".to_string(), 0, 0);
             let certificate_pending = CertificatePending::new(
                 beacon.clone(),
+                SignedEntityType::dummy(),
                 fake_data::protocol_parameters(),
                 fake_data::protocol_parameters(),
                 fake_data::signers(4),
@@ -100,8 +101,10 @@ mod test {
     async fn save_certificate_pending_once() {
         let store = get_certificate_pending_store(false).await;
         let beacon = Beacon::new("testnet".to_string(), 0, 1);
+        let signed_entity_type = SignedEntityType::dummy();
         let certificate_pending = CertificatePending::new(
             beacon,
+            signed_entity_type,
             fake_data::protocol_parameters(),
             fake_data::protocol_parameters(),
             fake_data::signers(1),
