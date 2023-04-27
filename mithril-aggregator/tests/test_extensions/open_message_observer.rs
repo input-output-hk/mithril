@@ -1,6 +1,4 @@
-use mithril_aggregator::{
-    certifier_service::CertifierService, database::provider::OpenMessageWithSingleSignatures,
-};
+use mithril_aggregator::{certifier_service::CertifierService, entities::OpenMessage};
 use mithril_common::{entities::SignedEntityType, BeaconProvider};
 use std::sync::Arc;
 
@@ -23,9 +21,7 @@ impl OpenMessageObserver {
     }
 
     // Get the current [open message][OpenMessageWithSingleSignatures] for [cardano immutables][SignedEntityType::CardanoImmutableFilesFull]
-    pub async fn get_current_immutable_message(
-        &self,
-    ) -> Result<Option<OpenMessageWithSingleSignatures>, String> {
+    pub async fn get_current_immutable_message(&self) -> Result<Option<OpenMessage>, String> {
         let immutable_signer_entity_type = SignedEntityType::CardanoImmutableFilesFull(
             self.beacon_provider
                 .get_current_beacon()

@@ -20,9 +20,10 @@ use thiserror::Error;
 use tokio::sync::RwLock;
 
 use crate::database::provider::{
-    CertificateRepository, OpenMessage, OpenMessageRepository, OpenMessageWithSingleSignatures,
-    SingleSignatureRepository,
+    CertificateRepository, OpenMessageRecord, OpenMessageRepository,
+    OpenMessageWithSingleSignaturesRecord, SingleSignatureRepository,
 };
+use crate::entities::OpenMessage;
 use crate::MultiSigner;
 
 #[cfg(test)]
@@ -95,7 +96,7 @@ pub trait CertifierService: Sync + Send {
     async fn get_open_message(
         &self,
         signed_entity_type: &SignedEntityType,
-    ) -> StdResult<Option<OpenMessageWithSingleSignatures>>;
+    ) -> StdResult<Option<OpenMessage>>;
 
     /// Create a certificate if possible. If the pointed open message does
     /// not exist or has been already certified, an error is raised. If a multi
@@ -147,6 +148,19 @@ impl MithrilCertifierService {
             _logger: logger,
         }
     }
+
+    async fn get_open_message_record(
+        &self,
+        signed_entity_type: &SignedEntityType,
+    ) -> StdResult<Option<OpenMessageWithSingleSignaturesRecord>> {
+        debug!(
+            "CertifierService::get_open_message_record(signed_entity_type: {signed_entity_type:?})"
+        );
+
+        self.open_message_repository
+            .get_open_message_with_single_signatures(signed_entity_type)
+            .await
+    }
 }
 
 #[async_trait]
@@ -177,7 +191,7 @@ impl CertifierService for MithrilCertifierService {
     ) -> StdResult<()> {
         debug!("CertifierService::register_single_signature(signed_entity_type: {signed_entity_type:?}, single_signatures: {signature:?}");
         let open_message = self
-            .get_open_message(signed_entity_type)
+            .get_open_message_record(signed_entity_type)
             .await?
             .ok_or_else(|| {
                 warn!("CertifierService::register_single_signature: OpenMessage not found for type {signed_entity_type:?}.");
@@ -223,18 +237,22 @@ impl CertifierService for MithrilCertifierService {
             open_message.open_message_id
         );
 
-        Ok(open_message)
+        Ok(open_message.into())
     }
 
     async fn get_open_message(
         &self,
         signed_entity_type: &SignedEntityType,
-    ) -> StdResult<Option<OpenMessageWithSingleSignatures>> {
+    ) -> StdResult<Option<OpenMessage>> {
         debug!("CertifierService::get_open_message(signed_entity_type: {signed_entity_type:?})");
 
-        self.open_message_repository
+        let open_message = self
+            .open_message_repository
             .get_open_message_with_single_signatures(signed_entity_type)
-            .await
+            .await?
+            .map(|record| record.into());
+
+        Ok(open_message)
     }
 
     async fn create_certificate(
@@ -242,13 +260,14 @@ impl CertifierService for MithrilCertifierService {
         signed_entity_type: &SignedEntityType,
     ) -> StdResult<Option<Certificate>> {
         debug!("CertifierService::create_certificate(signed_entity_type: {signed_entity_type:?})");
-        let open_message = self
-            .get_open_message(signed_entity_type)
+        let open_message_record = self
+            .get_open_message_record(signed_entity_type)
             .await?
             .ok_or_else(|| {
                 warn!("CertifierService::create_certificate: OpenMessage not found for type {signed_entity_type:?}.");
                 CertifierServiceError::NotFound(signed_entity_type.clone())
             })?;
+        let open_message: OpenMessage = open_message_record.clone().into();
 
         if open_message.is_certified {
             warn!("CertifierService::create_certificate: open message {signed_entity_type:?} is already certified, cannot create certificate.");
@@ -325,7 +344,7 @@ impl CertifierService for MithrilCertifierService {
             .create_certificate(certificate)
             .await?;
 
-        let mut open_message_certified: OpenMessage = open_message.into();
+        let mut open_message_certified: OpenMessageRecord = open_message_record.into();
         open_message_certified.is_certified = true;
         self.open_message_repository
             .update_open_message(&open_message_certified)
@@ -521,7 +540,8 @@ mod tests {
         let mut certifier_service = setup_certifier_service(&fixture, &epochs_with_signers).await;
         certifier_service.current_epoch = Arc::new(RwLock::new(epoch));
         let mut open_message = certifier_service
-            .create_open_message(&signed_entity_type, &protocol_message)
+            .open_message_repository
+            .create_open_message(beacon.epoch, &signed_entity_type, &protocol_message)
             .await
             .unwrap();
         open_message.is_certified = true;

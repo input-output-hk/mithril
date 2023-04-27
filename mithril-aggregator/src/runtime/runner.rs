@@ -16,7 +16,7 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crate::database::provider::OpenMessage;
+use crate::entities::OpenMessage;
 use crate::snapshot_uploaders::SnapshotLocation;
 use crate::snapshotter::OngoingSnapshot;
 use crate::RuntimeError;

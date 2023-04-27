@@ -1,6 +1,6 @@
 use mithril_common::StdError;
 
-use mithril_common::entities::{PartyId, ProtocolMessage, SingleSignatures};
+use mithril_common::entities::{ProtocolMessage, SingleSignatures};
 use mithril_common::{
     entities::{Epoch, SignedEntityType},
     sqlite::{HydrationError, Projection, SqLiteEntity, WhereCondition},
@@ -25,7 +25,7 @@ type StdResult<T> = Result<T, StdError>;
 /// generated if possible.
 #[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct OpenMessage {
+pub struct OpenMessageRecord {
     /// OpenMessage unique identifier
     pub open_message_id: Uuid,
 
@@ -45,7 +45,7 @@ pub struct OpenMessage {
     pub created_at: NaiveDateTime,
 }
 
-impl OpenMessage {
+impl OpenMessageRecord {
     #[cfg(test)]
     /// Create a dumb OpenMessage instance mainly for test purposes
     pub fn dummy() -> Self {
@@ -64,8 +64,8 @@ impl OpenMessage {
     }
 }
 
-impl From<OpenMessageWithSingleSignatures> for OpenMessage {
-    fn from(value: OpenMessageWithSingleSignatures) -> Self {
+impl From<OpenMessageWithSingleSignaturesRecord> for OpenMessageRecord {
+    fn from(value: OpenMessageWithSingleSignaturesRecord) -> Self {
         Self {
             open_message_id: value.open_message_id,
             epoch: value.epoch,
@@ -77,7 +77,7 @@ impl From<OpenMessageWithSingleSignatures> for OpenMessage {
     }
 }
 
-impl SqLiteEntity for OpenMessage {
+impl SqLiteEntity for OpenMessageRecord {
     fn hydrate(row: Row) -> Result<Self, HydrationError>
     where
         Self: Sized,
@@ -199,7 +199,7 @@ impl<'client> OpenMessageProvider<'client> {
 }
 
 impl<'client> Provider<'client> for OpenMessageProvider<'client> {
-    type Entity = OpenMessage;
+    type Entity = OpenMessageRecord;
 
     fn get_definition(&self, condition: &str) -> String {
         let aliases = SourceAlias::new(&[
@@ -245,7 +245,7 @@ impl<'client> InsertOpenMessageProvider<'client> {
 }
 
 impl<'client> Provider<'client> for InsertOpenMessageProvider<'client> {
-    type Entity = OpenMessage;
+    type Entity = OpenMessageRecord;
 
     fn get_connection(&'client self) -> &'client Connection {
         self.connection
@@ -267,7 +267,7 @@ impl<'client> UpdateOpenMessageProvider<'client> {
         Self { connection }
     }
 
-    fn get_update_condition(&self, open_message: &OpenMessage) -> StdResult<WhereCondition> {
+    fn get_update_condition(&self, open_message: &OpenMessageRecord) -> StdResult<WhereCondition> {
         let expression = "(open_message_id, epoch_setting_id, beacon, signed_entity_type_id, protocol_message, is_certified) values (?*, ?*, ?*, ?*, ?*, ?*)";
         let beacon_str = open_message.signed_entity_type.get_json_beacon()?;
         let parameters = vec![
@@ -284,7 +284,7 @@ impl<'client> UpdateOpenMessageProvider<'client> {
 }
 
 impl<'client> Provider<'client> for UpdateOpenMessageProvider<'client> {
-    type Entity = OpenMessage;
+    type Entity = OpenMessageRecord;
 
     fn get_connection(&'client self) -> &'client Connection {
         self.connection
@@ -316,7 +316,7 @@ impl<'client> DeleteOpenMessageProvider<'client> {
 }
 
 impl<'client> Provider<'client> for DeleteOpenMessageProvider<'client> {
-    type Entity = OpenMessage;
+    type Entity = OpenMessageRecord;
 
     fn get_connection(&'client self) -> &'client Connection {
         self.connection
@@ -332,7 +332,7 @@ impl<'client> Provider<'client> for DeleteOpenMessageProvider<'client> {
 
 /// Open Message with associated single signatures if any.
 #[derive(Debug, Clone)]
-pub struct OpenMessageWithSingleSignatures {
+pub struct OpenMessageWithSingleSignaturesRecord {
     /// OpenMessage unique identifier
     pub open_message_id: Uuid,
 
@@ -355,17 +355,7 @@ pub struct OpenMessageWithSingleSignatures {
     pub created_at: NaiveDateTime,
 }
 
-impl OpenMessageWithSingleSignatures {
-    /// Gather all signers party_id for this open message
-    pub fn get_signers_id(&self) -> Vec<PartyId> {
-        self.single_signatures
-            .iter()
-            .map(|sig| sig.party_id.to_owned())
-            .collect()
-    }
-}
-
-impl SqLiteEntity for OpenMessageWithSingleSignatures {
+impl SqLiteEntity for OpenMessageWithSingleSignaturesRecord {
     fn hydrate(row: Row) -> Result<Self, HydrationError>
     where
         Self: Sized,
@@ -378,7 +368,7 @@ impl SqLiteEntity for OpenMessageWithSingleSignatures {
                 ))
             })?;
 
-        let open_message = OpenMessage::hydrate(row)?;
+        let open_message = OpenMessageRecord::hydrate(row)?;
 
         let open_message = Self {
             open_message_id: open_message.open_message_id,
@@ -440,7 +430,7 @@ impl<'client> OpenMessageWithSingleSignaturesProvider<'client> {
 }
 
 impl<'client> Provider<'client> for OpenMessageWithSingleSignaturesProvider<'client> {
-    type Entity = OpenMessageWithSingleSignatures;
+    type Entity = OpenMessageWithSingleSignaturesRecord;
 
     fn get_definition(&self, condition: &str) -> String {
         let aliases = SourceAlias::new(&[
@@ -485,7 +475,7 @@ impl OpenMessageRepository {
     pub async fn get_open_message(
         &self,
         signed_entity_type: &SignedEntityType,
-    ) -> StdResult<Option<OpenMessage>> {
+    ) -> StdResult<Option<OpenMessageRecord>> {
         let lock = self.connection.lock().await;
         let provider = OpenMessageProvider::new(&lock);
         let filters = provider
@@ -502,7 +492,7 @@ impl OpenMessageRepository {
         epoch: Epoch,
         signed_entity_type: &SignedEntityType,
         protocol_message: &ProtocolMessage,
-    ) -> StdResult<OpenMessage> {
+    ) -> StdResult<OpenMessageRecord> {
         let lock = self.connection.lock().await;
         let provider = InsertOpenMessageProvider::new(&lock);
         let filters = provider.get_insert_condition(epoch, signed_entity_type, protocol_message)?;
@@ -514,7 +504,10 @@ impl OpenMessageRepository {
     }
 
     /// Updates an [OpenMessage] in the database.
-    pub async fn update_open_message(&self, open_message: &OpenMessage) -> StdResult<OpenMessage> {
+    pub async fn update_open_message(
+        &self,
+        open_message: &OpenMessageRecord,
+    ) -> StdResult<OpenMessageRecord> {
         let lock = self.connection.lock().await;
         let provider = UpdateOpenMessageProvider::new(&lock);
         let filters = provider.get_update_condition(open_message)?;
@@ -540,7 +533,7 @@ impl OpenMessageRepository {
     pub async fn get_open_message_with_single_signatures(
         &self,
         signed_entity_type: &SignedEntityType,
-    ) -> StdResult<Option<OpenMessageWithSingleSignatures>> {
+    ) -> StdResult<Option<OpenMessageWithSingleSignaturesRecord>> {
         let lock = self.connection.lock().await;
         let provider = OpenMessageWithSingleSignaturesProvider::new(&lock);
         let filters = provider.get_signed_entity_type_condition(signed_entity_type);
@@ -564,7 +557,7 @@ mod tests {
 
     #[test]
     fn open_message_with_single_signature_projection() {
-        let projection = OpenMessageWithSingleSignatures::get_projection();
+        let projection = OpenMessageWithSingleSignaturesRecord::get_projection();
         let aliases = SourceAlias::new(&[
             ("{:open_message:}", "open_message"),
             ("{:single_signature:}", "single_signature"),
@@ -578,7 +571,7 @@ mod tests {
 
     #[test]
     fn open_message_projection() {
-        let projection = OpenMessage::get_projection();
+        let projection = OpenMessageRecord::get_projection();
         let aliases = SourceAlias::new(&[("{:open_message:}", "open_message")]);
 
         assert_eq!(
@@ -659,7 +652,7 @@ mod tests {
     fn update_provider_condition() {
         let connection = Connection::open(":memory:").unwrap();
         let provider = UpdateOpenMessageProvider::new(&connection);
-        let open_message = OpenMessage {
+        let open_message = OpenMessageRecord {
             open_message_id: Uuid::new_v4(),
             epoch: Epoch(12),
             signed_entity_type: SignedEntityType::dummy(),
@@ -836,7 +829,7 @@ mod tests {
         setup_single_signature_db(&connection, single_signature_records.clone()).unwrap();
         let repository = OpenMessageRepository::new(Arc::new(Mutex::new(connection)));
 
-        let mut open_message = OpenMessage::dummy();
+        let mut open_message = OpenMessageRecord::dummy();
         open_message.open_message_id = single_signature_records[0].open_message_id;
         repository.update_open_message(&open_message).await.unwrap();
 
@@ -857,7 +850,7 @@ mod tests {
         setup_single_signature_db(&connection, Vec::new()).unwrap();
         let repository = OpenMessageRepository::new(Arc::new(Mutex::new(connection)));
 
-        let open_message = OpenMessage::dummy();
+        let open_message = OpenMessageRecord::dummy();
         repository
             .create_open_message(
                 open_message.epoch,

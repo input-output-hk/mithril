@@ -14,8 +14,8 @@ use mithril_common::{
 };
 
 use crate::{
-    database::provider::OpenMessageWithSingleSignatures, store::VerificationKeyStorer,
-    ProtocolParametersStore, ProtocolParametersStorer, VerificationKeyStore,
+    entities::OpenMessage, store::VerificationKeyStorer, ProtocolParametersStore,
+    ProtocolParametersStorer, VerificationKeyStore,
 };
 
 #[cfg(test)]
@@ -184,7 +184,7 @@ pub trait MultiSigner: Sync + Send {
     /// Creates a multi signature from single signatures
     async fn create_multi_signature(
         &self,
-        open_message: &OpenMessageWithSingleSignatures,
+        open_message: &OpenMessage,
     ) -> Result<Option<ProtocolMultiSignature>, ProtocolError>;
 }
 
@@ -539,7 +539,7 @@ impl MultiSigner for MultiSignerImpl {
     /// Creates a multi signature from single signatures
     async fn create_multi_signature(
         &self,
-        open_message: &OpenMessageWithSingleSignatures,
+        open_message: &OpenMessage,
     ) -> Result<Option<ProtocolMultiSignature>, ProtocolError> {
         debug!("MultiSigner:create_multi_signature({open_message:?})");
         let protocol_parameters = self
@@ -582,7 +582,6 @@ impl MultiSigner for MultiSignerImpl {
 mod tests {
     use super::*;
     use crate::{store::VerificationKeyStore, ProtocolParametersStore};
-    use chrono::Local;
     use mithril_common::{
         crypto_helper::tests_setup::*,
         entities::SignedEntityType,
@@ -590,7 +589,6 @@ mod tests {
         test_utils::{fake_data, MithrilFixtureBuilder},
     };
     use std::{collections::HashMap, sync::Arc};
-    use uuid::Uuid;
 
     async fn setup_multi_signer() -> MultiSignerImpl {
         let beacon = fake_data::beacon();
@@ -805,8 +803,7 @@ mod tests {
             "they should be at least one signature that can be registered without reaching the quorum"
         );
 
-        let mut open_message = OpenMessageWithSingleSignatures {
-            open_message_id: Uuid::parse_str("193d1442-e89b-43cf-9519-04d8db9a12ff").unwrap(),
+        let mut open_message = OpenMessage {
             epoch: start_epoch,
             signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(
                 multi_signer.current_beacon.clone().unwrap(),
@@ -814,7 +811,7 @@ mod tests {
             protocol_message: message.clone(),
             is_certified: false,
             single_signatures: Vec::new(),
-            created_at: Local::now().naive_local(),
+            ..OpenMessage::dummy()
         };
 
         // No signatures registered: multi-signer can't create the multi-signature
