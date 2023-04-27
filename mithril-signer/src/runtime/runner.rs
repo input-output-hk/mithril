@@ -224,7 +224,7 @@ impl Runner for SignerRunner {
         );
         self.services
             .certificate_handler
-            .register_signer(&signer)
+            .register_signer(epoch, &signer)
             .await?;
         self.services
             .protocol_initializer_store

@@ -90,8 +90,12 @@ impl CertificateHandler for FakeAggregator {
     }
 
     /// Registers signer with the aggregator
-    async fn register_signer(&self, signer: &Signer) -> Result<(), CertificateHandlerError> {
-        let epoch = self.get_beacon().await?.epoch.offset_to_recording_epoch();
+    async fn register_signer(
+        &self,
+        epoch: Epoch,
+        signer: &Signer,
+    ) -> Result<(), CertificateHandlerError> {
+        let epoch = epoch.offset_to_recording_epoch();
 
         let mut store = self.registered_signers.write().await;
         let mut signers = store.get(&epoch).cloned().unwrap_or_default();
@@ -138,12 +142,13 @@ mod tests {
 
     #[tokio::test]
     async fn register_signer() {
+        let epoch = Epoch(1);
         let (_, fake_aggregator) = init().await;
         let fake_signers = fake_data::signers(2);
         assert_eq!(2, fake_signers.len());
 
         fake_aggregator
-            .register_signer(&fake_signers.as_slice()[0])
+            .register_signer(epoch, &fake_signers.as_slice()[0])
             .await
             .expect("certificate handler should not fail while registering a user");
         let signers = fake_aggregator
@@ -154,7 +159,7 @@ mod tests {
         assert_eq!(1, signers.len());
 
         fake_aggregator
-            .register_signer(&fake_signers.as_slice()[1])
+            .register_signer(epoch, &fake_signers.as_slice()[1])
             .await
             .expect("certificate handler should not fail while registering a user");
         let signers = fake_aggregator
@@ -167,6 +172,7 @@ mod tests {
 
     #[tokio::test]
     async fn retrieve_pending_certificate() {
+        let epoch = Epoch(1);
         let (chain_observer, fake_aggregator) = init().await;
         let cert = fake_aggregator
             .retrieve_pending_certificate()
@@ -179,7 +185,10 @@ mod tests {
         );
 
         for signer in fake_data::signers(3) {
-            fake_aggregator.register_signer(&signer).await.unwrap();
+            fake_aggregator
+                .register_signer(epoch, &signer)
+                .await
+                .unwrap();
         }
 
         let cert = fake_aggregator
@@ -192,7 +201,7 @@ mod tests {
         assert_eq!(0, cert.next_signers.len());
         assert_eq!(1, cert.beacon.epoch);
 
-        chain_observer.next_epoch().await;
+        let epoch = chain_observer.next_epoch().await.unwrap();
 
         let cert = fake_aggregator
             .retrieve_pending_certificate()
@@ -205,7 +214,10 @@ mod tests {
         assert_eq!(2, cert.beacon.epoch);
 
         for signer in fake_data::signers(2) {
-            fake_aggregator.register_signer(&signer).await.unwrap();
+            fake_aggregator
+                .register_signer(epoch, &signer)
+                .await
+                .unwrap();
         }
 
         chain_observer.next_epoch().await;
