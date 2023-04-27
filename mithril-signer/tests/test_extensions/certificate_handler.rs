@@ -95,8 +95,6 @@ impl CertificateHandler for FakeAggregator {
         epoch: Epoch,
         signer: &Signer,
     ) -> Result<(), CertificateHandlerError> {
-        let epoch = epoch.offset_to_recording_epoch();
-
         let mut store = self.registered_signers.write().await;
         let mut signers = store.get(&epoch).cloned().unwrap_or_default();
         signers.push(signer.clone());
@@ -117,8 +115,8 @@ impl CertificateHandler for FakeAggregator {
 #[cfg(test)]
 mod tests {
     use mithril_common::{
-        chain_observer::FakeObserver, digesters::DumbImmutableFileObserver, test_utils::fake_data,
-        CardanoNetwork,
+        chain_observer::ChainObserver, chain_observer::FakeObserver,
+        digesters::DumbImmutableFileObserver, test_utils::fake_data, CardanoNetwork,
     };
 
     use super::*;
@@ -142,28 +140,35 @@ mod tests {
 
     #[tokio::test]
     async fn register_signer() {
-        let epoch = Epoch(1);
-        let (_, fake_aggregator) = init().await;
+        let (chain_observer, fake_aggregator) = init().await;
         let fake_signers = fake_data::signers(2);
+        let epoch = chain_observer.get_current_epoch().await.unwrap().unwrap();
+        let registration_epoch = Epoch(2);
         assert_eq!(2, fake_signers.len());
 
         fake_aggregator
-            .register_signer(epoch, &fake_signers.as_slice()[0])
+            .register_signer(
+                epoch.offset_to_recording_epoch(),
+                &fake_signers.as_slice()[0],
+            )
             .await
             .expect("certificate handler should not fail while registering a user");
         let signers = fake_aggregator
-            .get_registered_signers(&Epoch(1).offset_to_recording_epoch())
+            .get_registered_signers(&registration_epoch)
             .await
             .expect("we should have a result, None found!");
 
         assert_eq!(1, signers.len());
 
         fake_aggregator
-            .register_signer(epoch, &fake_signers.as_slice()[1])
+            .register_signer(
+                epoch.offset_to_recording_epoch(),
+                &fake_signers.as_slice()[1],
+            )
             .await
             .expect("certificate handler should not fail while registering a user");
         let signers = fake_aggregator
-            .get_registered_signers(&Epoch(1).offset_to_recording_epoch())
+            .get_registered_signers(&registration_epoch)
             .await
             .expect("we should have a result, None found!");
 
@@ -172,8 +177,8 @@ mod tests {
 
     #[tokio::test]
     async fn retrieve_pending_certificate() {
-        let epoch = Epoch(1);
         let (chain_observer, fake_aggregator) = init().await;
+        let epoch = chain_observer.get_current_epoch().await.unwrap().unwrap();
         let cert = fake_aggregator
             .retrieve_pending_certificate()
             .await
@@ -186,7 +191,7 @@ mod tests {
 
         for signer in fake_data::signers(3) {
             fake_aggregator
-                .register_signer(epoch, &signer)
+                .register_signer(epoch.offset_to_recording_epoch(), &signer)
                 .await
                 .unwrap();
         }
@@ -215,7 +220,7 @@ mod tests {
 
         for signer in fake_data::signers(2) {
             fake_aggregator
-                .register_signer(epoch, &signer)
+                .register_signer(epoch.offset_to_recording_epoch(), &signer)
                 .await
                 .unwrap();
         }
