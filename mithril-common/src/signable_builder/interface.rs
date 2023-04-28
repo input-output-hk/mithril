@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize};
 use std::fmt::Debug;
 
 use crate::{entities::ProtocolMessage, StdResult};
@@ -14,7 +14,7 @@ pub trait Signable: Send + Sync {
 }
 
 /// Artifact is a trait for types that represent signed artifacts
-pub trait Artifact<'a>: Serialize + Deserialize<'a> + PartialEq + Debug {}
+pub trait Artifact: Serialize + DeserializeOwned + PartialEq + Debug + Send + Sync {}
 
 /// SignableBuilder is trait for building a signable for a beacon
 #[async_trait]

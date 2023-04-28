@@ -1,5 +1,3 @@
-use std::marker::PhantomData;
-
 use async_trait::async_trait;
 use mithril_common::{
     entities::Certificate,
@@ -12,24 +10,19 @@ use crate::artifact_builder::ArtifactBuilder;
 
 /// Dummy artifact
 #[derive(Serialize, Deserialize, PartialEq, Debug)]
-pub struct DummyArtifact<'a> {
+pub struct DummyArtifact {
     message: String,
     beacon: DummyBeacon,
-    phantom: PhantomData<&'a DummyBeacon>,
 }
 
-impl<'a> DummyArtifact<'a> {
+impl DummyArtifact {
     /// Dummy artifact factory
     pub fn new(message: String, beacon: DummyBeacon) -> Self {
-        Self {
-            message,
-            beacon,
-            phantom: PhantomData,
-        }
+        Self { message, beacon }
     }
 }
 
-impl<'a> Artifact<'a> for DummyArtifact<'a> {}
+impl Artifact for DummyArtifact {}
 
 /// A [DummyArtifact] builder
 pub struct DummyArtifactBuilder {}
@@ -48,9 +41,9 @@ impl Default for DummyArtifactBuilder {
 }
 
 #[async_trait]
-impl<'a> ArtifactBuilder<'a, DummyBeacon, DummyArtifact<'a>> for DummyArtifactBuilder {
+impl ArtifactBuilder<DummyBeacon, DummyArtifact> for DummyArtifactBuilder {
     async fn compute_artifact(
-        &'a self,
+        &self,
         beacon: DummyBeacon,
         certificate: &Certificate,
     ) -> StdResult<DummyArtifact> {
