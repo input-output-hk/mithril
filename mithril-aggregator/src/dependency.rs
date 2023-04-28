@@ -20,8 +20,7 @@ use crate::{
     configuration::*, database::provider::StakePoolStore, signable_builder::SignableBuilderService,
     signer_registerer::SignerRecorder, ticker_service::TickerService, CertificatePendingStore,
     CertificateStore, ProtocolParametersStore, ProtocolParametersStorer, SignerRegisterer,
-    SignerRegistrationRoundOpener, SingleSignatureStore, Snapshotter, VerificationKeyStore,
-    VerificationKeyStorer,
+    SignerRegistrationRoundOpener, Snapshotter, VerificationKeyStore, VerificationKeyStorer,
 };
 use crate::{event_store::EventMessage, snapshot_stores::SnapshotStore};
 use crate::{event_store::TransmitterService, multi_signer::MultiSigner};
@@ -63,9 +62,6 @@ pub struct DependencyManager {
 
     /// Verification key store.
     pub verification_key_store: Arc<VerificationKeyStore>,
-
-    /// Signer single signature store.
-    pub single_signature_store: Arc<SingleSignatureStore>,
 
     /// Protocol parameter store.
     pub protocol_parameters_store: Arc<ProtocolParametersStore>,

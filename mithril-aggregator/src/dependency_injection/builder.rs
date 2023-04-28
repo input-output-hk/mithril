@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
 use mithril_common::{
     api_version::APIVersionProvider,
@@ -11,7 +11,7 @@ use mithril_common::{
         CardanoImmutableDigester, DumbImmutableFileObserver, ImmutableDigester,
         ImmutableFileObserver, ImmutableFileSystemObserver,
     },
-    entities::{Beacon, CertificatePending, Epoch, PartyId, SingleSignatures},
+    entities::{CertificatePending, Epoch},
     era::{
         adapters::{EraReaderAdapterBuilder, EraReaderDummyAdapter},
         EraChecker, EraMarker, EraReader, EraReaderAdapter, SupportedEra,
@@ -52,8 +52,8 @@ use crate::{
     CertificateStore, Configuration, DependencyManager, DumbSnapshotUploader, DumbSnapshotter,
     GzipSnapshotter, LocalSnapshotStore, LocalSnapshotUploader, MithrilSignerRegisterer,
     MultiSigner, MultiSignerImpl, ProtocolParametersStore, ProtocolParametersStorer,
-    RemoteSnapshotUploader, SingleSignatureStore, SnapshotStore, SnapshotUploader,
-    SnapshotUploaderType, Snapshotter, VerificationKeyStore,
+    RemoteSnapshotUploader, SnapshotStore, SnapshotUploader, SnapshotUploaderType, Snapshotter,
+    VerificationKeyStore,
 };
 
 use super::{DependenciesBuilderError, Result};
@@ -99,9 +99,6 @@ pub struct DependenciesBuilder {
 
     /// Verification key store.
     pub verification_key_store: Option<Arc<VerificationKeyStore>>,
-
-    /// Signer single signature store.
-    pub single_signature_store: Option<Arc<SingleSignatureStore>>,
 
     /// Protocol parameter store.
     pub protocol_parameters_store: Option<Arc<ProtocolParametersStore>>,
@@ -192,7 +189,6 @@ impl DependenciesBuilder {
             certificate_pending_store: None,
             certificate_store: None,
             verification_key_store: None,
-            single_signature_store: None,
             protocol_parameters_store: None,
             cardano_cli_runner: None,
             chain_observer: None,
@@ -432,49 +428,6 @@ impl DependenciesBuilder {
         }
 
         Ok(self.verification_key_store.as_ref().cloned().unwrap())
-    }
-
-    async fn build_single_signature_store(&mut self) -> Result<Arc<SingleSignatureStore>> {
-        let adapter: Box<
-            dyn StoreAdapter<Key = Beacon, Record = HashMap<PartyId, SingleSignatures>>,
-        > = match self.configuration.environment {
-            ExecutionEnvironment::Production => {
-                let adapter = SQLiteAdapter::new(
-                    "single_signature_legacy",
-                    self.get_sqlite_connection().await?,
-                )
-                .map_err(|e| DependenciesBuilderError::Initialization {
-                    message: "Cannot create SQLite adapter for SingleSignatureStore.".to_string(),
-                    error: Some(e.into()),
-                })?;
-
-                Box::new(adapter)
-            }
-            _ => {
-                let adapter = MemoryAdapter::new(None).map_err(|e| {
-                    DependenciesBuilderError::Initialization {
-                        message: "Cannot create Memory adapter for SingleSignatureStore."
-                            .to_string(),
-                        error: Some(e.into()),
-                    }
-                })?;
-                Box::new(adapter)
-            }
-        };
-
-        Ok(Arc::new(SingleSignatureStore::new(
-            adapter,
-            self.configuration.store_retention_limit,
-        )))
-    }
-
-    /// Get a configured [SingleSignatureStore].
-    pub async fn get_single_signature_store(&mut self) -> Result<Arc<SingleSignatureStore>> {
-        if self.single_signature_store.is_none() {
-            self.single_signature_store = Some(self.build_single_signature_store().await?);
-        }
-
-        Ok(self.single_signature_store.as_ref().cloned().unwrap())
     }
 
     async fn build_protocol_parameters_store(&mut self) -> Result<Arc<ProtocolParametersStore>> {
@@ -965,7 +918,6 @@ impl DependenciesBuilder {
             certificate_pending_store: self.get_certificate_pending_store().await?,
             certificate_store: self.get_certificate_store().await?,
             verification_key_store: self.get_verification_key_store().await?,
-            single_signature_store: self.get_single_signature_store().await?,
             protocol_parameters_store: self.get_protocol_parameters_store().await?,
             chain_observer: self.get_chain_observer().await?,
             beacon_provider: self.get_beacon_provider().await?,

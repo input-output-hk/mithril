@@ -57,7 +57,7 @@ pub use snapshot_uploaders::{
 pub use snapshotter::{DumbSnapshotter, GzipSnapshotter, SnapshotError, Snapshotter};
 pub use store::{
     CertificatePendingStore, CertificateStore, ProtocolParametersStore, ProtocolParametersStorer,
-    SingleSignatureStore, VerificationKeyStore, VerificationKeyStorer,
+    VerificationKeyStore, VerificationKeyStorer,
 };
 
 #[cfg(test)]
