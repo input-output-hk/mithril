@@ -32,7 +32,7 @@ use tokio::{
 use warp::Filter;
 
 use crate::{
-    artifact_builder::{ArtifactBuilderService, DummyArtifactBuilder},
+    artifact_builder::{ArtifactBuilderService, MithrilStakeDistributionArtifactBuilder},
     certifier_service::{CertifierService, MithrilCertifierService},
     configuration::{ExecutionEnvironment, LIST_SNAPSHOTS_MAX_ITEMS},
     database::provider::{
@@ -897,9 +897,12 @@ impl DependenciesBuilder {
     }
 
     async fn build_artifact_builder_service(&mut self) -> Result<Arc<ArtifactBuilderService>> {
-        let dummy_artifact_builder = DummyArtifactBuilder::new();
-        let artifact_builder_service =
-            Arc::new(ArtifactBuilderService::new(dummy_artifact_builder));
+        let multi_signer = self.get_multi_signer().await?;
+        let mithril_stake_distribution_artifact_builder =
+            Arc::new(MithrilStakeDistributionArtifactBuilder::new(multi_signer));
+        let artifact_builder_service = Arc::new(ArtifactBuilderService::new(
+            mithril_stake_distribution_artifact_builder,
+        ));
 
         Ok(artifact_builder_service)
     }
