@@ -1,4 +1,6 @@
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
+use std::fmt::Debug;
 
 use crate::{entities::ProtocolMessage, StdResult};
 
@@ -10,6 +12,9 @@ pub trait Signable: Send + Sync {
     /// Compute protocol message
     fn compute_protocol_message(&self) -> StdResult<ProtocolMessage>;
 }
+
+/// Artifact is a trait for types that represent signed artifacts
+pub trait Artifact<'a>: Serialize + Deserialize<'a> + PartialEq + Debug {}
 
 /// SignableBuilder is trait for building a signable for a beacon
 #[async_trait]
