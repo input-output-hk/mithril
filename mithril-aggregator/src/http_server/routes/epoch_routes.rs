@@ -55,7 +55,6 @@ mod handlers {
                             protocol_parameters,
                             next_protocol_parameters,
                         };
-                        println!("EpochSettings={epoch_settings:?}");
                         let epoch_settings_message =
                             ToEpochSettingsMessageAdapter::adapt(epoch_settings);
                         Ok(reply::json(&epoch_settings_message, StatusCode::OK))
