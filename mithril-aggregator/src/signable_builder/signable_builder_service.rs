@@ -2,21 +2,24 @@ use std::sync::Arc;
 
 use mithril_common::{
     entities::SignedEntityType,
-    signable_builder::{DummyBeacon, DummySignableBuilder, Signable, SignableBuilder},
+    signable_builder::{Signable, SignableBuilder},
     StdResult,
 };
 
+use super::MithrilStakeDistributionSignableBuilder;
+
 /// SignableBuilder Service
-// TODO: temporary implementation
 pub struct SignableBuilderService {
-    dummy_signable_builder: DummySignableBuilder,
+    mithril_stake_distribution_builder: MithrilStakeDistributionSignableBuilder,
 }
 
 impl SignableBuilderService {
     /// SignableBuilderService factory
-    pub fn new(dummy_signable_builder: DummySignableBuilder) -> Self {
+    pub fn new(
+        mithril_stake_distribution_builder: MithrilStakeDistributionSignableBuilder,
+    ) -> Self {
         Self {
-            dummy_signable_builder,
+            mithril_stake_distribution_builder,
         }
     }
 }
@@ -29,8 +32,8 @@ impl SignableBuilderService {
     ) -> StdResult<Arc<dyn Signable>> {
         let signable: Arc<dyn Signable> = match signed_entity_type {
             SignedEntityType::MithrilStakeDistribution(e) => Arc::new(
-                self.dummy_signable_builder
-                    .compute_signable(DummyBeacon { epoch: e })
+                self.mithril_stake_distribution_builder
+                    .compute_signable(e)
                     .await?,
             ),
             _ => todo!(),
