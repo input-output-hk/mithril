@@ -13,7 +13,7 @@ on:
         description: The url of the archive of the Cardano binaries
         required: true
         type: string
-        default: https://update-cardano-mainnet.iohk.io/cardano-node-releases/cardano-node-1.35.6-linux.tar.gz
+        default: https://update-cardano-mainnet.iohk.io/cardano-node-releases/cardano-node-1.35.7-linux.tar.gz
       dry_run:
         description: Dry run will not push the Docker images to the registry
         required: true
