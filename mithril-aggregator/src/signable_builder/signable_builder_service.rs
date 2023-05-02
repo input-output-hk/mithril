@@ -2,11 +2,11 @@ use std::sync::Arc;
 
 use mithril_common::{
     entities::SignedEntityType,
-    signable_builder::{Signable, SignableBuilder},
+    signable_builder::{ImmutableSignableBuilder, Signable, SignableBuilder},
     StdResult,
 };
 
-use super::{ImmutableSignableBuilder, MithrilStakeDistributionSignableBuilder};
+use super::MithrilStakeDistributionSignableBuilder;
 
 /// SignableBuilder Service
 pub struct SignableBuilderService {

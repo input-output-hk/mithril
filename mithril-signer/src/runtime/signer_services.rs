@@ -14,15 +14,15 @@ use mithril_common::{
     },
     digesters::{CardanoImmutableDigester, ImmutableDigester, ImmutableFileSystemObserver},
     era::{EraChecker, EraReader},
-    signable_builder::DummySignableBuilder,
+    signable_builder::ImmutableSignableBuilder,
     store::{adapter::SQLiteAdapter, StakeStore},
     BeaconProvider, BeaconProviderImpl, StdError,
 };
 
 use crate::{
-    certificate_handler::CertificateHandler, signable_builder::SignableBuilderService,
-    single_signer::SingleSigner, CertificateHandlerHTTPClient, Configuration, MithrilSingleSigner,
-    ProtocolInitializerStore, ProtocolInitializerStorer,
+    certificate_handler::CertificateHandler, single_signer::SingleSigner,
+    CertificateHandlerHTTPClient, Configuration, MithrilSingleSigner, ProtocolInitializerStore,
+    ProtocolInitializerStorer, SignableBuilderService,
 };
 
 type StakeStoreService = Arc<StakeStore>;
@@ -201,7 +201,8 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             api_version_provider.clone(),
         ));
 
-        let dummy_signable_builder = DummySignableBuilder::new();
+        let dummy_signable_builder =
+            ImmutableSignableBuilder::new(digester.clone(), slog_scope::logger());
         let signable_builder_service =
             Arc::new(SignableBuilderService::new(dummy_signable_builder));
 
