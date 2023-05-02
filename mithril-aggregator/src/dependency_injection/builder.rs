@@ -876,9 +876,7 @@ impl DependenciesBuilder {
     }
 
     async fn build_signable_builder_service(&mut self) -> Result<Arc<SignableBuilderService>> {
-        let multi_signer = self.get_multi_signer().await?;
-        let mithril_stake_distribution_builder =
-            MithrilStakeDistributionSignableBuilder::new(multi_signer);
+        let mithril_stake_distribution_builder = MithrilStakeDistributionSignableBuilder::new();
         let immutable_signable_builder = CardanoImmutableFilesFullSignableBuilder::new(
             self.get_immutable_digester().await?,
             self.get_logger().await?,
