@@ -6,20 +6,23 @@ use mithril_common::{
     StdResult,
 };
 
-use super::MithrilStakeDistributionSignableBuilder;
+use super::{ImmutableSignableBuilder, MithrilStakeDistributionSignableBuilder};
 
 /// SignableBuilder Service
 pub struct SignableBuilderService {
     mithril_stake_distribution_builder: MithrilStakeDistributionSignableBuilder,
+    immutable_signable_builder: ImmutableSignableBuilder,
 }
 
 impl SignableBuilderService {
     /// SignableBuilderService factory
     pub fn new(
         mithril_stake_distribution_builder: MithrilStakeDistributionSignableBuilder,
+        immutable_signable_builder: ImmutableSignableBuilder,
     ) -> Self {
         Self {
             mithril_stake_distribution_builder,
+            immutable_signable_builder,
         }
     }
 }
@@ -34,6 +37,11 @@ impl SignableBuilderService {
             SignedEntityType::MithrilStakeDistribution(e) => Arc::new(
                 self.mithril_stake_distribution_builder
                     .compute_signable(e)
+                    .await?,
+            ),
+            SignedEntityType::CardanoImmutableFilesFull(beacon) => Arc::new(
+                self.immutable_signable_builder
+                    .compute_signable(beacon)
                     .await?,
             ),
             _ => todo!(),

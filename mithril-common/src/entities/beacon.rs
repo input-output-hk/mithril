@@ -1,4 +1,5 @@
 use crate::entities::{Epoch, ImmutableFileNumber};
+use crate::signable_builder::Beacon as Beaconable;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::cmp::Ordering;
@@ -17,6 +18,8 @@ pub struct Beacon {
     /// Number of the last included immutable files for the digest computation
     pub immutable_file_number: ImmutableFileNumber,
 }
+
+impl Beaconable for Beacon {}
 
 /// A BeaconComparison is the result of the comparison between a beacon and an oldest beacon.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]

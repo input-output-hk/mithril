@@ -42,7 +42,9 @@ use crate::{
     },
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
-    signable_builder::{MithrilStakeDistributionSignableBuilder, SignableBuilderService},
+    signable_builder::{
+        ImmutableSignableBuilder, MithrilStakeDistributionSignableBuilder, SignableBuilderService,
+    },
     signer_registerer::SignerRecorder,
     stake_distribution_service::{MithrilStakeDistributionService, StakeDistributionService},
     ticker_service::{MithrilTickerService, TickerService},
@@ -875,8 +877,11 @@ impl DependenciesBuilder {
         let multi_signer = self.get_multi_signer().await?;
         let mithril_stake_distribution_builder =
             MithrilStakeDistributionSignableBuilder::new(multi_signer);
+        let immutable_signable_builder =
+            ImmutableSignableBuilder::new(self.get_immutable_digester().await?);
         let signable_builder_service = Arc::new(SignableBuilderService::new(
             mithril_stake_distribution_builder,
+            immutable_signable_builder,
         ));
 
         Ok(signable_builder_service)
