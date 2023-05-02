@@ -16,7 +16,7 @@ use mithril_common::{
         adapters::{EraReaderAdapterBuilder, EraReaderDummyAdapter},
         EraChecker, EraMarker, EraReader, EraReaderAdapter, SupportedEra,
     },
-    signable_builder::ImmutableSignableBuilder,
+    signable_builder::CardanoImmutableFilesFullSignableBuilder,
     store::adapter::{MemoryAdapter, SQLiteAdapter, StoreAdapter},
     BeaconProvider, BeaconProviderImpl,
 };
@@ -876,7 +876,7 @@ impl DependenciesBuilder {
         let multi_signer = self.get_multi_signer().await?;
         let mithril_stake_distribution_builder =
             MithrilStakeDistributionSignableBuilder::new(multi_signer);
-        let immutable_signable_builder = ImmutableSignableBuilder::new(
+        let immutable_signable_builder = CardanoImmutableFilesFullSignableBuilder::new(
             self.get_immutable_digester().await?,
             self.get_logger().await?,
         );

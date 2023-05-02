@@ -14,7 +14,7 @@ use mithril_common::{
     },
     digesters::{CardanoImmutableDigester, ImmutableDigester, ImmutableFileSystemObserver},
     era::{EraChecker, EraReader},
-    signable_builder::ImmutableSignableBuilder,
+    signable_builder::CardanoImmutableFilesFullSignableBuilder,
     store::{adapter::SQLiteAdapter, StakeStore},
     BeaconProvider, BeaconProviderImpl, StdError,
 };
@@ -202,7 +202,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         ));
 
         let dummy_signable_builder =
-            ImmutableSignableBuilder::new(digester.clone(), slog_scope::logger());
+            CardanoImmutableFilesFullSignableBuilder::new(digester.clone(), slog_scope::logger());
         let signable_builder_service =
             Arc::new(SignableBuilderService::new(dummy_signable_builder));
 

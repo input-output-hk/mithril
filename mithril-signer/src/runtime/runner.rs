@@ -485,7 +485,7 @@ mod tests {
             adapters::{EraReaderAdapterType, EraReaderBootstrapAdapter},
             EraChecker, EraReader,
         },
-        signable_builder::ImmutableSignableBuilder,
+        signable_builder::CardanoImmutableFilesFullSignableBuilder,
         store::{
             adapter::{DumbStoreAdapter, MemoryAdapter},
             StakeStore, StakeStorer,
@@ -535,7 +535,7 @@ mod tests {
         let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
         let digester = Arc::new(DumbImmutableDigester::new(DIGESTER_RESULT, true));
         let signable_builder =
-            ImmutableSignableBuilder::new(digester.clone(), slog_scope::logger());
+            CardanoImmutableFilesFullSignableBuilder::new(digester.clone(), slog_scope::logger());
 
         let signable_builder_service = Arc::new(SignableBuilderService::new(signable_builder));
 

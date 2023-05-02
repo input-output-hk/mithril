@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use mithril_common::{
     entities::SignedEntityType,
-    signable_builder::{ImmutableSignableBuilder, Signable, SignableBuilder},
+    signable_builder::{CardanoImmutableFilesFullSignableBuilder, Signable, SignableBuilder},
     StdResult,
 };
 
@@ -11,14 +11,14 @@ use super::MithrilStakeDistributionSignableBuilder;
 /// SignableBuilder Service
 pub struct SignableBuilderService {
     mithril_stake_distribution_builder: MithrilStakeDistributionSignableBuilder,
-    immutable_signable_builder: ImmutableSignableBuilder,
+    immutable_signable_builder: CardanoImmutableFilesFullSignableBuilder,
 }
 
 impl SignableBuilderService {
     /// SignableBuilderService factory
     pub fn new(
         mithril_stake_distribution_builder: MithrilStakeDistributionSignableBuilder,
-        immutable_signable_builder: ImmutableSignableBuilder,
+        immutable_signable_builder: CardanoImmutableFilesFullSignableBuilder,
     ) -> Self {
         Self {
             mithril_stake_distribution_builder,

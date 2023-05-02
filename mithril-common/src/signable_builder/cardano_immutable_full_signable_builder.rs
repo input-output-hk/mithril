@@ -10,12 +10,12 @@ use async_trait::async_trait;
 use slog::{debug, info, Logger};
 
 /// This structure is responsible of calculating the message for Cardano immutable files snapshots.
-pub struct ImmutableSignableBuilder {
+pub struct CardanoImmutableFilesFullSignableBuilder {
     immutable_digester: Arc<dyn ImmutableDigester>,
     logger: Logger,
 }
 
-impl ImmutableSignableBuilder {
+impl CardanoImmutableFilesFullSignableBuilder {
     /// Constructor
     pub fn new(immutable_digester: Arc<dyn ImmutableDigester>, logger: Logger) -> Self {
         Self {
@@ -26,7 +26,7 @@ impl ImmutableSignableBuilder {
 }
 
 #[async_trait]
-impl SignableBuilder<Beacon, ProtocolMessage> for ImmutableSignableBuilder {
+impl SignableBuilder<Beacon, ProtocolMessage> for CardanoImmutableFilesFullSignableBuilder {
     async fn compute_signable(&self, beacon: Beacon) -> StdResult<ProtocolMessage> {
         debug!(self.logger, "SignableBuilder::compute_signable({beacon:?})");
         let digest = self.immutable_digester.compute_digest(&beacon).await?;
@@ -66,7 +66,8 @@ mod tests {
     #[tokio::test]
     async fn compute_signable() {
         let digester = ImmutableDigesterImpl::default();
-        let signable_builder = ImmutableSignableBuilder::new(Arc::new(digester), create_logger());
+        let signable_builder =
+            CardanoImmutableFilesFullSignableBuilder::new(Arc::new(digester), create_logger());
         let protocol_message = signable_builder
             .compute_signable(Beacon::default())
             .await
