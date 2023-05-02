@@ -1,3 +1,5 @@
+use async_trait::async_trait;
+
 use std::sync::Arc;
 
 use mithril_common::{
@@ -10,14 +12,29 @@ use crate::artifact_builder::ArtifactBuilder;
 
 use super::MithrilStakeDistribution;
 
-/// ArtifactBuilder Service
-pub struct ArtifactBuilderService {
+#[cfg(test)]
+use mockall::automock;
+
+/// ArtifactBuilder Service trait
+#[cfg_attr(test, automock)]
+#[async_trait]
+pub trait ArtifactBuilderService: Send + Sync {
+    /// Compute artifact from signed entity type
+    async fn compute_artifact(
+        &self,
+        signed_entity_type: SignedEntityType,
+        certificate: &Certificate,
+    ) -> StdResult<Arc<dyn Artifact>>;
+}
+
+/// Mithril ArtifactBuilder Service
+pub struct MithrilArtifactBuilderService {
     mithril_stake_distribution_artifact_builder:
         Arc<dyn ArtifactBuilder<Epoch, MithrilStakeDistribution>>,
 }
 
-impl ArtifactBuilderService {
-    /// ArtifactBuilderService factory
+impl MithrilArtifactBuilderService {
+    /// MithrilArtifactBuilderService factory
     #[allow(dead_code)]
     pub fn new(
         mithril_stake_distribution_artifact_builder: Arc<
@@ -30,13 +47,14 @@ impl ArtifactBuilderService {
     }
 }
 
-impl ArtifactBuilderService {
+#[async_trait]
+impl ArtifactBuilderService for MithrilArtifactBuilderService {
     #[allow(dead_code)]
     async fn compute_artifact(
         &self,
         signed_entity_type: SignedEntityType,
         certificate: &Certificate,
-    ) -> StdResult<Arc<impl Artifact>> {
+    ) -> StdResult<Arc<dyn Artifact>> {
         let artifact = match signed_entity_type {
             SignedEntityType::MithrilStakeDistribution(e) => Arc::new(
                 self.mithril_stake_distribution_artifact_builder
@@ -70,8 +88,9 @@ mod tests {
             .once()
             .return_once(move |_, _| Ok(mithril_stake_distribution_clone));
 
-        let artifact_builder_service =
-            ArtifactBuilderService::new(Arc::new(mock_mithril_stake_distribution_artifact_builder));
+        let artifact_builder_service = MithrilArtifactBuilderService::new(Arc::new(
+            mock_mithril_stake_distribution_artifact_builder,
+        ));
         let certificate = Certificate::default();
 
         let signed_entity_type = SignedEntityType::MithrilStakeDistribution(Epoch(1));
@@ -79,9 +98,11 @@ mod tests {
             .compute_artifact(signed_entity_type, &certificate)
             .await
             .unwrap();
+        let mithril_stake_distribution_computed: MithrilStakeDistribution =
+            serde_json::from_str(&serde_json::to_string(&artifact).unwrap()).unwrap();
         assert_eq!(
             serde_json::to_string(&mithril_stake_distribution_expected).unwrap(),
-            serde_json::to_string(&artifact).unwrap()
+            serde_json::to_string(&mithril_stake_distribution_computed).unwrap()
         );
     }
 }
