@@ -1,29 +1,36 @@
 use std::sync::Arc;
 
-use async_trait::async_trait;
-use mithril_common::{
+use crate::{
     digesters::ImmutableDigester,
     entities::{Beacon, ProtocolMessage, ProtocolMessagePartKey},
     signable_builder::SignableBuilder,
     StdResult,
 };
+use async_trait::async_trait;
+use slog::{debug, info, Logger};
 
-/// A [SignableBuilder] for cardano immutable files.
-pub struct ImmutableSignableBuilder {
+/// This structure is responsible of calculating the message for Cardano immutable files snapshots.
+pub struct CardanoImmutableFilesFullSignableBuilder {
     immutable_digester: Arc<dyn ImmutableDigester>,
+    logger: Logger,
 }
 
-impl ImmutableSignableBuilder {
+impl CardanoImmutableFilesFullSignableBuilder {
     /// Constructor
-    pub fn new(immutable_digester: Arc<dyn ImmutableDigester>) -> Self {
-        Self { immutable_digester }
+    pub fn new(immutable_digester: Arc<dyn ImmutableDigester>, logger: Logger) -> Self {
+        Self {
+            immutable_digester,
+            logger,
+        }
     }
 }
 
 #[async_trait]
-impl SignableBuilder<Beacon, ProtocolMessage> for ImmutableSignableBuilder {
+impl SignableBuilder<Beacon, ProtocolMessage> for CardanoImmutableFilesFullSignableBuilder {
     async fn compute_signable(&self, beacon: Beacon) -> StdResult<ProtocolMessage> {
+        debug!(self.logger, "SignableBuilder::compute_signable({beacon:?})");
         let digest = self.immutable_digester.compute_digest(&beacon).await?;
+        info!(self.logger, "SignableBuilder: digest = '{digest}'.");
         let mut protocol_message = ProtocolMessage::new();
         protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
 
@@ -35,9 +42,10 @@ impl SignableBuilder<Beacon, ProtocolMessage> for ImmutableSignableBuilder {
 mod tests {
     use super::*;
 
+    use crate::digesters::{ImmutableDigester, ImmutableDigesterError};
+    use crate::entities::Beacon;
     use async_trait::async_trait;
-    use mithril_common::digesters::{ImmutableDigester, ImmutableDigesterError};
-    use mithril_common::entities::Beacon;
+    use slog::Drain;
 
     #[derive(Default)]
     pub struct ImmutableDigesterImpl;
@@ -48,10 +56,18 @@ mod tests {
             Ok(format!("immutable {}", beacon.immutable_file_number))
         }
     }
+
+    fn create_logger() -> slog::Logger {
+        let decorator = slog_term::PlainDecorator::new(slog_term::TestStdoutWriter);
+        let drain = slog_term::CompactFormat::new(decorator).build().fuse();
+        let drain = slog_async::Async::new(drain).build().fuse();
+        slog::Logger::root(Arc::new(drain), slog::o!())
+    }
     #[tokio::test]
     async fn compute_signable() {
         let digester = ImmutableDigesterImpl::default();
-        let signable_builder = ImmutableSignableBuilder::new(Arc::new(digester));
+        let signable_builder =
+            CardanoImmutableFilesFullSignableBuilder::new(Arc::new(digester), create_logger());
         let protocol_message = signable_builder
             .compute_signable(Beacon::default())
             .await

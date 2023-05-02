@@ -261,7 +261,7 @@ mod tests {
 
     #[tokio::test]
     async fn reset_clear_existing_values() {
-        let file = get_test_dir("store_erase_existing_values").join("immutable-cache-store.json");
+        let file = get_test_dir("reset_clear_existing_values").join("immutable-cache-store.json");
         let provider = JsonImmutableFileDigestCacheProvider::new(&file);
         let values_to_store = vec![
             ("0.chunk".to_string(), "digest 0".to_string()),

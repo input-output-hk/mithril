@@ -40,7 +40,7 @@ pub use crate::configuration::{
 };
 pub use crate::multi_signer::{MultiSigner, MultiSignerImpl, ProtocolError};
 pub use crate::signable_builder::{
-    ImmutableSignableBuilder, MithrilStakeDistributionSignableBuilder, SignableBuilderService,
+    MithrilStakeDistributionSignableBuilder, SignableBuilderService,
 };
 pub use crate::snapshot_stores::{LocalSnapshotStore, SnapshotStore};
 pub use command_args::MainOpts;

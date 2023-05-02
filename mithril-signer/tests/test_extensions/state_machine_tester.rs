@@ -7,7 +7,7 @@ use mithril_common::era::{
     EraChecker, EraReader,
 };
 use mithril_common::era::{EraMarker, SupportedEra};
-use mithril_common::signable_builder::DummySignableBuilder;
+use mithril_common::signable_builder::CardanoImmutableFilesFullSignableBuilder;
 use mithril_common::BeaconProvider;
 use slog::Drain;
 use slog_scope::debug;
@@ -150,9 +150,9 @@ impl StateMachineTester {
 
         let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
 
-        let dummy_signable_builder = DummySignableBuilder::new();
-        let signable_builder_service =
-            Arc::new(SignableBuilderService::new(dummy_signable_builder));
+        let signable_builder =
+            CardanoImmutableFilesFullSignableBuilder::new(digester.clone(), slog_scope::logger());
+        let signable_builder_service = Arc::new(SignableBuilderService::new(signable_builder));
 
         let services = SignerServices {
             certificate_handler: certificate_handler.clone(),

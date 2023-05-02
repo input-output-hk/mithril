@@ -23,5 +23,5 @@ pub use message_adapters::{
 };
 pub use protocol_initializer_store::{ProtocolInitializerStore, ProtocolInitializerStorer};
 pub use runtime::*;
-pub use signable_builder::SignableBuilderService;
+pub use signable_builder::*;
 pub use single_signer::*;
