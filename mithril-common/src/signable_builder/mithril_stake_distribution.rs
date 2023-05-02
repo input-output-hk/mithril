@@ -6,7 +6,7 @@ use crate::{
     StdResult,
 };
 
-/// A [MithrilStakeDistributionSignable] builder
+/// A [MithrilStakeDistributionSignableBuilder] builder
 pub struct MithrilStakeDistributionSignableBuilder {}
 
 impl MithrilStakeDistributionSignableBuilder {

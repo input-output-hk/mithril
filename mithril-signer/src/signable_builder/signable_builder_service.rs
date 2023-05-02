@@ -2,21 +2,28 @@ use std::sync::Arc;
 
 use mithril_common::{
     entities::SignedEntityType,
-    signable_builder::{CardanoImmutableFilesFullSignableBuilder, Signable, SignableBuilder},
+    signable_builder::{
+        CardanoImmutableFilesFullSignableBuilder, MithrilStakeDistributionSignableBuilder,
+        Signable, SignableBuilder,
+    },
     StdResult,
 };
 
 /// SignableBuilder Service
-// TODO: temporary implementation
 pub struct SignableBuilderService {
     immutable_signable_builder: CardanoImmutableFilesFullSignableBuilder,
+    mithril_stake_distribution_builder: MithrilStakeDistributionSignableBuilder,
 }
 
 impl SignableBuilderService {
     /// SignableBuilderService factory
-    pub fn new(immutable_signable_builder: CardanoImmutableFilesFullSignableBuilder) -> Self {
+    pub fn new(
+        immutable_signable_builder: CardanoImmutableFilesFullSignableBuilder,
+        mithril_stake_distribution_builder: MithrilStakeDistributionSignableBuilder,
+    ) -> Self {
         Self {
             immutable_signable_builder,
+            mithril_stake_distribution_builder,
         }
     }
 }
@@ -31,6 +38,11 @@ impl SignableBuilderService {
             SignedEntityType::CardanoImmutableFilesFull(beacon) => Arc::new(
                 self.immutable_signable_builder
                     .compute_signable(beacon)
+                    .await?,
+            ),
+            SignedEntityType::MithrilStakeDistribution(epoch) => Arc::new(
+                self.mithril_stake_distribution_builder
+                    .compute_signable(epoch)
                     .await?,
             ),
             _ => todo!(),

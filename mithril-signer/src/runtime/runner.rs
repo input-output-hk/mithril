@@ -485,7 +485,9 @@ mod tests {
             adapters::{EraReaderAdapterType, EraReaderBootstrapAdapter},
             EraChecker, EraReader,
         },
-        signable_builder::CardanoImmutableFilesFullSignableBuilder,
+        signable_builder::{
+            CardanoImmutableFilesFullSignableBuilder, MithrilStakeDistributionSignableBuilder,
+        },
         store::{
             adapter::{DumbStoreAdapter, MemoryAdapter},
             StakeStore, StakeStorer,
@@ -534,10 +536,14 @@ mod tests {
 
         let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
         let digester = Arc::new(DumbImmutableDigester::new(DIGESTER_RESULT, true));
-        let signable_builder =
+        let immutable_signable_builder =
             CardanoImmutableFilesFullSignableBuilder::new(digester.clone(), slog_scope::logger());
-
-        let signable_builder_service = Arc::new(SignableBuilderService::new(signable_builder));
+        let mithril_stake_distribution_signable_builder =
+            MithrilStakeDistributionSignableBuilder::new();
+        let signable_builder_service = Arc::new(SignableBuilderService::new(
+            immutable_signable_builder,
+            mithril_stake_distribution_signable_builder,
+        ));
 
         SignerServices {
             stake_store: Arc::new(StakeStore::new(Box::new(DumbStoreAdapter::new()), None)),
