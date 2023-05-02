@@ -39,9 +39,7 @@ pub use crate::configuration::{
     Configuration, DefaultConfiguration, ExecutionEnvironment, SnapshotUploaderType,
 };
 pub use crate::multi_signer::{MultiSigner, MultiSignerImpl, ProtocolError};
-pub use crate::signable_builder::{
-    MithrilStakeDistributionSignableBuilder, SignableBuilderService,
-};
+pub use crate::signable_builder::SignableBuilderService;
 pub use crate::snapshot_stores::{LocalSnapshotStore, SnapshotStore};
 pub use command_args::MainOpts;
 pub use dependency::DependencyManager;

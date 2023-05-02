@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 
-use mithril_common::{
+use crate::{
     entities::{Epoch, ProtocolMessage},
     signable_builder::SignableBuilder,
     StdResult,
