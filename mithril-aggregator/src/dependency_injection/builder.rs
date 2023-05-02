@@ -33,7 +33,10 @@ use tokio::{
 use warp::Filter;
 
 use crate::{
-    artifact_builder::{ArtifactBuilderService, MithrilStakeDistributionArtifactBuilder},
+    artifact_builder::{
+        ArtifactBuilderService, MithrilArtifactBuilderService,
+        MithrilStakeDistributionArtifactBuilder,
+    },
     certifier_service::{CertifierService, MithrilCertifierService},
     configuration::{ExecutionEnvironment, LIST_SNAPSHOTS_MAX_ITEMS},
     database::provider::{
@@ -170,7 +173,7 @@ pub struct DependenciesBuilder {
     pub signable_builder_service: Option<Arc<SignableBuilderService>>,
 
     /// Artifact Builder Service
-    pub artifact_builder_service: Option<Arc<ArtifactBuilderService>>,
+    pub artifact_builder_service: Option<Arc<dyn ArtifactBuilderService>>,
 
     /// Certifier service
     pub certifier_service: Option<Arc<dyn CertifierService>>,
@@ -897,11 +900,11 @@ impl DependenciesBuilder {
         Ok(self.signable_builder_service.as_ref().cloned().unwrap())
     }
 
-    async fn build_artifact_builder_service(&mut self) -> Result<Arc<ArtifactBuilderService>> {
+    async fn build_artifact_builder_service(&mut self) -> Result<Arc<dyn ArtifactBuilderService>> {
         let multi_signer = self.get_multi_signer().await?;
         let mithril_stake_distribution_artifact_builder =
             Arc::new(MithrilStakeDistributionArtifactBuilder::new(multi_signer));
-        let artifact_builder_service = Arc::new(ArtifactBuilderService::new(
+        let artifact_builder_service = Arc::new(MithrilArtifactBuilderService::new(
             mithril_stake_distribution_artifact_builder,
         ));
 
@@ -909,7 +912,9 @@ impl DependenciesBuilder {
     }
 
     /// [ArtifactBuilderService] service
-    pub async fn get_artifact_builder_service(&mut self) -> Result<Arc<ArtifactBuilderService>> {
+    pub async fn get_artifact_builder_service(
+        &mut self,
+    ) -> Result<Arc<dyn ArtifactBuilderService>> {
         if self.artifact_builder_service.is_none() {
             self.artifact_builder_service = Some(self.build_artifact_builder_service().await?);
         }
