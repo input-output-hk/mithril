@@ -864,7 +864,7 @@ impl DependenciesBuilder {
         Ok(signer_recorder)
     }
 
-    /// [SignerRecorder]
+    /// [SignerRecorder] service
     pub async fn get_signer_recorder(&mut self) -> Result<Arc<dyn SignerRecorder>> {
         if self.signer_recorder.is_none() {
             self.signer_recorder = Some(self.build_signer_recorder().await?);

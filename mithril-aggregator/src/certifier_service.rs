@@ -1,7 +1,7 @@
 //! ## Certifier Service
 //!
 //! This service is responsible of [OpenMessage] cycle of life. It creates open
-//! messages and turn them into [CertificateRecord]. To do so, it registers
+//! messages and turn them into [Certificate]. To do so, it registers
 //! single signatures and deal with the multi_signer for aggregate signature
 //! creation.
 use std::sync::Arc;

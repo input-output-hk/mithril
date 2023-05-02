@@ -471,7 +471,7 @@ impl OpenMessageRepository {
         Self { connection }
     }
 
-    /// Return the latest [OpenMessage] for the given Epoch and [SignedEntityType].
+    /// Return the latest [OpenMessageRecord] for the given Epoch and [SignedEntityType].
     pub async fn get_open_message(
         &self,
         signed_entity_type: &SignedEntityType,
@@ -486,7 +486,7 @@ impl OpenMessageRepository {
         Ok(messages.next())
     }
 
-    /// Create a new [OpenMessage] in the database.
+    /// Create a new [OpenMessageRecord] in the database.
     pub async fn create_open_message(
         &self,
         epoch: Epoch,
@@ -503,7 +503,7 @@ impl OpenMessageRepository {
             .ok_or_else(|| panic!("Inserting an open_message should not return nothing."))
     }
 
-    /// Updates an [OpenMessage] in the database.
+    /// Updates an [OpenMessageRecord] in the database.
     pub async fn update_open_message(
         &self,
         open_message: &OpenMessageRecord,
@@ -518,7 +518,7 @@ impl OpenMessageRepository {
             .ok_or_else(|| panic!("Updating an open_message should not return nothing."))
     }
 
-    /// Remove all the [OpenMessage] for the given Epoch in the database.
+    /// Remove all the [OpenMessageRecord] for the given Epoch in the database.
     /// It returns the number of messages removed.
     pub async fn clean_epoch(&self, epoch: Epoch) -> StdResult<usize> {
         let lock = self.connection.lock().await;

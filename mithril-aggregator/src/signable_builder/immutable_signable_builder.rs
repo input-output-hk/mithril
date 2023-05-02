@@ -8,6 +8,7 @@ use mithril_common::{
     StdResult,
 };
 
+/// A [SignableBuilder] for cardano immutable files.
 pub struct ImmutableSignableBuilder {
     immutable_digester: Arc<dyn ImmutableDigester>,
 }

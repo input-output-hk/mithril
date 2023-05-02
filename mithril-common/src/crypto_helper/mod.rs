@@ -8,8 +8,10 @@ mod genesis;
 pub mod tests_setup;
 mod types;
 
-pub use cardano::ColdKeyGenerator;
-pub use cardano::{KESPeriod, OpCert, SerDeShelleyFileFormat, Sum6KesBytes};
+pub use cardano::{
+    ColdKeyGenerator, KESPeriod, OpCert, ProtocolInitializerErrorWrapper,
+    ProtocolRegistrationErrorWrapper, SerDeShelleyFileFormat, Sum6KesBytes,
+};
 pub use codec::*;
 pub use era::{
     EraMarkersSigner, EraMarkersVerifier, EraMarkersVerifierError, EraMarkersVerifierSecretKey,

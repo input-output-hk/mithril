@@ -22,9 +22,32 @@ jobs:
         uses: ./.github/workflows/actions/toolchain-and-cache
         with:
           cache-version: ${{ secrets.CACHE_VERSION }}
+          cargo-tools: clippy-sarif sarif-fmt
 
       - name: Generate cargo doc
-        run: cargo doc --no-deps -p mithril-stm -p mithril-common -p mithril-aggregator -p mithril-signer -p mithril-client
+        run: |
+          cargo doc --no-deps -p mithril-stm -p mithril-common -p mithril-aggregator \
+                    -p mithril-signer -p mithril-client --message-format=json \
+                    | clippy-sarif | tee rust-cargo-doc-results.sarif | sarif-fmt
+          
+          # Update tool sarif metadata from "clippy" to "cargo-doc" (since it's set this way by clippy-sarif)
+          contents=$(cat rust-cargo-doc-results.sarif \
+              | jq '.runs[].tool.driver.name = "cargo-doc"' \
+              | jq '.runs[].tool.driver.informationUri = "https://doc.rust-lang.org/cargo/commands/cargo-doc.html"' \
+          )
+          echo -E "${contents}" > rust-cargo-doc-results.sarif
+          
+          # Make this step fail if any warning has been found
+          if [[ $(cat rust-cargo-doc-results.sarif | jq '.runs[0].results') != "[]" ]]; then
+            false
+          fi
+
+      - name: Upload cargo-doc results to GitHub
+        if: success() || failure()
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: rust-cargo-doc-results.sarif
+          wait-for-processing: true
 
       - name: Publish Mithril-rust-doc
         uses: actions/upload-artifact@v3
