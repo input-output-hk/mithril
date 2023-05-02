@@ -11,7 +11,7 @@ use mithril_common::{
 
 use crate::MultiSigner;
 
-/// A [MithrilStakeDistributionSignable] builder
+/// A [SignableBuilder] for mithril stake distribution.
 pub struct MithrilStakeDistributionSignableBuilder {
     multi_signer: Arc<RwLock<dyn MultiSigner>>,
 }

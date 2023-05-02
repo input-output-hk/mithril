@@ -34,10 +34,14 @@ mod store;
 pub mod ticker_service;
 mod tools;
 
+pub use crate::artifact_builder::{ArtifactBuilder, ArtifactBuilderService};
 pub use crate::configuration::{
     Configuration, DefaultConfiguration, ExecutionEnvironment, SnapshotUploaderType,
 };
 pub use crate::multi_signer::{MultiSigner, MultiSignerImpl, ProtocolError};
+pub use crate::signable_builder::{
+    ImmutableSignableBuilder, MithrilStakeDistributionSignableBuilder, SignableBuilderService,
+};
 pub use crate::snapshot_stores::{LocalSnapshotStore, SnapshotStore};
 pub use command_args::MainOpts;
 pub use dependency::DependencyManager;
@@ -48,8 +52,8 @@ pub use runtime::{
     AggregatorConfig, AggregatorRunner, AggregatorRunnerTrait, AggregatorRuntime, RuntimeError,
 };
 pub use signer_registerer::{
-    MithrilSignerRegisterer, SignerRegisterer, SignerRegistrationError, SignerRegistrationRound,
-    SignerRegistrationRoundOpener,
+    MithrilSignerRegisterer, SignerRecorder, SignerRegisterer, SignerRegistrationError,
+    SignerRegistrationRound, SignerRegistrationRoundOpener,
 };
 pub use snapshot_uploaders::{
     DumbSnapshotUploader, LocalSnapshotUploader, RemoteSnapshotUploader, SnapshotUploader,

@@ -71,10 +71,10 @@ pub type ProtocolGenesisSecretKey = ed25519_dalek::SecretKey;
 pub type ProtocolGenesisSignature = ed25519_dalek::Signature;
 
 // Error alias
-/// Alias of a wrapper of [MithrilCommon:ProtocolRegistrationErrorWrapper](enum@mithril_common::ProtocolRegistrationErrorWrapper).
+/// Alias of a wrapper of [MithrilCommon:ProtocolRegistrationErrorWrapper](enum@ProtocolRegistrationErrorWrapper).
 pub type ProtocolRegistrationError = ProtocolRegistrationErrorWrapper;
 
-/// Alias of a wrapper of [MithrilCommon:ProtocolInitializerErrorWrapper](enum@mithril_common::ProtocolInitializerErrorWrapper).
+/// Alias of a wrapper of [MithrilCommon:ProtocolInitializerErrorWrapper](enum@ProtocolInitializerErrorWrapper).
 pub type ProtocolInitializerError = ProtocolInitializerErrorWrapper;
 
 /// Alias of [MithrilStm:AggregationError](enum@mithril_stm::AggregationError).
