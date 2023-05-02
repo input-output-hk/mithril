@@ -24,6 +24,7 @@ impl MithrilStakeDistribution {
     }
 }
 
+#[typetag::serde]
 impl Artifact for MithrilStakeDistribution {}
 
 /// A [MithrilStakeDistributionArtifact] builder

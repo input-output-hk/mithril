@@ -22,6 +22,7 @@ impl DummyArtifact {
     }
 }
 
+#[typetag::serde]
 impl Artifact for DummyArtifact {}
 
 /// A [DummyArtifact] builder
