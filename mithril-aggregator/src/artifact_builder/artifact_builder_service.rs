@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use std::sync::Arc;
 
 use mithril_common::{
-    entities::{Certificate, Epoch, SignedEntityType},
+    entities::{Beacon, Certificate, Epoch, SignedEntityType, Snapshot},
     signable_builder::Artifact,
     StdResult,
 };
@@ -31,6 +31,7 @@ pub trait ArtifactBuilderService: Send + Sync {
 pub struct MithrilArtifactBuilderService {
     mithril_stake_distribution_artifact_builder:
         Arc<dyn ArtifactBuilder<Epoch, MithrilStakeDistribution>>,
+    cardano_immutable_files_full_artifact_builder: Arc<dyn ArtifactBuilder<Beacon, Snapshot>>,
 }
 
 impl MithrilArtifactBuilderService {
@@ -40,9 +41,11 @@ impl MithrilArtifactBuilderService {
         mithril_stake_distribution_artifact_builder: Arc<
             dyn ArtifactBuilder<Epoch, MithrilStakeDistribution>,
         >,
+        cardano_immutable_files_full_artifact_builder: Arc<dyn ArtifactBuilder<Beacon, Snapshot>>,
     ) -> Self {
         Self {
             mithril_stake_distribution_artifact_builder,
+            cardano_immutable_files_full_artifact_builder,
         }
     }
 }
@@ -55,16 +58,19 @@ impl ArtifactBuilderService for MithrilArtifactBuilderService {
         signed_entity_type: SignedEntityType,
         certificate: &Certificate,
     ) -> StdResult<Arc<dyn Artifact>> {
-        let artifact = match signed_entity_type {
-            SignedEntityType::MithrilStakeDistribution(e) => Arc::new(
+        match signed_entity_type {
+            SignedEntityType::MithrilStakeDistribution(epoch) => Ok(Arc::new(
                 self.mithril_stake_distribution_artifact_builder
-                    .compute_artifact(e, certificate)
+                    .compute_artifact(epoch, certificate)
                     .await?,
-            ),
+            )),
+            SignedEntityType::CardanoImmutableFilesFull(beacon) => Ok(Arc::new(
+                self.cardano_immutable_files_full_artifact_builder
+                    .compute_artifact(beacon, certificate)
+                    .await?,
+            )),
             _ => todo!(),
-        };
-
-        Ok(artifact)
+        }
     }
 }
 
@@ -77,7 +83,8 @@ mod tests {
     use crate::artifact_builder::MockArtifactBuilder;
 
     #[tokio::test]
-    async fn test_artifact_builder_service_mithril_stake_distribution() {
+    async fn build_mithril_stake_distribution_artifact_when_given_mithril_stake_distribution_entity_type(
+    ) {
         let signers_with_stake = fake_data::signers_with_stakes(5);
         let mithril_stake_distribution_expected = MithrilStakeDistribution::new(signers_with_stake);
         let mithril_stake_distribution_clone = mithril_stake_distribution_expected.clone();
@@ -88,9 +95,13 @@ mod tests {
             .once()
             .return_once(move |_, _| Ok(mithril_stake_distribution_clone));
 
-        let artifact_builder_service = MithrilArtifactBuilderService::new(Arc::new(
-            mock_mithril_stake_distribution_artifact_builder,
-        ));
+        let mock_cardano_immutable_files_full_artifact_builder =
+            MockArtifactBuilder::<Beacon, Snapshot>::new();
+
+        let artifact_builder_service = MithrilArtifactBuilderService::new(
+            Arc::new(mock_mithril_stake_distribution_artifact_builder),
+            Arc::new(mock_cardano_immutable_files_full_artifact_builder),
+        );
         let certificate = Certificate::default();
 
         let signed_entity_type = SignedEntityType::MithrilStakeDistribution(Epoch(1));
@@ -103,6 +114,39 @@ mod tests {
         assert_eq!(
             serde_json::to_string(&mithril_stake_distribution_expected).unwrap(),
             serde_json::to_string(&mithril_stake_distribution_computed).unwrap()
+        );
+    }
+
+    #[tokio::test]
+    async fn build_snapshot_artifact_when_given_cardano_immutable_files_full_entity_type() {
+        let snapshot_expected = fake_data::snapshots(1).first().unwrap().to_owned();
+        let snapshot_expected_clone = snapshot_expected.clone();
+        let mock_mithril_stake_distribution_artifact_builder =
+            MockArtifactBuilder::<Epoch, MithrilStakeDistribution>::new();
+
+        let mut mock_cardano_immutable_files_full_artifact_builder =
+            MockArtifactBuilder::<Beacon, Snapshot>::new();
+        mock_cardano_immutable_files_full_artifact_builder
+            .expect_compute_artifact()
+            .once()
+            .return_once(move |_, _| Ok(snapshot_expected_clone));
+
+        let artifact_builder_service = MithrilArtifactBuilderService::new(
+            Arc::new(mock_mithril_stake_distribution_artifact_builder),
+            Arc::new(mock_cardano_immutable_files_full_artifact_builder),
+        );
+        let certificate = Certificate::default();
+
+        let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(Beacon::default());
+        let artifact = artifact_builder_service
+            .compute_artifact(signed_entity_type, &certificate)
+            .await
+            .unwrap();
+        let snapshot_computed: Snapshot =
+            serde_json::from_str(&serde_json::to_string(&artifact).unwrap()).unwrap();
+        assert_eq!(
+            serde_json::to_string(&snapshot_expected).unwrap(),
+            serde_json::to_string(&snapshot_computed).unwrap()
         );
     }
 }
