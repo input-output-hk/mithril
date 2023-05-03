@@ -45,9 +45,10 @@ impl SnapshotUploader for DumbSnapshotUploader {
             .write()
             .map_err(|e| format!("Error while saving filepath location: {e}"))?;
 
-        *value = Some(snapshot_filepath.to_string_lossy().to_string());
+        let location = snapshot_filepath.to_string_lossy().to_string();
+        *value = Some(location.clone());
 
-        Ok("http://whatev.er".into())
+        Ok(location)
     }
 }
 
@@ -62,10 +63,11 @@ mod tests {
             .get_last_upload()
             .expect("uploader should not fail")
             .is_none());
-        let _res = uploader
+        let res = uploader
             .upload_snapshot(Path::new("/tmp/whatever"))
             .await
             .expect("uploading with a dumb uploader should not fail");
+        assert_eq!(res, "/tmp/whatever".to_string());
         assert_eq!(
             Some("/tmp/whatever".to_string()),
             uploader
