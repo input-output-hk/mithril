@@ -14,7 +14,9 @@ use mithril_common::{
     },
     digesters::{CardanoImmutableDigester, ImmutableDigester, ImmutableFileSystemObserver},
     era::{EraChecker, EraReader},
-    signable_builder::CardanoImmutableFilesFullSignableBuilder,
+    signable_builder::{
+        CardanoImmutableFilesFullSignableBuilder, MithrilStakeDistributionSignableBuilder,
+    },
     store::{adapter::SQLiteAdapter, StakeStore},
     BeaconProvider, BeaconProviderImpl, StdError,
 };
@@ -201,10 +203,14 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             api_version_provider.clone(),
         ));
 
-        let dummy_signable_builder =
+        let immutable_snapshot_builder =
             CardanoImmutableFilesFullSignableBuilder::new(digester.clone(), slog_scope::logger());
-        let signable_builder_service =
-            Arc::new(SignableBuilderService::new(dummy_signable_builder));
+        let mithril_stake_distribution_signable_builder =
+            MithrilStakeDistributionSignableBuilder::default();
+        let signable_builder_service = Arc::new(SignableBuilderService::new(
+            immutable_snapshot_builder,
+            mithril_stake_distribution_signable_builder,
+        ));
 
         let services = SignerServices {
             beacon_provider,

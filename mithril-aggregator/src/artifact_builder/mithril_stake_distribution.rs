@@ -48,7 +48,7 @@ impl ArtifactBuilder<Epoch, MithrilStakeDistribution> for MithrilStakeDistributi
     ) -> StdResult<MithrilStakeDistribution> {
         let multi_signer = self.multi_signer.read().await;
         Ok(MithrilStakeDistribution::new(
-            multi_signer.get_signers_with_stake().await?,
+            multi_signer.get_next_signers_with_stake().await?,
         ))
     }
 }
@@ -68,7 +68,7 @@ mod tests {
         let certificate = fake_data::certificate("cert-123".to_string());
         let mut mock_multi_signer = MockMultiSigner::new();
         mock_multi_signer
-            .expect_get_signers_with_stake()
+            .expect_get_next_signers_with_stake()
             .return_once(move || Ok(signers_with_stake_clone));
         let mithril_stake_distribution_artifact_builder =
             MithrilStakeDistributionArtifactBuilder::new(Arc::new(RwLock::new(mock_multi_signer)));
