@@ -1,4 +1,4 @@
-use crate::entities::Beacon;
+use crate::{entities::Beacon, signable_builder::Artifact};
 use serde::{Deserialize, Serialize};
 
 /// Snapshot represents a snapshot file and its metadata
@@ -43,3 +43,6 @@ impl Snapshot {
         }
     }
 }
+
+#[typetag::serde]
+impl Artifact for Snapshot {}

@@ -62,7 +62,7 @@ mod tests {
     use crate::multi_signer::MockMultiSigner;
 
     #[tokio::test]
-    async fn test_compute_artifact() {
+    async fn should_compute_valid_artifact() {
         let signers_with_stake = fake_data::signers_with_stakes(5);
         let signers_with_stake_clone = signers_with_stake.clone();
         let certificate = fake_data::certificate("cert-123".to_string());
