@@ -206,7 +206,7 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
         let immutable_snapshot_builder =
             CardanoImmutableFilesFullSignableBuilder::new(digester.clone(), slog_scope::logger());
         let mithril_stake_distribution_signable_builder =
-            MithrilStakeDistributionSignableBuilder::new();
+            MithrilStakeDistributionSignableBuilder::default();
         let signable_builder_service = Arc::new(SignableBuilderService::new(
             immutable_snapshot_builder,
             mithril_stake_distribution_signable_builder,

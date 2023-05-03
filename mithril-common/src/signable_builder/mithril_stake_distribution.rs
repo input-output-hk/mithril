@@ -7,20 +7,8 @@ use crate::{
 };
 
 /// A [MithrilStakeDistributionSignableBuilder] builder
+#[derive(Default)]
 pub struct MithrilStakeDistributionSignableBuilder {}
-
-impl MithrilStakeDistributionSignableBuilder {
-    /// MithrilStakeDistribution signable builder factory
-    pub fn new() -> Self {
-        Self {}
-    }
-}
-
-impl Default for MithrilStakeDistributionSignableBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 #[async_trait]
 impl SignableBuilder<Epoch, ProtocolMessage> for MithrilStakeDistributionSignableBuilder {
@@ -37,7 +25,7 @@ mod tests {
     #[tokio::test]
     async fn test_compute_signable() {
         let mithril_stake_distribution_signable_builder =
-            MithrilStakeDistributionSignableBuilder::new();
+            MithrilStakeDistributionSignableBuilder::default();
         let signable = mithril_stake_distribution_signable_builder
             .compute_signable(Epoch(1))
             .await
