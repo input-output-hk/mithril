@@ -36,8 +36,8 @@ use warp::Filter;
 
 use crate::{
     artifact_builder::{
-        ArtifactBuilderService, MithrilArtifactBuilderService,
-        MithrilStakeDistributionArtifactBuilder,
+        ArtifactBuilderService, CardanoImmutableFilesFullArtifactBuilder,
+        MithrilArtifactBuilderService, MithrilStakeDistributionArtifactBuilder,
     },
     certifier_service::{CertifierService, MithrilCertifierService},
     configuration::{ExecutionEnvironment, LIST_SNAPSHOTS_MAX_ITEMS},
@@ -904,8 +904,14 @@ impl DependenciesBuilder {
         let multi_signer = self.get_multi_signer().await?;
         let mithril_stake_distribution_artifact_builder =
             Arc::new(MithrilStakeDistributionArtifactBuilder::new(multi_signer));
+        let snapshotter = self.build_snapshotter().await?;
+        let snapshot_uploader = self.build_snapshot_uploader().await?;
+        let cardano_immutable_files_full_artifact_builder = Arc::new(
+            CardanoImmutableFilesFullArtifactBuilder::new(snapshotter, snapshot_uploader),
+        );
         let artifact_builder_service = Arc::new(MithrilArtifactBuilderService::new(
             mithril_stake_distribution_artifact_builder,
+            cardano_immutable_files_full_artifact_builder,
         ));
 
         Ok(artifact_builder_service)
