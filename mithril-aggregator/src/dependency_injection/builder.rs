@@ -48,7 +48,7 @@ use crate::{
     },
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
-    signable_builder::SignableBuilderService,
+    signable_builder::{MithrilSignableBuilderService, SignableBuilderService},
     signer_registerer::SignerRecorder,
     stake_distribution_service::{MithrilStakeDistributionService, StakeDistributionService},
     ticker_service::{MithrilTickerService, TickerService},
@@ -172,7 +172,7 @@ pub struct DependenciesBuilder {
     pub signer_recorder: Option<Arc<dyn SignerRecorder>>,
 
     /// Signable Builder Service
-    pub signable_builder_service: Option<Arc<SignableBuilderService>>,
+    pub signable_builder_service: Option<Arc<dyn SignableBuilderService>>,
 
     /// Artifact Builder Service
     pub artifact_builder_service: Option<Arc<dyn ArtifactBuilderService>>,
@@ -877,13 +877,14 @@ impl DependenciesBuilder {
         Ok(self.signer_recorder.as_ref().cloned().unwrap())
     }
 
-    async fn build_signable_builder_service(&mut self) -> Result<Arc<SignableBuilderService>> {
-        let mithril_stake_distribution_builder = MithrilStakeDistributionSignableBuilder::default();
-        let immutable_signable_builder = CardanoImmutableFilesFullSignableBuilder::new(
+    async fn build_signable_builder_service(&mut self) -> Result<Arc<dyn SignableBuilderService>> {
+        let mithril_stake_distribution_builder =
+            Arc::new(MithrilStakeDistributionSignableBuilder::default());
+        let immutable_signable_builder = Arc::new(CardanoImmutableFilesFullSignableBuilder::new(
             self.get_immutable_digester().await?,
             self.get_logger().await?,
-        );
-        let signable_builder_service = Arc::new(SignableBuilderService::new(
+        ));
+        let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
             mithril_stake_distribution_builder,
             immutable_signable_builder,
         ));
@@ -892,7 +893,9 @@ impl DependenciesBuilder {
     }
 
     /// [SignableBuilderService] service
-    pub async fn get_signable_builder_service(&mut self) -> Result<Arc<SignableBuilderService>> {
+    pub async fn get_signable_builder_service(
+        &mut self,
+    ) -> Result<Arc<dyn SignableBuilderService>> {
         if self.signable_builder_service.is_none() {
             self.signable_builder_service = Some(self.build_signable_builder_service().await?);
         }

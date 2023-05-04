@@ -3,6 +3,9 @@ use std::fmt::Debug;
 
 use crate::{entities::ProtocolMessage, StdResult};
 
+#[cfg(test)]
+use mockall::automock;
+
 /// Beacon trait
 pub trait Beacon: Send + Sync {}
 
@@ -17,8 +20,9 @@ pub trait Signable: Send + Sync {
 pub trait Artifact: Debug + Send + Sync {}
 
 /// SignableBuilder is trait for building a signable for a beacon
+#[cfg_attr(test, automock)]
 #[async_trait]
-pub trait SignableBuilder<U, V>
+pub trait SignableBuilder<U, V>: Send + Sync
 where
     U: Beacon,
     V: Signable,

@@ -112,7 +112,7 @@ pub struct DependencyManager {
     pub signer_recorder: Arc<dyn SignerRecorder>,
 
     /// Signable Builder Service
-    pub signable_builder_service: Arc<SignableBuilderService>,
+    pub signable_builder_service: Arc<dyn SignableBuilderService>,
 
     /// Artifact Builder Service
     pub artifact_builder_service: Arc<dyn ArtifactBuilderService>,
