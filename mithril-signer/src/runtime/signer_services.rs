@@ -15,7 +15,8 @@ use mithril_common::{
     digesters::{CardanoImmutableDigester, ImmutableDigester, ImmutableFileSystemObserver},
     era::{EraChecker, EraReader},
     signable_builder::{
-        CardanoImmutableFilesFullSignableBuilder, MithrilStakeDistributionSignableBuilder,
+        CardanoImmutableFilesFullSignableBuilder, MithrilSignableBuilderService,
+        MithrilStakeDistributionSignableBuilder, SignableBuilderService,
     },
     store::{adapter::SQLiteAdapter, StakeStore},
     BeaconProvider, BeaconProviderImpl, StdError,
@@ -24,7 +25,7 @@ use mithril_common::{
 use crate::{
     certificate_handler::CertificateHandler, single_signer::SingleSigner,
     CertificateHandlerHTTPClient, Configuration, MithrilSingleSigner, ProtocolInitializerStore,
-    ProtocolInitializerStorer, SignableBuilderService,
+    ProtocolInitializerStorer,
 };
 
 type StakeStoreService = Arc<StakeStore>;
@@ -203,13 +204,14 @@ impl<'a> ServiceBuilder for ProductionServiceBuilder<'a> {
             api_version_provider.clone(),
         ));
 
-        let immutable_snapshot_builder =
-            CardanoImmutableFilesFullSignableBuilder::new(digester.clone(), slog_scope::logger());
+        let cardano_immutable_snapshot_builder = Arc::new(
+            CardanoImmutableFilesFullSignableBuilder::new(digester.clone(), slog_scope::logger()),
+        );
         let mithril_stake_distribution_signable_builder =
-            MithrilStakeDistributionSignableBuilder::default();
-        let signable_builder_service = Arc::new(SignableBuilderService::new(
-            immutable_snapshot_builder,
+            Arc::new(MithrilStakeDistributionSignableBuilder::default());
+        let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
             mithril_stake_distribution_signable_builder,
+            cardano_immutable_snapshot_builder,
         ));
 
         let services = SignerServices {
@@ -263,7 +265,7 @@ pub struct SignerServices {
     pub api_version_provider: Arc<APIVersionProvider>,
 
     /// Signable Builder Service
-    pub signable_builder_service: Arc<SignableBuilderService>,
+    pub signable_builder_service: Arc<dyn SignableBuilderService>,
 }
 
 #[cfg(test)]

@@ -11,7 +11,6 @@ mod configuration;
 mod message_adapters;
 mod protocol_initializer_store;
 mod runtime;
-mod signable_builder;
 mod single_signer;
 
 #[cfg(test)]
@@ -23,5 +22,4 @@ pub use message_adapters::{
 };
 pub use protocol_initializer_store::{ProtocolInitializerStore, ProtocolInitializerStorer};
 pub use runtime::*;
-pub use signable_builder::*;
 pub use single_signer::*;

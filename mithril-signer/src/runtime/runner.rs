@@ -486,7 +486,8 @@ mod tests {
             EraChecker, EraReader,
         },
         signable_builder::{
-            CardanoImmutableFilesFullSignableBuilder, MithrilStakeDistributionSignableBuilder,
+            CardanoImmutableFilesFullSignableBuilder, MithrilSignableBuilderService,
+            MithrilStakeDistributionSignableBuilder,
         },
         store::{
             adapter::{DumbStoreAdapter, MemoryAdapter},
@@ -499,8 +500,8 @@ mod tests {
     use std::{path::PathBuf, sync::Arc};
 
     use crate::{
-        signable_builder::SignableBuilderService, CertificateHandler, DumbCertificateHandler,
-        MithrilSingleSigner, MockCertificateHandler, ProtocolInitializerStore, SingleSigner,
+        CertificateHandler, DumbCertificateHandler, MithrilSingleSigner, MockCertificateHandler,
+        ProtocolInitializerStore, SingleSigner,
     };
 
     use super::*;
@@ -536,13 +537,14 @@ mod tests {
 
         let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
         let digester = Arc::new(DumbImmutableDigester::new(DIGESTER_RESULT, true));
-        let immutable_signable_builder =
-            CardanoImmutableFilesFullSignableBuilder::new(digester.clone(), slog_scope::logger());
+        let cardano_immutable_signable_builder = Arc::new(
+            CardanoImmutableFilesFullSignableBuilder::new(digester.clone(), slog_scope::logger()),
+        );
         let mithril_stake_distribution_signable_builder =
-            MithrilStakeDistributionSignableBuilder::default();
-        let signable_builder_service = Arc::new(SignableBuilderService::new(
-            immutable_signable_builder,
+            Arc::new(MithrilStakeDistributionSignableBuilder::default());
+        let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
             mithril_stake_distribution_signable_builder,
+            cardano_immutable_signable_builder,
         ));
 
         SignerServices {

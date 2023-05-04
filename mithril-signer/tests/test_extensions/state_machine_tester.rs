@@ -8,7 +8,8 @@ use mithril_common::era::{
 };
 use mithril_common::era::{EraMarker, SupportedEra};
 use mithril_common::signable_builder::{
-    CardanoImmutableFilesFullSignableBuilder, MithrilStakeDistributionSignableBuilder,
+    CardanoImmutableFilesFullSignableBuilder, MithrilSignableBuilderService,
+    MithrilStakeDistributionSignableBuilder,
 };
 use mithril_common::BeaconProvider;
 use slog::Drain;
@@ -28,8 +29,8 @@ use mithril_common::{
 };
 use mithril_signer::{
     CertificateHandler, Configuration, MithrilSingleSigner, ProtocolInitializerStore,
-    ProtocolInitializerStorer, RuntimeError, SignableBuilderService, SignerRunner, SignerServices,
-    SignerState, StateMachine,
+    ProtocolInitializerStorer, RuntimeError, SignerRunner, SignerServices, SignerState,
+    StateMachine,
 };
 
 use super::FakeAggregator;
@@ -152,13 +153,14 @@ impl StateMachineTester {
 
         let api_version_provider = Arc::new(APIVersionProvider::new(era_checker.clone()));
 
-        let signable_builder =
-            CardanoImmutableFilesFullSignableBuilder::new(digester.clone(), slog_scope::logger());
+        let cardano_immutable_snapshot_builder = Arc::new(
+            CardanoImmutableFilesFullSignableBuilder::new(digester.clone(), slog_scope::logger()),
+        );
         let mithril_stake_distribution_signable_builder =
-            MithrilStakeDistributionSignableBuilder::default();
-        let signable_builder_service = Arc::new(SignableBuilderService::new(
-            signable_builder,
+            Arc::new(MithrilStakeDistributionSignableBuilder::default());
+        let signable_builder_service = Arc::new(MithrilSignableBuilderService::new(
             mithril_stake_distribution_signable_builder,
+            cardano_immutable_snapshot_builder,
         ));
 
         let services = SignerServices {
