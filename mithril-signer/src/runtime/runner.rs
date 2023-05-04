@@ -9,7 +9,7 @@ use mockall::automock;
 use mithril_common::crypto_helper::{
     key_decode_hex, KESPeriod, OpCert, ProtocolSignerVerificationKey, SerDeShelleyFileFormat,
 };
-use mithril_common::entities::{PartyId, ProtocolParameters};
+use mithril_common::entities::{PartyId, ProtocolParameters, SignedEntityType};
 use mithril_common::{
     crypto_helper::key_encode_hex,
     entities::{
@@ -69,7 +69,7 @@ pub trait Runner {
     /// Create the message to be signed with the single signature.
     async fn compute_message(
         &self,
-        beacon: &Beacon,
+        signed_entity_type: &SignedEntityType,
         next_signers: &[SignerWithStake],
     ) -> Result<ProtocolMessage, Box<dyn StdError + Sync + Send>>;
 
@@ -352,19 +352,25 @@ impl Runner for SignerRunner {
 
     async fn compute_message(
         &self,
-        beacon: &Beacon,
+        signed_entity_type: &SignedEntityType,
         next_signers: &[SignerWithStake],
     ) -> Result<ProtocolMessage, Box<dyn StdError + Sync + Send>> {
         debug!("RUNNER: compute_message");
 
-        let mut message = ProtocolMessage::new();
-        // 1 set the digest in the message
-        let digest = self.services.digester.compute_digest(beacon).await?;
-        info!(" > set message digest: {}", digest);
-        message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
+        // 1 compute the signed entity type part of the message
+        let mut message = self
+            .services
+            .signable_builder_service
+            .compute_protocol_message(signed_entity_type.to_owned())
+            .await?;
 
         // 2 set the next signers keys and stakes in the message
-        let next_signer_retrieval_epoch = beacon.epoch.offset_to_next_signer_retrieval_epoch();
+        let epoch = match signed_entity_type {
+            SignedEntityType::MithrilStakeDistribution(epoch) => epoch,
+            SignedEntityType::CardanoImmutableFilesFull(beacon) => &beacon.epoch,
+            SignedEntityType::CardanoStakeDistribution(epoch) => epoch,
+        };
+        let next_signer_retrieval_epoch = epoch.offset_to_next_signer_retrieval_epoch();
         let next_protocol_initializer = self
             .services
             .protocol_initializer_store
@@ -770,6 +776,8 @@ mod tests {
             .get_current_beacon()
             .await
             .expect("get_current_beacon should not fail");
+        let signed_entity_type =
+            SignedEntityType::CardanoImmutableFilesFull(current_beacon.clone());
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let signer_with_stake = fixture.signers_fixture()[0].signer_with_stake.clone();
         let protocol_initializer = fixture.signers_fixture()[0].protocol_initializer.clone();
@@ -801,7 +809,7 @@ mod tests {
 
         let runner = init_runner(Some(services), None).await;
         let message = runner
-            .compute_message(&current_beacon, &next_signers)
+            .compute_message(&signed_entity_type, &next_signers)
             .await
             .expect("compute_message should not fail");
 
