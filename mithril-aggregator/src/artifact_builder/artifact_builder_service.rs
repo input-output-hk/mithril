@@ -69,7 +69,7 @@ impl ArtifactBuilderService for MithrilArtifactBuilderService {
                     .compute_artifact(beacon, certificate)
                     .await?,
             )),
-            _ => todo!(),
+            SignedEntityType::CardanoStakeDistribution(_) => todo!(),
         }
     }
 }

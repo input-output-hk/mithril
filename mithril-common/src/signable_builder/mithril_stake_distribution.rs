@@ -11,9 +11,9 @@ use crate::{
 pub struct MithrilStakeDistributionSignableBuilder {}
 
 #[async_trait]
-impl SignableBuilder<Epoch, ProtocolMessage> for MithrilStakeDistributionSignableBuilder {
+impl SignableBuilder<Epoch> for MithrilStakeDistributionSignableBuilder {
     // We just need to return an empty protocol message as the next AVK will be appended by the signing engine automatically
-    async fn compute_signable(&self, _beacon: Epoch) -> StdResult<ProtocolMessage> {
+    async fn compute_protocol_message(&self, _beacon: Epoch) -> StdResult<ProtocolMessage> {
         Ok(ProtocolMessage::new())
     }
 }
@@ -27,7 +27,7 @@ mod tests {
         let mithril_stake_distribution_signable_builder =
             MithrilStakeDistributionSignableBuilder::default();
         let signable = mithril_stake_distribution_signable_builder
-            .compute_signable(Epoch(1))
+            .compute_protocol_message(Epoch(1))
             .await
             .unwrap();
         let signable_expected = ProtocolMessage::new();

@@ -1,12 +1,14 @@
 use async_trait::async_trait;
 use mithril_common::{
-    entities::Certificate,
-    signable_builder::{Artifact, DummyBeacon},
+    entities::{Beacon, Certificate},
+    signable_builder::Artifact,
     StdResult,
 };
 use serde::{Deserialize, Serialize};
 
 use crate::artifact_builder::ArtifactBuilder;
+
+type DummyBeacon = Beacon;
 
 /// Dummy artifact
 #[derive(Serialize, Deserialize, PartialEq, Debug)]

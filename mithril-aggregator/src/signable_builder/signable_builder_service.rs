@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use mithril_common::{
     entities::{Beacon, Epoch, ProtocolMessage, SignedEntityType},
-    signable_builder::{Signable, SignableBuilder},
+    signable_builder::SignableBuilder,
     StdResult,
 };
 
@@ -15,23 +15,23 @@ use mockall::automock;
 #[async_trait]
 pub trait SignableBuilderService: Send + Sync {
     /// Compute signable from signed entity type
-    async fn compute_signable(
+    async fn compute_protocol_message(
         &self,
         signed_entity_type: SignedEntityType,
-    ) -> StdResult<Arc<dyn Signable>>;
+    ) -> StdResult<ProtocolMessage>;
 }
 
 /// Mithril Signable Builder Service
 pub struct MithrilSignableBuilderService {
-    mithril_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch, ProtocolMessage>>,
-    immutable_signable_builder: Arc<dyn SignableBuilder<Beacon, ProtocolMessage>>,
+    mithril_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
+    immutable_signable_builder: Arc<dyn SignableBuilder<Beacon>>,
 }
 
 impl MithrilSignableBuilderService {
     /// MithrilSignableBuilderService factory
     pub fn new(
-        mithril_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch, ProtocolMessage>>,
-        immutable_signable_builder: Arc<dyn SignableBuilder<Beacon, ProtocolMessage>>,
+        mithril_stake_distribution_builder: Arc<dyn SignableBuilder<Epoch>>,
+        immutable_signable_builder: Arc<dyn SignableBuilder<Beacon>>,
     ) -> Self {
         Self {
             mithril_stake_distribution_builder,
@@ -42,26 +42,25 @@ impl MithrilSignableBuilderService {
 
 #[async_trait]
 impl SignableBuilderService for MithrilSignableBuilderService {
-    #[allow(dead_code)]
-    async fn compute_signable(
+    async fn compute_protocol_message(
         &self,
         signed_entity_type: SignedEntityType,
-    ) -> StdResult<Arc<dyn Signable>> {
-        let signable: Arc<dyn Signable> = match signed_entity_type {
-            SignedEntityType::MithrilStakeDistribution(e) => Arc::new(
+    ) -> StdResult<ProtocolMessage> {
+        let protocol_message = match signed_entity_type {
+            SignedEntityType::MithrilStakeDistribution(e) => {
                 self.mithril_stake_distribution_builder
-                    .compute_signable(e)
-                    .await?,
-            ),
-            SignedEntityType::CardanoImmutableFilesFull(beacon) => Arc::new(
+                    .compute_protocol_message(e)
+                    .await?
+            }
+            SignedEntityType::CardanoImmutableFilesFull(beacon) => {
                 self.immutable_signable_builder
-                    .compute_signable(beacon)
-                    .await?,
-            ),
-            _ => todo!(),
+                    .compute_protocol_message(beacon)
+                    .await?
+            }
+            SignedEntityType::CardanoStakeDistribution(_) => todo!(),
         };
 
-        Ok(signable)
+        Ok(protocol_message)
     }
 }
 
@@ -71,7 +70,7 @@ mod tests {
 
     use mithril_common::{
         entities::{Epoch, ProtocolMessage},
-        signable_builder::{Beacon as Beaconnable, Signable, SignableBuilder},
+        signable_builder::{Beacon as Beaconnable, SignableBuilder},
         StdResult,
     };
 
@@ -79,14 +78,13 @@ mod tests {
     use mockall::mock;
 
     mock! {
-        SignableBuilderImpl<U, V> { }
+        SignableBuilderImpl<U> { }
 
         #[async_trait]
-        impl<U, V> SignableBuilder<U, V> for SignableBuilderImpl<U, V> where
-        U: Beaconnable,
-        V: Signable,{
+        impl<U> SignableBuilder<U> for SignableBuilderImpl<U> where U: Beaconnable,
+        {
 
-            async fn compute_signable(&self, beacon: U) -> StdResult<V>;
+            async fn compute_protocol_message(&self, beacon: U) -> StdResult<ProtocolMessage>;
         }
     }
 
@@ -96,14 +94,14 @@ mod tests {
         let protocol_message = ProtocolMessage::new();
         let protocol_message_clone = protocol_message.clone();
         let mut mock_mithril_stake_distribution_signable_builder =
-            MockSignableBuilderImpl::<Epoch, ProtocolMessage>::new();
+            MockSignableBuilderImpl::<Epoch>::new();
         mock_mithril_stake_distribution_signable_builder
-            .expect_compute_signable()
+            .expect_compute_protocol_message()
             .once()
             .return_once(move |_| Ok(protocol_message_clone));
 
         let mock_cardano_immutable_files_full_signable_builder =
-            MockSignableBuilderImpl::<Beacon, ProtocolMessage>::new();
+            MockSignableBuilderImpl::<Beacon>::new();
 
         let signable_builder_service = MithrilSignableBuilderService::new(
             Arc::new(mock_mithril_stake_distribution_signable_builder),
@@ -112,7 +110,7 @@ mod tests {
 
         let signed_entity_type = SignedEntityType::MithrilStakeDistribution(Epoch(1));
         signable_builder_service
-            .compute_signable(signed_entity_type)
+            .compute_protocol_message(signed_entity_type)
             .await
             .unwrap();
     }
@@ -122,12 +120,12 @@ mod tests {
         let protocol_message = ProtocolMessage::new();
         let protocol_message_clone = protocol_message.clone();
         let mock_mithril_stake_distribution_signable_builder =
-            MockSignableBuilderImpl::<Epoch, ProtocolMessage>::new();
+            MockSignableBuilderImpl::<Epoch>::new();
 
         let mut mock_cardano_immutable_files_full_signable_builder =
-            MockSignableBuilderImpl::<Beacon, ProtocolMessage>::new();
+            MockSignableBuilderImpl::<Beacon>::new();
         mock_cardano_immutable_files_full_signable_builder
-            .expect_compute_signable()
+            .expect_compute_protocol_message()
             .once()
             .return_once(move |_| Ok(protocol_message_clone));
 
@@ -138,7 +136,7 @@ mod tests {
 
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(Beacon::default());
         signable_builder_service
-            .compute_signable(signed_entity_type)
+            .compute_protocol_message(signed_entity_type)
             .await
             .unwrap();
     }

@@ -356,12 +356,11 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         signed_entity_type: &SignedEntityType,
     ) -> Result<ProtocolMessage, Box<dyn StdError + Sync + Send>> {
         debug!("RUNNER: compute protocol message");
-        let signable = self
+        let mut protocol_message = self
             .dependencies
             .signable_builder_service
-            .compute_signable(signed_entity_type.to_owned())
+            .compute_protocol_message(signed_entity_type.to_owned())
             .await?;
-        let mut protocol_message = signable.compute_protocol_message()?;
 
         let multi_signer = self.dependencies.multi_signer.write().await;
         protocol_message.set_message_part(
