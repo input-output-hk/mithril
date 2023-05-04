@@ -2,8 +2,6 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{collections::BTreeMap, fmt::Display};
 
-use crate::{signable_builder::Signable, StdResult};
-
 /// The key of a ProtocolMessage
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ProtocolMessagePartKey {
@@ -72,12 +70,6 @@ impl ProtocolMessage {
             hasher.update(v.as_bytes());
         });
         hex::encode(hasher.finalize())
-    }
-}
-
-impl Signable for ProtocolMessage {
-    fn compute_protocol_message(&self) -> StdResult<ProtocolMessage> {
-        Ok(self.clone())
     }
 }
 

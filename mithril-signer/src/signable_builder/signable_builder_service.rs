@@ -1,10 +1,8 @@
-use std::sync::Arc;
-
 use mithril_common::{
-    entities::SignedEntityType,
+    entities::{ProtocolMessage, SignedEntityType},
     signable_builder::{
         CardanoImmutableFilesFullSignableBuilder, MithrilStakeDistributionSignableBuilder,
-        Signable, SignableBuilder,
+        SignableBuilder,
     },
     StdResult,
 };
@@ -33,22 +31,22 @@ impl SignableBuilderService {
     async fn compute_signable(
         &self,
         signed_entity_type: SignedEntityType,
-    ) -> StdResult<Arc<dyn Signable>> {
-        let signable: Arc<dyn Signable> = match signed_entity_type {
-            SignedEntityType::CardanoImmutableFilesFull(beacon) => Arc::new(
+    ) -> StdResult<ProtocolMessage> {
+        let protocol_message = match signed_entity_type {
+            SignedEntityType::CardanoImmutableFilesFull(beacon) => {
                 self.immutable_signable_builder
-                    .compute_signable(beacon)
-                    .await?,
-            ),
-            SignedEntityType::MithrilStakeDistribution(epoch) => Arc::new(
+                    .compute_protocol_message(beacon)
+                    .await?
+            }
+            SignedEntityType::MithrilStakeDistribution(epoch) => {
                 self.mithril_stake_distribution_builder
-                    .compute_signable(epoch)
-                    .await?,
-            ),
-            _ => todo!(),
+                    .compute_protocol_message(epoch)
+                    .await?
+            }
+            SignedEntityType::CardanoStakeDistribution(_) => todo!(),
         };
 
-        Ok(signable)
+        Ok(protocol_message)
     }
 }
 

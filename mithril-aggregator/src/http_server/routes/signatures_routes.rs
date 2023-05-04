@@ -116,7 +116,7 @@ mod tests {
         mock_certifier_service
             .expect_register_single_signature()
             .return_once(move |_, _| Ok(()));
-        let (mut dependency_manager, _) = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
 
         let message = RegisterSignatureMessage::dummy();
@@ -147,7 +147,7 @@ mod tests {
         mock_certifier_service
             .expect_register_single_signature()
             .return_once(move |_, _| Ok(()));
-        let (mut dependency_manager, _) = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
 
         let mut message = RegisterSignatureMessage::dummy();
@@ -185,7 +185,7 @@ mod tests {
                     signed_entity_type,
                 )))
             });
-        let (mut dependency_manager, _) = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
 
         let method = Method::POST.as_str();
@@ -220,7 +220,7 @@ mod tests {
                     signed_entity_type,
                 )))
             });
-        let (mut dependency_manager, _) = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
 
         let method = Method::POST.as_str();
@@ -253,7 +253,7 @@ mod tests {
                     "an error occurred".to_string(),
                 )))
             });
-        let (mut dependency_manager, _) = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.certifier_service = Arc::new(mock_certifier_service);
 
         let message = RegisterSignatureMessage::dummy();

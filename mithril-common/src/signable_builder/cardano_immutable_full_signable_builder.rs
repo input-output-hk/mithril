@@ -26,8 +26,8 @@ impl CardanoImmutableFilesFullSignableBuilder {
 }
 
 #[async_trait]
-impl SignableBuilder<Beacon, ProtocolMessage> for CardanoImmutableFilesFullSignableBuilder {
-    async fn compute_signable(&self, beacon: Beacon) -> StdResult<ProtocolMessage> {
+impl SignableBuilder<Beacon> for CardanoImmutableFilesFullSignableBuilder {
+    async fn compute_protocol_message(&self, beacon: Beacon) -> StdResult<ProtocolMessage> {
         debug!(self.logger, "SignableBuilder::compute_signable({beacon:?})");
         let digest = self.immutable_digester.compute_digest(&beacon).await?;
         info!(self.logger, "SignableBuilder: digest = '{digest}'.");
@@ -69,7 +69,7 @@ mod tests {
         let signable_builder =
             CardanoImmutableFilesFullSignableBuilder::new(Arc::new(digester), create_logger());
         let protocol_message = signable_builder
-            .compute_signable(Beacon::default())
+            .compute_protocol_message(Beacon::default())
             .await
             .unwrap();
 

@@ -326,10 +326,9 @@ impl AggregatorRuntime {
         let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(new_beacon.clone());
         self.runner.update_beacon(&new_beacon).await?;
 
-        let digester_result = self.runner.compute_digest(&new_beacon).await?;
         let protocol_message = self
             .runner
-            .compute_protocol_message(digester_result)
+            .compute_protocol_message(&signed_entity_type)
             .await?;
         self.runner
             .create_open_message(&signed_entity_type, &protocol_message)
@@ -582,22 +581,16 @@ mod tests {
             .once()
             .returning(|_| Ok(false));
         runner
-            .expect_compute_digest()
-            .once()
-            .returning(|_| Ok("whatever".to_string()));
-        runner
             .expect_update_beacon()
             .with(predicate::eq(fake_data::beacon()))
             .once()
             .returning(|_| Ok(()));
         runner
             .expect_compute_protocol_message()
-            .with(predicate::eq("whatever".to_string()))
             .once()
             .returning(|_| Ok(ProtocolMessage::new()));
         runner
             .expect_create_new_pending_certificate_from_multisigner()
-            //.with(predicate::eq(fake_data::beacon()))
             .once()
             .returning(|_, _| Ok(fake_data::certificate_pending()));
         runner

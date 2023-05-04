@@ -115,7 +115,7 @@ mod tests {
     async fn test_certificate_pending_get_ok() {
         let method = Method::GET.as_str();
         let path = "/certificate-pending";
-        let (dependency_manager, _) = initialize_dependencies().await;
+        let dependency_manager = initialize_dependencies().await;
 
         let response = request()
             .method(method)
@@ -135,7 +135,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_certificate_pending_get_ok_204() {
-        let (dependency_manager, _) = initialize_dependencies().await;
+        let dependency_manager = initialize_dependencies().await;
 
         let method = Method::GET.as_str();
         let path = "/certificate-pending";
@@ -160,7 +160,7 @@ mod tests {
     async fn test_certificate_pending_get_ko_500() {
         let method = Method::GET.as_str();
         let path = "/certificate-pending";
-        let (dependency_manager, _) = initialize_dependencies().await;
+        let dependency_manager = initialize_dependencies().await;
 
         let response = request()
             .method(method)
@@ -180,7 +180,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_certificate_certificate_hash_get_ok() {
-        let (dependency_manager, _) = initialize_dependencies().await;
+        let dependency_manager = initialize_dependencies().await;
         dependency_manager
             .certificate_store
             .save(fake_data::genesis_certificate(
@@ -210,7 +210,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_certificate_certificate_hash_get_ok_404() {
-        let (dependency_manager, _) = initialize_dependencies().await;
+        let dependency_manager = initialize_dependencies().await;
 
         let method = Method::GET.as_str();
         let path = "/certificate/{certificate_hash}";
@@ -233,7 +233,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_certificate_certificate_hash_get_ko() {
-        let (mut dependency_manager, _) = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies().await;
         let certificate_store = CertificateStore::new(Box::new(FailStoreAdapter::<
             String,
             entities::Certificate,
