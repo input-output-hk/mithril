@@ -109,7 +109,7 @@ mod tests {
     async fn test_epoch_settings_get_ok() {
         let method = Method::GET.as_str();
         let path = "/epoch-settings";
-        let (dependency_manager, _) = initialize_dependencies().await;
+        let dependency_manager = initialize_dependencies().await;
 
         let response = request()
             .method(method)
@@ -131,7 +131,7 @@ mod tests {
     async fn test_epoch_settings_get_ko_500() {
         let method = Method::GET.as_str();
         let path = "/epoch-settings";
-        let (dependency_manager, _) = initialize_dependencies().await;
+        let dependency_manager = initialize_dependencies().await;
 
         let response = request()
             .method(method)

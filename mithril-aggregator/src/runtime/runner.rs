@@ -67,12 +67,6 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Check if a certificate chain is valid.
     async fn is_certificate_chain_valid(&self) -> Result<bool, Box<dyn StdError + Sync + Send>>;
 
-    /// Compute the digest of the last immutable file of the node.
-    async fn compute_digest(
-        &self,
-        new_beacon: &Beacon,
-    ) -> Result<String, Box<dyn StdError + Sync + Send>>;
-
     /// Update the multisigner with the given beacon.
     async fn update_beacon(
         &self,
@@ -103,7 +97,7 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Compute the protocol message
     async fn compute_protocol_message(
         &self,
-        digest: String,
+        signed_entity_type: &SignedEntityType,
     ) -> Result<ProtocolMessage, Box<dyn StdError + Sync + Send>>;
 
     /// Return the actual pending certificate from the multisigner.
@@ -178,17 +172,13 @@ pub trait AggregatorRunnerTrait: Sync + Send {
 /// The runner responsibility is to expose a code API for the state machine. It
 /// holds services and configuration.
 pub struct AggregatorRunner {
-    config: AggregatorConfig,
     dependencies: Arc<DependencyManager>,
 }
 
 impl AggregatorRunner {
     /// Create a new instance of the Aggrergator Runner.
-    pub fn new(config: AggregatorConfig, dependencies: Arc<DependencyManager>) -> Self {
-        Self {
-            config,
-            dependencies,
-        }
+    pub fn new(dependencies: Arc<DependencyManager>) -> Self {
+        Self { dependencies }
     }
 }
 
@@ -246,22 +236,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
                 Ok(false)
             }
         }
-    }
-
-    async fn compute_digest(
-        &self,
-        new_beacon: &Beacon,
-    ) -> Result<String, Box<dyn StdError + Sync + Send>> {
-        debug!("RUNNER: compute_digest");
-        let digester = self.dependencies.digester.clone();
-
-        debug!(" > computing digest"; "cardano_db_directory" => self.config.db_directory.display());
-
-        debug!(" > launching digester thread");
-        let digest = digester.compute_digest(new_beacon).await?;
-        debug!(" > computed digest: {}", digest);
-
-        Ok(digest)
     }
 
     async fn update_beacon(
@@ -379,12 +353,17 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 
     async fn compute_protocol_message(
         &self,
-        digest: String,
+        signed_entity_type: &SignedEntityType,
     ) -> Result<ProtocolMessage, Box<dyn StdError + Sync + Send>> {
         debug!("RUNNER: compute protocol message");
+        let signable = self
+            .dependencies
+            .signable_builder_service
+            .compute_signable(signed_entity_type.to_owned())
+            .await?;
+        let mut protocol_message = signable.compute_protocol_message()?;
+
         let multi_signer = self.dependencies.multi_signer.write().await;
-        let mut protocol_message = ProtocolMessage::new();
-        protocol_message.set_message_part(ProtocolMessagePartKey::SnapshotDigest, digest);
         protocol_message.set_message_part(
             ProtocolMessagePartKey::NextAggregateVerificationKey,
             multi_signer
@@ -649,7 +628,7 @@ pub mod tests {
     #[tokio::test]
     async fn test_get_beacon_from_chain() {
         let expected_beacon = Beacon::new("private".to_string(), 2, 17);
-        let (mut dependencies, config) = initialize_dependencies().await;
+        let mut dependencies = initialize_dependencies().await;
         let immutable_file_observer = Arc::new(DumbImmutableFileObserver::default());
         immutable_file_observer
             .shall_return(Some(expected_beacon.immutable_file_number))
@@ -660,7 +639,7 @@ pub mod tests {
             CardanoNetwork::TestNet(42),
         ));
         dependencies.beacon_provider = beacon_provider;
-        let runner = AggregatorRunner::new(config, Arc::new(dependencies));
+        let runner = AggregatorRunner::new(Arc::new(dependencies));
 
         // Retrieves the expected beacon
         let res = runner.get_beacon_from_chain().await;
@@ -669,9 +648,9 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_does_certificate_exist_for_beacon() {
-        let (dependencies, config) = initialize_dependencies().await;
+        let dependencies = initialize_dependencies().await;
         let certificate_store = dependencies.certificate_store.clone();
-        let runner = AggregatorRunner::new(config, Arc::new(dependencies));
+        let runner = AggregatorRunner::new(Arc::new(dependencies));
 
         let beacon = fake_data::beacon();
         let mut certificate = fake_data::genesis_certificate("certificate_hash".to_string());
@@ -690,9 +669,9 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_update_beacon() {
-        let (deps, config) = initialize_dependencies().await;
+        let deps = initialize_dependencies().await;
         let deps = Arc::new(deps);
-        let runner = AggregatorRunner::new(config, deps.clone());
+        let runner = AggregatorRunner::new(deps.clone());
         let beacon = runner.get_beacon_from_chain().await.unwrap();
         let res = runner.update_beacon(&beacon).await;
 
@@ -710,11 +689,11 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_update_stake_distribution() {
-        let (mut deps, config) = initialize_dependencies().await;
+        let mut deps = initialize_dependencies().await;
         let chain_observer = Arc::new(FakeObserver::default());
         deps.chain_observer = chain_observer.clone();
         let deps = Arc::new(deps);
-        let runner = AggregatorRunner::new(config, deps.clone());
+        let runner = AggregatorRunner::new(deps.clone());
         let beacon = runner.get_beacon_from_chain().await.unwrap();
         let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
         let expected = fixture.stake_distribution();
@@ -748,7 +727,7 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_open_signer_registration_round() {
-        let (mut deps, config) = initialize_dependencies().await;
+        let mut deps = initialize_dependencies().await;
         let signer_registration_round_opener = Arc::new(MithrilSignerRegisterer::new(
             deps.chain_observer.clone(),
             deps.verification_key_store.clone(),
@@ -757,7 +736,7 @@ pub mod tests {
         deps.signer_registration_round_opener = signer_registration_round_opener.clone();
         let stake_store = deps.stake_store.clone();
         let deps = Arc::new(deps);
-        let runner = AggregatorRunner::new(config, deps.clone());
+        let runner = AggregatorRunner::new(deps.clone());
 
         let beacon = fake_data::beacon();
         let recording_epoch = beacon.epoch.offset_to_recording_epoch();
@@ -787,7 +766,7 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_close_signer_registration_round() {
-        let (mut deps, config) = initialize_dependencies().await;
+        let mut deps = initialize_dependencies().await;
         let signer_registration_round_opener = Arc::new(MithrilSignerRegisterer::new(
             deps.chain_observer.clone(),
             deps.verification_key_store.clone(),
@@ -795,7 +774,7 @@ pub mod tests {
         ));
         deps.signer_registration_round_opener = signer_registration_round_opener.clone();
         let deps = Arc::new(deps);
-        let runner = AggregatorRunner::new(config, deps.clone());
+        let runner = AggregatorRunner::new(deps.clone());
 
         let beacon = fake_data::beacon();
         runner
@@ -814,9 +793,9 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_update_protocol_parameters_in_multisigner() {
-        let (deps, config) = initialize_dependencies().await;
+        let deps = initialize_dependencies().await;
         let deps = Arc::new(deps);
-        let runner = AggregatorRunner::new(config, deps.clone());
+        let runner = AggregatorRunner::new(deps.clone());
         let beacon = runner.get_beacon_from_chain().await.unwrap();
         runner
             .update_beacon(&beacon)
@@ -846,9 +825,9 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_create_new_pending_certificate_from_multisigner() {
-        let (deps, config) = initialize_dependencies().await;
+        let deps = initialize_dependencies().await;
         let deps = Arc::new(deps);
-        let runner = AggregatorRunner::new(config, deps.clone());
+        let runner = AggregatorRunner::new(deps.clone());
         let beacon = runner.get_beacon_from_chain().await.unwrap();
         runner.update_beacon(&beacon).await.unwrap();
         let signed_entity_type = SignedEntityType::dummy();
@@ -886,9 +865,9 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_save_pending_certificate() {
-        let (deps, config) = initialize_dependencies().await;
+        let deps = initialize_dependencies().await;
         let deps = Arc::new(deps);
-        let runner = AggregatorRunner::new(config, deps.clone());
+        let runner = AggregatorRunner::new(deps.clone());
         let beacon = runner.get_beacon_from_chain().await.unwrap();
         runner.update_beacon(&beacon).await.unwrap();
         let pending_certificate = fake_data::certificate_pending();
@@ -904,9 +883,9 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_drop_pending_certificate() {
-        let (deps, config) = initialize_dependencies().await;
+        let deps = initialize_dependencies().await;
         let deps = Arc::new(deps);
-        let runner = AggregatorRunner::new(config, deps.clone());
+        let runner = AggregatorRunner::new(deps.clone());
         let beacon = runner.get_beacon_from_chain().await.unwrap();
         runner.update_beacon(&beacon).await.unwrap();
         let pending_certificate = fake_data::certificate_pending();
@@ -923,9 +902,9 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_drop_pending_no_certificate() {
-        let (deps, config) = initialize_dependencies().await;
+        let deps = initialize_dependencies().await;
         let deps = Arc::new(deps);
-        let runner = AggregatorRunner::new(config, deps.clone());
+        let runner = AggregatorRunner::new(deps.clone());
         let beacon = runner.get_beacon_from_chain().await.unwrap();
         runner.update_beacon(&beacon).await.unwrap();
 
@@ -937,8 +916,8 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_remove_snapshot_archive_after_upload() {
-        let (deps, config) = initialize_dependencies().await;
-        let runner = AggregatorRunner::new(config, Arc::new(deps));
+        let deps = initialize_dependencies().await;
+        let runner = AggregatorRunner::new(Arc::new(deps));
         let file = NamedTempFile::new().unwrap();
         let file_path = file.path();
         let snapshot = OngoingSnapshot::new(file_path.to_path_buf(), 7331);
@@ -963,9 +942,9 @@ pub mod tests {
             "test+digest".to_string(),
         );
         let mock_multi_signer = MockMultiSigner::new();
-        let (mut deps, config) = initialize_dependencies().await;
+        let mut deps = initialize_dependencies().await;
         deps.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
-        let runner = AggregatorRunner::new(config, Arc::new(deps));
+        let runner = AggregatorRunner::new(Arc::new(deps));
 
         let ongoing_snapshot = runner
             .create_snapshot_archive(&beacon, &message)
@@ -986,13 +965,13 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_update_era_checker() {
-        let (deps, config) = initialize_dependencies().await;
+        let deps = initialize_dependencies().await;
         let beacon_provider = deps.beacon_provider.clone();
         let era_checker = deps.era_checker.clone();
         let mut beacon = beacon_provider.get_current_beacon().await.unwrap();
 
         assert_eq!(beacon.epoch, era_checker.current_epoch());
-        let runner = AggregatorRunner::new(config, Arc::new(deps));
+        let runner = AggregatorRunner::new(Arc::new(deps));
         beacon.epoch += 1;
 
         runner.update_era_checker(&beacon).await.unwrap();
@@ -1007,10 +986,10 @@ pub mod tests {
             .returning(|_| Ok(()))
             .times(1);
 
-        let (mut deps, config) = initialize_dependencies().await;
+        let mut deps = initialize_dependencies().await;
         deps.certifier_service = Arc::new(mock_certifier_service);
 
-        let runner = AggregatorRunner::new(config, Arc::new(deps));
+        let runner = AggregatorRunner::new(Arc::new(deps));
         runner.certifier_inform_new_epoch(&Epoch(1)).await.unwrap();
     }
 }

@@ -311,23 +311,12 @@ impl DependencyManager {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::{
-        dependency_injection::DependenciesBuilder, AggregatorConfig, Configuration,
-        DependencyManager,
-    };
-    use mithril_common::CardanoNetwork;
+    use crate::{dependency_injection::DependenciesBuilder, Configuration, DependencyManager};
 
-    pub async fn initialize_dependencies() -> (DependencyManager, AggregatorConfig) {
+    pub async fn initialize_dependencies() -> DependencyManager {
         let config = Configuration::new_sample();
         let mut builder = DependenciesBuilder::new(config);
-        let dependency_manager = builder.build_dependency_container().await.unwrap();
 
-        let config = AggregatorConfig::new(
-            dependency_manager.config.run_interval,
-            CardanoNetwork::TestNet(42),
-            dependency_manager.config.db_directory.as_path(),
-        );
-
-        (dependency_manager, config)
+        builder.build_dependency_container().await.unwrap()
     }
 }

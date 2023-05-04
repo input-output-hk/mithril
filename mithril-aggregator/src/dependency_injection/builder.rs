@@ -1038,7 +1038,7 @@ impl DependenciesBuilder {
         let runtime = AggregatorRuntime::new(
             Duration::from_millis(config.interval),
             None,
-            Arc::new(AggregatorRunner::new(config, dependency_container)),
+            Arc::new(AggregatorRunner::new(dependency_container)),
         )
         .await
         .map_err(|e| DependenciesBuilderError::Initialization {

@@ -168,7 +168,7 @@ mod tests {
         mock_signer_registerer
             .expect_get_current_round()
             .return_once(|| None);
-        let (mut dependency_manager, _) = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
         let signer: RegisterSignerMessage = RegisterSignerMessage::dummy();
@@ -203,7 +203,7 @@ mod tests {
         mock_signer_registerer
             .expect_get_current_round()
             .return_once(|| None);
-        let (mut dependency_manager, _) = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
         let signer: RegisterSignerMessage = RegisterSignerMessage::dummy();
@@ -241,7 +241,7 @@ mod tests {
         mock_signer_registerer
             .expect_get_current_round()
             .return_once(|| None);
-        let (mut dependency_manager, _) = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
         let signer: RegisterSignerMessage = RegisterSignerMessage::dummy();
@@ -279,7 +279,7 @@ mod tests {
         mock_signer_registerer
             .expect_get_current_round()
             .return_once(|| None);
-        let (mut dependency_manager, _) = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.signer_registerer = Arc::new(mock_signer_registerer);
 
         let signer: RegisterSignerMessage = RegisterSignerMessage::dummy();

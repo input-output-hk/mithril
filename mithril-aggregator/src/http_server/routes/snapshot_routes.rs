@@ -206,7 +206,7 @@ mod tests {
             .expect_list_snapshots()
             .return_const(Ok(fake_snapshots))
             .once();
-        let (mut dependency_manager, _) = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.snapshot_store = Arc::new(mock_snapshot_store);
 
         let method = Method::GET.as_str();
@@ -237,7 +237,7 @@ mod tests {
                 "an error occurred".to_string(),
             )))
             .once();
-        let (mut dependency_manager, _) = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.snapshot_store = Arc::new(mock_snapshot_store);
 
         let method = Method::GET.as_str();
@@ -267,7 +267,7 @@ mod tests {
             .expect_get_snapshot_details()
             .return_const(Ok(Some(fake_snapshot)))
             .once();
-        let (mut dependency_manager, _) = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.snapshot_store = Arc::new(mock_snapshot_store);
 
         let method = Method::GET.as_str();
@@ -296,7 +296,7 @@ mod tests {
             .expect_get_snapshot_details()
             .return_const(Ok(None))
             .once();
-        let (mut dependency_manager, _) = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.snapshot_store = Arc::new(mock_snapshot_store);
 
         let method = Method::GET.as_str();
@@ -327,7 +327,7 @@ mod tests {
                 "an error occurred".to_string(),
             )))
             .once();
-        let (mut dependency_manager, _) = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.snapshot_store = Arc::new(mock_snapshot_store);
 
         let method = Method::GET.as_str();
@@ -357,7 +357,7 @@ mod tests {
             .expect_get_snapshot_details()
             .return_const(Ok(Some(fake_snapshot)))
             .once();
-        let (mut dependency_manager, _) = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.snapshot_store = Arc::new(mock_snapshot_store);
 
         let method = Method::GET.as_str();
@@ -386,7 +386,7 @@ mod tests {
             .expect_get_snapshot_details()
             .return_const(Ok(None))
             .once();
-        let (mut dependency_manager, _) = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.snapshot_store = Arc::new(mock_snapshot_store);
 
         let method = Method::GET.as_str();
@@ -417,7 +417,7 @@ mod tests {
                 "an error occurred".to_string(),
             )))
             .once();
-        let (mut dependency_manager, _) = initialize_dependencies().await;
+        let mut dependency_manager = initialize_dependencies().await;
         dependency_manager.snapshot_store = Arc::new(mock_snapshot_store);
 
         let method = Method::GET.as_str();
