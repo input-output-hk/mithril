@@ -149,6 +149,13 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         remote_locations: Vec<String>,
     ) -> Result<Snapshot, Box<dyn StdError + Sync + Send>>;
 
+    /// Create an artifact and persist it.
+    async fn create_and_save_artifact(
+        &self,
+        signed_entity_type: &SignedEntityType,
+        certificate: &Certificate,
+    ) -> Result<(), Box<dyn StdError + Sync + Send>>;
+
     /// Update the EraChecker with EraReader information.
     async fn update_era_checker(
         &self,
@@ -546,6 +553,25 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .await?;
 
         Ok(snapshot)
+    }
+
+    async fn create_and_save_artifact(
+        &self,
+        signed_entity_type: &SignedEntityType,
+        certificate: &Certificate,
+    ) -> Result<(), Box<dyn StdError + Sync + Send>> {
+        debug!("RUNNER: create and save artifact");
+        let artifact = self
+            .dependencies
+            .artifact_builder_service
+            .compute_artifact(signed_entity_type.to_owned(), certificate)
+            .await?;
+        self.dependencies
+            .artifact_builder_service
+            .create_and_save_signed_entity(signed_entity_type.to_owned(), certificate, artifact)
+            .await?;
+
+        Ok(())
     }
 
     async fn update_era_checker(
