@@ -11,28 +11,32 @@ use mithril_common::{
         WhereCondition,
     },
     store::adapter::{AdapterError, StoreAdapter},
+    StdResult,
 };
 
 use mithril_common::StdError;
 use tokio::sync::Mutex;
 
+#[cfg(test)]
+use mockall::automock;
+
 /// SignedEntity record is the representation of a stored signed_entity.
 #[derive(Debug, PartialEq, Clone)]
 pub struct SignedEntityRecord {
     /// Signed entity id.
-    signed_entity_id: String,
+    pub signed_entity_id: String,
 
     /// Signed entity type.
-    signed_entity_type: SignedEntityType,
+    pub signed_entity_type: SignedEntityType,
 
     /// Certificate id for this signed entity.
-    certificate_id: String,
+    pub certificate_id: String,
 
     /// Raw signed entity (in JSON format).
     pub entity: String,
 
     /// Date and time when the signed_entity was created
-    created_at: String,
+    pub created_at: String,
 }
 
 impl From<Snapshot> for SignedEntityRecord {
@@ -242,6 +246,20 @@ impl<'conn> Provider<'conn> for InsertSignedEntityRecordProvider<'conn> {
     }
 }
 
+/// Signed entity storer trait
+#[cfg_attr(test, automock)]
+#[async_trait]
+pub trait SignedEntityStorer: Sync + Send {
+    /// Store a signed entity
+    async fn store_signed_entity(&self, signed_entity: &SignedEntityRecord) -> StdResult<()>;
+
+    /// Get signed entity type
+    async fn get_signed_entity(
+        &self,
+        signed_entity_id: String,
+    ) -> StdResult<Option<SignedEntityRecord>>;
+}
+
 /// Service to deal with signed_entity (read & write).
 pub struct SignedEntityStoreAdapter {
     connection: Arc<Mutex<Connection>>,
@@ -251,6 +269,31 @@ impl SignedEntityStoreAdapter {
     /// Create a new SignedEntityStoreAdapter service
     pub fn new(connection: Arc<Mutex<Connection>>) -> Self {
         Self { connection }
+    }
+}
+
+#[async_trait]
+impl SignedEntityStorer for SignedEntityStoreAdapter {
+    async fn store_signed_entity(&self, signed_entity: &SignedEntityRecord) -> StdResult<()> {
+        let connection = &*self.connection.lock().await;
+        let provider = InsertSignedEntityRecordProvider::new(connection);
+        let _signed_entity_record = provider.persist(signed_entity.to_owned())?;
+
+        Ok(())
+    }
+
+    async fn get_signed_entity(
+        &self,
+        signed_entity_id: String,
+    ) -> StdResult<Option<SignedEntityRecord>> {
+        let connection = &*self.connection.lock().await;
+        let provider = SignedEntityRecordProvider::new(connection);
+        let mut cursor = provider
+            .get_by_signed_entity_id(signed_entity_id)
+            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+        let signed_entity = cursor.next();
+
+        Ok(signed_entity)
     }
 }
 
