@@ -44,7 +44,7 @@ use crate::{
     configuration::{ExecutionEnvironment, LIST_SNAPSHOTS_MAX_ITEMS},
     database::provider::{
         CertificateRepository, CertificateStoreAdapter, EpochSettingStore, OpenMessageRepository,
-        SignedEntityStoreAdapter, SignerRegistrationStoreAdapter, SignerStore,
+        SignedEntityStoreAdapter, SignedEntityStorer, SignerRegistrationStoreAdapter, SignerStore,
         SingleSignatureRepository, StakePoolStore,
     },
     event_store::{EventMessage, EventStore, TransmitterService},
@@ -179,6 +179,9 @@ pub struct DependenciesBuilder {
 
     /// Certifier service
     pub certifier_service: Option<Arc<dyn CertifierService>>,
+
+    /// Signed Entity storer
+    pub signed_entity_storer: Option<Arc<dyn SignedEntityStorer>>,
 }
 
 impl DependenciesBuilder {
@@ -218,6 +221,7 @@ impl DependenciesBuilder {
             signable_builder_service: None,
             artifact_builder_service: None,
             certifier_service: None,
+            signed_entity_storer: None,
         }
     }
 
@@ -904,6 +908,7 @@ impl DependenciesBuilder {
     }
 
     async fn build_artifact_builder_service(&mut self) -> Result<Arc<dyn ArtifactBuilderService>> {
+        let signed_entity_storer = self.build_signed_entity_storer().await?;
         let multi_signer = self.get_multi_signer().await?;
         let mithril_stake_distribution_artifact_builder =
             Arc::new(MithrilStakeDistributionArtifactBuilder::new(multi_signer));
@@ -913,6 +918,7 @@ impl DependenciesBuilder {
             CardanoImmutableFilesFullArtifactBuilder::new(snapshotter, snapshot_uploader),
         );
         let artifact_builder_service = Arc::new(MithrilArtifactBuilderService::new(
+            signed_entity_storer,
             mithril_stake_distribution_artifact_builder,
             cardano_immutable_files_full_artifact_builder,
         ));
@@ -929,6 +935,23 @@ impl DependenciesBuilder {
         }
 
         Ok(self.artifact_builder_service.as_ref().cloned().unwrap())
+    }
+
+    async fn build_signed_entity_storer(&mut self) -> Result<Arc<dyn SignedEntityStorer>> {
+        let signed_entity_storer = Arc::new(SignedEntityStoreAdapter::new(
+            self.get_sqlite_connection().await?,
+        ));
+
+        Ok(signed_entity_storer)
+    }
+
+    /// [SignedEntityStorer] service
+    pub async fn get_signed_entity_storer(&mut self) -> Result<Arc<dyn SignedEntityStorer>> {
+        if self.signed_entity_storer.is_none() {
+            self.signed_entity_storer = Some(self.build_signed_entity_storer().await?);
+        }
+
+        Ok(self.signed_entity_storer.as_ref().cloned().unwrap())
     }
 
     /// Return an unconfigured [DependencyManager]
@@ -963,6 +986,7 @@ impl DependenciesBuilder {
             artifact_builder_service: self.get_artifact_builder_service().await?,
             certifier_service: self.get_certifier_service().await?,
             ticker_service: self.get_ticker_service().await?,
+            signed_entity_storer: self.get_signed_entity_storer().await?,
         };
 
         Ok(dependency_manager)
