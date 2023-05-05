@@ -60,10 +60,6 @@ impl From<Box<dyn StdError + Sync + Send>> for RuntimeError {
 // TODO: Are these errors still relevant, do we need to remove them?
 #[allow(clippy::enum_variant_names)]
 pub enum RunnerError {
-    /// Protocol message part is missing
-    #[error("Missing protocol message: '{0}'.")]
-    MissingProtocolMessage(String),
-
     /// No stack distribution found
     #[error("Missing stack distribution: '{0}'.")]
     MissingStakeDistribution(String),

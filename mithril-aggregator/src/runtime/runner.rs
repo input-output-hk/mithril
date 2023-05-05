@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use chrono::Utc;
 use mithril_common::entities::Epoch;
 use mithril_common::entities::SignedEntityType;
 use mithril_common::store::StakeStorer;
@@ -7,7 +6,7 @@ use slog_scope::{debug, warn};
 
 use mithril_common::crypto_helper::ProtocolStakeDistribution;
 use mithril_common::entities::{
-    Beacon, Certificate, CertificatePending, ProtocolMessage, ProtocolMessagePartKey, Snapshot,
+    Beacon, Certificate, CertificatePending, ProtocolMessage, ProtocolMessagePartKey,
 };
 use mithril_common::CardanoNetwork;
 
@@ -17,10 +16,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use crate::entities::OpenMessage;
-use crate::snapshot_uploaders::SnapshotLocation;
-use crate::snapshotter::OngoingSnapshot;
 use crate::RuntimeError;
-use crate::{DependencyManager, ProtocolError, SnapshotError};
+use crate::{DependencyManager, ProtocolError};
 
 #[cfg(test)]
 use mockall::automock;
@@ -123,31 +120,6 @@ pub trait AggregatorRunnerTrait: Sync + Send {
         &self,
         signed_entity_type: &SignedEntityType,
     ) -> Result<Option<Certificate>, Box<dyn StdError + Sync + Send>>;
-
-    /// Create an archive of the cardano node db directory naming it after the given beacon.
-    ///
-    /// Returns the path of the created archive and the archive size as byte.
-    async fn create_snapshot_archive(
-        &self,
-        beacon: &Beacon,
-        protocol_message: &ProtocolMessage,
-    ) -> Result<OngoingSnapshot, Box<dyn StdError + Sync + Send>>;
-
-    /// Upload the snapshot at the given location using the configured uploader(s).
-    ///
-    /// **Important**: the snapshot is removed after the upload succeeded.
-    async fn upload_snapshot_archive(
-        &self,
-        ongoing_snapshot: &OngoingSnapshot,
-    ) -> Result<Vec<SnapshotLocation>, Box<dyn StdError + Sync + Send>>;
-
-    /// Create a snapshot and save it to the given locations.
-    async fn create_and_save_snapshot(
-        &self,
-        certificate: Certificate,
-        ongoing_snapshot: &OngoingSnapshot,
-        remote_locations: Vec<String>,
-    ) -> Result<Snapshot, Box<dyn StdError + Sync + Send>>;
 
     /// Create an artifact and persist it.
     async fn create_and_save_artifact(
@@ -469,92 +441,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .await
     }
 
-    async fn create_snapshot_archive(
-        &self,
-        beacon: &Beacon,
-        protocol_message: &ProtocolMessage,
-    ) -> Result<OngoingSnapshot, Box<dyn StdError + Sync + Send>> {
-        debug!("RUNNER: create snapshot archive");
-
-        let snapshotter = self.dependencies.snapshotter.clone();
-        let snapshot_digest = protocol_message
-            .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
-            .ok_or_else(|| {
-                RunnerError::MissingProtocolMessage(format!(
-                    "no digest message part found for beacon '{beacon:?}'."
-                ))
-            })?;
-        let snapshot_name = format!(
-            "{}-e{}-i{}.{}.tar.gz",
-            beacon.network, beacon.epoch.0, beacon.immutable_file_number, snapshot_digest
-        );
-        // spawn a separate thread to prevent blocking
-        let ongoing_snapshot =
-            tokio::task::spawn_blocking(move || -> Result<OngoingSnapshot, SnapshotError> {
-                snapshotter.snapshot(&snapshot_name)
-            })
-            .await??;
-
-        debug!(" > snapshot created: '{:?}'", ongoing_snapshot);
-
-        Ok(ongoing_snapshot)
-    }
-
-    async fn upload_snapshot_archive(
-        &self,
-        ongoing_snapshot: &OngoingSnapshot,
-    ) -> Result<Vec<SnapshotLocation>, Box<dyn StdError + Sync + Send>> {
-        debug!("RUNNER: upload snapshot archive");
-        let location = self
-            .dependencies
-            .snapshot_uploader
-            .upload_snapshot(ongoing_snapshot.get_file_path())
-            .await?;
-
-        if let Err(error) = tokio::fs::remove_file(ongoing_snapshot.get_file_path()).await {
-            warn!(
-                " > Post upload ongoing snapshot file removal failure: {}",
-                error
-            );
-        }
-
-        Ok(vec![location])
-    }
-
-    async fn create_and_save_snapshot(
-        &self,
-        certificate: Certificate,
-        ongoing_snapshot: &OngoingSnapshot,
-        remote_locations: Vec<String>,
-    ) -> Result<Snapshot, Box<dyn StdError + Sync + Send>> {
-        debug!("RUNNER: create and save snapshot");
-        let snapshot_digest = certificate
-            .protocol_message
-            .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
-            .ok_or_else(|| {
-                RunnerError::MissingProtocolMessage(format!(
-                    "message part 'digest' not found for snapshot '{}'.",
-                    ongoing_snapshot.get_file_path().display()
-                ))
-            })?
-            .to_owned();
-        let snapshot = Snapshot::new(
-            snapshot_digest,
-            certificate.beacon,
-            certificate.hash,
-            *ongoing_snapshot.get_file_size(),
-            format!("{:?}", Utc::now()),
-            remote_locations,
-        );
-
-        self.dependencies
-            .snapshot_store
-            .add_snapshot(snapshot.clone())
-            .await?;
-
-        Ok(snapshot)
-    }
-
     async fn create_and_save_artifact(
         &self,
         signed_entity_type: &SignedEntityType,
@@ -629,8 +515,6 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 #[cfg(test)]
 pub mod tests {
     use crate::certifier_service::MockCertifierService;
-    use crate::multi_signer::MockMultiSigner;
-    use crate::snapshotter::OngoingSnapshot;
     use crate::{
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
@@ -639,16 +523,13 @@ pub mod tests {
     use mithril_common::chain_observer::FakeObserver;
     use mithril_common::digesters::DumbImmutableFileObserver;
     use mithril_common::entities::{
-        Beacon, CertificatePending, Epoch, ProtocolMessage, SignedEntityType, StakeDistribution,
+        Beacon, CertificatePending, Epoch, SignedEntityType, StakeDistribution,
     };
     use mithril_common::store::StakeStorer;
+    use mithril_common::test_utils::fake_data;
     use mithril_common::test_utils::MithrilFixtureBuilder;
-    use mithril_common::{entities::ProtocolMessagePartKey, test_utils::fake_data};
     use mithril_common::{BeaconProviderImpl, CardanoNetwork};
-    use std::path::Path;
     use std::sync::Arc;
-    use tempfile::NamedTempFile;
-    use tokio::sync::RwLock;
 
     #[tokio::test]
     async fn test_get_beacon_from_chain() {
@@ -937,55 +818,6 @@ pub mod tests {
         assert_eq!(None, cert);
         let maybe_saved_cert = deps.certificate_pending_store.get().await.unwrap();
         assert_eq!(None, maybe_saved_cert);
-    }
-
-    #[tokio::test]
-    async fn test_remove_snapshot_archive_after_upload() {
-        let deps = initialize_dependencies().await;
-        let runner = AggregatorRunner::new(Arc::new(deps));
-        let file = NamedTempFile::new().unwrap();
-        let file_path = file.path();
-        let snapshot = OngoingSnapshot::new(file_path.to_path_buf(), 7331);
-
-        runner
-            .upload_snapshot_archive(&snapshot)
-            .await
-            .expect("Snapshot upload should not fail");
-
-        assert!(
-            !file_path.exists(),
-            "Ongoing snapshot file should have been removed after upload"
-        );
-    }
-
-    #[tokio::test]
-    async fn test_create_snapshot_archive_name_archive_after_beacon() {
-        let beacon = Beacon::new("network".to_string(), 20, 145);
-        let mut message = ProtocolMessage::new();
-        message.set_message_part(
-            ProtocolMessagePartKey::SnapshotDigest,
-            "test+digest".to_string(),
-        );
-        let mock_multi_signer = MockMultiSigner::new();
-        let mut deps = initialize_dependencies().await;
-        deps.multi_signer = Arc::new(RwLock::new(mock_multi_signer));
-        let runner = AggregatorRunner::new(Arc::new(deps));
-
-        let ongoing_snapshot = runner
-            .create_snapshot_archive(&beacon, &message)
-            .await
-            .expect("create_snapshot_archive should not fail");
-
-        assert_eq!(
-            Path::new(
-                format!(
-                    "{}-e{}-i{}.{}.tar.gz",
-                    beacon.network, beacon.epoch.0, beacon.immutable_file_number, "test+digest"
-                )
-                .as_str()
-            ),
-            ongoing_snapshot.get_file_path()
-        );
     }
 
     #[tokio::test]
