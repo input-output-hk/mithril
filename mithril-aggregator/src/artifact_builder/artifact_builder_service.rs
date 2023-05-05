@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use chrono::Utc;
-use uuid::Uuid;
 
 use std::sync::Arc;
 
@@ -94,7 +93,7 @@ impl ArtifactBuilderService for MithrilArtifactBuilderService {
         artifact: Arc<dyn Artifact>,
     ) -> StdResult<()> {
         let signed_entity = SignedEntityRecord {
-            signed_entity_id: Uuid::new_v4().to_string(),
+            signed_entity_id: artifact.get_id(),
             signed_entity_type,
             certificate_id: certificate.hash.clone(),
             entity: serde_json::to_string(&artifact)?,
