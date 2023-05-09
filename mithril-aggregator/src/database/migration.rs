@@ -297,9 +297,27 @@ alter table open_message add column is_certified bool not null default false;
         SqlMigration::new(
             11,
             r#"
-alter table signed_entity add column artifact json not null;
-update signed_entity set artifact = entity;
-alter table signed_entity drop column entity;
+alter table signed_entity rename to signed_entity_old;
+create table signed_entity (
+    signed_entity_id            text        not null,
+    signed_entity_type_id       integer     not null,
+    certificate_id              text        not null,
+    beacon                      json        not null,
+    artifact                    json        not null,
+    created_at                  text        not null default current_timestamp,
+    primary key (signed_entity_id)
+    foreign key (signed_entity_type_id) references signed_entity_type(signed_entity_type_id)
+    foreign key (certificate_id) references certificate(certificate_id)
+);
+insert into signed_entity (signed_entity_id, 
+    signed_entity_type_id, 
+    certificate_id,
+    beacon,
+    artifact, created_at) 
+    select signed_entity_id, signed_entity_type_id, certificate_id, beacon, entity, created_at
+    from signed_entity_old 
+    order by rowid asc;
+drop table signed_entity_old;
 "#,
         ),
     ]
