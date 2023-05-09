@@ -122,7 +122,7 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     ) -> Result<Option<Certificate>, Box<dyn StdError + Sync + Send>>;
 
     /// Create an artifact and persist it.
-    async fn create_and_save_artifact(
+    async fn create_artifact(
         &self,
         signed_entity_type: &SignedEntityType,
         certificate: &Certificate,
@@ -441,20 +441,15 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             .await
     }
 
-    async fn create_and_save_artifact(
+    async fn create_artifact(
         &self,
         signed_entity_type: &SignedEntityType,
         certificate: &Certificate,
     ) -> Result<(), Box<dyn StdError + Sync + Send>> {
-        debug!("RUNNER: create and save artifact");
-        let artifact = self
-            .dependencies
-            .artifact_builder_service
-            .compute_artifact(signed_entity_type.to_owned(), certificate)
-            .await?;
+        debug!("RUNNER: create artifact");
         self.dependencies
             .artifact_builder_service
-            .create_and_save_signed_entity(signed_entity_type.to_owned(), certificate, artifact)
+            .create_artifact(signed_entity_type.to_owned(), certificate)
             .await?;
 
         Ok(())

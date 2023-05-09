@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
@@ -15,17 +16,37 @@ use mithril_common::{
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct MithrilStakeDistribution {
     signers_with_stake: Vec<SignerWithStake>,
+    hash: String,
 }
 
 impl MithrilStakeDistribution {
     /// MithrilStakeDistribution artifact factory
     pub fn new(signers_with_stake: Vec<SignerWithStake>) -> Self {
-        Self { signers_with_stake }
+        let mut signers_with_stake_sorted = signers_with_stake;
+        signers_with_stake_sorted.sort();
+        let mut mithril_stake_distribution = Self {
+            signers_with_stake: signers_with_stake_sorted,
+            hash: "".to_string(),
+        };
+        mithril_stake_distribution.hash = mithril_stake_distribution.compute_hash();
+        mithril_stake_distribution
+    }
+
+    fn compute_hash(&self) -> String {
+        let mut hasher = Sha256::new();
+        for signer_with_stake in &self.signers_with_stake {
+            hasher.update(signer_with_stake.compute_hash().as_bytes());
+        }
+        hex::encode(hasher.finalize())
     }
 }
 
 #[typetag::serde]
-impl Artifact for MithrilStakeDistribution {}
+impl Artifact for MithrilStakeDistribution {
+    fn get_id(&self) -> String {
+        self.hash.clone()
+    }
+}
 
 /// A [MithrilStakeDistributionArtifact] builder
 pub struct MithrilStakeDistributionArtifactBuilder {
@@ -78,5 +99,25 @@ mod tests {
             .unwrap();
         let artifact_expected = MithrilStakeDistribution::new(signers_with_stake);
         assert_eq!(artifact_expected, artifact);
+    }
+
+    #[test]
+    fn sort_given_signers_when_created() {
+        let signers_with_stake = fake_data::signers_with_stakes(5);
+
+        assert_eq!(
+            MithrilStakeDistribution::new(signers_with_stake.clone()),
+            MithrilStakeDistribution::new(signers_with_stake.into_iter().rev().collect())
+        );
+    }
+
+    #[test]
+    fn hash_value_doesnt_change_if_signers_order_change() {
+        let signers_with_stake = fake_data::signers_with_stakes(5);
+
+        let sd = MithrilStakeDistribution::new(signers_with_stake.clone());
+        let sd2 = MithrilStakeDistribution::new(signers_with_stake.into_iter().rev().collect());
+
+        assert_eq!(sd.hash, sd2.hash);
     }
 }

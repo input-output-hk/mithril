@@ -23,19 +23,11 @@ use mockall::automock;
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub trait ArtifactBuilderService: Send + Sync {
-    /// Compute artifact from signed entity type
-    async fn compute_artifact(
+    /// Create artifact for a signed entity type and a certificate
+    async fn create_artifact(
         &self,
         signed_entity_type: SignedEntityType,
         certificate: &Certificate,
-    ) -> StdResult<Arc<dyn Artifact>>;
-
-    /// Create an save signed entity
-    async fn create_and_save_signed_entity(
-        &self,
-        signed_entity_type: SignedEntityType,
-        certificate: &Certificate,
-        artifact: Arc<dyn Artifact>,
     ) -> StdResult<()>;
 }
 
@@ -62,10 +54,8 @@ impl MithrilArtifactBuilderService {
             cardano_immutable_files_full_artifact_builder,
         }
     }
-}
 
-#[async_trait]
-impl ArtifactBuilderService for MithrilArtifactBuilderService {
+    /// Compute artifact from signed entity type
     async fn compute_artifact(
         &self,
         signed_entity_type: SignedEntityType,
@@ -85,13 +75,18 @@ impl ArtifactBuilderService for MithrilArtifactBuilderService {
             SignedEntityType::CardanoStakeDistribution(_) => todo!(),
         }
     }
+}
 
-    async fn create_and_save_signed_entity(
+#[async_trait]
+impl ArtifactBuilderService for MithrilArtifactBuilderService {
+    async fn create_artifact(
         &self,
         signed_entity_type: SignedEntityType,
         certificate: &Certificate,
-        artifact: Arc<dyn Artifact>,
     ) -> StdResult<()> {
+        let artifact = self
+            .compute_artifact(signed_entity_type.clone(), certificate)
+            .await?;
         let signed_entity = SignedEntityRecord {
             signed_entity_id: artifact.get_id(),
             signed_entity_type,

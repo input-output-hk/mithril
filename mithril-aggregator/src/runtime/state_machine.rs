@@ -283,7 +283,7 @@ impl AggregatorRuntime {
 
         self.runner.drop_pending_certificate().await?;
         self.runner
-            .create_and_save_artifact(&state.signed_entity_type, &certificate)
+            .create_artifact(&state.signed_entity_type, &certificate)
             .await?;
 
         Ok(IdleState {
@@ -671,7 +671,7 @@ mod tests {
             .once()
             .returning(|| Ok(Some(fake_data::certificate_pending())));
         runner
-            .expect_create_and_save_artifact()
+            .expect_create_artifact()
             .once()
             .returning(|_, _| Ok(()));
 
