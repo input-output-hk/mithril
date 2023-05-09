@@ -91,7 +91,7 @@ impl ArtifactBuilderService for MithrilArtifactBuilderService {
             signed_entity_id: artifact.get_id(),
             signed_entity_type,
             certificate_id: certificate.hash.clone(),
-            entity: serde_json::to_string(&artifact)?,
+            artifact: serde_json::to_string(&artifact)?,
             created_at: format!("{:?}", Utc::now()),
         };
 

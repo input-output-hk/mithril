@@ -292,5 +292,15 @@ alter table open_message add column protocol_message json not null;
 alter table open_message add column is_certified bool not null default false;
 "#,
         ),
+        // Migration 11
+        // Alter `signed_entity` table
+        SqlMigration::new(
+            11,
+            r#"
+alter table signed_entity add column artifact json not null;
+update signed_entity set artifact = entity;
+alter table signed_entity drop column entity;
+"#,
+        ),
     ]
 }

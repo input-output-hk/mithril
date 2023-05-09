@@ -32,8 +32,8 @@ pub struct SignedEntityRecord {
     /// Certificate id for this signed entity.
     pub certificate_id: String,
 
-    /// Raw signed entity (in JSON format).
-    pub entity: String,
+    /// Raw artifact (in JSON format).
+    pub artifact: String,
 
     /// Date and time when the signed_entity was created
     pub created_at: String,
@@ -46,7 +46,7 @@ impl From<Snapshot> for SignedEntityRecord {
             signed_entity_id: other.digest,
             signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(other.beacon),
             certificate_id: other.certificate_hash,
-            entity,
+            artifact: entity,
             created_at: other.created_at,
         }
     }
@@ -54,7 +54,7 @@ impl From<Snapshot> for SignedEntityRecord {
 
 impl From<SignedEntityRecord> for Snapshot {
     fn from(other: SignedEntityRecord) -> Snapshot {
-        serde_json::from_str(&other.entity).unwrap()
+        serde_json::from_str(&other.artifact).unwrap()
     }
 }
 
@@ -67,7 +67,7 @@ impl SqLiteEntity for SignedEntityRecord {
         let signed_entity_type_id_int = row.get::<i64, _>(1);
         let certificate_id = row.get::<String, _>(2);
         let beacon_str = row.get::<String, _>(3);
-        let entity_str = row.get::<String, _>(4);
+        let artifact_str = row.get::<String, _>(4);
         let created_at = row.get::<String, _>(5);
 
         let signed_entity_record = Self {
@@ -81,7 +81,7 @@ impl SqLiteEntity for SignedEntityRecord {
                 &beacon_str,
             )?,
             certificate_id,
-            entity: entity_str,
+            artifact: artifact_str,
             created_at,
         };
 
@@ -102,7 +102,7 @@ impl SqLiteEntity for SignedEntityRecord {
             ),
             ("certificate_id", "{:signed_entity:}.certificate_id", "text"),
             ("beacon", "{:signed_entity:}.beacon", "text"),
-            ("entity", "{:signed_entity:}.entity", "text"),
+            ("artifact", "{:signed_entity:}.artifact", "text"),
             ("created_at", "{:signed_entity:}.created_at", "text"),
         ])
     }
@@ -201,13 +201,13 @@ impl<'conn> InsertSignedEntityRecordProvider<'conn> {
 
     fn get_insert_condition(&self, signed_entity_record: SignedEntityRecord) -> WhereCondition {
         WhereCondition::new(
-            "(signed_entity_id, signed_entity_type_id, certificate_id, beacon, entity, created_at) values (?*, ?*, ?*, ?*, ?*, ?*)",
+            "(signed_entity_id, signed_entity_type_id, certificate_id, beacon, artifact, created_at) values (?*, ?*, ?*, ?*, ?*, ?*)",
             vec![
                 Value::String(signed_entity_record.signed_entity_id),
                 Value::Integer(signed_entity_record.signed_entity_type.index() as i64),
                 Value::String(signed_entity_record.certificate_id),
                 Value::String(signed_entity_record.signed_entity_type.get_json_beacon().unwrap()),
-                Value::String(signed_entity_record.entity),
+                Value::String(signed_entity_record.artifact),
                 Value::String(signed_entity_record.created_at),
             ],
         )
@@ -380,7 +380,7 @@ mod tests {
                         snapshot.beacon,
                     ),
                     certificate_id: snapshot.certificate_hash,
-                    entity,
+                    artifact: entity,
                     created_at: snapshot.created_at,
                 }
             })
@@ -432,7 +432,7 @@ mod tests {
                 )
                 .unwrap();
             statement
-                .bind(5, signed_entity_record.entity.as_str())
+                .bind(5, signed_entity_record.artifact.as_str())
                 .unwrap();
             statement
                 .bind(6, signed_entity_record.created_at.as_str())
@@ -461,7 +461,7 @@ mod tests {
         let aliases = SourceAlias::new(&[("{:signed_entity:}", "se")]);
 
         assert_eq!(
-            "se.signed_entity_id as signed_entity_id, se.signed_entity_type_id as signed_entity_type_id, se.certificate_id as certificate_id, se.beacon as beacon, se.entity as entity, se.created_at as created_at"
+            "se.signed_entity_id as signed_entity_id, se.signed_entity_type_id as signed_entity_type_id, se.certificate_id as certificate_id, se.beacon as beacon, se.artifact as artifact, se.created_at as created_at"
                 .to_string(),
             projection.expand(aliases)
         );
@@ -507,7 +507,7 @@ mod tests {
         let (values, params) = condition.expand();
 
         assert_eq!(
-            "(signed_entity_id, signed_entity_type_id, certificate_id, beacon, entity, created_at) values (?1, ?2, ?3, ?4, ?5, ?6)".to_string(),
+            "(signed_entity_id, signed_entity_type_id, certificate_id, beacon, artifact, created_at) values (?1, ?2, ?3, ?4, ?5, ?6)".to_string(),
             values
         );
         assert_eq!(
@@ -521,7 +521,7 @@ mod tests {
                         .get_json_beacon()
                         .unwrap()
                 ),
-                Value::String(signed_entity_record.entity),
+                Value::String(signed_entity_record.artifact),
                 Value::String(signed_entity_record.created_at),
             ],
             params
