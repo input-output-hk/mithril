@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use std::sync::Arc;
 
-use mithril_common::{
+use crate::{
     entities::{Beacon, Epoch, ProtocolMessage, SignedEntityType},
     signable_builder::SignableBuilder,
     StdResult,
@@ -68,7 +68,7 @@ impl SignableBuilderService for MithrilSignableBuilderService {
 mod tests {
     use super::*;
 
-    use mithril_common::{
+    use crate::{
         entities::{Epoch, ProtocolMessage},
         signable_builder::{Beacon as Beaconnable, SignableBuilder},
         StdResult,

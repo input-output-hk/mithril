@@ -360,7 +360,7 @@ impl StateMachine {
 
         let message = self
             .runner
-            .compute_message(current_beacon, &next_signers)
+            .compute_message(&pending_certificate.signed_entity_type, &next_signers)
             .await
             .map_err(|e| RuntimeError::KeepState {
                 message: format!("Could not compute message during 'registered → signed' phase (current beacon {current_beacon:?})"),

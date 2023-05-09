@@ -6,6 +6,7 @@ use mithril_common::{
     digesters::{ImmutableDigester, ImmutableFileObserver},
     entities::{Certificate, Epoch, ProtocolParameters, SignerWithStake, StakeDistribution},
     era::{EraChecker, EraReader},
+    signable_builder::SignableBuilderService,
     store::StakeStorer,
     test_utils::MithrilFixture,
     BeaconProvider,
@@ -17,9 +18,9 @@ use tokio::sync::{Mutex, RwLock};
 
 use crate::{
     artifact_builder::ArtifactBuilderService, certifier_service::CertifierService,
-    configuration::*, database::provider::StakePoolStore, signable_builder::SignableBuilderService,
-    signer_registerer::SignerRecorder, ticker_service::TickerService, CertificatePendingStore,
-    CertificateStore, ProtocolParametersStore, ProtocolParametersStorer, SignerRegisterer,
+    configuration::*, database::provider::StakePoolStore, signer_registerer::SignerRecorder,
+    ticker_service::TickerService, CertificatePendingStore, CertificateStore,
+    ProtocolParametersStore, ProtocolParametersStorer, SignerRegisterer,
     SignerRegistrationRoundOpener, Snapshotter, VerificationKeyStore, VerificationKeyStorer,
 };
 use crate::{event_store::EventMessage, snapshot_stores::SnapshotStore};
