@@ -23,7 +23,6 @@ type StdResult<T> = Result<T, StdError>;
 /// An open message is a message open for signatures. Every signer may send a
 /// single signature for this message from which a multi signature will be
 /// generated if possible.
-#[allow(dead_code)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OpenMessageRecord {
     /// OpenMessage unique identifier

@@ -11,7 +11,10 @@ pub trait Beacon: Send + Sync {}
 
 /// Artifact is a trait for types that represent signed artifacts
 #[typetag::serde(tag = "type")]
-pub trait Artifact: Debug + Send + Sync {}
+pub trait Artifact: Debug + Send + Sync {
+    /// Get artifact identifier
+    fn get_id(&self) -> String;
+}
 
 /// SignableBuilder is trait for building a protocol message for a beacon
 #[cfg_attr(test, automock)]

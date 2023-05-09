@@ -282,18 +282,8 @@ impl AggregatorRuntime {
             })?;
 
         self.runner.drop_pending_certificate().await?;
-        let ongoing_snapshot = self
-            .runner
-            .create_snapshot_archive(&state.current_beacon, &state.protocol_message)
-            .await?;
-        let locations = self
-            .runner
-            .upload_snapshot_archive(&ongoing_snapshot)
-            .await?;
-
-        let _ = self
-            .runner
-            .create_and_save_snapshot(certificate, &ongoing_snapshot, locations)
+        self.runner
+            .create_artifact(&state.signed_entity_type, &certificate)
             .await?;
 
         Ok(IdleState {
@@ -356,10 +346,7 @@ impl AggregatorRuntime {
 #[cfg(test)]
 mod tests {
 
-    use std::path::Path;
-
     use crate::entities::OpenMessage;
-    use crate::snapshotter::OngoingSnapshot;
 
     use super::super::runner::MockAggregatorRunner;
     use super::*;
@@ -684,22 +671,9 @@ mod tests {
             .once()
             .returning(|| Ok(Some(fake_data::certificate_pending())));
         runner
-            .expect_create_snapshot_archive()
+            .expect_create_artifact()
             .once()
-            .returning(|_, _| {
-                Ok(OngoingSnapshot::new(
-                    Path::new("/tmp/archive.zip").to_path_buf(),
-                    1234,
-                ))
-            });
-        runner
-            .expect_upload_snapshot_archive()
-            .once()
-            .returning(|_path| Ok(vec!["locA".to_string(), "locB".to_string()]));
-        runner
-            .expect_create_and_save_snapshot()
-            .once()
-            .returning(|_, _, _| Ok(fake_data::snapshots(1)[0].clone()));
+            .returning(|_, _| Ok(()));
 
         let state = SigningState {
             current_beacon: fake_data::beacon(),

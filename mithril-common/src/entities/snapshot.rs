@@ -45,4 +45,8 @@ impl Snapshot {
 }
 
 #[typetag::serde]
-impl Artifact for Snapshot {}
+impl Artifact for Snapshot {
+    fn get_id(&self) -> String {
+        self.digest.clone()
+    }
+}

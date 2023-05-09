@@ -81,7 +81,7 @@ impl From<SignerWithStake> for Signer {
 }
 
 /// Signer represents a signing party in the network (including its stakes)
-#[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Default, Serialize, Deserialize)]
 pub struct SignerWithStake {
     /// The unique identifier of the signer
     // TODO: Should be removed once the signer certification is fully deployed
