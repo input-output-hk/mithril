@@ -6,7 +6,9 @@ use thiserror::Error;
 
 use mithril_common::{
     api_version::APIVersionProvider,
-    entities::{CertificatePending, Epoch, EpochSettings, Signer, SingleSignatures},
+    entities::{
+        CertificatePending, Epoch, EpochSettings, SignedEntityType, Signer, SingleSignatures,
+    },
     messages::{CertificatePendingMessage, EpochSettingsMessage},
     MITHRIL_API_VERSION_HEADER, MITHRIL_SIGNER_VERSION_HEADER,
 };
@@ -79,6 +81,7 @@ pub trait CertificateHandler: Sync + Send {
     /// Registers single signatures with the aggregator.
     async fn register_signatures(
         &self,
+        signed_entity_type: &SignedEntityType,
         signatures: &SingleSignatures,
     ) -> Result<(), CertificateHandlerError>;
 }
@@ -220,12 +223,15 @@ impl CertificateHandler for CertificateHandlerHTTPClient {
 
     async fn register_signatures(
         &self,
+        signed_entity_type: &SignedEntityType,
         signatures: &SingleSignatures,
     ) -> Result<(), CertificateHandlerError> {
         debug!("Register signatures");
         let url = format!("{}/register-signatures", self.aggregator_endpoint);
-        let register_single_signature_message =
-            ToRegisterSignatureMessageAdapter::adapt(signatures.to_owned());
+        let register_single_signature_message = ToRegisterSignatureMessageAdapter::adapt(
+            signed_entity_type.to_owned(),
+            signatures.to_owned(),
+        );
         let response = self
             .prepare_request_builder(Client::new().post(url.clone()))
             .json(&register_single_signature_message)
@@ -346,6 +352,7 @@ pub(crate) mod dumb {
         /// Registers single signatures with the aggregator
         async fn register_signatures(
             &self,
+            _signed_entity_type: &SignedEntityType,
             _signatures: &SingleSignatures,
         ) -> Result<(), CertificateHandlerError> {
             Ok(())
@@ -635,7 +642,7 @@ mod tests {
             Arc::new(api_version_provider),
         );
         let register_signatures = certificate_handler
-            .register_signatures(&single_signatures)
+            .register_signatures(&SignedEntityType::dummy(), &single_signatures)
             .await;
         register_signatures.expect("unexpected error");
     }
@@ -654,7 +661,7 @@ mod tests {
             Arc::new(api_version_provider),
         );
         let error = certificate_handler
-            .register_signatures(&single_signatures)
+            .register_signatures(&SignedEntityType::dummy(), &single_signatures)
             .await
             .unwrap_err();
 
@@ -680,7 +687,7 @@ mod tests {
             Arc::new(api_version_provider),
         );
         let register_signatures = certificate_handler
-            .register_signatures(&single_signatures)
+            .register_signatures(&SignedEntityType::dummy(), &single_signatures)
             .await;
         assert_eq!(
             CertificateHandlerError::RemoteServerLogical(
@@ -704,7 +711,7 @@ mod tests {
             Arc::new(api_version_provider),
         );
         let register_signatures = certificate_handler
-            .register_signatures(&single_signatures)
+            .register_signatures(&SignedEntityType::dummy(), &single_signatures)
             .await;
         assert_eq!(
             CertificateHandlerError::RemoteServerLogical(
@@ -728,7 +735,7 @@ mod tests {
             Arc::new(api_version_provider),
         );
         let register_signatures = certificate_handler
-            .register_signatures(&single_signatures)
+            .register_signatures(&SignedEntityType::dummy(), &single_signatures)
             .await;
         assert_eq!(
             CertificateHandlerError::RemoteServerTechnical("an error occurred".to_string())
