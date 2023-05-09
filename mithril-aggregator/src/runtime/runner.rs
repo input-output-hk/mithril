@@ -55,11 +55,10 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Return the current beacon from the chain
     async fn get_beacon_from_chain(&self) -> Result<Beacon, Box<dyn StdError + Sync + Send>>;
 
-    /// Check if a certificate already have been issued for a given beacon.
-    async fn does_certificate_exist_for_beacon(
+    /// Retrieves the ucrrent non certified open message.
+    async fn get_current_non_certified_open_message(
         &self,
-        beacon: &Beacon,
-    ) -> Result<bool, Box<dyn StdError + Sync + Send>>;
+    ) -> Result<Option<OpenMessage>, Box<dyn StdError + Sync + Send>>;
 
     /// Check if a certificate chain is valid.
     async fn is_certificate_chain_valid(&self) -> Result<bool, Box<dyn StdError + Sync + Send>>;
@@ -176,18 +175,32 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(beacon)
     }
 
-    async fn does_certificate_exist_for_beacon(
+    async fn get_current_non_certified_open_message(
         &self,
-        beacon: &Beacon,
-    ) -> Result<bool, Box<dyn StdError + Sync + Send>> {
-        debug!("RUNNER: does_certificate_exist_for_beacon");
-        let certificate_exist = self
-            .dependencies
-            .certificate_store
-            .get_from_beacon(beacon)
-            .await?
-            .is_some();
-        Ok(certificate_exist)
+    ) -> Result<Option<OpenMessage>, Box<dyn StdError + Sync + Send>> {
+        let signed_entity_types = vec![
+            SignedEntityType::MithrilStakeDistribution(
+                self.dependencies.ticker_service.get_current_epoch().await?,
+            ),
+            SignedEntityType::CardanoImmutableFilesFull(
+                self.dependencies
+                    .ticker_service
+                    .get_current_immutable_beacon()
+                    .await?,
+            ),
+        ];
+
+        for signed_entity_type in signed_entity_types {
+            let protocol_message = self.compute_protocol_message(&signed_entity_type).await?;
+            let open_message = self
+                .create_open_message(&signed_entity_type, &protocol_message)
+                .await?;
+            if !open_message.is_certified {
+                return Ok(Some(open_message));
+            }
+        }
+
+        Ok(None)
     }
 
     async fn is_certificate_chain_valid(&self) -> Result<bool, Box<dyn StdError + Sync + Send>> {
@@ -545,27 +558,6 @@ pub mod tests {
         // Retrieves the expected beacon
         let res = runner.get_beacon_from_chain().await;
         assert_eq!(expected_beacon, res.unwrap());
-    }
-
-    #[tokio::test]
-    async fn test_does_certificate_exist_for_beacon() {
-        let dependencies = initialize_dependencies().await;
-        let certificate_store = dependencies.certificate_store.clone();
-        let runner = AggregatorRunner::new(Arc::new(dependencies));
-
-        let beacon = fake_data::beacon();
-        let mut certificate = fake_data::genesis_certificate("certificate_hash".to_string());
-        certificate.beacon = beacon.clone();
-
-        assert!(!runner
-            .does_certificate_exist_for_beacon(&beacon)
-            .await
-            .unwrap());
-        certificate_store.save(certificate).await.unwrap();
-        assert!(runner
-            .does_certificate_exist_for_beacon(&beacon)
-            .await
-            .unwrap());
     }
 
     #[tokio::test]

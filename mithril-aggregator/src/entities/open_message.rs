@@ -10,7 +10,7 @@ use crate::database::provider::{OpenMessageRecord, OpenMessageWithSingleSignatur
 /// An open message is a message open for signatures. Every signer may send a
 /// single signature for this message from which a multi signature will be
 /// generated if possible.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct OpenMessage {
     /// Epoch
     pub epoch: Epoch,

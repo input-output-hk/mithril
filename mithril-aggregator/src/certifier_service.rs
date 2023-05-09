@@ -227,10 +227,18 @@ impl CertifierService for MithrilCertifierService {
         debug!("CertifierService::create_open_message(signed_entity_type: {signed_entity_type:?}, protocol_message: {protocol_message:?})");
         let current_epoch = self.current_epoch.read().await;
 
-        let open_message = self
+        let open_message = match self
             .open_message_repository
-            .create_open_message(*current_epoch, signed_entity_type, protocol_message)
-            .await?;
+            .get_open_message(signed_entity_type)
+            .await?
+        {
+            Some(open_message) => open_message,
+            None => {
+                self.open_message_repository
+                    .create_open_message(*current_epoch, signed_entity_type, protocol_message)
+                    .await?
+            }
+        };
         info!("CertifierService::create_open_message: created open message for {signed_entity_type:?}");
         debug!(
             "CertifierService::create_open_message: created open message ID='{}'",

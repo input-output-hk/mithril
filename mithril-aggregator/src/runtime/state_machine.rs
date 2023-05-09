@@ -1,6 +1,9 @@
-use crate::runtime::{AggregatorRunnerTrait, RuntimeError};
+use crate::{
+    entities::OpenMessage,
+    runtime::{AggregatorRunnerTrait, RuntimeError},
+};
 
-use mithril_common::entities::{Beacon, ProtocolMessage, SignedEntityType};
+use mithril_common::entities::Beacon;
 use slog_scope::{crit, info, trace, warn};
 use std::fmt::Display;
 use std::sync::Arc;
@@ -19,8 +22,7 @@ pub struct ReadyState {
 #[derive(Clone, Debug, PartialEq)]
 pub struct SigningState {
     current_beacon: Beacon,
-    signed_entity_type: SignedEntityType,
-    protocol_message: ProtocolMessage,
+    open_message: OpenMessage,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -179,11 +181,18 @@ impl AggregatorRuntime {
                     self.state = AggregatorState::Idle(IdleState {
                         current_beacon: Some(state.current_beacon),
                     });
-                } else if self
+                } else if let Some(open_message) = self
                     .runner
-                    .does_certificate_exist_for_beacon(&state.current_beacon)
+                    .get_current_non_certified_open_message()
                     .await?
-                {
+                 {
+                    // transition READY > SIGNING
+                    info!("→ transitioning to SIGNING");
+                    let new_state = self
+                        .transition_from_ready_to_signing(state.current_beacon, open_message)
+                        .await?;
+                    self.state = AggregatorState::Signing(new_state);
+                }else{
                     // READY > READY
                     info!(
                         " ⋅ a certificate already exists for this beacon, waiting…";
@@ -192,13 +201,6 @@ impl AggregatorRuntime {
                     self.state = AggregatorState::Ready(ReadyState {
                         current_beacon: chain_beacon,
                     });
-                } else {
-                    // transition READY > SIGNING
-                    info!("→ transitioning to SIGNING");
-                    let new_state = self
-                        .transition_from_ready_to_signing(state.current_beacon)
-                        .await?;
-                    self.state = AggregatorState::Signing(new_state);
                 }
             }
             AggregatorState::Signing(state) => {
@@ -274,7 +276,7 @@ impl AggregatorRuntime {
         trace!("launching transition from SIGNING to IDLE state");
         let certificate = self
             .runner
-            .create_certificate(&state.signed_entity_type)
+            .create_certificate(&state.open_message.signed_entity_type)
             .await?
             .ok_or_else(|| RuntimeError::KeepState {
                 message: "not enough signature yet to create a certificate, waiting…".to_string(),
@@ -283,7 +285,7 @@ impl AggregatorRuntime {
 
         self.runner.drop_pending_certificate().await?;
         self.runner
-            .create_artifact(&state.signed_entity_type, &certificate)
+            .create_artifact(&state.open_message.signed_entity_type, &certificate)
             .await?;
 
         Ok(IdleState {
@@ -310,24 +312,16 @@ impl AggregatorRuntime {
     async fn transition_from_ready_to_signing(
         &mut self,
         new_beacon: Beacon,
+        open_message: OpenMessage,
     ) -> Result<SigningState, RuntimeError> {
         trace!("launching transition from READY to SIGNING state");
-        // TODO: Temporary, we need to compute the signed entity type for other types than Cardano immutable files
-        let signed_entity_type = SignedEntityType::CardanoImmutableFilesFull(new_beacon.clone());
         self.runner.update_beacon(&new_beacon).await?;
 
-        let protocol_message = self
-            .runner
-            .compute_protocol_message(&signed_entity_type)
-            .await?;
-        self.runner
-            .create_open_message(&signed_entity_type, &protocol_message)
-            .await?;
         let certificate_pending = self
             .runner
             .create_new_pending_certificate_from_multisigner(
                 new_beacon.clone(),
-                &signed_entity_type,
+                &open_message.signed_entity_type,
             )
             .await?;
         self.runner
@@ -335,8 +329,7 @@ impl AggregatorRuntime {
             .await?;
         let state = SigningState {
             current_beacon: new_beacon,
-            signed_entity_type,
-            protocol_message,
+            open_message,
         };
 
         Ok(state)
@@ -522,7 +515,7 @@ mod tests {
     }
 
     #[tokio::test]
-    pub async fn ready_certificate_already_exist_for_beacon() {
+    pub async fn ready_open_message_not_exist() {
         let mut runner = MockAggregatorRunner::new();
         let beacon = fake_data::beacon();
         let next_beacon = Beacon {
@@ -535,9 +528,9 @@ mod tests {
             .once()
             .returning(move || Ok(next_beacon.clone()));
         runner
-            .expect_does_certificate_exist_for_beacon()
+            .expect_get_current_non_certified_open_message()
             .once()
-            .returning(|_| Ok(true));
+            .returning(|| Ok(None));
         let mut runtime = init_runtime(
             Some(AggregatorState::Ready(ReadyState {
                 current_beacon: beacon.clone(),
@@ -564,18 +557,20 @@ mod tests {
             .once()
             .returning(|| Ok(fake_data::beacon()));
         runner
-            .expect_does_certificate_exist_for_beacon()
+            .expect_get_current_non_certified_open_message()
             .once()
-            .returning(|_| Ok(false));
+            .returning(|| {
+                let open_message = OpenMessage {
+                    is_certified: false,
+                    ..OpenMessage::dummy()
+                };
+                Ok(Some(open_message))
+            });
         runner
             .expect_update_beacon()
             .with(predicate::eq(fake_data::beacon()))
             .once()
             .returning(|_| Ok(()));
-        runner
-            .expect_compute_protocol_message()
-            .once()
-            .returning(|_| Ok(ProtocolMessage::new()));
         runner
             .expect_create_new_pending_certificate_from_multisigner()
             .once()
@@ -584,10 +579,6 @@ mod tests {
             .expect_save_pending_certificate()
             .once()
             .returning(|_| Ok(()));
-        runner
-            .expect_create_open_message()
-            .once()
-            .returning(|_, _| Ok(OpenMessage::dummy()));
 
         let mut runtime = init_runtime(
             Some(AggregatorState::Ready(ReadyState {
@@ -622,8 +613,7 @@ mod tests {
 
                 beacon
             },
-            signed_entity_type: SignedEntityType::dummy(),
-            protocol_message: ProtocolMessage::default(),
+            open_message: OpenMessage::dummy(),
         };
         let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
         runtime.cycle().await.unwrap();
@@ -644,8 +634,7 @@ mod tests {
             .returning(|_| Ok(None));
         let state = SigningState {
             current_beacon: fake_data::beacon(),
-            signed_entity_type: SignedEntityType::dummy(),
-            protocol_message: ProtocolMessage::default(),
+            open_message: OpenMessage::dummy(),
         };
         let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
         runtime
@@ -677,8 +666,7 @@ mod tests {
 
         let state = SigningState {
             current_beacon: fake_data::beacon(),
-            signed_entity_type: SignedEntityType::dummy(),
-            protocol_message: ProtocolMessage::default(),
+            open_message: OpenMessage::dummy(),
         };
         let mut runtime = init_runtime(Some(AggregatorState::Signing(state)), runner).await;
         runtime.cycle().await.unwrap();
