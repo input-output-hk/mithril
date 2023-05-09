@@ -66,7 +66,13 @@ impl SqLiteEntity for SignedEntityRecord {
         let signed_entity_id = row.get::<String, _>(0);
         let signed_entity_type_id_int = row.get::<i64, _>(1);
         let certificate_id = row.get::<String, _>(2);
-        let beacon_str = row.get::<String, _>(3);
+        // TODO: We need to check first that the cell can be read as a string first
+        // (e.g. when beacon json is '{"network": "dev", "epoch": 1, "immutable_file_number": 2}').
+        // If it fails, we fallback on readign the cell as an integer (e.g. when beacon json is '5').
+        // Maybe there is a better way of doing this.
+        let beacon_str = row
+            .try_get::<String, _>(3)
+            .unwrap_or_else(|_| (row.get::<i64, _>(3)).to_string());
         let artifact_str = row.get::<String, _>(4);
         let created_at = row.get::<String, _>(5);
 
