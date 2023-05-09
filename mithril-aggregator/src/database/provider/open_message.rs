@@ -799,18 +799,25 @@ mod tests {
     async fn repository_clean_open_message() {
         let connection = get_connection().await;
         let repository = OpenMessageRepository::new(connection.clone());
+        let beacon = Beacon {
+            epoch: Epoch(1),
+            ..Beacon::default()
+        };
         let _ = repository
             .create_open_message(
-                Epoch(2),
-                &SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
+                beacon.epoch,
+                &SignedEntityType::CardanoImmutableFilesFull(beacon.clone()),
                 &ProtocolMessage::new(),
             )
             .await
             .unwrap();
         let _ = repository
             .create_open_message(
-                Epoch(1),
-                &SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
+                beacon.epoch,
+                &SignedEntityType::CardanoImmutableFilesFull(Beacon {
+                    epoch: Epoch(2),
+                    ..beacon
+                }),
                 &ProtocolMessage::new(),
             )
             .await

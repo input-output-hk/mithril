@@ -320,5 +320,13 @@ insert into signed_entity (signed_entity_id,
 drop table signed_entity_old;
 "#,
         ),
+        // Migration 12
+        // Alter `open_message` table
+        SqlMigration::new(
+            12,
+            r#"
+create unique index open_message_unique_index on open_message(signed_entity_type_id, beacon);
+"#,
+        ),
     ]
 }
