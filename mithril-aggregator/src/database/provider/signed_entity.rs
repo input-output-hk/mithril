@@ -303,6 +303,7 @@ impl SignedEntityStorer for SignedEntityStoreAdapter {
     }
 }
 
+// TODO: this StoreAdapter implementation is temporary and concerns only the snapshots for the CardanoImmutableFilesFull signed entity type
 #[async_trait]
 impl StoreAdapter for SignedEntityStoreAdapter {
     type Key = String;
@@ -330,7 +331,13 @@ impl StoreAdapter for SignedEntityStoreAdapter {
             .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
         let signed_entity = cursor
             .next()
-            .map(|signed_entity_record| signed_entity_record.into());
+            .filter(|record| {
+                matches!(
+                    record.signed_entity_type,
+                    SignedEntityType::CardanoImmutableFilesFull(_)
+                )
+            })
+            .map(|record| record.into());
 
         Ok(signed_entity)
     }

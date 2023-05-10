@@ -13,7 +13,7 @@ use test_extensions::{utilities::get_test_dir, RuntimeTester};
 async fn create_certificate() {
     let protocol_parameters = ProtocolParameters {
         k: 5,
-        m: 100,
+        m: 150,
         phi_f: 0.95,
     };
     let configuration = Configuration {

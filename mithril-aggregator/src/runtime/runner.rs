@@ -55,7 +55,7 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Return the current beacon from the chain
     async fn get_beacon_from_chain(&self) -> Result<Beacon, Box<dyn StdError + Sync + Send>>;
 
-    /// Retrieves the ucrrent non certified open message.
+    /// Retrieves the current non certified open message.
     async fn get_current_non_certified_open_message(
         &self,
     ) -> Result<Option<OpenMessage>, Box<dyn StdError + Sync + Send>>;
@@ -190,11 +190,29 @@ impl AggregatorRunnerTrait for AggregatorRunner {
             ),
         ];
 
+        // to be tested:
+        // - if MithrilStakeDistribution not exist: Create and returns one (event if a CardanoImmutableFilesFull exist)
+        // - if MithrilStakeDistribution exist but not certified returns it (event if a CardanoImmutableFilesFull exist)
+        // - if MithrilStakeDistribution exist but certified:
+        //   -- existing not certified CardanoImmutableFilesFull ? returns it
+        //   -- existing certified CardanoImmutableFilesFull ? returns None
+        //   -- no existing CardanoImmutableFilesFull ? Create and returns one
         for signed_entity_type in signed_entity_types {
-            let protocol_message = self.compute_protocol_message(&signed_entity_type).await?;
-            let open_message = self
-                .create_open_message(&signed_entity_type, &protocol_message)
-                .await?;
+            let open_message = match self
+                .dependencies
+                .certifier_service
+                .get_open_message(&signed_entity_type)
+                .await?
+            {
+                Some(existing_open_message) => existing_open_message,
+                None => {
+                    let protocol_message =
+                        self.compute_protocol_message(&signed_entity_type).await?;
+                    self.create_open_message(&signed_entity_type, &protocol_message)
+                        .await?
+                }
+            };
+
             if !open_message.is_certified {
                 return Ok(Some(open_message));
             }
