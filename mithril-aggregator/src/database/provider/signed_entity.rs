@@ -5,7 +5,7 @@ use sqlite::{Connection, Value};
 use async_trait::async_trait;
 
 use mithril_common::{
-    entities::{SignedEntityType, Snapshot},
+    entities::{Beacon, SignedEntityType, Snapshot},
     sqlite::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
         WhereCondition,
@@ -359,7 +359,9 @@ impl StoreAdapter for SignedEntityStoreAdapter {
         let connection = &*self.connection.lock().await;
         let provider = SignedEntityRecordProvider::new(connection);
         let cursor = provider
-            .get_all()
+            .get_by_signed_entity_type(SignedEntityType::CardanoImmutableFilesFull(
+                Beacon::default(),
+            ))
             .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
         let signed_entities: Vec<Snapshot> = cursor.map(|se| se.into()).collect();
         Ok(Box::new(signed_entities.into_iter()))
