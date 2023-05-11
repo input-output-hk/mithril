@@ -40,7 +40,7 @@ RUN /app/target/release/mithril-aggregator --version
 FROM ubuntu:22.04
 
 # Args
-ARG CARDANO_BIN_URL=https://update-cardano-mainnet.iohk.io/cardano-node-releases/cardano-node-1.35.7-linux.tar.gz
+ARG CARDANO_BIN_URL=https://update-cardano-mainnet.iohk.io/cardano-node-releases/cardano-node-8.0.0-linux.tar.gz
 
 # Upgrade
 RUN apt-get update -y && apt-get install -y libssl-dev ca-certificates wget sqlite3 && rm -rf /var/lib/apt/lists/*

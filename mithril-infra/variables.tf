@@ -87,7 +87,7 @@ locals {
 variable "cardano_image_id" {
   type        = string
   description = "The Cardano image tag of service to deploy"
-  default     = "1.35.7"
+  default     = "8.0.0"
 }
 
 variable "mithril_api_domain" {

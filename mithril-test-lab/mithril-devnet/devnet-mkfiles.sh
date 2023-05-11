@@ -41,15 +41,16 @@ NUM_POOL_NODES=$3
 SLOT_LENGTH=$4
 EPOCH_LENGTH=$5
 
-SUPPLY=10000000000
+SUPPLY=100000000000
 NETWORK_MAGIC=42
 SECURITY_PARAM=2
 
 NODE_PORT_START=3000
 NODE_ADDR_PREFIX="172.16.238"
 NODE_ADDR_INCREMENT=10
-CARDANO_BINARY_URL="https://update-cardano-mainnet.iohk.io/cardano-node-releases/cardano-node-1.35.7-linux.tar.gz"
+CARDANO_BINARY_URL="https://update-cardano-mainnet.iohk.io/cardano-node-releases/cardano-node-8.0.0-linux.tar.gz"
 ALONZO_GENESIS_URL="https://book.world.dev.cardano.org/environments/private/alonzo-genesis.json"
+CONWAY_GENESIS_URL="https://book.world.dev.cardano.org/environments/private/conway-genesis.json"
 
 GENESIS_VERIFICATION_KEY=5b33322c3235332c3138362c3230312c3137372c31312c3131372c3133352c3138372c3136372c3138312c3138382c32322c35392c3230362c3130352c3233312c3135302c3231352c33302c37382c3231322c37362c31362c3235322c3138302c37322c3133342c3133372c3234372c3136312c36385d
 GENESIS_SECRET_KEY=5b3131382c3138342c3232342c3137332c3136302c3234312c36312c3134342c36342c39332c3130362c3232392c38332c3133342c3138392c34302c3138392c3231302c32352c3138342c3136302c3134312c3233372c32362c3136382c35342c3233392c3230342c3133392c3131392c31332c3139395d
@@ -121,10 +122,11 @@ sed -i ${ROOT}/configuration.yaml \
     -e 's/TracingVerbosity: NormalVerbosity/TracingVerbosity: MinimalVerbosity/' \
     -e 's/TurnOnLogMetrics: True/TurnOnLogMetrics: False/' \
     -e 's|GenesisFile: genesis.json|ByronGenesisFile: byron/genesis.json|' \
+    -e '/ByronGenesisFile/ aConwayGenesisFile: shelley/genesis.conway.json' \
     -e '/ByronGenesisFile/ aAlonzoGenesisFile: shelley/genesis.alonzo.json' \
     -e '/ByronGenesisFile/ aShelleyGenesisFile: shelley/genesis.json' \
     -e 's/RequiresNoMagic/RequiresMagic/' \
-    -e 's/LastKnownBlockVersion-Major: 0/LastKnownBlockVersion-Major: 5/' \
+    -e 's/LastKnownBlockVersion-Major: 0/LastKnownBlockVersion-Major: 8/' \
     -e 's/LastKnownBlockVersion-Minor: 2/LastKnownBlockVersion-Minor: 0/' \
     -e 's/LastKnownBlockVersion-Alt: 0/LastKnownBlockVersion-Alt: 0/'
 # Options for making it easier to trigger the transition to Shelley
@@ -139,8 +141,8 @@ echo "TestShelleyHardForkAtEpoch: 0" >> ${ROOT}/configuration.yaml
 echo "TestAllegraHardForkAtEpoch: 0" >> ${ROOT}/configuration.yaml
 echo "TestMaryHardForkAtEpoch: 0" >> ${ROOT}/configuration.yaml
 echo "TestAlonzoHardForkAtEpoch: 0" >> ${ROOT}/configuration.yaml
-echo "TestEnableDevelopmentHardForkEras: True" >> ${ROOT}/configuration.yaml
-echo "TestEnableDevelopmentNetworkProtocols: True" >> ${ROOT}/configuration.yaml
+echo "ExperimentalHardForksEnabled: True" >> ${ROOT}/configuration.yaml
+echo "ExperimentalProtocolsEnabled: True" >> ${ROOT}/configuration.yaml
 
 #uncomment this to trigger the hardfork with protocol version 1
 #echo "TestShelleyHardForkAtVersion: 1"  >> ${ROOT}/configuration.yaml
@@ -317,7 +319,9 @@ echo "====================================================================="
 # Shelley era. Set up our template
 mkdir shelley
 curl -s ${ALONZO_GENESIS_URL} -o shelley/genesis.alonzo.spec.json
+curl -s ${CONWAY_GENESIS_URL} -o shelley/genesis.conway.spec.json
 ./cardano-cli genesis create --testnet-magic ${NETWORK_MAGIC} --genesis-dir shelley --start-time $(date -u +%Y-%m-%dT%H:%M:%SZ)
+mv shelley/genesis.spec.json shelley/genesis.spec.json.tmp && cat shelley/genesis.spec.json.tmp | jq . > shelley/genesis.spec.json && rm shelley/genesis.spec.json.tmp
 
 # Then edit the genesis.spec.json ...
 
@@ -602,7 +606,7 @@ done
     cat >> activate.sh <<EOF
 echo ">> Wait for Cardano pools to be activated"
 POOLS_ACTIVATION_WAIT_ROUND_DELAY=2
-POOLS_ACTIVATION_WAIT_ROUNDS_MAX=\$(echo "scale=0; 3 * $EPOCH_LENGTH * $SLOT_LENGTH / \$POOLS_ACTIVATION_WAIT_ROUND_DELAY" | bc)
+POOLS_ACTIVATION_WAIT_ROUNDS_MAX=\$(echo "scale=0; 5 * $EPOCH_LENGTH * $SLOT_LENGTH / \$POOLS_ACTIVATION_WAIT_ROUND_DELAY" | bc)
 POOLS_ACTIVATION_WAIT_ROUNDS=1
 POOL_STAKE_RETRIEVAL_WAIT_ROUND_DELAY=2
 POOL_STAKE_RETRIEVAL_WAIT_ROUNDS_MAX=\$POOLS_ACTIVATION_WAIT_ROUNDS_MAX
@@ -619,7 +623,7 @@ do
             do
                 POOL_STAKE_PREVIOUS_EPOCH=\$(CARDANO_NODE_SOCKET_PATH=node-pool${N}/ipc/node.sock ./cardano-cli query stake-snapshot \\
                     --stake-pool-id \$POOL_ID \\
-                    --testnet-magic ${NETWORK_MAGIC} | jq .poolStakeMark)
+                    --testnet-magic ${NETWORK_MAGIC} | jq '.pools | values | flatten | .[0].stakeMark')
                 if [ "\$POOL_STAKE_PREVIOUS_EPOCH" != "0" ] ; then
                     break
                 else
@@ -759,7 +763,7 @@ CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query stake-pools
 echo
 
 echo ">> Query stake distribution"
-CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query stake-distribution \\
+CARDANO_NODE_SOCKET_PATH=node-bft1/ipc/node.sock ./cardano-cli query stake-snapshot --all-stake-pools \\
     --cardano-mode \\
     --testnet-magic ${NETWORK_MAGIC}
 echo
@@ -1130,7 +1134,7 @@ cat >> start-cardano.sh <<EOF
 #!/usr/bin/env bash
 
 echo ">> Start Cardano network"
-killall cardano-node 2>&1 /dev/null
+killall cardano-node > /dev/null 2>&1
 ./cardano-cli --version
 ./cardano-node --version
 
@@ -1216,7 +1220,36 @@ done
 
 echo ">> Activate Cardano pools"
 ./activate.sh ${ROOT}
+
 EOF
+
+cat >> start-cardano.sh <<EOF
+echo ">> Wait for Cardano nodes to have enough immutable files"
+for NODE in ${ALL_NODES}; do
+  echo ">> Wait for \${NODE} to have enough immutable files"
+  NODE_ACTIVATION_WAIT_ROUNDS_MAX=100
+  NODE_ACTIVATION_WAIT_ROUNDS=1
+  NODE_ACTIVATION_WAIT_ROUND_DELAY=2
+  while true
+  do
+      TOTAL_IMMUTABLE_FILES=\$(ls -1q \${NODE}/db/immutable | grep ".chunk" | wc -l)
+      if [ "\$TOTAL_IMMUTABLE_FILES" -gt "1" ] ; then
+          echo ">>>> \${NODE} has enough immutable files!"
+          break
+      else
+          echo ">>>> \${NODE} has not enough immutable files yet... [attempt \$NODE_ACTIVATION_WAIT_ROUNDS]"
+          sleep \$NODE_ACTIVATION_WAIT_ROUND_DELAY
+      fi
+      NODE_ACTIVATION_WAIT_ROUNDS=\$(( \$NODE_ACTIVATION_WAIT_ROUNDS + 1 ))
+      if [ "\$NODE_ACTIVATION_WAIT_ROUNDS" -gt "\$NODE_ACTIVATION_WAIT_ROUNDS_MAX" ] ; then
+          echo ">>>> Timeout: \${NODE} has not enough immutable files within \$NODE_ACTIVATION_WAIT_ROUNDS_MAX attempts"
+          exit 1
+      fi
+  done
+done
+
+EOF
+
 chmod u+x start-cardano.sh
 
 cat >> start-mithril.sh <<EOF
