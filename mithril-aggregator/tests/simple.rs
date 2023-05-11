@@ -1,10 +1,7 @@
 mod test_extensions;
 
 use mithril_aggregator::Configuration;
-use mithril_common::{
-    entities::{ProtocolParameters, SignerWithStake},
-    test_utils::MithrilFixtureBuilder,
-};
+use mithril_common::{entities::ProtocolParameters, test_utils::MithrilFixtureBuilder};
 use test_extensions::{utilities::get_test_dir, RuntimeTester};
 
 #[tokio::test]

@@ -2,8 +2,10 @@ use mithril_aggregator::{
     certifier_service::CertifierService, dependency_injection::DependenciesBuilder,
     entities::OpenMessage, ticker_service::TickerService,
 };
-use mithril_common::entities::{Beacon, Epoch};
-use mithril_common::{entities::SignedEntityType, BeaconProvider};
+use mithril_common::{
+    entities::{Beacon, Epoch, SignedEntityType},
+    BeaconProvider,
+};
 use std::sync::Arc;
 
 // An observer that allow to inspect currently available open messages.

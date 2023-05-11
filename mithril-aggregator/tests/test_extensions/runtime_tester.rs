@@ -20,7 +20,7 @@ use slog::Drain;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedReceiver;
 
-use crate::test_extensions::AggregatorObserver;
+use crate::test_extensions::{AggregatorObserver, SignedEntityTypeDiscriminants};
 
 #[macro_export]
 macro_rules! cycle {
@@ -243,12 +243,16 @@ impl RuntimeTester {
     /// "Send", actually register, the given single signatures in the multi-signers
     pub async fn send_single_signatures(
         &mut self,
-        signed_entity_type: &SignedEntityType,
+        discriminant: SignedEntityTypeDiscriminants,
         signers: &[SignerFixture],
     ) -> Result<(), String> {
         let certifier_service = self.deps_builder.get_certifier_service().await.unwrap();
+        let signed_entity_type = self
+            .observer
+            .get_current_signed_entity_type(discriminant)
+            .await?;
         let message = certifier_service
-            .get_open_message(signed_entity_type)
+            .get_open_message(&signed_entity_type)
             .await
             .unwrap()
             .ok_or("There should be a message to be signed.")?
@@ -257,7 +261,7 @@ impl RuntimeTester {
         for signer_fixture in signers {
             if let Some(single_signatures) = signer_fixture.sign(&message) {
                 certifier_service
-                    .register_single_signature(signed_entity_type, &single_signatures)
+                    .register_single_signature(&signed_entity_type, &single_signatures)
                     .await
                     .map_err(|e| {
                         format!("registering a winning lottery signature should not fail: {e:?}")

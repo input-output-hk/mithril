@@ -1,9 +1,7 @@
 mod test_extensions;
 
 use mithril_aggregator::{Configuration, VerificationKeyStorer};
-use mithril_common::{
-    chain_observer::ChainObserver, entities::ProtocolParameters, test_utils::MithrilFixtureBuilder,
-};
+use mithril_common::{entities::ProtocolParameters, test_utils::MithrilFixtureBuilder};
 use test_extensions::{utilities::get_test_dir, RuntimeTester, SignedEntityTypeDiscriminants};
 
 #[tokio::test]
@@ -42,12 +40,11 @@ async fn certificate_chain() {
     cycle!(tester, "signing");
     tester.register_signers(&signers).await.unwrap();
     cycle_err!(tester, "signing");
-    let signed_entity_type = observer
-        .get_current_signed_entity_type(SignedEntityTypeDiscriminants::MithrilStakeDistribution)
-        .await
-        .unwrap();
     tester
-        .send_single_signatures(&signed_entity_type, &signers)
+        .send_single_signatures(
+            SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+            &signers,
+        )
         .await
         .unwrap();
 
@@ -60,12 +57,11 @@ async fn certificate_chain() {
     comment!("The state machine should get back to signing to sign CardanoImmutableFilesFull");
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "signing");
-    let signed_entity_type = observer
-        .get_current_signed_entity_type(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull)
-        .await
-        .unwrap();
     tester
-        .send_single_signatures(&signed_entity_type, &signers)
+        .send_single_signatures(
+            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+            &signers,
+        )
         .await
         .unwrap();
     comment!("The state machine should issue a certificate for the CardanoImmutableFilesFull");
@@ -80,12 +76,11 @@ async fn certificate_chain() {
     );
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "signing");
-    let signed_entity_type = observer
-        .get_current_signed_entity_type(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull)
-        .await
-        .unwrap();
     tester
-        .send_single_signatures(&signed_entity_type, &signers)
+        .send_single_signatures(
+            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+            &signers,
+        )
         .await
         .unwrap();
     cycle!(tester, "ready");
@@ -147,12 +142,11 @@ async fn certificate_chain() {
         "Signers register & send signatures, the new certificate should be link to the first of the previous epoch"
     );
     tester.register_signers(&new_signers).await.unwrap();
-    let signed_entity_type = observer
-        .get_current_signed_entity_type(SignedEntityTypeDiscriminants::MithrilStakeDistribution)
-        .await
-        .unwrap();
     tester
-        .send_single_signatures(&signed_entity_type, &signers)
+        .send_single_signatures(
+            SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+            &signers,
+        )
         .await
         .unwrap();
     cycle!(tester, "ready");
@@ -192,12 +186,11 @@ async fn certificate_chain() {
     tester.register_signers(&signers).await.unwrap();
     cycle!(tester, "signing");
 
-    let signed_entity_type = observer
-        .get_current_signed_entity_type(SignedEntityTypeDiscriminants::MithrilStakeDistribution)
-        .await
-        .unwrap();
     tester
-        .send_single_signatures(&signed_entity_type, &signers)
+        .send_single_signatures(
+            SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+            &signers,
+        )
         .await
         .unwrap();
     cycle!(tester, "ready");
@@ -213,13 +206,12 @@ async fn certificate_chain() {
     cycle!(tester, "ready");
     tester.register_signers(&signers).await.unwrap();
     cycle!(tester, "signing");
-    let signed_entity_type = observer
-        .get_current_signed_entity_type(SignedEntityTypeDiscriminants::MithrilStakeDistribution)
-        .await
-        .unwrap();
 
     tester
-        .send_single_signatures(&signed_entity_type, &new_signers)
+        .send_single_signatures(
+            SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+            &new_signers,
+        )
         .await
         .unwrap();
     cycle!(tester, "ready");
@@ -256,12 +248,11 @@ async fn certificate_chain() {
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "signing");
 
-    let signed_entity_type = observer
-        .get_current_signed_entity_type(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull)
-        .await
-        .unwrap();
     tester
-        .send_single_signatures(&signed_entity_type, &new_signers)
+        .send_single_signatures(
+            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+            &new_signers,
+        )
         .await
         .unwrap();
     cycle!(tester, "ready");

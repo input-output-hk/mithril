@@ -1,7 +1,6 @@
 mod test_extensions;
 use mithril_aggregator::{Configuration, RuntimeError};
 use mithril_common::{
-    chain_observer::ChainObserver,
     entities::{Epoch, ProtocolParameters},
     era::{EraMarker, SupportedEra},
     test_utils::MithrilFixtureBuilder,

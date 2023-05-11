@@ -22,7 +22,6 @@ async fn create_certificate() {
         ..Configuration::new_sample()
     };
     let mut tester = RuntimeTester::build(configuration).await;
-    let observer = tester.observer.clone();
 
     comment!("create signers & declare stake distribution");
     let fixture = MithrilFixtureBuilder::default()
@@ -47,12 +46,11 @@ async fn create_certificate() {
     cycle_err!(tester, "signing");
 
     comment!("signers send their single signature");
-    let signed_entity_type = observer
-        .get_current_signed_entity_type(SignedEntityTypeDiscriminants::MithrilStakeDistribution)
-        .await
-        .unwrap();
     tester
-        .send_single_signatures(&signed_entity_type, &signers)
+        .send_single_signatures(
+            SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+            &signers,
+        )
         .await
         .unwrap();
 
@@ -70,13 +68,12 @@ async fn create_certificate() {
     // With one state machine per signed entity type this problem will disappear.
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "signing");
-    let signed_entity_type = observer
-        .get_current_signed_entity_type(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull)
-        .await
-        .unwrap();
     let signers_who_sign = &signers[0..=6];
     tester
-        .send_single_signatures(&signed_entity_type, signers_who_sign)
+        .send_single_signatures(
+            SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+            signers_who_sign,
+        )
         .await
         .unwrap();
 
