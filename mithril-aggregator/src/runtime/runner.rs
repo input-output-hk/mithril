@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use mithril_common::entities::Epoch;
 use mithril_common::entities::SignedEntityType;
 use mithril_common::store::StakeStorer;
-use slog_scope::{debug, warn};
+use slog_scope::{debug, info, warn};
 
 use mithril_common::crypto_helper::ProtocolStakeDistribution;
 use mithril_common::entities::{
@@ -55,11 +55,10 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Return the current beacon from the chain
     async fn get_beacon_from_chain(&self) -> Result<Beacon, Box<dyn StdError + Sync + Send>>;
 
-    /// Check if a certificate already have been issued for a given beacon.
-    async fn does_certificate_exist_for_beacon(
+    /// Retrieves the current non certified open message.
+    async fn get_current_non_certified_open_message(
         &self,
-        beacon: &Beacon,
-    ) -> Result<bool, Box<dyn StdError + Sync + Send>>;
+    ) -> Result<Option<OpenMessage>, Box<dyn StdError + Sync + Send>>;
 
     /// Check if a certificate chain is valid.
     async fn is_certificate_chain_valid(&self) -> Result<bool, Box<dyn StdError + Sync + Send>>;
@@ -176,18 +175,58 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(beacon)
     }
 
-    async fn does_certificate_exist_for_beacon(
+    async fn get_current_non_certified_open_message(
         &self,
-        beacon: &Beacon,
-    ) -> Result<bool, Box<dyn StdError + Sync + Send>> {
-        debug!("RUNNER: does_certificate_exist_for_beacon");
-        let certificate_exist = self
-            .dependencies
-            .certificate_store
-            .get_from_beacon(beacon)
-            .await?
-            .is_some();
-        Ok(certificate_exist)
+    ) -> Result<Option<OpenMessage>, Box<dyn StdError + Sync + Send>> {
+        debug!("RUNNER: get_current_non_certified_open_message");
+        let signed_entity_types = vec![
+            SignedEntityType::MithrilStakeDistribution(
+                self.dependencies.ticker_service.get_current_epoch().await?,
+            ),
+            SignedEntityType::CardanoImmutableFilesFull(
+                self.dependencies
+                    .ticker_service
+                    .get_current_immutable_beacon()
+                    .await?,
+            ),
+        ];
+
+        for signed_entity_type in signed_entity_types {
+            let open_message = match self
+                .dependencies
+                .certifier_service
+                .get_open_message(&signed_entity_type)
+                .await?
+            {
+                Some(existing_open_message) => {
+                    info!(
+                        "RUNNER: get_current_non_certified_open_message: existing open message found";
+                        "signed_entity_type" => ?signed_entity_type
+                    );
+                    existing_open_message
+                }
+                None => {
+                    info!(
+                        "RUNNER: get_current_non_certified_open_message: no open message found, a new one will be created";
+                        "signed_entity_type" => ?signed_entity_type
+                    );
+                    let protocol_message =
+                        self.compute_protocol_message(&signed_entity_type).await?;
+                    self.create_open_message(&signed_entity_type, &protocol_message)
+                        .await?
+                }
+            };
+
+            if !open_message.is_certified {
+                return Ok(Some(open_message));
+            }
+            info!(
+                "RUNNER: get_current_non_certified_open_message: open message already certified";
+                "signed_entity_type" => ?signed_entity_type
+            );
+        }
+
+        Ok(None)
     }
 
     async fn is_certificate_chain_valid(&self) -> Result<bool, Box<dyn StdError + Sync + Send>> {
@@ -510,21 +549,62 @@ impl AggregatorRunnerTrait for AggregatorRunner {
 #[cfg(test)]
 pub mod tests {
     use crate::certifier_service::MockCertifierService;
+    use crate::entities::OpenMessage;
     use crate::{
         initialize_dependencies,
         runtime::{AggregatorRunner, AggregatorRunnerTrait},
     };
-    use crate::{MithrilSignerRegisterer, ProtocolParametersStorer, SignerRegistrationRound};
+    use crate::{
+        DependencyManager, MithrilSignerRegisterer, ProtocolParametersStorer,
+        SignerRegistrationRound,
+    };
+    use async_trait::async_trait;
     use mithril_common::chain_observer::FakeObserver;
     use mithril_common::digesters::DumbImmutableFileObserver;
     use mithril_common::entities::{
-        Beacon, CertificatePending, Epoch, SignedEntityType, StakeDistribution,
+        Beacon, CertificatePending, Epoch, ProtocolMessage, SignedEntityType, StakeDistribution,
     };
+    use mithril_common::signable_builder::SignableBuilderService;
     use mithril_common::store::StakeStorer;
     use mithril_common::test_utils::fake_data;
     use mithril_common::test_utils::MithrilFixtureBuilder;
-    use mithril_common::{BeaconProviderImpl, CardanoNetwork};
+    use mithril_common::{BeaconProviderImpl, CardanoNetwork, StdResult};
+    use mockall::{mock, predicate::eq};
     use std::sync::Arc;
+
+    mock! {
+        SignableBuilderServiceImpl { }
+
+        #[async_trait]
+        impl SignableBuilderService for SignableBuilderServiceImpl
+        {
+
+            async fn compute_protocol_message(
+                &self,
+                signed_entity_type: SignedEntityType,
+            ) -> StdResult<ProtocolMessage>;
+        }
+    }
+
+    async fn init_runner_from_dependencies(deps: DependencyManager) -> AggregatorRunner {
+        let fixture = MithrilFixtureBuilder::default().with_signers(5).build();
+        deps.init_state_from_fixture(
+            &fixture,
+            &[deps
+                .chain_observer
+                .get_current_epoch()
+                .await
+                .unwrap()
+                .unwrap()],
+        )
+        .await;
+
+        let runner = AggregatorRunner::new(Arc::new(deps));
+        let beacon = runner.get_beacon_from_chain().await.unwrap();
+        runner.update_beacon(&beacon).await.unwrap();
+
+        runner
+    }
 
     #[tokio::test]
     async fn test_get_beacon_from_chain() {
@@ -545,27 +625,6 @@ pub mod tests {
         // Retrieves the expected beacon
         let res = runner.get_beacon_from_chain().await;
         assert_eq!(expected_beacon, res.unwrap());
-    }
-
-    #[tokio::test]
-    async fn test_does_certificate_exist_for_beacon() {
-        let dependencies = initialize_dependencies().await;
-        let certificate_store = dependencies.certificate_store.clone();
-        let runner = AggregatorRunner::new(Arc::new(dependencies));
-
-        let beacon = fake_data::beacon();
-        let mut certificate = fake_data::genesis_certificate("certificate_hash".to_string());
-        certificate.beacon = beacon.clone();
-
-        assert!(!runner
-            .does_certificate_exist_for_beacon(&beacon)
-            .await
-            .unwrap());
-        certificate_store.save(certificate).await.unwrap();
-        assert!(runner
-            .does_certificate_exist_for_beacon(&beacon)
-            .await
-            .unwrap());
     }
 
     #[tokio::test]
@@ -843,5 +902,205 @@ pub mod tests {
 
         let runner = AggregatorRunner::new(Arc::new(deps));
         runner.certifier_inform_new_epoch(&Epoch(1)).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_get_current_non_certified_open_message_should_create_new_open_message_for_mithril_stake_distribution_if_none_exists(
+    ) {
+        let open_message_expected = OpenMessage {
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(
+                fake_data::beacon().epoch,
+            ),
+            is_certified: false,
+            ..OpenMessage::dummy()
+        };
+        let open_message_clone = open_message_expected.clone();
+
+        let mut mock_certifier_service = MockCertifierService::new();
+        mock_certifier_service
+            .expect_get_open_message()
+            .return_once(|_| Ok(None))
+            .times(1);
+        mock_certifier_service
+            .expect_create_open_message()
+            .return_once(|_, _| Ok(open_message_clone))
+            .times(1);
+
+        let mut deps = initialize_dependencies().await;
+        deps.certifier_service = Arc::new(mock_certifier_service);
+
+        let runner = init_runner_from_dependencies(deps).await;
+
+        let open_message_returned = runner
+            .get_current_non_certified_open_message()
+            .await
+            .unwrap();
+        assert_eq!(Some(open_message_expected), open_message_returned);
+    }
+
+    #[tokio::test]
+    async fn test_get_current_non_certified_open_message_should_return_existing_open_message_for_mithril_stake_distribution_if_already_exists(
+    ) {
+        let open_message_expected = OpenMessage {
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(
+                fake_data::beacon().epoch,
+            ),
+            is_certified: false,
+            ..OpenMessage::dummy()
+        };
+        let open_message_clone = open_message_expected.clone();
+
+        let mut mock_certifier_service = MockCertifierService::new();
+        mock_certifier_service
+            .expect_get_open_message()
+            .return_once(|_| Ok(Some(open_message_clone)))
+            .times(1);
+        mock_certifier_service.expect_create_open_message().never();
+
+        let mut deps = initialize_dependencies().await;
+        deps.certifier_service = Arc::new(mock_certifier_service);
+
+        let runner = init_runner_from_dependencies(deps).await;
+
+        let open_message_returned = runner
+            .get_current_non_certified_open_message()
+            .await
+            .unwrap();
+        assert_eq!(Some(open_message_expected), open_message_returned);
+    }
+
+    #[tokio::test]
+    async fn test_get_current_non_certified_open_message_should_return_existing_open_message_for_cardano_immutables_if_already_exists_and_open_message_mithril_stake_distribution_already_certified(
+    ) {
+        let open_message_already_certified = OpenMessage {
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(
+                fake_data::beacon().epoch,
+            ),
+            is_certified: true,
+            ..OpenMessage::dummy()
+        };
+        let open_message_expected = OpenMessage {
+            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(fake_data::beacon()),
+            is_certified: false,
+            ..OpenMessage::dummy()
+        };
+        let open_message_clone = open_message_expected.clone();
+
+        let mut mock_certifier_service = MockCertifierService::new();
+        mock_certifier_service
+            .expect_get_open_message()
+            .return_once(|_| Ok(Some(open_message_already_certified)))
+            .times(1);
+        mock_certifier_service
+            .expect_get_open_message()
+            .return_once(|_| Ok(Some(open_message_clone)))
+            .times(1);
+        mock_certifier_service.expect_create_open_message().never();
+
+        let mut deps = initialize_dependencies().await;
+        deps.certifier_service = Arc::new(mock_certifier_service);
+
+        let runner = init_runner_from_dependencies(deps).await;
+
+        let open_message_returned = runner
+            .get_current_non_certified_open_message()
+            .await
+            .unwrap();
+        assert_eq!(Some(open_message_expected), open_message_returned);
+    }
+
+    #[tokio::test]
+    async fn test_get_current_non_certified_open_message_should_create_open_message_for_cardano_immutables_if_none_exists_and_open_message_mithril_stake_distribution_already_certified(
+    ) {
+        let open_message_already_certified = OpenMessage {
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(
+                fake_data::beacon().epoch,
+            ),
+            is_certified: true,
+            ..OpenMessage::dummy()
+        };
+        let open_message_expected = OpenMessage {
+            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(fake_data::beacon()),
+            is_certified: false,
+            ..OpenMessage::dummy()
+        };
+        let open_message_clone = open_message_expected.clone();
+
+        let mut mock_certifier_service = MockCertifierService::new();
+        mock_certifier_service
+            .expect_get_open_message()
+            .with(eq(open_message_already_certified
+                .signed_entity_type
+                .clone()))
+            .return_once(|_| Ok(Some(open_message_already_certified)))
+            .times(1);
+        mock_certifier_service
+            .expect_get_open_message()
+            .return_once(|_| Ok(None))
+            .times(1);
+        mock_certifier_service
+            .expect_create_open_message()
+            .return_once(|_, _| Ok(open_message_clone))
+            .times(1);
+
+        let mut mock_signable_builder_service = MockSignableBuilderServiceImpl::new();
+        mock_signable_builder_service
+            .expect_compute_protocol_message()
+            .return_once(|_| Ok(ProtocolMessage::default()));
+
+        let mut deps = initialize_dependencies().await;
+        deps.certifier_service = Arc::new(mock_certifier_service);
+        deps.signable_builder_service = Arc::new(mock_signable_builder_service);
+
+        let runner = init_runner_from_dependencies(deps).await;
+
+        let open_message_returned = runner
+            .get_current_non_certified_open_message()
+            .await
+            .unwrap();
+        assert_eq!(Some(open_message_expected), open_message_returned);
+    }
+
+    #[tokio::test]
+    async fn test_get_current_non_certified_open_message_should_return_none_if_all_open_message_already_certified(
+    ) {
+        let open_message_already_certified_mithril_stake_distribution = OpenMessage {
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(
+                fake_data::beacon().epoch,
+            ),
+            is_certified: true,
+            ..OpenMessage::dummy()
+        };
+        let open_message_already_certified_cardano_immutable_files = OpenMessage {
+            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(fake_data::beacon()),
+            is_certified: true,
+            ..OpenMessage::dummy()
+        };
+
+        let mut mock_certifier_service = MockCertifierService::new();
+        mock_certifier_service
+            .expect_get_open_message()
+            .return_once(|_| {
+                Ok(Some(
+                    open_message_already_certified_mithril_stake_distribution,
+                ))
+            })
+            .times(1);
+        mock_certifier_service
+            .expect_get_open_message()
+            .return_once(|_| Ok(Some(open_message_already_certified_cardano_immutable_files)))
+            .times(1);
+        mock_certifier_service.expect_create_open_message().never();
+
+        let mut deps = initialize_dependencies().await;
+        deps.certifier_service = Arc::new(mock_certifier_service);
+
+        let runner = init_runner_from_dependencies(deps).await;
+
+        let open_message_returned = runner
+            .get_current_non_certified_open_message()
+            .await
+            .unwrap();
+        assert!(open_message_returned.is_none());
     }
 }

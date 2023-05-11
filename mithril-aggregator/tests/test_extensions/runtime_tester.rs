@@ -10,7 +10,7 @@ use slog::Drain;
 use std::sync::Arc;
 use tokio::sync::mpsc::UnboundedReceiver;
 
-use crate::test_extensions::open_message_observer::OpenMessageObserver;
+use crate::test_extensions::AggregatorObserver;
 use mithril_aggregator::{
     AggregatorRuntime, Configuration, DumbSnapshotUploader, DumbSnapshotter,
     ProtocolParametersStorer, SignerRegisterer, SignerRegistrationError,
@@ -53,7 +53,7 @@ pub struct RuntimeTester {
     pub runtime: AggregatorRuntime,
     pub receiver: UnboundedReceiver<EventMessage>,
     pub era_reader_adapter: Arc<EraReaderDummyAdapter>,
-    pub open_message_observer: OpenMessageObserver,
+    pub observer: Arc<AggregatorObserver>,
     _logs_guard: slog_scope::GlobalLoggerGuard,
 }
 
@@ -84,10 +84,7 @@ impl RuntimeTester {
         let drain = slog_async::Async::new(drain).build().fuse();
         let log = slog_scope::set_global_logger(slog::Logger::root(Arc::new(drain), slog::o!()));
         let receiver = deps_builder.get_event_transmitter_receiver().await.unwrap();
-        let open_message_observer = OpenMessageObserver::new(
-            deps_builder.get_beacon_provider().await.unwrap(),
-            deps_builder.get_certifier_service().await.unwrap(),
-        );
+        let observer = Arc::new(AggregatorObserver::new(&mut deps_builder).await);
 
         Self {
             snapshot_uploader,
@@ -100,7 +97,7 @@ impl RuntimeTester {
             runtime,
             receiver,
             era_reader_adapter,
-            open_message_observer,
+            observer,
             _logs_guard: log,
         }
     }

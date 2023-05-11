@@ -5,7 +5,7 @@ use sqlite::{Connection, Value};
 use async_trait::async_trait;
 
 use mithril_common::{
-    entities::{SignedEntityType, Snapshot},
+    entities::{Beacon, SignedEntityType, Snapshot},
     sqlite::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
         WhereCondition,
@@ -66,7 +66,13 @@ impl SqLiteEntity for SignedEntityRecord {
         let signed_entity_id = row.get::<String, _>(0);
         let signed_entity_type_id_int = row.get::<i64, _>(1);
         let certificate_id = row.get::<String, _>(2);
-        let beacon_str = row.get::<String, _>(3);
+        // TODO: We need to check first that the cell can be read as a string first
+        // (e.g. when beacon json is '{"network": "dev", "epoch": 1, "immutable_file_number": 2}').
+        // If it fails, we fallback on readign the cell as an integer (e.g. when beacon json is '5').
+        // Maybe there is a better way of doing this.
+        let beacon_str = row
+            .try_get::<String, _>(3)
+            .unwrap_or_else(|_| (row.get::<i64, _>(3)).to_string());
         let artifact_str = row.get::<String, _>(4);
         let created_at = row.get::<String, _>(5);
 
@@ -297,6 +303,7 @@ impl SignedEntityStorer for SignedEntityStoreAdapter {
     }
 }
 
+// TODO: this StoreAdapter implementation is temporary and concerns only the snapshots for the CardanoImmutableFilesFull signed entity type
 #[async_trait]
 impl StoreAdapter for SignedEntityStoreAdapter {
     type Key = String;
@@ -324,7 +331,13 @@ impl StoreAdapter for SignedEntityStoreAdapter {
             .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
         let signed_entity = cursor
             .next()
-            .map(|signed_entity_record| signed_entity_record.into());
+            .filter(|record| {
+                matches!(
+                    record.signed_entity_type,
+                    SignedEntityType::CardanoImmutableFilesFull(_)
+                )
+            })
+            .map(|record| record.into());
 
         Ok(signed_entity)
     }
@@ -353,7 +366,9 @@ impl StoreAdapter for SignedEntityStoreAdapter {
         let connection = &*self.connection.lock().await;
         let provider = SignedEntityRecordProvider::new(connection);
         let cursor = provider
-            .get_all()
+            .get_by_signed_entity_type(SignedEntityType::CardanoImmutableFilesFull(
+                Beacon::default(),
+            ))
             .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
         let signed_entities: Vec<Snapshot> = cursor.map(|se| se.into()).collect();
         Ok(Box::new(signed_entities.into_iter()))

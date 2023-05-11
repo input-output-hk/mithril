@@ -368,13 +368,13 @@ impl StateMachine {
             })?;
         let single_signatures = self
             .runner
-            .compute_single_signature(current_beacon.epoch, &message, &signers)
+            .compute_single_signature( current_beacon.epoch, &message, &signers)
             .await
             .map_err(|e| RuntimeError::KeepState {
                 message: format!("Could not compute single signature during 'registered → signed' phase (current beacon {current_beacon:?})"),
                 nested_error: Some(e)
             })?;
-        self.runner.send_single_signature(single_signatures).await
+        self.runner.send_single_signature(&pending_certificate.signed_entity_type, single_signatures).await
             .map_err(|e| RuntimeError::KeepState {
                 message: format!("Could not send single signature during 'registered → signed' phase (current beacon {current_beacon:?})"),
                 nested_error: Some(e)
@@ -646,7 +646,7 @@ mod tests {
         runner
             .expect_send_single_signature()
             .once()
-            .returning(|_| Ok(()));
+            .returning(|_, _| Ok(()));
 
         let mut state_machine = init_state_machine(state, runner);
         state_machine

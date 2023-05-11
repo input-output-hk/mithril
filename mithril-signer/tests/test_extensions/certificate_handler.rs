@@ -2,7 +2,10 @@ use std::{collections::HashMap, sync::Arc};
 
 use async_trait::async_trait;
 use mithril_common::{
-    entities::{Beacon, CertificatePending, Epoch, EpochSettings, Signer, SingleSignatures},
+    entities::{
+        Beacon, CertificatePending, Epoch, EpochSettings, SignedEntityType, Signer,
+        SingleSignatures,
+    },
     test_utils::fake_data,
     BeaconProvider, BeaconProviderImpl,
 };
@@ -106,6 +109,7 @@ impl CertificateHandler for FakeAggregator {
     /// Registers single signatures with the aggregator
     async fn register_signatures(
         &self,
+        _signed_entity_type: &SignedEntityType,
         _signatures: &SingleSignatures,
     ) -> Result<(), CertificateHandlerError> {
         Ok(())

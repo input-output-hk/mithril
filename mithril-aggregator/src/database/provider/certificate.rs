@@ -66,6 +66,34 @@ pub struct CertificateRecord {
     pub sealed_at: String,
 }
 
+impl CertificateRecord {
+    #[cfg(test)]
+    pub fn dummy_genesis(id: &str, beacon: Beacon) -> Self {
+        let mut record = Self::dummy(id, "", beacon);
+        record.parent_certificate_id = None;
+        record
+    }
+
+    #[cfg(test)]
+    pub fn dummy(id: &str, parent_id: &str, beacon: Beacon) -> Self {
+        Self {
+            certificate_id: id.to_string(),
+            parent_certificate_id: Some(parent_id.to_string()),
+            message: "message".to_string(),
+            signature: "signature".to_string(),
+            aggregate_verification_key: "avk".to_string(),
+            epoch: beacon.epoch,
+            beacon,
+            protocol_version: "protocol_version".to_string(),
+            protocol_parameters: Default::default(),
+            protocol_message: Default::default(),
+            signers: vec![],
+            initiated_at: "???".to_string(),
+            sealed_at: "???".to_string(),
+        }
+    }
+}
+
 impl From<Certificate> for CertificateRecord {
     fn from(other: Certificate) -> Self {
         if !other.genesis_signature.is_empty() {
@@ -401,17 +429,11 @@ impl<'conn> MasterCertificateProvider<'conn> {
     }
 
     pub fn get_master_certificate_condition(&self, epoch: Epoch) -> WhereCondition {
-        let condition =
-            WhereCondition::new("certificate.parent_certificate_id is null", Vec::new()).or_where(
-                WhereCondition::new("parent_certificate.epoch != certificate.epoch", Vec::new()),
-            );
-
         let epoch_i64: i64 = epoch.0.try_into().unwrap();
         WhereCondition::new(
             "certificate.epoch between ?* and ?*",
             vec![Value::Integer(epoch_i64 - 1), Value::Integer(epoch_i64)],
         )
-        .and_where(condition)
     }
 }
 
@@ -425,18 +447,15 @@ impl<'conn> Provider<'conn> for MasterCertificateProvider<'conn> {
     fn get_definition(&self, condition: &str) -> String {
         // it is important to alias the fields with the same name as the table
         // since the table cannot be aliased in a RETURNING statement in SQLite.
-        let projection = Self::Entity::get_projection().expand(SourceAlias::new(&[
-            ("{:certificate:}", "certificate"),
-            ("{:parent_certificate:}", "parent_certificate"),
-        ]));
+        let projection = Self::Entity::get_projection()
+            .expand(SourceAlias::new(&[("{:certificate:}", "certificate")]));
 
         format!(
             r#"
 select {projection}
 from certificate
-  left join certificate as parent_certificate
-    on certificate.parent_certificate_id = parent_certificate.certificate_id
-where {condition}"#
+where {condition}
+group by certificate.epoch order by certificate.epoch desc, certificate.ROWID asc"#
         )
     }
 }
@@ -872,7 +891,10 @@ mod tests {
         let condition = provider.get_master_certificate_condition(Epoch(10));
         let (condition_str, parameters) = condition.expand();
 
-        assert_eq!("certificate.epoch between ?1 and ?2 and (certificate.parent_certificate_id is null or parent_certificate.epoch != certificate.epoch)".to_string(), condition_str);
+        assert_eq!(
+            "certificate.epoch between ?1 and ?2".to_string(),
+            condition_str
+        );
         assert_eq!(vec![Value::Integer(9), Value::Integer(10)], parameters);
     }
 
@@ -902,6 +924,168 @@ mod tests {
             .expect("The certificate exist and should be returned.");
 
         assert_eq!(expected_hash, certificate.hash);
+    }
+
+    async fn insert_certificate_records(
+        connection: Arc<Mutex<Connection>>,
+        records: Vec<CertificateRecord>,
+    ) {
+        let lock = connection.lock().await;
+        let provider = InsertCertificateRecordProvider::new(&lock);
+
+        for certificate in records {
+            provider.persist(certificate).unwrap();
+        }
+    }
+
+    #[tokio::test]
+    async fn get_master_certificate_no_certificate_recorded_returns_none() {
+        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let connection = deps.get_sqlite_connection().await.unwrap();
+        let certificates = vec![];
+        insert_certificate_records(connection.clone(), certificates).await;
+
+        let repository = CertificateRepository::new(connection);
+        let certificate = repository
+            .get_master_certificate_for_epoch(Epoch(1))
+            .await
+            .unwrap();
+
+        assert_eq!(None, certificate);
+    }
+
+    #[tokio::test]
+    async fn get_master_certificate_one_cert_in_current_epoch_recorded_returns_that_one() {
+        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let connection = deps.get_sqlite_connection().await.unwrap();
+        let certificate = CertificateRecord::dummy_genesis("1", Beacon::new(String::new(), 1, 1));
+        let expected_certificate: Certificate = certificate.clone().into();
+        insert_certificate_records(connection.clone(), vec![certificate]).await;
+
+        let repository = CertificateRepository::new(connection);
+        let certificate = repository
+            .get_master_certificate_for_epoch(Epoch(1))
+            .await
+            .unwrap()
+            .expect("This should return a certificate.");
+
+        assert_eq!(expected_certificate, certificate);
+    }
+
+    #[tokio::test]
+    async fn get_master_certificate_multiple_cert_in_current_epoch_returns_first_of_current_epoch()
+    {
+        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let connection = deps.get_sqlite_connection().await.unwrap();
+        let certificates = vec![
+            CertificateRecord::dummy_genesis("1", Beacon::new(String::new(), 1, 1)),
+            CertificateRecord::dummy("2", "1", Beacon::new(String::new(), 1, 2)),
+            CertificateRecord::dummy("3", "1", Beacon::new(String::new(), 1, 3)),
+        ];
+        let expected_certificate: Certificate = certificates.first().unwrap().clone().into();
+        insert_certificate_records(connection.clone(), certificates).await;
+
+        let repository = CertificateRepository::new(connection);
+        let certificate = repository
+            .get_master_certificate_for_epoch(Epoch(1))
+            .await
+            .unwrap()
+            .expect("This should return a certificate.");
+
+        assert_eq!(expected_certificate, certificate);
+    }
+
+    #[tokio::test]
+    async fn get_master_certificate_multiple_cert_in_previous_epoch_none_in_the_current_returns_first_of_previous_epoch(
+    ) {
+        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let connection = deps.get_sqlite_connection().await.unwrap();
+        let certificates = vec![
+            CertificateRecord::dummy_genesis("1", Beacon::new(String::new(), 1, 1)),
+            CertificateRecord::dummy("2", "1", Beacon::new(String::new(), 1, 2)),
+            CertificateRecord::dummy("3", "1", Beacon::new(String::new(), 1, 3)),
+        ];
+        let expected_certificate: Certificate = certificates.first().unwrap().clone().into();
+        insert_certificate_records(connection.clone(), certificates).await;
+
+        let repository = CertificateRepository::new(connection);
+        let certificate = repository
+            .get_master_certificate_for_epoch(Epoch(2))
+            .await
+            .unwrap()
+            .expect("This should return a certificate.");
+
+        assert_eq!(expected_certificate, certificate);
+    }
+
+    #[tokio::test]
+    async fn get_master_certificate_multiple_cert_in_previous_one_cert_in_current_epoch_returns_one_in_current_epoch(
+    ) {
+        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let connection = deps.get_sqlite_connection().await.unwrap();
+        let certificates = vec![
+            CertificateRecord::dummy_genesis("1", Beacon::new(String::new(), 1, 1)),
+            CertificateRecord::dummy("2", "1", Beacon::new(String::new(), 1, 2)),
+            CertificateRecord::dummy("3", "1", Beacon::new(String::new(), 1, 3)),
+            CertificateRecord::dummy("4", "1", Beacon::new(String::new(), 2, 4)),
+        ];
+        let expected_certificate: Certificate = certificates.last().unwrap().clone().into();
+        insert_certificate_records(connection.clone(), certificates).await;
+
+        let repository = CertificateRepository::new(connection);
+        let certificate = repository
+            .get_master_certificate_for_epoch(Epoch(2))
+            .await
+            .unwrap()
+            .expect("This should return a certificate.");
+
+        assert_eq!(expected_certificate, certificate);
+    }
+
+    #[tokio::test]
+    async fn get_master_certificate_multiple_cert_in_previous_multiple_in_current_epoch_returns_first_of_current_epoch(
+    ) {
+        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let connection = deps.get_sqlite_connection().await.unwrap();
+        let certificates = vec![
+            CertificateRecord::dummy_genesis("1", Beacon::new(String::new(), 1, 1)),
+            CertificateRecord::dummy("2", "1", Beacon::new(String::new(), 1, 2)),
+            CertificateRecord::dummy("3", "1", Beacon::new(String::new(), 1, 3)),
+            CertificateRecord::dummy("4", "1", Beacon::new(String::new(), 2, 4)),
+            CertificateRecord::dummy("5", "4", Beacon::new(String::new(), 2, 5)),
+            CertificateRecord::dummy("6", "4", Beacon::new(String::new(), 2, 6)),
+        ];
+        let expected_certificate: Certificate = certificates.get(3).unwrap().clone().into();
+        insert_certificate_records(connection.clone(), certificates).await;
+
+        let repository = CertificateRepository::new(connection);
+        let certificate = repository
+            .get_master_certificate_for_epoch(Epoch(2))
+            .await
+            .unwrap()
+            .expect("This should return a certificate.");
+        assert_eq!(expected_certificate, certificate);
+    }
+
+    #[tokio::test]
+    async fn get_master_certificate_multiple_cert_in_penultimate_epoch_none_in_previous_returns_none(
+    ) {
+        let mut deps = DependenciesBuilder::new(Configuration::new_sample());
+        let connection = deps.get_sqlite_connection().await.unwrap();
+        let certificates = vec![
+            CertificateRecord::dummy_genesis("1", Beacon::new(String::new(), 1, 1)),
+            CertificateRecord::dummy("2", "1", Beacon::new(String::new(), 1, 2)),
+            CertificateRecord::dummy("3", "1", Beacon::new(String::new(), 1, 3)),
+        ];
+        insert_certificate_records(connection.clone(), certificates).await;
+
+        let repository = CertificateRepository::new(connection);
+        let certificate = repository
+            .get_master_certificate_for_epoch(Epoch(3))
+            .await
+            .unwrap();
+
+        assert_eq!(None, certificate);
     }
 
     #[tokio::test]

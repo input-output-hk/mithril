@@ -7,13 +7,13 @@ use mithril_common::{
     entities::{ProtocolMessagePartKey, ProtocolParameters},
     test_utils::MithrilFixtureBuilder,
 };
-use test_extensions::{utilities::get_test_dir, RuntimeTester};
+use test_extensions::{utilities::get_test_dir, RuntimeTester, SignedEntityTypeDiscriminants};
 
 #[tokio::test]
 async fn create_certificate() {
     let protocol_parameters = ProtocolParameters {
         k: 5,
-        m: 100,
+        m: 150,
         phi_f: 0.95,
     };
     let configuration = Configuration {
@@ -22,6 +22,7 @@ async fn create_certificate() {
         ..Configuration::new_sample()
     };
     let mut tester = RuntimeTester::build(configuration).await;
+    let observer = tester.observer.clone();
 
     comment!("create signers & declare stake distribution");
     let fixture = MithrilFixtureBuilder::default()
@@ -67,9 +68,32 @@ async fn create_certificate() {
     cycle!(tester, "signing");
 
     comment!("signers send their single signature");
-    let signed_entity_type = tester
-        .open_message_observer
-        .get_current_immutable_entity_type()
+    let signed_entity_type = observer
+        .get_current_signed_entity_type(SignedEntityTypeDiscriminants::MithrilStakeDistribution)
+        .await
+        .unwrap();
+    tester
+        .send_single_signatures(&signed_entity_type, &signers)
+        .await
+        .unwrap();
+
+    comment!("The state machine should issue a certificate for the MithrilStakeDistribution");
+    cycle!(tester, "idle");
+    let (last_certificates, snapshots) =
+        tester.get_last_certificates_and_snapshots().await.unwrap();
+    // todo!: Inspect the produced MithrilStakeDistribution
+    assert_eq!((2, 0), (last_certificates.len(), snapshots.len()));
+
+    comment!("The state machine should get back to signing to sign CardanoImmutableFilesFull");
+    // todo!: remove this immutable increase:
+    // right now because we only have one state machine for all signed entity type we need it else
+    // the state machine will stay in the idle state since its beacon didn't change.
+    // With one state machine per signed entity type this problem will disappear.
+    tester.increase_immutable_number().await.unwrap();
+    cycle!(tester, "ready");
+    cycle!(tester, "signing");
+    let signed_entity_type = observer
+        .get_current_signed_entity_type(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull)
         .await
         .unwrap();
     let signers_who_sign = &signers[0..=6];
@@ -78,12 +102,11 @@ async fn create_certificate() {
         .await
         .unwrap();
 
-    comment!("The state machine should issue a multisignature");
+    comment!("The state machine should issue a certificate for the CardanoImmutableFilesFull");
     cycle!(tester, "idle");
     let (last_certificates, snapshots) =
         tester.get_last_certificates_and_snapshots().await.unwrap();
-
-    assert_eq!((2, 1), (last_certificates.len(), snapshots.len()));
+    assert_eq!((3, 1), (last_certificates.len(), snapshots.len()));
     assert_eq!(
         (
             &last_certificates[0].hash,
