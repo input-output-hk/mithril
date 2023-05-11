@@ -27,31 +27,12 @@ async fn certificate_chain() {
         .with_protocol_parameters(protocol_parameters.clone())
         .build();
     let signers = fixture.signers_fixture();
+    tester.init_state_from_fixture(&fixture).await.unwrap();
     let mut signers_with_stake = fixture.signers_with_stake();
-    tester
-        .chain_observer
-        .set_signers(signers_with_stake.clone())
-        .await;
-    tester
-        .deps_builder
-        .build_dependency_container()
-        .await
-        .unwrap()
-        .prepare_for_genesis(
-            signers_with_stake.clone(),
-            signers_with_stake.clone(),
-            &protocol_parameters,
-        )
-        .await;
-    let mut current_epoch = tester
-        .chain_observer
-        .get_current_epoch()
-        .await
-        .unwrap()
-        .unwrap();
+    let mut current_epoch = observer.current_epoch().await;
 
     comment!("Boostrap the genesis certificate, {:?}", current_epoch);
-    tester.register_genesis_certificate(&signers).await.unwrap();
+    tester.register_genesis_certificate(&fixture).await.unwrap();
 
     comment!("Increase immutable number");
     tester.increase_immutable_number().await.unwrap();

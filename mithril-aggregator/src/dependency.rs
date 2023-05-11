@@ -138,8 +138,10 @@ pub enum SimulateFromChainParams {
 
 #[doc(hidden)]
 impl DependencyManager {
+    /// `TEST METHOD ONLY`
+    ///
     /// Get the first two epochs that will be used by a newly started aggregator
-    async fn get_genesis_epochs(&self) -> (Epoch, Epoch) {
+    pub async fn get_genesis_epochs(&self) -> (Epoch, Epoch) {
         let current_epoch = self
             .chain_observer
             .get_current_epoch()
