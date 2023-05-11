@@ -185,14 +185,14 @@ impl AggregatorRuntime {
                     .runner
                     .get_current_non_certified_open_message()
                     .await?
-                 {
+                {
                     // transition READY > SIGNING
                     info!("→ transitioning to SIGNING");
                     let new_state = self
                         .transition_from_ready_to_signing(state.current_beacon, open_message)
                         .await?;
                     self.state = AggregatorState::Signing(new_state);
-                }else{
+                } else {
                     // READY > READY
                     info!(
                         " ⋅ a certificate already exists for this beacon, waiting…";

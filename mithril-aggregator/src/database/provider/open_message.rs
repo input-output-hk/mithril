@@ -182,8 +182,12 @@ impl<'client> OpenMessageProvider<'client> {
         signed_entity_type: &SignedEntityType,
     ) -> WhereCondition {
         WhereCondition::new(
-            "signed_entity_type_id = ?*",
-            vec![Value::Integer(signed_entity_type.index() as i64)],
+            "signed_entity_type_id = ?* and beacon = ?*",
+            vec![
+                Value::Integer(signed_entity_type.index() as i64),
+                // TODO!: Remove this ugly unwrap, should this method returns a result ?
+                Value::String(signed_entity_type.get_json_beacon().unwrap()),
+            ],
         )
     }
 
@@ -200,6 +204,10 @@ impl<'client> OpenMessageProvider<'client> {
 impl<'client> Provider<'client> for OpenMessageProvider<'client> {
     type Entity = OpenMessageRecord;
 
+    fn get_connection(&'client self) -> &'client Connection {
+        self.connection
+    }
+
     fn get_definition(&self, condition: &str) -> String {
         let aliases = SourceAlias::new(&[
             ("{:open_message:}", "open_message"),
@@ -208,10 +216,6 @@ impl<'client> Provider<'client> for OpenMessageProvider<'client> {
         let projection = Self::Entity::get_projection().expand(aliases);
 
         format!("select {projection} from open_message where {condition} order by created_at desc")
-    }
-
-    fn get_connection(&'client self) -> &'client Connection {
-        self.connection
     }
 }
 
@@ -422,14 +426,22 @@ impl<'client> OpenMessageWithSingleSignaturesProvider<'client> {
         signed_entity_type: &SignedEntityType,
     ) -> WhereCondition {
         WhereCondition::new(
-            "signed_entity_type_id = ?*",
-            vec![Value::Integer(signed_entity_type.index() as i64)],
+            "signed_entity_type_id = ?* and beacon = ?*",
+            vec![
+                Value::Integer(signed_entity_type.index() as i64),
+                // TODO!: Remove this ugly unwrap, should this method returns a result ?
+                Value::String(signed_entity_type.get_json_beacon().unwrap()),
+            ],
         )
     }
 }
 
 impl<'client> Provider<'client> for OpenMessageWithSingleSignaturesProvider<'client> {
     type Entity = OpenMessageWithSingleSignaturesRecord;
+
+    fn get_connection(&'client self) -> &'client Connection {
+        self.connection
+    }
 
     fn get_definition(&self, condition: &str) -> String {
         let aliases = SourceAlias::new(&[
@@ -449,10 +461,6 @@ group by open_message.open_message_id
 order by open_message.created_at desc, open_message.rowid desc
 "#
         )
-    }
-
-    fn get_connection(&'client self) -> &'client Connection {
-        self.connection
     }
 }
 
@@ -480,6 +488,19 @@ impl OpenMessageRepository {
         let filters = provider
             .get_epoch_condition(signed_entity_type.get_epoch())
             .and_where(provider.get_signed_entity_type_condition(signed_entity_type));
+        let mut messages = provider.find(filters)?;
+
+        Ok(messages.next())
+    }
+
+    /// Return an open message with its associated single signatures if any.
+    pub async fn get_open_message_with_single_signatures(
+        &self,
+        signed_entity_type: &SignedEntityType,
+    ) -> StdResult<Option<OpenMessageWithSingleSignaturesRecord>> {
+        let lock = self.connection.lock().await;
+        let provider = OpenMessageWithSingleSignaturesProvider::new(&lock);
+        let filters = provider.get_signed_entity_type_condition(signed_entity_type);
         let mut messages = provider.find(filters)?;
 
         Ok(messages.next())
@@ -526,19 +547,6 @@ impl OpenMessageRepository {
         let cursor = provider.find(filters)?;
 
         Ok(cursor.count())
-    }
-
-    /// Return an open message with its associated single signatures if any.
-    pub async fn get_open_message_with_single_signatures(
-        &self,
-        signed_entity_type: &SignedEntityType,
-    ) -> StdResult<Option<OpenMessageWithSingleSignaturesRecord>> {
-        let lock = self.connection.lock().await;
-        let provider = OpenMessageWithSingleSignaturesProvider::new(&lock);
-        let filters = provider.get_signed_entity_type_condition(signed_entity_type);
-        let mut messages = provider.find(filters)?;
-
-        Ok(messages.next())
     }
 }
 
@@ -599,11 +607,22 @@ mod tests {
             immutable_file_number: 400,
         };
         let (expr, params) = provider
-            .get_signed_entity_type_condition(&SignedEntityType::CardanoImmutableFilesFull(beacon))
+            .get_signed_entity_type_condition(&SignedEntityType::CardanoImmutableFilesFull(
+                beacon.clone(),
+            ))
             .expand();
 
-        assert_eq!("signed_entity_type_id = ?1".to_string(), expr);
-        assert_eq!(vec![Value::Integer(2)], params,);
+        assert_eq!(
+            "signed_entity_type_id = ?1 and beacon = ?2".to_string(),
+            expr
+        );
+        assert_eq!(
+            vec![
+                Value::Integer(2),
+                Value::String(serde_json::to_string(&beacon).unwrap())
+            ],
+            params,
+        );
     }
 
     #[test]

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use chrono::Utc;
-
+use slog_scope::info;
 use std::sync::Arc;
 
 use mithril_common::{
@@ -84,6 +84,12 @@ impl ArtifactBuilderService for MithrilArtifactBuilderService {
         signed_entity_type: SignedEntityType,
         certificate: &Certificate,
     ) -> StdResult<()> {
+        info!(
+            "MithrilArtifactBuilderService::create_artifact";
+            "signed_entity_type" => ?signed_entity_type,
+            "certificate_hash" => &certificate.hash
+        );
+
         let artifact = self
             .compute_artifact(signed_entity_type.clone(), certificate)
             .await?;
@@ -117,7 +123,8 @@ mod tests {
     async fn build_mithril_stake_distribution_artifact_when_given_mithril_stake_distribution_entity_type(
     ) {
         let signers_with_stake = fake_data::signers_with_stakes(5);
-        let mithril_stake_distribution_expected = MithrilStakeDistribution::new(signers_with_stake);
+        let mithril_stake_distribution_expected =
+            MithrilStakeDistribution::new(Epoch(1), signers_with_stake);
         let mithril_stake_distribution_clone = mithril_stake_distribution_expected.clone();
 
         let mock_signed_entity_storer = MockSignedEntityStorer::new();

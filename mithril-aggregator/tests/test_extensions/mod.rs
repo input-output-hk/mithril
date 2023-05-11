@@ -6,7 +6,7 @@
 pub mod runtime_tester;
 #[macro_use]
 pub mod utilities;
-pub mod open_message_observer;
+pub mod aggregator_observer;
 
-//pub use dependency::initialize_dependencies;
+pub use aggregator_observer::{AggregatorObserver, SignedEntityTypeDiscriminants};
 pub use runtime_tester::RuntimeTester;

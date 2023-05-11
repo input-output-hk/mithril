@@ -4,7 +4,7 @@ use mithril_aggregator::{Configuration, VerificationKeyStorer};
 use mithril_common::{
     chain_observer::ChainObserver, entities::ProtocolParameters, test_utils::MithrilFixtureBuilder,
 };
-use test_extensions::{utilities::get_test_dir, RuntimeTester};
+use test_extensions::{utilities::get_test_dir, RuntimeTester, SignedEntityTypeDiscriminants};
 
 #[tokio::test]
 async fn certificate_chain() {
@@ -19,6 +19,7 @@ async fn certificate_chain() {
         ..Configuration::new_sample()
     };
     let mut tester = RuntimeTester::build(configuration).await;
+    let observer = tester.observer.clone();
 
     comment!("Create signers & declare stake distribution");
     let fixture = MithrilFixtureBuilder::default()
@@ -60,9 +61,8 @@ async fn certificate_chain() {
     cycle!(tester, "signing");
     tester.register_signers(&signers).await.unwrap();
     cycle_err!(tester, "signing");
-    let signed_entity_type = tester
-        .open_message_observer
-        .get_current_immutable_entity_type()
+    let signed_entity_type = observer
+        .get_current_signed_entity_type(SignedEntityTypeDiscriminants::MithrilStakeDistribution)
         .await
         .unwrap();
     tester
@@ -70,23 +70,41 @@ async fn certificate_chain() {
         .await
         .unwrap();
 
-    comment!("The state machine should have issued a multisignature");
+    comment!("The state machine should issue a certificate for the MithrilStakeDistribution");
     cycle!(tester, "idle");
     let (last_certificates, snapshots) =
         tester.get_last_certificates_and_snapshots().await.unwrap();
-    assert_eq!((2, 1), (last_certificates.len(), snapshots.len()));
+    assert_eq!((2, 0), (last_certificates.len(), snapshots.len()));
     cycle!(tester, "idle");
 
+    comment!("The state machine should get back to signing to sign CardanoImmutableFilesFull");
+    // todo!: remove this immutable increase (see create_certificate test for details).
+    tester.increase_immutable_number().await.unwrap();
+    cycle!(tester, "ready");
+    cycle!(tester, "signing");
+    let signed_entity_type = observer
+        .get_current_signed_entity_type(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull)
+        .await
+        .unwrap();
+    tester
+        .send_single_signatures(&signed_entity_type, &signers)
+        .await
+        .unwrap();
+    comment!("The state machine should issue a certificate for the CardanoImmutableFilesFull");
+    cycle!(tester, "idle");
+    let (last_certificates, snapshots) =
+        tester.get_last_certificates_and_snapshots().await.unwrap();
+    assert_eq!((3, 1), (last_certificates.len(), snapshots.len()));
+
     comment!(
-        "Increase immutable number to do a second certificate for this epoch, {:?}",
+        "Increase immutable number to do a second CardanoImmutableFilesFull certificate for this epoch, {:?}",
         current_epoch
     );
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "ready");
     cycle!(tester, "signing");
-    let signed_entity_type = tester
-        .open_message_observer
-        .get_current_immutable_entity_type()
+    let signed_entity_type = observer
+        .get_current_signed_entity_type(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull)
         .await
         .unwrap();
     tester
@@ -96,7 +114,7 @@ async fn certificate_chain() {
     cycle!(tester, "idle");
     let (last_certificates, snapshots) =
         tester.get_last_certificates_and_snapshots().await.unwrap();
-    assert_eq!((3, 2), (last_certificates.len(), snapshots.len()));
+    assert_eq!((4, 2), (last_certificates.len(), snapshots.len()));
     assert_eq!(
         (
             last_certificates[0].beacon.immutable_file_number,
@@ -109,7 +127,7 @@ async fn certificate_chain() {
         "Only the immutable_file_number should have changed"
     );
     assert_eq!(
-        &last_certificates[0].previous_hash, &last_certificates[2].hash,
+        &last_certificates[0].previous_hash, &last_certificates[3].hash,
         "A new certificate on the same epoch should be linked to the first certificate of the current epoch"
     );
 
@@ -151,9 +169,8 @@ async fn certificate_chain() {
         "Signers register & send signatures, the new certificate should be link to the first of the previous epoch"
     );
     tester.register_signers(&new_signers).await.unwrap();
-    let signed_entity_type = tester
-        .open_message_observer
-        .get_current_immutable_entity_type()
+    let signed_entity_type = observer
+        .get_current_signed_entity_type(SignedEntityTypeDiscriminants::MithrilStakeDistribution)
         .await
         .unwrap();
     tester
@@ -163,7 +180,7 @@ async fn certificate_chain() {
     cycle!(tester, "idle");
     let (last_certificates, snapshots) =
         tester.get_last_certificates_and_snapshots().await.unwrap();
-    assert_eq!((4, 3), (last_certificates.len(), snapshots.len()));
+    assert_eq!((5, 2), (last_certificates.len(), snapshots.len()));
     assert_eq!(
         (
             last_certificates[0].beacon.immutable_file_number,
@@ -176,7 +193,7 @@ async fn certificate_chain() {
         "Only the epoch should have changed"
     );
     assert_eq!(
-        &last_certificates[0].previous_hash, &last_certificates[3].hash,
+        &last_certificates[0].previous_hash, &last_certificates[4].hash,
         "The new epoch certificate should be linked to the first certificate of the previous epoch"
     );
     assert_eq!(
@@ -196,9 +213,8 @@ async fn certificate_chain() {
     tester.register_signers(&signers).await.unwrap();
     cycle!(tester, "signing");
 
-    let signed_entity_type = tester
-        .open_message_observer
-        .get_current_immutable_entity_type()
+    let signed_entity_type = observer
+        .get_current_signed_entity_type(SignedEntityTypeDiscriminants::MithrilStakeDistribution)
         .await
         .unwrap();
     tester
@@ -212,14 +228,13 @@ async fn certificate_chain() {
         current_epoch - 1,
         current_epoch + 1
     );
-    tester.increase_epoch().await.unwrap();
+    current_epoch = tester.increase_epoch().await.unwrap();
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "ready");
     tester.register_signers(&signers).await.unwrap();
     cycle!(tester, "signing");
-    let signed_entity_type = tester
-        .open_message_observer
-        .get_current_immutable_entity_type()
+    let signed_entity_type = observer
+        .get_current_signed_entity_type(SignedEntityTypeDiscriminants::MithrilStakeDistribution)
         .await
         .unwrap();
 
@@ -231,7 +246,7 @@ async fn certificate_chain() {
 
     let (last_certificates, snapshots) =
         tester.get_last_certificates_and_snapshots().await.unwrap();
-    assert_eq!((6, 5), (last_certificates.len(), snapshots.len()));
+    assert_eq!((7, 2), (last_certificates.len(), snapshots.len()));
     assert_eq!(
         (
             last_certificates[0].beacon.immutable_file_number,
@@ -252,5 +267,35 @@ async fn certificate_chain() {
         last_certificates[0].metadata.get_stake_distribution(),
         last_certificates[2].metadata.get_stake_distribution(),
         "The stake distribution update should have been applied for this epoch",
+    );
+
+    comment!(
+        "Increase immutable number to do a CardanoImmutableFilesFull certificate for this epoch, {:?}",
+        current_epoch
+    );
+    tester.increase_immutable_number().await.unwrap();
+    cycle!(tester, "ready");
+    cycle!(tester, "signing");
+
+    let signed_entity_type = observer
+        .get_current_signed_entity_type(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull)
+        .await
+        .unwrap();
+    tester
+        .send_single_signatures(&signed_entity_type, &new_signers)
+        .await
+        .unwrap();
+    cycle!(tester, "idle");
+
+    comment!(
+        "A CardanoImmutableFilesFull, linked to the MithrilStakeDistribution of the current epoch, should have been created, {:?}",
+        current_epoch
+    );
+    let (last_certificates, snapshots) =
+        tester.get_last_certificates_and_snapshots().await.unwrap();
+    assert_eq!((8, 3), (last_certificates.len(), snapshots.len()));
+    assert_eq!(
+        &last_certificates[0].previous_hash, &last_certificates[1].hash,
+        "The CardanoImmutableFilesFull certificate should be linked to the MithrilStakeDistribution certificate of the current epoch"
     );
 }
