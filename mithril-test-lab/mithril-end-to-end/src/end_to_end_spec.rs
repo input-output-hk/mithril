@@ -32,8 +32,8 @@ impl Spec {
             .await?
             .unwrap_or_default();
 
-        // Wait 2 epochs after start epoch for the aggregator to be able to bootstrap a genesis certificate
-        let mut target_epoch = start_epoch + 2;
+        // Wait 3 epochs after start epoch for the aggregator to be able to bootstrap a genesis certificate
+        let mut target_epoch = start_epoch + 3;
         wait_for_target_epoch(
             self.infrastructure.chain_observer(),
             target_epoch,
@@ -93,6 +93,7 @@ impl Spec {
         let certificate_hash =
             assert_signer_is_signing_snapshot(&aggregator_endpoint, &digest, target_epoch - 2)
                 .await?;
+
         assert_is_creating_certificate_with_enough_signers(
             &aggregator_endpoint,
             &certificate_hash,
