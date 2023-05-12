@@ -1,3 +1,4 @@
+mod artifact_routes;
 mod certificate_routes;
 mod epoch_routes;
 mod middlewares;

@@ -51,6 +51,23 @@ impl Artifact for MithrilStakeDistribution {
     }
 }
 
+/// Mithril Stake Distribution Summary
+// TODO: This type should probably be listed in the common entities?
+#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
+pub struct MithrilStakeDistributionSummary {
+    epoch: Epoch,
+    hash: String,
+}
+
+impl From<MithrilStakeDistribution> for MithrilStakeDistributionSummary {
+    fn from(other: MithrilStakeDistribution) -> Self {
+        Self {
+            epoch: other.epoch,
+            hash: other.hash,
+        }
+    }
+}
+
 /// A [MithrilStakeDistributionArtifact] builder
 pub struct MithrilStakeDistributionArtifactBuilder {
     multi_signer: Arc<RwLock<dyn MultiSigner>>,

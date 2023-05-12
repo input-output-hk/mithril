@@ -1,5 +1,6 @@
 use crate::http_server::routes::{
-    certificate_routes, epoch_routes, signatures_routes, signer_routes, snapshot_routes,
+    artifact_routes, certificate_routes, epoch_routes, signatures_routes, signer_routes,
+    snapshot_routes,
 };
 use crate::http_server::SERVER_BASE_PATH;
 use crate::DependencyManager;
@@ -41,6 +42,7 @@ pub fn routes(
         .and(
             certificate_routes::routes(dependency_manager.clone())
                 .or(snapshot_routes::routes(dependency_manager.clone()))
+                .or(artifact_routes::routes(dependency_manager.clone()))
                 .or(signer_routes::routes(dependency_manager.clone()))
                 .or(signatures_routes::routes(dependency_manager.clone()))
                 .or(epoch_routes::routes(dependency_manager.clone()))

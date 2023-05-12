@@ -264,6 +264,13 @@ pub trait SignedEntityStorer: Sync + Send {
         &self,
         signed_entity_id: String,
     ) -> StdResult<Option<SignedEntityRecord>>;
+
+    /// Get last signed entities by signed entity type
+    async fn get_last_signed_entities_by_type(
+        &self,
+        signed_entity_type: &SignedEntityType,
+        total: usize,
+    ) -> StdResult<Vec<SignedEntityRecord>>;
 }
 
 /// Service to deal with signed_entity (read & write).
@@ -300,6 +307,21 @@ impl SignedEntityStorer for SignedEntityStoreAdapter {
         let signed_entity = cursor.next();
 
         Ok(signed_entity)
+    }
+
+    async fn get_last_signed_entities_by_type(
+        &self,
+        signed_entity_type: &SignedEntityType,
+        total: usize,
+    ) -> StdResult<Vec<SignedEntityRecord>> {
+        let connection = &*self.connection.lock().await;
+        let provider = SignedEntityRecordProvider::new(connection);
+        let cursor = provider
+            .get_by_signed_entity_type(signed_entity_type.to_owned())
+            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
+        let signed_entities: Vec<SignedEntityRecord> = cursor.take(total).collect();
+
+        Ok(signed_entities)
     }
 }
 
