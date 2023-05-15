@@ -1,72 +1,13 @@
 use async_trait::async_trait;
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use super::ArtifactBuilder;
 use crate::MultiSigner;
 use mithril_common::{
-    entities::{Certificate, Epoch, SignerWithStake},
-    signable_builder::Artifact,
+    entities::{Certificate, Epoch, MithrilStakeDistribution},
     StdResult,
 };
-
-/// Mithril Stake Distribution
-#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
-pub struct MithrilStakeDistribution {
-    epoch: Epoch,
-    signers_with_stake: Vec<SignerWithStake>,
-    hash: String,
-}
-
-impl MithrilStakeDistribution {
-    /// MithrilStakeDistribution artifact factory
-    pub fn new(epoch: Epoch, signers_with_stake: Vec<SignerWithStake>) -> Self {
-        let mut signers_with_stake_sorted = signers_with_stake;
-        signers_with_stake_sorted.sort();
-        let mut mithril_stake_distribution = Self {
-            epoch,
-            signers_with_stake: signers_with_stake_sorted,
-            hash: "".to_string(),
-        };
-        mithril_stake_distribution.hash = mithril_stake_distribution.compute_hash();
-        mithril_stake_distribution
-    }
-
-    fn compute_hash(&self) -> String {
-        let mut hasher = Sha256::new();
-        hasher.update(self.epoch.0.to_be_bytes());
-        for signer_with_stake in &self.signers_with_stake {
-            hasher.update(signer_with_stake.compute_hash().as_bytes());
-        }
-        hex::encode(hasher.finalize())
-    }
-}
-
-#[typetag::serde]
-impl Artifact for MithrilStakeDistribution {
-    fn get_id(&self) -> String {
-        self.hash.clone()
-    }
-}
-
-/// Mithril Stake Distribution Summary
-// TODO: This type should probably be listed in the common entities?
-#[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
-pub struct MithrilStakeDistributionSummary {
-    epoch: Epoch,
-    hash: String,
-}
-
-impl From<MithrilStakeDistribution> for MithrilStakeDistributionSummary {
-    fn from(other: MithrilStakeDistribution) -> Self {
-        Self {
-            epoch: other.epoch,
-            hash: other.hash,
-        }
-    }
-}
 
 /// A [MithrilStakeDistributionArtifact] builder
 pub struct MithrilStakeDistributionArtifactBuilder {

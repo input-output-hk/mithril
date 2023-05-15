@@ -4,7 +4,7 @@ use slog_scope::info;
 use std::sync::Arc;
 
 use mithril_common::{
-    entities::{Beacon, Certificate, Epoch, SignedEntityType, Snapshot},
+    entities::{Beacon, Certificate, Epoch, MithrilStakeDistribution, SignedEntityType, Snapshot},
     signable_builder::Artifact,
     StdResult,
 };
@@ -13,8 +13,6 @@ use crate::{
     artifact_builder::ArtifactBuilder,
     database::provider::{SignedEntityRecord, SignedEntityStorer},
 };
-
-use super::MithrilStakeDistribution;
 
 #[cfg(test)]
 use mockall::automock;
