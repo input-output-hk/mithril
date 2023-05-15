@@ -16,6 +16,7 @@ use sqlite::Connection;
 use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{Mutex, RwLock};
 
+use crate::event_store::EventMessage;
 use crate::{
     artifact_builder::ArtifactBuilderService,
     certifier_service::CertifierService,
@@ -27,7 +28,6 @@ use crate::{
     SignerRegisterer, SignerRegistrationRoundOpener, Snapshotter, VerificationKeyStore,
     VerificationKeyStorer,
 };
-use crate::{event_store::EventMessage, snapshot_stores::SnapshotStore};
 use crate::{event_store::TransmitterService, multi_signer::MultiSigner};
 use crate::{
     snapshot_uploaders::SnapshotUploader, stake_distribution_service::StakeDistributionService,
@@ -49,9 +49,6 @@ pub struct DependencyManager {
     /// Stake Store used by the StakeDistributionService
     /// It shall be a private dependency.
     pub stake_store: Arc<StakePoolStore>,
-
-    /// Snapshot store.
-    pub snapshot_store: Arc<dyn SnapshotStore>,
 
     /// Snapshot uploader service.
     pub snapshot_uploader: Arc<dyn SnapshotUploader>,

@@ -743,11 +743,13 @@ mod tests {
     fn get_certificate_record_by_certificate_id() {
         let connection = Connection::open(":memory:").unwrap();
         let provider = CertificateRecordProvider::new(&connection);
-        let condition = provider.condition_by_certificate_id("cert-123").unwrap();
+        let condition = provider
+            .condition_by_certificate_id("certificate-123")
+            .unwrap();
         let (filter, values) = condition.expand();
 
         assert_eq!("certificate_id = ?1".to_string(), filter);
-        assert_eq!(vec![Value::String("cert-123".to_string())], values);
+        assert_eq!(vec![Value::String("certificate-123".to_string())], values);
     }
 
     #[test]

@@ -4,7 +4,7 @@ use slog_scope::info;
 use std::sync::Arc;
 
 use mithril_common::{
-    entities::{Beacon, Certificate, Epoch, SignedEntityType, Snapshot},
+    entities::{Beacon, Certificate, Epoch, MithrilStakeDistribution, SignedEntityType, Snapshot},
     signable_builder::Artifact,
     StdResult,
 };
@@ -13,8 +13,6 @@ use crate::{
     artifact_builder::ArtifactBuilder,
     database::provider::{SignedEntityRecord, SignedEntityStorer},
 };
-
-use super::MithrilStakeDistribution;
 
 #[cfg(test)]
 use mockall::automock;
@@ -123,8 +121,11 @@ mod tests {
     async fn build_mithril_stake_distribution_artifact_when_given_mithril_stake_distribution_entity_type(
     ) {
         let signers_with_stake = fake_data::signers_with_stakes(5);
-        let mithril_stake_distribution_expected =
-            MithrilStakeDistribution::new(Epoch(1), signers_with_stake);
+        let mithril_stake_distribution_expected = MithrilStakeDistribution::new(
+            Epoch(1),
+            signers_with_stake,
+            "certificate-123".to_string(),
+        );
         let mithril_stake_distribution_clone = mithril_stake_distribution_expected.clone();
 
         let mock_signed_entity_storer = MockSignedEntityStorer::new();

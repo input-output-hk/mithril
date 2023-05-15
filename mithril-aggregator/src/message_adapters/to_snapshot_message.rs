@@ -1,12 +1,12 @@
 use mithril_common::entities::Snapshot;
-use mithril_common::messages::SnapshotMessage;
+use mithril_common::messages::{MessageAdapter, SnapshotMessage};
 
 /// Adapter to convert [Snapshot] to [SnapshotMessage] instances
 pub struct ToSnapshotMessageAdapter;
 
-impl ToSnapshotMessageAdapter {
+impl MessageAdapter<Snapshot, SnapshotMessage> for ToSnapshotMessageAdapter {
     /// Method to trigger the conversion
-    pub fn adapt(snapshot: Snapshot) -> SnapshotMessage {
+    fn adapt(snapshot: Snapshot) -> SnapshotMessage {
         SnapshotMessage {
             digest: snapshot.digest,
             beacon: snapshot.beacon,
