@@ -1,35 +1,66 @@
-use crate::http_server::routes::middlewares;
+use super::shared;
+use crate::message_adapters::ToSnapshotMessageAdapter;
 use crate::DependencyManager;
+use crate::{http_server::routes::middlewares, message_adapters::ToSnapshotListMessageAdapter};
+use mithril_common::entities::{Beacon, SignedEntityType, Snapshot};
+use mithril_common::messages::{SnapshotListMessage, SnapshotMessage};
 use std::sync::Arc;
 use warp::Filter;
 
 pub fn routes(
     dependency_manager: Arc<DependencyManager>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    snapshots(dependency_manager.clone())
+    artifact_cardano_full_immutable_snapshots(dependency_manager.clone())
+        .or(artifact_cardano_full_immutable_snapshot_by_id(
+            dependency_manager.clone(),
+        ))
         .or(serve_snapshots_dir(dependency_manager.clone()))
-        .or(snapshot_download(dependency_manager.clone()))
-        .or(snapshot_digest(dependency_manager))
+        .or(snapshot_download(dependency_manager))
 }
 
-/// GET /snapshots
-fn snapshots(
+/// GET /artifact/snapshots
+fn artifact_cardano_full_immutable_snapshots(
     dependency_manager: Arc<DependencyManager>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    warp::path!("snapshots")
+    warp::path!("artifact" / "snapshots")
         .and(warp::get())
-        .and(middlewares::with_snapshot_store(dependency_manager))
-        .and_then(handlers::snapshots)
+        .and(middlewares::with_signed_entity_storer(dependency_manager))
+        .and(middlewares::with_signed_entity_type(
+            SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
+        ))
+        .and_then(
+            shared::handlers::artifacts_by_signed_entity_type::<
+                Snapshot,
+                ToSnapshotListMessageAdapter,
+                SnapshotListMessage,
+            >,
+        )
+}
+
+/// GET /artifact/snapshot/:id
+fn artifact_cardano_full_immutable_snapshot_by_id(
+    dependency_manager: Arc<DependencyManager>,
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+    warp::path!("artifact" / "snapshot" / String)
+        .and(warp::get())
+        .and(middlewares::with_signed_entity_storer(dependency_manager))
+        .and_then(
+            shared::handlers::artifact_by_signed_entity_id::<
+                Snapshot,
+                ToSnapshotMessageAdapter,
+                SnapshotMessage,
+            >,
+        )
 }
 
 /// GET /snapshots/{digest}/download
 fn snapshot_download(
     dependency_manager: Arc<DependencyManager>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    warp::path!("snapshot" / String / "download")
+    warp::path!("artifact" / "snapshot" / String / "download")
         .and(warp::get())
         .and(middlewares::with_config(dependency_manager.clone()))
-        .and(middlewares::with_snapshot_store(dependency_manager))
+        .and(middlewares::with_signed_entity_storer(dependency_manager))
         .and_then(handlers::snapshot_download)
 }
 
@@ -40,53 +71,26 @@ fn serve_snapshots_dir(
 
     warp::path("snapshot_download")
         .and(warp::fs::dir(config.snapshot_directory))
-        .and(middlewares::with_snapshot_store(dependency_manager))
+        .and(middlewares::with_signed_entity_storer(dependency_manager))
         .and_then(handlers::ensure_downloaded_file_is_a_snapshot)
 }
 
-/// GET /snapshot/digest
-fn snapshot_digest(
-    dependency_manager: Arc<DependencyManager>,
-) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    warp::path!("snapshot" / String)
-        .and(warp::get())
-        .and(middlewares::with_snapshot_store(dependency_manager))
-        .and_then(handlers::snapshot_digest)
-}
-
 mod handlers {
+    use crate::database::provider::SignedEntityStorer;
     use crate::http_server::routes::reply;
     use crate::http_server::SERVER_BASE_PATH;
-    use crate::message_adapters::{ToSnapshotListMessageAdapter, ToSnapshotMessageAdapter};
-    use crate::{Configuration, SnapshotStore};
+    use crate::Configuration;
+    use mithril_common::entities::Snapshot;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use std::str::FromStr;
     use std::sync::Arc;
     use warp::http::{StatusCode, Uri};
 
-    /// Snapshots
-    pub async fn snapshots(
-        snapshot_store: Arc<dyn SnapshotStore>,
-    ) -> Result<impl warp::Reply, Infallible> {
-        debug!("⇄ HTTP SERVER: snapshots");
-
-        match snapshot_store.list_snapshots().await {
-            Ok(snapshots) => Ok(reply::json(
-                &ToSnapshotListMessageAdapter::adapt(snapshots),
-                StatusCode::OK,
-            )),
-            Err(err) => {
-                warn!("snapshots::error"; "error" => ?err);
-                Ok(reply::internal_server_error(err.to_string()))
-            }
-        }
-    }
-
     /// Download a file if and only if it's a snapshot archive
     pub async fn ensure_downloaded_file_is_a_snapshot(
         reply: warp::fs::File,
-        snapshot_store: Arc<dyn SnapshotStore>,
+        signed_entity_storer: Arc<dyn SignedEntityStorer>,
     ) -> Result<impl warp::Reply, Infallible> {
         let filepath = reply.path().to_path_buf();
         debug!(
@@ -95,7 +99,7 @@ mod handlers {
         );
 
         match crate::tools::extract_digest_from_path(&filepath) {
-            Ok(digest) => match snapshot_store.get_snapshot_details(digest).await {
+            Ok(digest) => match signed_entity_storer.get_signed_entity(digest.clone()).await {
                 Ok(Some(_)) => Ok(Box::new(warp::reply::with_header(
                     reply,
                     "Content-Disposition",
@@ -117,28 +121,36 @@ mod handlers {
     pub async fn snapshot_download(
         digest: String,
         config: Configuration,
-        snapshot_store: Arc<dyn SnapshotStore>,
+        signed_entity_storer: Arc<dyn SignedEntityStorer>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: snapshot_download/{}", digest);
 
-        match snapshot_store.get_snapshot_details(digest).await {
-            Ok(Some(snapshot)) => {
-                let filename = format!(
-                    "{}-e{}-i{}.{}.tar.gz",
-                    snapshot.beacon.network,
-                    snapshot.beacon.epoch,
-                    snapshot.beacon.immutable_file_number,
-                    snapshot.digest
-                );
-                let snapshot_uri = format!(
-                    "{}{}/snapshot_download/{}",
-                    config.get_server_url(),
-                    SERVER_BASE_PATH,
-                    filename
-                );
-                let snapshot_uri = Uri::from_str(&snapshot_uri).unwrap();
+        match signed_entity_storer.get_signed_entity(digest.clone()).await {
+            Ok(Some(signed_entity)) => {
+                match serde_json::from_str::<Snapshot>(&signed_entity.artifact) {
+                    Ok(snapshot) => {
+                        let filename = format!(
+                            "{}-e{}-i{}.{}.tar.gz",
+                            snapshot.beacon.network,
+                            snapshot.beacon.epoch,
+                            snapshot.beacon.immutable_file_number,
+                            snapshot.digest
+                        );
+                        let snapshot_uri = format!(
+                            "{}{}/snapshot_download/{}",
+                            config.get_server_url(),
+                            SERVER_BASE_PATH,
+                            filename
+                        );
+                        let snapshot_uri = Uri::from_str(&snapshot_uri).unwrap();
 
-                Ok(Box::new(warp::redirect::found(snapshot_uri)) as Box<dyn warp::Reply>)
+                        Ok(Box::new(warp::redirect::found(snapshot_uri)) as Box<dyn warp::Reply>)
+                    }
+                    Err(err) => {
+                        warn!("snapshot_download::error"; "error" => ?err);
+                        Ok(reply::internal_server_error(err.to_string()))
+                    }
+                }
             }
             Ok(None) => {
                 warn!("snapshot_download::not_found");
@@ -150,30 +162,12 @@ mod handlers {
             }
         }
     }
-
-    /// Snapshot by digest
-    pub async fn snapshot_digest(
-        digest: String,
-        snapshot_store: Arc<dyn SnapshotStore>,
-    ) -> Result<impl warp::Reply, Infallible> {
-        debug!("⇄ HTTP SERVER: snapshot_digest/{}", digest);
-
-        match snapshot_store.get_snapshot_details(digest).await {
-            Ok(snapshot) => match snapshot {
-                Some(snapshot) => Ok(reply::json(
-                    &ToSnapshotMessageAdapter::adapt(snapshot),
-                    StatusCode::OK,
-                )),
-                None => Ok(reply::empty(StatusCode::NOT_FOUND)),
-            },
-            Err(err) => Ok(reply::internal_server_error(err.to_string())),
-        }
-    }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::http_server::SERVER_BASE_PATH;
+    use mithril_common::sqlite::HydrationError;
     use mithril_common::test_utils::apispec::APISpec;
     use mithril_common::test_utils::fake_data;
     use serde_json::Value::Null;
@@ -183,7 +177,7 @@ mod tests {
     use warp::test::request;
 
     use super::*;
-    use crate::snapshot_stores::{MockSnapshotStore, SnapshotStoreError};
+    use crate::database::provider::MockSignedEntityStorer;
 
     fn setup_router(
         dependency_manager: Arc<DependencyManager>,
@@ -200,17 +194,20 @@ mod tests {
 
     #[tokio::test]
     async fn test_snapshots_get_ok() {
-        let fake_snapshots = fake_data::snapshots(5);
-        let mut mock_snapshot_store = MockSnapshotStore::new();
-        mock_snapshot_store
-            .expect_list_snapshots()
-            .return_const(Ok(fake_snapshots))
+        let signed_entity_records = shared::tests::create_signed_entity_records(
+            SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
+            fake_data::snapshots(5),
+        );
+        let mut mock_signed_entity_storer = MockSignedEntityStorer::new();
+        mock_signed_entity_storer
+            .expect_get_last_signed_entities_by_type()
+            .return_once(|_, _| Ok(signed_entity_records))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.snapshot_store = Arc::new(mock_snapshot_store);
+        dependency_manager.signed_entity_storer = Arc::new(mock_signed_entity_storer);
 
         let method = Method::GET.as_str();
-        let path = "/snapshots";
+        let path = "/artifact/snapshots";
 
         let response = request()
             .method(method)
@@ -230,108 +227,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_snapshots_get_ko() {
-        let mut mock_snapshot_store = MockSnapshotStore::new();
-        mock_snapshot_store
-            .expect_list_snapshots()
-            .return_const(Err(SnapshotStoreError::Manifest(
-                "an error occurred".to_string(),
-            )))
+        let mut mock_signed_entity_storer = MockSignedEntityStorer::new();
+        mock_signed_entity_storer
+            .expect_get_last_signed_entities_by_type()
+            .return_once(|_, _| Err(HydrationError::InvalidData("invalid data".to_string()).into()))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.snapshot_store = Arc::new(mock_snapshot_store);
+        dependency_manager.signed_entity_storer = Arc::new(mock_signed_entity_storer);
 
         let method = Method::GET.as_str();
-        let path = "/snapshots";
-
-        let response = request()
-            .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{path}"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
-            .await;
-
-        APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
-            method,
-            path,
-            "application/json",
-            &Null,
-            &response,
-        );
-    }
-
-    #[tokio::test]
-    async fn test_snapshot_download_get_ok() {
-        let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
-        let mut mock_snapshot_store = MockSnapshotStore::new();
-        mock_snapshot_store
-            .expect_get_snapshot_details()
-            .return_const(Ok(Some(fake_snapshot)))
-            .once();
-        let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.snapshot_store = Arc::new(mock_snapshot_store);
-
-        let method = Method::GET.as_str();
-        let path = "/snapshot/{digest}/download";
-
-        let response = request()
-            .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{path}"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
-            .await;
-
-        APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
-            method,
-            path,
-            "application/gzip",
-            &Null,
-            &response,
-        );
-    }
-
-    #[tokio::test]
-    async fn test_snapshot_download_get_ok_nosnapshot() {
-        let mut mock_snapshot_store = MockSnapshotStore::new();
-        mock_snapshot_store
-            .expect_get_snapshot_details()
-            .return_const(Ok(None))
-            .once();
-        let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.snapshot_store = Arc::new(mock_snapshot_store);
-
-        let method = Method::GET.as_str();
-        let path = "/snapshot/{digest}/download";
-
-        let response = request()
-            .method(method)
-            .path(&format!("/{SERVER_BASE_PATH}{path}"))
-            .reply(&setup_router(Arc::new(dependency_manager)))
-            .await;
-
-        APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
-            method,
-            path,
-            "application/gzip",
-            &Null,
-            &response,
-        );
-    }
-
-    #[tokio::test]
-    async fn test_snapshot_download_get_ko() {
-        let mut mock_snapshot_store = MockSnapshotStore::new();
-        mock_snapshot_store
-            .expect_get_snapshot_details()
-            .return_const(Err(SnapshotStoreError::Manifest(
-                "an error occurred".to_string(),
-            )))
-            .once();
-        let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.snapshot_store = Arc::new(mock_snapshot_store);
-
-        let method = Method::GET.as_str();
-        let path = "/snapshot/{digest}/download";
+        let path = "/artifact/snapshots";
 
         let response = request()
             .method(method)
@@ -351,17 +256,23 @@ mod tests {
 
     #[tokio::test]
     async fn test_snapshot_digest_get_ok() {
-        let fake_snapshot = fake_data::snapshots(1).first().unwrap().to_owned();
-        let mut mock_snapshot_store = MockSnapshotStore::new();
-        mock_snapshot_store
-            .expect_get_snapshot_details()
-            .return_const(Ok(Some(fake_snapshot)))
+        let signed_entity_record = shared::tests::create_signed_entity_records(
+            SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
+            fake_data::snapshots(1),
+        )
+        .first()
+        .unwrap()
+        .to_owned();
+        let mut mock_signed_entity_storer = MockSignedEntityStorer::new();
+        mock_signed_entity_storer
+            .expect_get_signed_entity()
+            .return_once(|_| Ok(Some(signed_entity_record)))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.snapshot_store = Arc::new(mock_snapshot_store);
+        dependency_manager.signed_entity_storer = Arc::new(mock_signed_entity_storer);
 
         let method = Method::GET.as_str();
-        let path = "/snapshot/{digest}";
+        let path = "/artifact/snapshot/{digest}";
 
         let response = request()
             .method(method)
@@ -381,16 +292,16 @@ mod tests {
 
     #[tokio::test]
     async fn test_snapshot_digest_get_ok_nosnapshot() {
-        let mut mock_snapshot_store = MockSnapshotStore::new();
-        mock_snapshot_store
-            .expect_get_snapshot_details()
-            .return_const(Ok(None))
+        let mut mock_signed_entity_storer = MockSignedEntityStorer::new();
+        mock_signed_entity_storer
+            .expect_get_signed_entity()
+            .return_once(|_| Ok(None))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.snapshot_store = Arc::new(mock_snapshot_store);
+        dependency_manager.signed_entity_storer = Arc::new(mock_signed_entity_storer);
 
         let method = Method::GET.as_str();
-        let path = "/snapshot/{digest}";
+        let path = "/artifact/snapshot/{digest}";
 
         let response = request()
             .method(method)
@@ -410,18 +321,110 @@ mod tests {
 
     #[tokio::test]
     async fn test_snapshot_digest_get_ko() {
-        let mut mock_snapshot_store = MockSnapshotStore::new();
-        mock_snapshot_store
-            .expect_get_snapshot_details()
-            .return_const(Err(SnapshotStoreError::Manifest(
-                "an error occurred".to_string(),
-            )))
+        let mut mock_signed_entity_storer = MockSignedEntityStorer::new();
+        mock_signed_entity_storer
+            .expect_get_signed_entity()
+            .return_once(|_| Err(HydrationError::InvalidData("invalid data".to_string()).into()))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.snapshot_store = Arc::new(mock_snapshot_store);
+        dependency_manager.signed_entity_storer = Arc::new(mock_signed_entity_storer);
 
         let method = Method::GET.as_str();
-        let path = "/snapshot/{digest}";
+        let path = "/artifact/snapshot/{digest}";
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .reply(&setup_router(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/json",
+            &Null,
+            &response,
+        );
+    }
+
+    #[tokio::test]
+    async fn test_snapshot_download_get_ok() {
+        let signed_entity_record = shared::tests::create_signed_entity_records(
+            SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
+            fake_data::snapshots(1),
+        )
+        .first()
+        .unwrap()
+        .to_owned();
+        let mut mock_signed_entity_storer = MockSignedEntityStorer::new();
+        mock_signed_entity_storer
+            .expect_get_signed_entity()
+            .return_once(|_| Ok(Some(signed_entity_record)))
+            .once();
+        let mut dependency_manager = initialize_dependencies().await;
+        dependency_manager.signed_entity_storer = Arc::new(mock_signed_entity_storer);
+
+        let method = Method::GET.as_str();
+        let path = "/artifact/snapshot/{digest}/download";
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .reply(&setup_router(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/gzip",
+            &Null,
+            &response,
+        );
+    }
+
+    #[tokio::test]
+    async fn test_snapshot_download_get_ok_nosnapshot() {
+        let mut mock_signed_entity_storer = MockSignedEntityStorer::new();
+        mock_signed_entity_storer
+            .expect_get_signed_entity()
+            .return_once(|_| Ok(None))
+            .once();
+        let mut dependency_manager = initialize_dependencies().await;
+        dependency_manager.signed_entity_storer = Arc::new(mock_signed_entity_storer);
+
+        let method = Method::GET.as_str();
+        let path = "/artifact/snapshot/{digest}/download";
+
+        let response = request()
+            .method(method)
+            .path(&format!("/{SERVER_BASE_PATH}{path}"))
+            .reply(&setup_router(Arc::new(dependency_manager)))
+            .await;
+
+        APISpec::verify_conformity(
+            APISpec::get_all_spec_files(),
+            method,
+            path,
+            "application/gzip",
+            &Null,
+            &response,
+        );
+    }
+
+    #[tokio::test]
+    async fn test_snapshot_download_get_ko() {
+        let mut mock_signed_entity_storer = MockSignedEntityStorer::new();
+        mock_signed_entity_storer
+            .expect_get_signed_entity()
+            .return_once(|_| Err(HydrationError::InvalidData("invalid data".to_string()).into()))
+            .once();
+        let mut dependency_manager = initialize_dependencies().await;
+        dependency_manager.signed_entity_storer = Arc::new(mock_signed_entity_storer);
+
+        let method = Method::GET.as_str();
+        let path = "/artifact/snapshot/{digest}/download";
 
         let response = request()
             .method(method)
