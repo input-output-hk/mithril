@@ -5,6 +5,8 @@ authors:
 tags: [stake-distribution, certificate]
 ---
 
+**Update**: The Stake Distribution computation is evolving with the release of Cardano node `8.0.0`: the computation now relies on the new `cardano-cli query stake-snapshot --all-stake-pools` command that retrieves the Stake Distribution all at once and that is way faster. Prior versions of the Cardano node `1.35+` are backward compatible and will keep implementing the algorithm detailed below.
+
 ### The way the Mithril nodes retrieve the Stake Distribution is changing
 
 **PR**: `Fix Stake Distribution retrieval` [#499](https://github.com/input-output-hk/mithril/pull/499)
