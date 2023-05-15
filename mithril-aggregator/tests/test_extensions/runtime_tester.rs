@@ -18,7 +18,7 @@ use mithril_aggregator::{
 use mithril_common::crypto_helper::{ProtocolClerk, ProtocolGenesisSigner};
 use mithril_common::digesters::DumbImmutableFileObserver;
 use mithril_common::entities::{
-    Certificate, Epoch, ImmutableFileNumber, SignedEntityType, SignerWithStake, Snapshot,
+    Beacon, Certificate, Epoch, ImmutableFileNumber, SignedEntityType, SignerWithStake, Snapshot,
     StakeDistribution,
 };
 use mithril_common::{chain_observer::FakeObserver, digesters::DumbImmutableDigester};
@@ -318,14 +318,21 @@ impl RuntimeTester {
             .get_list(1000) // Arbitrary high number to get all of them in store
             .await
             .map_err(|e| format!("Querying certificate store should not fail {e:?}"))?;
-        let snapshots = self
+        let signed_entity_records = self
             .deps_builder
-            .get_snapshot_store()
+            .get_signed_entity_storer()
             .await
             .unwrap()
-            .list_snapshots()
+            .get_last_signed_entities_by_type(
+                &SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
+                20,
+            )
             .await
             .map_err(|e| format!("Querying snapshot store should not fail {e:?}"))?;
+        let snapshots = signed_entity_records
+            .into_iter()
+            .map(|record| serde_json::from_str(&record.artifact).unwrap())
+            .collect::<Vec<Snapshot>>();
 
         Ok((certificates, snapshots))
     }

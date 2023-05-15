@@ -13,9 +13,6 @@ use mithril_common::CardanoNetwork;
 use crate::tools::GcpFileUploader;
 use crate::{LocalSnapshotUploader, RemoteSnapshotUploader, SnapshotUploader};
 
-// TODO: 'LIST_SNAPSHOTS_MAX_ITEMS' keep as const or in config, or add a parameter to `list_snapshots`?
-pub const LIST_SNAPSHOTS_MAX_ITEMS: usize = 20;
-
 /// Different kinds of execution environments
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub enum ExecutionEnvironment {

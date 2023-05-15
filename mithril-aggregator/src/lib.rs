@@ -25,7 +25,6 @@ mod message_adapters;
 mod multi_signer;
 mod runtime;
 mod signer_registerer;
-mod snapshot_stores;
 mod snapshot_uploaders;
 mod snapshotter;
 pub mod stake_distribution_service;
@@ -38,7 +37,6 @@ pub use crate::configuration::{
     Configuration, DefaultConfiguration, ExecutionEnvironment, SnapshotUploaderType,
 };
 pub use crate::multi_signer::{MultiSigner, MultiSignerImpl, ProtocolError};
-pub use crate::snapshot_stores::{LocalSnapshotStore, SnapshotStore};
 pub use command_args::MainOpts;
 pub use dependency::DependencyManager;
 pub use message_adapters::{

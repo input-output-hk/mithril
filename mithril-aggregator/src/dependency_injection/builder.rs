@@ -41,7 +41,7 @@ use crate::{
         MithrilArtifactBuilderService, MithrilStakeDistributionArtifactBuilder,
     },
     certifier_service::{CertifierService, MithrilCertifierService},
-    configuration::{ExecutionEnvironment, LIST_SNAPSHOTS_MAX_ITEMS},
+    configuration::ExecutionEnvironment,
     database::provider::{
         CertificateRepository, CertificateStoreAdapter, EpochSettingStore, OpenMessageRepository,
         SignedEntityStoreAdapter, SignedEntityStorer, SignerRegistrationStoreAdapter, SignerStore,
@@ -55,10 +55,9 @@ use crate::{
     tools::{GcpFileUploader, GenesisToolsDependency},
     AggregatorConfig, AggregatorRunner, AggregatorRuntime, CertificatePendingStore,
     CertificateStore, Configuration, DependencyManager, DumbSnapshotUploader, DumbSnapshotter,
-    GzipSnapshotter, LocalSnapshotStore, LocalSnapshotUploader, MithrilSignerRegisterer,
-    MultiSigner, MultiSignerImpl, ProtocolParametersStore, ProtocolParametersStorer,
-    RemoteSnapshotUploader, SnapshotStore, SnapshotUploader, SnapshotUploaderType, Snapshotter,
-    VerificationKeyStore,
+    GzipSnapshotter, LocalSnapshotUploader, MithrilSignerRegisterer, MultiSigner, MultiSignerImpl,
+    ProtocolParametersStore, ProtocolParametersStorer, RemoteSnapshotUploader, SnapshotUploader,
+    SnapshotUploaderType, Snapshotter, VerificationKeyStore,
 };
 
 use super::{DependenciesBuilderError, Result};
@@ -86,9 +85,6 @@ pub struct DependenciesBuilder {
     /// Stake Store used by the StakeDistributionService
     /// It shall be a private dependency.
     pub stake_store: Option<Arc<StakePoolStore>>,
-
-    /// Snapshot store.
-    pub snapshot_store: Option<Arc<dyn SnapshotStore>>,
 
     /// Snapshot uploader service.
     pub snapshot_uploader: Option<Arc<dyn SnapshotUploader>>,
@@ -191,7 +187,6 @@ impl DependenciesBuilder {
             configuration,
             sqlite_connection: None,
             stake_store: None,
-            snapshot_store: None,
             snapshot_uploader: None,
             multi_signer: None,
             certificate_pending_store: None,
@@ -289,24 +284,6 @@ impl DependenciesBuilder {
         }
 
         Ok(self.stake_store.as_ref().cloned().unwrap())
-    }
-
-    async fn build_snapshot_store(&mut self) -> Result<Arc<dyn SnapshotStore>> {
-        Ok(Arc::new(LocalSnapshotStore::new(
-            Box::new(SignedEntityStoreAdapter::new(
-                self.get_sqlite_connection().await?,
-            )),
-            LIST_SNAPSHOTS_MAX_ITEMS,
-        )))
-    }
-
-    /// Return a configured [SnapshotStore]
-    pub async fn get_snapshot_store(&mut self) -> Result<Arc<dyn SnapshotStore>> {
-        if self.snapshot_store.is_none() {
-            self.snapshot_store = Some(self.build_snapshot_store().await?);
-        }
-
-        Ok(self.snapshot_store.as_ref().cloned().unwrap())
     }
 
     async fn build_snapshot_uploader(&mut self) -> Result<Arc<dyn SnapshotUploader>> {
@@ -960,7 +937,6 @@ impl DependenciesBuilder {
             config: self.configuration.clone(),
             sqlite_connection: self.get_sqlite_connection().await?,
             stake_store: self.get_stake_store().await?,
-            snapshot_store: self.get_snapshot_store().await?,
             snapshot_uploader: self.get_snapshot_uploader().await?,
             multi_signer: self.get_multi_signer().await?,
             certificate_pending_store: self.get_certificate_pending_store().await?,

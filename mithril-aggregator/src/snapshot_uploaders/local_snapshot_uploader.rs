@@ -77,7 +77,7 @@ mod tests {
         let digest = "41e27b9ed5a32531b95b2b7ff3c0757591a06a337efaf19a524a998e348028e7";
         let archive = create_fake_archive(source_dir.path(), digest);
         let expected_location = format!(
-            "{}{}/snapshot/{}/download",
+            "{}{}/artifact/snapshot/{}/download",
             url,
             http_server::SERVER_BASE_PATH,
             &digest
