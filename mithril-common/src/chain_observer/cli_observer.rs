@@ -5,7 +5,6 @@ use nom::IResult;
 use rand_core::RngCore;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
 use tokio::process::Command;
@@ -14,23 +13,16 @@ use crate::chain_observer::interface::*;
 use crate::chain_observer::{ChainAddress, TxDatum};
 use crate::crypto_helper::{KESPeriod, OpCert, SerDeShelleyFileFormat};
 use crate::entities::{Epoch, StakeDistribution};
-use crate::CardanoNetwork;
+use crate::{CardanoNetwork, StdResult};
 
 #[async_trait]
 pub trait CliRunner {
-    async fn launch_utxo(&self, address: &str) -> Result<String, Box<dyn Error + Sync + Send>>;
-    async fn launch_stake_distribution(&self) -> Result<String, Box<dyn Error + Sync + Send>>;
-    async fn launch_stake_snapshot(
-        &self,
-        stake_pool_id: &str,
-    ) -> Result<String, Box<dyn Error + Sync + Send>>;
-    async fn launch_stake_snapshot_all_pools(&self)
-        -> Result<String, Box<dyn Error + Sync + Send>>;
-    async fn launch_epoch(&self) -> Result<String, Box<dyn Error + Sync + Send>>;
-    async fn launch_kes_period(
-        &self,
-        opcert_file: &str,
-    ) -> Result<String, Box<dyn Error + Sync + Send>>;
+    async fn launch_utxo(&self, address: &str) -> StdResult<String>;
+    async fn launch_stake_distribution(&self) -> StdResult<String>;
+    async fn launch_stake_snapshot(&self, stake_pool_id: &str) -> StdResult<String>;
+    async fn launch_stake_snapshot_all_pools(&self) -> StdResult<String>;
+    async fn launch_epoch(&self) -> StdResult<String>;
+    async fn launch_kes_period(&self, opcert_file: &str) -> StdResult<String>;
 }
 
 /// A runner able to request data from a Cardano node using the
@@ -52,7 +44,7 @@ impl CardanoCliRunner {
         }
     }
 
-    fn random_out_file() -> Result<PathBuf, Box<dyn Error + Sync + Send>> {
+    fn random_out_file() -> StdResult<PathBuf> {
         let mut rng = rand_core::OsRng;
         let dir = std::env::temp_dir().join("cardano-cli-runner");
         if !dir.exists() {
@@ -153,7 +145,7 @@ impl CardanoCliRunner {
 
 #[async_trait]
 impl CliRunner for CardanoCliRunner {
-    async fn launch_utxo(&self, address: &str) -> Result<String, Box<dyn Error + Sync + Send>> {
+    async fn launch_utxo(&self, address: &str) -> StdResult<String> {
         let out_file = Self::random_out_file()?;
         let output = self
             .command_for_utxo(address, out_file.clone())
@@ -174,7 +166,7 @@ impl CliRunner for CardanoCliRunner {
         }
     }
 
-    async fn launch_stake_distribution(&self) -> Result<String, Box<dyn Error + Sync + Send>> {
+    async fn launch_stake_distribution(&self) -> StdResult<String> {
         let output = self.command_for_stake_distribution().output().await?;
 
         if output.status.success() {
@@ -191,10 +183,7 @@ impl CliRunner for CardanoCliRunner {
         }
     }
 
-    async fn launch_stake_snapshot(
-        &self,
-        stake_pool_id: &str,
-    ) -> Result<String, Box<dyn Error + Sync + Send>> {
+    async fn launch_stake_snapshot(&self, stake_pool_id: &str) -> StdResult<String> {
         let output = self
             .command_for_stake_snapshot(stake_pool_id)
             .output()
@@ -214,9 +203,7 @@ impl CliRunner for CardanoCliRunner {
         }
     }
 
-    async fn launch_stake_snapshot_all_pools(
-        &self,
-    ) -> Result<String, Box<dyn Error + Sync + Send>> {
+    async fn launch_stake_snapshot_all_pools(&self) -> StdResult<String> {
         let output = self.command_for_stake_snapshot_all_pools().output().await?;
 
         if output.status.success() {
@@ -233,7 +220,7 @@ impl CliRunner for CardanoCliRunner {
         }
     }
 
-    async fn launch_epoch(&self) -> Result<String, Box<dyn Error + Sync + Send>> {
+    async fn launch_epoch(&self) -> StdResult<String> {
         let output = self.command_for_epoch().output().await?;
 
         if output.status.success() {
@@ -250,10 +237,7 @@ impl CliRunner for CardanoCliRunner {
         }
     }
 
-    async fn launch_kes_period(
-        &self,
-        opcert_file: &str,
-    ) -> Result<String, Box<dyn Error + Sync + Send>> {
+    async fn launch_kes_period(&self, opcert_file: &str) -> StdResult<String> {
         let output = self.command_for_kes_period(opcert_file).output().await?;
 
         if output.status.success() {
@@ -284,12 +268,10 @@ impl CardanoCliChainObserver {
 
     // This is the only way I found to tell the compiler the correct types
     // and lifetimes for the function `double`.
-    #[allow(dead_code)]
     fn parse_string<'a>(&'a self, string: &'a str) -> IResult<&str, f64> {
         nom::number::complete::double(string)
     }
 
-    #[allow(dead_code)]
     async fn get_current_stake_value(
         &self,
         stake_pool_id: &str,
@@ -525,10 +507,7 @@ mod tests {
 
     #[async_trait]
     impl CliRunner for TestCliRunner {
-        async fn launch_utxo(
-            &self,
-            _address: &str,
-        ) -> Result<String, Box<dyn Error + Sync + Send>> {
+        async fn launch_utxo(&self, _address: &str) -> StdResult<String> {
             let output = r#"
 {
     "1fd4d3e131afe3c8b212772a3f3083d2fbc6b2a7b20e54e4ff08e001598818d8#0": {
@@ -564,7 +543,7 @@ mod tests {
             Ok(output.to_string())
         }
 
-        async fn launch_stake_distribution(&self) -> Result<String, Box<dyn Error + Sync + Send>> {
+        async fn launch_stake_distribution(&self) -> StdResult<String> {
             let output = r#"
                            PoolId                                 Stake frac
 ------------------------------------------------------------------------------
@@ -581,10 +560,7 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
             Ok(output.to_string())
         }
 
-        async fn launch_stake_snapshot(
-            &self,
-            stake_pool_id: &str,
-        ) -> Result<String, Box<dyn Error + Sync + Send>> {
+        async fn launch_stake_snapshot(&self, stake_pool_id: &str) -> StdResult<String> {
             let mut output = r#"
 {
     "poolStakeGo": 1000000,
@@ -611,9 +587,7 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
             Ok(output.to_string())
         }
 
-        async fn launch_stake_snapshot_all_pools(
-            &self,
-        ) -> Result<String, Box<dyn Error + Sync + Send>> {
+        async fn launch_stake_snapshot_all_pools(&self) -> StdResult<String> {
             let output = r#"
 {
     "pools": {
@@ -650,7 +624,7 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
             }
         }
 
-        async fn launch_epoch(&self) -> Result<String, Box<dyn Error + Sync + Send>> {
+        async fn launch_epoch(&self) -> StdResult<String> {
             let output = r#"
 {
     "era": "Alonzo",
@@ -664,10 +638,7 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
             Ok(output.to_string())
         }
 
-        async fn launch_kes_period(
-            &self,
-            _opcert_file: &str,
-        ) -> Result<String, Box<dyn Error + Sync + Send>> {
+        async fn launch_kes_period(&self, _opcert_file: &str) -> StdResult<String> {
             let output = r#"
 ✓ The operational certificate counter agrees with the node protocol state counter
 ✓ Operational certificate's kes period is within the correct KES period interval
