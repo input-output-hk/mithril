@@ -157,7 +157,7 @@ mod tests {
     #[tokio::test]
     async fn should_compute_valid_artifact() {
         let beacon = fake_data::beacon();
-        let certificate = fake_data::certificate("cert-123".to_string());
+        let certificate = fake_data::certificate("certificate-123".to_string());
         let snapshot_digest = certificate
             .protocol_message
             .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)

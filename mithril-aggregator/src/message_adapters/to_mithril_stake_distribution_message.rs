@@ -13,6 +13,7 @@ impl MessageAdapter<MithrilStakeDistribution, MithrilStakeDistributionMessage>
             epoch: from.epoch,
             signers_with_stake: from.signers_with_stake,
             hash: from.hash,
+            certificate_hash: from.certificate_hash,
         }
     }
 }
@@ -29,11 +30,13 @@ mod tests {
             epoch: Epoch(1),
             signers_with_stake: fake_data::signers_with_stakes(2),
             hash: "hash-123".to_string(),
+            certificate_hash: "cert-hash-123".to_string(),
         };
         let mithril_stake_distribution_message_expected = MithrilStakeDistributionMessage {
             epoch: Epoch(1),
             signers_with_stake: fake_data::signers_with_stakes(2),
             hash: "hash-123".to_string(),
+            certificate_hash: "cert-hash-123".to_string(),
         };
         let mithril_stake_distribution_message =
             ToMithrilStakeDistributionMessageAdapter::adapt(mithril_stake_distribution);

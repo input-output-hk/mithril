@@ -13,6 +13,9 @@ pub struct MithrilStakeDistributionListItemMessage {
 
     /// Hash of the Mithril Stake Distribution (different from the AVK).
     pub hash: String,
+
+    /// Hash of the associated certificate
+    pub certificate_hash: String,
 }
 
 impl MithrilStakeDistributionListItemMessage {
@@ -21,6 +24,7 @@ impl MithrilStakeDistributionListItemMessage {
         Self {
             epoch: Epoch(1),
             hash: "hash-123".to_string(),
+            certificate_hash: "certificate-hash-123".to_string(),
         }
     }
 }
@@ -33,6 +37,7 @@ mod tests {
         vec![MithrilStakeDistributionListItemMessage {
             epoch: Epoch(1),
             hash: "hash-123".to_string(),
+            certificate_hash: "certificate-hash-123".to_string(),
         }]
     }
 
@@ -41,7 +46,8 @@ mod tests {
     fn test_v1() {
         let json = r#"[{
         "epoch": 1,
-        "hash": "hash-123"
+        "hash": "hash-123",
+        "certificate_hash": "certificate-hash-123"
         }]"#;
         let message: MithrilStakeDistributionListMessage = serde_json::from_str(json).expect(
                     "This JSON is expected to be succesfully parsed into a MithrilStakeDistributionListMessage instance.",

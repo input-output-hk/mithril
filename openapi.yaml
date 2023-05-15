@@ -767,10 +767,15 @@ components:
             description: Hash of the Mithril stake distribution
             type: string
             format: bytes
+          certificate_hash:
+            description: Hash of the associated certificate
+            type: string
+            format: bytes
         example:
           {
           "epoch": 123,
-          "hash":"24qQwKgWw4mr5kRZLIUA9XAsB0vSvijo8FIfrGFwBtdCNQVhBc9PXu7RiCHSRem3MmHoKbo"
+          "hash":"24qQwKgWw4mr5kRZLIUA9XAsB0vSvijo8FIfrGFwBtdCNQVhBc9PXu7RiCHSRem3MmHoKbo",
+          "certificate_hash": "AsB0vSvijo8FIfrG/FwBtdCNQVhBc9P24qQwKgWw4mr5kRZL+IUA9XXu7RiCHSRem3MmHoKbo"
           }
 
     MithrilStakeDistributionMessage:
@@ -790,6 +795,10 @@ components:
           description: Hash of the Mithril stake distribution
           type: string
           format: bytes
+        certificate_hash:
+          description: Hash of the associated certificate
+          type: string
+          format: bytes
         signers:
           description: The list of the signers with their stakes and verification keys
           type: array
@@ -799,6 +808,7 @@ components:
         {
         "epoch": 123,
         "hash":"24qQwKgWw4mr5kRZLIUA9XAsB0vSvijo8FIfrGFwBtdCNQVhBc9PXu7RiCHSRem3MmHoKbo",
+        "certificate_hash": "AsB0vSvijo8FIfrG/FwBtdCNQVhBc9P24qQwKgWw4mr5kRZL+IUA9XXu7RiCHSRem3MmHoKbo",
         "signers":
             [
               {

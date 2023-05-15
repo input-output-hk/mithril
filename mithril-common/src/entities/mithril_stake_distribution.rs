@@ -17,17 +17,25 @@ pub struct MithrilStakeDistribution {
 
     /// Hash of the Mithril Stake Distribution (different from the AVK).
     pub hash: String,
+
+    /// Hash of the associated certificate
+    pub certificate_hash: String,
 }
 
 impl MithrilStakeDistribution {
     /// MithrilStakeDistribution artifact factory
-    pub fn new(epoch: Epoch, signers_with_stake: Vec<SignerWithStake>) -> Self {
+    pub fn new(
+        epoch: Epoch,
+        signers_with_stake: Vec<SignerWithStake>,
+        certificate_hash: String,
+    ) -> Self {
         let mut signers_with_stake_sorted = signers_with_stake;
         signers_with_stake_sorted.sort();
         let mut mithril_stake_distribution = Self {
             epoch,
             signers_with_stake: signers_with_stake_sorted,
             hash: "".to_string(),
+            certificate_hash,
         };
         mithril_stake_distribution.hash = mithril_stake_distribution.compute_hash();
         mithril_stake_distribution
@@ -39,6 +47,7 @@ impl MithrilStakeDistribution {
         for signer_with_stake in &self.signers_with_stake {
             hasher.update(signer_with_stake.compute_hash().as_bytes());
         }
+        hasher.update(self.certificate_hash.as_bytes());
         hex::encode(hasher.finalize())
     }
 }

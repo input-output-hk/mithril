@@ -15,6 +15,9 @@ pub struct MithrilStakeDistributionMessage {
 
     /// Hash of the Mithril Stake Distribution (different from the AVK).
     pub hash: String,
+
+    /// Hash of the associated certificate
+    pub certificate_hash: String,
 }
 
 impl MithrilStakeDistributionMessage {
@@ -27,6 +30,7 @@ impl MithrilStakeDistributionMessage {
                 .unwrap()
                 .to_owned()],
             hash: "hash-123".to_string(),
+            certificate_hash: "cert-hash-123".to_string(),
         }
     }
 }
@@ -40,6 +44,7 @@ mod tests {
             epoch: Epoch(1),
             signers_with_stake: fake_data::signers_with_stakes(1),
             hash: "hash-123".to_string(),
+            certificate_hash: "cert-hash-123".to_string(),
         }
     }
 
@@ -55,7 +60,8 @@ mod tests {
                     "stake": 826
                 }
             ],
-            "hash": "hash-123"
+            "hash": "hash-123",
+            "certificate_hash": "cert-hash-123"
         }"#;
         let message: MithrilStakeDistributionMessage = serde_json::from_str(json).expect(
             "This JSON is expected to be succesfully parsed into a MithrilStakeDistributionMessage instance.",

@@ -17,6 +17,7 @@ impl MessageAdapter<Vec<MithrilStakeDistribution>, MithrilStakeDistributionListM
                 |stake_distribution| MithrilStakeDistributionListItemMessage {
                     epoch: stake_distribution.epoch,
                     hash: stake_distribution.hash,
+                    certificate_hash: stake_distribution.certificate_hash,
                 },
             )
             .collect()
@@ -35,6 +36,7 @@ mod tests {
             epoch: Epoch(1),
             signers_with_stake: signers_with_stakes(1),
             hash: "hash-123".to_string(),
+            certificate_hash: "certificate-hash-123".to_string(),
         };
         let mithril_stake_distribution_list_message =
             ToMithrilStakeDistributionListMessageAdapter::adapt(vec![mithril_stake_distribution]);
@@ -42,6 +44,7 @@ mod tests {
             vec![MithrilStakeDistributionListItemMessage {
                 epoch: Epoch(1),
                 hash: "hash-123".to_string(),
+                certificate_hash: "certificate-hash-123".to_string(),
             }];
 
         assert_eq!(
