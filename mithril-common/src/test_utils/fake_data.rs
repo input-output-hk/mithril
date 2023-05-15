@@ -1,8 +1,8 @@
 //! Fake data builders for testing.
 
 use crate::entities::{
-    CertificateMetadata, LotteryIndex, ProtocolMessage, ProtocolMessagePartKey, SignedEntityType,
-    SingleSignatures,
+    CertificateMetadata, Epoch, LotteryIndex, ProtocolMessage, ProtocolMessagePartKey,
+    SignedEntityType, SingleSignatures,
 };
 use crate::{crypto_helper, entities};
 
@@ -183,6 +183,17 @@ pub fn snapshots(total: u64) -> Vec<entities::Snapshot> {
             )
         })
         .collect::<Vec<entities::Snapshot>>()
+}
+
+/// Fake Mithril Stake Distribution
+pub fn mithril_stake_distributions(total: u64) -> Vec<entities::MithrilStakeDistribution> {
+    (1..total + 1)
+        .map(|epoch_idx| entities::MithrilStakeDistribution {
+            epoch: Epoch(epoch_idx),
+            signers_with_stake: self::signers_with_stakes(5),
+            hash: format!("hash-epoch-{epoch_idx}"),
+        })
+        .collect::<Vec<entities::MithrilStakeDistribution>>()
 }
 
 const SIGNERS_WITH_STAKE_JSON: &str = r###"

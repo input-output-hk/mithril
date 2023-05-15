@@ -241,7 +241,7 @@ async fn update_protocol_parameters(aggregator: &mut Aggregator) -> Result<(), S
 }
 
 async fn assert_node_producing_snapshot(aggregator_endpoint: &str) -> Result<String, String> {
-    let url = format!("{aggregator_endpoint}/snapshots");
+    let url = format!("{aggregator_endpoint}/artifact/snapshots");
     info!("Waiting for the aggregator to produce a snapshot");
 
     // todo: reduce the number of attempts if we can reduce the delay between two immutables
@@ -274,7 +274,7 @@ async fn assert_signer_is_signing_snapshot(
     digest: &str,
     expected_epoch_min: Epoch,
 ) -> Result<String, String> {
-    let url = format!("{aggregator_endpoint}/snapshot/{digest}");
+    let url = format!("{aggregator_endpoint}/artifact/snapshot/{digest}");
     info!(
         "Asserting the aggregator is signing the snapshot message `{}` with an expected min epoch of `{}`",
         digest,

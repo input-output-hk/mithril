@@ -212,7 +212,7 @@ impl AggregatorHandler for AggregatorHTTPClient {
     /// List snapshots
     async fn list_snapshots(&self) -> Result<Vec<Snapshot>, AggregatorHandlerError> {
         debug!("List snapshots");
-        let url = format!("{}/snapshots", self.aggregator_endpoint);
+        let url = format!("{}/artifact/snapshots", self.aggregator_endpoint);
         let response = self
             .prepare_request_builder(Client::new().get(url.clone()))
             .await
@@ -246,7 +246,7 @@ impl AggregatorHandler for AggregatorHTTPClient {
     /// Get snapshot details
     async fn get_snapshot_details(&self, digest: &str) -> Result<Snapshot, AggregatorHandlerError> {
         debug!("Details snapshot {}", digest);
-        let url = format!("{}/snapshot/{}", self.aggregator_endpoint, digest);
+        let url = format!("{}/artifact/snapshot/{}", self.aggregator_endpoint, digest);
         let response = self
             .prepare_request_builder(Client::new().get(url.clone()))
             .await
@@ -446,7 +446,7 @@ mod tests {
         let (server, config) = setup_test();
         let snapshots_expected = fake_data::snapshots(5);
         let _snapshots_mock = server.mock(|when, then| {
-            when.path("/snapshots");
+            when.path("/artifact/snapshots");
             then.status(200).body(json!(snapshots_expected).to_string());
         });
         let aggregator_client = AggregatorHTTPClient::new(
@@ -463,7 +463,7 @@ mod tests {
     async fn test_list_snapshots_ko_412() {
         let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
-            when.path("/snapshots");
+            when.path("/artifact/snapshots");
             then.status(412).header(
                 MITHRIL_API_VERSION_HEADER,
                 APIVersionProvider::compute_all_versions_sorted()
@@ -488,7 +488,7 @@ mod tests {
     async fn test_list_snapshots_ko_500() {
         let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
-            when.path("/snapshots");
+            when.path("/artifact/snapshots");
             then.status(500);
         });
         let aggregator_client = AggregatorHTTPClient::new(
@@ -518,7 +518,7 @@ mod tests {
         let (server, config) = setup_test();
         let snapshot_expected = fake_data::snapshots(1).first().unwrap().to_owned();
         let _snapshots_mock = server.mock(|when, then| {
-            when.path(format!("/snapshot/{digest}"));
+            when.path(format!("/artifact/snapshot/{digest}"));
             then.status(200).body(json!(snapshot_expected).to_string());
         });
         let aggregator_client = AggregatorHTTPClient::new(
@@ -536,7 +536,7 @@ mod tests {
         let digest = "digest123";
         let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
-            when.path(format!("/snapshot/{digest}"));
+            when.path(format!("/artifact/snapshot/{digest}"));
             then.status(404);
         });
         let aggregator_client = AggregatorHTTPClient::new(
@@ -553,7 +553,7 @@ mod tests {
         let (server, config) = setup_test();
         let digest = "digest123";
         let _snapshots_mock = server.mock(|when, then| {
-            when.path(format!("/snapshot/{digest}"));
+            when.path(format!("/artifact/snapshot/{digest}"));
             then.status(412)
                 .header(MITHRIL_API_VERSION_HEADER, "0.0.999");
         });
@@ -575,7 +575,7 @@ mod tests {
         let digest = "digest123";
         let (server, config) = setup_test();
         let _snapshots_mock = server.mock(|when, then| {
-            when.path(format!("/snapshot/{digest}"));
+            when.path(format!("/artifact/snapshot/{digest}"));
             then.status(500);
         });
         let aggregator_client = AggregatorHTTPClient::new(
