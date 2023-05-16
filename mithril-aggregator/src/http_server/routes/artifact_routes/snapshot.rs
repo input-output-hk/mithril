@@ -1,10 +1,12 @@
 use super::shared;
+use crate::http_server::SERVER_BASE_PATH;
 use crate::message_adapters::ToSnapshotMessageAdapter;
 use crate::DependencyManager;
 use crate::{http_server::routes::middlewares, message_adapters::ToSnapshotListMessageAdapter};
 use mithril_common::entities::{Beacon, SignedEntityType, Snapshot};
 use mithril_common::messages::{SnapshotListMessage, SnapshotMessage};
 use std::sync::Arc;
+use warp::hyper::Uri;
 use warp::Filter;
 
 pub fn routes(
@@ -16,6 +18,8 @@ pub fn routes(
         ))
         .or(serve_snapshots_dir(dependency_manager.clone()))
         .or(snapshot_download(dependency_manager))
+        .or(artifact_cardano_full_immutable_snapshots_legacy())
+        .or(artifact_cardano_full_immutable_snapshot_by_id_legacy())
 }
 
 /// GET /artifact/snapshots
@@ -73,6 +77,34 @@ fn serve_snapshots_dir(
         .and(warp::fs::dir(config.snapshot_directory))
         .and(middlewares::with_signed_entity_storer(dependency_manager))
         .and_then(handlers::ensure_downloaded_file_is_a_snapshot)
+}
+
+/// GET /snapshots
+// TODO: This legacy route should be removed when this code is released with a new distribution
+fn artifact_cardano_full_immutable_snapshots_legacy(
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+    warp::path!("snapshots").map(|| {
+        warp::redirect(
+            format!("/{SERVER_BASE_PATH}/artifact/snapshots")
+                .as_str()
+                .parse::<Uri>()
+                .unwrap(),
+        )
+    })
+}
+
+/// GET /snapshot/digest
+// TODO: This legacy route should be removed when this code is released with a new distribution
+fn artifact_cardano_full_immutable_snapshot_by_id_legacy(
+) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
+    warp::path!("snapshot" / String).map(|digest| {
+        warp::redirect(
+            format!("/{SERVER_BASE_PATH}/artifact/snapshot/{digest}")
+                .as_str()
+                .parse::<Uri>()
+                .unwrap(),
+        )
+    })
 }
 
 mod handlers {
