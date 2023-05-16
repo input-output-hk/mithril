@@ -74,7 +74,7 @@ serde_json = "1.0"
 serde_yaml = "0.9.10"
 
 [features]
-default = []
+default = ["allow_skip_signer_certification"]
 portable = ["mithril-stm/portable"] # portable feature avoids SIGILL crashes on CPUs not supporting Intel ADX instruction set when built on CPUs that support it
 allow_skip_signer_certification = []
 
