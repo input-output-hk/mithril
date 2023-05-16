@@ -37,8 +37,8 @@ use warp::Filter;
 
 use crate::{
     artifact_builder::{
-        ArtifactBuilderService, CardanoImmutableFilesFullArtifactBuilder,
-        MithrilArtifactBuilderService, MithrilStakeDistributionArtifactBuilder,
+        CardanoImmutableFilesFullArtifactBuilder, MithrilSignedEntityService,
+        MithrilStakeDistributionArtifactBuilder, SignedEntityService,
     },
     certifier_service::{CertifierService, MithrilCertifierService},
     configuration::ExecutionEnvironment,
@@ -171,7 +171,7 @@ pub struct DependenciesBuilder {
     pub signable_builder_service: Option<Arc<dyn SignableBuilderService>>,
 
     /// Artifact Builder Service
-    pub artifact_builder_service: Option<Arc<dyn ArtifactBuilderService>>,
+    pub signed_entity_service: Option<Arc<dyn SignedEntityService>>,
 
     /// Certifier service
     pub certifier_service: Option<Arc<dyn CertifierService>>,
@@ -214,7 +214,7 @@ impl DependenciesBuilder {
             ticker_service: None,
             signer_recorder: None,
             signable_builder_service: None,
-            artifact_builder_service: None,
+            signed_entity_service: None,
             certifier_service: None,
             signed_entity_storer: None,
         }
@@ -884,7 +884,7 @@ impl DependenciesBuilder {
         Ok(self.signable_builder_service.as_ref().cloned().unwrap())
     }
 
-    async fn build_artifact_builder_service(&mut self) -> Result<Arc<dyn ArtifactBuilderService>> {
+    async fn build_signed_entity_service(&mut self) -> Result<Arc<dyn SignedEntityService>> {
         let signed_entity_storer = self.build_signed_entity_storer().await?;
         let multi_signer = self.get_multi_signer().await?;
         let mithril_stake_distribution_artifact_builder =
@@ -894,7 +894,7 @@ impl DependenciesBuilder {
         let cardano_immutable_files_full_artifact_builder = Arc::new(
             CardanoImmutableFilesFullArtifactBuilder::new(snapshotter, snapshot_uploader),
         );
-        let artifact_builder_service = Arc::new(MithrilArtifactBuilderService::new(
+        let artifact_builder_service = Arc::new(MithrilSignedEntityService::new(
             signed_entity_storer,
             mithril_stake_distribution_artifact_builder,
             cardano_immutable_files_full_artifact_builder,
@@ -904,14 +904,12 @@ impl DependenciesBuilder {
     }
 
     /// [ArtifactBuilderService] service
-    pub async fn get_artifact_builder_service(
-        &mut self,
-    ) -> Result<Arc<dyn ArtifactBuilderService>> {
-        if self.artifact_builder_service.is_none() {
-            self.artifact_builder_service = Some(self.build_artifact_builder_service().await?);
+    pub async fn get_signed_entity_service(&mut self) -> Result<Arc<dyn SignedEntityService>> {
+        if self.signed_entity_service.is_none() {
+            self.signed_entity_service = Some(self.build_signed_entity_service().await?);
         }
 
-        Ok(self.artifact_builder_service.as_ref().cloned().unwrap())
+        Ok(self.signed_entity_service.as_ref().cloned().unwrap())
     }
 
     async fn build_signed_entity_storer(&mut self) -> Result<Arc<dyn SignedEntityStorer>> {
@@ -959,7 +957,7 @@ impl DependenciesBuilder {
             stake_distribution_service: self.get_stake_distribution_service().await?,
             signer_recorder: self.get_signer_recorder().await?,
             signable_builder_service: self.get_signable_builder_service().await?,
-            artifact_builder_service: self.get_artifact_builder_service().await?,
+            signed_entity_service: self.get_signed_entity_service().await?,
             certifier_service: self.get_certifier_service().await?,
             ticker_service: self.get_ticker_service().await?,
             signed_entity_storer: self.get_signed_entity_storer().await?,

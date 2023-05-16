@@ -18,7 +18,7 @@ use tokio::sync::{Mutex, RwLock};
 
 use crate::event_store::EventMessage;
 use crate::{
-    artifact_builder::ArtifactBuilderService,
+    artifact_builder::SignedEntityService,
     certifier_service::CertifierService,
     configuration::*,
     database::provider::{SignedEntityStorer, StakePoolStore},
@@ -117,7 +117,7 @@ pub struct DependencyManager {
     pub signable_builder_service: Arc<dyn SignableBuilderService>,
 
     /// Artifact Builder Service
-    pub artifact_builder_service: Arc<dyn ArtifactBuilderService>,
+    pub signed_entity_service: Arc<dyn SignedEntityService>,
 
     /// Certifier Service
     pub certifier_service: Arc<dyn CertifierService>,

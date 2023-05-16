@@ -1,13 +1,5 @@
-use super::shared;
 use crate::http_server::routes::middlewares;
-use crate::message_adapters::{
-    ToMithrilStakeDistributionListMessageAdapter, ToMithrilStakeDistributionMessageAdapter,
-};
 use crate::DependencyManager;
-use mithril_common::entities::{Epoch, MithrilStakeDistribution, SignedEntityType};
-use mithril_common::messages::{
-    MithrilStakeDistributionListMessage, MithrilStakeDistributionMessage,
-};
 use std::sync::Arc;
 use warp::Filter;
 
@@ -25,17 +17,8 @@ fn artifact_mithril_stake_distributions(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "mithril-stake-distributions")
         .and(warp::get())
-        .and(middlewares::with_signed_entity_storer(dependency_manager))
-        .and(middlewares::with_signed_entity_type(
-            SignedEntityType::MithrilStakeDistribution(Epoch::default()),
-        ))
-        .and_then(
-            shared::handlers::artifacts_by_signed_entity_type::<
-                MithrilStakeDistribution,
-                ToMithrilStakeDistributionListMessageAdapter,
-                MithrilStakeDistributionListMessage,
-            >,
-        )
+        .and(middlewares::with_signed_entity_service(dependency_manager))
+        .and_then(handlers::list_artifacts)
 }
 
 /// GET /artifact/mithril-stake-distribution/:id
@@ -44,18 +27,74 @@ fn artifact_mithril_stake_distribution_by_id(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "mithril-stake-distribution" / String)
         .and(warp::get())
-        .and(middlewares::with_signed_entity_storer(dependency_manager))
-        .and_then(
-            shared::handlers::artifact_by_signed_entity_id::<
-                MithrilStakeDistribution,
-                ToMithrilStakeDistributionMessageAdapter,
-                MithrilStakeDistributionMessage,
-            >,
-        )
+        .and(middlewares::with_signed_entity_service(dependency_manager))
+        .and_then(handlers::get_artifact_by_signed_entity_id)
+}
+
+pub mod handlers {
+    use crate::http_server::routes::reply;
+    use crate::message_adapters::{
+        ToMithrilStakeDistributionListMessageAdapter, ToMithrilStakeDistributionMessageAdapter,
+    };
+    use crate::SignedEntityService;
+    use mithril_common::messages::MessageAdapter;
+    use slog_scope::{debug, warn};
+    use std::convert::Infallible;
+    use std::sync::Arc;
+    use warp::http::StatusCode;
+
+    pub const LIST_MAX_ITEMS: usize = 20;
+
+    /// List MithrilStakeDistribution artifacts
+    pub async fn list_artifacts(
+        signed_entity_service: Arc<dyn SignedEntityService>,
+    ) -> Result<impl warp::Reply, Infallible> {
+        debug!("⇄ HTTP SERVER: artifacts");
+
+        match signed_entity_service
+            .get_last_signed_mithril_stake_distribution(LIST_MAX_ITEMS)
+            .await
+        {
+            Ok(signed_entities) => {
+                let messages = ToMithrilStakeDistributionListMessageAdapter::adapt(signed_entities);
+                Ok(reply::json(&messages, StatusCode::OK))
+            }
+            Err(err) => {
+                warn!("artifacts_mithril_stake_distribution"; "error" => ?err);
+                Ok(reply::internal_server_error(err.to_string()))
+            }
+        }
+    }
+
+    /// Get Artifact by signed entity id
+    pub async fn get_artifact_by_signed_entity_id(
+        signed_entity_id: String,
+        signed_entity_service: Arc<dyn SignedEntityService>,
+    ) -> Result<impl warp::Reply, Infallible> {
+        debug!("⇄ HTTP SERVER: artifact/{signed_entity_id}");
+
+        match signed_entity_service
+            .get_signed_mithril_stake_distribution_by_id(&signed_entity_id)
+            .await
+        {
+            Ok(Some(signed_entity)) => {
+                let message = ToMithrilStakeDistributionMessageAdapter::adapt(signed_entity);
+                Ok(reply::json(&message, StatusCode::OK))
+            }
+            Ok(None) => {
+                warn!("mithril_stake_distribution_details::not_found");
+                Ok(reply::empty(StatusCode::NOT_FOUND))
+            }
+            Err(err) => {
+                warn!("mithril_stake_distribution_details::error"; "error" => ?err);
+                Ok(reply::internal_server_error(err.to_string()))
+            }
+        }
+    }
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use crate::http_server::SERVER_BASE_PATH;
     use mithril_common::sqlite::HydrationError;
     use mithril_common::test_utils::apispec::APISpec;
@@ -88,9 +127,9 @@ mod tests {
             SignedEntityType::MithrilStakeDistribution(Epoch::default()),
             fake_data::mithril_stake_distributions(5),
         );
-        let mut mock_signed_entity_storer = MockSignedEntityStorer::new();
-        mock_signed_entity_storer
-            .expect_get_last_signed_entities_by_type()
+        let mut mock_signed_entity_service = MockSignedEntityService::new();
+        mock_signed_entity_service
+            .expect_get_last_signed_stake_distribution()
             .return_once(|_, _| Ok(signed_entity_records))
             .once();
         let mut dependency_manager = initialize_dependencies().await;

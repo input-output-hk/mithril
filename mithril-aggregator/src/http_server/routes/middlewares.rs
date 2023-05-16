@@ -1,12 +1,11 @@
 use crate::certifier_service::CertifierService;
-use crate::database::provider::SignedEntityStorer;
 use crate::event_store::{EventMessage, TransmitterService};
 use crate::ticker_service::TickerService;
+use crate::SignedEntityService;
 use crate::{
     dependency::MultiSignerWrapper, CertificatePendingStore, CertificateStore, Configuration,
     DependencyManager, ProtocolParametersStore, SignerRegisterer,
 };
-use mithril_common::entities::SignedEntityType;
 use mithril_common::BeaconProvider;
 use std::convert::Infallible;
 use std::sync::Arc;
@@ -83,15 +82,8 @@ pub fn with_ticker_service(
 }
 
 /// With signed entity storer
-pub fn with_signed_entity_storer(
+pub fn with_signed_entity_service(
     dependency_manager: Arc<DependencyManager>,
-) -> impl Filter<Extract = (Arc<dyn SignedEntityStorer>,), Error = Infallible> + Clone {
-    warp::any().map(move || dependency_manager.signed_entity_storer.clone())
-}
-
-/// With signed entity type
-pub fn with_signed_entity_type(
-    signed_entity_type: SignedEntityType,
-) -> impl Filter<Extract = (SignedEntityType,), Error = Infallible> + Clone {
-    warp::any().map(move || signed_entity_type.clone())
+) -> impl Filter<Extract = (Arc<dyn SignedEntityService>,), Error = Infallible> + Clone {
+    warp::any().map(move || dependency_manager.signed_entity_service.clone())
 }

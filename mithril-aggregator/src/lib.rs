@@ -32,7 +32,7 @@ mod store;
 pub mod ticker_service;
 mod tools;
 
-pub use crate::artifact_builder::{ArtifactBuilder, ArtifactBuilderService};
+pub use crate::artifact_builder::{ArtifactBuilder, SignedEntityService};
 pub use crate::configuration::{
     Configuration, DefaultConfiguration, ExecutionEnvironment, SnapshotUploaderType,
 };

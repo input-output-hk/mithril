@@ -1,10 +1,6 @@
-use super::shared;
+use crate::http_server::routes::middlewares;
 use crate::http_server::SERVER_BASE_PATH;
-use crate::message_adapters::ToSnapshotMessageAdapter;
 use crate::DependencyManager;
-use crate::{http_server::routes::middlewares, message_adapters::ToSnapshotListMessageAdapter};
-use mithril_common::entities::{Beacon, SignedEntityType, Snapshot};
-use mithril_common::messages::{SnapshotListMessage, SnapshotMessage};
 use std::sync::Arc;
 use warp::hyper::Uri;
 use warp::Filter;
@@ -28,17 +24,8 @@ fn artifact_cardano_full_immutable_snapshots(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "snapshots")
         .and(warp::get())
-        .and(middlewares::with_signed_entity_storer(dependency_manager))
-        .and(middlewares::with_signed_entity_type(
-            SignedEntityType::CardanoImmutableFilesFull(Beacon::default()),
-        ))
-        .and_then(
-            shared::handlers::artifacts_by_signed_entity_type::<
-                Snapshot,
-                ToSnapshotListMessageAdapter,
-                SnapshotListMessage,
-            >,
-        )
+        .and(middlewares::with_signed_entity_service(dependency_manager))
+        .and_then(handlers::list_artifacts)
 }
 
 /// GET /artifact/snapshot/:id
@@ -47,14 +34,8 @@ fn artifact_cardano_full_immutable_snapshot_by_id(
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
     warp::path!("artifact" / "snapshot" / String)
         .and(warp::get())
-        .and(middlewares::with_signed_entity_storer(dependency_manager))
-        .and_then(
-            shared::handlers::artifact_by_signed_entity_id::<
-                Snapshot,
-                ToSnapshotMessageAdapter,
-                SnapshotMessage,
-            >,
-        )
+        .and(middlewares::with_signed_entity_service(dependency_manager))
+        .and_then(handlers::get_artifact_by_signed_entity_id)
 }
 
 /// GET /snapshots/{digest}/download
@@ -64,7 +45,7 @@ fn snapshot_download(
     warp::path!("artifact" / "snapshot" / String / "download")
         .and(warp::get())
         .and(middlewares::with_config(dependency_manager.clone()))
-        .and(middlewares::with_signed_entity_storer(dependency_manager))
+        .and(middlewares::with_signed_entity_service(dependency_manager))
         .and_then(handlers::snapshot_download)
 }
 
@@ -75,7 +56,7 @@ fn serve_snapshots_dir(
 
     warp::path("snapshot_download")
         .and(warp::fs::dir(config.snapshot_directory))
-        .and(middlewares::with_signed_entity_storer(dependency_manager))
+        .and(middlewares::with_signed_entity_service(dependency_manager))
         .and_then(handlers::ensure_downloaded_file_is_a_snapshot)
 }
 
@@ -108,21 +89,70 @@ fn artifact_cardano_full_immutable_snapshot_by_id_legacy(
 }
 
 mod handlers {
-    use crate::database::provider::SignedEntityStorer;
     use crate::http_server::routes::reply;
     use crate::http_server::SERVER_BASE_PATH;
-    use crate::Configuration;
-    use mithril_common::entities::Snapshot;
+    use crate::message_adapters::ToSnapshotListMessageAdapter;
+    use crate::message_adapters::ToSnapshotMessageAdapter;
+    use crate::{Configuration, SignedEntityService};
+    use mithril_common::messages::MessageAdapter;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
     use std::str::FromStr;
     use std::sync::Arc;
     use warp::http::{StatusCode, Uri};
 
+    pub const LIST_MAX_ITEMS: usize = 20;
+
+    /// List Snaptshot artifacts
+    pub async fn list_artifacts(
+        signed_entity_service: Arc<dyn SignedEntityService>,
+    ) -> Result<impl warp::Reply, Infallible> {
+        debug!("⇄ HTTP SERVER: artifacts");
+
+        match signed_entity_service
+            .get_last_signed_snapshots(LIST_MAX_ITEMS)
+            .await
+        {
+            Ok(signed_entities) => {
+                let messages = ToSnapshotListMessageAdapter::adapt(signed_entities);
+                Ok(reply::json(&messages, StatusCode::OK))
+            }
+            Err(err) => {
+                warn!("artifacts_mithril_stake_distribution"; "error" => ?err);
+                Ok(reply::internal_server_error(err.to_string()))
+            }
+        }
+    }
+
+    /// Get Artifact by signed entity id
+    pub async fn get_artifact_by_signed_entity_id(
+        signed_entity_id: String,
+        signed_entity_service: Arc<dyn SignedEntityService>,
+    ) -> Result<impl warp::Reply, Infallible> {
+        debug!("⇄ HTTP SERVER: artifact/{signed_entity_id}");
+        match signed_entity_service
+            .get_signed_snapshot_by_id(&signed_entity_id)
+            .await
+        {
+            Ok(Some(signed_entity)) => {
+                let message = ToSnapshotMessageAdapter::adapt(signed_entity);
+                Ok(reply::json(&message, StatusCode::OK))
+            }
+            Ok(None) => {
+                warn!("snapshot_details::not_found");
+                Ok(reply::empty(StatusCode::NOT_FOUND))
+            }
+            Err(err) => {
+                warn!("snapshot_details::error"; "error" => ?err);
+                Ok(reply::internal_server_error(err.to_string()))
+            }
+        }
+    }
+
     /// Download a file if and only if it's a snapshot archive
     pub async fn ensure_downloaded_file_is_a_snapshot(
         reply: warp::fs::File,
-        signed_entity_storer: Arc<dyn SignedEntityStorer>,
+        signed_entity_service: Arc<dyn SignedEntityService>,
     ) -> Result<impl warp::Reply, Infallible> {
         let filepath = reply.path().to_path_buf();
         debug!(
@@ -131,7 +161,10 @@ mod handlers {
         );
 
         match crate::tools::extract_digest_from_path(&filepath) {
-            Ok(digest) => match signed_entity_storer.get_signed_entity(digest.clone()).await {
+            Ok(digest) => match signed_entity_service
+                .get_signed_snapshot_by_id(&digest)
+                .await
+            {
                 Ok(Some(_)) => Ok(Box::new(warp::reply::with_header(
                     reply,
                     "Content-Disposition",
@@ -153,36 +186,32 @@ mod handlers {
     pub async fn snapshot_download(
         digest: String,
         config: Configuration,
-        signed_entity_storer: Arc<dyn SignedEntityStorer>,
+        signed_entity_service: Arc<dyn SignedEntityService>,
     ) -> Result<impl warp::Reply, Infallible> {
         debug!("⇄ HTTP SERVER: snapshot_download/{}", digest);
 
-        match signed_entity_storer.get_signed_entity(digest.clone()).await {
+        match signed_entity_service
+            .get_signed_snapshot_by_id(&digest)
+            .await
+        {
             Ok(Some(signed_entity)) => {
-                match serde_json::from_str::<Snapshot>(&signed_entity.artifact) {
-                    Ok(snapshot) => {
-                        let filename = format!(
-                            "{}-e{}-i{}.{}.tar.gz",
-                            snapshot.beacon.network,
-                            snapshot.beacon.epoch,
-                            snapshot.beacon.immutable_file_number,
-                            snapshot.digest
-                        );
-                        let snapshot_uri = format!(
-                            "{}{}/snapshot_download/{}",
-                            config.get_server_url(),
-                            SERVER_BASE_PATH,
-                            filename
-                        );
-                        let snapshot_uri = Uri::from_str(&snapshot_uri).unwrap();
+                let snapshot = signed_entity.artifact;
+                let filename = format!(
+                    "{}-e{}-i{}.{}.tar.gz",
+                    snapshot.beacon.network,
+                    snapshot.beacon.epoch,
+                    snapshot.beacon.immutable_file_number,
+                    snapshot.digest
+                );
+                let snapshot_uri = format!(
+                    "{}{}/snapshot_download/{}",
+                    config.get_server_url(),
+                    SERVER_BASE_PATH,
+                    filename
+                );
+                let snapshot_uri = Uri::from_str(&snapshot_uri).unwrap();
 
-                        Ok(Box::new(warp::redirect::found(snapshot_uri)) as Box<dyn warp::Reply>)
-                    }
-                    Err(err) => {
-                        warn!("snapshot_download::error"; "error" => ?err);
-                        Ok(reply::internal_server_error(err.to_string()))
-                    }
-                }
+                Ok(Box::new(warp::redirect::found(snapshot_uri)) as Box<dyn warp::Reply>)
             }
             Ok(None) => {
                 warn!("snapshot_download::not_found");
@@ -199,6 +228,7 @@ mod handlers {
 #[cfg(test)]
 mod tests {
     use crate::http_server::SERVER_BASE_PATH;
+    use mithril_common::entities::SignedEntityType;
     use mithril_common::sqlite::HydrationError;
     use mithril_common::test_utils::apispec::APISpec;
     use mithril_common::test_utils::fake_data;

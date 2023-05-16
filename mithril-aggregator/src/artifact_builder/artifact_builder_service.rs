@@ -4,7 +4,10 @@ use slog_scope::info;
 use std::sync::Arc;
 
 use mithril_common::{
-    entities::{Beacon, Certificate, Epoch, MithrilStakeDistribution, SignedEntityType, Snapshot},
+    entities::{
+        Beacon, Certificate, Epoch, MithrilStakeDistribution, SignedEntity, SignedEntityType,
+        SignedEntityTypeDiscriminants, Snapshot,
+    },
     signable_builder::Artifact,
     StdResult,
 };
@@ -14,31 +17,47 @@ use crate::{
     database::provider::{SignedEntityRecord, SignedEntityStorer},
 };
 
-#[cfg(test)]
-use mockall::automock;
-
 /// ArtifactBuilder Service trait
-#[cfg_attr(test, automock)]
 #[async_trait]
-pub trait ArtifactBuilderService: Send + Sync {
+pub trait SignedEntityService: Send + Sync {
     /// Create artifact for a signed entity type and a certificate
     async fn create_artifact(
         &self,
         signed_entity_type: SignedEntityType,
         certificate: &Certificate,
     ) -> StdResult<()>;
+
+    async fn get_last_signed_snapshots(
+        &self,
+        total: usize,
+    ) -> StdResult<Vec<SignedEntity<Snapshot>>>;
+
+    async fn get_last_signed_mithril_stake_distribution(
+        &self,
+        total: usize,
+    ) -> StdResult<Vec<SignedEntity<MithrilStakeDistribution>>>;
+
+    async fn get_signed_snapshot_by_id(
+        &self,
+        signed_entity_id: &str,
+    ) -> StdResult<Option<SignedEntity<Snapshot>>>;
+
+    async fn get_signed_mithril_stake_distribution_by_id(
+        &self,
+        signed_entity_id: &str,
+    ) -> StdResult<Option<SignedEntity<MithrilStakeDistribution>>>;
 }
 
 /// Mithril ArtifactBuilder Service
-pub struct MithrilArtifactBuilderService {
+pub struct MithrilSignedEntityService {
     signed_entity_storer: Arc<dyn SignedEntityStorer>,
     mithril_stake_distribution_artifact_builder:
         Arc<dyn ArtifactBuilder<Epoch, MithrilStakeDistribution>>,
     cardano_immutable_files_full_artifact_builder: Arc<dyn ArtifactBuilder<Beacon, Snapshot>>,
 }
 
-impl MithrilArtifactBuilderService {
-    /// MithrilArtifactBuilderService factory
+impl MithrilSignedEntityService {
+    /// MithrilSignedEntityService factory
     pub fn new(
         signed_entity_storer: Arc<dyn SignedEntityStorer>,
         mithril_stake_distribution_artifact_builder: Arc<
@@ -76,14 +95,14 @@ impl MithrilArtifactBuilderService {
 }
 
 #[async_trait]
-impl ArtifactBuilderService for MithrilArtifactBuilderService {
+impl SignedEntityService for MithrilSignedEntityService {
     async fn create_artifact(
         &self,
         signed_entity_type: SignedEntityType,
         certificate: &Certificate,
     ) -> StdResult<()> {
         info!(
-            "MithrilArtifactBuilderService::create_artifact";
+            "MithrilSignedEntityService::create_artifact";
             "signed_entity_type" => ?signed_entity_type,
             "certificate_hash" => &certificate.hash
         );
@@ -104,6 +123,78 @@ impl ArtifactBuilderService for MithrilArtifactBuilderService {
             .await?;
 
         Ok(())
+    }
+
+    async fn get_last_signed_snapshots(
+        &self,
+        total: usize,
+    ) -> StdResult<Vec<SignedEntity<Snapshot>>> {
+        let signed_entities_records = self
+            .signed_entity_storer
+            .get_last_signed_entities(
+                &SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+                total,
+            )
+            .await?;
+        let mut signed_entities: Vec<SignedEntity<Snapshot>> = Vec::new();
+
+        for record in signed_entities_records {
+            signed_entities.push(record.try_into()?);
+        }
+
+        Ok(signed_entities)
+    }
+
+    async fn get_last_signed_mithril_stake_distribution(
+        &self,
+        total: usize,
+    ) -> StdResult<Vec<SignedEntity<MithrilStakeDistribution>>> {
+        let signed_entities_records = self
+            .signed_entity_storer
+            .get_last_signed_entities(
+                &SignedEntityTypeDiscriminants::MithrilStakeDistribution,
+                total,
+            )
+            .await?;
+        let mut signed_entities: Vec<SignedEntity<MithrilStakeDistribution>> = Vec::new();
+
+        for record in signed_entities_records {
+            signed_entities.push(record.try_into()?);
+        }
+
+        Ok(signed_entities)
+    }
+
+    async fn get_signed_snapshot_by_id(
+        &self,
+        signed_entity_id: &str,
+    ) -> StdResult<Option<SignedEntity<Snapshot>>> {
+        let entity: Option<SignedEntity<Snapshot>> = match self
+            .signed_entity_storer
+            .get_signed_entity(signed_entity_id)
+            .await?
+        {
+            Some(entity) => Some(entity.try_into()?),
+            None => None,
+        };
+
+        Ok(entity)
+    }
+
+    async fn get_signed_mithril_stake_distribution_by_id(
+        &self,
+        signed_entity_id: &str,
+    ) -> StdResult<Option<SignedEntity<MithrilStakeDistribution>>> {
+        let entity: Option<SignedEntity<MithrilStakeDistribution>> = match self
+            .signed_entity_storer
+            .get_signed_entity(signed_entity_id)
+            .await?
+        {
+            Some(entity) => Some(entity.try_into()?),
+            None => None,
+        };
+
+        Ok(entity)
     }
 }
 
@@ -140,7 +231,7 @@ mod tests {
         let mock_cardano_immutable_files_full_artifact_builder =
             MockArtifactBuilder::<Beacon, Snapshot>::new();
 
-        let artifact_builder_service = MithrilArtifactBuilderService::new(
+        let artifact_builder_service = MithrilSignedEntityService::new(
             Arc::new(mock_signed_entity_storer),
             Arc::new(mock_mithril_stake_distribution_artifact_builder),
             Arc::new(mock_cardano_immutable_files_full_artifact_builder),
@@ -177,7 +268,7 @@ mod tests {
             .once()
             .return_once(move |_, _| Ok(snapshot_expected_clone));
 
-        let artifact_builder_service = MithrilArtifactBuilderService::new(
+        let artifact_builder_service = MithrilSignedEntityService::new(
             Arc::new(mock_signed_entity_storer),
             Arc::new(mock_mithril_stake_distribution_artifact_builder),
             Arc::new(mock_cardano_immutable_files_full_artifact_builder),
