@@ -1,13 +1,13 @@
 mod test_extensions;
 
-use std::collections::BTreeSet;
-
 use mithril_aggregator::Configuration;
 use mithril_common::{
-    entities::{ProtocolMessagePartKey, ProtocolParameters},
+    entities::{
+        Beacon, Epoch, ProtocolParameters, SignedEntityType, SignedEntityTypeDiscriminants,
+    },
     test_utils::MithrilFixtureBuilder,
 };
-use test_extensions::{utilities::get_test_dir, RuntimeTester, SignedEntityTypeDiscriminants};
+use test_extensions::{utilities::get_test_dir, ExpectedCertificate, RuntimeTester};
 
 #[tokio::test]
 async fn create_certificate() {
@@ -21,18 +21,27 @@ async fn create_certificate() {
         data_stores_directory: get_test_dir("create_certificate").join("aggregator.sqlite3"),
         ..Configuration::new_sample()
     };
-    let mut tester = RuntimeTester::build(configuration).await;
+    let mut tester =
+        RuntimeTester::build(Beacon::new("devnet".to_string(), 1, 1), configuration).await;
 
     comment!("create signers & declare stake distribution");
     let fixture = MithrilFixtureBuilder::default()
         .with_signers(10)
         .with_protocol_parameters(protocol_parameters.clone())
         .build();
-    let signers = fixture.signers_fixture();
+
     tester.init_state_from_fixture(&fixture).await.unwrap();
 
     comment!("Boostrap the genesis certificate");
     tester.register_genesis_certificate(&fixture).await.unwrap();
+
+    assert_last_certificate_eq!(
+        tester,
+        ExpectedCertificate::new_genesis(
+            Beacon::new("devnet".to_string(), 1, 1),
+            fixture.compute_and_encode_avk()
+        )
+    );
 
     comment!("Increase immutable number");
     tester.increase_immutable_number().await.unwrap();
@@ -42,24 +51,33 @@ async fn create_certificate() {
     cycle!(tester, "signing");
 
     comment!("register signers");
-    tester.register_signers(&signers).await.unwrap();
+    tester
+        .register_signers(&fixture.signers_fixture())
+        .await
+        .unwrap();
     cycle_err!(tester, "signing");
 
     comment!("signers send their single signature");
     tester
         .send_single_signatures(
             SignedEntityTypeDiscriminants::MithrilStakeDistribution,
-            &signers,
+            &fixture.signers_fixture(),
         )
         .await
         .unwrap();
 
     comment!("The state machine should issue a certificate for the MithrilStakeDistribution");
     cycle!(tester, "ready");
-    let (last_certificates, snapshots) =
-        tester.get_last_certificates_and_snapshots().await.unwrap();
-    // todo!: Inspect the produced MithrilStakeDistribution
-    assert_eq!((2, 0), (last_certificates.len(), snapshots.len()));
+    assert_last_certificate_eq!(
+        tester,
+        ExpectedCertificate::new(
+            Beacon::new("devnet".to_string(), 1, 2),
+            &fixture.signers_with_stake(),
+            fixture.compute_and_encode_avk(),
+            SignedEntityType::MithrilStakeDistribution(Epoch(1)),
+            ExpectedCertificate::genesis_identifier(&Beacon::new("devnet".to_string(), 1, 1)),
+        )
+    );
 
     comment!("The state machine should get back to signing to sign CardanoImmutableFilesFull");
     // todo!: remove this immutable increase:
@@ -68,42 +86,28 @@ async fn create_certificate() {
     // With one state machine per signed entity type this problem will disappear.
     tester.increase_immutable_number().await.unwrap();
     cycle!(tester, "signing");
-    let signers_who_sign = &signers[0..=6];
+    let signers_for_immutables = &fixture.signers_fixture()[0..=6];
     tester
         .send_single_signatures(
             SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
-            signers_who_sign,
+            signers_for_immutables,
         )
         .await
         .unwrap();
 
     comment!("The state machine should issue a certificate for the CardanoImmutableFilesFull");
     cycle!(tester, "ready");
-    let (last_certificates, snapshots) =
-        tester.get_last_certificates_and_snapshots().await.unwrap();
-    assert_eq!((3, 1), (last_certificates.len(), snapshots.len()));
-    assert_eq!(
-        (
-            &last_certificates[0].hash,
-            last_certificates[0]
-                .protocol_message
-                .get_message_part(&ProtocolMessagePartKey::SnapshotDigest)
-                .unwrap()
-        ),
-        (&snapshots[0].certificate_hash, &snapshots[0].digest)
-    );
-    assert_eq!(
-        BTreeSet::from_iter(
-            last_certificates[0]
-                .metadata
-                .signers
+    assert_last_certificate_eq!(
+        tester,
+        ExpectedCertificate::new(
+            Beacon::new("devnet".to_string(), 1, 3),
+            &signers_for_immutables
                 .iter()
-                .map(|s| s.party_id.to_owned())
-        ),
-        BTreeSet::from_iter(
-            signers_who_sign
-                .iter()
-                .map(|s| s.signer_with_stake.party_id.to_owned())
+                .map(|s| s.into())
+                .collect::<Vec<_>>(),
+            fixture.compute_and_encode_avk(),
+            SignedEntityType::CardanoImmutableFilesFull(Beacon::new("devnet".to_string(), 1, 3)),
+            ExpectedCertificate::genesis_identifier(&Beacon::new("devnet".to_string(), 1, 1)),
         )
     );
 

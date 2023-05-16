@@ -3,7 +3,7 @@ use mithril_aggregator::{
     entities::OpenMessage, ticker_service::TickerService,
 };
 use mithril_common::{
-    entities::{Beacon, Epoch, SignedEntityType},
+    entities::{Beacon, Epoch, SignedEntityType, SignedEntityTypeDiscriminants},
     BeaconProvider,
 };
 use std::sync::Arc;
@@ -13,13 +13,6 @@ pub struct AggregatorObserver {
     beacon_provider: Arc<dyn BeaconProvider>,
     certifier_service: Arc<dyn CertifierService>,
     ticker_service: Arc<dyn TickerService>,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum SignedEntityTypeDiscriminants {
-    MithrilStakeDistribution,
-    CardanoStakeDistribution,
-    CardanoImmutableFilesFull,
 }
 
 impl AggregatorObserver {

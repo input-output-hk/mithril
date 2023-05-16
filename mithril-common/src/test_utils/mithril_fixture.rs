@@ -35,6 +35,18 @@ pub struct SignerFixture {
     pub protocol_initializer: ProtocolInitializer,
 }
 
+impl From<SignerFixture> for SignerWithStake {
+    fn from(fixture: SignerFixture) -> Self {
+        fixture.signer_with_stake
+    }
+}
+
+impl From<&SignerFixture> for SignerWithStake {
+    fn from(fixture: &SignerFixture) -> Self {
+        fixture.signer_with_stake.clone()
+    }
+}
+
 impl MithrilFixture {
     /// [MithrilFixture] factory.
     pub fn new(

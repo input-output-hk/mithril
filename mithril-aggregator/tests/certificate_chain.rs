@@ -1,8 +1,11 @@
 mod test_extensions;
 
 use mithril_aggregator::{Configuration, VerificationKeyStorer};
-use mithril_common::{entities::ProtocolParameters, test_utils::MithrilFixtureBuilder};
-use test_extensions::{utilities::get_test_dir, RuntimeTester, SignedEntityTypeDiscriminants};
+use mithril_common::{
+    entities::{Beacon, ProtocolParameters, SignedEntityTypeDiscriminants},
+    test_utils::MithrilFixtureBuilder,
+};
+use test_extensions::{utilities::get_test_dir, RuntimeTester};
 
 #[tokio::test]
 async fn certificate_chain() {
@@ -16,7 +19,8 @@ async fn certificate_chain() {
         data_stores_directory: get_test_dir("certificate_chain").join("aggregator.sqlite3"),
         ..Configuration::new_sample()
     };
-    let mut tester = RuntimeTester::build(configuration).await;
+    let mut tester =
+        RuntimeTester::build(Beacon::new("net".to_string(), 1, 1), configuration).await;
     let observer = tester.observer.clone();
 
     comment!("Create signers & declare stake distribution");

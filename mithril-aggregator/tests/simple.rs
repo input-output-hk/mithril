@@ -1,7 +1,10 @@
 mod test_extensions;
 
 use mithril_aggregator::Configuration;
-use mithril_common::{entities::ProtocolParameters, test_utils::MithrilFixtureBuilder};
+use mithril_common::{
+    entities::{Beacon, ProtocolParameters},
+    test_utils::MithrilFixtureBuilder,
+};
 use test_extensions::{utilities::get_test_dir, RuntimeTester};
 
 #[tokio::test]
@@ -16,7 +19,8 @@ async fn simple_scenario() {
         data_stores_directory: get_test_dir("simple_scenario").join("aggregator.sqlite3"),
         ..Configuration::new_sample()
     };
-    let mut tester = RuntimeTester::build(configuration).await;
+    let mut tester =
+        RuntimeTester::build(Beacon::new("net".to_string(), 1, 1), configuration).await;
 
     comment!("Create signers & declare stake distribution");
     let fixture = MithrilFixtureBuilder::default()
