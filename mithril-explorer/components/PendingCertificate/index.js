@@ -1,9 +1,9 @@
 import React, {useEffect, useState} from 'react';
 import {Card, CardGroup, ListGroup} from "react-bootstrap";
-import RawJsonButton from "../RawJsonButton";
-import VerifiedBadge from '../VerifiedBadge';
 import {useSelector} from "react-redux";
-import ProtocolParameters from "../ProtocolParameters";
+import RawJsonButton from "../RawJsonButton";
+import SignedEntityType from "../SignedEntityType";
+import VerifiedBadge from '../VerifiedBadge';
 
 export default function PendingCertificate(props) {
   const [pendingCertificate, setPendingCertificate] = useState({});
@@ -55,11 +55,9 @@ export default function PendingCertificate(props) {
               <ListGroup className="margin-bottom--md" variant="flush">
                 <ListGroup.Item>Network: {pendingCertificate.beacon.network}</ListGroup.Item>
                 <ListGroup.Item>Epoch: {pendingCertificate.beacon.epoch}</ListGroup.Item>
-                <ListGroup.Item>Immutable File
-                  Number: {pendingCertificate.beacon.immutable_file_number}</ListGroup.Item>
               </ListGroup>
-              <Card.Title>Protocol Parameters</Card.Title>
-              <ProtocolParameters protocolParameters={pendingCertificate.protocol}/>
+              <Card.Title>Entity Type</Card.Title>
+              <SignedEntityType signedEntityType={pendingCertificate.entity_type}/>
             </Card.Body>
           </Card>
           <Card>

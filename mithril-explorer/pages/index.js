@@ -1,15 +1,16 @@
 import React, {useEffect} from 'react';
-import PendingCertificate from '../components/PendingCertificate';
-import SnapshotsList from '../components/SnapshotsList';
+import {useRouter} from "next/router";
+import {useSelector} from "react-redux";
 import Head from "next/head";
 import Image from "next/image";
-import {Col, Form, Row, Stack} from "react-bootstrap";
+import {Col, Form, Row, Stack, Tab, Tabs} from "react-bootstrap";
 import styles from "../styles/Home.module.css";
 import AggregatorSetter from "../components/AggregatorSetter";
-import {useRouter} from "next/router";
 import EpochSettings from "../components/EpochSettings";
-import {useSelector} from "react-redux";
 import IntervalSetter from "../components/IntervalSetter";
+import PendingCertificate from '../components/PendingCertificate';
+import SnapshotsList from '../components/Artifacts/SnapshotsList';
+import MithrilStakeDistributionsList from "../components/Artifacts/MithrilStakeDistributionsList";
 
 export default function Explorer() {
   const router = useRouter();
@@ -46,7 +47,14 @@ export default function Explorer() {
                 <PendingCertificate/>
               </Col>
             </Row>
-            <SnapshotsList/>
+            <Tabs defaultActiveKey="snapshots">
+              <Tab title="Snapshots" eventKey="snapshots">
+                <SnapshotsList/>
+              </Tab>
+              <Tab title="Mithril Stake Distribution" eventKey="mithrilStakeDistribution">
+                <MithrilStakeDistributionsList/>
+              </Tab>
+            </Tabs>
           </Stack>
         </main>
       </div>
