@@ -382,7 +382,9 @@ impl CardanoCliChainObserver {
                 .ok_or(ChainObserverError::InvalidContent(
                     format!("Stake could not be converted to integer for {pool_id_bech32}").into(),
                 ))?;
-            stake_distribution.insert(pool_id_bech32, stakes);
+            if stakes > 0 {
+                stake_distribution.insert(pool_id_bech32, stakes);
+            }
         }
 
         Ok(Some(stake_distribution))
@@ -605,6 +607,11 @@ pool1qz2vzszautc2c8mljnqre2857dpmheq7kgt6vav0s38tvvhxm6w   1.051e-6
             "stakeGo": 1200000000000,
             "stakeMark": 1200000000001,
             "stakeSet": 1200000000002
+        },
+        "00000ffff93effbf3ce788aebd3e7506b80322bd3995ad432e61fad5": {
+            "stakeGo": 0,
+            "stakeMark": 0,
+            "stakeSet": 1300000000002
         }
     },
     "total": {
