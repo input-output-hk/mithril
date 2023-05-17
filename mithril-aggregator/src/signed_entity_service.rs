@@ -1,3 +1,7 @@
+//! ## SignedEntityService
+//!
+//! This service is responsible of dealing with [SignedEntity] type.
+//! It creates [Artifact] that can be accessed by clients.
 use async_trait::async_trait;
 use chrono::Utc;
 use slog_scope::info;
@@ -17,7 +21,11 @@ use crate::{
     database::provider::{SignedEntityRecord, SignedEntityStorer},
 };
 
+#[cfg(test)]
+use mockall::automock;
+
 /// ArtifactBuilder Service trait
+#[cfg_attr(test, automock)]
 #[async_trait]
 pub trait SignedEntityService: Send + Sync {
     /// Create artifact for a signed entity type and a certificate
@@ -27,21 +35,26 @@ pub trait SignedEntityService: Send + Sync {
         certificate: &Certificate,
     ) -> StdResult<()>;
 
+    /// Return a list of signed snapshots order by creation date descending.
     async fn get_last_signed_snapshots(
         &self,
         total: usize,
     ) -> StdResult<Vec<SignedEntity<Snapshot>>>;
 
+    /// Return a list of signed Mithril stake distribution order by creation
+    /// date descending.
     async fn get_last_signed_mithril_stake_distribution(
         &self,
         total: usize,
     ) -> StdResult<Vec<SignedEntity<MithrilStakeDistribution>>>;
 
+    /// Return a signed snapshot
     async fn get_signed_snapshot_by_id(
         &self,
         signed_entity_id: &str,
     ) -> StdResult<Option<SignedEntity<Snapshot>>>;
 
+    /// Return a signed Mithril stake distribution
     async fn get_signed_mithril_stake_distribution_by_id(
         &self,
         signed_entity_id: &str,

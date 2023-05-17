@@ -7,6 +7,7 @@ use async_trait::async_trait;
 
 use mithril_common::{
     entities::{SignedEntity, SignedEntityType, SignedEntityTypeDiscriminants, Snapshot},
+    signable_builder::Artifact,
     sqlite::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
         WhereCondition,
@@ -62,7 +63,7 @@ impl From<SignedEntityRecord> for Snapshot {
 
 impl<T> TryFrom<SignedEntityRecord> for SignedEntity<T>
 where
-    for<'a> T: Serialize + Deserialize<'a>,
+    for<'a> T: Artifact + Serialize + Deserialize<'a>,
 {
     type Error = serde_json::error::Error;
 
@@ -465,10 +466,7 @@ mod tests {
         let (filter, values) = condition.expand();
 
         assert_eq!("signed_entity_type_id = ?1".to_string(), filter);
-        assert_eq!(
-            vec![Value::Integer(SignedEntityType::dummy().index() as i64)],
-            values
-        );
+        assert_eq!(vec![Value::Integer(2)], values);
     }
 
     #[test]

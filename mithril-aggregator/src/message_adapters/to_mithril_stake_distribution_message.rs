@@ -37,8 +37,8 @@ mod tests {
         };
         let signed_entity = SignedEntity {
             signed_entity_id: "id-1234".to_string(),
-            signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(0)),
-            certificate_id: "hash-123".to_string(),
+            signed_entity_type: SignedEntityType::MithrilStakeDistribution(Epoch(1)),
+            certificate_id: "cert-hash-123".to_string(),
             artifact: mithril_stake_distribution,
             created_at: "date-1234".to_string(),
         };

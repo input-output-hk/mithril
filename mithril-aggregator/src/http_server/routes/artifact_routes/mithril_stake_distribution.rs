@@ -96,7 +96,9 @@ pub mod handlers {
 #[cfg(test)]
 pub mod tests {
     use crate::http_server::SERVER_BASE_PATH;
-    use mithril_common::entities::SignedEntityType;
+    use crate::signed_entity_service::MockSignedEntityService;
+    use mithril_common::entities::{Epoch, SignedEntity, SignedEntityType};
+    use mithril_common::signable_builder::Artifact;
     use mithril_common::sqlite::HydrationError;
     use mithril_common::test_utils::apispec::APISpec;
     use mithril_common::test_utils::fake_data;
@@ -107,7 +109,6 @@ pub mod tests {
     use warp::test::request;
 
     use super::*;
-    use crate::database::provider::MockSignedEntityStorer;
 
     fn setup_router(
         dependency_manager: Arc<DependencyManager>,
@@ -122,19 +123,39 @@ pub mod tests {
             .and(routes(dependency_manager).with(cors))
     }
 
+    pub fn create_signed_entities<T>(
+        signed_entity_type: SignedEntityType,
+        records: Vec<T>,
+    ) -> Vec<SignedEntity<T>>
+    where
+        T: Artifact,
+    {
+        records
+            .into_iter()
+            .enumerate()
+            .map(|(idx, record)| SignedEntity {
+                signed_entity_id: format!("{idx}"),
+                signed_entity_type: signed_entity_type.to_owned(),
+                certificate_id: format!("certificate-{idx}"),
+                artifact: record,
+                created_at: "2023-01-19T13:43:05.618857482Z".to_string(),
+            })
+            .collect()
+    }
+
     #[tokio::test]
     async fn test_mithril_stake_distributions_get_ok() {
-        let signed_entity_records = shared::tests::create_signed_entity_records(
+        let signed_entity_records = create_signed_entities(
             SignedEntityType::MithrilStakeDistribution(Epoch::default()),
             fake_data::mithril_stake_distributions(5),
         );
         let mut mock_signed_entity_service = MockSignedEntityService::new();
         mock_signed_entity_service
-            .expect_get_last_signed_stake_distribution()
-            .return_once(|_, _| Ok(signed_entity_records))
+            .expect_get_last_signed_mithril_stake_distribution()
+            .return_once(|_| Ok(signed_entity_records))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.signed_entity_storer = Arc::new(mock_signed_entity_storer);
+        dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
 
         let method = Method::GET.as_str();
         let path = "/artifact/mithril-stake-distributions";
@@ -157,13 +178,13 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_mithril_stake_distributions_get_ko() {
-        let mut mock_signed_entity_storer = MockSignedEntityStorer::new();
-        mock_signed_entity_storer
-            .expect_get_last_signed_entities_by_type()
-            .return_once(|_, _| Err(HydrationError::InvalidData("invalid data".to_string()).into()))
+        let mut mock_signed_entity_service = MockSignedEntityService::new();
+        mock_signed_entity_service
+            .expect_get_last_signed_mithril_stake_distribution()
+            .return_once(|_| Err(HydrationError::InvalidData("invalid data".to_string()).into()))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.signed_entity_storer = Arc::new(mock_signed_entity_storer);
+        dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
 
         let method = Method::GET.as_str();
         let path = "/artifact/mithril-stake-distributions";
@@ -186,20 +207,20 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_mithril_stake_distribution_get_ok() {
-        let signed_entity_record = shared::tests::create_signed_entity_records(
+        let signed_entity = create_signed_entities(
             SignedEntityType::MithrilStakeDistribution(Epoch::default()),
             fake_data::mithril_stake_distributions(1),
         )
         .first()
         .unwrap()
         .to_owned();
-        let mut mock_signed_entity_storer = MockSignedEntityStorer::new();
-        mock_signed_entity_storer
-            .expect_get_signed_entity()
-            .return_once(|_| Ok(Some(signed_entity_record)))
+        let mut mock_signed_entity_service = MockSignedEntityService::new();
+        mock_signed_entity_service
+            .expect_get_signed_mithril_stake_distribution_by_id()
+            .return_once(|_| Ok(Some(signed_entity)))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.signed_entity_storer = Arc::new(mock_signed_entity_storer);
+        dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
 
         let method = Method::GET.as_str();
         let path = "/artifact/mithril-stake-distribution/{hash}";
@@ -222,13 +243,13 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_mithril_stake_distribution_ok_norecord() {
-        let mut mock_signed_entity_storer = MockSignedEntityStorer::new();
-        mock_signed_entity_storer
-            .expect_get_signed_entity()
+        let mut mock_signed_entity_service = MockSignedEntityService::new();
+        mock_signed_entity_service
+            .expect_get_signed_mithril_stake_distribution_by_id()
             .return_once(|_| Ok(None))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.signed_entity_storer = Arc::new(mock_signed_entity_storer);
+        dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
 
         let method = Method::GET.as_str();
         let path = "/artifact/mithril-stake-distribution/{hash}";
@@ -251,13 +272,13 @@ pub mod tests {
 
     #[tokio::test]
     async fn test_mithril_stake_distribution_get_ko() {
-        let mut mock_signed_entity_storer = MockSignedEntityStorer::new();
-        mock_signed_entity_storer
-            .expect_get_signed_entity()
+        let mut mock_signed_entity_service = MockSignedEntityService::new();
+        mock_signed_entity_service
+            .expect_get_signed_mithril_stake_distribution_by_id()
             .return_once(|_| Err(HydrationError::InvalidData("invalid data".to_string()).into()))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
-        dependency_manager.signed_entity_storer = Arc::new(mock_signed_entity_storer);
+        dependency_manager.signed_entity_service = Arc::new(mock_signed_entity_service);
 
         let method = Method::GET.as_str();
         let path = "/artifact/mithril-stake-distribution/{hash}";
