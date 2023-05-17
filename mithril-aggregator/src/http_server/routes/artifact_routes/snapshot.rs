@@ -93,7 +93,7 @@ mod handlers {
     use crate::http_server::SERVER_BASE_PATH;
     use crate::message_adapters::ToSnapshotListMessageAdapter;
     use crate::message_adapters::ToSnapshotMessageAdapter;
-    use crate::{Configuration, SignedEntityService};
+    use crate::{signed_entity_service::SignedEntityService, Configuration};
     use mithril_common::messages::MessageAdapter;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;

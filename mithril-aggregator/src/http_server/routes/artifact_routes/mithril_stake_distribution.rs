@@ -36,7 +36,7 @@ pub mod handlers {
     use crate::message_adapters::{
         ToMithrilStakeDistributionListMessageAdapter, ToMithrilStakeDistributionMessageAdapter,
     };
-    use crate::SignedEntityService;
+    use crate::signed_entity_service::SignedEntityService;
     use mithril_common::messages::MessageAdapter;
     use slog_scope::{debug, warn};
     use std::convert::Infallible;
@@ -96,6 +96,7 @@ pub mod handlers {
 #[cfg(test)]
 pub mod tests {
     use crate::http_server::SERVER_BASE_PATH;
+    use mithril_common::entities::SignedEntityType;
     use mithril_common::sqlite::HydrationError;
     use mithril_common::test_utils::apispec::APISpec;
     use mithril_common::test_utils::fake_data;

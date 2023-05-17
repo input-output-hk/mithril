@@ -1,8 +1,6 @@
 use crate::{entities::Beacon, signable_builder::Artifact};
 use serde::{Deserialize, Serialize};
 
-use super::SignedEntityTypeDiscriminants;
-
 /// Snapshot represents a snapshot file and its metadata
 #[derive(Clone, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Snapshot {
@@ -50,12 +48,5 @@ impl Snapshot {
 impl Artifact for Snapshot {
     fn get_id(&self) -> String {
         self.digest.clone()
-    }
-
-    fn get_entity_type_id() -> SignedEntityTypeDiscriminants
-    where
-        Self: Sized,
-    {
-        SignedEntityTypeDiscriminants::CardanoImmutableFilesFull
     }
 }

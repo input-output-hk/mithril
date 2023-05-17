@@ -17,8 +17,8 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{Mutex, RwLock};
 
 use crate::event_store::EventMessage;
+use crate::signed_entity_service::SignedEntityService;
 use crate::{
-    artifact_builder::SignedEntityService,
     certifier_service::CertifierService,
     configuration::*,
     database::provider::{SignedEntityStorer, StakePoolStore},

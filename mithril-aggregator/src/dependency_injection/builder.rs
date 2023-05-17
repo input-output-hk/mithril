@@ -37,8 +37,7 @@ use warp::Filter;
 
 use crate::{
     artifact_builder::{
-        CardanoImmutableFilesFullArtifactBuilder, MithrilSignedEntityService,
-        MithrilStakeDistributionArtifactBuilder, SignedEntityService,
+        CardanoImmutableFilesFullArtifactBuilder, MithrilStakeDistributionArtifactBuilder,
     },
     certifier_service::{CertifierService, MithrilCertifierService},
     configuration::ExecutionEnvironment,
@@ -49,6 +48,7 @@ use crate::{
     },
     event_store::{EventMessage, EventStore, TransmitterService},
     http_server::routes::router,
+    signed_entity_service::{MithrilSignedEntityService, SignedEntityService},
     signer_registerer::SignerRecorder,
     stake_distribution_service::{MithrilStakeDistributionService, StakeDistributionService},
     ticker_service::{MithrilTickerService, TickerService},
@@ -894,13 +894,13 @@ impl DependenciesBuilder {
         let cardano_immutable_files_full_artifact_builder = Arc::new(
             CardanoImmutableFilesFullArtifactBuilder::new(snapshotter, snapshot_uploader),
         );
-        let artifact_builder_service = Arc::new(MithrilSignedEntityService::new(
+        let signed_entity_service = Arc::new(MithrilSignedEntityService::new(
             signed_entity_storer,
             mithril_stake_distribution_artifact_builder,
             cardano_immutable_files_full_artifact_builder,
         ));
 
-        Ok(artifact_builder_service)
+        Ok(signed_entity_service)
     }
 
     /// [ArtifactBuilderService] service

@@ -6,8 +6,6 @@ use crate::{
     signable_builder::Artifact,
 };
 
-use super::SignedEntityTypeDiscriminants;
-
 /// Mithril Stake Distribution
 #[derive(Debug, PartialEq, Serialize, Deserialize, Clone)]
 pub struct MithrilStakeDistribution {
@@ -58,12 +56,5 @@ impl MithrilStakeDistribution {
 impl Artifact for MithrilStakeDistribution {
     fn get_id(&self) -> String {
         self.hash.clone()
-    }
-
-    fn get_entity_type_id() -> SignedEntityTypeDiscriminants
-    where
-        Self: Sized,
-    {
-        SignedEntityTypeDiscriminants::MithrilStakeDistribution
     }
 }

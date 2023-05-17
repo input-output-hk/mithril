@@ -7,7 +7,6 @@ use async_trait::async_trait;
 
 use mithril_common::{
     entities::{SignedEntity, SignedEntityType, SignedEntityTypeDiscriminants, Snapshot},
-    signable_builder::Artifact,
     sqlite::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
         WhereCondition,
@@ -63,7 +62,7 @@ impl From<SignedEntityRecord> for Snapshot {
 
 impl<T> TryFrom<SignedEntityRecord> for SignedEntity<T>
 where
-    T: Serialize + Deserialize,
+    for<'a> T: Serialize + Deserialize<'a>,
 {
     type Error = serde_json::error::Error;
 
