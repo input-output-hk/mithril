@@ -24,6 +24,7 @@ mod http_server;
 mod message_adapters;
 mod multi_signer;
 mod runtime;
+pub mod signed_entity_service;
 mod signer_registerer;
 mod snapshot_uploaders;
 mod snapshotter;
@@ -32,7 +33,7 @@ mod store;
 pub mod ticker_service;
 mod tools;
 
-pub use crate::artifact_builder::{ArtifactBuilder, ArtifactBuilderService};
+pub use crate::artifact_builder::ArtifactBuilder;
 pub use crate::configuration::{
     Configuration, DefaultConfiguration, ExecutionEnvironment, SnapshotUploaderType,
 };

@@ -487,7 +487,7 @@ impl AggregatorRunnerTrait for AggregatorRunner {
     ) -> Result<(), Box<dyn StdError + Sync + Send>> {
         debug!("RUNNER: create artifact");
         self.dependencies
-            .artifact_builder_service
+            .signed_entity_service
             .create_artifact(signed_entity_type.to_owned(), certificate)
             .await?;
 

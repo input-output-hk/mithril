@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use strum_macros::Display;
+use strum_macros::{Display, EnumDiscriminants};
 
 use crate::{sqlite::HydrationError, StdError};
 
@@ -20,7 +20,7 @@ const ENTITY_TYPE_CARDANO_IMMUTABLE_FILES_FULL: usize = 2;
 /// are identified by their discriminant (i.e. index in the enum), thus the
 /// modification of this type should only ever consist of appending new
 /// variants.
-#[derive(Display, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Display, Debug, Clone, PartialEq, Eq, Serialize, Deserialize, EnumDiscriminants)]
 #[strum(serialize_all = "PascalCase")]
 pub enum SignedEntityType {
     /// Mithril stake distribution
@@ -101,5 +101,15 @@ impl SignedEntityType {
     }
 }
 
+impl SignedEntityTypeDiscriminants {
+    /// Get the database value from enum's instance
+    pub fn index(&self) -> usize {
+        match self {
+            Self::MithrilStakeDistribution => ENTITY_TYPE_MITHRIL_STAKE_DISTRIBUTION,
+            Self::CardanoStakeDistribution => ENTITY_TYPE_CARDANO_STAKE_DISTRIBUTION,
+            Self::CardanoImmutableFilesFull => ENTITY_TYPE_CARDANO_IMMUTABLE_FILES_FULL,
+        }
+    }
+}
 #[cfg(test)]
 mod tests {}

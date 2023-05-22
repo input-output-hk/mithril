@@ -1,16 +1,18 @@
 use std::sync::Arc;
 
+use serde::{Deserialize, Serialize};
 use sqlite::{Connection, Value};
 
 use async_trait::async_trait;
 
 use mithril_common::{
-    entities::{Beacon, SignedEntityType, Snapshot},
+    entities::{SignedEntity, SignedEntityType, SignedEntityTypeDiscriminants, Snapshot},
+    signable_builder::Artifact,
     sqlite::{
         EntityCursor, HydrationError, Projection, Provider, SourceAlias, SqLiteEntity,
         WhereCondition,
     },
-    store::adapter::{AdapterError, StoreAdapter},
+    store::adapter::AdapterError,
     StdResult,
 };
 
@@ -42,6 +44,7 @@ pub struct SignedEntityRecord {
 impl From<Snapshot> for SignedEntityRecord {
     fn from(other: Snapshot) -> Self {
         let entity = serde_json::to_string(&other).unwrap();
+
         SignedEntityRecord {
             signed_entity_id: other.digest,
             signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(other.beacon),
@@ -55,6 +58,25 @@ impl From<Snapshot> for SignedEntityRecord {
 impl From<SignedEntityRecord> for Snapshot {
     fn from(other: SignedEntityRecord) -> Snapshot {
         serde_json::from_str(&other.artifact).unwrap()
+    }
+}
+
+impl<T> TryFrom<SignedEntityRecord> for SignedEntity<T>
+where
+    for<'a> T: Artifact + Serialize + Deserialize<'a>,
+{
+    type Error = serde_json::error::Error;
+
+    fn try_from(other: SignedEntityRecord) -> Result<SignedEntity<T>, Self::Error> {
+        let signed_entity = SignedEntity {
+            signed_entity_id: other.signed_entity_id,
+            signed_entity_type: other.signed_entity_type,
+            created_at: other.created_at,
+            certificate_id: other.certificate_id,
+            artifact: serde_json::from_str::<T>(&other.artifact)?,
+        };
+
+        Ok(signed_entity)
     }
 }
 
@@ -127,17 +149,17 @@ impl<'client> SignedEntityRecordProvider<'client> {
 
     fn condition_by_signed_entity_id(
         &self,
-        signed_entity_id: String,
+        signed_entity_id: &str,
     ) -> Result<WhereCondition, StdError> {
         Ok(WhereCondition::new(
             "signed_entity_id = ?*",
-            vec![Value::String(signed_entity_id)],
+            vec![Value::String(signed_entity_id.to_owned())],
         ))
     }
 
     fn condition_by_signed_entity_type(
         &self,
-        signed_entity_type: SignedEntityType,
+        signed_entity_type: &SignedEntityTypeDiscriminants,
     ) -> Result<WhereCondition, StdError> {
         let signed_entity_type_id: i64 = signed_entity_type.index() as i64;
 
@@ -150,7 +172,7 @@ impl<'client> SignedEntityRecordProvider<'client> {
     /// Get SignedEntityRecords for a given signed_entity id.
     pub fn get_by_signed_entity_id(
         &self,
-        signed_entity_id: String,
+        signed_entity_id: &str,
     ) -> Result<EntityCursor<SignedEntityRecord>, StdError> {
         let filters = self.condition_by_signed_entity_id(signed_entity_id)?;
         let signed_entity_record = self.find(filters)?;
@@ -161,7 +183,7 @@ impl<'client> SignedEntityRecordProvider<'client> {
     /// Get SignedEntityRecords for a given signed entity type.
     pub fn get_by_signed_entity_type(
         &self,
-        signed_entity_type: SignedEntityType,
+        signed_entity_type: &SignedEntityTypeDiscriminants,
     ) -> Result<EntityCursor<SignedEntityRecord>, StdError> {
         let filters = self.condition_by_signed_entity_type(signed_entity_type)?;
         let signed_entity_record = self.find(filters)?;
@@ -262,13 +284,13 @@ pub trait SignedEntityStorer: Sync + Send {
     /// Get signed entity type
     async fn get_signed_entity(
         &self,
-        signed_entity_id: String,
+        signed_entity_id: &str,
     ) -> StdResult<Option<SignedEntityRecord>>;
 
     /// Get last signed entities by signed entity type
     async fn get_last_signed_entities_by_type(
         &self,
-        signed_entity_type: &SignedEntityType,
+        signed_entity_type_id: &SignedEntityTypeDiscriminants,
         total: usize,
     ) -> StdResult<Vec<SignedEntityRecord>>;
 }
@@ -297,7 +319,7 @@ impl SignedEntityStorer for SignedEntityStoreAdapter {
 
     async fn get_signed_entity(
         &self,
-        signed_entity_id: String,
+        signed_entity_id: &str,
     ) -> StdResult<Option<SignedEntityRecord>> {
         let connection = &*self.connection.lock().await;
         let provider = SignedEntityRecordProvider::new(connection);
@@ -311,89 +333,17 @@ impl SignedEntityStorer for SignedEntityStoreAdapter {
 
     async fn get_last_signed_entities_by_type(
         &self,
-        signed_entity_type: &SignedEntityType,
+        signed_entity_type_id: &SignedEntityTypeDiscriminants,
         total: usize,
     ) -> StdResult<Vec<SignedEntityRecord>> {
         let connection = &*self.connection.lock().await;
         let provider = SignedEntityRecordProvider::new(connection);
         let cursor = provider
-            .get_by_signed_entity_type(signed_entity_type.to_owned())
+            .get_by_signed_entity_type(signed_entity_type_id)
             .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
         let signed_entities: Vec<SignedEntityRecord> = cursor.take(total).collect();
 
         Ok(signed_entities)
-    }
-}
-
-// TODO: this StoreAdapter implementation is temporary and concerns only the snapshots for the CardanoImmutableFilesFull signed entity type
-#[async_trait]
-impl StoreAdapter for SignedEntityStoreAdapter {
-    type Key = String;
-    type Record = Snapshot;
-
-    async fn store_record(
-        &mut self,
-        _key: &Self::Key,
-        record: &Self::Record,
-    ) -> Result<(), AdapterError> {
-        let connection = &*self.connection.lock().await;
-        let provider = InsertSignedEntityRecordProvider::new(connection);
-        let _signed_entity_record = provider
-            .persist(record.to_owned().into())
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
-
-        Ok(())
-    }
-
-    async fn get_record(&self, key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
-        let connection = &*self.connection.lock().await;
-        let provider = SignedEntityRecordProvider::new(connection);
-        let mut cursor = provider
-            .get_by_signed_entity_id(key.to_string())
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
-        let signed_entity = cursor
-            .next()
-            .filter(|record| {
-                matches!(
-                    record.signed_entity_type,
-                    SignedEntityType::CardanoImmutableFilesFull(_)
-                )
-            })
-            .map(|record| record.into());
-
-        Ok(signed_entity)
-    }
-
-    async fn record_exists(&self, key: &Self::Key) -> Result<bool, AdapterError> {
-        Ok(self.get_record(key).await?.is_some())
-    }
-
-    async fn get_last_n_records(
-        &self,
-        how_many: usize,
-    ) -> Result<Vec<(Self::Key, Self::Record)>, AdapterError> {
-        Ok(self
-            .get_iter()
-            .await?
-            .take(how_many)
-            .map(|se| (se.digest.to_owned(), se))
-            .collect())
-    }
-
-    async fn remove(&mut self, _key: &Self::Key) -> Result<Option<Self::Record>, AdapterError> {
-        unimplemented!()
-    }
-
-    async fn get_iter(&self) -> Result<Box<dyn Iterator<Item = Self::Record> + '_>, AdapterError> {
-        let connection = &*self.connection.lock().await;
-        let provider = SignedEntityRecordProvider::new(connection);
-        let cursor = provider
-            .get_by_signed_entity_type(SignedEntityType::CardanoImmutableFilesFull(
-                Beacon::default(),
-            ))
-            .map_err(|e| AdapterError::GeneralError(format!("{e}")))?;
-        let signed_entities: Vec<Snapshot> = cursor.map(|se| se.into()).collect();
-        Ok(Box::new(signed_entities.into_iter()))
     }
 }
 
@@ -509,15 +459,14 @@ mod tests {
         let connection = Connection::open(":memory:").unwrap();
         let provider = SignedEntityRecordProvider::new(&connection);
         let condition = provider
-            .condition_by_signed_entity_type(SignedEntityType::dummy())
+            .condition_by_signed_entity_type(
+                &SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
+            )
             .unwrap();
         let (filter, values) = condition.expand();
 
         assert_eq!("signed_entity_type_id = ?1".to_string(), filter);
-        assert_eq!(
-            vec![Value::Integer(SignedEntityType::dummy().index() as i64)],
-            values
-        );
+        assert_eq!(vec![Value::Integer(2)], values);
     }
 
     #[test]
@@ -525,7 +474,7 @@ mod tests {
         let connection = Connection::open(":memory:").unwrap();
         let provider = SignedEntityRecordProvider::new(&connection);
         let condition = provider
-            .condition_by_signed_entity_id("signed-ent-123".to_string())
+            .condition_by_signed_entity_id("signed-ent-123")
             .unwrap();
         let (filter, values) = condition.expand();
 
@@ -576,15 +525,13 @@ mod tests {
 
         let first_signed_entity_type = signed_entity_records.first().unwrap().to_owned();
         let signed_entity_records: Vec<SignedEntityRecord> = provider
-            .get_by_signed_entity_id(first_signed_entity_type.clone().signed_entity_id)
+            .get_by_signed_entity_id(&first_signed_entity_type.signed_entity_id)
             .unwrap()
             .collect();
         assert_eq!(vec![first_signed_entity_type], signed_entity_records);
 
         let signed_entity_records: Vec<SignedEntityRecord> = provider
-            .get_by_signed_entity_type(SignedEntityType::CardanoImmutableFilesFull(
-                Beacon::default(),
-            ))
+            .get_by_signed_entity_type(&SignedEntityTypeDiscriminants::CardanoImmutableFilesFull)
             .unwrap()
             .collect();
         let expected_signed_entity_records: Vec<SignedEntityRecord> = signed_entity_records
@@ -617,52 +564,5 @@ mod tests {
                 provider.persist(signed_entity_record.clone()).unwrap();
             assert_eq!(signed_entity_record, signed_entity_record_saved);
         }
-    }
-
-    #[tokio::test]
-    async fn test_store_adapter() {
-        let signed_entity_records = fake_signed_entity_records(5);
-
-        let connection = Connection::open(":memory:").unwrap();
-        setup_signed_entity_db(&connection, Vec::new()).unwrap();
-
-        let mut signed_entity_store_adapter =
-            SignedEntityStoreAdapter::new(Arc::new(Mutex::new(connection)));
-
-        for signed_entity_record in &signed_entity_records {
-            assert!(signed_entity_store_adapter
-                .store_record(
-                    &signed_entity_record.signed_entity_id,
-                    &signed_entity_record.to_owned().into()
-                )
-                .await
-                .is_ok());
-        }
-
-        for signed_entity_record in &signed_entity_records {
-            assert!(signed_entity_store_adapter
-                .record_exists(&signed_entity_record.signed_entity_id)
-                .await
-                .unwrap());
-            assert_eq!(
-                Some(signed_entity_record.to_owned().into()),
-                signed_entity_store_adapter
-                    .get_record(&signed_entity_record.signed_entity_id)
-                    .await
-                    .unwrap()
-            );
-        }
-
-        assert_eq!(
-            signed_entity_records,
-            signed_entity_store_adapter
-                .get_last_n_records(signed_entity_records.len())
-                .await
-                .unwrap()
-                .into_iter()
-                .map(|(_k, v)| v.into())
-                .rev()
-                .collect::<Vec<SignedEntityRecord>>()
-        )
     }
 }

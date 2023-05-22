@@ -17,8 +17,8 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::sync::{Mutex, RwLock};
 
 use crate::event_store::EventMessage;
+use crate::signed_entity_service::SignedEntityService;
 use crate::{
-    artifact_builder::ArtifactBuilderService,
     certifier_service::CertifierService,
     configuration::*,
     database::provider::{SignedEntityStorer, StakePoolStore},
@@ -116,8 +116,8 @@ pub struct DependencyManager {
     /// Signable Builder Service
     pub signable_builder_service: Arc<dyn SignableBuilderService>,
 
-    /// Artifact Builder Service
-    pub artifact_builder_service: Arc<dyn ArtifactBuilderService>,
+    /// Signed Entity Service
+    pub signed_entity_service: Arc<dyn SignedEntityService>,
 
     /// Certifier Service
     pub certifier_service: Arc<dyn CertifierService>,
