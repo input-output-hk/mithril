@@ -52,7 +52,7 @@ pub mod handlers {
         debug!("⇄ HTTP SERVER: artifacts");
 
         match signed_entity_service
-            .get_last_signed_mithril_stake_distribution(LIST_MAX_ITEMS)
+            .get_last_signed_mithril_stake_distributions(LIST_MAX_ITEMS)
             .await
         {
             Ok(signed_entities) => {
@@ -60,7 +60,7 @@ pub mod handlers {
                 Ok(reply::json(&messages, StatusCode::OK))
             }
             Err(err) => {
-                warn!("artifacts_mithril_stake_distribution"; "error" => ?err);
+                warn!("list_artifacts_mithril_stake_distribution"; "error" => ?err);
                 Ok(reply::internal_server_error(err.to_string()))
             }
         }
@@ -82,11 +82,11 @@ pub mod handlers {
                 Ok(reply::json(&message, StatusCode::OK))
             }
             Ok(None) => {
-                warn!("mithril_stake_distribution_details::not_found");
+                warn!("get_mithril_stake_distribution_details::not_found");
                 Ok(reply::empty(StatusCode::NOT_FOUND))
             }
             Err(err) => {
-                warn!("mithril_stake_distribution_details::error"; "error" => ?err);
+                warn!("get_mithril_stake_distribution_details::error"; "error" => ?err);
                 Ok(reply::internal_server_error(err.to_string()))
             }
         }
@@ -151,7 +151,7 @@ pub mod tests {
         );
         let mut mock_signed_entity_service = MockSignedEntityService::new();
         mock_signed_entity_service
-            .expect_get_last_signed_mithril_stake_distribution()
+            .expect_get_last_signed_mithril_stake_distributions()
             .return_once(|_| Ok(signed_entity_records))
             .once();
         let mut dependency_manager = initialize_dependencies().await;
@@ -180,7 +180,7 @@ pub mod tests {
     async fn test_mithril_stake_distributions_get_ko() {
         let mut mock_signed_entity_service = MockSignedEntityService::new();
         mock_signed_entity_service
-            .expect_get_last_signed_mithril_stake_distribution()
+            .expect_get_last_signed_mithril_stake_distributions()
             .return_once(|_| Err(HydrationError::InvalidData("invalid data".to_string()).into()))
             .once();
         let mut dependency_manager = initialize_dependencies().await;

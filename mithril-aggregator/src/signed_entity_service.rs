@@ -43,7 +43,7 @@ pub trait SignedEntityService: Send + Sync {
 
     /// Return a list of signed Mithril stake distribution order by creation
     /// date descending.
-    async fn get_last_signed_mithril_stake_distribution(
+    async fn get_last_signed_mithril_stake_distributions(
         &self,
         total: usize,
     ) -> StdResult<Vec<SignedEntity<MithrilStakeDistribution>>>;
@@ -158,7 +158,7 @@ impl SignedEntityService for MithrilSignedEntityService {
         Ok(signed_entities)
     }
 
-    async fn get_last_signed_mithril_stake_distribution(
+    async fn get_last_signed_mithril_stake_distributions(
         &self,
         total: usize,
     ) -> StdResult<Vec<SignedEntity<MithrilStakeDistribution>>> {

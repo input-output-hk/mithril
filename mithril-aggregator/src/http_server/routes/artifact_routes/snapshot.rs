@@ -38,7 +38,7 @@ fn artifact_cardano_full_immutable_snapshot_by_id(
         .and_then(handlers::get_artifact_by_signed_entity_id)
 }
 
-/// GET /snapshots/{digest}/download
+/// GET /artifact/snapshots/{digest}/download
 fn snapshot_download(
     dependency_manager: Arc<DependencyManager>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
@@ -103,7 +103,7 @@ mod handlers {
 
     pub const LIST_MAX_ITEMS: usize = 20;
 
-    /// List Snaptshot artifacts
+    /// List Snapshot artifacts
     pub async fn list_artifacts(
         signed_entity_service: Arc<dyn SignedEntityService>,
     ) -> Result<impl warp::Reply, Infallible> {
@@ -118,7 +118,7 @@ mod handlers {
                 Ok(reply::json(&messages, StatusCode::OK))
             }
             Err(err) => {
-                warn!("artifacts_mithril_stake_distribution"; "error" => ?err);
+                warn!("list_artifacts_snapshot"; "error" => ?err);
                 Ok(reply::internal_server_error(err.to_string()))
             }
         }

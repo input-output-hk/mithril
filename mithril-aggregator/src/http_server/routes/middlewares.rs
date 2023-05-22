@@ -81,7 +81,7 @@ pub fn with_ticker_service(
     warp::any().map(move || dependency_manager.ticker_service.clone())
 }
 
-/// With signed entity storer
+/// With signed entity service
 pub fn with_signed_entity_service(
     dependency_manager: Arc<DependencyManager>,
 ) -> impl Filter<Extract = (Arc<dyn SignedEntityService>,), Error = Infallible> + Clone {

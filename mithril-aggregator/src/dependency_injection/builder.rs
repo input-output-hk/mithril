@@ -170,7 +170,7 @@ pub struct DependenciesBuilder {
     /// Signable Builder Service
     pub signable_builder_service: Option<Arc<dyn SignableBuilderService>>,
 
-    /// Artifact Builder Service
+    /// Signed Entity Service
     pub signed_entity_service: Option<Arc<dyn SignedEntityService>>,
 
     /// Certifier service
@@ -903,7 +903,7 @@ impl DependenciesBuilder {
         Ok(signed_entity_service)
     }
 
-    /// [ArtifactBuilderService] service
+    /// [SignedEntityService] service
     pub async fn get_signed_entity_service(&mut self) -> Result<Arc<dyn SignedEntityService>> {
         if self.signed_entity_service.is_none() {
             self.signed_entity_service = Some(self.build_signed_entity_service().await?);

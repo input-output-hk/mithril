@@ -116,7 +116,7 @@ pub struct DependencyManager {
     /// Signable Builder Service
     pub signable_builder_service: Arc<dyn SignableBuilderService>,
 
-    /// Artifact Builder Service
+    /// Signed Entity Service
     pub signed_entity_service: Arc<dyn SignedEntityService>,
 
     /// Certifier Service
