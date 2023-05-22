@@ -17,6 +17,9 @@ use tar::Archive;
 use thiserror::Error;
 use tokio::sync::RwLock;
 
+#[cfg(test)]
+use mockall::automock;
+
 use mithril_common::{
     certificate_chain::{CertificateRetriever, CertificateRetrieverError},
     entities::{Certificate, Snapshot},
@@ -68,8 +71,9 @@ impl AggregatorHandlerError {
 }
 
 /// AggregatorHandler represents a read interactor with an aggregator
+#[cfg_attr(test, automock)]
 #[async_trait]
-pub trait AggregatorHandler: CertificateRetriever + Sync + Send {
+pub trait AggregatorHandler: Sync + Send {
     /// List snapshots
     async fn list_snapshots(&self) -> Result<Vec<Snapshot>, AggregatorHandlerError>;
 
@@ -280,7 +284,7 @@ impl AggregatorHandler for AggregatorHTTPClient {
         }
     }
 
-    /// Download Snapshot
+    /// Download Snapshot. Returns the path of the downloaded file as String.
     async fn download_snapshot(
         &self,
         digest: &str,
@@ -306,6 +310,7 @@ impl AggregatorHandler for AggregatorHTTPClient {
                     })?;
                     let mut bytes_downloaded = 0;
                     let mut remote_stream = response.bytes_stream();
+
                     while let Some(item) = remote_stream.next().await {
                         let chunk = item.map_err(|e| {
                             AggregatorHandlerError::RemoteServerTechnical(e.to_string())
@@ -358,6 +363,7 @@ impl AggregatorHandler for AggregatorHTTPClient {
         let unpack_dir_path = local_path.parent().unwrap().join(path::Path::new("db"));
         let mut snapshot_archive = Archive::new(snapshot_file_tar);
         snapshot_archive.unpack(&unpack_dir_path)?;
+
         Ok(unpack_dir_path.into_os_string().into_string().unwrap())
     }
 

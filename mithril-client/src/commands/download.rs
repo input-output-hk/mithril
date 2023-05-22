@@ -6,8 +6,6 @@ use mithril_common::{api_version::APIVersionProvider, StdError};
 use serde::Serialize;
 use slog_scope::debug;
 
-use crate::{AggregatorHTTPClient, Config, Runtime};
-
 /// Download a snapshot.
 #[derive(Parser, Debug, Clone)]
 pub struct DownloadCommand {

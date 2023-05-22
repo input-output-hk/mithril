@@ -3,7 +3,6 @@ use std::str;
 use std::sync::Arc;
 use thiserror::Error;
 
-use crate::aggregator::{AggregatorHandler, AggregatorHandlerError};
 use crate::entities::*;
 
 use mithril_common::certificate_chain::{
@@ -23,11 +22,6 @@ pub enum RuntimeError {
     /// Error raised when the user provided an invalid input.
     #[error("an input is invalid: '{0}'")]
     InvalidInput(String),
-
-    /// Error raised when an [AggregatorHandlerError] is caught when querying the aggregator using
-    /// a [AggregatorHandler].
-    #[error("aggregator handler error: '{0}'")]
-    AggregatorHandler(#[from] AggregatorHandlerError),
 
     /// Error raised when a CertificateRetrieverError tries to retrieve a
     /// [certificate](mithril_common::entities::Certificate)
@@ -118,6 +112,9 @@ impl Runtime {
     ) -> Result<String, RuntimeError> {
         debug!("Restore snapshot {}", digest);
         let snapshot = aggregator_handler.get_snapshot_details(digest).await?;
+
+        todo!()
+        /*
         let certificate = aggregator_handler
             .get_certificate_details(&snapshot.certificate_hash)
             .await?;
@@ -139,6 +136,7 @@ impl Runtime {
             )
             .await?;
         Ok(unpacked_path.to_owned())
+        */
     }
 }
 
@@ -188,7 +186,6 @@ mod tests {
     use mithril_common::crypto_helper::{ProtocolGenesisSigner, ProtocolGenesisVerifier};
     use mockall::mock;
 
-    use crate::aggregator::AggregatorHandlerError;
     use mithril_common::certificate_chain::{
         CertificateRetriever, CertificateRetrieverError, CertificateVerifierError,
     };
