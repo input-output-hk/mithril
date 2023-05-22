@@ -144,7 +144,7 @@ impl SignedEntityService for MithrilSignedEntityService {
     ) -> StdResult<Vec<SignedEntity<Snapshot>>> {
         let signed_entities_records = self
             .signed_entity_storer
-            .get_last_signed_entities(
+            .get_last_signed_entities_by_type(
                 &SignedEntityTypeDiscriminants::CardanoImmutableFilesFull,
                 total,
             )
@@ -164,7 +164,7 @@ impl SignedEntityService for MithrilSignedEntityService {
     ) -> StdResult<Vec<SignedEntity<MithrilStakeDistribution>>> {
         let signed_entities_records = self
             .signed_entity_storer
-            .get_last_signed_entities(
+            .get_last_signed_entities_by_type(
                 &SignedEntityTypeDiscriminants::MithrilStakeDistribution,
                 total,
             )

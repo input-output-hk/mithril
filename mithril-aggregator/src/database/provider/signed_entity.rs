@@ -288,7 +288,7 @@ pub trait SignedEntityStorer: Sync + Send {
     ) -> StdResult<Option<SignedEntityRecord>>;
 
     /// Get last signed entities by signed entity type
-    async fn get_last_signed_entities(
+    async fn get_last_signed_entities_by_type(
         &self,
         signed_entity_type_id: &SignedEntityTypeDiscriminants,
         total: usize,
@@ -331,7 +331,7 @@ impl SignedEntityStorer for SignedEntityStoreAdapter {
         Ok(signed_entity)
     }
 
-    async fn get_last_signed_entities(
+    async fn get_last_signed_entities_by_type(
         &self,
         signed_entity_type_id: &SignedEntityTypeDiscriminants,
         total: usize,
