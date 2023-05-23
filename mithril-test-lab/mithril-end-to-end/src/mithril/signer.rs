@@ -30,7 +30,7 @@ impl Signer {
             format!(r#"{{"markers": [{{"name": "{mithril_era}", "epoch": 1}}]}}"#);
         let mut env = HashMap::from([
             ("NETWORK", "devnet"),
-            ("RUN_INTERVAL", "300"),
+            ("RUN_INTERVAL", "200"),
             ("AGGREGATOR_ENDPOINT", &aggregator_endpoint),
             ("DB_DIRECTORY", pool_node.db_path.to_str().unwrap()),
             ("DATA_STORES_DIRECTORY", &data_stores_path),
