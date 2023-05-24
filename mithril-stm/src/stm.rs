@@ -120,6 +120,7 @@ use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::convert::{From, TryFrom, TryInto};
 use std::hash::{Hash, Hasher};
+use std::marker::PhantomData;
 
 /// The quantity of stake held by a party, represented as a `u64`.
 pub type Stake = u64;
@@ -240,6 +241,16 @@ pub struct FullNodeSignature {
     pub sigma: Signature,
     /// The index(es) for which the signature is valid
     pub indexes: Vec<Index>,
+}
+
+/// Full node verifier
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FullNodeVerifier<D: Digest> {
+    /// Ordered list of registered parties.
+    pub eligible_parties: HashMap<RegParty, Index>,
+    /// Total stake of registered parties.
+    pub total_stake: Stake,
+    hasher: PhantomData<D>,
 }
 
 impl StmParameters {
@@ -449,7 +460,6 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
 }
 
 impl FullNodeSigner {
-
     /// Checks whether the indices won the lottery.
     pub fn check_lottery(
         params: &StmParameters,
@@ -736,7 +746,6 @@ impl StmSig {
 }
 
 impl FullNodeSignature {
-
     /// Verification of a full node signature
     pub fn verify(
         &self,
@@ -998,6 +1007,61 @@ impl<D: Clone + Digest + FixedOutput + Send + Sync> StmAggrSig<D> {
             batch_proof,
         })
     }
+}
+
+impl<D: Digest + FixedOutput> FullNodeVerifier<D> {
+    /// Collect the registered parties that have a signature.
+    pub fn collect_reg_parties(self, signatures: &[(FullNodeSignature, Index)]) -> Vec<RegParty> {
+        let indices = signatures.iter().map(|sig| sig.1).collect::<Vec<Index>>();
+        let signed_parties = self
+            .eligible_parties
+            .iter()
+            .filter_map(|(party, ind)| {
+                if indices.contains(ind) {
+                    Some(*party)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        signed_parties
+    }
+
+    /// Check unique indices and quorum
+    pub fn preliminary_verify(
+        &self,
+        msg: &[u8],
+        signed_parties: &[RegParty],
+        parameters: &StmParameters,
+        signatures: &[(FullNodeSignature, Index)],
+    ) -> Result<(), StmAggregateSignatureError<D>> {
+        let mut nr_indices = 0;
+        let mut unique_indices = HashSet::new();
+
+        for (i, sig) in signatures.iter().enumerate() {
+            sig.0
+                .check_indices(parameters, &signed_parties[i].1, msg, &self.total_stake)?;
+            for &index in &sig.0.indexes {
+                unique_indices.insert(index);
+                nr_indices += 1;
+            }
+        }
+
+        if nr_indices != unique_indices.len() {
+            return Err(StmAggregateSignatureError::IndexNotUnique);
+        }
+
+        if (nr_indices as u64) < parameters.k {
+            return Err(StmAggregateSignatureError::NoQuorum);
+        }
+
+        Ok(())
+    }
+
+    // pub fn verify_full_node_signature(&self, signatures: &[(FullNodeSignature, Index)],  parameters: &StmParameters, msg: &[u8]) -> Result<(), StmSignatureError>{
+    //
+    //     Ok(())
+    // }
 }
 
 #[cfg(test)]

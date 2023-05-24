@@ -12,7 +12,7 @@ use std::marker::PhantomData;
 
 /// The values that are committed in the Merkle Tree.
 /// Namely, a verified `VerificationKey` and its corresponding stake.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize, Hash)]
 pub struct MTLeaf(pub VerificationKey, pub Stake);
 
 /// Path of hashes from root to leaf in a Merkle Tree.
