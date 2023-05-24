@@ -59,11 +59,10 @@ NODES=mithril ./devnet-log.sh
 ./devnet-query.sh
 
 # Query Cardano nodes only on devnet
-.NODES=cardano /devnet-query.sh
+NODES=cardano ./devnet-query.sh
 
 # Query Mithril nodes only on devnet
-.NODES=mithril /devnet-query.sh
-
+NODES=mithril ./devnet-query.sh
 
 # Stop devnet
 ./devnet-stop.sh
