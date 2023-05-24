@@ -1,5 +1,5 @@
 use cli_table::{format::Justify, Table};
-use mithril_common::entities::{Epoch, HexEncodedGenesisVerificationKey};
+use mithril_common::entities::{Epoch, HexEncodedGenesisVerificationKey, Snapshot};
 use serde::{Deserialize, Serialize};
 
 /// Client configuration
@@ -21,10 +21,6 @@ pub struct Config {
 /// for the purpose of tabular display
 #[derive(Table, Debug, Clone, PartialEq, Eq, PartialOrd, Serialize)]
 pub struct SnapshotListItem {
-    /// Cardano network
-    #[table(title = "Network")]
-    pub network: String,
-
     /// Cardano epoch
     #[table(title = "Epoch")]
     pub epoch: Epoch,
@@ -50,10 +46,22 @@ pub struct SnapshotListItem {
     pub created_at: String,
 }
 
+impl From<Snapshot> for SnapshotListItem {
+    fn from(value: Snapshot) -> Self {
+        SnapshotListItem {
+            epoch: value.beacon.epoch,
+            immutable_file_number: value.beacon.immutable_file_number,
+            digest: value.digest,
+            size: value.size,
+            total_locations: u16::try_from(value.locations.len()).unwrap(),
+            created_at: value.created_at,
+        }
+    }
+}
+
 impl SnapshotListItem {
     /// SnapshotListItem factory
     pub fn new(
-        network: String,
         epoch: Epoch,
         immutable_file_number: u64,
         digest: String,
@@ -62,7 +70,6 @@ impl SnapshotListItem {
         created_at: String,
     ) -> SnapshotListItem {
         SnapshotListItem {
-            network,
             epoch,
             immutable_file_number,
             digest,

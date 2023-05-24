@@ -9,7 +9,7 @@ use slog_scope::debug;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use mithril_client::commands::{DownloadCommand, ListCommand, RestoreCommand, ShowCommand};
+use mithril_client::commands::snapshot::*;
 
 /// CLI args
 #[derive(Parser, Debug, Clone)]
@@ -22,7 +22,7 @@ use mithril_client::commands::{DownloadCommand, ListCommand, RestoreCommand, Sho
 pub struct Args {
     /// Available commands
     #[clap(subcommand)]
-    command: Commands,
+    command: ArtifactCommands,
 
     /// Run Mode.
     #[clap(long, env = "RUN_MODE", default_value = "dev")]
@@ -98,27 +98,39 @@ impl Source for Args {
     }
 }
 
+#[derive(Subcommand, Debug, Clone)]
+enum ArtifactCommands {
+    #[clap(subcommand)]
+    Snapshot(SnapshotCommands),
+}
+
+impl ArtifactCommands {
+    pub async fn execute(
+        &self,
+        config_builder: ConfigBuilder<DefaultState>,
+    ) -> Result<(), StdError> {
+        match self {
+            Self::Snapshot(cmd) => cmd.execute(config_builder).await,
+        }
+    }
+}
 /// CLI command list
 #[derive(Subcommand, Debug, Clone)]
-enum Commands {
+enum SnapshotCommands {
     /// List available snapshots
     #[clap(arg_required_else_help = false)]
-    List(ListCommand),
+    List(SnapshotListCommand),
 
     /// Show detailed informations about a snapshot
     #[clap(arg_required_else_help = false)]
-    Show(ShowCommand),
+    Show(SnapshotShowCommand),
 
-    /// Download a snapshot
+    /// Download the snapshot and verify the certificate
     #[clap(arg_required_else_help = true)]
-    Download(DownloadCommand),
-
-    /// Restore a snapshot
-    #[clap(arg_required_else_help = true)]
-    Restore(RestoreCommand),
+    Download(SnapshotDownloadCommand),
 }
 
-impl Commands {
+impl SnapshotCommands {
     pub async fn execute(
         &self,
         config_builder: ConfigBuilder<DefaultState>,
@@ -127,7 +139,6 @@ impl Commands {
             Self::List(cmd) => cmd.execute(config_builder).await,
             Self::Download(cmd) => cmd.execute(config_builder).await,
             Self::Show(cmd) => cmd.execute(config_builder).await,
-            Self::Restore(cmd) => cmd.execute(config_builder).await,
         }
     }
 }

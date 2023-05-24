@@ -1,12 +1,23 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{
+    fs::File,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 use async_trait::async_trait;
-use mithril_common::{certificate_chain::CertificateVerifier, entities::Snapshot, StdError};
+use flate2::read::GzDecoder;
+use mithril_common::{
+    certificate_chain::CertificateVerifier,
+    crypto_helper::{key_decode_hex, ProtocolGenesisVerifier},
+    digesters::{CardanoImmutableDigester, ImmutableDigester},
+    entities::{ProtocolMessagePartKey, Snapshot},
+    StdError, StdResult,
+};
+use serde::{Deserialize, Serialize};
+use tar::Archive;
 use thiserror::Error;
 
-use crate::aggregator_client::{AggregatorHTTPClientError, SnapshotClient};
-
-type SnapshotServiceResult<T> = Result<T, SnapshotServiceError>;
+use crate::aggregator_client::{AggregatorHTTPClientError, CertificateClient, SnapshotClient};
 
 /// [AggregatorHandler] related errors.
 #[derive(Error, Debug)]
@@ -24,42 +35,48 @@ pub enum SnapshotServiceError {
         path: PathBuf,
     },
 
-    /// A command cannot be fulfilled because of an underlying error
-    #[error("A subsystem failed: {message} ({error})")]
-    Subsystem {
-        /// error context
-        message: String,
-
-        /// original error
-        error: StdError,
-    },
+    /// The given certificate could not be found, contains the certificate hash
+    #[error("Could not find certificate '{0}'.")]
+    CouldNotFindCertificate(String),
 }
 
 /// ## SnapshotService
 ///
 /// This trait is the interface for the Snapshot service used in the main commands.
 #[async_trait]
-pub trait SnapshotService {
+pub trait SnapshotService: Sync + Send {
     /// Return the list of the snapshots stored by the Aggregator.
-    async fn list(&self) -> SnapshotServiceResult<Vec<Snapshot>>;
+    async fn list(&self) -> StdResult<Vec<Snapshot>>;
 
     /// Show details of the snapshot identified by the given digest.
-    async fn show(&self, digest: &str) -> SnapshotServiceResult<Snapshot>;
+    async fn show(&self, digest: &str) -> StdResult<Snapshot>;
 
     /// Download and verify the snapshot identified by the given digest.
-    async fn download(&self, digest: &str) -> SnapshotServiceResult<Snapshot>;
+    async fn download(
+        &self,
+        digest: &str,
+        pathdir: &Path,
+        genesis_verification_key: &str,
+    ) -> StdResult<PathBuf>;
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 /// Configuration related to the [SnapshotService].
-pub struct SnapshotConfig {}
+pub struct SnapshotConfig {
+    /// Aggregator URL
+    pub aggregator_endpoint: String,
+
+    /// Genesis verification key
+    pub genesis_verification_key: String,
+}
 
 /// Service used by the Command to perform business oriented tasks.
 pub struct MithrilClientSnapshotService {
-    /// Command configuration
-    config: SnapshotConfig,
-
     /// Snapshot HTTP client
     snapshot_client: Arc<SnapshotClient>,
+
+    /// Certificate HTTP client
+    certificate_client: Arc<CertificateClient>,
 
     /// Certificate verifier
     certificate_verifier: Arc<dyn CertificateVerifier>,
@@ -68,45 +85,98 @@ pub struct MithrilClientSnapshotService {
 impl MithrilClientSnapshotService {
     /// Create a new instance of the service.
     pub fn new(
-        config: SnapshotConfig,
         snapshot_client: Arc<SnapshotClient>,
+        certificate_client: Arc<CertificateClient>,
         certificate_verifier: Arc<dyn CertificateVerifier>,
     ) -> Self {
         Self {
-            config,
             snapshot_client,
+            certificate_client,
             certificate_verifier,
         }
+    }
+
+    async fn unpack_snapshot(&self, filepath: &Path) -> StdResult<PathBuf> {
+        let snapshot_file_tar_gz = File::open(filepath)?;
+        let snapshot_file_tar = GzDecoder::new(snapshot_file_tar_gz);
+        let unpack_dir_path = filepath.parent().unwrap().join(Path::new("db"));
+        let mut snapshot_archive = Archive::new(snapshot_file_tar);
+        snapshot_archive.unpack(&unpack_dir_path)?;
+
+        Ok(unpack_dir_path)
     }
 }
 
 #[async_trait]
 impl SnapshotService for MithrilClientSnapshotService {
-    async fn list(&self) -> SnapshotServiceResult<Vec<Snapshot>> {
-        self.snapshot_client
-            .list()
-            .await
-            .map_err(|error| SnapshotServiceError::Subsystem {
-                message: "Could not list snapshots".to_string(),
-                error: error.into(),
-            })
+    async fn list(&self) -> StdResult<Vec<Snapshot>> {
+        self.snapshot_client.list().await
     }
 
-    async fn show(&self, digest: &str) -> SnapshotServiceResult<Snapshot> {
-        self.snapshot_client.show(digest).await.map_err(|e| {
-            if matches!(&e, AggregatorHTTPClientError::RemoteServerLogical(_)) {
-                SnapshotServiceError::SnapshotNotFound(digest.to_owned())
-            } else {
-                SnapshotServiceError::Subsystem {
-                    message: format!("Could not get snapshot details for digest '{digest}'"),
-                    error: e.into(),
-                }
+    async fn show(&self, digest: &str) -> StdResult<Snapshot> {
+        let snapshot =
+            self.snapshot_client
+                .show(digest)
+                .await
+                .map_err(|e| match &e.downcast_ref::<AggregatorHTTPClientError>() {
+                    Some(error)
+                        if matches!(error, &&AggregatorHTTPClientError::RemoteServerLogical(_)) =>
+                    {
+                        Box::new(SnapshotServiceError::SnapshotNotFound(digest.to_owned()))
+                            as StdError
+                    }
+                    _ => e,
+                })?;
+
+        Ok(snapshot)
+    }
+
+    async fn download(
+        &self,
+        digest: &str,
+        pathdir: &Path,
+        genesis_verification_key: &str,
+    ) -> StdResult<PathBuf> {
+        let genesis_verification_key = key_decode_hex(&genesis_verification_key.to_string())?;
+        let snapshot = self.snapshot_client.show(digest).await?;
+        let filepath = self.snapshot_client.download(&snapshot, pathdir).await?;
+        let genesis_verifier =
+            ProtocolGenesisVerifier::from_verification_key(genesis_verification_key);
+        let unpacked_path = self.unpack_snapshot(&filepath).await?;
+        let digester = Box::new(CardanoImmutableDigester::new(
+            Path::new(&unpacked_path).into(),
+            None,
+            slog_scope::logger(),
+        ));
+        let certificate = self
+            .certificate_client
+            .get(&snapshot.certificate_hash)
+            .await?
+            .ok_or_else(|| {
+                SnapshotServiceError::CouldNotFindCertificate(snapshot.certificate_hash.clone())
+            })?;
+        let unpacked_snapshot_digest = digester.compute_digest(&certificate.beacon).await?;
+        let mut protocol_message = certificate.protocol_message.clone();
+        protocol_message.set_message_part(
+            ProtocolMessagePartKey::SnapshotDigest,
+            unpacked_snapshot_digest.clone(),
+        );
+        if protocol_message.compute_hash() != certificate.signed_message {
+            return Err(SnapshotServiceError::CouldNotVerifySnapshot {
+                digest: snapshot.certificate_hash.clone(),
+                path: unpacked_path.clone(),
             }
-        })
-    }
+            .into());
+        }
+        self.certificate_verifier
+            .verify_certificate_chain(
+                certificate,
+                self.certificate_client.clone(),
+                &genesis_verifier,
+            )
+            .await?;
 
-    async fn download(&self, digest: &str) -> SnapshotServiceResult<Snapshot> {
-        todo!()
+        Ok(unpacked_path)
     }
 }
 
@@ -157,14 +227,15 @@ mod tests {
     async fn test_list_snapshots() {
         let mut http_client = MockAggregatorHTTPClient::new();
         http_client
-            .expect_get_json()
-            .returning(|| Ok(get_snapshot_list_message()));
-        let snapshot_client = SnapshotClient::new(Arc::new(http_client), "whatever");
+            .expect_get_content()
+            .returning(|_| Ok(serde_json::to_string(&get_snapshot_list_message()).unwrap()));
+        let http_client = Arc::new(http_client);
+        let snapshot_client = SnapshotClient::new(http_client.clone());
+        let certificate_client = CertificateClient::new(http_client);
         let certificate_verifier = MockCertificateVerifierImpl::new();
-        let config = SnapshotConfig {};
         let snapshot_service = MithrilClientSnapshotService::new(
-            config,
             Arc::new(snapshot_client),
+            Arc::new(certificate_client),
             Arc::new(certificate_verifier),
         );
 
@@ -177,46 +248,40 @@ mod tests {
     async fn test_list_snapshots_err() {
         let mut http_client = MockAggregatorHTTPClient::new();
         http_client
-            .expect_get_json()
-            .returning(|| {
+            .expect_get_content()
+            .returning(|_| {
                 Err(AggregatorHTTPClientError::RemoteServerUnreachable(
                     "whatever".to_string(),
                 ))
             })
             .times(1);
-        let snapshot_client = SnapshotClient::new(Arc::new(http_client), "whatever");
+        let http_client = Arc::new(http_client);
+        let snapshot_client = SnapshotClient::new(http_client.clone());
+        let certificate_client = CertificateClient::new(http_client);
         let certificate_verifier = MockCertificateVerifierImpl::new();
-        let config = SnapshotConfig {};
         let snapshot_service = MithrilClientSnapshotService::new(
-            config,
             Arc::new(snapshot_client),
+            Arc::new(certificate_client),
             Arc::new(certificate_verifier),
         );
 
-        let error = snapshot_service.list().await.unwrap_err();
-
-        assert!(matches!(
-            error,
-            SnapshotServiceError::Subsystem {
-                message: _,
-                error: _
-            }
-        ));
+        snapshot_service.list().await.unwrap_err();
     }
 
     #[tokio::test]
     async fn test_show_snapshot() {
         let mut http_client = MockAggregatorHTTPClient::new();
         http_client
-            .expect_get_json()
-            .return_once(|_| Ok(get_snapshot_message()))
+            .expect_get_content()
+            .return_once(|_| Ok(serde_json::to_string(&get_snapshot_message()).unwrap()))
             .times(1);
-        let snapshot_client = SnapshotClient::new(Arc::new(http_client), "whatever");
+        let http_client = Arc::new(http_client);
+        let snapshot_client = SnapshotClient::new(http_client.clone());
+        let certificate_client = CertificateClient::new(http_client);
         let certificate_verifier = MockCertificateVerifierImpl::new();
-        let config = SnapshotConfig {};
         let snapshot_service = MithrilClientSnapshotService::new(
-            config,
             Arc::new(snapshot_client),
+            Arc::new(certificate_client),
             Arc::new(certificate_verifier),
         );
 
@@ -230,56 +295,48 @@ mod tests {
     async fn test_show_snapshot_not_found() {
         let mut http_client = MockAggregatorHTTPClient::new();
         http_client
-            .expect_get_json()
+            .expect_get_content()
             .return_once(move |_| {
                 Err(AggregatorHTTPClientError::RemoteServerLogical(
                     "whatever".to_string(),
                 ))
             })
             .times(1);
-        let snapshot_client = SnapshotClient::new(Arc::new(http_client), "whatever");
+        let http_client = Arc::new(http_client);
+        let snapshot_client = SnapshotClient::new(http_client.clone());
+        let certificate_client = CertificateClient::new(http_client);
         let certificate_verifier = MockCertificateVerifierImpl::new();
-        let config = SnapshotConfig {};
         let snapshot_service = MithrilClientSnapshotService::new(
-            config,
             Arc::new(snapshot_client),
+            Arc::new(certificate_client),
             Arc::new(certificate_verifier),
         );
-        let err = snapshot_service.show("digest-10").await.unwrap_err();
 
-        assert!(
-            matches!(err, SnapshotServiceError::SnapshotNotFound(e) if e == "digest-10".to_string())
-        );
+        snapshot_service.show("digest-10").await.unwrap_err();
     }
 
     #[tokio::test]
     async fn test_show_snapshot_err() {
         let mut http_client = MockAggregatorHTTPClient::new();
         http_client
-            .expect_get_json()
+            .expect_get_content()
             .return_once(move |_| {
                 Err(AggregatorHTTPClientError::ApiVersionMismatch(
                     "whatever".to_string(),
                 ))
             })
             .times(1);
-        let snapshot_client = SnapshotClient::new(Arc::new(http_client), "whatever");
+        let http_client = Arc::new(http_client);
+        let snapshot_client = SnapshotClient::new(http_client.clone());
+        let certificate_client = CertificateClient::new(http_client);
         let certificate_verifier = MockCertificateVerifierImpl::new();
-        let config = SnapshotConfig {};
         let snapshot_service = MithrilClientSnapshotService::new(
-            config,
             Arc::new(snapshot_client),
+            Arc::new(certificate_client),
             Arc::new(certificate_verifier),
         );
-        let err = snapshot_service.show("digest-10").await.unwrap_err();
 
-        assert!(matches!(
-            err,
-            SnapshotServiceError::Subsystem {
-                message: _,
-                error: _
-            }
-        ));
+        snapshot_service.show("digest-10").await.unwrap_err();
     }
 
     #[tokio::test]
@@ -287,17 +344,21 @@ mod tests {
         let mut http_client = MockAggregatorHTTPClient::new();
         http_client
             .expect_download()
-            .return_once(move |_| Ok(()))
+            .return_once(move |_, _| Ok(()))
             .times(1);
-        let snapshot_client = SnapshotClient::new(Arc::new(http_client), "whatever");
+        let http_client = Arc::new(http_client);
+        let snapshot_client = SnapshotClient::new(http_client.clone());
+        let certificate_client = CertificateClient::new(http_client);
         let certificate_verifier = MockCertificateVerifierImpl::new();
-        let config = SnapshotConfig {};
         let snapshot_service = MithrilClientSnapshotService::new(
-            config,
             Arc::new(snapshot_client),
+            Arc::new(certificate_client),
             Arc::new(certificate_verifier),
         );
 
-        snapshot_service.download("digest").unwrap();
+        snapshot_service
+            .download("digest", Path::new("pathdir"), "")
+            .await
+            .unwrap();
     }
 }

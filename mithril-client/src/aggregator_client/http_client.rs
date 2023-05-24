@@ -14,6 +14,7 @@ use mockall::automock;
 
 use mithril_common::{StdError, MITHRIL_API_VERSION_HEADER};
 
+/// Error tied with the Aggregator client
 #[derive(Error, Debug)]
 pub enum AggregatorHTTPClientError {
     /// Error raised when querying the aggregator returned a 5XX error.
@@ -34,30 +35,37 @@ pub enum AggregatorHTTPClientError {
 
     /// HTTP subsystem error
     #[error("HTTP subsystem error: {message} ({error}).")]
-    SubsystemError { message: String, error: StdError },
+    SubsystemError {
+        /// Error context
+        message: String,
+
+        /// Nested error
+        error: StdError,
+    },
 }
 
+/// API that defines a client for the Aggregator
 #[async_trait]
-pub trait AggregatorClient {
-    async fn get_json(&self, url: &str) -> Result<String, AggregatorHTTPClientError>;
+pub trait AggregatorClient: Sync + Send {
+    /// Get the content back from the Aggregator, the URL is a relative path for a resource
+    async fn get_content(&self, url: &str) -> Result<String, AggregatorHTTPClientError>;
 
+    /// Download large files on the disk
     async fn download(&self, url: &str, filepath: &Path) -> Result<(), AggregatorHTTPClientError>;
 }
 
 /// Responsible of HTTP transport and API version check.
 pub struct AggregatorHTTPClient {
-    network: String,
     aggregator_endpoint: String,
     api_versions: Arc<RwLock<Vec<Version>>>,
 }
 
 impl AggregatorHTTPClient {
     /// AggregatorHTTPClient factory
-    pub fn new(network: String, aggregator_endpoint: String, api_versions: Vec<Version>) -> Self {
+    pub fn new(aggregator_endpoint: &str, api_versions: Vec<Version>) -> Self {
         debug!("New AggregatorHTTPClient created");
         Self {
-            network,
-            aggregator_endpoint,
+            aggregator_endpoint: aggregator_endpoint.to_owned(),
             api_versions: Arc::new(RwLock::new(api_versions)),
         }
     }
@@ -116,7 +124,7 @@ impl AggregatorHTTPClient {
                     return self.get(url).await;
                 }
 
-                return Err(self.handle_api_error(&response).await);
+                Err(self.handle_api_error(&response).await)
             }
             StatusCode::NOT_FOUND => Err(AggregatorHTTPClientError::RemoteServerLogical(format!(
                 "Url='{url} not found"
@@ -147,15 +155,16 @@ impl AggregatorHTTPClient {
 #[cfg_attr(test, automock)]
 #[async_trait]
 impl AggregatorClient for AggregatorHTTPClient {
-    async fn get_json(&self, url: &str) -> Result<String, AggregatorHTTPClientError> {
-        let url = format!("{}/{}", self.aggregator_endpoint, url);
+    async fn get_content(&self, url: &str) -> Result<String, AggregatorHTTPClientError> {
+        let url = format!("{}/{}", self.aggregator_endpoint.trim_end_matches('/'), url);
         let response = self.get(&url).await?;
+        let content = format!("{response:?}");
 
         response
-            .json()
+            .text()
             .await
             .map_err(|e| AggregatorHTTPClientError::SubsystemError {
-                message: format!("Could not find a JSON body in the response {response:?}"),
+                message: format!("Could not find a JSON body in the response '{content}'."),
                 error: e.into(),
             })
     }
@@ -166,15 +175,15 @@ impl AggregatorClient for AggregatorHTTPClient {
         let mut local_file = fs::File::create(filepath).await.map_err(|e| {
             AggregatorHTTPClientError::SubsystemError {
                 message: format!(
-                    "Could not create download archive '{}'.",
+                    "Download: could not create download archive '{}'.",
                     filepath.display()
                 ),
                 error: e.into(),
             }
         })?;
-        let bytes_total = response.content_length().ok_or_else(|| {
+        let _bytes_total = response.content_length().ok_or_else(|| {
             AggregatorHTTPClientError::RemoteServerTechnical(
-                "cannot get response content length".to_string(),
+                "Download: cannot get response content length".to_string(),
             )
         })?;
         let mut remote_stream = response.bytes_stream();
@@ -185,7 +194,16 @@ impl AggregatorClient for AggregatorHTTPClient {
                     "Download: Could not read from byte stream: {e}"
                 ))
             })?;
-            local_file.write_all(&chunk);
+            local_file.write_all(&chunk).await.map_err(|e| {
+                AggregatorHTTPClientError::SubsystemError {
+                    message: format!(
+                        "Download: could not write {} bytes to file '{}'.",
+                        chunk.len(),
+                        filepath.display()
+                    ),
+                    error: e.into(),
+                }
+            })?;
         }
 
         Ok(())

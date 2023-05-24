@@ -17,7 +17,7 @@ mod entities;
 mod message_adapters;
 pub mod services;
 
-pub use entities::Config;
+pub use entities::*;
 pub use message_adapters::{
     FromCertificateMessageAdapter, FromSnapshotListMessageAdapter, FromSnapshotMessageAdapter,
 };

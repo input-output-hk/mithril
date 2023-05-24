@@ -113,8 +113,6 @@ impl Runtime {
         debug!("Restore snapshot {}", digest);
         let snapshot = aggregator_handler.get_snapshot_details(digest).await?;
 
-        todo!()
-        /*
         let certificate = aggregator_handler
             .get_certificate_details(&snapshot.certificate_hash)
             .await?;
@@ -136,46 +134,7 @@ impl Runtime {
             )
             .await?;
         Ok(unpacked_path.to_owned())
-        */
     }
-}
-
-/// Convert Snapshot to SnapshotListItem routine
-pub(crate) fn convert_to_list_item(snapshot: &Snapshot, network: String) -> SnapshotListItem {
-    SnapshotListItem::new(
-        network,
-        snapshot.beacon.epoch,
-        snapshot.beacon.immutable_file_number,
-        snapshot.digest.clone(),
-        snapshot.size,
-        snapshot.locations.len() as u16,
-        snapshot.created_at.clone(),
-    )
-}
-
-/// Convert Snapshot to SnapshotFieldItems routine
-pub fn convert_to_field_items(snapshot: &Snapshot, network: String) -> Vec<SnapshotFieldItem> {
-    let mut field_items = vec![
-        SnapshotFieldItem::new("Network".to_string(), network),
-        SnapshotFieldItem::new("Epoch".to_string(), format!("{}", snapshot.beacon.epoch)),
-        SnapshotFieldItem::new(
-            "Immutable File Number".to_string(),
-            format!("{}", snapshot.beacon.immutable_file_number),
-        ),
-        SnapshotFieldItem::new("Digest".to_string(), snapshot.digest.to_string()),
-        SnapshotFieldItem::new("Size".to_string(), format!("{}", snapshot.size)),
-    ];
-    for (idx, location) in snapshot.locations.iter().enumerate() {
-        field_items.push(SnapshotFieldItem::new(
-            format!("Location {}", idx + 1),
-            location.to_string(),
-        ));
-    }
-    field_items.push(SnapshotFieldItem::new(
-        "Created".to_string(),
-        snapshot.created_at.to_string(),
-    ));
-    field_items
 }
 
 #[cfg(test)]
