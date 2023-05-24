@@ -2102,7 +2102,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-aggregator"
-version = "0.3.22"
+version = "0.3.23"
 dependencies = [
  "async-trait",
  "chrono",
@@ -2138,7 +2138,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-client"
-version = "0.2.21"
+version = "0.2.22"
 dependencies = [
  "async-recursion",
  "async-trait",
@@ -2235,7 +2235,7 @@ dependencies = [
 
 [[package]]
 name = "mithril-signer"
-version = "0.2.45"
+version = "0.2.46"
 dependencies = [
  "async-trait",
  "clap 4.2.7",
