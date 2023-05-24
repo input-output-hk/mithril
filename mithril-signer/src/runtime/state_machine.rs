@@ -3,7 +3,9 @@ use std::{fmt::Display, thread::sleep, time::Duration};
 
 use mithril_common::{
     crypto_helper::ProtocolInitializerError,
-    entities::{Beacon, CertificatePending, Epoch, EpochSettings, SignerWithStake},
+    entities::{
+        Beacon, CertificatePending, Epoch, EpochSettings, SignedEntityType, SignerWithStake,
+    },
 };
 
 use super::{Runner, RuntimeError};
@@ -23,15 +25,18 @@ pub enum SignerState {
     /// `Registered` state. The Signer has successfuly registered against the
     /// Aggregator for this Epoch, it is now able to sign.
     Registered {
-        /// Beacon when Signer may sign.
-        beacon: Beacon,
+        /// Epoch when Signer may sign.
+        epoch: Epoch,
     },
 
-    /// `Signed` state. The Signer has signed the immutable files for the
-    /// current Beacon.
+    /// `Signed` state. The Signer has signed the message for the
+    /// current pending certificate.
     Signed {
-        /// Beacon when Signer signed.
-        beacon: Beacon,
+        /// Epoch when Signer signed.
+        epoch: Epoch,
+
+        /// Entity type that is signed
+        signed_entity_type: SignedEntityType,
     },
 }
 
@@ -48,12 +53,18 @@ impl SignerState {
 
     /// Returns `true` if the state in `Registered`
     pub fn is_registered(&self) -> bool {
-        matches!(*self, SignerState::Registered { beacon: _ })
+        matches!(*self, SignerState::Registered { epoch: _ })
     }
 
     /// Returns `true` if the state in `Signed`
     pub fn is_signed(&self) -> bool {
-        matches!(*self, SignerState::Signed { beacon: _ })
+        matches!(
+            *self,
+            SignerState::Signed {
+                epoch: _,
+                signed_entity_type: _
+            }
+        )
     }
 }
 
@@ -62,8 +73,11 @@ impl Display for SignerState {
         match self {
             Self::Init => write!(f, "Init"),
             Self::Unregistered { epoch } => write!(f, "Unregistered - {epoch:?}"),
-            Self::Registered { beacon } => write!(f, "Registered - {beacon}"),
-            Self::Signed { beacon } => write!(f, "Signed - {beacon}"),
+            Self::Registered { epoch } => write!(f, "Registered - {epoch}"),
+            Self::Signed {
+                epoch,
+                signed_entity_type,
+            } => write!(f, "Signed - {epoch} - {signed_entity_type:?}"),
         }
     }
 }
@@ -159,18 +173,16 @@ impl StateMachine {
                     info!("→ No epoch settings found yet, waiting…");
                 }
             }
-            SignerState::Registered { beacon } => {
-                if let Some(new_beacon) = self.has_epoch_changed(beacon.epoch).await? {
+            SignerState::Registered { epoch } => {
+                if let Some(new_epoch) = self.has_epoch_changed(*epoch).await? {
                     info!("→ Epoch has changed, transiting to UNREGISTERED");
                     self.state = self
-                        .transition_from_registered_to_unregistered(new_beacon)
+                        .transition_from_registered_to_unregistered(new_epoch)
                         .await?;
                 } else if let Some(pending_certificate) =
                     self.runner.get_pending_certificate().await.map_err(|e| {
                         RuntimeError::KeepState {
-                            message: format!(
-                                "could not fetch pending certificate at beacon {beacon:?}"
-                            ),
+                            message: "could not fetch the pending certificate".to_string(),
                             nested_error: Some(e),
                         }
                     })?
@@ -185,9 +197,7 @@ impl StateMachine {
                         .can_i_sign(&pending_certificate)
                         .await
                         .map_err(|e| RuntimeError::KeepState {
-                            message: format!(
-                                "could not determine if I can sign certificate at beacon {beacon:?}"
-                            ),
+                            message: "could not determine if I can sign certificate".to_string(),
                             nested_error: Some(e),
                         })?
                     {
@@ -202,21 +212,35 @@ impl StateMachine {
                     info!(" ⋅ no pending certificate, waiting…");
                 }
             }
-            SignerState::Signed { beacon } => {
-                if let Some(new_beacon) = self.has_beacon_changed(beacon).await? {
-                    info!("  New beacon detected: {:?}", new_beacon);
-
-                    if new_beacon.epoch > beacon.epoch {
-                        info!(" → new Epoch detected, transiting to UNREGISTERED");
-                        self.state = self
-                            .transition_from_signed_to_unregistered(new_beacon)
-                            .await?;
+            SignerState::Signed {
+                epoch,
+                signed_entity_type,
+            } => {
+                if let Some(new_epoch) = self.has_epoch_changed(*epoch).await? {
+                    info!(" → new Epoch detected, transiting to UNREGISTERED");
+                    self.state = self
+                        .transition_from_signed_to_unregistered(new_epoch)
+                        .await?;
+                } else if let Some(pending_certificate) =
+                    self.runner.get_pending_certificate().await.map_err(|e| {
+                        RuntimeError::KeepState {
+                            message: "could not fetch the pending certificate".to_string(),
+                            nested_error: Some(e),
+                        }
+                    })?
+                {
+                    info!(
+                        " ⋅ Epoch has NOT changed but there is a pending certificate";
+                        "pending_certificate" => ?pending_certificate
+                    );
+                    if pending_certificate.signed_entity_type == *signed_entity_type {
+                        info!(" ⋅ pending certificate has not changed, waiting…");
                     } else {
-                        info!(" → new immutable file detected, transiting to REGISTERED");
-                        self.state = SignerState::Registered { beacon: new_beacon };
+                        info!(" → new pending certificate detected, transiting to REGISTERED");
+                        self.state = self.transition_from_signed_to_registered().await?;
                     }
                 } else {
-                    info!(" ⋅ NO new beacon detected, waiting");
+                    info!(" ⋅ no pending certificate, waiting…");
                 }
             }
         };
@@ -224,27 +248,14 @@ impl StateMachine {
         Ok(())
     }
 
-    /// Return the new beacon if the epoch is different than the one in the given beacon.
-    async fn has_epoch_changed(&self, epoch: Epoch) -> Result<Option<Beacon>, RuntimeError> {
+    /// Return the new epoch if the epoch is different than the given one.
+    async fn has_epoch_changed(&self, epoch: Epoch) -> Result<Option<Epoch>, RuntimeError> {
         let current_beacon = self
             .get_current_beacon("checking if epoch has changed")
             .await?;
 
         if current_beacon.epoch > epoch {
-            Ok(Some(current_beacon))
-        } else {
-            Ok(None)
-        }
-    }
-
-    /// Return true if the current beacon is different than the given beacon.
-    async fn has_beacon_changed(&self, beacon: &Beacon) -> Result<Option<Beacon>, RuntimeError> {
-        let current_beacon = self
-            .get_current_beacon("checking if beacon has changed")
-            .await?;
-
-        if &current_beacon != beacon {
-            Ok(Some(current_beacon))
+            Ok(Some(current_beacon.epoch))
         } else {
             Ok(None)
         }
@@ -252,14 +263,12 @@ impl StateMachine {
 
     async fn transition_from_unregistered_to_unregistered(
         &self,
-        new_beacon: Beacon,
+        new_epoch: Epoch,
     ) -> Result<SignerState, RuntimeError> {
-        self.update_era_checker(new_beacon.epoch, "unregistered → unregistered")
+        self.update_era_checker(new_epoch, "unregistered → unregistered")
             .await?;
 
-        Ok(SignerState::Unregistered {
-            epoch: new_beacon.epoch,
-        })
+        Ok(SignerState::Unregistered { epoch: new_epoch })
     }
 
     async fn transition_from_init_to_unregistered(&self) -> Result<SignerState, RuntimeError> {
@@ -274,26 +283,32 @@ impl StateMachine {
 
     async fn transition_from_signed_to_unregistered(
         &self,
-        beacon: Beacon,
+        epoch: Epoch,
     ) -> Result<SignerState, RuntimeError> {
-        self.update_era_checker(beacon.epoch, "signed → unregistered")
+        self.update_era_checker(epoch, "signed → unregistered")
             .await?;
 
-        Ok(SignerState::Unregistered {
-            epoch: beacon.epoch,
+        Ok(SignerState::Unregistered { epoch })
+    }
+
+    async fn transition_from_signed_to_registered(&self) -> Result<SignerState, RuntimeError> {
+        let current_beacon = self
+            .get_current_beacon("checking if epoch has changed")
+            .await?;
+
+        Ok(SignerState::Registered {
+            epoch: current_beacon.epoch,
         })
     }
 
     async fn transition_from_registered_to_unregistered(
         &self,
-        beacon: Beacon,
+        epoch: Epoch,
     ) -> Result<SignerState, RuntimeError> {
-        self.update_era_checker(beacon.epoch, "registered → unregistered")
+        self.update_era_checker(epoch, "registered → unregistered")
             .await?;
 
-        Ok(SignerState::Unregistered {
-            epoch: beacon.epoch,
-        })
+        Ok(SignerState::Unregistered { epoch })
     }
 
     /// Launch the transition process from the `Unregistered` to the `Registered` state.
@@ -320,7 +335,9 @@ impl StateMachine {
             }
         })?;
 
-        Ok(SignerState::Registered { beacon })
+        Ok(SignerState::Registered {
+            epoch: beacon.epoch,
+        })
     }
 
     /// Launch the transition process from the `Registered` to the `Signed` state.
@@ -381,7 +398,8 @@ impl StateMachine {
             })?;
 
         Ok(SignerState::Signed {
-            beacon: current_beacon.clone(),
+            epoch: current_beacon.epoch,
+            signed_entity_type: pending_certificate.signed_entity_type.to_owned(),
         })
     }
 
@@ -520,7 +538,7 @@ mod tests {
             .await
             .expect("Cycling the state machine should not fail");
 
-        if let SignerState::Registered { beacon: _ } = state_machine.get_state() {
+        if let SignerState::Registered { epoch: _ } = state_machine.get_state() {
         } else {
             panic!(
                 "state machine did not return a RegisteredState but {:?}",
@@ -541,16 +559,8 @@ mod tests {
             .once()
             .returning(|_e: Epoch| Ok(()));
 
-        let mut state_machine = init_state_machine(
-            SignerState::Registered {
-                beacon: Beacon {
-                    epoch: Epoch(0),
-                    immutable_file_number: 0,
-                    ..Default::default()
-                },
-            },
-            runner,
-        );
+        let mut state_machine =
+            init_state_machine(SignerState::Registered { epoch: Epoch(0) }, runner);
 
         state_machine
             .cycle()
@@ -572,7 +582,7 @@ mod tests {
             ..Default::default()
         };
         let state = SignerState::Registered {
-            beacon: beacon.clone(),
+            epoch: beacon.epoch,
         };
 
         let mut certificate_pending = fake_data::certificate_pending();
@@ -595,13 +605,7 @@ mod tests {
             .expect("Cycling the state machine should not fail");
 
         assert_eq!(
-            SignerState::Registered {
-                beacon: Beacon {
-                    epoch: Epoch(9),
-                    immutable_file_number: 99,
-                    ..Default::default()
-                }
-            },
+            SignerState::Registered { epoch: Epoch(9) },
             *state_machine.get_state(),
             "state machine did not return a RegisteredState but {:?}",
             state_machine.get_state()
@@ -616,11 +620,12 @@ mod tests {
             ..Default::default()
         };
         let state = SignerState::Registered {
-            beacon: beacon.clone(),
+            epoch: beacon.epoch,
         };
 
         let mut certificate_pending = fake_data::certificate_pending();
         certificate_pending.beacon = beacon.clone();
+        let signed_entity_type = certificate_pending.signed_entity_type.to_owned();
         let mut runner = MockSignerRunner::new();
         runner
             .expect_get_current_beacon()
@@ -656,11 +661,8 @@ mod tests {
 
         assert_eq!(
             SignerState::Signed {
-                beacon: Beacon {
-                    epoch: Epoch(9),
-                    immutable_file_number: 99,
-                    ..Default::default()
-                }
+                epoch: Epoch(9),
+                signed_entity_type
             },
             *state_machine.get_state(),
             "state machine did not return a RegisteredState but {:?}",
@@ -675,19 +677,26 @@ mod tests {
             epoch: Epoch(9),
             ..Default::default()
         };
-        let new_beacon = Beacon {
-            immutable_file_number: 100,
-            ..beacon.clone()
-        };
+        let beacon_clone = beacon.clone();
         let state = SignerState::Signed {
-            beacon: beacon.clone(),
+            epoch: beacon.epoch,
+            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(beacon.clone()),
         };
+
+        let mut certificate_pending = fake_data::certificate_pending();
+        certificate_pending.beacon = beacon.clone();
+        certificate_pending.signed_entity_type =
+            SignedEntityType::MithrilStakeDistribution(Epoch(10));
 
         let mut runner = MockSignerRunner::new();
         runner
             .expect_get_current_beacon()
+            .times(2)
+            .returning(move || Ok(beacon_clone.to_owned()));
+        runner
+            .expect_get_pending_certificate()
             .once()
-            .returning(move || Ok(new_beacon.to_owned()));
+            .returning(move || Ok(Some(certificate_pending.clone())));
 
         let mut state_machine = init_state_machine(state, runner);
         state_machine
@@ -697,10 +706,7 @@ mod tests {
 
         assert_eq!(
             SignerState::Registered {
-                beacon: Beacon {
-                    immutable_file_number: 100,
-                    ..beacon.clone()
-                }
+                epoch: beacon.epoch
             },
             *state_machine.get_state()
         );
@@ -718,7 +724,8 @@ mod tests {
             ..beacon.clone()
         };
         let state = SignerState::Signed {
-            beacon: beacon.clone(),
+            epoch: beacon.epoch,
+            signed_entity_type: SignedEntityType::dummy(),
         };
 
         let mut runner = MockSignerRunner::new();
@@ -739,6 +746,88 @@ mod tests {
 
         assert_eq!(
             SignerState::Unregistered { epoch: Epoch(10) },
+            *state_machine.get_state()
+        );
+    }
+
+    #[tokio::test]
+    async fn signed_to_signed_no_pending_certificate() {
+        let beacon = Beacon {
+            immutable_file_number: 99,
+            epoch: Epoch(9),
+            ..Default::default()
+        };
+        let beacon_clone = beacon.clone();
+        let state = SignerState::Signed {
+            epoch: beacon.epoch,
+            signed_entity_type: SignedEntityType::dummy(),
+        };
+
+        let mut certificate_pending = fake_data::certificate_pending();
+        certificate_pending.beacon = beacon.clone();
+
+        let mut runner = MockSignerRunner::new();
+        runner
+            .expect_get_current_beacon()
+            .once()
+            .returning(move || Ok(beacon_clone.to_owned()));
+        runner
+            .expect_get_pending_certificate()
+            .once()
+            .returning(move || Ok(None));
+
+        let mut state_machine = init_state_machine(state, runner);
+        state_machine
+            .cycle()
+            .await
+            .expect("Cycling the state machine should not fail");
+
+        assert_eq!(
+            SignerState::Signed {
+                epoch: beacon.epoch,
+                signed_entity_type: SignedEntityType::dummy(),
+            },
+            *state_machine.get_state()
+        );
+    }
+
+    #[tokio::test]
+    async fn signed_to_signed_unsigned_pending_certificate() {
+        let beacon = Beacon {
+            immutable_file_number: 99,
+            epoch: Epoch(9),
+            ..Default::default()
+        };
+        let beacon_clone = beacon.clone();
+        let state = SignerState::Signed {
+            epoch: beacon.epoch,
+            signed_entity_type: SignedEntityType::dummy(),
+        };
+
+        let mut certificate_pending = fake_data::certificate_pending();
+        certificate_pending.beacon = beacon.clone();
+
+        let mut runner = MockSignerRunner::new();
+        runner
+            .expect_get_current_beacon()
+            .once()
+            .returning(move || Ok(beacon_clone.to_owned()));
+        runner
+            .expect_get_pending_certificate()
+            .once()
+            .returning(move || Ok(Some(certificate_pending.clone())));
+
+        let mut state_machine = init_state_machine(state, runner);
+        state_machine
+            .cycle()
+            .await
+            .expect("Cycling the state machine should not fail");
+
+        assert_eq!(
+            SignerState::Signed {
+                epoch: beacon.epoch,
+                signed_entity_type: SignedEntityType::dummy(),
+            },
             *state_machine.get_state()
         );
     }

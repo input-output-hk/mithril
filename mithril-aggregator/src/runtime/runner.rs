@@ -55,6 +55,12 @@ pub trait AggregatorRunnerTrait: Sync + Send {
     /// Return the current beacon from the chain
     async fn get_beacon_from_chain(&self) -> Result<Beacon, Box<dyn StdError + Sync + Send>>;
 
+    /// Retrieves the current non certified open message for a given signed entity type.
+    async fn get_current_non_certified_open_message_for_signed_entity_type(
+        &self,
+        signed_entity_type: &SignedEntityType,
+    ) -> Result<Option<OpenMessage>, Box<dyn StdError + Sync + Send>>;
+
     /// Retrieves the current non certified open message.
     async fn get_current_non_certified_open_message(
         &self,
@@ -175,6 +181,38 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         Ok(beacon)
     }
 
+    async fn get_current_non_certified_open_message_for_signed_entity_type(
+        &self,
+        signed_entity_type: &SignedEntityType,
+    ) -> Result<Option<OpenMessage>, Box<dyn StdError + Sync + Send>> {
+        debug!("RUNNER: get_current_non_certified_open_message_for_signed_entity_type"; "signed_entity_type" => ?signed_entity_type);
+        let open_message = match self
+            .dependencies
+            .certifier_service
+            .get_open_message(signed_entity_type)
+            .await?
+        {
+            Some(existing_open_message) => {
+                info!(
+                    "RUNNER: get_current_non_certified_open_message_for_signed_entity_type: existing open message found";
+                    "signed_entity_type" => ?signed_entity_type
+                );
+                existing_open_message
+            }
+            None => {
+                info!(
+                    "RUNNER: get_current_non_certified_open_message_for_signed_entity_type: no open message found, a new one will be created";
+                    "signed_entity_type" => ?signed_entity_type
+                );
+                let protocol_message = self.compute_protocol_message(signed_entity_type).await?;
+                self.create_open_message(signed_entity_type, &protocol_message)
+                    .await?
+            }
+        };
+
+        Ok((!open_message.is_certified).then_some(open_message))
+    }
+
     async fn get_current_non_certified_open_message(
         &self,
     ) -> Result<Option<OpenMessage>, Box<dyn StdError + Sync + Send>> {
@@ -192,32 +230,10 @@ impl AggregatorRunnerTrait for AggregatorRunner {
         ];
 
         for signed_entity_type in signed_entity_types {
-            let open_message = match self
-                .dependencies
-                .certifier_service
-                .get_open_message(&signed_entity_type)
+            if let Some(open_message) = self
+                .get_current_non_certified_open_message_for_signed_entity_type(&signed_entity_type)
                 .await?
             {
-                Some(existing_open_message) => {
-                    info!(
-                        "RUNNER: get_current_non_certified_open_message: existing open message found";
-                        "signed_entity_type" => ?signed_entity_type
-                    );
-                    existing_open_message
-                }
-                None => {
-                    info!(
-                        "RUNNER: get_current_non_certified_open_message: no open message found, a new one will be created";
-                        "signed_entity_type" => ?signed_entity_type
-                    );
-                    let protocol_message =
-                        self.compute_protocol_message(&signed_entity_type).await?;
-                    self.create_open_message(&signed_entity_type, &protocol_message)
-                        .await?
-                }
-            };
-
-            if !open_message.is_certified {
                 return Ok(Some(open_message));
             }
             info!(

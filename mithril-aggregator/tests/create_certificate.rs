@@ -61,12 +61,6 @@ async fn create_certificate() {
     tester.register_signers(&signers).await.unwrap();
     cycle_err!(tester, "signing");
 
-    comment!("change the immutable number to alter the beacon");
-    tester.increase_immutable_number().await.unwrap();
-    cycle!(tester, "idle");
-    cycle!(tester, "ready");
-    cycle!(tester, "signing");
-
     comment!("signers send their single signature");
     let signed_entity_type = observer
         .get_current_signed_entity_type(SignedEntityTypeDiscriminants::MithrilStakeDistribution)
@@ -78,7 +72,7 @@ async fn create_certificate() {
         .unwrap();
 
     comment!("The state machine should issue a certificate for the MithrilStakeDistribution");
-    cycle!(tester, "idle");
+    cycle!(tester, "ready");
     let (last_certificates, snapshots) =
         tester.get_last_certificates_and_snapshots().await.unwrap();
     // todo!: Inspect the produced MithrilStakeDistribution
@@ -90,7 +84,6 @@ async fn create_certificate() {
     // the state machine will stay in the idle state since its beacon didn't change.
     // With one state machine per signed entity type this problem will disappear.
     tester.increase_immutable_number().await.unwrap();
-    cycle!(tester, "ready");
     cycle!(tester, "signing");
     let signed_entity_type = observer
         .get_current_signed_entity_type(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull)
@@ -103,7 +96,7 @@ async fn create_certificate() {
         .unwrap();
 
     comment!("The state machine should issue a certificate for the CardanoImmutableFilesFull");
-    cycle!(tester, "idle");
+    cycle!(tester, "ready");
     let (last_certificates, snapshots) =
         tester.get_last_certificates_and_snapshots().await.unwrap();
     assert_eq!((3, 1), (last_certificates.len(), snapshots.len()));
@@ -132,5 +125,11 @@ async fn create_certificate() {
         )
     );
 
+    comment!("Change the epoch while signing");
+    tester.increase_immutable_number().await.unwrap();
+    cycle!(tester, "signing");
+    tester.increase_epoch().await.unwrap();
     cycle!(tester, "idle");
+
+    cycle!(tester, "ready");
 }

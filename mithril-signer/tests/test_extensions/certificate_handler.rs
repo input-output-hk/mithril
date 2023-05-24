@@ -76,6 +76,7 @@ impl CertificateHandler for FakeAggregator {
         let beacon = self.get_beacon().await?;
         let mut certificate_pending = CertificatePending {
             beacon: beacon.clone(),
+            signed_entity_type: SignedEntityType::CardanoImmutableFilesFull(beacon.clone()),
             ..fake_data::certificate_pending()
         };
 

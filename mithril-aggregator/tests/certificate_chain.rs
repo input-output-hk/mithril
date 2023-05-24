@@ -71,16 +71,13 @@ async fn certificate_chain() {
         .unwrap();
 
     comment!("The state machine should issue a certificate for the MithrilStakeDistribution");
-    cycle!(tester, "idle");
+    cycle!(tester, "ready");
     let (last_certificates, snapshots) =
         tester.get_last_certificates_and_snapshots().await.unwrap();
     assert_eq!((2, 0), (last_certificates.len(), snapshots.len()));
-    cycle!(tester, "idle");
 
     comment!("The state machine should get back to signing to sign CardanoImmutableFilesFull");
-    // todo!: remove this immutable increase (see create_certificate test for details).
     tester.increase_immutable_number().await.unwrap();
-    cycle!(tester, "ready");
     cycle!(tester, "signing");
     let signed_entity_type = observer
         .get_current_signed_entity_type(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull)
@@ -91,7 +88,7 @@ async fn certificate_chain() {
         .await
         .unwrap();
     comment!("The state machine should issue a certificate for the CardanoImmutableFilesFull");
-    cycle!(tester, "idle");
+    cycle!(tester, "ready");
     let (last_certificates, snapshots) =
         tester.get_last_certificates_and_snapshots().await.unwrap();
     assert_eq!((3, 1), (last_certificates.len(), snapshots.len()));
@@ -101,7 +98,6 @@ async fn certificate_chain() {
         current_epoch
     );
     tester.increase_immutable_number().await.unwrap();
-    cycle!(tester, "ready");
     cycle!(tester, "signing");
     let signed_entity_type = observer
         .get_current_signed_entity_type(SignedEntityTypeDiscriminants::CardanoImmutableFilesFull)
@@ -111,7 +107,7 @@ async fn certificate_chain() {
         .send_single_signatures(&signed_entity_type, &signers)
         .await
         .unwrap();
-    cycle!(tester, "idle");
+    cycle!(tester, "ready");
     let (last_certificates, snapshots) =
         tester.get_last_certificates_and_snapshots().await.unwrap();
     assert_eq!((4, 2), (last_certificates.len(), snapshots.len()));
@@ -146,6 +142,7 @@ async fn certificate_chain() {
     );
     let new_epoch = tester.increase_epoch().await.unwrap();
     current_epoch = new_epoch;
+    cycle!(tester, "idle");
     cycle!(tester, "ready");
     cycle!(tester, "signing");
 
@@ -177,7 +174,7 @@ async fn certificate_chain() {
         .send_single_signatures(&signed_entity_type, &signers)
         .await
         .unwrap();
-    cycle!(tester, "idle");
+    cycle!(tester, "ready");
     let (last_certificates, snapshots) =
         tester.get_last_certificates_and_snapshots().await.unwrap();
     assert_eq!((5, 2), (last_certificates.len(), snapshots.len()));
@@ -209,6 +206,7 @@ async fn certificate_chain() {
     );
     current_epoch = tester.increase_epoch().await.unwrap();
     tester.increase_immutable_number().await.unwrap();
+    cycle!(tester, "idle");
     cycle!(tester, "ready");
     tester.register_signers(&signers).await.unwrap();
     cycle!(tester, "signing");
@@ -221,7 +219,7 @@ async fn certificate_chain() {
         .send_single_signatures(&signed_entity_type, &signers)
         .await
         .unwrap();
-    cycle!(tester, "idle");
+    cycle!(tester, "ready");
 
     comment!(
         "Increase epoch & immutable, stake distribution updated at {} should be signed in the new certificate, Next epoch: {:?}",
@@ -230,6 +228,7 @@ async fn certificate_chain() {
     );
     current_epoch = tester.increase_epoch().await.unwrap();
     tester.increase_immutable_number().await.unwrap();
+    cycle!(tester, "idle");
     cycle!(tester, "ready");
     tester.register_signers(&signers).await.unwrap();
     cycle!(tester, "signing");
@@ -242,7 +241,7 @@ async fn certificate_chain() {
         .send_single_signatures(&signed_entity_type, &new_signers)
         .await
         .unwrap();
-    cycle!(tester, "idle");
+    cycle!(tester, "ready");
 
     let (last_certificates, snapshots) =
         tester.get_last_certificates_and_snapshots().await.unwrap();
@@ -274,7 +273,6 @@ async fn certificate_chain() {
         current_epoch
     );
     tester.increase_immutable_number().await.unwrap();
-    cycle!(tester, "ready");
     cycle!(tester, "signing");
 
     let signed_entity_type = observer
@@ -285,7 +283,7 @@ async fn certificate_chain() {
         .send_single_signatures(&signed_entity_type, &new_signers)
         .await
         .unwrap();
-    cycle!(tester, "idle");
+    cycle!(tester, "ready");
 
     comment!(
         "A CardanoImmutableFilesFull, linked to the MithrilStakeDistribution of the current epoch, should have been created, {:?}",

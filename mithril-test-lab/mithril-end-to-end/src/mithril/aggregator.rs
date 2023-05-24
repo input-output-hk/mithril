@@ -29,7 +29,7 @@ impl Aggregator {
             format!(r#"{{"markers": [{{"name": "{mithril_era}", "epoch": 1}}]}}"#);
         let env = HashMap::from([
             ("NETWORK", "devnet"),
-            ("RUN_INTERVAL", "600"),
+            ("RUN_INTERVAL", "400"),
             ("SERVER_IP", "0.0.0.0"),
             ("SERVER_PORT", &server_port_parameter),
             ("URL_SNAPSHOT_MANIFEST", ""),
