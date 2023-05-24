@@ -225,6 +225,23 @@ pub struct StmAggrSig<D: Clone + Digest + FixedOutput> {
     pub batch_proof: BatchPath<D>,
 }
 
+/// Full node signer
+pub struct FullNodeSigner {
+    stake: Stake,
+    params: StmParameters,
+    sk: SigningKey,
+    vk: StmVerificationKey,
+    index: Index,
+}
+
+/// Full node signature
+pub struct FullNodeSignature {
+    /// The signature from the underlying MSP scheme.
+    pub sigma: Signature,
+    /// The index(es) for which the signature is valid
+    pub indexes: Vec<Index>,
+}
+
 impl StmParameters {
     /// Convert to bytes
     /// # Layout
@@ -278,6 +295,24 @@ impl StmInitializer {
         self.pk
     }
 
+    /// Function that checks whether the initializer is registered.
+    pub fn check_initializer<D: Digest + Clone>(
+        &self,
+        closed_reg: ClosedKeyReg<D>,
+    ) -> Result<Option<u64>, RegisterError> {
+        let mut my_index = None;
+        for (i, rp) in closed_reg.reg_parties.iter().enumerate() {
+            if rp.0 == self.pk.vk {
+                my_index = Some(i as u64);
+                break;
+            }
+        }
+        if my_index.is_none() {
+            return Err(RegisterError::UnregisteredInitializer);
+        }
+        Ok(my_index)
+    }
+
     /// Build the `avk` for the given list of parties.
     ///
     /// Note that if this StmInitializer was modified *between* the last call to `register`,
@@ -294,16 +329,7 @@ impl StmInitializer {
         self,
         closed_reg: ClosedKeyReg<D>,
     ) -> Result<StmSigner<D>, RegisterError> {
-        let mut my_index = None;
-        for (i, rp) in closed_reg.reg_parties.iter().enumerate() {
-            if rp.0 == self.pk.vk {
-                my_index = Some(i as u64);
-                break;
-            }
-        }
-        if my_index.is_none() {
-            return Err(RegisterError::UnregisteredInitializer);
-        }
+        let my_index = self.check_initializer(closed_reg.clone())?;
 
         Ok(StmSigner {
             mt_index: my_index.unwrap(),
@@ -312,6 +338,22 @@ impl StmInitializer {
             sk: self.sk,
             vk: self.pk.vk,
             closed_reg,
+        })
+    }
+
+    /// Function that creates a new full node signer.
+    pub fn new_full_node_signer<D: Digest + Clone>(
+        self,
+        closed_reg: ClosedKeyReg<D>,
+    ) -> Result<FullNodeSigner, RegisterError> {
+        let my_index = self.check_initializer(closed_reg)?;
+
+        Ok(FullNodeSigner {
+            stake: self.stake,
+            params: self.params,
+            sk: self.sk,
+            vk: self.pk.vk,
+            index: my_index.unwrap(),
         })
     }
 
@@ -365,18 +407,14 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
             .concat_with_msg(msg);
         let sigma = self.sk.sign(&msgp);
 
-        // Check which lotteries are won
-        let mut indexes = Vec::new();
-        for index in 0..self.params.m {
-            if ev_lt_phi(
-                self.params.phi_f,
-                sigma.eval(&msgp, index),
-                self.stake,
-                self.closed_reg.total_stake,
-            ) {
-                indexes.push(index);
-            }
-        }
+        let indexes = FullNodeSigner::check_lottery(
+            &self.params,
+            &msgp,
+            &self.closed_reg.total_stake,
+            &sigma,
+            &self.stake,
+        );
+
         if !indexes.is_empty() {
             Some(StmSig {
                 sigma,
@@ -407,6 +445,40 @@ impl<D: Clone + Digest + FixedOutput> StmSigner<D> {
     /// Extract stake from the signer.
     pub fn get_stake(&self) -> Stake {
         self.stake
+    }
+}
+
+impl FullNodeSigner {
+
+    /// Checks whether the indices won the lottery.
+    pub fn check_lottery(
+        params: &StmParameters,
+        msg: &[u8],
+        total_stake: &Stake,
+        sigma: &Signature,
+        stake: &Stake,
+    ) -> Vec<u64> {
+        let mut indexes = Vec::new();
+        for index in 0..params.m {
+            if ev_lt_phi(params.phi_f, sigma.eval(msg, index), *stake, *total_stake) {
+                indexes.push(index);
+            }
+        }
+        indexes
+    }
+
+    /// Generates a full node signature
+    pub fn sign(&self, msg: &[u8], total_stake: &Stake) -> Option<FullNodeSignature> {
+        let sigma = self.sk.sign(msg);
+
+        let indexes =
+            FullNodeSigner::check_lottery(&self.params, msg, total_stake, &sigma, &self.stake);
+
+        if !indexes.is_empty() {
+            Some(FullNodeSignature { sigma, indexes })
+        } else {
+            None
+        }
     }
 }
 
@@ -578,8 +650,8 @@ impl StmSig {
     ) -> Result<(), StmSignatureError> {
         let msgp = avk.mt_commitment.concat_with_msg(msg);
         self.sigma.verify(&msgp, pk)?;
-        self.check_indices(params, stake, &msgp, avk)?;
-
+        let full_node_sig = FullNodeSignature::from_stm_sig(self);
+        FullNodeSignature::check_indices(&full_node_sig, params, stake, &msgp, &avk.total_stake)?;
         Ok(())
     }
 
@@ -660,6 +732,55 @@ impl StmSig {
     /// Compare two `StmSig` by their signers' merkle tree indexes.
     pub fn cmp_stm_sig(&self, other: &Self) -> Ordering {
         self.signer_index.cmp(&other.signer_index)
+    }
+}
+
+impl FullNodeSignature {
+
+    /// Verification of a full node signature
+    pub fn verify(
+        &self,
+        params: &StmParameters,
+        pk: &StmVerificationKey,
+        stake: &Stake,
+        msg: &[u8],
+        total_stake: &Stake,
+    ) -> Result<(), StmSignatureError> {
+        self.sigma.verify(msg, pk)?;
+        self.check_indices(params, stake, msg, total_stake)?;
+
+        Ok(())
+    }
+
+    /// Verify that all indices of a signature are valid.
+    pub(crate) fn check_indices(
+        &self,
+        params: &StmParameters,
+        stake: &Stake,
+        msg: &[u8],
+        total_stake: &Stake,
+    ) -> Result<(), StmSignatureError> {
+        for &index in &self.indexes {
+            if index > params.m {
+                return Err(StmSignatureError::IndexBoundFailed(index, params.m));
+            }
+
+            let ev = self.sigma.eval(msg, index);
+
+            if !ev_lt_phi(params.phi_f, ev, *stake, *total_stake) {
+                return Err(StmSignatureError::LotteryLost);
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Get FullNodeSignature from StmSig.
+    pub fn from_stm_sig(stm_sig: &StmSig) -> Self {
+        Self {
+            sigma: stm_sig.sigma,
+            indexes: stm_sig.indexes.clone(),
+        }
     }
 }
 
