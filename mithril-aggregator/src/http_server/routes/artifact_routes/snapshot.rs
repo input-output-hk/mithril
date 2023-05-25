@@ -1,6 +1,7 @@
 use crate::http_server::routes::middlewares;
 use crate::http_server::SERVER_BASE_PATH;
 use crate::DependencyManager;
+use mithril_common::era::{EraChecker, SupportedEra};
 use std::sync::Arc;
 use warp::hyper::Uri;
 use warp::Filter;
@@ -13,9 +14,13 @@ pub fn routes(
             dependency_manager.clone(),
         ))
         .or(serve_snapshots_dir(dependency_manager.clone()))
-        .or(snapshot_download(dependency_manager))
-        .or(artifact_cardano_full_immutable_snapshots_legacy())
-        .or(artifact_cardano_full_immutable_snapshot_by_id_legacy())
+        .or(snapshot_download(dependency_manager.clone()))
+        .or(artifact_cardano_full_immutable_snapshots_legacy(
+            dependency_manager.clone(),
+        ))
+        .or(artifact_cardano_full_immutable_snapshot_by_id_legacy(
+            dependency_manager,
+        ))
 }
 
 /// GET /artifact/snapshots
@@ -63,29 +68,41 @@ fn serve_snapshots_dir(
 /// GET /snapshots
 // TODO: This legacy route should be removed when this code is released with a new distribution
 fn artifact_cardano_full_immutable_snapshots_legacy(
+    dependency_manager: Arc<DependencyManager>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    warp::path!("snapshots").map(|| {
-        warp::redirect(
-            format!("/{SERVER_BASE_PATH}/artifact/snapshots")
-                .as_str()
-                .parse::<Uri>()
-                .unwrap(),
-        )
-    })
+    warp::path!("snapshots")
+        .and(middlewares::with_era_checker(dependency_manager))
+        .and_then(|era_checker: Arc<EraChecker>| async move {
+            match era_checker.current_era() {
+                SupportedEra::Thales => Ok(warp::redirect(
+                    format!("/{SERVER_BASE_PATH}/artifact/snapshots")
+                        .as_str()
+                        .parse::<Uri>()
+                        .unwrap(),
+                )),
+                SupportedEra::Pythagoras => Err(warp::reject::not_found()),
+            }
+        })
 }
 
 /// GET /snapshot/digest
 // TODO: This legacy route should be removed when this code is released with a new distribution
 fn artifact_cardano_full_immutable_snapshot_by_id_legacy(
+    dependency_manager: Arc<DependencyManager>,
 ) -> impl Filter<Extract = (impl warp::Reply,), Error = warp::Rejection> + Clone {
-    warp::path!("snapshot" / String).map(|digest| {
-        warp::redirect(
-            format!("/{SERVER_BASE_PATH}/artifact/snapshot/{digest}")
-                .as_str()
-                .parse::<Uri>()
-                .unwrap(),
-        )
-    })
+    warp::path!("snapshot" / String)
+        .and(middlewares::with_era_checker(dependency_manager))
+        .and_then(|digest: String, era_checker: Arc<EraChecker>| async move {
+            match era_checker.current_era() {
+                SupportedEra::Thales => Ok(warp::redirect(
+                    format!("/{SERVER_BASE_PATH}/artifact/snapshot/{digest}")
+                        .as_str()
+                        .parse::<Uri>()
+                        .unwrap(),
+                )),
+                SupportedEra::Pythagoras => Err(warp::reject::not_found()),
+            }
+        })
 }
 
 mod handlers {

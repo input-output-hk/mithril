@@ -170,7 +170,7 @@ impl<'a> APISpec<'a> {
 
     /// Get spec file for era
     pub fn get_era_spec_file(era: SupportedEra) -> String {
-        format!("../openapi-{}", era)
+        format!("../openapi-{}.yaml", era)
     }
 
     /// Get all spec files

@@ -98,6 +98,7 @@ pub mod tests {
     use crate::http_server::SERVER_BASE_PATH;
     use crate::signed_entity_service::MockSignedEntityService;
     use mithril_common::entities::{Epoch, SignedEntity, SignedEntityType};
+    use mithril_common::era::SupportedEra;
     use mithril_common::signable_builder::Artifact;
     use mithril_common::sqlite::HydrationError;
     use mithril_common::test_utils::apispec::APISpec;
@@ -167,7 +168,7 @@ pub mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            vec![APISpec::get_era_spec_file(SupportedEra::Pythagoras)],
             method,
             path,
             "application/json",
@@ -196,7 +197,7 @@ pub mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            vec![APISpec::get_era_spec_file(SupportedEra::Pythagoras)],
             method,
             path,
             "application/json",
@@ -232,7 +233,7 @@ pub mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            vec![APISpec::get_era_spec_file(SupportedEra::Pythagoras)],
             method,
             path,
             "application/json",
@@ -261,7 +262,7 @@ pub mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            vec![APISpec::get_era_spec_file(SupportedEra::Pythagoras)],
             method,
             path,
             "application/json",
@@ -290,7 +291,7 @@ pub mod tests {
             .await;
 
         APISpec::verify_conformity(
-            APISpec::get_all_spec_files(),
+            vec![APISpec::get_era_spec_file(SupportedEra::Pythagoras)],
             method,
             path,
             "application/json",

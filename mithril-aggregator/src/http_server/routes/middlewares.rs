@@ -6,6 +6,7 @@ use crate::{
     dependency::MultiSignerWrapper, CertificatePendingStore, CertificateStore, Configuration,
     DependencyManager, ProtocolParametersStore, SignerRegisterer,
 };
+use mithril_common::era::EraChecker;
 use mithril_common::BeaconProvider;
 use std::convert::Infallible;
 use std::sync::Arc;
@@ -81,9 +82,16 @@ pub fn with_ticker_service(
     warp::any().map(move || dependency_manager.ticker_service.clone())
 }
 
-/// With signed entity service
+/// With signed entity service middleware
 pub fn with_signed_entity_service(
     dependency_manager: Arc<DependencyManager>,
 ) -> impl Filter<Extract = (Arc<dyn SignedEntityService>,), Error = Infallible> + Clone {
     warp::any().map(move || dependency_manager.signed_entity_service.clone())
+}
+
+/// With era checker middleware
+pub fn with_era_checker(
+    dependency_manager: Arc<DependencyManager>,
+) -> impl Filter<Extract = (Arc<EraChecker>,), Error = Infallible> + Clone {
+    warp::any().map(move || dependency_manager.era_checker.clone())
 }
